@@ -20,7 +20,9 @@
     "sharp-ico": "0.1.5"
   },
   "dependencies": {
+    "@reduxjs/toolkit": "^2.3.0",
     "lit-html": "^3.2.1",
+    "redux": "^5.0.1",
     "viem": "^2.21.48",
     "xstate": "^5.19.0"
   }

@@ -3,11 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script type="module" src="/src/counter.ts"></script>
+    <script type="module" src="/src/xstateExample.ts"></script>
+    <script type="module" src="/src/reduxExample.ts"></script>
     <title>counter</title>
   </head>
   <body>
-    <my-counter></my-counter>
-    <another-counter></another-counter>
+    <!-- XState Components -->
+    <my-counter-xstate></my-counter-xstate>
+    <my-counter-xstate></my-counter-xstate>
+    <shared-display-xstate></shared-display-xstate>
+    <another-counter-xstate></another-counter-xstate>
+    <another-counter-xstate></another-counter-xstate>
+
+    <hr />
+
+    <!-- Redux Components -->
+    <my-counter-redux></my-counter-redux>
+    <my-counter-redux></my-counter-redux>
+    <shared-display-redux></shared-display-redux>
+    <another-counter-redux></another-counter-redux>
+    <another-counter-redux></another-counter-redux>
   </body>
 </html>

@@ -16,22 +16,23 @@ export default setup({
   states: {
     idle: {
       on: {
-        INC: [
-          {
-            actions: [
-              assign({
-                count: ({ context }) => context.count + 1,
-              }),
-            ],
-          },
-        ],
-        DEC: [
-          {
-            actions: assign({
+        INC: {
+          actions: [
+            assign({
+              count: ({ context }) => context.count + 1,
+            }),
+            () => console.log("inc in machine"),
+          ],
+        },
+
+        DEC: {
+          actions: [
+            assign({
               count: ({ context }) => context.count - 1,
             }),
-          },
-        ],
+            () => console.log("dec in machine"),
+          ],
+        },
       },
     },
   },

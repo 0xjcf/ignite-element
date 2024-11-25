@@ -1,65 +1,48 @@
-import { html, render, TemplateResult } from "lit-html";
-import {
-  createActor,
-  AnyStateMachine,
-  StateFrom,
-  ContextFrom,
-  EventFrom,
-  Actor,
-} from "xstate";
+import { render, TemplateResult } from "lit-html";
+import { IgniteAdapter } from "./IgniteAdapter";
 
-export abstract class IgniteElement<
-  ElementMachine extends AnyStateMachine
-> extends HTMLElement {
-  private _actor: Actor<ElementMachine>;
-  protected _currentState!: StateFrom<ElementMachine>;
-  private _shadowRoot: ShadowRoot;
+export abstract class IgniteElement<State, Event> extends HTMLElement {
+  private _adapter: IgniteAdapter<State, Event>;
+  public _shadowRoot: ShadowRoot;
+  protected _currentState!: State;
+  private _unsubscribe!: () => void;
 
-  constructor(machine: ElementMachine) {
+  constructor(adapter: IgniteAdapter<State, Event>) {
     super();
-    this._actor = createActor(machine);
+    this._adapter = adapter;
     this._shadowRoot = this.attachShadow({ mode: "open" });
+    this._currentState = this._adapter.getState();
   }
 
   connectedCallback(): void {
-    this._actor.subscribe((state) => {
+    const subscription = this._adapter.subscribe((state) => {
       this._currentState = state;
       this.renderTemplate();
     });
-    this._actor.start();
-
-    this.updateGrid();
+    this._unsubscribe = subscription.unsubscribe;
+    this.renderTemplate(); // initial render
   }
 
   disconnectedCallback(): void {
-    this._actor.stop();
+    // cleanup is handled within the adapters
+    if (this._unsubscribe) this._unsubscribe();
+    this._adapter.stop();
   }
 
-  /**
-   * Send events to the machine
-   */
-  protected send(event: EventFrom<ElementMachine>): void {
-    this._actor.send(event);
+  protected send(event: Event): void {
+    this._adapter.send(event);
   }
 
-  /**
-   * Access current machine context
-   */
-  protected get context(): ContextFrom<ElementMachine> {
-    return this._currentState?.context || {};
+  protected get state(): State {
+    return this._adapter.getState();
   }
 
-  /**
-   * Access current state value
-   */
-  protected get state(): StateFrom<ElementMachine> {
-    return this._actor.getSnapshot()|| "";
-  }
-
-  protected renderTemplate(): void {
-    if (this._currentState) {
-      render(this.render(), this._shadowRoot);
+  private renderTemplate(): void {
+    if (!this._currentState) {
+      console.warn(`[IgniteElement] State is not initialized`);
+      return;
     }
+    render(this.render(), this._shadowRoot);
   }
 
   protected abstract render(): TemplateResult;
@@ -86,25 +69,18 @@ export abstract class IgniteElement<
 }
 
 // IgniteElement function that uses IgniteElementBase
-export function igniteElement<ElementMachine extends AnyStateMachine>(
+export function igniteElement<State, Event>(
   elementName: string,
-  elementMachine: ElementMachine,
-  renderFn: (
-    state: StateFrom<ElementMachine>,
-    send: (event: EventFrom<ElementMachine>) => void
-  ) => TemplateResult
+  adapter: IgniteAdapter<State, Event>,
+  renderFn: (state: State, send: (event: Event) => void) => TemplateResult
 ) {
-  class Element extends IgniteElement<ElementMachine> {
+  class Element extends IgniteElement<State, Event> {
     constructor() {
-      super(elementMachine);
+      super(adapter);
     }
 
     protected render(): TemplateResult {
-      if (!this._currentState) {
-        return html``;
-      }
-
-      return renderFn(this._currentState, (event) => this.send(event));
+      return renderFn(this.state, (event) => this.send(event));
     }
   }
 
