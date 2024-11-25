@@ -2,10 +2,10 @@ import { TemplateResult } from "lit-html";
 import { IgniteAdapter } from "./IgniteAdapter";
 import { IgniteElement } from "./IgniteElement";
 
-export function igniteElementFactory<State, Event>(
-  adapter: () => IgniteAdapter<State, Event>
+export default function igniteElementFactory<State, Event>(
+  adapterFactory: () => IgniteAdapter<State, Event>
 ) {
-  let sharedAdapter: IgniteAdapter<State, Event>;
+  let sharedAdapter: IgniteAdapter<State, Event> | null = null;
 
   return {
     /**
@@ -16,12 +16,12 @@ export function igniteElementFactory<State, Event>(
       renderFn: (state: State, send: (event: Event) => void) => TemplateResult
     ) {
       if (!sharedAdapter) {
-        sharedAdapter = adapter();
+        sharedAdapter = adapterFactory();
       }
 
       class SharedElement extends IgniteElement<State, Event> {
         constructor() {
-          super(sharedAdapter);
+          super(sharedAdapter!);
         }
 
         protected render(): TemplateResult {
@@ -40,12 +40,21 @@ export function igniteElementFactory<State, Event>(
       renderFn: (state: State, send: (event: Event) => void) => TemplateResult
     ) {
       class IsolatedElement extends IgniteElement<State, Event> {
+        private isolatedAdapter: IgniteAdapter<State, Event>;
+
         constructor() {
-          super(adapter());
+          const isolatedAdapter = adapterFactory();
+          super(isolatedAdapter);
+          this.isolatedAdapter = isolatedAdapter;
         }
 
         protected render(): TemplateResult {
           return renderFn(this._currentState, (event) => this.send(event));
+        }
+
+        disconnectedCallback(): void {
+          super.disconnectedCallback();
+          this.isolatedAdapter.stop();
         }
       }
 

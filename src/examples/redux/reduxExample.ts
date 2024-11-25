@@ -1,22 +1,20 @@
 import { html } from "lit-html";
-import { igniteElementFactory } from "./IgniteElmentFactory";
-import { createReduxAdapter } from "./ReduxAdapter";
-import configureCounterStore, { increment, decrement } from "./counterStore";
+import igniteElementFactory from "../../IgniteElmentFactory";
+import createReduxAdapter from "../../adapters/ReduxAdapter";
+import ReduxCounterStore, { increment, decrement } from "./reduxCounterStore";
 
 // Create the factory for Redux
-const igniteElement = igniteElementFactory(() =>
-  createReduxAdapter(configureCounterStore())
-);
+const reduxAdapter = createReduxAdapter(ReduxCounterStore);
+const igniteElement = igniteElementFactory(reduxAdapter);
 
 // Shared Component: Redux
 igniteElement.shared("my-counter-redux", (state, dispatch) => {
   return html`
     <div>
       <h3>Shared Counter (Redux)</h3>
-      <span>${state.count}</span>
+      <p>Count: ${state.count}</p>
       <button
         @click=${() => {
-          console.log("Shared clicked DEC", state.count);
           dispatch(decrement());
         }}
       >
@@ -24,7 +22,6 @@ igniteElement.shared("my-counter-redux", (state, dispatch) => {
       </button>
       <button
         @click=${() => {
-          console.log("Shared clicked INC", state.count);
           dispatch(increment());
         }}
       >
@@ -34,15 +31,24 @@ igniteElement.shared("my-counter-redux", (state, dispatch) => {
   `;
 });
 
+// Shared Display Component (XState)
+igniteElement.shared("shared-display-redux", (state) => {
+  return html`
+    <div>
+      <h3>Shared State Display (Redux)</h3>
+      <p>Shared Count: ${state.count}</p>
+    </div>
+  `;
+});
+
 // Isolated Component: Redux
 igniteElement.isolated("another-counter-redux", (state, dispatch) => {
   return html`
     <div>
       <h3>Isolated Counter (Redux)</h3>
-      <span>${state.count}</span>
+      <p>Count: ${state.count}</p>
       <button
         @click=${() => {
-          console.log("Isolated clicked DEC", state.count);
           dispatch(decrement());
         }}
       >
@@ -50,7 +56,6 @@ igniteElement.isolated("another-counter-redux", (state, dispatch) => {
       </button>
       <button
         @click=${() => {
-          console.log("Isolated clicked INC", state.count);
           dispatch(increment());
         }}
       >

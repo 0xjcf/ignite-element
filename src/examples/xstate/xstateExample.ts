@@ -1,22 +1,20 @@
 import { html } from "lit-html";
-import { igniteElementFactory } from "./IgniteElmentFactory";
-import { createXStateAdapter } from "./XStateAdapter";
-import counterMachine from "./counterMachine";
+import igniteElementFactory from "../../IgniteElmentFactory";
+import createXStateAdapter from "../../adapters/XStateAdapter";
+import counterMachine from "./xstateCounterMachine";
 
 // Create the factory for XState
-const igniteElement = igniteElementFactory(() =>
-  createXStateAdapter(counterMachine)
-);
+const xStateAdapter = createXStateAdapter(counterMachine);
+const igniteElement = igniteElementFactory(xStateAdapter);
 
 // Shared Counter Component (XState)
 igniteElement.shared("my-counter-xstate", (state, send) => {
   return html`
     <div>
       <h3>Shared Counter (XState)</h3>
-      <span>${state.context.count}</span>
+      <p>Count: ${state.context.count}</p>
       <button
         @click=${() => {
-          console.log("Shared clicked DEC", state.context.count);
           send({ type: "DEC" });
         }}
       >
@@ -24,7 +22,6 @@ igniteElement.shared("my-counter-xstate", (state, send) => {
       </button>
       <button
         @click=${() => {
-          console.log("Shared clicked INC", state.context.count);
           send({ type: "INC" });
         }}
       >
@@ -39,7 +36,7 @@ igniteElement.shared("shared-display-xstate", (state) => {
   return html`
     <div>
       <h3>Shared State Display (XState)</h3>
-      <span>Shared Count: ${state.context.count}</span>
+      <p>Shared Count: ${state.context.count}</p>
     </div>
   `;
 });
@@ -49,10 +46,9 @@ igniteElement.isolated("another-counter-xstate", (state, send) => {
   return html`
     <div>
       <h3>Isolated Counter (XState)</h3>
-      <span>${state.context.count}</span>
+      <p>Count: ${state.context.count}</p>
       <button
         @click=${() => {
-          console.log("Isolated clicked DEC", state.context.count);
           send({ type: "DEC" });
         }}
       >
@@ -60,7 +56,6 @@ igniteElement.isolated("another-counter-xstate", (state, send) => {
       </button>
       <button
         @click=${() => {
-          console.log("Isolated clicked INC", state.context.count);
           send({ type: "INC" });
         }}
       >

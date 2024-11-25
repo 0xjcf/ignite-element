@@ -1,27 +1,26 @@
 {
-  "name": "front-runner",
-  "private": true,
+  "name": "ignite-element",
   "version": "0.0.0",
   "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "examples:xstate": "vite src/examples/xstate",
+    "examples:redux": "vite src/examples/redux",
+    "examples:mobx": "vite src/examples/mobx"
   },
   "devDependencies": {
-    "@vite-pwa/assets-generator": "^0.2.4",
+    "@types/node": "^22.9.4",
     "typescript": "^5.2.2",
-    "vite": "^5.2.10",
-    "vite-plugin-pwa": "^0.20.0",
-    "workbox-window": "^7.1.0"
-  },
-  "overrides": {
-    "sharp": "0.32.6",
-    "sharp-ico": "0.1.5"
+    "vite": "^5.2.10"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.3.0",
     "lit-html": "^3.2.1",
+    "mobx": "^6.13.5",
     "redux": "^5.0.1",
     "viem": "^2.21.48",
     "xstate": "^5.19.0"

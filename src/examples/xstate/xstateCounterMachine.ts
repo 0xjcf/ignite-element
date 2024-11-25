@@ -1,6 +1,6 @@
 import { assign, setup } from "xstate";
 
-export default setup({
+const counterMachine = setup({
   types: {
     events: {} as { type: "INC" } | { type: "DEC" },
     context: {} as {
@@ -37,3 +37,5 @@ export default setup({
     },
   },
 });
+
+export default counterMachine;
