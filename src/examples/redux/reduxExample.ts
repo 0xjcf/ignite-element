@@ -1,10 +1,10 @@
 import { html } from "lit-html";
 import igniteElementFactory from "../../IgniteElmentFactory";
 import createReduxAdapter from "../../adapters/ReduxAdapter";
-import ReduxCounterStore, { increment, decrement } from "./reduxCounterStore";
+import counterStore, { increment, decrement } from "./reduxCounterStore";
 
 // Create the factory for Redux
-const reduxAdapter = createReduxAdapter(ReduxCounterStore);
+const reduxAdapter = createReduxAdapter(counterStore);
 const igniteElement = igniteElementFactory(reduxAdapter);
 
 // Shared Component: Redux
