@@ -17,21 +17,15 @@ const counterMachine = setup({
     idle: {
       on: {
         INC: {
-          actions: [
-            assign({
-              count: ({ context }) => context.count + 1,
-            }),
-            () => console.log("inc in machine"),
-          ],
+          actions: assign({
+            count: ({ context }) => context.count + 1,
+          }),
         },
 
         DEC: {
-          actions: [
-            assign({
-              count: ({ context }) => context.count - 1,
-            }),
-            () => console.log("dec in machine"),
-          ],
+          actions: assign({
+            count: ({ context }) => context.count - 1,
+          }),
         },
       },
     },

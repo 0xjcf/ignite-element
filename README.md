@@ -19,6 +19,16 @@ IgniteElement provides adapters to let developers plug and play with their state
 import { igniteElementFactory, createXStateAdapter } from "ignite-element";
 ```
 
+## Running Examples Locally
+
+To explore usage examples, you can serve the example files directly:
+
+- **XState Example**: `npm run examples:xstate`
+- **Redux Example**: `npm run examples:redux`
+- **MobX Example**: `npm run examples:mobx`
+
+These commands start a local development server for each example.
+
 ### Examples
 
 You can find example implementations for [XState](./src/examples/xstate), [Redux](./src/examples/redux), and [MobX](./src/examples/mobx) in the `src/examples` directory of the repository.
@@ -28,11 +38,13 @@ You can find example implementations for [XState](./src/examples/xstate), [Redux
 ```typescript
 // counter.ts
 import { html } from "lit-html";
-import { igniteElementFactory, createXStateAdapter } from "ignite-element";
+import { igniteElementFactory } from "ignite-element";
 import counterMachine from "./counterMachine";
 
-const xStateAdapter = createXStateAdapter(counterMachine);
-const igniteElement = igniteElementFactory(xStateAdapter);
+const igniteElement = igniteCore({
+  adapter: "xstate",
+  source: counterMachine,
+});
 
 igniteElement.shared("my-counter-xstate", (state, send) => {
   return html`

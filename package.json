@@ -18,11 +18,12 @@
     "vite": "^5.2.10"
   },
   "dependencies": {
-    "@reduxjs/toolkit": "^2.3.0",
-    "lit-html": "^3.2.1",
-    "mobx": "^6.13.5",
+    "lit-html": "^3.2.1"
+  },
+  "peerDependencies": {
+    "xstate": "^5.19.0",
     "redux": "^5.0.1",
-    "viem": "^2.21.48",
-    "xstate": "^5.19.0"
+    "@reduxjs/toolkit": "^2.3.0",
+    "mobx": "^6.13.5"
   }
 }
