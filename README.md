@@ -34,7 +34,7 @@ npm install xstate ignite-element
 ```typescript
 // counter.ts
 import { html } from "lit-html";
-import { igniteElementFactory } from "ignite-element";
+import { igniteCore } from "ignite-element";
 import counterMachine from "./counterMachine";
 
 const igniteElement = igniteCore({
