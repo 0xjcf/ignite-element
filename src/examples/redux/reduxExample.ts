@@ -1,12 +1,15 @@
 import { html } from "lit-html";
-import igniteElementFactory from "../../IgniteElmentFactory";
-import createReduxAdapter from "../../adapters/ReduxAdapter";
+// import igniteElementFactory from "../../IgniteElmentFactory";
+// import createReduxAdapter from "../../adapters/ReduxAdapter";
 import counterStore, { increment, decrement } from "./reduxCounterStore";
-
+import { igniteCore } from "../../IgniteCore";
 // Create the factory for Redux
-const reduxAdapter = createReduxAdapter(counterStore);
-const igniteElement = igniteElementFactory(reduxAdapter);
-
+// const reduxAdapter = createReduxAdapter(counterStore);
+// const igniteElement = igniteElementFactory(reduxAdapter);
+const igniteElement = igniteCore({
+  adapter: "redux",
+  source: counterStore,
+});
 // Shared Component: Redux
 igniteElement.shared("my-counter-redux", (state, dispatch) => {
   return html`

@@ -1,11 +1,17 @@
 import { html } from "lit-html";
-import igniteElementFactory from "../../IgniteElmentFactory";
-import createMobXAdapter from "../../adapters/MobXAdapter";
+// import igniteElementFactory from "../../IgniteElmentFactory";
+// import createMobXAdapter from "../../adapters/MobXAdapter";
 import counterStore from "./mobxCounterStore";
+import { igniteCore } from "../../IgniteCore";
 
 // Create the IgniteElement factory using the MobX adapter
-const mobxAdapter = createMobXAdapter(counterStore);
-const igniteElement = igniteElementFactory(mobxAdapter);
+// const mobxAdapter = createMobXAdapter(counterStore);
+// const igniteElement = igniteElementFactory(mobxAdapter);
+
+const igniteElement = igniteCore({
+  adapter: "mobx",
+  source: counterStore,
+});
 
 // Shared Counter Component
 igniteElement.shared("my-counter-mobx", (state, send) => {

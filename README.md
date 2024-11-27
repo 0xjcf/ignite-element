@@ -1,6 +1,6 @@
 # IgniteElement
 
-IgniteElement is a lightweight library for creating reusable web components with support for multiple state management libraries. <br/>It allows developers to integrate Redux, MobX, or XState seamlessly while maintaining flexibility and a consistent API.
+IgniteElement is a lightweight library for creating web components with support for multiple state management libraries. <br/>It allows developers to integrate Redux, MobX, or XState seamlessly while maintaining flexibility and a consistent API.
 
 ## Features
 

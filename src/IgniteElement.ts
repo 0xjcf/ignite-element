@@ -5,7 +5,6 @@ export abstract class IgniteElement<State, Event> extends HTMLElement {
   private _adapter: IgniteAdapter<State, Event>;
   public _shadowRoot: ShadowRoot;
   protected _currentState!: State;
-  private _unsubscribe!: () => void;
 
   constructor(adapter: IgniteAdapter<State, Event>) {
     super();
@@ -15,11 +14,10 @@ export abstract class IgniteElement<State, Event> extends HTMLElement {
   }
 
   connectedCallback(): void {
-    const subscription = this._adapter.subscribe((state) => {
+    this._adapter.subscribe((state) => {
       this._currentState = state;
       this.renderTemplate();
     });
-    this._unsubscribe = subscription.unsubscribe;
     this.renderTemplate(); // initial render
   }
 

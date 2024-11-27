@@ -1,11 +1,17 @@
 import { html } from "lit-html";
-import igniteElementFactory from "../../IgniteElmentFactory";
-import createXStateAdapter from "../../adapters/XStateAdapter";
+// import igniteElementFactory from "../../IgniteElmentFactory";
+// import createXStateAdapter from "../../adapters/XStateAdapter";
 import counterMachine from "./xstateCounterMachine";
+import { igniteCore } from "../../IgniteCore";
 
 // Create the factory for XState
-const xStateAdapter = createXStateAdapter(counterMachine);
-const igniteElement = igniteElementFactory(xStateAdapter);
+// const xStateAdapter = createXStateAdapter(counterMachine);
+// const igniteElement = igniteElementFactory(xStateAdapter);
+
+const igniteElement = igniteCore({ 
+  adapter: "xstate", 
+  source: counterMachine 
+});
 
 // Shared Counter Component (XState)
 igniteElement.shared("my-counter-xstate", (state, send) => {
