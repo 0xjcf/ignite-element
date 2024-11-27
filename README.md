@@ -9,16 +9,6 @@ IgniteElement is a lightweight library for creating reusable web components with
 - **Lit-HTML Integration**: Leverages `lit-html` for creating templates, with plans to make this part agnostic in the future.
 - **Developer Friendly**: Consistent and intuitive API for all supported state management libraries.
 
-## Usage
-
-### General Setup
-
-IgniteElement provides adapters to let developers plug and play with their state management library of choice. <br/>Import the required functions and create web components:
-
-```typescript
-import { igniteElementFactory, createXStateAdapter } from "ignite-element";
-```
-
 ## Running Examples Locally
 
 To explore usage examples, you can serve the example files directly:

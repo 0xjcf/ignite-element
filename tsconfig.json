@@ -11,12 +11,18 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
 
+    /* Type declarations */
+    "declaration": true,
+    "declarationDir": "./dist/types",
+    "outDir": "./dist",
+    "emitDeclarationOnly": true,
+
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "examples/*"],
+  "include": ["src"],
   "exclude": ["node_modules", "dist"]
 }
