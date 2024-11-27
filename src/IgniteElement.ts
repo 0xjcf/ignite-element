@@ -24,8 +24,6 @@ export abstract class IgniteElement<State, Event> extends HTMLElement {
   }
 
   disconnectedCallback(): void {
-    // cleanup is handled within the adapters
-    if (this._unsubscribe) this._unsubscribe();
     this._adapter.stop();
   }
 

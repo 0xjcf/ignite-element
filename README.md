@@ -23,8 +23,14 @@ These commands start a local development server for each example.
 
 You can find example implementations for [XState](./src/examples/xstate), [Redux](./src/examples/redux), and [MobX](./src/examples/mobx) in the `src/examples` directory of the repository.
 
-#### Using with XState
+## Using with XState
 
+```bash
+npm install xstate ignite-element
+```
+
+
+#### Example Counter created with XState
 ```typescript
 // counter.ts
 import { html } from "lit-html";
@@ -36,10 +42,9 @@ const igniteElement = igniteCore({
   source: counterMachine,
 });
 
-igniteElement.shared("my-counter-xstate", (state, send) => {
+igniteElement.shared("my-counter", (state, send) => {
   return html`
     <div>
-      <h3>Shared Counter (XState)</h3>
       <span>${state.context.count}</span>
       <button @click=${() => send({ type: "DEC" })}>-</button>
       <button @click=${() => send({ type: "INC" })}>+</button>
@@ -48,43 +53,62 @@ igniteElement.shared("my-counter-xstate", (state, send) => {
 });
 ```
 
-#### Example Counter Machine (XState)
+
+#### Example HTML
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script type="module" src="./xstateExample.ts"></script>
+    <title>XState Example</title>
+  </head>
+  <body>
+    <!-- XState Component -->
+    <my-counter></my-counter>
+  </body>
+</html>
+```
+
+## Shared vs. Isolated Components
+
+IgniteElement offers two approaches to state management for web components
+
+### Shared Components
+
+Shared componenents share the same state across all instances. This is useful for global states like shopping carts or user session data, where every component reflects the same underlying state.
+
+- <b>Example Use Case:</b>: A shopping cart summary that updates across the entire app.
 
 ```typescript
-// counterMachine.ts
-import { assign, setup } from "xstate";
-
-const counterMachine = setup({
-  types: {
-    events: {} as { type: "INC" } | { type: "DEC" },
-    context: {} as {
-      count: number;
-    },
-  },
-}).createMachine({
-  id: "counter",
-  initial: "idle",
-  context: {
-    count: 0,
-  },
-  states: {
-    idle: {
-      on: {
-        INC: {
-          actions: assign({
-            count: ({ context }) => context.count + 1,
-          }),
-        },
-
-        DEC: {
-          actions: assign({
-            count: ({ context }) => context.count - 1,
-          }),
-        },
-      },
-    },
-  },
+igniteElement.shared("cart-summary", (state, send) => {
+  return html`
+    <div>
+      <h3>Cart Summary</h3>
+      <p>Total Items: ${state.totalItems}</p>
+      <button @click=${() => send({ type: "CLEAR_CART" })}>Clear Cart</button>
+    </div>
+  `;
 });
+```
 
-export default counterMachine;
+### Isolated Components
+
+Isolated components have independent state management. Each component instance operates in its own scope, ensuring no interference with other components.
+
+- <b>Example Use Case:</b>: Independent product quantity selectors for an e-commerce site.
+
+```typescript
+igniteElement.isolated("product-counter", (state, send) => {
+  return html`
+    <div>
+      <h3>Product Counter</h3>
+      <p>Quantity: ${state.quantity}</p>
+      <button @click=${() => send({ type: "DECREASE" })}>-</button>
+      <button @click=${() => send({ type: "INCREASE" })}>+</button>
+    </div>
+  `;
+});
 ```
