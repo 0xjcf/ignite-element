@@ -190,9 +190,7 @@ The resulting `dist/styles.css` file will include all your Tailwind-generated st
 
 ### Using Custom Styles with IgniteElement
 
-**Tip:** You can specify global styles via `styles.paths` and define additional scoped styles using `styles.custom` in the `igniteCore` configuration:
-
-When configuring IgniteElement, you can specify the paths to your global CSS styles and define additional inline styles directly in the `igniteCore` configuration:
+**Tip:** When configuring IgniteElement, you can specify the paths to your global CSS styles and define additional inline styles directly in the `igniteCore` configuration:
 
 **Note:** If `styles.paths` and `styles.custom` are not provided, no additional styles will be applied to your components. Ensure you configure at least one of these options to style your components effectively.
 
