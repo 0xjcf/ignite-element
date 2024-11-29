@@ -28,7 +28,7 @@ IgniteElement is a lightweight library for creating web components with support 
 
 ## Installation
 
-Install ignite-element along with your preferred state management library: `npm install ignite-element xstate`
+Install ignite-element along with your preferred state management library: `npm i ignite-element xstate`
 
 ## Quickstart
 
@@ -37,7 +37,7 @@ Here’s how to set up your first IgniteElement project:
 1. Install dependencies:
 
    ```bash
-   npm install ignite-element xstate
+   npm i ignite-element xstate
    ```
 
 2. Create a state machine (for example, counterMachine):
@@ -148,7 +148,7 @@ To get started with Tailwind CSS:
 Install Tailwind and its dependencies:
 
 ```bash
-npm install -D tailwindcss postcss autoprefixer
+npm i -D tailwindcss postcss autoprefixer
 ```
 
 Initialize Tailwind Configuration (optional):
@@ -226,7 +226,7 @@ git clone https://github.com/0xjcf/Ignite-Element.git
 Install dependencies:
 
 ```bash
-npm install
+npm i
 ```
 
 **Note:** Ensure you are using a compatible Node.js version as specified in the `package.json` or `.nvmrc` file.
