@@ -1,5 +1,5 @@
 import { AnyStateMachine, StateFrom, EventFrom, createActor } from "xstate";
-import { IgniteAdapter } from "../IgniteAdapter";
+import IgniteAdapter from "../IgniteAdapter";
 
 export default function createXStateAdapter<Machine extends AnyStateMachine>(
   machine: Machine

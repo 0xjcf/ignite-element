@@ -1,4 +1,4 @@
-export interface IgniteAdapter<State, Event> {
+export default interface IgniteAdapter<State, Event> {
   /**
    * Subscribes to state changes and returns an unsubscribe function
    */

@@ -1,7 +1,7 @@
 import { render, TemplateResult } from "lit-html";
-import { IgniteAdapter } from "./IgniteAdapter";
+import IgniteAdapter from "./IgniteAdapter";
 
-export abstract class IgniteElement<State, Event> extends HTMLElement {
+export default abstract class IgniteElement<State, Event> extends HTMLElement {
   private _adapter: IgniteAdapter<State, Event>;
   public _shadowRoot: ShadowRoot;
   protected _currentState!: State;

@@ -1,5 +1,5 @@
 import { autorun } from "mobx";
-import { IgniteAdapter } from "../IgniteAdapter";
+import IgniteAdapter from "../IgniteAdapter";
 
 type FunctionKeys<StateType> = {
   [Key in keyof StateType]: StateType[Key] extends (...args: any[]) => any

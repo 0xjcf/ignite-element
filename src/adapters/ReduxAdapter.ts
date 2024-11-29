@@ -1,6 +1,6 @@
 import { Store } from "redux";
-import { IgniteAdapter } from "../IgniteAdapter";
 import { Action } from "@reduxjs/toolkit";
+import IgniteAdapter from "../IgniteAdapter";
 
 export default function createReduxAdapter<State, Event extends Action<string>>(
   configureStore: () => Store<State, Event>

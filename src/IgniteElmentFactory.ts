@@ -1,6 +1,6 @@
 import { TemplateResult } from "lit-html";
-import { IgniteAdapter } from "./IgniteAdapter";
-import { IgniteElement } from "./IgniteElement";
+import IgniteAdapter from "./IgniteAdapter";
+import IgniteElement from "./IgniteElement";
 
 export default function igniteElementFactory<State, Event>(
   adapterFactory: () => IgniteAdapter<State, Event>
