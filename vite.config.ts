@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import dts from "vite-plugin-dts";
 
 export default defineConfig({
   build: {
@@ -8,15 +9,21 @@ export default defineConfig({
       fileName: (format) => `ignite-element.${format}.js`,
     },
     rollupOptions: {
-      external: ["xstate", "redux", "mobx"],
+      external: ["xstate", "redux", "mobx", "lit-html"],
       output: {
         globals: {
           xstate: "XState",
           redux: "Redux",
           mobx: "MobX",
+          "lit-html": "LitHTML",
         },
       },
     },
-    emptyOutDir: false
   },
+  plugins: [
+    dts({
+      insertTypesEntry: true,
+      outDir: "./dist/types",
+    }),
+  ],
 });

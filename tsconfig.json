@@ -13,9 +13,7 @@
 
     /* Type declarations */
     "declaration": true,
-    "declarationDir": "./dist/types",
     "outDir": "./dist",
-    "emitDeclarationOnly": true,
 
     /* Linting */
     "strict": true,
@@ -23,6 +21,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"],
+  "include": ["src", "src/vite-env.d.ts"],
   "exclude": ["node_modules", "dist", "src/examples"]
 }

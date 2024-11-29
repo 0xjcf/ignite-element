@@ -2,36 +2,36 @@
   "name": "ignite-element",
   "version": "0.0.0",
   "type": "module",
-  "main": "dist/ignite-element.es.js",
+  "main": "dist/ignite-element.cjs.js",
   "types": "dist/types/index.d.ts",
+  "module": "dist/ignite-element.es.js",
   "exports": {
     ".": {
       "import": "./dist/ignite-element.es.js",
       "require": "./dist/ignite-element.cjs.js",
-      "types": "./dist/types/index.d.ts"
+      "types": "./dist/types/index.d.ts",
+      "default": "./dist/ignite-element.es.js"
     }
   },
   "scripts": {
-    "dev": "vite",
     "build:types": "tsc",
     "build:js": "vite build",
     "build": "npm run build:types && npm run build:js",
-    "preview": "vite preview",
-    "examples:xstate": "vite src/examples/xstate",
-    "examples:redux": "vite src/examples/redux",
-    "examples:mobx": "vite src/examples/mobx"
+    "examples:xstate": "cd src/examples/xstate && npm install && npm run build:css && npm run dev",
+    "examples:redux": "cd src/examples/redux && npm install && npm run dev",
+    "examples:mobx": "cd src/examples/mobx && npm install && npm run dev"
   },
   "devDependencies": {
+    "@types/node": "^22.10.1",
     "typescript": "^5.2.2",
-    "vite": "^5.2.10"
-  },
-  "dependencies": {
-    "lit-html": "^3.2.1"
+    "vite": "^5.2.10",
+    "vite-plugin-dts": "^4.3.0"
   },
   "peerDependencies": {
-    "xstate": "^5.19.0",
-    "redux": "^5.0.1",
-    "@reduxjs/toolkit": "^2.3.0",
-    "mobx": "^6.13.5"
+    "@reduxjs/toolkit": ">=2.3.0",
+    "lit-html": ">=3.2.1",
+    "mobx": ">=6.13.5",
+    "redux": ">=5.0.1",
+    "xstate": ">=5.19.0"
   }
 }
