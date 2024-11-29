@@ -1,6 +1,6 @@
 # IgniteElement
 
-IgniteElement is a lightweight library for creating web components with support for multiple state management libraries. <br/>It allows developers to integrate Redux, MobX, or XState seamlessly while maintaining flexibility and a consistent API.
+IgniteElement is a lightweight library for creating web components with support for multiple state management libraries. It allows developers to integrate Redux, MobX, or XState seamlessly while maintaining flexibility and a consistent API.
 
 ## Table of Contents
 
@@ -137,7 +137,7 @@ igniteElement.isolated("product-counter", (state, send) => {
 
 ## Generating Stylesheets
 
-IgniteElement allows developers to inject styles into web components, supporting both Tailwind CSS and custom styles. <br />Below is an example of setting up Tailwind CSS to generate your styles.
+IgniteElement allows developers to inject styles into web components, supporting both Tailwind CSS and custom styles. Below is an example of setting up Tailwind CSS to generate your styles.
 
 For detailed setup instructions, refer to the [Tailwind CSS Installation Guide](https://tailwindcss.com/docs/installation).
 
@@ -175,7 +175,7 @@ In your package.json, add a script to build your Tailwind CSS stylesheet:
 }
 ```
 
-This script compiles styles.css into a distributable file (`./dist/styles.css`). <br/>
+This script compiles styles.css into a distributable file (`./dist/styles.css`).
 **You can customize this path, but ensure that the `styles.paths` in `igniteCore` matches the updated location.**
 
 Build your CSS:
