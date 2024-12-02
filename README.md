@@ -1,7 +1,5 @@
 # ignite-element
 
-ignite-element is a lightweight library for creating web components with support for multiple state management libraries. It allows developers to integrate Redux, MobX, or XState seamlessly while maintaining flexibility and a consistent API.
-
 ## Table of Contents
 
 1. [Features](#features)
