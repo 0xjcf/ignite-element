@@ -22,7 +22,11 @@
     "noFallthroughCasesInSwitch": true,
 
     /* Tests */
-    "types": ["vitest/globals"]
+    "types": ["vitest/globals"],
+
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
   },
   "include": ["src", "src/vite-env.d.ts"],
   "exclude": ["node_modules", "dist", "src/examples"]

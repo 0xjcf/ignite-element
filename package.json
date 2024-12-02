@@ -19,7 +19,7 @@
     "build": "npm run build:types && npm run build:js",
     "examples:xstate": "cd src/examples/xstate && npm install && npm run build:css && npm run dev",
     "examples:redux": "cd src/examples/redux && npm install && npm run dev",
-    "examples:mobx": "vite src/examples/mobx",
+    "examples:mobx": "cd src/examples/mobx && npm install && npm run dev",
     "test": "vitest",
     "test:coverage": "vitest --coverage"
   },

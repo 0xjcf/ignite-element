@@ -1,7 +1,8 @@
 import { html } from "lit-html";
 import counterStore from "./mobxCounterStore";
-import { igniteCore }from "../../IgniteCore";
+import { igniteCore } from "../../IgniteCore";
 
+// Initialize igniteElement with MobX adapter
 const igniteElement = igniteCore({
   adapter: "mobx",
   source: counterStore,
@@ -11,7 +12,7 @@ const igniteElement = igniteCore({
 igniteElement.shared("my-counter-mobx", (state, send) => {
   return html`
     <div>
-      <h3>Shared Counter (MobX)</h3>
+      <h3>Shared Counter (Mobx)</h3>
       <p>Count: ${state.count}</p>
       <button
         @click=${() => {
@@ -31,11 +32,11 @@ igniteElement.shared("my-counter-mobx", (state, send) => {
   `;
 });
 
-// Shared Display Component (XState)
+// Shared Display Component
 igniteElement.shared("shared-display-mobx", (state) => {
   return html`
     <div>
-      <h3>Shared State Display (MobX)</h3>
+      <h3>Shared State Display (Mobx)</h3>
       <p>Shared Count: ${state.count}</p>
     </div>
   `;
@@ -45,7 +46,7 @@ igniteElement.shared("shared-display-mobx", (state) => {
 igniteElement.isolated("another-counter-mobx", (state, action) => {
   return html`
     <div>
-      <h3>Isolated Counter (MobX)</h3>
+      <h3>Isolated Counter (Mobx)</h3>
       <p>Count: ${state.count}</p>
       <button
         @click=${() => {

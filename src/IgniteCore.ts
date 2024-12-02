@@ -3,7 +3,7 @@ import igniteElementFactory, {
 } from "./IgniteElmentFactory";
 import createXStateAdapter from "./adapters/XStateAdapter";
 import createReduxAdapter from "./adapters/ReduxAdapter";
-import createMobXAdapter from "./adapters/MobXAdapter";
+import createMobXAdapter, { FunctionKeys } from "./adapters/MobxAdapter";
 import { AnyStateMachine, EventFrom, StateFrom } from "xstate";
 import { Store, Action } from "redux";
 
@@ -44,7 +44,7 @@ export function igniteCore<State, Event extends Action<string>>(options: {
 // Overload for MobX
 export function igniteCore<
   State extends Record<string, any>,
-  Event extends { type: keyof State }
+  Event extends { type: keyof FunctionKeys<State> }
 >(options: {
   adapter: "mobx";
   source: () => State;

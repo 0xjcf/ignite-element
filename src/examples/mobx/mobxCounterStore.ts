@@ -1,20 +1,22 @@
-import { action, observable } from "mobx";
+import { action, observable, makeObservable } from "mobx";
 
-type CounterStore = {
-  count: number;
-};
+class Counter {
+  @observable count = 0;
 
-const counterStore = () =>
-  observable({
-    count: 0,
+  constructor() {
+    makeObservable(this);
+  }
 
-    increment: action(function (this: CounterStore) {
-      this.count += 1;
-    }),
+  @action increment() {
+    this.count += 1;
+  }
 
-    decrement: action(function (this: CounterStore) {
-      this.count -= 1;
-    }),
-  });
+  @action decrement() {
+    this.count -= 1;
+  }
+}
+
+// Exporting a factory function that returns an instance
+const counterStore = () => new Counter();
 
 export default counterStore;
