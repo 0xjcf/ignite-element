@@ -7,14 +7,14 @@ ignite-element is a lightweight library for creating web components with support
 1. [Features](#features)
 2. [Installation](#installation)
 3. [Quickstart](#quickstart)
+   - [Examples](#examples)
+     - [XState Example](./src/examples/xstate)
+     - [Redux Example](./src/examples/redux)
+     - [MobX Example](./src/examples/mobx)
    - [Shared vs. Isolated Components](#shared-vs-isolated-components)
-4. [Examples](#examples)
-   - [XState Example](./src/examples/xstate)
-   - [Redux Example](./src/examples/redux)
-   - [MobX Example](./src/examples/mobx)
-5. [Custom Styles](#using-custom-styles-with-igniteelement)
-6. [Contributing](#contributing)
-7. [Feedback](#feedback)
+4. [Custom Styles](#using-custom-styles-with-igniteelement)
+5. [Contributing](#contributing)
+6. [Feedback](#feedback)
 
 ## Features
 
@@ -24,15 +24,11 @@ ignite-element is a lightweight library for creating web components with support
 - **Modern Templating**: Use `lit-html` for dynamic, efficient templates.
 - **Developer Friendly**: A consistent API for managing state across different libraries.
 
-## Installation
-
-Install ignite-element along with your preferred state management library: `npm i ignite-element xstate`
-
 ## Quickstart
 
 Here’s how to set up your first ignite-element project:
 
-### Install `ignite-element` with your preferred state management library:
+Install `ignite-element` with your preferred state management library:
 
 ```bash
 npm install ignite-element redux @reduxjs/toolkit

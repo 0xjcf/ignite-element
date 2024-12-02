@@ -39,7 +39,7 @@ When running the example, you'll see:
 
 ## Styling with TailwindCSS
 
-This example uses TailwindCSS for component styling. The `styles.css` file included the following:
+This example uses TailwindCSS for component styling. The `styles.css` file includes the following:
 
 ```css
 @tailwind base;
@@ -63,7 +63,19 @@ To build the CSS:
 npm run build:css
 ```
 
-Ensure the `dist/styles.css` file is generated before running the example.
+Ensure the `dist/styles.css` file is generated and path is set in `igniteCore` before running the example.
+
+```typescript
+import { igniteCore } from "ignite-element";
+
+const igniteElement = igniteCore({
+  adapter: "xstate",
+  source: counterMachine,
+  style: {
+    paths: ["dist/styles.css"],
+  },
+});
+```
 
 ## ignite-element and XState
 
@@ -71,7 +83,7 @@ Ensure the `dist/styles.css` file is generated before running the example.
 
 1. **Define a State Machine**: Create an XState machine for managing the component's state.
 
-```javascript
+```typescript
 import { createMachine } from "xstate";
 
 const counterMachine = createMachine({
@@ -91,7 +103,7 @@ const counterMachine = createMachine({
 
 2. **Initialize ignite-element**: Pass the state machine to igniteCore:
 
-```javascript
+```typescript
 import { igniteCore } from "ignite-element";
 
 const igniteElement = igniteCore({
@@ -104,7 +116,7 @@ const igniteElement = igniteCore({
 
 #### Shared Counter
 
-```javascript
+```typescript
 igniteElement.shared("shared-counter", (state, send) => {
   return html`
     <div class="p-4 bg-gray-100 border rounded-md mb-2">
@@ -131,7 +143,7 @@ igniteElement.shared("shared-counter", (state, send) => {
 
 #### Isolated Counter
 
-```javascript
+```typescript
 igniteElement.isolated("isolated-counter", (state, send) => {
   return html`
     <div class="p-4 bg-yellow-100 border rounded-md mb-2">
@@ -161,5 +173,6 @@ igniteElement.isolated("isolated-counter", (state, send) => {
 4. **Add Components to HTML**: Use the custom elements in you HTML file:
 
 ```html
-<shared-counter></shared-counter> <isolated-counter></isolated-counter>
+<shared-counter></shared-counter>
+<isolated-counter></isolated-counter>
 ```

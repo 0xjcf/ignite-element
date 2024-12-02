@@ -47,6 +47,20 @@ For local development, the SCSS file imports the **minified Bootstrap CSS** for 
 
 For production, you can replace this with the full SCSS version of Bootstrap to customize styles as needed.
 
+Ensure the `scss/styles.css` file is generated and path is set in `igniteCore` before running the example.
+
+```typescript
+import { igniteCore } from "ignite-element";
+
+const igniteElement = igniteCore({
+  adapter: "xstate",
+  source: counterMachine,
+  style: {
+    paths: ["scss/styles.scss"],
+  },
+});
+```
+
 ## ignite-element and Redux
 
 ### Setting Up ignite-element with Redux
@@ -71,9 +85,10 @@ const counterSlice = createSlice({
 
 export const { increment, decrement } = counterSlice.actions;
 
-const store = configureStore({
-  reducer: counterSlice.reducer,
-});
+const store = () =>
+  configureStore<CounterState, CounterEvent>({
+    reducer: counterSlice.reducer,
+  });
 
 export default store;
 ```
@@ -153,6 +168,6 @@ igniteElement.isolated("isolated-counter-redux", (state, dispatch) => {
 4. **Add Components to HTML**: Use the custom elements in you HTML file:
 
 ```html
-<shared-counter></shared-counter> 
+<shared-counter></shared-counter>
 <isolated-counter></isolated-counter>
 ```
