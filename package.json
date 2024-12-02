@@ -7,9 +7,9 @@
   "module": "dist/ignite-element.es.js",
   "exports": {
     ".": {
+      "types": "./dist/types/index.d.ts",
       "import": "./dist/ignite-element.es.js",
       "require": "./dist/ignite-element.cjs.js",
-      "types": "./dist/types/index.d.ts",
       "default": "./dist/ignite-element.es.js"
     }
   },
@@ -19,7 +19,7 @@
     "build": "npm run build:types && npm run build:js",
     "examples:xstate": "cd src/examples/xstate && npm install && npm run build:css && npm run dev",
     "examples:redux": "cd src/examples/redux && npm install && npm run dev",
-    "examples:mobx": "cd src/examples/mobx && npm install && npm run dev"
+    "examples:mobx": "vite src/examples/mobx"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",

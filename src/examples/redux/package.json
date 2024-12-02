@@ -1,0 +1,30 @@
+{
+  "name": "redux-example",
+  "version": "1.0.0",
+  "description": "An example project demonstrating the use of ignite-element with Redux, lit-html, and Bootstrap for styling.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "keywords": [
+    "redux",
+    "ignite-element",
+    "bootstrap",
+    "lit-html"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@popperjs/core": "^2.11.8",
+    "@reduxjs/toolkit": "^2.3.0",
+    "bootstrap": "^5.3.3",
+    "lit-html": "^3.2.1",
+    "redux": "^5.0.1"
+  },
+  "devDependencies": {
+    "vite": "^6.0.1",
+    "sass": "^1.81.0"
+  }
+}

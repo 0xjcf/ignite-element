@@ -1,20 +1,28 @@
 {
-  "name": "xstate",
+  "name": "xstate-example",
   "version": "1.0.0",
+  "description": "An example project demonstrating the use of ignite-element with XState, lit-html, and Tailwind CSS.",
   "main": "index.js",
   "scripts": {
     "build:css": "tailwindcss -i ./styles.css -o ./dist/styles.css",
     "dev": "vite",
     "build": "vite build"
   },
-  "keywords": [],
+  "keywords": [
+    "xstate",
+    "ignite-element",
+    "tailwindcss",
+    "lit-html"
+  ],
   "author": "",
   "license": "ISC",
-  "description": "",
-  "devDependencies": {
+  "dependencies": {
     "lit-html": "^3.2.1",
-    "tailwindcss": "^3.4.15",
-    "vite": "^6.0.1",
     "xstate": "^5.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "tailwindcss": "^3.4.15",
+    "vite": "^6.0.1"
   }
 }

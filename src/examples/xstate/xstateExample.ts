@@ -9,7 +9,7 @@ const igniteElement = igniteCore({
     paths: ["./dist/styles.css"],
     custom: `
       .mb-2 {
-        margin-bottom: 3rem
+        margin-bottom: 2rem
       }
     `
   },

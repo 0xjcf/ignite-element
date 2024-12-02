@@ -3,8 +3,14 @@ import IgniteAdapter from "./IgniteAdapter";
 import IgniteElement from "./IgniteElement";
 
 export interface IgniteElementConfig {
-  styles?: { custom?: string; paths?: string[] };
+  styles?: { custom?: string; paths?: string[] | StyleObject[] };
 }
+
+export type StyleObject = {
+  href: string;
+  integrity?: string;
+  crossorigin?: string;
+};
 
 export default function igniteElementFactory<State, Event>(
   adapterFactory: () => IgniteAdapter<State, Event>,
@@ -76,19 +82,41 @@ export default function igniteElementFactory<State, Event>(
  */
 function injectStyles(
   shadowRoot: ShadowRoot,
-  styles?: { custom?: string; paths?: string[] }
+  styles?: {
+    custom?: string;
+    paths?: (string | StyleObject)[];
+  }
 ): void {
-  if (!styles || !styles.paths) return;
+  if (!styles) return;
 
-  // Add external stylesheet links
-  styles?.paths.forEach((path) => {
-    const linkElement = document.createElement("link");
-    linkElement.rel = "stylesheet";
-    linkElement.href = path;
-    shadowRoot.appendChild(linkElement);
-  });
+  // Inject external stylesheet paths
+  if (styles.paths) {
+    styles.paths.forEach((style) => {
+      if (typeof style === "string") {
+        // Handle simple string paths
+        const linkElement = document.createElement("link");
+        linkElement.rel = "stylesheet";
+        linkElement.href = style;
+        shadowRoot.appendChild(linkElement);
+      } else if (typeof style === "object" && style.href) {
+        // Handle objects with href, integrity, and crossorigin
+        const linkElement = document.createElement("link");
+        linkElement.rel = "stylesheet";
+        linkElement.href = style.href;
+        if (style.integrity) {
+          linkElement.integrity = style.integrity;
+        }
+        if (style.crossorigin) {
+          linkElement.crossOrigin = style.crossorigin;
+        }
+        shadowRoot.appendChild(linkElement);
+      } else {
+        console.warn("Invalid style path/object:", style);
+      }
+    });
+  }
 
-  // Add inline custom styles
+  // Inject custom inline styles
   if (styles.custom) {
     const styleElement = document.createElement("style");
     styleElement.textContent = styles.custom;
