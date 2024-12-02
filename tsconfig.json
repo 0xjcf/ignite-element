@@ -19,7 +19,10 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* Tests */
+    "types": ["vitest/globals"]
   },
   "include": ["src", "src/vite-env.d.ts"],
   "exclude": ["node_modules", "dist", "src/examples"]

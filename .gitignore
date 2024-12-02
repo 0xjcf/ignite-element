@@ -28,3 +28,4 @@ dev-dist
 .DS_Store
 src/examples/**/package-lock.json
 package-lock.json
+coverage/

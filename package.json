@@ -19,13 +19,18 @@
     "build": "npm run build:types && npm run build:js",
     "examples:xstate": "cd src/examples/xstate && npm install && npm run build:css && npm run dev",
     "examples:redux": "cd src/examples/redux && npm install && npm run dev",
-    "examples:mobx": "vite src/examples/mobx"
+    "examples:mobx": "vite src/examples/mobx",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",
+    "@vitest/coverage-v8": "^2.1.8",
+    "jsdom": "^25.0.1",
     "typescript": "^5.2.2",
     "vite": "^5.2.10",
-    "vite-plugin-dts": "^4.3.0"
+    "vite-plugin-dts": "^4.3.0",
+    "vitest": "^2.1.8"
   },
   "peerDependencies": {
     "@reduxjs/toolkit": ">=2.3.0",
