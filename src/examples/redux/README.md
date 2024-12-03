@@ -39,13 +39,15 @@ When running the example, you'll see:
 
 ## Styling with Bootstrap and SCSS
 
-For local development, the SCSS file imports the **minified Bootstrap CSS** for faster build times:
+This example uses the **minified Bootstrap CSS** for faster build times and improved performance:
 
 ```scss
 @import "bootstrap/dist/css/bootstrap.min.css";
 ```
 
-For production, you can replace this with the full SCSS version of Bootstrap to customize styles as needed.
+You can customize additional styles or override Bootstrap's default styles by adding your own CSS or SCSS files. Ensure your build process compiles and optimizes these styles for production.
+
+````
 
 Ensure the `scss/styles.css` file is generated and path is set in `igniteCore` before running the example.
 
@@ -59,7 +61,7 @@ const igniteElement = igniteCore({
     paths: ["scss/styles.scss"],
   },
 });
-```
+````
 
 ## ignite-element and Redux
 
@@ -168,6 +170,6 @@ igniteElement.isolated("isolated-counter-redux", (state, dispatch) => {
 4. **Add Components to HTML**: Use the custom elements in you HTML file:
 
 ```html
-<shared-counter></shared-counter>
+<shared-counter></shared-counter> 
 <isolated-counter></isolated-counter>
 ```

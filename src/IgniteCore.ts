@@ -44,7 +44,7 @@ export function igniteCore<State, Event extends Action<string>>(options: {
 // Overload for MobX
 export function igniteCore<
   State extends Record<string, any>,
-  Event extends { type: keyof FunctionKeys<State> }
+  Event extends { type:  FunctionKeys<State> }
 >(options: {
   adapter: "mobx";
   source: () => State;
