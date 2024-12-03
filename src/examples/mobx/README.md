@@ -82,7 +82,7 @@ const igniteElement = igniteCore({
 });
 ```
 
-## ignite-element and Redux
+## ignite-element and Mobx
 
 1. **Define a MobX Store**: Create a reactive MobX store with decorators for state and actions.
 
@@ -110,7 +110,7 @@ const counterStore = () => new Counter();
 export default counterStore;
 ```
 
-2. **Initialize ignite-element**: Pass the Redux store to igniteCore:
+2. **Initialize ignite-element**: Pass the Mobx store to igniteCore:
 
 ```javascript
 import { igniteCore } from "ignite-element";
