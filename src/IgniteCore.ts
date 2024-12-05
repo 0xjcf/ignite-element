@@ -16,12 +16,12 @@ export type IgniteCoreConfig =
     }
   | {
       adapter: "redux";
-      source: () => Store<any, Action<string>>;
+      source: () => Store<unknown, Action<string>>;
       styles?: IgniteElementConfig["styles"];
     }
   | {
       adapter: "mobx";
-      source: () => Record<string, any>;
+      source: () => Record<string, unknown>;
       styles?: IgniteElementConfig["styles"];
     };
 
@@ -43,7 +43,7 @@ export function igniteCore<State, Event extends Action<string>>(options: {
 
 // Overload for MobX
 export function igniteCore<
-  State extends Record<string, any>,
+  State extends Record<string, unknown>,
   Event extends { type: FunctionKeys<State> }
 >(options: {
   adapter: "mobx";

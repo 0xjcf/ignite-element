@@ -2,12 +2,13 @@ import { autorun } from "mobx";
 import IgniteAdapter from "../IgniteAdapter";
 
 export type FunctionKeys<StateType> = {
-  [Key in keyof StateType]: StateType[Key] extends (...args: any[]) => any
+  [Key in keyof StateType]: StateType[Key] extends (...args: unknown[]) => unknown
     ? Key
     : never;
 }[keyof StateType];
 
-export default function createMobXAdapter<State extends Record<string, any>>(
+
+export default function createMobXAdapter<State>(
   storeFactory: () => State
 ): () => IgniteAdapter<State, { type: FunctionKeys<State> }> {
   return () => {

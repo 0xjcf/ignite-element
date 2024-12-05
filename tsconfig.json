@@ -26,8 +26,8 @@
 
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "esModuleInterop": true,
+    "esModuleInterop": true
   },
-  "include": ["src", "src/vite-env.d.ts"],
-  "exclude": ["node_modules", "dist", "src/examples"]
+  "include": ["src", "vitest.config.ts"],
+  "exclude": ["node_modules", "dist"]
 }

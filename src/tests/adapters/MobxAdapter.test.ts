@@ -74,7 +74,7 @@ describe("MobXAdapter", () => {
 
   it("should log a warning for unknown events", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    // @ts-expect-error
+    // @ts-expect-error This error is expected because `unknownAction` is not part of the defined event types.
     adapter.send({ type: "unknownAction" });
 
     expect(warnSpy).toHaveBeenCalledWith(

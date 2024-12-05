@@ -1,14 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { igniteCore } from "../IgniteCore";
-import { Store } from "redux";
+import { Store, Action } from "redux";
 import { AnyStateMachine } from "xstate";
 
 // Mock XState machine
 const mockXStateMachine = {} as AnyStateMachine;
 // Mock Redux store
-const mockReduxStore = {} as () => Store<any, any>;
+const mockReduxStore = {} as () => Store<unknown, Action<string>>;
 // Mock Mobx store
-const mockMobxStore = {} as () => Record<string, any>;
+const mockMobxStore = {} as () => Record<string, unknown>;
 
 describe("igniteCore", () => {
   it("should initialize without errors for XState adapter", () => {
@@ -38,7 +38,7 @@ describe("igniteCore", () => {
   it("should throw an error for unsupported adapters", () => {
     expect(() =>
       igniteCore({
-        // @ts-expect-error
+        // @ts-expect-error This error is expected because `unknownAction` is not part of the defined event types.
         adapter: "unsupported",
         source: mockXStateMachine,
       })
