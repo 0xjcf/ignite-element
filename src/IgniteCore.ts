@@ -1,4 +1,5 @@
 import igniteElementFactory, {
+  IgniteCore,
   IgniteElementConfig,
 } from "./IgniteElmentFactory";
 import createXStateAdapter from "./adapters/XStateAdapter";
@@ -30,33 +31,28 @@ export function igniteCore<Machine extends AnyStateMachine>(options: {
   adapter: "xstate";
   source: Machine;
   styles?: IgniteElementConfig["styles"];
-}): ReturnType<
-  typeof igniteElementFactory<StateFrom<Machine>, EventFrom<Machine>>
->;
+}): IgniteCore<StateFrom<Machine>, EventFrom<Machine>>;
 
 // Overload for Redux
 export function igniteCore<State, Event extends Action<string>>(options: {
   adapter: "redux";
   source: () => Store<State, Event>;
   styles?: IgniteElementConfig["styles"];
-}): ReturnType<typeof igniteElementFactory<State, Event>>;
+}): IgniteCore<State, Event>;
 
 // Overload for MobX
 export function igniteCore<
-  State extends Record<string, unknown>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  State extends Record<string, any>,
   Event extends { type: FunctionKeys<State> }
 >(options: {
   adapter: "mobx";
   source: () => State;
   styles?: IgniteElementConfig["styles"];
-}): ReturnType<typeof igniteElementFactory<State, Event>>;
+}): IgniteCore<State, Event>;
 
 // Unified implementation
-export function igniteCore<State>({
-  adapter,
-  source,
-  styles,
-}: IgniteCoreConfig): ReturnType<typeof igniteElementFactory<State, Event>> {
+export function igniteCore({ adapter, source, styles }: IgniteCoreConfig) {
   let adapterFactory;
 
   switch (adapter) {

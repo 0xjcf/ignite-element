@@ -17,13 +17,15 @@ type IgniteElementMethod<State, Event> = (
   renderFn: (state: State, send: (event: Event) => void) => TemplateResult
 ) => IgniteElement<State, Event>;
 
+export interface IgniteCore<State, Event> {
+  shared: IgniteElementMethod<State, Event>;
+  isolated: IgniteElementMethod<State, Event>;
+}
+
 export default function igniteElementFactory<State, Event>(
   adapterFactory: () => IgniteAdapter<State, Event>,
   config: IgniteElementConfig
-): {
-  shared: IgniteElementMethod<State, Event>;
-  isolated: IgniteElementMethod<State, Event>;
-} {
+): IgniteCore<State, Event> {
   let sharedAdapter: IgniteAdapter<State, Event> | null = null;
 
   return {

@@ -7,7 +7,6 @@ export type FunctionKeys<StateType> = {
     : never;
 }[keyof StateType];
 
-
 export default function createMobXAdapter<State>(
   storeFactory: () => State
 ): () => IgniteAdapter<State, { type: FunctionKeys<State> }> {

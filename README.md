@@ -107,7 +107,7 @@ igniteElement.isolated("product-counter", (state, send) => {
 });
 ```
 
-### Using Custom Styles with ignite-element
+### Styling with ignite-element
 
 **Note:** If using preprocessed styles (e.g., SCSS or Tailwind CSS), ensure the styles are compiled to a distributable `.css` file before referencing it in `styles.paths`. For example, use a build script like:
 
@@ -150,6 +150,8 @@ const igniteElement = igniteCore({
 - Use `styles.paths` for global stylesheets like Tailwind or SCSS.
 - Use `styles.custom` for inline styles shared across multiple components.
 - Combine `styles.paths` and `styles.custom` to create reusable, flexible designs.
+
+<!-- // TODO add link to mobx example for styling -->
 
 ## Contributing
 
