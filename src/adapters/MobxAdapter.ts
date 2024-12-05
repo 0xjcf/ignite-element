@@ -12,11 +12,13 @@ export default function createMobXAdapter<State extends Record<string, any>>(
 ): () => IgniteAdapter<State, { type: FunctionKeys<State> }> {
   return () => {
     const store = storeFactory();
-    let stopAutorun: (() => void) | null = null;
+    let unsubscribe: (() => void) | null = null;
+    let isStopped = false;
+    let lastKnownState: State = { ...store };
 
     function cleanupAutorun() {
-      stopAutorun?.();
-      stopAutorun = null;
+      unsubscribe?.();
+      unsubscribe = null;
     }
 
     return {
@@ -24,21 +26,38 @@ export default function createMobXAdapter<State extends Record<string, any>>(
        * Subscribe to state changes
        */
       subscribe(listener) {
-        stopAutorun = autorun(() => listener(store));
+        if (isStopped) {
+          throw new Error("Adapter is stopped and cannot subscribe.");
+        }
+
+        unsubscribe = autorun(() => {
+          listener({ ...store });
+        });
+
         return {
-          unsubscribe: cleanupAutorun,
+          unsubscribe: () => {
+            if (isStopped) return; // Prevent unsubscription actions after stopping
+            cleanupAutorun();
+          },
         };
       },
       /**
        * Dispatch an action (send an event)
        */
       send(event: { type: FunctionKeys<State> }) {
+        if (isStopped) {
+          console.warn(
+            "[MobxAdapter] Cannot send events when adapter is stopped."
+          );
+          return;
+        }
         const action = store[event.type];
         if (typeof action === "function") {
           action.call(store, event);
+          lastKnownState = { ...store }; // Update the last known state after an action
         } else {
           console.warn(
-            `[MobXAdapter] Unknown event type: ${String(event.type)}`
+            `[MobxAdapter] Unknown event type: ${String(event.type)}`
           );
         }
       },
@@ -46,13 +65,17 @@ export default function createMobXAdapter<State extends Record<string, any>>(
        * Get the current state snapshot
        */
       getState() {
-        return store;
+        if (isStopped) {
+          return lastKnownState; // Return the cached state after stopping
+        }
+        return { ...store };
       },
       /**
        * Stop the adapter
        */
       stop() {
-        cleanupAutorun();
+        cleanupAutorun(); // Clean up the single listener
+        isStopped = true; // Mark the adapter as stopped
       },
     };
   };

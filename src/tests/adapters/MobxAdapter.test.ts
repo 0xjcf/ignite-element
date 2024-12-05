@@ -1,13 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import createXStateAdapter from "../../adapters/XStateAdapter";
-import counterMachine from "../../examples/xstate/xstateCounterMachine";
+import createMobXAdapter, { FunctionKeys } from "../../adapters/MobxAdapter";
+import counterStore from "../../examples/mobx/mobxCounterStore";
+import IgniteAdapter from "../../IgniteAdapter";
 
-describe("XStateAdapter", () => {
-  let adapterFactory: ReturnType<typeof createXStateAdapter>;
+describe("MobXAdapter", () => {
+  type Counter = ReturnType<typeof counterStore>;
+
+  interface Event {
+    type: FunctionKeys<Counter>;
+  }
+
+  let adapterFactory: () => IgniteAdapter<Counter, Event>;
   let adapter: ReturnType<typeof adapterFactory>;
 
   beforeEach(() => {
-    adapterFactory = createXStateAdapter(counterMachine);
+    adapterFactory = createMobXAdapter(counterStore);
     adapter = adapterFactory();
   });
 
@@ -18,19 +25,15 @@ describe("XStateAdapter", () => {
 
   it("should initialize and return the current state", () => {
     expect(adapter).toBeDefined();
-    expect(adapter.getState().value).toBe("idle");
-    expect(adapter.getState().context.count).toBe(0);
+    expect(adapter.getState().count).toBe(0);
   });
 
-  it("should dispatch events and update state", () => {
-    adapter.send({ type: "START" });
-    expect(adapter.getState().value).toBe("active");
+  it("should dispatch actions to the store and update state", () => {
+    adapter.send({ type: "increment" });
+    expect(adapter.getState().count).toBe(1);
 
-    adapter.send({ type: "INC" });
-    expect(adapter.getState().context.count).toBe(1);
-
-    adapter.send({ type: "DEC" });
-    expect(adapter.getState().context.count).toBe(0);
+    adapter.send({ type: "decrement" });
+    expect(adapter.getState().count).toBe(0);
   });
 
   it("should handle multiple subscriptions and notify listeners", () => {
@@ -40,57 +43,52 @@ describe("XStateAdapter", () => {
     adapter.subscribe(listener1);
     adapter.subscribe(listener2);
 
-    adapter.send({ type: "START" });
+    adapter.send({ type: "increment" });
 
     expect(listener1).toHaveBeenCalledTimes(2);
-    expect(listener1).toHaveBeenCalledWith(
-      expect.objectContaining({ value: "idle" }) // Initial state
-    );
-    expect(listener1).toHaveBeenCalledWith(
-      expect.objectContaining({ value: "active" }) // After START
-    );
-
     expect(listener2).toHaveBeenCalledTimes(2);
-    expect(listener2).toHaveBeenCalledWith(
-      expect.objectContaining({ value: "idle" }) // Initial state
-    );
-    expect(listener2).toHaveBeenCalledWith(
-      expect.objectContaining({ value: "active" }) // After START
-    );
   });
 
   it("should clean up subscriptions when stopped", () => {
     const listener = vi.fn();
     adapter.subscribe(listener);
     adapter.stop();
-    adapter.send({ type: "INC" });
+    adapter.send({ type: "increment" });
 
     // Listener should only have been called once (for the initial state)
     expect(listener).toHaveBeenCalledTimes(1);
-    expect(listener).toHaveBeenCalledWith(
-      expect.objectContaining({ value: "idle" }) // Ensure correct initial state
-    );
   });
 
-  it("should log a warning when sending events after stop", () => {
+  it("should log a warning when send is called after stop", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     adapter.stop();
-    adapter.send({ type: "INC" });
+    adapter.send({ type: "increment" });
 
     expect(warnSpy).toHaveBeenCalledWith(
-      "[XStateAdapter] Cannot send events when adapter is stopped."
+      "[MobxAdapter] Cannot send events when adapter is stopped."
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it("should log a warning for unknown events", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // @ts-expect-error
+    adapter.send({ type: "unknownAction" });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[MobxAdapter] Unknown event type: unknownAction"
     );
 
     warnSpy.mockRestore();
   });
 
   it("should return the last known state after stop", () => {
-    adapter.send({ type: "START" });
+    adapter.send({ type: "increment" });
     adapter.stop();
 
-    expect(adapter.getState().value).toBe("active");
-    expect(adapter.getState().context.count).toBe(0);
+    expect(adapter.getState().count).toBe(1);
   });
 
   it("should prevent new subscriptions after stop", () => {

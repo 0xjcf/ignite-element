@@ -6,26 +6,31 @@ export interface IgniteElementConfig {
   styles?: { custom?: string; paths?: string[] | StyleObject[] };
 }
 
-export type StyleObject = {
+export interface StyleObject {
   href: string;
   integrity?: string;
   crossorigin?: string;
-};
+}
+
+type IgniteElementMethod<State, Event> = (
+  elementName: string,
+  renderFn: (state: State, send: (event: Event) => void) => TemplateResult
+) => IgniteElement<State, Event>;
 
 export default function igniteElementFactory<State, Event>(
   adapterFactory: () => IgniteAdapter<State, Event>,
   config: IgniteElementConfig
-) {
+): {
+  shared: IgniteElementMethod<State, Event>;
+  isolated: IgniteElementMethod<State, Event>;
+} {
   let sharedAdapter: IgniteAdapter<State, Event> | null = null;
 
   return {
     /**
      * Create a component with shared state
      */
-    shared(
-      elementName: string,
-      renderFn: (state: State, send: (event: Event) => void) => TemplateResult
-    ) {
+    shared(elementName, renderFn) {
       if (!sharedAdapter) {
         sharedAdapter = adapterFactory();
       }
@@ -42,15 +47,13 @@ export default function igniteElementFactory<State, Event>(
       }
 
       customElements.define(elementName, SharedElement);
+      return new SharedElement();
     },
 
     /**
      * Create a component with isolated state
      */
-    isolated(
-      elementName: string,
-      renderFn: (state: State, send: (event: Event) => void) => TemplateResult
-    ) {
+    isolated(elementName, renderFn) {
       class IsolatedElement extends IgniteElement<State, Event> {
         private isolatedAdapter: IgniteAdapter<State, Event>;
 
@@ -72,6 +75,7 @@ export default function igniteElementFactory<State, Event>(
       }
 
       customElements.define(elementName, IsolatedElement);
+      return new IsolatedElement();
     },
   };
 }

@@ -8,6 +8,8 @@ export default function createReduxAdapter<State, Event extends Action<string>>(
   return () => {
     const store = configureStore();
     let unsubscribe: (() => void) | null = null;
+    let isStopped = false;
+    let lastKnownState = store.getState();
 
     function cleanupSubscribe() {
       unsubscribe?.();
@@ -19,21 +21,43 @@ export default function createReduxAdapter<State, Event extends Action<string>>(
        * Subscribe to state changes
        */
       subscribe(listener) {
-        unsubscribe = store.subscribe(() => listener(store.getState()));
+        if (isStopped) {
+          throw new Error("Adapter is stopped and cannot subscribe.");
+        }
+
+        listener(store.getState());
+
+        unsubscribe = store.subscribe(() => {
+          listener(store.getState());
+        });
+
         return {
-          unsubscribe: cleanupSubscribe,
+          unsubscribe: () => {
+            if (isStopped) return;
+            cleanupSubscribe();
+          },
         };
       },
       /**
        * Dispatch an action (send an event)
        */
       send(event) {
+        if (isStopped) {
+          console.warn(
+            "[ReduxAdapter] Cannot send events when adapter is stopped."
+          );
+          return;
+        }
         store.dispatch(event);
+        lastKnownState = store.getState();
       },
       /**
        * Get the current state snapshot
        */
       getState() {
+        if (isStopped) {
+          return lastKnownState;
+        }
         return store.getState();
       },
       /**
@@ -41,6 +65,7 @@ export default function createReduxAdapter<State, Event extends Action<string>>(
        */
       stop() {
         cleanupSubscribe();
+        isStopped = true;
       },
     };
   };

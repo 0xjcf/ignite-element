@@ -2,7 +2,7 @@ import { assign, setup } from "xstate";
 
 const counterMachine = setup({
   types: {
-    events: {} as { type: "INC" } | { type: "DEC" },
+    events: {} as { type: "START" } | { type: "INC" } | { type: "DEC" },
     context: {} as {
       count: number;
     },
@@ -16,18 +16,24 @@ const counterMachine = setup({
   states: {
     idle: {
       on: {
-        INC: {
-          actions: assign({
-            count: ({ context }) => context.count + 1,
-          }),
-        },
-
-        DEC: {
-          actions: assign({
-            count: ({ context }) => context.count - 1,
-          }),
+        START: {
+          target: "active",
         },
       },
+    },
+    active: {},
+  },
+  on: {
+    INC: {
+      actions: assign({
+        count: ({ context }) => context.count + 1,
+      }),
+    },
+
+    DEC: {
+      actions: assign({
+        count: ({ context }) => context.count - 1,
+      }),
     },
   },
 });
