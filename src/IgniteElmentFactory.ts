@@ -57,22 +57,14 @@ export default function igniteElementFactory<State, Event>(
      */
     isolated(elementName, renderFn) {
       class IsolatedElement extends IgniteElement<State, Event> {
-        private isolatedAdapter: IgniteAdapter<State, Event>;
-
         constructor() {
           const isolatedAdapter = adapterFactory();
           super(isolatedAdapter);
-          this.isolatedAdapter = isolatedAdapter;
           injectStyles(this._shadowRoot, config?.styles);
         }
 
         protected render(): TemplateResult {
           return renderFn(this._currentState, (event) => this.send(event));
-        }
-
-        disconnectedCallback(): void {
-          super.disconnectedCallback();
-          this.isolatedAdapter.stop();
         }
       }
 

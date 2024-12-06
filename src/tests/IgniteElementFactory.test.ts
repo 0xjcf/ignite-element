@@ -1,27 +1,7 @@
 import igniteElementFactory from "../IgniteElmentFactory";
 import { TemplateResult } from "lit-html";
 import { vi } from "vitest";
-import IgniteAdapter from "../IgniteAdapter";
-
-// Minimal Mock Adapter implementation
-class MinimalMockAdapter<State, Event> implements IgniteAdapter<State, Event> {
-  private mockState: State;
-
-  constructor(initialState: State) {
-    this.mockState = initialState;
-  }
-
-  subscribe = vi.fn((listener: (state: State) => void) => {
-    listener(this.mockState);
-    return { unsubscribe: vi.fn() };
-  });
-
-  send = vi.fn();
-
-  getState = vi.fn(() => this.mockState);
-
-  stop = vi.fn();
-}
+import MinimalMockAdapter from "./MockAdapter";
 
 describe("IgniteElementFactory", () => {
   const initialState = { count: 0 };
@@ -29,59 +9,72 @@ describe("IgniteElementFactory", () => {
   type Event = { type: string };
   let adapter: MinimalMockAdapter<State, Event>;
   let factory: ReturnType<typeof igniteElementFactory<State, Event>>;
+  let uniqueId: number;
 
   beforeEach(() => {
+    uniqueId = Math.random();
     adapter = new MinimalMockAdapter(initialState);
     factory = igniteElementFactory(() => adapter);
   });
 
   afterEach(() => {
+    document.body.innerHTML = "";
     vi.resetAllMocks();
   });
 
   it("should create shared components and subscribe to adapter", () => {
-    const sharedComponent = factory.shared("shared-counter", (state) => {
-      expect(state).toEqual(initialState);
-      return {} as TemplateResult; // Mock TemplateResult
-    });
+    const sharedComponent = factory.shared(
+      `shared-counter-${uniqueId}`,
+      (state) => {
+        expect(state).toEqual(initialState);
+        return {} as TemplateResult; // Mock TemplateResult
+      }
+    );
 
-    sharedComponent.connectedCallback();
+    document.body.appendChild(sharedComponent);
 
     expect(sharedComponent).toBeDefined();
     expect(adapter.subscribe).toHaveBeenCalled();
   });
 
   it("should create isolated components and subscribe to adapter", () => {
-    const isolatedComponent = factory.isolated("isolated-counter", (state) => {
-      expect(state).toEqual(initialState);
-      return {} as TemplateResult; // Mock TemplateResult
-    });
+    const isolatedComponent = factory.isolated(
+      `isolated-counter-${uniqueId}`,
+      (state) => {
+        expect(state).toEqual(initialState);
+        return {} as TemplateResult; // Mock TemplateResult
+      }
+    );
 
-    isolatedComponent.connectedCallback();
+    document.body.appendChild(isolatedComponent);
 
     expect(isolatedComponent).toBeDefined();
     expect(adapter.subscribe).toHaveBeenCalled();
   });
 
   it("should initialize adapter during connectedCallback", () => {
-    const isolatedComponent = factory.isolated("isolated-counter", () => {
-      return {} as TemplateResult; // Mock TemplateResult
-    });
+    const isolatedComponent = factory.isolated(
+      `isolated-counter-${uniqueId}`,
+      () => {
+        return {} as TemplateResult; // Mock TemplateResult
+      }
+    );
 
-    isolatedComponent.connectedCallback();
+    document.body.appendChild(isolatedComponent);
 
     expect(adapter.subscribe).toHaveBeenCalledTimes(1);
   });
 
   it("should call stop on isolated component disconnection", () => {
-    const isolatedComponent = factory.isolated("isolated-counter", () => {
-      return {} as TemplateResult; // Mock TemplateResult
-    });
+    const isolatedComponent = factory.isolated(
+      `isolated-counter-${uniqueId}`,
+      () => {
+        return {} as TemplateResult; // Mock TemplateResult
+      }
+    );
 
-    isolatedComponent.connectedCallback();
-    isolatedComponent.disconnectedCallback();
-
-    console.log("Adapter stop calls:", adapter.stop.mock.calls);
+    document.body.appendChild(isolatedComponent);
+    document.body.removeChild(isolatedComponent);
 
     expect(adapter.stop).toHaveBeenCalledTimes(1);
   });
@@ -91,19 +84,19 @@ describe("IgniteElementFactory", () => {
     const styledFactory = igniteElementFactory(() => adapter, { styles });
 
     const sharedComponent = styledFactory.shared(
-      "shared-styled-counter",
+      `shared-styled-counter-${uniqueId}`,
       () => {
         return {} as TemplateResult; // Mock TemplateResult
       }
     );
 
-    sharedComponent.connectedCallback();
+    document.body.appendChild(sharedComponent);
 
-    const shadowRoot = sharedComponent.shadowRoot!;
-    const styleElement = shadowRoot.querySelector("style");
+    const shadowRoot = sharedComponent.shadowRoot;
+    const styleElement = shadowRoot?.querySelector("style");
 
     expect(styleElement).toBeDefined();
-    expect(styleElement!.textContent).toContain(styles.custom);
+    expect(styleElement?.textContent).toContain(styles.custom);
   });
 
   it("should inject external stylesheet paths into the shadow DOM", () => {
@@ -115,19 +108,22 @@ describe("IgniteElementFactory", () => {
     };
     const styledFactory = igniteElementFactory(() => adapter, { styles });
 
-    const sharedComponent = styledFactory.shared("shared-styled-paths", () => {
-      return {} as TemplateResult; // Mock TemplateResult
-    });
+    const sharedComponent = styledFactory.shared(
+      `shared-styled-paths-${uniqueId}`,
+      () => {
+        return {} as TemplateResult; // Mock TemplateResult
+      }
+    );
 
-    sharedComponent.connectedCallback();
+    document.body.appendChild(sharedComponent);
 
-    const shadowRoot = sharedComponent.shadowRoot!;
-    const linkElements = shadowRoot.querySelectorAll("link");
+    const shadowRoot = sharedComponent.shadowRoot;
+    const linkElements = shadowRoot?.querySelectorAll("link");
 
-    expect(linkElements.length).toBe(2);
-    expect(linkElements[0].href).toBe("https://example.com/styles.css");
-    expect(linkElements[1].href).toBe("https://example.com/other-styles.css");
-    expect(linkElements[1].integrity).toBe("abc123");
+    expect(linkElements?.length).toBe(2);
+    expect(linkElements?.[0].href).toBe("https://example.com/styles.css");
+    expect(linkElements?.[1].href).toBe("https://example.com/other-styles.css");
+    expect(linkElements?.[1].integrity).toBe("abc123");
   });
 
   it("should inject external stylesheet with crossorigin into the shadow DOM", () => {
@@ -143,21 +139,21 @@ describe("IgniteElementFactory", () => {
     const styledFactory = igniteElementFactory(() => adapter, { styles });
 
     const sharedComponent = styledFactory.shared(
-      "shared-styled-crossorigin",
+      `shared-styled-crossorigin-${uniqueId}`,
       () => {
         return {} as TemplateResult; // Mock TemplateResult
       }
     );
 
-    sharedComponent.connectedCallback();
+    document.body.appendChild(sharedComponent);
 
-    const shadowRoot = sharedComponent.shadowRoot!;
-    const linkElement = shadowRoot.querySelector("link");
+    const shadowRoot = sharedComponent.shadowRoot;
+    const linkElement = shadowRoot?.querySelector("link");
 
     expect(linkElement).toBeDefined();
-    expect(linkElement!.href).toBe("https://example.com/secure-styles.css");
-    expect(linkElement!.integrity).toBe("sha256-123");
-    expect(linkElement!.crossOrigin).toBe("anonymous");
+    expect(linkElement?.href).toBe("https://example.com/secure-styles.css");
+    expect(linkElement?.integrity).toBe("sha256-123");
+    expect(linkElement?.crossOrigin).toBe("anonymous");
   });
 
   it("should log a warning for invalid style paths", () => {
@@ -170,13 +166,13 @@ describe("IgniteElementFactory", () => {
     const styledFactory = igniteElementFactory(() => adapter, { styles });
 
     const sharedComponent = styledFactory.shared(
-      "shared-styled-invalid",
+      `shared-styled-invalid-${uniqueId}`,
       () => {
         return {} as TemplateResult; // Mock TemplateResult
       }
     );
 
-    sharedComponent.connectedCallback();
+    document.body.appendChild(sharedComponent);
 
     expect(warnSpy).toHaveBeenCalledTimes(2);
     expect(warnSpy).toHaveBeenCalledWith("Invalid style path/object:", 42);
@@ -189,12 +185,15 @@ describe("IgniteElementFactory", () => {
 
   it("should call the send method from render", () => {
     const event = { type: "increment" };
-    const sharedComponent = factory.shared("shared-send-test", (_, send) => {
-      send(event);
-      return {} as TemplateResult; // Mock TemplateResult
-    });
+    const sharedComponent = factory.shared(
+      `shared-send-test-${uniqueId}`,
+      (_, send) => {
+        send(event);
+        return {} as TemplateResult; // Mock TemplateResult
+      }
+    );
 
-    sharedComponent.connectedCallback();
+    document.body.appendChild(sharedComponent);
     expect(adapter.send).toHaveBeenCalledWith(event);
 
     const isolatedComponent = factory.isolated(
