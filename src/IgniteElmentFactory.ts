@@ -3,7 +3,7 @@ import IgniteAdapter from "./IgniteAdapter";
 import IgniteElement from "./IgniteElement";
 
 export interface IgniteElementConfig {
-  styles?: { custom?: string; paths?: string[] | StyleObject[] };
+  styles?: { custom?: string; paths?: (string | StyleObject)[] };
 }
 
 export interface StyleObject {
@@ -24,7 +24,7 @@ export interface IgniteCore<State, Event> {
 
 export default function igniteElementFactory<State, Event>(
   adapterFactory: () => IgniteAdapter<State, Event>,
-  config: IgniteElementConfig
+  config?: IgniteElementConfig
 ): IgniteCore<State, Event> {
   let sharedAdapter: IgniteAdapter<State, Event> | null = null;
 
@@ -40,7 +40,7 @@ export default function igniteElementFactory<State, Event>(
       class SharedElement extends IgniteElement<State, Event> {
         constructor() {
           super(sharedAdapter!);
-          injectStyles(this._shadowRoot, config.styles);
+          injectStyles(this._shadowRoot, config?.styles);
         }
 
         protected render(): TemplateResult {
@@ -63,7 +63,7 @@ export default function igniteElementFactory<State, Event>(
           const isolatedAdapter = adapterFactory();
           super(isolatedAdapter);
           this.isolatedAdapter = isolatedAdapter;
-          injectStyles(this._shadowRoot, config.styles);
+          injectStyles(this._shadowRoot, config?.styles);
         }
 
         protected render(): TemplateResult {
