@@ -9,6 +9,13 @@ describe("IgniteElement", () => {
   let adapter: MockAdapter<State, Event>;
   let element: HTMLElement;
 
+  // Create a type to expose protected methods for testing
+  interface TestIgniteElement extends HTMLElement {
+    state: State;
+    _currentState: State | null;
+    renderTemplate: () => void;
+  }
+
   beforeEach(() => {
     adapter = new MockAdapter(initialState);
     const factory = igniteElementFactory(() => adapter);
@@ -46,7 +53,7 @@ describe("IgniteElement", () => {
   it("should update the DOM when the state changes", () => {
     // Simulate a state update
     adapter.subscribe.mock.calls[0][0]({ count: 1 }); // Call listener with new state
-    const shadowContent = element.shadowRoot!.textContent;
+    const shadowContent = element.shadowRoot?.textContent;
     expect(shadowContent).toContain("Count: 1");
   });
 
@@ -56,13 +63,13 @@ describe("IgniteElement", () => {
   });
 
   it("should return the adapter's state via the state getter", () => {
-    const elementInstance = element as any; // Access protected methods for testing
+    const elementInstance = element as TestIgniteElement; // Access protected methods for testing
     expect(elementInstance.state).toEqual(initialState);
     expect(adapter.getState).toHaveBeenCalled();
   });
 
   it("should warn if _currentState is not initialized during renderTemplate", () => {
-    const elementInstance = element as any; // Access protected methods for testing
+    const elementInstance = element as TestIgniteElement; // Access protected methods for testing
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     // Set _currentState to null and force renderTemplate
@@ -77,14 +84,14 @@ describe("IgniteElement", () => {
   });
 
   it("should not warn and render correctly if _currentState is initialized", () => {
-    const elementInstance = element as any; // Access protected methods for testing
+    const elementInstance = element as TestIgniteElement; // Access protected methods for testing
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     // Ensure _currentState is initialized and renderTemplate is called
     elementInstance._currentState = initialState;
     elementInstance.renderTemplate();
 
-    const shadowContent = element.shadowRoot!.textContent;
+    const shadowContent = element.shadowRoot?.textContent;
     expect(shadowContent).toContain("Count: 0");
     expect(warnSpy).not.toHaveBeenCalled();
 
