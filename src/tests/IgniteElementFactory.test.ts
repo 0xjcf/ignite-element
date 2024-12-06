@@ -63,15 +63,27 @@ describe("IgniteElementFactory", () => {
     expect(adapter.subscribe).toHaveBeenCalled();
   });
 
+  it("should initialize adapter during connectedCallback", () => {
+    const isolatedComponent = factory.isolated("isolated-counter", () => {
+      return {} as TemplateResult; // Mock TemplateResult
+    });
+
+    isolatedComponent.connectedCallback();
+
+    expect(adapter.subscribe).toHaveBeenCalledTimes(1);
+  });
+
   it("should call stop on isolated component disconnection", () => {
     const isolatedComponent = factory.isolated("isolated-counter", () => {
       return {} as TemplateResult; // Mock TemplateResult
     });
 
-    isolatedComponent.connectedCallback(); 
+    isolatedComponent.connectedCallback();
     isolatedComponent.disconnectedCallback();
 
-    expect(adapter.stop).toHaveBeenCalled();
+    console.log("Adapter stop calls:", adapter.stop.mock.calls);
+
+    expect(adapter.stop).toHaveBeenCalledTimes(1);
   });
 
   it("should inject custom styles into the shadow DOM", () => {
