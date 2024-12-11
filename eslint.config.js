@@ -5,7 +5,7 @@ import tsParser from "@typescript-eslint/parser";
 /** @type {import('eslint').Linter.Config[]} */
 export default [
   {
-    ignores: ["dist"], // Ignore the dist directory
+    ignores: ["dist", "src/tests", "vitest.config.ts", "vite.config.ts"], // Ignore the dist directory
   },
   {
     files: ["**/*.{ts,tsx}"],

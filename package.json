@@ -1,6 +1,6 @@
 {
   "name": "ignite-element",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "main": "dist/ignite-element.cjs.js",
   "types": "dist/types/index.d.ts",
@@ -13,6 +13,31 @@
       "default": "./dist/ignite-element.es.js"
     }
   },
+  "description": "A framework-agnostic library for creating web components with state management support.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0xjcf/ignite-element.git"
+  },
+  "homepage": "https://github.com/0xjcf/ignite-element#readme",
+  "bugs": {
+    "url": "https://github.com/0xjcf/ignite-element/issues"
+  },
+  "keywords": [
+    "web-components",
+    "state-management",
+    "redux",
+    "xstate",
+    "mobx",
+    "ignite-element"
+  ],
+  "author": "Jose C. Flores (0xjcf)",
+  "license": "MIT",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
   "scripts": {
     "build:types": "tsc",
     "build:js": "vite build",
@@ -46,5 +71,8 @@
     "mobx": ">=6.13.5",
     "redux": ">=5.0.1",
     "xstate": ">=5.19.0"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

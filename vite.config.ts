@@ -9,13 +9,14 @@ export default defineConfig({
       fileName: (format) => `ignite-element.${format}.js`,
     },
     rollupOptions: {
-      external: ["xstate", "redux", "mobx", "lit-html"],
+      external: ["lit-html", "xstate", "mobx", "redux", "@reduxjs/toolkit"],
       output: {
         globals: {
           xstate: "XState",
           redux: "Redux",
           mobx: "MobX",
           "lit-html": "LitHTML",
+          "@reduxjs/toolkit": "RTK",
         },
       },
     },
