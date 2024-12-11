@@ -16,7 +16,7 @@
   "description": "A framework-agnostic library for creating web components with state management support.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/0xjcf/ignite-element.git"
+    "url": "git+https://github.com/0xjcf/ignite-element.git"
   },
   "homepage": "https://github.com/0xjcf/ignite-element#readme",
   "bugs": {
@@ -49,7 +49,8 @@
     "test:coverage": "vitest --coverage",
     "lint": "eslint .",
     "release": "standard-version",
-    "postrelease": "npm publish"
+    "postrelease": "npm publish",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.6.0",
