@@ -50,6 +50,8 @@ describe("MobXAdapter", () => {
   });
 
   it("should clean up subscriptions when stopped", () => {
+    const consoleErrorMock = vi.spyOn(console, "warn").mockImplementation(() => {});
+
     const listener = vi.fn();
     adapter.subscribe(listener);
     adapter.stop();
@@ -57,6 +59,11 @@ describe("MobXAdapter", () => {
 
     // Listener should only have been called once (for the initial state)
     expect(listener).toHaveBeenCalledTimes(1);
+    expect(consoleErrorMock).toHaveBeenCalledWith(
+      expect.stringContaining("Cannot send events when adapter is stopped")
+    );
+
+    consoleErrorMock.mockRestore(); // Restore original console.error
   });
 
   it("should log a warning when send is called after stop", () => {

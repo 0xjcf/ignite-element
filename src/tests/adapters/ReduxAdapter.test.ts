@@ -58,12 +58,19 @@ describe("ReduxAdapter", () => {
   });
 
   it("should clean up subscriptions when stopped", () => {
+    const consoleErrorMock = vi.spyOn(console, "warn").mockImplementation(() => {});
+
     const listener = vi.fn();
     adapter.subscribe(listener);
     adapter.stop();
     adapter.send(increment());
-
+    
     expect(listener).toHaveBeenCalledTimes(1);
+    expect(consoleErrorMock).toHaveBeenCalledWith(
+      expect.stringContaining("Cannot send events when adapter is stopped")
+    );
+
+    consoleErrorMock.mockRestore(); // Restore original console.error
   });
 
   it("should log a warning when send is called after stop", () => {

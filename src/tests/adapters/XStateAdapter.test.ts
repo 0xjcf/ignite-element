@@ -60,17 +60,25 @@ describe("XStateAdapter", () => {
   });
 
   it("should clean up subscriptions when stopped", () => {
+    const consoleErrorMock = vi.spyOn(console, "warn").mockImplementation(() => {});
+  
     const listener = vi.fn();
     adapter.subscribe(listener);
     adapter.stop();
     adapter.send({ type: "INC" });
-
+  
     // Listener should only have been called once (for the initial state)
     expect(listener).toHaveBeenCalledTimes(1);
     expect(listener).toHaveBeenCalledWith(
       expect.objectContaining({ value: "idle" }) // Ensure correct initial state
     );
+    expect(consoleErrorMock).toHaveBeenCalledWith(
+      expect.stringContaining("Cannot send events when adapter is stopped")
+    );
+  
+    consoleErrorMock.mockRestore(); // Restore original console.error
   });
+  
 
   it("should log a warning when sending events after stop", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});

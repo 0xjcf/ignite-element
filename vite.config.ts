@@ -21,6 +21,9 @@ export default defineConfig({
       },
     },
   },
+  define: {
+    "process.env.NODE_ENV": JSON.stringify("production"), // Inject NODE_ENV as production
+  },
   plugins: [
     dts({
       insertTypesEntry: true,
