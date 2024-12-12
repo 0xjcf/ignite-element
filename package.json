@@ -46,7 +46,7 @@
     "examples:redux": "cd src/examples/redux && npm install && npm run dev",
     "examples:mobx": "cd src/examples/mobx && npm install && npm run dev",
     "test": "vitest --run",
-    "test:coverage": "vitest --coverage",
+    "test:coverage": "vitest --run --coverage",
     "lint": "eslint .",
     "release": "standard-version",
     "postrelease": "npm publish",
