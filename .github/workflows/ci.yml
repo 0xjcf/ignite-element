@@ -108,9 +108,9 @@ jobs:
         with:
           node-version: 22
 
-      # Step 3: Compile the TypeScript file (if needed)
-      - name: Compile TypeScript
-        run: npx tsc scripts/refresh-npm-token.ts --outDir scripts --module CommonJS
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: npm install
 
       # Step 4: Run the token refresh script
       - name: Refresh NPM Token

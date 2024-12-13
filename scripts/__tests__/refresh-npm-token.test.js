@@ -13,7 +13,7 @@ describe("refreshNpmToken", () => {
   const mockRepoName = "mock-user/mock-repo";
   const mockNewToken = "mock-new-token";
 
-  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+  let consoleErrorSpy;
 
   beforeEach(() => {
     process.env.GITHUB_TOKEN = mockGithubToken;
@@ -24,7 +24,7 @@ describe("refreshNpmToken", () => {
       ok: true,
       status: 200,
       statusText: "OK",
-    } as Response);
+    });
 
     // Spy on console.error to suppress logs
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -62,7 +62,7 @@ describe("refreshNpmToken", () => {
       ok: false,
       status: 500,
       statusText: "Internal Server Error",
-    } as Response);
+    });
 
     // Assert that refreshNpmToken rejects with the correct error
     await expect(refreshNpmToken()).rejects.toThrow(
