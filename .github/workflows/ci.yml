@@ -81,7 +81,8 @@ jobs:
             echo "Version $CURRENT_VERSION already published. Bumping to next patch version."
             npm version patch --no-git-tag-version
             git add package.json package-lock.json
-            git commit -m 'chore: bump version to '"$(node -p \"require('./package.json').version\")"
+            NEW_VERSION=$(node -p "require('./package.json').version")
+            git commit -m "chore: bump version to $NEW_VERSION"
           fi
           git status
 
