@@ -11,7 +11,10 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04] # Test on both versions
+    runs-on: ${{ matrix.os }}
 
     steps:
       # Step 1: Check out the code
