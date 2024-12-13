@@ -46,11 +46,15 @@ jobs:
       - name: Lint code
         run: npm run lint
 
-      # Step 7: Run tests
-      - name: Run tests
-        run: npm run test -- --run
+      # Step 7: Run jsdom tests
+      - name: Run jsdom tests
+        run: npm run test:jsdom
 
-      # Step 8: Run coverage
+      # Step 8: Run node tests
+      - name: Run node tests
+        run: npm run test
+
+      # Step 9: Run coverage
       - name: Run coverage
         run: npm run test:coverage
 
@@ -91,7 +95,6 @@ jobs:
 
   refresh-token:
     runs-on: ubuntu-latest
-
     steps:
       # Step 1: Checkout code
       - name: Checkout code
