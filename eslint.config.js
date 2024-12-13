@@ -10,6 +10,7 @@ export default [
       "src/tests",
       "vitest.config.ts",
       "vite.config.ts",
+      "vitest.node.config.ts",
       "src/examples",
       "coverage"
     ],

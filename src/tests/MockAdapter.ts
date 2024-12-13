@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import IgniteAdapter from "../IgniteAdapter";
 
 // Minimal Mock Adapter implementation

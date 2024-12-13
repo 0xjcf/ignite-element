@@ -1,6 +1,6 @@
 import igniteElementFactory from "../IgniteElmentFactory";
 import { TemplateResult } from "lit-html";
-import { vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import MinimalMockAdapter from "./MockAdapter";
 
 describe("IgniteElementFactory", () => {

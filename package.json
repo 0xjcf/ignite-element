@@ -47,6 +47,7 @@
     "examples:mobx": "cd src/examples/mobx && npm install && npm run dev",
     "test": "vitest --run",
     "test:coverage": "vitest --run --coverage",
+    "test:node": "FORCE_COLOR=1 vitest --config vitest.node.config.ts",
     "lint": "eslint .",
     "release": "standard-version",
     "postrelease": "npm publish",

@@ -1,10 +1,12 @@
-name: CI Build
+name: CI Build & Release
 
 on:
   push:
     branches:
       - main
   pull_request:
+  schedule:
+    - cron: "0 0 * * 0" # Every Sunday at midnight UTC for token refresh
 
 jobs:
   build:
@@ -15,22 +17,95 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      # Step 2: Cache dependencies
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      # Step 3: Set up Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      # Step 4: Install dependencies
+      - name: Install dependencies
+        run: npm install
+
+      # Step 5: Validate commit messages
+      - name: Validate commit messages
+        run: |
+          npx --no-install commitlint --from=HEAD~10 --to=HEAD
+
+      # Step 6: Run linting
+      - name: Lint code
+        run: npm run lint
+
+      # Step 7: Run tests
+      - name: Run tests
+        run: npm run test -- --run
+
+      # Step 8: Run coverage
+      - name: Run coverage
+        run: npm run test:coverage
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out the code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Install dependencies
+      - name: Install dependencies
+        run: npm install
+
+      # Step 3: Generate changelog and bump version
+      - name: Generate changelog and bump version
+        run: npm run release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Step 4: Push changes and tags
+      - name: Push changes and tags
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git push origin main --follow-tags
+
+      # Step 5: Publish to NPM
+      - name: Publish to NPM
+        if: github.ref == 'refs/heads/main'
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  refresh-token:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       # Step 2: Set up Node.js
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 22 # Use the Node.js version your project requires
-          cache: 'npm'
+          node-version: 22
 
-      # Step 3: Install dependencies
-      - name: Install dependencies
-        run: npm install
-
-      # Step 4: Run linting (optional, if you use ESLint or similar)
-      - name: Lint code
-        run: npm run lint
-
-
-      # Step 6: Run coverage (optional)
-      - name: Run coverage
-        run: npm run test:coverage
+      # Step 3: Run the token refresh script
+      - name: Refresh NPM Token
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.repository }}
+        run: node scripts/refresh-npm-token.js
