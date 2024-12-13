@@ -41,7 +41,7 @@ jobs:
       # Step 5: Validate commit messages
       - name: Validate commit messages
         run: |
-          npx --no-install commitlint --from=HEAD~10 --to=HEAD
+          npx --no-install commitlint --from=$(git rev-list --max-parents=0 HEAD) --to=HEAD
 
       # Step 6: Run linting
       - name: Lint code
@@ -96,6 +96,7 @@ jobs:
 
   refresh-token:
     runs-on: ubuntu-latest
+
     steps:
       # Step 1: Checkout code
       - name: Checkout code
@@ -107,7 +108,11 @@ jobs:
         with:
           node-version: 22
 
-      # Step 3: Run the token refresh script
+      # Step 3: Compile the TypeScript file (if needed)
+      - name: Compile TypeScript
+        run: npx tsc scripts/refresh-npm-token.ts --outDir scripts --module CommonJS
+
+      # Step 4: Run the token refresh script
       - name: Refresh NPM Token
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
