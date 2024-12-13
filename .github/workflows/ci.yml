@@ -98,12 +98,6 @@ jobs:
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           git push origin main --follow-tags
 
-      - name: Publish to NPM
-        if: github.ref == 'refs/heads/main'
-        run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
   refresh-token:
     runs-on: ubuntu-22.04
 
