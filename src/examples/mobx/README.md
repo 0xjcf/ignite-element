@@ -41,47 +41,6 @@ When running the example, you'll see:
 
 This example uses **CSS variables** for styling and customization. The shared styles are defined in the `igniteCore` configuration, and component-specific styles are applied using `<style>` tags in the components.
 
-### Example of Shared Styles
-
-```javascript
-const igniteElement = igniteCore({
-  adapter: "mobx",
-  source: counterStore,
-  styles: {
-    custom: `
-      :host {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        margin: 10px;
-        padding: 10px;
-        border: 1px solid var(--border-color, #ccc);
-        border-radius: 5px;
-        background-color: var(--background-color, #f9f9f9);
-      }
-
-      h3 {
-        color: var(--header-color, #000);
-      }
-
-      button {
-        margin: 5px;
-        padding: 5px 10px;
-        border: none;
-        border-radius: 3px;
-        cursor: pointer;
-        background-color: var(--button-color, #007bff);
-        color: var(--button-text-color, white);
-      }
-
-      button:hover {
-        background-color: var(--button-hover-color, #0056b3);
-      }
-    `,
-  },
-});
-```
-
 ## ignite-element and Mobx
 
 1. **Define a MobX Store**: Create a reactive MobX store with decorators for state and actions.
@@ -129,6 +88,24 @@ const igniteElement = igniteCore({
         border: 1px solid var(--border-color, #ccc);
         border-radius: 5px;
         background-color: var(--background-color, #f9f9f9);
+      }
+
+      h3 {
+        color: var(--header-color, #000);
+      }
+
+      button {
+        margin: 5px;
+        padding: 5px 10px;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        background-color: var(--button-color, #007bff);
+        color: var(--button-text-color, white);
+      }
+
+      button:hover {
+        background-color: var(--button-hover-color, #0056b3);
       }
     `,
   },
@@ -203,6 +180,7 @@ igniteElement.isolated("another-counter-mobx", (state, action) => {
 ```
 
 #### **Add Components to HTML** Use the custom element in your HTML file.
+
 ```html
 <my-counter-mobx></my-counter-mobx>
 <shared-display-mobx></shared-display-mobx>

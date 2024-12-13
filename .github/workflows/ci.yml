@@ -78,7 +78,7 @@ jobs:
           CURRENT_VERSION=$(npm view ignite-element version)
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
           if [ "$CURRENT_VERSION" = "$PACKAGE_VERSION" ]; then
-            echo "Version $CURRENT_VERSION already published. Skipping release process."
+            echo "Version $CURRENT_VERSION already published. Bump to next version."
             exit 0
           fi
 

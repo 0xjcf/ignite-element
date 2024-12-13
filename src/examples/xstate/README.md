@@ -65,18 +65,6 @@ npm run build:css
 
 Ensure the `dist/styles.css` file is generated and path is set in `igniteCore` before running the example.
 
-```typescript
-import { igniteCore } from "ignite-element";
-
-const igniteElement = igniteCore({
-  adapter: "xstate",
-  source: counterMachine,
-  style: {
-    paths: ["dist/styles.css"],
-  },
-});
-```
-
 ## ignite-element and XState
 
 ### Setting Up ignite-element with Xstate
@@ -109,6 +97,9 @@ import { igniteCore } from "ignite-element";
 const igniteElement = igniteCore({
   adapter: "xstate",
   source: counterMachine,
+  styles: {
+    paths: ["./dist/styles.css"],
+  },
 });
 ```
 

@@ -1,5 +1,9 @@
 # ignite-element
 
+[![CI Build](https://github.com/0xjcf/ignite-element/actions/workflows/ci.yml/badge.svg)](https://github.com/0xjcf/ignite-element/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/ignite-element.svg)](https://www.npmjs.com/package/ignite-element)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 ## Table of Contents
 
 1. [Features](#features)
@@ -129,7 +133,7 @@ const igniteElement = igniteCore({
 
 **Note:** If `styles.paths` and `styles.custom` are not provided, no additional styles will be applied to your components. Ensure you configure at least one of these options to style your components effectively.
 
-**Important:** If you are using Tailwind, you must ensure the `styles.paths` property points to your compiled Tailwind CSS file (e.g., `dist/styles.css`) for ignite-element to properly inject the styles.
+**Using the** `styles.custom` **Property**: The styles.custom property allows you to directly inject CSS rules into your ignite-element components. This is particularly useful for small customizations or inline styles that don't require a separate stylesheet.
 
 ```typescript
 const igniteElement = igniteCore({
@@ -145,13 +149,15 @@ const igniteElement = igniteCore({
 });
 ```
 
+This approach is ideal for dynamically generated styles or when external stylesheets are not necessary. However, for larger stylesheets or frameworks like Tailwind CSS, consider using the styles.paths property to reference your compiled CSS file.
+
 ### Best Practices for Styling
 
 - Use `styles.paths` for global stylesheets like Tailwind or SCSS.
 - Use `styles.custom` for inline styles shared across multiple components.
 - Combine `styles.paths` and `styles.custom` to create reusable, flexible designs.
 
-<!-- // TODO add link to mobx example for styling -->
+For an example of using `styles.custom`, see the [MobX example in the repository](src/examples/mobx/README.md). This demonstrates how to define and apply custom inline styles effectively.
 
 ## Contributing
 
@@ -160,13 +166,13 @@ Contributions are welcome! Please follow these steps to get started:
 Clone the repository
 
 ```bash
-git clone https://github.com/0xjcf/Ignite-Element.git
+git clone https://github.com/0xjcf/ignite-element.git
 ```
 
 Install dependencies:
 
 ```bash
-npm i
+npm install
 ```
 
 **Note:** Ensure you are using a compatible Node.js version as specified in the `package.json` or `.nvmrc` file.
@@ -177,19 +183,17 @@ Build the project:
 npm run build
 ```
 
-### Running Examples Locally
-
-Install dependencies for examples before running the scripts.
+## Running Examples Locally
 
 ### Example Scripts
 
-To explore usage examples, you can serve the example files directly:
+You can explore usage examples by running the provided scripts from the root of the repository:
 
 - **XState Example**: `npm run examples:xstate`
 - **Redux Example**: `npm run examples:redux`
 - **MobX Example**: `npm run examples:mobx`
 
-Before running examples, ensure you have built the project using:
+Before running any examples, ensure the project is built by executing:
 
 ```bash
 npm run build
