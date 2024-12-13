@@ -73,7 +73,7 @@ jobs:
       - name: Configure NPM registry
         run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
 
-      - name: Check NPM version
+      - name: Check NPM Version
         run: |
           CURRENT_VERSION=$(npm view ignite-element version)
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
@@ -81,7 +81,7 @@ jobs:
             echo "Version $CURRENT_VERSION already published. Bumping to next patch version."
             npm version patch --no-git-tag-version
             git add package.json package-lock.json
-            git commit -m "chore: bump version to $(node -p \"require('./package.json').version\")"
+            git commit -m 'chore: bump version to '"$(node -p \"require('./package.json').version\")"
           fi
           git status
 
