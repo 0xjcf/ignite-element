@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - test-ci-workflow
   pull_request:
   schedule:
     - cron: "0 0 * * 0" # Every Sunday at midnight UTC for token refresh
