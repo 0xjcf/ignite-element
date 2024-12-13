@@ -1,1 +1,5 @@
+echo "Running package tests..."
 npm run test
+
+echo "Running scripts tests..."
+npm run test:node
