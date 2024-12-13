@@ -78,13 +78,9 @@ jobs:
           CURRENT_VERSION=$(npm view ignite-element version)
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
           if [ "$CURRENT_VERSION" = "$PACKAGE_VERSION" ]; then
-            echo "Version $CURRENT_VERSION already published. Bumping to next patch version."
-            npm version patch --no-git-tag-version
-            git add package.json package-lock.json
-            NEW_VERSION=$(node -p "require('./package.json').version")
-            git commit -m "chore: bump version to $NEW_VERSION"
+            echo "Version $CURRENT_VERSION already published. Skipping release process."
+            exit 0
           fi
-          git status
 
       - name: Generate changelog and bump version
         run: npm run release
