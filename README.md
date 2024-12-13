@@ -44,9 +44,9 @@ npm install ignite-element xstate
 
 ### Examples:
 
-- [XState Example](./src/examples/xstate): Demonstrates state machine integration using XState.
-- [Redux Example](./src/examples/redux/): Shows how to manage state with Redux.
-- [MobX Example](./src/examples/mobx/): A reactive state management example using MobX.
+- [XState Example](https://github.com/0xjcf/ignite-element/blob/main/src/examples/xstate/README.md): Demonstrates state machine integration using XState.
+- [Redux Example](https://github.com/0xjcf/ignite-element/blob/main/src/examples/redux/README.md): Shows how to manage state with Redux.
+- [MobX Example](https://github.com/0xjcf/ignite-element/blob/main/src/examples/mobx/README.md): A reactive state management example using MobX.
 
 ### Shared vs. Isolated Components
 
@@ -157,7 +157,7 @@ This approach is ideal for dynamically generated styles or when external stylesh
 - Use `styles.custom` for inline styles shared across multiple components.
 - Combine `styles.paths` and `styles.custom` to create reusable, flexible designs.
 
-For an example of using `styles.custom`, see the [MobX example in the repository](src/examples/mobx/README.md). This demonstrates how to define and apply custom inline styles effectively.
+For an example of using `styles.custom`, see the [MobX example in the repository](https://github.com/0xjcf/ignite-element/blob/main/src/examples/mobx/README.md). This demonstrates how to define and apply custom inline styles effectively.
 
 ## Contributing
 
