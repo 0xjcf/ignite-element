@@ -49,11 +49,11 @@ jobs:
 
       # Step 7: Run jsdom tests
       - name: Run jsdom tests
-        run: npm run test:jsdom
+        run: npm run test
 
       # Step 8: Run node tests
       - name: Run node tests
-        run: npm run test
+        run: npm run test:node
 
       # Step 9: Run coverage
       - name: Run coverage
