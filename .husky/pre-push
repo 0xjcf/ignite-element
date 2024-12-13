@@ -1,5 +1,5 @@
-echo "Running jsdom tests..."
-npm run test:jsdom
+echo "Running package tests..."
+npm run test
 
-echo "Running node tests..."
+echo "Running scripts tests..."
 npm run test:node
