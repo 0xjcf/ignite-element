@@ -5,8 +5,21 @@ export default mergeConfig(
   viteConfig,
   defineConfig({
     test: {
-      environment: "jsdom", // Use jsdom for package tests
-      include: ["src/**/*.test.ts"], // Include only tests in the src directory
+      environment: "jsdom", 
+      include: ["src/**/*.test.ts"],
+      coverage: {
+        exclude: [
+          "src/examples/**",
+          "**/*.config.{js,ts}", 
+          "vite.config.ts", 
+          "vitest.config.ts", 
+          "vite-env.d.ts",
+          "dist/**", 
+          "src/index.ts", 
+          "src/**/*.d.ts", 
+          "scripts"
+        ],
+      },
     },
   })
 );
