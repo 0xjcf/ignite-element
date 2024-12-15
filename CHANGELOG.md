@@ -2,9 +2,7 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
-### 1.0.13 (2024-12-13)
-
-### 1.0.01 to 1.0.12 (2024-12-13)
+### 1.0.01 to 1.0.13 (2024-12-13)
 
 - **Internal updates**:
   - Improved publishing steps to avoid duplicate actions.

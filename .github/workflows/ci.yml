@@ -5,8 +5,6 @@ on:
     branches:
       - main
   pull_request:
-  schedule:
-    - cron: "0 0 * * 0" # Every Sunday at midnight UTC for token refresh
 
 jobs:
   build:
@@ -52,7 +50,7 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-22.04
-
+    if: ${{ needs.build.result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -96,24 +94,3 @@ jobs:
         run: |
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           git push origin main --follow-tags
-
-  refresh-token:
-    runs-on: ubuntu-22.04
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 22
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Refresh NPM Token
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO_NAME: ${{ github.repository }}
-        run: node scripts/refresh-npm-token.js
