@@ -1,14 +1,17 @@
 # Changelog
 
-All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
+All notable changes to this project will be documented in this file. See [Changesets](https://github.com/changesets/changesets) for release and versioning guidelines.
 
-### 1.0.01 to 1.0.13 (2024-12-13)
+## 1.0.13 to 1.0.19 (2024-12-16)
+
+- **Tooling migration**:
+  - Migrated from `standard-version` to `Changesets` for versioning and changelog generation.
+  - Updated CI to use `pnpm` for dependency management.
+  - Improved CI workflow with automatic publishing to NPM after successful builds.
 
 - **Internal updates**:
-  - Improved publishing steps to avoid duplicate actions.
-  - Added proper links in the README for examples.
-  - Improved handling of version checks in CI workflow.
-  - Enhanced build step to include `dist` in npm releases.
+  - Optimized caching steps in the CI workflow for better performance.
+  - Refined publishing steps to avoid redundant actions.
 
 ## 1.0.0 (2024-12-11)
 
