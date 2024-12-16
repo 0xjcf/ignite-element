@@ -23,13 +23,19 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 22
+          node-version: 22 # Use stable Node.js v22
           cache: pnpm
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 9
+
+      - name: Add pnpm to PATH
+        run: echo "export PATH=$(pnpm bin):\$PATH" >> $GITHUB_ENV
+
+      - name: Verify pnpm installation
+        run: pnpm --version
 
       - name: Install dependencies
         run: pnpm install
@@ -69,6 +75,12 @@ jobs:
         uses: pnpm/action-setup@v2
         with:
           version: 9
+
+      - name: Add pnpm to PATH
+        run: echo "export PATH=$(pnpm bin):\$PATH" >> $GITHUB_ENV
+
+      - name: Verify pnpm installation
+        run: pnpm --version
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
