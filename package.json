@@ -62,6 +62,7 @@
     "@typescript-eslint/eslint-plugin": "^8.17.0",
     "@typescript-eslint/parser": "^8.17.0",
     "@vitest/coverage-v8": "^2.1.8",
+    "chalk": "^5.3.0",
     "eslint": "^9.16.0",
     "eslint-plugin-html": "^8.1.2",
     "globals": "^15.13.0",
