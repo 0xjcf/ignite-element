@@ -41,9 +41,6 @@ jobs:
       - name: Run jsdom tests
         run: npm run test
 
-      - name: Run coverage
-        run: npm run test:coverage
-
   release:
     needs: build
     runs-on: ubuntu-22.04
@@ -73,7 +70,7 @@ jobs:
           # Create a dummy change to ensure a commit exists
           echo "Release branch created at $(date)" > release-placeholder.txt
           git add release-placeholder.txt
-          git commit -m "chore: Create release branch with placeholder change"
+          git commit -m "chore: create release branch with placeholder change"
           VERSION=$(node -p "require('./package.json').version")
           git checkout -b release-v$VERSION
           git push origin release-v$VERSION
