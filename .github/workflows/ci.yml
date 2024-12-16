@@ -88,10 +88,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push changes and tags
+      - name: Create a pull request for release
+        run: |
+          gh pr create --base main --title "chore: Release v$(node -p "require('./package.json').version")" --body "Automated release PR for v$(node -p "require('./package.json').version")"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge for the PR
         run: |
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          echo "Skipping redundant tests on push step."
-          git push origin main --follow-tags
+          PR_NUMBER=$(gh pr list --repo ${{ github.repository }} --search "Release v$(node -p "require('./package.json').version")" --json number --jq ".[0].number")
+          gh pr merge $PR_NUMBER --auto --squash --delete-branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
