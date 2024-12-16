@@ -10,32 +10,18 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Cache pnpm store
-        uses: actions/cache@v3
-        with:
-          path: ~/.pnpm-store
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 22 # Use stable Node.js v22
-          cache: pnpm
+          node-version: 22
+          cache: 'pnpm' # Use the recommended pnpm caching method
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: 9
-
-      - name: Add pnpm to PATH
-        run: echo "export PATH=$(pnpm bin):\$PATH" >> $GITHUB_ENV
-
-      - name: Verify pnpm installation
-        run: pnpm --version
+          version: 9 # Install pnpm v9
 
       - name: Install dependencies
         run: pnpm install
@@ -55,32 +41,18 @@ jobs:
         run: echo "CI=true" >> $GITHUB_ENV
 
       - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Restore pnpm store cache
-        uses: actions/cache@v3
-        with:
-          path: ~/.pnpm-store
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
+          cache: 'pnpm'
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 9
-
-      - name: Add pnpm to PATH
-        run: echo "export PATH=$(pnpm bin):\$PATH" >> $GITHUB_ENV
-
-      - name: Verify pnpm installation
-        run: pnpm --version
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
