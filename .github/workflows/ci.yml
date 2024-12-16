@@ -23,7 +23,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 16.x
+          node-version: 22
           cache: pnpm
 
       - name: Install pnpm
@@ -38,11 +38,14 @@ jobs:
       - name: Lint code
         run: pnpm lint
 
-  publish:
+  release:
     needs: build
     runs-on: ubuntu-22.04
     if: ${{ github.ref == 'refs/heads/main' }}
     steps:
+      - name: Set CI environment variable
+        run: echo "CI=true" >> $GITHUB_ENV
+
       - name: Checkout code
         uses: actions/checkout@v3
 
@@ -58,7 +61,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 16.x
+          node-version: 22
           cache: pnpm
 
       - name: Install pnpm
