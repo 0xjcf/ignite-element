@@ -95,6 +95,9 @@ jobs:
           git reset --hard HEAD~1
           git push origin HEAD --force
 
+      - name: Configure NPM registry
+        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+
       - name: Generate changelog and bump version
         run: npm run release
         env:
