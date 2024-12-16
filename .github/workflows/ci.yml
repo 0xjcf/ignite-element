@@ -26,7 +26,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 22
-          cache: 'npm'
+          cache: "npm"
 
       - name: Install dependencies
         run: npm install
@@ -76,9 +76,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Create a release branch
+        run: |
+          git checkout -b release-v$(node -p "require('./package.json').version")
+          git push origin release-v$(node -p "require('./package.json').version")
+
       - name: Create a pull request for release
         run: |
-          gh pr create --base main --title "chore: Release v$(node -p "require('./package.json').version")" --body "Automated release PR for v$(node -p "require('./package.json').version")"
+          gh pr create --base main --head release-v$(node -p "require('./package.json').version") --title "chore: Release v$(node -p "require('./package.json').version")" --body "Automated release PR for v$(node -p "require('./package.json').version")"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
