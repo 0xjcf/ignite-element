@@ -102,3 +102,11 @@ jobs:
         run: npm run release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit and push version bump
+        run: |
+          git add package.json CHANGELOG.md
+          git commit -m "chore(release): bump version to $(node -p "require('./package.json').version")"
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
