@@ -2,8 +2,6 @@ name: CI Build & Release
 
 on:
   push:
-    branches:
-      - main
   pull_request:
 
 jobs:
@@ -14,90 +12,66 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Cache dependencies
+      - name: Cache pnpm store
         uses: actions/cache@v3
         with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-node-
+            ${{ runner.os }}-pnpm-
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 22
-          cache: "npm"
+          node-version: 16.x
+          cache: pnpm
+
+      - name: Install pnpm
+        run: npm install -g pnpm
 
       - name: Install dependencies
-        run: npm install
+        run: pnpm install
 
-      - name: Validate commit messages
-        run: |
-          npx --no-install commitlint --from=$(git rev-list --max-parents=0 HEAD) --to=HEAD
+      - name: Run tests
+        run: pnpm test
 
       - name: Lint code
-        run: npm run lint
+        run: pnpm lint
 
-      - name: Run jsdom tests
-        run: npm run test
-
-  release:
+  publish:
     needs: build
     runs-on: ubuntu-22.04
-    if: ${{ needs.build.result == 'success' }}
+    if: ${{ github.ref == 'refs/heads/main' }}
     steps:
-      - name: Set CI environment variable
-        run: echo "CI=true" >> $GITHUB_ENV
-
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Git configuration
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
+      - name: Restore pnpm store cache
+        # Reuses the cache created in the build job
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 22
+          node-version: 16.x
+          cache: pnpm
+
+      - name: Install pnpm
+        run: npm install -g pnpm
 
       - name: Install dependencies
-        run: npm install
+        run: pnpm install --frozen-lockfile
 
-      - name: Check for pending version bump
-        id: version_check
-        run: |
-          if [ "$(git log --oneline HEAD..origin/main)" = "" ]; then
-            echo "No new changes to release. Exiting."
-            exit 0
-          fi
-
-      - name: Generate changelog and bump version
-        run: |
-          npm run release || npm version patch --no-git-tag-version
+      - name: Create Release Pull Request or Publish
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          publish: pnpm run release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Commit and push version bump
-        run: |
-          git add package.json CHANGELOG.md
-          git commit -m "chore(release): bump version to $(node -p "require('./package.json').version")"
-          git push origin main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create GitHub release
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          gh release create "v$VERSION" --title "Release v$VERSION" --notes "Automated release for v$VERSION"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Configure NPM registry
-        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-
-      - name: Publish package
-        run: npm publish
-        env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
