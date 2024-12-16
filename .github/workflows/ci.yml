@@ -65,41 +65,17 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Create a release branch with dummy change
+      - name: Check for pending version bump
+        id: version_check
         run: |
-          # Create a dummy change to ensure a commit exists
-          echo "Release branch created at $(date)" > release-placeholder.txt
-          git add release-placeholder.txt
-          git commit -m "chore: create release branch with placeholder change"
-          VERSION=$(node -p "require('./package.json').version")
-          git checkout -b release-v$VERSION
-          git push origin release-v$VERSION
-
-      - name: Create a pull request for release
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          gh pr create --base main --head release-v$VERSION --title "chore: Release v$VERSION" --body "Automated release PR for v$VERSION"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Enable auto-merge for the PR
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          PR_NUMBER=$(gh pr list --repo ${{ github.repository }} --search "Release v$VERSION" --json number --jq ".[0].number")
-          gh pr merge $PR_NUMBER --auto --squash --delete-branch
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Remove dummy change
-        run: |
-          git reset --hard HEAD~1
-          git push origin HEAD --force
-
-      - name: Configure NPM registry
-        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+          if [ "$(git log --oneline HEAD..origin/main)" = "" ]; then
+            echo "No new changes to release. Exiting."
+            exit 0
+          fi
 
       - name: Generate changelog and bump version
-        run: npm run release
+        run: |
+          npm run release || npm version patch --no-git-tag-version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -110,3 +86,18 @@ jobs:
           git push origin main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub release
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          gh release create "v$VERSION" --title "Release v$VERSION" --notes "Automated release for v$VERSION"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure NPM registry
+        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+
+      - name: Publish package
+        run: npm publish
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

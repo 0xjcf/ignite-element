@@ -49,7 +49,7 @@
     "test:coverage": "vitest --run --coverage",
     "test:node": "FORCE_COLOR=1 vitest --config vitest.node.config.ts --run",
     "lint": "eslint .",
-    "release": "standard-version --config release.config.js",
+    "release": "standard-version",
     "postrelease": "npm publish",
     "prepare": "husky"
   },
