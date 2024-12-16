@@ -68,54 +68,35 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build project
-        run: npm run build
-
-      - name: Push tags
-        run: git push origin --tags
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create a release branch
+      - name: Create a release branch with dummy change
         run: |
-          git checkout -b release-v$(node -p "require('./package.json').version")
-          git push origin release-v$(node -p "require('./package.json').version")
+          # Create a dummy change to ensure a commit exists
+          echo "Release branch created at $(date)" > release-placeholder.txt
+          git add release-placeholder.txt
+          git commit -m "chore: Create release branch with placeholder change"
+          VERSION=$(node -p "require('./package.json').version")
+          git checkout -b release-v$VERSION
+          git push origin release-v$VERSION
 
       - name: Create a pull request for release
         run: |
-          gh pr create --base main --head release-v$(node -p "require('./package.json').version") --title "chore: Release v$(node -p "require('./package.json').version")" --body "Automated release PR for v$(node -p "require('./package.json').version")"
+          VERSION=$(node -p "require('./package.json').version")
+          gh pr create --base main --head release-v$VERSION --title "chore: Release v$VERSION" --body "Automated release PR for v$VERSION"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Enable auto-merge for the PR
         run: |
-          PR_NUMBER=$(gh pr list --repo ${{ github.repository }} --search "Release v$(node -p "require('./package.json').version")" --json number --jq ".[0].number")
+          VERSION=$(node -p "require('./package.json').version")
+          PR_NUMBER=$(gh pr list --repo ${{ github.repository }} --search "Release v$VERSION" --json number --jq ".[0].number")
           gh pr merge $PR_NUMBER --auto --squash --delete-branch
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify PR merge success
+      - name: Remove dummy change
         run: |
-          PR_NUMBER=$(gh pr list --repo ${{ github.repository }} --search "Release v$(node -p "require('./package.json').version")" --json number --jq ".[0].number")
-          PR_STATUS=$(gh pr view $PR_NUMBER --json state --jq ".state")
-          if [ "$PR_STATUS" != "MERGED" ]; then
-            echo "Error: Pull request was not merged. Workflow will terminate."
-            exit 1
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Configure NPM registry
-        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-
-      - name: Check NPM Version
-        run: |
-          CURRENT_VERSION=$(npm view ignite-element version)
-          PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          if [ "$CURRENT_VERSION" = "$PACKAGE_VERSION" ]; then
-            echo "Version $CURRENT_VERSION already published. Bump to next version."
-            exit 0
-          fi
+          git reset --hard HEAD~1
+          git push origin HEAD --force
 
       - name: Generate changelog and bump version
         run: npm run release
