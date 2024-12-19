@@ -1,7 +1,7 @@
 import igniteElementFactory, {
   IgniteCore,
   IgniteElementConfig,
-} from "./IgniteElmentFactory";
+} from "./IgniteElementFactory";
 import createXStateAdapter from "./adapters/XStateAdapter";
 import createReduxAdapter from "./adapters/ReduxAdapter";
 import createMobXAdapter, { FunctionKeys } from "./adapters/MobxAdapter";

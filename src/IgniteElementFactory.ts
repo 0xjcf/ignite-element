@@ -1,6 +1,7 @@
 import { TemplateResult } from "lit-html";
 import IgniteAdapter from "./IgniteAdapter";
 import IgniteElement from "./IgniteElement";
+import injectStyles from "./injectStyles";
 
 export interface IgniteElementConfig {
   styles?: { custom?: string; paths?: (string | StyleObject)[] };
@@ -72,52 +73,4 @@ export default function igniteElementFactory<State, Event>(
       return new IsolatedElement();
     },
   };
-}
-
-/**
- * Inject styles into the Shadow DOM
- * Handles both external stylesheet paths and inline custom styles
- */
-function injectStyles(
-  shadowRoot: ShadowRoot,
-  styles?: {
-    custom?: string;
-    paths?: (string | StyleObject)[];
-  }
-): void {
-  if (!styles) return;
-
-  // Inject external stylesheet paths
-  if (styles.paths) {
-    styles.paths.forEach((style) => {
-      if (typeof style === "string") {
-        // Handle simple string paths
-        const linkElement = document.createElement("link");
-        linkElement.rel = "stylesheet";
-        linkElement.href = style;
-        shadowRoot.appendChild(linkElement);
-      } else if (typeof style === "object" && style.href) {
-        // Handle objects with href, integrity, and crossorigin
-        const linkElement = document.createElement("link");
-        linkElement.rel = "stylesheet";
-        linkElement.href = style.href;
-        if (style.integrity) {
-          linkElement.integrity = style.integrity;
-        }
-        if (style.crossorigin) {
-          linkElement.crossOrigin = style.crossorigin;
-        }
-        shadowRoot.appendChild(linkElement);
-      } else {
-        console.warn("Invalid style path/object:", style);
-      }
-    });
-  }
-
-  // Inject custom inline styles
-  if (styles.custom) {
-    const styleElement = document.createElement("style");
-    styleElement.textContent = styles.custom;
-    shadowRoot.appendChild(styleElement);
-  }
 }

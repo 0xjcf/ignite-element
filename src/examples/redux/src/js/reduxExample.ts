@@ -1,13 +1,13 @@
 import { html } from "lit-html";
 import counterStore, { increment, decrement } from "./reduxCounterStore";
 import { igniteCore } from "../../../../IgniteCore";
+import { setGlobalStyles } from "../../../../globalStyles";
+
+setGlobalStyles(["../scss/styles.scss"])
 
 const igniteElement = igniteCore({
   adapter: "redux",
   source: counterStore,
-  styles: {
-    paths: ["../scss/styles.scss"],
-  },
 });
 
 // Shared Component: Redux

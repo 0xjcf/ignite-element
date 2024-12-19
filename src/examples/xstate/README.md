@@ -37,39 +37,27 @@ When running the example, you'll see:
 - **Shared Counter Component**: A counter component using a shared global state.
 - **Isolated Counter Component**: A counter component with isolated state for each instance.
 
+---
+
 ## Styling with TailwindCSS
 
-This example uses TailwindCSS for component styling. The `styles.css` file includes the following:
+This example uses TailwindCSS for component styling. To apply global styles, use the `setGlobalStyles` function to reference the compiled Tailwind CSS file:
 
-```css
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+```typescript
+import { setGlobalStyles } from "ignite-element";
+
+setGlobalStyles("./dist/styles.css");
 ```
 
-### Building CSS
-
-The `build:css` script in the package.json handles compiling Tailwind styles:
-
-```json
-"scripts": {
-  "build:css": "npx tailwindcss -i ./styles.css -o ./dist/styles.css"
-}
-```
-
-To build the CSS:
-
-```bash
-npm run build:css
-```
-
-Ensure the `dist/styles.css` file is generated and path is set in `igniteCore` before running the example.
+---
 
 ## ignite-element and XState
 
-### Setting Up ignite-element with Xstate
+### Setting Up ignite-element with XState
 
-1. **Define a State Machine**: Create an XState machine for managing the component's state.
+#### 1. Define a State Machine
+
+Create an XState machine for managing the component's state:
 
 ```typescript
 import { createMachine } from "xstate";
@@ -89,26 +77,42 @@ const counterMachine = createMachine({
 });
 ```
 
-2. **Initialize ignite-element**: Pass the state machine to igniteCore:
+---
+
+#### 2. Apply Global Styles
+
+Add global styles for TailwindCSS using `setGlobalStyles`:
+
+```typescript
+import { setGlobalStyles } from "ignite-element";
+
+setGlobalStyles("./dist/styles.css");
+```
+
+---
+
+#### 3. Initialize ignite-element
+
+Restructure `igniteCore` to export `shared` and `isolated` methods directly:
 
 ```typescript
 import { igniteCore } from "ignite-element";
+import counterMachine from "./counterMachine";
 
-const igniteElement = igniteCore({
+export const { shared, isolated } = igniteCore({
   adapter: "xstate",
   source: counterMachine,
-  styles: {
-    paths: ["./dist/styles.css"],
-  },
 });
 ```
 
-3. **Define Components**: Create shared and isolated components with ignite-element.
+---
 
-#### Shared Counter
+#### 4. Define Components
+
+##### Shared Counter
 
 ```typescript
-igniteElement.shared("shared-counter", (state, send) => {
+shared("shared-counter", (state, send) => {
   return html`
     <div class="p-4 bg-gray-100 border rounded-md mb-2">
       <h3 class="text-lg font-bold">Shared Counter (XState)</h3>
@@ -132,10 +136,10 @@ igniteElement.shared("shared-counter", (state, send) => {
 });
 ```
 
-#### Isolated Counter
+##### Isolated Counter
 
 ```typescript
-igniteElement.isolated("isolated-counter", (state, send) => {
+isolated("isolated-counter", (state, send) => {
   return html`
     <div class="p-4 bg-yellow-100 border rounded-md mb-2">
       <h3 class="text-lg font-bold text-yellow-800">
@@ -161,7 +165,11 @@ igniteElement.isolated("isolated-counter", (state, send) => {
 });
 ```
 
-4. **Add Components to HTML**: Use the custom elements in you HTML file:
+---
+
+#### 5. Add Components to HTML
+
+Use the custom elements in your HTML file:
 
 ```html
 <shared-counter></shared-counter>

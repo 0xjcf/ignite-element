@@ -14,7 +14,7 @@
      - [Redux Example](./src/examples/redux)
      - [MobX Example](./src/examples/mobx)
    - [Shared vs. Isolated Components](#shared-vs-isolated-components)
-4. [Custom Styles](#using-custom-styles-with-igniteelement)
+4. [Styling](#styling-with-ignite-element)
 5. [Contributing](#contributing)
 6. [Feedback](#feedback)
 
@@ -113,7 +113,7 @@ igniteElement.isolated("product-counter", (state, send) => {
 
 ### Styling with ignite-element
 
-**Note:** If using preprocessed styles (e.g., SCSS or Tailwind CSS), ensure the styles are compiled to a distributable `.css` file before referencing it in `styles.paths`. For example, use a build script like:
+**Note:** If using preprocessed styles (e.g., SCSS or Tailwind CSS), ensure the styles are compiled to a distributable `.css` file before referencing it in `setGlobalStyles`. For example, use a build script like:
 
 ```bash
 sass ./src/styles.scss ./dist/styles.css
@@ -122,42 +122,68 @@ sass ./src/styles.scss ./dist/styles.css
 And add the path
 
 ```typescript
-const igniteElement = igniteCore({
-  adapter: "xstate",
-  source: counterMachine,
-  styles: {
-    paths: ["./dist/styles.css"],
-  },
-});
+import { setGlobalStyles } from "ignite-element";
+
+setGlobalStyles("./dist/styles.css");
 ```
 
-**Note:** If `styles.paths` and `styles.custom` are not provided, no additional styles will be applied to your components. Ensure you configure at least one of these options to style your components effectively.
+**Removed Feature:** The `styles.custom` and `styles.path` properties have been deprecated. Instead, developers are encouraged to:
 
-**Using the** `styles.custom` **Property**: The styles.custom property allows you to directly inject CSS rules into your ignite-element components. This is particularly useful for small customizations or inline styles that don't require a separate stylesheet.
+- Use external stylesheets for large or shared styles.
+- Use style objects with metadata for secure or CDN-hosted styles.
+
+**Example of a Style Object:**
 
 ```typescript
-const igniteElement = igniteCore({
-  adapter: "xstate",
-  source: counterMachine,
-  styles: {
-    custom: `
-      .custom-margin {
-        margin-bottom: 3rem;
-      }
-    `,
-  },
+import { setGlobalStyles } from "ignite-element";
+
+setGlobalStyles({
+  href: "https://cdn.example.com/styles.css",
+  integrity: "sha384-abc123",
+  crossorigin: "anonymous",
 });
 ```
 
-This approach is ideal for dynamically generated styles or when external stylesheets are not necessary. However, for larger stylesheets or frameworks like Tailwind CSS, consider using the styles.paths property to reference your compiled CSS file.
+**Clarification on Paths:**
+
+- **Relative Paths**: Use relative paths (e.g., `./dist/styles.css`) for stylesheets located within your project. This is most common during development or when serving styles directly from your application.
+- **CDN Paths**: Use CDN paths (e.g., `https://cdn.example.com/styles.css`) for stylesheets hosted on external servers. This is ideal for production environments where performance and caching are critical. Always include `integrity` and `crossorigin` attributes for security when referencing CDN styles.
+
+This ensures better compatibility with modern IDEs and provides a more robust styling solution.
 
 ### Best Practices for Styling
 
-- Use `styles.paths` for global stylesheets like Tailwind or SCSS.
-- Use `styles.custom` for inline styles shared across multiple components.
-- Combine `styles.paths` and `styles.custom` to create reusable, flexible designs.
+- Use `setGlobalStyles` for global stylesheets like Tailwind CSS or SCSS.
+- For dynamically generated or component-specific styles, use the `<style>` tag within components for small styles, or `<link>` for referencing external stylesheets.
 
-For an example of using `styles.custom`, see the [MobX example in the repository](https://github.com/0xjcf/ignite-element/blob/main/src/examples/mobx/README.md). This demonstrates how to define and apply custom inline styles effectively.
+### Summary of Benefits
+
+| **Approach**          | **Key Benefits**                                               | **Best Use Case**                                      |
+| --------------------- | -------------------------------------------------------------- | ------------------------------------------------------ |
+| **Global Stylesheet** | Simplicity, reusability, scalability, and maintainability.     | Shared design systems, large projects, CSS frameworks. |
+| **Style Objects**     | Secure, flexible, compatible with CDNs and remote stylesheets. | Applications requiring secure or external stylesheets. |
+
+### Example: Using a Global Stylesheet
+
+```typescript
+import { setGlobalStyles } from "ignite-element";
+
+setGlobalStyles("./dist/styles.css");
+```
+
+### Example: Using Style Objects
+
+```typescript
+import { setGlobalStyles } from "ignite-element";
+
+setGlobalStyles({
+  href: "https://cdn.example.com/styles.css",
+  integrity: "sha384-abc123",
+  crossorigin: "anonymous",
+});
+```
+
+This approach ensures better developer productivity and compatibility with modern IDEs and tools. For more examples, see the [MobX example in the repository](https://github.com/0xjcf/ignite-element/blob/main/src/examples/mobx/README.md).
 
 ## Contributing
 

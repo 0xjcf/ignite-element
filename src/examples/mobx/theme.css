@@ -1,0 +1,61 @@
+:host {
+  display: block;
+  font-family: Arial, sans-serif;
+  --primary-color: rgb(183, 196, 253);
+  --secondary-color: rgb(197, 253, 183);
+  --warning-color: rgb(253, 239, 183);
+  --danger-color: #e74c3c;
+  --text-color: #333;
+  --background-color: #f8f9fa;
+  --border: 1px solid rgb(209, 209, 209);
+  --button-padding: 10px 20px;
+  --button-border-radius: 4px;
+  --button-color: #3498db;
+  --button-text-color: #fff;
+  --button-hover-color: #2980b9;
+}
+
+.container {
+  padding: 16px;
+  background-color: var(--background-color);
+  border-radius: var(--button-border-radius);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1rem;
+  border: var(--border)
+}
+
+.container h3 {
+  color: var(--text-color);
+}
+
+.button-group button {
+  padding: var(--button-padding);
+  margin-right: 8px;
+  border: none;
+  border-radius: var(--button-border-radius);
+  cursor: pointer;
+  background-color: var(--button-color);
+  color: var(--button-text-color);
+  font-size: 1rem;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.button-group button:hover {
+  background-color: var(--button-hover-color);
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+}
+
+.button-group button:disabled {
+  background-color: #e0e0e0;
+  color: #a0a0a0;
+  cursor: not-allowed;
+}
+
+.display {
+  padding: 8px;
+  background-color: var(--secondary-color);
+  border-radius: var(--button-border-radius);
+  text-align: center;
+  margin-bottom: 1rem;
+  border: var(--border);
+}

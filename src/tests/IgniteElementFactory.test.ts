@@ -1,4 +1,4 @@
-import igniteElementFactory from "../IgniteElmentFactory";
+import igniteElementFactory from "../IgniteElementFactory";
 import { TemplateResult } from "lit-html";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import MinimalMockAdapter from "./MockAdapter";
@@ -160,8 +160,9 @@ describe("IgniteElementFactory", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const styles = {
-      paths: [42, { invalidProp: "invalidValue" }],
+      paths: [42, { invalidProp: "invalidValue" }, "./valid.css"],
     };
+
     // @ts-expect-error numbers are not valid styles
     const styledFactory = igniteElementFactory(() => adapter, { styles });
 
@@ -174,11 +175,17 @@ describe("IgniteElementFactory", () => {
 
     document.body.appendChild(sharedComponent);
 
-    expect(warnSpy).toHaveBeenCalledTimes(2);
+    // Expect warnings for invalid styles
     expect(warnSpy).toHaveBeenCalledWith("Invalid style path/object:", 42);
     expect(warnSpy).toHaveBeenCalledWith("Invalid style path/object:", {
       invalidProp: "invalidValue",
     });
+
+    // Ensure valid styles are not logged as warnings
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      "Invalid style path/object:",
+      "./valid.css"
+    );
 
     warnSpy.mockRestore();
   });

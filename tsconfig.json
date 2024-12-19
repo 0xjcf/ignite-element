@@ -21,9 +21,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
-    /* Tests */
-    "types": ["vitest/globals"],
-
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "esModuleInterop": true

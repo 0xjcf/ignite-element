@@ -1,5 +1,5 @@
 import { html } from "lit-html";
-import igniteElementFactory from "../IgniteElmentFactory";
+import igniteElementFactory from "../IgniteElementFactory";
 import MockAdapter from "./MockAdapter";
 import { describe, beforeEach, afterEach, it, expect, vi } from "vitest";
 
