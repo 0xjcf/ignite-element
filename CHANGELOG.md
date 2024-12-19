@@ -1,10 +1,17 @@
 # Changelog
 
+## 1.1.0
+
+### Minor Changes
+
+- 9385692: Refactored global styles handling and updated style injection API. Added deprecation warnings for `styles.paths` and `styles.custom`.
+
 All notable changes to this project will be documented in this file. See [Changesets](https://github.com/changesets/changesets) for release and versioning guidelines.
 
 ## 1.0.13 to 1.0.19 (2024-12-16)
 
 - **Tooling migration**:
+
   - Migrated from `standard-version` to `Changesets` for versioning and changelog generation.
   - Updated CI to use `pnpm` for dependency management.
   - Improved CI workflow with automatic publishing to NPM after successful builds.
