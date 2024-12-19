@@ -1,9 +1,8 @@
 module.exports = {
   extends: ["@commitlint/config-conventional"],
-  ignores: [
-    (message) =>
-      message.includes("bump version") ||
-      message.includes("release") ||
-      message === "Version Packages",
-  ],
+  ignores: [(message) => message === "Version Packages"],
+  rules: {
+    "subject-empty": [2, "never"],
+    "type-empty": [2, "never"],
+  },
 };
