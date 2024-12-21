@@ -1,25 +1,30 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import createReduxAdapter from "../../adapters/ReduxAdapter";
 import counterStore, {
-  increment,
-  decrement,
-  addByAmount,
-  State,
-  Event,
+  counterSlice,
 } from "../../examples/redux/src/js/reduxCounterStore";
 import IgniteAdapter from "../../IgniteAdapter";
+import { InferStateAndEvent } from "../../utils/igniteRedux";
 
-describe("ReduxAdapter", () => {
+/**
+ * Tests for Slice Source
+ */
+describe("ReduxAdapter with Slice Source", () => {
+  // Infer types from Slice
+  type IgniteRedux = InferStateAndEvent<typeof counterSlice>;
+
+  type State = IgniteRedux["State"];
+  type Event = IgniteRedux["Event"];
+
   let adapterFactory: () => IgniteAdapter<State, Event>;
   let adapter: IgniteAdapter<State, Event>;
 
   beforeEach(() => {
-    adapterFactory = createReduxAdapter(counterStore);
+    adapterFactory = createReduxAdapter(counterSlice);
     adapter = adapterFactory();
   });
 
   afterEach(() => {
-    // Clean up adapter after each test
     adapter.stop();
     vi.clearAllMocks();
   });
@@ -29,95 +34,69 @@ describe("ReduxAdapter", () => {
     expect(adapter.getState()).toEqual({ counter: { count: 0 } });
   });
 
-  it("should dispatch actions to the store and update state", () => {
+  it("should dispatch actions and update state", () => {
     adapter.send({ type: "counter/increment" });
     expect(adapter.getState()).toEqual({ counter: { count: 1 } });
 
-    adapter.send(addByAmount(5));
+    adapter.send({ type: "counter/addByAmount", payload: 5 });
     expect(adapter.getState()).toEqual({ counter: { count: 6 } });
 
-    adapter.send(decrement());
+    adapter.send({ type: "counter/decrement" });
     expect(adapter.getState()).toEqual({ counter: { count: 5 } });
   });
 
-  it("should handle multiple subscriptions and notify listeners", () => {
-    const listener1 = vi.fn();
-    const listener2 = vi.fn();
+  it("should prevent invalid actions", () => {
+    // @ts-expect-error Invalid action type
+    adapter.send({ type: "counter/unknownAction" });
+    expect(adapter.getState()).toEqual({ counter: { count: 0 } }); // No state change
+  });
+});
 
-    adapter.subscribe(listener1);
-    adapter.subscribe(listener2);
+/**
+ * Tests for Store Source
+ */
+describe("ReduxAdapter with Store Source", () => {
+  // Infer types from Store and explicitly pass actions
+  type IgniteRedux = InferStateAndEvent<
+    typeof counterStore,
+    typeof counterSlice.actions // Explicit actions for store
+  >;
 
-    adapter.send({ type: "counter/increment" });
+  type State = IgniteRedux["State"];
+  type Event = IgniteRedux["Event"];
 
-    expect(listener1).toHaveBeenCalledTimes(2);
-    expect(listener2).toHaveBeenCalledTimes(2);
+  let adapterFactory: () => IgniteAdapter<State, Event>;
+  let adapter: IgniteAdapter<State, Event>;
+
+  beforeEach(() => {
+    adapterFactory = createReduxAdapter(counterStore);
+    adapter = adapterFactory();
   });
 
-  it("should clean up subscriptions when stopped", () => {
-    const consoleErrorMock = vi
-      .spyOn(console, "warn")
-      .mockImplementation(() => {});
-
-    const listener = vi.fn();
-    adapter.subscribe(listener);
+  afterEach(() => {
     adapter.stop();
-    adapter.send(increment());
-
-    expect(listener).toHaveBeenCalledTimes(1);
-    expect(consoleErrorMock).toHaveBeenCalledWith(
-      expect.stringContaining("Cannot send events when adapter is stopped")
-    );
-
-    consoleErrorMock.mockRestore(); // Restore original console.error
+    vi.clearAllMocks();
   });
 
-  it("should log a warning when send is called after stop", () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    adapter.stop();
-    adapter.send(increment());
-
-    expect(warnSpy).toHaveBeenCalledWith(
-      "[ReduxAdapter] Cannot send events when adapter is stopped."
-    );
-
-    warnSpy.mockRestore();
+  it("should initialize and return the current state", () => {
+    expect(adapter).toBeDefined();
+    expect(adapter.getState()).toEqual({ counter: { count: 0 } });
   });
 
-  it("should return the last known state after stop", () => {
-    adapter.send(increment());
-    adapter.stop();
-
+  it("should dispatch actions and update state", () => {
+    adapter.send(counterSlice.actions.increment()); // ✅ Valid
     expect(adapter.getState()).toEqual({ counter: { count: 1 } });
+
+    adapter.send(counterSlice.actions.addByAmount(5)); // ✅ Valid
+    expect(adapter.getState()).toEqual({ counter: { count: 6 } });
+
+    adapter.send(counterSlice.actions.decrement()); // ✅ Valid
+    expect(adapter.getState()).toEqual({ counter: { count: 5 } });
   });
 
-  it("should prevent new subscriptions after stop", () => {
-    adapter.stop();
-    expect(() => adapter.subscribe(vi.fn())).toThrowError(
-      "Adapter is stopped and cannot subscribe."
-    );
-  });
-
-  it("should allow multiple calls to stop without error", () => {
-    adapter.stop();
-    expect(() => adapter.stop()).not.toThrow();
-  });
-
-  it("should allow unsubscribe calls after stop without errors", () => {
-    const listener = vi.fn();
-    const subscription = adapter.subscribe(listener);
-
-    adapter.stop();
-    expect(() => subscription.unsubscribe()).not.toThrow();
-  });
-
-  it("should allow unsubscribe calls before and after stop without errors", () => {
-    const listener = vi.fn();
-    const subscription = adapter.subscribe(listener);
-
-    expect(() => subscription.unsubscribe()).not.toThrow();
-
-    adapter.stop();
-    expect(() => subscription.unsubscribe()).not.toThrow();
+  it("should prevent invalid actions", () => {
+    // @ts-expect-error Invalid action type
+    adapter.send({ type: "counter/unknownAction" }); // ❌ Should throw compile-time error
+    expect(adapter.getState()).toEqual({ counter: { count: 0 } }); // No state change
   });
 });

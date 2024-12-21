@@ -48,7 +48,7 @@ Install `ignite-element` with your preferred state management library:
 Redux:
 
 ```bash
-npm install ignite-element redux @reduxjs/toolkit
+npm install ignite-element @reduxjs/toolkit
 ```
 
 XState:

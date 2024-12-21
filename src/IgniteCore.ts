@@ -6,16 +6,15 @@ import createXStateAdapter from "./adapters/XStateAdapter";
 import createReduxAdapter from "./adapters/ReduxAdapter";
 import createMobXAdapter, { FunctionKeys } from "./adapters/MobxAdapter";
 import { AnyStateMachine, EventFrom, StateFrom } from "xstate";
-import { Store, Action } from "redux";
 import {
-  ActionCreatorWithoutPayload,
-  ActionCreatorWithPayload,
   EnhancedStore,
   Slice,
+  ActionCreatorWithoutPayload,
+  ActionCreatorWithPayload,
 } from "@reduxjs/toolkit";
-import { InferStateAndEvent } from "./utils/igniteRedux";
+import { InferStateAndEvent, InferEvent } from "./utils/igniteRedux";
 
-// Extended config type to include `styles`
+// Extended Config Type
 export type IgniteCoreConfig =
   | {
       adapter: "xstate";
@@ -24,7 +23,18 @@ export type IgniteCoreConfig =
     }
   | {
       adapter: "redux";
-      source: () => Store<unknown, Action<string>>;
+      source: Slice; // Slice automatically infers actions
+      styles?: IgniteElementConfig["styles"];
+    }
+  | {
+      adapter: "redux";
+      source: () => EnhancedStore; // Store requires explicit actions
+      actions: Record<
+        string,
+        | ActionCreatorWithoutPayload<string>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        | ActionCreatorWithPayload<any, string> // Allow dynamic payload inference for Redux actions
+      >;
       styles?: IgniteElementConfig["styles"];
     }
   | {
@@ -40,28 +50,40 @@ export function igniteCore<Machine extends AnyStateMachine>(options: {
   styles?: IgniteElementConfig["styles"];
 }): IgniteCore<StateFrom<Machine>, EventFrom<Machine>>;
 
-// Overload for Redux
+// Overload for Redux - Slice
 export function igniteCore<
-  StoreCreator extends (...args: unknown[]) => EnhancedStore,
+  SliceType extends Slice // Handles Slice with inferred actions
+>(options: {
+  adapter: "redux";
+  source: SliceType;
+  styles?: IgniteElementConfig["styles"];
+}): IgniteCore<
+  InferStateAndEvent<SliceType>["State"], // Infer State from Slice
+  InferStateAndEvent<SliceType>["Event"] // Infer Events from Slice
+>;
+
+// Overload for Redux - Store
+export function igniteCore<
+  StoreCreator extends () => EnhancedStore,
   Actions extends Record<
     string,
     | ActionCreatorWithoutPayload<string>
-    | ActionCreatorWithPayload<string, string>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    | ActionCreatorWithPayload<any, string> // Allow dynamic payload inference for Redux actions
   >
 >(options: {
   adapter: "redux";
-  source: StoreCreator | Slice; // TODO add Slice to igniteCore
-  actions: Actions; // Add actions for inferring Event types
+  source: StoreCreator;
+  actions: Actions; // Pass actions explicitly
   styles?: IgniteElementConfig["styles"];
 }): IgniteCore<
-  InferStateAndEvent<StoreCreator, Actions>["State"],
-  InferStateAndEvent<StoreCreator, Actions>["Event"]
+  ReturnType<ReturnType<StoreCreator>["getState"]>, // Infer State from Store
+  InferEvent<Actions> // Infer Events from explicit actions
 >;
 
 // Overload for MobX
 export function igniteCore<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  State extends Record<string, any>,
+  State extends Record<string, unknown>,
   Event extends { type: FunctionKeys<State> }
 >(options: {
   adapter: "mobx";
@@ -69,7 +91,7 @@ export function igniteCore<
   styles?: IgniteElementConfig["styles"];
 }): IgniteCore<State, Event>;
 
-// Unified implementation
+// Unified Implementation
 export function igniteCore({ adapter, source, styles }: IgniteCoreConfig) {
   let adapterFactory;
 
@@ -77,12 +99,16 @@ export function igniteCore({ adapter, source, styles }: IgniteCoreConfig) {
     case "xstate":
       adapterFactory = createXStateAdapter(source);
       break;
+
     case "redux":
+      // For Redux, delegate store or slice logic to ReduxAdapter
       adapterFactory = createReduxAdapter(source);
       break;
+
     case "mobx":
       adapterFactory = createMobXAdapter(source);
       break;
+
     default:
       throw new Error(`Unsupported adapter: ${adapter}`);
   }

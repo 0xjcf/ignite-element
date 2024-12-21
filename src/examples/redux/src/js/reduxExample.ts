@@ -1,5 +1,10 @@
 import { html } from "lit-html";
-import counterStore, { increment, decrement } from "./reduxCounterStore";
+import counterStore, {
+  increment,
+  decrement,
+  counterSlice,
+  addByAmount,
+} from "./reduxCounterStore";
 import { igniteCore } from "../../../../IgniteCore";
 import { setGlobalStyles } from "../../../../globalStyles";
 
@@ -8,7 +13,7 @@ setGlobalStyles("../scss/styles.scss");
 const igniteElement = igniteCore({
   adapter: "redux",
   source: counterStore,
-  actions: { increment, decrement },
+  actions: { increment, decrement, addByAmount },
 });
 
 // Shared Component: Redux
@@ -23,7 +28,7 @@ igniteElement.shared("my-counter-redux", (state, dispatch) => {
         <div class="d-flex justify-content-start">
           <button
             class="btn btn-danger me-2"
-            @click=${() => dispatch({ type: "counter/increment" })}
+            @click=${() => dispatch({ type: "counter/decrement" })}
           >
             -
           </button>
