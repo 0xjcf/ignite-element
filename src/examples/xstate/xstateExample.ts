@@ -3,7 +3,7 @@ import counterMachine from "./xstateCounterMachine";
 import { igniteCore } from "../../IgniteCore";
 import { setGlobalStyles } from "../../globalStyles";
 
-setGlobalStyles(["./dist/styles.css"]);
+setGlobalStyles("./dist/styles.css");
 
 const { shared, isolated } = igniteCore({
   adapter: "xstate",

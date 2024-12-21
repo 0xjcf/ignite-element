@@ -1,10 +1,12 @@
-import { Store } from "redux";
-import { Action } from "@reduxjs/toolkit";
+import { EnhancedStore } from "@reduxjs/toolkit";
 import IgniteAdapter from "../IgniteAdapter";
 
-export default function createReduxAdapter<State, Event extends Action<string>>(
-  configureStore: () => Store<State, Event>
-): () => IgniteAdapter<State, Event> {
+export default function createReduxAdapter<StoreType extends EnhancedStore>(
+  configureStore: () => StoreType
+): () => IgniteAdapter<
+  ReturnType<StoreType["getState"]>,
+  Parameters<StoreType["dispatch"]>[0]
+> {
   return () => {
     const store = configureStore();
     let unsubscribe: (() => void) | null = null;

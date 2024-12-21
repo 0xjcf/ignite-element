@@ -1,32 +1,50 @@
-import { configureStore, createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, configureStore } from "@reduxjs/toolkit";
+import type { InferStateAndEvent } from "../../../../utils/igniteRedux";
 
 interface CounterState {
   count: number;
 }
 
-export const counterSlice = createSlice({
+const initialState: CounterState = {
+  count: 0,
+};
+
+const counterSlice = createSlice({
   name: "counter",
-  initialState: {
-    count: 0,
-  } as CounterState,
+  initialState,
   reducers: {
-    increment(state) {
-      state.count += 1;
+    increment: (state) => {
+      state.count++;
     },
-    decrement(state) {
-      state.count -= 1;
+    decrement: (state) => {
+      state.count--;
     },
-    addByAmount(state, action: PayloadAction<number>) {
+    addByAmount: (state, action) => {
       state.count += action.payload;
     },
   },
 });
 
-export const { increment, decrement, addByAmount } = counterSlice.actions;
+const counterReducer = counterSlice.reducer;
 
 const counterStore = () =>
   configureStore({
-    reducer: counterSlice.reducer,
+    reducer: {
+      counter: counterReducer,
+    },
   });
 
 export default counterStore;
+
+export const { increment, decrement, addByAmount } = counterSlice.actions;
+
+/**
+ * Optional for testing components easily
+ */
+type IgniteRedux = InferStateAndEvent<
+  typeof counterStore,
+  typeof counterSlice.actions
+>;
+
+export type State = IgniteRedux["State"];
+export type Event = IgniteRedux["Event"];

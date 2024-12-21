@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { igniteCore } from "../IgniteCore";
-import { Store, Action } from "redux";
+import { Store, Action } from "@reduxjs/toolkit";
 import { AnyStateMachine } from "xstate";
 
 // Mock XState machine

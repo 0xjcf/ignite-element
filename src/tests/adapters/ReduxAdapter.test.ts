@@ -4,18 +4,14 @@ import counterStore, {
   increment,
   decrement,
   addByAmount,
-  counterSlice,
+  State,
+  Event,
 } from "../../examples/redux/src/js/reduxCounterStore";
 import IgniteAdapter from "../../IgniteAdapter";
 
 describe("ReduxAdapter", () => {
-  type Counter = ReturnType<typeof counterSlice.reducer>;
-  type Event = ReturnType<
-    (typeof counterSlice.actions)[keyof typeof counterSlice.actions]
-  >;
-
-  let adapterFactory: () => IgniteAdapter<Counter, Event>;
-  let adapter: ReturnType<typeof adapterFactory>;
+  let adapterFactory: () => IgniteAdapter<State, Event>;
+  let adapter: IgniteAdapter<State, Event>;
 
   beforeEach(() => {
     adapterFactory = createReduxAdapter(counterStore);
@@ -30,18 +26,18 @@ describe("ReduxAdapter", () => {
 
   it("should initialize and return the current state", () => {
     expect(adapter).toBeDefined();
-    expect(adapter.getState()).toEqual({ count: 0 });
+    expect(adapter.getState()).toEqual({ counter: { count: 0 } });
   });
 
   it("should dispatch actions to the store and update state", () => {
-    adapter.send(increment());
-    expect(adapter.getState()).toEqual({ count: 1 });
+    adapter.send({ type: "counter/increment" });
+    expect(adapter.getState()).toEqual({ counter: { count: 1 } });
 
     adapter.send(addByAmount(5));
-    expect(adapter.getState()).toEqual({ count: 6 });
+    expect(adapter.getState()).toEqual({ counter: { count: 6 } });
 
     adapter.send(decrement());
-    expect(adapter.getState()).toEqual({ count: 5 });
+    expect(adapter.getState()).toEqual({ counter: { count: 5 } });
   });
 
   it("should handle multiple subscriptions and notify listeners", () => {
@@ -51,20 +47,22 @@ describe("ReduxAdapter", () => {
     adapter.subscribe(listener1);
     adapter.subscribe(listener2);
 
-    adapter.send(increment());
+    adapter.send({ type: "counter/increment" });
 
     expect(listener1).toHaveBeenCalledTimes(2);
     expect(listener2).toHaveBeenCalledTimes(2);
   });
 
   it("should clean up subscriptions when stopped", () => {
-    const consoleErrorMock = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const consoleErrorMock = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => {});
 
     const listener = vi.fn();
     adapter.subscribe(listener);
     adapter.stop();
     adapter.send(increment());
-    
+
     expect(listener).toHaveBeenCalledTimes(1);
     expect(consoleErrorMock).toHaveBeenCalledWith(
       expect.stringContaining("Cannot send events when adapter is stopped")
@@ -90,7 +88,7 @@ describe("ReduxAdapter", () => {
     adapter.send(increment());
     adapter.stop();
 
-    expect(adapter.getState()).toEqual({ count: 1 });
+    expect(adapter.getState()).toEqual({ counter: { count: 1 } });
   });
 
   it("should prevent new subscriptions after stop", () => {

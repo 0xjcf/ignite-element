@@ -45,14 +45,22 @@ Here’s how to set up your first ignite-element project:
 
 Install `ignite-element` with your preferred state management library:
 
+Redux:
+
 ```bash
 npm install ignite-element redux @reduxjs/toolkit
 ```
 
-Or for XState:
+XState:
 
 ```bash
 npm install ignite-element xstate
+```
+
+Mobx:
+
+```bash
+npm install ignite-element mobx
 ```
 
 ### Examples:

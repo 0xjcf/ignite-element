@@ -7,6 +7,13 @@ import createReduxAdapter from "./adapters/ReduxAdapter";
 import createMobXAdapter, { FunctionKeys } from "./adapters/MobxAdapter";
 import { AnyStateMachine, EventFrom, StateFrom } from "xstate";
 import { Store, Action } from "redux";
+import {
+  ActionCreatorWithoutPayload,
+  ActionCreatorWithPayload,
+  EnhancedStore,
+  Slice,
+} from "@reduxjs/toolkit";
+import { InferStateAndEvent } from "./utils/igniteRedux";
 
 // Extended config type to include `styles`
 export type IgniteCoreConfig =
@@ -34,11 +41,22 @@ export function igniteCore<Machine extends AnyStateMachine>(options: {
 }): IgniteCore<StateFrom<Machine>, EventFrom<Machine>>;
 
 // Overload for Redux
-export function igniteCore<State, Event extends Action<string>>(options: {
+export function igniteCore<
+  StoreCreator extends (...args: unknown[]) => EnhancedStore,
+  Actions extends Record<
+    string,
+    | ActionCreatorWithoutPayload<string>
+    | ActionCreatorWithPayload<string, string>
+  >
+>(options: {
   adapter: "redux";
-  source: () => Store<State, Event>;
+  source: StoreCreator | Slice; // TODO add Slice to igniteCore
+  actions: Actions; // Add actions for inferring Event types
   styles?: IgniteElementConfig["styles"];
-}): IgniteCore<State, Event>;
+}): IgniteCore<
+  InferStateAndEvent<StoreCreator, Actions>["State"],
+  InferStateAndEvent<StoreCreator, Actions>["Event"]
+>;
 
 // Overload for MobX
 export function igniteCore<
