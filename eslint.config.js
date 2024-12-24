@@ -12,7 +12,8 @@ export default [
       "vite.config.ts",
       "vitest.node.config.ts",
       "src/examples",
-      "coverage"
+      "coverage",
+      "vitest.setup.ts",
     ],
   },
   {
