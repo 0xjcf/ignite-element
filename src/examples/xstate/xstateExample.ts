@@ -11,7 +11,7 @@ const { shared, isolated } = igniteCore({
 });
 
 // Shared Counter Component (XState)
-shared("my-counter-xstate", (state, send) => {
+shared("my-counter-xstate", ({ state, send }) => {
   return html`
     <div class="p-4 bg-gray-100 border rounded-md mb-2">
       <h3 class="text-lg font-bold">Shared Counter (XState)</h3>
@@ -35,7 +35,7 @@ shared("my-counter-xstate", (state, send) => {
 });
 
 // Shared Display Component (XState)
-shared("shared-display-xstate", (state) => {
+shared("shared-display-xstate", ({ state }) => {
   return html`
     <div class="p-4 bg-blue-100 border rounded-md mb-2">
       <h3 class="text-lg font-bold text-blue-800">
@@ -47,7 +47,7 @@ shared("shared-display-xstate", (state) => {
 });
 
 // Isolated Counter Component (XState)
-isolated("another-counter-xstate", (state, send) => {
+isolated("another-counter-xstate", ({ state, send }) => {
   return html`
     <div class="p-4 bg-yellow-100 border rounded-md mb-2">
       <h3 class="text-lg font-bold text-yellow-800">

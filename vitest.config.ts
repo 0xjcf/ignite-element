@@ -5,19 +5,19 @@ export default mergeConfig(
   viteConfig,
   defineConfig({
     test: {
-      environment: "jsdom", 
+      environment: "jsdom",
       include: ["src/**/*.test.ts"],
       coverage: {
         exclude: [
           "src/examples/**",
-          "**/*.config.{js,ts}", 
-          "vite.config.ts", 
-          "vitest.config.ts", 
+          "**/*.config.{js,ts}",
+          "vite.config.ts",
+          "vitest.config.ts",
           "vite-env.d.ts",
-          "dist/**", 
-          "src/index.ts", 
-          "src/**/*.d.ts", 
-          "scripts"
+          "dist/**",
+          "src/index.ts",
+          "src/**/*.d.ts",
+          "scripts",
         ],
       },
     },

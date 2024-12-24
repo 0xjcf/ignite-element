@@ -83,7 +83,7 @@ export function igniteCore<
 
 // Overload for MobX
 export function igniteCore<
-  State extends Record<string, unknown>,
+  State extends object,
   Event extends { type: FunctionKeys<State> }
 >(options: {
   adapter: "mobx";

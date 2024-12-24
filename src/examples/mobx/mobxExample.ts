@@ -13,15 +13,15 @@ export const { isolated, shared } = igniteCore({
 });
 
 // Shared Counter Component
-shared("my-counter-mobx", (state, action) => {
+shared("my-counter-mobx", ({ state, send }) => {
   return html`
     <div>
       <div class="container">
         <h3>Shared Counter (MobX)</h3>
         <p>Count: ${state.count}</p>
         <div class="button-group">
-          <button @click=${() => action({ type: "decrement" })}>-</button>
-          <button @click=${() => action({ type: "increment" })}>+</button>
+          <button @click=${() => send({ type: "decrement" })}>-</button>
+          <button @click=${() => send({ type: "increment" })}>+</button>
         </div>
       </div>
     </div>
@@ -29,7 +29,7 @@ shared("my-counter-mobx", (state, action) => {
 });
 
 // Shared Display Component
-shared("shared-display-mobx", (state) => {
+shared("shared-display-mobx", ({ state }) => {
   return html`
     <div class="display">
       <h3>Shared State Display (MobX)</h3>
@@ -39,7 +39,7 @@ shared("shared-display-mobx", (state) => {
 });
 
 // Isolated Counter Component with Custom Styles
-isolated("another-counter-mobx", (state, action) => {
+isolated("another-counter-mobx", ({ state, send }) => {
   return html`
     <div>
       <link rel="stylesheet" href="./another-counter-mobx.css" />
@@ -47,8 +47,8 @@ isolated("another-counter-mobx", (state, action) => {
         <h3>Isolated Counter (Custom Styled)</h3>
         <p>Count: ${state.count}</p>
         <div class="button-group">
-          <button @click=${() => action({ type: "decrement" })}>-</button>
-          <button @click=${() => action({ type: "increment" })}>+</button>
+          <button @click=${() => send({ type: "decrement" })}>-</button>
+          <button @click=${() => send({ type: "increment" })}>+</button>
         </div>
       </div>
     </div>
