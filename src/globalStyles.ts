@@ -4,7 +4,7 @@ export interface StyleObject {
   crossorigin?: string;
 }
 
-export type GlobalStyles = string | StyleObject;
+export type GlobalStyles = string | StyleObject | undefined;
 
 let globalStyles: GlobalStyles;
 

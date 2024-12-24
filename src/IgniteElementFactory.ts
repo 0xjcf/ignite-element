@@ -13,9 +13,14 @@ export interface StyleObject {
   crossorigin?: string;
 }
 
+type RenderFnArgs<State, Event> = {
+  state: State;
+  send: (event: Event) => void;
+};
+
 type IgniteElementMethod<State, Event> = (
   elementName: string,
-  renderFn: (state: State, send: (event: Event) => void) => TemplateResult
+  renderFn: ({ state, send }: RenderFnArgs<State, Event>) => TemplateResult
 ) => IgniteElement<State, Event>;
 
 export interface IgniteCore<State, Event> {
@@ -24,7 +29,7 @@ export interface IgniteCore<State, Event> {
 }
 
 export default function igniteElementFactory<State, Event>(
-  adapterFactory: () => IgniteAdapter<State, Event>,
+  igniteAdapter: () => IgniteAdapter<State, Event>,
   config?: IgniteElementConfig
 ): IgniteCore<State, Event> {
   let sharedAdapter: IgniteAdapter<State, Event> | null = null;
@@ -35,7 +40,7 @@ export default function igniteElementFactory<State, Event>(
      */
     shared(elementName, renderFn) {
       if (!sharedAdapter) {
-        sharedAdapter = adapterFactory();
+        sharedAdapter = igniteAdapter();
       }
 
       class SharedElement extends IgniteElement<State, Event> {
@@ -45,7 +50,10 @@ export default function igniteElementFactory<State, Event>(
         }
 
         protected render(): TemplateResult {
-          return renderFn(this._currentState, (event) => this.send(event));
+          return renderFn({
+            state: this._currentState,
+            send: (event) => this.send(event),
+          });
         }
       }
 
@@ -59,13 +67,16 @@ export default function igniteElementFactory<State, Event>(
     isolated(elementName, renderFn) {
       class IsolatedElement extends IgniteElement<State, Event> {
         constructor() {
-          const isolatedAdapter = adapterFactory();
+          const isolatedAdapter = igniteAdapter();
           super(isolatedAdapter);
           injectStyles(this._shadowRoot, config?.styles);
         }
 
         protected render(): TemplateResult {
-          return renderFn(this._currentState, (event) => this.send(event));
+          return renderFn({
+            state: this._currentState,
+            send: (event) => this.send(event),
+          });
         }
       }
 

@@ -77,7 +77,7 @@ export function igniteCore<
   actions: Actions; // Pass actions explicitly
   styles?: IgniteElementConfig["styles"];
 }): IgniteCore<
-  ReturnType<ReturnType<StoreCreator>["getState"]>, // Infer State from Store
+  InferStateAndEvent<StoreCreator>["State"], // Infer State from Store
   InferEvent<Actions> // Infer Events from explicit actions
 >;
 
@@ -93,25 +93,24 @@ export function igniteCore<
 
 // Unified Implementation
 export function igniteCore({ adapter, source, styles }: IgniteCoreConfig) {
-  let adapterFactory;
+  let igniteAdapter;
 
   switch (adapter) {
     case "xstate":
-      adapterFactory = createXStateAdapter(source);
+      igniteAdapter = createXStateAdapter(source);
       break;
 
     case "redux":
-      // For Redux, delegate store or slice logic to ReduxAdapter
-      adapterFactory = createReduxAdapter(source);
+      igniteAdapter = createReduxAdapter(source);
       break;
 
     case "mobx":
-      adapterFactory = createMobXAdapter(source);
+      igniteAdapter = createMobXAdapter(source);
       break;
 
     default:
       throw new Error(`Unsupported adapter: ${adapter}`);
   }
 
-  return igniteElementFactory(adapterFactory, { styles });
+  return igniteElementFactory(igniteAdapter, { styles });
 }

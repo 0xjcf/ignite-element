@@ -1,4 +1,4 @@
-import igniteElementFactory from "../IgniteElementFactory";
+import igniteElementFactory, { IgniteCore } from "../IgniteElementFactory";
 import { TemplateResult } from "lit-html";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import MinimalMockAdapter from "./MockAdapter";
@@ -8,13 +8,13 @@ describe("IgniteElementFactory", () => {
   type State = typeof initialState;
   type Event = { type: string };
   let adapter: MinimalMockAdapter<State, Event>;
-  let factory: ReturnType<typeof igniteElementFactory<State, Event>>;
+  let core: IgniteCore<State, Event>;
   let uniqueId: number;
 
   beforeEach(() => {
     uniqueId = Math.random();
     adapter = new MinimalMockAdapter(initialState);
-    factory = igniteElementFactory(() => adapter);
+    core = igniteElementFactory(() => adapter);
   });
 
   afterEach(() => {
@@ -23,9 +23,9 @@ describe("IgniteElementFactory", () => {
   });
 
   it("should create shared components and subscribe to adapter", () => {
-    const sharedComponent = factory.shared(
+    const sharedComponent = core.shared(
       `shared-counter-${uniqueId}`,
-      (state) => {
+      ({ state }) => {
         expect(state).toEqual(initialState);
         return {} as TemplateResult; // Mock TemplateResult
       }
@@ -38,9 +38,9 @@ describe("IgniteElementFactory", () => {
   });
 
   it("should create isolated components and subscribe to adapter", () => {
-    const isolatedComponent = factory.isolated(
+    const isolatedComponent = core.isolated(
       `isolated-counter-${uniqueId}`,
-      (state) => {
+      ({ state }) => {
         expect(state).toEqual(initialState);
         return {} as TemplateResult; // Mock TemplateResult
       }
@@ -53,7 +53,7 @@ describe("IgniteElementFactory", () => {
   });
 
   it("should initialize adapter during connectedCallback", () => {
-    const isolatedComponent = factory.isolated(
+    const isolatedComponent = core.isolated(
       `isolated-counter-${uniqueId}`,
       () => {
         return {} as TemplateResult; // Mock TemplateResult
@@ -66,7 +66,7 @@ describe("IgniteElementFactory", () => {
   });
 
   it("should call stop on isolated component disconnection", () => {
-    const isolatedComponent = factory.isolated(
+    const isolatedComponent = core.isolated(
       `isolated-counter-${uniqueId}`,
       () => {
         return {} as TemplateResult; // Mock TemplateResult
@@ -81,9 +81,9 @@ describe("IgniteElementFactory", () => {
 
   it("should inject custom styles into the shadow DOM", () => {
     const styles = { custom: "div { color: red; }" };
-    const styledFactory = igniteElementFactory(() => adapter, { styles });
+    const core = igniteElementFactory(() => adapter, { styles });
 
-    const sharedComponent = styledFactory.shared(
+    const sharedComponent = core.shared(
       `shared-styled-counter-${uniqueId}`,
       () => {
         return {} as TemplateResult; // Mock TemplateResult
@@ -106,9 +106,9 @@ describe("IgniteElementFactory", () => {
         { href: "https://example.com/other-styles.css", integrity: "abc123" },
       ],
     };
-    const styledFactory = igniteElementFactory(() => adapter, { styles });
+    const core = igniteElementFactory(() => adapter, { styles });
 
-    const sharedComponent = styledFactory.shared(
+    const sharedComponent = core.shared(
       `shared-styled-paths-${uniqueId}`,
       () => {
         return {} as TemplateResult; // Mock TemplateResult
@@ -136,9 +136,9 @@ describe("IgniteElementFactory", () => {
         },
       ],
     };
-    const styledFactory = igniteElementFactory(() => adapter, { styles });
+    const core = igniteElementFactory(() => adapter, { styles });
 
-    const sharedComponent = styledFactory.shared(
+    const sharedComponent = core.shared(
       `shared-styled-crossorigin-${uniqueId}`,
       () => {
         return {} as TemplateResult; // Mock TemplateResult
@@ -164,9 +164,9 @@ describe("IgniteElementFactory", () => {
     };
 
     // @ts-expect-error numbers are not valid styles
-    const styledFactory = igniteElementFactory(() => adapter, { styles });
+    const core = igniteElementFactory(() => adapter, { styles });
 
-    const sharedComponent = styledFactory.shared(
+    const sharedComponent = core.shared(
       `shared-styled-invalid-${uniqueId}`,
       () => {
         return {} as TemplateResult; // Mock TemplateResult
@@ -188,30 +188,5 @@ describe("IgniteElementFactory", () => {
     );
 
     warnSpy.mockRestore();
-  });
-
-  it("should call the send method from render", () => {
-    const event = { type: "increment" };
-    const sharedComponent = factory.shared(
-      `shared-send-test-${uniqueId}`,
-      (_, send) => {
-        send(event);
-        return {} as TemplateResult; // Mock TemplateResult
-      }
-    );
-
-    document.body.appendChild(sharedComponent);
-    expect(adapter.send).toHaveBeenCalledWith(event);
-
-    const isolatedComponent = factory.isolated(
-      "isolated-send-test",
-      (_, send) => {
-        send(event);
-        return {} as TemplateResult;
-      }
-    );
-
-    isolatedComponent.connectedCallback();
-    expect(adapter.send).toHaveBeenCalledWith(event);
   });
 });

@@ -11,6 +11,7 @@ export default abstract class IgniteElement<State, Event> extends HTMLElement {
     this._adapter = adapter;
     this._shadowRoot = this.attachShadow({ mode: "open" });
     this._currentState = this._adapter.getState();
+    this.addEventListener("send", (event) => this.send(event));
   }
 
   connectedCallback(): void {
@@ -25,8 +26,11 @@ export default abstract class IgniteElement<State, Event> extends HTMLElement {
     this._adapter.stop();
   }
 
-  protected send(event: Event): void {
-    this._adapter.send(event);
+  protected send<Event>(event: Event): void {
+    // Support both CustomEvents and plain objects
+    const action =
+      event instanceof CustomEvent && event.detail ? event.detail : event;
+    this._adapter.send(action);
   }
 
   protected get state(): State {

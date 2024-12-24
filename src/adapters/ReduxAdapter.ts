@@ -11,66 +11,80 @@ export default function createReduxAdapter<
   InferStateAndEvent<Source>["State"],
   InferStateAndEvent<Source>["Event"]
 > {
-  // Create the store based on the source type
-  const store: EnhancedStore =
-    typeof source === "function"
-      ? source() // Pre-configured store
-      : configureStore({
-          reducer: {
-            [source.name]: source.reducer, // Create store from slice reducer
-          },
+  return () => {
+    // Create a new store instance for each component
+    const store: EnhancedStore =
+      typeof source === "function"
+        ? source() // Pre-configured store
+        : configureStore({
+            reducer: {
+              [source.name]: source.reducer, // Create store from slice reducer
+            },
+          });
+
+    let unsubscribe: (() => void) | null = null;
+    let isStopped = false;
+    let lastKnownState = store.getState();
+
+    function cleanupSubscribe() {
+      unsubscribe?.();
+      unsubscribe = null;
+    }
+
+    return {
+      /**
+       * Subscribe to state changes
+       */
+      subscribe(listener) {
+        if (isStopped) {
+          console.warn("Adapter is stopped and cannot subscribe.");
+        }
+
+        listener(store.getState());
+
+        unsubscribe = store.subscribe(() => {
+          listener(store.getState());
         });
 
-  let unsubscribe: (() => void) | null = null;
-  let isStopped = false;
-  let lastKnownState = store.getState();
+        return {
+          unsubscribe: () => {
+            if (isStopped) return;
+            cleanupSubscribe();
+          },
+        };
+      },
 
-  function cleanupSubscribe() {
-    unsubscribe?.();
-    unsubscribe = null;
-  }
+      /**
+       * Dispatch an action (send an event)
+       */
+      send(event) {
+        if (isStopped) {
+          console.warn(
+            "[ReduxAdapter] Cannot send events when adapter is stopped."
+          );
+          return;
+        }
+        store.dispatch(event); // Dispatch the event
+        lastKnownState = store.getState();
+      },
 
-  return () => ({
-    subscribe(listener) {
-      if (isStopped) {
-        throw new Error("Adapter is stopped and cannot subscribe.");
-      }
+      /**
+       * Get the current state snapshot
+       */
+      getState() {
+        if (isStopped) {
+          return lastKnownState; // Return cached state after stop
+        }
+        return store.getState();
+      },
 
-      listener(store.getState());
-
-      unsubscribe = store.subscribe(() => {
-        listener(store.getState());
-      });
-
-      return {
-        unsubscribe: () => {
-          if (isStopped) return;
-          cleanupSubscribe();
-        },
-      };
-    },
-
-    send(event) {
-      if (isStopped) {
-        console.warn(
-          "[ReduxAdapter] Cannot send events when adapter is stopped."
-        );
-        return;
-      }
-      store.dispatch(event);
-      lastKnownState = store.getState();
-    },
-
-    getState() {
-      if (isStopped) {
-        return lastKnownState;
-      }
-      return store.getState();
-    },
-
-    stop() {
-      cleanupSubscribe();
-      isStopped = true;
-    },
-  });
+      /**
+       * Stop the adapter
+       */
+      stop() {
+        cleanupSubscribe();
+        isStopped = true;
+      },
+    };
+  };
 }

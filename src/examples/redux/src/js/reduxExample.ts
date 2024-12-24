@@ -2,7 +2,6 @@ import { html } from "lit-html";
 import counterStore, {
   increment,
   decrement,
-  counterSlice,
   addByAmount,
 } from "./reduxCounterStore";
 import { igniteCore } from "../../../../IgniteCore";
@@ -10,14 +9,14 @@ import { setGlobalStyles } from "../../../../globalStyles";
 
 setGlobalStyles("../scss/styles.scss");
 
-const igniteElement = igniteCore({
+export const { shared, isolated } = igniteCore({
   adapter: "redux",
   source: counterStore,
   actions: { increment, decrement, addByAmount },
 });
 
 // Shared Component: Redux
-igniteElement.shared("my-counter-redux", (state, dispatch) => {
+shared("my-counter-redux", ({ state, send }) => {
   return html`
     <div class="card text-start shadow-sm mb-3" data-bs-theme="dark">
       <div class="card-header bg-primary text-white">
@@ -28,11 +27,11 @@ igniteElement.shared("my-counter-redux", (state, dispatch) => {
         <div class="d-flex justify-content-start">
           <button
             class="btn btn-danger me-2"
-            @click=${() => dispatch({ type: "counter/decrement" })}
+            @click=${() => send({ type: "counter/decrement" })}
           >
             -
           </button>
-          <button class="btn btn-success" @click=${() => dispatch(increment())}>
+          <button class="btn btn-success" @click=${() => send(increment())}>
             +
           </button>
         </div>
@@ -42,7 +41,7 @@ igniteElement.shared("my-counter-redux", (state, dispatch) => {
 });
 
 // Shared Display Component: Redux
-igniteElement.shared("shared-display-redux", (state) => {
+shared("shared-display-redux", ({ state }) => {
   return html`
     <div
       class="p-3 text-start text-success-emphasis bg-success-subtle border border-success-subtle rounded-3 mb-4"
@@ -53,7 +52,7 @@ igniteElement.shared("shared-display-redux", (state) => {
 });
 
 // Isolated Component: Redux
-igniteElement.isolated("another-counter-redux", (state, dispatch) => {
+isolated("another-counter-redux", ({ state, send }) => {
   return html`
     <div class="card text-start shadow-sm mb-3" data-bs-theme="dark">
       <div class="card-header bg-warning text-dark">
@@ -64,11 +63,11 @@ igniteElement.isolated("another-counter-redux", (state, dispatch) => {
         <div class="d-flex justify-content-start">
           <button
             class="btn btn-secondary me-2"
-            @click=${() => dispatch(decrement())}
+            @click=${() => send(decrement())}
           >
             -
           </button>
-          <button class="btn btn-primary" @click=${() => dispatch(increment())}>
+          <button class="btn btn-primary" @click=${() => send(addByAmount(1))}>
             +
           </button>
         </div>
