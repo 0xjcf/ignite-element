@@ -18,6 +18,7 @@ export default mergeConfig(
           "src/index.ts",
           "src/**/*.d.ts",
           "scripts",
+          "commitlint.config.cjs",
         ],
       },
     },
