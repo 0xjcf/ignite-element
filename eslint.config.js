@@ -1,6 +1,7 @@
 import globals from "globals";
 import tseslint from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
+import security from "eslint-plugin-security";
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
@@ -29,9 +30,11 @@ export default [
     },
     plugins: {
       "@typescript-eslint": tseslint,
+      security,
     },
     rules: {
       ...tseslint.configs.recommended.rules,
+      ...security.configs.recommended.rules,
     },
   },
 ];
