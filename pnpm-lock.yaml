@@ -11,9 +11,6 @@ importers:
       '@reduxjs/toolkit':
         specifier: '>=2.3.0'
         version: 2.5.0
-      eslint-plugin-security:
-        specifier: ^3.0.1
-        version: 3.0.1
       lit-html:
         specifier: '>=3.2.1'
         version: 3.2.1
@@ -63,6 +60,9 @@ importers:
       eslint-plugin-html:
         specifier: ^8.1.2
         version: 8.1.2
+      eslint-plugin-security:
+        specifier: ^3.0.1
+        version: 3.0.1
       globals:
         specifier: ^15.13.0
         version: 15.13.0
