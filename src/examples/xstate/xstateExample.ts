@@ -73,6 +73,30 @@ isolated("another-counter-xstate", ({ state, send }) => {
   `;
 });
 
+isolated("gradient-tally", ({ state }) => {
+  const { count } = state.context;
+
+  return html`
+    <style>
+      .box {
+        height: 1rem;
+        width: 1rem;
+        border-radius: 50px; /* rounded-full */
+      }
+    </style>
+    <div
+      class="box"
+      style="
+        background: linear-gradient(
+          90deg,
+          rgba(34, 197, 94, 1) 0%,
+          rgba(59, 130, 246, ${(count + 1) / 10}) 100%
+        );
+      "
+    ></div>
+  `;
+});
+
 @Shared("advanced-shared-counter")
 class AdvancedSharedCounter {
   render({ state, send }: RenderArgs<typeof advancedMachine>) {
@@ -118,6 +142,15 @@ class AdvancedSharedCounter {
           >
             Toggle Dark Mode
           </button>
+        </div>
+
+        <div
+          class="mt-4 grid gap-2 justify-start"
+          style="grid-template-columns: repeat(auto-fill, minmax(1rem, 1fr));grid-auto-flow: row;"
+        >
+          ${Array.from({ length: count }).map(
+            () => html`<gradient-tally></gradient-tally>`
+          )}
         </div>
       </div>
     `;

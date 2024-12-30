@@ -68,14 +68,12 @@ export default function igniteElementFactory<State, Event>(
     }
 
     class SharedElement extends IgniteElement<State, Event> {
-      private _initialized = false;
       constructor() {
         super();
       }
 
       connectedCallback(): void {
         if (this._initialized) return;
-        this._initialized = true;
 
         injectStyles(this._shadowRoot, config?.styles);
         if (!this["_adapter"]) {
@@ -101,14 +99,12 @@ export default function igniteElementFactory<State, Event>(
     renderFn: (args: RenderFnArgs<State, Event>) => TemplateResult
   ) {
     class IsolatedElement extends IgniteElement<State, Event> {
-      private _initialized = false;
       constructor() {
         super();
       }
 
       connectedCallback(): void {
         if (this._initialized) return;
-        this._initialized = true;
 
         injectStyles(this._shadowRoot, config?.styles);
         const isolatedAdapter = igniteAdapter();

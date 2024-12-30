@@ -5,6 +5,7 @@ export default abstract class IgniteElement<State, Event> extends HTMLElement {
   private _adapter: IgniteAdapter<State, Event> | undefined;
   public _shadowRoot: ShadowRoot;
   protected _currentState!: State;
+  protected _initialized = false;
 
   constructor() {
     super();
@@ -18,6 +19,8 @@ export default abstract class IgniteElement<State, Event> extends HTMLElement {
       this._currentState = state;
       this.renderTemplate();
     });
+
+    this._initialized = true;
   }
 
   connectedCallback(): void {
