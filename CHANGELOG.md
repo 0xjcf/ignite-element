@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.1
+
+### Patch Changes
+
+- fd292e3: set eslint-plugin-security to dev dependencies
+
 ## 1.2.0
 
 ### Minor Changes
