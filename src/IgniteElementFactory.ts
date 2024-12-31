@@ -1,7 +1,6 @@
 import { TemplateResult } from "lit-html";
 import IgniteAdapter from "./IgniteAdapter";
 import IgniteElement from "./IgniteElement";
-import injectStyles from "./injectStyles";
 
 // Configuration for Ignite Elements
 export interface IgniteElementConfig {
@@ -69,22 +68,12 @@ export default function igniteElementFactory<State, Event>(
 
     class SharedElement extends IgniteElement<State, Event> {
       constructor() {
-        super();
-      }
-
-      connectedCallback(): void {
-        if (this._initialized) return;
-
-        injectStyles(this._shadowRoot, config?.styles);
-        if (!this["_adapter"]) {
-          this.setAdapter(sharedAdapter!);
-        }
-        super.connectedCallback();
+        super(sharedAdapter!, config?.styles);
       }
 
       protected render(): TemplateResult {
         return renderFn({
-          state: this._currentState,
+          state: this.currentState,
           send: (event) => this.send(event),
         });
       }
@@ -100,23 +89,13 @@ export default function igniteElementFactory<State, Event>(
   ) {
     class IsolatedElement extends IgniteElement<State, Event> {
       constructor() {
-        super();
-      }
-
-      connectedCallback(): void {
-        if (this._initialized) return;
-
-        injectStyles(this._shadowRoot, config?.styles);
         const isolatedAdapter = igniteAdapter();
-        if (!this["_adapter"]) {
-          this.setAdapter(isolatedAdapter);
-        }
-        super.connectedCallback();
+        super(isolatedAdapter, config?.styles); // Initialize with styles
       }
 
       protected render(): TemplateResult {
         return renderFn({
-          state: this._currentState,
+          state: this.currentState,
           send: (event) => this.send(event),
         });
       }
@@ -126,6 +105,7 @@ export default function igniteElementFactory<State, Event>(
     return new IsolatedElement();
   }
 
+  // Shared Decorator
   function Shared(tagName: string) {
     return function <T extends RenderableComponent<State, Event>>(
       constructor: T
@@ -136,6 +116,7 @@ export default function igniteElementFactory<State, Event>(
     };
   }
 
+  // Isolated Decorator
   function Isolated(tagName: string) {
     return function <T extends RenderableComponent<State, Event>>(
       constructor: T

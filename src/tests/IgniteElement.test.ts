@@ -2,21 +2,17 @@ import { html } from "lit-html";
 import igniteElementFactory from "../IgniteElementFactory";
 import MockAdapter from "./MockAdapter";
 import { describe, beforeEach, afterEach, it, expect, vi } from "vitest";
+import IgniteElement from "../IgniteElement";
 
 describe("IgniteElement", () => {
   const initialState = { count: 0 };
-  type State = typeof initialState;
+  type State = typeof initialState | undefined;
   type Event = { type: string };
   let adapter: MockAdapter<State, Event>;
-  let element: HTMLElement;
+  let element: IgniteElement<State, Event>;
 
   // Create a type to expose protected methods for testing
-  interface TestIgniteElement extends HTMLElement {
-    _adapter: any;
-    state: State;
-    _currentState: State | null;
-    renderTemplate: () => void;
-  }
+  interface TestIgniteElement extends IgniteElement<State, Event> {}
 
   beforeEach(() => {
     adapter = new MockAdapter(initialState);
@@ -25,7 +21,7 @@ describe("IgniteElement", () => {
     element = core.shared(uniqueName, ({ state, send }) => {
       return html`
         <div>
-          Count: ${state.count}
+          Count: ${state?.count}
           <button @click=${() => send({ type: "increment" })}>Increment</button>
         </div>
       `;
@@ -59,51 +55,21 @@ describe("IgniteElement", () => {
     expect(shadowContent).toContain("Count: 1");
   });
 
-  it("should stop the adapter when the element is disconnected", () => {
+  it("should pause updates (set _isActive to false) when the element is disconnected", () => {
     element.remove(); // Simulate disconnection
-    expect(adapter.stop).toHaveBeenCalled();
+    expect(element.isActive).toBe(false); // Ensure _isActive is set to false
   });
 
   it("should return the adapter's state via the state getter", () => {
     const elementInstance = element as TestIgniteElement; // Access protected methods for testing
-    expect(elementInstance.state).toEqual(initialState);
+    expect(elementInstance.currentState).toEqual(initialState);
     expect(adapter.getState).toHaveBeenCalled();
-  });
-
-  it("should warn if _currentState is not initialized during renderTemplate", () => {
-    const elementInstance = element as TestIgniteElement; // Access protected methods for testing
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    // Set _currentState to null and force renderTemplate
-    elementInstance._currentState = null;
-    elementInstance.renderTemplate();
-
-    expect(warnSpy).toHaveBeenCalledWith(
-      "[IgniteElement] State is not initialized"
-    );
-
-    warnSpy.mockRestore();
-  });
-
-  it("should not warn and render correctly if _currentState is initialized", () => {
-    const elementInstance = element as TestIgniteElement; // Access protected methods for testing
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    // Ensure _currentState is initialized and renderTemplate is called
-    elementInstance._currentState = initialState;
-    elementInstance.renderTemplate();
-
-    const shadowContent = element.shadowRoot?.textContent;
-    expect(shadowContent).toContain("Count: 0");
-    expect(warnSpy).not.toHaveBeenCalled();
-
-    warnSpy.mockRestore();
   });
 
   it("should handle actions dispatched as plain objects", () => {
     // Directly use the send method with plain object actions
     const elementInstance = element as TestIgniteElement; // Access protected methods
-    elementInstance._adapter.send({ type: "increment" });
+    elementInstance.adapter?.send({ type: "increment" });
 
     // Verify adapter received the expected action
     expect(adapter.send).toHaveBeenCalledWith({ type: "increment" });
@@ -137,5 +103,72 @@ describe("IgniteElement", () => {
 
     // Verify that the adapter received the expected action
     expect(sendSpy).toHaveBeenCalledWith({ type: "increment" });
+  });
+
+  it("should render correctly using forceRender when initialized and active", () => {
+    const elementInstance = element as TestIgniteElement;
+
+    // Simulate initialized and active state
+    elementInstance.initialized = true;
+    elementInstance.isActive = true;
+    elementInstance.currentState = { count: 0 };
+
+    const renderSpy = vi.spyOn(elementInstance, "forceRender");
+    elementInstance.forceRender();
+
+    const shadowContent = element.shadowRoot?.textContent;
+    expect(shadowContent).toContain("Count: 0");
+    expect(renderSpy).toHaveBeenCalled();
+  });
+
+  it("should warn if forceRender is called before initialization", () => {
+    const elementInstance = element as TestIgniteElement;
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    // Simulate uninitialized state
+    (elementInstance as any).initialized = false;
+    elementInstance.forceRender();
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[IgniteElement] Attempted to force render before initialization."
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it("should warn if forceRender is called while inactive", () => {
+    const elementInstance = element as TestIgniteElement;
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    // Simulate inactive state
+    elementInstance.isActive = false;
+    elementInstance.initialized = true;
+    elementInstance.forceRender();
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[IgniteElement] Attempted to force render while inactive."
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it("should warn if currentState is undefined", () => {
+    const elementInstance = element as TestIgniteElement;
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    // Simulate inactive state
+    elementInstance.currentState = undefined;
+    elementInstance.forceRender();
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[IgniteElement] State is not initialized"
+    );
+
+    expect(elementInstance.initialized).toBe(true);
+
+    warnSpy.mockRestore();
   });
 });

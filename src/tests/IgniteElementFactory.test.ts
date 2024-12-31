@@ -2,6 +2,7 @@ import igniteElementFactory, { IgniteCore } from "../IgniteElementFactory";
 import { TemplateResult } from "lit-html";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import MinimalMockAdapter from "./MockAdapter";
+import { RenderArgs } from "../RenderArgs";
 
 describe("IgniteElementFactory", () => {
   const initialState = { count: 0 };
@@ -65,7 +66,7 @@ describe("IgniteElementFactory", () => {
     expect(adapter.subscribe).toHaveBeenCalledTimes(1);
   });
 
-  it("should call stop on isolated component disconnection", () => {
+  it("should pause updates when isolated component is disconnected", () => {
     const isolatedComponent = core.isolated(
       `isolated-counter-${uniqueId}`,
       () => {
@@ -73,10 +74,48 @@ describe("IgniteElementFactory", () => {
       }
     );
 
-    document.body.appendChild(isolatedComponent);
-    document.body.removeChild(isolatedComponent);
+    document.body.appendChild(isolatedComponent); // Mount component
+    document.body.removeChild(isolatedComponent); // Unmount component
 
-    expect(adapter.stop).toHaveBeenCalledTimes(1);
+    // Verify that the adapter is still active, but updates are paused
+    expect(isolatedComponent.isActive).toBe(false); // Uses getter in tests
+    expect(adapter.stop).not.toHaveBeenCalled(); // Adapter should NOT be stopped
+  });
+
+  it("should resume updates when isolated component is reconnected", () => {
+    const isolatedComponent = core.isolated(
+      `isolated-counter-${uniqueId}`,
+      () => {
+        return {} as TemplateResult;
+      }
+    );
+
+    document.body.appendChild(isolatedComponent); // Connect
+    document.body.removeChild(isolatedComponent); // Disconnect
+    document.body.appendChild(isolatedComponent); // Reconnect
+
+    // Verify that _isActive is reset
+    expect(isolatedComponent.isActive).toBe(true);
+
+    // Verify that rendering has resumed
+    expect(isolatedComponent.shadowRoot?.textContent).toBeDefined();
+  });
+
+  it("should preserve adapter subscription on reconnection", () => {
+    const isolatedComponent = core.isolated(
+      `isolated-counter-${uniqueId}`,
+      () => {
+        return {} as TemplateResult;
+      }
+    );
+
+    document.body.appendChild(isolatedComponent); // Connect
+    const stateBefore = adapter.getState();
+    document.body.removeChild(isolatedComponent); // Disconnect
+    document.body.appendChild(isolatedComponent); // Reconnect
+
+    const stateAfter = adapter.getState();
+    expect(stateBefore).toEqual(stateAfter); // State remains intact
   });
 
   it("should inject custom styles into the shadow DOM", () => {
@@ -188,5 +227,49 @@ describe("IgniteElementFactory", () => {
     );
 
     warnSpy.mockRestore();
+  });
+
+  it("should create a shared component using the Shared decorator", () => {
+    @core.Shared(`shared-decorator-${uniqueId}`)
+    class SharedCounter {
+      render({ state }: RenderArgs<State, Event>): TemplateResult {
+        expect(state).toEqual(initialState); // Ensure initial state
+        return {} as TemplateResult;
+      }
+    }
+
+    const sharedComponent = document.createElement(
+      `shared-decorator-${uniqueId}`
+    );
+    document.body.appendChild(sharedComponent);
+
+    // Verify the component exists and is subscribed
+    expect(sharedComponent).toBeDefined();
+    expect(adapter.subscribe).toHaveBeenCalled();
+
+    // Verify shadowRoot is set up
+    expect(sharedComponent.shadowRoot).toBeDefined();
+  });
+
+  it("should create an isolated component using the Isolated decorator", () => {
+    @core.Isolated(`isolated-decorator-${uniqueId}`)
+    class IsolatedCounter {
+      render({ state }: RenderArgs<State, Event>): TemplateResult {
+        expect(state).toEqual(initialState); // Ensure initial state
+        return {} as TemplateResult;
+      }
+    }
+
+    const isolatedComponent = document.createElement(
+      `isolated-decorator-${uniqueId}`
+    );
+    document.body.appendChild(isolatedComponent);
+
+    // Verify the component exists and is subscribed
+    expect(isolatedComponent).toBeDefined();
+    expect(adapter.subscribe).toHaveBeenCalled();
+
+    // Verify shadowRoot is set up
+    expect(isolatedComponent.shadowRoot).toBeDefined();
   });
 });
