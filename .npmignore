@@ -1,6 +1,33 @@
+# Exclude source code and examples
 src/
-node_modules/
-tsconfig.json
-vite.config.ts
-vitest.config.ts
+src/examples/
+src/tests/
+src/utils/
+src/adapters/
+src/**/*.ts
+src/**/*.tsx
+
+# Exclude environment and editor settings
 .vscode/
+.idea/
+.env
+*.local
+
+# Exclude build and test artifacts
+node_modules/
+coverage/
+dist/examples/
+dist/tests/
+dist/**/*.map
+
+# Ignore build configs and cache
+.vite/
+.vitest/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Ignore CI/CD configurations
+.github/
+.gitignore
+.DS_Store
