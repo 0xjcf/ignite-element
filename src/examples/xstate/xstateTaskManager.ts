@@ -168,7 +168,6 @@ class TaskManager {
 
     return html`
       <div class="p-4 space-y-4 max-w-fit mx-auto">
-        <!-- Confetti Effect -->
         ${isCompleted
           ? html`<confetti-effect></confetti-effect>`
           : html`
