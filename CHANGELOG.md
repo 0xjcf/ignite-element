@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.0
+
+### Minor Changes
+
+- 6b2c06c: Expose setGlobalStyles function for global styling
+
 ## 1.2.1
 
 ### Patch Changes
