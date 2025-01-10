@@ -15,6 +15,9 @@ export default [
       "src/examples",
       "coverage",
       "vitest.setup.ts",
+      "playwright.config.ts",
+      "tests",
+      "tests-examples"
     ],
   },
   {
