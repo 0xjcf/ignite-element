@@ -18,11 +18,10 @@
   "license": "ISC",
   "dependencies": {
     "lit-html": "^3.2.1",
-    "xstate": "^5.19.0"
+    "xstate": "^5.19.2"
   },
   "devDependencies": {
-    "@types/node": "^22.10.1",
-    "tailwindcss": "^3.4.15",
-    "vite": "^6.0.1"
+    "tailwindcss": "^3.4.17",
+    "vite": "^6.0.7"
   }
 }
