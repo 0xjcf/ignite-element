@@ -5,8 +5,9 @@
   "main": "index.js",
   "scripts": {
     "build:css": "tailwindcss -i ./styles.css -o ./dist/styles.css",
-    "dev": "vite",
-    "build": "vite build"
+    "dev": "pnpm run build:css && vite",
+    "build": "vite build",
+    "dev:port": "vite --port $PORT"
   },
   "keywords": [
     "xstate",
