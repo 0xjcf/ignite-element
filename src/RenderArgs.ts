@@ -1,4 +1,4 @@
-import { AnyStateMachine, StateFrom, EventFrom } from "xstate";
+import { AnyStateMachine, EventFrom } from "xstate";
 import {
   EnhancedStore,
   Slice,
@@ -7,6 +7,7 @@ import {
 } from "@reduxjs/toolkit";
 import { FunctionKeys } from "./adapters/MobxAdapter";
 import { InferStateAndEvent, InferEvent } from "./utils/igniteRedux";
+import { ExtendedState } from "./adapters/XStateAdapter";
 
 /**
  * RenderArgs<Store, Actions>:
@@ -24,7 +25,7 @@ export type RenderArgs<Store, A = unknown> =
   // 1) XState Machine
   Store extends AnyStateMachine
     ? {
-        state: StateFrom<Store>;
+        state: ExtendedState<Store>;
         send: (event: EventFrom<Store>) => void;
       }
     : // 2) Redux Slice

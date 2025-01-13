@@ -13,9 +13,9 @@ const { Shared } = igniteCore({
 });
 
 @Shared("task-list")
-class TaskList {
+export class TaskList {
   render({ state, send }: RenderArgs<typeof taskManagerMachine>) {
-    const { tasks } = state.context;
+    const { tasks } = state;
 
     return html`
       <div class="p-6 bg-green-50 border border-green-300 rounded-lg shadow-lg">
@@ -56,7 +56,7 @@ class TaskList {
 }
 
 @Shared("progress-bar")
-class ProgressBar {
+export class ProgressBar {
   render({ state }: RenderArgs<typeof taskManagerMachine>) {
     const { tasks } = state.context;
     const completed = tasks.filter((t) => t.completed).length;
@@ -89,7 +89,7 @@ class ProgressBar {
 }
 
 @Shared("task-form")
-class TaskForm {
+export class TaskForm {
   render({ send }: RenderArgs<typeof taskManagerMachine>) {
     return html`
       <div class="p-4 bg-yellow-100 border rounded-md mb-2">
@@ -136,9 +136,9 @@ class TaskForm {
 }
 
 @Shared("confetti-effect")
-class ConfettiEffect {
+export class ConfettiEffect {
   render({ state, send }: RenderArgs<typeof taskManagerMachine>) {
-    const { tasks } = state.context;
+    const { tasks } = state;
     const total = tasks.length;
 
     return html`
@@ -162,7 +162,7 @@ class ConfettiEffect {
 }
 
 @Shared("task-manager")
-class TaskManager {
+export class TaskManager {
   render({ state }: RenderArgs<typeof taskManagerMachine>) {
     const isCompleted = state.matches("completed");
 

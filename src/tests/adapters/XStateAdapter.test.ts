@@ -60,13 +60,15 @@ describe("XStateAdapter", () => {
   });
 
   it("should clean up subscriptions when stopped", () => {
-    const consoleErrorMock = vi.spyOn(console, "warn").mockImplementation(() => {});
-  
+    const consoleErrorMock = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => {});
+
     const listener = vi.fn();
     adapter.subscribe(listener);
     adapter.stop();
     adapter.send({ type: "INC" });
-  
+
     // Listener should only have been called once (for the initial state)
     expect(listener).toHaveBeenCalledTimes(1);
     expect(listener).toHaveBeenCalledWith(
@@ -75,10 +77,9 @@ describe("XStateAdapter", () => {
     expect(consoleErrorMock).toHaveBeenCalledWith(
       expect.stringContaining("Cannot send events when adapter is stopped")
     );
-  
+
     consoleErrorMock.mockRestore(); // Restore original console.error
   });
-  
 
   it("should log a warning when sending events after stop", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -121,5 +122,20 @@ describe("XStateAdapter", () => {
 
     adapter.stop();
     expect(() => subscription.unsubscribe()).not.toThrow();
+  });
+
+  it("should return the current state by using state directly", () => {
+    adapter.send({ type: "START" });
+    expect(adapter.getState().value).toBe("active");
+    expect(adapter.getState().count).toBe(0);
+  });
+
+  it("should return the last known state after stop using state directly", () => {
+    adapter.send({ type: "START" });
+    adapter.send({ type: "INC" });
+    adapter.stop();
+
+    expect(adapter.getState().value).toBe("active");
+    expect(adapter.getState().count).toBe(1);
   });
 });

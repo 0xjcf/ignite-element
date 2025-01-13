@@ -7,6 +7,7 @@ This example demonstrates how to use ignite-element with XState, lit-html, and T
 ## Features
 
 - State management with XState, showcasing shared and isolated components.
+- Unified API for accessing state values, with options to use `state` or `state.context`.
 - Styling with TailwindCSS.
 - Integration with ignite-element for seamless web component creation.
 
@@ -52,6 +53,46 @@ setGlobalStyles("./dist/styles.css");
 ---
 
 ## ignite-element and XState
+
+### Accessing State and Context in ignite-element
+
+With the updated `XStateAdapter`, you can access state values directly from `state` or through `state.context`. This provides flexibility for different use cases:
+
+- **Direct Access**: Access flattened `context` values directly from `state` (e.g., `state.count`).
+- **Context Access**: Access the original `context` object via `state.context` for compatibility with XState conventions.
+
+#### Example Usage with Decorators
+
+```typescript
+@Shared("counter-component")
+export class CounterComponent {
+  render({ state, send }: RenderArgs<typeof counterMachine>) {
+    const { count } = state; // Direct access to count from state
+    // const { count } = state.context; - Or access through context explicitly
+
+    return html`
+      <div class="p-4 bg-gray-100 border rounded-md">
+        <h3 class="text-lg font-bold">Counter Component</h3>
+        <p class="text-xl">Count: ${count}</p>
+        <div class="mt-4 space-x-2">
+          <button
+            class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+            @click=${() => send({ type: "DEC" })}
+          >
+            -
+          </button>
+          <button
+            class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+            @click=${() => send({ type: "INC" })}
+          >
+            +
+          </button>
+        </div>
+      </div>
+    `;
+  }
+}
+```
 
 ### Setting Up ignite-element with XState
 

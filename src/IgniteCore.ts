@@ -2,10 +2,10 @@ import igniteElementFactory, {
   IgniteCore,
   IgniteElementConfig,
 } from "./IgniteElementFactory";
-import createXStateAdapter from "./adapters/XStateAdapter";
+import createXStateAdapter, { ExtendedState } from "./adapters/XStateAdapter";
 import createReduxAdapter from "./adapters/ReduxAdapter";
 import createMobXAdapter, { FunctionKeys } from "./adapters/MobxAdapter";
-import { AnyStateMachine, EventFrom, StateFrom } from "xstate";
+import { AnyStateMachine, EventFrom } from "xstate";
 import {
   EnhancedStore,
   Slice,
@@ -48,7 +48,7 @@ export function igniteCore<Machine extends AnyStateMachine>(options: {
   adapter: "xstate";
   source: Machine;
   styles?: IgniteElementConfig["styles"];
-}): IgniteCore<StateFrom<Machine>, EventFrom<Machine>>;
+}): IgniteCore<ExtendedState<Machine>, EventFrom<Machine>>;
 
 // Overload for Redux - Slice
 export function igniteCore<
