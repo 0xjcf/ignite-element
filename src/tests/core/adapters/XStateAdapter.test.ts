@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import createXStateAdapter from "../../core/adapters/XStateAdapter";
-import counterMachine from "../../examples/v1/xstate/xstateCounterMachine";
+import createXStateAdapter from "../../../core/adapters/XStateAdapter";
+import counterMachine from "../../../examples/v1/xstate/xstateCounterMachine";
 
 describe("XStateAdapter", () => {
   let adapterFactory: ReturnType<typeof createXStateAdapter>;

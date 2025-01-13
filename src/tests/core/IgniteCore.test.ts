@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { igniteCore } from "../core/IgniteCore";
+import { igniteCore } from "../../core/IgniteCore";
 import { Slice } from "@reduxjs/toolkit";
 import { AnyStateMachine } from "xstate";
 

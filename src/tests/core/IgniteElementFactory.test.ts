@@ -1,8 +1,8 @@
-import igniteElementFactory, { IgniteCore } from "../core/IgniteElementFactory";
+import igniteElementFactory, { IgniteCore } from "../../core/IgniteElementFactory";
 import { TemplateResult } from "lit-html";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import MinimalMockAdapter from "./adapters/MockAdapter";
-import { RenderArgs } from "../core/utils/RenderArgs";
+import { RenderArgs } from "../../core/utils/RenderArgs";
 
 describe("IgniteElementFactory", () => {
   const initialState = { count: 0 };

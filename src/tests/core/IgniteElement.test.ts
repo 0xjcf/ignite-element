@@ -1,8 +1,8 @@
 import { html } from "lit-html";
-import igniteElementFactory from "../core/IgniteElementFactory";
+import igniteElementFactory from "../../core/IgniteElementFactory";
 import MockAdapter from "./adapters/MockAdapter";
 import { describe, beforeEach, afterEach, it, expect, vi } from "vitest";
-import IgniteElement from "../core/IgniteElement";
+import IgniteElement from "../../core/IgniteElement";
 
 describe("IgniteElement", () => {
   const initialState = { count: 0 };

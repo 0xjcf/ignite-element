@@ -1,8 +1,8 @@
 import { describe, beforeEach, it, expect, vi, Mock } from "vitest";
-import injectStyles from "../../core/utils/injectStyles";
-import { getGlobalStyles } from "../../core/utils/globalStyles";
+import injectStyles from "../../../core/utils/injectStyles";
+import { getGlobalStyles } from "../../../core/utils/globalStyles";
 // Mock getGlobalStyles function
-vi.mock("../../core/utils/globalStyles", () => ({
+vi.mock("../../../core/utils/globalStyles", () => ({
   getGlobalStyles: vi.fn(),
 }));
 

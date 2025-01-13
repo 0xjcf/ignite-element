@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import createReduxAdapter from "../../core/adapters/ReduxAdapter";
+import createReduxAdapter from "../../../core/adapters/ReduxAdapter";
 import counterStore, {
   counterSlice,
-} from "../../examples/v1/redux/src/js/reduxCounterStore";
-import IgniteAdapter from "../../core/IgniteAdapter";
-import { InferStateAndEvent } from "../../core/utils/igniteRedux";
+} from "../../../examples/v1/redux/src/js/reduxCounterStore";
+import IgniteAdapter from "../../../core/IgniteAdapter";
+import { InferStateAndEvent } from "../../../core/utils/igniteRedux";
 
 /**
  * Tests for Slice Source
