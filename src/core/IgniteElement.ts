@@ -1,7 +1,7 @@
 import { render, TemplateResult } from "lit-html";
 import IgniteAdapter from "./IgniteAdapter";
-import injectStyles from "./injectStyles";
-import { StyleObject } from "./globalStyles";
+import injectStyles from "./utils/injectStyles";
+import { StyleObject } from "./utils/globalStyles";
 
 export default abstract class IgniteElement<State, Event> extends HTMLElement {
   private _adapter: IgniteAdapter<State, Event> | undefined;

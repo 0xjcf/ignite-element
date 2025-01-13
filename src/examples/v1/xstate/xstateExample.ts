@@ -1,7 +1,5 @@
 import { html } from "lit-html";
-import { igniteCore } from "../../IgniteCore";
-import { setGlobalStyles } from "../../globalStyles";
-import { RenderArgs } from "../../RenderArgs";
+import { igniteCore, setGlobalStyles, RenderArgs } from "../../../core";
 import { advancedMachine } from "./advancedCounterMachine";
 
 setGlobalStyles("./dist/styles.css");

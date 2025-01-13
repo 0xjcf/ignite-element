@@ -1,6 +1,5 @@
 import { html } from "lit-html";
-import { igniteCore } from "../../IgniteCore";
-import { setGlobalStyles } from "../../globalStyles";
+import { igniteCore, setGlobalStyles } from "../../../core";
 import counterStore from "./mobxCounterStore";
 
 // Set global styles for shared theme

@@ -4,8 +4,7 @@ import counterStore, {
   decrement,
   addByAmount,
 } from "./reduxCounterStore";
-import { igniteCore } from "../../../../IgniteCore";
-import { setGlobalStyles } from "../../../../globalStyles";
+import { igniteCore, setGlobalStyles } from "../../../../../core";
 
 setGlobalStyles("../scss/styles.scss");
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import createMobXAdapter, { FunctionKeys } from "../../adapters/MobxAdapter";
-import counterStore from "../../examples/mobx/mobxCounterStore";
-import IgniteAdapter from "../../IgniteAdapter";
+import createMobXAdapter, { FunctionKeys } from "../../core/adapters/MobxAdapter";
+import counterStore from "../../examples/v1/mobx/mobxCounterStore";
+import IgniteAdapter from "../../core/IgniteAdapter";
 
 describe("MobXAdapter", () => {
   type Counter = ReturnType<typeof counterStore>;

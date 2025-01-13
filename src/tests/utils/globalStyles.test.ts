@@ -1,5 +1,5 @@
 import { describe, afterEach, it, expect } from "vitest";
-import { setGlobalStyles, getGlobalStyles } from "../globalStyles";
+import { setGlobalStyles, getGlobalStyles } from "../../core/utils/globalStyles";
 
 describe("globalStyles", () => {
   afterEach(() => {

@@ -1,8 +1,6 @@
 import { html } from "lit-html";
-import { igniteCore } from "../../IgniteCore";
-import { RenderArgs } from "../../RenderArgs";
+import { igniteCore, setGlobalStyles, RenderArgs } from "../../../core";
 import { taskManagerMachine } from "./taskManagerMachine";
-import { setGlobalStyles } from "../../globalStyles";
 
 setGlobalStyles("./dist/styles.css");
 

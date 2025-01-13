@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import IgniteAdapter from "../IgniteAdapter";
+import IgniteAdapter from "../../core/IgniteAdapter";
 
 // Minimal Mock Adapter implementation
 class MockAdapter<State, Event> implements IgniteAdapter<State, Event> {

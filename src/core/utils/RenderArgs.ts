@@ -5,9 +5,9 @@ import {
   ActionCreatorWithoutPayload,
   ActionCreatorWithPayload,
 } from "@reduxjs/toolkit";
-import { FunctionKeys } from "./adapters/MobxAdapter";
-import { InferStateAndEvent, InferEvent } from "./utils/igniteRedux";
-import { ExtendedState } from "./adapters/XStateAdapter";
+import { ExtendedState } from "../adapters/XStateAdapter";
+import { FunctionKeys } from "../adapters/MobxAdapter";
+import { InferStateAndEvent, InferEvent } from "../utils/igniteRedux";
 
 /**
  * RenderArgs<Store, Actions>:

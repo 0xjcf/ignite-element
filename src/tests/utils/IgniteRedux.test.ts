@@ -4,8 +4,8 @@ import counterStore, {
   addByAmount,
   decrement,
   increment,
-} from "../examples/redux/src/js/reduxCounterStore";
-import { igniteCore } from "../IgniteCore";
+} from "../../examples/v1/redux/src/js/reduxCounterStore";
+import { igniteCore } from "../../core/IgniteCore";
 
 describe("igniteRedux", () => {
   // Initialize igniteCore for Redux
