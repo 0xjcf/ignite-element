@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.1
+
+### Patch Changes
+
+- 6ed2a0f: Exclude examples and tests from packaged bundle
+
 ## 1.4.0
 
 ### Minor Changes
