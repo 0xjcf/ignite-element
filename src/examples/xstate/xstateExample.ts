@@ -98,7 +98,7 @@ isolated("gradient-tally", ({ state }) => {
 });
 
 @Shared("advanced-shared-counter")
-class AdvancedSharedCounter {
+export class AdvancedSharedCounter {
   render({ state, send }: RenderArgs<typeof advancedMachine>) {
     const { count, darkMode } = state.context;
     const containerClasses = darkMode

@@ -1,15 +1,22 @@
 import { AnyStateMachine, StateFrom, EventFrom, createActor } from "xstate";
 import IgniteAdapter from "../IgniteAdapter";
 
+export type ExtendedState<Machine extends AnyStateMachine> =
+  StateFrom<Machine> &
+    StateFrom<Machine>["context"] & {
+      context: StateFrom<Machine>["context"];
+    };
+
 export default function createXStateAdapter<Machine extends AnyStateMachine>(
   machine: Machine
-): () => IgniteAdapter<StateFrom<Machine>, EventFrom<Machine>> {
+): () => IgniteAdapter<ExtendedState<Machine>, EventFrom<Machine>> {
   return () => {
     const actor = createActor(machine);
     actor.start();
+
     let subscription: { unsubscribe: () => void } | null = null;
     let isStopped = false;
-    let lastKnownState = actor.getSnapshot();
+    let lastKnownState: ExtendedState<Machine> = actor.getSnapshot();
 
     function cleanupSubscribe() {
       subscription?.unsubscribe();
@@ -25,10 +32,11 @@ export default function createXStateAdapter<Machine extends AnyStateMachine>(
           throw new Error("Adapter is stopped and cannot subscribe.");
         }
 
-        listener(actor.getSnapshot()); // Notify listeners
+        listener(this.getState()); // Notify listeners of initial state
 
         subscription = actor.subscribe((state) => {
-          listener(state);
+          lastKnownState = state;
+          listener(this.getState()); // get back extended state
         });
 
         return {
@@ -55,10 +63,16 @@ export default function createXStateAdapter<Machine extends AnyStateMachine>(
        * Get the current state snapshot
        */
       getState() {
-        if (isStopped) {
-          return lastKnownState; // Return the cached state after stop
-        }
-        return actor.getSnapshot();
+        const snapshot = isStopped ? lastKnownState : actor.getSnapshot();
+        const { context, ...rest } = snapshot;
+
+        const state = {
+          ...rest,
+          ...context,
+          context,
+        };
+
+        return state;
       },
       /**
        * Stop the adapter
