@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.0
+
+### Minor Changes
+
+- f131b10: Refactor XStateAdapter for Unified API
+
 ## 1.3.1
 
 ### Patch Changes
