@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.2
+
+### Patch Changes
+
+- deb5c8e: Fix duplicate stylesheet fetching
+
 ## 1.4.1
 
 ### Patch Changes
