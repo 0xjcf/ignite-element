@@ -19,28 +19,26 @@ export default abstract class IgniteElement<State, Event> extends HTMLElement {
 
     injectStyles(this._shadowRoot, styles);
 
-    // Initialize adapter immediately during construction
     this._adapter = adapter;
     this._adapter.subscribe((state) => {
       if (this._isActive) {
         this._currentState = state;
-        this.renderTemplate(); // Render updates
+        this.renderTemplate();
       }
     });
 
-    // Sync the initial state
     this._currentState = this._adapter.getState();
-    this._initialized = true; // Mark as initialized
+    this._initialized = true;
   }
 
   connectedCallback(): void {
-    this._isActive = true; // Reactivate updates
+    this._isActive = true;
     this.addEventListener("send", (event) => this.send(event));
-    this.renderTemplate(); // Render
+    this.renderTemplate();
   }
 
   disconnectedCallback(): void {
-    this._isActive = false; // Pause updates
+    this._isActive = false;
     this.removeEventListener("send", (event) => this.send(event));
   }
 
