@@ -24,12 +24,12 @@ export interface IgniteCore<State, Event> {
   shared: (
     elementName: string,
     renderFn: (args: RenderFnArgs<State, Event>) => TemplateResult
-  ) => IgniteElement<State, Event>;
+  ) => void;
 
   isolated: (
     elementName: string,
     renderFn: (args: RenderFnArgs<State, Event>) => TemplateResult
-  ) => IgniteElement<State, Event>;
+  ) => void;
 
   Shared: (
     tagName: string

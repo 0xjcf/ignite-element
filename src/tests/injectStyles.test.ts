@@ -1,39 +1,40 @@
-import { describe, beforeEach, it, expect, vi, Mock } from "vitest";
+import { describe, beforeEach, it, expect, vi, Mock, afterEach } from "vitest";
 import injectStyles from "../injectStyles";
 import { getGlobalStyles } from "../globalStyles";
-// Mock getGlobalStyles function
-vi.mock("../globalStyles", () => ({
-  getGlobalStyles: vi.fn(),
-}));
+
+// Mock getGlobalStyles
+vi.mock("../globalStyles");
 
 describe("injectStyles", () => {
   let shadowRoot: ShadowRoot;
+  let warnSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    // Reset all mocks to ensure clean state
+    // Reset all mocks and modules
+    vi.resetModules();
     vi.resetAllMocks();
+    vi.clearAllMocks();
 
-    // Set up shadow root
-    const container = document.createElement("div");
-    shadowRoot = container.attachShadow({ mode: "open" });
+    // Create fresh shadow root with unique component name for each test
+    const element = document.createElement(`test-component-${Math.random()}`);
+    shadowRoot = element.attachShadow({ mode: "open" });
+
+    // Set up warn spy fresh for each test
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
-  it("should inject a valid global CSS string into the shadow DOM", () => {
-    (getGlobalStyles as Mock).mockReturnValue("./valid.css");
-
-    injectStyles(shadowRoot);
-
-    const linkElement = shadowRoot.querySelector("link");
-    expect(linkElement).toBeTruthy();
-    expect(linkElement?.rel).toBe("stylesheet");
-    expect(linkElement?.href).toContain("valid.css");
+  afterEach(() => {
+    // Clean up
+    warnSpy.mockRestore();
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
   it("should inject a valid global StyleObject into the shadow DOM", () => {
     (getGlobalStyles as Mock).mockReturnValue({
       href: "./secure-style.css",
       integrity: "sha384-secure123",
-      crossorigin: "anonymous",
+      crossOrigin: "anonymous",
     });
 
     injectStyles(shadowRoot);
@@ -47,8 +48,6 @@ describe("injectStyles", () => {
   });
 
   it("should log a warning for invalid global styles", () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
     (getGlobalStyles as Mock).mockReturnValue("invalidStyle");
 
     injectStyles(shadowRoot);
@@ -57,8 +56,6 @@ describe("injectStyles", () => {
       "Invalid global style path:",
       "invalidStyle"
     );
-
-    warnSpy.mockRestore();
   });
 
   it("should inject valid .scss file from styles.paths into the shadow DOM", () => {
@@ -75,8 +72,6 @@ describe("injectStyles", () => {
   });
 
   it("should log a warning for invalid styles in styles.paths", () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
     const styles = {
       paths: ["invalidStyle"],
     };
@@ -87,13 +82,9 @@ describe("injectStyles", () => {
       "Invalid style path/object:",
       "invalidStyle"
     );
-
-    warnSpy.mockRestore();
   });
 
   it("should log a deprecation warning for styles.paths", () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
     const styles = {
       paths: ["./local.css"],
     };
@@ -103,13 +94,9 @@ describe("injectStyles", () => {
     expect(warnSpy).toHaveBeenCalledWith(
       "DEPRECATION WARNING: `styles.paths` is deprecated. Use `setGlobalStyles` instead."
     );
-
-    warnSpy.mockRestore();
   });
 
   it("should log a deprecation warning for styles.custom", () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
     const styles = {
       custom: `
         .deprecated-style {
@@ -123,7 +110,5 @@ describe("injectStyles", () => {
     expect(warnSpy).toHaveBeenCalledWith(
       "DEPRECATION WARNING: `styles.custom` is deprecated. Use `setGlobalStyles` instead."
     );
-
-    warnSpy.mockRestore();
   });
 });

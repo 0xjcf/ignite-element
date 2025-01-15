@@ -1,36 +1,28 @@
 import { getGlobalStyles, StyleObject } from "./globalStyles";
 
-// Global cache to track loaded stylesheets and their content
-const globalStyleCache = new Map<string, string>();
-
-// Keep track of injected stylesheets per shadow root
+// Global caches
 const shadowRootCache = new WeakMap<ShadowRoot, Set<string>>();
-
-// Debug flag to control logging
-const DEBUG = false;
-
-// Track components that have already been initialized
 const initializedComponents = new Set<string>();
 
-function debugCache(
-  shadowRoot: ShadowRoot,
-  href: string,
-  action: "check" | "add"
-) {
-  // Get the host element (the web component instance)
-  if (DEBUG) {
-    const host = shadowRoot.host;
-    const tagName = host.tagName.toLowerCase();
+// Debug system
+enum DebugNamespace {
+  CACHE = "Style Cache",
+  COMPONENT = "Component",
+  GLOBAL_STYLES = "Global Styles",
+  INJECT_STYLES = "Inject Styles",
+  LINK_ELEMENT = "Link Element",
+  WARN = "Warnings",
+}
 
-    console.debug(
-      `[Style Cache ${action}] ${href}`,
-      `Component: ${tagName}`,
-      `Shadow cache exists: ${shadowRootCache.has(shadowRoot)}`,
-      `Shadow cached: ${shadowRootCache.get(shadowRoot)?.has(href)}`,
-      `Shadow cache contents: ${Array.from(
-        shadowRootCache.get(shadowRoot) || []
-      ).join(", ")}`
-    );
+const DEBUG = false;
+
+function debugLog(
+  namespace: DebugNamespace,
+  message: string,
+  ...args: unknown[]
+) {
+  if (DEBUG) {
+    console.log(`[${namespace}] ${message}`, ...args);
   }
 }
 
@@ -44,24 +36,24 @@ export default function injectStyles(
   const host = shadowRoot.host;
   const tagName = host.tagName.toLowerCase();
 
-  // Skip if we've already initialized this component type
+  // Skip if already initialized
   if (initializedComponents.has(tagName)) {
-    if (DEBUG)
-      console.debug(
-        `[Style Cache] Skipping initialization for ${tagName} - already initialized`
-      );
+    debugLog(
+      DebugNamespace.COMPONENT,
+      `Skipping initialization for ${tagName} - already initialized`
+    );
     return;
   }
 
   initializedComponents.add(tagName);
+  debugLog(DebugNamespace.COMPONENT, `Initializing ${tagName}`);
 
   const globalStyles = getGlobalStyles();
 
   // Initialize shadow root cache
   if (!shadowRootCache.has(shadowRoot)) {
     shadowRootCache.set(shadowRoot, new Set());
-    if (DEBUG)
-      console.debug("[Style Cache] Initialized new cache for shadow root");
+    debugLog(DebugNamespace.CACHE, "Initialized new cache for shadow root");
   }
   const shadowStyles = shadowRootCache.get(shadowRoot)!;
 
@@ -70,90 +62,107 @@ export default function injectStyles(
     href: string,
     attributes?: Record<string, string | undefined>
   ) => {
-    debugCache(shadowRoot, href, "check");
-
-    // Skip if already injected in this shadow root
     if (shadowStyles.has(href)) {
-      if (DEBUG)
-        console.debug(
-          `[Style Cache] Skipping duplicate style in shadow root: ${href}`
-        );
+      debugLog(DebugNamespace.CACHE, `Skipping duplicate style: ${href}`);
       return;
     }
 
-    if (DEBUG) console.debug(`[Style Cache] Injecting style: ${href}`);
+    debugLog(DebugNamespace.INJECT_STYLES, "Loading new stylesheet:", {
+      href,
+      attributes,
+    });
 
-    // If we have the styles cached, use them immediately
-    if (globalStyleCache.has(href)) {
-      const styleElement = document.createElement("style");
-      styleElement.textContent = globalStyleCache.get(href)!;
-      shadowRoot.appendChild(styleElement);
-      shadowStyles.add(href);
-      debugCache(shadowRoot, href, "add");
-      return;
-    }
-
-    // First time loading this stylesheet
     const linkElement = document.createElement("link");
     linkElement.rel = "stylesheet";
     linkElement.href = href;
 
     if (attributes) {
-      Object.entries(attributes).forEach(([key, value]) => {
-        if (value) linkElement.setAttribute(key, value);
-      });
+      if (attributes.integrity) {
+        linkElement.integrity = attributes.integrity;
+      }
+      if (attributes.crossOrigin) {
+        linkElement.crossOrigin = attributes.crossOrigin;
+      }
     }
 
-    // Add to shadow root immediately for styles to take effect
     shadowRoot.appendChild(linkElement);
     shadowStyles.add(href);
+    debugLog(
+      DebugNamespace.LINK_ELEMENT,
+      "Added to DOM:",
+      linkElement.outerHTML
+    );
   };
 
-  // Inject global styles
+  // Handle global styles
   if (typeof globalStyles === "string") {
+    debugLog(DebugNamespace.GLOBAL_STYLES, "Processing string:", globalStyles);
     if (
       globalStyles.trim().endsWith(".css") ||
       globalStyles.trim().endsWith(".scss")
     ) {
       injectStylesheet(globalStyles);
     } else {
+      debugLog(DebugNamespace.WARN, "Invalid global style path");
       console.warn("Invalid global style path:", globalStyles);
     }
-  } else if (typeof globalStyles === "object" && "href" in globalStyles) {
+  } else if (
+    typeof globalStyles === "object" &&
+    globalStyles &&
+    "href" in globalStyles
+  ) {
+    debugLog(DebugNamespace.GLOBAL_STYLES, "Processing object:", globalStyles);
     injectStylesheet(globalStyles.href, {
       integrity: globalStyles.integrity,
-      crossorigin: globalStyles.crossorigin,
+      crossOrigin: globalStyles.crossOrigin,
     });
   }
 
-  // Handle deprecated styles.paths (with warning)
+  // Handle deprecated styles.paths
   if (styles?.paths) {
+    debugLog(DebugNamespace.WARN, "Processing deprecated styles.paths");
     console.warn(
       "DEPRECATION WARNING: `styles.paths` is deprecated. Use `setGlobalStyles` instead."
     );
     styles.paths.forEach((style) => {
+      // Add validation for invalid types first
+      if (
+        typeof style !== "string" &&
+        (typeof style !== "object" || !style || !("href" in style))
+      ) {
+        console.warn("Invalid style path/object:", style);
+        return;
+      }
+
       if (typeof style === "string") {
         if (style.trim().endsWith(".css") || style.trim().endsWith(".scss")) {
           injectStylesheet(style);
         } else {
-          console.warn("Invalid style path:", style);
+          debugLog(DebugNamespace.WARN, "Invalid style path");
+          console.warn("Invalid style path/object:", style);
         }
       } else if (typeof style === "object" && "href" in style) {
         injectStylesheet(style.href, {
           integrity: style.integrity,
-          crossorigin: style.crossorigin,
+          crossOrigin: style.crossOrigin,
         });
       }
     });
   }
 
-  // Handle deprecated styles.custom (with warning)
+  // Handle deprecated styles.custom
   if (styles?.custom) {
+    debugLog(DebugNamespace.WARN, "Processing deprecated styles.custom");
     console.warn(
-      "DEPRECATION WARNING: `styles.custom` is deprecated. Use style tags in your template instead."
+      "DEPRECATION WARNING: `styles.custom` is deprecated. Use `setGlobalStyles` instead."
     );
     const styleElement = document.createElement("style");
     styleElement.textContent = styles.custom;
     shadowRoot.appendChild(styleElement);
+    debugLog(
+      DebugNamespace.LINK_ELEMENT,
+      "Added custom style:",
+      styleElement.outerHTML
+    );
   }
 }

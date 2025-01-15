@@ -10,6 +10,7 @@ describe("IgniteElement", () => {
   type Event = { type: string };
   let adapter: MockAdapter<State, Event>;
   let element: IgniteElement<State, Event>;
+  let elementName: string;
 
   // Create a type to expose protected methods for testing
   interface TestIgniteElement extends IgniteElement<State, Event> {}
@@ -17,8 +18,10 @@ describe("IgniteElement", () => {
   beforeEach(() => {
     adapter = new MockAdapter(initialState);
     const core = igniteElementFactory(() => adapter);
-    const uniqueName = `shared-test-element-${Math.random()}`;
-    element = core.shared(uniqueName, ({ state, send }) => {
+    elementName = `shared-test-element-${crypto.randomUUID()}`;
+    
+    // Define the element
+    core.shared(elementName, ({ state, send }) => {
       return html`
         <div>
           Count: ${state?.count}
@@ -27,11 +30,13 @@ describe("IgniteElement", () => {
       `;
     });
 
+    // Create and append element
+    element = document.createElement(elementName) as IgniteElement<State, Event>;
     document.body.appendChild(element);
   });
 
   afterEach(() => {
-    if (document.body.contains(element)) {
+    if (element?.isConnected) {
       document.body.removeChild(element);
     }
   });
@@ -57,58 +62,48 @@ describe("IgniteElement", () => {
 
   it("should pause updates (set _isActive to false) when the element is disconnected", () => {
     element.remove(); // Simulate disconnection
-    expect(element.isActive).toBe(false); // Ensure _isActive is set to false
+    expect((element as TestIgniteElement).isActive).toBe(false);
   });
 
   it("should return the adapter's state via the state getter", () => {
-    const elementInstance = element as TestIgniteElement; // Access protected methods for testing
+    const elementInstance = element as TestIgniteElement;
     expect(elementInstance.currentState).toEqual(initialState);
     expect(adapter.getState).toHaveBeenCalled();
   });
 
   it("should handle actions dispatched as plain objects", () => {
-    // Directly use the send method with plain object actions
-    const elementInstance = element as TestIgniteElement; // Access protected methods
+    const elementInstance = element as TestIgniteElement;
     elementInstance.adapter?.send({ type: "increment" });
 
-    // Verify adapter received the expected action
     expect(adapter.send).toHaveBeenCalledWith({ type: "increment" });
   });
 
   it("should capture and validate the dispatchEvent call", () => {
-    const eventListener = vi.fn(); // Mock listener
-
-    // Attach a listener to the element
+    const eventListener = vi.fn();
     element.addEventListener("send", eventListener);
 
-    // Dispatch the event
     const customEvent = new CustomEvent("send", {
       detail: { type: "increment" },
     });
     element.dispatchEvent(customEvent);
 
-    // Assert that the listener was called
     expect(eventListener).toHaveBeenCalled();
     expect(eventListener).toHaveBeenCalledWith(expect.any(CustomEvent));
   });
 
   it("should handle actions dispatched as CustomEvent", () => {
     const sendSpy = vi.spyOn(adapter, "send");
-    // Create a custom event with payload
     const customEvent = new CustomEvent("send", {
       detail: { type: "increment" },
     });
 
-    element.dispatchEvent(customEvent); // Dispatch the event
+    element.dispatchEvent(customEvent);
 
-    // Verify that the adapter received the expected action
     expect(sendSpy).toHaveBeenCalledWith({ type: "increment" });
   });
 
   it("should render correctly using forceRender when initialized and active", () => {
     const elementInstance = element as TestIgniteElement;
-
-    // Simulate initialized and active state
     elementInstance.initialized = true;
     elementInstance.isActive = true;
     elementInstance.currentState = { count: 0 };
@@ -123,11 +118,9 @@ describe("IgniteElement", () => {
 
   it("should warn if forceRender is called before initialization", () => {
     const elementInstance = element as TestIgniteElement;
-
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    // Simulate uninitialized state
-    (elementInstance as any).initialized = false;
+    elementInstance.initialized = false;
     elementInstance.forceRender();
 
     expect(warnSpy).toHaveBeenCalledWith(
@@ -139,10 +132,8 @@ describe("IgniteElement", () => {
 
   it("should warn if forceRender is called while inactive", () => {
     const elementInstance = element as TestIgniteElement;
-
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    // Simulate inactive state
     elementInstance.isActive = false;
     elementInstance.initialized = true;
     elementInstance.forceRender();
@@ -156,10 +147,8 @@ describe("IgniteElement", () => {
 
   it("should warn if currentState is undefined", () => {
     const elementInstance = element as TestIgniteElement;
-
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    // Simulate inactive state
     elementInstance.currentState = undefined;
     elementInstance.forceRender();
 
