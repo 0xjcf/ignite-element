@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.3
+
+### Patch Changes
+
+- 4104ae9: Fix duplicate stylesheet fetching
+
 ## 1.4.1
 
 ### Patch Changes
