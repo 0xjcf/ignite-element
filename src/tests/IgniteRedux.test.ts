@@ -6,6 +6,10 @@ import counterStore, {
   increment,
 } from "../examples/redux/src/js/reduxCounterStore";
 import { igniteCore } from "../IgniteCore";
+import IgniteElement from "../IgniteElement";
+import type { Action } from "redux";
+
+export type RootState = ReturnType<ReturnType<typeof counterStore>["getState"]>;
 
 describe("igniteRedux", () => {
   // Initialize igniteCore for Redux
@@ -14,15 +18,18 @@ describe("igniteRedux", () => {
     source: counterStore,
     actions: { increment, decrement },
   });
+
   // Shared Components Tests
   describe("Shared Components", () => {
-    let shared1: HTMLElement;
-    let shared2: HTMLElement;
-    beforeEach(() => {
-      const uniqueName = crypto.randomUUID(); // Unique names for each run
+    let shared1: IgniteElement<RootState, Action>;
+    let shared2: IgniteElement<RootState, Action>;
+    let uniqueName: string;
 
-      // Shared Components
-      shared1 = igniteElement.shared(
+    beforeEach(() => {
+      uniqueName = crypto.randomUUID(); // Unique names for each run
+
+      // Register Shared Components
+      igniteElement.shared(
         `shared-counter-${uniqueName}`,
         ({ state, send }) => {
           return html`
@@ -31,23 +38,28 @@ describe("igniteRedux", () => {
           `;
         }
       );
-      shared2 = igniteElement.shared(
-        `shared-display-${uniqueName}`,
-        ({ state }) => {
-          return html`<div>Count: ${state.counter.count}</div>`;
-        }
-      );
 
+      igniteElement.shared(`shared-display-${uniqueName}`, ({ state }) => {
+        return html`<div>Count: ${state.counter.count}</div>`;
+      });
+
+      // Create and append elements
+      shared1 = document.createElement(
+        `shared-counter-${uniqueName}`
+      ) as IgniteElement<RootState, Action>;
+      shared2 = document.createElement(
+        `shared-display-${uniqueName}`
+      ) as IgniteElement<RootState, Action>;
       document.body.appendChild(shared1);
       document.body.appendChild(shared2);
     });
 
     afterAll(() => {
       // Remove elements explicitly
-      if (shared1.isConnected) {
+      if (shared1?.isConnected) {
         document.body.removeChild(shared1);
       }
-      if (shared2.isConnected) {
+      if (shared2?.isConnected) {
         document.body.removeChild(shared2);
       }
     });
@@ -68,11 +80,13 @@ describe("igniteRedux", () => {
   describe("Isolated Components", () => {
     let isolated1: HTMLElement;
     let isolated2: HTMLElement;
-    beforeEach(() => {
-      const uniqueName = crypto.randomUUID(); // Unique names for each run
+    let uniqueName: string;
 
-      // Isolated Components
-      isolated1 = igniteElement.isolated(
+    beforeEach(() => {
+      uniqueName = crypto.randomUUID(); // Unique names for each run
+
+      // Register Isolated Components
+      igniteElement.isolated(
         `isolated-counter-${uniqueName}`,
         ({ state, send }) => {
           return html`
@@ -81,23 +95,24 @@ describe("igniteRedux", () => {
           `;
         }
       );
-      isolated2 = igniteElement.isolated(
-        `isolated-display-${uniqueName}`,
-        ({ state }) => {
-          return html`<div>Count: ${state.counter.count}</div>`;
-        }
-      );
 
+      igniteElement.isolated(`isolated-display-${uniqueName}`, ({ state }) => {
+        return html`<div>Count: ${state.counter.count}</div>`;
+      });
+
+      // Create and append elements
+      isolated1 = document.createElement(`isolated-counter-${uniqueName}`);
+      isolated2 = document.createElement(`isolated-display-${uniqueName}`);
       document.body.appendChild(isolated1);
       document.body.appendChild(isolated2);
     });
 
     afterAll(() => {
       // Remove elements explicitly
-      if (isolated1.isConnected) {
+      if (isolated1?.isConnected) {
         document.body.removeChild(isolated1);
       }
-      if (isolated2.isConnected) {
+      if (isolated2?.isConnected) {
         document.body.removeChild(isolated2);
       }
     });

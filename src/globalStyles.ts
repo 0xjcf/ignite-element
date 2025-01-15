@@ -1,7 +1,7 @@
 export interface StyleObject {
   href: string;
   integrity?: string;
-  crossorigin?: string;
+  crossOrigin?: string;
 }
 
 export type GlobalStyles = string | StyleObject | undefined;

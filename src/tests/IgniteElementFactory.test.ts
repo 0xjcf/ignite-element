@@ -3,6 +3,7 @@ import { TemplateResult } from "lit-html";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import MinimalMockAdapter from "./MockAdapter";
 import { RenderArgs } from "../RenderArgs";
+import IgniteElement from "../IgniteElement";
 
 describe("IgniteElementFactory", () => {
   const initialState = { count: 0 };
@@ -10,10 +11,10 @@ describe("IgniteElementFactory", () => {
   type Event = { type: string };
   let adapter: MinimalMockAdapter<State, Event>;
   let core: IgniteCore<State, Event>;
-  let uniqueId: number;
+  let uniqueId: string;
 
   beforeEach(() => {
-    uniqueId = Math.random();
+    uniqueId = crypto.randomUUID();
     adapter = new MinimalMockAdapter(initialState);
     core = igniteElementFactory(() => adapter);
   });
@@ -24,114 +25,124 @@ describe("IgniteElementFactory", () => {
   });
 
   it("should create shared components and subscribe to adapter", () => {
-    const sharedComponent = core.shared(
-      `shared-counter-${uniqueId}`,
+    const elementName = `shared-counter-${uniqueId}`;
+    core.shared(
+      elementName,
       ({ state }) => {
         expect(state).toEqual(initialState);
-        return {} as TemplateResult; // Mock TemplateResult
+        return {} as TemplateResult;
       }
     );
 
-    document.body.appendChild(sharedComponent);
+    const element = document.createElement(elementName);
+    document.body.appendChild(element);
 
-    expect(sharedComponent).toBeDefined();
+    expect(element).toBeDefined();
     expect(adapter.subscribe).toHaveBeenCalled();
   });
 
   it("should create isolated components and subscribe to adapter", () => {
-    const isolatedComponent = core.isolated(
-      `isolated-counter-${uniqueId}`,
+    const elementName = `isolated-counter-${uniqueId}`;
+    core.isolated(
+      elementName,
       ({ state }) => {
         expect(state).toEqual(initialState);
-        return {} as TemplateResult; // Mock TemplateResult
+        return {} as TemplateResult;
       }
     );
 
-    document.body.appendChild(isolatedComponent);
+    const element = document.createElement(elementName);
+    document.body.appendChild(element);
 
-    expect(isolatedComponent).toBeDefined();
+    expect(element).toBeDefined();
     expect(adapter.subscribe).toHaveBeenCalled();
   });
 
   it("should initialize adapter during connectedCallback", () => {
-    const isolatedComponent = core.isolated(
-      `isolated-counter-${uniqueId}`,
+    const elementName = `isolated-counter-${uniqueId}`;
+    core.isolated(
+      elementName,
       () => {
-        return {} as TemplateResult; // Mock TemplateResult
+        return {} as TemplateResult;
       }
     );
 
-    document.body.appendChild(isolatedComponent);
+    const element = document.createElement(elementName);
+    document.body.appendChild(element);
 
     expect(adapter.subscribe).toHaveBeenCalledTimes(1);
   });
 
   it("should pause updates when isolated component is disconnected", () => {
-    const isolatedComponent = core.isolated(
-      `isolated-counter-${uniqueId}`,
+    const elementName = `isolated-counter-${uniqueId}`;
+    core.isolated(
+      elementName,
       () => {
-        return {} as TemplateResult; // Mock TemplateResult
+        return {} as TemplateResult;
       }
     );
 
-    document.body.appendChild(isolatedComponent); // Mount component
-    document.body.removeChild(isolatedComponent); // Unmount component
+    const element = document.createElement(elementName) as IgniteElement<State, Event>;
+    document.body.appendChild(element);
+    document.body.removeChild(element);
 
-    // Verify that the adapter is still active, but updates are paused
-    expect(isolatedComponent.isActive).toBe(false); // Uses getter in tests
-    expect(adapter.stop).not.toHaveBeenCalled(); // Adapter should NOT be stopped
+    expect(element.isActive).toBe(false);
+    expect(adapter.stop).not.toHaveBeenCalled();
   });
 
   it("should resume updates when isolated component is reconnected", () => {
-    const isolatedComponent = core.isolated(
-      `isolated-counter-${uniqueId}`,
+    const elementName = `isolated-counter-${uniqueId}`;
+    core.isolated(
+      elementName,
       () => {
         return {} as TemplateResult;
       }
     );
 
-    document.body.appendChild(isolatedComponent); // Connect
-    document.body.removeChild(isolatedComponent); // Disconnect
-    document.body.appendChild(isolatedComponent); // Reconnect
+    const element = document.createElement(elementName) as IgniteElement<State, Event>;
+    document.body.appendChild(element);
+    document.body.removeChild(element);
+    document.body.appendChild(element);
 
-    // Verify that _isActive is reset
-    expect(isolatedComponent.isActive).toBe(true);
-
-    // Verify that rendering has resumed
-    expect(isolatedComponent.shadowRoot?.textContent).toBeDefined();
+    expect(element.isActive).toBe(true);
+    expect(element.shadowRoot?.textContent).toBeDefined();
   });
 
   it("should preserve adapter subscription on reconnection", () => {
-    const isolatedComponent = core.isolated(
-      `isolated-counter-${uniqueId}`,
+    const elementName = `isolated-counter-${uniqueId}`;
+    core.isolated(
+      elementName,
       () => {
         return {} as TemplateResult;
       }
     );
 
-    document.body.appendChild(isolatedComponent); // Connect
+    const element = document.createElement(elementName);
+    document.body.appendChild(element);
     const stateBefore = adapter.getState();
-    document.body.removeChild(isolatedComponent); // Disconnect
-    document.body.appendChild(isolatedComponent); // Reconnect
+    document.body.removeChild(element);
+    document.body.appendChild(element);
 
     const stateAfter = adapter.getState();
-    expect(stateBefore).toEqual(stateAfter); // State remains intact
+    expect(stateBefore).toEqual(stateAfter);
   });
 
   it("should inject custom styles into the shadow DOM", () => {
     const styles = { custom: "div { color: red; }" };
     const core = igniteElementFactory(() => adapter, { styles });
 
-    const sharedComponent = core.shared(
-      `shared-styled-counter-${uniqueId}`,
+    const elementName = `shared-styled-counter-${uniqueId}`;
+    core.shared(
+      elementName,
       () => {
-        return {} as TemplateResult; // Mock TemplateResult
+        return {} as TemplateResult;
       }
     );
 
-    document.body.appendChild(sharedComponent);
+    const element = document.createElement(elementName);
+    document.body.appendChild(element);
 
-    const shadowRoot = sharedComponent.shadowRoot;
+    const shadowRoot = element.shadowRoot;
     const styleElement = shadowRoot?.querySelector("style");
 
     expect(styleElement).toBeDefined();
@@ -147,16 +158,18 @@ describe("IgniteElementFactory", () => {
     };
     const core = igniteElementFactory(() => adapter, { styles });
 
-    const sharedComponent = core.shared(
-      `shared-styled-paths-${uniqueId}`,
+    const elementName = `shared-styled-paths-${uniqueId}`;
+    core.shared(
+      elementName,
       () => {
-        return {} as TemplateResult; // Mock TemplateResult
+        return {} as TemplateResult;
       }
     );
 
-    document.body.appendChild(sharedComponent);
+    const element = document.createElement(elementName);
+    document.body.appendChild(element);
 
-    const shadowRoot = sharedComponent.shadowRoot;
+    const shadowRoot = element.shadowRoot;
     const linkElements = shadowRoot?.querySelectorAll("link");
 
     expect(linkElements?.length).toBe(2);
@@ -171,22 +184,24 @@ describe("IgniteElementFactory", () => {
         {
           href: "https://example.com/secure-styles.css",
           integrity: "sha256-123",
-          crossorigin: "anonymous",
+          crossOrigin: "anonymous",
         },
       ],
     };
     const core = igniteElementFactory(() => adapter, { styles });
 
-    const sharedComponent = core.shared(
-      `shared-styled-crossorigin-${uniqueId}`,
+    const elementName = `shared-styled-crossorigin-${uniqueId}`;
+    core.shared(
+      elementName,
       () => {
-        return {} as TemplateResult; // Mock TemplateResult
+        return {} as TemplateResult;
       }
     );
 
-    document.body.appendChild(sharedComponent);
+    const element = document.createElement(elementName);
+    document.body.appendChild(element);
 
-    const shadowRoot = sharedComponent.shadowRoot;
+    const shadowRoot = element.shadowRoot;
     const linkElement = shadowRoot?.querySelector("link");
 
     expect(linkElement).toBeDefined();
@@ -205,14 +220,16 @@ describe("IgniteElementFactory", () => {
     // @ts-expect-error numbers are not valid styles
     const core = igniteElementFactory(() => adapter, { styles });
 
-    const sharedComponent = core.shared(
-      `shared-styled-invalid-${uniqueId}`,
+    const elementName = `shared-styled-invalid-${uniqueId}`;
+    core.shared(
+      elementName,
       () => {
-        return {} as TemplateResult; // Mock TemplateResult
+        return {} as TemplateResult;
       }
     );
 
-    document.body.appendChild(sharedComponent);
+    const element = document.createElement(elementName);
+    document.body.appendChild(element);
 
     // Expect warnings for invalid styles
     expect(warnSpy).toHaveBeenCalledWith("Invalid style path/object:", 42);
@@ -230,7 +247,10 @@ describe("IgniteElementFactory", () => {
   });
 
   it("should create a shared component using the Shared decorator", () => {
-    @core.Shared(`shared-decorator-${uniqueId}`)
+    const decoratorId = crypto.randomUUID();
+    const functionId = crypto.randomUUID();
+
+    @core.Shared(`shared-decorator-${decoratorId}`)
     class SharedCounter {
       render({ state }: RenderArgs<State, Event>): TemplateResult {
         expect(state).toEqual(initialState); // Ensure initial state
@@ -238,21 +258,37 @@ describe("IgniteElementFactory", () => {
       }
     }
 
-    const sharedComponent = document.createElement(
-      `shared-decorator-${uniqueId}`
+    // Create and test the decorated component
+    const decoratedElement = document.createElement(`shared-decorator-${decoratorId}`);
+    document.body.appendChild(decoratedElement);
+
+    // Create a different component for comparison
+    core.shared(
+      `shared-function-${functionId}`,
+      ({ state }) => {
+        expect(state).toEqual(initialState);
+        return {} as TemplateResult;
+      }
     );
-    document.body.appendChild(sharedComponent);
 
-    // Verify the component exists and is subscribed
-    expect(sharedComponent).toBeDefined();
-    expect(adapter.subscribe).toHaveBeenCalled();
+    const functionElement = document.createElement(`shared-function-${functionId}`);
+    document.body.appendChild(functionElement);
 
-    // Verify shadowRoot is set up
-    expect(sharedComponent.shadowRoot).toBeDefined();
+    // Verify both components exist and are subscribed
+    expect(decoratedElement).toBeDefined();
+    expect(functionElement).toBeDefined();
+    expect(adapter.subscribe).toHaveBeenCalledTimes(2);
+
+    // Verify shadowRoot is set up for both
+    expect(decoratedElement.shadowRoot).toBeDefined();
+    expect(functionElement.shadowRoot).toBeDefined();
   });
 
   it("should create an isolated component using the Isolated decorator", () => {
-    @core.Isolated(`isolated-decorator-${uniqueId}`)
+    const decoratorId = crypto.randomUUID();
+    const functionId = crypto.randomUUID();
+
+    @core.Isolated(`isolated-decorator-${decoratorId}`)
     class IsolatedCounter {
       render({ state }: RenderArgs<State, Event>): TemplateResult {
         expect(state).toEqual(initialState); // Ensure initial state
@@ -260,16 +296,29 @@ describe("IgniteElementFactory", () => {
       }
     }
 
-    const isolatedComponent = document.createElement(
-      `isolated-decorator-${uniqueId}`
+    // Create and test the decorated component
+    const decoratedElement = document.createElement(`isolated-decorator-${decoratorId}`);
+    document.body.appendChild(decoratedElement);
+
+    // Create a different component for comparison
+    core.isolated(
+      `isolated-function-${functionId}`,
+      ({ state }) => {
+        expect(state).toEqual(initialState);
+        return {} as TemplateResult;
+      }
     );
-    document.body.appendChild(isolatedComponent);
 
-    // Verify the component exists and is subscribed
-    expect(isolatedComponent).toBeDefined();
-    expect(adapter.subscribe).toHaveBeenCalled();
+    const functionElement = document.createElement(`isolated-function-${functionId}`);
+    document.body.appendChild(functionElement);
 
-    // Verify shadowRoot is set up
-    expect(isolatedComponent.shadowRoot).toBeDefined();
+    // Verify both components exist and are subscribed
+    expect(decoratedElement).toBeDefined();
+    expect(functionElement).toBeDefined();
+    expect(adapter.subscribe).toHaveBeenCalledTimes(2);
+
+    // Verify shadowRoot is set up for both
+    expect(decoratedElement.shadowRoot).toBeDefined();
+    expect(functionElement.shadowRoot).toBeDefined();
   });
 });

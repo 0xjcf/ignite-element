@@ -24,12 +24,12 @@ export interface IgniteCore<State, Event> {
   shared: (
     elementName: string,
     renderFn: (args: RenderFnArgs<State, Event>) => TemplateResult
-  ) => IgniteElement<State, Event>;
+  ) => void;
 
   isolated: (
     elementName: string,
     renderFn: (args: RenderFnArgs<State, Event>) => TemplateResult
-  ) => IgniteElement<State, Event>;
+  ) => void;
 
   Shared: (
     tagName: string
@@ -80,7 +80,6 @@ export default function igniteElementFactory<State, Event>(
     }
 
     customElements.define(elementName, SharedElement);
-    return new SharedElement();
   }
 
   function createIsolatedElement(
@@ -90,7 +89,7 @@ export default function igniteElementFactory<State, Event>(
     class IsolatedElement extends IgniteElement<State, Event> {
       constructor() {
         const isolatedAdapter = igniteAdapter();
-        super(isolatedAdapter, config?.styles); // Initialize with styles
+        super(isolatedAdapter, config?.styles);
       }
 
       protected render(): TemplateResult {
@@ -102,7 +101,6 @@ export default function igniteElementFactory<State, Event>(
     }
 
     customElements.define(elementName, IsolatedElement);
-    return new IsolatedElement();
   }
 
   // Shared Decorator

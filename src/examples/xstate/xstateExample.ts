@@ -156,6 +156,3 @@ export class AdvancedSharedCounter {
     `;
   }
 }
-
-const advancedSharedCounter = document.createElement("advanced-shared-counter");
-document.body.querySelector(".container")?.appendChild(advancedSharedCounter);
