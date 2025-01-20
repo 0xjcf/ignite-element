@@ -1,6 +1,6 @@
 {
   "name": "ignite-element",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "type": "module",
   "main": "dist/ignite-element.cjs.js",
   "types": "dist/types/index.d.ts",

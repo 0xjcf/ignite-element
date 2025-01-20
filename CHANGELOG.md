@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.4
+
+### Patch Changes
+
+- c07f7be: Adjust documentation
+
 ## 1.4.3
 
 ### Patch Changes
