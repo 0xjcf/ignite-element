@@ -32,23 +32,24 @@ Ignite-Element is a lightweight library for building reusable, state-driven, and
 - **Reusable Web Components**: Built on modern web standards to ensure compatibility and performance.
 - **Flexible Styling**: Inject global styles or use scoped styles for each component.
 - **TypeScript Support**: Provides type safety for seamless integration with your codebase.
-- **No Dependencies**: Ignite-Element relies purely on web standards, ensuring a lightweight and fast runtime.
 
 ---
 
 ## **Installation**
 
+Ignite-Element requires `lit-html` for rendering, as it’s the library currently used to define templates. While the goal is to make Ignite-Element rendering-agnostic in the future, for now, `lit-html` is a required dependency.
+
 Install Ignite-Element with your preferred state management library:
 
-`npm install ignite-element xstate`
+`npm install ignite-element lit-html xstate`
 
 Or, for **Redux**:
 
-`npm install ignite-element @reduxjs/toolkit`
+`npm install ignite-element lit-html @reduxjs/toolkit`
 
 Or, for **MobX**:
 
-`npm install ignite-element mobx`
+`npm install ignite-element lit-html mobx`
 
 ---
 
@@ -58,6 +59,7 @@ Ignite-Element supports shared and isolated state components. Here’s a quick e
 
 ```javascript
 import { igniteCore } from "ignite-element";
+import { html } from "lit-html";
 import counterMachine from "./counterMachine"; // Your XState machine
 
 const igniteElement = igniteCore({
@@ -131,6 +133,7 @@ For the full documentation, visit the Ignite-Element GitBook:
 Contributions are welcome! To get started:
 
 1. Fork the repository and clone your fork:
+
    ```bash
    git clone https://github.com/<your-username>/ignite-element.git
    cd ignite-element
