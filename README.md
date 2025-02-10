@@ -117,7 +117,7 @@ import { setGlobalStyles } from "ignite-element";
 setGlobalStyles("./styles/tailwind.css");
 ```
 
-For more details, see the [Styling section](https://joseflores.gitbook.io/ignite-element/styling).
+For more details, see the [Styling section](https://joseflores.gitbook.io/ignite-element/core-concepts/styling-with-ignite-element).
 
 ---
 
