@@ -17,10 +17,10 @@
   "license": "ISC",
   "dependencies": {
     "lit-html": "^3.2.1",
-    "mobx": "^6.10.2"
+    "mobx": "^6.13.6"
   },
   "devDependencies": {
-    "@types/node": "^22.10.1",
-    "vite": "^6.0.1"
+    "@types/node": "^22.13.9",
+    "vite": "^6.2.0"
   }
 }
