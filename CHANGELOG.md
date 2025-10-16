@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.6
+
+### Patch Changes
+
+- Fix workspace configuration so pnpm 9 installs succeed under Node.js 22 in CI
+
 ## 1.4.4
 
 ### Patch Changes
