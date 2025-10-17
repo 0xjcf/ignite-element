@@ -6,7 +6,7 @@ import createXStateAdapter, {
 	type ExtendedState,
 } from "./adapters/XStateAdapter";
 import igniteElementFactory, {
-	type IgniteCore,
+	type ComponentFactory,
 	type IgniteElementConfig,
 } from "./IgniteElementFactory";
 import type { InferStateAndEvent, ReduxActions } from "./utils/igniteRedux";
@@ -40,7 +40,7 @@ export function igniteCore<Machine extends AnyStateMachine>(options: {
 	adapter: "xstate";
 	source: Machine;
 	styles?: IgniteElementConfig["styles"];
-}): IgniteCore<ExtendedState<Machine>, EventFrom<Machine>>;
+}): ComponentFactory<ExtendedState<Machine>, EventFrom<Machine>>;
 
 // Overload for Redux - Slice
 export function igniteCore<
@@ -49,9 +49,9 @@ export function igniteCore<
 	adapter: "redux";
 	source: SliceType;
 	styles?: IgniteElementConfig["styles"];
-}): IgniteCore<
-	InferStateAndEvent<SliceType>["State"], // Infer State from Slice
-	InferStateAndEvent<SliceType>["Event"] // Infer Events from Slice
+}): ComponentFactory<
+	InferStateAndEvent<SliceType>["State"],
+	InferStateAndEvent<SliceType>["Event"]
 >;
 
 // Overload for Redux - Store
@@ -63,9 +63,9 @@ export function igniteCore<
 	source: StoreCreator;
 	actions: Actions; // Pass actions explicitly
 	styles?: IgniteElementConfig["styles"];
-}): IgniteCore<
-	InferStateAndEvent<StoreCreator, Actions>["State"], // Infer State from Store
-	InferStateAndEvent<StoreCreator, Actions>["Event"] // Infer Events from explicit actions
+}): ComponentFactory<
+	InferStateAndEvent<StoreCreator, Actions>["State"],
+	InferStateAndEvent<StoreCreator, Actions>["Event"]
 >;
 
 // Overload for MobX
@@ -76,7 +76,7 @@ export function igniteCore<
 	adapter: "mobx";
 	source: () => State;
 	styles?: IgniteElementConfig["styles"];
-}): IgniteCore<State, Event>;
+}): ComponentFactory<State, Event>;
 
 // Unified Implementation
 export function igniteCore(options: IgniteCoreConfig) {

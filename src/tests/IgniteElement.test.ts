@@ -17,18 +17,17 @@ describe("IgniteElement", () => {
 
 	beforeEach(() => {
 		adapter = new MockAdapter(initialState);
-		const core = igniteElementFactory(() => adapter);
-		elementName = `shared-test-element-${crypto.randomUUID()}`;
+    const component = igniteElementFactory(() => adapter);
+    elementName = `ignite-test-element-${crypto.randomUUID()}`;
 
-		// Define the element
-		core.shared(elementName, ({ state, send }) => {
-			return html`
+    component(elementName, ({ state, send }) => {
+      return html`
         <div>
           Count: ${state?.count}
           <button @click=${() => send({ type: "increment" })}>Increment</button>
         </div>
       `;
-		});
+    });
 
 		// Create and append element
 		element = document.createElement(elementName) as IgniteElement<

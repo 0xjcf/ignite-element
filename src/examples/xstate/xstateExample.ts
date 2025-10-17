@@ -6,13 +6,13 @@ import { advancedMachine } from "./advancedCounterMachine";
 
 setGlobalStyles("./dist/styles.css");
 
-const { shared, isolated, Shared } = igniteCore({
+const registerXState = igniteCore({
 	adapter: "xstate",
 	source: advancedMachine,
 });
 
 // Shared Counter Component (XState)
-shared("my-counter-xstate", ({ state, send }) => {
+registerXState("my-counter-xstate", ({ state, send }) => {
 	return html`
     <div class="p-4 bg-green-100 border rounded-md mb-2">
       <h3 class="text-lg font-bold">Shared Counter (XState)</h3>
@@ -36,7 +36,7 @@ shared("my-counter-xstate", ({ state, send }) => {
 });
 
 // Shared Display Component (XState)
-shared("shared-display-xstate", ({ state }) => {
+registerXState("shared-display-xstate", ({ state }) => {
 	return html`
     <div class="p-4 bg-blue-100 border rounded-md mb-2">
       <h3 class="text-lg font-bold text-blue-800">
@@ -48,7 +48,7 @@ shared("shared-display-xstate", ({ state }) => {
 });
 
 // Isolated Counter Component (XState)
-isolated("another-counter-xstate", ({ state, send }) => {
+registerXState("another-counter-xstate", ({ state, send }) => {
 	return html`
     <div class="p-4 bg-yellow-100 border rounded-md mb-2">
       <h3 class="text-lg font-bold text-yellow-800">
@@ -73,7 +73,7 @@ isolated("another-counter-xstate", ({ state, send }) => {
   `;
 });
 
-isolated("gradient-tally", ({ state }) => {
+registerXState("gradient-tally", ({ state }) => {
 	const { count } = state.context;
 
 	return html`
@@ -97,7 +97,6 @@ isolated("gradient-tally", ({ state }) => {
   `;
 });
 
-@Shared("advanced-shared-counter")
 export class AdvancedSharedCounter {
 	render({ state, send }: RenderArgs<typeof advancedMachine>) {
 		const { count, darkMode } = state.context;
@@ -156,3 +155,7 @@ export class AdvancedSharedCounter {
     `;
 	}
 }
+
+registerXState("advanced-shared-counter", (args) => {
+	return new AdvancedSharedCounter().render(args);
+});

@@ -1,6 +1,6 @@
 import { html } from "lit-html";
 import type { Action } from "redux";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import counterStore, {
 	addByAmount,
 	decrement,
@@ -12,141 +12,122 @@ import type IgniteElement from "../IgniteElement";
 type RootState = ReturnType<ReturnType<typeof counterStore>["getState"]>;
 
 describe("igniteRedux", () => {
-	// Initialize igniteCore for Redux
-	const igniteElement = igniteCore({
-		adapter: "redux",
-		source: counterStore,
-		actions: { increment, decrement },
+	afterEach(() => {
+		// Ensure DOM cleanup between tests
+		document.body.innerHTML = "";
 	});
 
-	// Shared Components Tests
 	describe("Shared Components", () => {
-		let shared1: IgniteElement<RootState, Action>;
-		let shared2: IgniteElement<RootState, Action>;
+		let sharedCounter: IgniteElement<RootState, Action>;
+		let sharedDisplay: IgniteElement<RootState, Action>;
 		let uniqueName: string;
 
 		beforeEach(() => {
-			uniqueName = crypto.randomUUID(); // Unique names for each run
-
-			// Register Shared Components
-			igniteElement.shared(
-				`shared-counter-${uniqueName}`,
-				({ state, send }) => {
-					return html`
-            <div>Count: ${state.counter.count}</div>
-            <button @click=${() => send(increment())}>+</button>
-          `;
-				},
-			);
-
-			igniteElement.shared(`shared-display-${uniqueName}`, ({ state }) => {
-				return html`<div>Count: ${state.counter.count}</div>`;
+			const sharedStore = counterStore();
+			const register = igniteCore({
+				adapter: "redux",
+				source: () => sharedStore,
+				actions: { increment, decrement, addByAmount },
 			});
 
-			// Create and append elements
-			shared1 = document.createElement(
+			uniqueName = crypto.randomUUID();
+
+			register(`shared-counter-${uniqueName}`, ({ state, send }) => html`
+				<div>Count: ${state.counter.count}</div>
+				<button @click=${() => send(increment())}>+</button>
+			`);
+
+			register(`shared-display-${uniqueName}`, ({ state }) => html`
+				<div>Count: ${state.counter.count}</div>
+			`);
+
+			sharedCounter = document.createElement(
 				`shared-counter-${uniqueName}`,
 			) as IgniteElement<RootState, Action>;
-			shared2 = document.createElement(
+			sharedDisplay = document.createElement(
 				`shared-display-${uniqueName}`,
 			) as IgniteElement<RootState, Action>;
-			document.body.appendChild(shared1);
-			document.body.appendChild(shared2);
+
+			document.body.append(sharedCounter, sharedDisplay);
 		});
 
-		afterAll(() => {
-			// Remove elements explicitly
-			if (shared1?.isConnected) {
-				document.body.removeChild(shared1);
-			}
-			if (shared2?.isConnected) {
-				document.body.removeChild(shared2);
-			}
-		});
+		it("synchronizes state updates across shared components", () => {
+			const button = sharedCounter.shadowRoot?.querySelector("button");
+			button?.click();
 
-		it("should synchronize state updates across shared components", () => {
-			const button = shared1.shadowRoot?.querySelector("button");
-			button?.click(); // Increment shared state
-
-			const count1 = shared1.shadowRoot?.querySelector("div")?.textContent;
-			const count2 = shared2.shadowRoot?.querySelector("div")?.textContent;
+			const count1 = sharedCounter.shadowRoot?.querySelector("div")?.textContent;
+			const count2 = sharedDisplay.shadowRoot?.querySelector("div")?.textContent;
 
 			expect(count1).toBe("Count: 1");
-			expect(count2).toBe("Count: 1"); // Both should update together
+			expect(count2).toBe("Count: 1");
 		});
 	});
 
-	// Isolated Components Tests
 	describe("Isolated Components", () => {
-		let isolated1: HTMLElement;
-		let isolated2: HTMLElement;
+		let isolatedCounter: IgniteElement<RootState, Action>;
+		let isolatedDisplay: IgniteElement<RootState, Action>;
 		let uniqueName: string;
 
 		beforeEach(() => {
-			uniqueName = crypto.randomUUID(); // Unique names for each run
-
-			// Register Isolated Components
-			igniteElement.isolated(
-				`isolated-counter-${uniqueName}`,
-				({ state, send }) => {
-					return html`
-            <div>Count: ${state.counter.count}</div>
-            <button @click=${() => send(increment())}>+</button>
-          `;
-				},
-			);
-
-			igniteElement.isolated(`isolated-display-${uniqueName}`, ({ state }) => {
-				return html`<div>Count: ${state.counter.count}</div>`;
+			const register = igniteCore({
+				adapter: "redux",
+				source: counterStore,
+				actions: { increment, decrement, addByAmount },
 			});
 
-			// Create and append elements
-			isolated1 = document.createElement(`isolated-counter-${uniqueName}`);
-			isolated2 = document.createElement(`isolated-display-${uniqueName}`);
-			document.body.appendChild(isolated1);
-			document.body.appendChild(isolated2);
+			uniqueName = crypto.randomUUID();
+
+			register(`isolated-counter-${uniqueName}`, ({ state, send }) => html`
+				<div>Count: ${state.counter.count}</div>
+				<button @click=${() => send(increment())}>+</button>
+			`);
+
+			register(`isolated-display-${uniqueName}`, ({ state }) => html`
+				<div>Count: ${state.counter.count}</div>
+			`);
+
+			isolatedCounter = document.createElement(
+				`isolated-counter-${uniqueName}`,
+			) as IgniteElement<RootState, Action>;
+			isolatedDisplay = document.createElement(
+				`isolated-display-${uniqueName}`,
+			) as IgniteElement<RootState, Action>;
+
+			document.body.append(isolatedCounter, isolatedDisplay);
 		});
 
-		afterAll(() => {
-			// Remove elements explicitly
-			if (isolated1?.isConnected) {
-				document.body.removeChild(isolated1);
-			}
-			if (isolated2?.isConnected) {
-				document.body.removeChild(isolated2);
-			}
-		});
+		it("maintains independent state between isolated components", () => {
+			const button = isolatedCounter.shadowRoot?.querySelector("button");
+			button?.click();
 
-		it("should maintain independent state between isolated components", () => {
-			const button = isolated1.shadowRoot?.querySelector("button");
-			button?.click(); // Increment isolated1 state
-
-			const count1 = isolated1.shadowRoot?.querySelector("div")?.textContent;
-			const count2 = isolated2.shadowRoot?.querySelector("div")?.textContent;
+			const count1 = isolatedCounter.shadowRoot
+				?.querySelector("div")
+				?.textContent;
+			const count2 = isolatedDisplay.shadowRoot
+				?.querySelector("div")
+				?.textContent;
 
 			expect(count1).toBe("Count: 1");
-			expect(count2).toBe("Count: 0"); // Should not affect other isolated components
+			expect(count2).toBe("Count: 0");
 		});
 
-		it("should handle independent state updates", () => {
-			// Use valid actions to dispatch updates
-			isolated1.dispatchEvent(
-				new CustomEvent("send", {
-					detail: addByAmount(3),
-				}),
+		it("handles independent state updates", () => {
+			isolatedCounter.dispatchEvent(
+				new CustomEvent("send", { detail: addByAmount(3) }),
+			);
+			isolatedDisplay.dispatchEvent(
+				new CustomEvent("send", { detail: addByAmount(5) }),
 			);
 
-			isolated2.dispatchEvent(
-				new CustomEvent("send", {
-					detail: addByAmount(5),
-				}),
-			);
-
-			const count1 = isolated1.shadowRoot?.querySelector("div")?.textContent;
-			const count2 = isolated2.shadowRoot?.querySelector("div")?.textContent;
+			const count1 = isolatedCounter.shadowRoot
+				?.querySelector("div")
+				?.textContent;
+			const count2 = isolatedDisplay.shadowRoot
+				?.querySelector("div")
+				?.textContent;
 
 			expect(count1).toBe("Count: 3");
-			expect(count2).toBe("Count: 5"); // Different states
+			expect(count2).toBe("Count: 5");
 		});
 	});
 });

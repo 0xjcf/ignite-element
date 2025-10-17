@@ -7,12 +7,11 @@ import { taskManagerMachine } from "./taskManagerMachine";
 setGlobalStyles("./dist/styles.css");
 
 // Initialize Ignite-core
-const { Shared } = igniteCore({
+const registerTaskManager = igniteCore({
 	adapter: "xstate",
 	source: taskManagerMachine,
 });
 
-@Shared("task-list")
 export class TaskList {
 	render({ state, send }: RenderArgs<typeof taskManagerMachine>) {
 		const { tasks } = state;
@@ -57,7 +56,6 @@ export class TaskList {
 	}
 }
 
-@Shared("progress-bar")
 export class ProgressBar {
 	render({ state }: RenderArgs<typeof taskManagerMachine>) {
 		const { tasks } = state.context;
@@ -90,7 +88,6 @@ export class ProgressBar {
 	}
 }
 
-@Shared("task-form")
 export class TaskForm {
 	render({ send }: RenderArgs<typeof taskManagerMachine>) {
 		return html`
@@ -137,7 +134,6 @@ export class TaskForm {
 	}
 }
 
-@Shared("confetti-effect")
 export class ConfettiEffect {
 	render({ state, send }: RenderArgs<typeof taskManagerMachine>) {
 		const { tasks } = state;
@@ -163,7 +159,11 @@ export class ConfettiEffect {
 	}
 }
 
-@Shared("task-manager")
+registerTaskManager("task-list", (args) => new TaskList().render(args));
+registerTaskManager("progress-bar", (args) => new ProgressBar().render(args));
+registerTaskManager("task-form", (args) => new TaskForm().render(args));
+registerTaskManager("confetti-effect", (args) => new ConfettiEffect().render(args));
+
 export class TaskManager {
 	render({ state }: RenderArgs<typeof taskManagerMachine>) {
 		const isCompleted = state.matches("completed");
@@ -183,3 +183,5 @@ export class TaskManager {
     `;
 	}
 }
+
+registerTaskManager("task-manager", (args) => new TaskManager().render(args));
