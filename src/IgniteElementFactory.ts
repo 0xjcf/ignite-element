@@ -43,16 +43,18 @@ export default function igniteElementFactory<State, Event>(
 
 		const scope = options?.scope ?? StateScope.Isolated;
 
-		if (scope === StateScope.Shared) {
-			if (!sharedAdapter) {
-				sharedAdapter = createAdapter();
-				sharedAdapter.scope = StateScope.Shared;
-			}
+	if (scope === StateScope.Shared) {
+		if (!sharedAdapter) {
+			sharedAdapter = createAdapter();
+			sharedAdapter.scope = StateScope.Shared;
+		}
 
-			class SharedIgniteComponent extends IgniteElement<State, Event> {
-				constructor() {
-					super(sharedAdapter!, config?.styles);
-				}
+		const adapter = sharedAdapter;
+
+		class SharedIgniteComponent extends IgniteElement<State, Event> {
+			constructor() {
+				super(adapter, config?.styles);
+			}
 
 				protected render(): TemplateResult {
 					return renderFn({

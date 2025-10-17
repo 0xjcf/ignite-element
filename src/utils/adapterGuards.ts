@@ -48,12 +48,14 @@ export function isMobxObservable(source: unknown): boolean {
 		return true;
 	}
 
-	return Object.prototype.hasOwnProperty.call(source, "$$observable") ||
-		Object.prototype.hasOwnProperty.call(source, "_atom") ||
-		Object.prototype.hasOwnProperty.call(source, "$mobx");
+	return (
+		Object.hasOwn(source as object, "$$observable") ||
+		Object.hasOwn(source as object, "_atom") ||
+		Object.hasOwn(source as object, "$mobx")
+	);
 }
 
-export function isFunction<T extends (...args: any[]) => any>(
+export function isFunction<T extends (...args: unknown[]) => unknown>(
 	value: unknown,
 ): value is T {
 	return typeof value === "function";
