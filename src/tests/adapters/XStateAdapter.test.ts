@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createActor } from "xstate";
 import createXStateAdapter from "../../adapters/XStateAdapter";
 import counterMachine from "../../examples/xstate/xstateCounterMachine";
+import { StateScope } from "../../IgniteAdapter";
 
 describe("XStateAdapter", () => {
 	let adapterFactory: ReturnType<typeof createXStateAdapter>;
@@ -137,5 +139,31 @@ describe("XStateAdapter", () => {
 
 		expect(adapter.getState().value).toBe("active");
 		expect(adapter.getState().count).toBe(1);
+	});
+
+	it("marks isolated adapter scope", () => {
+		expect(adapterFactory.scope).toBe(StateScope.Isolated);
+		expect(adapter.scope).toBe(StateScope.Isolated);
+	});
+
+	it("reuses actor instances for shared adapters", () => {
+		const actor = createActor(counterMachine);
+		actor.start();
+
+		const sharedFactory = createXStateAdapter(actor);
+		expect(sharedFactory.scope).toBe(StateScope.Shared);
+
+		const adapterA = sharedFactory();
+		const adapterB = sharedFactory();
+
+		expect(adapterA.scope).toBe(StateScope.Shared);
+		expect(adapterB.scope).toBe(StateScope.Shared);
+
+		adapterA.send({ type: "START" });
+
+		expect(adapterB.getState().value).toBe("active");
+		adapterA.stop();
+		adapterB.stop();
+		actor.stop();
 	});
 });

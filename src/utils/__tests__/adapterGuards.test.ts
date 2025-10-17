@@ -3,6 +3,7 @@ import { configureStore, createSlice } from "@reduxjs/toolkit";
 import { makeAutoObservable } from "mobx";
 import { createMachine, createActor } from "xstate";
 import {
+	isFunction,
 	isMobxObservable,
 	isReduxStore,
 	isXStateActor,
@@ -23,6 +24,19 @@ describe("adapterGuards", () => {
 		it("returns false for machines", () => {
 			const machine = createMachine({ initial: "idle", states: { idle: {} } });
 			expect(isXStateActor(machine)).toBe(false);
+		});
+
+		it("returns false when required methods are missing", () => {
+			const partialActor = {
+				send() {},
+				subscribe() {},
+			};
+
+			expect(isXStateActor(partialActor)).toBe(false);
+		});
+
+		it("returns false for null values", () => {
+			expect(isXStateActor(null)).toBe(false);
 		});
 	});
 	describe("isReduxStore", () => {
@@ -52,6 +66,10 @@ describe("adapterGuards", () => {
 			});
 			expect(isReduxStore(slice)).toBe(false);
 		});
+
+		it("returns false for null", () => {
+			expect(isReduxStore(null)).toBe(false);
+		});
 	});
 	describe("isMobxObservable", () => {
 		it("returns true for observable objects", () => {
@@ -61,6 +79,35 @@ describe("adapterGuards", () => {
 
 		it("returns false for plain objects", () => {
 			expect(isMobxObservable({ count: 0 })).toBe(false);
+		});
+
+		it("returns false for null", () => {
+			expect(isMobxObservable(null)).toBe(false);
+		});
+
+		it("detects $$observable marker", () => {
+			const observableLike = { $$observable: true };
+			expect(isMobxObservable(observableLike)).toBe(true);
+		});
+
+		it("detects _atom marker", () => {
+			const observableLike = { _atom: {} };
+			expect(isMobxObservable(observableLike)).toBe(true);
+		});
+
+		it("detects $mobx marker", () => {
+			const observableLike = { $mobx: {} };
+			expect(isMobxObservable(observableLike)).toBe(true);
+		});
+	});
+
+	describe("isFunction", () => {
+		it("returns true for functions", () => {
+			expect(isFunction(() => undefined)).toBe(true);
+		});
+
+		it("returns false for non-functions", () => {
+			expect(isFunction(123)).toBe(false);
 		});
 	});
 });

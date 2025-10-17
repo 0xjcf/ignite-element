@@ -48,11 +48,20 @@ export function isMobxObservable(source: unknown): boolean {
 		return true;
 	}
 
-	return (
-		Object.hasOwn(source as object, "$$observable") ||
-		Object.hasOwn(source as object, "_atom") ||
-		Object.hasOwn(source as object, "$mobx")
-	);
+	// biome-ignore lint/suspicious/noPrototypeBuiltins: supporting older JS targets without Object.hasOwn
+	if (Object.prototype.hasOwnProperty.call(source, "$$observable")) {
+		return true;
+	}
+	// biome-ignore lint/suspicious/noPrototypeBuiltins: supporting older JS targets without Object.hasOwn
+	if (Object.prototype.hasOwnProperty.call(source, "_atom")) {
+		return true;
+	}
+	// biome-ignore lint/suspicious/noPrototypeBuiltins: supporting older JS targets without Object.hasOwn
+	if (Object.prototype.hasOwnProperty.call(source, "$mobx")) {
+		return true;
+	}
+
+	return false;
 }
 
 export function isFunction<T extends (...args: unknown[]) => unknown>(

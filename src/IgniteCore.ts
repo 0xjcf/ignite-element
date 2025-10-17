@@ -5,7 +5,6 @@ import createReduxAdapter from "./adapters/ReduxAdapter";
 import createXStateAdapter, {
 	type ExtendedState,
 } from "./adapters/XStateAdapter";
-import { StateScope } from "./IgniteAdapter";
 import igniteElementFactory, {
 	type ComponentFactory,
 	type IgniteElementConfig,
@@ -84,28 +83,36 @@ export function igniteCore(options: IgniteCoreConfig) {
 	const adapterName = options.adapter;
 
 	switch (adapterName) {
-		case "xstate": {
-			const igniteAdapter = createXStateAdapter(options.source);
-			return igniteElementFactory(igniteAdapter, { styles: options.styles }, { scope: StateScope.Isolated });
+	case "xstate": {
+		const adapterFactory = createXStateAdapter(options.source);
+		return igniteElementFactory(adapterFactory, { styles: options.styles }, {
+			scope: adapterFactory.scope,
+		});
+	}
+
+	case "redux": {
+		if ("actions" in options) {
+			const adapterFactory = createReduxAdapter(
+				options.source,
+				options.actions,
+			);
+			return igniteElementFactory(adapterFactory, { styles: options.styles }, {
+				scope: adapterFactory.scope,
+			});
 		}
 
-		case "redux": {
-			if ("actions" in options) {
-				const igniteAdapter = createReduxAdapter(
-					options.source,
-					options.actions,
-				);
-				return igniteElementFactory(igniteAdapter, { styles: options.styles }, { scope: StateScope.Isolated });
-			}
+		const adapterFactory = createReduxAdapter(options.source);
+		return igniteElementFactory(adapterFactory, { styles: options.styles }, {
+			scope: adapterFactory.scope,
+		});
+	}
 
-			const igniteAdapter = createReduxAdapter(options.source);
-			return igniteElementFactory(igniteAdapter, { styles: options.styles }, { scope: StateScope.Isolated });
-		}
-
-		case "mobx": {
-			const igniteAdapter = createMobXAdapter(options.source);
-			return igniteElementFactory(igniteAdapter, { styles: options.styles }, { scope: StateScope.Isolated });
-		}
+	case "mobx": {
+		const adapterFactory = createMobXAdapter(options.source);
+		return igniteElementFactory(adapterFactory, { styles: options.styles }, {
+			scope: adapterFactory.scope,
+		});
+	}
 
 		default: {
 			return assertNever(options, adapterName);

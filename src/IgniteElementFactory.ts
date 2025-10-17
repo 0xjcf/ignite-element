@@ -41,9 +41,12 @@ export default function igniteElementFactory<State, Event>(
 			);
 		}
 
-		const scope = options?.scope ?? StateScope.Isolated;
+	const inferredScope =
+		options?.scope ??
+		(createAdapter as { scope?: StateScope }).scope ??
+		StateScope.Isolated;
 
-	if (scope === StateScope.Shared) {
+	if (inferredScope === StateScope.Shared) {
 		if (!sharedAdapter) {
 			sharedAdapter = createAdapter();
 			sharedAdapter.scope = StateScope.Shared;
@@ -68,12 +71,12 @@ export default function igniteElementFactory<State, Event>(
 			return;
 		}
 
-		class IsolatedIgniteComponent extends IgniteElement<State, Event> {
-			constructor() {
-				const adapter = createAdapter();
-				adapter.scope = StateScope.Isolated;
-				super(adapter, config?.styles);
-			}
+	class IsolatedIgniteComponent extends IgniteElement<State, Event> {
+		constructor() {
+			const adapter = createAdapter();
+			adapter.scope ??= StateScope.Isolated;
+			super(adapter, config?.styles);
+		}
 
 			protected render(): TemplateResult {
 				return renderFn({
