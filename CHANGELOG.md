@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.7
+
+### Patch Changes
+
+- a96d055: Improve Redux typing inference, add typecheck script, and keep unsupported adapter errors consistent.
+
 ## 1.4.6
 
 ### Patch Changes
