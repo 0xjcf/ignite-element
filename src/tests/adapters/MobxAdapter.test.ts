@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import createMobXAdapter, {
-	type FunctionKeys,
-} from "../../adapters/MobxAdapter";
+import createMobXAdapter, { type MobxEvent } from "../../adapters/MobxAdapter";
 import counterStore from "../../examples/mobx/mobxCounterStore";
 import type IgniteAdapter from "../../IgniteAdapter";
 import { StateScope } from "../../IgniteAdapter";
@@ -9,11 +7,7 @@ import { StateScope } from "../../IgniteAdapter";
 describe("MobXAdapter", () => {
 	type Counter = ReturnType<typeof counterStore>;
 
-	interface Event {
-		type: FunctionKeys<Counter>;
-	}
-
-	let adapterFactory: () => IgniteAdapter<Counter, Event>;
+	let adapterFactory: () => IgniteAdapter<Counter, MobxEvent<Counter>>;
 	let adapter: ReturnType<typeof adapterFactory>;
 
 	beforeEach(() => {
@@ -136,11 +130,10 @@ describe("MobXAdapter", () => {
 describe("MobXAdapter with shared observable", () => {
 	let sharedStore: ReturnType<typeof counterStore>;
 	type SharedStore = ReturnType<typeof counterStore>;
-	type SharedEvent = { type: FunctionKeys<SharedStore> };
 
-	let adapterFactory: () => IgniteAdapter<SharedStore, SharedEvent>;
-	let adapterA: IgniteAdapter<SharedStore, SharedEvent>;
-	let adapterB: IgniteAdapter<SharedStore, SharedEvent>;
+	let adapterFactory: () => IgniteAdapter<SharedStore, MobxEvent<SharedStore>>;
+	let adapterA: IgniteAdapter<SharedStore, MobxEvent<SharedStore>>;
+	let adapterB: IgniteAdapter<SharedStore, MobxEvent<SharedStore>>;
 
 	beforeEach(() => {
 		sharedStore = counterStore();

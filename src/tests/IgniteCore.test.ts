@@ -1,4 +1,5 @@
 import type { Action, Store } from "@reduxjs/toolkit";
+import { makeAutoObservable } from "mobx";
 import { describe, expect, it } from "vitest";
 import type { AnyStateMachine } from "xstate";
 import { igniteCore } from "../IgniteCore";
@@ -11,7 +12,13 @@ const mockReduxActions = {
 	mock: () => ({ type: "mock" }),
 };
 // Mock Mobx store
-const mockMobxStore = {} as () => Record<string, unknown>;
+const mockMobxStore = () =>
+	makeAutoObservable({
+		count: 0,
+		increment() {
+			this.count += 1;
+		},
+	});
 
 describe("igniteCore", () => {
 	it("should initialize without errors for XState adapter", () => {

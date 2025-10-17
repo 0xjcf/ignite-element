@@ -1,6 +1,6 @@
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type { AnyStateMachine, EventFrom } from "xstate";
-import type { FunctionKeys } from "./adapters/MobxAdapter";
+import type { MobxEvent } from "./adapters/MobxAdapter";
 import type { ExtendedState } from "./adapters/XStateAdapter";
 import type {
 	InferEvent,
@@ -46,7 +46,7 @@ export type RenderArgs<Store, A = unknown> = Store extends AnyStateMachine // 1)
 				Store extends () => Record<string, unknown>
 				? {
 						state: ReturnType<Store>;
-						send: (event: { type: FunctionKeys<ReturnType<Store>> }) => void;
+						send: (event: MobxEvent<ReturnType<Store>>) => void;
 					}
 				: // 5) Fallback
 					never;

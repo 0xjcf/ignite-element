@@ -1,6 +1,6 @@
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type { AnyStateMachine, EventFrom } from "xstate";
-import createMobXAdapter, { type FunctionKeys } from "./adapters/MobxAdapter";
+import createMobXAdapter, { type MobxEvent } from "./adapters/MobxAdapter";
 import createReduxAdapter from "./adapters/ReduxAdapter";
 import createXStateAdapter, {
 	type ExtendedState,
@@ -94,14 +94,11 @@ export function igniteCore<
 >;
 
 // Overload for MobX
-export function igniteCore<
-	State extends object,
-	Event extends { type: FunctionKeys<State> },
->(options: {
+export function igniteCore<State extends object>(options: {
 	adapter: "mobx";
 	source: (() => State) | State;
 	styles?: IgniteElementConfig["styles"];
-}): ComponentFactory<State, Event>;
+}): ComponentFactory<State, MobxEvent<State>>;
 
 // Unified Implementation
 export function igniteCore(options: IgniteCoreConfig) {

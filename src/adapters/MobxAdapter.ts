@@ -1,4 +1,5 @@
-import { autorun } from "mobx";
+import type { IReactionDisposer } from "mobx";
+import { autorun, toJS } from "mobx";
 import type IgniteAdapter from "../IgniteAdapter";
 import { StateScope } from "../IgniteAdapter";
 import { isMobxObservable } from "../utils/adapterGuards";
@@ -11,9 +12,20 @@ export type FunctionKeys<StateType> = {
 		: never;
 }[keyof StateType];
 
-type MobxAdapterFactory<State> = (() => IgniteAdapter<
+type MethodArgs<
+	State extends object,
+	Key extends FunctionKeys<State>,
+> = State[Key] extends (...args: infer Params) => unknown ? Params : never;
+
+export type MobxEvent<State extends object> = {
+	[Key in FunctionKeys<State>]: MethodArgs<State, Key> extends []
+		? { type: Key; args?: MethodArgs<State, Key> }
+		: { type: Key; args: MethodArgs<State, Key> };
+}[FunctionKeys<State>];
+
+type MobxAdapterFactory<State extends object> = (() => IgniteAdapter<
 	State,
-	{ type: FunctionKeys<State> }
+	MobxEvent<State>
 >) & {
 	scope: StateScope;
 };
@@ -21,33 +33,70 @@ type MobxAdapterFactory<State> = (() => IgniteAdapter<
 export default function createMobXAdapter<State extends object>(
 	source: (() => State) | State,
 ): MobxAdapterFactory<State> {
-	const buildAdapter = (
+	const toScopedFactory = (
+		initializer: () => IgniteAdapter<State, MobxEvent<State>>,
+		scope: StateScope,
+	): MobxAdapterFactory<State> => {
+		const factory = () => initializer();
+		return Object.assign(factory, { scope });
+	};
+
+	const createAdapterFromStore = (
 		store: State,
 		scope: StateScope,
-	): IgniteAdapter<State, { type: FunctionKeys<State> }> => {
-		let unsubscribe: (() => void) | null = null;
+	): IgniteAdapter<State, MobxEvent<State>> => {
+		const listeners = new Set<(state: State) => void>();
+		let disposer: IReactionDisposer | null = null;
 		let isStopped = false;
-		let lastKnownState: State = { ...store };
+		let lastSnapshot: State = toJS(store) as State;
 
-		function cleanupAutorun() {
-			unsubscribe?.();
-			unsubscribe = null;
-		}
+		const cloneState = () => toJS(store) as State;
 
-		const adapter: IgniteAdapter<State, { type: FunctionKeys<State> }> = {
+		const notifyListeners = (snapshot: State) => {
+			for (const listener of listeners) {
+				listener(snapshot);
+			}
+		};
+
+		const ensureAutorun = () => {
+			if (disposer) {
+				return;
+			}
+			disposer = autorun(() => {
+				const snapshot = cloneState();
+				lastSnapshot = snapshot;
+				notifyListeners(snapshot);
+			});
+		};
+
+		const cleanupAutorun = () => {
+			disposer?.();
+			disposer = null;
+		};
+
+		const adapter: IgniteAdapter<State, MobxEvent<State>> = {
 			subscribe(listener) {
 				if (isStopped) {
 					throw new Error("Adapter is stopped and cannot subscribe.");
 				}
 
-				unsubscribe = autorun(() => {
-					listener({ ...store });
-				});
+				const wasRunning = disposer !== null;
+				listeners.add(listener);
+				ensureAutorun();
+
+				if (wasRunning) {
+					listener(lastSnapshot);
+				}
 
 				return {
 					unsubscribe: () => {
-						if (isStopped) return;
-						cleanupAutorun();
+						if (isStopped) {
+							return;
+						}
+						listeners.delete(listener);
+						if (!listeners.size) {
+							cleanupAutorun();
+						}
 					},
 				};
 			},
@@ -58,10 +107,18 @@ export default function createMobXAdapter<State extends object>(
 					);
 					return;
 				}
+
 				const action = store[event.type];
 				if (typeof action === "function") {
-					action.call(store, event);
-					lastKnownState = { ...store };
+					if ("args" in event && event.args) {
+						action.apply(store, event.args);
+					} else if (action.length > 0) {
+						// Legacy support: pass the event when the action expects arguments.
+						action.call(store, event);
+					} else {
+						action.call(store);
+					}
+					lastSnapshot = cloneState();
 				} else {
 					console.warn(
 						`[MobxAdapter] Unknown event type: ${String(event.type)}`,
@@ -69,11 +126,16 @@ export default function createMobXAdapter<State extends object>(
 				}
 			},
 			getState() {
-				return isStopped ? lastKnownState : { ...store };
+				return isStopped ? lastSnapshot : cloneState();
 			},
 			stop() {
-				cleanupAutorun();
+				if (isStopped) {
+					return;
+				}
 				isStopped = true;
+				cleanupAutorun();
+				listeners.clear();
+				lastSnapshot = cloneState();
 			},
 			scope,
 		};
@@ -82,21 +144,25 @@ export default function createMobXAdapter<State extends object>(
 	};
 
 	if (isMobxObservable(source)) {
-		const factory = (() =>
-			buildAdapter(
-				source as State,
-				StateScope.Shared,
-			)) as MobxAdapterFactory<State>;
-		factory.scope = StateScope.Shared;
-		return factory;
+		return toScopedFactory(
+			() => createAdapterFromStore(source as State, StateScope.Shared),
+			StateScope.Shared,
+		);
 	}
 
-	const storeFactory = source as () => State;
-	const factory = (() =>
-		buildAdapter(
-			storeFactory(),
-			StateScope.Isolated,
-		)) as MobxAdapterFactory<State>;
-	factory.scope = StateScope.Isolated;
-	return factory;
+	if (typeof source === "function") {
+		return toScopedFactory(() => {
+			const store = source();
+			if (!isMobxObservable(store)) {
+				throw new Error(
+					"[MobxAdapter] store factory must return a MobX observable.",
+				);
+			}
+			return createAdapterFromStore(store, StateScope.Isolated);
+		}, StateScope.Isolated);
+	}
+
+	throw new Error(
+		"[MobxAdapter] Unsupported source. Provide a MobX observable or a factory function.",
+	);
 }
