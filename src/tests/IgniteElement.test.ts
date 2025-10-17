@@ -41,6 +41,7 @@ describe("IgniteElement", () => {
 		if (element?.isConnected) {
 			document.body.removeChild(element);
 		}
+		vi.clearAllMocks();
 	});
 
 	it("should render the initial state in the DOM", () => {
@@ -65,6 +66,29 @@ describe("IgniteElement", () => {
 	it("should pause updates (set _isActive to false) when the element is disconnected", () => {
 		element.remove(); // Simulate disconnection
 		expect((element as TestIgniteElement).isActive).toBe(false);
+	});
+
+	it("should unsubscribe and stop the adapter when disconnected", () => {
+		element.remove();
+
+		expect(adapter.unsubscribe).toHaveBeenCalledTimes(1);
+		expect(adapter.stop).toHaveBeenCalledTimes(1);
+	});
+
+	it("should not send events when inactive", () => {
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+		element.remove();
+
+		(element as unknown as { send: (event: Event) => void }).send(
+			new CustomEvent("send", { detail: { type: "increment" } }),
+		);
+
+		expect(warnSpy).toHaveBeenCalledWith(
+			"[IgniteElement] Cannot send events while inactive.",
+		);
+		expect(adapter.send).not.toHaveBeenCalled();
+
+		warnSpy.mockRestore();
 	});
 
 	it("should return the adapter's state via the state getter", () => {

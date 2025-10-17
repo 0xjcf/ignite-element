@@ -6,6 +6,7 @@ import { StateScope } from "../IgniteAdapter";
 class MockAdapter<State, Event> implements IgniteAdapter<State, Event> {
 	private mockState: State;
 	public scope: StateScope | undefined;
+	public unsubscribe = vi.fn();
 
 	constructor(initialState: State, scope: StateScope = StateScope.Isolated) {
 		this.mockState = initialState;
@@ -14,7 +15,10 @@ class MockAdapter<State, Event> implements IgniteAdapter<State, Event> {
 
 	subscribe = vi.fn((listener: (state: State) => void) => {
 		listener(this.mockState);
-		return { unsubscribe: vi.fn() };
+		const unsubscribe = this.unsubscribe;
+		return {
+			unsubscribe,
+		};
 	});
 
 	send = vi.fn();

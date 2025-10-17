@@ -2,6 +2,7 @@ import type { TemplateResult } from "lit-html";
 import { render } from "lit-html";
 import type { StyleObject } from "./globalStyles";
 import type IgniteAdapter from "./IgniteAdapter";
+import { StateScope } from "./IgniteAdapter";
 import injectStyles from "./injectStyles";
 
 export default abstract class IgniteElement<State, Event> extends HTMLElement {
@@ -10,6 +11,8 @@ export default abstract class IgniteElement<State, Event> extends HTMLElement {
 	private _currentState!: State;
 	private _initialized = false;
 	private _isActive = false;
+	private _unsubscribe: (() => void) | undefined;
+	private _sendListener: ((event: globalThis.Event) => void) | undefined;
 
 	constructor(
 		adapter: IgniteAdapter<State, Event>,
@@ -21,36 +24,54 @@ export default abstract class IgniteElement<State, Event> extends HTMLElement {
 		injectStyles(this._shadowRoot, styles);
 
 		this._adapter = adapter;
-		this._adapter.subscribe((state) => {
-			if (this._isActive) {
-				this._currentState = state;
-				this.renderTemplate();
-			}
-		});
+		this.subscribeToAdapter();
 
 		this._currentState = this._adapter.getState();
 		this._initialized = true;
 	}
 
 	connectedCallback(): void {
+		if (!this._unsubscribe && this._adapter) {
+			this.subscribeToAdapter();
+			this._currentState = this._adapter.getState();
+		}
+
 		this._isActive = true;
-		this.addEventListener("send", (event) => this.send(event));
+		if (!this._sendListener) {
+			this._sendListener = (event: globalThis.Event) => this.send(event);
+		}
+		this.addEventListener("send", this._sendListener as EventListener);
 		this.renderTemplate();
 	}
 
 	disconnectedCallback(): void {
 		this._isActive = false;
-		this.removeEventListener("send", (event) => this.send(event));
+		if (this._sendListener) {
+			this.removeEventListener("send", this._sendListener as EventListener);
+		}
+
+		this._unsubscribe?.();
+		this._unsubscribe = undefined;
+
+		if (this._adapter && this._adapter.scope !== StateScope.Shared) {
+			this._adapter.stop();
+			this._adapter = undefined;
+		}
 	}
 
-	protected send<Event>(event: Event): void {
+	protected send<AdapterEvent>(event: AdapterEvent): void {
+		if (!this._isActive || !this._adapter) {
+			console.warn("[IgniteElement] Cannot send events while inactive.");
+			return;
+		}
+
 		const action =
 			event instanceof CustomEvent && event.detail ? event.detail : event;
 		this._adapter?.send(action);
 	}
 
 	private renderTemplate(): void {
-		if (!this._currentState) {
+		if (!this._isActive || !this._currentState) {
 			console.warn(`[IgniteElement] State is not initialized`);
 			return;
 		}
@@ -111,5 +132,23 @@ export default abstract class IgniteElement<State, Event> extends HTMLElement {
 
 	set currentState(state: State) {
 		this._currentState = state;
+	}
+
+	private subscribeToAdapter(): void {
+		if (!this._adapter) {
+			return;
+		}
+
+		const subscription = this._adapter.subscribe((state) => {
+			this._currentState = state;
+			if (this._isActive) {
+				this.renderTemplate();
+			}
+		});
+
+		this._unsubscribe = () => {
+			subscription.unsubscribe();
+			this._unsubscribe = undefined;
+		};
 	}
 }
