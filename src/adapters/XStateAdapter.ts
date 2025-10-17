@@ -75,11 +75,11 @@ function createAdapterFromActor<Machine extends AnyStateMachine>(
 				throw new Error("Adapter is stopped and cannot subscribe.");
 			}
 
-			listener(this.getState());
+			listener(adapter.getState());
 
 			subscription = actor.subscribe((state) => {
 				lastKnownSnapshot = state;
-				listener(this.getState());
+				listener(adapter.getState());
 			});
 
 			return {
