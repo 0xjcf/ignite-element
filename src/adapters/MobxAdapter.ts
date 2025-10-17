@@ -11,8 +11,11 @@ export type FunctionKeys<StateType> = {
 		: never;
 }[keyof StateType];
 
-type MobxAdapterFactory<State> = (() => IgniteAdapter<State, { type: FunctionKeys<State> }>) & {
-    scope: StateScope;
+type MobxAdapterFactory<State> = (() => IgniteAdapter<
+	State,
+	{ type: FunctionKeys<State> }
+>) & {
+	scope: StateScope;
 };
 
 export default function createMobXAdapter<State extends object>(
@@ -79,17 +82,21 @@ export default function createMobXAdapter<State extends object>(
 	};
 
 	if (isMobxObservable(source)) {
-	const factory = (() =>
-		buildAdapter(source as State, StateScope.Shared)
-	) as MobxAdapterFactory<State>;
+		const factory = (() =>
+			buildAdapter(
+				source as State,
+				StateScope.Shared,
+			)) as MobxAdapterFactory<State>;
 		factory.scope = StateScope.Shared;
 		return factory;
 	}
 
 	const storeFactory = source as () => State;
 	const factory = (() =>
-		buildAdapter(storeFactory(), StateScope.Isolated)
-	) as MobxAdapterFactory<State>;
+		buildAdapter(
+			storeFactory(),
+			StateScope.Isolated,
+		)) as MobxAdapterFactory<State>;
 	factory.scope = StateScope.Isolated;
 	return factory;
 }

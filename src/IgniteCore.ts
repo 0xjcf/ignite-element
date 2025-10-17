@@ -121,10 +121,8 @@ export function igniteCore(options: IgniteCoreConfig) {
 
 		case "redux": {
 			if ("actions" in options) {
-				const adapterFactory =
-					typeof options.source === "function"
-						? createReduxAdapter(options.source, options.actions)
-						: createReduxAdapter(options.source, options.actions);
+				const { source, actions } = options;
+				const adapterFactory = createReduxAdapter(source, actions);
 				return igniteElementFactory(
 					adapterFactory,
 					{ styles: options.styles },

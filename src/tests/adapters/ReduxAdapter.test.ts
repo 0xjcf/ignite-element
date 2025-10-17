@@ -194,13 +194,13 @@ describe("ReduxAdapter - Subscribe Method", () => {
 });
 
 describe("ReduxAdapter with shared store", () => {
-	const sharedStore = counterStore();
+	let sharedStore: ReturnType<typeof counterStore>;
 	type SharedState = InferStateAndEvent<
-		typeof sharedStore,
+		ReturnType<typeof counterStore>,
 		typeof counterSlice.actions
 	>["State"];
 	type SharedEvent = InferStateAndEvent<
-		typeof sharedStore,
+		ReturnType<typeof counterStore>,
 		typeof counterSlice.actions
 	>["Event"];
 
@@ -209,6 +209,7 @@ describe("ReduxAdapter with shared store", () => {
 	let adapterB: IgniteAdapter<SharedState, SharedEvent>;
 
 	beforeEach(() => {
+		sharedStore = counterStore();
 		adapterFactory = createReduxAdapter(sharedStore, counterSlice.actions);
 		adapterA = adapterFactory();
 		adapterB = adapterFactory();

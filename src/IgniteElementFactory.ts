@@ -41,23 +41,23 @@ export default function igniteElementFactory<State, Event>(
 			);
 		}
 
-	const inferredScope =
-		options?.scope ??
-		(createAdapter as { scope?: StateScope }).scope ??
-		StateScope.Isolated;
+		const inferredScope =
+			options?.scope ??
+			(createAdapter as { scope?: StateScope }).scope ??
+			StateScope.Isolated;
 
-	if (inferredScope === StateScope.Shared) {
-		if (!sharedAdapter) {
-			sharedAdapter = createAdapter();
-			sharedAdapter.scope = StateScope.Shared;
-		}
-
-		const adapter = sharedAdapter;
-
-		class SharedIgniteComponent extends IgniteElement<State, Event> {
-			constructor() {
-				super(adapter, config?.styles);
+		if (inferredScope === StateScope.Shared) {
+			if (!sharedAdapter) {
+				sharedAdapter = createAdapter();
+				sharedAdapter.scope = StateScope.Shared;
 			}
+
+			const adapter = sharedAdapter;
+
+			class SharedIgniteComponent extends IgniteElement<State, Event> {
+				constructor() {
+					super(adapter, config?.styles);
+				}
 
 				protected render(): TemplateResult {
 					return renderFn({
@@ -71,12 +71,12 @@ export default function igniteElementFactory<State, Event>(
 			return;
 		}
 
-	class IsolatedIgniteComponent extends IgniteElement<State, Event> {
-		constructor() {
-			const adapter = createAdapter();
-			adapter.scope ??= StateScope.Isolated;
-			super(adapter, config?.styles);
-		}
+		class IsolatedIgniteComponent extends IgniteElement<State, Event> {
+			constructor() {
+				const adapter = createAdapter();
+				adapter.scope ??= StateScope.Isolated;
+				super(adapter, config?.styles);
+			}
 
 			protected render(): TemplateResult {
 				return renderFn({

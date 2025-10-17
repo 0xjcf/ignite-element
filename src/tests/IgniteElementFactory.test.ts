@@ -30,54 +30,57 @@ describe("igniteElementFactory", () => {
 		expect(adapter.subscribe).toHaveBeenCalled();
 	});
 
-it("creates a new adapter instance per component when factory returns fresh adapters", () => {
-	const adapters: MinimalMockAdapter<typeof initialState, { type: string }>[] = [];
-	const createAdapter = vi.fn(() => {
-		const instance = new MinimalMockAdapter<
+	it("creates a new adapter instance per component when factory returns fresh adapters", () => {
+		const adapters: MinimalMockAdapter<
 			typeof initialState,
 			{ type: string }
-		>(initialState);
-		adapters.push(instance);
-		return instance;
+		>[] = [];
+		const createAdapter = vi.fn(() => {
+			const instance = new MinimalMockAdapter<
+				typeof initialState,
+				{ type: string }
+			>(initialState);
+			adapters.push(instance);
+			return instance;
+		});
+
+		const component = igniteElementFactory(createAdapter);
+		const elementName = `ignite-component-${crypto.randomUUID()}`;
+
+		component(elementName, () => {
+			return {} as TemplateResult;
+		});
+
+		const first = document.createElement(elementName);
+		const second = document.createElement(elementName);
+		document.body.append(first, second);
+
+		expect(createAdapter).toHaveBeenCalledTimes(2);
+		adapters.forEach((instance) => {
+			expect(instance.scope).toBe(StateScope.Isolated);
+		});
 	});
 
-	const component = igniteElementFactory(createAdapter);
-	const elementName = `ignite-component-${crypto.randomUUID()}`;
+	it("reuses adapter and marks scope as shared", () => {
+		const adapter = new MinimalMockAdapter(initialState);
+		const createAdapter = vi.fn(() => adapter);
 
-	component(elementName, () => {
-		return {} as TemplateResult;
+		const component = igniteElementFactory(createAdapter, undefined, {
+			scope: StateScope.Shared,
+		});
+		const elementName = `ignite-shared-${crypto.randomUUID()}`;
+
+		component(elementName, () => {
+			return {} as TemplateResult;
+		});
+
+		const first = document.createElement(elementName);
+		const second = document.createElement(elementName);
+		document.body.append(first, second);
+
+		expect(createAdapter).toHaveBeenCalledTimes(1);
+		expect(adapter.scope).toBe(StateScope.Shared);
 	});
-
-	const first = document.createElement(elementName);
-	const second = document.createElement(elementName);
-	document.body.append(first, second);
-
-	expect(createAdapter).toHaveBeenCalledTimes(2);
-	adapters.forEach((instance) => {
-		expect(instance.scope).toBe(StateScope.Isolated);
-	});
-});
-
-it("reuses adapter and marks scope as shared", () => {
-	const adapter = new MinimalMockAdapter(initialState);
-	const createAdapter = vi.fn(() => adapter);
-
-	const component = igniteElementFactory(createAdapter, undefined, {
-		scope: StateScope.Shared,
-	});
-	const elementName = `ignite-shared-${crypto.randomUUID()}`;
-
-	component(elementName, () => {
-		return {} as TemplateResult;
-	});
-
-	const first = document.createElement(elementName);
-	const second = document.createElement(elementName);
-	document.body.append(first, second);
-
-	expect(createAdapter).toHaveBeenCalledTimes(1);
-	expect(adapter.scope).toBe(StateScope.Shared);
-});
 
 	it("injects provided styles into the shadow DOM", () => {
 		const adapter = new MinimalMockAdapter(initialState);

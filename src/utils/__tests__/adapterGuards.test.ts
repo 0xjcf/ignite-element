@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
 import { configureStore, createSlice } from "@reduxjs/toolkit";
 import { makeAutoObservable } from "mobx";
-import { createMachine, createActor } from "xstate";
+import { describe, expect, it } from "vitest";
+import { createActor, createMachine } from "xstate";
 import {
 	isFunction,
 	isMobxObservable,
@@ -30,6 +30,17 @@ describe("adapterGuards", () => {
 			const partialActor = {
 				send() {},
 				subscribe() {},
+			};
+
+			expect(isXStateActor(partialActor)).toBe(false);
+		});
+
+		it("returns false when getSnapshot is missing", () => {
+			const partialActor = {
+				send() {},
+				subscribe() {},
+				start() {},
+				stop() {},
 			};
 
 			expect(isXStateActor(partialActor)).toBe(false);

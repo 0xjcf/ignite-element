@@ -5,8 +5,16 @@ import { StateScope } from "../IgniteAdapter";
 import { isReduxStore } from "../utils/adapterGuards";
 import type { InferStateAndEvent, ReduxActions } from "../utils/igniteRedux";
 
-const isStoreFactory = (value: unknown): value is () => EnhancedStore =>
-	typeof value === "function";
+const isStoreFactory = (value: unknown): value is () => EnhancedStore => {
+	if (typeof value !== "function") {
+		return false;
+	}
+
+	// When the value is already a Redux store (stores are objects), `isReduxStore`
+	// handles the shared branch, so we only need to ensure we don't misclassify
+	// those here. Any further validation happens when the factory output is used.
+	return !isReduxStore(value);
+};
 
 // Redux Adapter for Slice or Store
 type ReduxAdapterFactory<State, Event> = (() => IgniteAdapter<State, Event>) & {
@@ -38,6 +46,16 @@ export default function createReduxAdapter<
 ): ReduxAdapterFactory<
 	InferStateAndEvent<StoreInstance, Actions>["State"],
 	InferStateAndEvent<StoreInstance, Actions>["Event"]
+>;
+export default function createReduxAdapter<
+	SharedSource extends (() => EnhancedStore) | EnhancedStore,
+	Actions extends ReduxActions,
+>(
+	source: SharedSource,
+	actions: Actions,
+): ReduxAdapterFactory<
+	InferStateAndEvent<SharedSource, Actions>["State"],
+	InferStateAndEvent<SharedSource, Actions>["Event"]
 >;
 export default function createReduxAdapter<
 	Source extends Slice | (() => EnhancedStore) | EnhancedStore,
@@ -149,6 +167,8 @@ export default function createReduxAdapter<
 			() =>
 				adaptEvent(
 					buildAdapter(store, StateScope.Shared),
+					// Cast back to the store's dispatch event shape while exposing a
+					// narrower `Event` type to consumers.
 					(event) => event as Parameters<StoreInstance["dispatch"]>[0],
 				),
 			StateScope.Shared,
@@ -169,9 +189,16 @@ export default function createReduxAdapter<
 
 		return createScopedFactory<State, Event>(() => {
 			const store = storeFactory();
+			if (!isReduxStore(store)) {
+				throw new Error(
+					"[ReduxAdapter] store factory must return a Redux store instance.",
+				);
+			}
 			type StoreInstance = typeof store;
 			return adaptEvent(
 				buildAdapter(store, StateScope.Isolated),
+				// Cast back to the store's dispatch event shape while exposing a
+				// narrower `Event` type to consumers.
 				(event) => event as Parameters<StoreInstance["dispatch"]>[0],
 			);
 		}, StateScope.Isolated);
@@ -191,6 +218,8 @@ export default function createReduxAdapter<
 		type StoreInstance = typeof store;
 		return adaptEvent(
 			buildAdapter(store, StateScope.Isolated),
+			// Cast back to the store's dispatch event shape while exposing a
+			// narrower `Event` type to consumers.
 			(event) => event as Parameters<StoreInstance["dispatch"]>[0],
 		);
 	}, StateScope.Isolated);

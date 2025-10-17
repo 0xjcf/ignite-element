@@ -39,8 +39,8 @@ describe("XStateAdapter", () => {
 		const listener1 = vi.fn();
 		const listener2 = vi.fn();
 
-		adapter.subscribe(listener1);
-		adapter.subscribe(listener2);
+		const subscription1 = adapter.subscribe(listener1);
+		const subscription2 = adapter.subscribe(listener2);
 
 		adapter.send({ type: "START" });
 
@@ -59,6 +59,26 @@ describe("XStateAdapter", () => {
 		expect(listener2).toHaveBeenCalledWith(
 			expect.objectContaining({ value: "active" }), // After START
 		);
+
+		subscription1.unsubscribe();
+		subscription2.unsubscribe();
+	});
+
+	it("allows individual subscriptions to unsubscribe without affecting others", () => {
+		const listener1 = vi.fn();
+		const listener2 = vi.fn();
+
+		const subscription1 = adapter.subscribe(listener1);
+		const subscription2 = adapter.subscribe(listener2);
+
+		subscription1.unsubscribe();
+
+		adapter.send({ type: "START" });
+
+		expect(listener1).toHaveBeenCalledTimes(1);
+		expect(listener2).toHaveBeenCalledTimes(2);
+
+		subscription2.unsubscribe();
 	});
 
 	it("should clean up subscriptions when stopped", () => {

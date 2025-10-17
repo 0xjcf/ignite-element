@@ -35,6 +35,12 @@ export type InferEvent<Actions> = NormalizeEvent<
 	InferEventFromCreators<Actions>
 >;
 
+type InferStoreState<Source> = Source extends () => EnhancedStore
+	? ReturnType<ReturnType<Source>["getState"]>
+	: Source extends EnhancedStore
+		? ReturnType<Source["getState"]>
+		: never;
+
 // Infer State and Events for Slices or Stores
 export type InferStateAndEvent<
 	Source extends Slice | (() => EnhancedStore) | EnhancedStore,
@@ -48,16 +54,9 @@ export type InferStateAndEvent<
 			State: InferRootState<Source>;
 			Event: InferEvent<Source["actions"]>;
 		}
-	: Source extends () => EnhancedStore
+	: Source extends (() => EnhancedStore) | EnhancedStore
 		? {
-				State: ReturnType<ReturnType<Source>["getState"]>;
-				Event: Actions extends ActionCreators
-					? InferEvent<Actions>
-					: { type: string };
-			}
-	: Source extends EnhancedStore
-		? {
-				State: ReturnType<Source["getState"]>;
+				State: InferStoreState<Source>;
 				Event: Actions extends ActionCreators
 					? InferEvent<Actions>
 					: { type: string };

@@ -6,6 +6,7 @@ export interface XStateActorLike {
 	stop?: () => unknown;
 	send: (...args: unknown[]) => unknown;
 	subscribe: (...args: unknown[]) => unknown;
+	getSnapshot?: () => unknown;
 }
 
 export function isXStateActor(source: unknown): source is XStateActorLike {
@@ -17,6 +18,7 @@ export function isXStateActor(source: unknown): source is XStateActorLike {
 	return (
 		typeof actor.send === "function" &&
 		typeof actor.subscribe === "function" &&
+		typeof actor.getSnapshot === "function" &&
 		(typeof actor.start === "function" || typeof actor.stop === "function")
 	);
 }

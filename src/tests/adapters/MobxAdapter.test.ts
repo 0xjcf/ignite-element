@@ -134,22 +134,16 @@ describe("MobXAdapter", () => {
 });
 
 describe("MobXAdapter with shared observable", () => {
-	const sharedStore = counterStore();
+	let sharedStore: ReturnType<typeof counterStore>;
+	type SharedStore = ReturnType<typeof counterStore>;
+	type SharedEvent = { type: FunctionKeys<SharedStore> };
 
-	let adapterFactory: () => IgniteAdapter<
-		ReturnType<typeof counterStore>,
-		{ type: FunctionKeys<ReturnType<typeof counterStore>> }
-	>;
-	let adapterA: IgniteAdapter<
-		ReturnType<typeof counterStore>,
-		{ type: FunctionKeys<ReturnType<typeof counterStore>> }
-	>;
-	let adapterB: IgniteAdapter<
-		ReturnType<typeof counterStore>,
-		{ type: FunctionKeys<ReturnType<typeof counterStore>> }
-	>;
+	let adapterFactory: () => IgniteAdapter<SharedStore, SharedEvent>;
+	let adapterA: IgniteAdapter<SharedStore, SharedEvent>;
+	let adapterB: IgniteAdapter<SharedStore, SharedEvent>;
 
 	beforeEach(() => {
+		sharedStore = counterStore();
 		adapterFactory = createMobXAdapter(sharedStore);
 		adapterA = adapterFactory();
 		adapterB = adapterFactory();
