@@ -1,26 +1,26 @@
 {
-  "name": "mobx-example",
-  "version": "1.0.0",
-  "description": "An example project demonstrating the use of ignite-element with MobX, lit-html, and custom CSS.",
-  "main": "index.js",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build"
-  },
-  "keywords": [
-    "mobx",
-    "ignite-element",
-    "css",
-    "lit-html"
-  ],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "lit-html": "^3.2.1",
-    "mobx": "^6.13.6"
-  },
-  "devDependencies": {
-    "@types/node": "^22.13.9",
-    "vite": "^6.2.0"
-  }
+	"name": "mobx-example",
+	"version": "1.0.0",
+	"description": "An example project demonstrating the use of ignite-element with MobX, lit-html, and custom CSS.",
+	"main": "index.js",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build"
+	},
+	"keywords": [
+		"mobx",
+		"ignite-element",
+		"css",
+		"lit-html"
+	],
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+		"lit-html": "^3.2.1",
+		"mobx": "^6.13.6"
+	},
+	"devDependencies": {
+		"@types/node": "^22.13.9",
+		"vite": "^6.2.0"
+	}
 }

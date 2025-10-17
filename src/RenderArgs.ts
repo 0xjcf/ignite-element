@@ -1,13 +1,12 @@
-import { AnyStateMachine, EventFrom } from "xstate";
-import {
-  EnhancedStore,
-  Slice,
-  ActionCreatorWithoutPayload,
-  ActionCreatorWithPayload,
-} from "@reduxjs/toolkit";
-import { FunctionKeys } from "./adapters/MobxAdapter";
-import { InferStateAndEvent, InferEvent } from "./utils/igniteRedux";
-import { ExtendedState } from "./adapters/XStateAdapter";
+import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
+import type { AnyStateMachine, EventFrom } from "xstate";
+import type { FunctionKeys } from "./adapters/MobxAdapter";
+import type { ExtendedState } from "./adapters/XStateAdapter";
+import type {
+	InferEvent,
+	InferStateAndEvent,
+	ReduxActions,
+} from "./utils/igniteRedux";
 
 /**
  * RenderArgs<Store, Actions>:
@@ -21,40 +20,33 @@ import { ExtendedState } from "./adapters/XStateAdapter";
  * The second generic <A> is optional for scenarios where you do NOT have an extra 'actions' object
  * (e.g., XState, Redux Slice, MobX).
  */
-export type RenderArgs<Store, A = unknown> =
-  // 1) XState Machine
-  Store extends AnyStateMachine
-    ? {
-        state: ExtendedState<Store>;
-        send: (event: EventFrom<Store>) => void;
-      }
-    : // 2) Redux Slice
-    Store extends Slice
-    ? {
-        state: InferStateAndEvent<Store>["State"];
-        send: (action: InferStateAndEvent<Store>["Event"]) => void;
-      }
-    : // 3) Redux Store + Actions
-    Store extends () => EnhancedStore
-    ? A extends Record<
-        string,
-        | ActionCreatorWithoutPayload<string>
-        | ActionCreatorWithPayload<any, string> // eslint-disable-line @typescript-eslint/no-explicit-any
-      >
-      ? {
-          state: InferStateAndEvent<Store>["State"];
-          send: (action: InferEvent<A>) => void;
-        }
-      : // If you pass no actions, fallback to a broad any
-        {
-          state: InferStateAndEvent<Store>["State"];
-          send: (action: string) => void;
-        }
-    : // 4) MobX: store factory returning an object
-    Store extends () => Record<string, unknown>
-    ? {
-        state: ReturnType<Store>;
-        send: (event: { type: FunctionKeys<ReturnType<Store>> }) => void;
-      }
-    : // 5) Fallback
-      never;
+export type RenderArgs<Store, A = unknown> = Store extends AnyStateMachine // 1) XState Machine
+	? {
+			state: ExtendedState<Store>;
+			send: (event: EventFrom<Store>) => void;
+		}
+	: // 2) Redux Slice
+		Store extends Slice
+		? {
+				state: InferStateAndEvent<Store>["State"];
+				send: (action: InferStateAndEvent<Store>["Event"]) => void;
+			}
+		: // 3) Redux Store + Actions
+			Store extends () => EnhancedStore
+			? A extends ReduxActions
+				? {
+						state: InferStateAndEvent<Store, A>["State"];
+						send: (action: InferEvent<A>) => void;
+					}
+				: {
+						state: InferStateAndEvent<Store>["State"];
+						send: (action: { type: string }) => void;
+					}
+			: // 4) MobX: store factory returning an object
+				Store extends () => Record<string, unknown>
+				? {
+						state: ReturnType<Store>;
+						send: (event: { type: FunctionKeys<ReturnType<Store>> }) => void;
+					}
+				: // 5) Fallback
+					never;

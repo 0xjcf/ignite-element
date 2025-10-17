@@ -1,24 +1,24 @@
 import { vi } from "vitest";
-import IgniteAdapter from "../IgniteAdapter";
+import type IgniteAdapter from "../IgniteAdapter";
 
 // Minimal Mock Adapter implementation
 class MockAdapter<State, Event> implements IgniteAdapter<State, Event> {
-  private mockState: State;
+	private mockState: State;
 
-  constructor(initialState: State) {
-    this.mockState = initialState;
-  }
+	constructor(initialState: State) {
+		this.mockState = initialState;
+	}
 
-  subscribe = vi.fn((listener: (state: State) => void) => {
-    listener(this.mockState);
-    return { unsubscribe: vi.fn() };
-  });
+	subscribe = vi.fn((listener: (state: State) => void) => {
+		listener(this.mockState);
+		return { unsubscribe: vi.fn() };
+	});
 
-  send = vi.fn();
+	send = vi.fn();
 
-  getState = vi.fn(() => this.mockState);
+	getState = vi.fn(() => this.mockState);
 
-  stop = vi.fn();
+	stop = vi.fn();
 }
 
 export default MockAdapter;

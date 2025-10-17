@@ -5,6 +5,7 @@
 ### Patch Changes
 
 - Fix workspace configuration so pnpm 9 installs succeed under Node.js 22 in CI
+- Replace ESLint with Biome for linting and formatting
 
 ## 1.4.4
 

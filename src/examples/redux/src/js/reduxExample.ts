@@ -1,23 +1,23 @@
 import { html } from "lit-html";
-import counterStore, {
-  increment,
-  decrement,
-  addByAmount,
-} from "./reduxCounterStore";
-import { igniteCore } from "../../../../IgniteCore";
 import { setGlobalStyles } from "../../../../globalStyles";
+import { igniteCore } from "../../../../IgniteCore";
+import counterStore, {
+	addByAmount,
+	decrement,
+	increment,
+} from "./reduxCounterStore";
 
 setGlobalStyles("../scss/styles.scss");
 
 export const { shared, isolated } = igniteCore({
-  adapter: "redux",
-  source: counterStore,
-  actions: { increment, decrement, addByAmount },
+	adapter: "redux",
+	source: counterStore,
+	actions: { increment, decrement, addByAmount },
 });
 
 // Shared Component: Redux
 shared("my-counter-redux", ({ state, send }) => {
-  return html`
+	return html`
     <div class="card text-start shadow-sm mb-3" data-bs-theme="dark">
       <div class="card-header bg-primary text-white">
         Shared Counter (Redux)
@@ -42,7 +42,7 @@ shared("my-counter-redux", ({ state, send }) => {
 
 // Shared Display Component: Redux
 shared("shared-display-redux", ({ state }) => {
-  return html`
+	return html`
     <div
       class="p-3 text-start text-success-emphasis bg-success-subtle border border-success-subtle rounded-3 mb-4"
     >
@@ -53,7 +53,7 @@ shared("shared-display-redux", ({ state }) => {
 
 // Isolated Component: Redux
 isolated("another-counter-redux", ({ state, send }) => {
-  return html`
+	return html`
     <div class="card text-start shadow-sm mb-3" data-bs-theme="dark">
       <div class="card-header bg-warning text-dark">
         Isolated Counter (Redux)
