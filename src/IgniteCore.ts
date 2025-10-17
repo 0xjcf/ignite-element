@@ -4,6 +4,7 @@ import createMobXAdapter, { type FunctionKeys } from "./adapters/MobxAdapter";
 import createReduxAdapter from "./adapters/ReduxAdapter";
 import createXStateAdapter, {
 	type ExtendedState,
+	type XStateActorInstance,
 } from "./adapters/XStateAdapter";
 import igniteElementFactory, {
 	type ComponentFactory,
@@ -12,10 +13,11 @@ import igniteElementFactory, {
 import type { InferStateAndEvent, ReduxActions } from "./utils/igniteRedux";
 
 // Extended Config Type
+
 export type IgniteCoreConfig =
 	| {
 			adapter: "xstate";
-			source: AnyStateMachine;
+			source: AnyStateMachine | XStateActorInstance<AnyStateMachine>;
 			styles?: IgniteElementConfig["styles"];
 	  }
 	| {
@@ -30,15 +32,26 @@ export type IgniteCoreConfig =
 			styles?: IgniteElementConfig["styles"];
 	  }
 	| {
+			adapter: "redux";
+			source: EnhancedStore;
+			actions: ReduxActions;
+			styles?: IgniteElementConfig["styles"];
+	  }
+	| {
 			adapter: "mobx";
 			source: () => Record<string, unknown>;
+			styles?: IgniteElementConfig["styles"];
+	  }
+	| {
+			adapter: "mobx";
+			source: Record<string, unknown>;
 			styles?: IgniteElementConfig["styles"];
 	  };
 
 // Overload for XState
 export function igniteCore<Machine extends AnyStateMachine>(options: {
 	adapter: "xstate";
-	source: Machine;
+	source: Machine | XStateActorInstance<Machine>;
 	styles?: IgniteElementConfig["styles"];
 }): ComponentFactory<ExtendedState<Machine>, EventFrom<Machine>>;
 
@@ -67,6 +80,18 @@ export function igniteCore<
 	InferStateAndEvent<StoreCreator, Actions>["State"],
 	InferStateAndEvent<StoreCreator, Actions>["Event"]
 >;
+export function igniteCore<
+	StoreInstance extends EnhancedStore,
+	Actions extends ReduxActions,
+>(options: {
+	adapter: "redux";
+	source: StoreInstance;
+	actions: Actions;
+	styles?: IgniteElementConfig["styles"];
+}): ComponentFactory<
+	InferStateAndEvent<StoreInstance, Actions>["State"],
+	InferStateAndEvent<StoreInstance, Actions>["Event"]
+>;
 
 // Overload for MobX
 export function igniteCore<
@@ -74,7 +99,7 @@ export function igniteCore<
 	Event extends { type: FunctionKeys<State> },
 >(options: {
 	adapter: "mobx";
-	source: () => State;
+	source: (() => State) | State;
 	styles?: IgniteElementConfig["styles"];
 }): ComponentFactory<State, Event>;
 
@@ -83,36 +108,52 @@ export function igniteCore(options: IgniteCoreConfig) {
 	const adapterName = options.adapter;
 
 	switch (adapterName) {
-	case "xstate": {
-		const adapterFactory = createXStateAdapter(options.source);
-		return igniteElementFactory(adapterFactory, { styles: options.styles }, {
-			scope: adapterFactory.scope,
-		});
-	}
-
-	case "redux": {
-		if ("actions" in options) {
-			const adapterFactory = createReduxAdapter(
-				options.source,
-				options.actions,
+		case "xstate": {
+			const adapterFactory = createXStateAdapter(options.source);
+			return igniteElementFactory(
+				adapterFactory,
+				{ styles: options.styles },
+				{
+					scope: adapterFactory.scope,
+				},
 			);
-			return igniteElementFactory(adapterFactory, { styles: options.styles }, {
-				scope: adapterFactory.scope,
-			});
 		}
 
-		const adapterFactory = createReduxAdapter(options.source);
-		return igniteElementFactory(adapterFactory, { styles: options.styles }, {
-			scope: adapterFactory.scope,
-		});
-	}
+		case "redux": {
+			if ("actions" in options) {
+				const adapterFactory =
+					typeof options.source === "function"
+						? createReduxAdapter(options.source, options.actions)
+						: createReduxAdapter(options.source, options.actions);
+				return igniteElementFactory(
+					adapterFactory,
+					{ styles: options.styles },
+					{
+						scope: adapterFactory.scope,
+					},
+				);
+			}
 
-	case "mobx": {
-		const adapterFactory = createMobXAdapter(options.source);
-		return igniteElementFactory(adapterFactory, { styles: options.styles }, {
-			scope: adapterFactory.scope,
-		});
-	}
+			const adapterFactory = createReduxAdapter(options.source);
+			return igniteElementFactory(
+				adapterFactory,
+				{ styles: options.styles },
+				{
+					scope: adapterFactory.scope,
+				},
+			);
+		}
+
+		case "mobx": {
+			const adapterFactory = createMobXAdapter(options.source);
+			return igniteElementFactory(
+				adapterFactory,
+				{ styles: options.styles },
+				{
+					scope: adapterFactory.scope,
+				},
+			);
+		}
 
 		default: {
 			return assertNever(options, adapterName);

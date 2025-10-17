@@ -4,6 +4,7 @@ import createMobXAdapter, {
 } from "../../adapters/MobxAdapter";
 import counterStore from "../../examples/mobx/mobxCounterStore";
 import type IgniteAdapter from "../../IgniteAdapter";
+import { StateScope } from "../../IgniteAdapter";
 
 describe("MobXAdapter", () => {
 	type Counter = ReturnType<typeof counterStore>;
@@ -122,5 +123,57 @@ describe("MobXAdapter", () => {
 
 		adapter.stop();
 		expect(() => subscription.unsubscribe()).not.toThrow();
+	});
+
+	it("marks factory adapters as isolated", () => {
+		expect(
+			(adapterFactory as typeof adapterFactory & { scope: StateScope }).scope,
+		).toBe(StateScope.Isolated);
+		expect(adapter.scope).toBe(StateScope.Isolated);
+	});
+});
+
+describe("MobXAdapter with shared observable", () => {
+	const sharedStore = counterStore();
+
+	let adapterFactory: () => IgniteAdapter<
+		ReturnType<typeof counterStore>,
+		{ type: FunctionKeys<ReturnType<typeof counterStore>> }
+	>;
+	let adapterA: IgniteAdapter<
+		ReturnType<typeof counterStore>,
+		{ type: FunctionKeys<ReturnType<typeof counterStore>> }
+	>;
+	let adapterB: IgniteAdapter<
+		ReturnType<typeof counterStore>,
+		{ type: FunctionKeys<ReturnType<typeof counterStore>> }
+	>;
+
+	beforeEach(() => {
+		adapterFactory = createMobXAdapter(sharedStore);
+		adapterA = adapterFactory();
+		adapterB = adapterFactory();
+	});
+
+	afterEach(() => {
+		adapterA.stop();
+		adapterB.stop();
+		vi.clearAllMocks();
+	});
+
+	it("sets scope to shared", () => {
+		expect(
+			(adapterFactory as typeof adapterFactory & { scope: StateScope }).scope,
+		).toBe(StateScope.Shared);
+		expect(adapterA.scope).toBe(StateScope.Shared);
+		expect(adapterB.scope).toBe(StateScope.Shared);
+	});
+
+	it("reuses the same observable instance", () => {
+		adapterA.send({ type: "increment" });
+		expect(adapterB.getState().count).toBe(1);
+
+		adapterB.send({ type: "increment" });
+		expect(adapterA.getState().count).toBe(2);
 	});
 });

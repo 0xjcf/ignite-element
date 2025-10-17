@@ -1,6 +1,7 @@
 import { autorun } from "mobx";
 import type IgniteAdapter from "../IgniteAdapter";
 import { StateScope } from "../IgniteAdapter";
+import { isMobxObservable } from "../utils/adapterGuards";
 
 export type FunctionKeys<StateType> = {
 	[Key in keyof StateType]: StateType[Key] extends (
@@ -14,44 +15,40 @@ type MobxAdapterFactory<State> = (() => IgniteAdapter<State, { type: FunctionKey
     scope: StateScope;
 };
 
-export default function createMobXAdapter<State>(
-    storeFactory: () => State,
+export default function createMobXAdapter<State extends object>(
+	source: (() => State) | State,
 ): MobxAdapterFactory<State> {
-    const factory = () => {
-        const store = storeFactory();
-        let unsubscribe: (() => void) | null = null;
-        let isStopped = false;
-        let lastKnownState: State = { ...store };
+	const buildAdapter = (
+		store: State,
+		scope: StateScope,
+	): IgniteAdapter<State, { type: FunctionKeys<State> }> => {
+		let unsubscribe: (() => void) | null = null;
+		let isStopped = false;
+		let lastKnownState: State = { ...store };
 
 		function cleanupAutorun() {
 			unsubscribe?.();
 			unsubscribe = null;
 		}
 
-        return {
-            /**
-             * Subscribe to state changes
-             */
-            subscribe(listener: (state: State) => void) {
-                if (isStopped) {
-                    throw new Error("Adapter is stopped and cannot subscribe.");
-                }
+		const adapter: IgniteAdapter<State, { type: FunctionKeys<State> }> = {
+			subscribe(listener) {
+				if (isStopped) {
+					throw new Error("Adapter is stopped and cannot subscribe.");
+				}
 
-                unsubscribe = autorun(() => {
+				unsubscribe = autorun(() => {
 					listener({ ...store });
 				});
 
 				return {
 					unsubscribe: () => {
-						if (isStopped) return; // Prevent unsubscription actions after stopping
+						if (isStopped) return;
 						cleanupAutorun();
 					},
 				};
-            },
-            /**
-             * Dispatch an action (send an event)
-             */
-            send(event: { type: FunctionKeys<State> }) {
+			},
+			send(event) {
 				if (isStopped) {
 					console.warn(
 						"[MobxAdapter] Cannot send events when adapter is stopped.",
@@ -61,33 +58,38 @@ export default function createMobXAdapter<State>(
 				const action = store[event.type];
 				if (typeof action === "function") {
 					action.call(store, event);
-					lastKnownState = { ...store }; // Update the last known state after an action
+					lastKnownState = { ...store };
 				} else {
 					console.warn(
 						`[MobxAdapter] Unknown event type: ${String(event.type)}`,
 					);
 				}
 			},
-			/**
-			 * Get the current state snapshot
-			 */
 			getState() {
-				if (isStopped) {
-					return lastKnownState; // Return the cached state after stopping
-				}
-				return { ...store };
+				return isStopped ? lastKnownState : { ...store };
 			},
-			/**
-			 * Stop the adapter
-			 */
-            stop() {
-                cleanupAutorun(); // Clean up the single listener
-                isStopped = true; // Mark the adapter as stopped
-            },
-            scope: StateScope.Isolated,
-        };
-    };
+			stop() {
+				cleanupAutorun();
+				isStopped = true;
+			},
+			scope,
+		};
 
-    factory.scope = StateScope.Isolated;
-    return factory;
+		return adapter;
+	};
+
+	if (isMobxObservable(source)) {
+	const factory = (() =>
+		buildAdapter(source as State, StateScope.Shared)
+	) as MobxAdapterFactory<State>;
+		factory.scope = StateScope.Shared;
+		return factory;
+	}
+
+	const storeFactory = source as () => State;
+	const factory = (() =>
+		buildAdapter(storeFactory(), StateScope.Isolated)
+	) as MobxAdapterFactory<State>;
+	factory.scope = StateScope.Isolated;
+	return factory;
 }

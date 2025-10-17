@@ -4,6 +4,7 @@ import counterStore, {
 	counterSlice,
 } from "../../examples/redux/src/js/reduxCounterStore";
 import type IgniteAdapter from "../../IgniteAdapter";
+import { StateScope } from "../../IgniteAdapter";
 import type { InferStateAndEvent } from "../../utils/igniteRedux";
 
 type StoreAdapterTypes = InferStateAndEvent<
@@ -54,6 +55,13 @@ describe("ReduxAdapter with Slice Source", () => {
 		// @ts-expect-error Invalid action type
 		adapter.send({ type: "counter/unknownAction" });
 		expect(adapter.getState()).toEqual({ counter: { count: 0 } }); // No state change
+	});
+
+	it("marks slice adapters as isolated", () => {
+		expect(
+			(adapterFactory as typeof adapterFactory & { scope: StateScope }).scope,
+		).toBe(StateScope.Isolated);
+		expect(adapter.scope).toBe(StateScope.Isolated);
 	});
 });
 
@@ -111,6 +119,13 @@ describe("ReduxAdapter with Store Source", () => {
 
 		expect(adapter.getState()).toEqual({ counter: { count: 0 } }); // State should not change
 		warnSpy.mockRestore();
+	});
+
+	it("marks factory adapters as isolated", () => {
+		expect(
+			(adapterFactory as typeof adapterFactory & { scope: StateScope }).scope,
+		).toBe(StateScope.Isolated);
+		expect(adapter.scope).toBe(StateScope.Isolated);
 	});
 });
 
@@ -175,5 +190,49 @@ describe("ReduxAdapter - Subscribe Method", () => {
 
 		adapter.stop();
 		expect(() => subscription.unsubscribe()).not.toThrow(); // Should not throw error
+	});
+});
+
+describe("ReduxAdapter with shared store", () => {
+	const sharedStore = counterStore();
+	type SharedState = InferStateAndEvent<
+		typeof sharedStore,
+		typeof counterSlice.actions
+	>["State"];
+	type SharedEvent = InferStateAndEvent<
+		typeof sharedStore,
+		typeof counterSlice.actions
+	>["Event"];
+
+	let adapterFactory: () => IgniteAdapter<SharedState, SharedEvent>;
+	let adapterA: IgniteAdapter<SharedState, SharedEvent>;
+	let adapterB: IgniteAdapter<SharedState, SharedEvent>;
+
+	beforeEach(() => {
+		adapterFactory = createReduxAdapter(sharedStore, counterSlice.actions);
+		adapterA = adapterFactory();
+		adapterB = adapterFactory();
+	});
+
+	afterEach(() => {
+		adapterA.stop();
+		adapterB.stop();
+		vi.clearAllMocks();
+	});
+
+	it("sets scope to shared", () => {
+		expect(
+			(adapterFactory as typeof adapterFactory & { scope: StateScope }).scope,
+		).toBe(StateScope.Shared);
+		expect(adapterA.scope).toBe(StateScope.Shared);
+		expect(adapterB.scope).toBe(StateScope.Shared);
+	});
+
+	it("reuses the same redux store instance", () => {
+		adapterA.send(counterSlice.actions.increment());
+		expect(adapterB.getState().counter.count).toBe(1);
+
+		adapterB.send(counterSlice.actions.addByAmount(2));
+		expect(adapterA.getState().counter.count).toBe(3);
 	});
 });
