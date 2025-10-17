@@ -24,8 +24,8 @@ type InferEventFromCreators<Creators> = Creators extends Record<
 
 type NormalizeEvent<Event> = Event extends { type: infer Type }
 	? Event extends { payload: infer Payload }
-		? [Payload] extends [undefined]
-			? Event | { type: Type; payload?: Payload }
+		? undefined extends Payload
+			? Event | { type: Type; payload?: Exclude<Payload, undefined> }
 			: Event | { type: Type; payload: Payload }
 		: Event | { type: Type }
 	: Event;
