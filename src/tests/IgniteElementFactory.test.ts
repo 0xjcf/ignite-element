@@ -33,7 +33,10 @@ describe("igniteElementFactory", () => {
 		const createAdapter = vi
 			.fn()
 			.mockImplementation(
-				() => new MinimalMockAdapter<typeof initialState, { type: string }>(initialState),
+				() =>
+					new MinimalMockAdapter<typeof initialState, { type: string }>(
+						initialState,
+					),
 			);
 
 		const component = igniteElementFactory(createAdapter);

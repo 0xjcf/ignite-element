@@ -156,6 +156,8 @@ export class AdvancedSharedCounter {
 	}
 }
 
+const advancedSharedCounter = new AdvancedSharedCounter();
+
 registerXState("advanced-shared-counter", (args) => {
-	return new AdvancedSharedCounter().render(args);
+	return advancedSharedCounter.render(args);
 });

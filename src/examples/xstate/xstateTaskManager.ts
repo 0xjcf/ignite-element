@@ -162,7 +162,9 @@ export class ConfettiEffect {
 registerTaskManager("task-list", (args) => new TaskList().render(args));
 registerTaskManager("progress-bar", (args) => new ProgressBar().render(args));
 registerTaskManager("task-form", (args) => new TaskForm().render(args));
-registerTaskManager("confetti-effect", (args) => new ConfettiEffect().render(args));
+registerTaskManager("confetti-effect", (args) =>
+	new ConfettiEffect().render(args),
+);
 
 export class TaskManager {
 	render({ state }: RenderArgs<typeof taskManagerMachine>) {

@@ -32,14 +32,20 @@ describe("igniteRedux", () => {
 
 			uniqueName = crypto.randomUUID();
 
-			register(`shared-counter-${uniqueName}`, ({ state, send }) => html`
+			register(
+				`shared-counter-${uniqueName}`,
+				({ state, send }) => html`
 				<div>Count: ${state.counter.count}</div>
 				<button @click=${() => send(increment())}>+</button>
-			`);
+			`,
+			);
 
-			register(`shared-display-${uniqueName}`, ({ state }) => html`
+			register(
+				`shared-display-${uniqueName}`,
+				({ state }) => html`
 				<div>Count: ${state.counter.count}</div>
-			`);
+			`,
+			);
 
 			sharedCounter = document.createElement(
 				`shared-counter-${uniqueName}`,
@@ -55,8 +61,10 @@ describe("igniteRedux", () => {
 			const button = sharedCounter.shadowRoot?.querySelector("button");
 			button?.click();
 
-			const count1 = sharedCounter.shadowRoot?.querySelector("div")?.textContent;
-			const count2 = sharedDisplay.shadowRoot?.querySelector("div")?.textContent;
+			const count1 =
+				sharedCounter.shadowRoot?.querySelector("div")?.textContent;
+			const count2 =
+				sharedDisplay.shadowRoot?.querySelector("div")?.textContent;
 
 			expect(count1).toBe("Count: 1");
 			expect(count2).toBe("Count: 1");
@@ -77,14 +85,20 @@ describe("igniteRedux", () => {
 
 			uniqueName = crypto.randomUUID();
 
-			register(`isolated-counter-${uniqueName}`, ({ state, send }) => html`
+			register(
+				`isolated-counter-${uniqueName}`,
+				({ state, send }) => html`
 				<div>Count: ${state.counter.count}</div>
 				<button @click=${() => send(increment())}>+</button>
-			`);
+			`,
+			);
 
-			register(`isolated-display-${uniqueName}`, ({ state }) => html`
+			register(
+				`isolated-display-${uniqueName}`,
+				({ state }) => html`
 				<div>Count: ${state.counter.count}</div>
-			`);
+			`,
+			);
 
 			isolatedCounter = document.createElement(
 				`isolated-counter-${uniqueName}`,
@@ -100,12 +114,10 @@ describe("igniteRedux", () => {
 			const button = isolatedCounter.shadowRoot?.querySelector("button");
 			button?.click();
 
-			const count1 = isolatedCounter.shadowRoot
-				?.querySelector("div")
-				?.textContent;
-			const count2 = isolatedDisplay.shadowRoot
-				?.querySelector("div")
-				?.textContent;
+			const count1 =
+				isolatedCounter.shadowRoot?.querySelector("div")?.textContent;
+			const count2 =
+				isolatedDisplay.shadowRoot?.querySelector("div")?.textContent;
 
 			expect(count1).toBe("Count: 1");
 			expect(count2).toBe("Count: 0");
@@ -119,12 +131,10 @@ describe("igniteRedux", () => {
 				new CustomEvent("send", { detail: addByAmount(5) }),
 			);
 
-			const count1 = isolatedCounter.shadowRoot
-				?.querySelector("div")
-				?.textContent;
-			const count2 = isolatedDisplay.shadowRoot
-				?.querySelector("div")
-				?.textContent;
+			const count1 =
+				isolatedCounter.shadowRoot?.querySelector("div")?.textContent;
+			const count2 =
+				isolatedDisplay.shadowRoot?.querySelector("div")?.textContent;
 
 			expect(count1).toBe("Count: 3");
 			expect(count2).toBe("Count: 5");

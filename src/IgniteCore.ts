@@ -5,6 +5,7 @@ import createReduxAdapter from "./adapters/ReduxAdapter";
 import createXStateAdapter, {
 	type ExtendedState,
 } from "./adapters/XStateAdapter";
+import { StateScope } from "./IgniteAdapter";
 import igniteElementFactory, {
 	type ComponentFactory,
 	type IgniteElementConfig,
@@ -85,7 +86,7 @@ export function igniteCore(options: IgniteCoreConfig) {
 	switch (adapterName) {
 		case "xstate": {
 			const igniteAdapter = createXStateAdapter(options.source);
-			return igniteElementFactory(igniteAdapter, { styles: options.styles });
+			return igniteElementFactory(igniteAdapter, { styles: options.styles }, { scope: StateScope.Isolated });
 		}
 
 		case "redux": {
@@ -94,16 +95,16 @@ export function igniteCore(options: IgniteCoreConfig) {
 					options.source,
 					options.actions,
 				);
-				return igniteElementFactory(igniteAdapter, { styles: options.styles });
+				return igniteElementFactory(igniteAdapter, { styles: options.styles }, { scope: StateScope.Isolated });
 			}
 
 			const igniteAdapter = createReduxAdapter(options.source);
-			return igniteElementFactory(igniteAdapter, { styles: options.styles });
+			return igniteElementFactory(igniteAdapter, { styles: options.styles }, { scope: StateScope.Isolated });
 		}
 
 		case "mobx": {
 			const igniteAdapter = createMobXAdapter(options.source);
-			return igniteElementFactory(igniteAdapter, { styles: options.styles });
+			return igniteElementFactory(igniteAdapter, { styles: options.styles }, { scope: StateScope.Isolated });
 		}
 
 		default: {
