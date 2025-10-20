@@ -7,8 +7,6 @@ export { igniteCore } from "./IgniteCore";
 export {
 	type ComponentFactory,
 	default as igniteElementFactory,
-	type IgniteElementConfig,
 	type RenderFnArgs as IgniteRenderFnArgs,
-	type StyleObject,
 } from "./IgniteElementFactory";
 export type { RenderArgs } from "./RenderArgs";

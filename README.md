@@ -1,162 +1,286 @@
 # ignite-element
 
-[![CI Build](https://github.com/0xjcf/ignite-element/actions/workflows/ci.yml/badge.svg)](https://github.com/0xjcf/ignite-element/actions/workflows/ci.yml)  
-[![npm version](https://img.shields.io/npm/v/ignite-element.svg)](https://www.npmjs.com/package/ignite-element)  
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)  
+[![CI Build](https://github.com/0xjcf/ignite-element/actions/workflows/ci.yml/badge.svg)](https://github.com/0xjcf/ignite-element/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/ignite-element.svg)](https://www.npmjs.com/package/ignite-element)
+[![Bundlephobia](https://img.shields.io/bundlephobia/minzip/ignite-element.svg)](https://bundlephobia.com/package/ignite-element)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript Ready](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
 [![codecov](https://codecov.io/github/0xjcf/ignite-element/graph/badge.svg?token=6SSFPOV9J8)](https://codecov.io/github/0xjcf/ignite-element)
 
 ---
 
-## **Overview**
+## 🆕 What's New in v1.4.7
 
-Ignite-Element is a lightweight library for building reusable, state-driven, and framework-agnostic web components. Built on web standards like **Custom Elements**, **Shadow DOM**, and **ES Modules**, Ignite-Element empowers developers to create modular and scalable UIs with minimal boilerplate.
+**Release Date:** TBD
 
----
+### Key Changes
 
-## **Quick Links**
+- **New factory API:** `igniteCore` now returns a registration function (`(tag, renderFn) => void`) so defining multiple elements is ergonomic and type-safe.
+- **Shared vs. isolated detection:** Passing a running XState actor / Redux store / MobX observable automatically yields shared scope; providing factories or machine definitions yields isolated scope.
+- **Styling upgrades:** `setGlobalStyles` resolves asset URLs correctly inside Vite and custom build setups.
+- **Bug fixes:** Improved cleanup behaviour in `IgniteElement` and adapters to avoid stale subscriptions.
 
-- **[Documentation](https://joseflores.gitbook.io/ignite-element/)**  
-  Comprehensive guides, examples, and best practices.
-- **[Installation](#installation)**  
-  Get started in seconds.
-- **[Examples](#examples)**  
-  Real-world integrations with **XState**, **Redux**, and **MobX**.
-- **[Contributing](#contributing)**  
-  Learn how to contribute and improve Ignite-Element.
+See the [full changelog](CHANGELOG.md) for detailed updates.
 
 ---
 
-## **Features**
+## ✨ Overview
 
-- **State Management Made Easy**: Supports shared and isolated state components using state libraries like **XState**, **Redux**, and **MobX**.
-- **Reusable Web Components**: Built on modern web standards to ensure compatibility and performance.
-- **Flexible Styling**: Inject global styles or use scoped styles for each component.
-- **TypeScript Support**: Provides type safety for seamless integration with your codebase.
+**Ignite-Element** is a lightweight, framework-agnostic library for building modular, state-driven web components. Built on standards like **Custom Elements**, **Shadow DOM**, and **ES Modules**, Ignite-Element helps developers ship scalable UI systems with minimal boilerplate.
 
 ---
 
-## **Installation**
+## 🎯 Key Features
 
-Ignite-Element requires `lit-html` for rendering, as it’s the library currently used to define templates. While the goal is to make Ignite-Element rendering-agnostic in the future, for now, `lit-html` is a required dependency.
-
-Install Ignite-Element with your preferred state management library:
-
-`npm install ignite-element lit-html xstate`
-
-Or, for **Redux**:
-
-`npm install ignite-element lit-html @reduxjs/toolkit`
-
-Or, for **MobX**:
-
-`npm install ignite-element lit-html mobx`
+- 🎯 **State Management Made Easy:** Works with **XState**, **Redux**, and **MobX**, supporting both shared and isolated instances.
+- 🔄 **Reusable Web Components:** Built entirely on modern web standards—no framework lock-in.
+- 🎨 **Flexible Styling:** Inject global styles once or add per-component CSS inside the shadow DOM.
+- 📘 **TypeScript Support:** Rich inference for `state` and `send` arguments across adapters.
+- ⚡ **Minimal Bundle Size:** Designed to add only a few kilobytes on top of your chosen state library.
 
 ---
 
-## **Getting Started**
+## 🚀 Quick Start
 
-Ignite-Element supports shared and isolated state components. Here’s a quick example:
+Get up and running in 30 seconds:
 
-```javascript
-import { igniteCore } from "ignite-element";
+```typescript
+// 1. Install
+npm install ignite-element lit-html xstate
+
+// 2. Create your first component
 import { html } from "lit-html";
-import counterMachine from "./counterMachine"; // Your XState machine
+import { igniteCore } from "ignite-element";
+import { createMachine } from "xstate";
 
-const igniteElement = igniteCore({
-  adapter: "xstate", // Choose "redux" or "mobx" if using those libraries
-  source: counterMachine,
+const toggleMachine = createMachine({
+  id: "toggle",
+  initial: "off",
+  states: {
+    off: { on: { TOGGLE: "on" } },
+    on: { on: { TOGGLE: "off" } },
+  },
 });
 
-// Define a shared component
-igniteElement.shared("counter-display", (state, send) => {
-  return html`
-    <div>
-      <h3>Count: ${state.count}</h3>
-      <button @click=${() => send({ type: "INCREMENT" })}>Increment</button>
-    </div>
-  `;
+const component = igniteCore({
+  adapter: "xstate",
+  source: toggleMachine, // isolated – every element gets its own actor
 });
+
+component("toggle-button", ({ state, send }) => html`
+  <button @click=${() => send({ type: "TOGGLE" })}>
+    ${state.value === "on" ? "On" : "Off"}
+  </button>
+`);
+
+// 3. Use it anywhere in HTML
+// <toggle-button></toggle-button>
 ```
 
----
-
-## **Examples**
-
-Explore real-world examples of Ignite-Element in action:
-
-- [**XState + Tailwind CSS**](./src/examples/xstate): State machine integration using XState, with Tailwind CSS for styling.
-- [**Redux + Bootstrap**](./src/examples/redux): Redux-based state management, styled with Bootstrap.
-- [**MobX + Custom Styles**](./src/examples/mobx): A reactive example using MobX and custom global styles.
-
-To run these examples locally, use the following commands:
-
-- **XState Example**:
-  `pnpm run examples:xstate`
-
-- **Redux Example**:
-  `pnpm run examples:redux`
-
-- **MobX Example**:
-  `pnpm run examples:mobx`
+Need a shared instance? Start an actor (or reuse a Redux store / MobX observable) yourself and pass it to `igniteCore`.
 
 ---
 
-## **Styling with Ignite-Element**
+## 🛠️ Installation
 
-Ignite-Element offers flexible styling options:
+Ignite-Element currently uses `lit-html` for rendering templates. Rendering abstraction is on the roadmap, but for now `lit-html` is required.
 
-1. **Global Styles**: Apply global styles across all components using `setGlobalStyles`.
-2. **Scoped Styles**: Define encapsulated styles within each component.
-3. **Dynamic Styles**: Adjust styles dynamically based on component state.
+**Install with your preferred state library:**
 
-Example: Using `setGlobalStyles` for Tailwind CSS:
+- **XState**
+  ```bash
+  npm install ignite-element lit-html xstate
+  ```
+- **Redux**
+  ```bash
+  npm install ignite-element lit-html @reduxjs/toolkit
+  ```
+- **MobX**
+  ```bash
+  npm install ignite-element lit-html mobx
+  ```
 
-```javascript
+---
+
+## 🧠 Core Concepts
+
+### Shared vs. Isolated Scope
+
+- **Shared scope** – provide a running instance (XState actor, Redux store, MobX observable). Every call to the returned `component` function reuses that instance, so elements stay in sync.
+- **Isolated scope** – pass a factory / definition (XState machine, Redux slice, MobX store factory). Each element receives its own isolated state tree.
+
+Ignite-Element automatically infers the scope, so you rarely need extra configuration.
+
+> **Tip:** When you supply a long-lived instance (like an XState actor) you control the lifecycle. Start it before first use and stop it when the host app tears down.
+
+### Styling
+
+You can:
+
+- Inject global styles once via `setGlobalStyles`.
+- Provide custom CSS per component.
+- Combine both for progressive enhancement.
+
+```typescript
 import { setGlobalStyles } from "ignite-element";
 
-setGlobalStyles("./styles/tailwind.css");
+const href = new URL("./styles/tailwind.css", import.meta.url).href;
+setGlobalStyles(href);
 ```
 
-For more details, see the [Styling section](https://joseflores.gitbook.io/ignite-element/core-concepts/styling-with-ignite-element).
+---
+
+## 📚 Examples
+
+Every example demonstrates a different pattern and styling approach:
+
+| Example | State Library | Styling | Highlights |
+| --- | --- | --- | --- |
+| [XState + Tailwind](./src/examples/xstate) | XState | Tailwind CSS | Isolated machine vs. shared actor, gradient sub-component |
+| [Redux + Bootstrap](./src/examples/redux) | Redux Toolkit | Bootstrap | Store factory vs. shared store, scoped Bootstrap link injection |
+| [MobX + Custom](./src/examples/mobx) | MobX | Custom CSS | Observable reuse vs. new instances, hybrid global + component styles |
+
+**Run locally**
+
+```bash
+pnpm run examples:xstate
+pnpm run examples:redux
+pnpm run examples:mobx
+```
+
+> 💡 Start with the XState example to see shared and isolated behaviour side-by-side.
 
 ---
 
-## **Documentation**
+## 📋 Migration Guide
 
-For the full documentation, visit the Ignite-Element GitBook:  
-👉 **[https://joseflores.gitbook.io/ignite-element/](https://joseflores.gitbook.io/ignite-element/)**
+### Upgrading from pre-1.4.x
 
----
+- **New factory return:** Replace `.shared()` / `.isolated()` methods with direct calls to the function returned by `igniteCore`.
+  ```diff
+  -const element = igniteCore(config);
+  -element.shared("my-element", renderFn);
+  +const component = igniteCore(config);
+  +component("my-element", renderFn);
+  ```
+- **Deprecated helpers:** `initialTransition` and `resolveState` are removed—use adapter state snapshots directly via `getState()`.
+- **Styling:** Prefer `setGlobalStyles(new URL("./styles.css", import.meta.url).href)` to keep paths correct in modern bundlers.
 
-## **Contributing**
-
-Contributions are welcome! To get started:
-
-1. Fork the repository and clone your fork:
-
-   ```bash
-   git clone https://github.com/<your-username>/ignite-element.git
-   cd ignite-element
-   ```
-
-2. Install dependencies:
-   `pnpm install`
-
-3. Create a feature branch:
-   `git checkout -b feature/my-new-feature`
-
-4. Run tests:
-   `pnpm test`
-
-5. Submit a pull request with a clear description.
-
-For detailed guidelines, see the [Contributing section](https://joseflores.gitbook.io/ignite-element/contributing).
+Detailed migration steps (including TypeScript updates) will be published in the docs ahead of the next major release.
 
 ---
 
-## **Feedback**
+## 🌐 Browser Support
 
-Your feedback helps Ignite-Element grow! Share your thoughts:
+Ignite-Element targets evergreen browsers with:
 
-- Open an issue on [GitHub](https://github.com/0xjcf/Ignite-Element/issues)
-- Start a discussion on [GitHub Discussions](https://github.com/0xjcf/Ignite-Element/discussions)
+- Custom Elements v1
+- Shadow DOM v1
+- ES Modules
+
+| Chrome | Firefox | Safari | Edge |
+| --- | --- | --- | --- |
+| ✅ 67+ | ✅ 63+ | ✅ 10.1+ | ✅ 79+ |
+
+For legacy support, include the [webcomponents polyfills](https://github.com/webcomponents/polyfills).
+
+---
+
+## 📦 Bundle Size
+
+| Package | Size (min + gzip) |
+| --- | --- |
+| ignite-element | ~3.2 KB |
+| + lit-html | ~5.1 KB |
+| **Total** | **~8.3 KB** |
+
+_State management libraries are peer dependencies and are not included in these totals._
+
+---
+
+## 🎨 Styling Options
+
+Choose global, scoped, or dynamic styling strategies:
+
+- **Global:** Load CSS once via `setGlobalStyles`.
+- **Scoped:** Append `<style>` or `<link>` inside your render function (see MobX example).
+- **Dynamic:** Compute styles based on state and inline them with `style=` attributes (see XState gradient tally component).
+
+See the [Styling Guide](https://joseflores.gitbook.io/ignite-element/core-concepts/styling-with-ignite-element) for deeper coverage.
+
+---
+
+## 📖 Documentation
+
+- [Getting Started](https://joseflores.gitbook.io/ignite-element/getting-started)
+- [Core Concepts](https://joseflores.gitbook.io/ignite-element/core-concepts)
+- [API Reference](https://joseflores.gitbook.io/ignite-element/api)
+- [Styling](https://joseflores.gitbook.io/ignite-element/styling)
+- [Examples](https://joseflores.gitbook.io/ignite-element/examples)
+
+---
+
+## 🔧 Troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| Component not rendering | Ensure `lit-html` is installed and that the custom element tag is registered. |
+| State not updating | Confirm you’re using the provided `send` function and that your store/machine handles the event. |
+| TypeScript errors | Align adapter dependencies (`xstate`, `@reduxjs/toolkit`, `mobx`) with the versions in package peer requirements. |
+
+Need more help? Check the [FAQ](https://joseflores.gitbook.io/ignite-element/faq) or [open an issue](https://github.com/0xjcf/ignite-element/issues).
+
+---
+
+## 🎯 When to Use Ignite-Element
+
+**Best fit:**
+
+- Building reusable, state-driven component libraries.
+- Projects that need framework flexibility or native web component distribution.
+- Teams looking for deterministic state management with minimal runtime overhead.
+
+**Consider alternatives when:**
+
+- You are deeply invested in a single framework (React, Vue, etc.) and prefer their native component models.
+- Server-side rendering is a strict requirement today (SSR support is on the roadmap).
+
+---
+
+## 🤝 Contributing
+
+We welcome all contributions!
+
+- 🐛 [Report bugs](https://github.com/0xjcf/ignite-element/issues/new?template=bug_report.md)
+- 💡 [Propose ideas](https://github.com/0xjcf/ignite-element/discussions)
+- 📝 Improve docs, clarify examples, or fix typos
+- 🔨 Submit pull requests
+
+**Development setup**
+
+```bash
+git clone https://github.com/<your-username>/ignite-element.git
+cd ignite-element
+pnpm install
+git checkout -b feature/my-awesome-feature
+pnpm test
+```
+
+Please review our [Code of Conduct](CODE_OF_CONDUCT.md) before contributing.
+
+---
+
+## 📜 License
+
+Ignite-Element is released under the MIT License.
+
+---
+
+## 💬 Feedback
+
+Your feedback helps Ignite-Element grow!
+
+- [Open an issue](https://github.com/0xjcf/ignite-element/issues)
+- [Join GitHub Discussions](https://github.com/0xjcf/ignite-element/discussions)
+
+_Suggest improvements, contribute, and help Ignite-Element become your go-to foundation for web components._

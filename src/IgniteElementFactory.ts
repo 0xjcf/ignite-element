@@ -3,16 +3,6 @@ import type IgniteAdapter from "./IgniteAdapter";
 import { StateScope } from "./IgniteAdapter";
 import IgniteElement from "./IgniteElement";
 
-export interface IgniteElementConfig {
-	styles?: { custom?: string; paths?: (string | StyleObject)[] };
-}
-
-export interface StyleObject {
-	href: string;
-	integrity?: string;
-	crossorigin?: string;
-}
-
 export type RenderFnArgs<State, Event> = {
 	state: State;
 	send: (event: Event) => void;
@@ -29,7 +19,6 @@ type FactoryOptions = {
 
 export default function igniteElementFactory<State, Event>(
 	createAdapter: () => IgniteAdapter<State, Event>,
-	config?: IgniteElementConfig,
 	options?: FactoryOptions,
 ): ComponentFactory<State, Event> {
 	let sharedAdapter: IgniteAdapter<State, Event> | null = null;
@@ -56,7 +45,7 @@ export default function igniteElementFactory<State, Event>(
 
 			class SharedIgniteComponent extends IgniteElement<State, Event> {
 				constructor() {
-					super(adapter, config?.styles);
+					super(adapter);
 				}
 
 				protected render(): TemplateResult {
@@ -75,7 +64,7 @@ export default function igniteElementFactory<State, Event>(
 			constructor() {
 				const adapter = createAdapter();
 				adapter.scope ??= StateScope.Isolated;
-				super(adapter, config?.styles);
+				super(adapter);
 			}
 
 			protected render(): TemplateResult {

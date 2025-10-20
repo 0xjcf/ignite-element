@@ -65,7 +65,7 @@ describe("igniteElementFactory", () => {
 		const adapter = new MinimalMockAdapter(initialState);
 		const createAdapter = vi.fn(() => adapter);
 
-		const component = igniteElementFactory(createAdapter, undefined, {
+		const component = igniteElementFactory(createAdapter, {
 			scope: StateScope.Shared,
 		});
 		const elementName = `ignite-shared-${crypto.randomUUID()}`;
@@ -80,24 +80,6 @@ describe("igniteElementFactory", () => {
 
 		expect(createAdapter).toHaveBeenCalledTimes(1);
 		expect(adapter.scope).toBe(StateScope.Shared);
-	});
-
-	it("injects provided styles into the shadow DOM", () => {
-		const adapter = new MinimalMockAdapter(initialState);
-		const styles = { custom: "div { color: red; }" };
-
-		const component = igniteElementFactory(() => adapter, { styles });
-		const elementName = `ignite-styled-${crypto.randomUUID()}`;
-
-		component(elementName, () => {
-			return {} as TemplateResult;
-		});
-
-		const element = document.createElement(elementName);
-		document.body.appendChild(element);
-
-		const styleElement = element.shadowRoot?.querySelector("style");
-		expect(styleElement?.textContent).toContain(styles.custom);
 	});
 
 	it("throws when attempting to define an element more than once", () => {

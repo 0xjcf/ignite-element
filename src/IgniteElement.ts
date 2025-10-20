@@ -1,6 +1,5 @@
 import type { TemplateResult } from "lit-html";
 import { render } from "lit-html";
-import type { StyleObject } from "./globalStyles";
 import type IgniteAdapter from "./IgniteAdapter";
 import { StateScope } from "./IgniteAdapter";
 import injectStyles from "./injectStyles";
@@ -14,14 +13,11 @@ export default abstract class IgniteElement<State, Event> extends HTMLElement {
 	private _unsubscribe: (() => void) | undefined;
 	private _sendListener: ((event: globalThis.Event) => void) | undefined;
 
-	constructor(
-		adapter: IgniteAdapter<State, Event>,
-		styles?: { custom?: string; paths?: (string | StyleObject)[] },
-	) {
+	constructor(adapter: IgniteAdapter<State, Event>) {
 		super();
 		this._shadowRoot = this.attachShadow({ mode: "open" });
 
-		injectStyles(this._shadowRoot, styles);
+		injectStyles(this._shadowRoot);
 
 		this._adapter = adapter;
 		this.subscribeToAdapter();

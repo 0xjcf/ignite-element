@@ -1,18 +1,33 @@
 import { html } from "lit-html";
+import { createActor } from "xstate";
 import { setGlobalStyles } from "../../globalStyles";
 import { igniteCore } from "../../IgniteCore";
 import type { RenderArgs } from "../../RenderArgs";
 import { advancedMachine } from "./advancedCounterMachine";
 
-setGlobalStyles("./dist/styles.css");
+const stylesHref = new URL("./dist/styles.css", import.meta.url).href;
+setGlobalStyles(stylesHref);
 
-const registerXState = igniteCore({
+// Start a single actor that will be shared by every component registered with
+// `registerSharedXState`. Each element stays in sync because the same actor
+// instance is reused under the hood.
+const sharedActor = createActor(advancedMachine);
+sharedActor.start();
+
+// Shared components reuse the same `sharedActor`.
+const registerSharedXState = igniteCore({
+	adapter: "xstate",
+	source: sharedActor,
+});
+
+// Isolated components receive a fresh actor per registration.
+const registerIsolatedXState = igniteCore({
 	adapter: "xstate",
 	source: advancedMachine,
 });
 
 // Shared Counter Component (XState)
-registerXState("my-counter-xstate", ({ state, send }) => {
+registerSharedXState("my-counter-xstate", ({ state, send }) => {
 	return html`
     <div class="p-4 bg-green-100 border rounded-md mb-2">
       <h3 class="text-lg font-bold">Shared Counter (XState)</h3>
@@ -36,7 +51,7 @@ registerXState("my-counter-xstate", ({ state, send }) => {
 });
 
 // Shared Display Component (XState)
-registerXState("shared-display-xstate", ({ state }) => {
+registerSharedXState("shared-display-xstate", ({ state }) => {
 	return html`
     <div class="p-4 bg-blue-100 border rounded-md mb-2">
       <h3 class="text-lg font-bold text-blue-800">
@@ -48,7 +63,7 @@ registerXState("shared-display-xstate", ({ state }) => {
 });
 
 // Isolated Counter Component (XState)
-registerXState("another-counter-xstate", ({ state, send }) => {
+registerIsolatedXState("another-counter-xstate", ({ state, send }) => {
 	return html`
     <div class="p-4 bg-yellow-100 border rounded-md mb-2">
       <h3 class="text-lg font-bold text-yellow-800">
@@ -73,7 +88,7 @@ registerXState("another-counter-xstate", ({ state, send }) => {
   `;
 });
 
-registerXState("gradient-tally", ({ state }) => {
+registerSharedXState("gradient-tally", ({ state }) => {
 	const { count } = state.context;
 
 	return html`
@@ -158,6 +173,6 @@ export class AdvancedSharedCounter {
 
 const advancedSharedCounter = new AdvancedSharedCounter();
 
-registerXState("advanced-shared-counter", (args) => {
+registerSharedXState("advanced-shared-counter", (args) => {
 	return advancedSharedCounter.render(args);
 });

@@ -1,3 +1,4 @@
+import type { EnhancedStore } from "@reduxjs/toolkit";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import createReduxAdapter from "../../adapters/ReduxAdapter";
 import counterStore, {
@@ -235,5 +236,31 @@ describe("ReduxAdapter with shared store", () => {
 
 		adapterB.send(counterSlice.actions.addByAmount(2));
 		expect(adapterA.getState().counter.count).toBe(3);
+	});
+});
+
+describe("ReduxAdapter error handling", () => {
+	it("throws when a store instance is provided without actions", () => {
+		const store = counterStore();
+		expect(() =>
+			// @ts-expect-error intentionally omitting actions to assert runtime error
+			createReduxAdapter(store),
+		).toThrow(
+			"[ReduxAdapter] actions are required when providing a store instance.",
+		);
+	});
+
+	it("throws when a store factory does not return a redux store", () => {
+		const invalidFactory = (() => ({})) as unknown as () => EnhancedStore;
+
+		expect(() => {
+			const adapterFactory = createReduxAdapter(
+				invalidFactory,
+				counterSlice.actions,
+			);
+			adapterFactory();
+		}).toThrow(
+			"[ReduxAdapter] store factory must return a Redux store instance.",
+		);
 	});
 });

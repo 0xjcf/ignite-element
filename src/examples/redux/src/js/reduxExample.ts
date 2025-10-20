@@ -7,7 +7,8 @@ import counterStore, {
 	increment,
 } from "./reduxCounterStore";
 
-setGlobalStyles("../scss/styles.scss");
+const stylesHref = new URL("../scss/styles.scss", import.meta.url).href;
+setGlobalStyles(stylesHref);
 
 const sharedStore = counterStore();
 

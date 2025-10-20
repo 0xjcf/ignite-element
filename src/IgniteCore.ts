@@ -8,7 +8,6 @@ import createXStateAdapter, {
 } from "./adapters/XStateAdapter";
 import igniteElementFactory, {
 	type ComponentFactory,
-	type IgniteElementConfig,
 } from "./IgniteElementFactory";
 import type { InferStateAndEvent, ReduxActions } from "./utils/igniteRedux";
 
@@ -18,41 +17,34 @@ export type IgniteCoreConfig =
 	| {
 			adapter: "xstate";
 			source: AnyStateMachine | XStateActorInstance<AnyStateMachine>;
-			styles?: IgniteElementConfig["styles"];
 	  }
 	| {
 			adapter: "redux";
 			source: Slice; // Slice automatically infers actions
-			styles?: IgniteElementConfig["styles"];
 	  }
 	| {
 			adapter: "redux";
 			source: () => EnhancedStore;
 			actions: ReduxActions;
-			styles?: IgniteElementConfig["styles"];
 	  }
 	| {
 			adapter: "redux";
 			source: EnhancedStore;
 			actions: ReduxActions;
-			styles?: IgniteElementConfig["styles"];
 	  }
 	| {
 			adapter: "mobx";
 			source: () => Record<string, unknown>;
-			styles?: IgniteElementConfig["styles"];
 	  }
 	| {
 			adapter: "mobx";
 			source: Record<string, unknown>;
-			styles?: IgniteElementConfig["styles"];
 	  };
 
 // Overload for XState
 export function igniteCore<Machine extends AnyStateMachine>(options: {
 	adapter: "xstate";
 	source: Machine | XStateActorInstance<Machine>;
-	styles?: IgniteElementConfig["styles"];
 }): ComponentFactory<ExtendedState<Machine>, EventFrom<Machine>>;
 
 // Overload for Redux - Slice
@@ -61,7 +53,6 @@ export function igniteCore<
 >(options: {
 	adapter: "redux";
 	source: SliceType;
-	styles?: IgniteElementConfig["styles"];
 }): ComponentFactory<
 	InferStateAndEvent<SliceType>["State"],
 	InferStateAndEvent<SliceType>["Event"]
@@ -75,7 +66,6 @@ export function igniteCore<
 	adapter: "redux";
 	source: StoreCreator;
 	actions: Actions; // Pass actions explicitly
-	styles?: IgniteElementConfig["styles"];
 }): ComponentFactory<
 	InferStateAndEvent<StoreCreator, Actions>["State"],
 	InferStateAndEvent<StoreCreator, Actions>["Event"]
@@ -87,7 +77,6 @@ export function igniteCore<
 	adapter: "redux";
 	source: StoreInstance;
 	actions: Actions;
-	styles?: IgniteElementConfig["styles"];
 }): ComponentFactory<
 	InferStateAndEvent<StoreInstance, Actions>["State"],
 	InferStateAndEvent<StoreInstance, Actions>["Event"]
@@ -97,7 +86,6 @@ export function igniteCore<
 export function igniteCore<State extends object>(options: {
 	adapter: "mobx";
 	source: (() => State) | State;
-	styles?: IgniteElementConfig["styles"];
 }): ComponentFactory<State, MobxEvent<State>>;
 
 // Unified Implementation
@@ -107,47 +95,31 @@ export function igniteCore(options: IgniteCoreConfig) {
 	switch (adapterName) {
 		case "xstate": {
 			const adapterFactory = createXStateAdapter(options.source);
-			return igniteElementFactory(
-				adapterFactory,
-				{ styles: options.styles },
-				{
-					scope: adapterFactory.scope,
-				},
-			);
+			return igniteElementFactory(adapterFactory, {
+				scope: adapterFactory.scope,
+			});
 		}
 
 		case "redux": {
 			if ("actions" in options) {
 				const { source, actions } = options;
 				const adapterFactory = createReduxAdapter(source, actions);
-				return igniteElementFactory(
-					adapterFactory,
-					{ styles: options.styles },
-					{
-						scope: adapterFactory.scope,
-					},
-				);
+				return igniteElementFactory(adapterFactory, {
+					scope: adapterFactory.scope,
+				});
 			}
 
 			const adapterFactory = createReduxAdapter(options.source);
-			return igniteElementFactory(
-				adapterFactory,
-				{ styles: options.styles },
-				{
-					scope: adapterFactory.scope,
-				},
-			);
+			return igniteElementFactory(adapterFactory, {
+				scope: adapterFactory.scope,
+			});
 		}
 
 		case "mobx": {
 			const adapterFactory = createMobXAdapter(options.source);
-			return igniteElementFactory(
-				adapterFactory,
-				{ styles: options.styles },
-				{
-					scope: adapterFactory.scope,
-				},
-			);
+			return igniteElementFactory(adapterFactory, {
+				scope: adapterFactory.scope,
+			});
 		}
 
 		default: {

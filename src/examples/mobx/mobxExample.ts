@@ -4,7 +4,8 @@ import { igniteCore } from "../../IgniteCore";
 import counterStore from "./mobxCounterStore";
 
 // Set global styles for shared theme
-setGlobalStyles("./theme.css");
+const themeHref = new URL("./theme.css", import.meta.url).href;
+setGlobalStyles(themeHref);
 
 // Initialize igniteCore with MobX adapter
 const sharedStore = counterStore();
@@ -46,10 +47,13 @@ registerSharedMobx("shared-display-mobx", ({ state }) => {
 });
 
 // Isolated Counter Component with Custom Styles
+const customStylesHref = new URL("./another-counter-mobx.css", import.meta.url)
+	.href;
+
 registerIsolatedMobx("another-counter-mobx", ({ state, send }) => {
 	return html`
     <div>
-      <link rel="stylesheet" href="./another-counter-mobx.css" />
+      <link rel="stylesheet" href=${customStylesHref} />
       <div class="container">
         <h3>Isolated Counter (Custom Styled)</h3>
         <p>Count: ${state.count}</p>

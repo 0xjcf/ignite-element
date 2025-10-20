@@ -66,57 +66,15 @@ describe("injectStyles", () => {
 		);
 	});
 
-	it("should inject valid .scss file from styles.paths into the shadow DOM", () => {
-		const styles = {
-			paths: ["./local.scss"],
-		};
+	it("should ignore redundant calls for the same shadow root", () => {
+		(getGlobalStyles as Mock).mockReturnValue({
+			href: "./theme.css",
+		});
 
-		injectStyles(shadowRoot, styles);
+		injectStyles(shadowRoot);
+		injectStyles(shadowRoot);
 
-		const linkElement = shadowRoot.querySelector("link");
-		expect(linkElement).toBeTruthy();
-		expect(linkElement?.rel).toBe("stylesheet");
-		expect(linkElement?.href).toContain("local.scss");
-	});
-
-	it("should log a warning for invalid styles in styles.paths", () => {
-		const styles = {
-			paths: ["invalidStyle"],
-		};
-
-		injectStyles(shadowRoot, styles);
-
-		expect(warnSpy).toHaveBeenCalledWith(
-			"Invalid style path/object:",
-			"invalidStyle",
-		);
-	});
-
-	it("should log a deprecation warning for styles.paths", () => {
-		const styles = {
-			paths: ["./local.css"],
-		};
-
-		injectStyles(shadowRoot, styles);
-
-		expect(warnSpy).toHaveBeenCalledWith(
-			"DEPRECATION WARNING: `styles.paths` is deprecated. Use `setGlobalStyles` instead.",
-		);
-	});
-
-	it("should log a deprecation warning for styles.custom", () => {
-		const styles = {
-			custom: `
-        .deprecated-style {
-          color: blue;
-        }
-      `,
-		};
-
-		injectStyles(shadowRoot, styles);
-
-		expect(warnSpy).toHaveBeenCalledWith(
-			"DEPRECATION WARNING: `styles.custom` is deprecated. Use `setGlobalStyles` instead.",
-		);
+		const links = shadowRoot.querySelectorAll("link");
+		expect(links).toHaveLength(1);
 	});
 });

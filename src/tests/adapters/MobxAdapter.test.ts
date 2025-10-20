@@ -1,17 +1,35 @@
+import { makeAutoObservable } from "mobx";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import createMobXAdapter, { type MobxEvent } from "../../adapters/MobxAdapter";
-import counterStore from "../../examples/mobx/mobxCounterStore";
 import type IgniteAdapter from "../../IgniteAdapter";
 import { StateScope } from "../../IgniteAdapter";
 
+class CounterStore {
+	count = 0;
+
+	constructor() {
+		makeAutoObservable(this);
+	}
+
+	increment() {
+		this.count += 1;
+	}
+
+	decrement() {
+		this.count -= 1;
+	}
+}
+
+const createCounterStore = () => new CounterStore();
+
 describe("MobXAdapter", () => {
-	type Counter = ReturnType<typeof counterStore>;
+	type Counter = ReturnType<typeof createCounterStore>;
 
 	let adapterFactory: () => IgniteAdapter<Counter, MobxEvent<Counter>>;
 	let adapter: ReturnType<typeof adapterFactory>;
 
 	beforeEach(() => {
-		adapterFactory = createMobXAdapter(counterStore);
+		adapterFactory = createMobXAdapter(createCounterStore);
 		adapter = adapterFactory();
 	});
 
@@ -128,15 +146,15 @@ describe("MobXAdapter", () => {
 });
 
 describe("MobXAdapter with shared observable", () => {
-	let sharedStore: ReturnType<typeof counterStore>;
-	type SharedStore = ReturnType<typeof counterStore>;
+	type SharedStore = CounterStore;
+	let sharedStore: SharedStore;
 
 	let adapterFactory: () => IgniteAdapter<SharedStore, MobxEvent<SharedStore>>;
 	let adapterA: IgniteAdapter<SharedStore, MobxEvent<SharedStore>>;
 	let adapterB: IgniteAdapter<SharedStore, MobxEvent<SharedStore>>;
 
 	beforeEach(() => {
-		sharedStore = counterStore();
+		sharedStore = new CounterStore();
 		adapterFactory = createMobXAdapter(sharedStore);
 		adapterA = adapterFactory();
 		adapterB = adapterFactory();
