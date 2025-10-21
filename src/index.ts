@@ -5,8 +5,8 @@ export { setGlobalStyles } from "./globalStyles";
 export { StateScope } from "./IgniteAdapter";
 export { igniteCore } from "./IgniteCore";
 export {
+	type BaseRenderArgs as IgniteRenderArgs,
 	type ComponentFactory,
 	default as igniteElementFactory,
-	type RenderFnArgs as IgniteRenderFnArgs,
 } from "./IgniteElementFactory";
 export type { RenderArgs } from "./RenderArgs";

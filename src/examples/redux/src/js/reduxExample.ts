@@ -3,6 +3,7 @@ import { setGlobalStyles } from "../../../../globalStyles";
 import { igniteCore } from "../../../../IgniteCore";
 import counterStore, {
 	addByAmount,
+	counterSlice,
 	decrement,
 	increment,
 } from "./reduxCounterStore";
@@ -15,13 +16,11 @@ const sharedStore = counterStore();
 export const registerSharedRedux = igniteCore({
 	adapter: "redux",
 	source: () => sharedStore,
-	actions: { increment, decrement, addByAmount },
 });
 
 export const registerIsolatedRedux = igniteCore({
 	adapter: "redux",
-	source: counterStore,
-	actions: { increment, decrement, addByAmount },
+	source: counterSlice,
 });
 
 // Shared Component: Redux

@@ -2,225 +2,324 @@ import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import { configureStore } from "@reduxjs/toolkit";
 import type IgniteAdapter from "../IgniteAdapter";
 import { StateScope } from "../IgniteAdapter";
+import type {
+	ReduxSliceCommandActor,
+	ReduxStoreCommandActor,
+} from "../RenderArgs";
 import { isReduxStore } from "../utils/adapterGuards";
-import type { InferStateAndEvent, ReduxActions } from "../utils/igniteRedux";
+import type { InferStateAndEvent } from "../utils/igniteRedux";
 
-const isStoreFactory = (value: unknown): value is () => EnhancedStore => {
-	if (typeof value !== "function") {
-		return false;
-	}
+const isStoreFactory = (value: unknown): value is () => EnhancedStore =>
+	typeof value === "function" && !isReduxStore(value);
 
-	// When the value is already a Redux store (stores are objects), `isReduxStore`
-	// handles the shared branch, so we only need to ensure we don't misclassify
-	// those here. Any further validation happens when the factory output is used.
-	return !isReduxStore(value);
-};
-
-// Redux Adapter for Slice or Store
-type ReduxAdapterFactory<State, Event> = (() => IgniteAdapter<State, Event>) & {
+type AdapterFactory<State, Event> = (() => IgniteAdapter<State, Event>) & {
 	scope: StateScope;
+	resolveStateSnapshot: (adapter: IgniteAdapter<State, Event>) => unknown;
+	resolveCommandActor: (adapter: IgniteAdapter<State, Event>) => unknown;
 };
+
+type AdapterEntry<State, Event, Snapshot, Actor> = {
+	adapter: IgniteAdapter<State, Event>;
+	snapshot: () => Snapshot;
+	actor: Actor;
+};
+
+const adaptEvent = <State, DispatchEvent, Event>(
+	adapter: IgniteAdapter<State, DispatchEvent>,
+	toDispatch: (event: Event) => DispatchEvent,
+): IgniteAdapter<State, Event> => ({
+	subscribe: adapter.subscribe,
+	send(event) {
+		adapter.send(toDispatch(event));
+	},
+	getState: adapter.getState,
+	stop: adapter.stop,
+	scope: adapter.scope,
+});
+
+const buildAdapter = <
+	Store extends Pick<EnhancedStore, "dispatch" | "getState" | "subscribe">,
+	Event,
+>(
+	store: Store,
+	scope: StateScope,
+): IgniteAdapter<ReturnType<Store["getState"]>, Event> => {
+	type State = ReturnType<Store["getState"]>;
+
+	let unsubscribe: (() => void) | null = null;
+	let isStopped = false;
+	let lastKnownState: State = store.getState();
+
+	const cleanupSubscribe = () => {
+		unsubscribe?.();
+		unsubscribe = null;
+	};
+
+	const adapter: IgniteAdapter<State, Event> = {
+		subscribe(listener) {
+			if (isStopped) {
+				console.warn("Adapter is stopped and cannot subscribe.");
+			}
+
+			listener(store.getState());
+			unsubscribe = store.subscribe(() => {
+				listener(store.getState());
+			});
+
+			return {
+				unsubscribe: () => {
+					if (isStopped) {
+						return;
+					}
+					cleanupSubscribe();
+				},
+			};
+		},
+		send(event) {
+			if (isStopped) {
+				console.warn(
+					"[ReduxAdapter] Cannot send events when adapter is stopped.",
+				);
+				return;
+			}
+			store.dispatch(event as Parameters<typeof store.dispatch>[0]);
+			lastKnownState = store.getState();
+		},
+		getState() {
+			return isStopped ? lastKnownState : store.getState();
+		},
+		stop() {
+			cleanupSubscribe();
+			isStopped = true;
+		},
+		scope,
+	};
+
+	return adapter;
+};
+
+function createSharedFactory<State, Event, Snapshot, Actor>(
+	entry: AdapterEntry<State, Event, Snapshot, Actor>,
+): AdapterFactory<State, Event> {
+	const factory = (() => entry.adapter) as AdapterFactory<State, Event>;
+	factory.scope = StateScope.Shared;
+	factory.resolveStateSnapshot = () => entry.snapshot();
+	factory.resolveCommandActor = () => entry.actor;
+	return factory;
+}
+
+function createIsolatedFactory<State, Event, Snapshot, Actor>(
+	createEntry: () => AdapterEntry<State, Event, Snapshot, Actor>,
+): AdapterFactory<State, Event> {
+	const registry = new WeakMap<
+		IgniteAdapter<State, Event>,
+		AdapterEntry<State, Event, Snapshot, Actor>
+	>();
+
+	const factory = (() => {
+		const entry = createEntry();
+		registry.set(entry.adapter, entry);
+		return entry.adapter;
+	}) as AdapterFactory<State, Event>;
+
+	factory.scope = StateScope.Isolated;
+	factory.resolveStateSnapshot = (adapter) => {
+		const entry = registry.get(adapter);
+		if (!entry) {
+			throw new Error(
+				"[ReduxAdapter] Unable to resolve snapshot for facade callbacks.",
+			);
+		}
+		return entry.snapshot();
+	};
+	factory.resolveCommandActor = (adapter) => {
+		const entry = registry.get(adapter);
+		if (!entry) {
+			throw new Error(
+				"[ReduxAdapter] Unable to resolve actor for facade callbacks.",
+			);
+		}
+		return entry.actor;
+	};
+
+	return factory;
+}
 
 export default function createReduxAdapter<Source extends Slice>(
 	source: Source,
-): ReduxAdapterFactory<
+): AdapterFactory<
+	InferStateAndEvent<Source>["State"],
+	InferStateAndEvent<Source>["Event"]
+>;
+export default function createReduxAdapter<Source extends () => EnhancedStore>(
+	source: Source,
+): AdapterFactory<
+	InferStateAndEvent<Source>["State"],
+	InferStateAndEvent<Source>["Event"]
+>;
+export default function createReduxAdapter<Source extends EnhancedStore>(
+	source: Source,
+): AdapterFactory<
 	InferStateAndEvent<Source>["State"],
 	InferStateAndEvent<Source>["Event"]
 >;
 export default function createReduxAdapter<
-	StoreCreator extends () => EnhancedStore,
-	Actions extends ReduxActions,
->(
-	source: StoreCreator,
-	actions: Actions,
-): ReduxAdapterFactory<
-	InferStateAndEvent<StoreCreator, Actions>["State"],
-	InferStateAndEvent<StoreCreator, Actions>["Event"]
->;
-export default function createReduxAdapter<
-	StoreInstance extends EnhancedStore,
-	Actions extends ReduxActions,
->(
-	source: StoreInstance,
-	actions: Actions,
-): ReduxAdapterFactory<
-	InferStateAndEvent<StoreInstance, Actions>["State"],
-	InferStateAndEvent<StoreInstance, Actions>["Event"]
->;
-export default function createReduxAdapter<
-	SharedSource extends (() => EnhancedStore) | EnhancedStore,
-	Actions extends ReduxActions,
->(
-	source: SharedSource,
-	actions: Actions,
-): ReduxAdapterFactory<
-	InferStateAndEvent<SharedSource, Actions>["State"],
-	InferStateAndEvent<SharedSource, Actions>["Event"]
->;
-export default function createReduxAdapter<
 	Source extends Slice | (() => EnhancedStore) | EnhancedStore,
-	Actions extends ReduxActions | undefined,
 >(
 	source: Source,
-	actions?: Actions,
-): ReduxAdapterFactory<
-	InferStateAndEvent<Source, Actions>["State"],
-	InferStateAndEvent<Source, Actions>["Event"]
+): AdapterFactory<
+	InferStateAndEvent<Source>["State"],
+	InferStateAndEvent<Source>["Event"]
 > {
-	const buildAdapter = <
-		Store extends Pick<EnhancedStore, "dispatch" | "getState" | "subscribe">,
-		Event extends Parameters<Store["dispatch"]>[0] = Parameters<
-			Store["dispatch"]
-		>[0],
-	>(
-		store: Store,
-		scope: StateScope,
-	): IgniteAdapter<ReturnType<Store["getState"]>, Event> => {
-		type State = ReturnType<Store["getState"]>;
-
-		let unsubscribe: (() => void) | null = null;
-		let isStopped = false;
-		let lastKnownState: State = store.getState();
-
-		function cleanupSubscribe() {
-			unsubscribe?.();
-			unsubscribe = null;
-		}
-
-		const adapter: IgniteAdapter<State, Event> = {
-			subscribe(listener) {
-				if (isStopped) {
-					console.warn("Adapter is stopped and cannot subscribe.");
-				}
-
-				listener(store.getState());
-				unsubscribe = store.subscribe(() => {
-					listener(store.getState());
-				});
-
-				return {
-					unsubscribe: () => {
-						if (isStopped) {
-							return;
-						}
-						cleanupSubscribe();
-					},
-				};
-			},
-			send(event) {
-				if (isStopped) {
-					console.warn(
-						"[ReduxAdapter] Cannot send events when adapter is stopped.",
-					);
-					return;
-				}
-				store.dispatch(event);
-				lastKnownState = store.getState();
-			},
-			getState() {
-				return isStopped ? lastKnownState : store.getState();
-			},
-			stop() {
-				cleanupSubscribe();
-				isStopped = true;
-			},
-			scope,
-		};
-
-		return adapter;
-	};
-
-	const createScopedFactory = <State, Event>(
-		initializer: () => IgniteAdapter<State, Event>,
-		scope: StateScope,
-	): ReduxAdapterFactory<State, Event> => {
-		const factory = () => initializer();
-		return Object.assign(factory, { scope });
-	};
-
-	const adaptEvent = <State, DispatchEvent, Event>(
-		adapter: IgniteAdapter<State, DispatchEvent>,
-		toDispatch: (event: Event) => DispatchEvent,
-	): IgniteAdapter<State, Event> => ({
-		subscribe: adapter.subscribe,
-		send(event) {
-			adapter.send(toDispatch(event));
-		},
-		getState: adapter.getState,
-		stop: adapter.stop,
-		scope: adapter.scope,
-	});
-
 	if (isReduxStore(source)) {
-		if (!actions) {
-			throw new Error(
-				"[ReduxAdapter] actions are required when providing a store instance.",
-			);
-		}
-
 		const store = source;
 		type StoreInstance = typeof store;
-		type State = InferStateAndEvent<StoreInstance, Actions>["State"];
-		type Event = InferStateAndEvent<StoreInstance, Actions>["Event"];
+		type State = InferStateAndEvent<StoreInstance>["State"];
+		type Event = InferStateAndEvent<StoreInstance>["Event"];
 
-		return createScopedFactory<State, Event>(
-			() =>
-				adaptEvent(
-					buildAdapter(store, StateScope.Shared),
-					// Cast back to the store's dispatch event shape while exposing a
-					// narrower `Event` type to consumers.
-					(event) => event as Parameters<StoreInstance["dispatch"]>[0],
-				),
-			StateScope.Shared,
+		const adapter = adaptEvent<
+			State,
+			Parameters<StoreInstance["dispatch"]>[0],
+			Event
+		>(
+			buildAdapter(store, StateScope.Shared),
+			(event) => event as Parameters<StoreInstance["dispatch"]>[0],
 		);
+
+		type Dispatch = StoreInstance["dispatch"];
+		const dispatch: ReduxStoreCommandActor<
+			StoreInstance,
+			undefined
+		>["dispatch"] = (event) =>
+			(store.dispatch as Dispatch)(
+				event as Parameters<Dispatch>[0],
+			) as ReturnType<Dispatch>;
+		const subscribe = store.subscribe.bind(store) as ReduxStoreCommandActor<
+			StoreInstance,
+			undefined
+		>["subscribe"];
+
+		const actor: ReduxStoreCommandActor<StoreInstance, undefined> = {
+			dispatch,
+			getState: () => store.getState() as State,
+			subscribe,
+		};
+
+		const entry: AdapterEntry<
+			State,
+			Event,
+			State,
+			ReduxStoreCommandActor<StoreInstance, undefined>
+		> = {
+			adapter,
+			snapshot: () => store.getState() as State,
+			actor,
+		};
+
+		return createSharedFactory(entry);
 	}
 
 	if (isStoreFactory(source)) {
-		if (!actions) {
-			throw new Error(
-				"[ReduxAdapter] actions are required when providing a store factory.",
-			);
-		}
+		const createStore = source;
+		type StoreCreator = typeof createStore;
+		type State = InferStateAndEvent<StoreCreator>["State"];
+		type Event = InferStateAndEvent<StoreCreator>["Event"];
 
-		const storeFactory = source;
-		type StoreCreator = typeof storeFactory;
-		type State = InferStateAndEvent<StoreCreator, Actions>["State"];
-		type Event = InferStateAndEvent<StoreCreator, Actions>["Event"];
-
-		return createScopedFactory<State, Event>(() => {
-			const store = storeFactory();
+		return createIsolatedFactory<
+			State,
+			Event,
+			State,
+			ReduxStoreCommandActor<EnhancedStore, undefined>
+		>(() => {
+			const store = createStore();
 			if (!isReduxStore(store)) {
 				throw new Error(
 					"[ReduxAdapter] store factory must return a Redux store instance.",
 				);
 			}
-			type StoreInstance = typeof store;
-			return adaptEvent(
+
+			const adapter = adaptEvent<
+				State,
+				Parameters<typeof store.dispatch>[0],
+				Event
+			>(
 				buildAdapter(store, StateScope.Isolated),
-				// Cast back to the store's dispatch event shape while exposing a
-				// narrower `Event` type to consumers.
-				(event) => event as Parameters<StoreInstance["dispatch"]>[0],
+				(event) => event as Parameters<typeof store.dispatch>[0],
 			);
-		}, StateScope.Isolated);
+
+			type Dispatch = typeof store.dispatch;
+			const dispatch: ReduxStoreCommandActor<
+				EnhancedStore,
+				undefined
+			>["dispatch"] = (event) =>
+				(store.dispatch as Dispatch)(
+					event as Parameters<Dispatch>[0],
+				) as ReturnType<Dispatch>;
+			const subscribe = store.subscribe.bind(store) as ReduxStoreCommandActor<
+				EnhancedStore,
+				undefined
+			>["subscribe"];
+
+			const actor: ReduxStoreCommandActor<EnhancedStore, undefined> = {
+				dispatch,
+				getState: () => store.getState() as State,
+				subscribe,
+			};
+
+			return {
+				adapter,
+				snapshot: () => store.getState() as State,
+				actor,
+			};
+		});
 	}
 
 	type SliceSource = Extract<Source, Slice>;
 	const slice = source as SliceSource;
-	type State = InferStateAndEvent<SliceSource, Actions>["State"];
-	type Event = InferStateAndEvent<SliceSource, Actions>["Event"];
+	type State = InferStateAndEvent<SliceSource>["State"];
+	type Event = InferStateAndEvent<SliceSource>["Event"];
 
-	return createScopedFactory<State, Event>(() => {
+	return createIsolatedFactory<
+		State,
+		Event,
+		State,
+		ReduxSliceCommandActor<SliceSource>
+	>(() => {
 		const store = configureStore({
 			reducer: {
 				[slice.name]: slice.reducer,
 			},
 		});
 		type StoreInstance = typeof store;
-		return adaptEvent(
+
+		const adapter = adaptEvent<
+			State,
+			Parameters<StoreInstance["dispatch"]>[0],
+			Event
+		>(
 			buildAdapter(store, StateScope.Isolated),
-			// Cast back to the store's dispatch event shape while exposing a
-			// narrower `Event` type to consumers.
 			(event) => event as Parameters<StoreInstance["dispatch"]>[0],
 		);
-	}, StateScope.Isolated);
+
+		const dispatch: ReduxSliceCommandActor<SliceSource>["dispatch"] = (event) =>
+			store.dispatch(event as Parameters<StoreInstance["dispatch"]>[0]);
+		const subscribe: ReduxSliceCommandActor<SliceSource>["subscribe"] = (
+			listener,
+		) => {
+			const unsubscribe = store.subscribe(listener);
+			return () => unsubscribe();
+		};
+
+		const actor: ReduxSliceCommandActor<SliceSource> = {
+			dispatch,
+			getState: () => store.getState() as State,
+			subscribe,
+		};
+
+		return {
+			adapter,
+			snapshot: () => store.getState() as State,
+			actor,
+		};
+	});
 }

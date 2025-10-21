@@ -19,44 +19,93 @@ export type XStateActorInstance<Machine extends AnyStateMachine> = ReturnType<
 	typeof createActor<Machine>
 >;
 
-type AdapterFactory<State, Event> = (() => IgniteAdapter<State, Event>) & {
-	scope: StateScope;
+type XStateAdapterFactory<Machine extends AnyStateMachine> =
+	(() => IgniteAdapter<ExtendedState<Machine>, EventFrom<Machine>>) & {
+		scope: StateScope;
+		resolveStateSnapshot: (
+			adapter: IgniteAdapter<ExtendedState<Machine>, EventFrom<Machine>>,
+		) => StateFrom<Machine>;
+		resolveCommandActor: (
+			adapter: IgniteAdapter<ExtendedState<Machine>, EventFrom<Machine>>,
+		) => XStateActorInstance<Machine>;
+	};
+
+type AdapterEntry<Machine extends AnyStateMachine> = {
+	adapter: IgniteAdapter<ExtendedState<Machine>, EventFrom<Machine>>;
+	snapshot: () => StateFrom<Machine>;
+	actor: XStateActorInstance<Machine>;
 };
 
 export default function createXStateAdapter<Machine extends AnyStateMachine>(
 	source: Machine | XStateActorInstance<Machine>,
-): AdapterFactory<ExtendedState<Machine>, EventFrom<Machine>> {
-	const toScopedFactory = <State, Event>(
-		initializer: () => IgniteAdapter<State, Event>,
-		scope: StateScope,
-	): AdapterFactory<State, Event> => {
-		const factory = () => initializer();
-		return Object.assign(factory, { scope });
-	};
-
+): XStateAdapterFactory<Machine> {
 	if (isXStateActor(source)) {
 		const actor = source as XStateActorInstance<Machine>;
 		actor.start();
-
-		return toScopedFactory(
-			() => createAdapterFromActor(actor, StateScope.Shared, false),
-			StateScope.Shared,
-		);
+		const entry = createAdapterEntry(actor, StateScope.Shared, false);
+		return createSharedFactory(entry);
 	}
 
 	const machine = source as Machine;
-	return toScopedFactory(() => {
+	return createIsolatedFactory(() => {
 		const actor = createActor(machine);
 		actor.start();
-		return createAdapterFromActor(actor, StateScope.Isolated, true);
-	}, StateScope.Isolated);
+		return createAdapterEntry(actor, StateScope.Isolated, true);
+	});
 }
 
-function createAdapterFromActor<Machine extends AnyStateMachine>(
+function createSharedFactory<Machine extends AnyStateMachine>(
+	entry: AdapterEntry<Machine>,
+): XStateAdapterFactory<Machine> {
+	const factory = (() => entry.adapter) as XStateAdapterFactory<Machine>;
+	factory.scope = StateScope.Shared;
+	factory.resolveStateSnapshot = () => entry.snapshot();
+	factory.resolveCommandActor = () => entry.actor;
+	return factory;
+}
+
+function createIsolatedFactory<Machine extends AnyStateMachine>(
+	createEntry: () => AdapterEntry<Machine>,
+): XStateAdapterFactory<Machine> {
+	const registry = new WeakMap<
+		IgniteAdapter<ExtendedState<Machine>, EventFrom<Machine>>,
+		AdapterEntry<Machine>
+	>();
+
+	const factory = (() => {
+		const entry = createEntry();
+		registry.set(entry.adapter, entry);
+		return entry.adapter;
+	}) as XStateAdapterFactory<Machine>;
+
+	factory.scope = StateScope.Isolated;
+	factory.resolveStateSnapshot = (adapter) => {
+		const entry = registry.get(adapter);
+		if (!entry) {
+			throw new Error(
+				"[XStateAdapter] Unable to resolve snapshot for facade callbacks.",
+			);
+		}
+		return entry.snapshot();
+	};
+	factory.resolveCommandActor = (adapter) => {
+		const entry = registry.get(adapter);
+		if (!entry) {
+			throw new Error(
+				"[XStateAdapter] Unable to resolve actor for facade callbacks.",
+			);
+		}
+		return entry.actor;
+	};
+
+	return factory;
+}
+
+function createAdapterEntry<Machine extends AnyStateMachine>(
 	actor: XStateActorInstance<Machine>,
 	scope: StateScope,
 	ownsActor: boolean,
-): IgniteAdapter<ExtendedState<Machine>, EventFrom<Machine>> {
+): AdapterEntry<Machine> {
 	const listeners = new Set<(state: ExtendedState<Machine>) => void>();
 	let subscription: Subscription | null = null;
 	let isStopped = false;
@@ -132,6 +181,9 @@ function createAdapterFromActor<Machine extends AnyStateMachine>(
 		},
 		getState() {
 			const snapshot = isStopped ? lastKnownSnapshot : actor.getSnapshot();
+			if (!isStopped) {
+				lastKnownSnapshot = snapshot;
+			}
 			return toExtendedState(snapshot);
 		},
 		stop() {
@@ -152,5 +204,16 @@ function createAdapterFromActor<Machine extends AnyStateMachine>(
 		scope,
 	};
 
-	return adapter;
+	const snapshot = () => {
+		if (!isStopped) {
+			lastKnownSnapshot = actor.getSnapshot();
+		}
+		return lastKnownSnapshot;
+	};
+
+	return {
+		adapter,
+		snapshot,
+		actor,
+	};
 }

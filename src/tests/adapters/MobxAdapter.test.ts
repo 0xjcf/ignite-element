@@ -143,6 +143,23 @@ describe("MobXAdapter", () => {
 		).toBe(StateScope.Isolated);
 		expect(adapter.scope).toBe(StateScope.Isolated);
 	});
+
+	it("exposes facade metadata for isolated adapters", () => {
+		const factory = adapterFactory as typeof adapterFactory & {
+			resolveStateSnapshot: (
+				adapterInstance: IgniteAdapter<Counter, MobxEvent<Counter>>,
+			) => Counter;
+			resolveCommandActor: (
+				adapterInstance: IgniteAdapter<Counter, MobxEvent<Counter>>,
+			) => Counter;
+		};
+		const snapshot = factory.resolveStateSnapshot(adapter);
+		expect(snapshot.count).toBe(0);
+		const store = factory.resolveCommandActor(adapter);
+		expect(typeof store.increment).toBe("function");
+		store.increment();
+		expect(adapter.getState().count).toBe(1);
+	});
 });
 
 describe("MobXAdapter with shared observable", () => {
@@ -180,5 +197,22 @@ describe("MobXAdapter with shared observable", () => {
 
 		adapterB.send({ type: "increment" });
 		expect(adapterA.getState().count).toBe(2);
+	});
+
+	it("exposes facade metadata for shared adapters", () => {
+		const factory = adapterFactory as typeof adapterFactory & {
+			resolveStateSnapshot: (
+				adapterInstance: IgniteAdapter<SharedStore, MobxEvent<SharedStore>>,
+			) => SharedStore;
+			resolveCommandActor: (
+				adapterInstance: IgniteAdapter<SharedStore, MobxEvent<SharedStore>>,
+			) => SharedStore;
+		};
+		const snapshot = factory.resolveStateSnapshot(adapterA);
+		expect(snapshot.count).toBe(sharedStore.count);
+		const store = factory.resolveCommandActor(adapterA);
+		expect(store).toBe(sharedStore);
+		store.increment();
+		expect(adapterB.getState().count).toBe(1);
 	});
 });

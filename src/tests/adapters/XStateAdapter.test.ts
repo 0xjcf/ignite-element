@@ -166,6 +166,16 @@ describe("XStateAdapter", () => {
 		expect(adapter.scope).toBe(StateScope.Isolated);
 	});
 
+	it("exposes facade metadata for isolated adapters", () => {
+		const snapshot = adapterFactory.resolveStateSnapshot(adapter);
+		expect(snapshot.value).toBe("idle");
+		const actor = adapterFactory.resolveCommandActor(adapter);
+		actor.send({ type: "START" });
+		expect(adapter.getState().value).toBe("active");
+		actor.send({ type: "INC" });
+		expect(adapter.getState().context.count).toBe(1);
+	});
+
 	it("reuses actor instances for shared adapters", () => {
 		const actor = createActor(counterMachine);
 		actor.start();
@@ -184,6 +194,21 @@ describe("XStateAdapter", () => {
 		expect(adapterB.getState().value).toBe("active");
 		adapterA.stop();
 		adapterB.stop();
+		actor.stop();
+	});
+
+	it("exposes facade metadata for shared adapters", () => {
+		const actor = createActor(counterMachine);
+		actor.start();
+		const sharedFactory = createXStateAdapter(actor);
+		const sharedAdapter = sharedFactory();
+		const snapshot = sharedFactory.resolveStateSnapshot(sharedAdapter);
+		expect(snapshot.value).toBe("idle");
+		const resolvedActor = sharedFactory.resolveCommandActor(sharedAdapter);
+		expect(resolvedActor).toBe(actor);
+		resolvedActor.send({ type: "START" });
+		expect(sharedAdapter.getState().value).toBe("active");
+		sharedAdapter.stop();
 		actor.stop();
 	});
 });

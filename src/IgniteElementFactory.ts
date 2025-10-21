@@ -3,25 +3,56 @@ import type IgniteAdapter from "./IgniteAdapter";
 import { StateScope } from "./IgniteAdapter";
 import IgniteElement from "./IgniteElement";
 
-export type RenderFnArgs<State, Event> = {
+export type BaseRenderArgs<State, Event> = {
 	state: State;
 	send: (event: Event) => void;
 };
 
-export type ComponentFactory<State, Event> = (
+type AdditionalRenderArgs<
+	State,
+	Event,
+	RenderArgs extends BaseRenderArgs<State, Event>,
+> = Omit<RenderArgs, keyof BaseRenderArgs<State, Event>>;
+
+export type ComponentFactory<
+	State,
+	Event,
+	RenderArgs extends BaseRenderArgs<State, Event> = BaseRenderArgs<
+		State,
+		Event
+	>,
+> = (
 	elementName: string,
-	renderFn: (args: RenderFnArgs<State, Event>) => TemplateResult,
+	renderFn: (args: RenderArgs) => TemplateResult,
 ) => void;
 
-type FactoryOptions = {
+type FactoryOptions<
+	State,
+	Event,
+	RenderArgs extends BaseRenderArgs<State, Event>,
+> = {
 	scope?: StateScope;
+	createAdditionalArgs?: (
+		adapter: IgniteAdapter<State, Event>,
+	) => AdditionalRenderArgs<State, Event, RenderArgs>;
 };
 
-export default function igniteElementFactory<State, Event>(
+export default function igniteElementFactory<
+	State,
+	Event,
+	RenderArgs extends BaseRenderArgs<State, Event> = BaseRenderArgs<
+		State,
+		Event
+	>,
+>(
 	createAdapter: () => IgniteAdapter<State, Event>,
-	options?: FactoryOptions,
-): ComponentFactory<State, Event> {
+	options?: FactoryOptions<State, Event, RenderArgs>,
+): ComponentFactory<State, Event, RenderArgs> {
 	let sharedAdapter: IgniteAdapter<State, Event> | null = null;
+
+	const createAdditionalArgs =
+		options?.createAdditionalArgs ??
+		(() => ({}) as AdditionalRenderArgs<State, Event, RenderArgs>);
 
 	return (elementName, renderFn) => {
 		if (customElements.get(elementName)) {
@@ -42,6 +73,7 @@ export default function igniteElementFactory<State, Event>(
 			}
 
 			const adapter = sharedAdapter;
+			const additionalArgs = createAdditionalArgs(adapter);
 
 			class SharedIgniteComponent extends IgniteElement<State, Event> {
 				constructor() {
@@ -50,9 +82,10 @@ export default function igniteElementFactory<State, Event>(
 
 				protected render(): TemplateResult {
 					return renderFn({
+						...additionalArgs,
 						state: this.currentState,
 						send: (event) => this.send(event),
-					});
+					} as RenderArgs);
 				}
 			}
 
@@ -61,17 +94,25 @@ export default function igniteElementFactory<State, Event>(
 		}
 
 		class IsolatedIgniteComponent extends IgniteElement<State, Event> {
+			private readonly additionalArgs: AdditionalRenderArgs<
+				State,
+				Event,
+				RenderArgs
+			>;
+
 			constructor() {
 				const adapter = createAdapter();
 				adapter.scope ??= StateScope.Isolated;
 				super(adapter);
+				this.additionalArgs = createAdditionalArgs(adapter);
 			}
 
 			protected render(): TemplateResult {
 				return renderFn({
+					...this.additionalArgs,
 					state: this.currentState,
 					send: (event) => this.send(event),
-				});
+				} as RenderArgs);
 			}
 		}
 
