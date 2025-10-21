@@ -2,8 +2,8 @@ import { html } from "lit-html";
 import { setGlobalStyles } from "../../../../globalStyles";
 import { igniteCore } from "../../../../IgniteCore";
 import type {
-  ReduxSliceCommandActor,
-  ReduxStoreCommandActor,
+	ReduxSliceCommandActor,
+	ReduxStoreCommandActor,
 } from "../../../../RenderArgs";
 import type { InferStateAndEvent } from "../../../../utils/igniteRedux";
 import counterStore, { counterSlice } from "./reduxCounterStore";
@@ -19,49 +19,49 @@ type SharedStoreActor = ReduxStoreCommandActor<SharedStoreInstance>;
 type AddByAmountValue = Parameters<typeof counterSlice.actions.addByAmount>[0];
 
 const sharedStates = (snapshot: SharedStoreState) => ({
-  count: snapshot.counter.count,
+	count: snapshot.counter.count,
 });
 
 const sharedCommandHandlers = (actor: SharedStoreActor) => ({
-  decrement: () => actor.dispatch(counterSlice.actions.decrement()),
-  increment: () => actor.dispatch(counterSlice.actions.increment()),
-  addByAmount: (value: AddByAmountValue) =>
-    actor.dispatch(counterSlice.actions.addByAmount(value)),
+	decrement: () => actor.dispatch(counterSlice.actions.decrement()),
+	increment: () => actor.dispatch(counterSlice.actions.increment()),
+	addByAmount: (value: AddByAmountValue) =>
+		actor.dispatch(counterSlice.actions.addByAmount(value)),
 });
 
 export const registerSharedRedux = igniteCore({
-  adapter: "redux", // shared store instance reused across components
-  source: sharedStore,
-  states: sharedStates,
-  commands: sharedCommandHandlers,
+	adapter: "redux", // shared store instance reused across components
+	source: sharedStore,
+	states: sharedStates,
+	commands: sharedCommandHandlers,
 });
 
 type SliceState = InferStateAndEvent<typeof counterSlice>["State"];
 type SliceActor = ReduxSliceCommandActor<typeof counterSlice>;
 
 const isolatedStates = (snapshot: SliceState) => ({
-  count: snapshot.counter.count,
+	count: snapshot.counter.count,
 });
 
 const isolatedCommandHandlers = (actor: SliceActor) => ({
-  decrement: () => actor.dispatch(counterSlice.actions.decrement()),
-  increment: () => actor.dispatch(counterSlice.actions.increment()),
-  addByAmount: (value: AddByAmountValue) =>
-    actor.dispatch(counterSlice.actions.addByAmount(value)),
+	decrement: () => actor.dispatch(counterSlice.actions.decrement()),
+	increment: () => actor.dispatch(counterSlice.actions.increment()),
+	addByAmount: (value: AddByAmountValue) =>
+		actor.dispatch(counterSlice.actions.addByAmount(value)),
 });
 
 export const registerIsolatedRedux = igniteCore({
-  adapter: "redux",
-  source: counterSlice,
-  states: isolatedStates,
-  commands: isolatedCommandHandlers,
+	adapter: "redux",
+	source: counterSlice,
+	states: isolatedStates,
+	commands: isolatedCommandHandlers,
 });
 
 // Shared Component: Redux
 registerSharedRedux(
-  "my-counter-redux",
-  ({ count, send, increment, addByAmount }) => {
-    return html`
+	"my-counter-redux",
+	({ count, send, increment, addByAmount }) => {
+		return html`
     <div class="card text-start shadow-sm mb-3" data-bs-theme="dark">
       <div class="card-header bg-primary text-white">
         Shared Counter (Redux)
@@ -85,12 +85,12 @@ registerSharedRedux(
       </div>
     </div>
   `;
-  },
+	},
 );
 
 // Shared Display Component: Redux
 registerSharedRedux("shared-display-redux", ({ count }) => {
-  return html`
+	return html`
     <div
       class="p-3 text-start text-success-emphasis bg-success-subtle border border-success-subtle rounded-3 mb-4"
     >
@@ -101,9 +101,9 @@ registerSharedRedux("shared-display-redux", ({ count }) => {
 
 // Isolated Component: Redux
 registerIsolatedRedux(
-  "another-counter-redux",
-  ({ count, send, addByAmount }) => {
-    return html`
+	"another-counter-redux",
+	({ count, send, addByAmount }) => {
+		return html`
     <div class="card text-start shadow-sm mb-3" data-bs-theme="dark">
       <div class="card-header bg-warning text-dark">
         Isolated Counter (Redux)
@@ -124,5 +124,5 @@ registerIsolatedRedux(
       </div>
     </div>
   `;
-  },
+	},
 );

@@ -47,14 +47,14 @@ type StoreDispatchEvent<Source extends (() => EnhancedStore) | EnhancedStore> =
 	Source extends () => EnhancedStore
 		? StoreActionCreators<ReturnType<Source>> extends Record<
 				string,
-				(...args: any[]) => any
+				(...args: unknown[]) => { type: string }
 			>
 			? InferEvent<StoreActionCreators<ReturnType<Source>>>
 			: Parameters<ReturnType<Source>["dispatch"]>[0]
 		: Source extends EnhancedStore
 			? StoreActionCreators<Source> extends Record<
 					string,
-					(...args: any[]) => any
+					(...args: unknown[]) => { type: string }
 				>
 				? InferEvent<StoreActionCreators<Source>>
 				: Parameters<Source["dispatch"]>[0]
@@ -67,9 +67,9 @@ export type InferStateAndEvent<
 			State: InferRootState<Source>;
 			Event: InferEvent<Source["actions"]>;
 		}
-: Source extends (() => EnhancedStore) | EnhancedStore
-	? {
-			State: InferStoreState<Source>;
-			Event: StoreDispatchEvent<Source>;
-		}
-	: never;
+	: Source extends (() => EnhancedStore) | EnhancedStore
+		? {
+				State: InferStoreState<Source>;
+				Event: StoreDispatchEvent<Source>;
+			}
+		: never;
