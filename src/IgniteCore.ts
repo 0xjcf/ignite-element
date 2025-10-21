@@ -12,6 +12,7 @@ import {
 } from "./createComponentFactory";
 import type { ComponentFactory } from "./IgniteElementFactory";
 import type {
+	FacadeCommandResult,
 	FacadeCommandsCallback,
 	FacadeStatesCallback,
 	ReduxSliceCommandActor,
@@ -21,10 +22,7 @@ import { isReduxStore } from "./utils/adapterGuards";
 import type { InferStateAndEvent } from "./utils/igniteRedux";
 
 type AnyStatesCallback = FacadeStatesCallback<unknown, Record<string, unknown>>;
-type AnyCommandsCallback = FacadeCommandsCallback<
-	unknown,
-	Record<string, (...args: unknown[]) => unknown>
->;
+type AnyCommandsCallback = FacadeCommandsCallback<unknown, FacadeCommandResult>;
 
 type IgniteCoreReturn<
 	State,
@@ -35,10 +33,7 @@ type IgniteCoreReturn<
 		| undefined,
 	CommandActor,
 	CommandCallback extends
-		| FacadeCommandsCallback<
-				CommandActor,
-				Record<string, (...args: unknown[]) => unknown>
-		  >
+		| FacadeCommandsCallback<CommandActor, FacadeCommandResult>
 		| undefined,
 > = ComponentFactory<
 	State,
@@ -59,10 +54,7 @@ type XStateConfig<
 		| FacadeStatesCallback<ExtendedState<Machine>, Record<string, unknown>>
 		| undefined,
 	CommandCallback extends
-		| FacadeCommandsCallback<
-				XStateActorInstance<Machine>,
-				Record<string, (...args: unknown[]) => unknown>
-		  >
+		| FacadeCommandsCallback<XStateActorInstance<Machine>, FacadeCommandResult>
 		| undefined,
 > = {
 	adapter: "xstate";
@@ -82,7 +74,7 @@ type ReduxSliceConfig<
 	CommandCallback extends
 		| FacadeCommandsCallback<
 				ReduxSliceCommandActor<SliceType>,
-				Record<string, (...args: unknown[]) => unknown>
+				FacadeCommandResult
 		  >
 		| undefined,
 > = {
@@ -97,13 +89,13 @@ type ReduxStoreFactoryConfig<
 	StateCallback extends
 		| FacadeStatesCallback<
 				InferStateAndEvent<StoreCreator>["State"],
-				Record<string, unknown>
+			Record<string, unknown>
 		  >
 		| undefined,
 	CommandCallback extends
 		| FacadeCommandsCallback<
-				ReduxStoreCommandActor<ReturnType<StoreCreator>, undefined>,
-				Record<string, (...args: unknown[]) => unknown>
+				ReduxStoreCommandActor<ReturnType<StoreCreator>>,
+			FacadeCommandResult
 		  >
 		| undefined,
 > = {
@@ -118,13 +110,13 @@ type ReduxStoreInstanceConfig<
 	StateCallback extends
 		| FacadeStatesCallback<
 				InferStateAndEvent<StoreInstance>["State"],
-				Record<string, unknown>
+			Record<string, unknown>
 		  >
 		| undefined,
 	CommandCallback extends
 		| FacadeCommandsCallback<
-				ReduxStoreCommandActor<StoreInstance, undefined>,
-				Record<string, (...args: unknown[]) => unknown>
+				ReduxStoreCommandActor<StoreInstance>,
+			FacadeCommandResult
 		  >
 		| undefined,
 > = {
@@ -140,10 +132,7 @@ type MobxConfig<
 		| FacadeStatesCallback<State, Record<string, unknown>>
 		| undefined,
 	CommandCallback extends
-		| FacadeCommandsCallback<
-				State,
-				Record<string, (...args: unknown[]) => unknown>
-		  >
+		| FacadeCommandsCallback<State, FacadeCommandResult>
 		| undefined,
 > = {
 	adapter: "mobx";
@@ -160,11 +149,11 @@ export type IgniteCoreConfig =
 			commands?: AnyCommandsCallback;
 	  }
 	| {
-			adapter: "redux";
-			source: Slice | EnhancedStore | (() => EnhancedStore);
-			states?: AnyStatesCallback;
-			commands?: AnyCommandsCallback;
-	  }
+		adapter: "redux";
+		source: Slice | EnhancedStore | (() => EnhancedStore);
+		states?: AnyStatesCallback;
+		commands?: AnyCommandsCallback;
+	}
 	| {
 			adapter: "mobx";
 			source: (() => object) | object;
@@ -179,10 +168,7 @@ export function igniteCore<
 		| FacadeStatesCallback<ExtendedState<Machine>, Record<string, unknown>>
 		| undefined = undefined,
 	CommandCallback extends
-		| FacadeCommandsCallback<
-				XStateActorInstance<Machine>,
-				Record<string, (...args: unknown[]) => unknown>
-		  >
+		| FacadeCommandsCallback<XStateActorInstance<Machine>, FacadeCommandResult>
 		| undefined = undefined,
 >(
 	options: XStateConfig<Machine, StateCallback, CommandCallback>,
@@ -207,7 +193,7 @@ export function igniteCore<
 	CommandCallback extends
 		| FacadeCommandsCallback<
 				ReduxSliceCommandActor<SliceType>,
-				Record<string, (...args: unknown[]) => unknown>
+				FacadeCommandResult
 		  >
 		| undefined = undefined,
 >(
@@ -227,13 +213,13 @@ export function igniteCore<
 	StateCallback extends
 		| FacadeStatesCallback<
 				InferStateAndEvent<StoreCreator>["State"],
-				Record<string, unknown>
+			Record<string, unknown>
 		  >
 		| undefined = undefined,
 	CommandCallback extends
 		| FacadeCommandsCallback<
-				ReduxStoreCommandActor<ReturnType<StoreCreator>, undefined>,
-				Record<string, (...args: unknown[]) => unknown>
+				ReduxStoreCommandActor<ReturnType<StoreCreator>>,
+			FacadeCommandResult
 		  >
 		| undefined = undefined,
 >(
@@ -247,7 +233,7 @@ export function igniteCore<
 	InferStateAndEvent<StoreCreator>["Event"],
 	InferStateAndEvent<StoreCreator>["State"],
 	StateCallback,
-	ReduxStoreCommandActor<ReturnType<StoreCreator>, undefined>,
+	ReduxStoreCommandActor<ReturnType<StoreCreator>>,
 	CommandCallback
 >;
 
@@ -257,13 +243,13 @@ export function igniteCore<
 	StateCallback extends
 		| FacadeStatesCallback<
 				InferStateAndEvent<StoreInstance>["State"],
-				Record<string, unknown>
+			Record<string, unknown>
 		  >
 		| undefined = undefined,
 	CommandCallback extends
 		| FacadeCommandsCallback<
-				ReduxStoreCommandActor<StoreInstance, undefined>,
-				Record<string, (...args: unknown[]) => unknown>
+				ReduxStoreCommandActor<StoreInstance>,
+			FacadeCommandResult
 		  >
 		| undefined = undefined,
 >(
@@ -277,7 +263,7 @@ export function igniteCore<
 	InferStateAndEvent<StoreInstance>["Event"],
 	InferStateAndEvent<StoreInstance>["State"],
 	StateCallback,
-	ReduxStoreCommandActor<StoreInstance, undefined>,
+	ReduxStoreCommandActor<StoreInstance>,
 	CommandCallback
 >;
 
@@ -288,10 +274,7 @@ export function igniteCore<
 		| FacadeStatesCallback<State, Record<string, unknown>>
 		| undefined = undefined,
 	CommandCallback extends
-		| FacadeCommandsCallback<
-				State,
-				Record<string, (...args: unknown[]) => unknown>
-		  >
+		| FacadeCommandsCallback<State, FacadeCommandResult>
 		| undefined = undefined,
 >(
 	options: MobxConfig<State, StateCallback, CommandCallback>,
@@ -318,35 +301,35 @@ export function igniteCore(options: IgniteCoreConfig) {
 			});
 		}
 
-		case "redux": {
-			const source = options.source;
-			if (typeof source === "function" && !isReduxStore(source)) {
-				const adapterFactory = createReduxAdapter(
-					source as () => EnhancedStore,
-				);
-				return createComponentFactory(adapterFactory, {
-					scope: adapterFactory.scope,
-					states: options.states,
-					commands: options.commands,
-				});
-			}
-
-			if (isReduxStore(source)) {
-				const adapterFactory = createReduxAdapter(source as EnhancedStore);
-				return createComponentFactory(adapterFactory, {
-					scope: adapterFactory.scope,
-					states: options.states,
-					commands: options.commands,
-				});
-			}
-
-			const adapterFactory = createReduxAdapter(source as Slice);
+	case "redux": {
+		const source = options.source;
+		if (typeof source === "function" && !isReduxStore(source)) {
+			const adapterFactory = createReduxAdapter(
+				source as () => EnhancedStore,
+			);
 			return createComponentFactory(adapterFactory, {
 				scope: adapterFactory.scope,
 				states: options.states,
 				commands: options.commands,
 			});
 		}
+
+		if (isReduxStore(source)) {
+			const adapterFactory = createReduxAdapter(source as EnhancedStore);
+			return createComponentFactory(adapterFactory, {
+				scope: adapterFactory.scope,
+				states: options.states,
+				commands: options.commands,
+			});
+		}
+
+		const adapterFactory = createReduxAdapter(source as Slice);
+		return createComponentFactory(adapterFactory, {
+			scope: adapterFactory.scope,
+			states: options.states,
+			commands: options.commands,
+		});
+	}
 
 		case "mobx": {
 			const adapterFactory = createMobXAdapter(options.source);

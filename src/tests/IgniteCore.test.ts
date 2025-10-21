@@ -190,7 +190,7 @@ describe("igniteCore", () => {
 		type StoreInstance = typeof store;
 		type StoreState = InferStateAndEvent<StoreInstance>["State"];
 		type StoreEvent = InferStateAndEvent<StoreInstance>["Event"];
-		type StoreActor = ReduxStoreCommandActor<StoreInstance, undefined>;
+		type StoreActor = ReduxStoreCommandActor<StoreInstance>;
 
 		const statesCallback: FacadeStatesCallback<
 			StoreState,

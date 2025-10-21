@@ -5,6 +5,7 @@ import igniteElementFactory, {
 	type ComponentFactory,
 } from "./IgniteElementFactory";
 import type {
+	FacadeCommandResult,
 	FacadeCommandsCallback,
 	FacadeStatesCallback,
 } from "./RenderArgs";
@@ -27,7 +28,7 @@ type FacadeStateResult<Snapshot, Callback> = [Callback] extends [
 	? Result
 	: Record<never, never>;
 
-type FacadeCommandResult<Actor, Callback> = [Callback] extends [
+type ExtractCommandResult<Actor, Callback> = [Callback] extends [
 	FacadeCommandsCallback<Actor, infer Result>,
 ]
 	? Result
@@ -44,7 +45,7 @@ export type WithFacadeRenderArgs<
 > = BaseRenderArgs<State, Event> &
 	Additional &
 	FacadeStateResult<Snapshot, StateCallback> &
-	FacadeCommandResult<CommandActor, CommandCallback>;
+	ExtractCommandResult<CommandActor, CommandCallback>;
 
 export type ComponentFactoryOptions<
 	State,
@@ -100,10 +101,7 @@ export function createComponentFactory<
 		getState: () => State;
 	},
 	CommandCallback extends
-		| FacadeCommandsCallback<
-				CommandActor,
-				Record<string, (...args: unknown[]) => unknown>
-		  >
+		| FacadeCommandsCallback<CommandActor, FacadeCommandResult>
 		| undefined = undefined,
 	Additional extends Record<string, unknown> = Record<never, never>,
 >(
@@ -218,16 +216,16 @@ export function createComponentFactory<
 			if (commands) {
 				const commandCallback = commands as FacadeCommandsCallback<
 					CommandActor,
-					Record<string, (...args: unknown[]) => unknown>
+					FacadeCommandResult
 				>;
 				const actor = resolveActor(adapter);
 				const commandResult = commandCallback(actor);
 				ensureFacadeResult(commandResult, "commands");
 
 				const entries = Object.entries(commandResult) as Array<
-					[keyof FacadeCommandResult<CommandActor, CommandCallback>, unknown]
+					[keyof ExtractCommandResult<CommandActor, CommandCallback>, unknown]
 				>;
-				const commandFacade = Object.create(null) as FacadeCommandResult<
+				const commandFacade = Object.create(null) as ExtractCommandResult<
 					CommandActor,
 					CommandCallback
 				>;

@@ -121,6 +121,7 @@ describe("ReduxAdapter with Store Source", () => {
 	});
 
 	it("should prevent invalid actions", () => {
+		// @ts-expect-error Invalid action type
 		adapter.send({ type: "counter/unknownAction" });
 		expect(adapter.getState()).toEqual({ counter: { count: 0 } }); // No state change
 	});
@@ -152,7 +153,7 @@ describe("ReduxAdapter with Store Source", () => {
 			) => State;
 			resolveCommandActor: (
 				adapterInstance: IgniteAdapter<State, Event>,
-			) => ReduxStoreCommandActor<ReturnType<typeof counterStore>, undefined>;
+			) => ReduxStoreCommandActor<ReturnType<typeof counterStore>>;
 		};
 		const snapshot = factory.resolveStateSnapshot(adapter);
 		expect(snapshot.counter.count).toBe(0);
@@ -275,7 +276,7 @@ describe("ReduxAdapter with shared store", () => {
 			) => SharedState;
 			resolveCommandActor: (
 				adapterInstance: IgniteAdapter<SharedState, SharedEvent>,
-			) => ReduxStoreCommandActor<ReturnType<typeof counterStore>, undefined>;
+			) => ReduxStoreCommandActor<ReturnType<typeof counterStore>>;
 		};
 		const snapshot = factory.resolveStateSnapshot(adapterA);
 		expect(snapshot.counter.count).toBe(0);

@@ -151,7 +151,9 @@ export default function createReduxAdapter<Source extends Slice>(
 	InferStateAndEvent<Source>["State"],
 	InferStateAndEvent<Source>["Event"]
 >;
-export default function createReduxAdapter<Source extends () => EnhancedStore>(
+export default function createReduxAdapter<
+	Source extends () => EnhancedStore,
+>(
 	source: Source,
 ): AdapterFactory<
 	InferStateAndEvent<Source>["State"],
@@ -188,18 +190,16 @@ export default function createReduxAdapter<
 
 		type Dispatch = StoreInstance["dispatch"];
 		const dispatch: ReduxStoreCommandActor<
-			StoreInstance,
-			undefined
+			StoreInstance
 		>["dispatch"] = (event) =>
 			(store.dispatch as Dispatch)(
 				event as Parameters<Dispatch>[0],
 			) as ReturnType<Dispatch>;
 		const subscribe = store.subscribe.bind(store) as ReduxStoreCommandActor<
-			StoreInstance,
-			undefined
+			StoreInstance
 		>["subscribe"];
 
-		const actor: ReduxStoreCommandActor<StoreInstance, undefined> = {
+		const actor: ReduxStoreCommandActor<StoreInstance> = {
 			dispatch,
 			getState: () => store.getState() as State,
 			subscribe,
@@ -209,7 +209,7 @@ export default function createReduxAdapter<
 			State,
 			Event,
 			State,
-			ReduxStoreCommandActor<StoreInstance, undefined>
+			ReduxStoreCommandActor<StoreInstance>
 		> = {
 			adapter,
 			snapshot: () => store.getState() as State,
@@ -229,7 +229,7 @@ export default function createReduxAdapter<
 			State,
 			Event,
 			State,
-			ReduxStoreCommandActor<EnhancedStore, undefined>
+			ReduxStoreCommandActor<EnhancedStore>
 		>(() => {
 			const store = createStore();
 			if (!isReduxStore(store)) {
@@ -249,18 +249,16 @@ export default function createReduxAdapter<
 
 			type Dispatch = typeof store.dispatch;
 			const dispatch: ReduxStoreCommandActor<
-				EnhancedStore,
-				undefined
+				EnhancedStore
 			>["dispatch"] = (event) =>
 				(store.dispatch as Dispatch)(
 					event as Parameters<Dispatch>[0],
 				) as ReturnType<Dispatch>;
 			const subscribe = store.subscribe.bind(store) as ReduxStoreCommandActor<
-				EnhancedStore,
-				undefined
+				EnhancedStore
 			>["subscribe"];
 
-			const actor: ReduxStoreCommandActor<EnhancedStore, undefined> = {
+			const actor: ReduxStoreCommandActor<EnhancedStore> = {
 				dispatch,
 				getState: () => store.getState() as State,
 				subscribe,
@@ -312,13 +310,13 @@ export default function createReduxAdapter<
 
 		const actor: ReduxSliceCommandActor<SliceSource> = {
 			dispatch,
-			getState: () => store.getState() as State,
+			getState: () => store.getState(),
 			subscribe,
 		};
 
 		return {
 			adapter,
-			snapshot: () => store.getState() as State,
+			snapshot: () => store.getState(),
 			actor,
 		};
 	});

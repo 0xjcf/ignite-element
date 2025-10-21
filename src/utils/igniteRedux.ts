@@ -8,9 +8,6 @@ export type InferRootState<Source extends Slice | EnhancedStore> =
 			? ReturnType<Source["getState"]>
 			: never;
 
-type ActionCreators = Record<string, unknown>;
-export type ReduxActions = ActionCreators;
-
 type InferEventFromCreators<Creators> = Creators extends Record<
 	string,
 	infer Creator
@@ -41,24 +38,38 @@ type InferStoreState<Source> = Source extends () => EnhancedStore
 		? ReturnType<Source["getState"]>
 		: never;
 
-// Infer State and Events for Slices or Stores
+// Infer events for stores from their dispatch signature
+type StoreActionCreators<Source> = Source extends { __igniteActions: infer A }
+	? A
+	: undefined;
+
+type StoreDispatchEvent<Source extends (() => EnhancedStore) | EnhancedStore> =
+	Source extends () => EnhancedStore
+		? StoreActionCreators<ReturnType<Source>> extends Record<
+				string,
+				(...args: any[]) => any
+			>
+			? InferEvent<StoreActionCreators<ReturnType<Source>>>
+			: Parameters<ReturnType<Source>["dispatch"]>[0]
+		: Source extends EnhancedStore
+			? StoreActionCreators<Source> extends Record<
+					string,
+					(...args: any[]) => any
+				>
+				? InferEvent<StoreActionCreators<Source>>
+				: Parameters<Source["dispatch"]>[0]
+			: never;
+
 export type InferStateAndEvent<
 	Source extends Slice | (() => EnhancedStore) | EnhancedStore,
-	Actions extends ActionCreators | undefined = Source extends Slice
-		? Source["actions"]
-		: Source extends EnhancedStore
-			? ActionCreators | undefined
-			: undefined,
 > = Source extends Slice
 	? {
 			State: InferRootState<Source>;
 			Event: InferEvent<Source["actions"]>;
 		}
-	: Source extends (() => EnhancedStore) | EnhancedStore
-		? {
-				State: InferStoreState<Source>;
-				Event: Actions extends ActionCreators
-					? InferEvent<Actions>
-					: { type: string };
-			}
-		: never;
+: Source extends (() => EnhancedStore) | EnhancedStore
+	? {
+			State: InferStoreState<Source>;
+			Event: StoreDispatchEvent<Source>;
+		}
+	: never;

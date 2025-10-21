@@ -27,12 +27,26 @@ export const counterSlice = createSlice({
 
 const counterReducer = counterSlice.reducer;
 
-const counterStore = () =>
+const createCounterStore = () =>
 	configureStore({
 		reducer: {
 			counter: counterReducer,
 		},
 	});
+
+type BaseCounterStore = ReturnType<typeof createCounterStore>;
+type CounterActions = typeof counterSlice.actions;
+
+type StoreWithIgniteMetadata = BaseCounterStore & {
+	__igniteActions: CounterActions;
+};
+
+const counterStore = (): StoreWithIgniteMetadata => {
+	const store = createCounterStore();
+	const withMetadata = store as StoreWithIgniteMetadata;
+	withMetadata.__igniteActions = counterSlice.actions;
+	return withMetadata;
+};
 
 export default counterStore;
 

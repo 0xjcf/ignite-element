@@ -7,29 +7,40 @@ import counterStore from "./mobxCounterStore";
 const themeHref = new URL("./theme.css", import.meta.url).href;
 setGlobalStyles(themeHref);
 
-// Initialize igniteCore with MobX adapter
-const sharedStore = counterStore();
+const mobxStates = (snapshot: ReturnType<typeof counterStore>) => ({
+	count: snapshot.count,
+});
 
+const mobxCommands = (store: ReturnType<typeof counterStore>) => ({
+	decrement: () => store.decrement(),
+	increment: () => store.increment(),
+});
+
+// Initialize igniteCore with MobX adapter
 export const registerSharedMobx = igniteCore({
 	adapter: "mobx",
-	source: () => sharedStore,
+	source: () => counterStore(),
+	states: mobxStates,
+	commands: mobxCommands,
 });
 
 export const registerIsolatedMobx = igniteCore({
 	adapter: "mobx",
 	source: counterStore,
+	states: mobxStates,
+	commands: mobxCommands,
 });
 
 // Shared Counter Component
-registerSharedMobx("my-counter-mobx", ({ state, send }) => {
+registerSharedMobx("my-counter-mobx", ({ count, decrement, increment }) => {
 	return html`
     <div>
       <div class="container">
         <h3>Shared Counter (MobX)</h3>
-        <p>Count: ${state.count}</p>
+        <p>Count: ${count}</p>
         <div class="button-group">
-          <button @click=${() => send({ type: "decrement" })}>-</button>
-          <button @click=${() => send({ type: "increment" })}>+</button>
+          <button @click=${() => decrement()}>-</button>
+          <button @click=${() => increment()}>+</button>
         </div>
       </div>
     </div>
@@ -37,11 +48,11 @@ registerSharedMobx("my-counter-mobx", ({ state, send }) => {
 });
 
 // Shared Display Component
-registerSharedMobx("shared-display-mobx", ({ state }) => {
+registerSharedMobx("shared-display-mobx", ({ count }) => {
 	return html`
     <div class="display">
       <h3>Shared State Display (MobX)</h3>
-      <p>Shared Count: ${state.count}</p>
+      <p>Shared Count: ${count}</p>
     </div>
   `;
 });
@@ -50,18 +61,21 @@ registerSharedMobx("shared-display-mobx", ({ state }) => {
 const customStylesHref = new URL("./another-counter-mobx.css", import.meta.url)
 	.href;
 
-registerIsolatedMobx("another-counter-mobx", ({ state, send }) => {
-	return html`
+registerIsolatedMobx(
+	"another-counter-mobx",
+	({ count, decrement, increment }) => {
+		return html`
     <div>
       <link rel="stylesheet" href=${customStylesHref} />
       <div class="container">
         <h3>Isolated Counter (Custom Styled)</h3>
-        <p>Count: ${state.count}</p>
+        <p>Count: ${count}</p>
         <div class="button-group">
-          <button @click=${() => send({ type: "decrement" })}>-</button>
-          <button @click=${() => send({ type: "increment" })}>+</button>
+          <button @click=${() => decrement()}>-</button>
+          <button @click=${() => increment()}>+</button>
         </div>
       </div>
     </div>
   `;
-});
+	},
+);
