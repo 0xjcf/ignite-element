@@ -21,7 +21,8 @@ describe("createComponentFactory", () => {
 		});
 
 		const factory = createComponentFactory(createAdapter, {
-			states: () => 123 as unknown as Record<string, unknown>,
+			// @ts-expect-error - states callback returns a non-object for runtime validation.
+			states: () => 123,
 		});
 
 		const elementName = `ccf-invalid-states-${crypto.randomUUID()}`;
@@ -43,7 +44,8 @@ describe("createComponentFactory", () => {
 
 		const factory = createComponentFactory(createAdapter, {
 			states: () => ({}),
-			commands: () => 42 as unknown as Record<string, () => void>,
+			// @ts-expect-error - commands callback must return a plain object.
+			commands: () => 42,
 		});
 
 		const elementName = `ccf-invalid-commands-${crypto.randomUUID()}`;
@@ -65,7 +67,8 @@ describe("createComponentFactory", () => {
 
 		const factory = createComponentFactory(createAdapter, {
 			states: () => ({}),
-			commands: () => ({ bad: 1 }) as unknown as Record<string, () => void>,
+			// @ts-expect-error - command results must be callable.
+			commands: () => ({ bad: 1 }),
 		});
 
 		const elementName = `ccf-bad-command-${crypto.randomUUID()}`;
@@ -84,21 +87,17 @@ describe("createComponentFactory", () => {
 		type CounterEvent = { type: "INC" };
 		const adapter = new MockAdapter<CounterState, CounterEvent>({ count: 0 });
 		const createAdapter = Object.assign(() => adapter, {
-			scope: StateScope.Isolated as StateScope,
+			scope: StateScope.Isolated,
 		});
 
-		const statesCallback: FacadeStatesCallback<
-			CounterState,
-			{ count: number }
-		> = (snapshot) => ({ count: snapshot.count });
+		const statesCallback = (snapshot: CounterState) => ({
+			count: snapshot.count,
+		});
 		type FallbackActor = {
 			send: (event: CounterEvent) => void;
 			getState: () => CounterState;
 		};
-		const commandsCallback: FacadeCommandsCallback<
-			FallbackActor,
-			{ increment: () => void }
-		> = (actor) => ({
+		const commandsCallback = (actor: FallbackActor) => ({
 			increment: () => actor.send({ type: "INC" }),
 		});
 
@@ -128,7 +127,7 @@ describe("createComponentFactory", () => {
 		let latestArgs: FallbackArgs | undefined;
 
 		factory(elementName, (args) => {
-			latestArgs = args as FallbackArgs;
+			latestArgs = args;
 			return html``;
 		});
 
@@ -149,7 +148,7 @@ describe("createComponentFactory", () => {
 		type CustomEvent = { type: "noop" };
 		const adapter = new MockAdapter<CustomState, CustomEvent>({ value: 10 });
 		const createAdapter = Object.assign(() => adapter, {
-			scope: StateScope.Isolated as StateScope,
+			scope: StateScope.Isolated,
 		});
 
 		const customSnapshot = vi.fn((): CustomState => ({ value: 99 }));
@@ -199,7 +198,7 @@ describe("createComponentFactory", () => {
 		let latestArgs: CustomArgs | undefined;
 
 		factory(elementName, (args) => {
-			latestArgs = args as CustomArgs;
+			latestArgs = args;
 			return html``;
 		});
 

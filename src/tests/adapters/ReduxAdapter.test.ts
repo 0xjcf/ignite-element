@@ -1,4 +1,3 @@
-import type { EnhancedStore } from "@reduxjs/toolkit";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import createReduxAdapter from "../../adapters/ReduxAdapter";
 import counterStore, {
@@ -14,6 +13,15 @@ import type { InferStateAndEvent } from "../../utils/igniteRedux";
 
 type StoreAdapterTypes = InferStateAndEvent<typeof counterStore>;
 
+type TestReduxAdapterFactory<State, Event, Actor> = (() => IgniteAdapter<
+	State,
+	Event
+>) & {
+	scope: StateScope;
+	resolveStateSnapshot: (adapter: IgniteAdapter<State, Event>) => State;
+	resolveCommandActor: (adapter: IgniteAdapter<State, Event>) => Actor;
+};
+
 /**
  * Tests for Slice Source
  */
@@ -24,7 +32,11 @@ describe("ReduxAdapter with Slice Source", () => {
 	type State = IgniteRedux["State"];
 	type Event = IgniteRedux["Event"];
 
-	let adapterFactory: () => IgniteAdapter<State, Event>;
+	let adapterFactory: TestReduxAdapterFactory<
+		State,
+		Event,
+		ReduxSliceCommandActor<typeof counterSlice>
+	>;
 	let adapter: IgniteAdapter<State, Event>;
 
 	beforeEach(() => {
@@ -60,24 +72,14 @@ describe("ReduxAdapter with Slice Source", () => {
 	});
 
 	it("marks slice adapters as isolated", () => {
-		expect(
-			(adapterFactory as typeof adapterFactory & { scope: StateScope }).scope,
-		).toBe(StateScope.Isolated);
+		expect(adapterFactory.scope).toBe(StateScope.Isolated);
 		expect(adapter.scope).toBe(StateScope.Isolated);
 	});
 
 	it("exposes facade metadata for slice adapters", () => {
-		const factory = adapterFactory as typeof adapterFactory & {
-			resolveStateSnapshot: (
-				adapterInstance: IgniteAdapter<State, Event>,
-			) => State;
-			resolveCommandActor: (
-				adapterInstance: IgniteAdapter<State, Event>,
-			) => ReduxSliceCommandActor<typeof counterSlice>;
-		};
-		const snapshot = factory.resolveStateSnapshot(adapter);
+		const snapshot = adapterFactory.resolveStateSnapshot(adapter);
 		expect(snapshot.counter.count).toBe(0);
-		const actor = factory.resolveCommandActor(adapter);
+		const actor = adapterFactory.resolveCommandActor(adapter);
 		actor.dispatch(counterSlice.actions.increment());
 		expect(adapter.getState().counter.count).toBe(1);
 	});
@@ -91,7 +93,11 @@ describe("ReduxAdapter with Store Source", () => {
 	type State = StoreAdapterTypes["State"];
 	type Event = StoreAdapterTypes["Event"];
 
-	let adapterFactory: () => IgniteAdapter<State, Event>;
+	let adapterFactory: TestReduxAdapterFactory<
+		State,
+		Event,
+		ReduxStoreCommandActor<ReturnType<typeof counterStore>>
+	>;
 	let adapter: IgniteAdapter<State, Event>;
 
 	beforeEach(() => {
@@ -140,24 +146,14 @@ describe("ReduxAdapter with Store Source", () => {
 	});
 
 	it("marks factory adapters as isolated", () => {
-		expect(
-			(adapterFactory as typeof adapterFactory & { scope: StateScope }).scope,
-		).toBe(StateScope.Isolated);
+		expect(adapterFactory.scope).toBe(StateScope.Isolated);
 		expect(adapter.scope).toBe(StateScope.Isolated);
 	});
 
 	it("exposes facade metadata for store factories", () => {
-		const factory = adapterFactory as typeof adapterFactory & {
-			resolveStateSnapshot: (
-				adapterInstance: IgniteAdapter<State, Event>,
-			) => State;
-			resolveCommandActor: (
-				adapterInstance: IgniteAdapter<State, Event>,
-			) => ReduxStoreCommandActor<ReturnType<typeof counterStore>>;
-		};
-		const snapshot = factory.resolveStateSnapshot(adapter);
+		const snapshot = adapterFactory.resolveStateSnapshot(adapter);
 		expect(snapshot.counter.count).toBe(0);
-		const actor = factory.resolveCommandActor(adapter);
+		const actor = adapterFactory.resolveCommandActor(adapter);
 		actor.dispatch(counterSlice.actions.increment());
 		expect(adapter.getState().counter.count).toBe(1);
 	});
@@ -236,7 +232,11 @@ describe("ReduxAdapter with shared store", () => {
 		ReturnType<typeof counterStore>
 	>["Event"];
 
-	let adapterFactory: () => IgniteAdapter<SharedState, SharedEvent>;
+	let adapterFactory: TestReduxAdapterFactory<
+		SharedState,
+		SharedEvent,
+		ReduxStoreCommandActor<ReturnType<typeof counterStore>>
+	>;
 	let adapterA: IgniteAdapter<SharedState, SharedEvent>;
 	let adapterB: IgniteAdapter<SharedState, SharedEvent>;
 
@@ -254,9 +254,7 @@ describe("ReduxAdapter with shared store", () => {
 	});
 
 	it("sets scope to shared", () => {
-		expect(
-			(adapterFactory as typeof adapterFactory & { scope: StateScope }).scope,
-		).toBe(StateScope.Shared);
+		expect(adapterFactory.scope).toBe(StateScope.Shared);
 		expect(adapterA.scope).toBe(StateScope.Shared);
 		expect(adapterB.scope).toBe(StateScope.Shared);
 	});
@@ -270,17 +268,9 @@ describe("ReduxAdapter with shared store", () => {
 	});
 
 	it("exposes facade metadata for shared store adapters", () => {
-		const factory = adapterFactory as typeof adapterFactory & {
-			resolveStateSnapshot: (
-				adapterInstance: IgniteAdapter<SharedState, SharedEvent>,
-			) => SharedState;
-			resolveCommandActor: (
-				adapterInstance: IgniteAdapter<SharedState, SharedEvent>,
-			) => ReduxStoreCommandActor<ReturnType<typeof counterStore>>;
-		};
-		const snapshot = factory.resolveStateSnapshot(adapterA);
+		const snapshot = adapterFactory.resolveStateSnapshot(adapterA);
 		expect(snapshot.counter.count).toBe(0);
-		const actor = factory.resolveCommandActor(adapterA);
+		const actor = adapterFactory.resolveCommandActor(adapterA);
 		actor.dispatch(counterSlice.actions.increment());
 		expect(adapterB.getState().counter.count).toBe(1);
 	});
@@ -288,10 +278,9 @@ describe("ReduxAdapter with shared store", () => {
 
 describe("ReduxAdapter error handling", () => {
 	it("throws when a store factory does not return a redux store", () => {
-		const invalidFactory = (() => ({})) as unknown as () => EnhancedStore;
-
 		expect(() => {
-			const adapterFactory = createReduxAdapter(invalidFactory);
+			// @ts-expect-error - The factory does not produce a Redux store.
+			const adapterFactory = createReduxAdapter(() => ({}));
 			adapterFactory();
 		}).toThrow(
 			"[ReduxAdapter] store factory must return a Redux store instance.",

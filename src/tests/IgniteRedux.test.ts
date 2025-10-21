@@ -3,13 +3,18 @@ import type { Action } from "redux";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import counterStore, {
 	addByAmount,
-	decrement,
 	increment,
 } from "../examples/redux/src/js/reduxCounterStore";
 import { igniteCore } from "../IgniteCore";
-import type IgniteElement from "../IgniteElement";
+import IgniteElement from "../IgniteElement";
 
 type RootState = ReturnType<ReturnType<typeof counterStore>["getState"]>;
+
+function assertIgniteElement<State, Event>(
+	element: Element,
+): asserts element is IgniteElement<State, Event> {
+	expect(element).toBeInstanceOf(IgniteElement);
+}
 
 describe("igniteRedux", () => {
 	afterEach(() => {
@@ -27,7 +32,6 @@ describe("igniteRedux", () => {
 			const register = igniteCore({
 				adapter: "redux",
 				source: () => sharedStore,
-				actions: { increment, decrement, addByAmount },
 			});
 
 			uniqueName = crypto.randomUUID();
@@ -47,12 +51,17 @@ describe("igniteRedux", () => {
 			`,
 			);
 
-			sharedCounter = document.createElement(
+			const counterElement = document.createElement(
 				`shared-counter-${uniqueName}`,
-			) as IgniteElement<RootState, Action>;
-			sharedDisplay = document.createElement(
+			);
+			assertIgniteElement<RootState, Action>(counterElement);
+			sharedCounter = counterElement;
+
+			const displayElement = document.createElement(
 				`shared-display-${uniqueName}`,
-			) as IgniteElement<RootState, Action>;
+			);
+			assertIgniteElement<RootState, Action>(displayElement);
+			sharedDisplay = displayElement;
 
 			document.body.append(sharedCounter, sharedDisplay);
 		});
@@ -80,7 +89,6 @@ describe("igniteRedux", () => {
 			const register = igniteCore({
 				adapter: "redux",
 				source: counterStore,
-				actions: { increment, decrement, addByAmount },
 			});
 
 			uniqueName = crypto.randomUUID();
@@ -100,12 +108,16 @@ describe("igniteRedux", () => {
 			`,
 			);
 
-			isolatedCounter = document.createElement(
+			const counterElement = document.createElement(
 				`isolated-counter-${uniqueName}`,
-			) as IgniteElement<RootState, Action>;
-			isolatedDisplay = document.createElement(
+			);
+			assertIgniteElement<RootState, Action>(counterElement);
+			isolatedCounter = counterElement;
+			const displayElement = document.createElement(
 				`isolated-display-${uniqueName}`,
-			) as IgniteElement<RootState, Action>;
+			);
+			assertIgniteElement<RootState, Action>(displayElement);
+			isolatedDisplay = displayElement;
 
 			document.body.append(isolatedCounter, isolatedDisplay);
 		});

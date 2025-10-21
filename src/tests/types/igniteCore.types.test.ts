@@ -55,7 +55,7 @@ describe("igniteCore type inference", () => {
 		> = (actor) => ({ increment: () => actor.send({ type: "INC" }) });
 
 		const register = igniteCore({
-			adapter: "xstate" as const,
+			adapter: "xstate",
 			source: machine,
 			states: statesCallback,
 			commands: commandsCallback,
@@ -88,7 +88,7 @@ describe("igniteCore type inference", () => {
 		});
 
 		const register = igniteCore({
-			adapter: "redux" as const,
+			adapter: "redux",
 			source: counterSlice,
 			states: statesCallback,
 			commands: commandsCallback,
@@ -109,7 +109,7 @@ describe("igniteCore type inference", () => {
 		type StoreInstance = typeof store;
 		type StoreState = InferStateAndEvent<StoreInstance>["State"];
 		type StoreEvent = InferStateAndEvent<StoreInstance>["Event"];
-		type StoreActor = ReduxStoreCommandActor<StoreInstance, undefined>;
+		type StoreActor = ReduxStoreCommandActor<StoreInstance>;
 
 		const statesCallback: FacadeStatesCallback<
 			StoreState,
@@ -123,7 +123,7 @@ describe("igniteCore type inference", () => {
 		});
 
 		const register = igniteCore({
-			adapter: "redux" as const,
+			adapter: "redux",
 			source: store,
 			states: statesCallback,
 			commands: commandsCallback,
@@ -161,7 +161,7 @@ describe("igniteCore type inference", () => {
 		> = (storeInstance) => ({ increment: () => storeInstance.increment() });
 
 		const register = igniteCore({
-			adapter: "mobx" as const,
+			adapter: "mobx",
 			source: createStore,
 			states: statesCallback,
 			commands: commandsCallback,

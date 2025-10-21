@@ -5,6 +5,6 @@
 		"declaration": false,
 		"emitDeclarationOnly": false
 	},
-	"include": ["src/examples"],
+	"include": ["src/examples", "src/tests"],
 	"exclude": ["node_modules", "dist"]
 }

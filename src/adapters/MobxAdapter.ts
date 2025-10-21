@@ -6,8 +6,8 @@ import { isMobxObservable } from "../utils/adapterGuards";
 
 export type FunctionKeys<StateType> = {
 	[Key in keyof StateType]: StateType[Key] extends (
-		...args: unknown[]
-	) => unknown
+		...args: infer _Params
+	) => infer _Result
 		? Key
 		: never;
 }[keyof StateType];
@@ -15,7 +15,9 @@ export type FunctionKeys<StateType> = {
 type MethodArgs<
 	State extends object,
 	Key extends FunctionKeys<State>,
-> = State[Key] extends (...args: infer Params) => unknown ? Params : never;
+> = State[Key] extends (...args: infer Params) => infer _Result
+	? Params
+	: never;
 
 export type MobxEvent<State extends object> = {
 	[Key in FunctionKeys<State>]: MethodArgs<State, Key> extends []

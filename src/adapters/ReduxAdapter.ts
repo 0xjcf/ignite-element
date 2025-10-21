@@ -12,10 +12,13 @@ import type { InferStateAndEvent } from "../utils/igniteRedux";
 const isStoreFactory = (value: unknown): value is () => EnhancedStore =>
 	typeof value === "function" && !isReduxStore(value);
 
-type AdapterFactory<State, Event> = (() => IgniteAdapter<State, Event>) & {
+type AdapterFactory<State, Event, Snapshot, Actor> = (() => IgniteAdapter<
+	State,
+	Event
+>) & {
 	scope: StateScope;
-	resolveStateSnapshot: (adapter: IgniteAdapter<State, Event>) => unknown;
-	resolveCommandActor: (adapter: IgniteAdapter<State, Event>) => unknown;
+	resolveStateSnapshot: (adapter: IgniteAdapter<State, Event>) => Snapshot;
+	resolveCommandActor: (adapter: IgniteAdapter<State, Event>) => Actor;
 };
 
 type AdapterEntry<State, Event, Snapshot, Actor> = {
@@ -100,8 +103,13 @@ const buildAdapter = <
 
 function createSharedFactory<State, Event, Snapshot, Actor>(
 	entry: AdapterEntry<State, Event, Snapshot, Actor>,
-): AdapterFactory<State, Event> {
-	const factory = (() => entry.adapter) as AdapterFactory<State, Event>;
+): AdapterFactory<State, Event, Snapshot, Actor> {
+	const factory = (() => entry.adapter) as AdapterFactory<
+		State,
+		Event,
+		Snapshot,
+		Actor
+	>;
 	factory.scope = StateScope.Shared;
 	factory.resolveStateSnapshot = () => entry.snapshot();
 	factory.resolveCommandActor = () => entry.actor;
@@ -110,7 +118,7 @@ function createSharedFactory<State, Event, Snapshot, Actor>(
 
 function createIsolatedFactory<State, Event, Snapshot, Actor>(
 	createEntry: () => AdapterEntry<State, Event, Snapshot, Actor>,
-): AdapterFactory<State, Event> {
+): AdapterFactory<State, Event, Snapshot, Actor> {
 	const registry = new WeakMap<
 		IgniteAdapter<State, Event>,
 		AdapterEntry<State, Event, Snapshot, Actor>
@@ -120,7 +128,7 @@ function createIsolatedFactory<State, Event, Snapshot, Actor>(
 		const entry = createEntry();
 		registry.set(entry.adapter, entry);
 		return entry.adapter;
-	}) as AdapterFactory<State, Event>;
+	}) as AdapterFactory<State, Event, Snapshot, Actor>;
 
 	factory.scope = StateScope.Isolated;
 	factory.resolveStateSnapshot = (adapter) => {
@@ -149,19 +157,25 @@ export default function createReduxAdapter<Source extends Slice>(
 	source: Source,
 ): AdapterFactory<
 	InferStateAndEvent<Source>["State"],
-	InferStateAndEvent<Source>["Event"]
+	InferStateAndEvent<Source>["Event"],
+	InferStateAndEvent<Source>["State"],
+	ReduxSliceCommandActor<Source>
 >;
 export default function createReduxAdapter<Source extends () => EnhancedStore>(
 	source: Source,
 ): AdapterFactory<
 	InferStateAndEvent<Source>["State"],
-	InferStateAndEvent<Source>["Event"]
+	InferStateAndEvent<Source>["Event"],
+	InferStateAndEvent<Source>["State"],
+	ReduxStoreCommandActor<ReturnType<Source>>
 >;
 export default function createReduxAdapter<Source extends EnhancedStore>(
 	source: Source,
 ): AdapterFactory<
 	InferStateAndEvent<Source>["State"],
-	InferStateAndEvent<Source>["Event"]
+	InferStateAndEvent<Source>["Event"],
+	InferStateAndEvent<Source>["State"],
+	ReduxStoreCommandActor<Source>
 >;
 export default function createReduxAdapter<
 	Source extends Slice | (() => EnhancedStore) | EnhancedStore,
@@ -169,7 +183,9 @@ export default function createReduxAdapter<
 	source: Source,
 ): AdapterFactory<
 	InferStateAndEvent<Source>["State"],
-	InferStateAndEvent<Source>["Event"]
+	InferStateAndEvent<Source>["Event"],
+	InferStateAndEvent<Source>["State"],
+	unknown
 > {
 	if (isReduxStore(source)) {
 		const store = source;
@@ -186,21 +202,18 @@ export default function createReduxAdapter<
 			(event) => event as Parameters<StoreInstance["dispatch"]>[0],
 		);
 
-		type Dispatch = StoreInstance["dispatch"];
 		const dispatch: ReduxStoreCommandActor<StoreInstance>["dispatch"] = (
 			event,
 		) =>
-			(store.dispatch as Dispatch)(
-				event as Parameters<Dispatch>[0],
-			) as ReturnType<Dispatch>;
-		const subscribe = store.subscribe.bind(
-			store,
-		) as ReduxStoreCommandActor<StoreInstance>["subscribe"];
-
+			store.dispatch(
+				event as Parameters<StoreInstance["dispatch"]>[0],
+			) as ReturnType<StoreInstance["dispatch"]>;
 		const actor: ReduxStoreCommandActor<StoreInstance> = {
 			dispatch,
 			getState: () => store.getState() as State,
-			subscribe,
+			subscribe: store.subscribe.bind(
+				store,
+			) as ReduxStoreCommandActor<StoreInstance>["subscribe"],
 		};
 
 		const entry: AdapterEntry<
@@ -220,6 +233,7 @@ export default function createReduxAdapter<
 	if (isStoreFactory(source)) {
 		const createStore = source;
 		type StoreCreator = typeof createStore;
+		type StoreInstance = ReturnType<StoreCreator>;
 		type State = InferStateAndEvent<StoreCreator>["State"];
 		type Event = InferStateAndEvent<StoreCreator>["Event"];
 
@@ -227,7 +241,7 @@ export default function createReduxAdapter<
 			State,
 			Event,
 			State,
-			ReduxStoreCommandActor<EnhancedStore>
+			ReduxStoreCommandActor<StoreInstance>
 		>(() => {
 			const store = createStore();
 			if (!isReduxStore(store)) {
@@ -238,28 +252,25 @@ export default function createReduxAdapter<
 
 			const adapter = adaptEvent<
 				State,
-				Parameters<typeof store.dispatch>[0],
+				Parameters<StoreInstance["dispatch"]>[0],
 				Event
 			>(
 				buildAdapter(store, StateScope.Isolated),
-				(event) => event as Parameters<typeof store.dispatch>[0],
+				(event) => event as Parameters<StoreInstance["dispatch"]>[0],
 			);
 
-			type Dispatch = typeof store.dispatch;
-			const dispatch: ReduxStoreCommandActor<EnhancedStore>["dispatch"] = (
+			const dispatch: ReduxStoreCommandActor<StoreInstance>["dispatch"] = (
 				event,
 			) =>
-				(store.dispatch as Dispatch)(
-					event as Parameters<Dispatch>[0],
-				) as ReturnType<Dispatch>;
-			const subscribe = store.subscribe.bind(
-				store,
-			) as ReduxStoreCommandActor<EnhancedStore>["subscribe"];
-
-			const actor: ReduxStoreCommandActor<EnhancedStore> = {
+				store.dispatch(
+					event as Parameters<StoreInstance["dispatch"]>[0],
+				) as ReturnType<StoreInstance["dispatch"]>;
+			const actor: ReduxStoreCommandActor<StoreInstance> = {
 				dispatch,
 				getState: () => store.getState() as State,
-				subscribe,
+				subscribe: store.subscribe.bind(
+					store,
+				) as ReduxStoreCommandActor<StoreInstance>["subscribe"],
 			};
 
 			return {

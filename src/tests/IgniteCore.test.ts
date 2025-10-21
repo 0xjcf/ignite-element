@@ -1,4 +1,5 @@
-import type { Action, Store } from "@reduxjs/toolkit";
+import { configureStore } from "@reduxjs/toolkit";
+import type { TemplateResult } from "lit-html";
 import { html } from "lit-html";
 import { makeAutoObservable } from "mobx";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -27,9 +28,18 @@ import type {
 import type { InferStateAndEvent } from "../utils/igniteRedux";
 
 // Mock XState machine
-const mockXStateMachine = {} as AnyStateMachine;
+const mockXStateMachine: AnyStateMachine = createMachine({
+	context: {},
+	initial: "idle",
+	states: {
+		idle: {},
+	},
+});
 // Mock Redux store
-const mockReduxStore = {} as () => Store<unknown, Action<string>>;
+const mockReduxStore = () =>
+	configureStore({
+		reducer: (state = {}) => state,
+	});
 
 // Mock Mobx store
 const mockMobxStore = () =>
@@ -114,7 +124,7 @@ describe("igniteCore", () => {
 
 		const elementName = `xstate-facade-${crypto.randomUUID()}`;
 		let latestArgs: RenderArgs | undefined;
-		const renderFn = vi.fn((args: RenderArgs) => {
+		const renderFn = vi.fn<(args: RenderArgs) => TemplateResult>((args) => {
 			latestArgs = args;
 			return html``;
 		});
@@ -164,7 +174,7 @@ describe("igniteCore", () => {
 		};
 
 		const elementName = `redux-slice-facade-${crypto.randomUUID()}`;
-		const renderFn = vi.fn((args: RenderArgs) => {
+		const renderFn = vi.fn<(args: RenderArgs) => TemplateResult>((args) => {
 			expect(typeof args.count).toBe("number");
 			expect(typeof args.increment).toBe("function");
 			return html``;
@@ -172,14 +182,12 @@ describe("igniteCore", () => {
 		register(elementName, renderFn);
 
 		document.body.appendChild(document.createElement(elementName));
-		const firstArgs = renderFn.mock.calls.at(-1)?.[0] as RenderArgs | undefined;
+		const firstArgs = renderFn.mock.calls.at(-1)?.[0];
 		expect(firstArgs).toBeDefined();
 		firstArgs?.increment();
 
 		expect(renderFn).toHaveBeenCalledTimes(2);
-		const latestArgs = renderFn.mock.calls.at(-1)?.[0] as
-			| RenderArgs
-			| undefined;
+		const latestArgs = renderFn.mock.calls.at(-1)?.[0];
 		expect(latestArgs).toBeDefined();
 		expect(latestArgs?.count).toBe(1);
 	});
@@ -218,12 +226,14 @@ describe("igniteCore", () => {
 		};
 
 		const elementName = `redux-store-facade-${crypto.randomUUID()}`;
-		const renderFn = vi.fn((_args: RenderArgs) => html``);
+		const renderFn = vi.fn<(args: RenderArgs) => TemplateResult>(
+			(_args) => html``,
+		);
 		register(elementName, renderFn);
 
 		const firstElement = document.createElement(elementName);
 		document.body.appendChild(firstElement);
-		const firstArgs = renderFn.mock.calls.at(-1)?.[0] as RenderArgs | undefined;
+		const firstArgs = renderFn.mock.calls.at(-1)?.[0];
 		expect(firstArgs).toBeDefined();
 
 		const secondElement = document.createElement(elementName);
@@ -291,12 +301,14 @@ describe("igniteCore", () => {
 		};
 
 		const elementName = `mobx-facade-${crypto.randomUUID()}`;
-		const renderFn = vi.fn((_args: RenderArgs) => html``);
+		const renderFn = vi.fn<(args: RenderArgs) => TemplateResult>(
+			(_args) => html``,
+		);
 		register(elementName, renderFn);
 
 		const firstElement = document.createElement(elementName);
 		document.body.appendChild(firstElement);
-		const firstArgs = renderFn.mock.calls.at(-1)?.[0] as RenderArgs | undefined;
+		const firstArgs = renderFn.mock.calls.at(-1)?.[0];
 		expect(firstArgs).toBeDefined();
 
 		const secondElement = document.createElement(elementName);
@@ -324,7 +336,6 @@ describe("igniteCore", () => {
 			igniteCore({
 				// @ts-expect-error This error is expected because `unknownAction` is not part of the defined event types.
 				adapter: "unsupported",
-				source: {} as never,
 			}),
 		).toThrow("Unsupported adapter: unsupported");
 	});

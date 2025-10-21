@@ -45,19 +45,13 @@ type StoreActionCreators<Source> = Source extends { __igniteActions: infer A }
 
 type StoreDispatchEvent<Source extends (() => EnhancedStore) | EnhancedStore> =
 	Source extends () => EnhancedStore
-		? StoreActionCreators<ReturnType<Source>> extends Record<
-				string,
-				(...args: unknown[]) => { type: string }
-			>
-			? InferEvent<StoreActionCreators<ReturnType<Source>>>
-			: Parameters<ReturnType<Source>["dispatch"]>[0]
+		? StoreActionCreators<ReturnType<Source>> extends undefined
+			? Parameters<ReturnType<Source>["dispatch"]>[0]
+			: InferEvent<StoreActionCreators<ReturnType<Source>>>
 		: Source extends EnhancedStore
-			? StoreActionCreators<Source> extends Record<
-					string,
-					(...args: unknown[]) => { type: string }
-				>
-				? InferEvent<StoreActionCreators<Source>>
-				: Parameters<Source["dispatch"]>[0]
+			? StoreActionCreators<Source> extends undefined
+				? Parameters<Source["dispatch"]>[0]
+				: InferEvent<StoreActionCreators<Source>>
 			: never;
 
 export type InferStateAndEvent<

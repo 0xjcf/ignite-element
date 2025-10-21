@@ -1,12 +1,4 @@
-import {
-	afterEach,
-	beforeEach,
-	describe,
-	expect,
-	it,
-	type Mock,
-	vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getGlobalStyles } from "../globalStyles";
 import injectStyles from "../injectStyles";
 
@@ -39,7 +31,7 @@ describe("injectStyles", () => {
 	});
 
 	it("should inject a valid global StyleObject into the shadow DOM", () => {
-		(getGlobalStyles as Mock).mockReturnValue({
+		vi.mocked(getGlobalStyles).mockReturnValue({
 			href: "./secure-style.css",
 			integrity: "sha384-secure123",
 			crossOrigin: "anonymous",
@@ -56,7 +48,7 @@ describe("injectStyles", () => {
 	});
 
 	it("should log a warning for invalid global styles", () => {
-		(getGlobalStyles as Mock).mockReturnValue("invalidStyle");
+		vi.mocked(getGlobalStyles).mockReturnValue("invalidStyle");
 
 		injectStyles(shadowRoot);
 
@@ -67,7 +59,7 @@ describe("injectStyles", () => {
 	});
 
 	it("should ignore redundant calls for the same shadow root", () => {
-		(getGlobalStyles as Mock).mockReturnValue({
+		vi.mocked(getGlobalStyles).mockReturnValue({
 			href: "./theme.css",
 		});
 

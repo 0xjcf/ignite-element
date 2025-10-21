@@ -22,11 +22,43 @@ class CounterStore {
 
 const createCounterStore = () => new CounterStore();
 
+class AdvancedCounterStore {
+	count = 0;
+	lastLegacyPayload: unknown = null;
+
+	add = (amount: number) => {
+		this.count += amount;
+	};
+
+	legacyUpdate = (payload: unknown) => {
+		this.lastLegacyPayload = payload;
+	};
+
+	constructor() {
+		makeAutoObservable(this);
+	}
+}
+
+const createAdvancedStore = () => new AdvancedCounterStore();
+
+type TestMobxAdapterFactory<State extends object> = (() => IgniteAdapter<
+	State,
+	MobxEvent<State>
+>) & {
+	scope: StateScope;
+	resolveStateSnapshot: (
+		adapter: IgniteAdapter<State, MobxEvent<State>>,
+	) => State;
+	resolveCommandActor: (
+		adapter: IgniteAdapter<State, MobxEvent<State>>,
+	) => State;
+};
+
 describe("MobXAdapter", () => {
 	type Counter = ReturnType<typeof createCounterStore>;
 
-	let adapterFactory: () => IgniteAdapter<Counter, MobxEvent<Counter>>;
-	let adapter: ReturnType<typeof adapterFactory>;
+	let adapterFactory: TestMobxAdapterFactory<Counter>;
+	let adapter: IgniteAdapter<Counter, MobxEvent<Counter>>;
 
 	beforeEach(() => {
 		adapterFactory = createMobXAdapter(createCounterStore);
@@ -138,27 +170,30 @@ describe("MobXAdapter", () => {
 	});
 
 	it("marks factory adapters as isolated", () => {
-		expect(
-			(adapterFactory as typeof adapterFactory & { scope: StateScope }).scope,
-		).toBe(StateScope.Isolated);
+		expect(adapterFactory.scope).toBe(StateScope.Isolated);
 		expect(adapter.scope).toBe(StateScope.Isolated);
 	});
 
 	it("exposes facade metadata for isolated adapters", () => {
-		const factory = adapterFactory as typeof adapterFactory & {
-			resolveStateSnapshot: (
-				adapterInstance: IgniteAdapter<Counter, MobxEvent<Counter>>,
-			) => Counter;
-			resolveCommandActor: (
-				adapterInstance: IgniteAdapter<Counter, MobxEvent<Counter>>,
-			) => Counter;
-		};
-		const snapshot = factory.resolveStateSnapshot(adapter);
+		const snapshot = adapterFactory.resolveStateSnapshot(adapter);
 		expect(snapshot.count).toBe(0);
-		const store = factory.resolveCommandActor(adapter);
+		const store = adapterFactory.resolveCommandActor(adapter);
 		expect(typeof store.increment).toBe("function");
 		store.increment();
 		expect(adapter.getState().count).toBe(1);
+	});
+
+	it("throws when store factory does not return an observable", () => {
+		const invalidFactory = () => ({ count: 0 });
+		expect(() => createMobXAdapter(invalidFactory)()).toThrow(
+			"[MobxAdapter] store factory must return a MobX observable.",
+		);
+	});
+
+	it("throws when source is not a MobX observable", () => {
+		expect(() => createMobXAdapter({ count: 0 })).toThrow(
+			"[MobxAdapter] Unsupported source. Provide a MobX observable or a factory function.",
+		);
 	});
 });
 
@@ -166,7 +201,7 @@ describe("MobXAdapter with shared observable", () => {
 	type SharedStore = CounterStore;
 	let sharedStore: SharedStore;
 
-	let adapterFactory: () => IgniteAdapter<SharedStore, MobxEvent<SharedStore>>;
+	let adapterFactory: TestMobxAdapterFactory<SharedStore>;
 	let adapterA: IgniteAdapter<SharedStore, MobxEvent<SharedStore>>;
 	let adapterB: IgniteAdapter<SharedStore, MobxEvent<SharedStore>>;
 
@@ -184,9 +219,7 @@ describe("MobXAdapter with shared observable", () => {
 	});
 
 	it("sets scope to shared", () => {
-		expect(
-			(adapterFactory as typeof adapterFactory & { scope: StateScope }).scope,
-		).toBe(StateScope.Shared);
+		expect(adapterFactory.scope).toBe(StateScope.Shared);
 		expect(adapterA.scope).toBe(StateScope.Shared);
 		expect(adapterB.scope).toBe(StateScope.Shared);
 	});
@@ -200,19 +233,49 @@ describe("MobXAdapter with shared observable", () => {
 	});
 
 	it("exposes facade metadata for shared adapters", () => {
-		const factory = adapterFactory as typeof adapterFactory & {
-			resolveStateSnapshot: (
-				adapterInstance: IgniteAdapter<SharedStore, MobxEvent<SharedStore>>,
-			) => SharedStore;
-			resolveCommandActor: (
-				adapterInstance: IgniteAdapter<SharedStore, MobxEvent<SharedStore>>,
-			) => SharedStore;
-		};
-		const snapshot = factory.resolveStateSnapshot(adapterA);
+		const snapshot = adapterFactory.resolveStateSnapshot(adapterA);
 		expect(snapshot.count).toBe(sharedStore.count);
-		const store = factory.resolveCommandActor(adapterA);
+		const store = adapterFactory.resolveCommandActor(adapterA);
 		expect(store).toBe(sharedStore);
 		store.increment();
 		expect(adapterB.getState().count).toBe(1);
+	});
+
+	it("errors when resolving metadata for unknown adapters", () => {
+		const sharedFactory: TestMobxAdapterFactory<CounterStore> =
+			createMobXAdapter(createCounterStore);
+		const otherFactory = createMobXAdapter(createCounterStore);
+		const unknownAdapter = otherFactory();
+
+		expect(() => sharedFactory.resolveStateSnapshot(unknownAdapter)).toThrow(
+			"[MobxAdapter] Unable to resolve snapshot for facade callbacks.",
+		);
+
+		expect(() => sharedFactory.resolveCommandActor(unknownAdapter)).toThrow(
+			"[MobxAdapter] Unable to resolve actor for facade callbacks.",
+		);
+
+		unknownAdapter.stop();
+	});
+});
+
+describe("MobXAdapter send variants", () => {
+	it("applies arguments when event supplies args", () => {
+		const factory = createMobXAdapter(createAdvancedStore);
+		const adapter = factory();
+		const store = factory.resolveCommandActor(adapter);
+		adapter.send({ type: "add", args: [4] });
+		expect(store.count).toBe(4);
+		adapter.stop();
+	});
+
+	it("passes arguments to methods that accept them", () => {
+		const factory = createMobXAdapter(createAdvancedStore);
+		const adapter = factory();
+		const store = factory.resolveCommandActor(adapter);
+		const payload = { value: 99 };
+		adapter.send({ type: "legacyUpdate", args: [payload] });
+		expect(store.lastLegacyPayload).toEqual(payload);
+		adapter.stop();
 	});
 });

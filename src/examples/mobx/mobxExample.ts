@@ -7,19 +7,23 @@ import counterStore from "./mobxCounterStore";
 const themeHref = new URL("./theme.css", import.meta.url).href;
 setGlobalStyles(themeHref);
 
-const mobxStates = (snapshot: ReturnType<typeof counterStore>) => ({
+type CounterStoreInstance = ReturnType<typeof counterStore>;
+
+const mobxStates = (snapshot: CounterStoreInstance) => ({
 	count: snapshot.count,
 });
 
-const mobxCommands = (store: ReturnType<typeof counterStore>) => ({
+const mobxCommands = (store: CounterStoreInstance) => ({
 	decrement: () => store.decrement(),
 	increment: () => store.increment(),
 });
 
 // Initialize igniteCore with MobX adapter
+const sharedStore = counterStore();
+
 export const registerSharedMobx = igniteCore({
 	adapter: "mobx",
-	source: () => counterStore(),
+	source: sharedStore,
 	states: mobxStates,
 	commands: mobxCommands,
 });

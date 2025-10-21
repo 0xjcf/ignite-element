@@ -1,4 +1,4 @@
-import type { TemplateResult } from "lit-html";
+import { html } from "lit-html";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StateScope } from "../IgniteAdapter";
 import igniteElementFactory from "../IgniteElementFactory";
@@ -19,9 +19,7 @@ describe("igniteElementFactory", () => {
 		const component = igniteElementFactory(createAdapter);
 		const elementName = `ignite-component-${crypto.randomUUID()}`;
 
-		component(elementName, () => {
-			return {} as TemplateResult;
-		});
+		component(elementName, () => html`<div></div>`);
 
 		const element = document.createElement(elementName);
 		document.body.appendChild(element);
@@ -47,9 +45,7 @@ describe("igniteElementFactory", () => {
 		const component = igniteElementFactory(createAdapter);
 		const elementName = `ignite-component-${crypto.randomUUID()}`;
 
-		component(elementName, () => {
-			return {} as TemplateResult;
-		});
+		component(elementName, () => html`<div></div>`);
 
 		const first = document.createElement(elementName);
 		const second = document.createElement(elementName);
@@ -70,9 +66,7 @@ describe("igniteElementFactory", () => {
 		});
 		const elementName = `ignite-shared-${crypto.randomUUID()}`;
 
-		component(elementName, () => {
-			return {} as TemplateResult;
-		});
+		component(elementName, () => html`<div></div>`);
 
 		const first = document.createElement(elementName);
 		const second = document.createElement(elementName);
@@ -87,15 +81,9 @@ describe("igniteElementFactory", () => {
 		const component = igniteElementFactory(() => adapter);
 		const elementName = `ignite-duplicate-${crypto.randomUUID()}`;
 
-		component(elementName, () => {
-			return {} as TemplateResult;
-		});
+		component(elementName, () => html`<div></div>`);
 
-		expect(() =>
-			component(elementName, () => {
-				return {} as TemplateResult;
-			}),
-		).toThrowError(
+		expect(() => component(elementName, () => html`<div></div>`)).toThrowError(
 			`[igniteElementFactory] Element "${elementName}" has already been defined.`,
 		);
 	});
