@@ -2,10 +2,6 @@ import { html } from "lit-html";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createComponentFactory } from "../createComponentFactory";
 import { StateScope } from "../IgniteAdapter";
-import type {
-	FacadeCommandsCallback,
-	FacadeStatesCallback,
-} from "../RenderArgs";
 import MockAdapter from "./MockAdapter";
 
 describe("createComponentFactory", () => {
@@ -162,14 +158,10 @@ describe("createComponentFactory", () => {
 		};
 		const customActorResolver = vi.fn((): CustomActor => actor);
 
-		const statesCallback: FacadeStatesCallback<
-			CustomState,
-			{ value: number }
-		> = (snapshot) => ({ value: snapshot.value });
-		const commandsCallback: FacadeCommandsCallback<
-			CustomActor,
-			{ invoke: () => void }
-		> = (resolvedActor) => ({
+		const statesCallback = (snapshot: CustomState) => ({
+			value: snapshot.value,
+		});
+		const commandsCallback = (resolvedActor: CustomActor) => ({
 			invoke: () => resolvedActor.send("ping"),
 		});
 

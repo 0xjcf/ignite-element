@@ -34,19 +34,7 @@ const createCounterStore = () =>
 		},
 	});
 
-type BaseCounterStore = ReturnType<typeof createCounterStore>;
-type CounterActions = typeof counterSlice.actions;
-
-type StoreWithIgniteMetadata = BaseCounterStore & {
-	__igniteActions: CounterActions;
-};
-
-const counterStore = (): StoreWithIgniteMetadata => {
-	const store = createCounterStore();
-	const withMetadata = store as StoreWithIgniteMetadata;
-	withMetadata.__igniteActions = counterSlice.actions;
-	return withMetadata;
-};
+const counterStore = () => createCounterStore();
 
 export default counterStore;
 

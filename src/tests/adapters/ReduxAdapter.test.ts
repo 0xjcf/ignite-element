@@ -127,7 +127,6 @@ describe("ReduxAdapter with Store Source", () => {
 	});
 
 	it("should prevent invalid actions", () => {
-		// @ts-expect-error Invalid action type
 		adapter.send({ type: "counter/unknownAction" });
 		expect(adapter.getState()).toEqual({ counter: { count: 0 } }); // No state change
 	});

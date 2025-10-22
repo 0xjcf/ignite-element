@@ -166,10 +166,10 @@ export function igniteCore<
 	Machine extends AnyStateMachine,
 	StateCallback extends
 		| FacadeStatesCallback<ExtendedState<Machine>, Record<string, unknown>>
-		| undefined = undefined,
+		| undefined,
 	CommandCallback extends
 		| FacadeCommandsCallback<XStateActorInstance<Machine>, FacadeCommandResult>
-		| undefined = undefined,
+		| undefined,
 >(
 	options: XStateConfig<Machine, StateCallback, CommandCallback>,
 ): IgniteCoreReturn<
@@ -189,13 +189,13 @@ export function igniteCore<
 				InferStateAndEvent<SliceType>["State"],
 				Record<string, unknown>
 		  >
-		| undefined = undefined,
+		| undefined,
 	CommandCallback extends
 		| FacadeCommandsCallback<
 				ReduxSliceCommandActor<SliceType>,
 				FacadeCommandResult
 		  >
-		| undefined = undefined,
+		| undefined,
 >(
 	options: ReduxSliceConfig<SliceType, StateCallback, CommandCallback>,
 ): IgniteCoreReturn<
@@ -215,13 +215,13 @@ export function igniteCore<
 				InferStateAndEvent<StoreCreator>["State"],
 				Record<string, unknown>
 		  >
-		| undefined = undefined,
+		| undefined,
 	CommandCallback extends
 		| FacadeCommandsCallback<
 				ReduxStoreCommandActor<ReturnType<StoreCreator>>,
 				FacadeCommandResult
 		  >
-		| undefined = undefined,
+		| undefined,
 >(
 	options: ReduxStoreFactoryConfig<
 		StoreCreator,
@@ -245,13 +245,13 @@ export function igniteCore<
 				InferStateAndEvent<StoreInstance>["State"],
 				Record<string, unknown>
 		  >
-		| undefined = undefined,
+		| undefined,
 	CommandCallback extends
 		| FacadeCommandsCallback<
 				ReduxStoreCommandActor<StoreInstance>,
 				FacadeCommandResult
 		  >
-		| undefined = undefined,
+		| undefined,
 >(
 	options: ReduxStoreInstanceConfig<
 		StoreInstance,
@@ -272,10 +272,10 @@ export function igniteCore<
 	State extends object,
 	StateCallback extends
 		| FacadeStatesCallback<State, Record<string, unknown>>
-		| undefined = undefined,
+		| undefined,
 	CommandCallback extends
 		| FacadeCommandsCallback<State, FacadeCommandResult>
-		| undefined = undefined,
+		| undefined,
 >(
 	options: MobxConfig<State, StateCallback, CommandCallback>,
 ): IgniteCoreReturn<

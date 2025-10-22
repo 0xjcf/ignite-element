@@ -42,9 +42,7 @@ export type ReduxSliceCommandActor<SliceType extends Slice> = {
 };
 
 export type ReduxStoreCommandActor<StoreInstance extends EnhancedStore> = {
-	dispatch: (
-		event: InferStateAndEvent<StoreInstance>["Event"],
-	) => ReturnType<StoreInstance["dispatch"]>;
+	dispatch: (event: InferStateAndEvent<StoreInstance>["Event"]) => void;
 	getState: () => InferStateAndEvent<StoreInstance>["State"];
 	subscribe: StoreInstance["subscribe"];
 };

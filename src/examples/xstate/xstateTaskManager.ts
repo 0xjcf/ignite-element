@@ -1,53 +1,40 @@
 import { html } from "lit-html";
-import type {
-	ExtendedState,
-	XStateActorInstance,
-} from "../../adapters/XStateAdapter";
 import { setGlobalStyles } from "../../globalStyles";
 import { igniteCore } from "../../IgniteCore";
+import type { AdapterPack } from "../../IgniteElementFactory";
 import { taskManagerMachine } from "./taskManagerMachine";
 
 setGlobalStyles("./dist/styles.css");
 
-type Machine = typeof taskManagerMachine;
-type Snapshot = ExtendedState<Machine>;
-type MachineActor = XStateActorInstance<Machine>;
-
-const taskManagerStates = (snapshot: Snapshot) => {
-	const tasks = snapshot.context.tasks;
-	const completedCount = tasks.filter((task) => task.completed).length;
-	const totalTasks = tasks.length;
-	const completionPercentage = totalTasks
-		? (completedCount / totalTasks) * 100
-		: 0;
-
-	return {
-		tasks,
-		completedCount,
-		totalTasks,
-		completionPercentage,
-		isCompleted: snapshot.matches("completed"),
-		currentState: snapshot.value,
-	};
-};
-
-const taskManagerCommands = (actor: MachineActor) => ({
-	addTask: (name: string, priority: string) =>
-		actor.send({ type: "ADD", name, priority }),
-	toggleTask: (index: number) => actor.send({ type: "TOGGLE", index }),
-	resetTasks: () => actor.send({ type: "RESET" }),
-});
-
 const registerTaskManager = igniteCore({
 	adapter: "xstate",
 	source: taskManagerMachine,
-	states: taskManagerStates,
-	commands: taskManagerCommands,
+	states: (snapshot) => {
+		const tasks = snapshot.context.tasks;
+		const completedCount = tasks.filter((task) => task.completed).length;
+		const totalTasks = tasks.length;
+		const completionPercentage = totalTasks
+			? (completedCount / totalTasks) * 100
+			: 0;
+
+		return {
+			tasks,
+			completedCount,
+			totalTasks,
+			completionPercentage,
+			isCompleted: snapshot.matches("completed"),
+			currentState: snapshot.value,
+		};
+	},
+	commands: (actor) => ({
+		addTask: (name: string, priority: string) =>
+			actor.send({ type: "ADD", name, priority }),
+		toggleTask: (index: number) => actor.send({ type: "TOGGLE", index }),
+		resetTasks: () => actor.send({ type: "RESET" }),
+	}),
 });
 
-type TaskManagerRenderArgs = Parameters<
-	Parameters<typeof registerTaskManager>[1]
->[0];
+type TaskManagerRenderArgs = AdapterPack<typeof registerTaskManager>;
 
 export class TaskList {
 	render({ tasks, toggleTask }: TaskManagerRenderArgs) {
@@ -132,14 +119,24 @@ export class TaskForm {
       <div class="p-4 bg-yellow-100 border rounded-md mb-2">
         <h3 class="text-lg font-bold">Add Task</h3>
         <form
-          @submit=${(e: Event) => {
-						e.preventDefault();
-						const formElement = e.target as HTMLFormElement;
+          @submit=${(event: SubmitEvent) => {
+						event.preventDefault();
+						const formElement = event.currentTarget;
+						if (!(formElement instanceof HTMLFormElement)) {
+							return;
+						}
 						const formData = new FormData(formElement);
-						const name = formData.get("name") as string;
-						const priority = formData.get("priority") as string;
-						if (name.trim()) {
-							addTask(name, priority);
+						const nameEntry = formData.get("name");
+						const priorityEntry = formData.get("priority");
+						if (
+							typeof nameEntry !== "string" ||
+							typeof priorityEntry !== "string"
+						) {
+							return;
+						}
+						const trimmedName = nameEntry.trim();
+						if (trimmedName) {
+							addTask(trimmedName, priorityEntry);
 							formElement.reset();
 						}
 					}}
@@ -196,12 +193,10 @@ export class ConfettiEffect {
 	}
 }
 
-registerTaskManager("task-list", (args) => new TaskList().render(args));
-registerTaskManager("progress-bar", (args) => new ProgressBar().render(args));
-registerTaskManager("task-form", (args) => new TaskForm().render(args));
-registerTaskManager("confetti-effect", (args) =>
-	new ConfettiEffect().render(args),
-);
+registerTaskManager("task-list", TaskList);
+registerTaskManager("progress-bar", ProgressBar);
+registerTaskManager("task-form", TaskForm);
+registerTaskManager("confetti-effect", ConfettiEffect);
 
 export class TaskManager {
 	render({ isCompleted }: TaskManagerRenderArgs) {
@@ -221,4 +216,4 @@ export class TaskManager {
 	}
 }
 
-registerTaskManager("task-manager", (args) => new TaskManager().render(args));
+registerTaskManager("task-manager", TaskManager);

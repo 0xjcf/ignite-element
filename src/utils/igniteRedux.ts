@@ -1,4 +1,4 @@
-import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
+import type { AnyAction, EnhancedStore, Slice } from "@reduxjs/toolkit";
 
 // Infer RootState from Slice or Store
 export type InferRootState<Source extends Slice | EnhancedStore> =
@@ -39,19 +39,31 @@ type InferStoreState<Source> = Source extends () => EnhancedStore
 		: never;
 
 // Infer events for stores from their dispatch signature
-type StoreActionCreators<Source> = Source extends { __igniteActions: infer A }
-	? A
-	: undefined;
+type FirstDispatchArg<Dispatch> = Dispatch extends (
+	...args: infer Params
+) => unknown
+	? Params extends [infer Event, ...infer _Rest]
+		? Event
+		: never
+	: never;
+
+type DispatchEvent<Store> = Store extends {
+	dispatch: infer Dispatch;
+}
+	? FirstDispatchArg<Dispatch> extends infer Event
+		? [Event] extends [never]
+			? AnyAction
+			: Event extends { type: string }
+				? NormalizeEvent<Event>
+				: AnyAction
+		: AnyAction
+	: AnyAction;
 
 type StoreDispatchEvent<Source extends (() => EnhancedStore) | EnhancedStore> =
 	Source extends () => EnhancedStore
-		? StoreActionCreators<ReturnType<Source>> extends undefined
-			? Parameters<ReturnType<Source>["dispatch"]>[0]
-			: InferEvent<StoreActionCreators<ReturnType<Source>>>
+		? DispatchEvent<ReturnType<Source>>
 		: Source extends EnhancedStore
-			? StoreActionCreators<Source> extends undefined
-				? Parameters<Source["dispatch"]>[0]
-				: InferEvent<StoreActionCreators<Source>>
+			? DispatchEvent<Source>
 			: never;
 
 export type InferStateAndEvent<

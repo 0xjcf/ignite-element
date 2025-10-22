@@ -15,7 +15,8 @@
 
 ### Key Changes
 
-- **New factory API:** `igniteCore` now returns a registration function (`(tag, renderFn) => void`) so defining multiple elements is ergonomic and type-safe.
+- **Callback facade:** `igniteCore` now accepts `states(snapshot)` and `commands(actor)` callbacks. The render arguments you receive already include these derived values alongside the `send` helper, replacing the old mapping objects.
+- **Flexible renderer support:** The registration function (`(tag, renderer) => void`) now accepts plain functions, objects with a `render` method, or classes so you can share renderer instances safely.
 - **Shared vs. isolated detection:** Passing a running XState actor / Redux store / MobX observable automatically yields shared scope; providing factories or machine definitions yields isolated scope.
 - **Styling upgrades:** `setGlobalStyles` resolves asset URLs correctly inside Vite and custom build setups.
 - **Bug fixes:** Improved cleanup behaviour in `IgniteElement` and adapters to avoid stale subscriptions.
@@ -51,27 +52,48 @@ npm install ignite-element lit-html xstate
 // 2. Create your first component
 import { html } from "lit-html";
 import { igniteCore } from "ignite-element";
-import { createMachine } from "xstate";
+import { createMachine, assign } from "xstate";
 
 const toggleMachine = createMachine({
   id: "toggle",
   initial: "off",
+  context: { presses: 0 },
   states: {
-    off: { on: { TOGGLE: "on" } },
-    on: { on: { TOGGLE: "off" } },
+    off: {
+      on: {
+        TOGGLE: "on",
+        INCREMENT: { actions: assign({ presses: (ctx) => ctx.presses + 1 }) },
+      },
+    },
+    on: {
+      on: {
+        TOGGLE: "off",
+        INCREMENT: { actions: assign({ presses: (ctx) => ctx.presses + 1 }) },
+      },
+    },
   },
 });
 
 const component = igniteCore({
   adapter: "xstate",
   source: toggleMachine, // isolated – every element gets its own actor
+  states: (snapshot) => ({
+    isOn: snapshot.matches("on"),
+    presses: snapshot.context.presses,
+  }),
+  commands: (actor) => ({
+    toggle: () => actor.send({ type: "TOGGLE" }),
+    increment: () => actor.send({ type: "INCREMENT" }),
+  }),
 });
 
-component("toggle-button", ({ state, send }) => html`
-  <button @click=${() => send({ type: "TOGGLE" })}>
-    ${state.value === "on" ? "On" : "Off"}
-  </button>
-`);
+component("toggle-button", ({ isOn, presses, toggle, increment }) => html`
+    <button @click=${toggle}>
+      ${isOn ? "On" : "Off"} (pressed ${presses} times)
+    </button>
+    <button @click=${increment}>Add Press</button>
+  `,
+);
 
 // 3. Use it anywhere in HTML
 // <toggle-button></toggle-button>
@@ -112,6 +134,15 @@ Ignite-Element currently uses `lit-html` for rendering templates. Rendering abst
 Ignite-Element automatically infers the scope, so you rarely need extra configuration.
 
 > **Tip:** When you supply a long-lived instance (like an XState actor) you control the lifecycle. Start it before first use and stop it when the host app tears down.
+
+### Facade Callbacks
+
+`igniteCore` merges the outputs of your facade callbacks into the render arguments:
+
+- `states(snapshot)` lets you derive the values your component needs to display.
+- `commands(actor)` lets you expose the actions your component can perform.
+
+Both callbacks run once per adapter instance (shared) or per element (isolated), so you can safely memoize values or close over resources without worrying about duplicate subscriptions.
 
 ### Styling
 
@@ -156,15 +187,18 @@ pnpm run examples:mobx
 
 ### Upgrading from pre-1.4.x
 
-- **New factory return:** Replace `.shared()` / `.isolated()` methods with direct calls to the function returned by `igniteCore`.
-  ```diff
-  -const element = igniteCore(config);
-  -element.shared("my-element", renderFn);
-  +const component = igniteCore(config);
-  +component("my-element", renderFn);
+- **Use callback facades:** Provide `states(snapshot)` and `commands(actor)` callbacks that return plain objects. Their values merge into the render arguments.
+  ```ts
+  const component = igniteCore({
+    adapter: "redux",
+    source: store,
+    states: (snapshot) => ({ count: snapshot.counter.count }),
+    commands: (store) => ({ increment: () => store.dispatch(...) }),
+  });
   ```
-- **Deprecated helpers:** `initialTransition` and `resolveState` are removed—use adapter state snapshots directly via `getState()`.
-- **Styling:** Prefer `setGlobalStyles(new URL("./styles.css", import.meta.url).href)` to keep paths correct in modern bundlers.
+- **Register renderers directly:** The registration function now accepts render functions, `{ render }` objects, or classes. If you previously instantiated a renderer manually, you can pass the class itself (`component("my-tag", MyRenderer)`).
+- **Deprecated helpers:** `initialTransition` and `resolveState` are removed—use the snapshot provided to `states` or call `adapter.getState()` when needed.
+- **Styling:** Prefer `setGlobalStyles(new URL("./styles.css", import.meta.url).href)` (or the forthcoming `ignite.config.ts`) to keep paths correct in modern bundlers.
 
 Detailed migration steps (including TypeScript updates) will be published in the docs ahead of the next major release.
 

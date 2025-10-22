@@ -1,15 +1,12 @@
 import { html } from "lit-html";
 import { createActor } from "xstate";
 import type {
-	ExtendedState,
-	XStateActorInstance,
+	XStateMachineActor,
+	XStateSnapshot,
 } from "../../adapters/XStateAdapter";
 import { setGlobalStyles } from "../../globalStyles";
 import { igniteCore } from "../../IgniteCore";
-import type {
-	FacadeCommandsCallback,
-	FacadeStatesCallback,
-} from "../../RenderArgs";
+import type { AdapterPack } from "../../IgniteElementFactory";
 import { advancedMachine } from "./advancedCounterMachine";
 
 const stylesHref = new URL("./dist/styles.css", import.meta.url).href;
@@ -23,27 +20,24 @@ sharedActor.start();
 
 // Shared components reuse the same `sharedActor`.
 type Machine = typeof advancedMachine;
-type Snapshot = ExtendedState<Machine>;
-type MachineActor = XStateActorInstance<Machine>;
-type ExtractRenderArgs<F> = F extends (name: string, render: infer R) => void
-	? R extends (args: infer A) => unknown
-		? A
-		: never
-	: never;
+type Snapshot = XStateSnapshot<Machine>;
+type MachineActor = XStateMachineActor<Machine>;
 
-const xstateStates: FacadeStatesCallback<
-	Snapshot,
-	{ count: number; value: Snapshot["value"]; darkMode: boolean }
-> = (snapshot) => ({
-	count: snapshot.context.count,
-	value: snapshot.value,
-	darkMode: snapshot.context.darkMode,
-});
+const xstateStates = (snapshot: Snapshot) => {
+	const darkMode = snapshot.context.darkMode;
+	const containerClasses = darkMode
+		? "p-4 bg-gray-800 text-white border rounded-md mb-2"
+		: "p-4 bg-gray-100 text-black border rounded-md mb-2";
 
-const xstateCommands: FacadeCommandsCallback<
-	MachineActor,
-	{ increment: () => void; decrement: () => void; toggleDarkMode: () => void }
-> = (actor) => ({
+	return {
+		count: snapshot.context.count,
+		value: snapshot.value,
+		darkMode,
+		containerClasses,
+	};
+};
+
+const xstateCommands = (actor: MachineActor) => ({
 	increment: () => actor.send({ type: "INC" }),
 	decrement: () => actor.send({ type: "DEC" }),
 	toggleDarkMode: () => actor.send({ type: "TOGGLE_DARK" }),
@@ -65,9 +59,11 @@ const registerIsolatedXState = igniteCore({
 });
 
 // Shared Counter Component (XState)
-registerSharedXState("my-counter-xstate", ({ count, increment, decrement }) => {
-	return html`
-    <div class="p-4 bg-green-100 border rounded-md mb-2">
+registerSharedXState(
+	"my-counter-xstate",
+	({ count, increment, decrement, containerClasses }) => {
+		return html`
+    <div class="${containerClasses}">
       <h3 class="text-lg font-bold">Shared Counter (XState)</h3>
       <p class="text-xl">Count: ${count}</p>
       <div class="mt-4 space-x-2">
@@ -86,7 +82,8 @@ registerSharedXState("my-counter-xstate", ({ count, increment, decrement }) => {
       </div>
     </div>
   `;
-});
+	},
+);
 
 // Shared Display Component (XState)
 registerSharedXState("shared-display-xstate", ({ count }) => {
@@ -151,22 +148,16 @@ registerSharedXState("gradient-tally", ({ count }) => {
   `;
 });
 
-type SharedRenderArgs = ExtractRenderArgs<typeof registerSharedXState>;
-
 export class AdvancedSharedCounter {
 	render({
 		count,
-		darkMode,
 		increment,
 		decrement,
 		toggleDarkMode,
-	}: SharedRenderArgs) {
-		const containerClasses = darkMode
-			? "p-4 bg-gray-800 text-white border rounded-md mb-2"
-			: "p-4 bg-gray-100 text-black border rounded-md mb-2";
-
+		containerClasses,
+	}: AdapterPack<typeof registerSharedXState>) {
 		return html`
-      <div class=${containerClasses}>
+      <div class="${containerClasses}">
         <h3 class="text-lg font-bold">Advanced Counter</h3>
 
         <p class="text-xl">Count: ${count}</p>
@@ -208,8 +199,4 @@ export class AdvancedSharedCounter {
 	}
 }
 
-const advancedSharedCounter = new AdvancedSharedCounter();
-
-registerSharedXState("advanced-shared-counter", (args) => {
-	return advancedSharedCounter.render(args);
-});
+registerSharedXState("advanced-shared-counter", AdvancedSharedCounter);

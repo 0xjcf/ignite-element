@@ -20,8 +20,6 @@ import counterStore, {
 } from "../examples/redux/src/js/reduxCounterStore";
 import { igniteCore } from "../IgniteCore";
 import type {
-	FacadeCommandsCallback,
-	FacadeStatesCallback,
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
 } from "../RenderArgs";
@@ -98,13 +96,10 @@ describe("igniteCore", () => {
 		type MachineEvent = EventFrom<Machine>;
 		type MachineActor = XStateActorInstance<Machine>;
 
-		const statesCallback: FacadeStatesCallback<Snapshot, { double: number }> = (
-			snapshot,
-		) => ({ double: snapshot.context.count * 2 });
-		const commandsCallback: FacadeCommandsCallback<
-			MachineActor,
-			{ increment: () => void }
-		> = (actor) => ({
+		const statesCallback = (snapshot: Snapshot) => ({
+			double: snapshot.context.count * 2,
+		});
+		const commandsCallback = (actor: MachineActor) => ({
 			increment: () => actor.send({ type: "INC" }),
 		});
 
@@ -148,14 +143,10 @@ describe("igniteCore", () => {
 		type SliceEvent = InferStateAndEvent<typeof counterSlice>["Event"];
 		type SliceActor = ReduxSliceCommandActor<typeof counterSlice>;
 
-		const statesCallback: FacadeStatesCallback<
-			SliceState,
-			{ count: number }
-		> = (snapshot) => ({ count: snapshot.counter.count });
-		const commandsCallback: FacadeCommandsCallback<
-			SliceActor,
-			{ increment: () => void }
-		> = (actor) => ({
+		const statesCallback = (snapshot: SliceState) => ({
+			count: snapshot.counter.count,
+		});
+		const commandsCallback = (actor: SliceActor) => ({
 			increment: () => actor.dispatch(counterSlice.actions.increment()),
 		});
 
@@ -200,14 +191,10 @@ describe("igniteCore", () => {
 		type StoreEvent = InferStateAndEvent<StoreInstance>["Event"];
 		type StoreActor = ReduxStoreCommandActor<StoreInstance>;
 
-		const statesCallback: FacadeStatesCallback<
-			StoreState,
-			{ count: number }
-		> = (snapshot) => ({ count: snapshot.counter.count });
-		const commandsCallback: FacadeCommandsCallback<
-			StoreActor,
-			{ increment: () => void }
-		> = (actor) => ({
+		const statesCallback = (snapshot: StoreState) => ({
+			count: snapshot.counter.count,
+		});
+		const commandsCallback = (actor: StoreActor) => ({
 			increment: () => actor.dispatch(counterSlice.actions.increment()),
 		});
 
@@ -277,14 +264,12 @@ describe("igniteCore", () => {
 		type StoreState = ReturnType<typeof createStore>;
 		type StoreEvent = MobxEvent<StoreState>;
 
-		const statesCallback: FacadeStatesCallback<
-			StoreState,
-			{ count: number }
-		> = (snapshot) => ({ count: snapshot.count });
-		const commandsCallback: FacadeCommandsCallback<
-			StoreState,
-			{ increment: () => void }
-		> = (storeInstance) => ({ increment: () => storeInstance.increment() });
+		const statesCallback = (snapshot: StoreState) => ({
+			count: snapshot.count,
+		});
+		const commandsCallback = (storeInstance: StoreState) => ({
+			increment: () => storeInstance.increment(),
+		});
 
 		const register = igniteCore({
 			adapter: "mobx",

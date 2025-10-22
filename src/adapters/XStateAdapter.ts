@@ -19,6 +19,12 @@ export type XStateActorInstance<Machine extends AnyStateMachine> = ReturnType<
 	typeof createActor<Machine>
 >;
 
+export type XStateSnapshot<Machine extends AnyStateMachine> =
+	ExtendedState<Machine>;
+
+export type XStateMachineActor<Machine extends AnyStateMachine> =
+	XStateActorInstance<Machine>;
+
 type XStateAdapterFactory<Machine extends AnyStateMachine> =
 	(() => IgniteAdapter<ExtendedState<Machine>, EventFrom<Machine>>) & {
 		scope: StateScope;
