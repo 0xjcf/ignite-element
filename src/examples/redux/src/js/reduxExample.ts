@@ -30,8 +30,7 @@ const sharedCommandHandlers = (actor: SharedStoreActor) => ({
 });
 
 export const registerSharedRedux = igniteCore({
-	adapter: "redux", // shared store instance reused across components
-	source: sharedStore,
+	source: sharedStore, // shared store instance reused across components
 	states: sharedStates,
 	commands: sharedCommandHandlers,
 });
@@ -51,7 +50,6 @@ const isolatedCommandHandlers = (actor: SliceActor) => ({
 });
 
 export const registerIsolatedRedux = igniteCore({
-	adapter: "redux",
 	source: counterSlice,
 	states: isolatedStates,
 	commands: isolatedCommandHandlers,

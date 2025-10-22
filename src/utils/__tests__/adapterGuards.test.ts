@@ -5,8 +5,10 @@ import { createActor, createMachine } from "xstate";
 import {
 	isFunction,
 	isMobxObservable,
+	isReduxSlice,
 	isReduxStore,
 	isXStateActor,
+	isXStateMachine,
 } from "../adapterGuards";
 
 describe("adapterGuards", () => {
@@ -48,6 +50,32 @@ describe("adapterGuards", () => {
 
 		it("returns false for null values", () => {
 			expect(isXStateActor(null)).toBe(false);
+		});
+	});
+
+	describe("isXStateMachine", () => {
+		it("returns true for machines", () => {
+			const machine = createMachine({
+				initial: "idle",
+				states: { idle: {} },
+			});
+			expect(isXStateMachine(machine)).toBe(true);
+		});
+
+		it("returns false for actors", () => {
+			const machine = createMachine({ initial: "idle", states: { idle: {} } });
+			const actor = createActor(machine);
+			actor.start();
+			expect(isXStateMachine(actor)).toBe(false);
+			actor.stop();
+		});
+
+		it("returns false for null", () => {
+			expect(isXStateMachine(null)).toBe(false);
+		});
+
+		it("returns false for plain objects", () => {
+			expect(isXStateMachine({})).toBe(false);
 		});
 	});
 	describe("isReduxStore", () => {
@@ -119,6 +147,39 @@ describe("adapterGuards", () => {
 
 		it("returns false for non-functions", () => {
 			expect(isFunction(123)).toBe(false);
+		});
+	});
+
+	describe("isReduxSlice", () => {
+		it("returns true for slices", () => {
+			const slice = createSlice({
+				name: "counter",
+				initialState: { value: 0 },
+				reducers: {
+					increment: (state) => {
+						state.value += 1;
+					},
+				},
+			});
+			expect(isReduxSlice(slice)).toBe(true);
+		});
+
+		it("returns false for stores", () => {
+			const slice = createSlice({
+				name: "counter",
+				initialState: { value: 0 },
+				reducers: {
+					increment: (state) => {
+						state.value += 1;
+					},
+				},
+			});
+			const store = configureStore({ reducer: slice.reducer });
+			expect(isReduxSlice(store)).toBe(false);
+		});
+
+		it("returns false for null", () => {
+			expect(isReduxSlice(null)).toBe(false);
 		});
 	});
 });

@@ -87,4 +87,58 @@ describe("igniteElementFactory", () => {
 			`[igniteElementFactory] Element "${elementName}" has already been defined.`,
 		);
 	});
+
+	it("supports class-based renderers", () => {
+		const adapter = new MinimalMockAdapter(initialState);
+		const component = igniteElementFactory(() => adapter);
+		const elementName = `ignite-class-${crypto.randomUUID()}`;
+
+		class ClassRenderer {
+			render() {
+				return html`<span>class renderer</span>`;
+			}
+		}
+
+		const renderSpy = vi.spyOn(ClassRenderer.prototype, "render");
+
+		component(elementName, ClassRenderer);
+
+		const element = document.createElement(elementName);
+		document.body.appendChild(element);
+
+		expect(renderSpy).toHaveBeenCalled();
+	});
+
+	it("supports object renderers", () => {
+		const adapter = new MinimalMockAdapter(initialState);
+		const component = igniteElementFactory(() => adapter);
+		const elementName = `ignite-object-${crypto.randomUUID()}`;
+
+		const renderObject = {
+			template: html`<span>object renderer</span>`,
+			render() {
+				return this.template;
+			},
+		};
+		const renderSpy = vi.spyOn(renderObject, "render");
+
+		component(elementName, renderObject);
+
+		const element = document.createElement(elementName);
+		document.body.appendChild(element);
+
+		expect(renderSpy).toHaveBeenCalled();
+	});
+
+	it("throws when renderer does not provide a render implementation", () => {
+		const adapter = new MinimalMockAdapter(initialState);
+		const component = igniteElementFactory(() => adapter, {
+			scope: StateScope.Shared,
+		});
+		const elementName = `ignite-invalid-${crypto.randomUUID()}`;
+
+		expect(() => component(elementName, 123 as unknown as never)).toThrow(
+			"[igniteElementFactory] Invalid renderer provided. Supply a render function, an object with a render method, or a class with a render method.",
+		);
+	});
 });

@@ -3,13 +3,7 @@ import type { TemplateResult } from "lit-html";
 import { html } from "lit-html";
 import { makeAutoObservable } from "mobx";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-	type AnyStateMachine,
-	assign,
-	createActor,
-	createMachine,
-	type EventFrom,
-} from "xstate";
+import { assign, createActor, createMachine, type EventFrom } from "xstate";
 import type { MobxEvent } from "../adapters/MobxAdapter";
 import type {
 	ExtendedState,
@@ -26,7 +20,7 @@ import type {
 import type { InferStateAndEvent } from "../utils/igniteRedux";
 
 // Mock XState machine
-const mockXStateMachine: AnyStateMachine = createMachine({
+const mockXStateMachine = createMachine({
 	context: {},
 	initial: "idle",
 	states: {
@@ -75,6 +69,72 @@ describe("igniteCore", () => {
 			source: mockMobxStore,
 		});
 		expect(core).toBeDefined();
+	});
+
+	it("infers xstate adapter when omitted", () => {
+		const core = igniteCore({
+			source: mockXStateMachine,
+		});
+		expect(core).toBeDefined();
+	});
+
+	it("infers redux adapter for store factory when omitted", () => {
+		const core = igniteCore({
+			source: mockReduxStore,
+		});
+		expect(core).toBeDefined();
+	});
+
+	it("infers redux adapter for store instance when omitted", () => {
+		const core = igniteCore({
+			source: mockReduxStore(),
+		});
+		expect(core).toBeDefined();
+	});
+
+	it("infers redux adapter for slice when omitted", () => {
+		const core = igniteCore({
+			source: counterSlice,
+		});
+		expect(core).toBeDefined();
+	});
+
+	it("infers mobx adapter when omitted", () => {
+		const sharedStore = mockMobxStore();
+		const core = igniteCore({
+			source: sharedStore,
+		});
+		expect(core).toBeDefined();
+	});
+
+	it("infers mobx adapter for factories when omitted", () => {
+		const core = igniteCore({
+			source: mockMobxStore,
+		});
+		expect(core).toBeDefined();
+	});
+
+	it("throws when adapter cannot be inferred", () => {
+		expect(() =>
+			igniteCore({
+				source: {} as unknown,
+			} as unknown as Parameters<typeof igniteCore>[0]),
+		).toThrow(
+			"[igniteCore] Unable to infer adapter from source. Please specify the adapter explicitly.",
+		);
+	});
+
+	it("throws when factory inference fails", () => {
+		const failingFactory: () => Record<string, never> = () => {
+			throw new Error("factory boom");
+		};
+		expect(() =>
+			igniteCore({
+				source: failingFactory,
+			}),
+		).toThrow(
+			"[igniteCore] Failed to execute source factory while inferring adapter. Specify the adapter explicitly.",
+		);
 	});
 
 	it("provides facade callbacks for xstate sources", () => {

@@ -22,14 +22,12 @@ const mobxCommands = (store: CounterStoreInstance) => ({
 const sharedStore = counterStore();
 
 export const registerSharedMobx = igniteCore({
-	adapter: "mobx",
 	source: sharedStore,
 	states: mobxStates,
 	commands: mobxCommands,
 });
 
 export const registerIsolatedMobx = igniteCore({
-	adapter: "mobx",
 	source: counterStore,
 	states: mobxStates,
 	commands: mobxCommands,

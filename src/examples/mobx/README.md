@@ -1,172 +1,86 @@
-# MobX Example with ignite-element
+# MobX + ignite-element Example
 
-This example demonstrates how to use ignite-element with MobX, lit-html, and custom CSS for styling, following atomic design principles.
-
----
-
-## Features
-
-- State management with MobX, showcasing shared and isolated components.
-- Dynamic styling with CSS variables for customizable and reusable styles.
-- Integration with ignite-element for seamless web component creation.
+This showcase combines **ignite-element**, **MobX**, and **lit-html** to build reactive custom elements with both shared and isolated state. The new adapter inference means you can pass a MobX store (or factory) directly to `igniteCore` without specifying `adapter: "mobx"`.
 
 ---
 
-## Setup
+## Quick Start
 
-### 1. Install Dependencies
+1. **Install dependencies**
 
-Run the following command to install all necessary dependencies:
+   ```bash
+   pnpm install
+   ```
 
-```bash
-npm install
-```
+2. **Run the dev server**
 
-### 2. Run the Example
+   ```bash
+   pnpm run dev
+   ```
 
-To start the development server:
+3. **Interact with the components**
 
-```bash
-npm run dev
-```
+   Open the reported URL (default <http://localhost:5173>) to try:
 
-#### Output
-
-When running the example, you'll see:
-
-- **Shared Counter Component**: A counter component using a shared global state.
-- **Isolated Counter Component**: A counter component with isolated state for each instance.
+   - A shared counter reusing a single MobX store instance.
+   - An isolated variant that instantiates a fresh store per element.
+   - A read-only display that consumes the same shared derived data.
 
 ---
 
-## Styling with Custom CSS
+## Key Files
 
-This example uses **CSS variables** for styling and customization. Global styles are applied using the `setGlobalStyles` function, referencing `theme.css`, while component-specific styles are applied using `<style>` or `<link>` tags in the components.
-
----
-
-## ignite-element and MobX
-
-### 1. Define a MobX Store
-
-Create a reactive MobX store with decorators for state and actions:
-
-```typescript
-import { action, observable, makeObservable } from "mobx";
-
-class Counter {
-  @observable count = 0;
-
-  constructor() {
-    makeObservable(this);
-  }
-
-  @action increment() {
-    this.count += 1;
-  }
-
-  @action decrement() {
-    this.count -= 1;
-  }
-}
-
-const counterStore = () => new Counter();
-
-export default counterStore;
-```
+| Path | Purpose |
+| --- | --- |
+| `mobxCounterStore.ts` | Exposes the `counterStore` factory used for both shared and isolated flows. |
+| `mobxExample.ts` | Registers components with `igniteCore` using MobX inference. |
+| `theme.css` | Global styling applied via `setGlobalStyles`. |
+| `another-counter-mobx.css` | Extra styles for the isolated component. |
 
 ---
 
-### 2. Apply Global Styles
+## igniteCore Setup
 
-Add global styles from `theme.css` using `setGlobalStyles`:
+We reuse the same `states`/`commands` facades for both shared and isolated scopes. The only difference is whether we pass a live observable or a factory:
 
-```typescript
-import { setGlobalStyles } from "ignite-element";
+```ts
+const sharedStore = counterStore();
 
-setGlobalStyles("./theme.css");
-```
+export const registerSharedMobx = igniteCore({
+  source: sharedStore, // shared observable instance
+  states: (snapshot) => ({ count: snapshot.count }),
+  commands: (store) => ({
+    decrement: () => store.decrement(),
+    increment: () => store.increment(),
+  }),
+});
 
----
-
-### 3. Initialize ignite-element
-
-Initialize `igniteCore` with shared and isolated component support:
-
-```typescript
-import { igniteCore } from "ignite-element";
-import counterStore from "./mobxCounterStore";
-
-export const { isolated, shared } = igniteCore({
-  adapter: "mobx",
-  source: counterStore,
+export const registerIsolatedMobx = igniteCore({
+  source: counterStore, // factory → new observable each time
+  states: (snapshot) => ({ count: snapshot.count }),
+  commands: (store) => ({
+    decrement: () => store.decrement(),
+    increment: () => store.increment(),
+  }),
 });
 ```
 
----
-
-### 4. Define Components
-
-#### Shared Counter
-
-```typescript
-shared("my-counter-mobx", (state, action) => {
-  return html`
-    <div>
-      <div class="container">
-        <h3>Shared Counter (MobX)</h3>
-        <p>Count: ${state.count}</p>
-        <div class="button-group">
-          <button @click=${() => action({ type: "decrement" })}>-</button>
-          <button @click=${() => action({ type: "increment" })}>+</button>
-        </div>
-      </div>
-    </div>
-  `;
-});
-```
-
-#### Shared Display
-
-```typescript
-shared("shared-display-mobx", (state) => {
-  return html`
-    <div class="display">
-      <h3>Shared State Display (MobX)</h3>
-      <p>Shared Count: ${state.count}</p>
-    </div>
-  `;
-});
-```
-
-#### Isolated Counter
-
-```typescript
-isolated("another-counter-mobx", (state, action) => {
-  return html`
-    <div>
-      <link rel="stylesheet" href="./another-counter-mobx.css" />
-      <div class="container">
-        <h3>Isolated Counter (Custom Styled)</h3>
-        <p>Count: ${state.count}</p>
-        <div class="button-group">
-          <button @click=${() => action({ type: "decrement" })}>-</button>
-          <button @click=${() => action({ type: "increment" })}>+</button>
-        </div>
-      </div>
-    </div>
-  `;
-});
-```
+Every renderer receives the derived `count`, the command helpers, and the underlying adapter metadata (`state`, `send`) from ignite-element.
 
 ---
 
-### 5. Add Components to HTML
+## Styling Strategy
 
-Use the custom elements in your HTML file:
+- **Global theme**: applied once via `setGlobalStyles(themeHref)`.
+- **Component overrides**: the isolated example links to `another-counter-mobx.css` to demonstrate per-element styling.
+- **Design tokens**: CSS variables in `theme.css` make it easy to reskin the shared components without touching the render logic.
 
-```html
-<my-counter-mobx></my-counter-mobx>
-<shared-display-mobx></shared-display-mobx>
-<another-counter-mobx></another-counter-mobx>
-```
+---
+
+## Suggested Experiments
+
+- Add new MobX actions (e.g. reset) and surface them through the `commands` facade.
+- Introduce computed getters in the store and include them in `states(...)` to see how recalculations propagate.
+- Render multiple isolated counters side-by-side to confirm each maintains its own observable state.
+
+Enjoy building with ignite-element and MobX! Questions or ideas? Open an issue or start a discussion in the main repository.

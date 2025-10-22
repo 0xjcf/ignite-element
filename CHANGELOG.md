@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Minor Changes
+
+- Adapter inference: `igniteCore` now infers XState, Redux, and MobX adapters from the `source` you supply. Existing code that specifies `adapter` continues to work, but the discriminator is optional when inference succeeds.
+
 ## 1.4.7
 
 ### Patch Changes

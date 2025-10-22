@@ -63,6 +63,35 @@ describe("igniteCore type inference", () => {
 		expectTypeOf<RenderArgs["increment"]>().toEqualTypeOf<() => void>();
 	});
 
+	it("infers xstate types when adapter is omitted", () => {
+		const machine = createMachine({
+			context: { count: 1 },
+			initial: "active",
+			states: { active: {} },
+		});
+
+		type Machine = typeof machine;
+		type Snapshot = XStateSnapshot<Machine>;
+		type MachineActor = XStateMachineActor<Machine>;
+
+		const register = igniteCore({
+			source: machine,
+			states: (snapshot: Snapshot) => ({ count: snapshot.context.count }),
+			commands: (actor: MachineActor) => ({
+				ping: () => actor.send({ type: "PING" as EventFrom<Machine>["type"] }),
+			}),
+		});
+
+		type RenderArgs = AdapterPack<typeof register>;
+
+		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<Snapshot>();
+		expectTypeOf<RenderArgs["send"]>().toEqualTypeOf<
+			(event: EventFrom<Machine>) => void
+		>();
+		expectTypeOf<RenderArgs["count"]>().toEqualTypeOf<number>();
+		expectTypeOf<RenderArgs["ping"]>().toEqualTypeOf<() => void>();
+	});
+
 	it("infers redux slice snapshot and actor facades", () => {
 		type SliceState = InferStateAndEvent<typeof counterSlice>["State"];
 		type SliceEvent = InferStateAndEvent<typeof counterSlice>["Event"];
@@ -92,6 +121,26 @@ describe("igniteCore type inference", () => {
 		expectTypeOf<RenderArgs["increment"]>().toEqualTypeOf<() => void>();
 	});
 
+	it("infers redux slice types when adapter is omitted", () => {
+		const register = igniteCore({
+			source: counterSlice,
+			states: (snapshot: InferStateAndEvent<typeof counterSlice>["State"]) => ({
+				count: snapshot.counter.count,
+			}),
+			commands: (actor: ReduxSliceCommandActor<typeof counterSlice>) => ({
+				increment: () => actor.dispatch(counterSlice.actions.increment()),
+			}),
+		});
+
+		type RenderArgs = AdapterPack<typeof register>;
+
+		expectTypeOf<RenderArgs["count"]>().toEqualTypeOf<number>();
+		expectTypeOf<RenderArgs["increment"]>().toEqualTypeOf<() => void>();
+		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<
+			InferStateAndEvent<typeof counterSlice>["State"]
+		>();
+	});
+
 	it("infers redux store snapshot and actor facades", () => {
 		const store = counterStore();
 		type StoreInstance = typeof store;
@@ -118,6 +167,27 @@ describe("igniteCore type inference", () => {
 		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<StoreState>();
 		expectTypeOf<RenderArgs["send"]>().toEqualTypeOf<
 			(event: StoreEvent) => void
+		>();
+		expectTypeOf<RenderArgs["count"]>().toEqualTypeOf<number>();
+		expectTypeOf<RenderArgs["increment"]>().toEqualTypeOf<() => void>();
+	});
+
+	it("infers redux store types when adapter is omitted", () => {
+		const store = counterStore();
+		const register = igniteCore({
+			source: store,
+			states: (snapshot: InferStateAndEvent<typeof store>["State"]) => ({
+				count: snapshot.counter.count,
+			}),
+			commands: (actor: ReduxStoreCommandActor<typeof store>) => ({
+				increment: () => actor.dispatch(counterSlice.actions.increment()),
+			}),
+		});
+
+		type RenderArgs = AdapterPack<typeof register>;
+
+		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<
+			InferStateAndEvent<typeof store>["State"]
 		>();
 		expectTypeOf<RenderArgs["count"]>().toEqualTypeOf<number>();
 		expectTypeOf<RenderArgs["increment"]>().toEqualTypeOf<() => void>();
@@ -155,6 +225,29 @@ describe("igniteCore type inference", () => {
 		expectTypeOf<RenderArgs["send"]>().toEqualTypeOf<
 			(event: StoreEvent) => void
 		>();
+		expectTypeOf<RenderArgs["count"]>().toEqualTypeOf<number>();
+		expectTypeOf<RenderArgs["increment"]>().toEqualTypeOf<() => void>();
+	});
+
+	it("infers mobx types when adapter is omitted", () => {
+		const sharedStore = makeAutoObservable({
+			count: 0,
+			increment() {
+				this.count += 1;
+			},
+		});
+
+		const register = igniteCore({
+			source: sharedStore,
+			states: (snapshot: typeof sharedStore) => ({ count: snapshot.count }),
+			commands: (storeInstance: typeof sharedStore) => ({
+				increment: () => storeInstance.increment(),
+			}),
+		});
+
+		type RenderArgs = AdapterPack<typeof register>;
+
+		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<typeof sharedStore>();
 		expectTypeOf<RenderArgs["count"]>().toEqualTypeOf<number>();
 		expectTypeOf<RenderArgs["increment"]>().toEqualTypeOf<() => void>();
 	});

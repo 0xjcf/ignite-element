@@ -19,6 +19,7 @@
 - **Flexible renderer support:** The registration function (`(tag, renderer) => void`) now accepts plain functions, objects with a `render` method, or classes so you can share renderer instances safely.
 - **Shared vs. isolated detection:** Passing a running XState actor / Redux store / MobX observable automatically yields shared scope; providing factories or machine definitions yields isolated scope.
 - **Styling upgrades:** `setGlobalStyles` resolves asset URLs correctly inside Vite and custom build setups.
+- **Renderer roadmap:** JSX-friendly wrappers for React and Solid are in progress—watch the checklist below for updates.
 - **Bug fixes:** Improved cleanup behaviour in `IgniteElement` and adapters to avoid stale subscriptions.
 
 See the [full changelog](CHANGELOG.md) for detailed updates.
@@ -75,7 +76,6 @@ const toggleMachine = createMachine({
 });
 
 const component = igniteCore({
-  adapter: "xstate",
   source: toggleMachine, // isolated – every element gets its own actor
   states: (snapshot) => ({
     isOn: snapshot.matches("on"),
@@ -99,7 +99,7 @@ component("toggle-button", ({ isOn, presses, toggle, increment }) => html`
 // <toggle-button></toggle-button>
 ```
 
-Need a shared instance? Start an actor (or reuse a Redux store / MobX observable) yourself and pass it to `igniteCore`.
+Need a shared instance? Start an actor (or reuse a Redux store / MobX observable) yourself and pass it to `igniteCore`. The adapter is inferred from whatever you pass in—no discriminator required.
 
 ---
 
@@ -134,6 +134,8 @@ Ignite-Element currently uses `lit-html` for rendering templates. Rendering abst
 Ignite-Element automatically infers the scope, so you rarely need extra configuration.
 
 > **Tip:** When you supply a long-lived instance (like an XState actor) you control the lifecycle. Start it before first use and stop it when the host app tears down.
+
+> **Migration Note:** Prior releases required an explicit `adapter` discriminator (e.g. `adapter: "xstate"`). That hint is now optional—existing code keeps working, but you can safely remove the property when the source is an XState machine/actor, Redux slice/store/factory, or MobX observable/factory.
 
 ### Facade Callbacks
 
@@ -183,6 +185,46 @@ pnpm run examples:mobx
 
 ---
 
+## ✅ Roadmap Checklist
+
+Progress tracked against the [acceptance criteria](plans/ACCEPTANCE_CRITERIA.md).
+
+### Core API
+- [x] Optional `states(snapshot)` and `commands(actor)` facades on `igniteCore`.
+- [x] Registration function accepts function, object, or class renderers.
+- [x] Render args merge façade data with `state` and `send` helpers.
+- [x] Backwards compatible defaults when callbacks are omitted.
+
+### Facade Typing & Utilities
+- [x] Type inference maps adapter-specific façade shapes automatically.
+- [x] Invalid façade return types trigger compile-time errors.
+
+### Adapter Behaviour & Lifecycle
+- [x] XState adapter supports shared actors and isolated machines.
+- [x] Redux adapter handles slices, store factories, and store instances.
+- [x] MobX adapter reuses shared observables and manages isolated factories with cleanup.
+- [x] Components dispose adapters on disconnect and recreate isolated scopes on reconnect.
+
+### Testing
+- [x] Facade behaviour covered for XState, Redux, and MobX (shared & isolated).
+- [x] Renderer flexibility verified (function, object, class).
+- [x] Regression tests cover scope detection and cleanup paths.
+
+### Documentation & Migration
+- [x] README and docs describe façade callbacks and registration patterns.
+- [x] Examples showcase the new API with adapter inference.
+- [ ] Publish expanded migration guide for v1 → v1.4.7.
+
+### Future Enhancements
+- [x] Adapter inference (XState, Redux, MobX sources).
+- [ ] Centralised config (`ignite.config.(ts|js)`) for global styles/defaults.
+- [ ] JSX wrappers for React/Preact renderers.
+- [ ] JSX wrappers for Solid renderers.
+- [ ] `attachRenderer` helper for class-based renderers.
+- [ ] Developer tooling (codemod, IDE snippets).
+
+---
+
 ## 📋 Migration Guide
 
 ### Upgrading from pre-1.4.x
@@ -190,12 +232,12 @@ pnpm run examples:mobx
 - **Use callback facades:** Provide `states(snapshot)` and `commands(actor)` callbacks that return plain objects. Their values merge into the render arguments.
   ```ts
   const component = igniteCore({
-    adapter: "redux",
     source: store,
     states: (snapshot) => ({ count: snapshot.counter.count }),
-    commands: (store) => ({ increment: () => store.dispatch(...) }),
+    commands: (actor) => ({ increment: () => actor.dispatch(counterSlice.actions.increment()) }),
   });
   ```
+- **Drop the discriminator:** `adapter` is optional. Keep it only when inference cannot determine the correct adapter or when using a custom adapter.
 - **Register renderers directly:** The registration function now accepts render functions, `{ render }` objects, or classes. If you previously instantiated a renderer manually, you can pass the class itself (`component("my-tag", MyRenderer)`).
 - **Deprecated helpers:** `initialTransition` and `resolveState` are removed—use the snapshot provided to `states` or call `adapter.getState()` when needed.
 - **Styling:** Prefer `setGlobalStyles(new URL("./styles.css", import.meta.url).href)` (or the forthcoming `ignite.config.ts`) to keep paths correct in modern bundlers.
@@ -222,13 +264,14 @@ For legacy support, include the [webcomponents polyfills](https://github.com/web
 
 ## 📦 Bundle Size
 
-| Package | Size (min + gzip) |
-| --- | --- |
-| ignite-element | ~3.2 KB |
-| + lit-html | ~5.1 KB |
-| **Total** | **~8.3 KB** |
+| Package | Description | Size (min + gzip) |
+| --- | --- | --- |
+| `ignite-element` | Core runtime (facades, adapters) | ~3.2 KB |
+| `ignite-element` + `lit-html` | Pairing with the template literal renderer (peer dependency) | ~8.3 KB |
+| `ignite-element` + JSX (React) | Planned peer add-on for React/Preact renderers | _TBD_ |
+| `ignite-element` + JSX (Solid) | Planned peer add-on for Solid renderers | _TBD_ |
 
-_State management libraries are peer dependencies and are not included in these totals._
+_Rendering engines and state libraries (`lit-html`, XState, Redux Toolkit, MobX, upcoming JSX adapters) are peer dependencies. Mix only what your project needs—ignite-element itself adds ~3.2 KB on top of the stack you choose._
 
 ---
 
@@ -240,17 +283,17 @@ Choose global, scoped, or dynamic styling strategies:
 - **Scoped:** Append `<style>` or `<link>` inside your render function (see MobX example).
 - **Dynamic:** Compute styles based on state and inline them with `style=` attributes (see XState gradient tally component).
 
-See the [Styling Guide](https://joseflores.gitbook.io/ignite-element/core-concepts/styling-with-ignite-element) for deeper coverage.
+See the [Styling Guide](docs/styling/README.md) for deeper coverage.
 
 ---
 
 ## 📖 Documentation
 
-- [Getting Started](https://joseflores.gitbook.io/ignite-element/getting-started)
-- [Core Concepts](https://joseflores.gitbook.io/ignite-element/core-concepts)
-- [API Reference](https://joseflores.gitbook.io/ignite-element/api)
-- [Styling](https://joseflores.gitbook.io/ignite-element/styling)
-- [Examples](https://joseflores.gitbook.io/ignite-element/examples)
+- [Getting Started (GitBook)](https://joseflores.gitbook.io/ignite-element/getting-started)
+- [Core Concepts (GitBook)](https://joseflores.gitbook.io/ignite-element/core-concepts)
+- [API Notes](docs/api/README.md)
+- [Styling Guide](docs/styling/README.md)
+- [Examples Overview](docs/examples/README.md)
 
 ---
 

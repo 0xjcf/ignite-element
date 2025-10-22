@@ -1,5 +1,6 @@
-import type { EnhancedStore } from "@reduxjs/toolkit";
+import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import { isObservable } from "mobx";
+import type { AnyStateMachine } from "xstate";
 
 export interface XStateActorLike {
 	start?: () => unknown;
@@ -7,6 +8,22 @@ export interface XStateActorLike {
 	send: (...args: unknown[]) => unknown;
 	subscribe: (...args: unknown[]) => unknown;
 	getSnapshot: () => unknown;
+}
+
+export function isXStateMachine(source: unknown): source is AnyStateMachine {
+	if (typeof source !== "object" || source === null) {
+		return false;
+	}
+
+	const machine = source as Partial<AnyStateMachine> & {
+		transition?: unknown;
+		getInitialSnapshot?: unknown;
+	};
+
+	return (
+		typeof machine.transition === "function" &&
+		typeof machine.getInitialSnapshot === "function"
+	);
 }
 
 export function isXStateActor(source: unknown): source is XStateActorLike {
@@ -38,6 +55,28 @@ export function isReduxStore(source: unknown): source is EnhancedStore {
 		typeof candidate.getState === "function" &&
 		typeof candidate.dispatch === "function" &&
 		typeof candidate.subscribe === "function"
+	);
+}
+
+export function isReduxSlice(source: unknown): source is Slice {
+	if (typeof source !== "object" || source === null) {
+		return false;
+	}
+
+	const candidate = source as Partial<Slice> & {
+		name?: unknown;
+		reducer?: unknown;
+		actions?: unknown;
+		getInitialState?: unknown;
+	};
+
+	return (
+		typeof candidate.name === "string" &&
+		typeof candidate.reducer === "function" &&
+		candidate.actions !== undefined &&
+		typeof candidate.actions === "object" &&
+		candidate.actions !== null &&
+		typeof candidate.getInitialState === "function"
 	);
 }
 

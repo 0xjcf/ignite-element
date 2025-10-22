@@ -44,7 +44,6 @@ const xstateCommands = (actor: MachineActor) => ({
 });
 
 const registerSharedXState = igniteCore({
-	adapter: "xstate",
 	source: sharedActor,
 	states: xstateStates,
 	commands: xstateCommands,
@@ -52,7 +51,6 @@ const registerSharedXState = igniteCore({
 
 // Isolated components receive a fresh actor per registration.
 const registerIsolatedXState = igniteCore({
-	adapter: "xstate",
 	source: advancedMachine,
 	states: xstateStates,
 	commands: xstateCommands,
