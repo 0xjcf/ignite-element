@@ -4,13 +4,9 @@ import type {
 	XStateMachineActor,
 	XStateSnapshot,
 } from "../../adapters/XStateAdapter";
-import { setGlobalStyles } from "../../globalStyles";
 import { igniteCore } from "../../IgniteCore";
 import type { AdapterPack } from "../../IgniteElementFactory";
 import { advancedMachine } from "./advancedCounterMachine";
-
-const stylesHref = new URL("./dist/styles.css", import.meta.url).href;
-setGlobalStyles(stylesHref);
 
 // Start a single actor that will be shared by every component registered with
 // `registerSharedXState`. Each element stays in sync because the same actor

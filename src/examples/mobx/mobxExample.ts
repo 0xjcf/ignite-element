@@ -1,11 +1,8 @@
 import { html } from "lit-html";
-import { setGlobalStyles } from "../../globalStyles";
 import { igniteCore } from "../../IgniteCore";
 import counterStore from "./mobxCounterStore";
 
-// Set global styles for shared theme
-const themeHref = new URL("./theme.css", import.meta.url).href;
-setGlobalStyles(themeHref);
+import "./ignite.config";
 
 type CounterStoreInstance = ReturnType<typeof counterStore>;
 
@@ -59,16 +56,12 @@ registerSharedMobx("shared-display-mobx", ({ count }) => {
   `;
 });
 
-// Isolated Counter Component with Custom Styles
-const customStylesHref = new URL("./another-counter-mobx.css", import.meta.url)
-	.href;
-
 registerIsolatedMobx(
 	"another-counter-mobx",
 	({ count, decrement, increment }) => {
 		return html`
     <div>
-      <link rel="stylesheet" href=${customStylesHref} />
+      <link rel="stylesheet" href="./another-counter-mobx.css" />
       <div class="container">
         <h3>Isolated Counter (Custom Styled)</h3>
         <p>Count: ${count}</p>

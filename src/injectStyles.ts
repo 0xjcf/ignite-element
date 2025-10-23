@@ -86,13 +86,16 @@ export default function injectStyles(shadowRoot: ShadowRoot): void {
 		);
 	};
 
+	const isStylesheetPath = (path: string) => {
+		const normalized = path.trim();
+		const withoutQuery = normalized.split("?")[0]?.split("#")[0] ?? normalized;
+		return withoutQuery.endsWith(".css") || withoutQuery.endsWith(".scss");
+	};
+
 	// Handle global styles
 	if (typeof globalStyles === "string") {
 		debugLog(DebugNamespace.GLOBAL_STYLES, "Processing string:", globalStyles);
-		if (
-			globalStyles.trim().endsWith(".css") ||
-			globalStyles.trim().endsWith(".scss")
-		) {
+		if (isStylesheetPath(globalStyles)) {
 			injectStylesheet(globalStyles);
 		} else {
 			debugLog(DebugNamespace.WARN, "Invalid global style path");

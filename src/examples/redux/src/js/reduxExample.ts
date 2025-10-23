@@ -1,5 +1,4 @@
 import { html } from "lit-html";
-import { setGlobalStyles } from "../../../../globalStyles";
 import { igniteCore } from "../../../../IgniteCore";
 import type {
 	ReduxSliceCommandActor,
@@ -8,8 +7,7 @@ import type {
 import type { InferStateAndEvent } from "../../../../utils/igniteRedux";
 import counterStore, { counterSlice } from "./reduxCounterStore";
 
-const stylesHref = new URL("../scss/styles.scss", import.meta.url).href;
-setGlobalStyles(stylesHref);
+import "../../ignite.config";
 
 const sharedStore = counterStore();
 

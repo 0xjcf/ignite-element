@@ -7,6 +7,11 @@ export type {
 	XStateSnapshot,
 } from "./adapters/XStateAdapter";
 export { default as createXStateAdapter } from "./adapters/XStateAdapter";
+export type { IgniteConfig } from "./config";
+export {
+	defineIgniteConfig,
+	getIgniteConfig,
+} from "./config";
 export { setGlobalStyles } from "./globalStyles";
 export { StateScope } from "./IgniteAdapter";
 export { igniteCore } from "./IgniteCore";
@@ -16,4 +21,12 @@ export {
 	type ComponentFactory,
 	default as igniteElementFactory,
 } from "./IgniteElementFactory";
+export {
+	type IgniteConfigVitePluginOptions,
+	igniteConfigVitePlugin,
+} from "./plugins/viteIgniteConfigPlugin";
+export {
+	IgniteConfigWebpackPlugin,
+	type IgniteConfigWebpackPluginOptions,
+} from "./plugins/webpackIgniteConfigPlugin";
 export type { RenderArgs } from "./RenderArgs";
