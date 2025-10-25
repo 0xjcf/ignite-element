@@ -1,6 +1,6 @@
 # XState + ignite-element Example
 
-Build and render web components backed by XState actors and machines with almost zero boilerplate. This example pairs **ignite-element**, **XState**, **lit-html**, and **TailwindCSS** to demonstrate both shared and isolated state scopes.
+Build and render web components backed by XState actors and machines with almost zero boilerplate. This example pairs **ignite-element**, **XState**, **Ignite JSX**, and **TailwindCSS** to demonstrate both shared and isolated state scopes.
 
 ---
 
@@ -33,7 +33,7 @@ Build and render web components backed by XState actors and machines with almost
 | Path | Purpose |
 | --- | --- |
 | `advancedCounterMachine.ts` | The XState machine definition used for both shared and isolated variants. |
-| `xstateExample.ts` | Registers web components via `igniteCore` using the new adapter inference. |
+| `xstateExample.tsx` | Registers web components via `igniteCore` using the Ignite JSX renderer. |
 | `dist/styles.css` | Tailwind build output applied globally via `setGlobalStyles`. |
 | `index.html` | Hosts the custom elements during development. |
 
@@ -86,13 +86,15 @@ Every registered component receives the merged facade values: the derived state 
 
 ## Styling
 
-TailwindCSS is compiled once and injected globally:
+TailwindCSS is compiled once and injected globally via `ignite.config.ts`:
 
 ```ts
-import { setGlobalStyles } from "ignite-element";
+import { defineIgniteConfig } from "ignite-element";
 
-const stylesHref = new URL("./dist/styles.css", import.meta.url).href;
-setGlobalStyles(stylesHref);
+export default defineIgniteConfig({
+  globalStyles: new URL("./dist/styles.css", import.meta.url).href,
+  renderer: "ignite-jsx",
+});
 ```
 
 Component-specific tweaks live alongside the render functions, so you can mix Tailwind utility classes with custom CSS snippets.

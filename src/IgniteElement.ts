@@ -1,10 +1,12 @@
-import type { TemplateResult } from "lit-html";
-import { render } from "lit-html";
 import type IgniteAdapter from "./IgniteAdapter";
 import { StateScope } from "./IgniteAdapter";
-import injectStyles from "./injectStyles";
+import type { RenderStrategy } from "./renderers/RenderStrategy";
 
-export default abstract class IgniteElement<State, Event> extends HTMLElement {
+export default abstract class IgniteElement<
+	State,
+	Event,
+	View = unknown,
+> extends HTMLElement {
 	private _adapter: IgniteAdapter<State, Event> | undefined;
 	private _shadowRoot: ShadowRoot;
 	private _currentState!: State;
@@ -12,12 +14,17 @@ export default abstract class IgniteElement<State, Event> extends HTMLElement {
 	private _isActive = false;
 	private _unsubscribe: (() => void) | undefined;
 	private _sendListener: ((event: globalThis.Event) => void) | undefined;
+	private readonly strategy: RenderStrategy<View>;
 
-	constructor(adapter: IgniteAdapter<State, Event>) {
+	constructor(
+		adapter: IgniteAdapter<State, Event>,
+		strategy: RenderStrategy<View>,
+	) {
 		super();
 		this._shadowRoot = this.attachShadow({ mode: "open" });
 
-		injectStyles(this._shadowRoot);
+		this.strategy = strategy;
+		this.strategy.attach(this._shadowRoot);
 
 		this._adapter = adapter;
 		this.subscribeToAdapter();
@@ -72,20 +79,20 @@ export default abstract class IgniteElement<State, Event> extends HTMLElement {
 			return;
 		}
 
-		render(
-			this.render({
+		this.strategy.render(
+			this.renderView({
 				state: this._currentState,
 				send: (event: Event) => this.send(event),
 			}),
-			this._shadowRoot,
 		);
 	}
 
-	protected abstract render(props: {
+	protected abstract renderView(props: {
 		state: State;
 		send: (event: Event) => void;
-	}): TemplateResult;
+	}): View;
 
+	// TODO: REMOVE in v2.0
 	public forceRender(): void {
 		if (!this._initialized) {
 			console.warn(

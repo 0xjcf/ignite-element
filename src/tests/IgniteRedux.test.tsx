@@ -1,4 +1,5 @@
-import { html } from "lit-html";
+/** @jsxImportSource ../renderers/jsx */
+
 import type { Action } from "redux";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import counterStore, {
@@ -36,20 +37,18 @@ describe("igniteRedux", () => {
 
 			uniqueName = crypto.randomUUID();
 
-			register(
-				`shared-counter-${uniqueName}`,
-				({ state, send }) => html`
-				<div>Count: ${state.counter.count}</div>
-				<button @click=${() => send(increment())}>+</button>
-			`,
-			);
+			register(`shared-counter-${uniqueName}`, ({ state, send }) => (
+				<div>
+					Count: {state.counter.count}
+					<button type="button" onClick={() => send(increment())}>
+						+
+					</button>
+				</div>
+			));
 
-			register(
-				`shared-display-${uniqueName}`,
-				({ state }) => html`
-				<div>Count: ${state.counter.count}</div>
-			`,
-			);
+			register(`shared-display-${uniqueName}`, ({ state }) => (
+				<div>Count: {state.counter.count}</div>
+			));
 
 			const counterElement = document.createElement(
 				`shared-counter-${uniqueName}`,
@@ -75,8 +74,8 @@ describe("igniteRedux", () => {
 			const count2 =
 				sharedDisplay.shadowRoot?.querySelector("div")?.textContent;
 
-			expect(count1).toBe("Count: 1");
-			expect(count2).toBe("Count: 1");
+			expect(count1).toContain("Count: 1");
+			expect(count2).toContain("Count: 1");
 		});
 	});
 
@@ -93,20 +92,18 @@ describe("igniteRedux", () => {
 
 			uniqueName = crypto.randomUUID();
 
-			register(
-				`isolated-counter-${uniqueName}`,
-				({ state, send }) => html`
-				<div>Count: ${state.counter.count}</div>
-				<button @click=${() => send(increment())}>+</button>
-			`,
-			);
+			register(`isolated-counter-${uniqueName}`, ({ state, send }) => (
+				<div>
+					Count: {state.counter.count}
+					<button type="button" onClick={() => send(increment())}>
+						+
+					</button>
+				</div>
+			));
 
-			register(
-				`isolated-display-${uniqueName}`,
-				({ state }) => html`
-				<div>Count: ${state.counter.count}</div>
-			`,
-			);
+			register(`isolated-display-${uniqueName}`, ({ state }) => (
+				<div>Count: {state.counter.count}</div>
+			));
 
 			const counterElement = document.createElement(
 				`isolated-counter-${uniqueName}`,
@@ -131,8 +128,8 @@ describe("igniteRedux", () => {
 			const count2 =
 				isolatedDisplay.shadowRoot?.querySelector("div")?.textContent;
 
-			expect(count1).toBe("Count: 1");
-			expect(count2).toBe("Count: 0");
+			expect(count1).toContain("Count: 1");
+			expect(count2).toContain("Count: 0");
 		});
 
 		it("handles independent state updates", () => {
@@ -148,8 +145,8 @@ describe("igniteRedux", () => {
 			const count2 =
 				isolatedDisplay.shadowRoot?.querySelector("div")?.textContent;
 
-			expect(count1).toBe("Count: 3");
-			expect(count2).toBe("Count: 5");
+			expect(count1).toContain("Count: 3");
+			expect(count2).toContain("Count: 5");
 		});
 	});
 });

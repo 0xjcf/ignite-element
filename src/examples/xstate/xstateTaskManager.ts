@@ -1,12 +1,11 @@
 import { html } from "lit-html";
-import { setGlobalStyles } from "../../globalStyles";
 import { igniteCore } from "../../IgniteCore";
 import type { AdapterPack } from "../../IgniteElementFactory";
 import { taskManagerMachine } from "./taskManagerMachine";
 
-setGlobalStyles("./dist/styles.css");
+import "./ignite.config";
 
-const registerTaskManager = igniteCore({
+const TaskManagerComponent = igniteCore({
 	adapter: "xstate",
 	source: taskManagerMachine,
 	states: (snapshot) => {
@@ -34,7 +33,7 @@ const registerTaskManager = igniteCore({
 	}),
 });
 
-type TaskManagerRenderArgs = AdapterPack<typeof registerTaskManager>;
+type TaskManagerRenderArgs = AdapterPack<typeof TaskManagerComponent>;
 
 export class TaskList {
 	render({ tasks, toggleTask }: TaskManagerRenderArgs) {
@@ -193,10 +192,10 @@ export class ConfettiEffect {
 	}
 }
 
-registerTaskManager("task-list", TaskList);
-registerTaskManager("progress-bar", ProgressBar);
-registerTaskManager("task-form", TaskForm);
-registerTaskManager("confetti-effect", ConfettiEffect);
+TaskManagerComponent("task-list", TaskList);
+TaskManagerComponent("progress-bar", ProgressBar);
+TaskManagerComponent("task-form", TaskForm);
+TaskManagerComponent("confetti-effect", ConfettiEffect);
 
 export class TaskManager {
 	render({ isCompleted }: TaskManagerRenderArgs) {
@@ -216,4 +215,4 @@ export class TaskManager {
 	}
 }
 
-registerTaskManager("task-manager", TaskManager);
+TaskManagerComponent("task-manager", TaskManager);

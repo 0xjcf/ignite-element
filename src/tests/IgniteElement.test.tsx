@@ -1,5 +1,7 @@
-import { html } from "lit-html";
+/** @jsxImportSource ../renderers/jsx */
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { StateScope } from "../IgniteAdapter";
 import IgniteElement from "../IgniteElement";
 import igniteElementFactory from "../IgniteElementFactory";
 import MockAdapter from "./MockAdapter";
@@ -23,14 +25,14 @@ describe("IgniteElement", () => {
 		const component = igniteElementFactory(() => adapter);
 		elementName = `ignite-test-element-${crypto.randomUUID()}`;
 
-		component(elementName, ({ state, send }) => {
-			return html`
-        <div>
-          Count: ${state?.count}
-          <button @click=${() => send({ type: "increment" })}>Increment</button>
-        </div>
-      `;
-		});
+		component(elementName, ({ state, send }) => (
+			<div>
+				Count: {state?.count}
+				<button type="button" onClick={() => send({ type: "increment" })}>
+					Increment
+				</button>
+			</div>
+		));
 
 		// Create and append element
 		const createdElement = document.createElement(elementName);
@@ -127,6 +129,15 @@ describe("IgniteElement", () => {
 		expect(sendSpy).toHaveBeenCalledWith({ type: "increment" });
 	});
 
+	it("should pass the event object when CustomEvent detail is missing", () => {
+		const sendSpy = vi.spyOn(adapter, "send");
+		const customEvent = new CustomEvent("send");
+
+		element.dispatchEvent(customEvent);
+
+		expect(sendSpy).toHaveBeenCalledWith(customEvent);
+	});
+
 	it("should render correctly using forceRender when initialized and active", () => {
 		element.initialized = true;
 		element.isActive = true;
@@ -180,5 +191,44 @@ describe("IgniteElement", () => {
 		expect(element.initialized).toBe(true);
 
 		warnSpy.mockRestore();
+	});
+
+	it("resubscribes to the adapter when reconnected", () => {
+		const sharedAdapter = new MockAdapter(initialState, StateScope.Shared);
+		const sharedComponent = igniteElementFactory(() => sharedAdapter);
+		const name = `ignite-reconnect-element-${crypto.randomUUID()}`;
+
+		sharedComponent(name, ({ state }) => <div>Count: {state?.count}</div>);
+
+		const reconnectElement = document.createElement(name);
+		assertIgniteElement<State, Event>(reconnectElement);
+		document.body.appendChild(reconnectElement);
+
+		const subscribeCalls = sharedAdapter.subscribe.mock.calls.length;
+
+		reconnectElement.remove();
+
+		reconnectElement.connectedCallback();
+
+		expect(sharedAdapter.subscribe).toHaveBeenCalledTimes(subscribeCalls + 1);
+	});
+
+	it("does not stop shared adapters on disconnect", () => {
+		const sharedAdapter = new MockAdapter(initialState, StateScope.Shared);
+		const sharedComponent = igniteElementFactory(() => sharedAdapter);
+		const sharedName = `ignite-shared-element-${crypto.randomUUID()}`;
+
+		sharedComponent(sharedName, ({ state }) => (
+			<div>Count: {state?.count}</div>
+		));
+
+		const sharedElement = document.createElement(sharedName);
+		assertIgniteElement<State, Event>(sharedElement);
+		document.body.appendChild(sharedElement);
+
+		sharedElement.remove();
+
+		expect(sharedAdapter.stop).not.toHaveBeenCalled();
+		expect(sharedAdapter.unsubscribe).toHaveBeenCalledTimes(1);
 	});
 });

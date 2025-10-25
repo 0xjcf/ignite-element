@@ -3,7 +3,8 @@
 	"compilerOptions": {
 		"noEmit": true,
 		"declaration": false,
-		"emitDeclarationOnly": false
+		"emitDeclarationOnly": false,
+		"jsxImportSource": "./src/renderers/jsx"
 	},
 	"include": ["src/examples", "src/tests"],
 	"exclude": ["node_modules", "dist"]

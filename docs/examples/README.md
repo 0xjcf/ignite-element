@@ -10,6 +10,8 @@ Ignite-Element ships with three state-management examples that double as integra
 
 Each example now relies on adapter inference—`igniteCore` detects the correct adapter from the `source` you provide. Shared sources (running actors, store instances, observables) produce shared scopes, while definitions (machines, slices, factories) yield isolated scopes.
 
+> All examples also ship an `ignite.config.ts` so Ignite JSX is selected by default and global styles load automatically. Switch the `renderer` field to `"lit"` if you want to compare strategies while browsing the demos.
+
 ## Running the Examples
 
 ```bash

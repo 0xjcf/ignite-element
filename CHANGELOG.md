@@ -5,6 +5,8 @@
 ### Minor Changes
 
 - Adapter inference: `igniteCore` now infers XState, Redux, and MobX adapters from the `source` you supply. Existing code that specifies `adapter` continues to work, but the discriminator is optional when inference succeeds.
+- Central configuration: Added `defineIgniteConfig`, `getIgniteConfig`, and optional Vite/Webpack plugins so global styles can be managed via `ignite.config.ts`.
+- Ignite JSX runtime: Ignite JSX becomes the default renderer with JSX helpers (`jsx`, `jsxs`, `jsxDEV`) and configuration hooks to switch between Ignite JSX and the optional lit strategy via `ignite.config.ts`.
 
 ## 1.4.7
 

@@ -1,3 +1,4 @@
+import type { TemplateResult } from "lit-html";
 import type IgniteAdapter from "./IgniteAdapter";
 import type { StateScope } from "./IgniteAdapter";
 import igniteElementFactory, {
@@ -9,8 +10,13 @@ import type {
 	FacadeCommandsCallback,
 	FacadeStatesCallback,
 } from "./RenderArgs";
+import type { IgniteJsxChild } from "./renderers/jsx/types";
+import type { RenderStrategyFactory } from "./renderers/RenderStrategy";
 
-type AdapterFactory<State, Event> = (() => IgniteAdapter<State, Event>) & {
+export type AdapterFactory<State, Event> = (() => IgniteAdapter<
+	State,
+	Event
+>) & {
 	scope?: StateScope;
 	resolveStateSnapshot?: (adapter: IgniteAdapter<State, Event>) => unknown;
 	resolveCommandActor?: (adapter: IgniteAdapter<State, Event>) => unknown;
@@ -21,6 +27,30 @@ type AdditionalRenderArgs<
 	Event,
 	RenderArgs extends BaseRenderArgs<State, Event>,
 > = Omit<RenderArgs, keyof BaseRenderArgs<State, Event>>;
+
+export type ElementFactoryOptions<
+	State,
+	Event,
+	RenderArgs extends BaseRenderArgs<State, Event>,
+	View = TemplateResult | IgniteJsxChild,
+> = {
+	scope?: StateScope;
+	createAdditionalArgs?: (
+		adapter: IgniteAdapter<State, Event>,
+	) => AdditionalRenderArgs<State, Event, RenderArgs>;
+	createRenderStrategy?: RenderStrategyFactory<View>;
+};
+
+export type ElementFactoryCreator<
+	State,
+	Event,
+	RenderArgs extends BaseRenderArgs<State, Event>,
+	View,
+	Result,
+> = (
+	createAdapter: AdapterFactory<State, Event>,
+	options: ElementFactoryOptions<State, Event, RenderArgs, View>,
+) => Result;
 
 type FacadeStateResult<Snapshot, Callback> = [Callback] extends [
 	FacadeStatesCallback<Snapshot, infer Result>,
@@ -55,6 +85,7 @@ export type ComponentFactoryOptions<
 	CommandActor,
 	CommandCallback,
 	Additional extends Record<string, unknown> = Record<never, never>,
+	View = TemplateResult | IgniteJsxChild,
 > = {
 	scope?: StateScope;
 	states?: StateCallback;
@@ -62,6 +93,7 @@ export type ComponentFactoryOptions<
 	resolveStateSnapshot?: (adapter: IgniteAdapter<State, Event>) => Snapshot;
 	resolveCommandActor?: (adapter: IgniteAdapter<State, Event>) => CommandActor;
 	createAdditionalArgs?: (adapter: IgniteAdapter<State, Event>) => Additional;
+	createRenderStrategy?: RenderStrategyFactory<View>;
 };
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
@@ -88,8 +120,7 @@ function assertCommandFunction(value: unknown, key: string) {
 		);
 	}
 }
-
-export function createComponentFactory<
+export function createComponentFactoryWithRenderer<
 	State,
 	Event,
 	Snapshot,
@@ -104,8 +135,38 @@ export function createComponentFactory<
 		| FacadeCommandsCallback<CommandActor, FacadeCommandResult>
 		| undefined = undefined,
 	Additional extends Record<string, unknown> = Record<never, never>,
+	View = TemplateResult | IgniteJsxChild,
+	FactoryResult = ComponentFactory<
+		State,
+		Event,
+		WithFacadeRenderArgs<
+			State,
+			Event,
+			Snapshot,
+			StateCallback,
+			CommandActor,
+			CommandCallback,
+			Additional
+		>,
+		View
+	>,
 >(
 	createAdapter: AdapterFactory<State, Event>,
+	elementFactory: ElementFactoryCreator<
+		State,
+		Event,
+		WithFacadeRenderArgs<
+			State,
+			Event,
+			Snapshot,
+			StateCallback,
+			CommandActor,
+			CommandCallback,
+			Additional
+		>,
+		View,
+		FactoryResult
+	>,
 	options?: ComponentFactoryOptions<
 		State,
 		Event,
@@ -113,21 +174,10 @@ export function createComponentFactory<
 		StateCallback,
 		CommandActor,
 		CommandCallback,
-		Additional
+		Additional,
+		View
 	>,
-): ComponentFactory<
-	State,
-	Event,
-	WithFacadeRenderArgs<
-		State,
-		Event,
-		Snapshot,
-		StateCallback,
-		CommandActor,
-		CommandCallback,
-		Additional
-	>
-> {
+): FactoryResult {
 	const {
 		scope,
 		states,
@@ -168,8 +218,9 @@ export function createComponentFactory<
 		Additional
 	>;
 
-	return igniteElementFactory<State, Event, FinalRenderArgs>(createAdapter, {
+	return elementFactory(createAdapter, {
 		scope: scope ?? createAdapter.scope,
+		createRenderStrategy: options?.createRenderStrategy,
 		createAdditionalArgs: (adapter: IgniteAdapter<State, Event>) => {
 			const extras = userAdditionalArgs(adapter);
 			const merged = Object.create(null) as AdditionalRenderArgs<
@@ -247,4 +298,50 @@ export function createComponentFactory<
 			return merged;
 		},
 	});
+}
+
+export function createComponentFactory<
+	State,
+	Event,
+	Snapshot,
+	StateCallback extends
+		| FacadeStatesCallback<Snapshot, Record<string, unknown>>
+		| undefined = undefined,
+	CommandActor = {
+		send: (event: Event) => void;
+		getState: () => State;
+	},
+	CommandCallback extends
+		| FacadeCommandsCallback<CommandActor, FacadeCommandResult>
+		| undefined = undefined,
+	Additional extends Record<string, unknown> = Record<never, never>,
+>(
+	createAdapter: AdapterFactory<State, Event>,
+	options?: ComponentFactoryOptions<
+		State,
+		Event,
+		Snapshot,
+		StateCallback,
+		CommandActor,
+		CommandCallback,
+		Additional
+	>,
+): ComponentFactory<
+	State,
+	Event,
+	WithFacadeRenderArgs<
+		State,
+		Event,
+		Snapshot,
+		StateCallback,
+		CommandActor,
+		CommandCallback,
+		Additional
+	>
+> {
+	return createComponentFactoryWithRenderer(
+		createAdapter,
+		igniteElementFactory,
+		options,
+	);
 }

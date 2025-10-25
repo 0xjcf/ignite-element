@@ -1,10 +1,13 @@
 import { type GlobalStyles, setGlobalStyles } from "./globalStyles";
 
+export type IgniteRendererId = "lit" | "ignite-jsx";
+
 /**
  * Public configuration shape. Additional options can be added in future phases.
  */
 export interface IgniteConfig {
 	globalStyles?: GlobalStyles;
+	renderer?: IgniteRendererId;
 }
 
 const CONFIG_SYMBOL = Symbol.for("ignite-element.config");
@@ -20,6 +23,21 @@ function normalizeConfig(config: IgniteConfig): IgniteConfig {
 
 	if ("globalStyles" in config) {
 		normalized.globalStyles = config.globalStyles;
+	}
+
+	if ("renderer" in config) {
+		const renderer = config.renderer;
+		if (renderer === undefined) {
+			normalized.renderer = undefined;
+		} else if (renderer === "lit" || renderer === "ignite-jsx") {
+			normalized.renderer = renderer;
+		} else {
+			console.warn(
+				`[ignite-element] Unknown renderer "${String(
+					renderer,
+				)}" in ignite.config. Supported values are "lit" and "ignite-jsx". Falling back to "lit".`,
+			);
+		}
 	}
 
 	return normalized;

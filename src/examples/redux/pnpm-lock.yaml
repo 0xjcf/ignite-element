@@ -17,9 +17,6 @@ importers:
       bootstrap:
         specifier: ^5.3.8
         version: 5.3.8(@popperjs/core@2.11.8)
-      lit-html:
-        specifier: ^3.3.1
-        version: 3.3.1
       redux:
         specifier: ^5.0.1
         version: 5.0.1
@@ -460,9 +457,6 @@ packages:
     resolution: {integrity: sha512-41Cifkg6e8TylSpdtTpeLVMqvSBEVzTttHvERD741+pnZ8ANv0004MRL43QKPDlK9cGvNp6NZWZUBlbGXYxxng==}
     engines: {node: '>=0.12.0'}
 
-  lit-html@3.3.1:
-    resolution: {integrity: sha512-S9hbyDu/vs1qNrithiNyeyv64c9yqiW9l+DBgI18fL+MTvOtWoFR0FWiyq1TxaYef5wNlpEmzlXoBlZEO+WjoA==}
-
   micromatch@4.0.8:
     resolution: {integrity: sha512-PXwfBhYu0hBCPw8Dn0E+WDYb7af3dSLVWKi3HGv84IdF4TyFoC0ysxFd0Goxw7nSv4T/PzEJQxsYsEiFCKo2BA==}
     engines: {node: '>=8.6'}
@@ -860,10 +854,6 @@ snapshots:
 
   is-number@7.0.0:
     optional: true
-
-  lit-html@3.3.1:
-    dependencies:
-      '@types/trusted-types': 2.0.7
 
   micromatch@4.0.8:
     dependencies:

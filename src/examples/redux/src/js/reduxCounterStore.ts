@@ -1,7 +1,7 @@
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { configureStore, createSlice } from "@reduxjs/toolkit";
 
-interface CounterState {
+export interface CounterState {
 	count: number;
 }
 
@@ -25,12 +25,10 @@ export const counterSlice = createSlice({
 	},
 });
 
-const counterReducer = counterSlice.reducer;
-
 const createCounterStore = () =>
 	configureStore({
 		reducer: {
-			counter: counterReducer,
+			counter: counterSlice.reducer,
 		},
 	});
 

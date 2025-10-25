@@ -2,6 +2,9 @@ import type { TemplateResult } from "lit-html";
 import type IgniteAdapter from "./IgniteAdapter";
 import { StateScope } from "./IgniteAdapter";
 import IgniteElement from "./IgniteElement";
+import type { IgniteJsxChild } from "./renderers/jsx/types";
+import type { RenderStrategyFactory } from "./renderers/RenderStrategy";
+import { resolveConfiguredRenderStrategy } from "./renderers/resolveConfiguredRenderStrategy";
 
 export type BaseRenderArgs<State, Event> = {
 	state: State;
@@ -14,14 +17,17 @@ type AdditionalRenderArgs<
 	RenderArgs extends BaseRenderArgs<State, Event>,
 > = Omit<RenderArgs, keyof BaseRenderArgs<State, Event>>;
 
-type RendererObject<RenderArgs> = {
-	render: (args: RenderArgs) => TemplateResult;
+type RendererObject<RenderArgs, View> = {
+	render: (args: RenderArgs) => View;
 };
 
-export type ComponentRenderer<RenderArgs> =
-	| ((args: RenderArgs) => TemplateResult)
-	| RendererObject<RenderArgs>
-	| (new () => RendererObject<RenderArgs>);
+export type ComponentRenderer<
+	RenderArgs,
+	View = TemplateResult | IgniteJsxChild,
+> =
+	| ((args: RenderArgs) => View)
+	| RendererObject<RenderArgs, View>
+	| (new () => RendererObject<RenderArgs, View>);
 
 export type ComponentFactory<
 	State,
@@ -30,12 +36,17 @@ export type ComponentFactory<
 		State,
 		Event
 	>,
-> = (elementName: string, renderer: ComponentRenderer<RenderArgs>) => void;
+	View = TemplateResult | IgniteJsxChild,
+> = (
+	elementName: string,
+	renderer: ComponentRenderer<RenderArgs, View>,
+) => void;
 
 export type AdapterPack<Factory> = Factory extends ComponentFactory<
 	infer _State,
 	infer _Event,
-	infer RenderArgs
+	infer RenderArgs,
+	infer _View
 >
 	? RenderArgs
 	: Factory extends (
@@ -49,11 +60,13 @@ type FactoryOptions<
 	State,
 	Event,
 	RenderArgs extends BaseRenderArgs<State, Event>,
+	View,
 > = {
 	scope?: StateScope;
 	createAdditionalArgs?: (
 		adapter: IgniteAdapter<State, Event>,
 	) => AdditionalRenderArgs<State, Event, RenderArgs>;
+	createRenderStrategy?: RenderStrategyFactory<View>;
 };
 
 export default function igniteElementFactory<
@@ -63,15 +76,21 @@ export default function igniteElementFactory<
 		State,
 		Event
 	>,
+	View = TemplateResult | IgniteJsxChild,
 >(
 	createAdapter: () => IgniteAdapter<State, Event>,
-	options?: FactoryOptions<State, Event, RenderArgs>,
-): ComponentFactory<State, Event, RenderArgs> {
+	options?: FactoryOptions<State, Event, RenderArgs, View>,
+): ComponentFactory<State, Event, RenderArgs, View> {
 	let sharedAdapter: IgniteAdapter<State, Event> | null = null;
 
 	const createAdditionalArgs =
 		options?.createAdditionalArgs ??
 		(() => ({}) as AdditionalRenderArgs<State, Event, RenderArgs>);
+
+	const configuredFactory = resolveConfiguredRenderStrategy();
+	const renderStrategyFactory: RenderStrategyFactory<View> =
+		options?.createRenderStrategy ??
+		(configuredFactory as RenderStrategyFactory<View>);
 
 	return (elementName, renderer) => {
 		if (customElements.get(elementName)) {
@@ -95,12 +114,12 @@ export default function igniteElementFactory<
 			const additionalArgs = createAdditionalArgs(adapter);
 			const render = resolveRenderer(renderer);
 
-			class SharedIgniteComponent extends IgniteElement<State, Event> {
+			class SharedIgniteComponent extends IgniteElement<State, Event, View> {
 				constructor() {
-					super(adapter);
+					super(adapter, renderStrategyFactory());
 				}
 
-				protected render(): TemplateResult {
+				protected renderView(): View {
 					return render({
 						...additionalArgs,
 						state: this.currentState,
@@ -113,7 +132,7 @@ export default function igniteElementFactory<
 			return;
 		}
 
-		class IsolatedIgniteComponent extends IgniteElement<State, Event> {
+		class IsolatedIgniteComponent extends IgniteElement<State, Event, View> {
 			private readonly additionalArgs: AdditionalRenderArgs<
 				State,
 				Event,
@@ -123,14 +142,14 @@ export default function igniteElementFactory<
 			constructor() {
 				const adapter = createAdapter();
 				adapter.scope ??= StateScope.Isolated;
-				super(adapter);
+				super(adapter, renderStrategyFactory());
 				this.additionalArgs = createAdditionalArgs(adapter);
 				this.renderImpl = resolveRenderer(renderer);
 			}
 
-			private readonly renderImpl: (args: RenderArgs) => TemplateResult;
+			private readonly renderImpl: (args: RenderArgs) => View;
 
-			protected render(): TemplateResult {
+			protected renderView(): View {
 				return this.renderImpl({
 					...this.additionalArgs,
 					state: this.currentState,
@@ -143,19 +162,19 @@ export default function igniteElementFactory<
 	};
 
 	function resolveRenderer(
-		renderer: ComponentRenderer<RenderArgs>,
-	): (args: RenderArgs) => TemplateResult {
+		renderer: ComponentRenderer<RenderArgs, View>,
+	): (args: RenderArgs) => View {
 		if (typeof renderer === "function") {
 			if (
 				renderer.prototype &&
 				typeof renderer.prototype.render === "function"
 			) {
 				const instance = new (
-					renderer as new () => RendererObject<RenderArgs>
+					renderer as new () => RendererObject<RenderArgs, View>
 				)();
 				return (args) => instance.render(args);
 			}
-			return renderer as (args: RenderArgs) => TemplateResult;
+			return renderer as (args: RenderArgs) => View;
 		}
 
 		if (renderer && typeof renderer === "object" && "render" in renderer) {

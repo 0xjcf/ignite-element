@@ -1,6 +1,6 @@
 # Redux + ignite-element Example
 
-This example shows how ignite-element integrates with **Redux Toolkit**, **lit-html**, and **Bootstrap** to drive both shared and isolated counters. Adapter inference means you no longer have to declare `adapter: "redux"`—igniteCore figures it out from the source you provide.
+This example shows how ignite-element integrates with **Redux Toolkit**, **Ignite JSX**, and **Bootstrap** to drive both shared and isolated counters. Adapter inference means you no longer have to declare `adapter: "redux"`—igniteCore figures it out from the source you provide.
 
 ---
 
@@ -33,7 +33,7 @@ This example shows how ignite-element integrates with **Redux Toolkit**, **lit-h
 | Path | Purpose |
 | --- | --- |
 | `reduxCounterStore.ts` | Exports the slice and a store factory used throughout the example. |
-| `reduxExample.ts` | Registers components with `igniteCore` using shared and isolated scopes. |
+| `reduxExample.tsx` | Registers components with `igniteCore` using shared and isolated scopes rendered via Ignite JSX. |
 | `scss/styles.scss` | Bootstrap + custom overrides compiled once and injected globally. |
 | `index.html` | Host page for the custom elements during development. |
 
@@ -46,11 +46,9 @@ The example uses two kinds of sources:
 - **Shared store instance** → reuse across every component registration.
 - **Slice definition** → create a fresh store per component (isolated scope).
 
-```ts
-const sharedStore = counterStore();
-
+```tsx
 export const registerSharedRedux = igniteCore({
-  source: sharedStore, // inferred as shared Redux adapter
+  source: counterStore(),
   states: (snapshot) => ({
     count: snapshot.counter.count,
   }),
@@ -63,7 +61,7 @@ export const registerSharedRedux = igniteCore({
 });
 
 export const registerIsolatedRedux = igniteCore({
-  source: counterSlice, // slice → new store per element
+  source: counterSlice,
   states: (snapshot) => ({
     count: snapshot.counter.count,
   }),
@@ -82,13 +80,15 @@ Each registered element receives `state`, `send`, and the derived facade helpers
 
 ## Styling with Bootstrap
 
-Bootstrap is bundled once for the entire example and applied via `setGlobalStyles`:
+Bootstrap is bundled once for the entire example and injected via `ignite.config.ts`:
 
 ```ts
-import { setGlobalStyles } from "ignite-element";
+import { defineIgniteConfig } from "ignite-element";
 
-const stylesHref = new URL("../scss/styles.scss", import.meta.url).href;
-setGlobalStyles(stylesHref);
+export default defineIgniteConfig({
+  globalStyles: new URL("./src/scss/styles.scss", import.meta.url).href,
+  renderer: "ignite-jsx",
+});
 ```
 
 Individual components can layer on additional markup or include isolated styles (e.g. `link` tags) as needed.

@@ -1,12 +1,12 @@
 import { assign, setup } from "xstate";
 
-interface AdvancedContext {
+export interface AdvancedContext {
 	count: number;
 	darkMode: boolean;
 	logs: string[];
 }
 
-type AdvancedEvent =
+export type AdvancedEvent =
 	| { type: "INC" }
 	| { type: "DEC" }
 	| { type: "TOGGLE_DARK" };

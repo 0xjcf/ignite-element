@@ -1,10 +1,10 @@
 import { assign, setup } from "xstate";
 
-interface TaskContext {
+export interface TaskContext {
 	tasks: { name: string; priority: string; completed: boolean }[];
 }
 
-type TaskEvent =
+export type TaskEvent =
 	| { type: "ADD"; name: string; priority: string }
 	| { type: "TOGGLE"; index: number }
 	| { type: "RESET" };

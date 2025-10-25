@@ -97,4 +97,22 @@ describe("defineIgniteConfig", () => {
 
 		spy.mockRestore();
 	});
+
+	it("stores renderer identifier when provided", () => {
+		defineIgniteConfig({ renderer: "ignite-jsx" });
+		expect(getIgniteConfig()).toEqual({ renderer: "ignite-jsx" });
+	});
+
+	it("warns and falls back to lit for unknown renderer", () => {
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+		defineIgniteConfig({ renderer: "unknown" as never });
+
+		expect(warnSpy).toHaveBeenCalledWith(
+			'[ignite-element] Unknown renderer "unknown" in ignite.config. Supported values are "lit" and "ignite-jsx". Falling back to "lit".',
+		);
+		expect(getIgniteConfig()).toEqual({});
+
+		warnSpy.mockRestore();
+	});
 });

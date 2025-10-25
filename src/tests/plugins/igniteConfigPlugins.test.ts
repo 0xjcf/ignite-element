@@ -42,6 +42,26 @@ describe("igniteConfigVitePlugin", () => {
 		rmSync(root, { recursive: true, force: true });
 	});
 
+	it("uses /@fs imports when the config file is outside the project root", () => {
+		const root = createTempProject({});
+		const externalRoot = mkdtempSync(
+			join(process.cwd(), ".tmp-ignite-config-external-"),
+		);
+		const configFile = resolve(externalRoot, "ignite.config.ts");
+		writeFileSync(configFile, "export default {}");
+
+		const plugin = igniteConfigVitePlugin({ root, configPath: configFile });
+		const tags = runIndexHtml(plugin.transformIndexHtml);
+
+		expect(Array.isArray(tags)).toBe(true);
+		if (Array.isArray(tags)) {
+			expect(tags[0]?.children).toMatch(/^import "\/@fs\/.+";$/);
+		}
+
+		rmSync(root, { recursive: true, force: true });
+		rmSync(externalRoot, { recursive: true, force: true });
+	});
+
 	it("skips injection when no config file is found", () => {
 		const root = createTempProject({});
 

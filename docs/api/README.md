@@ -36,6 +36,24 @@ Lower-level factory used by `igniteCore`. Accepts a callback that returns an ada
 
 It returns a `(tag, renderer)` function identical to the one from `igniteCore`.
 
+## `defineIgniteConfig(config)`
+
+Registers application-wide defaults at module evaluation time. Typical usage lives in `ignite.config.ts`:
+
+```ts
+import { defineIgniteConfig } from "ignite-element";
+
+export default defineIgniteConfig({
+	globalStyles: new URL("./styles.css", import.meta.url).href,
+	renderer: "ignite-jsx", // or "lit"
+});
+```
+
+- `globalStyles` mirrors `setGlobalStyles` but runs once when the module is imported.
+- `renderer` selects the default render strategy (`"ignite-jsx"` by default). Supplying `"lit"` switches back to the template literal strategy. Per-component overrides are still possible via the factory `createRenderStrategy` option.
+
+Bundler plugins (`igniteConfigVitePlugin`, `IgniteConfigWebpackPlugin`) are available to auto-import the config file when present.
+
 ## Styling Helpers
 
 - `setGlobalStyles(href: string)`: injects a stylesheet once and reuses it across components.
@@ -45,8 +63,7 @@ It returns a `(tag, renderer)` function identical to the one from `igniteCore`.
 
 - [x] Adapter inference for XState, Redux, and MobX sources.
 - [x] Facade callbacks for derived state and command helpers.
-- [ ] JSX-friendly wrappers for React/Preact.
-- [ ] JSX-friendly wrappers for Solid.
-- [ ] `ignite.config.(ts|js)` for centralised styling defaults.
+- [x] Ignite JSX renderer strategy and tooling.
+- [x] `ignite.config.(ts|js)` for centralised styling defaults.
 
 For the full acceptance criteria and future enhancements, see [`plans/ACCEPTANCE_CRITERIA.md`](../../plans/ACCEPTANCE_CRITERIA.md).
