@@ -19,7 +19,15 @@ export default defineConfig({
 			},
 		},
 		rollupOptions: {
-			external: ["lit-html", "xstate", "mobx", "redux", "@reduxjs/toolkit"],
+			external: [
+				"lit-html",
+				"xstate",
+				"mobx",
+				"redux",
+				"@reduxjs/toolkit",
+				"node:fs",
+				"node:path",
+			],
 			output: {
 				globals: {
 					xstate: "XState",
