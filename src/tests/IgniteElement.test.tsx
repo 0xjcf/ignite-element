@@ -195,7 +195,13 @@ describe("IgniteElement", () => {
 
 	it("resubscribes to the adapter when reconnected", () => {
 		const sharedAdapter = new MockAdapter(initialState, StateScope.Shared);
-		const sharedComponent = igniteElementFactory(() => sharedAdapter);
+		const createSharedAdapter = Object.assign(
+			vi.fn(() => sharedAdapter),
+			{
+				scope: StateScope.Shared as const,
+			},
+		);
+		const sharedComponent = igniteElementFactory(createSharedAdapter);
 		const name = `ignite-reconnect-element-${crypto.randomUUID()}`;
 
 		sharedComponent(name, ({ state }) => <div>Count: {state?.count}</div>);
@@ -213,10 +219,74 @@ describe("IgniteElement", () => {
 		expect(sharedAdapter.subscribe).toHaveBeenCalledTimes(subscribeCalls + 1);
 	});
 
-	it("does not stop shared adapters on disconnect", () => {
+	it("stops shared adapters when the last instance disconnects", () => {
 		const sharedAdapter = new MockAdapter(initialState, StateScope.Shared);
-		const sharedComponent = igniteElementFactory(() => sharedAdapter);
+		const createSharedAdapter = Object.assign(
+			vi.fn(() => sharedAdapter),
+			{
+				scope: StateScope.Shared as const,
+			},
+		);
+		const sharedComponent = igniteElementFactory(createSharedAdapter);
 		const sharedName = `ignite-shared-element-${crypto.randomUUID()}`;
+
+		sharedComponent(sharedName, ({ state }) => (
+			<div>Count: {state?.count}</div>
+		));
+
+		const sharedElement = document.createElement(sharedName);
+		assertIgniteElement<State, Event>(sharedElement);
+		document.body.appendChild(sharedElement);
+
+		sharedElement.remove();
+
+		expect(sharedAdapter.stop).toHaveBeenCalledTimes(1);
+		expect(sharedAdapter.unsubscribe).toHaveBeenCalledTimes(1);
+	});
+
+	it("does not stop shared adapters while other instances remain connected", () => {
+		const sharedAdapter = new MockAdapter(initialState, StateScope.Shared);
+		const createSharedAdapter = Object.assign(
+			vi.fn(() => sharedAdapter),
+			{
+				scope: StateScope.Shared as const,
+			},
+		);
+		const sharedComponent = igniteElementFactory(createSharedAdapter);
+		const sharedName = `ignite-shared-multi-${crypto.randomUUID()}`;
+
+		sharedComponent(sharedName, ({ state }) => (
+			<div>Count: {state?.count}</div>
+		));
+
+		const firstElement = document.createElement(sharedName);
+		const secondElement = document.createElement(sharedName);
+		assertIgniteElement<State, Event>(firstElement);
+		assertIgniteElement<State, Event>(secondElement);
+
+		document.body.append(firstElement, secondElement);
+		expect(createSharedAdapter).toHaveBeenCalledTimes(1);
+
+		firstElement.remove();
+		expect(sharedAdapter.stop).not.toHaveBeenCalled();
+
+		secondElement.remove();
+		expect(createSharedAdapter).toHaveBeenCalledTimes(1);
+		expect(sharedAdapter.stop).toHaveBeenCalledTimes(1);
+	});
+
+	it("allows opting out of shared lifecycle management", () => {
+		const sharedAdapter = new MockAdapter(initialState, StateScope.Shared);
+		const createSharedAdapter = Object.assign(
+			vi.fn(() => sharedAdapter),
+			{
+				scope: StateScope.Shared as const,
+			},
+		);
+		const sharedComponent = igniteElementFactory(createSharedAdapter, {
+			cleanup: false,
+		});
+		const sharedName = `ignite-shared-manual-${crypto.randomUUID()}`;
 
 		sharedComponent(sharedName, ({ state }) => (
 			<div>Count: {state?.count}</div>

@@ -39,6 +39,7 @@ export type ElementFactoryOptions<
 		adapter: IgniteAdapter<State, Event>,
 	) => AdditionalRenderArgs<State, Event, RenderArgs>;
 	createRenderStrategy?: RenderStrategyFactory<View>;
+	cleanup?: boolean;
 };
 
 export type ElementFactoryCreator<
@@ -94,6 +95,7 @@ export type ComponentFactoryOptions<
 	resolveCommandActor?: (adapter: IgniteAdapter<State, Event>) => CommandActor;
 	createAdditionalArgs?: (adapter: IgniteAdapter<State, Event>) => Additional;
 	createRenderStrategy?: RenderStrategyFactory<View>;
+	cleanup?: boolean;
 };
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
@@ -221,6 +223,7 @@ export function createComponentFactoryWithRenderer<
 	return elementFactory(createAdapter, {
 		scope: scope ?? createAdapter.scope,
 		createRenderStrategy: options?.createRenderStrategy,
+		cleanup: options?.cleanup,
 		createAdditionalArgs: (adapter: IgniteAdapter<State, Event>) => {
 			const extras = userAdditionalArgs(adapter);
 			const merged = Object.create(null) as AdditionalRenderArgs<

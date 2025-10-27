@@ -96,6 +96,7 @@ type XStateConfig<
 	source: Machine | XStateActorInstance<Machine>;
 	states?: StateCallback;
 	commands?: CommandCallback;
+	cleanup?: boolean;
 };
 
 type ReduxBlueprintConfig<
@@ -114,6 +115,7 @@ type ReduxBlueprintConfig<
 	source: Source;
 	states?: StateCallback;
 	commands?: CommandCallback;
+	cleanup?: boolean;
 };
 
 type ReduxInstanceConfig<
@@ -135,6 +137,7 @@ type ReduxInstanceConfig<
 	source: StoreInstance;
 	states?: StateCallback;
 	commands?: CommandCallback;
+	cleanup?: boolean;
 };
 
 type MobxConfig<
@@ -150,6 +153,7 @@ type MobxConfig<
 	source: (() => State) | State;
 	states?: StateCallback;
 	commands?: CommandCallback;
+	cleanup?: boolean;
 };
 
 export type IgniteCoreConfig =
@@ -158,18 +162,21 @@ export type IgniteCoreConfig =
 			source: AnyStateMachine | XStateActorInstance<AnyStateMachine>;
 			states?: AnyStatesCallback;
 			commands?: AnyCommandsCallback;
+			cleanup?: boolean;
 	  }
 	| {
 			adapter?: "redux";
 			source: Slice | EnhancedStore | (() => EnhancedStore);
 			states?: AnyStatesCallback;
 			commands?: AnyCommandsCallback;
+			cleanup?: boolean;
 	  }
 	| {
 			adapter?: "mobx";
 			source: (() => object) | object;
 			states?: AnyStatesCallback;
 			commands?: AnyCommandsCallback;
+			cleanup?: boolean;
 	  };
 
 // Overload for XState
@@ -276,6 +283,7 @@ export function igniteCore(options: IgniteCoreConfig) {
 				scope: adapterFactory.scope,
 				states: options.states,
 				commands: options.commands,
+				cleanup: options.cleanup,
 			});
 		}
 
@@ -287,6 +295,7 @@ export function igniteCore(options: IgniteCoreConfig) {
 					scope: adapterFactory.scope,
 					states: options.states,
 					commands: options.commands,
+					cleanup: options.cleanup,
 				});
 			}
 
@@ -298,6 +307,7 @@ export function igniteCore(options: IgniteCoreConfig) {
 					scope: adapterFactory.scope,
 					states: options.states,
 					commands: options.commands,
+					cleanup: options.cleanup,
 				});
 			}
 
@@ -307,6 +317,7 @@ export function igniteCore(options: IgniteCoreConfig) {
 					scope: adapterFactory.scope,
 					states: options.states,
 					commands: options.commands,
+					cleanup: options.cleanup,
 				});
 			}
 
@@ -321,6 +332,7 @@ export function igniteCore(options: IgniteCoreConfig) {
 				scope: adapterFactory.scope,
 				states: options.states,
 				commands: options.commands,
+				cleanup: options.cleanup,
 			});
 		}
 

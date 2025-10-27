@@ -18,6 +18,7 @@
 - **Callback facade:** `igniteCore` now accepts `states(snapshot)` and `commands(actor)` callbacks. The render arguments you receive already include these derived values alongside the `send` helper, replacing the old mapping objects.
 - **Flexible renderer support:** The registration function (`(tag, renderer) => void`) now accepts plain functions, objects with a `render` method, or classes so you can share renderer instances safely.
 - **Shared vs. isolated detection:** Passing a running XState actor / Redux store / MobX observable automatically yields shared scope; providing factories or machine definitions yields isolated scope.
+- **Shared lifecycle management:** Shared adapters now stop automatically when the last element disconnects, with an opt-out flag (`cleanup: false`) for hosts that prefer manual control.
 - **Styling upgrades:** `setGlobalStyles` resolves asset URLs correctly inside Vite and custom build setups.
 - **Renderer roadmap:** An Ignite-authored JSX renderer and strategy abstraction are in progress—watch the checklist below for updates.
 - **Bug fixes:** Improved cleanup behaviour in `IgniteElement` and adapters to avoid stale subscriptions.
