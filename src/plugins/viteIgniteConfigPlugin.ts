@@ -1,4 +1,5 @@
-import { relative, sep } from "node:path";
+import { existsSync } from "node:fs";
+import { relative, resolve, sep } from "node:path";
 import { resolveConfigFile } from "./configFile";
 
 export interface IgniteConfigVitePluginOptions {
@@ -28,6 +29,26 @@ function toPosixPath(path: string): string {
 
 function toFileSystemPath(path: string): string {
 	return `/@fs/${toPosixPath(path)}`;
+}
+
+function resolveLoadHelperSpecifier(): string | undefined {
+	const candidates = [
+		"../config/loadIgniteConfig.ts",
+		"../config/loadIgniteConfig.js",
+		"../config/loadIgniteConfig.mjs",
+		"../config/loadIgniteConfig.es.js",
+		"../config/loadIgniteConfig.es.mjs",
+		"../config/loadIgniteConfig.cjs",
+	];
+
+	for (const candidate of candidates) {
+		const absolute = resolve(__dirname, candidate);
+		if (existsSync(absolute)) {
+			return toFileSystemPath(absolute);
+		}
+	}
+
+	return undefined;
 }
 
 type ConfigWithRoot = { root: string };
@@ -67,11 +88,27 @@ export function igniteConfigVitePlugin(
 			return;
 		}
 
+		const loadHelperFallback = resolveLoadHelperSpecifier();
+		const loadHelperImport = JSON.stringify(
+			"ignite-element/config/loadIgniteConfig",
+		);
+		const fallbackImport = loadHelperFallback
+			? `({ loadIgniteConfig } = await import(${JSON.stringify(loadHelperFallback)}));`
+			: `throw error;`;
+		const configModuleImport = JSON.stringify(importSpecifier);
+		const script = `let loadIgniteConfig;
+try {
+	({ loadIgniteConfig } = await import(${loadHelperImport}));
+} catch (error) {
+	${fallbackImport}
+}
+await loadIgniteConfig(() => import(${configModuleImport}));`;
+
 		const tags = [
 			{
 				tag: "script",
 				attrs: { type: "module" },
-				children: `import ${JSON.stringify(importSpecifier)};`,
+				children: script,
 				injectTo,
 			},
 		];

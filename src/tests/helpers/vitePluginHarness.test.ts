@@ -4,6 +4,7 @@ import type {
 	Plugin as VitePlugin,
 } from "vite";
 import { describe, expect, it } from "vitest";
+import type { PluginContextStub } from "./vitePluginHarness";
 import {
 	minimalPluginContext,
 	runConfigResolved,
@@ -152,5 +153,48 @@ describe("vitePluginHarness", () => {
 		expect(() =>
 			runConfigResolved(undefined, { root: "/tmp" } as ResolvedConfig),
 		).not.toThrow();
+	});
+
+	it("runResolveId exposes plugin context helpers", async () => {
+		const hook = async function (this: PluginContextStub, id: string) {
+			expect(this.meta.viteVersion).toBe("test");
+			this.debug("debug message");
+			this.info("info message");
+			this.warn("warn message");
+
+			this.addWatchFile("virtual:id");
+			this.cache.delete("virtual:id");
+			this.cache.get("virtual:id");
+			this.cache.has("virtual:id");
+			this.cache.set("virtual:id", "value");
+			this.emitFile();
+			this.getFileName();
+			[...this.getModuleIds()];
+			this.getModuleInfo("virtual:id");
+			this.getWatchFiles();
+
+			const loadResult = await this.load(id);
+			expect(loadResult).toEqual({ ast: null, code: null });
+
+			this.parse(id);
+
+			const resolved = await this.resolve(id);
+			expect(resolved).toBeNull();
+
+			this.setAssetSource(id, "source");
+
+			return "handled";
+		} as unknown as VitePlugin["resolveId"];
+
+		await expect(runResolveId(hook, "entry")).resolves.toBe("handled");
+	});
+
+	it("minimalPluginContext.error wraps string errors", () => {
+		expect(() => minimalPluginContext.error("boom")).toThrowError("boom");
+	});
+
+	it("minimalPluginContext.error rethrows error objects", () => {
+		const error = new Error("kapow");
+		expect(() => minimalPluginContext.error(error)).toThrow(error);
 	});
 });

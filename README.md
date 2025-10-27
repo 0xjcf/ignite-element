@@ -161,7 +161,7 @@ Then opt-in to the Ignite JSX runtime (default) in your project configuration:
 }
 ```
 
-Prefer lit templates? Install `lit-html` and set `renderer: "lit"` in your `ignite.config.ts`.
+Prefer lit templates? Install `lit-html` and set `renderer: "lit"` in your `ignite.config.ts`. The Ignite config plugins automatically register the lit strategy; if you skip the plugins, add a single `import "ignite-element/renderers/lit"` alongside your config.
 
 ---
 

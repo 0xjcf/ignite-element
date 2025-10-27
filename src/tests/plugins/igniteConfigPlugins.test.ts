@@ -36,7 +36,12 @@ describe("igniteConfigVitePlugin", () => {
 			expect(tags).toHaveLength(1);
 			const injected = tags[0];
 			expect(injected?.tag).toBe("script");
-			expect(injected?.children).toBe('import "./ignite.config.ts";');
+			expect(injected?.children).toContain(
+				'await loadIgniteConfig(() => import("./ignite.config.ts"));',
+			);
+			expect(injected?.children).toContain(
+				'await import("ignite-element/config/loadIgniteConfig")',
+			);
 		}
 
 		rmSync(root, { recursive: true, force: true });
@@ -55,7 +60,12 @@ describe("igniteConfigVitePlugin", () => {
 
 		expect(Array.isArray(tags)).toBe(true);
 		if (Array.isArray(tags)) {
-			expect(tags[0]?.children).toMatch(/^import "\/@fs\/.+";$/);
+			expect(tags[0]?.children).toMatch(
+				/await loadIgniteConfig\(\(\) => import\("\/@fs\/.+ignite\.config\.ts"\)\);/,
+			);
+			expect(tags[0]?.children).toContain(
+				'await import("ignite-element/config/loadIgniteConfig")',
+			);
 		}
 
 		rmSync(root, { recursive: true, force: true });
@@ -95,15 +105,30 @@ describe("igniteConfigVitePlugin", () => {
 		expect(Array.isArray(tags)).toBe(true);
 		if (Array.isArray(tags)) {
 			expect(tags[0]?.injectTo).toBe("body");
-			expect(tags[0]?.children).toBe('import "./ignite.config.ts";');
+			expect(tags[0]?.children).toContain(
+				'await loadIgniteConfig(() => import("./ignite.config.ts"));',
+			);
+			expect(tags[0]?.children).toContain(
+				'await import("ignite-element/config/loadIgniteConfig")',
+			);
 		}
 
 		rmSync(root, { recursive: true, force: true });
 	});
 });
 
+function expectConfigLoader(moduleId: string, configFile: string) {
+	expect(moduleId.startsWith("data:text/javascript,")).toBe(true);
+	const decoded = decodeURIComponent(
+		moduleId.replace("data:text/javascript,", ""),
+	);
+	expect(decoded).toContain(
+		`await loadIgniteConfig(() => import(${JSON.stringify(configFile)}));`,
+	);
+}
+
 describe("IgniteConfigWebpackPlugin", () => {
-	it("prepends the config file to simple string entries", async () => {
+	it("prepends a loader module to simple string entries", async () => {
 		const root = createTempProject({
 			"ignite.config.ts": "export default {}",
 		});
@@ -120,12 +145,17 @@ describe("IgniteConfigWebpackPlugin", () => {
 		const plugin = new IgniteConfigWebpackPlugin();
 		plugin.apply(compiler);
 
-		expect(compiler.options.entry).toEqual([configFile, "./src/index.js"]);
+		expect(Array.isArray(compiler.options.entry)).toBe(true);
+		if (Array.isArray(compiler.options.entry)) {
+			const [loader, original] = compiler.options.entry;
+			expectConfigLoader(loader as string, configFile);
+			expect(original).toBe("./src/index.js");
+		}
 
 		rmSync(root, { recursive: true, force: true });
 	});
 
-	it("injects the config file into object style entries", () => {
+	it("injects the loader into object style entries", () => {
 		const root = createTempProject({
 			"ignite.config.ts": "export default {}",
 		});
@@ -144,14 +174,25 @@ describe("IgniteConfigWebpackPlugin", () => {
 		const plugin = new IgniteConfigWebpackPlugin();
 		plugin.apply(compiler);
 
-		expect(compiler.options.entry).toEqual({
-			main: [configFile, "./src/index.js"],
-		});
+		expect(typeof compiler.options.entry).toBe("object");
+		if (
+			compiler.options.entry &&
+			typeof compiler.options.entry === "object" &&
+			!Array.isArray(compiler.options.entry)
+		) {
+			const mainEntry = compiler.options.entry.main as string[];
+			expect(Array.isArray(mainEntry)).toBe(true);
+			if (Array.isArray(mainEntry)) {
+				const [loader, original] = mainEntry;
+				expectConfigLoader(loader as string, configFile);
+				expect(original).toBe("./src/index.js");
+			}
+		}
 
 		rmSync(root, { recursive: true, force: true });
 	});
 
-	it("prepends config when entry is a function", async () => {
+	it("prepends the loader when entry is a function", async () => {
 		const root = createTempProject({
 			"ignite.config.ts": "export default {}",
 		});
@@ -172,7 +213,12 @@ describe("IgniteConfigWebpackPlugin", () => {
 		expect(typeof entry).toBe("function");
 		if (typeof entry === "function") {
 			const resolved = await entry();
-			expect(resolved).toEqual([configFile, "./src/index.js"]);
+			expect(Array.isArray(resolved)).toBe(true);
+			if (Array.isArray(resolved)) {
+				const [loader, original] = resolved;
+				expectConfigLoader(loader as string, configFile);
+				expect(original).toBe("./src/index.js");
+			}
 		}
 
 		rmSync(root, { recursive: true, force: true });
@@ -218,28 +264,48 @@ describe("IgniteConfigWebpackPlugin", () => {
 		const plugin = new IgniteConfigWebpackPlugin();
 		plugin.apply(compiler);
 
-		expect(compiler.options.entry).toEqual({
-			main: {
-				import: [configFile, "./src/index.js"],
-			},
-			admin: [configFile, "./src/admin.js"],
-		});
+		expect(typeof compiler.options.entry).toBe("object");
+		if (
+			compiler.options.entry &&
+			typeof compiler.options.entry === "object" &&
+			!Array.isArray(compiler.options.entry)
+		) {
+			const mainEntry = (compiler.options.entry.main as { import: string[] })
+				.import;
+			expect(Array.isArray(mainEntry)).toBe(true);
+			if (Array.isArray(mainEntry)) {
+				const [loader, original] = mainEntry;
+				expectConfigLoader(loader as string, configFile);
+				expect(original).toBe("./src/index.js");
+			}
+
+			const adminEntry = compiler.options.entry.admin as string[];
+			expect(Array.isArray(adminEntry)).toBe(true);
+			if (Array.isArray(adminEntry)) {
+				const [loader, original] = adminEntry;
+				expectConfigLoader(loader as string, configFile);
+				expect(original).toBe("./src/admin.js");
+			}
+		}
 
 		rmSync(root, { recursive: true, force: true });
 	});
 
-	it("avoids duplicating config when already present", () => {
+	it("avoids duplicating the loader when already present", () => {
 		const root = createTempProject({
 			"ignite.config.ts": "export default {}",
 		});
 
 		const configFile = resolve(root, "ignite.config.ts");
+		const loaderModule = `data:text/javascript,${encodeURIComponent(
+			`import { loadIgniteConfig } from "ignite-element/config/loadIgniteConfig";\nawait loadIgniteConfig(() => import(${JSON.stringify(configFile)}));`,
+		)}`;
 
 		const compiler: WebpackCompilerLike = {
 			context: root,
 			options: {
 				entry: {
-					main: [configFile, "./src/index.js"],
+					main: [loaderModule, "./src/index.js"],
 				},
 			},
 		};
@@ -248,7 +314,7 @@ describe("IgniteConfigWebpackPlugin", () => {
 		plugin.apply(compiler);
 
 		expect(compiler.options.entry).toEqual({
-			main: [configFile, "./src/index.js"],
+			main: [loaderModule, "./src/index.js"],
 		});
 
 		rmSync(root, { recursive: true, force: true });

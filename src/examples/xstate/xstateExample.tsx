@@ -1,6 +1,6 @@
 import { type ActorRefFrom, createActor, type StateFrom } from "xstate";
-import { igniteCore } from "../../IgniteCore";
 import type { AdapterPack } from "../../IgniteElementFactory";
+import { igniteCore } from "../../xstate";
 import { advancedMachine } from "./advancedCounterMachine";
 
 // Start a single actor that will be shared by every component registered with

@@ -1,51 +1,67 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { defineIgniteConfig, type IgniteConfig } from "../../config";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { defineIgniteConfig } from "../../config";
 import { createIgniteJsxRenderStrategy } from "../../renderers/jsx/IgniteJsxRenderStrategy";
 import { createLitRenderStrategy } from "../../renderers/LitRenderStrategy";
-import { resolveConfiguredRenderStrategy } from "../../renderers/resolveConfiguredRenderStrategy";
+import {
+	clearRegisteredRenderStrategiesForTests,
+	registerRenderStrategy,
+	resolveConfiguredRenderStrategy,
+} from "../../renderers/resolveConfiguredRenderStrategy";
 
 const CONFIG_SYMBOL = Symbol.for("ignite-element.config");
 
-function clearConfig(): void {
-	const registry = globalThis as typeof globalThis & {
-		[CONFIG_SYMBOL]?: IgniteConfig;
-	};
+type ConfigRegistry = typeof globalThis & {
+	[CONFIG_SYMBOL]?: unknown;
+};
+
+const registry = globalThis as ConfigRegistry;
+
+function resetConfig() {
 	delete registry[CONFIG_SYMBOL];
 }
 
 describe("resolveConfiguredRenderStrategy", () => {
-	afterEach(() => {
-		clearConfig();
+	beforeEach(() => {
+		clearRegisteredRenderStrategiesForTests();
+		resetConfig();
 		vi.restoreAllMocks();
 	});
 
-	it("returns Ignite JSX strategy by default", () => {
-		const factory = resolveConfiguredRenderStrategy();
-		expect(factory).toBe(createIgniteJsxRenderStrategy);
+	afterEach(() => {
+		resetConfig();
 	});
 
-	it("returns Ignite JSX strategy when configured", () => {
-		defineIgniteConfig({ renderer: "ignite-jsx" });
-		const factory = resolveConfiguredRenderStrategy();
-		expect(factory).toBe(createIgniteJsxRenderStrategy);
-	});
-
-	it("warns and falls back to lit on unknown renderer", () => {
-		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-		defineIgniteConfig({ renderer: "ignite-jsx" });
-		// Directly set an unsupported renderer in the registry to simulate stale config
-		const registry = globalThis as typeof globalThis & {
-			[CONFIG_SYMBOL]?: IgniteConfig & { renderer?: string };
-		};
-		registry[CONFIG_SYMBOL] = {
-			renderer: "unknown",
-		} as unknown as IgniteConfig;
-
-		const factory = resolveConfiguredRenderStrategy();
-		expect(factory).toBe(createLitRenderStrategy);
-		expect(warnSpy).toHaveBeenCalledWith(
-			'[ignite-element] Unknown renderer "unknown" in ignite.config. Falling back to "lit".',
+	it("throws when no strategies are registered", () => {
+		expect(() => resolveConfiguredRenderStrategy()).toThrowError(
+			"No render strategies have been registered",
 		);
-		warnSpy.mockRestore();
+	});
+
+	it("returns the ignite-jsx strategy by default", () => {
+		registerRenderStrategy("ignite-jsx", createIgniteJsxRenderStrategy);
+		const strategy = resolveConfiguredRenderStrategy();
+		expect(strategy).toBe(createIgniteJsxRenderStrategy);
+	});
+
+	it("falls back to ignite-jsx when configured renderer is missing", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		registerRenderStrategy("ignite-jsx", createIgniteJsxRenderStrategy);
+		defineIgniteConfig({ renderer: "lit" });
+
+		const strategy = resolveConfiguredRenderStrategy();
+
+		expect(strategy).toBe(createIgniteJsxRenderStrategy);
+		expect(warn).toHaveBeenCalledWith(
+			expect.stringContaining('Render strategy "lit" is not registered'),
+		);
+	});
+
+	it("resolves the configured renderer when registered", () => {
+		registerRenderStrategy("ignite-jsx", createIgniteJsxRenderStrategy);
+		registerRenderStrategy("lit", createLitRenderStrategy);
+		defineIgniteConfig({ renderer: "lit" });
+
+		const strategy = resolveConfiguredRenderStrategy();
+		expect(strategy).toBe(createLitRenderStrategy);
 	});
 });

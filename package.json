@@ -11,7 +11,44 @@
 			"import": "./dist/ignite-element.es.js",
 			"require": "./dist/ignite-element.cjs.js",
 			"default": "./dist/ignite-element.es.js"
-		}
+		},
+		"./xstate": {
+			"types": "./dist/types/xstate.d.ts",
+			"import": "./dist/xstate.es.js",
+			"require": "./dist/xstate.cjs.js",
+			"default": "./dist/xstate.es.js"
+		},
+		"./redux": {
+			"types": "./dist/types/redux.d.ts",
+			"import": "./dist/redux.es.js",
+			"require": "./dist/redux.cjs.js",
+			"default": "./dist/redux.es.js"
+		},
+		"./mobx": {
+			"types": "./dist/types/mobx.d.ts",
+			"import": "./dist/mobx.es.js",
+			"require": "./dist/mobx.cjs.js",
+			"default": "./dist/mobx.es.js"
+		},
+		"./renderers/ignite-jsx": {
+			"types": "./dist/types/renderers/ignite-jsx.d.ts",
+			"import": "./dist/renderers/ignite-jsx.es.js",
+			"require": "./dist/renderers/ignite-jsx.cjs.js",
+			"default": "./dist/renderers/ignite-jsx.es.js"
+		},
+		"./renderers/lit": {
+			"types": "./dist/types/renderers/lit.d.ts",
+			"import": "./dist/renderers/lit.es.js",
+			"require": "./dist/renderers/lit.cjs.js",
+			"default": "./dist/renderers/lit.es.js"
+		},
+		"./config/loadIgniteConfig": {
+			"types": "./dist/types/config/loadIgniteConfig.d.ts",
+			"import": "./dist/config/loadIgniteConfig.es.js",
+			"require": "./dist/config/loadIgniteConfig.cjs.js",
+			"default": "./dist/config/loadIgniteConfig.es.js"
+		},
+		"./package.json": "./package.json"
 	},
 	"description": "A framework-agnostic library for creating web components with state management support.",
 	"repository": {
@@ -57,20 +94,20 @@
 		"prepare": "husky"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.2.6",
+		"@biomejs/biome": "2.3.1",
 		"@changesets/cli": "^2.29.7",
 		"@commitlint/cli": "^20.1.0",
 		"@commitlint/config-conventional": "^20.0.0",
-		"@playwright/test": "^1.56.0",
+		"@playwright/test": "^1.56.1",
 		"@types/jsdom": "^27.0.0",
-		"@vitest/coverage-v8": "^3.2.4",
+		"@vitest/coverage-v8": "^4.0.3",
 		"chalk": "^5.6.2",
 		"husky": "^9.1.7",
-		"jsdom": "^27.0.0",
+		"jsdom": "^27.0.1",
 		"typescript": "^5.9.3",
-		"vite": "^7.1.10",
+		"vite": "^7.1.12",
 		"vite-plugin-dts": "^4.5.4",
-		"vitest": "^3.2.4",
+		"vitest": "^4.0.3",
 		"xstate": "^5.23.0"
 	},
 	"peerDependencies": {

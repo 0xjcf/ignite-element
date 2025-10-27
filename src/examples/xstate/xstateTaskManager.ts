@@ -1,36 +1,45 @@
 import { html } from "lit-html";
-import { igniteCore } from "../../IgniteCore";
+import type { ActorRefFrom, StateFrom } from "xstate";
 import type { AdapterPack } from "../../IgniteElementFactory";
+import { igniteCore } from "../../xstate";
 import { taskManagerMachine } from "./taskManagerMachine";
 
 import "./ignite.config";
 
+const resolveTaskManagerState = (
+	snapshot: StateFrom<typeof taskManagerMachine>,
+) => {
+	const tasks = snapshot.context.tasks;
+	const completedCount = tasks.filter((task) => task.completed).length;
+	const totalTasks = tasks.length;
+	const completionPercentage = totalTasks
+		? (completedCount / totalTasks) * 100
+		: 0;
+
+	return {
+		tasks,
+		completedCount,
+		totalTasks,
+		completionPercentage,
+		isCompleted: snapshot.matches("completed"),
+		currentState: snapshot.value,
+	};
+};
+
+const resolveTaskManagerCommands = (
+	actor: ActorRefFrom<typeof taskManagerMachine>,
+) => ({
+	addTask: (name: string, priority: string) =>
+		actor.send({ type: "ADD", name, priority }),
+	toggleTask: (index: number) => actor.send({ type: "TOGGLE", index }),
+	resetTasks: () => actor.send({ type: "RESET" }),
+});
+
 const TaskManagerComponent = igniteCore({
 	adapter: "xstate",
 	source: taskManagerMachine,
-	states: (snapshot) => {
-		const tasks = snapshot.context.tasks;
-		const completedCount = tasks.filter((task) => task.completed).length;
-		const totalTasks = tasks.length;
-		const completionPercentage = totalTasks
-			? (completedCount / totalTasks) * 100
-			: 0;
-
-		return {
-			tasks,
-			completedCount,
-			totalTasks,
-			completionPercentage,
-			isCompleted: snapshot.matches("completed"),
-			currentState: snapshot.value,
-		};
-	},
-	commands: (actor) => ({
-		addTask: (name: string, priority: string) =>
-			actor.send({ type: "ADD", name, priority }),
-		toggleTask: (index: number) => actor.send({ type: "TOGGLE", index }),
-		resetTasks: () => actor.send({ type: "RESET" }),
-	}),
+	states: resolveTaskManagerState,
+	commands: resolveTaskManagerCommands,
 });
 
 type TaskManagerRenderArgs = AdapterPack<typeof TaskManagerComponent>;

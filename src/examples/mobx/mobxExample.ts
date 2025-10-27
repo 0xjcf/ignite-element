@@ -1,8 +1,6 @@
 import { html } from "lit-html";
-import { igniteCore } from "../../IgniteCore";
+import { igniteCore } from "../../mobx";
 import counterStore from "./mobxCounterStore";
-
-import "./ignite.config";
 
 type CounterStoreInstance = ReturnType<typeof counterStore>;
 

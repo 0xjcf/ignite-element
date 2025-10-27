@@ -12,9 +12,15 @@ export {
 	defineIgniteConfig,
 	getIgniteConfig,
 } from "./config";
+export { loadIgniteConfig } from "./config/loadIgniteConfig";
 export { setGlobalStyles } from "./globalStyles";
 export { StateScope } from "./IgniteAdapter";
-export { igniteCore } from "./IgniteCore";
+export {
+	igniteCore,
+	igniteCoreMobx,
+	igniteCoreRedux,
+	igniteCoreXState,
+} from "./IgniteCore";
 export {
 	type AdapterPack,
 	type BaseRenderArgs as IgniteRenderArgs,
@@ -30,3 +36,7 @@ export {
 	type IgniteConfigWebpackPluginOptions,
 } from "./plugins/webpackIgniteConfigPlugin";
 export type { RenderArgs } from "./RenderArgs";
+export {
+	registerRenderStrategy,
+	resolveConfiguredRenderStrategy,
+} from "./renderers/resolveConfiguredRenderStrategy";

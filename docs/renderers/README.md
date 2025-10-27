@@ -127,8 +127,8 @@ component("class-counter", CounterView);
   });
   ```
 
-  Set `renderer: "lit"` to opt into the lit strategy across the project. Bundler plugins auto-import this file when present.
-- When an unknown renderer is configured, ignite-element falls back to `"lit"` and emits a warning.
+  Set `renderer: "lit"` to opt into the lit strategy across the project. The config plugins import the lit entry automatically; if you’re skipping them, add `import "ignite-element/renderers/lit"` alongside your config.
+- When an unknown renderer is configured (or the strategy was never registered), ignite-element falls back to `"ignite-jsx"` and emits a warning.
 
 ## Migration Plan
 

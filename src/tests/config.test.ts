@@ -1,4 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+	afterAll,
+	afterEach,
+	beforeAll,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	vi,
+} from "vitest";
 import {
 	defineIgniteConfig,
 	getIgniteConfig,
@@ -7,6 +16,24 @@ import {
 import * as globalStylesModule from "../globalStyles";
 
 const CONFIG_SYMBOL = Symbol.for("ignite-element.config");
+const litLoaderSpy = vi.fn();
+
+vi.mock("../renderers/lit", () => {
+	litLoaderSpy();
+	return {
+		__esModule: true,
+	};
+});
+
+let loadIgniteConfig: typeof import("../config/loadIgniteConfig")["loadIgniteConfig"];
+
+beforeAll(async () => {
+	({ loadIgniteConfig } = await import("../config/loadIgniteConfig"));
+});
+
+afterAll(() => {
+	litLoaderSpy.mockReset();
+});
 
 function clearConfig(): void {
 	const registry = globalThis as typeof globalThis & {
@@ -114,5 +141,56 @@ describe("defineIgniteConfig", () => {
 		expect(getIgniteConfig()).toEqual({});
 
 		warnSpy.mockRestore();
+	});
+});
+
+describe("loadIgniteConfig", () => {
+	beforeEach(() => {
+		litLoaderSpy.mockClear();
+	});
+
+	it("loads the lit renderer when requested by the config", async () => {
+		await loadIgniteConfig(async () => ({
+			default: { renderer: "lit" } satisfies IgniteConfig,
+		}));
+
+		expect(litLoaderSpy).toHaveBeenCalledTimes(1);
+	});
+
+	it("skips renderer imports when config omits renderer", async () => {
+		await loadIgniteConfig(async () => ({
+			default: { globalStyles: "./styles.css" },
+		}));
+
+		expect(litLoaderSpy).not.toHaveBeenCalled();
+	});
+
+	it("supports configs exported directly without wrapper objects", async () => {
+		const config = await loadIgniteConfig(
+			async () =>
+				({
+					globalStyles: "./direct.css",
+				}) as IgniteConfig,
+		);
+
+		expect(config).toEqual({ globalStyles: "./direct.css" });
+		expect(litLoaderSpy).not.toHaveBeenCalled();
+	});
+
+	it("returns undefined when loader does not yield a config object", async () => {
+		const result = await loadIgniteConfig(
+			async () => 42 as unknown as IgniteConfig,
+		);
+
+		expect(result).toBeUndefined();
+		expect(litLoaderSpy).not.toHaveBeenCalled();
+	});
+
+	it("ignores unknown renderers", async () => {
+		await loadIgniteConfig(async () => ({
+			default: { renderer: "unknown" as never },
+		}));
+
+		expect(litLoaderSpy).not.toHaveBeenCalled();
 	});
 });

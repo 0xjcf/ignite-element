@@ -1,34 +1,48 @@
 /** @jsxImportSource ../../../../renderers/jsx */
 
-import { igniteCore } from "../../../../IgniteCore";
+import type {
+	ReduxSliceCommandActor,
+	ReduxStoreCommandActor,
+} from "../../../../RenderArgs";
+import { igniteCore } from "../../../../redux";
 import counterStore, { counterSlice } from "./reduxCounterStore";
+
+type CounterStoreInstance = ReturnType<typeof counterStore>;
+type CounterSnapshot = ReturnType<CounterStoreInstance["getState"]>;
+
+const resolveReduxState = (snapshot: CounterSnapshot) => ({
+	count: snapshot.counter.count,
+});
+
+type SharedCommandActor = ReduxStoreCommandActor<CounterStoreInstance>;
+type SliceCommandActor = ReduxSliceCommandActor<typeof counterSlice>;
+
+const resolveSharedCommands = (actor: SharedCommandActor) => ({
+	decrement: () => actor.dispatch(counterSlice.actions.decrement()),
+	increment: () => actor.dispatch(counterSlice.actions.increment()),
+	addByAmount: (value: number) =>
+		actor.dispatch(counterSlice.actions.addByAmount(value)),
+});
+
+const resolveIsolatedCommands = (actor: SliceCommandActor) => ({
+	decrement: () => actor.dispatch(counterSlice.actions.decrement()),
+	increment: () => actor.dispatch(counterSlice.actions.increment()),
+	addByAmount: (value: number) =>
+		actor.dispatch(counterSlice.actions.addByAmount(value)),
+});
 
 const sharedStore = counterStore();
 
 export const registerSharedRedux = igniteCore({
 	source: sharedStore,
-	states: (snapshot) => ({
-		count: snapshot.counter.count,
-	}),
-	commands: (store) => ({
-		decrement: () => store.dispatch(counterSlice.actions.decrement()),
-		increment: () => store.dispatch(counterSlice.actions.increment()),
-		addByAmount: (value: number) =>
-			store.dispatch(counterSlice.actions.addByAmount(value)),
-	}),
+	states: resolveReduxState,
+	commands: resolveSharedCommands,
 });
 
 export const registerIsolatedRedux = igniteCore({
 	source: counterSlice,
-	states: (snapshot) => ({
-		count: snapshot.counter.count,
-	}),
-	commands: (store) => ({
-		decrement: () => store.dispatch(counterSlice.actions.decrement()),
-		increment: () => store.dispatch(counterSlice.actions.increment()),
-		addByAmount: (value: number) =>
-			store.dispatch(counterSlice.actions.addByAmount(value)),
-	}),
+	states: resolveReduxState,
+	commands: resolveIsolatedCommands,
 });
 
 registerSharedRedux(

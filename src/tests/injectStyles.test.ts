@@ -1,3 +1,4 @@
+import type { MockInstance } from "vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getGlobalStyles } from "../globalStyles";
 import injectStyles from "../injectStyles";
@@ -7,7 +8,7 @@ vi.mock("../globalStyles");
 
 describe("injectStyles", () => {
 	let shadowRoot: ShadowRoot;
-	let warnSpy: ReturnType<typeof vi.spyOn>;
+	let warnSpy: MockInstance<typeof console.warn>;
 
 	beforeEach(() => {
 		// Reset all mocks and modules

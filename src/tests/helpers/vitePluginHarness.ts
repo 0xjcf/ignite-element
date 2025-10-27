@@ -21,34 +21,34 @@ const minimalPluginContext: MinimalPluginContextWithoutEnvironment = {
 	meta: { rollupVersion: "test", watchMode: false, viteVersion: "test" },
 };
 
-type PluginContextStub = MinimalPluginContextWithoutEnvironment & {
-	addWatchFile: typeof noop;
+export type PluginContextStub = MinimalPluginContextWithoutEnvironment & {
+	addWatchFile: (id: string) => void;
 	cache: {
-		delete: typeof noop;
-		get: () => unknown;
-		has: () => boolean;
-		set: typeof noop;
+		delete: (id: string) => void;
+		get: <T = unknown>(id: string) => T | undefined;
+		has: (id: string) => boolean;
+		set: <T = unknown>(id: string, value: T) => void;
 	};
 	emitFile: () => string;
 	fs: unknown;
 	getFileName: () => string;
 	getModuleIds: () => IterableIterator<string>;
-	getModuleInfo: () => null;
+	getModuleInfo: (id?: string) => null;
 	getWatchFiles: () => string[];
-	load: () => Promise<unknown>;
-	parse: () => unknown;
-	resolve: () => Promise<unknown>;
-	setAssetSource: typeof noop;
+	load: (id: string) => Promise<unknown>;
+	parse: (code: string) => unknown;
+	resolve: (id: string) => Promise<unknown>;
+	setAssetSource: (id: string, source: string | Uint8Array) => void;
 };
 
 /* c8 ignore start */
 const pluginContext: PluginContextStub = Object.assign(minimalPluginContext, {
-	addWatchFile: noop,
+	addWatchFile: (_id: string) => undefined,
 	cache: {
-		delete: noop,
-		get: () => undefined,
-		has: () => false,
-		set: noop,
+		delete: (_id: string) => undefined,
+		get: (_id: string) => undefined,
+		has: (_id: string) => false,
+		set: (_id: string, _value: unknown) => undefined,
 	},
 	emitFile: () => "",
 	fs: {},
@@ -59,10 +59,10 @@ const pluginContext: PluginContextStub = Object.assign(minimalPluginContext, {
 	},
 	getModuleInfo: () => null,
 	getWatchFiles: () => [],
-	load: async () => ({ ast: null, code: null }),
-	parse: () => ({ type: "Program" }),
-	resolve: async () => null,
-	setAssetSource: noop,
+	load: async (_id: string) => ({ ast: null, code: null }),
+	parse: (_code: string) => ({ type: "Program" }),
+	resolve: async (_id: string) => null,
+	setAssetSource: (_id: string, _source: string | Uint8Array) => undefined,
 });
 /* c8 ignore end */
 

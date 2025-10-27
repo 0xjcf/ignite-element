@@ -3,13 +3,15 @@ import igniteElementFactory from "../../IgniteElementFactory";
 import * as injectStylesModule from "../../injectStyles";
 import { createIgniteJsxRenderStrategy } from "../../renderers/jsx/IgniteJsxRenderStrategy";
 import { Fragment, jsx, jsxs } from "../../renderers/jsx/jsx-runtime";
-import { createDomNode } from "../../renderers/jsx/renderer";
+import * as rendererModule from "../../renderers/jsx/renderer";
 import type { IgniteJsxChild } from "../../renderers/jsx/types";
 import MockAdapter from "../MockAdapter";
 
 const initialState = { count: 0 };
 type State = typeof initialState;
 type Event = { type: string };
+
+const { createDomNode } = rendererModule;
 
 describe("Ignite JSX render strategy", () => {
 	afterEach(() => {
@@ -169,6 +171,25 @@ describe("Ignite JSX render strategy", () => {
 		);
 
 		injectSpy.mockRestore();
+	});
+
+	it("reuses a pre-existing ignite root when attaching", () => {
+		const hostElement = document.createElement("div");
+		const shadow = hostElement.attachShadow({ mode: "open" });
+		const existingRoot = document.createElement("ignite-jsx-root");
+		existingRoot.setAttribute("data-ignite-jsx-root", "");
+		shadow.appendChild(existingRoot);
+
+		const mountSpy = vi.spyOn(rendererModule, "mountIgniteJsx");
+		const strategy = createIgniteJsxRenderStrategy();
+
+		strategy.attach(shadow);
+		expect(shadow.querySelectorAll("[data-ignite-jsx-root]").length).toBe(1);
+
+		strategy.render(jsx("span", { children: "reuse" }));
+		expect(mountSpy).toHaveBeenCalledWith(existingRoot, expect.anything());
+
+		mountSpy.mockRestore();
 	});
 });
 

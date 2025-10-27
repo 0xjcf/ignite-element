@@ -4,6 +4,7 @@ import { StateScope } from "./IgniteAdapter";
 import IgniteElement from "./IgniteElement";
 import type { IgniteJsxChild } from "./renderers/jsx/types";
 import type { RenderStrategyFactory } from "./renderers/RenderStrategy";
+import "./renderers/ignite-jsx";
 import { resolveConfiguredRenderStrategy } from "./renderers/resolveConfiguredRenderStrategy";
 
 export type BaseRenderArgs<State, Event> = {

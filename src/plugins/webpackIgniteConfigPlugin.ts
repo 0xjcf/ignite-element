@@ -27,33 +27,33 @@ export interface WebpackCompilerLike {
 
 function normalizeToArray(
 	value: string | string[],
-	configFile: string,
+	moduleId: string,
 ): string[] {
 	const existing = Array.isArray(value) ? value : [value];
 
-	if (existing.includes(configFile)) {
+	if (existing.includes(moduleId)) {
 		return existing;
 	}
 
-	return [configFile, ...existing];
+	return [moduleId, ...existing];
 }
 
 function prependConfig(
 	entry: EntryDescriptor,
-	configFile: string,
+	moduleId: string,
 ): EntryDescriptor {
 	if (typeof entry === "string") {
-		return normalizeToArray(entry, configFile);
+		return normalizeToArray(entry, moduleId);
 	}
 
 	if (Array.isArray(entry)) {
-		return normalizeToArray(entry, configFile);
+		return normalizeToArray(entry, moduleId);
 	}
 
 	if (entry && typeof entry === "object" && "import" in entry) {
 		return {
 			...entry,
-			import: normalizeToArray(entry.import as string | string[], configFile),
+			import: normalizeToArray(entry.import as string | string[], moduleId),
 		};
 	}
 
@@ -62,33 +62,39 @@ function prependConfig(
 
 function applyConfigToEntry(
 	entry: WebpackEntry | undefined,
-	configFile: string,
+	moduleId: string,
 ): WebpackEntry {
 	if (!entry) {
 		return {
 			main: {
-				import: [configFile],
+				import: [moduleId],
 			},
 		};
 	}
 
 	if (typeof entry === "function") {
-		return async () => applyConfigToEntry(await entry(), configFile);
+		return async () => applyConfigToEntry(await entry(), moduleId);
 	}
 
 	if (typeof entry === "string" || Array.isArray(entry)) {
-		return prependConfig(entry, configFile);
+		return prependConfig(entry, moduleId);
 	}
 
 	if (typeof entry === "object") {
 		const next: Record<string, EntryDescriptor> = {};
 		for (const [key, value] of Object.entries(entry)) {
-			next[key] = prependConfig(value as EntryDescriptor, configFile);
+			next[key] = prependConfig(value as EntryDescriptor, moduleId);
 		}
 		return next;
 	}
 
 	return entry;
+}
+
+function createLoaderModule(configFile: string): string {
+	const source = `import { loadIgniteConfig } from "ignite-element/config/loadIgniteConfig";
+await loadIgniteConfig(() => import(${JSON.stringify(configFile)}));`;
+	return `data:text/javascript,${encodeURIComponent(source)}`;
 }
 
 export class IgniteConfigWebpackPlugin {
@@ -108,9 +114,11 @@ export class IgniteConfigWebpackPlugin {
 			return;
 		}
 
+		const loaderModule = createLoaderModule(configFile);
+
 		compiler.options.entry = applyConfigToEntry(
 			compiler.options.entry,
-			configFile,
+			loaderModule,
 		);
 	}
 }

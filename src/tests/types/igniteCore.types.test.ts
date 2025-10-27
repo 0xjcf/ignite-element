@@ -72,13 +72,12 @@ describe("igniteCore type inference", () => {
 
 		type Machine = typeof machine;
 		type Snapshot = XStateSnapshot<Machine>;
-		type MachineActor = XStateMachineActor<Machine>;
 
 		const register = igniteCore({
 			source: machine,
-			states: (snapshot: Snapshot) => ({ count: snapshot.context.count }),
-			commands: (actor: MachineActor) => ({
-				ping: () => actor.send({ type: "PING" as EventFrom<Machine>["type"] }),
+			states: (snapshot) => ({ count: snapshot.context.count }),
+			commands: (actor) => ({
+				ping: () => actor.send({ type: "PING" }),
 			}),
 		});
 
@@ -124,10 +123,10 @@ describe("igniteCore type inference", () => {
 	it("infers redux slice types when adapter is omitted", () => {
 		const register = igniteCore({
 			source: counterSlice,
-			states: (snapshot: InferStateAndEvent<typeof counterSlice>["State"]) => ({
+			states: (snapshot) => ({
 				count: snapshot.counter.count,
 			}),
-			commands: (actor: ReduxSliceCommandActor<typeof counterSlice>) => ({
+			commands: (actor) => ({
 				increment: () => actor.dispatch(counterSlice.actions.increment()),
 			}),
 		});
@@ -176,10 +175,10 @@ describe("igniteCore type inference", () => {
 		const store = counterStore();
 		const register = igniteCore({
 			source: store,
-			states: (snapshot: InferStateAndEvent<typeof store>["State"]) => ({
+			states: (snapshot) => ({
 				count: snapshot.counter.count,
 			}),
-			commands: (actor: ReduxStoreCommandActor<typeof store>) => ({
+			commands: (actor) => ({
 				increment: () => actor.dispatch(counterSlice.actions.increment()),
 			}),
 		});
@@ -239,8 +238,8 @@ describe("igniteCore type inference", () => {
 
 		const register = igniteCore({
 			source: sharedStore,
-			states: (snapshot: typeof sharedStore) => ({ count: snapshot.count }),
-			commands: (storeInstance: typeof sharedStore) => ({
+			states: (snapshot) => ({ count: snapshot.count }),
+			commands: (storeInstance) => ({
 				increment: () => storeInstance.increment(),
 			}),
 		});
