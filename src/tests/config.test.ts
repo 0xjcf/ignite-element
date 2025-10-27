@@ -17,9 +17,17 @@ import * as globalStylesModule from "../globalStyles";
 
 const CONFIG_SYMBOL = Symbol.for("ignite-element.config");
 const litLoaderSpy = vi.fn();
+const igniteJsxLoaderSpy = vi.fn();
 
 vi.mock("../renderers/lit", () => {
 	litLoaderSpy();
+	return {
+		__esModule: true,
+	};
+});
+
+vi.mock("../renderers/ignite-jsx", () => {
+	igniteJsxLoaderSpy();
 	return {
 		__esModule: true,
 	};
@@ -33,6 +41,7 @@ beforeAll(async () => {
 
 afterAll(() => {
 	litLoaderSpy.mockReset();
+	igniteJsxLoaderSpy.mockReset();
 });
 
 function clearConfig(): void {
@@ -147,6 +156,7 @@ describe("defineIgniteConfig", () => {
 describe("loadIgniteConfig", () => {
 	beforeEach(() => {
 		litLoaderSpy.mockClear();
+		igniteJsxLoaderSpy.mockClear();
 	});
 
 	it("loads the lit renderer when requested by the config", async () => {
@@ -155,13 +165,15 @@ describe("loadIgniteConfig", () => {
 		}));
 
 		expect(litLoaderSpy).toHaveBeenCalledTimes(1);
+		expect(igniteJsxLoaderSpy).not.toHaveBeenCalled();
 	});
 
-	it("skips renderer imports when config omits renderer", async () => {
+	it("loads ignite-jsx when config omits renderer", async () => {
 		await loadIgniteConfig(async () => ({
 			default: { globalStyles: "./styles.css" },
 		}));
 
+		expect(igniteJsxLoaderSpy).toHaveBeenCalledTimes(1);
 		expect(litLoaderSpy).not.toHaveBeenCalled();
 	});
 
@@ -183,6 +195,7 @@ describe("loadIgniteConfig", () => {
 		);
 
 		expect(result).toBeUndefined();
+		expect(igniteJsxLoaderSpy).not.toHaveBeenCalled();
 		expect(litLoaderSpy).not.toHaveBeenCalled();
 	});
 
@@ -191,6 +204,7 @@ describe("loadIgniteConfig", () => {
 			default: { renderer: "unknown" as never },
 		}));
 
+		expect(igniteJsxLoaderSpy).not.toHaveBeenCalled();
 		expect(litLoaderSpy).not.toHaveBeenCalled();
 	});
 });

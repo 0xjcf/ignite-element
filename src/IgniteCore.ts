@@ -25,13 +25,13 @@ import type {
 	FacadeStatesCallback,
 } from "./RenderArgs";
 import {
-	isMobxObservable,
 	isReduxSlice,
 	isReduxStore,
 	isXStateActor,
 	isXStateMachine,
 } from "./utils/adapterGuards";
 import type { InferStateAndEvent } from "./utils/igniteRedux";
+import { isMobxObservable } from "./utils/mobxGuards";
 
 export type {
 	AnyCommandsCallback,

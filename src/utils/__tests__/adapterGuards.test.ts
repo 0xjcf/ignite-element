@@ -4,12 +4,12 @@ import { describe, expect, it } from "vitest";
 import { createActor, createMachine } from "xstate";
 import {
 	isFunction,
-	isMobxObservable,
 	isReduxSlice,
 	isReduxStore,
 	isXStateActor,
 	isXStateMachine,
 } from "../adapterGuards";
+import { isMobxObservable } from "../mobxGuards";
 
 describe("adapterGuards", () => {
 	describe("isXStateActor", () => {

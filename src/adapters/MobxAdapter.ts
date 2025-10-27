@@ -2,7 +2,7 @@ import type { IReactionDisposer } from "mobx";
 import { autorun, toJS } from "mobx";
 import type IgniteAdapter from "../IgniteAdapter";
 import { StateScope } from "../IgniteAdapter";
-import { isMobxObservable } from "../utils/adapterGuards";
+import { isMobxObservable } from "../utils/mobxGuards";
 
 export type FunctionKeys<StateType> = {
 	[Key in keyof StateType]: StateType[Key] extends (

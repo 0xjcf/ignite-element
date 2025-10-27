@@ -11,6 +11,7 @@ type ConfigLoader = () => Promise<ConfigModule>;
 type RendererLoader = () => Promise<unknown>;
 
 const RENDERER_LOADERS: Record<string, RendererLoader> = {
+	"ignite-jsx": () => import("../renderers/ignite-jsx"),
 	lit: () => import("../renderers/lit"),
 };
 
@@ -49,12 +50,12 @@ export async function loadIgniteConfig(
 		return undefined;
 	}
 
-	const renderer = config.renderer;
-	if (typeof renderer === "string") {
-		const loader = RENDERER_LOADERS[renderer];
-		if (loader) {
-			await loader();
-		}
+	const renderer = typeof config.renderer === "string" ? config.renderer : null;
+	const loaderKey = renderer ?? "ignite-jsx";
+	const loader = RENDERER_LOADERS[loaderKey];
+
+	if (loader) {
+		await loader();
 	}
 
 	return config;
