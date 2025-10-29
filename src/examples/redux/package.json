@@ -6,7 +6,9 @@
 	"type": "module",
 	"scripts": {
 		"build:css": "sass src/scss/styles.scss src/dist/styles.css",
-		"dev": "pnpm run build:css && vite",
+		"dev:css": "sass --watch src/scss/styles.scss src/dist/styles.css",
+		"dev:vite": "vite",
+		"dev": "pnpm run build:css && pnpm exec concurrently \"pnpm run dev:css\" \"pnpm run dev:vite\"",
 		"build": "pnpm run build:css && vite build"
 	},
 	"keywords": [
@@ -24,6 +26,7 @@
 		"redux": "^5.0.1"
 	},
 	"devDependencies": {
+		"concurrently": "^9.1.0",
 		"sass": "^1.93.2",
 		"vite": "^7.1.10"
 	}
