@@ -12,6 +12,9 @@ import counterStore, {
 import { igniteCore } from "../../IgniteCore";
 import type { AdapterPack } from "../../IgniteElementFactory";
 import type {
+	CommandContext,
+	EmptyEventMap,
+	EventDescriptor,
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
 } from "../../RenderArgs";
@@ -42,7 +45,7 @@ describe("igniteCore type inference", () => {
 		const statesCallback = (snapshot: Snapshot) => ({
 			double: snapshot.context.count * 2,
 		});
-		const commandsCallback = (actor: MachineActor) => ({
+		const commandsCallback = ({ actor }: { actor: MachineActor }) => ({
 			increment: () => actor.send({ type: "INC" }),
 		});
 
@@ -72,13 +75,25 @@ describe("igniteCore type inference", () => {
 
 		type Machine = typeof machine;
 		type Snapshot = XStateSnapshot<Machine>;
+		type MachineActor = XStateMachineActor<Machine>;
+		type MachineContext = CommandContext<MachineActor, EmptyEventMap>;
 
-		const register = igniteCore({
+		const states = (snapshot: Snapshot) => ({
+			count: snapshot.context.count,
+		});
+		const commands = ({ actor }: MachineContext) => ({
+			ping: () => actor.send({ type: "PING" }),
+		});
+
+		const register = igniteCore<
+			Machine,
+			EmptyEventMap,
+			typeof states,
+			typeof commands
+		>({
 			source: machine,
-			states: (snapshot) => ({ count: snapshot.context.count }),
-			commands: (actor) => ({
-				ping: () => actor.send({ type: "PING" }),
-			}),
+			states,
+			commands,
 		});
 
 		type RenderArgs = AdapterPack<typeof register>;
@@ -91,6 +106,56 @@ describe("igniteCore type inference", () => {
 		expectTypeOf<RenderArgs["ping"]>().toEqualTypeOf<() => void>();
 	});
 
+	it("types the emit helper based on declared events", () => {
+		const machine = createMachine({
+			initial: "idle",
+			states: {
+				idle: {
+					on: { PING: "idle" },
+				},
+			},
+		});
+
+		type Machine = typeof machine;
+		type MachineActor = XStateMachineActor<Machine>;
+		type CheckoutEvents = {
+			"checkout-submitted": EventDescriptor<{ email: string }>;
+		};
+		type CheckoutContext = CommandContext<MachineActor, CheckoutEvents>;
+		const checkoutCommands = ({ actor, emit }: CheckoutContext) => ({
+			submit: () => {
+				emit("checkout-submitted", { email: "user@example.com" });
+				// @ts-expect-error - unknown event name
+				emit("unknown", {});
+				// @ts-expect-error - payload shape mismatch
+				emit("checkout-submitted", { email: 123 });
+				actor.send({ type: "PING" });
+			},
+		});
+
+		igniteCore<Machine, CheckoutEvents, undefined, typeof checkoutCommands>({
+			adapter: "xstate",
+			source: machine,
+			events: (event) => ({
+				"checkout-submitted": event<{ email: string }>(),
+			}),
+			commands: checkoutCommands,
+		});
+
+		type NoEventContext = CommandContext<MachineActor, EmptyEventMap>;
+		const noopCommands = ({ emit }: NoEventContext) => ({
+			noop: () => {
+				// @ts-expect-error - emit is a no-op when no events are declared
+				emit("anything", {});
+			},
+		});
+		igniteCore<Machine, EmptyEventMap, undefined, typeof noopCommands>({
+			adapter: "xstate",
+			source: machine,
+			commands: noopCommands,
+		});
+	});
+
 	it("infers redux slice snapshot and actor facades", () => {
 		type SliceState = InferStateAndEvent<typeof counterSlice>["State"];
 		type SliceEvent = InferStateAndEvent<typeof counterSlice>["Event"];
@@ -99,7 +164,7 @@ describe("igniteCore type inference", () => {
 		const statesCallback = (snapshot: SliceState) => ({
 			count: snapshot.counter.count,
 		});
-		const commandsCallback = (actor: SliceActor) => ({
+		const commandsCallback = ({ actor }: { actor: SliceActor }) => ({
 			increment: () => actor.dispatch(counterSlice.actions.increment()),
 		});
 
@@ -121,14 +186,22 @@ describe("igniteCore type inference", () => {
 	});
 
 	it("infers redux slice types when adapter is omitted", () => {
+		type SliceState = InferStateAndEvent<typeof counterSlice>["State"];
+		type SliceContext = CommandContext<
+			ReduxSliceCommandActor<typeof counterSlice>,
+			EmptyEventMap
+		>;
+		const sliceStates = (snapshot: SliceState) => ({
+			count: snapshot.counter.count,
+		});
+		const sliceCommands = ({ actor }: SliceContext) => ({
+			increment: () => actor.dispatch(counterSlice.actions.increment()),
+		});
+
 		const register = igniteCore({
 			source: counterSlice,
-			states: (snapshot) => ({
-				count: snapshot.counter.count,
-			}),
-			commands: (actor) => ({
-				increment: () => actor.dispatch(counterSlice.actions.increment()),
-			}),
+			states: sliceStates,
+			commands: sliceCommands,
 		});
 
 		type RenderArgs = AdapterPack<typeof register>;
@@ -150,7 +223,7 @@ describe("igniteCore type inference", () => {
 		const statesCallback = (snapshot: StoreState) => ({
 			count: snapshot.counter.count,
 		});
-		const commandsCallback = (actor: StoreActor) => ({
+		const commandsCallback = ({ actor }: { actor: StoreActor }) => ({
 			increment: () => actor.dispatch(counterSlice.actions.increment()),
 		});
 
@@ -173,14 +246,22 @@ describe("igniteCore type inference", () => {
 
 	it("infers redux store types when adapter is omitted", () => {
 		const store = counterStore();
+		type StoreState = InferStateAndEvent<typeof store>["State"];
+		type StoreContext = CommandContext<
+			ReduxStoreCommandActor<typeof store>,
+			EmptyEventMap
+		>;
+		const storeStates = (snapshot: StoreState) => ({
+			count: snapshot.counter.count,
+		});
+		const storeCommands = ({ actor }: StoreContext) => ({
+			increment: () => actor.dispatch(counterSlice.actions.increment()),
+		});
+
 		const register = igniteCore({
 			source: store,
-			states: (snapshot) => ({
-				count: snapshot.counter.count,
-			}),
-			commands: (actor) => ({
-				increment: () => actor.dispatch(counterSlice.actions.increment()),
-			}),
+			states: storeStates,
+			commands: storeCommands,
 		});
 
 		type RenderArgs = AdapterPack<typeof register>;
@@ -207,7 +288,11 @@ describe("igniteCore type inference", () => {
 		const statesCallback = (snapshot: StoreState) => ({
 			count: snapshot.count,
 		});
-		const commandsCallback = (storeInstance: StoreState) => ({
+		const commandsCallback = ({
+			actor: storeInstance,
+		}: {
+			actor: StoreState;
+		}) => ({
 			increment: () => storeInstance.increment(),
 		});
 
@@ -236,12 +321,17 @@ describe("igniteCore type inference", () => {
 			},
 		});
 
+		type SharedStore = typeof sharedStore;
+		type SharedContext = CommandContext<SharedStore, EmptyEventMap>;
+		const sharedStates = (snapshot: SharedStore) => ({ count: snapshot.count });
+		const sharedCommands = ({ actor: storeInstance }: SharedContext) => ({
+			increment: () => storeInstance.increment(),
+		});
+
 		const register = igniteCore({
 			source: sharedStore,
-			states: (snapshot) => ({ count: snapshot.count }),
-			commands: (storeInstance) => ({
-				increment: () => storeInstance.increment(),
-			}),
+			states: sharedStates,
+			commands: sharedCommands,
 		});
 
 		type RenderArgs = AdapterPack<typeof register>;

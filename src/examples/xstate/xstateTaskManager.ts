@@ -26,9 +26,11 @@ const resolveTaskManagerState = (
 	};
 };
 
-const resolveTaskManagerCommands = (
-	actor: ActorRefFrom<typeof taskManagerMachine>,
-) => ({
+const resolveTaskManagerCommands = ({
+	actor,
+}: {
+	actor: ActorRefFrom<typeof taskManagerMachine>;
+}) => ({
 	addTask: (name: string, priority: string) =>
 		actor.send({ type: "ADD", name, priority }),
 	toggleTask: (index: number) => actor.send({ type: "TOGGLE", index }),

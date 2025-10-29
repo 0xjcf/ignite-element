@@ -1,6 +1,7 @@
 import { html } from "lit-html";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createComponentFactory } from "../createComponentFactory";
+import { event } from "../events";
 import { StateScope } from "../IgniteAdapter";
 import MockAdapter from "./MockAdapter";
 
@@ -23,11 +24,17 @@ describe("createComponentFactory", () => {
 
 		const elementName = `ccf-invalid-states-${crypto.randomUUID()}`;
 
-		expect(() =>
-			factory(elementName, () => {
-				return html``;
-			}),
-		).toThrow(
+		factory(elementName, () => html``);
+
+		const Component = customElements.get(elementName);
+		expect(Component).toBeDefined();
+		if (!Component) {
+			throw new Error("Expected custom element to be registered");
+		}
+
+		expect(() => {
+			new Component();
+		}).toThrowError(
 			"[createComponentFactory] Facade states callback must return a plain object.",
 		);
 	});
@@ -46,11 +53,17 @@ describe("createComponentFactory", () => {
 
 		const elementName = `ccf-invalid-commands-${crypto.randomUUID()}`;
 
-		expect(() =>
-			factory(elementName, () => {
-				return html``;
-			}),
-		).toThrow(
+		factory(elementName, () => html``);
+
+		const Component = customElements.get(elementName);
+		expect(Component).toBeDefined();
+		if (!Component) {
+			throw new Error("Expected custom element to be registered");
+		}
+
+		expect(() => {
+			new Component();
+		}).toThrowError(
 			"[createComponentFactory] Facade commands callback must return a plain object.",
 		);
 	});
@@ -69,11 +82,17 @@ describe("createComponentFactory", () => {
 
 		const elementName = `ccf-bad-command-${crypto.randomUUID()}`;
 
-		expect(() =>
-			factory(elementName, () => {
-				return html``;
-			}),
-		).toThrow(
+		factory(elementName, () => html``);
+
+		const Component = customElements.get(elementName);
+		expect(Component).toBeDefined();
+		if (!Component) {
+			throw new Error("Expected custom element to be registered");
+		}
+
+		expect(() => {
+			new Component();
+		}).toThrowError(
 			'[createComponentFactory] Facade commands must return functions. Property "bad" is not callable.',
 		);
 	});
@@ -93,7 +112,7 @@ describe("createComponentFactory", () => {
 			send: (event: CounterEvent) => void;
 			getState: () => CounterState;
 		};
-		const commandsCallback = (actor: FallbackActor) => ({
+		const commandsCallback = ({ actor }: { actor: FallbackActor }) => ({
 			increment: () => actor.send({ type: "INC" }),
 		});
 
@@ -161,18 +180,15 @@ describe("createComponentFactory", () => {
 		const statesCallback = (snapshot: CustomState) => ({
 			value: snapshot.value,
 		});
-		const commandsCallback = (resolvedActor: CustomActor) => ({
+		const commandsCallback = ({
+			actor: resolvedActor,
+		}: {
+			actor: CustomActor;
+		}) => ({
 			invoke: () => resolvedActor.send("ping"),
 		});
 
-		const factory = createComponentFactory<
-			CustomState,
-			CustomEvent,
-			CustomState,
-			typeof statesCallback,
-			CustomActor,
-			typeof commandsCallback
-		>(createAdapter, {
+		const factory = createComponentFactory(createAdapter, {
 			resolveStateSnapshot: customSnapshot,
 			resolveCommandActor: customActorResolver,
 			states: statesCallback,
@@ -203,5 +219,94 @@ describe("createComponentFactory", () => {
 
 		latestArgs?.invoke();
 		expect(actor.send).toHaveBeenCalledWith("ping");
+	});
+
+	it("emits declared events with payload and host context", () => {
+		type CounterState = { count: number };
+		type CounterEvent = { type: "INC" };
+		const adapter = new MockAdapter<CounterState, CounterEvent>({ count: 0 });
+		const createAdapter = Object.assign(() => adapter, {
+			scope: StateScope.Isolated,
+		});
+
+		const states = (snapshot: CounterState) => ({ count: snapshot.count });
+		const eventsMap = {
+			"counter-incremented": event<{ amount: number }>(),
+		};
+		const commands = ({
+			actor,
+			emit,
+			host,
+		}: {
+			actor: { send: (event: CounterEvent) => void };
+			emit: (type: "counter-incremented", payload: { amount: number }) => void;
+			host: HTMLElement;
+		}) => ({
+			increment: () => {
+				const amountAttr = host.getAttribute("data-amount");
+				const amount = amountAttr ? Number(amountAttr) : 1;
+				emit("counter-incremented", { amount });
+				actor.send({ type: "INC" });
+			},
+		});
+
+		const factory = createComponentFactory<
+			CounterState,
+			CounterEvent,
+			CounterState,
+			typeof states,
+			{ send: (event: CounterEvent) => void },
+			typeof commands,
+			Record<never, never>,
+			typeof eventsMap
+		>(createAdapter, {
+			states,
+			commands,
+			events: eventsMap,
+		});
+
+		type EventArgs = {
+			state: CounterState;
+			send: (event: CounterEvent) => void;
+			count: number;
+			increment: () => void;
+		};
+
+		const elementName = `ccf-events-${crypto.randomUUID()}`;
+		let latestArgs: EventArgs | undefined;
+
+		factory(elementName, (args) => {
+			latestArgs = args;
+			return html``;
+		});
+
+		const element = document.createElement(elementName);
+		element.setAttribute("data-amount", "5");
+		const order: string[] = [];
+
+		const isCounterIncrementEvent = (
+			event: Event,
+		): event is CustomEvent<{ amount: number }> => event instanceof CustomEvent;
+
+		const listener = vi.fn((event: Event) => {
+			if (!isCounterIncrementEvent(event)) {
+				throw new Error("Unexpected event type");
+			}
+			order.push("emit");
+			expect(event.detail.amount).toBe(5);
+		});
+
+		element.addEventListener("counter-incremented", listener);
+		vi.spyOn(adapter, "send").mockImplementation(() => {
+			order.push("send");
+		});
+
+		document.body.appendChild(element);
+		expect(latestArgs).toBeDefined();
+
+		latestArgs?.increment();
+
+		expect(listener).toHaveBeenCalledTimes(1);
+		expect(order).toEqual(["emit", "send"]);
 	});
 });

@@ -25,7 +25,7 @@ const xstateStates = (snapshot: MachineSnapshot) => {
 	};
 };
 
-const xstateCommands = (actor: MachineActor) => ({
+const xstateCommands = ({ actor }: { actor: MachineActor }) => ({
 	increment: () => actor.send({ type: "INC" }),
 	decrement: () => actor.send({ type: "DEC" }),
 	toggleDarkMode: () => actor.send({ type: "TOGGLE_DARK" }),

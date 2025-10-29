@@ -80,7 +80,7 @@ Example facade usage:
 const register = igniteCore({
 	source: counterStore,
 	states: (snapshot) => ({ count: snapshot.count }),
-	commands: (store) => ({ increment: () => store.increment() }),
+	commands: ({ actor }) => ({ increment: () => actor.increment() }),
 });
 
 component("ignite-counter", ({ count, increment }) => (

@@ -52,7 +52,7 @@ export const registerSharedRedux = igniteCore({
   states: (snapshot) => ({
     count: snapshot.counter.count,
   }),
-  commands: (actor) => ({
+  commands: ({ actor }) => ({
     decrement: () => actor.dispatch(counterSlice.actions.decrement()),
     increment: () => actor.dispatch(counterSlice.actions.increment()),
     addByAmount: (value: number) =>
@@ -65,7 +65,7 @@ export const registerIsolatedRedux = igniteCore({
   states: (snapshot) => ({
     count: snapshot.counter.count,
   }),
-  commands: (actor) => ({
+  commands: ({ actor }) => ({
     decrement: () => actor.dispatch(counterSlice.actions.decrement()),
     increment: () => actor.dispatch(counterSlice.actions.increment()),
     addByAmount: (value: number) =>

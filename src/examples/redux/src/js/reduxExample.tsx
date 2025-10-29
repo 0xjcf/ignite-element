@@ -17,14 +17,14 @@ const resolveReduxState = (snapshot: CounterSnapshot) => ({
 type SharedCommandActor = ReduxStoreCommandActor<CounterStoreInstance>;
 type SliceCommandActor = ReduxSliceCommandActor<typeof counterSlice>;
 
-const resolveSharedCommands = (actor: SharedCommandActor) => ({
+const resolveSharedCommands = ({ actor }: { actor: SharedCommandActor }) => ({
 	decrement: () => actor.dispatch(counterSlice.actions.decrement()),
 	increment: () => actor.dispatch(counterSlice.actions.increment()),
 	addByAmount: (value: number) =>
 		actor.dispatch(counterSlice.actions.addByAmount(value)),
 });
 
-const resolveIsolatedCommands = (actor: SliceCommandActor) => ({
+const resolveIsolatedCommands = ({ actor }: { actor: SliceCommandActor }) => ({
 	decrement: () => actor.dispatch(counterSlice.actions.decrement()),
 	increment: () => actor.dispatch(counterSlice.actions.increment()),
 	addByAmount: (value: number) =>

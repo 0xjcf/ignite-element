@@ -6,6 +6,9 @@ import igniteElementFactory, {
 	type ComponentFactory,
 } from "./IgniteElementFactory";
 import type {
+	EmitFromEvents,
+	EmptyEventMap,
+	EventMap,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
 	FacadeStatesCallback,
@@ -33,12 +36,15 @@ export type ElementFactoryOptions<
 	Event,
 	RenderArgs extends BaseRenderArgs<State, Event>,
 	View = TemplateResult | IgniteJsxChild,
+	Events extends EventMap = EmptyEventMap,
 > = {
 	scope?: StateScope;
 	createAdditionalArgs?: (
 		adapter: IgniteAdapter<State, Event>,
+		host?: HTMLElement,
 	) => AdditionalRenderArgs<State, Event, RenderArgs>;
 	createRenderStrategy?: RenderStrategyFactory<View>;
+	events?: Events;
 	cleanup?: boolean;
 };
 
@@ -48,9 +54,10 @@ export type ElementFactoryCreator<
 	RenderArgs extends BaseRenderArgs<State, Event>,
 	View,
 	Result,
+	Events extends EventMap = EmptyEventMap,
 > = (
 	createAdapter: AdapterFactory<State, Event>,
-	options: ElementFactoryOptions<State, Event, RenderArgs, View>,
+	options: ElementFactoryOptions<State, Event, RenderArgs, View, Events>,
 ) => Result;
 
 type FacadeStateResult<Snapshot, Callback> = [Callback] extends [
@@ -59,9 +66,9 @@ type FacadeStateResult<Snapshot, Callback> = [Callback] extends [
 	? Result
 	: Record<never, never>;
 
-type ExtractCommandResult<Actor, Callback> = [Callback] extends [
-	FacadeCommandsCallback<Actor, infer Result>,
-]
+type ExtractCommandResult<Actor, Events extends EventMap, Callback> = [
+	Callback,
+] extends [FacadeCommandsCallback<Actor, infer Result, Events>]
 	? Result
 	: Record<never, never>;
 
@@ -73,10 +80,11 @@ export type WithFacadeRenderArgs<
 	CommandActor,
 	CommandCallback,
 	Additional extends Record<string, unknown> = Record<never, never>,
+	Events extends EventMap = EmptyEventMap,
 > = BaseRenderArgs<State, Event> &
 	Additional &
 	FacadeStateResult<Snapshot, StateCallback> &
-	ExtractCommandResult<CommandActor, CommandCallback>;
+	ExtractCommandResult<CommandActor, Events, CommandCallback>;
 
 export type ComponentFactoryOptions<
 	State,
@@ -87,14 +95,19 @@ export type ComponentFactoryOptions<
 	CommandCallback,
 	Additional extends Record<string, unknown> = Record<never, never>,
 	View = TemplateResult | IgniteJsxChild,
+	Events extends EventMap = EmptyEventMap,
 > = {
 	scope?: StateScope;
 	states?: StateCallback;
 	commands?: CommandCallback;
 	resolveStateSnapshot?: (adapter: IgniteAdapter<State, Event>) => Snapshot;
 	resolveCommandActor?: (adapter: IgniteAdapter<State, Event>) => CommandActor;
-	createAdditionalArgs?: (adapter: IgniteAdapter<State, Event>) => Additional;
+	createAdditionalArgs?: (
+		adapter: IgniteAdapter<State, Event>,
+		host?: HTMLElement,
+	) => Additional;
 	createRenderStrategy?: RenderStrategyFactory<View>;
+	events?: Events;
 	cleanup?: boolean;
 };
 
@@ -133,11 +146,12 @@ export function createComponentFactoryWithRenderer<
 		send: (event: Event) => void;
 		getState: () => State;
 	},
-	CommandCallback extends
-		| FacadeCommandsCallback<CommandActor, FacadeCommandResult>
-		| undefined = undefined,
 	Additional extends Record<string, unknown> = Record<never, never>,
 	View = TemplateResult | IgniteJsxChild,
+	Events extends EventMap = EmptyEventMap,
+	CommandCallback extends
+		| FacadeCommandsCallback<CommandActor, FacadeCommandResult, Events>
+		| undefined = undefined,
 	FactoryResult = ComponentFactory<
 		State,
 		Event,
@@ -148,7 +162,8 @@ export function createComponentFactoryWithRenderer<
 			StateCallback,
 			CommandActor,
 			CommandCallback,
-			Additional
+			Additional,
+			Events
 		>,
 		View
 	>,
@@ -164,10 +179,12 @@ export function createComponentFactoryWithRenderer<
 			StateCallback,
 			CommandActor,
 			CommandCallback,
-			Additional
+			Additional,
+			Events
 		>,
 		View,
-		FactoryResult
+		FactoryResult,
+		Events
 	>,
 	options?: ComponentFactoryOptions<
 		State,
@@ -177,7 +194,8 @@ export function createComponentFactoryWithRenderer<
 		CommandActor,
 		CommandCallback,
 		Additional,
-		View
+		View,
+		Events
 	>,
 ): FactoryResult {
 	const {
@@ -187,6 +205,7 @@ export function createComponentFactoryWithRenderer<
 		resolveStateSnapshot,
 		resolveCommandActor,
 		createAdditionalArgs,
+		events,
 	} = options ?? {};
 
 	const resolveSnapshot =
@@ -217,15 +236,44 @@ export function createComponentFactoryWithRenderer<
 		StateCallback,
 		CommandActor,
 		CommandCallback,
-		Additional
+		Additional,
+		Events
 	>;
+
+	const eventDefinitions = events ?? (Object.create(null) as Events);
+
+	const createEmit = (host: HTMLElement): EmitFromEvents<Events> =>
+		((type: keyof Events & string, detail: unknown) => {
+			if (isDevelopment()) {
+				if (!(type in eventDefinitions)) {
+					throw new Error(
+						`[createComponentFactory] Unknown event "${type}". Declare it in the events map before emitting.`,
+					);
+				}
+			}
+
+			const customEvent = new CustomEvent(type, {
+				detail,
+				bubbles: true,
+				composed: true,
+			});
+			host.dispatchEvent(customEvent);
+		}) as EmitFromEvents<Events>;
 
 	return elementFactory(createAdapter, {
 		scope: scope ?? createAdapter.scope,
 		createRenderStrategy: options?.createRenderStrategy,
 		cleanup: options?.cleanup,
-		createAdditionalArgs: (adapter: IgniteAdapter<State, Event>) => {
-			const extras = userAdditionalArgs(adapter);
+		createAdditionalArgs: (
+			adapter: IgniteAdapter<State, Event>,
+			host?: HTMLElement,
+		) => {
+			if (!host) {
+				throw new Error(
+					"[createComponentFactory] Unable to resolve host element for command context.",
+				);
+			}
+			const extras = userAdditionalArgs(adapter, host);
 			const merged = Object.create(null) as AdditionalRenderArgs<
 				State,
 				Event,
@@ -270,17 +318,27 @@ export function createComponentFactoryWithRenderer<
 			if (commands) {
 				const commandCallback = commands as FacadeCommandsCallback<
 					CommandActor,
-					FacadeCommandResult
+					FacadeCommandResult,
+					Events
 				>;
 				const actor = resolveActor(adapter);
-				const commandResult = commandCallback(actor);
+				const emit = createEmit(host);
+				const commandResult = commandCallback({
+					actor,
+					emit,
+					host,
+				});
 				ensureFacadeResult(commandResult, "commands");
 
 				const entries = Object.entries(commandResult) as Array<
-					[keyof ExtractCommandResult<CommandActor, CommandCallback>, unknown]
+					[
+						keyof ExtractCommandResult<CommandActor, Events, CommandCallback>,
+						unknown,
+					]
 				>;
 				const commandFacade = Object.create(null) as ExtractCommandResult<
 					CommandActor,
+					Events,
 					CommandCallback
 				>;
 
@@ -315,9 +373,10 @@ export function createComponentFactory<
 		getState: () => State;
 	},
 	CommandCallback extends
-		| FacadeCommandsCallback<CommandActor, FacadeCommandResult>
+		| FacadeCommandsCallback<CommandActor, FacadeCommandResult, Events>
 		| undefined = undefined,
 	Additional extends Record<string, unknown> = Record<never, never>,
+	Events extends EventMap = EmptyEventMap,
 >(
 	createAdapter: AdapterFactory<State, Event>,
 	options?: ComponentFactoryOptions<
@@ -327,7 +386,9 @@ export function createComponentFactory<
 		StateCallback,
 		CommandActor,
 		CommandCallback,
-		Additional
+		Additional,
+		TemplateResult | IgniteJsxChild,
+		Events
 	>,
 ): ComponentFactory<
 	State,
@@ -339,7 +400,8 @@ export function createComponentFactory<
 		StateCallback,
 		CommandActor,
 		CommandCallback,
-		Additional
+		Additional,
+		Events
 	>
 > {
 	return createComponentFactoryWithRenderer(

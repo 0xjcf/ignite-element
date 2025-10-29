@@ -8,9 +8,9 @@ const mobxStates = (snapshot: CounterStoreInstance) => ({
 	count: snapshot.count,
 });
 
-const mobxCommands = (store: CounterStoreInstance) => ({
-	decrement: () => store.decrement(),
-	increment: () => store.increment(),
+const mobxCommands = ({ actor }: { actor: CounterStoreInstance }) => ({
+	decrement: () => actor.decrement(),
+	increment: () => actor.increment(),
 });
 
 // Initialize igniteCore with MobX adapter

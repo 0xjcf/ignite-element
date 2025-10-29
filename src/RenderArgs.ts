@@ -84,10 +84,40 @@ export type FacadeCommandFunction = (...args: never[]) => unknown;
 
 export type FacadeCommandResult = Record<string, FacadeCommandFunction>;
 
+export type EmptyEventMap = Record<never, EventDescriptor<never>>;
+
+export type EventDescriptor<Payload> = {
+	readonly __payload?: Payload;
+};
+
+export type EventMap = Record<string, EventDescriptor<unknown>>;
+
+export type EventBuilder = <Payload>() => EventDescriptor<Payload>;
+
+type EventPayload<Descriptor> = Descriptor extends EventDescriptor<
+	infer Payload
+>
+	? Payload
+	: never;
+
+export type EmitFromEvents<Events extends EventMap> = keyof Events extends never
+	? (type: never, payload: never) => void
+	: <Type extends keyof Events & string>(
+			type: Type,
+			payload: EventPayload<Events[Type]>,
+		) => void;
+
+export type CommandContext<Actor, Events extends EventMap = EmptyEventMap> = {
+	actor: Actor;
+	emit: EmitFromEvents<Events>;
+	host: HTMLElement;
+};
+
 export type FacadeCommandsCallback<
 	Actor,
 	Result extends FacadeCommandResult = FacadeCommandResult,
-> = (actor: Actor) => Result;
+	Events extends EventMap = EmptyEventMap,
+> = (context: CommandContext<Actor, Events>) => Result;
 
 type IsNever<T> = [T] extends [never] ? true : false;
 
@@ -104,10 +134,14 @@ type StateResult<
 type CommandResult<
 	Source,
 	CommandCallback,
-	Result = [CommandCallback] extends [
-		FacadeCommandsCallback<AdapterActor<Source>, infer Result>,
-	]
-		? Result
+	Result = CommandCallback extends FacadeCommandsCallback<
+		AdapterActor<Source>,
+		infer CallbackResult,
+		EventMap
+	>
+		? CallbackResult extends FacadeCommandResult
+			? CallbackResult
+			: Record<never, never>
 		: Record<never, never>,
 > = IsNever<CommandCallback> extends true ? Record<never, never> : Result;
 

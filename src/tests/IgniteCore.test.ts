@@ -14,6 +14,8 @@ import counterStore, {
 } from "../examples/redux/src/js/reduxCounterStore";
 import { igniteCore } from "../IgniteCore";
 import type {
+	CommandContext,
+	EventDescriptor,
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
 } from "../RenderArgs";
@@ -159,7 +161,7 @@ describe("igniteCore", () => {
 		const statesCallback = (snapshot: Snapshot) => ({
 			double: snapshot.context.count * 2,
 		});
-		const commandsCallback = (actor: MachineActor) => ({
+		const commandsCallback = ({ actor }: { actor: MachineActor }) => ({
 			increment: () => actor.send({ type: "INC" }),
 		});
 
@@ -206,7 +208,7 @@ describe("igniteCore", () => {
 		const statesCallback = (snapshot: SliceState) => ({
 			count: snapshot.counter.count,
 		});
-		const commandsCallback = (actor: SliceActor) => ({
+		const commandsCallback = ({ actor }: { actor: SliceActor }) => ({
 			increment: () => actor.dispatch(counterSlice.actions.increment()),
 		});
 
@@ -243,6 +245,78 @@ describe("igniteCore", () => {
 		expect(latestArgs?.count).toBe(1);
 	});
 
+	it("emits declared events from commands", () => {
+		const store = counterStore();
+		const dispatchSpy = vi.spyOn(store, "dispatch");
+		type EventStoreState = InferStateAndEvent<typeof store>["State"];
+		const eventStates = (snapshot: EventStoreState) => ({
+			count: snapshot.counter.count,
+		});
+		type CounterEventMap = {
+			"counter-incremented": EventDescriptor<{ amount: number }>;
+		};
+		const order: string[] = [];
+		type EventCommandContext = CommandContext<
+			ReduxStoreCommandActor<typeof store>,
+			CounterEventMap
+		>;
+		const eventCommands = ({ actor, emit, host }: EventCommandContext) => ({
+			increment: () => {
+				const amountAttr = host.getAttribute("data-amount");
+				const amount = amountAttr ? Number(amountAttr) : 1;
+				emit("counter-incremented", { amount });
+				actor.dispatch(counterSlice.actions.increment());
+				order.push("dispatch");
+			},
+		});
+
+		const register = igniteCore({
+			adapter: "redux",
+			source: store,
+			states: eventStates,
+			events: (event) => ({
+				"counter-incremented": event<{ amount: number }>(),
+			}),
+			commands: eventCommands,
+		});
+
+		type RenderArgs = {
+			increment: () => void;
+		};
+
+		const elementName = `redux-event-${crypto.randomUUID()}`;
+		let latestArgs: RenderArgs | undefined;
+		const renderFn = vi.fn<(args: RenderArgs) => TemplateResult>((args) => {
+			latestArgs = args;
+			return html``;
+		});
+
+		register(elementName, renderFn);
+		const element = document.createElement(elementName);
+		element.setAttribute("data-amount", "4");
+		const isCounterIncrementEvent = (
+			event: Event,
+		): event is CustomEvent<{ amount: number }> => event instanceof CustomEvent;
+		const listener = vi.fn((event: Event) => {
+			if (!isCounterIncrementEvent(event)) {
+				throw new Error("Unexpected event type");
+			}
+			order.push("emit");
+			expect(event.detail.amount).toBe(4);
+		});
+		element.addEventListener("counter-incremented", listener);
+		document.body.appendChild(element);
+
+		expect(latestArgs).toBeDefined();
+		latestArgs?.increment();
+
+		expect(listener).toHaveBeenCalledTimes(1);
+		expect(order).toEqual(["emit", "dispatch"]);
+		expect(dispatchSpy).toHaveBeenCalledWith(
+			expect.objectContaining({ type: "counter/increment" }),
+		);
+	});
+
 	it("shares redux store instances across elements", () => {
 		const store = counterStore();
 		const dispatchSpy = vi.spyOn(store, "dispatch");
@@ -254,7 +328,7 @@ describe("igniteCore", () => {
 		const statesCallback = (snapshot: StoreState) => ({
 			count: snapshot.counter.count,
 		});
-		const commandsCallback = (actor: StoreActor) => ({
+		const commandsCallback = ({ actor }: { actor: StoreActor }) => ({
 			increment: () => actor.dispatch(counterSlice.actions.increment()),
 		});
 
@@ -290,7 +364,6 @@ describe("igniteCore", () => {
 			| undefined;
 		expect(secondArgs).toBeDefined();
 
-		expect(firstArgs?.increment).toBe(secondArgs?.increment);
 		expect(firstArgs?.count).toBe(0);
 		expect(secondArgs?.count).toBe(0);
 
@@ -327,7 +400,11 @@ describe("igniteCore", () => {
 		const statesCallback = (snapshot: StoreState) => ({
 			count: snapshot.count,
 		});
-		const commandsCallback = (storeInstance: StoreState) => ({
+		const commandsCallback = ({
+			actor: storeInstance,
+		}: {
+			actor: StoreState;
+		}) => ({
 			increment: () => storeInstance.increment(),
 		});
 

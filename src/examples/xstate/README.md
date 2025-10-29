@@ -56,7 +56,7 @@ const registerSharedXState = igniteCore({
       ? "p-4 bg-gray-800 text-white border rounded-md mb-2"
       : "p-4 bg-gray-100 text-black border rounded-md mb-2",
   }),
-  commands: (actor) => ({
+  commands: ({ actor }) => ({
     increment: () => actor.send({ type: "INC" }),
     decrement: () => actor.send({ type: "DEC" }),
     toggleDarkMode: () => actor.send({ type: "TOGGLE_DARK" }),
@@ -72,7 +72,7 @@ const registerIsolatedXState = igniteCore({
       ? "p-4 bg-gray-800 text-white border rounded-md mb-2"
       : "p-4 bg-gray-100 text-black border rounded-md mb-2",
   }),
-  commands: (actor) => ({
+  commands: ({ actor }) => ({
     increment: () => actor.send({ type: "INC" }),
     decrement: () => actor.send({ type: "DEC" }),
     toggleDarkMode: () => actor.send({ type: "TOGGLE_DARK" }),

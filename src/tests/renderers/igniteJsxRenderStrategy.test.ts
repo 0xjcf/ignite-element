@@ -108,6 +108,21 @@ describe("Ignite JSX render strategy", () => {
 		expect(onClick).toHaveBeenCalled();
 	});
 
+	it("normalizes camelCase custom event handlers to kebab-case", () => {
+		const handler = vi.fn();
+		const { element } = mountIgniteJsxRenderer(() =>
+			jsx("div", {
+				onCheckoutSubmitted: handler,
+				children: "checkout shell",
+			}),
+		);
+
+		const div = element.shadowRoot?.querySelector("div");
+		expect(div).toBeDefined();
+		div?.dispatchEvent(new CustomEvent("checkout-submitted"));
+		expect(handler).toHaveBeenCalledTimes(1);
+	});
+
 	it("ignores falsy className and removes attributes", () => {
 		const { element } = mountIgniteJsxRenderer(() =>
 			jsx("div", {

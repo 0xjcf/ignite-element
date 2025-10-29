@@ -83,10 +83,10 @@ const component = igniteCore({
     isOn: snapshot.matches("on"),
     presses: snapshot.context.presses,
   }),
-  commands: (actor) => ({
-    toggle: () => actor.send({ type: "TOGGLE" }),
-    increment: () => actor.send({ type: "INCREMENT" }),
-  }),
+	commands: ({ actor }) => ({
+		toggle: () => actor.send({ type: "TOGGLE" }),
+		increment: () => actor.send({ type: "INCREMENT" }),
+	}),
 });
 
 component("toggle-button", ({ isOn, presses, toggle, increment }) => (
@@ -175,7 +175,7 @@ You don’t need new helpers to keep TypeScript happy—the exported types for e
 const component = igniteCore({
   source: counterSlice,
   states: (snapshot) => ({ count: snapshot.counter.count }),
-  commands: (actor) => ({
+  commands: ({ actor }) => ({
     increment: () => actor.dispatch(counterSlice.actions.increment()),
   }),
 });
@@ -311,12 +311,12 @@ Progress tracked against the [acceptance criteria](plans/ACCEPTANCE_CRITERIA.md)
 
 ### Upgrading from pre-1.4.x
 
-- **Use callback facades:** Provide `states(snapshot)` and `commands(actor)` callbacks that return plain objects. Their values merge into the render arguments.
+- **Use callback facades:** Provide `states(snapshot)` and `commands({ actor, emit, host })` callbacks that return plain objects. Their values merge into the render arguments.
   ```ts
   const component = igniteCore({
     source: store,
     states: (snapshot) => ({ count: snapshot.counter.count }),
-    commands: (actor) => ({ increment: () => actor.dispatch(counterSlice.actions.increment()) }),
+    commands: ({ actor }) => ({ increment: () => actor.dispatch(counterSlice.actions.increment()) }),
   });
   ```
 - **Drop the discriminator:** `adapter` is optional. Keep it only when inference cannot determine the correct adapter or when using a custom adapter.

@@ -107,7 +107,7 @@ function setProps(element: Element, props: IgniteJsxProps) {
 		}
 
 		if (typeof value === "function" && key.startsWith("on") && key.length > 2) {
-			const eventName = key.slice(2).toLowerCase();
+			const eventName = normalizeEventName(key.slice(2));
 			(element as HTMLElement).addEventListener(
 				eventName,
 				value as EventListener,
@@ -127,4 +127,13 @@ function setProps(element: Element, props: IgniteJsxProps) {
 
 		element.setAttribute(key, String(value));
 	}
+}
+
+function normalizeEventName(rawName: string): string {
+	const trimmed = rawName.replace(/^[^a-zA-Z0-9]+/, "");
+	const withHyphens = trimmed
+		.replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+		.replace(/([A-Z])([A-Z][a-z])/g, "$1-$2")
+		.replace(/_/g, "-");
+	return withHyphens.toLowerCase();
 }

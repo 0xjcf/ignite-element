@@ -66,6 +66,7 @@ type FactoryOptions<
 	scope?: StateScope;
 	createAdditionalArgs?: (
 		adapter: IgniteAdapter<State, Event>,
+		host?: IgniteElement<State, Event, View>,
 	) => AdditionalRenderArgs<State, Event, RenderArgs>;
 	createRenderStrategy?: RenderStrategyFactory<View>;
 	cleanup?: boolean;
@@ -84,16 +85,18 @@ export default function igniteElementFactory<
 	options?: FactoryOptions<State, Event, RenderArgs, View>,
 ): ComponentFactory<State, Event, RenderArgs, View> {
 	let sharedAdapter: IgniteAdapter<State, Event> | null = null;
-	let sharedAdditionalArgs: AdditionalRenderArgs<
-		State,
-		Event,
-		RenderArgs
-	> | null = null;
+	let sharedAdditionalArgs = new WeakMap<
+		IgniteElement<State, Event, View>,
+		AdditionalRenderArgs<State, Event, RenderArgs>
+	>();
 	let sharedInstanceCount = 0;
 
-	const createAdditionalArgs =
+	const createAdditionalArgs: (
+		adapter: IgniteAdapter<State, Event>,
+		host?: IgniteElement<State, Event, View>,
+	) => AdditionalRenderArgs<State, Event, RenderArgs> =
 		options?.createAdditionalArgs ??
-		(() => ({}) as AdditionalRenderArgs<State, Event, RenderArgs>);
+		((_) => ({}) as AdditionalRenderArgs<State, Event, RenderArgs>);
 
 	const configuredFactory = resolveConfiguredRenderStrategy();
 	const renderStrategyFactory: RenderStrategyFactory<View> =
@@ -103,29 +106,28 @@ export default function igniteElementFactory<
 
 	const resolveSharedResources = (): {
 		adapter: IgniteAdapter<State, Event>;
-		additionalArgs: AdditionalRenderArgs<State, Event, RenderArgs>;
 	} => {
 		if (!sharedAdapter) {
 			const adapter = createAdapter();
 			adapter.scope = StateScope.Shared;
 			sharedAdapter = adapter;
-			sharedAdditionalArgs = createAdditionalArgs(adapter);
-		}
-
-		if (sharedAdapter && !sharedAdditionalArgs) {
-			sharedAdditionalArgs = createAdditionalArgs(sharedAdapter);
-		}
-
-		if (!sharedAdapter || !sharedAdditionalArgs) {
-			throw new Error(
-				"[igniteElementFactory] Failed to initialize shared adapter resources.",
-			);
 		}
 
 		return {
 			adapter: sharedAdapter,
-			additionalArgs: sharedAdditionalArgs,
 		};
+	};
+
+	const resolveSharedAdditionalArgs = (
+		host: IgniteElement<State, Event, View>,
+	): AdditionalRenderArgs<State, Event, RenderArgs> => {
+		const { adapter } = resolveSharedResources();
+		let existing = sharedAdditionalArgs.get(host);
+		if (!existing) {
+			existing = createAdditionalArgs(adapter, host);
+			sharedAdditionalArgs.set(host, existing);
+		}
+		return existing;
 	};
 
 	const releaseSharedResources = () => {
@@ -135,7 +137,7 @@ export default function igniteElementFactory<
 
 		sharedAdapter.stop();
 		sharedAdapter = null;
-		sharedAdditionalArgs = null;
+		sharedAdditionalArgs = new WeakMap();
 		sharedInstanceCount = 0;
 	};
 
@@ -156,9 +158,16 @@ export default function igniteElementFactory<
 			resolveSharedResources();
 
 			class SharedIgniteComponent extends IgniteElement<State, Event, View> {
+				private readonly additionalArgs: AdditionalRenderArgs<
+					State,
+					Event,
+					RenderArgs
+				>;
+
 				constructor() {
 					const { adapter } = resolveSharedResources();
 					super(adapter, renderStrategyFactory());
+					this.additionalArgs = resolveSharedAdditionalArgs(this);
 				}
 
 				connectedCallback(): void {
@@ -180,7 +189,7 @@ export default function igniteElementFactory<
 
 				protected renderView(): View {
 					return render({
-						...resolveSharedResources().additionalArgs,
+						...this.additionalArgs,
 						state: this.currentState,
 						send: (event) => this.send(event),
 					} as RenderArgs);
@@ -202,7 +211,7 @@ export default function igniteElementFactory<
 				const adapter = createAdapter();
 				adapter.scope ??= StateScope.Isolated;
 				super(adapter, renderStrategyFactory());
-				this.additionalArgs = createAdditionalArgs(adapter);
+				this.additionalArgs = createAdditionalArgs(adapter, this);
 				this.renderImpl = resolveRenderer(renderer);
 			}
 

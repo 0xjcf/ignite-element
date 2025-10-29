@@ -49,18 +49,18 @@ const sharedStore = counterStore();
 export const registerSharedMobx = igniteCore({
   source: sharedStore, // shared observable instance
   states: (snapshot) => ({ count: snapshot.count }),
-  commands: (store) => ({
-    decrement: () => store.decrement(),
-    increment: () => store.increment(),
+  commands: ({ actor }) => ({
+    decrement: () => actor.decrement(),
+    increment: () => actor.increment(),
   }),
 });
 
 export const registerIsolatedMobx = igniteCore({
   source: counterStore, // factory → new observable each time
   states: (snapshot) => ({ count: snapshot.count }),
-  commands: (store) => ({
-    decrement: () => store.decrement(),
-    increment: () => store.increment(),
+  commands: ({ actor }) => ({
+    decrement: () => actor.decrement(),
+    increment: () => actor.increment(),
   }),
 });
 ```
