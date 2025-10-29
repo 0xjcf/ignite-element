@@ -27,6 +27,7 @@ export default defineConfig({
 				"@reduxjs/toolkit",
 				"node:fs",
 				"node:path",
+				"node:url",
 			],
 			output: {
 				globals: {
