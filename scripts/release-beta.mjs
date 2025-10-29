@@ -17,8 +17,16 @@ const skipOtp = hasFlag("--skip-otp");
 const otp = getOption("--otp");
 
 const run = (command, options = {}) => {
+	const { onError, ...execOptions } = options;
 	console.log(`\n➡️  ${command}`);
-	execSync(command, { stdio: "inherit", ...options });
+	try {
+		execSync(command, { stdio: "inherit", ...execOptions });
+	} catch (error) {
+		if (typeof onError === "function") {
+			onError(error);
+		}
+		throw error;
+	}
 };
 
 const ensureCleanWorkingTree = () => {
@@ -84,7 +92,13 @@ const main = async () => {
 	ensureCleanWorkingTree();
 	ensureNpmAuth();
 
-	run("pnpm changeset status");
+	run("pnpm changeset status", {
+		onError: () => {
+			console.error(
+				"[release:beta] changeset status failed. Add a changeset with `pnpm changeset` (or `pnpm changeset add --empty` when bumping without code changes) before releasing.",
+			);
+		},
+	});
 	run("pnpm test");
 	run("pnpm build");
 
