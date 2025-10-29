@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { resolveConfigFile } from "./configFile";
 
 export interface IgniteConfigVitePluginOptions {
@@ -31,6 +32,11 @@ function toFileSystemPath(path: string): string {
 	return `/@fs/${toPosixPath(path)}`;
 }
 
+const moduleDirectory =
+	typeof __dirname === "string"
+		? __dirname
+		: fileURLToPath(new URL(".", import.meta.url));
+
 function resolveLoadHelperSpecifier(): string | undefined {
 	const candidates = [
 		"../config/loadIgniteConfig.ts",
@@ -42,7 +48,7 @@ function resolveLoadHelperSpecifier(): string | undefined {
 	];
 
 	for (const candidate of candidates) {
-		const absolute = resolve(__dirname, candidate);
+		const absolute = resolve(moduleDirectory, candidate);
 		if (existsSync(absolute)) {
 			return toFileSystemPath(absolute);
 		}

@@ -104,7 +104,7 @@ Component-specific tweaks live alongside the render functions, so you can mix Ta
 ## Tips & Next Steps
 
 - **Shared vs. isolated**: pass a running actor for shared state, or a machine for isolated instances. ignite-element figures it out for you.
-- **Facade composition**: memoise expensive selectors inside `states(...)`—it only runs when the adapter snapshot changes.
+- **Facade composition**: memoize expensive selectors inside `states(...)`—it only runs when the adapter snapshot changes.
 - **Try decorators**: if you prefer class syntax, the `Shared`/`Isolated` decorators from `ignite-element` work seamlessly with the inferred facades showcased here.
 - **Experiment**: extend the machine with additional states or actions, expose them through the `commands` facade, and render them in a new component.
 
