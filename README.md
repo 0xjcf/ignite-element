@@ -10,19 +10,16 @@
 
 ---
 
-## 🆕 What's New in v1.4.7
+## 🆕 What's New in v2.0.0
 
-**Release Date:** TBD
+### Highlights
 
-### Key Changes
-
-- **Callback facade:** `igniteCore` now accepts `states(snapshot)` and `commands(actor)` callbacks. The render arguments you receive already include these derived values alongside the `send` helper, replacing the old mapping objects.
-- **Flexible renderer support:** The registration function (`(tag, renderer) => void`) now accepts plain functions, objects with a `render` method, or classes so you can share renderer instances safely.
-- **Shared vs. isolated detection:** Passing a running XState actor / Redux store / MobX observable automatically yields shared scope; providing factories or machine definitions yields isolated scope.
-- **Shared lifecycle management:** Shared adapters now stop automatically when the last element disconnects, with an opt-out flag (`cleanup: false`) for hosts that prefer manual control.
-- **Styling upgrades:** `setGlobalStyles` resolves asset URLs correctly inside Vite and custom build setups.
-- **Renderer roadmap:** An Ignite-authored JSX renderer and strategy abstraction are in progress—watch the checklist below for updates.
-- **Bug fixes:** Improved cleanup behaviour in `IgniteElement` and adapters to avoid stale subscriptions.
+- **Central configuration:** Define global styles, default renderer, and future options via a project-level `ignite.config.ts`. First-party plugins for Vite and Webpack auto-inject the config at build time.
+- **Ignite JSX by default:** Ignite Element now ships its own JSX renderer with zero React/Solid dependencies. Swap back to lit by changing a single line in your config.
+- **Typed event emission:** Declare an events map in `igniteCore` and receive a typed `emit` helper plus host reference inside command callbacks.
+- **Adapter inference & entry points:** `igniteCore` infers XState, Redux, and MobX adapters from the provided source and exposes adapter-specific entry points that keep optional peers out of unrelated bundles.
+- **Shared adapter lifecycle:** Shared adapters use reference counting to clean up automatically while still allowing manual control for long-lived hosts.
+- **Documentation refresh:** README, guides, and migration notes cover the new config workflow, renderer strategies, and typed events API.
 
 See the [full changelog](CHANGELOG.md) for detailed updates.
 
@@ -36,72 +33,114 @@ See the [full changelog](CHANGELOG.md) for detailed updates.
 
 ## 🎯 Key Features
 
-- 🎯 **State Management Made Easy:** Works with **XState**, **Redux**, and **MobX**, supporting both shared and isolated instances.
-- 🔄 **Reusable Web Components:** Built entirely on modern web standards—no framework lock-in.
-- 🎨 **Flexible Styling:** Inject global styles once or add per-component CSS inside the shadow DOM.
-- 💡 **Ignite JSX Runtime:** Author JSX without React/Solid dependencies—Ignite JSX ships as the default renderer, with lit-html available as an optional strategy.
-- 📘 **TypeScript Support:** Rich inference for `state` and `send` arguments across adapters.
+- 🎯 **State Management Made Easy:** Works with **XState**, **Redux**, and **MobX**, automatically inferring the right adapter for shared or isolated scope.
+- 🧭 **Centralised Configuration:** Manage global styles, renderer choice, and future options from `ignite.config.ts` with Vite/Webpack plugins that inject the config for you.
+- 💡 **Ignite JSX Runtime:** Author JSX without React/Solid dependencies—Ignite JSX ships as the default renderer, while lit remains one config change away.
+- 📣 **Typed Events & Commands:** Facade callbacks provide derived state, a typed `emit` helper, and host access so components can talk back to their parents safely.
+- 📘 **TypeScript Support:** Rich inference for render args across every adapter and facade combination.
 - ⚡ **Minimal Bundle Size:** Designed to add only a few kilobytes on top of your chosen state library.
 
 ---
 
 ## 🚀 Quick Start
 
-Get up and running in 30 seconds:
+Get up and running in a few steps:
 
-```tsx
-// 1. Install
-npm install ignite-element xstate
+1. **Install**
 
-// 2. Create your first component
-/** @jsxImportSource ignite-element/jsx */
-import { igniteCore } from "ignite-element";
-import { createMachine, assign } from "xstate";
+   ```bash
+   npm install ignite-element xstate
+   ```
 
-const toggleMachine = createMachine({
-  id: "toggle",
-  initial: "off",
-  context: { presses: 0 },
-  states: {
-    off: {
-      on: {
-        TOGGLE: "on",
-        INCREMENT: { actions: assign({ presses: (ctx) => ctx.presses + 1 }) },
-      },
-    },
-    on: {
-      on: {
-        TOGGLE: "off",
-        INCREMENT: { actions: assign({ presses: (ctx) => ctx.presses + 1 }) },
-      },
-    },
-  },
-});
+1. **Create `ignite.config.ts`**
 
-const component = igniteCore({
-  source: toggleMachine, // isolated – every element gets its own actor
-  states: (snapshot) => ({
-    isOn: snapshot.matches("on"),
-    presses: snapshot.context.presses,
-  }),
-	commands: ({ actor }) => ({
-		toggle: () => actor.send({ type: "TOGGLE" }),
-		increment: () => actor.send({ type: "INCREMENT" }),
-	}),
-});
+   ```ts
+   import { defineIgniteConfig } from "ignite-element/config";
 
-component("toggle-button", ({ isOn, presses, toggle, increment }) => (
-  <div className="stack">
-    <button onClick={toggle}>
-      {isOn ? "On" : "Off"} (pressed {presses} times)
-    </button>
-    <button onClick={increment}>Add Press</button>
-  </div>
-));
+   export default defineIgniteConfig({
+     globalStyles: new URL("./styles.css", import.meta.url).href,
+     renderer: "ignite-jsx", // or "lit"
+   });
+   ```
 
-// 3. Use it anywhere in HTML
-// <toggle-button></toggle-button>
-```
+1. **Wire the Vite plugin** (Webpack plugin exported at `ignite-element/config/webpack`)
+
+   ```ts
+   // vite.config.ts
+   import { defineConfig } from "vite";
+   import { igniteConfigVitePlugin } from "ignite-element/config/vite";
+
+   export default defineConfig({
+     plugins: [igniteConfigVitePlugin()],
+   });
+   ```
+
+1. **Create your first component**
+
+   ```tsx
+   /** @jsxImportSource ignite-element/jsx */
+   import { igniteCore } from "ignite-element";
+   import { createMachine, assign } from "xstate";
+
+   const toggleMachine = createMachine({
+     id: "toggle",
+     initial: "off",
+     context: { presses: 0 },
+     states: {
+       off: {
+         on: {
+           TOGGLE: "on",
+           INCREMENT: { actions: assign({ presses: (ctx) => ctx.presses + 1 }) },
+         },
+       },
+       on: {
+         on: {
+           TOGGLE: "off",
+           INCREMENT: { actions: assign({ presses: (ctx) => ctx.presses + 1 }) },
+         },
+       },
+     },
+   });
+
+   const component = igniteCore({
+     source: toggleMachine, // isolated – every element gets its own actor
+     events: (event) => ({
+       incremented: event<{ presses: number }>(),
+     }),
+     states: (snapshot) => ({
+       isOn: snapshot.matches("on"),
+       presses: snapshot.context.presses,
+     }),
+     commands: ({ actor, emit }) => ({
+       toggle: () => actor.send({ type: "TOGGLE" }),
+       increment: () => {
+         actor.send({ type: "INCREMENT" });
+         emit("incremented", { presses: actor.getSnapshot().context.presses });
+       },
+     }),
+   });
+
+   component("toggle-button", ({ isOn, presses, toggle, increment }) => (
+     <div className="stack">
+       <button onClick={toggle}>
+         {isOn ? "On" : "Off"} (pressed {presses} times)
+       </button>
+       <button onClick={increment}>Add Press</button>
+     </div>
+   ));
+
+   document
+     .querySelector("toggle-button")
+     ?.addEventListener("incremented", (event) =>
+       console.log("Pressed:", event.detail.presses),
+     );
+   ```
+
+1. **Use the element**
+
+   ```html
+   <toggle-button></toggle-button>
+   ```
 
 ### Renderer shapes
 
@@ -133,24 +172,29 @@ Need a shared instance? Start an actor (or reuse a Redux store / MobX observable
 
 ## 🛠️ Installation
 
-Ignite-Element now ships with the Ignite JSX runtime by default. Prefer template literals? Install `lit-html` and switch the renderer in `ignite.config.ts`.
+Ignite-Element ships with the Ignite JSX runtime by default. Prefer template literals? Install `lit-html` and flip the renderer in `ignite.config.ts`.
 
-**Install with your preferred state library:**
+### 1. Install the core + your state library
 
 - **XState**
+
   ```bash
   npm install ignite-element xstate
   ```
+
 - **Redux**
+
   ```bash
   npm install ignite-element @reduxjs/toolkit
   ```
+
 - **MobX**
+
   ```bash
   npm install ignite-element mobx
   ```
 
-Then opt-in to the Ignite JSX runtime (default) in your project configuration:
+### 2. Configure TypeScript (JSX projects)
 
 ```jsonc
 // tsconfig.json
@@ -162,7 +206,42 @@ Then opt-in to the Ignite JSX runtime (default) in your project configuration:
 }
 ```
 
-Prefer lit templates? Install `lit-html` and set `renderer: "lit"` in your `ignite.config.ts`. The Ignite config plugins automatically register the lit strategy; if you skip the plugins, add a single `import "ignite-element/renderers/lit"` alongside your config.
+### 3. Declare project-wide defaults
+
+```ts
+// ignite.config.ts
+import { defineIgniteConfig } from "ignite-element/config";
+
+export default defineIgniteConfig({
+  globalStyles: new URL("./styles.css", import.meta.url).href,
+  renderer: "ignite-jsx", // or "lit"
+});
+```
+
+### 4. Register the config plugin (optional but recommended)
+
+- **Vite**
+
+  ```ts
+  import { defineConfig } from "vite";
+  import { igniteConfigVitePlugin } from "ignite-element/config/vite";
+
+  export default defineConfig({
+    plugins: [igniteConfigVitePlugin()],
+  });
+  ```
+
+- **Webpack**
+
+  ```ts
+  const { IgniteConfigWebpackPlugin } = require("ignite-element/config/webpack");
+
+  module.exports = {
+    plugins: [new IgniteConfigWebpackPlugin()],
+  };
+  ```
+
+Prefer lit templates? Install `lit-html`, set `renderer: "lit"` in the config above, and the plugins will load the lit strategy automatically. Without the plugin you can fall back to a single `import "ignite-element/renderers/lit"` at app start.
 
 ---
 
@@ -221,28 +300,50 @@ Keep this pattern in mind for Redux stores, MobX observables, or any custom adap
 
 > **Migration Note:** Prior releases required an explicit `adapter` discriminator (e.g. `adapter: "xstate"`). That hint is now optional—existing code keeps working, but you can safely remove the property when the source is an XState machine/actor, Redux slice/store/factory, or MobX observable/factory.
 
-### Facade Callbacks
+### Facade callbacks
 
 `igniteCore` merges the outputs of your facade callbacks into the render arguments:
 
-- `states(snapshot)` lets you derive the values your component needs to display.
-- `commands(actor)` lets you expose the actions your component can perform.
+- `states(snapshot)` derives the values your component needs to display.
+- `commands({ actor, emit, host })` exposes the actions your component can perform and, when events are declared, a typed `emit` helper plus host reference.
 
 Both callbacks run once per adapter instance (shared) or per element (isolated), so you can safely memoize values or close over resources without worrying about duplicate subscriptions.
+
+### Typed events
+
+Opt in by declaring an `events` map:
+
+```ts
+const registerCounter = igniteCore({
+  source: counterSlice,
+  events: (event) => ({
+    "counter:incremented": event<{ amount: number }>(),
+  }),
+  commands: ({ actor, emit }) => ({
+    add: (amount: number) => {
+      actor.dispatch(counterSlice.actions.addByAmount(amount));
+      emit("counter:incremented", { amount });
+    },
+  }),
+});
+```
+
+Commands receive `{ actor, emit, host }`. The `emit` helper dispatches bubbling, composed `CustomEvent` instances so parents can listen with `addEventListener`. When no `events` map is supplied the helper is omitted, keeping render args lean.
 
 ### Styling
 
 You can:
 
-- Inject global styles once via `setGlobalStyles`.
+- Declare site-wide styles in `ignite.config.ts` (`globalStyles` accepts a string URL or object literal stylesheet).
 - Provide custom CSS per component.
 - Combine both for progressive enhancement.
 
-```typescript
+Fallback: when a bundler plugin cannot be used (e.g. plain script tag), call `setGlobalStyles` manually before registering components.
+
+```ts
 import { setGlobalStyles } from "ignite-element";
 
-const href = new URL("./styles/tailwind.css", import.meta.url).href;
-setGlobalStyles(href);
+setGlobalStyles(new URL("./styles.css", import.meta.url).href);
 ```
 
 ---
@@ -257,7 +358,7 @@ Every example demonstrates a different pattern and styling approach:
 | [Redux + Bootstrap](./src/examples/redux) | Redux Toolkit | Bootstrap | Store factory vs. shared store, scoped Bootstrap link injection |
 | [MobX + Custom](./src/examples/mobx) | MobX | Custom CSS | Observable reuse vs. new instances, hybrid global + component styles |
 
-**Run locally**
+### Run locally
 
 ```bash
 pnpm run examples:xstate
@@ -269,42 +370,23 @@ pnpm run examples:mobx
 
 ---
 
-## ✅ Roadmap Checklist
+## ✅ v2 DX Milestones
 
-Progress tracked against the [acceptance criteria](plans/ACCEPTANCE_CRITERIA.md).
+Highlights from the [v2 DX plan](plans/DONE/ignite-v2-dx/task-list.md):
 
-### Core API
-- [x] Optional `states(snapshot)` and `commands(actor)` facades on `igniteCore`.
-- [x] Registration function accepts function, object, or class renderers.
-- [x] Render args merge façade data with `state` and `send` helpers.
-- [x] Backwards compatible defaults when callbacks are omitted.
+- [x] Design a central configuration API (`defineIgniteConfig`) with Vite/Webpack plugins.
+- [x] Split renderer strategies and ship Ignite JSX as the default runtime.
+- [x] Infer adapters automatically (Redux slice/store, XState machine/actor, MobX observable/factory).
+- [x] Add typed events + host context to commands, keeping render args type-safe.
+- [x] Reference-count shared adapters so they clean up when the last host disconnects.
+- [x] Refresh documentation and examples to use the new config workflow.
+- [x] Extend test coverage across config loading, renderer strategies, typed events, and adapter lifecycle.
 
-### Facade Typing & Utilities
-- [x] Type inference maps adapter-specific façade shapes automatically.
-- [x] Invalid façade return types trigger compile-time errors.
+### Up next
 
-### Adapter Behaviour & Lifecycle
-- [x] XState adapter supports shared actors and isolated machines.
-- [x] Redux adapter handles slices, store factories, and store instances.
-- [x] MobX adapter reuses shared observables and manages isolated factories with cleanup.
-- [x] Components dispose adapters on disconnect and recreate isolated scopes on reconnect.
-
-### Testing
-- [x] Facade behaviour covered for XState, Redux, and MobX (shared & isolated).
-- [x] Renderer flexibility verified (function, object, class).
-- [x] Regression tests cover scope detection and cleanup paths.
-
-### Documentation & Migration
-- [x] README and docs describe façade callbacks and registration patterns.
-- [x] Examples showcase the new API with adapter inference.
-- [ ] Publish expanded migration guide for v1 → v1.4.7.
-
-### Future Enhancements
-- [x] Adapter inference (XState, Redux, MobX sources).
-- [x] Centralised config (`ignite.config.(ts|js)`) for global styles/defaults.
-- [ ] Ignite JSX renderer strategy (renderer-agnostic core).
-- [ ] `attachRenderer` helper for class-based renderers.
-- [ ] Developer tooling (codemod, IDE snippets).
+- [ ] Publish an expanded v1 → v2 migration guide with IDE helpers.
+- [ ] Explore IDE/codegen tooling (codemod, snippets) for common facade patterns.
+- [ ] Document best practices for cross-framework distribution (npm vs. CDN).
 
 ---
 
@@ -313,6 +395,7 @@ Progress tracked against the [acceptance criteria](plans/ACCEPTANCE_CRITERIA.md)
 ### Upgrading from pre-1.4.x
 
 - **Use callback facades:** Provide `states(snapshot)` and `commands({ actor, emit, host })` callbacks that return plain objects. Their values merge into the render arguments.
+  
   ```ts
   const component = igniteCore({
     source: store,
@@ -320,6 +403,7 @@ Progress tracked against the [acceptance criteria](plans/ACCEPTANCE_CRITERIA.md)
     commands: ({ actor }) => ({ increment: () => actor.dispatch(counterSlice.actions.increment()) }),
   });
   ```
+  
 - **Drop the discriminator:** `adapter` is optional. Keep it only when inference cannot determine the correct adapter or when using a custom adapter.
 - **Register renderers directly:** The registration function now accepts render functions, `{ render }` objects, or classes. If you previously instantiated a renderer manually, you can pass the class itself (`component("my-tag", MyRenderer)`).
 - **Deprecated helpers:** `initialTransition` and `resolveState` are removed—use the snapshot provided to `states` or call `adapter.getState()` when needed.
@@ -415,7 +499,7 @@ We welcome all contributions!
 - 📝 Improve docs, clarify examples, or fix typos
 - 🔨 Submit pull requests
 
-**Development setup**
+### Development setup
 
 ```bash
 git clone https://github.com/<your-username>/ignite-element.git
@@ -437,9 +521,7 @@ Ignite-Element is released under the MIT License.
 
 ## 💬 Feedback
 
-Your feedback helps Ignite-Element grow!
+We appreciate feedback—let us know what helps or what’s missing.
 
 - [Open an issue](https://github.com/0xjcf/ignite-element/issues)
 - [Join GitHub Discussions](https://github.com/0xjcf/ignite-element/discussions)
-
-_Suggest improvements, contribute, and help Ignite-Element become your go-to foundation for web components._

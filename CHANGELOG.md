@@ -1,12 +1,33 @@
 # Changelog
 
-## Unreleased
+## 2.0.0-beta.2
 
-### Minor Changes
+### Major Changes
 
-- Adapter inference: `igniteCore` now infers XState, Redux, and MobX adapters from the `source` you supply. Existing code that specifies `adapter` continues to work, but the discriminator is optional when inference succeeds.
-- Central configuration: Added `defineIgniteConfig`, `getIgniteConfig`, and optional Vite/Webpack plugins so global styles can be managed via `ignite.config.ts`.
-- Ignite JSX runtime: Ignite JSX becomes the default renderer with JSX helpers (`jsx`, `jsxs`, `jsxDEV`) and configuration hooks to switch between Ignite JSX and the optional lit strategy via `ignite.config.ts`.
+- af8561a: set up the beta release flow, tighten redux adapter unsubscribe handling, and align example/tooling configs for the prerelease build
+
+## 2.0.0-beta.1
+
+### Major Changes
+
+- Centralised configuration with `ignite.config.ts`, `defineIgniteConfig`, and optional Vite/Webpack plugins so apps can declare global styles and renderer choice without touching runtime code.
+- Renderer strategies extracted from the core runtime; Ignite JSX now ships as the default renderer with `jsx`/`jsxs`/`jsxDEV` factories while the lit strategy remains available via configuration.
+- Adapter inference and entry points ensure `igniteCore` auto-detects Redux slices/stores, XState machines/actors, and MobX observables/factories, letting bundlers tree-shake optional peers.
+
+### New Features
+
+- Typed event emission via an `events` map that injects a strongly typed `emit` helper and host reference into command callbacks.
+- Shared adapter lifecycle now reference-counts subscribers and tears down when the last host disconnects, with an opt-out for manual control.
+- Facade ergonomics improved so `states`/`commands` callbacks infer their return types directly from the provided source.
+
+### Documentation & Examples
+
+- README, guides, and migration notes updated for the config workflow, renderer strategies, and typed events API.
+- Examples refreshed to lazy-load only the adapters they need, including Tailwind v4 and Redux live CSS updates.
+
+### Quality
+
+- Expanded unit/integration coverage across configuration loading, renderer strategies, typed events, and adapter lifecycle; verified the full build/test/typecheck matrix for the v2 prerelease.
 
 ## 1.4.7
 
