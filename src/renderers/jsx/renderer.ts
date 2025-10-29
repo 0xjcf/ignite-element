@@ -72,11 +72,7 @@ function appendNode(
 	parent: Node | DocumentFragment,
 	child: Node | DocumentFragment,
 ) {
-	if (child instanceof DocumentFragment) {
-		parent.appendChild(child);
-	} else {
-		parent.appendChild(child);
-	}
+	parent.appendChild(child);
 }
 
 function setProps(element: Element, props: IgniteJsxProps) {

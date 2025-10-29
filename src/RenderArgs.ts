@@ -137,7 +137,7 @@ type CommandResult<
 	Result = CommandCallback extends FacadeCommandsCallback<
 		AdapterActor<Source>,
 		infer CallbackResult,
-		EventMap
+		infer _Events
 	>
 		? CallbackResult extends FacadeCommandResult
 			? CallbackResult

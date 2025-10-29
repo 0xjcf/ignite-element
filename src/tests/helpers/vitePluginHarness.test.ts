@@ -167,8 +167,11 @@ describe("vitePluginHarness", () => {
 			this.cache.get("virtual:id");
 			this.cache.has("virtual:id");
 			this.cache.set("virtual:id", "value");
-			this.emitFile();
-			this.getFileName();
+			const referenceId = this.emitFile({
+				type: "asset",
+				name: id,
+			});
+			this.getFileName(referenceId);
 			[...this.getModuleIds()];
 			this.getModuleInfo("virtual:id");
 			this.getWatchFiles();
@@ -181,7 +184,7 @@ describe("vitePluginHarness", () => {
 			const resolved = await this.resolve(id);
 			expect(resolved).toBeNull();
 
-			this.setAssetSource(id, "source");
+			this.setAssetSource(referenceId, "source");
 
 			return "handled";
 		} as unknown as VitePlugin["resolveId"];

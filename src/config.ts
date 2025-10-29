@@ -27,9 +27,7 @@ function normalizeConfig(config: IgniteConfig): IgniteConfig {
 
 	if ("renderer" in config) {
 		const renderer = config.renderer;
-		if (renderer === undefined) {
-			normalized.renderer = undefined;
-		} else if (renderer === "lit" || renderer === "ignite-jsx") {
+		if (renderer === "lit" || renderer === "ignite-jsx") {
 			normalized.renderer = renderer;
 		} else {
 			console.warn(
@@ -37,6 +35,7 @@ function normalizeConfig(config: IgniteConfig): IgniteConfig {
 					renderer,
 				)}" in ignite.config. Supported values are "lit" and "ignite-jsx". Falling back to "lit".`,
 			);
+			normalized.renderer = "lit";
 		}
 	}
 

@@ -29,19 +29,22 @@ export type PluginContextStub = MinimalPluginContextWithoutEnvironment & {
 		has: (id: string) => boolean;
 		set: <T = unknown>(id: string, value: T) => void;
 	};
-	emitFile: () => string;
+	emitFile: (options: { type: "asset"; name?: string }) => string;
 	fs: unknown;
-	getFileName: () => string;
+	getFileName: (referenceId: string) => string;
 	getModuleIds: () => IterableIterator<string>;
 	getModuleInfo: (id?: string) => null;
 	getWatchFiles: () => string[];
 	load: (id: string) => Promise<unknown>;
 	parse: (code: string) => unknown;
 	resolve: (id: string) => Promise<unknown>;
-	setAssetSource: (id: string, source: string | Uint8Array) => void;
+	setAssetSource: (referenceId: string, source: string | Uint8Array) => void;
 };
 
 /* c8 ignore start */
+let assetCounter = 0;
+const emittedAssets = new Map<string, string | Uint8Array | null>();
+
 const pluginContext: PluginContextStub = Object.assign(minimalPluginContext, {
 	addWatchFile: (_id: string) => undefined,
 	cache: {
@@ -50,9 +53,24 @@ const pluginContext: PluginContextStub = Object.assign(minimalPluginContext, {
 		has: (_id: string) => false,
 		set: (_id: string, _value: unknown) => undefined,
 	},
-	emitFile: () => "",
+	emitFile: ({ type }: { type: "asset"; name?: string }) => {
+		if (type !== "asset") {
+			throw new Error("Only asset emission is supported in tests.");
+		}
+
+		const referenceId = `asset-${++assetCounter}`;
+		emittedAssets.set(referenceId, null);
+		return referenceId;
+	},
 	fs: {},
-	getFileName: () => "",
+	getFileName: (referenceId: string) => {
+		if (!emittedAssets.has(referenceId)) {
+			throw new Error(
+				`Unknown reference id "${referenceId}". Did you call emitFile first?`,
+			);
+		}
+		return `${referenceId}.js`;
+	},
 	getModuleIds: function* () {
 		// Yield from an empty iterable to satisfy generator requirements without producing items.
 		yield* new Set<string>().values();
@@ -62,7 +80,14 @@ const pluginContext: PluginContextStub = Object.assign(minimalPluginContext, {
 	load: async (_id: string) => ({ ast: null, code: null }),
 	parse: (_code: string) => ({ type: "Program" }),
 	resolve: async (_id: string) => null,
-	setAssetSource: (_id: string, _source: string | Uint8Array) => undefined,
+	setAssetSource: (referenceId: string, source: string | Uint8Array) => {
+		if (!emittedAssets.has(referenceId)) {
+			throw new Error(
+				`Unknown reference id "${referenceId}". Did you call emitFile first?`,
+			);
+		}
+		emittedAssets.set(referenceId, source);
+	},
 });
 /* c8 ignore end */
 

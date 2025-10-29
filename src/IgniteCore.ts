@@ -130,7 +130,8 @@ export function igniteCore<
 	InferStateAndEvent<StoreInstance>["State"],
 	StateCallback,
 	ReduxCommandActorFor<StoreInstance>,
-	CommandCallback
+	CommandCallback,
+	Events
 >;
 
 export function igniteCore<
