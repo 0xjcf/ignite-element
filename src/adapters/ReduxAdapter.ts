@@ -49,13 +49,15 @@ const buildAdapter = <
 ): IgniteAdapter<ReturnType<Store["getState"]>, Event> => {
 	type State = ReturnType<Store["getState"]>;
 
-	let unsubscribe: (() => void) | null = null;
+	const unsubscribers = new Set<() => void>();
 	let isStopped = false;
 	let lastKnownState: State = store.getState();
 
-	const cleanupSubscribe = () => {
-		unsubscribe?.();
-		unsubscribe = null;
+	const cleanupSubscriptions = () => {
+		for (const unsubscribe of unsubscribers) {
+			unsubscribe();
+		}
+		unsubscribers.clear();
 	};
 
 	const adapter: IgniteAdapter<State, Event> = {
@@ -65,17 +67,21 @@ const buildAdapter = <
 			}
 
 			listener(store.getState());
-			unsubscribe = store.subscribe(() => {
+			const storeUnsubscribe = store.subscribe(() => {
 				listener(store.getState());
 			});
 
+			const unsubscribe = () => {
+				if (!unsubscribers.delete(unsubscribe)) {
+					return;
+				}
+				storeUnsubscribe();
+			};
+
+			unsubscribers.add(unsubscribe);
+
 			return {
-				unsubscribe: () => {
-					if (isStopped) {
-						return;
-					}
-					cleanupSubscribe();
-				},
+				unsubscribe,
 			};
 		},
 		send(event) {
@@ -92,7 +98,7 @@ const buildAdapter = <
 			return isStopped ? lastKnownState : store.getState();
 		},
 		stop() {
-			cleanupSubscribe();
+			cleanupSubscriptions();
 			isStopped = true;
 		},
 		scope,
