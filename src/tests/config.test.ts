@@ -144,7 +144,7 @@ describe("defineIgniteConfig", () => {
 
 		defineIgniteConfig({ renderer: "unknown" as never });
 
-	expect(warnSpy).toHaveBeenCalledWith(
+		expect(warnSpy).toHaveBeenCalledWith(
 			'[ignite-element] Unknown renderer "unknown" in ignite.config. Supported values are "lit" and "ignite-jsx". Falling back to "lit".',
 		);
 		expect(getIgniteConfig()).toEqual({ renderer: "lit" });
