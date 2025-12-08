@@ -4,12 +4,36 @@ import dts from "vite-plugin-dts";
 export default defineConfig({
 	build: {
 		lib: {
-			entry: "src/index.ts",
-			name: "igniteElement",
-			fileName: (format) => `ignite-element.${format}.js`,
+			entry: {
+				index: "src/index.ts",
+				xstate: "src/xstate.ts",
+				redux: "src/redux.ts",
+				mobx: "src/mobx.ts",
+				"renderers/ignite-jsx": "src/renderers/ignite-jsx.ts",
+				"renderers/lit": "src/renderers/lit.ts",
+				"config/loadIgniteConfig": "src/config/loadIgniteConfig.ts",
+				"config/webpack": "src/config/webpack.ts",
+				"config/vite": "src/config/vite.ts",
+				"jsx/index": "src/jsx/index.ts",
+				"jsx/jsx-runtime": "src/jsx/jsx-runtime.ts",
+				"jsx/jsx-dev-runtime": "src/jsx/jsx-dev-runtime.ts",
+			},
+			fileName: (format, entryName) => {
+				const base = entryName === "index" ? "ignite-element" : entryName;
+				return `${base}.${format}.js`;
+			},
 		},
 		rollupOptions: {
-			external: ["lit-html", "xstate", "mobx", "redux", "@reduxjs/toolkit"],
+			external: [
+				"lit-html",
+				"xstate",
+				"mobx",
+				"redux",
+				"@reduxjs/toolkit",
+				"node:fs",
+				"node:path",
+				"node:url",
+			],
 			output: {
 				globals: {
 					xstate: "XState",

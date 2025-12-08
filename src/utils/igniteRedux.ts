@@ -1,4 +1,4 @@
-import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
+import type { AnyAction, EnhancedStore, Slice } from "@reduxjs/toolkit";
 
 // Infer RootState from Slice or Store
 export type InferRootState<Source extends Slice | EnhancedStore> =
@@ -7,9 +7,6 @@ export type InferRootState<Source extends Slice | EnhancedStore> =
 		: Source extends EnhancedStore
 			? ReturnType<Source["getState"]>
 			: never;
-
-type ActionCreators = Record<string, unknown>;
-export type ReduxActions = ActionCreators;
 
 type InferEventFromCreators<Creators> = Creators extends Record<
 	string,
@@ -35,22 +32,50 @@ export type InferEvent<Actions> = NormalizeEvent<
 	InferEventFromCreators<Actions>
 >;
 
-// Infer State and Events for Slices or Stores
+type InferStoreState<Source> = Source extends () => EnhancedStore
+	? ReturnType<ReturnType<Source>["getState"]>
+	: Source extends EnhancedStore
+		? ReturnType<Source["getState"]>
+		: never;
+
+// Infer events for stores from their dispatch signature
+type FirstDispatchArg<Dispatch> = Dispatch extends (
+	...args: infer Params
+) => unknown
+	? Params extends [infer Event, ...infer _Rest]
+		? Event
+		: never
+	: never;
+
+type DispatchEvent<Store> = Store extends {
+	dispatch: infer Dispatch;
+}
+	? FirstDispatchArg<Dispatch> extends infer Event
+		? [Event] extends [never]
+			? AnyAction
+			: Event extends { type: string }
+				? NormalizeEvent<Event>
+				: AnyAction
+		: AnyAction
+	: AnyAction;
+
+type StoreDispatchEvent<Source extends (() => EnhancedStore) | EnhancedStore> =
+	Source extends () => EnhancedStore
+		? DispatchEvent<ReturnType<Source>>
+		: Source extends EnhancedStore
+			? DispatchEvent<Source>
+			: never;
+
 export type InferStateAndEvent<
-	Source extends Slice | (() => EnhancedStore),
-	Actions extends ActionCreators | undefined = Source extends Slice
-		? Source["actions"]
-		: undefined,
+	Source extends Slice | (() => EnhancedStore) | EnhancedStore,
 > = Source extends Slice
 	? {
 			State: InferRootState<Source>;
 			Event: InferEvent<Source["actions"]>;
 		}
-	: Source extends () => EnhancedStore
+	: Source extends (() => EnhancedStore) | EnhancedStore
 		? {
-				State: ReturnType<ReturnType<Source>["getState"]>;
-				Event: Actions extends ActionCreators
-					? InferEvent<Actions>
-					: { type: string };
+				State: InferStoreState<Source>;
+				Event: StoreDispatchEvent<Source>;
 			}
 		: never;

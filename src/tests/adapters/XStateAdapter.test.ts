@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createActor } from "xstate";
 import createXStateAdapter from "../../adapters/XStateAdapter";
 import counterMachine from "../../examples/xstate/xstateCounterMachine";
+import { StateScope } from "../../IgniteAdapter";
 
 describe("XStateAdapter", () => {
 	let adapterFactory: ReturnType<typeof createXStateAdapter>;
@@ -37,8 +39,8 @@ describe("XStateAdapter", () => {
 		const listener1 = vi.fn();
 		const listener2 = vi.fn();
 
-		adapter.subscribe(listener1);
-		adapter.subscribe(listener2);
+		const subscription1 = adapter.subscribe(listener1);
+		const subscription2 = adapter.subscribe(listener2);
 
 		adapter.send({ type: "START" });
 
@@ -57,6 +59,26 @@ describe("XStateAdapter", () => {
 		expect(listener2).toHaveBeenCalledWith(
 			expect.objectContaining({ value: "active" }), // After START
 		);
+
+		subscription1.unsubscribe();
+		subscription2.unsubscribe();
+	});
+
+	it("allows individual subscriptions to unsubscribe without affecting others", () => {
+		const listener1 = vi.fn();
+		const listener2 = vi.fn();
+
+		const subscription1 = adapter.subscribe(listener1);
+		const subscription2 = adapter.subscribe(listener2);
+
+		subscription1.unsubscribe();
+
+		adapter.send({ type: "START" });
+
+		expect(listener1).toHaveBeenCalledTimes(1);
+		expect(listener2).toHaveBeenCalledTimes(2);
+
+		subscription2.unsubscribe();
 	});
 
 	it("should clean up subscriptions when stopped", () => {
@@ -137,5 +159,55 @@ describe("XStateAdapter", () => {
 
 		expect(adapter.getState().value).toBe("active");
 		expect(adapter.getState().count).toBe(1);
+	});
+
+	it("marks isolated adapter scope", () => {
+		expect(adapterFactory.scope).toBe(StateScope.Isolated);
+		expect(adapter.scope).toBe(StateScope.Isolated);
+	});
+
+	it("exposes facade metadata for isolated adapters", () => {
+		const snapshot = adapterFactory.resolveStateSnapshot(adapter);
+		expect(snapshot.value).toBe("idle");
+		const commandActor = adapterFactory.resolveCommandActor(adapter);
+		commandActor.send({ type: "START" });
+		expect(adapter.getState().value).toBe("active");
+		commandActor.send({ type: "INC" });
+		expect(adapter.getState().context.count).toBe(1);
+	});
+
+	it("reuses actor instances for shared adapters", () => {
+		const actor = createActor(counterMachine);
+		actor.start();
+
+		const sharedFactory = createXStateAdapter(actor);
+		expect(sharedFactory.scope).toBe(StateScope.Shared);
+
+		const adapterA = sharedFactory();
+		const adapterB = sharedFactory();
+
+		expect(adapterA.scope).toBe(StateScope.Shared);
+		expect(adapterB.scope).toBe(StateScope.Shared);
+
+		adapterA.send({ type: "START" });
+
+		expect(adapterB.getState().value).toBe("active");
+		adapterA.stop();
+		adapterB.stop();
+		actor.stop();
+	});
+
+	it("exposes facade metadata for shared adapters", () => {
+		const actor = createActor(counterMachine);
+		actor.start();
+		const sharedFactory = createXStateAdapter(actor);
+		const sharedAdapter = sharedFactory();
+		const snapshot = sharedFactory.resolveStateSnapshot(sharedAdapter);
+		expect(snapshot.value).toBe("idle");
+		const commandActor = sharedFactory.resolveCommandActor(sharedAdapter);
+		commandActor.send({ type: "START" });
+		expect(sharedAdapter.getState().value).toBe("active");
+		sharedAdapter.stop();
+		actor.stop();
 	});
 });

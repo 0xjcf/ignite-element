@@ -4,9 +4,13 @@ import viteConfig from "./vite.config";
 export default mergeConfig(
 	viteConfig,
 	defineConfig({
+		esbuild: {
+			jsx: "automatic",
+			jsxImportSource: "./src/renderers/jsx",
+		},
 		test: {
 			environment: "jsdom",
-			include: ["src/**/*.test.ts"],
+			include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
 			setupFiles: "./vitest.setup.ts",
 			coverage: {
 				exclude: [

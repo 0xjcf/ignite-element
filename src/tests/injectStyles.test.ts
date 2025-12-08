@@ -1,12 +1,5 @@
-import {
-	afterEach,
-	beforeEach,
-	describe,
-	expect,
-	it,
-	type Mock,
-	vi,
-} from "vitest";
+import type { MockInstance } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getGlobalStyles } from "../globalStyles";
 import injectStyles from "../injectStyles";
 
@@ -15,7 +8,7 @@ vi.mock("../globalStyles");
 
 describe("injectStyles", () => {
 	let shadowRoot: ShadowRoot;
-	let warnSpy: ReturnType<typeof vi.spyOn>;
+	let warnSpy: MockInstance<typeof console.warn>;
 
 	beforeEach(() => {
 		// Reset all mocks and modules
@@ -39,7 +32,7 @@ describe("injectStyles", () => {
 	});
 
 	it("should inject a valid global StyleObject into the shadow DOM", () => {
-		(getGlobalStyles as Mock).mockReturnValue({
+		vi.mocked(getGlobalStyles).mockReturnValue({
 			href: "./secure-style.css",
 			integrity: "sha384-secure123",
 			crossOrigin: "anonymous",
@@ -56,7 +49,7 @@ describe("injectStyles", () => {
 	});
 
 	it("should log a warning for invalid global styles", () => {
-		(getGlobalStyles as Mock).mockReturnValue("invalidStyle");
+		vi.mocked(getGlobalStyles).mockReturnValue("invalidStyle");
 
 		injectStyles(shadowRoot);
 
@@ -66,57 +59,15 @@ describe("injectStyles", () => {
 		);
 	});
 
-	it("should inject valid .scss file from styles.paths into the shadow DOM", () => {
-		const styles = {
-			paths: ["./local.scss"],
-		};
+	it("should ignore redundant calls for the same shadow root", () => {
+		vi.mocked(getGlobalStyles).mockReturnValue({
+			href: "./theme.css",
+		});
 
-		injectStyles(shadowRoot, styles);
+		injectStyles(shadowRoot);
+		injectStyles(shadowRoot);
 
-		const linkElement = shadowRoot.querySelector("link");
-		expect(linkElement).toBeTruthy();
-		expect(linkElement?.rel).toBe("stylesheet");
-		expect(linkElement?.href).toContain("local.scss");
-	});
-
-	it("should log a warning for invalid styles in styles.paths", () => {
-		const styles = {
-			paths: ["invalidStyle"],
-		};
-
-		injectStyles(shadowRoot, styles);
-
-		expect(warnSpy).toHaveBeenCalledWith(
-			"Invalid style path/object:",
-			"invalidStyle",
-		);
-	});
-
-	it("should log a deprecation warning for styles.paths", () => {
-		const styles = {
-			paths: ["./local.css"],
-		};
-
-		injectStyles(shadowRoot, styles);
-
-		expect(warnSpy).toHaveBeenCalledWith(
-			"DEPRECATION WARNING: `styles.paths` is deprecated. Use `setGlobalStyles` instead.",
-		);
-	});
-
-	it("should log a deprecation warning for styles.custom", () => {
-		const styles = {
-			custom: `
-        .deprecated-style {
-          color: blue;
-        }
-      `,
-		};
-
-		injectStyles(shadowRoot, styles);
-
-		expect(warnSpy).toHaveBeenCalledWith(
-			"DEPRECATION WARNING: `styles.custom` is deprecated. Use `setGlobalStyles` instead.",
-		);
+		const links = shadowRoot.querySelectorAll("link");
+		expect(links).toHaveLength(1);
 	});
 });

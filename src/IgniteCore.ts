@@ -1,117 +1,243 @@
-import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type { AnyStateMachine, EventFrom } from "xstate";
-import createMobXAdapter, { type FunctionKeys } from "./adapters/MobxAdapter";
-import createReduxAdapter from "./adapters/ReduxAdapter";
-import createXStateAdapter, {
-	type ExtendedState,
+import type { MobxEvent } from "./adapters/MobxAdapter";
+import type {
+	ExtendedState,
+	XStateCommandActor,
 } from "./adapters/XStateAdapter";
+import type IgniteAdapter from "./IgniteAdapter";
+import { StateScope } from "./IgniteAdapter";
 import igniteElementFactory, {
-	type IgniteCore,
-	type IgniteElementConfig,
+	type ComponentFactory,
+	type IgniteRenderArgs,
 } from "./IgniteElementFactory";
-import type { InferStateAndEvent, ReduxActions } from "./utils/igniteRedux";
+import { igniteCoreMobx } from "./igniteCore/mobx";
+import { igniteCoreRedux } from "./igniteCore/redux";
+import type {
+	IgniteCoreConfig,
+	IgniteCoreReturn,
+	MobxConfig,
+	ReduxBlueprintConfig,
+	ReduxBlueprintSource,
+	ReduxCommandActorFor,
+	ReduxInstanceConfig,
+	ReduxInstanceSource,
+	ResolvedAdapter,
+	XStateConfig,
+} from "./igniteCore/types";
+import { igniteCoreXState } from "./igniteCore/xstate";
+import type {
+	EmptyEventMap,
+	EventMap,
+	FacadeCommandFunction,
+	FacadeCommandResult,
+} from "./RenderArgs";
+import {
+	isReduxSlice,
+	isReduxStore,
+	isXStateActor,
+	isXStateMachine,
+} from "./utils/adapterGuards";
+import type { InferStateAndEvent } from "./utils/igniteRedux";
+import { isMobxObservable } from "./utils/mobxGuards";
 
-// Extended Config Type
-export type IgniteCoreConfig =
-	| {
-			adapter: "xstate";
-			source: AnyStateMachine;
-			styles?: IgniteElementConfig["styles"];
-	  }
-	| {
-			adapter: "redux";
-			source: Slice; // Slice automatically infers actions
-			styles?: IgniteElementConfig["styles"];
-	  }
-	| {
-			adapter: "redux";
-			source: () => EnhancedStore;
-			actions: ReduxActions;
-			styles?: IgniteElementConfig["styles"];
-	  }
-	| {
-			adapter: "mobx";
-			source: () => Record<string, unknown>;
-			styles?: IgniteElementConfig["styles"];
-	  };
+export type {
+	AnyCommandsCallback,
+	AnyStatesCallback,
+	IgniteCoreReturn,
+	InferAdapterFromSource,
+	MobxConfig,
+	ReduxBlueprintConfig,
+	ReduxInstanceConfig,
+	XStateConfig,
+} from "./igniteCore/types";
 
-// Overload for XState
-export function igniteCore<Machine extends AnyStateMachine>(options: {
-	adapter: "xstate";
-	source: Machine;
-	styles?: IgniteElementConfig["styles"];
-}): IgniteCore<ExtendedState<Machine>, EventFrom<Machine>>;
+export { igniteCoreMobx, igniteCoreRedux, igniteCoreXState };
 
-// Overload for Redux - Slice
-export function igniteCore<
-	SliceType extends Slice, // Handles Slice with inferred actions
->(options: {
-	adapter: "redux";
-	source: SliceType;
-	styles?: IgniteElementConfig["styles"];
-}): IgniteCore<
-	InferStateAndEvent<SliceType>["State"], // Infer State from Slice
-	InferStateAndEvent<SliceType>["Event"] // Infer Events from Slice
+export function igniteCore(): ComponentFactory<
+	Record<string, never>,
+	never,
+	IgniteRenderArgs<Record<string, never>, never>
 >;
 
-// Overload for Redux - Store
 export function igniteCore<
-	StoreCreator extends () => EnhancedStore,
-	Actions extends ReduxActions,
->(options: {
-	adapter: "redux";
-	source: StoreCreator;
-	actions: Actions; // Pass actions explicitly
-	styles?: IgniteElementConfig["styles"];
-}): IgniteCore<
-	InferStateAndEvent<StoreCreator, Actions>["State"], // Infer State from Store
-	InferStateAndEvent<StoreCreator, Actions>["Event"] // Infer Events from explicit actions
+	Machine extends AnyStateMachine,
+	Events extends EventMap = EmptyEventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+>(
+	options: XStateConfig<Machine, Events, StatesResult, CommandsResult>,
+): IgniteCoreReturn<
+	ExtendedState<Machine>,
+	EventFrom<Machine>,
+	ExtendedState<Machine>,
+	StatesResult,
+	XStateCommandActor<Machine>,
+	CommandsResult,
+	Events
 >;
 
-// Overload for MobX
+export function igniteCore<
+	Source extends ReduxBlueprintSource,
+	Events extends EventMap = EmptyEventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+>(
+	options: ReduxBlueprintConfig<Source, Events, StatesResult, CommandsResult>,
+): IgniteCoreReturn<
+	InferStateAndEvent<Source>["State"],
+	InferStateAndEvent<Source>["Event"],
+	InferStateAndEvent<Source>["State"],
+	StatesResult,
+	ReduxCommandActorFor<Source>,
+	CommandsResult,
+	Events
+>;
+
+export function igniteCore<
+	StoreInstance extends ReduxInstanceSource,
+	Events extends EventMap = EmptyEventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+>(
+	options: ReduxInstanceConfig<
+		StoreInstance,
+		Events,
+		StatesResult,
+		CommandsResult
+	>,
+): IgniteCoreReturn<
+	InferStateAndEvent<StoreInstance>["State"],
+	InferStateAndEvent<StoreInstance>["Event"],
+	InferStateAndEvent<StoreInstance>["State"],
+	StatesResult,
+	ReduxCommandActorFor<StoreInstance>,
+	CommandsResult,
+	Events
+>;
+
 export function igniteCore<
 	State extends object,
-	Event extends { type: FunctionKeys<State> },
->(options: {
-	adapter: "mobx";
-	source: () => State;
-	styles?: IgniteElementConfig["styles"];
-}): IgniteCore<State, Event>;
+	Events extends EventMap = EmptyEventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+>(
+	options: MobxConfig<State, Events, StatesResult, CommandsResult>,
+): IgniteCoreReturn<
+	State,
+	MobxEvent<State>,
+	State,
+	StatesResult,
+	State,
+	CommandsResult,
+	Events
+>;
 
-// Unified Implementation
-export function igniteCore(options: IgniteCoreConfig) {
-	const adapterName = options.adapter;
+export function igniteCore(options?: IgniteCoreConfig) {
+	if (typeof options === "undefined") {
+		type StaticState = Record<string, never>;
+		const staticState: StaticState = {};
+		const createStaticAdapter = Object.assign(
+			(): IgniteAdapter<StaticState, never> => ({
+				scope: StateScope.Shared,
+				subscribe(listener) {
+					listener(staticState);
+					return { unsubscribe() {} };
+				},
+				send() {},
+				getState() {
+					return staticState;
+				},
+				stop() {},
+			}),
+			{ scope: StateScope.Shared as const },
+		);
+
+		return igniteElementFactory<StaticState, never>(createStaticAdapter);
+	}
+
+	const adapterName = resolveAdapter(options);
 
 	switch (adapterName) {
-		case "xstate": {
-			const igniteAdapter = createXStateAdapter(options.source);
-			return igniteElementFactory(igniteAdapter, { styles: options.styles });
-		}
-
-		case "redux": {
-			if ("actions" in options) {
-				const igniteAdapter = createReduxAdapter(
-					options.source,
-					options.actions,
-				);
-				return igniteElementFactory(igniteAdapter, { styles: options.styles });
-			}
-
-			const igniteAdapter = createReduxAdapter(options.source);
-			return igniteElementFactory(igniteAdapter, { styles: options.styles });
-		}
-
-		case "mobx": {
-			const igniteAdapter = createMobXAdapter(options.source);
-			return igniteElementFactory(igniteAdapter, { styles: options.styles });
-		}
-
-		default: {
-			return assertNever(options, adapterName);
-		}
+		case "xstate":
+			return igniteCoreXState(
+				options as Parameters<typeof igniteCoreXState>[0],
+			);
+		case "redux":
+			return igniteCoreRedux(options as Parameters<typeof igniteCoreRedux>[0]);
+		case "mobx":
+			return igniteCoreMobx(options as Parameters<typeof igniteCoreMobx>[0]);
+		default:
+			return assertNever(adapterName);
 	}
 }
 
-function assertNever(_options: never, adapter: string): never {
-	throw new Error(`Unsupported adapter: ${adapter}`);
+function resolveAdapter(options: IgniteCoreConfig): ResolvedAdapter {
+	if (options.adapter) {
+		return options.adapter;
+	}
+
+	const { source } = options;
+
+	if (isXStateActor(source) || isXStateMachine(source)) {
+		return "xstate";
+	}
+
+	if (isReduxStore(source) || isReduxSlice(source)) {
+		return "redux";
+	}
+
+	if (typeof source === "function") {
+		const inferred = inferFromFactory(source as () => unknown);
+		if (inferred) {
+			return inferred;
+		}
+	}
+
+	if (isMobxObservable(source)) {
+		return "mobx";
+	}
+
+	throw new Error(
+		"[igniteCore] Unable to infer adapter from source. Please specify the adapter explicitly.",
+	);
 }
+
+function inferFromFactory(
+	factory: () => unknown,
+): Extract<ResolvedAdapter, "redux" | "mobx"> | undefined {
+	try {
+		const candidate = factory();
+		if (isReduxStore(candidate)) {
+			return "redux";
+		}
+		if (isMobxObservable(candidate)) {
+			return "mobx";
+		}
+	} catch (error) {
+		throw new Error(
+			`[igniteCore] Failed to execute source factory while inferring adapter. Specify the adapter explicitly. Original error: ${String(
+				error,
+			)}`,
+		);
+	}
+
+	return undefined;
+}
+
+function assertNever(adapter: unknown): never {
+	throw new Error(`Unsupported adapter: ${String(adapter)}`);
+}
+
+export type { ResolvedAdapter } from "./igniteCore/types";

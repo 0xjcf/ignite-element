@@ -1,193 +1,104 @@
-# Redux Example with ignite-element
+# Redux + ignite-element Example
 
-This example demonstrates how to use ignite-element with Redux, lit-html, and Bootstrap for styling.
-
----
-
-## Features
-
-- State management with Redux, showcasing shared and isolated components.
-- Styling with Bootstrap and SCSS.
-- Integration with ignite-element for seamless web component creation.
+This example shows how ignite-element integrates with **Redux Toolkit**, **Ignite JSX**, and **Bootstrap** to drive both shared and isolated counters. Adapter inference means you no longer have to declare `adapter: "redux"`—igniteCore figures it out from the source you provide.
 
 ---
 
-## Setup
+## Quick Start
 
-### 1. Install Dependencies
+1. **Install dependencies**
 
-Run the following command to install all necessary dependencies:
+   ```bash
+   pnpm install
+   ```
 
-```bash
-npm install
-```
+2. **Run the dev server**
 
-### 2. Run the Example
+   ```bash
+   pnpm run dev
+   ```
 
-To start the development server:
+3. **Explore the components**
 
-```bash
-npm run dev
-```
+   Open the local URL (typically <http://localhost:5173>) to see:
 
-#### Output
-
-When running the example, you'll see:
-
-- **Shared Counter Component**: A counter component using a shared global state.
-- **Isolated Counter Component**: A counter component with isolated state for each instance.
+   - A shared counter backed by a long-lived Redux store instance.
+   - An isolated counter created from a slice so each element has its own store.
+   - A shared read-only display consuming the same derived facade data.
 
 ---
 
-## Styling with Bootstrap and SCSS
+## Core Files
 
-This example uses the **minified Bootstrap CSS** for faster build times and improved performance:
-
-```scss
-@import "bootstrap/dist/css/bootstrap.min.css";
-```
-
-To apply global styles, use the `setGlobalStyles` function to reference the compiled CSS file:
-
-```typescript
-import { setGlobalStyles } from "ignite-element";
-
-setGlobalStyles("./scss/styles.css");
-```
+| Path | Purpose |
+| --- | --- |
+| `reduxCounterStore.ts` | Exports the slice and a store factory used throughout the example. |
+| `reduxExample.tsx` | Registers components with `igniteCore` using shared and isolated scopes rendered via Ignite JSX. |
+| `scss/styles.scss` | Bootstrap + custom overrides compiled once and injected globally. |
+| `index.html` | Host page for the custom elements during development. |
 
 ---
 
-## ignite-element and Redux
+## igniteCore Usage
 
-### Setting Up ignite-element with Redux
+The example uses two kinds of sources:
 
-#### 1. Define the Redux Store
+- **Shared store instance** → reuse across every component registration.
+- **Slice definition** → create a fresh store per component (isolated scope).
 
-Create a Redux store and define actions and reducer:
-
-```typescript
-import { configureStore, createSlice } from "@reduxjs/toolkit";
-
-const counterSlice = createSlice({
-  name: "counter",
-  initialState: { count: 0 },
-  reducers: {
-    increment: (state) => {
-      state.count += 1;
-    },
-    decrement: (state) => {
-      state.count -= 1;
-    },
-  },
+```tsx
+export const registerSharedRedux = igniteCore({
+  source: counterStore(),
+  states: (snapshot) => ({
+    count: snapshot.counter.count,
+  }),
+  commands: ({ actor }) => ({
+    decrement: () => actor.dispatch(counterSlice.actions.decrement()),
+    increment: () => actor.dispatch(counterSlice.actions.increment()),
+    addByAmount: (value: number) =>
+      actor.dispatch(counterSlice.actions.addByAmount(value)),
+  }),
 });
 
-export const { increment, decrement } = counterSlice.actions;
-
-const store = () =>
-  configureStore({
-    reducer: counterSlice.reducer,
-  });
-
-export default store;
-```
-
----
-
-#### 2. Apply Global Styles
-
-Add global styles for Bootstrap and SCSS using `setGlobalStyles`:
-
-```typescript
-import { setGlobalStyles } from "ignite-element";
-
-setGlobalStyles("./scss/styles.css");
-```
-
----
-
-### 3. Initialize ignite-element
-
-Initialize `igniteCore` with shared and isolated component support:
-
-```typescript
-import { igniteCore } from "ignite-element";
-import store from "./reduxStore";
-
-export const { shared, isolated } = igniteCore({
-  adapter: "redux",
-  source: store,
+export const registerIsolatedRedux = igniteCore({
+  source: counterSlice,
+  states: (snapshot) => ({
+    count: snapshot.counter.count,
+  }),
+  commands: ({ actor }) => ({
+    decrement: () => actor.dispatch(counterSlice.actions.decrement()),
+    increment: () => actor.dispatch(counterSlice.actions.increment()),
+    addByAmount: (value: number) =>
+      actor.dispatch(counterSlice.actions.addByAmount(value)),
+  }),
 });
 ```
 
----
-
-#### 4. Define Components
-
-##### Shared Counter
-
-```typescript
-shared("shared-counter-redux", (state, dispatch) => {
-  return html`
-    <div class="card text-start shadow-sm mb-3">
-      <div class="card-header bg-primary text-white">Shared Counter</div>
-      <div class="card-body">
-        <h5 class="card-title">Count: ${state.count}</h5>
-        <div class="d-flex">
-          <button
-            class="btn btn-danger me-2"
-            @click=${() => dispatch({ type: "counter/decrement" })}
-          >
-            -
-          </button>
-          <button
-            class="btn btn-success"
-            @click=${() => dispatch({ type: "counter/increment" })}
-          >
-            +
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-});
-```
-
-##### Isolated Counter
-
-```typescript
-isolated("isolated-counter-redux", (state, dispatch) => {
-  return html`
-    <div class="card text-start shadow-sm mb-3">
-      <div class="card-header bg-warning text-dark">Isolated Counter</div>
-      <div class="card-body">
-        <h5 class="card-title">Count: ${state.count}</h5>
-        <div class="d-flex">
-          <button
-            class="btn btn-secondary me-2"
-            @click=${() => dispatch({ type: "counter/decrement" })}
-          >
-            -
-          </button>
-          <button
-            class="btn btn-primary"
-            @click=${() => dispatch({ type: "counter/increment" })}
-          >
-            +
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-});
-```
+Each registered element receives `state`, `send`, and the derived facade helpers, letting template functions or classes focus purely on UI concerns.
 
 ---
 
-#### 5. Add Components to HTML
+## Styling with Bootstrap
 
-Use the custom elements in your HTML file:
+Bootstrap is bundled once for the entire example and injected via `ignite.config.ts`:
 
-```html
-<shared-counter-redux></shared-counter-redux>
-<isolated-counter-redux></isolated-counter-redux>
+```ts
+import { defineIgniteConfig } from "ignite-element";
+
+export default defineIgniteConfig({
+  globalStyles: new URL("./src/scss/styles.scss", import.meta.url).href,
+  renderer: "ignite-jsx",
+});
 ```
+
+Individual components can layer on additional markup or include isolated styles (e.g. `link` tags) as needed.
+
+---
+
+## Tips & Experiments
+
+- Swap the slice actions or add thunks—anything wired through Redux Toolkit will flow into the `commands` facade.
+- Try rerendering the shared counter in multiple places to see state synchronisation in action.
+- Extend the isolated example with extra slice state to confirm each element remains independent.
+
+Have fun experimenting with ignite-element and Redux! Contributions and feedback are welcome in the main repository.
