@@ -1,3 +1,8 @@
+export enum StateScope {
+	Shared = "shared",
+	Isolated = "isolated",
+}
+
 export default interface IgniteAdapter<State, Event> {
 	/**
 	 * Subscribes to state changes and returns an unsubscribe function
@@ -18,4 +23,9 @@ export default interface IgniteAdapter<State, Event> {
 	 * Stops the adapter, cleaning up resources
 	 */
 	stop: () => void;
+
+	/**
+	 * Indicates whether the adapter is shared or isolated.
+	 */
+	scope?: StateScope;
 }

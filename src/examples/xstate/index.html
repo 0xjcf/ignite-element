@@ -3,12 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script type="module" src="./xstateExample.ts"></script>
+    <script type="module" src="./xstateExample.tsx"></script>
     <title>XState Example</title>
   </head>
   <body>
+    <section>
+      <h2>Static SVG (baseline)</h2>
+      <svg width="120" height="120" viewBox="0 0 120 120" role="img" aria-label="Static test svg">
+        <circle cx="60" cy="60" r="55" stroke="#6366f1" stroke-width="10" fill="none" />
+        <line x1="60" y1="15" x2="60" y2="105" stroke="#22d3ee" stroke-width="8" stroke-linecap="round" />
+        <line x1="15" y1="60" x2="105" y2="60" stroke="#22d3ee" stroke-width="8" stroke-linecap="round" />
+      </svg>
+    </section>
+
     <my-counter-xstate></my-counter-xstate>
     <shared-display-xstate></shared-display-xstate>
     <advanced-shared-counter></advanced-shared-counter>
+    <another-counter-xstate></another-counter-xstate>
+    <ignite-svg-demo></ignite-svg-demo>
   </body>
 </html>

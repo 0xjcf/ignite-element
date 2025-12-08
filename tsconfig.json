@@ -13,7 +13,8 @@
 
 		/* Type declarations */
 		"declaration": true,
-		"outDir": "./dist",
+		"emitDeclarationOnly": true,
+		"declarationDir": "./dist/types",
 
 		/* Linting */
 		"strict": true,
@@ -26,5 +27,11 @@
 		"esModuleInterop": true
 	},
 	"include": ["src"],
-	"exclude": ["node_modules", "dist", "src/examples", "src/tests"]
+	"exclude": [
+		"node_modules",
+		"dist",
+		"src/examples",
+		"src/tests",
+		"src/**/__tests__"
+	]
 }

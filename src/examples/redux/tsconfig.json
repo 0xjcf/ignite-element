@@ -1,0 +1,17 @@
+{
+	"extends": "../../../tsconfig.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"jsx": "react-jsx",
+		"jsxImportSource": "../../renderers/jsx",
+		"allowJs": false
+	},
+	"include": [
+		"./src/**/*.ts",
+		"./src/**/*.tsx",
+		"../../renderers/jsx/**/*.ts",
+		"../../renderers/jsx/**/*.d.ts",
+		"ignite.config.ts"
+	],
+	"exclude": []
+}

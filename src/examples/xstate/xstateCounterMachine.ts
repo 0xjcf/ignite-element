@@ -1,11 +1,15 @@
 import { assign, setup } from "xstate";
 
+type CounterContext = {
+	count: number;
+};
+
+type CounterEvent = { type: "START" } | { type: "INC" } | { type: "DEC" };
+
 const counterMachine = setup({
 	types: {
-		events: {} as { type: "START" } | { type: "INC" } | { type: "DEC" },
-		context: {} as {
-			count: number;
-		},
+		context: {} as CounterContext,
+		events: {} as CounterEvent,
 	},
 }).createMachine({
 	id: "counter",

@@ -1,27 +1,43 @@
 import { html } from "lit-html";
-import { setGlobalStyles } from "../../globalStyles";
-import { igniteCore } from "../../IgniteCore";
+import { igniteCore } from "../../mobx";
 import counterStore from "./mobxCounterStore";
 
-// Set global styles for shared theme
-setGlobalStyles("./theme.css");
+type CounterStoreInstance = ReturnType<typeof counterStore>;
+
+const mobxStates = (snapshot: CounterStoreInstance) => ({
+	count: snapshot.count,
+});
+
+const mobxCommands = ({ actor }: { actor: CounterStoreInstance }) => ({
+	decrement: () => actor.decrement(),
+	increment: () => actor.increment(),
+});
 
 // Initialize igniteCore with MobX adapter
-export const { isolated, shared } = igniteCore({
-	adapter: "mobx",
+const sharedStore = counterStore();
+
+export const registerSharedMobx = igniteCore({
+	source: sharedStore,
+	states: mobxStates,
+	commands: mobxCommands,
+});
+
+export const registerIsolatedMobx = igniteCore({
 	source: counterStore,
+	states: mobxStates,
+	commands: mobxCommands,
 });
 
 // Shared Counter Component
-shared("my-counter-mobx", ({ state, send }) => {
+registerSharedMobx("my-counter-mobx", ({ count, decrement, increment }) => {
 	return html`
     <div>
       <div class="container">
         <h3>Shared Counter (MobX)</h3>
-        <p>Count: ${state.count}</p>
+        <p>Count: ${count}</p>
         <div class="button-group">
-          <button @click=${() => send({ type: "decrement" })}>-</button>
-          <button @click=${() => send({ type: "increment" })}>+</button>
+          <button @click=${() => decrement()}>-</button>
+          <button @click=${() => increment()}>+</button>
         </div>
       </div>
     </div>
@@ -29,28 +45,30 @@ shared("my-counter-mobx", ({ state, send }) => {
 });
 
 // Shared Display Component
-shared("shared-display-mobx", ({ state }) => {
+registerSharedMobx("shared-display-mobx", ({ count }) => {
 	return html`
     <div class="display">
       <h3>Shared State Display (MobX)</h3>
-      <p>Shared Count: ${state.count}</p>
+      <p>Shared Count: ${count}</p>
     </div>
   `;
 });
 
-// Isolated Counter Component with Custom Styles
-isolated("another-counter-mobx", ({ state, send }) => {
-	return html`
+registerIsolatedMobx(
+	"another-counter-mobx",
+	({ count, decrement, increment }) => {
+		return html`
     <div>
       <link rel="stylesheet" href="./another-counter-mobx.css" />
       <div class="container">
         <h3>Isolated Counter (Custom Styled)</h3>
-        <p>Count: ${state.count}</p>
+        <p>Count: ${count}</p>
         <div class="button-group">
-          <button @click=${() => send({ type: "decrement" })}>-</button>
-          <button @click=${() => send({ type: "increment" })}>+</button>
+          <button @click=${() => decrement()}>-</button>
+          <button @click=${() => increment()}>+</button>
         </div>
       </div>
     </div>
   `;
-});
+	},
+);

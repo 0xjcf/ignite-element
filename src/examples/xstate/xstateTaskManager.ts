@@ -1,22 +1,55 @@
 import { html } from "lit-html";
-import { setGlobalStyles } from "../../globalStyles";
-import { igniteCore } from "../../IgniteCore";
-import type { RenderArgs } from "../../RenderArgs";
+import type { StateFrom } from "xstate";
+import type { AdapterPack } from "../../IgniteElementFactory";
+import { igniteCore } from "../../xstate";
 import { taskManagerMachine } from "./taskManagerMachine";
 
-setGlobalStyles("./dist/styles.css");
+import "./ignite.config";
 
-// Initialize Ignite-core
-const { Shared } = igniteCore({
-	adapter: "xstate",
-	source: taskManagerMachine,
+const resolveTaskManagerState = (
+	snapshot: StateFrom<typeof taskManagerMachine>,
+) => {
+	const tasks = snapshot.context.tasks;
+	const completedCount = tasks.filter((task) => task.completed).length;
+	const totalTasks = tasks.length;
+	const completionPercentage = totalTasks
+		? (completedCount / totalTasks) * 100
+		: 0;
+
+	return {
+		tasks,
+		completedCount,
+		totalTasks,
+		completionPercentage,
+		isCompleted: snapshot.matches("completed"),
+		currentState: snapshot.value,
+	};
+};
+
+import type { XStateCommandActor } from "../../adapters/XStateAdapter";
+
+const resolveTaskManagerCommands = ({
+	actor,
+}: {
+	actor: XStateCommandActor<typeof taskManagerMachine>;
+}) => ({
+	addTask: (name: string, priority: string) =>
+		actor.send({ type: "ADD", name, priority }),
+	toggleTask: (index: number) => actor.send({ type: "TOGGLE", index }),
+	resetTasks: () => actor.send({ type: "RESET" }),
 });
 
-@Shared("task-list")
-export class TaskList {
-	render({ state, send }: RenderArgs<typeof taskManagerMachine>) {
-		const { tasks } = state;
+const TaskManagerComponent = igniteCore({
+	adapter: "xstate",
+	source: taskManagerMachine,
+	states: resolveTaskManagerState,
+	commands: resolveTaskManagerCommands,
+});
 
+type TaskManagerRenderArgs = AdapterPack<typeof TaskManagerComponent>;
+
+export class TaskList {
+	render({ tasks, toggleTask }: TaskManagerRenderArgs) {
 		return html`
       <div class="p-6 bg-green-50 border border-green-300 rounded-lg shadow-lg">
         <h3 class="text-xl font-semibold text-green-800 mb-4">Task List</h3>
@@ -44,7 +77,7 @@ export class TaskList {
                 ${task.name}
               </span>
               <button
-                @click=${() => send({ type: "TOGGLE", index })}
+                @click=${() => toggleTask(index)}
                 class="text-sm bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
               >
                 ${task.completed ? "Undo" : "Complete"}
@@ -57,13 +90,15 @@ export class TaskList {
 	}
 }
 
-@Shared("progress-bar")
 export class ProgressBar {
-	render({ state }: RenderArgs<typeof taskManagerMachine>) {
-		const { tasks } = state.context;
-		const completed = tasks.filter((t) => t.completed).length;
-		const total = tasks.length;
-		const percentage = total > 0 ? (completed / total) * 100 : 0;
+	render({
+		completedCount,
+		totalTasks,
+		completionPercentage,
+	}: TaskManagerRenderArgs) {
+		const percentage = completionPercentage;
+		const completed = completedCount;
+		const total = totalTasks;
 
 		const backgroundStyle =
 			percentage === 100
@@ -90,21 +125,30 @@ export class ProgressBar {
 	}
 }
 
-@Shared("task-form")
 export class TaskForm {
-	render({ send }: RenderArgs<typeof taskManagerMachine>) {
+	render({ addTask }: TaskManagerRenderArgs) {
 		return html`
       <div class="p-4 bg-yellow-100 border rounded-md mb-2">
         <h3 class="text-lg font-bold">Add Task</h3>
         <form
-          @submit=${(e: Event) => {
-						e.preventDefault();
-						const formElement = e.target as HTMLFormElement;
+          @submit=${(event: SubmitEvent) => {
+						event.preventDefault();
+						const formElement = event.currentTarget;
+						if (!(formElement instanceof HTMLFormElement)) {
+							return;
+						}
 						const formData = new FormData(formElement);
-						const name = formData.get("name") as string;
-						const priority = formData.get("priority") as string;
-						if (name.trim()) {
-							send({ type: "ADD", name, priority });
+						const nameEntry = formData.get("name");
+						const priorityEntry = formData.get("priority");
+						if (
+							typeof nameEntry !== "string" ||
+							typeof priorityEntry !== "string"
+						) {
+							return;
+						}
+						const trimmedName = nameEntry.trim();
+						if (trimmedName) {
+							addTask(trimmedName, priorityEntry);
 							formElement.reset();
 						}
 					}}
@@ -137,11 +181,9 @@ export class TaskForm {
 	}
 }
 
-@Shared("confetti-effect")
 export class ConfettiEffect {
-	render({ state, send }: RenderArgs<typeof taskManagerMachine>) {
-		const { tasks } = state;
-		const total = tasks.length;
+	render({ totalTasks, resetTasks }: TaskManagerRenderArgs) {
+		const total = totalTasks;
 
 		return html`
       <div class="relative h-64 overflow-hidden">
@@ -152,7 +194,7 @@ export class ConfettiEffect {
           </h3>
           <p class="text-md text-gray-600">You completed all ${total} tasks!</p>
           <button
-            @click=${() => send({ type: "RESET" })}
+            @click=${() => resetTasks()}
             class="mt-4 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
           >
             Reset Tasks
@@ -163,11 +205,13 @@ export class ConfettiEffect {
 	}
 }
 
-@Shared("task-manager")
-export class TaskManager {
-	render({ state }: RenderArgs<typeof taskManagerMachine>) {
-		const isCompleted = state.matches("completed");
+TaskManagerComponent("task-list", TaskList);
+TaskManagerComponent("progress-bar", ProgressBar);
+TaskManagerComponent("task-form", TaskForm);
+TaskManagerComponent("confetti-effect", ConfettiEffect);
 
+export class TaskManager {
+	render({ isCompleted }: TaskManagerRenderArgs) {
 		return html`
       <div class="p-4 space-y-4 max-w-fit mx-auto">
         ${
@@ -183,3 +227,5 @@ export class TaskManager {
     `;
 	}
 }
+
+TaskManagerComponent("task-manager", TaskManager);

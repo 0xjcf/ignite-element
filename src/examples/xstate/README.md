@@ -1,218 +1,111 @@
-# XState Example with ignite-element
+# XState + ignite-element Example
 
-This example demonstrates how to use ignite-element with XState, lit-html, and TailwindCSS for styling.
-
----
-
-## Features
-
-- State management with XState, showcasing shared and isolated components.
-- Unified API for accessing state values, with options to use `state` or `state.context`.
-- Styling with TailwindCSS.
-- Integration with ignite-element for seamless web component creation.
+Build and render web components backed by XState actors and machines with almost zero boilerplate. This example pairs **ignite-element**, **XState**, **Ignite JSX**, and **TailwindCSS** to demonstrate both shared and isolated state scopes.
 
 ---
 
-## Setup
+## Quick Start
 
-### 1. Install Dependencies
+1. **Install dependencies**
 
-Run the following command to install all necessary dependencies:
+   ```bash
+   pnpm install
+   ```
 
-```bash
-npm install
-```
+2. **Run the dev server**
 
-### 2. Run the Example
+   ```bash
+   pnpm run dev
+   ```
 
-To start the development server:
+3. **Open the playground**
 
-```bash
-npm run dev
-```
+   Visit the URL printed in the terminal (usually <http://localhost:5173>). You will see:
 
-#### Output
-
-When running the example, you'll see:
-
-- **Shared Counter Component**: A counter component using a shared global state.
-- **Isolated Counter Component**: A counter component with isolated state for each instance.
+   - A shared counter that reuses a single XState actor across multiple components.
+   - An isolated counter where each element spawns its own machine instance.
+   - Auxiliary renderers (e.g. gradient tally) consuming the same shared facade data.
 
 ---
 
-## Styling with TailwindCSS
+## Project Layout
 
-This example uses TailwindCSS for component styling. To apply global styles, use the `setGlobalStyles` function to reference the compiled Tailwind CSS file:
-
-```typescript
-import { setGlobalStyles } from "ignite-element";
-
-setGlobalStyles("./dist/styles.css");
-```
+| Path | Purpose |
+| --- | --- |
+| `advancedCounterMachine.ts` | The XState machine definition used for both shared and isolated variants. |
+| `xstateExample.tsx` | Registers web components via `igniteCore` using the Ignite JSX renderer. |
+| `dist/styles.css` | Tailwind build output applied globally via `setGlobalStyles`. |
+| `index.html` | Hosts the custom elements during development. |
 
 ---
 
-## ignite-element and XState
+## igniteCore in Action
 
-### Accessing State and Context in ignite-element
+`igniteCore` now infers the adapter from the `source` you provide—no explicit discriminator required. The shared and isolated registrations look like this:
 
-With the updated `XStateAdapter`, you can access state values directly from `state` or through `state.context`. This provides flexibility for different use cases:
+```ts
+const sharedActor = createActor(advancedMachine);
+sharedActor.start();
 
-- **Direct Access**: Access flattened `context` values directly from `state` (e.g., `state.count`).
-- **Context Access**: Access the original `context` object via `state.context` for compatibility with XState conventions.
+const registerSharedXState = igniteCore({
+  source: sharedActor, // shared actor → shared scope
+  states: (snapshot) => ({
+    count: snapshot.context.count,
+    darkMode: snapshot.context.darkMode,
+    containerClasses: snapshot.context.darkMode
+      ? "p-4 bg-gray-800 text-white border rounded-md mb-2"
+      : "p-4 bg-gray-100 text-black border rounded-md mb-2",
+  }),
+  commands: ({ actor }) => ({
+    increment: () => actor.send({ type: "INC" }),
+    decrement: () => actor.send({ type: "DEC" }),
+    toggleDarkMode: () => actor.send({ type: "TOGGLE_DARK" }),
+  }),
+});
 
-#### Example Usage with Decorators
-
-```typescript
-@Shared("counter-component")
-export class CounterComponent {
-  render({ state, send }: RenderArgs<typeof counterMachine>) {
-    const { count } = state; // Direct access to count from state
-    // const { count } = state.context; - Or access through context explicitly
-
-    return html`
-      <div class="p-4 bg-gray-100 border rounded-md">
-        <h3 class="text-lg font-bold">Counter Component</h3>
-        <p class="text-xl">Count: ${count}</p>
-        <div class="mt-4 space-x-2">
-          <button
-            class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-            @click=${() => send({ type: "DEC" })}
-          >
-            -
-          </button>
-          <button
-            class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-            @click=${() => send({ type: "INC" })}
-          >
-            +
-          </button>
-        </div>
-      </div>
-    `;
-  }
-}
-```
-
-### Setting Up ignite-element with XState
-
-#### 1. Define a State Machine
-
-Create an XState machine for managing the component's state:
-
-```typescript
-import { createMachine } from "xstate";
-
-const counterMachine = createMachine({
-  id: "counter",
-  initial: "active",
-  context: { count: 0 },
-  states: {
-    active: {
-      on: {
-        INC: { actions: "increment" },
-        DEC: { actions: "decrement" },
-      },
-    },
-  },
+const registerIsolatedXState = igniteCore({
+  source: advancedMachine, // machine → isolated scope per element
+  states: (snapshot) => ({
+    count: snapshot.context.count,
+    darkMode: snapshot.context.darkMode,
+    containerClasses: snapshot.context.darkMode
+      ? "p-4 bg-gray-800 text-white border rounded-md mb-2"
+      : "p-4 bg-gray-100 text-black border rounded-md mb-2",
+  }),
+  commands: ({ actor }) => ({
+    increment: () => actor.send({ type: "INC" }),
+    decrement: () => actor.send({ type: "DEC" }),
+    toggleDarkMode: () => actor.send({ type: "TOGGLE_DARK" }),
+  }),
 });
 ```
 
----
-
-#### 2. Apply Global Styles
-
-Add global styles for TailwindCSS using `setGlobalStyles`:
-
-```typescript
-import { setGlobalStyles } from "ignite-element";
-
-setGlobalStyles("./dist/styles.css");
-```
+Every registered component receives the merged facade values: the derived state from `states(...)`, the command helpers from `commands(...)`, and the underlying `state`/`send` utilities from the adapter.
 
 ---
 
-#### 3. Initialize ignite-element
+## Styling
 
-Restructure `igniteCore` to export `shared` and `isolated` methods directly:
+TailwindCSS is compiled once and injected globally via `ignite.config.ts`:
 
-```typescript
-import { igniteCore } from "ignite-element";
-import counterMachine from "./counterMachine";
+```ts
+import { defineIgniteConfig } from "ignite-element";
 
-export const { shared, isolated } = igniteCore({
-  adapter: "xstate",
-  source: counterMachine,
+export default defineIgniteConfig({
+  globalStyles: new URL("./dist/styles.css", import.meta.url).href,
+  renderer: "ignite-jsx",
 });
 ```
 
----
-
-#### 4. Define Components
-
-##### Shared Counter
-
-```typescript
-shared("shared-counter", (state, send) => {
-  return html`
-    <div class="p-4 bg-gray-100 border rounded-md mb-2">
-      <h3 class="text-lg font-bold">Shared Counter (XState)</h3>
-      <p class="text-xl">Count: ${state.context.count}</p>
-      <div class="mt-4 space-x-2">
-        <button
-          class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-          @click=${() => send({ type: "DEC" })}
-        >
-          -
-        </button>
-        <button
-          class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-          @click=${() => send({ type: "INC" })}
-        >
-          +
-        </button>
-      </div>
-    </div>
-  `;
-});
-```
-
-##### Isolated Counter
-
-```typescript
-isolated("isolated-counter", (state, send) => {
-  return html`
-    <div class="p-4 bg-yellow-100 border rounded-md mb-2">
-      <h3 class="text-lg font-bold text-yellow-800">
-        Isolated Counter (XState)
-      </h3>
-      <p class="text-xl text-yellow-700">Count: ${state.context.count}</p>
-      <div class="mt-4 space-x-2">
-        <button
-          class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600"
-          @click=${() => send({ type: "DEC" })}
-        >
-          -
-        </button>
-        <button
-          class="px-4 py-2 bg-teal-500 text-white rounded hover:bg-teal-600"
-          @click=${() => send({ type: "INC" })}
-        >
-          +
-        </button>
-      </div>
-    </div>
-  `;
-});
-```
+Component-specific tweaks live alongside the render functions, so you can mix Tailwind utility classes with custom CSS snippets.
 
 ---
 
-#### 5. Add Components to HTML
+## Tips & Next Steps
 
-Use the custom elements in your HTML file:
+- **Shared vs. isolated**: pass a running actor for shared state, or a machine for isolated instances. ignite-element figures it out for you.
+- **Facade composition**: memoize expensive selectors inside `states(...)`—it only runs when the adapter snapshot changes.
+- **Try decorators**: if you prefer class syntax, the `Shared`/`Isolated` decorators from `ignite-element` work seamlessly with the inferred facades showcased here.
+- **Experiment**: extend the machine with additional states or actions, expose them through the `commands` facade, and render them in a new component.
 
-```html
-<shared-counter></shared-counter>
-<isolated-counter></isolated-counter>
-```
+Enjoy exploring ignite-element with XState! If you run into issues, file a ticket on the main repository or share feedback in the discussions tab.

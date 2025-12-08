@@ -1,0 +1,16 @@
+{
+	"extends": "../../../tsconfig.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"jsx": "react-jsx",
+		"jsxImportSource": "../../renderers/jsx",
+		"allowJs": false
+	},
+	"include": [
+		"./**/*.ts",
+		"./**/*.tsx",
+		"../../renderers/jsx/**/*.ts",
+		"../../renderers/jsx/**/*.d.ts"
+	],
+	"exclude": []
+}

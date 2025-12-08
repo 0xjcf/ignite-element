@@ -16,11 +16,11 @@
 	"author": "",
 	"license": "ISC",
 	"dependencies": {
-		"lit-html": "^3.2.1",
-		"mobx": "^6.13.6"
+		"lit-html": "^3.3.1",
+		"mobx": "^6.15.0"
 	},
 	"devDependencies": {
-		"@types/node": "^22.13.9",
-		"vite": "^6.2.0"
+		"@types/node": "^24.8.1",
+		"vite": "^7.2.7"
 	}
 }

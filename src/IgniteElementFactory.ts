@@ -1,129 +1,259 @@
 import type { TemplateResult } from "lit-html";
 import type IgniteAdapter from "./IgniteAdapter";
+import { StateScope } from "./IgniteAdapter";
 import IgniteElement from "./IgniteElement";
+import type { IgniteJsxChild } from "./renderers/jsx/types";
+import type { RenderStrategyFactory } from "./renderers/RenderStrategy";
+import "./renderers/ignite-jsx";
+import { resolveConfiguredRenderStrategy } from "./renderers/resolveConfiguredRenderStrategy";
 
-// Configuration for Ignite Elements
-export interface IgniteElementConfig {
-	styles?: { custom?: string; paths?: (string | StyleObject)[] };
-}
-
-export interface StyleObject {
-	href: string;
-	integrity?: string;
-	crossorigin?: string;
-}
-
-// Render Function Arguments
-export type RenderFnArgs<State, Event> = {
+export type BaseRenderArgs<State, Event> = {
 	state: State;
 	send: (event: Event) => void;
 };
 
-// Core Interface for Ignite Factory
-export interface IgniteCore<State, Event> {
-	shared: (
-		elementName: string,
-		renderFn: (args: RenderFnArgs<State, Event>) => TemplateResult,
-	) => void;
+export type IgniteRenderArgs<State, Event> = BaseRenderArgs<State, Event>;
 
-	isolated: (
-		elementName: string,
-		renderFn: (args: RenderFnArgs<State, Event>) => TemplateResult,
-	) => void;
+type AdditionalRenderArgs<
+	State,
+	Event,
+	RenderArgs extends BaseRenderArgs<State, Event>,
+> = Omit<RenderArgs, keyof BaseRenderArgs<State, Event>>;
 
-	Shared: (
-		tagName: string,
-	) => <ComponentCtor extends RenderableComponent<State, Event>>(
-		componentCtor: ComponentCtor,
-	) => void;
+type RendererObject<RenderArgs, View> = {
+	render: (args: RenderArgs) => View;
+};
 
-	Isolated: (
-		tagName: string,
-	) => <ComponentCtor extends RenderableComponent<State, Event>>(
-		componentCtor: ComponentCtor,
-	) => void;
-}
+export type ComponentRenderer<
+	RenderArgs,
+	View = TemplateResult | IgniteJsxChild,
+> =
+	| ((args: RenderArgs) => View)
+	| RendererObject<RenderArgs, View>
+	| (new () => RendererObject<RenderArgs, View>);
 
-// Enforce Component Structure
-export interface RenderableComponent<State, Event> {
-	new (): {
-		render(props: RenderFnArgs<State, Event>): TemplateResult;
-	};
-}
+export type ComponentFactory<
+	State,
+	Event,
+	RenderArgs extends BaseRenderArgs<State, Event> = BaseRenderArgs<
+		State,
+		Event
+	>,
+	View = TemplateResult | IgniteJsxChild,
+> = (
+	elementName: string,
+	renderer: ComponentRenderer<RenderArgs, View>,
+) => void;
 
-// Factory Function
-export default function igniteElementFactory<State, Event>(
-	igniteAdapter: () => IgniteAdapter<State, Event>,
-	config?: IgniteElementConfig,
-): IgniteCore<State, Event> {
+export type AdapterPack<Factory> = Factory extends ComponentFactory<
+	infer _State,
+	infer _Event,
+	infer RenderArgs,
+	infer _View
+>
+	? RenderArgs
+	: Factory extends (
+				elementName: string,
+				renderFn: (args: infer RenderArgs) => TemplateResult,
+			) => void
+		? RenderArgs
+		: never;
+
+type FactoryOptions<
+	State,
+	Event,
+	RenderArgs extends BaseRenderArgs<State, Event>,
+	View,
+> = {
+	scope?: StateScope;
+	createAdditionalArgs?: (
+		adapter: IgniteAdapter<State, Event>,
+		host?: IgniteElement<State, Event, View>,
+	) => AdditionalRenderArgs<State, Event, RenderArgs>;
+	createRenderStrategy?: RenderStrategyFactory<View>;
+	cleanup?: boolean;
+};
+
+export default function igniteElementFactory<
+	State,
+	Event,
+	RenderArgs extends BaseRenderArgs<State, Event> = BaseRenderArgs<
+		State,
+		Event
+	>,
+	View = TemplateResult | IgniteJsxChild,
+>(
+	createAdapter: () => IgniteAdapter<State, Event>,
+	options?: FactoryOptions<State, Event, RenderArgs, View>,
+): ComponentFactory<State, Event, RenderArgs, View> {
 	let sharedAdapter: IgniteAdapter<State, Event> | null = null;
+	let sharedAdditionalArgs = new WeakMap<
+		IgniteElement<State, Event, View>,
+		AdditionalRenderArgs<State, Event, RenderArgs>
+	>();
+	let sharedInstanceCount = 0;
 
-	function createSharedElement(
-		elementName: string,
-		renderFn: (args: RenderFnArgs<State, Event>) => TemplateResult,
-	) {
-		const adapter = sharedAdapter ?? igniteAdapter();
-		sharedAdapter = adapter;
+	const createAdditionalArgs: (
+		adapter: IgniteAdapter<State, Event>,
+		host?: IgniteElement<State, Event, View>,
+	) => AdditionalRenderArgs<State, Event, RenderArgs> =
+		options?.createAdditionalArgs ??
+		((_) => ({}) as AdditionalRenderArgs<State, Event, RenderArgs>);
 
-		class SharedElement extends IgniteElement<State, Event> {
-			constructor() {
-				super(adapter, config?.styles);
-			}
+	const configuredFactory = resolveConfiguredRenderStrategy();
+	const renderStrategyFactory: RenderStrategyFactory<View> =
+		options?.createRenderStrategy ??
+		(configuredFactory as RenderStrategyFactory<View>);
+	const cleanupSharedLifecycle = options?.cleanup ?? true;
 
-			protected render(): TemplateResult {
-				return renderFn({
-					state: this.currentState,
-					send: (event) => this.send(event),
-				});
-			}
+	const resolveSharedResources = (): {
+		adapter: IgniteAdapter<State, Event>;
+	} => {
+		if (!sharedAdapter) {
+			const adapter = createAdapter();
+			adapter.scope = StateScope.Shared;
+			sharedAdapter = adapter;
 		}
 
-		customElements.define(elementName, SharedElement);
-	}
-
-	function createIsolatedElement(
-		elementName: string,
-		renderFn: (args: RenderFnArgs<State, Event>) => TemplateResult,
-	) {
-		class IsolatedElement extends IgniteElement<State, Event> {
-			constructor() {
-				const isolatedAdapter = igniteAdapter();
-				super(isolatedAdapter, config?.styles);
-			}
-
-			protected render(): TemplateResult {
-				return renderFn({
-					state: this.currentState,
-					send: (event) => this.send(event),
-				});
-			}
-		}
-
-		customElements.define(elementName, IsolatedElement);
-	}
-
-	// Shared Decorator
-	function Shared(tagName: string) {
-		return <T extends RenderableComponent<State, Event>>(componentCtor: T) => {
-			createSharedElement(tagName, ({ state, send }) =>
-				new componentCtor().render({ state, send }),
-			);
+		return {
+			adapter: sharedAdapter,
 		};
-	}
-
-	// Isolated Decorator
-	function Isolated(tagName: string) {
-		return <T extends RenderableComponent<State, Event>>(componentCtor: T) => {
-			createIsolatedElement(tagName, ({ state, send }) =>
-				new componentCtor().render({ state, send }),
-			);
-		};
-	}
-
-	return {
-		shared: createSharedElement,
-		isolated: createIsolatedElement,
-		Shared,
-		Isolated,
 	};
+
+	const resolveSharedAdditionalArgs = (
+		host: IgniteElement<State, Event, View>,
+	): AdditionalRenderArgs<State, Event, RenderArgs> => {
+		const { adapter } = resolveSharedResources();
+		let existing = sharedAdditionalArgs.get(host);
+		if (!existing) {
+			existing = createAdditionalArgs(adapter, host);
+			sharedAdditionalArgs.set(host, existing);
+		}
+		return existing;
+	};
+
+	const releaseSharedResources = () => {
+		if (!sharedAdapter) {
+			return;
+		}
+
+		sharedAdapter.stop();
+		sharedAdapter = null;
+		sharedAdditionalArgs = new WeakMap();
+		sharedInstanceCount = 0;
+	};
+
+	return (elementName, renderer) => {
+		if (customElements.get(elementName)) {
+			throw new Error(
+				`[igniteElementFactory] Element "${elementName}" has already been defined.`,
+			);
+		}
+
+		const inferredScope =
+			options?.scope ??
+			(createAdapter as { scope?: StateScope }).scope ??
+			StateScope.Isolated;
+
+		if (inferredScope === StateScope.Shared) {
+			const render = resolveRenderer(renderer);
+			resolveSharedResources();
+
+			class SharedIgniteComponent extends IgniteElement<State, Event, View> {
+				private readonly additionalArgs: AdditionalRenderArgs<
+					State,
+					Event,
+					RenderArgs
+				>;
+
+				constructor() {
+					const { adapter } = resolveSharedResources();
+					super(adapter, renderStrategyFactory());
+					this.additionalArgs = resolveSharedAdditionalArgs(this);
+				}
+
+				connectedCallback(): void {
+					sharedInstanceCount += 1;
+					super.connectedCallback();
+				}
+
+				disconnectedCallback(): void {
+					super.disconnectedCallback();
+
+					if (sharedInstanceCount > 0) {
+						sharedInstanceCount -= 1;
+					}
+
+					if (cleanupSharedLifecycle && sharedInstanceCount === 0) {
+						releaseSharedResources();
+					}
+				}
+
+				protected renderView(): View {
+					return render({
+						...this.additionalArgs,
+						state: this.currentState,
+						send: (event) => this.send(event),
+					} as RenderArgs);
+				}
+			}
+
+			customElements.define(elementName, SharedIgniteComponent);
+			return;
+		}
+
+		class IsolatedIgniteComponent extends IgniteElement<State, Event, View> {
+			private readonly additionalArgs: AdditionalRenderArgs<
+				State,
+				Event,
+				RenderArgs
+			>;
+
+			constructor() {
+				const adapter = createAdapter();
+				adapter.scope ??= StateScope.Isolated;
+				super(adapter, renderStrategyFactory());
+				this.additionalArgs = createAdditionalArgs(adapter, this);
+				this.renderImpl = resolveRenderer(renderer);
+			}
+
+			private readonly renderImpl: (args: RenderArgs) => View;
+
+			protected renderView(): View {
+				return this.renderImpl({
+					...this.additionalArgs,
+					state: this.currentState,
+					send: (event) => this.send(event),
+				} as RenderArgs);
+			}
+		}
+
+		customElements.define(elementName, IsolatedIgniteComponent);
+	};
+
+	function resolveRenderer(
+		renderer: ComponentRenderer<RenderArgs, View>,
+	): (args: RenderArgs) => View {
+		if (typeof renderer === "function") {
+			if (
+				renderer.prototype &&
+				typeof renderer.prototype.render === "function"
+			) {
+				const instance = new (
+					renderer as new () => RendererObject<RenderArgs, View>
+				)();
+				return (args) => instance.render(args);
+			}
+			return renderer as (args: RenderArgs) => View;
+		}
+
+		if (renderer && typeof renderer === "object" && "render" in renderer) {
+			const bound = renderer.render.bind(renderer);
+			return (args) => bound(args);
+		}
+
+		throw new Error(
+			"[igniteElementFactory] Invalid renderer provided. Supply a render function, an object with a render method, or a class with a render method.",
+		);
+	}
 }

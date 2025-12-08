@@ -28,6 +28,9 @@ dev-dist
 .DS_Store
 src/examples/**/package-lock.json
 
+# ignite tmp config directories
+.tmp-ignite-config-*
+
 coverage/
 /test-results/
 /playwright-report/
