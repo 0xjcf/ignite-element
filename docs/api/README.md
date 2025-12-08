@@ -46,8 +46,8 @@ Registers application-wide defaults at module evaluation time. Typical usage liv
 import { defineIgniteConfig } from "ignite-element";
 
 export default defineIgniteConfig({
-	globalStyles: new URL("./styles.css", import.meta.url).href,
-	renderer: "ignite-jsx", // or "lit"
+ globalStyles: new URL("./styles.css", import.meta.url).href,
+ renderer: "ignite-jsx", // or "lit"
 });
 ```
 

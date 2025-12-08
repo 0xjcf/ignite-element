@@ -5,9 +5,7 @@ import { event } from "../events";
 import type {
 	EmptyEventMap,
 	EventMap,
-	FacadeCommandResult,
-	FacadeCommandsCallback,
-	FacadeStatesCallback,
+	FacadeCommandFunction,
 } from "../RenderArgs";
 import { isReduxSlice, isReduxStore } from "../utils/adapterGuards";
 import type { InferStateAndEvent } from "../utils/igniteRedux";
@@ -23,50 +21,34 @@ import type {
 type ReduxConfigFor<
 	Source extends ReduxBlueprintSource | ReduxInstanceSource,
 	Events extends EventMap = EmptyEventMap,
-	StateCallback extends
-		| FacadeStatesCallback<
-				InferStateAndEvent<Source>["State"],
-				Record<string, unknown>
-		  >
-		| undefined = undefined,
-	CommandCallback extends
-		| FacadeCommandsCallback<
-				ReduxCommandActorFor<Source>,
-				FacadeCommandResult,
-				Events
-		  >
-		| undefined = undefined,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends Record<never, FacadeCommandFunction> = Record<
+		never,
+		FacadeCommandFunction
+	>,
 > = Source extends ReduxInstanceSource
-	? ReduxInstanceConfig<Source, Events, StateCallback, CommandCallback>
+	? ReduxInstanceConfig<Source, Events, StatesResult, CommandsResult>
 	: Source extends ReduxBlueprintSource
-		? ReduxBlueprintConfig<Source, Events, StateCallback, CommandCallback>
+		? ReduxBlueprintConfig<Source, Events, StatesResult, CommandsResult>
 		: never;
 
 export function igniteCoreRedux<
 	Source extends ReduxBlueprintSource | ReduxInstanceSource,
 	Events extends EventMap = EmptyEventMap,
-	StateCallback extends
-		| FacadeStatesCallback<
-				InferStateAndEvent<Source>["State"],
-				Record<string, unknown>
-		  >
-		| undefined = undefined,
-	CommandCallback extends
-		| FacadeCommandsCallback<
-				ReduxCommandActorFor<Source>,
-				FacadeCommandResult,
-				Events
-		  >
-		| undefined = undefined,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends Record<never, FacadeCommandFunction> = Record<
+		never,
+		FacadeCommandFunction
+	>,
 >(
-	options: ReduxConfigFor<Source, Events, StateCallback, CommandCallback>,
+	options: ReduxConfigFor<Source, Events, StatesResult, CommandsResult>,
 ): IgniteCoreReturn<
 	InferStateAndEvent<Source>["State"],
 	InferStateAndEvent<Source>["Event"],
 	InferStateAndEvent<Source>["State"],
-	StateCallback,
+	StatesResult,
 	ReduxCommandActorFor<Source>,
-	CommandCallback,
+	CommandsResult,
 	Events
 > {
 	return createReduxComponentFactory(options);
@@ -75,28 +57,20 @@ export function igniteCoreRedux<
 function createReduxComponentFactory<
 	Source extends ReduxBlueprintSource | ReduxInstanceSource,
 	Events extends EventMap = EmptyEventMap,
-	StateCallback extends
-		| FacadeStatesCallback<
-				InferStateAndEvent<Source>["State"],
-				Record<string, unknown>
-		  >
-		| undefined = undefined,
-	CommandCallback extends
-		| FacadeCommandsCallback<
-				ReduxCommandActorFor<Source>,
-				FacadeCommandResult,
-				Events
-		  >
-		| undefined = undefined,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends Record<never, FacadeCommandFunction> = Record<
+		never,
+		FacadeCommandFunction
+	>,
 >(
-	options: ReduxConfigFor<Source, Events, StateCallback, CommandCallback>,
+	options: ReduxConfigFor<Source, Events, StatesResult, CommandsResult>,
 ): IgniteCoreReturn<
 	InferStateAndEvent<Source>["State"],
 	InferStateAndEvent<Source>["Event"],
 	InferStateAndEvent<Source>["State"],
-	StateCallback,
+	StatesResult,
 	ReduxCommandActorFor<Source>,
-	CommandCallback,
+	CommandsResult,
 	Events
 > {
 	const eventDefinitions = options.events?.(event);
@@ -114,9 +88,9 @@ function createReduxComponentFactory<
 			InferStateAndEvent<Source>["State"],
 			InferStateAndEvent<Source>["Event"],
 			InferStateAndEvent<Source>["State"],
-			StateCallback,
+			StatesResult,
 			ReduxCommandActorFor<Source>,
-			CommandCallback,
+			CommandsResult,
 			Events
 		>;
 	}
@@ -133,9 +107,9 @@ function createReduxComponentFactory<
 			InferStateAndEvent<Source>["State"],
 			InferStateAndEvent<Source>["Event"],
 			InferStateAndEvent<Source>["State"],
-			StateCallback,
+			StatesResult,
 			ReduxCommandActorFor<Source>,
-			CommandCallback,
+			CommandsResult,
 			Events
 		>;
 	}
@@ -152,9 +126,9 @@ function createReduxComponentFactory<
 			InferStateAndEvent<Source>["State"],
 			InferStateAndEvent<Source>["Event"],
 			InferStateAndEvent<Source>["State"],
-			StateCallback,
+			StatesResult,
 			ReduxCommandActorFor<Source>,
-			CommandCallback,
+			CommandsResult,
 			Events
 		>;
 	}

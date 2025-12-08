@@ -22,6 +22,11 @@ export type XStateActorInstance<Machine extends AnyStateMachine> = ReturnType<
 export type XStateSnapshot<Machine extends AnyStateMachine> =
 	ExtendedState<Machine>;
 
+export type XStateCommandActor<Machine extends AnyStateMachine> = {
+	send: (event: EventFrom<Machine>) => void;
+	readonly state: ExtendedState<Machine>;
+};
+
 export type XStateMachineActor<Machine extends AnyStateMachine> =
 	XStateActorInstance<Machine>;
 
@@ -33,13 +38,14 @@ type XStateAdapterFactory<Machine extends AnyStateMachine> =
 		) => StateFrom<Machine>;
 		resolveCommandActor: (
 			adapter: IgniteAdapter<ExtendedState<Machine>, EventFrom<Machine>>,
-		) => XStateActorInstance<Machine>;
+		) => XStateCommandActor<Machine>;
 	};
 
 type AdapterEntry<Machine extends AnyStateMachine> = {
 	adapter: IgniteAdapter<ExtendedState<Machine>, EventFrom<Machine>>;
 	snapshot: () => StateFrom<Machine>;
 	actor: XStateActorInstance<Machine>;
+	commandActor: XStateCommandActor<Machine>;
 };
 
 export default function createXStateAdapter<Machine extends AnyStateMachine>(
@@ -66,7 +72,7 @@ function createSharedFactory<Machine extends AnyStateMachine>(
 	const factory = (() => entry.adapter) as XStateAdapterFactory<Machine>;
 	factory.scope = StateScope.Shared;
 	factory.resolveStateSnapshot = () => entry.snapshot();
-	factory.resolveCommandActor = () => entry.actor;
+	factory.resolveCommandActor = () => entry.commandActor;
 	return factory;
 }
 
@@ -101,7 +107,7 @@ function createIsolatedFactory<Machine extends AnyStateMachine>(
 				"[XStateAdapter] Unable to resolve actor for facade callbacks.",
 			);
 		}
-		return entry.actor;
+		return entry.commandActor;
 	};
 
 	return factory;
@@ -217,9 +223,26 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 		return lastKnownSnapshot;
 	};
 
+	const commandActor: XStateCommandActor<Machine> = {
+		send: (event: EventFrom<Machine>) => {
+			if (isStopped) {
+				console.warn(
+					"[XStateAdapter] Cannot send events when adapter is stopped.",
+				);
+				return;
+			}
+			actor.send(event);
+			lastKnownSnapshot = actor.getSnapshot();
+		},
+		get state() {
+			return adapter.getState();
+		},
+	};
+
 	return {
 		adapter,
 		snapshot,
 		actor,
+		commandActor,
 	};
 }

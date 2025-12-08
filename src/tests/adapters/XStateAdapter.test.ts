@@ -169,10 +169,10 @@ describe("XStateAdapter", () => {
 	it("exposes facade metadata for isolated adapters", () => {
 		const snapshot = adapterFactory.resolveStateSnapshot(adapter);
 		expect(snapshot.value).toBe("idle");
-		const actor = adapterFactory.resolveCommandActor(adapter);
-		actor.send({ type: "START" });
+		const commandActor = adapterFactory.resolveCommandActor(adapter);
+		commandActor.send({ type: "START" });
 		expect(adapter.getState().value).toBe("active");
-		actor.send({ type: "INC" });
+		commandActor.send({ type: "INC" });
 		expect(adapter.getState().context.count).toBe(1);
 	});
 
@@ -204,9 +204,8 @@ describe("XStateAdapter", () => {
 		const sharedAdapter = sharedFactory();
 		const snapshot = sharedFactory.resolveStateSnapshot(sharedAdapter);
 		expect(snapshot.value).toBe("idle");
-		const resolvedActor = sharedFactory.resolveCommandActor(sharedAdapter);
-		expect(resolvedActor).toBe(actor);
-		resolvedActor.send({ type: "START" });
+		const commandActor = sharedFactory.resolveCommandActor(sharedAdapter);
+		commandActor.send({ type: "START" });
 		expect(sharedAdapter.getState().value).toBe("active");
 		sharedAdapter.stop();
 		actor.stop();

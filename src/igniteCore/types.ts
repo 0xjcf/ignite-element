@@ -3,6 +3,7 @@ import type { AnyStateMachine } from "xstate";
 import type {
 	ExtendedState,
 	XStateActorInstance,
+	XStateCommandActor,
 } from "../adapters/XStateAdapter";
 import type { WithFacadeRenderArgs } from "../createComponentFactory";
 import type { ComponentFactory } from "../IgniteElementFactory";
@@ -10,6 +11,7 @@ import type {
 	EmptyEventMap,
 	EventBuilder,
 	EventMap,
+	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
 	FacadeStatesCallback,
@@ -38,13 +40,12 @@ export type IgniteCoreReturn<
 	State,
 	Event,
 	Snapshot,
-	StateCallback extends
-		| FacadeStatesCallback<Snapshot, Record<string, unknown>>
-		| undefined,
-	CommandActor,
-	CommandCallback extends
-		| FacadeCommandsCallback<CommandActor, FacadeCommandResult, EventMap>
-		| undefined,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandActor = unknown,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
 	Events extends EventMap = EmptyEventMap,
 > = ComponentFactory<
 	State,
@@ -52,13 +53,13 @@ export type IgniteCoreReturn<
 	WithFacadeRenderArgs<
 		State,
 		Event,
-		Snapshot,
-		StateCallback,
+		StatesResult,
 		CommandActor,
-		CommandCallback,
+		CommandsResult,
 		Record<never, never>,
 		Events
-	>
+	> &
+		Record<never, Snapshot>
 >;
 
 export type ReduxBlueprintSource = Slice | (() => EnhancedStore);
@@ -93,21 +94,20 @@ export type InferAdapterFromSource<Source> = Source extends AnyStateMachine
 export type XStateConfig<
 	Machine extends AnyStateMachine,
 	Events extends EventMap = EmptyEventMap,
-	StateCallback extends
-		| FacadeStatesCallback<ExtendedState<Machine>, Record<string, unknown>>
-		| undefined = undefined,
-	CommandCallback extends
-		| FacadeCommandsCallback<
-				XStateActorInstance<Machine>,
-				FacadeCommandResult,
-				Events
-		  >
-		| undefined = undefined,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
 > = {
 	adapter?: "xstate";
 	source: Machine | XStateActorInstance<Machine>;
-	states?: StateCallback;
-	commands?: CommandCallback;
+	states?: FacadeStatesCallback<ExtendedState<Machine>, StatesResult>;
+	commands?: FacadeCommandsCallback<
+		XStateCommandActor<Machine>,
+		CommandsResult,
+		Events
+	>;
 	events?: EventsDefinition<Events>;
 	cleanup?: boolean;
 };
@@ -115,24 +115,23 @@ export type XStateConfig<
 export type ReduxBlueprintConfig<
 	Source extends ReduxBlueprintSource,
 	Events extends EventMap = EmptyEventMap,
-	StateCallback extends
-		| FacadeStatesCallback<
-				InferStateAndEvent<Source>["State"],
-				Record<string, unknown>
-		  >
-		| undefined = undefined,
-	CommandCallback extends
-		| FacadeCommandsCallback<
-				ReduxCommandActorFor<Source>,
-				FacadeCommandResult,
-				Events
-		  >
-		| undefined = undefined,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
 > = {
 	adapter?: "redux";
 	source: Source;
-	states?: StateCallback;
-	commands?: CommandCallback;
+	states?: FacadeStatesCallback<
+		InferStateAndEvent<Source>["State"],
+		StatesResult
+	>;
+	commands?: FacadeCommandsCallback<
+		ReduxCommandActorFor<Source>,
+		CommandsResult,
+		Events
+	>;
 	events?: EventsDefinition<Events>;
 	cleanup?: boolean;
 };
@@ -140,24 +139,23 @@ export type ReduxBlueprintConfig<
 export type ReduxInstanceConfig<
 	StoreInstance extends ReduxInstanceSource,
 	Events extends EventMap = EmptyEventMap,
-	StateCallback extends
-		| FacadeStatesCallback<
-				InferStateAndEvent<StoreInstance>["State"],
-				Record<string, unknown>
-		  >
-		| undefined = undefined,
-	CommandCallback extends
-		| FacadeCommandsCallback<
-				ReduxCommandActorFor<StoreInstance>,
-				FacadeCommandResult,
-				Events
-		  >
-		| undefined = undefined,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
 > = {
 	adapter?: "redux";
 	source: StoreInstance;
-	states?: StateCallback;
-	commands?: CommandCallback;
+	states?: FacadeStatesCallback<
+		InferStateAndEvent<StoreInstance>["State"],
+		StatesResult
+	>;
+	commands?: FacadeCommandsCallback<
+		ReduxCommandActorFor<StoreInstance>,
+		CommandsResult,
+		Events
+	>;
 	events?: EventsDefinition<Events>;
 	cleanup?: boolean;
 };
@@ -165,17 +163,16 @@ export type ReduxInstanceConfig<
 export type MobxConfig<
 	State extends object,
 	Events extends EventMap = EmptyEventMap,
-	StateCallback extends
-		| FacadeStatesCallback<State, Record<string, unknown>>
-		| undefined = undefined,
-	CommandCallback extends
-		| FacadeCommandsCallback<State, FacadeCommandResult, Events>
-		| undefined = undefined,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
 > = {
 	adapter?: "mobx";
 	source: (() => State) | State;
-	states?: StateCallback;
-	commands?: CommandCallback;
+	states?: FacadeStatesCallback<State, StatesResult>;
+	commands?: FacadeCommandsCallback<State, CommandsResult, Events>;
 	events?: EventsDefinition<Events>;
 	cleanup?: boolean;
 };
@@ -184,24 +181,24 @@ export type IgniteCoreConfig =
 	| {
 			adapter?: "xstate";
 			source: AnyStateMachine | XStateActorInstance<AnyStateMachine>;
-			states?: AnyStatesCallback;
-			commands?: AnyCommandsCallback;
+			states?: unknown;
+			commands?: unknown;
 			events?: AnyEventsDefinition;
 			cleanup?: boolean;
 	  }
 	| {
 			adapter?: "redux";
 			source: Slice | EnhancedStore | (() => EnhancedStore);
-			states?: AnyStatesCallback;
-			commands?: AnyCommandsCallback;
+			states?: unknown;
+			commands?: unknown;
 			events?: AnyEventsDefinition;
 			cleanup?: boolean;
 	  }
 	| {
 			adapter?: "mobx";
 			source: (() => object) | object;
-			states?: AnyStatesCallback;
-			commands?: AnyCommandsCallback;
+			states?: unknown;
+			commands?: unknown;
 			events?: AnyEventsDefinition;
 			cleanup?: boolean;
 	  };

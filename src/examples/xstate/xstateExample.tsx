@@ -1,4 +1,4 @@
-import { type ActorRefFrom, createActor, type StateFrom } from "xstate";
+import { createActor, type StateFrom } from "xstate";
 import type { AdapterPack } from "../../IgniteElementFactory";
 import { igniteCore } from "../../xstate";
 import { advancedMachine } from "./advancedCounterMachine";
@@ -9,7 +9,6 @@ import { advancedMachine } from "./advancedCounterMachine";
 const sharedActor = createActor(advancedMachine).start();
 
 type MachineSnapshot = StateFrom<typeof advancedMachine>;
-type MachineActor = ActorRefFrom<typeof advancedMachine>;
 
 const xstateStates = (snapshot: MachineSnapshot) => {
 	const darkMode = snapshot.context.darkMode;
@@ -25,23 +24,24 @@ const xstateStates = (snapshot: MachineSnapshot) => {
 	};
 };
 
-const xstateCommands = ({ actor }: { actor: MachineActor }) => ({
-	increment: () => actor.send({ type: "INC" }),
-	decrement: () => actor.send({ type: "DEC" }),
-	toggleDarkMode: () => actor.send({ type: "TOGGLE_DARK" }),
-});
-
 const component = igniteCore({
 	source: sharedActor,
 	states: xstateStates,
-	commands: xstateCommands,
+	commands: ({ actor }) => ({
+		increment: () => actor.send({ type: "INC" }),
+		decrement: () => actor.send({ type: "DEC" }),
+		toggleDarkMode: () => actor.send({ type: "TOGGLE_DARK" }),
+	}),
 });
 
 // Isolated components receive a fresh actor per registration.
 const registerIsolatedXState = igniteCore({
 	source: advancedMachine,
 	states: xstateStates,
-	commands: xstateCommands,
+	commands: ({ actor }) => ({
+		increment: () => actor.send({ type: "INC" }),
+		decrement: () => actor.send({ type: "DEC" }),
+	}),
 });
 
 // Shared Counter Component (XState)
@@ -174,3 +174,59 @@ export class AdvancedSharedCounter {
 }
 
 component("advanced-shared-counter", AdvancedSharedCounter);
+
+component("ignite-svg-demo", () => (
+	<div class="mt-6 rounded-lg border border-dashed border-purple-400/60 p-4">
+		<h3 class="mb-3 text-sm font-semibold uppercase tracking-[0.3em] text-purple-300">
+			Ignite SVG demo
+		</h3>
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			viewBox="0 0 160 160"
+			role="img"
+			aria-label="Ignite rendered svg"
+			style="width: 160px; height: 160px;"
+		>
+			<title>Ignite rendered svg</title>
+			<defs>
+				<linearGradient
+					id="ignite-gradient"
+					x1="0%"
+					y1="0%"
+					x2="100%"
+					y2="100%"
+				>
+					<stop offset="0%" stopColor="#8b5cf6" />
+					<stop offset="100%" stopColor="#22d3ee" />
+				</linearGradient>
+			</defs>
+			<circle
+				cx="80"
+				cy="80"
+				r="70"
+				fill="none"
+				stroke="rgba(255,255,255,0.25)"
+				strokeWidth={12}
+			/>
+			<circle
+				cx="80"
+				cy="80"
+				r="50"
+				fill="none"
+				stroke="url(#ignite-gradient)"
+				strokeWidth={12}
+				strokeDasharray="180 314"
+				strokeLinecap="round"
+				strokeDashoffset="-90"
+			/>
+			<circle
+				cx="80"
+				cy="80"
+				r="8"
+				fill="#0f172a"
+				stroke="#22d3ee"
+				strokeWidth={4}
+			/>
+		</svg>
+	</div>
+));

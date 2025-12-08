@@ -62,7 +62,7 @@ Contributions to Ignite-Element are welcome and encouraged! Whether you're fixin
 
 ## **Development Guidelines**
 
-#### Code Style
+### Code Style
 
 Follow the existing code style and conventions. Use the following command to check for linting errors:
 `pnpm run lint`

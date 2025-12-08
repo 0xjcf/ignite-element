@@ -1,5 +1,4 @@
-import { existsSync } from "node:fs";
-import { relative, resolve, sep } from "node:path";
+import { relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveConfigFile } from "./configFile";
 
@@ -29,32 +28,16 @@ function toPosixPath(path: string): string {
 }
 
 function toFileSystemPath(path: string): string {
-	return `/@fs/${toPosixPath(path)}`;
+	const normalized = toPosixPath(path).replace(/^\/+/, "");
+	return `/@fs/${normalized}`;
 }
 
-const moduleDirectory =
-	typeof __dirname === "string"
-		? __dirname
-		: fileURLToPath(new URL(".", import.meta.url));
+export const loadHelperSpecifier = toFileSystemPath(
+	fileURLToPath(new URL("../config/loadIgniteConfig.es.js", import.meta.url)),
+);
 
 function resolveLoadHelperSpecifier(): string | undefined {
-	const candidates = [
-		"../config/loadIgniteConfig.ts",
-		"../config/loadIgniteConfig.js",
-		"../config/loadIgniteConfig.mjs",
-		"../config/loadIgniteConfig.es.js",
-		"../config/loadIgniteConfig.es.mjs",
-		"../config/loadIgniteConfig.cjs",
-	];
-
-	for (const candidate of candidates) {
-		const absolute = resolve(moduleDirectory, candidate);
-		if (existsSync(absolute)) {
-			return toFileSystemPath(absolute);
-		}
-	}
-
-	return undefined;
+	return loadHelperSpecifier;
 }
 
 type ConfigWithRoot = { root: string };
@@ -98,16 +81,16 @@ export function igniteConfigVitePlugin(
 		const loadHelperImport = JSON.stringify(
 			"ignite-element/config/loadIgniteConfig",
 		);
-		const fallbackImport = loadHelperFallback
-			? `({ loadIgniteConfig } = await import(${JSON.stringify(loadHelperFallback)}));`
-			: `throw error;`;
 		const configModuleImport = JSON.stringify(importSpecifier);
-		const script = `let loadIgniteConfig;
+		const script = loadHelperFallback
+			? `let loadIgniteConfig;
 try {
 	({ loadIgniteConfig } = await import(${loadHelperImport}));
 } catch (error) {
-	${fallbackImport}
+	({ loadIgniteConfig } = await import(/* @vite-ignore */ ${JSON.stringify(loadHelperFallback)}));
 }
+await loadIgniteConfig(() => import(${configModuleImport}));`
+			: `const { loadIgniteConfig } = await import(${loadHelperImport});
 await loadIgniteConfig(() => import(${configModuleImport}));`;
 
 		const tags = [

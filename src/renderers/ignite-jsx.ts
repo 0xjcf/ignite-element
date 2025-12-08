@@ -1,3 +1,5 @@
+import "../internal/setupDomPolyfill";
+
 import { createIgniteJsxRenderStrategy } from "./jsx/IgniteJsxRenderStrategy";
 import { registerRenderStrategy } from "./resolveConfiguredRenderStrategy";
 

@@ -12,6 +12,11 @@ export default defineConfig({
 				"renderers/ignite-jsx": "src/renderers/ignite-jsx.ts",
 				"renderers/lit": "src/renderers/lit.ts",
 				"config/loadIgniteConfig": "src/config/loadIgniteConfig.ts",
+				"config/webpack": "src/config/webpack.ts",
+				"config/vite": "src/config/vite.ts",
+				"jsx/index": "src/jsx/index.ts",
+				"jsx/jsx-runtime": "src/jsx/jsx-runtime.ts",
+				"jsx/jsx-dev-runtime": "src/jsx/jsx-dev-runtime.ts",
 			},
 			fileName: (format, entryName) => {
 				const base = entryName === "index" ? "ignite-element" : entryName;

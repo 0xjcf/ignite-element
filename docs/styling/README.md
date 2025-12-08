@@ -22,7 +22,7 @@ Create an `ignite.config.ts` file and register it with `defineIgniteConfig` to c
 import { defineIgniteConfig } from "ignite-element";
 
 export default defineIgniteConfig({
-	globalStyles: new URL("./styles.css", import.meta.url).href,
+  globalStyles: new URL("./styles.css", import.meta.url).href,
 });
 ```
 

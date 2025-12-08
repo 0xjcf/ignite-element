@@ -2,10 +2,7 @@ import { makeAutoObservable } from "mobx";
 import { describe, expectTypeOf, it } from "vitest";
 import { createMachine, type EventFrom } from "xstate";
 import type { MobxEvent } from "../../adapters/MobxAdapter";
-import type {
-	XStateMachineActor,
-	XStateSnapshot,
-} from "../../adapters/XStateAdapter";
+import type { XStateSnapshot } from "../../adapters/XStateAdapter";
 import counterStore, {
 	counterSlice,
 } from "../../examples/redux/src/js/reduxCounterStore";
@@ -14,7 +11,6 @@ import type { AdapterPack } from "../../IgniteElementFactory";
 import type {
 	CommandContext,
 	EmptyEventMap,
-	EventDescriptor,
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
 } from "../../RenderArgs";
@@ -40,20 +36,16 @@ describe("igniteCore type inference", () => {
 
 		type Machine = typeof machine;
 		type Snapshot = XStateSnapshot<Machine>;
-		type MachineActor = XStateMachineActor<Machine>;
-
-		const statesCallback = (snapshot: Snapshot) => ({
-			double: snapshot.context.count * 2,
-		});
-		const commandsCallback = ({ actor }: { actor: MachineActor }) => ({
-			increment: () => actor.send({ type: "INC" }),
-		});
 
 		const register = igniteCore({
 			adapter: "xstate",
 			source: machine,
-			states: statesCallback,
-			commands: commandsCallback,
+			states: (snapshot: Snapshot) => ({
+				double: snapshot.context.count * 2,
+			}),
+			commands: ({ actor }) => ({
+				increment: () => actor.send({ type: "INC" }),
+			}),
 		});
 
 		type RenderArgs = AdapterPack<typeof register>;
@@ -75,25 +67,15 @@ describe("igniteCore type inference", () => {
 
 		type Machine = typeof machine;
 		type Snapshot = XStateSnapshot<Machine>;
-		type MachineActor = XStateMachineActor<Machine>;
-		type MachineContext = CommandContext<MachineActor, EmptyEventMap>;
 
-		const states = (snapshot: Snapshot) => ({
-			count: snapshot.context.count,
-		});
-		const commands = ({ actor }: MachineContext) => ({
-			ping: () => actor.send({ type: "PING" }),
-		});
-
-		const register = igniteCore<
-			Machine,
-			EmptyEventMap,
-			typeof states,
-			typeof commands
-		>({
+		const register = igniteCore({
 			source: machine,
-			states,
-			commands,
+			states: (snapshot: Snapshot) => ({
+				count: snapshot.context.count,
+			}),
+			commands: ({ actor }) => ({
+				ping: () => actor.send({ type: "PING" }),
+			}),
 		});
 
 		type RenderArgs = AdapterPack<typeof register>;
@@ -116,43 +98,64 @@ describe("igniteCore type inference", () => {
 			},
 		});
 
-		type Machine = typeof machine;
-		type MachineActor = XStateMachineActor<Machine>;
-		type CheckoutEvents = {
-			"checkout-submitted": EventDescriptor<{ email: string }>;
-		};
-		type CheckoutContext = CommandContext<MachineActor, CheckoutEvents>;
-		const checkoutCommands = ({ actor, emit }: CheckoutContext) => ({
-			submit: () => {
-				emit("checkout-submitted", { email: "user@example.com" });
-				// @ts-expect-error - unknown event name
-				emit("unknown", {});
-				// @ts-expect-error - payload shape mismatch
-				emit("checkout-submitted", { email: 123 });
-				actor.send({ type: "PING" });
-			},
-		});
-
-		igniteCore<Machine, CheckoutEvents, undefined, typeof checkoutCommands>({
+		igniteCore({
 			adapter: "xstate",
 			source: machine,
 			events: (event) => ({
 				"checkout-submitted": event<{ email: string }>(),
 			}),
-			commands: checkoutCommands,
+			commands: ({ actor, emit }) => ({
+				submit: () => {
+					emit("checkout-submitted", { email: "user@example.com" });
+					// @ts-expect-error - unknown event name
+					emit("unknown", {});
+					// @ts-expect-error - payload shape mismatch
+					emit("checkout-submitted", { email: 123 });
+					actor.send({ type: "PING" });
+				},
+			}),
 		});
 
-		type NoEventContext = CommandContext<MachineActor, EmptyEventMap>;
-		const noopCommands = ({ emit }: NoEventContext) => ({
-			noop: () => {
-				// @ts-expect-error - emit is a no-op when no events are declared
-				emit("anything", {});
-			},
-		});
-		igniteCore<Machine, EmptyEventMap, undefined, typeof noopCommands>({
+		igniteCore({
 			adapter: "xstate",
 			source: machine,
-			commands: noopCommands,
+			commands: ({ emit }) => ({
+				noop: () => {
+					// @ts-expect-error - emit is a no-op when no events are declared
+					emit("anything", {});
+				},
+			}),
+		});
+	});
+
+	it("allows optional payload for events with undefined payload", () => {
+		const machine = createMachine({
+			initial: "idle",
+			states: {
+				idle: {
+					on: { PING: "idle" },
+				},
+			},
+		});
+
+		igniteCore({
+			adapter: "xstate",
+			source: machine,
+			events: (event) => ({
+				"optional-payload": event<{ id?: string } | undefined>(),
+				"required-payload": event<{ id: string }>(),
+			}),
+			commands: ({ emit }) => ({
+				trigger: () => {
+					emit("optional-payload");
+					emit("optional-payload", { id: "123" });
+					emit("optional-payload", undefined);
+
+					// @ts-expect-error - payload is required
+					emit("required-payload");
+					emit("required-payload", { id: "123" });
+				},
+			}),
 		});
 	});
 

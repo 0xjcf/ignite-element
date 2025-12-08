@@ -18,9 +18,9 @@ Ignite Element ships with the Ignite JSX runtime by default. The goal of the ren
 
 ```ts
 export interface RenderStrategy<State, Event, View> {
-	attach(host: ShadowRoot): void;
-	render(view: View): void;
-	detach?(): void;
+ attach(host: ShadowRoot): void;
+ render(view: View): void;
+ detach?(): void;
 }
 ```
 
@@ -31,24 +31,24 @@ export interface RenderStrategy<State, Event, View> {
 
 ```ts
 abstract class IgniteElement<State, Event, View> extends HTMLElement {
-	constructor(
-		protected readonly adapter: IgniteAdapter<State, Event>,
-		private readonly strategy: RenderStrategy<State, Event, View>,
-	) {
-		super();
-		const shadow = this.attachShadow({ mode: "open" });
-		this.strategy.attach(shadow);
-		// subscribe to adapter, wire send(), etc.
-	}
+ constructor(
+  protected readonly adapter: IgniteAdapter<State, Event>,
+  private readonly strategy: RenderStrategy<State, Event, View>,
+ ) {
+  super();
+  const shadow = this.attachShadow({ mode: "open" });
+  this.strategy.attach(shadow);
+  // subscribe to adapter, wire send(), etc.
+ }
 
-	protected renderWithStrategy(view: View) {
-		this.strategy.render(view);
-	}
+ protected renderWithStrategy(view: View) {
+  this.strategy.render(view);
+ }
 
-	disconnectedCallback(): void {
-		this.strategy.detach?.();
-		// current teardown logic
-	}
+ disconnectedCallback(): void {
+  this.strategy.detach?.();
+  // current teardown logic
+ }
 }
 ```
 
@@ -78,16 +78,16 @@ Example facade usage:
 ```tsx
 /** @jsxImportSource ignite-element/jsx */
 const register = igniteCore({
-	source: counterStore,
-	states: (snapshot) => ({ count: snapshot.count }),
-	commands: ({ actor }) => ({ increment: () => actor.increment() }),
+ source: counterStore,
+ states: (snapshot) => ({ count: snapshot.count }),
+ commands: ({ actor }) => ({ increment: () => actor.increment() }),
 });
 
 component("ignite-counter", ({ count, increment }) => (
-	<div class="counter">
-		<button onClick={increment}>+</button>
-		<span>{count}</span>
-	</div>
+ <div class="counter">
+  <button onClick={increment}>+</button>
+  <span>{count}</span>
+ </div>
 ));
 ```
 
@@ -122,8 +122,8 @@ component("class-counter", CounterView);
   import { defineIgniteConfig } from "ignite-element";
 
   export default defineIgniteConfig({
-  	renderer: "ignite-jsx", // default – omit for Ignite JSX
-  	globalStyles: new URL("./styles.css", import.meta.url).href,
+   renderer: "ignite-jsx", // default – omit for Ignite JSX
+   globalStyles: new URL("./styles.css", import.meta.url).href,
   });
   ```
 

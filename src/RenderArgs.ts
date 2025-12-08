@@ -3,7 +3,7 @@ import type { AnyStateMachine, EventFrom, StateFrom } from "xstate";
 import type { MobxEvent } from "./adapters/MobxAdapter";
 import type {
 	ExtendedState,
-	XStateActorInstance,
+	XStateCommandActor,
 } from "./adapters/XStateAdapter";
 import type { InferStateAndEvent } from "./utils/igniteRedux";
 
@@ -62,7 +62,7 @@ type AdapterSnapshot<Source> = Source extends AnyStateMachine
 						: never;
 
 type AdapterActor<Source> = Source extends AnyStateMachine
-	? XStateActorInstance<Source>
+	? XStateCommandActor<Source>
 	: Source extends Slice
 		? ReduxSliceCommandActor<Source>
 		: Source extends () => EnhancedStore
@@ -104,7 +104,9 @@ export type EmitFromEvents<Events extends EventMap> = keyof Events extends never
 	? (type: never, payload: never) => void
 	: <Type extends keyof Events & string>(
 			type: Type,
-			payload: EventPayload<Events[Type]>,
+			...args: undefined extends EventPayload<Events[Type]>
+				? [payload?: EventPayload<Events[Type]>]
+				: [payload: EventPayload<Events[Type]>]
 		) => void;
 
 export type CommandContext<Actor, Events extends EventMap = EmptyEventMap> = {

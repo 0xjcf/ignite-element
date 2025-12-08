@@ -12,6 +12,8 @@ export type BaseRenderArgs<State, Event> = {
 	send: (event: Event) => void;
 };
 
+export type IgniteRenderArgs<State, Event> = BaseRenderArgs<State, Event>;
+
 type AdditionalRenderArgs<
 	State,
 	Event,

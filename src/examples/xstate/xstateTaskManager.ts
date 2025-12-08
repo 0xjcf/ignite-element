@@ -1,5 +1,5 @@
 import { html } from "lit-html";
-import type { ActorRefFrom, StateFrom } from "xstate";
+import type { StateFrom } from "xstate";
 import type { AdapterPack } from "../../IgniteElementFactory";
 import { igniteCore } from "../../xstate";
 import { taskManagerMachine } from "./taskManagerMachine";
@@ -26,10 +26,12 @@ const resolveTaskManagerState = (
 	};
 };
 
+import type { XStateCommandActor } from "../../adapters/XStateAdapter";
+
 const resolveTaskManagerCommands = ({
 	actor,
 }: {
-	actor: ActorRefFrom<typeof taskManagerMachine>;
+	actor: XStateCommandActor<typeof taskManagerMachine>;
 }) => ({
 	addTask: (name: string, priority: string) =>
 		actor.send({ type: "ADD", name, priority }),

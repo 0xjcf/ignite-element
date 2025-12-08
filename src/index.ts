@@ -1,8 +1,11 @@
+import "./internal/setupDomPolyfill";
+
 export { default as createMobXAdapter } from "./adapters/MobxAdapter";
 export { default as createReduxAdapter } from "./adapters/ReduxAdapter";
 export type {
 	ExtendedState,
 	XStateActorInstance,
+	XStateCommandActor,
 	XStateMachineActor,
 	XStateSnapshot,
 } from "./adapters/XStateAdapter";

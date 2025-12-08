@@ -9,6 +9,7 @@ import type {
 	EmitFromEvents,
 	EmptyEventMap,
 	EventMap,
+	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
 	FacadeStatesCallback,
@@ -60,46 +61,48 @@ export type ElementFactoryCreator<
 	options: ElementFactoryOptions<State, Event, RenderArgs, View, Events>,
 ) => Result;
 
-type FacadeStateResult<Snapshot, Callback> = [Callback] extends [
-	FacadeStatesCallback<Snapshot, infer Result>,
-]
+type FacadeStateResult<Result> = [Result] extends [Record<string, unknown>]
 	? Result
 	: Record<never, never>;
 
-type ExtractCommandResult<Actor, Events extends EventMap, Callback> = [
-	Callback,
-] extends [FacadeCommandsCallback<Actor, infer Result, Events>]
+type ExtractCommandResult<Result> = [Result] extends [FacadeCommandResult]
 	? Result
 	: Record<never, never>;
+
+type Phantom<T> = Record<never, T>;
 
 export type WithFacadeRenderArgs<
 	State,
 	Event,
-	Snapshot,
-	StateCallback,
+	StatesResult,
 	CommandActor,
-	CommandCallback,
+	CommandsResult,
 	Additional extends Record<string, unknown> = Record<never, never>,
 	Events extends EventMap = EmptyEventMap,
 > = BaseRenderArgs<State, Event> &
 	Additional &
-	FacadeStateResult<Snapshot, StateCallback> &
-	ExtractCommandResult<CommandActor, Events, CommandCallback>;
+	FacadeStateResult<StatesResult> &
+	ExtractCommandResult<CommandsResult> &
+	Phantom<CommandActor> &
+	Phantom<Events>;
 
 export type ComponentFactoryOptions<
 	State,
 	Event,
 	Snapshot,
-	StateCallback,
-	CommandActor,
-	CommandCallback,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandActor = unknown,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
 	Additional extends Record<string, unknown> = Record<never, never>,
 	View = TemplateResult | IgniteJsxChild,
 	Events extends EventMap = EmptyEventMap,
 > = {
 	scope?: StateScope;
-	states?: StateCallback;
-	commands?: CommandCallback;
+	states?: FacadeStatesCallback<Snapshot, StatesResult>;
+	commands?: FacadeCommandsCallback<CommandActor, CommandsResult, Events>;
 	resolveStateSnapshot?: (adapter: IgniteAdapter<State, Event>) => Snapshot;
 	resolveCommandActor?: (adapter: IgniteAdapter<State, Event>) => CommandActor;
 	createAdditionalArgs?: (
@@ -139,29 +142,27 @@ export function createComponentFactoryWithRenderer<
 	State,
 	Event,
 	Snapshot,
-	StateCallback extends
-		| FacadeStatesCallback<Snapshot, Record<string, unknown>>
-		| undefined = undefined,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
 	CommandActor = {
 		send: (event: Event) => void;
 		getState: () => State;
 	},
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
 	Additional extends Record<string, unknown> = Record<never, never>,
 	View = TemplateResult | IgniteJsxChild,
 	Events extends EventMap = EmptyEventMap,
-	CommandCallback extends
-		| FacadeCommandsCallback<CommandActor, FacadeCommandResult, Events>
-		| undefined = undefined,
 	FactoryResult = ComponentFactory<
 		State,
 		Event,
 		WithFacadeRenderArgs<
 			State,
 			Event,
-			Snapshot,
-			StateCallback,
+			StatesResult,
 			CommandActor,
-			CommandCallback,
+			CommandsResult,
 			Additional,
 			Events
 		>,
@@ -175,10 +176,9 @@ export function createComponentFactoryWithRenderer<
 		WithFacadeRenderArgs<
 			State,
 			Event,
-			Snapshot,
-			StateCallback,
+			StatesResult,
 			CommandActor,
-			CommandCallback,
+			CommandsResult,
 			Additional,
 			Events
 		>,
@@ -190,9 +190,9 @@ export function createComponentFactoryWithRenderer<
 		State,
 		Event,
 		Snapshot,
-		StateCallback,
+		StatesResult,
 		CommandActor,
-		CommandCallback,
+		CommandsResult,
 		Additional,
 		View,
 		Events
@@ -232,10 +232,9 @@ export function createComponentFactoryWithRenderer<
 	type FinalRenderArgs = WithFacadeRenderArgs<
 		State,
 		Event,
-		Snapshot,
-		StateCallback,
+		StatesResult,
 		CommandActor,
-		CommandCallback,
+		CommandsResult,
 		Additional,
 		Events
 	>;
@@ -287,7 +286,7 @@ export function createComponentFactoryWithRenderer<
 			if (states) {
 				const stateCallback = states as FacadeStatesCallback<
 					Snapshot,
-					Record<string, unknown>
+					StatesResult
 				>;
 				const getLatestStates = () => {
 					const snapshot = resolveSnapshot(adapter);
@@ -297,10 +296,9 @@ export function createComponentFactoryWithRenderer<
 				};
 
 				const initial = getLatestStates();
-				const stateFacade = Object.create(null) as FacadeStateResult<
-					Snapshot,
-					StateCallback
-				>;
+				const stateFacade = Object.create(
+					null,
+				) as FacadeStateResult<StatesResult>;
 
 				for (const key of Object.keys(initial)) {
 					Object.defineProperty(stateFacade, key, {
@@ -318,7 +316,7 @@ export function createComponentFactoryWithRenderer<
 			if (commands) {
 				const commandCallback = commands as FacadeCommandsCallback<
 					CommandActor,
-					FacadeCommandResult,
+					CommandsResult,
 					Events
 				>;
 				const actor = resolveActor(adapter);
@@ -331,16 +329,11 @@ export function createComponentFactoryWithRenderer<
 				ensureFacadeResult(commandResult, "commands");
 
 				const entries = Object.entries(commandResult) as Array<
-					[
-						keyof ExtractCommandResult<CommandActor, Events, CommandCallback>,
-						unknown,
-					]
+					[keyof ExtractCommandResult<CommandsResult>, unknown]
 				>;
-				const commandFacade = Object.create(null) as ExtractCommandResult<
-					CommandActor,
-					Events,
-					CommandCallback
-				>;
+				const commandFacade = Object.create(
+					null,
+				) as ExtractCommandResult<CommandsResult>;
 
 				for (const [key, value] of entries) {
 					assertCommandFunction(value, String(key));
@@ -365,16 +358,15 @@ export function createComponentFactory<
 	State,
 	Event,
 	Snapshot,
-	StateCallback extends
-		| FacadeStatesCallback<Snapshot, Record<string, unknown>>
-		| undefined = undefined,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
 	CommandActor = {
 		send: (event: Event) => void;
 		getState: () => State;
 	},
-	CommandCallback extends
-		| FacadeCommandsCallback<CommandActor, FacadeCommandResult, Events>
-		| undefined = undefined,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
 	Additional extends Record<string, unknown> = Record<never, never>,
 	Events extends EventMap = EmptyEventMap,
 >(
@@ -383,9 +375,9 @@ export function createComponentFactory<
 		State,
 		Event,
 		Snapshot,
-		StateCallback,
+		StatesResult,
 		CommandActor,
-		CommandCallback,
+		CommandsResult,
 		Additional,
 		TemplateResult | IgniteJsxChild,
 		Events
@@ -396,10 +388,9 @@ export function createComponentFactory<
 	WithFacadeRenderArgs<
 		State,
 		Event,
-		Snapshot,
-		StateCallback,
+		StatesResult,
 		CommandActor,
-		CommandCallback,
+		CommandsResult,
 		Additional,
 		Events
 	>

@@ -120,9 +120,9 @@ describe("createComponentFactory", () => {
 			CounterState,
 			CounterEvent,
 			CounterState,
-			typeof statesCallback,
+			{ count: number },
 			FallbackActor,
-			typeof commandsCallback,
+			{ increment: () => void },
 			{ extra: string }
 		>(createAdapter, {
 			states: statesCallback,
@@ -254,9 +254,9 @@ describe("createComponentFactory", () => {
 			CounterState,
 			CounterEvent,
 			CounterState,
-			typeof states,
+			{ count: number },
 			{ send: (event: CounterEvent) => void },
-			typeof commands,
+			{ increment: () => void },
 			Record<never, never>,
 			typeof eventsMap
 		>(createAdapter, {

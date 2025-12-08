@@ -1,3 +1,5 @@
+import "./internal/setupDomPolyfill";
+
 export type {
 	IgniteCoreReturn,
 	XStateConfig,

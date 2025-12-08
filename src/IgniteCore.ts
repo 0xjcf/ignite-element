@@ -2,8 +2,14 @@ import type { AnyStateMachine, EventFrom } from "xstate";
 import type { MobxEvent } from "./adapters/MobxAdapter";
 import type {
 	ExtendedState,
-	XStateActorInstance,
+	XStateCommandActor,
 } from "./adapters/XStateAdapter";
+import type IgniteAdapter from "./IgniteAdapter";
+import { StateScope } from "./IgniteAdapter";
+import igniteElementFactory, {
+	type ComponentFactory,
+	type IgniteRenderArgs,
+} from "./IgniteElementFactory";
 import { igniteCoreMobx } from "./igniteCore/mobx";
 import { igniteCoreRedux } from "./igniteCore/redux";
 import type {
@@ -22,9 +28,8 @@ import { igniteCoreXState } from "./igniteCore/xstate";
 import type {
 	EmptyEventMap,
 	EventMap,
+	FacadeCommandFunction,
 	FacadeCommandResult,
-	FacadeCommandsCallback,
-	FacadeStatesCallback,
 } from "./RenderArgs";
 import {
 	isReduxSlice,
@@ -48,114 +53,120 @@ export type {
 
 export { igniteCoreMobx, igniteCoreRedux, igniteCoreXState };
 
+export function igniteCore(): ComponentFactory<
+	Record<string, never>,
+	never,
+	IgniteRenderArgs<Record<string, never>, never>
+>;
+
 export function igniteCore<
 	Machine extends AnyStateMachine,
 	Events extends EventMap = EmptyEventMap,
-	StateCallback extends
-		| FacadeStatesCallback<ExtendedState<Machine>, Record<string, unknown>>
-		| undefined = undefined,
-	CommandCallback extends
-		| FacadeCommandsCallback<
-				XStateActorInstance<Machine>,
-				FacadeCommandResult,
-				Events
-		  >
-		| undefined = undefined,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
 >(
-	options: XStateConfig<Machine, Events, StateCallback, CommandCallback>,
+	options: XStateConfig<Machine, Events, StatesResult, CommandsResult>,
 ): IgniteCoreReturn<
 	ExtendedState<Machine>,
 	EventFrom<Machine>,
 	ExtendedState<Machine>,
-	StateCallback,
-	XStateActorInstance<Machine>,
-	CommandCallback,
+	StatesResult,
+	XStateCommandActor<Machine>,
+	CommandsResult,
 	Events
 >;
 
 export function igniteCore<
 	Source extends ReduxBlueprintSource,
 	Events extends EventMap = EmptyEventMap,
-	StateCallback extends
-		| FacadeStatesCallback<
-				InferStateAndEvent<Source>["State"],
-				Record<string, unknown>
-		  >
-		| undefined = undefined,
-	CommandCallback extends
-		| FacadeCommandsCallback<
-				ReduxCommandActorFor<Source>,
-				FacadeCommandResult,
-				Events
-		  >
-		| undefined = undefined,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
 >(
-	options: ReduxBlueprintConfig<Source, Events, StateCallback, CommandCallback>,
+	options: ReduxBlueprintConfig<Source, Events, StatesResult, CommandsResult>,
 ): IgniteCoreReturn<
 	InferStateAndEvent<Source>["State"],
 	InferStateAndEvent<Source>["Event"],
 	InferStateAndEvent<Source>["State"],
-	StateCallback,
+	StatesResult,
 	ReduxCommandActorFor<Source>,
-	CommandCallback,
+	CommandsResult,
 	Events
 >;
 
 export function igniteCore<
 	StoreInstance extends ReduxInstanceSource,
 	Events extends EventMap = EmptyEventMap,
-	StateCallback extends
-		| FacadeStatesCallback<
-				InferStateAndEvent<StoreInstance>["State"],
-				Record<string, unknown>
-		  >
-		| undefined = undefined,
-	CommandCallback extends
-		| FacadeCommandsCallback<
-				ReduxCommandActorFor<StoreInstance>,
-				FacadeCommandResult,
-				Events
-		  >
-		| undefined = undefined,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
 >(
 	options: ReduxInstanceConfig<
 		StoreInstance,
 		Events,
-		StateCallback,
-		CommandCallback
+		StatesResult,
+		CommandsResult
 	>,
 ): IgniteCoreReturn<
 	InferStateAndEvent<StoreInstance>["State"],
 	InferStateAndEvent<StoreInstance>["Event"],
 	InferStateAndEvent<StoreInstance>["State"],
-	StateCallback,
+	StatesResult,
 	ReduxCommandActorFor<StoreInstance>,
-	CommandCallback,
+	CommandsResult,
 	Events
 >;
 
 export function igniteCore<
 	State extends object,
 	Events extends EventMap = EmptyEventMap,
-	StateCallback extends
-		| FacadeStatesCallback<State, Record<string, unknown>>
-		| undefined = undefined,
-	CommandCallback extends
-		| FacadeCommandsCallback<State, FacadeCommandResult, Events>
-		| undefined = undefined,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
 >(
-	options: MobxConfig<State, Events, StateCallback, CommandCallback>,
+	options: MobxConfig<State, Events, StatesResult, CommandsResult>,
 ): IgniteCoreReturn<
 	State,
 	MobxEvent<State>,
 	State,
-	StateCallback,
+	StatesResult,
 	State,
-	CommandCallback,
+	CommandsResult,
 	Events
 >;
 
-export function igniteCore(options: IgniteCoreConfig) {
+export function igniteCore(options?: IgniteCoreConfig) {
+	if (typeof options === "undefined") {
+		type StaticState = Record<string, never>;
+		const staticState: StaticState = {};
+		const createStaticAdapter = Object.assign(
+			(): IgniteAdapter<StaticState, never> => ({
+				scope: StateScope.Shared,
+				subscribe(listener) {
+					listener(staticState);
+					return { unsubscribe() {} };
+				},
+				send() {},
+				getState() {
+					return staticState;
+				},
+				stop() {},
+			}),
+			{ scope: StateScope.Shared as const },
+		);
+
+		return igniteElementFactory<StaticState, never>(createStaticAdapter);
+	}
+
 	const adapterName = resolveAdapter(options);
 
 	switch (adapterName) {

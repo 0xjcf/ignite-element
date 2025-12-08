@@ -55,7 +55,7 @@ Get up and running in a few steps:
 1. **Create `ignite.config.ts`**
 
    ```ts
-   import { defineIgniteConfig } from "ignite-element/config";
+   import { defineIgniteConfig } from "ignite-element";
 
    export default defineIgniteConfig({
      globalStyles: new URL("./styles.css", import.meta.url).href,
@@ -142,8 +142,221 @@ Get up and running in a few steps:
    <toggle-button></toggle-button>
    ```
 
-### Renderer shapes
+---
 
+## 🧭 Recommended Patterns
+
+### Let state machines own side effects
+
+Facade `commands` should stay lightweight—ideally only forwarding host interactions to the underlying state machine and firing typed DOM events via the `emit` helper. When you need to announce that a state transition completed, register an emitter with the machine instead of subscribing to the actor from the façade:
+
+```ts
+const registerEntryForm = igniteCore({
+  source: entryFormMachine,
+  events: (event) => ({
+    "performance-entry:submitted": event<{ entry: PerformanceEntry }>(),
+  }),
+  commands: ({ actor, emit, host }) => {
+    actor.send({
+      type: "REGISTER_SUBMISSION_EMITTER",
+      emitter: (entry) => emit("performance-entry:submitted", { entry }),
+    });
+
+    return {
+      submit: () => actor.send({ type: "SUBMIT" }),
+      reset: () => actor.send({ type: "RESET_FORM" }),
+    };
+  },
+});
+```
+
+Pair that with a machine that accepts the emitter, stores it in context, and invokes it only after a successful submission:
+
+```ts
+interface EntryFormContext {
+  submissionEmitter: ((entry: PerformanceEntry) => void) | null;
+  lastSubmittedEntry: PerformanceEntry | null;
+  // other context fields…
+}
+
+type EntryFormEvent =
+  | { type: "REGISTER_SUBMISSION_EMITTER"; emitter: (entry: PerformanceEntry) => void }
+  | { type: "SUBMIT" }
+  | { type: "done.invoke.submitEntry"; output: PerformanceEntry }
+  | /* other events */;
+
+const entryFormMachine = setup({
+  types: { context: {} as EntryFormContext, events: {} as EntryFormEvent },
+  actions: {
+    notifySubmission: ({ context }) => {
+      if (!context.submissionEmitter || !context.lastSubmittedEntry) {
+        return;
+      }
+      context.submissionEmitter(structuredClone(context.lastSubmittedEntry));
+    },
+  },
+}).createMachine({
+  context: () => ({
+    submissionEmitter: null,
+    lastSubmittedEntry: null,
+  }),
+  on: {
+    REGISTER_SUBMISSION_EMITTER: {
+      actions: assign(({ event }) => ({
+        submissionEmitter: event.emitter,
+      })),
+    },
+  },
+  states: {
+    submitting: {
+      invoke: {
+        src: "submitEntry",
+        onDone: {
+          target: "success",
+          actions: assign(({ event }) => ({
+            lastSubmittedEntry: structuredClone(event.output),
+          })),
+        },
+      },
+    },
+    success: {
+      entry: "notifySubmission",
+      after: { 2000: "idle" },
+    },
+    idle: { /* … */ },
+  },
+});
+```
+
+No extra subscriptions are necessary—the machine decides when a side effect should run, the façade merely exposes the DOM event the host cares about.
+
+### Pair Ignite with atomic design
+
+Ignite components play nicely with an atomic design system:
+
+- **Atoms** render the smallest interactive controls (inputs, toggles, buttons). They receive only the data/state they need and emit simple events (`onInput`, `onToggle`, etc.).
+- **Molecules/Organisms** are the JSX renderers you register via `igniteCore`. They compose atoms, read derived state from the facade, and call façade commands in response to UI events.
+- **Templates/State machines** keep business rules—validation, async workflows, retries, notifications—encapsulated. Machines emit events to the facade, which in turn raises DOM events for the host application.
+
+Keeping those layers separate means you can iterate on styling (atoms), composition (molecules), and behavior (machines) independently while Ignite handles the plumbing between them.
+
+---
+
+## 🧱 Integration Walkthrough
+
+We’re documenting the end-to-end integration flow as we rebuild the onboarding experience. Each step captures what we run locally while wiring Ignite into a fresh Vite + TypeScript host; these notes will drive the scaffold CLI defaults.
+
+### Step 1 — Bootstrap the host workspace
+
+- **Prerequisites:** Node 22+, pnpm 8+, and a clean working directory for the host app.
+- **Create the project shell:** `pnpm create vite@latest leaderboard --template vanilla-ts` (or point at an existing Vite setup).
+- **Install runtime deps:** `pnpm add ignite-element xstate` keeps the state adapter available from day one.
+- **Install build tooling:** `pnpm add -D tailwindcss @tailwindcss/postcss autoprefixer` so the Ignite components can reuse the Tailwind-based tokens from the examples.
+- **(Optional) link a local copy:** when iterating on Ignite itself, run `pnpm add ignite-element@file:../ignite-element` from the host repo so changes to `dist/` flow through instantly.
+
+> ✅ Verify: `pnpm install` completes without registry errors and `pnpm list ignite-element` reports the expected version or link target.
+
+Next step: capture the configuration edits (tsconfig, Tailwind, and Vite wiring) once the host workspace is in place.
+
+### Step 2 — Configure the toolchain for Ignite JSX
+
+- **TypeScript JSX runtime:** update `tsconfig.json` so JSX emits against Ignite.
+
+  ```jsonc
+  {
+    "compilerOptions": {
+      "jsx": "react-jsx",
+      "jsxImportSource": "ignite-element/jsx",
+      "moduleResolution": "bundler"
+    }
+  }
+  ```
+
+  Those settings mirror Vite defaults and keep the Ignite JSX runtime (and its dev helpers) discoverable without extra Babel plugins.
+
+- **Path fallbacks:** add `@/*` (or your preferred alias) so components can import `src` cleanly; keep any existing aliases intact.
+
+  ```jsonc
+  {
+    "compilerOptions": {
+      "baseUrl": ".",
+      "paths": {
+        "@/*": ["src/*"]
+      }
+    }
+  }
+  ```
+
+- **Tailwind 4 + tokens:** create `src/styles/global.css` with the Tailwind entrypoint and tokens import (see Step 5 for an extended example). This file will be referenced from `ignite.config.ts`.
+
+- **Linting considerations:** Biome 2024.10 does not yet understand Tailwind v4 `@source` directives. Skip them for now and rely on `tailwind.config.ts` content globs instead.
+
+> ✅ Verify: `pnpm typecheck` (or `pnpm lint`) passes after the TypeScript config change; Vite should still launch with `pnpm dev`.
+
+Next step: introduce `ignite.config.ts`, wire the Vite plugin, and register the component entry points.
+
+### Step 3 — Add `ignite.config.ts` and global styling
+
+- **Create the config:** at the host project root, add `ignite.config.ts`.
+
+  ```ts
+  import { defineIgniteConfig } from "ignite-element";
+
+  export default defineIgniteConfig({
+    renderer: "ignite-jsx",
+    globalStyles: new URL("./src/styles/global.css", import.meta.url).href,
+  });
+  ```
+
+  - `renderer: "ignite-jsx"` keeps the default JSX runtime; swap to `"lit"` if you prefer template literals.
+  - Point `globalStyles` at whatever CSS file establishes your design tokens (created in Step 2).
+
+- **Reference tokens + Tailwind:** ensure `src/styles/global.css` imports both your tokens and Tailwind once:
+
+  ```css
+  @import "./tokens.css";
+  @import "tailwindcss";
+  ```
+
+  You can layer additional base styles below those imports (typography resets, color variables, etc.).
+
+- **Make the config discoverable:** the upcoming Vite plugin (Step 4) will load the file automatically, so no manual import is required. If you want to smoke-test before wiring the plugin, add `import "../ignite.config.ts";` to your entry file temporarily, then remove it once Step 4 is complete.
+
+> ✅ Verify: `pnpm dev` runs without missing-style errors once `ignite.config.ts` exists.
+
+Next step: replace the temporary import by wiring the Vite plugin, then register a facade-driven component.
+
+### Step 4 — Wire Vite + the Ignite JSX runtime
+
+- **Replace the manual import with the plugin:** update `vite.config.ts` to install `igniteConfigVitePlugin`. The plugin injects `ignite.config.ts` automatically for dev and preview builds.
+
+```ts
+  import { igniteConfigVitePlugin } from "ignite-element/config/vite";
+
+import { defineConfig } from "vite";
+
+const igniteConfigPlugin = igniteConfigVitePlugin();
+
+export default defineConfig({
+ server: {
+  port: 8080
+ },
+ plugins: [igniteConfigPlugin],
+});
+
+```
+
+  Ignite now ships a lightweight DOM polyfill and JSX runtime helpers, so no extra stubs or path aliases are necessary.
+
+- **Linking a local build?** If your app consumes a sibling `ignite-element` directory via `pnpm add ignite-element@file:../ignite-element`, add that parent directory to `server.fs.allow` (e.g. `allow: [process.cwd(), "../ignite-element"]`) so Vite can serve the linked `dist/` files. Published installs do not require this.
+
+- **Remove the manual config import:** delete the temporary `import "./ignite.config.ts";` from your app entry—the plugin now loads it automatically.
+
+- **Use the bundled JSX helpers:** JSX now resolves via `import type { IgniteJsxElement } from "ignite-element/jsx";` and the runtime helpers (`jsx`, `jsxs`, `jsxDEV`) come from `ignite-element/jsx/jsx-runtime` (and `jsx-dev-runtime` for development). No additional shims or path overrides are required.
+
+> ✅ Verify: `pnpm dev` injects a module script that loads `ignite.config.ts`, and `pnpm typecheck` no longer complains about missing `ignite-element/jsx` modules.
+
+Next step: register your first Ignite component (facade + renderer) and mount it in the host app.
 `igniteCore` accepts several renderer formats so you can organize UI however you prefer:
 
 ```tsx

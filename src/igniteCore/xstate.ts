@@ -1,41 +1,34 @@
 import type { AnyStateMachine, EventFrom } from "xstate";
 import createXStateAdapter, {
 	type ExtendedState,
-	type XStateActorInstance,
+	type XStateCommandActor,
 } from "../adapters/XStateAdapter";
 import { createComponentFactory } from "../createComponentFactory";
 import { event } from "../events";
 import type {
 	EmptyEventMap,
 	EventMap,
-	FacadeCommandResult,
-	FacadeCommandsCallback,
-	FacadeStatesCallback,
+	FacadeCommandFunction,
 } from "../RenderArgs";
 import type { IgniteCoreReturn, XStateConfig } from "./types";
 
 export function igniteCoreXState<
 	Machine extends AnyStateMachine,
 	Events extends EventMap = EmptyEventMap,
-	StateCallback extends
-		| FacadeStatesCallback<ExtendedState<Machine>, Record<string, unknown>>
-		| undefined = undefined,
-	CommandCallback extends
-		| FacadeCommandsCallback<
-				XStateActorInstance<Machine>,
-				FacadeCommandResult,
-				Events
-		  >
-		| undefined = undefined,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends Record<never, FacadeCommandFunction> = Record<
+		never,
+		FacadeCommandFunction
+	>,
 >(
-	options: XStateConfig<Machine, Events, StateCallback, CommandCallback>,
+	options: XStateConfig<Machine, Events, StatesResult, CommandsResult>,
 ): IgniteCoreReturn<
 	ExtendedState<Machine>,
 	EventFrom<Machine>,
 	ExtendedState<Machine>,
-	StateCallback,
-	XStateActorInstance<Machine>,
-	CommandCallback,
+	StatesResult,
+	XStateCommandActor<Machine>,
+	CommandsResult,
 	Events
 > {
 	const adapterFactory = createXStateAdapter(options.source);
@@ -50,9 +43,9 @@ export function igniteCoreXState<
 		ExtendedState<Machine>,
 		EventFrom<Machine>,
 		ExtendedState<Machine>,
-		StateCallback,
-		XStateActorInstance<Machine>,
-		CommandCallback,
+		StatesResult,
+		XStateCommandActor<Machine>,
+		CommandsResult,
 		Events
 	>;
 }

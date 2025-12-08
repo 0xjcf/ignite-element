@@ -43,8 +43,13 @@ function extractConfig(module: ConfigModule): IgniteConfig | undefined {
 export async function loadIgniteConfig(
 	loadConfig: ConfigLoader,
 ): Promise<IgniteConfig | undefined> {
-	const module = await loadConfig();
-	const config = extractConfig(module);
+	if (typeof window === "undefined") {
+		const module = await loadConfig();
+		return extractConfig(module);
+	}
+
+	const configModule = await loadConfig();
+	const config = extractConfig(configModule);
 
 	if (!config) {
 		return undefined;

@@ -1,6 +1,6 @@
 {
 	"name": "ignite-element",
-	"version": "2.0.0-beta.2",
+	"version": "2.0.1",
 	"type": "module",
 	"main": "dist/ignite-element.cjs.js",
 	"types": "dist/types/index.d.ts",
@@ -41,6 +41,36 @@
 			"import": "./dist/renderers/lit.es.js",
 			"require": "./dist/renderers/lit.cjs.js",
 			"default": "./dist/renderers/lit.es.js"
+		},
+		"./config/webpack": {
+			"types": "./dist/types/config/webpack.d.ts",
+			"import": "./dist/config/webpack.es.js",
+			"require": "./dist/config/webpack.cjs.js",
+			"default": "./dist/config/webpack.es.js"
+		},
+		"./config/vite": {
+			"types": "./dist/types/config/vite.d.ts",
+			"import": "./dist/config/vite.es.js",
+			"require": "./dist/config/vite.cjs.js",
+			"default": "./dist/config/vite.es.js"
+		},
+		"./jsx": {
+			"types": "./dist/types/jsx/index.d.ts",
+			"import": "./dist/jsx/index.es.js",
+			"require": "./dist/jsx/index.cjs.js",
+			"default": "./dist/jsx/index.es.js"
+		},
+		"./jsx/jsx-runtime": {
+			"types": "./dist/types/jsx/jsx-runtime.d.ts",
+			"import": "./dist/jsx/jsx-runtime.es.js",
+			"require": "./dist/jsx/jsx-runtime.cjs.js",
+			"default": "./dist/jsx/jsx-runtime.es.js"
+		},
+		"./jsx/jsx-dev-runtime": {
+			"types": "./dist/types/jsx/jsx-dev-runtime.d.ts",
+			"import": "./dist/jsx/jsx-dev-runtime.es.js",
+			"require": "./dist/jsx/jsx-dev-runtime.cjs.js",
+			"default": "./dist/jsx/jsx-dev-runtime.es.js"
 		},
 		"./config/loadIgniteConfig": {
 			"types": "./dist/types/config/loadIgniteConfig.d.ts",

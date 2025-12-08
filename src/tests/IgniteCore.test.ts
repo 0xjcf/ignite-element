@@ -7,7 +7,7 @@ import { assign, createActor, createMachine, type EventFrom } from "xstate";
 import type { MobxEvent } from "../adapters/MobxAdapter";
 import type {
 	ExtendedState,
-	XStateActorInstance,
+	XStateCommandActor,
 } from "../adapters/XStateAdapter";
 import counterStore, {
 	counterSlice,
@@ -156,7 +156,7 @@ describe("igniteCore", () => {
 		type Machine = typeof machine;
 		type Snapshot = ExtendedState<Machine>;
 		type MachineEvent = EventFrom<Machine>;
-		type MachineActor = XStateActorInstance<Machine>;
+		type MachineActor = XStateCommandActor<Machine>;
 
 		const statesCallback = (snapshot: Snapshot) => ({
 			double: snapshot.context.count * 2,

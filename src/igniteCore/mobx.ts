@@ -4,30 +4,27 @@ import { event } from "../events";
 import type {
 	EmptyEventMap,
 	EventMap,
-	FacadeCommandResult,
-	FacadeCommandsCallback,
-	FacadeStatesCallback,
+	FacadeCommandFunction,
 } from "../RenderArgs";
 import type { IgniteCoreReturn, MobxConfig } from "./types";
 
 export function igniteCoreMobx<
 	State extends object,
 	Events extends EventMap = EmptyEventMap,
-	StateCallback extends
-		| FacadeStatesCallback<State, Record<string, unknown>>
-		| undefined = undefined,
-	CommandCallback extends
-		| FacadeCommandsCallback<State, FacadeCommandResult, Events>
-		| undefined = undefined,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends Record<never, FacadeCommandFunction> = Record<
+		never,
+		FacadeCommandFunction
+	>,
 >(
-	options: MobxConfig<State, Events, StateCallback, CommandCallback>,
+	options: MobxConfig<State, Events, StatesResult, CommandsResult>,
 ): IgniteCoreReturn<
 	State,
 	MobxEvent<State>,
 	State,
-	StateCallback,
+	StatesResult,
 	State,
-	CommandCallback,
+	CommandsResult,
 	Events
 > {
 	const adapterFactory = createMobXAdapter(options.source);
@@ -42,9 +39,9 @@ export function igniteCoreMobx<
 		State,
 		MobxEvent<State>,
 		State,
-		StateCallback,
+		StatesResult,
 		State,
-		CommandCallback,
+		CommandsResult,
 		Events
 	>;
 }

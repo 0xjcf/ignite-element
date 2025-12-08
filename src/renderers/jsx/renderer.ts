@@ -7,11 +7,16 @@ import {
 	normalizeChildren,
 } from "./types";
 
-export function createDomNode(node: IgniteJsxChild): Node | DocumentFragment {
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+
+export function createDomNode(
+	node: IgniteJsxChild,
+	namespace?: string,
+): Node | DocumentFragment {
 	if (Array.isArray(node)) {
 		const fragment = document.createDocumentFragment();
 		for (const child of node) {
-			const childNode = createDomNode(child);
+			const childNode = createDomNode(child, namespace);
 			appendNode(fragment, childNode);
 		}
 		return fragment;
@@ -26,7 +31,7 @@ export function createDomNode(node: IgniteJsxChild): Node | DocumentFragment {
 	}
 
 	if (isIgniteJsxElement(node)) {
-		return createElementNode(node);
+		return createElementNode(node, namespace);
 	}
 
 	return document.createComment("ignite-unknown");
@@ -44,26 +49,44 @@ export function mountIgniteJsx(
 	appendNode(host, node);
 }
 
-function createElementNode(element: IgniteJsxElement): Node {
+function createElementNode(
+	element: IgniteJsxElement,
+	parentNamespace?: string,
+): Node {
 	const { type, props } = element;
 
 	if (type === Fragment) {
 		const fragment = document.createDocumentFragment();
 		for (const child of normalizeChildren(props.children)) {
-			appendNode(fragment, createDomNode(child));
+			appendNode(fragment, createDomNode(child, parentNamespace));
 		}
 		return fragment;
 	}
 
 	if (typeof type === "function") {
 		const result = type(props);
-		return createDomNode(result);
+		return createDomNode(result, parentNamespace);
 	}
 
-	const elementNode = document.createElement(type);
+	const tagName = String(type);
+	const isSvgRoot = tagName === "svg";
+	const useSvgNamespace = isSvgRoot || parentNamespace === SVG_NAMESPACE;
+	const elementNode = useSvgNamespace
+		? document.createElementNS(SVG_NAMESPACE, tagName)
+		: document.createElement(tagName);
+
 	setProps(elementNode, props);
+
+	const childNamespace = isSvgRoot
+		? SVG_NAMESPACE
+		: tagName === "foreignObject"
+			? undefined
+			: useSvgNamespace
+				? SVG_NAMESPACE
+				: undefined;
+
 	for (const child of normalizeChildren(props.children)) {
-		appendNode(elementNode, createDomNode(child));
+		appendNode(elementNode, createDomNode(child, childNamespace));
 	}
 	return elementNode;
 }
@@ -76,6 +99,7 @@ function appendNode(
 }
 
 function setProps(element: Element, props: IgniteJsxProps) {
+	const isSvgElement = element instanceof SVGElement;
 	for (const [key, value] of Object.entries(props)) {
 		if (key === "children" || key === "ref") {
 			continue;
@@ -116,12 +140,13 @@ function setProps(element: Element, props: IgniteJsxProps) {
 			continue;
 		}
 
-		if (key in element) {
+		if (!isSvgElement && key in element) {
 			Reflect.set(element, key, value);
 			continue;
 		}
 
-		element.setAttribute(key, String(value));
+		const attributeName = isSvgElement ? normalizeSvgAttributeName(key) : key;
+		element.setAttribute(attributeName, String(value));
 	}
 }
 
@@ -132,4 +157,17 @@ function normalizeEventName(rawName: string): string {
 		.replace(/([A-Z])([A-Z][a-z])/g, "$1-$2")
 		.replace(/_/g, "-");
 	return withHyphens.toLowerCase();
+}
+
+function normalizeSvgAttributeName(name: string): string {
+	if (name.includes("-") || name.includes(":")) {
+		return name;
+	}
+	if (name.startsWith("data") || name.startsWith("aria")) {
+		return normalizeEventName(name);
+	}
+	return name
+		.replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+		.replace(/_+/g, "-")
+		.toLowerCase();
 }
