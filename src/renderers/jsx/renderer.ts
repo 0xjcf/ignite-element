@@ -128,9 +128,7 @@ function setProps(element: Element, props: IgniteJsxProps) {
 				value as Record<string, unknown>,
 			)) {
 				if (styleValue != null) {
-					const cssProperty = styleKey
-						.replace(/([A-Z])/g, "-$1")
-						.toLowerCase();
+					const cssProperty = styleKey.replace(/([A-Z])/g, "-$1").toLowerCase();
 					(element as HTMLElement).style.setProperty(
 						cssProperty,
 						String(styleValue),
