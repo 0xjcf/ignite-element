@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.0
+
+### Minor Changes
+
+- Move adapter usage to adapter-specific entrypoints. The root `ignite-element` entry no longer exports `igniteCore` or adapter helpers; import from `ignite-element/xstate`, `ignite-element/redux`, or `ignite-element/mobx` instead.
+
 ## 2.0.2
 
 ### Patch Changes
