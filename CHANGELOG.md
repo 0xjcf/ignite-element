@@ -11,7 +11,7 @@
 ### Major Changes
 
 - Centralised configuration with `ignite.config.ts`, `defineIgniteConfig`, and optional Vite/Webpack plugins so apps can declare global styles and renderer choice without touching runtime code.
-- Renderer strategies extracted from the core runtime; Ignite JSX now ships as the default renderer with `jsx`/`jsxs`/`jsxDEV` factories while the lit strategy remains available via configuration.
+- Renderer strategies extracted from the core runtime; Ignite JSX now ships as the default renderer with `jsx`/`jsxs`/`jsxDEV` factories, while the lit strategy remains available via configuration.
 - Adapter inference and entry points ensure `igniteCore` auto-detects Redux slices/stores, XState machines/actors, and MobX observables/factories, letting bundlers tree-shake optional peers.
 
 ### New Features

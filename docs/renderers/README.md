@@ -2,13 +2,13 @@
 
 > **Status:** Planning document. Nothing here is public API yet.
 
-Ignite Element ships with the Ignite JSX runtime by default. The goal of the renderer strategy work is to keep the core surface (`igniteCore`, adapter facades, component factory) intact while allowing other renderers—such as the optional lit strategy—to plug in when desired.
+Ignite Element ships with the Ignite JSX runtime by default. The goal of the renderer strategy work is to keep the core surface (`igniteCore`, adapter facades, component factory) intact while allowing other renderers—such as the optional lit strategy kept for compatibility/fallback—to plug in when desired.
 
 ## Objectives
 
 - **Renderer-agnostic core:** `IgniteElement` must not assume `TemplateResult`. Rendering is delegated to a strategy object.
 - **First-party JSX runtime:** Provide a lightweight Ignite JSX renderer (compiler + runtime) that converts JSX to DOM with no third-party dependencies.
-- **Optional strategies:** Lit remains the default strategy. Projects can pick the Ignite JSX strategy once via `ignite.config.ts`.
+- **Optional strategies:** Ignite JSX is the default strategy. The lit-html strategy stays available as the fallback/compat option and can be selected once via `ignite.config.ts`.
 - **Consistent ergonomics:** Registering components (function/object/class) keeps the same `states`/`commands` facade, regardless of renderer.
 - **Tree-shakable:** When the JSX renderer isn’t used, its runtime should disappear from bundles.
 
@@ -122,7 +122,7 @@ component("class-counter", CounterView);
   import { defineIgniteConfig } from "ignite-element";
 
   export default defineIgniteConfig({
-   renderer: "ignite-jsx", // default – omit for Ignite JSX
+   renderer: "ignite-jsx", // can be omitted since Ignite JSX is the default
    globalStyles: new URL("./styles.css", import.meta.url).href,
   });
   ```

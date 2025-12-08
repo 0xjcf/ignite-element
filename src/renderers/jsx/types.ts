@@ -49,7 +49,7 @@ declare global {
 			props: IgniteJsxProps;
 		}
 		interface ElementChildrenAttribute {
-			children: { children?: IgniteJsxChild };
+			children: IgniteJsxChild;
 		}
 		interface IntrinsicAttributes {
 			key?: string | number | null;

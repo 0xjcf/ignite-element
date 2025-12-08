@@ -206,12 +206,11 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 			isStopped = true;
 			cleanupSubscription();
 			listeners.clear();
+			lastKnownSnapshot = actor.getSnapshot();
 
 			if (ownsActor && typeof actor.stop === "function") {
 				actor.stop();
 			}
-
-			lastKnownSnapshot = actor.getSnapshot();
 		},
 		scope,
 	};

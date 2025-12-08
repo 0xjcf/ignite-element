@@ -25,14 +25,12 @@ export const counterSlice = createSlice({
 	},
 });
 
-const createCounterStore = () =>
+export const counterStore = () =>
 	configureStore({
 		reducer: {
 			counter: counterSlice.reducer,
 		},
 	});
-
-const counterStore = () => createCounterStore();
 
 export default counterStore;
 

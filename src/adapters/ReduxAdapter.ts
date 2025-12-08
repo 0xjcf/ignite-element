@@ -64,6 +64,7 @@ const buildAdapter = <
 		subscribe(listener) {
 			if (isStopped) {
 				console.warn("Adapter is stopped and cannot subscribe.");
+				return { unsubscribe: () => {} };
 			}
 
 			listener(store.getState());

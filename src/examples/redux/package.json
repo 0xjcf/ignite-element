@@ -28,6 +28,6 @@
 	"devDependencies": {
 		"concurrently": "^9.1.0",
 		"sass": "^1.93.2",
-		"vite": "^7.1.10"
+		"vite": "^7.2.7"
 	}
 }

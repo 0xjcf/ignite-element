@@ -19,7 +19,7 @@ export interface IgniteConfigVitePluginOptions {
 	root?: string;
 }
 
-function fileExists(path: string | undefined): path is string {
+function isValidPath(path: string | undefined): path is string {
 	return Boolean(path);
 }
 
@@ -33,7 +33,7 @@ function toFileSystemPath(path: string): string {
 }
 
 export const loadHelperSpecifier = toFileSystemPath(
-	fileURLToPath(new URL("../config/loadIgniteConfig.es.js", import.meta.url)),
+	fileURLToPath(new URL("../config/loadIgniteConfig.ts", import.meta.url)),
 );
 
 function resolveLoadHelperSpecifier(): string | undefined {
@@ -65,7 +65,7 @@ export function igniteConfigVitePlugin(
 	};
 
 	const transformIndexHtml = () => {
-		if (!fileExists(resolvedConfigPath)) {
+		if (!isValidPath(resolvedConfigPath)) {
 			return;
 		}
 
@@ -121,7 +121,7 @@ function getImportSpecifier(
 	configPath: string | undefined,
 	root: string | undefined,
 ): string | undefined {
-	if (!fileExists(configPath)) {
+	if (!isValidPath(configPath)) {
 		return undefined;
 	}
 

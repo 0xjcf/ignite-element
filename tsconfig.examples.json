@@ -4,7 +4,12 @@
 		"noEmit": true,
 		"declaration": false,
 		"emitDeclarationOnly": false,
-		"jsxImportSource": "./src/renderers/jsx"
+		"baseUrl": ".",
+		"paths": {
+			"ignite-element/jsx": ["./src/jsx"],
+			"ignite-element/jsx/*": ["./src/jsx/*"]
+		},
+		"jsxImportSource": "ignite-element/jsx"
 	},
 	"include": ["src/examples", "src/tests"],
 	"exclude": ["node_modules", "dist"]

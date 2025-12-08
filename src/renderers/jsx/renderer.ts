@@ -8,6 +8,17 @@ import {
 } from "./types";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+const CAMEL_CASE_SVG_ATTRS = new Set([
+	"viewBox",
+	"preserveAspectRatio",
+	"clipPathUnits",
+	"gradientUnits",
+	"patternUnits",
+	"spreadMethod",
+	"startOffset",
+	"textLength",
+	"lengthAdjust",
+]);
 
 export function createDomNode(
 	node: IgniteJsxChild,
@@ -117,8 +128,11 @@ function setProps(element: Element, props: IgniteJsxProps) {
 				value as Record<string, unknown>,
 			)) {
 				if (styleValue != null) {
+					const cssProperty = styleKey
+						.replace(/([A-Z])/g, "-$1")
+						.toLowerCase();
 					(element as HTMLElement).style.setProperty(
-						styleKey,
+						cssProperty,
 						String(styleValue),
 					);
 				}
@@ -161,6 +175,9 @@ function normalizeEventName(rawName: string): string {
 
 function normalizeSvgAttributeName(name: string): string {
 	if (name.includes("-") || name.includes(":")) {
+		return name;
+	}
+	if (CAMEL_CASE_SVG_ATTRS.has(name)) {
 		return name;
 	}
 	if (name.startsWith("data") || name.startsWith("aria")) {

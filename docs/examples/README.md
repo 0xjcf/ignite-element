@@ -20,7 +20,7 @@ pnpm run examples:redux
 pnpm run examples:mobx
 ```
 
-Open the local URL shown in the terminal to explore the registered custom elements. The README in each example directory explains the layout, styling approach, and façade helpers used.
+Open the local URL shown in the terminal to explore the registered custom elements. The README in each example directory explains the layout, styling approach, and facade helpers used.
 
 ## Suggested Experiments
 
@@ -28,4 +28,4 @@ Open the local URL shown in the terminal to explore the registered custom elemen
 - Swap between shared and isolated sources to see how scope changes affect component state.
 - Prototype custom renderer classes/objects to reuse presentation logic across multiple components.
 
-For more details about the façade API and adapter behaviour, see the main project README or the API notes in [`docs/api`](../api/README.md).
+For more details about the facade API and adapter behaviour, see the main project README or the API notes in [`docs/api`](../api/README.md).
