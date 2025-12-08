@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.2
+
+### Patch Changes
+
+- 5d1acf9: - Fix ignite config Vite loader (root-relative imports) and restore webpack plugin export surface.
+  - Add JSX runtime entrypoints + DOM polyfill wiring; tighten igniteCore/Facade typings and command actor wrapper.
+  - Emit declarations to dist/types (excluding tests) and align package exports for config/vite, config/webpack, and JSX runtimes.
+- 5d1acf9: set up the beta release flow, tighten redux adapter unsubscribe handling, and align example/tooling configs for the prerelease build
+
 ## 2.0.0-beta.2
 
 ### Major Changes
