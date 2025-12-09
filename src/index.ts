@@ -15,14 +15,6 @@ export {
 	type ComponentFactory,
 	default as igniteElementFactory,
 } from "./IgniteElementFactory";
-export {
-	type IgniteConfigVitePluginOptions,
-	igniteConfigVitePlugin,
-} from "./plugins/viteIgniteConfigPlugin";
-export {
-	IgniteConfigWebpackPlugin,
-	type IgniteConfigWebpackPluginOptions,
-} from "./plugins/webpackIgniteConfigPlugin";
 export type { RenderArgs } from "./RenderArgs";
 export {
 	registerRenderStrategy,

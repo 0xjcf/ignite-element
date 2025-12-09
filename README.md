@@ -295,9 +295,11 @@ Commands receive `{ actor, emit, host }`. The `emit` helper dispatches bubbling,
 
 You can:
 
-- Declare site-wide styles in `ignite.config.ts` (`globalStyles` accepts a string URL or object literal stylesheet).
+- Declare component-wide styles in `ignite.config.ts` (`globalStyles` accepts a string URL or object literal stylesheet). These are injected into each component’s **shadow root**, not the page’s light DOM.
 - Provide custom CSS per component.
 - Combine both for progressive enhancement.
+
+For page shell / light-DOM styling (e.g. body background, layout), import a stylesheet in your app entry or include a `<link>` in `index.html`. Use `globalStyles` for the component layer.
 
 Fallback: when a bundler plugin cannot be used (e.g. plain script tag), call `setGlobalStyles` manually before registering components.
 

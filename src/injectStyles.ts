@@ -3,6 +3,7 @@ import { getGlobalStyles } from "./globalStyles";
 // Global caches
 const shadowRootCache = new WeakMap<ShadowRoot, Set<string>>();
 const initializedRoots = new WeakSet<ShadowRoot>();
+const pendingRoots = new Set<ShadowRoot>();
 
 // Debug system
 enum DebugNamespace {
@@ -36,10 +37,20 @@ export default function injectStyles(shadowRoot: ShadowRoot): void {
 		return;
 	}
 
-	initializedRoots.add(shadowRoot);
 	debugLog(DebugNamespace.COMPONENT, "Initializing new shadow root");
 
 	const globalStyles = getGlobalStyles();
+	if (!globalStyles) {
+		debugLog(
+			DebugNamespace.GLOBAL_STYLES,
+			"No globalStyles set when initializing shadow root. Pending for later flush.",
+		);
+		pendingRoots.add(shadowRoot);
+		// Do not mark initialized; we'll retry once styles are available.
+		return;
+	}
+
+	initializedRoots.add(shadowRoot);
 
 	// Initialize shadow root cache
 	let shadowStyles = shadowRootCache.get(shadowRoot);
@@ -114,4 +125,21 @@ export default function injectStyles(shadowRoot: ShadowRoot): void {
 	}
 
 	// Deprecated per-component styles have been removed (styles now managed globally)
+}
+
+export function flushPendingStyles(): void {
+	const globalStyles = getGlobalStyles();
+	if (!globalStyles) {
+		debugLog(
+			DebugNamespace.GLOBAL_STYLES,
+			"flushPendingStyles called but globalStyles is still unset",
+		);
+		return;
+	}
+
+	for (const root of Array.from(pendingRoots)) {
+		pendingRoots.delete(root);
+		debugLog(DebugNamespace.INJECT_STYLES, "Flushing pending root");
+		injectStyles(root);
+	}
 }

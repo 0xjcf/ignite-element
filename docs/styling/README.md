@@ -2,9 +2,9 @@
 
 Ignite-element supports multiple styling approaches so you can match the needs of each component library:
 
-## Global Styles
+## Global Styles (Shadow DOM)
 
-Use `setGlobalStyles(href)` to load a stylesheet once and reuse it across every component instance.
+Use `setGlobalStyles(href)` to load a stylesheet once and reuse it across every component instance. These styles are applied to each component’s **shadow root**; they do not affect the page’s light DOM (e.g. `body`).
 
 ```ts
 import { setGlobalStyles } from "ignite-element";
@@ -13,7 +13,7 @@ const href = new URL("./styles.css", import.meta.url).href;
 setGlobalStyles(href);
 ```
 
-### Centralised Configuration
+### Centralised Configuration (shadow scope)
 
 Create an `ignite.config.ts` file and register it with `defineIgniteConfig` to configure global styles (and future defaults) once per application. The helpers automatically call `setGlobalStyles` under the hood.
 
@@ -27,6 +27,10 @@ export default defineIgniteConfig({
 ```
 
 Import this module once in your entry file or rely on the provided bundler plugins to inject it automatically.
+
+### Light-DOM (page) styles
+
+For app-level styling (backgrounds, layout, typography), import a stylesheet in your entry file or include a `<link>` in `index.html`. The `globalStyles` setting is intentionally scoped to components; keep page shell styles separate or reuse the same file in both places if desired.
 
 ## Scoped Styles
 

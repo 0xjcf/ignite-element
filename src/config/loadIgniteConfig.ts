@@ -1,4 +1,5 @@
-import type { IgniteConfig } from "../config";
+import { defineIgniteConfig, type IgniteConfig } from "../config";
+import { flushPendingStyles } from "../injectStyles";
 
 type ConfigModule =
 	| IgniteConfig
@@ -45,7 +46,11 @@ export async function loadIgniteConfig(
 ): Promise<IgniteConfig | undefined> {
 	if (typeof window === "undefined") {
 		const module = await loadConfig();
-		return extractConfig(module);
+		const config = extractConfig(module);
+		console.info("[ignite-element] loadIgniteConfig (server)", {
+			hasConfig: Boolean(config),
+		});
+		return config ? defineIgniteConfig(config) : undefined;
 	}
 
 	const configModule = await loadConfig();
@@ -55,7 +60,12 @@ export async function loadIgniteConfig(
 		return undefined;
 	}
 
-	const renderer = typeof config.renderer === "string" ? config.renderer : null;
+	const normalized = defineIgniteConfig(config);
+	flushPendingStyles();
+
+	const renderer = typeof normalized.renderer === "string"
+		? normalized.renderer
+		: null;
 	const loaderKey = renderer ?? "ignite-jsx";
 	const loader = RENDERER_LOADERS[loaderKey];
 
@@ -63,5 +73,5 @@ export async function loadIgniteConfig(
 		await loader();
 	}
 
-	return config;
+	return normalized;
 }
