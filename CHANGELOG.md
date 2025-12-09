@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.2.0
+
+### Minor Changes
+
+- fix globalStyles application so late-loaded configs flush styles into pending shadow roots, and align the Vite config plugin/tests with the resolved loadIgniteConfig import path.
+- fix Vite config loader to resolve loadIgniteConfig via a browser-safe path; inject globalStyles reliably across components.
+- ensure defineIgniteConfig is applied when loaded and flush pending shadow roots to inject styles after config load.
+- improve shadow style injection robustness and logging, then remove debug output.
+- clarify docs: globalStyles is shadow-scoped; app shell/light-DOM styles should be imported separately.
+
 ## 2.1.0
 
 ### Minor Changes
