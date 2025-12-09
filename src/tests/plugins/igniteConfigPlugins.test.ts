@@ -9,6 +9,9 @@ import type { WebpackCompilerLike } from "../../plugins/webpackIgniteConfigPlugi
 import { IgniteConfigWebpackPlugin } from "../../plugins/webpackIgniteConfigPlugin";
 import { runConfigResolved, runIndexHtml } from "../helpers/vitePluginHarness";
 
+const LOAD_HELPER_IMPORT_PATTERN =
+	/const\s*\{\s*loadIgniteConfig\s*\}\s*=\s*await import\("(?:ignite-element\/config\/loadIgniteConfig|\/@fs\/.+\/ignite-element\/dist\/config\/loadIgniteConfig\.es\.js)"\);/;
+
 function createTempProject(structure: Record<string, string>): string {
 	const dir = mkdtempSync(join(process.cwd(), ".tmp-ignite-config-"));
 	for (const [relativePath, contents] of Object.entries(structure)) {
@@ -36,12 +39,14 @@ describe("igniteConfigVitePlugin", () => {
 			expect(tags).toHaveLength(1);
 			const injected = tags[0];
 			expect(injected?.tag).toBe("script");
-			expect(injected?.children).toContain(
-				'await loadIgniteConfig(() => import("./ignite.config.ts"));',
-			);
-			expect(injected?.children).toContain(
-				'await import("ignite-element/config/loadIgniteConfig")',
-			);
+			expect(typeof injected?.children).toBe("string");
+			if (typeof injected?.children === "string") {
+				const [helperImport, configLoader] = injected.children.split("\n");
+				expect(helperImport).toMatch(LOAD_HELPER_IMPORT_PATTERN);
+				expect(configLoader).toBe(
+					'await loadIgniteConfig(() => import("./ignite.config.ts"));',
+				);
+			}
 		}
 
 		rmSync(root, { recursive: true, force: true });
@@ -60,12 +65,15 @@ describe("igniteConfigVitePlugin", () => {
 
 		expect(Array.isArray(tags)).toBe(true);
 		if (Array.isArray(tags)) {
-			expect(tags[0]?.children).toMatch(
-				/await loadIgniteConfig\(\(\) => import\("\/@fs\/.+ignite\.config\.ts"\)\);/,
-			);
-			expect(tags[0]?.children).toContain(
-				'await import("ignite-element/config/loadIgniteConfig")',
-			);
+			const script = tags[0]?.children;
+			expect(typeof script).toBe("string");
+			if (typeof script === "string") {
+				const [helperImport, configLoader] = script.split("\n");
+				expect(helperImport).toMatch(LOAD_HELPER_IMPORT_PATTERN);
+				expect(configLoader).toMatch(
+					/await loadIgniteConfig\(\(\) => import\("\/@fs\/.+ignite\.config\.ts"\)\);/,
+				);
+			}
 		}
 
 		rmSync(root, { recursive: true, force: true });
@@ -105,12 +113,15 @@ describe("igniteConfigVitePlugin", () => {
 		expect(Array.isArray(tags)).toBe(true);
 		if (Array.isArray(tags)) {
 			expect(tags[0]?.injectTo).toBe("body");
-			expect(tags[0]?.children).toContain(
-				'await loadIgniteConfig(() => import("./ignite.config.ts"));',
-			);
-			expect(tags[0]?.children).toContain(
-				'await import("ignite-element/config/loadIgniteConfig")',
-			);
+			const script = tags[0]?.children;
+			expect(typeof script).toBe("string");
+			if (typeof script === "string") {
+				const [helperImport, configLoader] = script.split("\n");
+				expect(helperImport).toMatch(LOAD_HELPER_IMPORT_PATTERN);
+				expect(configLoader).toBe(
+					'await loadIgniteConfig(() => import("./ignite.config.ts"));',
+				);
+			}
 		}
 
 		rmSync(root, { recursive: true, force: true });
