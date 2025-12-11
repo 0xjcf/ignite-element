@@ -1,6 +1,6 @@
 import { defineIgniteConfig } from "../../config";
 
 export default defineIgniteConfig({
-	globalStyles: "./theme.css",
+	styles: "./theme.css",
 	renderer: "lit",
 });

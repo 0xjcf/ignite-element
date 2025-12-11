@@ -92,7 +92,7 @@ TailwindCSS is compiled once and injected globally via `ignite.config.ts`:
 import { defineIgniteConfig } from "ignite-element";
 
 export default defineIgniteConfig({
-  globalStyles: new URL("./dist/styles.css", import.meta.url).href,
+  styles: new URL("./dist/styles.css", import.meta.url).href, // formerly globalStyles
   renderer: "ignite-jsx",
 });
 ```

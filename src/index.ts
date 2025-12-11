@@ -1,10 +1,12 @@
 import "./internal/setupDomPolyfill";
 
-export type { IgniteConfig } from "./config";
-export {
-	defineIgniteConfig,
-	getIgniteConfig,
+export type {
+	IgniteConfig,
+	IgniteLoggingLevel,
+	IgniteRendererId,
+	IgniteRenderStrategyId,
 } from "./config";
+export { defineIgniteConfig, getIgniteConfig } from "./config";
 export { loadIgniteConfig } from "./config/loadIgniteConfig";
 export { event } from "./events";
 export { setGlobalStyles } from "./globalStyles";

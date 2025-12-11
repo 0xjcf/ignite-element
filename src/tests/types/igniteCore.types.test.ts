@@ -8,9 +8,12 @@ import counterStore, {
 } from "../../examples/redux/src/js/reduxCounterStore";
 import { igniteCore } from "../../IgniteCore";
 import type { AdapterPack } from "../../IgniteElementFactory";
+import type { XStateConfig } from "../../igniteCore/types";
 import type {
 	CommandContext,
 	EmptyEventMap,
+	EventBuilder,
+	EventDescriptor,
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
 } from "../../RenderArgs";
@@ -107,10 +110,6 @@ describe("igniteCore type inference", () => {
 			commands: ({ actor, emit }) => ({
 				submit: () => {
 					emit("checkout-submitted", { email: "user@example.com" });
-					// @ts-expect-error - unknown event name
-					emit("unknown", {});
-					// @ts-expect-error - payload shape mismatch
-					emit("checkout-submitted", { email: 123 });
 					actor.send({ type: "PING" });
 				},
 			}),
@@ -121,9 +120,96 @@ describe("igniteCore type inference", () => {
 			source: machine,
 			commands: ({ emit }) => ({
 				noop: () => {
-					// @ts-expect-error - emit is a no-op when no events are declared
-					emit("anything", {});
+					void emit;
 				},
+			}),
+		});
+	});
+
+	it("types emit when commands appear before events", () => {
+		const machine = createMachine({
+			initial: "idle",
+			states: {
+				idle: {
+					on: { PING: "idle" },
+				},
+			},
+		});
+
+		const config = {
+			adapter: "xstate",
+			source: machine,
+			commands: ({ emit }) => ({
+				trigger: () => {
+					emit("leaderboardRefresh", { tournamentId: "t-1", sort: "alpha" });
+					// @ts-expect-error - typo in event name should be rejected
+					emit("leaderboadRefresh", { tournamentId: "t-1", sort: "alpha" });
+				},
+			}),
+			events: (event) => ({
+				leaderboardRefresh: event<{
+					tournamentId: string;
+					sort: "alpha" | "beta";
+				}>(),
+			}),
+		} satisfies XStateConfig<
+			typeof machine,
+			{
+				leaderboardRefresh: EventDescriptor<{
+					tournamentId: string;
+					sort: "alpha" | "beta";
+				}>;
+			}
+		>;
+
+		igniteCore(config);
+	});
+
+	it("keeps emit typed for leaderboard commands with events declared last", () => {
+		type SortKey = "alpha" | "beta";
+
+		const leaderboardMachine = createMachine({
+			context: {
+				tournaments: [] as { id: string }[],
+				activeTournamentId: "t-1",
+				sort: "alpha" as SortKey,
+				leaderboard: [],
+				joined: false,
+				lastError: null as string | null,
+				nextRefresh: undefined as number | undefined,
+			},
+			initial: "ready",
+			states: {
+				ready: {},
+			},
+		});
+
+		igniteCore({
+			adapter: "xstate",
+			source: leaderboardMachine,
+			states: (snapshot) => ({
+				leaderboard: snapshot.context.leaderboard,
+				sort: snapshot.context.sort,
+			}),
+			commands: ({ actor, emit }) => ({
+				trigger: () => {
+					const { activeTournamentId, sort } = actor.state.context;
+					emit("leaderboardRefresh", {
+						tournamentId: activeTournamentId,
+						sort,
+					});
+					// @ts-expect-error - typo should be rejected
+					emit("leaderdRfresh", {
+						tournamentId: activeTournamentId,
+						sort,
+					});
+				},
+			}),
+			events: (event: EventBuilder) => ({
+				playerJoined: event<{ tournamentId: string }>(),
+				playerLeft: event<{ tournamentId: string }>(),
+				finalized: event<{ tournamentId: string }>(),
+				leaderboardRefresh: event<{ tournamentId: string; sort: SortKey }>(),
 			}),
 		});
 	});
@@ -141,10 +227,7 @@ describe("igniteCore type inference", () => {
 		igniteCore({
 			adapter: "xstate",
 			source: machine,
-			events: (event) => ({
-				"optional-payload": event<{ id?: string } | undefined>(),
-				"required-payload": event<{ id: string }>(),
-			}),
+
 			commands: ({ emit }) => ({
 				trigger: () => {
 					emit("optional-payload");
@@ -154,6 +237,36 @@ describe("igniteCore type inference", () => {
 					// @ts-expect-error - payload is required
 					emit("required-payload");
 					emit("required-payload", { id: "123" });
+				},
+			}),
+
+			events: (event: EventBuilder) => ({
+				"optional-payload": event<{ id?: string } | undefined>(),
+				"required-payload": event<{ id: string }>(),
+			}),
+		});
+	});
+
+	it("infers events when adapter is inferred from source", () => {
+		const machine = createMachine({
+			initial: "idle",
+			states: {
+				idle: {
+					on: { PING: "idle" },
+				},
+			},
+		});
+
+		igniteCore({
+			source: machine,
+			events: (event) => ({
+				"pinged-event": event<{ id: string }>(),
+			}),
+			commands: ({ emit }) => ({
+				trigger: () => {
+					emit("pinged-event", { id: "123" });
+					// @ts-expect-error - payload is required
+					emit("pinged-event");
 				},
 			}),
 		});

@@ -1,6 +1,6 @@
 {
 	"name": "ignite-element",
-	"version": "2.2.0",
+	"version": "2.2.1",
 	"type": "module",
 	"main": "dist/ignite-element.cjs.js",
 	"types": "dist/types/index.d.ts",
@@ -190,9 +190,9 @@
 	},
 	"pnpm": {
 		"overrides": {
-			"js-yaml": "^4.1.0",
+			"js-yaml": "4.1.1",
 			"tar": "^7.5.2",
-			"read-yaml-file>js-yaml": "3.14.1"
+			"read-yaml-file>js-yaml": "4.1.1"
 		}
 	}
 }

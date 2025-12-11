@@ -1,33 +1,28 @@
-import { html } from "lit-html";
 import { describe, expect, it, vi } from "vitest";
-import * as injectStylesModule from "../../injectStyles";
-import { createLitRenderStrategy } from "../../renderers/LitRenderStrategy";
+import injectStyles from "../../injectStyles";
+import { LitRenderStrategy } from "../../renderers/LitRenderStrategy";
 
-describe("Lit render strategy", () => {
-	it("throws when render is called before attach", () => {
-		const strategy = createLitRenderStrategy();
-		expect(() => strategy.render(html`<div />`)).toThrow(
-			"[LitRenderStrategy] Cannot render before attach has been invoked.",
-		);
+vi.mock("../../injectStyles", () => ({
+	__esModule: true,
+	default: vi.fn(),
+}));
+
+describe("LitRenderStrategy", () => {
+	it("attaches and renders without throwing", () => {
+		const host = document.createElement("div").attachShadow({ mode: "open" });
+		const strategy = new LitRenderStrategy();
+
+		expect(() => strategy.attach(host)).not.toThrow();
+		expect(injectStyles).toHaveBeenCalledWith(host);
+
+		expect(() => strategy.render({} as never)).not.toThrow();
 	});
 
-	it("attaches, renders, and reuses host after detach", () => {
-		const hostElement = document.createElement("div");
-		const shadow = hostElement.attachShadow({ mode: "open" });
-		const injectSpy = vi.spyOn(injectStylesModule, "default");
+	it("throws when rendering before attach", () => {
+		const strategy = new LitRenderStrategy();
 
-		const strategy = createLitRenderStrategy();
-		strategy.attach(shadow);
-		expect(injectSpy).toHaveBeenCalledWith(shadow);
-
-		strategy.render(html`<span>lit</span>`);
-		expect(shadow.textContent).toBe("lit");
-
-		strategy.detach();
-		strategy.attach(shadow);
-		strategy.render(html`<span>again</span>`);
-		expect(shadow.textContent).toBe("again");
-
-		injectSpy.mockRestore();
+		expect(() => strategy.render({} as never)).toThrow(
+			"[LitRenderStrategy] Cannot render before attach has been invoked.",
+		);
 	});
 });

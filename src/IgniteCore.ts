@@ -2,6 +2,7 @@ import type { AnyStateMachine, EventFrom } from "xstate";
 import type { MobxEvent } from "./adapters/MobxAdapter";
 import type {
 	ExtendedState,
+	XStateActorInstance,
 	XStateCommandActor,
 } from "./adapters/XStateAdapter";
 import type IgniteAdapter from "./IgniteAdapter";
@@ -13,6 +14,7 @@ import igniteElementFactory, {
 import { igniteCoreMobx } from "./igniteCore/mobx";
 import { igniteCoreRedux } from "./igniteCore/redux";
 import type {
+	EventsDefinition,
 	IgniteCoreConfig,
 	IgniteCoreReturn,
 	MobxConfig,
@@ -22,7 +24,6 @@ import type {
 	ReduxInstanceConfig,
 	ReduxInstanceSource,
 	ResolvedAdapter,
-	XStateConfig,
 } from "./igniteCore/types";
 import { igniteCoreXState } from "./igniteCore/xstate";
 import type {
@@ -30,6 +31,8 @@ import type {
 	EventMap,
 	FacadeCommandFunction,
 	FacadeCommandResult,
+	FacadeCommandsCallback,
+	FacadeStatesCallback,
 } from "./RenderArgs";
 import {
 	isReduxSlice,
@@ -53,6 +56,41 @@ export type {
 
 export { igniteCoreMobx, igniteCoreRedux, igniteCoreXState };
 
+type XStateConfigWithEvents<
+	Machine extends AnyStateMachine,
+	Events extends EventMap,
+	StatesResult extends Record<string, unknown>,
+	CommandsResult extends FacadeCommandResult,
+> = {
+	adapter?: "xstate";
+	source: Machine | XStateActorInstance<Machine>;
+	states?: FacadeStatesCallback<ExtendedState<Machine>, StatesResult>;
+	commands?: FacadeCommandsCallback<
+		XStateCommandActor<Machine>,
+		CommandsResult,
+		Events
+	>;
+	events: EventsDefinition<Events>;
+	cleanup?: boolean;
+};
+
+type XStateConfigWithoutEvents<
+	Machine extends AnyStateMachine,
+	StatesResult extends Record<string, unknown>,
+	CommandsResult extends FacadeCommandResult,
+> = {
+	adapter?: "xstate";
+	source: Machine | XStateActorInstance<Machine>;
+	states?: FacadeStatesCallback<ExtendedState<Machine>, StatesResult>;
+	commands?: FacadeCommandsCallback<
+		XStateCommandActor<Machine>,
+		CommandsResult,
+		EmptyEventMap
+	>;
+	events?: undefined;
+	cleanup?: boolean;
+};
+
 export function igniteCore(): ComponentFactory<
 	Record<string, never>,
 	never,
@@ -61,20 +99,71 @@ export function igniteCore(): ComponentFactory<
 
 export function igniteCore<
 	Machine extends AnyStateMachine,
-	Events extends EventMap = EmptyEventMap,
+	Events extends EventMap,
 	StatesResult extends Record<string, unknown> = Record<never, never>,
 	CommandsResult extends FacadeCommandResult = Record<
 		never,
 		FacadeCommandFunction
 	>,
 >(
-	options: XStateConfig<Machine, Events, StatesResult, CommandsResult>,
+	options: XStateConfigWithEvents<
+		Machine,
+		Events,
+		StatesResult,
+		CommandsResult
+	>,
 ): IgniteCoreReturn<
 	ExtendedState<Machine>,
 	EventFrom<Machine>,
 	ExtendedState<Machine>,
 	StatesResult,
 	XStateCommandActor<Machine>,
+	CommandsResult,
+	Events
+>;
+
+export function igniteCore<
+	Machine extends AnyStateMachine,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+>(
+	options: XStateConfigWithoutEvents<Machine, StatesResult, CommandsResult>,
+): IgniteCoreReturn<
+	ExtendedState<Machine>,
+	EventFrom<Machine>,
+	ExtendedState<Machine>,
+	StatesResult,
+	XStateCommandActor<Machine>,
+	CommandsResult,
+	EmptyEventMap
+>;
+
+export function igniteCore<
+	Source extends ReduxBlueprintSource,
+	Events extends EventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+>(
+	options: ReduxBlueprintConfig<
+		Source,
+		Events,
+		StatesResult,
+		CommandsResult
+	> & {
+		events: EventsDefinition<Events>;
+	},
+): IgniteCoreReturn<
+	InferStateAndEvent<Source>["State"],
+	InferStateAndEvent<Source>["Event"],
+	InferStateAndEvent<Source>["State"],
+	StatesResult,
+	ReduxCommandActorFor<Source>,
 	CommandsResult,
 	Events
 >;
@@ -101,6 +190,33 @@ export function igniteCore<
 
 export function igniteCore<
 	StoreInstance extends ReduxInstanceSource,
+	Events extends EventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+>(
+	options: ReduxInstanceConfig<
+		StoreInstance,
+		Events,
+		StatesResult,
+		CommandsResult
+	> & {
+		events: EventsDefinition<Events>;
+	},
+): IgniteCoreReturn<
+	InferStateAndEvent<StoreInstance>["State"],
+	InferStateAndEvent<StoreInstance>["Event"],
+	InferStateAndEvent<StoreInstance>["State"],
+	StatesResult,
+	ReduxCommandActorFor<StoreInstance>,
+	CommandsResult,
+	Events
+>;
+
+export function igniteCore<
+	StoreInstance extends ReduxInstanceSource,
 	Events extends EventMap = EmptyEventMap,
 	StatesResult extends Record<string, unknown> = Record<never, never>,
 	CommandsResult extends FacadeCommandResult = Record<
@@ -120,6 +236,28 @@ export function igniteCore<
 	InferStateAndEvent<StoreInstance>["State"],
 	StatesResult,
 	ReduxCommandActorFor<StoreInstance>,
+	CommandsResult,
+	Events
+>;
+
+export function igniteCore<
+	State extends object,
+	Events extends EventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+>(
+	options: MobxConfig<State, Events, StatesResult, CommandsResult> & {
+		events: EventsDefinition<Events>;
+	},
+): IgniteCoreReturn<
+	State,
+	MobxEvent<State>,
+	State,
+	StatesResult,
+	State,
 	CommandsResult,
 	Events
 >;

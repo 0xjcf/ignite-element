@@ -63,11 +63,11 @@ describe("defineIgniteConfig", () => {
 
 	it("stores the normalized config on a global symbol", () => {
 		const config = defineIgniteConfig({
-			globalStyles: "./theme.css",
+			styles: "./theme.css",
 		});
 
 		expect(getIgniteConfig()).toEqual({
-			globalStyles: "./theme.css",
+			styles: "./theme.css",
 		});
 		expect(config).not.toBeUndefined();
 	});
@@ -77,19 +77,34 @@ describe("defineIgniteConfig", () => {
 		expect(getIgniteConfig()).toBeUndefined();
 	});
 
-	it("invokes setGlobalStyles when globalStyles are provided", () => {
+	it("accepts deprecated globalStyles but normalizes to styles and warns", () => {
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+		const styles = "./theme.css";
+
+		defineIgniteConfig({
+			globalStyles: styles,
+		});
+
+		expect(getIgniteConfig()).toEqual({ styles });
+		expect(warnSpy).toHaveBeenCalledWith(
+			"[ignite-element] `globalStyles` is deprecated. Use `styles` in ignite.config instead.",
+		);
+		warnSpy.mockRestore();
+	});
+
+	it("invokes setGlobalStyles when styles are provided", () => {
 		const spy = vi.spyOn(globalStylesModule, "setGlobalStyles");
 
 		const styles = "./theme.css";
 		defineIgniteConfig({
-			globalStyles: styles,
+			styles,
 		});
 
 		expect(spy).toHaveBeenCalledWith(styles);
 		spy.mockRestore();
 	});
 
-	it("does not invoke setGlobalStyles when globalStyles are omitted", () => {
+	it("does not invoke setGlobalStyles when styles are omitted", () => {
 		const spy = vi.spyOn(globalStylesModule, "setGlobalStyles");
 
 		defineIgniteConfig({});
@@ -98,16 +113,16 @@ describe("defineIgniteConfig", () => {
 		spy.mockRestore();
 	});
 
-	it("supports absolute globalStyles URLs (e.g., CDN assets)", () => {
+	it("supports absolute styles URLs (e.g., CDN assets)", () => {
 		const cdnStyles = "https://cdn.example.com/theme.css";
 		const spy = vi.spyOn(globalStylesModule, "setGlobalStyles");
 
 		defineIgniteConfig({
-			globalStyles: cdnStyles,
+			styles: cdnStyles,
 		});
 
 		expect(getIgniteConfig()).toEqual({
-			globalStyles: cdnStyles,
+			styles: cdnStyles,
 		});
 		expect(spy).toHaveBeenCalledWith(cdnStyles);
 
@@ -123,15 +138,20 @@ describe("defineIgniteConfig", () => {
 		const spy = vi.spyOn(globalStylesModule, "setGlobalStyles");
 
 		defineIgniteConfig({
-			globalStyles: styleObject,
+			styles: styleObject,
 		});
 
 		expect(getIgniteConfig()).toEqual({
-			globalStyles: styleObject,
+			styles: styleObject,
 		});
 		expect(spy).toHaveBeenCalledWith(styleObject);
 
 		spy.mockRestore();
+	});
+
+	it("stores strategy and logging when provided", () => {
+		defineIgniteConfig({ strategy: "diff", logging: "debug" });
+		expect(getIgniteConfig()).toEqual({ strategy: "diff", logging: "debug" });
 	});
 
 	it("stores renderer identifier when provided", () => {
@@ -170,7 +190,7 @@ describe("loadIgniteConfig", () => {
 
 	it("loads ignite-jsx when config omits renderer", async () => {
 		await loadIgniteConfig(async () => ({
-			default: { globalStyles: "./styles.css" },
+			default: { styles: "./styles.css" },
 		}));
 
 		expect(igniteJsxLoaderSpy).toHaveBeenCalledTimes(1);
@@ -181,11 +201,11 @@ describe("loadIgniteConfig", () => {
 		const config = await loadIgniteConfig(
 			async () =>
 				({
-					globalStyles: "./direct.css",
+					styles: "./direct.css",
 				}) as IgniteConfig,
 		);
 
-		expect(config).toEqual({ globalStyles: "./direct.css" });
+		expect(config).toEqual({ styles: "./direct.css" });
 		expect(litLoaderSpy).not.toHaveBeenCalled();
 	});
 

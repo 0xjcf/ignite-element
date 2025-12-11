@@ -84,13 +84,17 @@ export type FacadeCommandFunction = (...args: never[]) => unknown;
 
 export type FacadeCommandResult = Record<string, FacadeCommandFunction>;
 
-export type EmptyEventMap = Record<never, EventDescriptor<never>>;
+export type EmptyEventMap = {
+	readonly [Type in never]: EventDescriptor<never>;
+};
 
 export type EventDescriptor<Payload> = {
 	readonly __payload?: Payload;
 };
 
-export type EventMap = Record<string, EventDescriptor<unknown>>;
+export type EventMap = {
+	readonly [Type in string]: EventDescriptor<unknown>;
+};
 
 export type EventBuilder = <Payload>() => EventDescriptor<Payload>;
 
