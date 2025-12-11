@@ -77,13 +77,19 @@ function createReduxComponentFactory<
 	const { source } = options;
 
 	if (isReduxStore(source)) {
-		const adapterFactory = createReduxAdapter(source);
+		const storeOptions = options as ReduxInstanceConfig<
+			EnhancedStore,
+			Events,
+			StatesResult,
+			CommandsResult
+		>;
+		const adapterFactory = createReduxAdapter(storeOptions.source);
 		return createComponentFactory(adapterFactory, {
 			scope: adapterFactory.scope,
-			states: options.states,
-			commands: options.commands,
+			states: storeOptions.states,
+			commands: storeOptions.commands,
 			events: eventDefinitions,
-			cleanup: options.cleanup,
+			cleanup: storeOptions.cleanup,
 		}) as IgniteCoreReturn<
 			InferStateAndEvent<Source>["State"],
 			InferStateAndEvent<Source>["Event"],
@@ -96,13 +102,19 @@ function createReduxComponentFactory<
 	}
 
 	if (typeof source === "function") {
-		const adapterFactory = createReduxAdapter(source as () => EnhancedStore);
+		const factoryOptions = options as ReduxBlueprintConfig<
+			() => EnhancedStore,
+			Events,
+			StatesResult,
+			CommandsResult
+		>;
+		const adapterFactory = createReduxAdapter(factoryOptions.source);
 		return createComponentFactory(adapterFactory, {
 			scope: adapterFactory.scope,
-			states: options.states,
-			commands: options.commands,
+			states: factoryOptions.states,
+			commands: factoryOptions.commands,
 			events: eventDefinitions,
-			cleanup: options.cleanup,
+			cleanup: factoryOptions.cleanup,
 		}) as IgniteCoreReturn<
 			InferStateAndEvent<Source>["State"],
 			InferStateAndEvent<Source>["Event"],
@@ -115,13 +127,19 @@ function createReduxComponentFactory<
 	}
 
 	if (isReduxSlice(source)) {
-		const adapterFactory = createReduxAdapter(source as Slice);
+		const sliceOptions = options as ReduxBlueprintConfig<
+			Slice,
+			Events,
+			StatesResult,
+			CommandsResult
+		>;
+		const adapterFactory = createReduxAdapter(sliceOptions.source);
 		return createComponentFactory(adapterFactory, {
 			scope: adapterFactory.scope,
-			states: options.states,
-			commands: options.commands,
+			states: sliceOptions.states,
+			commands: sliceOptions.commands,
 			events: eventDefinitions,
-			cleanup: options.cleanup,
+			cleanup: sliceOptions.cleanup,
 		}) as IgniteCoreReturn<
 			InferStateAndEvent<Source>["State"],
 			InferStateAndEvent<Source>["Event"],

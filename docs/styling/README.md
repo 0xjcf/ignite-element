@@ -22,7 +22,7 @@ Create an `ignite.config.ts` file and register it with `defineIgniteConfig` to c
 import { defineIgniteConfig } from "ignite-element";
 
 export default defineIgniteConfig({
-  globalStyles: new URL("./styles.css", import.meta.url).href,
+  styles: new URL("./styles.css", import.meta.url).href, // formerly globalStyles
 });
 ```
 
@@ -30,7 +30,7 @@ Import this module once in your entry file or rely on the provided bundler plugi
 
 ### Light-DOM (page) styles
 
-For app-level styling (backgrounds, layout, typography), import a stylesheet in your entry file or include a `<link>` in `index.html`. The `globalStyles` setting is intentionally scoped to components; keep page shell styles separate or reuse the same file in both places if desired.
+For app-level styling (backgrounds, layout, typography), import a stylesheet in your entry file or include a `<link>` in `index.html`. The `styles` setting is intentionally scoped to components; keep page shell styles separate or reuse the same file in both places if desired.
 
 ## Scoped Styles
 

@@ -20,7 +20,7 @@
 
 - 🎯 **State Management Made Easy:** Works with **XState**, **Redux**, and **MobX**, automatically inferring the right adapter for shared or isolated scope.
 - 🧭 **Centralised Configuration:** Manage global styles, renderer choice, and future options from `ignite.config.ts` with Vite/Webpack plugins that inject the config for you.
-- 💡 **Ignite JSX Runtime:** Author JSX without React/Solid dependencies—Ignite JSX ships as the default renderer, while lit remains one config change away.
+- 💡 **Ignite JSX Runtime:** Author JSX without React/Solid dependencies—Ignite JSX ships as the default renderer, while lit remains one config change away. Diffing is the default mode; `strategy` is optional (omit for auto-diff). Use `strategy: "replace"` or per-component `data-ignite-nodiff`/denylist for edge cases.
 - 📣 **Typed Events & Commands:** Facade callbacks provide derived state, a typed `emit` helper, and host access so components can talk back to their parents safely.
 - 📘 **TypeScript Support:** Rich inference for render args across every adapter and facade combination.
 - ⚡ **Minimal Bundle Size:** Designed to add only a few kilobytes on top of your chosen state library.
@@ -43,8 +43,10 @@ Get up and running in a few steps:
    import { defineIgniteConfig } from "ignite-element";
 
    export default defineIgniteConfig({
-     globalStyles: new URL("./styles.css", import.meta.url).href,
+     styles: new URL("./styles.css", import.meta.url).href, // formerly globalStyles
      renderer: "ignite-jsx", // or "lit"
+     strategy: "diff", // new diffing renderer (when available)
+     logging: "warn", // dev-time logging for renderer/config (optional)
    });
    ```
 
@@ -174,8 +176,10 @@ Ignite-Element ships with the Ignite JSX runtime by default. Prefer template lit
 import { defineIgniteConfig } from "ignite-element/config";
 
 export default defineIgniteConfig({
-  globalStyles: new URL("./styles.css", import.meta.url).href,
+  styles: new URL("./styles.css", import.meta.url).href, // formerly globalStyles
   renderer: "ignite-jsx", // or "lit"
+  strategy: "diff", // or "replace" (append-only diff defaults will arrive with the diffing renderer)
+  logging: "warn", // "off" | "warn" | "debug"
 });
 ```
 
@@ -234,12 +238,12 @@ Need explicit types? Pull them from your state library (e.g. Redux Toolkit’s `
 
 Ignite-Element automatically infers the scope, so you rarely need extra configuration.
 
-> **Tip:** When you supply a long-lived instance (like an XState actor) you control the lifecycle. Start it before first use and stop it when the host app tears down.
+> **Tip:** Shared adapters are reference-counted by default: Ignite stops them automatically when the last element disconnects. Pass `cleanup: false` if you prefer to manage shutdown yourself (e.g., for app-wide actors/stores that outlive components).
 
 ### Cleanup & Teardown
 
 - **Isolated adapters** (the default when you pass factories or definitions) are created per custom element. Ignite Element automatically calls `stop()` on disconnect, so no extra work is required.
-- **Shared adapters** (long-lived instances you construct once) remain running across every custom element that references them. Ignite Element intentionally does **not** stop these instances—you must do that in your host application so the adapter can continue serving other elements.
+- **Shared adapters** (long-lived instances you construct once) are reference-counted and stopped automatically when the final element disconnects. Set `cleanup: false` if you want to keep them alive and stop them manually.
 
 ```ts
 // Shared XState actor example
@@ -248,6 +252,7 @@ actor.start();
 
 const shared = igniteCore({
   source: actor,
+  cleanup: false, // leave actor running until the host decides to stop it
   states: (snapshot) => ({ count: snapshot.context.count }),
 });
 
@@ -295,11 +300,11 @@ Commands receive `{ actor, emit, host }`. The `emit` helper dispatches bubbling,
 
 You can:
 
-- Declare component-wide styles in `ignite.config.ts` (`globalStyles` accepts a string URL or object literal stylesheet). These are injected into each component’s **shadow root**, not the page’s light DOM.
+- Declare component-wide styles in `ignite.config.ts` (`styles`, formerly `globalStyles`, accepts a string URL or object literal stylesheet). These are injected into each component’s **shadow root**, not the page’s light DOM.
 - Provide custom CSS per component.
 - Combine both for progressive enhancement.
 
-For page shell / light-DOM styling (e.g. body background, layout), import a stylesheet in your app entry or include a `<link>` in `index.html`. Use `globalStyles` for the component layer.
+For page shell / light-DOM styling (e.g. body background, layout), import a stylesheet in your app entry or include a `<link>` in `index.html`. Use `styles` for the component layer.
 
 Fallback: when a bundler plugin cannot be used (e.g. plain script tag), call `setGlobalStyles` manually before registering components.
 
@@ -370,7 +375,7 @@ Highlights from the [v2 DX plan](plans/DONE/ignite-v2-dx/task-list.md):
 - **Drop the discriminator:** `adapter` is optional. Keep it only when inference cannot determine the correct adapter or when using a custom adapter.
 - **Register renderers directly:** The registration function now accepts render functions, `{ render }` objects, or classes. If you previously instantiated a renderer manually, you can pass the class itself (`component("my-tag", MyRenderer)`).
 - **Deprecated helpers:** `initialTransition` and `resolveState` are removed—use the snapshot provided to `states` or call `adapter.getState()` when needed.
-- **Styling:** Prefer `defineIgniteConfig({ globalStyles: new URL("./styles.css", import.meta.url).href })` in `ignite.config.ts` (or a direct `setGlobalStyles` call when you need ad-hoc overrides) to keep paths correct in modern bundlers.
+- **Styling:** Prefer `defineIgniteConfig({ styles: new URL("./styles.css", import.meta.url).href })` in `ignite.config.ts` (or a direct `setGlobalStyles` call when you need ad-hoc overrides) to keep paths correct in modern bundlers. `globalStyles` is deprecated but still accepted as an alias during migration.
 
 Detailed migration steps (including TypeScript updates) will be published in the docs ahead of the next major release.
 
@@ -408,7 +413,7 @@ _Rendering engines and state libraries (`lit-html`, XState, Redux Toolkit, MobX)
 
 Choose global, scoped, or dynamic styling strategies:
 
-- **Global:** Configure once via `ignite.config.ts` using `defineIgniteConfig({ globalStyles })` (or call `setGlobalStyles` directly for edge cases).
+- **Global:** Configure once via `ignite.config.ts` using `defineIgniteConfig({ styles })` (or call `setGlobalStyles` directly for edge cases).
 - **Scoped:** Append `<style>` or `<link>` inside your render function (see MobX example).
 - **Dynamic:** Compute styles based on state and inline them with `style=` attributes (see XState gradient tally component).
 

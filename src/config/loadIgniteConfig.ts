@@ -63,9 +63,8 @@ export async function loadIgniteConfig(
 	const normalized = defineIgniteConfig(config);
 	flushPendingStyles();
 
-	const renderer = typeof normalized.renderer === "string"
-		? normalized.renderer
-		: null;
+	const renderer =
+		typeof normalized.renderer === "string" ? normalized.renderer : null;
 	const loaderKey = renderer ?? "ignite-jsx";
 	const loader = RENDERER_LOADERS[loaderKey];
 

@@ -46,13 +46,17 @@ Registers application-wide defaults at module evaluation time. Typical usage liv
 import { defineIgniteConfig } from "ignite-element";
 
 export default defineIgniteConfig({
- globalStyles: new URL("./styles.css", import.meta.url).href,
+ styles: new URL("./styles.css", import.meta.url).href, // formerly globalStyles
  renderer: "ignite-jsx", // or "lit"
+ strategy: "diff", // optional, selects the diffing renderer once available
+ logging: "warn", // optional: "off" | "warn" | "debug"
 });
 ```
 
-- `globalStyles` mirrors `setGlobalStyles` but runs once when the module is imported.
-- `renderer` selects the default render strategy (`"ignite-jsx"` by default). Supplying `"lit"` switches back to the template literal strategy. Per-component overrides are still possible via the factory `createRenderStrategy` option.
+- `styles` mirrors `setGlobalStyles` but runs once when the module is imported. `globalStyles` remains as a deprecated alias.
+- `renderer` selects the default renderer (`"ignite-jsx"` by default). Supplying `"lit"` switches back to the template literal strategy. Per-component overrides are still possible via the factory `createRenderStrategy` option.
+- `strategy` is reserved for renderer strategy selection (diff vs replace) when multiple Ignite JSX strategies are available.
+- `logging` controls renderer/config debug output (`"off"` | `"warn"` | `"debug"`).
 
 Bundler plugins (`igniteConfigVitePlugin`, `IgniteConfigWebpackPlugin`) are available to auto-import the config file when present.
 

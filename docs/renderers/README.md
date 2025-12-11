@@ -9,6 +9,7 @@ Ignite Element ships with the Ignite JSX runtime by default. The goal of the ren
 - **Renderer-agnostic core:** `IgniteElement` must not assume `TemplateResult`. Rendering is delegated to a strategy object.
 - **First-party JSX runtime:** Provide a lightweight Ignite JSX renderer (compiler + runtime) that converts JSX to DOM with no third-party dependencies.
 - **Optional strategies:** Ignite JSX is the default strategy. The lit-html strategy stays available as the fallback/compat option and can be selected once via `ignite.config.ts`.
+- **Diffing rollout:** Diffing is the default mode; `strategy` config is optional (omit for auto-diff). Use `strategy: "replace"` to force legacy behavior or per-component opt-out (`data-ignite-nodiff`/denylist). See `docs/renderers/diffing-rollout.md`.
 - **Consistent ergonomics:** Registering components (function/object/class) keeps the same `states`/`commands` facade, regardless of renderer.
 - **Tree-shakable:** When the JSX renderer isn’t used, its runtime should disappear from bundles.
 
@@ -123,11 +124,14 @@ component("class-counter", CounterView);
 
   export default defineIgniteConfig({
    renderer: "ignite-jsx", // can be omitted since Ignite JSX is the default
-   globalStyles: new URL("./styles.css", import.meta.url).href,
+   styles: new URL("./styles.css", import.meta.url).href, // formerly globalStyles
+   strategy: "diff", // opt into diffing renderer when available
+   logging: "warn", // dev-time renderer/config logging
   });
   ```
 
   Set `renderer: "lit"` to opt into the lit strategy across the project. The config plugins import the lit entry automatically; if you’re skipping them, add `import "ignite-element/renderers/lit"` alongside your config.
+  `globalStyles` is still accepted as a deprecated alias for `styles` during migration.
 - When an unknown renderer is configured (or the strategy was never registered), ignite-element falls back to `"ignite-jsx"` and emits a warning.
 
 ## Migration Plan

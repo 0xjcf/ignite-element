@@ -55,7 +55,6 @@ export function igniteConfigVitePlugin(
 				root: projectRoot,
 				configPath: options.configPath,
 			});
-
 	};
 
 	const transformIndexHtml = () => {

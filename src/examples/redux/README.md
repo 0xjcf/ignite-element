@@ -86,7 +86,7 @@ Bootstrap is bundled once for the entire example and injected via `ignite.config
 import { defineIgniteConfig } from "ignite-element";
 
 export default defineIgniteConfig({
-  globalStyles: new URL("./src/scss/styles.scss", import.meta.url).href,
+  styles: new URL("./src/scss/styles.scss", import.meta.url).href, // formerly globalStyles
   renderer: "ignite-jsx",
 });
 ```

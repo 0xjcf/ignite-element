@@ -30,11 +30,16 @@ export type AnyCommandsCallback = FacadeCommandsCallback<
 	EventMap
 >;
 
-export type EventsDefinition<Events extends EventMap> = (
-	event: EventBuilder,
-) => Events;
-
+export type EventsDefinition<Events> = (event: EventBuilder) => Events;
 export type AnyEventsDefinition = EventsDefinition<EventMap>;
+
+export type InferEvents<Definition> = Definition extends EventsDefinition<
+	infer Events
+>
+	? Events extends EventMap
+		? Events
+		: never
+	: EmptyEventMap;
 
 export type IgniteCoreReturn<
 	State,

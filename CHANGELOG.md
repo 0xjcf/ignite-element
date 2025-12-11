@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.2.1
+
+### Minor Changes
+
+- Add diffing renderer rollout: Ignite JSX now patches DOM in place by default with append-only guard, optional `strategy` config (auto-diff unless `strategy: "replace"`), per-component opt-out via `data-ignite-nodiff`/denylist/`data-ignite-hydrated`, and internal `IGNITE_DIFF_ENABLED` flag (default on). Fallback logging hooks report replace events; docs updated with rollout notes.
+
 ## 2.2.0
 
 ### Minor Changes

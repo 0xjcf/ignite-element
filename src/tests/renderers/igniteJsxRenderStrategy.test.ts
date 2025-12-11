@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import * as configModule from "../../config";
 import igniteElementFactory from "../../IgniteElementFactory";
 import * as injectStylesModule from "../../injectStyles";
-import { createIgniteJsxRenderStrategy } from "../../renderers/jsx/IgniteJsxRenderStrategy";
+import {
+	clearNoDiffDenylistForTests,
+	createIgniteJsxRenderStrategy,
+	registerNoDiffDenylistTag,
+} from "../../renderers/jsx/IgniteJsxRenderStrategy";
 import { Fragment, jsx, jsxs } from "../../renderers/jsx/jsx-runtime";
 import * as rendererModule from "../../renderers/jsx/renderer";
 import type { IgniteJsxChild } from "../../renderers/jsx/types";
@@ -12,10 +17,18 @@ type State = typeof initialState;
 type Event = { type: string };
 
 const { createDomNode } = rendererModule;
+const originalDiffFlag = process.env.IGNITE_DIFF_ENABLED;
 
 describe("Ignite JSX render strategy", () => {
 	afterEach(() => {
 		document.body.innerHTML = "";
+		clearNoDiffDenylistForTests();
+		if (originalDiffFlag === undefined) {
+			delete process.env.IGNITE_DIFF_ENABLED;
+		} else {
+			process.env.IGNITE_DIFF_ENABLED = originalDiffFlag;
+		}
+		vi.restoreAllMocks();
 		vi.clearAllMocks();
 	});
 
@@ -205,6 +218,150 @@ describe("Ignite JSX render strategy", () => {
 		expect(mountSpy).toHaveBeenCalledWith(existingRoot, expect.anything());
 
 		mountSpy.mockRestore();
+	});
+
+	it("forces replace and logs nodiff fallback when attribute present", () => {
+		vi.spyOn(configModule, "getIgniteConfig").mockReturnValue({
+			logging: "debug",
+		});
+		const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => {});
+		const hostElement = document.createElement("section");
+		hostElement.setAttribute("data-ignite-nodiff", "");
+		const shadow = hostElement.attachShadow({ mode: "open" });
+
+		const strategy = createIgniteJsxRenderStrategy();
+		strategy.attach(shadow);
+		strategy.render(jsx("div", { children: "hello" }));
+
+		expect(debugSpy).toHaveBeenCalledWith(
+			"[IgniteJsxRenderStrategy] Falling back to replace (nodiff-attr, tag=section)",
+		);
+	});
+
+	it("forces replace via denylist and emits warn-level logs", () => {
+		vi.spyOn(configModule, "getIgniteConfig").mockReturnValue({
+			strategy: "replace",
+			logging: "warn",
+		});
+		registerNoDiffDenylistTag("deny-host");
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+		const hostElement = document.createElement("deny-host");
+		const shadow = hostElement.attachShadow({ mode: "open" });
+		const strategy = createIgniteJsxRenderStrategy();
+
+		strategy.attach(shadow);
+		strategy.render(jsx("p", { children: "deny" }));
+
+		expect(warnSpy).toHaveBeenCalledWith(
+			"[IgniteJsxRenderStrategy] Falling back to replace (denylist:deny-host, tag=deny-host)",
+		);
+	});
+
+	it("prefers hydrated attribute when forcing replace", () => {
+		vi.spyOn(configModule, "getIgniteConfig").mockReturnValue({
+			logging: "warn",
+		});
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+		const hostElement = document.createElement("article");
+		hostElement.setAttribute("data-ignite-hydrated", "");
+		const shadow = hostElement.attachShadow({ mode: "open" });
+
+		const strategy = createIgniteJsxRenderStrategy();
+		strategy.attach(shadow);
+		strategy.render(jsx("div", { children: "hydrated" }));
+
+		expect(warnSpy).toHaveBeenCalledWith(
+			"[IgniteJsxRenderStrategy] Falling back to replace (hydrated, tag=article)",
+		);
+	});
+
+	it("logs config-driven replace fallback even without a host tag", () => {
+		vi.spyOn(configModule, "getIgniteConfig").mockReturnValue({
+			strategy: "replace",
+			logging: "debug",
+		});
+		const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => {});
+		const strategy = createIgniteJsxRenderStrategy() as unknown as {
+			contentRoot: HTMLElement | null;
+			render: (node: IgniteJsxChild) => void;
+		};
+		strategy.contentRoot = document.createElement("div");
+
+		strategy.render(jsx("div", { children: "floating" }));
+
+		expect(debugSpy).toHaveBeenCalledWith(
+			"[IgniteJsxRenderStrategy] Falling back to replace (config-replace)",
+		);
+	});
+
+	it("does not log when logging is explicitly disabled", () => {
+		vi.spyOn(configModule, "getIgniteConfig").mockReturnValue({
+			strategy: "replace",
+			logging: "off",
+		});
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+		const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => {});
+
+		const hostElement = document.createElement("div");
+		const shadow = hostElement.attachShadow({ mode: "open" });
+		const strategy = createIgniteJsxRenderStrategy();
+
+		strategy.attach(shadow);
+		strategy.render(jsx("div", { children: "silent" }));
+
+		expect(warnSpy).not.toHaveBeenCalled();
+		expect(debugSpy).not.toHaveBeenCalled();
+	});
+
+	it("logs renderer-triggered fallbacks with host tag", () => {
+		vi.spyOn(configModule, "getIgniteConfig").mockReturnValue({
+			logging: "warn",
+		});
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+		const renderSpy = vi
+			.spyOn(rendererModule, "renderIgniteJsx")
+			.mockImplementation((_host, _view, prev, options) => {
+				options?.onFallbackReplace?.("child-order-change");
+				return prev ?? [];
+			});
+
+		const hostElement = document.createElement("div");
+		const shadow = hostElement.attachShadow({ mode: "open" });
+		const strategy = createIgniteJsxRenderStrategy();
+
+		strategy.attach(shadow);
+		strategy.render(jsx("span", { children: "first" }));
+		strategy.render(jsx("span", { children: "second" }));
+
+		expect(renderSpy).toHaveBeenCalled();
+		expect(warnSpy).toHaveBeenCalledWith(
+			"[IgniteJsxRenderStrategy] Falling back to replace (child-order-change, tag=div)",
+		);
+	});
+
+	it("falls back to replace when diffing is disabled via env flag", () => {
+		process.env.IGNITE_DIFF_ENABLED = "false";
+		vi.spyOn(configModule, "getIgniteConfig").mockReturnValue({
+			logging: "warn",
+		});
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+		const hostElement = document.createElement("div");
+		const shadow = hostElement.attachShadow({ mode: "open" });
+		const strategy = createIgniteJsxRenderStrategy();
+
+		strategy.attach(shadow);
+		strategy.render(jsx("div", { children: "flagged" }));
+
+		expect(warnSpy).toHaveBeenCalledWith(
+			"[IgniteJsxRenderStrategy] Falling back to replace (flag-disabled, tag=div)",
+		);
+	});
+
+	it("allows detach to be called without prior attach", () => {
+		const strategy = createIgniteJsxRenderStrategy();
+		expect(() => strategy.detach()).not.toThrow();
 	});
 });
 
