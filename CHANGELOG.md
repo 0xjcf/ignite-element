@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.2.2
+
+### Patch Changes
+
+- 04e262f: - Fixed igniteCore event typing so emit stays strongly typed even when commands appear before events, preventing typos from compiling.
+
+  - Tightened event definition types (AnyEventsDefinition now uses EventMap) and updated tests to cover the commands-before-events scenario.
+
 ## 2.2.1
 
 ### Minor Changes
