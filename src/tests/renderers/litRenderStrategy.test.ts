@@ -17,4 +17,13 @@ describe("LitRenderStrategy", () => {
 
 		expect(() => strategy.render({} as never)).not.toThrow();
 	});
+
+	it("throws when rendering before attach", () => {
+		const strategy = new LitRenderStrategy();
+
+		expect(() => strategy.render({} as never)).toThrow(
+			"[LitRenderStrategy] Cannot render before attach has been invoked."
+		);
+	});
+
 });
