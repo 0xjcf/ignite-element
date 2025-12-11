@@ -16,11 +16,7 @@ describe("ignite-jsx diffing behavior", () => {
 	});
 
 	it("does not rewrite input value when unchanged", () => {
-		const setSpy = vi.spyOn(
-			Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value") ??
-				{},
-			"set",
-		);
+		const setSpy = vi.spyOn(HTMLInputElement.prototype, "value", "set");
 		const host = document.createElement("div");
 		let tree: NormalizedNode[] | undefined = mountIgniteJsx(
 			host,
