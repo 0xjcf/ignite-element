@@ -25,15 +25,6 @@ export default defineConfig({
 				},
 			],
 			customCss: ["./src/styles/theme.css"],
-			head: [
-				{
-					tag: "script",
-					attrs: {
-						type: "module",
-						src: "/ignite-element/search-enhancements.js",
-					},
-				},
-			],
 			sidebar: [
 				{
 					label: "Overview",
