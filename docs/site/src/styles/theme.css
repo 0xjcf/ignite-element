@@ -210,6 +210,41 @@ body {
 	background: #1a2740;
 }
 
+/* Starlight search (Pagefind) dark theme */
+@layer starlight.overrides {
+	[data-theme="dark"] #starlight__search {
+		--pagefind-ui-background: #0f182e;
+		--pagefind-ui-border: #223049;
+		--pagefind-ui-text: #e8edf7;
+		--pagefind-ui-primary: #7ae8ff;
+	}
+
+	[data-theme="dark"] #starlight__search .pagefind-ui__form {
+		background: #0c1223;
+		border: 1px solid #223049;
+	}
+
+	[data-theme="dark"] #starlight__search .pagefind-ui__search-input {
+		background: #111a2d;
+		color: #e8edf7;
+		border: 1px solid #223049;
+	}
+
+	[data-theme="dark"] #starlight__search .pagefind-ui__result-title,
+	[data-theme="dark"] #starlight__search .pagefind-ui__result-nested {
+		background: #0f182e;
+		color: #e8edf7;
+	}
+
+	[data-theme="dark"] #starlight__search .pagefind-ui__result-excerpt {
+		color: #bcd5f1;
+	}
+
+	[data-theme="dark"] #starlight__search .pagefind-ui__result-tags {
+		background: #0f182e;
+	}
+}
+
 .header .sl-theme-toggle {
 	border: 1px solid var(--button-secondary-border);
 	background: #0f182e;
