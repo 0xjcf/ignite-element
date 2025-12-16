@@ -233,8 +233,9 @@ _Rendering engines and state libraries (`lit-html`, XState, Redux Toolkit, MobX)
 
 ## 📖 Documentation
 
-- [Getting Started (GitBook)](https://joseflores.gitbook.io/ignite-element/getting-started)
-- [Core Concepts (GitBook)](https://joseflores.gitbook.io/ignite-element/core-concepts)
+- [Ignite Element v2 (Starlight)](https://0xjcf.github.io/ignite-element/)
+- [Getting Started (v2)](https://0xjcf.github.io/ignite-element/getting-started/installation/)
+- [Core Concepts (v2)](https://0xjcf.github.io/ignite-element/concepts/state-adapters/)
 - [API Notes](docs/api/README.md)
 - [Styling Guide](docs/styling/README.md)
 - [Examples Overview](docs/examples/README.md)
