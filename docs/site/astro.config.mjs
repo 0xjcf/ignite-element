@@ -5,7 +5,7 @@ import { defineConfig } from "astro/config";
 
 // https://astro.build/config
 export default defineConfig({
-	site: "https://0xjcf.github.io/ignite-element",
+	site: "https://0xjcf.github.io",
 	base: "/ignite-element",
 	integrations: [
 		starlight({
