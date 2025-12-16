@@ -13,7 +13,10 @@ const helperText =
 const buildChips = (root) => {
 	const form = root.querySelector(".pagefind-ui__form");
 	const input = root.querySelector(".pagefind-ui__search-input");
-	if (!form || !input || root.querySelector(".ignite-search-hints")) return;
+	if (!form || !input || root.querySelector(".ignite-search-extras")) return;
+
+	const wrapper = document.createElement("div");
+	wrapper.className = "ignite-search-extras";
 
 	const chipRow = document.createElement("div");
 	chipRow.className = "ignite-search-hints";
@@ -34,21 +37,18 @@ const buildChips = (root) => {
 	footnote.className = "ignite-search-footnote";
 	const hintText = document.createElement("span");
 	hintText.textContent = helperText;
-	const keys = ["Esc", "Enter", "↑ ↓"];
 	const keyGroup = document.createElement("span");
-	keys.forEach((key, idx) => {
+	["Esc", "Enter", "↑ ↓"].forEach((key) => {
 		const k = document.createElement("kbd");
 		k.textContent = key;
 		keyGroup.appendChild(k);
-		if (idx < keys.length - 1) {
-			keyGroup.appendChild(document.createTextNode(" "));
-		}
 	});
 	footnote.appendChild(hintText);
 	footnote.appendChild(keyGroup);
 
-	form.insertAdjacentElement("afterend", chipRow);
-	chipRow.insertAdjacentElement("afterend", footnote);
+	wrapper.appendChild(chipRow);
+	wrapper.appendChild(footnote);
+	form.insertAdjacentElement("afterend", wrapper);
 };
 
 const attachWhenReady = () => {
