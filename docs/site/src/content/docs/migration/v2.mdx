@@ -1,0 +1,87 @@
+---
+title: Migrate from v1 to v2
+description: Upgrade to Ignite Element v2 with the Ignite JSX renderer and renderer strategies.
+sidebar:
+  label: v1 → v2
+  order: 1
+---
+
+Ignite Element v2 introduces the Ignite JSX renderer, renderer strategies, and a central `ignite.config.ts`. Use this guide to upgrade from v1.x.
+
+## TL;DR
+
+1. Upgrade dependencies: `pnpm add ignite-element@latest`.
+2. Set `"jsxImportSource": "ignite-element/jsx"` (or add the pragma per file).
+3. Add `ignite.config.ts` with your renderer (`ignite-jsx` or `lit`), styles, and logging.
+4. Opt into the diff or replace render strategy (defaults to `diff` with Ignite JSX).
+5. Verify lifecycle: shared adapters stop automatically unless `cleanup: false`.
+
+## 1) Install
+
+```bash
+pnpm add ignite-element@latest
+# keep your peer: xstate | @reduxjs/toolkit | mobx
+```
+
+If you rely on lit templates, keep `lit-html` installed.
+
+## 2) Configure JSX
+
+```jsonc
+// tsconfig.json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "ignite-element/jsx"
+  }
+}
+```
+
+Or add a file-level pragma:
+
+```ts
+/** @jsxImportSource ignite-element/jsx */
+```
+
+## 3) Add `ignite.config.ts`
+
+```ts
+import { defineIgniteConfig } from 'ignite-element/config';
+
+export default defineIgniteConfig({
+  renderer: 'ignite-jsx', // set to "lit" to stay on lit templates
+  strategy: 'diff', // "diff" | "replace"
+  styles: new URL('./styles.css', import.meta.url).href,
+  logging: 'warn',
+});
+```
+
+Use `igniteConfigVitePlugin()` (Vite) or `IgniteConfigWebpackPlugin` (Webpack) so this file is auto-loaded.
+
+## 4) Update renderers
+
+- **Ignite JSX (recommended)**: write JSX in your component render function.
+- **lit**: set `renderer: "lit"` to keep lit templates. Renderer choice is per project (not per component).
+
+## 5) Lifecycle changes
+
+Shared adapters are now reference-counted and will stop automatically when the last element disconnects. Set `cleanup: false` if you want to manage teardown yourself.
+
+```ts
+const actor = createActor(machine);
+actor.start();
+
+const shared = igniteCore({ source: actor, cleanup: false, states: /* ... */ });
+shared('shared-counter', Renderer);
+// later: actor.stop();
+```
+
+## 6) Checklist
+
+- [ ] Dependencies updated to v2
+- [ ] JSX runtime configured
+- [ ] `ignite.config.ts` added and loaded by bundler
+- [ ] Renderer choice confirmed (Ignite JSX or lit)
+- [ ] Shared adapter lifecycle verified
+
+Need more depth? See the legacy migration notes in `docs/migrations/v2.0.0-ignite-jsx.md` (kept for reference).

@@ -1,0 +1,33 @@
+---
+title: igniteCore
+description: Core factory for registering stateful custom elements.
+sidebar:
+  label: igniteCore
+  order: 1
+---
+
+`igniteCore` adapts your state source (XState, Redux, MobX) into a render-ready component factory.
+
+```ts
+import { igniteCore } from 'ignite-element/xstate';
+
+const component = igniteCore({
+  source: machineOrActor,
+  events: (event) => ({ /* typed events */ }),
+  states: (snapshot) => ({ /* derived values */ }),
+  commands: ({ actor, emit, host }) => ({ /* actions */ }),
+  cleanup: true, // default
+});
+
+component('tag-name', (props) => /* JSX or lit template */);
+```
+
+**Params**
+
+- `source`: machine definition or started actor (XState), Redux store/slice, or MobX observable.
+- `events(mapper)`: optional; defines typed DOM events and enables `emit` inside `commands`.
+- `states(snapshot)`: derive render props from the current snapshot; runs on mount and on changes.
+- `commands(context)`: expose actions; receives `{ actor, emit?, host }`.
+- `cleanup`: defaults to `true`; set to `false` to keep shared adapters running after disconnect.
+
+See [State adapters](/concepts/state-adapters/) for adapter-specific behavior.

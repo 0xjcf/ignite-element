@@ -1,0 +1,92 @@
+---
+title: Installation
+description: Set up Ignite Element with your state library and renderer defaults.
+sidebar:
+  label: Installation
+  order: 1
+---
+
+Pick your package manager and install Ignite Element with a state adapter:
+
+```bash
+pnpm add ignite-element xstate
+# pnpm add ignite-element @reduxjs/toolkit   # Redux
+# pnpm add ignite-element mobx               # MobX
+```
+
+### 1) Configure JSX (Ignite JSX renderer)
+
+Add the Ignite JSX runtime to your `tsconfig.json` (or use a file-level pragma):
+
+```jsonc
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "ignite-element/jsx"
+  }
+}
+```
+
+### 2) Add `ignite.config.ts`
+
+Centralize renderer defaults, logging, and global styles:
+
+```ts
+// ignite.config.ts
+import { defineIgniteConfig } from 'ignite-element/config';
+
+export default defineIgniteConfig({
+  renderer: 'ignite-jsx', // or "lit"
+  styles: new URL('./src/styles.css', import.meta.url).href,
+  logging: 'warn',
+});
+```
+
+:::note[Why config?]
+
+Ignite uses this file to pick renderers, inject shared styles into each custom element’s shadow root, and set logging. The Vite/Webpack plugins will auto-import it.
+
+:::
+
+### 3) Wire your bundler
+
+- **Vite**: add the plugin.
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite';
+import { igniteConfigVitePlugin } from 'ignite-element/config/vite';
+
+export default defineConfig({
+  plugins: [igniteConfigVitePlugin()],
+});
+```
+
+- **Webpack**: use the provided plugin.
+
+```ts
+// webpack.config.js
+const { IgniteConfigWebpackPlugin } = require('ignite-element/config/webpack');
+
+module.exports = {
+  plugins: [new IgniteConfigWebpackPlugin()],
+};
+```
+
+### 4) Optional: lit renderer
+
+If you prefer lit templates, install `lit-html` and set `renderer: "lit"` in `ignite.config.ts`. Keep the bundler plugins from step 3; they load your config and renderer entrypoint.
+
+:::note[Renderer entrypoints without plugins]
+Skipping the plugins? Import your `ignite.config.ts` before registering components. The default Ignite JSX renderer is registered automatically via the core entrypoints; if you set `renderer: "lit"`, also import `'ignite-element/renderers/lit'` once to register it.
+:::
+
+### Runtime dependencies and tree shaking
+
+Ignite Element stays lean but is not literally “zero dependency”: you must install the state library you choose (XState, Redux Toolkit, or MobX). Ignite JSX uses a minimal custom renderer (no framework runtime). If you opt into the lit renderer, install `lit-html`. Import from the adapter entry point that matches your state library (`ignite-element/xstate`, `ignite-element/redux`, or `ignite-element/mobx`) so only the renderer and adapter you pick are pulled into your bundle and unused adapters are tree-shaken.
+
+### Verify your setup
+
+- Run a TypeScript check (e.g., `pnpm exec tsc --noEmit` or `npx tsc --noEmit`) to ensure JSX settings work.
+- Create a smoke test component via [Your first component](/getting-started/first-component/).
+- Keep the `ignite.config.ts` import near your app entry if you are not using the bundler plugins.

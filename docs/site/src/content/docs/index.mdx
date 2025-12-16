@@ -1,0 +1,169 @@
+---
+title: Ignite Element
+description: Build framework-agnostic, typed custom elements powered by XState, Redux, or MobX.
+sidebar:
+  label: Welcome
+  order: 1
+hero:
+  tagline: Framework-agnostic custom elements with typed state and events.
+  badge: v2 docs
+  actions:
+    - text: Install
+      link: /getting-started/installation/
+    - text: Build your first component
+      link: /getting-started/first-component/
+      variant: secondary
+---
+
+Ignite Element gives you a thin, typed layer around your favorite state library so you can ship web components without bringing a framework runtime.
+
+:::tip[Goal]
+
+Fast onboarding: install, wire your renderer, and ship a component in minutes.
+
+:::
+
+:::note[Using v1?]
+
+You’re reading the Ignite Element v2 docs. If you’re upgrading from v1, start with the [migration guide](/migration/v2/).
+
+:::
+
+![Bundle size](https://img.shields.io/bundlephobia/minzip/ignite-element?label=bundle%20size&style=flat-square)
+![Lean deps](https://img.shields.io/badge/dependencies-state%20lib%20%2B%20renderer-blue?style=flat-square)
+![Tree-shakeable](https://img.shields.io/badge/tree--shakeable-yes-blue?style=flat-square)
+
+## Quick install
+
+```bash
+pnpm add ignite-element xstate
+# or npm/yarn equivalents
+```
+
+Add JSX runtime settings for Ignite JSX (the default renderer):
+
+```jsonc
+// tsconfig.json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "ignite-element/jsx"
+  }
+}
+```
+
+## Create a simple machine-backed component
+
+```tsx
+import { igniteCore } from 'ignite-element/xstate';
+import machine from './counter-machine';
+
+const component = igniteCore({
+  source: machine,
+});
+
+component('my-counter', ({ state, send }) => {
+  const { count } = state;
+  const increment = () => send({ type: 'INCREMENT' });
+  const decrement = () => send({ type: 'DECREMENT' });
+
+  return (
+    <div class="counter">
+      <span class="counter-value">{count}</span>
+      <div class="counter-buttons">
+        <button onClick={increment}>+</button>
+        <button onClick={decrement}>-</button>
+      </div>
+    </div>
+  );
+});
+```
+
+`counter-machine.ts`:
+
+```ts
+import { assign, setup } from 'xstate';
+
+const machine = setup({
+  types: {
+    context: {} as { count: number },
+    events: {} as { type: 'INCREMENT' } | { type: 'DECREMENT' },
+  },
+}).createMachine({
+  id: 'counter-machine',
+  context: { count: 0 },
+  initial: 'active',
+  states: {
+    active: {
+      on: {
+        INCREMENT: {
+          actions: assign({
+            count: ({ context }) => context.count + 1,
+          }),
+        },
+        DECREMENT: {
+          actions: assign({
+            count: ({ context }) => context.count - 1,
+          }),
+        },
+      },
+    },
+  },
+});
+
+export default machine;
+```
+
+Add the element anywhere:
+
+```html
+<my-counter></my-counter>
+```
+
+Want to go deeper with XState itself? See the <a href="https://stately.ai/docs" target="_blank" rel="noreferrer" aria-label="XState docs (opens in a new tab)">XState docs&nbsp;↗</a>.
+
+## Try it live
+
+Spin up the counter example in your browser:
+
+- [Open in StackBlitz](https://stackblitz.com/edit/ignite-element?file=src%2Fmy-counter.tsx) (inline playground)
+- [Open repo example](https://github.com/0xjcf/ignite-element/tree/main/src/examples/xstate)
+
+<iframe
+  class="stackblitz-embed"
+  data-src="https://stackblitz.com/edit/ignite-element?embed=1&file=src%2Fmy-counter.tsx&view=both"
+  width="100%"
+  height="840"
+  style="border: 1px solid #2f4565; border-radius: 12px;"
+  title="Ignite Element XState live demo"
+  loading="lazy"
+  allowfullscreen
+></iframe>
+<script src="/stackblitz-lazy.js" defer></script>
+
+## Why teams pick Ignite Element
+
+- Works with XState, Redux Toolkit, or MobX—bring your adapter, keep your patterns.
+- Typed commands, states, and events without a React/Solid runtime; you only install the state library and renderer you pick.
+- Renderer choice: Ignite JSX (default, backed by `lit-html`); choose per project via config.
+- Built-in lifecycle handling for shared vs. isolated adapters.
+- Ship design-safe components: global styles via `ignite.config.ts`, per-component CSS as needed.
+
+## Ignite vs. other options
+
+- **Lit / Stencil**: Ignite is renderer-agnostic with pluggable adapters; keep your state library instead of adopting a bespoke reactive model.
+- **Framework wrappers**: No React/Solid runtime required—ship native custom elements with typed events and commands.
+- **State-library lock-in**: Swap XState/Redux/MobX without rewriting renderers; shared lifecycle handling stays consistent.
+
+## Performance snapshot
+
+- Tiny runtime surface—Ignite JSX uses a minimal custom JSX renderer (no framework runtime).
+- Works with tree shaking; keep only the adapters/renderers you use.
+- Bundle size check: [Bundlephobia](https://bundlephobia.com/package/ignite-element) for the current npm release.
+- Shared adapters are reference-counted to avoid duplicate subscriptions.
+
+## Choose your path
+
+- New to Ignite Element? Start with [Installation](/getting-started/installation/) then [Your first component](/getting-started/first-component/).
+- Need concepts fast? Jump to [State adapters](/concepts/state-adapters/) and [Renderers](/concepts/renderers/).
+- Upgrading? Read [v1 → v2 migration](/migration/v2/).

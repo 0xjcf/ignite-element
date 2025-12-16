@@ -1,0 +1,125 @@
+---
+title: Testing
+description: Strategies for testing Ignite Element components.
+sidebar:
+  label: Testing
+  order: 2
+---
+
+Test the state source and the DOM separately. Keep your XState/Redux/MobX logic covered with its own unit tests, then add light DOM tests for the web components.
+
+## Setup
+
+- Use a browser-like runner (e.g., Vitest + JSDOM). Import `ignite.config.ts` (or the renderer entry) once so renderers/styles are registered.
+- Register the component under test before each suite. Clear the DOM between tests (`document.body.innerHTML = ""`).
+
+```ts
+// test/setup.ts
+import './ignite.config'; // ensures renderer + styles are loaded for all tests
+import 'ignite-element/renderers/lit'; // optional if config already sets lit
+
+// vitest.config.ts
+export default defineConfig({
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./test/setup.ts'],
+  },
+});
+```
+
+## State tests (XState example)
+
+Write a machine test exactly as you would without Ignite.
+
+```ts
+// counter.machine.ts
+import { assign, setup } from 'xstate';
+
+export const counterMachine = setup({
+  types: {} as {
+    context: { count: number };
+    events: { type: 'INC' } | { type: 'DEC' };
+  },
+}).createMachine({
+  context: { count: 0 },
+  on: {
+    INC: { actions: assign(({ context }) => ({ count: context.count + 1 })) },
+    DEC: { actions: assign(({ context }) => ({ count: context.count - 1 })) },
+  },
+});
+
+// counter.machine.test.ts
+import { createActor } from 'xstate';
+import { counterMachine } from './counter.machine';
+
+describe('counter machine', () => {
+  it('increments and decrements', () => {
+    const actor = createActor(counterMachine).start();
+
+    actor.send({ type: 'INC' });
+    expect(actor.getSnapshot().context.count).toBe(1);
+
+    actor.send({ type: 'DEC' });
+    expect(actor.getSnapshot().context.count).toBe(0);
+  });
+});
+```
+
+## DOM tests (web component + XState + Lit)
+
+Register the component once, mount it, and drive it via the shadow DOM. The example below uses the Lit renderer and the same `counterMachine`.
+
+```ts
+// counter.element.ts
+import { html } from 'lit-html';
+import { igniteCore } from 'ignite-element/xstate';
+import { counterMachine } from './counter.machine';
+
+export const registerCounterElement = () =>
+  igniteCore({
+    source: counterMachine,
+    states: (snapshot) => ({ count: snapshot.context.count }),
+    commands: ({ actor }) => ({
+      inc: () => actor.send({ type: 'INC' }),
+      dec: () => actor.send({ type: 'DEC' }),
+    }),
+  })('my-counter', ({ count, inc, dec }) => html`
+    <div>
+      <p>Count: ${count}</p>
+      <button data-testid="dec" @click=${dec}>-</button>
+      <button data-testid="inc" @click=${inc}>+</button>
+    </div>
+  `);
+
+// counter.element.test.ts
+import { beforeAll, afterEach, describe, expect, it } from 'vitest';
+import 'ignite-element/renderers/lit';
+import './ignite.config';
+import { registerCounterElement } from './counter.element';
+
+beforeAll(() => registerCounterElement());
+afterEach(() => {
+  document.body.innerHTML = '';
+});
+
+describe('<my-counter>', () => {
+  it('renders and responds to clicks', async () => {
+    const el = document.createElement('my-counter');
+    document.body.appendChild(el);
+
+    await Promise.resolve(); // allow initial render
+
+    const inc = el.shadowRoot!.querySelector<HTMLButtonElement>('[data-testid="inc"]')!;
+    inc.click();
+    await Promise.resolve(); // allow state flush
+
+    expect(el.shadowRoot!.textContent).toContain('Count: 1');
+  });
+});
+```
+
+## Lifecycle checks (shared adapters)
+
+- For shared sources you own (started actors/stores), stop them in your tests when you own their lifecycle.
+- For Ignite-created shared adapters, you can assert cleanup by connecting/disconnecting elements and verifying subscriptions stop when `cleanup` is `true`.

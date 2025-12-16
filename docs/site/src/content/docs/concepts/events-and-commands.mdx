@@ -1,0 +1,109 @@
+---
+title: Events & commands
+description: Emit typed DOM events and keep commands focused.
+sidebar:
+  label: Events & commands
+  order: 3
+---
+
+Commands are the actions exposed to your renderer; events are optional typed `CustomEvent`s you can bubble to host apps.
+
+## Declaring events
+
+```ts
+events: (event) => ({
+  incremented: event<{ amount: number }>(),
+})
+```
+
+With `events` defined, `commands` receives an `emit` helper:
+
+```ts
+commands: ({ actor, emit }) => ({
+  add: (amount: number) => {
+    actor.send({ type: 'ADD', amount });
+    emit('incremented', { amount });
+  },
+}),
+```
+
+Events bubble and are composed by default, so frameworks can listen with `addEventListener`.
+
+### Listening
+
+- Plain DOM: `element.addEventListener('incremented', (event) => console.log(event.detail.amount));`
+- Ignite JSX: `<my-counter onIncremented={(event) => handleIncrement(event.detail)}></my-counter>`.
+
+:::note[Emit safety]
+In development, emitting an event that isn’t declared in `events` throws an error to help keep the map in sync. Declare events first, then call `emit`.
+:::
+
+## Command inputs
+
+`commands` also receive `host` (the custom element instance) and your adapter’s control surface (`actor`, `store`, or `observable`). Keep commands small and deterministic—delegate async side effects to your state library.
+
+### Host helpers
+
+Use `host` for DOM affordances:
+
+```ts
+commands: ({ host, emit }) => ({
+  focusSelf: () => host.focus(),
+  emitSize: () => {
+    const { width, height } = host.getBoundingClientRect();
+    emit('measured', { width, height });
+  },
+});
+```
+
+You can read `dataset`, measure the element, or dispatch additional DOM events from `host` as needed. Reflect state (attrs/aria/class) primarily via your renderer to keep outputs declarative.
+
+:::tip[Host + actor model]
+- Keep state in your adapter; use `host` to reflect state (attrs/aria/class) or perform tiny DOM affordances (focus).
+- Avoid treating `host` as a source of truth—don’t stash business logic or long-lived state on the element.
+- Prefer taking behavioral inputs (like `step`) from your state source/context, not from host attributes. If you must read an attribute, parse it once and feed it into state.
+- Keep side effects small and deterministic; longer side effects belong in your state library.
+- This keeps a clean separation: adapter = state/actor model; renderer = declarative view; `host` = small imperative DOM bridge when needed (while staying outside your state logic).
+:::
+
+:::note[Think “ref”]
+`host` is the custom element instance—use it like a DOM ref in React or Solid for focus/attrs/classes/dataset. Keep state in your adapter and rendering declarative; touch `host` only for small DOM affordances.
+:::
+
+## Type flow
+
+- When `events` is present, event names and payloads are inferred into `emit`.
+- `states` and `commands` outputs are merged into the props your renderer receives, giving you typed render args without extra wiring.
+
+### Putting it together (XState)
+
+```ts
+import { igniteCore } from 'ignite-element/xstate';
+import machine from './counter-machine';
+
+const component = igniteCore({
+  source: machine,
+  events: (event) => ({
+    incremented: event<{ count: number }>(),
+  }),
+  states: (snapshot) => ({
+    count: snapshot.context.count,
+    canDecrement: snapshot.context.count > 0,
+  }),
+  commands: ({ actor, emit }) => ({
+    increment: () => {
+      actor.send({ type: 'INCREMENT' });
+      emit('incremented', { count: actor.getSnapshot().context.count });
+    },
+    decrement: () => actor.send({ type: 'DECREMENT' }),
+  }),
+});
+
+component('my-counter', ({ count, canDecrement, increment, decrement }) => (
+  <div class="counter">
+    <button onClick={decrement} disabled={!canDecrement}>-</button>
+    <span>{count}</span>
+    <button onClick={increment}>+</button>
+  </div>
+));
+```

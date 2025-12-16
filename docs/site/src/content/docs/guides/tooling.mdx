@@ -1,0 +1,17 @@
+---
+title: Tooling & bundlers
+description: Wire Ignite Element into Vite, Webpack, and TypeScript tooling.
+sidebar:
+  label: Tooling & bundlers
+  order: 3
+---
+
+- **Vite**: add `igniteConfigVitePlugin()` to load `ignite.config.ts` and inject renderer defaults.
+- **Webpack**: use `IgniteConfigWebpackPlugin` for equivalent behavior.
+- **TypeScript**: set `jsxImportSource: "ignite-element/jsx"` globally or use the file pragma `/** @jsxImportSource ignite-element/jsx */`.
+- **Renderer entrypoints**: Ignite JSX is registered by default; if you set `renderer: "lit"`, import `'ignite-element/renderers/lit'` once (plugins handle this automatically).
+- **Adapter entrypoints**: import from the adapter you use (`ignite-element/xstate`, `ignite-element/redux`, or `ignite-element/mobx`) to keep bundles lean.
+- **Styles**: in `ignite.config.ts`, set `styles` to a URL or style object. If your toolchain doesn’t support `import.meta.url`, use root-relative or CDN URLs.
+- **Linting/formatting**: use your preferred stack (ESLint/Prettier, Biome, etc.) with your package manager.
+
+Need framework-specific snippets (React/Vue/Svelte wrappers)? We’ll expand this section as we add adapters to the examples.

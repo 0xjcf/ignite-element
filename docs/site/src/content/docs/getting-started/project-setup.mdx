@@ -1,0 +1,15 @@
+---
+title: Project setup
+description: Baseline project settings so Ignite Element feels like the XState docs.
+sidebar:
+  label: Project setup
+  order: 3
+---
+
+- **Node & package manager**: use Node 22+. Use your preferred package manager (pnpm, npm, or yarn) consistently.
+- **TypeScript JSX**: set `"jsx": "react-jsx"` and `"jsxImportSource": "ignite-element/jsx"`; add the pragma per-file if you cannot change `tsconfig`.
+- **Bundler plugin**: add `igniteConfigVitePlugin()` (Vite) or `IgniteConfigWebpackPlugin` (Webpack) so `ignite.config.ts` is loaded automatically.
+- **Testing**: add a test runner (Vitest or Jest) and include a smoke test for each web component (mount + basic interaction). Run with your package manager (`npm test`, `pnpm test`, etc.).
+- **Linting/formatting**: use your preferred stack (ESLint/Prettier, Biome, etc.) and run it via your package manager. The published package doesn’t impose a formatter.
+
+Follow [Installation](/getting-started/installation/) for the full step-by-step setup and jump to [Your first component](/getting-started/first-component/) to ship a working toggle.

@@ -1,0 +1,93 @@
+---
+title: Your first component
+description: Build a toggle button backed by XState and Ignite JSX.
+sidebar:
+  label: Your first component
+  order: 2
+---
+
+This guide assumes you completed [Installation](/getting-started/installation/). We’ll build a toggle button with XState and the Ignite JSX renderer.
+
+## 1) Define a machine
+
+```ts
+import { createMachine } from 'xstate';
+
+export const toggleMachine = createMachine({
+  id: 'toggle',
+  initial: 'off',
+  states: {
+    off: { on: { TOGGLE: 'on' } },
+    on: { on: { TOGGLE: 'off' } },
+  },
+});
+```
+
+## 2) Register the component
+
+```tsx
+import { igniteCore } from 'ignite-element/xstate';
+import { toggleMachine } from './toggleMachine';
+
+const registerToggle = igniteCore({
+  source: toggleMachine,
+  events: (event) => ({ toggled: event<{ isOn: boolean }>() }),
+  states: (snapshot) => ({ isOn: snapshot.matches('on') }),
+  commands: ({ actor, emit }) => ({
+    toggle: () => {
+      actor.send({ type: 'TOGGLE' });
+      emit('toggled', { isOn: actor.getSnapshot().matches('on') });
+    },
+  }),
+});
+
+registerToggle('ignite-toggle', ({ isOn, toggle }) => (
+  <button class="ignite-toggle" onClick={toggle}>
+    {isOn ? 'On' : 'Off'}
+  </button>
+));
+```
+
+:::tip[Typing events]
+`events` adds a typed `emit` helper to your `commands`. Skip it if you don’t need to broadcast DOM `CustomEvent`s.
+:::
+
+## 3) Style it (optional)
+
+```css
+.ignite-toggle {
+  border-radius: 12px;
+  padding: 0.75rem 1.25rem;
+  border: 1px solid #1ad2ff;
+  background: radial-gradient(circle at 20% 20%, rgba(26, 210, 255, 0.15), transparent 50%),
+    #0f182e;
+  color: #e2e8f0;
+}
+```
+
+## 4) Use it anywhere
+
+```html
+<!-- Plain HTML -->
+<ignite-toggle></ignite-toggle>
+
+<!-- lit template syntax -->
+<ignite-toggle @toggled=${handleToggle}></ignite-toggle>
+```
+
+```tsx
+// Ignite JSX
+<ignite-toggle onToggled={(event) => handleToggle(event.detail)} />
+```
+
+:::note[Handler naming]
+In Ignite JSX, `onToggled` comes from the `toggled` event you declare in your `events` map. Event payloads are dispatched as `CustomEvent` detail, so read them via `event.detail` (e.g., `event.detail.isOn`).
+:::
+
+Because it’s a web component, you can drop it into React, Vue, Svelte, or plain HTML without a wrapper.
+
+## Variations
+
+- Swap `source` for a Redux slice or MobX store (`ignite-core` has adapters for each).
+- Opt into the lit renderer by setting `renderer: "lit"` in `ignite.config.ts` and authoring lit templates instead of JSX.
+- Share actors/stores by passing long-lived instances and setting `cleanup: false` if you want to manage teardown yourself.

@@ -1,0 +1,38 @@
+---
+title: defineIgniteConfig
+description: Configure renderer defaults, styles, and logging.
+sidebar:
+  label: defineIgniteConfig
+  order: 2
+---
+
+`defineIgniteConfig` declares how Ignite Element should behave across your project. The Vite/Webpack plugins auto-import this file; otherwise import it near your app entry.
+
+```ts
+// ignite.config.ts
+import { defineIgniteConfig } from 'ignite-element/config';
+
+export default defineIgniteConfig({
+  renderer: 'ignite-jsx',
+  strategy: 'diff',
+  styles: new URL('./styles.css', import.meta.url).href,
+  logging: 'warn',
+});
+```
+
+**Options**
+
+- `renderer`: `"ignite-jsx"` (default) or `"lit"`.
+- `strategy`: `"diff"` or `"replace"` render mode.
+- `styles`: string URL or `{ href, integrity?, crossOrigin? }` injected into each component’s shadow root.
+- `logging`: `"off" | "warn" | "debug"`.
+
+:::tip[Choosing a styles shape]
+Use a string URL for local assets (e.g., `new URL('./styles.css', import.meta.url).href`). Use an object when pulling from a CDN and you need SRI or CORS control (e.g., `{ href: 'https://cdn.example.com/styles.css', integrity: '...', crossOrigin: 'anonymous' }`).
+:::
+
+:::note[Resolving styles without a bundler]
+If your toolchain doesn’t support `import.meta.url` (or you’re not using a bundler plugin), set `styles` to a fully qualified or root-relative URL (e.g., `styles: '/styles.css'` or a CDN link). The config shape is the same.
+:::
+
+Place this file at the project root so bundler plugins can find it.

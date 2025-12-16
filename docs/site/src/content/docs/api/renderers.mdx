@@ -1,0 +1,29 @@
+---
+title: Renderers & strategies
+description: API surface for renderer selection and render strategies.
+sidebar:
+  label: Renderers & strategies
+  order: 3
+---
+
+Renderer selection happens in `ignite.config.ts`. Components inherit that global renderer;
+
+## Global renderers
+
+Set the default renderer in config:
+
+```ts
+export default defineIgniteConfig({
+  renderer: 'ignite-jsx', // or "lit"
+  strategy: 'diff', // "diff" | "replace"
+});
+```
+
+## Assets & styles
+
+Global `styles` declared in config are injected automatically. For component-level styling, include inline styles or light-DOM styles as usual.
+
+## Notes and troubleshooting
+
+- The Vite and webpack config plugins (`igniteConfigVitePlugin` / `igniteConfigWebpackPlugin`) inject the config loader, which in turn auto-imports the renderer you set in `ignite.config` (including `lit`). If you are not using those plugins, import the renderer entry yourself before registering components, e.g. `import "ignite-element/renderers/lit"`.
+- If you configure a renderer that isn’t registered (for example, you set `renderer: "lit"` but never import the entry and aren’t running the config loader), Ignite falls back to `ignite-jsx` and logs a warning.
