@@ -25,13 +25,13 @@ Quick links: [Quick start](#quick-start-vite) · [Install matrix](#installation-
 
 ## Quick start (Vite)
 
-1) Install
+1. Install
 
 ```bash
 npm install ignite-element xstate
 ```
 
-2) TypeScript JSX (required if you use the Ignite JSX renderer)
+1. TypeScript JSX (required if you use the Ignite JSX renderer)
 
 ```jsonc
 // tsconfig.json
@@ -45,7 +45,7 @@ npm install ignite-element xstate
 
 If you can’t change `tsconfig`, add `/** @jsxImportSource ignite-element/jsx */` at the top of each JSX/TSX file instead.
 
-3) Add config (all fields are optional)
+1. Add config (all fields are optional)
 
 ```ts
 // ignite.config.ts
@@ -57,7 +57,7 @@ export default defineIgniteConfig({
 });
 ```
 
-4) Wire the Vite plugin
+1. Wire the Vite plugin
 
 ```ts
 // vite.config.ts
@@ -66,7 +66,7 @@ import { igniteConfigVitePlugin } from "ignite-element/config/vite";
 export default defineConfig({ plugins: [igniteConfigVitePlugin()] });
 ```
 
-5) Create a component
+1. Create a component
 
 ```tsx
 import { createMachine } from "xstate";
@@ -97,7 +97,7 @@ component("toggle-button", ({ isOn, toggle }) => (
 ));
 ```
 
-6) Use it
+1. Use it
 
 ```html
 <toggle-button></toggle-button>
@@ -228,7 +228,6 @@ For legacy support, include the [webcomponents polyfills](https://github.com/web
 _Rendering engines and state libraries (`lit-html`, XState, Redux Toolkit, MobX) are optional peer dependencies. Mix only what your project needs—ignite-element itself adds ~4 KB on top of the stack you choose._
 
 ---
-
 
 ---
 

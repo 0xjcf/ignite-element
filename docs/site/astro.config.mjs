@@ -12,8 +12,11 @@ export default defineConfig({
 			title: "Ignite Element v2",
 			description:
 				"Framework-agnostic custom elements with typed state, powered by your favorite state library.",
-			logo: { src: "./src/assets/ignite-element-logo.svg", alt: "Ignite Element logo" },
-			favicon: '/ignite-element-favicon.svg',
+			logo: {
+				src: "./src/assets/ignite-element-logo.svg",
+				alt: "Ignite Element logo",
+			},
+			favicon: "/ignite-element-favicon.svg",
 			social: [
 				{
 					icon: "github",
