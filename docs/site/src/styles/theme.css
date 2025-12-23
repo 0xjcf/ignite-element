@@ -15,15 +15,23 @@
 	--sl-nav-height: 64px;
 	--sl-content-width: 1080px;
 	--sl-sidebar-width: 240px;
-	--button-bg: linear-gradient(135deg, #1ad2ff, #7ae8ff);
-	--button-border: #66ddff;
-	--button-text: #0b1324;
+	--button-bg: linear-gradient(
+		135deg,
+		var(--sl-color-accent),
+		var(--sl-color-accent-high)
+	);
+	--button-border: var(--sl-color-accent-high);
+	--button-text: var(--sl-color-accent-contrast);
+	--button-shadow: 0 6px 20px rgba(26, 210, 255, 0.35);
 	--button-secondary-bg: transparent;
-	--button-secondary-border: #1ad2ff;
-	--button-secondary-text: #e8edf7;
+	--button-secondary-border: var(--sl-color-accent);
+	--button-secondary-text: var(--sl-color-text);
 }
 
 :root[data-theme="light"] {
+	--sl-color-accent-low: #d6f4ff;
+	--sl-color-accent: #006d93;
+	--sl-color-accent-high: #004b66;
 	--sl-color-text: #0f172a;
 	--sl-color-text-soft: #334155;
 	--sl-color-hairline: #e2e8f0;
@@ -31,8 +39,9 @@
 	--sl-color-bg-nav: #f8fafc;
 	--sl-color-bg-sidebar: #f8fafc;
 	--sl-color-panel: #f8fafc;
-	--button-text: #0f172a;
-	--button-secondary-text: #0f172a;
+	--button-text: #ffffff;
+	--button-shadow: 0 6px 20px rgba(0, 109, 147, 0.28);
+	--button-secondary-text: var(--sl-color-accent);
 }
 
 :root[data-theme="dark"] {
@@ -146,7 +155,7 @@ body {
 	background: var(--button-bg);
 	border-color: var(--button-border);
 	color: var(--button-text);
-	box-shadow: 0 6px 20px rgba(26, 210, 255, 0.35);
+	box-shadow: var(--button-shadow);
 }
 
 .hero .actions a:hover {
@@ -211,38 +220,70 @@ body {
 }
 
 /* Starlight search (Pagefind) dark theme */
-@layer starlight.overrides {
-	[data-theme="dark"] #starlight__search {
-		--pagefind-ui-background: #0f182e;
-		--pagefind-ui-border: #223049;
-		--pagefind-ui-text: #e8edf7;
-		--pagefind-ui-primary: #7ae8ff;
-	}
+[data-theme="dark"] #starlight__search {
+	--pagefind-ui-background: #0f182e;
+	--pagefind-ui-border: #223049;
+	--pagefind-ui-text: var(--sl-color-text);
+	--pagefind-ui-primary: var(--sl-color-accent-high);
+}
 
-	[data-theme="dark"] #starlight__search .pagefind-ui__form {
-		background: #0c1223;
-		border: 1px solid #223049;
-	}
+[data-theme="dark"] #starlight__search .pagefind-ui__form {
+	background: #0c1223;
+	border: 1px solid #223049;
+}
 
-	[data-theme="dark"] #starlight__search .pagefind-ui__search-input {
-		background: #111a2d;
-		color: #e8edf7;
-		border: 1px solid #223049;
-	}
+[data-theme="dark"] #starlight__search .pagefind-ui__form::before {
+	--pagefind-ui-text: var(--sl-color-text-soft);
+}
 
-	[data-theme="dark"] #starlight__search .pagefind-ui__result-title,
-	[data-theme="dark"] #starlight__search .pagefind-ui__result-nested {
-		background: #0f182e;
-		color: #e8edf7;
-	}
+[data-theme="dark"] #starlight__search .pagefind-ui__search-input {
+	background: #111a2d;
+	color: var(--sl-color-text);
+	border: 1px solid #223049;
+}
 
-	[data-theme="dark"] #starlight__search .pagefind-ui__result-excerpt {
-		color: #bcd5f1;
-	}
+[data-theme="dark"] #starlight__search .pagefind-ui__result-title,
+[data-theme="dark"] #starlight__search .pagefind-ui__result-nested {
+	background: #0f182e;
+	color: var(--sl-color-text);
+}
 
-	[data-theme="dark"] #starlight__search .pagefind-ui__result-tags {
-		background: #0f182e;
-	}
+[data-theme="dark"] #starlight__search .pagefind-ui__result-excerpt {
+	color: var(--sl-color-text-soft);
+}
+
+[data-theme="dark"] #starlight__search .pagefind-ui__result-tags {
+	background: #0f182e;
+}
+
+[data-theme="dark"] #starlight__search .pagefind-ui__message {
+	color: var(--sl-color-text-soft);
+}
+
+[data-theme="dark"] #starlight__search .pagefind-ui__search-clear::before {
+	background-color: var(--sl-color-text-soft);
+}
+
+[data-theme="dark"] #starlight__search .pagefind-ui__search-clear:hover::before,
+[data-theme="dark"] #starlight__search .pagefind-ui__search-clear:focus-visible::before {
+	background-color: var(--sl-color-accent-high);
+}
+
+[data-theme="dark"] #starlight__search mark {
+	color: var(--sl-color-accent-high);
+}
+
+[data-theme="dark"]
+	#starlight__search
+	.pagefind-ui__result-inner
+	> .pagefind-ui__result-title::before {
+	background: var(--sl-color-text-soft);
+	opacity: 0.55;
+}
+
+[data-theme="dark"] #starlight__search .pagefind-ui__result-nested::before {
+	background: var(--sl-color-text-soft);
+	opacity: 0.4;
 }
 
 .header .sl-theme-toggle {
@@ -251,7 +292,7 @@ body {
 	color: var(--sl-color-text);
 }
 
-@layer starlight.overrides {
+@layer starlight.utils {
 	.site-title img {
 		height: calc(var(--sl-nav-height) - 2 * var(--sl-nav-pad-y));
 		width: calc(var(--sl-nav-height) - 2 * var(--sl-nav-pad-y));

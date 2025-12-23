@@ -13,7 +13,8 @@ export default defineConfig({
 			description:
 				"Framework-agnostic custom elements with typed state, powered by your favorite state library.",
 			logo: {
-				src: "./src/assets/ignite-element-logo.svg",
+				dark: "./src/assets/ignite-element-logo.svg",
+				light: "./src/assets/ignite-element-logo-light.svg",
 				alt: "Ignite Element logo",
 			},
 			favicon: "/ignite-element-favicon.svg",
