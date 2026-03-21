@@ -84,6 +84,7 @@ function bindProjectionToElements<
 	return igniteElementFactory(projection.createAdapter, {
 		scope: projection.scope,
 		cleanup: projection.cleanup,
+		eventTypes: projection.eventTypes,
 		createAdditionalArgs: (adapter, host) => {
 			if (!host) {
 				throw new Error(
@@ -311,7 +312,15 @@ export function igniteCoreXState<
 	Events
 > {
 	const projection = igniteCoreProjection(options);
-	return bindProjectionToElements(projection);
+	return bindProjectionToElements(projection) as IgniteCoreReturn<
+		ExtendedState<Machine>,
+		EventFrom<Machine>,
+		ExtendedState<Machine>,
+		StatesResult,
+		XStateCommandActor<Machine>,
+		CommandsResult,
+		Events
+	>;
 }
 
 export function igniteCoreRedux<
@@ -378,7 +387,15 @@ export function igniteCoreRedux(
 	EventMap
 > {
 	const projection = igniteCoreReduxProjection(options);
-	return bindProjectionToElements(projection);
+	return bindProjectionToElements(projection) as IgniteCoreReturn<
+		InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["State"],
+		InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["Event"],
+		InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["State"],
+		Record<string, unknown>,
+		ReduxCommandActorFor<ReduxBlueprintSource | ReduxInstanceSource>,
+		FacadeCommandResult,
+		EventMap
+	>;
 }
 
 export function igniteCoreMobx<
@@ -401,7 +418,15 @@ export function igniteCoreMobx<
 	Events
 > {
 	const projection = igniteCoreMobxProjection(options);
-	return bindProjectionToElements(projection);
+	return bindProjectionToElements(projection) as IgniteCoreReturn<
+		State,
+		MobxEvent<State>,
+		State,
+		StatesResult,
+		State,
+		CommandsResult,
+		Events
+	>;
 }
 
 function resolveAdapter(options: IgniteCoreConfig): ResolvedAdapter {

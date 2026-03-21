@@ -9,8 +9,15 @@ import type {
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
+	FacadeEffectsCallback,
 	FacadeStatesCallback,
 } from "./RenderArgs";
+import { createDeprecatedCommandEmit } from "./runtime/deprecation";
+import {
+	attachEffects,
+	type FacadeLifecycle,
+	facadeCleanupSymbol,
+} from "./runtime/effects";
 
 export type AdapterFactory<State, Event> = (() => IgniteAdapter<
 	State,
@@ -44,6 +51,7 @@ export type ProjectionFactoryOptions<
 	scope?: StateScope;
 	states?: FacadeStatesCallback<Snapshot, StatesResult>;
 	commands?: FacadeCommandsCallback<CommandActor, CommandsResult, Events, Host>;
+	effects?: FacadeEffectsCallback<Snapshot, CommandActor, Events, Host>;
 	resolveStateSnapshot?: (adapter: IgniteAdapter<State, Event>) => Snapshot;
 	resolveCommandActor?: (adapter: IgniteAdapter<State, Event>) => CommandActor;
 	createAdditionalArgs?: (
@@ -79,6 +87,7 @@ export type ProjectionFactory<
 	createAdapter: AdapterFactory<State, Event>;
 	scope?: StateScope;
 	cleanup?: boolean;
+	eventTypes: readonly (keyof Events & string)[];
 	createAdditionalArgs: (
 		adapter: IgniteAdapter<State, Event>,
 		host: Host,
@@ -170,6 +179,7 @@ export function createProjectionFactory<
 		scope,
 		states,
 		commands,
+		effects,
 		resolveStateSnapshot,
 		resolveCommandActor,
 		createAdditionalArgs,
@@ -243,7 +253,8 @@ export function createProjectionFactory<
 			State,
 			Event,
 			FinalRenderArgs
-		>;
+		> &
+			FacadeLifecycle;
 
 		Object.defineProperties(merged, {
 			...Object.getOwnPropertyDescriptors(extras),
@@ -288,9 +299,10 @@ export function createProjectionFactory<
 			>;
 			const actor = resolveActor(adapter);
 			const safeEmit = createEmit(emit);
+			const deprecatedEmit = createDeprecatedCommandEmit(safeEmit);
 			const commandResult = commandCallback({
 				actor,
-				emit: safeEmit,
+				emit: deprecatedEmit,
 				host,
 			});
 			ensureFacadeResult(commandResult, "commands");
@@ -316,6 +328,22 @@ export function createProjectionFactory<
 			});
 		}
 
+		if (effects) {
+			const safeEmit = createEmit(emit);
+			Object.defineProperty(merged, facadeCleanupSymbol, {
+				configurable: true,
+				enumerable: false,
+				value: attachEffects({
+					adapter,
+					effects,
+					resolveActor: resolveActor,
+					resolveSnapshot,
+					host,
+					emit: safeEmit,
+				}),
+			});
+		}
+
 		return merged;
 	};
 
@@ -323,6 +351,7 @@ export function createProjectionFactory<
 		createAdapter,
 		scope: scope ?? createAdapter.scope,
 		cleanup,
+		eventTypes: Object.keys(eventDefinitions) as Array<keyof Events & string>,
 		createAdditionalArgs: createMergedArgs as ProjectionFactory<
 			State,
 			Event,

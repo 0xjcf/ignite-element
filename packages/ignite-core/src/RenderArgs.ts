@@ -47,8 +47,11 @@ export type CommandContext<
 	Host = unknown,
 > = {
 	actor: Actor;
-	emit: EmitFromEvents<Events>;
 	host: Host;
+	/**
+	 * @deprecated `emit` inside commands is deprecated. Move event emission to `effects()`.
+	 */
+	emit: EmitFromEvents<Events>;
 };
 
 export type FacadeCommandsCallback<
@@ -57,6 +60,27 @@ export type FacadeCommandsCallback<
 	Events extends EventMap = EmptyEventMap,
 	Host = unknown,
 > = (context: CommandContext<Actor, Events, Host>) => Result;
+
+export type EffectContext<
+	Actor,
+	Events extends EventMap = EmptyEventMap,
+	Host = unknown,
+> = {
+	actor: Actor;
+	emit: EmitFromEvents<Events>;
+	host: Host;
+};
+
+export type FacadeEffectsCallback<
+	Snapshot,
+	Actor,
+	Events extends EventMap = EmptyEventMap,
+	Host = unknown,
+> = (
+	snapshot: Snapshot,
+	prevSnapshot: Snapshot,
+	context: EffectContext<Actor, Events, Host>,
+) => void;
 
 type IsNever<T> = [T] extends [never] ? true : false;
 

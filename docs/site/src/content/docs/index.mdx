@@ -5,7 +5,7 @@ sidebar:
   label: Welcome
   order: 1
 hero:
-  tagline: Framework-agnostic custom elements with typed state and events.
+  tagline: Framework-agnostic custom elements with typed state, commands, effects, and events.
   badge: v2 docs
   actions:
     - text: Install
@@ -15,7 +15,7 @@ hero:
       variant: secondary
 ---
 
-Ignite Element gives you a thin, typed layer around your favorite state library so you can ship web components without bringing a framework runtime.
+Ignite Element gives you a thin, typed layer around your favorite state library so you can ship web components without bringing a framework runtime. Commands express intent, effects express consequences, and the same component contract can run in the DOM or headlessly.
 
 :::tip[Goal]
 
@@ -144,7 +144,7 @@ Spin up the counter example in your browser:
 ## Why teams pick Ignite Element
 
 - Works with XState, Redux Toolkit, or MobX—bring your adapter, keep your patterns.
-- Typed commands, states, and events without a React/Solid runtime; you only install the state library and renderer you pick.
+- Typed commands, states, effects, and events without a React/Solid runtime; you only install the state library and renderer you pick.
 - Renderer choice: Ignite JSX (default, backed by `lit-html`); choose per project via config.
 - Built-in lifecycle handling for shared vs. isolated adapters.
 - Ship design-safe components: global styles via `ignite.config.ts`, per-component CSS as needed.
@@ -152,7 +152,7 @@ Spin up the counter example in your browser:
 ## Ignite vs. other options
 
 - **Lit / Stencil**: Ignite is renderer-agnostic with pluggable adapters; keep your state library instead of adopting a bespoke reactive model.
-- **Framework wrappers**: No React/Solid runtime required—ship native custom elements with typed events and commands.
+- **Framework wrappers**: No React/Solid runtime required—ship native custom elements with typed commands, effects, and events.
 - **State-library lock-in**: Swap XState/Redux/MobX without rewriting renderers; shared lifecycle handling stays consistent.
 
 ## Performance snapshot

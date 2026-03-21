@@ -12,6 +12,7 @@ import type { XStateConfig } from "../../igniteCore/types";
 import type {
 	CommandContext,
 	EmptyEventMap,
+	EffectContext,
 	EventBuilder,
 	EventDescriptor,
 	ReduxSliceCommandActor,
@@ -91,7 +92,7 @@ describe("igniteCore type inference", () => {
 		expectTypeOf<RenderArgs["ping"]>().toEqualTypeOf<() => void>();
 	});
 
-	it("types the emit helper based on declared events", () => {
+	it("types the effects emit helper based on declared events", () => {
 		const machine = createMachine({
 			initial: "idle",
 			states: {
@@ -107,12 +108,14 @@ describe("igniteCore type inference", () => {
 			events: (event) => ({
 				"checkout-submitted": event<{ email: string }>(),
 			}),
-			commands: ({ actor, emit }) => ({
+			commands: ({ actor }) => ({
 				submit: () => {
-					emit("checkout-submitted", { email: "user@example.com" });
 					actor.send({ type: "PING" });
 				},
 			}),
+			effects: (_snapshot, _prevSnapshot, { emit }) => {
+				emit("checkout-submitted", { email: "user@example.com" });
+			},
 		});
 
 		igniteCore({
@@ -126,7 +129,7 @@ describe("igniteCore type inference", () => {
 		});
 	});
 
-	it("types emit when commands appear before events", () => {
+	it("types effects emit when effects appear before events", () => {
 		const machine = createMachine({
 			initial: "idle",
 			states: {
@@ -139,13 +142,14 @@ describe("igniteCore type inference", () => {
 		const config = {
 			adapter: "xstate",
 			source: machine,
-			commands: ({ emit }) => ({
-				trigger: () => {
-					emit("leaderboardRefresh", { tournamentId: "t-1", sort: "alpha" });
-					// @ts-expect-error - typo in event name should be rejected
-					emit("leaderboadRefresh", { tournamentId: "t-1", sort: "alpha" });
-				},
+			commands: ({ actor }) => ({
+				trigger: () => actor.send({ type: "PING" }),
 			}),
+			effects: (_snapshot, _prevSnapshot, { emit }) => {
+				emit("leaderboardRefresh", { tournamentId: "t-1", sort: "alpha" });
+				// @ts-expect-error - typo in event name should be rejected
+				emit("leaderboadRefresh", { tournamentId: "t-1", sort: "alpha" });
+			},
 			events: (event) => ({
 				leaderboardRefresh: event<{
 					tournamentId: string;
@@ -165,7 +169,7 @@ describe("igniteCore type inference", () => {
 		igniteCore(config);
 	});
 
-	it("keeps emit typed for leaderboard commands with events declared last", () => {
+	it("keeps effects emit typed for leaderboard workflows with events declared last", () => {
 		type SortKey = "alpha" | "beta";
 
 		const leaderboardMachine = createMachine({
@@ -191,20 +195,23 @@ describe("igniteCore type inference", () => {
 				leaderboard: snapshot.context.leaderboard,
 				sort: snapshot.context.sort,
 			}),
-			commands: ({ actor, emit }) => ({
+			commands: ({ actor }) => ({
 				trigger: () => {
-					const { activeTournamentId, sort } = actor.state.context;
-					emit("leaderboardRefresh", {
-						tournamentId: activeTournamentId,
-						sort,
-					});
-					// @ts-expect-error - typo should be rejected
-					emit("leaderdRfresh", {
-						tournamentId: activeTournamentId,
-						sort,
-					});
+					actor.send({ type: "PING" });
 				},
 			}),
+			effects: (_snapshot, _prevSnapshot, { actor, emit }) => {
+				const { activeTournamentId, sort } = actor.state.context;
+				emit("leaderboardRefresh", {
+					tournamentId: activeTournamentId,
+					sort,
+				});
+				// @ts-expect-error - typo should be rejected
+				emit("leaderdRfresh", {
+					tournamentId: activeTournamentId,
+					sort,
+				});
+			},
 			events: (event: EventBuilder) => ({
 				playerJoined: event<{ tournamentId: string }>(),
 				playerLeft: event<{ tournamentId: string }>(),
@@ -214,7 +221,7 @@ describe("igniteCore type inference", () => {
 		});
 	});
 
-	it("allows optional payload for events with undefined payload", () => {
+	it("allows optional payload for effects events with undefined payload", () => {
 		const machine = createMachine({
 			initial: "idle",
 			states: {
@@ -227,19 +234,18 @@ describe("igniteCore type inference", () => {
 		igniteCore({
 			adapter: "xstate",
 			source: machine,
-
-			commands: ({ emit }) => ({
-				trigger: () => {
-					emit("optional-payload");
-					emit("optional-payload", { id: "123" });
-					emit("optional-payload", undefined);
-
-					// @ts-expect-error - payload is required
-					emit("required-payload");
-					emit("required-payload", { id: "123" });
-				},
+			commands: ({ actor }) => ({
+				trigger: () => actor.send({ type: "PING" }),
 			}),
+			effects: (_snapshot, _prevSnapshot, { emit }) => {
+				emit("optional-payload");
+				emit("optional-payload", { id: "123" });
+				emit("optional-payload", undefined);
 
+				// @ts-expect-error - payload is required
+				emit("required-payload");
+				emit("required-payload", { id: "123" });
+			},
 			events: (event: EventBuilder) => ({
 				"optional-payload": event<{ id?: string } | undefined>(),
 				"required-payload": event<{ id: string }>(),
@@ -247,7 +253,7 @@ describe("igniteCore type inference", () => {
 		});
 	});
 
-	it("infers events when adapter is inferred from source", () => {
+	it("infers effects events when adapter is inferred from source", () => {
 		const machine = createMachine({
 			initial: "idle",
 			states: {
@@ -262,14 +268,89 @@ describe("igniteCore type inference", () => {
 			events: (event) => ({
 				"pinged-event": event<{ id: string }>(),
 			}),
+			commands: ({ actor }) => ({
+				trigger: () => actor.send({ type: "PING" }),
+			}),
+			effects: (_snapshot, _prevSnapshot, { emit }) => {
+				emit("pinged-event", { id: "123" });
+				// @ts-expect-error - payload is required
+				emit("pinged-event");
+			},
+		});
+	});
+
+	it("keeps deprecated command emit available during migration", () => {
+		const machine = createMachine({
+			initial: "idle",
+			states: {
+				idle: {
+					on: { PING: "idle" },
+				},
+			},
+		});
+
+		igniteCore({
+			adapter: "xstate",
+			source: machine,
+			events: (event) => ({
+				legacy: event<{ email: string }>(),
+			}),
 			commands: ({ emit }) => ({
 				trigger: () => {
-					emit("pinged-event", { id: "123" });
-					// @ts-expect-error - payload is required
-					emit("pinged-event");
+					emit("legacy", { email: "user@example.com" });
 				},
 			}),
 		});
+	});
+
+	it("types the agent runtime surface", () => {
+		const store = counterStore();
+		type StoreState = InferStateAndEvent<typeof store>["State"];
+
+		const register = igniteCore({
+			adapter: "redux",
+			source: store,
+			commands: ({ actor }) => ({
+				increment: (amount: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+			}),
+			events: (event) => ({
+				"counter-incremented": event<{ count: number }>(),
+			}),
+			effects: (
+				snapshot: StoreState,
+				prevSnapshot: StoreState,
+				ctx: EffectContext<
+					ReduxStoreCommandActor<typeof store>,
+					{
+						"counter-incremented": EventDescriptor<{ count: number }>;
+					}
+				>,
+			) => {
+				if (snapshot.counter.count === prevSnapshot.counter.count) {
+					return;
+				}
+
+				ctx.emit("counter-incremented", {
+					count: snapshot.counter.count,
+				});
+			},
+		});
+
+		const result = register.execute("increment", 2);
+		expectTypeOf(result.state).toEqualTypeOf<StoreState>();
+		register.subscribe("counter-incremented", (event) => {
+			expectTypeOf(event.detail).toEqualTypeOf<{ count: number }>();
+		});
+
+		const expectRuntimeValidation = () => {
+			// @ts-expect-error - command name should be validated
+			register.execute("incrementt", 2);
+			// @ts-expect-error - event name should be validated
+			register.subscribe("counter-incrementedd", () => {});
+		};
+
+		void expectRuntimeValidation;
 	});
 
 	it("infers redux slice snapshot and actor facades", () => {

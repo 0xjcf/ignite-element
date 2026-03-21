@@ -12,7 +12,7 @@ Ignite Element is a lightweight layer for building framework-agnostic custom ele
 - **Renderers** decide how templates are produced: Ignite JSX (default) or lit.
 - **Config** lives in `ignite.config.ts`, where you set renderer defaults, logging, and shared styles.
 
-The end result is a web component factory with typed `states`, `commands`, and `events`, so you can compose UI in any host framework—or none at all.
+The end result is a web component factory with typed `states`, `commands`, `effects`, and `events`, so you can compose UI in any host framework, run it headlessly for tests and automation, or do both from the same contract.
 
 Ignite apps keep machines focused on behavior and use adapters to isolate IO. Adapters are wired internally by helper constructors in ecosystem packages; ignite-element stays UI-focused and consumes the resulting actors.
 

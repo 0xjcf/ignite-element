@@ -18,6 +18,7 @@ export { igniteCore } from "./igniteCore";
 export type {
 	BaseRenderArgs,
 	CommandContext,
+	EffectContext,
 	EmitFromEvents,
 	EmitPayloadArgs,
 	EmptyEventMap,
@@ -25,6 +26,7 @@ export type {
 	EventDescriptor,
 	EventMap,
 	EventPayload,
+	FacadeEffectsCallback,
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
@@ -33,12 +35,18 @@ export type {
 } from "./RenderArgs";
 export type {
 	AnyCommandsCallback,
+	AnyEffectsCallback,
 	AnyStatesCallback,
 	EventsDefinition,
 	IgniteCoreReturn,
 	InferEvents,
 	XStateConfig,
 } from "./types";
+export {
+	COMMAND_EMIT_DEPRECATION_MESSAGE,
+	createDeprecatedCommandEmit,
+} from "./runtime/deprecation";
+export { facadeCleanupSymbol } from "./runtime/effects";
 export {
 	isFunction,
 	isXStateActor,

@@ -12,14 +12,14 @@
 
 ---
 
-**Ignite-Element** is a framework-agnostic way to build stateful Custom Elements. Bring your state library (XState, Redux, MobX), get typed `commands`, `states`, and `emit`, and render with the built-in Ignite JSX runtime or lit.
+**Ignite-Element** is a framework-agnostic way to build stateful Custom Elements. Bring your state library (XState, Redux, MobX), keep `commands` focused on intent, model consequences in `effects`, and render with the built-in Ignite JSX runtime or lit.
 
 Quick links: [Quick start](#quick-start-vite) · [Install matrix](#installation-matrix) · [Typed events](#typed-events) · [Styling](#styling) · [Examples](#examples)
 
 ## Why use it?
 
 - Works with XState, Redux, or MobX (shared or per-element state, inferred automatically)
-- Fully Typed commands and emit
+- Fully typed commands, state facades, effects, and events
 - Tiny runtime; no React/Solid dependency for JSX
 - Configurable renderer and global styles through `ignite.config.ts`
 
@@ -84,12 +84,15 @@ const component = igniteCore({
   source: machine,
   events: (event) => ({ toggled: event<{ isOn: boolean }>() }),
   states: (snapshot) => ({ isOn: snapshot.matches("on") }),
-  commands: ({ actor, emit }) => ({
+  commands: ({ actor }) => ({
     toggle: () => {
       actor.send({ type: "TOGGLE" });
-      emit("toggled", { isOn: actor.getSnapshot().matches("on") });
     },
   }),
+  effects: (snapshot, prevSnapshot, { emit }) => {
+    if (snapshot.matches("on") === prevSnapshot.matches("on")) return;
+    emit("toggled", { isOn: snapshot.matches("on") });
+  },
 });
 
 component("toggle-button", ({ isOn, toggle }) => (
@@ -138,7 +141,8 @@ Use the same approach for shared Redux stores, MobX observables, or any custom a
 `igniteCore` merges the outputs of your facade callbacks into the render arguments:
 
 - `states(snapshot)` derives the values your component needs to display.
-- `commands({ actor, emit, host })` returns the actions your component can call; when you declare `events`, it also includes the typed `emit` helper and the `host` element.
+- `commands({ actor, host })` returns the actions your component can call.
+- `effects(snapshot, prevSnapshot, { emit, actor, host })` maps state transitions to emitted events and other deterministic consequences.
 
 Both callbacks run once per adapter instance (shared) or per element (isolated), so you can safely memoize values or close over resources without worrying about duplicate subscriptions.
 
@@ -152,18 +156,44 @@ const registerCounter = igniteCore({
   events: (event) => ({
     "counter:incremented": event<{ amount: number }>(),
   }),
-  commands: ({ actor, emit }) => ({
+  commands: ({ actor }) => ({
     add: (amount: number) => {
       actor.dispatch(counterSlice.actions.addByAmount(amount));
-      emit("counter:incremented", { amount });
     },
   }),
+  effects: (snapshot, prevSnapshot, { emit }) => {
+    if (snapshot.counter.count === prevSnapshot.counter.count) return;
+    emit("counter:incremented", { amount: snapshot.counter.count });
+  },
 });
 ```
 
-Commands receive `{ actor, emit, host }`. The `emit` helper dispatches bubbling, composed `CustomEvent` instances so parents can listen with `addEventListener`. When no `events` map is supplied the helper is omitted, keeping render args lean.
+The `emit` helper now belongs in `effects()`. It dispatches bubbling, composed `CustomEvent` instances so parents can listen with `addEventListener`. Existing `emit` usage inside `commands()` still works temporarily, but logs `emit inside commands is deprecated. Move to effects().`
 
-> Heads-up: event name inference is most reliable when `events` is declared before `commands`. We’re tightening this in a future release.
+Event typing is independent of object property order, so `events`, `commands`, `states`, and `effects` can be declared in whichever order reads best.
+
+### Agent Runtime
+
+Every `igniteCore(...)` registration now exposes a headless runtime API:
+
+```ts
+const result = component.execute("toggle");
+component.getState();
+component.subscribe("toggled", (event) => {
+  console.log(event.detail.isOn);
+});
+```
+
+`execute()` returns the latest state plus the events emitted during that command:
+
+```ts
+{
+  state,
+  events: [{ type: "toggled", payload: { isOn: true } }]
+}
+```
+
+This makes the same component contract usable in the DOM, in tests, and in agent workflows.
 
 ### Styling
 

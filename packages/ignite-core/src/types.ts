@@ -15,6 +15,7 @@ import type {
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
+	FacadeEffectsCallback,
 	FacadeStatesCallback,
 } from "./RenderArgs";
 
@@ -25,6 +26,11 @@ export type AnyStatesCallback = FacadeStatesCallback<
 export type AnyCommandsCallback = FacadeCommandsCallback<
 	unknown,
 	FacadeCommandResult,
+	EventMap
+>;
+export type AnyEffectsCallback = FacadeEffectsCallback<
+	unknown,
+	unknown,
 	EventMap
 >;
 
@@ -84,6 +90,12 @@ export type XStateConfig<
 	commands?: FacadeCommandsCallback<
 		XStateCommandActor<Machine>,
 		CommandsResult,
+		Events,
+		Host
+	>;
+	effects?: FacadeEffectsCallback<
+		ExtendedState<Machine>,
+		XStateCommandActor<Machine>,
 		Events,
 		Host
 	>;

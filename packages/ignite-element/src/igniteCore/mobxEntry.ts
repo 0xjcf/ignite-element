@@ -45,6 +45,7 @@ function bindProjectionToElements<
 	return igniteElementFactory(projection.createAdapter, {
 		scope: projection.scope,
 		cleanup: projection.cleanup,
+		eventTypes: projection.eventTypes,
 		createAdditionalArgs: (adapter, host) => {
 			if (!host) {
 				throw new Error(
@@ -80,5 +81,13 @@ export function igniteCoreMobx<
 	Events
 > {
 	const projection = igniteCoreMobxProjection(options);
-	return bindProjectionToElements(projection);
+	return bindProjectionToElements(projection) as IgniteCoreReturn<
+		State,
+		MobxEvent<State>,
+		State,
+		StatesResult,
+		State,
+		CommandsResult,
+		Events
+	>;
 }

@@ -47,6 +47,7 @@ function bindProjectionToElements<
 	return igniteElementFactory(projection.createAdapter, {
 		scope: projection.scope,
 		cleanup: projection.cleanup,
+		eventTypes: projection.eventTypes,
 		createAdditionalArgs: (adapter, host) => {
 			if (!host) {
 				throw new Error(
@@ -82,5 +83,13 @@ export function igniteCoreXState<
 	Events
 > {
 	const projection = igniteCoreProjection(options);
-	return bindProjectionToElements(projection);
+	return bindProjectionToElements(projection) as IgniteCoreReturn<
+		ExtendedState<Machine>,
+		EventFrom<Machine>,
+		ExtendedState<Machine>,
+		StatesResult,
+		XStateCommandActor<Machine>,
+		CommandsResult,
+		Events
+	>;
 }

@@ -1,10 +1,11 @@
 import type { IgniteAdapter } from "ignite-core";
-import { StateScope } from "ignite-core";
+import { facadeCleanupSymbol, StateScope } from "ignite-core";
 import type { IgniteJsxChild, RenderStrategyFactory } from "ignite-renderer";
 import type { TemplateResult } from "lit-html";
 import IgniteElement from "./IgniteElement";
 import "./renderers/ignite-jsx";
 import { resolveConfiguredRenderStrategy } from "./renderers/resolveConfiguredRenderStrategy";
+import { createAgentRuntime } from "./runtime/agent";
 
 export type BaseRenderArgs<State, Event> = {
 	state: State;
@@ -65,9 +66,10 @@ type FactoryOptions<
 	View,
 > = {
 	scope?: StateScope;
+	eventTypes?: readonly string[];
 	createAdditionalArgs?: (
 		adapter: IgniteAdapter<State, Event>,
-		host?: IgniteElement<State, Event, View>,
+		host?: HTMLElement,
 	) => AdditionalRenderArgs<State, Event, RenderArgs>;
 	createRenderStrategy?: RenderStrategyFactory<View>;
 	cleanup?: boolean;
@@ -91,10 +93,18 @@ export default function igniteElementFactory<
 		AdditionalRenderArgs<State, Event, RenderArgs>
 	>();
 	let sharedInstanceCount = 0;
+	let sharedRuntimeActive = false;
+	let runtimeAdapter: IgniteAdapter<State, Event> | null = null;
+	let runtimeAdditionalArgs: AdditionalRenderArgs<
+		State,
+		Event,
+		RenderArgs
+	> | null = null;
+	let runtimeHost: HTMLElement | null = null;
 
 	const createAdditionalArgs: (
 		adapter: IgniteAdapter<State, Event>,
-		host?: IgniteElement<State, Event, View>,
+		host?: HTMLElement,
 	) => AdditionalRenderArgs<State, Event, RenderArgs> =
 		options?.createAdditionalArgs ??
 		((_) => ({}) as AdditionalRenderArgs<State, Event, RenderArgs>);
@@ -104,6 +114,25 @@ export default function igniteElementFactory<
 		options?.createRenderStrategy ??
 		(configuredFactory as RenderStrategyFactory<View>);
 	const cleanupSharedLifecycle = options?.cleanup ?? true;
+	const inferredScope =
+		options?.scope ??
+		(createAdapter as { scope?: StateScope }).scope ??
+		StateScope.Isolated;
+	const eventTypes = options?.eventTypes ?? [];
+
+	const cleanupAdditionalArgs = (
+		additionalArgs?: AdditionalRenderArgs<State, Event, RenderArgs> | null,
+	) => {
+		const cleanup = (
+			additionalArgs as
+				| (AdditionalRenderArgs<State, Event, RenderArgs> & {
+						[facadeCleanupSymbol]?: () => void;
+				  })
+				| null
+				| undefined
+		)?.[facadeCleanupSymbol];
+		cleanup?.();
+	};
 
 	const resolveSharedResources = (): {
 		adapter: IgniteAdapter<State, Event>;
@@ -142,28 +171,58 @@ export default function igniteElementFactory<
 		sharedInstanceCount = 0;
 	};
 
-	return (elementName, renderer) => {
+	const createRuntimeHost = () => document.createElement("div");
+
+	const resolveRuntimeResources = () => {
+		if (inferredScope === StateScope.Shared) {
+			const { adapter } = resolveSharedResources();
+			sharedRuntimeActive = true;
+
+			if (!runtimeHost || !runtimeAdditionalArgs) {
+				runtimeHost = createRuntimeHost();
+				runtimeAdditionalArgs = createAdditionalArgs(adapter, runtimeHost);
+			}
+
+			return {
+				adapter,
+				additionalArgs: runtimeAdditionalArgs,
+				host: runtimeHost,
+			};
+		}
+
+		if (!runtimeAdapter) {
+			runtimeAdapter = createAdapter();
+			runtimeAdapter.scope ??= StateScope.Isolated;
+		}
+
+		if (!runtimeHost || !runtimeAdditionalArgs) {
+			runtimeHost = createRuntimeHost();
+			runtimeAdditionalArgs = createAdditionalArgs(runtimeAdapter, runtimeHost);
+		}
+
+		return {
+			adapter: runtimeAdapter,
+			additionalArgs: runtimeAdditionalArgs,
+			host: runtimeHost,
+		};
+	};
+
+	const register = (
+		elementName: string,
+		renderer: ComponentRenderer<RenderArgs, View>,
+	) => {
 		if (customElements.get(elementName)) {
 			throw new Error(
 				`[igniteElementFactory] Element "${elementName}" has already been defined.`,
 			);
 		}
 
-		const inferredScope =
-			options?.scope ??
-			(createAdapter as { scope?: StateScope }).scope ??
-			StateScope.Isolated;
-
 		if (inferredScope === StateScope.Shared) {
 			const render = resolveRenderer(renderer);
 			resolveSharedResources();
 
 			class SharedIgniteComponent extends IgniteElement<State, Event, View> {
-				private readonly additionalArgs: AdditionalRenderArgs<
-					State,
-					Event,
-					RenderArgs
-				>;
+				private additionalArgs: AdditionalRenderArgs<State, Event, RenderArgs>;
 
 				constructor() {
 					const { adapter } = resolveSharedResources();
@@ -172,18 +231,25 @@ export default function igniteElementFactory<
 				}
 
 				connectedCallback(): void {
+					this.additionalArgs = resolveSharedAdditionalArgs(this);
 					sharedInstanceCount += 1;
 					super.connectedCallback();
 				}
 
 				disconnectedCallback(): void {
 					super.disconnectedCallback();
+					cleanupAdditionalArgs(this.additionalArgs);
+					sharedAdditionalArgs.delete(this);
 
 					if (sharedInstanceCount > 0) {
 						sharedInstanceCount -= 1;
 					}
 
-					if (cleanupSharedLifecycle && sharedInstanceCount === 0) {
+					if (
+						cleanupSharedLifecycle &&
+						sharedInstanceCount === 0 &&
+						!sharedRuntimeActive
+					) {
 						releaseSharedResources();
 					}
 				}
@@ -218,6 +284,11 @@ export default function igniteElementFactory<
 
 			private readonly renderImpl: (args: RenderArgs) => View;
 
+			disconnectedCallback(): void {
+				cleanupAdditionalArgs(this.additionalArgs);
+				super.disconnectedCallback();
+			}
+
 			protected renderView(): View {
 				return this.renderImpl({
 					...this.additionalArgs,
@@ -229,6 +300,20 @@ export default function igniteElementFactory<
 
 		customElements.define(elementName, IsolatedIgniteComponent);
 	};
+
+	Object.assign(
+		register,
+		createAgentRuntime<
+			State,
+			Event,
+			AdditionalRenderArgs<State, Event, RenderArgs>
+		>({
+			eventTypes,
+			resolveRuntime: resolveRuntimeResources,
+		}),
+	);
+
+	return register;
 
 	function resolveRenderer(
 		renderer: ComponentRenderer<RenderArgs, View>,

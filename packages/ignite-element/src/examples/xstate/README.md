@@ -65,13 +65,14 @@ const registerSharedXState = igniteCore({
   events: (event) => ({
     toggled: event<{ isDark: boolean }>(),
   }),
-  commands: ({ actor, emit }) => ({
+  commands: ({ actor }) => ({
     increment: () => actor.send({ type: "INC" }),
     decrement: () => actor.send({ type: "DEC" }),
-    toggleDarkMode: () => {
-      actor.send({ type: "TOGGLE_DARK" });
-      emit("toggled", { isDark: actor.getSnapshot().context.darkMode });
-    },
+    toggleDarkMode: () => actor.send({ type: "TOGGLE_DARK" }),
+  }),
+  effects: (snapshot, prevSnapshot, { emit }) => {
+    if (snapshot.context.darkMode === prevSnapshot.context.darkMode) return;
+    emit("toggled", { isDark: snapshot.context.darkMode });
   }),
 });
 
@@ -80,7 +81,10 @@ const registerIsolatedXState = igniteCore({
   source: advancedMachine, // machine → isolated scope per element
   states: (snapshot) => ({ /* same mapping as shared */ }),
   events: (event) => ({ toggled: event<{ isDark: boolean }>() }),
-  commands: ({ actor, emit }) => ({ /* same commands as shared */ }),
+  commands: ({ actor }) => ({ /* same commands as shared */ }),
+  effects: (snapshot, prevSnapshot, ctx) => {
+    /* same effects as shared */
+  },
 });
 ```
 

@@ -15,7 +15,8 @@ const component = igniteCore({
   source: machineOrActor,
   events: (event) => ({ /* typed events */ }),
   states: (snapshot) => ({ /* derived values */ }),
-  commands: ({ actor, emit, host }) => ({ /* actions */ }),
+  commands: ({ actor, host }) => ({ /* actions */ }),
+  effects: (snapshot, prevSnapshot, { emit, actor, host }) => { /* consequences */ },
 });
 
 component('tag-name', (props) => /* JSX or lit template */);
@@ -24,9 +25,10 @@ component('tag-name', (props) => /* JSX or lit template */);
 **Params**
 
 - `source`: machine definition or started actor (XState), Redux store/slice, or MobX observable.
-- `events(mapper)`: optional; defines typed DOM events and enables `emit` inside `commands`.
+- `events(mapper)`: optional; defines typed DOM events.
 - `states(snapshot)`: derive render props from the current snapshot; runs on mount and on changes.
-- `commands(context)`: expose actions; receives `{ actor, emit?, host }`.
+- `commands(context)`: expose actions; receives `{ actor, host }`.
+- `effects(snapshot, prevSnapshot, context)`: optional; runs after every state update and receives `{ emit, actor, host }`.
 - `cleanup`: defaults to `true`; for shared adapters, controls whether Ignite releases the shared adapter after the last element disconnects. Releasing the adapter stops Ignite-owned sources (e.g., XState machine actors); user-provided sources are never stopped.
 - `lifecycle`: optional; advanced overrides for browser lifecycle signals (XState-only).
 

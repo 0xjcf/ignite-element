@@ -24,3 +24,8 @@ export {
 	registerRenderStrategy,
 	resolveConfiguredRenderStrategy,
 } from "./renderers/resolveConfiguredRenderStrategy";
+export type {
+	IgniteAgentExecutionResult,
+	IgniteAgentRuntime,
+	RuntimeEvent,
+} from "./types/agent";

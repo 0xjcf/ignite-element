@@ -1,6 +1,7 @@
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type {
 	CommandContext as CoreCommandContext,
+	EffectContext as CoreEffectContext,
 	EmitFromEvents,
 	EmitPayloadArgs,
 	EmptyEventMap,
@@ -9,6 +10,7 @@ import type {
 	EventMap,
 	EventPayload,
 	ExtendedState,
+	FacadeEffectsCallback,
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeStatesCallback,
@@ -24,6 +26,7 @@ import type { AnyStateMachine, EventFrom, StateFrom } from "xstate";
 
 export type {
 	EmptyEventMap,
+	FacadeEffectsCallback,
 	EmitFromEvents,
 	EmitPayloadArgs,
 	EventBuilder,
@@ -44,6 +47,12 @@ export type CommandContext<
 	Events extends EventMap = EmptyEventMap,
 	Host = HTMLElement,
 > = CoreCommandContext<Actor, Events, Host>;
+
+export type EffectContext<
+	Actor,
+	Events extends EventMap = EmptyEventMap,
+	Host = HTMLElement,
+> = CoreEffectContext<Actor, Events, Host>;
 
 export type FacadeCommandsCallback<
 	Actor,

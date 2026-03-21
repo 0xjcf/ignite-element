@@ -1,6 +1,7 @@
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type {
 	AnyCommandsCallback,
+	AnyEffectsCallback,
 	AnyStatesCallback,
 	XStateConfig as CoreXStateConfig,
 	EmptyEventMap,
@@ -24,6 +25,7 @@ import type {
 } from "ignite-store";
 import type { AnyStateMachine } from "xstate";
 import type { ComponentFactory } from "../IgniteElementFactory";
+import type { IgniteAgentRuntime } from "../types/agent";
 
 export type IgniteCoreReturn<
 	State,
@@ -49,10 +51,11 @@ export type IgniteCoreReturn<
 		Events
 	> &
 		Record<never, Snapshot>
->;
-
+> &
+	IgniteAgentRuntime<Snapshot, CommandsResult, Events>;
 export type {
 	AnyCommandsCallback,
+	AnyEffectsCallback,
 	AnyStatesCallback,
 	EventsDefinition,
 	MobxEvent,

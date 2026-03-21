@@ -3,6 +3,7 @@ import type {
 	EmptyEventMap,
 	EventMap,
 	EventsDefinition,
+	FacadeEffectsCallback,
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
@@ -56,6 +57,12 @@ export type ReduxBlueprintConfig<
 		Events,
 		Host
 	>;
+	effects?: FacadeEffectsCallback<
+		InferStateAndEvent<Source>["State"],
+		ReduxCommandActorFor<Source>,
+		Events,
+		Host
+	>;
 	events?: EventsDefinition<Events>;
 	cleanup?: boolean;
 };
@@ -82,6 +89,12 @@ export type ReduxInstanceConfig<
 		Events,
 		Host
 	>;
+	effects?: FacadeEffectsCallback<
+		InferStateAndEvent<StoreInstance>["State"],
+		ReduxCommandActorFor<StoreInstance>,
+		Events,
+		Host
+	>;
 	events?: EventsDefinition<Events>;
 	cleanup?: boolean;
 };
@@ -100,6 +113,7 @@ export type MobxConfig<
 	source: (() => State) | State;
 	states?: FacadeStatesCallback<State, StatesResult>;
 	commands?: FacadeCommandsCallback<State, CommandsResult, Events, Host>;
+	effects?: FacadeEffectsCallback<State, State, Events, Host>;
 	events?: EventsDefinition<Events>;
 	cleanup?: boolean;
 };

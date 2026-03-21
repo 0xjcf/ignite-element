@@ -199,6 +199,7 @@ function createReduxStoreProjection<
 		scope: adapterFactory.scope,
 		states: options.states,
 		commands: options.commands,
+		effects: options.effects,
 		events: eventDefinitions,
 		cleanup: options.cleanup,
 	});
@@ -237,6 +238,7 @@ function createReduxFactoryProjection<
 		scope: adapterFactory.scope,
 		states: options.states,
 		commands: options.commands,
+		effects: options.effects,
 		events: eventDefinitions,
 		cleanup: options.cleanup,
 	});
@@ -275,6 +277,7 @@ function createReduxSliceProjection<
 		scope: adapterFactory.scope,
 		states: options.states,
 		commands: options.commands,
+		effects: options.effects,
 		events: eventDefinitions,
 		cleanup: options.cleanup,
 	});

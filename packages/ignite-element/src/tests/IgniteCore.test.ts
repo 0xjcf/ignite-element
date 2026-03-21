@@ -13,6 +13,7 @@ import counterStore, {
 	counterSlice,
 } from "../examples/redux/src/js/reduxCounterStore";
 import { igniteCore } from "../IgniteCore";
+import type { ReduxInstanceConfig } from "../igniteCore/types";
 import type {
 	CommandContext,
 	EventDescriptor,
@@ -47,6 +48,7 @@ const mockMobxStore = () =>
 describe("igniteCore", () => {
 	afterEach(() => {
 		document.body.innerHTML = "";
+		vi.restoreAllMocks();
 	});
 
 	it("should initialize without errors for XState adapter", () => {
@@ -245,7 +247,7 @@ describe("igniteCore", () => {
 		expect(latestArgs?.count).toBe(1);
 	});
 
-	it("emits declared events from commands", () => {
+	it("emits declared events from effects after state updates", () => {
 		const store = counterStore();
 		const dispatchSpy = vi.spyOn(store, "dispatch");
 		type EventStoreState = InferStateAndEvent<typeof store>["State"];
@@ -257,19 +259,30 @@ describe("igniteCore", () => {
 		};
 		const order: string[] = [];
 		type EventCommandContext = CommandContext<
-			ReduxStoreCommandActor<typeof store>,
-			CounterEventMap
+			ReduxStoreCommandActor<typeof store>
 		>;
-		const eventCommands = ({ actor, emit, host }: EventCommandContext) => ({
+		const eventCommands = ({ actor }: EventCommandContext) => ({
 			increment: () => {
-				const amountAttr = host.getAttribute("data-amount");
-				const amount = amountAttr ? Number(amountAttr) : 1;
-				emit("counter-incremented", { amount });
-				actor.dispatch(counterSlice.actions.increment());
 				order.push("dispatch");
+				actor.dispatch(counterSlice.actions.increment());
 			},
 		});
+		const eventEffects = (
+			snapshot: EventStoreState,
+			prevSnapshot: EventStoreState,
+			{
+				emit,
+				host,
+			}: CommandContext<ReduxStoreCommandActor<typeof store>, CounterEventMap>,
+		) => {
+			if (snapshot.counter.count === prevSnapshot.counter.count) {
+				return;
+			}
 
+			const amountAttr = host.getAttribute("data-amount");
+			const amount = amountAttr ? Number(amountAttr) : 1;
+			emit("counter-incremented", { amount });
+		};
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
@@ -278,6 +291,7 @@ describe("igniteCore", () => {
 				"counter-incremented": event<{ amount: number }>(),
 			}),
 			commands: eventCommands,
+			effects: eventEffects,
 		});
 
 		type RenderArgs = {
@@ -311,10 +325,90 @@ describe("igniteCore", () => {
 		latestArgs?.increment();
 
 		expect(listener).toHaveBeenCalledTimes(1);
-		expect(order).toEqual(["emit", "dispatch"]);
+		expect(order).toEqual(["dispatch", "emit"]);
 		expect(dispatchSpy).toHaveBeenCalledWith(
 			expect.objectContaining({ type: "counter/increment" }),
 		);
+	});
+
+	it("warns once when deprecated emit is used inside commands", () => {
+		const store = counterStore();
+		const warnSpy = vi
+			.spyOn(console, "warn")
+			.mockImplementation(() => undefined);
+
+		const register = igniteCore({
+			adapter: "redux",
+			source: store,
+			events: (event) => ({
+				"counter-incremented": event<{ amount: number }>(),
+			}),
+			commands: ({ actor, emit }) => ({
+				increment: () => {
+					emit("counter-incremented", { amount: 1 });
+					actor.dispatch(counterSlice.actions.increment());
+				},
+			}),
+		});
+
+		register.execute("increment");
+		register.execute("increment");
+
+		expect(warnSpy).toHaveBeenCalledTimes(1);
+		expect(warnSpy).toHaveBeenCalledWith(
+			"emit inside commands is deprecated. Move to effects().",
+		);
+	});
+
+	it("supports headless command execution and event subscriptions", () => {
+		const store = counterStore();
+		type StoreState = InferStateAndEvent<typeof store>["State"];
+		type RuntimeEventMap = {
+			"counter-incremented": EventDescriptor<{ count: number }>;
+		};
+		const runtimeConfig = {
+			adapter: "redux",
+			source: store,
+			commands: ({ actor }) => ({
+				increment: (amount = 1) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+			}),
+			events: (event) => ({
+				"counter-incremented": event<{ count: number }>(),
+			}),
+			effects: (snapshot: StoreState, prevSnapshot: StoreState, { emit }) => {
+				if (snapshot.counter.count === prevSnapshot.counter.count) {
+					return;
+				}
+
+				emit("counter-incremented", {
+					count: snapshot.counter.count,
+				});
+			},
+		} satisfies ReduxInstanceConfig<typeof store, RuntimeEventMap>;
+		const register = igniteCore(runtimeConfig);
+
+		const listener = vi.fn((event: CustomEvent<{ count: number }>) => {
+			expect(event.detail.count).toBe(3);
+		});
+		const subscription = register.subscribe("counter-incremented", listener);
+
+		const result = register.execute("increment", 3);
+
+		expect(register.getState().counter.count).toBe(3);
+		expect(result.state.counter.count).toBe(3);
+		expect(result.events).toEqual([
+			{
+				type: "counter-incremented",
+				payload: { count: 3 },
+			},
+		]);
+		expect(listener).toHaveBeenCalledTimes(1);
+
+		subscription.unsubscribe();
+		register.execute("increment", 1);
+
+		expect(listener).toHaveBeenCalledTimes(1);
 	});
 
 	it("shares redux store instances across elements", () => {

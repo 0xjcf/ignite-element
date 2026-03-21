@@ -27,8 +27,6 @@ export default abstract class IgniteElement<
 		this.strategy.attach(this._shadowRoot);
 
 		this._adapter = adapter;
-		this.subscribeToAdapter();
-
 		this._currentState = this._adapter.getState();
 		this._initialized = true;
 	}

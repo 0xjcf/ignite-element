@@ -8,3 +8,8 @@ export type {
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
 } from "./igniteCore/types";
+export type {
+	IgniteAgentExecutionResult,
+	IgniteAgentRuntime,
+	RuntimeEvent,
+} from "./types/agent";

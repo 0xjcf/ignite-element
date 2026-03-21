@@ -35,6 +35,7 @@ export function igniteCoreMobx<
 		scope: adapterFactory.scope,
 		states: options.states,
 		commands: options.commands,
+		effects: options.effects,
 		events: eventDefinitions,
 		cleanup: options.cleanup,
 	});

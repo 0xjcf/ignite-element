@@ -6,3 +6,8 @@ export type {
 	MobxConfig,
 	MobxEvent,
 } from "./igniteCore/types";
+export type {
+	IgniteAgentExecutionResult,
+	IgniteAgentRuntime,
+	RuntimeEvent,
+} from "./types/agent";

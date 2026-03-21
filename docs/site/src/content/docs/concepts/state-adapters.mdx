@@ -146,18 +146,21 @@ commands: ({ actor }) => ({
 
 ## Events
 
-Declare `events` to type `emit`, then fire DOM `CustomEvent`s from your commands. Prefer names with casing that maps to Ignite JSX handler props (`onEventName`). See [Events & commands](/ignite-element/concepts/events-and-commands/) for more patterns.
+Declare `events` to type `emit`, then fire DOM `CustomEvent`s from your effects. Prefer names with casing that maps to Ignite JSX handler props (`onEventName`). See [Events & commands](/ignite-element/concepts/events-and-commands/) for more patterns.
 
 ```ts
 events: (event) => ({
   incremented: event<{ count: number }>(),
 }),
-commands: ({ actor, emit }) => ({
+commands: ({ actor }) => ({
   increment: () => {
     actor.send({ type: 'INCREMENT' });
-    emit('incremented', { count: actor.getSnapshot().context.count });
   },
 }),
+effects: (snapshot, prevSnapshot, { emit }) => {
+  if (snapshot.context.count === prevSnapshot.context.count) return;
+  emit('incremented', { count: snapshot.context.count });
+},
 ```
 
 In Ignite JSX, the handler name follows the event:  

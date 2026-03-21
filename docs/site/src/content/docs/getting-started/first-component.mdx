@@ -33,12 +33,15 @@ const registerToggle = igniteCore({
   source: toggleMachine,
   events: (event) => ({ toggled: event<{ isOn: boolean }>() }),
   states: (snapshot) => ({ isOn: snapshot.matches('on') }),
-  commands: ({ actor, emit }) => ({
+  commands: ({ actor }) => ({
     toggle: () => {
       actor.send({ type: 'TOGGLE' });
-      emit('toggled', { isOn: actor.getSnapshot().matches('on') });
     },
   }),
+  effects: (snapshot, prevSnapshot, { emit }) => {
+    if (snapshot.matches('on') === prevSnapshot.matches('on')) return;
+    emit('toggled', { isOn: snapshot.matches('on') });
+  },
 });
 
 registerToggle('ignite-toggle', ({ isOn, toggle }) => (
@@ -49,7 +52,7 @@ registerToggle('ignite-toggle', ({ isOn, toggle }) => (
 ```
 
 :::tip[Typing events]
-`events` adds a typed `emit` helper to your `commands`. Skip it if you don’t need to broadcast DOM `CustomEvent`s.
+`events` adds a typed `emit` helper to your `effects`. Skip it if you don’t need to broadcast DOM `CustomEvent`s.
 :::
 
 ## 3) Style it (optional)
