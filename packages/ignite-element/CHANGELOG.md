@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Major Changes
+
+- Shift `igniteCore` to an effects-driven event model: commands now express intent, `effects(snapshot, prevSnapshot, ctx)` handles typed DOM event emission, and the runtime exposes headless `execute`, `getState`, and `subscribe` helpers.
+
+### Deprecations
+
+- `emit` inside `commands()` is deprecated and now warns with `emit inside commands is deprecated. Move to effects().`
+- Migration tooling is available via `pnpm run migrate:effects-events` and `docs/migrations/v2.2.3-effects-events.md`.
+
 ## 2.2.2
 
 ### Patch Changes

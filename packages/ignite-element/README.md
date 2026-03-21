@@ -172,6 +172,17 @@ The `emit` helper now belongs in `effects()`. It dispatches bubbling, composed `
 
 Event typing is independent of object property order, so `events`, `commands`, `states`, and `effects` can be declared in whichever order reads best.
 
+Migration help:
+
+- Guide: [`docs/migrations/v2.2.3-effects-events.md`](../../docs/migrations/v2.2.3-effects-events.md)
+- Scripted assist: `pnpm run migrate:effects-events`
+
+Deprecation timeline:
+
+- Current beta branch: `emit` in commands is deprecated but still supported.
+- Next stabilization release: migration docs/tooling remain in place.
+- Next breaking release: remove `emit` from command context.
+
 ### Agent Runtime
 
 Every `igniteCore(...)` registration now exposes a headless runtime API:
