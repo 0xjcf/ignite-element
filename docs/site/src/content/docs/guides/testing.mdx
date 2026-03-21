@@ -8,6 +8,38 @@ sidebar:
 
 Test the state source and the DOM separately. Keep your XState/Redux/MobX logic covered with its own unit tests, then add light DOM tests for the web components.
 
+## Headless runtime tests
+
+For deterministic command/event assertions, use the built-in scenario helper against the headless runtime returned by `igniteCore(...)`.
+
+```ts
+import { test as igniteTest } from 'ignite-element';
+import { igniteCore } from 'ignite-element/xstate';
+import { counterMachine } from './counter.machine';
+
+const component = igniteCore({
+  source: counterMachine,
+  commands: ({ actor }) => ({
+    toggle: () => actor.send({ type: 'TOGGLE' }),
+  }),
+  events: (event) => ({
+    toggled: event<{ isOn: boolean }>(),
+  }),
+  effects: (snapshot, prevSnapshot, { emit }) => {
+    if (snapshot.value === prevSnapshot.value) return;
+    emit('toggled', { isOn: snapshot.matches('on') });
+  },
+});
+
+igniteTest(component)
+  .given('off')
+  .when('toggle')
+  .expectState('on')
+  .expectEvent('toggled', { isOn: true });
+```
+
+This path is useful when you want to verify command execution, resulting state, and emitted events without mounting a custom element. The helper wraps `execute()`, so the observed events are the exact ones returned by the runtime for that transition.
+
 ## Setup
 
 - Use a browser-like runner (e.g., Vitest + JSDOM). Import `ignite.config.ts` (or the renderer entry) once so renderers/styles are registered.

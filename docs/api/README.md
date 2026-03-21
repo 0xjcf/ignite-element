@@ -28,6 +28,22 @@ Creates a registration function for wiring adapters to custom elements.
 - Render args merge the original adapter state/metadata with the derived façade values.
 - TypeScript infers the render argument shape from the callbacks you provide—no extra helper types required.
 
+### Headless testing
+
+`igniteCore(...)` also returns a headless runtime for deterministic testing and automation:
+
+```ts
+import { test as igniteTest } from "ignite-element";
+
+igniteTest(component)
+  .given("off")
+  .when("toggle")
+  .expectState("on")
+  .expectEvent("toggled");
+```
+
+The helper wraps `execute()` so state and event assertions use the same runtime contract as agents and other headless callers.
+
 ## `igniteElementFactory(createAdapter, options?)`
 
 Lower-level factory used by `igniteCore`. Accepts a callback that returns an adapter and optional configuration:

@@ -24,9 +24,16 @@ export {
 	registerRenderStrategy,
 	resolveConfiguredRenderStrategy,
 } from "./renderers/resolveConfiguredRenderStrategy";
+export { test } from "./testing";
 export type {
 	IgniteAgentExecutionResult,
 	IgniteAgentRuntime,
 	RuntimeEvent,
 } from "./types/agent";
 export type { IgniteAgentSchema, IgniteSchemaValue } from "./types/schema";
+export type {
+	IgniteEventExpectation,
+	IgniteEventPayloadExpectation,
+	IgniteStateExpectation,
+	IgniteTestScenario,
+} from "./testing";

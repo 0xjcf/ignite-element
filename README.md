@@ -217,6 +217,37 @@ component.subscribe("toggled", (event) => {
 
 This makes the same component contract usable in the DOM, in tests, and in agent workflows.
 
+### Testing DSL
+
+Use the headless runtime directly in tests with the built-in scenario helper:
+
+```ts
+import { test as igniteTest } from "ignite-element";
+import { igniteCore } from "ignite-element/xstate";
+
+const component = igniteCore({
+  source: machine,
+  commands: ({ actor }) => ({
+    toggle: () => actor.send({ type: "TOGGLE" }),
+  }),
+  events: (event) => ({
+    toggled: event<{ isOn: boolean }>(),
+  }),
+  effects: (snapshot, prevSnapshot, { emit }) => {
+    if (snapshot.value === prevSnapshot.value) return;
+    emit("toggled", { isOn: snapshot.matches("on") });
+  },
+});
+
+igniteTest(component)
+  .given("off")
+  .when("toggle")
+  .expectState("on")
+  .expectEvent("toggled", { isOn: true });
+```
+
+The helper asserts against `execute()` results, so state and event expectations stay deterministic and replay-friendly.
+
 ### Styling
 
 You can:

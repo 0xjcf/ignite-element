@@ -81,3 +81,34 @@ component.subscribe("toggled", (event) => {
   state: { value: "off", context: {} }
 }
 ```
+
+## Testing DSL
+
+Ignite also ships a scenario-style test helper that uses the same headless runtime:
+
+```ts
+import { test as igniteTest } from 'ignite-element';
+import { igniteCore } from 'ignite-element/xstate';
+
+const component = igniteCore({
+  source: machine,
+  commands: ({ actor }) => ({
+    toggle: () => actor.send({ type: 'TOGGLE' }),
+  }),
+  events: (event) => ({
+    toggled: event<{ isOn: boolean }>(),
+  }),
+  effects: (snapshot, prevSnapshot, { emit }) => {
+    if (snapshot.value === prevSnapshot.value) return;
+    emit('toggled', { isOn: snapshot.matches('on') });
+  },
+});
+
+igniteTest(component)
+  .given('off')
+  .when('toggle')
+  .expectState('on')
+  .expectEvent('toggled', { isOn: true });
+```
+
+The helper wraps `execute()`, so assertions stay deterministic and align with the same event stream returned by the runtime API.

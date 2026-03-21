@@ -1,6 +1,7 @@
 import "./internal/setupDomPolyfill";
 
 export { igniteCoreMobx as igniteCore } from "./igniteCore/mobxEntry";
+export { test } from "./testing";
 export type {
 	IgniteCoreReturn,
 	MobxConfig,
@@ -12,3 +13,9 @@ export type {
 	RuntimeEvent,
 } from "./types/agent";
 export type { IgniteAgentSchema, IgniteSchemaValue } from "./types/schema";
+export type {
+	IgniteEventExpectation,
+	IgniteEventPayloadExpectation,
+	IgniteStateExpectation,
+	IgniteTestScenario,
+} from "./testing";
