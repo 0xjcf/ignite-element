@@ -1,4 +1,5 @@
 import type { IgniteAdapter } from "ignite-core";
+import { toSchemaValue } from "./schema";
 
 type RuntimeResources<
 	State,
@@ -65,6 +66,22 @@ export function createAgentRuntime<
 		},
 		getState() {
 			return resolveRuntime().adapter.getState();
+		},
+		getSchema() {
+			const { adapter, additionalArgs } = resolveRuntime();
+			const commands = Object.entries(additionalArgs)
+				.filter(([, value]) => typeof value === "function")
+				.map(([name]) => name)
+				.sort();
+
+			return {
+				commands,
+				events: [...eventTypes].sort(),
+				state: (toSchemaValue(adapter.getState()) ?? null) as Exclude<
+					ReturnType<typeof toSchemaValue>,
+					undefined
+				>,
+			};
 		},
 		subscribe(
 			eventName: string,

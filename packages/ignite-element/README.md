@@ -190,6 +190,7 @@ Every `igniteCore(...)` registration now exposes a headless runtime API:
 ```ts
 const result = component.execute("toggle");
 component.getState();
+component.getSchema();
 component.subscribe("toggled", (event) => {
   console.log(event.detail.isOn);
 });
@@ -201,6 +202,16 @@ component.subscribe("toggled", (event) => {
 {
   state,
   events: [{ type: "toggled", payload: { isOn: true } }]
+}
+```
+
+`getSchema()` returns a JSON-serializable view of the component contract:
+
+```ts
+{
+  commands: ["toggle"],
+  events: ["toggled"],
+  state: { value: "off", context: {} }
 }
 ```
 

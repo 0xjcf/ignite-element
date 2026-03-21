@@ -4,6 +4,7 @@ import type {
 	EventPayload,
 	FacadeCommandResult,
 } from "../RenderArgs";
+import type { IgniteAgentSchema, IgniteSchemaValue } from "./schema";
 
 type RuntimeEventUnion<Events extends EventMap> = {
 	[Type in keyof Events & string]: {
@@ -40,6 +41,7 @@ export type IgniteAgentRuntime<
 	State,
 	Commands extends FacadeCommandResult = FacadeCommandResult,
 	Events extends EventMap = EmptyEventMap,
+	SchemaState = IgniteSchemaValue,
 > = {
 	execute<CommandName extends keyof Commands & string>(
 		commandName: CommandName,
@@ -52,4 +54,5 @@ export type IgniteAgentRuntime<
 	): {
 		unsubscribe: () => void;
 	};
+	getSchema(): IgniteAgentSchema<SchemaState>;
 };

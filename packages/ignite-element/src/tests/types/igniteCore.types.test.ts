@@ -15,6 +15,7 @@ import type {
 	EffectContext,
 	EventBuilder,
 	EventDescriptor,
+	IgniteSchemaValue,
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
 } from "../../RenderArgs";
@@ -338,7 +339,11 @@ describe("igniteCore type inference", () => {
 		});
 
 		const result = register.execute("increment", 2);
+		const schema = register.getSchema();
 		expectTypeOf(result.state).toEqualTypeOf<StoreState>();
+		expectTypeOf(schema.commands).toEqualTypeOf<string[]>();
+		expectTypeOf(schema.events).toEqualTypeOf<string[]>();
+		expectTypeOf(schema.state).toEqualTypeOf<IgniteSchemaValue>();
 		register.subscribe("counter-incremented", (event) => {
 			expectTypeOf(event.detail).toEqualTypeOf<{ count: number }>();
 		});

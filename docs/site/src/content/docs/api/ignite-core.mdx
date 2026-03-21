@@ -56,3 +56,28 @@ const component = igniteCore({
 ```
 
 See [State adapters](/ignite-element/concepts/state-adapters/) for adapter-specific behavior.
+
+## Agent runtime
+
+The returned component registration also exposes a headless runtime API:
+
+```ts
+const component = igniteCore({ source: machine });
+
+component.execute("toggle");
+component.getState();
+component.getSchema();
+component.subscribe("toggled", (event) => {
+  console.log(event.detail);
+});
+```
+
+`getSchema()` returns a JSON-serializable contract shape:
+
+```ts
+{
+  commands: ["toggle"],
+  events: ["toggled"],
+  state: { value: "off", context: {} }
+}
+```

@@ -54,6 +54,8 @@ export type EffectContext<
 	Host = HTMLElement,
 > = CoreEffectContext<Actor, Events, Host>;
 
+export type { IgniteSchemaValue } from "./types/schema";
+
 export type FacadeCommandsCallback<
 	Actor,
 	Result extends FacadeCommandResult = FacadeCommandResult,

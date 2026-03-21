@@ -11,3 +11,4 @@ export type {
 	IgniteAgentRuntime,
 	RuntimeEvent,
 } from "./types/agent";
+export type { IgniteAgentSchema, IgniteSchemaValue } from "./types/schema";

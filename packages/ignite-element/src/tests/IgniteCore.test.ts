@@ -411,6 +411,34 @@ describe("igniteCore", () => {
 		expect(listener).toHaveBeenCalledTimes(1);
 	});
 
+	it("exposes a JSON-serializable agent schema", () => {
+		const store = counterStore();
+
+		const register = igniteCore({
+			adapter: "redux",
+			source: store,
+			states: (snapshot) => ({
+				count: snapshot.counter.count,
+			}),
+			commands: ({ actor }) => ({
+				increment: () => actor.dispatch(counterSlice.actions.increment()),
+			}),
+			events: (event) => ({
+				"counter-incremented": event<{ count: number }>(),
+			}),
+		});
+
+		expect(register.getSchema()).toEqual({
+			commands: ["increment"],
+			events: ["counter-incremented"],
+			state: {
+				counter: {
+					count: 0,
+				},
+			},
+		});
+	});
+
 	it("shares redux store instances across elements", () => {
 		const store = counterStore();
 		const dispatchSpy = vi.spyOn(store, "dispatch");

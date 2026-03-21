@@ -7,4 +7,5 @@ export type {
 	IgniteAgentRuntime,
 	RuntimeEvent,
 } from "./types/agent";
+export type { IgniteAgentSchema, IgniteSchemaValue } from "./types/schema";
 export { igniteCoreXState as igniteCore } from "./igniteCore/xstateEntry";
