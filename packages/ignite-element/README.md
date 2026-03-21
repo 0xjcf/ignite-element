@@ -172,6 +172,12 @@ The `emit` helper now belongs in `effects()`. It dispatches bubbling, composed `
 
 Event typing is independent of object property order, so `events`, `commands`, `states`, and `effects` can be declared in whichever order reads best.
 
+Deterministic effects lifecycle:
+
+- Ignite seeds `prevSnapshot` from the current adapter state when a host/runtime attaches. Historical transitions are not replayed to new hosts.
+- `effects(snapshot, prevSnapshot, ctx)` runs only after subsequent adapter updates.
+- For mounted elements, effects attach before the render subscription, so emitted events from a transition fire before the next render for that same host.
+
 Migration help:
 
 - Guide: [`docs/migrations/v2.2.3-effects-events.md`](../../docs/migrations/v2.2.3-effects-events.md)

@@ -82,6 +82,13 @@ component.subscribe("toggled", (event) => {
 }
 ```
 
+## Deterministic effects semantics
+
+- Attaching a host or headless runtime seeds `prevSnapshot` from the current adapter state. Ignite does not replay historical transitions to newly attached consumers.
+- The first subscription notification establishes that baseline and does not run `effects(...)`.
+- After that, `effects(snapshot, prevSnapshot, ctx)` runs once per adapter update notification in a stable order.
+- For mounted custom elements, effects attach before the render subscription, so emitted events from a transition fire before the next render for that same host.
+
 ## Testing DSL
 
 Ignite also ships a scenario-style test helper that uses the same headless runtime:

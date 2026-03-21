@@ -40,6 +40,17 @@ igniteTest(component)
 
 This path is useful when you want to verify command execution, resulting state, and emitted events without mounting a custom element. The helper wraps `execute()`, so the observed events are the exact ones returned by the runtime for that transition.
 
+## Replay semantics
+
+Effects are seeded from the current snapshot when a host or runtime attaches.
+
+- Historical transitions are not replayed to new hosts.
+- The first subscription notification establishes `prevSnapshot` and does not run `effects(...)`.
+- Subsequent state updates run `effects(snapshot, prevSnapshot, ctx)` in a stable order.
+- For mounted elements, effects run before the render subscription for that host, so emitted DOM events arrive before the next render caused by the same transition.
+
+That makes it safe to write deterministic tests around a single transition without accidentally asserting mount-time emissions.
+
 ## Setup
 
 - Use a browser-like runner (e.g., Vitest + JSDOM). Import `ignite.config.ts` (or the renderer entry) once so renderers/styles are registered.

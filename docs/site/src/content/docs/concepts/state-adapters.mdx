@@ -136,7 +136,7 @@ If you need expensive computed values, move the derivation into your state sourc
 
 ## Commands
 
-`commands` receive `{ actor, emit, host }`. Keep them small and focused on dispatching state transitions or tiny side effects.
+`commands` receive `{ actor, host }`. Keep them small and focused on dispatching state transitions or tiny side effects.
 
 ```ts
 commands: ({ actor }) => ({
@@ -165,6 +165,8 @@ effects: (snapshot, prevSnapshot, { emit }) => {
 
 In Ignite JSX, the handler name follows the event:  
 `<my-counter onIncremented={(event) => handleIncrement(event.detail)}></my-counter>`
+
+Effects are seeded from the current snapshot when a host attaches. That first baseline does not run `effects(...)`; only subsequent adapter updates do. For mounted elements, effects run before the render subscription for that host, so emitted events arrive before the next render caused by the same transition.
 
 ## Common anti-patterns
 

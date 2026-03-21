@@ -331,6 +331,128 @@ describe("igniteCore", () => {
 		);
 	});
 
+	it("seeds effects from the current snapshot instead of replaying on attach", () => {
+		const store = counterStore();
+		store.dispatch(counterSlice.actions.addByAmount(2));
+		type StoreState = InferStateAndEvent<typeof store>["State"];
+		type RuntimeEventMap = {
+			"counter-incremented": EventDescriptor<{ count: number }>;
+		};
+		const runtimeConfig = {
+			adapter: "redux",
+			source: store,
+			states: (snapshot: StoreState) => ({
+				count: snapshot.counter.count,
+			}),
+			commands: ({ actor }) => ({
+				increment: () => actor.dispatch(counterSlice.actions.increment()),
+			}),
+			events: (event) => ({
+				"counter-incremented": event<{ count: number }>(),
+			}),
+			effects: (snapshot: StoreState, _prevSnapshot: StoreState, { emit }) => {
+				emit("counter-incremented", {
+					count: snapshot.counter.count,
+				});
+			},
+		} satisfies ReduxInstanceConfig<typeof store, RuntimeEventMap>;
+		const register = igniteCore(runtimeConfig);
+
+		type RenderArgs = {
+			count: number;
+			increment: () => void;
+		};
+
+		const elementName = `redux-effect-seed-${crypto.randomUUID()}`;
+		let latestArgs: RenderArgs | undefined;
+		const renderFn = vi.fn<(args: RenderArgs) => TemplateResult>((args) => {
+			latestArgs = args;
+			return html``;
+		});
+
+		register(elementName, renderFn);
+
+		const element = document.createElement(elementName);
+		const listener = vi.fn((event: Event) => {
+			const customEvent = event as CustomEvent<{ count: number }>;
+			expect(customEvent.detail.count).toBe(3);
+		});
+		element.addEventListener("counter-incremented", listener);
+		document.body.appendChild(element);
+
+		expect(latestArgs?.count).toBe(2);
+		expect(listener).not.toHaveBeenCalled();
+
+		latestArgs?.increment();
+
+		expect(listener).toHaveBeenCalledTimes(1);
+	});
+
+	it("runs effects before the next render after a state update", () => {
+		const store = counterStore();
+		type StoreState = InferStateAndEvent<typeof store>["State"];
+		type RuntimeEventMap = {
+			"counter-incremented": EventDescriptor<{ count: number }>;
+		};
+		const order: string[] = [];
+
+		const runtimeConfig = {
+			adapter: "redux",
+			source: store,
+			states: (snapshot: StoreState) => ({
+				count: snapshot.counter.count,
+			}),
+			commands: ({ actor }) => ({
+				increment: () => {
+					order.push("dispatch");
+					actor.dispatch(counterSlice.actions.increment());
+				},
+			}),
+			events: (event) => ({
+				"counter-incremented": event<{ count: number }>(),
+			}),
+			effects: (snapshot: StoreState, prevSnapshot: StoreState, { emit }) => {
+				if (snapshot.counter.count === prevSnapshot.counter.count) {
+					return;
+				}
+
+				order.push("effect");
+				emit("counter-incremented", {
+					count: snapshot.counter.count,
+				});
+			},
+		} satisfies ReduxInstanceConfig<typeof store, RuntimeEventMap>;
+		const register = igniteCore(runtimeConfig);
+
+		type RenderArgs = {
+			count: number;
+			increment: () => void;
+		};
+
+		const elementName = `redux-effect-order-${crypto.randomUUID()}`;
+		let latestArgs: RenderArgs | undefined;
+		const renderFn = vi.fn<(args: RenderArgs) => TemplateResult>((args) => {
+			latestArgs = args;
+			if (args.count > 0) {
+				order.push("render");
+			}
+			return html``;
+		});
+
+		register(elementName, renderFn);
+
+		const element = document.createElement(elementName);
+		element.addEventListener("counter-incremented", () => {
+			order.push("emit");
+		});
+		document.body.appendChild(element);
+
+		order.length = 0;
+		latestArgs?.increment();
+
+		expect(order).toEqual(["dispatch", "effect", "emit", "render"]);
+	});
+
 	it("warns once when deprecated emit is used inside commands", () => {
 		const store = counterStore();
 		const warnSpy = vi

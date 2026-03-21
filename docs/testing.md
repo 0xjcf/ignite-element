@@ -37,3 +37,10 @@ The helper:
 - verifies emitted effects with `expectEvent(...)` or `expectEvents(...)`
 
 Because it wraps the headless runtime, this style stays aligned with effects-based event emission and remains replay-friendly.
+
+## Deterministic effects notes
+
+- A new host/runtime seeds `prevSnapshot` from the current adapter state.
+- Historical transitions are not replayed when a new host attaches.
+- The first subscription notification establishes the baseline and does not run `effects(...)`.
+- For mounted elements, effects run before that host's next render for the same transition.

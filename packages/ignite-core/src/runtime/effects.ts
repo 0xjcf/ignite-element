@@ -44,9 +44,19 @@ export function attachEffects<
 	emit,
 }: AttachEffectsOptions<State, Event, Snapshot, CommandActor, Events, Host>) {
 	let prevSnapshot = resolveSnapshot(adapter);
+	let seeded = false;
 
 	const subscription = adapter.subscribe(() => {
 		const snapshot = resolveSnapshot(adapter);
+
+		// Adapters seed subscribers with the current snapshot immediately.
+		// Treat that first notification as the replay baseline rather than a change.
+		if (!seeded) {
+			seeded = true;
+			prevSnapshot = snapshot;
+			return;
+		}
+
 		effects(snapshot, prevSnapshot, {
 			actor: resolveActor(adapter),
 			emit,
