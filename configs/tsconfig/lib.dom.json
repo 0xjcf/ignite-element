@@ -1,6 +1,6 @@
 {
-  "extends": "./lib.json",
-  "compilerOptions": {
-    "lib": ["ES2020", "DOM", "DOM.Iterable"]
-  }
+	"extends": "./lib.json",
+	"compilerOptions": {
+		"lib": ["ES2020", "DOM", "DOM.Iterable"]
+	}
 }

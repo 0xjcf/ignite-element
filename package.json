@@ -1,29 +1,29 @@
 {
-  "name": "ignite-workspace",
-  "private": true,
-  "scripts": {
-    "build": "pnpm -r run build",
-    "build:types": "pnpm -r run build:types",
-    "build:js": "pnpm -r run build:js",
-    "test": "pnpm --filter ignite-element test",
-    "test:coverage": "pnpm --filter ignite-element test:coverage",
-    "test:node": "pnpm --filter ignite-element test:node",
-    "typecheck": "pnpm -r run typecheck",
-    "format": "pnpm -r run format",
-    "check": "pnpm -r run check",
-    "lint": "pnpm -r run lint",
-    "docs:dev": "pnpm --filter docs-site dev",
-    "docs:build": "pnpm --filter docs-site build",
-    "docs:preview": "pnpm --filter docs-site preview",
-    "examples:xstate": "pnpm --filter ignite-element examples:xstate",
-    "examples:redux": "pnpm --filter ignite-element examples:redux",
-    "examples:mobx": "pnpm --filter ignite-element examples:mobx"
-  },
-  "pnpm": {
-    "overrides": {
-      "js-yaml": "3.14.2",
-      "tar": "^7.5.2",
-      "read-yaml-file>js-yaml": "3.14.2"
-    }
-  }
+	"name": "ignite-workspace",
+	"private": true,
+	"scripts": {
+		"build": "pnpm -r run build",
+		"build:types": "pnpm -r run build:types",
+		"build:js": "pnpm -r run build:js",
+		"test": "pnpm --filter ignite-element test",
+		"test:coverage": "pnpm --filter ignite-element test:coverage",
+		"test:node": "pnpm --filter ignite-element test:node",
+		"typecheck": "pnpm -r run typecheck",
+		"format": "biome format --write .",
+		"check": "biome check .",
+		"lint": "biome lint .",
+		"docs:dev": "pnpm --filter docs-site dev",
+		"docs:build": "pnpm --filter docs-site build",
+		"docs:preview": "pnpm --filter docs-site preview",
+		"examples:xstate": "pnpm --filter ignite-element examples:xstate",
+		"examples:redux": "pnpm --filter ignite-element examples:redux",
+		"examples:mobx": "pnpm --filter ignite-element examples:mobx"
+	},
+	"pnpm": {
+		"overrides": {
+			"js-yaml": "3.14.2",
+			"tar": "^7.5.2",
+			"read-yaml-file>js-yaml": "3.14.2"
+		}
+	}
 }

@@ -1,0 +1,14 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"rootDir": "..",
+		"baseUrl": ".",
+		"composite": false,
+		"noEmit": true,
+		"paths": {
+			"ignite-core": ["../ignite-core/src/index.ts"],
+			"ignite-core/xstate": ["../ignite-core/src/xstate.ts"]
+		}
+	},
+	"include": ["src", "../ignite-core/src"]
+}

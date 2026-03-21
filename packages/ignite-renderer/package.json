@@ -1,84 +1,85 @@
 {
-  "name": "ignite-renderer",
-  "version": "2.2.2",
-  "type": "module",
-  "main": "dist/ignite-renderer.cjs.js",
-  "module": "dist/ignite-renderer.es.js",
-  "types": "dist/types/index.d.ts",
-  "typesVersions": {
-    "*": {
-      "jsx": [
-        "dist/types/renderers/ignite-jsx.d.ts"
-      ],
-      "lit": [
-        "dist/types/renderers/lit.d.ts"
-      ],
-      "jsx-runtime": [
-        "dist/types/jsx/jsx-runtime.d.ts"
-      ],
-      "jsx-dev-runtime": [
-        "dist/types/jsx/jsx-dev-runtime.d.ts"
-      ],
-      "jsx/index": [
-        "dist/types/jsx/index.d.ts"
-      ]
-    }
-  },
-  "exports": {
-    ".": {
-      "types": "./dist/types/index.d.ts",
-      "import": "./dist/ignite-renderer.es.js",
-      "require": "./dist/ignite-renderer.cjs.js",
-      "default": "./dist/ignite-renderer.es.js"
-    },
-    "./jsx": {
-      "types": "./dist/types/renderers/ignite-jsx.d.ts",
-      "import": "./dist/jsx.es.js",
-      "require": "./dist/jsx.cjs.js",
-      "default": "./dist/jsx.es.js"
-    },
-    "./lit": {
-      "types": "./dist/types/renderers/lit.d.ts",
-      "import": "./dist/lit.es.js",
-      "require": "./dist/lit.cjs.js",
-      "default": "./dist/lit.es.js"
-    },
-    "./jsx-runtime": {
-      "types": "./dist/types/jsx/jsx-runtime.d.ts",
-      "import": "./dist/jsx-runtime.es.js",
-      "require": "./dist/jsx-runtime.cjs.js",
-      "default": "./dist/jsx-runtime.es.js"
-    },
-    "./jsx-dev-runtime": {
-      "types": "./dist/types/jsx/jsx-dev-runtime.d.ts",
-      "import": "./dist/jsx-dev-runtime.es.js",
-      "require": "./dist/jsx-dev-runtime.cjs.js",
-      "default": "./dist/jsx-dev-runtime.es.js"
-    },
-    "./jsx/index": {
-      "types": "./dist/types/jsx/index.d.ts",
-      "import": "./dist/jsx/index.es.js",
-      "require": "./dist/jsx/index.cjs.js",
-      "default": "./dist/jsx/index.es.js"
-    }
-  },
-  "sideEffects": [
-    "./dist/jsx.es.js",
-    "./dist/jsx.cjs.js",
-    "./dist/lit.es.js",
-    "./dist/lit.cjs.js"
-  ],
-  "scripts": {
-    "build:types": "tsc",
-    "build:js": "vite build",
-    "build": "pnpm run build:types && pnpm run build:js"
-  },
-  "devDependencies": {
-    "typescript": "^5.9.3",
-    "vite": "^7.1.12",
-    "vite-plugin-dts": "^4.5.4"
-  },
-  "peerDependencies": {
-    "lit-html": ">=3.2.1"
-  }
+	"name": "ignite-renderer",
+	"version": "2.2.2",
+	"type": "module",
+	"main": "dist/ignite-renderer.cjs.js",
+	"module": "dist/ignite-renderer.es.js",
+	"types": "dist/types/index.d.ts",
+	"typesVersions": {
+		"*": {
+			"jsx": [
+				"dist/types/renderers/ignite-jsx.d.ts"
+			],
+			"lit": [
+				"dist/types/renderers/lit.d.ts"
+			],
+			"jsx-runtime": [
+				"dist/types/jsx/jsx-runtime.d.ts"
+			],
+			"jsx-dev-runtime": [
+				"dist/types/jsx/jsx-dev-runtime.d.ts"
+			],
+			"jsx/index": [
+				"dist/types/jsx/index.d.ts"
+			]
+		}
+	},
+	"exports": {
+		".": {
+			"types": "./dist/types/index.d.ts",
+			"import": "./dist/ignite-renderer.es.js",
+			"require": "./dist/ignite-renderer.cjs.js",
+			"default": "./dist/ignite-renderer.es.js"
+		},
+		"./jsx": {
+			"types": "./dist/types/renderers/ignite-jsx.d.ts",
+			"import": "./dist/jsx.es.js",
+			"require": "./dist/jsx.cjs.js",
+			"default": "./dist/jsx.es.js"
+		},
+		"./lit": {
+			"types": "./dist/types/renderers/lit.d.ts",
+			"import": "./dist/lit.es.js",
+			"require": "./dist/lit.cjs.js",
+			"default": "./dist/lit.es.js"
+		},
+		"./jsx-runtime": {
+			"types": "./dist/types/jsx/jsx-runtime.d.ts",
+			"import": "./dist/jsx-runtime.es.js",
+			"require": "./dist/jsx-runtime.cjs.js",
+			"default": "./dist/jsx-runtime.es.js"
+		},
+		"./jsx-dev-runtime": {
+			"types": "./dist/types/jsx/jsx-dev-runtime.d.ts",
+			"import": "./dist/jsx-dev-runtime.es.js",
+			"require": "./dist/jsx-dev-runtime.cjs.js",
+			"default": "./dist/jsx-dev-runtime.es.js"
+		},
+		"./jsx/index": {
+			"types": "./dist/types/jsx/index.d.ts",
+			"import": "./dist/jsx/index.es.js",
+			"require": "./dist/jsx/index.cjs.js",
+			"default": "./dist/jsx/index.es.js"
+		}
+	},
+	"sideEffects": [
+		"./dist/jsx.es.js",
+		"./dist/jsx.cjs.js",
+		"./dist/lit.es.js",
+		"./dist/lit.cjs.js"
+	],
+	"scripts": {
+		"build:types": "tsc",
+		"build:js": "vite build",
+		"build": "pnpm run build:types && pnpm run build:js",
+		"typecheck": "tsc --noEmit --pretty false --project tsconfig.json"
+	},
+	"devDependencies": {
+		"typescript": "^5.9.3",
+		"vite": "^7.1.12",
+		"vite-plugin-dts": "^4.5.4"
+	},
+	"peerDependencies": {
+		"lit-html": ">=3.2.1"
+	}
 }

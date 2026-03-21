@@ -4,10 +4,7 @@ export type MatchStateSnapshot = {
 
 export type MatchStateCases<T> = Record<string, T>;
 
-export function matchState<
-	Cases extends MatchStateCases<unknown>,
-	Fallback,
->(
+export function matchState<Cases extends MatchStateCases<unknown>, Fallback>(
 	snapshot: MatchStateSnapshot,
 	cases: Cases,
 	fallback: Fallback,

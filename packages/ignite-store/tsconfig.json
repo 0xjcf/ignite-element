@@ -1,15 +1,10 @@
 {
-  "extends": "../../configs/tsconfig/lib.node.json",
-  "compilerOptions": {
-    "baseUrl": ".",
-    "rootDir": "src",
-    "declarationDir": "./dist/types",
-    "tsBuildInfoFile": "dist/.tsbuildinfo",
-    "paths": {
-      "ignite-core": ["../ignite-core/src/index.ts"],
-      "ignite-core/xstate": ["../ignite-core/src/xstate.ts"]
-    }
-  },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist", "src/**/__tests__"]
+	"extends": "../../configs/tsconfig/lib.node.json",
+	"compilerOptions": {
+		"rootDir": "src",
+		"declarationDir": "./dist/types",
+		"tsBuildInfoFile": "dist/.tsbuildinfo"
+	},
+	"include": ["src"],
+	"exclude": ["node_modules", "dist", "src/**/__tests__"]
 }

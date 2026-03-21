@@ -9,7 +9,10 @@ export { getGlobalStyles, setGlobalStyles } from "./globalStyles";
 export type { GlobalStyles } from "./globalStyles";
 export { default as injectStyles, flushPendingStyles } from "./injectStyles";
 
-export type { RenderStrategy, RenderStrategyFactory } from "./renderers/RenderStrategy";
+export type {
+	RenderStrategy,
+	RenderStrategyFactory,
+} from "./renderers/RenderStrategy";
 export {
 	clearRegisteredRenderStrategiesForTests,
 	getRegisteredRenderStrategies,

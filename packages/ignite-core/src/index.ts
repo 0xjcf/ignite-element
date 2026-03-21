@@ -39,5 +39,9 @@ export type {
 	InferEvents,
 	XStateConfig,
 } from "./types";
-export { isFunction, isXStateActor, isXStateMachine } from "./utils/adapterGuards";
+export {
+	isFunction,
+	isXStateActor,
+	isXStateMachine,
+} from "./utils/adapterGuards";
 export { matchState } from "./utils/matchState";
