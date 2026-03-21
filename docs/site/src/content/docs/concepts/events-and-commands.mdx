@@ -8,6 +8,14 @@ sidebar:
 
 Commands are the actions exposed to your renderer; events are optional typed `CustomEvent`s you can bubble to host apps.
 
+## Commands and intent
+
+Commands are the UI -> behavior boundary. Keep them small and deterministic:
+
+- Send events to your state machine.
+- Emit DOM events for the host app.
+- Avoid IO in commands (network, wallets, storage). IO belongs in adapters wired internally by helper constructors.
+
 ## Declaring events
 
 ```ts
@@ -40,7 +48,7 @@ In development, emitting an event that isn’t declared in `events` throws an er
 
 ## Command inputs
 
-`commands` also receive `host` (the custom element instance) and your adapter’s control surface (`actor`, `store`, or `observable`). Keep commands small and deterministic—delegate async side effects to your state library.
+`commands` also receive `host` (the custom element instance) and your adapter’s control surface (`actor`, `store`, or `observable`). Keep commands small and deterministic—send events and emit DOM events; IO belongs in adapters, not commands.
 
 ### Host helpers
 

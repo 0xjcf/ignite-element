@@ -1,31 +1,17 @@
 import { defineConfig, mergeConfig } from "vitest/config";
-import viteConfig from "./vite.config";
+import config from "./packages/ignite-element/vitest.config";
 
 export default mergeConfig(
-	viteConfig,
+	config,
 	defineConfig({
-		esbuild: {
-			jsx: "automatic",
-			jsxImportSource: "./src/renderers/jsx",
-		},
+		root: ".",
 		test: {
 			environment: "jsdom",
-			include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
-			setupFiles: "./vitest.setup.ts",
-			coverage: {
-				exclude: [
-					"src/examples/**",
-					"**/*.config.{js,ts}",
-					"vite.config.ts",
-					"vitest.config.ts",
-					"vite-env.d.ts",
-					"dist/**",
-					"src/index.ts",
-					"src/**/*.d.ts",
-					"scripts",
-					"commitlint.config.cjs",
-				],
-			},
+			setupFiles: "packages/ignite-element/vitest.setup.ts",
+			include: [
+				"packages/ignite-element/src/**/*.test.ts",
+				"packages/ignite-element/src/**/*.test.tsx",
+			],
 		},
 	}),
 );

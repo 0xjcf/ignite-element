@@ -16,7 +16,6 @@ const component = igniteCore({
   events: (event) => ({ /* typed events */ }),
   states: (snapshot) => ({ /* derived values */ }),
   commands: ({ actor, emit, host }) => ({ /* actions */ }),
-  cleanup: true, // default
 });
 
 component('tag-name', (props) => /* JSX or lit template */);
@@ -28,6 +27,30 @@ component('tag-name', (props) => /* JSX or lit template */);
 - `events(mapper)`: optional; defines typed DOM events and enables `emit` inside `commands`.
 - `states(snapshot)`: derive render props from the current snapshot; runs on mount and on changes.
 - `commands(context)`: expose actions; receives `{ actor, emit?, host }`.
-- `cleanup`: defaults to `true`; set to `false` to keep shared adapters running after disconnect.
+- `cleanup`: defaults to `true`; for shared adapters, controls whether Ignite releases the shared adapter after the last element disconnects. Releasing the adapter stops Ignite-owned sources (e.g., XState machine actors); user-provided sources are never stopped.
+- `lifecycle`: optional; advanced overrides for browser lifecycle signals (XState-only).
+
+## Advanced overrides
+
+`cleanup` and `lifecycle.browser` are override knobs; most components won't need them.
+
+```ts
+const component = igniteCore({
+  source: actor,
+  cleanup: true, // explicitly assert ownership of a passed actor
+});
+```
+
+```ts
+const component = igniteCore({
+  source: machine,
+  lifecycle: {
+    browser: {
+      suspend: true,
+      resume: true,
+    },
+  },
+});
+```
 
 See [State adapters](/ignite-element/concepts/state-adapters/) for adapter-specific behavior.

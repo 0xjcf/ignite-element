@@ -14,7 +14,7 @@ Ignite Element v2 introduces the Ignite JSX renderer, renderer strategies, and a
 2. Set `"jsxImportSource": "ignite-element/jsx"` (or add the pragma per file).
 3. Add `ignite.config.ts` with your renderer (`ignite-jsx` or `lit`), styles, and logging.
 4. Opt into the diff or replace render strategy (defaults to `diff` with Ignite JSX).
-5. Verify lifecycle: shared adapters stop automatically unless `cleanup: false`.
+5. Verify lifecycle: shared adapters are released when the last element disconnects unless `cleanup: false`.
 
 ## 1) Install
 
@@ -65,7 +65,8 @@ Use `igniteConfigVitePlugin()` (Vite) or `IgniteConfigWebpackPlugin` (Webpack) s
 
 ## 5) Lifecycle changes
 
-Shared adapters are now reference-counted and will stop automatically when the last element disconnects. Set `cleanup: false` if you want to manage teardown yourself.
+Shared adapters are now reference-counted and released when the last element disconnects. If Ignite created the source (e.g., an XState machine), it will be stopped as part of that release. Set `cleanup: false` if you want to keep the shared adapter alive and manage teardown yourself.
+Most projects should not need to touch `cleanup`; treat it as an override.
 
 ```ts
 const actor = createActor(machine);

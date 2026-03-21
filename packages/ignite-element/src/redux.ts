@@ -1,0 +1,10 @@
+import "./internal/setupDomPolyfill";
+
+export { igniteCoreRedux as igniteCore } from "./IgniteCore";
+export type {
+	IgniteCoreReturn,
+	ReduxBlueprintConfig,
+	ReduxInstanceConfig,
+	ReduxSliceCommandActor,
+	ReduxStoreCommandActor,
+} from "./igniteCore/types";

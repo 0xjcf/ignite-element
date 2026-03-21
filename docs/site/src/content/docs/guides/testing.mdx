@@ -122,4 +122,5 @@ describe('<my-counter>', () => {
 ## Lifecycle checks (shared adapters)
 
 - For shared sources you own (started actors/stores), stop them in your tests when you own their lifecycle.
-- For Ignite-created shared adapters, you can assert cleanup by connecting/disconnecting elements and verifying subscriptions stop when `cleanup` is `true`.
+- For Ignite-created sources (e.g., XState machines), you can assert cleanup by connecting/disconnecting elements and verifying the adapter is released when `cleanup` is `true`.
+- If you enable `lifecycle.browser`, simulate `visibilitychange` or `pagehide` and assert XState machines receive `SUSPEND`/`RESUME`.

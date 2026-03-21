@@ -1,0 +1,34 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"rootDir": "..",
+		"baseUrl": ".",
+		"paths": {
+			"ignite-element": ["./src/index.ts"],
+			"ignite-element/*": ["./src/*"],
+			"ignite-core": ["../ignite-core/src/index.ts"],
+			"ignite-core/xstate": ["../ignite-core/src/xstate.ts"],
+			"ignite-store": ["../ignite-store/src/index.ts"],
+			"ignite-store/redux": ["../ignite-store/src/redux.ts"],
+			"ignite-store/mobx": ["../ignite-store/src/mobx.ts"],
+			"ignite-renderer": ["../ignite-renderer/src/index.ts"],
+			"ignite-renderer/jsx": ["../ignite-renderer/src/renderers/ignite-jsx.ts"],
+			"ignite-renderer/lit": ["../ignite-renderer/src/renderers/lit.ts"],
+			"ignite-renderer/jsx-runtime": [
+				"../ignite-renderer/src/jsx/jsx-runtime.ts"
+			],
+			"ignite-renderer/jsx-dev-runtime": [
+				"../ignite-renderer/src/jsx/jsx-dev-runtime.ts"
+			],
+			"ignite-renderer/jsx/index": ["../ignite-renderer/src/jsx/index.ts"],
+			"xstate": ["node_modules/xstate"],
+			"xstate/*": ["node_modules/xstate/*"]
+		}
+	},
+	"include": [
+		"src",
+		"../ignite-core/src",
+		"../ignite-store/src",
+		"../ignite-renderer/src"
+	]
+}

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="./dist/styles.css" />
+    <script type="module" src="./xstateExample.tsx"></script>
+    <title>XState Example</title>
+  </head>
+  <body class="min-h-screen bg-slate-50 text-slate-900">
+    <main class="mx-auto flex max-w-4xl flex-col gap-8 p-6 md:p-10">
+      <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="text-xl font-semibold text-slate-800">Static SVG (baseline)</h2>
+        <div class="mt-4 flex items-center justify-start">
+          <svg width="140" height="140" viewBox="0 0 120 120" role="img" aria-label="Static test svg">
+            <circle cx="60" cy="60" r="55" stroke="#6366f1" stroke-width="10" fill="none" />
+            <line x1="60" y1="15" x2="60" y2="105" stroke="#22d3ee" stroke-width="8" stroke-linecap="round" />
+            <line x1="15" y1="60" x2="105" y2="60" stroke="#22d3ee" stroke-width="8" stroke-linecap="round" />
+          </svg>
+        </div>
+      </section>
+
+      <section class="grid gap-6 md:grid-cols-2">
+        <my-counter-xstate></my-counter-xstate>
+        <shared-display-xstate></shared-display-xstate>
+        <advanced-shared-counter class="md:col-span-2"></advanced-shared-counter>
+        <another-counter-xstate></another-counter-xstate>
+      </section>
+
+      <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 class="text-lg font-semibold text-slate-800">Ignite SVG demo</h3>
+        <ignite-svg-demo></ignite-svg-demo>
+      </section>
+    </main>
+  </body>
+</html>

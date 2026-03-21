@@ -37,3 +37,9 @@ coverage/
 /blob-report/
 /playwright/.cache/
 plans/
+
+# >>> FAS managed ignore block >>>
+# FAS runtime data (generated, do not commit)
+.fas/
+fas
+# <<< FAS managed ignore block <<<
