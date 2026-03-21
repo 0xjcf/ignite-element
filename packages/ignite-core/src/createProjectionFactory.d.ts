@@ -10,7 +10,7 @@ type AdditionalRenderArgs<State, Event, RenderArgs extends BaseRenderArgs<State,
 export type ProjectionFactoryOptions<State, Event, Snapshot, StatesResult extends Record<string, unknown> = Record<never, never>, CommandActor = unknown, CommandsResult extends FacadeCommandResult = Record<never, FacadeCommandFunction>, Additional extends Record<string, unknown> = Record<never, never>, Events extends EventMap = EmptyEventMap, Host = unknown> = {
     scope?: StateScope;
     states?: FacadeStatesCallback<Snapshot, StatesResult>;
-    commands?: FacadeCommandsCallback<CommandActor, CommandsResult, Events, Host>;
+    commands?: FacadeCommandsCallback<CommandActor, CommandsResult, Host>;
     resolveStateSnapshot?: (adapter: IgniteAdapter<State, Event>) => Snapshot;
     resolveCommandActor?: (adapter: IgniteAdapter<State, Event>) => CommandActor;
     createAdditionalArgs?: (adapter: IgniteAdapter<State, Event>, host?: Host) => Additional;

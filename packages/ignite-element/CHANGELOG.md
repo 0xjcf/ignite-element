@@ -8,7 +8,7 @@
 
 ### Deprecations
 
-- `emit` inside `commands()` is deprecated and now warns with `emit inside commands is deprecated. Move to effects().`
+- `emit` has been removed from `commands()`. Move DOM event emission into `effects()`.
 - Migration tooling is available via `pnpm run migrate:effects-events` and `docs/migrations/v2.2.3-effects-events.md`.
 
 ## 2.2.2

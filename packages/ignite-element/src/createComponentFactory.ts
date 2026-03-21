@@ -6,7 +6,6 @@ import igniteElementFactory, {
 	type ComponentFactory,
 } from "./IgniteElementFactory";
 import type {
-	EmitFromEvents,
 	EmptyEventMap,
 	EventMap,
 	FacadeCommandFunction,
@@ -100,7 +99,7 @@ export type ComponentFactoryOptions<
 > = {
 	scope?: StateScope;
 	states?: FacadeStatesCallback<Snapshot, StatesResult>;
-	commands?: FacadeCommandsCallback<CommandActor, CommandsResult, Events>;
+	commands?: FacadeCommandsCallback<CommandActor, CommandsResult>;
 	resolveStateSnapshot?: (adapter: IgniteAdapter<State, Event>) => Snapshot;
 	resolveCommandActor?: (adapter: IgniteAdapter<State, Event>) => CommandActor;
 	createAdditionalArgs?: (
@@ -203,7 +202,6 @@ export function createComponentFactoryWithRenderer<
 		resolveStateSnapshot,
 		resolveCommandActor,
 		createAdditionalArgs,
-		events,
 	} = options ?? {};
 
 	const resolveSnapshot =
@@ -236,26 +234,6 @@ export function createComponentFactoryWithRenderer<
 		Additional,
 		Events
 	>;
-
-	const eventDefinitions = events ?? (Object.create(null) as Events);
-
-	const createEmit = (host: HTMLElement): EmitFromEvents<Events> =>
-		((type: keyof Events & string, detail: unknown) => {
-			if (isDevelopment()) {
-				if (!(type in eventDefinitions)) {
-					throw new Error(
-						`[createComponentFactory] Unknown event "${type}". Declare it in the events map before emitting.`,
-					);
-				}
-			}
-
-			const customEvent = new CustomEvent(type, {
-				detail,
-				bubbles: true,
-				composed: true,
-			});
-			host.dispatchEvent(customEvent);
-		}) as EmitFromEvents<Events>;
 
 	return elementFactory(createAdapter, {
 		scope: scope ?? createAdapter.scope,
@@ -314,14 +292,11 @@ export function createComponentFactoryWithRenderer<
 			if (commands) {
 				const commandCallback = commands as FacadeCommandsCallback<
 					CommandActor,
-					CommandsResult,
-					Events
+					CommandsResult
 				>;
 				const actor = resolveActor(adapter);
-				const emit = createEmit(host);
 				const commandResult = commandCallback({
 					actor,
-					emit,
 					host,
 				});
 				ensureFacadeResult(commandResult, "commands");

@@ -12,7 +12,6 @@ import type {
 	FacadeEffectsCallback,
 	FacadeStatesCallback,
 } from "./RenderArgs";
-import { createDeprecatedCommandEmit } from "./runtime/deprecation";
 import {
 	attachEffects,
 	type FacadeLifecycle,
@@ -50,7 +49,7 @@ export type ProjectionFactoryOptions<
 > = {
 	scope?: StateScope;
 	states?: FacadeStatesCallback<Snapshot, StatesResult>;
-	commands?: FacadeCommandsCallback<CommandActor, CommandsResult, Events, Host>;
+	commands?: FacadeCommandsCallback<CommandActor, CommandsResult, Host>;
 	effects?: FacadeEffectsCallback<Snapshot, CommandActor, Events, Host>;
 	resolveStateSnapshot?: (adapter: IgniteAdapter<State, Event>) => Snapshot;
 	resolveCommandActor?: (adapter: IgniteAdapter<State, Event>) => CommandActor;
@@ -294,15 +293,11 @@ export function createProjectionFactory<
 			const commandCallback = commands as FacadeCommandsCallback<
 				CommandActor,
 				CommandsResult,
-				Events,
 				Host
 			>;
 			const actor = resolveActor(adapter);
-			const safeEmit = createEmit(emit);
-			const deprecatedEmit = createDeprecatedCommandEmit(safeEmit);
 			const commandResult = commandCallback({
 				actor,
-				emit: deprecatedEmit,
 				host,
 			});
 			ensureFacadeResult(commandResult, "commands");

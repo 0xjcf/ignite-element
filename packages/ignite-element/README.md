@@ -168,7 +168,7 @@ const registerCounter = igniteCore({
 });
 ```
 
-The `emit` helper now belongs in `effects()`. It dispatches bubbling, composed `CustomEvent` instances so parents can listen with `addEventListener`. Existing `emit` usage inside `commands()` still works temporarily, but logs `emit inside commands is deprecated. Move to effects().`
+The `emit` helper belongs in `effects()`. It dispatches bubbling, composed `CustomEvent` instances so parents can listen with `addEventListener`. `commands()` now receive `{ actor, host }` only.
 
 Event typing is independent of object property order, so `events`, `commands`, `states`, and `effects` can be declared in whichever order reads best.
 
@@ -183,11 +183,10 @@ Migration help:
 - Guide: [`docs/migrations/v2.2.3-effects-events.md`](../../docs/migrations/v2.2.3-effects-events.md)
 - Scripted assist: `pnpm run migrate:effects-events`
 
-Deprecation timeline:
+Breaking release note:
 
-- Current beta branch: `emit` in commands is deprecated but still supported.
-- Next stabilization release: migration docs/tooling remain in place.
-- Next breaking release: remove `emit` from command context.
+- `emit` has been removed from command context.
+- Move command-driven DOM events into `effects(snapshot, prevSnapshot, { emit })`.
 
 ### Agent Runtime
 

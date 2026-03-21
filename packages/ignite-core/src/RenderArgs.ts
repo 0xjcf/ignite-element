@@ -41,25 +41,16 @@ export type EmitFromEvents<Events extends EventMap> = <
 	...args: EmitPayloadArgs<Events, Type>
 ) => void;
 
-export type CommandContext<
-	Actor,
-	Events extends EventMap = EmptyEventMap,
-	Host = unknown,
-> = {
+export type CommandContext<Actor, Host = unknown> = {
 	actor: Actor;
 	host: Host;
-	/**
-	 * @deprecated `emit` inside commands is deprecated. Move event emission to `effects()`.
-	 */
-	emit: EmitFromEvents<Events>;
 };
 
 export type FacadeCommandsCallback<
 	Actor,
 	Result extends FacadeCommandResult = FacadeCommandResult,
-	Events extends EventMap = EmptyEventMap,
 	Host = unknown,
-> = (context: CommandContext<Actor, Events, Host>) => Result;
+> = (context: CommandContext<Actor, Host>) => Result;
 
 export type EffectContext<
 	Actor,
@@ -99,7 +90,6 @@ type CommandResult<
 	Result = CommandCallback extends FacadeCommandsCallback<
 		infer _Actor,
 		infer CallbackResult,
-		infer _Events,
 		infer _Host
 	>
 		? CallbackResult extends FacadeCommandResult

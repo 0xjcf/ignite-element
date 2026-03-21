@@ -16,6 +16,7 @@ import { igniteCore } from "../IgniteCore";
 import type { ReduxInstanceConfig } from "../igniteCore/types";
 import type {
 	CommandContext,
+	EffectContext,
 	EventDescriptor,
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
@@ -273,7 +274,7 @@ describe("igniteCore", () => {
 			{
 				emit,
 				host,
-			}: CommandContext<ReduxStoreCommandActor<typeof store>, CounterEventMap>,
+			}: EffectContext<ReduxStoreCommandActor<typeof store>, CounterEventMap>,
 		) => {
 			if (snapshot.counter.count === prevSnapshot.counter.count) {
 				return;
@@ -451,35 +452,6 @@ describe("igniteCore", () => {
 		latestArgs?.increment();
 
 		expect(order).toEqual(["dispatch", "effect", "emit", "render"]);
-	});
-
-	it("warns once when deprecated emit is used inside commands", () => {
-		const store = counterStore();
-		const warnSpy = vi
-			.spyOn(console, "warn")
-			.mockImplementation(() => undefined);
-
-		const register = igniteCore({
-			adapter: "redux",
-			source: store,
-			events: (event) => ({
-				"counter-incremented": event<{ amount: number }>(),
-			}),
-			commands: ({ actor, emit }) => ({
-				increment: () => {
-					emit("counter-incremented", { amount: 1 });
-					actor.dispatch(counterSlice.actions.increment());
-				},
-			}),
-		});
-
-		register.execute("increment");
-		register.execute("increment");
-
-		expect(warnSpy).toHaveBeenCalledTimes(1);
-		expect(warnSpy).toHaveBeenCalledWith(
-			"emit inside commands is deprecated. Move to effects().",
-		);
 	});
 
 	it("supports headless command execution and event subscriptions", () => {

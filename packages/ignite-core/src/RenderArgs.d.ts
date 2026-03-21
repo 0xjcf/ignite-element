@@ -14,17 +14,16 @@ export type EventBuilder = <Payload>() => EventDescriptor<Payload>;
 export type EventPayload<Descriptor> = Descriptor extends EventDescriptor<infer Payload> ? Payload : never;
 export type EmitPayloadArgs<Events extends EventMap, Type extends keyof Events & string> = undefined extends EventPayload<Events[Type]> ? [payload?: EventPayload<Events[Type]> | undefined] : [payload: EventPayload<Events[Type]>];
 export type EmitFromEvents<Events extends EventMap> = <Type extends keyof Events & string>(type: Type, ...args: EmitPayloadArgs<Events, Type>) => void;
-export type CommandContext<Actor, Events extends EventMap = EmptyEventMap, Host = unknown> = {
+export type CommandContext<Actor, Host = unknown> = {
     actor: Actor;
-    emit: EmitFromEvents<Events>;
     host: Host;
 };
-export type FacadeCommandsCallback<Actor, Result extends FacadeCommandResult = FacadeCommandResult, Events extends EventMap = EmptyEventMap, Host = unknown> = (context: CommandContext<Actor, Events, Host>) => Result;
+export type FacadeCommandsCallback<Actor, Result extends FacadeCommandResult = FacadeCommandResult, Host = unknown> = (context: CommandContext<Actor, Host>) => Result;
 type IsNever<T> = [T] extends [never] ? true : false;
 type StateResult<Snapshot, StateCallback, Result = [StateCallback] extends [
     FacadeStatesCallback<Snapshot, infer Result>
 ] ? Result : Record<never, never>> = IsNever<StateCallback> extends true ? Record<never, never> : Result;
-type CommandResult<CommandCallback, Result = CommandCallback extends FacadeCommandsCallback<infer _Actor, infer CallbackResult, infer _Events, infer _Host> ? CallbackResult extends FacadeCommandResult ? CallbackResult : Record<never, never> : Record<never, never>> = IsNever<CommandCallback> extends true ? Record<never, never> : Result;
+type CommandResult<CommandCallback, Result = CommandCallback extends FacadeCommandsCallback<infer _Actor, infer CallbackResult, infer _Host> ? CallbackResult extends FacadeCommandResult ? CallbackResult : Record<never, never> : Record<never, never>> = IsNever<CommandCallback> extends true ? Record<never, never> : Result;
 export type BaseRenderArgs<State, Event> = {
     state: State;
     send: (event: Event) => void;

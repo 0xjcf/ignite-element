@@ -42,10 +42,6 @@ export type {
 	InferEvents,
 	XStateConfig,
 } from "./types";
-export {
-	COMMAND_EMIT_DEPRECATION_MESSAGE,
-	createDeprecatedCommandEmit,
-} from "./runtime/deprecation";
 export { facadeCleanupSymbol } from "./runtime/effects";
 export {
 	isFunction,

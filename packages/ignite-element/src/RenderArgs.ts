@@ -42,11 +42,10 @@ export type {
 	ReduxStoreCommandActor,
 } from "ignite-store";
 
-export type CommandContext<
+export type CommandContext<Actor, Host = HTMLElement> = CoreCommandContext<
 	Actor,
-	Events extends EventMap = EmptyEventMap,
-	Host = HTMLElement,
-> = CoreCommandContext<Actor, Events, Host>;
+	Host
+>;
 
 export type EffectContext<
 	Actor,
@@ -59,9 +58,8 @@ export type { IgniteSchemaValue } from "./types/schema";
 export type FacadeCommandsCallback<
 	Actor,
 	Result extends FacadeCommandResult = FacadeCommandResult,
-	Events extends EventMap = EmptyEventMap,
 	Host = HTMLElement,
-> = (context: CommandContext<Actor, Events, Host>) => Result;
+> = (context: CommandContext<Actor, Host>) => Result;
 
 type AdapterState<Source> = Source extends AnyStateMachine
 	? ExtendedState<Source>

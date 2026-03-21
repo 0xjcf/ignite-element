@@ -11,7 +11,6 @@ import type { AdapterPack } from "../../IgniteElementFactory";
 import type { XStateConfig } from "../../igniteCore/types";
 import type {
 	CommandContext,
-	EmptyEventMap,
 	EffectContext,
 	EventBuilder,
 	EventDescriptor,
@@ -122,9 +121,10 @@ describe("igniteCore type inference", () => {
 		igniteCore({
 			adapter: "xstate",
 			source: machine,
-			commands: ({ emit }) => ({
+			commands: ({ actor, host }) => ({
 				noop: () => {
-					void emit;
+					void actor;
+					void host;
 				},
 			}),
 		});
@@ -280,7 +280,7 @@ describe("igniteCore type inference", () => {
 		});
 	});
 
-	it("keeps deprecated command emit available during migration", () => {
+	it("rejects emit in command context", () => {
 		const machine = createMachine({
 			initial: "idle",
 			states: {
@@ -290,15 +290,36 @@ describe("igniteCore type inference", () => {
 			},
 		});
 
+		const assertNoCommandEmit = () => {
+			igniteCore({
+				adapter: "xstate",
+				source: machine,
+				events: (event) => ({
+					legacy: event<{ email: string }>(),
+				}),
+				commands: (
+					// @ts-expect-error emit has been removed from command context
+					{ emit },
+				) => ({
+					trigger: () => {
+						void emit;
+					},
+				}),
+			});
+		};
+
+		void assertNoCommandEmit;
+
 		igniteCore({
 			adapter: "xstate",
 			source: machine,
 			events: (event) => ({
 				legacy: event<{ email: string }>(),
 			}),
-			commands: ({ emit }) => ({
+			commands: ({ actor, host }) => ({
 				trigger: () => {
-					emit("legacy", { email: "user@example.com" });
+					void actor;
+					void host;
 				},
 			}),
 		});
@@ -390,8 +411,7 @@ describe("igniteCore type inference", () => {
 	it("infers redux slice types when adapter is omitted", () => {
 		type SliceState = InferStateAndEvent<typeof counterSlice>["State"];
 		type SliceContext = CommandContext<
-			ReduxSliceCommandActor<typeof counterSlice>,
-			EmptyEventMap
+			ReduxSliceCommandActor<typeof counterSlice>
 		>;
 		const sliceStates = (snapshot: SliceState) => ({
 			count: snapshot.counter.count,
@@ -449,10 +469,7 @@ describe("igniteCore type inference", () => {
 	it("infers redux store types when adapter is omitted", () => {
 		const store = counterStore();
 		type StoreState = InferStateAndEvent<typeof store>["State"];
-		type StoreContext = CommandContext<
-			ReduxStoreCommandActor<typeof store>,
-			EmptyEventMap
-		>;
+		type StoreContext = CommandContext<ReduxStoreCommandActor<typeof store>>;
 		const storeStates = (snapshot: StoreState) => ({
 			count: snapshot.counter.count,
 		});
@@ -524,7 +541,7 @@ describe("igniteCore type inference", () => {
 		});
 
 		type SharedStore = typeof sharedStore;
-		type SharedContext = CommandContext<SharedStore, EmptyEventMap>;
+		type SharedContext = CommandContext<SharedStore>;
 		const sharedStates = (snapshot: SharedStore) => ({ count: snapshot.count });
 		const sharedCommands = ({ actor: storeInstance }: SharedContext) => ({
 			increment: () => storeInstance.increment(),

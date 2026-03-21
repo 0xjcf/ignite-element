@@ -1,7 +1,6 @@
 import { html } from "lit-html";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createComponentFactory } from "../createComponentFactory";
-import { event } from "../events";
 import { StateScope } from "../IgniteAdapter";
 import MockAdapter from "./MockAdapter";
 
@@ -221,7 +220,7 @@ describe("createComponentFactory", () => {
 		expect(actor.send).toHaveBeenCalledWith("ping");
 	});
 
-	it("emits declared events with payload and host context", () => {
+	it("provides host context to commands", () => {
 		type CounterState = { count: number };
 		type CounterEvent = { type: "INC" };
 		const adapter = new MockAdapter<CounterState, CounterEvent>({ count: 0 });
@@ -230,22 +229,17 @@ describe("createComponentFactory", () => {
 		});
 
 		const states = (snapshot: CounterState) => ({ count: snapshot.count });
-		const eventsMap = {
-			"counter-incremented": event<{ amount: number }>(),
-		};
 		const commands = ({
 			actor,
-			emit,
 			host,
 		}: {
 			actor: { send: (event: CounterEvent) => void };
-			emit: (type: "counter-incremented", payload: { amount: number }) => void;
 			host: HTMLElement;
 		}) => ({
 			increment: () => {
 				const amountAttr = host.getAttribute("data-amount");
 				const amount = amountAttr ? Number(amountAttr) : 1;
-				emit("counter-incremented", { amount });
+				host.setAttribute("data-last-amount", String(amount));
 				actor.send({ type: "INC" });
 			},
 		});
@@ -257,12 +251,10 @@ describe("createComponentFactory", () => {
 			{ count: number },
 			{ send: (event: CounterEvent) => void },
 			{ increment: () => void },
-			Record<never, never>,
-			typeof eventsMap
+			Record<never, never>
 		>(createAdapter, {
 			states,
 			commands,
-			events: eventsMap,
 		});
 
 		type EventArgs = {
@@ -283,20 +275,6 @@ describe("createComponentFactory", () => {
 		const element = document.createElement(elementName);
 		element.setAttribute("data-amount", "5");
 		const order: string[] = [];
-
-		const isCounterIncrementEvent = (
-			event: Event,
-		): event is CustomEvent<{ amount: number }> => event instanceof CustomEvent;
-
-		const listener = vi.fn((event: Event) => {
-			if (!isCounterIncrementEvent(event)) {
-				throw new Error("Unexpected event type");
-			}
-			order.push("emit");
-			expect(event.detail.amount).toBe(5);
-		});
-
-		element.addEventListener("counter-incremented", listener);
 		vi.spyOn(adapter, "send").mockImplementation(() => {
 			order.push("send");
 		});
@@ -306,7 +284,7 @@ describe("createComponentFactory", () => {
 
 		latestArgs?.increment();
 
-		expect(listener).toHaveBeenCalledTimes(1);
-		expect(order).toEqual(["emit", "send"]);
+		expect(element.getAttribute("data-last-amount")).toBe("5");
+		expect(order).toEqual(["send"]);
 	});
 });

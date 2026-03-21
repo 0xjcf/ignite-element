@@ -3,7 +3,7 @@ import type { ExtendedState, XStateActorInstance, XStateCommandActor } from "./a
 import type { ProjectionFactory, WithFacadeRenderArgs } from "./createProjectionFactory";
 import type { EmptyEventMap, EventBuilder, EventMap, FacadeCommandFunction, FacadeCommandResult, FacadeCommandsCallback, FacadeStatesCallback } from "./RenderArgs";
 export type AnyStatesCallback = FacadeStatesCallback<unknown, Record<string, unknown>>;
-export type AnyCommandsCallback = FacadeCommandsCallback<unknown, FacadeCommandResult, EventMap>;
+export type AnyCommandsCallback = FacadeCommandsCallback<unknown, FacadeCommandResult>;
 export type EventsDefinition<Events> = (event: EventBuilder) => Events;
 export type AnyEventsDefinition = EventsDefinition<EventMap>;
 export type InferEvents<Definition> = Definition extends EventsDefinition<infer Events> ? Events extends EventMap ? Events : never : EmptyEventMap;
@@ -12,7 +12,7 @@ export type XStateConfig<Machine extends AnyStateMachine, Events extends EventMa
     adapter?: "xstate";
     source: Machine | XStateActorInstance<Machine>;
     states?: FacadeStatesCallback<ExtendedState<Machine>, StatesResult>;
-    commands?: FacadeCommandsCallback<XStateCommandActor<Machine>, CommandsResult, Events, Host>;
+    commands?: FacadeCommandsCallback<XStateCommandActor<Machine>, CommandsResult, Host>;
     events?: EventsDefinition<Events>;
     cleanup?: boolean;
 };

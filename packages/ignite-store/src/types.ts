@@ -54,7 +54,6 @@ export type ReduxBlueprintConfig<
 	commands?: FacadeCommandsCallback<
 		ReduxCommandActorFor<Source>,
 		CommandsResult,
-		Events,
 		Host
 	>;
 	effects?: FacadeEffectsCallback<
@@ -86,7 +85,6 @@ export type ReduxInstanceConfig<
 	commands?: FacadeCommandsCallback<
 		ReduxCommandActorFor<StoreInstance>,
 		CommandsResult,
-		Events,
 		Host
 	>;
 	effects?: FacadeEffectsCallback<
@@ -112,7 +110,7 @@ export type MobxConfig<
 	adapter?: "mobx";
 	source: (() => State) | State;
 	states?: FacadeStatesCallback<State, StatesResult>;
-	commands?: FacadeCommandsCallback<State, CommandsResult, Events, Host>;
+	commands?: FacadeCommandsCallback<State, CommandsResult, Host>;
 	effects?: FacadeEffectsCallback<State, State, Events, Host>;
 	events?: EventsDefinition<Events>;
 	cleanup?: boolean;

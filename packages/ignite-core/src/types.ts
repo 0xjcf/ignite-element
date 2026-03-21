@@ -25,8 +25,7 @@ export type AnyStatesCallback = FacadeStatesCallback<
 >;
 export type AnyCommandsCallback = FacadeCommandsCallback<
 	unknown,
-	FacadeCommandResult,
-	EventMap
+	FacadeCommandResult
 >;
 export type AnyEffectsCallback = FacadeEffectsCallback<
 	unknown,
@@ -90,7 +89,6 @@ export type XStateConfig<
 	commands?: FacadeCommandsCallback<
 		XStateCommandActor<Machine>,
 		CommandsResult,
-		Events,
 		Host
 	>;
 	effects?: FacadeEffectsCallback<
