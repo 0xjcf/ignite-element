@@ -40,6 +40,16 @@ coverage/
 /playwright/.cache/
 plans/
 
+# generated declaration artifacts should only live in dist/types
+packages/ignite-core/src/**/*.d.ts
+packages/ignite-core/src/**/*.d.ts.map
+packages/ignite-adapters/src/**/*.d.ts
+packages/ignite-adapters/src/**/*.d.ts.map
+packages/ignite-renderer/src/**/*.d.ts
+packages/ignite-renderer/src/**/*.d.ts.map
+packages/ignite-store/src/**/*.d.ts
+packages/ignite-store/src/**/*.d.ts.map
+
 # >>> FAS managed ignore block >>>
 # FAS runtime data (generated, do not commit)
 .fas/

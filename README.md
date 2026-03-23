@@ -265,6 +265,17 @@ Because this runs against the same deterministic runtime, state and event expect
 - Redux: `npm install ignite-element @reduxjs/toolkit`
 - MobX: `npm install ignite-element mobx`
 
+## Package map
+
+`ignite-element` is the default public package. Unless you are extending Ignite itself, this is the package you should install and document against.
+
+- `ignite-element`: default public package for app and component authors
+- `ignite-element/xstate`, `ignite-element/redux`, `ignite-element/mobx`: default public adapter entrypoints
+- `ignite-core`: advanced adapter-neutral primitives for custom integrations and library work
+- `ignite-adapters`: advanced adapter layer used by `ignite-element`
+- `ignite-renderer`: advanced renderer/runtime layer for custom renderer integration work
+- `ignite-store`: temporary compatibility wrapper that re-exports `ignite-adapters` during the package migration
+
 ## Multiple components from one core
 
 Define behavior once and register multiple render surfaces from the same core.
@@ -305,6 +316,7 @@ This structure works well for both human maintainers and agent tooling because t
 - [Configuration and renderers](./docs/site/src/content/docs/api/define-ignite-config.mdx)
 - [State adapter lifecycle](./docs/site/src/content/docs/concepts/state-adapters.mdx)
 - [Migration guide](./docs/migrations/v2.2.3-effects-events.md)
+- Advanced package layers: `ignite-core`, `ignite-adapters`, `ignite-renderer`, and the compatibility `ignite-store` shim
 - [Local examples](./packages/ignite-element/src/examples)
 
 ## Philosophy

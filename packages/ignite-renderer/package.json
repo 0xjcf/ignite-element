@@ -5,6 +5,7 @@
 	"main": "dist/ignite-renderer.cjs.js",
 	"module": "dist/ignite-renderer.es.js",
 	"types": "dist/types/index.d.ts",
+	"description": "Advanced renderer and runtime utilities for ignite-element.",
 	"typesVersions": {
 		"*": {
 			"jsx": [
@@ -67,6 +68,10 @@
 		"./dist/jsx.cjs.js",
 		"./dist/lit.es.js",
 		"./dist/lit.cjs.js"
+	],
+	"files": [
+		"dist",
+		"README.md"
 	],
 	"scripts": {
 		"build:types": "tsc",

@@ -117,7 +117,7 @@
 		},
 		"./package.json": "./package.json"
 	},
-	"description": "A framework-agnostic library for creating web components with state management support.",
+	"description": "Default public package for building state-driven Web Components with Ignite.",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/0xjcf/ignite-element.git"

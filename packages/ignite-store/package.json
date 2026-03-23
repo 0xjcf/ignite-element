@@ -5,6 +5,7 @@
 	"main": "dist/ignite-store.cjs.js",
 	"module": "dist/ignite-store.es.js",
 	"types": "dist/types/index.d.ts",
+	"description": "Compatibility re-export package for the move from ignite-store to ignite-adapters.",
 	"typesVersions": {
 		"*": {
 			"redux": [
@@ -36,6 +37,10 @@
 		}
 	},
 	"sideEffects": false,
+	"files": [
+		"dist",
+		"README.md"
+	],
 	"scripts": {
 		"build:types": "tsc",
 		"build:js": "vite build",

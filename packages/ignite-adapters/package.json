@@ -5,6 +5,7 @@
 	"main": "dist/ignite-adapters.cjs.js",
 	"module": "dist/ignite-adapters.es.js",
 	"types": "dist/types/index.d.ts",
+	"description": "Advanced state-library adapter integrations for ignite-element.",
 	"typesVersions": {
 		"*": {
 			"xstate": [
@@ -45,6 +46,10 @@
 		}
 	},
 	"sideEffects": false,
+	"files": [
+		"dist",
+		"README.md"
+	],
 	"scripts": {
 		"build:types": "tsc",
 		"build:js": "vite build",
