@@ -1,4 +1,7 @@
+import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type { AnyStateMachine } from "xstate";
+export declare function isReduxStore(source: unknown): source is EnhancedStore;
+export declare function isReduxSlice(source: unknown): source is Slice;
 export interface XStateActorLike {
     start?: () => unknown;
     stop?: () => unknown;
@@ -8,5 +11,4 @@ export interface XStateActorLike {
 }
 export declare function isXStateMachine(source: unknown): source is AnyStateMachine;
 export declare function isXStateActor(source: unknown): source is XStateActorLike;
-export declare function isFunction<T extends (...args: unknown[]) => unknown>(value: unknown): value is T;
 //# sourceMappingURL=adapterGuards.d.ts.map

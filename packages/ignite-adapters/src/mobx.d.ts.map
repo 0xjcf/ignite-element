@@ -1,0 +1,1 @@
+{"version":3,"file":"mobx.d.ts","sourceRoot":"","sources":["mobx.ts"],"names":[],"mappings":"AAAA,YAAY,EACX,aAAa,EACb,QAAQ,EACR,qBAAqB,EACrB,gBAAgB,GAChB,MAAM,aAAa,CAAC;AACrB,OAAO,EAAE,cAAc,IAAI,UAAU,EAAE,MAAM,mBAAmB,CAAC;AACjE,YAAY,EAAE,UAAU,EAAE,SAAS,EAAE,MAAM,SAAS,CAAC"}

@@ -23,12 +23,12 @@ export default mergeConfig(
 					replacement: resolvePath("./src/"),
 				},
 				{
-					find: "ignite-core/xstate",
-					replacement: resolvePath("../ignite-core/src/xstate.ts"),
-				},
-				{
 					find: "ignite-core",
 					replacement: resolvePath("../ignite-core/src/index.ts"),
+				},
+				{
+					find: "ignite-adapters/xstate",
+					replacement: resolvePath("../ignite-adapters/src/xstate.ts"),
 				},
 				{
 					find: "ignite-adapters/redux",

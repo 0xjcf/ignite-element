@@ -6,14 +6,16 @@ export default defineConfig(
 		name: "ignite-adapters",
 		entry: {
 			index: "src/index.ts",
+			xstate: "src/xstate.ts",
 			redux: "src/redux.ts",
 			mobx: "src/mobx.ts",
 		},
-		external: ["ignite-core", "@reduxjs/toolkit", "redux", "mobx"],
+		external: ["ignite-core", "@reduxjs/toolkit", "redux", "mobx", "xstate"],
 		globals: {
 			"@reduxjs/toolkit": "RTK",
 			redux: "Redux",
 			mobx: "MobX",
+			xstate: "XState",
 		},
 	}),
 );

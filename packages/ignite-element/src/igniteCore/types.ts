@@ -11,18 +11,20 @@ import type {
 	ReduxInstanceConfig as StoreReduxInstanceConfig,
 } from "ignite-adapters";
 import type {
+	XStateActorInstance,
+	XStateConfig as AdapterXStateConfig,
+} from "ignite-adapters/xstate";
+import type {
 	AnyCommandsCallback,
 	AnyEffectsCallback,
 	AnyStatesCallback,
 	AnyViewCallback,
-	XStateConfig as CoreXStateConfig,
 	EmptyEventMap,
 	EventMap,
 	EventsDefinition,
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	WithFacadeRenderArgs,
-	XStateActorInstance,
 } from "ignite-core";
 import type { AnyStateMachine } from "xstate";
 import type { ComponentFactory } from "../IgniteElementFactory";
@@ -83,7 +85,7 @@ export type XStateConfig<
 		never,
 		FacadeCommandFunction
 	>,
-> = CoreXStateConfig<
+> = AdapterXStateConfig<
 	Machine,
 	Events,
 	StatesResult,

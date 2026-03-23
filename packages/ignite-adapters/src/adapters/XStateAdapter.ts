@@ -5,8 +5,8 @@ import type {
 	Subscription,
 } from "xstate";
 import { createActor } from "xstate";
-import type IgniteAdapter from "../IgniteAdapter";
-import { StateScope } from "../IgniteAdapter";
+import type { IgniteAdapter } from "ignite-core";
+import { StateScope } from "ignite-core";
 import { isXStateActor } from "../utils/adapterGuards";
 
 export type ExtendedState<Machine extends AnyStateMachine> =

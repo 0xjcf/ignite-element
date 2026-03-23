@@ -3,5 +3,5 @@ export type {
 	XStateActorInstance,
 	XStateCommandActor,
 	XStateSnapshot,
-} from "ignite-core";
-export { createXStateAdapter as default } from "ignite-core";
+} from "ignite-adapters/xstate";
+export { createXStateAdapter as default } from "ignite-adapters/xstate";

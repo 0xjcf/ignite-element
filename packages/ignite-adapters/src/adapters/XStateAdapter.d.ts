@@ -1,7 +1,7 @@
 import type { AnyStateMachine, EventFrom, StateFrom } from "xstate";
 import { createActor } from "xstate";
-import type IgniteAdapter from "../IgniteAdapter";
-import { StateScope } from "../IgniteAdapter";
+import type { IgniteAdapter } from "ignite-core";
+import { StateScope } from "ignite-core";
 export type ExtendedState<Machine extends AnyStateMachine> = StateFrom<Machine> & StateFrom<Machine>["context"] & {
     context: StateFrom<Machine>["context"];
 };

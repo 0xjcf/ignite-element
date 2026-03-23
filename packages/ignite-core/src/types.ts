@@ -1,9 +1,3 @@
-import type { AnyStateMachine } from "xstate";
-import type {
-	ExtendedState,
-	XStateActorInstance,
-	XStateCommandActor,
-} from "./adapters/XStateAdapter";
 import type {
 	ProjectionFactory,
 	WithFacadeRenderArgs,
@@ -12,9 +6,7 @@ import type {
 	EmptyEventMap,
 	EventBuilder,
 	EventMap,
-	FacadeEffectsCallback,
 	FacadeEffectsLike,
-	FacadeEffectsObjectCallback,
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
@@ -75,60 +67,3 @@ export type IgniteCoreReturn<
 	Events
 > &
 	Record<never, Snapshot>;
-
-type XStateConfigBase<
-	Machine extends AnyStateMachine,
-	Events extends EventMap = EmptyEventMap,
-	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandsResult extends FacadeCommandResult = Record<
-		never,
-		FacadeCommandFunction
-	>,
-	Host = unknown,
-> = {
-	adapter?: "xstate";
-	source: Machine | XStateActorInstance<Machine>;
-	states?: FacadeStatesCallback<ExtendedState<Machine>, StatesResult>;
-	view?: FacadeViewCallback<ExtendedState<Machine>, StatesResult>;
-	commands?: FacadeCommandsCallback<
-		XStateCommandActor<Machine>,
-		CommandsResult,
-		Host
-	>;
-	events?: EventsDefinition<Events>;
-	cleanup?: boolean;
-};
-
-type XStateEffectsOptions<
-	Machine extends AnyStateMachine,
-	Events extends EventMap,
-	Host,
-> =
-	| {
-			effects?: FacadeEffectsCallback<
-				ExtendedState<Machine>,
-				XStateCommandActor<Machine>,
-				Events,
-				Host
-			>;
-	  }
-	| {
-			effects?: FacadeEffectsObjectCallback<
-				ExtendedState<Machine>,
-				XStateCommandActor<Machine>,
-				Events,
-				Host
-			>;
-	  };
-
-export type XStateConfig<
-	Machine extends AnyStateMachine,
-	Events extends EventMap = EmptyEventMap,
-	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandsResult extends FacadeCommandResult = Record<
-		never,
-		FacadeCommandFunction
-	>,
-	Host = unknown,
-> = XStateConfigBase<Machine, Events, StatesResult, CommandsResult, Host> &
-	XStateEffectsOptions<Machine, Events, Host>;

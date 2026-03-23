@@ -1,9 +1,6 @@
-import type {
-	ExtendedState,
-	ProjectionFactory,
-	XStateCommandActor,
-} from "ignite-core";
-import { igniteCore as igniteCoreProjection } from "ignite-core";
+import type { ExtendedState, XStateCommandActor } from "ignite-adapters/xstate";
+import { igniteCore as igniteCoreProjection } from "ignite-adapters/xstate";
+import type { ProjectionFactory } from "ignite-core";
 import type { AnyStateMachine, EventFrom } from "xstate";
 import igniteElementFactory, {
 	type ComponentFactory,

@@ -7,18 +7,14 @@ import {
 	isReduxSlice,
 	isReduxStore,
 } from "ignite-adapters";
-import type {
-	ExtendedState,
-	IgniteAdapter,
-	ProjectionFactory,
-	XStateCommandActor,
-} from "ignite-core";
+import type { ExtendedState, XStateCommandActor } from "ignite-adapters/xstate";
 import {
-	igniteCore as igniteCoreProjection,
+	igniteCore as igniteCoreXStateProjection,
 	isXStateActor,
 	isXStateMachine,
-	StateScope,
-} from "ignite-core";
+} from "ignite-adapters/xstate";
+import type { IgniteAdapter, ProjectionFactory } from "ignite-core";
+import { StateScope } from "ignite-core";
 import type { AnyStateMachine, EventFrom } from "xstate";
 import igniteElementFactory, {
 	type ComponentFactory,
@@ -312,7 +308,7 @@ export function igniteCoreXState<
 	CommandsResult,
 	Events
 > {
-	const projection = igniteCoreProjection(options);
+	const projection = igniteCoreXStateProjection(options);
 	return bindProjectionToElements(projection) as IgniteCoreReturn<
 		ExtendedState<Machine>,
 		EventFrom<Machine>,

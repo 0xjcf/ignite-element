@@ -6,11 +6,6 @@ export default defineConfig(
 		name: "ignite-core",
 		entry: {
 			index: "src/index.ts",
-			xstate: "src/xstate.ts",
-		},
-		external: ["xstate"],
-		globals: {
-			xstate: "XState",
 		},
 	}),
 );

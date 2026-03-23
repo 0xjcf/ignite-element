@@ -6,8 +6,7 @@
 		"composite": false,
 		"noEmit": true,
 		"paths": {
-			"ignite-core": ["../ignite-core/src/index.ts"],
-			"ignite-core/xstate": ["../ignite-core/src/xstate.ts"]
+			"ignite-core": ["../ignite-core/src/index.ts"]
 		}
 	},
 	"include": ["src", "../ignite-core/src"]

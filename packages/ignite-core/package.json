@@ -5,25 +5,12 @@
 	"main": "dist/ignite-core.cjs.js",
 	"module": "dist/ignite-core.es.js",
 	"types": "dist/types/index.d.ts",
-	"typesVersions": {
-		"*": {
-			"xstate": [
-				"dist/types/xstate.d.ts"
-			]
-		}
-	},
 	"exports": {
 		".": {
 			"types": "./dist/types/index.d.ts",
 			"import": "./dist/ignite-core.es.js",
 			"require": "./dist/ignite-core.cjs.js",
 			"default": "./dist/ignite-core.es.js"
-		},
-		"./xstate": {
-			"types": "./dist/types/xstate.d.ts",
-			"import": "./dist/xstate.es.js",
-			"require": "./dist/xstate.cjs.js",
-			"default": "./dist/xstate.es.js"
 		}
 	},
 	"sideEffects": false,
@@ -37,8 +24,5 @@
 		"typescript": "^5.9.3",
 		"vite": "^7.1.12",
 		"vite-plugin-dts": "^4.5.4"
-	},
-	"peerDependencies": {
-		"xstate": ">=5.19.0"
 	}
 }

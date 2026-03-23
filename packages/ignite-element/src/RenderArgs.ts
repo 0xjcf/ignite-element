@@ -5,6 +5,7 @@ import type {
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
 } from "ignite-adapters";
+import type { ExtendedState, XStateCommandActor } from "ignite-adapters/xstate";
 import type {
 	CommandContext as CoreCommandContext,
 	EffectContext as CoreEffectContext,
@@ -19,7 +20,6 @@ import type {
 	EventDescriptor,
 	EventMap,
 	EventPayload,
-	ExtendedState,
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeEffectsCallback,
@@ -27,7 +27,6 @@ import type {
 	FacadeEffectsObjectCallback,
 	FacadeStatesCallback,
 	FacadeViewCallback,
-	XStateCommandActor,
 } from "ignite-core";
 import type { AnyStateMachine, EventFrom, StateFrom } from "xstate";
 

@@ -1,2 +1,3 @@
 export { isReduxSlice, isReduxStore } from "ignite-adapters";
-export { isFunction, isXStateActor, isXStateMachine } from "ignite-core";
+export { isXStateActor, isXStateMachine } from "ignite-adapters/xstate";
+export { isFunction } from "ignite-core";

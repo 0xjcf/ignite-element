@@ -7,6 +7,9 @@
 	"types": "dist/types/index.d.ts",
 	"typesVersions": {
 		"*": {
+			"xstate": [
+				"dist/types/xstate.d.ts"
+			],
 			"redux": [
 				"dist/types/redux.d.ts"
 			],
@@ -21,6 +24,12 @@
 			"import": "./dist/ignite-adapters.es.js",
 			"require": "./dist/ignite-adapters.cjs.js",
 			"default": "./dist/ignite-adapters.es.js"
+		},
+		"./xstate": {
+			"types": "./dist/types/xstate.d.ts",
+			"import": "./dist/xstate.es.js",
+			"require": "./dist/xstate.cjs.js",
+			"default": "./dist/xstate.es.js"
 		},
 		"./redux": {
 			"types": "./dist/types/redux.d.ts",
@@ -46,7 +55,8 @@
 		"@reduxjs/toolkit": "^2.3.0",
 		"typescript": "^5.9.3",
 		"vite": "^7.1.12",
-		"vite-plugin-dts": "^4.5.4"
+		"vite-plugin-dts": "^4.5.4",
+		"xstate": "^5.23.0"
 	},
 	"dependencies": {
 		"ignite-core": "workspace:*"
@@ -54,6 +64,7 @@
 	"peerDependencies": {
 		"@reduxjs/toolkit": ">=2.3.0",
 		"mobx": ">=6.13.5",
-		"redux": ">=5.0.1"
+		"redux": ">=5.0.1",
+		"xstate": ">=5.19.0"
 	}
 }
