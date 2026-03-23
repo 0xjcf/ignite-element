@@ -16,11 +16,11 @@ import {
 import type { IgniteAdapter } from "ignite-core";
 import { StateScope } from "ignite-core";
 import type { AnyStateMachine, EventFrom } from "xstate";
+import { bindProjectionToElements } from "./createComponentFactory";
 import igniteElementFactory, {
 	type ComponentFactory,
 	type IgniteRenderArgs,
 } from "./IgniteElementFactory";
-import { bindProjectionToElements } from "./createComponentFactory";
 import type {
 	IgniteCoreConfig,
 	IgniteCoreReturn,

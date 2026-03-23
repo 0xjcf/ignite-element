@@ -51,7 +51,11 @@ packages/ignite-store/src/**/*.d.ts
 packages/ignite-store/src/**/*.d.ts.map
 
 # >>> FAS managed ignore block >>>
-# FAS runtime data (generated, do not commit)
-.fas/
+# FAS runtime data and local workspace state (generated, do not commit)
+.fas/*
+!.fas/TASKS.md
+!.fas/tasks/
+.fas/tasks/*
+!.fas/tasks/*.md
 fas
 # <<< FAS managed ignore block <<<
