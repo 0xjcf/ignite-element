@@ -92,7 +92,7 @@ Because it’s a web component, you can drop it into React, Vue, Svelte, or plai
 
 ## Variations
 
-- Swap `source` for a Redux slice or MobX store (`ignite-core` has adapters for each).
-- Opt into the lit renderer by setting `renderer: "lit"` in `ignite.config.ts` and authoring lit templates instead of JSX.
+- Swap `source` for a Redux slice or MobX store via `ignite-element/redux` or `ignite-element/mobx`.
+- Opt into the lit renderer only if you need it, via the advanced config/docs path.
 - Share actors/stores by passing long-lived instances. Ignite never stops user-owned sources.
 - Advanced overrides: use `cleanup` or `lifecycle.browser` only when you need to change the defaults.

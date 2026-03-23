@@ -57,13 +57,13 @@ That makes it safe to write deterministic tests around a single transition witho
 
 ## Setup
 
-- Use a browser-like runner (e.g., Vitest + JSDOM). Import `ignite.config.ts` (or the renderer entry) once so renderers/styles are registered.
+- Use a browser-like runner (e.g., Vitest + JSDOM). If you rely on `ignite.config.ts`, global styles, or a non-default renderer, import that setup once before tests.
 - Register the component under test before each suite. Clear the DOM between tests (`document.body.innerHTML = ""`).
 
 ```ts
 // test/setup.ts
-import './ignite.config'; // ensures renderer + styles are loaded for all tests
-import 'ignite-element/renderers/lit'; // optional if config already sets lit
+import './ignite.config'; // only if your app uses ignite.config.ts
+import 'ignite-element/renderers/lit'; // only if your tests use the lit renderer
 
 // vitest.config.ts
 export default defineConfig({

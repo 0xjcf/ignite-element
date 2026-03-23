@@ -11,9 +11,6 @@
 			"ignite-adapters/xstate": ["../ignite-adapters/src/xstate.ts"],
 			"ignite-adapters/redux": ["../ignite-adapters/src/redux.ts"],
 			"ignite-adapters/mobx": ["../ignite-adapters/src/mobx.ts"],
-			"ignite-store": ["../ignite-store/src/index.ts"],
-			"ignite-store/redux": ["../ignite-store/src/redux.ts"],
-			"ignite-store/mobx": ["../ignite-store/src/mobx.ts"],
 			"ignite-renderer": ["../ignite-renderer/src/index.ts"],
 			"ignite-renderer/jsx": ["../ignite-renderer/src/renderers/ignite-jsx.ts"],
 			"ignite-renderer/lit": ["../ignite-renderer/src/renderers/lit.ts"],
@@ -32,7 +29,6 @@
 		"src",
 		"../ignite-core/src",
 		"../ignite-adapters/src",
-		"../ignite-store/src",
 		"../ignite-renderer/src"
 	]
 }

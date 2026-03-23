@@ -1,6 +1,6 @@
 ---
 title: Installation
-description: Set up Ignite Element with your state library and renderer defaults.
+description: Set up Ignite Element with your state library and the default JSX path.
 sidebar:
   label: Installation
   order: 1
@@ -14,7 +14,7 @@ pnpm add ignite-element xstate
 # pnpm add ignite-element mobx               # MobX
 ```
 
-### 1) Configure JSX (Ignite JSX renderer)
+### 1) Configure JSX (required for the default Ignite JSX path)
 
 Add the Ignite JSX runtime to your `tsconfig.json` (or use a file-level pragma):
 
@@ -27,59 +27,17 @@ Add the Ignite JSX runtime to your `tsconfig.json` (or use a file-level pragma):
 }
 ```
 
-### 2) Add `ignite.config.ts`
+### 2) Start building
 
-Centralize renderer defaults, logging, and global styles:
+For the default path, you do not need `ignite.config.ts`, a bundler plugin, or lifecycle overrides. The default Ignite JSX renderer is registered automatically by the public entrypoints.
 
-```ts
-// ignite.config.ts
-import { defineIgniteConfig } from 'ignite-element/config';
+### Optional advanced setup
 
-export default defineIgniteConfig({
-  renderer: 'ignite-jsx', // or "lit"
-  styles: new URL('./src/styles.css', import.meta.url).href,
-  logging: 'warn',
-});
-```
+Use the advanced setup only when you need project-wide renderer defaults, global styles, diagnostics, or a non-default renderer.
 
-:::note[Why config?]
-
-Ignite uses this file to pick renderers, inject shared styles into each custom element’s shadow root, and set logging. The Vite/Webpack plugins will auto-import it.
-
-:::
-
-### 3) Wire your bundler
-
-- **Vite**: add the plugin.
-
-```ts
-// vite.config.ts
-import { defineConfig } from 'vite';
-import { igniteConfigVitePlugin } from 'ignite-element/config/vite';
-
-export default defineConfig({
-  plugins: [igniteConfigVitePlugin()],
-});
-```
-
-- **Webpack**: use the provided plugin.
-
-```ts
-// webpack.config.js
-const { IgniteConfigWebpackPlugin } = require('ignite-element/config/webpack');
-
-module.exports = {
-  plugins: [new IgniteConfigWebpackPlugin()],
-};
-```
-
-### 4) Optional: lit renderer
-
-If you prefer lit templates, install `lit-html` and set `renderer: "lit"` in `ignite.config.ts`. Keep the bundler plugins from step 3; they load your config and renderer entrypoint.
-
-:::note[Renderer entrypoints without plugins]
-Skipping the plugins? Import your `ignite.config.ts` before registering components. The default Ignite JSX renderer is registered automatically via the core entrypoints; if you set `renderer: "lit"`, also import `'ignite-element/renderers/lit'` once to register it.
-:::
+- **Config**: [defineIgniteConfig](/ignite-element/api/define-ignite-config/)
+- **Tooling plugins**: [Tooling](/ignite-element/guides/tooling/)
+- **lit renderer**: [Renderers](/ignite-element/api/renderers/)
 
 ### Runtime dependencies and tree shaking
 
@@ -89,4 +47,4 @@ Ignite Element stays lean but is not literally “zero dependency”: you must i
 
 - Run a TypeScript check (e.g., `pnpm exec tsc --noEmit` or `npx tsc --noEmit`) to ensure JSX settings work.
 - Create a smoke test component via [Your first component](/ignite-element/getting-started/first-component/).
-- Keep the `ignite.config.ts` import near your app entry if you are not using the bundler plugins.
+- Add config/plugins only if you need global renderer defaults, shared styles, or lit.

@@ -74,7 +74,7 @@ Most projects should not need to touch `cleanup`; treat it as an override.
 const actor = createActor(machine);
 actor.start();
 
-const shared = igniteCore({ source: actor, cleanup: false, states: /* ... */ });
+const shared = igniteCore({ source: actor, cleanup: false, view: /* ... */ });
 shared('shared-counter', Renderer);
 // later: actor.stop();
 ```

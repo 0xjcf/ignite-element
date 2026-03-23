@@ -8,8 +8,13 @@ sidebar:
 
 - **Node & package manager**: use Node 22+. Use your preferred package manager (pnpm, npm, or yarn) consistently.
 - **TypeScript JSX**: set `"jsx": "react-jsx"` and `"jsxImportSource": "ignite-element/jsx"`; add the pragma per-file if you cannot change `tsconfig`.
-- **Bundler plugin**: add `igniteConfigVitePlugin()` (Vite) or `IgniteConfigWebpackPlugin` (Webpack) so `ignite.config.ts` is loaded automatically.
 - **Testing**: add a test runner (Vitest or Jest) and include a smoke test for each web component (mount + basic interaction). Run with your package manager (`npm test`, `pnpm test`, etc.).
 - **Linting/formatting**: use your preferred stack (ESLint/Prettier, Biome, etc.) and run it via your package manager. The published package doesn’t impose a formatter.
+
+Optional advanced setup:
+
+- add `ignite.config.ts` if you want project-wide renderer defaults, shared styles, or diagnostics
+- add the Vite/Webpack plugin only if you want the config file auto-loaded by your bundler
+- configure `lit` only if you want the non-default renderer path
 
 Follow [Installation](/ignite-element/getting-started/installation/) for the full step-by-step setup and jump to [Your first component](/ignite-element/getting-started/first-component/) to ship a working toggle.

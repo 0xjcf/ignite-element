@@ -274,7 +274,6 @@ Because this runs against the same deterministic runtime, state and event expect
 - `ignite-core`: advanced adapter-neutral primitives for custom integrations and library work
 - `ignite-adapters`: advanced adapter layer used by `ignite-element`
 - `ignite-renderer`: advanced renderer/runtime layer for custom renderer integration work
-- `ignite-store`: temporary compatibility wrapper that re-exports `ignite-adapters` during the package migration
 
 ## Multiple components from one core
 
@@ -300,7 +299,7 @@ toggle("toggle-menu-item", ToggleMenuItemView);
 toggle/
   toggle.core.ts
   toggle.machine.ts
-  toggle.states.ts
+  toggle.view.ts
   toggle.commands.ts
   toggle.effects.ts
   toggle.events.ts
@@ -316,7 +315,7 @@ This structure works well for both human maintainers and agent tooling because t
 - [Configuration and renderers](./docs/site/src/content/docs/api/define-ignite-config.mdx)
 - [State adapter lifecycle](./docs/site/src/content/docs/concepts/state-adapters.mdx)
 - [Migration guide](./docs/migrations/v2.2.3-effects-events.md)
-- Advanced package layers: `ignite-core`, `ignite-adapters`, `ignite-renderer`, and the compatibility `ignite-store` shim
+- Advanced package layers: `ignite-core`, `ignite-adapters`, and `ignite-renderer`
 - [Local examples](./packages/ignite-element/src/examples)
 
 ## Philosophy

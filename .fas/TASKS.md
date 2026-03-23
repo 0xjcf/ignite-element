@@ -2,6 +2,10 @@
 
 ## Active Tasks
 
+_None currently._
+
+## Completed Tasks
+
 ### Task: refactor igniteCore so commands express intent, add effects-based event emission, preserve deprecated emit-in-commands compatibility, and prepare agent-readable runtime hooks
 
 - Title: refactor igniteCore so commands express intent, add effects-based event emission, preserve deprecated emit-in-commands compatibility, and prepare agent-readable runtime hooks

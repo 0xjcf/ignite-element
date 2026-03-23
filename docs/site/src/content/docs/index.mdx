@@ -19,7 +19,7 @@ Ignite Element gives you a thin, typed layer around your favorite state library 
 
 :::tip[Goal]
 
-Fast onboarding: install, wire your renderer, and ship a component in minutes.
+Fast onboarding: install, enable JSX once, and ship a component in minutes.
 
 :::
 
@@ -56,68 +56,43 @@ Add JSX runtime settings for Ignite JSX (the default renderer):
 
 ```tsx
 import { igniteCore } from 'ignite-element/xstate';
-import machine from './counter-machine';
+import { createMachine } from 'xstate';
+
+const machine = createMachine({
+  initial: 'off',
+  states: {
+    off: { on: { TOGGLE: 'on' } },
+    on: { on: { TOGGLE: 'off' } },
+  },
+});
 
 const component = igniteCore({
   source: machine,
-});
-
-component('my-counter', ({ state, send }) => {
-  const { count } = state;
-  const increment = () => send({ type: 'INCREMENT' });
-  const decrement = () => send({ type: 'DECREMENT' });
-
-  return (
-    <div class="counter">
-      <span class="counter-value">{count}</span>
-      <div class="counter-buttons">
-        <button onClick={increment}>+</button>
-        <button onClick={decrement}>-</button>
-      </div>
-    </div>
-  );
-});
-```
-
-`counter-machine.ts`:
-
-```ts
-import { assign, setup } from 'xstate';
-
-const machine = setup({
-  types: {
-    context: {} as { count: number },
-    events: {} as { type: 'INCREMENT' } | { type: 'DECREMENT' },
-  },
-}).createMachine({
-  id: 'counter-machine',
-  context: { count: 0 },
-  initial: 'active',
-  states: {
-    active: {
-      on: {
-        INCREMENT: {
-          actions: assign({
-            count: ({ context }) => context.count + 1,
-          }),
-        },
-        DECREMENT: {
-          actions: assign({
-            count: ({ context }) => context.count - 1,
-          }),
-        },
-      },
-    },
+  events: (event) => ({
+    toggled: event<{ isOn: boolean }>(),
+  }),
+  view: ({ snapshot }) => ({
+    isOn: snapshot.matches('on'),
+  }),
+  commands: ({ actor }) => ({
+    toggle: () => actor.send({ type: 'TOGGLE' }),
+  }),
+  effects: (_snapshot, _prevSnapshot, { emit, select }) => {
+    const isOn = select((snapshot) => snapshot.matches('on'));
+    if (!isOn.changed) return;
+    emit('toggled', { isOn: isOn.current });
   },
 });
 
-export default machine;
+component('my-toggle', ({ isOn, toggle }) => (
+  <button onClick={toggle}>{isOn ? 'On' : 'Off'}</button>
+));
 ```
 
 Add the element anywhere:
 
 ```html
-<my-counter></my-counter>
+<my-toggle></my-toggle>
 ```
 
 Want to go deeper with XState itself? See the <a href="https://stately.ai/docs" target="_blank" rel="noreferrer" aria-label="XState docs (opens in a new tab)">XState docs&nbsp;↗</a>.
@@ -144,10 +119,10 @@ Spin up the counter example in your browser:
 ## Why teams pick Ignite Element
 
 - Works with XState, Redux Toolkit, or MobX—bring your adapter, keep your patterns.
-- Typed commands, states, effects, and events without a React/Solid runtime; you only install the state library and renderer you pick.
-- Renderer choice: Ignite JSX (default, backed by `lit-html`); choose per project via config.
+- Typed commands, view projection, effects, events, and headless runtime hooks without a React/Solid runtime.
+- No config is required for the default Ignite JSX path.
 - Built-in lifecycle handling for shared vs. isolated adapters.
-- Ship design-safe components: global styles via `ignite.config.ts`, per-component CSS as needed.
+- Optional project-level config exists for renderer defaults, global styles, and diagnostics when you need it.
 
 ## Ignite vs. other options
 
