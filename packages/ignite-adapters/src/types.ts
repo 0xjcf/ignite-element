@@ -3,11 +3,11 @@ import type {
 	EmptyEventMap,
 	EventMap,
 	EventsDefinition,
-	FacadeEffectsCallback,
-	FacadeEffectsObjectCallback,
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
+	FacadeEffectsCallback,
+	FacadeEffectsObjectCallback,
 	FacadeStatesCallback,
 	FacadeViewCallback,
 } from "ignite-core";

@@ -1,9 +1,9 @@
 {
-	"name": "ignite-store",
+	"name": "ignite-adapters",
 	"version": "2.2.2",
 	"type": "module",
-	"main": "dist/ignite-store.cjs.js",
-	"module": "dist/ignite-store.es.js",
+	"main": "dist/ignite-adapters.cjs.js",
+	"module": "dist/ignite-adapters.es.js",
 	"types": "dist/types/index.d.ts",
 	"typesVersions": {
 		"*": {
@@ -18,9 +18,9 @@
 	"exports": {
 		".": {
 			"types": "./dist/types/index.d.ts",
-			"import": "./dist/ignite-store.es.js",
-			"require": "./dist/ignite-store.cjs.js",
-			"default": "./dist/ignite-store.es.js"
+			"import": "./dist/ignite-adapters.es.js",
+			"require": "./dist/ignite-adapters.cjs.js",
+			"default": "./dist/ignite-adapters.es.js"
 		},
 		"./redux": {
 			"types": "./dist/types/redux.d.ts",
@@ -40,20 +40,20 @@
 		"build:types": "tsc",
 		"build:js": "vite build",
 		"build": "pnpm run build:types && pnpm run build:js",
-		"typecheck": "tsc --noEmit --pretty false --project tsconfig.json"
-	},
-	"dependencies": {
-		"ignite-adapters": "workspace:*"
-	},
-	"peerDependencies": {
-		"@reduxjs/toolkit": ">=2.3.0",
-		"mobx": ">=6.13.5",
-		"redux": ">=5.0.1"
+		"typecheck": "tsc --pretty false --project tsconfig.typecheck.json"
 	},
 	"devDependencies": {
 		"@reduxjs/toolkit": "^2.3.0",
 		"typescript": "^5.9.3",
 		"vite": "^7.1.12",
 		"vite-plugin-dts": "^4.5.4"
+	},
+	"dependencies": {
+		"ignite-core": "workspace:*"
+	},
+	"peerDependencies": {
+		"@reduxjs/toolkit": ">=2.3.0",
+		"mobx": ">=6.13.5",
+		"redux": ">=5.0.1"
 	}
 }

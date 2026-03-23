@@ -31,6 +31,18 @@ export default mergeConfig(
 					replacement: resolvePath("../ignite-core/src/index.ts"),
 				},
 				{
+					find: "ignite-adapters/redux",
+					replacement: resolvePath("../ignite-adapters/src/redux.ts"),
+				},
+				{
+					find: "ignite-adapters/mobx",
+					replacement: resolvePath("../ignite-adapters/src/mobx.ts"),
+				},
+				{
+					find: "ignite-adapters",
+					replacement: resolvePath("../ignite-adapters/src/index.ts"),
+				},
+				{
 					find: "ignite-store/redux",
 					replacement: resolvePath("../ignite-store/src/redux.ts"),
 				},

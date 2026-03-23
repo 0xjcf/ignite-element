@@ -167,7 +167,7 @@
 	"dependencies": {
 		"ignite-core": "workspace:*",
 		"ignite-renderer": "workspace:*",
-		"ignite-store": "workspace:*"
+		"ignite-adapters": "workspace:*"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.3.1",

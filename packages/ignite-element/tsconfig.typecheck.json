@@ -8,6 +8,9 @@
 			"ignite-element/*": ["./src/*"],
 			"ignite-core": ["../ignite-core/src/index.ts"],
 			"ignite-core/xstate": ["../ignite-core/src/xstate.ts"],
+			"ignite-adapters": ["../ignite-adapters/src/index.ts"],
+			"ignite-adapters/redux": ["../ignite-adapters/src/redux.ts"],
+			"ignite-adapters/mobx": ["../ignite-adapters/src/mobx.ts"],
 			"ignite-store": ["../ignite-store/src/index.ts"],
 			"ignite-store/redux": ["../ignite-store/src/redux.ts"],
 			"ignite-store/mobx": ["../ignite-store/src/mobx.ts"],
@@ -28,6 +31,7 @@
 	"include": [
 		"src",
 		"../ignite-core/src",
+		"../ignite-adapters/src",
 		"../ignite-store/src",
 		"../ignite-renderer/src"
 	]

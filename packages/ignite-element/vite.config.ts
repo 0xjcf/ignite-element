@@ -21,7 +21,7 @@ export default defineConfig({
 		external: [
 			"ignite-core",
 			"ignite-renderer",
-			"ignite-store",
+			"ignite-adapters",
 			"lit-html",
 			"xstate",
 			"mobx",

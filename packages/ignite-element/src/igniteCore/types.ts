@@ -1,5 +1,16 @@
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type {
+	MobxEvent,
+	ReduxBlueprintSource,
+	ReduxCommandActorFor,
+	ReduxInstanceSource,
+	ReduxSliceCommandActor,
+	ReduxStoreCommandActor,
+	MobxConfig as StoreMobxConfig,
+	ReduxBlueprintConfig as StoreReduxBlueprintConfig,
+	ReduxInstanceConfig as StoreReduxInstanceConfig,
+} from "ignite-adapters";
+import type {
 	AnyCommandsCallback,
 	AnyEffectsCallback,
 	AnyStatesCallback,
@@ -13,17 +24,6 @@ import type {
 	WithFacadeRenderArgs,
 	XStateActorInstance,
 } from "ignite-core";
-import type {
-	MobxEvent,
-	ReduxBlueprintSource,
-	ReduxCommandActorFor,
-	ReduxInstanceSource,
-	ReduxSliceCommandActor,
-	ReduxStoreCommandActor,
-	MobxConfig as StoreMobxConfig,
-	ReduxBlueprintConfig as StoreReduxBlueprintConfig,
-	ReduxInstanceConfig as StoreReduxInstanceConfig,
-} from "ignite-store";
 import type { AnyStateMachine } from "xstate";
 import type { ComponentFactory } from "../IgniteElementFactory";
 import type { IgniteAgentRuntime } from "../types/agent";

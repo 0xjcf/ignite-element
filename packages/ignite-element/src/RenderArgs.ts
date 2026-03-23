@@ -1,9 +1,17 @@
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type {
+	InferStateAndEvent,
+	MobxEvent,
+	ReduxSliceCommandActor,
+	ReduxStoreCommandActor,
+} from "ignite-adapters";
+import type {
 	CommandContext as CoreCommandContext,
 	EffectContext as CoreEffectContext,
 	EffectSelection as CoreEffectSelection,
 	EffectSelector as CoreEffectSelector,
+	FacadeEffectArgs as CoreFacadeEffectArgs,
+	ViewContext as CoreViewContext,
 	EmitFromEvents,
 	EmitPayloadArgs,
 	EmptyEventMap,
@@ -12,23 +20,15 @@ import type {
 	EventMap,
 	EventPayload,
 	ExtendedState,
-	FacadeEffectArgs as CoreFacadeEffectArgs,
+	FacadeCommandFunction,
+	FacadeCommandResult,
 	FacadeEffectsCallback,
 	FacadeEffectsLike,
 	FacadeEffectsObjectCallback,
-	FacadeCommandFunction,
-	FacadeCommandResult,
 	FacadeStatesCallback,
 	FacadeViewCallback,
-	ViewContext as CoreViewContext,
 	XStateCommandActor,
 } from "ignite-core";
-import type {
-	InferStateAndEvent,
-	MobxEvent,
-	ReduxSliceCommandActor,
-	ReduxStoreCommandActor,
-} from "ignite-store";
 import type { AnyStateMachine, EventFrom, StateFrom } from "xstate";
 
 export type {
@@ -50,7 +50,7 @@ export type {
 export type {
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
-} from "ignite-store";
+} from "ignite-adapters";
 
 export type CommandContext<Actor, Host = HTMLElement> = CoreCommandContext<
 	Actor,

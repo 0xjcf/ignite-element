@@ -1,3 +1,4 @@
+import { igniteCore as igniteCoreMobxProjection } from "ignite-adapters/mobx";
 import type {
 	EmptyEventMap,
 	EventMap,
@@ -5,7 +6,6 @@ import type {
 	FacadeCommandResult,
 	ProjectionFactory,
 } from "ignite-core";
-import { igniteCore as igniteCoreMobxProjection } from "ignite-store/mobx";
 import igniteElementFactory, {
 	type ComponentFactory,
 	type IgniteRenderArgs,

@@ -11,7 +11,9 @@ export default defineConfig({
 	},
 	resolve: {
 		alias: {
-			"ignite-store/mobx": resolvePath("../../../../ignite-store/src/mobx.ts"),
+			"ignite-adapters/mobx": resolvePath(
+				"../../../../ignite-adapters/src/mobx.ts",
+			),
 			"ignite-element/config/loadIgniteConfig": resolvePath(
 				"../../config/loadIgniteConfig.ts",
 			),

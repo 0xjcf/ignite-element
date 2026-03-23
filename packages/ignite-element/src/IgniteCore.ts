@@ -1,4 +1,12 @@
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
+import type { InferStateAndEvent, MobxEvent } from "ignite-adapters";
+import {
+	igniteCoreMobx as igniteCoreMobxProjection,
+	igniteCoreRedux as igniteCoreReduxProjection,
+	isMobxObservable,
+	isReduxSlice,
+	isReduxStore,
+} from "ignite-adapters";
 import type {
 	ExtendedState,
 	IgniteAdapter,
@@ -11,14 +19,6 @@ import {
 	isXStateMachine,
 	StateScope,
 } from "ignite-core";
-import type { InferStateAndEvent, MobxEvent } from "ignite-store";
-import {
-	igniteCoreMobx as igniteCoreMobxProjection,
-	igniteCoreRedux as igniteCoreReduxProjection,
-	isMobxObservable,
-	isReduxSlice,
-	isReduxStore,
-} from "ignite-store";
 import type { AnyStateMachine, EventFrom } from "xstate";
 import igniteElementFactory, {
 	type ComponentFactory,

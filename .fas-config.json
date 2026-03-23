@@ -35,6 +35,7 @@
 			"packages/ignite-core/src/types.ts",
 			"packages/ignite-core/src/xstate.ts",
 			"packages/ignite-core/src/utils/adapterGuards.ts",
+			"packages/ignite-adapters/src/",
 			"packages/ignite-store/src/",
 			"packages/ignite-element/src/runtime/",
 			"packages/ignite-element/src/testing.ts",
