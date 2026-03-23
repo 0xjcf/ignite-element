@@ -1,28 +1,24 @@
-import type { IgniteAdapter, StateScope } from "ignite-core";
+import {
+	createProjectionFactory,
+	type AdapterFactory,
+	type EmitFromEvents,
+	type EmitPayloadArgs,
+	type EmptyEventMap,
+	type EventMap,
+	type FacadeCommandFunction,
+	type FacadeCommandResult,
+	type IgniteAdapter,
+	type ProjectionFactory,
+	type ProjectionFactoryOptions,
+	type StateScope,
+	type WithFacadeRenderArgs,
+} from "ignite-core";
 import type { IgniteJsxChild, RenderStrategyFactory } from "ignite-renderer";
 import type { TemplateResult } from "lit-html";
 import igniteElementFactory, {
 	type BaseRenderArgs,
 	type ComponentFactory,
 } from "./IgniteElementFactory";
-import type {
-	EmptyEventMap,
-	EventMap,
-	FacadeCommandFunction,
-	FacadeCommandResult,
-	FacadeCommandsCallback,
-	FacadeStatesCallback,
-	FacadeViewCallback,
-} from "./RenderArgs";
-
-export type AdapterFactory<State, Event> = (() => IgniteAdapter<
-	State,
-	Event
->) & {
-	scope?: StateScope;
-	resolveStateSnapshot?: (adapter: IgniteAdapter<State, Event>) => unknown;
-	resolveCommandActor?: (adapter: IgniteAdapter<State, Event>) => unknown;
-};
 
 type AdditionalRenderArgs<
 	State,
@@ -36,6 +32,7 @@ export type ElementFactoryOptions<
 	RenderArgs extends BaseRenderArgs<State, Event>,
 	View = TemplateResult | IgniteJsxChild,
 	Events extends EventMap = EmptyEventMap,
+	RuntimeView extends Record<string, unknown> = Record<never, never>,
 > = {
 	scope?: StateScope;
 	createAdditionalArgs?: (
@@ -43,7 +40,10 @@ export type ElementFactoryOptions<
 		host?: HTMLElement,
 	) => AdditionalRenderArgs<State, Event, RenderArgs>;
 	createRenderStrategy?: RenderStrategyFactory<View>;
-	events?: Events;
+	eventTypes?: readonly (keyof Events & string)[];
+	resolveView?: (
+		adapter: IgniteAdapter<State, Event>,
+	) => RuntimeView | Record<never, never>;
 	cleanup?: boolean;
 };
 
@@ -54,42 +54,28 @@ export type ElementFactoryCreator<
 	View,
 	Result,
 	Events extends EventMap = EmptyEventMap,
+	RuntimeView extends Record<string, unknown> = Record<never, never>,
 > = (
 	createAdapter: AdapterFactory<State, Event>,
-	options: ElementFactoryOptions<State, Event, RenderArgs, View, Events>,
+	options: ElementFactoryOptions<
+		State,
+		Event,
+		RenderArgs,
+		View,
+		Events,
+		RuntimeView
+	>,
 ) => Result;
-
-type FacadeStateResult<Result> = [Result] extends [Record<string, unknown>]
-	? Result
-	: Record<never, never>;
-
-type ExtractCommandResult<Result> = [Result] extends [FacadeCommandResult]
-	? Result
-	: Record<never, never>;
-
-type Phantom<T> = Record<never, T>;
-
-export type WithFacadeRenderArgs<
-	State,
-	Event,
-	StatesResult,
-	CommandActor,
-	CommandsResult,
-	Additional extends Record<string, unknown> = Record<never, never>,
-	Events extends EventMap = EmptyEventMap,
-> = BaseRenderArgs<State, Event> &
-	Additional &
-	FacadeStateResult<StatesResult> &
-	ExtractCommandResult<CommandsResult> &
-	Phantom<CommandActor> &
-	Phantom<Events>;
 
 export type ComponentFactoryOptions<
 	State,
 	Event,
 	Snapshot,
 	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandActor = unknown,
+	CommandActor = {
+		send: (event: Event) => void;
+		getState: () => State;
+	},
 	CommandsResult extends FacadeCommandResult = Record<
 		never,
 		FacadeCommandFunction
@@ -97,49 +83,115 @@ export type ComponentFactoryOptions<
 	Additional extends Record<string, unknown> = Record<never, never>,
 	View = TemplateResult | IgniteJsxChild,
 	Events extends EventMap = EmptyEventMap,
-> = {
-	scope?: StateScope;
-	states?: FacadeStatesCallback<Snapshot, StatesResult>;
-	view?: FacadeViewCallback<Snapshot, StatesResult>;
-	commands?: FacadeCommandsCallback<CommandActor, CommandsResult>;
-	resolveStateSnapshot?: (adapter: IgniteAdapter<State, Event>) => Snapshot;
-	resolveCommandActor?: (adapter: IgniteAdapter<State, Event>) => CommandActor;
-	createAdditionalArgs?: (
-		adapter: IgniteAdapter<State, Event>,
-		host?: HTMLElement,
-	) => Additional;
+> = ProjectionFactoryOptions<
+	State,
+	Event,
+	Snapshot,
+	StatesResult,
+	CommandActor,
+	CommandsResult,
+	Additional,
+	Events,
+	HTMLElement
+> & {
 	createRenderStrategy?: RenderStrategyFactory<View>;
-	events?: Events;
-	cleanup?: boolean;
 };
 
-const isPlainObject = (value: unknown): value is Record<string, unknown> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
+type BindProjectionToElementsOptions<
+	State,
+	Event,
+	RenderArgs extends BaseRenderArgs<State, Event>,
+	View,
+	Result,
+	Events extends EventMap = EmptyEventMap,
+	RuntimeView extends Record<string, unknown> = Record<never, never>,
+> = {
+	elementFactory?: ElementFactoryCreator<
+		State,
+		Event,
+		RenderArgs,
+		View,
+		Result,
+		Events,
+		RuntimeView
+	>;
+	createRenderStrategy?: RenderStrategyFactory<View>;
+	errorPrefix?: string;
+};
 
-const isDevelopment = () => process.env.NODE_ENV !== "production";
+const createDomEmit = <Events extends EventMap>(
+	host: HTMLElement,
+): EmitFromEvents<Events> => {
+	return <Type extends keyof Events & string>(
+		type: Type,
+		...args: EmitPayloadArgs<Events, Type>
+	) => {
+		const detail = args[0];
+		const customEvent = new CustomEvent(type, {
+			detail,
+			bubbles: true,
+			composed: true,
+		});
+		host.dispatchEvent(customEvent);
+	};
+};
 
-function freezeIfDev<T extends object>(value: T): T {
-	return isDevelopment() ? Object.freeze(value) : value;
+export function bindProjectionToElements<
+	State,
+	Event,
+	RenderArgs extends BaseRenderArgs<State, Event>,
+	View = TemplateResult | IgniteJsxChild,
+	Result = ComponentFactory<State, Event, RenderArgs, View>,
+	Events extends EventMap = EmptyEventMap,
+	RuntimeView extends Record<string, unknown> = Record<never, never>,
+>(
+	projection: ProjectionFactory<State, Event, RenderArgs, HTMLElement, Events>,
+	options: BindProjectionToElementsOptions<
+		State,
+		Event,
+		RenderArgs,
+		View,
+		Result,
+		Events,
+		RuntimeView
+	> = {},
+): Result {
+	const elementFactory =
+		options.elementFactory ??
+		(igniteElementFactory as ElementFactoryCreator<
+			State,
+			Event,
+			RenderArgs,
+			View,
+			Result,
+			Events,
+			RuntimeView
+		>);
+	const errorPrefix = options.errorPrefix ?? "bindProjectionToElements";
+
+	return elementFactory(projection.createAdapter, {
+		scope: projection.scope,
+		cleanup: projection.cleanup,
+		eventTypes: projection.eventTypes,
+		resolveView: projection.resolveView as (
+			adapter: IgniteAdapter<State, Event>,
+		) => RuntimeView,
+		createRenderStrategy: options.createRenderStrategy,
+		createAdditionalArgs: (adapter, host) => {
+			if (!host) {
+				throw new Error(
+					`[${errorPrefix}] Host element is required for projection.`,
+				);
+			}
+			return projection.createAdditionalArgs(
+				adapter,
+				host,
+				createDomEmit<Events>(host),
+			);
+		},
+	});
 }
 
-function ensureFacadeResult(
-	result: unknown,
-	feature: "states" | "view" | "commands",
-) {
-	if (!isPlainObject(result)) {
-		throw new Error(
-			`[createComponentFactory] Facade ${feature} callback must return a plain object.`,
-		);
-	}
-}
-
-function assertCommandFunction(value: unknown, key: string) {
-	if (typeof value !== "function") {
-		throw new Error(
-			`[createComponentFactory] Facade commands must return functions. Property "${key}" is not callable.`,
-		);
-	}
-}
 export function createComponentFactoryWithRenderer<
 	State,
 	Event,
@@ -186,7 +238,8 @@ export function createComponentFactoryWithRenderer<
 		>,
 		View,
 		FactoryResult,
-		Events
+		Events,
+		StatesResult
 	>,
 	options?: ComponentFactoryOptions<
 		State,
@@ -200,145 +253,42 @@ export function createComponentFactoryWithRenderer<
 		Events
 	>,
 ): FactoryResult {
-	const {
-		scope,
-		states,
-		view,
-		commands,
-		resolveStateSnapshot,
-		resolveCommandActor,
-		createAdditionalArgs,
-	} = options ?? {};
-
-	const resolveSnapshot =
-		resolveStateSnapshot ??
-		(createAdapter.resolveStateSnapshot as
-			| ((adapter: IgniteAdapter<State, Event>) => Snapshot)
-			| undefined) ??
-		((adapter: IgniteAdapter<State, Event>) =>
-			adapter.getState() as unknown as Snapshot);
-
-	const resolveActor =
-		resolveCommandActor ??
-		(createAdapter.resolveCommandActor as
-			| ((adapter: IgniteAdapter<State, Event>) => CommandActor)
-			| undefined) ??
-		((adapter: IgniteAdapter<State, Event>) =>
-			({
-				send: (event: Event) => adapter.send(event),
-				getState: () => adapter.getState(),
-			}) as CommandActor);
-
-	const userAdditionalArgs = createAdditionalArgs ?? (() => ({}) as Additional);
-	const resolvedView = view;
-	const resolveView = (
-		adapter: IgniteAdapter<State, Event>,
-	): FacadeStateResult<StatesResult> => {
-		if (resolvedView) {
-			const result = resolvedView({
-				snapshot: resolveSnapshot(adapter),
-			});
-			ensureFacadeResult(result, "view");
-			return result;
-		}
-
-		if (states) {
-			const result = states(resolveSnapshot(adapter));
-			ensureFacadeResult(result, "states");
-			return result;
-		}
-
-		return Object.create(null) as FacadeStateResult<StatesResult>;
-	};
-
-	type FinalRenderArgs = WithFacadeRenderArgs<
+	const { createRenderStrategy, ...projectionOptions } = options ?? {};
+	const projection = createProjectionFactory<
 		State,
 		Event,
+		Snapshot,
 		StatesResult,
 		CommandActor,
 		CommandsResult,
 		Additional,
-		Events
-	>;
+		Events,
+		HTMLElement
+	>(createAdapter, {
+		...projectionOptions,
+		debugName: "createComponentFactory",
+	});
 
-	return elementFactory(createAdapter, {
-		scope: scope ?? createAdapter.scope,
-		createRenderStrategy: options?.createRenderStrategy,
-		cleanup: options?.cleanup,
-		createAdditionalArgs: (
-			adapter: IgniteAdapter<State, Event>,
-			host?: HTMLElement,
-		) => {
-			if (!host) {
-				throw new Error(
-					"[createComponentFactory] Unable to resolve host element for command context.",
-				);
-			}
-			const extras = userAdditionalArgs(adapter, host);
-			const merged = Object.create(null) as AdditionalRenderArgs<
-				State,
-				Event,
-				FinalRenderArgs
-			>;
-
-			Object.defineProperties(merged, {
-				...Object.getOwnPropertyDescriptors(extras),
-			});
-
-			if (resolvedView || states) {
-				const initial = resolveView(adapter);
-				const stateFacade = Object.create(
-					null,
-				) as FacadeStateResult<StatesResult>;
-
-				for (const key of Object.keys(initial)) {
-					Object.defineProperty(stateFacade, key, {
-						configurable: false,
-						enumerable: true,
-						get: () => (resolveView(adapter) as Record<string, unknown>)[key],
-					});
-				}
-
-				Object.defineProperties(merged, {
-					...Object.getOwnPropertyDescriptors(freezeIfDev(stateFacade)),
-				});
-			}
-
-			if (commands) {
-				const commandCallback = commands as FacadeCommandsCallback<
-					CommandActor,
-					CommandsResult
-				>;
-				const actor = resolveActor(adapter);
-				const commandResult = commandCallback({
-					actor,
-					host,
-				});
-				ensureFacadeResult(commandResult, "commands");
-
-				const entries = Object.entries(commandResult) as Array<
-					[keyof ExtractCommandResult<CommandsResult>, unknown]
-				>;
-				const commandFacade = Object.create(
-					null,
-				) as ExtractCommandResult<CommandsResult>;
-
-				for (const [key, value] of entries) {
-					assertCommandFunction(value, String(key));
-					Object.defineProperty(commandFacade, key, {
-						configurable: false,
-						enumerable: true,
-						value,
-					});
-				}
-
-				Object.defineProperties(merged, {
-					...Object.getOwnPropertyDescriptors(freezeIfDev(commandFacade)),
-				});
-			}
-
-			return merged;
-		},
+	return bindProjectionToElements<
+		State,
+		Event,
+		WithFacadeRenderArgs<
+			State,
+			Event,
+			StatesResult,
+			CommandActor,
+			CommandsResult,
+			Additional,
+			Events
+		>,
+		View,
+		FactoryResult,
+		Events,
+		StatesResult
+	>(projection, {
+		elementFactory,
+		createRenderStrategy,
+		errorPrefix: "createComponentFactory",
 	});
 }
 
@@ -383,9 +333,15 @@ export function createComponentFactory<
 		Events
 	>
 > {
-	return createComponentFactoryWithRenderer(
-		createAdapter,
-		igniteElementFactory,
-		options,
-	);
+	return createComponentFactoryWithRenderer<
+		State,
+		Event,
+		Snapshot,
+		StatesResult,
+		CommandActor,
+		CommandsResult,
+		Additional,
+		TemplateResult | IgniteJsxChild,
+		Events
+	>(createAdapter, igniteElementFactory, options);
 }

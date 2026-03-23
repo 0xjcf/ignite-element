@@ -13,13 +13,14 @@ import {
 	isXStateActor,
 	isXStateMachine,
 } from "ignite-adapters/xstate";
-import type { IgniteAdapter, ProjectionFactory } from "ignite-core";
+import type { IgniteAdapter } from "ignite-core";
 import { StateScope } from "ignite-core";
 import type { AnyStateMachine, EventFrom } from "xstate";
 import igniteElementFactory, {
 	type ComponentFactory,
 	type IgniteRenderArgs,
 } from "./IgniteElementFactory";
+import { bindProjectionToElements } from "./createComponentFactory";
 import type {
 	IgniteCoreConfig,
 	IgniteCoreReturn,
@@ -33,8 +34,6 @@ import type {
 	XStateConfig,
 } from "./igniteCore/types";
 import type {
-	EmitFromEvents,
-	EmitPayloadArgs,
 	EmptyEventMap,
 	EventMap,
 	FacadeCommandFunction,
@@ -51,51 +50,6 @@ export type {
 	ReduxInstanceConfig,
 	XStateConfig,
 } from "./igniteCore/types";
-
-const createDomEmit = <Events extends EventMap>(
-	host: HTMLElement,
-): EmitFromEvents<Events> => {
-	return <Type extends keyof Events & string>(
-		type: Type,
-		...args: EmitPayloadArgs<Events, Type>
-	) => {
-		const detail = args[0];
-		const customEvent = new CustomEvent(type, {
-			detail,
-			bubbles: true,
-			composed: true,
-		});
-		host.dispatchEvent(customEvent);
-	};
-};
-
-function bindProjectionToElements<
-	State,
-	Event,
-	RenderArgs extends IgniteRenderArgs<State, Event>,
-	Events extends EventMap,
->(
-	projection: ProjectionFactory<State, Event, RenderArgs, HTMLElement, Events>,
-): ComponentFactory<State, Event, RenderArgs> {
-	return igniteElementFactory(projection.createAdapter, {
-		scope: projection.scope,
-		cleanup: projection.cleanup,
-		eventTypes: projection.eventTypes,
-		resolveView: projection.resolveView,
-		createAdditionalArgs: (adapter, host) => {
-			if (!host) {
-				throw new Error(
-					"[igniteCore] Host element is required for projection.",
-				);
-			}
-			return projection.createAdditionalArgs(
-				adapter,
-				host,
-				createDomEmit<Events>(host),
-			);
-		},
-	});
-}
 
 type ReduxConfig =
 	| ReduxBlueprintConfig<
@@ -309,7 +263,9 @@ export function igniteCoreXState<
 	Events
 > {
 	const projection = igniteCoreXStateProjection(options);
-	return bindProjectionToElements(projection) as IgniteCoreReturn<
+	return bindProjectionToElements(projection, {
+		errorPrefix: "igniteCore",
+	}) as IgniteCoreReturn<
 		ExtendedState<Machine>,
 		EventFrom<Machine>,
 		ExtendedState<Machine>,
@@ -384,7 +340,9 @@ export function igniteCoreRedux(
 	EventMap
 > {
 	const projection = igniteCoreReduxProjection(options);
-	return bindProjectionToElements(projection) as IgniteCoreReturn<
+	return bindProjectionToElements(projection, {
+		errorPrefix: "igniteCore",
+	}) as IgniteCoreReturn<
 		InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["State"],
 		InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["Event"],
 		InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["State"],
@@ -415,7 +373,9 @@ export function igniteCoreMobx<
 	Events
 > {
 	const projection = igniteCoreMobxProjection(options);
-	return bindProjectionToElements(projection) as IgniteCoreReturn<
+	return bindProjectionToElements(projection, {
+		errorPrefix: "igniteCore",
+	}) as IgniteCoreReturn<
 		State,
 		MobxEvent<State>,
 		State,

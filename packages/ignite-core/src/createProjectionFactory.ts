@@ -61,6 +61,7 @@ export type ProjectionFactoryOptions<
 	) => Additional;
 	events?: Events;
 	cleanup?: boolean;
+	debugName?: string;
 };
 
 export type WithFacadeRenderArgs<
@@ -122,18 +123,23 @@ function freezeIfDev<T extends object>(value: T): T {
 function ensureFacadeResult(
 	result: unknown,
 	feature: "states" | "view" | "commands",
+	errorPrefix: string,
 ) {
 	if (!isPlainObject(result)) {
 		throw new Error(
-			`[createProjectionFactory] Facade ${feature} callback must return a plain object.`,
+			`[${errorPrefix}] Facade ${feature} callback must return a plain object.`,
 		);
 	}
 }
 
-function assertCommandFunction(value: unknown, key: string) {
+function assertCommandFunction(
+	value: unknown,
+	key: string,
+	errorPrefix: string,
+) {
 	if (typeof value !== "function") {
 		throw new Error(
-			`[createProjectionFactory] Facade commands must return functions. Property "${key}" is not callable.`,
+			`[${errorPrefix}] Facade commands must return functions. Property "${key}" is not callable.`,
 		);
 	}
 }
@@ -195,7 +201,9 @@ export function createProjectionFactory<
 		createAdditionalArgs,
 		events,
 		cleanup,
+		debugName,
 	} = options ?? {};
+	const errorPrefix = debugName ?? "createProjectionFactory";
 
 	const resolveSnapshot =
 		resolveStateSnapshot ??
@@ -225,13 +233,13 @@ export function createProjectionFactory<
 			const result = resolvedView({
 				snapshot: resolveSnapshot(adapter),
 			});
-			ensureFacadeResult(result, "view");
+			ensureFacadeResult(result, "view", errorPrefix);
 			return result;
 		}
 
 		if (states) {
 			const result = states(resolveSnapshot(adapter));
-			ensureFacadeResult(result, "states");
+			ensureFacadeResult(result, "states", errorPrefix);
 			return result;
 		}
 
@@ -258,7 +266,7 @@ export function createProjectionFactory<
 			if (isDevelopment()) {
 				if (!(type in eventDefinitions)) {
 					throw new Error(
-						`[createProjectionFactory] Unknown event "${type}". Declare it in the events map before emitting.`,
+						`[${errorPrefix}] Unknown event "${type}". Declare it in the events map before emitting.`,
 					);
 				}
 			}
@@ -274,7 +282,7 @@ export function createProjectionFactory<
 	): AdditionalRenderArgs<State, Event, FinalRenderArgs> => {
 		if (!host) {
 			throw new Error(
-				"[createProjectionFactory] Unable to resolve host for command context.",
+				`[${errorPrefix}] Unable to resolve host for command context.`,
 			);
 		}
 
@@ -320,7 +328,7 @@ export function createProjectionFactory<
 				actor,
 				host,
 			});
-			ensureFacadeResult(commandResult, "commands");
+			ensureFacadeResult(commandResult, "commands", errorPrefix);
 
 			const entries = Object.entries(commandResult) as Array<
 				[keyof ExtractCommandResult<CommandsResult>, unknown]
@@ -330,7 +338,7 @@ export function createProjectionFactory<
 			) as ExtractCommandResult<CommandsResult>;
 
 			for (const [key, value] of entries) {
-				assertCommandFunction(value, String(key));
+				assertCommandFunction(value, String(key), errorPrefix);
 				Object.defineProperty(commandFacade, key, {
 					configurable: false,
 					enumerable: true,

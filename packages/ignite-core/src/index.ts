@@ -1,5 +1,6 @@
 export type {
 	AdapterFactory,
+	ProjectionFactoryOptions,
 	ProjectionFactory,
 	WithFacadeRenderArgs,
 } from "./createProjectionFactory";
