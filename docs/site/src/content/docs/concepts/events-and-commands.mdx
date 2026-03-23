@@ -31,9 +31,10 @@ commands: ({ actor }) => ({
     actor.send({ type: 'ADD', amount });
   },
 }),
-effects: (snapshot, prevSnapshot, { emit }) => {
-  if (snapshot.count === prevSnapshot.count) return;
-  emit('incremented', { amount: snapshot.count });
+effects: (_snapshot, _prevSnapshot, { emit, select }) => {
+  const count = select((snapshot) => snapshot.count);
+  if (!count.changed) return;
+  emit('incremented', { amount: count.current });
 },
 ```
 
@@ -86,7 +87,7 @@ You can read `dataset`, measure the element, or dispatch additional DOM events f
 ## Type flow
 
 - When `events` is present, event names and payloads are inferred into `emit`.
-- `states` and `commands` outputs are merged into the props your renderer receives, giving you typed render args without extra wiring.
+- `view` and `commands` outputs are merged into the props your renderer receives, giving you typed render args without extra wiring.
 
 ### Putting it together (XState)
 
@@ -99,7 +100,7 @@ const component = igniteCore({
   events: (event) => ({
     incremented: event<{ count: number }>(),
   }),
-  states: (snapshot) => ({
+  view: ({ snapshot }) => ({
     count: snapshot.context.count,
     canDecrement: snapshot.context.count > 0,
   }),
@@ -109,9 +110,10 @@ const component = igniteCore({
     },
     decrement: () => actor.send({ type: 'DECREMENT' }),
   }),
-  effects: (snapshot, prevSnapshot, { emit }) => {
-    if (snapshot.context.count === prevSnapshot.context.count) return;
-    emit('incremented', { count: snapshot.context.count });
+  effects: (_snapshot, _prevSnapshot, { emit, select }) => {
+    const count = select((snapshot) => snapshot.context.count);
+    if (!count.changed) return;
+    emit('incremented', { count: count.current });
   },
 });
 

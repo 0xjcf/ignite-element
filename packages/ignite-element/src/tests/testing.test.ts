@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createMachine } from "xstate";
+import { createMachine, type StateFrom } from "xstate";
 import counterStore, {
 	counterSlice,
 } from "../examples/redux/src/js/reduxCounterStore";
 import { igniteCore } from "../IgniteCore";
 import type { ReduxInstanceConfig, XStateConfig } from "../igniteCore/types";
-import type { EventDescriptor } from "../RenderArgs";
+import type { EventDescriptor, FacadeEffectArgs } from "../RenderArgs";
 import { test as igniteTest } from "../testing";
 
 describe("ignite test DSL", () => {
@@ -25,31 +25,37 @@ describe("ignite test DSL", () => {
 				},
 			},
 		});
+		type ToggleSnapshot = StateFrom<typeof machine>;
+		type ToggleEventMap = {
+			toggled: EventDescriptor<{ isOn: boolean }>;
+		};
 
 		const componentConfig = {
 			adapter: "xstate",
 			source: machine,
+			view: ({ snapshot }) => ({
+				isOn: snapshot.matches("on"),
+			}),
 			commands: ({ actor }) => ({
 				toggle: () => actor.send({ type: "TOGGLE" }),
 			}),
 			events: (event) => ({
 				toggled: event<{ isOn: boolean }>(),
 			}),
-			effects: (snapshot, prevSnapshot, { emit }) => {
-				if (snapshot.value === prevSnapshot.value) {
+			effects: ({
+				emit,
+				select,
+			}: FacadeEffectArgs<ToggleSnapshot, unknown, ToggleEventMap>) => {
+				const isOn = select((snapshot) => snapshot.matches("on"));
+				if (!isOn.changed) {
 					return;
 				}
 
 				emit("toggled", {
-					isOn: snapshot.matches("on"),
+					isOn: isOn.current,
 				});
 			},
-		} satisfies XStateConfig<
-			typeof machine,
-			{
-				toggled: EventDescriptor<{ isOn: boolean }>;
-			}
-		>;
+		} satisfies XStateConfig<typeof machine, ToggleEventMap>;
 		const component = igniteCore(componentConfig);
 
 		igniteTest(component)

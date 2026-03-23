@@ -44,7 +44,7 @@ describe("igniteCore type inference", () => {
 		const register = igniteCore({
 			adapter: "xstate",
 			source: machine,
-			states: (snapshot: Snapshot) => ({
+			view: ({ snapshot }: { snapshot: Snapshot }) => ({
 				double: snapshot.context.count * 2,
 			}),
 			commands: ({ actor }) => ({
@@ -332,6 +332,9 @@ describe("igniteCore type inference", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
+			view: ({ snapshot }: { snapshot: StoreState }) => ({
+				count: snapshot.counter.count,
+			}),
 			commands: ({ actor }) => ({
 				increment: (amount: number) =>
 					actor.dispatch(counterSlice.actions.addByAmount(amount)),
@@ -339,21 +342,32 @@ describe("igniteCore type inference", () => {
 			events: (event) => ({
 				"counter-incremented": event<{ count: number }>(),
 			}),
-			effects: (
-				snapshot: StoreState,
-				prevSnapshot: StoreState,
-				ctx: EffectContext<
-					ReduxStoreCommandActor<typeof store>,
-					{
-						"counter-incremented": EventDescriptor<{ count: number }>;
-					}
-				>,
-			) => {
+			effects: ({
+				snapshot,
+				prevSnapshot,
+				emit,
+				select,
+			}: {
+				snapshot: StoreState;
+				prevSnapshot: StoreState;
+			} & EffectContext<
+				ReduxStoreCommandActor<typeof store>,
+				{
+					"counter-incremented": EventDescriptor<{ count: number }>;
+				},
+				HTMLElement,
+				StoreState
+			>) => {
+				const count = select((state) => state.counter.count);
+				expectTypeOf(count.current).toEqualTypeOf<number>();
+				expectTypeOf(count.previous).toEqualTypeOf<number>();
+				expectTypeOf(count.changed).toEqualTypeOf<boolean>();
+
 				if (snapshot.counter.count === prevSnapshot.counter.count) {
 					return;
 				}
 
-				ctx.emit("counter-incremented", {
+				emit("counter-incremented", {
 					count: snapshot.counter.count,
 				});
 			},
@@ -362,18 +376,27 @@ describe("igniteCore type inference", () => {
 		const result = register.execute("increment", 2);
 		const schema = register.getSchema();
 		expectTypeOf(result.state).toEqualTypeOf<StoreState>();
+		expectTypeOf(register.getView()).toEqualTypeOf<{ count: number }>();
 		expectTypeOf(schema.commands).toEqualTypeOf<string[]>();
 		expectTypeOf(schema.events).toEqualTypeOf<string[]>();
 		expectTypeOf(schema.state).toEqualTypeOf<IgniteSchemaValue>();
-		register.subscribe("counter-incremented", (event) => {
+		register.on("counter-incremented", (event) => {
 			expectTypeOf(event.detail).toEqualTypeOf<{ count: number }>();
+		});
+		register.watch((state, prevState) => {
+			expectTypeOf(state).toEqualTypeOf<StoreState>();
+			expectTypeOf(prevState).toEqualTypeOf<StoreState>();
+		});
+		register.watchView((view, prevView) => {
+			expectTypeOf(view).toEqualTypeOf<{ count: number }>();
+			expectTypeOf(prevView).toEqualTypeOf<{ count: number }>();
 		});
 
 		const expectRuntimeValidation = () => {
 			// @ts-expect-error - command name should be validated
 			register.execute("incrementt", 2);
 			// @ts-expect-error - event name should be validated
-			register.subscribe("counter-incrementedd", () => {});
+			register.on("counter-incrementedd", () => {});
 		};
 
 		void expectRuntimeValidation;

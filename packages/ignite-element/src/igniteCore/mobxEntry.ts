@@ -46,6 +46,7 @@ function bindProjectionToElements<
 		scope: projection.scope,
 		cleanup: projection.cleanup,
 		eventTypes: projection.eventTypes,
+		resolveView: projection.resolveView,
 		createAdditionalArgs: (adapter, host) => {
 			if (!host) {
 				throw new Error(

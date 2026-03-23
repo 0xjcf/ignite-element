@@ -9,8 +9,9 @@ import type {
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
-	FacadeEffectsCallback,
+	FacadeEffectsLike,
 	FacadeStatesCallback,
+	FacadeViewCallback,
 } from "./RenderArgs";
 import {
 	attachEffects,
@@ -49,8 +50,9 @@ export type ProjectionFactoryOptions<
 > = {
 	scope?: StateScope;
 	states?: FacadeStatesCallback<Snapshot, StatesResult>;
+	view?: FacadeViewCallback<Snapshot, StatesResult>;
 	commands?: FacadeCommandsCallback<CommandActor, CommandsResult, Host>;
-	effects?: FacadeEffectsCallback<Snapshot, CommandActor, Events, Host>;
+	effects?: FacadeEffectsLike<Snapshot, CommandActor, Events, Host>;
 	resolveStateSnapshot?: (adapter: IgniteAdapter<State, Event>) => Snapshot;
 	resolveCommandActor?: (adapter: IgniteAdapter<State, Event>) => CommandActor;
 	createAdditionalArgs?: (
@@ -82,11 +84,15 @@ export type ProjectionFactory<
 	RenderArgs extends BaseRenderArgs<State, Event>,
 	Host = unknown,
 	Events extends EventMap = EmptyEventMap,
+	ViewResult extends Record<string, unknown> = Record<never, never>,
 > = {
 	createAdapter: AdapterFactory<State, Event>;
 	scope?: StateScope;
 	cleanup?: boolean;
 	eventTypes: readonly (keyof Events & string)[];
+	resolveView: (
+		adapter: IgniteAdapter<State, Event>,
+	) => FacadeStateResult<ViewResult>;
 	createAdditionalArgs: (
 		adapter: IgniteAdapter<State, Event>,
 		host: Host,
@@ -113,7 +119,10 @@ function freezeIfDev<T extends object>(value: T): T {
 	return isDevelopment() ? Object.freeze(value) : value;
 }
 
-function ensureFacadeResult(result: unknown, feature: "states" | "commands") {
+function ensureFacadeResult(
+	result: unknown,
+	feature: "states" | "view" | "commands",
+) {
 	if (!isPlainObject(result)) {
 		throw new Error(
 			`[createProjectionFactory] Facade ${feature} callback must return a plain object.`,
@@ -158,7 +167,8 @@ export function createProjectionFactory<
 			Events
 		>,
 		Host,
-		Events
+		Events,
+		StatesResult
 	>,
 >(
 	createAdapter: AdapterFactory<State, Event>,
@@ -177,6 +187,7 @@ export function createProjectionFactory<
 	const {
 		scope,
 		states,
+		view,
 		commands,
 		effects,
 		resolveStateSnapshot,
@@ -206,6 +217,26 @@ export function createProjectionFactory<
 			}) as CommandActor);
 
 	const userAdditionalArgs = createAdditionalArgs ?? (() => ({}) as Additional);
+	const resolvedView = view;
+	const resolveView = (
+		adapter: IgniteAdapter<State, Event>,
+	): FacadeStateResult<StatesResult> => {
+		if (resolvedView) {
+			const result = resolvedView({
+				snapshot: resolveSnapshot(adapter),
+			});
+			ensureFacadeResult(result, "view");
+			return result;
+		}
+
+		if (states) {
+			const result = states(resolveSnapshot(adapter));
+			ensureFacadeResult(result, "states");
+			return result;
+		}
+
+		return Object.create(null) as FacadeStateResult<StatesResult>;
+	};
 
 	type FinalRenderArgs = WithFacadeRenderArgs<
 		State,
@@ -259,19 +290,8 @@ export function createProjectionFactory<
 			...Object.getOwnPropertyDescriptors(extras),
 		});
 
-		if (states) {
-			const stateCallback = states as FacadeStatesCallback<
-				Snapshot,
-				StatesResult
-			>;
-			const getLatestStates = () => {
-				const snapshot = resolveSnapshot(adapter);
-				const result = stateCallback(snapshot);
-				ensureFacadeResult(result, "states");
-				return result;
-			};
-
-			const initial = getLatestStates();
+		if (resolvedView || states) {
+			const initial = resolveView(adapter);
 			const stateFacade = Object.create(
 				null,
 			) as FacadeStateResult<StatesResult>;
@@ -280,7 +300,7 @@ export function createProjectionFactory<
 				Object.defineProperty(stateFacade, key, {
 					configurable: false,
 					enumerable: true,
-					get: () => getLatestStates()[key],
+					get: () => (resolveView(adapter) as Record<string, unknown>)[key],
 				});
 			}
 
@@ -347,12 +367,14 @@ export function createProjectionFactory<
 		scope: scope ?? createAdapter.scope,
 		cleanup,
 		eventTypes: Object.keys(eventDefinitions) as Array<keyof Events & string>,
+		resolveView,
 		createAdditionalArgs: createMergedArgs as ProjectionFactory<
 			State,
 			Event,
 			FinalRenderArgs,
 			Host,
-			Events
+			Events,
+			StatesResult
 		>["createAdditionalArgs"],
 	} as FactoryResult;
 }

@@ -3,6 +3,7 @@ import type {
 	AnyCommandsCallback,
 	AnyEffectsCallback,
 	AnyStatesCallback,
+	AnyViewCallback,
 	XStateConfig as CoreXStateConfig,
 	EmptyEventMap,
 	EventMap,
@@ -26,6 +27,7 @@ import type {
 import type { AnyStateMachine } from "xstate";
 import type { ComponentFactory } from "../IgniteElementFactory";
 import type { IgniteAgentRuntime } from "../types/agent";
+import type { IgniteSchemaValue } from "../types/schema";
 
 export type IgniteCoreReturn<
 	State,
@@ -52,11 +54,18 @@ export type IgniteCoreReturn<
 	> &
 		Record<never, Snapshot>
 > &
-	IgniteAgentRuntime<Snapshot, CommandsResult, Events>;
+	IgniteAgentRuntime<
+		Snapshot,
+		CommandsResult,
+		Events,
+		IgniteSchemaValue,
+		StatesResult
+	>;
 export type {
 	AnyCommandsCallback,
 	AnyEffectsCallback,
 	AnyStatesCallback,
+	AnyViewCallback,
 	EventsDefinition,
 	MobxEvent,
 	ReduxBlueprintSource,

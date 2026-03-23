@@ -18,6 +18,7 @@ import type {
 	CommandContext,
 	EffectContext,
 	EventDescriptor,
+	FacadeEffectArgs,
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
 } from "../RenderArgs";
@@ -142,7 +143,7 @@ describe("igniteCore", () => {
 		);
 	});
 
-	it("provides facade callbacks for xstate sources", () => {
+	it("provides projected view callbacks for xstate sources", () => {
 		const machine = createMachine({
 			context: { count: 0 },
 			initial: "idle",
@@ -161,7 +162,7 @@ describe("igniteCore", () => {
 		type MachineEvent = EventFrom<Machine>;
 		type MachineActor = XStateCommandActor<Machine>;
 
-		const statesCallback = (snapshot: Snapshot) => ({
+		const viewCallback = ({ snapshot }: { snapshot: Snapshot }) => ({
 			double: snapshot.context.count * 2,
 		});
 		const commandsCallback = ({ actor }: { actor: MachineActor }) => ({
@@ -171,7 +172,7 @@ describe("igniteCore", () => {
 		const register = igniteCore({
 			adapter: "xstate",
 			source: createActor(machine),
-			states: statesCallback,
+			view: viewCallback,
 			commands: commandsCallback,
 		});
 
@@ -454,15 +455,23 @@ describe("igniteCore", () => {
 		expect(order).toEqual(["dispatch", "effect", "emit", "render"]);
 	});
 
-	it("supports headless command execution and event subscriptions", () => {
+	it("supports headless command execution, projected views, event listeners, and watchers", () => {
 		const store = counterStore();
 		type StoreState = InferStateAndEvent<typeof store>["State"];
+		type StoreView = {
+			count: number;
+			isEven: boolean;
+		};
 		type RuntimeEventMap = {
 			"counter-incremented": EventDescriptor<{ count: number }>;
 		};
 		const runtimeConfig = {
 			adapter: "redux",
 			source: store,
+			view: ({ snapshot }: { snapshot: StoreState }): StoreView => ({
+				count: snapshot.counter.count,
+				isEven: snapshot.counter.count % 2 === 0,
+			}),
 			commands: ({ actor }) => ({
 				increment: (amount = 1) =>
 					actor.dispatch(counterSlice.actions.addByAmount(amount)),
@@ -470,13 +479,17 @@ describe("igniteCore", () => {
 			events: (event) => ({
 				"counter-incremented": event<{ count: number }>(),
 			}),
-			effects: (snapshot: StoreState, prevSnapshot: StoreState, { emit }) => {
-				if (snapshot.counter.count === prevSnapshot.counter.count) {
+			effects: ({
+				emit,
+				select,
+			}: FacadeEffectArgs<StoreState, unknown, RuntimeEventMap>) => {
+				const count = select((state: StoreState) => state.counter.count);
+				if (!count.changed) {
 					return;
 				}
 
 				emit("counter-incremented", {
-					count: snapshot.counter.count,
+					count: count.current,
 				});
 			},
 		} satisfies ReduxInstanceConfig<typeof store, RuntimeEventMap>;
@@ -485,11 +498,22 @@ describe("igniteCore", () => {
 		const listener = vi.fn((event: CustomEvent<{ count: number }>) => {
 			expect(event.detail.count).toBe(3);
 		});
-		const subscription = register.subscribe("counter-incremented", listener);
+		const watchListener = vi.fn((state: StoreState, prevState: StoreState) => {
+			expect(prevState.counter.count).toBe(0);
+			expect(state.counter.count).toBe(3);
+		});
+		const watchViewListener = vi.fn((view: StoreView, prevView: StoreView) => {
+			expect(prevView).toEqual({ count: 0, isEven: true });
+			expect(view).toEqual({ count: 3, isEven: false });
+		});
+		const eventSubscription = register.on("counter-incremented", listener);
+		const stateSubscription = register.watch(watchListener);
+		const viewSubscription = register.watchView(watchViewListener);
 
 		const result = register.execute("increment", 3);
 
 		expect(register.getState().counter.count).toBe(3);
+		expect(register.getView()).toEqual({ count: 3, isEven: false });
 		expect(result.state.counter.count).toBe(3);
 		expect(result.events).toEqual([
 			{
@@ -498,11 +522,17 @@ describe("igniteCore", () => {
 			},
 		]);
 		expect(listener).toHaveBeenCalledTimes(1);
+		expect(watchListener).toHaveBeenCalledTimes(1);
+		expect(watchViewListener).toHaveBeenCalledTimes(1);
 
-		subscription.unsubscribe();
+		eventSubscription.unsubscribe();
+		stateSubscription.unsubscribe();
+		viewSubscription.unsubscribe();
 		register.execute("increment", 1);
 
 		expect(listener).toHaveBeenCalledTimes(1);
+		expect(watchListener).toHaveBeenCalledTimes(1);
+		expect(watchViewListener).toHaveBeenCalledTimes(1);
 	});
 
 	it("exposes a JSON-serializable agent schema", () => {

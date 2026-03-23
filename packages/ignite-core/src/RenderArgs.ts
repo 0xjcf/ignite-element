@@ -3,6 +3,15 @@ export type FacadeStatesCallback<
 	Result extends Record<string, unknown> = Record<string, unknown>,
 > = (snapshot: Snapshot) => Result;
 
+export type ViewContext<Snapshot> = {
+	snapshot: Snapshot;
+};
+
+export type FacadeViewCallback<
+	Snapshot,
+	Result extends Record<string, unknown> = Record<string, unknown>,
+> = (context: ViewContext<Snapshot>) => Result;
+
 export type FacadeCommandFunction = (...args: never[]) => unknown;
 
 export type FacadeCommandResult = Record<string, FacadeCommandFunction>;
@@ -56,10 +65,32 @@ export type EffectContext<
 	Actor,
 	Events extends EventMap = EmptyEventMap,
 	Host = unknown,
+	Snapshot = unknown,
 > = {
 	actor: Actor;
 	emit: EmitFromEvents<Events>;
 	host: Host;
+	select: EffectSelector<Snapshot>;
+};
+
+export type EffectSelection<Value> = {
+	current: Value;
+	previous: Value;
+	changed: boolean;
+};
+
+export type EffectSelector<Snapshot> = <Value>(
+	selector: (snapshot: Snapshot) => Value,
+) => EffectSelection<Value>;
+
+export type FacadeEffectArgs<
+	Snapshot,
+	Actor,
+	Events extends EventMap = EmptyEventMap,
+	Host = unknown,
+> = EffectContext<Actor, Events, Host, Snapshot> & {
+	snapshot: Snapshot;
+	prevSnapshot: Snapshot;
 };
 
 export type FacadeEffectsCallback<
@@ -70,8 +101,24 @@ export type FacadeEffectsCallback<
 > = (
 	snapshot: Snapshot,
 	prevSnapshot: Snapshot,
-	context: EffectContext<Actor, Events, Host>,
+	context: EffectContext<Actor, Events, Host, Snapshot>,
 ) => void;
+
+export type FacadeEffectsObjectCallback<
+	Snapshot,
+	Actor,
+	Events extends EventMap = EmptyEventMap,
+	Host = unknown,
+> = (args: FacadeEffectArgs<Snapshot, Actor, Events, Host>) => void;
+
+export type FacadeEffectsLike<
+	Snapshot,
+	Actor,
+	Events extends EventMap = EmptyEventMap,
+	Host = unknown,
+> =
+	| FacadeEffectsCallback<Snapshot, Actor, Events, Host>
+	| FacadeEffectsObjectCallback<Snapshot, Actor, Events, Host>;
 
 type IsNever<T> = [T] extends [never] ? true : false;
 
@@ -82,7 +129,9 @@ type StateResult<
 		FacadeStatesCallback<Snapshot, infer Result>,
 	]
 		? Result
-		: Record<never, never>,
+		: [StateCallback] extends [FacadeViewCallback<Snapshot, infer Result>]
+			? Result
+			: Record<never, never>,
 > = IsNever<StateCallback> extends true ? Record<never, never> : Result;
 
 type CommandResult<

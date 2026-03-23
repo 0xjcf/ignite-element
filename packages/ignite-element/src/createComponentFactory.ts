@@ -12,6 +12,7 @@ import type {
 	FacadeCommandResult,
 	FacadeCommandsCallback,
 	FacadeStatesCallback,
+	FacadeViewCallback,
 } from "./RenderArgs";
 
 export type AdapterFactory<State, Event> = (() => IgniteAdapter<
@@ -99,6 +100,7 @@ export type ComponentFactoryOptions<
 > = {
 	scope?: StateScope;
 	states?: FacadeStatesCallback<Snapshot, StatesResult>;
+	view?: FacadeViewCallback<Snapshot, StatesResult>;
 	commands?: FacadeCommandsCallback<CommandActor, CommandsResult>;
 	resolveStateSnapshot?: (adapter: IgniteAdapter<State, Event>) => Snapshot;
 	resolveCommandActor?: (adapter: IgniteAdapter<State, Event>) => CommandActor;
@@ -120,7 +122,10 @@ function freezeIfDev<T extends object>(value: T): T {
 	return isDevelopment() ? Object.freeze(value) : value;
 }
 
-function ensureFacadeResult(result: unknown, feature: "states" | "commands") {
+function ensureFacadeResult(
+	result: unknown,
+	feature: "states" | "view" | "commands",
+) {
 	if (!isPlainObject(result)) {
 		throw new Error(
 			`[createComponentFactory] Facade ${feature} callback must return a plain object.`,
@@ -198,6 +203,7 @@ export function createComponentFactoryWithRenderer<
 	const {
 		scope,
 		states,
+		view,
 		commands,
 		resolveStateSnapshot,
 		resolveCommandActor,
@@ -224,6 +230,26 @@ export function createComponentFactoryWithRenderer<
 			}) as CommandActor);
 
 	const userAdditionalArgs = createAdditionalArgs ?? (() => ({}) as Additional);
+	const resolvedView = view;
+	const resolveView = (
+		adapter: IgniteAdapter<State, Event>,
+	): FacadeStateResult<StatesResult> => {
+		if (resolvedView) {
+			const result = resolvedView({
+				snapshot: resolveSnapshot(adapter),
+			});
+			ensureFacadeResult(result, "view");
+			return result;
+		}
+
+		if (states) {
+			const result = states(resolveSnapshot(adapter));
+			ensureFacadeResult(result, "states");
+			return result;
+		}
+
+		return Object.create(null) as FacadeStateResult<StatesResult>;
+	};
 
 	type FinalRenderArgs = WithFacadeRenderArgs<
 		State,
@@ -259,19 +285,8 @@ export function createComponentFactoryWithRenderer<
 				...Object.getOwnPropertyDescriptors(extras),
 			});
 
-			if (states) {
-				const stateCallback = states as FacadeStatesCallback<
-					Snapshot,
-					StatesResult
-				>;
-				const getLatestStates = () => {
-					const snapshot = resolveSnapshot(adapter);
-					const result = stateCallback(snapshot);
-					ensureFacadeResult(result, "states");
-					return result;
-				};
-
-				const initial = getLatestStates();
+			if (resolvedView || states) {
+				const initial = resolveView(adapter);
 				const stateFacade = Object.create(
 					null,
 				) as FacadeStateResult<StatesResult>;
@@ -280,7 +295,7 @@ export function createComponentFactoryWithRenderer<
 					Object.defineProperty(stateFacade, key, {
 						configurable: false,
 						enumerable: true,
-						get: () => getLatestStates()[key],
+						get: () => (resolveView(adapter) as Record<string, unknown>)[key],
 					});
 				}
 

@@ -83,15 +83,16 @@ const machine = createMachine({
 const component = igniteCore({
   source: machine,
   events: (event) => ({ toggled: event<{ isOn: boolean }>() }),
-  states: (snapshot) => ({ isOn: snapshot.matches("on") }),
+  view: ({ snapshot }) => ({ isOn: snapshot.matches("on") }),
   commands: ({ actor }) => ({
     toggle: () => {
       actor.send({ type: "TOGGLE" });
     },
   }),
-  effects: (snapshot, prevSnapshot, { emit }) => {
-    if (snapshot.matches("on") === prevSnapshot.matches("on")) return;
-    emit("toggled", { isOn: snapshot.matches("on") });
+  effects: (_snapshot, _prevSnapshot, { emit, select }) => {
+    const isOn = select((snapshot) => snapshot.matches("on"));
+    if (!isOn.changed) return;
+    emit("toggled", { isOn: isOn.current });
   },
 });
 
@@ -125,7 +126,7 @@ actor.start();
 const shared = igniteCore({
   source: actor,
   cleanup: false, // leave actor running until the host decides to stop it
-  states: (snapshot) => ({ count: snapshot.context.count }),
+  view: ({ snapshot }) => ({ count: snapshot.context.count }),
 });
 
 shared("shared-counter", ({ count }) => <span>{count}</span>);
@@ -140,9 +141,9 @@ Use the same approach for shared Redux stores, MobX observables, or any custom a
 
 `igniteCore` merges the outputs of your facade callbacks into the render arguments:
 
-- `states(snapshot)` derives the values your component needs to display.
+- `view({ snapshot })` derives the values your component needs to display.
 - `commands({ actor, host })` returns the actions your component can call.
-- `effects(snapshot, prevSnapshot, { emit, actor, host })` maps state transitions to emitted events and other deterministic consequences.
+- `effects(snapshot, prevSnapshot, { emit, actor, host, select })` maps state transitions to emitted events and other deterministic consequences.
 
 Both callbacks run once per adapter instance (shared) or per element (isolated), so you can safely memoize values or close over resources without worrying about duplicate subscriptions.
 
@@ -161,16 +162,17 @@ const registerCounter = igniteCore({
       actor.dispatch(counterSlice.actions.addByAmount(amount));
     },
   }),
-  effects: (snapshot, prevSnapshot, { emit }) => {
-    if (snapshot.counter.count === prevSnapshot.counter.count) return;
-    emit("counter:incremented", { amount: snapshot.counter.count });
+  effects: (_snapshot, _prevSnapshot, { emit, select }) => {
+    const count = select((snapshot) => snapshot.counter.count);
+    if (!count.changed) return;
+    emit("counter:incremented", { amount: count.current });
   },
 });
 ```
 
 The `emit` helper belongs in `effects()`. It dispatches bubbling, composed `CustomEvent` instances so parents can listen with `addEventListener`. `commands()` now receive `{ actor, host }` only.
 
-Event typing is independent of object property order, so `events`, `commands`, `states`, and `effects` can be declared in whichever order reads best.
+Event typing is independent of object property order, so `events`, `commands`, `view`, and `effects` can be declared in whichever order reads best.
 
 Deterministic effects lifecycle:
 
@@ -186,7 +188,7 @@ Migration help:
 Breaking release note:
 
 - `emit` has been removed from command context.
-- Move command-driven DOM events into `effects(snapshot, prevSnapshot, { emit })`.
+- Move command-driven DOM events into `effects(snapshot, prevSnapshot, { emit, select })`.
 
 ### Agent Runtime
 
@@ -195,11 +197,20 @@ Every `igniteCore(...)` registration now exposes a headless runtime API:
 ```ts
 const result = component.execute("toggle");
 component.getState();
+component.getView();
 component.getSchema();
-component.subscribe("toggled", (event) => {
+component.on("toggled", (event) => {
   console.log(event.detail.isOn);
 });
+component.watch((state, prevState) => {
+  console.log(prevState.value, "->", state.value);
+});
+component.watchView((view, prevView) => {
+  console.log(prevView.isOn, "->", view.isOn);
+});
 ```
+
+Use `on(...)` for outward event signals, `watch(...)` for raw state changes, and `watchView(...)` for projected view changes.
 
 `execute()` returns the latest state plus the events emitted during that command:
 
@@ -232,15 +243,19 @@ import { igniteCore } from "ignite-element/xstate";
 
 const component = igniteCore({
   source: machine,
+  view: ({ snapshot }) => ({
+    isOn: snapshot.matches("on"),
+  }),
   commands: ({ actor }) => ({
     toggle: () => actor.send({ type: "TOGGLE" }),
   }),
   events: (event) => ({
     toggled: event<{ isOn: boolean }>(),
   }),
-  effects: (snapshot, prevSnapshot, { emit }) => {
-    if (snapshot.value === prevSnapshot.value) return;
-    emit("toggled", { isOn: snapshot.matches("on") });
+  effects: (_snapshot, _prevSnapshot, { emit, select }) => {
+    const isOn = select((snapshot) => snapshot.matches("on"));
+    if (!isOn.changed) return;
+    emit("toggled", { isOn: isOn.current });
   },
 });
 

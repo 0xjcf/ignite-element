@@ -198,6 +198,7 @@ function createReduxStoreProjection<
 	return createProjectionFactory(adapterFactory, {
 		scope: adapterFactory.scope,
 		states: options.states,
+		view: options.view,
 		commands: options.commands,
 		effects: options.effects,
 		events: eventDefinitions,
@@ -237,6 +238,7 @@ function createReduxFactoryProjection<
 	return createProjectionFactory(adapterFactory, {
 		scope: adapterFactory.scope,
 		states: options.states,
+		view: options.view,
 		commands: options.commands,
 		effects: options.effects,
 		events: eventDefinitions,
@@ -276,6 +278,7 @@ function createReduxSliceProjection<
 	return createProjectionFactory(adapterFactory, {
 		scope: adapterFactory.scope,
 		states: options.states,
+		view: options.view,
 		commands: options.commands,
 		effects: options.effects,
 		events: eventDefinitions,

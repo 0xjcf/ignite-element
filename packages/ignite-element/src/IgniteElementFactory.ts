@@ -63,6 +63,7 @@ type FactoryOptions<
 	State,
 	Event,
 	RenderArgs extends BaseRenderArgs<State, Event>,
+	RuntimeView extends Record<string, unknown>,
 	View,
 > = {
 	scope?: StateScope;
@@ -71,6 +72,7 @@ type FactoryOptions<
 		adapter: IgniteAdapter<State, Event>,
 		host?: HTMLElement,
 	) => AdditionalRenderArgs<State, Event, RenderArgs>;
+	resolveView?: (adapter: IgniteAdapter<State, Event>) => RuntimeView;
 	createRenderStrategy?: RenderStrategyFactory<View>;
 	cleanup?: boolean;
 };
@@ -82,10 +84,11 @@ export default function igniteElementFactory<
 		State,
 		Event
 	>,
+	RuntimeView extends Record<string, unknown> = Record<never, never>,
 	View = TemplateResult | IgniteJsxChild,
 >(
 	createAdapter: () => IgniteAdapter<State, Event>,
-	options?: FactoryOptions<State, Event, RenderArgs, View>,
+	options?: FactoryOptions<State, Event, RenderArgs, RuntimeView, View>,
 ): ComponentFactory<State, Event, RenderArgs, View> {
 	let sharedAdapter: IgniteAdapter<State, Event> | null = null;
 	let sharedAdditionalArgs = new WeakMap<
@@ -119,6 +122,8 @@ export default function igniteElementFactory<
 		(createAdapter as { scope?: StateScope }).scope ??
 		StateScope.Isolated;
 	const eventTypes = options?.eventTypes ?? [];
+	const resolveView =
+		options?.resolveView ?? ((_) => Object.create(null) as RuntimeView);
 
 	const cleanupAdditionalArgs = (
 		additionalArgs?: AdditionalRenderArgs<State, Event, RenderArgs> | null,
@@ -306,10 +311,12 @@ export default function igniteElementFactory<
 		createAgentRuntime<
 			State,
 			Event,
+			RuntimeView,
 			AdditionalRenderArgs<State, Event, RenderArgs>
 		>({
 			eventTypes,
 			resolveRuntime: resolveRuntimeResources,
+			resolveView,
 		}),
 	);
 

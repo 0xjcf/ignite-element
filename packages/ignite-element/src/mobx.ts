@@ -8,8 +8,11 @@ export type {
 	MobxEvent,
 } from "./igniteCore/types";
 export type {
+	IgniteAgentEventListener,
 	IgniteAgentExecutionResult,
 	IgniteAgentRuntime,
+	IgniteAgentStateListener,
+	IgniteAgentSubscription,
 	RuntimeEvent,
 } from "./types/agent";
 export type { IgniteAgentSchema, IgniteSchemaValue } from "./types/schema";

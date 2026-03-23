@@ -26,8 +26,11 @@ export {
 } from "./renderers/resolveConfiguredRenderStrategy";
 export { test } from "./testing";
 export type {
+	IgniteAgentEventListener,
 	IgniteAgentExecutionResult,
 	IgniteAgentRuntime,
+	IgniteAgentStateListener,
+	IgniteAgentSubscription,
 	RuntimeEvent,
 } from "./types/agent";
 export type { IgniteAgentSchema, IgniteSchemaValue } from "./types/schema";

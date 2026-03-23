@@ -4,10 +4,12 @@ import type {
 	EventMap,
 	EventsDefinition,
 	FacadeEffectsCallback,
+	FacadeEffectsObjectCallback,
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
 	FacadeStatesCallback,
+	FacadeViewCallback,
 } from "ignite-core";
 import type { MobxEvent } from "./adapters/MobxAdapter";
 import type { InferStateAndEvent } from "./utils/igniteRedux";
@@ -35,7 +37,7 @@ export type ReduxCommandActorFor<Source> = Source extends Slice
 			? ReduxStoreCommandActor<Source>
 			: never;
 
-export type ReduxBlueprintConfig<
+type ReduxBlueprintBaseConfig<
 	Source extends ReduxBlueprintSource,
 	Events extends EventMap = EmptyEventMap,
 	StatesResult extends Record<string, unknown> = Record<never, never>,
@@ -51,22 +53,57 @@ export type ReduxBlueprintConfig<
 		InferStateAndEvent<Source>["State"],
 		StatesResult
 	>;
+	view?: FacadeViewCallback<InferStateAndEvent<Source>["State"], StatesResult>;
 	commands?: FacadeCommandsCallback<
 		ReduxCommandActorFor<Source>,
 		CommandsResult,
-		Host
-	>;
-	effects?: FacadeEffectsCallback<
-		InferStateAndEvent<Source>["State"],
-		ReduxCommandActorFor<Source>,
-		Events,
 		Host
 	>;
 	events?: EventsDefinition<Events>;
 	cleanup?: boolean;
 };
 
-export type ReduxInstanceConfig<
+type ReduxBlueprintEffectsConfig<
+	Source extends ReduxBlueprintSource,
+	Events extends EventMap,
+	Host,
+> =
+	| {
+			effects?: FacadeEffectsCallback<
+				InferStateAndEvent<Source>["State"],
+				ReduxCommandActorFor<Source>,
+				Events,
+				Host
+			>;
+	  }
+	| {
+			effects?: FacadeEffectsObjectCallback<
+				InferStateAndEvent<Source>["State"],
+				ReduxCommandActorFor<Source>,
+				Events,
+				Host
+			>;
+	  };
+
+export type ReduxBlueprintConfig<
+	Source extends ReduxBlueprintSource,
+	Events extends EventMap = EmptyEventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+	Host = unknown,
+> = ReduxBlueprintBaseConfig<
+	Source,
+	Events,
+	StatesResult,
+	CommandsResult,
+	Host
+> &
+	ReduxBlueprintEffectsConfig<Source, Events, Host>;
+
+type ReduxInstanceBaseConfig<
 	StoreInstance extends ReduxInstanceSource,
 	Events extends EventMap = EmptyEventMap,
 	StatesResult extends Record<string, unknown> = Record<never, never>,
@@ -82,22 +119,60 @@ export type ReduxInstanceConfig<
 		InferStateAndEvent<StoreInstance>["State"],
 		StatesResult
 	>;
+	view?: FacadeViewCallback<
+		InferStateAndEvent<StoreInstance>["State"],
+		StatesResult
+	>;
 	commands?: FacadeCommandsCallback<
 		ReduxCommandActorFor<StoreInstance>,
 		CommandsResult,
-		Host
-	>;
-	effects?: FacadeEffectsCallback<
-		InferStateAndEvent<StoreInstance>["State"],
-		ReduxCommandActorFor<StoreInstance>,
-		Events,
 		Host
 	>;
 	events?: EventsDefinition<Events>;
 	cleanup?: boolean;
 };
 
-export type MobxConfig<
+type ReduxInstanceEffectsConfig<
+	StoreInstance extends ReduxInstanceSource,
+	Events extends EventMap,
+	Host,
+> =
+	| {
+			effects?: FacadeEffectsCallback<
+				InferStateAndEvent<StoreInstance>["State"],
+				ReduxCommandActorFor<StoreInstance>,
+				Events,
+				Host
+			>;
+	  }
+	| {
+			effects?: FacadeEffectsObjectCallback<
+				InferStateAndEvent<StoreInstance>["State"],
+				ReduxCommandActorFor<StoreInstance>,
+				Events,
+				Host
+			>;
+	  };
+
+export type ReduxInstanceConfig<
+	StoreInstance extends ReduxInstanceSource,
+	Events extends EventMap = EmptyEventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+	Host = unknown,
+> = ReduxInstanceBaseConfig<
+	StoreInstance,
+	Events,
+	StatesResult,
+	CommandsResult,
+	Host
+> &
+	ReduxInstanceEffectsConfig<StoreInstance, Events, Host>;
+
+type MobxBaseConfig<
 	State extends object,
 	Events extends EventMap = EmptyEventMap,
 	StatesResult extends Record<string, unknown> = Record<never, never>,
@@ -110,10 +185,30 @@ export type MobxConfig<
 	adapter?: "mobx";
 	source: (() => State) | State;
 	states?: FacadeStatesCallback<State, StatesResult>;
+	view?: FacadeViewCallback<State, StatesResult>;
 	commands?: FacadeCommandsCallback<State, CommandsResult, Host>;
-	effects?: FacadeEffectsCallback<State, State, Events, Host>;
 	events?: EventsDefinition<Events>;
 	cleanup?: boolean;
 };
+
+type MobxEffectsConfig<State extends object, Events extends EventMap, Host> =
+	| {
+			effects?: FacadeEffectsCallback<State, State, Events, Host>;
+	  }
+	| {
+			effects?: FacadeEffectsObjectCallback<State, State, Events, Host>;
+	  };
+
+export type MobxConfig<
+	State extends object,
+	Events extends EventMap = EmptyEventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+	Host = unknown,
+> = MobxBaseConfig<State, Events, StatesResult, CommandsResult, Host> &
+	MobxEffectsConfig<State, Events, Host>;
 
 export type { MobxEvent };

@@ -1,6 +1,6 @@
 # Testing Ignite Element
 
-Ignite Element now supports deterministic headless testing through the same runtime that powers `execute()`, `getState()`, and `subscribe()`.
+Ignite Element now supports deterministic headless testing through the same runtime that powers `execute()`, `getState()`, `on()`, and `watch()`.
 
 ## Scenario helper
 
@@ -10,15 +10,19 @@ import { igniteCore } from "ignite-element/xstate";
 
 const component = igniteCore({
   source: machine,
+  view: ({ snapshot }) => ({
+    isOn: snapshot.matches("on"),
+  }),
   commands: ({ actor }) => ({
     toggle: () => actor.send({ type: "TOGGLE" }),
   }),
   events: (event) => ({
     toggled: event<{ isOn: boolean }>(),
   }),
-  effects: (snapshot, prevSnapshot, { emit }) => {
-    if (snapshot.value === prevSnapshot.value) return;
-    emit("toggled", { isOn: snapshot.matches("on") });
+  effects: (_snapshot, _prevSnapshot, { emit, select }) => {
+    const isOn = select((snapshot) => snapshot.matches("on"));
+    if (!isOn.changed) return;
+    emit("toggled", { isOn: isOn.current });
   },
 });
 

@@ -38,6 +38,7 @@ export function igniteCore<
 	return createProjectionFactory(adapterFactory, {
 		scope: adapterFactory.scope,
 		states: options.states,
+		view: options.view,
 		commands: options.commands,
 		effects: options.effects,
 		events: eventDefinitions,

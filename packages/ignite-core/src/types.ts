@@ -12,14 +12,21 @@ import type {
 	EmptyEventMap,
 	EventBuilder,
 	EventMap,
+	FacadeEffectsCallback,
+	FacadeEffectsLike,
+	FacadeEffectsObjectCallback,
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
-	FacadeEffectsCallback,
 	FacadeStatesCallback,
+	FacadeViewCallback,
 } from "./RenderArgs";
 
 export type AnyStatesCallback = FacadeStatesCallback<
+	unknown,
+	Record<string, unknown>
+>;
+export type AnyViewCallback = FacadeViewCallback<
 	unknown,
 	Record<string, unknown>
 >;
@@ -27,11 +34,7 @@ export type AnyCommandsCallback = FacadeCommandsCallback<
 	unknown,
 	FacadeCommandResult
 >;
-export type AnyEffectsCallback = FacadeEffectsCallback<
-	unknown,
-	unknown,
-	EventMap
->;
+export type AnyEffectsCallback = FacadeEffectsLike<unknown, unknown, EventMap>;
 
 export type EventsDefinition<Events> = (event: EventBuilder) => Events;
 export type AnyEventsDefinition = EventsDefinition<EventMap>;
@@ -73,7 +76,7 @@ export type IgniteCoreReturn<
 > &
 	Record<never, Snapshot>;
 
-export type XStateConfig<
+type XStateConfigBase<
 	Machine extends AnyStateMachine,
 	Events extends EventMap = EmptyEventMap,
 	StatesResult extends Record<string, unknown> = Record<never, never>,
@@ -86,17 +89,46 @@ export type XStateConfig<
 	adapter?: "xstate";
 	source: Machine | XStateActorInstance<Machine>;
 	states?: FacadeStatesCallback<ExtendedState<Machine>, StatesResult>;
+	view?: FacadeViewCallback<ExtendedState<Machine>, StatesResult>;
 	commands?: FacadeCommandsCallback<
 		XStateCommandActor<Machine>,
 		CommandsResult,
 		Host
 	>;
-	effects?: FacadeEffectsCallback<
-		ExtendedState<Machine>,
-		XStateCommandActor<Machine>,
-		Events,
-		Host
-	>;
 	events?: EventsDefinition<Events>;
 	cleanup?: boolean;
 };
+
+type XStateEffectsOptions<
+	Machine extends AnyStateMachine,
+	Events extends EventMap,
+	Host,
+> =
+	| {
+			effects?: FacadeEffectsCallback<
+				ExtendedState<Machine>,
+				XStateCommandActor<Machine>,
+				Events,
+				Host
+			>;
+	  }
+	| {
+			effects?: FacadeEffectsObjectCallback<
+				ExtendedState<Machine>,
+				XStateCommandActor<Machine>,
+				Events,
+				Host
+			>;
+	  };
+
+export type XStateConfig<
+	Machine extends AnyStateMachine,
+	Events extends EventMap = EmptyEventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+	Host = unknown,
+> = XStateConfigBase<Machine, Events, StatesResult, CommandsResult, Host> &
+	XStateEffectsOptions<Machine, Events, Host>;

@@ -2,6 +2,8 @@ import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type {
 	CommandContext as CoreCommandContext,
 	EffectContext as CoreEffectContext,
+	EffectSelection as CoreEffectSelection,
+	EffectSelector as CoreEffectSelector,
 	EmitFromEvents,
 	EmitPayloadArgs,
 	EmptyEventMap,
@@ -10,10 +12,15 @@ import type {
 	EventMap,
 	EventPayload,
 	ExtendedState,
+	FacadeEffectArgs as CoreFacadeEffectArgs,
 	FacadeEffectsCallback,
+	FacadeEffectsLike,
+	FacadeEffectsObjectCallback,
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeStatesCallback,
+	FacadeViewCallback,
+	ViewContext as CoreViewContext,
 	XStateCommandActor,
 } from "ignite-core";
 import type {
@@ -26,7 +33,9 @@ import type { AnyStateMachine, EventFrom, StateFrom } from "xstate";
 
 export type {
 	EmptyEventMap,
+	FacadeEffectsLike,
 	FacadeEffectsCallback,
+	FacadeEffectsObjectCallback,
 	EmitFromEvents,
 	EmitPayloadArgs,
 	EventBuilder,
@@ -36,6 +45,7 @@ export type {
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeStatesCallback,
+	FacadeViewCallback,
 };
 export type {
 	ReduxSliceCommandActor,
@@ -51,7 +61,18 @@ export type EffectContext<
 	Actor,
 	Events extends EventMap = EmptyEventMap,
 	Host = HTMLElement,
-> = CoreEffectContext<Actor, Events, Host>;
+	Snapshot = unknown,
+> = CoreEffectContext<Actor, Events, Host, Snapshot>;
+
+export type EffectSelection<Value> = CoreEffectSelection<Value>;
+export type EffectSelector<Snapshot> = CoreEffectSelector<Snapshot>;
+export type FacadeEffectArgs<
+	Snapshot,
+	Actor,
+	Events extends EventMap = EmptyEventMap,
+	Host = HTMLElement,
+> = CoreFacadeEffectArgs<Snapshot, Actor, Events, Host>;
+export type ViewContext<Snapshot> = CoreViewContext<Snapshot>;
 
 export type { IgniteSchemaValue } from "./types/schema";
 
@@ -126,7 +147,11 @@ type StateResult<
 		FacadeStatesCallback<AdapterSnapshot<Source>, infer Result>,
 	]
 		? Result
-		: Record<never, never>,
+		: [StateCallback] extends [
+					FacadeViewCallback<AdapterSnapshot<Source>, infer Result>,
+				]
+			? Result
+			: Record<never, never>,
 > = IsNever<StateCallback> extends true ? Record<never, never> : Result;
 
 type CommandResult<

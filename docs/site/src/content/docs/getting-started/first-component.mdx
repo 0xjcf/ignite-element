@@ -32,15 +32,16 @@ import { toggleMachine } from './toggleMachine';
 const registerToggle = igniteCore({
   source: toggleMachine,
   events: (event) => ({ toggled: event<{ isOn: boolean }>() }),
-  states: (snapshot) => ({ isOn: snapshot.matches('on') }),
+  view: ({ snapshot }) => ({ isOn: snapshot.matches('on') }),
   commands: ({ actor }) => ({
     toggle: () => {
       actor.send({ type: 'TOGGLE' });
     },
   }),
-  effects: (snapshot, prevSnapshot, { emit }) => {
-    if (snapshot.matches('on') === prevSnapshot.matches('on')) return;
-    emit('toggled', { isOn: snapshot.matches('on') });
+  effects: (_snapshot, _prevSnapshot, { emit, select }) => {
+    const isOn = select((snapshot) => snapshot.matches('on'));
+    if (!isOn.changed) return;
+    emit('toggled', { isOn: isOn.current });
   },
 });
 
@@ -52,7 +53,7 @@ registerToggle('ignite-toggle', ({ isOn, toggle }) => (
 ```
 
 :::tip[Typing events]
-`events` adds a typed `emit` helper to your `effects`. Skip it if you don’t need to broadcast DOM `CustomEvent`s.
+`events` adds a typed `emit` helper to your `effects`. `select(...)` makes it easy to emit only when a derived value actually changed. Skip `events` entirely if you don’t need to broadcast DOM `CustomEvent`s.
 :::
 
 ## 3) Style it (optional)
