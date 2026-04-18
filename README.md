@@ -1,14 +1,15 @@
 # ignite-element
 
-Framework-agnostic Web Components built around explicit intent, derived state, and deterministic effects.
+Platform-native custom elements built around explicit intent, derived state, deterministic effects, and DOM-native contracts.
 
 Ignite Element lets you build systems where:
 
 - commands express intent
 - state defines truth
 - effects express consequences
+- custom elements expose the public contract
 
-That makes components easier to reason about for developers and directly operable by AI agents.
+That makes components easier to reason about for developers, easier to reuse across host apps, and directly operable by AI agents.
 
 Quick links: [Quick start](#quick-start) · [Mental model](#mental-model) · [Agent runtime](#agent-runtime) · [Testing](#testing) · [Install matrix](#installation-matrix) · [Documentation](#documentation)
 
@@ -30,11 +31,12 @@ UI render
 
 This gives you:
 
-- deterministic behavior
-- typed boundaries
-- observable event flow
-- reusable stateful Web Components
-- a headless runtime for automation and testing
+- platform-native distribution through custom elements and `CustomEvent`
+- typed boundaries between intent, state, effects, and rendering
+- reusable stateful UI without shipping an app framework runtime
+- a headless runtime for testing and automation
+
+Ignite is not trying to replace your app framework. It gives you a browser-native distribution layer for stateful UI: project behavior into a custom element, expose DOM-native events, and keep the same contract usable in plain HTML, React, Vue, tests, and automation.
 
 ## Quick start
 
@@ -111,6 +113,8 @@ Use it anywhere the browser can render a custom element:
 ```html
 <toggle-button></toggle-button>
 ```
+
+Because the outward contract is DOM-native, the same component can be consumed from plain HTML or host frameworks without a wrapper-specific protocol.
 
 ## Mental model
 
@@ -311,6 +315,8 @@ This structure works well for both human maintainers and agent tooling because t
 ## Documentation
 
 - [API docs](./docs/site/src/content/docs/api/ignite-core.mdx)
+- [Host app integration](./docs/site/src/content/docs/guides/host-app-integration.mdx)
+- [Platform contracts](./docs/site/src/content/docs/guides/platform-contracts.mdx)
 - [Testing guide](./docs/site/src/content/docs/guides/testing.mdx)
 - [Configuration and renderers](./docs/site/src/content/docs/api/define-ignite-config.mdx)
 - [State adapter lifecycle](./docs/site/src/content/docs/concepts/state-adapters.mdx)

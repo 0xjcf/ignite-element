@@ -1,12 +1,12 @@
 ---
 title: What is Ignite Element?
-description: A quick overview of the Ignite Element runtime, adapters, and renderers.
+description: A quick overview of Ignite Element as a platform-native UI layer for state-driven components.
 sidebar:
   label: What is Ignite Element?
   order: 2
 ---
 
-Ignite Element is a lightweight layer for building framework-agnostic custom elements. It keeps intent, state, consequences, and rendering separate:
+Ignite Element is a lightweight layer for building platform-native custom elements. It keeps intent, state, consequences, and rendering separate:
 
 - **Commands** express intent.
 - **View** projects state into render/runtime-facing data.
@@ -15,6 +15,8 @@ Ignite Element is a lightweight layer for building framework-agnostic custom ele
 - **Renderers** decide how templates are produced: Ignite JSX (default) or lit.
 
 The end result is a web component factory with typed `view`, `commands`, `effects`, and `events`, plus a headless runtime for `execute()`, `getState()`, `getView()`, and `getSchema()`.
+
+Custom elements and `CustomEvent`s are the public surface. That means the same component contract can plug into plain HTML, React, Vue, tests, or automation without a wrapper-specific protocol.
 
 Ignite apps keep machines focused on behavior and use adapters to isolate IO. Adapters are wired internally by helper constructors in ecosystem packages; ignite-element stays UI-focused and consumes the resulting actors.
 

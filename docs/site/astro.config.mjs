@@ -11,7 +11,7 @@ export default defineConfig({
 		starlight({
 			title: "Ignite Element v2",
 			description:
-				"Framework-agnostic custom elements with typed state, powered by your favorite state library.",
+				"Platform-native custom elements with typed state, effects, events, and a headless runtime.",
 			logo: {
 				dark: "./src/assets/ignite-element-logo.svg",
 				light: "./src/assets/ignite-element-logo-light.svg",
@@ -71,6 +71,14 @@ export default defineConfig({
 				{
 					label: "Guides",
 					items: [
+						{
+							label: "Host app integration",
+							slug: "guides/host-app-integration",
+						},
+						{
+							label: "Platform contracts",
+							slug: "guides/platform-contracts",
+						},
 						{ label: "Styling", slug: "guides/styling" },
 						{ label: "Testing", slug: "guides/testing" },
 						{ label: "Tooling & bundlers", slug: "guides/tooling" },

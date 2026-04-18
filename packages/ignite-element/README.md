@@ -1,6 +1,6 @@
 # ignite-element
 
-Default public package for building framework-agnostic Web Components with explicit intent, derived view state, and deterministic effects.
+Default public package for building platform-native custom elements with explicit intent, derived view state, deterministic effects, and DOM-native events.
 
 Most users should install `ignite-element` and one state library:
 
@@ -56,6 +56,8 @@ toggle("toggle-button", ({ isOn, toggle }) => (
 ));
 ```
 
+The resulting element can be consumed anywhere the browser can render a custom element, including plain HTML and host frameworks like React or Vue.
+
 ## Runtime model
 
 - commands express intent
@@ -83,6 +85,8 @@ toggle.watchView((view, prevView) => {});
 ## Documentation
 
 - API docs: `docs/site/src/content/docs/api/ignite-core.mdx`
+- Host app integration: `docs/site/src/content/docs/guides/host-app-integration.mdx`
+- Platform contracts: `docs/site/src/content/docs/guides/platform-contracts.mdx`
 - Testing guide: `docs/site/src/content/docs/guides/testing.mdx`
 - Configuration and renderers: `docs/site/src/content/docs/api/define-ignite-config.mdx`
 - Migration guide: `docs/migrations/v2.2.3-effects-events.md`

@@ -88,7 +88,7 @@ registerToggle('ignite-toggle', ({ isOn, toggle }) => (
 In Ignite JSX, `onToggled` comes from the `toggled` event you declare in your `events` map. Event payloads are dispatched as `CustomEvent` detail, so read them via `event.detail` (e.g., `event.detail.isOn`).
 :::
 
-Because it’s a web component, you can drop it into React, Vue, Svelte, or plain HTML without a wrapper.
+Because it’s a web component, you can drop it into plain HTML or a host framework without inventing a wrapper-specific contract. See [Host app integration](/ignite-element/guides/host-app-integration/) for concrete React and Vue patterns, plus SSR notes.
 
 ## Variations
 

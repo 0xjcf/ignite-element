@@ -1,0 +1,136 @@
+---
+title: Host app integration
+description: Use Ignite Element from plain HTML, React, Vue, and other host environments.
+sidebar:
+  label: Host app integration
+  order: 1
+---
+
+Ignite Element ships a browser-level contract: a custom element tag, DOM attributes or child content you choose to support, and typed `CustomEvent`s for outward signals.
+
+That means integration should stay browser-native. Register the element once, render the tag where you need it, and listen for DOM events from the host app.
+
+## Register once
+
+Create one module that registers your elements, then import that module from the host app entrypoint:
+
+```ts
+// register-ignite.ts
+import { igniteCore } from 'ignite-element/xstate';
+import { toggleMachine } from './toggle-machine';
+
+const toggle = igniteCore({
+  source: toggleMachine,
+  events: (event) => ({
+    toggled: event<{ isOn: boolean }>(),
+  }),
+  view: ({ snapshot }) => ({
+    isOn: snapshot.matches('on'),
+  }),
+  commands: ({ actor }) => ({
+    toggle: () => actor.send({ type: 'TOGGLE' }),
+  }),
+  effects: (_snapshot, _prevSnapshot, { emit, select }) => {
+    const isOn = select((snapshot) => snapshot.matches('on'));
+    if (!isOn.changed) return;
+    emit('toggled', { isOn: isOn.current });
+  },
+});
+
+toggle('ignite-toggle', ({ isOn, toggle }) => (
+  <button onClick={toggle}>{isOn ? 'On' : 'Off'}</button>
+));
+```
+
+## Plain HTML
+
+```html
+<ignite-toggle id="settings-toggle"></ignite-toggle>
+
+<script type="module">
+  import './register-ignite.js';
+
+  const toggle = document.querySelector('#settings-toggle');
+
+  toggle?.addEventListener('toggled', (event) => {
+    const customEvent = /** @type {CustomEvent<{ isOn: boolean }>} */ (event);
+    console.log(customEvent.detail.isOn);
+  });
+</script>
+```
+
+## React
+
+Use a `ref` and native `addEventListener` so your integration works consistently across React versions:
+
+```tsx
+import { useEffect, useRef } from 'react';
+import './register-ignite';
+
+export function SettingsToggle() {
+  const toggleRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const element = toggleRef.current;
+    if (!element) return;
+
+    const onToggled = (event: Event) => {
+      const customEvent = event as CustomEvent<{ isOn: boolean }>;
+      console.log(customEvent.detail.isOn);
+    };
+
+    element.addEventListener('toggled', onToggled as EventListener);
+    return () => {
+      element.removeEventListener('toggled', onToggled as EventListener);
+    };
+  }, []);
+
+  return <ignite-toggle ref={toggleRef} />;
+}
+```
+
+## Vue
+
+```vue
+<script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref } from 'vue';
+import './register-ignite';
+
+const toggleRef = ref<HTMLElement | null>(null);
+
+const onToggled = (event: Event) => {
+  const customEvent = event as CustomEvent<{ isOn: boolean }>;
+  console.log(customEvent.detail.isOn);
+};
+
+onMounted(() => {
+  toggleRef.value?.addEventListener('toggled', onToggled as EventListener);
+});
+
+onBeforeUnmount(() => {
+  toggleRef.value?.removeEventListener('toggled', onToggled as EventListener);
+});
+</script>
+
+<template>
+  <ignite-toggle ref="toggleRef" />
+</template>
+```
+
+## SSR and hydration
+
+- Server-render the custom element tag if your host framework supports it.
+- Register the element on the client before the first interaction.
+- Keep host integration based on DOM events, child content, and explicit public attributes or properties you own.
+- Avoid framework-specific assumptions like synthetic events or implicit prop serialization across the boundary.
+
+If a host app needs rich inputs, prefer explicit DOM properties or nested markup over hidden framework coupling.
+
+## Design rule
+
+Treat Ignite elements like browser-native widgets:
+
+- The renderer owns internal DOM structure.
+- The host app owns placement, surrounding layout, and orchestration.
+- DOM events are the outward contract.
+- Framework wrappers are optional convenience, not the source of truth.
