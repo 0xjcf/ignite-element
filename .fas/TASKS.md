@@ -75,6 +75,35 @@ _None currently._
 - Status: done
 - Owner: reviewer
 - Brief: .fas/tasks/clean-package-surfaces-remove-generated-source-artifacts-and.md
+### Task: investigate ignite inspector runtime requirements, schema metadata gaps, and effects ergonomics follow-up tasks
+
+- Title: investigate ignite inspector runtime requirements, schema metadata gaps, and effects ergonomics follow-up tasks
+- Mode: 6-agent
+- Status: done
+- Owner: reviewer
+- Brief: .fas/tasks/investigate-ignite-inspector-runtime-requirements-schema-met.md
+### Task: shared architecture ADR and model alignment
+
+- Title: shared architecture ADR and model alignment
+- Mode: 6-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/shared-architecture-adr-and-model-alignment.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+- Artifacts: brief=.fas/tasks/shared-architecture-adr-and-model-alignment.md; planning=.fas/state/planning.json; taskPacket=.fas/state/task-packet.json; commitPlan=.fas/state/commit-plan.json; verification=.fas/state/verification/latest.json; review=.fas/state/review-summary.md; workflow=.fas/state/workflows
+### Task: align ignite-element package boundaries with ADR-003
+
+- Title: align ignite-element package boundaries with ADR-003
+- Mode: 6-agent
+- Status: implementing
+- Owner: implementer
+- Brief: .fas/tasks/align-ignite-element-package-boundaries-with-adr-003.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+- Artifacts: brief=.fas/tasks/align-ignite-element-package-boundaries-with-adr-003.md; planning=.fas/state/planning.json; taskPacket=.fas/state/task-packet.json; commitPlan=.fas/state/commit-plan.json; verification=.fas/state/verification/latest.json; review=.fas/state/review-summary.md; workflow=.fas/state/workflows
 ## Template
 
 ### Task: <short task title>

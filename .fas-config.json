@@ -18,7 +18,7 @@
 	"queueFile": ".fas/queue/tasks.json",
 	"boundaryPolicyFile": "",
 	"architectureRulesFile": ".fas/architecture-rules.json",
-	"systemDocsDir": "",
+	"systemDocsDir": "docs",
 	"monitorPacks": ["ci-regressions", "dependency-drift", "quality-checks"],
 	"behaviorBoundaries": {
 		"functionalCore": [
@@ -33,7 +33,6 @@
 			"packages/ignite-core/src/runtime/",
 			"packages/ignite-core/src/types.ts",
 			"packages/ignite-adapters/src/",
-			"packages/ignite-store/src/",
 			"packages/ignite-adapters/src/igniteCore/",
 			"packages/ignite-element/src/runtime/",
 			"packages/ignite-element/src/testing.ts",
@@ -65,5 +64,7 @@
 		"forbiddenModules": [],
 		"maxEstimatedToolCalls": null,
 		"maxEstimatedApiCostUsd": null
-	}
+	},
+	"behaviorBoundaryProfile": "errors-as-data",
+	"architectureProfile": "layered"
 }
