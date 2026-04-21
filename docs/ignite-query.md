@@ -1,6 +1,6 @@
 # 🔥 ignite-query
 
-> **Behavior-first server-state (data-time) integration for ignite-core + bindings**
+> **Behavior-first server-state (data-time) integration for ignite-element + adapter contracts**
 
 `ignite-query` integrates **query runtimes** (such as TanStack Query) into the ignite ecosystem by separating **behavior** from **IO**.
 
@@ -8,8 +8,8 @@ It is designed to model **data freshness over time** — not user identity, sess
 
 ignite-query works with:
 
-* **ignite-core** projections
-* **ignite-element** for DOM bindings (optional)
+* **ignite-element** as the authoring and projection surface
+* **ignite-core** contracts/utilities shared across the package family
 * **ignite-renderer/jsx** or **ignite-renderer/lit** for rendering (optional)
 * Web Components, Solid, React, or vanilla DOM
 
@@ -50,7 +50,7 @@ you want **ignite-web3**, not ignite-query.
 
 > **ignite-query models *data over time*.**
 > **ignite-web3 models *user capability over time*.**
-> **ignite-core projects behavior into UI (ignite-element binds it).**
+> **ignite-element assembles projected behavior into UI on top of ignite-core contracts.**
 
 This distinction is intentional.
 
@@ -110,8 +110,8 @@ Query State Machine (XState)
 
 * **Machines** model data-time behavior
 * **Adapters** talk to query runtimes
-* **igniteCore** derives UI state + commands
-* **Bindings** render only (ignite-element for Web Components)
+* **ignite-element** assembles projected UI state + commands
+* **Bindings/renderers** render only
 
 ---
 
@@ -180,7 +180,8 @@ Example behaviors:
 * stale data indicators
 * optimistic UI transitions
 
-Reference machines live in **ignite-core (xstate)** or a future **ignite-xstate/query** package.
+Reference machines live in XState actors/machines or a future
+**ignite-xstate/query** package.
 
 ---
 
@@ -209,13 +210,14 @@ export const usersActor = createQueryActor({
 ### 2️⃣ Project UI State + Commands with `igniteCore`
 
 ```ts
-import { igniteCore } from "ignite-element"; // DOM binding over ignite-core
+import { igniteCore, matchState } from "ignite-element/xstate"; // DOM authoring over shared contracts
 
 const usersCore = igniteCore({
   source: usersActor,
 
-  states: ({ snapshot, matchState }) => ({
+  view: ({ snapshot }) => ({
     mode: matchState(
+      snapshot,
       {
         idle: "idle",
         loading: "loading",
@@ -342,7 +344,7 @@ If the behavior depends on **user capability**, use ignite-web3 instead.
 * ignite-query models **data-time behavior**
 * ignite-web3 models **session-time capability**
 * Adapters integrate query runtimes
-* ignite-core projects state + intent
+* ignite-element assembles projected state + intent
 * Bindings render declaratively
 
 **ignite-query answers “What is the data?”

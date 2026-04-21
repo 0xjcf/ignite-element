@@ -1,6 +1,6 @@
 # 🔥 ignite-websocket
 
-> **Behavior-first WebSocket integration for ignite-core + bindings**
+> **Behavior-first WebSocket integration for ignite-element + adapter contracts**
 
 `ignite-websocket` provides a **behavior-first, state-machine–driven** way to work with WebSockets in the ignite ecosystem.
 
@@ -8,7 +8,7 @@ It separates:
 
 * **connection and protocol behavior** (state machines)
 * from **IO and transport mechanics** (WebSocket adapters)
-* and projects clean, declarative state into UI via **ignite-core** (bound with **ignite-element** for DOM)
+* and assembles clean, declarative state into UI via **ignite-element**
 
 ---
 
@@ -53,7 +53,7 @@ If you care about **correct real-time behavior**, you probably do.
 
 > **State machines decide behavior.
 > Adapters handle transport.
-> ignite-core projects state (ignite-element renders it).**
+> ignite-element assembles projected state and commands for the UI.**
 
 This keeps real-time logic:
 
@@ -78,8 +78,8 @@ WebSocket State Machine (XState)
 
 * **Machines** model connection state, retries, protocol rules
 * **Adapters** own the actual socket
-* **igniteCore** projects state + commands
-* **Bindings** render only (ignite-element for Web Components)
+* **ignite-element** assembles projected state + commands
+* **Bindings** render only
 
 ---
 
@@ -195,12 +195,12 @@ export const socketActor = createWebSocketActor({
 ### 2️⃣ Project UI State + Commands with `igniteCore`
 
 ```ts
-import { igniteCore } from "ignite-element"; // DOM binding over ignite-core
+import { igniteCore } from "ignite-element/xstate"; // DOM authoring over shared contracts
 
 const socketComponent = igniteCore({
   source: socketActor,
 
-  states: ({ snapshot }) => ({
+  view: ({ snapshot }) => ({
     mode: snapshot.status,
     lastMessage: snapshot.lastMessage,
     errorMessage: snapshot.error ?? null,
@@ -297,7 +297,7 @@ If your app is request/response only, use **ignite-query** instead.
 
 * ignite-websocket models **real-time behavior**
 * Adapters handle **transport**
-* ignite-core projects **state into UI**
+* ignite-element assembles **state into UI**
 * Bindings render **pure UI**
 
 **Behavior is explicit.

@@ -63,7 +63,7 @@ If you cannot change `tsconfig`, add this per file:
 /** @jsxImportSource ignite-element/jsx */
 ```
 
-For the default path, you do not need `ignite.config.ts`, a bundler plugin, or lifecycle overrides.
+For the default path, you do not need `ignite.config.ts`, a bundler plugin, or shared adapter teardown overrides.
 
 Create a component:
 
@@ -226,6 +226,17 @@ toggle.watchView((view, prevView) => {
 
 Use `on(...)` for outward event signals, `watch(...)` for raw state changes, and `watchView(...)` for projected view changes.
 
+Use `record(...)` when a test or agent needs workflow evidence:
+
+```ts
+const story = toggle.record("turns on");
+story.execute("toggle");
+story.trace();
+story.lifecycle();
+story.summary();
+story.stop();
+```
+
 `execute()` returns structured output:
 
 ```ts
@@ -239,7 +250,9 @@ Use `on(...)` for outward event signals, `watch(...)` for raw state changes, and
 
 ```ts
 {
-  commands: ["toggle"],
+  commands: {
+    toggle: {}
+  },
   events: ["toggled"],
   state: { value: "off", context: {} }
 }
@@ -275,8 +288,8 @@ Because this runs against the same deterministic runtime, state and event expect
 
 - `ignite-element`: default public package for app and component authors
 - `ignite-element/xstate`, `ignite-element/redux`, `ignite-element/mobx`: default public adapter entrypoints
-- `ignite-core`: advanced adapter-neutral primitives for custom integrations and library work
-- `ignite-adapters`: advanced adapter layer used by `ignite-element`
+- `ignite-core`: advanced adapter-neutral contracts, event/effect typing, and shared utilities
+- `ignite-adapters`: advanced adapter factories, guards, and source-specific config/types
 - `ignite-renderer`: advanced renderer/runtime layer for custom renderer integration work
 
 ## Multiple components from one core
@@ -321,6 +334,7 @@ This structure works well for both human maintainers and agent tooling because t
 - [Configuration and renderers](./docs/site/src/content/docs/api/define-ignite-config.mdx)
 - [State adapter lifecycle](./docs/site/src/content/docs/concepts/state-adapters.mdx)
 - [Migration guide](./docs/migrations/v2.2.3-effects-events.md)
+- [Package boundary migration](./docs/migrations/adr-003-package-boundaries.md)
 - Advanced package layers: `ignite-core`, `ignite-adapters`, and `ignite-renderer`
 - [Local examples](./packages/ignite-element/src/examples)
 

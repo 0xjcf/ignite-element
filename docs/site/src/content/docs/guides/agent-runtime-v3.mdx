@@ -1,0 +1,183 @@
+---
+title: Agent runtime v3
+description: Build and test Ignite Element components from behavior contracts before adding a DOM layer.
+sidebar:
+  label: Agent runtime v3
+  order: 3
+---
+
+Ignite Element v3 moves component authoring toward a behavior-first workflow. The same `igniteCore(...)` registration that creates a custom element also exposes a headless runtime so agents and tests can inspect the component contract, execute commands, observe events, and verify projected view state before any DOM selector is involved.
+
+The practical model is:
+
+1. Define component behavior and boundaries.
+2. Test workflows through the headless runtime.
+3. Add the DOM layer as a projection over already-proven behavior.
+
+## Behavior-first components
+
+Start by describing the state source, projected view, commands, events, and effects.
+
+```ts
+import { igniteCore } from 'ignite-element/xstate';
+
+export const counter = igniteCore({
+  source: counterMachine,
+
+  view: ({ snapshot }) => ({
+    count: snapshot.context.count,
+    limit: snapshot.context.limit,
+    isLimited: snapshot.matches('limited'),
+  }),
+
+  commands: ({ actor, command }) => ({
+    increment: () => actor.send({ type: 'INCREMENT' }),
+
+    setLimit: command(
+      (limit: number) => actor.send({ type: 'SET_LIMIT', limit }),
+      {
+        description: 'Set maximum count',
+        input: command.number({ minimum: 3, maximum: 12 }),
+      },
+    ),
+  }),
+
+  events: (event) => ({
+    'limit-reached': event<{ count: number; limit: number }>(),
+  }),
+
+  effects: (snapshot, prevSnapshot, { emit }) => {
+    if (!prevSnapshot.matches('limited') && snapshot.matches('limited')) {
+      emit('limit-reached', {
+        count: snapshot.context.count,
+        limit: snapshot.context.limit,
+      });
+    }
+  },
+});
+```
+
+This gives agents a contract they can inspect:
+
+```ts
+counter.getSchema();
+counter.getState();
+counter.getView();
+```
+
+And a command surface they can drive:
+
+```ts
+counter.execute('setLimit', 6);
+
+while (!counter.getView().isLimited) {
+  counter.execute('increment');
+}
+
+expect(counter.getView()).toMatchObject({
+  count: 6,
+  limit: 6,
+  isLimited: true,
+});
+```
+
+## Add the DOM layer
+
+Once the behavior is stable, the custom element can stay thin. It consumes projected view values and command functions.
+
+```tsx
+counter('counter-panel', ({ count, limit, isLimited, increment, setLimit }) => (
+  <section>
+    <strong>
+      {count} / {limit}
+    </strong>
+
+    <button type="button" onClick={() => increment()}>
+      Increment
+    </button>
+
+    <input
+      type="range"
+      min={3}
+      max={12}
+      value={limit}
+      onInput={(event) => setLimit(Number(event.currentTarget.value))}
+    />
+
+    {isLimited && <p>Limit reached</p>}
+  </section>
+));
+```
+
+This keeps DOM tests focused on rendering and accessibility, while behavior tests stay selector-free.
+
+## Agent-readable contracts
+
+Command metadata is optional. Plain functions remain valid commands, and `command(fn, metadata)` enriches the runtime schema when an agent or inspector needs more context.
+
+```ts
+commands: ({ actor, command }) => ({
+  reset: () => actor.send({ type: 'RESET' }),
+
+  setLimit: command(
+    (limit: number) => actor.send({ type: 'SET_LIMIT', limit }),
+    {
+      description: 'Set maximum count',
+      input: command.number({ minimum: 3, maximum: 12 }),
+    },
+  ),
+});
+```
+
+`getSchema()` returns executable commands and command metadata in one map.
+
+```ts
+{
+  commands: {
+    reset: {},
+    setLimit: {
+      description: 'Set maximum count',
+      input: { type: 'number', minimum: 3, maximum: 12 },
+    },
+  },
+  events: ['limit-reached'],
+  state: { value: 'active', context: { count: 0, limit: 6 } },
+}
+```
+
+## Story recording
+
+Stories make behavior workflows first-class. A recorder captures command, event, state, and projected view changes as one behavior trace, while DOM lifecycle evidence stays available through a separate lifecycle channel on the same story object.
+
+```ts
+const story = counter.record("reaches limit");
+
+story.execute("setLimit", 6);
+story.until((view) => view.isLimited, () => {
+  story.execute("increment");
+});
+
+const trace = story.trace();
+const lifecycle = story.lifecycle();
+const summary = story.summary();
+
+expect(summary.finalView).toMatchObject({
+  count: 6,
+  limit: 6,
+  isLimited: true,
+});
+
+story.stop();
+```
+
+`story.trace()` intentionally contains only behavior evidence: command, state, view, and event entries. `story.lifecycle()` contains custom-element evidence such as registration, connection, render, disconnection, and cleanup when DOM components are active during the story. If no DOM component participates, `story.lifecycle()` returns an empty array.
+
+## Gaps to close
+
+The current v3 runtime supports `execute()`, `getState()`, `getView()`, `getSchema()`, `on()`, `watch()`, `watchView()`, and `record()`. The remaining gaps are the pieces needed to turn those primitives into a complete agent workflow system.
+
+- Workflow assertions: add matchers such as `toMatchWorkflow(...)` or a serializable trace format for Vitest and Playwright.
+- Schema depth: expand metadata helpers beyond `command.number(...)` when agents need strings, booleans, enums, objects, or arrays.
+- DOM bridge: keep behavior tests headless, then add a small mapping layer that ties workflow expectations to rendered controls and accessible names.
+
+The important boundary is that logic stays inspectable without the DOM, and the DOM remains a projection over the tested contract.

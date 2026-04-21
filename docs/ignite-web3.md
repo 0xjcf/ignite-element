@@ -1,8 +1,10 @@
 # 🔥 ignite-web3
 
-> **Session-oriented Web3 behavior for ignite-core + bindings**
+> **Session-oriented Web3 behavior for ignite-element + adapter contracts**
 
-`ignite-web3` provides **state-machine–driven Web3 session behavior** (wallets, accounts, chains, transactions) for applications built with **ignite-core** and environment bindings (like **ignite-element** for DOM).
+`ignite-web3` provides **state-machine–driven Web3 session behavior**
+(wallets, accounts, chains, transactions) for applications built with
+**ignite-element** as the authoring surface plus shared ignite contracts.
 
 Unlike data-fetching solutions, ignite-web3 models **long-lived identity and capability**, not request/response data.
 
@@ -18,7 +20,7 @@ It gives you:
 * Explicit modeling of **connection, identity, and capability**
 * Adapter-based integration with libraries like **viem** and **ethers**
 * Deterministic handling of reconnects, chain changes, and failures
-* Clean projection via **ignite-core**, with DOM binding via **ignite-element**
+* Clean projection/assembly via **ignite-element**, backed by shared ignite contracts
 
 ignite-web3 focuses on **who the user is and what they can do** — not just what data is returned.
 
@@ -65,8 +67,8 @@ Wallet / Transaction State Machine (XState)
 
 * **Machines** model session lifecycle and capability
 * **Adapters** handle provider IO and events
-* **igniteCore** projects session state + user actions
-* **Bindings** render intent-driven UI (ignite-element for Web Components)
+* **ignite-element** assembles projected session state + user actions
+* **Bindings** render intent-driven UI
 
 ---
 
@@ -163,13 +165,14 @@ This actor represents:
 ### 2️⃣ Create the Wallet Component
 
 ```ts
-import { igniteCore } from "ignite-element"; // DOM binding over ignite-core
+import { igniteCore, matchState } from "ignite-element/xstate"; // DOM authoring over shared contracts
 
 const walletCore = igniteCore({
   source: walletActor,
 
-  states: ({ snapshot, matchState }) => ({
+  view: ({ snapshot }) => ({
     mode: matchState(
+      snapshot,
       {
         idle: "disconnected",
         connecting: "connecting",
@@ -283,7 +286,7 @@ Use ignite-query when:
 
 * ignite-web3 models **sessions and capability**
 * ignite-query models **data freshness**
-* ignite-core projects **behavior into UI**
+* ignite-element assembles **behavior into UI**
 * Components remain declarative
 
 **ignite-web3 answers “Who can do what?”

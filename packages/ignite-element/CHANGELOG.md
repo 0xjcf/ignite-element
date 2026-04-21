@@ -5,11 +5,13 @@
 ### Major Changes
 
 - Shift `igniteCore` to an effects-driven event model: commands now express intent, `effects(snapshot, prevSnapshot, ctx)` handles typed DOM event emission, and the runtime exposes headless `execute`, `getState`, and `subscribe` helpers.
+- Align package boundaries with ADR-003: `ignite-core` is now contract-only, `ignite-adapters` no longer exposes `igniteCore` authoring builders, and component authoring lives on `ignite-element/xstate`, `ignite-element/redux`, and `ignite-element/mobx`.
 
 ### Deprecations
 
 - `emit` has been removed from `commands()`. Move DOM event emission into `effects()`.
 - Migration tooling is available via `pnpm run migrate:effects-events` and `docs/migrations/v2.2.3-effects-events.md`.
+- Advanced package-boundary migration guidance is available at `docs/migrations/adr-003-package-boundaries.md`.
 
 ## 2.2.2
 

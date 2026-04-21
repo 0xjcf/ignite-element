@@ -36,7 +36,7 @@ Adapters are wired internally by helper constructors (for example, `create*Actor
 
 - If Ignite creates it, Ignite owns it.
 - If you pass it in, you own it.
-- `cleanup` and `lifecycle.browser` are advanced overrides; most components don't need them.
+- `cleanup` is a shared adapter teardown override; most components don't need it.
 
 ## Adapter shapes
 
@@ -44,12 +44,12 @@ Adapters are wired internally by helper constructors (for example, `create*Actor
 - **Redux Toolkit**: pass a slice (factory) or a store instance; Ignite subscribes and reads state on change. If you pass your own store, Ignite will unsubscribe its adapter as elements disconnect but will not dispose your store.
 - **MobX**: pass an observable or factory; Ignite reads derived values when observables mutate. Externally created observables are left running; Ignite only tears down the subscriptions it owns.
 
-:::note[Ownership and cleanup]
+:::note[Ownership and shared adapter teardown]
 - Each element always removes its subscriptions/render bindings on disconnect.
 - **Isolated adapters** (one per element) are stopped on disconnect. For XState machines, that also stops the actor Ignite created.
 - **Shared adapters** (one adapter reused across elements) are released when the last element disconnects, unless `cleanup: false`.
-- `cleanup` controls whether Ignite releases the shared adapter and stops **Ignite-owned** sources. User-provided actors/stores/observables are never stopped by Ignite.
-- `cleanup` is an override; you only need it when you want to change the default ownership behavior.
+- `cleanup` controls shared adapter teardown and whether Ignite stops **Ignite-owned** shared sources. User-provided actors/stores/observables are never stopped by Ignite.
+- `cleanup` is an override; you only need it when you want to keep a shared adapter alive after all elements disconnect.
 - Rationale: a started actor/store you pass in may be used elsewhere; auto-stopping it would be surprising. Stop user-owned sources yourself if needed.
 
 ```ts
@@ -80,7 +80,7 @@ Machine (definition)          Started actor (you own)
 Ignite adapter (isolated)      Ignite adapter (shared)
 per element; stop on disconnect shared; released on last disconnect
 Ignite owns source            user owns source
-cleanup flag: n/a              cleanup flag: keep/release adapter
+teardown override: n/a         cleanup: shared adapter teardown
 ```
 
 - Isolated (machine): per-element adapter; stopped on disconnect (for XState, Ignite-created actors are stopped); `cleanup` doesn’t apply.
@@ -95,29 +95,6 @@ cleanup flag: n/a              cleanup flag: keep/release adapter
 ## Projection is explicit
 
 `igniteCore` projects state into render props. One core registration yields one custom element; composition happens via HTML. The projection is explicit: you decide which snapshot fields become render values and commands.
-
-## Browser lifecycle (advanced)
-
-Ignite handles browser teardown for Ignite-owned sources by default:
-
-- On `pagehide` (non-bfcache), Ignite stops owned sources; user-owned sources are never stopped.
-- On bfcache (`event.persisted`), Ignite does not stop sources.
-
-To forward lifecycle signals to XState machines, opt in with `lifecycle.browser`:
-
-```ts
-igniteCore({
-  source: machine,
-  lifecycle: {
-    browser: {
-      suspend: true,
-      resume: true,
-    },
-  },
-});
-```
-
-Lifecycle signals are XState-only in v1; Redux/MobX do not receive them.
 
 ## Deriving render state
 

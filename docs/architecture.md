@@ -1,229 +1,215 @@
-# This project enforces a **behavior-first, boundary-driven architecture**
+# `ignite-element` Architecture
 
-All code must respect the boundaries below. Violations are considered bugs, even if the code “works”.
+This repository follows a hexagonal architecture with actor-model behavior
+topology.
 
----
+The short version:
 
-## 🧠 Core Philosophy
+- Actors and state machines own behavior.
+- Adapters translate runtime/library realities into normalized facts.
+- `ignite-core` defines contract primitives and shared typing only.
+- `ignite-element` is the sole projection, assembly, and runtime-host surface.
 
-> **Behavior is deterministic.
-> The world is nondeterministic.
-> Boundaries exist to keep them apart.**
+If code crosses those boundaries, it is wrong even when it appears to work.
 
-No code may collapse these boundaries.
+## Core Philosophy
 
----
+> Behavior is deterministic.  
+> The world is nondeterministic.  
+> Boundaries exist to keep them apart.
 
-## 🧱 Required Architectural Boundaries
+The repo is layered as packages, but the responsibility model is hexagonal:
 
-### 1️⃣ Behavior Boundary (Actors & State Machines)
+- Behavior is owned by actors and state machines.
+- Ports are the event, command, state, and effect contracts.
+- Adapters integrate concrete runtimes such as XState, Redux, MobX, the DOM, and
+  renderer environments.
+- The shell assembles adapters, projections, and host lifecycle into a usable
+  component/runtime surface.
 
-* All game logic, rules, permissions, and role behavior MUST live in:
+## Package Responsibilities
 
-  * **actors**
-  * **state machines**
-* Behavior:
+### `packages/ignite-core`
 
-  * MUST be deterministic
-  * MUST be replayable from events
-  * MUST NOT perform IO
-  * MUST NOT call LLMs
-  * MUST NOT touch browser APIs, timers, or randomness directly
+Contract-only.
 
-**Allowed:**
+It owns:
 
-* sending and handling events
-* guards, actions, invariants
-* deciding *what should happen*
+- event and effect typing
+- render argument contracts
+- adapter-neutral helpers like `matchState`
+- shared primitives such as `StateScope`
 
-**Forbidden:**
+It does not own:
 
-* `fetch`, `setTimeout`, `Date.now`, `Math.random`
-* direct LLM calls
-* direct tool execution
-* reading from global stores
+- projection assembly
+- DOM lifecycle
+- adapter-specific behavior
+- renderer integration
 
----
+### `packages/ignite-adapters`
 
-### 2️⃣ Adapter Boundary (Nondeterministic Reality)
+Adapter integration only.
 
-* All interaction with the outside world MUST go through **adapters**:
+It owns:
 
-  * backend APIs
-  * persistence
-  * randomness
-  * time
-  * LLMs / AI agents
-  * tools (filesystem, network, etc.)
+- XState, Redux, and MobX adapter factories
+- source guards and source-specific config/types
+- command-actor typing for integrated runtimes
 
-Adapters:
+It must:
 
-* MAY be nondeterministic
-* MUST normalize outputs
-* MUST emit **events** back to behavior
-* MUST NOT decide game rules
-* MUST NOT mutate authoritative state directly
+- normalize library/runtime behavior into stable adapter contracts
+- treat expected failures as data or no-op facts
+- avoid deciding product behavior or UI policy
 
-**LLMs are adapters by default.**
+It must not:
 
----
+- own projection assembly
+- own component authoring
+- encode business rules
 
-### 3️⃣ Actor Authority Rule
+### `packages/ignite-renderer`
 
-* Each **role** (player, NPC, system, admin, AI assistant) must have:
+Rendering runtime only.
 
-  * a **single behavioral authority**
-* Role-specific logic MUST NOT be implemented as:
+It owns:
 
-  * one-off conditionals in UI
-  * ad-hoc checks in adapters
-  * scattered guards across components
+- JSX/lit rendering surfaces
+- style injection
+- renderer-specific utilities
 
-**If a new role or feature adds “special cases”, introduce or extend an actor — do not patch callers.**
+It must not own:
 
----
+- domain behavior
+- adapter selection
+- component authoring policy
 
-### 4️⃣ AI / LLM Integration Rules
+### `packages/ignite-element`
 
-* AI is **advisory**, never authoritative.
-* LLM output:
+This is the product surface.
 
-  * MUST be validated
-  * MUST be gated by a policy actor
-  * MUST be converted into events
-* AI MUST NOT:
+It owns:
 
-  * change game state directly
-  * grant permissions
-  * advance the game loop
-  * decide outcomes without behavior approval
+- `igniteCore(...)` authoring
+- projection assembly
+- command/effect projection into render args
+- DOM/custom-element lifecycle
+- headless runtime access
+- public entrypoints such as `ignite-element/xstate`
 
-**Pattern:**
-Behavior → Intent Event → LLM Adapter → Structured Result → Policy Actor → Decision Event
+This package is where projected meaning becomes a usable UI/runtime contract.
 
----
+## Actor-Model Topology
 
-### 5️⃣ Projection Boundary (ignite-core)
+Behavior should be modeled as message-driven actors or machines.
 
-* UI MUST NOT:
+- Commands express intent.
+- Events report facts.
+- State transitions remain deterministic.
+- Effects are selected from state transitions, not hidden inside adapters or UI.
 
-  * inspect machine internals
-  * branch on raw states
-  * encode business rules
-* All UI state MUST come from:
+The topology should read like this:
 
-  * `igniteCore` projections
-* Projections:
+`intent -> actor/machine -> state transition -> selected effect -> adapter fact -> actor/machine`
 
-  * are total (no `undefined` UI state)
-  * expose **meaning**, not mechanics
-  * hide transitions and internals
+That loop keeps causality explicit and replayable.
 
----
+## Hexagonal Rules
 
-### 6️⃣ UI & Rendering Boundary (ignite-element)
+### Behavior Boundary
 
-* Components:
+Behavior belongs in actors and machines, not in adapters or rendering code.
 
-  * render projected state only
-  * send commands / intent events
-  * NEVER implement game logic
-* No ternaries or logic branching on state inside components
-* No direct role checks inside UI
-* No conditional rendering without a router / projection decision
+Allowed:
 
----
+- guards
+- transitions
+- invariants
+- event handling
+- deterministic effect selection
 
-### 7️⃣ Time & Lifecycle Rules
+Forbidden:
 
-* Time is an architectural concern.
-* Start, stop, cancel, retry MUST be explicit.
-* No implicit async lifetimes.
-* No overlapping requests without cancellation handling.
-* Adapters own timing; actors decide relevance.
+- `fetch`, timers, randomness, browser globals
+- direct DOM mutation
+- direct calls into infrastructure libraries from behavior logic
 
----
+### Adapter Boundary
 
-## 🚫 Hard Anti-Patterns (Do Not Introduce)
+Adapters sit at the edge of the system.
 
-* “Just this once” role checks
-* UI deciding permissions or outcomes
-* LLMs deciding game events
-* Shared global state coordinating roles
-* Direct API calls inside behavior
-* Randomness without an adapter
-* Silent retries or hidden async loops
+They may talk to runtime libraries, stores, or browser APIs, but they must not:
 
----
+- decide domain behavior
+- mutate authoritative behavior state directly
+- throw for expected failures
 
-## 🛡️ Enforcement (Repo Map + Checks)
+Expected failures should return facts, warnings, or inert no-op behavior that the
+shell can reason about. Exceptions are reserved for programmer mistakes and
+invariant breaches.
 
-**Behavior (deterministic):**
+### Projection Boundary
 
-* `src/sigil-machine.ts`, `src/actors/`, `src/create-character.ts`, `src/rarityFromCharacter.ts`
-* Must not use browser APIs, timers, randomness, or IO.
+Projection and authoring live in `ignite-element`.
 
-**Adapters (nondeterministic reality):**
+UI should never:
 
-* `src/adapters/`, `src/bindings/`
-* May use time, randomness, IO, and browser APIs, but must emit events.
+- inspect raw machine internals directly
+- duplicate business rules
+- branch on unprojected infrastructure state
 
-**Bindings (environment):**
+Instead, `ignite-element` converts snapshots plus commands/effects into a stable
+render/runtime surface.
 
-* `src/main.ts`, `src/entrypoints/cli.ts`, `src/core-bindings.ts`
-* Wire behavior + adapters + projection to a specific runtime.
+### UI Boundary
 
-**Projections (igniteCore):**
+Components render projected meaning and send intent.
 
-* `src/core.ts`
-* Only place that can interpret machine state for UI meaning.
+They should stay declarative:
 
-**UI (ignite-element):**
+- consume render args
+- invoke commands
+- emit declared events
 
-* `src/*.tsx`
-* Must only consume `core(...)` output and commands. No direct actor/machine imports.
+They should not:
 
-**Quick checks:**
+- implement policy
+- reach into adapters
+- infer domain behavior from raw runtime objects
 
-* Behavior purity: `rg -n "Math\\.random|Date\\.now|fetch|setTimeout|document|window" src/sigil-machine.ts src/actors src/create-character.ts src/rarityFromCharacter.ts`
-* UI boundaries: `rg -n "sigil-machine|createActor|actor" src/*.tsx`
+## Errors As Data
 
----
+This repo uses `errors-as-data` for adapters.
 
-## ✅ How to Extend the System Correctly
+That means:
+
+- expected adapter failures should surface as explicit facts, warnings, or
+  inert/no-op behavior
+- behavior and shell layers should react to those facts explicitly
+- only programmer bugs or invariant violations should throw
+
+This keeps adapter failures observable without hiding control flow in
+exceptions.
+
+## Enforcement Map
+
+- `packages/ignite-core/src/`: contract-only functional core
+- `packages/ignite-adapters/src/`: adapter integration boundary
+- `packages/ignite-renderer/src/`: renderer/runtime boundary
+- `packages/ignite-element/src/`: shell, projection, assembly, and host runtime
+
+FAS boundary rules and ADR-003 are the authoritative enforcement surfaces for
+these responsibilities.
+
+## How To Extend The System
 
 When adding a feature:
 
-1. Identify the **behavioral owner**
-2. Add or extend an **actor**
-3. Define events and invariants
-4. Add adapters for IO / AI / tools
-5. Gate nondeterministic outputs
-6. Project meaning via `igniteCore`
-7. Render declaratively via `ignite-element`
+1. Identify the actor or machine that owns the behavior.
+2. Express new intent and fact events.
+3. Add or extend adapters only for runtime/library integration.
+4. Project the resulting meaning through `ignite-element`.
+5. Render declaratively on top of that projected contract.
 
-If you are unsure:
-
-> **Stop and propose an actor + event model before writing code.**
-
----
-
-## 🎯 Definition of “Done”
-
-A feature is complete only if:
-
-* behavior is centralized
-* roles are explicit
-* AI is gated
-* time is owned
-* UI is dumb
-* state is replayable
-* boundaries are respected
-
----
-
-## Final Reminder
-
-> **If code works but violates boundaries, it is incorrect.**
-
-Follow this contract strictly.
+If a change requires behavior in UI or adapters, the boundary is probably wrong.

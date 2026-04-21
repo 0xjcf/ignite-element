@@ -74,13 +74,21 @@ toggle.getSchema();
 toggle.on("toggled", handler);
 toggle.watch((state, prevState) => {});
 toggle.watchView((view, prevView) => {});
+const story = toggle.record("turns on");
+story.execute("toggle");
+story.trace();
+story.lifecycle();
+story.summary();
+story.stop();
 ```
 
 ## Package contract
 
 - `ignite-element` is the default public package.
 - `ignite-element/xstate`, `ignite-element/redux`, and `ignite-element/mobx` are the default public adapter entrypoints.
-- `ignite-core`, `ignite-adapters`, and `ignite-renderer` are advanced package layers intended for custom integrations and library-level work.
+- `ignite-core` is limited to adapter-neutral contracts, event/effect typing, and small shared utilities.
+- `ignite-adapters` is limited to adapter factories, guards, and source-specific config/types.
+- `ignite-renderer` remains the advanced renderer/runtime layer for custom renderer integration work.
 
 ## Documentation
 
@@ -90,4 +98,5 @@ toggle.watchView((view, prevView) => {});
 - Testing guide: `docs/site/src/content/docs/guides/testing.mdx`
 - Configuration and renderers: `docs/site/src/content/docs/api/define-ignite-config.mdx`
 - Migration guide: `docs/migrations/v2.2.3-effects-events.md`
+- Package boundary migration: `docs/migrations/adr-003-package-boundaries.md`
 - Examples: `packages/ignite-element/src/examples`

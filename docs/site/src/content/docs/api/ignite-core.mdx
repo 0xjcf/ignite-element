@@ -29,29 +29,16 @@ component('tag-name', (props) => /* JSX or lit template */);
 - `view({ snapshot })`: derive render props from the current snapshot; runs on mount and on changes.
 - `commands(context)`: expose actions; receives `{ actor, host }`.
 - `effects(snapshot, prevSnapshot, context)`: optional; runs after every state update and receives `{ emit, actor, host, select }`.
-- `cleanup`: defaults to `true`; for shared adapters, controls whether Ignite releases the shared adapter after the last element disconnects. Releasing the adapter stops Ignite-owned sources (e.g., XState machine actors); user-provided sources are never stopped.
-- `lifecycle`: optional; advanced overrides for browser lifecycle signals (XState-only).
+- `cleanup`: defaults to `true`; shared adapter teardown override. When enabled, Ignite releases the shared adapter after the last element disconnects. Releasing the adapter stops Ignite-owned sources (e.g., XState machine actors); user-provided sources are never stopped.
 
 ## Advanced overrides
 
-`cleanup` and `lifecycle.browser` are override knobs; most components won't need them.
+`cleanup` controls shared adapter teardown; most components won't need to change it.
 
 ```ts
 const component = igniteCore({
   source: actor,
-  cleanup: true, // explicitly assert ownership of a passed actor
-});
-```
-
-```ts
-const component = igniteCore({
-  source: machine,
-  lifecycle: {
-    browser: {
-      suspend: true,
-      resume: true,
-    },
-  },
+  cleanup: false, // keep the shared adapter alive after the last element disconnects
 });
 ```
 
@@ -85,7 +72,9 @@ Use `on(...)` for public emitted events, `watch(...)` for raw state updates, and
 
 ```ts
 {
-  commands: ["toggle"],
+  commands: {
+    toggle: {}
+  },
   events: ["toggled"],
   state: { value: "off", context: {} }
 }

@@ -1,6 +1,6 @@
 # ignite-core
 
-Advanced adapter-neutral primitives for Ignite's projection and runtime layers.
+Advanced adapter-neutral primitives for Ignite contracts and shared typing.
 
 Use `ignite-core` only when you are building custom adapters, headless integrations, or library-level tooling on top of Ignite internals.
 
@@ -9,8 +9,10 @@ Most application and component authors should install `ignite-element` instead.
 Package role:
 
 - adapter-neutral types and contracts
-- projection and effect execution primitives
-- shared runtime helpers used by higher-level packages
+- event/effect typing and callback contracts
+- small shared utilities used by higher-level packages
+
+This package no longer exposes projection or component authoring helpers. Use `ignite-element/xstate`, `ignite-element/redux`, or `ignite-element/mobx` for authoring components.
 
 Default public package for application code:
 

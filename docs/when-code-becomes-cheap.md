@@ -111,8 +111,8 @@ Eventually, it all came together as a single, clear idea:
 
 **Behavior lives in state machines.**
 **External interactions live behind adapters.**
-**Projection lives in ignite-core.**
-**Environments only change the bindings.**
+**Projection and authoring live in ignite-element.**
+**ignite-core stays contract-only.**
 
 This isn’t a framework rule.
 
@@ -133,7 +133,7 @@ That refusal matters.
 
 It’s what keeps responsibility from leaking as systems grow.
 
-In ignite-core, these boundaries are intentional.
+In the ignite package family, these boundaries are intentional.
 
 The state machine boundary is responsible for behavior: rules, transitions, and invariants.
 It is not responsible for IO, timing, or environment concerns.
@@ -141,10 +141,14 @@ It is not responsible for IO, timing, or environment concerns.
 The adapter boundary is responsible for interacting with external systems.
 It is not responsible for making business decisions.
 
-The projection boundary—ignite-core—is responsible for translating internal state into meaning the UI can safely consume.
-It is not responsible for behavior or side effects.
+The projection boundary—`ignite-element`—is responsible for translating
+internal state into meaning the UI and runtime can safely consume.
+It is not responsible for behavior policy inside the machine or for external IO.
 
-And the environment binding is responsible for lifecycle and rendering.
+`ignite-core` stays smaller than that. It owns the contracts that make the
+boundary possible: events, effects, render args, and adapter-neutral helpers.
+
+And the environment/runtime layer is responsible for lifecycle and rendering.
 It is not responsible for system logic.
 
 Each boundary answers one question—and refuses all others.
@@ -216,14 +220,16 @@ It only reacts to events.
 
 Most applications skip this step entirely.
 
-`ignite-core` exists so the UI never has to reason about raw state or transitions:
+`ignite-element` exists so the UI never has to reason about raw state or
+transitions directly:
 
 ```ts
 igniteCore({
   source: actor,
 
-  states: ({ snapshot, matchState }) => ({
+  view: ({ snapshot }) => ({
     mode: matchState(
+      snapshot,
       {
         idle: "idle",
         loading: "loading",
@@ -249,18 +255,19 @@ It sees *meaning*.
 
 ### Where ignite-element fits
 
-`ignite-core` is environment-agnostic.
+`ignite-core` is environment-agnostic and contract-only.
 
-It knows nothing about the DOM.
+It knows nothing about the DOM, component registration, or runtime assembly.
 
-`ignite-element` is deliberately narrow.
-It takes projections from `ignite-core` and binds them to the browser: web components, DOM lifecycle, browser events.
+`ignite-element` is the deliberate authoring layer on top.
+It combines adapter integration, projections, DOM lifecycle, browser events, and
+the headless runtime surface into one coherent contract.
 
 That separation is intentional.
 
 It’s what allows the same system to work in the browser, in workers, in tests, and in Node environments.
 
-Only the bindings change.
+Only the host/runtime layer changes.
 
 ---
 
@@ -295,7 +302,8 @@ Nothing in this series is about replacing XState.
 These patterns exist to help teams **use state machines more effectively at scale**.
 
 XState provides the behavior foundation.
-`ignite-core` provides the architectural context around it.
+`ignite-element`, supported by `ignite-core` contracts and adapter boundaries,
+provides the architectural context around it.
 
 ---
 
@@ -306,10 +314,10 @@ In this Patterns series, I’ll slow down and name the forces most of us already
 Why adapters exist.
 Why messages scale better than shared state.
 Why determinism matters.
-Why projection is a missing layer.
+Why projection and assembly are a missing layer.
 Why dependency direction decides whether systems age gracefully or rot.
 
-`ignite-core` is one concrete implementation of these ideas.
+The ignite package family is one concrete implementation of these ideas.
 
 The real goal is clearer thinking.
 
