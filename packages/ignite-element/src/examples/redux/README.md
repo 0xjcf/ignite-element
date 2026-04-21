@@ -1,6 +1,6 @@
 # Redux + ignite-element Example
 
-This example shows how ignite-element integrates with **Redux Toolkit**, **Ignite JSX**, and **Bootstrap** to drive both shared and isolated counters. Adapter inference means you no longer have to declare `adapter: "redux"`—igniteCore figures it out from the source you provide.
+This example shows how ignite-element integrates with **Redux Toolkit**, **Ignite JSX**, and **Bootstrap** to drive both shared and isolated counters through the public `ignite-element/redux` authoring surface.
 
 ---
 
@@ -47,9 +47,11 @@ The example uses two kinds of sources:
 - **Slice definition** → create a fresh store per component (isolated scope).
 
 ```tsx
+import { igniteCore } from "ignite-element/redux";
+
 export const registerSharedRedux = igniteCore({
   source: counterStore(),
-  states: (snapshot) => ({
+  view: ({ snapshot }) => ({
     count: snapshot.counter.count,
   }),
   commands: ({ actor }) => ({
@@ -62,7 +64,7 @@ export const registerSharedRedux = igniteCore({
 
 export const registerIsolatedRedux = igniteCore({
   source: counterSlice,
-  states: (snapshot) => ({
+  view: ({ snapshot }) => ({
     count: snapshot.counter.count,
   }),
   commands: ({ actor }) => ({

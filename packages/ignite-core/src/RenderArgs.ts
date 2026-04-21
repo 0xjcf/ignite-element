@@ -16,6 +16,87 @@ export type FacadeCommandFunction = (...args: never[]) => unknown;
 
 export type FacadeCommandResult = Record<string, FacadeCommandFunction>;
 
+export const commandMetadataSymbol: unique symbol = Symbol.for(
+	"ignite.command.metadata",
+) as never;
+
+export type CommandMetadataPrimitive = null | boolean | number | string;
+
+export type CommandMetadataValue =
+	| CommandMetadataPrimitive
+	| CommandMetadataValue[]
+	| { [key: string]: CommandMetadataValue | undefined };
+
+export type NumberCommandInputMetadata = {
+	type: "number";
+	description?: string;
+	minimum?: number;
+	maximum?: number;
+	multipleOf?: number;
+	default?: number;
+};
+
+export type NumberCommandInputOptions = Omit<
+	NumberCommandInputMetadata,
+	"type"
+>;
+
+export type CommandMetadata = {
+	description?: string;
+	input?: CommandMetadataValue;
+	[key: string]: CommandMetadataValue | undefined;
+};
+
+export type CommandWithMetadata<
+	Command extends FacadeCommandFunction = FacadeCommandFunction,
+> = Command & {
+	readonly [commandMetadataSymbol]?: CommandMetadata;
+};
+
+export type CommandHelper = {
+	<Command extends FacadeCommandFunction>(
+		commandFunction: Command,
+		metadata?: CommandMetadata,
+	): CommandWithMetadata<Command>;
+	number(options?: NumberCommandInputOptions): NumberCommandInputMetadata;
+};
+
+const attachCommandMetadata = <Command extends FacadeCommandFunction>(
+	commandFunction: Command,
+	metadata?: CommandMetadata,
+): CommandWithMetadata<Command> => {
+	if (metadata === undefined) {
+		return commandFunction as CommandWithMetadata<Command>;
+	}
+
+	const wrappedCommand = function (this: unknown, ...args: unknown[]) {
+		return (
+			commandFunction as unknown as (
+				this: unknown,
+				...args: unknown[]
+			) => unknown
+		).apply(this, args);
+	} as unknown as CommandWithMetadata<Command>;
+
+	Object.defineProperty(wrappedCommand, commandMetadataSymbol, {
+		configurable: true,
+		enumerable: false,
+		value: metadata,
+		writable: false,
+	});
+
+	return wrappedCommand;
+};
+
+export const command: CommandHelper = Object.assign(attachCommandMetadata, {
+	number(options: NumberCommandInputOptions = {}) {
+		return {
+			type: "number" as const,
+			...options,
+		};
+	},
+});
+
 export type EmptyEventMap = {
 	readonly [Type in never]: EventDescriptor<never>;
 };
@@ -52,6 +133,7 @@ export type EmitFromEvents<Events extends EventMap> = <
 
 export type CommandContext<Actor, Host = unknown> = {
 	actor: Actor;
+	command: CommandHelper;
 	host: Host;
 };
 

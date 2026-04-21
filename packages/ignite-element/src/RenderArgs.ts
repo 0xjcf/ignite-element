@@ -7,6 +7,11 @@ import type {
 } from "ignite-adapters";
 import type { ExtendedState, XStateCommandActor } from "ignite-adapters/xstate";
 import type {
+	CommandHelper,
+	CommandMetadata,
+	CommandMetadataPrimitive,
+	CommandMetadataValue,
+	CommandWithMetadata,
 	CommandContext as CoreCommandContext,
 	EffectContext as CoreEffectContext,
 	EffectSelection as CoreEffectSelection,
@@ -27,6 +32,8 @@ import type {
 	FacadeEffectsObjectCallback,
 	FacadeStatesCallback,
 	FacadeViewCallback,
+	NumberCommandInputMetadata,
+	NumberCommandInputOptions,
 } from "ignite-core";
 import type { AnyStateMachine, EventFrom, StateFrom } from "xstate";
 
@@ -45,6 +52,13 @@ export type {
 	FacadeCommandResult,
 	FacadeStatesCallback,
 	FacadeViewCallback,
+	CommandHelper,
+	CommandMetadata,
+	CommandMetadataPrimitive,
+	CommandMetadataValue,
+	CommandWithMetadata,
+	NumberCommandInputMetadata,
+	NumberCommandInputOptions,
 };
 export type {
 	ReduxSliceCommandActor,

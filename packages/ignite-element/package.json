@@ -145,7 +145,8 @@
 	"scripts": {
 		"build:types": "tsc",
 		"build:js": "vite build",
-		"build": "pnpm run build:types && pnpm run build:js",
+		"verify:exports": "node ./scripts/verify-exports.mjs",
+		"build": "pnpm run build:types && pnpm run build:js && pnpm run verify:exports",
 		"docs:dev": "pnpm --filter docs-site dev",
 		"docs:build": "pnpm --filter docs-site build",
 		"docs:preview": "pnpm --filter docs-site preview",
@@ -154,6 +155,7 @@
 		"examples:mobx": "cd src/examples/mobx && pnpm install --ignore-workspace --no-link-workspace-packages && pnpm run dev",
 		"test": "vitest --run",
 		"test:coverage": "vitest --run --coverage",
+		"test:e2e": "playwright test --project=chromium",
 		"test:node": "FORCE_COLOR=1 vitest --config vitest.node.config.ts --run",
 		"typecheck": "pnpm exec tsc --noEmit --pretty false --project tsconfig.typecheck.json && pnpm exec tsc --project src/examples/xstate/tsconfig.json && pnpm exec tsc --project src/examples/redux/tsconfig.json && pnpm exec tsc --project src/tests/tsconfig.json",
 		"format": "biome format --write .",

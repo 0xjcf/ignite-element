@@ -79,6 +79,10 @@ export default defineConfig({
 							label: "Platform contracts",
 							slug: "guides/platform-contracts",
 						},
+						{
+							label: "Agent runtime v3",
+							slug: "guides/agent-runtime-v3",
+						},
 						{ label: "Styling", slug: "guides/styling" },
 						{ label: "Testing", slug: "guides/testing" },
 						{ label: "Tooling & bundlers", slug: "guides/tooling" },

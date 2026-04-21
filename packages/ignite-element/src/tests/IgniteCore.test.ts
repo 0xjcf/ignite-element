@@ -239,12 +239,12 @@ describe("igniteCore", () => {
 		register(elementName, renderFn);
 
 		document.body.appendChild(document.createElement(elementName));
-		const firstArgs = renderFn.mock.calls.at(-1)?.[0];
+		const firstArgs = renderFn.mock.calls[renderFn.mock.calls.length - 1]?.[0];
 		expect(firstArgs).toBeDefined();
 		firstArgs?.increment();
 
 		expect(renderFn).toHaveBeenCalledTimes(2);
-		const latestArgs = renderFn.mock.calls.at(-1)?.[0];
+		const latestArgs = renderFn.mock.calls[renderFn.mock.calls.length - 1]?.[0];
 		expect(latestArgs).toBeDefined();
 		expect(latestArgs?.count).toBe(1);
 	});
@@ -535,6 +535,162 @@ describe("igniteCore", () => {
 		expect(watchViewListener).toHaveBeenCalledTimes(1);
 	});
 
+	it("records behavior-first stories with traces, until guards, and summaries", () => {
+		const store = counterStore();
+		type StoreState = InferStateAndEvent<typeof store>["State"];
+		type StoreView = {
+			count: number;
+			isEven: boolean;
+		};
+		type RuntimeEventMap = {
+			"counter-incremented": EventDescriptor<{ count: number }>;
+		};
+		const register = igniteCore({
+			adapter: "redux",
+			source: store,
+			view: ({ snapshot }: { snapshot: StoreState }): StoreView => ({
+				count: snapshot.counter.count,
+				isEven: snapshot.counter.count % 2 === 0,
+			}),
+			commands: ({ actor }) => ({
+				increment: (amount = 1) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+			}),
+			events: (event) => ({
+				"counter-incremented": event<{ count: number }>(),
+			}),
+			effects: (snapshot: StoreState, prevSnapshot: StoreState, { emit }) => {
+				if (snapshot.counter.count === prevSnapshot.counter.count) {
+					return;
+				}
+
+				emit("counter-incremented", {
+					count: snapshot.counter.count,
+				});
+			},
+		} satisfies ReduxInstanceConfig<typeof store, RuntimeEventMap>);
+
+		const story = register.record("counter reaches five");
+		story.execute("increment", 2);
+		const finalView = story.until(
+			(view) => view.count >= 5,
+			() => {
+				story.execute("increment", 1);
+			},
+			{ maxSteps: 5 },
+		);
+
+		expect(finalView).toEqual({ count: 5, isEven: false });
+		expect(story.trace().map((entry) => entry.kind)).toEqual([
+			"command",
+			"state",
+			"view",
+			"event",
+			"state",
+			"view",
+			"command",
+			"state",
+			"view",
+			"event",
+			"state",
+			"view",
+			"command",
+			"state",
+			"view",
+			"event",
+			"state",
+			"view",
+			"command",
+			"state",
+			"view",
+			"event",
+			"state",
+			"view",
+		]);
+		expect(
+			story
+				.trace()
+				.filter((entry) => entry.kind === "command")
+				.map((entry) => entry.command),
+		).toEqual(["increment", "increment", "increment", "increment"]);
+
+		const summary = story.summary();
+		expect(summary.finalState.counter.count).toBe(5);
+		expect(summary.finalView).toEqual({ count: 5, isEven: false });
+		expect(summary.events.map((event) => event.payload)).toEqual([
+			{ count: 2 },
+			{ count: 3 },
+			{ count: 4 },
+			{ count: 5 },
+		]);
+		expect(summary.commandCount).toBe(4);
+		expect(summary.traceCount).toBe(24);
+		expect(summary.lifecycleCount).toBe(0);
+
+		story.stop();
+
+		expect(() => story.execute("increment", 1)).toThrow(
+			'[igniteCore] Story "counter reaches five" has been stopped.',
+		);
+		expect(register.execute("increment", 1).state.counter.count).toBe(6);
+	});
+
+	it("records DOM lifecycle evidence for active stories and detaches on stop", () => {
+		const store = counterStore();
+		type StoreState = InferStateAndEvent<typeof store>["State"];
+		const register = igniteCore({
+			adapter: "redux",
+			source: store,
+			states: (snapshot: StoreState) => ({
+				count: snapshot.counter.count,
+			}),
+			commands: ({ actor }) => ({
+				increment: () => actor.dispatch(counterSlice.actions.increment()),
+			}),
+		});
+
+		type RenderArgs = {
+			count: number;
+			increment: () => void;
+		};
+
+		const story = register.record("component lifecycle");
+		const elementName = `story-lifecycle-${crypto.randomUUID()}`;
+		const renderFn = vi.fn<(args: RenderArgs) => TemplateResult>(
+			(_args) => html``,
+		);
+
+		register(elementName, renderFn);
+		const element = document.createElement(elementName);
+		document.body.appendChild(element);
+		story.execute("increment");
+		element.remove();
+
+		const lifecycle = story.lifecycle();
+		expect(lifecycle.map((entry) => entry.stage)).toEqual(
+			expect.arrayContaining([
+				"registered",
+				"connected",
+				"rendered",
+				"disconnected",
+				"cleaned-up",
+			]),
+		);
+		expect(lifecycle.every((entry) => entry.elementName === elementName)).toBe(
+			true,
+		);
+		expect(story.summary().lifecycleCount).toBe(lifecycle.length);
+
+		story.stop();
+		const lifecycleCount = story.lifecycle().length;
+		const secondElement = document.createElement(elementName);
+		document.body.appendChild(secondElement);
+		secondElement.remove();
+
+		expect(story.lifecycle()).toHaveLength(lifecycleCount);
+		expect(register.execute("increment").state.counter.count).toBe(2);
+	});
+
 	it("exposes a JSON-serializable agent schema", () => {
 		const store = counterStore();
 
@@ -553,11 +709,104 @@ describe("igniteCore", () => {
 		});
 
 		expect(register.getSchema()).toEqual({
-			commands: ["increment"],
+			commands: {
+				increment: {},
+			},
 			events: ["counter-incremented"],
 			state: {
 				counter: {
 					count: 0,
+				},
+			},
+		});
+	});
+
+	it("adds optional command contract metadata without changing execution", () => {
+		const store = counterStore();
+
+		const register = igniteCore({
+			adapter: "redux",
+			source: store,
+			states: (snapshot) => ({
+				count: snapshot.counter.count,
+			}),
+			commands: ({ actor, command }) => ({
+				addByAmount: command(
+					(amount: number) =>
+						actor.dispatch(counterSlice.actions.addByAmount(amount)),
+					{
+						description: "Add a bounded amount to the counter.",
+						input: command.number({ minimum: 1, maximum: 5 }),
+					},
+				),
+				increment: () => actor.dispatch(counterSlice.actions.increment()),
+			}),
+		});
+
+		const result = register.execute("addByAmount", 3);
+
+		expect(result.state.counter.count).toBe(3);
+		expect(register.getView()).toEqual({ count: 3 });
+		expect(register.getSchema()).toEqual({
+			commands: {
+				addByAmount: {
+					description: "Add a bounded amount to the counter.",
+					input: {
+						type: "number",
+						minimum: 1,
+						maximum: 5,
+					},
+				},
+				increment: {},
+			},
+			events: [],
+			state: {
+				counter: {
+					count: 3,
+				},
+			},
+		});
+	});
+
+	it("keeps command metadata isolated when a function is reused", () => {
+		const store = counterStore();
+		const add = (amount: number) =>
+			store.dispatch(counterSlice.actions.addByAmount(amount));
+
+		const register = igniteCore({
+			adapter: "redux",
+			source: store,
+			commands: ({ command }) => ({
+				addLarge: command(add, {
+					description: "Add a larger amount.",
+					input: command.number({ minimum: 5, maximum: 10 }),
+				}),
+				addSmall: command(add, {
+					description: "Add a smaller amount.",
+					input: command.number({ minimum: 1, maximum: 4 }),
+				}),
+			}),
+		});
+
+		register.execute("addSmall", 2);
+		register.execute("addLarge", 5);
+
+		expect(register.getState().counter.count).toBe(7);
+		expect(register.getSchema().commands).toEqual({
+			addLarge: {
+				description: "Add a larger amount.",
+				input: {
+					type: "number",
+					minimum: 5,
+					maximum: 10,
+				},
+			},
+			addSmall: {
+				description: "Add a smaller amount.",
+				input: {
+					type: "number",
+					minimum: 1,
+					maximum: 4,
 				},
 			},
 		});
@@ -600,31 +849,31 @@ describe("igniteCore", () => {
 
 		const firstElement = document.createElement(elementName);
 		document.body.appendChild(firstElement);
-		const firstArgs = renderFn.mock.calls.at(-1)?.[0];
+		const firstArgs = renderFn.mock.calls[renderFn.mock.calls.length - 1]?.[0];
 		expect(firstArgs).toBeDefined();
 
 		const secondElement = document.createElement(elementName);
 		document.body.appendChild(secondElement);
-		const secondArgs = renderFn.mock.calls.at(-1)?.[0] as
-			| RenderArgs
-			| undefined;
+		const secondArgs = renderFn.mock.calls[
+			renderFn.mock.calls.length - 1
+		]?.[0] as RenderArgs | undefined;
 		expect(secondArgs).toBeDefined();
 
 		expect(firstArgs?.count).toBe(0);
 		expect(secondArgs?.count).toBe(0);
 
 		firstArgs?.increment();
-		const afterFirst = renderFn.mock.calls.at(-1)?.[0] as
-			| RenderArgs
-			| undefined;
+		const afterFirst = renderFn.mock.calls[
+			renderFn.mock.calls.length - 1
+		]?.[0] as RenderArgs | undefined;
 		expect(afterFirst).toBeDefined();
 		expect(afterFirst?.count).toBe(1);
 		expect(store.getState().counter.count).toBe(1);
 
 		secondArgs?.increment();
-		const afterSecond = renderFn.mock.calls.at(-1)?.[0] as
-			| RenderArgs
-			| undefined;
+		const afterSecond = renderFn.mock.calls[
+			renderFn.mock.calls.length - 1
+		]?.[0] as RenderArgs | undefined;
 		expect(afterSecond).toBeDefined();
 		expect(afterSecond?.count).toBe(2);
 		expect(store.getState().counter.count).toBe(2);
@@ -676,14 +925,14 @@ describe("igniteCore", () => {
 
 		const firstElement = document.createElement(elementName);
 		document.body.appendChild(firstElement);
-		const firstArgs = renderFn.mock.calls.at(-1)?.[0];
+		const firstArgs = renderFn.mock.calls[renderFn.mock.calls.length - 1]?.[0];
 		expect(firstArgs).toBeDefined();
 
 		const secondElement = document.createElement(elementName);
 		document.body.appendChild(secondElement);
-		const secondArgs = renderFn.mock.calls.at(-1)?.[0] as
-			| RenderArgs
-			| undefined;
+		const secondArgs = renderFn.mock.calls[
+			renderFn.mock.calls.length - 1
+		]?.[0] as RenderArgs | undefined;
 		expect(secondArgs).toBeDefined();
 
 		expect(firstArgs?.increment).not.toBe(secondArgs?.increment);
@@ -691,9 +940,9 @@ describe("igniteCore", () => {
 		expect(secondArgs?.count).toBe(0);
 
 		firstArgs?.increment();
-		const afterFirst = renderFn.mock.calls.at(-1)?.[0] as
-			| RenderArgs
-			| undefined;
+		const afterFirst = renderFn.mock.calls[
+			renderFn.mock.calls.length - 1
+		]?.[0] as RenderArgs | undefined;
 		expect(afterFirst).toBeDefined();
 		expect(afterFirst?.count).toBe(1);
 		expect(secondArgs?.count).toBe(0);

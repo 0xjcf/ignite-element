@@ -2,12 +2,13 @@ export type {
 	EmptyEventMap,
 	EventMap,
 	FacadeCommandFunction,
-	IgniteCoreReturn,
 } from "ignite-core";
-export { igniteCoreRedux as igniteCore } from "./igniteCore/redux";
+export { default as createReduxAdapter } from "./adapters/ReduxAdapter";
 export type {
 	ReduxBlueprintConfig,
 	ReduxInstanceConfig,
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
 } from "./types";
+export { isReduxSlice, isReduxStore } from "./utils/adapterGuards";
+export type { InferStateAndEvent } from "./utils/igniteRedux";

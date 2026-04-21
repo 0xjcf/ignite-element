@@ -1,6 +1,6 @@
-# XState + Ignite Element (v2) Example
+# XState + Ignite Element (v3) Example
 
-This is the Ignite JSX (v2) example referenced in the docs. It pairs **ignite-element**, **XState**, and **TailwindCSS** to show shared vs. isolated actors with minimal boilerplate.
+This is the Ignite JSX v3 example referenced in the docs. It pairs **ignite-element**, **XState**, and **TailwindCSS** to show shared vs. isolated actors through the public `ignite-element/xstate` authoring surface.
 
 ---
 
@@ -36,14 +36,18 @@ pnpm run examples:xstate
 
 | Path | Purpose |
 | --- | --- |
+| `apiShowcaseMachine.ts` | Compact machine used by the API showcase for state transitions, limits, and command history. |
 | `advancedCounterMachine.ts` | The XState machine definition used for both shared and isolated variants. |
+| `xstateAgentRuntimeShowcase.tsx` | Demonstrates the headless agent runtime API exposed by the same `igniteCore(...)` registration. |
+| `xstateApiShowcaseRuntime.ts` | Exports the shared `apiShowcase` runtime contract used by both showcase elements. |
+| `xstateApiShowcase.tsx` | Renders the v3 authoring API: `view`, `commands`, declared events, and effects. |
 | `xstateExample.tsx` | Registers web components via `igniteCore` using the Ignite JSX renderer. |
 | `dist/styles.css` | Tailwind build output applied globally via `setGlobalStyles`. |
 | `index.html` | Hosts the custom elements during development. |
 
 ## igniteCore in Action
 
-`igniteCore` infers the adapter from the `source` you provide—no explicit discriminator required. The shared and isolated registrations look like this:
+`igniteCore` is imported from `ignite-element/xstate`. It infers scope from the `source` you provide, so no adapter discriminator is needed. The shared and isolated registrations look like this:
 
 ```ts
 import { createActor } from "xstate";
@@ -55,7 +59,7 @@ sharedActor.start();
 
 const registerSharedXState = igniteCore({
   source: sharedActor, // shared actor → shared scope
-  states: (snapshot) => ({
+  view: ({ snapshot }) => ({
     count: snapshot.context.count,
     darkMode: snapshot.context.darkMode,
     containerClasses: snapshot.context.darkMode
@@ -79,7 +83,7 @@ const registerSharedXState = igniteCore({
 // Isolated variant: same facade as above, just change source to a machine
 const registerIsolatedXState = igniteCore({
   source: advancedMachine, // machine → isolated scope per element
-  states: (snapshot) => ({ /* same mapping as shared */ }),
+  view: ({ snapshot }) => ({ /* same mapping as shared */ }),
   events: (event) => ({ toggled: event<{ isDark: boolean }>() }),
   commands: ({ actor }) => ({ /* same commands as shared */ }),
   effects: (snapshot, prevSnapshot, ctx) => {
@@ -88,7 +92,98 @@ const registerIsolatedXState = igniteCore({
 });
 ```
 
-Every registered component receives the merged facade values: the derived state from `states(...)`, the command helpers from `commands(...)`, and the underlying `state`/`send` utilities from the adapter.
+Every registered component receives the merged facade values: the projected values from `view(...)`, the command helpers from `commands(...)`, and the underlying `state`/`send` utilities from the adapter.
+
+Register elements with the direct callback form:
+
+```tsx
+registerSharedXState("my-counter-xstate", ({ count, increment }) => (
+  <button type="button" onClick={() => increment()}>
+    Count: {count}
+  </button>
+));
+```
+
+---
+
+## API Showcase
+
+`xstateApiShowcase.tsx` is the recommended starting point for the v3 API shape. It demonstrates:
+
+- `view(...)` for projected render/runtime data
+- `commands(...)` for intent helpers backed by the XState actor
+- `events(...)` for typed DOM event declarations
+- `effects(...)` for emitting events after state changes
+- machine states surfaced through `snapshot.matches(...)` and `matchState(...)`
+
+```tsx
+const apiShowcase = igniteCore({
+  source: apiShowcaseMachine,
+  events: (event) => ({
+    "api-count-changed": event<{ count: number }>(),
+  }),
+  view: ({ snapshot }) => ({
+    count: snapshot.context.count,
+    stateLabel: matchState(snapshot, { active: "Active" }, "Active"),
+  }),
+  commands: ({ actor, command }) => ({
+    increment: () => actor.send({ type: "ADD", amount: 1 }),
+    setLimit: command(
+      (limit: number) => actor.send({ type: "SET_LIMIT", limit }),
+      {
+        description: "Set maximum count",
+        input: command.number({ minimum: 3, maximum: 12 }),
+      },
+    ),
+  }),
+  effects: (snapshot, prevSnapshot, { emit }) => {
+    if (snapshot.context.count !== prevSnapshot.context.count) {
+      emit("api-count-changed", { count: snapshot.context.count });
+    }
+  },
+});
+
+apiShowcase("xstate-api-showcase", ({ count, increment }) => (
+  <button type="button" onClick={() => increment()}>
+    Count: {count}
+  </button>
+));
+```
+
+`xstateAgentRuntimeShowcase.tsx` uses the same `apiShowcase` registration as a headless runtime:
+
+```ts
+apiShowcase.getSchema();
+apiShowcase.getState();
+apiShowcase.getView();
+
+const result = apiShowcase.execute("increment");
+
+apiShowcase.on("api-count-changed", (event) => event.detail);
+apiShowcase.watch((state, prevState) => [prevState, state]);
+apiShowcase.watchView((view, prevView) => [prevView, view]);
+
+const story = apiShowcase.record("reaches limit");
+story.execute("setLimit", 6);
+story.until((view) => view.isLimited, () => {
+  story.execute("increment");
+});
+story.trace();
+story.lifecycle();
+story.summary();
+story.stop();
+```
+
+The example also exposes the same runtime on `window.__igniteExamples.apiShowcase` so browser automation can prove the contract directly:
+
+```ts
+const runtime = window.__igniteExamples?.apiShowcase;
+const story = runtime?.record("browser proof");
+
+story?.until((view) => view.isLimited, () => story.execute("increment"));
+story?.trace();
+story?.lifecycle();
+```
 
 ---
 
@@ -112,8 +207,8 @@ Component-specific tweaks live alongside the render functions, so you can mix Ta
 ## Tips & Next Steps
 
 - **Shared vs. isolated**: pass a running actor for shared state, or a machine for isolated instances. ignite-element figures it out for you.
-- **Facade composition**: memoize expensive selectors inside `states(...)`—it only runs when the adapter snapshot changes.
-- **Try decorators**: if you prefer class syntax, the `Shared`/`Isolated` decorators from `ignite-element` work seamlessly with the inferred facades showcased here.
+- **Facade composition**: keep expensive selectors inside `view(...)`; it runs against the adapter snapshot and feeds both renderers and the headless runtime view.
+- **Registration shape**: prefer `component("element-name", (args) => view)` so every example reads the same way across XState, Redux, and MobX.
 - **Experiment**: extend the machine with additional states or actions, expose them through the `commands` facade, and render them in a new component.
 
 ## More

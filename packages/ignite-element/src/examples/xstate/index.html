@@ -5,10 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="./dist/styles.css" />
     <script type="module" src="./xstateExample.tsx"></script>
+    <script type="module" src="./xstateApiShowcase.tsx"></script>
+    <script type="module" src="./xstateAgentRuntimeShowcase.tsx"></script>
     <title>XState Example</title>
   </head>
   <body class="min-h-screen bg-slate-50 text-slate-900">
     <main class="mx-auto flex max-w-4xl flex-col gap-8 p-6 md:p-10">
+      <xstate-api-showcase></xstate-api-showcase>
+      <xstate-agent-runtime-showcase></xstate-agent-runtime-showcase>
+
       <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 class="text-xl font-semibold text-slate-800">Static SVG (baseline)</h2>
         <div class="mt-4 flex items-center justify-start">

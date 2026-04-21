@@ -10,6 +10,10 @@ import { igniteCore } from "../../IgniteCore";
 import type { AdapterPack } from "../../IgniteElementFactory";
 import type { XStateConfig } from "../../igniteCore/types";
 import type {
+	IgniteStoryLifecycleEntry,
+	IgniteStoryTraceEntry,
+} from "../../types/agent";
+import type {
 	CommandContext,
 	EffectContext,
 	EventBuilder,
@@ -377,7 +381,9 @@ describe("igniteCore type inference", () => {
 		const schema = register.getSchema();
 		expectTypeOf(result.state).toEqualTypeOf<StoreState>();
 		expectTypeOf(register.getView()).toEqualTypeOf<{ count: number }>();
-		expectTypeOf(schema.commands).toEqualTypeOf<string[]>();
+		expectTypeOf(schema.commands).toEqualTypeOf<
+			Record<string, IgniteSchemaValue>
+		>();
 		expectTypeOf(schema.events).toEqualTypeOf<string[]>();
 		expectTypeOf(schema.state).toEqualTypeOf<IgniteSchemaValue>();
 		register.on("counter-incremented", (event) => {
@@ -392,14 +398,75 @@ describe("igniteCore type inference", () => {
 			expectTypeOf(prevView).toEqualTypeOf<{ count: number }>();
 		});
 
+		const story = register.record("typed counter");
+		const storyResult = story.execute("increment", 2);
+		const storyView = story.until(
+			(view) => view.count >= 4,
+			() => {
+				story.execute("increment", 1);
+			},
+			{ maxSteps: 3 },
+		);
+		const storyTrace = story.trace();
+		const storyLifecycle = story.lifecycle();
+		const storySummary = story.summary();
+		expectTypeOf(storyResult.state).toEqualTypeOf<StoreState>();
+		expectTypeOf(storyView).toEqualTypeOf<{ count: number }>();
+		expectTypeOf(storyTrace).toEqualTypeOf<IgniteStoryTraceEntry[]>();
+		expectTypeOf(storyLifecycle).toEqualTypeOf<IgniteStoryLifecycleEntry[]>();
+		expectTypeOf(storySummary.finalState).toEqualTypeOf<StoreState>();
+		expectTypeOf(storySummary.finalView).toEqualTypeOf<{ count: number }>();
+		expectTypeOf(storySummary.events).toEqualTypeOf<
+			Array<{ type: "counter-incremented"; payload: { count: number } }>
+		>();
+		expectTypeOf(storySummary.commandCount).toEqualTypeOf<number>();
+		expectTypeOf(storySummary.traceCount).toEqualTypeOf<number>();
+		expectTypeOf(storySummary.lifecycleCount).toEqualTypeOf<number>();
+		story.stop();
+
 		const expectRuntimeValidation = () => {
 			// @ts-expect-error - command name should be validated
 			register.execute("incrementt", 2);
+			// @ts-expect-error - story command name should be validated
+			story.execute("incrementt", 2);
 			// @ts-expect-error - event name should be validated
 			register.on("counter-incrementedd", () => {});
 		};
 
 		void expectRuntimeValidation;
+	});
+
+	it("preserves command payload inference when metadata is attached", () => {
+		const store = counterStore();
+
+		const register = igniteCore({
+			adapter: "redux",
+			source: store,
+			commands: ({ actor, command }) => ({
+				addByAmount: command(
+					(amount: number) =>
+						actor.dispatch(counterSlice.actions.addByAmount(amount)),
+					{
+						description: "Add a bounded amount to the counter.",
+						input: command.number({ minimum: 1, maximum: 5 }),
+					},
+				),
+			}),
+		});
+
+		register.execute("addByAmount", 2);
+		const schema = register.getSchema();
+
+		expectTypeOf(schema.commands).toEqualTypeOf<
+			Record<string, IgniteSchemaValue>
+		>();
+
+		const expectPayloadValidation = () => {
+			// @ts-expect-error - wrapped command payload should remain numeric
+			register.execute("addByAmount", "2");
+		};
+
+		void expectPayloadValidation;
 	});
 
 	it("infers redux slice snapshot and actor facades", () => {

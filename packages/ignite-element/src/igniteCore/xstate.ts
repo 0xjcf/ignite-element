@@ -1,5 +1,5 @@
 import type { ExtendedState, XStateCommandActor } from "ignite-adapters/xstate";
-import { igniteCore as igniteCoreProjection } from "ignite-adapters/xstate";
+import { createXStateAdapter } from "ignite-adapters/xstate";
 import type { AnyStateMachine, EventFrom } from "xstate";
 import type {
 	EmptyEventMap,
@@ -7,7 +7,7 @@ import type {
 	FacadeCommandFunction,
 	FacadeCommandResult,
 } from "../RenderArgs";
-import { bindProjectionToElements } from "../createComponentFactory";
+import { createIgniteComponentFactory } from "./createIgniteComponentFactory";
 import type { IgniteCoreReturn, XStateConfig } from "./types";
 
 export function igniteCoreXState<
@@ -29,10 +29,16 @@ export function igniteCoreXState<
 	CommandsResult,
 	Events
 > {
-	const projection = igniteCoreProjection(options);
-	return bindProjectionToElements(projection, {
-		errorPrefix: "igniteCore",
-	}) as IgniteCoreReturn<
+	const createAdapter = createXStateAdapter(options.source);
+	return createIgniteComponentFactory<
+		ExtendedState<Machine>,
+		EventFrom<Machine>,
+		ExtendedState<Machine>,
+		StatesResult,
+		XStateCommandActor<Machine>,
+		CommandsResult,
+		Events
+	>(createAdapter, options) as IgniteCoreReturn<
 		ExtendedState<Machine>,
 		EventFrom<Machine>,
 		ExtendedState<Machine>,

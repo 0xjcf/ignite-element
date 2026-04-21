@@ -1,24 +1,25 @@
-import {
-	createProjectionFactory,
-	type AdapterFactory,
-	type EmitFromEvents,
-	type EmitPayloadArgs,
-	type EmptyEventMap,
-	type EventMap,
-	type FacadeCommandFunction,
-	type FacadeCommandResult,
-	type IgniteAdapter,
-	type ProjectionFactory,
-	type ProjectionFactoryOptions,
-	type StateScope,
-	type WithFacadeRenderArgs,
-} from "ignite-core";
+import type { IgniteAdapter, StateScope } from "ignite-core";
 import type { IgniteJsxChild, RenderStrategyFactory } from "ignite-renderer";
 import type { TemplateResult } from "lit-html";
+import {
+	type AdapterFactory,
+	createProjectionFactory,
+	type ProjectionFactory,
+	type ProjectionFactoryOptions,
+	type WithFacadeRenderArgs,
+} from "./createProjectionFactory";
 import igniteElementFactory, {
 	type BaseRenderArgs,
 	type ComponentFactory,
 } from "./IgniteElementFactory";
+import type {
+	EmitFromEvents,
+	EmitPayloadArgs,
+	EmptyEventMap,
+	EventMap,
+	FacadeCommandFunction,
+	FacadeCommandResult,
+} from "./RenderArgs";
 
 type AdditionalRenderArgs<
 	State,

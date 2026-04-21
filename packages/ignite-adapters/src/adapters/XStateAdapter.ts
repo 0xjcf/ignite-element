@@ -1,3 +1,5 @@
+import type { IgniteAdapter } from "ignite-core";
+import { failInvariant, StateScope } from "ignite-core";
 import type {
 	AnyStateMachine,
 	EventFrom,
@@ -5,8 +7,6 @@ import type {
 	Subscription,
 } from "xstate";
 import { createActor } from "xstate";
-import type { IgniteAdapter } from "ignite-core";
-import { StateScope } from "ignite-core";
 import { isXStateActor } from "../utils/adapterGuards";
 
 export type ExtendedState<Machine extends AnyStateMachine> =
@@ -47,6 +47,21 @@ type AdapterEntry<Machine extends AnyStateMachine> = {
 	actor: XStateActorInstance<Machine>;
 	commandActor: XStateCommandActor<Machine>;
 };
+
+const stoppedSubscribeWarning =
+	"[XStateAdapter] Cannot subscribe when adapter is stopped.";
+
+function requireEntry<Machine extends AnyStateMachine>(
+	registry: WeakMap<
+		IgniteAdapter<ExtendedState<Machine>, EventFrom<Machine>>,
+		AdapterEntry<Machine>
+	>,
+	adapter: IgniteAdapter<ExtendedState<Machine>, EventFrom<Machine>>,
+	errorMessage: string,
+): AdapterEntry<Machine> {
+	const entry = registry.get(adapter);
+	return entry ?? failInvariant(errorMessage);
+}
 
 export default function createXStateAdapter<Machine extends AnyStateMachine>(
 	source: Machine | XStateActorInstance<Machine>,
@@ -92,22 +107,18 @@ function createIsolatedFactory<Machine extends AnyStateMachine>(
 
 	factory.scope = StateScope.Isolated;
 	factory.resolveStateSnapshot = (adapter) => {
-		const entry = registry.get(adapter);
-		if (!entry) {
-			throw new Error(
-				"[XStateAdapter] Unable to resolve snapshot for facade callbacks.",
-			);
-		}
-		return entry.snapshot();
+		return requireEntry(
+			registry,
+			adapter,
+			"[XStateAdapter] Unable to resolve snapshot for facade callbacks.",
+		).snapshot();
 	};
 	factory.resolveCommandActor = (adapter) => {
-		const entry = registry.get(adapter);
-		if (!entry) {
-			throw new Error(
-				"[XStateAdapter] Unable to resolve actor for facade callbacks.",
-			);
-		}
-		return entry.commandActor;
+		return requireEntry(
+			registry,
+			adapter,
+			"[XStateAdapter] Unable to resolve actor for facade callbacks.",
+		).commandActor;
 	};
 
 	return factory;
@@ -162,7 +173,8 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 	const adapter: IgniteAdapter<ExtendedState<Machine>, EventFrom<Machine>> = {
 		subscribe(listener) {
 			if (isStopped) {
-				throw new Error("Adapter is stopped and cannot subscribe.");
+				console.warn(stoppedSubscribeWarning);
+				return { unsubscribe: () => {} };
 			}
 
 			listeners.add(listener);

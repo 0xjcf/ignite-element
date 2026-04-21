@@ -4,7 +4,6 @@
 		"noEmit": true,
 		"declaration": false,
 		"emitDeclarationOnly": false,
-		"baseUrl": ".",
 		"paths": {
 			"ignite-element/jsx": ["./src/jsx"],
 			"ignite-element/jsx/*": ["./src/jsx/*"]

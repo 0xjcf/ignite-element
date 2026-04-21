@@ -1,11 +1,11 @@
 import { html } from "lit-html";
 import "../../renderers/lit";
-import { igniteCore } from "../../mobx";
+import { igniteCore } from "ignite-element/mobx";
 import counterStore from "./mobxCounterStore";
 
 type CounterStoreInstance = ReturnType<typeof counterStore>;
 
-const mobxStates = (snapshot: CounterStoreInstance) => ({
+const mobxView = ({ snapshot }: { snapshot: CounterStoreInstance }) => ({
 	count: snapshot.count,
 });
 
@@ -19,13 +19,13 @@ const sharedStore = counterStore();
 
 export const registerSharedMobx = igniteCore({
 	source: sharedStore,
-	states: mobxStates,
+	view: mobxView,
 	commands: mobxCommands,
 });
 
 export const registerIsolatedMobx = igniteCore({
 	source: counterStore,
-	states: mobxStates,
+	view: mobxView,
 	commands: mobxCommands,
 });
 

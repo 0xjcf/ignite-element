@@ -22,7 +22,7 @@ export function createLibConfig({
 			lib: {
 				entry,
 				name,
-				fileName: (format, entryName) =>
+				fileName: (format: string, entryName: string) =>
 					entryName === "index"
 						? `${name}.${format}.js`
 						: `${entryName}.${format}.js`,

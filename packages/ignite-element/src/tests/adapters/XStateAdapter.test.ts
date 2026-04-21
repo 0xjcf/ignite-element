@@ -125,10 +125,13 @@ describe("XStateAdapter", () => {
 	});
 
 	it("should prevent new subscriptions after stop", () => {
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 		adapter.stop();
-		expect(() => adapter.subscribe(vi.fn())).toThrowError(
-			"Adapter is stopped and cannot subscribe.",
+		expect(() => adapter.subscribe(vi.fn())).not.toThrow();
+		expect(warnSpy).toHaveBeenCalledWith(
+			"[XStateAdapter] Cannot subscribe when adapter is stopped.",
 		);
+		warnSpy.mockRestore();
 	});
 
 	it("should allow multiple calls to stop without error", () => {

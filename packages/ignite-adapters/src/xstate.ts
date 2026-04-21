@@ -1,19 +1,16 @@
-import { createProjectionFactory } from "ignite-core";
-import { event, matchState } from "ignite-core";
 import type {
 	EmptyEventMap,
 	EventBuilder,
 	EventMap,
-	FacadeEffectsCallback,
-	FacadeEffectsObjectCallback,
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
+	FacadeEffectsCallback,
+	FacadeEffectsObjectCallback,
 	FacadeStatesCallback,
 	FacadeViewCallback,
-	IgniteCoreReturn,
 } from "ignite-core";
-import type { AnyStateMachine, EventFrom } from "xstate";
+import type { AnyStateMachine } from "xstate";
 import createXStateAdapter, {
 	type ExtendedState,
 	type XStateActorInstance,
@@ -88,39 +85,4 @@ export type XStateConfig<
 > = XStateConfigBase<Machine, Events, StatesResult, CommandsResult, Host> &
 	XStateEffectsOptions<Machine, Events, Host>;
 
-export function igniteCore<
-	Machine extends AnyStateMachine,
-	Events extends EventMap = EmptyEventMap,
-	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandsResult extends Record<never, FacadeCommandFunction> = Record<
-		never,
-		FacadeCommandFunction
-	>,
-	Host = unknown,
->(
-	options: XStateConfig<Machine, Events, StatesResult, CommandsResult, Host>,
-): IgniteCoreReturn<
-	ExtendedState<Machine>,
-	EventFrom<Machine>,
-	ExtendedState<Machine>,
-	StatesResult,
-	XStateCommandActor<Machine>,
-	CommandsResult,
-	Events,
-	Host
-> {
-	const adapterFactory = createXStateAdapter(options.source);
-	const eventDefinitions = options.events?.(event);
-
-	return createProjectionFactory(adapterFactory, {
-		scope: adapterFactory.scope,
-		states: options.states,
-		view: options.view,
-		commands: options.commands,
-		effects: options.effects,
-		events: eventDefinitions,
-		cleanup: options.cleanup,
-	});
-}
-
-export { createXStateAdapter, isXStateActor, isXStateMachine, matchState };
+export { createXStateAdapter, isXStateActor, isXStateMachine };

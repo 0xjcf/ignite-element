@@ -1,11 +1,19 @@
 import type { IgniteAdapter } from "ignite-core";
-import { facadeCleanupSymbol, StateScope } from "ignite-core";
+import { StateScope } from "ignite-core";
 import type { IgniteJsxChild, RenderStrategyFactory } from "ignite-renderer";
 import type { TemplateResult } from "lit-html";
-import IgniteElement from "./IgniteElement";
+import IgniteElement, {
+	type IgniteElementLifecycleHooks,
+} from "./IgniteElement";
 import "./renderers/ignite-jsx";
 import { resolveConfiguredRenderStrategy } from "./renderers/resolveConfiguredRenderStrategy";
 import { createAgentRuntime } from "./runtime/agent";
+import { facadeCleanupSymbol } from "./runtime/effects";
+import type {
+	IgniteStoryLifecycleEntry,
+	IgniteStoryLifecycleScope,
+	IgniteStoryLifecycleStage,
+} from "./types/agent";
 
 export type BaseRenderArgs<State, Event> = {
 	state: State;
@@ -104,6 +112,11 @@ export default function igniteElementFactory<
 		RenderArgs
 	> | null = null;
 	let runtimeHost: HTMLElement | null = null;
+	let lifecycleSequence = 0;
+	let lifecycleInstanceSequence = 0;
+	const lifecycleObservers = new Set<
+		(entry: IgniteStoryLifecycleEntry) => void
+	>();
 
 	const createAdditionalArgs: (
 		adapter: IgniteAdapter<State, Event>,
@@ -124,6 +137,58 @@ export default function igniteElementFactory<
 	const eventTypes = options?.eventTypes ?? [];
 	const resolveView =
 		options?.resolveView ?? ((_) => Object.create(null) as RuntimeView);
+	const resolveLifecycleScope = (): IgniteStoryLifecycleScope =>
+		inferredScope === StateScope.Shared ? "shared" : "isolated";
+
+	const observeLifecycle = (
+		handler: (entry: IgniteStoryLifecycleEntry) => void,
+	) => {
+		lifecycleObservers.add(handler);
+
+		return {
+			unsubscribe: () => {
+				lifecycleObservers.delete(handler);
+			},
+		};
+	};
+
+	const recordLifecycle = (
+		stage: IgniteStoryLifecycleStage,
+		elementName: string,
+		scope: IgniteStoryLifecycleScope,
+		instanceId?: number,
+	) => {
+		if (lifecycleObservers.size === 0) {
+			return;
+		}
+
+		lifecycleSequence += 1;
+		const entry: IgniteStoryLifecycleEntry = {
+			kind: "lifecycle",
+			sequence: lifecycleSequence,
+			stage,
+			elementName,
+			scope,
+			...(typeof instanceId === "number" ? { instanceId } : {}),
+		};
+
+		for (const observer of lifecycleObservers) {
+			observer(entry);
+		}
+	};
+
+	const createLifecycleHooks = (
+		elementName: string,
+		scope: IgniteStoryLifecycleScope,
+	): IgniteElementLifecycleHooks => {
+		lifecycleInstanceSequence += 1;
+		return {
+			elementName,
+			instanceId: lifecycleInstanceSequence,
+			scope,
+			record: recordLifecycle,
+		};
+	};
 
 	const cleanupAdditionalArgs = (
 		additionalArgs?: AdditionalRenderArgs<State, Event, RenderArgs> | null,
@@ -222,16 +287,24 @@ export default function igniteElementFactory<
 			);
 		}
 
+		const lifecycleScope = resolveLifecycleScope();
+
 		if (inferredScope === StateScope.Shared) {
 			const render = resolveRenderer(renderer);
 			resolveSharedResources();
 
 			class SharedIgniteComponent extends IgniteElement<State, Event, View> {
 				private additionalArgs: AdditionalRenderArgs<State, Event, RenderArgs>;
+				private readonly lifecycleHooks: IgniteElementLifecycleHooks;
 
 				constructor() {
 					const { adapter } = resolveSharedResources();
-					super(adapter, renderStrategyFactory());
+					const lifecycleHooks = createLifecycleHooks(
+						elementName,
+						lifecycleScope,
+					);
+					super(adapter, renderStrategyFactory(), lifecycleHooks);
+					this.lifecycleHooks = lifecycleHooks;
 					this.additionalArgs = resolveSharedAdditionalArgs(this);
 				}
 
@@ -244,6 +317,12 @@ export default function igniteElementFactory<
 				disconnectedCallback(): void {
 					super.disconnectedCallback();
 					cleanupAdditionalArgs(this.additionalArgs);
+					recordLifecycle(
+						"cleaned-up",
+						elementName,
+						lifecycleScope,
+						this.lifecycleHooks.instanceId,
+					);
 					sharedAdditionalArgs.delete(this);
 
 					if (sharedInstanceCount > 0) {
@@ -269,6 +348,7 @@ export default function igniteElementFactory<
 			}
 
 			customElements.define(elementName, SharedIgniteComponent);
+			recordLifecycle("registered", elementName, lifecycleScope);
 			return;
 		}
 
@@ -278,11 +358,17 @@ export default function igniteElementFactory<
 				Event,
 				RenderArgs
 			>;
+			private readonly lifecycleHooks: IgniteElementLifecycleHooks;
 
 			constructor() {
 				const adapter = createAdapter();
 				adapter.scope ??= StateScope.Isolated;
-				super(adapter, renderStrategyFactory());
+				const lifecycleHooks = createLifecycleHooks(
+					elementName,
+					lifecycleScope,
+				);
+				super(adapter, renderStrategyFactory(), lifecycleHooks);
+				this.lifecycleHooks = lifecycleHooks;
 				this.additionalArgs = createAdditionalArgs(adapter, this);
 				this.renderImpl = resolveRenderer(renderer);
 			}
@@ -291,6 +377,12 @@ export default function igniteElementFactory<
 
 			disconnectedCallback(): void {
 				cleanupAdditionalArgs(this.additionalArgs);
+				recordLifecycle(
+					"cleaned-up",
+					elementName,
+					lifecycleScope,
+					this.lifecycleHooks.instanceId,
+				);
 				super.disconnectedCallback();
 			}
 
@@ -304,6 +396,7 @@ export default function igniteElementFactory<
 		}
 
 		customElements.define(elementName, IsolatedIgniteComponent);
+		recordLifecycle("registered", elementName, lifecycleScope);
 	};
 
 	Object.assign(
@@ -315,6 +408,7 @@ export default function igniteElementFactory<
 			AdditionalRenderArgs<State, Event, RenderArgs>
 		>({
 			eventTypes,
+			observeLifecycle,
 			resolveRuntime: resolveRuntimeResources,
 			resolveView,
 		}),

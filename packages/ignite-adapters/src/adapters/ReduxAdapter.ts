@@ -1,7 +1,7 @@
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import { configureStore } from "@reduxjs/toolkit";
 import type { IgniteAdapter } from "ignite-core";
-import { StateScope } from "ignite-core";
+import { failInvariant, StateScope } from "ignite-core";
 import type { ReduxSliceCommandActor, ReduxStoreCommandActor } from "../types";
 import { isReduxSlice, isReduxStore } from "../utils/adapterGuards";
 import type { InferStateAndEvent } from "../utils/igniteRedux";
@@ -32,6 +32,21 @@ type StoreLike<State, Event> = {
 	subscribe: StoreSubscription;
 };
 
+const stoppedSubscribeWarning =
+	"[ReduxAdapter] Cannot subscribe when adapter is stopped.";
+
+function requireEntry<State, Event, Snapshot, Actor>(
+	registry: WeakMap<
+		IgniteAdapter<State, Event>,
+		AdapterEntry<State, Event, Snapshot, Actor>
+	>,
+	adapter: IgniteAdapter<State, Event>,
+	errorMessage: string,
+): AdapterEntry<State, Event, Snapshot, Actor> {
+	const entry = registry.get(adapter);
+	return entry ?? failInvariant(errorMessage);
+}
+
 const buildAdapter = <State, Event>(
 	store: StoreLike<State, Event>,
 	scope: StateScope,
@@ -52,7 +67,7 @@ const buildAdapter = <State, Event>(
 	const adapter: IgniteAdapter<State, Event> = {
 		subscribe(listener) {
 			if (isStopped) {
-				console.warn("Adapter is stopped and cannot subscribe.");
+				console.warn(stoppedSubscribeWarning);
 				return { unsubscribe: () => {} };
 			}
 
@@ -128,22 +143,18 @@ function createIsolatedFactory<State, Event, Snapshot, Actor>(
 		{
 			scope: StateScope.Isolated,
 			resolveStateSnapshot: (adapter: IgniteAdapter<State, Event>) => {
-				const entry = registry.get(adapter);
-				if (!entry) {
-					throw new Error(
-						"[ReduxAdapter] Unable to resolve snapshot for facade callbacks.",
-					);
-				}
-				return entry.snapshot();
+				return requireEntry(
+					registry,
+					adapter,
+					"[ReduxAdapter] Unable to resolve snapshot for facade callbacks.",
+				).snapshot();
 			},
 			resolveCommandActor: (adapter: IgniteAdapter<State, Event>) => {
-				const entry = registry.get(adapter);
-				if (!entry) {
-					throw new Error(
-						"[ReduxAdapter] Unable to resolve actor for facade callbacks.",
-					);
-				}
-				return entry.actor;
+				return requireEntry(
+					registry,
+					adapter,
+					"[ReduxAdapter] Unable to resolve actor for facade callbacks.",
+				).actor;
 			},
 		},
 	);
@@ -226,7 +237,7 @@ export default function createReduxAdapter(
 		>(() => {
 			const store = createStore();
 			if (!isReduxStore(store)) {
-				throw new Error(
+				return failInvariant(
 					"[ReduxAdapter] store factory must return a Redux store instance.",
 				);
 			}
@@ -253,7 +264,7 @@ export default function createReduxAdapter(
 	}
 
 	if (!isReduxSlice(source)) {
-		throw new Error(
+		return failInvariant(
 			"[ReduxAdapter] source must be a Redux store, slice, or store factory.",
 		);
 	}

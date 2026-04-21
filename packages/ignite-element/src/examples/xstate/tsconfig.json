@@ -7,25 +7,31 @@
 		"jsxImportSource": "../../renderers/jsx",
 		"allowJs": false,
 		"paths": {
-			"ignite-element": ["./src/index.ts"],
-			"ignite-element/*": ["./src/*"],
-			"ignite-core": ["../ignite-core/src/index.ts"],
-			"ignite-adapters": ["../ignite-adapters/src/index.ts"],
-			"ignite-adapters/xstate": ["../ignite-adapters/src/xstate.ts"],
-			"ignite-adapters/redux": ["../ignite-adapters/src/redux.ts"],
-			"ignite-adapters/mobx": ["../ignite-adapters/src/mobx.ts"],
-			"ignite-renderer": ["../ignite-renderer/src/index.ts"],
-			"ignite-renderer/jsx": ["../ignite-renderer/src/renderers/ignite-jsx.ts"],
-			"ignite-renderer/lit": ["../ignite-renderer/src/renderers/lit.ts"],
+			"ignite-element": ["../../index.ts"],
+			"ignite-element/*": ["../../*"],
+			"ignite-core": ["../../../../ignite-core/src/index.ts"],
+			"ignite-adapters": ["../../../../ignite-adapters/src/index.ts"],
+			"ignite-adapters/xstate": ["../../../../ignite-adapters/src/xstate.ts"],
+			"ignite-adapters/redux": ["../../../../ignite-adapters/src/redux.ts"],
+			"ignite-adapters/mobx": ["../../../../ignite-adapters/src/mobx.ts"],
+			"ignite-renderer": ["../../../../ignite-renderer/src/index.ts"],
+			"ignite-renderer/jsx": [
+				"../../../../ignite-renderer/src/renderers/ignite-jsx.ts"
+			],
+			"ignite-renderer/lit": [
+				"../../../../ignite-renderer/src/renderers/lit.ts"
+			],
 			"ignite-renderer/jsx-runtime": [
-				"../ignite-renderer/src/jsx/jsx-runtime.ts"
+				"../../../../ignite-renderer/src/jsx/jsx-runtime.ts"
 			],
 			"ignite-renderer/jsx-dev-runtime": [
-				"../ignite-renderer/src/jsx/jsx-dev-runtime.ts"
+				"../../../../ignite-renderer/src/jsx/jsx-dev-runtime.ts"
 			],
-			"ignite-renderer/jsx/index": ["../ignite-renderer/src/jsx/index.ts"],
-			"xstate": ["node_modules/xstate"],
-			"xstate/*": ["node_modules/xstate/*"]
+			"ignite-renderer/jsx/index": [
+				"../../../../ignite-renderer/src/jsx/index.ts"
+			],
+			"xstate": ["./node_modules/xstate"],
+			"xstate/*": ["./node_modules/xstate/*"]
 		}
 	},
 	"include": [

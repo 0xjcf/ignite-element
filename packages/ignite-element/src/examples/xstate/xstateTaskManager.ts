@@ -1,14 +1,15 @@
+import { igniteCore } from "ignite-element/xstate";
 import { html } from "lit-html";
 import type { StateFrom } from "xstate";
-import type { AdapterPack } from "../../IgniteElementFactory";
-import { igniteCore } from "../../xstate";
 import { taskManagerMachine } from "./taskManagerMachine";
 
 import "./ignite.config";
 
-const resolveTaskManagerState = (
-	snapshot: StateFrom<typeof taskManagerMachine>,
-) => {
+const resolveTaskManagerView = ({
+	snapshot,
+}: {
+	snapshot: StateFrom<typeof taskManagerMachine>;
+}) => {
 	const tasks = snapshot.context.tasks;
 	const completedCount = tasks.filter((task) => task.completed).length;
 	const totalTasks = tasks.length;
@@ -26,31 +27,20 @@ const resolveTaskManagerState = (
 	};
 };
 
-import type { XStateCommandActor } from "../../adapters/XStateAdapter";
-
-const resolveTaskManagerCommands = ({
-	actor,
-}: {
-	actor: XStateCommandActor<typeof taskManagerMachine>;
-}) => ({
-	addTask: (name: string, priority: string) =>
-		actor.send({ type: "ADD", name, priority }),
-	toggleTask: (index: number) => actor.send({ type: "TOGGLE", index }),
-	resetTasks: () => actor.send({ type: "RESET" }),
-});
-
 const TaskManagerComponent = igniteCore({
-	adapter: "xstate",
 	source: taskManagerMachine,
-	states: resolveTaskManagerState,
-	commands: resolveTaskManagerCommands,
+	view: resolveTaskManagerView,
+	commands: ({ actor }) => ({
+		addTask: (name: string, priority: string) =>
+			actor.send({ type: "ADD", name, priority }),
+		toggleTask: (index: number) => actor.send({ type: "TOGGLE", index }),
+		resetTasks: () => actor.send({ type: "RESET" }),
+	}),
 });
 
-type TaskManagerRenderArgs = AdapterPack<typeof TaskManagerComponent>;
-
-export class TaskList {
-	render({ tasks, toggleTask }: TaskManagerRenderArgs) {
-		return html`
+TaskManagerComponent(
+	"task-list",
+	({ tasks, toggleTask }) => html`
       <div class="p-6 bg-green-50 border border-green-300 rounded-lg shadow-lg">
         <h3 class="text-xl font-semibold text-green-800 mb-4">Task List</h3>
         <ul class="space-y-4">
@@ -86,16 +76,12 @@ export class TaskList {
 					})}
         </ul>
       </div>
-    `;
-	}
-}
+    `,
+);
 
-export class ProgressBar {
-	render({
-		completedCount,
-		totalTasks,
-		completionPercentage,
-	}: TaskManagerRenderArgs) {
+TaskManagerComponent(
+	"progress-bar",
+	({ completedCount, totalTasks, completionPercentage }) => {
 		const percentage = completionPercentage;
 		const completed = completedCount;
 		const total = totalTasks;
@@ -122,12 +108,12 @@ export class ProgressBar {
         <p class="mt-2">${completed}/${total} tasks completed</p>
       </div>
     `;
-	}
-}
+	},
+);
 
-export class TaskForm {
-	render({ addTask }: TaskManagerRenderArgs) {
-		return html`
+TaskManagerComponent(
+	"task-form",
+	({ addTask }) => html`
       <div class="p-4 bg-yellow-100 border rounded-md mb-2">
         <h3 class="text-lg font-bold">Add Task</h3>
         <form
@@ -177,15 +163,13 @@ export class TaskForm {
           </button>
         </form>
       </div>
-    `;
-	}
-}
+    `,
+);
 
-export class ConfettiEffect {
-	render({ totalTasks, resetTasks }: TaskManagerRenderArgs) {
-		const total = totalTasks;
+TaskManagerComponent("confetti-effect", ({ totalTasks, resetTasks }) => {
+	const total = totalTasks;
 
-		return html`
+	return html`
       <div class="relative h-64 overflow-hidden">
         <!-- Celebration Message -->
         <div class="text-center mt-16">
@@ -202,17 +186,11 @@ export class ConfettiEffect {
         </div>
       </div>
     `;
-	}
-}
+});
 
-TaskManagerComponent("task-list", TaskList);
-TaskManagerComponent("progress-bar", ProgressBar);
-TaskManagerComponent("task-form", TaskForm);
-TaskManagerComponent("confetti-effect", ConfettiEffect);
-
-export class TaskManager {
-	render({ isCompleted }: TaskManagerRenderArgs) {
-		return html`
+TaskManagerComponent(
+	"task-manager",
+	({ isCompleted }) => html`
       <div class="p-4 space-y-4 max-w-fit mx-auto">
         ${
 					isCompleted
@@ -224,8 +202,5 @@ export class TaskManager {
             `
 				}
       </div>
-    `;
-	}
-}
-
-TaskManagerComponent("task-manager", TaskManager);
+    `,
+);

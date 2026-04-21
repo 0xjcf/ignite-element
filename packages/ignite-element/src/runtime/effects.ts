@@ -1,4 +1,4 @@
-import type IgniteAdapter from "../IgniteAdapter";
+import type { IgniteAdapter } from "ignite-core";
 import type {
 	EffectSelector,
 	EmitFromEvents,

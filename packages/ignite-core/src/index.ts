@@ -1,16 +1,14 @@
-export type {
-	AdapterFactory,
-	ProjectionFactoryOptions,
-	ProjectionFactory,
-	WithFacadeRenderArgs,
-} from "./createProjectionFactory";
-export { createProjectionFactory } from "./createProjectionFactory";
 export { event } from "./events";
 export type { default as IgniteAdapter } from "./IgniteAdapter";
 export { StateScope } from "./IgniteAdapter";
 export type {
 	BaseRenderArgs,
 	CommandContext,
+	CommandHelper,
+	CommandMetadata,
+	CommandMetadataPrimitive,
+	CommandMetadataValue,
+	CommandWithMetadata,
 	EffectContext,
 	EffectSelection,
 	EffectSelector,
@@ -21,27 +19,29 @@ export type {
 	EventDescriptor,
 	EventMap,
 	EventPayload,
+	FacadeCommandFunction,
+	FacadeCommandResult,
+	FacadeCommandsCallback,
 	FacadeEffectArgs,
 	FacadeEffectsCallback,
 	FacadeEffectsLike,
 	FacadeEffectsObjectCallback,
-	FacadeCommandFunction,
-	FacadeCommandResult,
-	FacadeCommandsCallback,
 	FacadeStatesCallback,
 	FacadeViewCallback,
+	NumberCommandInputMetadata,
+	NumberCommandInputOptions,
 	RenderArgs,
 	ViewContext,
 } from "./RenderArgs";
+export { command, commandMetadataSymbol } from "./RenderArgs";
 export type {
 	AnyCommandsCallback,
 	AnyEffectsCallback,
 	AnyStatesCallback,
 	AnyViewCallback,
 	EventsDefinition,
-	IgniteCoreReturn,
 	InferEvents,
 } from "./types";
-export { facadeCleanupSymbol } from "./runtime/effects";
+export { failInvariant } from "./utils/failInvariant";
 export { isFunction } from "./utils/isFunction";
 export { matchState } from "./utils/matchState";

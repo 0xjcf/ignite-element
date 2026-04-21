@@ -1,6 +1,5 @@
+import { igniteCore } from "ignite-element/xstate";
 import { createActor, type StateFrom } from "xstate";
-import type { AdapterPack } from "../../IgniteElementFactory";
-import { igniteCore } from "../../xstate";
 import { advancedMachine } from "./advancedCounterMachine";
 
 // Start a single actor that will be shared by every component registered with
@@ -10,7 +9,7 @@ const sharedActor = createActor(advancedMachine).start();
 
 type MachineSnapshot = StateFrom<typeof advancedMachine>;
 
-const xstateStates = (snapshot: MachineSnapshot) => {
+const xstateView = ({ snapshot }: { snapshot: MachineSnapshot }) => {
 	const darkMode = snapshot.context.darkMode;
 	const containerClasses = darkMode
 		? "p-4 bg-gray-800 text-white border rounded-md mb-2"
@@ -24,9 +23,9 @@ const xstateStates = (snapshot: MachineSnapshot) => {
 	};
 };
 
-const component = igniteCore({
+const registerSharedXState = igniteCore({
 	source: sharedActor,
-	states: xstateStates,
+	view: xstateView,
 	commands: ({ actor }) => ({
 		increment: () => actor.send({ type: "INC" }),
 		decrement: () => actor.send({ type: "DEC" }),
@@ -37,7 +36,7 @@ const component = igniteCore({
 // Isolated components receive a fresh actor per registration.
 const registerIsolatedXState = igniteCore({
 	source: advancedMachine,
-	states: xstateStates,
+	view: xstateView,
 	commands: ({ actor }) => ({
 		increment: () => actor.send({ type: "INC" }),
 		decrement: () => actor.send({ type: "DEC" }),
@@ -45,7 +44,7 @@ const registerIsolatedXState = igniteCore({
 });
 
 // Shared Counter Component (XState)
-component(
+registerSharedXState(
 	"my-counter-xstate",
 	({ count, increment, decrement, containerClasses }) => (
 		<div class={containerClasses}>
@@ -72,7 +71,7 @@ component(
 );
 
 // Shared Display Component (XState)
-component("shared-display-xstate", ({ count }) => (
+registerSharedXState("shared-display-xstate", ({ count }) => (
 	<div class="p-4 bg-blue-100 border rounded-md mb-2">
 		<h3 class="text-lg font-bold text-blue-800">
 			Shared State Display (XState)
@@ -110,7 +109,7 @@ registerIsolatedXState(
 	),
 );
 
-component("gradient-tally", ({ count }) => (
+registerSharedXState("gradient-tally", ({ count }) => (
 	<>
 		<style>{`.box { height: 1rem; width: 1rem; border-radius: 50px; }`}</style>
 		<div
@@ -122,60 +121,51 @@ component("gradient-tally", ({ count }) => (
 	</>
 ));
 
-export class AdvancedSharedCounter {
-	render({
-		count,
-		increment,
-		decrement,
-		toggleDarkMode,
-		containerClasses,
-	}: AdapterPack<typeof component>) {
-		return (
-			<div class={containerClasses}>
-				<h3 class="text-lg font-bold">Advanced Counter</h3>
+registerSharedXState(
+	"advanced-shared-counter",
+	({ count, increment, decrement, toggleDarkMode, containerClasses }) => (
+		<div class={containerClasses}>
+			<h3 class="text-lg font-bold">Advanced Counter</h3>
 
-				<p class="text-xl">Count: {count}</p>
+			<p class="text-xl">Count: {count}</p>
 
-				<div class="mt-4 space-x-2">
-					<button
-						type="button"
-						class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-						onClick={() => decrement()}
-					>
-						-
-					</button>
-					<button
-						type="button"
-						class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-						onClick={() => increment()}
-					>
-						+
-					</button>
-				</div>
-
-				<div class="mt-4">
-					<button
-						type="button"
-						class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-						onClick={() => toggleDarkMode()}
-					>
-						Toggle Dark Mode
-					</button>
-				</div>
-
-				<div class="mt-4 flex flex-wrap gap-2 items-center">
-					{Array.from({ length: count }).map(() => (
-						<gradient-tally />
-					))}
-				</div>
+			<div class="mt-4 space-x-2">
+				<button
+					type="button"
+					class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+					onClick={() => decrement()}
+				>
+					-
+				</button>
+				<button
+					type="button"
+					class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+					onClick={() => increment()}
+				>
+					+
+				</button>
 			</div>
-		);
-	}
-}
 
-component("advanced-shared-counter", AdvancedSharedCounter);
+			<div class="mt-4">
+				<button
+					type="button"
+					class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+					onClick={() => toggleDarkMode()}
+				>
+					Toggle Dark Mode
+				</button>
+			</div>
 
-component("ignite-svg-demo", () => (
+			<div class="mt-4 flex flex-wrap gap-2 items-center">
+				{Array.from({ length: count }).map(() => (
+					<gradient-tally />
+				))}
+			</div>
+		</div>
+	),
+);
+
+registerSharedXState("ignite-svg-demo", () => (
 	<div class="mt-6 rounded-lg border border-dashed border-purple-400/60 p-4">
 		<h3 class="mb-3 text-sm font-semibold uppercase tracking-[0.3em] text-purple-300">
 			Ignite SVG demo

@@ -6,6 +6,7 @@ import { igniteConfigVitePlugin } from "../../plugins/viteIgniteConfigPlugin";
 const resolvePath = (path: string) =>
 	fileURLToPath(new URL(path, import.meta.url));
 
+const igniteElementSourceRoot = resolvePath("../../");
 const igniteConfigPlugin = igniteConfigVitePlugin({
 	// Vite root points to ./src; provide absolute path so the shared config loads.
 	configPath: resolve(__dirname, "ignite.config.ts"),
@@ -21,13 +22,20 @@ export default defineConfig({
 		port: 8080,
 	},
 	resolve: {
-		alias: {
-			"ignite-element/config/loadIgniteConfig": resolvePath(
-				"../../config/loadIgniteConfig.ts",
-			),
-			"ignite-element": resolvePath("../../index.ts"),
-			"ignite-element/": resolvePath("../../"),
-		},
+		alias: [
+			{
+				find: "ignite-element/config/loadIgniteConfig",
+				replacement: resolvePath("../../config/loadIgniteConfig.ts"),
+			},
+			{
+				find: /^ignite-element\/(.+)$/,
+				replacement: `${igniteElementSourceRoot}$1`,
+			},
+			{
+				find: "ignite-element",
+				replacement: resolvePath("../../index.ts"),
+			},
+		],
 	},
 	plugins: [igniteConfigPlugin],
 });

@@ -1,7 +1,6 @@
-import type IgniteAdapter from "./IgniteAdapter";
-import type { StateScope } from "./IgniteAdapter";
+import type { IgniteAdapter, StateScope } from "ignite-core";
+import type { BaseRenderArgs } from "./IgniteElementFactory";
 import type {
-	BaseRenderArgs,
 	EmitFromEvents,
 	EmitPayloadArgs,
 	EmptyEventMap,
@@ -13,6 +12,7 @@ import type {
 	FacadeStatesCallback,
 	FacadeViewCallback,
 } from "./RenderArgs";
+import { command as commandHelper } from "./runtime/commands";
 import {
 	attachEffects,
 	type FacadeLifecycle,
@@ -326,6 +326,7 @@ export function createProjectionFactory<
 			const actor = resolveActor(adapter);
 			const commandResult = commandCallback({
 				actor,
+				command: commandHelper,
 				host,
 			});
 			ensureFacadeResult(commandResult, "commands", errorPrefix);
@@ -359,7 +360,7 @@ export function createProjectionFactory<
 				value: attachEffects({
 					adapter,
 					effects,
-					resolveActor: resolveActor,
+					resolveActor,
 					resolveSnapshot,
 					host,
 					emit: safeEmit,

@@ -1,26 +1,17 @@
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type { InferStateAndEvent, MobxEvent } from "ignite-adapters";
-import {
-	igniteCoreMobx as igniteCoreMobxProjection,
-	igniteCoreRedux as igniteCoreReduxProjection,
-	isMobxObservable,
-	isReduxSlice,
-	isReduxStore,
-} from "ignite-adapters";
+import { isMobxObservable, isReduxSlice, isReduxStore } from "ignite-adapters";
 import type { ExtendedState, XStateCommandActor } from "ignite-adapters/xstate";
-import {
-	igniteCore as igniteCoreXStateProjection,
-	isXStateActor,
-	isXStateMachine,
-} from "ignite-adapters/xstate";
+import { isXStateActor, isXStateMachine } from "ignite-adapters/xstate";
 import type { IgniteAdapter } from "ignite-core";
 import { StateScope } from "ignite-core";
 import type { AnyStateMachine, EventFrom } from "xstate";
-import { bindProjectionToElements } from "./createComponentFactory";
 import igniteElementFactory, {
 	type ComponentFactory,
 	type IgniteRenderArgs,
 } from "./IgniteElementFactory";
+import { igniteCoreMobx } from "./igniteCore/mobx";
+import { igniteCoreRedux } from "./igniteCore/redux";
 import type {
 	IgniteCoreConfig,
 	IgniteCoreReturn,
@@ -33,6 +24,7 @@ import type {
 	ResolvedAdapter,
 	XStateConfig,
 } from "./igniteCore/types";
+import { igniteCoreXState } from "./igniteCore/xstate";
 import type {
 	EmptyEventMap,
 	EventMap,
@@ -241,149 +233,6 @@ export function igniteCore(options?: IgniteCoreConfig) {
 	}
 
 	return assertNever(adapterName);
-}
-
-export function igniteCoreXState<
-	Machine extends AnyStateMachine,
-	Events extends EventMap = EmptyEventMap,
-	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandsResult extends FacadeCommandResult = Record<
-		never,
-		FacadeCommandFunction
-	>,
->(
-	options: XStateConfig<Machine, Events, StatesResult, CommandsResult>,
-): IgniteCoreReturn<
-	ExtendedState<Machine>,
-	EventFrom<Machine>,
-	ExtendedState<Machine>,
-	StatesResult,
-	XStateCommandActor<Machine>,
-	CommandsResult,
-	Events
-> {
-	const projection = igniteCoreXStateProjection(options);
-	return bindProjectionToElements(projection, {
-		errorPrefix: "igniteCore",
-	}) as IgniteCoreReturn<
-		ExtendedState<Machine>,
-		EventFrom<Machine>,
-		ExtendedState<Machine>,
-		StatesResult,
-		XStateCommandActor<Machine>,
-		CommandsResult,
-		Events
-	>;
-}
-
-export function igniteCoreRedux<
-	Source extends ReduxBlueprintSource,
-	Events extends EventMap = EmptyEventMap,
-	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandsResult extends FacadeCommandResult = Record<
-		never,
-		FacadeCommandFunction
-	>,
->(
-	options: ReduxBlueprintConfig<Source, Events, StatesResult, CommandsResult>,
-): IgniteCoreReturn<
-	InferStateAndEvent<Source>["State"],
-	InferStateAndEvent<Source>["Event"],
-	InferStateAndEvent<Source>["State"],
-	StatesResult,
-	ReduxCommandActorFor<Source>,
-	CommandsResult,
-	Events
->;
-
-export function igniteCoreRedux<
-	Source extends ReduxInstanceSource,
-	Events extends EventMap = EmptyEventMap,
-	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandsResult extends FacadeCommandResult = Record<
-		never,
-		FacadeCommandFunction
-	>,
->(
-	options: ReduxInstanceConfig<Source, Events, StatesResult, CommandsResult>,
-): IgniteCoreReturn<
-	InferStateAndEvent<Source>["State"],
-	InferStateAndEvent<Source>["Event"],
-	InferStateAndEvent<Source>["State"],
-	StatesResult,
-	ReduxCommandActorFor<Source>,
-	CommandsResult,
-	Events
->;
-
-export function igniteCoreRedux(
-	options: ReduxConfig,
-): IgniteCoreReturn<
-	InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["State"],
-	InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["Event"],
-	InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["State"],
-	Record<string, unknown>,
-	ReduxCommandActorFor<ReduxBlueprintSource | ReduxInstanceSource>,
-	FacadeCommandResult,
-	EventMap
->;
-
-export function igniteCoreRedux(
-	options: ReduxConfig,
-): IgniteCoreReturn<
-	InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["State"],
-	InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["Event"],
-	InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["State"],
-	Record<string, unknown>,
-	ReduxCommandActorFor<ReduxBlueprintSource | ReduxInstanceSource>,
-	FacadeCommandResult,
-	EventMap
-> {
-	const projection = igniteCoreReduxProjection(options);
-	return bindProjectionToElements(projection, {
-		errorPrefix: "igniteCore",
-	}) as IgniteCoreReturn<
-		InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["State"],
-		InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["Event"],
-		InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["State"],
-		Record<string, unknown>,
-		ReduxCommandActorFor<ReduxBlueprintSource | ReduxInstanceSource>,
-		FacadeCommandResult,
-		EventMap
-	>;
-}
-
-export function igniteCoreMobx<
-	State extends object,
-	Events extends EventMap = EmptyEventMap,
-	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandsResult extends FacadeCommandResult = Record<
-		never,
-		FacadeCommandFunction
-	>,
->(
-	options: MobxConfig<State, Events, StatesResult, CommandsResult>,
-): IgniteCoreReturn<
-	State,
-	MobxEvent<State>,
-	State,
-	StatesResult,
-	State,
-	CommandsResult,
-	Events
-> {
-	const projection = igniteCoreMobxProjection(options);
-	return bindProjectionToElements(projection, {
-		errorPrefix: "igniteCore",
-	}) as IgniteCoreReturn<
-		State,
-		MobxEvent<State>,
-		State,
-		StatesResult,
-		State,
-		CommandsResult,
-		Events
-	>;
 }
 
 function resolveAdapter(options: IgniteCoreConfig): ResolvedAdapter {

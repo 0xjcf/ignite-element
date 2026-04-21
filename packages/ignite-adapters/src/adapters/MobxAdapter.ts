@@ -1,5 +1,5 @@
 import type { IgniteAdapter } from "ignite-core";
-import { StateScope } from "ignite-core";
+import { failInvariant, StateScope } from "ignite-core";
 import type { IReactionDisposer } from "mobx";
 import { autorun, toJS } from "mobx";
 import { isMobxObservable } from "../utils/mobxGuards";
@@ -44,6 +44,21 @@ type AdapterEntry<State extends object> = {
 	store: State;
 };
 
+const stoppedSubscribeWarning =
+	"[MobxAdapter] Cannot subscribe when adapter is stopped.";
+
+function requireEntry<State extends object>(
+	registry: WeakMap<
+		IgniteAdapter<State, MobxEvent<State>>,
+		AdapterEntry<State>
+	>,
+	adapter: IgniteAdapter<State, MobxEvent<State>>,
+	errorMessage: string,
+): AdapterEntry<State> {
+	const entry = registry.get(adapter);
+	return entry ?? failInvariant(errorMessage);
+}
+
 export default function createMobXAdapter<State extends object>(
 	source: (() => State) | State,
 ): MobxAdapterFactory<State> {
@@ -59,7 +74,7 @@ export default function createMobXAdapter<State extends object>(
 		return createIsolatedFactory(() => {
 			const store = source();
 			if (!isMobxObservable(store)) {
-				throw new Error(
+				return failInvariant(
 					"[MobxAdapter] store factory must return a MobX observable.",
 				);
 			}
@@ -67,7 +82,7 @@ export default function createMobXAdapter<State extends object>(
 		});
 	}
 
-	throw new Error(
+	return failInvariant(
 		"[MobxAdapter] Unsupported source. Provide a MobX observable or a factory function.",
 	);
 }
@@ -98,22 +113,18 @@ function createIsolatedFactory<State extends object>(
 
 	factory.scope = StateScope.Isolated;
 	factory.resolveStateSnapshot = (adapter) => {
-		const entry = registry.get(adapter);
-		if (!entry) {
-			throw new Error(
-				"[MobxAdapter] Unable to resolve snapshot for facade callbacks.",
-			);
-		}
-		return entry.snapshot();
+		return requireEntry(
+			registry,
+			adapter,
+			"[MobxAdapter] Unable to resolve snapshot for facade callbacks.",
+		).snapshot();
 	};
 	factory.resolveCommandActor = (adapter) => {
-		const entry = registry.get(adapter);
-		if (!entry) {
-			throw new Error(
-				"[MobxAdapter] Unable to resolve actor for facade callbacks.",
-			);
-		}
-		return entry.store;
+		return requireEntry(
+			registry,
+			adapter,
+			"[MobxAdapter] Unable to resolve actor for facade callbacks.",
+		).store;
 	};
 
 	return factory;
@@ -157,7 +168,8 @@ function createAdapterEntryFromStore<State extends object>(
 	const adapter: IgniteAdapter<State, MobxEvent<State>> = {
 		subscribe(listener) {
 			if (isStopped) {
-				throw new Error("Adapter is stopped and cannot subscribe.");
+				console.warn(stoppedSubscribeWarning);
+				return { unsubscribe: () => {} };
 			}
 
 			const wasRunning = disposer !== null;

@@ -1,7 +1,5 @@
 export { default as createMobXAdapter } from "./adapters/MobxAdapter";
 export { default as createReduxAdapter } from "./adapters/ReduxAdapter";
-export { igniteCoreMobx } from "./igniteCore/mobx";
-export { igniteCoreRedux } from "./igniteCore/redux";
 export type {
 	MobxConfig,
 	MobxEvent,

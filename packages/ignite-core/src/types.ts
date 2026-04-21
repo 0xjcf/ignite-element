@@ -1,15 +1,10 @@
 import type {
-	ProjectionFactory,
-	WithFacadeRenderArgs,
-} from "./createProjectionFactory";
-import type {
 	EmptyEventMap,
 	EventBuilder,
 	EventMap,
-	FacadeEffectsLike,
-	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
+	FacadeEffectsLike,
 	FacadeStatesCallback,
 	FacadeViewCallback,
 } from "./RenderArgs";
@@ -38,32 +33,3 @@ export type InferEvents<Definition> = Definition extends EventsDefinition<
 		? Events
 		: never
 	: EmptyEventMap;
-
-export type IgniteCoreReturn<
-	State,
-	Event,
-	Snapshot,
-	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandActor = unknown,
-	CommandsResult extends FacadeCommandResult = Record<
-		never,
-		FacadeCommandFunction
-	>,
-	Events extends EventMap = EmptyEventMap,
-	Host = unknown,
-> = ProjectionFactory<
-	State,
-	Event,
-	WithFacadeRenderArgs<
-		State,
-		Event,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Record<never, never>,
-		Events
-	>,
-	Host,
-	Events
-> &
-	Record<never, Snapshot>;

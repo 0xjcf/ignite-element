@@ -207,7 +207,7 @@ describe("ReduxAdapter - Subscribe Method", () => {
 		adapter.subscribe(() => {}); // Try to subscribe after stop
 
 		expect(warnSpy).toHaveBeenCalledWith(
-			"Adapter is stopped and cannot subscribe.",
+			"[ReduxAdapter] Cannot subscribe when adapter is stopped.",
 		);
 
 		warnSpy.mockRestore();

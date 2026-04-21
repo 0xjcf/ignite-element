@@ -1,6 +1,6 @@
 # MobX + ignite-element Example
 
-This showcase combines **ignite-element**, **MobX**, and **lit-html** to build reactive custom elements with both shared and isolated state. The new adapter inference means you can pass a MobX store (or factory) directly to `igniteCore` without specifying `adapter: "mobx"`.
+This showcase combines **ignite-element**, **MobX**, and **lit-html** to build reactive custom elements with both shared and isolated state through the public `ignite-element/mobx` authoring surface.
 
 ---
 
@@ -41,14 +41,16 @@ This showcase combines **ignite-element**, **MobX**, and **lit-html** to build r
 
 ## igniteCore Setup
 
-We reuse the same `states`/`commands` facades for both shared and isolated scopes. The only difference is whether we pass a live observable or a factory:
+We reuse the same `view`/`commands` facades for both shared and isolated scopes. The only difference is whether we pass a live observable or a factory:
 
 ```ts
+import { igniteCore } from "ignite-element/mobx";
+
 const sharedStore = counterStore();
 
 export const registerSharedMobx = igniteCore({
   source: sharedStore, // shared observable instance
-  states: (snapshot) => ({ count: snapshot.count }),
+  view: ({ snapshot }) => ({ count: snapshot.count }),
   commands: ({ actor }) => ({
     decrement: () => actor.decrement(),
     increment: () => actor.increment(),
@@ -57,7 +59,7 @@ export const registerSharedMobx = igniteCore({
 
 export const registerIsolatedMobx = igniteCore({
   source: counterStore, // factory → new observable each time
-  states: (snapshot) => ({ count: snapshot.count }),
+  view: ({ snapshot }) => ({ count: snapshot.count }),
   commands: ({ actor }) => ({
     decrement: () => actor.decrement(),
     increment: () => actor.increment(),
@@ -80,7 +82,7 @@ Every renderer receives the derived `count`, the command helpers, and the underl
 ## Suggested Experiments
 
 - Add new MobX actions (e.g. reset) and surface them through the `commands` facade.
-- Introduce computed getters in the store and include them in `states(...)` to see how recalculations propagate.
+- Introduce computed getters in the store and include them in `view(...)` to see how recalculations propagate.
 - Render multiple isolated counters side-by-side to confirm each maintains its own observable state.
 
 Enjoy building with ignite-element and MobX! Questions or ideas? Open an issue or start a discussion in the main repository.

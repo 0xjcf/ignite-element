@@ -2,7 +2,6 @@
 	"extends": "./tsconfig.json",
 	"compilerOptions": {
 		"rootDir": "..",
-		"baseUrl": ".",
 		"paths": {
 			"ignite-element": ["./src/index.ts"],
 			"ignite-element/*": ["./src/*"],
@@ -21,8 +20,8 @@
 				"../ignite-renderer/src/jsx/jsx-dev-runtime.ts"
 			],
 			"ignite-renderer/jsx/index": ["../ignite-renderer/src/jsx/index.ts"],
-			"xstate": ["node_modules/xstate"],
-			"xstate/*": ["node_modules/xstate/*"]
+			"xstate": ["./node_modules/xstate"],
+			"xstate/*": ["./node_modules/xstate/*"]
 		}
 	},
 	"include": [

@@ -27,10 +27,11 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 
 	constructor() {
 		const { strategy, logging } = getIgniteConfig() ?? {};
-		const envFlag =
-			typeof process !== "undefined"
-				? process.env?.IGNITE_DIFF_ENABLED
-				: undefined;
+		const envFlag = (
+			globalThis as typeof globalThis & {
+				process?: { env?: Record<string, string | undefined> };
+			}
+		).process?.env?.IGNITE_DIFF_ENABLED;
 		this.diffEnabled = (envFlag ?? "true") !== "false";
 		this.mode = strategy === "replace" ? "replace" : "diff";
 		this.logging = this.normalizeLogging(logging);

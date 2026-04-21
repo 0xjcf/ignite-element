@@ -1,24 +1,50 @@
 import "./internal/setupDomPolyfill";
 
-export { igniteCoreMobx as igniteCore } from "./igniteCore/mobxEntry";
-export { test } from "./testing";
+export type {
+	CommandHelper,
+	CommandMetadata,
+	CommandMetadataValue,
+	CommandWithMetadata,
+	NumberCommandInputMetadata,
+	NumberCommandInputOptions,
+} from "ignite-core";
+export { igniteCoreMobx as igniteCore } from "./igniteCore/mobx";
 export type {
 	IgniteCoreReturn,
 	MobxConfig,
 	MobxEvent,
 } from "./igniteCore/types";
 export type {
-	IgniteAgentEventListener,
-	IgniteAgentExecutionResult,
-	IgniteAgentRuntime,
-	IgniteAgentStateListener,
-	IgniteAgentSubscription,
-	RuntimeEvent,
-} from "./types/agent";
-export type { IgniteAgentSchema, IgniteSchemaValue } from "./types/schema";
-export type {
 	IgniteEventExpectation,
 	IgniteEventPayloadExpectation,
 	IgniteStateExpectation,
 	IgniteTestScenario,
 } from "./testing";
+export { test } from "./testing";
+export type {
+	IgniteAgentEventListener,
+	IgniteAgentExecutionResult,
+	IgniteAgentRuntime,
+	IgniteAgentStateListener,
+	IgniteAgentSubscription,
+	IgniteStory,
+	IgniteStoryCommandTraceEntry,
+	IgniteStoryEventTraceEntry,
+	IgniteStoryLifecycleEntry,
+	IgniteStoryLifecycleScope,
+	IgniteStoryLifecycleStage,
+	IgniteStoryStateTraceEntry,
+	IgniteStorySummary,
+	IgniteStoryTraceEntry,
+	IgniteStoryTraceKind,
+	IgniteStoryTracePhase,
+	IgniteStoryUntilOptions,
+	IgniteStoryViewPredicate,
+	IgniteStoryViewTraceEntry,
+	RuntimeEvent,
+} from "./types/agent";
+export type {
+	IgniteAgentCommandSchema,
+	IgniteAgentSchema,
+	IgniteSchemaValue,
+} from "./types/schema";
