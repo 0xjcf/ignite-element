@@ -10,10 +10,6 @@ import { igniteCore } from "../../IgniteCore";
 import type { AdapterPack } from "../../IgniteElementFactory";
 import type { XStateConfig } from "../../igniteCore/types";
 import type {
-	IgniteStoryLifecycleEntry,
-	IgniteStoryTraceEntry,
-} from "../../types/agent";
-import type {
 	CommandContext,
 	EffectContext,
 	EventBuilder,
@@ -22,6 +18,10 @@ import type {
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
 } from "../../RenderArgs";
+import type {
+	IgniteStoryLifecycleEntry,
+	IgniteStoryTraceEntry,
+} from "../../types/agent";
 import type { InferStateAndEvent } from "../../utils/igniteRedux";
 
 describe("igniteCore type inference", () => {

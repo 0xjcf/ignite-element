@@ -12,6 +12,7 @@
 		"format": "biome format --write .",
 		"check": "biome check .",
 		"lint": "biome lint .",
+		"architecture:check": "node scripts/check-architecture-rules.mjs",
 		"docs:dev": "pnpm --filter docs-site dev",
 		"docs:build": "pnpm --filter docs-site build",
 		"docs:preview": "pnpm --filter docs-site preview",

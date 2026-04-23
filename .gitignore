@@ -47,13 +47,12 @@ packages/ignite-adapters/src/**/*.d.ts
 packages/ignite-adapters/src/**/*.d.ts.map
 packages/ignite-renderer/src/**/*.d.ts
 packages/ignite-renderer/src/**/*.d.ts.map
-packages/ignite-store/src/**/*.d.ts
-packages/ignite-store/src/**/*.d.ts.map
 
 # >>> FAS managed ignore block >>>
 # FAS runtime data and local workspace state (generated, do not commit)
 .fas/*
 !.fas/TASKS.md
+!.fas/architecture-rules.json
 !.fas/tasks/
 .fas/tasks/*
 !.fas/tasks/*.md

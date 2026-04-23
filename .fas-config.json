@@ -24,7 +24,8 @@
 		"functionalCore": [
 			"packages/ignite-core/src/",
 			"packages/ignite-element/src/RenderArgs.ts",
-			"packages/ignite-element/src/types/"
+			"packages/ignite-element/src/types/agent.ts",
+			"packages/ignite-element/src/types/schema.ts"
 		],
 		"shell": [
 			"packages/ignite-renderer/src/",

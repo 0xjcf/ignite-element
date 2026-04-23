@@ -100,6 +100,26 @@ It owns:
 
 This package is where projected meaning becomes a usable UI/runtime contract.
 
+## ADR-003 Layer Map
+
+| ADR-003 layer | Current Ignite owner | Current fact |
+| --- | --- | --- |
+| Intent | `ignite-element` commands and declared events | Commands are the public intent surface. Declared events are the outward fact surface for hosts, tests, and agent runtimes. |
+| Deterministic decision | User-provided actors/state machines plus `ignite-core` contracts | Ignite supplies typed contracts and adapter-neutral helpers. Product behavior remains in the consuming actor or state machine. |
+| Workflow and lifecycle | `ignite-element` custom-element lifecycle and headless runtime lifecycle | Ignite starts, watches, and stops adapters for DOM and headless usage; it does not own FAS workflow lifecycle. |
+| Imperative execution over time | `ignite-adapters`, renderer integration, config plugins | Runtime-library integration, DOM rendering, style injection, and bundler/config loading live at the edge. |
+| Projection | `ignite-element` projection assembly | `view`, `commands`, `effects`, and schema metadata turn state snapshots into a stable UI/runtime contract. |
+| Product composition | Consumer apps and examples | Apps compose registered custom elements. Ignite does not own app-level policy or cross-repo orchestration. |
+
+## Current Fact Vs Target State
+
+| Surface | Current fact | Target state |
+| --- | --- | --- |
+| Package boundaries | `ignite-core`, `ignite-adapters`, `ignite-renderer`, and `ignite-element` are split into workspace packages. | CI and FAS checks keep package imports aligned with this split. |
+| Boundary rules | `.fas-config.json` and `.fas/architecture-rules.json` define the committed repo map. | FAS and CI both evaluate the same committed rules before release. |
+| Actor-Web integration | Ignite documents future shared-runtime alignment but does not depend on Actor-Web. | A later explicit adapter can bridge Actor-Web actors into Ignite without making Ignite own orchestration. |
+| FAS integration | FAS remains the workflow/checking orchestrator. Ignite owns repo-local architecture facts. | FAS may consume the committed Ignite boundary map, but product semantics stay in Ignite and consumer apps. |
+
 ## Actor-Model Topology
 
 Behavior should be modeled as message-driven actors or machines.

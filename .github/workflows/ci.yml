@@ -31,6 +31,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Check architecture boundaries
+        run: pnpm run architecture:check
+
+      - name: Typecheck packages
+        run: pnpm run typecheck
+
+      - name: Build packages
+        run: pnpm run build
+
       - name: Run tests and generate coverage
         run: pnpm run test:coverage
 
