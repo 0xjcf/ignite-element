@@ -27,6 +27,10 @@ export default mergeConfig(
 					replacement: resolvePath("../ignite-core/src/index.ts"),
 				},
 				{
+					find: "ignite-adapters/actor-web",
+					replacement: resolvePath("../ignite-adapters/src/actor-web.ts"),
+				},
+				{
 					find: "ignite-adapters/xstate",
 					replacement: resolvePath("../ignite-adapters/src/xstate.ts"),
 				},

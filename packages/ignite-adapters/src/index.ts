@@ -1,3 +1,15 @@
+export type {
+	ActorWebAddress,
+	ActorWebCommandActor,
+	ActorWebEventSubscriptionOptions,
+	ActorWebExtendedState,
+	ActorWebSource,
+	ActorWebSourceHandle,
+	ActorWebSourceSnapshot,
+	ActorWebTransportState,
+	ActorWebTransportStatus,
+} from "./adapters/ActorWebAdapter";
+export { default as createActorWebAdapter } from "./adapters/ActorWebAdapter";
 export { default as createMobXAdapter } from "./adapters/MobxAdapter";
 export { default as createReduxAdapter } from "./adapters/ReduxAdapter";
 export type {

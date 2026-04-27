@@ -7,6 +7,7 @@
 			"ignite-element/*": ["./src/*"],
 			"ignite-core": ["../ignite-core/src/index.ts"],
 			"ignite-adapters": ["../ignite-adapters/src/index.ts"],
+			"ignite-adapters/actor-web": ["../ignite-adapters/src/actor-web.ts"],
 			"ignite-adapters/xstate": ["../ignite-adapters/src/xstate.ts"],
 			"ignite-adapters/redux": ["../ignite-adapters/src/redux.ts"],
 			"ignite-adapters/mobx": ["../ignite-adapters/src/mobx.ts"],

@@ -16,6 +16,9 @@
 			"mobx": [
 				"dist/types/mobx.d.ts"
 			],
+			"actor-web": [
+				"dist/types/actor-web.d.ts"
+			],
 			"renderers/ignite-jsx": [
 				"dist/types/renderers/ignite-jsx.d.ts"
 			],
@@ -66,6 +69,12 @@
 			"import": "./dist/mobx.es.js",
 			"require": "./dist/mobx.cjs.js",
 			"default": "./dist/mobx.es.js"
+		},
+		"./actor-web": {
+			"types": "./dist/types/actor-web.d.ts",
+			"import": "./dist/actor-web.es.js",
+			"require": "./dist/actor-web.cjs.js",
+			"default": "./dist/actor-web.es.js"
 		},
 		"./renderers/ignite-jsx": {
 			"types": "./dist/types/renderers/ignite-jsx.d.ts",

@@ -18,6 +18,7 @@ const requiredExports = [
 	["./xstate", { igniteCore: "function", matchState: "function" }],
 	["./redux", { igniteCore: "function" }],
 	["./mobx", { igniteCore: "function" }],
+	["./actor-web", { igniteCore: "function" }],
 	["./config/vite", { igniteConfigVitePlugin: "function" }],
 	["./config/webpack", { IgniteConfigWebpackPlugin: "function" }],
 	["./config/loadIgniteConfig", { loadIgniteConfig: "function" }],
@@ -98,6 +99,16 @@ assertDistGraphDoesNotReference("mobx.es.js", ['"xstate"', "@reduxjs/toolkit"]);
 assertDistGraphDoesNotReference("mobx.cjs.js", [
 	'"xstate"',
 	"@reduxjs/toolkit",
+]);
+assertDistGraphDoesNotReference("actor-web.es.js", [
+	'"xstate"',
+	"@reduxjs/toolkit",
+	'"mobx"',
+]);
+assertDistGraphDoesNotReference("actor-web.cjs.js", [
+	'"xstate"',
+	"@reduxjs/toolkit",
+	'"mobx"',
 ]);
 
 console.info("[verify:exports] Package exports resolved successfully.");

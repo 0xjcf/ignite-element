@@ -1,6 +1,12 @@
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type { InferStateAndEvent, MobxEvent } from "ignite-adapters";
 import { isMobxObservable, isReduxSlice, isReduxStore } from "ignite-adapters";
+import type {
+	ActorWebCommandActor,
+	ActorWebExtendedState,
+	ActorWebSource,
+	ActorWebSourceHandle,
+} from "ignite-adapters/actor-web";
 import type { ExtendedState, XStateCommandActor } from "ignite-adapters/xstate";
 import { isXStateActor, isXStateMachine } from "ignite-adapters/xstate";
 import type { IgniteAdapter } from "ignite-core";
@@ -10,9 +16,11 @@ import igniteElementFactory, {
 	type ComponentFactory,
 	type IgniteRenderArgs,
 } from "./IgniteElementFactory";
+import { igniteCoreActorWeb } from "./igniteCore/actor-web";
 import { igniteCoreMobx } from "./igniteCore/mobx";
 import { igniteCoreRedux } from "./igniteCore/redux";
 import type {
+	ActorWebConfig,
 	IgniteCoreConfig,
 	IgniteCoreReturn,
 	MobxConfig,
@@ -33,6 +41,7 @@ import type {
 } from "./RenderArgs";
 
 export type {
+	ActorWebConfig,
 	AnyCommandsCallback,
 	AnyStatesCallback,
 	IgniteCoreReturn,
@@ -64,6 +73,12 @@ type ReduxConfig =
 	  >;
 
 type XStateConfigBase = XStateConfig<AnyStateMachine, EventMap>;
+type ActorWebConfigBase = ActorWebConfig<
+	object,
+	{ type: string },
+	{ type: string },
+	EventMap
+>;
 
 function isXStateConfig(
 	options: IgniteCoreConfig,
@@ -96,6 +111,17 @@ function isMobxConfig(
 	}
 
 	return adapter === "mobx";
+}
+
+function isActorWebConfig(
+	options: IgniteCoreConfig,
+	adapter: ResolvedAdapter,
+): options is ActorWebConfigBase {
+	if (options.adapter) {
+		return options.adapter === "actor-web";
+	}
+
+	return adapter === "actor-web";
 }
 
 function isFactorySource(
@@ -176,6 +202,35 @@ export function igniteCore<
 >;
 
 export function igniteCore<
+	Context extends object,
+	Message extends { type: string },
+	Emitted extends { type: string } = Message,
+	Events extends EventMap = EmptyEventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+>(
+	options: ActorWebConfig<
+		Context,
+		Message,
+		Emitted,
+		Events,
+		StatesResult,
+		CommandsResult
+	>,
+): IgniteCoreReturn<
+	ActorWebExtendedState<Context>,
+	Message,
+	ActorWebExtendedState<Context>,
+	StatesResult,
+	ActorWebCommandActor<Context, Message, Emitted>,
+	CommandsResult,
+	Events
+>;
+
+export function igniteCore<
 	State extends object,
 	Events extends EventMap = EmptyEventMap,
 	StatesResult extends Record<string, unknown> = Record<never, never>,
@@ -232,6 +287,10 @@ export function igniteCore(options?: IgniteCoreConfig) {
 		return igniteCoreMobx(options);
 	}
 
+	if (isActorWebConfig(options, adapterName)) {
+		return igniteCoreActorWeb(options);
+	}
+
 	return assertNever(adapterName);
 }
 
@@ -257,6 +316,10 @@ function resolveAdapter(options: IgniteCoreConfig): ResolvedAdapter {
 		}
 	}
 
+	if (isActorWebSource(source) || isActorWebSourceHandle(source)) {
+		return "actor-web";
+	}
+
 	if (isMobxObservable(source)) {
 		return "mobx";
 	}
@@ -268,11 +331,14 @@ function resolveAdapter(options: IgniteCoreConfig): ResolvedAdapter {
 
 function inferFromFactory(
 	factory: () => unknown,
-): Extract<ResolvedAdapter, "redux" | "mobx"> | undefined {
+): Extract<ResolvedAdapter, "redux" | "mobx" | "actor-web"> | undefined {
 	try {
 		const candidate = factory();
 		if (isReduxStore(candidate)) {
 			return "redux";
+		}
+		if (isActorWebSource(candidate) || isActorWebSourceHandle(candidate)) {
+			return "actor-web";
 		}
 		if (isMobxObservable(candidate)) {
 			return "mobx";
@@ -286,6 +352,29 @@ function inferFromFactory(
 	}
 
 	return undefined;
+}
+
+function isActorWebSource(
+	value: unknown,
+): value is ActorWebSource<object, { type: string }, { type: string }> {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		"snapshot" in value &&
+		"subscribe" in value &&
+		"send" in value
+	);
+}
+
+function isActorWebSourceHandle(
+	value: unknown,
+): value is ActorWebSourceHandle<object, { type: string }, { type: string }> {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		"source" in value &&
+		isActorWebSource((value as { source?: unknown }).source)
+	);
 }
 
 function assertNever(adapter: unknown): never {

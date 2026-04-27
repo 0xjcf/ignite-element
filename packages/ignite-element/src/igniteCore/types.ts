@@ -1,5 +1,9 @@
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type {
+	ActorWebCommandActor,
+	ActorWebExtendedState,
+	ActorWebSource,
+	ActorWebSourceHandle,
 	MobxEvent,
 	ReduxBlueprintSource,
 	ReduxCommandActorFor,
@@ -24,6 +28,11 @@ import type {
 	EventsDefinition,
 	FacadeCommandFunction,
 	FacadeCommandResult,
+	FacadeCommandsCallback,
+	FacadeEffectsCallback,
+	FacadeEffectsObjectCallback,
+	FacadeStatesCallback,
+	FacadeViewCallback,
 } from "ignite-core";
 import type { AnyStateMachine } from "xstate";
 import type { WithFacadeRenderArgs } from "../createProjectionFactory";
@@ -68,6 +77,10 @@ export type {
 	AnyEffectsCallback,
 	AnyStatesCallback,
 	AnyViewCallback,
+	ActorWebCommandActor,
+	ActorWebExtendedState,
+	ActorWebSource,
+	ActorWebSourceHandle,
 	EventsDefinition,
 	MobxEvent,
 	ReduxBlueprintSource,
@@ -135,6 +148,58 @@ export type MobxConfig<
 	>,
 > = StoreMobxConfig<State, Events, StatesResult, CommandsResult, HTMLElement>;
 
+export type ActorWebSourceLike<
+	Context extends object,
+	Message extends { type: string },
+	Emitted extends { type: string },
+> =
+	| ActorWebSource<Context, Message, Emitted>
+	| ActorWebSourceHandle<Context, Message, Emitted>
+	| (() =>
+			| ActorWebSource<Context, Message, Emitted>
+			| ActorWebSourceHandle<Context, Message, Emitted>);
+
+export type ActorWebConfig<
+	Context extends object,
+	Message extends { type: string },
+	Emitted extends { type: string } = Message,
+	Events extends EventMap = EmptyEventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+> = {
+	adapter?: "actor-web";
+	source: ActorWebSourceLike<Context, Message, Emitted>;
+	states?: FacadeStatesCallback<ActorWebExtendedState<Context>, StatesResult>;
+	view?: FacadeViewCallback<ActorWebExtendedState<Context>, StatesResult>;
+	commands?: FacadeCommandsCallback<
+		ActorWebCommandActor<Context, Message, Emitted>,
+		CommandsResult,
+		HTMLElement
+	>;
+	events?: EventsDefinition<Events>;
+	cleanup?: boolean;
+} & (
+	| {
+			effects?: FacadeEffectsCallback<
+				ActorWebExtendedState<Context>,
+				ActorWebCommandActor<Context, Message, Emitted>,
+				Events,
+				HTMLElement
+			>;
+	  }
+	| {
+			effects?: FacadeEffectsObjectCallback<
+				ActorWebExtendedState<Context>,
+				ActorWebCommandActor<Context, Message, Emitted>,
+				Events,
+				HTMLElement
+			>;
+	  }
+);
+
 export type InferAdapterFromSource<Source> = Source extends AnyStateMachine
 	? "xstate"
 	: Source extends XStateActorInstance<AnyStateMachine>
@@ -142,16 +207,40 @@ export type InferAdapterFromSource<Source> = Source extends AnyStateMachine
 		: Source extends () => infer Result
 			? Result extends EnhancedStore
 				? "redux"
-				: Result extends object
-					? "mobx"
-					: never
+				: Result extends ActorWebSource<
+							object,
+							{ type: string },
+							{ type: string }
+						>
+					? "actor-web"
+					: Result extends ActorWebSourceHandle<
+								object,
+								{ type: string },
+								{ type: string }
+							>
+						? "actor-web"
+						: Result extends object
+							? "mobx"
+							: never
 			: Source extends EnhancedStore
 				? "redux"
 				: Source extends Slice
 					? "redux"
-					: Source extends object
-						? "mobx"
-						: never;
+					: Source extends ActorWebSource<
+								object,
+								{ type: string },
+								{ type: string }
+							>
+						? "actor-web"
+						: Source extends ActorWebSourceHandle<
+									object,
+									{ type: string },
+									{ type: string }
+								>
+							? "actor-web"
+							: Source extends object
+								? "mobx"
+								: never;
 
 export type IgniteCoreConfig =
 	| XStateConfig<
@@ -178,8 +267,16 @@ export type IgniteCoreConfig =
 			Record<string, unknown>,
 			FacadeCommandResult
 	  >
-	| MobxConfig<object, EventMap, Record<string, unknown>, FacadeCommandResult>;
+	| MobxConfig<object, EventMap, Record<string, unknown>, FacadeCommandResult>
+	| ActorWebConfig<
+			object,
+			{ type: string },
+			{ type: string },
+			EventMap,
+			Record<string, unknown>,
+			FacadeCommandResult
+	  >;
 
-export type ResolvedAdapter = "xstate" | "redux" | "mobx";
+export type ResolvedAdapter = "xstate" | "redux" | "mobx" | "actor-web";
 
 export type { EmptyEventMap, EventMap };

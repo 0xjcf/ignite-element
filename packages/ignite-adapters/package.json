@@ -8,6 +8,9 @@
 	"description": "Advanced state-library adapter integrations for ignite-element.",
 	"typesVersions": {
 		"*": {
+			"actor-web": [
+				"dist/types/actor-web.d.ts"
+			],
 			"xstate": [
 				"dist/types/xstate.d.ts"
 			],
@@ -25,6 +28,12 @@
 			"import": "./dist/ignite-adapters.es.js",
 			"require": "./dist/ignite-adapters.cjs.js",
 			"default": "./dist/ignite-adapters.es.js"
+		},
+		"./actor-web": {
+			"types": "./dist/types/actor-web.d.ts",
+			"import": "./dist/actor-web.es.js",
+			"require": "./dist/actor-web.cjs.js",
+			"default": "./dist/actor-web.es.js"
 		},
 		"./xstate": {
 			"types": "./dist/types/xstate.d.ts",
