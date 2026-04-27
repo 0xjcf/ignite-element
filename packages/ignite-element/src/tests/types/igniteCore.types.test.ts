@@ -1,6 +1,11 @@
 import { makeAutoObservable } from "mobx";
 import { describe, expectTypeOf, it } from "vitest";
 import { createMachine, type EventFrom } from "xstate";
+import type {
+	ActorWebCommandActor,
+	ActorWebExtendedState,
+	ActorWebSource,
+} from "../../actor-web";
 import type { MobxEvent } from "../../adapters/MobxAdapter";
 import type { XStateSnapshot } from "../../adapters/XStateAdapter";
 import counterStore, {
@@ -24,7 +29,91 @@ import type {
 } from "../../types/agent";
 import type { InferStateAndEvent } from "../../utils/igniteRedux";
 
+type ActorWebShipmentContext = {
+	shipmentId: string | null;
+	status: "idle" | "created";
+};
+
+type ActorWebShipmentCommand =
+	| { type: "CREATE_SHIPMENT"; shipmentId: string }
+	| { type: "RESET_SHIPMENT" };
+
+type ActorWebShipmentEvent = {
+	type: "SHIPMENT_CREATED";
+	shipmentId: string;
+};
+
+const actorWebShipmentSource: ActorWebSource<
+	ActorWebShipmentContext,
+	ActorWebShipmentCommand,
+	ActorWebShipmentEvent
+> = {
+	address: {
+		id: "logistics-shipment",
+		type: "actor",
+		path: "actor://server/actor/logistics-shipment",
+	},
+	snapshot: () => ({
+		address: actorWebShipmentSource.address,
+		context: {
+			shipmentId: null,
+			status: "idle",
+		},
+		phase: "idle",
+		toJSON: () => ({}),
+	}),
+	subscribe: () => () => {},
+	transportStatus: () => ({
+		state: "connected",
+		updatedAt: 1,
+	}),
+	subscribeTransportStatus: () => () => {},
+	send: async () => {},
+	ask: async <Response = unknown>() => 1 as Response,
+};
+
 describe("igniteCore type inference", () => {
+	it("infers actor-web context, transport, and command actor facades", () => {
+		const register = igniteCore({
+			source: actorWebShipmentSource,
+			states: ({ context, transport }) => ({
+				status: context.status,
+				connected: transport.state === "connected",
+			}),
+			commands: ({ actor }) => ({
+				createShipment: (shipmentId: string) =>
+					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
+			}),
+		});
+
+		type RenderArgs = AdapterPack<typeof register>;
+		type Snapshot = ActorWebExtendedState<ActorWebShipmentContext>;
+		type Actor = ActorWebCommandActor<
+			ActorWebShipmentContext,
+			ActorWebShipmentCommand,
+			ActorWebShipmentEvent
+		>;
+
+		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<Snapshot>();
+		expectTypeOf<RenderArgs["send"]>().toEqualTypeOf<
+			(event: ActorWebShipmentCommand) => void
+		>();
+		expectTypeOf<RenderArgs["status"]>().toEqualTypeOf<
+			ActorWebShipmentContext["status"]
+		>();
+		expectTypeOf<RenderArgs["connected"]>().toEqualTypeOf<boolean>();
+		expectTypeOf<RenderArgs["createShipment"]>().toEqualTypeOf<
+			(shipmentId: string) => Promise<unknown>
+		>();
+		expectTypeOf<Actor["ask"]>().toEqualTypeOf<
+			| (<Response = unknown>(
+					message: ActorWebShipmentCommand,
+					timeout?: number,
+			  ) => Promise<Response>)
+			| undefined
+		>();
+	});
+
 	it("infers xstate snapshot and actor facades", () => {
 		const machine = createMachine({
 			context: { count: 0 },

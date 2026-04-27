@@ -4,6 +4,11 @@ import { html } from "lit-html";
 import { makeAutoObservable } from "mobx";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { assign, createActor, createMachine, type EventFrom } from "xstate";
+import type {
+	ActorWebSource,
+	ActorWebSourceSnapshot,
+	ActorWebTransportStatus,
+} from "../actor-web";
 import type { MobxEvent } from "../adapters/MobxAdapter";
 import type {
 	ExtendedState,
@@ -23,6 +28,93 @@ import type {
 	ReduxStoreCommandActor,
 } from "../RenderArgs";
 import type { InferStateAndEvent } from "../utils/igniteRedux";
+
+type ActorWebShipmentContext = {
+	shipmentId: string | null;
+	status: "idle" | "created";
+};
+
+type ActorWebShipmentCommand =
+	| { type: "CREATE_SHIPMENT"; shipmentId: string }
+	| { type: "RESET_SHIPMENT" };
+
+function createActorWebShipmentSource(): ActorWebSource<
+	ActorWebShipmentContext,
+	ActorWebShipmentCommand,
+	{ type: "SHIPMENT_CREATED"; shipmentId: string }
+> & {
+	sent: ActorWebShipmentCommand[];
+	emitSnapshot(context: ActorWebShipmentContext): void;
+	emitTransport(status: ActorWebTransportStatus): void;
+} {
+	let context: ActorWebShipmentContext = {
+		shipmentId: null,
+		status: "idle",
+	};
+	let transport: ActorWebTransportStatus = {
+		state: "connected",
+		updatedAt: 1,
+	};
+	const snapshotListeners = new Set<
+		(snapshot: ActorWebSourceSnapshot<ActorWebShipmentContext>) => void
+	>();
+	const transportListeners = new Set<
+		(status: ActorWebTransportStatus) => void
+	>();
+	const source = {
+		sent: [] as ActorWebShipmentCommand[],
+		address: {
+			id: "logistics-shipment",
+			type: "actor",
+			path: "actor://server/actor/logistics-shipment",
+		},
+		snapshot: () => ({
+			address: source.address,
+			context,
+			phase: context.status,
+			toJSON: () => ({ context }),
+		}),
+		subscribe: (
+			listener: (
+				snapshot: ActorWebSourceSnapshot<ActorWebShipmentContext>,
+			) => void,
+		) => {
+			snapshotListeners.add(listener);
+			listener(source.snapshot());
+			return () => {
+				snapshotListeners.delete(listener);
+			};
+		},
+		transportStatus: () => transport,
+		subscribeTransportStatus: (
+			listener: (status: ActorWebTransportStatus) => void,
+		) => {
+			transportListeners.add(listener);
+			listener(transport);
+			return () => {
+				transportListeners.delete(listener);
+			};
+		},
+		send: async (message: ActorWebShipmentCommand) => {
+			source.sent.push(message);
+		},
+		ask: async <Response = unknown>() => 1 as Response,
+		emitSnapshot(nextContext: ActorWebShipmentContext) {
+			context = nextContext;
+			const snapshot = source.snapshot();
+			for (const listener of snapshotListeners) {
+				listener(snapshot);
+			}
+		},
+		emitTransport(status: ActorWebTransportStatus) {
+			transport = status;
+			for (const listener of transportListeners) {
+				listener(status);
+			}
+		},
+	};
+	return source;
+}
 
 // Mock XState machine
 const mockXStateMachine = createMachine({
@@ -120,6 +212,13 @@ describe("igniteCore", () => {
 		expect(core).toBeDefined();
 	});
 
+	it("infers actor-web adapter when omitted", () => {
+		const core = igniteCore({
+			source: createActorWebShipmentSource(),
+		});
+		expect(core).toBeDefined();
+	});
+
 	it("throws when adapter cannot be inferred", () => {
 		expect(() =>
 			igniteCore({
@@ -141,6 +240,61 @@ describe("igniteCore", () => {
 		).toThrow(
 			"[igniteCore] Failed to execute source factory while inferring adapter. Specify the adapter explicitly.",
 		);
+	});
+
+	it("projects actor-web source context, transport, and commands", () => {
+		const source = createActorWebShipmentSource();
+		const register = igniteCore({
+			source,
+			states: ({ context, transport }) => ({
+				status: context.status,
+				shipmentId: context.shipmentId,
+				connected: transport.state === "connected",
+			}),
+			commands: ({ actor }) => ({
+				createShipment: (shipmentId: string) =>
+					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
+				reset: () => actor.send({ type: "RESET_SHIPMENT" }),
+			}),
+		});
+
+		expect(register.getState().context.status).toBe("idle");
+		expect(register.getView()).toEqual({
+			status: "idle",
+			shipmentId: null,
+			connected: true,
+		});
+
+		register.execute("createShipment", "shipment-1001");
+		expect(source.sent).toEqual([
+			{ type: "CREATE_SHIPMENT", shipmentId: "shipment-1001" },
+		]);
+
+		source.emitSnapshot({
+			shipmentId: "shipment-1001",
+			status: "created",
+		});
+		source.emitTransport({
+			state: "degraded",
+			updatedAt: 2,
+			reason: "gateway disconnected",
+		});
+
+		expect(register.getState()).toMatchObject({
+			context: {
+				shipmentId: "shipment-1001",
+				status: "created",
+			},
+			transport: {
+				state: "degraded",
+				reason: "gateway disconnected",
+			},
+		});
+		expect(register.getView()).toEqual({
+			status: "created",
+			shipmentId: "shipment-1001",
+			connected: false,
+		});
 	});
 
 	it("provides projected view callbacks for xstate sources", () => {

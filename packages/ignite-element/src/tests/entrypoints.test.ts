@@ -2,9 +2,41 @@ import { configureStore } from "@reduxjs/toolkit";
 import { makeAutoObservable } from "mobx";
 import { describe, expect, it } from "vitest";
 import { createMachine } from "xstate";
+import { igniteCore as igniteCoreActorWeb } from "../actor-web";
 import { igniteCore as igniteCoreMobx } from "../mobx";
 import { igniteCore as igniteCoreRedux } from "../redux";
 import { igniteCore as igniteCoreXState, matchState } from "../xstate";
+
+type ActorWebCommand = { type: "CREATE"; shipmentId: string };
+
+function createActorWebSource() {
+	const context = { shipmentId: "shipment-1", status: "created" };
+	return {
+		address: {
+			id: "shipment",
+			type: "actor",
+			path: "actor://server/actor/shipment",
+		},
+		snapshot: () => ({
+			address: {
+				id: "shipment",
+				type: "actor",
+				path: "actor://server/actor/shipment",
+			},
+			context,
+			phase: "created",
+			toJSON: () => context,
+		}),
+		subscribe: () => () => {},
+		transportStatus: () => ({
+			state: "connected" as const,
+			updatedAt: 1,
+		}),
+		subscribeTransportStatus: () => () => {},
+		send: async (_message: ActorWebCommand) => {},
+		ask: async <Response = unknown>() => 1 as Response,
+	};
+}
 
 describe("public adapter entrypoints", () => {
 	it("keeps the xstate entrypoint stable", () => {
@@ -52,6 +84,22 @@ describe("public adapter entrypoints", () => {
 		const component = igniteCoreMobx({ source: store });
 
 		expect(typeof igniteCoreMobx).toBe("function");
+		expect(typeof component).toBe("function");
+		expect(typeof component.execute).toBe("function");
+		expect(typeof component.getState).toBe("function");
+		expect(typeof component.getView).toBe("function");
+		expect(typeof component.getSchema).toBe("function");
+		expect(typeof component.watch).toBe("function");
+		expect(typeof component.watchView).toBe("function");
+		expect(typeof component.on).toBe("function");
+	});
+
+	it("keeps the actor-web entrypoint stable", () => {
+		const component = igniteCoreActorWeb({
+			source: createActorWebSource(),
+		});
+
+		expect(typeof igniteCoreActorWeb).toBe("function");
 		expect(typeof component).toBe("function");
 		expect(typeof component.execute).toBe("function");
 		expect(typeof component.getState).toBe("function");
