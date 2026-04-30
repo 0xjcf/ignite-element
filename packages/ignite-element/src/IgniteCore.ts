@@ -126,7 +126,7 @@ function isActorWebConfig(
 
 function isFactorySource(
 	source: IgniteCoreConfig["source"],
-): source is () => unknown {
+): source is (context?: { host?: HTMLElement }) => unknown {
 	return typeof source === "function";
 }
 
@@ -330,8 +330,12 @@ function resolveAdapter(options: IgniteCoreConfig): ResolvedAdapter {
 }
 
 function inferFromFactory(
-	factory: () => unknown,
+	factory: (context?: { host?: HTMLElement }) => unknown,
 ): Extract<ResolvedAdapter, "redux" | "mobx" | "actor-web"> | undefined {
+	if (factory.length > 0) {
+		return "actor-web";
+	}
+
 	try {
 		const candidate = factory();
 		if (isReduxStore(candidate)) {

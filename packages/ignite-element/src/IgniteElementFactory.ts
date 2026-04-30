@@ -95,7 +95,7 @@ export default function igniteElementFactory<
 	RuntimeView extends Record<string, unknown> = Record<never, never>,
 	View = TemplateResult | IgniteJsxChild,
 >(
-	createAdapter: () => IgniteAdapter<State, Event>,
+	createAdapter: (host?: HTMLElement) => IgniteAdapter<State, Event>,
 	options?: FactoryOptions<State, Event, RenderArgs, RuntimeView, View>,
 ): ComponentFactory<State, Event, RenderArgs, View> {
 	let sharedAdapter: IgniteAdapter<State, Event> | null = null;
@@ -282,9 +282,7 @@ export default function igniteElementFactory<
 		renderer: ComponentRenderer<RenderArgs, View>,
 	) => {
 		if (customElements.get(elementName)) {
-			throw new Error(
-				`[igniteElementFactory] Element "${elementName}" has already been defined.`,
-			);
+			return;
 		}
 
 		const lifecycleScope = resolveLifecycleScope();
@@ -353,30 +351,39 @@ export default function igniteElementFactory<
 		}
 
 		class IsolatedIgniteComponent extends IgniteElement<State, Event, View> {
-			private readonly additionalArgs: AdditionalRenderArgs<
-				State,
-				Event,
-				RenderArgs
-			>;
+			private additionalArgs:
+				| AdditionalRenderArgs<State, Event, RenderArgs>
+				| undefined;
+			private adapterInstance: IgniteAdapter<State, Event> | undefined;
 			private readonly lifecycleHooks: IgniteElementLifecycleHooks;
+			private readonly renderImpl: (args: RenderArgs) => View;
 
 			constructor() {
-				const adapter = createAdapter();
-				adapter.scope ??= StateScope.Isolated;
 				const lifecycleHooks = createLifecycleHooks(
 					elementName,
 					lifecycleScope,
 				);
-				super(adapter, renderStrategyFactory(), lifecycleHooks);
+				super(undefined, renderStrategyFactory(), lifecycleHooks);
 				this.lifecycleHooks = lifecycleHooks;
-				this.additionalArgs = createAdditionalArgs(adapter, this);
 				this.renderImpl = resolveRenderer(renderer);
 			}
 
-			private readonly renderImpl: (args: RenderArgs) => View;
+			connectedCallback(): void {
+				if (!this.adapterInstance) {
+					const adapter = createAdapter(this);
+					adapter.scope ??= StateScope.Isolated;
+					this.adapterInstance = adapter;
+					this.additionalArgs = createAdditionalArgs(adapter, this);
+					this.initializeAdapter(adapter);
+				}
+
+				super.connectedCallback();
+			}
 
 			disconnectedCallback(): void {
 				cleanupAdditionalArgs(this.additionalArgs);
+				this.additionalArgs = undefined;
+				this.adapterInstance = undefined;
 				recordLifecycle(
 					"cleaned-up",
 					elementName,
@@ -387,6 +394,12 @@ export default function igniteElementFactory<
 			}
 
 			protected renderView(): View {
+				if (!this.additionalArgs) {
+					throw new Error(
+						`[igniteElementFactory] Unable to render "${elementName}" before initialization.`,
+					);
+				}
+
 				return this.renderImpl({
 					...this.additionalArgs,
 					state: this.currentState,

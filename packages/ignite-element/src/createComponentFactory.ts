@@ -57,7 +57,7 @@ export type ElementFactoryCreator<
 	Events extends EventMap = EmptyEventMap,
 	RuntimeView extends Record<string, unknown> = Record<never, never>,
 > = (
-	createAdapter: AdapterFactory<State, Event>,
+	createAdapter: AdapterFactory<State, Event, HTMLElement>,
 	options: ElementFactoryOptions<
 		State,
 		Event,
@@ -224,7 +224,7 @@ export function createComponentFactoryWithRenderer<
 		View
 	>,
 >(
-	createAdapter: AdapterFactory<State, Event>,
+	createAdapter: AdapterFactory<State, Event, HTMLElement>,
 	elementFactory: ElementFactoryCreator<
 		State,
 		Event,
@@ -309,7 +309,7 @@ export function createComponentFactory<
 	Additional extends Record<string, unknown> = Record<never, never>,
 	Events extends EventMap = EmptyEventMap,
 >(
-	createAdapter: AdapterFactory<State, Event>,
+	createAdapter: AdapterFactory<State, Event, HTMLElement>,
 	options?: ComponentFactoryOptions<
 		State,
 		Event,

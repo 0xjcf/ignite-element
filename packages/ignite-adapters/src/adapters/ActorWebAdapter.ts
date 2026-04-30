@@ -96,7 +96,10 @@ type ActorWebAdapterFactory<
 	Context extends object,
 	Message extends { type: string },
 	Emitted extends { type: string },
-> = (() => IgniteAdapter<ActorWebExtendedState<Context>, Message>) & {
+	Host = unknown,
+> = ((
+	host?: Host,
+) => IgniteAdapter<ActorWebExtendedState<Context>, Message>) & {
 	scope: StateScope;
 	resolveStateSnapshot: (
 		adapter: IgniteAdapter<ActorWebExtendedState<Context>, Message>,
@@ -187,11 +190,12 @@ function createSharedFactory<
 	Emitted extends { type: string },
 >(
 	entry: ActorWebAdapterEntry<Context, Message, Emitted>,
-): ActorWebAdapterFactory<Context, Message, Emitted> {
+): ActorWebAdapterFactory<Context, Message, Emitted, unknown> {
 	const factory = (() => entry.adapter) as ActorWebAdapterFactory<
 		Context,
 		Message,
-		Emitted
+		Emitted,
+		unknown
 	>;
 	factory.scope = StateScope.Shared;
 	factory.resolveStateSnapshot = () => entry.snapshot();
@@ -203,19 +207,20 @@ function createIsolatedFactory<
 	Context extends object,
 	Message extends { type: string },
 	Emitted extends { type: string },
+	Host,
 >(
-	createEntry: () => ActorWebAdapterEntry<Context, Message, Emitted>,
-): ActorWebAdapterFactory<Context, Message, Emitted> {
+	createEntry: (host?: Host) => ActorWebAdapterEntry<Context, Message, Emitted>,
+): ActorWebAdapterFactory<Context, Message, Emitted, Host> {
 	const registry = new WeakMap<
 		IgniteAdapter<ActorWebExtendedState<Context>, Message>,
 		ActorWebAdapterEntry<Context, Message, Emitted>
 	>();
 
-	const factory = (() => {
-		const entry = createEntry();
+	const factory = ((host?: Host) => {
+		const entry = createEntry(host);
 		registry.set(entry.adapter, entry);
 		return entry.adapter;
-	}) as ActorWebAdapterFactory<Context, Message, Emitted>;
+	}) as ActorWebAdapterFactory<Context, Message, Emitted, Host>;
 
 	factory.scope = StateScope.Isolated;
 	factory.resolveStateSnapshot = (adapter) => {
@@ -372,14 +377,20 @@ export default function createActorWebAdapter<
 	Context extends object,
 	Message extends { type: string },
 	Emitted extends { type: string } = Message,
+	Host = unknown,
 >(
 	source:
 		| ActorWebSourceLike<Context, Message, Emitted>
-		| (() => ActorWebSourceLike<Context, Message, Emitted>),
-): ActorWebAdapterFactory<Context, Message, Emitted> {
+		| ((context?: {
+				host?: Host;
+		  }) => ActorWebSourceLike<Context, Message, Emitted>),
+): ActorWebAdapterFactory<Context, Message, Emitted, Host> {
 	if (typeof source === "function") {
-		return createIsolatedFactory(() => {
-			return createAdapterEntry(resolveHandle(source()), StateScope.Isolated);
+		return createIsolatedFactory((host) => {
+			return createAdapterEntry(
+				resolveHandle(source({ host })),
+				StateScope.Isolated,
+			);
 		});
 	}
 

@@ -155,7 +155,9 @@ export type ActorWebSourceLike<
 > =
 	| ActorWebSource<Context, Message, Emitted>
 	| ActorWebSourceHandle<Context, Message, Emitted>
-	| (() =>
+	| ((context?: {
+			host?: HTMLElement;
+	  }) =>
 			| ActorWebSource<Context, Message, Emitted>
 			| ActorWebSourceHandle<Context, Message, Emitted>);
 

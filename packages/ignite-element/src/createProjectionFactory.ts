@@ -19,10 +19,9 @@ import {
 	facadeCleanupSymbol,
 } from "./runtime/effects";
 
-export type AdapterFactory<State, Event> = (() => IgniteAdapter<
-	State,
-	Event
->) & {
+export type AdapterFactory<State, Event, Host = unknown> = ((
+	host?: Host,
+) => IgniteAdapter<State, Event>) & {
 	scope?: StateScope;
 	resolveStateSnapshot?: (adapter: IgniteAdapter<State, Event>) => unknown;
 	resolveCommandActor?: (adapter: IgniteAdapter<State, Event>) => unknown;
@@ -87,7 +86,7 @@ export type ProjectionFactory<
 	Events extends EventMap = EmptyEventMap,
 	ViewResult extends Record<string, unknown> = Record<never, never>,
 > = {
-	createAdapter: AdapterFactory<State, Event>;
+	createAdapter: AdapterFactory<State, Event, Host>;
 	scope?: StateScope;
 	cleanup?: boolean;
 	eventTypes: readonly (keyof Events & string)[];
@@ -177,7 +176,7 @@ export function createProjectionFactory<
 		StatesResult
 	>,
 >(
-	createAdapter: AdapterFactory<State, Event>,
+	createAdapter: AdapterFactory<State, Event, Host>,
 	options?: ProjectionFactoryOptions<
 		State,
 		Event,

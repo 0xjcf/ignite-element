@@ -34,7 +34,7 @@ export default abstract class IgniteElement<
 	private readonly lifecycle?: IgniteElementLifecycleHooks;
 
 	constructor(
-		adapter: IgniteAdapter<State, Event>,
+		adapter: IgniteAdapter<State, Event> | undefined,
 		strategy: RenderStrategy<View>,
 		lifecycle?: IgniteElementLifecycleHooks,
 	) {
@@ -45,9 +45,20 @@ export default abstract class IgniteElement<
 		this.lifecycle = lifecycle;
 		this.strategy.attach(this._shadowRoot);
 
+		if (adapter) {
+			this.initializeAdapter(adapter);
+		}
+	}
+
+	protected initializeAdapter(adapter: IgniteAdapter<State, Event>): void {
 		this._adapter = adapter;
 		this._currentState = this._adapter.getState();
 		this._initialized = true;
+
+		if (this._isActive && !this._unsubscribe) {
+			this.subscribeToAdapter();
+			this.renderTemplate();
+		}
 	}
 
 	connectedCallback(): void {
