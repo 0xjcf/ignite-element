@@ -219,6 +219,28 @@ describe("igniteCore", () => {
 		expect(core).toBeDefined();
 	});
 
+	it("provides host attributes to actor-web source factories after the element connects", () => {
+		let observedFleetId: string | null | undefined;
+		const register = igniteCore({
+			source: (context: { host?: HTMLElement } | undefined) => {
+				observedFleetId = context?.host?.getAttribute("fleet-id");
+				return createActorWebShipmentSource();
+			},
+			states: ({ context }) => ({
+				status: context.status,
+			}),
+		});
+		const elementName = `actor-web-host-source-${crypto.randomUUID()}`;
+
+		register(elementName, () => html``);
+		const element = document.createElement(elementName);
+		element.setAttribute("fleet-id", "fleet-42");
+		document.body.appendChild(element);
+
+		expect(observedFleetId).toBe("fleet-42");
+		element.remove();
+	});
+
 	it("throws when adapter cannot be inferred", () => {
 		expect(() =>
 			igniteCore({

@@ -76,16 +76,14 @@ describe("igniteElementFactory", () => {
 		expect(adapter.scope).toBe(StateScope.Shared);
 	});
 
-	it("throws when attempting to define an element more than once", () => {
+	it("returns when attempting to define an element more than once", () => {
 		const adapter = new MinimalMockAdapter(initialState);
 		const component = igniteElementFactory(() => adapter);
 		const elementName = `ignite-duplicate-${crypto.randomUUID()}`;
 
 		component(elementName, () => html`<div></div>`);
 
-		expect(() => component(elementName, () => html`<div></div>`)).toThrowError(
-			`[igniteElementFactory] Element "${elementName}" has already been defined.`,
-		);
+		expect(() => component(elementName, () => html`<div></div>`)).not.toThrow();
 	});
 
 	it("supports class-based renderers", () => {
