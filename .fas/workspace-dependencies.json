@@ -1,0 +1,138 @@
+{
+  "_comment": "Cross-project dependency map for FAS planning. Scope is intentionally limited to FAS, actor-web, and ignite-element until additional sibling repos are curated with evidence.",
+  "projects": {
+    "FAS": {
+      "type": "node",
+      "path": "../FAS",
+      "dependsOn": [],
+      "consumedBy": [
+        "actor-web",
+        "ignite-element"
+      ],
+      "sharedContracts": [
+        "fas-platform-cli-and-config",
+        "franchise-shared-contracts"
+      ]
+    },
+    "actor-web": {
+      "type": "node",
+      "path": "../actor-web",
+      "dependsOn": [
+        "FAS"
+      ],
+      "consumedBy": [
+        "ignite-element"
+      ],
+      "sharedContracts": [
+        "franchise-shared-contracts",
+        "actor-web-ignite-adapter-target"
+      ]
+    },
+    "ignite-element": {
+      "type": "node",
+      "path": ".",
+      "dependsOn": [
+        "FAS",
+        "actor-web"
+      ],
+      "consumedBy": [],
+      "sharedContracts": [
+        "fas-platform-cli-and-config",
+        "franchise-shared-contracts",
+        "actor-web-ignite-adapter-target",
+        "ignite-package-public-api"
+      ]
+    }
+  },
+  "contracts": {
+    "fas-platform-cli-and-config": {
+      "description": "FAS CLI, synced workflow scripts/prompts/rules, and .fas-config contract used by this repo automation pipeline.",
+      "producer": "FAS",
+      "consumers": [
+        "ignite-element"
+      ],
+      "surfaces": {
+        "FAS": [
+          "../FAS/cli/fas",
+          "../FAS/templates/.fas-config.json",
+          "../FAS/scripts/",
+          "../FAS/prompts/",
+          "../FAS/agents/"
+        ],
+        "ignite-element": [
+          ".fas-config.json",
+          "AGENTS.md",
+          "CLAUDE.md",
+          ".fas/WORKFLOW.md"
+        ]
+      }
+    },
+    "franchise-shared-contracts": {
+      "description": "FAS-owned shared vocabulary for workflow snapshots, transition records, command execution records, actor addresses, and orchestration contracts referenced by the shared architecture docs.",
+      "producer": "FAS",
+      "consumers": [
+        "actor-web",
+        "ignite-element"
+      ],
+      "surfaces": {
+        "FAS": [
+          "../FAS/packages/shared-contracts/package.json",
+          "../FAS/packages/shared-contracts/index.d.ts",
+          "../FAS/packages/shared-contracts/README.md"
+        ],
+        "actor-web": [
+          "../actor-web/packages/actor-core-runtime/package.json",
+          "../actor-web/packages/actor-core-runtime/src/integration/fas-shared-contracts.ts",
+          "../actor-web/packages/actor-core-runtime/src/integration/fas-shared-contracts.typecheck.ts",
+          "../actor-web/packages/actor-core-runtime/src/unit/fas-shared-contracts.test.ts"
+        ],
+        "ignite-element": [
+          "docs/adr-003-shared-arc.md",
+          "docs/shared-architecture-model.md"
+        ]
+      }
+    },
+    "actor-web-ignite-adapter-target": {
+      "description": "Target integration where Ignite consumes Actor-Web actor snapshots, transport status, emitted events, and typed command senders as projection/runtime inputs. Actor-Web remains the runtime owner; Ignite remains the projection and product-surface owner.",
+      "producer": "actor-web",
+      "consumers": [
+        "ignite-element"
+      ],
+      "surfaces": {
+        "actor-web": [
+          "../actor-web/docs/examples/ignite-element-host.md",
+          "../actor-web/docs/examples/ignite-element-actor-web-north-star.md",
+          "../actor-web/docs/spikes/actor-web-adr-003-fas-integration-review.md",
+          "../actor-web/packages/actor-core-runtime/package.json"
+        ],
+        "ignite-element": [
+          "packages/ignite-adapters/src/adapters/ActorWebAdapter.ts",
+          "packages/ignite-adapters/src/actor-web.ts",
+          "packages/ignite-element/src/actor-web.ts",
+          "packages/ignite-element/src/igniteCore/actor-web.ts",
+          "docs/adr-003-shared-arc.md",
+          "docs/shared-architecture-model.md"
+        ]
+      }
+    },
+    "ignite-package-public-api": {
+      "description": "Ignite package-family public API boundaries used by docs, tests, examples, and optional Actor-Web integration work.",
+      "producer": "ignite-element",
+      "consumers": [
+        "ignite-element"
+      ],
+      "surfaces": {
+        "ignite-element": [
+          "packages/ignite-core/package.json",
+          "packages/ignite-core/src/index.ts",
+          "packages/ignite-adapters/package.json",
+          "packages/ignite-adapters/src/index.ts",
+          "packages/ignite-renderer/package.json",
+          "packages/ignite-renderer/src/index.ts",
+          "packages/ignite-element/package.json",
+          "packages/ignite-element/src/index.ts"
+        ]
+      }
+    }
+  }
+}

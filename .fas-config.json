@@ -2,6 +2,7 @@
 	"fasRoot": "../FAS",
 	"projectName": "ignite-element",
 	"projectType": "node",
+	"domainKnowledgeMapFile": "fas.domain-map.json",
 	"branchPrefix": "fas/",
 	"runtimeImplementerCommand": "",
 	"runtimeGitHubEnabled": false,
