@@ -50,6 +50,7 @@ packages/ignite-renderer/src/**/*.d.ts.map
 
 # >>> FAS managed ignore block >>>
 # FAS runtime data and local workspace state (generated, do not commit)
+.codex/
 .fas/*
 !.fas/TASKS.md
 !.fas/architecture-rules.json
