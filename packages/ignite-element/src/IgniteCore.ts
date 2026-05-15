@@ -79,6 +79,56 @@ type ActorWebConfigBase = ActorWebConfig<
 	{ type: string },
 	EventMap
 >;
+type AnyActorWebHostContextSource = (context: {
+	host?: HTMLElement;
+}) => unknown;
+type ActorWebSourceResult<Source> = Source extends (context: {
+	host?: HTMLElement;
+}) => infer Result
+	? Result
+	: never;
+type ActorWebSourceContext<Source> =
+	ActorWebSourceResult<Source> extends ActorWebSource<
+		infer SourceContext,
+		infer _SourceMessage,
+		infer _SourceEmitted
+	>
+		? SourceContext
+		: ActorWebSourceResult<Source> extends ActorWebSourceHandle<
+					infer HandleContext,
+					infer _HandleMessage,
+					infer _HandleEmitted
+				>
+			? HandleContext
+			: never;
+type ActorWebSourceMessage<Source> =
+	ActorWebSourceResult<Source> extends ActorWebSource<
+		infer _SourceContext,
+		infer SourceMessage,
+		infer _SourceEmitted
+	>
+		? SourceMessage
+		: ActorWebSourceResult<Source> extends ActorWebSourceHandle<
+					infer _HandleContext,
+					infer HandleMessage,
+					infer _HandleEmitted
+				>
+			? HandleMessage
+			: never;
+type ActorWebSourceEmitted<Source> =
+	ActorWebSourceResult<Source> extends ActorWebSource<
+		infer _SourceContext,
+		infer _SourceMessage,
+		infer SourceEmitted
+	>
+		? SourceEmitted
+		: ActorWebSourceResult<Source> extends ActorWebSourceHandle<
+					infer _HandleContext,
+					infer _HandleMessage,
+					infer HandleEmitted
+				>
+			? HandleEmitted
+			: never;
 
 function isXStateConfig(
 	options: IgniteCoreConfig,
@@ -231,6 +281,49 @@ export function igniteCore<
 >;
 
 export function igniteCore<
+	Source extends AnyActorWebHostContextSource,
+	Events extends EventMap = EmptyEventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+>(
+	options: Omit<
+		ActorWebConfig<
+			ActorWebSourceContext<Source>,
+			ActorWebSourceMessage<Source>,
+			ActorWebSourceEmitted<Source>,
+			Events,
+			StatesResult,
+			CommandsResult,
+			ActorWebSource<
+				ActorWebSourceContext<Source>,
+				ActorWebSourceMessage<Source>,
+				ActorWebSourceEmitted<Source>
+			>
+		>,
+		"adapter" | "source"
+	> & {
+		adapter?: undefined;
+		source: Source &
+			(undefined extends Parameters<Source>[0] ? never : unknown);
+	},
+): IgniteCoreReturn<
+	ActorWebExtendedState<ActorWebSourceContext<Source>>,
+	ActorWebSourceMessage<Source>,
+	ActorWebExtendedState<ActorWebSourceContext<Source>>,
+	StatesResult,
+	ActorWebCommandActor<
+		ActorWebSourceContext<Source>,
+		ActorWebSourceMessage<Source>,
+		ActorWebSourceEmitted<Source>
+	>,
+	CommandsResult,
+	Events
+>;
+
+export function igniteCore<
 	State extends object,
 	Events extends EventMap = EmptyEventMap,
 	StatesResult extends Record<string, unknown> = Record<never, never>,
@@ -250,7 +343,9 @@ export function igniteCore<
 	Events
 >;
 
-export function igniteCore(options?: IgniteCoreConfig) {
+export function igniteCore(
+	options?: IgniteCoreConfig | { adapter?: ResolvedAdapter; source: unknown },
+) {
 	if (typeof options === "undefined") {
 		type StaticState = Record<string, never>;
 		const staticState: StaticState = {};
@@ -273,22 +368,23 @@ export function igniteCore(options?: IgniteCoreConfig) {
 		return igniteElementFactory<StaticState, never>(createStaticAdapter);
 	}
 
-	const adapterName = resolveAdapter(options);
+	const config = options as IgniteCoreConfig;
+	const adapterName = resolveAdapter(config);
 
-	if (isXStateConfig(options, adapterName)) {
-		return igniteCoreXState(options);
+	if (isXStateConfig(config, adapterName)) {
+		return igniteCoreXState(config);
 	}
 
-	if (isReduxConfig(options, adapterName)) {
-		return igniteCoreRedux(options);
+	if (isReduxConfig(config, adapterName)) {
+		return igniteCoreRedux(config);
 	}
 
-	if (isMobxConfig(options, adapterName)) {
-		return igniteCoreMobx(options);
+	if (isMobxConfig(config, adapterName)) {
+		return igniteCoreMobx(config);
 	}
 
-	if (isActorWebConfig(options, adapterName)) {
-		return igniteCoreActorWeb(options);
+	if (isActorWebConfig(config, adapterName)) {
+		return igniteCoreActorWeb(config);
 	}
 
 	return assertNever(adapterName);
@@ -331,28 +427,9 @@ function resolveAdapter(options: IgniteCoreConfig): ResolvedAdapter {
 
 function inferFromFactory(
 	factory: (context?: { host?: HTMLElement }) => unknown,
-): Extract<ResolvedAdapter, "redux" | "mobx" | "actor-web"> | undefined {
+): Extract<ResolvedAdapter, "actor-web"> | undefined {
 	if (factory.length > 0) {
 		return "actor-web";
-	}
-
-	try {
-		const candidate = factory();
-		if (isReduxStore(candidate)) {
-			return "redux";
-		}
-		if (isActorWebSource(candidate) || isActorWebSourceHandle(candidate)) {
-			return "actor-web";
-		}
-		if (isMobxObservable(candidate)) {
-			return "mobx";
-		}
-	} catch (error) {
-		throw new Error(
-			`[igniteCore] Failed to execute source factory while inferring adapter. Specify the adapter explicitly. Original error: ${String(
-				error,
-			)}`,
-		);
 	}
 
 	return undefined;

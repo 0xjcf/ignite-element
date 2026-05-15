@@ -106,6 +106,19 @@ export type XStateConfig<
 	HTMLElement
 >;
 
+type AdapterConfigSource<
+	Adapter extends ResolvedAdapter,
+	Source,
+> = Source extends (...args: unknown[]) => unknown
+	? {
+			adapter: Adapter;
+			source: Source;
+		}
+	: {
+			adapter?: Adapter;
+			source: Source;
+		};
+
 export type ReduxBlueprintConfig<
 	Source extends ReduxBlueprintSource,
 	Events extends EventMap = EmptyEventMap,
@@ -114,13 +127,17 @@ export type ReduxBlueprintConfig<
 		never,
 		FacadeCommandFunction
 	>,
-> = StoreReduxBlueprintConfig<
-	Source,
-	Events,
-	StatesResult,
-	CommandsResult,
-	HTMLElement
->;
+> = Omit<
+	StoreReduxBlueprintConfig<
+		Source,
+		Events,
+		StatesResult,
+		CommandsResult,
+		HTMLElement
+	>,
+	"adapter" | "source"
+> &
+	AdapterConfigSource<"redux", Source>;
 
 export type ReduxInstanceConfig<
 	StoreInstance extends ReduxInstanceSource,
@@ -146,20 +163,47 @@ export type MobxConfig<
 		never,
 		FacadeCommandFunction
 	>,
-> = StoreMobxConfig<State, Events, StatesResult, CommandsResult, HTMLElement>;
+> = Omit<
+	StoreMobxConfig<State, Events, StatesResult, CommandsResult, HTMLElement>,
+	"adapter" | "source"
+> &
+	(
+		| {
+				adapter: "mobx";
+				source: () => State;
+		  }
+		| {
+				adapter?: "mobx";
+				source: State extends (...args: unknown[]) => unknown ? never : State;
+		  }
+	);
+
+type ActorWebSourceValue<
+	Context extends object,
+	Message extends { type: string },
+	Emitted extends { type: string },
+> =
+	| ActorWebSource<Context, Message, Emitted>
+	| ActorWebSourceHandle<Context, Message, Emitted>;
+
+type ActorWebHostContextFactory<
+	Context extends object,
+	Message extends { type: string },
+	Emitted extends { type: string },
+> = {
+	bivarianceHack(context?: {
+		host?: HTMLElement;
+	}): ActorWebSourceValue<Context, Message, Emitted>;
+}["bivarianceHack"];
 
 export type ActorWebSourceLike<
 	Context extends object,
 	Message extends { type: string },
 	Emitted extends { type: string },
 > =
-	| ActorWebSource<Context, Message, Emitted>
-	| ActorWebSourceHandle<Context, Message, Emitted>
-	| ((context?: {
-			host?: HTMLElement;
-	  }) =>
-			| ActorWebSource<Context, Message, Emitted>
-			| ActorWebSourceHandle<Context, Message, Emitted>);
+	| ActorWebSourceValue<Context, Message, Emitted>
+	| (() => ActorWebSourceValue<Context, Message, Emitted>)
+	| ActorWebHostContextFactory<Context, Message, Emitted>;
 
 export type ActorWebConfig<
 	Context extends object,
@@ -171,9 +215,12 @@ export type ActorWebConfig<
 		never,
 		FacadeCommandFunction
 	>,
+	Source extends ActorWebSourceLike<
+		Context,
+		Message,
+		Emitted
+	> = ActorWebSourceLike<Context, Message, Emitted>,
 > = {
-	adapter?: "actor-web";
-	source: ActorWebSourceLike<Context, Message, Emitted>;
 	states?: FacadeStatesCallback<ActorWebExtendedState<Context>, StatesResult>;
 	view?: FacadeViewCallback<ActorWebExtendedState<Context>, StatesResult>;
 	commands?: FacadeCommandsCallback<
@@ -200,44 +247,72 @@ export type ActorWebConfig<
 				HTMLElement
 			>;
 	  }
-);
+) &
+	ActorWebConfigSource<Context, Message, Emitted, Source>;
+
+type ActorWebConfigSource<
+	Context extends object,
+	Message extends { type: string },
+	Emitted extends { type: string },
+	Source extends ActorWebSourceLike<Context, Message, Emitted>,
+> = Source extends (...args: infer Args) => unknown
+	? Args extends []
+		? {
+				adapter: "actor-web";
+				source: Source;
+			}
+		: undefined extends Args[0]
+			? {
+					adapter: "actor-web";
+					source: Source;
+				}
+			: {
+					adapter?: "actor-web";
+					source: Source;
+				}
+	: {
+			adapter?: "actor-web";
+			source: Source;
+		};
 
 export type InferAdapterFromSource<Source> = Source extends AnyStateMachine
 	? "xstate"
 	: Source extends XStateActorInstance<AnyStateMachine>
 		? "xstate"
-		: Source extends () => infer Result
-			? Result extends EnhancedStore
-				? "redux"
-				: Result extends ActorWebSource<
-							object,
-							{ type: string },
-							{ type: string }
-						>
-					? "actor-web"
-					: Result extends ActorWebSourceHandle<
-								object,
-								{ type: string },
-								{ type: string }
+		: Source extends (...args: infer Args) => infer Result
+			? Args extends []
+				? never
+				: undefined extends Args[0]
+					? never
+					: Args[0] extends { host?: HTMLElement }
+						? Result extends ActorWebSource<
+								infer _ResultContext,
+								infer _ResultMessage,
+								infer _ResultEmitted
 							>
-						? "actor-web"
-						: Result extends object
-							? "mobx"
-							: never
+							? "actor-web"
+							: Result extends ActorWebSourceHandle<
+										infer _ResultHandleContext,
+										infer _ResultHandleMessage,
+										infer _ResultHandleEmitted
+									>
+								? "actor-web"
+								: never
+						: never
 			: Source extends EnhancedStore
 				? "redux"
 				: Source extends Slice
 					? "redux"
 					: Source extends ActorWebSource<
-								object,
-								{ type: string },
-								{ type: string }
+								infer _SourceContext,
+								infer _SourceMessage,
+								infer _SourceEmitted
 							>
 						? "actor-web"
 						: Source extends ActorWebSourceHandle<
-									object,
-									{ type: string },
-									{ type: string }
+									infer _SourceHandleContext,
+									infer _SourceHandleMessage,
+									infer _SourceHandleEmitted
 								>
 							? "actor-web"
 							: Source extends object
