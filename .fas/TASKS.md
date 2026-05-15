@@ -6,8 +6,8 @@
 
 - Title: repair actor-web adapter review evidence and artifact links
 - Mode: 4-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/repair-actor-web-adapter-review-evidence-and-artifact-links.md
 - Verification lane: fast
 - Policy sensitivity: standard
