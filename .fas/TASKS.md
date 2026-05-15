@@ -2,17 +2,7 @@
 
 ## Active Tasks
 
-### Task: reconcile ignite-element tracker with live FAS queue state
-
-- Title: reconcile ignite-element tracker with live FAS queue state
-- Mode: single-agent
-- Status: implementing
-- Owner: implementer
-- Brief: .fas/tasks/reconcile-ignite-element-tracker-with-live-fas-queue-state.md
-- Verification lane: fast
-- Policy sensitivity: standard
-- Blast radius: cross-cutting
-- Artifacts: brief=.fas/tasks/reconcile-ignite-element-tracker-with-live-fas-queue-state.md; planning=.fas/state/planning.json; taskPacket=.fas/state/task-packet.json; commitPlan=.fas/state/commit-plan.json; verification=.fas/state/verification/latest.json; review=.fas/state/review-summary.md; workflow=.fas/state/workflows
+No active tasks.
 
 ## Queued Tasks
 
@@ -20,7 +10,7 @@
 
 - Title: prevent eager Actor-Web source factory execution during adapter inference
 - Mode: 6-agent
-- Status: deferred
+- Status: queued
 - Owner: implementer
 - Brief: .fas/tasks/prevent-eager-actor-web-source-factory-execution-during-adapter-inference.md
 - Depends on: task-1778879253565, task-1778879253566
@@ -29,7 +19,7 @@
 
 - Title: refresh ignite-element FAS workflow contract from platform template
 - Mode: single-agent
-- Status: deferred
+- Status: queued
 - Owner: reviewer
 - Brief: .fas/tasks/refresh-ignite-element-fas-workflow-contract-from-platform-template.md
 - Depends on: task-1778879253566
@@ -38,7 +28,7 @@
 
 - Title: promote ignite-element markdown memory into SQLite records and refresh retrieval indexes
 - Mode: single-agent
-- Status: deferred
+- Status: queued
 - Owner: planner
 - Brief: .fas/tasks/promote-ignite-element-markdown-memory-into-sqlite-records-and-refresh-retrieval-indexes.md
 - Depends on: task-1778879253566
@@ -61,6 +51,18 @@
 - Brief: .fas/tasks/investigate-ignite-inspector-runtime-requirements-schema-met.md
 
 ## Completed Tasks
+
+### Task: reconcile ignite-element tracker with live FAS queue state
+
+- Title: reconcile ignite-element tracker with live FAS queue state
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/reconcile-ignite-element-tracker-with-live-fas-queue-state.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+- Artifacts: brief=.fas/tasks/reconcile-ignite-element-tracker-with-live-fas-queue-state.md; planning=.fas/state/planning.json; taskPacket=.fas/state/task-packet.json; commitPlan=.fas/state/commit-plan.json; verification=.fas/state/verification/latest.json; review=.fas/state/review-summary.md; workflow=.fas/state/workflows
 
 ### Task: repair actor-web adapter review evidence and artifact links
 
