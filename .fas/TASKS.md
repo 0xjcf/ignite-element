@@ -6,16 +6,6 @@ No active tasks.
 
 ## Queued Tasks
 
-### Task: prevent eager Actor-Web source factory execution during adapter inference
-
-- Title: prevent eager Actor-Web source factory execution during adapter inference
-- Mode: 6-agent
-- Status: review
-- Owner: reviewer
-- Brief: .fas/tasks/prevent-eager-actor-web-source-factory-execution-during-adapter-inference.md
-- Verification lane: fast
-- Policy sensitivity: standard
-- Blast radius: cross-cutting
 ### Task: refresh ignite-element FAS workflow contract from platform template
 
 - Title: refresh ignite-element FAS workflow contract from platform template
@@ -52,6 +42,18 @@ No active tasks.
 - Brief: .fas/tasks/investigate-ignite-inspector-runtime-requirements-schema-met.md
 
 ## Completed Tasks
+
+### Task: prevent eager Actor-Web source factory execution during adapter inference
+
+- Title: prevent eager Actor-Web source factory execution during adapter inference
+- Mode: 6-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/prevent-eager-actor-web-source-factory-execution-during-adapter-inference.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+- Artifacts: brief=.fas/tasks/prevent-eager-actor-web-source-factory-execution-during-adapter-inference.md; planning=.fas/state/planning.json; taskPacket=.fas/state/task-packet.json; commitPlan=.fas/state/commit-plan.json; verification=.fas/state/verification/latest.json; review=.fas/state/boundary-review-findings.md; workflow=.fas/state/workflows
 
 ### Task: reconcile ignite-element tracker with live FAS queue state
 
