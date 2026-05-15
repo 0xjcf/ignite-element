@@ -13,7 +13,10 @@ import counterStore, {
 } from "../../examples/redux/src/js/reduxCounterStore";
 import { igniteCore } from "../../IgniteCore";
 import type { AdapterPack } from "../../IgniteElementFactory";
-import type { XStateConfig } from "../../igniteCore/types";
+import type {
+	InferAdapterFromSource,
+	XStateConfig,
+} from "../../igniteCore/types";
 import type {
 	CommandContext,
 	EffectContext,
@@ -72,6 +75,20 @@ const actorWebShipmentSource: ActorWebSource<
 	ask: async <Response = unknown>() => 1 as Response,
 };
 
+const actorWebShipmentFactory = () => actorWebShipmentSource;
+const actorWebShipmentHostFactory = (_context: { host?: HTMLElement }) =>
+	actorWebShipmentSource;
+const actorWebShipmentDefaultedHostFactory = (
+	_context: { host?: HTMLElement } = {},
+) => actorWebShipmentSource;
+const mobxCounterFactory = () =>
+	makeAutoObservable({
+		count: 0,
+		increment() {
+			this.count += 1;
+		},
+	});
+
 describe("igniteCore type inference", () => {
 	it("infers actor-web context, transport, and command actor facades", () => {
 		const register = igniteCore({
@@ -112,6 +129,77 @@ describe("igniteCore type inference", () => {
 			  ) => Promise<Response>)
 			| undefined
 		>();
+	});
+
+	it("supports explicit actor-web factories and narrows omitted zero-arg factory inference", () => {
+		const register = igniteCore({
+			adapter: "actor-web",
+			source: actorWebShipmentFactory,
+			states: ({ context, transport }) => ({
+				status: context.status,
+				connected: transport.state === "connected",
+			}),
+			commands: ({ actor }) => ({
+				createShipment: (shipmentId: string) =>
+					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
+			}),
+		});
+
+		type RenderArgs = AdapterPack<typeof register>;
+
+		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<
+			ActorWebExtendedState<ActorWebShipmentContext>
+		>();
+		expectTypeOf<RenderArgs["createShipment"]>().toEqualTypeOf<
+			(shipmentId: string) => Promise<unknown>
+		>();
+		expectTypeOf<
+			InferAdapterFromSource<typeof actorWebShipmentHostFactory>
+		>().toEqualTypeOf<"actor-web">();
+		// @ts-expect-error zero-arg actor-web factories no longer infer an adapter
+		const omittedActorWebFactoryInference: InferAdapterFromSource<
+			typeof actorWebShipmentFactory
+		> = "actor-web";
+		void omittedActorWebFactoryInference;
+		// @ts-expect-error defaulted host-context factories compile to function.length 0
+		const defaultedActorWebFactoryInference: InferAdapterFromSource<
+			typeof actorWebShipmentDefaultedHostFactory
+		> = "actor-web";
+		void defaultedActorWebFactoryInference;
+	});
+
+	it("rejects omitted adapter inference for zero-arg redux and mobx factories", () => {
+		const assertOmittedFactoryAdapters = () => {
+			// @ts-expect-error defaulted actor-web factories must specify adapter
+			igniteCore({
+				source: actorWebShipmentDefaultedHostFactory,
+			});
+
+			// @ts-expect-error zero-arg redux factories must specify adapter
+			igniteCore({
+				source: counterStore,
+			});
+
+			// @ts-expect-error zero-arg mobx factories must specify adapter
+			igniteCore({
+				source: mobxCounterFactory,
+			});
+		};
+
+		void assertOmittedFactoryAdapters;
+
+		igniteCore({
+			adapter: "redux",
+			source: counterStore,
+		});
+		igniteCore({
+			adapter: "actor-web",
+			source: actorWebShipmentDefaultedHostFactory,
+		});
+		igniteCore({
+			adapter: "mobx",
+			source: mobxCounterFactory,
+		});
 	});
 
 	it("infers xstate snapshot and actor facades", () => {

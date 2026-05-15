@@ -176,13 +176,6 @@ describe("igniteCore", () => {
 		expect(core).toBeDefined();
 	});
 
-	it("infers redux adapter for store factory when omitted", () => {
-		const core = igniteCore({
-			source: mockReduxStore,
-		});
-		expect(core).toBeDefined();
-	});
-
 	it("infers redux adapter for store instance when omitted", () => {
 		const core = igniteCore({
 			source: mockReduxStore(),
@@ -205,13 +198,6 @@ describe("igniteCore", () => {
 		expect(core).toBeDefined();
 	});
 
-	it("infers mobx adapter for factories when omitted", () => {
-		const core = igniteCore({
-			source: mockMobxStore,
-		});
-		expect(core).toBeDefined();
-	});
-
 	it("infers actor-web adapter when omitted", () => {
 		const core = igniteCore({
 			source: createActorWebShipmentSource(),
@@ -219,24 +205,116 @@ describe("igniteCore", () => {
 		expect(core).toBeDefined();
 	});
 
-	it("provides host attributes to actor-web source factories after the element connects", () => {
+	it("does not execute zero-arg actor-web factories while adapter inference is omitted", () => {
+		const sourceFactory = vi.fn(() => createActorWebShipmentSource());
+
+		expect(() =>
+			igniteCore({
+				source: sourceFactory,
+			} as unknown as Parameters<typeof igniteCore>[0]),
+		).toThrow(
+			"[igniteCore] Unable to infer adapter from source. Please specify the adapter explicitly.",
+		);
+		expect(sourceFactory).not.toHaveBeenCalled();
+	});
+
+	it("infers actor-web from host-context factories without eager execution", () => {
 		let observedFleetId: string | null | undefined;
+		let sourceFactoryCalls = 0;
+		const sourceFactory: (context: {
+			host?: HTMLElement;
+		}) => ActorWebSource<
+			ActorWebShipmentContext,
+			ActorWebShipmentCommand,
+			{ type: "SHIPMENT_CREATED"; shipmentId: string }
+		> = (context) => {
+			sourceFactoryCalls += 1;
+			observedFleetId = context.host?.getAttribute("fleet-id");
+			return createActorWebShipmentSource();
+		};
 		const register = igniteCore({
-			source: (context: { host?: HTMLElement } | undefined) => {
+			source: sourceFactory,
+			states: ({ context }) => ({
+				status: context.status,
+			}),
+		});
+		const elementName = `actor-web-inferred-host-source-${crypto.randomUUID()}`;
+
+		expect(sourceFactoryCalls).toBe(0);
+		register(elementName, () => html``);
+		expect(sourceFactoryCalls).toBe(0);
+		const element = document.createElement(elementName);
+		element.setAttribute("fleet-id", "fleet-84");
+		document.body.appendChild(element);
+
+		expect(sourceFactoryCalls).toBe(1);
+		expect(observedFleetId).toBe("fleet-84");
+		element.remove();
+	});
+
+	it("does not infer defaulted actor-web host factories without an explicit adapter", () => {
+		let observedFleetId: string | null | undefined;
+		const sourceFactory = vi.fn((context: { host?: HTMLElement } = {}) => {
+			observedFleetId = context.host?.getAttribute("fleet-id");
+			return createActorWebShipmentSource();
+		});
+
+		expect(sourceFactory.length).toBe(0);
+		expect(() =>
+			igniteCore({
+				source: sourceFactory,
+			} as unknown as Parameters<typeof igniteCore>[0]),
+		).toThrow(
+			"[igniteCore] Unable to infer adapter from source. Please specify the adapter explicitly.",
+		);
+		expect(sourceFactory).not.toHaveBeenCalled();
+
+		const register = igniteCore({
+			adapter: "actor-web",
+			source: sourceFactory,
+			states: ({ context }) => ({
+				status: context.status,
+			}),
+		});
+		const elementName = `actor-web-defaulted-host-source-${crypto.randomUUID()}`;
+
+		expect(sourceFactory).not.toHaveBeenCalled();
+		register(elementName, () => html``);
+		expect(sourceFactory).not.toHaveBeenCalled();
+		const element = document.createElement(elementName);
+		element.setAttribute("fleet-id", "fleet-defaulted");
+		document.body.appendChild(element);
+
+		expect(sourceFactory).toHaveBeenCalledTimes(1);
+		expect(observedFleetId).toBe("fleet-defaulted");
+		element.remove();
+	});
+
+	it("keeps explicit actor-web factories lazy until connect and provides host context", () => {
+		const sourceFactory = vi.fn(
+			(context: { host?: HTMLElement } | undefined) => {
 				observedFleetId = context?.host?.getAttribute("fleet-id");
 				return createActorWebShipmentSource();
 			},
+		);
+		let observedFleetId: string | null | undefined;
+		const register = igniteCore({
+			adapter: "actor-web",
+			source: sourceFactory,
 			states: ({ context }) => ({
 				status: context.status,
 			}),
 		});
 		const elementName = `actor-web-host-source-${crypto.randomUUID()}`;
 
+		expect(sourceFactory).not.toHaveBeenCalled();
 		register(elementName, () => html``);
+		expect(sourceFactory).not.toHaveBeenCalled();
 		const element = document.createElement(elementName);
 		element.setAttribute("fleet-id", "fleet-42");
 		document.body.appendChild(element);
 
+		expect(sourceFactory).toHaveBeenCalledTimes(1);
 		expect(observedFleetId).toBe("fleet-42");
 		element.remove();
 	});
@@ -251,16 +329,16 @@ describe("igniteCore", () => {
 		);
 	});
 
-	it("throws when factory inference fails", () => {
+	it("fails closed for zero-arg factories when adapter inference is omitted", () => {
 		const failingFactory: () => Record<string, never> = () => {
 			throw new Error("factory boom");
 		};
 		expect(() =>
 			igniteCore({
 				source: failingFactory,
-			}),
+			} as unknown as Parameters<typeof igniteCore>[0]),
 		).toThrow(
-			"[igniteCore] Failed to execute source factory while inferring adapter. Specify the adapter explicitly.",
+			"[igniteCore] Unable to infer adapter from source. Please specify the adapter explicitly.",
 		);
 	});
 
