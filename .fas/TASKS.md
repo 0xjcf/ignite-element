@@ -2,7 +2,72 @@
 
 ## Active Tasks
 
-No active tasks.
+### Task: repair actor-web adapter review evidence and artifact links
+
+- Title: repair actor-web adapter review evidence and artifact links
+- Mode: 4-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/repair-actor-web-adapter-review-evidence-and-artifact-links.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: local
+- Artifacts: brief=.fas/tasks/repair-actor-web-adapter-review-evidence-and-artifact-links.md; planning=.fas/state/planning.json; taskPacket=.fas/state/task-packet.json; commitPlan=.fas/state/commit-plan.json; verification=.fas/state/verification/latest.json; review=.fas/state/review-summary.md; workflow=.fas/state/workflows
+
+## Queued Tasks
+
+### Task: reconcile ignite-element tracker with live FAS queue state
+
+- Title: reconcile ignite-element tracker with live FAS queue state
+- Mode: single-agent
+- Status: queued
+- Owner: reviewer
+- Brief: .fas/tasks/reconcile-ignite-element-tracker-with-live-fas-queue-state.md
+- Depends on: task-1778879253565
+
+### Task: prevent eager Actor-Web source factory execution during adapter inference
+
+- Title: prevent eager Actor-Web source factory execution during adapter inference
+- Mode: 6-agent
+- Status: queued
+- Owner: implementer
+- Brief: .fas/tasks/prevent-eager-actor-web-source-factory-execution-during-adapter-inference.md
+- Depends on: task-1778879253565, task-1778879253566
+
+### Task: refresh ignite-element FAS workflow contract from platform template
+
+- Title: refresh ignite-element FAS workflow contract from platform template
+- Mode: single-agent
+- Status: queued
+- Owner: reviewer
+- Brief: .fas/tasks/refresh-ignite-element-fas-workflow-contract-from-platform-template.md
+- Depends on: task-1778879253566
+
+### Task: promote ignite-element markdown memory into SQLite records and refresh retrieval indexes
+
+- Title: promote ignite-element markdown memory into SQLite records and refresh retrieval indexes
+- Mode: single-agent
+- Status: queued
+- Owner: planner
+- Brief: .fas/tasks/promote-ignite-element-markdown-memory-into-sqlite-records-and-refresh-retrieval-indexes.md
+- Depends on: task-1778879253566
+
+### Task: document Actor-Web adapter entrypoints and optional runtime boundary
+
+- Title: document Actor-Web adapter entrypoints and optional runtime boundary
+- Mode: single-agent
+- Status: queued
+- Owner: implementer
+- Brief: .fas/tasks/document-actor-web-adapter-entrypoints-and-optional-runtime-boundary.md
+- Depends on: task-1778879253567
+
+### Task: investigate ignite inspector runtime requirements, schema metadata gaps, and effects ergonomics follow-up tasks
+
+- Title: investigate ignite inspector runtime requirements, schema metadata gaps, and effects ergonomics follow-up tasks
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/investigate-ignite-inspector-runtime-requirements-schema-met.md
 
 ## Completed Tasks
 
@@ -85,14 +150,6 @@ No active tasks.
 - Owner: reviewer
 - Brief: .fas/tasks/clean-package-surfaces-remove-generated-source-artifacts-and.md
 
-### Task: investigate ignite inspector runtime requirements, schema metadata gaps, and effects ergonomics follow-up tasks
-
-- Title: investigate ignite inspector runtime requirements, schema metadata gaps, and effects ergonomics follow-up tasks
-- Mode: 6-agent
-- Status: done
-- Owner: reviewer
-- Brief: .fas/tasks/investigate-ignite-inspector-runtime-requirements-schema-met.md
-
 ### Task: shared architecture ADR and model alignment
 
 - Title: shared architecture ADR and model alignment
@@ -150,7 +207,7 @@ No active tasks.
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
-- Artifacts: planning=.fas/state/planning.json; taskPacket=.fas/state/task-packet.json; commitPlan=.fas/state/commit-plan.json; verification=.fas/state/verification/latest.json; review=.fas/state/boundary-review-findings.md; workflow=.fas/state/workflows
+- Artifacts: planning=.fas/state/planning.json; taskPacket=.fas/state/task-packet.json; commitPlan=.fas/state/commit-plan.json; verification=.fas/state/verification/latest.json; review=.fas/state/review-summary.md; workflow=.fas/state/workflows
 ## Template
 
 ### Task: <short task title>
