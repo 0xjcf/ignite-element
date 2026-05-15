@@ -28,3 +28,6 @@ single-agent
 ## Recommended Phase
 
 closeout
+
+## Scope Amendments
+- None. This is a `.fas/` workflow-contract refresh; FAS classifies these paths as generated/local workflow metadata, so the intentional local delta is documented in `.fas/WORKFLOW.md` instead of using affected-file planning entries.

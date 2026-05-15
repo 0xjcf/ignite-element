@@ -10,11 +10,12 @@ No active tasks.
 
 - Title: refresh ignite-element FAS workflow contract from platform template
 - Mode: single-agent
-- Status: queued
-- Owner: reviewer
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/refresh-ignite-element-fas-workflow-contract-from-platform-template.md
-- Depends on: task-1778879253566
-
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 ### Task: promote ignite-element markdown memory into SQLite records and refresh retrieval indexes
 
 - Title: promote ignite-element markdown memory into SQLite records and refresh retrieval indexes
