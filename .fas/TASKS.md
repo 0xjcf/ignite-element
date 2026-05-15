@@ -10,7 +10,7 @@ No active tasks.
 
 - Title: refresh ignite-element FAS workflow contract from platform template
 - Mode: single-agent
-- Status: implementing
+- Status: done
 - Owner: implementer
 - Brief: .fas/tasks/refresh-ignite-element-fas-workflow-contract-from-platform-template.md
 - Verification lane: fast
