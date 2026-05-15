@@ -44,6 +44,14 @@ Adapters are wired internally by helper constructors (for example, `create*Actor
 - **Redux Toolkit**: pass a slice (factory) or a store instance; Ignite subscribes and reads state on change. If you pass your own store, Ignite will unsubscribe its adapter as elements disconnect but will not dispose your store.
 - **MobX**: pass an observable or factory; Ignite reads derived values when observables mutate. Externally created observables are left running; Ignite only tears down the subscriptions it owns.
 
+:::note[Source factory adapter inference]
+The default `igniteCore` entrypoint does not execute zero-argument source factories while inferring an adapter.
+
+- Zero-argument Redux and MobX factories now require an explicit `adapter` or an adapter-specific entrypoint such as `ignite-element/redux` or `ignite-element/mobx`.
+- Zero-argument and defaulted Actor-Web factories require `adapter: "actor-web"` or the `ignite-element/actor-web` entrypoint.
+- Only required host-context Actor-Web factories are omitted-adapter inferable, because they declare a runtime parameter without a default value.
+:::
+
 :::note[Ownership and shared adapter teardown]
 - Each element always removes its subscriptions/render bindings on disconnect.
 - **Isolated adapters** (one per element) are stopped on disconnect. For XState machines, that also stops the actor Ignite created.

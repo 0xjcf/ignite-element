@@ -10,11 +10,12 @@ No active tasks.
 
 - Title: prevent eager Actor-Web source factory execution during adapter inference
 - Mode: 6-agent
-- Status: queued
-- Owner: implementer
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/prevent-eager-actor-web-source-factory-execution-during-adapter-inference.md
-- Depends on: task-1778879253565, task-1778879253566
-
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 ### Task: refresh ignite-element FAS workflow contract from platform template
 
 - Title: refresh ignite-element FAS workflow contract from platform template

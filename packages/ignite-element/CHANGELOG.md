@@ -6,6 +6,7 @@
 
 - Shift `igniteCore` to an effects-driven event model: commands now express intent, `effects(snapshot, prevSnapshot, ctx)` handles typed DOM event emission, and the runtime exposes headless `execute`, `getState`, and `subscribe` helpers.
 - Align package boundaries with ADR-003: `ignite-core` is now contract-only, `ignite-adapters` no longer exposes `igniteCore` authoring builders, and component authoring lives on `ignite-element/xstate`, `ignite-element/redux`, and `ignite-element/mobx`.
+- Tighten default `igniteCore` adapter inference so zero-argument Redux, MobX, and Actor-Web source factories are no longer executed or inferred without an explicit adapter. Use `adapter`, an adapter-specific entrypoint, or a required host-context Actor-Web factory for omitted-adapter inference.
 
 ### Deprecations
 
