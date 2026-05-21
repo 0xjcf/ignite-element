@@ -5,8 +5,7 @@ import type {
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
-	FacadeEffectsCallback,
-	FacadeEffectsObjectCallback,
+	FacadeEffectArgs,
 	FacadeStatesCallback,
 	FacadeViewCallback,
 } from "ignite-core";
@@ -55,23 +54,16 @@ type XStateEffectsOptions<
 	Machine extends AnyStateMachine,
 	Events extends EventMap,
 	Host,
-> =
-	| {
-			effects?: FacadeEffectsCallback<
-				ExtendedState<Machine>,
-				XStateCommandActor<Machine>,
-				Events,
-				Host
-			>;
-	  }
-	| {
-			effects?: FacadeEffectsObjectCallback<
-				ExtendedState<Machine>,
-				XStateCommandActor<Machine>,
-				Events,
-				Host
-			>;
-	  };
+> = {
+	effects?: (
+		args: FacadeEffectArgs<
+			ExtendedState<Machine>,
+			XStateCommandActor<Machine>,
+			Events,
+			Host
+		>,
+	) => void;
+};
 
 export type XStateConfig<
 	Machine extends AnyStateMachine,

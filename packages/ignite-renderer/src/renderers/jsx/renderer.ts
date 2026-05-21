@@ -163,8 +163,32 @@ function patchChildren(
 	onFallbackReplace?: (reason: string) => void,
 ): boolean {
 	if (!isAppendOnlyCompatible(oldChildren, newChildren)) {
-		onFallbackReplace?.("child-order-change");
-		return false;
+		// Instead of full replacement, try positional patching.
+		// This preserves existing elements when siblings change kind.
+		const maxLen = Math.max(oldChildren.length, newChildren.length);
+		for (let i = 0; i < maxLen; i++) {
+			const domChild = parent.childNodes[i];
+			if (i < oldChildren.length && i < newChildren.length && domChild) {
+				const patched = patchNode(
+					domChild,
+					oldChildren[i],
+					newChildren[i],
+					onFallbackReplace,
+				);
+				if (patched !== domChild) {
+					parent.replaceChild(patched, domChild);
+				}
+			} else if (i >= oldChildren.length) {
+				parent.appendChild(createDomFromNormalized(newChildren[i]));
+			} else if (i >= newChildren.length && domChild) {
+				parent.removeChild(domChild);
+			}
+		}
+		// Remove any extra trailing DOM nodes
+		while (parent.childNodes.length > newChildren.length && parent.lastChild) {
+			parent.removeChild(parent.lastChild);
+		}
+		return true;
 	}
 
 	let childIndex = 0;

@@ -77,7 +77,7 @@ describe("renderer core behavior", () => {
 			{ onFallbackReplace },
 		);
 
-		expect(onFallbackReplace).toHaveBeenCalledWith("child-order-change");
+		expect(onFallbackReplace).not.toHaveBeenCalled();
 		expect(host.textContent).toBe("BA");
 	});
 

@@ -85,6 +85,23 @@ type FactoryOptions<
 	cleanup?: boolean;
 };
 
+/**
+ * Expose command functions from additionalArgs as methods on the custom element.
+ * Commands are identified as enumerable own properties that are functions with
+ * a value descriptor (not getters, which are view/state projections).
+ */
+function exposeCommands(
+	element: HTMLElement,
+	additionalArgs: Record<string, unknown>,
+): void {
+	for (const key of Object.keys(additionalArgs)) {
+		const descriptor = Object.getOwnPropertyDescriptor(additionalArgs, key);
+		if (descriptor && "value" in descriptor && typeof descriptor.value === "function") {
+			(element as unknown as Record<string, unknown>)[key] = descriptor.value;
+		}
+	}
+}
+
 export default function igniteElementFactory<
 	State,
 	Event,
@@ -308,6 +325,7 @@ export default function igniteElementFactory<
 
 				connectedCallback(): void {
 					this.additionalArgs = resolveSharedAdditionalArgs(this);
+					exposeCommands(this, this.additionalArgs as Record<string, unknown>);
 					sharedInstanceCount += 1;
 					super.connectedCallback();
 				}
@@ -374,6 +392,7 @@ export default function igniteElementFactory<
 					adapter.scope ??= StateScope.Isolated;
 					this.adapterInstance = adapter;
 					this.additionalArgs = createAdditionalArgs(adapter, this);
+					exposeCommands(this, this.additionalArgs as Record<string, unknown>);
 					this.initializeAdapter(adapter);
 				}
 

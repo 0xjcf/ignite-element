@@ -29,8 +29,7 @@ import type {
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
-	FacadeEffectsCallback,
-	FacadeEffectsObjectCallback,
+	FacadeEffectArgs,
 	FacadeStatesCallback,
 	FacadeViewCallback,
 } from "ignite-core";
@@ -183,24 +182,15 @@ export type ActorWebConfig<
 	>;
 	events?: EventsDefinition<Events>;
 	cleanup?: boolean;
-} & (
-	| {
-			effects?: FacadeEffectsCallback<
-				ActorWebExtendedState<Context>,
-				ActorWebCommandActor<Context, Message, Emitted>,
-				Events,
-				HTMLElement
-			>;
-	  }
-	| {
-			effects?: FacadeEffectsObjectCallback<
-				ActorWebExtendedState<Context>,
-				ActorWebCommandActor<Context, Message, Emitted>,
-				Events,
-				HTMLElement
-			>;
-	  }
-);
+	effects?: (
+		args: FacadeEffectArgs<
+			ActorWebExtendedState<Context>,
+			ActorWebCommandActor<Context, Message, Emitted>,
+			Events,
+			HTMLElement
+		>,
+	) => void;
+};
 
 export type InferAdapterFromSource<Source> = Source extends AnyStateMachine
 	? "xstate"

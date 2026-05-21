@@ -9,7 +9,7 @@ import type { EventDescriptor, FacadeEffectArgs } from "../../RenderArgs";
 import { test as igniteTest } from "../../testing";
 
 describe("ignite test DSL types", () => {
-	it("infers command payloads, xstate value matching, and event payloads", () => {
+	it("infers command payloads, xstate value matching, and event payloads", async () => {
 		const machine = createMachine({
 			initial: "off",
 			states: {
@@ -56,9 +56,9 @@ describe("ignite test DSL types", () => {
 		} satisfies XStateConfig<typeof machine, ToggleEventMap>;
 		const component = igniteCore(componentConfig);
 
-		const scenario = igniteTest(component)
+		const scenario = (await igniteTest(component)
 			.given("off")
-			.when("toggle")
+			.when("toggle"))
 			.expectState("on")
 			.expectEvent("toggled", { isOn: true });
 

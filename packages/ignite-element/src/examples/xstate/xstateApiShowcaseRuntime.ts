@@ -67,7 +67,7 @@ export const apiShowcase = igniteCore({
 			description: "Reset the count to zero.",
 		}),
 	}),
-	effects: (snapshot, prevSnapshot, { emit, select }) => {
+	effects: ({ emit, select, snapshot, prevSnapshot }) => {
 		const count = select((state) => state.context.count);
 		if (count.changed) {
 			emit("api-count-changed", {
