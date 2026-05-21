@@ -96,7 +96,11 @@ function exposeCommands(
 ): void {
 	for (const key of Object.keys(additionalArgs)) {
 		const descriptor = Object.getOwnPropertyDescriptor(additionalArgs, key);
-		if (descriptor && "value" in descriptor && typeof descriptor.value === "function") {
+		if (
+			descriptor &&
+			"value" in descriptor &&
+			typeof descriptor.value === "function"
+		) {
 			(element as unknown as Record<string, unknown>)[key] = descriptor.value;
 		}
 	}

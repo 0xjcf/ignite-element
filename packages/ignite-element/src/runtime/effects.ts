@@ -119,16 +119,14 @@ export function attachEffects<
 					select,
 				});
 			} else {
-				(effects as FacadeEffectsCallback<Snapshot, CommandActor, Events, Host>)(
-					snapshot,
-					prev,
-					{
-						actor,
-						emit,
-						host,
-						select,
-					},
-				);
+				(
+					effects as FacadeEffectsCallback<Snapshot, CommandActor, Events, Host>
+				)(snapshot, prev, {
+					actor,
+					emit,
+					host,
+					select,
+				});
 			}
 		});
 	});

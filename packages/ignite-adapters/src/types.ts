@@ -177,9 +177,7 @@ type MobxBaseConfig<
 };
 
 type MobxEffectsConfig<State extends object, Events extends EventMap, Host> = {
-	effects?: (
-		args: FacadeEffectArgs<State, State, Events, Host>,
-	) => void;
+	effects?: (args: FacadeEffectArgs<State, State, Events, Host>) => void;
 };
 
 export type MobxConfig<

@@ -56,9 +56,7 @@ describe("ignite test DSL types", () => {
 		} satisfies XStateConfig<typeof machine, ToggleEventMap>;
 		const component = igniteCore(componentConfig);
 
-		const scenario = (await igniteTest(component)
-			.given("off")
-			.when("toggle"))
+		const scenario = (await igniteTest(component).given("off").when("toggle"))
 			.expectState("on")
 			.expectEvent("toggled", { isOn: true });
 

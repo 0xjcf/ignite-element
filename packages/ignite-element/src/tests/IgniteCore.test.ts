@@ -449,7 +449,12 @@ describe("igniteCore", () => {
 			prevSnapshot,
 			emit,
 			host,
-		}: FacadeEffectArgs<EventStoreState, ReduxStoreCommandActor<typeof store>, CounterEventMap, HTMLElement>) => {
+		}: FacadeEffectArgs<
+			EventStoreState,
+			ReduxStoreCommandActor<typeof store>,
+			CounterEventMap,
+			HTMLElement
+		>) => {
 			if (snapshot.counter.count === prevSnapshot.counter.count) {
 				return;
 			}
@@ -808,7 +813,9 @@ describe("igniteCore", () => {
 		await expect(() => story.execute("increment", 1)).rejects.toThrow(
 			'[igniteCore] Story "counter reaches five" has been stopped.',
 		);
-		expect((await register.execute("increment", 1)).state.counter.count).toBe(6);
+		expect((await register.execute("increment", 1)).state.counter.count).toBe(
+			6,
+		);
 	});
 
 	it("records DOM lifecycle evidence for active stories and detaches on stop", async () => {

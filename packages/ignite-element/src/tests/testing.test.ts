@@ -58,9 +58,7 @@ describe("ignite test DSL", () => {
 		} satisfies XStateConfig<typeof machine, ToggleEventMap>;
 		const component = igniteCore(componentConfig);
 
-		(await igniteTest(component)
-			.given("off")
-			.when("toggle"))
+		(await igniteTest(component).given("off").when("toggle"))
 			.expectState("on")
 			.expectEvent("toggled", { isOn: true });
 	});
@@ -99,9 +97,11 @@ describe("ignite test DSL", () => {
 		>;
 		const component = igniteCore(componentConfig);
 
-		const result = (await igniteTest(component)
-			.given({ counter: { count: 0 } })
-			.when("increment", 2))
+		const result = (
+			await igniteTest(component)
+				.given({ counter: { count: 0 } })
+				.when("increment", 2)
+		)
 			.expectState({ counter: { count: 2 } })
 			.expectEvents([
 				{
