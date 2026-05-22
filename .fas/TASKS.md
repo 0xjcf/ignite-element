@@ -6,6 +6,82 @@ No active tasks.
 
 ## Queued Tasks
 
+### Task: fix runtime correctness blockers from CodeRabbit domain review
+
+- Title: fix runtime correctness blockers from CodeRabbit domain review
+- Mode: 6-agent
+- Status: queued
+- Owner: implementer
+- Brief: .fas/tasks/fix-runtime-correctness-blockers-from-coderabbit-domain-revi.md
+
+### Task: repair build and module configuration blockers from CodeRabbit review
+
+- Title: repair build and module configuration blockers from CodeRabbit review
+- Mode: 6-agent
+- Status: queued
+- Owner: implementer
+- Brief: .fas/tasks/repair-build-and-module-configuration-blockers-from-coderabb.md
+
+### Task: harden migration and architecture utility scripts from CodeRabbit review
+
+- Title: harden migration and architecture utility scripts from CodeRabbit review
+- Mode: 4-agent
+- Status: queued
+- Owner: implementer
+- Brief: .fas/tasks/harden-migration-and-architecture-utility-scripts-from-coder.md
+
+### Task: replace inaccurate testing documentation from CodeRabbit review
+
+- Title: replace inaccurate testing documentation from CodeRabbit review
+- Mode: 4-agent
+- Status: queued
+- Owner: implementer
+- Brief: .fas/tasks/replace-inaccurate-testing-documentation-from-coderabbit-rev.md
+
+### Task: investigate ignite inspector runtime requirements, schema metadata gaps, and effects ergonomics follow-up tasks
+
+- Title: investigate ignite inspector runtime requirements, schema metadata gaps, and effects ergonomics follow-up tasks
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/investigate-ignite-inspector-runtime-requirements-schema-met.md
+
+### Task: tighten test harnesses and example metadata from CodeRabbit review
+
+- Title: tighten test harnesses and example metadata from CodeRabbit review
+- Mode: single-agent
+- Status: queued
+- Owner: implementer
+- Brief: .fas/tasks/tighten-test-harnesses-and-example-metadata-from-coderabbit.md
+
+### Task: clean FAS tracker and package metadata review hygiene
+
+- Title: clean FAS tracker and package metadata review hygiene
+- Mode: single-agent
+- Status: queued
+- Owner: implementer
+- Brief: .fas/tasks/clean-fas-tracker-and-package-metadata-review-hygiene.md
+
+### Task: document Actor-Web adapter entrypoints and optional runtime boundary
+
+- Title: document Actor-Web adapter entrypoints and optional runtime boundary
+- Mode: single-agent
+- Status: queued
+- Owner: implementer
+- Brief: .fas/tasks/document-actor-web-adapter-entrypoints-and-optional-runtime-boundary.md
+- Depends on: task-1778879253567
+
+### Task: promote ignite-element markdown memory into SQLite records and refresh retrieval indexes
+
+- Title: promote ignite-element markdown memory into SQLite records and refresh retrieval indexes
+- Mode: single-agent
+- Status: queued
+- Owner: planner
+- Brief: .fas/tasks/promote-ignite-element-markdown-memory-into-sqlite-records-and-refresh-retrieval-indexes.md
+- Depends on: task-1778879253566
+
+## Completed Tasks
+
 ### Task: refresh ignite-element FAS workflow contract from platform template
 
 - Title: refresh ignite-element FAS workflow contract from platform template
@@ -16,33 +92,6 @@ No active tasks.
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
-### Task: promote ignite-element markdown memory into SQLite records and refresh retrieval indexes
-
-- Title: promote ignite-element markdown memory into SQLite records and refresh retrieval indexes
-- Mode: single-agent
-- Status: queued
-- Owner: planner
-- Brief: .fas/tasks/promote-ignite-element-markdown-memory-into-sqlite-records-and-refresh-retrieval-indexes.md
-- Depends on: task-1778879253566
-
-### Task: document Actor-Web adapter entrypoints and optional runtime boundary
-
-- Title: document Actor-Web adapter entrypoints and optional runtime boundary
-- Mode: single-agent
-- Status: deferred
-- Owner: implementer
-- Brief: .fas/tasks/document-actor-web-adapter-entrypoints-and-optional-runtime-boundary.md
-- Depends on: task-1778879253567
-
-### Task: investigate ignite inspector runtime requirements, schema metadata gaps, and effects ergonomics follow-up tasks
-
-- Title: investigate ignite inspector runtime requirements, schema metadata gaps, and effects ergonomics follow-up tasks
-- Mode: 6-agent
-- Status: queued
-- Owner: runtime
-- Brief: .fas/tasks/investigate-ignite-inspector-runtime-requirements-schema-met.md
-
-## Completed Tasks
 
 ### Task: prevent eager Actor-Web source factory execution during adapter inference
 
@@ -217,6 +266,7 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 - Artifacts: planning=.fas/state/planning.json; taskPacket=.fas/state/task-packet.json; commitPlan=.fas/state/commit-plan.json; verification=.fas/state/verification/latest.json; review=.fas/state/review-summary.md; workflow=.fas/state/workflows
+
 ## Template
 
 ### Task: <short task title>
