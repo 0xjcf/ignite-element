@@ -79,33 +79,39 @@ It does not, by itself, ground the full present-fact ownership model of the sepa
 ### Intent
 
 Grounded current state:
+
 - Ignite exposes explicit commands and events rather than hiding requests in renderer mutations
 
 ### Deterministic decision
 
 Grounded current state:
+
 - `ignite-core` owns the core contracts used to describe state, commands, events, and effects
 
 ### Workflow and lifecycle
 
 Grounded current state:
+
 - adapters and runtime-facing package surfaces expose lifecycle distinctions such as shared versus isolated scope
 - FAS workflow files in this repository encode explicit task phases and verification stages
 
 ### Imperative execution over time
 
 Grounded current state:
+
 - adapter integrations and the `ignite-element` runtime host deal with subscriptions, runtime setup, and cleanup
 
 ### Projection
 
 Grounded current state:
+
 - `ignite-element` owns projection assembly and turns source snapshots into render/runtime-facing surfaces
 - `ignite-renderer` turns those projected surfaces into renderer-specific execution
 
 ### Product composition
 
 Grounded current state:
+
 - `ignite-element` assembles the lower-level package families into the public Web Component surface for this repository
 
 ## Inferred Cross-Repo Mapping
@@ -115,38 +121,46 @@ The sections below are intentionally not stated as current fact for the broader 
 ### `editor-save-loop`
 
 Inferred cross-repo mapping:
+
 - likely serves as a compact example of the same layered shape, especially around explicit lifecycle and isolated side effects
 
 Not yet grounded here:
+
 - whether it should be described as the proof of the architecture
 - the exact ownership boundaries it declares for projection, orchestration, and composition
 
 ### `FAS`
 
 Inferred cross-repo mapping:
+
 - likely primary ownership: workflow policy, task lifecycle, and artifact handling
 - likely does not own: product composition, renderer projection, or repo-local UI assembly
 
 Not yet grounded here:
+
 - the full repo-level split between deterministic policy, orchestration runtime, and presentation surfaces inside the separate `FAS` codebase
 
 ### `actor-web`
 
 Inferred cross-repo mapping:
+
 - likely primary ownership: orchestration topology and long-lived runtime coordination
 - likely does not own: canonical workflow policy, low-level projection primitives, or design-system composition
 
 Not yet grounded here:
+
 - whether it owns topology as present fact
 - where its boundaries stop relative to workflow policy and projection
 
 ### `Blueprint`
 
 Inferred cross-repo mapping:
+
 - likely primary ownership: product composition and design-system level assembly
 - likely does not own: workflow policy, runtime orchestration, or low-level decision and lifecycle primitives
 
 Not yet grounded here:
+
 - whether it is the present-fact owner of composition for the ecosystem
 - which composition boundaries remain inside `ignite-element` versus move into `Blueprint`
 

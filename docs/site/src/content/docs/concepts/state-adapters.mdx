@@ -13,12 +13,14 @@ Ignite Element wraps your state source in an **adapter** that handles lifecycle,
 Machines should describe behavior only: states, transitions, guards, and events. Keep them pure and deterministic so they stay testable and portable.
 
 Keep in machines:
+
 - State structure and transitions
 - Guards and invariants
 - Domain events (what happened, not how)
 - Context data needed for decisions
 
 Avoid in machines:
+
 - Network calls or wallet connections
 - Direct browser APIs (`window`, `localStorage`, `fetch`)
 - Long-running IO inside `invoke`
@@ -50,9 +52,11 @@ The default `igniteCore` entrypoint does not execute zero-argument source factor
 - Zero-argument Redux and MobX factories now require an explicit `adapter` or an adapter-specific entrypoint such as `ignite-element/redux` or `ignite-element/mobx`.
 - Zero-argument and defaulted Actor-Web factories require `adapter: "actor-web"` or the `ignite-element/actor-web` entrypoint.
 - Only required host-context Actor-Web factories are omitted-adapter inferable, because they declare a runtime parameter without a default value.
+
 :::
 
 :::note[Ownership and shared adapter teardown]
+
 - Each element always removes its subscriptions/render bindings on disconnect.
 - **Isolated adapters** (one per element) are stopped on disconnect. For XState machines, that also stops the actor Ignite created.
 - **Shared adapters** (one adapter reused across elements) are released when the last element disconnects, unless `cleanup: false`.
@@ -78,9 +82,11 @@ register('ignite-toggle', /* renderer */);
 // Later, when you no longer need the shared actor:
 sharedActor.stop();
 ```
+
 :::
 
 :::note[Lifecycle at a glance]
+
 ```
 Machine (definition)          Started actor (you own)
   │                               │
@@ -93,6 +99,7 @@ teardown override: n/a         cleanup: shared adapter teardown
 
 - Isolated (machine): per-element adapter; stopped on disconnect (for XState, Ignite-created actors are stopped); `cleanup` doesn’t apply.
 - Shared (passed actor/store/observable): one adapter reused; last disconnect releases the adapter unless `cleanup: false`; user-owned sources keep running.
+
 :::
 
 ## Shared vs. isolated

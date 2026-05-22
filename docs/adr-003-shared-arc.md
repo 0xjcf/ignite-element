@@ -38,9 +38,11 @@ These layers describe responsibilities, not a one-repo-per-layer topology. A rep
 #### 1. Intent
 
 Primary ownership:
+
 - explicit commands, requests, and events that ask the system to do work
 
 Does not own:
+
 - policy decisions about whether the request is allowed
 - execution sequencing, retries, or delivery mechanics
 - UI composition concerns
@@ -48,32 +50,38 @@ Does not own:
 #### 2. Deterministic decision
 
 Primary ownership:
+
 - pure or mostly deterministic rules that decide what should happen next
 - state transition logic
 - command validation and rule enforcement
 
 Does not own:
+
 - timers, I/O, retries, message delivery, or orchestration
 - rendering and layout decisions
 
 #### 3. Workflow and lifecycle
 
 Primary ownership:
+
 - explicit lifecycle state
 - allowed progression through phases, statuses, or runtime states
 - coordination rules that depend on where the system is in time
 
 Does not own:
+
 - low-level execution infrastructure
 - visual composition or design grammar
 
 #### 4. Imperative execution over time
 
 Primary ownership:
+
 - asynchronous work, ordering, retries, scheduling, delivery, supervision, and failure isolation
 - runtime coordination that interacts with non-deterministic systems
 
 Does not own:
+
 - source-of-truth policy for what work means
 - presentation-specific projection logic
 - product composition
@@ -81,10 +89,12 @@ Does not own:
 #### 5. Projection
 
 Primary ownership:
+
 - read models and view models derived from internal state
 - translation of runtime or workflow state into consumable render or inspection surfaces
 
 Does not own:
+
 - orchestration and runtime topology
 - core decision rules
 - page, application, or product assembly
@@ -92,10 +102,12 @@ Does not own:
 #### 6. Product composition
 
 Primary ownership:
+
 - assembly of projections, commands, and surfaces into user-facing products
 - composition grammar, layout, and reusable product structure
 
 Does not own:
+
 - workflow policy
 - runtime orchestration
 - low-level projection mechanics
@@ -107,10 +119,12 @@ Within this repository, the shared architecture maps to package families as foll
 #### `ignite-core`
 
 Primary ownership:
+
 - deterministic decision primitives
 - state, command, event, and effect contracts used by higher layers
 
 Does not own:
+
 - adapter integration details
 - renderer registration or DOM strategy concerns
 - product assembly
@@ -118,25 +132,30 @@ Does not own:
 #### `ignite-adapters`
 
 Primary ownership:
+
 - integration between Ignite contracts and external state/runtime sources such as Redux, MobX, and XState
 - boundary translation needed to expose those sources through Ignite contracts
 
 Does not own:
+
 - canonical business policy
 - renderer strategy selection
 - product composition
 
 Notes:
+
 - this family may touch deterministic decision and workflow/lifecycle boundaries because adapters expose source-specific runtime facts
 - that adjacency does not make `ignite-adapters` the owner of orchestration or composition
 
 #### `ignite-renderer`
 
 Primary ownership:
+
 - render strategy registration and renderer-facing runtime utilities
 - translation from projections into renderer-specific execution surfaces
 
 Does not own:
+
 - workflow policy
 - application orchestration
 - product grammar
@@ -144,15 +163,18 @@ Does not own:
 #### `ignite-element`
 
 Primary ownership:
+
 - public assembly of Ignite package families into a Web Component oriented product surface
 - component factory, runtime host coordination, and renderer-aware element registration
 
 Does not own:
+
 - ecosystem-wide orchestration topology
 - cross-product composition rules outside this repository
 - authority to redefine the underlying shared architecture contract
 
 Notes:
+
 - `ignite-element` spans adjacent projection and product-composition concerns because it assembles renderer and runtime packages into a consumable surface
 - this does not make the repository a monolithic layer
 

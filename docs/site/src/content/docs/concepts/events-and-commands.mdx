@@ -73,11 +73,13 @@ effects: (_snapshot, _prevSnapshot, { host, emit }) => {
 You can read `dataset`, measure the element, or dispatch additional DOM events from `host` as needed. Reflect state (attrs/aria/class) primarily via your renderer to keep outputs declarative.
 
 :::tip[Host + actor model]
+
 - Keep state in your adapter; use `host` to reflect state (attrs/aria/class) or perform tiny DOM affordances (focus).
 - Avoid treating `host` as a source of truth—don’t stash business logic or long-lived state on the element.
 - Prefer taking behavioral inputs (like `step`) from your state source/context, not from host attributes. If you must read an attribute, parse it once and feed it into state.
 - Keep side effects small and deterministic; longer side effects belong in your state library and should be coordinated from `effects`.
 - This keeps a clean separation: adapter = state/actor model; renderer = declarative view; `host` = small imperative DOM bridge when needed (while staying outside your state logic).
+
 :::
 
 :::note[Think “ref”]

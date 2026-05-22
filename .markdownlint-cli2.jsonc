@@ -1,0 +1,29 @@
+{
+	"globs": [
+		"*.md",
+		".changeset/*.md",
+		"docs/**/*.{md,mdx}",
+		"packages/*/*.md",
+		"packages/ignite-element/src/examples/**/*.{md,mdx}"
+	],
+	"ignores": [
+		"**/node_modules/**",
+		"**/dist/**",
+		"**/coverage/**",
+		".fas/state/**",
+		".fas/index/**",
+		".fas/semantic/**"
+	],
+	"config": {
+		"default": true,
+		"MD001": false,
+		"MD013": false,
+		"MD024": {
+			"siblings_only": true
+		},
+		"MD033": false,
+		"MD036": false,
+		"MD040": false,
+		"MD041": false
+	}
+}

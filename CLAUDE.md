@@ -52,7 +52,7 @@ Only modify files that the current task requires.
 - If an unplanned change is necessary for correctness, note it explicitly in the commit message.
 
 | Rationalization | Why it is wrong |
-|---|---|
+| --- | --- |
 | "I noticed this bug while working nearby, I should fix it now" | File a follow-up task. Unplanned fixes muddy the review and risk regressions. |
 | "This file needs reformatting anyway" | Formatting changes belong in a dedicated `chore` commit or a separate PR. |
 | "It is just one small rename" | Renames ripple through imports you did not plan to test. |
@@ -101,7 +101,7 @@ Do not continue to the next commit-plan step when the current step has failures.
 - Lifecycle boundaries must be respected.
 
 | Rationalization | Why it is wrong |
-|---|---|
+| --- | --- |
 | "This function needs to read a file, it is simpler to do it inline" | That is the violation. Move the I/O to an adapter and pass the result in. |
 | "It is just a log statement, not real I/O" | Logging is I/O. Keep it in the shell or adapter layer. |
 | "The adapter threw, I need to try/catch in the core" | Adapters must return facts. If you are catching in the core, the adapter boundary is wrong. |
@@ -109,26 +109,32 @@ Do not continue to the next commit-plan step when the current step has failures.
 ## Common Rationalizations
 
 ### Skipping planning
+
 | "The task is simple, I can skip planning" | The pipeline is the discipline. Simple tasks finish faster through the pipeline, not around it. |
 | "I already know which files to change" | The planner discovers dependency-reachable files and cross-module impacts you will miss. |
 
 ### Skipping verification
+
 | "I already ran the tests individually" | Individual runs do not replace `verify.sh`. The pipeline runs format, lint, typecheck, test, and boundaries as a unit. |
 | "The change is too small to need verification" | Small changes break things. A one-line typo fix can fail formatting. Always verify. |
 
 ### Combining commits
+
 | "These two steps are closely related, I will combine them" | Separate commits let each step be reviewed, reverted, and bisected independently. |
 | "It is faster to do it all at once" | It feels faster until something breaks and you cannot tell which change caused it. |
 
 ### Skipping memory
+
 | "I already know this codebase" | Memory contains incidents, PR feedback, and decisions from other sessions you have no access to. |
 | "The task is narrow, memory is not relevant" | Narrow tasks are where past incidents matter most. |
 
 ### Code preservation
+
 | "The comment is obvious and adds no value" | If it explains why, not what, keep it. |
 | "I am rewriting this code, so the old comments do not apply" | If the comment explains a platform quirk or design decision, it likely still applies. Update rather than delete. |
 
 ### Spike-phase drift
+
 | "I found the answer, let me just fix it" | Spikes are read-only. Fixes go into task briefs for the implementation pipeline. Implementing during a spike bypasses planning, commit discipline, and verification. |
 | "This repo doesn't need bootstrapping" | Bootstrapping produces indexes and memory that make exploration structural. Skipping it degrades spike quality. |
 | "The spike is done after one repo" | Spikes exist because the problem is cross-cutting. Check sibling repos before concluding. |
