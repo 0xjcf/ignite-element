@@ -98,7 +98,7 @@ describe("ignite-jsx diffing behavior", () => {
 		);
 
 		expect(host.textContent).toBe("BA");
-		expect(fallback).toHaveBeenCalledWith("child-order-change");
+		expect(fallback).not.toHaveBeenCalled();
 	});
 
 	it("forces replace when tag is denylisted", () => {

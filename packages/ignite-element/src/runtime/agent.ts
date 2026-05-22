@@ -149,7 +149,7 @@ export function createAgentRuntime<
 		return createWatcher(resolveView, handler);
 	};
 
-	const executeCommand = (commandName: string, payload?: unknown) => {
+	const executeCommand = async (commandName: string, payload?: unknown) => {
 		const { adapter, additionalArgs, host } = resolveRuntime();
 		const command = (additionalArgs as Record<string, unknown>)[commandName];
 
@@ -173,6 +173,9 @@ export function createAgentRuntime<
 
 		try {
 			(command as (arg?: unknown) => unknown)(payload);
+
+			// Flush microtask to allow post-render effects to emit events
+			await new Promise<void>((resolve) => queueMicrotask(resolve));
 
 			return {
 				state: adapter.getState(),
@@ -223,7 +226,7 @@ export function createAgentRuntime<
 
 		const story = {
 			name,
-			execute(commandName: string, payload?: unknown) {
+			async execute(commandName: string, payload?: unknown) {
 				assertActive();
 				const step = commandCount + 1;
 				const beforeState = resolveRuntime().adapter.getState();
@@ -257,7 +260,7 @@ export function createAgentRuntime<
 					view: normalizeTraceValue(beforeView),
 				});
 
-				const result = executeCommand(commandName, payload);
+				const result = await executeCommand(commandName, payload);
 
 				for (const event of result.events) {
 					emittedEvents.push({
@@ -288,7 +291,7 @@ export function createAgentRuntime<
 				commandCount = step;
 				return result;
 			},
-			until(
+			async until(
 				viewPredicate: (view: View) => boolean,
 				action: (
 					story: IgniteStory<
@@ -321,9 +324,11 @@ export function createAgentRuntime<
 						);
 					}
 
-					action(story as never, view, iterations);
+					await action(story as never, view, iterations);
 					iterations += 1;
 					view = resolveView(resolveRuntime().adapter);
+					// Flush microtask to allow effects to emit events
+					await new Promise<void>((resolve) => queueMicrotask(resolve));
 				}
 
 				return view;

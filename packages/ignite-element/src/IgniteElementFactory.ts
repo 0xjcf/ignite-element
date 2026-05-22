@@ -85,6 +85,72 @@ type FactoryOptions<
 	cleanup?: boolean;
 };
 
+/**
+ * Expose command functions from additionalArgs as methods on the custom element.
+ * Commands are identified as enumerable own properties that are functions with
+ * a value descriptor (not getters, which are view/state projections).
+ */
+function exposeCommands(
+	element: HTMLElement,
+	additionalArgs: Record<string, unknown>,
+): void {
+	for (const key of Object.keys(additionalArgs)) {
+		const descriptor = Object.getOwnPropertyDescriptor(additionalArgs, key);
+		if (
+			descriptor &&
+			"value" in descriptor &&
+			typeof descriptor.value === "function"
+		) {
+			(element as unknown as Record<string, unknown>)[key] = descriptor.value;
+		}
+	}
+}
+
+/**
+ * Infer observed attributes from single-arg `setX` commands.
+ * Convention: command `setRepo(value)` → attribute `repo`.
+ * Only commands with exactly 1 parameter and name starting with "set" qualify.
+ */
+function inferObservedAttributes(
+	additionalArgs: Record<string, unknown>,
+): Map<string, string> {
+	const attrToCommand = new Map<string, string>();
+	for (const key of Object.keys(additionalArgs)) {
+		const descriptor = Object.getOwnPropertyDescriptor(additionalArgs, key);
+		if (
+			descriptor &&
+			"value" in descriptor &&
+			typeof descriptor.value === "function" &&
+			key.length > 3 &&
+			key.startsWith("set") &&
+			key[3] === key[3].toUpperCase() &&
+			(descriptor.value as (...args: unknown[]) => unknown).length === 1
+		) {
+			const attr = key[3].toLowerCase() + key.slice(4);
+			attrToCommand.set(attr, key);
+		}
+	}
+	return attrToCommand;
+}
+
+/**
+ * Process initial attributes that were set before the element was upgraded.
+ */
+function processInitialAttributes(
+	element: HTMLElement,
+	attrMap: Map<string, string>,
+): void {
+	for (const [attr, commandName] of attrMap) {
+		const value = element.getAttribute(attr);
+		if (value !== null) {
+			const fn = (
+				element as unknown as Record<string, (...args: unknown[]) => unknown>
+			)[commandName];
+			fn?.(value);
+		}
+	}
+}
+
 export default function igniteElementFactory<
 	State,
 	Event,
@@ -287,6 +353,39 @@ export default function igniteElementFactory<
 
 		const lifecycleScope = resolveLifecycleScope();
 
+		// Attribute observation is set up per-instance after commands are resolved.
+		// We use MutationObserver since observedAttributes must be static and
+		// commands aren't known until the adapter is created.
+		const setupAttributeObservation = (
+			element: HTMLElement,
+		): (() => void) | undefined => {
+			const map = inferObservedAttributes(
+				element as unknown as Record<string, unknown>,
+			);
+			if (map.size === 0) return undefined;
+			processInitialAttributes(element, map);
+			const observer = new MutationObserver((mutations) => {
+				for (const mutation of mutations) {
+					if (mutation.type !== "attributes" || !mutation.attributeName)
+						continue;
+					const commandName = map.get(mutation.attributeName);
+					if (!commandName) continue;
+					const fn = (
+						element as unknown as Record<
+							string,
+							(...args: unknown[]) => unknown
+						>
+					)[commandName];
+					if (fn) fn(element.getAttribute(mutation.attributeName));
+				}
+			});
+			observer.observe(element, {
+				attributes: true,
+				attributeFilter: [...map.keys()],
+			});
+			return () => observer.disconnect();
+		};
+
 		if (inferredScope === StateScope.Shared) {
 			const render = resolveRenderer(renderer);
 			resolveSharedResources();
@@ -294,6 +393,7 @@ export default function igniteElementFactory<
 			class SharedIgniteComponent extends IgniteElement<State, Event, View> {
 				private additionalArgs: AdditionalRenderArgs<State, Event, RenderArgs>;
 				private readonly lifecycleHooks: IgniteElementLifecycleHooks;
+				private disconnectAttrObserver: (() => void) | undefined;
 
 				constructor() {
 					const { adapter } = resolveSharedResources();
@@ -308,11 +408,14 @@ export default function igniteElementFactory<
 
 				connectedCallback(): void {
 					this.additionalArgs = resolveSharedAdditionalArgs(this);
+					exposeCommands(this, this.additionalArgs as Record<string, unknown>);
+					this.disconnectAttrObserver = setupAttributeObservation(this);
 					sharedInstanceCount += 1;
 					super.connectedCallback();
 				}
 
 				disconnectedCallback(): void {
+					this.disconnectAttrObserver?.();
 					super.disconnectedCallback();
 					cleanupAdditionalArgs(this.additionalArgs);
 					recordLifecycle(
@@ -357,6 +460,7 @@ export default function igniteElementFactory<
 			private adapterInstance: IgniteAdapter<State, Event> | undefined;
 			private readonly lifecycleHooks: IgniteElementLifecycleHooks;
 			private readonly renderImpl: (args: RenderArgs) => View;
+			private disconnectAttrObserver: (() => void) | undefined;
 
 			constructor() {
 				const lifecycleHooks = createLifecycleHooks(
@@ -374,6 +478,8 @@ export default function igniteElementFactory<
 					adapter.scope ??= StateScope.Isolated;
 					this.adapterInstance = adapter;
 					this.additionalArgs = createAdditionalArgs(adapter, this);
+					exposeCommands(this, this.additionalArgs as Record<string, unknown>);
+					this.disconnectAttrObserver = setupAttributeObservation(this);
 					this.initializeAdapter(adapter);
 				}
 
@@ -381,6 +487,7 @@ export default function igniteElementFactory<
 			}
 
 			disconnectedCallback(): void {
+				this.disconnectAttrObserver?.();
 				cleanupAdditionalArgs(this.additionalArgs);
 				this.additionalArgs = undefined;
 				this.adapterInstance = undefined;

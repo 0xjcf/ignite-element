@@ -294,7 +294,7 @@ describe("igniteCore type inference", () => {
 					actor.send({ type: "PING" });
 				},
 			}),
-			effects: (_snapshot, _prevSnapshot, { emit }) => {
+			effects: ({ emit }) => {
 				emit("checkout-submitted", { email: "user@example.com" });
 			},
 		});
@@ -327,7 +327,7 @@ describe("igniteCore type inference", () => {
 			commands: ({ actor }) => ({
 				trigger: () => actor.send({ type: "PING" }),
 			}),
-			effects: (_snapshot, _prevSnapshot, { emit }) => {
+			effects: ({ emit }) => {
 				emit("leaderboardRefresh", { tournamentId: "t-1", sort: "alpha" });
 				// @ts-expect-error - typo in event name should be rejected
 				emit("leaderboadRefresh", { tournamentId: "t-1", sort: "alpha" });
@@ -382,7 +382,7 @@ describe("igniteCore type inference", () => {
 					actor.send({ type: "PING" });
 				},
 			}),
-			effects: (_snapshot, _prevSnapshot, { actor, emit }) => {
+			effects: ({ actor, emit }) => {
 				const { activeTournamentId, sort } = actor.state.context;
 				emit("leaderboardRefresh", {
 					tournamentId: activeTournamentId,
@@ -419,7 +419,7 @@ describe("igniteCore type inference", () => {
 			commands: ({ actor }) => ({
 				trigger: () => actor.send({ type: "PING" }),
 			}),
-			effects: (_snapshot, _prevSnapshot, { emit }) => {
+			effects: ({ emit }) => {
 				emit("optional-payload");
 				emit("optional-payload", { id: "123" });
 				emit("optional-payload", undefined);
@@ -453,7 +453,7 @@ describe("igniteCore type inference", () => {
 			commands: ({ actor }) => ({
 				trigger: () => actor.send({ type: "PING" }),
 			}),
-			effects: (_snapshot, _prevSnapshot, { emit }) => {
+			effects: ({ emit }) => {
 				emit("pinged-event", { id: "123" });
 				// @ts-expect-error - payload is required
 				emit("pinged-event");

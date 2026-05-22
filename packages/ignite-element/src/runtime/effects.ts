@@ -92,38 +92,43 @@ export function attachEffects<
 			return;
 		}
 
-		const actor = resolveActor(adapter);
-		const select = createSelect(snapshot, prevSnapshot);
+		const prev = prevSnapshot;
+		prevSnapshot = snapshot;
 
-		if (isObjectStyleEffectsCallback(effects)) {
-			(
-				effects as FacadeEffectsObjectCallback<
-					Snapshot,
-					CommandActor,
-					Events,
-					Host
-				>
-			)({
-				snapshot,
-				prevSnapshot,
-				actor,
-				emit,
-				host,
-				select,
-			});
-		} else {
-			(effects as FacadeEffectsCallback<Snapshot, CommandActor, Events, Host>)(
-				snapshot,
-				prevSnapshot,
-				{
+		// Defer effects to run AFTER render (post-render), matching React's useEffect behavior.
+		// Render is triggered synchronously by the same adapter notification, so deferring via
+		// microtask ensures the DOM is updated before effects execute.
+		queueMicrotask(() => {
+			const actor = resolveActor(adapter);
+			const select = createSelect(snapshot, prev);
+
+			if (isObjectStyleEffectsCallback(effects)) {
+				(
+					effects as FacadeEffectsObjectCallback<
+						Snapshot,
+						CommandActor,
+						Events,
+						Host
+					>
+				)({
+					snapshot,
+					prevSnapshot: prev,
 					actor,
 					emit,
 					host,
 					select,
-				},
-			);
-		}
-		prevSnapshot = snapshot;
+				});
+			} else {
+				(
+					effects as FacadeEffectsCallback<Snapshot, CommandActor, Events, Host>
+				)(snapshot, prev, {
+					actor,
+					emit,
+					host,
+					select,
+				});
+			}
+		});
 	});
 
 	return () => {

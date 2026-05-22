@@ -21,7 +21,6 @@ import { igniteCore } from "../IgniteCore";
 import type { ReduxInstanceConfig } from "../igniteCore/types";
 import type {
 	CommandContext,
-	EffectContext,
 	EventDescriptor,
 	FacadeEffectArgs,
 	ReduxSliceCommandActor,
@@ -503,7 +502,7 @@ describe("igniteCore", () => {
 		expect(latestArgs?.count).toBe(1);
 	});
 
-	it("emits declared events from effects after state updates", () => {
+	it("emits declared events from effects after state updates", async () => {
 		const store = counterStore();
 		const dispatchSpy = vi.spyOn(store, "dispatch");
 		type EventStoreState = InferStateAndEvent<typeof store>["State"];
@@ -523,14 +522,17 @@ describe("igniteCore", () => {
 				actor.dispatch(counterSlice.actions.increment());
 			},
 		});
-		const eventEffects = (
-			snapshot: EventStoreState,
-			prevSnapshot: EventStoreState,
-			{
-				emit,
-				host,
-			}: EffectContext<ReduxStoreCommandActor<typeof store>, CounterEventMap>,
-		) => {
+		const eventEffects = ({
+			snapshot,
+			prevSnapshot,
+			emit,
+			host,
+		}: FacadeEffectArgs<
+			EventStoreState,
+			ReduxStoreCommandActor<typeof store>,
+			CounterEventMap,
+			HTMLElement
+		>) => {
 			if (snapshot.counter.count === prevSnapshot.counter.count) {
 				return;
 			}
@@ -580,6 +582,7 @@ describe("igniteCore", () => {
 		expect(latestArgs).toBeDefined();
 		latestArgs?.increment();
 
+		await new Promise<void>((resolve) => queueMicrotask(resolve));
 		expect(listener).toHaveBeenCalledTimes(1);
 		expect(order).toEqual(["dispatch", "emit"]);
 		expect(dispatchSpy).toHaveBeenCalledWith(
@@ -587,7 +590,7 @@ describe("igniteCore", () => {
 		);
 	});
 
-	it("seeds effects from the current snapshot instead of replaying on attach", () => {
+	it("seeds effects from the current snapshot instead of replaying on attach", async () => {
 		const store = counterStore();
 		store.dispatch(counterSlice.actions.addByAmount(2));
 		type StoreState = InferStateAndEvent<typeof store>["State"];
@@ -606,7 +609,7 @@ describe("igniteCore", () => {
 			events: (event) => ({
 				"counter-incremented": event<{ count: number }>(),
 			}),
-			effects: (snapshot: StoreState, _prevSnapshot: StoreState, { emit }) => {
+			effects: ({ snapshot, emit }) => {
 				emit("counter-incremented", {
 					count: snapshot.counter.count,
 				});
@@ -641,10 +644,11 @@ describe("igniteCore", () => {
 
 		latestArgs?.increment();
 
+		await new Promise<void>((resolve) => queueMicrotask(resolve));
 		expect(listener).toHaveBeenCalledTimes(1);
 	});
 
-	it("runs effects before the next render after a state update", () => {
+	it("runs effects after render via microtask after a state update", async () => {
 		const store = counterStore();
 		type StoreState = InferStateAndEvent<typeof store>["State"];
 		type RuntimeEventMap = {
@@ -667,7 +671,7 @@ describe("igniteCore", () => {
 			events: (event) => ({
 				"counter-incremented": event<{ count: number }>(),
 			}),
-			effects: (snapshot: StoreState, prevSnapshot: StoreState, { emit }) => {
+			effects: ({ snapshot, prevSnapshot, emit }) => {
 				if (snapshot.counter.count === prevSnapshot.counter.count) {
 					return;
 				}
@@ -706,10 +710,11 @@ describe("igniteCore", () => {
 		order.length = 0;
 		latestArgs?.increment();
 
-		expect(order).toEqual(["dispatch", "effect", "emit", "render"]);
+		await new Promise<void>((resolve) => queueMicrotask(resolve));
+		expect(order).toEqual(["dispatch", "render", "effect", "emit"]);
 	});
 
-	it("supports headless command execution, projected views, event listeners, and watchers", () => {
+	it("supports headless command execution, projected views, event listeners, and watchers", async () => {
 		const store = counterStore();
 		type StoreState = InferStateAndEvent<typeof store>["State"];
 		type StoreView = {
@@ -764,7 +769,7 @@ describe("igniteCore", () => {
 		const stateSubscription = register.watch(watchListener);
 		const viewSubscription = register.watchView(watchViewListener);
 
-		const result = register.execute("increment", 3);
+		const result = await register.execute("increment", 3);
 
 		expect(register.getState().counter.count).toBe(3);
 		expect(register.getView()).toEqual({ count: 3, isEven: false });
@@ -782,14 +787,14 @@ describe("igniteCore", () => {
 		eventSubscription.unsubscribe();
 		stateSubscription.unsubscribe();
 		viewSubscription.unsubscribe();
-		register.execute("increment", 1);
+		await register.execute("increment", 1);
 
 		expect(listener).toHaveBeenCalledTimes(1);
 		expect(watchListener).toHaveBeenCalledTimes(1);
 		expect(watchViewListener).toHaveBeenCalledTimes(1);
 	});
 
-	it("records behavior-first stories with traces, until guards, and summaries", () => {
+	it("records behavior-first stories with traces, until guards, and summaries", async () => {
 		const store = counterStore();
 		type StoreState = InferStateAndEvent<typeof store>["State"];
 		type StoreView = {
@@ -813,7 +818,7 @@ describe("igniteCore", () => {
 			events: (event) => ({
 				"counter-incremented": event<{ count: number }>(),
 			}),
-			effects: (snapshot: StoreState, prevSnapshot: StoreState, { emit }) => {
+			effects: ({ snapshot, prevSnapshot, emit }) => {
 				if (snapshot.counter.count === prevSnapshot.counter.count) {
 					return;
 				}
@@ -825,11 +830,11 @@ describe("igniteCore", () => {
 		} satisfies ReduxInstanceConfig<typeof store, RuntimeEventMap>);
 
 		const story = register.record("counter reaches five");
-		story.execute("increment", 2);
-		const finalView = story.until(
+		await story.execute("increment", 2);
+		const finalView = await story.until(
 			(view) => view.count >= 5,
-			() => {
-				story.execute("increment", 1);
+			async () => {
+				await story.execute("increment", 1);
 			},
 			{ maxSteps: 5 },
 		);
@@ -883,13 +888,15 @@ describe("igniteCore", () => {
 
 		story.stop();
 
-		expect(() => story.execute("increment", 1)).toThrow(
+		await expect(() => story.execute("increment", 1)).rejects.toThrow(
 			'[igniteCore] Story "counter reaches five" has been stopped.',
 		);
-		expect(register.execute("increment", 1).state.counter.count).toBe(6);
+		expect((await register.execute("increment", 1)).state.counter.count).toBe(
+			6,
+		);
 	});
 
-	it("records DOM lifecycle evidence for active stories and detaches on stop", () => {
+	it("records DOM lifecycle evidence for active stories and detaches on stop", async () => {
 		const store = counterStore();
 		type StoreState = InferStateAndEvent<typeof store>["State"];
 		const register = igniteCore({
@@ -917,7 +924,7 @@ describe("igniteCore", () => {
 		register(elementName, renderFn);
 		const element = document.createElement(elementName);
 		document.body.appendChild(element);
-		story.execute("increment");
+		await story.execute("increment");
 		element.remove();
 
 		const lifecycle = story.lifecycle();
@@ -942,7 +949,7 @@ describe("igniteCore", () => {
 		secondElement.remove();
 
 		expect(story.lifecycle()).toHaveLength(lifecycleCount);
-		expect(register.execute("increment").state.counter.count).toBe(2);
+		expect((await register.execute("increment")).state.counter.count).toBe(2);
 	});
 
 	it("exposes a JSON-serializable agent schema", () => {
@@ -975,7 +982,7 @@ describe("igniteCore", () => {
 		});
 	});
 
-	it("adds optional command contract metadata without changing execution", () => {
+	it("adds optional command contract metadata without changing execution", async () => {
 		const store = counterStore();
 
 		const register = igniteCore({
@@ -997,7 +1004,7 @@ describe("igniteCore", () => {
 			}),
 		});
 
-		const result = register.execute("addByAmount", 3);
+		const result = await register.execute("addByAmount", 3);
 
 		expect(result.state.counter.count).toBe(3);
 		expect(register.getView()).toEqual({ count: 3 });

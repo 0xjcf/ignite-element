@@ -9,7 +9,7 @@ import type { EventDescriptor, FacadeEffectArgs } from "../RenderArgs";
 import { test as igniteTest } from "../testing";
 
 describe("ignite test DSL", () => {
-	it("drives xstate components through deterministic headless assertions", () => {
+	it("drives xstate components through deterministic headless assertions", async () => {
 		const machine = createMachine({
 			initial: "off",
 			states: {
@@ -58,14 +58,12 @@ describe("ignite test DSL", () => {
 		} satisfies XStateConfig<typeof machine, ToggleEventMap>;
 		const component = igniteCore(componentConfig);
 
-		igniteTest(component)
-			.given("off")
-			.when("toggle")
+		(await igniteTest(component).given("off").when("toggle"))
 			.expectState("on")
 			.expectEvent("toggled", { isOn: true });
 	});
 
-	it("matches partial state and event payloads for redux runtimes", () => {
+	it("matches partial state and event payloads for redux runtimes", async () => {
 		const store = counterStore();
 
 		const componentConfig = {
@@ -78,7 +76,7 @@ describe("ignite test DSL", () => {
 			events: (event) => ({
 				"counter-incremented": event<{ count: number }>(),
 			}),
-			effects: (snapshot, prevSnapshot, { emit }) => {
+			effects: ({ snapshot, prevSnapshot, emit }) => {
 				if (snapshot.counter.count === prevSnapshot.counter.count) {
 					return;
 				}
@@ -99,9 +97,11 @@ describe("ignite test DSL", () => {
 		>;
 		const component = igniteCore(componentConfig);
 
-		const result = igniteTest(component)
-			.given({ counter: { count: 0 } })
-			.when("increment", 2)
+		const result = (
+			await igniteTest(component)
+				.given({ counter: { count: 0 } })
+				.when("increment", 2)
+		)
 			.expectState({ counter: { count: 2 } })
 			.expectEvents([
 				{

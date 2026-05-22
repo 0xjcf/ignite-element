@@ -49,7 +49,7 @@ export type IgniteTestScenario<
 	when<CommandName extends keyof Commands & string>(
 		commandName: CommandName,
 		payload?: unknown,
-	): IgniteTestScenario<State, Commands, Events>;
+	): Promise<IgniteTestScenario<State, Commands, Events>>;
 	expectState(
 		expected: IgniteStateExpectation<State>,
 	): IgniteTestScenario<State, Commands, Events>;
@@ -209,11 +209,11 @@ class IgniteTestDriver<
 		return this;
 	}
 
-	when<CommandName extends keyof Commands & string>(
+	async when<CommandName extends keyof Commands & string>(
 		commandName: CommandName,
 		payload?: unknown,
 	) {
-		this.lastResult = this.component.execute(
+		this.lastResult = await this.component.execute(
 			commandName,
 			payload as Parameters<Commands[CommandName]>[0],
 		);

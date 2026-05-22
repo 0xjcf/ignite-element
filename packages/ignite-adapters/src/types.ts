@@ -6,8 +6,7 @@ import type {
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
-	FacadeEffectsCallback,
-	FacadeEffectsObjectCallback,
+	FacadeEffectArgs,
 	FacadeStatesCallback,
 	FacadeViewCallback,
 } from "ignite-core";
@@ -67,23 +66,16 @@ type ReduxBlueprintEffectsConfig<
 	Source extends ReduxBlueprintSource,
 	Events extends EventMap,
 	Host,
-> =
-	| {
-			effects?: FacadeEffectsCallback<
-				InferStateAndEvent<Source>["State"],
-				ReduxCommandActorFor<Source>,
-				Events,
-				Host
-			>;
-	  }
-	| {
-			effects?: FacadeEffectsObjectCallback<
-				InferStateAndEvent<Source>["State"],
-				ReduxCommandActorFor<Source>,
-				Events,
-				Host
-			>;
-	  };
+> = {
+	effects?: (
+		args: FacadeEffectArgs<
+			InferStateAndEvent<Source>["State"],
+			ReduxCommandActorFor<Source>,
+			Events,
+			Host
+		>,
+	) => void;
+};
 
 export type ReduxBlueprintConfig<
 	Source extends ReduxBlueprintSource,
@@ -136,23 +128,16 @@ type ReduxInstanceEffectsConfig<
 	StoreInstance extends ReduxInstanceSource,
 	Events extends EventMap,
 	Host,
-> =
-	| {
-			effects?: FacadeEffectsCallback<
-				InferStateAndEvent<StoreInstance>["State"],
-				ReduxCommandActorFor<StoreInstance>,
-				Events,
-				Host
-			>;
-	  }
-	| {
-			effects?: FacadeEffectsObjectCallback<
-				InferStateAndEvent<StoreInstance>["State"],
-				ReduxCommandActorFor<StoreInstance>,
-				Events,
-				Host
-			>;
-	  };
+> = {
+	effects?: (
+		args: FacadeEffectArgs<
+			InferStateAndEvent<StoreInstance>["State"],
+			ReduxCommandActorFor<StoreInstance>,
+			Events,
+			Host
+		>,
+	) => void;
+};
 
 export type ReduxInstanceConfig<
 	StoreInstance extends ReduxInstanceSource,
@@ -191,13 +176,9 @@ type MobxBaseConfig<
 	cleanup?: boolean;
 };
 
-type MobxEffectsConfig<State extends object, Events extends EventMap, Host> =
-	| {
-			effects?: FacadeEffectsCallback<State, State, Events, Host>;
-	  }
-	| {
-			effects?: FacadeEffectsObjectCallback<State, State, Events, Host>;
-	  };
+type MobxEffectsConfig<State extends object, Events extends EventMap, Host> = {
+	effects?: (args: FacadeEffectArgs<State, State, Events, Host>) => void;
+};
 
 export type MobxConfig<
 	State extends object,
