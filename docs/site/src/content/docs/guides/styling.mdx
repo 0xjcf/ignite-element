@@ -6,30 +6,29 @@ sidebar:
   order: 1
 ---
 
-- **Global styles**: set `styles` in `ignite.config.ts` to inject a stylesheet into every component’s shadow root.
-- **Per-component styles**: add inline `<style>` blocks or CSS-in-JS inside your renderer.
+- **Default styles**: keep component CSS next to the JSX with ordinary `<style>` tags or CSS text imported by your bundler.
+- **Shared styles**: set `styles` in `ignite.config.ts` only when one stylesheet should be injected into every component’s shadow root.
 - **Light DOM**: use host-app styles for page-level layout; Ignite only scopes what you inject via `styles`.
 - **CSS custom properties**: use tokens like `--button-accent` when host apps need to theme a component without breaking encapsulation.
 - **`part` attributes**: expose stable styling hooks for important sub-elements when host apps need targeted overrides across the shadow boundary.
+- **CSP**: if the host disallows inline styles, prefer emitted stylesheet URLs through shared styles.
 
-```ts
-export default defineIgniteConfig({
-  styles: new URL('./styles/components.css', import.meta.url).href,
-});
+```tsx
+const buttonStyles = `
+  .button { background: var(--button-accent, #1453ff); }
+`;
 ```
 
 Example renderer contract:
 
 ```tsx
 component('brand-button', ({ label, press }) => (
-  <button
-    part="button"
-    class="button"
-    style={{ backgroundColor: 'var(--button-accent, #1453ff)' }}
-    onClick={press}
-  >
-    {label}
-  </button>
+  <>
+    <style>{buttonStyles}</style>
+    <button part="button" class="button" onClick={press}>
+      {label}
+    </button>
+  </>
 ));
 ```
 

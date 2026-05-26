@@ -1,39 +1,42 @@
 ---
 title: Configuration
-description: Control renderers, styles, and logging from one place.
+description: Optional shared renderer, style, and logging defaults.
 sidebar:
   label: Configuration
   order: 4
 ---
 
-`ignite.config.ts` is the single place to define renderer defaults, styles, and diagnostics.
+The default v3 path does not need `ignite.config.ts`: use Ignite JSX, set `jsxImportSource: "ignite-element/jsx"`, and keep component CSS in local `<style>` tags.
+
+Use `ignite.config.ts` only when you need shared shadow-root styles, diagnostics, strategy overrides, or a non-default renderer such as `lit`.
 
 ```ts
 // ignite.config.ts
-import { defineIgniteConfig } from 'ignite-element/config';
+import { defineIgniteConfig } from 'ignite-element';
 
 export default defineIgniteConfig({
-  renderer: 'ignite-jsx', // or "lit"
-  strategy: 'diff', // "diff" | "replace"
   styles: new URL('./styles.css', import.meta.url).href, // injected into each shadow root
   logging: 'warn', // "off" | "warn" | "debug"
+  // renderer: 'lit',
+  // strategy: 'replace',
 });
 ```
 
 ### Loading the config
 
-- With Vite or Webpack plugins, the config is auto-imported (install and register the plugin in your bundler config).
-- Without plugins, import it in your app entry so the renderer and styles are applied before you register components.
+- With Vite or Webpack plugins, the config is auto-imported when you opt into the advanced config path.
+- Without plugins, import it in your app entry before you register components.
 
 Default behavior:
 
-- If `renderer` is not set, Ignite defaults to `ignite-jsx`.
-- If you set a renderer that isn’t registered, Ignite falls back to `ignite-jsx` and logs a warning.
+- If config is absent, Ignite uses config-free Ignite JSX.
+- If config exists but `renderer` is not set, Ignite still defaults to `ignite-jsx`.
+- Invalid configured renderer values are normalized by legacy compatibility behavior and logged; avoid relying on that path.
 
 ### Scoped vs. global styles
 
-The `styles` URL is injected into each component’s shadow root. Add additional light-DOM styles in your host app as usual.
+Component-local `<style>` tags are the default scoped styling path. The config `styles` URL is for shared styles that should be injected into each component shadow root. Add light-DOM styles in your host app as usual.
 
 ### Per-component overrides
 
-Renderer and strategy are intended to be configured globally. Per-component overrides for render strategy are internal and not part of the public API; keep behavior discoverable in `ignite.config.ts`.
+Renderer and strategy overrides are intended to be project-wide advanced settings. Per-component render strategy overrides are internal and not part of the public API.

@@ -65,6 +65,24 @@ If you cannot change `tsconfig`, add this per file:
 
 For the default path, you do not need `ignite.config.ts`, a bundler plugin, or shared adapter teardown overrides.
 
+Co-locate component CSS in ordinary `<style>` tags and keep it next to the JSX that uses it:
+
+```tsx
+const toggleStyles = `
+  :host { display: inline-block; }
+  button { min-width: 5rem; }
+`;
+
+toggle("toggle-button", ({ isOn, toggle }) => (
+  <>
+    <style>{toggleStyles}</style>
+    <button onClick={toggle}>{isOn ? "On" : "Off"}</button>
+  </>
+));
+```
+
+If your bundler can import CSS as text, you can swap `toggleStyles` for an imported string. Use `ignite.config.ts` only for shared shadow-root styles, diagnostics, or opting into `lit`. For hosts with strict `style-src` CSP rules, prefer emitted stylesheet URLs through shared styles instead of inline `<style>` tags.
+
 Create a component:
 
 ```tsx

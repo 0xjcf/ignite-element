@@ -6,7 +6,7 @@ sidebar:
   order: 2
 ---
 
-Ignite Element separates **state** from **rendering**. Pick a renderer per project in your config.
+Ignite Element separates **state** from **rendering**. Ignite JSX is the config-free default; use config only for advanced project-wide strategy overrides or to opt into `lit`.
 
 ## Ignite JSX (default)
 
@@ -35,4 +35,4 @@ component('ignite-toggle', ({ isOn, toggle }) =>
 
 ## Render strategies
 
-Ignite includes render strategies (diff vs. replace). Diffing minimizes DOM churn for JSX components; replace mirrors lit’s replace-by-default behavior. Set `strategy: "diff"` or `"replace"` in `ignite.config.ts`.
+Ignite includes render strategies (diff vs. replace). Diffing minimizes DOM churn for JSX components; replace mirrors lit’s replace-by-default behavior. Add `strategy: "replace"` in `ignite.config.ts` only when you need a project-wide override.

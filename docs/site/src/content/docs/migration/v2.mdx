@@ -1,12 +1,12 @@
 ---
 title: Migrate from v1 to v2
-description: Upgrade to Ignite Element v2 with the Ignite JSX renderer and renderer strategies.
+description: Upgrade to Ignite Element v2 with the default Ignite JSX renderer and optional compatibility config.
 sidebar:
   label: v1 → v2
   order: 1
 ---
 
-Ignite Element v2 introduces the Ignite JSX renderer, renderer strategies, and a central `ignite.config.ts`. Use this guide to upgrade from v1.x.
+Ignite Element v2 introduces the default Ignite JSX renderer, diff-based JSX updates, and an optional `ignite.config.ts` compatibility layer for shared styles, diagnostics, or `lit`. Use this guide to upgrade from v1.x.
 
 If you are already on v2 and need to move event emission from `commands()` into `effects()`, continue with [Migrate command emit to effects](/ignite-element/migration/effects-events/).
 
@@ -14,8 +14,8 @@ If you are already on v2 and need to move event emission from `commands()` into 
 
 1. Upgrade dependencies: `pnpm add ignite-element@latest`.
 2. Set `"jsxImportSource": "ignite-element/jsx"` (or add the pragma per file).
-3. Add `ignite.config.ts` with your renderer (`ignite-jsx` or `lit`), styles, and logging.
-4. Opt into the diff or replace render strategy (defaults to `diff` with Ignite JSX).
+3. Move component CSS into ordinary `<style>` tags or imported CSS text.
+4. Add `ignite.config.ts` only if you need shared shadow-root styles, diagnostics, or `renderer: "lit"`.
 5. Verify shared adapter teardown: shared adapters are released when the last element disconnects unless `cleanup: false`.
 
 ## 1) Install
@@ -45,27 +45,46 @@ Or add a file-level pragma:
 /** @jsxImportSource ignite-element/jsx */
 ```
 
-## 3) Add `ignite.config.ts`
+## 3) Update styling defaults
+
+For the default v2 path, keep styles next to the JSX that uses them:
+
+```tsx
+const cardStyles = `
+  :host { display: block; }
+  .card { padding: 1rem; }
+`;
+
+component('my-card', ({ title }) => (
+  <>
+    <style>{cardStyles}</style>
+    <section className="card">{title}</section>
+  </>
+));
+```
+
+If your bundler supports CSS-as-text imports, you can import that string instead of declaring it inline.
+
+## 4) Add `ignite.config.ts` only for shared defaults
 
 ```ts
-import { defineIgniteConfig } from 'ignite-element/config';
+import { defineIgniteConfig } from 'ignite-element';
 
 export default defineIgniteConfig({
-  renderer: 'ignite-jsx', // set to "lit" to stay on lit templates
-  strategy: 'diff', // "diff" | "replace"
   styles: new URL('./styles.css', import.meta.url).href,
   logging: 'warn',
+  // renderer: 'lit',
 });
 ```
 
-Use `igniteConfigVitePlugin()` (Vite) or `IgniteConfigWebpackPlugin` (Webpack) so this file is auto-loaded.
+Keep the config/plugins path for advanced compatibility only. Use `igniteConfigVitePlugin()` (Vite) or `IgniteConfigWebpackPlugin` (Webpack) when you want this file auto-loaded.
 
-## 4) Update renderers
+## 5) Update renderers
 
 - **Ignite JSX (recommended)**: write JSX in your component render function.
-- **lit**: set `renderer: "lit"` to keep lit templates. Renderer choice is per project (not per component).
+- **lit**: set `renderer: "lit"` to keep lit templates. Renderer choice is per project, not per component.
 
-## 5) Shared Adapter Teardown
+## 6) Shared Adapter Teardown
 
 Shared adapters are now reference-counted and released when the last element disconnects. If Ignite created the source (e.g., an XState machine), it will be stopped as part of that release. Set `cleanup: false` if you want to keep the shared adapter alive and manage teardown yourself.
 Most projects should not need to touch `cleanup`; treat it as a shared adapter teardown override.
@@ -79,12 +98,11 @@ shared('shared-counter', Renderer);
 // later: actor.stop();
 ```
 
-## 6) Checklist
+## 7) Checklist
 
 - [ ] Dependencies updated to v2
 - [ ] JSX runtime configured
-- [ ] `ignite.config.ts` added and loaded by bundler
+- [ ] Component-local `<style>` tags or CSS-text imports in place for default styling
+- [ ] `ignite.config.ts` added only if shared styles, diagnostics, or `lit` are needed
 - [ ] Renderer choice confirmed (Ignite JSX or lit)
 - [ ] Shared adapter teardown verified
-
-Need more depth? See the legacy migration notes in `docs/migrations/v2.0.0-ignite-jsx.md` (kept for reference).
