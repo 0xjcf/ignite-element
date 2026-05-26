@@ -17,14 +17,13 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
-### Task: repair build and module configuration blockers from CodeRabbit review
+### Task: simplify v3 build config and styling defaults
 
-- Title: repair build and module configuration blockers from CodeRabbit review
+- Title: simplify v3 build config and styling defaults
 - Mode: 6-agent
 - Status: queued
 - Owner: implementer
 - Brief: .fas/tasks/repair-build-and-module-configuration-blockers-from-coderabb.md
-
 ### Task: harden migration and architecture utility scripts from CodeRabbit review
 
 - Title: harden migration and architecture utility scripts from CodeRabbit review

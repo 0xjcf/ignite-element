@@ -1,23 +1,25 @@
-# repair build and module configuration blockers from CodeRabb
+# simplify v3 build config and styling defaults
 
 ## Source
 
 Created with `fas create-task` on 2026-05-22.
 
 ## Problem
-
-Group CodeRabbit build/config findings that can invalidate examples or typechecking: replace ESM-invalid __dirname usage in redux example Vite config, repair ignite-element tsconfig.typecheck path mappings against the actual monorepo layout, remove or make mode-aware the hard-coded production NODE_ENV define, and assess the package dependency upgrade recommendation for Vite, TypeScript, and vite-plugin-dts before changing lockfiles. Source: CodeRabbit domain reviews run against origin/main after commit 3a082b3.
+Repair CodeRabbit build/config blockers while locking the v3 API direction for simplest Ignite Element UI/UX/DX: Ignite JSX is the default renderer, no public `ignite.config.ts` happy path, no required config auto-discovery or Vite/Webpack plugin for normal usage, and component styles should be authored as ordinary `<style>` tags inside Ignite JSX render output with CSS imported from `.css` or `.ts` files when desired. Existing blockers remain in scope: replace ESM-invalid `__dirname` usage in redux example Vite config, repair ignite-element `tsconfig.typecheck` path mappings, remove or make mode-aware hard-coded production `NODE_ENV` define, and assess dependency upgrade recommendations before lockfile changes.
 
 ## Acceptance criteria
 
-- Redux example Vite config works under ESM without __dirname.
-- ignite-element typecheck mappings resolve to real package or source paths and pnpm run typecheck passes.
-- Build config no longer forces development builds into production NODE_ENV.
+- Redux example Vite config works under ESM without `__dirname`.
+- ignite-element typecheck mappings resolve to real package or source paths and `pnpm run typecheck` passes.
+- Build config no longer forces development builds into production `NODE_ENV`.
 - Dependency upgrade recommendation is either safely implemented with lockfile verification or explicitly documented as deferred with current-version rationale.
-- Run pnpm run lint, pnpm run typecheck, pnpm test, and fas verify --full.
-- The work is tracked in `.fas/TASKS.md`.
+- v3 docs/examples no longer recommend `ignite.config.ts` for the default path; Ignite JSX is documented as the default renderer with no renderer config.
+- Default component styling is documented and tested through `<style>` in Ignite JSX render output, including CSS imported from external `.css` or `.ts` files as text.
+- Lit and config-loader/plugin support are clearly marked legacy/advanced compatibility, not the first-read API.
+- The design addresses style-node diffing/churn, CSS variable theming across shadow boundaries, and CSP implications for inline style tags.
+- Run `pnpm run lint`, `pnpm run typecheck`, `pnpm test`, and `fas verify --full`.
+- The work is tracked in `.fas/TASKS.md` and remains queued in `.fas/queue/tasks.json`.
 - The task has a clear implementation and verification plan before execution starts.
-- The task is queued in `.fas/queue/tasks.json` for the runtime.
 
 ## Proposed solution
 
@@ -34,24 +36,44 @@ Group CodeRabbit build/config findings that can invalidate examples or typecheck
 - packages/ignite-element/vite.config.ts
 - packages/ignite-core/package.json
 - pnpm-lock.yaml
+- packages/ignite-renderer/src/config.ts
+- packages/ignite-element/src/config/loadIgniteConfig.ts
+- packages/ignite-element/src/plugins/viteIgniteConfigPlugin.ts
+- packages/ignite-element/src/plugins/webpackIgniteConfigPlugin.ts
+- packages/ignite-element/src/renderers/jsx/IgniteJsxRenderStrategy.ts
+- packages/ignite-element/src/tests/renderers/igniteJsxRenderStrategy.test.ts
+- README.md
+- docs/site/src/content/docs/index.mdx
+- docs/site/src/content/docs/migration/v2.mdx
+- docs/renderers/README.md
+- docs/styling/README.md
 
 ## Scope Amendments
 
-- None.
+- Type: scope-refresh
+- Added at: 2026-05-26
+- Added paths: packages/ignite-element/src/examples/redux/vite.config.ts, packages/ignite-element/tsconfig.typecheck.json, packages/ignite-element/vite.config.ts, packages/ignite-renderer/src/config.ts, packages/ignite-element/src/config/loadIgniteConfig.ts, packages/ignite-element/src/plugins/viteIgniteConfigPlugin.ts, packages/ignite-element/src/plugins/webpackIgniteConfigPlugin.ts, packages/ignite-element/src/renderers/jsx/IgniteJsxRenderStrategy.ts, packages/ignite-element/src/tests/renderers/igniteJsxRenderStrategy.test.ts, README.md, docs/site/src/content/docs/index.mdx, docs/site/src/content/docs/migration/v2.mdx, docs/renderers/README.md, docs/styling/README.md
 
 ## Implementation plan
 
-- Convert the supplied context into a scoped implementation plan before editing.
-- Refresh affected-file scope before implementation if the generated hints are incomplete.
+- Repair existing build/config blockers first so examples and typecheck are trustworthy.
+- Shift v3 public docs/examples to no `ignite.config.ts` happy path, Ignite JSX default, and `<style>`-tag styling in render output.
+- Audit config loader/plugin exports and decide whether to deprecate, move to legacy docs, or leave as advanced compatibility without default docs exposure.
+- Add or adjust focused tests for style tag rendering/diff behavior if current coverage does not prove the target DX.
+- Update migration/docs copy so v2 config guidance does not contradict the v3/default happy path.
 
 ## Verification plan
 
-- Run `fas validate-task` for the inner-loop verification gate.
-- Run `.fas/scripts/verify.sh --full` at the final release-quality gate when tracked files change.
+- Run focused tests for config/plugin and Ignite JSX style rendering changes.
+- Run `pnpm run lint`, `pnpm run typecheck`, `pnpm test`, and `../FAS/cli/fas verify --full`.
+- Build docs if docs-site sidebar/content changes are made.
 
 ## Risks
 
-- Validate generated scope, acceptance criteria, and verification evidence before closeout to avoid workflow drift.
+- Removing config-file guidance without a clear `<style>` and CSS import story would leave a styling gap for shadow DOM users.
+- Lit users need an explicit compatibility path so v3 simplification does not become an accidental hard removal.
+- Inline `<style>` examples need CSP caveats for strict host apps.
+- Renderer diffing must avoid unnecessary style node churn on normal re-renders.
 
 ## Dependencies
 
