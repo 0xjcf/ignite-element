@@ -21,6 +21,15 @@
 				"../ignite-renderer/src/jsx/jsx-dev-runtime.ts"
 			],
 			"ignite-renderer/jsx/index": ["../ignite-renderer/src/jsx/index.ts"],
+			"ignite-element/actor-web": ["./src/actor-web.ts"],
+			"ignite-element/renderers/ignite-jsx": ["./src/renderers/ignite-jsx.ts"],
+			"ignite-element/renderers/lit": ["./src/renderers/lit.ts"],
+			"ignite-element/config/vite": ["./src/config/vite.ts"],
+			"ignite-element/config/webpack": ["./src/config/webpack.ts"],
+			"ignite-element/config/loadIgniteConfig": [
+				"./src/config/loadIgniteConfig.ts"
+			],
+			"ignite-element/jsx": ["./src/jsx/index.ts"],
 			"xstate": ["./node_modules/xstate"],
 			"xstate/*": ["./node_modules/xstate/*"]
 		}

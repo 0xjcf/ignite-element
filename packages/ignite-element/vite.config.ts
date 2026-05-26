@@ -1,7 +1,19 @@
 import { defineConfig } from "vite";
 import { createLibConfig } from "../../configs/vite/lib";
 
-export default defineConfig({
+type ViteCommand = "build" | "serve";
+
+const resolveNodeEnv = (
+	command: ViteCommand,
+	explicitNodeEnv = process.env.NODE_ENV,
+): "production" | "development" => {
+	const semanticNodeEnv = command === "build" ? "production" : "development";
+	return explicitNodeEnv === semanticNodeEnv
+		? explicitNodeEnv
+		: semanticNodeEnv;
+};
+
+export default defineConfig(({ command }) => ({
 	...createLibConfig({
 		name: "ignite-element",
 		entry: {
@@ -43,6 +55,6 @@ export default defineConfig({
 		},
 	}),
 	define: {
-		"process.env.NODE_ENV": JSON.stringify("production"),
+		"process.env.NODE_ENV": JSON.stringify(resolveNodeEnv(command)),
 	},
-});
+}));
