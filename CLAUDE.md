@@ -28,7 +28,7 @@ No code changes before the commit plan is complete.
 
 ## Memory-First
 
-After planning, always read `contextualMemory` in `.fas/state/task-packet.json` before reading source files.
+After planning, always read `contextualMemory` in `.fas/state/task-packet.json` before reading source files. When present, use `contextSubgraph` next to trace cited one-hop relationships across scope files, memory, domains, and packet references before widening repo exploration. If task-packet memory is marked stale or only supporting, verify cheap drift-prone facts before treating that memory as current contract truth.
 
 Required memory files: `.fas/memory/architecture.md`, `.fas/memory/decisions.md`, `.fas/memory/incidents.md`, `.fas/memory/integrations.md`, `.fas/memory/patterns.md`, `.fas/memory/pr-feedback.md`.
 
