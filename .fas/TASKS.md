@@ -72,11 +72,12 @@ No active tasks.
 
 - Title: document Actor-Web adapter entrypoints and optional runtime boundary
 - Mode: single-agent
-- Status: queued
-- Owner: implementer
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/document-actor-web-adapter-entrypoints-and-optional-runtime-boundary.md
-- Depends on: task-1778879253567
-
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 ### Task: promote ignite-element markdown memory into SQLite records and refresh retrieval indexes
 
 - Title: promote ignite-element markdown memory into SQLite records and refresh retrieval indexes
