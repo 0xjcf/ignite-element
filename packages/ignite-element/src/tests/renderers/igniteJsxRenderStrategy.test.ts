@@ -74,6 +74,68 @@ describe("Ignite JSX render strategy", () => {
 		expect(element.shadowRoot?.textContent).toContain("Count: 5");
 	});
 
+	it("keeps component style nodes stable when sibling content changes", () => {
+		const { adapter, element } = mountIgniteJsxRenderer(({ state }) =>
+			jsxs(Fragment, {
+				children: [
+					jsx("style", {
+						children: ".count { color: rebeccapurple; }",
+					}),
+					jsx("span", {
+						className: "count",
+						children: `Count: ${state?.count ?? 0}`,
+					}),
+				],
+			}),
+		);
+
+		const style = element.shadowRoot?.querySelector("style");
+		const styleText = style?.firstChild;
+		expect(style).toBeTruthy();
+		expect(styleText?.nodeType).toBe(Node.TEXT_NODE);
+
+		const listener = adapter.subscribe.mock.calls[0]?.[0];
+		listener?.({ count: 1 });
+
+		expect(element.shadowRoot?.querySelectorAll("style")).toHaveLength(1);
+		expect(element.shadowRoot?.querySelector("style")).toBe(style);
+		expect(element.shadowRoot?.querySelector("style")?.firstChild).toBe(
+			styleText,
+		);
+		expect(element.shadowRoot?.textContent).toContain("Count: 1");
+	});
+
+	it("updates style text without duplicating or replacing the style element", () => {
+		const { adapter, element } = mountIgniteJsxRenderer(({ state }) =>
+			jsxs(Fragment, {
+				children: [
+					jsx("style", {
+						children: `.count { color: ${
+							(state?.count ?? 0) > 0 ? "seagreen" : "tomato"
+						}; }`,
+					}),
+					jsx("span", {
+						className: "count",
+						children: `Count: ${state?.count ?? 0}`,
+					}),
+				],
+			}),
+		);
+
+		const style = element.shadowRoot?.querySelector("style");
+		const styleText = style?.firstChild;
+		expect(style?.textContent).toContain("tomato");
+
+		const listener = adapter.subscribe.mock.calls[0]?.[0];
+		listener?.({ count: 1 });
+
+		const updatedStyle = element.shadowRoot?.querySelector("style");
+		expect(element.shadowRoot?.querySelectorAll("style")).toHaveLength(1);
+		expect(updatedStyle).toBe(style);
+		expect(updatedStyle?.firstChild).toBe(styleText);
+		expect(updatedStyle?.textContent).toContain("seagreen");
+	});
+
 	it("supports object-based renderers", () => {
 		const renderObject = {
 			render: ({ state }: { state: State }) =>

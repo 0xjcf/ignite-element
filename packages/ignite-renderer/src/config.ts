@@ -5,7 +5,9 @@ export type IgniteRenderStrategyId = "diff" | "replace" | (string & {});
 export type IgniteLoggingLevel = "off" | "warn" | "debug" | (string & {});
 
 /**
- * Public configuration shape. Additional options can be added in future phases.
+ * Optional project-wide compatibility config.
+ * The default Ignite JSX path stays config-free; use this only for
+ * shared styles, diagnostics, or a non-default renderer.
  * `globalStyles` remains as a deprecated alias for `styles` during migration.
  */
 export interface IgniteConfig {
