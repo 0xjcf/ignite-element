@@ -81,11 +81,12 @@ No active tasks.
 
 - Title: promote ignite-element markdown memory into SQLite records and refresh retrieval indexes
 - Mode: single-agent
-- Status: queued
-- Owner: planner
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/promote-ignite-element-markdown-memory-into-sqlite-records-and-refresh-retrieval-indexes.md
-- Depends on: task-1778879253566
-
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 ## Completed Tasks
 
 ### Task: refresh ignite-element FAS workflow contract from platform template

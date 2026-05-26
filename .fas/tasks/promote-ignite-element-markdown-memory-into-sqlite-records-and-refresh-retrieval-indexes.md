@@ -1,4 +1,4 @@
-# Promote ignite-element markdown memory into SQLite records and refresh retrieval indexes
+# promote ignite-element markdown memory into SQLite records and refresh retrieval indexes
 
 ## Goal
 
@@ -30,3 +30,18 @@ single-agent
 ## Recommended Phase
 
 closeout
+
+## Scope Amendments
+
+- Type: validation-scope
+- Added at: 2026-05-26
+- Trigger: validation-only memory/index refresh
+- Reason: The task validates ignored FAS memory/index artifacts produced by fas memory-migrate and fas setup --refresh-memory. Product source paths from planner heuristics are reference-only and should not be edited.
+- Added paths: .fas/tasks/promote-ignite-element-markdown-memory-into-sqlite-records-and-refresh-retrieval-indexes.md, .fas/TASKS.md
+- Evidence source: focused validation
+- Evidence: focused validation | .fas/state/task-packet.json | SQLite memory has 30 validated records; .fas/index and .fas/semantic artifacts are readable; memory_records conflict metadata is empty.
+
+## Affected files
+
+- .fas/tasks/promote-ignite-element-markdown-memory-into-sqlite-records-and-refresh-retrieval-indexes.md
+- .fas/TASKS.md
