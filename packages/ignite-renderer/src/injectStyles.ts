@@ -50,8 +50,6 @@ export default function injectStyles(shadowRoot: ShadowRoot): void {
 		return;
 	}
 
-	initializedRoots.add(shadowRoot);
-
 	// Initialize shadow root cache
 	let shadowStyles = shadowRootCache.get(shadowRoot);
 	if (!shadowStyles) {
@@ -67,7 +65,7 @@ export default function injectStyles(shadowRoot: ShadowRoot): void {
 	) => {
 		if (shadowStyles.has(href)) {
 			debugLog(DebugNamespace.CACHE, `Skipping duplicate style: ${href}`);
-			return;
+			return true;
 		}
 
 		debugLog(DebugNamespace.INJECT_STYLES, "Loading new stylesheet:", {
@@ -95,22 +93,43 @@ export default function injectStyles(shadowRoot: ShadowRoot): void {
 			"Added to DOM:",
 			linkElement.outerHTML,
 		);
+		return true;
 	};
 
-	const isStylesheetPath = (path: string) => {
+	const normalizeStylesheetPath = (path: string) => {
 		const normalized = path.trim();
-		const withoutQuery = normalized.split("?")[0]?.split("#")[0] ?? normalized;
-		return withoutQuery.endsWith(".css") || withoutQuery.endsWith(".scss");
+		return normalized.split("?")[0]?.split("#")[0] ?? normalized;
 	};
+
+	const isBrowserStylesheetPath = (path: string) => {
+		return normalizeStylesheetPath(path).endsWith(".css");
+	};
+
+	const isScssStylesheetPath = (path: string) => {
+		return normalizeStylesheetPath(path).endsWith(".scss");
+	};
+
+	const warnInvalidStylePath = (path: string) => {
+		debugLog(DebugNamespace.WARN, "Invalid global style path");
+		console.warn("Invalid global style path:", path);
+	};
+
+	const warnScssPath = (path: string) => {
+		debugLog(DebugNamespace.WARN, "Skipping non-browser stylesheet path");
+		console.warn("Skipping non-browser stylesheet path:", path);
+	};
+
+	let handledStyles = false;
 
 	// Handle global styles
 	if (typeof globalStyles === "string") {
 		debugLog(DebugNamespace.GLOBAL_STYLES, "Processing string:", globalStyles);
-		if (isStylesheetPath(globalStyles)) {
-			injectStylesheet(globalStyles);
+		if (isBrowserStylesheetPath(globalStyles)) {
+			handledStyles = injectStylesheet(globalStyles);
+		} else if (isScssStylesheetPath(globalStyles)) {
+			warnScssPath(globalStyles);
 		} else {
-			debugLog(DebugNamespace.WARN, "Invalid global style path");
-			console.warn("Invalid global style path:", globalStyles);
+			warnInvalidStylePath(globalStyles);
 		}
 	} else if (
 		typeof globalStyles === "object" &&
@@ -118,11 +137,25 @@ export default function injectStyles(shadowRoot: ShadowRoot): void {
 		"href" in globalStyles
 	) {
 		debugLog(DebugNamespace.GLOBAL_STYLES, "Processing object:", globalStyles);
-		injectStylesheet(globalStyles.href, {
-			integrity: globalStyles.integrity,
-			crossOrigin: globalStyles.crossOrigin,
-		});
+		if (isBrowserStylesheetPath(globalStyles.href)) {
+			handledStyles = injectStylesheet(globalStyles.href, {
+				integrity: globalStyles.integrity,
+				crossOrigin: globalStyles.crossOrigin,
+			});
+		} else if (isScssStylesheetPath(globalStyles.href)) {
+			warnScssPath(globalStyles.href);
+		} else {
+			warnInvalidStylePath(globalStyles.href);
+		}
 	}
+
+	if (!handledStyles) {
+		pendingRoots.add(shadowRoot);
+		return;
+	}
+
+	pendingRoots.delete(shadowRoot);
+	initializedRoots.add(shadowRoot);
 
 	// Deprecated per-component styles have been removed (styles now managed globally)
 }

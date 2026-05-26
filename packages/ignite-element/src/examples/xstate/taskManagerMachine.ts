@@ -44,12 +44,17 @@ export const taskManagerMachine = setup({
 				},
 				TOGGLE: {
 					actions: assign({
-						tasks: ({ context, event }) =>
-							context.tasks.map((task, index) =>
+						tasks: ({ context, event }) => {
+							if (event.index < 0 || event.index >= context.tasks.length) {
+								return context.tasks;
+							}
+
+							return context.tasks.map((task, index) =>
 								index === event.index
 									? { ...task, completed: !task.completed }
 									: task,
-							),
+							);
+						},
 					}),
 				},
 			},

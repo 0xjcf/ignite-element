@@ -36,8 +36,23 @@ export function resolveRenderStrategy(
 		return registered;
 	}
 
-	const fallback = registry.get("ignite-jsx") ?? registry.values().next().value;
-	if (!fallback) {
+	const igniteJsxFallback = registry.get("ignite-jsx");
+	let fallbackName: string | undefined;
+	let fallbackFactory: RenderStrategyFactory<unknown> | undefined;
+
+	if (igniteJsxFallback) {
+		fallbackName = "ignite-jsx";
+		fallbackFactory = igniteJsxFallback;
+	} else {
+		const fallbackEntry = registry.entries().next().value as
+			| [string, RenderStrategyFactory<unknown>]
+			| undefined;
+		if (fallbackEntry) {
+			[fallbackName, fallbackFactory] = fallbackEntry;
+		}
+	}
+
+	if (!fallbackName || !fallbackFactory) {
 		throw new Error(
 			'[ignite-renderer] No render strategies have been registered. Import "ignite-renderer/jsx" (or another strategy entry point) before registering components.',
 		);
@@ -45,11 +60,11 @@ export function resolveRenderStrategy(
 
 	if (renderer !== "ignite-jsx") {
 		console.warn(
-			`[ignite-renderer] Render strategy "${renderer}" is not registered. Ensure you import "ignite-renderer/${renderer}" before registering components. Falling back to Ignite JSX.`,
+			`[ignite-renderer] Render strategy "${renderer}" is not registered. Ensure you import "ignite-renderer/${renderer}" before registering components. Falling back to "${fallbackName}".`,
 		);
 	}
 
-	return fallback;
+	return fallbackFactory;
 }
 
 export function clearRegisteredRenderStrategiesForTests(): void {

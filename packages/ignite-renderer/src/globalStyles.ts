@@ -11,7 +11,7 @@ let globalStyles: GlobalStyles;
 export function setGlobalStyles(style: GlobalStyles): void {
 	if (Array.isArray(style)) {
 		throw new Error(
-			"setGlobalStyles does not accepts arrays. Provide a single string or StyleObject.",
+			"setGlobalStyles does not accept arrays. Provide a single string or StyleObject.",
 		);
 	}
 	globalStyles = style;
