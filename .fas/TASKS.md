@@ -10,8 +10,8 @@ No active tasks.
 
 - Title: fix runtime correctness blockers from CodeRabbit domain review
 - Mode: 6-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-runtime-correctness-blockers-from-coderabbit-domain-revi.md
 - Verification lane: fast
 - Policy sensitivity: standard
