@@ -42,8 +42,6 @@ export function isReduxSlice(source: unknown): source is Slice {
 }
 
 export interface XStateActorLike {
-	start?: () => unknown;
-	stop?: () => unknown;
 	send: (...args: unknown[]) => unknown;
 	subscribe: (...args: unknown[]) => unknown;
 	getSnapshot: () => unknown;
@@ -74,7 +72,6 @@ export function isXStateActor(source: unknown): source is XStateActorLike {
 	return (
 		typeof actor.send === "function" &&
 		typeof actor.subscribe === "function" &&
-		typeof actor.getSnapshot === "function" &&
-		(typeof actor.start === "function" || typeof actor.stop === "function")
+		typeof actor.getSnapshot === "function"
 	);
 }

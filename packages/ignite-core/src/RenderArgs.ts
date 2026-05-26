@@ -12,7 +12,8 @@ export type FacadeViewCallback<
 	Result extends Record<string, unknown> = Record<string, unknown>,
 > = (context: ViewContext<Snapshot>) => Result;
 
-export type FacadeCommandFunction = (...args: never[]) => unknown;
+// biome-ignore lint/suspicious/noExplicitAny: tuple-preserving command metadata needs an unconstrained callable base type.
+export type FacadeCommandFunction = (...args: any[]) => unknown;
 
 export type FacadeCommandResult = Record<string, FacadeCommandFunction>;
 

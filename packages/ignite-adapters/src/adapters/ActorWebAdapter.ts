@@ -254,10 +254,14 @@ function createAdapterEntry<
 	let unsubscribeSource: (() => void) | null = null;
 	let unsubscribeTransportStatus: (() => void) | null = null;
 	let isStopped = false;
+	let notificationCount = 0;
 	let lastKnownSnapshot = source.snapshot();
 	let lastKnownTransportStatus =
 		source.transportStatus?.() ??
 		disconnectedStatus("Actor-Web source does not expose transport status.");
+	let lastNotifiedSnapshot: ActorWebSourceSnapshot<Context> | null = null;
+	let lastNotifiedTransportStatus: ActorWebTransportStatus | null = null;
+	let isCollectingInitialReplay = false;
 
 	const cleanupSubscriptions = () => {
 		unsubscribeSource?.();
@@ -266,11 +270,52 @@ function createAdapterEntry<
 		unsubscribeTransportStatus = null;
 	};
 
+	const isEquivalentInitialReplay = () => {
+		if (!lastNotifiedSnapshot || !lastNotifiedTransportStatus) {
+			return false;
+		}
+
+		return (
+			lastNotifiedSnapshot.address === lastKnownSnapshot.address &&
+			lastNotifiedSnapshot.context === lastKnownSnapshot.context &&
+			lastNotifiedSnapshot.phase === lastKnownSnapshot.phase &&
+			lastNotifiedTransportStatus.state === lastKnownTransportStatus.state &&
+			lastNotifiedTransportStatus.updatedAt ===
+				lastKnownTransportStatus.updatedAt &&
+			lastNotifiedTransportStatus.lastSequence ===
+				lastKnownTransportStatus.lastSequence &&
+			lastNotifiedTransportStatus.lagMs === lastKnownTransportStatus.lagMs &&
+			lastNotifiedTransportStatus.reason === lastKnownTransportStatus.reason
+		);
+	};
+
 	const notify = () => {
+		if (
+			isCollectingInitialReplay
+				? isEquivalentInitialReplay()
+				: lastNotifiedSnapshot === lastKnownSnapshot &&
+					lastNotifiedTransportStatus === lastKnownTransportStatus
+		) {
+			return;
+		}
+
+		notificationCount += 1;
+		lastNotifiedSnapshot = lastKnownSnapshot;
+		lastNotifiedTransportStatus = lastKnownTransportStatus;
 		const state = toExtendedState(lastKnownSnapshot, lastKnownTransportStatus);
 		for (const listener of listeners) {
 			listener(state);
 		}
+	};
+
+	const readCurrentState = () => {
+		if (!isStopped) {
+			lastKnownSnapshot = source.snapshot();
+			lastKnownTransportStatus =
+				source.transportStatus?.() ?? lastKnownTransportStatus;
+		}
+
+		return toExtendedState(lastKnownSnapshot, lastKnownTransportStatus);
 	};
 
 	const ensureSubscription = () => {
@@ -299,9 +344,15 @@ function createAdapterEntry<
 			listeners.add(listener);
 
 			if (!unsubscribeSource) {
+				const notificationsBeforeSubscribe = notificationCount;
+				isCollectingInitialReplay = true;
 				ensureSubscription();
+				isCollectingInitialReplay = false;
+				if (notificationCount === notificationsBeforeSubscribe) {
+					listener(readCurrentState());
+				}
 			} else {
-				listener(toExtendedState(lastKnownSnapshot, lastKnownTransportStatus));
+				listener(readCurrentState());
 			}
 
 			return {
@@ -326,13 +377,7 @@ function createAdapterEntry<
 			});
 		},
 		getState() {
-			if (!isStopped) {
-				lastKnownSnapshot = source.snapshot();
-				lastKnownTransportStatus =
-					source.transportStatus?.() ?? lastKnownTransportStatus;
-			}
-
-			return toExtendedState(lastKnownSnapshot, lastKnownTransportStatus);
+			return readCurrentState();
 		},
 		stop() {
 			if (isStopped) {
@@ -360,15 +405,7 @@ function createAdapterEntry<
 
 	return {
 		adapter,
-		snapshot: () => {
-			if (!isStopped) {
-				lastKnownSnapshot = source.snapshot();
-				lastKnownTransportStatus =
-					source.transportStatus?.() ?? lastKnownTransportStatus;
-			}
-
-			return toExtendedState(lastKnownSnapshot, lastKnownTransportStatus);
-		},
+		snapshot: () => readCurrentState(),
 		actor: source,
 	};
 }

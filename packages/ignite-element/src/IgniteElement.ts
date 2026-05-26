@@ -26,6 +26,7 @@ export default abstract class IgniteElement<
 	private _adapter: IgniteAdapter<State, Event> | undefined;
 	private _shadowRoot: ShadowRoot;
 	private _currentState!: State;
+	private _hasCurrentState = false;
 	private _initialized = false;
 	private _isActive = false;
 	private _unsubscribe: (() => void) | undefined;
@@ -52,7 +53,7 @@ export default abstract class IgniteElement<
 
 	protected initializeAdapter(adapter: IgniteAdapter<State, Event>): void {
 		this._adapter = adapter;
-		this._currentState = this._adapter.getState();
+		this.updateCurrentState(this._adapter.getState());
 		this._initialized = true;
 
 		if (this._isActive && !this._unsubscribe) {
@@ -64,7 +65,7 @@ export default abstract class IgniteElement<
 	connectedCallback(): void {
 		if (!this._unsubscribe && this._adapter) {
 			this.subscribeToAdapter();
-			this._currentState = this._adapter.getState();
+			this.updateCurrentState(this._adapter.getState());
 		}
 
 		this._isActive = true;
@@ -105,7 +106,7 @@ export default abstract class IgniteElement<
 	}
 
 	private renderTemplate(): void {
-		if (!this._isActive || !this._currentState) {
+		if (!this._isActive || !this._initialized || !this._hasCurrentState) {
 			console.warn(`[IgniteElement] State is not initialized`);
 			return;
 		}
@@ -166,7 +167,7 @@ export default abstract class IgniteElement<
 	}
 
 	set currentState(state: State) {
-		this._currentState = state;
+		this.updateCurrentState(state);
 	}
 
 	private subscribeToAdapter(): void {
@@ -175,7 +176,7 @@ export default abstract class IgniteElement<
 		}
 
 		const subscription = this._adapter.subscribe((state: State) => {
-			this._currentState = state;
+			this.updateCurrentState(state);
 			if (this._isActive) {
 				this.renderTemplate();
 			}
@@ -185,6 +186,11 @@ export default abstract class IgniteElement<
 			subscription.unsubscribe();
 			this._unsubscribe = undefined;
 		};
+	}
+
+	private updateCurrentState(state: State): void {
+		this._currentState = state;
+		this._hasCurrentState = state !== undefined;
 	}
 
 	private recordLifecycle(stage: IgniteStoryLifecycleStage): void {
