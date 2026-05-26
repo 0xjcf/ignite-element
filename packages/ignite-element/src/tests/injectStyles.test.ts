@@ -1,7 +1,7 @@
 import type { MockInstance } from "vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setGlobalStyles } from "../globalStyles";
-import injectStyles from "../injectStyles";
+import injectStyles, { flushPendingStyles } from "../injectStyles";
 
 describe("injectStyles", () => {
 	let shadowRoot: ShadowRoot;
@@ -52,6 +52,52 @@ describe("injectStyles", () => {
 			"Invalid global style path:",
 			"invalidStyle",
 		);
+	});
+
+	it("skips string .scss stylesheets and warns", () => {
+		setGlobalStyles("./theme.scss");
+
+		injectStyles(shadowRoot);
+
+		expect(shadowRoot.querySelector("link")).toBeNull();
+		expect(warnSpy).toHaveBeenCalledWith(
+			"Skipping non-browser stylesheet path:",
+			"./theme.scss",
+		);
+	});
+
+	it("skips StyleObject .scss stylesheets after a pending flush and keeps roots deduped", () => {
+		injectStyles(shadowRoot);
+		setGlobalStyles({
+			href: "./theme.scss",
+			crossOrigin: "anonymous",
+		});
+
+		flushPendingStyles();
+		flushPendingStyles();
+
+		expect(shadowRoot.querySelectorAll("link")).toHaveLength(0);
+		expect(warnSpy).toHaveBeenCalledWith(
+			"Skipping non-browser stylesheet path:",
+			"./theme.scss",
+		);
+	});
+
+	it("keeps pending roots retryable after a rejected stylesheet flush", () => {
+		injectStyles(shadowRoot);
+		setGlobalStyles("./theme.scss");
+
+		flushPendingStyles();
+
+		expect(shadowRoot.querySelectorAll("link")).toHaveLength(0);
+
+		setGlobalStyles("./theme.css");
+		flushPendingStyles();
+		flushPendingStyles();
+
+		const links = shadowRoot.querySelectorAll("link");
+		expect(links).toHaveLength(1);
+		expect(links[0]?.href).toContain("theme.css");
 	});
 
 	it("should ignore redundant calls for the same shadow root", () => {

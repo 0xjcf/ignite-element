@@ -646,6 +646,49 @@ describe("igniteCore type inference", () => {
 		void expectPayloadValidation;
 	});
 
+	it("preserves tuple command inference when metadata is attached", () => {
+		const store = counterStore();
+
+		const register = igniteCore({
+			adapter: "redux",
+			source: store,
+			commands: ({ actor, command }) => {
+				const addPair = command(
+					(first: number, second: number) =>
+						actor.dispatch(counterSlice.actions.addByAmount(first + second)),
+					{
+						description: "Add a pair of values.",
+					},
+				);
+
+				const tupleCommand: (first: number, second: number) => unknown =
+					addPair;
+
+				void tupleCommand;
+
+				return {
+					addPair,
+				};
+			},
+		});
+
+		type RenderArgs = AdapterPack<typeof register>;
+
+		expectTypeOf<Parameters<RenderArgs["addPair"]>>().toEqualTypeOf<
+			[first: number, second: number]
+		>();
+
+		const expectTupleValidation = () => {
+			const args = null as unknown as RenderArgs;
+			// @ts-expect-error - wrapped command should preserve tuple arity
+			args.addPair(1);
+			// @ts-expect-error - wrapped command should preserve tuple item types
+			args.addPair(1, "2");
+		};
+
+		void expectTupleValidation;
+	});
+
 	it("infers redux slice snapshot and actor facades", () => {
 		type SliceState = InferStateAndEvent<typeof counterSlice>["State"];
 		type SliceEvent = InferStateAndEvent<typeof counterSlice>["Event"];

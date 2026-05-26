@@ -41,11 +41,21 @@ describe("adapterGuards", () => {
 			const partialActor = {
 				send() {},
 				subscribe() {},
-				start() {},
-				stop() {},
 			};
 
 			expect(isXStateActor(partialActor)).toBe(false);
+		});
+
+		it("does not require lifecycle methods for actor detection", () => {
+			const partialActor = {
+				send() {},
+				subscribe() {},
+				getSnapshot() {
+					return { value: "idle" };
+				},
+			};
+
+			expect(isXStateActor(partialActor)).toBe(true);
 		});
 
 		it("returns false for null values", () => {

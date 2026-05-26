@@ -193,6 +193,29 @@ describe("IgniteElement", () => {
 		warnSpy.mockRestore();
 	});
 
+	it("renders falsy primitive states once initialized", () => {
+		type PrimitiveState = "" | false | number;
+		const primitiveAdapter = new MockAdapter<PrimitiveState, Event>(0);
+		const component = igniteElementFactory(() => primitiveAdapter);
+		const name = `ignite-falsy-state-${crypto.randomUUID()}`;
+
+		component(name, ({ state }) => <div>Value: {String(state)}</div>);
+
+		const primitiveElement = document.createElement(name);
+		assertIgniteElement<PrimitiveState, Event>(primitiveElement);
+		document.body.appendChild(primitiveElement);
+
+		expect(primitiveElement.shadowRoot?.textContent).toContain("Value: 0");
+
+		primitiveAdapter.subscribe.mock.calls[0][0](false);
+		expect(primitiveElement.shadowRoot?.textContent).toContain("Value: false");
+
+		primitiveAdapter.subscribe.mock.calls[0][0]("");
+		expect(primitiveElement.shadowRoot?.textContent).toContain("Value:");
+
+		primitiveElement.remove();
+	});
+
 	it("resubscribes to the adapter when reconnected", () => {
 		const sharedAdapter = new MockAdapter(initialState, StateScope.Shared);
 		const createSharedAdapter = Object.assign(

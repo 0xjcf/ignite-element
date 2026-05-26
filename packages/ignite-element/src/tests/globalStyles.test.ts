@@ -18,7 +18,7 @@ describe("globalStyles", () => {
 		const style = {
 			href: "./theme.css",
 			integrity: "sha384-abc123",
-			crossorigin: "anonymous",
+			crossOrigin: "anonymous",
 		};
 		setGlobalStyles(style);
 
@@ -31,7 +31,7 @@ describe("globalStyles", () => {
 			// @ts-expect-error - testing invalid input
 			setGlobalStyles(["./theme.css", "./other.css"]),
 		).toThrow(
-			"setGlobalStyles does not accepts arrays. Provide a single string or StyleObject.",
+			"setGlobalStyles does not accept arrays. Provide a single string or StyleObject.",
 		);
 	});
 
@@ -47,7 +47,7 @@ describe("globalStyles", () => {
 		const style1 = {
 			href: "./theme.css",
 			integrity: "sha384-abc123",
-			crossorigin: "anonymous",
+			crossOrigin: "anonymous",
 		};
 
 		const style2 = {
