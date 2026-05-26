@@ -10,6 +10,7 @@
 		"test:node": "pnpm --filter ignite-element test:node",
 		"typecheck": "pnpm -r run typecheck",
 		"format": "biome format --write . && pnpm run format:md",
+		"format:check": "biome format . && pnpm run lint:md",
 		"format:md": "markdownlint-cli2 --fix",
 		"check": "biome check . && pnpm run lint:md",
 		"lint": "biome lint . && pnpm run lint:md",
