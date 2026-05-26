@@ -16,9 +16,10 @@ const registerToggle = igniteCore({
   events: (event) => ({
     toggled: event<{ isOn: boolean }>(),
   }),
-  commands: ({ actor }) => ({
+  commands: ({ actor, emit }) => ({
     toggle: () => {
       actor.send({ type: "TOGGLE" });
+      emit("toggled", { isOn: true });
     },
   }),
 });
@@ -69,7 +70,7 @@ Use `--report <path>` to save the output to a file.
 
 ## Breaking release note
 
-`emit` has been removed from command context. Commands now receive `{ actor, host }` only, and typed event emission belongs in `effects()`.
+`emit` has been removed from command context. Commands still receive `{ actor, command, host }`; typed event emission belongs in `effects()`.
 
 ## Release boundary
 

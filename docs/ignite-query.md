@@ -1,6 +1,6 @@
 # 🔥 ignite-query
 
-> **Behavior-first server-state (data-time) integration for ignite-element + adapter contracts**
+> **Behavior-first server-state (data-over-time) integration for ignite-element + adapter contracts**
 
 `ignite-query` integrates **query runtimes** (such as TanStack Query) into the ignite ecosystem by separating **behavior** from **IO**.
 
@@ -108,7 +108,7 @@ Query State Machine (XState)
         Network
 ```
 
-* **Machines** model data-time behavior
+* **Machines** model data-over-time behavior
 * **Adapters** talk to query runtimes
 * **ignite-element** assembles projected UI state + commands
 * **Bindings/renderers** render only
@@ -187,7 +187,7 @@ Reference machines live in XState actors/machines or a future
 
 ## 🚀 End-to-End Example (igniteCore + Web Component)
 
-This example shows **data-time behavior**, not session logic.
+This example shows **data-over-time behavior**, not session logic.
 
 ---
 
@@ -341,7 +341,7 @@ If the behavior depends on **user capability**, use ignite-web3 instead.
 
 ## 📌 Summary
 
-* ignite-query models **data-time behavior**
+* ignite-query models **data-over-time behavior**
 * ignite-web3 models **session-time capability**
 * Adapters integrate query runtimes
 * ignite-element assembles projected state + intent

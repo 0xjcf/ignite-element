@@ -103,11 +103,11 @@ boundary model.
 
 ## Documentation
 
-- API docs: `docs/site/src/content/docs/api/ignite-core.mdx`
-- Host app integration: `docs/site/src/content/docs/guides/host-app-integration.mdx`
-- Platform contracts: `docs/site/src/content/docs/guides/platform-contracts.mdx`
-- Testing guide: `docs/site/src/content/docs/guides/testing.mdx`
-- Configuration and renderers: `docs/site/src/content/docs/api/define-ignite-config.mdx`
-- Migration guide: `docs/migrations/v2.2.3-effects-events.md`
-- Package boundary migration: `docs/migrations/adr-003-package-boundaries.md`
-- Examples: `packages/ignite-element/src/examples`
+- API docs: `../../docs/api/README.md`
+- Host app integration: `../../docs/site/src/content/docs/guides/host-app-integration.mdx`
+- Platform contracts: `../../docs/site/src/content/docs/guides/platform-contracts.mdx`
+- Testing guide: `../../docs/testing.md`
+- Configuration and renderers: `../../docs/site/src/content/docs/api/define-ignite-config.mdx`
+- Migration guide: `../../docs/migrations/v2.2.3-effects-events.md`
+- Package boundary migration: `../../docs/migrations/adr-003-package-boundaries.md`
+- Examples: `src/examples`
