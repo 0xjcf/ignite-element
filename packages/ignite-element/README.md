@@ -8,6 +8,10 @@ Most users should install `ignite-element` and one state library:
 - Redux: `npm install ignite-element @reduxjs/toolkit`
 - MobX: `npm install ignite-element mobx`
 
+Actor-Web integration is optional. Use `ignite-element/actor-web` only when an
+Actor-Web runtime owns orchestration and source lifecycles for the host app.
+Standalone Ignite components do not require Actor-Web.
+
 If you use the built-in JSX runtime, enable Ignite JSX in `tsconfig.json`:
 
 ```json
@@ -86,9 +90,16 @@ story.stop();
 
 - `ignite-element` is the default public package.
 - `ignite-element/xstate`, `ignite-element/redux`, and `ignite-element/mobx` are the default public adapter entrypoints.
+- `ignite-element/actor-web` is the optional advanced runtime bridge for host apps that already use Actor-Web.
 - `ignite-core` is limited to adapter-neutral contracts, event/effect typing, and small shared utilities.
 - `ignite-adapters` is limited to adapter factories, guards, and source-specific config/types.
 - `ignite-renderer` remains the advanced renderer/runtime layer for custom renderer integration work.
+
+Actor-Web remains outside the Ignite runtime boundary. Actor-Web owns
+orchestration, transport, and long-lived runtime coordination; Ignite consumes
+Actor-Web projection/read-model state through the adapter entrypoint. See
+`docs/adr-003-shared-arc.md` and `docs/shared-architecture-model.md` for the
+boundary model.
 
 ## Documentation
 
