@@ -141,6 +141,7 @@
 		"redux",
 		"xstate",
 		"mobx",
+		"actor-web",
 		"ignite-element"
 	],
 	"author": "Jose C. Flores (0xjcf)",

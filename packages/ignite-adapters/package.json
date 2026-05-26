@@ -55,6 +55,14 @@
 		}
 	},
 	"sideEffects": false,
+	"keywords": [
+		"ignite-element",
+		"state-management",
+		"xstate",
+		"redux",
+		"mobx",
+		"actor-web"
+	],
 	"files": [
 		"dist",
 		"README.md"
