@@ -21,12 +21,13 @@ No active tasks.
 
 - Title: simplify v3 build config and styling defaults
 - Mode: 6-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/repair-build-and-module-configuration-blockers-from-coderabb.md
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
+
 ### Task: harden migration and architecture utility scripts from CodeRabbit review
 
 - Title: harden migration and architecture utility scripts from CodeRabbit review
