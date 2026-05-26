@@ -16,8 +16,9 @@ Creates a registration function for wiring adapters to custom elements.
 
 | Option | Type | Description |
 | --- | --- | --- |
-| `states` | `(snapshot) => Record<string, unknown>` | Derive façade data from the adapter snapshot. Runs once per adapter instance. |
-| `commands` | `(actor) => Record<string, (...args: any[]) => unknown>` | Expose imperative helpers bound to the adapter’s command actor (dispatch/send/store). |
+| `view` | `({ snapshot }) => Record<string, unknown>` | Derive render-facing data from the adapter snapshot. Runs when the runtime attaches and after later state updates. |
+| `states` | `(snapshot) => Record<string, unknown>` | Supported alias for derived render-facing data. Prefer `view` for new components; keep `states` when maintaining existing components that already use it. |
+| `commands` | `({ actor, command, host }) => Record<string, (...args: any[]) => unknown>` | Expose imperative helpers from the command context. Use `actor` for adapter dispatch/send/store access, `command` to attach command contract metadata, and `host` for host-aware commands. |
 | `cleanup` | `boolean` | Defaults to `true`. Shared adapter teardown override. When `false`, keeps shared adapters alive after the last element disconnects so the host can release them manually. |
 
 ### Returns
@@ -33,16 +34,40 @@ Creates a registration function for wiring adapters to custom elements.
 `igniteCore(...)` also returns a headless runtime for deterministic testing and automation:
 
 ```ts
-import { test as igniteTest } from "ignite-element";
+import { igniteCore } from "ignite-element/xstate";
 
-igniteTest(component)
-  .given("off")
-  .when("toggle")
-  .expectState("on")
-  .expectEvent("toggled");
+const component = igniteCore({
+  source: machine,
+  commands: ({ actor }) => ({
+    toggle: () => actor.send({ type: "TOGGLE" }),
+  }),
+  events: (event) => ({
+    toggled: event<{ isOn: boolean }>(),
+  }),
+  effects: (_snapshot, _prevSnapshot, { emit, select }) => {
+    const isOn = select((snapshot) => snapshot.matches("on"));
+    if (!isOn.changed) return;
+    emit("toggled", { isOn: isOn.current });
+  },
+});
+
+const seen: Array<{ isOn: boolean }> = [];
+const subscription = component.on("toggled", (event) => {
+  seen.push(event.detail);
+});
+
+const result = await component.execute("toggle");
+
+subscription.unsubscribe();
+
+expect(result.state.value).toBe("on");
+expect(result.events).toEqual([
+  { type: "toggled", payload: { isOn: true } },
+]);
+expect(seen).toEqual([{ isOn: true }]);
 ```
 
-The helper wraps `execute()` so state and event assertions use the same runtime contract as agents and other headless callers.
+Use `execute()` for command-driven assertions, `on(...)` for emitted events, and `watch(...)` or `watchView(...)` when a test needs to observe longer-lived state or projection changes.
 
 ## `igniteElementFactory(createAdapter, options?)`
 
@@ -88,4 +113,4 @@ Bundler plugins (`igniteConfigVitePlugin`, `IgniteConfigWebpackPlugin`) are avai
 - [x] Ignite JSX renderer strategy and tooling.
 - [x] `ignite.config.(ts|js)` for centralised styling defaults.
 
-For the full acceptance criteria and future enhancements, see [`plans/ACCEPTANCE_CRITERIA.md`](../../plans/ACCEPTANCE_CRITERIA.md).
+For end-to-end examples and testing guidance, see [`docs/testing.md`](../testing.md) and [`packages/ignite-element/README.md`](../../packages/ignite-element/README.md).

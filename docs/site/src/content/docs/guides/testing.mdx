@@ -10,10 +10,10 @@ Test the state source and the DOM separately. Keep your XState/Redux/MobX logic 
 
 ## Headless runtime tests
 
-For deterministic command/event assertions, use the built-in scenario helper against the headless runtime returned by `igniteCore(...)`.
+For deterministic command and event assertions, use the headless runtime returned by `igniteCore(...)` directly from your Vitest suite.
 
 ```ts
-import { test as igniteTest } from 'ignite-element';
+import { describe, expect, it } from 'vitest';
 import { igniteCore } from 'ignite-element/xstate';
 import { counterMachine } from './counter.machine';
 
@@ -35,14 +35,28 @@ const component = igniteCore({
   },
 });
 
-igniteTest(component)
-  .given('off')
-  .when('toggle')
-  .expectState('on')
-  .expectEvent('toggled', { isOn: true });
+describe('counter runtime', () => {
+  it('executes commands and reports emitted events', async () => {
+    const seen: Array<{ isOn: boolean }> = [];
+    const subscription = component.on('toggled', (event) => {
+      seen.push(event.detail);
+    });
+
+    const result = await component.execute('toggle');
+
+    subscription.unsubscribe();
+
+    expect(result.state.value).toBe('on');
+    expect(result.events).toEqual([
+      { type: 'toggled', payload: { isOn: true } },
+    ]);
+    expect(component.getView()).toEqual({ isOn: true });
+    expect(seen).toEqual([{ isOn: true }]);
+  });
+});
 ```
 
-This path is useful when you want to verify command execution, resulting state, and emitted events without mounting a custom element. The helper wraps `execute()`, so the observed events are the exact ones returned by the runtime for that transition.
+This path is useful when you want to verify command execution, resulting state, and emitted events without mounting a custom element. `execute()` returns the same event stream the runtime emitted for that transition, so the assertion surface stays deterministic.
 
 ## Replay semantics
 
