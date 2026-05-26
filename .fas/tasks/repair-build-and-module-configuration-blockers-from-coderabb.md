@@ -34,15 +34,17 @@ Repair CodeRabbit build/config blockers while locking the v3 API direction for s
 - packages/ignite-element/src/examples/redux/vite.config.ts
 - packages/ignite-element/tsconfig.typecheck.json
 - packages/ignite-element/vite.config.ts
-- packages/ignite-core/package.json
-- pnpm-lock.yaml
 - packages/ignite-renderer/src/config.ts
-- packages/ignite-element/src/config/loadIgniteConfig.ts
-- packages/ignite-element/src/plugins/viteIgniteConfigPlugin.ts
-- packages/ignite-element/src/plugins/webpackIgniteConfigPlugin.ts
-- packages/ignite-element/src/renderers/jsx/IgniteJsxRenderStrategy.ts
+- packages/ignite-element/vitest.config.ts
 - packages/ignite-element/src/tests/renderers/igniteJsxRenderStrategy.test.ts
 - README.md
+- docs/migrations/v2.0.0-ignite-jsx.md
+- docs/site/src/content/docs/api/define-ignite-config.mdx
+- docs/site/src/content/docs/api/renderers.mdx
+- docs/site/src/content/docs/concepts/configuration.mdx
+- docs/site/src/content/docs/concepts/renderers.mdx
+- docs/site/src/content/docs/guides/styling.mdx
+- docs/site/src/content/docs/guides/tooling.mdx
 - docs/site/src/content/docs/index.mdx
 - docs/site/src/content/docs/migration/v2.mdx
 - docs/renderers/README.md
@@ -52,7 +54,12 @@ Repair CodeRabbit build/config blockers while locking the v3 API direction for s
 
 - Type: scope-refresh
 - Added at: 2026-05-26
-- Added paths: packages/ignite-element/src/examples/redux/vite.config.ts, packages/ignite-element/tsconfig.typecheck.json, packages/ignite-element/vite.config.ts, packages/ignite-renderer/src/config.ts, packages/ignite-element/src/config/loadIgniteConfig.ts, packages/ignite-element/src/plugins/viteIgniteConfigPlugin.ts, packages/ignite-element/src/plugins/webpackIgniteConfigPlugin.ts, packages/ignite-element/src/renderers/jsx/IgniteJsxRenderStrategy.ts, packages/ignite-element/src/tests/renderers/igniteJsxRenderStrategy.test.ts, README.md, docs/site/src/content/docs/index.mdx, docs/site/src/content/docs/migration/v2.mdx, docs/renderers/README.md, docs/styling/README.md
+- Added paths: packages/ignite-element/src/examples/redux/vite.config.ts, packages/ignite-element/tsconfig.typecheck.json, packages/ignite-element/vite.config.ts, packages/ignite-renderer/src/config.ts, packages/ignite-element/src/tests/renderers/igniteJsxRenderStrategy.test.ts, README.md, docs/site/src/content/docs/index.mdx, docs/site/src/content/docs/migration/v2.mdx, docs/renderers/README.md, docs/styling/README.md
+- Type: scope-refresh
+- Added at: 2026-05-26
+- Trigger: delegated review findings
+- Reason: QA, SRE, and reviewer passes found additional public docs pages that contradicted the v3 config-free default API direction or referenced non-exported config imports. Dependency and plugin source changes were assessed and left untouched because no dependency upgrade or plugin behavior change was required.
+- Added paths: packages/ignite-element/vitest.config.ts, docs/migrations/v2.0.0-ignite-jsx.md, docs/site/src/content/docs/api/define-ignite-config.mdx, docs/site/src/content/docs/api/renderers.mdx, docs/site/src/content/docs/concepts/configuration.mdx, docs/site/src/content/docs/concepts/renderers.mdx, docs/site/src/content/docs/guides/styling.mdx, docs/site/src/content/docs/guides/tooling.mdx
 
 ## Implementation plan
 

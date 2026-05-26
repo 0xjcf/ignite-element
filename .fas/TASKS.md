@@ -21,9 +21,12 @@ No active tasks.
 
 - Title: simplify v3 build config and styling defaults
 - Mode: 6-agent
-- Status: queued
-- Owner: implementer
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/repair-build-and-module-configuration-blockers-from-coderabb.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 ### Task: harden migration and architecture utility scripts from CodeRabbit review
 
 - Title: harden migration and architecture utility scripts from CodeRabbit review
@@ -276,6 +279,7 @@ No active tasks.
 - Status: queued
 - Owner: implementer
 - Brief: .fas/tasks/harden-actorwebadapter-replay-dedupe-for-cloned-snapshots-an.md
+
 ### Task: bound injectStyles pending root retention and invalid-style warning noise
 
 - Title: bound injectStyles pending root retention and invalid-style warning noise
@@ -283,6 +287,7 @@ No active tasks.
 - Status: queued
 - Owner: implementer
 - Brief: .fas/tasks/bound-injectstyles-pending-root-retention-and-invalid-style.md
+
 ## Template
 
 ### Task: <short task title>
