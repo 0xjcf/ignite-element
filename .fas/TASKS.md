@@ -40,9 +40,12 @@ No active tasks.
 
 - Title: replace inaccurate testing documentation from CodeRabbit review
 - Mode: 4-agent
-- Status: queued
+- Status: done
 - Owner: implementer
 - Brief: .fas/tasks/replace-inaccurate-testing-documentation-from-coderabbit-rev.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: investigate ignite inspector runtime requirements, schema metadata gaps, and effects ergonomics follow-up tasks
 
