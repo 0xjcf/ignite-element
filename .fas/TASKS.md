@@ -10,9 +10,12 @@ No active tasks.
 
 - Title: fix runtime correctness blockers from CodeRabbit domain review
 - Mode: 6-agent
-- Status: queued
-- Owner: implementer
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/fix-runtime-correctness-blockers-from-coderabbit-domain-revi.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: repair build and module configuration blockers from CodeRabbit review
 
@@ -267,6 +270,20 @@ No active tasks.
 - Blast radius: cross-cutting
 - Artifacts: planning=.fas/state/planning.json; taskPacket=.fas/state/task-packet.json; commitPlan=.fas/state/commit-plan.json; verification=.fas/state/verification/latest.json; review=.fas/state/review-summary.md; workflow=.fas/state/workflows
 
+### Task: harden ActorWebAdapter replay dedupe for cloned snapshots and mutable sources
+
+- Title: harden ActorWebAdapter replay dedupe for cloned snapshots and mutable sources
+- Mode: 4-agent
+- Status: queued
+- Owner: implementer
+- Brief: .fas/tasks/harden-actorwebadapter-replay-dedupe-for-cloned-snapshots-an.md
+### Task: bound injectStyles pending root retention and invalid-style warning noise
+
+- Title: bound injectStyles pending root retention and invalid-style warning noise
+- Mode: 4-agent
+- Status: queued
+- Owner: implementer
+- Brief: .fas/tasks/bound-injectstyles-pending-root-retention-and-invalid-style.md
 ## Template
 
 ### Task: <short task title>
