@@ -1,4 +1,4 @@
-import { defineIgniteConfig } from "ignite-element";
+import { defineIgniteConfig } from "ignite-renderer";
 
 const stylesUrl = new URL("./src/dist/styles.css", import.meta.url).href;
 

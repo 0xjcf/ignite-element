@@ -1,4 +1,4 @@
-import { defineIgniteConfig } from "ignite-element";
+import { defineIgniteConfig } from "ignite-renderer";
 
 export default defineIgniteConfig({
 	// Resolve to an absolute URL so Vite dev/preview and static builds
