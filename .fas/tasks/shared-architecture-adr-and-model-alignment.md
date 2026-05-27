@@ -16,8 +16,6 @@ Define a canonical shared architecture ADR and tighten the accompanying shared m
 - The work is tracked in `.fas/TASKS.md`.
 - The task has a clear implementation and verification plan before execution starts.
 
-- The task has a clear implementation and verification plan before execution starts.
-
 ## Implementation plan
 - Write the ADR first as the normative source of truth for the shared architecture model
 - Refactor the shared architecture model doc to become an explanatory companion to the ADR, not a second competing source of truth
@@ -29,8 +27,6 @@ Define a canonical shared architecture ADR and tighten the accompanying shared m
 - Review the ADR and shared model for internal consistency and boundary correctness
 - Run pnpm docs:build after the documentation changes land
 - Confirm any current-state claims are grounded in this repo and any target-state claims are labeled as such
-
-- Run `.fas/scripts/verify.sh --full` at the final release-quality gate when tracked files change.
 
 ## Risks
 - The current shared model may blur runtime execution, workflow policy, and UI projection into adjacent layers

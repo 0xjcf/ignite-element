@@ -17,8 +17,6 @@ Align ignite-element package ownership with ADR-003 so ignite-element is the sol
 - The work is tracked in `.fas/TASKS.md`.
 - The task has a clear implementation and verification plan before execution starts.
 
-- The task has a clear implementation and verification plan before execution starts.
-
 ## Implementation plan
 - Normalize FAS workflow surfaces for Codex 6-agent execution, set the task mode to 6-agent, and ensure review artifacts point to review-summary.md
 - Move projection and effect assembly ownership out of ignite-core and keep only adapter-neutral contracts, event/effect typing, and small utilities there
@@ -33,8 +31,6 @@ Align ignite-element package ownership with ADR-003 so ignite-element is the sol
 - Add or update coverage for ignite-element/xstate, ignite-element/redux, and ignite-element/mobx package entry behavior and migrate tests away from legacy internal wrappers
 - Run pnpm test, pnpm typecheck, pnpm build, pnpm docs:build, and .fas/scripts/verify.sh --full before final review
 - Finish with readonly QA, SRE, and reviewer passes using Codex subagents
-
-- Run `.fas/scripts/verify.sh --full` at the final release-quality gate when tracked files change.
 
 ## Risks
 - Moving assembly out of ignite-core can break advanced consumers if exports or migration notes are incomplete

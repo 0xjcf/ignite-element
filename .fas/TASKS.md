@@ -2,9 +2,44 @@
 
 ## Active Tasks
 
-No active tasks.
+### Task: clean FAS tracker and package metadata review hygiene
+
+- Title: clean FAS tracker and package metadata review hygiene
+- Mode: single-agent
+- Status: implementing
+- Owner: implementer
+- Brief: .fas/tasks/clean-fas-tracker-and-package-metadata-review-hygiene.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ## Queued Tasks
+
+### Task: expand command schema metadata helpers beyond numbers
+
+- Title: expand command schema metadata helpers beyond numbers
+- Mode: 4-agent
+- Status: queued
+- Owner: implementer
+- Brief: .fas/tasks/expand-command-schema-metadata-helpers-beyond-numbers.md
+
+### Task: add workflow trace assertions and serializable story snapshots
+
+- Title: add workflow trace assertions and serializable story snapshots
+- Mode: 4-agent
+- Status: queued
+- Owner: implementer
+- Brief: .fas/tasks/add-workflow-trace-assertions-and-serializable-story-snapsho.md
+
+### Task: define DOM accessibility bridge for behavior stories
+
+- Title: define DOM accessibility bridge for behavior stories
+- Mode: 4-agent
+- Status: queued
+- Owner: implementer
+- Brief: .fas/tasks/define-dom-accessibility-bridge-for-behavior-stories.md
+
+## Completed Tasks
 
 ### Task: fix runtime correctness blockers from CodeRabbit domain review
 
@@ -72,14 +107,6 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
-### Task: clean FAS tracker and package metadata review hygiene
-
-- Title: clean FAS tracker and package metadata review hygiene
-- Mode: single-agent
-- Status: queued
-- Owner: implementer
-- Brief: .fas/tasks/clean-fas-tracker-and-package-metadata-review-hygiene.md
-
 ### Task: document Actor-Web adapter entrypoints and optional runtime boundary
 
 - Title: document Actor-Web adapter entrypoints and optional runtime boundary
@@ -101,8 +128,6 @@ No active tasks.
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
-
-## Completed Tasks
 
 ### Task: refresh ignite-element FAS workflow contract from platform template
 
@@ -310,30 +335,6 @@ No active tasks.
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
-
-### Task: add workflow trace assertions and serializable story snapshots
-
-- Title: add workflow trace assertions and serializable story snapshots
-- Mode: 4-agent
-- Status: queued
-- Owner: implementer
-- Brief: .fas/tasks/add-workflow-trace-assertions-and-serializable-story-snapsho.md
-
-### Task: expand command schema metadata helpers beyond numbers
-
-- Title: expand command schema metadata helpers beyond numbers
-- Mode: 4-agent
-- Status: queued
-- Owner: implementer
-- Brief: .fas/tasks/expand-command-schema-metadata-helpers-beyond-numbers.md
-
-### Task: define DOM accessibility bridge for behavior stories
-
-- Title: define DOM accessibility bridge for behavior stories
-- Mode: 4-agent
-- Status: queued
-- Owner: implementer
-- Brief: .fas/tasks/define-dom-accessibility-bridge-for-behavior-stories.md
 
 ### Task: define v3 public API boundary and prevent internal API leaks
 
