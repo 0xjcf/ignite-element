@@ -293,9 +293,12 @@ No active tasks.
 
 - Title: harden ActorWebAdapter replay dedupe for cloned snapshots and mutable sources
 - Mode: 4-agent
-- Status: queued
+- Status: done
 - Owner: implementer
 - Brief: .fas/tasks/harden-actorwebadapter-replay-dedupe-for-cloned-snapshots-an.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: bound injectStyles pending root retention and invalid-style warning noise
 
