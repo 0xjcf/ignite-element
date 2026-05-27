@@ -130,6 +130,57 @@ function disconnectedStatus(reason: string): ActorWebTransportStatus {
 	};
 }
 
+function createStableSignature(value: unknown): string {
+	const seen = new WeakSet<object>();
+	return (
+		JSON.stringify(value, (_key, currentValue) => {
+			if (
+				typeof currentValue === "function" ||
+				typeof currentValue === "symbol" ||
+				typeof currentValue === "undefined"
+			) {
+				return undefined;
+			}
+
+			if (
+				typeof currentValue !== "object" ||
+				currentValue === null ||
+				Array.isArray(currentValue)
+			) {
+				return currentValue;
+			}
+
+			if (seen.has(currentValue)) {
+				return "[Circular]";
+			}
+
+			seen.add(currentValue);
+			return Object.keys(currentValue)
+				.sort()
+				.reduce<Record<string, unknown>>((normalized, key) => {
+					const nestedValue = (currentValue as Record<string, unknown>)[key];
+					if (typeof nestedValue !== "undefined") {
+						normalized[key] = nestedValue;
+					}
+					return normalized;
+				}, {});
+		}) ?? "null"
+	);
+}
+
+function createReplaySignature<Context extends object>(
+	snapshot: ActorWebSourceSnapshot<Context>,
+	transport: ActorWebTransportStatus,
+): string {
+	return createStableSignature({
+		address: snapshot.address,
+		context: snapshot.context,
+		phase: snapshot.phase,
+		snapshot: snapshot.toJSON(),
+		transport,
+	});
+}
+
 function isActorWebSource<
 	Context extends object,
 	Message extends { type: string },
@@ -259,9 +310,7 @@ function createAdapterEntry<
 	let lastKnownTransportStatus =
 		source.transportStatus?.() ??
 		disconnectedStatus("Actor-Web source does not expose transport status.");
-	let lastNotifiedSnapshot: ActorWebSourceSnapshot<Context> | null = null;
-	let lastNotifiedTransportStatus: ActorWebTransportStatus | null = null;
-	let isCollectingInitialReplay = false;
+	let lastNotifiedSignature: string | null = null;
 
 	const cleanupSubscriptions = () => {
 		unsubscribeSource?.();
@@ -270,38 +319,17 @@ function createAdapterEntry<
 		unsubscribeTransportStatus = null;
 	};
 
-	const isEquivalentInitialReplay = () => {
-		if (!lastNotifiedSnapshot || !lastNotifiedTransportStatus) {
-			return false;
-		}
-
-		return (
-			lastNotifiedSnapshot.address === lastKnownSnapshot.address &&
-			lastNotifiedSnapshot.context === lastKnownSnapshot.context &&
-			lastNotifiedSnapshot.phase === lastKnownSnapshot.phase &&
-			lastNotifiedTransportStatus.state === lastKnownTransportStatus.state &&
-			lastNotifiedTransportStatus.updatedAt ===
-				lastKnownTransportStatus.updatedAt &&
-			lastNotifiedTransportStatus.lastSequence ===
-				lastKnownTransportStatus.lastSequence &&
-			lastNotifiedTransportStatus.lagMs === lastKnownTransportStatus.lagMs &&
-			lastNotifiedTransportStatus.reason === lastKnownTransportStatus.reason
-		);
-	};
-
 	const notify = () => {
-		if (
-			isCollectingInitialReplay
-				? isEquivalentInitialReplay()
-				: lastNotifiedSnapshot === lastKnownSnapshot &&
-					lastNotifiedTransportStatus === lastKnownTransportStatus
-		) {
+		const nextSignature = createReplaySignature(
+			lastKnownSnapshot,
+			lastKnownTransportStatus,
+		);
+		if (lastNotifiedSignature === nextSignature) {
 			return;
 		}
 
 		notificationCount += 1;
-		lastNotifiedSnapshot = lastKnownSnapshot;
-		lastNotifiedTransportStatus = lastKnownTransportStatus;
+		lastNotifiedSignature = nextSignature;
 		const state = toExtendedState(lastKnownSnapshot, lastKnownTransportStatus);
 		for (const listener of listeners) {
 			listener(state);
@@ -345,11 +373,10 @@ function createAdapterEntry<
 
 			if (!unsubscribeSource) {
 				const notificationsBeforeSubscribe = notificationCount;
-				isCollectingInitialReplay = true;
 				ensureSubscription();
-				isCollectingInitialReplay = false;
 				if (notificationCount === notificationsBeforeSubscribe) {
-					listener(readCurrentState());
+					readCurrentState();
+					notify();
 				}
 			} else {
 				listener(readCurrentState());

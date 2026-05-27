@@ -19,15 +19,27 @@ type ShipmentCommand =
 function createSource(options?: {
 	replayOnSubscribe?: boolean;
 	replayTransportOnSubscribe?: boolean;
+	replayClonedSnapshotGraph?: boolean;
 	replayClonedTransportStatus?: boolean;
 }): ActorWebSource<ShipmentContext, ShipmentCommand> & {
+	emitSnapshot(
+		nextContext: ShipmentContext,
+		options?: {
+			mutateInPlace?: boolean;
+			cloneGraph?: boolean;
+		},
+	): void;
 	emitTransport(status: ActorWebTransportStatus): void;
 } {
-	const context: ShipmentContext = {
+	let context: ShipmentContext = {
 		shipmentId: null,
 		status: "idle",
 	};
-	const transport: ActorWebTransportStatus = {
+	const address = {
+		id: "shipment",
+		path: "actor://shipment",
+	};
+	let transport: ActorWebTransportStatus = {
 		state: "connected",
 		updatedAt: 1,
 	};
@@ -37,24 +49,45 @@ function createSource(options?: {
 	const transportListeners = new Set<
 		(status: ActorWebTransportStatus) => void
 	>();
+	const cloneSnapshot = (
+		snapshot: ActorWebSourceSnapshot<ShipmentContext>,
+	): ActorWebSourceSnapshot<ShipmentContext> => ({
+		address: { ...snapshot.address },
+		context: { ...snapshot.context },
+		phase: snapshot.phase,
+		toJSON: () => ({
+			address: { ...snapshot.address },
+			context: { ...snapshot.context },
+			phase: snapshot.phase,
+		}),
+	});
+	const createSnapshot = (
+		nextContext: ShipmentContext,
+	): ActorWebSourceSnapshot<ShipmentContext> => ({
+		address,
+		context: nextContext,
+		phase: nextContext.status,
+		toJSON: () => ({
+			address,
+			context: nextContext,
+			phase: nextContext.status,
+		}),
+	});
+	let currentSnapshot = createSnapshot(context);
 
 	const source = {
-		address: {
-			id: "shipment",
-			path: "actor://shipment",
-		},
-		snapshot: () => ({
-			address: source.address,
-			context,
-			phase: context.status,
-			toJSON: () => ({ context }),
-		}),
+		address,
+		snapshot: () => currentSnapshot,
 		subscribe: (
 			listener: (snapshot: ActorWebSourceSnapshot<ShipmentContext>) => void,
 		) => {
 			snapshotListeners.add(listener);
 			if (options?.replayOnSubscribe) {
-				listener(source.snapshot());
+				listener(
+					options.replayClonedSnapshotGraph
+						? cloneSnapshot(currentSnapshot)
+						: currentSnapshot,
+				);
 			}
 			return () => {
 				snapshotListeners.delete(listener);
@@ -75,7 +108,31 @@ function createSource(options?: {
 			};
 		},
 		send: async () => undefined,
+		emitSnapshot(
+			nextContext: ShipmentContext,
+			emitOptions?: {
+				mutateInPlace?: boolean;
+				cloneGraph?: boolean;
+			},
+		) {
+			if (emitOptions?.mutateInPlace) {
+				context.shipmentId = nextContext.shipmentId;
+				context.status = nextContext.status;
+				currentSnapshot.phase = context.status;
+			} else {
+				context = { ...nextContext };
+				currentSnapshot = createSnapshot(context);
+			}
+			for (const listener of snapshotListeners) {
+				listener(
+					emitOptions?.cloneGraph
+						? cloneSnapshot(currentSnapshot)
+						: currentSnapshot,
+				);
+			}
+		},
 		emitTransport(status: ActorWebTransportStatus) {
+			transport = status;
 			for (const listener of transportListeners) {
 				listener(status);
 			}
@@ -116,6 +173,7 @@ describe("ActorWebAdapter", () => {
 	it("dedupes the initial notification when upstream replays synchronously", () => {
 		const source = createSource({
 			replayOnSubscribe: true,
+			replayClonedSnapshotGraph: true,
 			replayTransportOnSubscribe: true,
 			replayClonedTransportStatus: true,
 		});
@@ -140,6 +198,39 @@ describe("ActorWebAdapter", () => {
 					state: "degraded",
 					reason: "gateway disconnected",
 				}),
+			}),
+		);
+
+		subscription.unsubscribe();
+		adapter.stop();
+	});
+
+	it("notifies for in-place snapshot mutations even when the source reuses object references", () => {
+		const source = createSource();
+		const adapterFactory = createActorWebAdapter(source);
+		const adapter = adapterFactory();
+		const listener = vi.fn();
+
+		const subscription = adapter.subscribe(listener);
+
+		source.emitSnapshot(
+			{
+				shipmentId: "shipment-123",
+				status: "created",
+			},
+			{ mutateInPlace: true },
+		);
+
+		expect(listener).toHaveBeenCalledTimes(2);
+		expect(listener).toHaveBeenLastCalledWith(
+			expect.objectContaining({
+				context: {
+					shipmentId: "shipment-123",
+					status: "created",
+				},
+				phase: "created",
+				shipmentId: "shipment-123",
+				status: "created",
 			}),
 		);
 
