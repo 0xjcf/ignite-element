@@ -5,7 +5,7 @@
 	"main": "dist/ignite-core.cjs.js",
 	"module": "dist/ignite-core.es.js",
 	"types": "dist/types/index.d.ts",
-	"description": "Advanced adapter-neutral primitives for the ignite-element runtime.",
+	"description": "Adapter-neutral primitives for the ignite-element package family, versioned in lockstep with ignite-element.",
 	"exports": {
 		".": {
 			"types": "./dist/types/index.d.ts",

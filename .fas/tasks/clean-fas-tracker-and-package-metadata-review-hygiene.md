@@ -28,7 +28,6 @@ Group remaining CodeRabbit minor metadata and tracker findings after higher-risk
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-
 - .fas/TASKS.md
 - .fas/tasks/align-ignite-element-package-boundaries-with-adr-003.md
 - .fas/tasks/shared-architecture-adr-and-model-alignment.md
@@ -37,10 +36,21 @@ Group remaining CodeRabbit minor metadata and tracker findings after higher-risk
 - packages/ignite-adapters/README.md
 - packages/ignite-adapters/package.json
 - packages/ignite-core/package.json
+- pnpm-lock.yaml
 
 ## Scope Amendments
 
 - 2026-05-27: v3 public API boundary work already documented the stable actor-web entrypoint and package boundary. Treat actor-web README/export docs as a verification item, not expected new writing, unless planning finds a current mismatch.
+
+- Type: dependency-lockfile
+- Added at: 2026-05-27
+- Trigger: Adding mobx as an ignite-adapters local devDependency requires the workspace lockfile importer to stay frozen-install safe.
+- Reason: pnpm-lock.yaml is necessary package metadata fallout from the explicit package.json dependency hygiene change.
+- Added paths: pnpm-lock.yaml
+- Evidence source: pnpm install --lockfile-only
+- Evidence: pnpm install --lockfile-only | pnpm-lock.yaml | Importer moved mobx from auto-installed peer dependency surface into ignite-adapters devDependencies.
+- Accuracy signal: lockfile update is mechanically required for frozen pnpm installs
+- Follow-up needed: Ignore unrelated platform metadata churn unless future pnpm versions keep rewriting it.
 
 ## Implementation plan
 

@@ -6,13 +6,12 @@
 
 - Title: clean FAS tracker and package metadata review hygiene
 - Mode: single-agent
-- Status: implementing
-- Owner: implementer
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/clean-fas-tracker-and-package-metadata-review-hygiene.md
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
-
 ## Queued Tasks
 
 ### Task: expand command schema metadata helpers beyond numbers

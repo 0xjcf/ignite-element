@@ -2,8 +2,11 @@
 
 Advanced adapter integrations for Ignite.
 
-This package provides the state-library-specific adapter layers that power Ignite's higher-level APIs:
+This package provides the state-library-specific adapter layers that power Ignite's higher-level APIs.
 
+Exported entrypoints:
+
+- `ignite-adapters`
 - `ignite-adapters/xstate`
 - `ignite-adapters/redux`
 - `ignite-adapters/mobx`
