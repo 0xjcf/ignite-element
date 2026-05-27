@@ -1,4 +1,4 @@
-# tighten test harnesses and example metadata from CodeRabbit
+# tighten test harnesses and example metadata from CodeRabbit review
 
 ## Source
 
@@ -30,16 +30,17 @@ Group CodeRabbit test/example hygiene findings that should follow runtime/config
 
 - packages/ignite-element/vitest.setup.ts
 - packages/ignite-element/vitest.node.config.ts
-- packages/ignite-element/src/tests/renderers/igniteJsxRenderStrategy.test.ts
+- packages/ignite-element/src/tests/config.test.ts
 - packages/ignite-element/src/tests/helpers/vitePluginHarness.ts
 - packages/ignite-element/src/tests/plugins/igniteConfigPlugins.test.ts
 - packages/ignite-element/src/examples/mobx/package.json
 - packages/ignite-element/src/examples/mobx/mobxExample.ts
-- packages/ignite-element/src/examples/mobx/another-counter-mobx.css
 
 ## Scope Amendments
 
-- None.
+- 2026-05-27: `packages/ignite-element/src/tests/config.test.ts` was promoted into scope because removing global console spies exposed an intentionally noisy config warning test that now needs local suppression and assertion.
+- 2026-05-27: `packages/ignite-element/src/tests/renderers/igniteJsxRenderStrategy.test.ts` was inspected for import cleanup, but no net edit was kept because switching to the local re-export broke the existing `vi.spyOn` module identity used to assert fallback logging.
+- 2026-05-27: `packages/ignite-element/src/examples/mobx/another-counter-mobx.css` remains the style source, but did not need direct changes; duplicate style loading is fixed in `mobxExample.ts` by importing the CSS text once via Vite `?raw`.
 
 ## Implementation plan
 
