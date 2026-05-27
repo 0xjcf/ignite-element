@@ -208,11 +208,18 @@ describe("loadIgniteConfig", () => {
 	});
 
 	it("ignores unknown renderers", async () => {
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
 		await loadIgniteConfig(async () => ({
 			default: { renderer: "unknown" as never },
 		}));
 
+		expect(warnSpy).toHaveBeenCalledWith(
+			'[ignite-element] Unknown renderer "unknown" in ignite.config. Supported values are "lit" and "ignite-jsx". Falling back to "lit".',
+		);
 		expect(igniteJsxLoaderSpy).not.toHaveBeenCalled();
 		expect(litLoaderSpy).not.toHaveBeenCalled();
+
+		warnSpy.mockRestore();
 	});
 });

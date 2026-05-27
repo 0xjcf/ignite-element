@@ -3,17 +3,24 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { resolveConfig } from "vite";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { igniteConfigVitePlugin } from "../../plugins/viteIgniteConfigPlugin";
 import type { WebpackCompilerLike } from "../../plugins/webpackIgniteConfigPlugin";
 import { IgniteConfigWebpackPlugin } from "../../plugins/webpackIgniteConfigPlugin";
-import { runConfigResolved, runIndexHtml } from "../helpers/vitePluginHarness";
+import {
+	resetVitePluginHarness,
+	runConfigResolved,
+	runIndexHtml,
+} from "../helpers/vitePluginHarness";
 
 const LOAD_HELPER_IMPORT_PATTERN =
 	/const\s*\{\s*loadIgniteConfig\s*\}\s*=\s*await import\("(?:ignite-element\/config\/loadIgniteConfig|\/@fs\/.+\/ignite-element\/(?:dist|src)\/config\/loadIgniteConfig\.(?:es\.js|js|ts))"\);/;
 
+const tempProjects: string[] = [];
+
 function createTempProject(structure: Record<string, string>): string {
 	const dir = mkdtempSync(join(process.cwd(), ".tmp-ignite-config-"));
+	tempProjects.push(dir);
 	for (const [relativePath, contents] of Object.entries(structure)) {
 		const filePath = resolve(dir, relativePath);
 		const parentDir = resolve(filePath, "..");
@@ -24,6 +31,22 @@ function createTempProject(structure: Record<string, string>): string {
 	}
 	return dir;
 }
+
+function createTempDir(prefix: string): string {
+	const dir = mkdtempSync(join(process.cwd(), prefix));
+	tempProjects.push(dir);
+	return dir;
+}
+
+beforeEach(() => {
+	resetVitePluginHarness();
+});
+
+afterEach(() => {
+	for (const dir of tempProjects.splice(0)) {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
 
 describe("igniteConfigVitePlugin", () => {
 	it("injects the config entry when a config file exists", () => {
@@ -48,15 +71,11 @@ describe("igniteConfigVitePlugin", () => {
 				);
 			}
 		}
-
-		rmSync(root, { recursive: true, force: true });
 	});
 
 	it("uses /@fs imports when the config file is outside the project root", () => {
 		const root = createTempProject({});
-		const externalRoot = mkdtempSync(
-			join(process.cwd(), ".tmp-ignite-config-external-"),
-		);
+		const externalRoot = createTempDir(".tmp-ignite-config-external-");
 		const configFile = resolve(externalRoot, "ignite.config.ts");
 		writeFileSync(configFile, "export default {}");
 
@@ -75,20 +94,20 @@ describe("igniteConfigVitePlugin", () => {
 				);
 			}
 		}
-
-		rmSync(root, { recursive: true, force: true });
-		rmSync(externalRoot, { recursive: true, force: true });
 	});
 
 	it("skips injection when no config file is found", () => {
 		const root = createTempProject({});
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
 		const plugin = igniteConfigVitePlugin({ root });
 		const tags = runIndexHtml(plugin.transformIndexHtml);
 
 		expect(tags).toBeUndefined();
-
-		rmSync(root, { recursive: true, force: true });
+		expect(warnSpy).toHaveBeenCalledWith(
+			"[ignite-element:vite-config] no config file found",
+		);
+		warnSpy.mockRestore();
 	});
 
 	it("supports resolving config during configResolved hook", async () => {
@@ -123,8 +142,6 @@ describe("igniteConfigVitePlugin", () => {
 				);
 			}
 		}
-
-		rmSync(root, { recursive: true, force: true });
 	});
 });
 
@@ -162,8 +179,6 @@ describe("IgniteConfigWebpackPlugin", () => {
 			expectConfigLoader(loader as string, configFile);
 			expect(original).toBe("./src/index.js");
 		}
-
-		rmSync(root, { recursive: true, force: true });
 	});
 
 	it("injects the loader into object style entries", () => {
@@ -199,8 +214,6 @@ describe("IgniteConfigWebpackPlugin", () => {
 				expect(original).toBe("./src/index.js");
 			}
 		}
-
-		rmSync(root, { recursive: true, force: true });
 	});
 
 	it("prepends the loader when entry is a function", async () => {
@@ -231,8 +244,6 @@ describe("IgniteConfigWebpackPlugin", () => {
 				expect(original).toBe("./src/index.js");
 			}
 		}
-
-		rmSync(root, { recursive: true, force: true });
 	});
 
 	it("leaves entries untouched when the config file is missing", () => {
@@ -249,8 +260,6 @@ describe("IgniteConfigWebpackPlugin", () => {
 		plugin.apply(compiler);
 
 		expect(compiler.options.entry).toEqual("./src/index.js");
-
-		rmSync(root, { recursive: true, force: true });
 	});
 
 	it("respects nested entry descriptors", () => {
@@ -298,8 +307,6 @@ describe("IgniteConfigWebpackPlugin", () => {
 				expect(original).toBe("./src/admin.js");
 			}
 		}
-
-		rmSync(root, { recursive: true, force: true });
 	});
 
 	it("avoids duplicating the loader when already present", () => {
@@ -327,7 +334,5 @@ describe("IgniteConfigWebpackPlugin", () => {
 		expect(compiler.options.entry).toEqual({
 			main: [loaderModule, "./src/index.js"],
 		});
-
-		rmSync(root, { recursive: true, force: true });
 	});
 });

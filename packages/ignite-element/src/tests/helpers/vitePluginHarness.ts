@@ -91,6 +91,11 @@ const pluginContext: PluginContextStub = Object.assign(minimalPluginContext, {
 });
 /* c8 ignore end */
 
+export function resetVitePluginHarness(): void {
+	assetCounter = 0;
+	emittedAssets.clear();
+}
+
 export function runIndexHtml(
 	hook: IndexHtmlTransform | undefined,
 	html = "<html></html>",
