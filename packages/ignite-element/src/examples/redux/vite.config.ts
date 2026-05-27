@@ -6,6 +6,9 @@ const resolvePath = (path: string) =>
 	fileURLToPath(new URL(path, import.meta.url));
 
 const igniteElementSourceRoot = resolvePath("../../");
+// These aliases and the JSX import source below are example-fixture wiring for
+// this monorepo so the demo can exercise local source files. They are not
+// public consumer import guidance.
 const igniteConfigPlugin = igniteConfigVitePlugin({
 	// Vite root points to ./src; provide absolute path so the shared config loads.
 	configPath: resolvePath("./ignite.config.ts"),

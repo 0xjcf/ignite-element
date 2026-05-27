@@ -6,6 +6,8 @@ const resolvePath = (path: string) =>
 	fileURLToPath(new URL(path, import.meta.url));
 
 const igniteElementSourceRoot = resolvePath("../../");
+// These aliases are example-fixture wiring for this monorepo so the demo can
+// exercise local source files. They are not public consumer import guidance.
 
 export default defineConfig({
 	server: {
