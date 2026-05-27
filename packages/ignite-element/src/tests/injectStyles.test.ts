@@ -7,10 +7,14 @@ describe("injectStyles", () => {
 	let shadowRoot: ShadowRoot;
 	let warnSpy: MockInstance<typeof console.warn>;
 
+	const createShadowRoot = () => {
+		const element = document.createElement(`test-component-${Math.random()}`);
+		return element.attachShadow({ mode: "open" });
+	};
+
 	beforeEach(() => {
 		// Create fresh shadow root with unique component name for each test
-		const element = document.createElement(`test-component-${Math.random()}`);
-		shadowRoot = element.attachShadow({ mode: "open" });
+		shadowRoot = createShadowRoot();
 
 		// Set up warn spy fresh for each test
 		warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -77,27 +81,37 @@ describe("injectStyles", () => {
 		flushPendingStyles();
 
 		expect(shadowRoot.querySelectorAll("link")).toHaveLength(0);
+		expect(warnSpy).toHaveBeenCalledTimes(1);
 		expect(warnSpy).toHaveBeenCalledWith(
 			"Skipping non-browser stylesheet path:",
 			"./theme.scss",
 		);
 	});
 
-	it("keeps pending roots retryable after a rejected stylesheet flush", () => {
+	it("keeps pending roots retryable after rejected stylesheet flushes and injects late valid css once per root", () => {
+		const secondRoot = createShadowRoot();
+
 		injectStyles(shadowRoot);
+		injectStyles(secondRoot);
 		setGlobalStyles("./theme.scss");
 
 		flushPendingStyles();
+		flushPendingStyles();
 
 		expect(shadowRoot.querySelectorAll("link")).toHaveLength(0);
+		expect(secondRoot.querySelectorAll("link")).toHaveLength(0);
+		expect(warnSpy).toHaveBeenCalledTimes(1);
 
 		setGlobalStyles("./theme.css");
 		flushPendingStyles();
 		flushPendingStyles();
 
 		const links = shadowRoot.querySelectorAll("link");
+		const secondLinks = secondRoot.querySelectorAll("link");
 		expect(links).toHaveLength(1);
+		expect(secondLinks).toHaveLength(1);
 		expect(links[0]?.href).toContain("theme.css");
+		expect(secondLinks[0]?.href).toContain("theme.css");
 	});
 
 	it("should ignore redundant calls for the same shadow root", () => {

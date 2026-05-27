@@ -1,9 +1,26 @@
 import { getGlobalStyles } from "./globalStyles";
 
+type PendingRootRef = {
+	deref(): ShadowRoot | undefined;
+};
+
+type PendingRootEntry = {
+	ref: PendingRootRef;
+};
+
+type WeakRefConstructor = new <T extends ShadowRoot>(
+	value: T,
+) => PendingRootRef;
+
 // Global caches
 const shadowRootCache = new WeakMap<ShadowRoot, Set<string>>();
 const initializedRoots = new WeakSet<ShadowRoot>();
-const pendingRoots = new Set<ShadowRoot>();
+const pendingRoots = new Set<PendingRootEntry>();
+const pendingRootIndex = new WeakMap<ShadowRoot, PendingRootEntry>();
+const WeakRefImpl = (
+	globalThis as typeof globalThis & { WeakRef?: WeakRefConstructor }
+).WeakRef;
+let warnedPendingStyleKey: string | null = null;
 
 // Debug system
 enum DebugNamespace {
@@ -27,6 +44,83 @@ function debugLog(
 	}
 }
 
+function createPendingRootRef(shadowRoot: ShadowRoot): PendingRootRef {
+	if (WeakRefImpl) {
+		return new WeakRefImpl(shadowRoot);
+	}
+
+	return {
+		deref: () => shadowRoot,
+	};
+}
+
+function enqueuePendingRoot(shadowRoot: ShadowRoot): void {
+	if (pendingRootIndex.has(shadowRoot)) {
+		return;
+	}
+
+	const entry = {
+		ref: createPendingRootRef(shadowRoot),
+	};
+	pendingRoots.add(entry);
+	pendingRootIndex.set(shadowRoot, entry);
+}
+
+function deletePendingRootEntry(entry: PendingRootEntry): void {
+	pendingRoots.delete(entry);
+	const shadowRoot = entry.ref.deref();
+	if (shadowRoot) {
+		pendingRootIndex.delete(shadowRoot);
+	}
+}
+
+function collectPendingRoots(): ShadowRoot[] {
+	const roots: ShadowRoot[] = [];
+
+	for (const entry of Array.from(pendingRoots)) {
+		const shadowRoot = entry.ref.deref();
+		if (!shadowRoot) {
+			deletePendingRootEntry(entry);
+			continue;
+		}
+
+		roots.push(shadowRoot);
+	}
+
+	return roots;
+}
+
+function getRejectedStyleKey(
+	globalStyles: ReturnType<typeof getGlobalStyles>,
+): string {
+	if (typeof globalStyles === "string") {
+		return `string:${globalStyles}`;
+	}
+
+	if (
+		globalStyles &&
+		typeof globalStyles === "object" &&
+		"href" in globalStyles
+	) {
+		return `object:${globalStyles.href}`;
+	}
+
+	return "unknown";
+}
+
+function warnRejectedStyleOnce(
+	message: string,
+	path: string,
+	styleKey: string,
+): void {
+	if (warnedPendingStyleKey === styleKey) {
+		return;
+	}
+
+	warnedPendingStyleKey = styleKey;
+	console.warn(message, path);
+}
+
 export default function injectStyles(shadowRoot: ShadowRoot): void {
 	// Skip if this shadow root was already processed
 	if (initializedRoots.has(shadowRoot)) {
@@ -45,7 +139,7 @@ export default function injectStyles(shadowRoot: ShadowRoot): void {
 			DebugNamespace.GLOBAL_STYLES,
 			"No globalStyles set when initializing shadow root. Pending for later flush.",
 		);
-		pendingRoots.add(shadowRoot);
+		enqueuePendingRoot(shadowRoot);
 		// Do not mark initialized; we'll retry once styles are available.
 		return;
 	}
@@ -111,12 +205,20 @@ export default function injectStyles(shadowRoot: ShadowRoot): void {
 
 	const warnInvalidStylePath = (path: string) => {
 		debugLog(DebugNamespace.WARN, "Invalid global style path");
-		console.warn("Invalid global style path:", path);
+		warnRejectedStyleOnce(
+			"Invalid global style path:",
+			path,
+			getRejectedStyleKey(globalStyles),
+		);
 	};
 
 	const warnScssPath = (path: string) => {
 		debugLog(DebugNamespace.WARN, "Skipping non-browser stylesheet path");
-		console.warn("Skipping non-browser stylesheet path:", path);
+		warnRejectedStyleOnce(
+			"Skipping non-browser stylesheet path:",
+			path,
+			getRejectedStyleKey(globalStyles),
+		);
 	};
 
 	let handledStyles = false;
@@ -150,11 +252,18 @@ export default function injectStyles(shadowRoot: ShadowRoot): void {
 	}
 
 	if (!handledStyles) {
-		pendingRoots.add(shadowRoot);
+		enqueuePendingRoot(shadowRoot);
 		return;
 	}
 
-	pendingRoots.delete(shadowRoot);
+	pendingRootIndex.delete(shadowRoot);
+	for (const entry of Array.from(pendingRoots)) {
+		if (entry.ref.deref() === shadowRoot) {
+			pendingRoots.delete(entry);
+			break;
+		}
+	}
+	warnedPendingStyleKey = null;
 	initializedRoots.add(shadowRoot);
 
 	// Deprecated per-component styles have been removed (styles now managed globally)
@@ -170,8 +279,7 @@ export function flushPendingStyles(): void {
 		return;
 	}
 
-	for (const root of Array.from(pendingRoots)) {
-		pendingRoots.delete(root);
+	for (const root of collectPendingRoots()) {
 		debugLog(DebugNamespace.INJECT_STYLES, "Flushing pending root");
 		injectStyles(root);
 	}
