@@ -32,9 +32,12 @@ No active tasks.
 
 - Title: harden migration and architecture utility scripts from CodeRabbit review
 - Mode: 4-agent
-- Status: queued
+- Status: done
 - Owner: implementer
 - Brief: .fas/tasks/harden-migration-and-architecture-utility-scripts-from-coder.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: replace inaccurate testing documentation from CodeRabbit review
 

@@ -1,4 +1,4 @@
-# harden migration and architecture utility scripts from CodeR
+# harden migration and architecture utility scripts from CodeRabbit review
 
 ## Source
 
@@ -27,13 +27,20 @@ Group CodeRabbit script hardening findings: validate --report arguments in migra
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-
 - scripts/migrate-emit-to-effects.mjs
 - scripts/check-architecture-rules.mjs
+- scripts/__tests__/script-hardening.test.js
 
 ## Scope Amendments
-
-- None.
+- Type: test-scope-promotion
+- Added at: 2026-05-26
+- Trigger: Focused coverage required for script hardening acceptance criteria
+- Reason: Add node-side tests for migrate-emit-to-effects CLI/scanner behavior and architecture symlink traversal without widening production source scope.
+- Added paths: scripts/__tests__/script-hardening.test.js
+- Evidence source: implementer handoff
+- Evidence: implementer handoff | scripts/__tests__/script-hardening.test.js | Covers --report validation, long/destructured commands, expression-body command objects, and symlink traversal.
+- Accuracy signal: test file directly exercises changed scripts
+- Follow-up needed: none
 
 ## Implementation plan
 
