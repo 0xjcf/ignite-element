@@ -2,16 +2,8 @@
 
 ## Active Tasks
 
-### Task: clean FAS tracker and package metadata review hygiene
+No active tasks.
 
-- Title: clean FAS tracker and package metadata review hygiene
-- Mode: single-agent
-- Status: review
-- Owner: reviewer
-- Brief: .fas/tasks/clean-fas-tracker-and-package-metadata-review-hygiene.md
-- Verification lane: fast
-- Policy sensitivity: standard
-- Blast radius: cross-cutting
 ## Queued Tasks
 
 ### Task: expand command schema metadata helpers beyond numbers
@@ -39,6 +31,17 @@
 - Brief: .fas/tasks/define-dom-accessibility-bridge-for-behavior-stories.md
 
 ## Completed Tasks
+
+### Task: clean FAS tracker and package metadata review hygiene
+
+- Title: clean FAS tracker and package metadata review hygiene
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/clean-fas-tracker-and-package-metadata-review-hygiene.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: fix runtime correctness blockers from CodeRabbit domain review
 
