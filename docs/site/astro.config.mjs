@@ -64,8 +64,8 @@ export default defineConfig({
 					label: "API",
 					items: [
 						{ label: "igniteCore", slug: "api/ignite-core" },
-						{ label: "defineIgniteConfig", slug: "api/define-ignite-config" },
-						{ label: "Renderers & strategies", slug: "api/renderers" },
+						{ label: "Advanced config", slug: "api/define-ignite-config" },
+						{ label: "Advanced renderers", slug: "api/renderers" },
 					],
 				},
 				{

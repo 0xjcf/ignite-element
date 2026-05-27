@@ -31,18 +31,28 @@ Define the exact v3 stable public API allowlist for ignite-element, remove or qu
 
 - packages/ignite-element/src/index.ts
 - packages/ignite-element/package.json
-- packages/ignite-element/src/xstate.ts
-- packages/ignite-element/src/redux.ts
-- packages/ignite-element/src/mobx.ts
-- packages/ignite-element/src/actor-web.ts
-- packages/ignite-element/src/renderers
-- packages/ignite-core/src/index.ts
-- packages/ignite-renderer/src/index.ts
+- packages/ignite-element/scripts/verify-exports.mjs
+- packages/ignite-element/README.md
+- packages/ignite-element/src/examples/xstate/README.md
+- packages/ignite-element/src/examples/xstate/ignite.config.ts
+- packages/ignite-element/src/examples/redux/README.md
+- packages/ignite-element/src/examples/redux/ignite.config.ts
+- packages/ignite-element/src/examples/mobx/README.md
+- packages/ignite-element/src/examples/mobx/ignite.config.ts
+- docs/examples/README.md
+- docs/api/README.md
+- docs/migrations/v2.0.0-ignite-jsx.md
+- docs/renderers/README.md
+- docs/styling/README.md
+- docs/site/astro.config.mjs
 - docs/site/src/content/docs
 
 ## Scope Amendments
 
-- None.
+- The 6-agent architecture and staff passes inspected the adapter entrypoints (`packages/ignite-element/src/xstate.ts`, `packages/ignite-element/src/redux.ts`, `packages/ignite-element/src/mobx.ts`, and `packages/ignite-element/src/actor-web.ts`) and found no behavior-neutral edit was needed; their current `igniteCore` public surfaces remain intentionally stable.
+- `packages/ignite-core/src/index.ts`, `packages/ignite-renderer/src/index.ts`, and `packages/ignite-element/src/renderers` are reference-only for this task. The public boundary is enforced from `ignite-element` root/subpath exports rather than by widening or rewriting lower-level package indexes.
+- `packages/ignite-element/scripts/verify-exports.mjs`, package/example READMEs, example `ignite.config.ts` files, `docs/examples/README.md`, and `docs/site/astro.config.mjs` were promoted into implementation scope after the architecture/staff handoff identified them as necessary to enforce the public API allowlist and stop docs/examples from teaching removed stable subpaths.
+- Legacy markdown docs under `docs/api`, `docs/migrations`, `docs/renderers`, and `docs/styling` were promoted into docs scope after a root audit found stale examples importing advanced config and renderer paths from `ignite-element` instead of `ignite-renderer`.
 
 ## Implementation plan
 

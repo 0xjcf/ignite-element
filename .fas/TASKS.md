@@ -330,9 +330,12 @@ No active tasks.
 
 - Title: define v3 public API boundary and prevent internal API leaks
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/define-v3-public-api-boundary-and-prevent-internal-api-leaks.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ## Template
 

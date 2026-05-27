@@ -42,7 +42,7 @@ pnpm run examples:xstate
 | `xstateApiShowcaseRuntime.ts` | Exports the shared `apiShowcase` runtime contract used by both showcase elements. |
 | `xstateApiShowcase.tsx` | Renders the v3 authoring API: `view`, `commands`, declared events, and effects. |
 | `xstateExample.tsx` | Registers web components via `igniteCore` using the Ignite JSX renderer. |
-| `dist/styles.css` | Tailwind build output applied globally via `setGlobalStyles`. |
+| `dist/styles.css` | Tailwind build output injected through the example's advanced `ignite-renderer` config. |
 | `index.html` | Hosts the custom elements during development. |
 
 ## igniteCore in Action
@@ -189,10 +189,10 @@ story?.lifecycle();
 
 ## Styling
 
-TailwindCSS is compiled once and injected globally via `ignite.config.ts`:
+TailwindCSS is compiled once and injected globally via an advanced `ignite-renderer` config:
 
 ```ts
-import { defineIgniteConfig } from "ignite-element";
+import { defineIgniteConfig } from "ignite-renderer";
 
 export default defineIgniteConfig({
   styles: new URL("./dist/styles.css", import.meta.url).href,

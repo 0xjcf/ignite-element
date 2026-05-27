@@ -12,7 +12,7 @@ Each example now uses the v3 public adapter entrypoints: `ignite-element/xstate`
 
 Examples project UI-facing data through `view(...)`; `commands(...)` exposes intent helpers, and the original `state`/`send` adapter utilities remain available to renderers. The XState example also exposes `record(...)` so the Playwright proof can drive behavior traces and DOM lifecycle evidence from the same story object.
 
-> All examples also ship an `ignite.config.ts` so Ignite JSX is selected by default and global styles load automatically. Switch the `renderer` field to `"lit"` if you want to compare strategies while browsing the demos.
+> The examples include `ignite.config.ts` only as an advanced compatibility layer for demo-wide shared styles. The normal v3 public path is adapter entrypoint + `jsxImportSource: "ignite-element/jsx"` + component-local `<style>` tags.
 
 ## Running the Examples
 

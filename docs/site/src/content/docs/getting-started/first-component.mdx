@@ -46,9 +46,21 @@ const registerToggle = igniteCore({
 });
 
 registerToggle('ignite-toggle', ({ isOn, toggle }) => (
-  <button class="ignite-toggle" onClick={toggle}>
-    {isOn ? 'On' : 'Off'}
-  </button>
+  <>
+    <style>{`
+      .ignite-toggle {
+        border-radius: 12px;
+        padding: 0.75rem 1.25rem;
+        border: 1px solid #1ad2ff;
+        background: radial-gradient(circle at 20% 20%, rgba(26, 210, 255, 0.15), transparent 50%),
+          #0f182e;
+        color: #e2e8f0;
+      }
+    `}</style>
+    <button class="ignite-toggle" onClick={toggle}>
+      {isOn ? 'On' : 'Off'}
+    </button>
+  </>
 ));
 ```
 
@@ -56,20 +68,7 @@ registerToggle('ignite-toggle', ({ isOn, toggle }) => (
 `events` adds a typed `emit` helper to your `effects`. `select(...)` makes it easy to emit only when a derived value actually changed. Skip `events` entirely if you don’t need to broadcast DOM `CustomEvent`s.
 :::
 
-## 3) Style it (optional)
-
-```css
-.ignite-toggle {
-  border-radius: 12px;
-  padding: 0.75rem 1.25rem;
-  border: 1px solid #1ad2ff;
-  background: radial-gradient(circle at 20% 20%, rgba(26, 210, 255, 0.15), transparent 50%),
-    #0f182e;
-  color: #e2e8f0;
-}
-```
-
-## 4) Use it anywhere
+## 3) Use it anywhere
 
 ```html
 <!-- Plain HTML -->
@@ -93,6 +92,7 @@ Because it’s a web component, you can drop it into plain HTML or a host framew
 ## Variations
 
 - Swap `source` for a Redux slice or MobX store via `ignite-element/redux` or `ignite-element/mobx`.
-- Opt into the lit renderer only if you need it, via the advanced config/docs path.
+- Keep styles local by default; reach for shared style injection only in the advanced `ignite-renderer` path.
+- Opt into the legacy `lit` renderer only if you need it, via the advanced docs path.
 - Share actors/stores by passing long-lived instances. Ignite never stops user-owned sources.
 - Advanced overrides: use `cleanup` only when you need to change shared adapter teardown defaults.

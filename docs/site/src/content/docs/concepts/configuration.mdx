@@ -1,6 +1,6 @@
 ---
 title: Configuration
-description: Optional shared renderer, style, and logging defaults.
+description: Advanced renderer compatibility and shared-style defaults.
 sidebar:
   label: Configuration
   order: 4
@@ -8,11 +8,11 @@ sidebar:
 
 The default v3 path does not need `ignite.config.ts`: use Ignite JSX, set `jsxImportSource: "ignite-element/jsx"`, and keep component CSS in local `<style>` tags.
 
-Use `ignite.config.ts` only when you need shared shadow-root styles, diagnostics, strategy overrides, or a non-default renderer such as `lit`.
+Use `ignite.config.ts` only when you need advanced `ignite-renderer` compatibility for shared shadow-root styles, diagnostics, strategy overrides, or the legacy `lit` renderer.
 
 ```ts
 // ignite.config.ts
-import { defineIgniteConfig } from 'ignite-element';
+import { defineIgniteConfig } from 'ignite-renderer';
 
 export default defineIgniteConfig({
   styles: new URL('./styles.css', import.meta.url).href, // injected into each shadow root
@@ -24,8 +24,9 @@ export default defineIgniteConfig({
 
 ### Loading the config
 
-- With Vite or Webpack plugins, the config is auto-imported when you opt into the advanced config path.
-- Without plugins, import it in your app entry before you register components.
+- The default `ignite-element` public API does not auto-load config files.
+- If you maintain legacy auto-loading, treat that bundler wiring as internal compatibility behavior.
+- Otherwise import your config in your app entry before you register components.
 
 Default behavior:
 

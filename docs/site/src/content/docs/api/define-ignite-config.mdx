@@ -1,16 +1,16 @@
 ---
 title: defineIgniteConfig
-description: Configure renderer defaults, styles, and logging.
+description: Advanced ignite-renderer config for shared styles, logging, and legacy renderer selection.
 sidebar:
-  label: defineIgniteConfig
+  label: Advanced config
   order: 2
 ---
 
-`defineIgniteConfig` declares how Ignite Element should behave across your project. The Vite/Webpack plugins auto-import this file; otherwise import it near your app entry.
+`defineIgniteConfig` is part of `ignite-renderer`, not the stable `ignite-element` root API. Use it only when you need advanced shared styles, logging, strategy overrides, or the legacy `lit` renderer.
 
 ```ts
 // ignite.config.ts
-import { defineIgniteConfig } from 'ignite-element';
+import { defineIgniteConfig } from 'ignite-renderer';
 
 export default defineIgniteConfig({
   renderer: 'ignite-jsx',
@@ -35,4 +35,4 @@ Use a string URL for local assets (e.g., `new URL('./styles.css', import.meta.ur
 If your toolchain doesn’t support `import.meta.url` (or you’re not using a bundler plugin), set `styles` to a fully qualified or root-relative URL (e.g., `styles: '/styles.css'` or a CDN link). The config shape is the same.
 :::
 
-Place this file at the project root so bundler plugins can find it.
+The default `ignite-element` v3 path does not require this file. If you keep one for compatibility, import it from your app entry or preserve your own legacy bundler wiring.

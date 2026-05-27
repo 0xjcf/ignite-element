@@ -40,7 +40,7 @@ Use config only when you need one of these project-wide overrides:
 ## Optional config path
 
 ```ts
-import { defineIgniteConfig } from "ignite-element";
+import { defineIgniteConfig } from "ignite-renderer";
 
 export default defineIgniteConfig({
   styles: new URL("./theme.css", import.meta.url).href,
@@ -50,7 +50,7 @@ export default defineIgniteConfig({
 });
 ```
 
-If you opt into `lit`, keep the config/plugin path or import `ignite-element/renderers/lit` yourself before registering components.
+If you opt into `lit`, import `ignite-renderer/lit` yourself before registering components.
 
 ## Diff vs. replace
 

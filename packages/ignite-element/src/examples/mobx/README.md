@@ -34,7 +34,7 @@ This showcase combines **ignite-element**, **MobX**, and **lit-html** to build r
 | --- | --- |
 | `mobxCounterStore.ts` | Exposes the `counterStore` factory used for both shared and isolated flows. |
 | `mobxExample.ts` | Registers components with `igniteCore` using MobX inference. |
-| `theme.css` | Global styling applied via `setGlobalStyles`. |
+| `theme.css` | Shared styling applied through the example's advanced `ignite-renderer` config. |
 | `another-counter-mobx.css` | Extra styles for the isolated component. |
 
 ---
@@ -73,7 +73,7 @@ Every renderer receives the derived `count`, the command helpers, and the underl
 
 ## Styling Strategy
 
-- **Global theme**: applied once via `setGlobalStyles(themeHref)`.
+- **Global theme**: applied once via the example's advanced `ignite-renderer` config.
 - **Component overrides**: the isolated example links to `another-counter-mobx.css` to demonstrate per-element styling.
 - **Design tokens**: CSS variables in `theme.css` make it easy to reskin the shared components without touching the render logic.
 

@@ -56,7 +56,15 @@ const toggle = igniteCore({
 });
 
 toggle("toggle-button", ({ isOn, toggle }) => (
-  <button onClick={toggle}>{isOn ? "On" : "Off"}</button>
+  <>
+    <style>{`
+      button {
+        border-radius: 999px;
+        padding: 0.65rem 1rem;
+      }
+    `}</style>
+    <button onClick={toggle}>{isOn ? "On" : "Off"}</button>
+  </>
 ));
 ```
 
@@ -91,9 +99,10 @@ story.stop();
 - `ignite-element` is the default public package.
 - `ignite-element/xstate`, `ignite-element/redux`, and `ignite-element/mobx` are the default public adapter entrypoints.
 - `ignite-element/actor-web` is the optional advanced runtime bridge for host apps that already use Actor-Web.
+- `ignite-element/jsx` plus its JSX runtime subpaths are the stable JSX entrypoints.
 - `ignite-core` is limited to adapter-neutral contracts, event/effect typing, and small shared utilities.
 - `ignite-adapters` is limited to adapter factories, guards, and source-specific config/types.
-- `ignite-renderer` remains the advanced renderer/runtime layer for custom renderer integration work.
+- `ignite-renderer` remains the advanced renderer/runtime layer for custom renderer integration, shared style injection, and legacy config compatibility work.
 
 Actor-Web remains outside the Ignite runtime boundary. Actor-Web owns
 orchestration, transport, and long-lived runtime coordination; Ignite consumes
@@ -107,7 +116,7 @@ boundary model.
 - Host app integration: `../../docs/site/src/content/docs/guides/host-app-integration.mdx`
 - Platform contracts: `../../docs/site/src/content/docs/guides/platform-contracts.mdx`
 - Testing guide: `../../docs/testing.md`
-- Configuration and renderers: `../../docs/site/src/content/docs/api/define-ignite-config.mdx`
+- Advanced config and renderer compatibility: `../../docs/site/src/content/docs/api/define-ignite-config.mdx`
 - Migration guide: `../../docs/migrations/v2.2.3-effects-events.md`
 - Package boundary migration: `../../docs/migrations/adr-003-package-boundaries.md`
 - Examples: `src/examples`

@@ -25,10 +25,10 @@ If your bundler can import CSS as text, you can replace `cardCss` with that impo
 
 ## Shared shadow-root styles
 
-Use `setGlobalStyles(...)` or `defineIgniteConfig({ styles })` only when you want one stylesheet injected into every component shadow root.
+Use `defineIgniteConfig({ styles })` from `ignite-renderer` only when you want one stylesheet injected into every component shadow root.
 
 ```ts
-import { defineIgniteConfig } from "ignite-element";
+import { defineIgniteConfig } from "ignite-renderer";
 
 export default defineIgniteConfig({
   styles: new URL("./theme.css", import.meta.url).href,
@@ -55,7 +55,7 @@ Host pages can then set `--card-bg` outside the shadow root without rewriting co
 
 ## CSP note
 
-Inline `<style>` tags can conflict with strict `style-src` CSP settings. If your host app forbids inline styles, use shared stylesheet URLs through `styles`/`setGlobalStyles(...)` or a bundler flow that emits external CSS files.
+Inline `<style>` tags can conflict with strict `style-src` CSP settings. If your host app forbids inline styles, use shared stylesheet URLs through advanced `ignite-renderer` config or a bundler flow that emits external CSS files.
 
 ## Light-DOM page styles
 

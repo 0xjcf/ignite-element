@@ -31,13 +31,13 @@ Add the Ignite JSX runtime to your `tsconfig.json` (or use a file-level pragma):
 
 For the default path, you do not need `ignite.config.ts`, a bundler plugin, or shared adapter teardown overrides. The default Ignite JSX renderer is registered automatically by the public entrypoints.
 
-### Optional advanced setup
+### Optional advanced and legacy setup
 
-Use the advanced setup only when you need project-wide renderer defaults, global styles, diagnostics, or a non-default renderer.
+Use the advanced setup only when you need `ignite-renderer` primitives for shared styles, diagnostics, or the legacy `lit` path.
 
-- **Config**: [defineIgniteConfig](/ignite-element/api/define-ignite-config/)
-- **Tooling plugins**: [Tooling](/ignite-element/guides/tooling/)
-- **lit renderer**: [Renderers](/ignite-element/api/renderers/)
+- **Advanced config**: [defineIgniteConfig (ignite-renderer)](/ignite-element/api/define-ignite-config/)
+- **Legacy tooling notes**: [Tooling](/ignite-element/guides/tooling/)
+- **Legacy renderer notes**: [Renderers](/ignite-element/api/renderers/)
 
 ### Runtime dependencies and tree shaking
 

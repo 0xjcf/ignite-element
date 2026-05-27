@@ -1,6 +1,6 @@
-# ignite-element API Notes
+# ignite-element Public API Notes
 
-This document summarises the key runtime and typing APIs exposed by ignite-element. It complements the inline TypeScript declarations and the example applications.
+This document summarises the stable public APIs exposed by `ignite-element`. It complements the inline TypeScript declarations and the example applications.
 
 ## `igniteCore(options)`
 
@@ -69,48 +69,33 @@ expect(seen).toEqual([{ isOn: true }]);
 
 Use `execute()` for command-driven assertions, `on(...)` for emitted events, and `watch(...)` or `watchView(...)` when a test needs to observe longer-lived state or projection changes.
 
-## `igniteElementFactory(createAdapter, options?)`
+## Advanced renderer config
 
-Lower-level factory used by `igniteCore`. Accepts a callback that returns an adapter and optional configuration:
-
-- `scope`: force `StateScope.Shared` or `StateScope.Isolated` when auto-detection is not desired.
-- `createAdditionalArgs(adapter)`: supply extra props that should always appear in render arguments.
-- `cleanup`: defaults to `true`. When enabled, shared adapters are reference-counted and released once the last element disconnects. Set to `false` if you want to manage shared adapter teardown manually.
-
-It returns a `(tag, renderer)` function identical to the one from `igniteCore`.
-
-## `defineIgniteConfig(config)`
-
-Registers application-wide defaults at module evaluation time. Typical usage lives in `ignite.config.ts`:
+The stable `ignite-element` v3 path does not require `ignite.config.ts`. Use advanced `ignite-renderer` config only for shared shadow-root styles, renderer diagnostics, strategy overrides, or legacy `lit` compatibility:
 
 ```ts
-import { defineIgniteConfig } from "ignite-element";
+import { defineIgniteConfig } from "ignite-renderer";
 
 export default defineIgniteConfig({
- styles: new URL("./styles.css", import.meta.url).href, // formerly globalStyles
- renderer: "ignite-jsx", // or "lit"
- strategy: "diff", // optional, selects the diffing renderer once available
- logging: "warn", // optional: "off" | "warn" | "debug"
+  styles: new URL("./styles.css", import.meta.url).href,
+  renderer: "lit",
+  strategy: "diff",
+  logging: "warn",
 });
 ```
 
-- `styles` mirrors `setGlobalStyles` but runs once when the module is imported. `globalStyles` remains as a deprecated alias.
-- `renderer` selects the default renderer (`"ignite-jsx"` by default). Supplying `"lit"` switches back to the template literal strategy. Per-component overrides are still possible via the factory `createRenderStrategy` option.
+- `styles` injects shared shadow-root styles when the module is imported.
+- `renderer` selects the advanced renderer. Supplying `"lit"` switches to the legacy template literal strategy.
 - `strategy` is reserved for renderer strategy selection (diff vs replace) when multiple Ignite JSX strategies are available.
 - `logging` controls renderer/config debug output (`"off"` | `"warn"` | `"debug"`).
 
-Bundler plugins (`igniteConfigVitePlugin`, `IgniteConfigWebpackPlugin`) are available to auto-import the config file when present.
-
-## Styling Helpers
-
-- `setGlobalStyles(href: string)`: injects a stylesheet once and reuses it across components.
-- `injectStyles(element: HTMLElement, css: string)`: for advanced use-cases requiring manual style injection.
+Bundler config plugins and direct renderer imports are legacy compatibility paths, not stable `ignite-element` APIs.
 
 ## Roadmap
 
 - [x] Adapter inference for XState, Redux, and MobX sources.
 - [x] Facade callbacks for derived state and command helpers.
 - [x] Ignite JSX renderer strategy and tooling.
-- [x] `ignite.config.(ts|js)` for centralised styling defaults.
+- [x] Component-local `<style>` tags as the default styling path.
 
 For end-to-end examples and testing guidance, see [`docs/testing.md`](../testing.md) and [`packages/ignite-element/README.md`](../../packages/ignite-element/README.md).

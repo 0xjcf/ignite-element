@@ -68,7 +68,7 @@ If your bundler supports CSS-as-text imports, you can import that string instead
 ## 4) Add `ignite.config.ts` only for shared defaults
 
 ```ts
-import { defineIgniteConfig } from 'ignite-element';
+import { defineIgniteConfig } from 'ignite-renderer';
 
 export default defineIgniteConfig({
   styles: new URL('./styles.css', import.meta.url).href,
@@ -77,7 +77,7 @@ export default defineIgniteConfig({
 });
 ```
 
-Keep the config/plugins path for advanced compatibility only. Use `igniteConfigVitePlugin()` (Vite) or `IgniteConfigWebpackPlugin` (Webpack) when you want this file auto-loaded.
+Keep the config/plugins path for advanced compatibility only. If you already maintain legacy config auto-loading, preserve that wiring yourself; it is no longer part of the stable `ignite-element` public API.
 
 ## 5) Update renderers
 

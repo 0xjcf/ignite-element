@@ -82,10 +82,10 @@ Each registered element receives `state`, `send`, and the derived facade helpers
 
 ## Styling with Bootstrap
 
-Bootstrap is bundled once for the entire example and injected via `ignite.config.ts`:
+Bootstrap is bundled once for the entire example and injected via an advanced `ignite-renderer` config:
 
 ```ts
-import { defineIgniteConfig } from "ignite-element";
+import { defineIgniteConfig } from "ignite-renderer";
 
 export default defineIgniteConfig({
   styles: new URL("./src/scss/styles.scss", import.meta.url).href, // formerly globalStyles
