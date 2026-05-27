@@ -304,9 +304,12 @@ No active tasks.
 
 - Title: bound injectStyles pending root retention and invalid-style warning noise
 - Mode: 4-agent
-- Status: queued
+- Status: done
 - Owner: implementer
 - Brief: .fas/tasks/bound-injectstyles-pending-root-retention-and-invalid-style.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: add workflow trace assertions and serializable story snapshots
 
