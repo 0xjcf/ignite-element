@@ -54,9 +54,12 @@ No active tasks.
 
 - Title: investigate ignite inspector runtime requirements, schema metadata gaps, and effects ergonomics follow-up tasks
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/investigate-ignite-inspector-runtime-requirements-schema-met.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: tighten test harnesses and example metadata from CodeRabbit review
 
@@ -299,6 +302,27 @@ No active tasks.
 - Owner: implementer
 - Brief: .fas/tasks/bound-injectstyles-pending-root-retention-and-invalid-style.md
 
+### Task: add workflow trace assertions and serializable story snapshots
+
+- Title: add workflow trace assertions and serializable story snapshots
+- Mode: 4-agent
+- Status: queued
+- Owner: implementer
+- Brief: .fas/tasks/add-workflow-trace-assertions-and-serializable-story-snapsho.md
+### Task: expand command schema metadata helpers beyond numbers
+
+- Title: expand command schema metadata helpers beyond numbers
+- Mode: 4-agent
+- Status: queued
+- Owner: implementer
+- Brief: .fas/tasks/expand-command-schema-metadata-helpers-beyond-numbers.md
+### Task: define DOM accessibility bridge for behavior stories
+
+- Title: define DOM accessibility bridge for behavior stories
+- Mode: 4-agent
+- Status: queued
+- Owner: implementer
+- Brief: .fas/tasks/define-dom-accessibility-bridge-for-behavior-stories.md
 ## Template
 
 ### Task: <short task title>
