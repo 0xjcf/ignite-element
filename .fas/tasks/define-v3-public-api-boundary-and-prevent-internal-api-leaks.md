@@ -46,6 +46,7 @@ Define the exact v3 stable public API allowlist for ignite-element, remove or qu
 - docs/styling/README.md
 - docs/site/astro.config.mjs
 - docs/site/src/content/docs
+- .changeset/v3-public-api-boundary.md
 
 ## Scope Amendments
 
@@ -53,6 +54,7 @@ Define the exact v3 stable public API allowlist for ignite-element, remove or qu
 - `packages/ignite-core/src/index.ts`, `packages/ignite-renderer/src/index.ts`, and `packages/ignite-element/src/renderers` are reference-only for this task. The public boundary is enforced from `ignite-element` root/subpath exports rather than by widening or rewriting lower-level package indexes.
 - `packages/ignite-element/scripts/verify-exports.mjs`, package/example READMEs, example `ignite.config.ts` files, `docs/examples/README.md`, and `docs/site/astro.config.mjs` were promoted into implementation scope after the architecture/staff handoff identified them as necessary to enforce the public API allowlist and stop docs/examples from teaching removed stable subpaths.
 - Legacy markdown docs under `docs/api`, `docs/migrations`, `docs/renderers`, and `docs/styling` were promoted into docs scope after a root audit found stale examples importing advanced config and renderer paths from `ignite-element` instead of `ignite-renderer`.
+- `.changeset/v3-public-api-boundary.md` was promoted into release scope after SRE identified that removing stable config/renderer subpaths is a breaking public API contraction that must be versioned and documented as a major release boundary.
 - Type: reviewer-requested
 - Added at: review
 - Trigger: delegated QA retry
