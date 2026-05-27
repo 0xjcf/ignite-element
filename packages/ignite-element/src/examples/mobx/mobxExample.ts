@@ -1,6 +1,7 @@
 import { html } from "lit-html";
 import "../../renderers/lit";
 import { igniteCore } from "ignite-element/mobx";
+import anotherCounterStyles from "./another-counter-mobx.css?raw";
 import counterStore from "./mobxCounterStore";
 
 type CounterStoreInstance = ReturnType<typeof counterStore>;
@@ -60,7 +61,7 @@ registerIsolatedMobx(
 	({ count, decrement, increment }) => {
 		return html`
     <div>
-      <link rel="stylesheet" href="./another-counter-mobx.css" />
+      <style>${anotherCounterStyles}</style>
       <div class="container">
         <h3>Isolated Counter (Custom Styled)</h3>
         <p>Count: ${count}</p>
