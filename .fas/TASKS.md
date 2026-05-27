@@ -309,6 +309,7 @@ No active tasks.
 - Status: queued
 - Owner: implementer
 - Brief: .fas/tasks/add-workflow-trace-assertions-and-serializable-story-snapsho.md
+
 ### Task: expand command schema metadata helpers beyond numbers
 
 - Title: expand command schema metadata helpers beyond numbers
@@ -316,6 +317,7 @@ No active tasks.
 - Status: queued
 - Owner: implementer
 - Brief: .fas/tasks/expand-command-schema-metadata-helpers-beyond-numbers.md
+
 ### Task: define DOM accessibility bridge for behavior stories
 
 - Title: define DOM accessibility bridge for behavior stories
@@ -323,6 +325,15 @@ No active tasks.
 - Status: queued
 - Owner: implementer
 - Brief: .fas/tasks/define-dom-accessibility-bridge-for-behavior-stories.md
+
+### Task: define v3 public API boundary and prevent internal API leaks
+
+- Title: define v3 public API boundary and prevent internal API leaks
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/define-v3-public-api-boundary-and-prevent-internal-api-leaks.md
+
 ## Template
 
 ### Task: <short task title>
