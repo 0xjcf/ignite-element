@@ -6,14 +6,14 @@ Created with `fas create-task` on 2026-05-22.
 
 ## Problem
 
-Group CodeRabbit minor metadata and tracker findings after higher-risk code/docs fixes: verify the queued/completed tracker projection stays aligned with live queue state, remove duplicate generated acceptance criteria in completed task briefs, decide whether truncated completed-task brief filenames should be renamed or documented as FAS slug behavior, add missing ignite-adapters/actor-web README export docs, ensure mobx devDependency metadata matches local adapter build needs, and explain or adjust the new ignite-core package version convention. Source: CodeRabbit FAS, adapters, and core domain reviews run against origin/main after commit 3a082b3.
+Group remaining CodeRabbit minor metadata and tracker findings after higher-risk code/docs fixes and the v3 public API boundary cleanup: verify the queued/completed tracker projection stays aligned with live queue state, remove duplicate generated acceptance criteria in completed task briefs, decide whether truncated completed-task brief filenames should be renamed or documented as FAS slug behavior, verify actor-web README/export docs are already covered by the v3 boundary work, ensure mobx devDependency metadata matches local adapter build needs, and explain or adjust the ignite-core package version convention. Source: CodeRabbit FAS, adapters, and core domain reviews run against origin/main after commit 3a082b3; refreshed after the v3 API boundary task on 2026-05-27.
 
 ## Acceptance criteria
 
 - Tracker queue projection matches live .fas/queue/tasks.json and contains no done task under Queued Tasks.
 - Duplicate acceptance criteria are removed from affected briefs without changing task intent.
 - Any completed-task brief filename rename updates all references, or the task records why FAS-truncated slugs are intentional and left unchanged.
-- Package README and package.json metadata match exported entrypoints and local build requirements.
+- Package README and package.json metadata match exported entrypoints and local build requirements; actor-web README/export docs are verified rather than rewritten if the v3 boundary work already covers them.
 - Run git diff --check, pnpm run lint, pnpm run typecheck, pnpm test, and fas verify --full.
 - The work is tracked in `.fas/TASKS.md`.
 - The task has a clear implementation and verification plan before execution starts.
@@ -40,7 +40,7 @@ Group CodeRabbit minor metadata and tracker findings after higher-risk code/docs
 
 ## Scope Amendments
 
-- None.
+- 2026-05-27: v3 public API boundary work already documented the stable actor-web entrypoint and package boundary. Treat actor-web README/export docs as a verification item, not expected new writing, unless planning finds a current mismatch.
 
 ## Implementation plan
 
