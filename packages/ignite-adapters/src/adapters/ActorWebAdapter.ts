@@ -317,6 +317,7 @@ function createAdapterEntry<
 		unsubscribeSource = null;
 		unsubscribeTransportStatus?.();
 		unsubscribeTransportStatus = null;
+		lastNotifiedSignature = null;
 	};
 
 	const notify = () => {

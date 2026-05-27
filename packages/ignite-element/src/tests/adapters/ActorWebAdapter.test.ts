@@ -205,6 +205,62 @@ describe("ActorWebAdapter", () => {
 		adapter.stop();
 	});
 
+	it("delivers immediately when resubscribing after replaying upstream teardown", () => {
+		const source = createSource({
+			replayOnSubscribe: true,
+			replayClonedSnapshotGraph: true,
+			replayTransportOnSubscribe: true,
+			replayClonedTransportStatus: true,
+		});
+		const adapterFactory = createActorWebAdapter(source);
+		const adapter = adapterFactory();
+		const firstListener = vi.fn();
+		const secondListener = vi.fn();
+
+		const firstSubscription = adapter.subscribe(firstListener);
+		firstSubscription.unsubscribe();
+
+		const secondSubscription = adapter.subscribe(secondListener);
+
+		expect(firstListener).toHaveBeenCalledTimes(1);
+		expect(secondListener).toHaveBeenCalledTimes(1);
+		expect(secondListener).toHaveBeenCalledWith(
+			expect.objectContaining({
+				context: { shipmentId: null, status: "idle" },
+				phase: "idle",
+				transport: expect.objectContaining({ state: "connected" }),
+			}),
+		);
+
+		secondSubscription.unsubscribe();
+		adapter.stop();
+	});
+
+	it("delivers immediately when resubscribing after non-replaying upstream teardown", () => {
+		const adapterFactory = createActorWebAdapter(createSource());
+		const adapter = adapterFactory();
+		const firstListener = vi.fn();
+		const secondListener = vi.fn();
+
+		const firstSubscription = adapter.subscribe(firstListener);
+		firstSubscription.unsubscribe();
+
+		const secondSubscription = adapter.subscribe(secondListener);
+
+		expect(firstListener).toHaveBeenCalledTimes(1);
+		expect(secondListener).toHaveBeenCalledTimes(1);
+		expect(secondListener).toHaveBeenCalledWith(
+			expect.objectContaining({
+				context: { shipmentId: null, status: "idle" },
+				phase: "idle",
+				transport: expect.objectContaining({ state: "connected" }),
+			}),
+		);
+
+		secondSubscription.unsubscribe();
+		adapter.stop();
+	});
+
 	it("notifies for in-place snapshot mutations even when the source reuses object references", () => {
 		const source = createSource();
 		const adapterFactory = createActorWebAdapter(source);
