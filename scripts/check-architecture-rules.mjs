@@ -4,8 +4,6 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-const root = process.cwd();
-const configPath = path.join(root, ".fas-config.json");
 const sourceExtensions = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
 const importPattern =
 	/(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s+)?["']([^"']+)["']|import\s*\(\s*["']([^"']+)["']\s*\)|require\s*\(\s*["']([^"']+)["']\s*\)/g;
@@ -18,11 +16,11 @@ function normalizePath(filePath) {
 	return filePath.split(path.sep).join("/");
 }
 
-function relativePath(filePath) {
+function relativePath(root, filePath) {
 	return normalizePath(path.relative(root, filePath));
 }
 
-function resolveWorkspacePackages() {
+function resolveWorkspacePackages(root) {
 	const packagesDir = path.join(root, "packages");
 	if (!fs.existsSync(packagesDir)) {
 		return new Map();
@@ -48,22 +46,62 @@ function isSourceFile(filePath) {
 	return sourceExtensions.includes(path.extname(filePath));
 }
 
-function listSourceFiles(entryPath) {
+function getRealPath(filePath) {
+	return typeof fs.realpathSync.native === "function"
+		? fs.realpathSync.native(filePath)
+		: fs.realpathSync(filePath);
+}
+
+export function listSourceFiles(
+	entryPath,
+	visitedDirectories = new Set(),
+	followEntrySymlink = true,
+) {
 	if (!fs.existsSync(entryPath)) {
 		return [];
 	}
 
-	const stat = fs.statSync(entryPath);
-	if (stat.isFile()) {
+	const entryStats = fs.lstatSync(entryPath);
+	if (entryStats.isSymbolicLink()) {
+		if (!followEntrySymlink) {
+			return [];
+		}
+		return listSourceFiles(getRealPath(entryPath), visitedDirectories, false);
+	}
+
+	if (entryStats.isFile()) {
 		return isSourceFile(entryPath) ? [entryPath] : [];
 	}
 
+	if (!entryStats.isDirectory()) {
+		return [];
+	}
+
+	const realEntryPath = getRealPath(entryPath);
+	if (visitedDirectories.has(realEntryPath)) {
+		return [];
+	}
+	visitedDirectories.add(realEntryPath);
+
 	const files = [];
-	for (const child of fs.readdirSync(entryPath)) {
-		if (child === "node_modules" || child === "dist" || child === "coverage") {
+	for (const child of fs.readdirSync(entryPath, { withFileTypes: true })) {
+		if (
+			child.name === "node_modules" ||
+			child.name === "dist" ||
+			child.name === "coverage"
+		) {
 			continue;
 		}
-		files.push(...listSourceFiles(path.join(entryPath, child)));
+		if (child.isSymbolicLink()) {
+			continue;
+		}
+		files.push(
+			...listSourceFiles(
+				path.join(entryPath, child.name),
+				visitedDirectories,
+				false,
+			),
+		);
 	}
 	return files;
 }
@@ -114,7 +152,7 @@ function resolveImport(specifier, fromFile, workspacePackages) {
 	return null;
 }
 
-function validateConfiguredPaths(config) {
+export function validateConfiguredPaths(root, config) {
 	const missingPaths = [];
 	const boundaries = config.behaviorBoundaries ?? {};
 
@@ -150,12 +188,12 @@ function readImports(filePath) {
 	return imports;
 }
 
-function checkRules(rulesFilePath, workspacePackages) {
+export function checkRules(root, rulesFilePath, workspacePackages) {
 	const rulesDocument = readJson(rulesFilePath);
 	const rules = rulesDocument.rules;
 	if (!Array.isArray(rules)) {
 		throw new Error(
-			`${relativePath(rulesFilePath)} must contain a rules array.`,
+			`${relativePath(root, rulesFilePath)} must contain a rules array.`,
 		);
 	}
 
@@ -180,13 +218,13 @@ function checkRules(rulesFilePath, workspacePackages) {
 					continue;
 				}
 
-				const resolvedRelative = relativePath(resolved);
+				const resolvedRelative = relativePath(root, resolved);
 				if (
 					resolvedRelative === forbidden ||
 					resolvedRelative.startsWith(`${forbidden}/`)
 				) {
 					violations.push(
-						`${rule.name}: ${relativePath(sourceFile)} imports ${specifier} -> ${resolvedRelative}`,
+						`${rule.name}: ${relativePath(root, sourceFile)} imports ${specifier} -> ${resolvedRelative}`,
 					);
 				}
 			}
@@ -196,38 +234,51 @@ function checkRules(rulesFilePath, workspacePackages) {
 	return violations;
 }
 
-if (!fs.existsSync(configPath)) {
-	console.error("Missing .fas-config.json.");
-	process.exit(1);
-}
-
-const config = readJson(configPath);
-if (typeof config.architectureRulesFile !== "string") {
-	console.error(".fas-config.json must define architectureRulesFile.");
-	process.exit(1);
-}
-
-const architectureRulesPath = path.join(root, config.architectureRulesFile);
-if (!fs.existsSync(architectureRulesPath)) {
-	console.error(
-		`Architecture rules file is configured but missing: ${config.architectureRulesFile}`,
-	);
-	process.exit(1);
-}
-
-const missingBoundaryPaths = validateConfiguredPaths(config);
-const ruleViolations = checkRules(
-	architectureRulesPath,
-	resolveWorkspacePackages(),
-);
-const failures = [...missingBoundaryPaths, ...ruleViolations];
-
-if (failures.length > 0) {
-	console.error("Architecture boundary check failed:");
-	for (const failure of failures) {
-		console.error(`- ${failure}`);
+export function runCli(cwd = process.cwd()) {
+	const configPath = path.join(cwd, ".fas-config.json");
+	if (!fs.existsSync(configPath)) {
+		throw new Error("Missing .fas-config.json.");
 	}
-	process.exit(1);
+
+	const config = readJson(configPath);
+	if (typeof config.architectureRulesFile !== "string") {
+		throw new Error(".fas-config.json must define architectureRulesFile.");
+	}
+
+	const architectureRulesPath = path.join(cwd, config.architectureRulesFile);
+	if (!fs.existsSync(architectureRulesPath)) {
+		throw new Error(
+			`Architecture rules file is configured but missing: ${config.architectureRulesFile}`,
+		);
+	}
+
+	const missingBoundaryPaths = validateConfiguredPaths(cwd, config);
+	const ruleViolations = checkRules(
+		cwd,
+		architectureRulesPath,
+		resolveWorkspacePackages(cwd),
+	);
+	const failures = [...missingBoundaryPaths, ...ruleViolations];
+
+	if (failures.length > 0) {
+		process.stderr.write("Architecture boundary check failed:\n");
+		for (const failure of failures) {
+			process.stderr.write(`- ${failure}\n`);
+		}
+		process.exitCode = 1;
+		return;
+	}
+
+	process.stdout.write("Architecture boundary check passed.\n");
 }
 
-console.log("Architecture boundary check passed.");
+if (import.meta.url === `file://${process.argv[1]}`) {
+	try {
+		runCli();
+	} catch (error) {
+		process.stderr.write(
+			`${error instanceof Error ? error.message : String(error)}\n`,
+		);
+		process.exitCode = 1;
+	}
+}
