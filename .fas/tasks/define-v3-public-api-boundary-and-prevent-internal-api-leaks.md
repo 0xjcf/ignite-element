@@ -53,6 +53,13 @@ Define the exact v3 stable public API allowlist for ignite-element, remove or qu
 - `packages/ignite-core/src/index.ts`, `packages/ignite-renderer/src/index.ts`, and `packages/ignite-element/src/renderers` are reference-only for this task. The public boundary is enforced from `ignite-element` root/subpath exports rather than by widening or rewriting lower-level package indexes.
 - `packages/ignite-element/scripts/verify-exports.mjs`, package/example READMEs, example `ignite.config.ts` files, `docs/examples/README.md`, and `docs/site/astro.config.mjs` were promoted into implementation scope after the architecture/staff handoff identified them as necessary to enforce the public API allowlist and stop docs/examples from teaching removed stable subpaths.
 - Legacy markdown docs under `docs/api`, `docs/migrations`, `docs/renderers`, and `docs/styling` were promoted into docs scope after a root audit found stale examples importing advanced config and renderer paths from `ignite-element` instead of `ignite-renderer`.
+- Type: reviewer-requested
+- Added at: review
+- Trigger: delegated QA retry
+- Reason: The example Vite alias tables still taught the removed stable subpath `ignite-element/config/loadIgniteConfig`, so the follow-up QA fix had to update the demo-only build wiring.
+- Added paths: packages/ignite-element/src/examples/xstate/vite.config.ts, packages/ignite-element/src/examples/redux/vite.config.ts, packages/ignite-element/src/examples/mobx/vite.config.ts
+- Evidence: Delegated QA flagged the stale copy-pasteable alias in the xstate, redux, and mobx example Vite configs.
+- Accuracy signal: planner-missed
 
 ## Implementation plan
 

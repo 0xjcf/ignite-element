@@ -23,10 +23,6 @@ export default defineConfig({
 	resolve: {
 		alias: [
 			{
-				find: "ignite-element/config/loadIgniteConfig",
-				replacement: resolvePath("../../config/loadIgniteConfig.ts"),
-			},
-			{
 				find: /^ignite-element\/(.+)$/,
 				replacement: `${igniteElementSourceRoot}$1`,
 			},
