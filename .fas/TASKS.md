@@ -65,12 +65,13 @@ No active tasks.
 
 - Title: tighten test harnesses and example metadata from CodeRabbit review
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/tighten-test-harnesses-and-example-metadata-from-coderabbit.md
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
+
 ### Task: clean FAS tracker and package metadata review hygiene
 
 - Title: clean FAS tracker and package metadata review hygiene
