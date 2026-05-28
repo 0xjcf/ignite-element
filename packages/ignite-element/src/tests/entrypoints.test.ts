@@ -45,6 +45,21 @@ function createActorWebSource() {
 }
 
 describe("public adapter entrypoints", () => {
+	it("keeps renderer JSX package subpaths stable", async () => {
+		const rendererJsx = await import("ignite-renderer/jsx");
+		const rendererJsxRuntime = await import("ignite-renderer/jsx-runtime");
+		const rendererJsxIndex = await import("ignite-renderer/jsx/index");
+
+		expect(typeof rendererJsx.createIgniteJsxRenderStrategy).toBe("function");
+		expect(typeof rendererJsx.registerNoDiffDenylistTag).toBe("function");
+		expect(typeof rendererJsx.clearNoDiffDenylistForTests).toBe("function");
+		expect(rendererJsx.Fragment).toBe(rendererJsxRuntime.Fragment);
+		expect(rendererJsx.Fragment).toBe(rendererJsxIndex.Fragment);
+		expect(rendererJsx.jsx).toBe(rendererJsxRuntime.jsx);
+		expect(rendererJsx.jsxs).toBe(rendererJsxRuntime.jsxs);
+		expect(rendererJsx.jsxDEV).toBe(rendererJsxIndex.jsxDEV);
+	});
+
 	it("keeps the xstate entrypoint stable", () => {
 		const machine = createMachine({
 			initial: "idle",

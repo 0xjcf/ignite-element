@@ -1,1 +1,1 @@
-export * from "../../../../ignite-renderer/src/renderers/jsx/types";
+export * from "ignite-renderer/jsx";

@@ -48,16 +48,6 @@ export default defineConfig((configEnv) =>
 						replacement: resolvePath("../ignite-adapters/src/index.ts"),
 					},
 					{
-						find: "ignite-renderer/jsx",
-						replacement: resolvePath(
-							"../ignite-renderer/src/renderers/ignite-jsx.ts",
-						),
-					},
-					{
-						find: "ignite-renderer/lit",
-						replacement: resolvePath("../ignite-renderer/src/renderers/lit.ts"),
-					},
-					{
 						find: "ignite-renderer/jsx-runtime",
 						replacement: resolvePath(
 							"../ignite-renderer/src/jsx/jsx-runtime.ts",
@@ -72,6 +62,16 @@ export default defineConfig((configEnv) =>
 					{
 						find: "ignite-renderer/jsx/index",
 						replacement: resolvePath("../ignite-renderer/src/jsx/index.ts"),
+					},
+					{
+						find: "ignite-renderer/jsx",
+						replacement: resolvePath(
+							"../ignite-renderer/src/renderers/ignite-jsx.ts",
+						),
+					},
+					{
+						find: "ignite-renderer/lit",
+						replacement: resolvePath("../ignite-renderer/src/renderers/lit.ts"),
 					},
 					{
 						find: "ignite-renderer",
