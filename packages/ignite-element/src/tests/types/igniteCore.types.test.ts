@@ -1,27 +1,31 @@
+import type {
+	ActorWebCommandActor as AdapterActorWebCommandActor,
+	ActorWebCommandSource as AdapterActorWebCommandSource,
+	ActorWebExtendedState as AdapterActorWebExtendedState,
+	ActorWebReadModelSource as AdapterActorWebReadModelSource,
+	ActorWebSource as AdapterActorWebSource,
+} from "ignite-adapters/actor-web";
 import { command, commandMetadataSymbol } from "ignite-core";
 import { makeAutoObservable } from "mobx";
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { createMachine, setup, type EventFrom } from "xstate";
-import * as actorWebPublic from "../../actor-web";
-import { igniteCore as igniteCoreActorWebEntrypoint } from "../../actor-web";
+import { createMachine, type EventFrom, setup } from "xstate";
 import type {
 	ActorWebCommandActor,
+	ActorWebCommandSource,
 	ActorWebExtendedState,
 	IgniteDomBridge as ActorWebIgniteDomBridge,
 	IgniteDomRoleExpectation as ActorWebIgniteDomRoleExpectation,
 	IgniteStorySnapshot as ActorWebIgniteStorySnapshot,
 	IgniteStorySnapshotEvent as ActorWebIgniteStorySnapshotEvent,
+	IgniteStorySummarySnapshot as ActorWebIgniteStorySummarySnapshot,
 	IgniteStoryTraceSnapshot as ActorWebIgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry as ActorWebIgniteStoryTraceSnapshotEntry,
-	IgniteStorySummarySnapshot as ActorWebIgniteStorySummarySnapshot,
 	IgniteTestHelpers as ActorWebIgniteTestHelpers,
+	ActorWebReadModelSource,
 	ActorWebSource,
 } from "../../actor-web";
-import type {
-	ActorWebCommandActor as AdapterActorWebCommandActor,
-	ActorWebExtendedState as AdapterActorWebExtendedState,
-	ActorWebSource as AdapterActorWebSource,
-} from "ignite-adapters/actor-web";
+import * as actorWebPublic from "../../actor-web";
+import { igniteCore as igniteCoreActorWebEntrypoint } from "../../actor-web";
 import type { MobxEvent } from "../../adapters/MobxAdapter";
 import type { XStateSnapshot } from "../../adapters/XStateAdapter";
 import counterStore, {
@@ -38,9 +42,9 @@ import type {
 	IgniteDomRoleExpectation as RootIgniteDomRoleExpectation,
 	IgniteStorySnapshot as RootIgniteStorySnapshot,
 	IgniteStorySnapshotEvent as RootIgniteStorySnapshotEvent,
+	IgniteStorySummarySnapshot as RootIgniteStorySummarySnapshot,
 	IgniteStoryTraceSnapshot as RootIgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry as RootIgniteStoryTraceSnapshotEntry,
-	IgniteStorySummarySnapshot as RootIgniteStorySummarySnapshot,
 	IgniteTestHelpers as RootIgniteTestHelpers,
 } from "../../index";
 import type {
@@ -48,9 +52,9 @@ import type {
 	IgniteDomRoleExpectation as MobxIgniteDomRoleExpectation,
 	IgniteStorySnapshot as MobxIgniteStorySnapshot,
 	IgniteStorySnapshotEvent as MobxIgniteStorySnapshotEvent,
+	IgniteStorySummarySnapshot as MobxIgniteStorySummarySnapshot,
 	IgniteStoryTraceSnapshot as MobxIgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry as MobxIgniteStoryTraceSnapshotEntry,
-	IgniteStorySummarySnapshot as MobxIgniteStorySummarySnapshot,
 	IgniteTestHelpers as MobxIgniteTestHelpers,
 } from "../../mobx";
 import type {
@@ -66,9 +70,9 @@ import type {
 	IgniteDomRoleExpectation as ReduxIgniteDomRoleExpectation,
 	IgniteStorySnapshot as ReduxIgniteStorySnapshot,
 	IgniteStorySnapshotEvent as ReduxIgniteStorySnapshotEvent,
+	IgniteStorySummarySnapshot as ReduxIgniteStorySummarySnapshot,
 	IgniteStoryTraceSnapshot as ReduxIgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry as ReduxIgniteStoryTraceSnapshotEntry,
-	IgniteStorySummarySnapshot as ReduxIgniteStorySummarySnapshot,
 	IgniteTestHelpers as ReduxIgniteTestHelpers,
 } from "../../redux";
 import type {
@@ -80,10 +84,10 @@ import type {
 	IgniteStoryLifecycleEntry,
 	IgniteStorySnapshot,
 	IgniteStorySnapshotEvent,
+	IgniteStorySummarySnapshot,
 	IgniteStoryTraceEntry,
 	IgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry,
-	IgniteStorySummarySnapshot,
 } from "../../types/agent";
 import type {
 	IgniteAgentCommandSchema,
@@ -91,14 +95,14 @@ import type {
 } from "../../types/schema";
 import type { InferStateAndEvent } from "../../utils/igniteRedux";
 import type {
+	IgniteCoreReturn as XStateIgniteCoreReturn,
 	IgniteDomBridge as XStateIgniteDomBridge,
 	IgniteDomRoleExpectation as XStateIgniteDomRoleExpectation,
-	IgniteCoreReturn as XStateIgniteCoreReturn,
 	IgniteStorySnapshot as XStateIgniteStorySnapshot,
 	IgniteStorySnapshotEvent as XStateIgniteStorySnapshotEvent,
+	IgniteStorySummarySnapshot as XStateIgniteStorySummarySnapshot,
 	IgniteStoryTraceSnapshot as XStateIgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry as XStateIgniteStoryTraceSnapshotEntry,
-	IgniteStorySummarySnapshot as XStateIgniteStorySummarySnapshot,
 	IgniteTestHelpers as XStateIgniteTestHelpers,
 } from "../../xstate";
 import {
@@ -120,7 +124,7 @@ type ActorWebShipmentEvent = {
 	shipmentId: string;
 };
 
-const actorWebShipmentSource: ActorWebSource<
+const actorWebShipmentSource: ActorWebCommandSource<
 	ActorWebShipmentContext,
 	ActorWebShipmentCommand,
 	ActorWebShipmentEvent
@@ -149,9 +153,39 @@ const actorWebShipmentSource: ActorWebSource<
 	ask: async <Response = unknown>() => 1 as Response,
 };
 
+const actorWebShipmentReadModelSource: ActorWebReadModelSource<
+	ActorWebShipmentContext,
+	ActorWebShipmentCommand,
+	ActorWebShipmentEvent
+> = {
+	address: actorWebShipmentSource.address,
+	snapshot: () => ({
+		address: actorWebShipmentSource.address,
+		context: {
+			shipmentId: null,
+			status: "idle",
+		},
+		phase: "idle",
+		status: "idle",
+		value: "idle",
+		matches: (state) => state === "idle",
+		can: (event) =>
+			(typeof event === "string" ? event : event.type) === "CREATE_SHIPMENT",
+		hasTag: (tag) => tag === "ready",
+		toJSON: () => ({}),
+	}),
+	subscribe: () => () => {},
+	transportStatus: actorWebShipmentSource.transportStatus,
+	subscribeTransportStatus: () => () => {},
+	close: () => {},
+};
+
 const actorWebShipmentFactory = () => actorWebShipmentSource;
 const actorWebShipmentHostFactory = (_context: { host?: HTMLElement }) =>
 	actorWebShipmentSource;
+const actorWebShipmentReadModelHostFactory = (_context: {
+	host?: HTMLElement;
+}) => actorWebShipmentReadModelSource;
 const actorWebShipmentDefaultedHostFactory = (
 	_context: { host?: HTMLElement } = {},
 ) => actorWebShipmentSource;
@@ -262,6 +296,32 @@ describe("igniteCore type inference", () => {
 			>
 		>();
 		expectTypeOf<
+			ActorWebReadModelSource<
+				ActorWebShipmentContext,
+				ActorWebShipmentCommand,
+				ActorWebShipmentEvent
+			>
+		>().toEqualTypeOf<
+			AdapterActorWebReadModelSource<
+				ActorWebShipmentContext,
+				ActorWebShipmentCommand,
+				ActorWebShipmentEvent
+			>
+		>();
+		expectTypeOf<
+			ActorWebCommandSource<
+				ActorWebShipmentContext,
+				ActorWebShipmentCommand,
+				ActorWebShipmentEvent
+			>
+		>().toEqualTypeOf<
+			AdapterActorWebCommandSource<
+				ActorWebShipmentContext,
+				ActorWebShipmentCommand,
+				ActorWebShipmentEvent
+			>
+		>();
+		expectTypeOf<
 			ActorWebExtendedState<ActorWebShipmentContext>
 		>().toEqualTypeOf<AdapterActorWebExtendedState<ActorWebShipmentContext>>();
 		expectTypeOf<
@@ -323,6 +383,56 @@ describe("igniteCore type inference", () => {
 					timeout?: number,
 			  ) => Promise<Response>)
 			| undefined
+		>();
+	});
+
+	it("infers actor-web read-model source snapshots with explicit command sources", () => {
+		const register = igniteCoreActorWebEntrypoint({
+			source: actorWebShipmentReadModelHostFactory,
+			commandSource: () => actorWebShipmentSource,
+			states: ({ context, phase, status, value, matches, can, hasTag }) => ({
+				shipmentId: context.shipmentId,
+				phase,
+				status,
+				value,
+				idle: matches?.("idle") ?? false,
+				canCreate: can?.({ type: "CREATE_SHIPMENT" }) ?? false,
+				ready: hasTag?.("ready") ?? false,
+			}),
+			commands: ({ actor }) => ({
+				createShipment: (shipmentId: string) =>
+					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
+			}),
+		});
+
+		type RenderArgs = AdapterPack<typeof register>;
+
+		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<
+			ActorWebExtendedState<ActorWebShipmentContext>
+		>();
+		expectTypeOf<
+			RenderArgs["state"]["context"]
+		>().toEqualTypeOf<ActorWebShipmentContext>();
+		expectTypeOf<RenderArgs["state"]["phase"]>().toEqualTypeOf<string>();
+		expectTypeOf<RenderArgs["state"]["status"]>().toEqualTypeOf<
+			ActorWebShipmentContext["status"]
+		>();
+		expectTypeOf<RenderArgs["state"]["value"]>().toEqualTypeOf<unknown>();
+		expectTypeOf<RenderArgs["state"]["matches"]>().toEqualTypeOf<
+			((state: string) => boolean) | undefined
+		>();
+		expectTypeOf<RenderArgs["state"]["can"]>().toEqualTypeOf<
+			((event: string | { type: string }) => boolean) | undefined
+		>();
+		expectTypeOf<RenderArgs["state"]["hasTag"]>().toEqualTypeOf<
+			((tag: string) => boolean) | undefined
+		>();
+		expectTypeOf<RenderArgs["shipmentId"]>().toEqualTypeOf<string | null>();
+		expectTypeOf<RenderArgs["idle"]>().toEqualTypeOf<boolean>();
+		expectTypeOf<RenderArgs["canCreate"]>().toEqualTypeOf<boolean>();
+		expectTypeOf<RenderArgs["ready"]>().toEqualTypeOf<boolean>();
+		expectTypeOf<RenderArgs["createShipment"]>().toEqualTypeOf<
+			(shipmentId: string) => Promise<unknown>
 		>();
 	});
 
@@ -405,11 +515,6 @@ describe("igniteCore type inference", () => {
 
 	it("rejects omitted adapter inference for zero-arg redux and mobx factories", () => {
 		const assertOmittedFactoryAdapters = () => {
-			// @ts-expect-error defaulted actor-web factories must specify adapter
-			igniteCore({
-				source: actorWebShipmentDefaultedHostFactory,
-			});
-
 			// @ts-expect-error zero-arg redux factories must specify adapter
 			igniteCore({
 				source: counterStore,

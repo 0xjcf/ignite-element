@@ -5,6 +5,7 @@ import { makeAutoObservable } from "mobx";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { assign, createActor, createMachine, type EventFrom } from "xstate";
 import type {
+	ActorWebCommandSource,
 	ActorWebSource,
 	ActorWebSourceSnapshot,
 	ActorWebTransportStatus,
@@ -40,7 +41,7 @@ type ActorWebShipmentCommand =
 	| { type: "CREATE_SHIPMENT"; shipmentId: string }
 	| { type: "RESET_SHIPMENT" };
 
-function createActorWebShipmentSource(): ActorWebSource<
+function createActorWebShipmentSource(): ActorWebCommandSource<
 	ActorWebShipmentContext,
 	ActorWebShipmentCommand,
 	{ type: "SHIPMENT_CREATED"; shipmentId: string }
@@ -116,6 +117,32 @@ function createActorWebShipmentSource(): ActorWebSource<
 		},
 	};
 	return source;
+}
+
+function createActorWebShipmentReadModelSource(): ActorWebSource<
+	ActorWebShipmentContext,
+	ActorWebShipmentCommand,
+	{ type: "SHIPMENT_CREATED"; shipmentId: string }
+> & {
+	closed: number;
+	emitSnapshot(context: ActorWebShipmentContext): void;
+	emitTransport(status: ActorWebTransportStatus): void;
+} {
+	const commandSource = createActorWebShipmentSource();
+	const {
+		ask: _ask,
+		send: _send,
+		sent: _sent,
+		...readModelSource
+	} = commandSource;
+
+	return {
+		...readModelSource,
+		closed: 0,
+		close() {
+			this.closed += 1;
+		},
+	};
 }
 
 // Mock XState machine
@@ -397,6 +424,49 @@ describe("igniteCore", () => {
 			shipmentId: "shipment-1001",
 			connected: false,
 		});
+	});
+
+	it("accepts actor-web read-model sources and closes them without wrappers", () => {
+		const source = createActorWebShipmentReadModelSource();
+		const register = igniteCore({
+			source,
+			states: ({ context, transport }) => ({
+				status: context.status,
+				connected: transport.state === "connected",
+			}),
+		});
+		const elementName = `actor-web-read-model-${crypto.randomUUID()}`;
+
+		expect("send" in source).toBe(false);
+		register(elementName, () => html``);
+		const element = document.createElement(elementName);
+		document.body.appendChild(element);
+
+		element.remove();
+		expect(source.closed).toBe(1);
+	});
+
+	it("routes actor-web commands through an explicit commandSource pair", () => {
+		const readModelSource = createActorWebShipmentReadModelSource();
+		const commandSource = createActorWebShipmentSource();
+		const register = igniteCore({
+			source: readModelSource,
+			commandSource,
+			states: ({ context }) => ({
+				status: context.status,
+			}),
+			commands: ({ actor }) => ({
+				createShipment: (shipmentId: string) =>
+					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
+			}),
+		});
+
+		register.execute("createShipment", "shipment-2002");
+
+		expect(commandSource.sent).toEqual([
+			{ type: "CREATE_SHIPMENT", shipmentId: "shipment-2002" },
+		]);
+		expect("send" in readModelSource).toBe(false);
 	});
 
 	it("provides projected view callbacks for xstate sources", () => {

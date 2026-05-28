@@ -88,8 +88,8 @@ Use `ignite-element/actor-web` when an Actor-Web runtime already owns orchestrat
 import { igniteCore } from "ignite-element/actor-web";
 
 const shipmentCard = igniteCore({
-  source: (context: { host?: HTMLElement } = {}) =>
-    checkoutRuntime.shipments.forHost(context.host),
+  source: ({ host }) => checkoutRuntime.shipments.readModel({ host }),
+  commandSource: () => checkoutRuntime.shipments.commandSource(),
   states: ({ context }) => ({
     shipmentId: context.shipmentId,
     status: context.status,

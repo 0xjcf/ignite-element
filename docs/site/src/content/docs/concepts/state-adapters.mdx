@@ -167,8 +167,8 @@ type ShipmentRequest =
   | { type: "shipment.label.request"; shipmentId: string };
 
 const shipmentCard = igniteCore({
-  source: (context: { host?: HTMLElement } = {}) =>
-    checkoutRuntime.shipments.forHost(context.host),
+  source: ({ host }) => checkoutRuntime.shipments.readModel({ host }),
+  commandSource: () => checkoutRuntime.shipments.commandSource(),
   states: ({ context }) => ({
     shipmentId: context.shipmentId,
     status: context.status,
@@ -187,6 +187,8 @@ const shipmentCard = igniteCore({
 ```
 
 The projected `context` carries business/read-model state. Updating that state remains Actor-Web's job; Ignite sends requests back across the boundary and re-renders when the next projection snapshot arrives.
+
+Use `source` for the read model that drives rendering. Add `commandSource` when the component exposes commands, or pass a command-capable source directly for smaller local proofs. When Actor-Web sources expose `close()`, Ignite calls it during adapter teardown, so host apps do not need wrapper objects just to clean up subscriptions.
 
 ### Opting into transport metadata
 
