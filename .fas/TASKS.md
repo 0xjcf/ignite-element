@@ -419,8 +419,8 @@ No active tasks.
 
 - Title: CodeRabbit P2 test harness and contract cleanup
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/coderabbit-p2-test-harness-and-contract-cleanup.md
 - Verification lane: fast
 - Policy sensitivity: standard
