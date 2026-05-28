@@ -399,7 +399,13 @@ describe("ignite test DSL", () => {
 		const story = component.record("accessible counter");
 		const bridge = igniteTest.accessibilityBridge(
 			component,
-			({ count, increment }: { count: number; increment: (amount: number) => void }) =>
+			({
+				count,
+				increment,
+			}: {
+				count: number;
+				increment: (amount: number) => void;
+			}) =>
 				jsxs("section", {
 					children: [
 						jsx("output", {

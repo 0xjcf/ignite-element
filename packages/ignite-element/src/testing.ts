@@ -311,7 +311,10 @@ const getLabelledText = (element: Element, ids: string): string => {
 	const fragments = ids
 		.split(/\s+/)
 		.map((id) => {
-			if ("getElementById" in root && typeof root.getElementById === "function") {
+			if (
+				"getElementById" in root &&
+				typeof root.getElementById === "function"
+			) {
 				return root.getElementById(id);
 			}
 
@@ -358,7 +361,10 @@ const getAccessibleName = (element: Element): string => {
 		}
 	}
 
-	if (element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) {
+	if (
+		element instanceof HTMLTextAreaElement ||
+		element instanceof HTMLSelectElement
+	) {
 		const labels = Array.from(element.labels ?? []);
 		if (labels.length > 0) {
 			return normalizeWhitespace(
@@ -441,6 +447,14 @@ const findByRole = (
 	return null;
 };
 
+const formatMissingControlError = (
+	rendered: string,
+	expectation: IgniteDomRoleExpectation,
+): Error =>
+	new Error(
+		`[igniteTest] DOM control not found.\nExpected: ${formatValue(expectation)}\nRendered: ${formatValue(rendered)}`,
+	);
+
 const assertControl = (
 	bridge: IgniteDomBridge,
 	expectation: IgniteDomRoleExpectation,
@@ -448,9 +462,7 @@ const assertControl = (
 	const element = bridge.queryByRole(expectation.role, expectation);
 
 	if (!element) {
-		throw new Error(
-			`[igniteTest] DOM control not found.\nExpected: ${formatValue(expectation)}\nRendered: ${formatValue(bridge.root.innerHTML)}`,
-		);
+		throw formatMissingControlError(bridge.root.innerHTML, expectation);
 	}
 
 	return element;
@@ -459,7 +471,8 @@ const assertControl = (
 const expectControls = (
 	bridge: IgniteDomBridge,
 	expected: readonly IgniteDomRoleExpectation[],
-): HTMLElement[] => expected.map((expectation) => assertControl(bridge, expectation));
+): HTMLElement[] =>
+	expected.map((expectation) => assertControl(bridge, expectation));
 
 const resolveStateSubject = <State>(
 	state: State,
@@ -727,7 +740,14 @@ function createTestScenario<
 type IgniteTestFunction = typeof createTestScenario & IgniteTestHelpers;
 
 export const test: IgniteTestFunction = Object.assign(createTestScenario, {
-	accessibilityBridge(component, renderer, options) {
+	accessibilityBridge(
+		component: {
+			execute: unknown;
+			getState: () => unknown;
+		},
+		renderer: unknown,
+		options?: IgniteDomBridgeOptions,
+	) {
 		const createBridge = (
 			component as {
 				[igniteDomBridgeSymbol]?: (
@@ -750,12 +770,10 @@ export const test: IgniteTestFunction = Object.assign(createTestScenario, {
 			getByRole(role, roleOptions) {
 				const element = findByRole(session.root, role, roleOptions);
 				if (!element) {
-					throw new Error(
-						`[igniteTest] DOM control not found.\nExpected: ${formatValue({
-							role,
-							...roleOptions,
-						})}\nRendered: ${formatValue(session.root.innerHTML)}`,
-					);
+					throw formatMissingControlError(session.root.innerHTML, {
+						role,
+						...roleOptions,
+					});
 				}
 
 				return element;

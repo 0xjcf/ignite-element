@@ -609,7 +609,11 @@ export default function igniteElementFactory<
 			RuntimeView,
 			AdditionalRenderArgs<State, Event, RenderArgs>
 		>({
-			createDomBridge: createRuntimeDomBridge,
+			createDomBridge: (renderer, options) =>
+				createRuntimeDomBridge(
+					renderer as ComponentRenderer<RenderArgs, View>,
+					options,
+				),
 			eventTypes,
 			observeLifecycle,
 			resolveRuntime: resolveRuntimeResources,

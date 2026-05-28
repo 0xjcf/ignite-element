@@ -1023,7 +1023,9 @@ describe("igniteCore", () => {
 			expect.arrayContaining(["connected", "rendered"]),
 		);
 		expect(
-			story.lifecycle().every((entry) => entry.elementName === "story-dom-bridge"),
+			story
+				.lifecycle()
+				.every((entry) => entry.elementName === "story-dom-bridge"),
 		).toBe(true);
 
 		bridge.stop();
