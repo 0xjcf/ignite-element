@@ -23,11 +23,24 @@ If you use the built-in JSX runtime, enable Ignite JSX in `tsconfig.json`:
 }
 ```
 
+The config-free path is the default: import adapters from `ignite-element/xstate`
+or the matching state-library entrypoint, point `jsxImportSource` at
+`ignite-element/jsx`, and render local styles with ordinary `<style>` tags.
+Reach for `ignite.config.ts` only when you need advanced shared shadow-root
+styles, diagnostics, or legacy compatibility wiring.
+
 Quick start:
 
 ```tsx
 import { createMachine } from "xstate";
 import { igniteCore } from "ignite-element/xstate";
+
+const styles = `
+  button {
+    border-radius: 999px;
+    padding: 0.65rem 1rem;
+  }
+`;
 
 const machine = createMachine({
   initial: "off",
@@ -57,12 +70,7 @@ const toggle = igniteCore({
 
 toggle("toggle-button", ({ isOn, toggle }) => (
   <>
-    <style>{`
-      button {
-        border-radius: 999px;
-        padding: 0.65rem 1rem;
-      }
-    `}</style>
+    <style>{styles}</style>
     <button onClick={toggle}>{isOn ? "On" : "Off"}</button>
   </>
 ));

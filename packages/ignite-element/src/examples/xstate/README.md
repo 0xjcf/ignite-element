@@ -2,6 +2,14 @@
 
 This is the Ignite JSX v3 example referenced in the docs. It pairs **ignite-element**, **XState**, and **TailwindCSS** to show shared vs. isolated actors through the public `ignite-element/xstate` authoring surface.
 
+The default path here is intentionally config-free:
+
+- adapter entrypoints come from `ignite-element/xstate`
+- JSX runtime setup points at `ignite-element/jsx`
+- local component CSS can live in ordinary `<style>{styles}</style>` output
+
+`ignite.config.ts`, renderer plugins, and the `lit-html` sample are kept only as advanced compatibility references, not the first-read setup.
+
 ---
 
 ## Quick Start
@@ -20,7 +28,7 @@ This is the Ignite JSX v3 example referenced in the docs. It pairs **ignite-elem
 
 3. **Open the playground**
 
-   Visit the URL printed in the terminal (usually <http://localhost:5173>). You will see:
+   Visit the URL printed in the terminal (usually <http://localhost:8080>). You will see:
 
    - A shared counter that reuses a single XState actor across multiple components.
    - An isolated counter where each element spawns its own machine instance.
@@ -42,8 +50,9 @@ pnpm run examples:xstate
 | `xstateApiShowcaseRuntime.ts` | Exports the shared `apiShowcase` runtime contract used by both showcase elements. |
 | `xstateApiShowcase.tsx` | Renders the v3 authoring API: `view`, `commands`, declared events, and effects. |
 | `xstateExample.tsx` | Registers web components via `igniteCore` using the Ignite JSX renderer. |
-| `dist/styles.css` | Tailwind build output injected through the example's advanced `ignite-renderer` config. |
+| `dist/styles.css` | Tailwind build output linked from `index.html` for playground-wide utility classes. |
 | `index.html` | Hosts the custom elements during development. |
+| `ignite.config.ts` | Reference-only advanced compatibility example for shared shadow-root stylesheet injection. This walkthrough does not load it unless you wire an explicit import or restore config-loader/plugin behavior. |
 
 ## igniteCore in Action
 
@@ -98,9 +107,17 @@ Register elements with the direct callback form:
 
 ```tsx
 registerSharedXState("my-counter-xstate", ({ count, increment }) => (
-  <button type="button" onClick={() => increment()}>
-    Count: {count}
-  </button>
+  <>
+    <style>{`
+      button {
+        border-radius: 999px;
+        padding: 0.65rem 1rem;
+      }
+    `}</style>
+    <button type="button" onClick={() => increment()}>
+      Count: {count}
+    </button>
+  </>
 ));
 ```
 
@@ -191,18 +208,43 @@ story?.lifecycle();
 
 ## Styling
 
-TailwindCSS is compiled once and injected globally via an advanced `ignite-renderer` config:
+The happy path is ordinary JSX-local styles plus whatever global CSS your host already loads. This example's playground links `dist/styles.css` from `index.html`, while component-specific tweaks can stay inline:
+
+```tsx
+const boxStyles = `
+  .box {
+    height: 1rem;
+    width: 1rem;
+    border-radius: 999px;
+  }
+`;
+
+registerSharedXState("gradient-tally", ({ count }) => (
+  <>
+    <style>{boxStyles}</style>
+    <div
+      class="box"
+      style={{
+        background: `linear-gradient(90deg, rgba(34, 197, 94, 1) 0%, rgba(59, 130, 246, ${(count + 1) / 10}) 100%)`,
+      }}
+    />
+  </>
+));
+```
+
+If you need one stylesheet injected into every component shadow root, `ignite.config.ts` shows one advanced compatibility option:
 
 ```ts
 import { defineIgniteConfig } from "ignite-renderer";
 
 export default defineIgniteConfig({
   styles: new URL("./dist/styles.css", import.meta.url).href,
-  renderer: "ignite-jsx",
 });
 ```
 
-Component-specific tweaks live alongside the render functions, so you can mix Tailwind utility classes with custom CSS snippets.
+That `ignite.config.ts` file is reference-only in this example. The demo stays config-free unless you choose to import that module yourself or restore the config-loader/plugin wiring that used to load it automatically.
+
+The example Vite config is only there to alias this monorepo workspace into local source files. It does not need a config-loader plugin for the default Ignite JSX flow.
 
 ---
 

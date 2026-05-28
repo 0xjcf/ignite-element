@@ -52,13 +52,21 @@ Add JSX runtime settings for Ignite JSX (the default renderer):
 }
 ```
 
-For most components, keep styles local to the render output with ordinary `<style>` tags. Reach for `ignite.config.ts` only when you need shared shadow-root styles, diagnostics, or the legacy `lit` renderer. If a host enforces strict `style-src` CSP rules, use emitted stylesheet URLs through shared styles instead of inline `<style>` tags.
+No `ignite.config.ts`, renderer selection, config loader, or plugin wiring is required for the default v3 path. For most components, keep styles local to the render output with ordinary `<style>` tags. Reach for `ignite.config.ts` only when you need shared shadow-root styles, diagnostics, or the legacy `lit` renderer. If a host enforces strict `style-src` CSP rules, use emitted stylesheet URLs through shared styles instead of inline `<style>` tags.
 
 ## Create a simple machine-backed component
 
 ```tsx
 import { igniteCore } from 'ignite-element/xstate';
 import { createMachine } from 'xstate';
+
+const styles = `
+  button {
+    border-radius: 999px;
+    padding: 0.65rem 1rem;
+    font-weight: 600;
+  }
+`;
 
 const machine = createMachine({
   initial: 'off',
@@ -87,7 +95,10 @@ const component = igniteCore({
 });
 
 component('my-toggle', ({ isOn, toggle }) => (
-  <button onClick={toggle}>{isOn ? 'On' : 'Off'}</button>
+  <>
+    <style>{styles}</style>
+    <button onClick={toggle}>{isOn ? 'On' : 'Off'}</button>
+  </>
 ));
 ```
 
@@ -124,7 +135,7 @@ Spin up the counter example in your browser:
 - Typed commands, view projection, effects, events, and headless runtime hooks without a React/Solid runtime.
 - Keep XState, Redux Toolkit, or MobX—bring your state model instead of adopting a new reactive system just to ship components.
 - No config is required for the default Ignite JSX path.
-- Co-locate CSS with JSX through ordinary `<style>` tags, or import CSS text when your bundler supports it.
+- Co-locate CSS with JSX through ordinary `<style>{styles}</style>` output, or import CSS text when your bundler supports it.
 - Built-in lifecycle handling for shared vs. isolated adapters.
 - Optional project-level config exists for renderer defaults, global styles, and diagnostics when you need it.
 
