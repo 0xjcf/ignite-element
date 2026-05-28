@@ -40,6 +40,17 @@ Adapters are wired internally by helper constructors (for example, `create*Actor
 - If you pass it in, you own it.
 - `cleanup` is a shared adapter teardown override; most components don't need it.
 
+## Choosing `ignite-element/xstate` vs `ignite-element/actor-web`
+
+- Use `ignite-element/xstate` when Ignite owns local behavior for the element. The machine is the element's state source, and Ignite manages its adapter lifecycle.
+- Use `ignite-element/actor-web` when an Actor-Web runtime already owns orchestration, supervision, sequencing, transport, and source lifecycle. Ignite stays in the projection/read-model role and turns snapshots into render state plus explicit commands.
+
+The split is deliberate:
+
+- Actor-Web owns runtime concerns and long-lived sources.
+- Ignite owns projection, custom-element assembly, typed commands/events/effects, and the headless component contract.
+- Crossing the boundary happens through explicit requests such as `actor.send(...)` or `actor.ask(...)`, not by mutating the projected read model. `actor.ask` is optional and only exists on sources that support request/response.
+
 ## Adapter shapes
 
 - **XState**: pass a machine definition or a started actor to `igniteCore`. Ignite starts machine-backed actors and stops the ones it owns; if you pass a pre-started actor, Ignite will subscribe to it but will not stop it for you.
@@ -135,6 +146,63 @@ commands: ({ actor }) => ({
   increment: () => actor.send({ type: 'INCREMENT' }),
 });
 ```
+
+## Actor-Web as a projection-first host
+
+When your host app already runs on Actor-Web, import from `ignite-element/actor-web` and project business fields first. Treat the Actor-Web snapshot as a read model that Ignite consumes, not as a place where Ignite takes over orchestration.
+
+```ts
+import { igniteCore } from "ignite-element/actor-web";
+
+type ShipmentProjection = {
+  shipmentId: string;
+  status: "queued" | "packed" | "shipped";
+  etaLabel: string | null;
+  canCancel: boolean;
+};
+
+type ShipmentRequest =
+  | { type: "shipment.refresh"; shipmentId: string }
+  | { type: "shipment.cancel"; shipmentId: string }
+  | { type: "shipment.label.request"; shipmentId: string };
+
+const shipmentCard = igniteCore({
+  source: (context: { host?: HTMLElement } = {}) =>
+    checkoutRuntime.shipments.forHost(context.host),
+  states: ({ context }) => ({
+    shipmentId: context.shipmentId,
+    status: context.status,
+    etaLabel: context.etaLabel,
+    canCancel: context.canCancel,
+  }),
+  commands: ({ actor }) => ({
+    refresh: (shipmentId: string) =>
+      actor.send({ type: "shipment.refresh", shipmentId }),
+    cancel: (shipmentId: string) =>
+      actor.send({ type: "shipment.cancel", shipmentId }),
+    requestLabel: (shipmentId: string) =>
+      actor.ask?.({ type: "shipment.label.request", shipmentId }),
+  }),
+});
+```
+
+The projected `context` carries business/read-model state. Updating that state remains Actor-Web's job; Ignite sends requests back across the boundary and re-renders when the next projection snapshot arrives.
+
+### Opting into transport metadata
+
+Most components should stay focused on business state. If a surface needs runtime metadata, opt in explicitly through `transport`.
+
+```ts
+states: ({ context, transport }) => ({
+  shipmentId: context.shipmentId,
+  status: context.status,
+  syncState: transport.state,
+  degradedReason:
+    transport.state === "degraded" ? transport.reason ?? null : null,
+});
+```
+
+Use that pattern for connection badges, replay banners, or diagnostics. Do not fold transport metadata into every view by default.
 
 ## Events
 

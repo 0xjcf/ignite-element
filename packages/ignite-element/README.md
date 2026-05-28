@@ -78,6 +78,42 @@ toggle("toggle-button", ({ isOn, toggle }) => (
 
 The resulting element can be consumed anywhere the browser can render a custom element, including plain HTML and host frameworks like React or Vue.
 
+## Choosing an adapter entrypoint
+
+Use `ignite-element/xstate` when Ignite owns the element's local behavior and lifecycle.
+
+Use `ignite-element/actor-web` when an Actor-Web runtime already owns orchestration, transport, sequencing, and source lifecycle. In that mode Ignite stays projection-first: it consumes Actor-Web snapshots, derives view state, and sends explicit requests back with `actor.send(...)` or `actor.ask(...)`. `actor.ask` is optional and only exists on sources that support request/response.
+
+```ts
+import { igniteCore } from "ignite-element/actor-web";
+
+const shipmentCard = igniteCore({
+  source: (context: { host?: HTMLElement } = {}) =>
+    checkoutRuntime.shipments.forHost(context.host),
+  states: ({ context }) => ({
+    shipmentId: context.shipmentId,
+    status: context.status,
+    etaLabel: context.etaLabel,
+  }),
+  commands: ({ actor }) => ({
+    refresh: (shipmentId: string) =>
+      actor.send({ type: "shipment.refresh", shipmentId }),
+    requestLabel: (shipmentId: string) =>
+      actor.ask?.({ type: "shipment.label.request", shipmentId }),
+  }),
+});
+```
+
+Keep ordinary UI projections focused on business/read-model fields. Opt into runtime metadata only when the component needs it:
+
+```ts
+states: ({ context, transport }) => ({
+  shipmentId: context.shipmentId,
+  status: context.status,
+  syncState: transport.state,
+});
+```
+
 ## Runtime model
 
 - commands express intent
