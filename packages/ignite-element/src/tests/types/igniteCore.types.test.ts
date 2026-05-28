@@ -1,7 +1,9 @@
 import { command, commandMetadataSymbol } from "ignite-core";
 import { makeAutoObservable } from "mobx";
-import { describe, expectTypeOf, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { createMachine, setup, type EventFrom } from "xstate";
+import * as actorWebPublic from "../../actor-web";
+import { igniteCore as igniteCoreActorWebEntrypoint } from "../../actor-web";
 import type {
 	ActorWebCommandActor,
 	ActorWebExtendedState,
@@ -15,6 +17,11 @@ import type {
 	IgniteTestHelpers as ActorWebIgniteTestHelpers,
 	ActorWebSource,
 } from "../../actor-web";
+import type {
+	ActorWebCommandActor as AdapterActorWebCommandActor,
+	ActorWebExtendedState as AdapterActorWebExtendedState,
+	ActorWebSource as AdapterActorWebSource,
+} from "ignite-adapters/actor-web";
 import type { MobxEvent } from "../../adapters/MobxAdapter";
 import type { XStateSnapshot } from "../../adapters/XStateAdapter";
 import counterStore, {
@@ -239,6 +246,39 @@ describe("igniteCore type inference", () => {
 		expectTypeOf<ActorWebIgniteTestHelpers>().toEqualTypeOf<IgniteTestHelpers>();
 	});
 
+	it("keeps the actor-web public bridge limited to stable types plus igniteCore", () => {
+		expect("createActorWebAdapter" in actorWebPublic).toBe(false);
+		expectTypeOf<
+			ActorWebSource<
+				ActorWebShipmentContext,
+				ActorWebShipmentCommand,
+				ActorWebShipmentEvent
+			>
+		>().toEqualTypeOf<
+			AdapterActorWebSource<
+				ActorWebShipmentContext,
+				ActorWebShipmentCommand,
+				ActorWebShipmentEvent
+			>
+		>();
+		expectTypeOf<
+			ActorWebExtendedState<ActorWebShipmentContext>
+		>().toEqualTypeOf<AdapterActorWebExtendedState<ActorWebShipmentContext>>();
+		expectTypeOf<
+			ActorWebCommandActor<
+				ActorWebShipmentContext,
+				ActorWebShipmentCommand,
+				ActorWebShipmentEvent
+			>
+		>().toEqualTypeOf<
+			AdapterActorWebCommandActor<
+				ActorWebShipmentContext,
+				ActorWebShipmentCommand,
+				ActorWebShipmentEvent
+			>
+		>();
+	});
+
 	it("infers actor-web context, transport, and command actor facades", () => {
 		const register = igniteCore({
 			source: actorWebShipmentSource,
@@ -261,6 +301,12 @@ describe("igniteCore type inference", () => {
 		>;
 
 		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<Snapshot>();
+		expectTypeOf<
+			RenderArgs["state"]["context"]
+		>().toEqualTypeOf<ActorWebShipmentContext>();
+		expectTypeOf<RenderArgs["state"]["transport"]>().toEqualTypeOf<
+			Snapshot["transport"]
+		>();
 		expectTypeOf<RenderArgs["send"]>().toEqualTypeOf<
 			(event: ActorWebShipmentCommand) => void
 		>();
@@ -280,7 +326,7 @@ describe("igniteCore type inference", () => {
 		>();
 	});
 
-	it("supports explicit actor-web factories and narrows omitted zero-arg factory inference", () => {
+	it("supports explicit actor-web factories, subpath entrypoints, and narrows omitted zero-arg factory inference", () => {
 		const register = igniteCore({
 			adapter: "actor-web",
 			source: actorWebShipmentFactory,
@@ -295,6 +341,38 @@ describe("igniteCore type inference", () => {
 		});
 
 		type RenderArgs = AdapterPack<typeof register>;
+		const defaultedHostSubpathRegister = igniteCoreActorWebEntrypoint<
+			ActorWebShipmentContext,
+			ActorWebShipmentCommand,
+			ActorWebShipmentEvent
+		>({
+			source: actorWebShipmentDefaultedHostFactory,
+			states: ({ context, transport }) => ({
+				status: context.status,
+				connected: transport.state === "connected",
+			}),
+			commands: ({ actor }) => ({
+				createShipment: (shipmentId: string) =>
+					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
+			}),
+		});
+		const requiredHostSubpathRegister = igniteCoreActorWebEntrypoint<
+			ActorWebShipmentContext,
+			ActorWebShipmentCommand,
+			ActorWebShipmentEvent
+		>({
+			source: actorWebShipmentHostFactory,
+			states: ({ context, transport }) => ({
+				status: context.status,
+				connected: transport.state === "connected",
+			}),
+		});
+		type DefaultedHostSubpathRenderArgs = AdapterPack<
+			typeof defaultedHostSubpathRegister
+		>;
+		type RequiredHostSubpathRenderArgs = AdapterPack<
+			typeof requiredHostSubpathRegister
+		>;
 
 		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<
 			ActorWebExtendedState<ActorWebShipmentContext>
@@ -302,6 +380,14 @@ describe("igniteCore type inference", () => {
 		expectTypeOf<RenderArgs["createShipment"]>().toEqualTypeOf<
 			(shipmentId: string) => Promise<unknown>
 		>();
+		expectTypeOf<
+			DefaultedHostSubpathRenderArgs["state"]["transport"]
+		>().toEqualTypeOf<
+			ActorWebExtendedState<ActorWebShipmentContext>["transport"]
+		>();
+		expectTypeOf<
+			RequiredHostSubpathRenderArgs["state"]["context"]
+		>().toEqualTypeOf<ActorWebShipmentContext>();
 		expectTypeOf<
 			InferAdapterFromSource<typeof actorWebShipmentHostFactory>
 		>().toEqualTypeOf<"actor-web">();
