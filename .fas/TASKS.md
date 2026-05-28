@@ -441,12 +441,13 @@ No active tasks.
 
 - Title: Simplify Ignite v3 public event and effect authoring API
 - Mode: 6-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/simplify-ignite-v3-public-event-and-effect-authoring-api.md
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
+
 ### Task: Lock the config-free Ignite JSX v3 happy path
 
 - Title: Lock the config-free Ignite JSX v3 happy path
