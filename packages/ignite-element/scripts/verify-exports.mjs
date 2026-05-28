@@ -56,7 +56,7 @@ const requiredExports = [
 	],
 	[
 		"./jsx/jsx-runtime",
-		{ Fragment: "symbol", j: "function", jsx: "function", jsxs: "function" },
+		{ Fragment: "symbol", jsx: "function", jsxs: "function" },
 	],
 	["./jsx/jsx-dev-runtime", { Fragment: "symbol", jsxDEV: "function" }],
 ];

@@ -27,9 +27,18 @@ Define and implement the v3 public story for using Ignite Element with Actor-Web
 - packages/ignite-element/src/tests/types/igniteCore.types.test.ts
 - docs/site/src/content/docs/concepts/state-adapters.mdx
 - packages/ignite-element/README.md
+- packages/ignite-element/scripts/verify-exports.mjs
 
 ## Scope Amendments
-- None.
+- Type: verification blocker
+- Added at: 2026-05-28
+- Trigger: SRE package build gate failed verify:exports
+- Reason: The stable JSX runtime export snapshot expected stale j helper even though source exports only Fragment, jsx, and jsxs.
+- Added paths: packages/ignite-element/scripts/verify-exports.mjs
+- Evidence source: pnpm --filter ignite-element run build
+- Evidence: pnpm --filter ignite-element run build | packages/ignite-element/scripts/verify-exports.mjs | verify:exports failed until stale j expectation was removed
+- Accuracy signal: package build and source export inspection
+- Follow-up needed: None
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
