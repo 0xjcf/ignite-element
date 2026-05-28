@@ -81,10 +81,7 @@ export const command: CommandHelper = Object.assign(attachCommandMetadata, {
 			...options,
 		};
 	},
-	array(
-		items?: CommandInputMetadata,
-		options: ArrayCommandInputOptions = {},
-	) {
+	array(items?: CommandInputMetadata, options: ArrayCommandInputOptions = {}) {
 		return {
 			type: "array" as const,
 			...(typeof items === "undefined" ? {} : { items }),

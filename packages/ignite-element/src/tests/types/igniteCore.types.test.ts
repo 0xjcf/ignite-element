@@ -690,12 +690,12 @@ describe("igniteCore type inference", () => {
 		const schema = register.getSchema();
 
 		expectTypeOf(schema.commands).toEqualTypeOf<IgniteAgentCommandSchema>();
-		expectTypeOf(schema.commands.configureAlert).toEqualTypeOf<
-			IgniteSchemaObject
-		>();
-		expectTypeOf(schema.commands.configureAlert.input).toEqualTypeOf<
-			IgniteSchemaValue
-		>();
+		expectTypeOf(
+			schema.commands.configureAlert,
+		).toEqualTypeOf<IgniteSchemaObject>();
+		expectTypeOf(
+			schema.commands.configureAlert.input,
+		).toEqualTypeOf<IgniteSchemaValue>();
 	});
 
 	it("preserves tuple command inference when metadata is attached", () => {

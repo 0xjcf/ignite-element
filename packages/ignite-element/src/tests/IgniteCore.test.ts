@@ -1043,12 +1043,12 @@ describe("igniteCore", () => {
 					(payload: {
 						label: string;
 						enabled: boolean;
-						mode: "add" | "reset";
+						mode: "apply" | "skip";
 						values: number[];
 						limits: { minimum: number; maximum: number };
 					}) => {
-						if (!payload.enabled || payload.mode === "reset") {
-							return actor.dispatch(counterSlice.actions.reset());
+						if (!payload.enabled || payload.mode === "skip") {
+							return actor.dispatch(counterSlice.actions.addByAmount(0));
 						}
 
 						return actor.dispatch(
@@ -1063,8 +1063,8 @@ describe("igniteCore", () => {
 							{
 								label: command.string({ minLength: 1, maxLength: 32 }),
 								enabled: command.boolean({ default: true }),
-								mode: command.enum(["add", "reset"], {
-									default: "add",
+								mode: command.enum(["apply", "skip"], {
+									default: "apply",
 								}),
 								values: command.array(command.number({ minimum: 0 }), {
 									minItems: 1,
@@ -1091,7 +1091,7 @@ describe("igniteCore", () => {
 		const result = await register.execute("configureCounter", {
 			label: "shift-a",
 			enabled: true,
-			mode: "add",
+			mode: "apply",
 			values: [1, 2, 3],
 			limits: { minimum: 0, maximum: 12 },
 		});
@@ -1116,8 +1116,8 @@ describe("igniteCore", () => {
 							},
 							mode: {
 								type: "string",
-								enum: ["add", "reset"],
-								default: "add",
+								enum: ["apply", "skip"],
+								default: "apply",
 							},
 							values: {
 								type: "array",

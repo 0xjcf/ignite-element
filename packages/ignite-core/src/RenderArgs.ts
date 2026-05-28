@@ -26,6 +26,7 @@ export type CommandMetadataPrimitive = null | boolean | number | string;
 export type CommandMetadataValue =
 	| CommandMetadataPrimitive
 	| CommandMetadataValue[]
+	| readonly CommandMetadataValue[]
 	| { [key: string]: CommandMetadataValue | undefined };
 
 export type NumberCommandInputMetadata = {
@@ -88,10 +89,7 @@ export type CommandInputMetadata =
 	| ObjectCommandInputMetadata
 	| ArrayCommandInputMetadata;
 
-export type ObjectCommandInputProperties = Record<
-	string,
-	CommandInputMetadata
->;
+export type ObjectCommandInputProperties = Record<string, CommandInputMetadata>;
 
 export type ObjectCommandInputMetadata = {
 	type: "object";
@@ -221,10 +219,7 @@ export const command: CommandHelper = Object.assign(attachCommandMetadata, {
 			...options,
 		};
 	},
-	array(
-		items?: CommandInputMetadata,
-		options: ArrayCommandInputOptions = {},
-	) {
+	array(items?: CommandInputMetadata, options: ArrayCommandInputOptions = {}) {
 		return {
 			type: "array" as const,
 			...(typeof items === "undefined" ? {} : { items }),
