@@ -1029,6 +1029,132 @@ describe("igniteCore", () => {
 		});
 	});
 
+	it("serializes string, boolean, enum, object, and array command metadata", async () => {
+		const store = counterStore();
+
+		const register = igniteCore({
+			adapter: "redux",
+			source: store,
+			states: (snapshot) => ({
+				count: snapshot.counter.count,
+			}),
+			commands: ({ actor, command }) => ({
+				configureCounter: command(
+					(payload: {
+						label: string;
+						enabled: boolean;
+						mode: "add" | "reset";
+						values: number[];
+						limits: { minimum: number; maximum: number };
+					}) => {
+						if (!payload.enabled || payload.mode === "reset") {
+							return actor.dispatch(counterSlice.actions.reset());
+						}
+
+						return actor.dispatch(
+							counterSlice.actions.addByAmount(
+								payload.values.reduce((sum, value) => sum + value, 0),
+							),
+						);
+					},
+					{
+						description: "Configure counter automation.",
+						input: command.object(
+							{
+								label: command.string({ minLength: 1, maxLength: 32 }),
+								enabled: command.boolean({ default: true }),
+								mode: command.enum(["add", "reset"], {
+									default: "add",
+								}),
+								values: command.array(command.number({ minimum: 0 }), {
+									minItems: 1,
+								}),
+								limits: command.object(
+									{
+										minimum: command.number({ minimum: 0 }),
+										maximum: command.number({ minimum: 0 }),
+									},
+									{
+										required: ["minimum", "maximum"],
+									},
+								),
+							},
+							{
+								required: ["label", "enabled", "mode", "values", "limits"],
+							},
+						),
+					},
+				),
+			}),
+		});
+
+		const result = await register.execute("configureCounter", {
+			label: "shift-a",
+			enabled: true,
+			mode: "add",
+			values: [1, 2, 3],
+			limits: { minimum: 0, maximum: 12 },
+		});
+
+		expect(result.state.counter.count).toBe(6);
+		expect(register.getView()).toEqual({ count: 6 });
+		expect(register.getSchema()).toEqual({
+			commands: {
+				configureCounter: {
+					description: "Configure counter automation.",
+					input: {
+						type: "object",
+						properties: {
+							label: {
+								type: "string",
+								minLength: 1,
+								maxLength: 32,
+							},
+							enabled: {
+								type: "boolean",
+								default: true,
+							},
+							mode: {
+								type: "string",
+								enum: ["add", "reset"],
+								default: "add",
+							},
+							values: {
+								type: "array",
+								items: {
+									type: "number",
+									minimum: 0,
+								},
+								minItems: 1,
+							},
+							limits: {
+								type: "object",
+								properties: {
+									minimum: {
+										type: "number",
+										minimum: 0,
+									},
+									maximum: {
+										type: "number",
+										minimum: 0,
+									},
+								},
+								required: ["minimum", "maximum"],
+							},
+						},
+						required: ["label", "enabled", "mode", "values", "limits"],
+					},
+				},
+			},
+			events: [],
+			state: {
+				counter: {
+					count: 6,
+				},
+			},
+		});
+	});
+
 	it("keeps command metadata isolated when a function is reused", () => {
 		const store = counterStore();
 		const add = (amount: number) =>
