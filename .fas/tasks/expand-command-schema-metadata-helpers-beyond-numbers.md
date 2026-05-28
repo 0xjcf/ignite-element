@@ -28,9 +28,18 @@ Follow-up from inspector runtime investigation. command(fn, metadata), command.n
 - packages/ignite-element/src/tests/IgniteCore.test.ts
 - packages/ignite-element/src/tests/types/igniteCore.types.test.ts
 - docs/site/src/content/docs/guides/agent-runtime-v3.mdx
+- packages/ignite-core/src/index.ts
 
 ## Scope Amendments
-- None.
+- Type: implementation-scope
+- Added at: 2026-05-28
+- Trigger: Validation follow-up found new helper types must be exported from ignite-core package root.
+- Reason: packages/ignite-element/src/runtime/commands.ts imports the new command metadata option types from ignite-core, so packages/ignite-core/src/index.ts must export those types for the package boundary to typecheck without internal imports.
+- Added paths: packages/ignite-core/src/index.ts
+- Evidence source: verifier handoff and validate-task closeout readiness
+- Evidence: verifier handoff and validate-task closeout readiness | packages/ignite-core/src/index.ts | Exports ArrayCommandInputMetadata, BooleanCommandInputMetadata, CommandInputMetadata, EnumCommandInputMetadata, ObjectCommandInputMetadata, StringCommandInputMetadata and options/property types added in RenderArgs.ts.
+- Accuracy signal: validate-task typecheck passed after export surface update
+- Follow-up needed: None; this is required public type plumbing for the accepted helper API.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
