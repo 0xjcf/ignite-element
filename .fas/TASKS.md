@@ -470,6 +470,13 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: Support read-model-first Actor-Web sources in ignite-element
+
+- Title: Support read-model-first Actor-Web sources in ignite-element
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/support-read-model-first-actor-web-sources-in-ignite-element.md
 ## Template
 
 ### Task: <short task title>
