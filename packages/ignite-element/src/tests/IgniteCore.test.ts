@@ -27,6 +27,7 @@ import type {
 	ReduxStoreCommandActor,
 } from "../RenderArgs";
 import { jsx, jsxs } from "../renderers/jsx/jsx-runtime";
+import { toSchemaValue } from "../runtime/schema";
 import { test as igniteTest } from "../testing";
 import type { InferStateAndEvent } from "../utils/igniteRedux";
 
@@ -716,6 +717,37 @@ describe("igniteCore", () => {
 		expect(order).toEqual(["dispatch", "render", "effect", "emit"]);
 	});
 
+	it("reports queued effect errors without failing command execution", async () => {
+		const store = counterStore();
+		const effectError = new Error("effect failed");
+		const consoleError = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => {});
+
+		const register = igniteCore({
+			adapter: "redux",
+			source: store,
+			commands: ({ actor }) => ({
+				increment: () => actor.dispatch(counterSlice.actions.increment()),
+			}),
+			effects: ({ snapshot, prevSnapshot }) => {
+				if (snapshot.counter.count === prevSnapshot.counter.count) {
+					return;
+				}
+
+				throw effectError;
+			},
+		});
+
+		const result = await register.execute("increment");
+
+		expect(result.state.counter.count).toBe(1);
+		expect(consoleError).toHaveBeenCalledWith(
+			"[igniteCore] Effect callback failed.",
+			effectError,
+		);
+	});
+
 	it("supports headless command execution, projected views, event listeners, and watchers", async () => {
 		const store = counterStore();
 		type StoreState = InferStateAndEvent<typeof store>["State"];
@@ -794,6 +826,60 @@ describe("igniteCore", () => {
 		expect(listener).toHaveBeenCalledTimes(1);
 		expect(watchListener).toHaveBeenCalledTimes(1);
 		expect(watchViewListener).toHaveBeenCalledTimes(1);
+	});
+
+	it("rejects failed commands and removes event listeners", async () => {
+		const store = counterStore();
+		type RuntimeEventMap = {
+			"counter-incremented": EventDescriptor<{ count: number }>;
+		};
+		const removeListener = vi.spyOn(
+			EventTarget.prototype,
+			"removeEventListener",
+		);
+
+		const register = igniteCore({
+			adapter: "redux",
+			source: store,
+			commands: ({ actor }) => ({
+				failSync: () => {
+					throw new Error("sync failed");
+				},
+				failAsync: async () => {
+					throw new Error("async failed");
+				},
+				increment: () => actor.dispatch(counterSlice.actions.increment()),
+			}),
+			events: (event) => ({
+				"counter-incremented": event<{ count: number }>(),
+			}),
+			effects: ({ snapshot, prevSnapshot, emit }) => {
+				if (snapshot.counter.count === prevSnapshot.counter.count) {
+					return;
+				}
+
+				emit("counter-incremented", {
+					count: snapshot.counter.count,
+				});
+			},
+		} satisfies ReduxInstanceConfig<typeof store, RuntimeEventMap>);
+
+		await expect(register.execute("failSync")).rejects.toThrow("sync failed");
+		await expect(register.execute("failAsync")).rejects.toThrow("async failed");
+
+		expect(removeListener).toHaveBeenCalledWith(
+			"counter-incremented",
+			expect.any(Function),
+		);
+
+		const result = await register.execute("increment");
+
+		expect(result.events).toEqual([
+			{
+				type: "counter-incremented",
+				payload: { count: 1 },
+			},
+		]);
 	});
 
 	it("records behavior-first stories with traces, until guards, and summaries", async () => {
@@ -1065,6 +1151,16 @@ describe("igniteCore", () => {
 				},
 			},
 		});
+	});
+
+	it("serializes self-returning toJSON values as circular schema values", () => {
+		const selfReturning = {
+			toJSON() {
+				return selfReturning;
+			},
+		};
+
+		expect(toSchemaValue(selfReturning)).toBe("[Circular]");
 	});
 
 	it("adds optional command contract metadata without changing execution", async () => {
