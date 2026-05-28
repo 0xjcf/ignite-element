@@ -28,9 +28,27 @@ Fix current CodeRabbit type-safety findings by replacing unnecessary or unsafe n
 - packages/ignite-element/src/igniteCore/xstate.ts
 - packages/ignite-core/src/RenderArgs.ts
 - configs/vite/lib.ts
+- packages/ignite-element/src/tests/types/igniteCore.types.test.ts
 
 ## Scope Amendments
-- None.
+- Type: test
+- Added at: 2026-05-28
+- Trigger: Closeout readiness requested targeted test coverage for type-safety cleanup.
+- Reason: Add compile-time coverage for the command metadata symbol and tightened command metadata helper typing.
+- Added paths: packages/ignite-element/src/tests/types/igniteCore.types.test.ts
+- Evidence source: closeout-readiness
+- Evidence: closeout-readiness | .fas/state/closeout-readiness/latest.json | Recommended next action: add or update targeted tests.
+- Accuracy signal: current-validation
+- Follow-up needed: none
+
+- Type: scope-refresh-promotion
+- Added at: 2026-05-28
+- Trigger: dirty-low-confidence-scope
+- Reason: Promoted dirty low-confidence or dependency-reachable task-packet path(s) into affected scope.
+- Added paths: packages/ignite-element/src/tests/types/igniteCore.types.test.ts, packages/ignite-element/src/igniteCore/createIgniteComponentFactory.ts, packages/ignite-element/src/igniteCore/redux.ts
+- Evidence source: task-packet dirty scope promotion
+- Evidence: task-packet dirty scope promotion | .fas/state/task-packet.json | Promoted dirty path(s): packages/ignite-element/src/tests/types/igniteCore.types.test.ts, packages/ignite-element/src/igniteCore/createIgniteComponentFactory.ts, packages/ignite-element/src/igniteCore/redux.ts
+- Accuracy signal: Path was dirty in git status and present in task-packet low-confidence/dependency-reachable scope.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

@@ -408,9 +408,12 @@ No active tasks.
 
 - Title: CodeRabbit P1 type safety cleanup
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/coderabbit-p1-type-safety-cleanup.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 ### Task: CodeRabbit P2 test harness and contract cleanup
 
 - Title: CodeRabbit P2 test harness and contract cleanup
