@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Fragment as publicFragment } from "../../renderers/jsx";
 import { Fragment, jsx, jsxDEV, jsxs } from "../../renderers/jsx/jsx-runtime";
 import type {
 	IgniteJsxChild,
@@ -6,6 +7,10 @@ import type {
 } from "../../renderers/jsx/types";
 
 describe("Ignite JSX runtime", () => {
+	it("exposes Fragment once through the public JSX renderer barrel", () => {
+		expect(publicFragment).toBe(Fragment);
+	});
+
 	it("creates elements with normalized children", () => {
 		const element = jsxs(
 			"div",

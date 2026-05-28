@@ -10,7 +10,9 @@ if (typeof host.HTMLElement === "undefined") {
 	class IgniteHTMLElementStub {
 		attachShadow(): ShadowRoot {
 			return {
+				appendChild: <T extends Node>(node: T) => node,
 				host: this as unknown as Element,
+				removeChild: <T extends Node>(node: T) => node,
 			} as ShadowRoot;
 		}
 	}

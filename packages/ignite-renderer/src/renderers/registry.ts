@@ -58,7 +58,7 @@ export function resolveRenderStrategy(
 		);
 	}
 
-	if (renderer !== "ignite-jsx") {
+	if (renderer !== fallbackName) {
 		console.warn(
 			`[ignite-renderer] Render strategy "${renderer}" is not registered. Ensure you import "ignite-renderer/${renderer}" before registering components. Falling back to "${fallbackName}".`,
 		);

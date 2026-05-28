@@ -23,14 +23,22 @@ Fix current CodeRabbit renderer package findings: tsconfig base resolution if st
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- packages/ignite-renderer/tsconfig.json
 - packages/ignite-renderer/src/renderers/jsx/index.ts
 - packages/ignite-renderer/src/internal/setupDomPolyfill.ts
 - packages/ignite-renderer/vite.config.ts
 - packages/ignite-renderer/src/renderers/registry.ts
+- packages/ignite-element/src/internal/setupDomPolyfill.ts
+- packages/ignite-element/src/tests/internal/setupDomPolyfill.test.ts
+- packages/ignite-element/src/tests/renderers/resolveConfiguredRenderStrategy.test.ts
+- packages/ignite-element/src/tests/renderers/jsxRuntime.test.ts
 
 ## Scope Amendments
-- None.
+- Type: scope-refresh
+- Added at: 2026-05-28
+- Added paths: packages/ignite-element/src/internal/setupDomPolyfill.ts, packages/ignite-element/src/tests/internal/setupDomPolyfill.test.ts, packages/ignite-element/src/tests/renderers/resolveConfiguredRenderStrategy.test.ts, packages/ignite-element/src/tests/renderers/jsxRuntime.test.ts
+- Type: verified-no-change
+- Added at: 2026-05-28
+- Evidence: packages/ignite-renderer/tsconfig.json already extends ../../configs/tsconfig/lib.dom.json, and configs/tsconfig/lib.dom.json exists.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

@@ -72,6 +72,21 @@ describe("resolveConfiguredRenderStrategy", () => {
 		);
 	});
 
+	it("warns when ignite-jsx is requested but another strategy is the fallback", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		registerRenderStrategy("lit", createLitRenderStrategy);
+
+		const strategy = resolveRenderStrategy("ignite-jsx");
+
+		expect(strategy).toBe(createLitRenderStrategy);
+		expect(warn).toHaveBeenCalledWith(
+			expect.stringContaining('Render strategy "ignite-jsx" is not registered'),
+		);
+		expect(warn).toHaveBeenCalledWith(
+			expect.stringContaining('Falling back to "lit"'),
+		);
+	});
+
 	it("resolves the configured renderer when registered", () => {
 		registerRenderStrategy("ignite-jsx", createIgniteJsxRenderStrategy);
 		registerRenderStrategy("lit", createLitRenderStrategy);

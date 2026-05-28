@@ -14,7 +14,7 @@ export default defineConfig(
 		},
 		external: ["lit-html"],
 		globals: {
-			"lit-html": "LitHTML",
+			"lit-html": "litHtml",
 		},
 	}),
 );

@@ -45,6 +45,9 @@ describe("setupDomPolyfill", () => {
 		const instance = new (testGlobal.HTMLElement as typeof HTMLElement)();
 		const shadow = instance.attachShadow({ mode: "open" });
 		expect(shadow.host).toBe(instance);
+		const node = {} as Node;
+		expect(shadow.appendChild(node)).toBe(node);
+		expect(shadow.removeChild(node)).toBe(node);
 
 		if (original) {
 			Object.defineProperty(testGlobal, "HTMLElement", original);

@@ -374,9 +374,12 @@ No active tasks.
 
 - Title: CodeRabbit P0 renderer package correctness
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/coderabbit-p0-renderer-package-correctness.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 ### Task: CodeRabbit P1 runtime resilience and error handling
 
 - Title: CodeRabbit P1 runtime resilience and error handling
