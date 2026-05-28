@@ -17,9 +17,12 @@ export type {
 	ReduxStoreCommandActor,
 } from "./igniteCore/types";
 export type {
+	IgniteDomBridge,
+	IgniteDomRoleExpectation,
 	IgniteEventExpectation,
 	IgniteEventPayloadExpectation,
 	IgniteStateExpectation,
+	IgniteTestHelpers,
 	IgniteTestScenario,
 } from "./testing";
 export { test } from "./testing";

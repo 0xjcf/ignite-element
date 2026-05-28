@@ -10,9 +10,12 @@ export type {
 } from "ignite-core";
 export { event, StateScope } from "ignite-core";
 export type {
+	IgniteDomBridge,
+	IgniteDomRoleExpectation,
 	IgniteEventExpectation,
 	IgniteEventPayloadExpectation,
 	IgniteStateExpectation,
+	IgniteTestHelpers,
 	IgniteTestScenario,
 } from "./testing";
 export { test } from "./testing";

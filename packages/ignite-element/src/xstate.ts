@@ -12,9 +12,12 @@ export { matchState } from "ignite-core";
 export type { IgniteCoreReturn, XStateConfig } from "./igniteCore/types";
 export { igniteCoreXState as igniteCore } from "./igniteCore/xstate";
 export type {
+	IgniteDomBridge,
+	IgniteDomRoleExpectation,
 	IgniteEventExpectation,
 	IgniteEventPayloadExpectation,
 	IgniteStateExpectation,
+	IgniteTestHelpers,
 	IgniteTestScenario,
 } from "./testing";
 export { test } from "./testing";

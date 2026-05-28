@@ -22,9 +22,12 @@ export type {
 export { igniteCoreActorWeb as igniteCore } from "./igniteCore/actor-web";
 export type { ActorWebConfig, IgniteCoreReturn } from "./igniteCore/types";
 export type {
+	IgniteDomBridge,
+	IgniteDomRoleExpectation,
 	IgniteEventExpectation,
 	IgniteEventPayloadExpectation,
 	IgniteStateExpectation,
+	IgniteTestHelpers,
 	IgniteTestScenario,
 } from "./testing";
 export { test } from "./testing";

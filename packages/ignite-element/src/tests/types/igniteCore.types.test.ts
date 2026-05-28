@@ -4,11 +4,14 @@ import { createMachine, type EventFrom } from "xstate";
 import type {
 	ActorWebCommandActor,
 	ActorWebExtendedState,
+	IgniteDomBridge as ActorWebIgniteDomBridge,
+	IgniteDomRoleExpectation as ActorWebIgniteDomRoleExpectation,
 	IgniteStorySnapshot as ActorWebIgniteStorySnapshot,
 	IgniteStorySnapshotEvent as ActorWebIgniteStorySnapshotEvent,
 	IgniteStoryTraceSnapshot as ActorWebIgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry as ActorWebIgniteStoryTraceSnapshotEntry,
 	IgniteStorySummarySnapshot as ActorWebIgniteStorySummarySnapshot,
+	IgniteTestHelpers as ActorWebIgniteTestHelpers,
 	ActorWebSource,
 } from "../../actor-web";
 import type { MobxEvent } from "../../adapters/MobxAdapter";
@@ -23,18 +26,24 @@ import type {
 	XStateConfig,
 } from "../../igniteCore/types";
 import type {
+	IgniteDomBridge as RootIgniteDomBridge,
+	IgniteDomRoleExpectation as RootIgniteDomRoleExpectation,
 	IgniteStorySnapshot as RootIgniteStorySnapshot,
 	IgniteStorySnapshotEvent as RootIgniteStorySnapshotEvent,
 	IgniteStoryTraceSnapshot as RootIgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry as RootIgniteStoryTraceSnapshotEntry,
 	IgniteStorySummarySnapshot as RootIgniteStorySummarySnapshot,
+	IgniteTestHelpers as RootIgniteTestHelpers,
 } from "../../index";
 import type {
+	IgniteDomBridge as MobxIgniteDomBridge,
+	IgniteDomRoleExpectation as MobxIgniteDomRoleExpectation,
 	IgniteStorySnapshot as MobxIgniteStorySnapshot,
 	IgniteStorySnapshotEvent as MobxIgniteStorySnapshotEvent,
 	IgniteStoryTraceSnapshot as MobxIgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry as MobxIgniteStoryTraceSnapshotEntry,
 	IgniteStorySummarySnapshot as MobxIgniteStorySummarySnapshot,
+	IgniteTestHelpers as MobxIgniteTestHelpers,
 } from "../../mobx";
 import type {
 	CommandContext,
@@ -46,12 +55,20 @@ import type {
 	ReduxStoreCommandActor,
 } from "../../RenderArgs";
 import type {
+	IgniteDomBridge as ReduxIgniteDomBridge,
+	IgniteDomRoleExpectation as ReduxIgniteDomRoleExpectation,
 	IgniteStorySnapshot as ReduxIgniteStorySnapshot,
 	IgniteStorySnapshotEvent as ReduxIgniteStorySnapshotEvent,
 	IgniteStoryTraceSnapshot as ReduxIgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry as ReduxIgniteStoryTraceSnapshotEntry,
 	IgniteStorySummarySnapshot as ReduxIgniteStorySummarySnapshot,
+	IgniteTestHelpers as ReduxIgniteTestHelpers,
 } from "../../redux";
+import type {
+	IgniteDomBridge,
+	IgniteDomRoleExpectation,
+	IgniteTestHelpers,
+} from "../../testing";
 import type {
 	IgniteStoryLifecycleEntry,
 	IgniteStorySnapshot,
@@ -67,12 +84,16 @@ import type {
 } from "../../types/schema";
 import type { InferStateAndEvent } from "../../utils/igniteRedux";
 import type {
+	IgniteDomBridge as XStateIgniteDomBridge,
+	IgniteDomRoleExpectation as XStateIgniteDomRoleExpectation,
 	IgniteStorySnapshot as XStateIgniteStorySnapshot,
 	IgniteStorySnapshotEvent as XStateIgniteStorySnapshotEvent,
 	IgniteStoryTraceSnapshot as XStateIgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry as XStateIgniteStoryTraceSnapshotEntry,
 	IgniteStorySummarySnapshot as XStateIgniteStorySummarySnapshot,
+	IgniteTestHelpers as XStateIgniteTestHelpers,
 } from "../../xstate";
+import { test as xstateTest } from "../../xstate";
 
 type ActorWebShipmentContext = {
 	shipmentId: string | null;
@@ -168,6 +189,34 @@ describe("igniteCore type inference", () => {
 		expectTypeOf<
 			IgniteStorySnapshot["summary"]["finalView"]
 		>().toEqualTypeOf<IgniteSchemaValue>();
+	});
+
+	it("exports DOM bridge testing types from public entrypoints", () => {
+		expectTypeOf<RootIgniteDomBridge>().toEqualTypeOf<IgniteDomBridge>();
+		expectTypeOf<RootIgniteDomRoleExpectation>().toEqualTypeOf<IgniteDomRoleExpectation>();
+		expectTypeOf<RootIgniteTestHelpers>().toEqualTypeOf<IgniteTestHelpers>();
+
+		expectTypeOf<XStateIgniteDomBridge>().toEqualTypeOf<IgniteDomBridge>();
+		expectTypeOf<XStateIgniteDomRoleExpectation>().toEqualTypeOf<IgniteDomRoleExpectation>();
+		expectTypeOf<XStateIgniteTestHelpers>().toEqualTypeOf<IgniteTestHelpers>();
+		expectTypeOf(xstateTest.accessibilityBridge).toEqualTypeOf<
+			IgniteTestHelpers["accessibilityBridge"]
+		>();
+		expectTypeOf(xstateTest.expectControls).toEqualTypeOf<
+			IgniteTestHelpers["expectControls"]
+		>();
+
+		expectTypeOf<ReduxIgniteDomBridge>().toEqualTypeOf<IgniteDomBridge>();
+		expectTypeOf<ReduxIgniteDomRoleExpectation>().toEqualTypeOf<IgniteDomRoleExpectation>();
+		expectTypeOf<ReduxIgniteTestHelpers>().toEqualTypeOf<IgniteTestHelpers>();
+
+		expectTypeOf<MobxIgniteDomBridge>().toEqualTypeOf<IgniteDomBridge>();
+		expectTypeOf<MobxIgniteDomRoleExpectation>().toEqualTypeOf<IgniteDomRoleExpectation>();
+		expectTypeOf<MobxIgniteTestHelpers>().toEqualTypeOf<IgniteTestHelpers>();
+
+		expectTypeOf<ActorWebIgniteDomBridge>().toEqualTypeOf<IgniteDomBridge>();
+		expectTypeOf<ActorWebIgniteDomRoleExpectation>().toEqualTypeOf<IgniteDomRoleExpectation>();
+		expectTypeOf<ActorWebIgniteTestHelpers>().toEqualTypeOf<IgniteTestHelpers>();
 	});
 
 	it("infers actor-web context, transport, and command actor facades", () => {

@@ -27,9 +27,33 @@ Follow-up from inspector runtime investigation. Behavior-first runtime APIs and 
 - packages/ignite-element/src/tests/IgniteCore.test.ts
 - packages/ignite-element/src/tests/testing.test.ts
 - docs/site/src/content/docs/guides/agent-runtime-v3.mdx
+- packages/ignite-element/src/actor-web.ts
+- packages/ignite-element/src/index.ts
+- packages/ignite-element/src/xstate.ts
+- packages/ignite-element/src/redux.ts
+- packages/ignite-element/src/mobx.ts
+- packages/ignite-element/src/tests/types/igniteCore.types.test.ts
 
 ## Scope Amendments
-- None.
+- 2026-05-28 public-surface follow-up: added `packages/ignite-element/src/index.ts`, `packages/ignite-element/src/xstate.ts`, `packages/ignite-element/src/redux.ts`, `packages/ignite-element/src/mobx.ts`, `packages/ignite-element/src/actor-web.ts`, and `packages/ignite-element/src/tests/types/igniteCore.types.test.ts` after review found that the documented `ignite-element/xstate` bridge helper was implemented but its new testing types were not re-exported or type-tested through supported package entrypoints.
+
+- Type: scope-refresh-promotion
+- Added at: 2026-05-28
+- Trigger: dirty-low-confidence-scope
+- Reason: Promoted dirty low-confidence or dependency-reachable task-packet path(s) into affected scope.
+- Added paths: packages/ignite-element/src/actor-web.ts
+- Evidence source: task-packet dirty scope promotion
+- Evidence: task-packet dirty scope promotion | .fas/state/task-packet.json | Promoted dirty path(s): packages/ignite-element/src/actor-web.ts
+- Accuracy signal: Path was dirty in git status and present in task-packet low-confidence/dependency-reachable scope.
+
+- Type: review-driven-public-surface
+- Added at: 2026-05-28
+- Trigger: reviewer-public-surface-gap
+- Reason: Expose DOM bridge testing types through public entrypoints and type-test the documented xstate import path.
+- Added paths: packages/ignite-element/src/index.ts, packages/ignite-element/src/xstate.ts, packages/ignite-element/src/redux.ts, packages/ignite-element/src/mobx.ts, packages/ignite-element/src/tests/types/igniteCore.types.test.ts
+- Evidence source: reviewer concern
+- Evidence: reviewer concern | .fas/tasks/define-dom-accessibility-bridge-for-behavior-stories.md | Added root/xstate/redux/mobx entrypoint exports plus public type assertions.
+- Accuracy signal: pnpm --filter ignite-element typecheck passed before generated scope refresh.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
