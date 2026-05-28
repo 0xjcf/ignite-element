@@ -3,7 +3,9 @@ import { html } from "lit-html";
 import type { StateFrom } from "xstate";
 import { taskManagerMachine } from "./taskManagerMachine";
 
-import "./ignite.config";
+// Advanced compatibility example: this file keeps the older lit-html rendering
+// path available for comparison, but it is not part of the config-free Ignite
+// JSX happy path documented for v3.
 
 const resolveTaskManagerView = ({
 	snapshot,

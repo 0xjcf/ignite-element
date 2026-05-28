@@ -4,10 +4,13 @@
 		"noEmit": true,
 		"composite": false,
 		"jsx": "react-jsx",
-		"jsxImportSource": "../../renderers/jsx",
+		"jsxImportSource": "ignite-element/jsx",
 		"allowJs": false,
 		"paths": {
 			"ignite-element": ["../../index.ts"],
+			"ignite-element/jsx": ["../../jsx/index.ts"],
+			"ignite-element/jsx/jsx-runtime": ["../../jsx/jsx-runtime.ts"],
+			"ignite-element/jsx/jsx-dev-runtime": ["../../jsx/jsx-dev-runtime.ts"],
 			"ignite-element/*": ["../../*"],
 			"ignite-core": ["../../../../ignite-core/src/index.ts"],
 			"ignite-adapters": ["../../../../ignite-adapters/src/index.ts"],
@@ -34,11 +37,6 @@
 			"xstate/*": ["./node_modules/xstate/*"]
 		}
 	},
-	"include": [
-		"./**/*.ts",
-		"./**/*.tsx",
-		"../../renderers/jsx/**/*.ts",
-		"../../renderers/jsx/**/*.d.ts"
-	],
+	"include": ["./**/*.ts", "./**/*.tsx"],
 	"exclude": []
 }
