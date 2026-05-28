@@ -9,11 +9,15 @@ import type {
 	IgniteAgentRuntime,
 	IgniteStory,
 	IgniteStorySnapshot,
+	IgniteStorySnapshotEvent,
 	IgniteStoryTraceEntry,
 	IgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry,
+	IgniteStorySummary,
+	IgniteStorySummarySnapshot,
 	RuntimeEvent,
 } from "./types/agent";
+import type { IgniteSchemaValue } from "./types/schema";
 
 type DeepPartial<T> = T extends readonly (infer Item)[]
 	? readonly DeepPartial<Item>[]
@@ -92,7 +96,7 @@ export type IgniteTestHelpers = {
 		View extends Record<string, unknown>,
 	>(
 		story: IgniteStory<State, Commands, Events, View>,
-	) => IgniteStorySnapshot<State, Events, View>;
+	) => IgniteStorySnapshot;
 	expectTrace: (
 		trace: readonly IgniteStoryTraceEntry[],
 		expected: readonly IgniteStoryTraceExpectationEntry[],
@@ -264,8 +268,38 @@ const snapshotStory = <
 		name: story.name,
 		trace: serializeTrace(story.trace()),
 		lifecycle: cloneSerializable(story.lifecycle()),
-		summary: cloneSerializable(story.summary()),
-	}) satisfies IgniteStorySnapshot<State, Events, View>;
+		summary: serializeSummary(story.summary()),
+	}) satisfies IgniteStorySnapshot;
+
+const serializeEvent = (event: RuntimeEvent): IgniteStorySnapshotEvent => {
+	const snapshotEvent: IgniteStorySnapshotEvent = {
+		type: event.type,
+	};
+
+	if ("payload" in event && typeof event.payload !== "undefined") {
+		snapshotEvent.payload = cloneSerializable(
+			event.payload,
+		) as IgniteSchemaValue;
+	}
+
+	return snapshotEvent;
+};
+
+const serializeSummary = <
+	State,
+	Events extends EventMap,
+	View extends Record<string, unknown>,
+>(
+	summary: IgniteStorySummary<State, Events, View>,
+): IgniteStorySummarySnapshot => ({
+	name: summary.name,
+	finalState: cloneSerializable(summary.finalState) as IgniteSchemaValue,
+	finalView: cloneSerializable(summary.finalView) as IgniteSchemaValue,
+	events: summary.events.map((event) => serializeEvent(event as RuntimeEvent)),
+	commandCount: summary.commandCount,
+	traceCount: summary.traceCount,
+	lifecycleCount: summary.lifecycleCount,
+});
 
 const traceEntryMatches = (
 	actual: IgniteStoryTraceSnapshotEntry,

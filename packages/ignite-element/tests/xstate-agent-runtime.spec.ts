@@ -30,9 +30,9 @@ type RuntimeStory = {
 	execute: AgentRuntime["execute"];
 	until: (
 		predicate: (view: AgentRuntimeView) => boolean,
-		action: () => void,
+		action: () => Promise<void>,
 		options?: { maxSteps?: number },
-	) => AgentRuntimeView;
+	) => Promise<AgentRuntimeView>;
 	trace: () => StoryTraceEntry[];
 	lifecycle: () => StoryLifecycleEntry[];
 	summary: () => {
@@ -49,9 +49,9 @@ type AgentRuntime = {
 	execute: (
 		command: "increment" | "setLimit" | "setStep",
 		payload?: number,
-	) => {
+	) => Promise<{
 		events: RuntimeEvent[];
-	};
+	}>;
 	getSchema: () => {
 		commands: Record<string, unknown>;
 		events: string[];
@@ -72,7 +72,7 @@ test("agents can drive the XState example runtime without DOM locators", async (
 }) => {
 	await page.goto("/");
 
-	const result = await page.evaluate(() => {
+	const result = await page.evaluate(async () => {
 		const runtime = (window as RuntimeWindow).__igniteExamples?.apiShowcase;
 		if (!runtime) {
 			throw new Error("window.__igniteExamples.apiShowcase is not available.");
@@ -82,16 +82,16 @@ test("agents can drive the XState example runtime without DOM locators", async (
 		const startView = runtime.getView();
 		const story = runtime.record("playwright reaches limit");
 
-		story.execute("setStep", 2);
+		await story.execute("setStep", 2);
 		const stepView = runtime.getView();
-		story.execute("setLimit", 6);
+		await story.execute("setLimit", 6);
 		const limitView = runtime.getView();
 
 		let steps = 0;
-		const finalView = story.until(
+		const finalView = await story.until(
 			(view) => view.isLimited,
-			() => {
-				story.execute("increment");
+			async () => {
+				await story.execute("increment");
 				steps += 1;
 			},
 			{ maxSteps: 20 },

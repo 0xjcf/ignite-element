@@ -5,8 +5,10 @@ import type {
 	ActorWebCommandActor,
 	ActorWebExtendedState,
 	IgniteStorySnapshot as ActorWebIgniteStorySnapshot,
+	IgniteStorySnapshotEvent as ActorWebIgniteStorySnapshotEvent,
 	IgniteStoryTraceSnapshot as ActorWebIgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry as ActorWebIgniteStoryTraceSnapshotEntry,
+	IgniteStorySummarySnapshot as ActorWebIgniteStorySummarySnapshot,
 	ActorWebSource,
 } from "../../actor-web";
 import type { MobxEvent } from "../../adapters/MobxAdapter";
@@ -22,13 +24,17 @@ import type {
 } from "../../igniteCore/types";
 import type {
 	IgniteStorySnapshot as RootIgniteStorySnapshot,
+	IgniteStorySnapshotEvent as RootIgniteStorySnapshotEvent,
 	IgniteStoryTraceSnapshot as RootIgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry as RootIgniteStoryTraceSnapshotEntry,
+	IgniteStorySummarySnapshot as RootIgniteStorySummarySnapshot,
 } from "../../index";
 import type {
 	IgniteStorySnapshot as MobxIgniteStorySnapshot,
+	IgniteStorySnapshotEvent as MobxIgniteStorySnapshotEvent,
 	IgniteStoryTraceSnapshot as MobxIgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry as MobxIgniteStoryTraceSnapshotEntry,
+	IgniteStorySummarySnapshot as MobxIgniteStorySummarySnapshot,
 } from "../../mobx";
 import type {
 	CommandContext,
@@ -41,15 +47,19 @@ import type {
 } from "../../RenderArgs";
 import type {
 	IgniteStorySnapshot as ReduxIgniteStorySnapshot,
+	IgniteStorySnapshotEvent as ReduxIgniteStorySnapshotEvent,
 	IgniteStoryTraceSnapshot as ReduxIgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry as ReduxIgniteStoryTraceSnapshotEntry,
+	IgniteStorySummarySnapshot as ReduxIgniteStorySummarySnapshot,
 } from "../../redux";
 import type {
 	IgniteStoryLifecycleEntry,
 	IgniteStorySnapshot,
+	IgniteStorySnapshotEvent,
 	IgniteStoryTraceEntry,
 	IgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry,
+	IgniteStorySummarySnapshot,
 } from "../../types/agent";
 import type {
 	IgniteAgentCommandSchema,
@@ -58,8 +68,10 @@ import type {
 import type { InferStateAndEvent } from "../../utils/igniteRedux";
 import type {
 	IgniteStorySnapshot as XStateIgniteStorySnapshot,
+	IgniteStorySnapshotEvent as XStateIgniteStorySnapshotEvent,
 	IgniteStoryTraceSnapshot as XStateIgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry as XStateIgniteStoryTraceSnapshotEntry,
+	IgniteStorySummarySnapshot as XStateIgniteStorySummarySnapshot,
 } from "../../xstate";
 
 type ActorWebShipmentContext = {
@@ -121,37 +133,41 @@ const mobxCounterFactory = () =>
 
 describe("igniteCore type inference", () => {
 	it("exports story snapshot types from public entrypoints", () => {
-		type State = { count: number };
-
-		expectTypeOf<RootIgniteStorySnapshot<State>>().toEqualTypeOf<
-			IgniteStorySnapshot<State>
-		>();
+		expectTypeOf<RootIgniteStorySnapshot>().toEqualTypeOf<IgniteStorySnapshot>();
+		expectTypeOf<RootIgniteStorySnapshotEvent>().toEqualTypeOf<IgniteStorySnapshotEvent>();
+		expectTypeOf<RootIgniteStorySummarySnapshot>().toEqualTypeOf<IgniteStorySummarySnapshot>();
 		expectTypeOf<RootIgniteStoryTraceSnapshot>().toEqualTypeOf<IgniteStoryTraceSnapshot>();
 		expectTypeOf<RootIgniteStoryTraceSnapshotEntry>().toEqualTypeOf<IgniteStoryTraceSnapshotEntry>();
 
-		expectTypeOf<XStateIgniteStorySnapshot<State>>().toEqualTypeOf<
-			IgniteStorySnapshot<State>
-		>();
+		expectTypeOf<XStateIgniteStorySnapshot>().toEqualTypeOf<IgniteStorySnapshot>();
+		expectTypeOf<XStateIgniteStorySnapshotEvent>().toEqualTypeOf<IgniteStorySnapshotEvent>();
+		expectTypeOf<XStateIgniteStorySummarySnapshot>().toEqualTypeOf<IgniteStorySummarySnapshot>();
 		expectTypeOf<XStateIgniteStoryTraceSnapshot>().toEqualTypeOf<IgniteStoryTraceSnapshot>();
 		expectTypeOf<XStateIgniteStoryTraceSnapshotEntry>().toEqualTypeOf<IgniteStoryTraceSnapshotEntry>();
 
-		expectTypeOf<ReduxIgniteStorySnapshot<State>>().toEqualTypeOf<
-			IgniteStorySnapshot<State>
-		>();
+		expectTypeOf<ReduxIgniteStorySnapshot>().toEqualTypeOf<IgniteStorySnapshot>();
+		expectTypeOf<ReduxIgniteStorySnapshotEvent>().toEqualTypeOf<IgniteStorySnapshotEvent>();
+		expectTypeOf<ReduxIgniteStorySummarySnapshot>().toEqualTypeOf<IgniteStorySummarySnapshot>();
 		expectTypeOf<ReduxIgniteStoryTraceSnapshot>().toEqualTypeOf<IgniteStoryTraceSnapshot>();
 		expectTypeOf<ReduxIgniteStoryTraceSnapshotEntry>().toEqualTypeOf<IgniteStoryTraceSnapshotEntry>();
 
-		expectTypeOf<MobxIgniteStorySnapshot<State>>().toEqualTypeOf<
-			IgniteStorySnapshot<State>
-		>();
+		expectTypeOf<MobxIgniteStorySnapshot>().toEqualTypeOf<IgniteStorySnapshot>();
+		expectTypeOf<MobxIgniteStorySnapshotEvent>().toEqualTypeOf<IgniteStorySnapshotEvent>();
+		expectTypeOf<MobxIgniteStorySummarySnapshot>().toEqualTypeOf<IgniteStorySummarySnapshot>();
 		expectTypeOf<MobxIgniteStoryTraceSnapshot>().toEqualTypeOf<IgniteStoryTraceSnapshot>();
 		expectTypeOf<MobxIgniteStoryTraceSnapshotEntry>().toEqualTypeOf<IgniteStoryTraceSnapshotEntry>();
 
-		expectTypeOf<ActorWebIgniteStorySnapshot<State>>().toEqualTypeOf<
-			IgniteStorySnapshot<State>
-		>();
+		expectTypeOf<ActorWebIgniteStorySnapshot>().toEqualTypeOf<IgniteStorySnapshot>();
+		expectTypeOf<ActorWebIgniteStorySnapshotEvent>().toEqualTypeOf<IgniteStorySnapshotEvent>();
+		expectTypeOf<ActorWebIgniteStorySummarySnapshot>().toEqualTypeOf<IgniteStorySummarySnapshot>();
 		expectTypeOf<ActorWebIgniteStoryTraceSnapshot>().toEqualTypeOf<IgniteStoryTraceSnapshot>();
 		expectTypeOf<ActorWebIgniteStoryTraceSnapshotEntry>().toEqualTypeOf<IgniteStoryTraceSnapshotEntry>();
+		expectTypeOf<
+			IgniteStorySnapshot["summary"]["finalState"]
+		>().toEqualTypeOf<IgniteSchemaValue>();
+		expectTypeOf<
+			IgniteStorySnapshot["summary"]["finalView"]
+		>().toEqualTypeOf<IgniteSchemaValue>();
 	});
 
 	it("infers actor-web context, transport, and command actor facades", () => {

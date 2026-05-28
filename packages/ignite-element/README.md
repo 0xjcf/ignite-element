@@ -79,7 +79,7 @@ The resulting element can be consumed anywhere the browser can render a custom e
 Headless runtime APIs are available on the same component contract:
 
 ```ts
-toggle.execute("toggle");
+await toggle.execute("toggle");
 toggle.getState();
 toggle.getView();
 toggle.getSchema();
@@ -87,7 +87,7 @@ toggle.on("toggled", handler);
 toggle.watch((state, prevState) => {});
 toggle.watchView((view, prevView) => {});
 const story = toggle.record("turns on");
-story.execute("toggle");
+await story.execute("toggle");
 story.trace();
 story.lifecycle();
 story.summary();

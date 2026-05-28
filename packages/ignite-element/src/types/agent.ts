@@ -113,15 +113,26 @@ export type IgniteStorySummary<
 	lifecycleCount: number;
 };
 
-export type IgniteStorySnapshot<
-	State,
-	Events extends EventMap = EmptyEventMap,
-	View extends Record<string, unknown> = Record<never, never>,
-> = {
+export type IgniteStorySnapshotEvent = {
+	type: string;
+	payload?: IgniteSchemaValue;
+};
+
+export type IgniteStorySummarySnapshot = {
+	name: string;
+	finalState: IgniteSchemaValue;
+	finalView: IgniteSchemaValue;
+	events: IgniteStorySnapshotEvent[];
+	commandCount: number;
+	traceCount: number;
+	lifecycleCount: number;
+};
+
+export type IgniteStorySnapshot = {
 	name: string;
 	trace: IgniteStoryTraceSnapshot;
 	lifecycle: IgniteStoryLifecycleEntry[];
-	summary: IgniteStorySummary<State, Events, View>;
+	summary: IgniteStorySummarySnapshot;
 };
 
 export type IgniteStory<
