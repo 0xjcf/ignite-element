@@ -1,4 +1,4 @@
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import type {
 	HtmlTagDescriptor,
 	IndexHtmlTransform,
@@ -93,8 +93,9 @@ const pluginContext: PluginContextStub = Object.assign(minimalPluginContext, {
 /* c8 ignore end */
 
 const defaultHtmlPath = "/index.html";
-const defaultHtmlFilename = fileURLToPath(
-	new URL("../fixtures/index.html", import.meta.url),
+const defaultHtmlFilename = resolve(
+	process.cwd(),
+	"src/tests/fixtures/index.html",
 );
 
 export function resetVitePluginHarness(): void {
