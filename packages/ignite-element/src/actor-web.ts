@@ -1,5 +1,7 @@
 import "./internal/setupDomPolyfill";
 
+// Thin public bridge: stable Actor-Web types come from ignite-adapters, while
+// Ignite-specific component assembly stays behind the local actor-web igniteCore.
 export type {
 	ActorWebAddress,
 	ActorWebCommandActor,

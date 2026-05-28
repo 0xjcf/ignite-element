@@ -373,6 +373,8 @@ function createAdapterEntry<
 			listeners.add(listener);
 
 			if (!unsubscribeSource) {
+				// Keep the initial delivery synchronous while replay-signature dedupe
+				// suppresses duplicate startup notifications from transport/source replays.
 				const notificationsBeforeSubscribe = notificationCount;
 				ensureSubscription();
 				if (notificationCount === notificationsBeforeSubscribe) {
