@@ -358,6 +358,60 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: CodeRabbit P0 adapter public API and runtime correctness
+
+- Title: CodeRabbit P0 adapter public API and runtime correctness
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/coderabbit-p0-adapter-public-api-and-runtime-correctness.md
+- Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+### Task: CodeRabbit P0 renderer package correctness
+
+- Title: CodeRabbit P0 renderer package correctness
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/coderabbit-p0-renderer-package-correctness.md
+### Task: CodeRabbit P1 runtime resilience and error handling
+
+- Title: CodeRabbit P1 runtime resilience and error handling
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/coderabbit-p1-runtime-resilience-and-error-handling.md
+- Automation mode: advisory
+### Task: CodeRabbit P1 renderer public subpath boundary cleanup
+
+- Title: CodeRabbit P1 renderer public subpath boundary cleanup
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/coderabbit-p1-renderer-public-subpath-boundary-cleanup.md
+### Task: CodeRabbit P1 type safety cleanup
+
+- Title: CodeRabbit P1 type safety cleanup
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/coderabbit-p1-type-safety-cleanup.md
+### Task: CodeRabbit P2 test harness and contract cleanup
+
+- Title: CodeRabbit P2 test harness and contract cleanup
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/coderabbit-p2-test-harness-and-contract-cleanup.md
+### Task: CodeRabbit P2 docs and examples accuracy
+
+- Title: CodeRabbit P2 docs and examples accuracy
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/coderabbit-p2-docs-and-examples-accuracy.md
 ## Template
 
 ### Task: <short task title>
