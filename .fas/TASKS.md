@@ -474,9 +474,12 @@ No active tasks.
 
 - Title: Support read-model-first Actor-Web sources in ignite-element
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/support-read-model-first-actor-web-sources-in-ignite-element.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 ## Template
 
 ### Task: <short task title>

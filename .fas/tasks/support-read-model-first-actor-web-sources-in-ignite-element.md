@@ -30,9 +30,20 @@ Implement the ignite-element side of the agreed Actor-Web DX. ignite-element/act
 - packages/ignite-element/src/tests/IgniteCore.test.ts
 - docs/site/src/content/docs/concepts/state-adapters.mdx
 - packages/ignite-element/README.md
+- packages/ignite-adapters/src/index.ts
+- packages/ignite-adapters/src/actor-web.ts
+- packages/ignite-element/src/igniteCore/types.ts
+- packages/ignite-element/src/IgniteCore.ts
 
 ## Scope Amendments
-- None.
+- Type: scope-refresh-promotion
+- Added at: 2026-05-28
+- Trigger: dirty-low-confidence-scope
+- Reason: Promoted dirty low-confidence or dependency-reachable task-packet path(s) into affected scope.
+- Added paths: packages/ignite-adapters/src/index.ts, packages/ignite-adapters/src/actor-web.ts, packages/ignite-element/src/igniteCore/types.ts, packages/ignite-element/src/IgniteCore.ts, packages/ignite-element/src/tests/types/igniteCore.types.test.ts, packages/ignite-element/src/actor-web.ts, packages/ignite-element/src/tests/IgniteCore.test.ts
+- Evidence source: task-packet dirty scope promotion
+- Evidence: task-packet dirty scope promotion | .fas/state/task-packet.json | Promoted dirty path(s): packages/ignite-adapters/src/index.ts, packages/ignite-adapters/src/actor-web.ts, packages/ignite-element/src/igniteCore/types.ts, packages/ignite-element/src/IgniteCore.ts, packages/ignite-element/src/tests/types/igniteCore.types.test.ts, packages/ignite-element/src/actor-web.ts, packages/ignite-element/src/tests/IgniteCore.test.ts
+- Accuracy signal: Path was dirty in git status and present in task-packet low-confidence/dependency-reachable scope.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
