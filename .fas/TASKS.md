@@ -452,8 +452,8 @@ No active tasks.
 
 - Title: Lock the config-free Ignite JSX v3 happy path
 - Mode: 4-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/lock-the-config-free-ignite-jsx-v3-happy-path.md
 - Verification lane: fast
 - Policy sensitivity: standard
