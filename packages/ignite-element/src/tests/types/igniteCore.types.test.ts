@@ -1,7 +1,7 @@
 import { command, commandMetadataSymbol } from "ignite-core";
 import { makeAutoObservable } from "mobx";
 import { describe, expectTypeOf, it } from "vitest";
-import { createMachine, type EventFrom } from "xstate";
+import { createMachine, setup, type EventFrom } from "xstate";
 import type {
 	ActorWebCommandActor,
 	ActorWebExtendedState,
@@ -24,7 +24,7 @@ import { igniteCore } from "../../IgniteCore";
 import type { AdapterPack } from "../../IgniteElementFactory";
 import type {
 	InferAdapterFromSource,
-	XStateConfig,
+	IgniteCoreReturn as SharedIgniteCoreReturn,
 } from "../../igniteCore/types";
 import type {
 	IgniteDomBridge as RootIgniteDomBridge,
@@ -50,9 +50,6 @@ import type {
 	CommandContext,
 	CommandMetadata,
 	CommandWithMetadata,
-	EffectContext,
-	EventBuilder,
-	EventDescriptor,
 	IgniteSchemaValue,
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
@@ -89,6 +86,7 @@ import type { InferStateAndEvent } from "../../utils/igniteRedux";
 import type {
 	IgniteDomBridge as XStateIgniteDomBridge,
 	IgniteDomRoleExpectation as XStateIgniteDomRoleExpectation,
+	IgniteCoreReturn as XStateIgniteCoreReturn,
 	IgniteStorySnapshot as XStateIgniteStorySnapshot,
 	IgniteStorySnapshotEvent as XStateIgniteStorySnapshotEvent,
 	IgniteStoryTraceSnapshot as XStateIgniteStoryTraceSnapshot,
@@ -96,7 +94,10 @@ import type {
 	IgniteStorySummarySnapshot as XStateIgniteStorySummarySnapshot,
 	IgniteTestHelpers as XStateIgniteTestHelpers,
 } from "../../xstate";
-import { test as xstateTest } from "../../xstate";
+import {
+	igniteCore as igniteCoreXState,
+	test as xstateTest,
+} from "../../xstate";
 
 type ActorWebShipmentContext = {
 	shipmentId: string | null;
@@ -156,6 +157,22 @@ const mobxCounterFactory = () =>
 	});
 
 describe("igniteCore type inference", () => {
+	it("re-exports IgniteCoreReturn from the xstate public entrypoint", () => {
+		expectTypeOf<
+			XStateIgniteCoreReturn<
+				{ count: number },
+				{ type: "PING" },
+				{ count: number }
+			>
+		>().toEqualTypeOf<
+			SharedIgniteCoreReturn<
+				{ count: number },
+				{ type: "PING" },
+				{ count: number }
+			>
+		>();
+	});
+
 	it("exports story snapshot types from public entrypoints", () => {
 		expectTypeOf<RootIgniteStorySnapshot>().toEqualTypeOf<IgniteStorySnapshot>();
 		expectTypeOf<RootIgniteStorySnapshotEvent>().toEqualTypeOf<IgniteStorySnapshotEvent>();
@@ -415,8 +432,7 @@ describe("igniteCore type inference", () => {
 			},
 		});
 
-		igniteCore({
-			adapter: "xstate",
+		igniteCoreXState({
 			source: machine,
 			events: (event) => ({
 				"checkout-submitted": event<{ email: string }>(),
@@ -431,8 +447,7 @@ describe("igniteCore type inference", () => {
 			},
 		});
 
-		igniteCore({
-			adapter: "xstate",
+		igniteCoreXState({
 			source: machine,
 			commands: ({ actor, host }) => ({
 				noop: () => {
@@ -453,16 +468,13 @@ describe("igniteCore type inference", () => {
 			},
 		});
 
-		const config = {
-			adapter: "xstate",
+		igniteCoreXState({
 			source: machine,
 			commands: ({ actor }) => ({
 				trigger: () => actor.send({ type: "PING" }),
 			}),
 			effects: ({ emit }) => {
 				emit("leaderboardRefresh", { tournamentId: "t-1", sort: "alpha" });
-				// @ts-expect-error - typo in event name should be rejected
-				emit("leaderboadRefresh", { tournamentId: "t-1", sort: "alpha" });
 			},
 			events: (event) => ({
 				leaderboardRefresh: event<{
@@ -470,17 +482,7 @@ describe("igniteCore type inference", () => {
 					sort: "alpha" | "beta";
 				}>(),
 			}),
-		} satisfies XStateConfig<
-			typeof machine,
-			{
-				leaderboardRefresh: EventDescriptor<{
-					tournamentId: string;
-					sort: "alpha" | "beta";
-				}>;
-			}
-		>;
-
-		igniteCore(config);
+		});
 	});
 
 	it("keeps effects emit typed for leaderboard workflows with events declared last", () => {
@@ -502,8 +504,7 @@ describe("igniteCore type inference", () => {
 			},
 		});
 
-		igniteCore({
-			adapter: "xstate",
+		igniteCoreXState({
 			source: leaderboardMachine,
 			states: (snapshot) => ({
 				leaderboard: snapshot.context.leaderboard,
@@ -520,13 +521,8 @@ describe("igniteCore type inference", () => {
 					tournamentId: activeTournamentId,
 					sort,
 				});
-				// @ts-expect-error - typo should be rejected
-				emit("leaderdRfresh", {
-					tournamentId: activeTournamentId,
-					sort,
-				});
 			},
-			events: (event: EventBuilder) => ({
+			events: (event) => ({
 				playerJoined: event<{ tournamentId: string }>(),
 				playerLeft: event<{ tournamentId: string }>(),
 				finalized: event<{ tournamentId: string }>(),
@@ -545,8 +541,7 @@ describe("igniteCore type inference", () => {
 			},
 		});
 
-		igniteCore({
-			adapter: "xstate",
+		igniteCoreXState({
 			source: machine,
 			commands: ({ actor }) => ({
 				trigger: () => actor.send({ type: "PING" }),
@@ -555,12 +550,9 @@ describe("igniteCore type inference", () => {
 				emit("optional-payload");
 				emit("optional-payload", { id: "123" });
 				emit("optional-payload", undefined);
-
-				// @ts-expect-error - payload is required
-				emit("required-payload");
 				emit("required-payload", { id: "123" });
 			},
-			events: (event: EventBuilder) => ({
+			events: (event) => ({
 				"optional-payload": event<{ id?: string } | undefined>(),
 				"required-payload": event<{ id: string }>(),
 			}),
@@ -577,7 +569,7 @@ describe("igniteCore type inference", () => {
 			},
 		});
 
-		igniteCore({
+		igniteCoreXState({
 			source: machine,
 			events: (event) => ({
 				"pinged-event": event<{ id: string }>(),
@@ -605,7 +597,6 @@ describe("igniteCore type inference", () => {
 
 		const assertNoCommandEmit = () => {
 			igniteCore({
-				adapter: "xstate",
 				source: machine,
 				events: (event) => ({
 					legacy: event<{ email: string }>(),
@@ -623,8 +614,7 @@ describe("igniteCore type inference", () => {
 
 		void assertNoCommandEmit;
 
-		igniteCore({
-			adapter: "xstate",
+		igniteCoreXState({
 			source: machine,
 			events: (event) => ({
 				legacy: event<{ email: string }>(),
@@ -655,22 +645,7 @@ describe("igniteCore type inference", () => {
 			events: (event) => ({
 				"counter-incremented": event<{ count: number }>(),
 			}),
-			effects: ({
-				snapshot,
-				prevSnapshot,
-				emit,
-				select,
-			}: {
-				snapshot: StoreState;
-				prevSnapshot: StoreState;
-			} & EffectContext<
-				ReduxStoreCommandActor<typeof store>,
-				{
-					"counter-incremented": EventDescriptor<{ count: number }>;
-				},
-				HTMLElement,
-				StoreState
-			>) => {
+			effects: ({ snapshot, prevSnapshot, emit, select }) => {
 				const count = select((state) => state.counter.count);
 				expectTypeOf(count.current).toEqualTypeOf<number>();
 				expectTypeOf(count.previous).toEqualTypeOf<number>();
@@ -757,6 +732,119 @@ describe("igniteCore type inference", () => {
 		};
 
 		void expectRuntimeValidation;
+	});
+
+	it("infers object-style xstate effects without core type imports", () => {
+		const machine = setup({
+			types: {
+				context: {} as { count: number; ready: boolean },
+				events: {} as { type: "INCREMENT" } | { type: "RESET" },
+			},
+		}).createMachine({
+			initial: "active",
+			context: {
+				count: 0,
+				ready: false,
+			},
+			states: {
+				active: {
+					on: {
+						INCREMENT: {
+							actions: ({ context }) => {
+								context.count += 1;
+								context.ready = context.count > 0;
+							},
+						},
+						RESET: {
+							actions: ({ context }) => {
+								context.count = 0;
+								context.ready = false;
+							},
+						},
+					},
+				},
+			},
+		});
+
+		const register = igniteCoreXState({
+			source: machine,
+			view: ({ snapshot }) => ({
+				count: snapshot.context.count,
+				ready: snapshot.context.ready,
+			}),
+			commands: ({ actor, host }) => ({
+				increment: () => {
+					void host;
+					actor.send({ type: "INCREMENT" });
+				},
+				reset: () => actor.send({ type: "RESET" }),
+			}),
+			events: (event) => ({
+				"counter-incremented": event<{ count: number }>(),
+				"ready-changed": event<{ ready: boolean }>(),
+			}),
+			effects: ({ snapshot, prevSnapshot, emit, select, actor, host }) => {
+				expectTypeOf(snapshot.context.count).toEqualTypeOf<number>();
+				expectTypeOf(prevSnapshot.context.ready).toEqualTypeOf<boolean>();
+				expectTypeOf(host).toEqualTypeOf<HTMLElement>();
+				expectTypeOf(actor.send).toEqualTypeOf<
+					(event: EventFrom<typeof machine>) => void
+				>();
+
+				const count = select((state) => state.context.count);
+				expectTypeOf(count.current).toEqualTypeOf<number>();
+				expectTypeOf(count.previous).toEqualTypeOf<number>();
+				expectTypeOf(count.changed).toEqualTypeOf<boolean>();
+
+				emit("counter-incremented", {
+					count: snapshot.context.count,
+				});
+				emit("ready-changed", {
+					ready: snapshot.context.ready,
+				});
+
+				// @ts-expect-error - payload remains required
+				emit("counter-incremented");
+				// @ts-expect-error - event names remain constrained to declared events
+				emit("counter-incrementedd", {
+					count: snapshot.context.count,
+				});
+			},
+		});
+
+		expectTypeOf(register.execute("increment")).toEqualTypeOf<
+			Promise<{
+				state: XStateSnapshot<typeof machine>;
+				events: Array<
+					| {
+							type: "counter-incremented";
+							payload: { count: number };
+					  }
+					| {
+							type: "ready-changed";
+							payload: { ready: boolean };
+					  }
+				>;
+			}>
+		>();
+
+		const story = register.record("typed xstate authoring");
+		expectTypeOf(story.execute("increment")).toEqualTypeOf<
+			Promise<{
+				state: XStateSnapshot<typeof machine>;
+				events: Array<
+					| {
+							type: "counter-incremented";
+							payload: { count: number };
+					  }
+					| {
+							type: "ready-changed";
+							payload: { ready: boolean };
+					  }
+				>;
+			}>
+		>();
+		story.stop();
 	});
 
 	it("preserves command payload inference when metadata is attached", () => {
