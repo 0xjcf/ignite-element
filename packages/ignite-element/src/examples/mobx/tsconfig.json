@@ -1,0 +1,12 @@
+{
+	"extends": "../../../tsconfig.typecheck.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"composite": false,
+		"allowJs": false,
+		"experimentalDecorators": true,
+		"useDefineForClassFields": false
+	},
+	"include": ["./**/*.ts", "ignite.config.ts"],
+	"exclude": []
+}

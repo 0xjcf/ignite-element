@@ -6,7 +6,8 @@
 	"description": "A Vite-served example demonstrating ignite-element with MobX, lit-html, and custom CSS.",
 	"scripts": {
 		"dev": "vite",
-		"build": "vite build"
+		"build": "vite build",
+		"typecheck": "tsc --noEmit --pretty false --project tsconfig.json"
 	},
 	"keywords": [
 		"mobx",
@@ -22,6 +23,7 @@
 	},
 	"devDependencies": {
 		"@types/node": "^24.8.1",
+		"typescript": "^5.9.3",
 		"vite": "^7.2.7"
 	}
 }
