@@ -8,6 +8,7 @@ import type {
 	IgniteAgentExecutionResult,
 	IgniteAgentRuntime,
 	IgniteStory,
+	IgniteStorySnapshot,
 	IgniteStoryTraceEntry,
 	IgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry,
@@ -86,12 +87,7 @@ export type IgniteTestHelpers = {
 	) => IgniteStoryTraceSnapshot;
 	snapshotStory: <State, Commands extends FacadeCommandResult, Events extends EventMap, View extends Record<string, unknown>>(
 		story: IgniteStory<State, Commands, Events, View>,
-	) => {
-		name: string;
-		trace: IgniteStoryTraceSnapshot;
-		lifecycle: ReturnType<IgniteStory<State, Commands, Events, View>["lifecycle"]>;
-		summary: ReturnType<IgniteStory<State, Commands, Events, View>["summary"]>;
-	};
+	) => IgniteStorySnapshot<State, Events, View>;
 	expectTrace: (
 		trace: readonly IgniteStoryTraceEntry[],
 		expected: readonly IgniteStoryTraceExpectationEntry[],
@@ -263,7 +259,7 @@ const snapshotStory = <
 	trace: serializeTrace(story.trace()),
 	lifecycle: cloneSerializable(story.lifecycle()),
 	summary: cloneSerializable(story.summary()),
-});
+}) satisfies IgniteStorySnapshot<State, Events, View>;
 
 const traceEntryMatches = (
 	actual: IgniteStoryTraceSnapshotEntry,

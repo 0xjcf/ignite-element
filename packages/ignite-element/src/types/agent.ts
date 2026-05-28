@@ -113,6 +113,17 @@ export type IgniteStorySummary<
 	lifecycleCount: number;
 };
 
+export type IgniteStorySnapshot<
+	State,
+	Events extends EventMap = EmptyEventMap,
+	View extends Record<string, unknown> = Record<never, never>,
+> = {
+	name: string;
+	trace: IgniteStoryTraceSnapshot;
+	lifecycle: IgniteStoryLifecycleEntry[];
+	summary: IgniteStorySummary<State, Events, View>;
+};
+
 export type IgniteStory<
 	State,
 	Commands extends FacadeCommandResult = FacadeCommandResult,
