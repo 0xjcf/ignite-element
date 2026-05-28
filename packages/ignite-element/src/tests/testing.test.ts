@@ -7,6 +7,7 @@ import { igniteCore } from "../IgniteCore";
 import type { ReduxInstanceConfig, XStateConfig } from "../igniteCore/types";
 import type { EventDescriptor, FacadeEffectArgs } from "../RenderArgs";
 import { test as igniteTest } from "../testing";
+import type { IgniteStory } from "../types/agent";
 
 describe("ignite test DSL", () => {
 	it("drives xstate components through deterministic headless assertions", async () => {
@@ -378,6 +379,82 @@ describe("ignite test DSL", () => {
 		});
 
 		story.stop();
+	});
+
+	it("normalizes story summary snapshots with schema-safe values", () => {
+		type CircularPayload = {
+			count: bigint;
+			self?: unknown;
+		};
+		type CircularEvents = {
+			"counter-incremented": EventDescriptor<CircularPayload>;
+		};
+		type CircularCommands = {
+			noop: () => void;
+		};
+
+		const finalState: CircularPayload = { count: BigInt(2) };
+		finalState.self = finalState;
+		const finalView: CircularPayload = { count: BigInt(3) };
+		finalView.self = finalView;
+		const payload: CircularPayload = { count: BigInt(4) };
+		payload.self = payload;
+
+		const story = {
+			name: "schema-safe summary",
+			execute: async () => ({
+				state: finalState,
+				events: [],
+			}),
+			until: async () => finalView,
+			trace: () => [],
+			lifecycle: () => [],
+			summary: () => ({
+				name: "schema-safe summary",
+				finalState,
+				finalView,
+				events: [
+					{
+						type: "counter-incremented",
+						payload,
+					},
+				],
+				commandCount: 1,
+				traceCount: 0,
+				lifecycleCount: 0,
+			}),
+			stop: () => undefined,
+		} as IgniteStory<
+			CircularPayload,
+			CircularCommands,
+			CircularEvents,
+			CircularPayload
+		>;
+
+		expect(() => igniteTest.snapshotStory(story)).not.toThrow();
+		expect(igniteTest.snapshotStory(story).summary).toEqual({
+			name: "schema-safe summary",
+			finalState: {
+				count: "2",
+				self: "[Circular]",
+			},
+			finalView: {
+				count: "3",
+				self: "[Circular]",
+			},
+			events: [
+				{
+					type: "counter-incremented",
+					payload: {
+						count: "4",
+						self: "[Circular]",
+					},
+				},
+			],
+			commandCount: 1,
+			traceCount: 0,
+			lifecycleCount: 0,
+		});
 	});
 
 	it("reports missing workflow checkpoints with serialized trace context", async () => {

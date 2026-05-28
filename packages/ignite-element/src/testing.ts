@@ -18,6 +18,7 @@ import type {
 	RuntimeEvent,
 } from "./types/agent";
 import type { IgniteSchemaValue } from "./types/schema";
+import { toSchemaValue } from "./runtime/schema";
 
 type DeepPartial<T> = T extends readonly (infer Item)[]
 	? readonly DeepPartial<Item>[]
@@ -151,6 +152,9 @@ const formatValue = (value: unknown): string => {
 const cloneSerializable = <Value>(value: Value): Value =>
 	JSON.parse(JSON.stringify(value)) as Value;
 
+const normalizeSnapshotValue = (value: unknown): IgniteSchemaValue =>
+	toSchemaValue(value) ?? null;
+
 const cloneTraceSnapshotEntry = (
 	entry: IgniteStoryTraceEntry,
 ): IgniteStoryTraceSnapshotEntry => {
@@ -276,10 +280,8 @@ const serializeEvent = (event: RuntimeEvent): IgniteStorySnapshotEvent => {
 		type: event.type,
 	};
 
-	if ("payload" in event && typeof event.payload !== "undefined") {
-		snapshotEvent.payload = cloneSerializable(
-			event.payload,
-		) as IgniteSchemaValue;
+	if ("payload" in event) {
+		snapshotEvent.payload = normalizeSnapshotValue(event.payload);
 	}
 
 	return snapshotEvent;
@@ -293,8 +295,8 @@ const serializeSummary = <
 	summary: IgniteStorySummary<State, Events, View>,
 ): IgniteStorySummarySnapshot => ({
 	name: summary.name,
-	finalState: cloneSerializable(summary.finalState) as IgniteSchemaValue,
-	finalView: cloneSerializable(summary.finalView) as IgniteSchemaValue,
+	finalState: normalizeSnapshotValue(summary.finalState),
+	finalView: normalizeSnapshotValue(summary.finalView),
 	events: summary.events.map((event) => serializeEvent(event as RuntimeEvent)),
 	commandCount: summary.commandCount,
 	traceCount: summary.traceCount,
