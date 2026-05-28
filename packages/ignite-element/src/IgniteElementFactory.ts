@@ -7,7 +7,10 @@ import IgniteElement, {
 } from "./IgniteElement";
 import "./renderers/ignite-jsx";
 import { resolveConfiguredRenderStrategy } from "./renderers/resolveConfiguredRenderStrategy";
-import { createAgentRuntime } from "./runtime/agent";
+import {
+	createAgentRuntime,
+	type IgniteDomBridgeOptions,
+} from "./runtime/agent";
 import { facadeCleanupSymbol } from "./runtime/effects";
 import type {
 	IgniteStoryLifecycleEntry,
@@ -309,6 +312,85 @@ export default function igniteElementFactory<
 
 	const createRuntimeHost = () => document.createElement("div");
 
+	const createRuntimeDomBridge = (
+		renderer: ComponentRenderer<RenderArgs, View>,
+		options?: IgniteDomBridgeOptions,
+	) => {
+		const { adapter, additionalArgs } = resolveRuntimeResources();
+		const bridgeHost = document.createElement("div");
+		const bridgeRoot = bridgeHost.attachShadow({ mode: "open" });
+		const strategy = renderStrategyFactory();
+		const render = resolveRenderer(renderer);
+		const bridgeElementName = options?.elementName ?? "ignite-test-bridge";
+		const lifecycleHooks = createLifecycleHooks(
+			bridgeElementName,
+			resolveLifecycleScope(),
+		);
+		let active = true;
+
+		strategy.attach(bridgeRoot);
+		document.body.appendChild(bridgeHost);
+		recordLifecycle(
+			"connected",
+			bridgeElementName,
+			lifecycleHooks.scope,
+			lifecycleHooks.instanceId,
+		);
+
+		const renderCurrent = () => {
+			strategy.render(
+				render({
+					...additionalArgs,
+					state: adapter.getState(),
+					send: (event) => adapter.send(event),
+				} as RenderArgs),
+			);
+			recordLifecycle(
+				"rendered",
+				bridgeElementName,
+				lifecycleHooks.scope,
+				lifecycleHooks.instanceId,
+			);
+		};
+
+		const subscription = adapter.subscribe(() => {
+			if (!active) {
+				return;
+			}
+
+			renderCurrent();
+		});
+
+		renderCurrent();
+
+		return {
+			host: bridgeHost,
+			root: bridgeRoot,
+			stop() {
+				if (!active) {
+					return;
+				}
+
+				active = false;
+				subscription.unsubscribe();
+				recordLifecycle(
+					"disconnected",
+					bridgeElementName,
+					lifecycleHooks.scope,
+					lifecycleHooks.instanceId,
+				);
+				strategy.detach?.();
+				bridgeHost.remove();
+				recordLifecycle(
+					"cleaned-up",
+					bridgeElementName,
+					lifecycleHooks.scope,
+					lifecycleHooks.instanceId,
+				);
+			},
+		};
+	};
+
 	const resolveRuntimeResources = () => {
 		if (inferredScope === StateScope.Shared) {
 			const { adapter } = resolveSharedResources();
@@ -527,6 +609,7 @@ export default function igniteElementFactory<
 			RuntimeView,
 			AdditionalRenderArgs<State, Event, RenderArgs>
 		>({
+			createDomBridge: createRuntimeDomBridge,
 			eventTypes,
 			observeLifecycle,
 			resolveRuntime: resolveRuntimeResources,

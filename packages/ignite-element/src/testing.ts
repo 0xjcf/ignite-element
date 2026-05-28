@@ -18,6 +18,11 @@ import type {
 	RuntimeEvent,
 } from "./types/agent";
 import type { IgniteSchemaValue } from "./types/schema";
+import {
+	igniteDomBridgeSymbol,
+	type IgniteDomBridgeOptions,
+	type IgniteDomBridgeSession,
+} from "./runtime/agent";
 import { toSchemaValue } from "./runtime/schema";
 
 type DeepPartial<T> = T extends readonly (infer Item)[]
@@ -60,6 +65,30 @@ export type IgniteStoryTraceAssertionOptions = {
 	exact?: boolean;
 };
 
+export type IgniteDomRoleExpectation = {
+	role: string;
+	name?: string | RegExp | ((name: string, element: Element) => boolean);
+	text?: string | RegExp | ((text: string, element: Element) => boolean);
+	value?: string | RegExp | ((value: string, element: Element) => boolean);
+};
+
+export type IgniteDomBridge = {
+	host: HTMLElement;
+	root: ShadowRoot;
+	getByRole: (
+		role: string,
+		options?: Omit<IgniteDomRoleExpectation, "role">,
+	) => HTMLElement;
+	queryByRole: (
+		role: string,
+		options?: Omit<IgniteDomRoleExpectation, "role">,
+	) => HTMLElement | null;
+	expectControls: (
+		expected: readonly IgniteDomRoleExpectation[],
+	) => HTMLElement[];
+	stop: () => void;
+};
+
 export type IgniteTestScenario<
 	State,
 	Commands extends FacadeCommandResult = FacadeCommandResult,
@@ -87,6 +116,20 @@ export type IgniteTestScenario<
 };
 
 export type IgniteTestHelpers = {
+	accessibilityBridge: <
+		Runtime extends {
+			execute: unknown;
+			getState: () => unknown;
+		},
+	>(
+		component: Runtime,
+		renderer: unknown,
+		options?: IgniteDomBridgeOptions,
+	) => IgniteDomBridge;
+	expectControls: (
+		bridge: IgniteDomBridge,
+		expected: readonly IgniteDomRoleExpectation[],
+	) => HTMLElement[];
 	serializeTrace: (
 		trace: readonly IgniteStoryTraceEntry[],
 	) => IgniteStoryTraceSnapshot;
@@ -152,6 +195,9 @@ const formatValue = (value: unknown): string => {
 const cloneSerializable = <Value>(value: Value): Value =>
 	JSON.parse(JSON.stringify(value)) as Value;
 
+const normalizeWhitespace = (value: string): string =>
+	value.replace(/\s+/g, " ").trim();
+
 const normalizeSnapshotValue = (value: unknown): IgniteSchemaValue =>
 	toSchemaValue(value) ?? null;
 
@@ -197,6 +243,223 @@ const valuesMatch = (actual: unknown, expected: unknown): boolean => {
 
 	return Object.is(actual, expected);
 };
+
+const matchesStringExpectation = (
+	actual: string,
+	expected: string | RegExp | ((value: string, element: Element) => boolean),
+	element: Element,
+): boolean => {
+	if (typeof expected === "function") {
+		return expected(actual, element);
+	}
+
+	if (expected instanceof RegExp) {
+		return expected.test(actual);
+	}
+
+	return actual === normalizeWhitespace(expected);
+};
+
+const computeImplicitRole = (element: Element): string | null => {
+	const tagName = element.tagName.toLowerCase();
+
+	if (tagName === "button") {
+		return "button";
+	}
+
+	if (tagName === "textarea") {
+		return "textbox";
+	}
+
+	if (tagName === "a" && element.hasAttribute("href")) {
+		return "link";
+	}
+
+	if (tagName === "input") {
+		const input = element as HTMLInputElement;
+		switch (input.type) {
+			case "button":
+			case "reset":
+			case "submit":
+				return "button";
+			case "checkbox":
+				return "checkbox";
+			case "radio":
+				return "radio";
+			case "range":
+				return "slider";
+			case "email":
+			case "password":
+			case "search":
+			case "tel":
+			case "text":
+			case "url":
+				return "textbox";
+			default:
+				return null;
+		}
+	}
+
+	return null;
+};
+
+const getElementRole = (element: Element): string | null =>
+	element.getAttribute("role") ?? computeImplicitRole(element);
+
+const getLabelledText = (element: Element, ids: string): string => {
+	const root = element.getRootNode();
+	const fragments = ids
+		.split(/\s+/)
+		.map((id) => {
+			if ("getElementById" in root && typeof root.getElementById === "function") {
+				return root.getElementById(id);
+			}
+
+			return element.ownerDocument?.getElementById(id) ?? null;
+		})
+		.filter((label): label is Element => Boolean(label))
+		.map((label) => normalizeWhitespace(label.textContent ?? ""))
+		.filter(Boolean);
+
+	return fragments.join(" ").trim();
+};
+
+const getElementText = (element: Element): string =>
+	normalizeWhitespace(element.textContent ?? "");
+
+const getAccessibleName = (element: Element): string => {
+	const ariaLabel = element.getAttribute("aria-label");
+	if (ariaLabel) {
+		return normalizeWhitespace(ariaLabel);
+	}
+
+	const labelledBy = element.getAttribute("aria-labelledby");
+	if (labelledBy) {
+		const name = getLabelledText(element, labelledBy);
+		if (name) {
+			return name;
+		}
+	}
+
+	if (element instanceof HTMLInputElement) {
+		const labels = Array.from(element.labels ?? []);
+		if (labels.length > 0) {
+			return normalizeWhitespace(
+				labels.map((label) => label.textContent ?? "").join(" "),
+			);
+		}
+
+		if (
+			element.type === "button" ||
+			element.type === "submit" ||
+			element.type === "reset"
+		) {
+			return normalizeWhitespace(element.value);
+		}
+	}
+
+	if (element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) {
+		const labels = Array.from(element.labels ?? []);
+		if (labels.length > 0) {
+			return normalizeWhitespace(
+				labels.map((label) => label.textContent ?? "").join(" "),
+			);
+		}
+	}
+
+	if (element instanceof HTMLImageElement && element.alt) {
+		return normalizeWhitespace(element.alt);
+	}
+
+	const parentLabel = element.closest("label");
+	if (parentLabel) {
+		return getElementText(parentLabel);
+	}
+
+	return getElementText(element);
+};
+
+const getControlValue = (element: Element): string => {
+	if (
+		element instanceof HTMLInputElement ||
+		element instanceof HTMLTextAreaElement ||
+		element instanceof HTMLSelectElement
+	) {
+		return normalizeWhitespace(element.value);
+	}
+
+	if (element instanceof HTMLOutputElement) {
+		return normalizeWhitespace(element.value || element.textContent || "");
+	}
+
+	return getElementText(element);
+};
+
+const findByRole = (
+	root: ParentNode,
+	role: string,
+	options?: Omit<IgniteDomRoleExpectation, "role">,
+): HTMLElement | null => {
+	const normalizedRole = role.trim().toLowerCase();
+
+	for (const node of root.querySelectorAll("*")) {
+		if (!(node instanceof HTMLElement)) {
+			continue;
+		}
+
+		if (getElementRole(node)?.toLowerCase() !== normalizedRole) {
+			continue;
+		}
+
+		const accessibleName = getAccessibleName(node);
+		if (
+			typeof options?.name !== "undefined" &&
+			!matchesStringExpectation(accessibleName, options.name, node)
+		) {
+			continue;
+		}
+
+		const text = getElementText(node);
+		if (
+			typeof options?.text !== "undefined" &&
+			!matchesStringExpectation(text, options.text, node)
+		) {
+			continue;
+		}
+
+		const value = getControlValue(node);
+		if (
+			typeof options?.value !== "undefined" &&
+			!matchesStringExpectation(value, options.value, node)
+		) {
+			continue;
+		}
+
+		return node;
+	}
+
+	return null;
+};
+
+const assertControl = (
+	bridge: IgniteDomBridge,
+	expectation: IgniteDomRoleExpectation,
+): HTMLElement => {
+	const element = bridge.queryByRole(expectation.role, expectation);
+
+	if (!element) {
+		throw new Error(
+			`[igniteTest] DOM control not found.\nExpected: ${formatValue(expectation)}\nRendered: ${formatValue(bridge.root.innerHTML)}`,
+		);
+	}
+
+	return element;
+};
+
+const expectControls = (
+	bridge: IgniteDomBridge,
+	expected: readonly IgniteDomRoleExpectation[],
+): HTMLElement[] => expected.map((expectation) => assertControl(bridge, expectation));
 
 const resolveStateSubject = <State>(
 	state: State,
@@ -464,6 +727,53 @@ function createTestScenario<
 type IgniteTestFunction = typeof createTestScenario & IgniteTestHelpers;
 
 export const test: IgniteTestFunction = Object.assign(createTestScenario, {
+	accessibilityBridge(component, renderer, options) {
+		const createBridge = (
+			component as {
+				[igniteDomBridgeSymbol]?: (
+					rendererValue: unknown,
+					bridgeOptions?: IgniteDomBridgeOptions,
+				) => IgniteDomBridgeSession;
+			}
+		)[igniteDomBridgeSymbol];
+
+		if (!createBridge) {
+			throw new Error(
+				"[igniteTest] DOM accessibility bridge is only available on Ignite component runtimes.",
+			);
+		}
+
+		const session = createBridge(renderer, options);
+		const bridge: IgniteDomBridge = {
+			host: session.host,
+			root: session.root,
+			getByRole(role, roleOptions) {
+				const element = findByRole(session.root, role, roleOptions);
+				if (!element) {
+					throw new Error(
+						`[igniteTest] DOM control not found.\nExpected: ${formatValue({
+							role,
+							...roleOptions,
+						})}\nRendered: ${formatValue(session.root.innerHTML)}`,
+					);
+				}
+
+				return element;
+			},
+			queryByRole(role, roleOptions) {
+				return findByRole(session.root, role, roleOptions);
+			},
+			expectControls(expected) {
+				return expectControls(bridge, expected);
+			},
+			stop() {
+				session.stop();
+			},
+		};
+
+		return bridge;
+	},
+	expectControls,
 	serializeTrace,
 	snapshotStory,
 	expectTrace,

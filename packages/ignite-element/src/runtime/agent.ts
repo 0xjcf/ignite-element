@@ -33,11 +33,27 @@ type AgentRuntimeOptions<
 	observeLifecycle?: (
 		handler: (entry: IgniteStoryLifecycleEntry) => void,
 	) => IgniteAgentSubscription;
+	createDomBridge?: (
+		renderer: unknown,
+		options?: IgniteDomBridgeOptions,
+	) => IgniteDomBridgeSession;
 	resolveRuntime: () => RuntimeResources<State, Event, AdditionalArgs>;
 	resolveView: (adapter: IgniteAdapter<State, Event>) => View;
 };
 
 const defaultUntilMaxSteps = 50;
+
+export type IgniteDomBridgeOptions = {
+	elementName?: string;
+};
+
+export type IgniteDomBridgeSession = {
+	host: HTMLElement;
+	root: ShadowRoot;
+	stop: () => void;
+};
+
+export const igniteDomBridgeSymbol = Symbol("ignite-element.dom-bridge");
 
 type IgniteStoryTraceEntryDraft =
 	| Omit<IgniteStoryCommandTraceEntry, "sequence">
@@ -103,6 +119,7 @@ export function createAgentRuntime<
 	View extends Record<string, unknown>,
 	AdditionalArgs extends Record<string, unknown>,
 >({
+	createDomBridge,
 	eventTypes,
 	observeLifecycle,
 	resolveRuntime,
@@ -376,7 +393,7 @@ export function createAgentRuntime<
 		return story;
 	};
 
-	return {
+	const runtime = {
 		execute: executeCommand,
 		getState() {
 			return resolveRuntime().adapter.getState();
@@ -412,4 +429,12 @@ export function createAgentRuntime<
 		watch,
 		watchView,
 	};
+
+	if (createDomBridge) {
+		Object.assign(runtime, {
+			[igniteDomBridgeSymbol]: createDomBridge,
+		});
+	}
+
+	return runtime;
 }
