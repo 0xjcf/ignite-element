@@ -111,6 +111,61 @@ counter('counter-panel', ({ count, limit, isLimited, increment, setLimit }) => (
 
 This keeps DOM tests focused on rendering and accessibility, while behavior tests stay selector-free.
 
+## DOM accessibility bridge
+
+When the behavior contract is already proven, mount the same runtime behind a test-only DOM bridge and assert the rendered controls by role and accessible name.
+
+```ts
+import { test as igniteTest } from "ignite-element/xstate";
+
+const story = counter.record("reaches limit");
+const bridge = igniteTest.accessibilityBridge(
+  counter,
+  ({ count, limit, isLimited, increment, setLimit }) => (
+    <section>
+      <output role="status" aria-label="Counter status">
+        {count} / {limit}
+      </output>
+
+      <button type="button" onClick={() => increment()}>
+        Increment
+      </button>
+
+      <label>
+        Limit
+        <input
+          type="range"
+          min={3}
+          max={12}
+          value={limit}
+          onInput={(event) => setLimit(Number(event.currentTarget.value))}
+        />
+      </label>
+
+      {isLimited && <p role="status">Limit reached</p>}
+    </section>
+  ),
+  { elementName: "counter-accessibility-bridge" },
+);
+
+await story.execute("setLimit", 6);
+await story.until((view) => view.isLimited, async () => {
+  await story.execute("increment");
+});
+
+igniteTest.expectControls(bridge, [
+  { role: "status", name: "Counter status", text: "6 / 6" },
+  { role: "button", name: "Increment" },
+  { role: "slider", name: "Limit", value: "6" },
+  { role: "status", name: "Limit reached" },
+]);
+
+bridge.stop();
+story.stop();
+```
+
+`igniteTest.accessibilityBridge(...)` renders against the same runtime state that `story.execute(...)` mutates, so behavior assertions remain headless while DOM assertions stay focused on projection proof. `igniteTest.expectControls(...)` keeps those DOM checks small: match the rendered control by role, accessible name, text, or value instead of rebuilding the whole story trace around selectors.
+
 ## Agent-readable contracts
 
 Command metadata is optional. Plain functions remain valid commands, and `command(fn, metadata)` enriches the runtime schema when an agent or inspector needs more context.
@@ -228,13 +283,13 @@ story.stop();
 
 `igniteTest.serializeTrace(story.trace())` returns a deterministic JSON-safe snapshot shape: ordered entries with `kind`, `sequence`, `step`, and the relevant `command`, `event`, `phase`, `payload`, `state`, or `view` fields. That makes it suitable for snapshot tests, reporter output, or Playwright assertions without requiring DOM selectors. `igniteTest.expectTrace(...)` matches ordered checkpoints instead of forcing brittle full-array equality.
 
-`story.trace()` intentionally contains only behavior evidence: command, state, view, and event entries. `story.lifecycle()` contains custom-element evidence such as registration, connection, render, disconnection, and cleanup when DOM components are active during the story. If no DOM component participates, `story.lifecycle()` returns an empty array.
+`story.trace()` intentionally contains only behavior evidence: command, state, view, and event entries. `story.lifecycle()` contains DOM evidence such as registration, connection, render, disconnection, and cleanup when custom elements or accessibility bridges are active during the story. If no DOM projection participates, `story.lifecycle()` returns an empty array.
 
 ## Gaps to close
 
 The current v3 runtime supports `execute()`, `getState()`, `getView()`, `getSchema()`, `on()`, `watch()`, `watchView()`, `record()`, ordered workflow trace assertions, and serializable story snapshots. The remaining gaps are the pieces needed to turn those primitives into a complete agent workflow system.
 
 - Schema semantics: the runtime now ships JSON-serializable helpers for `number`, `string`, `boolean`, `enum`, `object`, and `array` inputs; future work can add higher-level conventions such as examples, UI hints, or shared vocabularies if agents need them.
-- DOM bridge: keep behavior tests headless, then add a small mapping layer that ties workflow expectations to rendered controls and accessible names.
+- DOM bridge: now available through `igniteTest.accessibilityBridge(...)` and `igniteTest.expectControls(...)`; future work can extend the accessible-query vocabulary if agents need richer semantics than role, name, text, and value.
 
 The important boundary is that logic stays inspectable without the DOM, and the DOM remains a projection over the tested contract.

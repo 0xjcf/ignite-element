@@ -26,6 +26,8 @@ import type {
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
 } from "../RenderArgs";
+import { jsx, jsxs } from "../renderers/jsx/jsx-runtime";
+import { test as igniteTest } from "../testing";
 import type { InferStateAndEvent } from "../utils/igniteRedux";
 
 type ActorWebShipmentContext = {
@@ -950,6 +952,87 @@ describe("igniteCore", () => {
 
 		expect(story.lifecycle()).toHaveLength(lifecycleCount);
 		expect((await register.execute("increment")).state.counter.count).toBe(2);
+	});
+
+	it("projects runtime stories into an accessibility bridge without mixing trace entries", async () => {
+		const store = counterStore();
+		type StoreState = InferStateAndEvent<typeof store>["State"];
+		const register = igniteCore({
+			adapter: "redux",
+			source: store,
+			states: (snapshot: StoreState) => ({
+				count: snapshot.counter.count,
+			}),
+			commands: ({ actor }) => ({
+				increment: (amount: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+			}),
+		});
+
+		const story = register.record("dom accessibility bridge");
+		const bridge = igniteTest.accessibilityBridge(
+			register,
+			({
+				count,
+				increment,
+			}: {
+				count: number;
+				increment: (amount: number) => void;
+			}) =>
+				jsxs("section", {
+					children: [
+						jsx("output", {
+							role: "status",
+							"aria-label": "Counter total",
+							children: String(count),
+						}),
+						jsx("button", {
+							type: "button",
+							onClick: () => increment(1),
+							children: "Increment",
+						}),
+					],
+				}),
+			{ elementName: "story-dom-bridge" },
+		);
+
+		await story.execute("increment", 2);
+
+		const [statusElement, buttonElement] = igniteTest.expectControls(bridge, [
+			{
+				role: "status",
+				name: "Counter total",
+				text: "2",
+			},
+			{
+				role: "button",
+				name: "Increment",
+			},
+		]);
+
+		expect(statusElement.textContent).toBe("2");
+		expect(buttonElement.textContent?.trim()).toBe("Increment");
+		expect(story.trace().map((entry) => entry.kind)).toEqual([
+			"command",
+			"state",
+			"view",
+			"state",
+			"view",
+		]);
+		expect(story.lifecycle().map((entry) => entry.stage)).toEqual(
+			expect.arrayContaining(["connected", "rendered"]),
+		);
+		expect(
+			story.lifecycle().every((entry) => entry.elementName === "story-dom-bridge"),
+		).toBe(true);
+
+		bridge.stop();
+
+		expect(story.lifecycle().map((entry) => entry.stage)).toEqual(
+			expect.arrayContaining(["disconnected", "cleaned-up"]),
+		);
+
+		story.stop();
 	});
 
 	it("exposes a JSON-serializable agent schema", () => {

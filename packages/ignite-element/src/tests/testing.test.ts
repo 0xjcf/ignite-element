@@ -6,6 +6,7 @@ import counterStore, {
 import { igniteCore } from "../IgniteCore";
 import type { ReduxInstanceConfig, XStateConfig } from "../igniteCore/types";
 import type { EventDescriptor, FacadeEffectArgs } from "../RenderArgs";
+import { jsx, jsxs } from "../renderers/jsx/jsx-runtime";
 import { test as igniteTest } from "../testing";
 import type { IgniteStory } from "../types/agent";
 
@@ -378,6 +379,71 @@ describe("ignite test DSL", () => {
 			},
 		});
 
+		story.stop();
+	});
+
+	it("bridges behavior assertions to accessible controls", async () => {
+		const store = counterStore();
+		const component = igniteCore({
+			adapter: "redux",
+			source: store,
+			view: ({ snapshot }) => ({
+				count: snapshot.counter.count,
+			}),
+			commands: ({ actor }) => ({
+				increment: (amount: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+			}),
+		});
+
+		const story = component.record("accessible counter");
+		const bridge = igniteTest.accessibilityBridge(
+			component,
+			({ count, increment }: { count: number; increment: (amount: number) => void }) =>
+				jsxs("section", {
+					children: [
+						jsx("output", {
+							role: "status",
+							"aria-label": "Counter status",
+							children: String(count),
+						}),
+						jsx("button", {
+							type: "button",
+							onClick: () => increment(1),
+							children: "Increment",
+						}),
+					],
+				}),
+			{ elementName: "counter-accessibility-bridge" },
+		);
+
+		await story.execute("increment", 3);
+
+		expect(
+			igniteTest.expectControls(bridge, [
+				{
+					role: "status",
+					name: "Counter status",
+					text: "3",
+				},
+				{
+					role: "button",
+					name: "Increment",
+				},
+			]),
+		).toHaveLength(2);
+		expect(story.trace().map((entry) => entry.kind)).toEqual([
+			"command",
+			"state",
+			"view",
+			"state",
+			"view",
+		]);
+		expect(story.lifecycle().map((entry) => entry.elementName)).toContain(
+			"counter-accessibility-bridge",
+		);
+
+		bridge.stop();
 		story.stop();
 	});
 
