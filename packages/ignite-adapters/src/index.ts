@@ -1,8 +1,10 @@
 export type {
 	ActorWebAddress,
 	ActorWebCommandActor,
+	ActorWebCommandSource,
 	ActorWebEventSubscriptionOptions,
 	ActorWebExtendedState,
+	ActorWebReadModelSource,
 	ActorWebSource,
 	ActorWebSourceHandle,
 	ActorWebSourceSnapshot,
@@ -12,11 +14,6 @@ export type {
 export { default as createActorWebAdapter } from "./adapters/ActorWebAdapter";
 export { default as createMobXAdapter } from "./adapters/MobxAdapter";
 export { default as createReduxAdapter } from "./adapters/ReduxAdapter";
-export {
-	createXStateAdapter,
-	isXStateActor,
-	isXStateMachine,
-} from "./xstate";
 export type {
 	MobxConfig,
 	MobxEvent,
@@ -28,6 +25,9 @@ export type {
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
 } from "./types";
+export { isReduxSlice, isReduxStore } from "./utils/adapterGuards";
+export type { InferStateAndEvent } from "./utils/igniteRedux";
+export { isMobxObservable } from "./utils/mobxGuards";
 export type {
 	EventsDefinition as XStateEventsDefinition,
 	ExtendedState,
@@ -36,6 +36,8 @@ export type {
 	XStateConfig,
 	XStateSnapshot,
 } from "./xstate";
-export { isReduxSlice, isReduxStore } from "./utils/adapterGuards";
-export type { InferStateAndEvent } from "./utils/igniteRedux";
-export { isMobxObservable } from "./utils/mobxGuards";
+export {
+	createXStateAdapter,
+	isXStateActor,
+	isXStateMachine,
+} from "./xstate";

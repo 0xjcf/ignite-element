@@ -442,8 +442,7 @@ function isActorWebSource(
 		typeof value === "object" &&
 		value !== null &&
 		"snapshot" in value &&
-		"subscribe" in value &&
-		"send" in value
+		"subscribe" in value
 	);
 }
 

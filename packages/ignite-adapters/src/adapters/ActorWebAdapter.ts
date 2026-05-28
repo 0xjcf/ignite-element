@@ -33,10 +33,15 @@ export type ActorWebSourceSnapshot<
 	address: ActorWebAddress;
 	context: Context;
 	phase: string;
+	status?: string;
+	value?: unknown;
+	matches?: (state: string) => boolean;
+	can?: (event: string | { type: string }) => boolean;
+	hasTag?: (tag: string) => boolean;
 	toJSON: () => object;
 };
 
-export type ActorWebSource<
+export type ActorWebReadModelSource<
 	Context extends object = Record<string, never>,
 	Message extends { type: string } = { type: string },
 	Emitted extends { type: string } = Message,
@@ -54,12 +59,26 @@ export type ActorWebSource<
 	subscribeTransportStatus?: (
 		listener: (status: ActorWebTransportStatus) => void,
 	) => () => void;
+	close?: () => void | Promise<void>;
+};
+
+export type ActorWebCommandSource<
+	Context extends object = Record<string, never>,
+	Message extends { type: string } = { type: string },
+	Emitted extends { type: string } = Message,
+> = ActorWebReadModelSource<Context, Message, Emitted> & {
 	send: (message: Message) => Promise<unknown>;
 	ask?: <Response = unknown>(
 		message: Message,
 		timeout?: number,
 	) => Promise<Response>;
 };
+
+export type ActorWebSource<
+	Context extends object = Record<string, never>,
+	Message extends { type: string } = { type: string },
+	Emitted extends { type: string } = Message,
+> = ActorWebReadModelSource<Context, Message, Emitted>;
 
 export type ActorWebExtendedState<
 	Context extends object = Record<string, never>,
@@ -73,7 +92,7 @@ export type ActorWebCommandActor<
 	Context extends object = Record<string, never>,
 	Message extends { type: string } = { type: string },
 	Emitted extends { type: string } = Message,
-> = ActorWebSource<Context, Message, Emitted>;
+> = ActorWebCommandSource<Context, Message, Emitted>;
 
 export type ActorWebSourceHandle<
 	Context extends object = Record<string, never>,
@@ -81,6 +100,7 @@ export type ActorWebSourceHandle<
 	Emitted extends { type: string } = Message,
 > = {
 	source: ActorWebSource<Context, Message, Emitted>;
+	commandSource?: ActorWebCommandSource<Context, Message, Emitted>;
 	stop?: () => void | Promise<void>;
 };
 
@@ -90,7 +110,14 @@ type ActorWebSourceLike<
 	Emitted extends { type: string },
 > =
 	| ActorWebSource<Context, Message, Emitted>
+	| ActorWebCommandSource<Context, Message, Emitted>
 	| ActorWebSourceHandle<Context, Message, Emitted>;
+
+type ActorWebCommandSourceLike<
+	Context extends object,
+	Message extends { type: string },
+	Emitted extends { type: string },
+> = ActorWebCommandSource<Context, Message, Emitted>;
 
 type ActorWebAdapterFactory<
 	Context extends object,
@@ -116,7 +143,7 @@ type ActorWebAdapterEntry<
 > = {
 	adapter: IgniteAdapter<ActorWebExtendedState<Context>, Message>;
 	snapshot: () => ActorWebExtendedState<Context>;
-	actor: ActorWebCommandActor<Context, Message, Emitted>;
+	actor: ActorWebCommandActor<Context, Message, Emitted> | null;
 };
 
 const stoppedSubscribeWarning =
@@ -181,7 +208,7 @@ function createReplaySignature<Context extends object>(
 	});
 }
 
-function isActorWebSource<
+function isActorWebReadModelSource<
 	Context extends object,
 	Message extends { type: string },
 	Emitted extends { type: string },
@@ -192,8 +219,19 @@ function isActorWebSource<
 		typeof value === "object" &&
 		value !== null &&
 		"snapshot" in value &&
-		"subscribe" in value &&
-		"send" in value
+		"subscribe" in value
+	);
+}
+
+function isActorWebCommandSource<
+	Context extends object,
+	Message extends { type: string },
+	Emitted extends { type: string },
+>(value: unknown): value is ActorWebCommandSource<Context, Message, Emitted> {
+	return (
+		isActorWebReadModelSource(
+			value as ActorWebSourceLike<Context, Message, Emitted>,
+		) && "send" in (value as object)
 	);
 }
 
@@ -203,8 +241,23 @@ function resolveHandle<
 	Emitted extends { type: string },
 >(
 	value: ActorWebSourceLike<Context, Message, Emitted>,
+	commandSource?: ActorWebCommandSourceLike<Context, Message, Emitted>,
 ): ActorWebSourceHandle<Context, Message, Emitted> {
-	return isActorWebSource(value) ? { source: value } : value;
+	if (isActorWebReadModelSource(value)) {
+		return {
+			source: value,
+			...(commandSource
+				? { commandSource }
+				: isActorWebCommandSource<Context, Message, Emitted>(value)
+					? { commandSource: value }
+					: {}),
+		};
+	}
+
+	return {
+		...value,
+		...(commandSource ? { commandSource } : {}),
+	};
 }
 
 function requireEntry<
@@ -250,7 +303,9 @@ function createSharedFactory<
 	>;
 	factory.scope = StateScope.Shared;
 	factory.resolveStateSnapshot = () => entry.snapshot();
-	factory.resolveCommandActor = () => entry.actor;
+	factory.resolveCommandActor = () =>
+		entry.actor ??
+		failInvariant("[ActorWebAdapter] Actor-Web commandSource is required.");
 	return factory;
 }
 
@@ -282,11 +337,14 @@ function createIsolatedFactory<
 		).snapshot();
 	};
 	factory.resolveCommandActor = (adapter) => {
-		return requireEntry(
-			registry,
-			adapter,
-			"[ActorWebAdapter] Unable to resolve actor for facade callbacks.",
-		).actor;
+		return (
+			requireEntry(
+				registry,
+				adapter,
+				"[ActorWebAdapter] Unable to resolve actor for facade callbacks.",
+			).actor ??
+			failInvariant("[ActorWebAdapter] Actor-Web commandSource is required.")
+		);
 	};
 
 	return factory;
@@ -302,6 +360,7 @@ function createAdapterEntry<
 ): ActorWebAdapterEntry<Context, Message, Emitted> {
 	const listeners = new Set<(state: ActorWebExtendedState<Context>) => void>();
 	const source = handle.source;
+	const commandSource = handle.commandSource ?? null;
 	let unsubscribeSource: (() => void) | null = null;
 	let unsubscribeTransportStatus: (() => void) | null = null;
 	let isStopped = false;
@@ -402,7 +461,14 @@ function createAdapterEntry<
 				return;
 			}
 
-			void source.send(event).catch((error) => {
+			if (!commandSource) {
+				console.warn(
+					"[ActorWebAdapter] Cannot send events without an Actor-Web commandSource.",
+				);
+				return;
+			}
+
+			void commandSource.send(event).catch((error) => {
 				console.error("[ActorWebAdapter] Failed to send event.", error);
 			});
 		},
@@ -421,14 +487,24 @@ function createAdapterEntry<
 			lastKnownTransportStatus =
 				source.transportStatus?.() ?? lastKnownTransportStatus;
 
-			if (handle.stop) {
-				void Promise.resolve(handle.stop()).catch((error) => {
-					console.error(
-						"[ActorWebAdapter] Failed to stop isolated source.",
-						error,
-					);
-				});
-			}
+			const cleanupSources = async () => {
+				if (handle.stop) {
+					await handle.stop();
+					return;
+				}
+
+				await source.close?.();
+				if (commandSource && commandSource !== source) {
+					await commandSource.close?.();
+				}
+			};
+
+			void cleanupSources().catch((error) => {
+				console.error(
+					"[ActorWebAdapter] Failed to stop isolated source.",
+					error,
+				);
+			});
 		},
 		scope,
 	};
@@ -436,7 +512,7 @@ function createAdapterEntry<
 	return {
 		adapter,
 		snapshot: () => readCurrentState(),
-		actor: source,
+		actor: commandSource,
 	};
 }
 
@@ -451,17 +527,35 @@ export default function createActorWebAdapter<
 		| ((context?: {
 				host?: Host;
 		  }) => ActorWebSourceLike<Context, Message, Emitted>),
+	options: {
+		commandSource?:
+			| ActorWebCommandSourceLike<Context, Message, Emitted>
+			| ((context?: {
+					host?: Host;
+			  }) => ActorWebCommandSourceLike<Context, Message, Emitted>);
+	} = {},
 ): ActorWebAdapterFactory<Context, Message, Emitted, Host> {
 	if (typeof source === "function") {
 		return createIsolatedFactory((host) => {
+			const resolvedCommandSource =
+				typeof options.commandSource === "function"
+					? options.commandSource({ host })
+					: options.commandSource;
 			return createAdapterEntry(
-				resolveHandle(source({ host })),
+				resolveHandle(source({ host }), resolvedCommandSource),
 				StateScope.Isolated,
 			);
 		});
 	}
 
+	const resolvedCommandSource =
+		typeof options.commandSource === "function"
+			? options.commandSource()
+			: options.commandSource;
 	return createSharedFactory(
-		createAdapterEntry(resolveHandle(source), StateScope.Shared),
+		createAdapterEntry(
+			resolveHandle(source, resolvedCommandSource),
+			StateScope.Shared,
+		),
 	);
 }

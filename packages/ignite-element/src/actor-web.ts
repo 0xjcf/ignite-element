@@ -5,8 +5,10 @@ import "./internal/setupDomPolyfill";
 export type {
 	ActorWebAddress,
 	ActorWebCommandActor,
+	ActorWebCommandSource,
 	ActorWebEventSubscriptionOptions,
 	ActorWebExtendedState,
+	ActorWebReadModelSource,
 	ActorWebSource,
 	ActorWebSourceHandle,
 	ActorWebSourceSnapshot,
