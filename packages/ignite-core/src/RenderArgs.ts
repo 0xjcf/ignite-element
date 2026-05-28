@@ -42,6 +42,85 @@ export type NumberCommandInputOptions = Omit<
 	"type"
 >;
 
+export type StringCommandInputMetadata = {
+	type: "string";
+	description?: string;
+	minLength?: number;
+	maxLength?: number;
+	pattern?: string;
+	format?: string;
+	default?: string;
+};
+
+export type StringCommandInputOptions = Omit<
+	StringCommandInputMetadata,
+	"type"
+>;
+
+export type BooleanCommandInputMetadata = {
+	type: "boolean";
+	description?: string;
+	default?: boolean;
+};
+
+export type BooleanCommandInputOptions = Omit<
+	BooleanCommandInputMetadata,
+	"type"
+>;
+
+export type EnumCommandInputMetadata<Value extends string = string> = {
+	type: "string";
+	description?: string;
+	enum: readonly Value[];
+	default?: Value;
+};
+
+export type EnumCommandInputOptions<Value extends string = string> = Omit<
+	EnumCommandInputMetadata<Value>,
+	"type" | "enum"
+>;
+
+export type CommandInputMetadata =
+	| NumberCommandInputMetadata
+	| StringCommandInputMetadata
+	| BooleanCommandInputMetadata
+	| EnumCommandInputMetadata
+	| ObjectCommandInputMetadata
+	| ArrayCommandInputMetadata;
+
+export type ObjectCommandInputProperties = Record<
+	string,
+	CommandInputMetadata
+>;
+
+export type ObjectCommandInputMetadata = {
+	type: "object";
+	description?: string;
+	properties?: ObjectCommandInputProperties;
+	required?: readonly string[];
+	additionalProperties?: boolean | CommandInputMetadata;
+	default?: { [key: string]: CommandMetadataValue | undefined };
+};
+
+export type ObjectCommandInputOptions = Omit<
+	ObjectCommandInputMetadata,
+	"type" | "properties"
+>;
+
+export type ArrayCommandInputMetadata = {
+	type: "array";
+	description?: string;
+	items?: CommandInputMetadata;
+	minItems?: number;
+	maxItems?: number;
+	default?: CommandMetadataValue[];
+};
+
+export type ArrayCommandInputOptions = Omit<
+	ArrayCommandInputMetadata,
+	"type" | "items"
+>;
+
 export type CommandMetadata = {
 	description?: string;
 	input?: CommandMetadataValue;
@@ -60,6 +139,20 @@ export type CommandHelper = {
 		metadata?: CommandMetadata,
 	): CommandWithMetadata<Command>;
 	number(options?: NumberCommandInputOptions): NumberCommandInputMetadata;
+	string(options?: StringCommandInputOptions): StringCommandInputMetadata;
+	boolean(options?: BooleanCommandInputOptions): BooleanCommandInputMetadata;
+	enum<const Values extends readonly [string, ...string[]]>(
+		values: Values,
+		options?: EnumCommandInputOptions<Values[number]>,
+	): EnumCommandInputMetadata<Values[number]>;
+	object(
+		properties?: ObjectCommandInputProperties,
+		options?: ObjectCommandInputOptions,
+	): ObjectCommandInputMetadata;
+	array(
+		items?: CommandInputMetadata,
+		options?: ArrayCommandInputOptions,
+	): ArrayCommandInputMetadata;
 };
 
 const attachCommandMetadata = <Command extends FacadeCommandFunction>(
@@ -93,6 +186,48 @@ export const command: CommandHelper = Object.assign(attachCommandMetadata, {
 	number(options: NumberCommandInputOptions = {}) {
 		return {
 			type: "number" as const,
+			...options,
+		};
+	},
+	string(options: StringCommandInputOptions = {}) {
+		return {
+			type: "string" as const,
+			...options,
+		};
+	},
+	boolean(options: BooleanCommandInputOptions = {}) {
+		return {
+			type: "boolean" as const,
+			...options,
+		};
+	},
+	enum<const Values extends readonly [string, ...string[]]>(
+		values: Values,
+		options: EnumCommandInputOptions<Values[number]> = {},
+	) {
+		return {
+			type: "string" as const,
+			enum: [...values],
+			...options,
+		};
+	},
+	object(
+		properties: ObjectCommandInputProperties = {},
+		options: ObjectCommandInputOptions = {},
+	) {
+		return {
+			type: "object" as const,
+			properties,
+			...options,
+		};
+	},
+	array(
+		items?: CommandInputMetadata,
+		options: ArrayCommandInputOptions = {},
+	) {
+		return {
+			type: "array" as const,
+			...(typeof items === "undefined" ? {} : { items }),
 			...options,
 		};
 	},

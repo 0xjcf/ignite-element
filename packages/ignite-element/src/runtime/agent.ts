@@ -47,12 +47,25 @@ type IgniteStoryTraceEntryDraft =
 
 function getCommandContract(
 	commandValue: unknown,
-): IgniteSchemaValue | undefined {
+): Record<string, IgniteSchemaValue> | undefined {
 	if (typeof commandValue !== "function") {
 		return undefined;
 	}
 
-	return toSchemaValue(Reflect.get(commandValue, commandMetadataSymbol));
+	const metadata = toSchemaValue(
+		Reflect.get(commandValue, commandMetadataSymbol),
+	);
+
+	if (
+		typeof metadata === "undefined" ||
+		metadata === null ||
+		Array.isArray(metadata) ||
+		typeof metadata !== "object"
+	) {
+		return undefined;
+	}
+
+	return metadata;
 }
 
 function normalizeTraceValue(value: unknown): IgniteSchemaValue {
