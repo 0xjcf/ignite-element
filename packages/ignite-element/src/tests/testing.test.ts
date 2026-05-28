@@ -325,7 +325,8 @@ describe("ignite test DSL", () => {
 			igniteTest.expectTrace(trace, [
 				{ kind: "command", command: "increment", payload: 2 },
 				{ kind: "event", event: "counter-incremented", payload: { count: 2 } },
-				(entry) => entry.kind === "view" && entry.phase === "after" && entry.step === 2,
+				(entry) =>
+					entry.kind === "view" && entry.phase === "after" && entry.step === 2,
 			]),
 		).toEqual(trace);
 
@@ -353,10 +354,11 @@ describe("ignite test DSL", () => {
 		const serializedTrace = igniteTest.serializeTrace(originalTrace);
 
 		igniteTest.expectTrace(serializedTrace, serializedTrace, { exact: true });
-		serializedTrace[1] = {
-			...serializedTrace[1],
-			state: { counter: { count: 999 } },
-		};
+		const mutatedStateEntry = serializedTrace[1];
+		if (mutatedStateEntry.kind !== "state") {
+			throw new Error("expected the second trace entry to be state");
+		}
+		mutatedStateEntry.state = { counter: { count: 999 } };
 
 		expect(story.trace()[1]).toMatchObject({
 			kind: "state",

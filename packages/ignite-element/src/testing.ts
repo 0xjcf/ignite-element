@@ -85,7 +85,12 @@ export type IgniteTestHelpers = {
 	serializeTrace: (
 		trace: readonly IgniteStoryTraceEntry[],
 	) => IgniteStoryTraceSnapshot;
-	snapshotStory: <State, Commands extends FacadeCommandResult, Events extends EventMap, View extends Record<string, unknown>>(
+	snapshotStory: <
+		State,
+		Commands extends FacadeCommandResult,
+		Events extends EventMap,
+		View extends Record<string, unknown>,
+	>(
 		story: IgniteStory<State, Commands, Events, View>,
 	) => IgniteStorySnapshot<State, Events, View>;
 	expectTrace: (
@@ -254,12 +259,13 @@ const snapshotStory = <
 	View extends Record<string, unknown>,
 >(
 	story: IgniteStory<State, Commands, Events, View>,
-) => ({
-	name: story.name,
-	trace: serializeTrace(story.trace()),
-	lifecycle: cloneSerializable(story.lifecycle()),
-	summary: cloneSerializable(story.summary()),
-}) satisfies IgniteStorySnapshot<State, Events, View>;
+) =>
+	({
+		name: story.name,
+		trace: serializeTrace(story.trace()),
+		lifecycle: cloneSerializable(story.lifecycle()),
+		summary: cloneSerializable(story.summary()),
+	}) satisfies IgniteStorySnapshot<State, Events, View>;
 
 const traceEntryMatches = (
 	actual: IgniteStoryTraceSnapshotEntry,
