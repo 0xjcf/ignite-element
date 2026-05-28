@@ -74,7 +74,7 @@ const registerSharedXState = igniteCore({
     decrement: () => actor.send({ type: "DEC" }),
     toggleDarkMode: () => actor.send({ type: "TOGGLE_DARK" }),
   }),
-  effects: (snapshot, prevSnapshot, { emit }) => {
+  effects: ({ snapshot, prevSnapshot, emit }) => {
     if (snapshot.context.darkMode === prevSnapshot.context.darkMode) return;
     emit("toggled", { isDark: snapshot.context.darkMode });
   }),
@@ -86,7 +86,7 @@ const registerIsolatedXState = igniteCore({
   view: ({ snapshot }) => ({ /* same mapping as shared */ }),
   events: (event) => ({ toggled: event<{ isDark: boolean }>() }),
   commands: ({ actor }) => ({ /* same commands as shared */ }),
-  effects: (snapshot, prevSnapshot, ctx) => {
+  effects: ({ snapshot, prevSnapshot, emit }) => {
     /* same effects as shared */
   },
 });
@@ -136,7 +136,7 @@ const apiShowcase = igniteCore({
       },
     ),
   }),
-  effects: (snapshot, prevSnapshot, { emit }) => {
+  effects: ({ snapshot, prevSnapshot, emit }) => {
     if (snapshot.context.count !== prevSnapshot.context.count) {
       emit("api-count-changed", { count: snapshot.context.count });
     }

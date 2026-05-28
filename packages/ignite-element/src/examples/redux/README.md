@@ -65,7 +65,7 @@ export const registerSharedRedux = igniteCore({
 export const registerIsolatedRedux = igniteCore({
   source: counterSlice,
   view: ({ snapshot }) => ({
-    count: snapshot.counter.count,
+    count: snapshot.count,
   }),
   commands: ({ actor }) => ({
     decrement: () => actor.dispatch(counterSlice.actions.decrement()),
@@ -82,13 +82,13 @@ Each registered element receives `state`, `send`, and the derived facade helpers
 
 ## Styling with Bootstrap
 
-Bootstrap is bundled once for the entire example and injected via an advanced `ignite-renderer` config:
+Bootstrap is bundled once for the entire example and injected via the example's advanced `ignite-renderer` config:
 
 ```ts
 import { defineIgniteConfig } from "ignite-renderer";
 
 export default defineIgniteConfig({
-  styles: new URL("./src/scss/styles.scss", import.meta.url).href, // formerly globalStyles
+  styles: new URL("./src/scss/styles.scss", import.meta.url).href,
   renderer: "ignite-jsx",
 });
 ```

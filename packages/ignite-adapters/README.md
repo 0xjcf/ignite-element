@@ -35,5 +35,6 @@ Most application and component authors should use:
 
 Actor-Web owns orchestration, transport, and runtime lifecycle coordination.
 Ignite consumes projection/read-model state from that boundary. See
-`../../docs/adr-003-shared-arc.md` and `../../docs/shared-architecture-model.md`
-for the ADR-003 boundary model.
+[ADR-003](../../docs/adr-003-shared-arc.md) and the
+[shared architecture model](../../docs/shared-architecture-model.md) for the
+boundary model.
