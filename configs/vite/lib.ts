@@ -1,3 +1,4 @@
+import type { ModuleFormat } from "rollup";
 import type { UserConfig } from "vite";
 import dts from "vite-plugin-dts";
 
@@ -22,7 +23,7 @@ export function createLibConfig({
 			lib: {
 				entry,
 				name,
-				fileName: (format: string, entryName: string) =>
+				fileName: (format: ModuleFormat, entryName: string) =>
 					entryName === "index"
 						? `${name}.${format}.js`
 						: `${entryName}.${format}.js`,

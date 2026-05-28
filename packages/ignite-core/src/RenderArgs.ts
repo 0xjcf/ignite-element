@@ -17,9 +17,7 @@ export type FacadeCommandFunction = (...args: any[]) => unknown;
 
 export type FacadeCommandResult = Record<string, FacadeCommandFunction>;
 
-export const commandMetadataSymbol: unique symbol = Symbol.for(
-	"ignite.command.metadata",
-) as never;
+export const commandMetadataSymbol = Symbol.for("ignite.command.metadata");
 
 export type CommandMetadataPrimitive = null | boolean | number | string;
 
