@@ -71,6 +71,10 @@ export type IgniteStoryTraceEntry =
 	| IgniteStoryViewTraceEntry
 	| IgniteStoryEventTraceEntry;
 
+export type IgniteStoryTraceSnapshotEntry = IgniteStoryTraceEntry;
+
+export type IgniteStoryTraceSnapshot = IgniteStoryTraceSnapshotEntry[];
+
 export type IgniteStoryLifecycleStage =
 	| "registered"
 	| "connected"

@@ -7,6 +7,10 @@ import type {
 import type {
 	IgniteAgentExecutionResult,
 	IgniteAgentRuntime,
+	IgniteStory,
+	IgniteStoryTraceEntry,
+	IgniteStoryTraceSnapshot,
+	IgniteStoryTraceSnapshotEntry,
 	RuntimeEvent,
 } from "./types/agent";
 
@@ -38,6 +42,18 @@ export type IgniteEventExpectation<
 	payload?: IgniteEventPayloadExpectation<EventPayload<Events[Type]>>;
 };
 
+export type IgniteStoryTraceExpectationEntry =
+	| DeepPartial<IgniteStoryTraceSnapshotEntry>
+	| ((
+			entry: IgniteStoryTraceSnapshotEntry,
+			index: number,
+			trace: IgniteStoryTraceSnapshot,
+	  ) => boolean);
+
+export type IgniteStoryTraceAssertionOptions = {
+	exact?: boolean;
+};
+
 export type IgniteTestScenario<
 	State,
 	Commands extends FacadeCommandResult = FacadeCommandResult,
@@ -62,6 +78,25 @@ export type IgniteTestScenario<
 	): IgniteTestScenario<State, Commands, Events>;
 	expectNoEvents(): IgniteTestScenario<State, Commands, Events>;
 	getResult(): IgniteAgentExecutionResult<State, Events>;
+};
+
+export type IgniteTestHelpers = {
+	serializeTrace: (
+		trace: readonly IgniteStoryTraceEntry[],
+	) => IgniteStoryTraceSnapshot;
+	snapshotStory: <State, Commands extends FacadeCommandResult, Events extends EventMap, View extends Record<string, unknown>>(
+		story: IgniteStory<State, Commands, Events, View>,
+	) => {
+		name: string;
+		trace: IgniteStoryTraceSnapshot;
+		lifecycle: ReturnType<IgniteStory<State, Commands, Events, View>["lifecycle"]>;
+		summary: ReturnType<IgniteStory<State, Commands, Events, View>["summary"]>;
+	};
+	expectTrace: (
+		trace: readonly IgniteStoryTraceEntry[],
+		expected: readonly IgniteStoryTraceExpectationEntry[],
+		options?: IgniteStoryTraceAssertionOptions,
+	) => IgniteStoryTraceSnapshot;
 };
 
 type RuntimeState<Runtime> = Runtime extends IgniteAgentRuntime<
@@ -105,6 +140,26 @@ const formatValue = (value: unknown): string => {
 		return JSON.stringify(value, null, 2) ?? String(value);
 	} catch {
 		return String(value);
+	}
+};
+
+const cloneSerializable = <Value>(value: Value): Value =>
+	JSON.parse(JSON.stringify(value)) as Value;
+
+const cloneTraceSnapshotEntry = (
+	entry: IgniteStoryTraceEntry,
+): IgniteStoryTraceSnapshotEntry => {
+	switch (entry.kind) {
+		case "command":
+			return typeof entry.payload === "undefined"
+				? { ...entry }
+				: { ...entry, payload: cloneSerializable(entry.payload) };
+		case "event":
+			return { ...entry, payload: cloneSerializable(entry.payload) };
+		case "state":
+			return { ...entry, state: cloneSerializable(entry.state) };
+		case "view":
+			return { ...entry, view: cloneSerializable(entry.view) };
 	}
 };
 
@@ -192,6 +247,88 @@ const assertEvent = <
 	}
 };
 
+const serializeTrace = (
+	trace: readonly IgniteStoryTraceEntry[],
+): IgniteStoryTraceSnapshot => trace.map(cloneTraceSnapshotEntry);
+
+const snapshotStory = <
+	State,
+	Commands extends FacadeCommandResult,
+	Events extends EventMap,
+	View extends Record<string, unknown>,
+>(
+	story: IgniteStory<State, Commands, Events, View>,
+) => ({
+	name: story.name,
+	trace: serializeTrace(story.trace()),
+	lifecycle: cloneSerializable(story.lifecycle()),
+	summary: cloneSerializable(story.summary()),
+});
+
+const traceEntryMatches = (
+	actual: IgniteStoryTraceSnapshotEntry,
+	expected: IgniteStoryTraceExpectationEntry,
+	index: number,
+	trace: IgniteStoryTraceSnapshot,
+) =>
+	typeof expected === "function"
+		? expected(actual, index, trace)
+		: valuesMatch(actual, expected);
+
+const expectTrace = (
+	trace: readonly IgniteStoryTraceEntry[],
+	expected: readonly IgniteStoryTraceExpectationEntry[],
+	options?: IgniteStoryTraceAssertionOptions,
+): IgniteStoryTraceSnapshot => {
+	const snapshot = serializeTrace(trace);
+	const exact = options?.exact ?? false;
+
+	if (expected.length === 0) {
+		return snapshot;
+	}
+
+	if (exact && snapshot.length !== expected.length) {
+		throw new Error(
+			`[igniteTest] Trace length mismatch.\nExpected entries: ${expected.length}\nReceived entries: ${snapshot.length}\nTrace: ${formatValue(snapshot)}`,
+		);
+	}
+
+	if (exact) {
+		for (const [index, matcher] of expected.entries()) {
+			if (!traceEntryMatches(snapshot[index], matcher, index, snapshot)) {
+				throw new Error(
+					`[igniteTest] Trace entry ${index + 1} did not match.\nExpected: ${formatValue(matcher)}\nReceived: ${formatValue(snapshot[index])}\nTrace: ${formatValue(snapshot)}`,
+				);
+			}
+		}
+
+		return snapshot;
+	}
+
+	let searchIndex = 0;
+
+	for (const matcher of expected) {
+		let matchedIndex = -1;
+
+		for (let index = searchIndex; index < snapshot.length; index += 1) {
+			if (traceEntryMatches(snapshot[index], matcher, index, snapshot)) {
+				matchedIndex = index;
+				break;
+			}
+		}
+
+		if (matchedIndex === -1) {
+			throw new Error(
+				`[igniteTest] Trace expectation not found.\nExpected: ${formatValue(matcher)}\nTrace: ${formatValue(snapshot)}`,
+			);
+		}
+
+		searchIndex = matchedIndex + 1;
+	}
+
+	return snapshot;
+};
+
 class IgniteTestDriver<
 	State,
 	Commands extends FacadeCommandResult,
@@ -265,7 +402,7 @@ class IgniteTestDriver<
 	}
 }
 
-export function test<
+function createTestScenario<
 	Runtime extends {
 		execute: unknown;
 		getState: () => unknown;
@@ -285,3 +422,11 @@ export function test<
 		>,
 	);
 }
+
+type IgniteTestFunction = typeof createTestScenario & IgniteTestHelpers;
+
+export const test: IgniteTestFunction = Object.assign(createTestScenario, {
+	serializeTrace,
+	snapshotStory,
+	expectTrace,
+});

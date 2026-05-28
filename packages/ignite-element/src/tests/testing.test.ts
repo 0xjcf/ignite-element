@@ -120,6 +120,218 @@ describe("ignite test DSL", () => {
 		]);
 	});
 
+	it("serializes story traces and matches ordered workflow checkpoints", async () => {
+		const store = counterStore();
+		const component = igniteCore({
+			adapter: "redux",
+			source: store,
+			view: ({ snapshot }) => ({
+				count: snapshot.counter.count,
+				isEven: snapshot.counter.count % 2 === 0,
+			}),
+			commands: ({ actor }) => ({
+				increment: (amount: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+			}),
+			events: (event) => ({
+				"counter-incremented": event<{ count: number }>(),
+			}),
+			effects: ({ snapshot, prevSnapshot, emit }) => {
+				if (snapshot.counter.count === prevSnapshot.counter.count) {
+					return;
+				}
+
+				emit("counter-incremented", {
+					count: snapshot.counter.count,
+				});
+			},
+		} satisfies ReduxInstanceConfig<
+			typeof store,
+			{
+				"counter-incremented": EventDescriptor<{ count: number }>;
+			},
+			{
+				count: number;
+				isEven: boolean;
+			},
+			{
+				increment: (amount: number) => unknown;
+			}
+		>);
+
+		const story = component.record("counter story");
+		await story.execute("increment", 2);
+		await story.execute("increment", 1);
+
+		const trace = igniteTest.serializeTrace(story.trace());
+		const snapshot = igniteTest.snapshotStory(story);
+
+		expect(trace).toEqual(snapshot.trace);
+		expect(snapshot).toMatchInlineSnapshot(`
+			{
+			  "lifecycle": [],
+			  "name": "counter story",
+			  "summary": {
+			    "commandCount": 2,
+			    "events": [
+			      {
+			        "payload": {
+			          "count": 2,
+			        },
+			        "type": "counter-incremented",
+			      },
+			      {
+			        "payload": {
+			          "count": 3,
+			        },
+			        "type": "counter-incremented",
+			      },
+			    ],
+			    "finalState": {
+			      "counter": {
+			        "count": 3,
+			      },
+			    },
+			    "finalView": {
+			      "count": 3,
+			      "isEven": false,
+			    },
+			    "lifecycleCount": 0,
+			    "name": "counter story",
+			    "traceCount": 12,
+			  },
+			  "trace": [
+			    {
+			      "command": "increment",
+			      "kind": "command",
+			      "payload": 2,
+			      "sequence": 1,
+			      "step": 1,
+			    },
+			    {
+			      "kind": "state",
+			      "phase": "before",
+			      "sequence": 2,
+			      "state": {
+			        "counter": {
+			          "count": 0,
+			        },
+			      },
+			      "step": 1,
+			    },
+			    {
+			      "kind": "view",
+			      "phase": "before",
+			      "sequence": 3,
+			      "step": 1,
+			      "view": {
+			        "count": 0,
+			        "isEven": true,
+			      },
+			    },
+			    {
+			      "event": "counter-incremented",
+			      "kind": "event",
+			      "payload": {
+			        "count": 2,
+			      },
+			      "sequence": 4,
+			      "step": 1,
+			    },
+			    {
+			      "kind": "state",
+			      "phase": "after",
+			      "sequence": 5,
+			      "state": {
+			        "counter": {
+			          "count": 2,
+			        },
+			      },
+			      "step": 1,
+			    },
+			    {
+			      "kind": "view",
+			      "phase": "after",
+			      "sequence": 6,
+			      "step": 1,
+			      "view": {
+			        "count": 2,
+			        "isEven": true,
+			      },
+			    },
+			    {
+			      "command": "increment",
+			      "kind": "command",
+			      "payload": 1,
+			      "sequence": 7,
+			      "step": 2,
+			    },
+			    {
+			      "kind": "state",
+			      "phase": "before",
+			      "sequence": 8,
+			      "state": {
+			        "counter": {
+			          "count": 2,
+			        },
+			      },
+			      "step": 2,
+			    },
+			    {
+			      "kind": "view",
+			      "phase": "before",
+			      "sequence": 9,
+			      "step": 2,
+			      "view": {
+			        "count": 2,
+			        "isEven": true,
+			      },
+			    },
+			    {
+			      "event": "counter-incremented",
+			      "kind": "event",
+			      "payload": {
+			        "count": 3,
+			      },
+			      "sequence": 10,
+			      "step": 2,
+			    },
+			    {
+			      "kind": "state",
+			      "phase": "after",
+			      "sequence": 11,
+			      "state": {
+			        "counter": {
+			          "count": 3,
+			        },
+			      },
+			      "step": 2,
+			    },
+			    {
+			      "kind": "view",
+			      "phase": "after",
+			      "sequence": 12,
+			      "step": 2,
+			      "view": {
+			        "count": 3,
+			        "isEven": false,
+			      },
+			    },
+			  ],
+			}
+		`);
+
+		expect(
+			igniteTest.expectTrace(trace, [
+				{ kind: "command", command: "increment", payload: 2 },
+				{ kind: "event", event: "counter-incremented", payload: { count: 2 } },
+				(entry) => entry.kind === "view" && entry.phase === "after" && entry.step === 2,
+			]),
+		).toEqual(trace);
+
+		story.stop();
+	});
+
 	it("throws a useful error when execution assertions run before when()", () => {
 		const store = counterStore();
 		const component = igniteCore({
