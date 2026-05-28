@@ -463,9 +463,13 @@ No active tasks.
 
 - Title: Clarify Actor-Web projection integration for Ignite v3
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/clarify-actor-web-projection-integration-for-ignite-v3.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
