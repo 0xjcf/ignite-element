@@ -430,8 +430,8 @@ No active tasks.
 
 - Title: CodeRabbit P2 docs and examples accuracy
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/coderabbit-p2-docs-and-examples-accuracy.md
 - Verification lane: fast
 - Policy sensitivity: standard
