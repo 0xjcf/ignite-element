@@ -32,12 +32,13 @@ No active tasks.
 
 - Title: define DOM accessibility bridge for behavior stories
 - Mode: 4-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/define-dom-accessibility-bridge-for-behavior-stories.md
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
+
 ## Completed Tasks
 
 ### Task: clean FAS tracker and package metadata review hygiene
