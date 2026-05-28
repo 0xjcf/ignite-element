@@ -452,9 +452,13 @@ No active tasks.
 
 - Title: Lock the config-free Ignite JSX v3 happy path
 - Mode: 4-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/lock-the-config-free-ignite-jsx-v3-happy-path.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ### Task: Clarify Actor-Web projection integration for Ignite v3
 
 - Title: Clarify Actor-Web projection integration for Ignite v3
