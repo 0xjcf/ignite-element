@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createMachine, type StateFrom } from "xstate";
+import { assign, createMachine, type StateFrom } from "xstate";
 import counterStore, {
 	counterSlice,
 } from "../examples/redux/src/js/reduxCounterStore";
@@ -523,6 +523,73 @@ describe("ignite test DSL", () => {
 		});
 	});
 
+	it("matches label-based control names and removes the bridge host on stop", async () => {
+		const machine = createMachine({
+			context: {
+				limit: 3,
+			},
+			initial: "ready",
+			states: {
+				ready: {
+					on: {
+						SET_LIMIT: {
+							actions: assign({
+								limit: ({ event }) =>
+									event.type === "SET_LIMIT" ? event.limit : 3,
+							}),
+						},
+					},
+				},
+			},
+		});
+		const component = igniteCore({
+			adapter: "xstate",
+			source: machine,
+			view: ({ snapshot }) => ({
+				limit: snapshot.context.limit,
+			}),
+			commands: ({ actor }) => ({
+				setLimit: (limit: number) => actor.send({ type: "SET_LIMIT", limit }),
+			}),
+		});
+
+		const story = component.record("bridge labels");
+		const bridge = igniteTest.accessibilityBridge(
+			component,
+			({ limit }: { limit: number }) =>
+				jsx("label", {
+					children: [
+						"Limit",
+						jsx("input", {
+							type: "range",
+							min: 3,
+							max: 12,
+							value: String(limit),
+						}),
+					],
+				}),
+			{ elementName: "labelled-range-bridge" },
+		);
+
+		await story.execute("setLimit", 6);
+
+		expect(
+			igniteTest.expectControls(bridge, [
+				{
+					role: "slider",
+					name: "Limit",
+					value: "6",
+				},
+			]),
+		).toHaveLength(1);
+		expect(document.body.contains(bridge.host)).toBe(true);
+
+		bridge.stop();
+
+		expect(document.body.contains(bridge.host)).toBe(false);
+		story.stop();
+	});
+
 	it("reports missing workflow checkpoints with serialized trace context", async () => {
 		const store = counterStore();
 		const component = igniteCore({
@@ -609,6 +676,27 @@ describe("ignite test DSL", () => {
 
 		expect(() => igniteTest(component).expectNoEvents()).toThrow(
 			"[igniteTest] No command has been executed yet. Call when() before asserting execution results.",
+		);
+	});
+
+	it("rejects accessibility bridges for non-Ignite runtimes", () => {
+		expect(() =>
+			igniteTest.accessibilityBridge(
+				{
+					async execute() {
+						return {
+							state: {},
+							events: [],
+						};
+					},
+					getState() {
+						return {};
+					},
+				},
+				() => null,
+			),
+		).toThrow(
+			"[igniteTest] DOM accessibility bridge is only available on Ignite component runtimes.",
 		);
 	});
 });
