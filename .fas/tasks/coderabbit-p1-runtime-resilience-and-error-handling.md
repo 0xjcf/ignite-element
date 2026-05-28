@@ -32,9 +32,12 @@ Fix current CodeRabbit runtime resilience findings: schema toJSON recursion guar
 - packages/ignite-element/src/runtime/schema.ts
 - packages/ignite-element/src/runtime/effects.ts
 - packages/ignite-element/src/runtime/agent.ts
+- packages/ignite-element/src/tests/IgniteCore.test.ts
 
 ## Scope Amendments
-- None.
+- Type: scope-refresh
+- Added at: 2026-05-28
+- Added paths: packages/ignite-element/src/tests/IgniteCore.test.ts
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
