@@ -481,6 +481,13 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: Align Actor-Web igniteCore adapter with view-first single-source DX
+
+- Title: Align Actor-Web igniteCore adapter with view-first single-source DX
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/align-actor-web-ignitecore-adapter-with-view-first-single-so.md
 ## Template
 
 ### Task: <short task title>
