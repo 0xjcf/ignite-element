@@ -362,13 +362,14 @@ No active tasks.
 
 - Title: CodeRabbit P0 adapter public API and runtime correctness
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/coderabbit-p0-adapter-public-api-and-runtime-correctness.md
 - Automation mode: advisory
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
+
 ### Task: CodeRabbit P0 renderer package correctness
 
 - Title: CodeRabbit P0 renderer package correctness
