@@ -1,4 +1,4 @@
-# add workflow trace assertions and serializable story snapsho
+# add workflow trace assertions and serializable story snapshots
 
 ## Source
 Created with `fas create-task` on 2026-05-26.
@@ -25,9 +25,70 @@ Follow-up from inspector runtime investigation. Agent runtime already exposes re
 - packages/ignite-element/src/types/agent.ts
 - packages/ignite-element/src/tests/testing.test.ts
 - docs/site/src/content/docs/guides/agent-runtime-v3.mdx
+- packages/ignite-element/src/tests/types/igniteCore.types.test.ts
+- packages/ignite-element/src/examples/xstate/xstateAgentRuntimeShowcase.tsx
+- packages/ignite-element/src/index.ts
+- packages/ignite-element/src/xstate.ts
+- packages/ignite-element/src/redux.ts
+- packages/ignite-element/src/mobx.ts
+- packages/ignite-element/src/actor-web.ts
+- packages/ignite-element/src/examples/xstate/README.md
+- docs/site/src/content/docs/api/ignite-core.mdx
+- packages/ignite-element/README.md
+- packages/ignite-element/tests/xstate-agent-runtime.spec.ts
+- .changeset/v3-public-api-boundary.md
+- packages/ignite-element/CHANGELOG.md
 
 ## Scope Amendments
-- None.
+- Type: validation-fix
+- Added at: 2026-05-27
+- Trigger: public execute() types do not match async runtime implementation
+- Reason: Type contract alignment requires updating the public type assertions that verify IgniteAgentRuntime.execute() and IgniteStory.execute().
+- Added paths: packages/ignite-element/src/tests/types/igniteCore.types.test.ts
+- Evidence source: user-report
+- Evidence: user-report | packages/ignite-element/src/types/agent.ts | Root confirmed runtime executeCommand/story.execute are async while public types still advertise synchronous return values.
+- Accuracy signal: high
+- Follow-up needed: Keep runtime behavior unchanged; only align public contracts, docs, and type assertions.
+
+- Type: validation-fix
+- Added at: 2026-05-27
+- Trigger: public execute() promise contract breaks package example typecheck
+- Reason: The xstate agent runtime showcase consumes execute().events synchronously and must await the Promise-returning public contract to keep package typecheck green.
+- Added paths: packages/ignite-element/src/examples/xstate/xstateAgentRuntimeShowcase.tsx
+- Evidence source: typecheck
+- Evidence: typecheck | packages/ignite-element/src/examples/xstate/xstateAgentRuntimeShowcase.tsx | pnpm typecheck failed after aligning execute() return types because the example accesses .events on the returned Promise.
+- Accuracy signal: high
+- Follow-up needed: Keep the example behavior the same and only await execute() where it reads the execution result.
+
+- Type: review-fix
+- Added at: 2026-05-28
+- Trigger: reviewer found snapshot types missing from public entrypoints and stale async examples
+- Reason: Review fixes require exporting the new serializable snapshot types from supported entrypoints and correcting public examples to show await for async runtime/story APIs.
+- Added paths: packages/ignite-element/src/index.ts, packages/ignite-element/src/xstate.ts, packages/ignite-element/src/redux.ts, packages/ignite-element/src/mobx.ts, packages/ignite-element/src/actor-web.ts, packages/ignite-element/src/examples/xstate/README.md, docs/site/src/content/docs/api/ignite-core.mdx
+- Evidence source: reviewer
+- Evidence: reviewer | packages/ignite-element/src/types/agent.ts | IgniteStoryTraceSnapshotEntry, IgniteStoryTraceSnapshot, and IgniteStorySnapshot exist in agent types but were not re-exported from supported package entrypoints; rendered examples still showed sync execute/until calls.
+- Accuracy signal: high
+- Follow-up needed: Keep runtime behavior unchanged; limit changes to public exports, examples, docs, and type coverage.
+
+- Type: review-fix
+- Added at: 2026-05-28
+- Trigger: reviewer found stale async runtime examples and Playwright harness contracts
+- Reason: Review fixes require updating package README examples and Playwright runtime harness types/calls to match Promise-returning execute() and until() contracts.
+- Added paths: packages/ignite-element/README.md, packages/ignite-element/tests/xstate-agent-runtime.spec.ts
+- Evidence source: reviewer
+- Evidence: reviewer | packages/ignite-element/tests/xstate-agent-runtime.spec.ts | Harness typed execute() and until() synchronously and used sync story calls inside page.evaluate; package README also showed sync execute/story usage.
+- Accuracy signal: high
+- Follow-up needed: Keep runtime behavior unchanged; limit changes to docs, e2e harness contract, and snapshot type honesty.
+
+- Type: review-fix
+- Added at: 2026-05-28
+- Trigger: reviewer requested release metadata for public TypeScript contract changes
+- Reason: Release metadata must document Promise-returning execute/story contracts and serializable IgniteSchemaValue-based story snapshot types.
+- Added paths: .changeset/v3-public-api-boundary.md, packages/ignite-element/CHANGELOG.md
+- Evidence source: reviewer
+- Evidence: reviewer | .changeset/v3-public-api-boundary.md | Existing major changeset and changelog are the repo-local release note surfaces for v3 public API boundary changes.
+- Accuracy signal: high
+- Follow-up needed: Keep edits to release metadata only unless markdown/typecheck gates require a mechanical fix.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

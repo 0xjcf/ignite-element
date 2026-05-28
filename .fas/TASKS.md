@@ -21,9 +21,12 @@ No active tasks.
 
 - Title: add workflow trace assertions and serializable story snapshots
 - Mode: 4-agent
-- Status: queued
+- Status: done
 - Owner: implementer
 - Brief: .fas/tasks/add-workflow-trace-assertions-and-serializable-story-snapsho.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: define DOM accessibility bridge for behavior stories
 
