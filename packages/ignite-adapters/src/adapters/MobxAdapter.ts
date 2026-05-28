@@ -202,7 +202,7 @@ function createAdapterEntryFromStore<State extends object>(
 
 			const action = store[event.type];
 			if (typeof action === "function") {
-				if ("args" in event && event.args) {
+				if ("args" in event && Array.isArray(event.args)) {
 					action.apply(store, event.args);
 				} else if (action.length > 0) {
 					// Legacy support: pass the event when the action expects arguments.

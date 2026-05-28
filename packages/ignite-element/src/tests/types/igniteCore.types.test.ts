@@ -888,7 +888,7 @@ describe("igniteCore type inference", () => {
 		type SliceActor = ReduxSliceCommandActor<typeof counterSlice>;
 
 		const statesCallback = (snapshot: SliceState) => ({
-			count: snapshot.counter.count,
+			count: snapshot.count,
 		});
 		const commandsCallback = ({ actor }: { actor: SliceActor }) => ({
 			increment: () => actor.dispatch(counterSlice.actions.increment()),
@@ -917,7 +917,7 @@ describe("igniteCore type inference", () => {
 			ReduxSliceCommandActor<typeof counterSlice>
 		>;
 		const sliceStates = (snapshot: SliceState) => ({
-			count: snapshot.counter.count,
+			count: snapshot.count,
 		});
 		const sliceCommands = ({ actor }: SliceContext) => ({
 			increment: () => actor.dispatch(counterSlice.actions.increment()),

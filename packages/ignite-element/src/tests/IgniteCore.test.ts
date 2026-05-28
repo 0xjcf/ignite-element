@@ -465,7 +465,7 @@ describe("igniteCore", () => {
 		type SliceActor = ReduxSliceCommandActor<typeof counterSlice>;
 
 		const statesCallback = (snapshot: SliceState) => ({
-			count: snapshot.counter.count,
+			count: snapshot.count,
 		});
 		const commandsCallback = ({ actor }: { actor: SliceActor }) => ({
 			increment: () => actor.dispatch(counterSlice.actions.increment()),

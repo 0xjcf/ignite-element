@@ -5,9 +5,14 @@ import counterStore, { counterSlice } from "./reduxCounterStore";
 
 type CounterStoreInstance = ReturnType<typeof counterStore>;
 type CounterSnapshot = ReturnType<CounterStoreInstance["getState"]>;
+type CounterSliceSnapshot = ReturnType<typeof counterSlice.reducer>;
 
 const resolveReduxView = (snapshot: CounterSnapshot) => ({
 	count: snapshot.counter.count,
+});
+
+const resolveReduxSliceView = (snapshot: CounterSliceSnapshot) => ({
+	count: snapshot.count,
 });
 
 const sharedStore = counterStore();
@@ -25,7 +30,7 @@ export const registerSharedRedux = igniteCore({
 
 export const registerIsolatedRedux = igniteCore({
 	source: counterSlice,
-	view: ({ snapshot }) => resolveReduxView(snapshot),
+	view: ({ snapshot }) => resolveReduxSliceView(snapshot),
 	commands: ({ actor }) => ({
 		decrement: () => actor.dispatch(counterSlice.actions.decrement()),
 		increment: () => actor.dispatch(counterSlice.actions.increment()),

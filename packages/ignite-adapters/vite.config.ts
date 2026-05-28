@@ -14,8 +14,9 @@ export default defineConfig(
 		external: ["ignite-core", "@reduxjs/toolkit", "redux", "mobx", "xstate"],
 		globals: {
 			"@reduxjs/toolkit": "RTK",
+			"ignite-core": "igniteCore",
 			redux: "Redux",
-			mobx: "MobX",
+			mobx: "mobx",
 			xstate: "XState",
 		},
 	}),

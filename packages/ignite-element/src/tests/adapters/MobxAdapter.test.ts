@@ -25,9 +25,14 @@ const createCounterStore = () => new CounterStore();
 class AdvancedCounterStore {
 	count = 0;
 	lastLegacyPayload: unknown = null;
+	noArgCalls = 0;
 
 	add = (amount: number) => {
 		this.count += amount;
+	};
+
+	noArg = () => {
+		this.noArgCalls += 1;
 	};
 
 	legacyUpdate = (payload: unknown) => {
@@ -269,6 +274,15 @@ describe("MobXAdapter send variants", () => {
 		const store = factory.resolveCommandActor(adapter);
 		adapter.send({ type: "add", args: [4] });
 		expect(store.count).toBe(4);
+		adapter.stop();
+	});
+
+	it("treats explicit empty args as provided command args", () => {
+		const factory = createMobXAdapter(createAdvancedStore);
+		const adapter = factory();
+		const store = factory.resolveCommandActor(adapter);
+		adapter.send({ type: "noArg", args: [] });
+		expect(store.noArgCalls).toBe(1);
 		adapter.stop();
 	});
 

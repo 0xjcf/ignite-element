@@ -286,7 +286,14 @@ export default function createReduxAdapter(
 			},
 		});
 
-		const adapter = buildAdapter<State, Event>(store, StateScope.Isolated);
+		const getSliceState = (): State => store.getState()[slice.name] as State;
+		const sliceStore: StoreLike<State, Event> = {
+			dispatch: (event) => store.dispatch(event),
+			getState: getSliceState,
+			subscribe: store.subscribe.bind(store),
+		};
+
+		const adapter = buildAdapter<State, Event>(sliceStore, StateScope.Isolated);
 
 		const dispatch: ReduxSliceCommandActor<SliceSource>["dispatch"] = (event) =>
 			store.dispatch(event);
@@ -299,13 +306,13 @@ export default function createReduxAdapter(
 
 		const actor: ReduxSliceCommandActor<SliceSource> = {
 			dispatch,
-			getState: () => store.getState(),
+			getState: getSliceState,
 			subscribe,
 		};
 
 		return {
 			adapter,
-			snapshot: () => store.getState(),
+			snapshot: getSliceState,
 			actor,
 		};
 	});

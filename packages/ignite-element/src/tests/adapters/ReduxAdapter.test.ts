@@ -51,24 +51,24 @@ describe("ReduxAdapter with Slice Source", () => {
 
 	it("should initialize and return the current state", () => {
 		expect(adapter).toBeDefined();
-		expect(adapter.getState()).toEqual({ counter: { count: 0 } });
+		expect(adapter.getState()).toEqual({ count: 0 });
 	});
 
 	it("should dispatch actions and update state", () => {
 		adapter.send({ type: "counter/increment" });
-		expect(adapter.getState()).toEqual({ counter: { count: 1 } });
+		expect(adapter.getState()).toEqual({ count: 1 });
 
 		adapter.send({ type: "counter/addByAmount", payload: 5 });
-		expect(adapter.getState()).toEqual({ counter: { count: 6 } });
+		expect(adapter.getState()).toEqual({ count: 6 });
 
 		adapter.send({ type: "counter/decrement" });
-		expect(adapter.getState()).toEqual({ counter: { count: 5 } });
+		expect(adapter.getState()).toEqual({ count: 5 });
 	});
 
 	it("should prevent invalid actions", () => {
 		// @ts-expect-error Invalid action type
 		adapter.send({ type: "counter/unknownAction" });
-		expect(adapter.getState()).toEqual({ counter: { count: 0 } }); // No state change
+		expect(adapter.getState()).toEqual({ count: 0 }); // No state change
 	});
 
 	it("marks slice adapters as isolated", () => {
@@ -78,10 +78,11 @@ describe("ReduxAdapter with Slice Source", () => {
 
 	it("exposes facade metadata for slice adapters", () => {
 		const snapshot = adapterFactory.resolveStateSnapshot(adapter);
-		expect(snapshot.counter.count).toBe(0);
+		expect(snapshot.count).toBe(0);
 		const actor = adapterFactory.resolveCommandActor(adapter);
 		actor.dispatch(counterSlice.actions.increment());
-		expect(adapter.getState().counter.count).toBe(1);
+		expect(actor.getState().count).toBe(1);
+		expect(adapter.getState().count).toBe(1);
 	});
 });
 

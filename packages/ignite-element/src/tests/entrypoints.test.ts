@@ -2,6 +2,12 @@ import { configureStore } from "@reduxjs/toolkit";
 import { makeAutoObservable } from "mobx";
 import { describe, expect, it } from "vitest";
 import { createMachine } from "xstate";
+import {
+	createXStateAdapter,
+	isXStateActor,
+	isXStateMachine,
+	type XStateConfig,
+} from "ignite-adapters";
 import { igniteCore as igniteCoreActorWeb } from "../actor-web";
 import { igniteCore as igniteCoreMobx } from "../mobx";
 import { igniteCore as igniteCoreRedux } from "../redux";
@@ -58,6 +64,21 @@ describe("public adapter entrypoints", () => {
 		expect(typeof component.watch).toBe("function");
 		expect(typeof component.watchView).toBe("function");
 		expect(typeof component.on).toBe("function");
+	});
+
+	it("keeps xstate exports available from the adapters root entrypoint", () => {
+		const machine = createMachine({
+			initial: "idle",
+			states: {
+				idle: {},
+			},
+		});
+		const config = { source: machine } satisfies XStateConfig<typeof machine>;
+
+		expect(typeof createXStateAdapter).toBe("function");
+		expect(typeof isXStateActor).toBe("function");
+		expect(typeof isXStateMachine).toBe("function");
+		expect(config.source).toBe(machine);
 	});
 
 	it("keeps the redux entrypoint stable", () => {

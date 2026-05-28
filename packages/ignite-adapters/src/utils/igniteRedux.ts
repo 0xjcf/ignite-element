@@ -1,9 +1,9 @@
 import type { AnyAction, EnhancedStore, Slice } from "@reduxjs/toolkit";
 
-// Infer RootState from Slice or Store
-export type InferRootState<Source extends Slice | EnhancedStore> =
+// Infer adapter state from a Slice or Store.
+export type InferAdapterState<Source extends Slice | EnhancedStore> =
 	Source extends Slice
-		? { [K in Source["name"]]: ReturnType<Source["reducer"]> }
+		? ReturnType<Source["reducer"]>
 		: Source extends EnhancedStore
 			? ReturnType<Source["getState"]>
 			: never;
@@ -70,7 +70,7 @@ export type InferStateAndEvent<
 	Source extends Slice | (() => EnhancedStore) | EnhancedStore,
 > = Source extends Slice
 	? {
-			State: InferRootState<Source>;
+			State: InferAdapterState<Source>;
 			Event: InferEvent<Source["actions"]>;
 		}
 	: Source extends (() => EnhancedStore) | EnhancedStore
