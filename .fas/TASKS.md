@@ -10,12 +10,13 @@ No active tasks.
 
 - Title: expand command schema metadata helpers beyond numbers
 - Mode: 4-agent
-- Status: implementing
+- Status: done
 - Owner: implementer
 - Brief: .fas/tasks/expand-command-schema-metadata-helpers-beyond-numbers.md
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
+
 ### Task: add workflow trace assertions and serializable story snapshots
 
 - Title: add workflow trace assertions and serializable story snapshots
