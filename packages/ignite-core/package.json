@@ -6,6 +6,22 @@
 	"module": "dist/ignite-core.es.js",
 	"types": "dist/types/index.d.ts",
 	"description": "Adapter-neutral primitives for the ignite-element package family, versioned in lockstep with ignite-element.",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/0xjcf/ignite-element.git"
+	},
+	"homepage": "https://github.com/0xjcf/ignite-element#readme",
+	"bugs": {
+		"url": "https://github.com/0xjcf/ignite-element/issues"
+	},
+	"keywords": [
+		"ignite-element",
+		"web-components",
+		"state-management",
+		"runtime"
+	],
+	"author": "Jose C. Flores (0xjcf)",
+	"license": "MIT",
 	"exports": {
 		".": {
 			"types": "./dist/types/index.d.ts",
