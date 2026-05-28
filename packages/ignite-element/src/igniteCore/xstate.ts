@@ -38,13 +38,5 @@ export function igniteCoreXState<
 		XStateCommandActor<Machine>,
 		CommandsResult,
 		Events
-	>(createAdapter, options) as IgniteCoreReturn<
-		ExtendedState<Machine>,
-		EventFrom<Machine>,
-		ExtendedState<Machine>,
-		StatesResult,
-		XStateCommandActor<Machine>,
-		CommandsResult,
-		Events
-	>;
+	>(createAdapter, options);
 }

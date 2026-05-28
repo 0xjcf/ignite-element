@@ -6,7 +6,12 @@ import type {
 	EventMap,
 	FacadeCommandFunction,
 	FacadeCommandResult,
+	FacadeCommandsCallback,
+	FacadeEffectsLike,
+	FacadeStatesCallback,
+	FacadeViewCallback,
 } from "../RenderArgs";
+import type { IgniteCoreReturn } from "./types";
 
 export type IgniteComponentAdapterFactory<
 	State,
@@ -19,11 +24,17 @@ export type IgniteComponentAdapterFactory<
 	resolveCommandActor?: (adapter: IgniteAdapter<State, Event>) => CommandActor;
 };
 
-type IgniteComponentFactoryOptions<Events extends EventMap = EmptyEventMap> = {
-	states?: unknown;
-	view?: unknown;
-	commands?: unknown;
-	effects?: unknown;
+export type IgniteComponentFactoryOptions<
+	Snapshot,
+	CommandActor,
+	StatesResult extends Record<string, unknown>,
+	CommandsResult extends FacadeCommandResult,
+	Events extends EventMap = EmptyEventMap,
+> = {
+	states?: FacadeStatesCallback<Snapshot, StatesResult>;
+	view?: FacadeViewCallback<Snapshot, StatesResult>;
+	commands?: FacadeCommandsCallback<CommandActor, CommandsResult, HTMLElement>;
+	effects?: FacadeEffectsLike<Snapshot, CommandActor, Events, HTMLElement>;
 	events?: ((builder: typeof event) => Events) | undefined;
 	cleanup?: boolean;
 };
@@ -49,8 +60,22 @@ export function createIgniteComponentFactory<
 		Snapshot,
 		CommandActor
 	>,
-	options: IgniteComponentFactoryOptions<Events>,
-) {
+	options: IgniteComponentFactoryOptions<
+		Snapshot,
+		CommandActor,
+		StatesResult,
+		CommandsResult,
+		Events
+	>,
+): IgniteCoreReturn<
+	State,
+	Event,
+	Snapshot,
+	StatesResult,
+	CommandActor,
+	CommandsResult,
+	Events
+> {
 	return createComponentFactory<
 		State,
 		Event,
@@ -62,11 +87,19 @@ export function createIgniteComponentFactory<
 		Events
 	>(createAdapter, {
 		scope: createAdapter.scope,
-		states: options.states as never,
-		view: options.view as never,
-		commands: options.commands as never,
-		effects: options.effects as never,
+		states: options.states,
+		view: options.view,
+		commands: options.commands,
+		effects: options.effects,
 		events: options.events?.(event),
 		cleanup: options.cleanup,
-	});
+	}) as IgniteCoreReturn<
+		State,
+		Event,
+		Snapshot,
+		StatesResult,
+		CommandActor,
+		CommandsResult,
+		Events
+	>;
 }

@@ -1,6 +1,10 @@
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type { InferStateAndEvent } from "ignite-adapters";
-import { createReduxAdapter } from "ignite-adapters";
+import {
+	createReduxAdapter,
+	isReduxSlice,
+	isReduxStore,
+} from "ignite-adapters";
 import type { IgniteAdapter, StateScope } from "ignite-core";
 import type {
 	EmptyEventMap,
@@ -8,7 +12,10 @@ import type {
 	FacadeCommandFunction,
 	FacadeCommandResult,
 } from "../RenderArgs";
-import { createIgniteComponentFactory } from "./createIgniteComponentFactory";
+import {
+	createIgniteComponentFactory,
+	type IgniteComponentFactoryOptions,
+} from "./createIgniteComponentFactory";
 import type {
 	IgniteCoreReturn,
 	ReduxBlueprintConfig,
@@ -37,6 +44,38 @@ type ReduxConfig =
 			Record<string, unknown>,
 			FacadeCommandResult
 	  >;
+
+type ReduxSource = ReduxBlueprintSource | ReduxInstanceSource;
+
+type ReduxState = InferStateAndEvent<ReduxSource>["State"];
+type ReduxEvent = InferStateAndEvent<ReduxSource>["Event"];
+type ReduxActor = ReduxCommandActorFor<ReduxSource>;
+
+type ReduxAdapterFactory = (() => IgniteAdapter<ReduxState, ReduxEvent>) & {
+	scope?: StateScope;
+	resolveStateSnapshot?: (
+		adapter: IgniteAdapter<ReduxState, ReduxEvent>,
+	) => ReduxState;
+	resolveCommandActor?: (
+		adapter: IgniteAdapter<ReduxState, ReduxEvent>,
+	) => ReduxActor;
+};
+
+function createReduxAdapterFactory(source: ReduxSource): ReduxAdapterFactory {
+	if (typeof source === "function") {
+		return createReduxAdapter(source) as ReduxAdapterFactory;
+	}
+
+	if (isReduxStore(source)) {
+		return createReduxAdapter(source) as ReduxAdapterFactory;
+	}
+
+	if (isReduxSlice(source)) {
+		return createReduxAdapter(source) as ReduxAdapterFactory;
+	}
+
+	throw new TypeError("[igniteCoreRedux] Unsupported Redux source.");
+}
 
 export function igniteCoreRedux<
 	Source extends ReduxBlueprintSource,
@@ -81,11 +120,11 @@ export function igniteCoreRedux<
 export function igniteCoreRedux(
 	options: ReduxConfig,
 ): IgniteCoreReturn<
-	InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["State"],
-	InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["Event"],
-	InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["State"],
+	ReduxState,
+	ReduxEvent,
+	ReduxState,
 	Record<string, unknown>,
-	ReduxCommandActorFor<ReduxBlueprintSource | ReduxInstanceSource>,
+	ReduxActor,
 	FacadeCommandResult,
 	EventMap
 >;
@@ -93,52 +132,30 @@ export function igniteCoreRedux(
 export function igniteCoreRedux(
 	options: ReduxConfig,
 ): IgniteCoreReturn<
-	InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["State"],
-	InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["Event"],
-	InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["State"],
+	ReduxState,
+	ReduxEvent,
+	ReduxState,
 	Record<string, unknown>,
-	ReduxCommandActorFor<ReduxBlueprintSource | ReduxInstanceSource>,
+	ReduxActor,
 	FacadeCommandResult,
 	EventMap
 > {
-	const createAdapter = createReduxAdapter(
-		options.source as never,
-	) as unknown as (() => IgniteAdapter<
-		InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["State"],
-		InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["Event"]
-	>) & {
-		scope?: StateScope;
-		resolveStateSnapshot?: (
-			adapter: IgniteAdapter<
-				InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["State"],
-				InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["Event"]
-			>,
-		) => InferStateAndEvent<
-			ReduxBlueprintSource | ReduxInstanceSource
-		>["State"];
-		resolveCommandActor?: (
-			adapter: IgniteAdapter<
-				InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["State"],
-				InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["Event"]
-			>,
-		) => ReduxCommandActorFor<ReduxBlueprintSource | ReduxInstanceSource>;
-	};
-
-	return createIgniteComponentFactory<
-		InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["State"],
-		InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["Event"],
-		InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["State"],
+	const createAdapter = createReduxAdapterFactory(options.source);
+	const componentOptions = options as unknown as IgniteComponentFactoryOptions<
+		ReduxState,
+		ReduxActor,
 		Record<string, unknown>,
-		ReduxCommandActorFor<ReduxBlueprintSource | ReduxInstanceSource>,
-		FacadeCommandResult,
-		EventMap
-	>(createAdapter, options) as IgniteCoreReturn<
-		InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["State"],
-		InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["Event"],
-		InferStateAndEvent<ReduxBlueprintSource | ReduxInstanceSource>["State"],
-		Record<string, unknown>,
-		ReduxCommandActorFor<ReduxBlueprintSource | ReduxInstanceSource>,
 		FacadeCommandResult,
 		EventMap
 	>;
+
+	return createIgniteComponentFactory<
+		ReduxState,
+		ReduxEvent,
+		ReduxState,
+		Record<string, unknown>,
+		ReduxActor,
+		FacadeCommandResult,
+		EventMap
+	>(createAdapter, componentOptions);
 }
