@@ -195,6 +195,8 @@ Built-in helpers cover `number`, `string`, `boolean`, `enum`, `object`, and `arr
 Stories make behavior workflows first-class. A recorder captures command, event, state, and projected view changes as one behavior trace, while DOM lifecycle evidence stays available through a separate lifecycle channel on the same story object.
 
 ```ts
+import { test as igniteTest } from "ignite-element/xstate";
+
 const story = counter.record("reaches limit");
 
 story.execute("setLimit", 6);
@@ -202,7 +204,8 @@ story.until((view) => view.isLimited, () => {
   story.execute("increment");
 });
 
-const trace = story.trace();
+const trace = igniteTest.serializeTrace(story.trace());
+const snapshot = igniteTest.snapshotStory(story);
 const lifecycle = story.lifecycle();
 const summary = story.summary();
 
@@ -212,16 +215,25 @@ expect(summary.finalView).toMatchObject({
   isLimited: true,
 });
 
+igniteTest.expectTrace(trace, [
+  { kind: "command", command: "setLimit", payload: 6 },
+  { kind: "event", event: "limit-reached", payload: { count: 6, limit: 6 } },
+  { kind: "view", phase: "after", view: { isLimited: true } },
+]);
+
+expect(snapshot).toMatchInlineSnapshot();
+
 story.stop();
 ```
+
+`igniteTest.serializeTrace(story.trace())` returns a deterministic JSON-safe snapshot shape: ordered entries with `kind`, `sequence`, `step`, and the relevant `command`, `event`, `phase`, `payload`, `state`, or `view` fields. That makes it suitable for snapshot tests, reporter output, or Playwright assertions without requiring DOM selectors. `igniteTest.expectTrace(...)` matches ordered checkpoints instead of forcing brittle full-array equality.
 
 `story.trace()` intentionally contains only behavior evidence: command, state, view, and event entries. `story.lifecycle()` contains custom-element evidence such as registration, connection, render, disconnection, and cleanup when DOM components are active during the story. If no DOM component participates, `story.lifecycle()` returns an empty array.
 
 ## Gaps to close
 
-The current v3 runtime supports `execute()`, `getState()`, `getView()`, `getSchema()`, `on()`, `watch()`, `watchView()`, and `record()`. The remaining gaps are the pieces needed to turn those primitives into a complete agent workflow system.
+The current v3 runtime supports `execute()`, `getState()`, `getView()`, `getSchema()`, `on()`, `watch()`, `watchView()`, `record()`, ordered workflow trace assertions, and serializable story snapshots. The remaining gaps are the pieces needed to turn those primitives into a complete agent workflow system.
 
-- Workflow assertions: add matchers such as `toMatchWorkflow(...)` or a serializable trace format for Vitest and Playwright.
 - Schema semantics: the runtime now ships JSON-serializable helpers for `number`, `string`, `boolean`, `enum`, `object`, and `array` inputs; future work can add higher-level conventions such as examples, UI hints, or shared vocabularies if agents need them.
 - DOM bridge: keep behavior tests headless, then add a small mapping layer that ties workflow expectations to rendered controls and accessible names.
 
