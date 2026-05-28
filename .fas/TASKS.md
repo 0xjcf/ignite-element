@@ -437,6 +437,30 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: Simplify Ignite v3 public event and effect authoring API
+
+- Title: Simplify Ignite v3 public event and effect authoring API
+- Mode: 6-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/simplify-ignite-v3-public-event-and-effect-authoring-api.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+### Task: Lock the config-free Ignite JSX v3 happy path
+
+- Title: Lock the config-free Ignite JSX v3 happy path
+- Mode: 4-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/lock-the-config-free-ignite-jsx-v3-happy-path.md
+### Task: Clarify Actor-Web projection integration for Ignite v3
+
+- Title: Clarify Actor-Web projection integration for Ignite v3
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/clarify-actor-web-projection-integration-for-ignite-v3.md
 ## Template
 
 ### Task: <short task title>
