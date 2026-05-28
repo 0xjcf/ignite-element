@@ -385,13 +385,14 @@ No active tasks.
 
 - Title: CodeRabbit P1 runtime resilience and error handling
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/coderabbit-p1-runtime-resilience-and-error-handling.md
 - Automation mode: advisory
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
+
 ### Task: CodeRabbit P1 renderer public subpath boundary cleanup
 
 - Title: CodeRabbit P1 renderer public subpath boundary cleanup
