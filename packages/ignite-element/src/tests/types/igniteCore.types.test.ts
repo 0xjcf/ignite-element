@@ -30,6 +30,10 @@ import type {
 	IgniteStoryLifecycleEntry,
 	IgniteStoryTraceEntry,
 } from "../../types/agent";
+import type {
+	IgniteAgentCommandSchema,
+	IgniteSchemaObject,
+} from "../../types/schema";
 import type { InferStateAndEvent } from "../../utils/igniteRedux";
 
 type ActorWebShipmentContext = {
@@ -558,9 +562,7 @@ describe("igniteCore type inference", () => {
 		const schema = register.getSchema();
 		expectTypeOf(result.state).toEqualTypeOf<StoreState>();
 		expectTypeOf(register.getView()).toEqualTypeOf<{ count: number }>();
-		expectTypeOf(schema.commands).toEqualTypeOf<
-			Record<string, IgniteSchemaValue>
-		>();
+		expectTypeOf(schema.commands).toEqualTypeOf<IgniteAgentCommandSchema>();
 		expectTypeOf(schema.events).toEqualTypeOf<string[]>();
 		expectTypeOf(schema.state).toEqualTypeOf<IgniteSchemaValue>();
 		register.on("counter-incremented", (event) => {
@@ -634,9 +636,7 @@ describe("igniteCore type inference", () => {
 		register.execute("addByAmount", 2);
 		const schema = register.getSchema();
 
-		expectTypeOf(schema.commands).toEqualTypeOf<
-			Record<string, IgniteSchemaValue>
-		>();
+		expectTypeOf(schema.commands).toEqualTypeOf<IgniteAgentCommandSchema>();
 
 		const expectPayloadValidation = () => {
 			// @ts-expect-error - wrapped command payload should remain numeric
@@ -644,6 +644,58 @@ describe("igniteCore type inference", () => {
 		};
 
 		void expectPayloadValidation;
+	});
+
+	it("types richer command metadata builders as object-shaped schema contracts", () => {
+		const store = counterStore();
+
+		const register = igniteCore({
+			adapter: "redux",
+			source: store,
+			commands: ({ actor, command }) => ({
+				configureAlert: command(
+					(payload: {
+						label: string;
+						enabled: boolean;
+						priority: "low" | "high";
+						channels: string[];
+					}) =>
+						actor.dispatch(
+							counterSlice.actions.addByAmount(
+								payload.enabled ? payload.channels.length : 0,
+							),
+						),
+					{
+						description: "Configure alert routing.",
+						input: command.object(
+							{
+								label: command.string({ minLength: 1, maxLength: 40 }),
+								enabled: command.boolean({ default: true }),
+								priority: command.enum(["low", "high"], {
+									default: "low",
+								}),
+								channels: command.array(command.string(), {
+									minItems: 1,
+								}),
+							},
+							{
+								required: ["label", "enabled", "priority"],
+							},
+						),
+					},
+				),
+			}),
+		});
+
+		const schema = register.getSchema();
+
+		expectTypeOf(schema.commands).toEqualTypeOf<IgniteAgentCommandSchema>();
+		expectTypeOf(schema.commands.configureAlert).toEqualTypeOf<
+			IgniteSchemaObject
+		>();
+		expectTypeOf(schema.commands.configureAlert.input).toEqualTypeOf<
+			IgniteSchemaValue
+		>();
 	});
 
 	it("preserves tuple command inference when metadata is attached", () => {
