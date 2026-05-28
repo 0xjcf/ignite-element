@@ -31,6 +31,11 @@ type AttachEffectsOptions<
 	emit: EmitFromEvents<Events>;
 };
 
+type ErrorHandlingHost = {
+	handleError?: (error: unknown) => void;
+	onError?: (error: unknown) => void;
+};
+
 const objectStyleCallbackPattern =
 	/^(?:async\s*)?(?:function\b[^(]*\(\s*\{|\(\s*\{|\{\s*)/;
 
@@ -61,6 +66,17 @@ function isObjectStyleEffectsCallback<
 
 	const source = Function.prototype.toString.call(effects).trim();
 	return objectStyleCallbackPattern.test(source);
+}
+
+function reportEffectError(host: unknown, error: unknown): void {
+	const errorHost = host as ErrorHandlingHost;
+	const handler = errorHost.handleError ?? errorHost.onError;
+	if (typeof handler === "function") {
+		handler.call(host, error);
+		return;
+	}
+
+	console.error("[igniteCore] Effect callback failed.", error);
 }
 
 export function attachEffects<
@@ -99,34 +115,53 @@ export function attachEffects<
 		// Render is triggered synchronously by the same adapter notification, so deferring via
 		// microtask ensures the DOM is updated before effects execute.
 		queueMicrotask(() => {
-			const actor = resolveActor(adapter);
-			const select = createSelect(snapshot, prev);
+			try {
+				const actor = resolveActor(adapter);
+				const select = createSelect(snapshot, prev);
+				let result: unknown;
 
-			if (isObjectStyleEffectsCallback(effects)) {
-				(
-					effects as FacadeEffectsObjectCallback<
-						Snapshot,
-						CommandActor,
-						Events,
-						Host
-					>
-				)({
-					snapshot,
-					prevSnapshot: prev,
-					actor,
-					emit,
-					host,
-					select,
-				});
-			} else {
-				(
-					effects as FacadeEffectsCallback<Snapshot, CommandActor, Events, Host>
-				)(snapshot, prev, {
-					actor,
-					emit,
-					host,
-					select,
-				});
+				if (isObjectStyleEffectsCallback(effects)) {
+					result = (
+						effects as FacadeEffectsObjectCallback<
+							Snapshot,
+							CommandActor,
+							Events,
+							Host
+						>
+					)({
+						snapshot,
+						prevSnapshot: prev,
+						actor,
+						emit,
+						host,
+						select,
+					});
+				} else {
+					result = (
+						effects as FacadeEffectsCallback<
+							Snapshot,
+							CommandActor,
+							Events,
+							Host
+						>
+					)(snapshot, prev, {
+						actor,
+						emit,
+						host,
+						select,
+					});
+				}
+
+				if (
+					result &&
+					typeof (result as PromiseLike<unknown>).then === "function"
+				) {
+					void Promise.resolve(result).catch((error: unknown) => {
+						reportEffectError(host, error);
+					});
+				}
+			} catch (error) {
+				reportEffectError(host, error);
 			}
 		});
 	});

@@ -202,7 +202,7 @@ export function createAgentRuntime<
 		});
 
 		try {
-			(command as (arg?: unknown) => unknown)(payload);
+			await (command as (arg?: unknown) => unknown)(payload);
 
 			// Flush microtask to allow post-render effects to emit events
 			await new Promise<void>((resolve) => queueMicrotask(resolve));

@@ -60,6 +60,11 @@ export function toSchemaValue(
 
 			const jsonSerializable = value as { toJSON?: () => unknown };
 			if (typeof jsonSerializable.toJSON === "function") {
+				if (seen.has(value)) {
+					return "[Circular]";
+				}
+
+				seen.add(value);
 				return toSchemaValue(jsonSerializable.toJSON(), seen);
 			}
 
