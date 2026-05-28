@@ -68,10 +68,10 @@ counter.getView();
 And a command surface they can drive:
 
 ```ts
-counter.execute('setLimit', 6);
+await counter.execute('setLimit', 6);
 
 while (!counter.getView().isLimited) {
-  counter.execute('increment');
+  await counter.execute('increment');
 }
 
 expect(counter.getView()).toMatchObject({
@@ -199,9 +199,9 @@ import { test as igniteTest } from "ignite-element/xstate";
 
 const story = counter.record("reaches limit");
 
-story.execute("setLimit", 6);
-story.until((view) => view.isLimited, () => {
-  story.execute("increment");
+await story.execute("setLimit", 6);
+await story.until((view) => view.isLimited, async () => {
+  await story.execute("increment");
 });
 
 const trace = igniteTest.serializeTrace(story.trace());

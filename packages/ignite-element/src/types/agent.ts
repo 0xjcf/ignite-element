@@ -134,7 +134,7 @@ export type IgniteStory<
 	execute<CommandName extends keyof Commands & string>(
 		commandName: CommandName,
 		payload?: CommandPayload<Commands, CommandName>,
-	): IgniteAgentExecutionResult<State, Events>;
+	): Promise<IgniteAgentExecutionResult<State, Events>>;
 	until(
 		viewPredicate: IgniteStoryViewPredicate<View>,
 		action: (
@@ -182,7 +182,7 @@ export type IgniteAgentRuntime<
 	execute<CommandName extends keyof Commands & string>(
 		commandName: CommandName,
 		payload?: CommandPayload<Commands, CommandName>,
-	): IgniteAgentExecutionResult<State, Events>;
+	): Promise<IgniteAgentExecutionResult<State, Events>>;
 	getState(): State;
 	getView(): View;
 	on<Type extends keyof Events & string>(

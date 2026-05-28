@@ -560,7 +560,15 @@ describe("igniteCore type inference", () => {
 
 		const result = register.execute("increment", 2);
 		const schema = register.getSchema();
-		expectTypeOf(result.state).toEqualTypeOf<StoreState>();
+		expectTypeOf(result).toEqualTypeOf<
+			Promise<{
+				state: StoreState;
+				events: Array<{
+					type: "counter-incremented";
+					payload: { count: number };
+				}>;
+			}>
+		>();
 		expectTypeOf(register.getView()).toEqualTypeOf<{ count: number }>();
 		expectTypeOf(schema.commands).toEqualTypeOf<IgniteAgentCommandSchema>();
 		expectTypeOf(schema.events).toEqualTypeOf<string[]>();
@@ -589,7 +597,15 @@ describe("igniteCore type inference", () => {
 		const storyTrace = story.trace();
 		const storyLifecycle = story.lifecycle();
 		const storySummary = story.summary();
-		expectTypeOf(storyResult.state).toEqualTypeOf<StoreState>();
+		expectTypeOf(storyResult).toEqualTypeOf<
+			Promise<{
+				state: StoreState;
+				events: Array<{
+					type: "counter-incremented";
+					payload: { count: number };
+				}>;
+			}>
+		>();
 		expectTypeOf(storyView).toEqualTypeOf<{ count: number }>();
 		expectTypeOf(storyTrace).toEqualTypeOf<IgniteStoryTraceEntry[]>();
 		expectTypeOf(storyLifecycle).toEqualTypeOf<IgniteStoryLifecycleEntry[]>();
@@ -633,7 +649,7 @@ describe("igniteCore type inference", () => {
 			}),
 		});
 
-		register.execute("addByAmount", 2);
+		void register.execute("addByAmount", 2);
 		const schema = register.getSchema();
 
 		expectTypeOf(schema.commands).toEqualTypeOf<IgniteAgentCommandSchema>();

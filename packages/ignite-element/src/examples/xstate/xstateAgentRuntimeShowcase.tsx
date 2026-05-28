@@ -1,5 +1,5 @@
 import { igniteCore } from "ignite-element/xstate";
-import { assign, setup } from "xstate";
+import { assign, fromPromise, setup } from "xstate";
 import { apiShowcase } from "./xstateApiShowcaseRuntime";
 
 type RuntimeCommand =
@@ -19,6 +19,10 @@ type RuntimeEventRecord = {
 type RuntimeExecution = {
 	resultEvents: RuntimeEventRecord[];
 	agentLog: string[];
+};
+type RuntimeReportRequest = {
+	command: RuntimeCommand | PayloadCommand;
+	payload?: number;
 };
 
 interface RuntimeReport {
@@ -53,6 +57,7 @@ interface AgentRuntimeContext {
 	report: RuntimeReport;
 	step: number;
 	limit: number;
+	request: RuntimeReportRequest;
 }
 
 type AgentRuntimeEvent =
@@ -153,6 +158,28 @@ const codeForCommand = (
 	}
 };
 
+const createPlaceholderReport = (command: string): RuntimeReport => ({
+	command,
+	code: "// Loading runtime report...",
+	schema: apiShowcase.getSchema(),
+	state: summarizeState(apiShowcase.getState()),
+	view: apiShowcase.getView(),
+	resultEvents: [],
+	eventLog: [],
+	stateLog: [],
+	viewLog: [],
+	agentLog: [],
+	traceLog: [],
+	lifecycleLog: [],
+	storySummary: {
+		commandCount: 0,
+		traceCount: 0,
+		lifecycleCount: 0,
+		eventCount: 0,
+		finalView: apiShowcase.getView(),
+	},
+});
+
 const inspectRuntime = (): RuntimeExecution => {
 	const schema = apiShowcase.getSchema();
 	const state = summarizeState(apiShowcase.getState());
@@ -170,7 +197,9 @@ const inspectRuntime = (): RuntimeExecution => {
 	};
 };
 
-const incrementToLimit = (story: ApiShowcaseStory): RuntimeExecution => {
+const incrementToLimit = async (
+	story: ApiShowcaseStory,
+): Promise<RuntimeExecution> => {
 	const schema = apiShowcase.getSchema();
 	const commandNames = Object.keys(schema.commands);
 	const agentLog = [`getSchema() commands -> ${commandNames.join(", ")}`];
@@ -194,19 +223,15 @@ const incrementToLimit = (story: ApiShowcaseStory): RuntimeExecution => {
 	const maxSteps = Math.max(1, view.limit - view.count + 1);
 	let steps = 0;
 
-	view = story.until(
-		(nextView) => nextView.isLimited,
-		() => {
-			const result = story.execute("increment");
-			resultEvents.push(...mapRuntimeEvents(result.events));
-			view = apiShowcase.getView();
-			steps += 1;
-			agentLog.push(
-				`execute("increment") -> count ${view.count}/${view.limit}, state ${view.stateLabel}`,
-			);
-		},
-		{ maxSteps },
-	);
+	while (!view.isLimited && steps < maxSteps) {
+		const result = await story.execute("increment");
+		resultEvents.push(...mapRuntimeEvents(result.events));
+		view = apiShowcase.getView();
+		steps += 1;
+		agentLog.push(
+			`execute("increment") -> count ${view.count}/${view.limit}, state ${view.stateLabel}`,
+		);
+	}
 
 	agentLog.push(
 		view.isLimited
@@ -220,27 +245,31 @@ const incrementToLimit = (story: ApiShowcaseStory): RuntimeExecution => {
 	};
 };
 
-const executeRuntimeCommand = (
+const executeRuntimeCommand = async (
 	story: ApiShowcaseStory,
 	command: RuntimeCommand | PayloadCommand,
 	payload?: number,
-): RuntimeExecution => {
+): Promise<RuntimeExecution> => {
 	switch (command) {
 		case "inspect":
 			return inspectRuntime();
 		case "increment":
 			return {
-				resultEvents: mapRuntimeEvents(story.execute("increment").events),
+				resultEvents: mapRuntimeEvents(
+					(await story.execute("increment")).events,
+				),
 				agentLog: ['execute("increment")'],
 			};
 		case "decrement":
 			return {
-				resultEvents: mapRuntimeEvents(story.execute("decrement").events),
+				resultEvents: mapRuntimeEvents(
+					(await story.execute("decrement")).events,
+				),
 				agentLog: ['execute("decrement")'],
 			};
 		case "reset":
 			return {
-				resultEvents: mapRuntimeEvents(story.execute("reset").events),
+				resultEvents: mapRuntimeEvents((await story.execute("reset")).events),
 				agentLog: ['execute("reset")'],
 			};
 		case "incrementToLimit":
@@ -248,24 +277,24 @@ const executeRuntimeCommand = (
 		case "setStep":
 			return {
 				resultEvents: mapRuntimeEvents(
-					story.execute("setStep", payload ?? 1).events,
+					(await story.execute("setStep", payload ?? 1)).events,
 				),
 				agentLog: [`execute("setStep", ${payload ?? 1})`],
 			};
 		case "setLimit":
 			return {
 				resultEvents: mapRuntimeEvents(
-					story.execute("setLimit", payload ?? 5).events,
+					(await story.execute("setLimit", payload ?? 5)).events,
 				),
 				agentLog: [`execute("setLimit", ${payload ?? 5})`],
 			};
 	}
 };
 
-const createRuntimeReport = (
+const createRuntimeReport = async (
 	command: RuntimeCommand | PayloadCommand,
 	payload?: number,
-): RuntimeReport => {
+): Promise<RuntimeReport> => {
 	const eventLog: string[] = [];
 	const stateLog: string[] = [];
 	const viewLog: string[] = [];
@@ -298,7 +327,7 @@ const createRuntimeReport = (
 	let storySummary: RuntimeReport["storySummary"];
 
 	try {
-		const result = executeRuntimeCommand(story, command, payload);
+		const result = await executeRuntimeCommand(story, command, payload);
 		resultEvents = result.resultEvents;
 		agentLog = result.agentLog;
 		collectLifecycleProbe();
@@ -350,25 +379,46 @@ const agentRuntimeMachine = setup({
 		context: {} as AgentRuntimeContext,
 		events: {} as AgentRuntimeEvent,
 	},
+	actors: {
+		createRuntimeReport: fromPromise(
+			async ({ input }: { input: RuntimeReportRequest }) =>
+				createRuntimeReport(input.command, input.payload),
+		),
+	},
 }).createMachine({
 	id: "agentRuntimeShowcase",
-	initial: "ready",
+	initial: "loading",
 	context: {
-		report: createRuntimeReport("inspect"),
+		report: createPlaceholderReport("inspect()"),
 		step: 2,
 		limit: 8,
+		request: { command: "inspect" },
 	},
 	states: {
+		loading: {
+			invoke: {
+				src: "createRuntimeReport",
+				input: ({ context }) => context.request,
+				onDone: {
+					target: "ready",
+					actions: assign({
+						report: ({ event }) => event.output,
+					}),
+				},
+			},
+		},
 		ready: {
 			on: {
 				INSPECT: {
+					target: "loading",
 					actions: assign({
-						report: () => createRuntimeReport("inspect"),
+						request: () => ({ command: "inspect" }),
 					}),
 				},
 				RUN: {
+					target: "loading",
 					actions: assign({
-						report: ({ event }) => createRuntimeReport(event.command),
+						request: ({ event }) => ({ command: event.command }),
 					}),
 				},
 				SET_STEP_DRAFT: {
@@ -382,15 +432,21 @@ const agentRuntimeMachine = setup({
 					}),
 				},
 				APPLY_STEP: {
+					target: "loading",
 					actions: assign({
-						report: ({ context }) =>
-							createRuntimeReport("setStep", context.step),
+						request: ({ context }) => ({
+							command: "setStep",
+							payload: context.step,
+						}),
 					}),
 				},
 				APPLY_LIMIT: {
+					target: "loading",
 					actions: assign({
-						report: ({ context }) =>
-							createRuntimeReport("setLimit", context.limit),
+						request: ({ context }) => ({
+							command: "setLimit",
+							payload: context.limit,
+						}),
 					}),
 				},
 			},
