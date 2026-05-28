@@ -143,7 +143,7 @@ export type IgniteStory<
 			iteration: number,
 		) => unknown,
 		options?: IgniteStoryUntilOptions,
-	): View;
+	): Promise<View>;
 	trace(): IgniteStoryTraceEntry[];
 	lifecycle(): IgniteStoryLifecycleEntry[];
 	summary(): IgniteStorySummary<State, Events, View>;

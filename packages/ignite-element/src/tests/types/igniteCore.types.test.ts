@@ -606,7 +606,7 @@ describe("igniteCore type inference", () => {
 				}>;
 			}>
 		>();
-		expectTypeOf(storyView).toEqualTypeOf<{ count: number }>();
+		expectTypeOf(storyView).toEqualTypeOf<Promise<{ count: number }>>();
 		expectTypeOf(storyTrace).toEqualTypeOf<IgniteStoryTraceEntry[]>();
 		expectTypeOf(storyLifecycle).toEqualTypeOf<IgniteStoryLifecycleEntry[]>();
 		expectTypeOf(storySummary.finalState).toEqualTypeOf<StoreState>();
