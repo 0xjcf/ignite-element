@@ -119,6 +119,14 @@ Command metadata is optional. Plain functions remain valid commands, and `comman
 commands: ({ actor, command }) => ({
   reset: () => actor.send({ type: 'RESET' }),
 
+  renamePreset: command(
+    (label: string) => actor.send({ type: 'RENAME_PRESET', label }),
+    {
+      description: 'Rename the saved preset label.',
+      input: command.string({ minLength: 1, maxLength: 32 }),
+    },
+  ),
+
   setLimit: command(
     (limit: number) => actor.send({ type: 'SET_LIMIT', limit }),
     {
@@ -126,8 +134,25 @@ commands: ({ actor, command }) => ({
       input: command.number({ minimum: 3, maximum: 12 }),
     },
   ),
+
+  configureAlerts: command(
+    (payload) => actor.send({ type: 'CONFIGURE_ALERTS', payload }),
+    {
+      description: 'Update alert routing rules.',
+      input: command.object(
+        {
+          enabled: command.boolean({ default: true }),
+          priority: command.enum(['low', 'high'], { default: 'low' }),
+          channels: command.array(command.string(), { minItems: 1 }),
+        },
+        { required: ['enabled', 'priority', 'channels'] },
+      ),
+    },
+  ),
 });
 ```
+
+Built-in helpers cover `number`, `string`, `boolean`, `enum`, `object`, and `array` metadata while staying JSON-serializable.
 
 `getSchema()` returns executable commands and command metadata in one map.
 
@@ -135,9 +160,29 @@ commands: ({ actor, command }) => ({
 {
   commands: {
     reset: {},
+    renamePreset: {
+      description: 'Rename the saved preset label.',
+      input: { type: 'string', minLength: 1, maxLength: 32 },
+    },
     setLimit: {
       description: 'Set maximum count',
       input: { type: 'number', minimum: 3, maximum: 12 },
+    },
+    configureAlerts: {
+      description: 'Update alert routing rules.',
+      input: {
+        type: 'object',
+        properties: {
+          enabled: { type: 'boolean', default: true },
+          priority: { type: 'string', enum: ['low', 'high'], default: 'low' },
+          channels: {
+            type: 'array',
+            items: { type: 'string' },
+            minItems: 1,
+          },
+        },
+        required: ['enabled', 'priority', 'channels'],
+      },
     },
   },
   events: ['limit-reached'],
@@ -177,7 +222,7 @@ story.stop();
 The current v3 runtime supports `execute()`, `getState()`, `getView()`, `getSchema()`, `on()`, `watch()`, `watchView()`, and `record()`. The remaining gaps are the pieces needed to turn those primitives into a complete agent workflow system.
 
 - Workflow assertions: add matchers such as `toMatchWorkflow(...)` or a serializable trace format for Vitest and Playwright.
-- Schema depth: expand metadata helpers beyond `command.number(...)` when agents need strings, booleans, enums, objects, or arrays.
+- Schema semantics: the runtime now ships JSON-serializable helpers for `number`, `string`, `boolean`, `enum`, `object`, and `array` inputs; future work can add higher-level conventions such as examples, UI hints, or shared vocabularies if agents need them.
 - DOM bridge: keep behavior tests headless, then add a small mapping layer that ties workflow expectations to rendered controls and accessible names.
 
 The important boundary is that logic stays inspectable without the DOM, and the DOM remains a projection over the tested contract.
