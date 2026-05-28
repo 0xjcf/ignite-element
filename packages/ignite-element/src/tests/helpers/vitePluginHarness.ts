@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import type {
 	HtmlTagDescriptor,
 	IndexHtmlTransform,
@@ -91,6 +92,11 @@ const pluginContext: PluginContextStub = Object.assign(minimalPluginContext, {
 });
 /* c8 ignore end */
 
+const defaultHtmlPath = "/index.html";
+const defaultHtmlFilename = fileURLToPath(
+	new URL("../fixtures/index.html", import.meta.url),
+);
+
 export function resetVitePluginHarness(): void {
 	assetCounter = 0;
 	emittedAssets.clear();
@@ -105,8 +111,8 @@ export function runIndexHtml(
 	}
 
 	const context: IndexHtmlTransformContext = {
-		path: html,
-		filename: html,
+		path: defaultHtmlPath,
+		filename: defaultHtmlFilename,
 	};
 	const handler = (
 		typeof hook === "function" ? hook : hook.handler
