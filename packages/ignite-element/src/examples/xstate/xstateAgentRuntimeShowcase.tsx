@@ -138,15 +138,15 @@ const codeForCommand = (
 				"apiShowcase.getView()",
 			].join("\n");
 		case "setStep":
-			return `story.execute("setStep", ${payload})`;
+			return `await story.execute("setStep", ${payload})`;
 		case "setLimit":
-			return `story.execute("setLimit", ${payload})`;
+			return `await story.execute("setLimit", ${payload})`;
 		case "incrementToLimit":
 			return [
 				'const story = apiShowcase.record("reaches limit")',
-				"story.until(",
+				"await story.until(",
 				"  (view) => view.isLimited,",
-				'  () => story.execute("increment"),',
+				'  async () => await story.execute("increment"),',
 				"  { maxSteps: 20 },",
 				")",
 				"story.trace()",
@@ -154,7 +154,7 @@ const codeForCommand = (
 				"story.summary()",
 			].join("\n");
 		default:
-			return `story.execute("${command}")`;
+			return `await story.execute("${command}")`;
 	}
 };
 

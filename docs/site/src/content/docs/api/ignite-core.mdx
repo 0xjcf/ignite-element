@@ -51,7 +51,7 @@ The returned component registration also exposes a headless runtime API:
 ```ts
 const component = igniteCore({ source: machine });
 
-component.execute("toggle");
+await component.execute("toggle");
 component.getState();
 component.getView();
 component.getSchema();
@@ -113,9 +113,7 @@ const component = igniteCore({
   },
 });
 
-igniteTest(component)
-  .given('off')
-  .when('toggle')
+(await igniteTest(component).given('off').when('toggle'))
   .expectState('on')
   .expectEvent('toggled', { isOn: true });
 ```

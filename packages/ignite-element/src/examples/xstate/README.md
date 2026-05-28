@@ -157,16 +157,16 @@ apiShowcase.getSchema();
 apiShowcase.getState();
 apiShowcase.getView();
 
-const result = apiShowcase.execute("increment");
+const result = await apiShowcase.execute("increment");
 
 apiShowcase.on("api-count-changed", (event) => event.detail);
 apiShowcase.watch((state, prevState) => [prevState, state]);
 apiShowcase.watchView((view, prevView) => [prevView, view]);
 
 const story = apiShowcase.record("reaches limit");
-story.execute("setLimit", 6);
-story.until((view) => view.isLimited, () => {
-  story.execute("increment");
+await story.execute("setLimit", 6);
+await story.until((view) => view.isLimited, async () => {
+  await story.execute("increment");
 });
 story.trace();
 story.lifecycle();
@@ -180,7 +180,9 @@ The example also exposes the same runtime on `window.__igniteExamples.apiShowcas
 const runtime = window.__igniteExamples?.apiShowcase;
 const story = runtime?.record("browser proof");
 
-story?.until((view) => view.isLimited, () => story.execute("increment"));
+await story?.until((view) => view.isLimited, async () => {
+  await story.execute("increment");
+});
 story?.trace();
 story?.lifecycle();
 ```
