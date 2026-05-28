@@ -1,3 +1,4 @@
+import { command, commandMetadataSymbol } from "ignite-core";
 import { makeAutoObservable } from "mobx";
 import { describe, expectTypeOf, it } from "vitest";
 import { createMachine, type EventFrom } from "xstate";
@@ -47,6 +48,8 @@ import type {
 } from "../../mobx";
 import type {
 	CommandContext,
+	CommandMetadata,
+	CommandWithMetadata,
 	EffectContext,
 	EventBuilder,
 	EventDescriptor,
@@ -785,6 +788,20 @@ describe("igniteCore type inference", () => {
 		};
 
 		void expectPayloadValidation;
+	});
+
+	it("types command metadata through the exported metadata symbol", () => {
+		const wrapped = command((amount: number) => amount, {
+			description: "Return the provided amount.",
+			input: command.number({ minimum: 1 }),
+		});
+
+		expectTypeOf(wrapped).toEqualTypeOf<
+			CommandWithMetadata<(amount: number) => number>
+		>();
+		expectTypeOf(wrapped[commandMetadataSymbol]).toEqualTypeOf<
+			CommandMetadata | undefined
+		>();
 	});
 
 	it("types richer command metadata builders as object-shaped schema contracts", () => {
