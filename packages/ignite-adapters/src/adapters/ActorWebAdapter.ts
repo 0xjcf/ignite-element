@@ -254,9 +254,16 @@ function resolveHandle<
 		};
 	}
 
+	const handleCommandSource =
+		commandSource ??
+		value.commandSource ??
+		(isActorWebCommandSource<Context, Message, Emitted>(value.source)
+			? value.source
+			: undefined);
+
 	return {
 		...value,
-		...(commandSource ? { commandSource } : {}),
+		...(handleCommandSource ? { commandSource: handleCommandSource } : {}),
 	};
 }
 

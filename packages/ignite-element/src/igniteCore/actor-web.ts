@@ -72,13 +72,29 @@ type ActorWebSubpathConfig<
 		StatesResult,
 		CommandsResult
 	>,
-	"adapter" | "source"
+	"adapter" | "source" | "view" | "states" | "commandSource"
 > & {
 	adapter?: "actor-web";
 	source:
 		| ActorWebSubpathSourceValue<Context, Message, Emitted>
 		| (() => ActorWebSubpathSourceValue<Context, Message, Emitted>)
 		| ActorWebSubpathHostContextFactory<Context, Message, Emitted>;
+	view?: ActorWebConfig<
+		Context,
+		Message,
+		Emitted,
+		Events,
+		StatesResult,
+		CommandsResult
+	>["view"];
+	states?: ActorWebConfig<
+		Context,
+		Message,
+		Emitted,
+		Events,
+		StatesResult,
+		CommandsResult
+	>["states"];
 	commandSource?:
 		| ActorWebSubpathCommandSourceValue<Context, Message, Emitted>
 		| (() => ActorWebSubpathCommandSourceValue<Context, Message, Emitted>)

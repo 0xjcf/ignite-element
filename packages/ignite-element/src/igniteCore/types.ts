@@ -249,8 +249,8 @@ export type ActorWebConfig<
 		Emitted
 	> = ActorWebSourceLike<Context, Message, Emitted>,
 > = {
-	states?: FacadeStatesCallback<ActorWebExtendedState<Context>, StatesResult>;
 	view?: FacadeViewCallback<ActorWebExtendedState<Context>, StatesResult>;
+	states?: FacadeStatesCallback<ActorWebExtendedState<Context>, StatesResult>;
 	commandSource?: ActorWebCommandSourceLike<Context, Message, Emitted>;
 	commands?: FacadeCommandsCallback<
 		ActorWebCommandActor<Context, Message, Emitted>,
