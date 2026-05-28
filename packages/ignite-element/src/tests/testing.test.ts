@@ -332,6 +332,126 @@ describe("ignite test DSL", () => {
 		story.stop();
 	});
 
+	it("supports exact trace matching and clones snapshot output", async () => {
+		const store = counterStore();
+		const component = igniteCore({
+			adapter: "redux",
+			source: store,
+			view: ({ snapshot }) => ({
+				count: snapshot.counter.count,
+			}),
+			commands: ({ actor }) => ({
+				increment: (amount: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+			}),
+		});
+
+		const story = component.record("exact trace");
+		await story.execute("increment", 2);
+
+		const originalTrace = story.trace();
+		const serializedTrace = igniteTest.serializeTrace(originalTrace);
+
+		igniteTest.expectTrace(serializedTrace, serializedTrace, { exact: true });
+		serializedTrace[1] = {
+			...serializedTrace[1],
+			state: { counter: { count: 999 } },
+		};
+
+		expect(story.trace()[1]).toMatchObject({
+			kind: "state",
+			state: {
+				counter: {
+					count: 0,
+				},
+			},
+		});
+		expect(originalTrace[1]).toMatchObject({
+			kind: "state",
+			state: {
+				counter: {
+					count: 0,
+				},
+			},
+		});
+
+		story.stop();
+	});
+
+	it("reports missing workflow checkpoints with serialized trace context", async () => {
+		const store = counterStore();
+		const component = igniteCore({
+			adapter: "redux",
+			source: store,
+			commands: ({ actor }) => ({
+				increment: (amount: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+			}),
+		});
+
+		const story = component.record("missing checkpoint");
+		await story.execute("increment", 1);
+
+		expect(() =>
+			igniteTest.expectTrace(story.trace(), [
+				{ kind: "event", event: "counter-decremented" },
+			]),
+		).toThrowErrorMatchingInlineSnapshot(`
+			[Error: [igniteTest] Trace expectation not found.
+			Expected: {
+			  "kind": "event",
+			  "event": "counter-decremented"
+			}
+			Trace: [
+			  {
+			    "sequence": 1,
+			    "kind": "command",
+			    "step": 1,
+			    "command": "increment",
+			    "payload": 1
+			  },
+			  {
+			    "sequence": 2,
+			    "kind": "state",
+			    "step": 1,
+			    "phase": "before",
+			    "state": {
+			      "counter": {
+			        "count": 0
+			      }
+			    }
+			  },
+			  {
+			    "sequence": 3,
+			    "kind": "view",
+			    "step": 1,
+			    "phase": "before",
+			    "view": {}
+			  },
+			  {
+			    "sequence": 4,
+			    "kind": "state",
+			    "step": 1,
+			    "phase": "after",
+			    "state": {
+			      "counter": {
+			        "count": 1
+			      }
+			    }
+			  },
+			  {
+			    "sequence": 5,
+			    "kind": "view",
+			    "step": 1,
+			    "phase": "after",
+			    "view": {}
+			  }
+			]]
+		`);
+
+		story.stop();
+	});
+
 	it("throws a useful error when execution assertions run before when()", () => {
 		const store = counterStore();
 		const component = igniteCore({
