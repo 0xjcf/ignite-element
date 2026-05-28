@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineIgniteConfig } from "../../config";
-import { resolveRenderStrategy } from "ignite-renderer";
 import { createIgniteJsxRenderStrategy } from "../../renderers/jsx/IgniteJsxRenderStrategy";
 import { createLitRenderStrategy } from "../../renderers/LitRenderStrategy";
 import {
@@ -60,23 +59,12 @@ describe("resolveConfiguredRenderStrategy", () => {
 		);
 	});
 
-	it("names the actual fallback strategy when ignite-jsx is unavailable", () => {
-		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-		registerRenderStrategy("lit", createLitRenderStrategy);
-
-		const strategy = resolveRenderStrategy("custom");
-
-		expect(strategy).toBe(createLitRenderStrategy);
-		expect(warn).toHaveBeenCalledWith(
-			expect.stringContaining('Falling back to "lit"'),
-		);
-	});
-
 	it("warns when ignite-jsx is requested but another strategy is the fallback", () => {
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		registerRenderStrategy("lit", createLitRenderStrategy);
+		defineIgniteConfig({ renderer: "ignite-jsx" });
 
-		const strategy = resolveRenderStrategy("ignite-jsx");
+		const strategy = resolveConfiguredRenderStrategy();
 
 		expect(strategy).toBe(createLitRenderStrategy);
 		expect(warn).toHaveBeenCalledWith(

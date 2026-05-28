@@ -1,3 +1,4 @@
+import { html } from "lit-html";
 import { afterEach, describe, expect, it } from "vitest";
 import { setGlobalStyles } from "../../globalStyles";
 import { LitRenderStrategy } from "../../renderers/LitRenderStrategy";
@@ -16,13 +17,13 @@ describe("LitRenderStrategy", () => {
 		const linkElement = host.querySelector("link");
 		expect(linkElement).toBeTruthy();
 
-		expect(() => strategy.render({} as never)).not.toThrow();
+		expect(() => strategy.render(html`<p>Rendered</p>`)).not.toThrow();
 	});
 
 	it("throws when rendering before attach", () => {
 		const strategy = new LitRenderStrategy();
 
-		expect(() => strategy.render({} as never)).toThrow(
+		expect(() => strategy.render(html`<p>Rendered</p>`)).toThrow(
 			"[LitRenderStrategy] Cannot render before attach has been invoked.",
 		);
 	});
