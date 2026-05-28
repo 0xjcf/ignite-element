@@ -7,6 +7,7 @@ import { assign, createActor, createMachine, type EventFrom } from "xstate";
 import type {
 	ActorWebCommandSource,
 	ActorWebSource,
+	ActorWebSourceHandle,
 	ActorWebSourceSnapshot,
 	ActorWebTransportStatus,
 } from "../actor-web";
@@ -375,6 +376,89 @@ describe("igniteCore", () => {
 		const source = createActorWebShipmentSource();
 		const register = igniteCore({
 			source,
+			view: ({ snapshot }) => ({
+				status: snapshot.context.status,
+				shipmentId: snapshot.context.shipmentId,
+				connected: snapshot.transport.state === "connected",
+			}),
+			commands: ({ actor }) => ({
+				createShipment: (shipmentId: string) =>
+					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
+				reset: () => actor.send({ type: "RESET_SHIPMENT" }),
+			}),
+		});
+
+		expect(register.getState().context.status).toBe("idle");
+		expect(register.getView()).toEqual({
+			status: "idle",
+			shipmentId: null,
+			connected: true,
+		});
+
+		register.execute("createShipment", "shipment-1001");
+		expect(source.sent).toEqual([
+			{ type: "CREATE_SHIPMENT", shipmentId: "shipment-1001" },
+		]);
+
+		source.emitSnapshot({
+			shipmentId: "shipment-1001",
+			status: "created",
+		});
+		source.emitTransport({
+			state: "degraded",
+			updatedAt: 2,
+			reason: "gateway disconnected",
+		});
+
+		expect(register.getState()).toMatchObject({
+			context: {
+				shipmentId: "shipment-1001",
+				status: "created",
+			},
+			transport: {
+				state: "degraded",
+				reason: "gateway disconnected",
+			},
+		});
+		expect(register.getView()).toEqual({
+			status: "created",
+			shipmentId: "shipment-1001",
+			connected: false,
+		});
+	});
+
+	it("routes actor-web commands through a single command-capable source handle", () => {
+		const source = createActorWebShipmentSource();
+		const sourceHandle: ActorWebSourceHandle<
+			ActorWebShipmentContext,
+			ActorWebShipmentCommand,
+			{ type: "SHIPMENT_CREATED"; shipmentId: string }
+		> = {
+			source,
+		};
+		const register = igniteCore({
+			source: sourceHandle,
+			view: ({ snapshot }) => ({
+				status: snapshot.context.status,
+			}),
+			commands: ({ actor }) => ({
+				createShipment: (shipmentId: string) =>
+					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
+			}),
+		});
+
+		register.execute("createShipment", "shipment-3003");
+
+		expect(register.getView()).toEqual({ status: "idle" });
+		expect(source.sent).toEqual([
+			{ type: "CREATE_SHIPMENT", shipmentId: "shipment-3003" },
+		]);
+	});
+
+	it("keeps actor-web states as a backwards-compatible projection alias", () => {
+		const source = createActorWebShipmentSource();
+		const register = igniteCore({
+			source,
 			states: ({ context, transport }) => ({
 				status: context.status,
 				shipmentId: context.shipmentId,
@@ -430,9 +514,9 @@ describe("igniteCore", () => {
 		const source = createActorWebShipmentReadModelSource();
 		const register = igniteCore({
 			source,
-			states: ({ context, transport }) => ({
-				status: context.status,
-				connected: transport.state === "connected",
+			view: ({ snapshot }) => ({
+				status: snapshot.context.status,
+				connected: snapshot.transport.state === "connected",
 			}),
 		});
 		const elementName = `actor-web-read-model-${crypto.randomUUID()}`;
@@ -452,8 +536,8 @@ describe("igniteCore", () => {
 		const register = igniteCore({
 			source: readModelSource,
 			commandSource,
-			states: ({ context }) => ({
-				status: context.status,
+			view: ({ snapshot }) => ({
+				status: snapshot.context.status,
 			}),
 			commands: ({ actor }) => ({
 				createShipment: (shipmentId: string) =>

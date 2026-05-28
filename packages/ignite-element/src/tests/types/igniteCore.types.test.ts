@@ -4,6 +4,7 @@ import type {
 	ActorWebExtendedState as AdapterActorWebExtendedState,
 	ActorWebReadModelSource as AdapterActorWebReadModelSource,
 	ActorWebSource as AdapterActorWebSource,
+	ActorWebSourceHandle as AdapterActorWebSourceHandle,
 } from "ignite-adapters/actor-web";
 import { command, commandMetadataSymbol } from "ignite-core";
 import { makeAutoObservable } from "mobx";
@@ -23,6 +24,7 @@ import type {
 	IgniteTestHelpers as ActorWebIgniteTestHelpers,
 	ActorWebReadModelSource,
 	ActorWebSource,
+	ActorWebSourceHandle,
 } from "../../actor-web";
 import * as actorWebPublic from "../../actor-web";
 import { igniteCore as igniteCoreActorWebEntrypoint } from "../../actor-web";
@@ -186,6 +188,13 @@ const actorWebShipmentHostFactory = (_context: { host?: HTMLElement }) =>
 const actorWebShipmentReadModelHostFactory = (_context: {
 	host?: HTMLElement;
 }) => actorWebShipmentReadModelSource;
+const actorWebShipmentSourceHandle: ActorWebSourceHandle<
+	ActorWebShipmentContext,
+	ActorWebShipmentCommand,
+	ActorWebShipmentEvent
+> = {
+	source: actorWebShipmentSource,
+};
 const actorWebShipmentDefaultedHostFactory = (
 	_context: { host?: HTMLElement } = {},
 ) => actorWebShipmentSource;
@@ -337,14 +346,27 @@ describe("igniteCore type inference", () => {
 				ActorWebShipmentEvent
 			>
 		>();
+		expectTypeOf<
+			ActorWebSourceHandle<
+				ActorWebShipmentContext,
+				ActorWebShipmentCommand,
+				ActorWebShipmentEvent
+			>
+		>().toEqualTypeOf<
+			AdapterActorWebSourceHandle<
+				ActorWebShipmentContext,
+				ActorWebShipmentCommand,
+				ActorWebShipmentEvent
+			>
+		>();
 	});
 
-	it("infers actor-web context, transport, and command actor facades", () => {
+	it("infers actor-web view context, transport, and command actor facades", () => {
 		const register = igniteCore({
 			source: actorWebShipmentSource,
-			states: ({ context, transport }) => ({
-				status: context.status,
-				connected: transport.state === "connected",
+			view: ({ snapshot }) => ({
+				status: snapshot.context.status,
+				connected: snapshot.transport.state === "connected",
 			}),
 			commands: ({ actor }) => ({
 				createShipment: (shipmentId: string) =>
@@ -386,18 +408,47 @@ describe("igniteCore type inference", () => {
 		>();
 	});
 
+	it("infers command actors from single command-capable actor-web source handles", () => {
+		const register = igniteCoreActorWebEntrypoint({
+			source: actorWebShipmentSourceHandle,
+			view: ({ snapshot }) => ({
+				status: snapshot.context.status,
+			}),
+			commands: ({ actor, command }) => ({
+				createShipment: command((shipmentId: string) =>
+					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
+				),
+			}),
+		});
+
+		type RenderArgs = AdapterPack<typeof register>;
+
+		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<
+			ActorWebExtendedState<ActorWebShipmentContext>
+		>();
+		expectTypeOf<RenderArgs["status"]>().toEqualTypeOf<
+			ActorWebShipmentContext["status"]
+		>();
+		expectTypeOf<RenderArgs["createShipment"]>().toEqualTypeOf<
+			CommandWithMetadata<(shipmentId: string) => Promise<unknown>>
+		>();
+		expectTypeOf<
+			NonNullable<RenderArgs["createShipment"][typeof commandMetadataSymbol]>
+		>().toEqualTypeOf<CommandMetadata>();
+	});
+
 	it("infers actor-web read-model source snapshots with explicit command sources", () => {
 		const register = igniteCoreActorWebEntrypoint({
 			source: actorWebShipmentReadModelHostFactory,
 			commandSource: () => actorWebShipmentSource,
-			states: ({ context, phase, status, value, matches, can, hasTag }) => ({
-				shipmentId: context.shipmentId,
-				phase,
-				status,
-				value,
-				idle: matches?.("idle") ?? false,
-				canCreate: can?.({ type: "CREATE_SHIPMENT" }) ?? false,
-				ready: hasTag?.("ready") ?? false,
+			view: ({ snapshot }) => ({
+				shipmentId: snapshot.context.shipmentId,
+				phase: snapshot.phase,
+				status: snapshot.status,
+				value: snapshot.value,
+				idle: snapshot.matches?.("idle") ?? false,
+				canCreate: snapshot.can?.({ type: "CREATE_SHIPMENT" }) ?? false,
+				ready: snapshot.hasTag?.("ready") ?? false,
 			}),
 			commands: ({ actor }) => ({
 				createShipment: (shipmentId: string) =>
@@ -440,9 +491,9 @@ describe("igniteCore type inference", () => {
 		const register = igniteCore({
 			adapter: "actor-web",
 			source: actorWebShipmentFactory,
-			states: ({ context, transport }) => ({
-				status: context.status,
-				connected: transport.state === "connected",
+			view: ({ snapshot }) => ({
+				status: snapshot.context.status,
+				connected: snapshot.transport.state === "connected",
 			}),
 			commands: ({ actor }) => ({
 				createShipment: (shipmentId: string) =>
@@ -457,9 +508,9 @@ describe("igniteCore type inference", () => {
 			ActorWebShipmentEvent
 		>({
 			source: actorWebShipmentDefaultedHostFactory,
-			states: ({ context, transport }) => ({
-				status: context.status,
-				connected: transport.state === "connected",
+			view: ({ snapshot }) => ({
+				status: snapshot.context.status,
+				connected: snapshot.transport.state === "connected",
 			}),
 			commands: ({ actor }) => ({
 				createShipment: (shipmentId: string) =>
@@ -472,9 +523,9 @@ describe("igniteCore type inference", () => {
 			ActorWebShipmentEvent
 		>({
 			source: actorWebShipmentHostFactory,
-			states: ({ context, transport }) => ({
-				status: context.status,
-				connected: transport.state === "connected",
+			view: ({ snapshot }) => ({
+				status: snapshot.context.status,
+				connected: snapshot.transport.state === "connected",
 			}),
 		});
 		type DefaultedHostSubpathRenderArgs = AdapterPack<
