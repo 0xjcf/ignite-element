@@ -18,6 +18,8 @@ The practical model is:
 
 Start by describing the state source, projected view, commands, events, and effects.
 
+Normal app code can keep `effects` inline. `igniteCore(...)` infers `snapshot`, `prevSnapshot`, `emit`, `select`, `actor`, and `host` from the `source` plus your `events` builder, so there is no need to import internal core helper types for standard authoring.
+
 ```ts
 import { igniteCore } from 'ignite-element/xstate';
 
@@ -46,7 +48,7 @@ export const counter = igniteCore({
     'limit-reached': event<{ count: number; limit: number }>(),
   }),
 
-  effects: (snapshot, prevSnapshot, { emit }) => {
+  effects: ({ snapshot, prevSnapshot, emit }) => {
     if (!prevSnapshot.matches('limited') && snapshot.matches('limited')) {
       emit('limit-reached', {
         count: snapshot.context.count,
