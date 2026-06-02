@@ -5,7 +5,7 @@
 		"composite": false,
 		"noEmit": true,
 		"paths": {
-			"ignite-core": ["../ignite-core/src/index.ts"]
+			"@ignite-element/core": ["../ignite-core/src/index.ts"]
 		}
 	},
 	"include": ["src", "../ignite-core/src"]

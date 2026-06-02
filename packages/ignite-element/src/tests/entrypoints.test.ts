@@ -1,13 +1,13 @@
-import { configureStore } from "@reduxjs/toolkit";
-import { makeAutoObservable } from "mobx";
-import { describe, expect, it } from "vitest";
-import { createMachine } from "xstate";
 import {
 	createXStateAdapter,
 	isXStateActor,
 	isXStateMachine,
 	type XStateConfig,
-} from "ignite-adapters";
+} from "@ignite-element/adapters";
+import { configureStore } from "@reduxjs/toolkit";
+import { makeAutoObservable } from "mobx";
+import { describe, expect, it } from "vitest";
+import { createMachine } from "xstate";
 import { igniteCore as igniteCoreActorWeb } from "../actor-web";
 import { igniteCore as igniteCoreMobx } from "../mobx";
 import { igniteCore as igniteCoreRedux } from "../redux";
@@ -46,9 +46,11 @@ function createActorWebSource() {
 
 describe("public adapter entrypoints", () => {
 	it("keeps renderer JSX package subpaths stable", async () => {
-		const rendererJsx = await import("ignite-renderer/jsx");
-		const rendererJsxRuntime = await import("ignite-renderer/jsx-runtime");
-		const rendererJsxIndex = await import("ignite-renderer/jsx/index");
+		const rendererJsx = await import("@ignite-element/renderer/jsx");
+		const rendererJsxRuntime = await import(
+			"@ignite-element/renderer/jsx-runtime"
+		);
+		const rendererJsxIndex = await import("@ignite-element/renderer/jsx/index");
 
 		expect(typeof rendererJsx.createIgniteJsxRenderStrategy).toBe("function");
 		expect(typeof rendererJsx.registerNoDiffDenylistTag).toBe("function");

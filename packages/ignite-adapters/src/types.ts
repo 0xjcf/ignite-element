@@ -1,4 +1,3 @@
-import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type {
 	EmptyEventMap,
 	EventMap,
@@ -9,7 +8,8 @@ import type {
 	FacadeEffectArgs,
 	FacadeStatesCallback,
 	FacadeViewCallback,
-} from "ignite-core";
+} from "@ignite-element/core";
+import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type { MobxEvent } from "./adapters/MobxAdapter";
 import type { InferStateAndEvent } from "./utils/igniteRedux";
 

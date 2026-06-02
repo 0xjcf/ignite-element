@@ -1,5 +1,5 @@
-import type { IgniteAdapter } from "ignite-core";
-import { failInvariant, StateScope } from "ignite-core";
+import type { IgniteAdapter } from "@ignite-element/core";
+import { failInvariant, StateScope } from "@ignite-element/core";
 import type { IReactionDisposer } from "mobx";
 import { autorun, toJS } from "mobx";
 import { isMobxObservable } from "../utils/mobxGuards";

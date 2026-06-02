@@ -1,10 +1,10 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-	createActorWebAdapter,
 	type ActorWebSource,
 	type ActorWebSourceSnapshot,
 	type ActorWebTransportStatus,
-} from "ignite-adapters/actor-web";
+	createActorWebAdapter,
+} from "@ignite-element/adapters/actor-web";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { StateScope } from "../../IgniteAdapter";
 
 type ShipmentContext = {

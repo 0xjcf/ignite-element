@@ -1,6 +1,6 @@
 {
-	"name": "ignite-adapters",
-	"version": "3.0.0-beta.1",
+	"name": "@ignite-element/adapters",
+	"version": "3.0.0-beta.2",
 	"type": "module",
 	"main": "dist/ignite-adapters.cjs.js",
 	"module": "dist/ignite-adapters.es.js",
@@ -82,7 +82,7 @@
 		"xstate": "^5.23.0"
 	},
 	"dependencies": {
-		"ignite-core": "workspace:*"
+		"@ignite-element/core": "workspace:*"
 	},
 	"peerDependencies": {
 		"@reduxjs/toolkit": ">=2.3.0",

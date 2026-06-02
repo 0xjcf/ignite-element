@@ -1,16 +1,26 @@
-import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
-import type { InferStateAndEvent, MobxEvent } from "ignite-adapters";
-import { isMobxObservable, isReduxSlice, isReduxStore } from "ignite-adapters";
+import type { InferStateAndEvent, MobxEvent } from "@ignite-element/adapters";
+import {
+	isMobxObservable,
+	isReduxSlice,
+	isReduxStore,
+} from "@ignite-element/adapters";
 import type {
 	ActorWebCommandActor,
 	ActorWebExtendedState,
 	ActorWebSource,
 	ActorWebSourceHandle,
-} from "ignite-adapters/actor-web";
-import type { ExtendedState, XStateCommandActor } from "ignite-adapters/xstate";
-import { isXStateActor, isXStateMachine } from "ignite-adapters/xstate";
-import type { IgniteAdapter } from "ignite-core";
-import { StateScope } from "ignite-core";
+} from "@ignite-element/adapters/actor-web";
+import type {
+	ExtendedState,
+	XStateCommandActor,
+} from "@ignite-element/adapters/xstate";
+import {
+	isXStateActor,
+	isXStateMachine,
+} from "@ignite-element/adapters/xstate";
+import type { IgniteAdapter } from "@ignite-element/core";
+import { StateScope } from "@ignite-element/core";
+import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type { AnyStateMachine, EventFrom } from "xstate";
 import igniteElementFactory, {
 	type ComponentFactory,

@@ -1,1 +1,1 @@
-export * from "ignite-renderer/lit";
+export * from "@ignite-element/renderer/lit";

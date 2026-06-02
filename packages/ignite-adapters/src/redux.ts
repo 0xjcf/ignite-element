@@ -2,7 +2,7 @@ export type {
 	EmptyEventMap,
 	EventMap,
 	FacadeCommandFunction,
-} from "ignite-core";
+} from "@ignite-element/core";
 export { default as createReduxAdapter } from "./adapters/ReduxAdapter";
 export type {
 	ReduxBlueprintConfig,

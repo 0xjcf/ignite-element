@@ -7,7 +7,7 @@ export type {
 	CommandWithMetadata,
 	NumberCommandInputMetadata,
 	NumberCommandInputOptions,
-} from "ignite-core";
+} from "@ignite-element/core";
 export { igniteCoreRedux as igniteCore } from "./igniteCore/redux";
 export type {
 	IgniteCoreReturn,

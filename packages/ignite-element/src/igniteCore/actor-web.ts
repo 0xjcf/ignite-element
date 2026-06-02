@@ -4,8 +4,8 @@ import type {
 	ActorWebExtendedState,
 	ActorWebSource,
 	ActorWebSourceHandle,
-} from "ignite-adapters/actor-web";
-import { createActorWebAdapter } from "ignite-adapters/actor-web";
+} from "@ignite-element/adapters/actor-web";
+import { createActorWebAdapter } from "@ignite-element/adapters/actor-web";
 import type {
 	EmptyEventMap,
 	EventMap,

@@ -1,1 +1,4 @@
-export type { RenderStrategy, RenderStrategyFactory } from "ignite-renderer";
+export type {
+	RenderStrategy,
+	RenderStrategyFactory,
+} from "@ignite-element/renderer";

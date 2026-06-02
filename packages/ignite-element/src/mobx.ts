@@ -7,7 +7,7 @@ export type {
 	CommandWithMetadata,
 	NumberCommandInputMetadata,
 	NumberCommandInputOptions,
-} from "ignite-core";
+} from "@ignite-element/core";
 export { igniteCoreMobx as igniteCore } from "./igniteCore/mobx";
 export type {
 	IgniteCoreReturn,

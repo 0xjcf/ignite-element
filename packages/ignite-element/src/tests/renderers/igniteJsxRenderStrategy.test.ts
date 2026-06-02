@@ -1,4 +1,4 @@
-import { defineIgniteConfig, setGlobalStyles } from "ignite-renderer";
+import { defineIgniteConfig, setGlobalStyles } from "@ignite-element/renderer";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as rendererModule from "../../../../ignite-renderer/src/renderers/jsx/renderer";
 import igniteElementFactory from "../../IgniteElementFactory";

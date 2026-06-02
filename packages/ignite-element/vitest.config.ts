@@ -24,57 +24,57 @@ export default defineConfig((configEnv) =>
 						replacement: resolvePath("./src/"),
 					},
 					{
-						find: "ignite-core",
+						find: "@ignite-element/core",
 						replacement: resolvePath("../ignite-core/src/index.ts"),
 					},
 					{
-						find: "ignite-adapters/actor-web",
+						find: "@ignite-element/adapters/actor-web",
 						replacement: resolvePath("../ignite-adapters/src/actor-web.ts"),
 					},
 					{
-						find: "ignite-adapters/xstate",
+						find: "@ignite-element/adapters/xstate",
 						replacement: resolvePath("../ignite-adapters/src/xstate.ts"),
 					},
 					{
-						find: "ignite-adapters/redux",
+						find: "@ignite-element/adapters/redux",
 						replacement: resolvePath("../ignite-adapters/src/redux.ts"),
 					},
 					{
-						find: "ignite-adapters/mobx",
+						find: "@ignite-element/adapters/mobx",
 						replacement: resolvePath("../ignite-adapters/src/mobx.ts"),
 					},
 					{
-						find: "ignite-adapters",
+						find: "@ignite-element/adapters",
 						replacement: resolvePath("../ignite-adapters/src/index.ts"),
 					},
 					{
-						find: "ignite-renderer/jsx-runtime",
+						find: "@ignite-element/renderer/jsx-runtime",
 						replacement: resolvePath(
 							"../ignite-renderer/src/jsx/jsx-runtime.ts",
 						),
 					},
 					{
-						find: "ignite-renderer/jsx-dev-runtime",
+						find: "@ignite-element/renderer/jsx-dev-runtime",
 						replacement: resolvePath(
 							"../ignite-renderer/src/jsx/jsx-dev-runtime.ts",
 						),
 					},
 					{
-						find: "ignite-renderer/jsx/index",
+						find: "@ignite-element/renderer/jsx/index",
 						replacement: resolvePath("../ignite-renderer/src/jsx/index.ts"),
 					},
 					{
-						find: "ignite-renderer/jsx",
+						find: "@ignite-element/renderer/jsx",
 						replacement: resolvePath(
 							"../ignite-renderer/src/renderers/ignite-jsx.ts",
 						),
 					},
 					{
-						find: "ignite-renderer/lit",
+						find: "@ignite-element/renderer/lit",
 						replacement: resolvePath("../ignite-renderer/src/renderers/lit.ts"),
 					},
 					{
-						find: "ignite-renderer",
+						find: "@ignite-element/renderer",
 						replacement: resolvePath("../ignite-renderer/src/index.ts"),
 					},
 				],

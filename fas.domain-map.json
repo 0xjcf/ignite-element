@@ -5,21 +5,21 @@
 		"root": "."
 	},
 	"aliases": {
-		"ignite-core": [
+		"@ignite-element/core": [
 			"core contracts",
 			"commands",
 			"events",
 			"effects",
 			"deterministic decision"
 		],
-		"ignite-adapters": [
+		"@ignite-element/adapters": [
 			"state adapters",
 			"redux",
 			"mobx",
 			"xstate",
 			"actor-web bridge"
 		],
-		"ignite-renderer": [
+		"@ignite-element/renderer": [
 			"render strategies",
 			"jsx renderer",
 			"lit renderer",
@@ -45,12 +45,12 @@
 		]
 	},
 	"domains": {
-		"ignite-core": {
+		"@ignite-element/core": {
 			"name": "Ignite Core",
 			"description": "Adapter-neutral contracts and deterministic primitives for state, commands, events, effects, render args, and invariant helpers.",
 			"aliases": [
 				"core",
-				"ignite-core",
+				"@ignite-element/core",
 				"deterministic decision",
 				"commands",
 				"events",
@@ -73,7 +73,7 @@
 			"boundaries": ["packages/ignite-core/src/"],
 			"dependencies": []
 		},
-		"ignite-adapters": {
+		"@ignite-element/adapters": {
 			"name": "Ignite Adapters",
 			"description": "Integration adapters that translate Redux, MobX, XState, and Actor-Web runtime sources into Ignite adapter contracts.",
 			"aliases": [
@@ -98,7 +98,7 @@
 				"packages/ignite-element/src/tests/adapters/XStateAdapter.test.ts"
 			],
 			"boundaries": ["packages/ignite-adapters/src/"],
-			"dependencies": ["ignite-core"]
+			"dependencies": ["@ignite-element/core"]
 		},
 		"actor-web-bridge": {
 			"name": "Actor-Web Bridge",
@@ -135,9 +135,9 @@
 				"packages/ignite-element/src/actor-web.ts",
 				"packages/ignite-element/src/igniteCore/actor-web.ts"
 			],
-			"dependencies": ["ignite-core", "ignite-adapters", "ignite-element"]
+			"dependencies": ["@ignite-element/core", "@ignite-element/adapters", "ignite-element"]
 		},
-		"ignite-renderer": {
+		"@ignite-element/renderer": {
 			"name": "Ignite Renderer",
 			"description": "Renderer registration and projection-to-renderer execution utilities, including Ignite JSX and Lit render strategies.",
 			"aliases": [
@@ -198,7 +198,7 @@
 				"packages/ignite-element/src/tests/entrypoints.test.ts"
 			],
 			"boundaries": ["packages/ignite-element/src/"],
-			"dependencies": ["ignite-core", "ignite-adapters", "ignite-renderer"]
+			"dependencies": ["@ignite-element/core", "@ignite-element/adapters", "@ignite-element/renderer"]
 		},
 		"agent-runtime": {
 			"name": "Ignite Agent Runtime",
@@ -262,9 +262,9 @@
 			"tests": [],
 			"boundaries": ["docs/site/", "docs/"],
 			"dependencies": [
-				"ignite-core",
-				"ignite-adapters",
-				"ignite-renderer",
+				"@ignite-element/core",
+				"@ignite-element/adapters",
+				"@ignite-element/renderer",
 				"ignite-element"
 			]
 		}
@@ -272,8 +272,8 @@
 	"workspaceContracts": [
 		{
 			"name": "ignite-core-public-api",
-			"producer": "ignite-core",
-			"consumers": ["ignite-adapters", "ignite-element", "agent-runtime"],
+			"producer": "@ignite-element/core",
+			"consumers": ["@ignite-element/adapters", "ignite-element", "agent-runtime"],
 			"surfaces": [
 				"packages/ignite-core/package.json",
 				"packages/ignite-core/src/index.ts",
@@ -282,7 +282,7 @@
 		},
 		{
 			"name": "ignite-adapters-public-api",
-			"producer": "ignite-adapters",
+			"producer": "@ignite-element/adapters",
 			"consumers": ["ignite-element", "actor-web-bridge"],
 			"surfaces": [
 				"packages/ignite-adapters/package.json",
@@ -292,7 +292,7 @@
 		},
 		{
 			"name": "ignite-renderer-public-api",
-			"producer": "ignite-renderer",
+			"producer": "@ignite-element/renderer",
 			"consumers": ["ignite-element"],
 			"surfaces": [
 				"packages/ignite-renderer/package.json",

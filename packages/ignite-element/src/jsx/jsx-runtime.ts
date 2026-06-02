@@ -1,1 +1,1 @@
-export * from "ignite-renderer/jsx-runtime";
+export * from "@ignite-element/renderer/jsx-runtime";

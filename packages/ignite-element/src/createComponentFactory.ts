@@ -1,5 +1,8 @@
-import type { IgniteAdapter, StateScope } from "ignite-core";
-import type { IgniteJsxChild, RenderStrategyFactory } from "ignite-renderer";
+import type { IgniteAdapter, StateScope } from "@ignite-element/core";
+import type {
+	IgniteJsxChild,
+	RenderStrategyFactory,
+} from "@ignite-element/renderer";
 import type { TemplateResult } from "lit-html";
 import {
 	type AdapterFactory,

@@ -1,1 +1,1 @@
-export * from "ignite-renderer/jsx/index";
+export * from "@ignite-element/renderer/jsx/index";

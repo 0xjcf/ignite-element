@@ -5,8 +5,8 @@ import type {
 	ActorWebReadModelSource as AdapterActorWebReadModelSource,
 	ActorWebSource as AdapterActorWebSource,
 	ActorWebSourceHandle as AdapterActorWebSourceHandle,
-} from "ignite-adapters/actor-web";
-import { command, commandMetadataSymbol } from "ignite-core";
+} from "@ignite-element/adapters/actor-web";
+import { command, commandMetadataSymbol } from "@ignite-element/core";
 import { makeAutoObservable } from "mobx";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { createMachine, type EventFrom, setup } from "xstate";
@@ -445,7 +445,16 @@ describe("igniteCore type inference", () => {
 		const register = igniteCoreActorWebEntrypoint({
 			source: actorWebShipmentReadModelHostFactory,
 			commandSource: () => actorWebShipmentSource,
-			view: ({ context, phase, status, value, matches, can, hasTag, snapshot }) => ({
+			view: ({
+				context,
+				phase,
+				status,
+				value,
+				matches,
+				can,
+				hasTag,
+				snapshot,
+			}) => ({
 				shipmentId: context.shipmentId,
 				phase,
 				status,

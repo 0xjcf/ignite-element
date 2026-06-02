@@ -1,4 +1,3 @@
-import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type {
 	ActorWebCommandActor,
 	ActorWebCommandSource,
@@ -15,11 +14,11 @@ import type {
 	MobxConfig as StoreMobxConfig,
 	ReduxBlueprintConfig as StoreReduxBlueprintConfig,
 	ReduxInstanceConfig as StoreReduxInstanceConfig,
-} from "ignite-adapters";
+} from "@ignite-element/adapters";
 import type {
 	XStateConfig as AdapterXStateConfig,
 	XStateActorInstance,
-} from "ignite-adapters/xstate";
+} from "@ignite-element/adapters/xstate";
 import type {
 	AnyCommandsCallback,
 	AnyEffectsCallback,
@@ -35,7 +34,8 @@ import type {
 	FacadeEffectsObjectCallback,
 	FacadeStatesCallback,
 	FacadeViewCallback,
-} from "ignite-core";
+} from "@ignite-element/core";
+import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type { AnyStateMachine } from "xstate";
 import type { WithFacadeRenderArgs } from "../createProjectionFactory";
 import type { ComponentFactory } from "../IgniteElementFactory";

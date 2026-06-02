@@ -1,7 +1,7 @@
+import type { IgniteAdapter } from "@ignite-element/core";
+import { failInvariant, StateScope } from "@ignite-element/core";
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import { configureStore } from "@reduxjs/toolkit";
-import type { IgniteAdapter } from "ignite-core";
-import { failInvariant, StateScope } from "ignite-core";
 import type { ReduxSliceCommandActor, ReduxStoreCommandActor } from "../types";
 import { isReduxSlice, isReduxStore } from "../utils/adapterGuards";
 import type { InferStateAndEvent } from "../utils/igniteRedux";

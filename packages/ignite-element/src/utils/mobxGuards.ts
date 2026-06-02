@@ -1,1 +1,1 @@
-export { isMobxObservable } from "ignite-adapters";
+export { isMobxObservable } from "@ignite-element/adapters";

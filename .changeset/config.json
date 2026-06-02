@@ -2,7 +2,14 @@
 	"$schema": "https://unpkg.com/@changesets/config@3.0.4/schema.json",
 	"changelog": "@changesets/cli/changelog",
 	"commit": true,
-	"fixed": [["ignite-core", "ignite-adapters", "ignite-renderer", "ignite-element"]],
+	"fixed": [
+		[
+			"@ignite-element/core",
+			"@ignite-element/adapters",
+			"@ignite-element/renderer",
+			"ignite-element"
+		]
+	],
 	"linked": [],
 	"access": "public",
 	"baseBranch": "main",

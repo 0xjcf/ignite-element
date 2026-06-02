@@ -49,7 +49,7 @@ importers:
 
   packages/ignite-adapters:
     dependencies:
-      ignite-core:
+      '@ignite-element/core':
         specifier: workspace:*
         version: link:../ignite-core
       redux:
@@ -89,18 +89,18 @@ importers:
 
   packages/ignite-element:
     dependencies:
+      '@ignite-element/adapters':
+        specifier: workspace:*
+        version: link:../ignite-adapters
+      '@ignite-element/core':
+        specifier: workspace:*
+        version: link:../ignite-core
+      '@ignite-element/renderer':
+        specifier: workspace:*
+        version: link:../ignite-renderer
       '@reduxjs/toolkit':
         specifier: '>=2.3.0'
         version: 2.11.2
-      ignite-adapters:
-        specifier: workspace:*
-        version: link:../ignite-adapters
-      ignite-core:
-        specifier: workspace:*
-        version: link:../ignite-core
-      ignite-renderer:
-        specifier: workspace:*
-        version: link:../ignite-renderer
       lit-html:
         specifier: '>=3.2.1'
         version: 3.3.2

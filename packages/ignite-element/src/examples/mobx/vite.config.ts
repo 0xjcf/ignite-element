@@ -16,7 +16,7 @@ export default defineConfig({
 	resolve: {
 		alias: [
 			{
-				find: "ignite-adapters/mobx",
+				find: "@ignite-element/adapters/mobx",
 				replacement: resolvePath("../../../../ignite-adapters/src/mobx.ts"),
 			},
 			{

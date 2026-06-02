@@ -1,5 +1,5 @@
-import type { IgniteAdapter } from "ignite-core";
-import { StateScope } from "ignite-core";
+import type { IgniteAdapter } from "@ignite-element/core";
+import { StateScope } from "@ignite-element/core";
 import type { RenderStrategy } from "./renderers/RenderStrategy";
 import type {
 	IgniteStoryLifecycleScope,

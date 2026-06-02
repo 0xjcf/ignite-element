@@ -11,7 +11,7 @@ import type {
 	ObjectCommandInputOptions,
 	ObjectCommandInputProperties,
 	StringCommandInputOptions,
-} from "ignite-core";
+} from "@ignite-element/core";
 
 export const commandMetadataSymbol = Symbol.for("ignite.command.metadata");
 

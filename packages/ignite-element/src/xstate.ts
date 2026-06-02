@@ -1,21 +1,20 @@
 import "./internal/setupDomPolyfill";
 
 import type {
+	XStateConfig as AdapterXStateConfig,
 	ExtendedState,
 	XStateCommandActor,
-	XStateConfig as AdapterXStateConfig,
-} from "ignite-adapters/xstate";
+} from "@ignite-element/adapters/xstate";
 import type {
 	EmptyEventMap,
 	EventMap,
 	EventsDefinition,
 	FacadeCommandFunction,
 	FacadeCommandResult,
-} from "ignite-core";
+} from "@ignite-element/core";
 import type { AnyStateMachine, EventFrom } from "xstate";
 import type { IgniteCoreReturn } from "./igniteCore/types";
 
-export type { IgniteCoreReturn } from "./igniteCore/types";
 export type {
 	CommandHelper,
 	CommandMetadata,
@@ -23,9 +22,12 @@ export type {
 	CommandWithMetadata,
 	NumberCommandInputMetadata,
 	NumberCommandInputOptions,
-} from "ignite-core";
-export { matchState } from "ignite-core";
+} from "@ignite-element/core";
+export { matchState } from "@ignite-element/core";
+export type { IgniteCoreReturn } from "./igniteCore/types";
+
 import { igniteCoreXState as baseIgniteCoreXState } from "./igniteCore/xstate";
+
 export type {
 	IgniteDomBridge,
 	IgniteDomRoleExpectation,

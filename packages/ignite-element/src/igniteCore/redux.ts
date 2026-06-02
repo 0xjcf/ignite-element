@@ -1,11 +1,11 @@
-import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
-import type { InferStateAndEvent } from "ignite-adapters";
+import type { InferStateAndEvent } from "@ignite-element/adapters";
 import {
 	createReduxAdapter,
 	isReduxSlice,
 	isReduxStore,
-} from "ignite-adapters";
-import type { IgniteAdapter, StateScope } from "ignite-core";
+} from "@ignite-element/adapters";
+import type { IgniteAdapter, StateScope } from "@ignite-element/core";
+import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type {
 	EmptyEventMap,
 	EventMap,

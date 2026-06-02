@@ -1,1 +1,1 @@
-export { event } from "ignite-core";
+export { event } from "@ignite-element/core";

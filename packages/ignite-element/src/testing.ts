@@ -4,26 +4,26 @@ import type {
 	EventPayload,
 	FacadeCommandResult,
 } from "./RenderArgs";
+import {
+	type IgniteDomBridgeOptions,
+	type IgniteDomBridgeSession,
+	igniteDomBridgeSymbol,
+} from "./runtime/agent";
+import { toSchemaValue } from "./runtime/schema";
 import type {
 	IgniteAgentExecutionResult,
 	IgniteAgentRuntime,
 	IgniteStory,
 	IgniteStorySnapshot,
 	IgniteStorySnapshotEvent,
+	IgniteStorySummary,
+	IgniteStorySummarySnapshot,
 	IgniteStoryTraceEntry,
 	IgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry,
-	IgniteStorySummary,
-	IgniteStorySummarySnapshot,
 	RuntimeEvent,
 } from "./types/agent";
 import type { IgniteSchemaValue } from "./types/schema";
-import {
-	igniteDomBridgeSymbol,
-	type IgniteDomBridgeOptions,
-	type IgniteDomBridgeSession,
-} from "./runtime/agent";
-import { toSchemaValue } from "./runtime/schema";
 
 type DeepPartial<T> = T extends readonly (infer Item)[]
 	? readonly DeepPartial<Item>[]

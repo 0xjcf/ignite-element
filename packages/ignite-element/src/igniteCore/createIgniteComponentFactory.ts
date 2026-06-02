@@ -1,5 +1,5 @@
-import type { IgniteAdapter, StateScope } from "ignite-core";
-import { event } from "ignite-core";
+import type { IgniteAdapter, StateScope } from "@ignite-element/core";
+import { event } from "@ignite-element/core";
 import { createComponentFactory } from "../createComponentFactory";
 import type {
 	EmptyEventMap,

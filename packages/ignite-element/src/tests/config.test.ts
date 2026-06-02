@@ -1,4 +1,4 @@
-import * as globalStylesModule from "ignite-renderer";
+import * as globalStylesModule from "@ignite-element/renderer";
 import {
 	afterAll,
 	afterEach,

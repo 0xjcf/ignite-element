@@ -1,4 +1,4 @@
-import { defineIgniteConfig } from "ignite-renderer";
+import { defineIgniteConfig } from "@ignite-element/renderer";
 
 // Advanced compatibility only: the default v3 example path stays config-free
 // and uses ordinary local <style> tags plus any host-loaded global CSS.

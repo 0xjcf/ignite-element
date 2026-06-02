@@ -3,5 +3,5 @@ export type {
 	IgniteLoggingLevel,
 	IgniteRendererId,
 	IgniteRenderStrategyId,
-} from "ignite-renderer";
-export { defineIgniteConfig, getIgniteConfig } from "ignite-renderer";
+} from "@ignite-element/renderer";
+export { defineIgniteConfig, getIgniteConfig } from "@ignite-element/renderer";

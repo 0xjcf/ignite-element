@@ -2,7 +2,7 @@ import {
 	defineIgniteConfig,
 	flushPendingStyles,
 	type IgniteConfig,
-} from "ignite-renderer";
+} from "@ignite-element/renderer";
 
 type ConfigModule =
 	| IgniteConfig

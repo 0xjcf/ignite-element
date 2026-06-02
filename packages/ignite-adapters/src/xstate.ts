@@ -8,7 +8,7 @@ import type {
 	FacadeEffectArgs,
 	FacadeStatesCallback,
 	FacadeViewCallback,
-} from "ignite-core";
+} from "@ignite-element/core";
 import type { AnyStateMachine } from "xstate";
 import createXStateAdapter, {
 	type ExtendedState,

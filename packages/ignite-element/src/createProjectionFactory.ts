@@ -1,4 +1,4 @@
-import type { IgniteAdapter, StateScope } from "ignite-core";
+import type { IgniteAdapter, StateScope } from "@ignite-element/core";
 import type { BaseRenderArgs } from "./IgniteElementFactory";
 import type {
 	EmitFromEvents,
@@ -120,7 +120,9 @@ function freezeIfDev<T extends object>(value: T): T {
 	return isDevelopment() ? Object.freeze(value) : value;
 }
 
-const createViewContext = <Snapshot>(snapshot: Snapshot): ViewContext<Snapshot> => {
+const createViewContext = <Snapshot>(
+	snapshot: Snapshot,
+): ViewContext<Snapshot> => {
 	if (typeof snapshot === "object" && snapshot !== null) {
 		return {
 			...(snapshot as object),

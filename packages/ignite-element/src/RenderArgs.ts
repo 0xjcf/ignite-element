@@ -1,11 +1,13 @@
-import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type {
 	InferStateAndEvent,
 	MobxEvent,
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
-} from "ignite-adapters";
-import type { ExtendedState, XStateCommandActor } from "ignite-adapters/xstate";
+} from "@ignite-element/adapters";
+import type {
+	ExtendedState,
+	XStateCommandActor,
+} from "@ignite-element/adapters/xstate";
 import type {
 	CommandHelper,
 	CommandMetadata,
@@ -34,7 +36,8 @@ import type {
 	FacadeViewCallback,
 	NumberCommandInputMetadata,
 	NumberCommandInputOptions,
-} from "ignite-core";
+} from "@ignite-element/core";
+import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type { AnyStateMachine, EventFrom, StateFrom } from "xstate";
 
 export type {
@@ -63,7 +66,7 @@ export type {
 export type {
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
-} from "ignite-adapters";
+} from "@ignite-element/adapters";
 
 export type CommandContext<Actor, Host = HTMLElement> = CoreCommandContext<
 	Actor,

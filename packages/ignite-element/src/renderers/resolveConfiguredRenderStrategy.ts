@@ -5,7 +5,7 @@ import {
 	type RenderStrategyFactory,
 	registerRenderStrategy,
 	resolveRenderStrategy,
-} from "ignite-renderer";
+} from "@ignite-element/renderer";
 
 export {
 	clearRegisteredRenderStrategiesForTests,

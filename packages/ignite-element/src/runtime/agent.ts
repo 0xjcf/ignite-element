@@ -1,4 +1,4 @@
-import type { IgniteAdapter } from "ignite-core";
+import type { IgniteAdapter } from "@ignite-element/core";
 import type {
 	IgniteAgentSubscription,
 	IgniteStory,

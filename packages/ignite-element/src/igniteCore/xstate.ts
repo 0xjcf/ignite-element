@@ -1,5 +1,8 @@
-import type { ExtendedState, XStateCommandActor } from "ignite-adapters/xstate";
-import { createXStateAdapter } from "ignite-adapters/xstate";
+import type {
+	ExtendedState,
+	XStateCommandActor,
+} from "@ignite-element/adapters/xstate";
+import { createXStateAdapter } from "@ignite-element/adapters/xstate";
 import type { AnyStateMachine, EventFrom } from "xstate";
 import type {
 	EmptyEventMap,

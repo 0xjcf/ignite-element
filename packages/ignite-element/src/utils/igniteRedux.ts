@@ -1,1 +1,1 @@
-export type { InferStateAndEvent } from "ignite-adapters";
+export type { InferStateAndEvent } from "@ignite-element/adapters";

@@ -7,8 +7,8 @@ export type {
 	CommandWithMetadata,
 	NumberCommandInputMetadata,
 	NumberCommandInputOptions,
-} from "ignite-core";
-export { event, StateScope } from "ignite-core";
+} from "@ignite-element/core";
+export { event, StateScope } from "@ignite-element/core";
 export type {
 	IgniteDomBridge,
 	IgniteDomRoleExpectation,

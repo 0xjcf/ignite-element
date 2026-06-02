@@ -1,5 +1,5 @@
 export type {
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
-} from "ignite-adapters";
-export { createReduxAdapter as default } from "ignite-adapters";
+} from "@ignite-element/adapters";
+export { createReduxAdapter as default } from "@ignite-element/adapters";

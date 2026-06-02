@@ -1,5 +1,5 @@
-import type { MobxEvent } from "ignite-adapters";
-import { createMobXAdapter } from "ignite-adapters";
+import type { MobxEvent } from "@ignite-element/adapters";
+import { createMobXAdapter } from "@ignite-element/adapters";
 import type {
 	EmptyEventMap,
 	EventMap,

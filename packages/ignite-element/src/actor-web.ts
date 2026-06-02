@@ -14,7 +14,7 @@ export type {
 	ActorWebSourceSnapshot,
 	ActorWebTransportState,
 	ActorWebTransportStatus,
-} from "ignite-adapters/actor-web";
+} from "@ignite-element/adapters/actor-web";
 export type {
 	CommandHelper,
 	CommandMetadata,
@@ -22,7 +22,7 @@ export type {
 	CommandWithMetadata,
 	NumberCommandInputMetadata,
 	NumberCommandInputOptions,
-} from "ignite-core";
+} from "@ignite-element/core";
 export { igniteCoreActorWeb as igniteCore } from "./igniteCore/actor-web";
 export type { ActorWebConfig, IgniteCoreReturn } from "./igniteCore/types";
 export type {

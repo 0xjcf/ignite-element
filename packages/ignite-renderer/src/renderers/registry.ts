@@ -54,13 +54,13 @@ export function resolveRenderStrategy(
 
 	if (!fallbackName || !fallbackFactory) {
 		throw new Error(
-			'[ignite-renderer] No render strategies have been registered. Import "ignite-renderer/jsx" (or another strategy entry point) before registering components.',
+			'[ignite-renderer] No render strategies have been registered. Import "@ignite-element/renderer/jsx" (or another strategy entry point) before registering components.',
 		);
 	}
 
 	if (renderer !== fallbackName) {
 		console.warn(
-			`[ignite-renderer] Render strategy "${renderer}" is not registered. Ensure you import "ignite-renderer/${renderer}" before registering components. Falling back to "${fallbackName}".`,
+			`[ignite-renderer] Render strategy "${renderer}" is not registered. Ensure you import "@ignite-element/renderer/${renderer}" before registering components. Falling back to "${fallbackName}".`,
 		);
 	}
 
