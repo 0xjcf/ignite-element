@@ -1,0 +1,39 @@
+---
+title: Renderers
+description: Choose between Ignite JSX (default) and the lit renderer.
+sidebar:
+  label: Renderers
+  order: 2
+slug: 2.x/concepts/renderers
+---
+
+Ignite Element separates **state** from **rendering**. Ignite JSX is the config-free default; use config only for advanced project-wide strategy overrides or to opt into `lit`.
+
+## Ignite JSX (default)
+
+* Ships with the package; no extra peer deps.
+* Author JSX directly in your component definition.
+* Configure TypeScript with `jsxImportSource: "ignite-element/jsx"`.
+
+```tsx
+component('ignite-toggle', ({ isOn, toggle }) => (
+  <button onClick={toggle}>{isOn ? 'On' : 'Off'}</button>
+));
+```
+
+## lit renderer
+
+* Install `lit-html` and set `renderer: "lit"` in `ignite.config.ts`.
+* Author lit templates while keeping the same `view`/`commands` contract.
+
+```ts
+import { html } from 'lit-html';
+
+component('ignite-toggle', ({ isOn, toggle }) =>
+  html`<button @click=${toggle}>${isOn ? 'On' : 'Off'}</button>`
+);
+```
+
+## Render strategies
+
+Ignite includes render strategies (diff vs. replace). Diffing minimizes DOM churn for JSX components; replace mirrors lit’s replace-by-default behavior. Add `strategy: "replace"` in `ignite.config.ts` only when you need a project-wide override.

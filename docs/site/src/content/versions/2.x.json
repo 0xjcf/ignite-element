@@ -1,0 +1,119 @@
+{
+  "sidebar": [
+    {
+      "label": "Overview",
+      "items": [
+        {
+          "label": "Welcome",
+          "slug": "index"
+        },
+        {
+          "label": "What is Ignite Element?",
+          "slug": "overview/what-is-ignite-element"
+        }
+      ]
+    },
+    {
+      "label": "Getting Started",
+      "items": [
+        {
+          "label": "Installation",
+          "slug": "getting-started/installation"
+        },
+        {
+          "label": "Your first component",
+          "slug": "getting-started/first-component"
+        },
+        {
+          "label": "Project setup",
+          "slug": "getting-started/project-setup"
+        }
+      ]
+    },
+    {
+      "label": "Concepts",
+      "items": [
+        {
+          "label": "State adapters",
+          "slug": "concepts/state-adapters"
+        },
+        {
+          "label": "Renderers",
+          "slug": "concepts/renderers"
+        },
+        {
+          "label": "Events & commands",
+          "slug": "concepts/events-and-commands"
+        },
+        {
+          "label": "Configuration",
+          "slug": "concepts/configuration"
+        }
+      ]
+    },
+    {
+      "label": "API",
+      "items": [
+        {
+          "label": "igniteCore",
+          "slug": "api/ignite-core"
+        },
+        {
+          "label": "Advanced config",
+          "slug": "api/define-ignite-config"
+        },
+        {
+          "label": "Advanced renderers",
+          "slug": "api/renderers"
+        }
+      ]
+    },
+    {
+      "label": "Guides",
+      "items": [
+        {
+          "label": "Host app integration",
+          "slug": "guides/host-app-integration"
+        },
+        {
+          "label": "Platform contracts",
+          "slug": "guides/platform-contracts"
+        },
+        {
+          "label": "Agent runtime v3",
+          "slug": "guides/agent-runtime-v3"
+        },
+        {
+          "label": "Styling",
+          "slug": "guides/styling"
+        },
+        {
+          "label": "Testing",
+          "slug": "guides/testing"
+        },
+        {
+          "label": "Tooling & bundlers",
+          "slug": "guides/tooling"
+        }
+      ]
+    },
+    {
+      "label": "Migration",
+      "items": [
+        {
+          "label": "v1 → v2",
+          "slug": "migration/v2"
+        }
+      ]
+    },
+    {
+      "label": "Community",
+      "items": [
+        {
+          "label": "Support & links",
+          "slug": "community"
+        }
+      ]
+    }
+  ]
+}

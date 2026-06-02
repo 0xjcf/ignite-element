@@ -1,0 +1,33 @@
+---
+title: Renderers & strategies
+description: Advanced renderer compatibility notes beyond the default Ignite JSX path.
+sidebar:
+  label: Advanced renderers
+  order: 3
+slug: 2.x/api/renderers
+---
+
+Ignite JSX is the default renderer and works without `ignite.config.ts`. Components can render JSX directly and keep component CSS in local `<style>` tags.
+
+## Optional advanced renderer config
+
+Use config only when you need project-wide strategy overrides or the legacy `lit` renderer:
+
+```ts
+import { defineIgniteConfig } from 'ignite-renderer';
+
+export default defineIgniteConfig({
+  renderer: 'lit',
+  strategy: 'replace',
+});
+```
+
+## Assets & styles
+
+Component-level `<style>` tags are the default scoped styling path. Shared `styles` declared in config are injected into every component shadow root when you opt into that advanced config path.
+
+## Notes and troubleshooting
+
+* `lit` is no longer part of the stable `ignite-element` public surface. Import `ignite-renderer/lit` only when you intentionally opt into that advanced compatibility path.
+* Legacy config-loader plugins are not part of the stable `ignite-element` v3 API. Keep them only in existing compatibility setups you already own.
+* Missing config keeps the Ignite JSX default. Invalid configured renderer values are normalized by legacy compatibility behavior and logged; avoid relying on that path.

@@ -1,0 +1,51 @@
+---
+title: Installation
+description: Set up Ignite Element with your state library and the default JSX path.
+sidebar:
+  label: Installation
+  order: 1
+slug: 2.x/getting-started/installation
+---
+
+Pick your package manager and install Ignite Element with a state adapter:
+
+```bash
+pnpm add ignite-element xstate
+# pnpm add ignite-element @reduxjs/toolkit   # Redux
+# pnpm add ignite-element mobx               # MobX
+```
+
+### 1) Configure JSX (required for the default Ignite JSX path)
+
+Add the Ignite JSX runtime to your `tsconfig.json` (or use a file-level pragma):
+
+```jsonc
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "ignite-element/jsx"
+  }
+}
+```
+
+### 2) Start building
+
+For the default path, you do not need `ignite.config.ts`, a bundler plugin, or shared adapter teardown overrides. The default Ignite JSX renderer is registered automatically by the public entrypoints.
+
+### Optional advanced and legacy setup
+
+Use the advanced setup only when you need `ignite-renderer` primitives for shared styles, diagnostics, or the legacy `lit` path.
+
+* **Advanced config**: [defineIgniteConfig (ignite-renderer)](/ignite-element/2.x/api/define-ignite-config/)
+* **Legacy tooling notes**: [Tooling](/ignite-element/2.x/guides/tooling/)
+* **Legacy renderer notes**: [Renderers](/ignite-element/2.x/api/renderers/)
+
+### Runtime dependencies and tree shaking
+
+Ignite Element stays lean but is not literally “zero dependency”: you must install the state library you choose (XState, Redux Toolkit, or MobX). Ignite JSX uses a minimal custom renderer (no framework runtime). If you opt into the lit renderer, install `lit-html`. Import from the adapter entry point that matches your state library (`ignite-element/xstate`, `ignite-element/redux`, or `ignite-element/mobx`) so only the renderer and adapter you pick are pulled into your bundle and unused adapters are tree-shaken.
+
+### Verify your setup
+
+* Run a TypeScript check (e.g., `pnpm exec tsc --noEmit` or `npx tsc --noEmit`) to ensure JSX settings work.
+* Create a smoke test component via [Your first component](/ignite-element/2.x/getting-started/first-component/).
+* Add config/plugins only if you need global renderer defaults, shared styles, or lit.

@@ -1,0 +1,187 @@
+---
+title: Testing
+description: Strategies for testing Ignite Element components.
+sidebar:
+  label: Testing
+  order: 2
+slug: 2.x/guides/testing
+---
+
+Test the state source and the DOM separately. Keep your XState/Redux/MobX logic covered with its own unit tests, then add light DOM tests for the web components.
+
+## Headless runtime tests
+
+For deterministic command and event assertions, use the headless runtime returned by `igniteCore(...)` directly from your Vitest suite.
+
+```ts
+import { describe, expect, it } from 'vitest';
+import { igniteCore } from 'ignite-element/xstate';
+import { counterMachine } from './counter.machine';
+
+const component = igniteCore({
+  source: counterMachine,
+  view: ({ snapshot }) => ({
+    isOn: snapshot.matches('on'),
+  }),
+  commands: ({ actor }) => ({
+    toggle: () => actor.send({ type: 'TOGGLE' }),
+  }),
+  events: (event) => ({
+    toggled: event<{ isOn: boolean }>(),
+  }),
+  effects: (_snapshot, _prevSnapshot, { emit, select }) => {
+    const isOn = select((snapshot) => snapshot.matches('on'));
+    if (!isOn.changed) return;
+    emit('toggled', { isOn: isOn.current });
+  },
+});
+
+describe('counter runtime', () => {
+  it('executes commands and reports emitted events', async () => {
+    const seen: Array<{ isOn: boolean }> = [];
+    const subscription = component.on('toggled', (event) => {
+      seen.push(event.detail);
+    });
+
+    const result = await component.execute('toggle');
+
+    subscription.unsubscribe();
+
+    expect(result.state.value).toBe('on');
+    expect(result.events).toEqual([
+      { type: 'toggled', payload: { isOn: true } },
+    ]);
+    expect(component.getView()).toEqual({ isOn: true });
+    expect(seen).toEqual([{ isOn: true }]);
+  });
+});
+```
+
+This path is useful when you want to verify command execution, resulting state, and emitted events without mounting a custom element. `execute()` returns the same event stream the runtime emitted for that transition, so the assertion surface stays deterministic.
+
+## Replay semantics
+
+Effects are seeded from the current snapshot when a host or runtime attaches.
+
+* Historical transitions are not replayed to new hosts.
+* The first subscription notification establishes `prevSnapshot` and does not run `effects(...)`.
+* Subsequent state updates run `effects(snapshot, prevSnapshot, ctx)` in a stable order.
+* For mounted elements, effects run before the render subscription for that host, so emitted DOM events arrive before the next render caused by the same transition.
+
+That makes it safe to write deterministic tests around a single transition without accidentally asserting mount-time emissions.
+
+## Setup
+
+* Use a browser-like runner (e.g., Vitest + JSDOM). If you rely on advanced `ignite-renderer` config, shared styles, or the legacy `lit` renderer, import that setup once before tests.
+* Register the component under test before each suite. Clear the DOM between tests (`document.body.innerHTML = ""`).
+
+```ts
+// test/setup.ts
+import './ignite.config'; // only if your app uses ignite.config.ts
+import 'ignite-renderer/lit'; // only if your tests use the lit renderer
+
+// vitest.config.ts
+export default defineConfig({
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./test/setup.ts'],
+  },
+});
+```
+
+## State tests (XState example)
+
+Write a machine test exactly as you would without Ignite.
+
+```ts
+// counter.machine.ts
+import { assign, setup } from 'xstate';
+
+export const counterMachine = setup({
+  types: {} as {
+    context: { count: number };
+    events: { type: 'INC' } | { type: 'DEC' };
+  },
+}).createMachine({
+  context: { count: 0 },
+  on: {
+    INC: { actions: assign(({ context }) => ({ count: context.count + 1 })) },
+    DEC: { actions: assign(({ context }) => ({ count: context.count - 1 })) },
+  },
+});
+
+// counter.machine.test.ts
+import { createActor } from 'xstate';
+import { counterMachine } from './counter.machine';
+
+describe('counter machine', () => {
+  it('increments and decrements', () => {
+    const actor = createActor(counterMachine).start();
+
+    actor.send({ type: 'INC' });
+    expect(actor.getSnapshot().context.count).toBe(1);
+
+    actor.send({ type: 'DEC' });
+    expect(actor.getSnapshot().context.count).toBe(0);
+  });
+});
+```
+
+## DOM tests (web component + XState + Lit)
+
+Register the component once, mount it, and drive it via the shadow DOM. The example below uses the Lit renderer and the same `counterMachine`.
+
+```ts
+// counter.element.ts
+import { html } from 'lit-html';
+import { igniteCore } from 'ignite-element/xstate';
+import { counterMachine } from './counter.machine';
+
+export const registerCounterElement = () =>
+  igniteCore({
+    source: counterMachine,
+    view: ({ snapshot }) => ({ count: snapshot.context.count }),
+    commands: ({ actor }) => ({
+      inc: () => actor.send({ type: 'INC' }),
+      dec: () => actor.send({ type: 'DEC' }),
+    }),
+  })('my-counter', ({ count, inc, dec }) => html`
+    <div>
+      <p>Count: ${count}</p>
+      <button data-testid="dec" @click=${dec}>-</button>
+      <button data-testid="inc" @click=${inc}>+</button>
+    </div>
+  `);
+
+// counter.element.test.ts
+import { beforeAll, afterEach, describe, expect, it } from 'vitest';
+import 'ignite-renderer/lit';
+import './ignite.config';
+import { registerCounterElement } from './counter.element';
+
+beforeAll(() => registerCounterElement());
+afterEach(() => {
+  document.body.innerHTML = '';
+});
+
+describe('<my-counter>', () => {
+  it('renders and responds to clicks', async () => {
+    const el = document.createElement('my-counter');
+    document.body.appendChild(el);
+
+    await Promise.resolve(); // allow initial render
+
+    const inc = el.shadowRoot!.querySelector<HTMLButtonElement>('[data-testid="inc"]')!;
+    inc.click();
+    await Promise.resolve(); // allow state flush
+
+    expect(el.shadowRoot!.textContent).toContain('Count: 1');
+  });
+});
+```
+
+## Shared adapter teardown checks
+
+* For shared sources you own (started actors/stores), stop them in your tests when you own their lifecycle.
+* For Ignite-created sources (e.g., XState machines), you can assert shared adapter teardown by connecting/disconnecting elements and verifying the adapter is released when `cleanup` is `true`.

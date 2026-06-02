@@ -2,6 +2,7 @@
 
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
+import starlightVersions from "starlight-versions";
 
 // https://astro.build/config
 export default defineConfig({
@@ -9,7 +10,13 @@ export default defineConfig({
 	base: "/ignite-element",
 	integrations: [
 		starlight({
-			title: "Ignite Element v2",
+			title: "Ignite Element",
+			plugins: [
+				starlightVersions({
+					versions: [{ slug: "2.x", label: "2.x" }],
+					current: { label: "v3 (beta)" },
+				}),
+			],
 			description:
 				"Platform-native custom elements with typed state, effects, events, and a headless runtime.",
 			logo: {
