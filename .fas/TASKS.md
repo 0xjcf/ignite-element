@@ -492,6 +492,20 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: Make the docs site theme token-driven and fix cross-theme inconsistencies
+
+- Title: Make the docs site theme token-driven and fix cross-theme inconsistencies
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/make-the-docs-site-theme-token-driven-and-fix-cross-theme-in.md
+### Task: Add a docs theme contrast guardrail to catch un-themed controls
+
+- Title: Add a docs theme contrast guardrail to catch un-themed controls
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/add-a-docs-theme-contrast-guardrail-to-catch-un-themed-contr.md
 ## Template
 
 ### Task: <short task title>
