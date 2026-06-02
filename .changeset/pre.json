@@ -9,6 +9,7 @@
     "ignite-renderer": "2.2.2"
   },
   "changesets": [
+    "optional-peer-dependencies",
     "v3-public-api-boundary",
     "view-context-snapshot-spread"
   ]

@@ -1,6 +1,6 @@
 {
 	"name": "ignite-renderer",
-	"version": "3.0.0-beta.0",
+	"version": "3.0.0-beta.1",
 	"type": "module",
 	"main": "dist/ignite-renderer.cjs.js",
 	"module": "dist/ignite-renderer.es.js",
@@ -86,5 +86,10 @@
 	},
 	"peerDependencies": {
 		"lit-html": ">=3.2.1"
+	},
+	"peerDependenciesMeta": {
+		"lit-html": {
+			"optional": true
+		}
 	}
 }
