@@ -40,10 +40,14 @@ Ignite is not trying to replace your app framework. It gives you a browser-nativ
 
 ## Quick start
 
-Install Ignite Element with your preferred state library.
+> **v3 is in beta.** Install with `@beta` — the stable `latest` tag is still
+> v2.2.x. The state libraries are optional peer dependencies, so only the one
+> you install is pulled in. See the [v2 → v3 migration guide](./docs/site/src/content/docs/migration/v3.mdx).
+
+Install Ignite Element with the one state library you use.
 
 ```bash
-npm install ignite-element xstate
+npm install ignite-element@beta xstate
 ```
 
 If you use the built-in JSX runtime, enable Ignite JSX once in your `tsconfig.json`:
@@ -104,8 +108,8 @@ const toggle = igniteCore({
     toggled: event<{ isOn: boolean }>(),
   }),
 
-  view: ({ snapshot }) => ({
-    isOn: snapshot.matches("on"),
+  view: ({ matches }) => ({
+    isOn: matches("on"),
   }),
 
   commands: ({ actor }) => ({
@@ -157,8 +161,8 @@ Commands:
 State is projected into the render surface.
 
 ```ts
-view: ({ snapshot }) => ({
-  isOn: snapshot.matches("on")
+view: ({ matches }) => ({
+  isOn: matches("on")
 })
 ```
 
@@ -296,9 +300,9 @@ Because this runs against the same deterministic runtime, state and event expect
 
 ## Installation matrix
 
-- XState: `npm install ignite-element xstate`
-- Redux: `npm install ignite-element @reduxjs/toolkit`
-- MobX: `npm install ignite-element mobx`
+- XState: `npm install ignite-element@beta xstate`
+- Redux: `npm install ignite-element@beta @reduxjs/toolkit`
+- MobX: `npm install ignite-element@beta mobx`
 
 ## Package map
 
@@ -306,9 +310,11 @@ Because this runs against the same deterministic runtime, state and event expect
 
 - `ignite-element`: default public package for app and component authors
 - `ignite-element/xstate`, `ignite-element/redux`, `ignite-element/mobx`: default public adapter entrypoints
-- `ignite-core`: advanced adapter-neutral contracts, event/effect typing, and shared utilities
-- `ignite-adapters`: advanced adapter factories, guards, and source-specific config/types
-- `ignite-renderer`: advanced renderer/runtime layer for custom renderer integration work
+- `@ignite-element/core`: advanced adapter-neutral contracts, event/effect typing, and shared utilities
+- `@ignite-element/adapters`: advanced adapter factories, guards, and source-specific config/types
+- `@ignite-element/renderer`: advanced renderer/runtime layer for custom renderer integration work
+
+These scoped packages are internal dependencies of `ignite-element` and install automatically; you don't add them directly.
 
 ## Multiple components from one core
 
