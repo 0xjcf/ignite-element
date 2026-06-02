@@ -8,11 +8,11 @@ sidebar:
 
 The default v3 path does not need `ignite.config.ts`: use Ignite JSX, set `jsxImportSource: "ignite-element/jsx"`, and keep component CSS in local `<style>` tags.
 
-Use `ignite.config.ts` only when you need advanced `ignite-renderer` compatibility for shared shadow-root styles, diagnostics, strategy overrides, or the legacy `lit` renderer.
+Use `ignite.config.ts` only when you need advanced `@ignite-element/renderer` compatibility for shared shadow-root styles, diagnostics, strategy overrides, or the legacy `lit` renderer.
 
 ```ts
 // ignite.config.ts
-import { defineIgniteConfig } from 'ignite-renderer';
+import { defineIgniteConfig } from '@ignite-element/renderer';
 
 export default defineIgniteConfig({
   styles: new URL('./styles.css', import.meta.url).href, // injected into each shadow root

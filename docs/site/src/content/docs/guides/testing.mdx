@@ -19,8 +19,8 @@ import { counterMachine } from './counter.machine';
 
 const component = igniteCore({
   source: counterMachine,
-  view: ({ snapshot }) => ({
-    isOn: snapshot.matches('on'),
+  view: ({ matches }) => ({
+    isOn: matches('on'),
   }),
   commands: ({ actor }) => ({
     toggle: () => actor.send({ type: 'TOGGLE' }),
@@ -71,13 +71,13 @@ That makes it safe to write deterministic tests around a single transition witho
 
 ## Setup
 
-- Use a browser-like runner (e.g., Vitest + JSDOM). If you rely on advanced `ignite-renderer` config, shared styles, or the legacy `lit` renderer, import that setup once before tests.
+- Use a browser-like runner (e.g., Vitest + JSDOM). If you rely on advanced `@ignite-element/renderer` config, shared styles, or the legacy `lit` renderer, import that setup once before tests.
 - Register the component under test before each suite. Clear the DOM between tests (`document.body.innerHTML = ""`).
 
 ```ts
 // test/setup.ts
 import './ignite.config'; // only if your app uses ignite.config.ts
-import 'ignite-renderer/lit'; // only if your tests use the lit renderer
+import '@ignite-element/renderer/lit'; // only if your tests use the lit renderer
 
 // vitest.config.ts
 export default defineConfig({
@@ -140,7 +140,7 @@ import { counterMachine } from './counter.machine';
 export const registerCounterElement = () =>
   igniteCore({
     source: counterMachine,
-    view: ({ snapshot }) => ({ count: snapshot.context.count }),
+    view: ({ context }) => ({ count: context.count }),
     commands: ({ actor }) => ({
       inc: () => actor.send({ type: 'INC' }),
       dec: () => actor.send({ type: 'DEC' }),
@@ -155,7 +155,7 @@ export const registerCounterElement = () =>
 
 // counter.element.test.ts
 import { beforeAll, afterEach, describe, expect, it } from 'vitest';
-import 'ignite-renderer/lit';
+import '@ignite-element/renderer/lit';
 import './ignite.config';
 import { registerCounterElement } from './counter.element';
 

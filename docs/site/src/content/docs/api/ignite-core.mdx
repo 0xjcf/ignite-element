@@ -14,7 +14,7 @@ import { igniteCore } from 'ignite-element/xstate';
 const component = igniteCore({
   source: machineOrActor,
   events: (event) => ({ /* typed events */ }),
-  view: ({ snapshot }) => ({ /* derived values */ }),
+  view: ({ context }) => ({ /* derived values */ }),
   commands: ({ actor, host }) => ({ /* actions */ }),
   effects: (snapshot, prevSnapshot, { emit, actor, host, select }) => { /* consequences */ },
 });
@@ -26,7 +26,7 @@ component('tag-name', (props) => /* JSX or lit template */);
 
 - `source`: machine definition or started actor (XState), Redux store/slice, or MobX observable.
 - `events(mapper)`: optional; defines typed DOM events.
-- `view({ snapshot })`: derive render props from the current snapshot; runs on mount and on changes.
+- `view(ctx)`: derive render props from the snapshot context — an object snapshot's fields are spread onto `ctx` (with `ctx.snapshot` still available); runs on mount and on changes.
 - `commands(context)`: expose actions; receives `{ actor, host }`.
 - `effects(snapshot, prevSnapshot, context)`: optional; runs after every state update and receives `{ emit, actor, host, select }`.
 - `cleanup`: defaults to `true`; shared adapter teardown override. When enabled, Ignite releases the shared adapter after the last element disconnects. Releasing the adapter stops Ignite-owned sources (e.g., XState machine actors); user-provided sources are never stopped.
@@ -97,8 +97,8 @@ import { igniteCore } from 'ignite-element/xstate';
 
 const component = igniteCore({
   source: machine,
-  view: ({ snapshot }) => ({
-    isOn: snapshot.matches('on'),
+  view: ({ matches }) => ({
+    isOn: matches('on'),
   }),
   commands: ({ actor }) => ({
     toggle: () => actor.send({ type: 'TOGGLE' }),

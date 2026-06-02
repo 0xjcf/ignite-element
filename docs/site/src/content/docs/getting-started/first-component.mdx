@@ -32,7 +32,7 @@ import { toggleMachine } from './toggleMachine';
 const registerToggle = igniteCore({
   source: toggleMachine,
   events: (event) => ({ toggled: event<{ isOn: boolean }>() }),
-  view: ({ snapshot }) => ({ isOn: snapshot.matches('on') }),
+  view: ({ matches }) => ({ isOn: matches('on') }),
   commands: ({ actor }) => ({
     toggle: () => {
       actor.send({ type: 'TOGGLE' });
@@ -92,7 +92,7 @@ Because it’s a web component, you can drop it into plain HTML or a host framew
 ## Variations
 
 - Swap `source` for a Redux slice or MobX store via `ignite-element/redux` or `ignite-element/mobx`.
-- Keep styles local by default; reach for shared style injection only in the advanced `ignite-renderer` path.
+- Keep styles local by default; reach for shared style injection only in the advanced `@ignite-element/renderer` path.
 - Opt into the legacy `lit` renderer only if you need it, via the advanced docs path.
 - Share actors/stores by passing long-lived instances. Ignite never stops user-owned sources.
 - Advanced overrides: use `cleanup` only when you need to change shared adapter teardown defaults.

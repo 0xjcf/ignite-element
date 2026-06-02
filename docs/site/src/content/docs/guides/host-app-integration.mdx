@@ -24,8 +24,8 @@ const toggle = igniteCore({
   events: (event) => ({
     toggled: event<{ isOn: boolean }>(),
   }),
-  view: ({ snapshot }) => ({
-    isOn: snapshot.matches('on'),
+  view: ({ matches }) => ({
+    isOn: matches('on'),
   }),
   commands: ({ actor }) => ({
     toggle: () => actor.send({ type: 'TOGGLE' }),

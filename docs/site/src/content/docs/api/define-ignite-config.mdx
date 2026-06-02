@@ -1,16 +1,16 @@
 ---
 title: defineIgniteConfig
-description: Advanced ignite-renderer config for shared styles, logging, and legacy renderer selection.
+description: Advanced @ignite-element/renderer config for shared styles, logging, and legacy renderer selection.
 sidebar:
   label: Advanced config
   order: 2
 ---
 
-`defineIgniteConfig` is part of `ignite-renderer`, not the stable `ignite-element` root API. Use it only when you need advanced shared styles, logging, strategy overrides, or the legacy `lit` renderer. Ordinary v3 components should stay config-free: use `ignite-element/xstate` (or the matching adapter entrypoint), set `jsxImportSource` to `ignite-element/jsx`, and render local CSS with `<style>{styles}</style>`.
+`defineIgniteConfig` is part of `@ignite-element/renderer`, not the stable `ignite-element` root API. Use it only when you need advanced shared styles, logging, strategy overrides, or the legacy `lit` renderer. Ordinary v3 components should stay config-free: use `ignite-element/xstate` (or the matching adapter entrypoint), set `jsxImportSource` to `ignite-element/jsx`, and render local CSS with `<style>{styles}</style>`.
 
 ```ts
 // ignite.config.ts
-import { defineIgniteConfig } from 'ignite-renderer';
+import { defineIgniteConfig } from '@ignite-element/renderer';
 
 export default defineIgniteConfig({
   styles: new URL('./styles.css', import.meta.url).href,

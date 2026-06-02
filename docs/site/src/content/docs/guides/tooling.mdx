@@ -9,7 +9,7 @@ sidebar:
 - **Default path**: Ignite JSX needs only `jsxImportSource: "ignite-element/jsx"` globally or the file pragma `/** @jsxImportSource ignite-element/jsx */`.
 - **Adapter entrypoints**: import from the adapter you use (`ignite-element/xstate`, `ignite-element/redux`, `ignite-element/mobx`, or `ignite-element/actor-web`) so the public contract stays explicit and bundles stay lean.
 - **Legacy config/plugins**: `ignite.config.ts` auto-loading and bundler plugins are compatibility-only internals, not part of the stable `ignite-element` v3 API. Keep existing legacy wiring only if you already depend on it.
-- **Legacy renderer entrypoint**: if you still opt into `lit`, import `ignite-renderer/lit` and treat it as an advanced compatibility surface rather than the default path.
+- **Legacy renderer entrypoint**: if you still opt into `lit`, import `@ignite-element/renderer/lit` and treat it as an advanced compatibility surface rather than the default path.
 - **Styles**: keep component CSS in JSX `<style>` tags by default. Use `ignite.config.ts` `styles` only for shared shadow-root stylesheet URLs or CSP-constrained hosts that disallow inline styles.
 - **Linting/formatting**: use your preferred stack (ESLint/Prettier, Biome, etc.) with your package manager.
 

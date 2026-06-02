@@ -103,9 +103,9 @@ const component = igniteCore({
   events: (event) => ({
     incremented: event<{ count: number }>(),
   }),
-  view: ({ snapshot }) => ({
-    count: snapshot.context.count,
-    canDecrement: snapshot.context.count > 0,
+  view: ({ context }) => ({
+    count: context.count,
+    canDecrement: context.count > 0,
   }),
   commands: ({ actor }) => ({
     increment: () => {

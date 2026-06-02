@@ -127,9 +127,9 @@ teardown override: n/a         cleanup: shared adapter teardown
 Use the `view` callback to map raw snapshots into render-friendly data. It runs on access and reflects the latest adapter snapshot; it is not memoized, so keep it fast.
 
 ```ts
-view: ({ snapshot }) => ({
-  count: snapshot.context.count,
-  canUndo: snapshot.can?.({ type: 'UNDO' }) ?? false,
+view: ({ context, can }) => ({
+  count: context.count,
+  canUndo: can?.({ type: 'UNDO' }) ?? false,
 })
 ```
 

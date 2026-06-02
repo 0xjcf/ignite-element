@@ -13,7 +13,7 @@ Ignite JSX is the default renderer and works without `ignite.config.ts`. Compone
 Use config only when you need project-wide strategy overrides or the legacy `lit` renderer:
 
 ```ts
-import { defineIgniteConfig } from 'ignite-renderer';
+import { defineIgniteConfig } from '@ignite-element/renderer';
 
 export default defineIgniteConfig({
   renderer: 'lit',
@@ -27,6 +27,6 @@ Component-level `<style>` tags are the default scoped styling path. Shared `styl
 
 ## Notes and troubleshooting
 
-- `lit` is no longer part of the stable `ignite-element` public surface. Import `ignite-renderer/lit` only when you intentionally opt into that advanced compatibility path.
+- `lit` is no longer part of the stable `ignite-element` public surface. Import `@ignite-element/renderer/lit` only when you intentionally opt into that advanced compatibility path.
 - Legacy config-loader plugins are not part of the stable `ignite-element` v3 API. Keep them only in existing compatibility setups you already own.
 - Missing config keeps the Ignite JSX default. Invalid configured renderer values are normalized by legacy compatibility behavior and logged; avoid relying on that path.
