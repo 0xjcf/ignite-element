@@ -33,43 +33,40 @@ import { toggleMachine } from './toggleMachine';
 const registerToggle = igniteCore({
   source: toggleMachine,
   events: (event) => ({ toggled: event<{ isOn: boolean }>() }),
-  view: ({ snapshot }) => ({ isOn: snapshot.matches('on') }),
-  commands: ({ actor }) => ({
+  states: (snapshot) => ({ isOn: snapshot.matches('on') }),
+  commands: ({ actor, emit }) => ({
     toggle: () => {
       actor.send({ type: 'TOGGLE' });
+      emit('toggled', { isOn: actor.getSnapshot().matches('on') });
     },
   }),
-  effects: (_snapshot, _prevSnapshot, { emit, select }) => {
-    const isOn = select((snapshot) => snapshot.matches('on'));
-    if (!isOn.changed) return;
-    emit('toggled', { isOn: isOn.current });
-  },
 });
 
 registerToggle('ignite-toggle', ({ isOn, toggle }) => (
-  <>
-    <style>{`
-      .ignite-toggle {
-        border-radius: 12px;
-        padding: 0.75rem 1.25rem;
-        border: 1px solid #1ad2ff;
-        background: radial-gradient(circle at 20% 20%, rgba(26, 210, 255, 0.15), transparent 50%),
-          #0f182e;
-        color: #e2e8f0;
-      }
-    `}</style>
-    <button class="ignite-toggle" onClick={toggle}>
-      {isOn ? 'On' : 'Off'}
-    </button>
-  </>
+  <button class="ignite-toggle" onClick={toggle}>
+    {isOn ? 'On' : 'Off'}
+  </button>
 ));
 ```
 
 :::tip[Typing events]
-`events` adds a typed `emit` helper to your `effects`. `select(...)` makes it easy to emit only when a derived value actually changed. Skip `events` entirely if you don’t need to broadcast DOM `CustomEvent`s.
+`events` adds a typed `emit` helper to your `commands`. Skip it if you don’t need to broadcast DOM `CustomEvent`s.
 :::
 
-## 3) Use it anywhere
+## 3) Style it (optional)
+
+```css
+.ignite-toggle {
+  border-radius: 12px;
+  padding: 0.75rem 1.25rem;
+  border: 1px solid #1ad2ff;
+  background: radial-gradient(circle at 20% 20%, rgba(26, 210, 255, 0.15), transparent 50%),
+    #0f182e;
+  color: #e2e8f0;
+}
+```
+
+## 4) Use it anywhere
 
 ```html
 <!-- Plain HTML -->
@@ -88,12 +85,10 @@ registerToggle('ignite-toggle', ({ isOn, toggle }) => (
 In Ignite JSX, `onToggled` comes from the `toggled` event you declare in your `events` map. Event payloads are dispatched as `CustomEvent` detail, so read them via `event.detail` (e.g., `event.detail.isOn`).
 :::
 
-Because it’s a web component, you can drop it into plain HTML or a host framework without inventing a wrapper-specific contract. See [Host app integration](/ignite-element/2.x/guides/host-app-integration/) for concrete React and Vue patterns, plus SSR notes.
+Because it’s a web component, you can drop it into React, Vue, Svelte, or plain HTML without a wrapper.
 
 ## Variations
 
-* Swap `source` for a Redux slice or MobX store via `ignite-element/redux` or `ignite-element/mobx`.
-* Keep styles local by default; reach for shared style injection only in the advanced `ignite-renderer` path.
-* Opt into the legacy `lit` renderer only if you need it, via the advanced docs path.
-* Share actors/stores by passing long-lived instances. Ignite never stops user-owned sources.
-* Advanced overrides: use `cleanup` only when you need to change shared adapter teardown defaults.
+* Swap `source` for a Redux slice or MobX store (`ignite-core` has adapters for each).
+* Opt into the lit renderer by setting `renderer: "lit"` in `ignite.config.ts` and authoring lit templates instead of JSX.
+* Share actors/stores by passing long-lived instances and setting `cleanup: false` if you want to manage teardown yourself.

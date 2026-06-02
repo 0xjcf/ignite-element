@@ -1,20 +1,21 @@
 ---
 title: defineIgniteConfig
-description: Advanced ignite-renderer config for shared styles, logging, and
-  legacy renderer selection.
+description: Configure renderer defaults, styles, and logging.
 sidebar:
-  label: Advanced config
+  label: defineIgniteConfig
   order: 2
 slug: 2.x/api/define-ignite-config
 ---
 
-`defineIgniteConfig` is part of `ignite-renderer`, not the stable `ignite-element` root API. Use it only when you need advanced shared styles, logging, strategy overrides, or the legacy `lit` renderer. Ordinary v3 components should stay config-free: use `ignite-element/xstate` (or the matching adapter entrypoint), set `jsxImportSource` to `ignite-element/jsx`, and render local CSS with `<style>{styles}</style>`.
+`defineIgniteConfig` declares how Ignite Element should behave across your project. The Vite/Webpack plugins auto-import this file; otherwise import it near your app entry.
 
 ```ts
 // ignite.config.ts
-import { defineIgniteConfig } from 'ignite-renderer';
+import { defineIgniteConfig } from 'ignite-element/config';
 
 export default defineIgniteConfig({
+  renderer: 'ignite-jsx',
+  strategy: 'diff',
   styles: new URL('./styles.css', import.meta.url).href,
   logging: 'warn',
 });
@@ -22,18 +23,10 @@ export default defineIgniteConfig({
 
 **Options**
 
-* `renderer`: `"ignite-jsx"` (default) or `"lit"` when you need the legacy renderer compatibility path.
+* `renderer`: `"ignite-jsx"` (default) or `"lit"`.
 * `strategy`: `"diff"` or `"replace"` render mode.
 * `styles`: string URL or `{ href, integrity?, crossOrigin? }` injected into each component’s shadow root.
 * `logging`: `"off" | "warn" | "debug"`.
-
-If you need the compatibility `lit` renderer, add it explicitly:
-
-```ts
-export default defineIgniteConfig({
-  renderer: 'lit',
-});
-```
 
 :::tip[Choosing a styles shape]
 Use a string URL for local assets (e.g., `new URL('./styles.css', import.meta.url).href`). Use an object when pulling from a CDN and you need SRI or CORS control (e.g., `{ href: 'https://cdn.example.com/styles.css', integrity: '...', crossOrigin: 'anonymous' }`).
@@ -43,4 +36,4 @@ Use a string URL for local assets (e.g., `new URL('./styles.css', import.meta.ur
 If your toolchain doesn’t support `import.meta.url` (or you’re not using a bundler plugin), set `styles` to a fully qualified or root-relative URL (e.g., `styles: '/styles.css'` or a CDN link). The config shape is the same.
 :::
 
-The default `ignite-element` v3 path does not require this file. If you keep one for compatibility, import it from your app entry or preserve your own legacy bundler wiring.
+Place this file at the project root so bundler plugins can find it.

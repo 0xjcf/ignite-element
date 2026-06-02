@@ -9,70 +9,16 @@ slug: 2.x/concepts/state-adapters
 
 Ignite Element wraps your state source in an **adapter** that handles lifecycle, subscriptions, and snapshots for you.
 
-## Machine design guidelines
-
-Machines should describe behavior only: states, transitions, guards, and events. Keep them pure and deterministic so they stay testable and portable.
-
-Keep in machines:
-
-* State structure and transitions
-* Guards and invariants
-* Domain events (what happened, not how)
-* Context data needed for decisions
-
-Avoid in machines:
-
-* Network calls or wallet connections
-* Direct browser APIs (`window`, `localStorage`, `fetch`)
-* Long-running IO inside `invoke`
-* Manual wiring to external runtimes
-
-Why purity matters: pure machines are easier to test, reuse, and reason about, and they compose cleanly with adapters that handle IO.
-
-## Adapters (conceptual)
-
-In ignite-based apps, adapters isolate IO and environment effects (wallets, sockets, storage, network). Machines describe what should happen; adapters describe how the world responds.
-
-Adapters are wired internally by helper constructors (for example, `create*Actor` entrypoints in ecosystem packages). Users should not manually attach adapters or embed IO inside machines. ignite-element stays UI-focused and consumes the resulting actors.
-
-## Ownership model
-
-* If Ignite creates it, Ignite owns it.
-* If you pass it in, you own it.
-* `cleanup` is a shared adapter teardown override; most components don't need it.
-
-## Choosing `ignite-element/xstate` vs `ignite-element/actor-web`
-
-* Use `ignite-element/xstate` when Ignite owns local behavior for the element. The machine is the element's state source, and Ignite manages its adapter lifecycle.
-* Use `ignite-element/actor-web` when an Actor-Web runtime already owns orchestration, supervision, sequencing, transport, and source lifecycle. Ignite stays in the projection/read-model role and turns snapshots into render state plus explicit commands.
-
-The split is deliberate:
-
-* Actor-Web owns runtime concerns and long-lived sources.
-* Ignite owns projection, custom-element assembly, typed commands/events/effects, and the headless component contract.
-* Crossing the boundary happens through explicit requests such as `actor.send(...)` or `actor.ask(...)`, not by mutating the projected read model. `actor.ask` is optional and only exists on sources that support request/response.
-
 ## Adapter shapes
 
 * **XState**: pass a machine definition or a started actor to `igniteCore`. Ignite starts machine-backed actors and stops the ones it owns; if you pass a pre-started actor, Ignite will subscribe to it but will not stop it for you.
-* **Redux Toolkit**: pass a slice (factory) or a store instance; Ignite subscribes and reads state on change. If you pass your own store, Ignite will unsubscribe its adapter as elements disconnect but will not dispose your store.
+* **Redux Toolkit**: pass a slice (factory) or a store instance; Ignite subscribes and reads state on change. If you pass your own store, Ignite will unsubscribe on cleanup but will not dispose it.
 * **MobX**: pass an observable or factory; Ignite reads derived values when observables mutate. Externally created observables are left running; Ignite only tears down the subscriptions it owns.
 
-:::note[Source factory adapter inference]
-The default `igniteCore` entrypoint does not execute zero-argument source factories while inferring an adapter.
-
-* Zero-argument Redux and MobX factories now require an explicit `adapter` or an adapter-specific entrypoint such as `ignite-element/redux` or `ignite-element/mobx`.
-* Zero-argument and defaulted Actor-Web factories require `adapter: "actor-web"` or the `ignite-element/actor-web` entrypoint.
-* Only required host-context Actor-Web factories are omitted-adapter inferable, because they declare a runtime parameter without a default value.
-:::
-
-:::note[Ownership and shared adapter teardown]
-* Each element always removes its subscriptions/render bindings on disconnect.
-* **Isolated adapters** (one per element) are stopped on disconnect. For XState machines, that also stops the actor Ignite created.
-* **Shared adapters** (one adapter reused across elements) are released when the last element disconnects, unless `cleanup: false`.
-* `cleanup` controls shared adapter teardown and whether Ignite stops **Ignite-owned** shared sources. User-provided actors/stores/observables are never stopped by Ignite.
-* `cleanup` is an override; you only need it when you want to keep a shared adapter alive after all elements disconnect.
-* Rationale: a started actor/store you pass in may be used elsewhere; auto-stopping it would be surprising. Stop user-owned sources yourself if needed.
+:::note[Ownership and cleanup]
+- `cleanup` only controls adapters Ignite owns. For XState machines (actors Ignite creates), `cleanup` applies; for pre-started actors you provide, Ignite will never stop them.
+- The same pattern holds for Redux/MobX: Ignite will unsubscribe its adapters on cleanup, but user-provided stores/observables are not disposed. Manage their lifetime yourself.
+- Rationale: `cleanup` is a contract for the adapter Ignite creates. A started actor you pass in may be used elsewhere; auto-stopping it would be surprising/destructive. When `cleanup` runs on shared adapters, Ignite drops its subscription; it only calls `actor.stop()` when it owns the actor (e.g., from a machine). Stop user-owned actors yourself if needed.
 
 ```ts
 import { createActor } from 'xstate';
@@ -84,7 +30,7 @@ sharedActor.start();
 
 const register = igniteCore({
   source: sharedActor,
-  // ...view/commands/events
+  // ...states/commands/events
 });
 
 register('ignite-toggle', /* renderer */);
@@ -100,42 +46,37 @@ Machine (definition)          Started actor (you own)
   │                               │
   ▼                               ▼
 Ignite adapter (isolated)      Ignite adapter (shared)
-per element; stop on disconnect shared; released on last disconnect
-Ignite owns source            user owns source
-teardown override: n/a         cleanup: shared adapter teardown
+owns actor; stop on disconnect stops? only if Ignite owns actor
+cleanup flag: n/a              cleanup flag: keep/release adapter subscription
 ```
 
-* Isolated (machine): per-element adapter; stopped on disconnect (for XState, Ignite-created actors are stopped); `cleanup` doesn’t apply.
-* Shared (passed actor/store/observable): one adapter reused; last disconnect releases the adapter unless `cleanup: false`; user-owned sources keep running.
+* Isolated (machine): per-element actors, stopped on disconnect; `cleanup` doesn’t apply.
+* Shared (passed actor/store/observable): one adapter reused; `cleanup` drops or keeps Ignite’s subscription. User-owned sources are never stopped by Ignite.
 :::
 
 ## Shared vs. isolated
 
 * **Isolated (default)**: Ignite constructs a new adapter per element instance. Great for local state.
-* **Shared**: pass a long-lived actor/store/observable. Ignite reference-counts the shared adapter; when the last element disconnects, Ignite releases the adapter and stops any Ignite-owned sources. External sources you provide stay alive; set `cleanup: false` to keep the shared adapter alive after disconnect.
-
-## Projection is explicit
-
-`igniteCore` projects state into render props. One core registration yields one custom element; composition happens via HTML. The projection is explicit: you decide which snapshot fields become render values and commands.
+* **Shared**: pass a long-lived actor/store/observable. Ignite reference-counts subscriptions and, when it owns the underlying resource, stops/unsubscribes after the last element disconnects. External sources you provide stay alive; set `cleanup: false` to skip auto-teardown even for Ignite-created shared resources.
 
 ## Deriving render state
 
-Use the `view` callback to map raw snapshots into render-friendly data. It runs on access and reflects the latest adapter snapshot; it is not memoized, so keep it fast.
+Use the `states` callback to map raw snapshots into render-friendly data. It runs on access and reflects the latest adapter snapshot; it is not memoized, so keep it fast.
 
 ```ts
-view: ({ snapshot }) => ({
+states: (snapshot) => ({
   count: snapshot.context.count,
   canUndo: snapshot.can?.({ type: 'UNDO' }) ?? false,
 })
 ```
 
 :::tip[Heavy derivations]
-If you need expensive computed values, move the derivation into your state source (machine/store/observable) so the snapshot already contains it. Keep `view` fast and simple.
+If you need expensive computed values, move the derivation into your state source (machine/store/observable) so the snapshot already contains it. Keep `states` fast and simple.
 :::
 
 ## Commands
 
-`commands` receive `{ actor, host }`. Keep them small and focused on dispatching state transitions or tiny side effects.
+`commands` receive `{ actor, emit, host }`. Keep them small and focused on dispatching state transitions or tiny side effects.
 
 ```ts
 commands: ({ actor }) => ({
@@ -143,119 +84,21 @@ commands: ({ actor }) => ({
 });
 ```
 
-## Actor-Web as a projection-first host
-
-When your host app already runs on Actor-Web, import from `ignite-element/actor-web` and project business fields first. Treat the Actor-Web snapshot as a read model that Ignite consumes, not as a place where Ignite takes over orchestration.
-
-```ts
-import { igniteCore } from "ignite-element/actor-web";
-
-type ShipmentProjection = {
-  shipmentId: string;
-  status: "queued" | "packed" | "shipped";
-  etaLabel: string | null;
-  canCancel: boolean;
-};
-
-type ShipmentRequest =
-  | { type: "shipment.refresh"; shipmentId: string }
-  | { type: "shipment.cancel"; shipmentId: string }
-  | { type: "shipment.label.request"; shipmentId: string };
-
-const shipmentCard = igniteCore({
-  source: ({ host }) => checkoutRuntime.shipments.readModel({ host }),
-  commandSource: () => checkoutRuntime.shipments.commandSource(),
-  states: ({ context }) => ({
-    shipmentId: context.shipmentId,
-    status: context.status,
-    etaLabel: context.etaLabel,
-    canCancel: context.canCancel,
-  }),
-  commands: ({ actor }) => ({
-    refresh: (shipmentId: string) =>
-      actor.send({ type: "shipment.refresh", shipmentId }),
-    cancel: (shipmentId: string) =>
-      actor.send({ type: "shipment.cancel", shipmentId }),
-    requestLabel: (shipmentId: string) =>
-      actor.ask?.({ type: "shipment.label.request", shipmentId }),
-  }),
-});
-```
-
-The projected `context` carries business/read-model state. Updating that state remains Actor-Web's job; Ignite sends requests back across the boundary and re-renders when the next projection snapshot arrives.
-
-Use `source` for the read model that drives rendering. Add `commandSource` when the component exposes commands, or pass a command-capable source directly for smaller local proofs. When Actor-Web sources expose `close()`, Ignite calls it during adapter teardown, so host apps do not need wrapper objects just to clean up subscriptions.
-
-### Opting into transport metadata
-
-Most components should stay focused on business state. If a surface needs runtime metadata, opt in explicitly through `transport`.
-
-```ts
-states: ({ context, transport }) => ({
-  shipmentId: context.shipmentId,
-  status: context.status,
-  syncState: transport.state,
-  degradedReason:
-    transport.state === "degraded" ? transport.reason ?? null : null,
-});
-```
-
-Use that pattern for connection badges, replay banners, or diagnostics. Do not fold transport metadata into every view by default.
-
 ## Events
 
-Declare `events` to type `emit`, then fire DOM `CustomEvent`s from your effects. Prefer names with casing that maps to Ignite JSX handler props (`onEventName`). See [Events & commands](/ignite-element/2.x/concepts/events-and-commands/) for more patterns.
+Declare `events` to type `emit`, then fire DOM `CustomEvent`s from your commands. Prefer names with casing that maps to Ignite JSX handler props (`onEventName`). See [Events & commands](/ignite-element/2.x/concepts/events-and-commands/) for more patterns.
 
 ```ts
 events: (event) => ({
   incremented: event<{ count: number }>(),
 }),
-commands: ({ actor }) => ({
+commands: ({ actor, emit }) => ({
   increment: () => {
     actor.send({ type: 'INCREMENT' });
+    emit('incremented', { count: actor.getSnapshot().context.count });
   },
 }),
-effects: (snapshot, prevSnapshot, { emit }) => {
-  if (snapshot.context.count === prevSnapshot.context.count) return;
-  emit('incremented', { count: snapshot.context.count });
-},
 ```
 
 In Ignite JSX, the handler name follows the event:\
 `<my-counter onIncremented={(event) => handleIncrement(event.detail)}></my-counter>`
-
-Effects are seeded from the current snapshot when a host attaches. That first baseline does not run `effects(...)`; only subsequent adapter updates do. For mounted elements, effects run before the render subscription for that host, so emitted events arrive before the next render caused by the same transition.
-
-## Common anti-patterns
-
-Avoid these patterns in ignite-based apps:
-
-* Performing IO inside machines:
-
-```ts
-// Anti-pattern: IO inside machine
-const machine = createMachine({
-  invoke: {
-    src: () => fetch("/api/data"),
-  },
-});
-```
-
-* Importing browser APIs directly in machines:
-
-```ts
-// Anti-pattern: browser API inside machine
-const machine = createMachine({
-  entry: () => localStorage.setItem("key", "value"),
-});
-```
-
-* Manually wiring adapters in components:
-
-```ts
-// Anti-pattern: manual adapter wiring in UI
-const adapter = /* adapter instance */;
-const actor = createActor(machine, { input: adapter });
-```
-
-These belong in adapters wired by helper constructors, not in machines or UI code.

@@ -1,27 +1,18 @@
 ---
 title: What is Ignite Element?
-description: A quick overview of Ignite Element as a platform-native UI layer
-  for state-driven components.
+description: A quick overview of the Ignite Element runtime, adapters, and renderers.
 sidebar:
   label: What is Ignite Element?
   order: 2
 slug: 2.x/overview/what-is-ignite-element
 ---
 
-Ignite Element is a lightweight layer for building platform-native custom elements. It keeps intent, state, consequences, and rendering separate:
+Ignite Element is a lightweight layer for building framework-agnostic custom elements. It keeps rendering and state separate:
 
-* **Commands** express intent.
-* **View** projects state into render/runtime-facing data.
-* **Effects** express consequences from state transitions.
-* **Events** define the outward contract when you want typed DOM signals.
+* **State adapters** map your favorite state library (XState, Redux Toolkit, MobX) into Ignite’s lifecycle.
 * **Renderers** decide how templates are produced: Ignite JSX (default) or lit.
+* **Config** lives in `ignite.config.ts`, where you set renderer defaults, logging, and shared styles.
 
-The end result is a web component factory with typed `view`, `commands`, `effects`, and `events`, plus a headless runtime for `execute()`, `getState()`, `getView()`, and `getSchema()`.
-
-Custom elements and `CustomEvent`s are the public surface. That means the same component contract can plug into plain HTML, React, Vue, tests, or automation without a wrapper-specific protocol.
-
-Ignite apps keep machines focused on behavior and use adapters to isolate IO. Adapters are wired internally by helper constructors in ecosystem packages; ignite-element stays UI-focused and consumes the resulting actors.
-
-`ignite-element` is the default public package. `ignite-core`, `ignite-adapters`, and `ignite-renderer` are advanced package layers for custom integrations and lower-level tooling.
+The end result is a web component factory with typed `states`, `commands`, and `events`, so you can compose UI in any host framework—or none at all.
 
 Use the left nav to dive into concepts, or jump to the [Installation](/ignite-element/2.x/getting-started/installation/) and [first component](/ignite-element/2.x/getting-started/first-component/) guides to start coding.

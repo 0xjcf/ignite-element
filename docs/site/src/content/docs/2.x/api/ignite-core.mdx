@@ -15,9 +15,9 @@ import { igniteCore } from 'ignite-element/xstate';
 const component = igniteCore({
   source: machineOrActor,
   events: (event) => ({ /* typed events */ }),
-  view: ({ snapshot }) => ({ /* derived values */ }),
-  commands: ({ actor, host }) => ({ /* actions */ }),
-  effects: (snapshot, prevSnapshot, { emit, actor, host, select }) => { /* consequences */ },
+  states: (snapshot) => ({ /* derived values */ }),
+  commands: ({ actor, emit, host }) => ({ /* actions */ }),
+  cleanup: true, // default
 });
 
 component('tag-name', (props) => /* JSX or lit template */);
@@ -26,97 +26,9 @@ component('tag-name', (props) => /* JSX or lit template */);
 **Params**
 
 * `source`: machine definition or started actor (XState), Redux store/slice, or MobX observable.
-* `events(mapper)`: optional; defines typed DOM events.
-* `view({ snapshot })`: derive render props from the current snapshot; runs on mount and on changes.
-* `commands(context)`: expose actions; receives `{ actor, host }`.
-* `effects(snapshot, prevSnapshot, context)`: optional; runs after every state update and receives `{ emit, actor, host, select }`.
-* `cleanup`: defaults to `true`; shared adapter teardown override. When enabled, Ignite releases the shared adapter after the last element disconnects. Releasing the adapter stops Ignite-owned sources (e.g., XState machine actors); user-provided sources are never stopped.
-
-## Advanced overrides
-
-`cleanup` controls shared adapter teardown; most components won't need to change it.
-
-```ts
-const component = igniteCore({
-  source: actor,
-  cleanup: false, // keep the shared adapter alive after the last element disconnects
-});
-```
+* `events(mapper)`: optional; defines typed DOM events and enables `emit` inside `commands`.
+* `states(snapshot)`: derive render props from the current snapshot; runs on mount and on changes.
+* `commands(context)`: expose actions; receives `{ actor, emit?, host }`.
+* `cleanup`: defaults to `true`; set to `false` to keep shared adapters running after disconnect.
 
 See [State adapters](/ignite-element/2.x/concepts/state-adapters/) for adapter-specific behavior.
-
-## Agent runtime
-
-The returned component registration also exposes a headless runtime API:
-
-```ts
-const component = igniteCore({ source: machine });
-
-await component.execute("toggle");
-component.getState();
-component.getView();
-component.getSchema();
-component.on("toggled", (event) => {
-  console.log(event.detail);
-});
-component.watch((state, prevState) => {
-  console.log(prevState.value, "->", state.value);
-});
-component.watchView((view, prevView) => {
-  console.log(prevView.isOn, "->", view.isOn);
-});
-```
-
-Use `on(...)` for public emitted events, `watch(...)` for raw state updates, and `watchView(...)` for projected view updates.
-
-`getSchema()` returns a JSON-serializable contract shape:
-
-```ts
-{
-  commands: {
-    toggle: {}
-  },
-  events: ["toggled"],
-  state: { value: "off", context: {} }
-}
-```
-
-## Deterministic effects semantics
-
-* Attaching a host or headless runtime seeds `prevSnapshot` from the current adapter state. Ignite does not replay historical transitions to newly attached consumers.
-* The first subscription notification establishes that baseline and does not run `effects(...)`.
-* After that, `effects(snapshot, prevSnapshot, ctx)` runs once per adapter update notification in a stable order.
-* For mounted custom elements, effects attach before the render subscription, so emitted events from a transition fire before the next render for that same host.
-
-## Testing DSL
-
-Ignite also ships a scenario-style test helper that uses the same headless runtime:
-
-```ts
-import { test as igniteTest } from 'ignite-element';
-import { igniteCore } from 'ignite-element/xstate';
-
-const component = igniteCore({
-  source: machine,
-  view: ({ snapshot }) => ({
-    isOn: snapshot.matches('on'),
-  }),
-  commands: ({ actor }) => ({
-    toggle: () => actor.send({ type: 'TOGGLE' }),
-  }),
-  events: (event) => ({
-    toggled: event<{ isOn: boolean }>(),
-  }),
-  effects: (_snapshot, _prevSnapshot, { emit, select }) => {
-    const isOn = select((snapshot) => snapshot.matches('on'));
-    if (!isOn.changed) return;
-    emit('toggled', { isOn: isOn.current });
-  },
-});
-
-(await igniteTest(component).given('off').when('toggle'))
-  .expectState('on')
-  .expectEvent('toggled', { isOn: true });
-```
-
-The helper wraps `execute()`, so assertions stay deterministic and align with the same event stream returned by the runtime API.
