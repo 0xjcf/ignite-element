@@ -120,7 +120,11 @@ const main = async () => {
 	}
 
 	ensureCleanWorkingTree();
-	ensureNpmAuth();
+
+	// A dry run never publishes, so it does not need npm credentials.
+	if (!dryRun) {
+		ensureNpmAuth();
+	}
 
 	// Informational only. `changeset status` exits non-zero when packages changed
 	// but no *pending* changeset exists — the normal state once a pre-release bump
