@@ -1,4 +1,4 @@
-# ignite-renderer
+# @ignite-element/renderer
 
 Advanced renderer and runtime utilities for Ignite.
 

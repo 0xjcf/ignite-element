@@ -2,11 +2,15 @@
 
 Default public package for building platform-native custom elements with explicit intent, derived view state, deterministic effects, and DOM-native events.
 
+> **v3 is in beta.** Install with `@beta` — the stable `latest` tag is still
+> v2.2.x. The state libraries are optional peer dependencies, so only the one
+> you install is pulled in.
+
 Most users should install `ignite-element` and one state library:
 
-- XState: `npm install ignite-element xstate`
-- Redux: `npm install ignite-element @reduxjs/toolkit`
-- MobX: `npm install ignite-element mobx`
+- XState: `npm install ignite-element@beta xstate`
+- Redux: `npm install ignite-element@beta @reduxjs/toolkit`
+- MobX: `npm install ignite-element@beta mobx`
 
 Actor-Web integration is optional. Use `ignite-element/actor-web` only when an
 Actor-Web runtime owns orchestration and source lifecycles for the host app.
@@ -55,8 +59,8 @@ const toggle = igniteCore({
   events: (event) => ({
     toggled: event<{ isOn: boolean }>(),
   }),
-  view: ({ snapshot }) => ({
-    isOn: snapshot.matches("on"),
+  view: ({ matches }) => ({
+    isOn: matches("on"),
   }),
   commands: ({ actor }) => ({
     toggle: () => actor.send({ type: "TOGGLE" }),
@@ -144,9 +148,9 @@ story.stop();
 - `ignite-element/xstate`, `ignite-element/redux`, and `ignite-element/mobx` are the default public adapter entrypoints.
 - `ignite-element/actor-web` is the optional advanced runtime bridge for host apps that already use Actor-Web.
 - `ignite-element/jsx` plus its JSX runtime subpaths are the stable JSX entrypoints.
-- `ignite-core` is limited to adapter-neutral contracts, event/effect typing, and small shared utilities.
-- `ignite-adapters` is limited to adapter factories, guards, and source-specific config/types.
-- `ignite-renderer` remains the advanced renderer/runtime layer for custom renderer integration, shared style injection, and legacy config compatibility work.
+- `@ignite-element/core` is limited to adapter-neutral contracts, event/effect typing, and small shared utilities.
+- `@ignite-element/adapters` is limited to adapter factories, guards, and source-specific config/types.
+- `@ignite-element/renderer` remains the advanced renderer/runtime layer for custom renderer integration, shared style injection, and legacy config compatibility work.
 
 Actor-Web remains outside the Ignite runtime boundary. Actor-Web owns
 orchestration, transport, and long-lived runtime coordination; Ignite consumes

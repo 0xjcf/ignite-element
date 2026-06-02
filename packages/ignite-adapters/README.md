@@ -1,4 +1,4 @@
-# ignite-adapters
+# @ignite-element/adapters
 
 Advanced adapter integrations for Ignite.
 
@@ -6,15 +6,15 @@ This package provides the state-library-specific adapter layers that power Ignit
 
 Exported entrypoints:
 
-- `ignite-adapters`
-- `ignite-adapters/xstate`
-- `ignite-adapters/redux`
-- `ignite-adapters/mobx`
-- `ignite-adapters/actor-web`
+- `@ignite-element/adapters`
+- `@ignite-element/adapters/xstate`
+- `@ignite-element/adapters/redux`
+- `@ignite-element/adapters/mobx`
+- `@ignite-element/adapters/actor-web`
 
 Use this package directly only when you are building custom bindings or integrating Ignite behavior without the full `ignite-element` package.
 
-`ignite-adapters/actor-web` is an optional advanced runtime bridge. It adapts an
+`@ignite-element/adapters/actor-web` is an optional advanced runtime bridge. It adapts an
 Actor-Web-owned runtime source into Ignite adapter state; it does not make
 Actor-Web a required dependency for standalone Ignite usage.
 

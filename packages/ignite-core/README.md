@@ -1,8 +1,8 @@
-# ignite-core
+# @ignite-element/core
 
 Advanced adapter-neutral primitives for Ignite contracts and shared typing.
 
-Use `ignite-core` only when you are building custom adapters, headless integrations, or library-level tooling on top of Ignite internals.
+Use `@ignite-element/core` only when you are building custom adapters, headless integrations, or library-level tooling on top of Ignite internals.
 
 Most application and component authors should install `ignite-element` instead.
 
