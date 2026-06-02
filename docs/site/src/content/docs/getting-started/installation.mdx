@@ -6,13 +6,21 @@ sidebar:
   order: 1
 ---
 
-Pick your package manager and install Ignite Element with a state adapter:
+:::caution[v3 is in beta]
+v3 publishes under the `beta` dist-tag, so install with `@beta`. The stable
+`latest` tag is still v2.2.x. See the [v2 → v3 migration guide](/ignite-element/migration/v3/)
+for what changed.
+:::
+
+Pick your package manager and install Ignite Element with the one state adapter you use:
 
 ```bash
-pnpm add ignite-element xstate
-# pnpm add ignite-element @reduxjs/toolkit   # Redux
-# pnpm add ignite-element mobx               # MobX
+pnpm add ignite-element@beta xstate
+# pnpm add ignite-element@beta @reduxjs/toolkit   # Redux
+# pnpm add ignite-element@beta mobx               # MobX
 ```
+
+The state libraries are optional peer dependencies, so only the one you install is pulled in — adding `ignite-element@beta` never drags in Redux/MobX/lit when you only use XState. `ignite-element` depends on the scoped `@ignite-element/core`, `@ignite-element/adapters`, and `@ignite-element/renderer` packages internally; they install automatically and you don't reference them directly.
 
 ### 1) Configure JSX (required for the default Ignite JSX path)
 

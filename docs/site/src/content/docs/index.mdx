@@ -36,9 +36,15 @@ You’re reading the Ignite Element v2 docs. If you’re upgrading from v1, star
 ## Quick install
 
 ```bash
-pnpm add ignite-element xstate
+pnpm add ignite-element@beta xstate
 # or npm/yarn equivalents
 ```
+
+:::caution[v3 is in beta]
+Install with `@beta` — the stable `latest` tag is still v2.2.x. The state
+libraries are optional peers, so only `xstate` is pulled in here. See the
+[v2 → v3 migration guide](/ignite-element/migration/v3/).
+:::
 
 Add JSX runtime settings for Ignite JSX (the default renderer):
 
@@ -81,8 +87,8 @@ const component = igniteCore({
   events: (event) => ({
     toggled: event<{ isOn: boolean }>(),
   }),
-  view: ({ snapshot }) => ({
-    isOn: snapshot.matches('on'),
+  view: ({ matches }) => ({
+    isOn: matches('on'),
   }),
   commands: ({ actor }) => ({
     toggle: () => actor.send({ type: 'TOGGLE' }),

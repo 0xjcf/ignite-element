@@ -1,0 +1,71 @@
+---
+title: Migrate from v2 to v3 (beta)
+description: Upgrade to Ignite Element v3 — scoped internal packages, optional state-library peers, and the view-first single-source context.
+sidebar:
+  label: v2 → v3 (beta)
+  order: 0
+---
+
+:::caution[v3 is in beta]
+v3 publishes under the `beta` dist-tag. Install with `@beta`; the stable
+`latest` tag is still v2.2.x. APIs are stable but may see small changes before
+the `3.0.0` release.
+:::
+
+Ignite Element v3 keeps the default Ignite JSX renderer and headless runtime from v2, and adds a cleaner install surface, a view-first context, and a narrower public API. Most app code that uses `ignite-element` and one state adapter upgrades with just the install change.
+
+## TL;DR
+
+1. Install the beta: `pnpm add ignite-element@beta` (plus the one state library you use).
+2. State libraries (`xstate`, `redux`, `@reduxjs/toolkit`, `mobx`) and `lit-html` are now **optional** peers — install only what you use.
+3. Destructure your facade context directly: `view: ({ context }) => …` instead of `view: ({ snapshot }) => …` (`snapshot` still works).
+4. The removed `ignite-element/config/*` and `ignite-element/renderers/*` subpaths are no longer part of the public API.
+
+## 1) Install the beta
+
+```bash
+pnpm add ignite-element@beta xstate
+# pnpm add ignite-element@beta @reduxjs/toolkit   # Redux
+# pnpm add ignite-element@beta mobx               # MobX
+```
+
+`ignite-element` now depends on the scoped packages `@ignite-element/core`, `@ignite-element/adapters`, and `@ignite-element/renderer`. They install automatically as dependencies — you don't add them yourself, and your imports stay `ignite-element` and `ignite-element/<adapter>`.
+
+## 2) Optional peer dependencies
+
+In v3 the state libraries and `lit-html` are declared as **optional** peer dependencies. Installing `ignite-element@beta xstate` no longer pulls in Redux, MobX, Redux Toolkit, or lit, and you won't see "unmet peer" warnings for the adapters you don't use. `lit-html` is only needed if you opt into the `lit` render strategy — the default Ignite JSX renderer requires no renderer dependency.
+
+## 3) View-first context
+
+The facade `view(...)` callback now receives an object snapshot's fields spread directly onto its context, so you can destructure the read model without reaching through `snapshot`:
+
+```ts
+// v2
+view: ({ snapshot }) => ({
+  status: snapshot.context.status,
+  connected: snapshot.transport.state === "connected",
+});
+
+// v3 — destructure directly; `snapshot` is still available
+view: ({ context, transport }) => ({
+  status: context.status,
+  connected: transport.state === "connected",
+});
+```
+
+`ViewContext<Snapshot>` resolves to `Snapshot & { snapshot: Snapshot }` for object snapshots, so existing `({ snapshot }) => …` callbacks keep working — this is additive.
+
+## 4) Narrower public API
+
+v3 locks the stable public surface to the root entrypoint, the adapter entrypoints (`ignite-element/xstate`, `/redux`, `/mobx`, `/actor-web`), and the JSX entrypoints. The following are no longer public:
+
+- The `ignite-element/config/*` and `ignite-element/renderers/*` subpaths.
+- Root exports for config loaders, renderer-strategy registration, global style mutation, and factory internals.
+
+If an advanced app still needs shared shadow styles or renderer diagnostics, import the underlying `@ignite-element/renderer` primitives directly in app-owned code. For the default Ignite JSX path you need none of this.
+
+## Verify
+
+- Reinstall and run a TypeScript check (`pnpm exec tsc --noEmit`).
+- Confirm only your chosen state library is installed (`npm ls xstate redux mobx`).
+- Smoke-test a component per [Your first component](/ignite-element/getting-started/first-component/).
