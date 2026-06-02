@@ -346,6 +346,56 @@ starlight-theme-select select:focus-visible {
 	outline: none;
 }
 
+/* Version picker (starlight-versions): the plugin colors its <select> with
+   --sl-color-accent-contrast (a dark value), which is invisible on the dark
+   header. Drive it from --sl-color-text and mirror the theme toggle's chrome so
+   it reads correctly in both themes. */
+starlight-version-select label {
+	border-radius: 8px;
+}
+
+/* Give the current-version label room so "v3 (beta)" isn't crowded by the
+   native select arrow. */
+starlight-version-select select {
+	min-width: 6.5rem;
+}
+
+[data-theme="light"] starlight-version-select label,
+[data-theme="light"] starlight-version-select select {
+	color: var(--sl-color-text);
+}
+
+[data-theme="light"] starlight-version-select label:hover {
+	background: rgba(15, 23, 42, 0.05);
+}
+
+[data-theme="light"] starlight-version-select label:focus-within {
+	outline: none;
+	box-shadow: 0 0 0 2px #94a3b8;
+}
+
+[data-theme="dark"] starlight-version-select label,
+[data-theme="dark"] starlight-version-select select {
+	color: var(--sl-color-text);
+}
+
+[data-theme="dark"] starlight-version-select label {
+	background: #0c1223;
+}
+
+[data-theme="dark"] starlight-version-select label:hover {
+	background: #111a2d;
+}
+
+[data-theme="dark"] starlight-version-select label:focus-within {
+	outline: none;
+	box-shadow: 0 0 0 2px #3c5b82;
+}
+
+starlight-version-select select:focus-visible {
+	outline: none;
+}
+
 [data-theme="dark"] .sl-sidebar .link .link-title {
 	color: var(--sl-color-text);
 }
