@@ -112,6 +112,21 @@ const getPendingChangesets = () => {
 	);
 };
 
+// In pre-release mode, changesets publishes under the configured pre tag
+// automatically and REJECTS an explicit `--tag`. Detect it so we only pass
+// `--tag beta` for a non-pre ("normal") publish.
+const isPreMode = () => {
+	const preFile = ".changeset/pre.json";
+	if (!existsSync(preFile)) {
+		return false;
+	}
+	try {
+		return JSON.parse(readFileSync(preFile, "utf8")).mode === "pre";
+	} catch {
+		return false;
+	}
+};
+
 const main = async () => {
 	if (env.CI) {
 		console.warn(
@@ -183,8 +198,12 @@ const main = async () => {
 	}
 
 	// changeset publish has no real dry-run (the dry-run path returns above), so
-	// this is always a real publish. In pre mode it auto-targets the beta tag.
-	run("pnpm changeset publish --tag beta", { env: publishEnv });
+	// this is always a real publish. In pre mode changesets auto-targets the pre
+	// tag (beta) and rejects an explicit `--tag`; only pass it for a normal release.
+	const publishCmd = isPreMode()
+		? "pnpm changeset publish"
+		: "pnpm changeset publish --tag beta";
+	run(publishCmd, { env: publishEnv });
 
 	console.log(
 		"\n✅ Beta release complete. Review git status, commit the changes, and push tags to share the release.",
