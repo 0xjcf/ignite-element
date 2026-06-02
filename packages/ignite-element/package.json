@@ -126,7 +126,6 @@
 		"format": "biome format --write .",
 		"check": "biome check .",
 		"lint": "biome lint .",
-		"release:beta": "node ./scripts/release-beta.mjs",
 		"release": "changeset publish",
 		"postrelease": "pnpm publish",
 		"prepare": "husky"

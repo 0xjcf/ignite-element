@@ -22,10 +22,13 @@
 		"examples:xstate": "pnpm --filter ignite-element examples:xstate",
 		"examples:redux": "pnpm --filter ignite-element examples:redux",
 		"examples:mobx": "pnpm --filter ignite-element examples:mobx",
-		"migrate:effects-events": "node scripts/migrate-emit-to-effects.mjs"
+		"migrate:effects-events": "node scripts/migrate-emit-to-effects.mjs",
+		"changeset": "changeset",
+		"release:beta": "node scripts/release-beta.mjs"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.3.1",
+		"@changesets/cli": "^2.29.8",
 		"@types/node": "^25.0.3",
 		"markdownlint-cli2": "^0.22.1",
 		"typescript": "^5.9.3",
