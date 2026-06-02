@@ -1,0 +1,12 @@
+{
+  "mode": "pre",
+  "tag": "beta",
+  "initialVersions": {
+    "docs-site": "0.0.1",
+    "ignite-adapters": "2.2.2",
+    "ignite-core": "2.2.2",
+    "ignite-element": "2.2.2",
+    "ignite-renderer": "2.2.2"
+  },
+  "changesets": []
+}
