@@ -1,6 +1,6 @@
 {
 	"name": "ignite-renderer",
-	"version": "2.2.2",
+	"version": "3.0.0-beta.0",
 	"type": "module",
 	"main": "dist/ignite-renderer.cjs.js",
 	"module": "dist/ignite-renderer.es.js",
