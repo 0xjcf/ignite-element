@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execSync } from "node:child_process";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { env, exit, stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 
@@ -82,6 +83,35 @@ const resolveOtp = async () => {
 	return answer || undefined;
 };
 
+// Returns the changeset files that have NOT yet been applied. In pre-release
+// mode, `.changeset/pre.json` records the ids already consumed by a previous
+// `changeset version`, so a committed pre-release bump leaves zero pending even
+// though the .md files are retained until `changeset pre exit`.
+const getPendingChangesets = () => {
+	const dir = ".changeset";
+	if (!existsSync(dir)) {
+		return [];
+	}
+
+	const changesetFiles = readdirSync(dir).filter(
+		(file) => file.endsWith(".md") && file !== "README.md",
+	);
+
+	let applied = [];
+	const preFile = `${dir}/pre.json`;
+	if (existsSync(preFile)) {
+		try {
+			applied = JSON.parse(readFileSync(preFile, "utf8")).changesets ?? [];
+		} catch {
+			applied = [];
+		}
+	}
+
+	return changesetFiles.filter(
+		(file) => !applied.includes(file.replace(/\.md$/, "")),
+	);
+};
+
 const main = async () => {
 	if (env.CI) {
 		console.warn(
@@ -92,18 +122,50 @@ const main = async () => {
 	ensureCleanWorkingTree();
 	ensureNpmAuth();
 
-	run("pnpm changeset status", {
-		onError: () => {
-			console.error(
-				"[release:beta] changeset status failed. Add a changeset with `pnpm changeset` (or `pnpm changeset add --empty` when bumping without code changes) before releasing.",
-			);
-		},
-	});
+	// Informational only. `changeset status` exits non-zero when packages changed
+	// but no *pending* changeset exists — the normal state once a pre-release bump
+	// has already been versioned and committed. Decide what to do from the actual
+	// changeset files instead of treating this as a hard gate.
+	try {
+		run("pnpm changeset status");
+	} catch {
+		console.warn(
+			"[release:beta] `changeset status` found no pending changesets — continuing; versions may already be bumped.",
+		);
+	}
+
 	run("pnpm test");
 	run("pnpm build");
 
-	run("pnpm changeset version");
-	run("pnpm install --no-frozen-lockfile");
+	const pendingChangesets = getPendingChangesets();
+
+	if (dryRun) {
+		console.log(
+			"\n[release:beta] Dry run — not versioning, installing, or publishing.",
+		);
+		console.log(
+			pendingChangesets.length > 0
+				? `[release:beta] ${pendingChangesets.length} pending changeset(s) would be applied by \`changeset version\`.`
+				: "[release:beta] No pending changesets; current package versions would be published as-is.",
+		);
+		// IMPORTANT: `changeset publish --dry-run` is NOT honored by changesets and
+		// performs a real publish. Use pnpm's publish dry-run, which only packs the
+		// tarballs and writes nothing to the registry, for a genuinely inert preview.
+		run("pnpm -r publish --dry-run --no-git-checks");
+		console.log(
+			"\n✅ Dry run complete. No versions were bumped and nothing was published.",
+		);
+		return;
+	}
+
+	if (pendingChangesets.length > 0) {
+		run("pnpm changeset version");
+		run("pnpm install --no-frozen-lockfile");
+	} else {
+		console.log(
+			"[release:beta] No pending changesets — skipping `changeset version` (versions already bumped).",
+		);
+	}
 
 	console.log("\n[release:beta] Files staged for release:");
 	execSync("git status --short", { stdio: "inherit" });
@@ -116,8 +178,9 @@ const main = async () => {
 		console.log("[release:beta] Using provided OTP for npm publish.");
 	}
 
-	const publishCommand = `pnpm changeset publish --tag beta${dryRun ? " --dry-run" : ""}`;
-	run(publishCommand, { env: publishEnv });
+	// changeset publish has no real dry-run (the dry-run path returns above), so
+	// this is always a real publish. In pre mode it auto-targets the beta tag.
+	run("pnpm changeset publish --tag beta", { env: publishEnv });
 
 	console.log(
 		"\n✅ Beta release complete. Review git status, commit the changes, and push tags to share the release.",
