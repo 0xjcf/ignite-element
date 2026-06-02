@@ -12,7 +12,8 @@
 		"**/coverage/**",
 		".fas/state/**",
 		".fas/index/**",
-		".fas/semantic/**"
+		".fas/semantic/**",
+		"docs/site/src/content/docs/*.x/**"
 	],
 	"config": {
 		"default": true,
