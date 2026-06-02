@@ -376,10 +376,11 @@ describe("igniteCore", () => {
 		const source = createActorWebShipmentSource();
 		const register = igniteCore({
 			source,
-			view: ({ snapshot }) => ({
-				status: snapshot.context.status,
-				shipmentId: snapshot.context.shipmentId,
-				connected: snapshot.transport.state === "connected",
+			view: ({ context, snapshot, transport }) => ({
+				status: context.status,
+				shipmentId: context.shipmentId,
+				connected: transport.state === "connected",
+				snapshotStatus: snapshot.context.status,
 			}),
 			commands: ({ actor }) => ({
 				createShipment: (shipmentId: string) =>
@@ -393,6 +394,7 @@ describe("igniteCore", () => {
 			status: "idle",
 			shipmentId: null,
 			connected: true,
+			snapshotStatus: "idle",
 		});
 
 		register.execute("createShipment", "shipment-1001");
@@ -424,6 +426,7 @@ describe("igniteCore", () => {
 			status: "created",
 			shipmentId: "shipment-1001",
 			connected: false,
+			snapshotStatus: "created",
 		});
 	});
 

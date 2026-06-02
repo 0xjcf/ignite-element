@@ -364,9 +364,10 @@ describe("igniteCore type inference", () => {
 	it("infers actor-web view context, transport, and command actor facades", () => {
 		const register = igniteCore({
 			source: actorWebShipmentSource,
-			view: ({ snapshot }) => ({
-				status: snapshot.context.status,
-				connected: snapshot.transport.state === "connected",
+			view: ({ context, snapshot, transport }) => ({
+				status: context.status,
+				connected: transport.state === "connected",
+				snapshotStatus: snapshot.context.status,
 			}),
 			commands: ({ actor }) => ({
 				createShipment: (shipmentId: string) =>
@@ -396,6 +397,9 @@ describe("igniteCore type inference", () => {
 			ActorWebShipmentContext["status"]
 		>();
 		expectTypeOf<RenderArgs["connected"]>().toEqualTypeOf<boolean>();
+		expectTypeOf<RenderArgs["snapshotStatus"]>().toEqualTypeOf<
+			ActorWebShipmentContext["status"]
+		>();
 		expectTypeOf<RenderArgs["createShipment"]>().toEqualTypeOf<
 			(shipmentId: string) => Promise<unknown>
 		>();
@@ -441,14 +445,15 @@ describe("igniteCore type inference", () => {
 		const register = igniteCoreActorWebEntrypoint({
 			source: actorWebShipmentReadModelHostFactory,
 			commandSource: () => actorWebShipmentSource,
-			view: ({ snapshot }) => ({
-				shipmentId: snapshot.context.shipmentId,
-				phase: snapshot.phase,
-				status: snapshot.status,
-				value: snapshot.value,
-				idle: snapshot.matches?.("idle") ?? false,
-				canCreate: snapshot.can?.({ type: "CREATE_SHIPMENT" }) ?? false,
-				ready: snapshot.hasTag?.("ready") ?? false,
+			view: ({ context, phase, status, value, matches, can, hasTag, snapshot }) => ({
+				shipmentId: context.shipmentId,
+				phase,
+				status,
+				value,
+				idle: matches?.("idle") ?? false,
+				canCreate: can?.({ type: "CREATE_SHIPMENT" }) ?? false,
+				ready: hasTag?.("ready") ?? false,
+				snapshotShipmentId: snapshot.context.shipmentId,
 			}),
 			commands: ({ actor }) => ({
 				createShipment: (shipmentId: string) =>

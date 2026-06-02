@@ -11,6 +11,7 @@ import type {
 	FacadeEffectsLike,
 	FacadeStatesCallback,
 	FacadeViewCallback,
+	ViewContext,
 } from "./RenderArgs";
 import { command as commandHelper } from "./runtime/commands";
 import {
@@ -118,6 +119,17 @@ const isDevelopment = () => process.env.NODE_ENV !== "production";
 function freezeIfDev<T extends object>(value: T): T {
 	return isDevelopment() ? Object.freeze(value) : value;
 }
+
+const createViewContext = <Snapshot>(snapshot: Snapshot): ViewContext<Snapshot> => {
+	if (typeof snapshot === "object" && snapshot !== null) {
+		return {
+			...(snapshot as object),
+			snapshot,
+		} as ViewContext<Snapshot>;
+	}
+
+	return { snapshot } as ViewContext<Snapshot>;
+};
 
 function ensureFacadeResult(
 	result: unknown,
@@ -229,9 +241,7 @@ export function createProjectionFactory<
 		adapter: IgniteAdapter<State, Event>,
 	): FacadeStateResult<StatesResult> => {
 		if (resolvedView) {
-			const result = resolvedView({
-				snapshot: resolveSnapshot(adapter),
-			});
+			const result = resolvedView(createViewContext(resolveSnapshot(adapter)));
 			ensureFacadeResult(result, "view", errorPrefix);
 			return result;
 		}

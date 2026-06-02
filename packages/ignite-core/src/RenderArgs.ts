@@ -3,9 +3,9 @@ export type FacadeStatesCallback<
 	Result extends Record<string, unknown> = Record<string, unknown>,
 > = (snapshot: Snapshot) => Result;
 
-export type ViewContext<Snapshot> = {
-	snapshot: Snapshot;
-};
+export type ViewContext<Snapshot> = Snapshot extends object
+	? Snapshot & { snapshot: Snapshot }
+	: { snapshot: Snapshot };
 
 export type FacadeViewCallback<
 	Snapshot,
