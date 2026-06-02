@@ -155,7 +155,7 @@ const main = async () => {
 		// IMPORTANT: `changeset publish --dry-run` is NOT honored by changesets and
 		// performs a real publish. Use pnpm's publish dry-run, which only packs the
 		// tarballs and writes nothing to the registry, for a genuinely inert preview.
-		run("pnpm -r publish --dry-run --no-git-checks");
+		run("pnpm -r publish --dry-run --no-git-checks --tag beta");
 		console.log(
 			"\n✅ Dry run complete. No versions were bumped and nothing was published.",
 		);
