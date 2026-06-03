@@ -547,12 +547,13 @@ No active tasks.
 
 - Title: Systematize control geometry across all interactive controls and enforce it
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/systematize-control-geometry-across-all-interactive-controls.md
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
