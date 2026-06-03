@@ -496,12 +496,13 @@ No active tasks.
 
 - Title: Make the docs site theme token-driven and fix cross-theme inconsistencies
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/make-the-docs-site-theme-token-driven-and-fix-cross-theme-in.md
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
+
 ### Task: Add a docs theme contrast guardrail to catch un-themed controls
 
 - Title: Add a docs theme contrast guardrail to catch un-themed controls
