@@ -543,6 +543,13 @@ No active tasks.
 - Status: queued
 - Owner: runtime
 - Brief: .fas/tasks/collapse-theme-scoped-style-patches-into-symmetric-design-to.md
+### Task: Systematize control geometry across all interactive controls and enforce it
+
+- Title: Systematize control geometry across all interactive controls and enforce it
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/systematize-control-geometry-across-all-interactive-controls.md
 ## Template
 
 ### Task: <short task title>
