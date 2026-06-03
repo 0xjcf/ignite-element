@@ -525,6 +525,20 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: Introduce design-system geometry tokens and unify docs control styling
+
+- Title: Introduce design-system geometry tokens and unify docs control styling
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/introduce-design-system-geometry-tokens-and-unify-docs-contr.md
+### Task: Collapse theme-scoped style patches into symmetric design tokens
+
+- Title: Collapse theme-scoped style patches into symmetric design tokens
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/collapse-theme-scoped-style-patches-into-symmetric-design-to.md
 ## Template
 
 ### Task: <short task title>
