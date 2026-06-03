@@ -506,6 +506,13 @@ No active tasks.
 - Status: queued
 - Owner: runtime
 - Brief: .fas/tasks/add-a-docs-theme-contrast-guardrail-to-catch-un-themed-contr.md
+### Task: Audit and improve v3 docs UX flows with BfM, one moment at a time
+
+- Title: Audit and improve v3 docs UX flows with BfM, one moment at a time
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/audit-and-improve-v3-docs-ux-flows-with-bfm-one-moment-at-a.md
 ## Template
 
 ### Task: <short task title>

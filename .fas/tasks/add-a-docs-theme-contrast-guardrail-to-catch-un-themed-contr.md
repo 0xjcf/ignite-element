@@ -1,4 +1,4 @@
-# Add a docs theme contrast guardrail to catch un-themed contr
+# Add a docs theme contrast guardrail to catch un-themed controls
 
 ## Source
 Created with `fas create-task` on 2026-06-02.
@@ -41,7 +41,8 @@ New chrome/controls in the Starlight docs site can ship invisible in one theme (
 - Validate generated scope, acceptance criteria, and verification evidence before closeout to avoid workflow drift.
 
 ## Dependencies
-- None known at task creation.
+- Runs AFTER the design-system and UX-flow passes so it codifies their finalized contrast/visual expectations
+- Builds on the manual contrast audit from the version-picker fix (commit f2f61cb)
 
 ## Open questions
 - None captured at task creation.
