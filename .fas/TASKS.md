@@ -529,8 +529,8 @@ No active tasks.
 
 - Title: Introduce design-system geometry tokens and unify docs control styling
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/introduce-design-system-geometry-tokens-and-unify-docs-contr.md
 - Verification lane: fast
 - Policy sensitivity: standard
