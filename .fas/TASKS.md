@@ -514,12 +514,13 @@ No active tasks.
 
 - Title: Audit and improve v3 docs UX flows with BfM, one moment at a time
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/audit-and-improve-v3-docs-ux-flows-with-bfm-one-moment-at-a.md
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
