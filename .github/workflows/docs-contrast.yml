@@ -39,5 +39,5 @@ jobs:
       - name: Build docs site
         run: pnpm --filter docs-site build
 
-      - name: Check theme contrast (both themes, WCAG AA)
+      - name: Check theme contrast (WCAG AA) and control geometry
         run: pnpm --filter docs-site run check:contrast

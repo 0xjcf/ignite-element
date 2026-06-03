@@ -19,6 +19,11 @@
  * translucent fills (inline code, asides) are measured against what actually
  * renders — a naive "ignore alpha" check false-positives on every inline code.
  *
+ * It also runs a GEOMETRY guardrail: interactive controls (header selects,
+ * search, hero buttons) must use the --radius-* scale and have non-zero
+ * horizontal padding, catching un-tokenized geometry and the 0px-padding button
+ * class of bug. Both checks share one render pass and one exit code.
+ *
  * Usage:
  *   node scripts/check-contrast.mjs            # expects dist/ to exist
  *   npm run check:contrast    (build first)    # see package.json
@@ -52,6 +57,31 @@ const SELECTORS = {
 // Pages chosen to cover every selector at least once across both themes.
 const PAGES = ["/getting-started/installation/", "/migration/v3/"];
 const THEMES = ["dark", "light"];
+
+// Geometry guardrail: interactive controls must use the radius scale and (where
+// text sits inside) have non-zero horizontal padding. This catches un-tokenized
+// geometry and the 0px-padding button class of bug. Geometry is theme-agnostic,
+// so it's checked once. `needPadX` is false for the select boxes because their
+// inner <select> carries the horizontal padding, not the label.
+const RADIUS_SCALE_VARS = ["--radius-sm", "--radius-md", "--radius-lg"];
+const GEOMETRY = [
+	{
+		path: "/getting-started/installation/",
+		sel: "starlight-version-select label",
+		needPadX: false,
+	},
+	{
+		path: "/getting-started/installation/",
+		sel: "starlight-theme-select label",
+		needPadX: false,
+	},
+	{
+		path: "/getting-started/installation/",
+		sel: "site-search button",
+		needPadX: true,
+	},
+	{ path: "/", sel: ".hero .actions a", needPadX: true },
+];
 
 const MIME = {
 	".html": "text/html",
@@ -159,6 +189,23 @@ function auditInPage(selectorMap) {
 	return out;
 }
 
+/** Runs in the page: radius + horizontal padding for every match of a selector. */
+function geometryInPage({ sel, scaleVars }) {
+	const root = getComputedStyle(document.documentElement);
+	const scale = scaleVars.map((v) => root.getPropertyValue(v).trim());
+	return [...document.querySelectorAll(sel)].map((el, idx) => {
+		const cs = getComputedStyle(el);
+		return {
+			idx,
+			label: (el.textContent || "").trim().slice(0, 22) || `#${idx}`,
+			radius: cs.borderTopLeftRadius,
+			radiusInScale: scale.includes(cs.borderTopLeftRadius),
+			padL: parseFloat(cs.paddingLeft) || 0,
+			padR: parseFloat(cs.paddingRight) || 0,
+		};
+	});
+}
+
 async function main() {
 	if (!(await stat(DIST).catch(() => null))) {
 		console.error(
@@ -172,6 +219,8 @@ async function main() {
 	const browser = await chromium.launch();
 	const failures = [];
 	const rows = [];
+	const geomRows = [];
+	const geomFailures = [];
 
 	try {
 		for (const theme of THEMES) {
@@ -201,6 +250,32 @@ async function main() {
 			}
 			await context.close();
 		}
+
+		// Geometry guardrail (theme-agnostic — checked once).
+		const geomContext = await browser.newContext();
+		const geomPage = await geomContext.newPage();
+		for (const g of GEOMETRY) {
+			await geomPage.goto(`${origin}${g.path}`, { waitUntil: "load" });
+			const items = await geomPage.evaluate(geometryInPage, {
+				sel: g.sel,
+				scaleVars: RADIUS_SCALE_VARS,
+			});
+			for (const it of items) {
+				const padOk = !g.needPadX || (it.padL > 0 && it.padR > 0);
+				const ok = it.radiusInScale && padOk;
+				geomRows.push({ sel: g.sel, ...it, ok });
+				if (!ok) {
+					geomFailures.push({
+						sel: g.sel,
+						label: it.label,
+						reason: !it.radiusInScale
+							? `radius ${it.radius} is not in the --radius-* scale`
+							: `horizontal padding ${it.padL}/${it.padR}px (needs non-zero)`,
+					});
+				}
+			}
+		}
+		await geomContext.close();
 	} finally {
 		await browser.close();
 		server.close();
@@ -217,7 +292,21 @@ async function main() {
 	}
 	console.log("─".repeat(72));
 
+	// Geometry report
+	console.log("\nControl geometry guardrail");
+	console.log("─".repeat(72));
+	for (const r of geomRows) {
+		const mark = r.ok ? "✓" : "✗";
+		console.log(
+			`${mark} ${r.label.padEnd(22)} radius ${String(r.radius).padStart(5)}  pad ${r.padL}/${r.padR}px  ${r.sel}`,
+		);
+	}
+	console.log("─".repeat(72));
+
+	let failed = false;
+
 	if (failures.length) {
+		failed = true;
 		console.error(
 			`\n✗ ${failures.length} contrast failure(s) below threshold:`,
 		);
@@ -229,11 +318,23 @@ async function main() {
 		console.error(
 			"\nDrive the element from the theme tokens (--sl-color-* / --control-*) so it inherits AA contrast in both themes.",
 		);
-		process.exit(1);
 	}
 
+	if (geomFailures.length) {
+		failed = true;
+		console.error(`\n✗ ${geomFailures.length} geometry failure(s):`);
+		for (const f of geomFailures) {
+			console.error(`  - ${f.label} (${f.sel}): ${f.reason}`);
+		}
+		console.error(
+			"\nDrive control geometry from the tokens (--control-* / --button-* / --radius-*) so every control is sized consistently.",
+		);
+	}
+
+	if (failed) process.exit(1);
+
 	console.log(
-		`\n✓ All ${rows.length} checks pass AA in both themes (UI >= ${UI}:1, text >= ${TEXT}:1).`,
+		`\n✓ All ${rows.length} contrast checks pass AA in both themes, and all ${geomRows.length} controls use the geometry scale (radius + non-zero padding).`,
 	);
 }
 

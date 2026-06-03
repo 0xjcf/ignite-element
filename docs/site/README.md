@@ -21,9 +21,12 @@ Run from repo root:
 
 You can also use root shortcuts: `pnpm docs:dev`, `pnpm docs:build`, `pnpm docs:preview`.
 
-## Theme contrast guardrail
+## Theme contrast + geometry guardrail
 
-[`scripts/check-contrast.mjs`](./scripts/check-contrast.mjs) renders the **built** site in headless Chromium and checks WCAG AA contrast for key chrome (version/theme selects, search trigger) and content (sidebar, TOC, asides, inline code, links) in **both** the dark and light themes. It fails when a UI control is below 3:1 or text below 4.5:1.
+[`scripts/check-contrast.mjs`](./scripts/check-contrast.mjs) renders the **built** site in headless Chromium and runs two checks in one pass:
+
+- **Contrast** — WCAG AA for key chrome (version/theme selects, search trigger) and content (sidebar, TOC, asides, inline code, links) in **both** themes; fails when a UI control is below 3:1 or text below 4.5:1.
+- **Geometry** — interactive controls (header selects, search, hero buttons) must use the `--radius-*` scale and have non-zero horizontal padding; fails on un-tokenized geometry or a zero-padding control (the "Build your first component" button shipped 0px once).
 
 It renders the real page (not just the tokens), so it catches un-themed defaults and Astro-scoped component overrides — the failure mode that made the version picker and search trigger invisible in dark mode. The contrast math composites alpha over the nearest opaque backdrop, so translucent fills (inline code, asides) are measured against what actually renders.
 
