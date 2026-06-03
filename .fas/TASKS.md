@@ -507,12 +507,13 @@ No active tasks.
 
 - Title: Add a docs theme contrast guardrail to catch un-themed controls
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/add-a-docs-theme-contrast-guardrail-to-catch-un-themed-contr.md
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
+
 ### Task: Audit and improve v3 docs UX flows with BfM, one moment at a time
 
 - Title: Audit and improve v3 docs UX flows with BfM, one moment at a time
