@@ -50,7 +50,7 @@
 	--control-height: 2.5rem;
 	--control-pad-x: 0.75rem;
 	--control-pad-y: 0.375rem;
-	--control-select-min-width: 6.5rem; /* fits the longest label ("v3 (beta)") */
+	--control-select-min-width: 8rem; /* fits "v3 (beta)" with comfortable headroom */
 	--control-gap: 0.5rem;
 	--radius-sm: 6px;
 	--radius-md: 8px;
@@ -289,6 +289,26 @@ body {
 	min-width: var(--control-select-min-width);
 	padding-top: var(--control-pad-y);
 	padding-bottom: var(--control-pad-y);
+}
+
+/* Inset the leading icon and the label content off the left border so the icon
+   isn't flush against the edge. The label padding shifts the select/text; the
+   icon is absolutely positioned, so it needs the same inset to move with it. */
+:root starlight-theme-select label,
+:root starlight-version-select label {
+	padding-left: var(--control-pad-x);
+}
+
+/* Leading icon inset from the left, trailing caret inset from the right by the
+   same token, so both affordances are balanced against their borders. */
+:root starlight-theme-select label .label-icon,
+:root starlight-version-select label .label-icon {
+	inset-inline-start: var(--control-pad-x);
+}
+
+:root starlight-theme-select label .caret,
+:root starlight-version-select label .caret-icon {
+	inset-inline-end: var(--control-pad-x);
 }
 
 /* One deliberate gap between adjacent header controls. */
