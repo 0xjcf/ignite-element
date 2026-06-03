@@ -27,9 +27,13 @@ After the design-system pass (Task: make docs theme token-driven) establishes co
 - docs/site/src/content/docs/index.mdx
 - docs/site/src/content/docs/getting-started
 - docs/site/astro.config.mjs
+- docs/site/src/content/docs/migration/v3.mdx
+- docs/site/src/content/docs/404.md
 
 ## Scope Amendments
-- None.
+- Type: scope-refresh
+- Added at: 2026-06-03
+- Added paths: docs/site/src/content/docs/migration/v3.mdx, docs/site/src/content/docs/404.md
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
