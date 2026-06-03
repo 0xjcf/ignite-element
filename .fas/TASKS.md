@@ -529,9 +529,13 @@ No active tasks.
 
 - Title: Introduce design-system geometry tokens and unify docs control styling
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/introduce-design-system-geometry-tokens-and-unify-docs-contr.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ### Task: Collapse theme-scoped style patches into symmetric design tokens
 
 - Title: Collapse theme-scoped style patches into symmetric design tokens

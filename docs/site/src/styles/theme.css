@@ -44,6 +44,18 @@
 	--control-border: #345074;
 	--control-focus-ring: #3c5b82;
 
+	/* Control + radius geometry. One height / padding / gap for every header
+	   control so spacing is inherited from tokens instead of each component's
+	   own default (which is why the selects and search trigger were uneven). */
+	--control-height: 2.5rem;
+	--control-pad-x: 0.75rem;
+	--control-pad-y: 0.375rem;
+	--control-select-min-width: 6.5rem; /* fits the longest label ("v3 (beta)") */
+	--control-gap: 0.5rem;
+	--radius-sm: 6px;
+	--radius-md: 8px;
+	--radius-lg: 12px;
+
 	/* Layout */
 	--sl-nav-height: 64px;
 	--sl-content-width: 1080px;
@@ -138,12 +150,12 @@ body {
 .sl-markdown code:not(pre > code) {
 	background: rgba(26, 210, 255, 0.12);
 	color: var(--sl-color-accent-high);
-	border-radius: 0.4rem;
+	border-radius: var(--radius-sm);
 	padding: 0.1rem 0.4rem;
 }
 
 .starlight-aside {
-	border-radius: 12px;
+	border-radius: var(--radius-lg);
 	border: 1px solid rgba(122, 232, 255, 0.25);
 	background: var(--sl-color-panel);
 	color: var(--sl-color-text);
@@ -187,7 +199,7 @@ body {
 }
 
 .hero .actions a {
-	border-radius: 10px;
+	border-radius: var(--radius-md);
 	border: 1px solid var(--button-secondary-border);
 	color: var(--button-secondary-text);
 	background: var(--button-secondary-bg);
@@ -228,10 +240,14 @@ body {
 :root starlight-theme-select label,
 :root starlight-version-select label,
 :root site-search button {
+	display: inline-flex;
+	align-items: center;
+	box-sizing: border-box;
+	min-height: var(--control-height);
 	background: var(--control-bg);
 	color: var(--control-text);
 	border: 1px solid var(--control-border);
-	border-radius: 8px;
+	border-radius: var(--radius-md);
 }
 
 :root .header .sl-theme-toggle:hover,
@@ -262,14 +278,28 @@ body {
 	outline: none;
 }
 
-starlight-theme-select {
-	margin-left: 0.25rem;
+/* Both selects share one vertical rhythm and a min-width sized to the longest
+   label — one shared token instead of a per-component min-width on just the
+   version picker. Horizontal padding is left to Starlight: each select has an
+   absolutely-positioned leading icon (and the theme select a negative offset),
+   so a forced uniform inline padding clips the label text. */
+:root starlight-theme-select select,
+:root starlight-version-select select {
+	box-sizing: border-box;
+	min-width: var(--control-select-min-width);
+	padding-top: var(--control-pad-y);
+	padding-bottom: var(--control-pad-y);
 }
 
-/* Give the current-version label room so "v3 (beta)" isn't crowded by the
-   native select arrow. */
-starlight-version-select select {
-	min-width: 6.5rem;
+/* One deliberate gap between adjacent header controls. */
+:root starlight-theme-select,
+:root starlight-version-select {
+	margin-left: var(--control-gap);
+}
+
+/* Search trigger uses the shared horizontal control padding. */
+:root site-search button {
+	padding-inline: var(--control-pad-x);
 }
 
 site-search button kbd {
@@ -389,7 +419,7 @@ site-search button kbd:first-child {
 		width: calc(var(--sl-nav-height) - 2 * var(--sl-nav-pad-y));
 		aspect-ratio: 1;
 		object-fit: cover;
-		border-radius: 12px;
+		border-radius: var(--radius-lg);
 		background: var(--sl-color-bg-nav);
 		padding: 2px;
 	}
