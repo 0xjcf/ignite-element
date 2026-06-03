@@ -56,6 +56,13 @@
 	--radius-md: 8px;
 	--radius-lg: 12px;
 
+	/* Button geometry — one step up from the compact header chrome. Prominent
+	   CTAs share a single height + symmetric padding so primary, secondary, and
+	   minimal variants are identical in size (no per-variant drift). */
+	--button-height: 2.75rem;
+	--button-pad-x: 1.25rem;
+	--button-pad-y: 0.625rem;
+
 	/* Layout */
 	--sl-nav-height: 64px;
 	--sl-content-width: 1080px;
@@ -199,6 +206,12 @@ body {
 }
 
 .hero .actions a {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	min-height: var(--button-height);
+	padding: var(--button-pad-y) var(--button-pad-x);
 	border-radius: var(--radius-md);
 	border: 1px solid var(--button-secondary-border);
 	color: var(--button-secondary-text);

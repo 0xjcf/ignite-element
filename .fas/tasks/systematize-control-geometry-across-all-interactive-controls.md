@@ -1,4 +1,4 @@
-# Systematize control geometry across all interactive controls
+# Systematize control geometry across all interactive controls and enforce it
 
 ## Source
 Created with `fas create-task` on 2026-06-03.
@@ -26,9 +26,13 @@ The geometry-token task unified spacing for HEADER controls only; buttons still 
 ## Affected files
 - docs/site/src/styles/theme.css
 - docs/site/scripts/check-contrast.mjs
+- docs/site/README.md
+- .github/workflows/docs-contrast.yml
 
 ## Scope Amendments
-- None.
+- Type: scope-refresh
+- Added at: 2026-06-03
+- Added paths: docs/site/README.md, .github/workflows/docs-contrast.yml
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
