@@ -1,8 +1,24 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Ignite Element docs theme — token-driven.
+
+   Tokens are the single source of truth. Every custom token is defined for
+   BOTH the dark base (:root) and the light override ([data-theme="light"]), so
+   no control can fall through to an un-themed default (the bug that made the
+   version picker invisible in dark mode — see commit f2f61cb). Component rules
+   below read from var(--sl-color-*) / var(--control-*) instead of duplicating
+   hardcoded hex, so a new control inherits correct contrast automatically.
+   ────────────────────────────────────────────────────────────────────────── */
+
 :root {
+	/* Accent ramp (dark) */
 	--sl-color-accent-low: #0d2a38;
 	--sl-color-accent: #1ad2ff;
 	--sl-color-accent-high: #7ae8ff;
+	/* Ink painted ON an accent fill. Dark theme → dark ink on bright cyan.
+	   Must be re-themed for light (white ink on dark teal) below. */
 	--sl-color-accent-contrast: #0b1324;
+
+	/* Text + surfaces (dark) */
 	--sl-color-text: #e8edf7;
 	--sl-color-text-soft: #c5d0de;
 	--sl-color-hairline: #223049;
@@ -10,11 +26,30 @@
 	--sl-color-gray-2: #0f182e;
 	--sl-color-gray-3: #162038;
 	--sl-color-gray-4: #1f2a45;
-	--sl-color-soft: #0f182e;
-	--sl-text-accent: #fbbf24;
+	--sl-color-bg: #0d1324;
+	--sl-color-bg-nav: #0c1223;
+	--sl-color-bg-sidebar: #0c1223;
+	--sl-color-panel: #0f182e;
+
+	/* Paint the page surface from the token so the canvas never falls back to
+	   the browser's color-scheme default (the dark theme layers its gradient
+	   over this below). */
+	background: var(--sl-color-bg);
+
+	/* Header controls (selects + search). Any new chrome inherits correct
+	   contrast by reading these tokens instead of patching per-component hex. */
+	--control-bg: var(--sl-color-bg-nav);
+	--control-bg-hover: #111a2d;
+	--control-text: var(--sl-color-text);
+	--control-border: #345074;
+	--control-focus-ring: #3c5b82;
+
+	/* Layout */
 	--sl-nav-height: 64px;
 	--sl-content-width: 1080px;
 	--sl-sidebar-width: 240px;
+
+	/* Buttons */
 	--button-bg: linear-gradient(
 		135deg,
 		var(--sl-color-accent),
@@ -28,28 +63,8 @@
 	--button-secondary-text: var(--sl-color-text);
 }
 
-:root[data-theme="light"] {
-	--sl-color-accent-low: #d6f4ff;
-	--sl-color-accent: #006d93;
-	--sl-color-accent-high: #004b66;
-	--sl-color-text: #0f172a;
-	--sl-color-text-soft: #334155;
-	--sl-color-hairline: #e2e8f0;
-	--sl-color-bg: #ffffff;
-	--sl-color-bg-nav: #f8fafc;
-	--sl-color-bg-sidebar: #f8fafc;
-	--sl-color-panel: #f8fafc;
-	--button-text: #ffffff;
-	--button-shadow: 0 6px 20px rgba(0, 109, 147, 0.28);
-	--button-secondary-text: var(--sl-color-accent);
-}
-
 :root[data-theme="dark"] {
 	color-scheme: dark;
-	--sl-color-bg: #0d1324;
-	--sl-color-bg-nav: #0c1223;
-	--sl-color-bg-sidebar: #0c1223;
-	--sl-color-panel: #0f182e;
 	background:
 		radial-gradient(
 			circle at 20% 20%,
@@ -60,7 +75,38 @@
 			circle at 80% 10%,
 			rgba(251, 191, 36, 0.08),
 			transparent 35%
-		), #0b1324;
+		), var(--sl-color-gray-1);
+}
+
+:root[data-theme="light"] {
+	color-scheme: light;
+
+	/* Accent ramp (light) */
+	--sl-color-accent-low: #d6f4ff;
+	--sl-color-accent: #006d93;
+	--sl-color-accent-high: #004b66;
+	/* Light theme → white ink on the dark-teal accent fill. */
+	--sl-color-accent-contrast: #ffffff;
+
+	/* Text + surfaces (light) */
+	--sl-color-text: #0f172a;
+	--sl-color-text-soft: #334155;
+	--sl-color-hairline: #e2e8f0;
+	--sl-color-bg: #ffffff;
+	--sl-color-bg-nav: #f8fafc;
+	--sl-color-bg-sidebar: #f8fafc;
+	--sl-color-panel: #f8fafc;
+
+	/* Header controls (light) */
+	--control-bg: var(--sl-color-bg-nav);
+	--control-bg-hover: rgba(15, 23, 42, 0.05);
+	--control-text: var(--sl-color-text);
+	--control-border: #cbd5e1;
+	--control-focus-ring: #94a3b8;
+
+	/* Buttons */
+	--button-shadow: 0 6px 20px rgba(0, 109, 147, 0.28);
+	--button-secondary-text: var(--sl-color-accent);
 }
 
 body {
@@ -85,7 +131,7 @@ body {
 
 .sl-markdown pre {
 	border: 1px solid var(--sl-color-hairline);
-	background: #0f182e;
+	background: var(--sl-color-panel);
 	box-shadow: 0 14px 40px rgba(0, 0, 0, 0.25);
 }
 
@@ -99,7 +145,7 @@ body {
 .starlight-aside {
 	border-radius: 12px;
 	border: 1px solid rgba(122, 232, 255, 0.25);
-	background: #0f182e;
+	background: var(--sl-color-panel);
 	color: var(--sl-color-text);
 }
 
@@ -119,19 +165,19 @@ body {
 }
 
 [data-theme="light"] .starlight-aside {
-	background: #f8fafc;
+	background: var(--sl-color-panel);
 	border: 1px solid #d8e2f2;
-	color: #0f172a;
+	color: var(--sl-color-text);
 }
 
 [data-theme="light"] .starlight-aside h2,
 [data-theme="light"] .starlight-aside .title {
-	color: #0f172a;
+	color: var(--sl-color-text);
 }
 
 [data-theme="light"] .starlight-aside code:not(pre > code) {
-	background: #e2e8f0;
-	color: #0f172a;
+	background: var(--sl-color-hairline);
+	color: var(--sl-color-text);
 }
 
 .stackblitz-embed {
@@ -168,6 +214,78 @@ body {
 	color: var(--sl-color-text-soft);
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+   Header controls — one token-driven chrome shared by the theme toggle, the
+   theme/version selects, and the search trigger. Driving every control from
+   the same --control-* tokens is what keeps contrast correct in both themes
+   and stops new controls from shipping invisible in one of them.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* The :root prefix keeps these rules theme-agnostic while giving them enough
+   specificity to win over Astro-scoped component defaults (e.g. Starlight's own
+   `site-search button` styles), which the bare tag selectors would lose to. */
+:root .header .sl-theme-toggle,
+:root starlight-theme-select label,
+:root starlight-version-select label,
+:root site-search button {
+	background: var(--control-bg);
+	color: var(--control-text);
+	border: 1px solid var(--control-border);
+	border-radius: 8px;
+}
+
+:root .header .sl-theme-toggle:hover,
+:root starlight-theme-select label:hover,
+:root starlight-version-select label:hover,
+:root site-search button:hover {
+	background: var(--control-bg-hover);
+}
+
+:root .header .sl-theme-toggle:focus-within,
+:root starlight-theme-select label:focus-within,
+:root starlight-version-select label:focus-within,
+:root site-search button:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--control-focus-ring);
+}
+
+:root .header .sl-theme-toggle svg,
+:root starlight-theme-select select,
+:root starlight-version-select select,
+:root site-search button svg,
+:root site-search button span {
+	color: var(--control-text);
+}
+
+:root starlight-theme-select select:focus-visible,
+:root starlight-version-select select:focus-visible {
+	outline: none;
+}
+
+starlight-theme-select {
+	margin-left: 0.25rem;
+}
+
+/* Give the current-version label room so "v3 (beta)" isn't crowded by the
+   native select arrow. */
+starlight-version-select select {
+	min-width: 6.5rem;
+}
+
+site-search button kbd {
+	color: var(--control-text);
+	background: var(--control-bg-hover);
+}
+
+site-search button kbd:last-child {
+	margin-right: 0.2rem;
+}
+
+site-search button kbd:first-child {
+	margin-left: 0.2rem;
+}
+
+/* Inline search field (when expanded) shares the control tokens. */
 [data-theme="dark"] input[type="search"],
 [data-theme="dark"] input[type="text"],
 [data-theme="dark"] .search-input input {
@@ -176,8 +294,8 @@ body {
 }
 
 [data-theme="dark"] .search-input {
-	background: #111a2d;
-	border-color: #345074;
+	background: var(--control-bg-hover);
+	border-color: var(--control-border);
 }
 
 [data-theme="dark"] .search-input input::placeholder,
@@ -186,50 +304,27 @@ body {
 	opacity: 1;
 }
 
-[data-theme="dark"] site-search button {
-	color: #dce6f5;
-	background: #111a2d;
-}
-
-[data-theme="dark"] site-search button svg,
-[data-theme="dark"] site-search button span {
-	color: #dce6f5;
-}
-
-[data-theme="dark"] site-search button kbd {
-	color: #dce6f5;
-	background: #1a2740;
-}
-
-[data-theme="dark"] site-search button kbd:last-child {
-	margin-right: 0.2rem;
-}
-
-[data-theme="dark"] site-search button kbd:first-child {
-	margin-left: 0.2rem;
-}
-
 [data-theme="dark"] .search-input .icon,
 [data-theme="dark"] .search-input svg {
-	color: #dce6f5;
+	color: var(--control-text);
 }
 
 [data-theme="dark"] .search-input .shortcut {
-	color: #dce6f5;
-	background: #1a2740;
+	color: var(--control-text);
+	background: var(--control-bg-hover);
 }
 
-/* Starlight search (Pagefind) dark theme */
+/* Starlight search modal (Pagefind) dark theme — driven from the same tokens. */
 [data-theme="dark"] #starlight__search {
-	--pagefind-ui-background: #0f182e;
-	--pagefind-ui-border: #223049;
+	--pagefind-ui-background: var(--sl-color-panel);
+	--pagefind-ui-border: var(--sl-color-hairline);
 	--pagefind-ui-text: var(--sl-color-text);
 	--pagefind-ui-primary: var(--sl-color-accent-high);
 }
 
 [data-theme="dark"] #starlight__search .pagefind-ui__form {
-	background: #0c1223;
-	border: 1px solid #223049;
+	background: var(--sl-color-bg-nav);
+	border: 1px solid var(--sl-color-hairline);
 }
 
 [data-theme="dark"] #starlight__search .pagefind-ui__form::before {
@@ -237,14 +332,14 @@ body {
 }
 
 [data-theme="dark"] #starlight__search .pagefind-ui__search-input {
-	background: #111a2d;
+	background: var(--control-bg-hover);
 	color: var(--sl-color-text);
-	border: 1px solid #223049;
+	border: 1px solid var(--sl-color-hairline);
 }
 
 [data-theme="dark"] #starlight__search .pagefind-ui__result-title,
 [data-theme="dark"] #starlight__search .pagefind-ui__result-nested {
-	background: #0f182e;
+	background: var(--sl-color-panel);
 	color: var(--sl-color-text);
 }
 
@@ -253,7 +348,7 @@ body {
 }
 
 [data-theme="dark"] #starlight__search .pagefind-ui__result-tags {
-	background: #0f182e;
+	background: var(--sl-color-panel);
 }
 
 [data-theme="dark"] #starlight__search .pagefind-ui__message {
@@ -288,12 +383,6 @@ body {
 	opacity: 0.4;
 }
 
-.header .sl-theme-toggle {
-	border: 1px solid var(--button-secondary-border);
-	background: #0f182e;
-	color: var(--sl-color-text);
-}
-
 @layer starlight.utils {
 	.site-title img {
 		height: calc(var(--sl-nav-height) - 2 * var(--sl-nav-pad-y));
@@ -304,96 +393,6 @@ body {
 		background: var(--sl-color-bg-nav);
 		padding: 2px;
 	}
-}
-
-.header .sl-theme-toggle svg {
-	color: var(--sl-color-text);
-}
-
-.header .sl-theme-toggle:hover {
-	background: #12233a;
-}
-
-[data-theme="light"] starlight-theme-select label:hover {
-	background: rgba(15, 23, 42, 0.05);
-}
-
-[data-theme="light"] starlight-theme-select label:focus-within {
-	outline: none;
-	box-shadow: 0 0 0 2px #94a3b8;
-}
-
-[data-theme="dark"] starlight-theme-select label {
-	background: #0c1223;
-	border-radius: 8%;
-	color: #dce6f5;
-}
-
-[data-theme="dark"] starlight-theme-select label:hover {
-	background: #111a2d;
-}
-
-[data-theme="dark"] starlight-theme-select label:focus-within {
-	outline: none;
-	box-shadow: 0 0 0 2px #3c5b82;
-}
-
-[data-theme="dark"] starlight-theme-select {
-	margin-left: 0.25rem;
-}
-
-starlight-theme-select select:focus-visible {
-	outline: none;
-}
-
-/* Version picker (starlight-versions): the plugin colors its <select> with
-   --sl-color-accent-contrast (a dark value), which is invisible on the dark
-   header. Drive it from --sl-color-text and mirror the theme toggle's chrome so
-   it reads correctly in both themes. */
-starlight-version-select label {
-	border-radius: 8px;
-}
-
-/* Give the current-version label room so "v3 (beta)" isn't crowded by the
-   native select arrow. */
-starlight-version-select select {
-	min-width: 6.5rem;
-}
-
-[data-theme="light"] starlight-version-select label,
-[data-theme="light"] starlight-version-select select {
-	color: var(--sl-color-text);
-}
-
-[data-theme="light"] starlight-version-select label:hover {
-	background: rgba(15, 23, 42, 0.05);
-}
-
-[data-theme="light"] starlight-version-select label:focus-within {
-	outline: none;
-	box-shadow: 0 0 0 2px #94a3b8;
-}
-
-[data-theme="dark"] starlight-version-select label,
-[data-theme="dark"] starlight-version-select select {
-	color: var(--sl-color-text);
-}
-
-[data-theme="dark"] starlight-version-select label {
-	background: #0c1223;
-}
-
-[data-theme="dark"] starlight-version-select label:hover {
-	background: #111a2d;
-}
-
-[data-theme="dark"] starlight-version-select label:focus-within {
-	outline: none;
-	box-shadow: 0 0 0 2px #3c5b82;
-}
-
-starlight-version-select select:focus-visible {
-	outline: none;
 }
 
 [data-theme="dark"] .sl-sidebar .link .link-title {
@@ -422,7 +421,8 @@ starlight-version-select select:focus-visible {
 }
 
 @media (min-width: 72rem) {
-	/* Extend the right sidebar border through the nav so the line aligns perfectly */
+	/* Extend the right-sidebar border up through the nav so the line aligns,
+	   and keep the sidebar inside the viewport at wider content widths. */
 	.right-sidebar {
 		position: sticky;
 		top: var(--sl-nav-height);
@@ -443,7 +443,7 @@ starlight-version-select select:focus-visible {
 
 	.right-sidebar-panel .sl-container {
 		width: 100%;
-		max-width: clamp(15rem, 22vw, var(--sl-sidebar-width));
+		max-width: var(--sl-sidebar-width);
 	}
 
 	.right-sidebar-container {
@@ -452,21 +452,5 @@ starlight-version-select select:focus-visible {
 			22vw,
 			calc(var(--sl-sidebar-width) + (100% - var(--sl-content-width)) / 3)
 		);
-	}
-}
-
-@media (min-width: 72rem) {
-	/* Keep the right sidebar inside the viewport when using wider content widths */
-	.right-sidebar {
-		position: sticky;
-		top: var(--sl-nav-height);
-		max-height: calc(100vh - var(--sl-nav-height));
-		overflow-y: auto;
-		width: 100%;
-	}
-
-	.right-sidebar-panel .sl-container {
-		width: 100%;
-		max-width: var(--sl-sidebar-width);
 	}
 }

@@ -1,4 +1,4 @@
-# Make the docs site theme token-driven and fix cross-theme in
+# Make the docs site theme token-driven and fix cross-theme inconsistencies
 
 ## Source
 Created with `fas create-task` on 2026-06-02.
@@ -25,9 +25,25 @@ The docs Starlight theme (docs/site/src/styles/theme.css) patches dark mode per-
 ## Affected files
 - docs/site/src/styles/theme.css
 - docs/site/astro.config.mjs
+- .changeset/pre.json
+- fas.domain-map.json
+- docs/site/src/content/versions/2.x.json
+- .gitignore
 
 ## Scope Amendments
-- None.
+- Type: formatting-only
+- Added at: 2026-06-03
+- Trigger: fas validate-task format gate failed on 3 pre-existing baseline files (biome format . runs whole-repo)
+- Reason: Operator-approved: normalize Biome formatting on 3 committed-unformatted files so the whole-repo format gate passes. Content-preserving (git diff -w shows only array line-wrapping); no data or behavior change. Includes the frozen v2 archive versions/2.x.json, normally off-limits, formatted under explicit operator approval.
+- Added paths: .changeset/pre.json, fas.domain-map.json, docs/site/src/content/versions/2.x.json
+- Evidence source: biome format --write . (Fixed 3 files); git diff -w
+- Evidence: biome format --write . (Fixed 3 files); git diff -w
+- Accuracy signal: whole-repo biome format now clean; theme.css unaffected (already clean)
+- Follow-up needed: FAS/repo gap: biome.json scans generated/data files (versions/*.json archive, .changeset, fas.domain-map.json) and .claude/; markdownlint already excludes generated *.x archives — biome should mirror that. Also npm run format auto-writes the frozen archive, and chains pnpm run format:md (fails in sandbox).
+
+- Type: scope-refresh
+- Added at: 2026-06-03
+- Added paths: .gitignore
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
