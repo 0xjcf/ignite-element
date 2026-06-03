@@ -135,7 +135,11 @@
 				"packages/ignite-element/src/actor-web.ts",
 				"packages/ignite-element/src/igniteCore/actor-web.ts"
 			],
-			"dependencies": ["@ignite-element/core", "@ignite-element/adapters", "ignite-element"]
+			"dependencies": [
+				"@ignite-element/core",
+				"@ignite-element/adapters",
+				"ignite-element"
+			]
 		},
 		"@ignite-element/renderer": {
 			"name": "Ignite Renderer",
@@ -198,7 +202,11 @@
 				"packages/ignite-element/src/tests/entrypoints.test.ts"
 			],
 			"boundaries": ["packages/ignite-element/src/"],
-			"dependencies": ["@ignite-element/core", "@ignite-element/adapters", "@ignite-element/renderer"]
+			"dependencies": [
+				"@ignite-element/core",
+				"@ignite-element/adapters",
+				"@ignite-element/renderer"
+			]
 		},
 		"agent-runtime": {
 			"name": "Ignite Agent Runtime",
@@ -273,7 +281,11 @@
 		{
 			"name": "ignite-core-public-api",
 			"producer": "@ignite-element/core",
-			"consumers": ["@ignite-element/adapters", "ignite-element", "agent-runtime"],
+			"consumers": [
+				"@ignite-element/adapters",
+				"ignite-element",
+				"agent-runtime"
+			],
 			"surfaces": [
 				"packages/ignite-core/package.json",
 				"packages/ignite-core/src/index.ts",

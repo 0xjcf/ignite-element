@@ -48,6 +48,9 @@ packages/ignite-adapters/src/**/*.d.ts.map
 packages/ignite-renderer/src/**/*.d.ts
 packages/ignite-renderer/src/**/*.d.ts.map
 
+# Claude Code local tooling/state (preview launch config, session skills)
+.claude/
+
 # >>> FAS managed ignore block >>>
 # FAS runtime data and local workspace state (generated, do not commit)
 .codex/
