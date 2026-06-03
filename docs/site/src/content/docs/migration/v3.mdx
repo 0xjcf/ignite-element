@@ -14,6 +14,17 @@ the `3.0.0` release.
 
 Ignite Element v3 keeps the default Ignite JSX renderer and headless runtime from v2, and adds a cleaner install surface, a view-first context, and a narrower public API. Most app code that uses `ignite-element` and one state adapter upgrades with just the install change.
 
+:::tip[Will this break my app?]
+For most apps, **no** — the upgrade is install-only. The view-first context is
+**additive** (your existing `({ snapshot }) => …` callbacks keep working), and
+making state libraries optional peers only stops pulling in packages you weren't
+using. The **one breaking change** is the removed `ignite-element/config/*` and
+`ignite-element/renderers/*` subpaths ([step 4](#4-narrower-public-api)) — and
+that affects you only if you imported config loaders, renderer-strategy
+registration, or global style internals directly. The default Ignite JSX path
+uses none of those.
+:::
+
 ## TL;DR
 
 1. Install the beta: `pnpm add ignite-element@beta` (plus the one state library you use).
