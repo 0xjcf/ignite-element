@@ -9,12 +9,17 @@
 		"start": "astro dev",
 		"build": "astro build",
 		"preview": "astro preview",
-		"astro": "astro"
+		"astro": "astro",
+		"check:contrast": "node scripts/check-contrast.mjs",
+		"test:contrast": "astro build && node scripts/check-contrast.mjs"
 	},
 	"dependencies": {
 		"@astrojs/starlight": "^0.39.3",
 		"astro": "^6.4.3",
 		"sharp": "^0.34.2",
 		"starlight-versions": "^0.9.0"
+	},
+	"devDependencies": {
+		"@playwright/test": "^1.56.1"
 	}
 }

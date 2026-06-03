@@ -20,3 +20,16 @@ Run from repo root:
 | `pnpm --filter docs-site preview` | Preview the built site locally. |
 
 You can also use root shortcuts: `pnpm docs:dev`, `pnpm docs:build`, `pnpm docs:preview`.
+
+## Theme contrast guardrail
+
+[`scripts/check-contrast.mjs`](./scripts/check-contrast.mjs) renders the **built** site in headless Chromium and checks WCAG AA contrast for key chrome (version/theme selects, search trigger) and content (sidebar, TOC, asides, inline code, links) in **both** the dark and light themes. It fails when a UI control is below 3:1 or text below 4.5:1.
+
+It renders the real page (not just the tokens), so it catches un-themed defaults and Astro-scoped component overrides — the failure mode that made the version picker and search trigger invisible in dark mode. The contrast math composites alpha over the nearest opaque backdrop, so translucent fills (inline code, asides) are measured against what actually renders.
+
+| Command | Action |
+| --- | --- |
+| `pnpm --filter docs-site test:contrast` | Build, then check contrast (one-shot). |
+| `pnpm --filter docs-site check:contrast` | Check an existing `dist/` build. |
+
+Install the Chromium binary once with `pnpm --filter docs-site exec playwright install chromium`. CI runs this automatically on PRs touching `docs/site/**` (see [`.github/workflows/docs-contrast.yml`](../../.github/workflows/docs-contrast.yml)).

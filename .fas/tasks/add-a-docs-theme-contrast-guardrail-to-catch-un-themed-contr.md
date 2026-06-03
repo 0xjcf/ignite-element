@@ -23,11 +23,21 @@ New chrome/controls in the Starlight docs site can ship invisible in one theme (
 
 ## Affected files
 - docs/site/package.json
-- .github/workflows/ci.yml
-- .github/workflows/docs-deploy.yml
+- docs/site/scripts/check-contrast.mjs
+- docs/site/README.md
+- .github/workflows/docs-contrast.yml
+
+<!-- ci.yml/docs-deploy.yml were the original hints but were intentionally NOT
+modified; a dedicated path-filtered workflow at .github/workflows/ is the
+correct PR-scoped wiring. See Scope Amendments. -->
 
 ## Scope Amendments
-- None.
+- Type: ci-wiring-choice
+- Added at: 2026-06-03
+- Trigger: Brief named ci.yml/docs-deploy.yml, but neither cleanly supports 'PRs that touch docs/site'
+- Reason: ci.yml runs on ALL PRs with no path scope (would run the heavy headless-browser step on every non-docs PR); docs-deploy.yml only runs on push to main (no PR coverage). Created a dedicated path-filtered workflow .github/workflows/docs-contrast.yml (on.pull_request.paths: docs/site/**) instead — idiomatic and correctly scoped. Non-blocking Confusion-Protocol choice.
+- Added paths: docs/site/scripts/check-contrast.mjs, docs/site/README.md, .github/workflows/docs-contrast.yml
+- Follow-up needed: Requires 'pnpm install' to sync pnpm-lock.yaml for the new @playwright/test docs-site devDep (sandbox cannot run pnpm install); CI's 'pnpm install --frozen-lockfile' will fail until the lockfile is committed.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
