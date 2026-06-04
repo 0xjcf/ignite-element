@@ -540,8 +540,8 @@ No active tasks.
 
 - Title: Collapse theme-scoped style patches into symmetric design tokens
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/collapse-theme-scoped-style-patches-into-symmetric-design-to.md
 - Verification lane: fast
 - Policy sensitivity: standard
