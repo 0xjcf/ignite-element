@@ -26,9 +26,15 @@ Read-only information-architecture spike for the live v3 (beta) docs. v3 beta is
 
 ## Affected files
 - .fas/state/spikes/v3-docs-ia-audit.md
+- .fas/tasks/v3-docs-polish-*.md (7 drafted downstream briefs)
+- .fas/TASKS.md
 
 ## Scope Amendments
-- None.
+- 2026-06-04: Read-only spike. Outputs are the spike report
+  (.fas/state/spikes/v3-docs-ia-audit.md, gitignored) plus 7 drafted+queued
+  downstream task briefs (.fas/tasks/v3-docs-polish-*.md) wired with dependsOn
+  in .fas/queue/tasks.json, and the .fas/TASKS.md tracker update. No docs/site
+  content or package source was edited (the audit was read-only).
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
