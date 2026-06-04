@@ -27,7 +27,7 @@ events: (event) => ({
   saveSucceeded: event<{ id: string }>(),
   saveFailed: event<{ message: string }>(),
 }),
-effects: (snapshot, _prevSnapshot, { emit, select }) => {
+effects: ({ snapshot, emit, select }) => {
   const status = select((current) => current.context.status);
   const error = select((current) => current.context.error);
 

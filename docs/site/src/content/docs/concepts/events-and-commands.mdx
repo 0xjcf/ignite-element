@@ -89,8 +89,12 @@ You can read `dataset`, measure the element, or dispatch additional DOM events f
 ## Type flow
 
 - When `events` is present, event names and payloads are inferred into `emit`.
-- `effects` also infers `snapshot`, `prevSnapshot`, `select`, `actor`, and `host` from the `source` plus your declared events.
+- `effects` also infers `snapshot`, `prevSnapshot`, `select`, `actor`, and `host` from the `source` plus your declared events. `effects` always takes a single object argument — destructure what you need (`({ snapshot, prevSnapshot, emit, select, actor, host }) => …`).
 - `view` and `commands` outputs are merged into the props your renderer receives, giving you typed render args without extra wiring.
+
+:::note[Snapshot fields are spread]
+For object snapshots (XState's extended state, a MobX store, a Redux state), the snapshot's own fields are spread onto the snapshot/view context. So `snapshot.count` and `snapshot.context.count` are equivalent — use whichever reads best, and `view: ({ context }) => …` for the common path. See the [v2 → v3 migration guide](/ignite-element/migration/v3/#3-view-first-context) for the full `ViewContext` shape.
+:::
 
 ### Putting it together (XState)
 

@@ -1,4 +1,4 @@
-# Accuracy pass on v3 docs examples (effects/view/select consi
+# Accuracy pass on v3 docs examples (effects/view/select consistency)
 
 ## Source
 Created with `fas create-task` on 2026-06-04.
@@ -24,9 +24,57 @@ The v3 docs are substantially accurate against the real API, but the example cod
 
 ## Affected files
 - docs/site/src/content/docs/guides/agent-runtime-v3.mdx
+- docs/site/src/content/docs/index.mdx
+- docs/site/src/content/docs/getting-started/first-component.mdx
+- docs/site/src/content/docs/guides/host-app-integration.mdx
+- docs/site/src/content/docs/guides/testing.mdx
+- docs/site/src/content/docs/guides/platform-contracts.mdx
+- docs/site/src/content/docs/concepts/state-adapters.mdx
+- docs/site/src/content/docs/concepts/events-and-commands.mdx
+- docs/site/src/content/docs/api/ignite-core.mdx
+- docs/site/scripts/doc-examples-baseline.json
+- docs/site/src/styles/theme.css
 
 ## Scope Amendments
-- None.
+- Type: scope-refresh
+- Added at: 2026-06-04
+- Added paths: docs/site/src/content/docs/index.mdx
+
+- Type: scope-refresh
+- Added at: 2026-06-04
+- Added paths: docs/site/src/content/docs/getting-started/first-component.mdx
+
+- Type: scope-refresh
+- Added at: 2026-06-04
+- Added paths: docs/site/src/content/docs/guides/host-app-integration.mdx
+
+- Type: scope-refresh
+- Added at: 2026-06-04
+- Added paths: docs/site/src/content/docs/guides/testing.mdx
+
+- Type: scope-refresh
+- Added at: 2026-06-04
+- Added paths: docs/site/src/content/docs/guides/platform-contracts.mdx
+
+- Type: scope-refresh
+- Added at: 2026-06-04
+- Added paths: docs/site/src/content/docs/concepts/state-adapters.mdx
+
+- Type: scope-refresh
+- Added at: 2026-06-04
+- Added paths: docs/site/src/content/docs/concepts/events-and-commands.mdx
+
+- Type: scope-refresh
+- Added at: 2026-06-04
+- Added paths: docs/site/src/content/docs/api/ignite-core.mdx
+
+- Type: scope-refresh
+- Added at: 2026-06-04
+- Added paths: docs/site/scripts/doc-examples-baseline.json
+
+- Type: scope-refresh
+- Added at: 2026-06-04
+- Added paths: docs/site/src/styles/theme.css
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

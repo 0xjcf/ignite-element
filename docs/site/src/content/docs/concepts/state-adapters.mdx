@@ -219,7 +219,7 @@ commands: ({ actor }) => ({
     actor.send({ type: 'INCREMENT' });
   },
 }),
-effects: (snapshot, prevSnapshot, { emit }) => {
+effects: ({ snapshot, prevSnapshot, emit }) => {
   if (snapshot.context.count === prevSnapshot.context.count) return;
   emit('incremented', { count: snapshot.context.count });
 },

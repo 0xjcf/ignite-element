@@ -573,9 +573,12 @@ No active tasks.
 
 - Title: Accuracy pass on v3 docs examples (effects/view/select consistency)
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/accuracy-pass-on-v3-docs-examples-effects-view-select-consi.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 ### Task: Document the headless runtime, testing DSL, and command metadata APIs
 
 - Title: Document the headless runtime, testing DSL, and command metadata APIs

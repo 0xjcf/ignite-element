@@ -38,7 +38,7 @@ const registerToggle = igniteCore({
       actor.send({ type: 'TOGGLE' });
     },
   }),
-  effects: (_snapshot, _prevSnapshot, { emit, select }) => {
+  effects: ({ emit, select }) => {
     const isOn = select((snapshot) => snapshot.matches('on'));
     if (!isOn.changed) return;
     emit('toggled', { isOn: isOn.current });
