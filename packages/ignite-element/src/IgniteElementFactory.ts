@@ -157,6 +157,10 @@ function processInitialAttributes(
 	}
 }
 
+/**
+ * @internal Low-level custom-element factory used by `igniteCore`. Not part of
+ * the public `ignite-element` surface — no package entry re-exports it.
+ */
 export default function igniteElementFactory<
 	State,
 	Event,

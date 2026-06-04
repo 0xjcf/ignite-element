@@ -196,6 +196,11 @@ export function bindProjectionToElements<
 	});
 }
 
+/**
+ * @internal Low-level component factory used by `igniteCore`. Not part of the
+ * public `ignite-element` surface — no package entry re-exports it. Use the
+ * adapter `igniteCore` entrypoints instead.
+ */
 export function createComponentFactoryWithRenderer<
 	State,
 	Event,
@@ -296,6 +301,11 @@ export function createComponentFactoryWithRenderer<
 	});
 }
 
+/**
+ * @internal Low-level component factory used by `igniteCore`. Not part of the
+ * public `ignite-element` surface — no package entry re-exports it. Use the
+ * adapter `igniteCore` entrypoints instead.
+ */
 export function createComponentFactory<
 	State,
 	Event,

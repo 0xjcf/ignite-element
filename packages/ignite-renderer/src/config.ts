@@ -83,6 +83,11 @@ export function defineIgniteConfig(config: IgniteConfig): IgniteConfig {
 	return normalized;
 }
 
+/**
+ * @public Read the effective Ignite config resolved from `defineIgniteConfig`.
+ * Advanced/diagnostic companion to {@link defineIgniteConfig}; returns
+ * `undefined` when no config has been registered.
+ */
 export function getIgniteConfig(): IgniteConfig | undefined {
 	return registry[CONFIG_SYMBOL];
 }

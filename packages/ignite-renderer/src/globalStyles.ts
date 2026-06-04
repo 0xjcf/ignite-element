@@ -8,6 +8,10 @@ export type GlobalStyles = string | StyleObject | undefined;
 
 let globalStyles: GlobalStyles;
 
+/**
+ * @internal Imperative global-style state. The supported public path for shared
+ * styles is `defineIgniteConfig({ styles })`; this setter backs it.
+ */
 export function setGlobalStyles(style: GlobalStyles): void {
 	if (Array.isArray(style)) {
 		throw new Error(
@@ -17,6 +21,7 @@ export function setGlobalStyles(style: GlobalStyles): void {
 	globalStyles = style;
 }
 
+/** @internal Reads the global-style state set via `defineIgniteConfig`. */
 export function getGlobalStyles(): GlobalStyles {
 	return globalStyles;
 }

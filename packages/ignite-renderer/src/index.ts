@@ -1,3 +1,12 @@
+// Public surface of `@ignite-element/renderer`. This package is the advanced/
+// legacy entry: ordinary v3 apps use `ignite-element` + the JSX path and never
+// import from here. The split below is intentional (see
+// .fas/memory/decisions.md, 2026-06-04):
+//   - Advanced-public: defineIgniteConfig/getIgniteConfig, the JSX types and
+//     Fragment, and the render-strategy registry (register/resolve/list).
+//   - Internal (@internal): get/setGlobalStyles, injectStyles/flushPendingStyles,
+//     and clearRegisteredRenderStrategiesForTests. They stay exported only for
+//     internal cross-package use, not as a supported API.
 export type {
 	IgniteConfig,
 	IgniteLoggingLevel,

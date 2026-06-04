@@ -121,6 +121,10 @@ function warnRejectedStyleOnce(
 	console.warn(message, path);
 }
 
+/**
+ * @internal Low-level shadow-root style injection. Used by the config loader and
+ * the element's internal style wiring; not a supported standalone API.
+ */
 export default function injectStyles(shadowRoot: ShadowRoot): void {
 	// Skip if this shadow root was already processed
 	if (initializedRoots.has(shadowRoot)) {
@@ -269,6 +273,7 @@ export default function injectStyles(shadowRoot: ShadowRoot): void {
 	// Deprecated per-component styles have been removed (styles now managed globally)
 }
 
+/** @internal Re-applies pending global styles after config load; internal wiring. */
 export function flushPendingStyles(): void {
 	const globalStyles = getGlobalStyles();
 	if (!globalStyles) {

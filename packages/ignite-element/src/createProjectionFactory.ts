@@ -157,6 +157,10 @@ function assertCommandFunction(
 	}
 }
 
+/**
+ * @internal Low-level projection factory used by `igniteCore`. Not part of the
+ * public `ignite-element` surface — no package entry re-exports it.
+ */
 export function createProjectionFactory<
 	State,
 	Event,

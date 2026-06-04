@@ -18,6 +18,11 @@ function getRegistry(): RenderStrategyRegistry {
 	return registry;
 }
 
+/**
+ * @public Advanced extension point: register a custom render strategy under a
+ * renderer id so components can target it via config. Most apps use the built-in
+ * `ignite-jsx` (default) or `lit` strategies instead.
+ */
 export function registerRenderStrategy(
 	renderer: string,
 	factory: RenderStrategyFactory<unknown>,
@@ -26,6 +31,10 @@ export function registerRenderStrategy(
 	registry.set(renderer, factory);
 }
 
+/**
+ * @public Advanced extension point: resolve the registered render-strategy
+ * factory for a renderer id, falling back to the default strategy with a warning.
+ */
 export function resolveRenderStrategy(
 	renderer: string,
 ): RenderStrategyFactory<unknown> {
@@ -67,11 +76,16 @@ export function resolveRenderStrategy(
 	return fallbackFactory;
 }
 
+/** @internal Test-only helper to reset the strategy registry between tests. */
 export function clearRegisteredRenderStrategiesForTests(): void {
 	const registry = getRegistry();
 	registry.clear();
 }
 
+/**
+ * @public Advanced extension point: list the renderer ids that currently have a
+ * registered render strategy.
+ */
 export function getRegisteredRenderStrategies(): string[] {
 	return [...getRegistry().keys()];
 }
