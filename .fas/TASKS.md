@@ -618,12 +618,13 @@ No active tasks.
 
 - Title: Decide and document public API status of factory and renderer-primitive exports
 - Mode: single-agent
-- Status: implementing
+- Status: done
 - Owner: implementer
 - Brief: .fas/tasks/decide-and-document-public-api-status-of-factory-and-rendere.md
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
