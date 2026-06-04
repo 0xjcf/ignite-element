@@ -267,6 +267,8 @@ body {
 	box-shadow: 0 0 0 2px var(--control-focus-ring);
 }
 
+/* biome-ignore lint/style/noDescendingSpecificity: one intentional control-text
+   rule shared across the toggle/select/search chrome; order is deliberate. */
 :root .header .sl-theme-toggle svg,
 :root starlight-theme-select select,
 :root starlight-version-select select,
@@ -427,6 +429,8 @@ site-search button kbd:first-child {
    they read correctly over the dark sidebar surface (where Starlight's default
    would otherwise inherit the overridden gray ramp). Current-page rules below
    are more specific and win. */
+/* biome-ignore lint/style/noDescendingSpecificity: current-page rules below are
+   intentionally more specific and must override this base. */
 .sidebar-pane a,
 .sl-sidebar .link .link-title {
 	color: var(--sl-color-text);
