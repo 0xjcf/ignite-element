@@ -1,4 +1,4 @@
-# Decide and document public API status of factory and rendere
+# Decide and document public API status of factory and renderer-primitive exports
 
 ## Source
 Created with `fas create-task` on 2026-06-04.
@@ -22,10 +22,26 @@ Several exports are public but undocumented: createComponentFactory, createProje
 
 ## Affected files
 - packages/ignite-element/src/index.ts
+- packages/ignite-element/src/createComponentFactory.ts
+- packages/ignite-element/src/createProjectionFactory.ts
+- packages/ignite-element/src/IgniteElementFactory.ts
 - packages/ignite-renderer/src/index.ts
+- packages/ignite-renderer/src/config.ts
+- packages/ignite-renderer/src/globalStyles.ts
+- packages/ignite-renderer/src/injectStyles.ts
+- packages/ignite-renderer/src/renderers/registry.ts
+- docs/site/src/content/docs/api/renderers.mdx
+- .fas/memory/decisions.md
 
 ## Scope Amendments
-- None.
+- 2026-06-04: The classified exports live in their source modules, not just the
+  two entry barrels the planner detected, so annotating them `@internal`/`@public`
+  required editing the factory files (createComponentFactory/createProjectionFactory/
+  IgniteElementFactory) and the renderer primitive sources (config, globalStyles,
+  injectStyles, renderers/registry). Documenting the advanced-public primitives
+  touched docs/site/.../api/renderers.mdx, and the decision record went to
+  .fas/memory/decisions.md. JSDoc/comment-only changes — no logic, no export
+  removed, no public-API break.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
