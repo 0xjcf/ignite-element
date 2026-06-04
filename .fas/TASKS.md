@@ -596,9 +596,12 @@ No active tasks.
 
 - Title: Adapter parity docs: Redux and MobX examples plus an actor-web guide
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/adapter-parity-docs-redux-and-mobx-examples-plus-an-actor-w.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 ### Task: Add a docs version/compat matrix and fix the orphaned migration page
 
 - Title: Add a docs version/compat matrix and fix the orphaned migration page

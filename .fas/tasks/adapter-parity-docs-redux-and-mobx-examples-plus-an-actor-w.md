@@ -1,4 +1,4 @@
-# Adapter parity docs: Redux and MobX examples plus an actor-w
+# Adapter parity docs: Redux and MobX examples plus an actor-web guide
 
 ## Source
 Created with `fas create-task` on 2026-06-04.
@@ -24,9 +24,19 @@ The v3 docs are XState-centric. Redux and MobX appear only as 'swap the source' 
 
 ## Affected files
 - docs/site/astro.config.mjs
+- docs/site/src/content/docs/guides/redux-and-mobx.mdx
+- docs/site/src/content/docs/guides/actor-web.mdx
+- docs/site/src/content/docs/concepts/state-adapters.mdx
+- docs/site/scripts/doc-examples-baseline.json
 
 ## Scope Amendments
-- None.
+- 2026-06-04: Promoted the acceptance-criteria deliverables into explicit scope.
+  The planner only auto-detected `astro.config.mjs`, but the criteria require new
+  Redux/MobX (`guides/redux-and-mobx`) and Actor-Web (`guides/actor-web`) docs,
+  and retyping the existing Actor-Web example in `concepts/state-adapters` so its
+  types infer from the source handle. Clearing the seven state-adapters baseline
+  entries also edits `doc-examples-baseline.json` (now 3 entries, only the
+  intentionally-left index.mdx any-source artifacts). No source/runtime changes.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
