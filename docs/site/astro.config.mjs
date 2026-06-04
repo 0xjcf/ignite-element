@@ -93,6 +93,8 @@ export default defineConfig({
 							label: "Agent runtime v3",
 							slug: "guides/agent-runtime-v3",
 						},
+						{ label: "Redux & MobX", slug: "guides/redux-and-mobx" },
+						{ label: "Actor-Web", slug: "guides/actor-web" },
 						{ label: "Styling", slug: "guides/styling" },
 						{ label: "Testing", slug: "guides/testing" },
 						{ label: "Tooling & bundlers", slug: "guides/tooling" },

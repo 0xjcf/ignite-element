@@ -75,7 +75,7 @@ The default `igniteCore` entrypoint does not execute zero-argument source factor
 - `cleanup` is an override; you only need it when you want to keep a shared adapter alive after all elements disconnect.
 - Rationale: a started actor/store you pass in may be used elsewhere; auto-stopping it would be surprising. Stop user-owned sources yourself if needed.
 
-```ts
+```ts no-check
 import { createActor } from 'xstate';
 import { igniteCore } from 'ignite-element/xstate';
 import { toggleMachine } from './machine';
@@ -149,10 +149,14 @@ commands: ({ actor }) => ({
 
 ## Actor-Web as a projection-first host
 
-When your host app already runs on Actor-Web, import from `ignite-element/actor-web` and project business fields first. Treat the Actor-Web snapshot as a read model that Ignite consumes, not as a place where Ignite takes over orchestration.
+When your host app already runs on Actor-Web, import from `ignite-element/actor-web` and project business fields first. Treat the Actor-Web snapshot as a read model that Ignite consumes, not as a place where Ignite takes over orchestration. `igniteCore` infers the projection and message types from the source handle — you never pass type arguments.
 
 ```ts
 import { igniteCore } from "ignite-element/actor-web";
+import type {
+  ActorWebReadModelSource,
+  ActorWebCommandSource,
+} from "ignite-element/actor-web";
 
 type ShipmentProjection = {
   shipmentId: string;
@@ -166,9 +170,19 @@ type ShipmentRequest =
   | { type: "shipment.cancel"; shipmentId: string }
   | { type: "shipment.label.request"; shipmentId: string };
 
+// Your Actor-Web runtime hands Ignite typed source handles.
+declare const shipmentReadModel: ActorWebReadModelSource<
+  ShipmentProjection,
+  ShipmentRequest
+>;
+declare const shipmentCommands: ActorWebCommandSource<
+  ShipmentProjection,
+  ShipmentRequest
+>;
+
 const shipmentCard = igniteCore({
-  source: ({ host }) => checkoutRuntime.shipments.readModel({ host }),
-  commandSource: () => checkoutRuntime.shipments.commandSource(),
+  source: shipmentReadModel,
+  commandSource: shipmentCommands,
   states: ({ context }) => ({
     shipmentId: context.shipmentId,
     status: context.status,
@@ -186,7 +200,7 @@ const shipmentCard = igniteCore({
 });
 ```
 
-The projected `context` carries business/read-model state. Updating that state remains Actor-Web's job; Ignite sends requests back across the boundary and re-renders when the next projection snapshot arrives.
+The projected `context` carries business/read-model state. Updating that state remains Actor-Web's job; Ignite sends requests back across the boundary and re-renders when the next projection snapshot arrives. See the [Actor-Web adapter guide](/ignite-element/guides/actor-web/) for read-model vs command sources, `send` vs `ask`, and transport status.
 
 Use `source` for the read model that drives rendering. Add `commandSource` when the component exposes commands, or pass a command-capable source directly for smaller local proofs. When Actor-Web sources expose `close()`, Ignite calls it during adapter teardown, so host apps do not need wrapper objects just to clean up subscriptions.
 

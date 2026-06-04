@@ -2,41 +2,6 @@
 	"note": "Known doc-example failures to burn down (docs-accuracy tasks). Each is a real finding or symptom; the guardrail fails on anything NOT listed here.",
 	"entries": [
 		{
-			"doc": "docs/site/src/content/docs/concepts/state-adapters.mdx",
-			"code": 2554,
-			"includes": "Expected 2 arguments, but got 1."
-		},
-		{
-			"doc": "docs/site/src/content/docs/concepts/state-adapters.mdx",
-			"code": 2769,
-			"includes": "No overload matches this call.   Overload 1 of 2"
-		},
-		{
-			"doc": "docs/site/src/content/docs/concepts/state-adapters.mdx",
-			"code": 2339,
-			"includes": "Property 'shipmentId' does not exist on type 'ob"
-		},
-		{
-			"doc": "docs/site/src/content/docs/concepts/state-adapters.mdx",
-			"code": 2339,
-			"includes": "Property 'status' does not exist on type 'object"
-		},
-		{
-			"doc": "docs/site/src/content/docs/concepts/state-adapters.mdx",
-			"code": 2339,
-			"includes": "Property 'etaLabel' does not exist on type 'obje"
-		},
-		{
-			"doc": "docs/site/src/content/docs/concepts/state-adapters.mdx",
-			"code": 2339,
-			"includes": "Property 'canCancel' does not exist on type 'obj"
-		},
-		{
-			"doc": "docs/site/src/content/docs/concepts/state-adapters.mdx",
-			"code": 2353,
-			"includes": "Object literal may only specify known properties"
-		},
-		{
 			"doc": "docs/site/src/content/docs/index.mdx",
 			"code": 2769,
 			"includes": "No overload matches this call.   Overload 1 of 2"

@@ -1,0 +1,159 @@
+---
+title: Actor-Web adapter
+description: Project an Actor-Web runtime into Ignite components — read-model vs command sources, transport status, and send vs ask.
+sidebar:
+  label: Actor-Web
+  order: 5
+---
+
+Use `ignite-element/actor-web` when an **Actor-Web runtime already owns** orchestration, supervision, sequencing, transport, and source lifecycle. Ignite stays in the projection/read-model role: it turns Actor-Web snapshots into render state and exposes explicit commands, without taking over the runtime.
+
+This is the opposite split from `ignite-element/xstate`, where Ignite owns the local machine. Reach for Actor-Web when the source is long-lived and lives outside the element; reach for XState (or Redux/MobX) when the element owns its own state.
+
+## Read model vs command source
+
+Actor-Web distinguishes two handles, both typed by a shared `Context`, `Message`, and (optionally) `Emitted`:
+
+- **Read-model source** (`ActorWebReadModelSource`) — the projection Ignite renders from. It exposes `snapshot()` and `subscribe(...)`; it does **not** send messages.
+- **Command source** (`ActorWebCommandSource`) — a read-model source plus `send(message)` and an optional `ask(message)` for request/response.
+
+Pass the read model as `source` (what drives rendering) and add `commandSource` when the component needs to send messages back across the boundary. `igniteCore` infers the projection and message types from the source handle — you never pass type arguments:
+
+```ts
+import { igniteCore } from 'ignite-element/actor-web';
+import type {
+  ActorWebReadModelSource,
+  ActorWebCommandSource,
+} from 'ignite-element/actor-web';
+
+type ShipmentProjection = {
+  shipmentId: string;
+  status: 'queued' | 'packed' | 'shipped';
+  etaLabel: string | null;
+  canCancel: boolean;
+};
+
+type ShipmentRequest =
+  | { type: 'shipment.refresh'; shipmentId: string }
+  | { type: 'shipment.cancel'; shipmentId: string }
+  | { type: 'shipment.label.request'; shipmentId: string };
+
+// Your Actor-Web runtime hands Ignite typed source handles.
+declare const shipmentReadModel: ActorWebReadModelSource<
+  ShipmentProjection,
+  ShipmentRequest
+>;
+declare const shipmentCommands: ActorWebCommandSource<
+  ShipmentProjection,
+  ShipmentRequest
+>;
+
+export const shipmentCard = igniteCore({
+  source: shipmentReadModel,
+  commandSource: shipmentCommands,
+  states: ({ context }) => ({
+    shipmentId: context.shipmentId,
+    status: context.status,
+    etaLabel: context.etaLabel,
+    canCancel: context.canCancel,
+  }),
+  commands: ({ actor }) => ({
+    refresh: (shipmentId: string) =>
+      actor.send({ type: 'shipment.refresh', shipmentId }),
+    cancel: (shipmentId: string) =>
+      actor.send({ type: 'shipment.cancel', shipmentId }),
+  }),
+});
+```
+
+`ShipmentProjection` flows into the `states`/`view` `context`, and `ShipmentRequest` flows into `actor.send`, all inferred from `shipmentReadModel` — no `igniteCore<...>` annotations. The projected `context` carries business/read-model state; updating it stays Actor-Web's job. Ignite sends requests back and re-renders when the next projection snapshot arrives.
+
+:::note[Source shapes]
+`source` accepts a read-model source value (shown above), a command-capable source, a zero-argument factory, a host-context factory `({ host }) => source`, or an `ActorWebSourceHandle` — `{ source, commandSource?, stop? }` — that bundles both handles and a teardown. When a source exposes `close()`, Ignite calls it during adapter teardown. Passing a typed source **value** gives the cleanest inference; the `ignite-element/actor-web` entrypoint is required for zero-argument and defaulted factories (see [Source factory adapter inference](/ignite-element/concepts/state-adapters/)).
+:::
+
+## send vs ask
+
+Commands cross the boundary through explicit requests on the command actor:
+
+- `actor.send(message)` — fire-and-forget; returns a `Promise` that resolves when the runtime accepts the message. Use it for state-changing requests.
+- `actor.ask(message, timeout?)` — request/response. It is **optional** and only exists on sources that support it, so call it with optional chaining and a typed response.
+
+A command-capable source can be passed directly as `source` when the rendering read model and the command channel are the same handle:
+
+```ts
+import { igniteCore } from 'ignite-element/actor-web';
+import type { ActorWebCommandSource } from 'ignite-element/actor-web';
+
+type ShipmentProjection = { shipmentId: string; canCancel: boolean };
+type ShipmentRequest =
+  | { type: 'shipment.cancel'; shipmentId: string }
+  | { type: 'shipment.label.request'; shipmentId: string };
+
+declare const shipmentSource: ActorWebCommandSource<
+  ShipmentProjection,
+  ShipmentRequest
+>;
+
+export const shipmentActions = igniteCore({
+  source: shipmentSource,
+  commands: ({ actor }) => ({
+    cancel: (shipmentId: string) =>
+      actor.send({ type: 'shipment.cancel', shipmentId }),
+    requestLabel: (shipmentId: string) =>
+      actor.ask?.<{ url: string }>({
+        type: 'shipment.label.request',
+        shipmentId,
+      }),
+  }),
+});
+```
+
+You only need a separate `commandSource` when the read model and the command channel are different handles. Never mutate the projected read model to "send" — always go through `send`/`ask`.
+
+## Transport status
+
+Each projection snapshot carries transport metadata describing the runtime connection. Opt into it explicitly through the `transport` field on the `states`/`view` callback — most components should stay focused on business state.
+
+`transport` is an `ActorWebTransportStatus`: `{ state, updatedAt, lastSequence?, lagMs?, reason? }`. The `state` is one of:
+
+| `transport.state` | Meaning |
+| --- | --- |
+| `local` | no remote transport; purely local |
+| `connected` | live and in sync |
+| `replaying` | catching up on buffered history |
+| `degraded` | connected but lagging or partial (`reason` may explain) |
+| `disconnected` | transport lost |
+
+```ts
+import { igniteCore } from 'ignite-element/actor-web';
+import type { ActorWebReadModelSource } from 'ignite-element/actor-web';
+
+type ShipmentProjection = { shipmentId: string; status: string };
+type ShipmentRequest = { type: 'shipment.refresh'; shipmentId: string };
+
+declare const shipmentReadModel: ActorWebReadModelSource<
+  ShipmentProjection,
+  ShipmentRequest
+>;
+
+export const shipmentBadge = igniteCore({
+  source: shipmentReadModel,
+  states: ({ context, transport }) => ({
+    shipmentId: context.shipmentId,
+    status: context.status,
+    syncState: transport.state,
+    degradedReason:
+      transport.state === 'degraded' ? transport.reason ?? null : null,
+  }),
+});
+```
+
+Use that pattern for connection badges, replay banners, or diagnostics — not as a default field on every view.
+
+## When to use which entrypoint
+
+- **`ignite-element/actor-web`** — an Actor-Web runtime already owns orchestration and long-lived sources; Ignite projects and sends explicit requests.
+- **`ignite-element/xstate`** — Ignite owns local behavior; the machine is the element's state source and Ignite manages its lifecycle.
+
+See [Choosing `xstate` vs `actor-web`](/ignite-element/concepts/state-adapters/#choosing-ignite-elementxstate-vs-ignite-elementactor-web) for the boundary rationale, and [Redux & MobX](/ignite-element/guides/redux-and-mobx/) for the other two adapters.

@@ -1,0 +1,200 @@
+---
+title: Redux & MobX adapters
+description: Complete, runnable Redux Toolkit and MobX examples at parity with the XState path — source, view, commands, and effects.
+sidebar:
+  label: Redux & MobX
+  order: 4
+---
+
+`igniteCore` works the same way across adapters: you describe a `source`, project it with `view`, expose `commands`, and react with `effects`. Only the **source** and how you talk to the **actor** change per adapter. Import from the matching entrypoint — `ignite-element/redux` or `ignite-element/mobx` — and the rest of the contract mirrors the [XState path](/ignite-element/guides/agent-runtime-v3/).
+
+## Redux Toolkit
+
+Redux accepts two source shapes:
+
+- a **slice** (the `createSlice` result) for an isolated, Ignite-owned store, or
+- a **store instance** (`configureStore(...)`) you own and share across elements.
+
+In both cases the command `actor` is the store, so you drive transitions with `actor.dispatch(...)`.
+
+### Slice source (isolated)
+
+```ts
+import { igniteCore } from 'ignite-element/redux';
+import { createSlice } from '@reduxjs/toolkit';
+import type { PayloadAction } from '@reduxjs/toolkit';
+
+const counterSlice = createSlice({
+  name: 'counter',
+  initialState: { count: 0 },
+  reducers: {
+    increment: (state) => {
+      state.count += 1;
+    },
+    decrement: (state) => {
+      state.count -= 1;
+    },
+    addByAmount: (state, action: PayloadAction<number>) => {
+      state.count += action.payload;
+    },
+  },
+});
+
+export const registerCounter = igniteCore({
+  source: counterSlice,
+  view: ({ snapshot }) => ({
+    count: snapshot.count,
+  }),
+  commands: ({ actor }) => ({
+    increment: () => actor.dispatch(counterSlice.actions.increment()),
+    decrement: () => actor.dispatch(counterSlice.actions.decrement()),
+    addByAmount: (value: number) =>
+      actor.dispatch(counterSlice.actions.addByAmount(value)),
+  }),
+});
+```
+
+With a slice source, the `view` snapshot is the slice's own state, so `snapshot.count` reads the reducer state directly.
+
+### Store instance source (shared)
+
+Pass a configured store when several elements should share one state tree. The `view` snapshot is the **root** state, so project through the slice key (`snapshot.counter.count`).
+
+```ts
+import { igniteCore } from 'ignite-element/redux';
+import { configureStore, createSlice } from '@reduxjs/toolkit';
+
+const counterSlice = createSlice({
+  name: 'counter',
+  initialState: { count: 0 },
+  reducers: {
+    increment: (state) => {
+      state.count += 1;
+    },
+  },
+});
+
+const store = configureStore({
+  reducer: { counter: counterSlice.reducer },
+});
+
+export const registerSharedCounter = igniteCore({
+  source: store,
+  view: ({ snapshot }) => ({
+    count: snapshot.counter.count,
+  }),
+  commands: ({ actor }) => ({
+    increment: () => actor.dispatch(counterSlice.actions.increment()),
+  }),
+});
+```
+
+Ignite subscribes to the store you pass and reads state on change, but it never disposes a store you own — it only releases its own subscriptions as elements disconnect. See [State adapters](/ignite-element/concepts/state-adapters/#ownership-model) for the ownership rules.
+
+### Events and effects
+
+`events` and `effects` behave exactly as on the XState path. Declare events to type `emit`, then fire them from `effects` when the projected state changes:
+
+```ts
+import { igniteCore } from 'ignite-element/redux';
+import { createSlice } from '@reduxjs/toolkit';
+
+const counterSlice = createSlice({
+  name: 'counter',
+  initialState: { count: 0 },
+  reducers: {
+    increment: (state) => {
+      state.count += 1;
+    },
+  },
+});
+
+export const registerCounter = igniteCore({
+  source: counterSlice,
+  view: ({ snapshot }) => ({ count: snapshot.count }),
+  commands: ({ actor }) => ({
+    increment: () => actor.dispatch(counterSlice.actions.increment()),
+  }),
+  events: (event) => ({
+    incremented: event<{ count: number }>(),
+  }),
+  effects: ({ snapshot, prevSnapshot, emit }) => {
+    if (snapshot.count === prevSnapshot.count) return;
+    emit('incremented', { count: snapshot.count });
+  },
+});
+```
+
+## MobX
+
+MobX accepts an observable **instance** (shared) or a zero-argument **factory** (isolated — Ignite calls it per element). The command `actor` is the observable, so you call its actions directly.
+
+```ts
+import { igniteCore } from 'ignite-element/mobx';
+import { action, makeObservable, observable } from 'mobx';
+
+class Counter {
+  count = 0;
+
+  constructor() {
+    makeObservable(this, {
+      count: observable,
+      increment: action,
+      decrement: action,
+    });
+  }
+
+  increment() {
+    this.count += 1;
+  }
+
+  decrement() {
+    this.count -= 1;
+  }
+}
+
+const counterStore = () => new Counter();
+
+// Shared: one observable instance reused across elements.
+export const registerSharedCounter = igniteCore({
+  source: counterStore(),
+  view: ({ snapshot }) => ({
+    count: snapshot.count,
+  }),
+  commands: ({ actor }) => ({
+    increment: () => actor.increment(),
+    decrement: () => actor.decrement(),
+  }),
+});
+
+// Isolated: a factory Ignite calls once per element.
+// Zero-argument factories declare their adapter explicitly.
+export const registerIsolatedCounter = igniteCore({
+  adapter: 'mobx',
+  source: counterStore,
+  view: ({ snapshot }) => ({
+    count: snapshot.count,
+  }),
+  commands: ({ actor }) => ({
+    increment: () => actor.increment(),
+  }),
+});
+```
+
+Ignite reads derived values when observables mutate. Observables you create externally keep running; Ignite only tears down the subscriptions it owns. A zero-argument **factory** source (called once per element for isolated state) needs an explicit `adapter: 'mobx'`, because Ignite does not execute source factories while inferring the adapter — see [Source factory adapter inference](/ignite-element/concepts/state-adapters/).
+
+## Choosing an adapter
+
+| Adapter | Source you pass | Drive state with | Best for |
+| --- | --- | --- | --- |
+| `ignite-element/xstate` | machine or started actor | `actor.send(event)` | explicit state charts, guards, transitions |
+| `ignite-element/redux` | slice or store instance | `actor.dispatch(action)` | existing Redux Toolkit apps |
+| `ignite-element/mobx` | observable or factory | `actor.method()` | observable/class-based state |
+| `ignite-element/actor-web` | read-model / command source | `actor.send` / `actor.ask` | an Actor-Web runtime already owns orchestration |
+
+For the Actor-Web projection-first model, see the [Actor-Web adapter guide](/ignite-element/guides/actor-web/).
+
+## Related
+
+- [State adapters](/ignite-element/concepts/state-adapters/) — ownership, shared vs isolated, lifecycle.
+- [Headless runtime](/ignite-element/api/headless-runtime/) — the runtime each adapter exposes.
