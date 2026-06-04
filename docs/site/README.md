@@ -36,3 +36,17 @@ It renders the real page (not just the tokens), so it catches un-themed defaults
 | `pnpm --filter docs-site check:contrast` | Check an existing `dist/` build. |
 
 Install the Chromium binary once with `pnpm --filter docs-site exec playwright install chromium`. CI runs this automatically on PRs touching `docs/site/**` (see [`.github/workflows/docs-contrast.yml`](../../.github/workflows/docs-contrast.yml)).
+
+## Doc code-example guardrail
+
+[`scripts/check-doc-examples.mjs`](./scripts/check-doc-examples.mjs) extracts the TypeScript/TSX code fences from the current (v3) docs and typechecks them against the **real** `ignite-element` package types, so examples can't drift from the public API (it catches things like an example referencing a `snapshot` variable that isn't in scope, or a `effects` callback shape the adapter doesn't accept).
+
+It is tolerant of doc realities: external imports and app-relative paths resolve to `any`, names from earlier blocks on the same page are in scope, and un-parseable fragments are skipped. Opt a block out with a `no-check` fence meta or a leading `// docs-check: skip`.
+
+A baseline ([`scripts/doc-examples-baseline.json`](./scripts/doc-examples-baseline.json)) lists known failures in the current docs so the gate is green today while failing on any **new** drift; burning it down is the docs-accuracy work. Regenerate it with `node scripts/check-doc-examples.mjs --update-baseline`.
+
+| Command | Action |
+| --- | --- |
+| `pnpm --filter docs-site check:docs` | Typecheck all doc code examples (no build needed). |
+
+CI runs this on PRs touching `docs/site/**` or `packages/**` (the same [docs-contrast workflow](../../.github/workflows/docs-contrast.yml)).

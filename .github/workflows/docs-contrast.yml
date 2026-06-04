@@ -9,6 +9,7 @@ on:
     branches: [main]
     paths:
       - "docs/site/**"
+      - "packages/**" # doc examples are typechecked against the package API
       - ".github/workflows/docs-contrast.yml"
   workflow_dispatch:
 
@@ -32,6 +33,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Typecheck doc code examples against the public API
+        run: pnpm --filter docs-site run check:docs
 
       - name: Install Playwright Chromium
         run: pnpm --filter docs-site exec playwright install --with-deps chromium

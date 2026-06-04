@@ -63,3 +63,6 @@ packages/ignite-renderer/src/**/*.d.ts.map
 !.fas/tasks/*.md
 fas
 # <<< FAS managed ignore block <<<
+
+# Temp dir from the docs code-example guardrail
+docs/site/.doc-typecheck/

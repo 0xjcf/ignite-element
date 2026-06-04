@@ -26,9 +26,18 @@ MDX code blocks in the v3 docs are not typechecked. Example projects under packa
 - docs/site/scripts/check-doc-examples.mjs
 - docs/site/package.json
 - .github/workflows/docs-contrast.yml
+- docs/site/scripts/doc-examples-baseline.json
+- docs/site/README.md
+- .gitignore
 
 ## Scope Amendments
-- None.
+- Type: scope-refresh
+- Added at: 2026-06-04
+- Added paths: docs/site/scripts/doc-examples-baseline.json, docs/site/README.md
+
+- Type: scope-refresh
+- Added at: 2026-06-04
+- Added paths: .gitignore
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
