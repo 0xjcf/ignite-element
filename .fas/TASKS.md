@@ -625,6 +625,66 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: Spike: v3 docs IA audit — target page map, redundancy matrix, and downstream briefs
+
+- Title: Spike: v3 docs IA audit — target page map, redundancy matrix, and downstream briefs
+- Mode: single-agent
+- Status: implementing
+- Owner: implementer
+- Brief: .fas/tasks/spike-v3-docs-ia-audit-target-page-map-redundancy-matrix.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: v3 docs polish: design-system styling pass (tokens + shared chrome)
+
+- Title: v3 docs polish: design-system styling pass (tokens + shared chrome)
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/v3-docs-polish-design-system-styling-pass-tokens-shared.md
+### Task: v3 docs polish: consolidate Advanced config + renderers into api/advanced-config (expose ignite.config.ts)
+
+- Title: v3 docs polish: consolidate Advanced config + renderers into api/advanced-config (expose ignite.config.ts)
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/v3-docs-polish-consolidate-advanced-config-renderers-into.md
+### Task: v3 docs polish: collapse concepts into one 'The Ignite model' page (+ lifecycle SVG)
+
+- Title: v3 docs polish: collapse concepts into one 'The Ignite model' page (+ lifecycle SVG)
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/v3-docs-polish-collapse-concepts-into-one-the-ignite-model.md
+### Task: v3 docs polish: de-duplicate guides against the API reference
+
+- Title: v3 docs polish: de-duplicate guides against the API reference
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/v3-docs-polish-de-duplicate-guides-against-the-api-referenc.md
+### Task: v3 docs polish: tighten the on-ramp (landing, getting-started, compatibility)
+
+- Title: v3 docs polish: tighten the on-ramp (landing, getting-started, compatibility)
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/v3-docs-polish-tighten-the-on-ramp-landing-getting-starte.md
+### Task: v3 docs polish: per-page minimal-content and display pass (post-restructure)
+
+- Title: v3 docs polish: per-page minimal-content and display pass (post-restructure)
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/v3-docs-polish-per-page-minimal-content-and-display-pass-p.md
+### Task: v3 docs polish: add llms.txt and normalize the API reference to a contract-first template
+
+- Title: v3 docs polish: add llms.txt and normalize the API reference to a contract-first template
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/v3-docs-polish-add-llms-txt-and-normalize-the-api-reference.md
 ## Template
 
 ### Task: <short task title>
