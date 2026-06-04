@@ -1,4 +1,4 @@
-# Document the headless runtime, testing DSL, and command meta
+# Document the headless runtime, testing DSL, and command metadata APIs
 
 ## Source
 Created with `fas create-task` on 2026-06-04.
@@ -31,9 +31,22 @@ Three real, public v3 APIs are only shown inside guides, with no API-reference p
 
 ## Affected files
 - docs/site/astro.config.mjs
+- docs/site/src/content/docs/api/headless-runtime.mdx
+- docs/site/src/content/docs/api/command-metadata.mdx
+- docs/site/src/content/docs/api/testing-dsl.mdx
+- docs/site/src/content/docs/guides/agent-runtime-v3.mdx
+- docs/site/src/content/docs/guides/testing.mdx
+- docs/site/scripts/doc-examples-baseline.json
 
 ## Scope Amendments
-- None.
+- 2026-06-04: Promoted the deliverables implied by the acceptance criteria into
+  explicit scope. The planner only auto-detected `astro.config.mjs`, but the
+  criteria require new API-reference pages (`api/headless-runtime`,
+  `api/command-metadata`, `api/testing-dsl`), cross-links from the
+  `agent-runtime-v3` and `testing` guides, and all examples passing the doc
+  typecheck guardrail. Clearing the agent-runtime-v3 inference-artifact baseline
+  entry (via a `no-check` fence on the reader-supplied-machine block) also edits
+  `doc-examples-baseline.json`. No source/runtime files were changed.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

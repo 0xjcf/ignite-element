@@ -584,10 +584,13 @@ No active tasks.
 
 - Title: Document the headless runtime, testing DSL, and command metadata APIs
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/document-the-headless-runtime-testing-dsl-and-command-meta.md
 - Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 ### Task: Adapter parity docs: Redux and MobX examples plus an actor-web guide
 
 - Title: Adapter parity docs: Redux and MobX examples plus an actor-web guide
