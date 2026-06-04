@@ -104,6 +104,10 @@ export default defineConfig({
 					label: "Migration",
 					items: [
 						{ label: "v2 → v3 (beta)", slug: "migration/v3" },
+						{
+							label: "Command emit → effects",
+							slug: "migration/effects-events",
+						},
 						{ label: "v1 → v2", slug: "migration/v2" },
 					],
 				},
