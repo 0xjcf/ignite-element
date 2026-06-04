@@ -540,9 +540,13 @@ No active tasks.
 
 - Title: Collapse theme-scoped style patches into symmetric design tokens
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/collapse-theme-scoped-style-patches-into-symmetric-design-to.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ### Task: Systematize control geometry across all interactive controls and enforce it
 
 - Title: Systematize control geometry across all interactive controls and enforce it
