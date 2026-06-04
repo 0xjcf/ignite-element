@@ -629,7 +629,7 @@ No active tasks.
 
 - Title: Spike: v3 docs IA audit — target page map, redundancy matrix, and downstream briefs
 - Mode: single-agent
-- Status: implementing
+- Status: done
 - Owner: implementer
 - Brief: .fas/tasks/spike-v3-docs-ia-audit-target-page-map-redundancy-matrix.md
 - Verification lane: fast
