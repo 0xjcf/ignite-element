@@ -558,6 +558,49 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: Add a docs code-block typecheck guardrail for v3 examples
+
+- Title: Add a docs code-block typecheck guardrail for v3 examples
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/add-a-docs-code-block-typecheck-guardrail-for-v3-examples.md
+### Task: Accuracy pass on v3 docs examples (effects/view/select consistency)
+
+- Title: Accuracy pass on v3 docs examples (effects/view/select consistency)
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/accuracy-pass-on-v3-docs-examples-effects-view-select-consi.md
+### Task: Document the headless runtime, testing DSL, and command metadata APIs
+
+- Title: Document the headless runtime, testing DSL, and command metadata APIs
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/document-the-headless-runtime-testing-dsl-and-command-meta.md
+- Automation mode: advisory
+### Task: Adapter parity docs: Redux and MobX examples plus an actor-web guide
+
+- Title: Adapter parity docs: Redux and MobX examples plus an actor-web guide
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/adapter-parity-docs-redux-and-mobx-examples-plus-an-actor-w.md
+### Task: Add a docs version/compat matrix and fix the orphaned migration page
+
+- Title: Add a docs version/compat matrix and fix the orphaned migration page
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/add-a-docs-version-compat-matrix-and-fix-the-orphaned-migrat.md
+### Task: Decide and document public API status of factory and renderer-primitive exports
+
+- Title: Decide and document public API status of factory and renderer-primitive exports
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/decide-and-document-public-api-status-of-factory-and-rendere.md
 ## Template
 
 ### Task: <short task title>
