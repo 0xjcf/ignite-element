@@ -562,12 +562,13 @@ No active tasks.
 
 - Title: Add a docs code-block typecheck guardrail for v3 examples
 - Mode: single-agent
-- Status: implementing
+- Status: done
 - Owner: implementer
 - Brief: .fas/tasks/add-a-docs-code-block-typecheck-guardrail-for-v3-examples.md
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
+
 ### Task: Accuracy pass on v3 docs examples (effects/view/select consistency)
 
 - Title: Accuracy pass on v3 docs examples (effects/view/select consistency)
