@@ -1,0 +1,150 @@
+---
+title: Headless runtime
+description: The agent runtime API on the igniteCore return — execute, getState, getView, getSchema, on, watch, watchView, and record.
+sidebar:
+  label: Headless runtime
+  order: 4
+---
+
+Every `igniteCore(...)` registration is also a **headless runtime**. The same value you call with a tag name to register a custom element exposes methods that drive and inspect the component contract without a DOM — the surface agents and tests use before any selector is involved.
+
+```ts
+import { igniteCore } from 'ignite-element/xstate';
+
+const counter = igniteCore({
+  source: counterMachine,
+  view: ({ matches }) => ({
+    isOn: matches('on'),
+  }),
+  commands: ({ actor }) => ({
+    toggle: () => actor.send({ type: 'TOGGLE' }),
+  }),
+  events: (event) => ({
+    toggled: event<{ isOn: boolean }>(),
+  }),
+  effects: ({ emit, select }) => {
+    const isOn = select((snapshot) => snapshot.matches('on'));
+    if (!isOn.changed) return;
+    emit('toggled', { isOn: isOn.current });
+  },
+});
+
+// Register a DOM projection later — the runtime is available immediately.
+const { state, events } = await counter.execute('toggle');
+const current = counter.getState();
+const view = counter.getView();
+const schema = counter.getSchema();
+```
+
+## Methods
+
+### `execute(commandName, payload?)`
+
+Runs a command by name and resolves once the resulting transition settles. The payload type is inferred from the command function's first parameter, so commands that take no argument are called with the name alone.
+
+```ts
+const result = await counter.execute('toggle');
+```
+
+It returns the state **after** the transition plus every event emitted by that single transition:
+
+```ts
+// IgniteAgentExecutionResult<State, Events>
+{
+  state: { value: 'on', context: {} },
+  events: [{ type: 'toggled', payload: { isOn: true } }],
+}
+```
+
+`events` is the same ordered stream the runtime emitted for that transition, so assertions stay deterministic and align with the events delivered to `on(...)` listeners.
+
+### `getState()`
+
+Returns the current raw state snapshot of the underlying source (the XState snapshot, Redux state, or MobX observable value).
+
+```ts
+const state = counter.getState();
+```
+
+### `getView()`
+
+Returns the current projected view — the object your `view(...)` builder derives from the snapshot. When no `view` is configured, the projection is an empty object.
+
+```ts
+const view = counter.getView();
+```
+
+### `on(eventName, handler)`
+
+Subscribes to a public emitted event. The handler receives a `CustomEvent` whose `detail` is the event payload. Returns a subscription with `unsubscribe()`.
+
+```ts
+const subscription = counter.on('toggled', (event) => {
+  console.log(event.detail.isOn);
+});
+
+subscription.unsubscribe();
+```
+
+Use `on(...)` for the public events your component emits through `effects`. (The older `subscribe(eventName, handler)` alias is deprecated — prefer `on`.)
+
+### `watch(handler)`
+
+Subscribes to **raw state** updates. The handler receives `(state, prevState)` on every source update and returns a subscription.
+
+```ts
+const subscription = counter.watch((state, prevState) => {
+  console.log(prevState.value, '->', state.value);
+});
+```
+
+### `watchView(handler)`
+
+Subscribes to **projected view** updates. The handler receives `(view, prevView)` and returns a subscription.
+
+```ts
+const subscription = counter.watchView((view, prevView) => {
+  console.log(prevView.isOn, '->', view.isOn);
+});
+```
+
+### `getSchema()`
+
+Returns a JSON-serializable contract describing the component's commands, public events, and current state. Command metadata declared with [`command(...)`](/ignite-element/api/command-metadata/) is included here.
+
+```ts
+const schema = counter.getSchema();
+```
+
+The shape is `IgniteAgentSchema`:
+
+```ts
+// getSchema() returns:
+{
+  commands: {
+    toggle: {},
+  },
+  events: ['toggled'],
+  state: { value: 'off', context: {} },
+}
+```
+
+### `record(name)`
+
+Starts a named [story](/ignite-element/api/testing-dsl/#stories) recorder over the same runtime. The returned story captures command, state, view, and event activity as one ordered behavior trace.
+
+```ts
+const story = counter.record('toggles on');
+```
+
+## Determinism
+
+- Attaching a host or headless consumer seeds `prevSnapshot` from the current adapter state. Ignite does not replay historical transitions to newly attached consumers.
+- The first subscription notification establishes that baseline and does **not** run `effects(...)`.
+- After that, `effects(...)` runs once per adapter update in a stable order. For mounted elements, effects run before the render subscription, so emitted events arrive before the next render for that host.
+
+## Related
+
+- [Agent runtime v3](/ignite-element/guides/agent-runtime-v3/) — the behavior-first workflow these methods support.
+- [Command metadata](/ignite-element/api/command-metadata/) — enrich `getSchema()` output.
+- [Testing DSL](/ignite-element/api/testing-dsl/) — scenario and story helpers built on this runtime.

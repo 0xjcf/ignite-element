@@ -8,6 +8,10 @@ sidebar:
 
 Test the state source and the DOM separately. Keep your XState/Redux/MobX logic covered with its own unit tests, then add light DOM tests for the web components.
 
+:::note[API reference]
+For the scenario API, story recorder, and DOM accessibility helpers with exact signatures, see the [Testing DSL](/ignite-element/api/testing-dsl/) reference. The runtime they build on is documented in [Headless runtime](/ignite-element/api/headless-runtime/).
+:::
+
 ## Headless runtime tests
 
 For deterministic command and event assertions, use the headless runtime returned by `igniteCore(...)` directly from your Vitest suite.

@@ -1,0 +1,155 @@
+---
+title: Testing DSL
+description: The igniteTest scenario API, story recorder, and DOM accessibility helpers exported as test from ignite-element and ignite-element/xstate.
+sidebar:
+  label: Testing DSL
+  order: 6
+---
+
+Ignite ships a scenario-style testing helper built on the [headless runtime](/ignite-element/api/headless-runtime/). It is exported as `test` from both `ignite-element` and `ignite-element/xstate` (and the other adapter entrypoints); import it under any name you like.
+
+```ts
+import { test as igniteTest } from 'ignite-element/xstate';
+import { igniteCore } from 'ignite-element/xstate';
+
+const counter = igniteCore({
+  source: counterMachine,
+  view: ({ matches }) => ({
+    isOn: matches('on'),
+  }),
+  commands: ({ actor }) => ({
+    toggle: () => actor.send({ type: 'TOGGLE' }),
+  }),
+  events: (event) => ({
+    toggled: event<{ isOn: boolean }>(),
+  }),
+  effects: ({ emit, select }) => {
+    const isOn = select((snapshot) => snapshot.matches('on'));
+    if (!isOn.changed) return;
+    emit('toggled', { isOn: isOn.current });
+  },
+});
+```
+
+## Scenarios
+
+Call `igniteTest(component)` with a runtime to get a chainable scenario. `given(...)` asserts the starting state, `when(...)` executes a command (it is async — `await` it), and the `expect*` methods assert the result of the most recent `when(...)`.
+
+```ts
+(await igniteTest(counter).given('off').when('toggle'))
+  .expectState('on')
+  .expectEvent('toggled', { isOn: true });
+```
+
+Scenario methods:
+
+- `given(expected)` — assert the current state before acting. Accepts a state value, a deep-partial match, or a predicate.
+- `when(commandName, payload?)` — execute a command; returns a `Promise` of the scenario.
+- `expectState(expected)` — assert the post-command state.
+- `expectEvent(type, payload?)` — assert an event was emitted, optionally matching its payload.
+- `expectEvents(expected)` — assert several events by `{ type, payload? }`.
+- `expectNoEvents()` — assert the command emitted nothing.
+- `getResult()` — return the raw `{ state, events }` of the last `when(...)`.
+
+State and payload expectations accept a deep-partial object, a predicate function, or — for state — the bare state value.
+
+## Stories
+
+A story records command, state, view, and event activity as one ordered behavior trace. Start one from the runtime's [`record(name)`](/ignite-element/api/headless-runtime/#recordname):
+
+```ts
+const story = counter.record('toggles on');
+
+await story.execute('toggle');
+await story.until((view) => view.isOn, async () => {
+  await story.execute('toggle');
+});
+
+const trace = story.trace();
+const lifecycle = story.lifecycle();
+const summary = story.summary();
+
+story.stop();
+```
+
+Story methods:
+
+- `execute(commandName, payload?)` — run a command and record it; resolves to the same `{ state, events }` as the runtime.
+- `until(viewPredicate, action, options?)` — repeatedly run `action` until the projected view satisfies `viewPredicate`. `options.maxSteps` bounds the loop.
+- `trace()` — the ordered behavior trace: `command`, `state`, `view`, and `event` entries with `kind`, `sequence`, and `step`.
+- `lifecycle()` — DOM lifecycle evidence (registration, connection, render, disconnection, cleanup) when a custom element or accessibility bridge participates; otherwise an empty array.
+- `summary()` — `{ name, finalState, finalView, events, commandCount, traceCount, lifecycleCount }`.
+- `stop()` — release the story's runtime subscriptions.
+
+`story.trace()` holds only behavior evidence; DOM evidence stays on the separate `story.lifecycle()` channel, so logic stays inspectable without a DOM.
+
+## Trace and snapshot helpers
+
+The `test` export also carries helpers as properties:
+
+- `serializeTrace(trace)` — convert `story.trace()` into a deterministic JSON-safe snapshot (the same ordered shape, deep-cloned).
+- `snapshotStory(story)` — produce `{ name, trace, lifecycle, summary }` for inline snapshot tests.
+- `expectTrace(trace, expected, options?)` — assert ordered checkpoints against a trace. By default it matches a subsequence; pass `{ exact: true }` to require a one-to-one match. Each expectation is a deep-partial entry or a predicate.
+
+```ts
+const story = counter.record('toggles on');
+await story.execute('toggle');
+
+const snapshot = igniteTest.serializeTrace(story.trace());
+
+igniteTest.expectTrace(story.trace(), [
+  { kind: 'command', command: 'toggle' },
+  { kind: 'event', event: 'toggled', payload: { isOn: true } },
+]);
+
+const full = igniteTest.snapshotStory(story);
+```
+
+## DOM accessibility bridge
+
+For projection proof, mount the same runtime behind a test-only DOM bridge and assert rendered controls by role and accessible name. The bridge renders against the same runtime state the story mutates, so behavior assertions stay headless while DOM assertions stay focused.
+
+```ts
+import { test as igniteTest } from 'ignite-element/xstate';
+
+const story = counter.record('reaches limit');
+const bridge = igniteTest.accessibilityBridge(
+  counter,
+  ({ count, limit, isLimited, increment, setLimit }) => (
+    <section>
+      <output role="status" aria-label="Counter status">
+        {count} / {limit}
+      </output>
+      <button type="button" onClick={() => increment()}>
+        Increment
+      </button>
+      {isLimited && <p role="status">Limit reached</p>}
+    </section>
+  ),
+  { elementName: 'counter-accessibility-bridge' },
+);
+
+await story.execute('increment');
+
+igniteTest.expectControls(bridge, [
+  { role: 'status', name: 'Counter status' },
+  { role: 'button', name: 'Increment' },
+]);
+
+bridge.stop();
+story.stop();
+```
+
+Bridge surface:
+
+- `accessibilityBridge(component, renderer, options?)` — render the runtime into a shadow root and return a bridge.
+- `bridge.getByRole(role, options?)` / `bridge.queryByRole(role, options?)` — find a control by role, optionally narrowing by accessible `name`, `text`, or `value` (string, `RegExp`, or predicate).
+- `bridge.expectControls(expected)` (or `igniteTest.expectControls(bridge, expected)`) — assert a set of controls by role, name, text, or value.
+- `bridge.host` / `bridge.root` — the host element and its shadow root.
+- `bridge.stop()` — tear the bridge down.
+
+## Related
+
+- [Testing guide](/ignite-element/guides/testing/) — project setup, machine tests, and DOM tests.
+- [Agent runtime v3](/ignite-element/guides/agent-runtime-v3/) — the behavior-first workflow.
+- [Headless runtime](/ignite-element/api/headless-runtime/) — the runtime these helpers wrap.

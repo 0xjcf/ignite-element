@@ -71,6 +71,9 @@ export default defineConfig({
 					label: "API",
 					items: [
 						{ label: "igniteCore", slug: "api/ignite-core" },
+						{ label: "Headless runtime", slug: "api/headless-runtime" },
+						{ label: "Command metadata", slug: "api/command-metadata" },
+						{ label: "Testing DSL", slug: "api/testing-dsl" },
 						{ label: "Advanced config", slug: "api/define-ignite-config" },
 						{ label: "Advanced renderers", slug: "api/renderers" },
 					],

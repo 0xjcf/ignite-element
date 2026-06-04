@@ -37,11 +37,6 @@
 			"includes": "Object literal may only specify known properties"
 		},
 		{
-			"doc": "docs/site/src/content/docs/guides/agent-runtime-v3.mdx",
-			"code": 2353,
-			"includes": "Object literal may only specify known properties"
-		},
-		{
 			"doc": "docs/site/src/content/docs/index.mdx",
 			"code": 2769,
 			"includes": "No overload matches this call.   Overload 1 of 2"

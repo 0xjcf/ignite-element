@@ -1,0 +1,106 @@
+---
+title: Command metadata
+description: Enrich commands with agent-readable metadata using command(fn, metadata) and the command.number/string/boolean/enum/object/array helpers.
+sidebar:
+  label: Command metadata
+  order: 5
+---
+
+Plain functions are valid commands. When an agent or inspector needs more context than a name, wrap a command with `command(fn, metadata)` to attach a JSON-serializable description and input schema. The metadata surfaces in [`getSchema()`](/ignite-element/api/headless-runtime/#getschema) without changing how the command is called.
+
+`command` is provided to your `commands` builder — no import is required:
+
+```ts
+commands: ({ actor, command }) => ({
+  reset: command(
+    () => actor.send({ type: 'RESET' }),
+    { description: 'Clear the counter back to zero.' },
+  ),
+});
+```
+
+The same helper is also exported as a value from `@ignite-element/core` if you build command definitions outside the `commands` builder:
+
+```ts
+import { command } from '@ignite-element/core';
+```
+
+## `command(fn, metadata?)`
+
+Returns the original command function, tagged with non-enumerable metadata. Calling the command behaves exactly like calling `fn`; the wrapper only adds context for `getSchema()`. Passing no `metadata` returns the function unchanged.
+
+`metadata` is a `CommandMetadata` object:
+
+- `description?: string` — human/agent-readable summary.
+- `input?` — an input schema produced by one of the helpers below.
+- Additional JSON-serializable keys are allowed for custom conventions.
+
+## Input helpers
+
+Each helper returns a JSON-serializable metadata object. Build them standalone or inline inside `command(...)`:
+
+```ts
+import { command } from '@ignite-element/core';
+
+const limitInput = command.number({ minimum: 3, maximum: 12 });
+const presetInput = command.string({ minLength: 1, maxLength: 32 });
+const enabledInput = command.boolean({ default: true });
+const priorityInput = command.enum(['low', 'high'], { default: 'low' });
+const channelsInput = command.array(command.string(), { minItems: 1 });
+
+const alertInput = command.object(
+  {
+    enabled: command.boolean({ default: true }),
+    priority: command.enum(['low', 'high'], { default: 'low' }),
+    channels: command.array(command.string(), { minItems: 1 }),
+  },
+  { required: ['enabled', 'priority', 'channels'] },
+);
+```
+
+| Helper | `type` | Options |
+| --- | --- | --- |
+| `command.number(options?)` | `'number'` | `minimum`, `maximum`, `multipleOf`, `default`, `description` |
+| `command.string(options?)` | `'string'` | `minLength`, `maxLength`, `pattern`, `format`, `default`, `description` |
+| `command.boolean(options?)` | `'boolean'` | `default`, `description` |
+| `command.enum(values, options?)` | `'string'` + `enum` | `default`, `description` |
+| `command.object(properties?, options?)` | `'object'` | `required`, `additionalProperties`, `default`, `description` |
+| `command.array(items?, options?)` | `'array'` | `minItems`, `maxItems`, `default`, `description` |
+
+`command.enum(values)` records `{ type: 'string', enum: [...values] }`. `command.object(properties)` and `command.array(items)` nest other helper results, so input schemas compose to any depth while staying JSON-serializable.
+
+## In `getSchema()`
+
+Once commands carry metadata, `getSchema()` returns executable commands and their metadata in one map. Commands without metadata appear as empty objects:
+
+```ts
+// getSchema() returns:
+{
+  commands: {
+    reset: {},
+    renamePreset: {
+      description: 'Rename the saved preset label.',
+      input: { type: 'string', minLength: 1, maxLength: 32 },
+    },
+    configureAlerts: {
+      description: 'Update alert routing rules.',
+      input: {
+        type: 'object',
+        properties: {
+          enabled: { type: 'boolean', default: true },
+          priority: { type: 'string', enum: ['low', 'high'], default: 'low' },
+          channels: { type: 'array', items: { type: 'string' }, minItems: 1 },
+        },
+        required: ['enabled', 'priority', 'channels'],
+      },
+    },
+  },
+  events: ['limit-reached'],
+  state: { value: 'active', context: { count: 0, limit: 6 } },
+}
+```
+
+## Related
+
+- [Agent runtime v3](/ignite-element/guides/agent-runtime-v3/#agent-readable-contracts) — the full in-context example with payload-bearing commands.
+- [Headless runtime](/ignite-element/api/headless-runtime/) — where `getSchema()` lives.
