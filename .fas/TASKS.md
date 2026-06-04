@@ -607,8 +607,8 @@ No active tasks.
 
 - Title: Add a docs version/compat matrix and fix the orphaned migration page
 - Mode: 6-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/add-a-docs-version-compat-matrix-and-fix-the-orphaned-migrat.md
 - Verification lane: fast
 - Policy sensitivity: standard
