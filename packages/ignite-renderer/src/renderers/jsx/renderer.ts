@@ -216,6 +216,21 @@ function patchChildren(
 	return true;
 }
 
+// Props whose value imperatively replaces the element's entire subtree as a DOM
+// property. Nodes they create are not tracked by the normalized children model,
+// so the child diff must defer to them rather than reconcile against them.
+const SUBTREE_OWNING_PROPS = ["innerHTML", "textContent"] as const;
+
+function ownsSubtreeViaProps(props: IgniteJsxProps): boolean {
+	for (const key of SUBTREE_OWNING_PROPS) {
+		const value = (props as Record<string, unknown>)[key];
+		if (value !== undefined && value !== null && value !== false) {
+			return true;
+		}
+	}
+	return false;
+}
+
 function patchNode(
 	domNode: ChildNode,
 	oldNode: NormalizedNode,
@@ -265,6 +280,21 @@ function patchNode(
 	const elementNode = domNode as Element & ParentNode;
 
 	patchProps(elementNode, oldNode.props, newNode.props);
+
+	// `innerHTML` / `textContent` imperatively own the element's subtree, which
+	// the normalized children model does not track. If the new render owns the
+	// subtree, `patchProps` already applied it — skip child diffing so the
+	// positional patch does not desync against untracked DOM nodes (issue #57).
+	if (ownsSubtreeViaProps(newNode.props)) {
+		return domNode;
+	}
+	// If the PREVIOUS render owned the subtree but this one renders JSX children,
+	// hard-clear the imperatively-managed content before reconciling so stale or
+	// duplicate nodes are not left behind (the append-only path would otherwise
+	// keep them).
+	if (ownsSubtreeViaProps(oldNode.props)) {
+		elementNode.replaceChildren();
+	}
 
 	const childNamespace =
 		newNode.namespace === SVG_NAMESPACE && newNode.tag !== "foreignObject"

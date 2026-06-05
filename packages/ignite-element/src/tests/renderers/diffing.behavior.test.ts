@@ -121,6 +121,58 @@ describe("ignite-jsx diffing behavior", () => {
 		expect(fallback).toHaveBeenCalled();
 	});
 
+	// Regression: issue #57 — toggling the same element between JSX children and
+	// an innerHTML branch must REPLACE, not append. Each round-trip previously
+	// accumulated duplicate children because innerHTML-injected nodes are not
+	// tracked by the normalized children model.
+	const settingsView = () =>
+		jsx("div", {
+			children: jsx("main", {
+				class: "content",
+				children: [
+					jsx("section", { children: "Appearance" }),
+					jsx("section", { children: "Authentication" }),
+				],
+			}),
+		});
+	const innerHtmlView = () =>
+		jsx("div", {
+			children: jsx("main", {
+				class: "content",
+				innerHTML: "<p>Other view</p>",
+			}),
+		});
+
+	it("replaces (not appends) when toggling between JSX children and innerHTML", () => {
+		const host = document.createElement("div");
+		let tree = mountIgniteJsx(host, settingsView());
+		expect(host.querySelectorAll("main > section").length).toBe(2);
+
+		// JSX children -> innerHTML branch
+		tree = renderIgniteJsx(host, innerHtmlView(), tree);
+		expect(host.querySelectorAll("main > section").length).toBe(0);
+		expect(host.querySelector("main")?.textContent).toBe("Other view");
+
+		// innerHTML -> back to JSX children: must be exactly 2 sections, not 4
+		tree = renderIgniteJsx(host, settingsView(), tree);
+		expect(host.querySelectorAll("main > section").length).toBe(2);
+
+		// repeated round-trips must not accumulate
+		tree = renderIgniteJsx(host, innerHtmlView(), tree);
+		tree = renderIgniteJsx(host, settingsView(), tree);
+		expect(host.querySelectorAll("main > section").length).toBe(2);
+		// no leftover nodes from the innerHTML branch (issue #57 "extra content")
+		expect(host.querySelector("main")?.children.length).toBe(2);
+		expect(host.querySelector("main")?.textContent).toBe(
+			"AppearanceAuthentication",
+		);
+		expect(
+			Array.from(host.querySelectorAll("main > section")).map(
+				(s) => s.textContent,
+			),
+		).toEqual(["Appearance", "Authentication"]);
+	});
+
 	it("bench: diff vs replace on 50 inputs", () => {
 		const hostDiff = document.createElement("div");
 		const hostReplace = document.createElement("div");
