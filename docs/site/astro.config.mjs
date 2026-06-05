@@ -79,11 +79,7 @@ export default defineConfig({
 							slug: "guides/host-app-integration",
 						},
 						{
-							label: "Platform contracts",
-							slug: "guides/platform-contracts",
-						},
-						{
-							label: "Agent runtime v3",
+							label: "Build for agents",
 							slug: "guides/agent-runtime-v3",
 						},
 						{ label: "Redux & MobX", slug: "guides/redux-and-mobx" },

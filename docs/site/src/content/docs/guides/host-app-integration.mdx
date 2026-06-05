@@ -126,11 +126,66 @@ onBeforeUnmount(() => {
 
 If a host app needs rich inputs, prefer explicit DOM properties or nested markup over hidden framework coupling.
 
+## The element contract
+
+Ignite keeps behavior explicit, but it does not replace the browser contract. Good components still need good HTML, clear events, and accessibility semantics — the part host apps actually depend on.
+
+### Semantics live in your markup
+
+Use real platform elements first:
+
+- Prefer `<button>`, `<input>`, `<label>`, `<dialog>`, and `<form>` over generic `<div>` wrappers.
+- Keep labels, names, and interactive affordances in the rendered markup.
+- Reflect derived state with DOM attributes or `aria-*` when that state matters to assistive technology.
+
+Ignite keeps logic out of the renderer; it does not invent semantics for you.
+
+### Commands stay internal, events go outward
+
+Inside Ignite, `commands` are the renderer-facing intent API. Outside Ignite, host apps integrate through DOM events and the custom-element boundary. Emit events from `effects`, not from view code:
+
+```ts
+events: (event) => ({
+  saveSucceeded: event<{ id: string }>(),
+  saveFailed: event<{ message: string }>(),
+}),
+effects: ({ snapshot, emit, select }) => {
+  const status = select((current) => current.context.status);
+  const error = select((current) => current.context.error);
+
+  if (status.changed && status.current === 'saved') {
+    emit('saveSucceeded', { id: snapshot.context.id });
+  }
+
+  if (error.changed && error.current) {
+    emit('saveFailed', { message: error.current });
+  }
+},
+```
+
+Good event contracts are stable, named for business meaning (not framework mechanics), emitted from `effects`, and documented as part of the public element surface.
+
+### Accessibility is not optional
+
+Use this checklist for every public component:
+
+- Interactive controls use native interactive elements where possible.
+- Focus states are visible.
+- Icon-only UI has an accessible name.
+- Derived state that matters externally is reflected with `aria-*`, text, or both.
+- Events communicate business outcomes, not just implementation details.
+
+For example, one transition might update `aria-pressed`, the button text, and emit `toggled` together.
+
+Styling hooks (CSS custom properties and `part`) are also part of the public contract — see [Style components](/ignite-element/guides/styling/).
+
 ## Design rule
 
 Treat Ignite elements like browser-native widgets:
 
 - The renderer owns internal DOM structure.
 - The host app owns placement, surrounding layout, and orchestration.
-- DOM events are the outward contract.
+- DOM events (`CustomEvent`) are the outward contract; CSS variables and `part` are the theming hooks.
 - Framework wrappers are optional convenience, not the source of truth.
+
+If a host app cannot consume your component without framework-specific glue, the public contract is probably too framework-shaped.

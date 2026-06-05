@@ -1,12 +1,12 @@
 ---
-title: Agent runtime v3
+title: Build for agents
 description: Build and test Ignite Element components from behavior contracts before adding a DOM layer.
 sidebar:
-  label: Agent runtime v3
+  label: Build for agents
   order: 3
 ---
 
-Ignite Element v3 moves component authoring toward a behavior-first workflow. The same `igniteCore(...)` registration that creates a custom element also exposes a headless runtime so agents and tests can inspect the component contract, execute commands, observe events, and verify projected view state before any DOM selector is involved.
+Ignite Element is behavior-first. The same `igniteCore(...)` registration that creates a custom element also exposes a headless runtime, so agents and tests can inspect the contract, execute commands, observe events, and verify projected view state before any DOM selector exists.
 
 The practical model is:
 
@@ -15,14 +15,12 @@ The practical model is:
 3. Add the DOM layer as a projection over already-proven behavior.
 
 :::note[API reference]
-This guide is the narrative walkthrough. For exact signatures and return shapes see [Headless runtime](/ignite-element/api/headless-runtime/), [Command metadata](/ignite-element/api/command-metadata/), and the [Testing DSL](/ignite-element/api/testing-dsl/).
+This guide is the narrative walkthrough. For exact signatures and return shapes, see [Headless runtime](/ignite-element/api/headless-runtime/), [Command metadata](/ignite-element/api/command-metadata/), and the [Testing DSL](/ignite-element/api/testing-dsl/).
 :::
 
 ## Behavior-first components
 
-Start by describing the state source, projected view, commands, events, and effects.
-
-Normal app code can keep `effects` inline. `igniteCore(...)` infers `snapshot`, `prevSnapshot`, `emit`, `select`, `actor`, and `host` from the `source` plus your `events` builder, so there is no need to import internal core helper types for standard authoring.
+Start by describing the state source, projected view, commands, events, and effects. `igniteCore(...)` infers `snapshot`, `prevSnapshot`, `emit`, `select`, `actor`, and `host` from the `source` plus your `events` builder, so standard authoring needs no internal helper-type imports.
 
 ```ts no-check
 import { igniteCore } from 'ignite-element/xstate';
@@ -63,33 +61,26 @@ export const counter = igniteCore({
 });
 ```
 
-This gives agents a contract they can inspect:
+That registration gives agents a contract to inspect and a command surface to drive — all without the DOM:
 
 ```ts
-counter.getSchema();
-counter.getState();
-counter.getView();
-```
+counter.getSchema(); // commands + metadata + events + state shape
+counter.getView();   // current projected view
 
-And a command surface they can drive:
-
-```ts
 await counter.execute('setLimit', 6);
 
 while (!counter.getView().isLimited) {
   await counter.execute('increment');
 }
 
-expect(counter.getView()).toMatchObject({
-  count: 6,
-  limit: 6,
-  isLimited: true,
-});
+expect(counter.getView()).toMatchObject({ count: 6, limit: 6, isLimited: true });
 ```
+
+See [Headless runtime](/ignite-element/api/headless-runtime/) for every method (`execute`, `getState`, `getView`, `getSchema`, `on`, `watch`, `watchView`, `record`) and its return shape.
 
 ## Add the DOM layer
 
-Once the behavior is stable, the custom element can stay thin. It consumes projected view values and command functions. The default DOM layer stays on the public `ignite-element/jsx` runtime and ordinary local style tags; no project config is required.
+Once the behavior is stable, the custom element stays thin — it consumes projected view values and command functions. The default DOM layer uses the public `ignite-element/jsx` runtime and ordinary local style tags; no project config is required.
 
 ```tsx
 const panelStyles = `
@@ -126,68 +117,13 @@ counter('counter-panel', ({ count, limit, isLimited, increment, setLimit }) => (
 ));
 ```
 
-This keeps DOM tests focused on rendering and accessibility, while behavior tests stay selector-free.
-
-## DOM accessibility bridge
-
-When the behavior contract is already proven, mount the same runtime behind a test-only DOM bridge and assert the rendered controls by role and accessible name.
-
-```ts
-import { test as igniteTest } from "ignite-element/xstate";
-
-const story = counter.record("reaches limit");
-const bridge = igniteTest.accessibilityBridge(
-  counter,
-  ({ count, limit, isLimited, increment, setLimit }) => (
-    <section>
-      <output role="status" aria-label="Counter status">
-        {count} / {limit}
-      </output>
-
-      <button type="button" onClick={() => increment()}>
-        Increment
-      </button>
-
-      <label>
-        Limit
-        <input
-          type="range"
-          min={3}
-          max={12}
-          value={limit}
-          onInput={(event) => setLimit(Number(event.currentTarget.value))}
-        />
-      </label>
-
-      {isLimited && <p role="status">Limit reached</p>}
-    </section>
-  ),
-  { elementName: "counter-accessibility-bridge" },
-);
-
-await story.execute("setLimit", 6);
-await story.until((view) => view.isLimited, async () => {
-  await story.execute("increment");
-});
-
-igniteTest.expectControls(bridge, [
-  { role: "status", name: "Counter status", text: "6 / 6" },
-  { role: "button", name: "Increment" },
-  { role: "slider", name: "Limit", value: "6" },
-  { role: "status", name: "Limit reached" },
-]);
-
-bridge.stop();
-story.stop();
-```
-
-`igniteTest.accessibilityBridge(...)` renders against the same runtime state that `story.execute(...)` mutates, so behavior assertions remain headless while DOM assertions stay focused on projection proof. `igniteTest.expectControls(...)` keeps those DOM checks small: match the rendered control by role, accessible name, text, or value instead of rebuilding the whole story trace around selectors.
+This keeps DOM tests focused on rendering and accessibility, while behavior tests stay selector-free. To assert the rendered controls by role and accessible name against the same proven runtime, mount a test-only DOM bridge with `igniteTest.accessibilityBridge(...)` / `igniteTest.expectControls(...)` — see the [Testing DSL](/ignite-element/api/testing-dsl/).
 
 ## Agent-readable contracts
 
-Command metadata is optional. Plain functions remain valid commands, and `command(fn, metadata)` enriches the runtime schema when an agent or inspector needs more context.
+Command metadata is optional. Plain functions remain valid commands; `command(fn, metadata)` enriches the runtime schema when an agent or inspector needs more context.
 
-```ts
+```ts no-check
 commands: ({ actor, command }) => ({
   reset: () => actor.send({ type: 'RESET' }),
 
@@ -198,115 +134,32 @@ commands: ({ actor, command }) => ({
       input: command.string({ minLength: 1, maxLength: 32 }),
     },
   ),
-
-  setLimit: command(
-    (limit: number) => actor.send({ type: 'SET_LIMIT', limit }),
-    {
-      description: 'Set maximum count',
-      input: command.number({ minimum: 3, maximum: 12 }),
-    },
-  ),
-
-  configureAlerts: command(
-    (payload) => actor.send({ type: 'CONFIGURE_ALERTS', payload }),
-    {
-      description: 'Update alert routing rules.',
-      input: command.object(
-        {
-          enabled: command.boolean({ default: true }),
-          priority: command.enum(['low', 'high'], { default: 'low' }),
-          channels: command.array(command.string(), { minItems: 1 }),
-        },
-        { required: ['enabled', 'priority', 'channels'] },
-      ),
-    },
-  ),
 });
 ```
 
-Built-in helpers cover `number`, `string`, `boolean`, `enum`, `object`, and `array` metadata while staying JSON-serializable.
-
-`getSchema()` returns executable commands and command metadata in one map.
-
-```ts
-{
-  commands: {
-    reset: {},
-    renamePreset: {
-      description: 'Rename the saved preset label.',
-      input: { type: 'string', minLength: 1, maxLength: 32 },
-    },
-    setLimit: {
-      description: 'Set maximum count',
-      input: { type: 'number', minimum: 3, maximum: 12 },
-    },
-    configureAlerts: {
-      description: 'Update alert routing rules.',
-      input: {
-        type: 'object',
-        properties: {
-          enabled: { type: 'boolean', default: true },
-          priority: { type: 'string', enum: ['low', 'high'], default: 'low' },
-          channels: {
-            type: 'array',
-            items: { type: 'string' },
-            minItems: 1,
-          },
-        },
-        required: ['enabled', 'priority', 'channels'],
-      },
-    },
-  },
-  events: ['limit-reached'],
-  state: { value: 'active', context: { count: 0, limit: 6 } },
-}
-```
+Built-in helpers cover `number`, `string`, `boolean`, `enum`, `object`, and `array` while staying JSON-serializable, and `getSchema()` returns executable commands plus their metadata in one map. The full helper catalog and the serialized schema shape live in [Command metadata](/ignite-element/api/command-metadata/).
 
 ## Story recording
 
-Stories make behavior workflows first-class. A recorder captures command, event, state, and projected view changes as one behavior trace, while DOM lifecycle evidence stays available through a separate lifecycle channel on the same story object.
+Stories make behavior workflows first-class: a recorder captures command, event, state, and projected-view changes as one trace, while DOM lifecycle evidence stays on a separate channel of the same story object. Serialize a trace for snapshot tests with `igniteTest.serializeTrace(...)` and assert ordered checkpoints with `igniteTest.expectTrace(...)`.
 
-```ts
-import { test as igniteTest } from "ignite-element/xstate";
+```ts no-check
+const story = counter.record('reaches limit');
 
-const story = counter.record("reaches limit");
-
-await story.execute("setLimit", 6);
+await story.execute('setLimit', 6);
 await story.until((view) => view.isLimited, async () => {
-  await story.execute("increment");
+  await story.execute('increment');
 });
 
-const trace = igniteTest.serializeTrace(story.trace());
-const snapshot = igniteTest.snapshotStory(story);
-const lifecycle = story.lifecycle();
-const summary = story.summary();
-
-expect(summary.finalView).toMatchObject({
-  count: 6,
-  limit: 6,
-  isLimited: true,
-});
-
-igniteTest.expectTrace(trace, [
-  { kind: "command", command: "setLimit", payload: 6 },
-  { kind: "event", event: "limit-reached", payload: { count: 6, limit: 6 } },
-  { kind: "view", phase: "after", view: { isLimited: true } },
+igniteTest.expectTrace(igniteTest.serializeTrace(story.trace()), [
+  { kind: 'command', command: 'setLimit', payload: 6 },
+  { kind: 'event', event: 'limit-reached', payload: { count: 6, limit: 6 } },
+  { kind: 'view', phase: 'after', view: { isLimited: true } },
 ]);
-
-expect(snapshot).toMatchInlineSnapshot();
 
 story.stop();
 ```
 
-`igniteTest.serializeTrace(story.trace())` returns a deterministic JSON-safe snapshot shape: ordered entries with `kind`, `sequence`, `step`, and the relevant `command`, `event`, `phase`, `payload`, `state`, or `view` fields. That makes it suitable for snapshot tests, reporter output, or Playwright assertions without requiring DOM selectors. `igniteTest.expectTrace(...)` matches ordered checkpoints instead of forcing brittle full-array equality.
+`story.trace()` holds only behavior evidence; `story.lifecycle()` holds DOM evidence (registration, connection, render, disconnect, cleanup) when a custom element or accessibility bridge participates. The exact recorder, trace, and serialization signatures are in the [Testing DSL](/ignite-element/api/testing-dsl/).
 
-`story.trace()` intentionally contains only behavior evidence: command, state, view, and event entries. `story.lifecycle()` contains DOM evidence such as registration, connection, render, disconnection, and cleanup when custom elements or accessibility bridges are active during the story. If no DOM projection participates, `story.lifecycle()` returns an empty array.
-
-## Gaps to close
-
-The current v3 runtime supports `execute()`, `getState()`, `getView()`, `getSchema()`, `on()`, `watch()`, `watchView()`, `record()`, ordered workflow trace assertions, and serializable story snapshots. The remaining gaps are the pieces needed to turn those primitives into a complete agent workflow system.
-
-- Schema semantics: the runtime now ships JSON-serializable helpers for `number`, `string`, `boolean`, `enum`, `object`, and `array` inputs; future work can add higher-level conventions such as examples, UI hints, or shared vocabularies if agents need them.
-- DOM bridge: now available through `igniteTest.accessibilityBridge(...)` and `igniteTest.expectControls(...)`; future work can extend the accessible-query vocabulary if agents need richer semantics than role, name, text, and value.
-
-The important boundary is that logic stays inspectable without the DOM, and the DOM remains a projection over the tested contract.
+The important boundary: logic stays inspectable without the DOM, and the DOM remains a projection over the tested contract.

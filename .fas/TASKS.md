@@ -667,9 +667,12 @@ No active tasks.
 
 - Title: v3 docs polish: de-duplicate guides against the API reference
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/v3-docs-polish-de-duplicate-guides-against-the-api-referenc.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 ### Task: v3 docs polish: tighten the on-ramp (landing, getting-started, compatibility)
 
 - Title: v3 docs polish: tighten the on-ramp (landing, getting-started, compatibility)

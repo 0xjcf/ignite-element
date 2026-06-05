@@ -1,4 +1,4 @@
-# v3 docs polish: de-duplicate guides against the API referenc
+# v3 docs polish: de-duplicate guides against the API reference
 
 ## Source
 Created with `fas create-task` on 2026-06-04.
@@ -23,15 +23,22 @@ Phase 2 restructure. Make api/* the single canonical owner of runtime/testing/co
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- docs/site/src/content/docs/guides/agent-runtime-v3.mdx
-- docs/site/src/content/docs/api/ignite-core.mdx
-- docs/site/src/content/docs/guides/host-app-integration.mdx
-- docs/site/src/content/docs/guides/styling.mdx
-- docs/site/src/content/docs/guides/testing.mdx
+- docs/site/src/content/docs/guides/agent-runtime-v3.mdx (retitled "Build for agents"; trimmed to narrative + links)
+- docs/site/src/content/docs/api/ignite-core.mdx (trimmed to factory signature/params; runtime/testing/determinism sections replaced with links)
+- docs/site/src/content/docs/guides/host-app-integration.mdx (absorbed platform-contracts contract semantics)
+- docs/site/src/content/docs/guides/styling.mdx (absorbed platform-contracts styling section; fixed link)
+- docs/site/src/content/docs/guides/testing.mdx (removed headless-runtime/replay restatement; added pointer)
+- docs/site/src/content/docs/guides/platform-contracts.mdx (deleted — merged into host-app-integration + styling)
 - docs/site/astro.config.mjs
+- docs/site/src/content/docs/index.mdx (link fix — dropped platform-contracts link)
+- docs/site/src/content/docs/api/command-metadata.mdx (link label fix — Agent runtime v3 → Build for agents)
+- docs/site/src/content/docs/api/testing-dsl.mdx (link label fix — Agent runtime v3 → Build for agents)
+- docs/site/src/content/docs/api/headless-runtime.mdx (link label fix — Agent runtime v3 → Build for agents)
 
 ## Scope Amendments
-- None.
+- Merging `guides/platform-contracts` into `guides/host-app-integration` (contract semantics) and `guides/styling` (styling hooks) necessarily DELETES platform-contracts; the brief listed host-app-integration + styling as edit targets but not the deletion. Added to Affected files.
+- `guides/agent-runtime-v3` keeps its slug (no broken inbound links) but is retitled "Build for agents"; the `#agent-readable-contracts` anchor is preserved.
+- Link-only fixes in `index.mdx` (dropped platform-contracts link) and three api/* Related lists (relabeled "Agent runtime v3" → "Build for agents") were required to keep links valid/consistent after the merge and retitle.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

@@ -44,78 +44,13 @@ const component = igniteCore({
 
 See [The Ignite model](/ignite-element/concepts/the-ignite-model/) for adapter-specific behavior.
 
-## Agent runtime
+## Headless runtime
 
-The returned component registration also exposes a headless runtime API:
+Every component registration also exposes a headless runtime (`execute`, `getState`, `getView`, `getSchema`, `on`, `watch`, `watchView`, `record`) for driving and inspecting behavior without the DOM. See [Headless runtime](/ignite-element/api/headless-runtime/) for the full method reference.
 
-```ts
-const component = igniteCore({ source: machine });
+## Related
 
-await component.execute("toggle");
-component.getState();
-component.getView();
-component.getSchema();
-component.on("toggled", (event) => {
-  console.log(event.detail);
-});
-component.watch((state, prevState) => {
-  console.log(prevState.value, "->", state.value);
-});
-component.watchView((view, prevView) => {
-  console.log(prevView.isOn, "->", view.isOn);
-});
-```
-
-Use `on(...)` for public emitted events, `watch(...)` for raw state updates, and `watchView(...)` for projected view updates.
-
-`getSchema()` returns a JSON-serializable contract shape:
-
-```ts
-{
-  commands: {
-    toggle: {}
-  },
-  events: ["toggled"],
-  state: { value: "off", context: {} }
-}
-```
-
-## Deterministic effects semantics
-
-- Attaching a host or headless runtime seeds `prevSnapshot` from the current adapter state. Ignite does not replay historical transitions to newly attached consumers.
-- The first subscription notification establishes that baseline and does not run `effects(...)`.
-- After that, `effects(snapshot, prevSnapshot, ctx)` runs once per adapter update notification in a stable order.
-- For mounted custom elements, effects attach before the render subscription, so emitted events from a transition fire before the next render for that same host.
-
-## Testing DSL
-
-Ignite also ships a scenario-style test helper that uses the same headless runtime:
-
-```ts
-import { test as igniteTest } from 'ignite-element';
-import { igniteCore } from 'ignite-element/xstate';
-
-const component = igniteCore({
-  source: machine,
-  view: ({ matches }) => ({
-    isOn: matches('on'),
-  }),
-  commands: ({ actor }) => ({
-    toggle: () => actor.send({ type: 'TOGGLE' }),
-  }),
-  events: (event) => ({
-    toggled: event<{ isOn: boolean }>(),
-  }),
-  effects: ({ emit, select }) => {
-    const isOn = select((snapshot) => snapshot.matches('on'));
-    if (!isOn.changed) return;
-    emit('toggled', { isOn: isOn.current });
-  },
-});
-
-(await igniteTest(component).given('off').when('toggle'))
-  .expectState('on')
-  .expectEvent('toggled', { isOn: true });
-```
-
-The helper wraps `execute()`, so assertions stay deterministic and align with the same event stream returned by the runtime API.
+- [The Ignite model](/ignite-element/concepts/the-ignite-model/) — ownership, projection, and the deterministic-effects semantics.
+- [Headless runtime](/ignite-element/api/headless-runtime/) — the agent-facing runtime methods.
+- [Command metadata](/ignite-element/api/command-metadata/) — enrich `getSchema()` output.
+- [Testing DSL](/ignite-element/api/testing-dsl/) — scenario and story helpers built on the same runtime.

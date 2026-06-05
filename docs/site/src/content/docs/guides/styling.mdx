@@ -34,4 +34,26 @@ component('brand-button', ({ label, press }) => (
 
 Ignite does not invent a separate styling system. Use normal platform primitives in your renderer and expose only the hooks you want host apps to depend on.
 
-For a deeper walkthrough, see [Platform contracts](/ignite-element/guides/platform-contracts/) and the legacy notes in [docs/styling/README.md](https://github.com/0xjcf/ignite-element/blob/main/docs/styling/README.md) (kept as reference).
+## Styling is part of the contract
+
+Use the shadow root for implementation details, then deliberately expose the styling hooks host apps are allowed to depend on:
+
+- CSS custom properties for design tokens.
+- `part` attributes for targeted shadow-root styling hooks.
+- light-DOM layout styles in the host app.
+
+```tsx
+component('status-chip', ({ label, tone }) => (
+  <span
+    part="chip"
+    class={`chip chip--${tone}`}
+    style={{ color: 'var(--status-chip-fg, currentColor)' }}
+  >
+    {label}
+  </span>
+));
+```
+
+If you expect host apps to theme a component, expose a stable token or `part`. If you do not want a sub-tree styled externally, keep it internal.
+
+For host-side wiring and the full element contract, see [Host app integration](/ignite-element/guides/host-app-integration/).

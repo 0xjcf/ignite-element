@@ -12,66 +12,11 @@ Test the state source and the DOM separately. Keep your XState/Redux/MobX logic 
 For the scenario API, story recorder, and DOM accessibility helpers with exact signatures, see the [Testing DSL](/ignite-element/api/testing-dsl/) reference. The runtime they build on is documented in [Headless runtime](/ignite-element/api/headless-runtime/).
 :::
 
-## Headless runtime tests
+## Behavior tests vs. DOM tests
 
-For deterministic command and event assertions, use the headless runtime returned by `igniteCore(...)` directly from your Vitest suite.
+For deterministic command/event assertions without mounting an element, drive the headless runtime (`execute`, `on`, `getView`, …) or the scenario/story helpers directly. Both are documented with full signatures and examples in the [Testing DSL](/ignite-element/api/testing-dsl/) reference, built on the [Headless runtime](/ignite-element/api/headless-runtime/). Effect timing in those tests is deterministic — see [Deterministic effects](/ignite-element/concepts/the-ignite-model/#deterministic-effects) for why a single transition never replays mount-time emissions.
 
-```ts
-import { describe, expect, it } from 'vitest';
-import { igniteCore } from 'ignite-element/xstate';
-import { counterMachine } from './counter.machine';
-
-const component = igniteCore({
-  source: counterMachine,
-  view: ({ matches }) => ({
-    isOn: matches('on'),
-  }),
-  commands: ({ actor }) => ({
-    toggle: () => actor.send({ type: 'TOGGLE' }),
-  }),
-  events: (event) => ({
-    toggled: event<{ isOn: boolean }>(),
-  }),
-  effects: ({ emit, select }) => {
-    const isOn = select((snapshot) => snapshot.matches('on'));
-    if (!isOn.changed) return;
-    emit('toggled', { isOn: isOn.current });
-  },
-});
-
-describe('counter runtime', () => {
-  it('executes commands and reports emitted events', async () => {
-    const seen: Array<{ isOn: boolean }> = [];
-    const subscription = component.on('toggled', (event) => {
-      seen.push(event.detail);
-    });
-
-    const result = await component.execute('toggle');
-
-    subscription.unsubscribe();
-
-    expect(result.state.value).toBe('on');
-    expect(result.events).toEqual([
-      { type: 'toggled', payload: { isOn: true } },
-    ]);
-    expect(component.getView()).toEqual({ isOn: true });
-    expect(seen).toEqual([{ isOn: true }]);
-  });
-});
-```
-
-This path is useful when you want to verify command execution, resulting state, and emitted events without mounting a custom element. `execute()` returns the same event stream the runtime emitted for that transition, so the assertion surface stays deterministic.
-
-## Replay semantics
-
-Effects are seeded from the current snapshot when a host or runtime attaches.
-
-- Historical transitions are not replayed to new hosts.
-- The first subscription notification establishes `prevSnapshot` and does not run `effects(...)`.
-- Subsequent state updates run `effects(snapshot, prevSnapshot, ctx)` in a stable order.
-- For mounted elements, effects run before the render subscription for that host, so emitted DOM events arrive before the next render caused by the same transition.
-
-That makes it safe to write deterministic tests around a single transition without accidentally asserting mount-time emissions.
+The rest of this guide covers the test harness setup and the state-source and DOM tests that sit alongside those behavior tests.
 
 ## Setup
 
