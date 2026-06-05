@@ -1,4 +1,4 @@
-# v3 docs polish: design-system styling pass (tokens + shared 
+# v3 docs polish: design-system styling pass (tokens + shared chrome)
 
 ## Source
 Created with `fas create-task` on 2026-06-04.
@@ -23,10 +23,9 @@ Phase 1 (parallel, page-agnostic) of the v3 docs polish epic. Improve the SHARED
 
 ## Affected files
 - docs/site/src/styles/theme.css
-- docs/site/astro.config.mjs
 
 ## Scope Amendments
-- None.
+- `docs/site/astro.config.mjs` was listed as a hint but needed no change: `customCss` already wires `theme.css`, and this pass is token/component-layer only. All improvements (table chrome + lifecycle-diagram figure chrome, with themed `--table-*` / `--diagram-*` tokens) landed in `theme.css`. No documentation content was edited. Both themes still pass the AA contrast guardrail and the control-geometry guardrail (32 contrast checks + 9 controls green).
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

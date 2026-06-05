@@ -640,9 +640,12 @@ No active tasks.
 
 - Title: v3 docs polish: design-system styling pass (tokens + shared chrome)
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/v3-docs-polish-design-system-styling-pass-tokens-shared.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 ### Task: v3 docs polish: consolidate Advanced config + renderers into api/advanced-config (expose ignite.config.ts)
 
 - Title: v3 docs polish: consolidate Advanced config + renderers into api/advanced-config (expose ignite.config.ts)

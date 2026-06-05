@@ -38,6 +38,13 @@
 	--aside-heading: var(--sl-color-accent-high);
 	--aside-code-bg: rgba(255, 255, 255, 0.08);
 
+	/* Table + diagram surfaces (dark) — re-themed for light below so the
+	   component rules stay theme-agnostic and inherit AA contrast in both. */
+	--table-header-bg: var(--sl-color-gray-3);
+	--table-stripe: rgba(255, 255, 255, 0.03);
+	--diagram-bg: var(--sl-color-panel);
+	--diagram-border: var(--sl-color-hairline);
+
 	/* Paint the page surface from the token so the canvas never falls back to
 	   the browser's color-scheme default (the dark theme layers its gradient
 	   over this below). */
@@ -129,6 +136,12 @@
 	--aside-heading: var(--sl-color-text);
 	--aside-code-bg: var(--sl-color-hairline);
 
+	/* Table + diagram surfaces (light) */
+	--table-header-bg: var(--sl-color-bg-nav);
+	--table-stripe: rgba(15, 23, 42, 0.03);
+	--diagram-bg: var(--sl-color-panel);
+	--diagram-border: var(--sl-color-hairline);
+
 	/* Header controls (light) */
 	--control-bg: var(--sl-color-bg-nav);
 	--control-bg-hover: rgba(15, 23, 42, 0.05);
@@ -186,6 +199,61 @@ body {
 
 .starlight-aside--tip {
 	border-color: rgba(251, 191, 36, 0.35);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Tables — one token-driven chrome for every reference matrix (compatibility,
+   config options, transport status). Header + zebra surfaces come from themed
+   tokens so both themes inherit AA contrast; the rounded container uses the
+   shared radius scale. Separate borders (not collapse) so the radius clips.
+   ────────────────────────────────────────────────────────────────────────── */
+.sl-markdown-content table {
+	border-collapse: separate;
+	border-spacing: 0;
+	border: 1px solid var(--sl-color-hairline);
+	border-radius: var(--radius-md);
+	overflow: hidden;
+}
+
+.sl-markdown-content th,
+.sl-markdown-content td {
+	border-bottom: 1px solid var(--sl-color-hairline);
+	padding: 0.5rem 0.85rem;
+}
+
+.sl-markdown-content tbody tr:last-child td {
+	border-bottom: none;
+}
+
+.sl-markdown-content thead th {
+	background: var(--table-header-bg);
+	color: var(--sl-color-text);
+	font-weight: 600;
+}
+
+.sl-markdown-content tbody tr:nth-child(even) {
+	background: var(--table-stripe);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Diagrams — shared figure chrome for hand-authored inline SVGs (e.g. the
+   lifecycle diagram). Theme-aware via tokens + currentColor in the SVG, so the
+   strokes/text inherit the page ink and pass contrast in both themes.
+   ────────────────────────────────────────────────────────────────────────── */
+.ignite-lifecycle {
+	margin-block: 1.75rem;
+	padding: 1.25rem;
+	border: 1px solid var(--diagram-border);
+	border-radius: var(--radius-lg);
+	background: var(--diagram-bg);
+}
+
+.ignite-lifecycle svg {
+	display: block;
+	margin-inline: auto;
+	width: 100%;
+	max-width: 720px;
+	height: auto;
 }
 
 .stackblitz-embed {
