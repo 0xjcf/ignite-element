@@ -52,7 +52,6 @@ export default defineConfig({
 							label: "Your first component",
 							slug: "getting-started/first-component",
 						},
-						{ label: "Project setup", slug: "getting-started/project-setup" },
 					],
 				},
 				{
@@ -69,6 +68,7 @@ export default defineConfig({
 						{ label: "Command metadata", slug: "api/command-metadata" },
 						{ label: "Testing DSL", slug: "api/testing-dsl" },
 						{ label: "Advanced config", slug: "api/advanced-config" },
+						{ label: "Compatibility", slug: "api/compatibility" },
 					],
 				},
 				{

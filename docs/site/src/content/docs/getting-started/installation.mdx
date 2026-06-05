@@ -22,21 +22,7 @@ pnpm add ignite-element@beta xstate
 
 The state libraries are optional peer dependencies, so only the one you install is pulled in — adding `ignite-element@beta` never drags in Redux/MobX/lit when you only use XState. `ignite-element` depends on the scoped `@ignite-element/core`, `@ignite-element/adapters`, and `@ignite-element/renderer` packages internally; they install automatically and you don't reference them directly.
 
-## Compatibility
-
-`ignite-element@3.0.0-beta.2` declares the versions below. The state libraries and `lit-html` are **optional** peers — install only the ones the adapter you import needs; npm/pnpm warn if an installed version is below the minimum.
-
-| Dependency | Required | Needed for |
-| --- | --- | --- |
-| Node.js | `>=22` | running the build/dev toolchain |
-| TypeScript | `5.x` (authored against 5.9) | the typed JSX authoring path |
-| `xstate` | `>=5.19.0` | `ignite-element/xstate` |
-| `@reduxjs/toolkit` | `>=2.3.0` | `ignite-element/redux` |
-| `redux` | `>=5.0.1` | `ignite-element/redux` (peer of Redux Toolkit) |
-| `mobx` | `>=6.13.5` | `ignite-element/mobx` |
-| `lit-html` | `>=3.2.1` | the optional legacy `lit` renderer |
-
-The version ranges come from each package's `peerDependencies`; TypeScript and Node reflect the toolchain the v3 types and packages are built and tested against. Because v3 is in beta, pin a known-good range in your own `package.json` until the stable `latest` release.
+Node 22+ and TypeScript 5.x are required. For the full version matrix (state libraries, `lit-html`), see [Compatibility](/ignite-element/api/compatibility/).
 
 ### 1) Configure JSX (required for the default Ignite JSX path)
 
@@ -70,3 +56,13 @@ Ignite Element stays lean but is not literally “zero dependency”: you must i
 - Run a TypeScript check (e.g., `pnpm exec tsc --noEmit` or `npx tsc --noEmit`) to ensure JSX settings work.
 - Create a smoke test component via [Your first component](/ignite-element/getting-started/first-component/).
 - Add config/plugins only if you need global renderer defaults, shared styles, or lit.
+
+## Project checklist
+
+A baseline for a real project:
+
+- **Node & package manager**: Node 22+. Pick pnpm, npm, or yarn and use it consistently.
+- **TypeScript JSX**: set `"jsx": "react-jsx"` and `"jsxImportSource": "ignite-element/jsx"` (or the per-file pragma).
+- **Testing**: add a runner (Vitest or Jest) and a smoke test per web component (mount + basic interaction). See [Test components](/ignite-element/guides/testing/).
+- **Linting/formatting**: use your preferred stack (ESLint/Prettier, Biome, …); the package imposes none.
+- **Advanced setup (optional)**: reach for [`ignite.config.ts`](/ignite-element/api/advanced-config/) only when you need project-wide renderer defaults, shared styles, diagnostics, or the legacy `lit` renderer.

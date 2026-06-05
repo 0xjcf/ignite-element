@@ -1,4 +1,4 @@
-# v3 docs polish: tighten the on-ramp (landing, getting-starte
+# v3 docs polish: tighten the on-ramp (landing, getting-started, compatibility)
 
 ## Source
 Created with `fas create-task` on 2026-06-04.
@@ -22,14 +22,19 @@ Phase 2 restructure. Trim index.mdx to a real landing: hero + one teaser snippet
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- docs/site/src/content/docs/index.mdx
-- docs/site/src/content/docs/getting-started/installation.mdx
-- docs/site/src/content/docs/getting-started/first-component.mdx
-- docs/site/src/content/docs/api/compatibility.mdx
+- docs/site/src/content/docs/index.mdx (trimmed to a lean landing: hero + one teaser + two audience doors + links)
+- docs/site/src/content/docs/getting-started/installation.mdx (compat matrix → pointer; absorbed project-setup as a project checklist)
+- docs/site/src/content/docs/getting-started/first-component.mdx (trimmed "use it anywhere"; fixed project-setup link)
+- docs/site/src/content/docs/getting-started/project-setup.mdx (deleted — merged into installation)
+- docs/site/src/content/docs/api/compatibility.mdx (new — compatibility matrix from peerDependencies)
+- docs/site/src/content/docs/overview/what-is-ignite-element.mdx (absorbed the why/comparison/performance sections from the old landing)
 - docs/site/astro.config.mjs
+- docs/site/scripts/doc-examples-baseline.json (baseline burned 3 → 0; the index teaser now typechecks)
 
 ## Scope Amendments
-- None.
+- Merging `getting-started/project-setup` into installation necessarily DELETES project-setup; added to Affected files. Inbound link in first-component repointed to the installation project checklist.
+- Moving the landing's why/comparison/performance content into `overview/what-is-ignite-element` (per the brief: "move why/comparison to overview/what-is-ignite-element") edits that page; added to Affected files.
+- The lean landing's teaser now typechecks against the real API, so the three pre-existing `index.mdx` doc-example baseline entries became stale. Regenerated `doc-examples-baseline.json` (now empty / 0 known issues) and formatted it with Biome. This drives the doc guardrail baseline to 0.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

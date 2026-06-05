@@ -70,24 +70,13 @@ registerToggle('ignite-toggle', ({ isOn, toggle }) => (
 
 ## 3) Use it anywhere
 
+Because it's a web component, drop the tag into plain HTML or any host framework:
+
 ```html
-<!-- Plain HTML -->
 <ignite-toggle></ignite-toggle>
-
-<!-- lit template syntax -->
-<ignite-toggle @toggled=${handleToggle}></ignite-toggle>
 ```
 
-```tsx
-// Ignite JSX
-<ignite-toggle onToggled={(event) => handleToggle(event.detail)} />
-```
-
-:::note[Handler naming]
-In Ignite JSX, `onToggled` comes from the `toggled` event you declare in your `events` map. Event payloads are dispatched as `CustomEvent` detail, so read them via `event.detail` (e.g., `event.detail.isOn`).
-:::
-
-Because it’s a web component, you can drop it into plain HTML or a host framework without inventing a wrapper-specific contract. See [Host app integration](/ignite-element/guides/host-app-integration/) for concrete React and Vue patterns, plus SSR notes.
+In Ignite JSX, the `toggled` event you declared becomes an `onToggled` prop; read the payload via `event.detail`. For concrete React, Vue, plain-HTML, and SSR patterns, see [Host app integration](/ignite-element/guides/host-app-integration/).
 
 ## Variations
 
@@ -101,6 +90,6 @@ Because it’s a web component, you can drop it into plain HTML or a host framew
 
 You shipped a working component — here's where to go from here:
 
-- **Set up a real project**: [Project setup](/ignite-element/getting-started/project-setup/) for the Node, TypeScript, testing, and tooling baseline.
+- **Set up a real project**: the [Installation project checklist](/ignite-element/getting-started/installation/#project-checklist) for the Node, TypeScript, testing, and tooling baseline.
 - **Understand the model**: [The Ignite model](/ignite-element/concepts/the-ignite-model/) explains how `source`, `view`, `commands`, and `effects` fit together.
 - **Ship it into an app**: [Host app integration](/ignite-element/guides/host-app-integration/) covers React, Vue, and SSR patterns.

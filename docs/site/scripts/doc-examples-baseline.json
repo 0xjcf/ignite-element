@@ -1,20 +1,4 @@
 {
 	"note": "Known doc-example failures to burn down (docs-accuracy tasks). Each is a real finding or symptom; the guardrail fails on anything NOT listed here.",
-	"entries": [
-		{
-			"doc": "docs/site/src/content/docs/index.mdx",
-			"code": 2769,
-			"includes": "No overload matches this call.   Overload 1 of 2"
-		},
-		{
-			"doc": "docs/site/src/content/docs/index.mdx",
-			"code": 2339,
-			"includes": "Property 'isOn' does not exist on type 'BaseRend"
-		},
-		{
-			"doc": "docs/site/src/content/docs/index.mdx",
-			"code": 2339,
-			"includes": "Property 'toggle' does not exist on type 'BaseRe"
-		}
-	]
+	"entries": []
 }

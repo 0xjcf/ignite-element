@@ -677,9 +677,12 @@ No active tasks.
 
 - Title: v3 docs polish: tighten the on-ramp (landing, getting-started, compatibility)
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/v3-docs-polish-tighten-the-on-ramp-landing-getting-starte.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 ### Task: v3 docs polish: per-page minimal-content and display pass (post-restructure)
 
 - Title: v3 docs polish: per-page minimal-content and display pass (post-restructure)

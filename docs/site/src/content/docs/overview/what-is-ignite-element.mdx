@@ -22,4 +22,24 @@ Ignite apps keep machines focused on behavior and use adapters to isolate IO. Ad
 
 `ignite-element` is the default public package. `@ignite-element/core`, `@ignite-element/adapters`, and `@ignite-element/renderer` are advanced package layers for custom integrations and lower-level tooling.
 
+## Why teams pick Ignite Element
+
+- Platform-native distribution: ship one custom-element contract to plain HTML, React, Vue, or other hosts.
+- Typed commands, view projection, effects, events, and headless-runtime hooks without a React/Solid runtime.
+- Keep XState, Redux Toolkit, or MobX — bring your state model instead of adopting a new reactive system just to ship components.
+- No config is required for the default Ignite JSX path; co-locate CSS with JSX via ordinary `<style>{styles}</style>` output.
+- Built-in lifecycle handling for shared vs. isolated adapters.
+
+## Ignite vs. other options
+
+- **React / Vue / Solid**: Ignite is a distribution layer for stateful UI, not a full app framework. Keep your app shell and ship DOM-native components across host boundaries.
+- **Lit / Stencil**: Ignite is renderer-agnostic with pluggable adapters; keep your state library instead of adopting a bespoke reactive model.
+- **State-library lock-in**: swap XState/Redux/MobX without rewriting renderers; shared lifecycle handling stays consistent.
+
+## Performance snapshot
+
+- Tiny runtime surface — Ignite JSX uses a minimal custom renderer (no framework runtime).
+- Works with tree shaking; keep only the adapters/renderers you use.
+- Shared adapters are reference-counted to avoid duplicate subscriptions.
+
 Use the left nav to dive into concepts, or jump to the [Installation](/ignite-element/getting-started/installation/) and [first component](/ignite-element/getting-started/first-component/) guides to start coding.
