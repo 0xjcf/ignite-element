@@ -700,9 +700,12 @@ No active tasks.
 
 - Title: v3 docs polish: add llms.txt and normalize the API reference to a contract-first template
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/v3-docs-polish-add-llms-txt-and-normalize-the-api-reference.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 ### Task: Fix issue #57: conditional JSX children appended instead of replaced on re-render
 
 - Title: Fix issue #57: conditional JSX children appended instead of replaced on re-render

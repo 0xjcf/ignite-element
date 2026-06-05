@@ -1,4 +1,4 @@
-# v3 docs polish: add llms.txt and normalize the API reference
+# v3 docs polish: add llms.txt and normalize the API reference to a contract-first template
 
 ## Source
 Created with `fas create-task` on 2026-06-04.
@@ -21,11 +21,21 @@ Phase 4, after restructure (needs the final page set). (1) Add the starlight-llm
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- docs/site/astro.config.mjs
-- docs/site/package.json
+- docs/site/src/content/docs/api/ignite-core.mdx (normalize: `**Params**` → `## Parameters` heading)
+- docs/site/src/content/docs/api/advanced-config.mdx (normalize: add the consistent `## Related` footer)
+- docs/site/src/content/docs/api/compatibility.mdx (normalize: add the consistent `## Related` footer)
 
 ## Scope Amendments
-- None.
+- This task ships only the **doc-only half** (contract-first API-template normalization). The `starlight-llms-txt` plugin add is deliberately NOT in this commit/batch: it requires a `pnpm install` the sandbox can't run, and adding the dep to `astro.config.mjs` + `package.json` without the installed module would break `docs:build` and the one shared full verify for the whole batch. So `astro.config.mjs` and `package.json` were intentionally left unchanged. See "Operator action required" below.
+- Normalization scope: the api/* pages (`headless-runtime`, `command-metadata`, `testing-dsl`, `ignite-core`, `advanced-config`, `compatibility`) already followed a contract-first shape (intro → signature → params/methods → returns → example). The remaining inconsistencies were `ignite-core`'s bold `**Params**` (promoted to a `## Parameters` heading) and the missing `## Related` footer on `advanced-config` and `compatibility` (added). External anchors (`#getschema`, `#recordname`, `#stories`) are preserved.
+
+## Operator action required (llms.txt plugin)
+The agent layer's `/llms.txt` + `/llms-full.txt` still needs the plugin, which requires a local install the sandbox cannot perform:
+
+1. From `docs/site`, install the dev dependency: `pnpm add -D starlight-llms-txt` (this updates `docs/site/package.json` + the workspace lockfile).
+2. Wire it in `docs/site/astro.config.mjs` — import `starlightLlmsTxt` and add it to the Starlight `plugins: [...]` array (alongside `starlightVersions`).
+3. Rebuild (`pnpm --filter docs-site build`) and confirm `/ignite-element/llms.txt` and `/ignite-element/llms-full.txt` are emitted into `dist/`.
+4. Commit the lockfile + `package.json` + `astro.config.mjs` together as a follow-up (it is safe to land outside the shared docs batch since it carries its own install).
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
