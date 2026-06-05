@@ -647,9 +647,12 @@ No active tasks.
 
 - Title: v3 docs polish: consolidate Advanced config + renderers into api/advanced-config (expose ignite.config.ts)
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/v3-docs-polish-consolidate-advanced-config-renderers-into.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 ### Task: v3 docs polish: collapse concepts into one 'The Ignite model' page (+ lifecycle SVG)
 
 - Title: v3 docs polish: collapse concepts into one 'The Ignite model' page (+ lifecycle SVG)

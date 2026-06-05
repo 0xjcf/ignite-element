@@ -59,12 +59,10 @@ export default defineConfig({
 					label: "Concepts",
 					items: [
 						{ label: "State adapters", slug: "concepts/state-adapters" },
-						{ label: "Renderers", slug: "concepts/renderers" },
 						{
 							label: "Events & commands",
 							slug: "concepts/events-and-commands",
 						},
-						{ label: "Configuration", slug: "concepts/configuration" },
 					],
 				},
 				{
@@ -74,8 +72,7 @@ export default defineConfig({
 						{ label: "Headless runtime", slug: "api/headless-runtime" },
 						{ label: "Command metadata", slug: "api/command-metadata" },
 						{ label: "Testing DSL", slug: "api/testing-dsl" },
-						{ label: "Advanced config", slug: "api/define-ignite-config" },
-						{ label: "Advanced renderers", slug: "api/renderers" },
+						{ label: "Advanced config", slug: "api/advanced-config" },
 					],
 				},
 				{
@@ -97,7 +94,6 @@ export default defineConfig({
 						{ label: "Actor-Web", slug: "guides/actor-web" },
 						{ label: "Styling", slug: "guides/styling" },
 						{ label: "Testing", slug: "guides/testing" },
-						{ label: "Tooling & bundlers", slug: "guides/tooling" },
 					],
 				},
 				{

@@ -1,4 +1,4 @@
-# v3 docs polish: consolidate Advanced config + renderers into
+# v3 docs polish: consolidate Advanced config + renderers into api/advanced-config (expose ignite.config.ts)
 
 ## Source
 Created with `fas create-task` on 2026-06-04.
@@ -24,9 +24,17 @@ Phase 2 restructure. Merge api/define-ignite-config + api/renderers + concepts/c
 ## Affected files
 - docs/site/src/content/docs/api/advanced-config.mdx
 - docs/site/astro.config.mjs
+- docs/site/src/content/docs/api/define-ignite-config.mdx (deleted — merged into advanced-config)
+- docs/site/src/content/docs/api/renderers.mdx (deleted — merged into advanced-config)
+- docs/site/src/content/docs/concepts/configuration.mdx (deleted — reference content merged into advanced-config; conceptual pointer handled by The Ignite model task)
+- docs/site/src/content/docs/concepts/renderers.mdx (deleted — reference content merged into advanced-config; conceptual pointer handled by The Ignite model task)
+- docs/site/src/content/docs/guides/tooling.mdx (deleted — legacy config/renderer notes merged into advanced-config; JSX/bundler entrypoints already in installation)
+- docs/site/src/content/docs/getting-started/installation.mdx (link fix only — collapsed three removed-page links into one advanced-config link)
+- docs/site/src/content/docs/index.mdx (link fix only — repointed removed concepts/renderers link to advanced-config)
 
 ## Scope Amendments
-- None.
+- Merging five pages into `api/advanced-config` necessarily DELETES the merged sources (`api/define-ignite-config`, `api/renderers`, `concepts/configuration`, `concepts/renderers`, `guides/tooling`); the brief listed only the new page + sidebar. Deletions added to Affected files.
+- Two inbound link fixes (`getting-started/installation.mdx`, `index.mdx`) were required to satisfy the "no broken internal links" acceptance criterion after the deletions. Content-only edits to those pages are reserved for their own restructure tasks (T4/T5).
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
