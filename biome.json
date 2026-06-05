@@ -13,6 +13,10 @@
 			"!**/coverage",
 			"!**/.astro",
 			"!**/.fas",
+			"!**/.cursor",
+			"!**/.claude",
+			"!**/.codex",
+			"!**/.mcp.json",
 			"!**/*.d.ts",
 			"!**/*.d.ts.map",
 			"!**/*.tsbuildinfo"
