@@ -685,6 +685,17 @@ No active tasks.
 - Status: queued
 - Owner: runtime
 - Brief: .fas/tasks/v3-docs-polish-add-llms-txt-and-normalize-the-api-reference.md
+### Task: Fix issue #57: conditional JSX children appended instead of replaced on re-render
+
+- Title: Fix issue #57: conditional JSX children appended instead of replaced on re-render
+- Mode: single-agent
+- Status: implementing
+- Owner: implementer
+- Brief: .fas/tasks/fix-issue-57-conditional-jsx-children-appended-instead-of.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
