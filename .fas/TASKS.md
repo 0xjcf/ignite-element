@@ -657,9 +657,12 @@ No active tasks.
 
 - Title: v3 docs polish: collapse concepts into one 'The Ignite model' page (+ lifecycle SVG)
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/v3-docs-polish-collapse-concepts-into-one-the-ignite-model.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 ### Task: v3 docs polish: de-duplicate guides against the API reference
 
 - Title: v3 docs polish: de-duplicate guides against the API reference

@@ -58,11 +58,7 @@ export default defineConfig({
 				{
 					label: "Concepts",
 					items: [
-						{ label: "State adapters", slug: "concepts/state-adapters" },
-						{
-							label: "Events & commands",
-							slug: "concepts/events-and-commands",
-						},
+						{ label: "The Ignite model", slug: "concepts/the-ignite-model" },
 					],
 				},
 				{

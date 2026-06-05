@@ -1,0 +1,225 @@
+---
+title: The Ignite model
+description: One mental model for Ignite Element — ownership, adapters, projection, commands/events/effects, and the component lifecycle.
+sidebar:
+  label: The Ignite model
+  order: 1
+---
+
+Ignite Element separates **state** from **rendering**. Your state lives in a source (an XState machine, a Redux store, a MobX observable, or an Actor-Web runtime); an **adapter** subscribes to it and hands Ignite snapshots; you **project** those snapshots into render props and expose **commands**. One `igniteCore` registration yields one custom element, and composition happens through HTML.
+
+The whole model is four ideas: who **owns** the source, how the **adapter** bridges it, how you **project** state into a view, and how **commands, events, and effects** move intent and consequences across the element boundary.
+
+## Ownership model
+
+- If Ignite creates it, Ignite owns it.
+- If you pass it in, you own it.
+- `cleanup` is a shared-adapter teardown override; most components don't need it.
+
+This single rule decides teardown: Ignite stops the sources it created and only releases the subscriptions it added to sources you passed in.
+
+## Adapters
+
+In ignite-based apps, adapters isolate IO and environment effects (wallets, sockets, storage, network). **Machines describe what should happen; adapters describe how the world responds.** Adapters are wired internally by helper constructors (for example, the `create*Actor` entrypoints in ecosystem packages) — you don't manually attach adapters or embed IO inside machines.
+
+Keep your state source pure and deterministic. Put **state structure, transitions, guards, and domain events** in the machine; keep **network calls, browser APIs (`window`, `localStorage`, `fetch`), and long-running IO** out of it. Pure sources are easier to test, reuse, and reason about, and they compose cleanly with adapters that own the IO.
+
+### Adapter shapes
+
+- **XState** — pass a machine definition or a started actor. Ignite starts and stops machine-backed actors it owns; a pre-started actor you pass is subscribed to but never stopped for you.
+- **Redux Toolkit** — pass a slice factory or a store instance. Ignite subscribes and reads state on change; a store you own is never disposed.
+- **MobX** — pass an observable or factory. Ignite reads derived values when observables mutate; externally created observables keep running.
+- **Actor-Web** — project a long-lived runtime that already owns orchestration. See [Choosing `xstate` vs `actor-web`](#choosing-ignite-elementxstate-vs-ignite-elementactor-web) and the [Actor-Web guide](/ignite-element/guides/actor-web/).
+
+### Source factory adapter inference
+
+The default `igniteCore` entrypoint does not execute zero-argument source factories while inferring an adapter.
+
+- Zero-argument Redux and MobX factories require an explicit `adapter` or an adapter-specific entrypoint such as `ignite-element/redux` or `ignite-element/mobx`.
+- Zero-argument and defaulted Actor-Web factories require `adapter: "actor-web"` or the `ignite-element/actor-web` entrypoint.
+- Only required host-context Actor-Web factories are omitted-adapter inferable, because they declare a runtime parameter without a default value.
+
+## Shared vs. isolated
+
+- **Isolated (default)** — Ignite constructs a new adapter per element instance. Great for local state; stopped on disconnect (for XState, the Ignite-created actor is stopped too).
+- **Shared** — pass a long-lived actor/store/observable. Ignite reference-counts the shared adapter; when the last element disconnects it releases the adapter and stops any Ignite-owned sources. External sources you provide stay alive — set `cleanup: false` to keep the shared adapter alive after disconnect.
+
+```ts no-check
+import { createActor } from 'xstate';
+import { igniteCore } from 'ignite-element/xstate';
+import { toggleMachine } from './machine';
+
+const sharedActor = createActor(toggleMachine);
+sharedActor.start();
+
+const register = igniteCore({
+  source: sharedActor,
+  // ...view/commands/events
+});
+
+register('ignite-toggle', /* renderer */);
+
+// Later, when you no longer need the shared actor:
+sharedActor.stop();
+```
+
+## Projection (`view`)
+
+The projection is explicit: you decide which snapshot fields become render values and commands. Use the `view` callback to map raw snapshots into render-friendly data. It runs on access and reflects the latest adapter snapshot; it is not memoized, so keep it fast.
+
+```ts
+view: ({ context, can }) => ({
+  count: context.count,
+  canUndo: can?.({ type: 'UNDO' }) ?? false,
+})
+```
+
+:::tip[Heavy derivations]
+If you need expensive computed values, move the derivation into your state source (machine/store/observable) so the snapshot already contains it. Keep `view` fast and simple.
+:::
+
+:::note[Snapshot fields are spread]
+For object snapshots (XState's extended state, a MobX store, a Redux state), the snapshot's own fields are spread onto the view context. So `snapshot.count` and `snapshot.context.count` are equivalent — use whichever reads best, and `view: ({ context }) => …` for the common path.
+:::
+
+## Commands, events, and effects
+
+**Commands express intent; effects express consequences.** Commands are the UI → behavior boundary: keep them small and deterministic, send events to your source, and avoid IO (it belongs in adapters). They receive `{ actor, host }` (plus `store`/`observable` for those adapters).
+
+```ts
+commands: ({ actor }) => ({
+  increment: () => actor.send({ type: 'INCREMENT' }),
+});
+```
+
+Declare `events` to type `emit`, then fire DOM `CustomEvent`s from `effects`. Events bubble and are composed by default, so host frameworks can listen with `addEventListener`. Prefer names whose casing maps to Ignite JSX handler props (`onEventName`).
+
+```ts
+events: (event) => ({
+  incremented: event<{ count: number }>(),
+}),
+commands: ({ actor }) => ({
+  increment: () => {
+    actor.send({ type: 'INCREMENT' });
+  },
+}),
+effects: ({ snapshot, prevSnapshot, emit }) => {
+  if (snapshot.context.count === prevSnapshot.context.count) return;
+  emit('incremented', { count: snapshot.context.count });
+},
+```
+
+Listen in plain DOM with `element.addEventListener('incremented', …)`, or in Ignite JSX with `<my-counter onIncremented={(event) => handleIncrement(event.detail)}></my-counter>`.
+
+:::note[Emit safety]
+In development, emitting an event that isn't declared in `events` throws, to keep the event map in sync.
+:::
+
+`host` is the custom element instance — think of it like a DOM ref. Use it for small imperative affordances (focus, measuring, dispatching extra DOM events); keep state in your adapter and rendering declarative.
+
+### Putting it together
+
+```ts
+import { igniteCore } from 'ignite-element/xstate';
+import machine from './counter-machine';
+
+const component = igniteCore({
+  source: machine,
+  events: (event) => ({
+    incremented: event<{ count: number }>(),
+  }),
+  view: ({ context }) => ({
+    count: context.count,
+    canDecrement: context.count > 0,
+  }),
+  commands: ({ actor }) => ({
+    increment: () => {
+      actor.send({ type: 'INCREMENT' });
+    },
+    decrement: () => actor.send({ type: 'DECREMENT' }),
+  }),
+  effects: ({ snapshot, emit, select }) => {
+    const count = select((state) => state.context.count);
+    if (!count.changed) return;
+    emit('incremented', { count: snapshot.context.count });
+  },
+});
+
+component('my-counter', ({ count, canDecrement, increment, decrement }) => (
+  <div class="counter">
+    <button onClick={decrement} disabled={!canDecrement}>-</button>
+    <span>{count}</span>
+    <button onClick={increment}>+</button>
+  </div>
+));
+```
+
+### Deterministic effects
+
+Effect timing is deterministic, which is what makes the [headless runtime](/ignite-element/api/headless-runtime/) and [testing DSL](/ignite-element/api/testing-dsl/) reproducible:
+
+- Attaching a host or headless runtime seeds `prevSnapshot` from the current adapter state. Ignite does not replay historical transitions to newly attached consumers.
+- The first subscription notification establishes that baseline and does **not** run `effects(...)`.
+- After that, `effects(...)` runs once per adapter update in a stable order.
+- For mounted custom elements, effects attach before the render subscription, so events emitted from a transition fire **before** the next render for that same host.
+
+## Lifecycle at a glance
+
+<figure class="ignite-lifecycle" style="color: var(--sl-color-text); margin-inline: 0;">
+  <svg viewBox="0 0 760 230" role="img" aria-labelledby="ie-lifecycle-title ie-lifecycle-desc" width="100%" style="max-width: 760px; height: auto;">
+    <title id="ie-lifecycle-title">Ignite Element data flow</title>
+    <desc id="ie-lifecycle-desc">A state source feeds an adapter, which produces snapshots that the view projects into render props for a custom element. Commands send intent back to the source, and effects emit typed DOM events outward.</desc>
+    <defs>
+      <marker id="ie-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="currentColor" />
+      </marker>
+    </defs>
+    <g style="fill: var(--sl-color-accent-low); stroke: currentColor; stroke-width: 1.5;">
+      <rect x="8" y="78" width="150" height="58" rx="8" />
+      <rect x="214" y="78" width="150" height="58" rx="8" />
+      <rect x="420" y="78" width="150" height="58" rx="8" />
+      <rect x="610" y="78" width="142" height="58" rx="8" />
+    </g>
+    <g style="fill: currentColor; font-family: var(--sl-font, sans-serif); font-size: 13px; text-anchor: middle;">
+      <text x="83" y="103">State source</text>
+      <text x="83" y="121" style="font-size: 11px; opacity: 0.75;">machine / store</text>
+      <text x="289" y="103">Ignite adapter</text>
+      <text x="289" y="121" style="font-size: 11px; opacity: 0.75;">subscribe · snapshot</text>
+      <text x="495" y="103">view()</text>
+      <text x="495" y="121" style="font-size: 11px; opacity: 0.75;">render props</text>
+      <text x="681" y="111">&lt;custom-element&gt;</text>
+    </g>
+    <g style="stroke: currentColor; stroke-width: 1.5; fill: none;" marker-end="url(#ie-arrow)">
+      <path d="M158 107 H210" />
+      <path d="M364 107 H416" />
+      <path d="M570 107 H606" />
+    </g>
+    <g style="fill: currentColor; font-size: 11px; text-anchor: middle; opacity: 0.85;">
+      <text x="184" y="98">snapshot</text>
+      <text x="390" y="98">project</text>
+      <text x="588" y="98">render</text>
+    </g>
+    <path d="M681 136 V184 H289 V140" style="stroke: currentColor; stroke-width: 1.5; fill: none;" marker-end="url(#ie-arrow)" />
+    <text x="485" y="200" style="fill: currentColor; font-size: 11px; text-anchor: middle; opacity: 0.85;">commands → actor.send(intent)</text>
+    <path d="M700 78 V40 H735" style="stroke: currentColor; stroke-width: 1.5; fill: none;" marker-end="url(#ie-arrow)" />
+    <text x="690" y="32" style="fill: currentColor; font-size: 11px; text-anchor: end; opacity: 0.85;">effects → emit typed DOM events</text>
+  </svg>
+</figure>
+
+- **Isolated** (a machine Ignite creates): a per-element adapter, stopped on disconnect; `cleanup` doesn't apply.
+- **Shared** (an actor/store/observable you pass): one reference-counted adapter; the last disconnect releases it unless `cleanup: false`, and user-owned sources keep running.
+
+## Choosing `ignite-element/xstate` vs `ignite-element/actor-web`
+
+- Use **`ignite-element/xstate`** (or Redux/MobX) when Ignite owns local behavior for the element — the source is the element's state and Ignite manages its lifecycle.
+- Use **`ignite-element/actor-web`** when an Actor-Web runtime already owns orchestration, supervision, sequencing, transport, and source lifecycle. Ignite stays in the projection/read-model role and crosses the boundary through explicit requests (`actor.send` / `actor.ask`), never by mutating the projected read model.
+
+The full Actor-Web walkthrough — read-model vs command sources, `send` vs `ask`, and transport status — lives in the [Actor-Web guide](/ignite-element/guides/actor-web/).
+
+## Renderers and configuration
+
+Ignite JSX is the config-free default; keep component CSS in local `<style>` tags. Project-wide renderer selection (including the legacy `lit` renderer), the `ignite.config.ts` file, and shared styles all live in [Advanced config](/ignite-element/api/advanced-config/).
+
+## Design principles
+
+Keep the boundaries clean: the **adapter** owns the state/actor model, the **renderer** stays declarative, and **`host`** is a small imperative DOM bridge used only when needed. Avoid IO inside machines, direct browser APIs in machines, and manual adapter wiring in components — those belong in adapters wired by helper constructors, not in machines or UI code.

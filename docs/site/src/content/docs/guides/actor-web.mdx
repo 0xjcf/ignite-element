@@ -69,7 +69,7 @@ export const shipmentCard = igniteCore({
 `ShipmentProjection` flows into the `states`/`view` `context`, and `ShipmentRequest` flows into `actor.send`, all inferred from `shipmentReadModel` — no `igniteCore<...>` annotations. The projected `context` carries business/read-model state; updating it stays Actor-Web's job. Ignite sends requests back and re-renders when the next projection snapshot arrives.
 
 :::note[Source shapes]
-`source` accepts a read-model source value (shown above), a command-capable source, a zero-argument factory, a host-context factory `({ host }) => source`, or an `ActorWebSourceHandle` — `{ source, commandSource?, stop? }` — that bundles both handles and a teardown. When a source exposes `close()`, Ignite calls it during adapter teardown. Passing a typed source **value** gives the cleanest inference; the `ignite-element/actor-web` entrypoint is required for zero-argument and defaulted factories (see [Source factory adapter inference](/ignite-element/concepts/state-adapters/)).
+`source` accepts a read-model source value (shown above), a command-capable source, a zero-argument factory, a host-context factory `({ host }) => source`, or an `ActorWebSourceHandle` — `{ source, commandSource?, stop? }` — that bundles both handles and a teardown. When a source exposes `close()`, Ignite calls it during adapter teardown. Passing a typed source **value** gives the cleanest inference; the `ignite-element/actor-web` entrypoint is required for zero-argument and defaulted factories (see [Source factory adapter inference](/ignite-element/concepts/the-ignite-model/)).
 :::
 
 ## send vs ask
@@ -156,4 +156,4 @@ Use that pattern for connection badges, replay banners, or diagnostics — not a
 - **`ignite-element/actor-web`** — an Actor-Web runtime already owns orchestration and long-lived sources; Ignite projects and sends explicit requests.
 - **`ignite-element/xstate`** — Ignite owns local behavior; the machine is the element's state source and Ignite manages its lifecycle.
 
-See [Choosing `xstate` vs `actor-web`](/ignite-element/concepts/state-adapters/#choosing-ignite-elementxstate-vs-ignite-elementactor-web) for the boundary rationale, and [Redux & MobX](/ignite-element/guides/redux-and-mobx/) for the other two adapters.
+See [Choosing `xstate` vs `actor-web`](/ignite-element/concepts/the-ignite-model/#choosing-ignite-elementxstate-vs-ignite-elementactor-web) for the boundary rationale, and [Redux & MobX](/ignite-element/guides/redux-and-mobx/) for the other two adapters.

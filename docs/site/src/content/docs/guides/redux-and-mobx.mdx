@@ -89,7 +89,7 @@ export const registerSharedCounter = igniteCore({
 });
 ```
 
-Ignite subscribes to the store you pass and reads state on change, but it never disposes a store you own — it only releases its own subscriptions as elements disconnect. See [State adapters](/ignite-element/concepts/state-adapters/#ownership-model) for the ownership rules.
+Ignite subscribes to the store you pass and reads state on change, but it never disposes a store you own — it only releases its own subscriptions as elements disconnect. See [The Ignite model](/ignite-element/concepts/the-ignite-model/#ownership-model) for the ownership rules.
 
 ### Events and effects
 
@@ -181,7 +181,7 @@ export const registerIsolatedCounter = igniteCore({
 });
 ```
 
-Ignite reads derived values when observables mutate. Observables you create externally keep running; Ignite only tears down the subscriptions it owns. A zero-argument **factory** source (called once per element for isolated state) needs an explicit `adapter: 'mobx'`, because Ignite does not execute source factories while inferring the adapter — see [Source factory adapter inference](/ignite-element/concepts/state-adapters/).
+Ignite reads derived values when observables mutate. Observables you create externally keep running; Ignite only tears down the subscriptions it owns. A zero-argument **factory** source (called once per element for isolated state) needs an explicit `adapter: 'mobx'`, because Ignite does not execute source factories while inferring the adapter — see [Source factory adapter inference](/ignite-element/concepts/the-ignite-model/).
 
 ## Choosing an adapter
 
@@ -196,5 +196,5 @@ For the Actor-Web projection-first model, see the [Actor-Web adapter guide](/ign
 
 ## Related
 
-- [State adapters](/ignite-element/concepts/state-adapters/) — ownership, shared vs isolated, lifecycle.
+- [The Ignite model](/ignite-element/concepts/the-ignite-model/) — ownership, shared vs isolated, lifecycle.
 - [Headless runtime](/ignite-element/api/headless-runtime/) — the runtime each adapter exposes.

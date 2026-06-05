@@ -1,4 +1,4 @@
-# v3 docs polish: collapse concepts into one 'The Ignite model
+# v3 docs polish: collapse concepts into one 'The Ignite model' page (+ lifecycle SVG)
 
 ## Source
 Created with `fas create-task` on 2026-06-04.
@@ -22,11 +22,21 @@ Phase 2 restructure. Create ONE explanation page 'The Ignite model' (repurpose c
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- docs/site/src/content/docs/concepts/the-ignite-model.mdx
+- docs/site/src/content/docs/concepts/the-ignite-model.mdx (renamed from concepts/state-adapters.mdx + rewritten as the single concept page)
+- docs/site/src/content/docs/concepts/state-adapters.mdx (deleted — renamed to the-ignite-model)
+- docs/site/src/content/docs/concepts/events-and-commands.mdx (deleted — merged into the-ignite-model)
 - docs/site/astro.config.mjs
+- docs/site/src/content/docs/index.mdx (link fix — repointed concept link to the-ignite-model)
+- docs/site/src/content/docs/getting-started/project-setup.mdx (link fix — collapsed two concept links into the-ignite-model)
+- docs/site/src/content/docs/getting-started/first-component.mdx (link fix — collapsed two concept links into the-ignite-model)
+- docs/site/src/content/docs/guides/actor-web.mdx (link fix — concept anchors repointed to the-ignite-model)
+- docs/site/src/content/docs/guides/redux-and-mobx.mdx (link fix — concept anchors repointed to the-ignite-model)
+- docs/site/src/content/docs/api/ignite-core.mdx (link fix — concept link repointed to the-ignite-model)
 
 ## Scope Amendments
-- None.
+- Collapsing four concept pages into one necessarily RENAMES `concepts/state-adapters` → `concepts/the-ignite-model` and DELETES `concepts/events-and-commands` (the conceptual halves of `concepts/renderers`/`concepts/configuration` were already removed by T2, and are covered here by a one-line pointer to advanced-config). Added to Affected files.
+- Six inbound-link fixes (`index.mdx`, `getting-started/project-setup.mdx`, `getting-started/first-component.mdx`, `guides/actor-web.mdx`, `guides/redux-and-mobx.mdx`, `api/ignite-core.mdx`) were required to satisfy "no broken internal links" after the rename. Anchors (`#ownership-model`, `#source-factory-adapter-inference`, `#choosing-ignite-elementxstate-vs-ignite-elementactor-web`) are preserved on the new page. These are link-only edits; content rewrites of those pages remain reserved for their own tasks (T4/T5).
+- The deterministic-effects semantics are now canonical on this page; the duplicate blocks in `api/ignite-core` and `api/headless-runtime` are removed by T4.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
