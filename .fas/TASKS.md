@@ -690,9 +690,12 @@ No active tasks.
 
 - Title: v3 docs polish: per-page minimal-content and display pass (post-restructure)
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/v3-docs-polish-per-page-minimal-content-and-display-pass-p.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 ### Task: v3 docs polish: add llms.txt and normalize the API reference to a contract-first template
 
 - Title: v3 docs polish: add llms.txt and normalize the API reference to a contract-first template

@@ -139,9 +139,7 @@ const story = counter.record('toggles on');
 
 ## Determinism
 
-- Attaching a host or headless consumer seeds `prevSnapshot` from the current adapter state. Ignite does not replay historical transitions to newly attached consumers.
-- The first subscription notification establishes that baseline and does **not** run `effects(...)`.
-- After that, `effects(...)` runs once per adapter update in a stable order. For mounted elements, effects run before the render subscription, so emitted events arrive before the next render for that host.
+The runtime seeds `prevSnapshot` on attach, never replays history, and runs `effects(...)` once per update in a stable order — which is what keeps `execute()` and the testing helpers reproducible. The full semantics are documented once in [Deterministic effects](/ignite-element/concepts/the-ignite-model/#deterministic-effects).
 
 ## Related
 

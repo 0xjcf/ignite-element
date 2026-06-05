@@ -1,4 +1,4 @@
-# v3 docs polish: per-page minimal-content and display pass (p
+# v3 docs polish: per-page minimal-content and display pass (post-restructure)
 
 ## Source
 Created with `fas create-task` on 2026-06-04.
@@ -21,10 +21,12 @@ Phase 3, AFTER the restructure tasks. Walk every SURVIVING v3 page; narrow each 
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- Scope unknown.
+- docs/site/src/content/docs/api/headless-runtime.mdx (de-dup: trimmed the duplicated Determinism block to a pointer to The Ignite model)
 
 ## Scope Amendments
-- None.
+- Walked all 21 surviving v3 pages (27 → 21 after the restructure). The restructure tasks (T2–T5) already trimmed the heavy offenders and the doc-example guardrail baseline is at 0, so the only remaining single-ownership violation was the determinism block duplicated in `api/headless-runtime` (the spike's redundancy matrix flagged it alongside `api/ignite-core`, which T4 already fixed). Trimmed it to a one-line pointer to `concepts/the-ignite-model#deterministic-effects`.
+- Page-size review: the largest pages are `the-ignite-model` (225, the single concept page absorbing four sources), `redux-and-mobx` (200), and `host-app-integration` (191) — all justified by scope, none over budget. No page needs substantial further work, so no per-page follow-up subtasks were queued.
+- All internal links resolve, `docs:build` is green, the contrast guardrail passes in both themes, and the doc-typecheck guardrail is green at baseline 0.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
