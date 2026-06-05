@@ -689,12 +689,13 @@ No active tasks.
 
 - Title: Fix issue #57: conditional JSX children appended instead of replaced on re-render
 - Mode: single-agent
-- Status: implementing
+- Status: done
 - Owner: implementer
 - Brief: .fas/tasks/fix-issue-57-conditional-jsx-children-appended-instead-of.md
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
