@@ -128,6 +128,16 @@ const isPreMode = () => {
 };
 
 const main = async () => {
+	// Disable husky for every command this script spawns. `changeset version`
+	// (config `commit: true`) makes its own git commit with the message
+	// "RELEASING: Releasing N package(s)", which the commit-msg hook (commitlint,
+	// conventional) rejects — changeset then aborts ("ran into trouble committing
+	// your files") AFTER bumping versions but BEFORE publishing. Hooks add no
+	// value to this mechanical, already-verified release commit. This mirrors CI
+	// (the `release` job in .github/workflows/ci.yml sets `HUSKY: 0`) so the
+	// command is just `pnpm release:beta` — no `HUSKY=0` prefix needed.
+	env.HUSKY = "0";
+
 	if (env.CI) {
 		console.warn(
 			"[release:beta] Running in CI. Ensure npm credentials and OTP are configured via environment variables.",
