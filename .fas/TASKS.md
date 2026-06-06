@@ -728,7 +728,7 @@ No active tasks.
 
 - Title: docs(v3): normalize projection callback to view and add per-adapter view-helper note
 - Mode: single-agent
-- Status: implementing
+- Status: done
 - Owner: implementer
 - Verification lane: fast
 - Policy sensitivity: standard
