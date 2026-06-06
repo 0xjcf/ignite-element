@@ -51,7 +51,7 @@ declare const shipmentCommands: ActorWebCommandSource<
 export const shipmentCard = igniteCore({
   source: shipmentReadModel,
   commandSource: shipmentCommands,
-  states: ({ context }) => ({
+  view: ({ context }) => ({
     shipmentId: context.shipmentId,
     status: context.status,
     etaLabel: context.etaLabel,
@@ -66,7 +66,7 @@ export const shipmentCard = igniteCore({
 });
 ```
 
-`ShipmentProjection` flows into the `states`/`view` `context`, and `ShipmentRequest` flows into `actor.send`, all inferred from `shipmentReadModel` — no `igniteCore<...>` annotations. The projected `context` carries business/read-model state; updating it stays Actor-Web's job. Ignite sends requests back and re-renders when the next projection snapshot arrives.
+`ShipmentProjection` flows into the `view` `context`, and `ShipmentRequest` flows into `actor.send`, all inferred from `shipmentReadModel` — no `igniteCore<...>` annotations. The projected `context` carries business/read-model state; updating it stays Actor-Web's job. Ignite sends requests back and re-renders when the next projection snapshot arrives.
 
 :::note[Source shapes]
 `source` accepts a read-model source value (shown above), a command-capable source, a zero-argument factory, a host-context factory `({ host }) => source`, or an `ActorWebSourceHandle` — `{ source, commandSource?, stop? }` — that bundles both handles and a teardown. When a source exposes `close()`, Ignite calls it during adapter teardown. Passing a typed source **value** gives the cleanest inference; the `ignite-element/actor-web` entrypoint is required for zero-argument and defaulted factories (see [Source factory adapter inference](/ignite-element/concepts/the-ignite-model/)).
@@ -113,7 +113,7 @@ You only need a separate `commandSource` when the read model and the command cha
 
 ## Transport status
 
-Each projection snapshot carries transport metadata describing the runtime connection. Opt into it explicitly through the `transport` field on the `states`/`view` callback — most components should stay focused on business state.
+Each projection snapshot carries transport metadata describing the runtime connection. Opt into it explicitly through the `transport` field on the `view` callback — most components should stay focused on business state.
 
 `transport` is an `ActorWebTransportStatus`: `{ state, updatedAt, lastSequence?, lagMs?, reason? }`. The `state` is one of:
 
@@ -139,7 +139,7 @@ declare const shipmentReadModel: ActorWebReadModelSource<
 
 export const shipmentBadge = igniteCore({
   source: shipmentReadModel,
-  states: ({ context, transport }) => ({
+  view: ({ context, transport }) => ({
     shipmentId: context.shipmentId,
     status: context.status,
     syncState: transport.state,

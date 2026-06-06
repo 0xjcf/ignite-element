@@ -82,6 +82,18 @@ If you need expensive computed values, move the derivation into your state sourc
 For object snapshots (XState's extended state, a MobX store, a Redux state), the snapshot's own fields are spread onto the view context. So `snapshot.count` and `snapshot.context.count` are equivalent — use whichever reads best, and `view: ({ context }) => …` for the common path.
 :::
 
+:::note[View helpers are source-native]
+Helpers like `matches`, `can`, and `hasTag` come from the source snapshot, so they're only present when the source provides them — their types are `… | undefined`. Ignite doesn't polyfill a uniform set; you get your chosen library's ergonomics.
+
+| Helper | XState | Redux | MobX | Actor-Web |
+| --- | :---: | :---: | :---: | :---: |
+| `matches(state)` | ✅ | — | — | if the read model exposes it |
+| `can(event)` | ✅ | — | — | if the read model exposes it |
+| `hasTag(tag)` | ✅ | — | — | if the read model exposes it |
+
+For Redux and MobX, derive those booleans yourself in `view` (e.g. `canUndo: state.history.length > 0`). The deterministic-effects contract, `getView()`, and the headless runtime stay identical across all adapters — only these source-native helpers differ.
+:::
+
 ## Commands, events, and effects
 
 **Commands express intent; effects express consequences.** Commands are the UI → behavior boundary: keep them small and deterministic, send events to your source, and avoid IO (it belongs in adapters). They receive `{ actor, host }` (plus `store`/`observable` for those adapters).
