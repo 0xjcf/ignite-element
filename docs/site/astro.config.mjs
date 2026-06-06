@@ -2,6 +2,7 @@
 
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
+import starlightLlmsTxt from "starlight-llms-txt";
 import starlightVersions from "starlight-versions";
 
 // https://astro.build/config
@@ -12,6 +13,10 @@ export default defineConfig({
 		starlight({
 			title: "Ignite Element",
 			plugins: [
+				// Keep the frozen v2 archive out of the agent-facing llms output.
+				// Note: `exclude` only filters llms-small.txt; /llms-full.txt is
+				// injected by the plugin and always contains every page.
+				starlightLlmsTxt({ exclude: ["2.x/**"] }),
 				starlightVersions({
 					versions: [{ slug: "2.x", label: "2.x" }],
 					current: { label: "v3 (beta)" },
