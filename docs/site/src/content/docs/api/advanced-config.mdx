@@ -47,7 +47,9 @@ If your toolchain doesn't support `import.meta.url`, set `styles` to a fully qua
 
 ## `defineIgniteConfig` options
 
-`defineIgniteConfig(config: IgniteConfig): IgniteConfig` normalizes and registers the config, then returns the effective value.
+`defineIgniteConfig(config: IgniteConfig): IgniteConfig` normalizes and registers the config.
+
+**Returns** the normalized `IgniteConfig` that was registered (the effective value).
 
 | Option | Type | Default | Purpose |
 | --- | --- | --- | --- |
@@ -113,10 +115,10 @@ import {
 } from '@ignite-element/renderer';
 ```
 
-- `registerRenderStrategy(rendererId, factory)` — register a custom render-strategy factory under a renderer id. The built-in `ignite-jsx` (default) and `lit` strategies register themselves when you import their entry points.
-- `resolveRenderStrategy(rendererId)` — return the factory registered for an id, falling back to the default strategy (with a warning) if the id is unknown.
-- `getRegisteredRenderStrategies()` — list the renderer ids that currently have a registered strategy.
-- `getIgniteConfig()` — read the effective config registered by `defineIgniteConfig`; returns `undefined` when no config is registered.
+- `registerRenderStrategy(rendererId, factory)` — register a custom render-strategy factory under a renderer id. The built-in `ignite-jsx` (default) and `lit` strategies register themselves when you import their entry points. Returns nothing.
+- `resolveRenderStrategy(rendererId)` — returns the render-strategy factory registered for an id, falling back to the default strategy (with a warning) if the id is unknown.
+- `getRegisteredRenderStrategies()` — returns `string[]`: the renderer ids that currently have a registered strategy.
+- `getIgniteConfig()` — returns the effective `IgniteConfig` registered by `defineIgniteConfig`, or `undefined` when no config is registered.
 
 Other symbols on the package (`injectStyles`, `flushPendingStyles`, `getGlobalStyles`/`setGlobalStyles`) are `@internal` implementation details. Manage shared styles through `defineIgniteConfig({ styles })` instead.
 

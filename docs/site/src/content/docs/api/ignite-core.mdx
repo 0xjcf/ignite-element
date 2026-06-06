@@ -31,6 +31,10 @@ component('tag-name', (props) => /* JSX or lit template */);
 - `effects(snapshot, prevSnapshot, context)`: optional; runs after every state update and receives `{ emit, actor, host, select }`.
 - `cleanup`: defaults to `true`; shared adapter teardown override. When enabled, Ignite releases the shared adapter after the last element disconnects. Releasing the adapter stops Ignite-owned sources (e.g., XState machine actors); user-provided sources are never stopped.
 
+## Returns
+
+A **component factory** — call it as `component(tagName, renderer)` to register the custom element (returns nothing). The same value is also the [headless runtime](/ignite-element/api/headless-runtime/): it carries `execute`, `getState`, `getView`, `getSchema`, `on`, `watch`, `watchView`, and `record` for driving and inspecting the component without the DOM.
+
 ## Advanced overrides
 
 `cleanup` controls shared adapter teardown; most components won't need to change it.

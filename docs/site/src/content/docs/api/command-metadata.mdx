@@ -27,7 +27,9 @@ import { command } from '@ignite-element/core';
 
 ## `command(fn, metadata?)`
 
-Returns the original command function, tagged with non-enumerable metadata. Calling the command behaves exactly like calling `fn`; the wrapper only adds context for `getSchema()`. Passing no `metadata` returns the function unchanged.
+Attaches non-enumerable metadata to a command without changing its behavior: calling it behaves exactly like calling `fn`, and the metadata only surfaces in `getSchema()`.
+
+**Returns** the same command function `fn`, tagged with the metadata (passing no `metadata` returns `fn` unchanged).
 
 `metadata` is a `CommandMetadata` object:
 
