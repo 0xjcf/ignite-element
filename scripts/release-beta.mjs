@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { env, exit, stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 
@@ -127,6 +127,38 @@ const isPreMode = () => {
 	}
 };
 
+// Print the version bumps that `changeset version` WOULD apply, without touching
+// any files. `changeset status --output` writes a release plan (old -> new per
+// package) computed the same way as `version`, so this previews the exact next
+// version (e.g. 3.0.0-beta.2 -> 3.0.0-beta.3 in pre mode). `--dry-run` never
+// bumps, so this is the only place the next version is visible before publishing.
+const printPlannedVersions = () => {
+	const out = ".release-beta-plan.json";
+	try {
+		execSync(`pnpm changeset status --output=${out}`, { stdio: "ignore" });
+		const plan = JSON.parse(readFileSync(out, "utf8"));
+		const releases = (plan.releases ?? []).filter((r) => r.type !== "none");
+		if (releases.length === 0) {
+			console.log(
+				"[release:beta] No pending changesets — no version bump (current versions would publish as-is).",
+			);
+			return;
+		}
+		console.log("\n[release:beta] Planned version bumps:");
+		for (const r of releases) {
+			console.log(`  ${r.name}: ${r.oldVersion} → ${r.newVersion} (${r.type})`);
+		}
+	} catch (error) {
+		console.warn(
+			`[release:beta] Could not compute planned versions: ${
+				error instanceof Error ? error.message : error
+			}`,
+		);
+	} finally {
+		rmSync(out, { force: true });
+	}
+};
+
 const main = async () => {
 	// Disable husky for every command this script spawns. `changeset version`
 	// (config `commit: true`) makes its own git commit with the message
@@ -177,6 +209,8 @@ const main = async () => {
 				? `[release:beta] ${pendingChangesets.length} pending changeset(s) would be applied by \`changeset version\`.`
 				: "[release:beta] No pending changesets; current package versions would be published as-is.",
 		);
+		// Show the actual next version(s) — the real run bumps these before publish.
+		printPlannedVersions();
 		// IMPORTANT: `changeset publish --dry-run` is NOT honored by changesets and
 		// performs a real publish. Use pnpm's publish dry-run, which only packs the
 		// tarballs and writes nothing to the registry, for a genuinely inert preview.
@@ -188,6 +222,7 @@ const main = async () => {
 	}
 
 	if (pendingChangesets.length > 0) {
+		printPlannedVersions();
 		run("pnpm changeset version");
 		run("pnpm install --no-frozen-lockfile");
 	} else {

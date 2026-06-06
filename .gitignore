@@ -70,3 +70,6 @@ fas
 
 # Temp dir from the docs code-example guardrail
 docs/site/.doc-typecheck/
+
+# Transient release plan written by scripts/release-beta.mjs (auto-deleted)
+.release-beta-plan.json
