@@ -2,6 +2,7 @@
 
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
+import remarkGfm from "remark-gfm";
 import starlightLlmsTxt from "starlight-llms-txt";
 import starlightVersions from "starlight-versions";
 
@@ -9,6 +10,12 @@ import starlightVersions from "starlight-versions";
 export default defineConfig({
 	site: "https://0xjcf.github.io",
 	base: "/ignite-element",
+	// Astro's built-in GFM isn't reaching the Starlight MDX pipeline in this
+	// Astro 6 / Starlight 0.39 setup, so GFM tables render as literal pipes.
+	// Apply remark-gfm explicitly so `| … |` tables (and other GFM) render.
+	markdown: {
+		remarkPlugins: [remarkGfm],
+	},
 	integrations: [
 		starlight({
 			title: "Ignite Element",
