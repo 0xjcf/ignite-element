@@ -1,3 +1,7 @@
+/**
+ * @deprecated The `states` projection callback is deprecated in favor of the
+ * `view` callback (`FacadeViewCallback`). Removed at stable v3.
+ */
 export type FacadeStatesCallback<
 	Snapshot,
 	Result extends Record<string, unknown> = Record<string, unknown>,
