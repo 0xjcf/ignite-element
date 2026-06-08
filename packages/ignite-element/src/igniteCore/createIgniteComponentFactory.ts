@@ -31,6 +31,7 @@ export type IgniteComponentFactoryOptions<
 	CommandsResult extends FacadeCommandResult,
 	Events extends EventMap = EmptyEventMap,
 > = {
+	/** @deprecated Use `view` instead. Removed at stable v3. */
 	states?: FacadeStatesCallback<Snapshot, StatesResult>;
 	view?: FacadeViewCallback<Snapshot, StatesResult>;
 	commands?: FacadeCommandsCallback<CommandActor, CommandsResult, HTMLElement>;

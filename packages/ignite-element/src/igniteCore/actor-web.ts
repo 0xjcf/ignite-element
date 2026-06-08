@@ -87,6 +87,7 @@ type ActorWebSubpathConfig<
 		StatesResult,
 		CommandsResult
 	>["view"];
+	/** @deprecated Use `view` instead. Removed at stable v3. */
 	states?: ActorWebConfig<
 		Context,
 		Message,

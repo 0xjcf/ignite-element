@@ -250,6 +250,7 @@ export type ActorWebConfig<
 	> = ActorWebSourceLike<Context, Message, Emitted>,
 > = {
 	view?: FacadeViewCallback<ActorWebExtendedState<Context>, StatesResult>;
+	/** @deprecated Use `view` instead. Removed at stable v3. */
 	states?: FacadeStatesCallback<ActorWebExtendedState<Context>, StatesResult>;
 	commandSource?: ActorWebCommandSourceLike<Context, Message, Emitted>;
 	commands?: FacadeCommandsCallback<

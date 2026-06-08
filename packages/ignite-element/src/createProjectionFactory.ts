@@ -49,6 +49,7 @@ export type ProjectionFactoryOptions<
 	Host = unknown,
 > = {
 	scope?: StateScope;
+	/** @deprecated Use `view` instead. Removed at stable v3. */
 	states?: FacadeStatesCallback<Snapshot, StatesResult>;
 	view?: FacadeViewCallback<Snapshot, StatesResult>;
 	commands?: FacadeCommandsCallback<CommandActor, CommandsResult, Host>;
@@ -118,6 +119,20 @@ const isDevelopment = () => process.env.NODE_ENV !== "production";
 
 function freezeIfDev<T extends object>(value: T): T {
 	return isDevelopment() ? Object.freeze(value) : value;
+}
+
+// Warns at most once per process (never in production) when the deprecated
+// `states` projection alias is used without the canonical `view`.
+let warnedStatesDeprecation = false;
+
+function warnStatesDeprecation(): void {
+	if (!isDevelopment() || warnedStatesDeprecation) {
+		return;
+	}
+	warnedStatesDeprecation = true;
+	console.warn(
+		"[igniteCore] The `states` config option is deprecated and will be removed in stable v3. Use `view` instead.",
+	);
 }
 
 const createViewContext = <Snapshot>(
@@ -221,6 +236,10 @@ export function createProjectionFactory<
 		debugName,
 	} = options ?? {};
 	const errorPrefix = debugName ?? "createProjectionFactory";
+
+	if (states && !view) {
+		warnStatesDeprecation();
+	}
 
 	const resolveSnapshot =
 		resolveStateSnapshot ??
