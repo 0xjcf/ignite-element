@@ -180,7 +180,8 @@ export type IgniteAgentSnapshotListener<Snapshot> = (
 ) => void;
 
 /** @deprecated Use `IgniteAgentSnapshotListener` instead. Removed at stable v3. */
-export type IgniteAgentStateListener<State> = IgniteAgentSnapshotListener<State>;
+export type IgniteAgentStateListener<State> =
+	IgniteAgentSnapshotListener<State>;
 
 export type IgniteAgentSubscription = {
 	unsubscribe: () => void;
@@ -215,7 +216,9 @@ export type IgniteAgentRuntime<
 	): IgniteAgentSubscription;
 	/** @deprecated Use `watchSnapshot(handler)` instead. Removed at stable v3. */
 	watch(handler: IgniteAgentSnapshotListener<State>): IgniteAgentSubscription;
-	watchView(handler: IgniteAgentSnapshotListener<View>): IgniteAgentSubscription;
+	watchView(
+		handler: IgniteAgentSnapshotListener<View>,
+	): IgniteAgentSubscription;
 	getSchema(): IgniteAgentSchema<SchemaState>;
 	record(name: string): IgniteStory<State, Commands, Events, View>;
 };
