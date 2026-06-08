@@ -1,6 +1,6 @@
 ---
 title: Headless runtime
-description: The agent runtime API on the igniteCore return — execute, getState, getView, getSchema, on, watch, watchView, and record.
+description: The agent runtime API on the igniteCore return — execute, getSnapshot, getView, getSchema, on, watchSnapshot, watchView, and record.
 sidebar:
   label: Headless runtime
   order: 4
@@ -31,7 +31,7 @@ const counter = igniteCore({
 
 // Register a DOM projection later — the runtime is available immediately.
 const { state, events } = await counter.execute('toggle');
-const current = counter.getState();
+const current = counter.getSnapshot();
 const view = counter.getView();
 const schema = counter.getSchema();
 ```
@@ -60,15 +60,17 @@ The shape:
 
 `events` is the same ordered stream the runtime emitted for that transition, so assertions stay deterministic and align with the events delivered to `on(...)` listeners.
 
-### `getState()`
+### `getSnapshot()`
 
-Returns the current raw state snapshot of the underlying source.
+Returns the current raw snapshot of the underlying source.
 
 **Returns** `State` — the underlying source snapshot (the XState snapshot, the Redux state, or the MobX observable value).
 
 ```ts
-const state = counter.getState();
+const snapshot = counter.getSnapshot();
 ```
+
+The older `getState()` alias is deprecated — prefer `getSnapshot()`. It still works (emitting a dev-mode warning) and is removed at stable v3.
 
 ### `getView()`
 
@@ -96,17 +98,19 @@ subscription.unsubscribe();
 
 Use `on(...)` for the public events your component emits through `effects`. (The older `subscribe(eventName, handler)` alias is deprecated — prefer `on`.)
 
-### `watch(handler)`
+### `watchSnapshot(handler)`
 
-Subscribes to **raw state** updates. The handler receives `(state, prevState)` on every source update.
+Subscribes to **raw snapshot** updates. The handler receives `(snapshot, prevSnapshot)` on every source update.
 
 **Returns** a subscription — `{ unsubscribe(): void }`.
 
 ```ts
-const subscription = counter.watch((state, prevState) => {
-  console.log(prevState.value, '->', state.value);
+const subscription = counter.watchSnapshot((snapshot, prevSnapshot) => {
+  console.log(prevSnapshot.value, '->', snapshot.value);
 });
 ```
+
+The older `watch(handler)` alias is deprecated — prefer `watchSnapshot()`. It still works (emitting a dev-mode warning) and is removed at stable v3.
 
 ### `watchView(handler)`
 

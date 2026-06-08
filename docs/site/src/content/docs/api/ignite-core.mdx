@@ -33,7 +33,7 @@ component('tag-name', (props) => /* JSX or lit template */);
 
 ## Returns
 
-A **component factory** — call it as `component(tagName, renderer)` to register the custom element (returns nothing). The same value is also the [headless runtime](/ignite-element/api/headless-runtime/): it carries `execute`, `getState`, `getView`, `getSchema`, `on`, `watch`, `watchView`, and `record` for driving and inspecting the component without the DOM.
+A **component factory** — call it as `component(tagName, renderer)` to register the custom element (returns nothing). The same value is also the [headless runtime](/ignite-element/api/headless-runtime/): it carries `execute`, `getSnapshot`, `getView`, `getSchema`, `on`, `watchSnapshot`, `watchView`, and `record` for driving and inspecting the component without the DOM.
 
 ## Advanced overrides
 
@@ -50,7 +50,7 @@ See [The Ignite model](/ignite-element/concepts/the-ignite-model/) for adapter-s
 
 ## Headless runtime
 
-Every component registration also exposes a headless runtime (`execute`, `getState`, `getView`, `getSchema`, `on`, `watch`, `watchView`, `record`) for driving and inspecting behavior without the DOM. See [Headless runtime](/ignite-element/api/headless-runtime/) for the full method reference.
+Every component registration also exposes a headless runtime (`execute`, `getSnapshot`, `getView`, `getSchema`, `on`, `watchSnapshot`, `watchView`, `record`) for driving and inspecting behavior without the DOM. See [Headless runtime](/ignite-element/api/headless-runtime/) for the full method reference.
 
 ## Related
 
