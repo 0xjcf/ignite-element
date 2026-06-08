@@ -935,7 +935,7 @@ describe("igniteCore type inference", () => {
 		register.on("counter-incremented", (event) => {
 			expectTypeOf(event.detail).toEqualTypeOf<{ count: number }>();
 		});
-		register.watch((state, prevState) => {
+		register.watchSnapshot((state, prevState) => {
 			expectTypeOf(state).toEqualTypeOf<StoreState>();
 			expectTypeOf(prevState).toEqualTypeOf<StoreState>();
 		});

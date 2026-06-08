@@ -389,7 +389,7 @@ describe("igniteCore", () => {
 			}),
 		});
 
-		expect(register.getState().context.status).toBe("idle");
+		expect(register.getSnapshot().context.status).toBe("idle");
 		expect(register.getView()).toEqual({
 			status: "idle",
 			shipmentId: null,
@@ -412,7 +412,7 @@ describe("igniteCore", () => {
 			reason: "gateway disconnected",
 		});
 
-		expect(register.getState()).toMatchObject({
+		expect(register.getSnapshot()).toMatchObject({
 			context: {
 				shipmentId: "shipment-1001",
 				status: "created",
@@ -474,7 +474,7 @@ describe("igniteCore", () => {
 			}),
 		});
 
-		expect(register.getState().context.status).toBe("idle");
+		expect(register.getSnapshot().context.status).toBe("idle");
 		expect(register.getView()).toEqual({
 			status: "idle",
 			shipmentId: null,
@@ -496,7 +496,7 @@ describe("igniteCore", () => {
 			reason: "gateway disconnected",
 		});
 
-		expect(register.getState()).toMatchObject({
+		expect(register.getSnapshot()).toMatchObject({
 			context: {
 				shipmentId: "shipment-1001",
 				status: "created",
@@ -957,12 +957,12 @@ describe("igniteCore", () => {
 			expect(view).toEqual({ count: 3, isEven: false });
 		});
 		const eventSubscription = register.on("counter-incremented", listener);
-		const stateSubscription = register.watch(watchListener);
+		const stateSubscription = register.watchSnapshot(watchListener);
 		const viewSubscription = register.watchView(watchViewListener);
 
 		const result = await register.execute("increment", 3);
 
-		expect(register.getState().counter.count).toBe(3);
+		expect(register.getSnapshot().counter.count).toBe(3);
 		expect(register.getView()).toEqual({ count: 3, isEven: false });
 		expect(result.state.counter.count).toBe(3);
 		expect(result.events).toEqual([
@@ -1516,7 +1516,7 @@ describe("igniteCore", () => {
 		register.execute("addSmall", 2);
 		register.execute("addLarge", 5);
 
-		expect(register.getState().counter.count).toBe(7);
+		expect(register.getSnapshot().counter.count).toBe(7);
 		expect(register.getSchema().commands).toEqual({
 			addLarge: {
 				description: "Add a larger amount.",
