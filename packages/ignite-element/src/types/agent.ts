@@ -174,10 +174,13 @@ export type IgniteAgentEventListener<
 	Type extends keyof Events & string = keyof Events & string,
 > = (event: CustomEvent<EventPayload<Events[Type]>>) => void;
 
-export type IgniteAgentStateListener<State> = (
-	state: State,
-	prevState: State,
+export type IgniteAgentSnapshotListener<Snapshot> = (
+	snapshot: Snapshot,
+	prevSnapshot: Snapshot,
 ) => void;
+
+/** @deprecated Use `IgniteAgentSnapshotListener` instead. Removed at stable v3. */
+export type IgniteAgentStateListener<State> = IgniteAgentSnapshotListener<State>;
 
 export type IgniteAgentSubscription = {
 	unsubscribe: () => void;
@@ -194,6 +197,8 @@ export type IgniteAgentRuntime<
 		commandName: CommandName,
 		payload?: CommandPayload<Commands, CommandName>,
 	): Promise<IgniteAgentExecutionResult<State, Events>>;
+	getSnapshot(): State;
+	/** @deprecated Use `getSnapshot()` instead. Removed at stable v3. */
 	getState(): State;
 	getView(): View;
 	on<Type extends keyof Events & string>(
@@ -205,8 +210,12 @@ export type IgniteAgentRuntime<
 		eventName: Type,
 		handler: IgniteAgentEventListener<Events, Type>,
 	): IgniteAgentSubscription;
-	watch(handler: IgniteAgentStateListener<State>): IgniteAgentSubscription;
-	watchView(handler: IgniteAgentStateListener<View>): IgniteAgentSubscription;
+	watchSnapshot(
+		handler: IgniteAgentSnapshotListener<State>,
+	): IgniteAgentSubscription;
+	/** @deprecated Use `watchSnapshot(handler)` instead. Removed at stable v3. */
+	watch(handler: IgniteAgentSnapshotListener<State>): IgniteAgentSubscription;
+	watchView(handler: IgniteAgentSnapshotListener<View>): IgniteAgentSubscription;
 	getSchema(): IgniteAgentSchema<SchemaState>;
 	record(name: string): IgniteStory<State, Commands, Events, View>;
 };

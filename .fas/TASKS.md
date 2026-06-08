@@ -734,6 +734,93 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: Runtime+types: add getSnapshot/watchSnapshot canonical + deprecate getState/watch/subscribe
+
+- Title: Runtime+types: add getSnapshot/watchSnapshot canonical + deprecate getState/watch/subscribe
+- Mode: single-agent
+- Status: implementing
+- Owner: implementer
+- Brief: .fas/tasks/runtime-types-add-getsnapshot-watchsnapshot-canonical-dep.md
+- Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Config: deprecate states alias, canonicalize on view (+ dev warn)
+
+- Title: Config: deprecate states alias, canonicalize on view (+ dev warn)
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/config-deprecate-states-alias-canonicalize-on-view-dev.md
+### Task: Tests: migrate runtime/config usages to canonical names; keep alias-coverage tests
+
+- Title: Tests: migrate runtime/config usages to canonical names; keep alias-coverage tests
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/tests-migrate-runtime-config-usages-to-canonical-names-kee.md
+- Automation mode: advisory
+### Task: Docs: canonical getSnapshot/watchSnapshot/view names + deprecation asides
+
+- Title: Docs: canonical getSnapshot/watchSnapshot/view names + deprecation asides
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/docs-canonical-getsnapshot-watchsnapshot-view-names-depre.md
+- Automation mode: advisory
+### Task: Changeset: minor bump for additive canonical names + deprecations
+
+- Title: Changeset: minor bump for additive canonical names + deprecations
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/changeset-minor-bump-for-additive-canonical-names-depreca.md
+### Task: Release beta.4 via pnpm release:beta
+
+- Title: Release beta.4 via pnpm release:beta
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/release-beta-4-via-pnpm-release-beta.md
+### Task: Stable-v3 follow-up: remove deprecated runtime/config surface at changeset pre exit
+
+- Title: Stable-v3 follow-up: remove deprecated runtime/config surface at changeset pre exit
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/stable-v3-follow-up-remove-deprecated-runtime-config-surfac.md
+- Automation mode: advisory
+### Task: Unify Actor-Web source contract: import canonical types from @actor-core/runtime, delete hand-copy
+
+- Title: Unify Actor-Web source contract: import canonical types from @actor-core/runtime, delete hand-copy
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/unify-actor-web-source-contract-import-canonical-types-from.md
+- Automation mode: advisory
+### Task: Docs: Actor-Web producer->igniteCore mapping (readModel/commandSource/sourceHandle, opts, merge paths)
+
+- Title: Docs: Actor-Web producer->igniteCore mapping (readModel/commandSource/sourceHandle, opts, merge paths)
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/docs-actor-web-producer-ignitecore-mapping-readmodel-comm.md
+### Task: igniteCore send() command helper + Command|(payload)=>Command semantics
+
+- Title: igniteCore send() command helper + Command|(payload)=>Command semantics
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/ignitecore-send-command-helper-command-payload-comman.md
+### Task: Auto-bridge actor-web source domain emits to headless runtime events
+
+- Title: Auto-bridge actor-web source domain emits to headless runtime events
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/auto-bridge-actor-web-source-domain-emits-to-headless-runtim.md
+- Automation mode: advisory
 ## Template
 
 ### Task: <short task title>

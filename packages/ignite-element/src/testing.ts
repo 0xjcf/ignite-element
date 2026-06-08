@@ -656,7 +656,7 @@ class IgniteTestDriver<
 	) {}
 
 	given(expected: IgniteStateExpectation<State>) {
-		assertState("given", this.component.getState(), expected);
+		assertState("given", this.component.getSnapshot(), expected);
 		return this;
 	}
 
@@ -672,7 +672,7 @@ class IgniteTestDriver<
 	}
 
 	expectState(expected: IgniteStateExpectation<State>) {
-		const state = this.lastResult?.state ?? this.component.getState();
+		const state = this.lastResult?.state ?? this.component.getSnapshot();
 		assertState("expectState", state, expected);
 		return this;
 	}

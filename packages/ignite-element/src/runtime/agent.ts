@@ -13,6 +13,23 @@ import type { IgniteSchemaValue } from "../types/schema";
 import { commandMetadataSymbol } from "./commands";
 import { toSchemaValue } from "./schema";
 
+// Tracks which deprecated runtime members have already warned, so each emits at
+// most once per process (never in production).
+const warnedDeprecations = new Set<string>();
+
+function warnDeprecated(name: string, replacement: string): void {
+	if (process.env.NODE_ENV === "production") {
+		return;
+	}
+	if (warnedDeprecations.has(name)) {
+		return;
+	}
+	warnedDeprecations.add(name);
+	console.warn(
+		`[igniteCore] \`${name}\` is deprecated and will be removed in stable v3. Use \`${replacement}\` instead.`,
+	);
+}
+
 type RuntimeResources<
 	State,
 	Event,
@@ -171,8 +188,15 @@ export function createAgentRuntime<
 		};
 	};
 
-	const watch = (handler: (state: State, prevState: State) => void) => {
+	const watchSnapshot = (
+		handler: (snapshot: State, prevSnapshot: State) => void,
+	) => {
 		return createWatcher((adapter) => adapter.getState(), handler);
+	};
+
+	const watch = (handler: (state: State, prevState: State) => void) => {
+		warnDeprecated("watch", "watchSnapshot");
+		return watchSnapshot(handler);
 	};
 
 	const watchView = (handler: (view: View, prevView: View) => void) => {
@@ -395,7 +419,11 @@ export function createAgentRuntime<
 
 	const runtime = {
 		execute: executeCommand,
+		getSnapshot() {
+			return resolveRuntime().adapter.getState();
+		},
 		getState() {
+			warnDeprecated("getState", "getSnapshot");
 			return resolveRuntime().adapter.getState();
 		},
 		getView() {
@@ -425,7 +453,14 @@ export function createAgentRuntime<
 		},
 		on,
 		record,
-		subscribe: on,
+		subscribe(
+			eventName: string,
+			handler: (event: CustomEvent<unknown>) => void,
+		) {
+			warnDeprecated("subscribe", "on");
+			return on(eventName, handler);
+		},
+		watchSnapshot,
 		watch,
 		watchView,
 	};
