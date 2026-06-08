@@ -48,6 +48,7 @@ type ReduxBlueprintBaseConfig<
 > = {
 	adapter?: "redux";
 	source: Source;
+	/** @deprecated Use `view` instead. Removed at stable v3. */
 	states?: FacadeStatesCallback<
 		InferStateAndEvent<Source>["State"],
 		StatesResult
@@ -107,6 +108,7 @@ type ReduxInstanceBaseConfig<
 > = {
 	adapter?: "redux";
 	source: StoreInstance;
+	/** @deprecated Use `view` instead. Removed at stable v3. */
 	states?: FacadeStatesCallback<
 		InferStateAndEvent<StoreInstance>["State"],
 		StatesResult
@@ -169,6 +171,7 @@ type MobxBaseConfig<
 > = {
 	adapter?: "mobx";
 	source: (() => State) | State;
+	/** @deprecated Use `view` instead. Removed at stable v3. */
 	states?: FacadeStatesCallback<State, StatesResult>;
 	view?: FacadeViewCallback<State, StatesResult>;
 	commands?: FacadeCommandsCallback<State, CommandsResult, Host>;
