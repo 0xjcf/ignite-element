@@ -72,6 +72,27 @@ export const shipmentCard = igniteCore({
 `source` accepts a read-model source value (shown above), a command-capable source, a zero-argument factory, a host-context factory `({ host }) => source`, or an `ActorWebSourceHandle` — `{ source, commandSource?, stop? }` — that bundles both handles and a teardown. When a source exposes `close()`, Ignite calls it during adapter teardown. Passing a typed source **value** gives the cleanest inference; the `ignite-element/actor-web` entrypoint is required for zero-argument and defaulted factories (see [Source factory adapter inference](/ignite-element/concepts/the-ignite-model/)).
 :::
 
+## Where sources come from
+
+Your Actor-Web runtime owns the sources and hands Ignite ready-made handles — Ignite never constructs them, and `ignite-element` core has no dependency on actor-web (the binding lives only in the optional `ignite-element/actor-web` entrypoint). A runtime topology typically exposes one source factory per shape; each maps to an `igniteCore` key:
+
+| Actor-Web source factory | Hands you | Pass to `igniteCore` as |
+| --- | --- | --- |
+| `readModel(options)` | a read-only projection (`snapshot`/`subscribe`, no `send`) | `source` |
+| `commandSource(options)` | a read model **plus** `send`/`ask` | `commandSource` — or `source` to use one command-capable handle for both |
+| `sourceHandle(options)` | a `{ source, commandSource }` bundle | `source` (the adapter unpacks it) |
+
+`options` is **connection config, not actor identity** — the gateway URL, auth, scope, and transport (`{ gateway: { url, scope?, auth? }, … }`). The actor is already selected by the topology path. Refer to your Actor-Web runtime's source/topology API for the exact factory signatures.
+
+### Merge vs split
+
+- **One handle does both:** if the runtime gives you a command-capable source, pass it as `source` and omit `commandSource` — the adapter reuses the same handle for reads and commands.
+- **Separate handles:** pass the read model as `source` and the command channel as `commandSource`, or bundle them up front (actor-web's `createActorWebSourceHandle(readModel, commandSource)`) and pass the bundle as `source`.
+
+:::caution[Read-only sources can't send]
+If `source` is a read-model handle with no command channel and you don't supply a `commandSource`, command dispatch is a no-op — the adapter logs a dev warning and drops the message. Supply a `commandSource` whenever the component issues `send`/`ask` commands.
+:::
+
 ## send vs ask
 
 Commands cross the boundary through explicit requests on the command actor:
