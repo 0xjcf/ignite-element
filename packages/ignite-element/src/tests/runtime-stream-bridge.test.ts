@@ -36,7 +36,17 @@ function makeHarness(commands: Record<string, () => void> = {}) {
 		Record<string, unknown>
 	>({
 		eventTypes: ["ui-event"],
-		resolveRuntime: () => ({ adapter, additionalArgs: commands, host }),
+		resolveRuntime: () => ({
+			// E2 keeps the runtime adapter typed at Emitted=never; the Emitted->Events
+			// static thread lands in E3 (actor-web). The runtime reads stream()
+			// structurally, so a test-only cast is sufficient here.
+			adapter: adapter as unknown as IgniteAdapter<
+				typeof state,
+				{ type: string }
+			>,
+			additionalArgs: commands,
+			host,
+		}),
 		resolveView: () => ({}),
 	});
 
