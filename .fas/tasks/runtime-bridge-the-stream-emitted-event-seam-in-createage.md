@@ -1,16 +1,24 @@
-# Docs: Actor-Web producer->igniteCore mapping (readModel/commandSource/sourceHandle, opts, merge paths)
+# Runtime: bridge the stream() emitted-event seam in createAge
 
 ## Source
-Created with `fas create-task` on 2026-06-06.
+Created with `fas create-task` on 2026-06-09.
 
 ## Problem
-Spike addendum: .fas/state/spikes/agent-runtime-api-review.md (I2, C10). In docs/site/src/content/docs/guides/actor-web.mdx (+ api/advanced-config / api/ignite-core where relevant): document that topology.actors.X.readModel(opts)->igniteCore source, commandSource(opts)->commandSource, sourceHandle(opts)->source bundle; that opts is gateway/transport config { gateway:{url,scope?,auth?}, streamId?, createSocket?, clientVersion? } and NOT actor identity; and the two merge paths (pass commandSource() alone as source, or createActorWebSourceHandle(readModel, commandSource)). Clarify the silent-drop failure mode when a read-only source has no commandSource. Do NOT edit 2.x archive.
+Spike E2 (D4). In runtime/agent.ts: when resolveRuntime().adapter exposes stream(), (1) subscribe for the component lifetime and re-dispatch each emitted event as a host CustomEvent(type, {detail}) so on(type) works for any emitted type; (2) in executeCommand, additionally capture emits via a transient stream() subscription during the command window (start -> microtask flush) and merge into result.events independent of eventTypes; record() inherits via executeCommand. Clean up subscriptions on teardown. effects-emitted (declared) events keep working alongside.
+
+## Automation admission
+- Expected operator value: Improves operator leverage around "Runtime: bridge the stream() emitted-event seam in createAgentRuntime" by reducing manual coordination, repetitive execution, or trust gaps.
+- Observability surface: Use authoritative FAS surfaces such as `fas runtime status`, `fas runtime watch`, workflow logs, receipts, or notifications to show whether the automation is active, quiet, stalled, blocked, or complete.
+- Recovery path: A human can abort, retry, recover, or rerun this workflow without leaving stale queue, lease, branch, or current-task state.
+- Autonomy mode: advisory
+- Promotion criteria: Promote beyond advisory only after dogfood runs prove clear operator value, trustworthy observability, and bounded recovery.
 
 ## Acceptance criteria
-- guide documents the readModel/commandSource/sourceHandle -> igniteCore mapping and opts shape
-- merge paths documented
-- read-only-without-commandSource failure mode documented
-- 2.x untouched
+- on(type) receives actor emits
+- execute().events includes dynamic emit types
+- record() trace includes them
+- declared events still work
+- no leaked subscriptions
 - TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
 - TDD: every production code change in the change set is covered by an added or updated test.
 - DDD: respect domain boundaries — keep the functional core deterministic and side-effect-free (no reads, writes, network, or clock), confine coordination to the imperative shell, and have adapters return facts instead of throwing.
@@ -25,15 +33,11 @@ Spike addendum: .fas/state/spikes/agent-runtime-api-review.md (I2, C10). In docs
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- docs/site/src/content/docs/guides/actor-web.mdx
-- docs/site/src/content/docs/api/advanced-config.mdx
-- docs/site/src/content/docs/api/ignite-core.mdx
+- packages/ignite-element/src/runtime/agent.ts
+- packages/ignite-element/src/IgniteElementFactory.ts
 
 ## Scope Amendments
-- Type: scope-reduction
-- Added at: 2026-06-09
-- Trigger: producer mapping is actor-web-specific; belongs only in the actor-web guide
-- Reason: Documented the source-factory->igniteCore mapping, opts (gateway config), merge paths, and read-only failure mode in guides/actor-web.mdx only. api/advanced-config and api/ignite-core were in the original hint but don't document actor-web producer APIs (cross-adapter/uniform reference), so they are intentionally not touched.
+- None.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

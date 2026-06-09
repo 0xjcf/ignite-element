@@ -1,16 +1,16 @@
-# Docs: Actor-Web producer->igniteCore mapping (readModel/commandSource/sourceHandle, opts, merge paths)
+# Adapters: implement stream() in ActorWebAdapter (wrap source
 
 ## Source
-Created with `fas create-task` on 2026-06-06.
+Created with `fas create-task` on 2026-06-09.
 
 ## Problem
-Spike addendum: .fas/state/spikes/agent-runtime-api-review.md (I2, C10). In docs/site/src/content/docs/guides/actor-web.mdx (+ api/advanced-config / api/ignite-core where relevant): document that topology.actors.X.readModel(opts)->igniteCore source, commandSource(opts)->commandSource, sourceHandle(opts)->source bundle; that opts is gateway/transport config { gateway:{url,scope?,auth?}, streamId?, createSocket?, clientVersion? } and NOT actor identity; and the two merge paths (pass commandSource() alone as source, or createActorWebSourceHandle(readModel, commandSource)). Clarify the silent-drop failure mode when a read-only source has no commandSource. Do NOT edit 2.x archive.
+Spike E3 (D6). Implement stream() on the actor-web IgniteAdapter in packages/ignite-adapters/src/adapters/ActorWebAdapter.ts by wrapping the source's subscribeEvent (bare unsub fn) into the { unsubscribe() } shape, typed from the Emitted union. Other adapters (xstate/redux/mobx) omit stream(). No external actor-web import (duck-typed); core-decoupling.test.ts stays green.
 
 ## Acceptance criteria
-- guide documents the readModel/commandSource/sourceHandle -> igniteCore mapping and opts shape
-- merge paths documented
-- read-only-without-commandSource failure mode documented
-- 2.x untouched
+- ActorWebAdapter.stream() wraps subscribeEvent -> {unsubscribe}
+- typed from Emitted
+- other adapters omit it
+- no external actor-web import
 - TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
 - TDD: every production code change in the change set is covered by an added or updated test.
 - DDD: respect domain boundaries — keep the functional core deterministic and side-effect-free (no reads, writes, network, or clock), confine coordination to the imperative shell, and have adapters return facts instead of throwing.
@@ -25,15 +25,10 @@ Spike addendum: .fas/state/spikes/agent-runtime-api-review.md (I2, C10). In docs
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- docs/site/src/content/docs/guides/actor-web.mdx
-- docs/site/src/content/docs/api/advanced-config.mdx
-- docs/site/src/content/docs/api/ignite-core.mdx
+- packages/ignite-adapters/src/adapters/ActorWebAdapter.ts
 
 ## Scope Amendments
-- Type: scope-reduction
-- Added at: 2026-06-09
-- Trigger: producer mapping is actor-web-specific; belongs only in the actor-web guide
-- Reason: Documented the source-factory->igniteCore mapping, opts (gateway config), merge paths, and read-only failure mode in guides/actor-web.mdx only. api/advanced-config and api/ignite-core were in the original hint but don't document actor-web producer APIs (cross-adapter/uniform reference), so they are intentionally not touched.
+- None.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

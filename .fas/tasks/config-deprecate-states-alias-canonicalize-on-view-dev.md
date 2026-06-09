@@ -1,4 +1,4 @@
-# Config: deprecate states alias, canonicalize on view (+ dev 
+# Config: deprecate states alias, canonicalize on view (+ dev warn)
 
 ## Source
 Created with `fas create-task` on 2026-06-06.
@@ -29,9 +29,17 @@ Spike: .fas/state/spikes/agent-runtime-api-review.md (D1). Add @deprecated JSDoc
 - packages/ignite-element/src/igniteCore/types.ts
 - packages/ignite-element/src/igniteCore/actor-web.ts
 - packages/ignite-core/src/RenderArgs.ts
+- packages/ignite-element/src/igniteCore/createIgniteComponentFactory.ts
+- packages/ignite-adapters/src/xstate.ts
+- packages/ignite-adapters/src/types.ts
+- packages/ignite-element/src/tests/config-states-deprecation.test.ts
 
 ## Scope Amendments
-- None.
+- Type: scope-completion + test-coverage
+- Added at: 2026-06-08
+- Trigger: deprecate-everywhere required per-adapter config declarations beyond the auto-planned scope
+- Reason: @deprecated must sit on each user-facing states?: property for IDE/agent strikethrough (a type-alias @deprecated does not flag the property), so all per-adapter config declarations (xstate.ts, redux+mobx in adapters/types.ts, createIgniteComponentFactory.ts) were marked, plus the new test. RenderArgs FacadeStatesCallback alias intentionally NOT deprecated — it is internal plumbing removed wholesale at stable v3 (T7), and marking it now adds internal hint-noise during beta.
+- Added paths: packages/ignite-element/src/igniteCore/createIgniteComponentFactory.ts, packages/ignite-adapters/src/xstate.ts, packages/ignite-adapters/src/types.ts, packages/ignite-element/src/tests/config-states-deprecation.test.ts
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

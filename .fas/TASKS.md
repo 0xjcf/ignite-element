@@ -738,7 +738,7 @@ No active tasks.
 
 - Title: Runtime+types: add getSnapshot/watchSnapshot canonical + deprecate getState/watch/subscribe
 - Mode: single-agent
-- Status: implementing
+- Status: done
 - Owner: implementer
 - Brief: .fas/tasks/runtime-types-add-getsnapshot-watchsnapshot-canonical-dep.md
 - Automation mode: advisory
@@ -750,32 +750,48 @@ No active tasks.
 
 - Title: Config: deprecate states alias, canonicalize on view (+ dev warn)
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/config-deprecate-states-alias-canonicalize-on-view-dev.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ### Task: Tests: migrate runtime/config usages to canonical names; keep alias-coverage tests
 
 - Title: Tests: migrate runtime/config usages to canonical names; keep alias-coverage tests
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/tests-migrate-runtime-config-usages-to-canonical-names-kee.md
 - Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ### Task: Docs: canonical getSnapshot/watchSnapshot/view names + deprecation asides
 
 - Title: Docs: canonical getSnapshot/watchSnapshot/view names + deprecation asides
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/docs-canonical-getsnapshot-watchsnapshot-view-names-depre.md
 - Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ### Task: Changeset: minor bump for additive canonical names + deprecations
 
 - Title: Changeset: minor bump for additive canonical names + deprecations
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/changeset-minor-bump-for-additive-canonical-names-depreca.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ### Task: Release beta.4 via pnpm release:beta
 
 - Title: Release beta.4 via pnpm release:beta
@@ -803,9 +819,13 @@ No active tasks.
 
 - Title: Docs: Actor-Web producer->igniteCore mapping (readModel/commandSource/sourceHandle, opts, merge paths)
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/docs-actor-web-producer-ignitecore-mapping-readmodel-comm.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ### Task: igniteCore send() command helper + Command|(payload)=>Command semantics
 
 - Title: igniteCore send() command helper + Command|(payload)=>Command semantics
@@ -817,10 +837,104 @@ No active tasks.
 
 - Title: Auto-bridge actor-web source domain emits to headless runtime events
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/auto-bridge-actor-web-source-domain-emits-to-headless-runtim.md
 - Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: igniteCore send() command helper: validate send-in-commands-context across all four adapters, decide always-arrow vs mixed static/arrow command form, design the Command branding + backward-compat + execute() arity inference
+
+- Title: igniteCore send() command helper: validate send-in-commands-context across all four adapters, decide always-arrow vs mixed static/arrow command form, design the Command branding + backward-compat + execute() arity inference
+- Mode: single-agent
+- Status: commit-planning
+- Owner: planner
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: [decouple] Own the actor-web source contract in the adapter; keep ignite-element core standalone
+
+- Title: [decouple] Own the actor-web source contract in the adapter; keep ignite-element core standalone
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/decouple-own-the-actor-web-source-contract-in-the-adapter.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: [decouple] Adopt actor-web NEUTRAL source types as optional peerDep in @ignite-element/adapters
+
+- Title: [decouple] Adopt actor-web NEUTRAL source types as optional peerDep in @ignite-element/adapters
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/decouple-adopt-actor-web-neutral-source-types-as-optional.md
+### Task: [decouple] (optional, drift-proofing) Import actor-web neutral source types once @actor-web/runtime is published
+
+- Title: [decouple] (optional, drift-proofing) Import actor-web neutral source types once @actor-web/runtime is published
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/decouple-optional-drift-proofing-import-actor-web-neutr.md
+- Automation mode: advisory
+### Task: Uniform emitted-event streaming seam on IgniteAdapter (actor-web first consumer): name the seam (NOT subscribeEvent — collides with subscribe), decide shape/typing/getSchema/capture mechanism, and which adapters implement now vs later
+
+- Title: Uniform emitted-event streaming seam on IgniteAdapter (actor-web first consumer): name the seam (NOT subscribeEvent — collides with subscribe), decide shape/typing/getSchema/capture mechanism, and which adapters implement now vs later
+- Mode: 6-agent
+- Status: commit-planning
+- Owner: planner
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Core: add optional stream?() emitted-event seam + Emitted type param to IgniteAdapter
+
+- Title: Core: add optional stream?() emitted-event seam + Emitted type param to IgniteAdapter
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/core-add-optional-stream-emitted-event-seam-emitted-ty.md
+### Task: Runtime: bridge the stream() emitted-event seam in createAgentRuntime
+
+- Title: Runtime: bridge the stream() emitted-event seam in createAgentRuntime
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/runtime-bridge-the-stream-emitted-event-seam-in-createage.md
+- Automation mode: advisory
+### Task: Adapters: implement stream() in ActorWebAdapter (wrap source.subscribeEvent)
+
+- Title: Adapters: implement stream() in ActorWebAdapter (wrap source.subscribeEvent)
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/adapters-implement-stream-in-actorwebadapter-wrap-source.md
+### Task: Tests: actor-web emits surface via on/execute/record, typed from Emitted
+
+- Title: Tests: actor-web emits surface via on/execute/record, typed from Emitted
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/tests-actor-web-emits-surface-via-on-execute-record-typed.md
+### Task: Docs: emitted-event bridge (Actor-Web guide + headless-runtime/the-ignite-model)
+
+- Title: Docs: emitted-event bridge (Actor-Web guide + headless-runtime/the-ignite-model)
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/docs-emitted-event-bridge-actor-web-guide-headless-runti.md
+- Automation mode: advisory
+### Task: Changeset: minor bump for the optional stream() emitted-event seam
+
+- Title: Changeset: minor bump for the optional stream() emitted-event seam
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/changeset-minor-bump-for-the-optional-stream-emitted-even.md
 ## Template
 
 ### Task: <short task title>

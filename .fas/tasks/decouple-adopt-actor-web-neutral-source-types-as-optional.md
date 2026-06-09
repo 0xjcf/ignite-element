@@ -1,16 +1,15 @@
-# Docs: Actor-Web producer->igniteCore mapping (readModel/commandSource/sourceHandle, opts, merge paths)
+# [decouple] Adopt actor-web NEUTRAL source types as optional 
 
 ## Source
-Created with `fas create-task` on 2026-06-06.
+Created with `fas create-task` on 2026-06-09.
 
 ## Problem
-Spike addendum: .fas/state/spikes/agent-runtime-api-review.md (I2, C10). In docs/site/src/content/docs/guides/actor-web.mdx (+ api/advanced-config / api/ignite-core where relevant): document that topology.actors.X.readModel(opts)->igniteCore source, commandSource(opts)->commandSource, sourceHandle(opts)->source bundle; that opts is gateway/transport config { gateway:{url,scope?,auth?}, streamId?, createSocket?, clientVersion? } and NOT actor identity; and the two merge paths (pass commandSource() alone as source, or createActorWebSourceHandle(readModel, commandSource)). Clarify the silent-drop failure mode when a read-only source has no commandSource. Do NOT edit 2.x archive.
+Epic: actor-web-decoupling (Seam A). DEFERRED — gated on actor-web shipping its neutral Actor* source types (ActorReadModelSource/ActorCommandSource/ActorSource) and deleting integration/ignite-element-bridge.ts. This REPLACES the wrong-direction I1 ('import canonical Ignite* types into ignite'). Correct direction: @ignite-element/adapters OPTIONALLY adds actor-web as an optional peerDependency and imports its NEUTRAL source types to retire the structural hand-copy in src/adapters/ActorWebAdapter.ts — ONLY in @ignite-element/adapters, never @ignite-element/core or the element package (the decoupling guard in core-decoupling.test.ts must stay green). Edge: ignite-adapters -> actor-web. Alternative (also acceptable): keep the zero-dep structural hand-copy and skip the import entirely. Decide drift-risk vs zero-dep at implementation time. PRECONDITION: actor-web neutral types published.
 
 ## Acceptance criteria
-- guide documents the readModel/commandSource/sourceHandle -> igniteCore mapping and opts shape
-- merge paths documented
-- read-only-without-commandSource failure mode documented
-- 2.x untouched
+- ignite-core + element remain free of external actor-web (guard test green)
+- if adopted, @actor-web/* is an OPTIONAL peerDep of @ignite-element/adapters only
+- no ignite-core -> actor-web edge
 - TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
 - TDD: every production code change in the change set is covered by an added or updated test.
 - DDD: respect domain boundaries — keep the functional core deterministic and side-effect-free (no reads, writes, network, or clock), confine coordination to the imperative shell, and have adapters return facts instead of throwing.
@@ -25,15 +24,11 @@ Spike addendum: .fas/state/spikes/agent-runtime-api-review.md (I2, C10). In docs
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- docs/site/src/content/docs/guides/actor-web.mdx
-- docs/site/src/content/docs/api/advanced-config.mdx
-- docs/site/src/content/docs/api/ignite-core.mdx
+- packages/ignite-adapters/src/adapters/ActorWebAdapter.ts
+- packages/ignite-adapters/package.json
 
 ## Scope Amendments
-- Type: scope-reduction
-- Added at: 2026-06-09
-- Trigger: producer mapping is actor-web-specific; belongs only in the actor-web guide
-- Reason: Documented the source-factory->igniteCore mapping, opts (gateway config), merge paths, and read-only failure mode in guides/actor-web.mdx only. api/advanced-config and api/ignite-core were in the original hint but don't document actor-web producer APIs (cross-adapter/uniform reference), so they are intentionally not touched.
+- None.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

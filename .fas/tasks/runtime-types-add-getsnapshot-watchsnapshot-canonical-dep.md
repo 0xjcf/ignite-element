@@ -1,4 +1,4 @@
-# Runtime+types: add getSnapshot/watchSnapshot canonical + dep
+# Runtime+types: add getSnapshot/watchSnapshot canonical + deprecate getState/watch/subscribe
 
 ## Source
 Created with `fas create-task` on 2026-06-06.
@@ -35,9 +35,15 @@ Spike: .fas/state/spikes/agent-runtime-api-review.md (D2/D3/D7). Add canonical g
 - packages/ignite-element/src/types/agent.ts
 - packages/ignite-element/src/runtime/agent.ts
 - packages/ignite-element/src/testing.ts
+- packages/ignite-element/src/tests/runtime-deprecations.test.ts
+- .changeset/pre.json
 
 ## Scope Amendments
-- None.
+- Type: test-coverage + formatting
+- Added at: 2026-06-08
+- Trigger: closeout-readiness flagged 1 unexpected + 1 extra test file
+- Reason: Added focused deprecation-warning test (runtime-deprecations.test.ts) for the new canonical/alias surface; restored tab indentation in .changeset/pre.json — a pre-existing whole-repo format-gate failure from branch commit 885da94 (whitespace-only, matches origin, no value change).
+- Added paths: packages/ignite-element/src/tests/runtime-deprecations.test.ts, .changeset/pre.json
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
