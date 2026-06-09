@@ -30,6 +30,15 @@ function warnDeprecated(name: string, replacement: string): void {
 	);
 }
 
+// Reads the discriminant `type` of a source-emitted event (the adapter's
+// optional `stream()` seam yields plain `{ type, ... }` objects).
+function emittedEventType(event: unknown): string | undefined {
+	if (typeof event === "object" && event !== null && "type" in event) {
+		return String((event as { type: unknown }).type);
+	}
+	return undefined;
+}
+
 type RuntimeResources<
 	State,
 	Event,
@@ -174,16 +183,26 @@ export function createAgentRuntime<
 		eventName: string,
 		handler: (event: CustomEvent<unknown>) => void,
 	) => {
-		const { host } = resolveRuntime();
+		const { host, adapter } = resolveRuntime();
 		const listener = (event: Event) => {
 			handler(event as CustomEvent<unknown>);
 		};
 
 		host.addEventListener(eventName, listener as EventListener);
 
+		// Bridge source-emitted events (the adapter's optional `stream()` seam) to
+		// this listener with the uniform `{ type, payload }` shape (payload = the
+		// emitted event). Effects-emitted events keep arriving via the host above.
+		const streamSubscription = adapter.stream?.((event: unknown) => {
+			if (emittedEventType(event) === eventName) {
+				handler(new CustomEvent(eventName, { detail: event }));
+			}
+		});
+
 		return {
 			unsubscribe: () => {
 				host.removeEventListener(eventName, listener as EventListener);
+				streamSubscription?.unsubscribe();
 			},
 		};
 	};
@@ -225,6 +244,16 @@ export function createAgentRuntime<
 			return { eventType, listener };
 		});
 
+		// Capture source-emitted events (the adapter's optional `stream()` seam)
+		// during the command window — independent of the declared `eventTypes`, so
+		// dynamic emit types are collected with the uniform `{ type, payload }` shape.
+		const sourceSubscription = adapter.stream?.((event: unknown) => {
+			const type = emittedEventType(event);
+			if (type !== undefined) {
+				events.push({ type, payload: event });
+			}
+		});
+
 		try {
 			await (command as (arg?: unknown) => unknown)(payload);
 
@@ -239,6 +268,7 @@ export function createAgentRuntime<
 			for (const { eventType, listener } of listeners) {
 				host.removeEventListener(eventType, listener as EventListener);
 			}
+			sourceSubscription?.unsubscribe();
 		}
 	};
 
