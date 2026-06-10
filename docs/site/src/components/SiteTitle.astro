@@ -1,0 +1,64 @@
+---
+// Version-aware SiteTitle override. The v3 beta brand mark is neon green; the
+// frozen 2.x archive keeps the stable cyan mark so the logo matches each
+// version's accent ramp (see the beta accent block in styles/theme.css).
+// Markup and styles mirror Starlight's default SiteTitle component.
+// DELETE this override (and the -stable assets) at stable v3.
+import config from "virtual:starlight/user-config";
+import betaDark from "../assets/ignite-element-logo.svg";
+import betaLight from "../assets/ignite-element-logo-light.svg";
+import stableDark from "../assets/ignite-element-logo-stable.svg";
+import stableLight from "../assets/ignite-element-logo-stable-light.svg";
+
+const { siteTitle, siteTitleHref } = Astro.locals.starlightRoute;
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const isArchived = Astro.url.pathname.startsWith(`${base}/2.x/`);
+
+const logoDark = isArchived ? stableDark : betaDark;
+const logoLight = isArchived ? stableLight : betaLight;
+const logoAlt = config.logo?.alt ?? "";
+---
+
+<a href={siteTitleHref} class="site-title sl-flex">
+	<img
+		class="light:sl-hidden print:hidden"
+		alt={logoAlt}
+		src={logoDark.src}
+		width={logoDark.width}
+		height={logoDark.height}
+	/>
+	<img
+		class="dark:sl-hidden print:block"
+		alt={logoAlt}
+		src={logoLight.src}
+		width={logoLight.width}
+		height={logoLight.height}
+	/>
+	<span translate="no">{siteTitle}</span>
+</a>
+
+<style>
+	@layer starlight.core {
+		.site-title {
+			align-items: center;
+			gap: var(--sl-nav-gap);
+			font-size: var(--sl-text-h4);
+			font-weight: 600;
+			color: var(--sl-color-text-accent);
+			text-decoration: none;
+			white-space: nowrap;
+			min-width: 0;
+		}
+		span {
+			overflow: hidden;
+		}
+		img {
+			height: calc(var(--sl-nav-height) - 2 * var(--sl-nav-pad-y));
+			width: auto;
+			max-width: 100%;
+			object-fit: contain;
+			object-position: 0 50%;
+		}
+	}
+</style>

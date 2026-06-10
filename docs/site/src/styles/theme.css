@@ -38,6 +38,11 @@
 	--aside-heading: var(--sl-color-accent-high);
 	--aside-code-bg: rgba(255, 255, 255, 0.08);
 
+	/* Accent-tinted chrome (dark) — tokenized so the beta accent block below
+	   can re-tint them with the ramp instead of leaving stale cyan washes. */
+	--inline-code-bg: rgba(26, 210, 255, 0.12);
+	--bg-glow: rgba(26, 210, 255, 0.06);
+
 	/* Table + diagram surfaces (dark) — re-themed for light below so the
 	   component rules stay theme-agnostic and inherit AA contrast in both. */
 	--table-header-bg: var(--sl-color-gray-3);
@@ -99,11 +104,7 @@
 :root[data-theme="dark"] {
 	color-scheme: dark;
 	background:
-		radial-gradient(
-			circle at 20% 20%,
-			rgba(26, 210, 255, 0.06),
-			transparent 35%
-		),
+		radial-gradient(circle at 20% 20%, var(--bg-glow), transparent 35%),
 		radial-gradient(
 			circle at 80% 10%,
 			rgba(251, 191, 36, 0.08),
@@ -136,6 +137,10 @@
 	--aside-heading: var(--sl-color-text);
 	--aside-code-bg: var(--sl-color-hairline);
 
+	/* Accent-tinted chrome (light) */
+	--inline-code-bg: rgba(26, 210, 255, 0.12);
+	--bg-glow: rgba(26, 210, 255, 0.06);
+
 	/* Table + diagram surfaces (light) */
 	--table-header-bg: var(--sl-color-bg-nav);
 	--table-stripe: rgba(15, 23, 42, 0.03);
@@ -152,6 +157,42 @@
 	/* Buttons */
 	--button-shadow: 0 6px 20px rgba(0, 109, 147, 0.28);
 	--button-secondary-text: var(--sl-color-accent);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   v3 BETA accent — current (beta) pages swap the cyan accent ramp for neon
+   green so beta docs are instantly distinguishable from the archived stable
+   docs. Scoped without runtime JS: starlight-versions server-renders the
+   version picker with `selected` on the active option, and archived pages'
+   option values live under /2.x/ — so any page NOT marked archived is beta.
+   Both blocks override every accent-derived token (light must re-override the
+   dark block, which also matches light pages at higher specificity than the
+   plain light block above). DELETE this whole section at stable v3.
+   ────────────────────────────────────────────────────────────────────────── */
+:root:not(:has(starlight-version-select option[selected][value*="/2.x/"])) {
+	/* Accent ramp (beta dark) */
+	--sl-color-accent-low: #0a3d1c;
+	--sl-color-accent: #2bff66;
+	--sl-color-accent-high: #7dffa6;
+	--link-hover: #b3ffd1;
+	--aside-border: rgba(125, 255, 166, 0.25);
+	--button-shadow: 0 6px 20px rgba(43, 255, 102, 0.35);
+	--inline-code-bg: rgba(43, 255, 102, 0.12);
+	--bg-glow: rgba(43, 255, 102, 0.05);
+}
+
+:root[data-theme="light"]:not(
+		:has(starlight-version-select option[selected][value*="/2.x/"])
+	) {
+	/* Accent ramp (beta light) */
+	--sl-color-accent-low: #d7f7e2;
+	--sl-color-accent: #0b7a3e;
+	--sl-color-accent-high: #045c2c;
+	--link-hover: var(--sl-color-accent-high);
+	--aside-border: #bfe8cd;
+	--button-shadow: 0 6px 20px rgba(11, 122, 62, 0.28);
+	--inline-code-bg: rgba(43, 255, 102, 0.14);
+	--bg-glow: rgba(43, 255, 102, 0.06);
 }
 
 body {
@@ -173,7 +214,7 @@ body {
 }
 
 .sl-markdown code:not(pre > code) {
-	background: rgba(26, 210, 255, 0.12);
+	background: var(--inline-code-bg);
 	color: var(--sl-color-accent-high);
 	border-radius: var(--radius-sm);
 	padding: 0.1rem 0.4rem;

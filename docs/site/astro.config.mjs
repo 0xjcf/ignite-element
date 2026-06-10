@@ -31,12 +31,19 @@ export default defineConfig({
 			],
 			description:
 				"Platform-native custom elements with typed state, effects, events, and a headless runtime.",
+			// Beta-era branding: the green logo/favicon mark v3 beta pages; the
+			// 2.x archive keeps the stable cyan variants via the SiteTitle
+			// override and route middleware below. Revert both at stable v3.
 			logo: {
 				dark: "./src/assets/ignite-element-logo.svg",
 				light: "./src/assets/ignite-element-logo-light.svg",
 				alt: "Ignite Element logo",
 			},
 			favicon: "/ignite-element-favicon.svg",
+			components: {
+				SiteTitle: "./src/components/SiteTitle.astro",
+			},
+			routeMiddleware: "./src/starlightRouteData.ts",
 			social: [
 				{
 					icon: "github",

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * Docs theme contrast guardrail.
  *
@@ -29,11 +30,11 @@
  *   npm run check:contrast    (build first)    # see package.json
  */
 
-import { chromium } from "@playwright/test";
-import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
-import { join, normalize, extname } from "node:path";
+import { createServer } from "node:http";
+import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
+import { chromium } from "@playwright/test";
 
 const SITE_ROOT = fileURLToPath(new URL("..", import.meta.url)); // docs/site
 const DIST = join(SITE_ROOT, "dist");
@@ -56,7 +57,13 @@ const SELECTORS = {
 };
 
 // Pages chosen to cover every selector at least once across both themes.
-const PAGES = ["/getting-started/installation/", "/migration/v3/"];
+// The 2.x page keeps the archived (stable cyan) accent ramp under guard
+// alongside the beta (green) ramp on current pages.
+const PAGES = [
+	"/getting-started/installation/",
+	"/migration/v3/",
+	"/2.x/getting-started/installation/",
+];
 const THEMES = ["dark", "light"];
 
 // Geometry guardrail: interactive controls must use the radius scale and (where
