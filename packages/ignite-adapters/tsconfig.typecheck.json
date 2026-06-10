@@ -8,5 +8,6 @@
 			"@ignite-element/core": ["../ignite-core/src/index.ts"]
 		}
 	},
-	"include": ["src", "../ignite-core/src"]
+	"include": ["src", "../ignite-core/src"],
+	"exclude": ["node_modules", "dist"]
 }
