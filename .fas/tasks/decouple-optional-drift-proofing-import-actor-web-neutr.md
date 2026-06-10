@@ -1,4 +1,4 @@
-# [decouple] (optional, drift-proofing) Import actor-web neutr
+# [decouple] (optional, drift-proofing) Import actor-web neutral source types once @actor-web/runtime is published
 
 ## Source
 Created with `fas create-task` on 2026-06-09.
@@ -34,9 +34,15 @@ OPTIONAL drift-proofing — NOT required for the decoupling (which is complete: 
 ## Affected files
 - packages/ignite-adapters/src/adapters/ActorWebAdapter.ts
 - packages/ignite-adapters/package.json
+- packages/ignite-adapters/src/__tests__/actor-web-canonical-compat.types.ts
+- packages/ignite-adapters/tsconfig.typecheck.json
+- pnpm-lock.yaml
+- .changeset/actor-web-canonical-types-compat.md
 
 ## Scope Amendments
-- None.
+- Type: scope-refresh
+- Added at: 2026-06-10
+- Added paths: packages/ignite-adapters/src/__tests__/actor-web-canonical-compat.types.ts, packages/ignite-adapters/tsconfig.typecheck.json, pnpm-lock.yaml, .changeset/actor-web-canonical-types-compat.md
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

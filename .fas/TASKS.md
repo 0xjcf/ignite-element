@@ -877,10 +877,13 @@ No active tasks.
 
 - Title: [decouple] (optional, drift-proofing) Import actor-web neutral source types once @actor-web/runtime is published
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/decouple-optional-drift-proofing-import-actor-web-neutr.md
 - Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 ### Task: Uniform emitted-event streaming seam on IgniteAdapter (actor-web first consumer): name the seam (NOT subscribeEvent — collides with subscribe), decide shape/typing/getSchema/capture mechanism, and which adapters implement now vs later
 
 - Title: Uniform emitted-event streaming seam on IgniteAdapter (actor-web first consumer): name the seam (NOT subscribeEvent — collides with subscribe), decide shape/typing/getSchema/capture mechanism, and which adapters implement now vs later
