@@ -16,12 +16,14 @@ type ShipmentCommand =
 	| { type: "CREATE_SHIPMENT"; shipmentId: string }
 	| { type: "RESET_SHIPMENT" };
 
+type ShipmentEmitted = { type: "SHIPMENT_CREATED"; shipmentId: string };
+
 function createSource(options?: {
 	replayOnSubscribe?: boolean;
 	replayTransportOnSubscribe?: boolean;
 	replayClonedSnapshotGraph?: boolean;
 	replayClonedTransportStatus?: boolean;
-}): ActorWebSource<ShipmentContext, ShipmentCommand> & {
+}): ActorWebSource<ShipmentContext, ShipmentCommand, ShipmentEmitted> & {
 	emitSnapshot(
 		nextContext: ShipmentContext,
 		options?: {
@@ -30,6 +32,8 @@ function createSource(options?: {
 		},
 	): void;
 	emitTransport(status: ActorWebTransportStatus): void;
+	emitEvent(event: ShipmentEmitted): void;
+	activeEventListeners(): number;
 } {
 	let context: ShipmentContext = {
 		shipmentId: null,
@@ -49,6 +53,7 @@ function createSource(options?: {
 	const transportListeners = new Set<
 		(status: ActorWebTransportStatus) => void
 	>();
+	const eventListeners = new Set<(event: ShipmentEmitted) => void>();
 	const cloneSnapshot = (
 		snapshot: ActorWebSourceSnapshot<ShipmentContext>,
 	): ActorWebSourceSnapshot<ShipmentContext> => ({
@@ -108,6 +113,20 @@ function createSource(options?: {
 			};
 		},
 		send: async () => undefined,
+		subscribeEvent: (listener: (event: ShipmentEmitted) => void) => {
+			eventListeners.add(listener);
+			return () => {
+				eventListeners.delete(listener);
+			};
+		},
+		emitEvent(event: ShipmentEmitted) {
+			for (const listener of eventListeners) {
+				listener(event);
+			}
+		},
+		activeEventListeners() {
+			return eventListeners.size;
+		},
 		emitSnapshot(
 			nextContext: ShipmentContext,
 			emitOptions?: {
@@ -291,6 +310,56 @@ describe("ActorWebAdapter", () => {
 		);
 
 		subscription.unsubscribe();
+		adapter.stop();
+	});
+});
+
+describe("ActorWebAdapter stream() emitted-event seam", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("bridges source.subscribeEvent emits into stream() and cleans up on unsubscribe", () => {
+		const source = createSource();
+		const adapter = createActorWebAdapter(source)();
+		const received: ShipmentEmitted[] = [];
+
+		const subscription = adapter.stream?.((event) => {
+			received.push(event as ShipmentEmitted);
+		});
+
+		expect(source.activeEventListeners()).toBe(1);
+		source.emitEvent({ type: "SHIPMENT_CREATED", shipmentId: "shipment-1" });
+		expect(received).toEqual([
+			{ type: "SHIPMENT_CREATED", shipmentId: "shipment-1" },
+		]);
+
+		subscription?.unsubscribe();
+		// The bare unsubscribe returned by subscribeEvent is invoked — no leak.
+		expect(source.activeEventListeners()).toBe(0);
+		source.emitEvent({ type: "SHIPMENT_CREATED", shipmentId: "shipment-2" });
+		expect(received).toHaveLength(1);
+
+		adapter.stop();
+	});
+
+	it("no-ops stream() when the source does not expose subscribeEvent", () => {
+		const source = createSource();
+		// Model a source that cannot emit by dropping the optional event seam.
+		const { subscribeEvent: _subscribeEvent, ...readModelSource } = source;
+		const adapter = createActorWebAdapter(
+			readModelSource as unknown as ActorWebSource<
+				ShipmentContext,
+				ShipmentCommand,
+				ShipmentEmitted
+			>,
+		)();
+
+		const subscription = adapter.stream?.(() => {
+			throw new Error("listener should not be called");
+		});
+
+		expect(() => subscription?.unsubscribe()).not.toThrow();
 		adapter.stop();
 	});
 });
