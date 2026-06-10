@@ -929,8 +929,8 @@ No active tasks.
 
 - Title: Tests: actor-web emits surface via on/execute/record, typed from Emitted
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/tests-actor-web-emits-surface-via-on-execute-record-typed.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -940,10 +940,14 @@ No active tasks.
 
 - Title: Docs: emitted-event bridge (Actor-Web guide + headless-runtime/the-ignite-model)
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/docs-emitted-event-bridge-actor-web-guide-headless-runti.md
 - Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ### Task: Changeset: minor bump for the optional stream() emitted-event seam
 
 - Title: Changeset: minor bump for the optional stream() emitted-event seam
