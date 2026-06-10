@@ -940,8 +940,8 @@ No active tasks.
 
 - Title: Docs: emitted-event bridge (Actor-Web guide + headless-runtime/the-ignite-model)
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/docs-emitted-event-bridge-actor-web-guide-headless-runti.md
 - Automation mode: advisory
 - Verification lane: fast
@@ -952,9 +952,13 @@ No active tasks.
 
 - Title: Changeset: minor bump for the optional stream() emitted-event seam
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/changeset-minor-bump-for-the-optional-stream-emitted-even.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
