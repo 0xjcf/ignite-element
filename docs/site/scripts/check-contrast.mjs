@@ -49,6 +49,7 @@ const SELECTORS = {
 	search: { sel: "site-search button", min: UI },
 	sidebar: { sel: ".sidebar-pane a", min: TEXT },
 	toc: { sel: ".right-sidebar a", min: TEXT },
+	pagination: { sel: ".pagination-links a span", min: TEXT },
 	inlineCode: { sel: ".sl-markdown-content code:not(pre code)", min: TEXT },
 	link: { sel: ".sl-markdown-content a", min: TEXT },
 	aside: { sel: ".starlight-aside p", min: TEXT },

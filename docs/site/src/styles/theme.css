@@ -528,6 +528,38 @@ site-search button kbd:first-child {
 	color: var(--sl-color-accent-contrast);
 }
 
+/* Right-sidebar TOC links — same gray-ramp gotcha as the sidebar links above:
+   Starlight's default TOC link colour is --sl-color-gray-3, which this theme
+   repurposes as a dark surface, leaving non-current items near-invisible in
+   dark mode. Soft text is the right rank for secondary navigation; the
+   aria-current rule below re-states Starlight's accent highlight, which is
+   :where()-scoped and would otherwise lose to the base rule here. */
+starlight-toc a,
+mobile-starlight-toc a {
+	color: var(--sl-color-text-soft);
+}
+
+starlight-toc a[aria-current="true"],
+mobile-starlight-toc a[aria-current="true"] {
+	color: var(--sl-color-text-accent);
+}
+
+/* Prev/next pagination — same leak: Starlight paints the link (the
+   Previous/Next label + arrow via currentColor) with --sl-color-gray-2, a dark
+   surface here. The page-title span keeps Starlight's own white rule. */
+.pagination-links a {
+	color: var(--sl-color-text-soft);
+}
+
+/* Native select popups (theme/version pickers) — Starlight styles options with
+   gray-1 on bg-nav, both dark surfaces in this theme, leaving the open dropdown
+   dark-on-dark in browsers that render styled options. */
+:root starlight-theme-select option,
+:root starlight-version-select option {
+	color: var(--control-text);
+	background: var(--control-bg);
+}
+
 @media (min-width: 72rem) {
 	/* Extend the right-sidebar border up through the nav so the line aligns,
 	   and keep the sidebar inside the viewport at wider content widths. */
