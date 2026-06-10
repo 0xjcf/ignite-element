@@ -952,8 +952,8 @@ No active tasks.
 
 - Title: Changeset: minor bump for the optional stream() emitted-event seam
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/changeset-minor-bump-for-the-optional-stream-emitted-even.md
 - Verification lane: fast
 - Policy sensitivity: standard
