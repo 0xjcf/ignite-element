@@ -1,6 +1,14 @@
 import type { IgniteAdapter } from "@ignite-element/core";
 import { failInvariant, StateScope } from "@ignite-element/core";
 
+// The ActorWeb* types below are a deliberately LOOSE structural projection of
+// the canonical neutral source contract published by `@actor-web/runtime`
+// (ActorReadModelSource/ActorCommandSource/ActorSourceSnapshot/…): members the
+// canonical contract requires (subscribeEvent, transportStatus, snapshot
+// helpers) are optional here so barebones and foreign sources stay accepted,
+// and they are hand-written rather than aliased so the optional peer never
+// leaks into the shipped d.ts graph. Compatibility with the canonical types is
+// enforced at compile time by src/__tests__/actor-web-canonical-compat.types.ts.
 export type ActorWebAddress = {
 	id: string;
 	path: string;
