@@ -16,7 +16,11 @@ import {
 	createIgniteComponentFactory,
 	type IgniteComponentFactoryOptions,
 } from "./createIgniteComponentFactory";
-import type { ActorWebConfig, IgniteCoreReturn } from "./types";
+import type {
+	ActorWebConfig,
+	IgniteCoreReturn,
+	WithEmittedEvents,
+} from "./types";
 
 type ActorWebSubpathSourceValue<
 	Context extends object,
@@ -128,7 +132,7 @@ export function igniteCoreActorWeb<
 	StatesResult,
 	ActorWebCommandActor<Context, Message, Emitted>,
 	CommandsResult,
-	Events
+	WithEmittedEvents<Events, Emitted, Message>
 > {
 	// Actor-Web remains the runtime owner; Ignite only adapts projection snapshots
 	// and command access into the headless component contract.
@@ -150,13 +154,13 @@ export function igniteCoreActorWeb<
 		ActorWebCommandActor<Context, Message, Emitted>,
 		CommandsResult,
 		Events
-	>(createAdapter, componentOptions) as IgniteCoreReturn<
+	>(createAdapter, componentOptions) as unknown as IgniteCoreReturn<
 		ActorWebExtendedState<Context>,
 		Message,
 		ActorWebExtendedState<Context>,
 		StatesResult,
 		ActorWebCommandActor<Context, Message, Emitted>,
 		CommandsResult,
-		Events
+		WithEmittedEvents<Events, Emitted, Message>
 	>;
 }

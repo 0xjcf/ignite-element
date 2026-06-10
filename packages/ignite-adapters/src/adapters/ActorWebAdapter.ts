@@ -429,7 +429,11 @@ function createAdapterEntry<
 			}) ?? null;
 	};
 
-	const adapter: IgniteAdapter<ActorWebExtendedState<Context>, Message> = {
+	const adapter: IgniteAdapter<
+		ActorWebExtendedState<Context>,
+		Message,
+		Emitted
+	> = {
 		subscribe(listener) {
 			if (isStopped) {
 				console.warn(stoppedSubscribeWarning);
@@ -457,6 +461,17 @@ function createAdapterEntry<
 					if (!listeners.size) {
 						cleanupSubscriptions();
 					}
+				},
+			};
+		},
+		stream(listener) {
+			// Bridge the source's emitted-domain-event stream into the headless
+			// runtime's event surface (on()/execute().events). No-ops when the
+			// source provides no `subscribeEvent`.
+			const unsubscribe = source.subscribeEvent?.(listener);
+			return {
+				unsubscribe: () => {
+					unsubscribe?.();
 				},
 			};
 		},
@@ -517,7 +532,13 @@ function createAdapterEntry<
 	};
 
 	return {
-		adapter,
+		// The adapter object carries a typed `stream()` for the source's emit
+		// union; the runtime reads it structurally, so the entry erases Emitted to
+		// the 2-arg IgniteAdapter the factory pipeline expects (no generics ripple).
+		adapter: adapter as unknown as IgniteAdapter<
+			ActorWebExtendedState<Context>,
+			Message
+		>,
 		snapshot: () => readCurrentState(),
 		actor: commandSource,
 	};

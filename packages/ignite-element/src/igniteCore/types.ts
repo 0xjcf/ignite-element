@@ -25,6 +25,7 @@ import type {
 	AnyStatesCallback,
 	AnyViewCallback,
 	EmptyEventMap,
+	EventDescriptor,
 	EventMap,
 	EventsDefinition,
 	FacadeCommandFunction,
@@ -41,6 +42,31 @@ import type { WithFacadeRenderArgs } from "../createProjectionFactory";
 import type { ComponentFactory } from "../IgniteElementFactory";
 import type { IgniteAgentRuntime } from "../types/agent";
 import type { IgniteSchemaValue } from "../types/schema";
+
+/**
+ * Derives the runtime `Events` map for a source that streams emitted domain
+ * events. When the source declares a distinct `Emitted` union (≠ its command
+ * `Message`), each emitted member is folded into the headless runtime's events
+ * (payload = the whole emitted member, matching the runtime bridge), so
+ * `on(...)` / `execute().events` are typed from the source with no `events:`
+ * map. Explicitly declared `events:` keys win on collision. A non-distinct
+ * `Emitted` (the `= Message` default) contributes nothing.
+ */
+export type WithEmittedEvents<
+	Events extends EventMap,
+	Emitted extends { type: string },
+	Message extends { type: string },
+> = [Emitted] extends [Message]
+	? Events
+	: Events &
+			Omit<
+				{
+					[Type in Emitted["type"]]: EventDescriptor<
+						Extract<Emitted, { type: Type }>
+					>;
+				},
+				keyof Events
+			>;
 
 export type IgniteCoreReturn<
 	State,

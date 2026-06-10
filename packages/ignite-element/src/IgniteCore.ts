@@ -40,6 +40,7 @@ import type {
 	ReduxInstanceConfig,
 	ReduxInstanceSource,
 	ResolvedAdapter,
+	WithEmittedEvents,
 	XStateConfig,
 } from "./igniteCore/types";
 import { igniteCoreXState } from "./igniteCore/xstate";
@@ -287,7 +288,7 @@ export function igniteCore<
 	StatesResult,
 	ActorWebCommandActor<Context, Message, Emitted>,
 	CommandsResult,
-	Events
+	WithEmittedEvents<Events, Emitted, Message>
 >;
 
 export function igniteCore<
@@ -330,7 +331,11 @@ export function igniteCore<
 		ActorWebSourceEmitted<Source>
 	>,
 	CommandsResult,
-	Events
+	WithEmittedEvents<
+		Events,
+		ActorWebSourceEmitted<Source>,
+		ActorWebSourceMessage<Source>
+	>
 >;
 
 export function igniteCore<
