@@ -74,6 +74,7 @@
 		"typecheck": "tsc --pretty false --project tsconfig.typecheck.json"
 	},
 	"devDependencies": {
+		"@actor-web/runtime": "^0.1.0",
 		"@reduxjs/toolkit": "^2.3.0",
 		"mobx": "^6.13.5",
 		"typescript": "^5.9.3",
@@ -85,12 +86,16 @@
 		"@ignite-element/core": "workspace:*"
 	},
 	"peerDependencies": {
+		"@actor-web/runtime": ">=0.1.0",
 		"@reduxjs/toolkit": ">=2.3.0",
 		"mobx": ">=6.13.5",
 		"redux": ">=5.0.1",
 		"xstate": ">=5.19.0"
 	},
 	"peerDependenciesMeta": {
+		"@actor-web/runtime": {
+			"optional": true
+		},
 		"@reduxjs/toolkit": {
 			"optional": true
 		},
