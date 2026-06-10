@@ -35,6 +35,7 @@ src/examples/**/package-lock.json
 
 coverage/
 /test-results/
+docs/site/test-results/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
