@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { assign, createActor, createMachine, type EventFrom } from "xstate";
 import type {
 	ActorWebCommandSource,
+	ActorWebExtendedState,
 	ActorWebSource,
 	ActorWebSourceHandle,
 	ActorWebSourceSnapshot,
@@ -42,14 +43,20 @@ type ActorWebShipmentCommand =
 	| { type: "CREATE_SHIPMENT"; shipmentId: string }
 	| { type: "RESET_SHIPMENT" };
 
+type ActorWebShipmentEmitted = {
+	type: "SHIPMENT_CREATED";
+	shipmentId: string;
+};
+
 function createActorWebShipmentSource(): ActorWebCommandSource<
 	ActorWebShipmentContext,
 	ActorWebShipmentCommand,
-	{ type: "SHIPMENT_CREATED"; shipmentId: string }
+	ActorWebShipmentEmitted
 > & {
 	sent: ActorWebShipmentCommand[];
 	emitSnapshot(context: ActorWebShipmentContext): void;
 	emitTransport(status: ActorWebTransportStatus): void;
+	emitEvent(event: ActorWebShipmentEmitted): void;
 } {
 	let context: ActorWebShipmentContext = {
 		shipmentId: null,
@@ -65,6 +72,7 @@ function createActorWebShipmentSource(): ActorWebCommandSource<
 	const transportListeners = new Set<
 		(status: ActorWebTransportStatus) => void
 	>();
+	const eventListeners = new Set<(event: ActorWebShipmentEmitted) => void>();
 	const source = {
 		sent: [] as ActorWebShipmentCommand[],
 		address: {
@@ -101,8 +109,24 @@ function createActorWebShipmentSource(): ActorWebCommandSource<
 		},
 		send: async (message: ActorWebShipmentCommand) => {
 			source.sent.push(message);
+			// A real actor responds to a command by emitting a domain event on its
+			// side-channel; mirror that so commands can drive emits during the
+			// `execute()` command window. `subscribeEvent` is the source contract the
+			// ActorWebAdapter `stream()` seam wraps; `emitEvent` is a test-only driver.
+			if (message.type === "CREATE_SHIPMENT") {
+				source.emitEvent({
+					type: "SHIPMENT_CREATED",
+					shipmentId: message.shipmentId,
+				});
+			}
 		},
 		ask: async <Response = unknown>() => 1 as Response,
+		subscribeEvent(listener: (event: ActorWebShipmentEmitted) => void) {
+			eventListeners.add(listener);
+			return () => {
+				eventListeners.delete(listener);
+			};
+		},
 		emitSnapshot(nextContext: ActorWebShipmentContext) {
 			context = nextContext;
 			const snapshot = source.snapshot();
@@ -114,6 +138,11 @@ function createActorWebShipmentSource(): ActorWebCommandSource<
 			transport = status;
 			for (const listener of transportListeners) {
 				listener(status);
+			}
+		},
+		emitEvent(event: ActorWebShipmentEmitted) {
+			for (const listener of eventListeners) {
+				listener(event);
 			}
 		},
 	};
@@ -1680,5 +1709,162 @@ describe("igniteCore", () => {
 				adapter: "unsupported",
 			}),
 		).toThrow("Unsupported adapter: unsupported");
+	});
+});
+
+// E4 — actor-web emitted events surface through the real igniteCore runtime path
+// (on()/execute().events/record()), typed from the source's `Emitted` union. E2
+// proved the runtime bridge with a fake adapter; this exercises the actual
+// ActorWebAdapter.stream() → source.subscribeEvent wiring end to end.
+describe("igniteCore actor-web emitted-event bridge", () => {
+	afterEach(() => {
+		document.body.innerHTML = "";
+		vi.restoreAllMocks();
+	});
+
+	it("forwards source emits to on(type) and stops after unsubscribe", () => {
+		const source = createActorWebShipmentSource();
+		const register = igniteCore({
+			source,
+			view: ({ context }) => ({ status: context.status }),
+		});
+
+		const received: ActorWebShipmentEmitted[] = [];
+		const subscription = register.on("SHIPMENT_CREATED", (event) => {
+			// Uniform shape: on() handlers receive the emitted member as `detail`.
+			received.push(event.detail);
+		});
+
+		source.emitEvent({ type: "SHIPMENT_CREATED", shipmentId: "shipment-7" });
+		expect(received).toEqual([
+			{ type: "SHIPMENT_CREATED", shipmentId: "shipment-7" },
+		]);
+
+		subscription.unsubscribe();
+		source.emitEvent({ type: "SHIPMENT_CREATED", shipmentId: "shipment-8" });
+		expect(received).toHaveLength(1);
+	});
+
+	it("captures command-driven emits in execute().events with the uniform shape", async () => {
+		const source = createActorWebShipmentSource();
+		const register = igniteCore({
+			source,
+			view: ({ context }) => ({ status: context.status }),
+			commands: ({ actor }) => ({
+				createShipment: (shipmentId: string) =>
+					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
+			}),
+		});
+
+		const result = await register.execute("createShipment", "shipment-1001");
+
+		expect(source.sent).toEqual([
+			{ type: "CREATE_SHIPMENT", shipmentId: "shipment-1001" },
+		]);
+		// Uniform shape: { type: M.type, payload: M } where M is the emitted member.
+		expect(result.events).toContainEqual({
+			type: "SHIPMENT_CREATED",
+			payload: { type: "SHIPMENT_CREATED", shipmentId: "shipment-1001" },
+		});
+		// Single capture per emit — no double-count from the transient subscription.
+		expect(
+			result.events.filter((event) => event.type === "SHIPMENT_CREATED"),
+		).toHaveLength(1);
+	});
+
+	it("captures source emits alongside effects-declared events in a single command", async () => {
+		const source = createActorWebShipmentSource();
+		const register = igniteCore({
+			source,
+			view: ({ context }) => ({ status: context.status }),
+			events: (event) => ({
+				"shipment-recorded": event<{ shipmentId: string }>(),
+			}),
+			effects: ({
+				snapshot,
+				prevSnapshot,
+				emit,
+			}: FacadeEffectArgs<
+				ActorWebExtendedState<ActorWebShipmentContext>,
+				unknown,
+				{ "shipment-recorded": EventDescriptor<{ shipmentId: string }> }
+			>) => {
+				if (snapshot.context.status === prevSnapshot.context.status) {
+					return;
+				}
+
+				emit("shipment-recorded", {
+					shipmentId: snapshot.context.shipmentId ?? "",
+				});
+			},
+			commands: ({ actor }) => ({
+				createShipment: (shipmentId: string) => {
+					// Drives a source emit (stream seam) and a state change (effects bus).
+					actor.send({ type: "CREATE_SHIPMENT", shipmentId });
+					source.emitSnapshot({ shipmentId, status: "created" });
+				},
+			}),
+		});
+
+		const result = await register.execute("createShipment", "shipment-2002");
+
+		// Stream-bridged source event.
+		expect(result.events).toContainEqual({
+			type: "SHIPMENT_CREATED",
+			payload: { type: "SHIPMENT_CREATED", shipmentId: "shipment-2002" },
+		});
+		// Effects-declared event still flows alongside the bridge.
+		expect(result.events).toContainEqual({
+			type: "shipment-recorded",
+			payload: { shipmentId: "shipment-2002" },
+		});
+	});
+
+	it("includes source emits in record() traces and summaries", async () => {
+		const source = createActorWebShipmentSource();
+		const register = igniteCore({
+			source,
+			view: ({ context }) => ({ status: context.status }),
+			commands: ({ actor }) => ({
+				createShipment: (shipmentId: string) =>
+					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
+			}),
+		});
+
+		const story = register.record("shipment created");
+		await story.execute("createShipment", "shipment-3003");
+
+		const emitted = {
+			type: "SHIPMENT_CREATED",
+			payload: { type: "SHIPMENT_CREATED", shipmentId: "shipment-3003" },
+		};
+		expect(story.summary().events).toContainEqual(emitted);
+		expect(
+			story
+				.trace()
+				.filter((entry) => entry.kind === "event")
+				.map((entry) => ({ type: entry.event, payload: entry.payload })),
+		).toContainEqual(emitted);
+
+		story.stop();
+	});
+
+	it("leaves non-emitting adapters (redux) unaffected by the stream bridge", async () => {
+		const store = counterStore();
+		const register = igniteCore({
+			adapter: "redux",
+			source: store,
+			states: (snapshot) => ({ count: snapshot.counter.count }),
+			commands: ({ actor }) => ({
+				increment: () => actor.dispatch(counterSlice.actions.increment()),
+			}),
+		});
+
+		const result = await register.execute("increment");
+
+		// No stream() seam on redux — the bridge contributes nothing, so the command
+		// surfaces no events while the state update still applies normally.
+		expect(result.events).toEqual([]);
+		expect(register.getSnapshot().counter.count).toBe(1);
 	});
 });
