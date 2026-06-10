@@ -172,6 +172,64 @@ export const shipmentBadge = igniteCore({
 
 Use that pattern for connection badges, replay banners, or diagnostics — not as a default field on every view.
 
+## Emitted events
+
+Actor-Web sources can carry a third type parameter, `Emitted` — the union of domain events the actor publishes on its event side-channel (the source's optional `subscribeEvent`). When a source declares it, the adapter bridges those events into the [headless runtime](/ignite-element/api/headless-runtime/) automatically: they surface through `on(type)`, `execute().events`, and `record()` with **no `events:` declaration and no `effects:` callback** — and the event names and payloads are typed from the source's union, with no manual type arguments.
+
+```ts
+import { igniteCore } from 'ignite-element/actor-web';
+import type { ActorWebCommandSource } from 'ignite-element/actor-web';
+
+type ShipmentProjection = { shipmentId: string; status: string };
+type ShipmentRequest = { type: 'shipment.cancel'; shipmentId: string };
+type ShipmentEmitted =
+  | { type: 'SHIPMENT_CREATED'; shipmentId: string }
+  | { type: 'SHIPMENT_CANCELLED'; shipmentId: string; reason: string };
+
+declare const shipmentSource: ActorWebCommandSource<
+  ShipmentProjection,
+  ShipmentRequest,
+  ShipmentEmitted
+>;
+
+export const shipmentFeed = igniteCore({
+  source: shipmentSource,
+  view: ({ context }) => ({ status: context.status }),
+  commands: ({ actor }) => ({
+    cancel: (shipmentId: string) =>
+      actor.send({ type: 'shipment.cancel', shipmentId }),
+  }),
+});
+
+// on(type) — the handler's `detail` IS the emitted event object.
+const subscription = shipmentFeed.on('SHIPMENT_CANCELLED', (event) => {
+  console.log(event.detail.reason);
+});
+subscription.unsubscribe();
+
+// execute().events — emits captured during the command window, each as
+// { type, payload } where payload is the emitted event object.
+const result = await shipmentFeed.execute('cancel', 'shipment-1');
+for (const entry of result.events) {
+  if (entry.type === 'SHIPMENT_CANCELLED') {
+    console.log(entry.payload.reason);
+  }
+}
+```
+
+How the bridge behaves:
+
+- **Uniform shape.** An emitted member `M` surfaces as `{ type: M.type, payload: M }` in `execute().events` and `record()` summaries, and as `event.detail === M` in `on(...)` handlers — the same shape declared events use.
+- **Command-window capture.** `execute()` collects the emits that arrive between command start and the post-command flush; `record()` inherits them through `execute`. Emits outside a command window still reach `on(...)` listeners, which stay subscribed for their lifetime.
+- **Leak-free.** Each `on(...)` subscription and each `execute()` call manages its own source subscription and releases it on `unsubscribe()` / command completion.
+- **Effects stay additive.** `events:` + `effects:` remain the way to emit **UI-derived** events (computed from snapshot changes); source-emitted events need neither. Both flow side by side into the same `execute().events` stream and `on(...)` surface.
+
+:::note[Schema lists declared events only]
+`getSchema().events` enumerates the names declared in the `events:` map. Source-emitted types are a compile-time union, not runtime-enumerable, so they don't appear there — they surface dynamically via `on(...)` and `execute().events`. See the [`getSchema()` caveat](/ignite-element/api/headless-runtime/#getschema).
+:::
+
+Sources without an event side-channel simply omit `subscribeEvent` (and `Emitted` defaults to the message type) — the bridge no-ops and everything else works unchanged.
+
 ## When to use which entrypoint
 
 - **`ignite-element/actor-web`** — an Actor-Web runtime already owns orchestration and long-lived sources; Ignite projects and sends explicit requests.
