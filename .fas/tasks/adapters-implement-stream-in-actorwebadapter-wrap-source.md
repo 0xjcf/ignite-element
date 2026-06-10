@@ -1,4 +1,4 @@
-# Adapters: implement stream() in ActorWebAdapter (wrap source
+# Adapters: implement stream() in ActorWebAdapter (wrap source.subscribeEvent)
 
 ## Source
 Created with `fas create-task` on 2026-06-09.
@@ -26,9 +26,17 @@ Spike E3 (D6). Implement stream() on the actor-web IgniteAdapter in packages/ign
 
 ## Affected files
 - packages/ignite-adapters/src/adapters/ActorWebAdapter.ts
+- packages/ignite-element/src/igniteCore/types.ts
+- packages/ignite-element/src/igniteCore/actor-web.ts
+- packages/ignite-element/src/IgniteCore.ts
+- packages/ignite-element/src/tests/types/actor-web-emitted-events.types.test.ts
 
 ## Scope Amendments
-- None.
+- Type: scope-completion
+- Added at: 2026-06-10
+- Trigger: E3 absorbs the deferred E1/E2 Emitted->Events typing thread, which lives in the igniteCore factory types
+- Reason: Beyond ActorWebAdapter.stream(), E3 threads the source Emitted union into runtime Events via WithEmittedEvents (igniteCore/types.ts) applied at both actor-web igniteCore overloads (IgniteCore.ts) and the actor-web subpath (igniteCore/actor-web.ts), plus a compile-time type test. This is the deferred-from-E1/E2 typing thread, in scope here because the source emit union is only available at the actor-web factory layer.
+- Added paths: packages/ignite-element/src/igniteCore/types.ts, packages/ignite-element/src/igniteCore/actor-web.ts, packages/ignite-element/src/IgniteCore.ts, packages/ignite-element/src/tests/types/actor-web-emitted-events.types.test.ts
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

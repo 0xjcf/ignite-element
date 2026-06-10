@@ -895,31 +895,47 @@ No active tasks.
 
 - Title: Core: add optional stream?() emitted-event seam + Emitted type param to IgniteAdapter
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/core-add-optional-stream-emitted-event-seam-emitted-ty.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ### Task: Runtime: bridge the stream() emitted-event seam in createAgentRuntime
 
 - Title: Runtime: bridge the stream() emitted-event seam in createAgentRuntime
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/runtime-bridge-the-stream-emitted-event-seam-in-createage.md
 - Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ### Task: Adapters: implement stream() in ActorWebAdapter (wrap source.subscribeEvent)
 
 - Title: Adapters: implement stream() in ActorWebAdapter (wrap source.subscribeEvent)
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/adapters-implement-stream-in-actorwebadapter-wrap-source.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ### Task: Tests: actor-web emits surface via on/execute/record, typed from Emitted
 
 - Title: Tests: actor-web emits surface via on/execute/record, typed from Emitted
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/tests-actor-web-emits-surface-via-on-execute-record-typed.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ### Task: Docs: emitted-event bridge (Actor-Web guide + headless-runtime/the-ignite-model)
 
 - Title: Docs: emitted-event bridge (Actor-Web guide + headless-runtime/the-ignite-model)

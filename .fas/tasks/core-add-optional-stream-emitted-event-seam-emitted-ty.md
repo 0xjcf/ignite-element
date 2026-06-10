@@ -1,4 +1,4 @@
-# Core: add optional stream?() emitted-event seam + Emitted ty
+# Core: add optional stream?() emitted-event seam + Emitted type param to IgniteAdapter
 
 ## Source
 Created with `fas create-task` on 2026-06-09.
@@ -25,10 +25,12 @@ Spike: .fas/state/spikes/emitted-event-stream-seam.md (E1, D1/D3). Add an OPTION
 
 ## Affected files
 - packages/ignite-core/src/IgniteAdapter.ts
-- packages/ignite-element/src/types/agent.ts
+- packages/ignite-element/src/tests/adapter-stream-seam.test.ts
 
 ## Scope Amendments
-- None.
+- Type: scope-adjustment
+- Trigger: closeout flagged types/agent.ts (planned) missing + the seam test extra.
+- Reason: E1 is the pure IgniteAdapter contract addition (optional `stream?()` + `Emitted` param). The runtime `Events`-inference threading originally hinted at packages/ignite-element/src/types/agent.ts requires the runtime to CONSUME the seam, so it is deferred to E2 (runtime bridge) / E3 (actor-web impl) where the factory wiring lands — types/agent.ts dropped here to keep E1 a clean, standalone contract change. Added adapter-stream-seam.test.ts (contract coverage: optional + Emitted-typed).
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

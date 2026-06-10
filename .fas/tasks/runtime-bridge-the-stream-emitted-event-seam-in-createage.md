@@ -1,4 +1,4 @@
-# Runtime: bridge the stream() emitted-event seam in createAge
+# Runtime: bridge the stream() emitted-event seam in createAgentRuntime
 
 ## Source
 Created with `fas create-task` on 2026-06-09.
@@ -34,10 +34,12 @@ Spike E2 (D4). In runtime/agent.ts: when resolveRuntime().adapter exposes stream
 
 ## Affected files
 - packages/ignite-element/src/runtime/agent.ts
-- packages/ignite-element/src/IgniteElementFactory.ts
+- packages/ignite-element/src/tests/runtime-stream-bridge.test.ts
 
 ## Scope Amendments
-- None.
+- Type: scope-adjustment
+- Trigger: planned IgniteElementFactory.ts not needed; seam typing thread belongs with the source.
+- Reason: The bridge lives entirely in createAgentRuntime (runtime/agent.ts) — resolveRuntime() already supplies the adapter, so no IgniteElementFactory.ts change was required (dropped). Added runtime-stream-bridge.test.ts (fake-adapter unit coverage). The Emitted->runtime-Events STATIC typing thread is deferred to E3 (actor-web impl), where the source's emit union is in scope to union into IgniteCoreReturn's Events; the E2 runtime mechanism is type-agnostic and works at runtime today.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
