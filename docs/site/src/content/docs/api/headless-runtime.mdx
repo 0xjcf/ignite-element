@@ -60,6 +60,8 @@ The shape:
 
 `events` is the same ordered stream the runtime emitted for that transition, so assertions stay deterministic and align with the events delivered to `on(...)` listeners.
 
+For sources with a native emit stream (Actor-Web today), domain events the **source** emits during the command window are captured too — each as `{ type, payload }` where `payload` is the emitted event object — independent of the `events:` declaration. See [declared vs source-emitted events](/ignite-element/guides/actor-web/#emitted-events).
+
 ### `getSnapshot()`
 
 Returns the current raw snapshot of the underlying source.
@@ -96,7 +98,7 @@ const subscription = counter.on('toggled', (event) => {
 subscription.unsubscribe();
 ```
 
-Use `on(...)` for the public events your component emits through `effects`. (The older `subscribe(eventName, handler)` alias is deprecated — prefer `on`.)
+Use `on(...)` for the public events your component emits through `effects`. When the source has a native emit stream (Actor-Web today), `on(...)` also receives the source's emitted domain events — `event.detail` is the emitted event object itself, and the names are typed from the source's `Emitted` union. (The older `subscribe(eventName, handler)` alias is deprecated — prefer `on`.)
 
 ### `watchSnapshot(handler)`
 
@@ -146,6 +148,10 @@ The shape:
   state: { value: 'off', context: {} },
 }
 ```
+
+:::note[Dynamic events are not listed]
+`events` enumerates only the names **declared** in the `events:` map. Events emitted by the source itself (the Actor-Web [emitted-event bridge](/ignite-element/guides/actor-web/#emitted-events)) are a compile-time union with no runtime registry, so they don't appear in the schema — observe them via `on(...)` and `execute().events` instead.
+:::
 
 ### `record(name)`
 
