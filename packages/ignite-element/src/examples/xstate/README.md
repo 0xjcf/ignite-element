@@ -258,6 +258,6 @@ The example Vite config is only there to alias this monorepo workspace into loca
 ## More
 
 - Docs: [ignite-element.dev](https://ignite-element.dev)
-- Live playground: [StackBlitz demo](https://stackblitz.com/edit/ignite-element?file=src%2Fmy-counter.tsx&embed=1)
+- Live playground: [StackBlitz demo](https://stackblitz.com/edit/ignite-element?file=src%2Fmy-counter.tsx)
 
 Enjoy exploring ignite-element with XState! If you run into issues, file a ticket on the main repository or share feedback in the discussions tab.
