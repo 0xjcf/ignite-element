@@ -1041,17 +1041,23 @@ No active tasks.
 
 - Title: chore: declare sideEffects allowlist for the ignite-element entry polyfill
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/chore-declare-sideeffects-allowlist-for-the-ignite-element.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: chore: dedupe xstate example lockfiles (keep pnpm-lock, drop package-lock)
 
 - Title: chore: dedupe xstate example lockfiles (keep pnpm-lock, drop package-lock)
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/chore-dedupe-xstate-example-lockfiles-keep-pnpm-lock-drop.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ## Template
 
