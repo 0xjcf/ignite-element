@@ -804,10 +804,13 @@ No active tasks.
 
 - Title: Stable-v3 follow-up: remove deprecated runtime/config surface at changeset pre exit
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/stable-v3-follow-up-remove-deprecated-runtime-config-surfac.md
 - Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Unify Actor-Web source contract: import canonical types from @actor-core/runtime, delete hand-copy
 
