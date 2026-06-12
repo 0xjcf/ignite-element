@@ -1,10 +1,11 @@
-# Stable-v3 follow-up: remove deprecated runtime/config surfac
+# Stable-v3 follow-up: remove deprecated runtime/config surface at changeset pre exit
 
 ## Source
 Created with `fas create-task` on 2026-06-06.
 
 ## Problem
-Spike: .fas/state/spikes/agent-runtime-api-review.md (T7, depends on T6 — deferred until the stable cut). At changeset pre exit (3.0.0): remove the @deprecated getState()/watch()/subscribe() runtime aliases, the states config alias, the IgniteAgentStateListener alias, and all associated dev-warns. Update tests and live v3 docs to drop alias references. Author a breaking (major-at-stable) changeset. Keep getSnapshot/watchSnapshot/view, execute().state, getSchema().state, and the igniteTest state vocabulary.
+Spike: .fas/state/spikes/agent-runtime-api-review.md (T7, depends on T6 — deferred until the stable cut). At changeset pre exit (3.0.0): remove the @deprecated getState()/watch()/subscribe() runtime aliases, the states config alias, the IgniteAgentStateListener alias, and all associated dev-warns. Update tests and live v3 docs to drop alias references. Author a breaking (major-at-stable) changeset. Keep getSnapshot/watchSnapshot/view, execute().state, getSchema().state, and the igniteTest state vocabulary. AUDIT AMENDMENTS (pre-stable-v3 audit 2026-06-11, F3+F4): (1) ALSO REMOVE forceRender() from IgniteElement (owner decision 2026-06-11) — src/IgniteElement.ts:128 carries a stale 'TODO: REMOVE in v2.0'; delete the method, its console.warn guards, and its tests in src/tests/IgniteElement.test.tsx (it is referenced nowhere else in source or docs). (2) Removal-site inventory checklist (7 sites): src/types/agent.ts:202 getState, :209 subscribe (NOTE: its @deprecated tag is missing the 'Removed at stable v3' marker — do not miss it), :217 watch, :182 IgniteAgentStateListener type; 'states'->'view' config alias at src/createProjectionFactory.ts:52, src/igniteCore/createIgniteComponentFactory.ts:34, src/igniteCore/actor-web.ts:94; plus the IgniteAgentStateListener re-export at src/index.ts:33. Drop the dedicated deprecation test lanes (runtime-deprecations.test.ts, config-states-deprecation.test.ts) or convert them to removed-surface assertions.
+
 
 ## Automation admission
 - Expected operator value: Improves operator leverage around "Stable-v3 follow-up: remove deprecated runtime/config surface at changeset pre exit" by reducing manual coordination, repetitive execution, or trust gaps.
@@ -36,9 +37,16 @@ Spike: .fas/state/spikes/agent-runtime-api-review.md (T7, depends on T6 — defe
 - packages/ignite-element/src/runtime/agent.ts
 - packages/ignite-element/src/createProjectionFactory.ts
 - packages/ignite-element/src/igniteCore/types.ts
+- packages/ignite-element/src/IgniteElement.ts
+- packages/ignite-element/src/index.ts
+- packages/ignite-element/src/igniteCore/createIgniteComponentFactory.ts
+- packages/ignite-element/src/igniteCore/actor-web.ts
+- packages/ignite-element/src/tests/IgniteElement.test.tsx
 
 ## Scope Amendments
-- None.
+- Type: scope-refresh
+- Added at: 2026-06-12
+- Added paths: packages/ignite-element/src/IgniteElement.ts, packages/ignite-element/src/types/agent.ts, packages/ignite-element/src/index.ts, packages/ignite-element/src/createProjectionFactory.ts, packages/ignite-element/src/igniteCore/createIgniteComponentFactory.ts, packages/ignite-element/src/igniteCore/actor-web.ts, packages/ignite-element/src/tests/IgniteElement.test.tsx
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

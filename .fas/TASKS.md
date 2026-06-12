@@ -807,6 +807,7 @@ No active tasks.
 - Owner: runtime
 - Brief: .fas/tasks/stable-v3-follow-up-remove-deprecated-runtime-config-surfac.md
 - Automation mode: advisory
+
 ### Task: Unify Actor-Web source contract: import canonical types from @actor-core/runtime, delete hand-copy
 
 - Title: Unify Actor-Web source contract: import canonical types from @actor-core/runtime, delete hand-copy
@@ -970,6 +971,7 @@ No active tasks.
 - Status: queued
 - Owner: runtime
 - Brief: .fas/tasks/cut-stable-v3-0-0-changeset-pre-exit-lockstep-publish.md
+
 ### Task: Replace docs homepage StackBlitz embed with a docs-native interactive counter demo (keep StackBlitz/repo links as plain links); fixes the 'Unable to run Embedded Project' isolation-header failure on GitHub Pages
 
 - Title: Replace docs homepage StackBlitz embed with a docs-native interactive counter demo (keep StackBlitz/repo links as plain links); fixes the 'Unable to run Embedded Project' isolation-header failure on GitHub Pages
@@ -989,6 +991,56 @@ No active tasks.
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
+
+### Task: Pre-stable-v3 audit: gaps and improvements for the public API and codebase before cutting stable v3.0.0
+
+- Title: Pre-stable-v3 audit: gaps and improvements for the public API and codebase before cutting stable v3.0.0
+- Mode: single-agent
+- Status: commit-planning
+- Owner: planner
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Tracker hygiene: close shipped epics and re-park deferred decisions before the stable cut
+
+- Title: Tracker hygiene: close shipped epics and re-park deferred decisions before the stable cut
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/tracker-hygiene-close-shipped-epics-and-re-park-deferred-de.md
+
+### Task: Stable v3: merge the v3 line to main and retire branch-dispatch docs deploys
+
+- Title: Stable v3: merge the v3 line to main and retire branch-dispatch docs deploys
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/stable-v3-merge-the-v3-line-to-main-and-retire-branch-dispa.md
+
+### Task: XStateAdapter: implement stream() over XState v5 emitted events
+
+- Title: XStateAdapter: implement stream() over XState v5 emitted events
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/xstateadapter-implement-stream-over-xstate-v5-emitted-eve.md
+
+### Task: chore: declare sideEffects allowlist for the ignite-element entry polyfill
+
+- Title: chore: declare sideEffects allowlist for the ignite-element entry polyfill
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/chore-declare-sideeffects-allowlist-for-the-ignite-element.md
+
+### Task: chore: dedupe xstate example lockfiles (keep pnpm-lock, drop package-lock)
+
+- Title: chore: dedupe xstate example lockfiles (keep pnpm-lock, drop package-lock)
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/chore-dedupe-xstate-example-lockfiles-keep-pnpm-lock-drop.md
 
 ## Template
 
