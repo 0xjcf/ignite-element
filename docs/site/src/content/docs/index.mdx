@@ -18,6 +18,8 @@ hero:
       variant: minimal
 ---
 
+import CounterDemo from '../../components/CounterDemo.astro';
+
 Ignite Element is a thin, typed layer around modern state systems so you can ship platform-native custom elements without dragging along an app-framework runtime. Commands express intent, effects express consequences, and the same component contract runs in the DOM, in tests, or headlessly.
 
 :::note[Upgrading?]
@@ -50,19 +52,37 @@ New to the idea entirely? Read [What is Ignite Element?](/ignite-element/overvie
 
 ## Try it live
 
-Spin up the counter example in your browser:
+Try the counter directly in the docs, or open the full example in StackBlitz.
 
-- [Open in StackBlitz](https://stackblitz.com/edit/ignite-element?file=src%2Fmy-counter.tsx) (inline playground)
+<CounterDemo />
+
+Every press is a command — the buttons express intent, the state machine owns the transition, and the view re-renders from state. Here is the same counter with the real API:
+
+```tsx
+import { igniteCore } from 'ignite-element/xstate';
+import { counterMachine } from './counter-machine';
+
+const counter = igniteCore({
+  source: counterMachine,
+  view: ({ context }) => ({ count: context.count }),
+  commands: ({ actor }) => ({
+    increment: () => actor.send({ type: 'INC' }),
+    decrement: () => actor.send({ type: 'DEC' }),
+    reset: () => actor.send({ type: 'RESET' }),
+  }),
+});
+
+counter('ignite-counter', ({ count, increment, decrement, reset }) => (
+  <div>
+    <button onClick={decrement}>−</button>
+    <output>{count}</output>
+    <button onClick={increment}>+</button>
+    <button onClick={reset}>Reset</button>
+  </div>
+));
+```
+
+Want to edit and fork the full project?
+
+- [Open in StackBlitz](https://stackblitz.com/edit/ignite-element?file=src%2Fmy-counter.tsx)
 - [Open repo example](https://github.com/0xjcf/ignite-element/tree/main/packages/ignite-element/src/examples/xstate)
-
-<iframe
-  class="stackblitz-embed"
-  data-src="https://stackblitz.com/edit/ignite-element?embed=1&file=src%2Fmy-counter.tsx&view=both"
-  width="100%"
-  height="980"
-  style="border: 1px solid #2f4565; border-radius: 12px;"
-  title="Ignite Element XState live demo"
-  loading="lazy"
-  allowfullscreen
-></iframe>
-<script src="/ignite-element/stackblitz-lazy.js" defer></script>
