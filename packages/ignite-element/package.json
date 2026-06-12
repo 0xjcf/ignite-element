@@ -107,6 +107,11 @@
 		"LICENSE",
 		"CHANGELOG.md"
 	],
+	"sideEffects": [
+		"./src/internal/setupDomPolyfill.ts",
+		"./dist/testing-*.js",
+		"./dist/testing-*.cjs"
+	],
 	"scripts": {
 		"build:types": "tsc",
 		"build:js": "vite build",

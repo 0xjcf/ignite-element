@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 const packageJson = JSON.parse(
@@ -191,5 +191,46 @@ assertDistGraphDoesNotReference("actor-web.cjs.js", [
 	"@reduxjs/toolkit",
 	'"mobx"',
 ]);
+
+// The DOM polyfill (src/internal/setupDomPolyfill.ts) is the package's only
+// module-level side effect. `sideEffects` must allowlist every dist chunk that
+// carries it, or a tree-shaking bundler will drop it and break bundled
+// SSR/Node consumers. Chunk hashes change per build, so match by glob and
+// assert here that the globs still cover wherever Rollup placed the polyfill.
+const polyfillMarker = /typeof\s*[\w$]+\.HTMLElement\s*>\s*"u"/;
+
+function sideEffectGlobToRegExp(glob) {
+	const escaped = glob.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+	return new RegExp(`^${escaped.replaceAll("*", "[^/]*")}$`);
+}
+
+const sideEffectPatterns = (packageJson.sideEffects ?? []).map(
+	sideEffectGlobToRegExp,
+);
+assert.ok(
+	sideEffectPatterns.length > 0,
+	"package.json must declare a sideEffects allowlist for the DOM polyfill.",
+);
+
+const distDir = new URL("./../dist/", import.meta.url);
+const polyfillChunks = readdirSync(distDir, { recursive: true })
+	.map((entry) => `./dist/${String(entry).split(path.sep).join("/")}`)
+	.filter((entry) => /\.(js|cjs)$/.test(entry))
+	.filter((entry) =>
+		polyfillMarker.test(
+			readFileSync(new URL(`.${entry}`, import.meta.url), "utf8"),
+		),
+	);
+
+assert.ok(
+	polyfillChunks.length > 0,
+	"Expected the DOM polyfill to be present in at least one dist chunk.",
+);
+for (const chunk of polyfillChunks) {
+	assert.ok(
+		sideEffectPatterns.some((pattern) => pattern.test(chunk)),
+		`DOM polyfill chunk ${chunk} is not covered by the package.json sideEffects allowlist — a tree-shaking bundler would drop it.`,
+	);
+}
 
 console.info("[verify:exports] Package exports resolved successfully.");
