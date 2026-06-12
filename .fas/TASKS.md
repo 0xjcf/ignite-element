@@ -980,6 +980,16 @@ No active tasks.
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
+### Task: Follow up homepage demo fix: remove broken StackBlitz embed from archived 2.x docs homepage (keep plain links), delete now-unreferenced stackblitz-lazy.js and .stackblitz-embed CSS, drop stale embed=1 param from xstate example README StackBlitz link, and record the docs-native demo decision in FAS memory
+
+- Title: Follow up homepage demo fix: remove broken StackBlitz embed from archived 2.x docs homepage (keep plain links), delete now-unreferenced stackblitz-lazy.js and .stackblitz-embed CSS, drop stale embed=1 param from xstate example README StackBlitz link, and record the docs-native demo decision in FAS memory
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
