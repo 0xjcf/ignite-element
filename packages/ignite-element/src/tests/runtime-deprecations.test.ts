@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import counterStore, {
 	counterSlice,
 } from "../examples/redux/src/js/reduxCounterStore";
@@ -46,14 +46,6 @@ function createRegister() {
 }
 
 describe("headless runtime canonical snapshot accessors", () => {
-	afterEach(() => {
-		vi.restoreAllMocks();
-	});
-
-	// NOTE: this test must not call the deprecated aliases (getState/watch/
-	// subscribe). The once-per-process dev warning is tracked in module-level
-	// state shared across tests in this file, so the alias-warning test below
-	// owns the only invocations.
 	it("getSnapshot/watchSnapshot are the canonical raw-read surface", async () => {
 		const { register, store } = createRegister();
 
@@ -70,38 +62,16 @@ describe("headless runtime canonical snapshot accessors", () => {
 		subscription.unsubscribe();
 	});
 
-	it("getState/watch/subscribe still work and warn once per process (dev only)", () => {
-		const { register, store } = createRegister();
-		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+	// The getState/watch/subscribe aliases were removed at stable v3 (T7).
+	// Pin the removal so they cannot silently return.
+	it("the deprecated getState/watch/subscribe aliases are gone", () => {
+		const { register } = createRegister();
 
-		// getState delegates to getSnapshot and warns at most once.
-		expect(register.getState()).toEqual(store.getState());
-		register.getState();
-		const getStateWarnings = warn.mock.calls.filter((call) =>
-			String(call[0]).includes("`getState` is deprecated"),
-		);
-		expect(getStateWarnings).toHaveLength(1);
-		expect(getStateWarnings[0][0]).toContain("Use `getSnapshot`");
-
-		// watch delegates to watchSnapshot and warns.
-		const watchSubscription = register.watch(vi.fn());
-		expect(
-			warn.mock.calls.some((call) =>
-				String(call[0]).includes("`watch` is deprecated"),
-			),
-		).toBe(true);
-		watchSubscription.unsubscribe();
-
-		// subscribe delegates to on and warns.
-		const eventSubscription = register.subscribe(
-			"counter-incremented",
-			vi.fn(),
-		);
-		expect(
-			warn.mock.calls.some((call) =>
-				String(call[0]).includes("`subscribe` is deprecated"),
-			),
-		).toBe(true);
-		eventSubscription.unsubscribe();
+		// @ts-expect-error -- getState was removed at stable v3; use getSnapshot.
+		expect(register.getState).toBeUndefined();
+		// @ts-expect-error -- watch was removed at stable v3; use watchSnapshot.
+		expect(register.watch).toBeUndefined();
+		// @ts-expect-error -- subscribe was removed at stable v3; use on.
+		expect(register.subscribe).toBeUndefined();
 	});
 });

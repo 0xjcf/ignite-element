@@ -695,7 +695,7 @@ describe("ignite test DSL", () => {
 							events: [],
 						};
 					},
-					getState() {
+					getSnapshot() {
 						return {};
 					},
 				},

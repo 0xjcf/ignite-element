@@ -10,15 +10,15 @@ describe("createComponentFactory", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("throws when states callback does not return a plain object", () => {
+	it("throws when view callback does not return a plain object", () => {
 		const adapter = new MockAdapter({ count: 0 }, StateScope.Shared);
 		const createAdapter = Object.assign(() => adapter, {
 			scope: StateScope.Shared,
 		});
 
 		const factory = createComponentFactory(createAdapter, {
-			// @ts-expect-error - states callback returns a non-object for runtime validation.
-			states: () => 123,
+			// @ts-expect-error - view callback returns a non-object for runtime validation.
+			view: () => 123,
 		});
 
 		const elementName = `ccf-invalid-states-${crypto.randomUUID()}`;
@@ -34,7 +34,7 @@ describe("createComponentFactory", () => {
 		expect(() => {
 			new Component();
 		}).toThrowError(
-			"[createComponentFactory] Facade states callback must return a plain object.",
+			"[createComponentFactory] Facade view callback must return a plain object.",
 		);
 	});
 
@@ -45,7 +45,7 @@ describe("createComponentFactory", () => {
 		});
 
 		const factory = createComponentFactory(createAdapter, {
-			states: () => ({}),
+			view: () => ({}),
 			// @ts-expect-error - commands callback must return a plain object.
 			commands: () => 42,
 		});
@@ -74,7 +74,7 @@ describe("createComponentFactory", () => {
 		});
 
 		const factory = createComponentFactory(createAdapter, {
-			states: () => ({}),
+			view: () => ({}),
 			// @ts-expect-error - command results must be callable.
 			commands: () => ({ bad: 1 }),
 		});
@@ -104,7 +104,7 @@ describe("createComponentFactory", () => {
 			scope: StateScope.Isolated,
 		});
 
-		const statesCallback = (snapshot: CounterState) => ({
+		const viewCallback = (snapshot: CounterState) => ({
 			count: snapshot.count,
 		});
 		type FallbackActor = {
@@ -124,7 +124,7 @@ describe("createComponentFactory", () => {
 			{ increment: () => void },
 			{ extra: string }
 		>(createAdapter, {
-			states: statesCallback,
+			view: viewCallback,
 			commands: commandsCallback,
 			createAdditionalArgs: () => ({ extra: "value" }),
 		});
@@ -176,7 +176,7 @@ describe("createComponentFactory", () => {
 		};
 		const customActorResolver = vi.fn((): CustomActor => actor);
 
-		const statesCallback = (snapshot: CustomState) => ({
+		const viewCallback = (snapshot: CustomState) => ({
 			value: snapshot.value,
 		});
 		const commandsCallback = ({
@@ -190,7 +190,7 @@ describe("createComponentFactory", () => {
 		const factory = createComponentFactory(createAdapter, {
 			resolveStateSnapshot: customSnapshot,
 			resolveCommandActor: customActorResolver,
-			states: statesCallback,
+			view: viewCallback,
 			commands: commandsCallback,
 		});
 
@@ -228,7 +228,7 @@ describe("createComponentFactory", () => {
 			scope: StateScope.Isolated,
 		});
 
-		const states = (snapshot: CounterState) => ({ count: snapshot.count });
+		const view = (snapshot: CounterState) => ({ count: snapshot.count });
 		const commands = ({
 			actor,
 			host,
@@ -253,7 +253,7 @@ describe("createComponentFactory", () => {
 			{ increment: () => void },
 			Record<never, never>
 		>(createAdapter, {
-			states,
+			view,
 			commands,
 		});
 

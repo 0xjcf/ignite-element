@@ -119,7 +119,7 @@ export type IgniteTestHelpers = {
 	accessibilityBridge: <
 		Runtime extends {
 			execute: unknown;
-			getState: () => unknown;
+			getSnapshot: () => unknown;
 		},
 	>(
 		component: Runtime,
@@ -719,7 +719,7 @@ class IgniteTestDriver<
 function createTestScenario<
 	Runtime extends {
 		execute: unknown;
-		getState: () => unknown;
+		getSnapshot: () => unknown;
 	},
 >(
 	component: Runtime,
@@ -743,7 +743,7 @@ export const test: IgniteTestFunction = Object.assign(createTestScenario, {
 	accessibilityBridge(
 		component: {
 			execute: unknown;
-			getState: () => unknown;
+			getSnapshot: () => unknown;
 		},
 		renderer: unknown,
 		options?: IgniteDomBridgeOptions,

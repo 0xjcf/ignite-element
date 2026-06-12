@@ -660,7 +660,7 @@ describe("igniteCore type inference", () => {
 
 		const register = igniteCore({
 			source: machine,
-			states: (snapshot: Snapshot) => ({
+			view: (snapshot: Snapshot) => ({
 				count: snapshot.context.count,
 			}),
 			commands: ({ actor }) => ({
@@ -762,7 +762,7 @@ describe("igniteCore type inference", () => {
 
 		igniteCoreXState({
 			source: leaderboardMachine,
-			states: (snapshot) => ({
+			view: (snapshot) => ({
 				leaderboard: snapshot.context.leaderboard,
 				sort: snapshot.context.sort,
 			}),
@@ -1248,7 +1248,7 @@ describe("igniteCore type inference", () => {
 		type SliceEvent = InferStateAndEvent<typeof counterSlice>["Event"];
 		type SliceActor = ReduxSliceCommandActor<typeof counterSlice>;
 
-		const statesCallback = (snapshot: SliceState) => ({
+		const viewCallback = (snapshot: SliceState) => ({
 			count: snapshot.count,
 		});
 		const commandsCallback = ({ actor }: { actor: SliceActor }) => ({
@@ -1258,7 +1258,7 @@ describe("igniteCore type inference", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: counterSlice,
-			states: statesCallback,
+			view: viewCallback,
 			commands: commandsCallback,
 		});
 
@@ -1277,7 +1277,7 @@ describe("igniteCore type inference", () => {
 		type SliceContext = CommandContext<
 			ReduxSliceCommandActor<typeof counterSlice>
 		>;
-		const sliceStates = (snapshot: SliceState) => ({
+		const sliceView = (snapshot: SliceState) => ({
 			count: snapshot.count,
 		});
 		const sliceCommands = ({ actor }: SliceContext) => ({
@@ -1286,7 +1286,7 @@ describe("igniteCore type inference", () => {
 
 		const register = igniteCore({
 			source: counterSlice,
-			states: sliceStates,
+			view: sliceView,
 			commands: sliceCommands,
 		});
 
@@ -1306,7 +1306,7 @@ describe("igniteCore type inference", () => {
 		type StoreEvent = InferStateAndEvent<StoreInstance>["Event"];
 		type StoreActor = ReduxStoreCommandActor<StoreInstance>;
 
-		const statesCallback = (snapshot: StoreState) => ({
+		const viewCallback = (snapshot: StoreState) => ({
 			count: snapshot.counter.count,
 		});
 		const commandsCallback = ({ actor }: { actor: StoreActor }) => ({
@@ -1316,7 +1316,7 @@ describe("igniteCore type inference", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
-			states: statesCallback,
+			view: viewCallback,
 			commands: commandsCallback,
 		});
 
@@ -1343,7 +1343,7 @@ describe("igniteCore type inference", () => {
 
 		const register = igniteCore({
 			source: store,
-			states: storeStates,
+			view: storeStates,
 			commands: storeCommands,
 		});
 
@@ -1368,7 +1368,7 @@ describe("igniteCore type inference", () => {
 		type StoreState = ReturnType<typeof createStore>;
 		type StoreEvent = MobxEvent<StoreState>;
 
-		const statesCallback = (snapshot: StoreState) => ({
+		const viewCallback = (snapshot: StoreState) => ({
 			count: snapshot.count,
 		});
 		const commandsCallback = ({
@@ -1382,7 +1382,7 @@ describe("igniteCore type inference", () => {
 		const register = igniteCore({
 			adapter: "mobx",
 			source: createStore,
-			states: statesCallback,
+			view: viewCallback,
 			commands: commandsCallback,
 		});
 
@@ -1413,7 +1413,7 @@ describe("igniteCore type inference", () => {
 
 		const register = igniteCore({
 			source: sharedStore,
-			states: sharedStates,
+			view: sharedStates,
 			commands: sharedCommands,
 		});
 

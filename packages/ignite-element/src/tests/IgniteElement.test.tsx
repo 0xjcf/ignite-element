@@ -138,57 +138,24 @@ describe("IgniteElement", () => {
 		expect(sendSpy).toHaveBeenCalledWith(customEvent);
 	});
 
-	it("should render correctly using forceRender when initialized and active", () => {
-		element.initialized = true;
-		element.isActive = true;
-		element.currentState = { count: 0 };
-
-		const renderSpy = vi.spyOn(element, "forceRender");
-		element.forceRender();
-
-		const shadowContent = element.shadowRoot?.textContent;
-		expect(shadowContent).toContain("Count: 0");
-		expect(renderSpy).toHaveBeenCalled();
+	// forceRender was removed at stable v3 (T7; it had carried "TODO: REMOVE
+	// in v2.0" since the v1->v2 era). Pin the removal.
+	it("no longer exposes forceRender", () => {
+		// @ts-expect-error -- forceRender was removed at stable v3.
+		expect(element.forceRender).toBeUndefined();
 	});
 
-	it("should warn if forceRender is called before initialization", () => {
+	it("should warn instead of rendering when state is not initialized", () => {
 		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
+		// A state update arriving while initialization is unwound hits the
+		// render guard through the adapter subscription path.
 		element.initialized = false;
-		element.forceRender();
-
-		expect(warnSpy).toHaveBeenCalledWith(
-			"[IgniteElement] Attempted to force render before initialization.",
-		);
-
-		warnSpy.mockRestore();
-	});
-
-	it("should warn if forceRender is called while inactive", () => {
-		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-		element.isActive = false;
-		element.initialized = true;
-		element.forceRender();
-
-		expect(warnSpy).toHaveBeenCalledWith(
-			"[IgniteElement] Attempted to force render while inactive.",
-		);
-
-		warnSpy.mockRestore();
-	});
-
-	it("should warn if currentState is undefined", () => {
-		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-		element.currentState = undefined;
-		element.forceRender();
+		adapter.subscribe.mock.calls[0][0]({ count: 1 });
 
 		expect(warnSpy).toHaveBeenCalledWith(
 			"[IgniteElement] State is not initialized",
 		);
-
-		expect(element.initialized).toBe(true);
 
 		warnSpy.mockRestore();
 	});
