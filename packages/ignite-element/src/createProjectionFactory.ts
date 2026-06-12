@@ -9,7 +9,6 @@ import type {
 	FacadeCommandResult,
 	FacadeCommandsCallback,
 	FacadeEffectsLike,
-	FacadeStatesCallback,
 	FacadeViewCallback,
 	ViewContext,
 } from "./RenderArgs";
@@ -49,8 +48,6 @@ export type ProjectionFactoryOptions<
 	Host = unknown,
 > = {
 	scope?: StateScope;
-	/** @deprecated Use `view` instead. Removed at stable v3. */
-	states?: FacadeStatesCallback<Snapshot, StatesResult>;
 	view?: FacadeViewCallback<Snapshot, StatesResult>;
 	commands?: FacadeCommandsCallback<CommandActor, CommandsResult, Host>;
 	effects?: FacadeEffectsLike<Snapshot, CommandActor, Events, Host>;
@@ -121,20 +118,6 @@ function freezeIfDev<T extends object>(value: T): T {
 	return isDevelopment() ? Object.freeze(value) : value;
 }
 
-// Warns at most once per process (never in production) when the deprecated
-// `states` projection alias is used without the canonical `view`.
-let warnedStatesDeprecation = false;
-
-function warnStatesDeprecation(): void {
-	if (!isDevelopment() || warnedStatesDeprecation) {
-		return;
-	}
-	warnedStatesDeprecation = true;
-	console.warn(
-		"[igniteCore] The `states` config option is deprecated and will be removed in stable v3. Use `view` instead.",
-	);
-}
-
 const createViewContext = <Snapshot>(
 	snapshot: Snapshot,
 ): ViewContext<Snapshot> => {
@@ -150,7 +133,7 @@ const createViewContext = <Snapshot>(
 
 function ensureFacadeResult(
 	result: unknown,
-	feature: "states" | "view" | "commands",
+	feature: "view" | "commands",
 	errorPrefix: string,
 ) {
 	if (!isPlainObject(result)) {
@@ -224,7 +207,6 @@ export function createProjectionFactory<
 ): FactoryResult {
 	const {
 		scope,
-		states,
 		view,
 		commands,
 		effects,
@@ -236,10 +218,6 @@ export function createProjectionFactory<
 		debugName,
 	} = options ?? {};
 	const errorPrefix = debugName ?? "createProjectionFactory";
-
-	if (states && !view) {
-		warnStatesDeprecation();
-	}
 
 	const resolveSnapshot =
 		resolveStateSnapshot ??
@@ -268,12 +246,6 @@ export function createProjectionFactory<
 		if (resolvedView) {
 			const result = resolvedView(createViewContext(resolveSnapshot(adapter)));
 			ensureFacadeResult(result, "view", errorPrefix);
-			return result;
-		}
-
-		if (states) {
-			const result = states(resolveSnapshot(adapter));
-			ensureFacadeResult(result, "states", errorPrefix);
 			return result;
 		}
 
@@ -332,7 +304,7 @@ export function createProjectionFactory<
 			...Object.getOwnPropertyDescriptors(extras),
 		});
 
-		if (resolvedView || states) {
+		if (resolvedView) {
 			const initial = resolveView(adapter);
 			const stateFacade = Object.create(
 				null,

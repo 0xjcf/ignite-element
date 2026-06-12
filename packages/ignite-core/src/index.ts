@@ -33,7 +33,6 @@ export type {
 	FacadeEffectsCallback,
 	FacadeEffectsLike,
 	FacadeEffectsObjectCallback,
-	FacadeStatesCallback,
 	FacadeViewCallback,
 	NumberCommandInputMetadata,
 	NumberCommandInputOptions,
@@ -49,7 +48,6 @@ export { command, commandMetadataSymbol } from "./RenderArgs";
 export type {
 	AnyCommandsCallback,
 	AnyEffectsCallback,
-	AnyStatesCallback,
 	AnyViewCallback,
 	EventsDefinition,
 	InferEvents,

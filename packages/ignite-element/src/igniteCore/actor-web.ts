@@ -76,7 +76,7 @@ type ActorWebSubpathConfig<
 		StatesResult,
 		CommandsResult
 	>,
-	"adapter" | "source" | "view" | "states" | "commandSource"
+	"adapter" | "source" | "view" | "commandSource"
 > & {
 	adapter?: "actor-web";
 	source:
@@ -91,15 +91,6 @@ type ActorWebSubpathConfig<
 		StatesResult,
 		CommandsResult
 	>["view"];
-	/** @deprecated Use `view` instead. Removed at stable v3. */
-	states?: ActorWebConfig<
-		Context,
-		Message,
-		Emitted,
-		Events,
-		StatesResult,
-		CommandsResult
-	>["states"];
 	commandSource?:
 		| ActorWebSubpathCommandSourceValue<Context, Message, Emitted>
 		| (() => ActorWebSubpathCommandSourceValue<Context, Message, Emitted>)

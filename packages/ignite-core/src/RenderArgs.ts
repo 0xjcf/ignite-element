@@ -1,12 +1,3 @@
-/**
- * @deprecated The `states` projection callback is deprecated in favor of the
- * `view` callback (`FacadeViewCallback`). Removed at stable v3.
- */
-export type FacadeStatesCallback<
-	Snapshot,
-	Result extends Record<string, unknown> = Record<string, unknown>,
-> = (snapshot: Snapshot) => Result;
-
 export type ViewContext<Snapshot> = Snapshot extends object
 	? Snapshot & { snapshot: Snapshot }
 	: { snapshot: Snapshot };
@@ -340,13 +331,9 @@ type IsNever<T> = [T] extends [never] ? true : false;
 type StateResult<
 	Snapshot,
 	StateCallback,
-	Result = [StateCallback] extends [
-		FacadeStatesCallback<Snapshot, infer Result>,
-	]
+	Result = [StateCallback] extends [FacadeViewCallback<Snapshot, infer Result>]
 		? Result
-		: [StateCallback] extends [FacadeViewCallback<Snapshot, infer Result>]
-			? Result
-			: Record<never, never>,
+		: Record<never, never>,
 > = IsNever<StateCallback> extends true ? Record<never, never> : Result;
 
 type CommandResult<

@@ -22,7 +22,6 @@ import type {
 import type {
 	AnyCommandsCallback,
 	AnyEffectsCallback,
-	AnyStatesCallback,
 	AnyViewCallback,
 	EmptyEventMap,
 	EventDescriptor,
@@ -33,7 +32,6 @@ import type {
 	FacadeCommandsCallback,
 	FacadeEffectsCallback,
 	FacadeEffectsObjectCallback,
-	FacadeStatesCallback,
 	FacadeViewCallback,
 } from "@ignite-element/core";
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
@@ -103,7 +101,6 @@ export type IgniteCoreReturn<
 export type {
 	AnyCommandsCallback,
 	AnyEffectsCallback,
-	AnyStatesCallback,
 	AnyViewCallback,
 	ActorWebCommandActor,
 	ActorWebExtendedState,
@@ -276,8 +273,6 @@ export type ActorWebConfig<
 	> = ActorWebSourceLike<Context, Message, Emitted>,
 > = {
 	view?: FacadeViewCallback<ActorWebExtendedState<Context>, StatesResult>;
-	/** @deprecated Use `view` instead. Removed at stable v3. */
-	states?: FacadeStatesCallback<ActorWebExtendedState<Context>, StatesResult>;
 	commandSource?: ActorWebCommandSourceLike<Context, Message, Emitted>;
 	commands?: FacadeCommandsCallback<
 		ActorWebCommandActor<Context, Message, Emitted>,

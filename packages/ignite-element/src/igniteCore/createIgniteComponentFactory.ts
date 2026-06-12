@@ -8,7 +8,6 @@ import type {
 	FacadeCommandResult,
 	FacadeCommandsCallback,
 	FacadeEffectsLike,
-	FacadeStatesCallback,
 	FacadeViewCallback,
 } from "../RenderArgs";
 import type { IgniteCoreReturn } from "./types";
@@ -31,8 +30,6 @@ export type IgniteComponentFactoryOptions<
 	CommandsResult extends FacadeCommandResult,
 	Events extends EventMap = EmptyEventMap,
 > = {
-	/** @deprecated Use `view` instead. Removed at stable v3. */
-	states?: FacadeStatesCallback<Snapshot, StatesResult>;
 	view?: FacadeViewCallback<Snapshot, StatesResult>;
 	commands?: FacadeCommandsCallback<CommandActor, CommandsResult, HTMLElement>;
 	effects?: FacadeEffectsLike<Snapshot, CommandActor, Events, HTMLElement>;
@@ -88,7 +85,6 @@ export function createIgniteComponentFactory<
 		Events
 	>(createAdapter, {
 		scope: createAdapter.scope,
-		states: options.states,
 		view: options.view,
 		commands: options.commands,
 		effects: options.effects,

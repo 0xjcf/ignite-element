@@ -6,7 +6,6 @@ import type {
 	FacadeCommandResult,
 	FacadeCommandsCallback,
 	FacadeEffectArgs,
-	FacadeStatesCallback,
 	FacadeViewCallback,
 } from "@ignite-element/core";
 import type { AnyStateMachine } from "xstate";
@@ -39,8 +38,6 @@ type XStateConfigBase<
 > = {
 	adapter?: "xstate";
 	source: Machine | XStateActorInstance<Machine>;
-	/** @deprecated Use `view` instead. Removed at stable v3. */
-	states?: FacadeStatesCallback<ExtendedState<Machine>, StatesResult>;
 	view?: FacadeViewCallback<ExtendedState<Machine>, StatesResult>;
 	commands?: FacadeCommandsCallback<
 		XStateCommandActor<Machine>,

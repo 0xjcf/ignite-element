@@ -6,7 +6,6 @@ import type {
 	FacadeCommandResult,
 	FacadeCommandsCallback,
 	FacadeEffectArgs,
-	FacadeStatesCallback,
 	FacadeViewCallback,
 } from "@ignite-element/core";
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
@@ -48,11 +47,6 @@ type ReduxBlueprintBaseConfig<
 > = {
 	adapter?: "redux";
 	source: Source;
-	/** @deprecated Use `view` instead. Removed at stable v3. */
-	states?: FacadeStatesCallback<
-		InferStateAndEvent<Source>["State"],
-		StatesResult
-	>;
 	view?: FacadeViewCallback<InferStateAndEvent<Source>["State"], StatesResult>;
 	commands?: FacadeCommandsCallback<
 		ReduxCommandActorFor<Source>,
@@ -108,11 +102,6 @@ type ReduxInstanceBaseConfig<
 > = {
 	adapter?: "redux";
 	source: StoreInstance;
-	/** @deprecated Use `view` instead. Removed at stable v3. */
-	states?: FacadeStatesCallback<
-		InferStateAndEvent<StoreInstance>["State"],
-		StatesResult
-	>;
 	view?: FacadeViewCallback<
 		InferStateAndEvent<StoreInstance>["State"],
 		StatesResult
@@ -171,8 +160,6 @@ type MobxBaseConfig<
 > = {
 	adapter?: "mobx";
 	source: (() => State) | State;
-	/** @deprecated Use `view` instead. Removed at stable v3. */
-	states?: FacadeStatesCallback<State, StatesResult>;
 	view?: FacadeViewCallback<State, StatesResult>;
 	commands?: FacadeCommandsCallback<State, CommandsResult, Host>;
 	events?: EventsDefinition<Events>;

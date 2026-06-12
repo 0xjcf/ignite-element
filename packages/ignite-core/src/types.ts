@@ -5,14 +5,9 @@ import type {
 	FacadeCommandResult,
 	FacadeCommandsCallback,
 	FacadeEffectsLike,
-	FacadeStatesCallback,
 	FacadeViewCallback,
 } from "./RenderArgs";
 
-export type AnyStatesCallback = FacadeStatesCallback<
-	unknown,
-	Record<string, unknown>
->;
 export type AnyViewCallback = FacadeViewCallback<
 	unknown,
 	Record<string, unknown>
