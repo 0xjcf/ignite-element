@@ -963,6 +963,23 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: Cut stable v3.0.0: changeset pre exit + lockstep publish
+
+- Title: Cut stable v3.0.0: changeset pre exit + lockstep publish
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/cut-stable-v3-0-0-changeset-pre-exit-lockstep-publish.md
+### Task: Replace docs homepage StackBlitz embed with a docs-native interactive counter demo (keep StackBlitz/repo links as plain links); fixes the 'Unable to run Embedded Project' isolation-header failure on GitHub Pages
+
+- Title: Replace docs homepage StackBlitz embed with a docs-native interactive counter demo (keep StackBlitz/repo links as plain links); fixes the 'Unable to run Embedded Project' isolation-header failure on GitHub Pages
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/replace-docs-homepage-stackblitz-embed-with-a-docs-native-in.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 ## Template
 
 ### Task: <short task title>
