@@ -318,12 +318,13 @@ No active tasks.
 
 - Title: Ignite Element Actor-Web first-class adapter
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 - Artifacts: planning=.fas/state/planning.json; taskPacket=.fas/state/task-packet.json; commitPlan=.fas/state/commit-plan.json; verification=.fas/state/verification/latest.json; review=.fas/state/review-summary.md; workflow=.fas/state/workflows
+- Note: closed by tracker-hygiene task-1781292594655 (2026-06-12) — shipped in 3.0.0-beta.4 (ActorWebAdapter + ignite-element/actor-web entrypoint + guides/actor-web docs; stale review status was a frozen snapshot, see fas batch-close gotchas)
 
 ### Task: harden ActorWebAdapter replay dedupe for cloned snapshots and mutable sources
 
@@ -838,9 +839,10 @@ No active tasks.
 
 - Title: Auto-bridge actor-web source domain emits to headless runtime events
 - Mode: single-agent
-- Status: implementing
+- Status: done
 - Owner: implementer
 - Brief: .fas/tasks/auto-bridge-actor-web-source-domain-emits-to-headless-runtim.md
+- Note: closed by tracker-hygiene task-1781292594655 (2026-06-12) — superseded by the uniform stream() seam (decisions.md 2026-06-09) and delivered via E1–E6, shipped in 3.0.0-beta.4; frozen implementing status was a snapshot artifact
 - Automation mode: advisory
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -850,11 +852,12 @@ No active tasks.
 
 - Title: igniteCore send() command helper: validate send-in-commands-context across all four adapters, decide always-arrow vs mixed static/arrow command form, design the Command branding + backward-compat + execute() arity inference
 - Mode: single-agent
-- Status: commit-planning
+- Status: backlog
 - Owner: planner
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
+- Note: re-parked to backlog by tracker-hygiene task-1781292594655 (2026-06-12) per the 2026-06-08 DEFER decision on the send() helper (.fas/memory/decisions.md); revisit post-stable-v3
 
 ### Task: [decouple] Own the actor-web source contract in the adapter; keep ignite-element core standalone
 
@@ -890,19 +893,21 @@ No active tasks.
 
 - Title: Uniform emitted-event streaming seam on IgniteAdapter (actor-web first consumer): name the seam (NOT subscribeEvent — collides with subscribe), decide shape/typing/getSchema/capture mechanism, and which adapters implement now vs later
 - Mode: 6-agent
-- Status: commit-planning
-- Owner: planner
+- Status: done
+- Owner: implementer
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
+- Note: closed by tracker-hygiene task-1781292594655 (2026-06-12) — spike decision (decisions.md 2026-06-09, name=stream) executed via the E1–E6 child tasks below (all done), shipped in 3.0.0-beta.4; remaining adapter opt-ins tracked as task-1781292649702 (xstate stream())
 
 ### Task: Core: add optional stream?() emitted-event seam + Emitted type param to IgniteAdapter
 
 - Title: Core: add optional stream?() emitted-event seam + Emitted type param to IgniteAdapter
 - Mode: single-agent
-- Status: implementing
+- Status: done
 - Owner: implementer
 - Brief: .fas/tasks/core-add-optional-stream-emitted-event-seam-emitted-ty.md
+- Note: closed by tracker-hygiene task-1781292594655 (2026-06-12) — E1 shipped in 3.0.0-beta.4 (queue marked done 2026-06-09); frozen implementing status was a snapshot artifact
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
@@ -996,8 +1001,8 @@ No active tasks.
 
 - Title: Pre-stable-v3 audit: gaps and improvements for the public API and codebase before cutting stable v3.0.0
 - Mode: single-agent
-- Status: commit-planning
-- Owner: planner
+- Status: done
+- Owner: investigator
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
@@ -1006,9 +1011,12 @@ No active tasks.
 
 - Title: Tracker hygiene: close shipped epics and re-park deferred decisions before the stable cut
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/tracker-hygiene-close-shipped-epics-and-re-park-deferred-de.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Stable v3: merge the v3 line to main and retire branch-dispatch docs deploys
 
