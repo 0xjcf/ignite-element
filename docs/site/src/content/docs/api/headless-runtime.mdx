@@ -72,7 +72,7 @@ Returns the current raw snapshot of the underlying source.
 const snapshot = counter.getSnapshot();
 ```
 
-The older `getState()` alias is deprecated — prefer `getSnapshot()`. It still works (emitting a dev-mode warning) and is removed at stable v3.
+The pre-stable `getState()` alias was removed at v3.0.0 — use `getSnapshot()`.
 
 ### `getView()`
 
@@ -98,7 +98,7 @@ const subscription = counter.on('toggled', (event) => {
 subscription.unsubscribe();
 ```
 
-Use `on(...)` for the public events your component emits through `effects`. When the source has a native emit stream (Actor-Web today), `on(...)` also receives the source's emitted domain events — `event.detail` is the emitted event object itself, and the names are typed from the source's `Emitted` union. (The older `subscribe(eventName, handler)` alias is deprecated — prefer `on`.)
+Use `on(...)` for the public events your component emits through `effects`. When the source has a native emit stream (Actor-Web today), `on(...)` also receives the source's emitted domain events — `event.detail` is the emitted event object itself, and the names are typed from the source's `Emitted` union. (The pre-stable `subscribe(eventName, handler)` alias was removed at v3.0.0 — use `on`.)
 
 ### `watchSnapshot(handler)`
 
@@ -112,7 +112,7 @@ const subscription = counter.watchSnapshot((snapshot, prevSnapshot) => {
 });
 ```
 
-The older `watch(handler)` alias is deprecated — prefer `watchSnapshot()`. It still works (emitting a dev-mode warning) and is removed at stable v3.
+The pre-stable `watch(handler)` alias was removed at v3.0.0 — use `watchSnapshot()`.
 
 ### `watchView(handler)`
 
