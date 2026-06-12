@@ -32,7 +32,6 @@ import type {
 	FacadeEffectsCallback,
 	FacadeEffectsLike,
 	FacadeEffectsObjectCallback,
-	FacadeStatesCallback,
 	FacadeViewCallback,
 	NumberCommandInputMetadata,
 	NumberCommandInputOptions,
@@ -53,7 +52,6 @@ export type {
 	EventPayload,
 	FacadeCommandFunction,
 	FacadeCommandResult,
-	FacadeStatesCallback,
 	FacadeViewCallback,
 	CommandHelper,
 	CommandMetadata,
@@ -160,14 +158,10 @@ type StateResult<
 	Source,
 	StateCallback,
 	Result = [StateCallback] extends [
-		FacadeStatesCallback<AdapterSnapshot<Source>, infer Result>,
+		FacadeViewCallback<AdapterSnapshot<Source>, infer Result>,
 	]
 		? Result
-		: [StateCallback] extends [
-					FacadeViewCallback<AdapterSnapshot<Source>, infer Result>,
-				]
-			? Result
-			: Record<never, never>,
+		: Record<never, never>,
 > = IsNever<StateCallback> extends true ? Record<never, never> : Result;
 
 type CommandResult<

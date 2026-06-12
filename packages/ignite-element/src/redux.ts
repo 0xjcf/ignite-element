@@ -30,7 +30,6 @@ export type {
 	IgniteAgentEventListener,
 	IgniteAgentExecutionResult,
 	IgniteAgentRuntime,
-	IgniteAgentStateListener,
 	IgniteAgentSubscription,
 	IgniteStory,
 	IgniteStoryCommandTraceEntry,

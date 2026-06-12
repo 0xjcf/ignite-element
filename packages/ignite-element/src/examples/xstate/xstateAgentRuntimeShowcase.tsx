@@ -9,7 +9,7 @@ type RuntimeCommand =
 	| "reset"
 	| "incrementToLimit";
 type PayloadCommand = "setStep" | "setLimit";
-type ApiShowcaseState = ReturnType<typeof apiShowcase.getState>;
+type ApiShowcaseState = ReturnType<typeof apiShowcase.getSnapshot>;
 type ApiShowcaseView = ReturnType<typeof apiShowcase.getView>;
 type ApiShowcaseStory = ReturnType<typeof apiShowcase.record>;
 type RuntimeEventRecord = {
@@ -134,7 +134,7 @@ const codeForCommand = (
 		case "inspect":
 			return [
 				"apiShowcase.getSchema()",
-				"apiShowcase.getState()",
+				"apiShowcase.getSnapshot()",
 				"apiShowcase.getView()",
 			].join("\n");
 		case "setStep":
@@ -162,7 +162,7 @@ const createPlaceholderReport = (command: string): RuntimeReport => ({
 	command,
 	code: "// Loading runtime report...",
 	schema: apiShowcase.getSchema(),
-	state: summarizeState(apiShowcase.getState()),
+	state: summarizeState(apiShowcase.getSnapshot()),
 	view: apiShowcase.getView(),
 	resultEvents: [],
 	eventLog: [],
@@ -182,7 +182,7 @@ const createPlaceholderReport = (command: string): RuntimeReport => ({
 
 const inspectRuntime = (): RuntimeExecution => {
 	const schema = apiShowcase.getSchema();
-	const state = summarizeState(apiShowcase.getState());
+	const state = summarizeState(apiShowcase.getSnapshot());
 	const view = apiShowcase.getView();
 	const commandNames = Object.keys(schema.commands);
 
@@ -311,9 +311,9 @@ const createRuntimeReport = async (
 	const resetSubscription = apiShowcase.on("api-reset", (event) => {
 		eventLog.push(`on("api-reset") -> ${formatPayload(event.detail)}`);
 	});
-	const stateSubscription = apiShowcase.watch((state, prevState) => {
+	const stateSubscription = apiShowcase.watchSnapshot((state, prevState) => {
 		stateLog.push(
-			`watch(...) count ${prevState.context.count} -> ${state.context.count}`,
+			`watchSnapshot(...) count ${prevState.context.count} -> ${state.context.count}`,
 		);
 	});
 	const viewSubscription = apiShowcase.watchView((view, prevView) => {
@@ -355,7 +355,7 @@ const createRuntimeReport = async (
 			typeof payload === "number" ? `${command}(${payload})` : `${command}()`,
 		code: codeForCommand(command, payload),
 		schema: apiShowcase.getSchema(),
-		state: summarizeState(apiShowcase.getState()),
+		state: summarizeState(apiShowcase.getSnapshot()),
 		view: apiShowcase.getView(),
 		resultEvents,
 		eventLog,

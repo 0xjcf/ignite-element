@@ -54,7 +54,6 @@ import type {
 export type {
 	ActorWebConfig,
 	AnyCommandsCallback,
-	AnyStatesCallback,
 	IgniteCoreReturn,
 	InferAdapterFromSource,
 	MobxConfig,

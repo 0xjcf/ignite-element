@@ -179,10 +179,6 @@ export type IgniteAgentSnapshotListener<Snapshot> = (
 	prevSnapshot: Snapshot,
 ) => void;
 
-/** @deprecated Use `IgniteAgentSnapshotListener` instead. Removed at stable v3. */
-export type IgniteAgentStateListener<State> =
-	IgniteAgentSnapshotListener<State>;
-
 export type IgniteAgentSubscription = {
 	unsubscribe: () => void;
 };
@@ -199,23 +195,14 @@ export type IgniteAgentRuntime<
 		payload?: CommandPayload<Commands, CommandName>,
 	): Promise<IgniteAgentExecutionResult<State, Events>>;
 	getSnapshot(): State;
-	/** @deprecated Use `getSnapshot()` instead. Removed at stable v3. */
-	getState(): State;
 	getView(): View;
 	on<Type extends keyof Events & string>(
-		eventName: Type,
-		handler: IgniteAgentEventListener<Events, Type>,
-	): IgniteAgentSubscription;
-	/** @deprecated Use `on(eventName, handler)` instead. */
-	subscribe<Type extends keyof Events & string>(
 		eventName: Type,
 		handler: IgniteAgentEventListener<Events, Type>,
 	): IgniteAgentSubscription;
 	watchSnapshot(
 		handler: IgniteAgentSnapshotListener<State>,
 	): IgniteAgentSubscription;
-	/** @deprecated Use `watchSnapshot(handler)` instead. Removed at stable v3. */
-	watch(handler: IgniteAgentSnapshotListener<State>): IgniteAgentSubscription;
 	watchView(
 		handler: IgniteAgentSnapshotListener<View>,
 	): IgniteAgentSubscription;

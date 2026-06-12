@@ -125,23 +125,6 @@ export default abstract class IgniteElement<
 		send: (event: Event) => void;
 	}): View;
 
-	// TODO: REMOVE in v2.0
-	public forceRender(): void {
-		if (!this._initialized) {
-			console.warn(
-				"[IgniteElement] Attempted to force render before initialization.",
-			);
-			return;
-		}
-
-		if (!this._isActive) {
-			console.warn("[IgniteElement] Attempted to force render while inactive.");
-			return;
-		}
-
-		this.renderTemplate();
-	}
-
 	get currentState(): State {
 		return this._currentState;
 	}
