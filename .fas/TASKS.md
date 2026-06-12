@@ -1011,7 +1011,7 @@ No active tasks.
 
 - Title: Tracker hygiene: close shipped epics and re-park deferred decisions before the stable cut
 - Mode: single-agent
-- Status: implementing
+- Status: done
 - Owner: implementer
 - Brief: .fas/tasks/tracker-hygiene-close-shipped-epics-and-re-park-deferred-de.md
 - Verification lane: fast
