@@ -1,0 +1,87 @@
+import { igniteCore } from "ignite-element/xstate";
+import { pushPath } from "./history";
+import "./pages";
+import { navigate, routerActor } from "./routerStore";
+// Ignite renders into Shadow DOM, so the global sheet linked in index.html
+// can't reach component internals. Pull it in as raw text and inject a <style>
+// into the shadow root — the config-free styling path (no ignite.config.ts).
+import styles from "../styles.css?raw";
+
+// The outlet element: it renders the nav and swaps in whichever page element
+// matches the active route. It also owns the single History *write*: an effect
+// that pushes a new URL when — and only when — a `navigate` command moved us.
+// POPSTATE-driven changes are skipped (the browser already changed the URL),
+// which keeps back/forward from stacking duplicate history entries.
+
+const NAV = [
+	{ href: "/", label: "Home" },
+	{ href: "/about", label: "About" },
+	{ href: "/users", label: "Users" },
+	{ href: "/dashboard", label: "Dashboard" },
+] as const;
+
+const navLink = (href: string, label: string, activePath: string) => {
+	const isActive =
+		href === "/" ? activePath === "/" : activePath.startsWith(href);
+	return (
+		<a
+			href={href}
+			class={isActive ? "nav-link is-active" : "nav-link"}
+			aria-current={isActive ? "page" : undefined}
+			onClick={(event: Event) => {
+				event.preventDefault();
+				navigate(href);
+			}}
+		>
+			{label}
+		</a>
+	);
+};
+
+const renderPage = (route: string) => {
+	switch (route) {
+		case "home":
+			return <home-page />;
+		case "about":
+			return <about-page />;
+		case "users":
+			return <users-page />;
+		case "user":
+			return <user-page />;
+		case "login":
+			return <login-page />;
+		case "dashboard":
+			return <dashboard-page />;
+		default:
+			return <not-found-page />;
+	}
+};
+
+const registerRouter = igniteCore({
+	source: routerActor,
+	view: ({ context }) => ({ route: context.route, path: context.path }),
+	commands: () => ({ navigate }),
+	// Consequence of a navigate intent: write the URL. Skipping `popstate` and
+	// `init` keeps the History core/shell boundary clean and avoids double entries.
+	effects: ({ snapshot, prevSnapshot }) => {
+		if (
+			snapshot.context.source === "navigate" &&
+			snapshot.context.path !== prevSnapshot.context.path
+		) {
+			pushPath(snapshot.context.path);
+		}
+	},
+	// The shared `routerActor` is owned by routerStore (app lifetime), not by any
+	// one element. Don't let the outlet's disconnect tear it down. See pages.tsx.
+	cleanup: false,
+});
+
+registerRouter("app-router", ({ route, path }) => (
+	<div class="app">
+		<style>{styles}</style>
+		<nav class="nav" aria-label="Primary">
+			{NAV.map((item) => navLink(item.href, item.label, path))}
+		</nav>
+		<main class="content">{renderPage(route)}</main>
+	</div>
+));

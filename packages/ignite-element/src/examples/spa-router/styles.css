@@ -1,0 +1,121 @@
+/* Plain, build-step-free CSS — the config-free styling path (no ignite.config,
+   no plugin). Used two ways: index.html links it for the document `body` and
+   the `:root` custom properties (which inherit THROUGH the shadow boundary),
+   and router.tsx/pages.tsx import it with `?raw` and inject a <style> into each
+   component's shadow root for the class rules (which do NOT cross the boundary). */
+
+:root {
+	--bg: #0d1324;
+	--panel: #0f182e;
+	--border: #223049;
+	--text: #e8edf7;
+	--muted: #c5d0de;
+	--accent: #1ad2ff;
+	--accent-contrast: #0b1324;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+	background: var(--bg);
+	color: var(--text);
+	line-height: 1.6;
+}
+
+.app {
+	max-width: 720px;
+	margin: 0 auto;
+	padding: 2rem 1.25rem;
+}
+
+.nav {
+	display: flex;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+	padding-bottom: 1.25rem;
+	margin-bottom: 1.5rem;
+	border-bottom: 1px solid var(--border);
+}
+
+.nav-link {
+	padding: 0.4rem 0.85rem;
+	border-radius: 8px;
+	border: 1px solid var(--border);
+	color: var(--muted);
+	text-decoration: none;
+	transition:
+		background 120ms ease,
+		color 120ms ease;
+}
+
+.nav-link:hover {
+	color: var(--text);
+	background: var(--panel);
+}
+
+.nav-link.is-active {
+	color: var(--accent-contrast);
+	background: var(--accent);
+	border-color: var(--accent);
+	font-weight: 600;
+}
+
+/* `.page` lives in each page element's OWN shadow root — not inside `.content`
+   (which is in the outlet's shadow). Descendant combinators don't cross shadow
+   boundaries, so this is a flat `.page` selector, not `.content .page`. */
+.page {
+	background: var(--panel);
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	padding: 1.5rem;
+}
+
+h1 {
+	margin-top: 0;
+	font-size: 1.5rem;
+}
+
+.link {
+	color: var(--accent);
+	text-decoration: none;
+	font-weight: 600;
+}
+
+.link:hover {
+	text-decoration: underline;
+}
+
+.user-list {
+	list-style: none;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+button {
+	font: inherit;
+	padding: 0.5rem 1rem;
+	border-radius: 8px;
+	border: 1px solid var(--border);
+	background: var(--bg);
+	color: var(--text);
+	cursor: pointer;
+}
+
+button.primary {
+	background: var(--accent);
+	color: var(--accent-contrast);
+	border-color: var(--accent);
+	font-weight: 600;
+}
+
+code {
+	background: rgba(26, 210, 255, 0.12);
+	padding: 0.1rem 0.35rem;
+	border-radius: 4px;
+}

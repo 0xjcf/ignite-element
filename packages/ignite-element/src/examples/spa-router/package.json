@@ -1,0 +1,26 @@
+{
+	"name": "spa-router-example",
+	"version": "1.0.0",
+	"description": "Build a client-side SPA router with ignite-element and XState — history routing, dynamic params, auth guards, and headless navigation tests.",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview"
+	},
+	"keywords": [
+		"xstate",
+		"ignite-element",
+		"router",
+		"spa",
+		"ignite-jsx"
+	],
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+		"xstate": "^5.23.0"
+	},
+	"devDependencies": {
+		"vite": "^7.2.7"
+	}
+}

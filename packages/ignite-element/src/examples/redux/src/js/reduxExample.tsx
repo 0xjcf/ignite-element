@@ -41,7 +41,7 @@ export const registerIsolatedRedux = igniteCore({
 
 registerSharedRedux(
 	"my-counter-redux",
-	({ count, send, increment, addByAmount }) => (
+	({ count, decrement, increment, addByAmount }) => (
 		<div class="card text-start shadow-sm mb-3" data-bs-theme="light">
 			<div class="card-header bg-primary text-white">
 				Shared Counter (Redux)
@@ -52,7 +52,7 @@ registerSharedRedux(
 					<button
 						type="button"
 						class="btn btn-danger me-2"
-						onClick={() => send({ type: "counter/decrement" })}
+						onClick={() => decrement()}
 					>
 						-1
 					</button>
@@ -87,7 +87,7 @@ registerSharedRedux("shared-display-redux", ({ count }) => (
 
 registerIsolatedRedux(
 	"another-counter-redux",
-	({ count, send, addByAmount }) => (
+	({ count, decrement, addByAmount }) => (
 		<div class="card text-start shadow-sm mb-3" data-bs-theme="light">
 			<div class="card-header bg-warning text-dark">
 				Isolated Counter (Redux)
@@ -98,7 +98,7 @@ registerIsolatedRedux(
 					<button
 						type="button"
 						class="btn btn-secondary me-2"
-						onClick={() => send({ type: "counter/decrement" })}
+						onClick={() => decrement()}
 					>
 						-1
 					</button>
