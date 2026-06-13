@@ -6,7 +6,7 @@
 	"scripts": {
 		"build:css": "tailwindcss -i ./styles.css -o ./dist/styles.css",
 		"dev": "pnpm run build:css && vite",
-		"build": "vite build"
+		"build": "pnpm run build:css && vite build"
 	},
 	"keywords": [
 		"xstate",

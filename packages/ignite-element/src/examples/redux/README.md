@@ -32,10 +32,10 @@ This example shows how ignite-element integrates with **Redux Toolkit**, **Ignit
 
 | Path | Purpose |
 | --- | --- |
-| `reduxCounterStore.ts` | Exports the slice and a store factory used throughout the example. |
-| `reduxExample.tsx` | Registers components with `igniteCore` using shared and isolated scopes rendered via Ignite JSX. |
-| `scss/styles.scss` | Bootstrap + custom overrides compiled once and injected globally. |
-| `index.html` | Host page for the custom elements during development. |
+| `src/js/reduxCounterStore.ts` | Exports the slice and a store factory used throughout the example. |
+| `src/js/reduxCounterStore.test.ts` | Unit tests for the slice reducers and store isolation. |
+| `src/js/reduxExample.tsx` | Registers components with `igniteCore` using shared and isolated scopes rendered via Ignite JSX. |
+| `src/index.html` | Host page for the custom elements during development. |
 
 ---
 
@@ -76,24 +76,32 @@ export const registerIsolatedRedux = igniteCore({
 });
 ```
 
-Each registered element receives `state`, `send`, and the derived facade helpers, letting template functions or classes focus purely on UI concerns.
+Each registered element receives the projected **view** fields (e.g. `count`) and the **commands** you declared (`increment`, `decrement`, `addByAmount`) — template functions focus purely on UI concerns, expressing intent through commands rather than dispatching raw actions.
 
 ---
 
-## Styling with Bootstrap
+## Styling with Bootstrap (config-free)
 
-Bootstrap is bundled once for the entire example and injected via the example's advanced `ignite-renderer` config:
+Ignite renders each component into its own Shadow DOM, so Bootstrap's classes
+can't reach component internals from a global `<link>`. The example imports
+Bootstrap's stylesheet as raw text and injects a `<style>` into each component's
+shadow root — no `ignite.config.ts`, no sass build step:
 
-```ts
-import { defineIgniteConfig } from "ignite-renderer";
+```tsx
+import bootstrapStyles from "bootstrap/dist/css/bootstrap.min.css?raw";
 
-export default defineIgniteConfig({
-  styles: new URL("./src/scss/styles.scss", import.meta.url).href,
-  renderer: "ignite-jsx",
-});
+registerSharedRedux("my-counter-redux", ({ count, decrement }) => (
+  <div class="card">
+    <style>{bootstrapStyles}</style>
+    {/* …Bootstrap-classed markup… */}
+  </div>
+));
 ```
 
-Individual components can layer on additional markup or include isolated styles (e.g. `link` tags) as needed.
+This keeps the demo dependency-light at the tooling layer (just Vite) while
+showing Ignite works with any CSS framework. For app-wide chrome you'd still
+link a sheet in `index.html`; the `?raw` injection is what crosses the shadow
+boundary.
 
 ---
 

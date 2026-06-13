@@ -1,6 +1,12 @@
 import { igniteCore } from "ignite-element/xstate";
 import { createActor, type StateFrom } from "xstate";
 import { advancedMachine } from "./advancedCounterMachine";
+// Ignite renders into Shadow DOM, so Tailwind's utility classes can't reach
+// component internals from a global link. Pull the built sheet in as raw text
+// and inject a <style> into each component's shadow root — the config-free path
+// (no ignite.config.ts, no plugin). `build:css` produces dist/styles.css; the
+// dev/build scripts run it first.
+import twStyles from "./dist/styles.css?raw";
 
 // Start a single actor that will be shared by every component registered with
 // `registerSharedXState`. Each element stays in sync because the same actor
@@ -44,129 +50,123 @@ const registerIsolatedXState = igniteCore({
 });
 
 // Shared Counter Component (XState)
-registerSharedXState(
-	"my-counter-xstate",
-	({ count, increment, decrement, containerClasses }) => (
-		<div class={containerClasses}>
-			<h3 class="text-lg font-bold">Shared Counter (XState)</h3>
-			<p class="text-xl">Count: {count}</p>
-			<div class="mt-4 space-x-2">
-				<button
-					type="button"
-					class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-					onClick={() => decrement()}
-				>
-					-
-				</button>
-				<button
-					type="button"
-					class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-					onClick={() => increment()}
-				>
-					+
-				</button>
-			</div>
+registerSharedXState("my-counter-xstate", (ctx) => (
+	<div class={ctx.containerClasses}>
+		<style>{twStyles}</style>
+		<h3 class="text-lg font-bold">Shared Counter (XState)</h3>
+		<p class="text-xl">Count: {ctx.count}</p>
+		<div class="mt-4 space-x-2">
+			<button
+				type="button"
+				class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+				onClick={() => ctx.decrement()}
+			>
+				-
+			</button>
+			<button
+				type="button"
+				class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+				onClick={() => ctx.increment()}
+			>
+				+
+			</button>
 		</div>
-	),
-);
+	</div>
+));
 
 // Shared Display Component (XState)
-registerSharedXState("shared-display-xstate", ({ count }) => (
+registerSharedXState("shared-display-xstate", (ctx) => (
 	<div class="p-4 bg-blue-100 border rounded-md mb-2">
+		<style>{twStyles}</style>
 		<h3 class="text-lg font-bold text-blue-800">
 			Shared State Display (XState)
 		</h3>
-		<p class="text-xl text-blue-700">Shared Count: {count}</p>
+		<p class="text-xl text-blue-700">Shared Count: {ctx.count}</p>
 	</div>
 ));
 
 // Isolated Counter Component (XState)
-registerIsolatedXState(
-	"another-counter-xstate",
-	({ count, increment, decrement }) => (
-		<div class="p-4 bg-yellow-100 border rounded-md mb-2">
-			<h3 class="text-lg font-bold text-yellow-800">
-				Isolated Counter (XState)
-			</h3>
-			<p class="text-xl text-yellow-700">Count: {count}</p>
-			<div class="mt-4 space-x-2">
-				<button
-					type="button"
-					class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600"
-					onClick={() => decrement()}
-				>
-					-
-				</button>
-				<button
-					type="button"
-					class="px-4 py-2 bg-teal-500 text-white rounded hover:bg-teal-600"
-					onClick={() => increment()}
-				>
-					+
-				</button>
-			</div>
+registerIsolatedXState("another-counter-xstate", (ctx) => (
+	<div class="p-4 bg-yellow-100 border rounded-md mb-2">
+		<style>{twStyles}</style>
+		<h3 class="text-lg font-bold text-yellow-800">Isolated Counter (XState)</h3>
+		<p class="text-xl text-yellow-700">Count: {ctx.count}</p>
+		<div class="mt-4 space-x-2">
+			<button
+				type="button"
+				class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600"
+				onClick={() => ctx.decrement()}
+			>
+				-
+			</button>
+			<button
+				type="button"
+				class="px-4 py-2 bg-teal-500 text-white rounded hover:bg-teal-600"
+				onClick={() => ctx.increment()}
+			>
+				+
+			</button>
 		</div>
-	),
-);
+	</div>
+));
 
-registerSharedXState("gradient-tally", ({ count }) => (
+registerSharedXState("gradient-tally", (ctx) => (
 	<>
 		<style>{`.box { height: 1rem; width: 1rem; border-radius: 50px; }`}</style>
 		<div
 			class="box"
 			style={{
-				background: `linear-gradient(90deg, rgba(34, 197, 94, 1) 0%, rgba(59, 130, 246, ${(count + 1) / 10}) 100%)`,
+				background: `linear-gradient(90deg, rgba(34, 197, 94, 1) 0%, rgba(59, 130, 246, ${(ctx.count + 1) / 10}) 100%)`,
 			}}
 		/>
 	</>
 ));
 
-registerSharedXState(
-	"advanced-shared-counter",
-	({ count, increment, decrement, toggleDarkMode, containerClasses }) => (
-		<div class={containerClasses}>
-			<h3 class="text-lg font-bold">Advanced Counter</h3>
+registerSharedXState("advanced-shared-counter", (ctx) => (
+	<div class={ctx.containerClasses}>
+		<style>{twStyles}</style>
+		<h3 class="text-lg font-bold">Advanced Counter</h3>
 
-			<p class="text-xl">Count: {count}</p>
+		<p class="text-xl">Count: {ctx.count}</p>
 
-			<div class="mt-4 space-x-2">
-				<button
-					type="button"
-					class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-					onClick={() => decrement()}
-				>
-					-
-				</button>
-				<button
-					type="button"
-					class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-					onClick={() => increment()}
-				>
-					+
-				</button>
-			</div>
-
-			<div class="mt-4">
-				<button
-					type="button"
-					class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-					onClick={() => toggleDarkMode()}
-				>
-					Toggle Dark Mode
-				</button>
-			</div>
-
-			<div class="mt-4 flex flex-wrap gap-2 items-center">
-				{Array.from({ length: count }).map(() => (
-					<gradient-tally />
-				))}
-			</div>
+		<div class="mt-4 space-x-2">
+			<button
+				type="button"
+				class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+				onClick={() => ctx.decrement()}
+			>
+				-
+			</button>
+			<button
+				type="button"
+				class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+				onClick={() => ctx.increment()}
+			>
+				+
+			</button>
 		</div>
-	),
-);
+
+		<div class="mt-4">
+			<button
+				type="button"
+				class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+				onClick={() => ctx.toggleDarkMode()}
+			>
+				Toggle Dark Mode
+			</button>
+		</div>
+
+		<div class="mt-4 flex flex-wrap gap-2 items-center">
+			{Array.from({ length: ctx.count }).map(() => (
+				<gradient-tally />
+			))}
+		</div>
+	</div>
+));
 
 registerSharedXState("ignite-svg-demo", () => (
 	<div class="mt-6 rounded-lg border border-dashed border-purple-400/60 p-4">
+		<style>{twStyles}</style>
 		<h3 class="mb-3 text-sm font-semibold uppercase tracking-[0.3em] text-purple-300">
 			Ignite SVG demo
 		</h3>

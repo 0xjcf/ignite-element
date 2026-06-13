@@ -33,9 +33,10 @@ This showcase combines **ignite-element**, **MobX**, and **lit-html** to build r
 | Path | Purpose |
 | --- | --- |
 | `mobxCounterStore.ts` | Exposes the `counterStore` factory used for both shared and isolated flows. |
+| `mobxCounterStore.test.ts` | Unit tests for the observable counter and store isolation. |
 | `mobxExample.ts` | Registers components with `igniteCore` using MobX inference. |
-| `theme.css` | Shared styling applied through the example's advanced `ignite-renderer` config. |
-| `another-counter-mobx.css` | Extra styles for the isolated component. |
+| `theme.css` | Shared `:host`-scoped styling, injected into each shadow root via `?raw`. |
+| `another-counter-mobx.css` | Extra styles for the isolated component (also injected via `?raw`). |
 
 ---
 
@@ -67,15 +68,21 @@ export const registerIsolatedMobx = igniteCore({
 });
 ```
 
-Every renderer receives the derived `count`, the command helpers, and the underlying adapter metadata (`state`, `send`) from ignite-element.
+Every renderer receives the projected `count` and the command helpers (`increment`, `decrement`) — templates express intent through commands and never touch the store directly.
 
 ---
 
-## Styling Strategy
+## Styling Strategy (config-free)
 
-- **Global theme**: applied once via the example's advanced `ignite-renderer` config.
-- **Component overrides**: the isolated example links to `another-counter-mobx.css` to demonstrate per-element styling.
-- **Design tokens**: CSS variables in `theme.css` make it easy to reskin the shared components without touching the render logic.
+Ignite renders each component into its own Shadow DOM, so styles are pulled in
+as raw text and injected via `<style>` tags — no `ignite.config.ts`, no plugin:
+
+- **Shared theme**: `theme.css` is written against `:host`, imported with
+  `?raw`, and injected into every component's shadow root.
+- **Component overrides**: the isolated component additionally injects
+  `another-counter-mobx.css?raw` to demonstrate per-element styling.
+- **Design tokens**: CSS variables in `theme.css` make it easy to reskin the
+  shared components without touching the render logic.
 
 ---
 

@@ -93,18 +93,18 @@ registerPage("users-page", () => (
 	</section>
 ));
 
-registerPage("user-page", ({ id }) => (
+registerPage("user-page", (ctx) => (
 	<section class="page">
-		<h1>User #{id}</h1>
+		<h1>User #{ctx.id}</h1>
 		<p>
-			This page reads the <code>:id</code> param ({id}) straight from the shared
-			router state.
+			This page reads the <code>:id</code> param ({ctx.id}) straight from the
+			shared router state.
 		</p>
 		<p>{link("/users", "← Back to users")}</p>
 	</section>
 ));
 
-registerPage("login-page", ({ navigate, login }) => (
+registerPage("login-page", (ctx) => (
 	<section class="page">
 		<h1>Log in</h1>
 		<p>The dashboard is guarded. Log in to continue.</p>
@@ -112,8 +112,8 @@ registerPage("login-page", ({ navigate, login }) => (
 			type="button"
 			class="primary"
 			onClick={() => {
-				login();
-				navigate("/dashboard");
+				ctx.login();
+				ctx.navigate("/dashboard");
 			}}
 		>
 			Log in &amp; go to dashboard
@@ -121,16 +121,16 @@ registerPage("login-page", ({ navigate, login }) => (
 	</section>
 ));
 
-registerPage("dashboard-page", ({ authed, logout, navigate }) => (
+registerPage("dashboard-page", (ctx) => (
 	<section class="page">
 		<h1>Dashboard</h1>
 		<p>Protected content — only reachable while authenticated.</p>
-		<p>Authenticated: {authed ? "yes" : "no"}</p>
+		<p>Authenticated: {ctx.authed ? "yes" : "no"}</p>
 		<button
 			type="button"
 			onClick={() => {
-				logout();
-				navigate("/");
+				ctx.logout();
+				ctx.navigate("/");
 			}}
 		>
 			Log out
@@ -138,11 +138,11 @@ registerPage("dashboard-page", ({ authed, logout, navigate }) => (
 	</section>
 ));
 
-registerPage("not-found-page", ({ path }) => (
+registerPage("not-found-page", (ctx) => (
 	<section class="page">
 		<h1>404</h1>
 		<p>
-			No route matched <code>{path}</code>.
+			No route matched <code>{ctx.path}</code>.
 		</p>
 		<p>{link("/", "Go home")}</p>
 	</section>

@@ -76,12 +76,12 @@ const registerRouter = igniteCore({
 	cleanup: false,
 });
 
-registerRouter("app-router", ({ route, path }) => (
+registerRouter("app-router", (ctx) => (
 	<div class="app">
 		<style>{styles}</style>
 		<nav class="nav" aria-label="Primary">
-			{NAV.map((item) => navLink(item.href, item.label, path))}
+			{NAV.map((item) => navLink(item.href, item.label, ctx.path))}
 		</nav>
-		<main class="content">{renderPage(route)}</main>
+		<main class="content">{renderPage(ctx.route)}</main>
 	</div>
 ));

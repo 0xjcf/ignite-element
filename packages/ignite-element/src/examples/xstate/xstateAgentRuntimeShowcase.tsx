@@ -1,5 +1,8 @@
 import { igniteCore } from "ignite-element/xstate";
 import { assign, fromPromise, setup } from "xstate";
+// Tailwind classes need to reach this component's Shadow DOM; inject the built
+// sheet as raw text (config-free). See xstateExample.tsx for the rationale.
+import twStyles from "./dist/styles.css?raw";
 import { apiShowcase } from "./xstateApiShowcaseRuntime";
 
 type RuntimeCommand =
@@ -485,291 +488,263 @@ const agentRuntimeShowcase = igniteCore({
 	}),
 });
 
-agentRuntimeShowcase(
-	"xstate-agent-runtime-showcase",
-	({
-		report,
-		step,
-		limit,
-		eventCount,
-		watcherCount,
-		agentStepCount,
-		traceCount,
-		lifecycleCount,
-		inspect,
-		runIncrement,
-		runIncrementToLimit,
-		runDecrement,
-		runReset,
-		setRuntimeStepDraft,
-		setRuntimeLimitDraft,
-		applyRuntimeStep,
-		applyRuntimeLimit,
-	}) => (
-		<section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-			<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-				<div>
-					<p class="text-sm font-semibold uppercase tracking-wide text-cyan-700">
-						Agent runtime
-					</p>
-					<h2 class="mt-1 text-2xl font-bold text-slate-900">
-						{report.command}
-					</h2>
-					<p class="mt-2 text-sm text-slate-600">
-						Headless count: <strong>{report.view.count}</strong> · State:{" "}
-						<strong>{report.view.stateLabel}</strong> · Events:{" "}
-						<strong>{eventCount}</strong> · Watchers:{" "}
-						<strong>{watcherCount}</strong> · Agent steps:{" "}
-						<strong>{agentStepCount}</strong> · Trace:{" "}
-						<strong>{traceCount}</strong> · Lifecycle:{" "}
-						<strong>{lifecycleCount}</strong>
-					</p>
-				</div>
-				<button
-					type="button"
-					class="rounded border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-					onClick={() => inspect()}
-				>
-					Inspect contract
-				</button>
+agentRuntimeShowcase("xstate-agent-runtime-showcase", (ctx) => (
+	<section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+		<style>{twStyles}</style>
+		<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+			<div>
+				<p class="text-sm font-semibold uppercase tracking-wide text-cyan-700">
+					Agent runtime
+				</p>
+				<h2 class="mt-1 text-2xl font-bold text-slate-900">
+					{ctx.report.command}
+				</h2>
+				<p class="mt-2 text-sm text-slate-600">
+					Headless count: <strong>{ctx.report.view.count}</strong> · State:{" "}
+					<strong>{ctx.report.view.stateLabel}</strong> · Events:{" "}
+					<strong>{ctx.eventCount}</strong> · Watchers:{" "}
+					<strong>{ctx.watcherCount}</strong> · Agent steps:{" "}
+					<strong>{ctx.agentStepCount}</strong> · Trace:{" "}
+					<strong>{ctx.traceCount}</strong> · Lifecycle:{" "}
+					<strong>{ctx.lifecycleCount}</strong>
+				</p>
 			</div>
-
-			<div
-				class="mt-6"
-				style={{
-					display: "grid",
-					gap: "1rem",
-					gridTemplateColumns: "repeat(auto-fit, minmax(12rem, 1fr))",
-				}}
+			<button
+				type="button"
+				class="rounded border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+				onClick={() => ctx.inspect()}
 			>
+				Inspect contract
+			</button>
+		</div>
+
+		<div
+			class="mt-6"
+			style={{
+				display: "grid",
+				gap: "1rem",
+				gridTemplateColumns: "repeat(auto-fit, minmax(12rem, 1fr))",
+			}}
+		>
+			<button
+				type="button"
+				class="rounded border border-slate-300 px-4 py-2 font-semibold"
+				style={{ backgroundColor: "#0f766e", color: "#ffffff" }}
+				onClick={() => ctx.runIncrement()}
+			>
+				Execute increment
+			</button>
+			<button
+				type="button"
+				class="rounded border border-slate-300 px-4 py-2 font-semibold"
+				style={{ backgroundColor: "#047857", color: "#ffffff" }}
+				onClick={() => ctx.runIncrementToLimit()}
+			>
+				Increment to ctx.limit
+			</button>
+			<button
+				type="button"
+				class="rounded border border-slate-300 px-4 py-2 font-semibold"
+				style={{ backgroundColor: "#334155", color: "#ffffff" }}
+				onClick={() => ctx.runDecrement()}
+			>
+				Execute decrement
+			</button>
+			<button
+				type="button"
+				class="rounded border border-slate-300 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50"
+				onClick={() => ctx.runReset()}
+			>
+				Execute reset
+			</button>
+		</div>
+
+		<div class="mt-6 grid gap-4 md:grid-cols-2">
+			<div>
+				<label class="block text-sm font-medium text-slate-700">
+					Payload for setStep: {ctx.step}
+					<input
+						class="mt-2 w-full accent-cyan-700"
+						type="range"
+						min={1}
+						max={4}
+						value={ctx.step}
+						onInput={(event: Event) =>
+							ctx.setRuntimeStepDraft(readNumber(event, ctx.step))
+						}
+					/>
+				</label>
 				<button
 					type="button"
-					class="rounded border border-slate-300 px-4 py-2 font-semibold"
-					style={{ backgroundColor: "#0f766e", color: "#ffffff" }}
-					onClick={() => runIncrement()}
+					class="mt-3 w-full rounded border border-slate-300 px-4 py-2 font-semibold"
+					style={{ backgroundColor: "#0e7490", color: "#ffffff" }}
+					onClick={() => ctx.applyRuntimeStep()}
 				>
-					Execute increment
+					Execute setStep
 				</button>
+			</div>
+			<div>
+				<label class="block text-sm font-medium text-slate-700">
+					Payload for setLimit: {ctx.limit}
+					<input
+						class="mt-2 w-full accent-cyan-700"
+						type="range"
+						min={3}
+						max={12}
+						value={ctx.limit}
+						onInput={(event: Event) =>
+							ctx.setRuntimeLimitDraft(readNumber(event, ctx.limit))
+						}
+					/>
+				</label>
 				<button
 					type="button"
-					class="rounded border border-slate-300 px-4 py-2 font-semibold"
-					style={{ backgroundColor: "#047857", color: "#ffffff" }}
-					onClick={() => runIncrementToLimit()}
+					class="mt-3 w-full rounded border border-slate-300 px-4 py-2 font-semibold"
+					style={{ backgroundColor: "#0e7490", color: "#ffffff" }}
+					onClick={() => ctx.applyRuntimeLimit()}
 				>
-					Increment to limit
-				</button>
-				<button
-					type="button"
-					class="rounded border border-slate-300 px-4 py-2 font-semibold"
-					style={{ backgroundColor: "#334155", color: "#ffffff" }}
-					onClick={() => runDecrement()}
-				>
-					Execute decrement
-				</button>
-				<button
-					type="button"
-					class="rounded border border-slate-300 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50"
-					onClick={() => runReset()}
-				>
-					Execute reset
+					Execute setLimit
 				</button>
 			</div>
+		</div>
 
-			<div class="mt-6 grid gap-4 md:grid-cols-2">
-				<div>
-					<label class="block text-sm font-medium text-slate-700">
-						Payload for setStep: {step}
-						<input
-							class="mt-2 w-full accent-cyan-700"
-							type="range"
-							min={1}
-							max={4}
-							value={step}
-							onInput={(event: Event) =>
-								setRuntimeStepDraft(readNumber(event, step))
-							}
-						/>
-					</label>
-					<button
-						type="button"
-						class="mt-3 w-full rounded border border-slate-300 px-4 py-2 font-semibold"
-						style={{ backgroundColor: "#0e7490", color: "#ffffff" }}
-						onClick={() => applyRuntimeStep()}
-					>
-						Execute setStep
-					</button>
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-slate-700">
-						Payload for setLimit: {limit}
-						<input
-							class="mt-2 w-full accent-cyan-700"
-							type="range"
-							min={3}
-							max={12}
-							value={limit}
-							onInput={(event: Event) =>
-								setRuntimeLimitDraft(readNumber(event, limit))
-							}
-						/>
-					</label>
-					<button
-						type="button"
-						class="mt-3 w-full rounded border border-slate-300 px-4 py-2 font-semibold"
-						style={{ backgroundColor: "#0e7490", color: "#ffffff" }}
-						onClick={() => applyRuntimeLimit()}
-					>
-						Execute setLimit
-					</button>
-				</div>
+		<div class="mt-6 grid gap-4 lg:grid-cols-2">
+			<div class="rounded border border-slate-200 bg-slate-50 p-4">
+				<h3 class="text-sm font-semibold text-slate-800">Runtime call</h3>
+				<pre class="mt-3 overflow-auto rounded bg-slate-950 p-3 text-xs text-cyan-100">
+					<code>{ctx.report.code}</code>
+				</pre>
 			</div>
 
-			<div class="mt-6 grid gap-4 lg:grid-cols-2">
-				<div class="rounded border border-slate-200 bg-slate-50 p-4">
-					<h3 class="text-sm font-semibold text-slate-800">Runtime call</h3>
-					<pre class="mt-3 overflow-auto rounded bg-slate-950 p-3 text-xs text-cyan-100">
-						<code>{report.code}</code>
-					</pre>
-				</div>
+			<div class="rounded border border-slate-200 bg-slate-50 p-4">
+				<h3 class="text-sm font-semibold text-slate-800">getSchema()</h3>
+				<dl class="mt-3 grid gap-2 text-sm text-slate-700">
+					<div>
+						<dt class="font-medium text-slate-900">Commands</dt>
+						<dd class="break-words">
+							{Object.keys(ctx.report.schema.commands).join(", ")}
+						</dd>
+					</div>
+					<div>
+						<dt class="font-medium text-slate-900">Events</dt>
+						<dd class="break-words">{ctx.report.schema.events.join(", ")}</dd>
+					</div>
+					<div>
+						<dt class="font-medium text-slate-900">Command metadata</dt>
+						<dd>
+							<pre class="mt-2 overflow-auto rounded bg-white p-3 text-xs text-slate-700">
+								<code>{formatJson(ctx.report.schema.commands)}</code>
+							</pre>
+						</dd>
+					</div>
+				</dl>
+			</div>
+		</div>
 
-				<div class="rounded border border-slate-200 bg-slate-50 p-4">
-					<h3 class="text-sm font-semibold text-slate-800">getSchema()</h3>
-					<dl class="mt-3 grid gap-2 text-sm text-slate-700">
-						<div>
-							<dt class="font-medium text-slate-900">Commands</dt>
-							<dd class="break-words">
-								{Object.keys(report.schema.commands).join(", ")}
-							</dd>
-						</div>
-						<div>
-							<dt class="font-medium text-slate-900">Events</dt>
-							<dd class="break-words">{report.schema.events.join(", ")}</dd>
-						</div>
-						<div>
-							<dt class="font-medium text-slate-900">Command metadata</dt>
-							<dd>
-								<pre class="mt-2 overflow-auto rounded bg-white p-3 text-xs text-slate-700">
-									<code>{formatJson(report.schema.commands)}</code>
-								</pre>
-							</dd>
-						</div>
-					</dl>
-				</div>
+		<div class="mt-4 grid gap-4 lg:grid-cols-2">
+			<div class="rounded border border-slate-200 bg-slate-50 p-4">
+				<h3 class="text-sm font-semibold text-slate-800">getState()</h3>
+				<pre class="mt-3 overflow-auto rounded bg-white p-3 text-xs text-slate-700">
+					<code>{formatJson(ctx.report.state)}</code>
+				</pre>
 			</div>
 
-			<div class="mt-4 grid gap-4 lg:grid-cols-2">
-				<div class="rounded border border-slate-200 bg-slate-50 p-4">
-					<h3 class="text-sm font-semibold text-slate-800">getState()</h3>
-					<pre class="mt-3 overflow-auto rounded bg-white p-3 text-xs text-slate-700">
-						<code>{formatJson(report.state)}</code>
-					</pre>
-				</div>
-
-				<div class="rounded border border-slate-200 bg-slate-50 p-4">
-					<h3 class="text-sm font-semibold text-slate-800">getView()</h3>
-					<pre class="mt-3 overflow-auto rounded bg-white p-3 text-xs text-slate-700">
-						<code>{formatJson(report.view)}</code>
-					</pre>
-				</div>
+			<div class="rounded border border-slate-200 bg-slate-50 p-4">
+				<h3 class="text-sm font-semibold text-slate-800">getView()</h3>
+				<pre class="mt-3 overflow-auto rounded bg-white p-3 text-xs text-slate-700">
+					<code>{formatJson(ctx.report.view)}</code>
+				</pre>
 			</div>
+		</div>
 
-			<div class="mt-4 rounded border border-slate-200 bg-slate-50 p-4">
-				<h3 class="text-sm font-semibold text-slate-800">
-					Agent decision trace
-				</h3>
+		<div class="mt-4 rounded border border-slate-200 bg-slate-50 p-4">
+			<h3 class="text-sm font-semibold text-slate-800">Agent decision trace</h3>
+			<ol class="mt-3 grid gap-2 text-sm text-slate-700">
+				{ctx.report.agentLog.map((entry, index) => (
+					<li class="rounded bg-white px-3 py-2" key={`${entry}-${index}`}>
+						{entry}
+					</li>
+				))}
+			</ol>
+		</div>
+
+		<div class="mt-4 grid gap-4 lg:grid-cols-2">
+			<div class="rounded border border-slate-200 bg-slate-50 p-4">
+				<h3 class="text-sm font-semibold text-slate-800">story.trace()</h3>
 				<ol class="mt-3 grid gap-2 text-sm text-slate-700">
-					{report.agentLog.map((entry, index) => (
-						<li class="rounded bg-white px-3 py-2" key={`${entry}-${index}`}>
-							{entry}
-						</li>
-					))}
+					{ctx.report.traceLog.length ? (
+						ctx.report.traceLog.map((entry, index) => (
+							<li class="rounded bg-white px-3 py-2" key={`${entry}-${index}`}>
+								{entry}
+							</li>
+						))
+					) : (
+						<li class="rounded bg-white px-3 py-2">No behavior entries</li>
+					)}
 				</ol>
 			</div>
 
-			<div class="mt-4 grid gap-4 lg:grid-cols-2">
-				<div class="rounded border border-slate-200 bg-slate-50 p-4">
-					<h3 class="text-sm font-semibold text-slate-800">story.trace()</h3>
-					<ol class="mt-3 grid gap-2 text-sm text-slate-700">
-						{report.traceLog.length ? (
-							report.traceLog.map((entry, index) => (
-								<li
-									class="rounded bg-white px-3 py-2"
-									key={`${entry}-${index}`}
-								>
-									{entry}
-								</li>
-							))
-						) : (
-							<li class="rounded bg-white px-3 py-2">No behavior entries</li>
-						)}
-					</ol>
-				</div>
+			<div class="rounded border border-slate-200 bg-slate-50 p-4">
+				<h3 class="text-sm font-semibold text-slate-800">story.lifecycle()</h3>
+				<ol class="mt-3 grid gap-2 text-sm text-slate-700">
+					{ctx.report.lifecycleLog.length ? (
+						ctx.report.lifecycleLog.map((entry, index) => (
+							<li class="rounded bg-white px-3 py-2" key={`${entry}-${index}`}>
+								{entry}
+							</li>
+						))
+					) : (
+						<li class="rounded bg-white px-3 py-2">No lifecycle entries</li>
+					)}
+				</ol>
+			</div>
+		</div>
 
-				<div class="rounded border border-slate-200 bg-slate-50 p-4">
-					<h3 class="text-sm font-semibold text-slate-800">
-						story.lifecycle()
-					</h3>
-					<ol class="mt-3 grid gap-2 text-sm text-slate-700">
-						{report.lifecycleLog.length ? (
-							report.lifecycleLog.map((entry, index) => (
-								<li
-									class="rounded bg-white px-3 py-2"
-									key={`${entry}-${index}`}
-								>
-									{entry}
-								</li>
-							))
-						) : (
-							<li class="rounded bg-white px-3 py-2">No lifecycle entries</li>
-						)}
-					</ol>
-				</div>
+		<div class="mt-4 grid gap-4 lg:grid-cols-2">
+			<div class="rounded border border-slate-200 bg-slate-50 p-4">
+				<h3 class="text-sm font-semibold text-slate-800">
+					execute(...) events
+				</h3>
+				<ul class="mt-3 grid gap-2 text-sm text-slate-700">
+					{ctx.report.resultEvents.length ? (
+						ctx.report.resultEvents.map((event, index) => (
+							<li
+								class="rounded bg-white px-3 py-2"
+								key={`${event.type}-${index}`}
+							>
+								{event.type}: {formatPayload(event.payload)}
+							</li>
+						))
+					) : (
+						<li class="rounded bg-white px-3 py-2">No emitted events</li>
+					)}
+				</ul>
 			</div>
 
-			<div class="mt-4 grid gap-4 lg:grid-cols-2">
-				<div class="rounded border border-slate-200 bg-slate-50 p-4">
-					<h3 class="text-sm font-semibold text-slate-800">
-						execute(...) events
-					</h3>
-					<ul class="mt-3 grid gap-2 text-sm text-slate-700">
-						{report.resultEvents.length ? (
-							report.resultEvents.map((event, index) => (
-								<li
-									class="rounded bg-white px-3 py-2"
-									key={`${event.type}-${index}`}
-								>
-									{event.type}: {formatPayload(event.payload)}
-								</li>
-							))
-						) : (
-							<li class="rounded bg-white px-3 py-2">No emitted events</li>
-						)}
-					</ul>
-				</div>
-
-				<div class="rounded border border-slate-200 bg-slate-50 p-4">
-					<h3 class="text-sm font-semibold text-slate-800">
-						on / watch / watchView
-					</h3>
-					<ul class="mt-3 grid gap-2 text-sm text-slate-700">
-						{[...report.eventLog, ...report.stateLog, ...report.viewLog]
-							.length ? (
-							[...report.eventLog, ...report.stateLog, ...report.viewLog].map(
-								(entry, index) => (
-									<li
-										class="rounded bg-white px-3 py-2"
-										key={`${entry}-${index}`}
-									>
-										{entry}
-									</li>
-								),
-							)
-						) : (
-							<li class="rounded bg-white px-3 py-2">No watcher changes</li>
-						)}
-					</ul>
-				</div>
+			<div class="rounded border border-slate-200 bg-slate-50 p-4">
+				<h3 class="text-sm font-semibold text-slate-800">
+					on / watch / watchView
+				</h3>
+				<ul class="mt-3 grid gap-2 text-sm text-slate-700">
+					{[
+						...ctx.report.eventLog,
+						...ctx.report.stateLog,
+						...ctx.report.viewLog,
+					].length ? (
+						[
+							...ctx.report.eventLog,
+							...ctx.report.stateLog,
+							...ctx.report.viewLog,
+						].map((entry, index) => (
+							<li class="rounded bg-white px-3 py-2" key={`${entry}-${index}`}>
+								{entry}
+							</li>
+						))
+					) : (
+						<li class="rounded bg-white px-3 py-2">No watcher changes</li>
+					)}
+				</ul>
 			</div>
-		</section>
-	),
-);
+		</div>
+	</section>
+));
