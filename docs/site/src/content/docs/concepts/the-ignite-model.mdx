@@ -128,7 +128,7 @@ In development, emitting an event that isn't declared in `events` throws, to kee
 :::
 
 :::note[Declared vs source-emitted events]
-Events declared in `events:` and fired from `effects` are **UI-derived** — you compute them from snapshot changes. Sources that natively publish domain events (an Actor-Web actor's emit stream) don't need that ceremony: the adapter bridges source emits straight into `on(...)` and `execute().events`, typed from the source's `Emitted` union, with no `events:`/`effects:` involvement. The two flow side by side; `getSchema().events` lists only the declared names. See [Emitted events](/ignite-element/guides/actor-web/#emitted-events) in the Actor-Web guide.
+Events declared in `events:` and fired from `effects` are **UI-derived** — you compute them from snapshot changes. Sources that natively publish domain events (an XState v5 machine's `emit(...)`, or an Actor-Web actor's emit channel) don't need that ceremony: the adapter bridges source emits straight into `on(...)` and `execute().events`, typed from the source's `Emitted` union, with no `events:`/`effects:` involvement. The two flow side by side; `getSchema().events` lists only the declared names. See [Emitted events](/ignite-element/guides/actor-web/#emitted-events) in the Actor-Web guide.
 :::
 
 `host` is the custom element instance — think of it like a DOM ref. Use it for small imperative affordances (focus, measuring, dispatching extra DOM events); keep state in your adapter and rendering declarative.
