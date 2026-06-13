@@ -1,0 +1,182 @@
+---
+title: Routing
+description: Build a client-side SPA router with Ignite Element — the URL is state, navigation is a command, and the routing core stays testable without a browser.
+sidebar:
+  label: Routing
+  order: 3
+---
+
+Ignite Element has no router, and doesn't need one: a router is just a
+**state-driven component**. The URL is state, navigating is a command, and the
+matched route is a projection. This guide builds a small SPA router with the
+`xstate` adapter — history routing, dynamic params, and an auth guard — keeping
+the routing core pure so you can test it without a browser.
+
+The full, runnable version lives in
+[`examples/spa-router`](https://github.com/0xjcf/ignite-element/tree/main/packages/ignite-element/src/examples/spa-router).
+
+## 1. The route table (plain data)
+
+Routes are data, not framework objects — a pattern, a name, and an optional
+auth flag. Both the matcher and the machine read from this one source.
+
+```ts
+export type RouteName = "home" | "users" | "user" | "login" | "dashboard" | "not-found";
+
+export type RouteDef = {
+  name: RouteName;
+  path: string; // e.g. "/users/:id" — `:name` segments capture params
+  requiresAuth?: boolean;
+};
+
+export const routes: readonly RouteDef[] = [
+  { name: "home", path: "/" },
+  { name: "users", path: "/users" },
+  { name: "user", path: "/users/:id" },
+  { name: "login", path: "/login" },
+  { name: "dashboard", path: "/dashboard", requiresAuth: true },
+];
+```
+
+## 2. A pure matcher
+
+Turning a pathname into a route + params is a deterministic function — no
+History, no DOM. That purity is exactly what makes the router testable.
+
+```ts
+// docs-check: skip
+export const matchRoute = (pathname: string) => {
+  const segments = pathname.split("?")[0].split("/").filter(Boolean);
+  for (const def of routes) {
+    const pattern = def.path.split("/").filter(Boolean);
+    if (pattern.length !== segments.length) continue;
+    const params: Record<string, string> = {};
+    let ok = true;
+    for (let i = 0; i < pattern.length; i++) {
+      if (pattern[i].startsWith(":")) params[pattern[i].slice(1)] = segments[i];
+      else if (pattern[i] !== segments[i]) { ok = false; break; }
+    }
+    if (ok) return { name: def.name, params };
+  }
+  return { name: "not-found" as const, params: {} };
+};
+```
+
+## 3. The routing core (an XState machine)
+
+The machine holds the logical route and applies the auth guard. It never
+touches `window` — navigation resolution is a pure function of the requested
+path and auth state, so a guarded route requested while unauthenticated
+resolves to `/login`.
+
+```ts
+// docs-check: skip
+import { assign, emit, setup } from "xstate";
+
+export const routerMachine = setup({
+  types: {
+    context: {} as { path: string; route: RouteName; params: Record<string, string>; authed: boolean },
+    events: {} as { type: "NAVIGATE"; to: string } | { type: "POPSTATE"; path: string } | { type: "LOGIN" },
+    emitted: {} as { type: "navigated"; path: string },
+  },
+}).createMachine({
+  context: { path: "/", route: "home", params: {}, authed: false },
+  on: {
+    NAVIGATE: { actions: ["applyNavigation", emit(({ context }) => ({ type: "navigated" as const, path: context.path }))] },
+    POPSTATE: { actions: "applyNavigation" },
+    LOGIN: { actions: assign({ authed: true }) },
+  },
+});
+```
+
+## 4. The History shell
+
+The browser is the outside world, so all History I/O lives in one tiny module —
+the imperative shell. The machine core stays pure.
+
+```ts
+// docs-check: skip
+export const pushPath = (path: string) => {
+  if (path !== window.location.pathname) window.history.pushState(null, "", path);
+};
+
+export const onPopState = (handler: (path: string) => void) => {
+  const listener = () => handler(window.location.pathname);
+  window.addEventListener("popstate", listener);
+  return () => window.removeEventListener("popstate", listener);
+};
+```
+
+## 5. The outlet component
+
+One `igniteCore` registration is the outlet: it projects the active route,
+renders the matching page element, and commits the single History **write** via
+an effect — only for `navigate` (a `popstate` already moved the URL), which
+keeps back/forward from stacking duplicate entries.
+
+```tsx
+// docs-check: skip
+import { igniteCore } from "ignite-element/xstate";
+
+const outlet = igniteCore({
+  source: routerActor,
+  view: ({ context }) => ({ route: context.route, path: context.path }),
+  commands: () => ({ navigate }),
+  effects: ({ snapshot, prevSnapshot }) => {
+    if (snapshot.context.source === "navigate" && snapshot.context.path !== prevSnapshot.context.path) {
+      pushPath(snapshot.context.path);
+    }
+  },
+});
+
+outlet("app-router", ({ route }) => <main>{renderPage(route)}</main>);
+```
+
+A link expresses intent with a command instead of letting the browser navigate:
+
+```tsx
+// docs-check: skip
+const link = (href: string, label: string) => (
+  <a href={href} onClick={(e: Event) => { e.preventDefault(); navigate(href); }}>{label}</a>
+);
+```
+
+## 6. Test routing without a browser
+
+Because the core is pure and the runtime is headless, you can drive navigation
+and assert on projected route state with no DOM and no jsdom history shims:
+
+```ts
+// docs-check: skip
+const router = igniteCore({
+  source: routerMachine,
+  view: ({ context }) => ({ id: context.params.id ?? null, path: context.path }),
+});
+
+await router.execute("navigate", "/users/7");
+expect(router.getView().id).toBe("7");
+expect(router.getView().path).toBe("/users/7");
+```
+
+:::note[Shared source across page elements]
+Every page element and the outlet read the **same** router actor. Ignite stops a
+shared adapter when the last instance of an element disconnects — and because the
+outlet swaps pages, that would tear down the router the incoming page still
+needs. Pass `cleanup: false` so the shared adapter stays alive; the shell owns
+the actor's lifetime instead.
+:::
+
+## Styling across shadow roots
+
+Each page is its own custom element with its own Shadow DOM. The example uses
+the config-free path: a plain `styles.css` imported with `?raw` and injected as
+a `<style>` into each shadow root (CSS custom properties on `:root` still
+inherit through the boundary). Note that descendant selectors don't cross shadow
+roots — a page rendered as its own element needs a flat selector (`.page`, not
+`.content .page`).
+
+## Where to go next
+
+- **Nested routes** — give a page its own child outlet.
+- **Lazy routes** — `import()` a page module inside the outlet and render a fallback.
+- **Emitted navigation events** — the machine `emit`s `navigated`; subscribe with `on("navigated")` or read `execute().events`. See [Build for agents](/ignite-element/guides/agent-runtime-v3/).
