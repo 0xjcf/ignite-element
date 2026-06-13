@@ -12,8 +12,17 @@ import type {
 	FacadeCommandFunction,
 	FacadeCommandResult,
 } from "@ignite-element/core";
-import type { AnyStateMachine, EventFrom } from "xstate";
-import type { IgniteCoreReturn } from "./igniteCore/types";
+import type { AnyStateMachine, EmittedFrom, EventFrom } from "xstate";
+import type { IgniteCoreReturn, WithEmittedEvents } from "./igniteCore/types";
+
+// A machine's declared `emitted` types fold into the headless runtime's events
+// on this adapter entry the same way they do on the bare `ignite-element`
+// entry, so `on(type)` / `execute().events` are typed from the machine's emit
+// union with no manual type arguments. Mirrors the threading in `IgniteCore.ts`.
+type XStateRuntimeEvents<
+	Machine extends AnyStateMachine,
+	Events extends EventMap,
+> = WithEmittedEvents<Events, EmittedFrom<Machine>, EventFrom<Machine>>;
 
 export type {
 	CommandHelper,
@@ -160,11 +169,14 @@ export function igniteCore<
 	StatesResult,
 	XStateCommandActor<Machine>,
 	CommandsResult,
-	EventDefinition extends EventsDefinition<infer Events>
-		? Events extends EventMap
-			? Events
+	XStateRuntimeEvents<
+		Machine,
+		EventDefinition extends EventsDefinition<infer Events>
+			? Events extends EventMap
+				? Events
+				: EmptyEventMap
 			: EmptyEventMap
-		: EmptyEventMap
+	>
 >;
 
 export function igniteCore<
@@ -183,7 +195,7 @@ export function igniteCore<
 	StatesResult,
 	XStateCommandActor<Machine>,
 	CommandsResult,
-	EmptyEventMap
+	XStateRuntimeEvents<Machine, EmptyEventMap>
 >;
 
 export function igniteCore<

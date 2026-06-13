@@ -15,13 +15,18 @@ export default defineConfig((configEnv) =>
 			},
 			resolve: {
 				alias: [
-					{
-						find: "ignite-element",
-						replacement: resolvePath("./src/index.ts"),
-					},
+					// The subpath alias must precede the bare alias, or
+					// `ignite-element/xstate` gets captured by `ignite-element` and
+					// rewritten to `src/index.ts/xstate`. Ordering this way lets example
+					// tests import the public entry points (e.g. `ignite-element/xstate`)
+					// exactly as an app would.
 					{
 						find: "ignite-element/",
 						replacement: resolvePath("./src/"),
+					},
+					{
+						find: "ignite-element",
+						replacement: resolvePath("./src/index.ts"),
 					},
 					{
 						find: "@ignite-element/core",

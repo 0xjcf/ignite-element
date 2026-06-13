@@ -1,6 +1,7 @@
 import { describe, expectTypeOf, it } from "vitest";
 import { assign, createMachine, emit, setup } from "xstate";
 import { igniteCore } from "../../IgniteCore";
+import { igniteCore as subpathIgniteCore } from "../../xstate";
 
 /**
  * The Emitted→Events typing thread for the xstate adapter. A machine that
@@ -82,6 +83,25 @@ async function _typeAssertions() {
 
 	// @ts-expect-error — no declared events and no emitted union: nothing to listen to.
 	plainRegister.on("anything", () => {});
+
+	// The adapter subpath entry (`ignite-element/xstate`) must thread emitted
+	// types into `on()` exactly like the bare `ignite-element` entry above —
+	// this is the path every example and consumer actually imports.
+	const subpathRegister = subpathIgniteCore({
+		source: emittingMachine,
+		view: ({ context }) => ({ count: context.count }),
+		commands: ({ actor }) => ({
+			increment: () => actor.send({ type: "INC" }),
+		}),
+	});
+	subpathRegister.on("count-changed", (event) => {
+		expectTypeOf(event.detail).toEqualTypeOf<{
+			type: "count-changed";
+			count: number;
+		}>();
+	});
+	// @ts-expect-error — unknown emitted name is still rejected on the subpath entry.
+	subpathRegister.on("not-an-event", () => {});
 }
 
 describe("xstate emitted-event typing thread", () => {
