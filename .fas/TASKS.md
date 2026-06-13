@@ -1033,9 +1033,12 @@ No active tasks.
 
 - Title: XStateAdapter: implement stream() over XState v5 emitted events
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/xstateadapter-implement-stream-over-xstate-v5-emitted-eve.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: chore: declare sideEffects allowlist for the ignite-element entry polyfill
 
@@ -1055,6 +1058,17 @@ No active tasks.
 - Status: done
 - Owner: implementer
 - Brief: .fas/tasks/chore-dedupe-xstate-example-lockfiles-keep-pnpm-lock-drop.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Adapter contract naming: replace stream/getState/subscribe with snapshot and event-specific names
+
+- Title: Adapter contract naming: replace stream/getState/subscribe with snapshot and event-specific names
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/adapter-contract-naming-replace-stream-getstate-subscribe-w.md
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
