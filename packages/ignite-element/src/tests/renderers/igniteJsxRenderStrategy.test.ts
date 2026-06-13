@@ -69,7 +69,7 @@ describe("Ignite JSX render strategy", () => {
 			jsx("span", { children: `Count: ${state?.count ?? 0}` }),
 		);
 
-		const listener = adapter.subscribe.mock.calls[0]?.[0];
+		const listener = adapter.subscribeSnapshots.mock.calls[0]?.[0];
 		listener?.({ count: 5 });
 		expect(element.shadowRoot?.textContent).toContain("Count: 5");
 	});
@@ -94,7 +94,7 @@ describe("Ignite JSX render strategy", () => {
 		expect(style).toBeTruthy();
 		expect(styleText?.nodeType).toBe(Node.TEXT_NODE);
 
-		const listener = adapter.subscribe.mock.calls[0]?.[0];
+		const listener = adapter.subscribeSnapshots.mock.calls[0]?.[0];
 		listener?.({ count: 1 });
 
 		expect(element.shadowRoot?.querySelectorAll("style")).toHaveLength(1);
@@ -126,7 +126,7 @@ describe("Ignite JSX render strategy", () => {
 		const styleText = style?.firstChild;
 		expect(style?.textContent).toContain("tomato");
 
-		const listener = adapter.subscribe.mock.calls[0]?.[0];
+		const listener = adapter.subscribeSnapshots.mock.calls[0]?.[0];
 		listener?.({ count: 1 });
 
 		const updatedStyle = element.shadowRoot?.querySelector("style");

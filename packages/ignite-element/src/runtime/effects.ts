@@ -97,7 +97,7 @@ export function attachEffects<
 	let prevSnapshot = resolveSnapshot(adapter);
 	let seeded = false;
 
-	const subscription = adapter.subscribe(() => {
+	const subscription = adapter.subscribeSnapshots(() => {
 		const snapshot = resolveSnapshot(adapter);
 
 		// Adapters seed subscribers with the current snapshot immediately.

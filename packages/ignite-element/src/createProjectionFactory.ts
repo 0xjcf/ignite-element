@@ -225,7 +225,7 @@ export function createProjectionFactory<
 			| ((adapter: IgniteAdapter<State, Event>) => Snapshot)
 			| undefined) ??
 		((adapter: IgniteAdapter<State, Event>) =>
-			adapter.getState() as unknown as Snapshot);
+			adapter.getSnapshot() as unknown as Snapshot);
 
 	const resolveActor =
 		resolveCommandActor ??
@@ -235,7 +235,7 @@ export function createProjectionFactory<
 		((adapter: IgniteAdapter<State, Event>) =>
 			({
 				send: (event: Event) => adapter.send(event),
-				getState: () => adapter.getState(),
+				getState: () => adapter.getSnapshot(),
 			}) as CommandActor);
 
 	const userAdditionalArgs = createAdditionalArgs ?? (() => ({}) as Additional);

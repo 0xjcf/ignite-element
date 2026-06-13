@@ -51,24 +51,24 @@ describe("ReduxAdapter with Slice Source", () => {
 
 	it("should initialize and return the current state", () => {
 		expect(adapter).toBeDefined();
-		expect(adapter.getState()).toEqual({ count: 0 });
+		expect(adapter.getSnapshot()).toEqual({ count: 0 });
 	});
 
 	it("should dispatch actions and update state", () => {
 		adapter.send({ type: "counter/increment" });
-		expect(adapter.getState()).toEqual({ count: 1 });
+		expect(adapter.getSnapshot()).toEqual({ count: 1 });
 
 		adapter.send({ type: "counter/addByAmount", payload: 5 });
-		expect(adapter.getState()).toEqual({ count: 6 });
+		expect(adapter.getSnapshot()).toEqual({ count: 6 });
 
 		adapter.send({ type: "counter/decrement" });
-		expect(adapter.getState()).toEqual({ count: 5 });
+		expect(adapter.getSnapshot()).toEqual({ count: 5 });
 	});
 
 	it("should prevent invalid actions", () => {
 		// @ts-expect-error Invalid action type
 		adapter.send({ type: "counter/unknownAction" });
-		expect(adapter.getState()).toEqual({ count: 0 }); // No state change
+		expect(adapter.getSnapshot()).toEqual({ count: 0 }); // No state change
 	});
 
 	it("marks slice adapters as isolated", () => {
@@ -82,7 +82,7 @@ describe("ReduxAdapter with Slice Source", () => {
 		const actor = adapterFactory.resolveCommandActor(adapter);
 		actor.dispatch(counterSlice.actions.increment());
 		expect(actor.getState().count).toBe(1);
-		expect(adapter.getState().count).toBe(1);
+		expect(adapter.getSnapshot().count).toBe(1);
 	});
 });
 
@@ -113,23 +113,23 @@ describe("ReduxAdapter with Store Source", () => {
 
 	it("should initialize and return the current state", () => {
 		expect(adapter).toBeDefined();
-		expect(adapter.getState()).toEqual({ counter: { count: 0 } });
+		expect(adapter.getSnapshot()).toEqual({ counter: { count: 0 } });
 	});
 
 	it("should dispatch actions and update state", () => {
 		adapter.send(counterSlice.actions.increment());
-		expect(adapter.getState()).toEqual({ counter: { count: 1 } });
+		expect(adapter.getSnapshot()).toEqual({ counter: { count: 1 } });
 
 		adapter.send(counterSlice.actions.addByAmount(5));
-		expect(adapter.getState()).toEqual({ counter: { count: 6 } });
+		expect(adapter.getSnapshot()).toEqual({ counter: { count: 6 } });
 
 		adapter.send(counterSlice.actions.decrement());
-		expect(adapter.getState()).toEqual({ counter: { count: 5 } });
+		expect(adapter.getSnapshot()).toEqual({ counter: { count: 5 } });
 	});
 
 	it("should prevent invalid actions", () => {
 		adapter.send({ type: "counter/unknownAction" });
-		expect(adapter.getState()).toEqual({ counter: { count: 0 } }); // No state change
+		expect(adapter.getSnapshot()).toEqual({ counter: { count: 0 } }); // No state change
 	});
 
 	it("should prevent actions after adapter is stopped", () => {
@@ -141,7 +141,7 @@ describe("ReduxAdapter with Store Source", () => {
 			"[ReduxAdapter] Cannot send events when adapter is stopped.",
 		);
 
-		expect(adapter.getState()).toEqual({ counter: { count: 0 } }); // State should not change
+		expect(adapter.getSnapshot()).toEqual({ counter: { count: 0 } }); // State should not change
 		warnSpy.mockRestore();
 	});
 
@@ -155,7 +155,7 @@ describe("ReduxAdapter with Store Source", () => {
 		expect(snapshot.counter.count).toBe(0);
 		const actor = adapterFactory.resolveCommandActor(adapter);
 		actor.dispatch(counterSlice.actions.increment());
-		expect(adapter.getState().counter.count).toBe(1);
+		expect(adapter.getSnapshot().counter.count).toBe(1);
 	});
 });
 
@@ -182,7 +182,7 @@ describe("ReduxAdapter - Subscribe Method", () => {
 	it("should notify listeners on state updates", () => {
 		const listener = vi.fn();
 
-		const subscription = adapter.subscribe(listener); // Subscribe
+		const subscription = adapter.subscribeSnapshots(listener); // Subscribe
 		expect(listener).toHaveBeenCalledWith({ counter: { count: 0 } }); // Initial state
 
 		adapter.send(counterSlice.actions.increment());
@@ -194,7 +194,7 @@ describe("ReduxAdapter - Subscribe Method", () => {
 	it("should not notify listeners after unsubscribe", () => {
 		const listener = vi.fn();
 
-		const subscription = adapter.subscribe(listener);
+		const subscription = adapter.subscribeSnapshots(listener);
 		subscription.unsubscribe(); // Unsubscribe immediately
 
 		adapter.send(counterSlice.actions.increment());
@@ -205,7 +205,7 @@ describe("ReduxAdapter - Subscribe Method", () => {
 		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 		adapter.stop(); // Stop adapter
 
-		adapter.subscribe(() => {}); // Try to subscribe after stop
+		adapter.subscribeSnapshots(() => {}); // Try to subscribeSnapshots after stop
 
 		expect(warnSpy).toHaveBeenCalledWith(
 			"[ReduxAdapter] Cannot subscribe when adapter is stopped.",
@@ -216,7 +216,7 @@ describe("ReduxAdapter - Subscribe Method", () => {
 
 	it("should allow unsubscribe calls after stop", () => {
 		const listener = vi.fn();
-		const subscription = adapter.subscribe(listener);
+		const subscription = adapter.subscribeSnapshots(listener);
 
 		adapter.stop();
 		expect(() => subscription.unsubscribe()).not.toThrow(); // Should not throw error
@@ -261,10 +261,10 @@ describe("ReduxAdapter with shared store", () => {
 
 	it("reuses the same redux store instance", () => {
 		adapterA.send(counterSlice.actions.increment());
-		expect(adapterB.getState().counter.count).toBe(1);
+		expect(adapterB.getSnapshot().counter.count).toBe(1);
 
 		adapterB.send(counterSlice.actions.addByAmount(2));
-		expect(adapterA.getState().counter.count).toBe(3);
+		expect(adapterA.getSnapshot().counter.count).toBe(3);
 	});
 
 	it("exposes facade metadata for shared store adapters", () => {
@@ -272,7 +272,7 @@ describe("ReduxAdapter with shared store", () => {
 		expect(snapshot.counter.count).toBe(0);
 		const actor = adapterFactory.resolveCommandActor(adapterA);
 		actor.dispatch(counterSlice.actions.increment());
-		expect(adapterB.getState().counter.count).toBe(1);
+		expect(adapterB.getSnapshot().counter.count).toBe(1);
 	});
 });
 

@@ -171,7 +171,7 @@ describe("ActorWebAdapter", () => {
 		const adapter = adapterFactory();
 		const listener = vi.fn();
 
-		const subscription = adapter.subscribe(listener);
+		const subscription = adapter.subscribeSnapshots(listener);
 
 		expect(adapterFactory.scope).toBe(StateScope.Shared);
 		expect(adapter.scope).toBe(StateScope.Shared);
@@ -200,7 +200,7 @@ describe("ActorWebAdapter", () => {
 		const adapter = adapterFactory();
 		const listener = vi.fn();
 
-		const subscription = adapter.subscribe(listener);
+		const subscription = adapter.subscribeSnapshots(listener);
 
 		expect(listener).toHaveBeenCalledTimes(1);
 
@@ -236,10 +236,10 @@ describe("ActorWebAdapter", () => {
 		const firstListener = vi.fn();
 		const secondListener = vi.fn();
 
-		const firstSubscription = adapter.subscribe(firstListener);
+		const firstSubscription = adapter.subscribeSnapshots(firstListener);
 		firstSubscription.unsubscribe();
 
-		const secondSubscription = adapter.subscribe(secondListener);
+		const secondSubscription = adapter.subscribeSnapshots(secondListener);
 
 		expect(firstListener).toHaveBeenCalledTimes(1);
 		expect(secondListener).toHaveBeenCalledTimes(1);
@@ -261,10 +261,10 @@ describe("ActorWebAdapter", () => {
 		const firstListener = vi.fn();
 		const secondListener = vi.fn();
 
-		const firstSubscription = adapter.subscribe(firstListener);
+		const firstSubscription = adapter.subscribeSnapshots(firstListener);
 		firstSubscription.unsubscribe();
 
-		const secondSubscription = adapter.subscribe(secondListener);
+		const secondSubscription = adapter.subscribeSnapshots(secondListener);
 
 		expect(firstListener).toHaveBeenCalledTimes(1);
 		expect(secondListener).toHaveBeenCalledTimes(1);
@@ -286,7 +286,7 @@ describe("ActorWebAdapter", () => {
 		const adapter = adapterFactory();
 		const listener = vi.fn();
 
-		const subscription = adapter.subscribe(listener);
+		const subscription = adapter.subscribeSnapshots(listener);
 
 		source.emitSnapshot(
 			{
@@ -314,17 +314,17 @@ describe("ActorWebAdapter", () => {
 	});
 });
 
-describe("ActorWebAdapter stream() emitted-event seam", () => {
+describe("ActorWebAdapter subscribeEvents() emitted-event seam", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
 
-	it("bridges source.subscribeEvent emits into stream() and cleans up on unsubscribe", () => {
+	it("bridges source.subscribeEvent emits into subscribeEvents() and cleans up on unsubscribe", () => {
 		const source = createSource();
 		const adapter = createActorWebAdapter(source)();
 		const received: ShipmentEmitted[] = [];
 
-		const subscription = adapter.stream?.((event) => {
+		const subscription = adapter.subscribeEvents?.((event) => {
 			received.push(event as ShipmentEmitted);
 		});
 
@@ -343,7 +343,7 @@ describe("ActorWebAdapter stream() emitted-event seam", () => {
 		adapter.stop();
 	});
 
-	it("no-ops stream() when the source does not expose subscribeEvent", () => {
+	it("no-ops subscribeEvents() when the source does not expose subscribeEvent", () => {
 		const source = createSource();
 		// Model a source that cannot emit by dropping the optional event seam.
 		const { subscribeEvent: _subscribeEvent, ...readModelSource } = source;
@@ -355,7 +355,7 @@ describe("ActorWebAdapter stream() emitted-event seam", () => {
 			>,
 		)();
 
-		const subscription = adapter.stream?.(() => {
+		const subscription = adapter.subscribeEvents?.(() => {
 			throw new Error("listener should not be called");
 		});
 

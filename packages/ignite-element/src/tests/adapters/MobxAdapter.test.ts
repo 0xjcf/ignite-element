@@ -77,23 +77,23 @@ describe("MobXAdapter", () => {
 
 	it("should initialize and return the current state", () => {
 		expect(adapter).toBeDefined();
-		expect(adapter.getState().count).toBe(0);
+		expect(adapter.getSnapshot().count).toBe(0);
 	});
 
 	it("should dispatch actions to the store and update state", () => {
 		adapter.send({ type: "increment" });
-		expect(adapter.getState().count).toBe(1);
+		expect(adapter.getSnapshot().count).toBe(1);
 
 		adapter.send({ type: "decrement" });
-		expect(adapter.getState().count).toBe(0);
+		expect(adapter.getSnapshot().count).toBe(0);
 	});
 
 	it("should handle multiple subscriptions and notify listeners", () => {
 		const listener1 = vi.fn();
 		const listener2 = vi.fn();
 
-		adapter.subscribe(listener1);
-		adapter.subscribe(listener2);
+		adapter.subscribeSnapshots(listener1);
+		adapter.subscribeSnapshots(listener2);
 
 		adapter.send({ type: "increment" });
 
@@ -107,7 +107,7 @@ describe("MobXAdapter", () => {
 			.mockImplementation(() => {});
 
 		const listener = vi.fn();
-		adapter.subscribe(listener);
+		adapter.subscribeSnapshots(listener);
 		adapter.stop();
 		adapter.send({ type: "increment" });
 
@@ -149,13 +149,13 @@ describe("MobXAdapter", () => {
 		adapter.send({ type: "increment" });
 		adapter.stop();
 
-		expect(adapter.getState().count).toBe(1);
+		expect(adapter.getSnapshot().count).toBe(1);
 	});
 
 	it("should prevent new subscriptions after stop", () => {
 		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 		adapter.stop();
-		expect(() => adapter.subscribe(vi.fn())).not.toThrow();
+		expect(() => adapter.subscribeSnapshots(vi.fn())).not.toThrow();
 		expect(warnSpy).toHaveBeenCalledWith(
 			"[MobxAdapter] Cannot subscribe when adapter is stopped.",
 		);
@@ -169,7 +169,7 @@ describe("MobXAdapter", () => {
 
 	it("should allow unsubscribe calls before and after stop without errors", () => {
 		const listener = vi.fn();
-		const subscription = adapter.subscribe(listener);
+		const subscription = adapter.subscribeSnapshots(listener);
 
 		expect(() => subscription.unsubscribe()).not.toThrow();
 
@@ -188,7 +188,7 @@ describe("MobXAdapter", () => {
 		const store = adapterFactory.resolveCommandActor(adapter);
 		expect(typeof store.increment).toBe("function");
 		store.increment();
-		expect(adapter.getState().count).toBe(1);
+		expect(adapter.getSnapshot().count).toBe(1);
 	});
 
 	it("throws when store factory does not return an observable", () => {
@@ -234,10 +234,10 @@ describe("MobXAdapter with shared observable", () => {
 
 	it("reuses the same observable instance", () => {
 		adapterA.send({ type: "increment" });
-		expect(adapterB.getState().count).toBe(1);
+		expect(adapterB.getSnapshot().count).toBe(1);
 
 		adapterB.send({ type: "increment" });
-		expect(adapterA.getState().count).toBe(2);
+		expect(adapterA.getSnapshot().count).toBe(2);
 	});
 
 	it("exposes facade metadata for shared adapters", () => {
@@ -246,7 +246,7 @@ describe("MobXAdapter with shared observable", () => {
 		const store = adapterFactory.resolveCommandActor(adapterA);
 		expect(store).toBe(sharedStore);
 		store.increment();
-		expect(adapterB.getState().count).toBe(1);
+		expect(adapterB.getSnapshot().count).toBe(1);
 	});
 
 	it("errors when resolving metadata for unknown adapters", () => {

@@ -166,7 +166,7 @@ function createAdapterEntryFromStore<State extends object>(
 	}
 
 	const adapter: IgniteAdapter<State, MobxEvent<State>> = {
-		subscribe(listener) {
+		subscribeSnapshots(listener) {
 			if (isStopped) {
 				console.warn(stoppedSubscribeWarning);
 				return { unsubscribe: () => {} };
@@ -215,7 +215,7 @@ function createAdapterEntryFromStore<State extends object>(
 				console.warn(`[MobxAdapter] Unknown event type: ${String(event.type)}`);
 			}
 		},
-		getState() {
+		getSnapshot() {
 			return isStopped ? lastSnapshot : cloneState();
 		},
 		stop() {

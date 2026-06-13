@@ -53,7 +53,7 @@ export default abstract class IgniteElement<
 
 	protected initializeAdapter(adapter: IgniteAdapter<State, Event>): void {
 		this._adapter = adapter;
-		this.updateCurrentState(this._adapter.getState());
+		this.updateCurrentState(this._adapter.getSnapshot());
 		this._initialized = true;
 
 		if (this._isActive && !this._unsubscribe) {
@@ -65,7 +65,7 @@ export default abstract class IgniteElement<
 	connectedCallback(): void {
 		if (!this._unsubscribe && this._adapter) {
 			this.subscribeToAdapter();
-			this.updateCurrentState(this._adapter.getState());
+			this.updateCurrentState(this._adapter.getSnapshot());
 		}
 
 		this._isActive = true;
@@ -158,7 +158,7 @@ export default abstract class IgniteElement<
 			return;
 		}
 
-		const subscription = this._adapter.subscribe((state: State) => {
+		const subscription = this._adapter.subscribeSnapshots((state: State) => {
 			this.updateCurrentState(state);
 			if (this._isActive) {
 				this.renderTemplate();

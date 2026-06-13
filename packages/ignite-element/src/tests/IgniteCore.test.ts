@@ -3,7 +3,14 @@ import type { TemplateResult } from "lit-html";
 import { html } from "lit-html";
 import { makeAutoObservable } from "mobx";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { assign, createActor, createMachine, type EventFrom } from "xstate";
+import {
+	assign,
+	createActor,
+	createMachine,
+	emit,
+	type EventFrom,
+	setup,
+} from "xstate";
 import type {
 	ActorWebCommandSource,
 	ActorWebExtendedState,
@@ -112,7 +119,7 @@ function createActorWebShipmentSource(): ActorWebCommandSource<
 			// A real actor responds to a command by emitting a domain event on its
 			// side-channel; mirror that so commands can drive emits during the
 			// `execute()` command window. `subscribeEvent` is the source contract the
-			// ActorWebAdapter `stream()` seam wraps; `emitEvent` is a test-only driver.
+			// ActorWebAdapter `subscribeEvents()` seam wraps; `emitEvent` is a test-only driver.
 			if (message.type === "CREATE_SHIPMENT") {
 				source.emitEvent({
 					type: "SHIPMENT_CREATED",
@@ -1715,7 +1722,7 @@ describe("igniteCore", () => {
 // E4 — actor-web emitted events surface through the real igniteCore runtime path
 // (on()/execute().events/record()), typed from the source's `Emitted` union. E2
 // proved the runtime bridge with a fake adapter; this exercises the actual
-// ActorWebAdapter.stream() → source.subscribeEvent wiring end to end.
+// ActorWebAdapter.subscribeEvents() → source.subscribeEvent wiring end to end.
 describe("igniteCore actor-web emitted-event bridge", () => {
 	afterEach(() => {
 		document.body.innerHTML = "";
@@ -1799,7 +1806,7 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 			},
 			commands: ({ actor }) => ({
 				createShipment: (shipmentId: string) => {
-					// Drives a source emit (stream seam) and a state change (effects bus).
+					// Drives a source emit (subscribeEvents seam) and a state change (effects bus).
 					actor.send({ type: "CREATE_SHIPMENT", shipmentId });
 					source.emitSnapshot({ shipmentId, status: "created" });
 				},
@@ -1849,7 +1856,7 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 		story.stop();
 	});
 
-	it("leaves non-emitting adapters (redux) unaffected by the stream bridge", async () => {
+	it("leaves non-emitting adapters (redux) unaffected by the events bridge", async () => {
 		const store = counterStore();
 		const register = igniteCore({
 			adapter: "redux",
@@ -1862,9 +1869,106 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 
 		const result = await register.execute("increment");
 
-		// No stream() seam on redux — the bridge contributes nothing, so the command
+		// No subscribeEvents() seam on redux — the bridge contributes nothing, so the command
 		// surfaces no events while the state update still applies normally.
 		expect(result.events).toEqual([]);
 		expect(register.getSnapshot().counter.count).toBe(1);
+	});
+});
+
+// XState joins the subscribeEvents() seam as its second consumer: emitted events
+// (XState v5 emit(...)) surface through the same runtime path as actor-web —
+// on(type), execute().events, and record() — with the uniform shape.
+describe("igniteCore xstate emitted-event bridge", () => {
+	afterEach(() => {
+		document.body.innerHTML = "";
+		vi.restoreAllMocks();
+	});
+
+	const emittingCounterMachine = setup({
+		types: {
+			context: {} as { count: number },
+			events: {} as { type: "INC" },
+			emitted: {} as { type: "count-changed"; count: number },
+		},
+	}).createMachine({
+		context: { count: 0 },
+		on: {
+			INC: {
+				actions: [
+					assign({ count: ({ context }) => context.count + 1 }),
+					emit(({ context }) => ({
+						type: "count-changed" as const,
+						count: context.count,
+					})),
+				],
+			},
+		},
+	});
+
+	it("forwards machine emits to on(type) and stops after unsubscribe", () => {
+		const register = igniteCore({
+			source: emittingCounterMachine,
+			view: ({ context }) => ({ count: context.count }),
+			commands: ({ actor }) => ({
+				increment: () => actor.send({ type: "INC" }),
+			}),
+		});
+
+		const received: Array<{ type: string; count: number }> = [];
+		const subscription = register.on("count-changed", (event) => {
+			// Uniform shape: on() handlers receive the emitted member as `detail`.
+			received.push(event.detail);
+		});
+
+		void register.execute("increment");
+		expect(received).toEqual([{ type: "count-changed", count: 1 }]);
+
+		subscription.unsubscribe();
+		void register.execute("increment");
+		expect(received).toHaveLength(1);
+	});
+
+	it("captures command-driven emits in execute().events with the uniform shape", async () => {
+		const register = igniteCore({
+			source: emittingCounterMachine,
+			view: ({ context }) => ({ count: context.count }),
+			commands: ({ actor }) => ({
+				increment: () => actor.send({ type: "INC" }),
+			}),
+		});
+
+		const result = await register.execute("increment");
+
+		// Uniform shape: { type: M.type, payload: M } where M is the emitted member.
+		expect(result.events).toContainEqual({
+			type: "count-changed",
+			payload: { type: "count-changed", count: 1 },
+		});
+		// Single capture per emit — no double-count from the transient subscription.
+		expect(
+			result.events.filter((event) => event.type === "count-changed"),
+		).toHaveLength(1);
+	});
+
+	it("records machine emits in story traces", async () => {
+		const register = igniteCore({
+			source: emittingCounterMachine,
+			view: ({ context }) => ({ count: context.count }),
+			commands: ({ actor }) => ({
+				increment: () => actor.send({ type: "INC" }),
+			}),
+		});
+
+		const story = register.record("xstate emitted events");
+		await story.execute("increment");
+
+		const emitted = {
+			type: "count-changed",
+			payload: { type: "count-changed", count: 1 },
+		};
+		expect(story.summary().events).toContainEqual(emitted);
+
+		story.stop();
 	});
 });

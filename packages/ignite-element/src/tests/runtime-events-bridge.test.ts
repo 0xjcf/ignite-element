@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createAgentRuntime } from "../runtime/agent";
 
 /**
- * E2 — runtime bridge for the adapter `stream()` emitted-event seam.
+ * E2 — runtime bridge for the adapter `subscribeEvents()` emitted-event seam.
  * Exercised with a controllable fake adapter (actor-web end-to-end is E4).
  */
 
@@ -15,8 +15,8 @@ function makeHarness(commands: Record<string, () => void> = {}) {
 	let state = { count: 0 };
 
 	const adapter: IgniteAdapter<typeof state, { type: string }, Emitted> = {
-		subscribe: () => ({ unsubscribe() {} }),
-		stream: (listener) => {
+		subscribeSnapshots: () => ({ unsubscribe() {} }),
+		subscribeEvents: (listener) => {
 			streamListeners.add(listener);
 			return {
 				unsubscribe: () => {
@@ -25,7 +25,7 @@ function makeHarness(commands: Record<string, () => void> = {}) {
 			};
 		},
 		send: () => {},
-		getState: () => state,
+		getSnapshot: () => state,
 		stop: () => {},
 	};
 
@@ -38,7 +38,7 @@ function makeHarness(commands: Record<string, () => void> = {}) {
 		eventTypes: ["ui-event"],
 		resolveRuntime: () => ({
 			// E2 keeps the runtime adapter typed at Emitted=never; the Emitted->Events
-			// static thread lands in E3 (actor-web). The runtime reads stream()
+			// static thread lands in E3 (actor-web). The runtime reads subscribeEvents()
 			// structurally, so a test-only cast is sufficient here.
 			adapter: adapter as unknown as IgniteAdapter<
 				typeof state,
@@ -66,7 +66,7 @@ function makeHarness(commands: Record<string, () => void> = {}) {
 	};
 }
 
-describe("runtime bridge for adapter.stream() emitted events", () => {
+describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 	it("on(type) receives source emits and stops after unsubscribe", () => {
 		const { runtime, emit, activeStreamSubscriptions } = makeHarness();
 		const received: unknown[] = [];
@@ -82,14 +82,14 @@ describe("runtime bridge for adapter.stream() emitted events", () => {
 		]);
 
 		subscription.unsubscribe();
-		expect(activeStreamSubscriptions()).toBe(0); // stream sub cleaned up
+		expect(activeStreamSubscriptions()).toBe(0); // event sub cleaned up
 		emit({ type: "OUTCOME_RESOLVED", outcome: "again" });
 		expect(received).toHaveLength(1); // no longer listening
 	});
 
 	it("execute().events captures source emits (uniform shape) alongside declared/effects events", async () => {
 		// The command emits both a declared/effects event (host bus) and a source
-		// event (stream seam) during the command window.
+		// event (subscribeEvents seam) during the command window.
 		const h = makeHarness({
 			acceptFork() {
 				h.host.dispatchEvent(
@@ -134,13 +134,13 @@ describe("runtime bridge for adapter.stream() emitted events", () => {
 		story.stop();
 	});
 
-	it("adapters without stream() are unaffected", async () => {
+	it("adapters without subscribeEvents() are unaffected", async () => {
 		const host = document.createElement("div");
 		let state = { count: 0 };
 		const adapter: IgniteAdapter<typeof state, { type: string }> = {
-			subscribe: () => ({ unsubscribe() {} }),
+			subscribeSnapshots: () => ({ unsubscribe() {} }),
 			send: () => {},
-			getState: () => state,
+			getSnapshot: () => state,
 			stop: () => {},
 		};
 		const runtime = createAgentRuntime<

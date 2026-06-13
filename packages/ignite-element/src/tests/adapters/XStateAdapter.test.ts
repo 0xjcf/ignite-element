@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createActor } from "xstate";
+import { assign, createActor, emit, setup } from "xstate";
 import createXStateAdapter from "../../adapters/XStateAdapter";
 import counterMachine from "../../examples/xstate/xstateCounterMachine";
 import { StateScope } from "../../IgniteAdapter";
@@ -20,27 +20,27 @@ describe("XStateAdapter", () => {
 
 	it("should initialize and return the current state", () => {
 		expect(adapter).toBeDefined();
-		expect(adapter.getState().value).toBe("idle");
-		expect(adapter.getState().context.count).toBe(0);
+		expect(adapter.getSnapshot().value).toBe("idle");
+		expect(adapter.getSnapshot().context.count).toBe(0);
 	});
 
 	it("should dispatch events and update state", () => {
 		adapter.send({ type: "START" });
-		expect(adapter.getState().value).toBe("active");
+		expect(adapter.getSnapshot().value).toBe("active");
 
 		adapter.send({ type: "INC" });
-		expect(adapter.getState().context.count).toBe(1);
+		expect(adapter.getSnapshot().context.count).toBe(1);
 
 		adapter.send({ type: "DEC" });
-		expect(adapter.getState().context.count).toBe(0);
+		expect(adapter.getSnapshot().context.count).toBe(0);
 	});
 
 	it("should handle multiple subscriptions and notify listeners", () => {
 		const listener1 = vi.fn();
 		const listener2 = vi.fn();
 
-		const subscription1 = adapter.subscribe(listener1);
-		const subscription2 = adapter.subscribe(listener2);
+		const subscription1 = adapter.subscribeSnapshots(listener1);
+		const subscription2 = adapter.subscribeSnapshots(listener2);
 
 		adapter.send({ type: "START" });
 
@@ -68,8 +68,8 @@ describe("XStateAdapter", () => {
 		const listener1 = vi.fn();
 		const listener2 = vi.fn();
 
-		const subscription1 = adapter.subscribe(listener1);
-		const subscription2 = adapter.subscribe(listener2);
+		const subscription1 = adapter.subscribeSnapshots(listener1);
+		const subscription2 = adapter.subscribeSnapshots(listener2);
 
 		subscription1.unsubscribe();
 
@@ -87,7 +87,7 @@ describe("XStateAdapter", () => {
 			.mockImplementation(() => {});
 
 		const listener = vi.fn();
-		adapter.subscribe(listener);
+		adapter.subscribeSnapshots(listener);
 		adapter.stop();
 		adapter.send({ type: "INC" });
 
@@ -120,14 +120,14 @@ describe("XStateAdapter", () => {
 		adapter.send({ type: "START" });
 		adapter.stop();
 
-		expect(adapter.getState().value).toBe("active");
-		expect(adapter.getState().context.count).toBe(0);
+		expect(adapter.getSnapshot().value).toBe("active");
+		expect(adapter.getSnapshot().context.count).toBe(0);
 	});
 
 	it("should prevent new subscriptions after stop", () => {
 		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 		adapter.stop();
-		expect(() => adapter.subscribe(vi.fn())).not.toThrow();
+		expect(() => adapter.subscribeSnapshots(vi.fn())).not.toThrow();
 		expect(warnSpy).toHaveBeenCalledWith(
 			"[XStateAdapter] Cannot subscribe when adapter is stopped.",
 		);
@@ -141,7 +141,7 @@ describe("XStateAdapter", () => {
 
 	it("should allow unsubscribe calls before and after stop without errors", () => {
 		const listener = vi.fn();
-		const subscription = adapter.subscribe(listener);
+		const subscription = adapter.subscribeSnapshots(listener);
 
 		expect(() => subscription.unsubscribe()).not.toThrow();
 
@@ -151,8 +151,8 @@ describe("XStateAdapter", () => {
 
 	it("should return the current state by using state directly", () => {
 		adapter.send({ type: "START" });
-		expect(adapter.getState().value).toBe("active");
-		expect(adapter.getState().count).toBe(0);
+		expect(adapter.getSnapshot().value).toBe("active");
+		expect(adapter.getSnapshot().count).toBe(0);
 	});
 
 	it("should return the last known state after stop using state directly", () => {
@@ -160,8 +160,8 @@ describe("XStateAdapter", () => {
 		adapter.send({ type: "INC" });
 		adapter.stop();
 
-		expect(adapter.getState().value).toBe("active");
-		expect(adapter.getState().count).toBe(1);
+		expect(adapter.getSnapshot().value).toBe("active");
+		expect(adapter.getSnapshot().count).toBe(1);
 	});
 
 	it("marks isolated adapter scope", () => {
@@ -174,9 +174,9 @@ describe("XStateAdapter", () => {
 		expect(snapshot.value).toBe("idle");
 		const commandActor = adapterFactory.resolveCommandActor(adapter);
 		commandActor.send({ type: "START" });
-		expect(adapter.getState().value).toBe("active");
+		expect(adapter.getSnapshot().value).toBe("active");
 		commandActor.send({ type: "INC" });
-		expect(adapter.getState().context.count).toBe(1);
+		expect(adapter.getSnapshot().context.count).toBe(1);
 	});
 
 	it("reuses actor instances for shared adapters", () => {
@@ -194,7 +194,7 @@ describe("XStateAdapter", () => {
 
 		adapterA.send({ type: "START" });
 
-		expect(adapterB.getState().value).toBe("active");
+		expect(adapterB.getSnapshot().value).toBe("active");
 		adapterA.stop();
 		adapterB.stop();
 		actor.stop();
@@ -209,8 +209,69 @@ describe("XStateAdapter", () => {
 		expect(snapshot.value).toBe("idle");
 		const commandActor = sharedFactory.resolveCommandActor(sharedAdapter);
 		commandActor.send({ type: "START" });
-		expect(sharedAdapter.getState().value).toBe("active");
+		expect(sharedAdapter.getSnapshot().value).toBe("active");
 		sharedAdapter.stop();
 		actor.stop();
+	});
+});
+
+// The optional subscribeEvents() seam bridges XState v5 emitted events (emit(...) /
+// actor.on('*')) into the headless runtime's event surface, mirroring the
+// ActorWebAdapter subscribeEvents() coverage.
+describe("XStateAdapter subscribeEvents() emitted-event seam", () => {
+	const emittingMachine = setup({
+		types: {
+			context: {} as { count: number },
+			events: {} as { type: "INC" },
+			emitted: {} as { type: "count-changed"; count: number },
+		},
+	}).createMachine({
+		context: { count: 0 },
+		on: {
+			INC: {
+				actions: [
+					assign({ count: ({ context }) => context.count + 1 }),
+					emit(({ context }) => ({
+						type: "count-changed" as const,
+						count: context.count,
+					})),
+				],
+			},
+		},
+	});
+
+	it("bridges actor emits into subscribeEvents() and cleans up on unsubscribe", () => {
+		const factory = createXStateAdapter(emittingMachine);
+		const streamingAdapter = factory();
+
+		const received: Array<{ type: string; count?: number }> = [];
+		const subscription = streamingAdapter.subscribeEvents?.((event) =>
+			received.push(event as { type: string; count?: number }),
+		);
+
+		streamingAdapter.send({ type: "INC" });
+		expect(received).toEqual([{ type: "count-changed", count: 1 }]);
+
+		subscription?.unsubscribe();
+		streamingAdapter.send({ type: "INC" });
+		expect(received).toHaveLength(1);
+
+		streamingAdapter.stop();
+	});
+
+	it("no-ops subscribeEvents() on a stopped adapter (with a warning)", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		const factory = createXStateAdapter(emittingMachine);
+		const stoppedAdapter = factory();
+		stoppedAdapter.stop();
+
+		const listener = vi.fn();
+		const subscription = stoppedAdapter.subscribeEvents?.(listener);
+
+		expect(warn).toHaveBeenCalledWith(
+			"[XStateAdapter] Cannot subscribe to emitted events when adapter is stopped.",
+		);
+		expect(listener).not.toHaveBeenCalled();
+		expect(() => subscription?.unsubscribe()).not.toThrow();
 	});
 });

@@ -42,13 +42,16 @@ import type { IgniteAgentRuntime } from "../types/agent";
 import type { IgniteSchemaValue } from "../types/schema";
 
 /**
- * Derives the runtime `Events` map for a source that streams emitted domain
+ * Derives the runtime `Events` map for a source that emits domain
  * events. When the source declares a distinct `Emitted` union (≠ its command
  * `Message`), each emitted member is folded into the headless runtime's events
  * (payload = the whole emitted member, matching the runtime bridge), so
  * `on(...)` / `execute().events` are typed from the source with no `events:`
  * map. Explicitly declared `events:` keys win on collision. A non-distinct
- * `Emitted` (the `= Message` default) contributes nothing.
+ * `Emitted` (the `= Message` default) contributes nothing, and neither does a
+ * broad union whose `type` is plain `string` (e.g. XState's `EventObject`
+ * default on machines that declare no `emitted` types) — folding that in
+ * would add a string index signature to the events map.
  */
 export type WithEmittedEvents<
 	Events extends EventMap,
@@ -56,15 +59,17 @@ export type WithEmittedEvents<
 	Message extends { type: string },
 > = [Emitted] extends [Message]
 	? Events
-	: Events &
-			Omit<
-				{
-					[Type in Emitted["type"]]: EventDescriptor<
-						Extract<Emitted, { type: Type }>
-					>;
-				},
-				keyof Events
-			>;
+	: string extends Emitted["type"]
+		? Events
+		: Events &
+				Omit<
+					{
+						[Type in Emitted["type"]]: EventDescriptor<
+							Extract<Emitted, { type: Type }>
+						>;
+					},
+					keyof Events
+				>;
 
 export type IgniteCoreReturn<
 	State,

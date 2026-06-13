@@ -14,7 +14,7 @@ import { commandMetadataSymbol } from "./commands";
 import { toSchemaValue } from "./schema";
 
 // Reads the discriminant `type` of a source-emitted event (the adapter's
-// optional `stream()` seam yields plain `{ type, ... }` objects).
+// optional `subscribeEvents()` seam yields plain `{ type, ... }` objects).
 function emittedEventType(event: unknown): string | undefined {
 	if (typeof event === "object" && event !== null && "type" in event) {
 		return String((event as { type: unknown }).type);
@@ -142,7 +142,7 @@ export function createAgentRuntime<
 		let prevValue = resolveCurrent(adapter);
 		let seeded = false;
 
-		const subscription = adapter.subscribe(() => {
+		const subscription = adapter.subscribeSnapshots(() => {
 			const nextValue = resolveCurrent(adapter);
 			if (!seeded) {
 				seeded = true;
@@ -173,10 +173,11 @@ export function createAgentRuntime<
 
 		host.addEventListener(eventName, listener as EventListener);
 
-		// Bridge source-emitted events (the adapter's optional `stream()` seam) to
-		// this listener with the uniform `{ type, payload }` shape (payload = the
-		// emitted event). Effects-emitted events keep arriving via the host above.
-		const streamSubscription = adapter.stream?.((event: unknown) => {
+		// Bridge source-emitted events (the adapter's optional `subscribeEvents()`
+		// seam) to this listener with the uniform `{ type, payload }` shape
+		// (payload = the emitted event). Effects-emitted events keep arriving via
+		// the host above.
+		const eventsSubscription = adapter.subscribeEvents?.((event: unknown) => {
 			if (emittedEventType(event) === eventName) {
 				handler(new CustomEvent(eventName, { detail: event }));
 			}
@@ -185,7 +186,7 @@ export function createAgentRuntime<
 		return {
 			unsubscribe: () => {
 				host.removeEventListener(eventName, listener as EventListener);
-				streamSubscription?.unsubscribe();
+				eventsSubscription?.unsubscribe();
 			},
 		};
 	};
@@ -193,7 +194,7 @@ export function createAgentRuntime<
 	const watchSnapshot = (
 		handler: (snapshot: State, prevSnapshot: State) => void,
 	) => {
-		return createWatcher((adapter) => adapter.getState(), handler);
+		return createWatcher((adapter) => adapter.getSnapshot(), handler);
 	};
 
 	const watchView = (handler: (view: View, prevView: View) => void) => {
@@ -222,10 +223,11 @@ export function createAgentRuntime<
 			return { eventType, listener };
 		});
 
-		// Capture source-emitted events (the adapter's optional `stream()` seam)
-		// during the command window — independent of the declared `eventTypes`, so
-		// dynamic emit types are collected with the uniform `{ type, payload }` shape.
-		const sourceSubscription = adapter.stream?.((event: unknown) => {
+		// Capture source-emitted events (the adapter's optional `subscribeEvents()`
+		// seam) during the command window — independent of the declared
+		// `eventTypes`, so dynamic emit types are collected with the uniform
+		// `{ type, payload }` shape.
+		const sourceSubscription = adapter.subscribeEvents?.((event: unknown) => {
 			const type = emittedEventType(event);
 			if (type !== undefined) {
 				events.push({ type, payload: event });
@@ -239,7 +241,7 @@ export function createAgentRuntime<
 			await new Promise<void>((resolve) => queueMicrotask(resolve));
 
 			return {
-				state: adapter.getState(),
+				state: adapter.getSnapshot(),
 				events,
 			};
 		} finally {
@@ -291,7 +293,7 @@ export function createAgentRuntime<
 			async execute(commandName: string, payload?: unknown) {
 				assertActive();
 				const step = commandCount + 1;
-				const beforeState = resolveRuntime().adapter.getState();
+				const beforeState = resolveRuntime().adapter.getSnapshot();
 				const beforeView = resolveView(resolveRuntime().adapter);
 				const normalizedPayload = normalizeTraceValue(payload);
 
@@ -404,7 +406,7 @@ export function createAgentRuntime<
 			summary() {
 				return {
 					name,
-					finalState: resolveRuntime().adapter.getState(),
+					finalState: resolveRuntime().adapter.getSnapshot(),
 					finalView: resolveView(resolveRuntime().adapter),
 					events: copyEvents(),
 					commandCount,
@@ -428,7 +430,7 @@ export function createAgentRuntime<
 	const runtime = {
 		execute: executeCommand,
 		getSnapshot() {
-			return resolveRuntime().adapter.getState();
+			return resolveRuntime().adapter.getSnapshot();
 		},
 		getView() {
 			return resolveView(resolveRuntime().adapter);
@@ -449,7 +451,7 @@ export function createAgentRuntime<
 			return {
 				commands,
 				events: [...eventTypes].sort(),
-				state: (toSchemaValue(adapter.getState()) ?? null) as Exclude<
+				state: (toSchemaValue(adapter.getSnapshot()) ?? null) as Exclude<
 					ReturnType<typeof toSchemaValue>,
 					undefined
 				>,

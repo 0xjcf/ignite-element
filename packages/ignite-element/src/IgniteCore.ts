@@ -21,7 +21,7 @@ import {
 import type { IgniteAdapter } from "@ignite-element/core";
 import { StateScope } from "@ignite-element/core";
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
-import type { AnyStateMachine, EventFrom } from "xstate";
+import type { AnyStateMachine, EmittedFrom, EventFrom } from "xstate";
 import igniteElementFactory, {
 	type ComponentFactory,
 	type IgniteRenderArgs,
@@ -213,7 +213,7 @@ export function igniteCore<
 	StatesResult,
 	XStateCommandActor<Machine>,
 	CommandsResult,
-	Events
+	WithEmittedEvents<Events, EmittedFrom<Machine>, EventFrom<Machine>>
 >;
 
 export function igniteCore<
@@ -366,12 +366,12 @@ export function igniteCore(
 		const createStaticAdapter = Object.assign(
 			(): IgniteAdapter<StaticState, never> => ({
 				scope: StateScope.Shared,
-				subscribe(listener: (state: StaticState) => void) {
+				subscribeSnapshots(listener: (state: StaticState) => void) {
 					listener(staticState);
 					return { unsubscribe() {} };
 				},
 				send() {},
-				getState() {
+				getSnapshot() {
 					return staticState;
 				},
 				stop() {},

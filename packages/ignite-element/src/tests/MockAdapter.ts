@@ -14,7 +14,7 @@ class MockAdapter<State, Event> implements IgniteAdapter<State, Event> {
 		this.scope = scope;
 	}
 
-	subscribe: Mock<
+	subscribeSnapshots: Mock<
 		(listener: (state: State) => void) => { unsubscribe: () => void }
 	> = vi.fn((listener: (state: State) => void) => {
 		listener(this.mockState);
@@ -26,7 +26,7 @@ class MockAdapter<State, Event> implements IgniteAdapter<State, Event> {
 
 	send: Mock<(event: Event) => void> = vi.fn();
 
-	getState: Mock<() => State> = vi.fn(() => this.mockState);
+	getSnapshot: Mock<() => State> = vi.fn(() => this.mockState);
 
 	stop: Mock<() => void> = vi.fn();
 }

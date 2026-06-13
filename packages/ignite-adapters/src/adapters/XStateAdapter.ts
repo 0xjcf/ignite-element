@@ -2,6 +2,7 @@ import type { IgniteAdapter } from "@ignite-element/core";
 import { failInvariant, StateScope } from "@ignite-element/core";
 import type {
 	AnyStateMachine,
+	EmittedFrom,
 	EventFrom,
 	StateFrom,
 	Subscription,
@@ -170,8 +171,12 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 		};
 	}
 
-	const adapter: IgniteAdapter<ExtendedState<Machine>, EventFrom<Machine>> = {
-		subscribe(listener) {
+	const typedAdapter: IgniteAdapter<
+		ExtendedState<Machine>,
+		EventFrom<Machine>,
+		EmittedFrom<Machine>
+	> = {
+		subscribeSnapshots(listener) {
 			if (isStopped) {
 				console.warn(stoppedSubscribeWarning);
 				return { unsubscribe: () => {} };
@@ -193,6 +198,25 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 				},
 			};
 		},
+		subscribeEvents(listener) {
+			// Bridge the actor's emitted domain events (XState v5 `emit(...)`)
+			// into the headless runtime's event surface (on()/execute().events).
+			if (isStopped) {
+				console.warn(
+					"[XStateAdapter] Cannot subscribe to emitted events when adapter is stopped.",
+				);
+				return { unsubscribe: () => {} };
+			}
+
+			const emittedSubscription = actor.on("*", (emitted) => {
+				listener(emitted);
+			});
+			return {
+				unsubscribe: () => {
+					emittedSubscription.unsubscribe();
+				},
+			};
+		},
 		send(event) {
 			if (isStopped) {
 				console.warn(
@@ -203,7 +227,7 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 			actor.send(event);
 			lastKnownSnapshot = actor.getSnapshot();
 		},
-		getState() {
+		getSnapshot() {
 			const snapshot = isStopped ? lastKnownSnapshot : actor.getSnapshot();
 			if (!isStopped) {
 				lastKnownSnapshot = snapshot;
@@ -227,6 +251,15 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 		scope,
 	};
 
+	// The adapter object carries a typed `subscribeEvents()` for the machine's
+	// emitted union; the runtime reads it structurally, so the entry erases
+	// Emitted to the 2-arg IgniteAdapter the factory pipeline expects (no
+	// generics ripple).
+	const adapter = typedAdapter as unknown as IgniteAdapter<
+		ExtendedState<Machine>,
+		EventFrom<Machine>
+	>;
+
 	const snapshot = () => {
 		if (!isStopped) {
 			lastKnownSnapshot = actor.getSnapshot();
@@ -246,7 +279,7 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 			lastKnownSnapshot = actor.getSnapshot();
 		},
 		get state() {
-			return adapter.getState();
+			return adapter.getSnapshot();
 		},
 	};
 

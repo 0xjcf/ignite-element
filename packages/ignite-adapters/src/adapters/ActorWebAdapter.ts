@@ -442,7 +442,7 @@ function createAdapterEntry<
 		Message,
 		Emitted
 	> = {
-		subscribe(listener) {
+		subscribeSnapshots(listener) {
 			if (isStopped) {
 				console.warn(stoppedSubscribeWarning);
 				return { unsubscribe: () => {} };
@@ -472,8 +472,8 @@ function createAdapterEntry<
 				},
 			};
 		},
-		stream(listener) {
-			// Bridge the source's emitted-domain-event stream into the headless
+		subscribeEvents(listener) {
+			// Bridge the source's emitted-domain-event channel into the headless
 			// runtime's event surface (on()/execute().events). No-ops when the
 			// source provides no `subscribeEvent`.
 			const unsubscribe = source.subscribeEvent?.(listener);
@@ -502,7 +502,7 @@ function createAdapterEntry<
 				console.error("[ActorWebAdapter] Failed to send event.", error);
 			});
 		},
-		getState() {
+		getSnapshot() {
 			return readCurrentState();
 		},
 		stop() {
@@ -540,7 +540,7 @@ function createAdapterEntry<
 	};
 
 	return {
-		// The adapter object carries a typed `stream()` for the source's emit
+		// The adapter object carries a typed `subscribeEvents()` for the source's emit
 		// union; the runtime reads it structurally, so the entry erases Emitted to
 		// the 2-arg IgniteAdapter the factory pipeline expects (no generics ripple).
 		adapter: adapter as unknown as IgniteAdapter<

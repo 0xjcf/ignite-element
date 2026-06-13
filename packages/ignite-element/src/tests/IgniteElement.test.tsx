@@ -62,7 +62,7 @@ describe("IgniteElement", () => {
 
 	it("should update the DOM when the state changes", () => {
 		// Simulate a state update
-		adapter.subscribe.mock.calls[0][0]({ count: 1 }); // Call listener with new state
+		adapter.subscribeSnapshots.mock.calls[0][0]({ count: 1 }); // Call listener with new state
 		const shadowContent = element.shadowRoot?.textContent;
 		expect(shadowContent).toContain("Count: 1");
 	});
@@ -96,7 +96,7 @@ describe("IgniteElement", () => {
 
 	it("should return the adapter's state via the state getter", () => {
 		expect(element.currentState).toEqual(initialState);
-		expect(adapter.getState).toHaveBeenCalled();
+		expect(adapter.getSnapshot).toHaveBeenCalled();
 	});
 
 	it("should handle actions dispatched as plain objects", () => {
@@ -151,7 +151,7 @@ describe("IgniteElement", () => {
 		// A state update arriving while initialization is unwound hits the
 		// render guard through the adapter subscription path.
 		element.initialized = false;
-		adapter.subscribe.mock.calls[0][0]({ count: 1 });
+		adapter.subscribeSnapshots.mock.calls[0][0]({ count: 1 });
 
 		expect(warnSpy).toHaveBeenCalledWith(
 			"[IgniteElement] State is not initialized",
@@ -174,10 +174,10 @@ describe("IgniteElement", () => {
 
 		expect(primitiveElement.shadowRoot?.textContent).toContain("Value: 0");
 
-		primitiveAdapter.subscribe.mock.calls[0][0](false);
+		primitiveAdapter.subscribeSnapshots.mock.calls[0][0](false);
 		expect(primitiveElement.shadowRoot?.textContent).toContain("Value: false");
 
-		primitiveAdapter.subscribe.mock.calls[0][0]("");
+		primitiveAdapter.subscribeSnapshots.mock.calls[0][0]("");
 		expect(primitiveElement.shadowRoot?.textContent).toContain("Value:");
 
 		primitiveElement.remove();
@@ -200,13 +200,15 @@ describe("IgniteElement", () => {
 		assertIgniteElement<State, Event>(reconnectElement);
 		document.body.appendChild(reconnectElement);
 
-		const subscribeCalls = sharedAdapter.subscribe.mock.calls.length;
+		const subscribeCalls = sharedAdapter.subscribeSnapshots.mock.calls.length;
 
 		reconnectElement.remove();
 
 		reconnectElement.connectedCallback();
 
-		expect(sharedAdapter.subscribe).toHaveBeenCalledTimes(subscribeCalls + 1);
+		expect(sharedAdapter.subscribeSnapshots).toHaveBeenCalledTimes(
+			subscribeCalls + 1,
+		);
 	});
 
 	it("stops shared adapters when the last instance disconnects", () => {

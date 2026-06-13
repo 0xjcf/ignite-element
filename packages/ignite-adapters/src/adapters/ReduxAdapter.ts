@@ -65,7 +65,7 @@ const buildAdapter = <State, Event>(
 	};
 
 	const adapter: IgniteAdapter<State, Event> = {
-		subscribe(listener) {
+		subscribeSnapshots(listener) {
 			if (isStopped) {
 				console.warn(stoppedSubscribeWarning);
 				return { unsubscribe: () => {} };
@@ -99,7 +99,7 @@ const buildAdapter = <State, Event>(
 			store.dispatch(event);
 			lastKnownState = store.getState();
 		},
-		getState() {
+		getSnapshot() {
 			return isStopped ? lastKnownState : store.getState();
 		},
 		stop() {

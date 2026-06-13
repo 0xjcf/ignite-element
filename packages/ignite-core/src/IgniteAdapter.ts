@@ -5,18 +5,26 @@ export enum StateScope {
 
 export default interface IgniteAdapter<State, Event, Emitted = never> {
 	/**
-	 * Subscribes to state changes and returns an unsubscribe function
+	 * Subscribes to snapshot (state) changes and returns an unsubscribe function.
+	 * Named for the public `igniteCore` snapshot vocabulary; adapters may still
+	 * call their source's native subscription (e.g. `store.subscribe`,
+	 * `actor.subscribe`) internally.
 	 */
-	subscribe: (listener: (state: State) => void) => { unsubscribe: () => void };
+	subscribeSnapshots: (listener: (state: State) => void) => {
+		unsubscribe: () => void;
+	};
 
 	/**
-	 * Optional stream of emitted domain events — a source side-channel distinct
-	 * from state changes (e.g. an actor's emitted events, a WebSocket/SSE push).
-	 * Adapters that have such a stream implement this; others omit it. The
-	 * headless runtime bridges it into `on(...)` / `execute().events` when present.
-	 * Returns an unsubscribe handle matching `subscribe`.
+	 * Optional subscription to source-emitted domain events — a side-channel
+	 * distinct from snapshot changes (e.g. an actor's emitted events, a
+	 * WebSocket/SSE push). Adapters that have such a channel implement this;
+	 * others omit it. The headless runtime bridges it into `on(...)` /
+	 * `execute().events` when present. Returns an unsubscribe handle matching
+	 * `subscribeSnapshots`.
 	 */
-	stream?: (listener: (event: Emitted) => void) => { unsubscribe: () => void };
+	subscribeEvents?: (listener: (event: Emitted) => void) => {
+		unsubscribe: () => void;
+	};
 
 	/**
 	 * Sends an event or action to update the state
@@ -24,9 +32,11 @@ export default interface IgniteAdapter<State, Event, Emitted = never> {
 	send: (event: Event) => void;
 
 	/**
-	 * Retrieves the current state
+	 * Retrieves the current snapshot (state). Named for the public `igniteCore`
+	 * snapshot vocabulary; adapters may still call their source's native reader
+	 * (e.g. `store.getState`, `actor.getSnapshot`) internally.
 	 */
-	getState: () => State;
+	getSnapshot: () => State;
 
 	/**
 	 * Stops the adapter, cleaning up resources

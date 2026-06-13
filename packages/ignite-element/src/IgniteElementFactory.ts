@@ -348,7 +348,7 @@ export default function igniteElementFactory<
 			strategy.render(
 				render({
 					...additionalArgs,
-					state: adapter.getState(),
+					state: adapter.getSnapshot(),
 					send: (event) => adapter.send(event),
 				} as RenderArgs),
 			);
@@ -360,7 +360,7 @@ export default function igniteElementFactory<
 			);
 		};
 
-		const subscription = adapter.subscribe(() => {
+		const subscription = adapter.subscribeSnapshots(() => {
 			if (!active) {
 				return;
 			}

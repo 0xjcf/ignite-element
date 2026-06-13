@@ -25,7 +25,7 @@ describe("igniteElementFactory", () => {
 		document.body.appendChild(element);
 
 		expect(createAdapter).toHaveBeenCalledTimes(1);
-		expect(adapter.subscribe).toHaveBeenCalled();
+		expect(adapter.subscribeSnapshots).toHaveBeenCalled();
 	});
 
 	it("creates a new adapter instance per component when factory returns fresh adapters", () => {

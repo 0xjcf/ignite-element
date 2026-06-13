@@ -150,7 +150,7 @@ describe("createComponentFactory", () => {
 
 		expect(latestArgs).toBeDefined();
 		expect(latestArgs?.extra).toBe("value");
-		expect(adapter.getState).toHaveBeenCalled();
+		expect(adapter.getSnapshot).toHaveBeenCalled();
 		expect(latestArgs?.count).toBe(0);
 
 		latestArgs?.increment();
