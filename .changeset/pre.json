@@ -1,23 +1,23 @@
 {
-  "mode": "pre",
-  "tag": "beta",
-  "initialVersions": {
-    "docs-site": "0.0.1",
-    "@ignite-element/adapters": "2.2.2",
-    "@ignite-element/core": "2.2.2",
-    "ignite-element": "2.2.2",
-    "@ignite-element/renderer": "2.2.2"
-  },
-  "changesets": [
-    "actor-web-canonical-types-compat",
-    "adapter-contract-snapshot-naming",
-    "canonical-snapshot-view-accessors",
-    "emitted-event-stream-seam",
-    "fix-renderer-innerhtml-jsx-toggle-57",
-    "optional-peer-dependencies",
-    "remove-deprecated-pre-stable-surface",
-    "scope-sibling-packages",
-    "v3-public-api-boundary",
-    "view-context-snapshot-spread"
-  ]
+	"mode": "pre",
+	"tag": "beta",
+	"initialVersions": {
+		"docs-site": "0.0.1",
+		"@ignite-element/adapters": "2.2.2",
+		"@ignite-element/core": "2.2.2",
+		"ignite-element": "2.2.2",
+		"@ignite-element/renderer": "2.2.2"
+	},
+	"changesets": [
+		"actor-web-canonical-types-compat",
+		"adapter-contract-snapshot-naming",
+		"canonical-snapshot-view-accessors",
+		"emitted-event-stream-seam",
+		"fix-renderer-innerhtml-jsx-toggle-57",
+		"optional-peer-dependencies",
+		"remove-deprecated-pre-stable-surface",
+		"scope-sibling-packages",
+		"v3-public-api-boundary",
+		"view-context-snapshot-spread"
+	]
 }
