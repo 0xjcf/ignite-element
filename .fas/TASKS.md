@@ -1077,8 +1077,9 @@ No active tasks.
 
 - Title: Add a realistic XState-backed SPA/router example (history routing, dynamic params /users/:id, 404, one auth redirect/guard, active links, pure route core with effects/shell for History I/O, headless-runtime navigation tests) under packages/ignite-element/src/examples/spa-router, plus a guides/routing.mdx docs page; AND a full uniformity pass across the xstate/redux/mobx examples: fix the redux v2 send() render-arg drift, add tests to redux and mobx, align README/structure, document the intentional styling divergence
 - Mode: single-agent
-- Status: implementing
-- Owner: implementer
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/add-a-realistic-xstate-backed-spa-router-example-history-rou.md
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
