@@ -29,7 +29,13 @@ export const registerSharedMobx = igniteCore({
 	commands: mobxCommands,
 });
 
+// An isolated MobX source is a factory (`() => Counter`) so each element gets
+// its own store. A bare function source is ambiguous at the type level (unlike
+// xstate's machine object or redux's slice), so the factory form requires an
+// explicit `adapter: "mobx"` tag — the shared form above infers it from the
+// live instance.
 export const registerIsolatedMobx = igniteCore({
+	adapter: "mobx",
 	source: counterStore,
 	view: mobxView,
 	commands: mobxCommands,

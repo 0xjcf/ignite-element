@@ -127,7 +127,7 @@
 		"test:coverage": "vitest --run --coverage",
 		"test:e2e": "playwright test --project=chromium",
 		"test:node": "FORCE_COLOR=1 vitest --config vitest.node.config.ts --run",
-		"typecheck": "pnpm exec tsc --noEmit --pretty false --project tsconfig.typecheck.json && pnpm exec tsc --project src/examples/xstate/tsconfig.json && pnpm exec tsc --project src/examples/redux/tsconfig.json && pnpm exec tsc --project src/examples/spa-router/tsconfig.json && pnpm exec tsc --project src/tests/tsconfig.json",
+		"typecheck": "pnpm exec tsc --noEmit --pretty false --project tsconfig.typecheck.json && pnpm exec tsc --project src/examples/xstate/tsconfig.json && pnpm exec tsc --project src/examples/redux/tsconfig.json && pnpm exec tsc --project src/examples/mobx/tsconfig.json && pnpm exec tsc --project src/examples/spa-router/tsconfig.json && pnpm exec tsc --project src/tests/tsconfig.json",
 		"format": "biome format --write .",
 		"check": "biome check .",
 		"lint": "biome lint .",
