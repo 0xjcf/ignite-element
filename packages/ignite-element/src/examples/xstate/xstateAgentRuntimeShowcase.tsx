@@ -608,15 +608,15 @@ agentRuntimeShowcase("xstate-agent-runtime-showcase", (ctx) => (
 			</div>
 		</div>
 
-		<div class="mt-6 grid gap-4 lg:grid-cols-2">
-			<div class="rounded border border-slate-200 bg-slate-50 p-4">
+		<div class="mt-6 grid gap-4">
+			<div class="min-w-0 rounded border border-slate-200 bg-slate-50 p-4">
 				<h3 class="text-sm font-semibold text-slate-800">Runtime call</h3>
 				<pre class="mt-3 overflow-auto rounded bg-slate-950 p-3 text-xs text-cyan-100">
 					<code>{ctx.report.code}</code>
 				</pre>
 			</div>
 
-			<div class="rounded border border-slate-200 bg-slate-50 p-4">
+			<div class="min-w-0 rounded border border-slate-200 bg-slate-50 p-4">
 				<h3 class="text-sm font-semibold text-slate-800">getSchema()</h3>
 				<dl class="mt-3 grid gap-2 text-sm text-slate-700">
 					<div>
@@ -629,9 +629,9 @@ agentRuntimeShowcase("xstate-agent-runtime-showcase", (ctx) => (
 						<dt class="font-medium text-slate-900">Events</dt>
 						<dd class="break-words">{ctx.report.schema.events.join(", ")}</dd>
 					</div>
-					<div>
+					<div class="min-w-0">
 						<dt class="font-medium text-slate-900">Command metadata</dt>
-						<dd>
+						<dd class="min-w-0">
 							<pre class="mt-2 overflow-auto rounded bg-white p-3 text-xs text-slate-700">
 								<code>{formatJson(ctx.report.schema.commands)}</code>
 							</pre>
@@ -641,15 +641,15 @@ agentRuntimeShowcase("xstate-agent-runtime-showcase", (ctx) => (
 			</div>
 		</div>
 
-		<div class="mt-4 grid gap-4 lg:grid-cols-2">
-			<div class="rounded border border-slate-200 bg-slate-50 p-4">
+		<div class="mt-4 grid gap-4">
+			<div class="min-w-0 rounded border border-slate-200 bg-slate-50 p-4">
 				<h3 class="text-sm font-semibold text-slate-800">getState()</h3>
 				<pre class="mt-3 overflow-auto rounded bg-white p-3 text-xs text-slate-700">
 					<code>{formatJson(ctx.report.state)}</code>
 				</pre>
 			</div>
 
-			<div class="rounded border border-slate-200 bg-slate-50 p-4">
+			<div class="min-w-0 rounded border border-slate-200 bg-slate-50 p-4">
 				<h3 class="text-sm font-semibold text-slate-800">getView()</h3>
 				<pre class="mt-3 overflow-auto rounded bg-white p-3 text-xs text-slate-700">
 					<code>{formatJson(ctx.report.view)}</code>
@@ -668,8 +668,8 @@ agentRuntimeShowcase("xstate-agent-runtime-showcase", (ctx) => (
 			</ol>
 		</div>
 
-		<div class="mt-4 grid gap-4 lg:grid-cols-2">
-			<div class="rounded border border-slate-200 bg-slate-50 p-4">
+		<div class="mt-4 grid gap-4">
+			<div class="min-w-0 rounded border border-slate-200 bg-slate-50 p-4">
 				<h3 class="text-sm font-semibold text-slate-800">story.trace()</h3>
 				<ol class="mt-3 grid gap-2 text-sm text-slate-700">
 					{ctx.report.traceLog.length ? (
@@ -684,7 +684,7 @@ agentRuntimeShowcase("xstate-agent-runtime-showcase", (ctx) => (
 				</ol>
 			</div>
 
-			<div class="rounded border border-slate-200 bg-slate-50 p-4">
+			<div class="min-w-0 rounded border border-slate-200 bg-slate-50 p-4">
 				<h3 class="text-sm font-semibold text-slate-800">story.lifecycle()</h3>
 				<ol class="mt-3 grid gap-2 text-sm text-slate-700">
 					{ctx.report.lifecycleLog.length ? (
@@ -700,8 +700,8 @@ agentRuntimeShowcase("xstate-agent-runtime-showcase", (ctx) => (
 			</div>
 		</div>
 
-		<div class="mt-4 grid gap-4 lg:grid-cols-2">
-			<div class="rounded border border-slate-200 bg-slate-50 p-4">
+		<div class="mt-4 grid gap-4">
+			<div class="min-w-0 rounded border border-slate-200 bg-slate-50 p-4">
 				<h3 class="text-sm font-semibold text-slate-800">
 					execute(...) events
 				</h3>
@@ -721,7 +721,7 @@ agentRuntimeShowcase("xstate-agent-runtime-showcase", (ctx) => (
 				</ul>
 			</div>
 
-			<div class="rounded border border-slate-200 bg-slate-50 p-4">
+			<div class="min-w-0 rounded border border-slate-200 bg-slate-50 p-4">
 				<h3 class="text-sm font-semibold text-slate-800">
 					on / watch / watchView
 				</h3>
