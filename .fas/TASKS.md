@@ -1141,6 +1141,22 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: Release: auto-format .changeset/pre.json after 'changeset version' so the Biome format gate stays green. Every beta release, 'changeset version' rewrites .changeset/pre.json in a non-Biome format, tripping the whole-repo Biome format gate (observed for beta.5 and beta.6, each needing a manual 'chore(changeset): format release-generated pre.json' commit). Fix: in scripts/release-beta.mjs, run 'biome format --write .changeset/pre.json' immediately after the 'changeset version' step and before the release commit, so the generated file is committed already formatted. Verify a beta dry-run + real run leaves the format gate clean with no follow-up reformat commit.
+
+- Title: Release: auto-format .changeset/pre.json after 'changeset version' so the Biome format gate stays green. Every beta release, 'changeset version' rewrites .changeset/pre.json in a non-Biome format, tripping the whole-repo Biome format gate (observed for beta.5 and beta.6, each needing a manual 'chore(changeset): format release-generated pre.json' commit). Fix: in scripts/release-beta.mjs, run 'biome format --write .changeset/pre.json' immediately after the 'changeset version' step and before the release commit, so the generated file is committed already formatted. Verify a beta dry-run + real run leaves the format gate clean with no follow-up reformat commit.
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/release-auto-format-changeset-pre-json-after-changeset-ve.md
+
+### Task: Examples: pin the spa-router example's xstate to the workspace version so installing example deps doesn't break the monorepo typecheck. Running 'npm install' in packages/ignite-element/src/examples/spa-router (e.g. to launch the Vite preview) pulls a newer xstate than the workspace pins (observed 5.32.1); 'tsc --project src/examples/spa-router/tsconfig.json' then fails with 'Property getPreInitialState is missing in type StateMachine<...>' — a dual-xstate type skew between the example's machine and ignite's AnyStateMachine. Fix: pin the example's xstate dependency to the exact workspace version (or otherwise ensure the example typecheck resolves xstate from the workspace). Audit the other examples (xstate/redux/mobx) for the same drift and pin them too. Related class: the goodway 'getInitialSnapshot is not a function' spike.
+
+- Title: Examples: pin the spa-router example's xstate to the workspace version so installing example deps doesn't break the monorepo typecheck. Running 'npm install' in packages/ignite-element/src/examples/spa-router (e.g. to launch the Vite preview) pulls a newer xstate than the workspace pins (observed 5.32.1); 'tsc --project src/examples/spa-router/tsconfig.json' then fails with 'Property getPreInitialState is missing in type StateMachine<...>' — a dual-xstate type skew between the example's machine and ignite's AnyStateMachine. Fix: pin the example's xstate dependency to the exact workspace version (or otherwise ensure the example typecheck resolves xstate from the workspace). Audit the other examples (xstate/redux/mobx) for the same drift and pin them too. Related class: the goodway 'getInitialSnapshot is not a function' spike.
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/examples-pin-the-spa-router-example-s-xstate-to-the-workspa.md
+
 ## Template
 
 ### Task: <short task title>
