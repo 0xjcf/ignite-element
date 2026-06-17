@@ -42,7 +42,7 @@ The default `igniteCore` entrypoint does not execute zero-argument source factor
 ## Shared vs. isolated
 
 - **Isolated (default)** — Ignite constructs a new adapter per element instance. Great for local state; stopped on disconnect (for XState, the Ignite-created actor is stopped too).
-- **Shared** — pass a long-lived actor/store/observable. Ignite reference-counts the shared adapter; when the last element disconnects it releases the adapter and stops any Ignite-owned sources. External sources you provide stay alive — set `cleanup: false` to keep the shared adapter alive after disconnect.
+- **Shared** — pass a long-lived actor/store/observable. Because you own that source, Ignite keeps the shared adapter alive for the core's lifetime; element disconnects don't tear it down, so an outlet swapping elements never freezes the shared state. Ignite never stops or closes a source you provided. Set `cleanup: true` to opt back into reference-counted teardown of the adapter when the last element disconnects.
 
 ```ts no-check
 import { createActor } from 'xstate';
@@ -223,7 +223,7 @@ Effect timing is deterministic, which is what makes the [headless runtime](/igni
 </figure>
 
 - **Isolated** (a machine Ignite creates): a per-element adapter, stopped on disconnect; `cleanup` doesn't apply.
-- **Shared** (an actor/store/observable you pass): one reference-counted adapter; the last disconnect releases it unless `cleanup: false`, and user-owned sources keep running.
+- **Shared** (an actor/store/observable you pass): one adapter, kept alive for the core's lifetime by default since you own the source; element disconnects don't release it (set `cleanup: true` to opt into reference-counted teardown). User-owned sources are never stopped.
 
 ## Choosing `ignite-element/xstate` vs `ignite-element/actor-web`
 

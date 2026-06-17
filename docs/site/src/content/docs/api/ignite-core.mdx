@@ -29,7 +29,7 @@ component('tag-name', (props) => /* JSX or lit template */);
 - `view(ctx)`: derive render props from the snapshot context — an object snapshot's fields are spread onto `ctx` (with `ctx.snapshot` still available); runs on mount and on changes.
 - `commands(context)`: expose actions; receives `{ actor, host }`.
 - `effects(snapshot, prevSnapshot, context)`: optional; runs after every state update and receives `{ emit, actor, host, select }`.
-- `cleanup`: defaults to `true`; shared adapter teardown override. When enabled, Ignite releases the shared adapter after the last element disconnects. Releasing the adapter stops Ignite-owned sources (e.g., XState machine actors); user-provided sources are never stopped.
+- `cleanup`: shared-adapter teardown override. Defaults to `false` for **shared** (consumer-owned) sources — a live instance you pass lives for the core's lifetime, so the shared adapter is kept alive across element disconnects. For **isolated** sources (Ignite creates one adapter per element, stopped on disconnect) it has no practical effect. Set `cleanup: true` on a shared core to opt back into element-refcount teardown of the adapter. Ignite never stops or closes a source it did not create.
 
 ## Returns
 
@@ -37,12 +37,12 @@ A **component factory** — call it as `component(tagName, renderer)` to registe
 
 ## Advanced overrides
 
-`cleanup` controls shared adapter teardown; most components won't need to change it.
+`cleanup` controls shared-adapter teardown; most components won't need to change it. A consumer-owned shared source is kept alive for the core's lifetime by default — pass `cleanup: true` only to opt a shared core back into element-refcount teardown of the adapter.
 
 ```ts
 const component = igniteCore({
   source: actor,
-  cleanup: false, // keep the shared adapter alive after the last element disconnects
+  cleanup: true, // opt this shared core back into element-refcount teardown of the adapter
 });
 ```
 

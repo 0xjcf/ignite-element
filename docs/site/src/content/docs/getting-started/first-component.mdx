@@ -84,7 +84,7 @@ In Ignite JSX, the `toggled` event you declared becomes an `onToggled` prop; rea
 - Keep styles local by default; reach for shared style injection only in the advanced `@ignite-element/renderer` path.
 - Opt into the legacy `lit` renderer only if you need it, via the advanced docs path.
 - Share actors/stores by passing long-lived instances. Ignite never stops user-owned sources.
-- Advanced overrides: use `cleanup` only when you need to change shared adapter teardown defaults.
+- Advanced overrides: a consumer-owned shared adapter stays alive for the core's lifetime by default; set `cleanup: true` only to opt into element-refcount teardown.
 
 ## Next steps
 

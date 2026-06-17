@@ -159,11 +159,10 @@ expect(router.getView().path).toBe("/users/7");
 ```
 
 :::note[Shared source across page elements]
-Every page element and the outlet read the **same** router actor. Ignite stops a
-shared adapter when the last instance of an element disconnects — and because the
-outlet swaps pages, that would tear down the router the incoming page still
-needs. Pass `cleanup: false` so the shared adapter stays alive; the shell owns
-the actor's lifetime instead.
+Every page element and the outlet read the **same** router actor. Because that
+actor is consumer-owned, Ignite keeps its shared adapter alive for the core's
+lifetime — so the outlet swapping pages never tears down the router the incoming
+page still needs. No `cleanup` flag required; the shell owns the actor's lifetime.
 :::
 
 ## Styling across shadow roots

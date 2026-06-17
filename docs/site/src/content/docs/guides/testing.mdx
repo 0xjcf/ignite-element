@@ -132,4 +132,4 @@ describe('<my-counter>', () => {
 ## Shared adapter teardown checks
 
 - For shared sources you own (started actors/stores), stop them in your tests when you own their lifecycle.
-- For Ignite-created sources (e.g., XState machines), you can assert shared adapter teardown by connecting/disconnecting elements and verifying the adapter is released when `cleanup` is `true`.
+- To assert shared-adapter teardown, opt a shared core into it with `cleanup: true` and verify the adapter is released when the last element disconnects. By default a consumer-owned shared adapter stays alive for the core's lifetime, so there is nothing to assert there.

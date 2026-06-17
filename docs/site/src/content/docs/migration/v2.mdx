@@ -16,7 +16,7 @@ If you are already on v2 and need to move event emission from `commands()` into 
 2. Set `"jsxImportSource": "ignite-element/jsx"` (or add the pragma per file).
 3. Move component CSS into ordinary `<style>` tags or imported CSS text.
 4. Add `ignite.config.ts` only if you need shared shadow-root styles, diagnostics, or `renderer: "lit"`.
-5. Verify shared adapter teardown: shared adapters are released when the last element disconnects unless `cleanup: false`.
+5. Verify shared-adapter lifetime: a consumer-owned shared adapter is kept alive for the core's lifetime by default (set `cleanup: true` to opt into reference-counted teardown when the last element disconnects).
 
 ## 1) Install
 
@@ -86,14 +86,14 @@ Keep the config/plugins path for advanced compatibility only. If you already mai
 
 ## 6) Shared Adapter Teardown
 
-Shared adapters are now reference-counted and released when the last element disconnects. If Ignite created the source (e.g., an XState machine), it will be stopped as part of that release. Set `cleanup: false` if you want to keep the shared adapter alive and manage teardown yourself.
-Most projects should not need to touch `cleanup`; treat it as a shared adapter teardown override.
+A consumer-owned shared source (a started actor/store/observable you pass) is kept alive for the core's lifetime — element disconnects don't release its adapter, and Ignite never stops a source it didn't create. Isolated sources Ignite creates (e.g., a bare XState machine) still get a per-element adapter stopped on disconnect. Set `cleanup: true` on a shared core only to opt back into reference-counted teardown of the adapter.
+Most projects should not need to touch `cleanup`; treat it as a shared-adapter teardown override.
 
 ```ts
 const actor = createActor(machine);
 actor.start();
 
-const shared = igniteCore({ source: actor, cleanup: false, view: /* ... */ });
+const shared = igniteCore({ source: actor, view: /* ... */ });
 shared('shared-counter', Renderer);
 // later: actor.stop();
 ```
