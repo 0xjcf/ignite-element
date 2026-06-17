@@ -1,11 +1,11 @@
 import { igniteCore } from "ignite-element/xstate";
 import { pushPath } from "./history";
 import "./pages";
-import { navigate, routerActor } from "./routerStore";
 // Ignite renders into Shadow DOM, so the global sheet linked in index.html
 // can't reach component internals. Pull it in as raw text and inject a <style>
 // into the shadow root — the config-free styling path (no ignite.config.ts).
 import styles from "../styles.css?raw";
+import { navigate, routerActor } from "./routerStore";
 
 // The outlet element: it renders the nav and swaps in whichever page element
 // matches the active route. It also owns the single History *write*: an effect
@@ -72,8 +72,9 @@ const registerRouter = igniteCore({
 		}
 	},
 	// The shared `routerActor` is owned by routerStore (app lifetime), not by any
-	// one element. Don't let the outlet's disconnect tear it down. See pages.tsx.
-	cleanup: false,
+	// one element. Passing it as a live source keeps the shared adapter alive for
+	// the core's lifetime by default, so the outlet's disconnect won't tear it
+	// down. See pages.tsx.
 });
 
 registerRouter("app-router", (ctx) => (

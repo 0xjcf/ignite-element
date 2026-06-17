@@ -1,9 +1,9 @@
 import { igniteCore } from "ignite-element/xstate";
-import { login, logout, navigate, routerActor } from "./routerStore";
 // Each page is its own Shadow DOM, so it needs its own copy of the shared
 // styles. Pull the sheet in as raw text (config-free) and inject it once per
 // page via the `registerPage` wrapper below — no ignite.config.ts, no plugin.
 import styles from "../styles.css?raw";
+import { login, logout, navigate, routerActor } from "./routerStore";
 
 // Each page is its own custom element registered against the SAME shared router
 // actor, so every page projects the same live route state (params, auth) — no
@@ -34,12 +34,12 @@ const definePage = igniteCore({
 	}),
 	commands: () => ({ navigate, login, logout }),
 	// `routerActor` is an app-lifetime singleton owned by routerStore, shared by
-	// every page element. Default `cleanup: true` stops the shared adapter when
-	// the last instance of ANY one page element disconnects — and because the
-	// outlet swaps pages (unmounting the outgoing one), that would freeze the
-	// shared adapter for the incoming page (stale params/route). `cleanup: false`
-	// keeps it live; the shell (routerStore) owns the actor's lifetime instead.
-	cleanup: false,
+	// every page element. Because it's passed as a live (consumer-owned) source,
+	// ignite keeps the shared adapter alive for the core's lifetime — swapping
+	// pages through the outlet won't tear it down, so every page keeps projecting
+	// live route state (params/route). The shell (routerStore) owns the actor's
+	// lifetime. (Pass `cleanup: true` only to opt a shared core back into
+	// element-refcount teardown.)
 });
 
 // Register a page element, injecting the shared <style> into its shadow root
