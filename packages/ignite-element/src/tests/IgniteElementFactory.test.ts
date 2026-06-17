@@ -139,4 +139,47 @@ describe("igniteElementFactory", () => {
 			"[igniteElementFactory] Invalid renderer provided. Supply a render function, an object with a render method, or a class with a render method.",
 		);
 	});
+
+	it("keeps the shared (consumer-owned) adapter alive when the last element disconnects (default cleanup)", () => {
+		// Repro for the SPA-router outlet-swap footgun: one core registered under
+		// multiple element names shares ONE adapter. Swapping pages drives the
+		// refcount transiently to zero, which previously stopped the shared adapter
+		// and froze every page's reads. A consumer-owned shared source lives for the
+		// core's lifetime, not any one element's — disconnecting must not stop it.
+		const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
+		const createAdapter = vi.fn(() => adapter);
+
+		const component = igniteElementFactory(createAdapter, {
+			scope: StateScope.Shared,
+		});
+		const pageA = `ignite-shared-page-a-${crypto.randomUUID()}`;
+		const pageB = `ignite-shared-page-b-${crypto.randomUUID()}`;
+		component(pageA, () => html`<div></div>`);
+		component(pageB, () => html`<div></div>`);
+
+		const a = document.createElement(pageA);
+		const b = document.createElement(pageB);
+		document.body.append(a, b);
+		a.remove();
+		b.remove();
+
+		expect(adapter.stop).not.toHaveBeenCalled();
+	});
+
+	it("still releases the shared adapter on last disconnect when cleanup:true is explicit", () => {
+		const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
+
+		const component = igniteElementFactory(() => adapter, {
+			scope: StateScope.Shared,
+			cleanup: true,
+		});
+		const name = `ignite-shared-cleanup-${crypto.randomUUID()}`;
+		component(name, () => html`<div></div>`);
+
+		const element = document.createElement(name);
+		document.body.appendChild(element);
+		element.remove();
+
+		expect(adapter.stop).toHaveBeenCalledTimes(1);
+	});
 });

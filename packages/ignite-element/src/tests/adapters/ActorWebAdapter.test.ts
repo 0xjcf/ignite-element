@@ -189,6 +189,41 @@ describe("ActorWebAdapter", () => {
 		adapter.stop();
 	});
 
+	it("does not close a consumer-owned (shared) source when the adapter stops", async () => {
+		const close = vi.fn();
+		const source = createSource();
+		(source as unknown as { close: () => void }).close = close;
+
+		const adapterFactory = createActorWebAdapter(source);
+		const adapter = adapterFactory();
+		expect(adapter.scope).toBe(StateScope.Shared);
+
+		adapter.subscribeSnapshots(vi.fn());
+		adapter.stop();
+		await Promise.resolve();
+
+		// ownsSource === false for a consumer-passed live source: ignite must never
+		// tear down a source it did not create.
+		expect(close).not.toHaveBeenCalled();
+	});
+
+	it("closes an ignite-owned (isolated) source when the adapter stops", async () => {
+		const close = vi.fn();
+		const adapterFactory = createActorWebAdapter(() => {
+			const source = createSource();
+			(source as unknown as { close: () => void }).close = close;
+			return source;
+		});
+		const adapter = adapterFactory();
+		expect(adapter.scope).toBe(StateScope.Isolated);
+
+		adapter.subscribeSnapshots(vi.fn());
+		adapter.stop();
+		await Promise.resolve();
+
+		expect(close).toHaveBeenCalledTimes(1);
+	});
+
 	it("dedupes the initial notification when upstream replays synchronously", () => {
 		const source = createSource({
 			replayOnSubscribe: true,

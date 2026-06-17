@@ -200,6 +200,25 @@ describe("XStateAdapter", () => {
 		actor.stop();
 	});
 
+	it("does not stop a consumer-owned (shared) actor when the adapter stops", () => {
+		const actor = createActor(counterMachine);
+		actor.start();
+		const stopSpy = vi.spyOn(actor, "stop");
+
+		const sharedFactory = createXStateAdapter(actor);
+		const sharedAdapter = sharedFactory();
+		expect(sharedAdapter.scope).toBe(StateScope.Shared);
+
+		sharedAdapter.subscribeSnapshots(vi.fn());
+		sharedAdapter.stop();
+
+		// ownsSource === false for a consumer-passed started actor: the adapter
+		// stops, but the actor it did not create keeps running.
+		expect(stopSpy).not.toHaveBeenCalled();
+
+		actor.stop();
+	});
+
 	it("exposes facade metadata for shared adapters", () => {
 		const actor = createActor(counterMachine);
 		actor.start();

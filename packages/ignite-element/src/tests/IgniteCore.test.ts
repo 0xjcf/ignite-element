@@ -7,8 +7,8 @@ import {
 	assign,
 	createActor,
 	createMachine,
-	emit,
 	type EventFrom,
+	emit,
 	setup,
 } from "xstate";
 import type {
@@ -549,7 +549,7 @@ describe("igniteCore", () => {
 		});
 	});
 
-	it("accepts actor-web read-model sources and closes them without wrappers", () => {
+	it("accepts actor-web read-model sources and does not close consumer-owned sources", () => {
 		const source = createActorWebShipmentReadModelSource();
 		const register = igniteCore({
 			source,
@@ -566,7 +566,9 @@ describe("igniteCore", () => {
 		document.body.appendChild(element);
 
 		element.remove();
-		expect(source.closed).toBe(1);
+		// The source is consumer-owned (passed as a live instance → shared scope).
+		// ignite must never close a source it did not create.
+		expect(source.closed).toBe(0);
 	});
 
 	it("routes actor-web commands through an explicit commandSource pair", () => {
