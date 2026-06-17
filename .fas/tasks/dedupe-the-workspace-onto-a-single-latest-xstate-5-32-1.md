@@ -23,7 +23,11 @@ Dedupe the workspace onto a single, latest xstate (5.32.1). Today ignite-adapter
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- Scope unknown.
+- packages/ignite-element/package.json
+- packages/ignite-adapters/package.json
+- packages/ignite-element/src/examples/spa-router/package.json
+- packages/ignite-element/src/examples/xstate/package.json
+- pnpm-lock.yaml
 
 ## Scope Amendments
 - None.
