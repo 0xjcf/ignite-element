@@ -88,8 +88,8 @@ importers:
         specifier: ^4.5.4
         version: 4.5.4(@types/node@25.0.3)(rollup@4.54.0)(typescript@5.9.3)(vite@7.3.0(@types/node@25.0.3)(jiti@2.6.1)(yaml@2.9.0))
       xstate:
-        specifier: ^5.23.0
-        version: 5.25.0
+        specifier: ^5.32.1
+        version: 5.32.1
 
   packages/ignite-core:
     devDependencies:
@@ -170,8 +170,8 @@ importers:
         specifier: ^4.0.3
         version: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(jsdom@27.4.0)(yaml@2.9.0)
       xstate:
-        specifier: ^5.23.0
-        version: 5.25.0
+        specifier: ^5.32.1
+        version: 5.32.1
 
   packages/ignite-renderer:
     dependencies:
@@ -3709,11 +3709,11 @@ packages:
   xmlchars@2.2.0:
     resolution: {integrity: sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==}
 
-  xstate@5.25.0:
-    resolution: {integrity: sha512-yyWzfhVRoTHNLjLoMmdwZGagAYfmnzpm9gPjlX2MhJZsDojXGqRxODDOi4BsgGRKD46NZRAdcLp6CKOyvQS0Bw==}
-
   xstate@5.30.0:
     resolution: {integrity: sha512-mIzIuMjtYVkqXq9dUzYQoag7b/dF1CBS/yhliuPLfR0FwKPC18HiUivb/crcqY2gknhR8gJEhnppLg6ubQ0gGw==}
+
+  xstate@5.32.1:
+    resolution: {integrity: sha512-IGX9q5vEOplWjVq79edfgjJfVV/lXCup9p/fQGgUabAveZrlRwWJ/mC2iZEE7wswXbWITBCoS7gmoFfcuWAwsQ==}
 
   xxhash-wasm@1.1.0:
     resolution: {integrity: sha512-147y/6YNh+tlp6nd/2pWq38i9h6mz/EuQ6njIrmW8D1BS5nCqs0P6DG+m6zTGnNz5I+uhZ0SHxBs9BsPrwcKDA==}
@@ -7838,9 +7838,9 @@ snapshots:
 
   xmlchars@2.2.0: {}
 
-  xstate@5.25.0: {}
-
   xstate@5.30.0: {}
+
+  xstate@5.32.1: {}
 
   xxhash-wasm@1.1.0: {}
 
