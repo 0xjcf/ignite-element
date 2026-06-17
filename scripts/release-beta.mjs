@@ -224,6 +224,35 @@ const main = async () => {
 	if (pendingChangesets.length > 0) {
 		printPlannedVersions();
 		run("pnpm changeset version");
+		// `changeset version` (config `commit: true`) rewrites .changeset/pre.json
+		// and folds it into the "RELEASING…" commit in a non-Biome format that trips
+		// the repo's whole-repo format gate — every prior beta needed a manual
+		// `chore(changeset): format release-generated pre.json` follow-up. Reformat it
+		// and amend the release commit so the published tree stays format-clean.
+		// Non-fatal: any failure here only warns and never blocks the publish.
+		try {
+			execSync("pnpm exec biome format --write .changeset/pre.json", {
+				stdio: "inherit",
+			});
+			const preJsonDirty = execSync(
+				"git status --porcelain -- .changeset/pre.json",
+				{ encoding: "utf8" },
+			).trim();
+			if (preJsonDirty) {
+				execSync("git add .changeset/pre.json", { stdio: "inherit" });
+				execSync("git commit --amend --no-edit --no-verify", {
+					stdio: "inherit",
+				});
+				console.log(
+					"[release:beta] Folded Biome-formatted pre.json into the release commit.",
+				);
+			}
+		} catch (error) {
+			console.warn(
+				"[release:beta] Could not format/amend pre.json into the release commit; commit the reformat manually before verifying.",
+				error instanceof Error ? error.message : error,
+			);
+		}
 		run("pnpm install --no-frozen-lockfile");
 	} else {
 		console.log(
