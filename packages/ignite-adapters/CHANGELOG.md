@@ -1,5 +1,11 @@
 # ignite-adapters
 
+## 3.0.0-beta.6
+
+### Patch Changes
+
+- @ignite-element/core@3.0.0-beta.6
+
 ## 3.0.0-beta.5
 
 ### Major Changes
