@@ -23,7 +23,7 @@ Release: auto-format .changeset/pre.json after 'changeset version' so the Biome 
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- Scope unknown.
+- scripts/release-beta.mjs
 
 ## Scope Amendments
 - None.

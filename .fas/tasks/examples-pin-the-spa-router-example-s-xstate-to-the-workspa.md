@@ -23,7 +23,8 @@ Examples: pin the spa-router example's xstate to the workspace version so instal
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- Scope unknown.
+- packages/ignite-element/src/examples/spa-router/package.json
+- packages/ignite-element/src/examples/xstate/package.json
 
 ## Scope Amendments
 - None.
