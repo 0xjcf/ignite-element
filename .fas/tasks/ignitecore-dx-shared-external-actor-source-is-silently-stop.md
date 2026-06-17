@@ -1,4 +1,4 @@
-# igniteCore DX: shared external actor source is silently stop
+# igniteCore DX: shared external actor source is silently stopped under default cleanup:true (cryptic getInitialSnapshot error)
 
 ## Source
 Created with `fas create-task` on 2026-06-16.
@@ -32,10 +32,25 @@ The trigger is the *shared adapter* being torn down — not necessarily the acto
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- Scope unknown.
+- packages/ignite-element/src/IgniteElementFactory.ts
+- packages/ignite-adapters/src/adapters/ActorWebAdapter.ts
+- packages/ignite-adapters/src/adapters/XStateAdapter.ts
+- packages/ignite-element/src/igniteCore/createIgniteComponentFactory.ts
+- packages/ignite-element/src/igniteCore/types.ts
+- packages/ignite-element/src/tests/IgniteElementFactory.test.ts
+- packages/ignite-element/src/tests/adapters/ActorWebAdapter.test.ts
+- packages/ignite-element/src/tests/adapters/XStateAdapter.test.ts
+- packages/ignite-element/src/tests/IgniteElement.test.tsx
+- packages/ignite-element/src/tests/IgniteCore.test.ts
+- packages/ignite-element/src/examples/spa-router/src/pages.tsx
+- packages/ignite-element/src/examples/spa-router/src/router.tsx
+- .changeset/shared-source-ownership-cleanup.md
+- docs/site/src/content/docs/api/compatibility.mdx
 
 ## Scope Amendments
-- None.
+- Type: scope-refresh
+- Added at: 2026-06-17
+- Added paths: packages/ignite-element/src/IgniteElementFactory.ts, packages/ignite-adapters/src/adapters/ActorWebAdapter.ts, packages/ignite-adapters/src/adapters/XStateAdapter.ts, packages/ignite-element/src/igniteCore/createIgniteComponentFactory.ts, packages/ignite-element/src/igniteCore/types.ts, packages/ignite-element/src/tests/IgniteElementFactory.test.ts, packages/ignite-element/src/tests/adapters/ActorWebAdapter.test.ts, packages/ignite-element/src/tests/adapters/XStateAdapter.test.ts, packages/ignite-element/src/tests/IgniteElement.test.tsx, packages/ignite-element/src/tests/IgniteCore.test.ts, packages/ignite-element/src/examples/spa-router/src/pages.tsx, packages/ignite-element/src/examples/spa-router/src/router.tsx, .changeset/shared-source-ownership-cleanup.md, docs/site/src/content/docs/api/compatibility.mdx
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

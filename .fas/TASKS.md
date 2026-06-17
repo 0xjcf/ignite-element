@@ -1077,12 +1077,30 @@ No active tasks.
 
 - Title: Add a realistic XState-backed SPA/router example (history routing, dynamic params /users/:id, 404, one auth redirect/guard, active links, pure route core with effects/shell for History I/O, headless-runtime navigation tests) under packages/ignite-element/src/examples/spa-router, plus a guides/routing.mdx docs page; AND a full uniformity pass across the xstate/redux/mobx examples: fix the redux v2 send() render-arg drift, add tests to redux and mobx, align README/structure, document the intentional styling divergence
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
-- Brief: .fas/tasks/add-a-realistic-xstate-backed-spa-router-example-history-rou.md
+- Status: done
+- Owner: implementer
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
+
+### Task: igniteCore DX: shared external actor source is silently stopped under default cleanup:true (cryptic getInitialSnapshot error)
+
+- Title: igniteCore DX: shared external actor source is silently stopped under default cleanup:true (cryptic getInitialSnapshot error)
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/ignitecore-dx-shared-external-actor-source-is-silently-stop.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Testing DX: createTestScenario/igniteTest has no host seam for host-reading commands/effects
+
+- Title: Testing DX: createTestScenario/igniteTest has no host seam for host-reading commands/effects
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/testing-dx-createtestscenario-ignitetest-has-no-host-seam-f.md
 
 ## Template
 
