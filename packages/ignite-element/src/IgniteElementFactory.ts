@@ -205,11 +205,19 @@ export default function igniteElementFactory<
 	const renderStrategyFactory: RenderStrategyFactory<View> =
 		options?.createRenderStrategy ??
 		(configuredFactory as RenderStrategyFactory<View>);
-	const cleanupSharedLifecycle = options?.cleanup ?? true;
 	const inferredScope =
 		options?.scope ??
 		(createAdapter as { scope?: StateScope }).scope ??
 		StateScope.Isolated;
+	// A consumer-owned shared source (an already-live instance passed to
+	// igniteCore — a started actor, store, observable, or actor-web source) lives
+	// for the core's lifetime, not any single element's. Releasing the shared
+	// adapter when the element refcount transiently hits zero (e.g. an outlet
+	// swapping pages, or test teardown) would freeze every consumer's reads. So
+	// cleanup defaults to false for shared scope; isolated scope, where ignite
+	// creates and owns one adapter per element, keeps per-element teardown.
+	const cleanupSharedLifecycle =
+		options?.cleanup ?? inferredScope !== StateScope.Shared;
 	const eventTypes = options?.eventTypes ?? [];
 	const resolveView =
 		options?.resolveView ?? ((_) => Object.create(null) as RuntimeView);

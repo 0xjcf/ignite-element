@@ -372,6 +372,7 @@ function createAdapterEntry<
 >(
 	handle: ActorWebSourceHandle<Context, Message, Emitted>,
 	scope: StateScope,
+	ownsSource: boolean,
 ): ActorWebAdapterEntry<Context, Message, Emitted> {
 	const listeners = new Set<(state: ActorWebExtendedState<Context>) => void>();
 	const source = handle.source;
@@ -517,6 +518,14 @@ function createAdapterEntry<
 			lastKnownTransportStatus =
 				source.transportStatus?.() ?? lastKnownTransportStatus;
 
+			// Only tear down the underlying source when ignite created it (isolated
+			// scope). A consumer-owned source passed as a live instance (shared
+			// scope) is the consumer's to dispose — ignite must never close()/stop()
+			// a source it did not create.
+			if (!ownsSource) {
+				return;
+			}
+
 			const cleanupSources = async () => {
 				if (handle.stop) {
 					await handle.stop();
@@ -580,6 +589,7 @@ export default function createActorWebAdapter<
 			return createAdapterEntry(
 				resolveHandle(source({ host }), resolvedCommandSource),
 				StateScope.Isolated,
+				true,
 			);
 		});
 	}
@@ -592,6 +602,7 @@ export default function createActorWebAdapter<
 		createAdapterEntry(
 			resolveHandle(source, resolvedCommandSource),
 			StateScope.Shared,
+			false,
 		),
 	);
 }

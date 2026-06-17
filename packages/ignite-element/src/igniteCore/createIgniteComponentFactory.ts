@@ -34,6 +34,20 @@ export type IgniteComponentFactoryOptions<
 	commands?: FacadeCommandsCallback<CommandActor, CommandsResult, HTMLElement>;
 	effects?: FacadeEffectsLike<Snapshot, CommandActor, Events, HTMLElement>;
 	events?: ((builder: typeof event) => Events) | undefined;
+	/**
+	 * Controls element-lifecycle teardown of the *shared* adapter.
+	 *
+	 * - **Isolated cores** (you pass a machine/store/factory that ignite
+	 *   instantiates per element): defaults to `true` — each element's adapter is
+	 *   stopped on disconnect. `cleanup` has no effect here.
+	 * - **Shared cores** (you pass an already-live, consumer-owned source — a
+	 *   started actor, store, observable, or actor-web source): defaults to
+	 *   `false`. The source is yours and lives for the core's lifetime, so ignite
+	 *   keeps the shared adapter alive across element disconnects (an outlet
+	 *   swapping pages won't freeze it). Set `cleanup: true` to opt back into
+	 *   element-refcount teardown of the adapter; ignite still never stops or
+	 *   closes a source it did not create.
+	 */
 	cleanup?: boolean;
 };
 

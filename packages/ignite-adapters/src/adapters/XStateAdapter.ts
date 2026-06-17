@@ -128,7 +128,7 @@ function createIsolatedFactory<Machine extends AnyStateMachine>(
 function createAdapterEntry<Machine extends AnyStateMachine>(
 	actor: XStateActorInstance<Machine>,
 	scope: StateScope,
-	ownsActor: boolean,
+	ownsSource: boolean,
 ): AdapterEntry<Machine> {
 	const listeners = new Set<(state: ExtendedState<Machine>) => void>();
 	let subscription: Subscription | null = null;
@@ -244,7 +244,10 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 			listeners.clear();
 			lastKnownSnapshot = actor.getSnapshot();
 
-			if (ownsActor && typeof actor.stop === "function") {
+			// Only stop the actor when ignite created it (isolated machine source).
+			// A consumer-owned, already-started actor (shared scope) is not ours to
+			// stop — the consumer owns its lifetime.
+			if (ownsSource && typeof actor.stop === "function") {
 				actor.stop();
 			}
 		},

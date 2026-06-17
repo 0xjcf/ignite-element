@@ -285,6 +285,14 @@ export type ActorWebConfig<
 		HTMLElement
 	>;
 	events?: EventsDefinition<Events>;
+	/**
+	 * Controls element-lifecycle teardown of the *shared* adapter. Defaults to
+	 * `true` for isolated cores (ignite owns one adapter per element) and `false`
+	 * for shared cores (you pass an already-live, consumer-owned source that
+	 * lives for the core's lifetime). Set `true` to opt a shared core back into
+	 * element-refcount teardown; ignite never stops or closes a source it did
+	 * not create.
+	 */
 	cleanup?: boolean;
 } & (
 	| {
