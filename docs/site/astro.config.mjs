@@ -93,6 +93,7 @@ export default defineConfig({
 				{
 					label: "Guides",
 					items: [
+						{ label: "Overview", slug: "guides" },
 						{
 							label: "Host app integration",
 							slug: "guides/host-app-integration",
