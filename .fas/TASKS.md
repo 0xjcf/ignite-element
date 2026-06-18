@@ -1178,9 +1178,12 @@ No active tasks.
 
 - Title: Bump redux + mobx to latest within current major (currency). Update devDependencies in packages/ignite-adapters/package.json: '@reduxjs/toolkit' ^2.3.0 -> ^2.12.0 and 'mobx' ^6.13.5 -> ^6.16.1. Update examples: packages/ignite-element/src/examples/redux/package.json '@reduxjs/toolkit' -> ^2.12.0 (redux stays ^5.0.1 — already latest), and packages/ignite-element/src/examples/mobx/package.json 'mobx' -> ^6.16.1. Keep the peer-dependency floors conservative (do NOT raise '>=2.3.0' / '>=6.13.5' / '>=5.0.1'). Run 'pnpm install' to update the lockfile. Verify: '.fas/scripts/verify.sh --full' green (Redux/Mobx adapter source, types, and tests still pass on the new versions), and an in-place example install (npm install in examples/redux and examples/mobx) typechecks clean. ignite-element has no direct redux/mobx devDependency (its tests resolve them via the adapters' hoisted deps), so no change there beyond the peer block. Affected files: packages/ignite-adapters/package.json, packages/ignite-element/src/examples/redux/package.json, packages/ignite-element/src/examples/mobx/package.json, pnpm-lock.yaml.
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/bump-redux-mobx-to-latest-within-current-major-currency.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Add Renovate for ongoing dependency currency so state-lib versions stop drifting (would have caught the xstate 5.25/5.30 split). Add a renovate.json (or .github/renovate.json) configured for this pnpm-workspace monorepo: (1) group the state libraries (xstate, @reduxjs/toolkit, redux, mobx) into a single grouped PR so adapter+example bumps land together; (2) limit automated bumps to devDependencies and the example packages — never auto-bump the published packages' own versions or peer-dependency floors (those are deliberate, changeset-gated decisions); (3) keep examples pinned where determinism matters (e.g. xstate examples are pinned exact to avoid the in-place-install typecheck skew); (4) a sane schedule + PR concurrency limit; (5) respect the changesets release flow (do not touch .changeset or package versions). Evaluate Dependabot as the simpler GitHub-native alternative, but Renovate is preferred for its monorepo grouping. Document the policy briefly. Affected files: renovate.json (new), and a short note in the contributing/release docs.
 

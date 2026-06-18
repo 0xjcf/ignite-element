@@ -23,10 +23,21 @@ Bump redux + mobx to latest within current major (currency). Update devDependenc
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- Scope unknown.
+- packages/ignite-adapters/package.json
+- packages/ignite-element/src/examples/redux/package.json
+- packages/ignite-element/src/examples/mobx/package.json
+- packages/ignite-element/package.json
+- pnpm-lock.yaml
 
 ## Scope Amendments
-- None.
+- Added `@reduxjs/toolkit` (^2.12.0) and `mobx` (^6.16.1) as devDependencies of
+  packages/ignite-element/package.json. The bump exposed a latent dual-copy bug:
+  ignite-element declares these only as optional peers and its test suite
+  (IgniteCore.test, adapterGuards.test) auto-resolved mobx to 6.15.0 while
+  ignite-adapters resolved 6.16.1 — and MobX's `isObservable` is symbol-based
+  per-copy, so cross-copy detection failed (all 21 MobxAdapter tests). Declaring
+  them as devDeps at the workspace version dedupes to one copy, mirroring the
+  existing `xstate` devDep. Peer floors unchanged.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
