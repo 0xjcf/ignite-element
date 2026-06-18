@@ -29,10 +29,10 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
 | Decision | Doc | Kind | Status |
 | --- | --- | --- | --- |
 | `select().whenChanged()` + structural-equality default + `shallowEqual` | `effects-change-detection.md` | additive | design ✓, task queued |
-| Flat tagged event `{ type, … }` (emit / observe / `expectEvent`) | `event-shape.md` | **breaking** | design ✓ |
-| Uniform view/effects context = `{ snapshot }` (drop the spread) | `view-context-canonicalization.md` | **breaking** | design ✓ |
-| Effects single (object) signature; deprecate positional | this doc | additive→deprecate | proposed |
-| `expectView` (add) + `expectState`→`expectSnapshot` (alias) + `expectEvent` object form | `event-shape.md` + this doc | mixed | `expectView` task queued; rename is breaking |
+| Flat tagged event `{ type, … }` (emit / observe / `expectEvent`) | `event-shape.md` | **breaking** | design ✓, task queued (1781818971210) |
+| Uniform view/effects context = `{ snapshot }` (drop the spread) | `view-context-canonicalization.md` | **breaking** | design ✓, task queued (1781818972687) |
+| Effects single (object) signature; deprecate positional | this doc | additive→deprecate | task queued (1781818975642) |
+| `expectView` (add) + `expectState`→`expectSnapshot` (alias) + `expectEvent` object form | `event-shape.md` + this doc | mixed | `expectView` queued; rename task queued (1781818974159) |
 | Test host seam: fluent `.host({ dataset, attributes })` | `task-1781619012619` | additive | task (refine brief to fluent shape) |
 | `canExecute(name)` command-availability query | this doc | additive (gap) | task queued |
 | `igniteShell` sourceless composition root (+ shared move-safe teardown) | `ignite-shell.md` | additive (gap) | design ✓ |
@@ -54,14 +54,24 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
   `expectSnapshot`): land **together** in one pre-stable cutover, one coordinated
   changeset, one goodway migration note. Tracked here so they cut over once.
 
-## Open decisions
+## Decisions (resolved 2026-06-18)
 
-1. Command-actor: leave native (+doc) vs add an optional unified `send()`.
-2. view-context: confirm `{ snapshot }`-only (recommended) vs keep a convenience alias during beta.
-3. `expectState` → `expectSnapshot`: rename with deprecated alias (recommended) vs keep "state" in assertions (prior non-goal).
+1. **Command-actor: leave adapter-native.** Resolved — `getSnapshot()` shipped on
+   the XState command actor (the one invented accessor, `.state`, was removed); an
+   optional unified `send()` remains a separate deferred spike, not a stable
+   blocker. See `expose-source-native-api`.
+2. **view-context: `{ snapshot }`-only** (no convenience alias). Tasked:
+   `1781818972687`.
+3. **`expectState` → `expectSnapshot`: rename with deprecated alias.** Tasked:
+   `1781818974159`.
+
+The breaking trio (event shape / view-context / rename) is wired to **block the
+main-merge**, which blocks the stable cut — see `docs/v3-stable-roadmap.md`.
 
 ## Related
 
+- `docs/v3-stable-roadmap.md` — the phased plan + dependency spine to stable.
 - `docs/effects-change-detection.md`, `docs/event-shape.md`,
-  `docs/view-context-canonicalization.md`
-- Memory: `v3-api-consistency-epic`, `ignite-monorepo-dual-state-lib-skew`
+  `docs/view-context-canonicalization.md`, `docs/ignite-shell.md`
+- Memory: `v3-api-consistency-epic`, `ignite-monorepo-dual-state-lib-skew`,
+  `expose-source-native-api`
