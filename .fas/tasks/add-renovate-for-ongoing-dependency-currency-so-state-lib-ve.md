@@ -24,13 +24,24 @@ Add Renovate for ongoing dependency currency so state-lib versions stop drifting
 - The task is queued in `.fas/queue/tasks.json` for the runtime.
 
 ## Proposed solution
+- Recommended shape (from the 2026-06-17 design discussion): **self-hosted Renovate** via a scheduled GitHub Action (keeps the bot inside our own CI/trust boundary rather than granting the Mend hosted app write access). Add `renovate.json` extending `config:recommended`, with `packageRules`:
+  - one **"state libraries" group** (xstate, @reduxjs/toolkit, redux, mobx) so adapter + element + example bumps land in a single lockstep PR (this is the anti-skew lever);
+  - `matchDepTypes` limited to `devDependencies` (+ the example packages) — never bump published runtime/`dependencies` or peer-dependency floors;
+  - preserve example version style (xstate examples stay **pinned exact**; rangeStrategy `update-lockfile`/`bump` for carets);
+  - `lockFileMaintenance` enabled (periodic pnpm re-dedupe — would have collapsed the dual copies on its own);
+  - `dependencyDashboard: true`, a weekly off-hours `schedule`, and a `prConcurrentLimit`;
+  - automerge ONLY green patch/devDep bumps; never peers, ranges, or majors.
+- Document the policy briefly in contributing/release docs.
+- Fallback: GitHub-native **Dependabot** (simpler, weaker grouping) if self-hosting Renovate is more than we want to maintain.
 - Use the supplied problem context, acceptance criteria, and affected-file hints to draft the concrete implementation approach during planning.
 
 ## Alternatives considered
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- Scope unknown.
+- renovate.json (new) — or .github/renovate.json
+- .github/workflows/ (new Renovate workflow, if self-hosted)
+- a short policy note in contributing/release docs
 
 ## Scope Amendments
 - None.
@@ -50,7 +61,12 @@ Add Renovate for ongoing dependency currency so state-lib versions stop drifting
 - None known at task creation.
 
 ## Open questions
-- None captured at task creation.
+Backlog item (filed 2026-06-17, deferred — not started). Resolve these before implementing:
+- **Hosted vs self-hosted**: Mend GitHub App (zero-maintenance, third-party write access) vs a self-hosted scheduled GitHub Action (more setup, stays in our trust boundary). Leaning self-hosted.
+- **Changeset gate (blocker to confirm first)**: does CI require a changeset on every PR? If so, Renovate dep-only PRs would fail it — either exempt dep-only PRs or have Renovate add a trivial changeset. devDep/example bumps need NO changeset (no published-runtime impact); peer-floor changes stay manual/changeset-gated.
+- **Automerge policy**: automerge only green patch/devDep bumps; require human review for peers, ranges, and majors.
+- **Cadence & noise**: schedule (weekly off-hours?), prConcurrentLimit, Dependency Dashboard.
+- **Grouping scope**: one "state libraries" group for sure; optionally a separate dev-tooling group (vitest/biome/vite).
 
 ## Artifact links
 - Planning: `.fas/state/planning.json`
