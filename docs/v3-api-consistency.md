@@ -27,7 +27,7 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
 ## Sub-decisions
 
 | Decision | Doc | Kind | Status |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `select().whenChanged()` + structural-equality default + `shallowEqual` | `effects-change-detection.md` | additive | design ✓, task queued |
 | Flat tagged event `{ type, … }` (emit / observe / `expectEvent`) | `event-shape.md` | **breaking** | design ✓ |
 | Uniform view/effects context = `{ snapshot }` (drop the spread) | `view-context-canonicalization.md` | **breaking** | design ✓ |

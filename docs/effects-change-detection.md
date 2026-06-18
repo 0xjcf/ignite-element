@@ -154,6 +154,15 @@ effect is **authored**; the emitted-event stream is identical to the hand-writte
   as the imperative style, not the primary ergonomic.
 - **Standalone `onChange(selector, cb)` free function** — equivalent power, but adds
   a second top-level concept; chaining off `select` keeps one concept.
+- **`selectAll({ a: fn, b: fn })` → per-field `Selected` map** (structured select) —
+  deferred. Walking the real effect-block scenarios, it unlocks **no** capability the
+  single-value `select` lacks: "react when any of several changed, with all current
+  values" is already `select((s) => ({ a, b })).whenChanged(({ a, b }) => …)` once the
+  default equality is structural; cross-field conditions already use the raw
+  `current`/`previous`/`changed` fields. The remainder is cosmetic grouping, and a
+  second selection API adds a "which one?" choice on a surface we are deliberately
+  narrowing for stable (and for LLM legibility). Adding it later is non-breaking;
+  shipping it unused is a stable-API liability — so gate it on real dogfooding demand.
 - **`shallowEqual` as a required comparator for objects** — rejected: breaks the
   single-arg shape and still mis-reports nested-but-equal objects. Structural default
   is correct and needs no caller ceremony.
