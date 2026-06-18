@@ -13,8 +13,3 @@ export const routerActor = createActor(routerMachine, {
 // new history entry — the browser already moved the URL — which is why the
 // machine tags the transition `popstate` and the outlet's effect skips it.
 onPopState((path) => routerActor.send({ type: "POPSTATE", path }));
-
-export const navigate = (to: string): void =>
-	routerActor.send({ type: "NAVIGATE", to });
-export const login = (): void => routerActor.send({ type: "LOGIN" });
-export const logout = (): void => routerActor.send({ type: "LOGOUT" });

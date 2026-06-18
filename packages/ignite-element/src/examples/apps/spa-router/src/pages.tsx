@@ -3,7 +3,7 @@ import { igniteCore } from "ignite-element/xstate";
 // styles. Pull the sheet in as raw text (config-free) and inject it once per
 // page via the `registerPage` wrapper below — no ignite.config.ts, no plugin.
 import styles from "../styles.css?raw";
-import { login, logout, navigate, routerActor } from "./routerStore";
+import { routerActor } from "./routerStore";
 
 // Each page is its own custom element registered against the SAME shared router
 // actor, so every page projects the same live route state (params, auth) — no
@@ -12,7 +12,7 @@ import { login, logout, navigate, routerActor } from "./routerStore";
 
 // In-page navigation link: a real <a> for accessibility and middle-click, with
 // a click handler that hands control to the client router instead of the browser.
-const link = (href: string, label: string) => (
+const link = (href: string, label: string, navigate: (to: string) => void) => (
 	<a
 		href={href}
 		class="link"
@@ -27,12 +27,16 @@ const link = (href: string, label: string) => (
 
 const definePage = igniteCore({
 	source: routerActor,
-	view: ({ context }) => ({
-		id: context.params.id ?? "",
-		path: context.path,
-		authed: context.authed,
+	view: ({ snapshot }) => ({
+		id: snapshot.context.params.id ?? "",
+		path: snapshot.context.path,
+		authed: snapshot.context.authed,
 	}),
-	commands: () => ({ navigate, login, logout }),
+	commands: ({ actor }) => ({
+		navigate: (to: string) => actor.send({ type: "NAVIGATE", to }),
+		login: () => actor.send({ type: "LOGIN" }),
+		logout: () => actor.send({ type: "LOGOUT" }),
+	}),
 	// `routerActor` is an app-lifetime singleton owned by routerStore, shared by
 	// every page element. Because it's passed as a live (consumer-owned) source,
 	// ignite keeps the shared adapter alive for the core's lifetime — swapping
@@ -59,12 +63,12 @@ const registerPage = (name: string, render: PageRender) =>
 		</>
 	));
 
-registerPage("home-page", () => (
+registerPage("home-page", (ctx) => (
 	<section class="page">
 		<h1>Home</h1>
 		<p>A tiny single-page app routed entirely by Ignite Element.</p>
 		<p>The URL is just state; navigating is just a command.</p>
-		<p>{link("/users", "Browse users")}</p>
+		<p>{link("/users", "Browse users", ctx.navigate)}</p>
 	</section>
 ));
 
@@ -79,16 +83,16 @@ registerPage("about-page", () => (
 	</section>
 ));
 
-registerPage("users-page", () => (
+registerPage("users-page", (ctx) => (
 	<section class="page">
 		<h1>Users</h1>
 		<p>
 			Pick a user to see a dynamic <code>/users/:id</code> route.
 		</p>
 		<ul class="user-list">
-			<li>{link("/users/1", "Ada Lovelace")}</li>
-			<li>{link("/users/2", "Alan Turing")}</li>
-			<li>{link("/users/3", "Grace Hopper")}</li>
+			<li>{link("/users/1", "Ada Lovelace", ctx.navigate)}</li>
+			<li>{link("/users/2", "Alan Turing", ctx.navigate)}</li>
+			<li>{link("/users/3", "Grace Hopper", ctx.navigate)}</li>
 		</ul>
 	</section>
 ));
@@ -100,7 +104,7 @@ registerPage("user-page", (ctx) => (
 			This page reads the <code>:id</code> param ({ctx.id}) straight from the
 			shared router state.
 		</p>
-		<p>{link("/users", "← Back to users")}</p>
+		<p>{link("/users", "← Back to users", ctx.navigate)}</p>
 	</section>
 ));
 
@@ -144,6 +148,6 @@ registerPage("not-found-page", (ctx) => (
 		<p>
 			No route matched <code>{ctx.path}</code>.
 		</p>
-		<p>{link("/", "Go home")}</p>
+		<p>{link("/", "Go home", ctx.navigate)}</p>
 	</section>
 ));

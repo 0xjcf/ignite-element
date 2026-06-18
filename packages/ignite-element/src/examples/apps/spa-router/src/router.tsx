@@ -5,7 +5,7 @@ import "./pages";
 // can't reach component internals. Pull it in as raw text and inject a <style>
 // into the shadow root — the config-free styling path (no ignite.config.ts).
 import styles from "../styles.css?raw";
-import { navigate, routerActor } from "./routerStore";
+import { routerActor } from "./routerStore";
 
 // The outlet element: it renders the nav and swaps in whichever page element
 // matches the active route. It also owns the single History *write*: an effect
@@ -20,7 +20,12 @@ const NAV = [
 	{ href: "/dashboard", label: "Dashboard" },
 ] as const;
 
-const navLink = (href: string, label: string, activePath: string) => {
+const navLink = (
+	href: string,
+	label: string,
+	activePath: string,
+	navigate: (to: string) => void,
+) => {
 	const isActive =
 		href === "/" ? activePath === "/" : activePath.startsWith(href);
 	return (
@@ -59,8 +64,13 @@ const renderPage = (route: string) => {
 
 const registerRouter = igniteCore({
 	source: routerActor,
-	view: ({ context }) => ({ route: context.route, path: context.path }),
-	commands: () => ({ navigate }),
+	view: ({ snapshot }) => ({
+		route: snapshot.context.route,
+		path: snapshot.context.path,
+	}),
+	commands: ({ actor }) => ({
+		navigate: (to: string) => actor.send({ type: "NAVIGATE", to }),
+	}),
 	// Consequence of a navigate intent: write the URL. Skipping `popstate` and
 	// `init` keeps the History core/shell boundary clean and avoids double entries.
 	effects: ({ snapshot, prevSnapshot }) => {
@@ -81,7 +91,9 @@ registerRouter("app-router", (ctx) => (
 	<div class="app">
 		<style>{styles}</style>
 		<nav class="nav" aria-label="Primary">
-			{NAV.map((item) => navLink(item.href, item.label, ctx.path))}
+			{NAV.map((item) =>
+				navLink(item.href, item.label, ctx.path, ctx.navigate),
+			)}
 		</nav>
 		<main class="content">{renderPage(ctx.route)}</main>
 	</div>

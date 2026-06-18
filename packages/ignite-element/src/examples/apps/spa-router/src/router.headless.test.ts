@@ -10,11 +10,11 @@ import { routerMachine } from "./routerMachine";
 const makeRouter = () =>
 	igniteCore({
 		source: routerMachine,
-		view: ({ context }) => ({
-			route: context.route,
-			path: context.path,
-			id: context.params.id ?? null,
-			authed: context.authed,
+		view: ({ snapshot }) => ({
+			route: snapshot.context.route,
+			path: snapshot.context.path,
+			id: snapshot.context.params.id ?? null,
+			authed: snapshot.context.authed,
 		}),
 		commands: ({ actor }) => ({
 			navigate: (to: string) => actor.send({ type: "NAVIGATE", to }),
