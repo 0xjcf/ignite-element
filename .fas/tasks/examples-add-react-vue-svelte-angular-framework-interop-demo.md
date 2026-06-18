@@ -1,17 +1,14 @@
-# Stable v3: merge the v3 line to main and retire branch-dispatch docs deploys
+# examples: add React/Vue/Svelte/Angular framework-interop demos under examples/frameworks + extend host-app-integration g
 
 ## Source
-Created with `fas create-task` on 2026-06-12.
+Created with `fas create-task` on 2026-06-18.
 
 ## Problem
-Pre-stable-v3 audit finding F1 (high). main (origin/main 94a78b9) is ~306 commits behind the v3 line: it still carries v2 code and v2 docs, the live beta docs require a manual 'gh workflow run docs-deploy.yml --ref <branch>' dispatch, and ANY push to main redeploys v2 docs over the live beta docs. Immediately after the stable 3.0.0 publish: (1) merge the v3 line into main (human-approved merge; resolve the docs homepage overlap with PR #59's backported counter demo — the v3 version supersedes it); (2) confirm docs-deploy.yml fires on the merge push and the live site serves the v3 stable docs with the 2.x archive intact; (3) retire the branch-dispatch deploy workaround (no workflow changes needed — push-to-main becomes correct again); (4) verify repo metadata that encodes branch assumptions (e.g. repo example links pointing at tree/main) resolves correctly post-merge. Operator/owner runs the merge per FAS approval rules.
+Decomposed from task-1781724737259, deliverable (1). Prove the renderer-agnostic distribution-layer thesis with runnable demos consuming an ignite-element custom element from each major framework via standard custom-element APIs (attributes/props in, CustomEvents out). One small app per framework under packages/ignite-element/src/examples/frameworks (react, vue, svelte, angular), reusing the vite + source-alias scaffolding from the existing examples. Surface and document each framework real friction point (do NOT paper over): React props-as-attributes + no declarative custom-event listener pre-19 (ref + addEventListener), clean on React 19 (decide the version stance when building); Vue 3 compilerOptions.isCustomElement; Angular CUSTOM_ELEMENTS_SCHEMA; Svelte near-zero friction. Extend docs/site guides/host-app-integration.mdx with per-framework integration code (do NOT duplicate the guide). Keep each demo minimal and headless-testable. PRIMARY GAP-FINDER: capture any ignite-element API gaps surfaced here as follow-up tasks BEFORE the additive source work (whenChanged/expectView).
 
 ## Acceptance criteria
-- main contains the v3 line and CI is green on main
-- live GitHub Pages site serves v3 stable docs from a push-to-main deploy (no manual dispatch)
-- 2.x archived docs remain reachable via the version picker
-- PR #59 is merged or closed-superseded with a note
-- post-merge fas post-merge run records lessons and closes the docs tasks parked in review
+- The new functionality works as described.
+- Existing behavior is not broken.
 - TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
 - TDD: every production code change in the change set is covered by an added or updated test.
 - DDD: respect domain boundaries — keep the functional core deterministic and side-effect-free (no reads, writes, network, or clock), confine coordination to the imperative shell, and have adapters return facts instead of throwing.

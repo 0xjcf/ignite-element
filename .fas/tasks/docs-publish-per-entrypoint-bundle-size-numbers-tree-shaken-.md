@@ -1,17 +1,13 @@
-# Stable v3: merge the v3 line to main and retire branch-dispatch docs deploys
+# docs: publish per-entrypoint bundle-size numbers (tree-shaken + gzip) with optional CI size budget
 
 ## Source
-Created with `fas create-task` on 2026-06-12.
+Created with `fas create-task` on 2026-06-18.
 
 ## Problem
-Pre-stable-v3 audit finding F1 (high). main (origin/main 94a78b9) is ~306 commits behind the v3 line: it still carries v2 code and v2 docs, the live beta docs require a manual 'gh workflow run docs-deploy.yml --ref <branch>' dispatch, and ANY push to main redeploys v2 docs over the live beta docs. Immediately after the stable 3.0.0 publish: (1) merge the v3 line into main (human-approved merge; resolve the docs homepage overlap with PR #59's backported counter demo — the v3 version supersedes it); (2) confirm docs-deploy.yml fires on the merge push and the live site serves the v3 stable docs with the 2.x archive intact; (3) retire the branch-dispatch deploy workaround (no workflow changes needed — push-to-main becomes correct again); (4) verify repo metadata that encodes branch assumptions (e.g. repo example links pointing at tree/main) resolves correctly post-merge. Operator/owner runs the merge per FAS approval rules.
+Decomposed from task-1781724737259, deliverable (2). Measure tree-shaken + gzip sizes per published entrypoint (root, xstate/redux/mobx/actor-web adapters, jsx, lit) and publish them as a docs page; optionally add a CI size-budget check. Independent of the examples restructure (measures dist bundles, not examples) so NO dependency. Source of truth: the built dist for each entrypoint.
 
 ## Acceptance criteria
-- main contains the v3 line and CI is green on main
-- live GitHub Pages site serves v3 stable docs from a push-to-main deploy (no manual dispatch)
-- 2.x archived docs remain reachable via the version picker
-- PR #59 is merged or closed-superseded with a note
-- post-merge fas post-merge run records lessons and closes the docs tasks parked in review
+- The change is verified and does not introduce regressions.
 - TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
 - TDD: every production code change in the change set is covered by an added or updated test.
 - DDD: respect domain boundaries — keep the functional core deterministic and side-effect-free (no reads, writes, network, or clock), confine coordination to the imperative shell, and have adapters return facts instead of throwing.

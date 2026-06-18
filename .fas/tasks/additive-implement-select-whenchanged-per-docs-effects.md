@@ -30,7 +30,14 @@ ADDITIVE: implement select().whenChanged() per docs/effects-change-detection.md.
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- Scope unknown.
+- `packages/ignite-element/src/runtime/effects.ts` — `createSelect`: add chainable `whenChanged(run)` to the returned selection (runs `run(current, previous)` only when changed; returns self); flip default equality from `Object.is` to structural `valueEqual` with an `Object.is` fast path; thread the optional `isEqual` override.
+- `packages/ignite-core/src/RenderArgs.ts` — `EffectSelection<Value>`: add the `whenChanged(run): EffectSelection<Value>` method to the type; `EffectSelector<Snapshot>`: add the optional `isEqual?` comparator parameter.
+- `packages/ignite-element/src/RenderArgs.ts` — passthrough re-exports of `EffectSelection`/`EffectSelector` (confirm the widened types flow through; no logic).
+- `packages/ignite-element/src/runtime/equality.ts` (new) — internal `valueEqual` (deep structural, pure, agent-replay safe) used as the default + public `shallowEqual` helper for the `isEqual` override convenience.
+- `packages/ignite-element/src/index.ts` — export the `shallowEqual` helper on the public surface.
+- `packages/ignite-element/src/tests/effects-select.test.ts` (new) — `whenChanged` fires only on change; object selection no longer spurious; `isEqual`/`shallowEqual` override path; scalar `Object.is` fast-path unchanged; raw `current/previous/changed` preserved.
+
+Design doc: `docs/effects-change-detection.md` (tracked under `docs/v3-api-consistency.md`). ADDITIVE — no breaking change to existing `select` fields.
 
 ## Scope Amendments
 - None.

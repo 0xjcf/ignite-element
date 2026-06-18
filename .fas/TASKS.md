@@ -1106,7 +1106,7 @@ No active tasks.
 
 - Title: Docs accuracy + UX + positioning for v3 beta.6 (P0/P1/P2). P0 (CORRECTNESS — beta.6 behavior change): the shared-source ownership fix in 3.0.0-beta.6 changed cleanup semantics but the docs-site prose still teaches the OLD beta.5 default. New behavior: cleanup defaults to FALSE for shared (consumer-owned) sources — a live instance passed to igniteCore (started actor / store / observable / actor-web source) lives for the core's lifetime and is NOT released when the element refcount hits zero; isolated (ignite-created) sources keep per-element teardown. Adapters never stop/close a source they did not create (generalized ownsActor -> ownsSource; ActorWebAdapter no longer closes consumer-owned sources). Update to the new semantics and drop now-redundant 'cleanup: false' guidance (reframe 'cleanup: true' as the opt-in to refcount teardown for shared cores) in: docs/site/src/content/docs/concepts/the-ignite-model.mdx (~17,45,225,226); docs/site/src/content/docs/api/ignite-core.mdx (~32,40,45); docs/site/src/content/docs/guides/routing.mdx (~165); docs/site/src/content/docs/migration/v2.mdx (~19,89,90,96); docs/site/src/content/docs/getting-started/first-component.mdx (~87); docs/site/src/content/docs/guides/testing.mdx (~135). DO NOT edit archived docs/site/src/content/docs/2.x/** (frozen). P1 (UX): add a /guides/ index landing page — currently 404 (Starlight has no guides index; individual guides are live, e.g. /guides/routing/ = 200); add a landing page linking the seven guides. P2 (positioning + agent angle): (a) add a 'When to choose Ignite / Comparisons' page surfacing existing positioning from /overview/what-is-ignite-element/ (distribution layer vs framework; renderer-agnostic; no state-lib lock-in); (b) deepen getSchema() docs with example output and how agents/LLMs consume it for tool-calling/validation. CONSTRAINTS: respect docs guardrails — markdownlint, the Playwright AA-contrast check (docs/site/scripts/check-contrast.mjs), and the doc code-example typecheck (check-doc-examples.mjs; object-form effects, no manual igniteCore<...> args); verify with the docs build. Source of truth for new behavior: packages/ignite-element/src/IgniteElementFactory.ts (cleanup default), packages/ignite-adapters/src/adapters/{XStateAdapter,ActorWebAdapter}.ts (ownsSource), and TSDoc on igniteCore/createIgniteComponentFactory.ts + igniteCore/types.ts.
 - Mode: 6-agent
-- Status: implementing
+- Status: queued
 - Owner: implementer
 - Brief: .fas/tasks/docs-accuracy-ux-positioning-for-v3-beta-6-p0-p1-p2-p.md
 - Verification lane: fast
@@ -1220,6 +1220,114 @@ No active tasks.
 - Owner: runtime
 - Brief: .fas/tasks/additive-gap-add-canexecute-name-to-the-headless-runtime.md
 - Automation mode: advisory
+
+### Task: chore: restructure ignite-element examples into adapters/frameworks/apps subfolders (in place)
+
+- Title: chore: restructure ignite-element examples into adapters/frameworks/apps subfolders (in place)
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/chore-restructure-ignite-element-examples-into-adapters-fram.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: examples: add React/Vue/Svelte/Angular framework-interop demos under examples/frameworks + extend host-app-integration g
+
+- Title: examples: add React/Vue/Svelte/Angular framework-interop demos under examples/frameworks + extend host-app-integration g
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/examples-add-react-vue-svelte-angular-framework-interop-demo.md
+
+### Task: docs: publish per-entrypoint bundle-size numbers (tree-shaken + gzip) with optional CI size budget
+
+- Title: docs: publish per-entrypoint bundle-size numbers (tree-shaken + gzip) with optional CI size budget
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/docs-publish-per-entrypoint-bundle-size-numbers-tree-shaken-.md
+
+### Task: examples: add worked apps (form-with-validation, nested/child-router, dashboard-with-shared-state)
+
+- Title: examples: add worked apps (form-with-validation, nested/child-router, dashboard-with-shared-state)
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/examples-add-worked-apps-form-with-validation-nested-child-r.md
+
+### Task: chore(examples): make spa-router idiomatic — commands via injected actor + {snapshot} view
+
+- Title: chore(examples): make spa-router idiomatic — commands via injected actor + {snapshot} view
+- Mode: single-agent
+- Status: implementing
+- Owner: implementer
+- Brief: .fas/tasks/chore-examples-make-spa-router-idiomatic-commands-via-inject.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: chore(examples): make spa-router idiomatic (commands via injected actor, {snapshot} view) and drop actor.state in xstate
+
+- Title: chore(examples): make spa-router idiomatic (commands via injected actor, {snapshot} view) and drop actor.state in xstate
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/chore-examples-make-spa-router-idiomatic-commands-via-inject.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: v3 consistency: XStateCommandActor exposes native getSnapshot(), remove invented .state accessor
+
+- Title: v3 consistency: XStateCommandActor exposes native getSnapshot(), remove invented .state accessor
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/v3-consistency-xstatecommandactor-exposes-native-getsnapshot.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: feat: igniteShell sourceless composition root + shared move-safe teardown (per docs/ignite-shell.md)
+
+- Title: feat: igniteShell sourceless composition root + shared move-safe teardown (per docs/ignite-shell.md)
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/feat-igniteshell-sourceless-composition-root-shared-move-saf.md
+
+### Task: BREAKING (v3 cutover): canonical flat tagged event { type, ...fields } across emit/observe/expectEvent per docs/event-sh
+
+- Title: BREAKING (v3 cutover): canonical flat tagged event { type, ...fields } across emit/observe/expectEvent per docs/event-sh
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/breaking-v3-cutover-canonical-flat-tagged-event-type-fields-.md
+
+### Task: BREAKING (v3 cutover): uniform view/effects context = { snapshot } only (drop the spread) per docs/view-context-canonica
+
+- Title: BREAKING (v3 cutover): uniform view/effects context = { snapshot } only (drop the spread) per docs/view-context-canonica
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/breaking-v3-cutover-uniform-view-effects-context-snapshot-on.md
+
+### Task: BREAKING (v3 cutover): rename expectState -> expectSnapshot (deprecated alias) + expectEvent member form per docs/v3-api
+
+- Title: BREAKING (v3 cutover): rename expectState -> expectSnapshot (deprecated alias) + expectEvent member form per docs/v3-api
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/breaking-v3-cutover-rename-expectstate-expectsnapshot-deprec.md
+
+### Task: ADDITIVE: standardize effects object signature, deprecate positional form per docs/v3-api-consistency.md
+
+- Title: ADDITIVE: standardize effects object signature, deprecate positional form per docs/v3-api-consistency.md
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/additive-standardize-effects-object-signature-deprecate-posi.md
 
 ## Template
 
