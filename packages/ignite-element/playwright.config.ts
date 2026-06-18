@@ -73,7 +73,7 @@ export default defineConfig({
 	/* Run your local dev server before starting the tests */
 	webServer: {
 		command:
-			"pnpm exec vite src/examples/xstate --config src/examples/xstate/vite.config.ts --host 127.0.0.1 --port 8091",
+			"pnpm exec vite src/examples/adapters/xstate --config src/examples/adapters/xstate/vite.config.ts --host 127.0.0.1 --port 8091",
 		url: "http://127.0.0.1:8091",
 		reuseExistingServer: !process.env.CI,
 	},

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import counterStore from "../examples/redux/src/js/reduxCounterStore";
+import counterStore from "../examples/adapters/redux/src/js/reduxCounterStore";
 import { igniteCore } from "../IgniteCore";
 import type { ReduxInstanceConfig } from "../igniteCore/types";
 import type { InferStateAndEvent } from "../utils/igniteRedux";

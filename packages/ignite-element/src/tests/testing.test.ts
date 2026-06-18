@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { assign, createMachine, type StateFrom } from "xstate";
 import counterStore, {
 	counterSlice,
-} from "../examples/redux/src/js/reduxCounterStore";
+} from "../examples/adapters/redux/src/js/reduxCounterStore";
 import { igniteCore } from "../IgniteCore";
 import type { ReduxInstanceConfig, XStateConfig } from "../igniteCore/types";
 import type { EventDescriptor, FacadeEffectArgs } from "../RenderArgs";

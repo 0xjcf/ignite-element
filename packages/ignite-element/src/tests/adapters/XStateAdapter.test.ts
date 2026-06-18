@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assign, createActor, emit, setup } from "xstate";
 import createXStateAdapter from "../../adapters/XStateAdapter";
-import counterMachine from "../../examples/xstate/xstateCounterMachine";
+import counterMachine from "../../examples/adapters/xstate/xstateCounterMachine";
 import { StateScope } from "../../IgniteAdapter";
 
 describe("XStateAdapter", () => {

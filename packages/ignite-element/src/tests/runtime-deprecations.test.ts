@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import counterStore, {
 	counterSlice,
-} from "../examples/redux/src/js/reduxCounterStore";
+} from "../examples/adapters/redux/src/js/reduxCounterStore";
 import { igniteCore } from "../IgniteCore";
 import type { ReduxInstanceConfig } from "../igniteCore/types";
 import type { EventDescriptor, FacadeEffectArgs } from "../RenderArgs";

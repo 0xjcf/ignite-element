@@ -32,7 +32,7 @@ import type { MobxEvent } from "../../adapters/MobxAdapter";
 import type { XStateSnapshot } from "../../adapters/XStateAdapter";
 import counterStore, {
 	counterSlice,
-} from "../../examples/redux/src/js/reduxCounterStore";
+} from "../../examples/adapters/redux/src/js/reduxCounterStore";
 import { igniteCore } from "../../IgniteCore";
 import type { AdapterPack } from "../../IgniteElementFactory";
 import type {
