@@ -1194,6 +1194,33 @@ No active tasks.
 - Brief: .fas/tasks/add-renovate-for-ongoing-dependency-currency-so-state-lib-ve.md
 - Automation mode: advisory
 
+### Task: ADDITIVE: implement select().whenChanged() per docs/effects-change-detection.md. Add a chainable whenChanged(run) to the select() result (runs run(current,previous) only when changed; returns self); flip the default equality from Object.is to structural value-equality WITH an Object.is fast path (valueEqual); add an optional isEqual override arg; export a shallowEqual helper. Keep the existing current/previous/changed fields. Pure/deterministic (agent-replay safe). Affected files: packages/ignite-element/src/runtime/effects.ts (createSelect), packages/ignite-core/src/RenderArgs.ts + packages/ignite-element/src/RenderArgs.ts (Selected/EffectSelector types), a shallowEqual export, and tests (whenChanged fires only on change; object selection no longer spurious; isEqual override; scalar fast-path).
+
+- Title: ADDITIVE: implement select().whenChanged() per docs/effects-change-detection.md. Add a chainable whenChanged(run) to the select() result (runs run(current,previous) only when changed; returns self); flip the default equality from Object.is to structural value-equality WITH an Object.is fast path (valueEqual); add an optional isEqual override arg; export a shallowEqual helper. Keep the existing current/previous/changed fields. Pure/deterministic (agent-replay safe). Affected files: packages/ignite-element/src/runtime/effects.ts (createSelect), packages/ignite-core/src/RenderArgs.ts + packages/ignite-element/src/RenderArgs.ts (Selected/EffectSelector types), a shallowEqual export, and tests (whenChanged fires only on change; object selection no longer spurious; isEqual override; scalar fast-path).
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/additive-implement-select-whenchanged-per-docs-effects.md
+- Automation mode: advisory
+
+### Task: ADDITIVE: add expectView to the test DSL per docs/v3-api-consistency.md. Mirror the runtime getView() — assert the projected view in the scenario harness (lastResult.view ?? component.getView()), alongside the existing expectState. Does NOT rename expectState (the expectState->expectSnapshot rename is the separate BREAKING item). Affected files: packages/ignite-element/src/testing.ts (IgniteTestScenario interface + IgniteTestDriver), and tests covering expectView pass/fail.
+
+- Title: ADDITIVE: add expectView to the test DSL per docs/v3-api-consistency.md. Mirror the runtime getView() — assert the projected view in the scenario harness (lastResult.view ?? component.getView()), alongside the existing expectState. Does NOT rename expectState (the expectState->expectSnapshot rename is the separate BREAKING item). Affected files: packages/ignite-element/src/testing.ts (IgniteTestScenario interface + IgniteTestDriver), and tests covering expectView pass/fail.
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/additive-add-expectview-to-the-test-dsl-per-docs-v3-api-con.md
+- Automation mode: advisory
+
+### Task: ADDITIVE (gap): add canExecute(name) to the headless runtime per docs/v3-api-consistency.md. A command-availability query for UI-guard patterns (disable a control when a command is unavailable), backed by the same info getSchema() exposes. Affected files: packages/ignite-element/src/runtime/agent.ts, packages/ignite-element/src/types/agent.ts, tests, and a short docs note in guides/agent-runtime-v3.mdx.
+
+- Title: ADDITIVE (gap): add canExecute(name) to the headless runtime per docs/v3-api-consistency.md. A command-availability query for UI-guard patterns (disable a control when a command is unavailable), backed by the same info getSchema() exposes. Affected files: packages/ignite-element/src/runtime/agent.ts, packages/ignite-element/src/types/agent.ts, tests, and a short docs note in guides/agent-runtime-v3.mdx.
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/additive-gap-add-canexecute-name-to-the-headless-runtime.md
+- Automation mode: advisory
+
 ## Template
 
 ### Task: <short task title>
