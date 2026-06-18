@@ -16,7 +16,7 @@ From the repo root you can also run the example's tests (they execute in the
 package's vitest run):
 
 ```bash
-pnpm --filter ignite-element test -- src/examples/spa-router
+pnpm --filter ignite-element test -- src/examples/apps/spa-router
 ```
 
 ## What it demonstrates

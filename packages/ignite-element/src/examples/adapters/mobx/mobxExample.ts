@@ -1,5 +1,5 @@
 import { html } from "lit-html";
-import "../../renderers/lit";
+import "../../../renderers/lit";
 import { igniteCore } from "ignite-element/mobx";
 import anotherCounterStyles from "./another-counter-mobx.css?raw";
 import counterStore from "./mobxCounterStore";

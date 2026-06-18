@@ -1,17 +1,17 @@
 {
-	"extends": "../../../tsconfig.typecheck.json",
+	"extends": "../../../../tsconfig.typecheck.json",
 	"compilerOptions": {
 		"noEmit": true,
 		"composite": false,
 		"jsx": "react-jsx",
-		"jsxImportSource": "../../renderers/jsx",
+		"jsxImportSource": "../../../renderers/jsx",
 		"allowJs": false
 	},
 	"include": [
 		"./src/**/*.ts",
 		"./src/**/*.tsx",
-		"../../renderers/jsx/**/*.ts",
-		"../../renderers/jsx/**/*.d.ts",
+		"../../../renderers/jsx/**/*.ts",
+		"../../../renderers/jsx/**/*.d.ts",
 		"ignite.config.ts"
 	],
 	"exclude": []

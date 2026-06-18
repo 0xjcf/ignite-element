@@ -4,29 +4,23 @@ import { defineConfig } from "vite";
 const resolvePath = (path: string) =>
 	fileURLToPath(new URL(path, import.meta.url));
 
-const igniteElementSourceRoot = resolvePath("../../");
-// Example-fixture wiring for this monorepo so the demo can exercise local source
-// files. Not public consumer import guidance — in an app you import the
-// published `ignite-element` package directly.
-//
-// The `@ignite-element/*` workspace packages are aliased to their SOURCE (not
-// the built `dist/`) so the demo always runs against current source. Without
-// these, `ignite-element/xstate` pulls the adapter from a possibly-stale
-// `dist/` build that can drift from the element source — e.g. a renamed adapter
-// contract method surfacing at runtime as "getSnapshot is not a function".
-// Mirrors the alias set in the package's own vitest.config.ts.
-const adaptersSrc = resolvePath("../../../../ignite-adapters/src");
-const rendererSrc = resolvePath("../../../../ignite-renderer/src");
+const igniteElementSourceRoot = resolvePath("../../../");
+// Example-fixture wiring for this monorepo so the demo can exercise local
+// source files. Not public consumer import guidance. The `@ignite-element/*`
+// workspace packages are aliased to SOURCE (not built `dist/`) so the demo
+// always runs against current source and can't drift from a stale build.
+const adaptersSrc = resolvePath("../../../../../ignite-adapters/src");
+const rendererSrc = resolvePath("../../../../../ignite-renderer/src");
 
 export default defineConfig({
 	server: {
-		port: 8083,
+		port: 8080,
 	},
 	resolve: {
 		alias: [
 			{
 				find: "@ignite-element/core",
-				replacement: resolvePath("../../../../ignite-core/src/index.ts"),
+				replacement: resolvePath("../../../../../ignite-core/src/index.ts"),
 			},
 			{
 				find: "@ignite-element/adapters/xstate",
@@ -78,7 +72,7 @@ export default defineConfig({
 			},
 			{
 				find: "ignite-element",
-				replacement: resolvePath("../../index.ts"),
+				replacement: resolvePath("../../../index.ts"),
 			},
 		],
 	},

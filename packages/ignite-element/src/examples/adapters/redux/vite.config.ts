@@ -4,15 +4,20 @@ import { defineConfig } from "vite";
 const resolvePath = (path: string) =>
 	fileURLToPath(new URL(path, import.meta.url));
 
-const igniteElementSourceRoot = resolvePath("../../");
+const igniteElementSourceRoot = resolvePath("../../../");
 // Example-fixture wiring for this monorepo so the demo can exercise local
 // source files. Not public consumer import guidance. The `@ignite-element/*`
 // workspace packages are aliased to SOURCE (not built `dist/`) so the demo
 // always runs against current source and can't drift from a stale build.
-const adaptersSrc = resolvePath("../../../../ignite-adapters/src");
-const rendererSrc = resolvePath("../../../../ignite-renderer/src");
+const adaptersSrc = resolvePath("../../../../../ignite-adapters/src");
+const rendererSrc = resolvePath("../../../../../ignite-renderer/src");
 
 export default defineConfig({
+	root: resolvePath("./src"),
+	esbuild: {
+		jsx: "automatic",
+		jsxImportSource: "../../../renderers/jsx",
+	},
 	server: {
 		port: 8080,
 	},
@@ -20,7 +25,7 @@ export default defineConfig({
 		alias: [
 			{
 				find: "@ignite-element/core",
-				replacement: resolvePath("../../../../ignite-core/src/index.ts"),
+				replacement: resolvePath("../../../../../ignite-core/src/index.ts"),
 			},
 			{
 				find: "@ignite-element/adapters/xstate",
@@ -72,7 +77,7 @@ export default defineConfig({
 			},
 			{
 				find: "ignite-element",
-				replacement: resolvePath("../../index.ts"),
+				replacement: resolvePath("../../../index.ts"),
 			},
 		],
 	},
