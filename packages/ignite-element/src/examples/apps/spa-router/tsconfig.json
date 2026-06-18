@@ -13,7 +13,9 @@
 			"ignite-element/jsx/jsx-dev-runtime": ["../../../jsx/jsx-dev-runtime.ts"],
 			"ignite-element/*": ["../../../*"],
 			"@ignite-element/core": ["../../../../../ignite-core/src/index.ts"],
-			"@ignite-element/adapters": ["../../../../../ignite-adapters/src/index.ts"],
+			"@ignite-element/adapters": [
+				"../../../../../ignite-adapters/src/index.ts"
+			],
 			"@ignite-element/adapters/xstate": [
 				"../../../../../ignite-adapters/src/xstate.ts"
 			],
@@ -23,7 +25,9 @@
 			"@ignite-element/adapters/mobx": [
 				"../../../../../ignite-adapters/src/mobx.ts"
 			],
-			"@ignite-element/renderer": ["../../../../../ignite-renderer/src/index.ts"],
+			"@ignite-element/renderer": [
+				"../../../../../ignite-renderer/src/index.ts"
+			],
 			"@ignite-element/renderer/jsx": [
 				"../../../../../ignite-renderer/src/renderers/ignite-jsx.ts"
 			],
