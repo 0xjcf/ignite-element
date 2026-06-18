@@ -35,6 +35,7 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
 | `expectView` (add) + `expectState`→`expectSnapshot` (alias) + `expectEvent` object form | `event-shape.md` + this doc | mixed | `expectView` task queued; rename is breaking |
 | Test host seam: fluent `.host({ dataset, attributes })` | `task-1781619012619` | additive | task (refine brief to fluent shape) |
 | `canExecute(name)` command-availability query | this doc | additive (gap) | task queued |
+| `igniteShell` sourceless composition root (+ shared move-safe teardown) | `ignite-shell.md` | additive (gap) | design ✓ |
 
 ## Intentional — document, do not "fix"
 
