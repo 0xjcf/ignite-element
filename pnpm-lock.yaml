@@ -73,11 +73,11 @@ importers:
         specifier: ^0.1.0
         version: 0.1.0
       '@reduxjs/toolkit':
-        specifier: ^2.3.0
-        version: 2.11.2
+        specifier: ^2.12.0
+        version: 2.12.0
       mobx:
-        specifier: ^6.13.5
-        version: 6.15.0
+        specifier: ^6.16.1
+        version: 6.16.1
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -114,15 +114,9 @@ importers:
       '@ignite-element/renderer':
         specifier: workspace:*
         version: link:../ignite-renderer
-      '@reduxjs/toolkit':
-        specifier: '>=2.3.0'
-        version: 2.11.2
       lit-html:
         specifier: '>=3.2.1'
         version: 3.3.2
-      mobx:
-        specifier: '>=6.13.5'
-        version: 6.15.0
       redux:
         specifier: '>=5.0.1'
         version: 5.0.1
@@ -142,6 +136,9 @@ importers:
       '@playwright/test':
         specifier: ^1.56.1
         version: 1.57.0
+      '@reduxjs/toolkit':
+        specifier: ^2.12.0
+        version: 2.12.0
       '@types/jsdom':
         specifier: ^27.0.0
         version: 27.0.0
@@ -157,6 +154,9 @@ importers:
       jsdom:
         specifier: ^27.0.1
         version: 27.4.0
+      mobx:
+        specifier: ^6.16.1
+        version: 6.16.1
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1119,8 +1119,8 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  '@reduxjs/toolkit@2.11.2':
-    resolution: {integrity: sha512-Kd6kAHTA6/nUpp8mySPqj3en3dm0tdMIgbttnQ1xFMVpufoj+ADi8pXLBsd4xzTRHQa7t/Jv8W5UnCuW4kuWMQ==}
+  '@reduxjs/toolkit@2.12.0':
+    resolution: {integrity: sha512-KiT+RzZbp6mQET+Mg+h2c97+9j1sNflUxQkIHI7Yuzf6Peu+OYpmkn6nbHWmLLWj+1ZODUJFwGZ7gx3L9R9EOw==}
     peerDependencies:
       react: ^16.9.0 || ^17.0.0 || ^18 || ^19
       react-redux: ^7.2.1 || ^8.1.3 || ^9.0.0
@@ -2731,8 +2731,8 @@ packages:
   mlly@1.8.0:
     resolution: {integrity: sha512-l8D9ODSRWLe2KHJSifWGwBqpTZXIXTeo8mlKjY+E2HAakaTeNpqAyBZ8GSqLzHgw4XmHmC8whvpjJNMbFZN7/g==}
 
-  mobx@6.15.0:
-    resolution: {integrity: sha512-UczzB+0nnwGotYSgllfARAqWCJ5e/skuV2K/l+Zyck/H6pJIhLXuBnz+6vn2i211o7DtbE78HQtsYEKICHGI+g==}
+  mobx@6.16.1:
+    resolution: {integrity: sha512-syNcDdX3KT+Jq3je6eGjBhuc24Z68td2VG0zNFqRswaE433D9SNH5VRy/xrGbJsUixfppLLccXhAW9JSf6n+SQ==}
 
   mri@1.2.0:
     resolution: {integrity: sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA==}
@@ -4717,7 +4717,7 @@ snapshots:
     dependencies:
       playwright: 1.57.0
 
-  '@reduxjs/toolkit@2.11.2':
+  '@reduxjs/toolkit@2.12.0':
     dependencies:
       '@standard-schema/spec': 1.1.0
       '@standard-schema/utils': 0.3.0
@@ -6853,7 +6853,7 @@ snapshots:
       pkg-types: 1.3.1
       ufo: 1.6.1
 
-  mobx@6.15.0: {}
+  mobx@6.16.1: {}
 
   mri@1.2.0: {}
 

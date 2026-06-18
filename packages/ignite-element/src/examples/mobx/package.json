@@ -19,7 +19,7 @@
 	"license": "ISC",
 	"dependencies": {
 		"lit-html": "^3.3.1",
-		"mobx": "^6.15.0"
+		"mobx": "^6.16.1"
 	},
 	"devDependencies": {
 		"@types/node": "^24.8.1",
