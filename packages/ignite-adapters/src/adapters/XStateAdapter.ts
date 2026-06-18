@@ -25,7 +25,7 @@ export type XStateSnapshot<Machine extends AnyStateMachine> =
 
 export type XStateCommandActor<Machine extends AnyStateMachine> = {
 	send: (event: EventFrom<Machine>) => void;
-	readonly state: ExtendedState<Machine>;
+	getSnapshot: () => ExtendedState<Machine>;
 };
 
 export type XStateMachineActor<Machine extends AnyStateMachine> =
@@ -281,9 +281,7 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 			actor.send(event);
 			lastKnownSnapshot = actor.getSnapshot();
 		},
-		get state() {
-			return adapter.getSnapshot();
-		},
+		getSnapshot: () => adapter.getSnapshot(),
 	};
 
 	return {

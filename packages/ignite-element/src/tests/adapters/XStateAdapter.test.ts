@@ -177,6 +177,10 @@ describe("XStateAdapter", () => {
 		expect(adapter.getSnapshot().value).toBe("active");
 		commandActor.send({ type: "INC" });
 		expect(adapter.getSnapshot().context.count).toBe(1);
+		// The command actor exposes xstate-native getSnapshot() (not an invented
+		// `.state` accessor) for reading current state inside commands/effects.
+		expect(commandActor.getSnapshot().value).toBe("active");
+		expect(commandActor.getSnapshot().context.count).toBe(1);
 	});
 
 	it("reuses actor instances for shared adapters", () => {

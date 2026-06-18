@@ -772,7 +772,7 @@ describe("igniteCore type inference", () => {
 				},
 			}),
 			effects: ({ actor, emit }) => {
-				const { activeTournamentId, sort } = actor.state.context;
+				const { activeTournamentId, sort } = actor.getSnapshot().context;
 				emit("leaderboardRefresh", {
 					tournamentId: activeTournamentId,
 					sort,

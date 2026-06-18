@@ -44,7 +44,8 @@ export const apiShowcase = igniteCore({
 	},
 	commands: ({ actor, command }) => ({
 		increment: command(
-			() => actor.send({ type: "ADD", amount: actor.state.context.step }),
+			() =>
+				actor.send({ type: "ADD", amount: actor.getSnapshot().context.step }),
 			{
 				description: "Add the current step to the count.",
 			},
