@@ -4,9 +4,9 @@ Ignite-Element ships with three state-management examples that double as integra
 
 | Path | State Library | Highlights |
 | --- | --- | --- |
-| [`packages/ignite-element/src/examples/xstate`](../../packages/ignite-element/src/examples/xstate) | XState | Shared actor vs. isolated machine, Tailwind styling, gradient tally renderer |
-| [`packages/ignite-element/src/examples/redux`](../../packages/ignite-element/src/examples/redux) | Redux Toolkit | Store factory vs. shared store instance, Bootstrap UI, facade commands |
-| [`packages/ignite-element/src/examples/mobx`](../../packages/ignite-element/src/examples/mobx) | MobX | Observable reuse vs. factory isolation, theme variables, component-specific CSS |
+| [`packages/ignite-element/src/examples/adapters/xstate`](../../packages/ignite-element/src/examples/adapters/xstate) | XState | Shared actor vs. isolated machine, Tailwind styling, gradient tally renderer |
+| [`packages/ignite-element/src/examples/adapters/redux`](../../packages/ignite-element/src/examples/adapters/redux) | Redux Toolkit | Store factory vs. shared store instance, Bootstrap UI, facade commands |
+| [`packages/ignite-element/src/examples/adapters/mobx`](../../packages/ignite-element/src/examples/adapters/mobx) | MobX | Observable reuse vs. factory isolation, theme variables, component-specific CSS |
 
 Each example now uses the v3 public adapter entrypoints: `ignite-element/xstate`, `ignite-element/redux`, and `ignite-element/mobx`. `igniteCore` detects the correct scope from the `source` you provide. Shared sources (running actors, store instances, observables) produce shared scopes, while definitions (machines, slices, factories) yield isolated scopes.
 
