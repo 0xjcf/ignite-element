@@ -1232,10 +1232,10 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
-### Task: examples: add React/Vue/Svelte/Angular framework-interop demos under examples/frameworks + extend host-app-integration g
+### Task: feat: ignite-element/react schema-driven React wrapper + registration handle + React demo
 
-- Title: examples: add React/Vue/Svelte/Angular framework-interop demos under examples/frameworks + extend host-app-integration g
-- Mode: 6-agent
+- Title: feat: ignite-element/react schema-driven React wrapper + registration handle + React demo
+- Mode: single-agent
 - Status: queued
 - Owner: runtime
 - Brief: .fas/tasks/examples-add-react-vue-svelte-angular-framework-interop-demo.md

@@ -1,10 +1,11 @@
-# examples: add React/Vue/Svelte/Angular framework-interop demos under examples/frameworks + extend host-app-integration g
+# feat: ignite-element/react schema-driven React wrapper + registration handle + React demo
 
 ## Source
 Created with `fas create-task` on 2026-06-18.
 
 ## Problem
-Decomposed from task-1781724737259, deliverable (1). Prove the renderer-agnostic distribution-layer thesis with runnable demos consuming an ignite-element custom element from each major framework via standard custom-element APIs (attributes/props in, CustomEvents out). One small app per framework under packages/ignite-element/src/examples/frameworks (react, vue, svelte, angular), reusing the vite + source-alias scaffolding from the existing examples. Surface and document each framework real friction point (do NOT paper over): React props-as-attributes + no declarative custom-event listener pre-19 (ref + addEventListener), clean on React 19 (decide the version stance when building); Vue 3 compilerOptions.isCustomElement; Angular CUSTOM_ELEMENTS_SCHEMA; Svelte near-zero friction. Extend docs/site guides/host-app-integration.mdx with per-framework integration code (do NOT duplicate the guide). Keep each demo minimal and headless-testable. PRIMARY GAP-FINDER: capture any ignite-element API gaps surfaced here as follow-up tasks BEFORE the additive source work (whenChanged/expectView).
+Reshaped from the framework-interop gap-finder (was: hand-rolled React/Vue/Svelte/Angular demos). Per docs/ignite-react.md, ship the schema-driven approach. DELIVERABLES in order: (1) ADDITIVE igniteCore change — registration register(tagName, render) returns a typed IgniteComponent<Commands,Events> handle (was void) carrying tagName + getSchema() + phantom command/event types; sites: igniteCore/createIgniteComponentFactory.ts + igniteCore/types.ts. Non-breaking; also useful for the test DSL/agent surfaces. (2) ignite-element/react entrypoint — igniteReact(component) returns a typed forwardRef React component: commands -> ref API; single-arg setX -> props; events map -> on<Event> callback props receiving the flat event member; wires events via addEventListener from getSchema() with cleanup; reads component.tagName (NO tagName arg). Add the ./react export to package.json + build wiring; react is a peer of that entrypoint only. (3) React 19 demo under examples/frameworks/react consuming igniteReact — a small REAL feature, idiomatic React (no scattered refs/listeners), proving props-in + events-out + ref commands. (4) Tests for the handle + igniteReact (on* props fire with cleanup; ref commands; setX props). (5) Extend guides/host-app-integration.mdx (do not duplicate); briefly document the hand-rolled-wrapper fallback. (6) changeset (additive: ./react entrypoint + registration handle return). Hard part: the TS inference (Events->on* props, commands->ref, setX->props) — spike early. Vue/Svelte/Angular wrappers follow as separate tasks from the same handle/schema. Sequenced Phase 1: land the handle + helper before the breaking cutover so the demo showcases it. Design: docs/ignite-react.md.
+
 
 ## Acceptance criteria
 - The new functionality works as described.
@@ -23,10 +24,27 @@ Decomposed from task-1781724737259, deliverable (1). Prove the renderer-agnostic
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- Scope unknown.
+- packages/ignite-element/src/igniteCore/createIgniteComponentFactory.ts
+- packages/ignite-element/src/igniteCore/types.ts
+- packages/ignite-element/src/react/index.ts
+- packages/ignite-element/src/react/igniteReact.tsx
+- packages/ignite-element/package.json
+- packages/ignite-element/src/examples/frameworks/react/package.json
+- packages/ignite-element/src/examples/frameworks/react/vite.config.ts
+- packages/ignite-element/src/examples/frameworks/react/tsconfig.json
+- packages/ignite-element/src/examples/frameworks/react/index.html
+- packages/ignite-element/src/examples/frameworks/react/src/main.tsx
+- packages/ignite-element/src/examples/frameworks/react/src/App.tsx
+- packages/ignite-element/src/examples/frameworks/react/src/counter.ignite.tsx
+- packages/ignite-element/src/examples/frameworks/react/README.md
+- packages/ignite-element/src/tests/react/igniteReact.test.tsx
+- docs/site/src/content/docs/guides/host-app-integration.mdx
+- .changeset/ignite-react.md
 
 ## Scope Amendments
-- None.
+- Type: scope-refresh
+- Added at: 2026-06-19
+- Added paths: packages/ignite-element/src/examples/frameworks/react/package.json, packages/ignite-element/src/examples/frameworks/react/vite.config.ts, packages/ignite-element/src/examples/frameworks/react/tsconfig.json, packages/ignite-element/src/examples/frameworks/react/index.html, packages/ignite-element/src/examples/frameworks/react/src/main.tsx, packages/ignite-element/src/examples/frameworks/react/src/App.tsx, packages/ignite-element/src/examples/frameworks/react/README.md, packages/ignite-element/package.json, docs/site/src/content/docs/guides/host-app-integration.mdx
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
