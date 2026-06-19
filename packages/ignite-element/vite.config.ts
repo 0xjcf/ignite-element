@@ -30,6 +30,7 @@ export default defineConfig(({ command }) => ({
 			"jsx/index": "src/jsx/index.ts",
 			"jsx/jsx-runtime": "src/jsx/jsx-runtime.ts",
 			"jsx/jsx-dev-runtime": "src/jsx/jsx-dev-runtime.ts",
+			react: "src/react/index.ts",
 		},
 		external: [
 			"@ignite-element/core",
@@ -41,6 +42,9 @@ export default defineConfig(({ command }) => ({
 			"mobx",
 			"redux",
 			"@reduxjs/toolkit",
+			"react",
+			"react-dom",
+			"react/jsx-runtime",
 			"node:fs",
 			"node:path",
 			"node:url",

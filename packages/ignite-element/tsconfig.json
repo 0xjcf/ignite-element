@@ -5,7 +5,12 @@
 		"declarationDir": "./dist/types",
 		"rootDir": "src",
 		"experimentalDecorators": true,
-		"emitDecoratorMetadata": true
+		"emitDecoratorMetadata": true,
+		// src/react/igniteReact.tsx is the only non-test .tsx compiled by this
+		// config. It uses React.createElement (no JSX syntax) to stay
+		// pragma-agnostic, but TS still requires `jsx` to be set to compile a
+		// .tsx file. `react-jsx` is inert here (no JSX to transform).
+		"jsx": "react-jsx"
 	},
 	"include": ["src"],
 	"exclude": [

@@ -27,6 +27,9 @@
 			],
 			"jsx/jsx-dev-runtime": [
 				"dist/types/jsx/jsx-dev-runtime.d.ts"
+			],
+			"react": [
+				"dist/types/react/index.d.ts"
 			]
 		}
 	},
@@ -78,6 +81,12 @@
 			"import": "./dist/jsx/jsx-dev-runtime.es.js",
 			"require": "./dist/jsx/jsx-dev-runtime.cjs.js",
 			"default": "./dist/jsx/jsx-dev-runtime.es.js"
+		},
+		"./react": {
+			"types": "./dist/types/react/index.d.ts",
+			"import": "./dist/react.es.js",
+			"require": "./dist/react.cjs.js",
+			"default": "./dist/react.es.js"
 		},
 		"./package.json": "./package.json"
 	},
@@ -147,12 +156,17 @@
 		"@commitlint/config-conventional": "^20.0.0",
 		"@playwright/test": "^1.56.1",
 		"@reduxjs/toolkit": "^2.12.0",
+		"@testing-library/react": "^16.1.0",
 		"@types/jsdom": "^27.0.0",
+		"@types/react": "^19.0.0",
+		"@types/react-dom": "^19.0.0",
 		"@vitest/coverage-v8": "^4.0.3",
 		"chalk": "^5.6.2",
 		"husky": "^9.1.7",
 		"jsdom": "^27.0.1",
 		"mobx": "^6.16.1",
+		"react": "^19.0.0",
+		"react-dom": "^19.0.0",
 		"typescript": "^5.9.3",
 		"vite": "^7.1.12",
 		"vite-plugin-dts": "^4.5.4",
@@ -163,6 +177,7 @@
 		"@reduxjs/toolkit": ">=2.3.0",
 		"lit-html": ">=3.2.1",
 		"mobx": ">=6.13.5",
+		"react": ">=18",
 		"redux": ">=5.0.1",
 		"xstate": ">=5.19.0"
 	},
@@ -174,6 +189,9 @@
 			"optional": true
 		},
 		"mobx": {
+			"optional": true
+		},
+		"react": {
 			"optional": true
 		},
 		"redux": {
