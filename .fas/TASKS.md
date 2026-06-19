@@ -1359,6 +1359,27 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: config-free lit-html renderer selection: how should a consumer select the lit renderer without ignite.config.ts (hidden in v3), so lit-html views do not silently render blank? Evaluate auto-detect of a lit TemplateResult vs a per-igniteCore renderer option vs a build-read pragma. The mobx adapter example has the same latent bug.
+
+- Title: config-free lit-html renderer selection: how should a consumer select the lit renderer without ignite.config.ts (hidden in v3), so lit-html views do not silently render blank? Evaluate auto-detect of a lit TemplateResult vs a per-igniteCore renderer option vs a build-read pragma. The mobx adapter example has the same latent bug.
+- Mode: single-agent
+- Status: commit-planning
+- Owner: planner
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: feat: config-free lit renderer auto-detection — render lit-html (html``) views without ignite.config.ts by detecting a lit TemplateResult and routing to the lit strategy; fixes the blank mobx example. Design: docs/renderer-selection.md
+
+- Title: feat: config-free lit renderer auto-detection — render lit-html (html``) views without ignite.config.ts by detecting a lit TemplateResult and routing to the lit strategy; fixes the blank mobx example. Design: docs/renderer-selection.md
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/feat-config-free-lit-renderer-auto-detection-render-lit-html.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
