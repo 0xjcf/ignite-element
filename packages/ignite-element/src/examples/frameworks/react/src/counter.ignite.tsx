@@ -1,13 +1,18 @@
+/** @jsxImportSource ignite-element/jsx */
 import { igniteCore } from "ignite-element/xstate";
-import { html } from "lit-html";
 import { assign, setup } from "xstate";
 
-// A small, real ignite element authored exactly as you would for any host.
-// Registration now returns a typed handle (tagName + getSchema + phantom
-// Commands/Events), which `igniteReact` consumes to generate the React wrapper.
+// A small, real ignite element authored exactly as you would for any host —
+// framework-neutral. Registration returns a typed handle (tagName + getSchema +
+// phantom Commands/Events). The React binding lives beside it in
+// `counter.react.ts` (`igniteReact(counterElement)`); the same handle could
+// equally get a Vue/Svelte/Angular binding.
 //
-// The element's internal view uses a lit-html template (no JSX) so this file
-// stays free of the React/ignite-jsx pragma split — App.tsx owns the React JSX.
+// The view is authored with ignite-JSX — the default, config-free v3 renderer
+// (no renderer registration needed). The per-file `@jsxImportSource` pragma at
+// the top routes THIS file's JSX through ignite-JSX. This file authors NO React
+// JSX, so there is no transform conflict; App.tsx / main.tsx stay on React JSX
+// via @vitejs/plugin-react.
 const counterMachine = setup({
 	types: {} as {
 		context: { count: number; label: string };
@@ -28,7 +33,7 @@ const counterMachine = setup({
 	},
 });
 
-export const Counter = igniteCore({
+const counterCore = igniteCore({
 	source: counterMachine,
 	view: ({ context }) => ({ count: context.count, label: context.label }),
 	commands: ({ actor }) => ({
@@ -47,12 +52,13 @@ export const Counter = igniteCore({
 		if (!count.changed) return;
 		emit("countChanged", { count: snapshot.context.count });
 	},
-})(
-	"react-demo-counter",
-	({ count, label }) => html`
-		<div class="counter-card">
-			<span class="counter-label">${label}</span>
-			<output class="counter-value">${count}</output>
-		</div>
-	`,
-);
+});
+
+// The framework-neutral handle: a standard custom element + getSchema(). This is
+// the unit a host (or an agent) consumes; the React wrapper derives from it.
+export const counterElement = counterCore("react-demo-counter", (ctx) => (
+	<div class="counter-card">
+		<span class="counter-label">{ctx.label}</span>
+		<output class="counter-value">{ctx.count}</output>
+	</div>
+));

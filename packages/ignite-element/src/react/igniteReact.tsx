@@ -31,6 +31,23 @@ export type CommandHandle<Commands extends FacadeCommandResult> = {
 	[K in keyof Commands]: Commands[K];
 };
 
+/**
+ * The imperative ref type for a component built by {@link igniteReact} — the
+ * {@link CommandHandle} derived from the handle's command schema. Lets a
+ * consumer type a `useRef` without hand-writing the command shape (and without
+ * drift from the element's commands):
+ *
+ * ```ts
+ * const ref = useRef<IgniteReactRef<typeof CounterCore>>(null);
+ * ```
+ */
+export type IgniteReactRef<Component> = Component extends IgniteComponent<
+	infer Commands,
+	infer _Events
+>
+	? CommandHandle<Commands>
+	: never;
+
 /** Uppercase the first character of a string literal (lib `Capitalize`). */
 type EventHandlerName<Type extends string> = `on${Capitalize<Type>}`;
 

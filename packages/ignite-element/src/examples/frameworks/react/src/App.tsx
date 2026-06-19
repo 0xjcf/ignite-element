@@ -1,22 +1,14 @@
-import { igniteReact } from "ignite-element/react";
 import { useRef, useState } from "react";
-import { Counter as CounterEl } from "./counter.ignite";
-
-// The entire wrapper: one line turns the ignite element into a typed React
-// component. No hand-written element interface, no JSX module augmentation, no
-// scattered refs/listeners in app code.
-const Counter = igniteReact(CounterEl);
+import { Counter, type CounterRef } from "./counter.react";
 
 export function App() {
 	// `count` mirrors the element's outward event — App stays declarative.
 	const [count, setCount] = useState(0);
 	const [label, setLabel] = useState("Visitors");
-	// The ref is the typed CommandHandle: increment/decrement/setLabel.
-	const counterRef = useRef<{
-		increment: () => void;
-		decrement: () => void;
-		setLabel: (label: string) => void;
-	}>(null);
+	// `CounterRef` (from counter.react) is `IgniteReactRef<typeof counterElement>`
+	// — the CommandHandle (increment/decrement/setLabel). No hand-written shape,
+	// no drift from the element's commands.
+	const counterRef = useRef<CounterRef>(null);
 
 	return (
 		<main className="app">
