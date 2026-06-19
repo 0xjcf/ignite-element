@@ -30,7 +30,7 @@ still shape the API before the breaking cutover freezes it.
 
 | Task | id | Note |
 | --- | --- | --- |
-| Framework-interop demos (React/Vue/Svelte/Angular) | `1781805261094` | **gap-finder** — run early; may spawn follow-up API tasks |
+| `ignite-element/react` helper + React demo (+ registration handle) | `1781805261094` | the interop play (`docs/ignite-react.md`); the additive **registration→handle** change lands here, before the cutover |
 | `select().whenChanged()` | `1781798483059` | additive |
 | `expectView` | `1781798484574` | additive (does **not** rename expectState) |
 | `canExecute(name)` | `1781798486122` | additive (gap) |
