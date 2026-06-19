@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ignite-element + React</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, sans-serif;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #0f172a;
+        color: #e2e8f0;
+      }
+      .app {
+        width: min(28rem, 90vw);
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        padding: 2rem;
+      }
+      .lede {
+        color: #94a3b8;
+        font-size: 0.9rem;
+        line-height: 1.5;
+      }
+      .counter-card {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        padding: 1rem 1.25rem;
+        border-radius: 0.75rem;
+        background: #1e293b;
+      }
+      .counter-label {
+        color: #94a3b8;
+      }
+      .counter-value {
+        font-size: 2rem;
+        font-weight: 700;
+      }
+      .controls {
+        display: flex;
+        gap: 0.5rem;
+      }
+      .controls button {
+        flex: 1;
+        padding: 0.5rem;
+        font-size: 1.25rem;
+        border-radius: 0.5rem;
+        border: 1px solid #334155;
+        background: #334155;
+        color: inherit;
+        cursor: pointer;
+      }
+      .label-field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        font-size: 0.85rem;
+        color: #94a3b8;
+      }
+      .label-field input {
+        padding: 0.5rem;
+        border-radius: 0.5rem;
+        border: 1px solid #334155;
+        background: #0f172a;
+        color: inherit;
+      }
+    </style>
+    <script type="module" src="./src/main.tsx"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

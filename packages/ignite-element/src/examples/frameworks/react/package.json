@@ -1,0 +1,32 @@
+{
+	"name": "react-framework-example",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"description": "React 19 demo consuming an ignite element through the schema-driven igniteReact wrapper.",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview"
+	},
+	"keywords": [
+		"react",
+		"ignite-element",
+		"web-components",
+		"interop"
+	],
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+		"lit-html": "^3.3.1",
+		"react": "^19.0.0",
+		"react-dom": "^19.0.0",
+		"xstate": "5.32.1"
+	},
+	"devDependencies": {
+		"@types/react": "^19.0.0",
+		"@types/react-dom": "^19.0.0",
+		"@vitejs/plugin-react": "^5.0.0",
+		"vite": "^7.2.7"
+	}
+}
