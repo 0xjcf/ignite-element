@@ -1348,6 +1348,65 @@ describe("igniteCore", () => {
 		});
 	});
 
+	it("returns a typed component handle from registration", () => {
+		const store = counterStore();
+
+		const core = igniteCore({
+			adapter: "redux",
+			source: store,
+			view: (snapshot) => ({
+				count: snapshot.counter.count,
+			}),
+			commands: ({ actor }) => ({
+				increment: () => actor.dispatch(counterSlice.actions.increment()),
+			}),
+			events: (event) => ({
+				"counter-incremented": event<{ count: number }>(),
+			}),
+		});
+
+		const component = core(
+			"handle-counter-redux",
+			({ count }) => html`<span>${count}</span>`,
+		);
+
+		// The handle carries the registered tag name and delegates getSchema to
+		// the same single agent-runtime source of truth as the registrar.
+		expect(component.tagName).toBe("handle-counter-redux");
+		expect(component.getSchema()).toEqual(core.getSchema());
+		expect(component.getSchema()).toEqual({
+			commands: { increment: {} },
+			events: ["counter-incremented"],
+			state: { counter: { count: 0 } },
+		});
+	});
+
+	it("returns a handle for the dedupe early-return when a tag is re-registered", () => {
+		const store = counterStore();
+
+		const core = igniteCore({
+			adapter: "redux",
+			source: store,
+			view: (snapshot) => ({ count: snapshot.counter.count }),
+			commands: ({ actor }) => ({
+				increment: () => actor.dispatch(counterSlice.actions.increment()),
+			}),
+		});
+
+		const first = core(
+			"handle-dedupe-redux",
+			({ count }) => html`<span>${count}</span>`,
+		);
+		const second = core(
+			"handle-dedupe-redux",
+			({ count }) => html`<span>${count}</span>`,
+		);
+
+		expect(first.tagName).toBe("handle-dedupe-redux");
+		expect(second.tagName).toBe("handle-dedupe-redux");
+		expect(second.getSchema()).toEqual(first.getSchema());
+	});
+
 	it("serializes self-returning toJSON values as circular schema values", () => {
 		const selfReturning = {
 			toJSON() {

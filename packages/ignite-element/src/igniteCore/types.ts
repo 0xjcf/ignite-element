@@ -39,7 +39,7 @@ import type { AnyStateMachine } from "xstate";
 import type { WithFacadeRenderArgs } from "../createProjectionFactory";
 import type { ComponentFactory } from "../IgniteElementFactory";
 import type { IgniteAgentRuntime } from "../types/agent";
-import type { IgniteSchemaValue } from "../types/schema";
+import type { IgniteAgentSchema, IgniteSchemaValue } from "../types/schema";
 
 /**
  * Derives the runtime `Events` map for a source that emits domain
@@ -71,6 +71,27 @@ export type WithEmittedEvents<
 					keyof Events
 				>;
 
+/**
+ * Typed per-element handle returned by registration (`igniteCore(config)(tag,
+ * render)`). Additive: callers that ignore the return are unaffected. Carries
+ * the registered `tagName` and a `getSchema()` that delegates to the same single
+ * agent-runtime source of truth as the registrar. The `Commands`/`Events`
+ * generics are PHANTOM (never populated at runtime) — they exist only to carry
+ * the compile-time types that `igniteReact` (and future framework wrappers)
+ * infer from a handle value. Runtime wiring reads `getSchema()`; the
+ * compile-time mapping reads the phantom generics. Two surfaces, one source each.
+ */
+export interface IgniteComponent<
+	Commands extends FacadeCommandResult = FacadeCommandResult,
+	Events extends EventMap = EmptyEventMap,
+	SchemaState = IgniteSchemaValue,
+> {
+	readonly tagName: string;
+	getSchema(): IgniteAgentSchema<SchemaState>;
+	readonly __commands?: Commands;
+	readonly __events?: Events;
+}
+
 export type IgniteCoreReturn<
 	State,
 	Event,
@@ -82,20 +103,29 @@ export type IgniteCoreReturn<
 		FacadeCommandFunction
 	>,
 	Events extends EventMap = EmptyEventMap,
-> = ComponentFactory<
-	State,
-	Event,
-	WithFacadeRenderArgs<
-		State,
-		Event,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Record<never, never>,
-		Events
-	> &
-		Record<never, Snapshot>
-> &
+> = ((
+	// Call signature mirrors ComponentFactory's parameter typing (same
+	// elementName + projected RenderArgs renderer) but returns a typed
+	// IgniteComponent handle instead of void. The handle return is additive — a
+	// function returning an object is assignable to a void-expecting position —
+	// so existing side-effect callers compile unchanged.
+	...args: Parameters<
+		ComponentFactory<
+			State,
+			Event,
+			WithFacadeRenderArgs<
+				State,
+				Event,
+				StatesResult,
+				CommandActor,
+				CommandsResult,
+				Record<never, never>,
+				Events
+			> &
+				Record<never, Snapshot>
+		>
+	>
+) => IgniteComponent<CommandsResult, Events>) &
 	IgniteAgentRuntime<
 		Snapshot,
 		CommandsResult,

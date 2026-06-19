@@ -9,6 +9,7 @@ import IgniteElement, {
 	type IgniteElementLifecycleHooks,
 } from "./IgniteElement";
 import "./renderers/ignite-jsx";
+import type { IgniteComponent } from "./igniteCore/types";
 import { resolveConfiguredRenderStrategy } from "./renderers/resolveConfiguredRenderStrategy";
 import {
 	createAgentRuntime,
@@ -16,6 +17,7 @@ import {
 } from "./runtime/agent";
 import { facadeCleanupSymbol } from "./runtime/effects";
 import type {
+	IgniteAgentRuntime,
 	IgniteStoryLifecycleEntry,
 	IgniteStoryLifecycleScope,
 	IgniteStoryLifecycleStage,
@@ -443,9 +445,20 @@ export default function igniteElementFactory<
 	const register = (
 		elementName: string,
 		renderer: ComponentRenderer<RenderArgs, View>,
-	) => {
+	): IgniteComponent => {
+		// The handle delegates getSchema LAZILY: createAgentRuntime(...) is
+		// Object.assign-ed onto `register` AFTER this body is defined, so we must
+		// call through `register.getSchema()` at invocation time rather than
+		// capturing it eagerly. This keeps the single agent-runtime builder the
+		// sole schema source of truth (it resolves the runtime adapter on demand).
+		const handle: IgniteComponent = {
+			tagName: elementName,
+			getSchema: () =>
+				(register as unknown as IgniteAgentRuntime<unknown>).getSchema(),
+		};
+
 		if (customElements.get(elementName)) {
-			return;
+			return handle;
 		}
 
 		const lifecycleScope = resolveLifecycleScope();
@@ -547,7 +560,7 @@ export default function igniteElementFactory<
 
 			customElements.define(elementName, SharedIgniteComponent);
 			recordLifecycle("registered", elementName, lifecycleScope);
-			return;
+			return handle;
 		}
 
 		class IsolatedIgniteComponent extends IgniteElement<State, Event, View> {
@@ -614,6 +627,7 @@ export default function igniteElementFactory<
 
 		customElements.define(elementName, IsolatedIgniteComponent);
 		recordLifecycle("registered", elementName, lifecycleScope);
+		return handle;
 	};
 
 	Object.assign(
