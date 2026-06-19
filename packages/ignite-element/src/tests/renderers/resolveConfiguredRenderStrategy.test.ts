@@ -4,6 +4,7 @@ import { createIgniteJsxRenderStrategy } from "../../renderers/jsx/IgniteJsxRend
 import { createLitRenderStrategy } from "../../renderers/LitRenderStrategy";
 import {
 	clearRegisteredRenderStrategiesForTests,
+	createAutoDetectRenderStrategy,
 	registerRenderStrategy,
 	resolveConfiguredRenderStrategy,
 } from "../../renderers/resolveConfiguredRenderStrategy";
@@ -37,10 +38,13 @@ describe("resolveConfiguredRenderStrategy", () => {
 		);
 	});
 
-	it("returns the ignite-jsx strategy by default", () => {
+	it("returns the auto-detect strategy by default (config-free)", () => {
+		// No ignite.config.ts renderer set: the default resolves to the
+		// auto-detecting strategy, which routes a lit TemplateResult to lit and
+		// everything else to ignite-jsx.
 		registerRenderStrategy("ignite-jsx", createIgniteJsxRenderStrategy);
 		const strategy = resolveConfiguredRenderStrategy();
-		expect(strategy).toBe(createIgniteJsxRenderStrategy);
+		expect(strategy).toBe(createAutoDetectRenderStrategy);
 	});
 
 	it("falls back to ignite-jsx when configured renderer is missing", () => {
