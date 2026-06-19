@@ -142,10 +142,13 @@ so the 18-vs-19 difference is minor).
 - **Additive** — new `ignite-element/react` entrypoint (with `react` as a peer of
   that entrypoint only) + registration return `void` → handle. No change to
   `igniteCore`'s config or to existing elements.
-- **Event detail shape** — the wrapper reads `event.detail`; coordinate with the
-  flat event-shape change (`docs/event-shape.md`). Until that lands the detail is
-  the `{ type, payload }` envelope; the helper can normalize so consumer code is
-  written against the flat member from day one.
+- **Event detail shape** — the wrapper forwards `event.detail` directly. On the
+  host `CustomEvent`, `detail` is the bare payload (effects emits) / the whole
+  member (source emits) — **not** the `{ type, payload }` envelope (that exists
+  only inside `execute().events` / `record()`, which the wrapper never uses; see
+  `createComponentFactory.ts:126` and `runtime/agent.ts:180`). Keep one normalize
+  seam so the future flat event-shape change (`docs/event-shape.md`) is a one-line
+  update.
 - **Generalizes** — the same handle + `getSchema()` drives Vue/Svelte/Angular
   wrappers as follow-up entrypoints.
 
