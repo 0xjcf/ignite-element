@@ -87,6 +87,29 @@ export function SettingsToggle() {
 }
 ```
 
+Commands run through the ref. Type it with `IgniteReactRef<typeof Handle>` — it
+resolves to the command handle from the handle's schema, so you never hand-write
+the shape (and it never drifts from the element's commands). It is also the only
+way to name the ref type: `React.ComponentRef` of the wrapper resolves to `never`.
+
+```tsx no-check
+import { type IgniteReactRef, igniteReact } from 'ignite-element/react';
+import { useRef } from 'react';
+import { Toggle as ToggleEl } from './register-ignite';
+
+const Toggle = igniteReact(ToggleEl);
+
+export function SettingsToggle() {
+  const ref = useRef<IgniteReactRef<typeof ToggleEl>>(null);
+  return (
+    <>
+      <Toggle ref={ref} onToggled={(toggled) => console.log(toggled.isOn)} />
+      <button onClick={() => ref.current?.toggle()}>Toggle</button>
+    </>
+  );
+}
+```
+
 `register-ignite.ts` is authored exactly as before — the only change is that
 registration now returns the handle you pass to `igniteReact`:
 

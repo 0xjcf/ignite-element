@@ -91,7 +91,9 @@ import { igniteReact } from "ignite-element/react";
 import { Counter as CounterEl } from "./counter.ignite";
 export const Counter = igniteReact(CounterEl);
 
-// App.tsx — idiomatic React, fully typed
+// App.tsx — idiomatic React, fully typed; the ref is the typed CommandHandle
+// import { type IgniteReactRef } from "ignite-element/react";
+// const ref = useRef<IgniteReactRef<typeof CounterEl>>(null);
 // <Counter ref={ref} label="Visitors" onCountChanged={(e) => setCount(e.count)} />
 ```
 
@@ -100,7 +102,12 @@ export const Counter = igniteReact(CounterEl);
 From the handle's `Commands` / `Events` generics + `getSchema()` at runtime:
 
 - **Commands** → the imperative **ref API** (`CommandHandle<Commands>` —
-  `increment()`, `decrement()`, `setLabel(label)`).
+  `increment()`, `decrement()`, `setLabel(label)`). Type the `useRef` with the
+  public `IgniteReactRef<typeof Handle>` — it derives that `CommandHandle` from
+  the handle, so the ref stays in sync with the element's commands with no
+  hand-written shape. (`React.ComponentRef<typeof ReactCounter>` resolves to
+  `never` for the synthesized `forwardRef` component, so `IgniteReactRef` is how
+  you name the ref type.)
 - **Single-arg `setX` commands** → optional **props** (`label?: string`), set as
   string attributes (mirrors `inferObservedAttributes`).
 - **Events map** → `on<Event>` **callback props**

@@ -6,10 +6,10 @@ idiomatic, typed React component instead of making you hand-write one.
 
 ## What it shows
 
-- **One-line wrapper.** `igniteReact(CounterEl)` turns the registered ignite
-  element handle into a typed `forwardRef` React component. No hand-written
-  element interface, no JSX module augmentation, no scattered refs/listeners in
-  app code.
+- **One-line wrapper.** `igniteReact(counterElement)` (in `counter.react.ts`)
+  turns the registered ignite element handle into a typed `forwardRef` React
+  component. No hand-written element interface, no JSX module augmentation, no
+  scattered refs/listeners in app code.
 - **Props in.** The single-arg `setLabel` command maps to a `label?: string`
   prop, set as the element's `label` attribute (mirrors
   `inferObservedAttributes`).
@@ -18,14 +18,16 @@ idiomatic, typed React component instead of making you hand-write one.
   the flat payload (`event.detail` forwarded directly — no envelope).
 - **Commands via ref.** The ref is a typed `CommandHandle`
   (`increment()`, `decrement()`, `setLabel(label)`) bound to the element's
-  methods.
+  methods. Type a `useRef` with `IgniteReactRef<typeof counterElement>` (exported
+  as `CounterRef`) — no hand-written shape, no drift from the element's commands.
 
 ## Files
 
 | File | Role |
 | --- | --- |
-| `src/counter.ignite.tsx` | The ignite element, authored as usual. Registration returns a typed handle. The internal view uses a lit-html template so this file is JSX-pragma-free. |
-| `src/App.tsx` | Idiomatic React. `igniteReact(CounterEl)` is the whole wrapper; props/ref/events flow through it. |
+| `src/counter.ignite.tsx` | The framework-neutral ignite element, authored as usual; registration returns a typed handle (`counterElement`). The view is authored with ignite-JSX — the config-free default renderer — via a per-file `@jsxImportSource` pragma. No React here. |
+| `src/counter.react.ts` | The React binding: `igniteReact(counterElement)` is the whole wrapper, plus `CounterRef` (`IgniteReactRef<typeof counterElement>`). The element stays neutral; this is the React side of the boundary. |
+| `src/App.tsx` | Idiomatic React, a pure consumer: imports `Counter`/`CounterRef`; props, ref, and events flow through them. |
 | `src/main.tsx` | React root. |
 | `index.html` | Host page + demo styling. |
 
