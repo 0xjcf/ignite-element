@@ -1,4 +1,4 @@
-# feat: ignite-element/react schema-driven React wrapper + registration handle + React demo
+# examples: add React/Vue/Svelte/Angular framework-interop demos under examples/frameworks + extend host-app-integration g
 
 ## Source
 Created with `fas create-task` on 2026-06-18.
@@ -40,11 +40,19 @@ Reshaped from the framework-interop gap-finder (was: hand-rolled React/Vue/Svelt
 - packages/ignite-element/src/tests/react/igniteReact.test.tsx
 - docs/site/src/content/docs/guides/host-app-integration.mdx
 - .changeset/ignite-react.md
+- packages/ignite-element/src/IgniteElementFactory.ts
+- packages/ignite-element/vite.config.ts
+- packages/ignite-element/scripts/verify-exports.mjs
+- packages/ignite-element/src/tests/types/igniteReact.types.test.ts
 
 ## Scope Amendments
 - Type: scope-refresh
 - Added at: 2026-06-19
 - Added paths: packages/ignite-element/src/examples/frameworks/react/package.json, packages/ignite-element/src/examples/frameworks/react/vite.config.ts, packages/ignite-element/src/examples/frameworks/react/tsconfig.json, packages/ignite-element/src/examples/frameworks/react/index.html, packages/ignite-element/src/examples/frameworks/react/src/main.tsx, packages/ignite-element/src/examples/frameworks/react/src/App.tsx, packages/ignite-element/src/examples/frameworks/react/README.md, packages/ignite-element/package.json, docs/site/src/content/docs/guides/host-app-integration.mdx
+
+- Type: scope-refresh
+- Added at: 2026-06-19
+- Added paths: packages/ignite-element/src/IgniteElementFactory.ts, packages/ignite-element/vite.config.ts, scripts/verify-exports.mjs, packages/ignite-element/src/tests/types/igniteReact.types.test.ts
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

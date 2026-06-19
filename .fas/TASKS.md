@@ -1329,6 +1329,25 @@ No active tasks.
 - Owner: runtime
 - Brief: .fas/tasks/additive-standardize-effects-object-signature-deprecate-posi.md
 
+### Task: examples: add React/Vue/Svelte/Angular framework-interop demos under examples/frameworks + extend host-app-integration g
+
+- Title: examples: add React/Vue/Svelte/Angular framework-interop demos under examples/frameworks + extend host-app-integration g
+- Mode: 6-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/examples-add-react-vue-svelte-angular-framework-interop-demo.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: test: lock multi/zero-arg setX exclusion in igniteReact type tests (QA follow-up)
+
+- Title: test: lock multi/zero-arg setX exclusion in igniteReact type tests (QA follow-up)
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/test-lock-multi-zero-arg-setx-exclusion-in-ignitereact-type-.md
+
 ## Template
 
 ### Task: <short task title>
