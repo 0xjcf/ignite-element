@@ -29,21 +29,10 @@
         font-size: 0.9rem;
         line-height: 1.5;
       }
-      .counter-card {
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        padding: 1rem 1.25rem;
-        border-radius: 0.75rem;
-        background: #1e293b;
-      }
-      .counter-label {
-        color: #94a3b8;
-      }
-      .counter-value {
-        font-size: 2rem;
-        font-weight: 700;
-      }
+      /* The counter's own styles (.counter-card / .counter-label /
+         .counter-value) live in src/counter.css and are injected into its
+         Shadow DOM by the element's view — document CSS can't cross the shadow
+         boundary, so they have no effect here. */
       .controls {
         display: flex;
         gap: 0.5rem;

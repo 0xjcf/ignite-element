@@ -1,6 +1,7 @@
 /** @jsxImportSource ignite-element/jsx */
 import { igniteCore } from "ignite-element/xstate";
 import { assign, setup } from "xstate";
+import styles from "./counter.css?raw";
 
 // A small, real ignite element authored exactly as you would for any host —
 // framework-neutral. Registration returns a typed handle (tagName + getSchema +
@@ -55,10 +56,15 @@ const counterCore = igniteCore({
 });
 
 // The framework-neutral handle: a standard custom element + getSchema(). This is
-// the unit a host (or an agent) consumes; the React wrapper derives from it.
+// the unit a host (or an agent) consumes; the React wrapper derives from it. The
+// view injects counter.css into its Shadow DOM via a raw <style> (document CSS
+// can't reach shadow content) — the config-free styling path.
 export const counterElement = counterCore("react-demo-counter", (ctx) => (
-	<div class="counter-card">
-		<span class="counter-label">{ctx.label}</span>
-		<output class="counter-value">{ctx.count}</output>
-	</div>
+	<>
+		<style>{styles}</style>
+		<div class="counter-card">
+			<span class="counter-label">{ctx.label}: </span>
+			<output class="counter-value">{ctx.count}</output>
+		</div>
+	</>
 ));
