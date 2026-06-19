@@ -17,6 +17,11 @@ export { defineIgniteConfig, getIgniteConfig } from "./config";
 export type { GlobalStyles } from "./globalStyles";
 export { getGlobalStyles, setGlobalStyles } from "./globalStyles";
 export { default as injectStyles, flushPendingStyles } from "./injectStyles";
+export {
+	AutoDetectRenderStrategy,
+	createAutoDetectRenderStrategy,
+	isLitTemplateResult,
+} from "./renderers/AutoDetectRenderStrategy";
 export type {
 	IgniteJsxChild,
 	IgniteJsxElement,
