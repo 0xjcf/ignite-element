@@ -61,7 +61,49 @@ toggle('ignite-toggle', ({ isOn, toggle }) => (
 
 ## React
 
-Use a `ref` and native `addEventListener` so your integration works consistently across React versions:
+There are two ways to use an ignite element from React. Prefer the
+schema-driven wrapper; the hand-rolled path is the fallback when you do not want
+the helper.
+
+### Schema-driven wrapper (recommended)
+
+Registration returns a typed handle, and `igniteReact` turns that handle into an
+idiomatic, fully typed React component — no `tagName` argument and no manual
+type arguments. Commands become the ref API, single-arg `setX` commands become
+props, and each event becomes an `on<Event>` callback prop receiving the **flat
+member** (the wrapper forwards `event.detail` directly — there is no
+`{ type, payload }` envelope at the DOM boundary):
+
+```tsx no-check
+import { igniteReact } from 'ignite-element/react';
+// The registrar returns a handle; export it for the wrapper.
+import { Toggle as ToggleEl } from './register-ignite';
+
+const Toggle = igniteReact(ToggleEl);
+
+export function SettingsToggle() {
+  // onToggled receives the flat payload member, not an envelope.
+  return <Toggle onToggled={(toggled) => console.log(toggled.isOn)} />;
+}
+```
+
+`register-ignite.ts` is authored exactly as before — the only change is that
+registration now returns the handle you pass to `igniteReact`:
+
+```ts no-check
+// register-ignite.ts (excerpt) — `toggle` is the registrar from "Register once"
+export const Toggle = toggle('ignite-toggle', ({ isOn, toggle }) => (
+  <button onClick={toggle}>{isOn ? 'On' : 'Off'}</button>
+));
+```
+
+The same handle + `getSchema()` metadata drives Vue/Svelte/Angular wrappers as
+follow-up entrypoints — write the wrapper once, get every framework.
+
+### Hand-rolled wrapper (fallback)
+
+If you prefer not to use the helper, use a `ref` and native `addEventListener`
+so your integration works consistently across React versions:
 
 ```tsx
 import { useEffect, useRef } from 'react';
