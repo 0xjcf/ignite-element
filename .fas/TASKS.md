@@ -1348,6 +1348,17 @@ No active tasks.
 - Owner: runtime
 - Brief: .fas/tasks/test-lock-multi-zero-arg-setx-exclusion-in-ignitereact-type-.md
 
+### Task: examples/react: formalize IgniteReactRef public type + land ignite-jsx demo fix (test + docs + changeset)
+
+- Title: examples/react: formalize IgniteReactRef public type + land ignite-jsx demo fix (test + docs + changeset)
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/examples-react-formalize-ignitereactref-public-type-land-ign.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
