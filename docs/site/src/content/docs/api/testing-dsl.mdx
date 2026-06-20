@@ -46,12 +46,13 @@ Scenario methods — every `given`/`expect*` **returns the scenario** so calls c
 - `given(expected)` — assert the current state before acting. Accepts a state value, a deep-partial match, or a predicate.
 - `when(commandName, payload?)` — execute a command; returns a `Promise` of the scenario.
 - `expectState(expected)` — assert the post-command state.
+- `expectView(expected)` — assert the projected view (mirrors `getView()`). Accepts a deep-partial object or a predicate.
 - `expectEvent(type, payload?)` — assert an event was emitted, optionally matching its payload.
 - `expectEvents(expected)` — assert several events by `{ type, payload? }`.
 - `expectNoEvents()` — assert the command emitted nothing.
 - `getResult()` — return the raw `{ state, events }` of the last `when(...)`.
 
-State and payload expectations accept a deep-partial object, a predicate function, or — for state — the bare state value.
+State, view, and payload expectations accept a deep-partial object, a predicate function, or — for state — the bare state value.
 
 ## Stories
 
