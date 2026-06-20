@@ -25,15 +25,14 @@ Type-level follow-up surfaced by dogfooding expectView (task-1781798484574). The
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- packages/ignite-element/src/igniteCore/types.ts
-- packages/ignite-element/src/runtime/agent.ts
-- packages/ignite-element/src/types/agent.ts
-- packages/ignite-element/src/tests/types/igniteCore.types.test.ts
+- packages/ignite-element/src/testing.ts
 - packages/ignite-element/src/tests/testing.test.ts
-- .changeset
+- packages/ignite-element/src/tests/types/testing.types.test.ts
+- .changeset/typed-view-test-dsl.md
 
 ## Scope Amendments
-- None.
+- Investigation found the runtime-side threading the brief assumed was missing is ALREADY done: `IgniteCoreReturn` (igniteCore/types.ts) surfaces `StatesResult` into `IgniteAgentRuntime`'s 5th `View` generic, so `getView()`/`watchView()`/`record()` are already typed (locked by `igniteCore.types.test.ts` `register.getView()` → `{ count: number }`, verified green + by an empirical type probe). No change to `igniteCore/types.ts`, `runtime/agent.ts`, or `types/agent.ts` was needed.
+- The real defect was isolated to the test DSL: `RuntimeView<Runtime>` in `testing.ts` inferred only 4 of `IgniteAgentRuntime`'s generics, so its `infer View` bound to the 4th param (`SchemaState` = `IgniteSchemaValue`) instead of the 5th (`View`). The fix adds the missing `infer _SchemaState` slot so `expectView` reads the view projection. Type-only; no runtime behavior change.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

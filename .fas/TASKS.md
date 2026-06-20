@@ -1440,9 +1440,19 @@ No active tasks.
 
 - Title: typing: surface the view projection through igniteCore's return so getView()/expectView are typed (not Record<string,unk
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/typing-surface-the-view-projection-through-ignitecore-s-retu.md
+
+### Task: typing: surface the view projection through igniteCore's return so getView()/expectView are typed (not Record<string,unknown>)
+
+- Title: typing: surface the view projection through igniteCore's return so getView()/expectView are typed (not Record<string,unknown>)
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ## Template
 
