@@ -28,7 +28,7 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
 
 | Decision | Doc | Kind | Status |
 | --- | --- | --- | --- |
-| `select().whenChanged()` + structural-equality default + `shallowEqual` | `effects-change-detection.md` | additive | design ✓, task queued |
+| ~~`select().whenChanged()` + structural-equality default~~ | `effects-change-detection.md` | additive | **dropped (2026-06-20)** — marginal sugar over `.changed`; see doc |
 | Flat tagged event `{ type, … }` (emit / observe / `expectEvent`) | `event-shape.md` | **breaking** | design ✓, task queued (1781818971210) |
 | Uniform view/effects context = `{ snapshot }` (drop the spread) | `view-context-canonicalization.md` | **breaking** | design ✓, task queued (1781818972687) |
 | Effects single (object) signature; deprecate positional | this doc | additive→deprecate | task queued (1781818975642) |
@@ -49,7 +49,7 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
 
 ## Sequencing
 
-- **Additive** (`whenChanged`, `expectView`, host seam, `canExecute`,
+- **Additive** (`expectView`, host seam, `canExecute`,
   effects-object-form): ship independently, anytime.
 - **Breaking** (event shape, view-context `{ snapshot }`, `expectState`→
   `expectSnapshot`): land **together** in one pre-stable cutover, one coordinated

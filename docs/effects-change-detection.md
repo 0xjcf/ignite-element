@@ -2,8 +2,14 @@
 
 ## Status
 
-Proposed (design only — not implemented). Captures the 2026-06-18 discussion so it
-is pickup-ready behind a FAS task.
+**Rejected (2026-06-20, owner).** Not implementing. `whenChanged` is marginal sugar
+over the existing `.changed` field — it only covers the single-selection case
+(combined conditions still need `.changed`/`.current`) and adds a second
+change-gating idiom on a surface being narrowed for stable + LLM legibility. The
+bundled `Object.is`→structural-equality default is a behavior change with low payoff
+when effects gate on a scalar (the recommended practice). If an object-selection
+footgun ever bites, add the purely-additive `isEqual` arg + `shallowEqual` helper
+then (no default flip). The 2026-06-18 design discussion is preserved below.
 
 ## Context
 
