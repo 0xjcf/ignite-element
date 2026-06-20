@@ -194,7 +194,7 @@ const inspectRuntime = (): RuntimeExecution => {
 		agentLog: [
 			`getSchema() -> ${commandNames.length} commands, ${schema.events.length} events`,
 			`commands -> ${commandNames.join(", ") || "none"}`,
-			`getState() -> count ${state.count}/${state.limit}, state ${state.value}`,
+			`getSnapshot() -> count ${state.count}/${state.limit}, state ${state.value}`,
 			`getView() -> ${view.stateLabel}, progress ${view.progress}%`,
 		],
 	};
@@ -643,7 +643,7 @@ agentRuntimeShowcase("xstate-agent-runtime-showcase", (ctx) => (
 
 		<div class="mt-4 grid gap-4">
 			<div class="min-w-0 rounded border border-slate-200 bg-slate-50 p-4">
-				<h3 class="text-sm font-semibold text-slate-800">getState()</h3>
+				<h3 class="text-sm font-semibold text-slate-800">getSnapshot()</h3>
 				<pre class="mt-3 overflow-auto rounded bg-white p-3 text-xs text-slate-700">
 					<code>{formatJson(ctx.report.state)}</code>
 				</pre>
