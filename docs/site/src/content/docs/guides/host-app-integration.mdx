@@ -1,6 +1,6 @@
 ---
 title: Host app integration
-description: Use Ignite Element from plain HTML, React, Vue, and other host environments.
+description: Use Ignite Element from plain HTML, React, Vue, Svelte, and other host environments.
 sidebar:
   label: Host app integration
   order: 1
@@ -184,6 +184,30 @@ onBeforeUnmount(() => {
 <template>
   <ignite-toggle ref="toggleRef" />
 </template>
+```
+
+## Svelte
+
+Svelte consumes custom elements through the standard browser surface with **no
+compiler config** (no Vue `isCustomElement`, no Angular schema). `on:eventname`
+listens to the `CustomEvent` declaratively — no `addEventListener` — and
+`bind:this` reaches the element's commands.
+
+```svelte
+<script lang="ts">
+import './register-ignite';
+
+// Commands are plain element methods; bind:this reaches them.
+let toggleRef: HTMLElement & { toggle?: () => void };
+
+const onToggled = (event: Event) => {
+  const customEvent = event as CustomEvent<{ isOn: boolean }>;
+  console.log(customEvent.detail.isOn);
+};
+</script>
+
+<ignite-toggle bind:this={toggleRef} on:toggled={onToggled}></ignite-toggle>
+<button type="button" on:click={() => toggleRef?.toggle?.()}>Toggle</button>
 ```
 
 ## SSR and hydration
