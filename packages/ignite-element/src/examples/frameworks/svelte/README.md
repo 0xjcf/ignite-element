@@ -22,7 +22,7 @@ adapter or the renderer — it consumes the same browser contract either way.
 - **Commands via `bind:this`.** `increment()` / `decrement()` / `reset()` are
   element methods, reached through a bound reference.
 - **Events out, declaratively.** The element's `changed` event is a DOM
-  `CustomEvent`; `on:changed={…}` listens for it with no `addEventListener` —
+  `CustomEvent`; `onchanged={…}` listens for it with no `addEventListener` —
   the path React (before 19) and Vue both fall back to.
 - **Config-free lit + Redux.** The `html\`\`` view renders with lit purely because
   `@ignite-element/renderer/lit` is imported (auto-detected, no `ignite.config.ts`),
@@ -39,8 +39,8 @@ What is **not** friction here, and is worth calling out:
 
 - **Zero compiler config.** Svelte renders `<ignite-stepper>` as-is. Vue needs
   `compilerOptions.isCustomElement`.
-- **Declarative events.** `on:changed` is case-preserving and needs no manual
-  listener — the lowest-ceremony custom-event story of the framework demos.
+- **Declarative events.** `onchanged` (Svelte 5's event attribute) needs no
+  manual listener — the lowest-ceremony custom-event story of the framework demos.
 
 ## Files
 

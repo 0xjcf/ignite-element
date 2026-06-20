@@ -189,16 +189,16 @@ onBeforeUnmount(() => {
 ## Svelte
 
 Svelte consumes custom elements through the standard browser surface with **no
-compiler config** (no Vue `isCustomElement` setup). `on:eventname`
-listens to the `CustomEvent` declaratively — no `addEventListener` — and
-`bind:this` reaches the element's commands.
+compiler config** (no Vue `isCustomElement` setup). Svelte 5's `oneventname`
+event attribute listens to the `CustomEvent` declaratively — no `addEventListener`
+— and `bind:this` reaches the element's commands.
 
 ```svelte
 <script lang="ts">
 import './register-ignite';
 
 // Commands are plain element methods; bind:this reaches them.
-let toggleRef: HTMLElement & { toggle?: () => void };
+let toggleRef = $state<HTMLElement & { toggle?: () => void }>();
 
 const onToggled = (event: Event) => {
   const customEvent = event as CustomEvent<{ isOn: boolean }>;
@@ -206,8 +206,8 @@ const onToggled = (event: Event) => {
 };
 </script>
 
-<ignite-toggle bind:this={toggleRef} on:toggled={onToggled}></ignite-toggle>
-<button type="button" on:click={() => toggleRef?.toggle?.()}>Toggle</button>
+<ignite-toggle bind:this={toggleRef} ontoggled={onToggled}></ignite-toggle>
+<button type="button" onclick={() => toggleRef?.toggle?.()}>Toggle</button>
 ```
 
 ## SSR and hydration

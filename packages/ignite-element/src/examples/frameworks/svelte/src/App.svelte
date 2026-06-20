@@ -10,25 +10,25 @@ type IgniteStepperElement = HTMLElement & {
 	reset?: () => void;
 };
 
-let stepperEl: IgniteStepperElement;
+let stepperEl = $state<IgniteStepperElement>();
 
 // `label` flows IN as a string attribute (single-arg `setLabel` -> `label`).
-let label = "Cart items";
+let label = $state("Cart items");
 
 // `step` flows IN too. The host treats it as a number; it reaches the element
 // as a string attribute (`setStep` -> `step`) and the element coerces — the
 // honest string-attribute friction. Svelte sets it cleanly with `step={step}`;
 // no DOM-property gymnastics needed.
-let step = 1;
+let step = $state(1);
 
 // `value` is Svelte's mirror of the element's outward `changed` event — the
 // view stays declarative; the element owns the truth.
-let value = 0;
+let value = $state(0);
 
-// Custom-element events are DOM CustomEvents. Svelte's `on:changed` attaches a
-// listener for exactly that event — case-preserving, declarative, and needing
-// no manual `addEventListener` (the path React before 19 and Vue both fall
-// back to). The detail carries the flat payload.
+// Custom-element events are DOM CustomEvents. Svelte 5's `onchanged` event
+// attribute attaches a listener for that event declaratively — no manual
+// `addEventListener` (the path React before 19 and Vue both fall back to).
+// The detail carries the flat payload.
 const onChanged = (event: Event) => {
 	value = (event as CustomEvent<{ value: number }>).detail.value;
 };
@@ -39,21 +39,21 @@ const onChanged = (event: Event) => {
 	<p class="lede">
 		Svelte consumes the same kind of ignite custom element through the standard
 		browser surface — and needs <em>zero</em> compiler config to do it (no Vue
-		<code>isCustomElement</code>, no Angular schema). Attributes in,
-		<code>bind:this</code> for commands, and <code>on:changed</code> for DOM
+		<code>isCustomElement</code> setup). Attributes in,
+		<code>bind:this</code> for commands, and <code>onchanged</code> for DOM
 		<code>CustomEvent</code>s out.
 	</p>
 
-	<ignite-stepper bind:this={stepperEl} {label} step={step} on:changed={onChanged}></ignite-stepper>
+	<ignite-stepper bind:this={stepperEl} {label} {step} onchanged={onChanged}></ignite-stepper>
 
 	<p class="mirror">
 		Svelte's mirror of the element's value: <strong>{value}</strong>
 	</p>
 
 	<div class="controls">
-		<button type="button" on:click={() => stepperEl?.decrement?.()}>−{step}</button>
-		<button type="button" on:click={() => stepperEl?.increment?.()}>+{step}</button>
-		<button type="button" class="ghost" on:click={() => stepperEl?.reset?.()}>Reset</button>
+		<button type="button" onclick={() => stepperEl?.decrement?.()}>−{step}</button>
+		<button type="button" onclick={() => stepperEl?.increment?.()}>+{step}</button>
+		<button type="button" class="ghost" onclick={() => stepperEl?.reset?.()}>Reset</button>
 	</div>
 
 	<label class="label-field">
@@ -68,7 +68,7 @@ const onChanged = (event: Event) => {
 				type="button"
 				class="chip"
 				class:active={step === option}
-				on:click={() => (step = option)}
+				onclick={() => (step = option)}
 			>
 				{option}
 			</button>
