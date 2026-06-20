@@ -48,8 +48,8 @@ runs against current code. `xstate` is pinned to the workspace version
 
 A hand-rolled wrapper works today but pays a per-element tax: a hand-written
 element interface, JSX declaration, event wiring, and ref plumbing kept in sync
-by hand — and it does not scale across four frameworks. `igniteReact` reuses the
+by hand — and it does not scale across multiple frameworks. `igniteReact` reuses the
 `getSchema()` metadata ignite already emits for agents, so the same handle drives
-Vue/Svelte/Angular wrappers as follow-ups. See the
+Vue and Svelte wrappers as follow-ups. See the
 [host app integration guide](../../../../../../docs/site/src/content/docs/guides/host-app-integration.mdx)
 for both paths.

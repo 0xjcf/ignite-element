@@ -123,7 +123,7 @@ export const Toggle = toggle('ignite-toggle', ({ isOn, toggle }) => (
 `register-ignite.ts` stays **framework-neutral** — it is just the ignite element.
 `igniteReact(handle)` is the React *binding*; keep it in app code or a small
 `*.react.ts` module so the same element can get a Vue or Svelte binding from the
-same handle. That is how `getSchema()` drives Vue/Svelte/Angular wrappers as
+same handle. That is how `getSchema()` drives Vue and Svelte wrappers as
 follow-up entrypoints — write the binding once per framework, reuse the element
 everywhere.
 
@@ -189,7 +189,7 @@ onBeforeUnmount(() => {
 ## Svelte
 
 Svelte consumes custom elements through the standard browser surface with **no
-compiler config** (no Vue `isCustomElement`, no Angular schema). `on:eventname`
+compiler config** (no Vue `isCustomElement` setup). `on:eventname`
 listens to the `CustomEvent` declaratively — no `addEventListener` — and
 `bind:this` reaches the element's commands.
 

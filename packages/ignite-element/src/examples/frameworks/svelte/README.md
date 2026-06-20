@@ -1,7 +1,7 @@
 # ignite-element + Svelte (framework interop)
 
 A Svelte 5 demo that consumes an ignite custom element through the **standard
-custom-element surface** — no wrapper, and (unlike Vue or Angular) **no compiler
+custom-element surface** — no wrapper, and (unlike Vue) **no compiler
 config at all**. It is deliberately minimal (one element, not a full app) and
 pairs with the [host app integration
 guide](../../../../../../docs/site/src/content/docs/guides/host-app-integration.mdx).
@@ -38,7 +38,7 @@ adapter or the renderer — it consumes the same browser contract either way.
 What is **not** friction here, and is worth calling out:
 
 - **Zero compiler config.** Svelte renders `<ignite-stepper>` as-is. Vue needs
-  `compilerOptions.isCustomElement`; Angular needs `CUSTOM_ELEMENTS_SCHEMA`.
+  `compilerOptions.isCustomElement`.
 - **Declarative events.** `on:changed` is case-preserving and needs no manual
   listener — the lowest-ceremony custom-event story of the framework demos.
 
