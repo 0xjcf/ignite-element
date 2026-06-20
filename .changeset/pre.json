@@ -14,11 +14,15 @@
 		"canonical-snapshot-view-accessors",
 		"emitted-event-stream-seam",
 		"fix-renderer-innerhtml-jsx-toggle-57",
+		"ignite-react-ref",
+		"ignite-react",
+		"lit-renderer-autodetect",
 		"optional-peer-dependencies",
 		"remove-deprecated-pre-stable-surface",
 		"scope-sibling-packages",
 		"shared-source-ownership-cleanup",
 		"v3-public-api-boundary",
-		"view-context-snapshot-spread"
+		"view-context-snapshot-spread",
+		"xstate-command-actor-getsnapshot"
 	]
 }

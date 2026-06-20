@@ -1,5 +1,24 @@
 # ignite-renderer
 
+## 3.0.0-beta.7
+
+### Minor Changes
+
+- 5ca4686: Render lit-html views config-free — no `ignite.config.ts` required.
+
+  The config-free default render-strategy resolution now auto-detects the view output: a lit-html `TemplateResult` (when `@ignite-element/renderer/lit` is imported) routes to the `lit` strategy, and everything else routes to `ignite-jsx` (unchanged). Previously, selecting lit required `ignite.config.ts` plus the Vite config plugin; a lit-html view authored without it rendered a blank `<!--ignite-unknown-->`. An explicit `renderer` in `ignite.config.ts` still wins.
+
+  Backward-compatible: ignite-jsx views are unchanged (the wrapper attaches ignite-jsx eagerly and never switches), and a lit-html view rendered without registering the lit strategy still falls back to ignite-jsx exactly as before — no new throw or warning. See `docs/renderer-selection.md`.
+
+- 75cd1c2: `XStateCommandActor` now exposes xstate-native `getSnapshot()` and the invented `.state` accessor is removed.
+
+  The command actor handed to `commands`/`effects` (`({ actor }) => …`) is deliberately adapter-native — Redux exposes `{ dispatch, getState }`, MobX is the store, Actor-Web is its command source. The XState command actor was the lone outlier: it exposed an ignite-invented `readonly state` getter instead of xstate v5's native `actor.getSnapshot()` (which is also the runtime's snapshot vocabulary). Reading current state inside a command/effect now uses `actor.getSnapshot().context.…` instead of `actor.state.context.…`, so there is one snapshot vocabulary across the whole surface and no library-specific alias to learn.
+
+  - **Changed (`@ignite-element/adapters`):** `XStateCommandActor<Machine>` is now `{ send; getSnapshot(): ExtendedState<Machine> }` (was `{ send; readonly state }`). Same value, native method name.
+  - **Migration:** in XState `commands`/`effects`, replace `actor.state` with `actor.getSnapshot()`. (Redux/MobX/Actor-Web command actors are unchanged.)
+
+  Pre-stable cleanup: lands before `3.0.0`. Completes the source-native vocabulary alignment begun in the adapter-contract snapshot-naming change.
+
 ## 3.0.0-beta.6
 
 ## 3.0.0-beta.5

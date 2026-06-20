@@ -1,5 +1,56 @@
 # Changelog
 
+## 3.0.0-beta.7
+
+### Minor Changes
+
+- 571b93a: Export `IgniteReactRef<Handle>` from `ignite-element/react` — the public type for naming the imperative ref of a component built by `igniteReact`.
+
+  `IgniteReactRef<typeof Handle>` resolves to the `CommandHandle` derived from the handle's command schema, so a consumer can type a `useRef` without hand-writing the command shape (and without drift from the element's commands):
+
+  ```ts
+  import { type IgniteReactRef, igniteReact } from "ignite-element/react";
+  import { Counter as CounterEl } from "./counter.ignite";
+
+  const Counter = igniteReact(CounterEl);
+  const ref = useRef<IgniteReactRef<typeof CounterEl>>(null); // { increment; decrement; setLabel }
+  ```
+
+  This closes a gap in the `ignite-element/react` entrypoint: `React.ComponentRef<typeof Counter>` resolves to `never` for the synthesized `forwardRef` component, so there was no clean way to name the ref type. Type-only and additive — no runtime change.
+
+- 82f784b: Add the `ignite-element/react` entrypoint (`igniteReact`) and make registration return a typed `IgniteComponent` handle.
+
+  Ignite elements were always consumable from React through the custom-element surface, but imperatively — a hand-written element interface, JSX declaration, event wiring, and ref plumbing kept in sync by hand. `igniteReact` reuses the `getSchema()` metadata ignite already emits for agents to generate an idiomatic, typed React component from a single handle, with no manual type arguments.
+
+  - **New (`ignite-element/react`):** `igniteReact(component)` returns a typed `forwardRef` React component. Commands → the imperative ref API (`CommandHandle<Commands>`); single-arg `setX` commands → optional string props (set as attributes, mirroring `inferObservedAttributes`); the events map → `on<Event>` callback props receiving the **flat** event member (`event.detail` is forwarded directly — never the `{ type, payload }` envelope). `react` is an optional peer dependency of this entrypoint only.
+  - **Changed (`ignite-element`):** registration (`igniteCore(config)(tag, render)`) now returns a typed `IgniteComponent<Commands, Events>` handle (was `void`) carrying `tagName` and a `getSchema()` that delegates to the same single agent-runtime source of truth. Additive — callers that ignore the return are unaffected — and useful beyond React (a typed per-element handle also sharpens the test DSL and agent ergonomics).
+  - **Generalizes:** the same handle + `getSchema()` drives Vue/Svelte/Angular wrappers as follow-up entrypoints.
+
+  Pre-stable: lands in Phase 1 before the breaking cutover so the React demo (`src/examples/frameworks/react`) showcases it.
+
+- 5ca4686: Render lit-html views config-free — no `ignite.config.ts` required.
+
+  The config-free default render-strategy resolution now auto-detects the view output: a lit-html `TemplateResult` (when `@ignite-element/renderer/lit` is imported) routes to the `lit` strategy, and everything else routes to `ignite-jsx` (unchanged). Previously, selecting lit required `ignite.config.ts` plus the Vite config plugin; a lit-html view authored without it rendered a blank `<!--ignite-unknown-->`. An explicit `renderer` in `ignite.config.ts` still wins.
+
+  Backward-compatible: ignite-jsx views are unchanged (the wrapper attaches ignite-jsx eagerly and never switches), and a lit-html view rendered without registering the lit strategy still falls back to ignite-jsx exactly as before — no new throw or warning. See `docs/renderer-selection.md`.
+
+- 75cd1c2: `XStateCommandActor` now exposes xstate-native `getSnapshot()` and the invented `.state` accessor is removed.
+
+  The command actor handed to `commands`/`effects` (`({ actor }) => …`) is deliberately adapter-native — Redux exposes `{ dispatch, getState }`, MobX is the store, Actor-Web is its command source. The XState command actor was the lone outlier: it exposed an ignite-invented `readonly state` getter instead of xstate v5's native `actor.getSnapshot()` (which is also the runtime's snapshot vocabulary). Reading current state inside a command/effect now uses `actor.getSnapshot().context.…` instead of `actor.state.context.…`, so there is one snapshot vocabulary across the whole surface and no library-specific alias to learn.
+
+  - **Changed (`@ignite-element/adapters`):** `XStateCommandActor<Machine>` is now `{ send; getSnapshot(): ExtendedState<Machine> }` (was `{ send; readonly state }`). Same value, native method name.
+  - **Migration:** in XState `commands`/`effects`, replace `actor.state` with `actor.getSnapshot()`. (Redux/MobX/Actor-Web command actors are unchanged.)
+
+  Pre-stable cleanup: lands before `3.0.0`. Completes the source-native vocabulary alignment begun in the adapter-contract snapshot-naming change.
+
+### Patch Changes
+
+- Updated dependencies [5ca4686]
+- Updated dependencies [75cd1c2]
+  - @ignite-element/renderer@3.0.0-beta.7
+  - @ignite-element/core@3.0.0-beta.7
+  - @ignite-element/adapters@3.0.0-beta.7
+
 ## 3.0.0-beta.6
 
 ### Patch Changes
