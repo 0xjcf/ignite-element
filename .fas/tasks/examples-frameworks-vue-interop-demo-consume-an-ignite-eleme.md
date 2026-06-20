@@ -28,10 +28,10 @@ Build a runnable Vue 3 demo under packages/ignite-element/src/examples/framework
 - packages/ignite-element/src/examples/frameworks/vue/index.html
 - packages/ignite-element/src/examples/frameworks/vue/src/main.ts
 - packages/ignite-element/src/examples/frameworks/vue/src/App.vue
-- packages/ignite-element/src/examples/frameworks/vue/src/counter.ignite.ts
+- packages/ignite-element/src/examples/frameworks/vue/src/toggle.ignite.ts
+- packages/ignite-element/src/examples/frameworks/vue/src/env.d.ts
 - packages/ignite-element/src/examples/frameworks/vue/README.md
 - packages/ignite-element/package.json
-- docs/site/src/content/docs/guides/host-app-integration.mdx
 
 ## Scope Amendments
 - None.

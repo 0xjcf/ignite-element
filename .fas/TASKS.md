@@ -1395,9 +1395,12 @@ No active tasks.
 
 - Title: examples/frameworks: Vue interop demo — consume an ignite element via standard custom-element APIs (isCustomElement)
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/examples-frameworks-vue-interop-demo-consume-an-ignite-eleme.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: examples/frameworks: Svelte interop demo — consume an ignite element (near-zero friction proof point)
 
