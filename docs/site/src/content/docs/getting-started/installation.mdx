@@ -43,7 +43,7 @@ For the default path, you do not need `ignite.config.ts`, a bundler plugin, or s
 
 ### Optional advanced and legacy setup
 
-Use the advanced setup only when you need `@ignite-element/renderer` primitives for shared styles, diagnostics, or the legacy `lit` path.
+Use the advanced setup only when you need `@ignite-element/renderer` primitives for shared styles or renderer diagnostics. (Using lit is **not** advanced — it is config-free; see [Rendering](/ignite-element/concepts/rendering/).)
 
 - **Advanced config**: [`ignite.config.ts`, renderer selection, and bundler notes](/ignite-element/api/advanced-config/)
 
@@ -55,7 +55,7 @@ Ignite Element stays lean but is not literally “zero dependency”: you must i
 
 - Run a TypeScript check (e.g., `pnpm exec tsc --noEmit` or `npx tsc --noEmit`) to ensure JSX settings work.
 - Create a smoke test component via [Your first component](/ignite-element/getting-started/first-component/).
-- Add config/plugins only if you need global renderer defaults, shared styles, or lit.
+- Add config/plugins only if you need global renderer defaults, shared styles, or diagnostics. Using lit needs none of these — just import `@ignite-element/renderer/lit`.
 
 ## Project checklist
 
@@ -65,4 +65,4 @@ A baseline for a real project:
 - **TypeScript JSX**: set `"jsx": "react-jsx"` and `"jsxImportSource": "ignite-element/jsx"` (or the per-file pragma).
 - **Testing**: add a runner (Vitest or Jest) and a smoke test per web component (mount + basic interaction). See [Test components](/ignite-element/guides/testing/).
 - **Linting/formatting**: use your preferred stack (ESLint/Prettier, Biome, …); the package imposes none.
-- **Advanced setup (optional)**: reach for [`ignite.config.ts`](/ignite-element/api/advanced-config/) only when you need project-wide renderer defaults, shared styles, diagnostics, or the legacy `lit` renderer.
+- **Advanced setup (optional)**: reach for [`ignite.config.ts`](/ignite-element/api/advanced-config/) only when you need project-wide renderer defaults, shared styles, or diagnostics. Lit is config-free — see [Rendering](/ignite-element/concepts/rendering/).

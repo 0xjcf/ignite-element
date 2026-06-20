@@ -46,6 +46,8 @@ pnpm add ignite-element@beta xstate
 
 In v3 the state libraries and `lit-html` are declared as **optional** peer dependencies. Installing `ignite-element@beta xstate` no longer pulls in Redux, MobX, Redux Toolkit, or lit, and you won't see "unmet peer" warnings for the adapters you don't use. `lit-html` is only needed if you opt into the `lit` render strategy — the default Ignite JSX renderer requires no renderer dependency.
 
+Selecting lit is now **config-free**: install `lit-html`, import `@ignite-element/renderer/lit`, and author lit-html templates — Ignite auto-detects them and renders with lit. You no longer set `renderer: 'lit'` in `ignite.config.ts` just to use lit (it remains the way to *force* one renderer project-wide). See [Rendering](/ignite-element/concepts/rendering/).
+
 ## 3) View-first context
 
 The facade `view(...)` callback now receives an object snapshot's fields spread directly onto its context, so you can destructure the read model without reaching through `snapshot`:

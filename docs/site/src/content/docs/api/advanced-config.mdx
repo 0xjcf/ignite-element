@@ -12,8 +12,9 @@ Reach for this page only when you need one of these advanced, project-wide capab
 
 - Shared styles injected into every component shadow root.
 - Renderer/strategy diagnostics (`logging`).
-- A project-wide render-strategy override.
-- The legacy `lit` renderer.
+- Forcing one renderer project-wide, overriding per-view auto-detection.
+
+Using lit is **not** on this list anymore: it is config-free — see [Rendering](/ignite-element/concepts/rendering/).
 
 ## The `ignite.config.ts` file
 
@@ -54,7 +55,7 @@ If your toolchain doesn't support `import.meta.url`, set `styles` to a fully qua
 | Option | Type | Default | Purpose |
 | --- | --- | --- | --- |
 | `styles` | `string \| { href, integrity?, crossOrigin? }` | — | Stylesheet injected into every component shadow root. |
-| `renderer` | `"ignite-jsx" \| "lit"` | `"ignite-jsx"` | Renderer used project-wide. |
+| `renderer` | `"ignite-jsx" \| "lit"` | auto-detect | Force one renderer project-wide, overriding per-view auto-detection. |
 | `strategy` | `"diff" \| "replace"` | `"diff"` | Render-update strategy (see below). |
 | `logging` | `"off" \| "warn" \| "debug"` | `"off"` | Renderer/strategy diagnostics. |
 
@@ -66,7 +67,20 @@ Component-local `<style>` tags remain the default scoped-styling path; `styles` 
 
 ## Renderer selection
 
-Ignite JSX is the config-free default and ships with the package — no extra peer dependencies. Set `renderer: 'lit'` only when you intentionally opt into the legacy compatibility renderer:
+You normally **don't** set `renderer`. On the config-free path Ignite auto-detects the strategy from each view's output — a lit-html `TemplateResult` renders with lit (when `@ignite-element/renderer/lit` is imported), everything else with Ignite JSX — so using lit needs no config:
+
+```ts no-check
+import '@ignite-element/renderer/lit';
+import { html } from 'lit-html';
+
+component('ignite-toggle', ({ isOn, toggle }) =>
+  html`<button @click=${toggle}>${isOn ? 'On' : 'Off'}</button>`
+);
+```
+
+See [Rendering](/ignite-element/concepts/rendering/) for the full authoring and selection story.
+
+Set `renderer` here only to **force** one strategy project-wide, overriding auto-detection — for example, to render every component through lit regardless of output:
 
 ```ts
 import { defineIgniteConfig } from '@ignite-element/renderer';
@@ -74,16 +88,6 @@ import { defineIgniteConfig } from '@ignite-element/renderer';
 export default defineIgniteConfig({
   renderer: 'lit',
 });
-```
-
-Then install `lit-html`, import `@ignite-element/renderer/lit`, and author lit templates while keeping the same `view`/`commands` contract:
-
-```ts no-check
-import { html } from 'lit-html';
-
-component('ignite-toggle', ({ isOn, toggle }) =>
-  html`<button @click=${toggle}>${isOn ? 'On' : 'Off'}</button>`
-);
 ```
 
 An unknown `renderer` value is normalized by legacy compatibility behavior and logged — don't rely on that path.
@@ -124,8 +128,8 @@ Other symbols on the package (`injectStyles`, `flushPendingStyles`, `getGlobalSt
 
 ## Notes & troubleshooting
 
-- Missing config keeps the Ignite JSX default. If config exists but `renderer` is unset, Ignite still defaults to `ignite-jsx`.
-- `lit` is no longer part of the stable `ignite-element` public surface — import `@ignite-element/renderer/lit` only when you intentionally opt in.
+- With no `renderer` set — whether config is absent or present only for `styles`/`logging` — Ignite auto-detects per view (lit for lit-html output, Ignite JSX otherwise).
+- `lit` is not part of the stable `ignite-element` root surface — import `@ignite-element/renderer/lit` to make the lit strategy available; auto-detection then selects it for lit-html views.
 - Legacy config-loader plugins are compatibility-only internals, not part of the stable v3 API. Keep them only in setups you already own.
 - `globalStyles` is a deprecated alias for `styles`; migrate to `styles`.
 

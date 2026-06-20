@@ -120,8 +120,12 @@ export const Toggle = toggle('ignite-toggle', ({ isOn, toggle }) => (
 ));
 ```
 
-The same handle + `getSchema()` metadata drives Vue/Svelte/Angular wrappers as
-follow-up entrypoints — write the wrapper once, get every framework.
+`register-ignite.ts` stays **framework-neutral** — it is just the ignite element.
+`igniteReact(handle)` is the React *binding*; keep it in app code or a small
+`*.react.ts` module so the same element can get a Vue or Svelte binding from the
+same handle. That is how `getSchema()` drives Vue/Svelte/Angular wrappers as
+follow-up entrypoints — write the binding once per framework, reuse the element
+everywhere.
 
 ### Hand-rolled wrapper (fallback)
 
