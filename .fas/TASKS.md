@@ -1422,6 +1422,17 @@ No active tasks.
 - Note: Backlog (owner hold-off 2026-06-20) — deferred out of the active chain to avoid a false Angular claim in the beta docs; revisit after the worked-apps examples / Phase 1. Brief preserved.
 - Brief: .fas/tasks/examples-frameworks-angular-interop-demo-consume-an-ignite-e.md
 
+### Task: examples/apps: form-with-validation worked app (XState + ignite-jsx)
+
+- Title: examples/apps: form-with-validation worked app (XState + ignite-jsx)
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/examples-apps-form-with-validation-worked-app-xstate-ignite-.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
