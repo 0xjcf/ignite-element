@@ -29,7 +29,8 @@ Build a runnable Svelte demo under packages/ignite-element/src/examples/framewor
 - packages/ignite-element/src/examples/frameworks/svelte/index.html
 - packages/ignite-element/src/examples/frameworks/svelte/src/main.ts
 - packages/ignite-element/src/examples/frameworks/svelte/src/App.svelte
-- packages/ignite-element/src/examples/frameworks/svelte/src/counter.ignite.ts
+- packages/ignite-element/src/examples/frameworks/svelte/src/stepper.ignite.ts
+- packages/ignite-element/src/examples/frameworks/svelte/src/env.d.ts
 - packages/ignite-element/src/examples/frameworks/svelte/README.md
 - packages/ignite-element/package.json
 - docs/site/src/content/docs/guides/host-app-integration.mdx

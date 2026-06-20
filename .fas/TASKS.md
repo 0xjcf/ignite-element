@@ -1406,9 +1406,12 @@ No active tasks.
 
 - Title: examples/frameworks: Svelte interop demo — consume an ignite element (near-zero friction proof point)
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/examples-frameworks-svelte-interop-demo-consume-an-ignite-el.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: examples/frameworks: Angular interop demo — consume an ignite element (CUSTOM_ELEMENTS_SCHEMA)
 
