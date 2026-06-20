@@ -52,7 +52,7 @@ describe("AutoDetectRenderStrategy (config-free renderer selection)", () => {
 	it("falls back to ignite-jsx (no throw) when a lit view is rendered but lit is not registered", () => {
 		// Backward-compatible: components that author throwaway lit views without
 		// selecting lit keep the pre-existing ignite-jsx behavior instead of
-		// crashing. (Import "ignite-element/renderers/lit" to actually render lit.)
+		// crashing. (Import "@ignite-element/renderer/lit" to actually render lit.)
 		clearRegisteredRenderStrategiesForTests();
 		registerRenderStrategy("ignite-jsx", createIgniteJsxRenderStrategy);
 		const root = shadowRoot();

@@ -23,7 +23,7 @@ export function isLitTemplateResult(view: unknown): boolean {
  * switches to the `lit` strategy the moment a view returns a lit `TemplateResult`
  * AND the lit strategy is registered — so a `html\`…\`` view renders with no
  * `ignite.config.ts`, no build plugin, and no pragma, as long as
- * `ignite-element/renderers/lit` is imported.
+ * `@ignite-element/renderer/lit` is imported.
  *
  * If a lit `TemplateResult` is returned but the lit strategy is NOT registered,
  * it falls back to `ignite-jsx` (the pre-existing behavior) rather than throwing,

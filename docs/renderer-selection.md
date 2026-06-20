@@ -51,7 +51,7 @@ case) and switches to the lit strategy on the first render whose output is a lit
 is returned but the lit strategy is not registered, it falls back to `ignite-jsx`
 (the pre-existing behavior) rather than throwing — so components that author
 throwaway lit views without selecting lit are unaffected. Importing
-`ignite-element/renderers/lit` is what upgrades such a view to the lit strategy.
+`@ignite-element/renderer/lit` is what upgrades such a view to the lit strategy.
 
 ## Consequences
 
@@ -63,7 +63,7 @@ throwaway lit views without selecting lit are unaffected. Importing
   once, on first render.
 - Backward-compatible: a lit view rendered without registering the lit strategy
   falls back to `ignite-jsx` exactly as before — no new throw or warning. Importing
-  `ignite-element/renderers/lit` is what upgrades it to the lit strategy.
+  `@ignite-element/renderer/lit` is what upgrades it to the lit strategy.
 - A component is expected to use one renderer for its lifetime; the detector
   routes per render and stabilizes after the first.
 
