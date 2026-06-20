@@ -1207,10 +1207,13 @@ No active tasks.
 
 - Title: ADDITIVE: add expectView to the test DSL per docs/v3-api-consistency.md. Mirror the runtime getView() — assert the projected view in the scenario harness (lastResult.view ?? component.getView()), alongside the existing expectState. Does NOT rename expectState (the expectState->expectSnapshot rename is the separate BREAKING item). Affected files: packages/ignite-element/src/testing.ts (IgniteTestScenario interface + IgniteTestDriver), and tests covering expectView pass/fail.
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/additive-add-expectview-to-the-test-dsl-per-docs-v3-api-con.md
 - Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: ADDITIVE (gap): add canExecute(name) to the headless runtime per docs/v3-api-consistency.md. A command-availability query for UI-guard patterns (disable a control when a command is unavailable), backed by the same info getSchema() exposes. Affected files: packages/ignite-element/src/runtime/agent.ts, packages/ignite-element/src/types/agent.ts, tests, and a short docs note in guides/agent-runtime-v3.mdx.
 

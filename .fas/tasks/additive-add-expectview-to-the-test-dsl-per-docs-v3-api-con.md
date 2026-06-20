@@ -30,7 +30,10 @@ ADDITIVE: add expectView to the test DSL per docs/v3-api-consistency.md. Mirror 
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- Scope unknown.
+- `packages/ignite-element/src/testing.ts` — add `expectView` to the `IgniteTestScenario` interface + `IgniteTestDriver` (asserts the projected view via `component.getView()`); add an `IgniteViewExpectation<View>` type and an `assertView` helper mirroring `IgniteStateExpectation`/`assertState`; thread a `View` generic (default-typed → non-breaking) through the scenario type, driver, and `createTestScenario` factory (add a `RuntimeView<Runtime>` extractor) so the expectation is typed from the component.
+- `packages/ignite-element/src/tests/testing.test.ts` — `expectView` coverage (partial-object match + predicate form, pass + fail), alongside the existing `expectState` tests.
+- `docs/site/src/content/docs/api/testing-dsl.mdx` — document `expectView` beside `expectState` in the Testing DSL reference (the guide `testing.mdx` only links to this reference, so per-method docs live here).
+- `.changeset/expectview-test-dsl.md` — minor changeset (additive public test-DSL method).
 
 ## Scope Amendments
 - None.
