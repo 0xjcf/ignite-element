@@ -1417,8 +1417,9 @@ No active tasks.
 
 - Title: examples/frameworks: Angular interop demo — consume an ignite element (CUSTOM_ELEMENTS_SCHEMA)
 - Mode: single-agent
-- Status: queued
+- Status: blocked
 - Owner: runtime
+- Note: Backlog (owner hold-off 2026-06-20) — deferred out of the active chain to avoid a false Angular claim in the beta docs; revisit after the worked-apps examples / Phase 1. Brief preserved.
 - Brief: .fas/tasks/examples-frameworks-angular-interop-demo-consume-an-ignite-e.md
 
 ## Template

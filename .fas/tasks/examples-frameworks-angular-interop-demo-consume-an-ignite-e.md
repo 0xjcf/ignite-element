@@ -1,5 +1,13 @@
 # examples/frameworks: Angular interop demo — consume an ignite element (CUSTOM_ELEMENTS_SCHEMA)
 
+> **BACKLOG (owner hold-off, 2026-06-20).** Deferred out of the active examples
+> chain. Rationale: hold off on the Angular demo for now and remove the Angular
+> claims from the beta docs so there are no false claims; focus on the worked-apps
+> examples next. Queue status is `blocked` (parked, not scheduled); this brief is
+> preserved for revival. When picked up, re-add the Angular section to
+> `docs/site/src/content/docs/guides/host-app-integration.mdx` and the
+> four-frameworks framing alongside the demo. Revisit after worked-apps / Phase 1.
+
 ## Source
 Created with `fas create-task` on 2026-06-19.
 

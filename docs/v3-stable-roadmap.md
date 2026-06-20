@@ -29,20 +29,22 @@ cut; additive/polish are sequenced by priority + this doc.
 Pulled ahead of the additive API (owner, 2026-06-19): the examples back the
 multi-framework doc claims **and** surface API gaps before the cutover freezes the
 surface — exactly how the React demo found `IgniteReactRef` + lit auto-detect.
-Only `react` exists under `examples/frameworks/` while docs claim four. Each demo
+React, Vue, and Svelte demos now exist under `examples/frameworks/`. Each demo
 consumes a small ignite element via that framework's **standard** custom-element
 path and documents the friction honestly; **no** per-framework `ignite*` helpers
 (those stay follow-ups — the demos tell us if friction earns one). All
-single-agent. Wired as a `dependsOn` chain so they run in order.
+single-agent. The **Angular demo is backlogged** (owner hold-off 2026-06-20):
+held off for now, and its claims were removed from the beta docs so nothing
+over-claims. With Angular off the chain, the next example work is worked-apps.
 
-| Task | id | Note |
+| Task | id | Status |
 | --- | --- | --- |
-| Vue demo (`compilerOptions.isCustomElement`) | `1781919276233` | ready; most-claimed (the guide already has a Vue snippet) |
-| Svelte demo (near-zero friction) | `1781919336709` | deferred → Vue |
-| Angular demo (`CUSTOM_ELEMENTS_SCHEMA`) | `1781919547313` | deferred → Svelte |
-| Worked apps (form / nested router / dashboard) | `1781805264107` | deferred → Angular (pulled up from Phase 3) |
+| Vue demo (`compilerOptions.isCustomElement`) | `1781919276233` | ✅ done |
+| Svelte demo (`<ignite-stepper>`, redux, zero config) | `1781919336709` | ✅ done |
+| Worked apps (form / nested router / dashboard) | `1781805264107` | ▶ next (deps complete) |
+| Angular demo (`CUSTOM_ELEMENTS_SCHEMA`) | `1781919547313` | ⏸ backlog (owner hold-off 2026-06-20) |
 
-Order: **Vue → Svelte → Angular → worked-apps → Phase 1.**
+Order: **Vue ✓ → Svelte ✓ → worked-apps → Phase 1.** (Angular demo → backlog.)
 
 ## Phase 1 — Gap-finder + additive API (parallel, pre-cut)
 
