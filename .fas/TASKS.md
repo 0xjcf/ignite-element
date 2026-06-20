@@ -1380,6 +1380,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: docs(beta.7): add a Rendering concept page (ignite-jsx vs lit authoring, jsxImportSource homes, config-free auto-detect, vanilla-JS support) + reframe advanced-config renderer selection around auto-detect + migration note + align the React host-app guide with the Option 2 split and IgniteReactRef. Design: docs/renderer-selection.md
+
+- Title: docs(beta.7): add a Rendering concept page (ignite-jsx vs lit authoring, jsxImportSource homes, config-free auto-detect, vanilla-JS support) + reframe advanced-config renderer selection around auto-detect + migration note + align the React host-app guide with the Option 2 split and IgniteReactRef. Design: docs/renderer-selection.md
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/docs-beta-7-add-a-rendering-concept-page-ignite-jsx-vs-lit-a.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
