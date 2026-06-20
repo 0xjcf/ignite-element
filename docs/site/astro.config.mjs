@@ -77,6 +77,7 @@ export default defineConfig({
 					label: "Concepts",
 					items: [
 						{ label: "The Ignite model", slug: "concepts/the-ignite-model" },
+						{ label: "Rendering", slug: "concepts/rendering" },
 					],
 				},
 				{
