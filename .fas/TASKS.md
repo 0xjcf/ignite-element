@@ -1436,6 +1436,14 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: typing: surface the view projection through igniteCore's return so getView()/expectView are typed (not Record<string,unk
+
+- Title: typing: surface the view projection through igniteCore's return so getView()/expectView are typed (not Record<string,unk
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/typing-surface-the-view-projection-through-ignitecore-s-retu.md
+
 ## Template
 
 ### Task: <short task title>
