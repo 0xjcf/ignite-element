@@ -1391,6 +1391,30 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: examples/frameworks: Vue interop demo — consume an ignite element via standard custom-element APIs (isCustomElement)
+
+- Title: examples/frameworks: Vue interop demo — consume an ignite element via standard custom-element APIs (isCustomElement)
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/examples-frameworks-vue-interop-demo-consume-an-ignite-eleme.md
+
+### Task: examples/frameworks: Svelte interop demo — consume an ignite element (near-zero friction proof point)
+
+- Title: examples/frameworks: Svelte interop demo — consume an ignite element (near-zero friction proof point)
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/examples-frameworks-svelte-interop-demo-consume-an-ignite-el.md
+
+### Task: examples/frameworks: Angular interop demo — consume an ignite element (CUSTOM_ELEMENTS_SCHEMA)
+
+- Title: examples/frameworks: Angular interop demo — consume an ignite element (CUSTOM_ELEMENTS_SCHEMA)
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/examples-frameworks-angular-interop-demo-consume-an-ignite-e.md
+
 ## Template
 
 ### Task: <short task title>

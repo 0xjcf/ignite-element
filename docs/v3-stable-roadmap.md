@@ -2,10 +2,11 @@
 
 ## Status
 
-Active plan (2026-06-18). The agreed order of work from current beta
-(`3.0.0-beta.6`) to the stable `3.0.0` cut. Dependencies are wired in the FAS
+Active plan (updated 2026-06-19). The agreed order of work from current beta
+(`3.0.0-beta.7`) to the stable `3.0.0` cut. Dependencies are wired in the FAS
 queue so the critical path is enforced; phase order for non-gating work is
-guidance.
+guidance. **Phase 0 (framework-interop examples) is pulled ahead of the additive
+API as gap-finders** (owner, 2026-06-19).
 
 ## North star + the enforced spine
 
@@ -23,6 +24,26 @@ the stable release but are **not** hard blockers — anything additive can ship 
 a `3.x` minor afterward. So the queue wires only the breaking trio → main-merge →
 cut; additive/polish are sequenced by priority + this doc.
 
+## Phase 0 — Framework-interop examples (gap-finders, run first)
+
+Pulled ahead of the additive API (owner, 2026-06-19): the examples back the
+multi-framework doc claims **and** surface API gaps before the cutover freezes the
+surface — exactly how the React demo found `IgniteReactRef` + lit auto-detect.
+Only `react` exists under `examples/frameworks/` while docs claim four. Each demo
+consumes a small ignite element via that framework's **standard** custom-element
+path and documents the friction honestly; **no** per-framework `ignite*` helpers
+(those stay follow-ups — the demos tell us if friction earns one). All
+single-agent. Wired as a `dependsOn` chain so they run in order.
+
+| Task | id | Note |
+| --- | --- | --- |
+| Vue demo (`compilerOptions.isCustomElement`) | `1781919276233` | ready; most-claimed (the guide already has a Vue snippet) |
+| Svelte demo (near-zero friction) | `1781919336709` | deferred → Vue |
+| Angular demo (`CUSTOM_ELEMENTS_SCHEMA`) | `1781919547313` | deferred → Svelte |
+| Worked apps (form / nested router / dashboard) | `1781805264107` | deferred → Angular (pulled up from Phase 3) |
+
+Order: **Vue → Svelte → Angular → worked-apps → Phase 1.**
+
 ## Phase 1 — Gap-finder + additive API (parallel, pre-cut)
 
 Low-risk, independent, non-breaking. Run the gap-finder early so its findings can
@@ -30,7 +51,7 @@ still shape the API before the breaking cutover freezes it.
 
 | Task | id | Note |
 | --- | --- | --- |
-| `ignite-element/react` helper + React demo (+ registration handle) | `1781805261094` | the interop play (`docs/ignite-react.md`); the additive **registration→handle** change lands here, before the cutover |
+| `ignite-element/react` helper + React demo (+ registration handle) | `1781805261094` | **DONE** (beta.7) — the gap-finder that surfaced `IgniteReactRef` + config-free lit auto-detect; `docs/ignite-react.md`. Remaining framework demos are Phase 0 |
 | `select().whenChanged()` | `1781798483059` | additive |
 | `expectView` | `1781798484574` | additive (does **not** rename expectState) |
 | `canExecute(name)` | `1781798486122` | additive (gap) |
@@ -62,7 +83,7 @@ migration note.
 | Task | id | Note |
 | --- | --- | --- |
 | Docs accuracy / UX / positioning (beta.6 P0) | `1781724711926` | must be right before stable docs ship |
-| Worked apps (form / nested router / dashboard) | `1781805264107` | credibility proof points |
+| Worked apps (form / nested router / dashboard) | `1781805264107` | **moved to Phase 0** — gap-finder, wired after the framework demos |
 | Bundle-size numbers | `1781805262589` | credibility |
 | Renovate (dependency currency) | `1781743752184` | infra hygiene; parallel, anytime |
 | GTM spike (CLI / embeds / video / one-pager) | `1781724738855` | read-only; produces follow-ups; not gating |
