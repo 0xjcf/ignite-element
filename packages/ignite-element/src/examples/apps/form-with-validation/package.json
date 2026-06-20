@@ -1,0 +1,27 @@
+{
+	"name": "form-with-validation-example",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"description": "A signup form worked app built with ignite-element, an XState machine, and ignite-JSX — validation, async submit, and headless tests.",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview"
+	},
+	"keywords": [
+		"xstate",
+		"ignite-element",
+		"form",
+		"validation",
+		"ignite-jsx"
+	],
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+		"xstate": "5.32.1"
+	},
+	"devDependencies": {
+		"vite": "^7.2.7"
+	}
+}
