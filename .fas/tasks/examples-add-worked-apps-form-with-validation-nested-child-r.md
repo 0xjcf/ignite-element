@@ -4,7 +4,8 @@
 Created with `fas create-task` on 2026-06-18.
 
 ## Problem
-Decomposed from task-1781724737259, deliverable (3). Add three worked-app examples under packages/ignite-element/src/examples/apps: form-with-validation, a nested/child-router (building on spa-router), and dashboard-with-shared-state. Each minimal and headless-testable, reusing the vite + source-alias scaffolding. Wire into docs as proof points. Depends on the examples restructure (lands in examples/apps).
+Remaining worked-app examples. form-with-validation shipped as a focused task (queue task-1781962208694; packages/ignite-element/src/examples/apps/form-with-validation; XState + ignite-JSX; done 2026-06-20). Still to do under packages/ignite-element/src/examples/apps: (1) a nested/child-router example building on spa-router, and (2) dashboard-with-shared-state. Each minimal and headless-testable, reusing the vite + source-alias scaffolding; wire into docs as proof points.
+
 
 ## Acceptance criteria
 - The new functionality works as described.

@@ -41,7 +41,8 @@ over-claims. With Angular off the chain, the next example work is worked-apps.
 | --- | --- | --- |
 | Vue demo (`compilerOptions.isCustomElement`) | `1781919276233` | ✅ done |
 | Svelte demo (`<ignite-stepper>`, redux, zero config) | `1781919336709` | ✅ done |
-| Worked apps (form / nested router / dashboard) | `1781805264107` | ▶ next (deps complete) |
+| Worked app: form-with-validation (XState + ignite-JSX) | `1781962208694` | ✅ done |
+| Worked apps: nested router + dashboard-with-shared-state | `1781805264107` | ▶ next (form split out + done) |
 | Angular demo (`CUSTOM_ELEMENTS_SCHEMA`) | `1781919547313` | ⏸ backlog (owner hold-off 2026-06-20) |
 
 Order: **Vue ✓ → Svelte ✓ → worked-apps → Phase 1.** (Angular demo → backlog.)
