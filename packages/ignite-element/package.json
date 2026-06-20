@@ -136,7 +136,7 @@
 		"test:coverage": "vitest --run --coverage",
 		"test:e2e": "playwright test --project=chromium",
 		"test:node": "FORCE_COLOR=1 vitest --config vitest.node.config.ts --run",
-		"typecheck": "pnpm exec tsc --noEmit --pretty false --project tsconfig.typecheck.json && pnpm exec tsc --project src/examples/adapters/xstate/tsconfig.json && pnpm exec tsc --project src/examples/adapters/redux/tsconfig.json && pnpm exec tsc --project src/examples/adapters/mobx/tsconfig.json && pnpm exec tsc --project src/examples/apps/spa-router/tsconfig.json && pnpm exec tsc --project src/examples/frameworks/react/tsconfig.json && pnpm exec tsc --project src/tests/tsconfig.json",
+		"typecheck": "pnpm exec tsc --noEmit --pretty false --project tsconfig.typecheck.json && pnpm exec tsc --project src/examples/adapters/xstate/tsconfig.json && pnpm exec tsc --project src/examples/adapters/redux/tsconfig.json && pnpm exec tsc --project src/examples/adapters/mobx/tsconfig.json && pnpm exec tsc --project src/examples/apps/spa-router/tsconfig.json && pnpm exec tsc --project src/examples/frameworks/react/tsconfig.json && pnpm exec tsc --project src/examples/frameworks/vue/tsconfig.json && pnpm exec tsc --project src/tests/tsconfig.json",
 		"format": "biome format --write .",
 		"check": "biome check .",
 		"lint": "biome lint .",
