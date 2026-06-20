@@ -1,0 +1,127 @@
+:host {
+	display: block;
+	font-family: system-ui, sans-serif;
+}
+
+.card {
+	width: min(26rem, 92vw);
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	padding: 1.75rem;
+	border-radius: 0.9rem;
+	border: 1px solid #334155;
+	background: #1e293b;
+	color: #e2e8f0;
+}
+
+.card h1 {
+	margin: 0;
+	font-size: 1.4rem;
+}
+
+.lede {
+	margin: 0 0 0.75rem;
+	color: #94a3b8;
+	font-size: 0.85rem;
+}
+
+form {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.3rem;
+}
+
+.field-label {
+	font-size: 0.8rem;
+	font-weight: 600;
+	color: #cbd5e1;
+}
+
+.input {
+	font: inherit;
+	padding: 0.55rem 0.7rem;
+	border-radius: 0.5rem;
+	border: 1px solid #334155;
+	background: #0f172a;
+	color: #e2e8f0;
+	transition: border-color 0.15s ease;
+}
+
+.input:focus {
+	outline: none;
+	border-color: #6366f1;
+}
+
+.input-invalid {
+	border-color: #f87171;
+}
+
+.input:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+/* Reserve a line for the error so the layout doesn't jump as it appears. */
+.error {
+	min-height: 1rem;
+	font-size: 0.75rem;
+	color: #f87171;
+}
+
+.submit-error {
+	margin: 0;
+	padding: 0.55rem 0.7rem;
+	border-radius: 0.5rem;
+	background: rgba(248, 113, 113, 0.12);
+	border: 1px solid rgba(248, 113, 113, 0.4);
+	color: #fca5a5;
+	font-size: 0.85rem;
+}
+
+.btn {
+	font: inherit;
+	font-weight: 600;
+	padding: 0.6rem 1rem;
+	border-radius: 0.5rem;
+	border: 1px solid #334155;
+	background: #334155;
+	color: #e2e8f0;
+	cursor: pointer;
+}
+
+.btn-primary {
+	margin-top: 0.25rem;
+	border-color: #6366f1;
+	background: #6366f1;
+	color: #fff;
+}
+
+.btn-primary:disabled {
+	border-color: #334155;
+	background: #334155;
+	color: #94a3b8;
+	cursor: not-allowed;
+}
+
+.success {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	align-items: flex-start;
+}
+
+.success h1 {
+	font-size: 1.4rem;
+}
+
+.success strong {
+	color: #818cf8;
+}
