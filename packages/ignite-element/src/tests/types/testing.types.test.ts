@@ -93,4 +93,51 @@ describe("ignite test DSL types", () => {
 
 		expectTypeOf(igniteTest(component).expectState).toBeFunction();
 	});
+
+	it("types expectView from the runtime's view projection", () => {
+		const machine = createMachine({
+			initial: "off",
+			states: {
+				off: { on: { TOGGLE: "on" } },
+				on: { on: { TOGGLE: "off" } },
+			},
+		});
+
+		const component = igniteCore({
+			adapter: "xstate",
+			source: machine,
+			view: ({ snapshot }) => ({
+				isOn: snapshot.matches("on"),
+				label: "Power",
+			}),
+			commands: ({ actor }) => ({
+				toggle: () => actor.send({ type: "TOGGLE" }),
+			}),
+		});
+
+		// The runtime surface projects the typed view from the `view` callback.
+		expectTypeOf(component.getView()).toEqualTypeOf<{
+			isOn: boolean;
+			label: string;
+		}>();
+
+		// The test DSL extracts that same projection (intersected with the
+		// `Record<string, unknown>` scenario constraint), so expectView's predicate
+		// sees the projection keys with their value types — not `unknown`. Wrapped in
+		// an uncalled function: the body is typechecked, but the predicate is never
+		// run (these `.types.test.ts` files also execute under vitest, and the
+		// freshly-created component's view would not satisfy the assertion at runtime).
+		const expectViewTyping = () => {
+			igniteTest(component).expectView((view) => {
+				expectTypeOf(view).toEqualTypeOf<
+					{ isOn: boolean; label: string } & Record<string, unknown>
+				>();
+				expectTypeOf(view.isOn).toEqualTypeOf<boolean>();
+				expectTypeOf(view.label).toEqualTypeOf<string>();
+				return view.isOn && view.label.startsWith("P");
+			});
+		};
+
+		void expectViewTyping;
+	});
 });

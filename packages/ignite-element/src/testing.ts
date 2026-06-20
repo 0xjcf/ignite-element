@@ -187,6 +187,7 @@ type RuntimeView<Runtime> = (Runtime extends IgniteAgentRuntime<
 	infer _State,
 	infer _Commands,
 	infer _Events,
+	infer _SchemaState,
 	infer View
 >
 	? View

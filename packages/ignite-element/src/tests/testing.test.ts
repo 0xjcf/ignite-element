@@ -91,8 +91,12 @@ describe("ignite test DSL", () => {
 		scenario
 			// partial-object match against the projected view
 			.expectView({ isOn: true, label: "Power" })
-			// predicate form over the projected view
-			.expectView((view) => view.isOn === true && view.label === "Power");
+			// predicate form over the typed projected view — `view.label.startsWith`
+			// only compiles when the projection's keys carry their value types
+			// (string), proving expectView sees the projection, not `unknown`.
+			.expectView(
+				(view) => view.isOn === true && view.label.startsWith("Power"),
+			);
 
 		expect(() => scenario.expectView({ isOn: false })).toThrow(
 			/expectView failed/,
