@@ -1,0 +1,32 @@
+{
+	"extends": "../../../../tsconfig.typecheck.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"composite": false,
+		"allowJs": false,
+		"paths": {
+			"ignite-element": ["../../../index.ts"],
+			"ignite-element/*": ["../../../*"],
+			"@ignite-element/core": ["../../../../../ignite-core/src/index.ts"],
+			"@ignite-element/adapters": [
+				"../../../../../ignite-adapters/src/index.ts"
+			],
+			"@ignite-element/adapters/redux": [
+				"../../../../../ignite-adapters/src/redux.ts"
+			],
+			"@ignite-element/renderer": [
+				"../../../../../ignite-renderer/src/index.ts"
+			],
+			"@ignite-element/renderer/lit": [
+				"../../../../../ignite-renderer/src/renderers/lit.ts"
+			],
+			"@ignite-element/renderer/jsx": [
+				"../../../../../ignite-renderer/src/renderers/ignite-jsx.ts"
+			],
+			"@reduxjs/toolkit": ["./node_modules/@reduxjs/toolkit"],
+			"redux": ["./node_modules/redux"]
+		}
+	},
+	"include": ["./src/**/*.ts"],
+	"exclude": ["vite.config.ts"]
+}
