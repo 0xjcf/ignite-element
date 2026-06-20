@@ -41,6 +41,10 @@ export type IgniteStateExpectation<State> =
 	| StateValueExpectation<State>
 	| ((state: State) => boolean);
 
+export type IgniteViewExpectation<View> =
+	| DeepPartial<View>
+	| ((view: View) => boolean);
+
 export type IgniteEventPayloadExpectation<Payload> =
 	| DeepPartial<Payload>
 	| ((payload: Payload) => boolean);
@@ -93,25 +97,29 @@ export type IgniteTestScenario<
 	State,
 	Commands extends FacadeCommandResult = FacadeCommandResult,
 	Events extends EventMap = EmptyEventMap,
+	View extends Record<string, unknown> = Record<string, unknown>,
 > = {
 	given(
 		expected: IgniteStateExpectation<State>,
-	): IgniteTestScenario<State, Commands, Events>;
+	): IgniteTestScenario<State, Commands, Events, View>;
 	when<CommandName extends keyof Commands & string>(
 		commandName: CommandName,
 		payload?: unknown,
-	): Promise<IgniteTestScenario<State, Commands, Events>>;
+	): Promise<IgniteTestScenario<State, Commands, Events, View>>;
 	expectState(
 		expected: IgniteStateExpectation<State>,
-	): IgniteTestScenario<State, Commands, Events>;
+	): IgniteTestScenario<State, Commands, Events, View>;
+	expectView(
+		expected: IgniteViewExpectation<View>,
+	): IgniteTestScenario<State, Commands, Events, View>;
 	expectEvent<Type extends keyof Events & string>(
 		type: Type,
 		payload?: IgniteEventPayloadExpectation<EventPayload<Events[Type]>>,
-	): IgniteTestScenario<State, Commands, Events>;
+	): IgniteTestScenario<State, Commands, Events, View>;
 	expectEvents(
 		expected: IgniteEventExpectation<Events>[],
-	): IgniteTestScenario<State, Commands, Events>;
-	expectNoEvents(): IgniteTestScenario<State, Commands, Events>;
+	): IgniteTestScenario<State, Commands, Events, View>;
+	expectNoEvents(): IgniteTestScenario<State, Commands, Events, View>;
 	getResult(): IgniteAgentExecutionResult<State, Events>;
 };
 
@@ -174,6 +182,20 @@ type RuntimeEvents<Runtime> = Runtime extends IgniteAgentRuntime<
 >
 	? Events
 	: EmptyEventMap;
+
+type RuntimeView<Runtime> = (Runtime extends IgniteAgentRuntime<
+	infer _State,
+	infer _Commands,
+	infer _Events,
+	infer View
+>
+	? View
+	: Record<string, unknown>) &
+	// Intersect so the result provably satisfies the `Record<string, unknown>`
+	// constraint on the scenario/driver `View` param (the extracted projection
+	// already does; this also clamps the deferred-generic case) while keeping the
+	// projection's own keys typed.
+	Record<string, unknown>;
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" &&
@@ -505,6 +527,17 @@ const assertState = <State>(
 	}
 };
 
+const assertView = <View>(
+	view: View,
+	expected: IgniteViewExpectation<View>,
+) => {
+	if (!valuesMatch(view, expected)) {
+		throw new Error(
+			`[igniteTest] expectView failed.\nExpected: ${formatValue(expected)}\nReceived: ${formatValue(view)}`,
+		);
+	}
+};
+
 const assertEvent = <
 	Events extends EventMap,
 	Type extends keyof Events & string,
@@ -647,12 +680,18 @@ class IgniteTestDriver<
 	State,
 	Commands extends FacadeCommandResult,
 	Events extends EventMap,
-> implements IgniteTestScenario<State, Commands, Events>
+	View extends Record<string, unknown> = Record<string, unknown>,
+> implements IgniteTestScenario<State, Commands, Events, View>
 {
 	private lastResult: IgniteAgentExecutionResult<State, Events> | null = null;
 
 	constructor(
-		private readonly component: IgniteAgentRuntime<State, Commands, Events>,
+		private readonly component: IgniteAgentRuntime<
+			State,
+			Commands,
+			Events,
+			View
+		>,
 	) {}
 
 	given(expected: IgniteStateExpectation<State>) {
@@ -674,6 +713,14 @@ class IgniteTestDriver<
 	expectState(expected: IgniteStateExpectation<State>) {
 		const state = this.lastResult?.state ?? this.component.getSnapshot();
 		assertState("expectState", state, expected);
+		return this;
+	}
+
+	expectView(expected: IgniteViewExpectation<View>) {
+		// Mirrors the runtime's getView(): the projected view after the last
+		// command (execute awaits, so getView() reflects it). The execution result
+		// carries no view, so getView() is the single source.
+		assertView(this.component.getView(), expected);
 		return this;
 	}
 
@@ -726,13 +773,15 @@ function createTestScenario<
 ): IgniteTestScenario<
 	RuntimeState<Runtime>,
 	RuntimeCommands<Runtime>,
-	RuntimeEvents<Runtime>
+	RuntimeEvents<Runtime>,
+	RuntimeView<Runtime>
 > {
 	return new IgniteTestDriver(
 		component as unknown as IgniteAgentRuntime<
 			RuntimeState<Runtime>,
 			RuntimeCommands<Runtime>,
-			RuntimeEvents<Runtime>
+			RuntimeEvents<Runtime>,
+			RuntimeView<Runtime>
 		>,
 	);
 }

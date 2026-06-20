@@ -65,6 +65,40 @@ describe("ignite test DSL", () => {
 			.expectEvent("toggled", { isOn: true });
 	});
 
+	it("asserts the projected view with expectView (object, predicate, mismatch)", async () => {
+		const machine = createMachine({
+			initial: "off",
+			states: {
+				off: { on: { TOGGLE: "on" } },
+				on: { on: { TOGGLE: "off" } },
+			},
+		});
+
+		const component = igniteCore({
+			adapter: "xstate",
+			source: machine,
+			view: ({ snapshot }) => ({
+				isOn: snapshot.matches("on"),
+				label: "Power",
+			}),
+			commands: ({ actor }) => ({
+				toggle: () => actor.send({ type: "TOGGLE" }),
+			}),
+		});
+
+		const scenario = await igniteTest(component).given("off").when("toggle");
+
+		scenario
+			// partial-object match against the projected view
+			.expectView({ isOn: true, label: "Power" })
+			// predicate form over the projected view
+			.expectView((view) => view.isOn === true && view.label === "Power");
+
+		expect(() => scenario.expectView({ isOn: false })).toThrow(
+			/expectView failed/,
+		);
+	});
+
 	it("matches partial state and event payloads for redux runtimes", async () => {
 		const store = counterStore();
 
