@@ -32,7 +32,7 @@ example/app (showcase): headless agent runtime on a non-web projection — drive
 - (refine during planning; needs a remote/transport actor-web source and a non-DOM render target)
 
 ## Scope Amendments
-- None.
+- 2026-06-21: realize this concretely as a CLI app under examples/apps/ (the "release-agent" shape from the design discussion): a remote release/deploy actor-web actor, an agent loop via igniteTools, canExecute-gated tools (build->deploy->promote/rollback), transport-aware availability, console output (no DOM). This IS the "cli example to apps" the owner asked for. Pair note: the component's OWN UI surface (if a dashboard is shown alongside) must be authored source-native (derive from destructured view/command args — snapshot.can/.matches for disabled, actor.send via commands), NOT via execute/canExecute — those are the headless/agent surface only. See the two-surface DX rule in memory.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
