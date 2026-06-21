@@ -1454,6 +1454,14 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: additive: expose the typed view projection in getSchema() as IgniteAgentSchema.view (mirrors the snapshot field) so agen
+
+- Title: additive: expose the typed view projection in getSchema() as IgniteAgentSchema.view (mirrors the snapshot field) so agen
+- Mode: 6-agent
+- Status: backlog
+- Owner: planner
+- Brief: .fas/tasks/additive-expose-the-typed-view-projection-in-getschema-as-ig.md
+
 ## Template
 
 ### Task: <short task title>
