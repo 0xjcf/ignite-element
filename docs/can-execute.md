@@ -30,45 +30,81 @@ functions), so it can carry command *input schemas* but not a runtime availabili
 
 ## Decision
 
-Add an optional per-command **`available(snapshot)` predicate**, co-located with the
-command via the existing `command(fn, metadata)` helper, evaluated on demand by
+Add an optional per-command **`canExecute({ snapshot })` predicate**, co-located with
+the command via the existing `command(fn, metadata)` helper, evaluated on demand by
 `runtime.canExecute(name)`.
 
 ```ts
 commands: ({ actor }) => ({
   submit: command(
-    () => actor.send({ type: "SUBMIT" }),
-    { available: (snapshot) => snapshot.can({ type: "SUBMIT" }) }, // xstate-native
+    () => actor.send({ type: "SUBMIT" }),                          // write — uses actor
+    { canExecute: ({ snapshot }) => snapshot.can({ type: "SUBMIT" }) }, // read — injected read-model snapshot
   ),
 });
 
-runtime.canExecute("submit"); // boolean — available(getSnapshot()); default true if no predicate
+runtime.canExecute("submit"); // boolean — evaluates the predicate; default true if absent
 ```
 
-- **Co-located, off-schema for free.** `available` is a new optional field on
+### One word across the three surfaces
+
+The runtime already has `execute(name, payload)`, so its guard-sibling is `canExecute`
+(the classic command-pattern pairing — cf. WPF `ICommand.Execute`/`CanExecute`). Per the
+epic's "same concept → same word across author / observe / assert", the *same* word is
+used on all three:
+
+```ts
+command(fn, { canExecute: ({ snapshot }) => … }) // author — define the rule
+runtime.canExecute("submit")                     // observe — run it
+expect(scenario.canExecute("submit")).toBe(true) // assert — read it, native matcher
+```
+
+(Definition vs. invocation: the author writes the *rule* `({snapshot}) => boolean`, the
+consumer asks the *question* `(name) => boolean` — same word, two roles.)
+
+### Mechanics
+
+- **Co-located, off-schema for free.** `canExecute` is a new optional field on
   `CommandMetadata` (a function). `getSchema()` already runs command metadata through
-  `toSchemaValue`, which strips functions, so the predicate never leaks into the
-  schema JSON. No new storage mechanism — it rides the existing `commandMetadataSymbol`.
-- **`getSchema().commands[name].gated: true`.** Since availability is dynamic, the
-  static schema can't say *whether* a command is available, only *that* it's
-  conditional. The build sets `gated: true` when `available` is present, so an agent
-  knows "query `canExecute` for this one" and `igniteTools` can skip the call for
-  ungated commands.
-- **`runtime.canExecute(name): boolean`.** Reads the command's `available` off the
-  metadata symbol and evaluates it against `getSnapshot()`. Default `true` (ungated).
-  Unknown name throws, consistent with `execute`.
-- **Snapshot-only.** `available(snapshot)`, no payload. *Availability* ("should this
-  tool be offered?") and *call-validity* ("are these specific args valid?") are
-  different layers: availability gates the manifest; arg-validity is an `execute`-time
-  concern (reject) or an input-schema constraint. A `canExecute(name, payload)`
-  overload can be added later if a real arg-dependent-availability case appears.
-- **Source-native predicates.** The predicate sees the full snapshot, so each adapter
-  taps its native availability:
-  - xstate — `available: (s) => s.can({ type: "SUBMIT" })` — machine-accurate
-    enablement, the same source the component's view uses for `disabled`.
-  - actor-web — `available: (s) => s.transport.state === "connected" && s.context.valid`
-    — connection-aware gating (don't offer tools when the remote actor is unreachable).
-  - redux / mobx — `available: (s) => s.valid && !s.submitting` — plain predicate.
+  `toSchemaValue`, which strips functions, so the predicate never leaks into the schema
+  JSON. No new storage — it rides the existing `commandMetadataSymbol`.
+- **`runtime.canExecute(name): boolean`.** Reads the command's predicate off the metadata
+  symbol and evaluates it. Default `true` (no predicate ⇒ always available). Unknown name
+  throws, consistent with `execute`.
+- **`getSchema().commands[name].gated: true`.** Since availability is dynamic, the static
+  schema can't say *whether* a command is available, only *that* it's conditional. The
+  build sets `gated: true` when a `canExecute` predicate is present, so an agent knows
+  "query `canExecute` for this one" and `igniteTools` can skip the call for ungated
+  commands. (`gated` is the one deliberately-different term — it's a static meta-fact
+  about the gate, not the gate; the schema can't hold the dynamic value.)
+- **Read-model snapshot, not the write-side actor.** The predicate receives the same
+  `{ snapshot }` context the `view` callback gets — the runtime injects the **read-model**
+  snapshot (`adapter.getSnapshot()`). This matters for actor-web's read/write split: the
+  command `actor` is the *command source* (write side), so `actor.getSnapshot()` is the
+  wrong source for availability (`transport`/`context` live on the read model). For
+  xstate they coincide; for actor-web they don't. As a bonus, the predicate stays a pure
+  `snapshot → boolean` (functional-core-clean, trivially testable).
+- **Snapshot-only.** No payload. *Availability* ("should this tool be offered?") and
+  *call-validity* ("are these specific args valid?") are different layers: availability
+  gates the manifest; arg-validity is an `execute`-time concern (reject) or an
+  input-schema constraint. A `canExecute(name, payload)` overload can be added later if a
+  real arg-dependent case appears.
+
+### Uniform `{ snapshot }` across adapters
+
+The arg is uniformly `{ snapshot }` on every adapter — identical to `view`. Only the
+snapshot's *internal* shape differs (that's the state model, inherent), never the param:
+
+```ts
+canExecute: ({ snapshot }) => snapshot.can({ type: "SUBMIT" })          // xstate    — the xstate snapshot
+canExecute: ({ snapshot }) => snapshot.cart.items.length > 0            // redux     — the state tree
+canExecute: ({ snapshot }) => snapshot.isValid && !snapshot.submitting  // mobx      — the store
+canExecute: ({ snapshot }) => snapshot.transport.state === "connected"  // actor-web — extended state + transport
+```
+
+Read-side callbacks all share one context shape: `view ({ snapshot })`,
+`effects ({ snapshot, prevSnapshot, emit })`, `canExecute ({ snapshot })`. Since
+`canExecute` is brand-new and additive, it is *born* on the canonical `{ snapshot }` — no
+migration, and it reinforces the view-context decision (change 2) instead of fighting it.
 
 ### Reactivity
 
@@ -84,24 +120,40 @@ manifest per turn.
 args, source-native (`snapshot.can`, `actor.send` via commands) — it must NOT reach for
 `component.canExecute(...)` / `.execute(...)`. For an xstate component the button's
 `disabled` comes from `snapshot.can(E)` in the view; the command's
-`available: s => s.can(E)` is the parallel predicate for the agent surface. Both are
-thin reads of the authoritative machine.
+`canExecute: ({snapshot}) => snapshot.can(E)` is the parallel predicate for the agent
+surface. Both are thin reads of the authoritative machine.
 
-## Test DSL companion
+## Test DSL — no bespoke assertion
 
-Add `expectCanExecute(name, boolean)` mirroring `expectState`/`expectView`, so a
-scenario can assert availability — the nested-router+auth dogfood: "`goAdmin`
-unavailable until `authed`." Additive, ships with the same change.
+**No `expectCanExecute` helper.** The DSL's `expect*` methods earn their place only where
+they add matching power over the host runner — `expectState`/`expectView` do
+partial-object + predicate matching, `expectEvent(s)` collect events emitted during a
+step. `canExecute` returns a plain boolean, which the native matcher covers completely.
+So the scenario exposes `canExecute(name): boolean` (mirroring the runtime) and you assert
+it natively:
+
+```ts
+await scenario.when("build");
+expect(scenario.canExecute("deploy")).toBe(true);
+expect(scenario.canExecute("promote")).toBe(false);
+```
+
+The line: chainable `expect*` for match-heavy reads; plain value reads (`canExecute`) +
+the runner's matchers for scalars.
 
 ## Alternatives considered
 
-- **Separate `availability: { name: predicate }` config map** — rejected: a second
-  place to look; co-locating on the command keeps the guard with what it guards.
+- **`available` for the predicate field** — rejected: a synonym that appears only on the
+  author side breaks "same word across surfaces". The query must be `canExecute` (pairs
+  with `execute`), so the predicate and the test read are `canExecute` too.
+- **`expectCanExecute(name, bool)` bespoke assertion** — rejected: adds DSL surface for a
+  scalar the native matcher already covers.
+- **Separate `availability: { name: predicate }` config map** — rejected: a second place
+  to look; co-locating on the command keeps the guard with what it guards.
 - **(ii) Auto-derive** — commands declare the event they send, so `canExecute` computes
   `snapshot.can(event)` with no predicate. Nicer for the trivial xstate single-event
-  command, but it's a new command-authoring model and degrades to (i) the moment a
-  command has logic or isn't xstate. **Deferred** as possible future sugar layered on
-  (i).
+  command, but it's a new command-authoring model and degrades to (i) the moment a command
+  has logic or isn't xstate. **Deferred** as possible future sugar layered on (i).
 - **Backed by `getSchema` metadata** — rejected: schema is JSON; a predicate can't live
   there (the original brief's contradiction).
 - **`watchCanExecute` reactive primitive** — rejected: redundant with calling
@@ -109,11 +161,12 @@ unavailable until `authed`." Additive, ships with the same change.
 
 ## Impact
 
-Additive. New: `CommandMetadata.available?`, `runtime.canExecute`, `getSchema` `gated`,
-`expectCanExecute`. No behavior change for existing components (no `available` ⇒ always
-available). Likely files: `packages/ignite-core` (`CommandMetadata`), `runtime/agent.ts`
-(`canExecute` + `gated` in `getSchema`), `types/agent.ts` (`IgniteAgentRuntime`),
-`testing.ts` (`expectCanExecute`), tests, docs. Ship with a changeset (minor).
+Additive. New: `CommandMetadata.canExecute?`, `runtime.canExecute`, scenario
+`canExecute`, `getSchema` `gated`. No behavior change for existing components (no
+predicate ⇒ always available). Likely files: `packages/ignite-core` (`CommandMetadata`),
+`runtime/agent.ts` (`canExecute` + `gated` in `getSchema`), `types/agent.ts`
+(`IgniteAgentRuntime`), `testing.ts` (scenario `canExecute`), tests, docs. Ship with a
+changeset (minor).
 
 ## Related
 

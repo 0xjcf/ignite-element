@@ -62,13 +62,13 @@ export const release = igniteCore({           // ignite-element/actor-web
     connected: snapshot.transport.state === "connected",
   }),
   commands: ({ actor }) => ({
-    build:   command(() => actor.send({ type: "BUILD" }),   { available: (s) => s.transport.state === "connected" && s.context.stage === "idle" }),
+    build:   command(() => actor.send({ type: "BUILD" }),   { canExecute: ({ snapshot }) => snapshot.transport.state === "connected" && snapshot.context.stage === "idle" }),
     deploy:  command((i: { env: "staging" | "prod" }) => actor.send({ type: "DEPLOY", env: i.env }), {
       input: command.object({ env: command.enum(["staging", "prod"]) }),
-      available: (s) => s.transport.state === "connected" && s.context.stage === "built",
+      canExecute: ({ snapshot }) => snapshot.transport.state === "connected" && snapshot.context.stage === "built",
     }),
-    promote: command(() => actor.send({ type: "PROMOTE" }), { available: (s) => s.transport.state === "connected" && s.context.stage === "verified" }),
-    rollback:command(() => actor.send({ type: "ROLLBACK" }),{ available: (s) => s.transport.state === "connected" && ["deploying","deployed","verified"].includes(s.context.stage) }),
+    promote: command(() => actor.send({ type: "PROMOTE" }), { canExecute: ({ snapshot }) => snapshot.transport.state === "connected" && snapshot.context.stage === "verified" }),
+    rollback:command(() => actor.send({ type: "ROLLBACK" }),{ canExecute: ({ snapshot }) => snapshot.transport.state === "connected" && ["deploying","deployed","verified"].includes(snapshot.context.stage) }),
   }),
 });
 ```
