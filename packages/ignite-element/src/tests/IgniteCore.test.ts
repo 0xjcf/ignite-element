@@ -1345,6 +1345,9 @@ describe("igniteCore", () => {
 					count: 0,
 				},
 			},
+			view: {
+				count: 0,
+			},
 		});
 	});
 
@@ -1378,6 +1381,7 @@ describe("igniteCore", () => {
 			commands: { increment: {} },
 			events: ["counter-incremented"],
 			state: { counter: { count: 0 } },
+			view: { count: 0 },
 		});
 	});
 
@@ -1460,6 +1464,9 @@ describe("igniteCore", () => {
 				counter: {
 					count: 3,
 				},
+			},
+			view: {
+				count: 3,
 			},
 		});
 	});
@@ -1586,6 +1593,9 @@ describe("igniteCore", () => {
 				counter: {
 					count: 6,
 				},
+			},
+			view: {
+				count: 6,
 			},
 		});
 	});

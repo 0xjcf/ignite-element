@@ -10,8 +10,12 @@ export type IgniteSchemaValue =
 
 export type IgniteAgentCommandSchema = Record<string, IgniteSchemaObject>;
 
-export type IgniteAgentSchema<State = IgniteSchemaValue> = {
+export type IgniteAgentSchema<
+	State = IgniteSchemaValue,
+	View = IgniteSchemaValue,
+> = {
 	commands: IgniteAgentCommandSchema;
 	events: string[];
 	state: State;
+	view: View;
 };

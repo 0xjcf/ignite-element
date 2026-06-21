@@ -455,6 +455,10 @@ export function createAgentRuntime<
 					ReturnType<typeof toSchemaValue>,
 					undefined
 				>,
+				view: (toSchemaValue(resolveView(adapter)) ?? null) as Exclude<
+					ReturnType<typeof toSchemaValue>,
+					undefined
+				>,
 			};
 		},
 		on,

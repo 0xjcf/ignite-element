@@ -206,6 +206,6 @@ export type IgniteAgentRuntime<
 	watchView(
 		handler: IgniteAgentSnapshotListener<View>,
 	): IgniteAgentSubscription;
-	getSchema(): IgniteAgentSchema<SchemaState>;
+	getSchema(): IgniteAgentSchema<SchemaState, View>;
 	record(name: string): IgniteStory<State, Commands, Events, View>;
 };
