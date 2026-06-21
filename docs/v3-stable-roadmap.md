@@ -65,6 +65,28 @@ still shape the API before the breaking cutover freezes it.
 Suggested intra-phase order: gap-finder + `whenChanged` → `expectView` →
 `canExecute` → host-seam → `igniteShell` → effects-object-form.
 
+## Agent-runtime thread (additive, getSchema-driven) — added 2026-06-21
+
+A coherent build-up that makes ignite components fully **agent-drivable** through one
+self-describing contract (`getSchema` + headless `execute`). Additive, so it ships
+across `3.x` minors and does **not** gate stable — but it's where the "dev DX **and**
+agent/LLM-drivability" differentiator gets proven. The spine:
+
+```
+typed-view (1781971975611) ─▶ getSchema().view ─▶ igniteTools(component)
+                                                        │
+                          canExecute (1781798486122) ───┘  (dynamic tool gating)
+                                                        ▼
+        dogfood example (actor-web) ─▶ showcase app (remote actor + headless console)
+```
+
+- **typed-view** (`1781971975611`) — types `getView()` end-to-end; prereq for a typed schema view + typed tools.
+- **`getSchema().view`** — the missing read-model facet; agents see the projection they bind to. Brief `.fas/tasks/additive-expose-the-typed-view-projection-in-getschema-as-ig.md`.
+- **`igniteTools(component)`** — LLM tool manifest from `getSchema().commands`, `tool_use` → `execute`, events + view as observations. Agent analog of `igniteReact`; SDK-neutral core. Brief `.fas/tasks/additive-agent-api-add-ignitetools-*`.
+- **`canExecute`** (`1781798486122`) — now justified by the agent story: dynamic tool availability (hide a tool when its command can't run for the current snapshot). Unblock the design (per-command `available(snapshot)` predicate, off-schema) before the showcase app.
+- **Dogfood (actor-web)** — point a real agent at an actor-web component via `igniteTools`; proves the closed loop (flat events = native actor messages, transport-aware view). Brief `.fas/tasks/example-dogfood-prove-the-agent-runtime-*`.
+- **Showcase app** — headless agent runtime on a non-web projection (console/embedded) driving a **remote** actor-web actor (location transparency) with canExecute-gated tools. Brief `.fas/tasks/example-app-showcase-headless-*`.
+
 ## Phase 2 — Breaking cutover (one coordinated landing, pre-cut)
 
 The hard gate. Land **together** in the **same beta**, with **one** goodway

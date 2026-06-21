@@ -37,6 +37,8 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
 | `canExecute(name)` command-availability query | this doc | additive (gap) | task queued |
 | `igniteShell` sourceless composition root (+ shared move-safe teardown) | `ignite-shell.md` | additive (gap) | design ✓ |
 | `ignite-element/react` schema-driven wrapper + registration handle | `ignite-react.md` | additive (gap) | design ✓, task reshaped (1781805261094) |
+| `getSchema().view` — expose the typed view projection in the schema | this doc | additive (gap) | task queued 2026-06-21 (needs typed-view) |
+| `igniteTools(component)` — getSchema → LLM tool-use bridge (agent analog of `igniteReact`) | `ignite-tools.md` (TBD) | additive (gap) | task queued 2026-06-21 |
 
 ## Intentional — document, do not "fix"
 
