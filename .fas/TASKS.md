@@ -1462,6 +1462,33 @@ No active tasks.
 - Owner: planner
 - Brief: .fas/tasks/additive-expose-the-typed-view-projection-in-getschema-as-ig.md
 
+### Task: additive (agent API): add igniteTools(component) — derive an LLM tool manifest from getSchema().commands (name + input s
+
+- Title: additive (agent API): add igniteTools(component) — derive an LLM tool manifest from getSchema().commands (name + input s
+- Mode: 6-agent
+- Status: backlog
+- Owner: planner
+- Brief: .fas/tasks/additive-agent-api-add-ignitetools-component-derive-an-llm-t.md
+- Automation mode: advisory
+
+### Task: example (dogfood): prove the agent-runtime API end-to-end by pointing a real agent at an actor-web-backed ignite compone
+
+- Title: example (dogfood): prove the agent-runtime API end-to-end by pointing a real agent at an actor-web-backed ignite compone
+- Mode: 6-agent
+- Status: backlog
+- Owner: planner
+- Brief: .fas/tasks/example-dogfood-prove-the-agent-runtime-api-end-to-end-by-po.md
+- Automation mode: advisory
+
+### Task: example/app (showcase): headless agent runtime on a non-web projection — drive a REMOTE actor-web actor (location transp
+
+- Title: example/app (showcase): headless agent runtime on a non-web projection — drive a REMOTE actor-web actor (location transp
+- Mode: single-agent
+- Status: backlog
+- Owner: planner
+- Brief: .fas/tasks/example-app-showcase-headless-agent-runtime-on-a-non-web-pro.md
+- Automation mode: advisory
+
 ## Template
 
 ### Task: <short task title>
