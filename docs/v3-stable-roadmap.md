@@ -74,7 +74,7 @@ migration note. Decisions are locked (see `docs/v3-api-consistency.md`).
 | --- | --- | --- |
 | Flat tagged event `{ type, … }` | `1781818971210` | `docs/event-shape.md` |
 | Uniform view/effects context `{ snapshot }` | `1781818972687` | `docs/view-context-canonicalization.md` |
-| `expectState` → `expectSnapshot` (alias) + `expectEvent` member form | `1781818974159` | `docs/v3-api-consistency.md` |
+| Full `state`→`snapshot` rename (`expectState`→`expectSnapshot` + `result.state`/`schema.state`/record-trace) + `expectEvent` member form | `1781818974159` | `docs/v3-api-consistency.md` |
 
 These three are wired to **block the main-merge**. Do them after Phase 1 settles
 so the cutover absorbs any interop-surfaced gaps. Coordinate with the cross-repo

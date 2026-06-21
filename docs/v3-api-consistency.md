@@ -32,7 +32,7 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
 | Flat tagged event `{ type, … }` (emit / observe / `expectEvent`) | `event-shape.md` | **breaking** | design ✓, task queued (1781818971210) |
 | Uniform view/effects context = `{ snapshot }` (drop the spread) | `view-context-canonicalization.md` | **breaking** | design ✓, task queued (1781818972687) |
 | Effects single (object) signature; deprecate positional | this doc | additive→deprecate | task queued (1781818975642) |
-| `expectView` (add) + `expectState`→`expectSnapshot` (alias) + `expectEvent` object form | `event-shape.md` + this doc | mixed | `expectView` queued; rename task queued (1781818974159) |
+| `expectView` (add) + **full `state`→`snapshot` rename** (`expectState`→`expectSnapshot` + `result.state`/`schema.state`/record-trace) + `expectEvent` object form | `event-shape.md` + this doc | mixed | `expectView` shipped; rename task queued (1781818974159) — scope = full rename (b), resolved 2026-06-20 |
 | Test host seam: fluent `.host({ dataset, attributes })` | `task-1781619012619` | additive | task (refine brief to fluent shape) |
 | `canExecute(name)` command-availability query | this doc | additive (gap) | task queued |
 | `igniteShell` sourceless composition root (+ shared move-safe teardown) | `ignite-shell.md` | additive (gap) | design ✓ |
@@ -51,9 +51,21 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
 
 - **Additive** (`expectView`, host seam, `canExecute`,
   effects-object-form): ship independently, anytime.
-- **Breaking** (event shape, view-context `{ snapshot }`, `expectState`→
-  `expectSnapshot`): land **together** in one pre-stable cutover, one coordinated
-  changeset, one goodway migration note. Tracked here so they cut over once.
+- **Breaking** (event shape, view-context `{ snapshot }`, full `state`→`snapshot`
+  rename): land **together** in one pre-stable cutover, one coordinated changeset,
+  one goodway migration note. Tracked here so they cut over once.
+
+**Cutover scope reality (all three).** The breaking landing is not just `src`: the
+doc code-example guardrail (`check-doc-examples.mjs`) typechecks every `ts`/`tsx`
+fence against the real API, so **every `docs/site` example** using `emit`, the view
+context, or `expectState`/`result.state` must migrate in the *same* change or the
+guardrail fails. Budget the cutover as **src + docs-site sweep + the three design
+docs + one goodway migration note**. Ship the additive **effects object-form**
+(`1781818975642`) *before* the emit-shape break so the effects callback changes once,
+cleanly. One consolidated migration table covers all transforms: `emit(t,p)` →
+`emit({type:t,…})`; `event.payload` → the member; `{ context }` → `{ snapshot }` +
+`snapshot.*`; `expectState`/`result.state`/`schema.state` → `…snapshot`;
+`expectEvent(t,p)` → `expectEvent({type:t,…})`.
 
 ## Decisions (resolved 2026-06-18)
 
@@ -63,8 +75,34 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
    blocker. See `expose-source-native-api`.
 2. **view-context: `{ snapshot }`-only** (no convenience alias). Tasked:
    `1781818972687`.
-3. **`expectState` → `expectSnapshot`: rename with deprecated alias.** Tasked:
-   `1781818974159`.
+3. **`state` → `snapshot`: full rename, everywhere the value is named (resolved
+   2026-06-20 — chose the complete rename (b), not method-only (a)).** The value
+   `getSnapshot()` returns is a *snapshot*, not a state-machine "state": per adapter
+   it's the xstate snapshot (`ExtendedState` = `StateFrom & context`; the FSM state
+   is only `snapshot.value`), the redux state tree, the mobx store, or the actor-web
+   extended state. "state" is the native word for **redux only**, ambiguous for
+   xstate (collides with `snapshot.value`) and foreign to mobx. "snapshot" is the
+   honest *uniform* word — it *contains* the FSM state rather than colliding with it,
+   and it matches the instrument ignite already chose (`getSnapshot`/`watchSnapshot`,
+   mirroring XState v5's own `service.state` → `actor.getSnapshot()` correction). So
+   rename the value on **every** surface, not just the assertion:
+   - **assert** — `expectState` → `expectSnapshot`; type `IgniteStateExpectation`
+     → `IgniteSnapshotExpectation`.
+   - **observe / result** — `execute().state` → `execute().snapshot`
+     (`IgniteAgentExecutionResult`).
+   - **observe / schema** — `getSchema().state` → `getSchema().snapshot`
+     (`IgniteAgentSchema`).
+   - **observe / record + story** (agent-facing replay) — trace `kind: "state"` →
+     `"snapshot"`, `IgniteStoryStateTraceEntry.state` → `.snapshot`,
+     `IgniteStorySummary.finalState` and serialized `IgniteStorySummarySnapshot
+     .finalState` → `finalSnapshot`. *This changes serialized trace output — trace
+     snapshot tests migrate with it.*
+   - `expectEvent` adopts the flat member object (coordinated with `event-shape.md`).
+   - **Soft landing through beta, dropped at the stable cut:** delegating
+     `expectState` alias + once-per-process `console.warn` (same pattern as
+     `getState`→`getSnapshot`); a `state` getter beside `snapshot` on the execute
+     result; and the schema JSON emits **both** `state` and `snapshot` keys during
+     beta. Tasked: `1781818974159` (scope expanded to the full rename).
 
 The breaking trio (event shape / view-context / rename) is wired to **block the
 main-merge**, which blocks the stable cut — see `docs/v3-stable-roadmap.md`.

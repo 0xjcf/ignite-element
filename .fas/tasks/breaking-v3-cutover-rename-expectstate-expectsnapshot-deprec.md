@@ -6,6 +6,13 @@ Created with `fas create-task` on 2026-06-18.
 ## Problem
 Add expectSnapshot as the canonical assertion (mirrors getSnapshot/getView) and deprecate expectState as a delegating alias with a once-per-process dev console.warn (same pattern as getState->getSnapshot). expectEvent adopts the flat member object (coordinated with the event-shape task). Update tests, type tests, and docs. BREAKING surface change; MUST land in the SAME beta as event-shape + view-context, one goodway migration note. Decision locked 2026-06-18: rename yes (revisits the prior keep-state-in-assertions non-goal). Design: docs/v3-api-consistency.md + docs/event-shape.md.
 
+SCOPE EXPANDED 2026-06-20 to the FULL rename (option b), not method-only. The value getSnapshot() returns is a snapshot (xstate ExtendedState = StateFrom & context; redux state tree; mobx store; actor-web extended state), NOT a state-machine "state" (the FSM state is only snapshot.value) — so rename "state" everywhere the value is named:
+- assert: expectState -> expectSnapshot; type IgniteStateExpectation -> IgniteSnapshotExpectation.
+- result: execute().state -> .snapshot (IgniteAgentExecutionResult).
+- schema: getSchema().state -> .snapshot (IgniteAgentSchema).
+- record()/story replay (agent-facing): IgniteStoryStateTraceEntry kind:"state" -> "snapshot" and .state -> .snapshot; IgniteStorySummary.finalState + serialized IgniteStorySummarySnapshot.finalState -> finalSnapshot. NOTE: this changes serialized trace output — trace snapshot tests migrate with it.
+Soft landing through beta, dropped at the stable cut: delegating expectState alias + once-per-process warn; a `state` getter beside `snapshot` on the execute result; schema JSON emits BOTH `state` and `snapshot` keys during beta. Owner-approved 2026-06-20 ("great improvement to the API, high-quality DX").
+
 ## Acceptance criteria
 - External behavior is unchanged.
 - The refactored code meets the stated goal.
@@ -24,11 +31,18 @@ Add expectSnapshot as the canonical assertion (mirrors getSnapshot/getView) and 
 
 ## Affected files
 - packages/ignite-element/src/testing.ts
+- packages/ignite-element/src/types/agent.ts
+- packages/ignite-element/src/types/schema.ts
+- packages/ignite-element/src/runtime/agent.ts
 - packages/ignite-element/src/index.ts
+- packages/ignite-element/src/tests/testing.test.ts
+- packages/ignite-element/src/tests/types/testing.types.test.ts
+- docs/site (examples using expectState / result.state / schema.state — guardrail-typechecked, migrate in lockstep)
 - .changeset/expect-snapshot-rename.md
+- (refine the exact file set during planning; this is the full-rename (b) estimate)
 
 ## Scope Amendments
-- None.
+- 2026-06-20: expanded from method-only (a) to the full `state`->`snapshot` rename (b) — see Problem. Owner-approved. Pairs with the typed-view follow-up (task-1781971975611), which also touches types/agent.ts + the view projection — sequence typed-view first (additive) or fold its threading into the view-context change so the agent-runtime types aren't double-touched.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
