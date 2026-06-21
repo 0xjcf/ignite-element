@@ -1444,22 +1444,12 @@ No active tasks.
 - Owner: implementer
 - Brief: .fas/tasks/typing-surface-the-view-projection-through-ignitecore-s-retu.md
 
-### Task: typing: surface the view projection through igniteCore's return so getView()/expectView are typed (not Record<string,unknown>)
-
-- Title: typing: surface the view projection through igniteCore's return so getView()/expectView are typed (not Record<string,unknown>)
-- Mode: single-agent
-- Status: done
-- Owner: implementer
-- Verification lane: fast
-- Policy sensitivity: standard
-- Blast radius: cross-cutting
-
 ### Task: additive: expose the typed view projection in getSchema() as IgniteAgentSchema.view (mirrors the snapshot field) so agen
 
 - Title: additive: expose the typed view projection in getSchema() as IgniteAgentSchema.view (mirrors the snapshot field) so agen
 - Mode: 6-agent
-- Status: backlog
-- Owner: planner
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/additive-expose-the-typed-view-projection-in-getschema-as-ig.md
 
 ### Task: additive (agent API): add igniteTools(component) — derive an LLM tool manifest from getSchema().commands (name + input s
@@ -1488,6 +1478,17 @@ No active tasks.
 - Owner: planner
 - Brief: .fas/tasks/example-app-showcase-headless-agent-runtime-on-a-non-web-pro.md
 - Automation mode: advisory
+
+### Task: additive: expose the typed view projection in getSchema() as IgniteAgentSchema view (mirrors the snapshot field) so agents introspect the derived view shape they bind to, not just the raw snapshot; Phase-1 additive non-breaking; depends on the typed-view threading task-1781971975611 for the typed projection
+
+- Title: additive: expose the typed view projection in getSchema() as IgniteAgentSchema view (mirrors the snapshot field) so agents introspect the derived view shape they bind to, not just the raw snapshot; Phase-1 additive non-breaking; depends on the typed-view threading task-1781971975611 for the typed projection
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/additive-expose-the-typed-view-projection-in-getschema-as-ig.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ## Template
 
