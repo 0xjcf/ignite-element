@@ -30,6 +30,9 @@
 			],
 			"react": [
 				"dist/types/react/index.d.ts"
+			],
+			"tools": [
+				"dist/types/tools/index.d.ts"
 			]
 		}
 	},
@@ -87,6 +90,12 @@
 			"import": "./dist/react.es.js",
 			"require": "./dist/react.cjs.js",
 			"default": "./dist/react.es.js"
+		},
+		"./tools": {
+			"types": "./dist/types/tools/index.d.ts",
+			"import": "./dist/tools.es.js",
+			"require": "./dist/tools.cjs.js",
+			"default": "./dist/tools.es.js"
 		},
 		"./package.json": "./package.json"
 	},

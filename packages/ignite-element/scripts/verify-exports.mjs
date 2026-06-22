@@ -16,6 +16,7 @@ const expectedPublicSubpaths = [
 	"./jsx/jsx-runtime",
 	"./jsx/jsx-dev-runtime",
 	"./react",
+	"./tools",
 	"./package.json",
 ];
 
@@ -28,6 +29,7 @@ const expectedTypesVersions = [
 	"jsx/jsx-runtime",
 	"jsx/jsx-dev-runtime",
 	"react",
+	"tools",
 ];
 
 const removedStableSubpaths = [
@@ -62,6 +64,18 @@ const requiredExports = [
 	],
 	["./jsx/jsx-dev-runtime", { Fragment: "symbol", jsxDEV: "function" }],
 	["./react", { igniteReact: "function" }],
+	[
+		"./tools",
+		{
+			buildManifest: "function",
+			resolveCall: "function",
+			igniteTools: "function",
+			ok: "function",
+			err: "function",
+			isOk: "function",
+			isErr: "function",
+		},
+	],
 ];
 
 const recursiveImportPattern =
