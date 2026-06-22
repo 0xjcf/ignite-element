@@ -4,7 +4,7 @@
 Created with `fas create-task` on 2026-06-21.
 
 ## Problem
-additive (agent API): add igniteTools(component) — derive an LLM tool manifest from getSchema().commands (name + input schema), route tool_use into runtime.execute(name, payload), surface events + getView() as observations; the agent analog of igniteReact (getSchema-driven, adapter-agnostic, SDK-neutral core + optional Anthropic-shaped helper). Phase-1 additive; best after typed-view (typed tool inputs) + schema.view (grounding); composes with canExecute for dynamic tool gating. Design doc docs/ignite-tools.md
+igniteTools PR 1 of 3 — hexagonal CORE + PORT + FAKE dialect (TDD; NO provider SDK). Build: (1) FUNCTIONAL CORE (pure) — buildManifest(getSchema()) -> NeutralManifest [{name,description,inputSchema,gated}]; resolveCall(name,input) -> Result<Route,ToolError> (validate input vs inputSchema + canExecute gating; ERRORS AS VALUES, never throw). (2) The PORT ToolDialect { toToolDefs(manifest); parseToolCalls(resp); toToolResult(result) }. (3) The IMPERATIVE SHELL invoke(toolCall) -> Promise<Result<{snapshot,events},ToolError>> (the single execute() side-effect; may reach a remote actor). New entrypoint `ignite-element/tools`; igniteTools(component, dialect?) — neutral core usable directly, a dialect shapes tools/parse/result. TDD against a FAKE component + FAKE dialect (zero LLM calls). DDD: pure core / shell-only I/O / errors-as-values. NO provider SDK here — real adapters are PR 2 (anthropic) + PR 3 (openai, covers Codex + Ollama via OpenAI-compat). Hexagonal design: docs/ignite-tools.md. Builds on typed-view + getSchema().view (DONE); composes with canExecute (gating).
 
 ## Automation admission
 - Expected operator value: Improves operator leverage around "additive (agent API): add igniteTools(component) — derive an LLM tool manifest from getSchema().commands (name + input schema), route tool_use into runtime.execute(name, payload), surface events + getView() as observations; the agent analog of igniteReact (getSchema-driven, adapter-agnostic, SDK-neutral core + optional Anthropic-shaped helper). Phase-1 additive; best after typed-view (typed tool inputs) + schema.view (grounding); composes with canExecute for dynamic tool gating. Design doc docs/ignite-tools.md" by reducing manual coordination, repetitive execution, or trust gaps.
@@ -29,13 +29,13 @@ additive (agent API): add igniteTools(component) — derive an LLM tool manifest
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- packages/ignite-element/src/agent-tools.ts (new — igniteTools(component): { tools, invoke } from getSchema())
-- packages/ignite-element/src/index.ts + package.json exports (new `ignite-element/tools` entrypoint, mirroring `ignite-element/react`)
-- packages/ignite-element/src/types/agent.ts (tool-manifest types derived from Commands / getSchema)
-- packages/ignite-element/src/tests/*.test.ts + src/tests/types/*.types.test.ts (manifest shape, tool_use -> execute routing, typed inputs)
-- docs/ignite-tools.md (design) + a docs/site agent-runtime page note
+- packages/ignite-element/src/agent-tools.ts (NEW — igniteTools(component, dialect?): core buildManifest/resolveCall + shell invoke; the ToolDialect port type; a FAKE dialect for tests)
+- packages/ignite-element/src/types/agent.ts (NeutralManifest / NeutralToolCall / NeutralToolResult / ToolError / ToolDialect types, derived from Commands + getSchema)
+- a Result<T,E> errors-as-values type (reuse if one exists; else a small util — refine during planning)
+- packages/ignite-element/src/index.ts + package.json exports (NEW `ignite-element/tools` entrypoint, mirroring `ignite-element/react`)
+- packages/ignite-element/src/tests/*.test.ts + src/tests/types/*.types.test.ts (core + port via a FAKE dialect + FAKE component; typed manifest from getSchema; zero LLM calls)
 - .changeset (additive minor; "ignite-element")
-- SDK-neutral core returns { tools, invoke }; optional Anthropic-shaped mapping helper — keep @anthropic-ai/sdk an OPTIONAL peer (not a hard dep), mirroring react's optional peer
+- NO provider SDK in PR 1 (real adapters = PR 2 anthropic / PR 3 openai)
 - (refine during planning)
 
 ## Scope Amendments

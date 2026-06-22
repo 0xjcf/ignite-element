@@ -1490,6 +1490,24 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: igniteTools PR 2: Anthropic ToolDialect adapter (ignite-element/tools/anthropic) — implement the ToolDialect port for An
+
+- Title: igniteTools PR 2: Anthropic ToolDialect adapter (ignite-element/tools/anthropic) — implement the ToolDialect port for An
+- Mode: single-agent
+- Status: backlog
+- Owner: planner
+- Brief: .fas/tasks/ignitetools-pr-2-anthropic-tooldialect-adapter-ignite-elemen.md
+- Automation mode: advisory
+
+### Task: igniteTools PR 3: OpenAI ToolDialect adapter (ignite-element/tools/openai) — implement the ToolDialect port for OpenAI C
+
+- Title: igniteTools PR 3: OpenAI ToolDialect adapter (ignite-element/tools/openai) — implement the ToolDialect port for OpenAI C
+- Mode: single-agent
+- Status: backlog
+- Owner: planner
+- Brief: .fas/tasks/ignitetools-pr-3-openai-tooldialect-adapter-ignite-element-t.md
+- Automation mode: advisory
+
 ## Template
 
 ### Task: <short task title>
