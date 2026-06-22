@@ -1,4 +1,4 @@
-# Design: `igniteTools(component)` — getSchema → LLM tool-use bridge
+# Design: `igniteTools(component)` — hexagonal getSchema → LLM tool-use bridge
 
 ## Status
 
@@ -8,125 +8,138 @@ Proposed (design ✓). **Additive**, non-breaking — `3.x` minor. The agent ana
 ## Context
 
 `getSchema()` already describes a component as a machine-readable contract — `commands`
-(name + input schema), `events`, `snapshot` (+ `view`). With headless
-`execute(name, payload)`, that's everything an LLM agent needs to *drive* a component:
-discover tools, call them, observe results. But wiring `getSchema` → an LLM SDK's tool
-format and routing `tool_use` → `execute` is boilerplate every consumer would re-write.
+(name + input schema + `gated`), `events`, `snapshot`, `view`. With headless
+`execute(name, payload)`, that's everything an LLM agent needs to *drive* a component.
+`igniteTools` is the bridge from that contract to LLM tool-use.
 
-`igniteTools(component)` is that bridge — the agent analog of `igniteReact(component)`:
-both are thin, schema-driven adapters from the ignite contract to a host runtime (React
-render / LLM tool-use).
+The key design decision: **this is ignite's own "no lock-in" philosophy applied one
+layer up.** Just as ignite adapts xstate/redux/mobx/actor-web behind one core,
+`igniteTools` adapts **Anthropic / OpenAI(Codex) / Ollama** behind one **port**. Baking
+in a single provider SDK would betray the principle the library is built on. And a local
+provider (**Ollama**, via its OpenAI-compatible endpoint) is what unlocks the headless /
+embedded / edge showcase — an on-device model driving a component with no cloud and no
+web UI.
 
-## Decision
+## Decision — ports & adapters (hexagonal)
 
-```ts
-import { igniteTools } from "ignite-element/tools";
-
-const { tools, invoke } = igniteTools(release);
+```
+   driving actors                 igniteTools                          driven actor
+   (LLM providers)         ┌──────────────────────────────┐
+        │                  │   FUNCTIONAL CORE (pure)      │
+  [Anthropic] ─┐  adapter  │   buildManifest(schema)       │        ignite component
+  [OpenAI/Codex]┼─(format  │     → NeutralManifest         │ ──────►  execute(name, payload)
+  [Ollama]  ─┘   xlate)    │   resolveCall(name,input)     │          getView()/events ◄──
+        ▲                  │     → Result<Route, ToolError>│              (actor)
+        │                  │                               │               │
+   ToolDialect PORT ◄──────┤   ── PORT: ToolDialect ──     │          ┌─ remote actors
+   toToolDefs(manifest)    │   parseToolCalls(resp)        │          │  (location-transparent
+   toToolResult(result)    │   toToolResult(neutralResult) │          └─  via actor-web)
+                           │   IMPERATIVE SHELL            │
+                           │   invoke() → execute() I/O    │
+                           └──────────────────────────────┘
 ```
 
-- **`tools`** — a tool manifest derived from `getSchema().commands`: each command →
-  `{ name, description, inputSchema }` (the input schema is the command's
-  `command.object/…` metadata as JSON Schema). **Availability-gated**: a command whose
-  `getSchema` entry is `gated` and whose `canExecute(name)` is currently `false` is
-  **omitted**, so the agent only sees currently-callable tools (dynamic tool
-  availability; see `docs/can-execute.md`).
-- **`invoke(toolUse)`** — routes an LLM `tool_use` block (`{ name, input }`) into
-  `component.execute(name, input)` and returns `{ snapshot, events }` (flat tagged event
-  members). The act+observe step of the loop.
-- **Observations** — `events` (flat members) and `getView()` (the display projection)
-  are what the agent grounds its next turn on. The component holds state, so the agent
-  re-grounds on `getView()` each turn instead of replaying history.
+### Functional core (pure, deterministic — no I/O, no SDK)
 
-### SDK-neutral core + optional helper
+- `buildManifest(schema): NeutralManifest` — `getSchema().commands` → neutral tools
+  `{ name, description, inputSchema, gated }[]`. Availability-gated commands
+  (`gated && !canExecute`) are omitted (see `docs/can-execute.md`).
+- `resolveCall(name, input): Result<Route, ToolError>` — validate (input against the
+  command's `inputSchema`; availability against `canExecute`) and route to
+  `{ command, payload }`. Pure; returns a `Result` (errors as values), never throws.
 
-The core returns a neutral manifest (`{ name, description, inputSchema }[]`) + `invoke`,
-with **no hard dependency on any LLM SDK**. An optional Anthropic-shaped mapping
-(emitting `@anthropic-ai/sdk`'s `Tool` shape and reading its `ToolUseBlock`) is provided
-as a thin helper; `@anthropic-ai/sdk` stays an **optional peer** (mirroring react's
-optional peer) so the core chunk never imports it. This keeps the "no lock-in" promise
-at the agent-SDK layer too.
+### Port — `ToolDialect`
 
-## North-star DX — the release-agent loop
-
-One `igniteCore`, driven headless. The component is backed by a **remote** actor-web
-actor (location-transparent; the deploy controller runs on CI/edge), so the agent drives
-a possibly-distributed system through one local typed contract.
+The provider boundary. A pure format translator between the neutral manifest and a
+provider's tool-calling wire format:
 
 ```ts
-// release-actor.ts — authored once. Commands carry availability predicates (canExecute).
-export const release = igniteCore({           // ignite-element/actor-web
-  source: connectReleaseActor,                // remote source
-  view: ({ snapshot }) => ({
-    summary: `${snapshot.context.service}@${snapshot.context.sha.slice(0, 7)} — ${snapshot.context.stage}`,
-    connected: snapshot.transport.state === "connected",
-  }),
-  commands: ({ actor }) => ({
-    build:   command(() => actor.send({ type: "BUILD" }),   { canExecute: ({ snapshot }) => snapshot.transport.state === "connected" && snapshot.context.stage === "idle" }),
-    deploy:  command((i: { env: "staging" | "prod" }) => actor.send({ type: "DEPLOY", env: i.env }), {
-      input: command.object({ env: command.enum(["staging", "prod"]) }),
-      canExecute: ({ snapshot }) => snapshot.transport.state === "connected" && snapshot.context.stage === "built",
-    }),
-    promote: command(() => actor.send({ type: "PROMOTE" }), { canExecute: ({ snapshot }) => snapshot.transport.state === "connected" && snapshot.context.stage === "verified" }),
-    rollback:command(() => actor.send({ type: "ROLLBACK" }),{ canExecute: ({ snapshot }) => snapshot.transport.state === "connected" && ["deploying","deployed","verified"].includes(snapshot.context.stage) }),
-  }),
-});
-```
-
-```ts
-// release-agent.ts — headless. No DOM. A CLI / CI step.
-for (let turn = 0; turn < 12; turn++) {
-  const { tools, invoke } = igniteTools(release);   // only currently-callable commands (canExecute-gated)
-  const view = release.getView();
-  if (!tools.length) { await wait(1000); continue; } // disconnected ⇒ every transport-check false ⇒ no tools
-
-  const res = await anthropic.messages.create({
-    model: "claude-opus-4-8", max_tokens: 1024, tools,
-    messages: [{ role: "user", content: `${goal}\nstate: ${JSON.stringify(view)}` }],
-  });
-  const call = res.content.find((b) => b.type === "tool_use");
-  if (!call) break;                                  // agent is done
-  const { events } = await invoke(call);             // tool_use → release.execute(name, input)
-  for (const e of events) console.log(`⚡ ${e.type}`, e); // flat member: { type: "deployed", env: "staging" }
+interface ToolDialect<Tools, Response, ResultBlock> {
+  toToolDefs(manifest: NeutralManifest): Tools;          // neutral → provider tool defs
+  parseToolCalls(response: Response): NeutralToolCall[]; // provider response → neutral calls
+  toToolResult(result: NeutralToolResult): ResultBlock;  // neutral result → provider tool_result
 }
 ```
 
-The agent code holds **no deployment logic and no state machine**: it reads available
-tools + the view and acts. The action space is always valid — it is impossible to offer
-`promote` before `verify`, so you never prompt-engineer "don't promote early." The
-contract enforces it. The tools list narrows turn-by-turn (`build` → `deploy, rollback`
-→ `promote, rollback` → none) purely from `canExecute`.
+### Adapters (implement the port — separate entrypoints, SDK-free translators)
 
-## Two-surface boundary
+- **`ignite-element/tools/anthropic`** — Anthropic Messages tool format
+  (`tools: [{ name, description, input_schema }]`, `tool_use` blocks, `tool_result`).
+- **`ignite-element/tools/openai`** — OpenAI Chat Completions tool format
+  (`tools: [{ type: "function", function: { name, description, parameters } }]`,
+  `tool_calls`, `role: "tool"` results). **Covers OpenAI, Codex, and Ollama** (Ollama's
+  OpenAI-compatible endpoint). A dedicated **`ollama` native adapter** is an optional
+  future 4th, only if Ollama's native `/api/chat` tool quirks justify it.
+- Adapters are **pure format translators** — they emit/parse the documented JSON shapes
+  and have **no provider-SDK runtime dependency** (optional SDK *types* for ergonomics
+  only). The **consumer** brings the SDK to make the actual API call. This keeps adapters
+  zero-dependency and trivially unit-testable, and keeps bundles clean (you only import
+  the adapter you use), mirroring `ignite-element/react`'s optional-peer discipline.
 
-`igniteTools` consumes the **headless/agent surface** (`getSchema` / `execute` /
-`canExecute` / `getView`). It is NOT how a component's own UI is authored — that derives
-from the destructured callback args, source-native (`snapshot.can`, `actor.send` via
-commands). A single `igniteCore` can power a web UI (source-native view/commands) **and**
-an agent (`igniteTools`) — one contract, two consumers, zero shared glue.
+### Imperative shell
+
+- `invoke(toolCall): Promise<Result<{ snapshot, events }, ToolError>>` — the single
+  side-effect: `component.execute(name, payload)` (which may reach a remote actor). Returns
+  a `Result` so a failed command is data the agent reacts to, not an exception across the
+  seam. The LLM API call itself stays in the **consumer's** loop — `igniteTools` provides
+  the (provider-shaped) `tools` + `invoke`; the consumer runs the model.
+
+### API shape (proposal, refine in PR 1)
+
+```ts
+import { igniteTools } from "ignite-element/tools";
+import { anthropic } from "ignite-element/tools/anthropic";
+
+const { tools, invoke } = igniteTools(release, anthropic); // Anthropic-shaped, gated tools
+// neutral core is usable directly too:
+const { manifest, resolveCall, invoke } = igniteTools(release); // no dialect → neutral
+```
+
+## How the design embodies the principles
+
+| Principle | Where it lives |
+| --- | --- |
+| **Hexagonal (ports/adapters)** | `ToolDialect` port; `anthropic`/`openai` adapters; core never imports a provider |
+| **Functional core / imperative shell** | core = `buildManifest`/`resolveCall` (pure); shell = `invoke` (`execute` I/O) |
+| **DDD boundaries** | domain = manifest/routing; adapters translate + **return facts (no throw)**; shell coordinates |
+| **Errors as values** | `resolveCall`/`invoke` → `Result<…, ToolError>`; the LLM gets the error back as a `tool_result` |
+| **Actor model + topology** | agent-actor → `[igniteTools seam]` → component-actor → remote actors; a tool-call *is* a message; location-transparent via actor-web |
+| **Projections** | the agent grounds on the **view** (`getView()` / `getSchema().view`), the derived read-model — distinct from the raw snapshot |
+| **TDD** | pure core + each dialect = unit-tested with **zero LLM calls** (golden neutral↔provider fixtures); red→green per piece |
+| **Manual validation** | headless loop per provider; **Ollama gives a fully-local, key-free loop** (the edge showcase) |
+
+## `ToolError` (errors as values)
+
+A tagged union returned (never thrown) by `resolveCall`/`invoke`:
+`UnknownCommand` · `InvalidInput` (fails the command's `inputSchema`) · `Unavailable`
+(`canExecute` false) · `ExecuteFailed` (the command rejected). The consumer maps an `err`
+to the provider's `tool_result` (`is_error: true`) so the model can recover.
+
+## Sequencing — three PRs (each: branch off `beta` → TDD/DDD + manual validation → `coderabbit review` → PR `--base beta` → CI + CodeRabbit → approve+merge on green → `fas done`; changeset per PR)
+
+1. **PR 1 — core + `ToolDialect` port + a fake dialect.** TDD. No provider SDK. Proves
+   the neutral core (`buildManifest`/`resolveCall`/`invoke` with `Result`) end-to-end
+   against a fake component + fake dialect. Establishes the `ignite-element/tools`
+   entrypoint + the `ToolDialect` interface.
+2. **PR 2 — `anthropic` adapter** (`ignite-element/tools/anthropic`). Golden
+   neutral↔Anthropic fixtures (TDD). Manual validation: a headless Anthropic loop.
+3. **PR 3 — `openai` adapter** (`ignite-element/tools/openai`; covers Codex + Ollama via
+   OpenAI-compat). Golden fixtures (TDD). Manual validation: headless OpenAI **and** a
+   local Ollama (OpenAI-compat) loop — proves the port generalizes cloud→local.
 
 ## Dependencies
 
-- **typed-view** (`1781971975611`) — typed `getView()` so observations/tool inputs are typed.
-- **`getSchema().view`** — view grounding in the contract.
-- **`canExecute`** (`docs/can-execute.md`) — the availability gating. Without it `tools`
-  includes all commands (no dynamic gating; still functional, just ungated).
+- **typed-view** ✓ + **`getSchema().view`** ✓ (done) — typed manifest inputs + view grounding.
+- **`canExecute`** (`docs/can-execute.md`) — composes for availability-gated tools (omit
+  unavailable commands from the manifest). Optional; without it all commands are offered.
 
 ## Alternatives considered
 
-- **Bake in an LLM SDK** — rejected: locks the agent SDK; neutral core + optional helper
-  keeps it open.
-- **Offer all tools, let `execute` reject** — rejected for gated commands: wastes an LLM
-  turn and pollutes the transcript; `canExecute` pre-gating is cleaner. (Arg-validity
-  still surfaces at `execute` time — availability ≠ validity.)
-- **A bespoke per-component tool wrapper** — rejected: `getSchema` already carries the
-  contract; derive, don't hand-write.
-
-## Impact
-
-Additive. New entrypoint `ignite-element/tools` (`agent-tools.ts`), manifest/invoke
-types, an optional Anthropic helper, a docs/site agent page, changeset (minor). No change
-to existing surfaces.
+- **Bake in the Anthropic SDK** — rejected: lock-in; betrays ignite's no-lock-in philosophy.
+- **"Neutral core + one Anthropic helper" (no port)** — rejected: doesn't generalize to
+  Ollama/OpenAI; the port *is* the point.
+- **Adapters that wrap the provider SDK at runtime** — rejected: adapters are pure format
+  translators; the consumer brings the SDK; keeps adapters zero-dep + pure-testable.
 
 ## Related
 
