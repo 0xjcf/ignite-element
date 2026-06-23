@@ -360,7 +360,7 @@ This structure works well for both human maintainers and agent tooling because t
 - [Migration guide](./docs/migrations/v2.2.3-effects-events.md)
 - [Package boundary migration](./docs/migrations/adr-003-package-boundaries.md)
 - Advanced package layers: `ignite-core`, `ignite-adapters`, and `ignite-renderer`
-- [Local examples](./packages/ignite-element/src/examples)
+- [Local examples](./examples)
 
 ## Philosophy
 

@@ -1,0 +1,13 @@
+{
+	"extends": "../../../packages/ignite-element/tsconfig.typecheck.json",
+	"compilerOptions": {
+		"rootDir": "../../../",
+		"noEmit": true,
+		"composite": false,
+		"allowJs": false,
+		"experimentalDecorators": true,
+		"useDefineForClassFields": false
+	},
+	"include": ["./**/*.ts", "ignite.config.ts"],
+	"exclude": []
+}

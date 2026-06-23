@@ -28,7 +28,7 @@ dev-dist
 
 # OS files
 .DS_Store
-src/examples/**/package-lock.json
+examples/**/package-lock.json
 
 # ignite tmp config directories
 .tmp-ignite-config-*

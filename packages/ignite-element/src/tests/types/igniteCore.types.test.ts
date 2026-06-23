@@ -30,9 +30,7 @@ import * as actorWebPublic from "../../actor-web";
 import { igniteCore as igniteCoreActorWebEntrypoint } from "../../actor-web";
 import type { MobxEvent } from "../../adapters/MobxAdapter";
 import type { XStateSnapshot } from "../../adapters/XStateAdapter";
-import counterStore, {
-	counterSlice,
-} from "../../examples/adapters/redux/src/js/reduxCounterStore";
+import counterStore, { counterSlice } from "../fixtures/reduxCounterStore";
 import { igniteCore } from "../../IgniteCore";
 import type { AdapterPack } from "../../IgniteElementFactory";
 import type {

@@ -1,0 +1,19 @@
+{
+	"extends": "../../../packages/ignite-element/tsconfig.typecheck.json",
+	"compilerOptions": {
+		"rootDir": "../../../",
+		"noEmit": true,
+		"composite": false,
+		"jsx": "react-jsx",
+		"jsxImportSource": "../../../packages/ignite-element/src/renderers/jsx",
+		"allowJs": false
+	},
+	"include": [
+		"./src/**/*.ts",
+		"./src/**/*.tsx",
+		"../../../packages/ignite-element/src/renderers/jsx/**/*.ts",
+		"../../../packages/ignite-element/src/renderers/jsx/**/*.d.ts",
+		"ignite.config.ts"
+	],
+	"exclude": []
+}

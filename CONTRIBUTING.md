@@ -22,7 +22,7 @@ Contributions to Ignite-Element are welcome and encouraged! Whether you're fixin
    `pnpm install`
 
 4. **Run Examples**  
-   Examples for **XState**, **Redux**, and **MobX** are located in the `src/examples` directory. To start the server for each example, use the following commands:
+   Examples for **XState**, **Redux**, and **MobX** are located in the `examples` directory. To start the server for each example, use the following commands:
 
    - **XState**:
      `pnpm run examples:xstate`
