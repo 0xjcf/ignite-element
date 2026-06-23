@@ -31,6 +31,7 @@ export default defineConfig(({ command }) => ({
 			"jsx/jsx-runtime": "src/jsx/jsx-runtime.ts",
 			"jsx/jsx-dev-runtime": "src/jsx/jsx-dev-runtime.ts",
 			react: "src/react/index.ts",
+			tools: "src/tools/index.ts",
 		},
 		external: [
 			"@ignite-element/core",
