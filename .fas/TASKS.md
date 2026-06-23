@@ -1508,6 +1508,25 @@ No active tasks.
 - Brief: .fas/tasks/ignitetools-pr-3-openai-tooldialect-adapter-ignite-element-t.md
 - Automation mode: advisory
 
+### Task: [actor-web] Reconcile ignite ActorWeb* loose contract with actor-web's branded ActorAddress + fix beta.7 consumer regres
+
+- Title: [actor-web] Reconcile ignite ActorWeb* loose contract with actor-web's branded ActorAddress + fix beta.7 consumer regres
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/actor-web-reconcile-ignite-actorweb-loose-contract-with-acto.md
+
+### Task: igniteTools PR 1: hexagonal core + ToolDialect port + fake dialect (ignite-element/tools entrypoint; TDD; no provider SDK)
+
+- Title: igniteTools PR 1: hexagonal core + ToolDialect port + fake dialect (ignite-element/tools entrypoint; TDD; no provider SDK)
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/ignitetools-pr-1-hexagonal-core-tooldialect-port-fake-dialec.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
