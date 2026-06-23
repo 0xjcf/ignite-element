@@ -6,7 +6,6 @@ export type {
 	ActorWebExtendedState,
 	ActorWebReadModelSource,
 	ActorWebSource,
-	ActorWebSourceHandle,
 	ActorWebSourceSnapshot,
 	ActorWebTransportState,
 	ActorWebTransportStatus,

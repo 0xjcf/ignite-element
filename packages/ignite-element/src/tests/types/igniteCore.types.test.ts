@@ -4,7 +4,6 @@ import type {
 	ActorWebExtendedState as AdapterActorWebExtendedState,
 	ActorWebReadModelSource as AdapterActorWebReadModelSource,
 	ActorWebSource as AdapterActorWebSource,
-	ActorWebSourceHandle as AdapterActorWebSourceHandle,
 } from "@ignite-element/adapters/actor-web";
 import { command, commandMetadataSymbol } from "@ignite-element/core";
 import { makeAutoObservable } from "mobx";
@@ -24,7 +23,6 @@ import type {
 	IgniteTestHelpers as ActorWebIgniteTestHelpers,
 	ActorWebReadModelSource,
 	ActorWebSource,
-	ActorWebSourceHandle,
 } from "../../actor-web";
 import * as actorWebPublic from "../../actor-web";
 import { igniteCore as igniteCoreActorWebEntrypoint } from "../../actor-web";
@@ -186,13 +184,6 @@ const actorWebShipmentHostFactory = (_context: { host?: HTMLElement }) =>
 const actorWebShipmentReadModelHostFactory = (_context: {
 	host?: HTMLElement;
 }) => actorWebShipmentReadModelSource;
-const actorWebShipmentSourceHandle: ActorWebSourceHandle<
-	ActorWebShipmentContext,
-	ActorWebShipmentCommand,
-	ActorWebShipmentEvent
-> = {
-	source: actorWebShipmentSource,
-};
 const actorWebShipmentDefaultedHostFactory = (
 	_context: { host?: HTMLElement } = {},
 ) => actorWebShipmentSource;
@@ -344,19 +335,6 @@ describe("igniteCore type inference", () => {
 				ActorWebShipmentEvent
 			>
 		>();
-		expectTypeOf<
-			ActorWebSourceHandle<
-				ActorWebShipmentContext,
-				ActorWebShipmentCommand,
-				ActorWebShipmentEvent
-			>
-		>().toEqualTypeOf<
-			AdapterActorWebSourceHandle<
-				ActorWebShipmentContext,
-				ActorWebShipmentCommand,
-				ActorWebShipmentEvent
-			>
-		>();
 	});
 
 	it("infers actor-web view context, transport, and command actor facades", () => {
@@ -410,9 +388,9 @@ describe("igniteCore type inference", () => {
 		>();
 	});
 
-	it("infers command actors from single command-capable actor-web source handles", () => {
+	it("infers command actors from a single command-capable actor-web source", () => {
 		const register = igniteCoreActorWebEntrypoint({
-			source: actorWebShipmentSourceHandle,
+			source: actorWebShipmentSource,
 			view: ({ snapshot }) => ({
 				status: snapshot.context.status,
 			}),
@@ -439,10 +417,9 @@ describe("igniteCore type inference", () => {
 		>().toEqualTypeOf<CommandMetadata>();
 	});
 
-	it("infers actor-web read-model source snapshots with explicit command sources", () => {
+	it("infers actor-web read-model source snapshots from a single source", () => {
 		const register = igniteCoreActorWebEntrypoint({
 			source: actorWebShipmentReadModelHostFactory,
-			commandSource: () => actorWebShipmentSource,
 			view: ({
 				context,
 				phase,
@@ -497,6 +474,22 @@ describe("igniteCore type inference", () => {
 		expectTypeOf<RenderArgs["createShipment"]>().toEqualTypeOf<
 			(shipmentId: string) => Promise<unknown>
 		>();
+	});
+
+	it("rejects a per-config commandSource — every adapter shares one source surface", () => {
+		igniteCoreActorWebEntrypoint({
+			source: actorWebShipmentSource,
+			view: ({ snapshot }) => ({ status: snapshot.context.status }),
+			commands: ({ actor }) => ({
+				createShipment: (shipmentId: string) =>
+					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
+			}),
+			// @ts-expect-error commandSource was removed in beta.8 — the single
+			// `source` provides both reads and writes, so actor-web shares the same
+			// config surface as every other adapter. A read/write split, if ever
+			// needed, lives in the source object, not a second igniteCore key.
+			commandSource: () => actorWebShipmentSource,
+		});
 	});
 
 	it("supports explicit actor-web factories, subpath entrypoints, and narrows omitted zero-arg factory inference", () => {

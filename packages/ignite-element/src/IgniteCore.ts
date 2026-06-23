@@ -8,7 +8,6 @@ import type {
 	ActorWebCommandActor,
 	ActorWebExtendedState,
 	ActorWebSource,
-	ActorWebSourceHandle,
 } from "@ignite-element/adapters/actor-web";
 import type {
 	ExtendedState,
@@ -104,13 +103,7 @@ type ActorWebSourceContext<Source> =
 		infer _SourceEmitted
 	>
 		? SourceContext
-		: ActorWebSourceResult<Source> extends ActorWebSourceHandle<
-					infer HandleContext,
-					infer _HandleMessage,
-					infer _HandleEmitted
-				>
-			? HandleContext
-			: never;
+		: never;
 type ActorWebSourceMessage<Source> =
 	ActorWebSourceResult<Source> extends ActorWebSource<
 		infer _SourceContext,
@@ -118,13 +111,7 @@ type ActorWebSourceMessage<Source> =
 		infer _SourceEmitted
 	>
 		? SourceMessage
-		: ActorWebSourceResult<Source> extends ActorWebSourceHandle<
-					infer _HandleContext,
-					infer HandleMessage,
-					infer _HandleEmitted
-				>
-			? HandleMessage
-			: never;
+		: never;
 type ActorWebSourceEmitted<Source> =
 	ActorWebSourceResult<Source> extends ActorWebSource<
 		infer _SourceContext,
@@ -132,13 +119,7 @@ type ActorWebSourceEmitted<Source> =
 		infer SourceEmitted
 	>
 		? SourceEmitted
-		: ActorWebSourceResult<Source> extends ActorWebSourceHandle<
-					infer _HandleContext,
-					infer _HandleMessage,
-					infer HandleEmitted
-				>
-			? HandleEmitted
-			: never;
+		: never;
 
 function isXStateConfig(
 	options: IgniteCoreConfig,
@@ -426,7 +407,7 @@ function resolveAdapter(options: IgniteCoreConfig): ResolvedAdapter {
 		}
 	}
 
-	if (isActorWebSource(source) || isActorWebSourceHandle(source)) {
+	if (isActorWebSource(source)) {
 		return "actor-web";
 	}
 
@@ -457,17 +438,6 @@ function isActorWebSource(
 		value !== null &&
 		"snapshot" in value &&
 		"subscribe" in value
-	);
-}
-
-function isActorWebSourceHandle(
-	value: unknown,
-): value is ActorWebSourceHandle<object, { type: string }, { type: string }> {
-	return (
-		typeof value === "object" &&
-		value !== null &&
-		"source" in value &&
-		isActorWebSource((value as { source?: unknown }).source)
 	);
 }
 

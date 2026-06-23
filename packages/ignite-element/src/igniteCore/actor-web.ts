@@ -3,7 +3,6 @@ import type {
 	ActorWebCommandSource,
 	ActorWebExtendedState,
 	ActorWebSource,
-	ActorWebSourceHandle,
 } from "@ignite-element/adapters/actor-web";
 import { createActorWebAdapter } from "@ignite-element/adapters/actor-web";
 import type {
@@ -28,14 +27,7 @@ type ActorWebSubpathSourceValue<
 	Emitted extends { type: string },
 > =
 	| ActorWebSource<Context, Message, Emitted>
-	| ActorWebCommandSource<Context, Message, Emitted>
-	| ActorWebSourceHandle<Context, Message, Emitted>;
-
-type ActorWebSubpathCommandSourceValue<
-	Context extends object,
-	Message extends { type: string },
-	Emitted extends { type: string },
-> = ActorWebCommandSource<Context, Message, Emitted>;
+	| ActorWebCommandSource<Context, Message, Emitted>;
 
 type ActorWebSubpathHostContextFactory<
 	Context extends object,
@@ -45,16 +37,6 @@ type ActorWebSubpathHostContextFactory<
 	bivarianceHack(context?: {
 		host?: HTMLElement;
 	}): ActorWebSubpathSourceValue<Context, Message, Emitted>;
-}["bivarianceHack"];
-
-type ActorWebSubpathCommandHostContextFactory<
-	Context extends object,
-	Message extends { type: string },
-	Emitted extends { type: string },
-> = {
-	bivarianceHack(context?: {
-		host?: HTMLElement;
-	}): ActorWebSubpathCommandSourceValue<Context, Message, Emitted>;
 }["bivarianceHack"];
 
 type ActorWebSubpathConfig<
@@ -76,7 +58,7 @@ type ActorWebSubpathConfig<
 		StatesResult,
 		CommandsResult
 	>,
-	"adapter" | "source" | "view" | "commandSource"
+	"adapter" | "source" | "view"
 > & {
 	adapter?: "actor-web";
 	source:
@@ -91,10 +73,6 @@ type ActorWebSubpathConfig<
 		StatesResult,
 		CommandsResult
 	>["view"];
-	commandSource?:
-		| ActorWebSubpathCommandSourceValue<Context, Message, Emitted>
-		| (() => ActorWebSubpathCommandSourceValue<Context, Message, Emitted>)
-		| ActorWebSubpathCommandHostContextFactory<Context, Message, Emitted>;
 };
 
 export function igniteCoreActorWeb<
@@ -127,9 +105,7 @@ export function igniteCoreActorWeb<
 > {
 	// Actor-Web remains the runtime owner; Ignite only adapts projection snapshots
 	// and command access into the headless component contract.
-	const createAdapter = createActorWebAdapter(options.source, {
-		commandSource: options.commandSource,
-	});
+	const createAdapter = createActorWebAdapter(options.source);
 	const componentOptions = options as unknown as IgniteComponentFactoryOptions<
 		ActorWebExtendedState<Context>,
 		ActorWebCommandActor<Context, Message, Emitted>,
