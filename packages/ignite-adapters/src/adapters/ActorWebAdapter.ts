@@ -9,12 +9,24 @@ import { failInvariant, StateScope } from "@ignite-element/core";
 // and they are hand-written rather than aliased so the optional peer never
 // leaks into the shipped d.ts graph. Compatibility with the canonical types is
 // enforced at compile time by src/__tests__/actor-web-canonical-compat.types.ts.
-export type ActorWebAddress = {
-	id: string;
-	path: string;
-	type?: string;
-	node?: string;
-};
+
+// Tolerant during actor-web's opaque-address migration: accept BOTH the legacy
+// object identity AND actor-web's new opaque branded string (a branded string IS
+// assignable to `string`). This keeps the compile-time drift guard green against
+// the still-published `@actor-web/runtime@0.1.0` (object address) AND the new
+// branded-string runtime. The address is opaque to ignite — it is only ever passed
+// through (never read for `.id`/`.path`/`.node`), so the union and the eventual
+// pure `string` are both no-ops for ignite logic.
+// TODO(actor-web > 0.1.0): collapse to `string` once actor-web publishes the
+// branded address and ignite bumps its `@actor-web/runtime` dep so CI installs it.
+export type ActorWebAddress =
+	| string
+	| {
+			id: string;
+			path: string;
+			type?: string;
+			node?: string;
+	  };
 
 export type ActorWebEventSubscriptionOptions = {
 	types?: readonly string[];
@@ -102,30 +114,16 @@ export type ActorWebCommandActor<
 	Emitted extends { type: string } = Message,
 > = ActorWebCommandSource<Context, Message, Emitted>;
 
-export type ActorWebSourceHandle<
-	Context extends object = Record<string, never>,
-	Message extends { type: string } = { type: string },
-	Emitted extends { type: string } = Message,
-> = {
-	source: ActorWebSource<Context, Message, Emitted>;
-	commandSource?: ActorWebCommandSource<Context, Message, Emitted>;
-	stop?: () => void | Promise<void>;
-};
-
+// A source is either read-only or read+write (it carries `send`). The command
+// actor is derived from this single source — actor-web shares the same one-source
+// config surface as every other adapter (no separate command source).
 type ActorWebSourceLike<
 	Context extends object,
 	Message extends { type: string },
 	Emitted extends { type: string },
 > =
 	| ActorWebSource<Context, Message, Emitted>
-	| ActorWebCommandSource<Context, Message, Emitted>
-	| ActorWebSourceHandle<Context, Message, Emitted>;
-
-type ActorWebCommandSourceLike<
-	Context extends object,
-	Message extends { type: string },
-	Emitted extends { type: string },
-> = ActorWebCommandSource<Context, Message, Emitted>;
+	| ActorWebCommandSource<Context, Message, Emitted>;
 
 type ActorWebAdapterFactory<
 	Context extends object,
@@ -243,38 +241,6 @@ function isActorWebCommandSource<
 	);
 }
 
-function resolveHandle<
-	Context extends object,
-	Message extends { type: string },
-	Emitted extends { type: string },
->(
-	value: ActorWebSourceLike<Context, Message, Emitted>,
-	commandSource?: ActorWebCommandSourceLike<Context, Message, Emitted>,
-): ActorWebSourceHandle<Context, Message, Emitted> {
-	if (isActorWebReadModelSource(value)) {
-		return {
-			source: value,
-			...(commandSource
-				? { commandSource }
-				: isActorWebCommandSource<Context, Message, Emitted>(value)
-					? { commandSource: value }
-					: {}),
-		};
-	}
-
-	const handleCommandSource =
-		commandSource ??
-		value.commandSource ??
-		(isActorWebCommandSource<Context, Message, Emitted>(value.source)
-			? value.source
-			: undefined);
-
-	return {
-		...value,
-		...(handleCommandSource ? { commandSource: handleCommandSource } : {}),
-	};
-}
-
 function requireEntry<
 	Context extends object,
 	Message extends { type: string },
@@ -370,13 +336,18 @@ function createAdapterEntry<
 	Message extends { type: string },
 	Emitted extends { type: string },
 >(
-	handle: ActorWebSourceHandle<Context, Message, Emitted>,
+	source: ActorWebSourceLike<Context, Message, Emitted>,
 	scope: StateScope,
 	ownsSource: boolean,
 ): ActorWebAdapterEntry<Context, Message, Emitted> {
 	const listeners = new Set<(state: ActorWebExtendedState<Context>) => void>();
-	const source = handle.source;
-	const commandSource = handle.commandSource ?? null;
+	// The command actor is the source itself when it can write (exposes `send`);
+	// a read-only source yields no command actor.
+	const commandSource = isActorWebCommandSource<Context, Message, Emitted>(
+		source,
+	)
+		? source
+		: null;
 	let unsubscribeSource: (() => void) | null = null;
 	let unsubscribeTransportStatus: (() => void) | null = null;
 	let isStopped = false;
@@ -527,15 +498,9 @@ function createAdapterEntry<
 			}
 
 			const cleanupSources = async () => {
-				if (handle.stop) {
-					await handle.stop();
-					return;
-				}
-
+				// The command actor IS the source (or null), so closing the source
+				// disposes the only handle ignite created.
 				await source.close?.();
-				if (commandSource && commandSource !== source) {
-					await commandSource.close?.();
-				}
 			};
 
 			void cleanupSources().catch((error) => {
@@ -572,37 +537,14 @@ export default function createActorWebAdapter<
 		| ((context?: {
 				host?: Host;
 		  }) => ActorWebSourceLike<Context, Message, Emitted>),
-	options: {
-		commandSource?:
-			| ActorWebCommandSourceLike<Context, Message, Emitted>
-			| ((context?: {
-					host?: Host;
-			  }) => ActorWebCommandSourceLike<Context, Message, Emitted>);
-	} = {},
 ): ActorWebAdapterFactory<Context, Message, Emitted, Host> {
 	if (typeof source === "function") {
-		return createIsolatedFactory((host) => {
-			const resolvedCommandSource =
-				typeof options.commandSource === "function"
-					? options.commandSource({ host })
-					: options.commandSource;
-			return createAdapterEntry(
-				resolveHandle(source({ host }), resolvedCommandSource),
-				StateScope.Isolated,
-				true,
-			);
-		});
+		return createIsolatedFactory((host) =>
+			createAdapterEntry(source({ host }), StateScope.Isolated, true),
+		);
 	}
 
-	const resolvedCommandSource =
-		typeof options.commandSource === "function"
-			? options.commandSource()
-			: options.commandSource;
 	return createSharedFactory(
-		createAdapterEntry(
-			resolveHandle(source, resolvedCommandSource),
-			StateScope.Shared,
-			false,
-		),
+		createAdapterEntry(source, StateScope.Shared, false),
 	);
 }

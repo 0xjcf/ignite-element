@@ -43,11 +43,14 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
 ## Intentional — document, do not "fix"
 
 - **Command `actor` is adapter-native** (`send` / `dispatch` / store methods /
-  `commandSource.send`). Deliberate — "use your state lib natively." The only lever
+  actor-web `send`/`ask`). Deliberate — "use your state lib natively." The only lever
   is an *optional* unified `send(event)` helper layered on top (previously deferred
   spike). OPEN product decision.
-- **actor-web `commandSource`** read/write split — only actor-web has it; correct for
-  the model. Doc note only.
+- **actor-web read/write split** — actor-web's model supports separate read and
+  command handles, but Ignite no longer exposes a separate `commandSource` config key
+  (removed beta.8 for a unified one-source surface — every adapter takes one `source`;
+  the command actor derives from it, writable iff it exposes `send`). A source can
+  still bundle reads + writes internally.
 
 ## Sequencing
 

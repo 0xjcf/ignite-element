@@ -4,7 +4,6 @@ import type {
 	ActorWebExtendedState,
 	ActorWebReadModelSource,
 	ActorWebSource,
-	ActorWebSourceHandle,
 	MobxEvent,
 	ReduxBlueprintSource,
 	ReduxCommandActorFor,
@@ -140,7 +139,6 @@ export type {
 	ActorWebCommandActor,
 	ActorWebExtendedState,
 	ActorWebSource,
-	ActorWebSourceHandle,
 	EventsDefinition,
 	MobxEvent,
 	ReduxBlueprintSource,
@@ -244,14 +242,7 @@ type ActorWebSourceValue<
 	Emitted extends { type: string },
 > =
 	| ActorWebSource<Context, Message, Emitted>
-	| ActorWebCommandSource<Context, Message, Emitted>
-	| ActorWebSourceHandle<Context, Message, Emitted>;
-
-type ActorWebCommandSourceValue<
-	Context extends object,
-	Message extends { type: string },
-	Emitted extends { type: string },
-> = ActorWebCommandSource<Context, Message, Emitted>;
+	| ActorWebCommandSource<Context, Message, Emitted>;
 
 type ActorWebHostContextFactory<
 	Context extends object,
@@ -263,16 +254,6 @@ type ActorWebHostContextFactory<
 	}): ActorWebSourceValue<Context, Message, Emitted>;
 }["bivarianceHack"];
 
-type ActorWebCommandHostContextFactory<
-	Context extends object,
-	Message extends { type: string },
-	Emitted extends { type: string },
-> = {
-	bivarianceHack(context?: {
-		host?: HTMLElement;
-	}): ActorWebCommandSourceValue<Context, Message, Emitted>;
-}["bivarianceHack"];
-
 export type ActorWebSourceLike<
 	Context extends object,
 	Message extends { type: string },
@@ -281,15 +262,6 @@ export type ActorWebSourceLike<
 	| ActorWebSourceValue<Context, Message, Emitted>
 	| (() => ActorWebSourceValue<Context, Message, Emitted>)
 	| ActorWebHostContextFactory<Context, Message, Emitted>;
-
-export type ActorWebCommandSourceLike<
-	Context extends object,
-	Message extends { type: string },
-	Emitted extends { type: string },
-> =
-	| ActorWebCommandSourceValue<Context, Message, Emitted>
-	| (() => ActorWebCommandSourceValue<Context, Message, Emitted>)
-	| ActorWebCommandHostContextFactory<Context, Message, Emitted>;
 
 export type ActorWebConfig<
 	Context extends object,
@@ -308,7 +280,6 @@ export type ActorWebConfig<
 	> = ActorWebSourceLike<Context, Message, Emitted>,
 > = {
 	view?: FacadeViewCallback<ActorWebExtendedState<Context>, StatesResult>;
-	commandSource?: ActorWebCommandSourceLike<Context, Message, Emitted>;
 	commands?: FacadeCommandsCallback<
 		ActorWebCommandActor<Context, Message, Emitted>,
 		CommandsResult,
@@ -391,13 +362,7 @@ export type InferAdapterFromSource<Source> = Source extends AnyStateMachine
 										infer _ResultReadModelEmitted
 									>
 								? "actor-web"
-								: Result extends ActorWebSourceHandle<
-											infer _ResultHandleContext,
-											infer _ResultHandleMessage,
-											infer _ResultHandleEmitted
-										>
-									? "actor-web"
-									: never
+								: never
 						: never
 			: Source extends EnhancedStore
 				? "redux"
@@ -415,15 +380,9 @@ export type InferAdapterFromSource<Source> = Source extends AnyStateMachine
 									infer _ReadModelEmitted
 								>
 							? "actor-web"
-							: Source extends ActorWebSourceHandle<
-										infer _SourceHandleContext,
-										infer _SourceHandleMessage,
-										infer _SourceHandleEmitted
-									>
-								? "actor-web"
-								: Source extends object
-									? "mobx"
-									: never;
+							: Source extends object
+								? "mobx"
+								: never;
 
 export type IgniteCoreConfig =
 	| XStateConfig<

@@ -15,7 +15,6 @@ import type {
 	ActorWebCommandSource,
 	ActorWebExtendedState,
 	ActorWebSource,
-	ActorWebSourceHandle,
 	ActorWebSourceSnapshot,
 	ActorWebTransportStatus,
 } from "../actor-web";
@@ -464,17 +463,10 @@ describe("igniteCore", () => {
 		});
 	});
 
-	it("routes actor-web commands through a single command-capable source handle", () => {
+	it("routes actor-web commands through a single command-capable source", () => {
 		const source = createActorWebShipmentSource();
-		const sourceHandle: ActorWebSourceHandle<
-			ActorWebShipmentContext,
-			ActorWebShipmentCommand,
-			{ type: "SHIPMENT_CREATED"; shipmentId: string }
-		> = {
-			source,
-		};
 		const register = igniteCore({
-			source: sourceHandle,
+			source,
 			view: ({ snapshot }) => ({
 				status: snapshot.context.status,
 			}),
@@ -567,29 +559,6 @@ describe("igniteCore", () => {
 		// The source is consumer-owned (passed as a live instance → shared scope).
 		// ignite must never close a source it did not create.
 		expect(source.closed).toBe(0);
-	});
-
-	it("routes actor-web commands through an explicit commandSource pair", () => {
-		const readModelSource = createActorWebShipmentReadModelSource();
-		const commandSource = createActorWebShipmentSource();
-		const register = igniteCore({
-			source: readModelSource,
-			commandSource,
-			view: ({ snapshot }) => ({
-				status: snapshot.context.status,
-			}),
-			commands: ({ actor }) => ({
-				createShipment: (shipmentId: string) =>
-					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
-			}),
-		});
-
-		register.execute("createShipment", "shipment-2002");
-
-		expect(commandSource.sent).toEqual([
-			{ type: "CREATE_SHIPMENT", shipmentId: "shipment-2002" },
-		]);
-		expect("send" in readModelSource).toBe(false);
 	});
 
 	it("provides projected view callbacks for xstate sources", () => {

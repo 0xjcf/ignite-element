@@ -1,6 +1,6 @@
 ---
 title: Actor-Web adapter
-description: Project an Actor-Web runtime into Ignite components — read-model vs command sources, transport status, and send vs ask.
+description: Project an Actor-Web runtime into Ignite components — a single source (read-only or command-capable), transport status, and send vs ask.
 sidebar:
   label: Actor-Web
   order: 5
@@ -10,21 +10,18 @@ Use `ignite-element/actor-web` when an **Actor-Web runtime already owns** orches
 
 This is the opposite split from `ignite-element/xstate`, where Ignite owns the local machine. Reach for Actor-Web when the source is long-lived and lives outside the element; reach for XState (or Redux/MobX) when the element owns its own state.
 
-## Read model vs command source
+## Read-only vs command-capable sources
 
-Actor-Web distinguishes two handles, both typed by a shared `Context`, `Message`, and (optionally) `Emitted`:
+Actor-Web sources come in two shapes, both typed by a shared `Context`, `Message`, and (optionally) `Emitted`:
 
 - **Read-model source** (`ActorWebReadModelSource`) — the projection Ignite renders from. It exposes `snapshot()` and `subscribe(...)`; it does **not** send messages.
 - **Command source** (`ActorWebCommandSource`) — a read-model source plus `send(message)` and an optional `ask(message)` for request/response.
 
-Pass the read model as `source` (what drives rendering) and add `commandSource` when the component needs to send messages back across the boundary. `igniteCore` infers the projection and message types from the source handle — you never pass type arguments:
+Either way you pass a **single** handle as `source` — the same one-source shape every Ignite adapter uses. When the source is command-capable, `commands` issue `actor.send`/`actor.ask`; a read-only source renders but can't send. `igniteCore` infers the projection and message types from the source — you never pass type arguments:
 
 ```ts
 import { igniteCore } from 'ignite-element/actor-web';
-import type {
-  ActorWebReadModelSource,
-  ActorWebCommandSource,
-} from 'ignite-element/actor-web';
+import type { ActorWebCommandSource } from 'ignite-element/actor-web';
 
 type ShipmentProjection = {
   shipmentId: string;
@@ -38,19 +35,14 @@ type ShipmentRequest =
   | { type: 'shipment.cancel'; shipmentId: string }
   | { type: 'shipment.label.request'; shipmentId: string };
 
-// Your Actor-Web runtime hands Ignite typed source handles.
-declare const shipmentReadModel: ActorWebReadModelSource<
-  ShipmentProjection,
-  ShipmentRequest
->;
-declare const shipmentCommands: ActorWebCommandSource<
+// Your Actor-Web runtime hands Ignite a typed, command-capable source handle.
+declare const shipmentSource: ActorWebCommandSource<
   ShipmentProjection,
   ShipmentRequest
 >;
 
 export const shipmentCard = igniteCore({
-  source: shipmentReadModel,
-  commandSource: shipmentCommands,
+  source: shipmentSource,
   view: ({ context }) => ({
     shipmentId: context.shipmentId,
     status: context.status,
@@ -66,10 +58,10 @@ export const shipmentCard = igniteCore({
 });
 ```
 
-`ShipmentProjection` flows into the `view` `context`, and `ShipmentRequest` flows into `actor.send`, all inferred from `shipmentReadModel` — no `igniteCore<...>` annotations. The projected `context` carries business/read-model state; updating it stays Actor-Web's job. Ignite sends requests back and re-renders when the next projection snapshot arrives.
+`ShipmentProjection` flows into the `view` `context`, and `ShipmentRequest` flows into `actor.send`, all inferred from `shipmentSource` — no `igniteCore<...>` annotations. The projected `context` carries business/read-model state; updating it stays Actor-Web's job. Ignite sends requests back and re-renders when the next projection snapshot arrives.
 
 :::note[Source shapes]
-`source` accepts a read-model source value (shown above), a command-capable source, a zero-argument factory, a host-context factory `({ host }) => source`, or an `ActorWebSourceHandle` — `{ source, commandSource?, stop? }` — that bundles both handles and a teardown. When a source exposes `close()`, Ignite calls it during adapter teardown. Passing a typed source **value** gives the cleanest inference; the `ignite-element/actor-web` entrypoint is required for zero-argument and defaulted factories (see [Source factory adapter inference](/ignite-element/concepts/the-ignite-model/)).
+`source` accepts a source **value** (read-only or command-capable), a zero-argument factory, or a host-context factory `({ host }) => source`. When a source exposes `close()`, Ignite calls it during adapter teardown. Passing a typed source **value** gives the cleanest inference; the `ignite-element/actor-web` entrypoint is required for zero-argument and defaulted factories (see [Source factory adapter inference](/ignite-element/concepts/the-ignite-model/)).
 :::
 
 ## Where sources come from
@@ -79,18 +71,21 @@ Your Actor-Web runtime owns the sources and hands Ignite ready-made handles — 
 | Actor-Web source factory | Hands you | Pass to `igniteCore` as |
 | --- | --- | --- |
 | `readModel(options)` | a read-only projection (`snapshot`/`subscribe`, no `send`) | `source` |
-| `commandSource(options)` | a read model **plus** `send`/`ask` | `commandSource` — or `source` to use one command-capable handle for both |
-| `sourceHandle(options)` | a `{ source, commandSource }` bundle | `source` (the adapter unpacks it) |
+| `commandSource(options)` | a read model **plus** `send`/`ask` | `source` |
 
 `options` is **connection config, not actor identity** — the gateway URL, auth, scope, and transport (`{ gateway: { url, scope?, auth? }, … }`). The actor is already selected by the topology path. Refer to your Actor-Web runtime's source/topology API for the exact factory signatures.
 
-### Merge vs split
+### One source surface
 
-- **One handle does both:** if the runtime gives you a command-capable source, pass it as `source` and omit `commandSource` — the adapter reuses the same handle for reads and commands.
-- **Separate handles:** pass the read model as `source` and the command channel as `commandSource`, or bundle them up front (actor-web's `createActorWebSourceHandle(readModel, commandSource)`) and pass the bundle as `source`.
+Ignite takes a **single** handle as `source` — the same one-source shape as every other adapter, with no separate command channel:
+
+- **Command-capable source** — exposes `send`/`ask`, so `commands` can dispatch and `actor.ask` works.
+- **Read-only source** — renders fine, but command dispatch is a no-op. Use a command-capable source whenever the component issues commands.
+
+Actor-Web's own model can still split reads from writes internally; Ignite just consumes whichever single handle the runtime hands it.
 
 :::caution[Read-only sources can't send]
-If `source` is a read-model handle with no command channel and you don't supply a `commandSource`, command dispatch is a no-op — the adapter logs a dev warning and drops the message. Supply a `commandSource` whenever the component issues `send`/`ask` commands.
+If `source` is a read-only handle (no `send`), command dispatch is a no-op — the adapter logs a dev warning and drops the message. Pass a command-capable source whenever the component issues `send`/`ask` commands.
 :::
 
 ## send vs ask
@@ -100,7 +95,7 @@ Commands cross the boundary through explicit requests on the command actor:
 - `actor.send(message)` — fire-and-forget; returns a `Promise` that resolves when the runtime accepts the message. Use it for state-changing requests.
 - `actor.ask(message, timeout?)` — request/response. It is **optional** and only exists on sources that support it, so call it with optional chaining and a typed response.
 
-A command-capable source can be passed directly as `source` when the rendering read model and the command channel are the same handle:
+A command-capable source is passed as `source` — the same handle drives both rendering and commands:
 
 ```ts
 import { igniteCore } from 'ignite-element/actor-web';
@@ -130,7 +125,7 @@ export const shipmentActions = igniteCore({
 });
 ```
 
-You only need a separate `commandSource` when the read model and the command channel are different handles. Never mutate the projected read model to "send" — always go through `send`/`ask`.
+Never mutate the projected read model to "send" — always go through `send`/`ask`.
 
 ## Transport status
 

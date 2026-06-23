@@ -57,11 +57,11 @@ function createSource(options?: {
 	const cloneSnapshot = (
 		snapshot: ActorWebSourceSnapshot<ShipmentContext>,
 	): ActorWebSourceSnapshot<ShipmentContext> => ({
-		address: { ...snapshot.address },
+		address: snapshot.address,
 		context: { ...snapshot.context },
 		phase: snapshot.phase,
 		toJSON: () => ({
-			address: { ...snapshot.address },
+			address: snapshot.address,
 			context: { ...snapshot.context },
 			phase: snapshot.phase,
 		}),
