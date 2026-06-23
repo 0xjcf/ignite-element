@@ -90,7 +90,6 @@ export default defineConfig((configEnv) =>
 				setupFiles: "./vitest.setup.ts",
 				coverage: {
 					exclude: [
-						"src/examples/**",
 						"**/*.config.{js,ts}",
 						"vite.config.ts",
 						"vitest.config.ts",

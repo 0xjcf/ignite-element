@@ -52,7 +52,7 @@
 	},
 	"overrides": [
 		{
-			"includes": ["packages/ignite-element/src/examples/**/*.css"],
+			"includes": ["examples/**/*.css"],
 			"linter": {
 				"rules": {
 					"suspicious": {

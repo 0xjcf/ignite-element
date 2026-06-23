@@ -1,0 +1,34 @@
+{
+	"extends": "../../../packages/ignite-element/tsconfig.typecheck.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"composite": false,
+		"jsx": "preserve",
+		"allowJs": false,
+		"rootDir": "../../../",
+		"paths": {
+			"ignite-element": ["../../../packages/ignite-element/src/index.ts"],
+			"ignite-element/*": ["../../../packages/ignite-element/src/*"],
+			"@ignite-element/core": ["../../../packages/ignite-core/src/index.ts"],
+			"@ignite-element/adapters": [
+				"../../../packages/ignite-adapters/src/index.ts"
+			],
+			"@ignite-element/adapters/xstate": [
+				"../../../packages/ignite-adapters/src/xstate.ts"
+			],
+			"@ignite-element/renderer": [
+				"../../../packages/ignite-renderer/src/index.ts"
+			],
+			"@ignite-element/renderer/lit": [
+				"../../../packages/ignite-renderer/src/renderers/lit.ts"
+			],
+			"@ignite-element/renderer/jsx": [
+				"../../../packages/ignite-renderer/src/renderers/ignite-jsx.ts"
+			],
+			"xstate": ["./node_modules/xstate"],
+			"xstate/*": ["./node_modules/xstate/*"]
+		}
+	},
+	"include": ["./src/**/*.ts"],
+	"exclude": ["vite.config.ts"]
+}

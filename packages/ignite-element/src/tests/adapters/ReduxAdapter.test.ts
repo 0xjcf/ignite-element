@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import createReduxAdapter from "../../adapters/ReduxAdapter";
-import counterStore, {
-	counterSlice,
-} from "../../examples/adapters/redux/src/js/reduxCounterStore";
+import counterStore, { counterSlice } from "../fixtures/reduxCounterStore";
 import type { IgniteAdapter } from "../../IgniteAdapter";
 import { StateScope } from "../../IgniteAdapter";
 import type {

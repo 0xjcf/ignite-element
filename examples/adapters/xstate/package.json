@@ -1,0 +1,28 @@
+{
+	"name": "xstate-example",
+	"version": "1.0.0",
+	"description": "An example project demonstrating the use of ignite-element with XState, Ignite JSX, and Tailwind CSS.",
+	"main": "index.js",
+	"scripts": {
+		"build:css": "tailwindcss -i ./styles.css -o ./dist/styles.css",
+		"dev": "pnpm run build:css && vite",
+		"build": "pnpm run build:css && vite build"
+	},
+	"keywords": [
+		"xstate",
+		"ignite-element",
+		"tailwindcss",
+		"ignite-jsx"
+	],
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+		"lit-html": "3.3.2",
+		"xstate": "5.32.1"
+	},
+	"devDependencies": {
+		"@tailwindcss/cli": "^4.1.17",
+		"tailwindcss": "^4.1.14",
+		"vite": "^7.2.7"
+	}
+}

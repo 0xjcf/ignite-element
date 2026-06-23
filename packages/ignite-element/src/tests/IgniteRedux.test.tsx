@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import counterStore, {
 	addByAmount,
 	increment,
-} from "../examples/adapters/redux/src/js/reduxCounterStore";
+} from "./fixtures/reduxCounterStore";
 import { igniteCore } from "../IgniteCore";
 import IgniteElement from "../IgniteElement";
 
