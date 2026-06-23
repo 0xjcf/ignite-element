@@ -26,10 +26,20 @@ After PR #65 relocated examples to top-level examples/ (self-contained, NOT pnpm
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- .github/workflows/ci.yml
+- .github/workflows/ci.yml (NEW examples-typecheck job)
+- examples/frameworks/svelte/tsconfig.json (add missing @ignite-element/adapters/{xstate,actor-web} path mappings the library source needs — exposed by the clean CI typecheck)
+- examples/adapters/xstate/pnpm-lock.yaml (committed: + lit-html, declared in #65)
+- examples/adapters/redux/pnpm-lock.yaml (committed: reconciled to match package.json)
+- examples/adapters/mobx/pnpm-lock.yaml (committed: reconciled to match package.json)
+- examples/apps/spa-router/pnpm-lock.yaml (NEW committed lockfile)
+- examples/apps/form-with-validation/pnpm-lock.yaml (NEW committed lockfile)
+- examples/frameworks/react/pnpm-lock.yaml (NEW committed lockfile)
+- examples/frameworks/vue/pnpm-lock.yaml (NEW committed lockfile)
+- examples/frameworks/svelte/pnpm-lock.yaml (NEW committed lockfile)
 
 ## Scope Amendments
-- None.
+- Added the 8 example `pnpm-lock.yaml` files alongside the ci.yml job: the job runs a self-contained `pnpm install --ignore-workspace` per example, so committed lockfiles make those installs deterministic in CI (and fix stale/missing adapter lockfiles + the xstate lit-html entry declared in #65). They reflect the verified 8/8-typecheck state.
+- TDD criterion is N/A for this infra/CI change (a GitHub Actions workflow has no vitest unit test). Verification is the local 8/8 example typecheck (the exact commands the job runs) plus the job executing green in CI on the PR.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

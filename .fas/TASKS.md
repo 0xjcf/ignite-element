@@ -1540,9 +1540,12 @@ No active tasks.
 
 - Title: ci: add an example-typecheck job (per-example self-contained install + tsc) gated on PRs into beta
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/ci-add-an-example-typecheck-job-per-example-self-contained-i.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ## Template
 
