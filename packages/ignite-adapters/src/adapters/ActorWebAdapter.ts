@@ -9,12 +9,23 @@ import { failInvariant, StateScope } from "@ignite-element/core";
 // and they are hand-written rather than aliased so the optional peer never
 // leaks into the shipped d.ts graph. Compatibility with the canonical types is
 // enforced at compile time by src/__tests__/actor-web-canonical-compat.types.ts.
-export type ActorWebAddress = {
-	id: string;
-	path: string;
-	type?: string;
-	node?: string;
-};
+// Tolerant during actor-web's opaque-address migration: accept BOTH the legacy
+// object identity AND actor-web's new opaque branded string (a branded string IS
+// assignable to `string`). This keeps the compile-time drift guard green against
+// the still-published `@actor-web/runtime@0.1.0` (object address) AND the new
+// branded-string runtime. The address is opaque to ignite — it is only ever passed
+// through (never read for `.id`/`.path`/`.node`), so the union and the eventual
+// pure `string` are both no-ops for ignite logic.
+// TODO(actor-web > 0.1.0): collapse to `string` once actor-web publishes the
+// branded address and ignite bumps its `@actor-web/runtime` dep so CI installs it.
+export type ActorWebAddress =
+	| string
+	| {
+			id: string;
+			path: string;
+			type?: string;
+			node?: string;
+	  };
 
 export type ActorWebEventSubscriptionOptions = {
 	types?: readonly string[];
