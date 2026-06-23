@@ -1527,6 +1527,23 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: docs(examples): replace deprecated getState()/watch() with getSnapshot()/watchSnapshot() in the example READMEs
+
+- Title: docs(examples): replace deprecated getState()/watch() with getSnapshot()/watchSnapshot() in the example READMEs
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/docs-examples-replace-deprecated-getstate-watch-with-getsnap.md
+- Automation mode: advisory
+
+### Task: ci: add an example-typecheck job (per-example self-contained install + tsc) gated on PRs into beta
+
+- Title: ci: add an example-typecheck job (per-example self-contained install + tsc) gated on PRs into beta
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/ci-add-an-example-typecheck-job-per-example-self-contained-i.md
+
 ## Template
 
 ### Task: <short task title>
