@@ -33,7 +33,7 @@ export type NeutralTool = {
 export type NeutralManifest = NeutralTool[];
 
 /**
- * A provider-agnostic tool call, produced by a dialect's `parseToolCalls`. The
+ * A provider-agnostic tool call, produced by a dialect's `toolCalls`. The
  * `input` is untyped on purpose: it originates from the model and is validated
  * by `resolveCall` before it ever reaches a command.
  */
@@ -56,7 +56,7 @@ export type ToolObservation<
 };
 
 /**
- * Errors as values. Returned (never thrown) by `resolveCall`/`invoke` so the
+ * Errors as values. Returned (never thrown) by `resolveCall`/`run` so the
  * consumer can map an error into the provider's `tool_result` (`is_error: true`)
  * and let the model recover.
  */
@@ -76,8 +76,8 @@ export type Route<Name extends string = string, Payload = unknown> = {
 };
 
 /**
- * The input to a dialect's `toToolResult`: a tool call's correlation id/name
- * paired with the `invoke` outcome.
+ * The input to a dialect's `toolResult`: a tool call's correlation id/name
+ * paired with the `run` outcome.
  */
 export type NeutralToolResult<
 	Snapshot = unknown,
@@ -92,15 +92,28 @@ export type NeutralToolResult<
  * The provider boundary (the port). A pure format translator between the neutral
  * manifest and one provider's tool-calling wire format. Adapters implementing
  * this carry no provider-SDK runtime dependency.
+ *
+ * Method names are bare ecosystem nouns — the typed direction (manifest in vs.
+ * response in) makes encode/decode verbs redundant, and `tools`/`toolCalls`/
+ * `toolResult` are the lingua franca across Anthropic, OpenAI, the Vercel AI
+ * SDK, and LangChain.
  */
 export interface ToolDialect<
 	Tools = unknown,
 	Response = unknown,
 	ResultBlock = unknown,
 > {
-	toToolDefs(manifest: NeutralManifest): Tools;
-	parseToolCalls(response: Response): NeutralToolCall[];
-	toToolResult(result: NeutralToolResult): ResultBlock;
+	/** Neutral manifest → provider tool definitions. */
+	tools(manifest: NeutralManifest): Tools;
+	/**
+	 * Provider response → neutral tool calls. Receives the `manifest` so the
+	 * adapter can unwrap a scalar command's object-wrapped `{ value }` argument
+	 * back to the bare value (see `tools/scalar.ts`); the unwrap is gated on the
+	 * manifest schema, so it is collision-free.
+	 */
+	toolCalls(response: Response, manifest: NeutralManifest): NeutralToolCall[];
+	/** Neutral result → provider tool-result block (encoded one call at a time). */
+	toolResult(result: NeutralToolResult): ResultBlock;
 }
 
 /** Per-command availability predicate, evaluated against the current snapshot. */
@@ -113,7 +126,7 @@ export type AvailabilityPredicate = (name: string) => boolean;
  * duck-typed: present once it ships on the runtime, it gates the manifest;
  * absent today, all commands are offered.
  */
-export type IgniteToolsComponent<
+export type IgniteToolsRuntime<
 	State = unknown,
 	Commands extends FacadeCommandResult = FacadeCommandResult,
 	Events extends EventMap = EmptyEventMap,

@@ -32,22 +32,22 @@ describe("igniteTools types", () => {
 
 	type ComponentSnapshot = ReturnType<typeof component.getSnapshot>;
 
-	it("exposes a NeutralManifest and an errors-as-values invoke", () => {
-		const { manifest, resolveCall, invoke } = igniteTools(component);
+	it("exposes a NeutralManifest and an errors-as-values run", () => {
+		const { manifest, resolveCall, run } = igniteTools(component);
 
 		expectTypeOf(manifest).toEqualTypeOf<NeutralManifest>();
 		expectTypeOf(resolveCall).toBeFunction();
-		expectTypeOf(invoke).toBeFunction();
+		expectTypeOf(run).toBeFunction();
 	});
 
-	it("types the invoke observation from the component's snapshot + events", () => {
-		const { invoke } = igniteTools(component);
+	it("types the run observation from the component's snapshot + events", () => {
+		const { run } = igniteTools(component);
 
 		// Wrapped uncalled: the body is typechecked but never executed (these
 		// `.types.test.ts` files also run under vitest). The success branch carries
 		// the component's snapshot + typed events; the failure branch is ToolError.
 		const probe = async () => {
-			const result = await invoke({ name: "toggle", input: undefined });
+			const result = await run({ name: "toggle", input: undefined });
 
 			if (result.ok) {
 				expectTypeOf(result.value.snapshot).toEqualTypeOf<ComponentSnapshot>();
@@ -67,18 +67,16 @@ describe("igniteTools types", () => {
 		type Block = { id?: string };
 
 		const dialect: ToolDialect<Defs, Resp, Block> = {
-			toToolDefs: (manifest) => manifest.map((t) => ({ tool: t.name })),
-			parseToolCalls: (response) => response.calls,
-			toToolResult: (result) => ({ id: result.id }),
+			tools: (manifest) => manifest.map((t) => ({ tool: t.name })),
+			toolCalls: (response) => response.calls,
+			toolResult: (result) => ({ id: result.id }),
 		};
 
 		const tools = igniteTools(component, dialect);
 
 		expectTypeOf(tools.tools).toEqualTypeOf<Defs>();
-		expectTypeOf(tools.parseToolCalls).parameter(0).toEqualTypeOf<Resp>();
-		expectTypeOf(tools.parseToolCalls).returns.toEqualTypeOf<
-			NeutralToolCall[]
-		>();
-		expectTypeOf(tools.toToolResult).returns.toEqualTypeOf<Block>();
+		expectTypeOf(tools.toolCalls).parameter(0).toEqualTypeOf<Resp>();
+		expectTypeOf(tools.toolCalls).returns.toEqualTypeOf<NeutralToolCall[]>();
+		expectTypeOf(tools.toolResult).returns.toEqualTypeOf<Block>();
 	});
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { EventDescriptor } from "../RenderArgs";
 import type {
-	IgniteToolsComponent,
+	IgniteToolsRuntime,
 	NeutralManifest,
 	NeutralToolCall,
 	NeutralToolResult,
@@ -52,7 +52,7 @@ const fakeSchema: IgniteAgentSchema<FakeState, FakeView> = {
 	view: { count: 0, label: "zero" },
 };
 
-type FakeComponent = IgniteToolsComponent<
+type FakeComponent = IgniteToolsRuntime<
 	FakeState,
 	Record<string, (...args: never[]) => unknown>,
 	FakeEvents,
@@ -100,11 +100,13 @@ type FakeResultBlock = {
 };
 
 const fakeDialect: ToolDialect<FakeToolDefs, FakeResponse, FakeResultBlock> = {
-	toToolDefs: (manifest: NeutralManifest) =>
+	tools: (manifest: NeutralManifest) =>
 		manifest.map((t) => ({ tool: t.name, schema: t.inputSchema })),
-	parseToolCalls: (response: FakeResponse): NeutralToolCall[] =>
+	// The fake wire format is object-shaped already, so it ignores `manifest`
+	// (no scalar wrapping to undo) — proving the param is optional to consume.
+	toolCalls: (response: FakeResponse): NeutralToolCall[] =>
 		response.calls.map((c) => ({ id: c.id, name: c.name, input: c.input })),
-	toToolResult: (result: NeutralToolResult): FakeResultBlock => ({
+	toolResult: (result: NeutralToolResult): FakeResultBlock => ({
 		tool_use_id: result.id,
 		is_error: isErr(result.result),
 		content: result.result.ok ? result.result.value : result.result.error,
@@ -319,22 +321,22 @@ describe("resolveCall input validation", () => {
 	});
 });
 
-// --- igniteTools factory + invoke shell ---------------------------------------
+// --- igniteTools factory + run shell ------------------------------------------
 
 describe("igniteTools (neutral, no dialect)", () => {
-	it("exposes manifest, resolveCall, and invoke", () => {
+	it("exposes manifest, resolveCall, and run", () => {
 		const component = createFakeComponent();
 		const tools = igniteTools(component);
 		expect(Array.isArray(tools.manifest)).toBe(true);
 		expect(typeof tools.resolveCall).toBe("function");
-		expect(typeof tools.invoke).toBe("function");
+		expect(typeof tools.run).toBe("function");
 		expect("tools" in tools).toBe(false);
 	});
 
-	it("invoke routes a valid call through execute and returns { snapshot, events }", async () => {
+	it("run routes a valid call through execute and returns { snapshot, events }", async () => {
 		const component = createFakeComponent();
-		const { invoke } = igniteTools(component);
-		const result = await invoke({ name: "setLimit", input: 7 });
+		const { run } = igniteTools(component);
+		const result = await run({ name: "setLimit", input: 7 });
 		expect(component.calls).toEqual([{ name: "setLimit", payload: 7 }]);
 		expect(isOk(result)).toBe(true);
 		if (isOk(result)) {
@@ -349,28 +351,28 @@ describe("igniteTools (neutral, no dialect)", () => {
 		}
 	});
 
-	it("invoke does not call execute on an unknown command", async () => {
+	it("run does not call execute on an unknown command", async () => {
 		const component = createFakeComponent();
-		const { invoke } = igniteTools(component);
-		const result = await invoke({ name: "ghost", input: 1 });
+		const { run } = igniteTools(component);
+		const result = await run({ name: "ghost", input: 1 });
 		expect(component.calls).toEqual([]);
 		expect(isErr(result)).toBe(true);
 		if (isErr(result)) expect(result.error.kind).toBe("UnknownCommand");
 	});
 
-	it("invoke does not call execute on invalid input", async () => {
+	it("run does not call execute on invalid input", async () => {
 		const component = createFakeComponent();
-		const { invoke } = igniteTools(component);
-		const result = await invoke({ name: "setLimit", input: "bad" });
+		const { run } = igniteTools(component);
+		const result = await run({ name: "setLimit", input: "bad" });
 		expect(component.calls).toEqual([]);
 		expect(isErr(result)).toBe(true);
 		if (isErr(result)) expect(result.error.kind).toBe("InvalidInput");
 	});
 
-	it("invoke captures an execute rejection as ExecuteFailed (never throws across the seam)", async () => {
+	it("run captures an execute rejection as ExecuteFailed (never throws across the seam)", async () => {
 		const component = createFakeComponent();
-		const { invoke } = igniteTools(component);
-		const result = await invoke({ name: "boom", input: undefined });
+		const { run } = igniteTools(component);
+		const result = await run({ name: "boom", input: undefined });
 		expect(isErr(result)).toBe(true);
 		if (isErr(result)) {
 			expect(result.error.kind).toBe("ExecuteFailed");
@@ -381,19 +383,19 @@ describe("igniteTools (neutral, no dialect)", () => {
 		}
 	});
 
-	it("invoke returns Unavailable when availability flips after the manifest is built", async () => {
+	it("run returns Unavailable when availability flips after the manifest is built", async () => {
 		// Availability is dynamic (snapshot-dependent): the command is offered at
-		// manifest-build time but becomes unavailable before it is invoked.
+		// manifest-build time but becomes unavailable before the call runs.
 		let adminAvailable = true;
 		const component = createFakeComponent({
 			canExecute: (name) => name !== "adminOnly" || adminAvailable,
 		});
-		const { manifest, invoke } = igniteTools(component);
+		const { manifest, run } = igniteTools(component);
 		// Offered at build time.
 		expect(manifest.find((t) => t.name === "adminOnly")).toBeDefined();
 		// Snapshot changes -> command no longer available.
 		adminAvailable = false;
-		const result = await invoke({ name: "adminOnly", input: undefined });
+		const result = await run({ name: "adminOnly", input: undefined });
 		expect(component.calls).toEqual([]);
 		expect(isErr(result)).toBe(true);
 		if (isErr(result)) expect(result.error.kind).toBe("Unavailable");
@@ -409,33 +411,30 @@ describe("igniteTools (neutral, no dialect)", () => {
 });
 
 describe("igniteTools (with a ToolDialect)", () => {
-	it("exposes provider tool defs plus parse/result helpers", () => {
+	it("exposes provider tool defs plus toolCalls/toolResult helpers", () => {
 		const component = createFakeComponent();
 		const tools = igniteTools(component, fakeDialect);
 		expect(tools.tools).toEqual(
 			tools.manifest.map((t) => ({ tool: t.name, schema: t.inputSchema })),
 		);
-		expect(typeof tools.parseToolCalls).toBe("function");
-		expect(typeof tools.toToolResult).toBe("function");
+		expect(typeof tools.toolCalls).toBe("function");
+		expect(typeof tools.toolResult).toBe("function");
 	});
 
-	it("round-trips a provider response: parse -> invoke -> toToolResult", async () => {
+	it("round-trips a provider response: toolCalls -> run -> toolResult", async () => {
 		const component = createFakeComponent();
-		const { parseToolCalls, invoke, toToolResult } = igniteTools(
-			component,
-			fakeDialect,
-		);
+		const { toolCalls, run, toolResult } = igniteTools(component, fakeDialect);
 
 		const response: FakeResponse = {
 			calls: [{ id: "call_1", name: "setLimit", input: 8 }],
 		};
-		const calls = parseToolCalls(response);
+		const calls = toolCalls(response);
 		expect(calls).toEqual([{ id: "call_1", name: "setLimit", input: 8 }]);
 
-		const result = await invoke(calls[0]);
+		const result = await run(calls[0]);
 		expect(isOk(result)).toBe(true);
 
-		const block = toToolResult({
+		const block = toolResult({
 			id: calls[0].id,
 			name: calls[0].name,
 			result,
@@ -445,23 +444,23 @@ describe("igniteTools (with a ToolDialect)", () => {
 
 	it("maps a failed command into an error tool-result block", async () => {
 		const component = createFakeComponent();
-		const { invoke, toToolResult } = igniteTools(component, fakeDialect);
+		const { run, toolResult } = igniteTools(component, fakeDialect);
 		const call: NeutralToolCall = {
 			id: "call_2",
 			name: "boom",
 			input: undefined,
 		};
-		const result = await invoke(call);
-		const block = toToolResult({ id: call.id, name: call.name, result });
+		const result = await run(call);
+		const block = toolResult({ id: call.id, name: call.name, result });
 		expect(block).toMatchObject({ tool_use_id: "call_2", is_error: true });
 	});
 
 	it("never throws across the seam even when execute rejects", async () => {
 		const component = createFakeComponent();
 		const spy = vi.spyOn(component, "execute");
-		const { invoke } = igniteTools(component, fakeDialect);
+		const { run } = igniteTools(component, fakeDialect);
 		await expect(
-			invoke({ name: "boom", input: undefined }),
+			run({ name: "boom", input: undefined }),
 		).resolves.toMatchObject({ ok: false });
 		expect(spy).toHaveBeenCalledTimes(1);
 	});

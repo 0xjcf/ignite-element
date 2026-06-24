@@ -8,7 +8,7 @@ export type { Err, Ok, Result } from "./result";
 export { err, isErr, isOk, ok } from "./result";
 export type {
 	AvailabilityPredicate,
-	IgniteToolsComponent,
+	IgniteToolsRuntime,
 	NeutralManifest,
 	NeutralTool,
 	NeutralToolCall,
