@@ -1,9 +1,13 @@
-# Design: `igniteTools(component)` — hexagonal getSchema → LLM tool-use bridge
+# Design: `igniteTools(runtime)` — hexagonal getSchema → LLM tool-use bridge
 
 ## Status
 
-Proposed (design ✓). **Additive**, non-breaking — `3.x` minor. The agent analog of
-`ignite-element/react`. Agent-runtime thread in `docs/v3-stable-roadmap.md`.
+Implementing. **PR1 shipped** the SDK-neutral core + `ToolDialect` port + the
+`ignite-element/tools` entrypoint (beta.8). **PR2** adds the first provider
+dialect (`ignite-element/tools/anthropic`) and refines the port to its final
+bare-noun shape — breaking to the pre-stable beta igniteTools surface, settled
+before stable. The agent analog of `ignite-element/react`. Agent-runtime thread
+in `docs/v3-stable-roadmap.md`.
 
 ## Context
 
@@ -32,10 +36,10 @@ web UI.
         ▲                  │     → Result<Route, ToolError>│              (actor)
         │                  │                               │               │
    ToolDialect PORT ◄──────┤   ── PORT: ToolDialect ──     │          ┌─ remote actors
-   toToolDefs(manifest)    │   parseToolCalls(resp)        │          │  (location-transparent
-   toToolResult(result)    │   toToolResult(neutralResult) │          └─  via actor-web)
+   tools(manifest)         │   toolCalls(resp, manifest)   │          │  (location-transparent
+   toolResult(result)      │   toolResult(neutralResult)   │          └─  via actor-web)
                            │   IMPERATIVE SHELL            │
-                           │   invoke() → execute() I/O    │
+                           │   run() → execute() I/O       │
                            └──────────────────────────────┘
 ```
 
@@ -55,11 +59,41 @@ provider's tool-calling wire format:
 
 ```ts
 interface ToolDialect<Tools, Response, ResultBlock> {
-  toToolDefs(manifest: NeutralManifest): Tools;          // neutral → provider tool defs
-  parseToolCalls(response: Response): NeutralToolCall[]; // provider response → neutral calls
-  toToolResult(result: NeutralToolResult): ResultBlock;  // neutral result → provider tool_result
+  // neutral manifest → provider tool defs
+  tools(manifest: NeutralManifest): Tools;
+  // provider response → neutral calls (manifest enables scalar unwrap)
+  toolCalls(response: Response, manifest: NeutralManifest): NeutralToolCall[];
+  // neutral result → provider tool_result block
+  toolResult(result: NeutralToolResult): ResultBlock;
 }
 ```
+
+Method names are **bare ecosystem nouns** (`tools` / `toolCalls` / `toolResult`) —
+the typed direction makes encode/decode verbs redundant, and these are the lingua
+franca across Anthropic, OpenAI, the Vercel AI SDK, and LangChain (zero new
+vocabulary). `toolCalls` also receives the `manifest` so it can undo the scalar
+object-wrap — see **Scalar round-trip** below.
+
+### Scalar round-trip (Option D)
+
+Every tool-calling provider requires **object-shaped** tool inputs and returns
+object args, but the neutral manifest is **scalar-honest**: a single-arg command
+(`setLimit(n: number)`) carries a scalar `inputSchema` (`{ type: "number" }`),
+because that is the command's true contract (`getSchema()` must not lie). So the
+wrap/unwrap lives only at the provider boundary, in shared pure helpers
+(`tools/scalar.ts`):
+
+- `toProviderInputSchema(schema)` — wraps a scalar under a clean `value` key
+  (`{ type: "object", properties: { value: schema }, required: ["value"] }`);
+  object/no-arg schemas pass through unchanged. Adapters call it in `tools()`.
+- `fromProviderInput(input, schema)` — unwraps the model's `{ value: x }` back to
+  `x`, **gated on the manifest schema being scalar** (collision-free: an object
+  command that legitimately has its own `value` field is never unwrapped).
+  Adapters call it in `toolCalls()`, which is why the port hands `toolCalls` the
+  manifest.
+
+The constraint is universal across providers, so it is fixed once in the port +
+two helpers; the OpenAI/Ollama dialect reuses them verbatim.
 
 ### Adapters (implement the port — separate entrypoints, SDK-free translators)
 
@@ -78,31 +112,58 @@ interface ToolDialect<Tools, Response, ResultBlock> {
 
 ### Imperative shell
 
-- `invoke(toolCall): Promise<Result<{ snapshot, events }, ToolError>>` — the single
-  side-effect: `component.execute(name, payload)` (which may reach a remote actor). Returns
+- `run(toolCall): Promise<Result<{ snapshot, events }, ToolError>>` — the single
+  side-effect: `runtime.execute(name, payload)` (which may reach a remote actor). Returns
   a `Result` so a failed command is data the agent reacts to, not an exception across the
   seam. The LLM API call itself stays in the **consumer's** loop — `igniteTools` provides
-  the (provider-shaped) `tools` + `invoke`; the consumer runs the model.
+  the (provider-shaped) `tools` + `run`; the consumer runs the model.
 
-### API shape (proposal, refine in PR 1)
+### Observation contract — act + acknowledgement
+
+`run` (and the underlying `execute`) is **act + ACK observation**: the returned
+`ToolObservation` is the snapshot **at command-acknowledgement** plus the events
+emitted up to that point — not "after the effect settles". The actor model has no
+bounded "done" for a long-running effect (a deploy spans minutes and many states),
+and a settle-wait would misattribute unrelated concurrent read-model updates. So
+for async/remote adapters the observation reflects **state at acknowledgement**;
+ongoing effects are observed via the **view/event stream** (`on()` / `watchView()`)
+— the agent loop is act → observe → act, with `canExecute` re-gating the tool list
+as state and transport change. A first-class `observe()` channel on `igniteTools`
+(so act and observe come from one place) is a separate neutral-core task, sequenced
+with the dogfood; a bounded `settle` opt-in on `execute()` is deferred (YAGNI until
+the dogfood shows short-command latency hurts). `ToolObservation` is unchanged.
+
+### API shape
 
 ```ts
 import { igniteTools } from "ignite-element/tools";
 import { anthropic } from "ignite-element/tools/anthropic";
 
-const { tools, invoke } = igniteTools(release, anthropic); // Anthropic-shaped, gated tools
-// neutral core is usable directly too:
-const { manifest, resolveCall, invoke } = igniteTools(release); // no dialect → neutral
+const { tools, toolCalls, run, toolResult } = igniteTools(runtime, anthropic);
+
+// the consumer brings the SDK and runs the model loop:
+const res = await client.messages.create({ model, messages, tools });
+for (const call of toolCalls(res)) {
+  const result = await run(call); // act + ACK observation
+  blocks.push(toolResult({ id: call.id, name: call.name, result }));
+}
+
+// the neutral core is usable directly too:
+const { manifest, resolveCall, run } = igniteTools(runtime); // no dialect → neutral
 ```
+
+`toolCalls(res)` stays single-arg for the consumer — `igniteTools` closes over the
+manifest internally and hands it to the dialect, so scalar unwrapping is invisible
+here.
 
 ## How the design embodies the principles
 
 | Principle | Where it lives |
 | --- | --- |
 | **Hexagonal (ports/adapters)** | `ToolDialect` port; `anthropic`/`openai` adapters; core never imports a provider |
-| **Functional core / imperative shell** | core = `buildManifest`/`resolveCall` (pure); shell = `invoke` (`execute` I/O) |
+| **Functional core / imperative shell** | core = `buildManifest`/`resolveCall` (pure); shell = `run` (`execute` I/O) |
 | **DDD boundaries** | domain = manifest/routing; adapters translate + **return facts (no throw)**; shell coordinates |
-| **Errors as values** | `resolveCall`/`invoke` → `Result<…, ToolError>`; the LLM gets the error back as a `tool_result` |
+| **Errors as values** | `resolveCall`/`run` → `Result<…, ToolError>`; the LLM gets the error back as a `tool_result` |
 | **Actor model + topology** | agent-actor → `[igniteTools seam]` → component-actor → remote actors; a tool-call *is* a message; location-transparent via actor-web |
 | **Projections** | the agent grounds on the **view** (`getView()` / `getSchema().view`), the derived read-model — distinct from the raw snapshot |
 | **TDD** | pure core + each dialect = unit-tested with **zero LLM calls** (golden neutral↔provider fixtures); red→green per piece |
@@ -110,22 +171,25 @@ const { manifest, resolveCall, invoke } = igniteTools(release); // no dialect �
 
 ## `ToolError` (errors as values)
 
-A tagged union returned (never thrown) by `resolveCall`/`invoke`:
+A tagged union returned (never thrown) by `resolveCall`/`run`:
 `UnknownCommand` · `InvalidInput` (fails the command's `inputSchema`) · `Unavailable`
 (`canExecute` false) · `ExecuteFailed` (the command rejected). The consumer maps an `err`
 to the provider's `tool_result` (`is_error: true`) so the model can recover.
 
 ## Sequencing — three PRs (each: branch off `beta` → TDD/DDD + manual validation → `coderabbit review` → PR `--base beta` → CI + CodeRabbit → approve+merge on green → `fas done`; changeset per PR)
 
-1. **PR 1 — core + `ToolDialect` port + a fake dialect.** TDD. No provider SDK. Proves
-   the neutral core (`buildManifest`/`resolveCall`/`invoke` with `Result`) end-to-end
-   against a fake component + fake dialect. Establishes the `ignite-element/tools`
-   entrypoint + the `ToolDialect` interface.
+1. **PR 1 — core + `ToolDialect` port + a fake dialect.** ✓ shipped (beta.8). TDD,
+   no provider SDK. Proves the neutral core (`buildManifest`/`resolveCall`/`run`
+   with `Result`) end-to-end against a fake runtime + fake dialect. Established the
+   `ignite-element/tools` entrypoint + the `ToolDialect` interface.
 2. **PR 2 — `anthropic` adapter** (`ignite-element/tools/anthropic`). Golden
-   neutral↔Anthropic fixtures (TDD). Manual validation: a headless Anthropic loop.
+   neutral↔Anthropic fixtures (TDD); also lands the port's final bare-noun shape +
+   the Option D scalar helpers (`tools/scalar.ts`). Manual validation: a headless
+   Anthropic loop.
 3. **PR 3 — `openai` adapter** (`ignite-element/tools/openai`; covers Codex + Ollama via
-   OpenAI-compat). Golden fixtures (TDD). Manual validation: headless OpenAI **and** a
-   local Ollama (OpenAI-compat) loop — proves the port generalizes cloud→local.
+   OpenAI-compat). Golden fixtures (TDD); reuses the scalar helpers + the refined port.
+   Manual validation: headless OpenAI **and** a local Ollama (OpenAI-compat) loop —
+   proves the port generalizes cloud→local.
 
 ## Dependencies
 
