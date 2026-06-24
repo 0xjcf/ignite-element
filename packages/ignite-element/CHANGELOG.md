@@ -1,5 +1,27 @@
 # Changelog
 
+## 3.0.0-beta.8
+
+### Minor Changes
+
+- b263e78: Unify the actor-web adapter config surface and accept actor-web's opaque branded address.
+
+  **Breaking — `commandSource` and `ActorWebSourceHandle` removed.** Every adapter now takes a single `source`, so the config surface is uniform: `{ source, view, commands, effects, events }`. The actor-web read/write `commandSource` config key and the `ActorWebSourceHandle` source-bundle are gone — the command actor derives from the single `source` (writable iff it exposes `send`); a read-only source yields no command actor (command dispatch is a no-op with a dev warning, unchanged). Migrate `igniteCore({ source: readModel, commandSource: cmd, … })` to a single command-capable `source`. actor-web's read/write split, when needed, lives inside the source object — not a second `igniteCore` key.
+
+  **Address contract — `ActorWebAddress` accepts actor-web's opaque branded address.** actor-web's canonical `ActorAddress` collapsed from an object interface to an opaque branded `string`. Ignite's loose `ActorWebAddress` is widened to `string | { id; path; type?; node? }` so the compile-time drift guard against `@actor-web/runtime` stays green for both the published object-address runtime and the new branded-string runtime. The address is opaque to Ignite (pass-through only — never read for `.id`/`.path`/`.node`), so it will later collapse to plain `string` once actor-web publishes the branded address and Ignite bumps the dep.
+
+- 8561826: Add `expectView(expected)` to the test DSL — assert the projected view (mirrors the runtime's `getView()`) alongside `expectState`. Accepts a deep-partial object match or a predicate over the view.
+- 27d6579: Expose the projected view in `getSchema()` as `IgniteAgentSchema.view`, beside `state`. An agent introspecting a component now sees the derived view shape it binds to — typed from the `view` callback's projection (`getSchema().view` mirrors `getView()`), rather than only the raw `state` snapshot. Additive: `commands`/`events`/`state` are unchanged, and `view` defaults to `IgniteSchemaValue` for the loose `IgniteAgentSchema` default. Pre-stable type addition (the view projection now flows end-to-end into the schema surface).
+- 33b617d: Add `igniteTools(component, dialect?)` and a new `ignite-element/tools` entrypoint — the hexagonal bridge from the agent-runtime contract (`getSchema()` + `execute()`) to LLM tool-use. This first piece is the SDK-neutral core: a pure functional core (`buildManifest(getSchema())` → neutral tool manifest; `resolveCall(name, input)` → validated `{ command, payload }`), the `ToolDialect` port (`toToolDefs`/`parseToolCalls`/`toToolResult`), and an imperative shell (`invoke()` → the single `execute` side effect). Errors are values, not exceptions: `resolveCall`/`invoke` return a `Result<…, ToolError>` (`UnknownCommand` · `InvalidInput` · `Unavailable` · `ExecuteFailed`) so a failed call is data the agent maps to a provider `tool_result`, never a throw across the seam. Availability-gated commands compose with `canExecute` when present (duck-typed; all commands offered without it). The neutral core is usable directly; a `ToolDialect` shapes provider tool defs and parses/formats calls. No provider SDK ships here — the Anthropic and OpenAI (Codex/Ollama-compatible) adapters land as separate `ignite-element/tools/*` entrypoints. Design: `docs/ignite-tools.md`.
+- 95aedff: Type the test DSL's `expectView` from the runtime's view projection. `igniteTest(component).expectView(...)` now sees the projected view's keys with their value types — mirroring `getView()` — instead of falling back to `Record<string, unknown>`. The runtime `IgniteCoreReturn` already surfaced the projection into `getView()`/`watchView()`/`record()`; the test DSL's `RuntimeView` extractor was reading the wrong runtime generic (schema state) and now reads the view projection. Pre-stable type tightening (loose → typed); no runtime behavior change.
+
+### Patch Changes
+
+- Updated dependencies [b263e78]
+  - @ignite-element/core@3.0.0-beta.8
+  - @ignite-element/adapters@3.0.0-beta.8
+  - @ignite-element/renderer@3.0.0-beta.8
+
 ## 3.0.0-beta.7
 
 ### Minor Changes

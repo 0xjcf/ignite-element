@@ -1,6 +1,6 @@
 {
 	"name": "@ignite-element/core",
-	"version": "3.0.0-beta.7",
+	"version": "3.0.0-beta.8",
 	"type": "module",
 	"main": "dist/ignite-core.cjs.js",
 	"module": "dist/ignite-core.es.js",
