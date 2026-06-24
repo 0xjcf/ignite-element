@@ -1547,6 +1547,34 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: reconcile actor-web branded ActorAddress via tolerant ActorWebAddress union + remove commandSource and ActorWebSourceHandle to unify the actor-web adapter config surface with the other adapters; cut ignite beta.8
+
+- Title: reconcile actor-web branded ActorAddress via tolerant ActorWebAddress union + remove commandSource and ActorWebSourceHandle to unify the actor-web adapter config surface with the other adapters; cut ignite beta.8
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/reconcile-actor-web-branded-actoraddress-via-tolerant-actorw.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: collapse ignite ActorWebAddress tolerant union to pure string once @actor-web/runtime publishes the opaque branded addre
+
+- Title: collapse ignite ActorWebAddress tolerant union to pure string once @actor-web/runtime publishes the opaque branded addre
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/collapse-ignite-actorwebaddress-tolerant-union-to-pure-strin.md
+- Automation mode: advisory
+
+### Task: update ActorWebAdapter dev-warning wording that still references the removed commandSource config concept after the beta
+
+- Title: update ActorWebAdapter dev-warning wording that still references the removed commandSource config concept after the beta
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/update-actorwebadapter-dev-warning-wording-that-still-refere.md
+
 ## Template
 
 ### Task: <short task title>

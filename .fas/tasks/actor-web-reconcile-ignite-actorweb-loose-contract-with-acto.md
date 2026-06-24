@@ -92,8 +92,9 @@ regression), so actor-web can bump to it and unblock `task-1781964585809`.
 
 ## Acceptance criteria
 - ignite's loose ActorWeb* contract accepts actor-web's branded ActorAddress (string & brand); actor-web-canonical-compat.types.ts typechecks against the new @actor-web/runtime
-- actor-web example suite (host-element/provider-console/logistics-runtime-status-panel/fas-agent-loop-element .tsx + fas-dashboard.ts) typechecks clean via tsc --build against the new ignite build, validated with pnpm link to the local actor-web fas/opaque-address-string branch
-- beta.4->beta.7 consumer regression in provider-console.tsx + logistics-runtime-status-panel.tsx (TS2353 'states' + render-args emptiness) fixed; actor-web baseline 5765de5 typechecks clean against the new ignite
+- actor-web example suite (host-element/provider-console/logistics-runtime-status-panel/fas-agent-loop-element .tsx + fas-dashboard.ts) typechecks clean via tsc --build against the new ignite build, validated with pnpm link to the local actor-web fas/opaque-address-string branch (consumers migrated `states`→`view`, passing no `commandSource`)
+- SUPERSEDED (see Scope Amendments 2026-06-23): `commandSource` removed entirely from the actor-web config + adapter so every adapter shares one surface; `states` alias NOT restored. The withdrawn original read "beta.4->beta.7 regression fixed; baseline 5765de5 typechecks" — `5765de5` (old `states` key) is expected NOT to compile.
+- actor-web public surface no longer exposes `commandSource` or `ActorWebSourceHandle`; the command actor derives only from `source`; behavior of read-only sources (no `send`) is unchanged (no command actor)
 - a new ignite beta greater than 3.0.0-beta.7 is published so actor-web task-1781964585809 can bump to it
 - TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
 - TDD: every production code change in the change set is covered by an added or updated test.
@@ -109,12 +110,50 @@ regression), so actor-web can bump to it and unblock `task-1781964585809`.
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
+Source (FIX 1 address + FIX 2 commandSource/handle removal):
 - packages/ignite-adapters/src/adapters/ActorWebAdapter.ts
-- packages/ignite-adapters/src/__tests__/actor-web-canonical-compat.types.ts
 - packages/ignite-adapters/src/actor-web.ts
+- packages/ignite-adapters/src/index.ts
+- packages/ignite-adapters/src/__tests__/actor-web-canonical-compat.types.ts
+- packages/ignite-element/src/igniteCore/types.ts
+- packages/ignite-element/src/igniteCore/actor-web.ts
+- packages/ignite-element/src/actor-web.ts
+- packages/ignite-element/src/IgniteCore.ts
+Tests (TDD):
+- packages/ignite-element/src/tests/adapters/ActorWebAdapter.test.ts
+- packages/ignite-element/src/tests/IgniteCore.test.ts
+- packages/ignite-element/src/tests/types/igniteCore.types.test.ts
+- packages/ignite-element/src/tests/createComponentFactory.test.ts
+Docs / guardrail (check-doc-examples typechecks fences):
+- docs/site/src/content/docs/guides/actor-web.mdx
+- docs/v3-api-consistency.md
+- packages/ignite-element/README.md
+Changeset (this PR):
+- .changeset/actorweb-opaque-address-unify-surface.md
+
+Post-merge release step (NOT in this PR — handled by the /release-beta skill on `beta`):
+- docs/site/src/content/docs/api/compatibility.mdx (beta.8 compatibility bump)
+- version/pre.json bumps emitted by `pnpm release:beta`
 
 ## Scope Amendments
-- None.
+- **2026-06-23 (owner-directed): FIX 2 reframed — remove `commandSource` outright; do NOT restore the `states` alias.**
+  After discussion the `states`→`view` rename stays COMPLETE (no deprecated-alias restore), and the actor-web
+  read/write `commandSource` split is removed entirely so every adapter shares ONE config surface
+  (`{ source, view, commands, effects, events, cleanup }`). Rationale: `commandSource` is an unused optional
+  override — no consumer in actor-web passes one (grep = 0), and the command actor already derives from the
+  single `source` (`resolveHandle` uses `source` itself when it exposes `send`). Owner directive: "rip it all
+  out" — remove the `commandSource` config key AND the embedded-handle resolution path, so the command actor
+  ONLY ever derives from `source` (writable iff the source exposes `send`).
+  - Consequences: `ActorWebSourceHandle` leaves the PUBLIC source union, the subpath source union, and
+    `InferAdapterFromSource`; the `commandSource` 2nd arg of `createActorWebAdapter` and the `resolveHandle`
+    `commandSource` param are removed; a read-only source yields no command actor (adapter returns that fact —
+    `send` warns / `resolveCommandActor` failInvariants — unchanged boundary behavior).
+  - The ORIGINAL FIX 2 ("restore the regressed `states` alias so actor-web baseline `5765de5` typechecks") is
+    WITHDRAWN. `5765de5` uses the old `states` key and is EXPECTED not to compile. The validation target shifts
+    to actor-web's MIGRATED `fas/opaque-address-string` branch (consumers move `states`→`view`, pass no
+    `commandSource`) typechecking clean against the new ignite beta.8. Owner authorized editing the local
+    actor-web checkout to perform that `states`→`view` migration for validation.
+  - FIX 1 (address contract → opaque `string` + compat-guard update) is UNCHANGED.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
