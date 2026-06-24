@@ -10,7 +10,11 @@ import { fromProviderInput, toProviderInputSchema } from "../tools/scalar";
 
 describe("toProviderInputSchema", () => {
 	it("object-wraps a scalar schema under a `value` property", () => {
-		const scalar: IgniteSchemaObject = { type: "number", minimum: 3, maximum: 12 };
+		const scalar: IgniteSchemaObject = {
+			type: "number",
+			minimum: 3,
+			maximum: 12,
+		};
 		expect(toProviderInputSchema(scalar)).toEqual({
 			type: "object",
 			properties: { value: scalar },
@@ -19,7 +23,10 @@ describe("toProviderInputSchema", () => {
 	});
 
 	it("wraps a scalar enum the same way", () => {
-		const scalar: IgniteSchemaObject = { type: "string", enum: ["red", "blue"] };
+		const scalar: IgniteSchemaObject = {
+			type: "string",
+			enum: ["red", "blue"],
+		};
 		expect(toProviderInputSchema(scalar)).toEqual({
 			type: "object",
 			properties: { value: scalar },
