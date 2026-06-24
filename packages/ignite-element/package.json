@@ -33,6 +33,9 @@
 			],
 			"tools": [
 				"dist/types/tools/index.d.ts"
+			],
+			"tools/anthropic": [
+				"dist/types/tools/anthropic/index.d.ts"
 			]
 		}
 	},
@@ -96,6 +99,12 @@
 			"import": "./dist/tools.es.js",
 			"require": "./dist/tools.cjs.js",
 			"default": "./dist/tools.es.js"
+		},
+		"./tools/anthropic": {
+			"types": "./dist/types/tools/anthropic/index.d.ts",
+			"import": "./dist/tools/anthropic.es.js",
+			"require": "./dist/tools/anthropic.cjs.js",
+			"default": "./dist/tools/anthropic.es.js"
 		},
 		"./package.json": "./package.json"
 	},

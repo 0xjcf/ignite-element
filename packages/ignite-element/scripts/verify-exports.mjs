@@ -17,6 +17,7 @@ const expectedPublicSubpaths = [
 	"./jsx/jsx-dev-runtime",
 	"./react",
 	"./tools",
+	"./tools/anthropic",
 	"./package.json",
 ];
 
@@ -30,6 +31,7 @@ const expectedTypesVersions = [
 	"jsx/jsx-dev-runtime",
 	"react",
 	"tools",
+	"tools/anthropic",
 ];
 
 const removedStableSubpaths = [
@@ -76,6 +78,7 @@ const requiredExports = [
 			isErr: "function",
 		},
 	],
+	["./tools/anthropic", { anthropic: "object" }],
 ];
 
 const recursiveImportPattern =
