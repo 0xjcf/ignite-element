@@ -32,6 +32,7 @@ export default defineConfig(({ command }) => ({
 			"jsx/jsx-dev-runtime": "src/jsx/jsx-dev-runtime.ts",
 			react: "src/react/index.ts",
 			tools: "src/tools/index.ts",
+			"tools/anthropic": "src/tools/anthropic/index.ts",
 		},
 		external: [
 			"@ignite-element/core",

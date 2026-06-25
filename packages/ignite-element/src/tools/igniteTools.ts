@@ -8,7 +8,7 @@ import { buildManifest, resolveCall } from "./core";
 import { err, ok, type Result } from "./result";
 import type {
 	AvailabilityPredicate,
-	IgniteToolsComponent,
+	IgniteToolsRuntime,
 	NeutralManifest,
 	NeutralToolCall,
 	NeutralToolResult,
@@ -22,7 +22,7 @@ import type {
 export type IgniteToolsNeutral<State, Events extends EventMap> = {
 	manifest: NeutralManifest;
 	resolveCall(name: string, input: unknown): Result<Route, ToolError>;
-	invoke(
+	run(
 		call: NeutralToolCall,
 	): Promise<Result<ToolObservation<State, Events>, ToolError>>;
 };
@@ -36,8 +36,8 @@ export type IgniteToolsWithDialect<
 	ResultBlock,
 > = IgniteToolsNeutral<State, Events> & {
 	tools: Tools;
-	parseToolCalls(response: Response): NeutralToolCall[];
-	toToolResult(result: NeutralToolResult<State, Events>): ResultBlock;
+	toolCalls(response: Response): NeutralToolCall[];
+	toolResult(result: NeutralToolResult<State, Events>): ResultBlock;
 };
 
 export function igniteTools<
@@ -47,7 +47,7 @@ export function igniteTools<
 	SchemaState,
 	View extends Record<string, unknown>,
 >(
-	component: IgniteToolsComponent<State, Commands, Events, SchemaState, View>,
+	runtime: IgniteToolsRuntime<State, Commands, Events, SchemaState, View>,
 ): IgniteToolsNeutral<State, Events>;
 export function igniteTools<
 	State,
@@ -59,30 +59,30 @@ export function igniteTools<
 	Response,
 	ResultBlock,
 >(
-	component: IgniteToolsComponent<State, Commands, Events, SchemaState, View>,
+	runtime: IgniteToolsRuntime<State, Commands, Events, SchemaState, View>,
 	dialect: ToolDialect<Tools, Response, ResultBlock>,
 ): IgniteToolsWithDialect<State, Events, Tools, Response, ResultBlock>;
 /**
  * Bridge the agent-runtime contract to LLM tool-use. The pure core builds a
  * neutral manifest from `getSchema()` and routes validated calls; the shell
- * (`invoke`) performs the single `execute` side effect. With a `ToolDialect`,
+ * (`run`) performs the single `execute` side effect. With a `ToolDialect`,
  * the result also carries provider-shaped `tools` and the parse/result
  * translators — the consumer brings the SDK and runs the model loop.
  */
 export function igniteTools(
-	component: IgniteToolsComponent,
+	runtime: IgniteToolsRuntime,
 	dialect?: ToolDialect,
 ) {
 	const canExecute: AvailabilityPredicate | undefined =
-		typeof component.canExecute === "function"
-			? component.canExecute.bind(component)
+		typeof runtime.canExecute === "function"
+			? runtime.canExecute.bind(runtime)
 			: undefined;
 
-	const manifest = buildManifest(component.getSchema(), canExecute);
+	const manifest = buildManifest(runtime.getSchema(), canExecute);
 
 	// The model supplies dynamic command names, so treat `execute` as the loose
 	// runtime contract at this boundary.
-	const execute = component.execute as unknown as (
+	const execute = runtime.execute as unknown as (
 		name: string,
 		payload?: unknown,
 	) => Promise<IgniteAgentExecutionResult<unknown, EmptyEventMap>>;
@@ -92,7 +92,7 @@ export function igniteTools(
 		input: unknown,
 	): Result<Route, ToolError> => resolveCall(manifest, name, input, canExecute);
 
-	const invoke = async (
+	const run = async (
 		call: NeutralToolCall,
 	): Promise<Result<ToolObservation<unknown, EmptyEventMap>, ToolError>> => {
 		const routed = boundResolveCall(call.name, call.input);
@@ -116,7 +116,7 @@ export function igniteTools(
 		}
 	};
 
-	const neutral = { manifest, resolveCall: boundResolveCall, invoke };
+	const neutral = { manifest, resolveCall: boundResolveCall, run };
 
 	if (!dialect) {
 		return neutral;
@@ -124,8 +124,8 @@ export function igniteTools(
 
 	return {
 		...neutral,
-		tools: dialect.toToolDefs(manifest),
-		parseToolCalls: (response: unknown) => dialect.parseToolCalls(response),
-		toToolResult: (result: NeutralToolResult) => dialect.toToolResult(result),
+		tools: dialect.tools(manifest),
+		toolCalls: (response: unknown) => dialect.toolCalls(response, manifest),
+		toolResult: (result: NeutralToolResult) => dialect.toolResult(result),
 	};
 }
