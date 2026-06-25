@@ -153,4 +153,12 @@ describe("anthropic.toolResult (neutral result -> Anthropic tool_result block)",
 			is_error: true,
 		});
 	});
+
+	it("throws when the neutral result has no id (Anthropic requires a tool_use_id)", () => {
+		const result: NeutralToolResult = {
+			name: "setLimit",
+			result: ok({ snapshot: { count: 7 }, events: [] }),
+		};
+		expect(() => anthropic.toolResult(result)).toThrow(/tool_use_id/);
+	});
 });

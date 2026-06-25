@@ -48,12 +48,14 @@ export type AnthropicResponse = {
 
 /**
  * An Anthropic `tool_result` content block, returned to the model on the next
- * turn. `content` is the JSON-serialized observation (or error); `is_error`
- * flags a failed call so the model can recover.
+ * turn. `tool_use_id` correlates it with the originating `tool_use` block (always
+ * present in an Anthropic response, so always required here); `content` is the
+ * JSON-serialized observation (or error); `is_error` flags a failed call so the
+ * model can recover.
  */
 export type AnthropicToolResultBlock = {
 	type: "tool_result";
-	tool_use_id: string | undefined;
+	tool_use_id: string;
 	content: string;
 	is_error: boolean;
 };
@@ -99,6 +101,15 @@ export const anthropic: ToolDialect<
 	},
 
 	toolResult({ id, result }: NeutralToolResult): AnthropicToolResultBlock {
+		// Anthropic rejects a tool_result without a tool_use_id. The neutral id is
+		// optional (provider-agnostic), but for Anthropic it always originates from
+		// a tool_use block via toolCalls() — a missing id is a pairing bug, not an
+		// expected error, so fail fast rather than emit an invalid block.
+		if (id === undefined) {
+			throw new Error(
+				"anthropic.toolResult requires a tool_use_id; pass the id from the originating tool_use block (call.id from toolCalls()).",
+			);
+		}
 		return {
 			type: "tool_result",
 			tool_use_id: id,
