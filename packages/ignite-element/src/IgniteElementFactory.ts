@@ -327,7 +327,24 @@ export default function igniteElementFactory<
 		sharedInstanceCount = 0;
 	};
 
-	const createRuntimeHost = () => document.createElement("div");
+	// The headless agent runtime (getSchema/execute/on/watchView) only ever uses
+	// its host as an EventTarget — `on()` calls host.addEventListener/
+	// removeEventListener and effect emits go through host.dispatchEvent. So in a
+	// non-DOM runtime (Node, edge) it does not need a real element: a bare
+	// EventTarget keeps the agent runtime fully DOM-free. The render path
+	// (createRuntimeDomBridge / the custom element) creates its own real element
+	// and still requires a DOM.
+	//
+	// The `as unknown as HTMLElement` cast is forced because the runtime host
+	// flows through the same `Host` generic the render path uses (typed
+	// HTMLElement for the JSX renderer's host.appendChild). It is safe here — no
+	// code path touches the runtime host with element-only APIs (verified) — but
+	// the proper fix is to split the agent-runtime host type (EventTarget) from
+	// the render-host `Host` generic so this cast disappears (tracked follow-up).
+	const createRuntimeHost = (): HTMLElement =>
+		typeof document === "undefined"
+			? (new EventTarget() as unknown as HTMLElement)
+			: document.createElement("div");
 
 	const createRuntimeDomBridge = (
 		renderer: ComponentRenderer<RenderArgs, View>,
