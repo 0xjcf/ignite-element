@@ -1575,6 +1575,113 @@ No active tasks.
 - Owner: runtime
 - Brief: .fas/tasks/update-actorwebadapter-dev-warning-wording-that-still-refere.md
 
+### Task: add an observe() observation channel to the neutral igniteTools core (events + view stream) for the agent act-observe lo
+
+- Title: add an observe() observation channel to the neutral igniteTools core (events + view stream) for the agent act-observe lo
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/add-an-observe-observation-channel-to-the-neutral-ignitetool.md
+- Automation mode: advisory
+
+### Task: implement igniteTools anthropic ToolDialect adapter at ignite-element/tools/anthropic with the Option D port refinement (parseToolCalls gains a manifest param) + shared scalar helpers in tools/scalar.ts + N1 method naming (toTools/readCalls/toResult, invoke to run)
+
+- Title: implement igniteTools anthropic ToolDialect adapter at ignite-element/tools/anthropic with the Option D port refinement (parseToolCalls gains a manifest param) + shared scalar helpers in tools/scalar.ts + N1 method naming (toTools/readCalls/toResult, invoke to run)
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/implement-ignitetools-anthropic-tooldialect-adapter-at-ignit.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: build a headless Anthropic tool-use dogfood example for igniteTools at examples/agents/anthropic-tool-use — a pluggable-model agent loop (deterministic key-free mock model + real @anthropic-ai/sdk model) driving a small igniteCore counter with no-arg and scalar (setLimit) commands, validating the anthropic ToolDialect round-trip end-to-end (getSchema to tools to tool_use to toolCalls scalar-unwrap to run to toolResult) and observing act+ack snapshot timing
+
+- Title: build a headless Anthropic tool-use dogfood example for igniteTools at examples/agents/anthropic-tool-use — a pluggable-model agent loop (deterministic key-free mock model + real @anthropic-ai/sdk model) driving a small igniteCore counter with no-arg and scalar (setLimit) commands, validating the anthropic ToolDialect round-trip end-to-end (getSchema to tools to tool_use to toolCalls scalar-unwrap to run to toolResult) and observing act+ack snapshot timing
+- Mode: 6-agent
+- Status: implementing
+- Owner: implementer
+- Brief: .fas/tasks/build-a-headless-anthropic-tool-use-dogfood-example-for-igni.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: igniteTools showcase Phase A — make the headless agent runtime DOM-free (getSchema/execute/on/watchView run in pure Node
+
+- Title: igniteTools showcase Phase A — make the headless agent runtime DOM-free (getSchema/execute/on/watchView run in pure Node
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/ignitetools-showcase-phase-a-make-the-headless-agent-runtime.md
+- Automation mode: advisory
+
+### Task: igniteTools showcase Phase B — headless smart-home agent example (pure Node, no jsdom) stressing the full agent API to c
+
+- Title: igniteTools showcase Phase B — headless smart-home agent example (pure Node, no jsdom) stressing the full agent API to c
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/ignitetools-showcase-phase-b-headless-smart-home-agent-examp.md
+
+### Task: igniteTools showcase Phase C — terminal-to-browser bridge: headless Claude agent and a browser ignite UI drive one live
+
+- Title: igniteTools showcase Phase C — terminal-to-browser bridge: headless Claude agent and a browser ignite UI drive one live
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/ignitetools-showcase-phase-c-terminal-to-browser-bridge-head.md
+
+### Task: igniteTools showcase Phase A — make the headless agent runtime DOM-free (getSchema/execute/on/watchView run in pure Node, no jsdom)
+
+- Title: igniteTools showcase Phase A — make the headless agent runtime DOM-free (getSchema/execute/on/watchView run in pure Node, no jsdom)
+- Mode: 6-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/ignitetools-showcase-phase-a-make-the-headless-agent-runtime.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Split the agent-runtime host type (EventTarget) from the render-host Host generic so the headless runtime needs no HTMLE
+
+- Title: Split the agent-runtime host type (EventTarget) from the render-host Host generic so the headless runtime needs no HTMLE
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/split-the-agent-runtime-host-type-eventtarget-from-the-rende.md
+- Automation mode: advisory
+
+### Task: igniteTools PR2 CodeRabbit follow-ups — bind runtime.execute, strict scalar value envelope, fix canExecute doc wording
+
+- Title: igniteTools PR2 CodeRabbit follow-ups — bind runtime.execute, strict scalar value envelope, fix canExecute doc wording
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/ignitetools-pr2-coderabbit-follow-ups-bind-runtime-execute-s.md
+- Automation mode: advisory
+
+### Task: igniteTools showcase Phase B — headless smart-home agent example (pure Node, no jsdom) stressing the full agent API to catch gaps
+
+- Title: igniteTools showcase Phase B — headless smart-home agent example (pure Node, no jsdom) stressing the full agent API to catch gaps
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/ignitetools-showcase-phase-b-headless-smart-home-agent-examp.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Fix example runtime test lanes before next igniteTools task
+
+- Title: Fix example runtime test lanes before next igniteTools task
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/fix-example-runtime-test-lanes-before-next-ignitetools-task.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
