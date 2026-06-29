@@ -94,7 +94,10 @@ const homeMachine = setup({
 							...context.lights,
 							[event.room]: event.on,
 						}),
-						activeScene: () => null,
+						activeScene: ({ context, event }) =>
+							context.lights[event.room] === event.on
+								? context.activeScene
+								: null,
 					}),
 				},
 				SET_THERMOSTAT: {
@@ -103,7 +106,10 @@ const homeMachine = setup({
 							...context.thermostat,
 							[event.room]: event.temp,
 						}),
-						activeScene: () => null,
+						activeScene: ({ context, event }) =>
+							context.thermostat[event.room] === event.temp
+								? context.activeScene
+								: null,
 					}),
 				},
 				SET_BLINDS: {
@@ -112,7 +118,10 @@ const homeMachine = setup({
 							...context.blinds,
 							[event.room]: event.percent,
 						}),
-						activeScene: () => null,
+						activeScene: ({ context, event }) =>
+							context.blinds[event.room] === event.percent
+								? context.activeScene
+								: null,
 					}),
 				},
 				SET_LOCK: {
@@ -121,7 +130,10 @@ const homeMachine = setup({
 							...context.locks,
 							[event.door]: event.locked,
 						}),
-						activeScene: () => null,
+						activeScene: ({ context, event }) =>
+							context.locks[event.door] === event.locked
+								? context.activeScene
+								: null,
 					}),
 				},
 				RUN_SCENE: {
@@ -149,10 +161,10 @@ export function createHome() {
 		view: ({ snapshot }) => {
 			const c = snapshot.context;
 			return {
-				lights: c.lights,
-				thermostat: c.thermostat,
-				blinds: c.blinds,
-				locks: c.locks,
+				lights: { ...c.lights },
+				thermostat: { ...c.thermostat },
+				blinds: { ...c.blinds },
+				locks: { ...c.locks },
 				activeScene: c.activeScene,
 				lightsOn: ROOMS.filter((room) => c.lights[room]),
 				allDoorsLocked: DOORS.every((door) => c.locks[door]),

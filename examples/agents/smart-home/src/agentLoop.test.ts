@@ -200,6 +200,39 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 		expect(home.getView().activeScene).toBeNull();
 	});
 
+	it("keeps the active scene when a manual command is a no-op", async () => {
+		const home = createHome();
+
+		await home.execute("runScene", "away");
+		expect(home.getView().activeScene).toBe("away");
+		await home.execute("lockDoor", "front");
+		expect(home.getView().activeScene).toBe("away");
+
+		await home.execute("runScene", "morning");
+		expect(home.getView().activeScene).toBe("morning");
+		await home.execute("setThermostat", { room: "living", temp: 70 });
+		expect(home.getView().activeScene).toBe("morning");
+		await home.execute("toggleLight", { room: "living", on: true });
+		expect(home.getView().activeScene).toBe("morning");
+	});
+
+	it("returns defensive copies from the derived view", () => {
+		const home = createHome();
+		const view = home.getView();
+
+		view.lights.living = true;
+		view.thermostat.living = 80;
+		view.blinds.living = 100;
+		view.locks.front = false;
+
+		expect(home.getView()).toMatchObject({
+			lights: { living: false },
+			thermostat: { living: 68 },
+			blinds: { living: 0 },
+			locks: { front: true },
+		});
+	});
+
 	it("fails loudly when a scripted fixture runs out of model turns", async () => {
 		const model = scriptedModel([
 			{ content: [{ type: "text", text: "done" }] },
