@@ -80,11 +80,43 @@ function createFakeComponent(
 				events: [{ type: "item-added", payload: { id: 1 } }],
 			};
 		}) as FakeComponent["execute"],
+		// The derived read-model the agent grounds on; reflects the calls so far.
+		getView: () => ({
+			count: calls.length,
+			label: calls.length > 0 ? "active" : "zero",
+		}),
 	};
 	if (options.canExecute) {
 		component.canExecute = options.canExecute;
 	}
 	return component;
+}
+
+class ThisBoundFakeComponent implements FakeComponent {
+	calls: Array<{ name: string; payload: unknown }> = [];
+
+	execute = async function (
+		this: ThisBoundFakeComponent,
+		name: string,
+		payload?: unknown,
+	) {
+		this.calls.push({ name, payload });
+		return {
+			state: { count: this.calls.length, last: name, payload },
+			events: [{ type: "item-added", payload: { id: this.calls.length } }],
+		};
+	} as FakeComponent["execute"];
+
+	getSchema() {
+		return fakeSchema;
+	}
+
+	getView() {
+		return {
+			count: this.calls.length,
+			label: this.calls.length > 0 ? "active" : "zero",
+		};
+	}
 }
 
 // A minimal fake provider dialect: proves the ToolDialect port wiring without
@@ -333,7 +365,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		expect("tools" in tools).toBe(false);
 	});
 
-	it("run routes a valid call through execute and returns { snapshot, events }", async () => {
+	it("run routes a valid call through execute and returns { snapshot, view, events }", async () => {
 		const component = createFakeComponent();
 		const { run } = igniteTools(component);
 		const result = await run({ name: "setLimit", input: 7 });
@@ -345,9 +377,27 @@ describe("igniteTools (neutral, no dialect)", () => {
 				last: "setLimit",
 				payload: 7,
 			});
+			// The observation carries the derived view (post-command), so the agent
+			// can ground on the read-model, not just the raw snapshot.
+			expect(result.value.view).toEqual({ count: 1, label: "active" });
 			expect(result.value.events).toEqual([
 				{ type: "item-added", payload: { id: 1 } },
 			]);
+		}
+	});
+
+	it("binds runtime methods before calling execute and getView", async () => {
+		const component = new ThisBoundFakeComponent();
+		const { run } = igniteTools(component);
+		const result = await run({ name: "setLimit", input: 7 });
+		expect(component.calls).toEqual([{ name: "setLimit", payload: 7 }]);
+		expect(isOk(result)).toBe(true);
+		if (isOk(result)) {
+			expect(result.value.snapshot).toMatchObject({
+				count: 1,
+				last: "setLimit",
+			});
+			expect(result.value.view).toEqual({ count: 1, label: "active" });
 		}
 	});
 

@@ -125,12 +125,20 @@ describe("anthropic.toolResult (neutral result -> Anthropic tool_result block)",
 		const result: NeutralToolResult = {
 			id: "toolu_1",
 			name: "setLimit",
-			result: ok({ snapshot: { count: 7 }, events: [] }),
+			result: ok({
+				snapshot: { count: 7 },
+				view: { atLimit: false },
+				events: [],
+			}),
 		};
 		expect(anthropic.toolResult(result)).toEqual({
 			type: "tool_result",
 			tool_use_id: "toolu_1",
-			content: JSON.stringify({ snapshot: { count: 7 }, events: [] }),
+			content: JSON.stringify({
+				snapshot: { count: 7 },
+				view: { atLimit: false },
+				events: [],
+			}),
 			is_error: false,
 		});
 	});
@@ -157,7 +165,11 @@ describe("anthropic.toolResult (neutral result -> Anthropic tool_result block)",
 	it("throws when the neutral result has no id (Anthropic requires a tool_use_id)", () => {
 		const result: NeutralToolResult = {
 			name: "setLimit",
-			result: ok({ snapshot: { count: 7 }, events: [] }),
+			result: ok({
+				snapshot: { count: 7 },
+				view: { atLimit: false },
+				events: [],
+			}),
 		};
 		expect(() => anthropic.toolResult(result)).toThrow(/tool_use_id/);
 	});

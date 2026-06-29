@@ -1,0 +1,32 @@
+{
+	"name": "smart-home-agent-example",
+	"version": "1.0.0",
+	"description": "Drive a headless ignite-element smart home with Claude via igniteTools + the anthropic ToolDialect — a key-free scripted run plus a real Anthropic loop, all in pure Node (no DOM).",
+	"type": "module",
+	"scripts": {
+		"test": "vitest run",
+		"mock": "vite-node src/mock.ts",
+		"anthropic": "vite-node src/anthropic.ts",
+		"typecheck": "tsc --noEmit"
+	},
+	"keywords": [
+		"ignite-element",
+		"igniteTools",
+		"anthropic",
+		"tool-use",
+		"agent",
+		"headless",
+		"smart-home",
+		"xstate"
+	],
+	"license": "ISC",
+	"dependencies": {
+		"xstate": "5.32.1"
+	},
+	"devDependencies": {
+		"typescript": "^5.9.3",
+		"vite": "^7.2.7",
+		"vite-node": "^6.0.0",
+		"vitest": "^4.0.3"
+	}
+}

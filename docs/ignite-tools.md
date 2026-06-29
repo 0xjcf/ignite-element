@@ -112,17 +112,21 @@ two helpers; the OpenAI/Ollama dialect reuses them verbatim.
 
 ### Imperative shell
 
-- `run(toolCall): Promise<Result<{ snapshot, events }, ToolError>>` — the single
-  side-effect: `runtime.execute(name, payload)` (which may reach a remote actor). Returns
-  a `Result` so a failed command is data the agent reacts to, not an exception across the
-  seam. The LLM API call itself stays in the **consumer's** loop — `igniteTools` provides
-  the (provider-shaped) `tools` + `run`; the consumer runs the model.
+- `run(toolCall): Promise<Result<{ snapshot, view, events }, ToolError>>` — the single
+  side-effect: `runtime.execute(name, payload)` (which may reach a remote actor). The
+  observation carries the raw `snapshot`, the derived **`view`** (the read-model the
+  agent grounds on — `igniteTools` binds `getView` and captures it post-command), and
+  the `events` from the command window. Returns a `Result` so a failed command is data
+  the agent reacts to, not an exception across the seam. The LLM API call itself stays
+  in the **consumer's** loop — `igniteTools` provides the (provider-shaped) `tools` +
+  `run`; the consumer runs the model.
 
 ### Observation contract — act + acknowledgement
 
 `run` (and the underlying `execute`) is **act + ACK observation**: the returned
-`ToolObservation` is the snapshot **at command-acknowledgement** plus the events
-emitted up to that point — not "after the effect settles". The actor model has no
+`ToolObservation` (`{ snapshot, view, events }`) is the snapshot + derived view
+**at command-acknowledgement** plus the events emitted up to that point — not
+"after the effect settles". The actor model has no
 bounded "done" for a long-running effect (a deploy spans minutes and many states),
 and a settle-wait would misattribute unrelated concurrent read-model updates. So
 for async/remote adapters the observation reflects **state at acknowledgement**;
@@ -131,7 +135,9 @@ ongoing effects are observed via the **view/event stream** (`on()` / `watchView(
 as state and transport change. A first-class `observe()` channel on `igniteTools`
 (so act and observe come from one place) is a separate neutral-core task, sequenced
 with the dogfood; a bounded `settle` opt-in on `execute()` is deferred (YAGNI until
-the dogfood shows short-command latency hurts). `ToolObservation` is unchanged.
+the dogfood shows short-command latency hurts). `ToolObservation` carries
+`{ snapshot, view, events }` — the derived view is captured at acknowledgement so
+the agent grounds on the read-model, not just raw state.
 
 ### API shape
 
