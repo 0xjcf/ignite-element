@@ -76,6 +76,31 @@ function findConfig(exampleRoot) {
 	return null;
 }
 
+function ensureDependencies(exampleRoot) {
+	if (existsSync(path.join(exampleRoot, "node_modules"))) {
+		return true;
+	}
+
+	const relativeRoot = path.relative(repoRoot, exampleRoot);
+	console.log(`Installing dependencies for ${relativeRoot}`);
+
+	const result = spawnSync(
+		"pnpm",
+		[
+			"install",
+			"--ignore-workspace",
+			"--no-link-workspace-packages",
+			"--no-lockfile",
+		],
+		{
+			cwd: exampleRoot,
+			stdio: "inherit",
+		},
+	);
+
+	return result.status === 0;
+}
+
 const testFiles = await findTestFiles(examplesRoot);
 const exampleRoots = [...new Set(testFiles.map(findExampleRoot))]
 	.filter(Boolean)
@@ -116,6 +141,11 @@ for (const exampleRoot of exampleRoots) {
 	const relativeRoot = path.relative(repoRoot, exampleRoot);
 
 	console.log(`\n==> ${relativeRoot}`);
+
+	if (!ensureDependencies(exampleRoot)) {
+		failedExamples.push(relativeRoot);
+		continue;
+	}
 
 	const result = spawnSync(
 		"pnpm",
