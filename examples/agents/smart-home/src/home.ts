@@ -31,9 +31,8 @@ type HomeEvent =
 	| { type: "SET_LOCK"; door: Door; locked: boolean }
 	| { type: "RUN_SCENE"; scene: Scene };
 
-const on = true;
 const initialContext: HomeContext = {
-	lights: { living: !on, bedroom: !on, kitchen: !on },
+	lights: { living: false, bedroom: false, kitchen: false },
 	thermostat: { living: 68, bedroom: 68, kitchen: 68 },
 	blinds: { living: 0, bedroom: 0, kitchen: 0 },
 	activeScene: null,
