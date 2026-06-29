@@ -88,7 +88,7 @@ jobs:
             exit 1
           fi
           failed=""
-          for dir in examples/adapters/* examples/apps/* examples/frameworks/*; do
+          for dir in examples/adapters/* examples/apps/* examples/frameworks/* examples/agents/*; do
             [ -f "$dir/package.json" ] || continue
             echo "::group::$dir"
             ( cd "$dir" && pnpm install --ignore-workspace --no-link-workspace-packages )
