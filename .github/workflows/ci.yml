@@ -43,6 +43,12 @@ jobs:
       - name: Run tests and generate coverage
         run: pnpm run test:coverage
 
+      - name: Run script tests
+        run: pnpm run test:scripts
+
+      - name: Run example runtime tests
+        run: pnpm run test:examples
+
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
