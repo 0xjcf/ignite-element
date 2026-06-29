@@ -1653,8 +1653,8 @@ No active tasks.
 
 - Title: Fix example runtime test lanes before next igniteTools task
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-example-runtime-test-lanes-before-next-ignitetools-task.md
 - Verification lane: fast
 - Policy sensitivity: standard
