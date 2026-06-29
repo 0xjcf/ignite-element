@@ -5,7 +5,7 @@
 		"build": "pnpm -r run build",
 		"build:types": "pnpm -r run build:types",
 		"build:js": "pnpm -r run build:js",
-		"test": "pnpm --filter ignite-element test",
+		"test": "pnpm --filter ignite-element test && pnpm --filter ignite-element exec vitest --run --root ../../examples/agents/smart-home --config ../../examples/agents/smart-home/vite.config.ts",
 		"test:coverage": "pnpm --filter ignite-element test:coverage",
 		"test:node": "pnpm --filter ignite-element test:node",
 		"typecheck": "pnpm -r run typecheck",
