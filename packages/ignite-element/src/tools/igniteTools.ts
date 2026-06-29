@@ -83,14 +83,14 @@ export function igniteTools(
 
 	// The model supplies dynamic command names, so treat `execute` as the loose
 	// runtime contract at this boundary.
-	const execute = runtime.execute as unknown as (
+	const execute = runtime.execute.bind(runtime) as unknown as (
 		name: string,
 		payload?: unknown,
 	) => Promise<IgniteAgentExecutionResult<unknown, EmptyEventMap>>;
 
 	// Captured post-command (at acknowledgement) into each observation so the
 	// agent grounds on the derived view, not just the raw snapshot.
-	const getView = runtime.getView as unknown as () => unknown;
+	const getView = runtime.getView.bind(runtime) as unknown as () => unknown;
 
 	const boundResolveCall = (
 		name: string,

@@ -61,7 +61,7 @@ export async function runHomeAgent(
 		const calls = toolCalls(response);
 		if (calls.length === 0) {
 			finalText = textOf(response);
-			break;
+			return { home, trace, finalText, modelCalls };
 		}
 
 		const resultBlocks: AnthropicToolResultBlock[] = [];
@@ -82,7 +82,9 @@ export async function runHomeAgent(
 		messages.push({ role: "user", content: resultBlocks });
 	}
 
-	return { home, trace, finalText, modelCalls };
+	throw new Error(
+		`runHomeAgent hit MAX_TURNS (${MAX_TURNS}) before producing a final response`,
+	);
 }
 
 /** Concatenate the text blocks of an Anthropic response. */

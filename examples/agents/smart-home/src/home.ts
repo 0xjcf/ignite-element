@@ -103,6 +103,7 @@ const homeMachine = setup({
 							...context.thermostat,
 							[event.room]: event.temp,
 						}),
+						activeScene: () => null,
 					}),
 				},
 				SET_BLINDS: {
@@ -111,6 +112,7 @@ const homeMachine = setup({
 							...context.blinds,
 							[event.room]: event.percent,
 						}),
+						activeScene: () => null,
 					}),
 				},
 				SET_LOCK: {
@@ -119,6 +121,7 @@ const homeMachine = setup({
 							...context.locks,
 							[event.door]: event.locked,
 						}),
+						activeScene: () => null,
 					}),
 				},
 				RUN_SCENE: {
@@ -219,6 +222,14 @@ export function createHome() {
 			),
 		}),
 		effects: ({ emit, select }) => {
+			const lights = select((state) => state.context.lights);
+			if (lights.changed) {
+				for (const room of ROOMS) {
+					if (lights.current[room] !== lights.previous[room]) {
+						emit("light-changed", { room, on: lights.current[room] });
+					}
+				}
+			}
 			const scene = select((state) => state.context.activeScene);
 			if (scene.changed && scene.current) {
 				emit("scene-applied", { scene: scene.current });

@@ -45,7 +45,14 @@ try {
 	printSession(result);
 } catch (error) {
 	const message = error instanceof Error ? error.message : String(error);
-	if (/Cannot find( module|package)|ERR_MODULE_NOT_FOUND/.test(message)) {
+	const code =
+		typeof error === "object" && error !== null && "code" in error
+			? (error as { code?: unknown }).code
+			: undefined;
+	if (
+		code === "ERR_MODULE_NOT_FOUND" ||
+		/Cannot find( module|package)|ERR_MODULE_NOT_FOUND/.test(message)
+	) {
 		console.error(
 			"\n@anthropic-ai/sdk is not installed. Run `npm install @anthropic-ai/sdk` and retry.",
 		);

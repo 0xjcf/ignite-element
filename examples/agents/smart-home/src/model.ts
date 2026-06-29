@@ -30,10 +30,13 @@ export type Model = (request: {
  */
 export function scriptedModel(script: AnthropicResponse[]): Model {
 	let turn = 0;
-	return async () =>
-		script[turn++] ?? {
-			content: [{ type: "text", text: "(no more scripted turns)" }],
-		};
+	return async () => {
+		const response = script[turn++];
+		if (!response) {
+			throw new Error("scriptedModel exhausted its scripted responses");
+		}
+		return response;
+	};
 }
 
 /**

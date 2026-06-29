@@ -14,7 +14,7 @@ import {
 import { describe, expect, it } from "vitest";
 import { runHomeAgent } from "./agentLoop";
 import { createHome, DOORS, ROOMS, SCENES } from "./home";
-import { scriptedModel } from "./model";
+import { type Model, scriptedModel } from "./model";
 
 describe("smart-home agent — Anthropic tool schemas (getSchema → adapter)", () => {
 	const { tools } = igniteTools(createHome(), anthropic);
@@ -162,6 +162,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 		).toBe(true);
 		// runScene emitted the scene-applied event (the observation stream).
 		expect(result.trace[3].events).toContain("scene-applied");
+		expect(result.trace[0].events).toContain("light-changed");
 
 		// Errors as values: the out-of-range temp was rejected, never threw.
 		expect(result.trace[4]).toMatchObject({
@@ -178,5 +179,47 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 		});
 		// movie scene turned the living light back off after toggleLight turned it on.
 		expect(view.lights.living).toBe(false);
+	});
+
+	it("clears the active scene when a device is manually overridden", async () => {
+		const home = createHome();
+
+		await home.execute("runScene", "morning");
+		expect(home.getView().activeScene).toBe("morning");
+		await home.execute("setThermostat", { room: "living", temp: 69 });
+		expect(home.getView().activeScene).toBeNull();
+
+		await home.execute("runScene", "movie");
+		expect(home.getView().activeScene).toBe("movie");
+		await home.execute("setBlinds", { room: "living", percent: 25 });
+		expect(home.getView().activeScene).toBeNull();
+
+		await home.execute("runScene", "away");
+		expect(home.getView().activeScene).toBe("away");
+		await home.execute("unlockDoor", "front");
+		expect(home.getView().activeScene).toBeNull();
+	});
+
+	it("fails loudly when a scripted fixture runs out of model turns", async () => {
+		const model = scriptedModel([
+			{ content: [{ type: "text", text: "done" }] },
+		]);
+
+		await model({ tools: [], messages: [] });
+		await expect(model({ tools: [], messages: [] })).rejects.toThrow(
+			/scriptedModel exhausted/,
+		);
+	});
+
+	it("fails loudly when the model never produces a final response", async () => {
+		const toolOnlyModel: Model = async () => ({
+			content: [
+				{ type: "tool_use", id: "keep-going", name: "status", input: {} },
+			],
+		});
+
+		await expect(runHomeAgent(toolOnlyModel, "never finish")).rejects.toThrow(
+			/runHomeAgent hit MAX_TURNS/,
+		);
 	});
 });
