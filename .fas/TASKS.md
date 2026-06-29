@@ -1631,17 +1631,6 @@ No active tasks.
 - Owner: runtime
 - Brief: .fas/tasks/ignitetools-showcase-phase-c-terminal-to-browser-bridge-head.md
 
-### Task: igniteTools showcase Phase A — make the headless agent runtime DOM-free (getSchema/execute/on/watchView run in pure Node, no jsdom)
-
-- Title: igniteTools showcase Phase A — make the headless agent runtime DOM-free (getSchema/execute/on/watchView run in pure Node, no jsdom)
-- Mode: 6-agent
-- Status: done
-- Owner: implementer
-- Brief: .fas/tasks/ignitetools-showcase-phase-a-make-the-headless-agent-runtime.md
-- Verification lane: fast
-- Policy sensitivity: standard
-- Blast radius: cross-cutting
-
 ### Task: Split the agent-runtime host type (EventTarget) from the render-host Host generic so the headless runtime needs no HTMLE
 
 - Title: Split the agent-runtime host type (EventTarget) from the render-host Host generic so the headless runtime needs no HTMLE
@@ -1659,17 +1648,6 @@ No active tasks.
 - Owner: runtime
 - Brief: .fas/tasks/ignitetools-pr2-coderabbit-follow-ups-bind-runtime-execute-s.md
 - Automation mode: advisory
-
-### Task: igniteTools showcase Phase B — headless smart-home agent example (pure Node, no jsdom) stressing the full agent API to catch gaps
-
-- Title: igniteTools showcase Phase B — headless smart-home agent example (pure Node, no jsdom) stressing the full agent API to catch gaps
-- Mode: single-agent
-- Status: done
-- Owner: implementer
-- Brief: .fas/tasks/ignitetools-showcase-phase-b-headless-smart-home-agent-examp.md
-- Verification lane: fast
-- Policy sensitivity: standard
-- Blast radius: cross-cutting
 
 ### Task: Fix example runtime test lanes before next igniteTools task
 

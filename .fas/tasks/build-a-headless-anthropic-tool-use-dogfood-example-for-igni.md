@@ -1,4 +1,4 @@
-# build a headless Anthropic tool-use dogfood example for igniteTools at examples/agents/anthropic-tool-use — a pluggable-
+# build a headless Anthropic tool-use dogfood example for igniteTools at examples/agents/anthropic-tool-use — a pluggable-model agent loop
 
 ## Source
 Created with `fas create-task` on 2026-06-25.

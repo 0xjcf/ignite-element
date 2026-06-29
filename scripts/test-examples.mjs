@@ -9,7 +9,6 @@ const repoRoot = path.resolve(
 	path.dirname(fileURLToPath(import.meta.url)),
 	"..",
 );
-const examplesRoot = path.join(repoRoot, "examples");
 const ignoredDirs = new Set([
 	".git",
 	".vite",
@@ -29,7 +28,18 @@ const configNames = [
 	"vite.config.js",
 ];
 
-const args = new Set(process.argv.slice(2));
+const rawArgs = process.argv.slice(2);
+const args = new Set(rawArgs);
+const examplesRootArgIndex = rawArgs.indexOf("--examples-root");
+const examplesRoot =
+	examplesRootArgIndex === -1
+		? path.join(repoRoot, "examples")
+		: path.resolve(repoRoot, rawArgs[examplesRootArgIndex + 1] ?? "");
+
+if (examplesRootArgIndex !== -1 && !rawArgs[examplesRootArgIndex + 1]) {
+	console.error("--examples-root requires a path.");
+	process.exit(1);
+}
 
 async function findTestFiles(dir) {
 	const entries = await readdir(dir, { withFileTypes: true });
@@ -102,9 +112,29 @@ function ensureDependencies(exampleRoot) {
 }
 
 const testFiles = await findTestFiles(examplesRoot);
-const exampleRoots = [...new Set(testFiles.map(findExampleRoot))]
-	.filter(Boolean)
-	.sort((left, right) => left.localeCompare(right));
+const discoveredExamples = testFiles.map((file) => ({
+	file,
+	exampleRoot: findExampleRoot(file),
+}));
+const orphanTests = discoveredExamples.filter(
+	({ exampleRoot }) => exampleRoot === null,
+);
+
+if (orphanTests.length > 0) {
+	for (const { file } of orphanTests) {
+		console.error(
+			`Runtime test is not inside an example package: ${path.relative(
+				repoRoot,
+				file,
+			)}`,
+		);
+	}
+	process.exit(1);
+}
+
+const exampleRoots = [
+	...new Set(discoveredExamples.map(({ exampleRoot }) => exampleRoot)),
+].sort((left, right) => left.localeCompare(right));
 
 if (exampleRoots.length === 0) {
 	console.error("No example runtime tests were discovered under examples/.");
