@@ -45,13 +45,18 @@ export type NeutralToolCall = {
 
 /**
  * The observation an agent gets back after a successful tool call: the
- * post-command snapshot plus the events emitted during the command window.
+ * post-command `snapshot` (raw state), the derived `view` (the read-model the
+ * agent should ground on — distinct from the raw snapshot), and the events
+ * emitted during the command window. Both snapshot and view are captured at
+ * command-acknowledgement (see the act+ack note in `docs/ignite-tools.md`).
  */
 export type ToolObservation<
 	Snapshot,
+	View = unknown,
 	Events extends EventMap = EmptyEventMap,
 > = {
 	snapshot: Snapshot;
+	view: View;
 	events: RuntimeEvent<Events>[];
 };
 
@@ -81,11 +86,12 @@ export type Route<Name extends string = string, Payload = unknown> = {
  */
 export type NeutralToolResult<
 	Snapshot = unknown,
+	View = unknown,
 	Events extends EventMap = EmptyEventMap,
 > = {
 	id?: string;
 	name: string;
-	result: Result<ToolObservation<Snapshot, Events>, ToolError>;
+	result: Result<ToolObservation<Snapshot, View, Events>, ToolError>;
 };
 
 /**
@@ -120,11 +126,12 @@ export interface ToolDialect<
 export type AvailabilityPredicate = (name: string) => boolean;
 
 /**
- * The minimal slice of the agent runtime that `igniteTools` depends on — just
- * `getSchema` (the contract) and `execute` (the single side effect). Any
- * `igniteCore(...)` return satisfies it. `canExecute` is optional and
- * duck-typed: present once it ships on the runtime, it gates the manifest;
- * absent today, all commands are offered.
+ * The minimal slice of the agent runtime that `igniteTools` depends on:
+ * `getSchema` (the contract), `execute` (the single side effect), and `getView`
+ * (the derived read-model captured into each observation so the agent grounds on
+ * the view, not just the raw snapshot). Any `igniteCore(...)` return satisfies
+ * it. `canExecute` is optional and duck-typed: present once it ships on the
+ * runtime, it gates the manifest; absent today, all commands are offered.
  */
 export type IgniteToolsRuntime<
 	State = unknown,
@@ -134,7 +141,7 @@ export type IgniteToolsRuntime<
 	View extends Record<string, unknown> = Record<never, never>,
 > = Pick<
 	IgniteAgentRuntime<State, Commands, Events, SchemaState, View>,
-	"getSchema" | "execute"
+	"getSchema" | "execute" | "getView"
 > & {
 	canExecute?: AvailabilityPredicate;
 };

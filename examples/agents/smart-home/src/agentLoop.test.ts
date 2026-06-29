@@ -155,6 +155,11 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 			command: "toggleLight",
 			input: { room: "living", on: true },
 		});
+		// Each observation carries the derived view (not just the raw snapshot), so
+		// the agent grounds on the read-model — after toggleLight the living light is on.
+		expect(
+			(result.trace[0].view as { lights: { living: boolean } }).lights.living,
+		).toBe(true);
 		// runScene emitted the scene-applied event (the observation stream).
 		expect(result.trace[3].events).toContain("scene-applied");
 

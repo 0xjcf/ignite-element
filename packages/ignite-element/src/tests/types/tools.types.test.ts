@@ -51,6 +51,9 @@ describe("igniteTools types", () => {
 
 			if (result.ok) {
 				expectTypeOf(result.value.snapshot).toEqualTypeOf<ComponentSnapshot>();
+				// The observation also carries the derived view, typed from the
+				// component's `view` projection.
+				expectTypeOf(result.value.view).toEqualTypeOf<{ isOn: boolean }>();
 				expectTypeOf(result.value.events).toEqualTypeOf<
 					Array<{ type: "toggled"; payload: { isOn: boolean } }>
 				>();

@@ -4,16 +4,18 @@ Building a real agent loop against `getSchema()` / `execute()` / `igniteTools` +
 the Anthropic adapter surfaced these. Ordered by impact. Each is a candidate
 follow-up; none blocks the example (the loop works headless today).
 
-## 1. The tool result exposes the raw snapshot, not the view (design)
+## 1. ✅ FIXED — the tool result now carries the derived view, not just the snapshot
 
-`ToolObservation = { snapshot, events }` carries `getSnapshot()` — the raw
-machine context (`{ lights: {...}, thermostat: {...}, locks: {...} }`). But the
-design pitch is that an agent **grounds on the view** (the derived read-model:
-`lightsOn`, `allDoorsLocked`, `activeScene`), which is more legible and stable
-than raw state. The loop serializes the snapshot into each `tool_result`, so the
-model never sees the view. **Consider adding `view` to `ToolObservation`** (or a
-`getView()`-backed field) so the agent can ground on the projection the design
-promises. Today a consumer must inject `getView()` into the prompt out-of-band.
+**Was:** `ToolObservation = { snapshot, events }` carried only `getSnapshot()` (raw
+machine context), so the model never saw the **view** (the derived read-model:
+`lightsOn`, `allDoorsLocked`, `activeScene`) the design says agents should ground
+on — a consumer had to inject `getView()` out-of-band.
+
+**Fixed in this PR:** `ToolObservation` is now `{ snapshot, view, events }`.
+`igniteTools` binds `getView` (added to the `IgniteToolsRuntime` surface) and
+captures it post-command, so every `run()` observation — and thus every
+`tool_result` the adapter serializes — carries the view. The agent grounds on the
+read-model out of the box. (See `result.trace[*].view` in the scripted test.)
 
 ## 2. No availability gating (`canExecute`)
 

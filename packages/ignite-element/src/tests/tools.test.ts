@@ -80,6 +80,11 @@ function createFakeComponent(
 				events: [{ type: "item-added", payload: { id: 1 } }],
 			};
 		}) as FakeComponent["execute"],
+		// The derived read-model the agent grounds on; reflects the calls so far.
+		getView: () => ({
+			count: calls.length,
+			label: calls.length > 0 ? "active" : "zero",
+		}),
 	};
 	if (options.canExecute) {
 		component.canExecute = options.canExecute;
@@ -333,7 +338,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		expect("tools" in tools).toBe(false);
 	});
 
-	it("run routes a valid call through execute and returns { snapshot, events }", async () => {
+	it("run routes a valid call through execute and returns { snapshot, view, events }", async () => {
 		const component = createFakeComponent();
 		const { run } = igniteTools(component);
 		const result = await run({ name: "setLimit", input: 7 });
@@ -345,6 +350,9 @@ describe("igniteTools (neutral, no dialect)", () => {
 				last: "setLimit",
 				payload: 7,
 			});
+			// The observation carries the derived view (post-command), so the agent
+			// can ground on the read-model, not just the raw snapshot.
+			expect(result.value.view).toEqual({ count: 1, label: "active" });
 			expect(result.value.events).toEqual([
 				{ type: "item-added", payload: { id: 1 } },
 			]);
