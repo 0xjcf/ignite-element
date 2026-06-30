@@ -40,10 +40,11 @@ mock or the real `@anthropic-ai/sdk`) and runs the loop in `src/agentLoop.ts`.
 - **DOM-free runtime** — the whole thing runs in the Vitest `node` environment
   (see `vite.config.ts`); `getSchema`/`execute`/`on`/`watchView` need no DOM.
 - **Varied command schemas** — object (`toggleLight`, `setThermostat`,
-  `setBlinds`), scalar enum (`lockDoor`, `unlockDoor`, `runScene`), and no-arg
-  (`status`) — all translated to Anthropic tool defs.
-- **Option D scalar round-trip** — a single-arg command (`lockDoor(door)`) is
-  object-wrapped as `{ value }` for the model and unwrapped on the way back.
+  `setBlinds`), scalar enum (`lockDoor`, `unlockDoor`, `runScene`), array
+  (`dimRooms`), and no-arg (`status`) — all translated to Anthropic tool defs.
+- **Option D value-wrap round-trip** — a non-object single-arg command
+  (`lockDoor(door)`, `dimRooms(rooms)`) is object-wrapped as `{ value }` for the
+  model and unwrapped on the way back.
 - **Errors as values** — an out-of-range input comes back as an `InvalidInput`
   `tool_result` (never a throw), so the model can recover.
 - **Events as observations** — `runScene` emits `scene-applied`, captured in the
@@ -52,5 +53,6 @@ mock or the real `@anthropic-ai/sdk`) and runs the loop in `src/agentLoop.ts`.
 ## Gaps found
 
 Dogfooding this surfaced several real gaps (view-vs-snapshot grounding,
-`canExecute` availability gating, an `observe()` channel, async/settle). See
+`canExecute` availability gating, an `observe()` channel, async/settle, array
+input coverage). See
 [`GAPS.md`](./GAPS.md).

@@ -1682,6 +1682,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: Fix smart-home GAPS #6 by adding array-input command coverage to the smart-home example
+
+- Title: Fix smart-home GAPS #6 by adding array-input command coverage to the smart-home example
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/fix-smart-home-gaps-6-by-adding-array-input-command-coverage.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
