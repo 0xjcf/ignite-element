@@ -6,12 +6,12 @@
 // AND a stress test of the agent API surface — varied command input schemas,
 // the Option D scalar round-trip, the event observation stream, and errors-as-
 // values — encoded as always-on assertions.
-import { igniteTools } from "ignite-element/tools";
+import { igniteTools, isOk } from "ignite-element/tools";
 import {
 	type AnthropicResponse,
 	anthropic,
 } from "ignite-element/tools/anthropic";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { runHomeAgent } from "./agentLoop";
 import { createHome, DOORS, ROOMS, SCENES } from "./home";
 import { type Model, scriptedModel } from "./model";
@@ -214,6 +214,139 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 		expect(home.getView().activeScene).toBe("morning");
 		await home.execute("toggleLight", { room: "living", on: true });
 		expect(home.getView().activeScene).toBe("morning");
+	});
+
+	it("observes a delayed scene after run() acknowledges the pending view", async () => {
+		vi.useFakeTimers();
+		const home = createHome();
+		const tools = igniteTools(home);
+		const observations: unknown[] = [];
+		const subscription = tools.observe((observation) => {
+			observations.push(observation);
+		});
+
+		try {
+			const result = await tools.run({
+				name: "transitionScene",
+				input: "morning",
+			});
+
+			expect(isOk(result)).toBe(true);
+			if (!isOk(result)) {
+				throw new Error(
+					`Expected transitionScene to run: ${result.error.kind}`,
+				);
+			}
+
+			expect(result.value.events.map((event) => event.type)).not.toContain(
+				"scene-applied",
+			);
+			expect(result.value.view).toMatchObject({
+				activeScene: null,
+				pendingScene: "morning",
+				lights: { living: false, bedroom: false, kitchen: false },
+			});
+
+			const interimResult = await tools.run({
+				name: "setThermostat",
+				input: { room: "living", temp: 69 },
+			});
+
+			expect(isOk(interimResult)).toBe(true);
+			if (!isOk(interimResult)) {
+				throw new Error(
+					`Expected setThermostat to run: ${interimResult.error.kind}`,
+				);
+			}
+
+			expect(interimResult.value.view).toMatchObject({
+				activeScene: null,
+				pendingScene: "morning",
+				thermostat: { living: 69 },
+			});
+
+			await vi.runOnlyPendingTimersAsync();
+
+			expect(home.getView()).toMatchObject({
+				activeScene: "morning",
+				pendingScene: null,
+				lights: { living: true, bedroom: true, kitchen: true },
+				thermostat: { living: 70 },
+			});
+			expect(observations).toEqual(
+				expect.arrayContaining([
+					{
+						type: "event",
+						event: { type: "scene-applied", payload: { scene: "morning" } },
+					},
+					expect.objectContaining({
+						type: "view",
+						view: expect.objectContaining({
+							activeScene: "morning",
+							pendingScene: null,
+							lights: expect.objectContaining({
+								living: true,
+								bedroom: true,
+								kitchen: true,
+							}),
+						}),
+					}),
+				]),
+			);
+		} finally {
+			subscription.unsubscribe();
+			vi.useRealTimers();
+		}
+	});
+
+	it("restarts a delayed scene when transitionScene is repeated", async () => {
+		vi.useFakeTimers();
+		const home = createHome();
+		const tools = igniteTools(home);
+
+		try {
+			const firstResult = await tools.run({
+				name: "transitionScene",
+				input: "morning",
+			});
+			expect(isOk(firstResult)).toBe(true);
+
+			await vi.advanceTimersByTimeAsync(10);
+
+			const secondResult = await tools.run({
+				name: "transitionScene",
+				input: "movie",
+			});
+
+			expect(isOk(secondResult)).toBe(true);
+			if (!isOk(secondResult)) {
+				throw new Error(
+					`Expected transitionScene to run: ${secondResult.error.kind}`,
+				);
+			}
+
+			expect(secondResult.value.view).toMatchObject({
+				activeScene: null,
+				pendingScene: "movie",
+			});
+
+			await vi.advanceTimersByTimeAsync(20);
+
+			expect(home.getView()).toMatchObject({
+				activeScene: null,
+				pendingScene: "movie",
+			});
+
+			await vi.advanceTimersByTimeAsync(5);
+
+			expect(home.getView()).toMatchObject({
+				activeScene: "movie",
+				pendingScene: null,
+				lights: { living: false },
+			});
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it("returns defensive copies from the derived view", () => {
