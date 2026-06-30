@@ -34,14 +34,49 @@ describe("smart-home agent — Anthropic tool schemas (getSchema → adapter)", 
 		});
 	});
 
-	it("object-wraps a scalar enum command under `value` (Option D)", () => {
+	it("object-wraps scalar enum commands under a described `value` field (Option D)", () => {
 		expect(byName("lockDoor")?.input_schema).toMatchObject({
 			type: "object",
-			properties: { value: { type: "string", enum: [...DOORS] } },
+			properties: {
+				value: {
+					type: "string",
+					enum: [...DOORS],
+					description: "Door id to lock: front, back, or garage.",
+				},
+			},
+			required: ["value"],
+		});
+		expect(byName("unlockDoor")?.input_schema).toMatchObject({
+			properties: {
+				value: {
+					type: "string",
+					enum: [...DOORS],
+					description: "Door id to unlock: front, back, or garage.",
+				},
+			},
 			required: ["value"],
 		});
 		expect(byName("runScene")?.input_schema).toMatchObject({
-			properties: { value: { type: "string", enum: [...SCENES] } },
+			properties: {
+				value: {
+					type: "string",
+					enum: [...SCENES],
+					description:
+						"Scene name to activate: morning, away, movie, or night.",
+				},
+			},
+			required: ["value"],
+		});
+		expect(byName("transitionScene")?.input_schema).toMatchObject({
+			properties: {
+				value: {
+					type: "string",
+					enum: [...SCENES],
+					description:
+						"Scene name to transition toward asynchronously: morning, away, movie, or night.",
+				},
+			},
+			required: ["value"],
 		});
 	});
 
