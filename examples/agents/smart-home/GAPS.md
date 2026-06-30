@@ -55,14 +55,18 @@ semantics while `igniteTools(...).observe(...)` receives the later settled view
 and `scene-applied` event. Phase C still owns the broader terminal↔browser
 transport and cross-runtime bridge gaps.
 
-## 5. Scalar `value`-wrapping costs LLM legibility (known Option D trade-off)
+## 5. ✅ FIXED — scalar `value`-wrapping now carries field-level hints
 
-A single-arg command (`lockDoor(door)`) is presented to the model as
+**Was:** a single-arg command (`lockDoor(door)`) was presented to the model as
 `{ value: "front" }`, not `{ door: "front" }`. This is correct and collision-free
 (Option D), but the generic `value` key is less self-documenting than the real
 parameter name — the model has slightly less signal about what it's filling in.
-Not a bug; worth weighing for prompt legibility (e.g., an optional param-name
-hint in the description, or a future per-command label).
+
+**Fixed in this PR:** Option D stays intact (`{ value }` remains the provider
+envelope), but the smart-home scalar input metadata now describes the wrapped
+`value` field for door and scene commands. The Anthropic schema test asserts the
+model sees a semantic description on `input_schema.properties.value`, so the
+wire shape stays collision-free while the prompt surface is more legible.
 
 ## 6. Array inputs not yet exercised (coverage)
 

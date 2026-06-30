@@ -1671,6 +1671,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: Fix smart-home GAPS #5 by improving scalar value-wrapping legibility for single-argument commands without breaking Option D
+
+- Title: Fix smart-home GAPS #5 by improving scalar value-wrapping legibility for single-argument commands without breaking Option D
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/fix-smart-home-gaps-5-by-improving-scalar-value-wrapping-leg.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>

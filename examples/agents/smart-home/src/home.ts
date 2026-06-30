@@ -301,14 +301,18 @@ export function createHome() {
 				(door: Door) => actor.send({ type: "SET_LOCK", door, locked: true }),
 				{
 					description: "Lock a door.",
-					input: command.enum(DOORS),
+					input: command.enum(DOORS, {
+						description: "Door id to lock: front, back, or garage.",
+					}),
 				},
 			),
 			unlockDoor: command(
 				(door: Door) => actor.send({ type: "SET_LOCK", door, locked: false }),
 				{
 					description: "Unlock a door.",
-					input: command.enum(DOORS),
+					input: command.enum(DOORS, {
+						description: "Door id to unlock: front, back, or garage.",
+					}),
 				},
 			),
 			runScene: command(
@@ -316,7 +320,10 @@ export function createHome() {
 				{
 					description:
 						"Activate a scene: morning, away, movie, or night. Sets several devices at once.",
-					input: command.enum(SCENES),
+					input: command.enum(SCENES, {
+						description:
+							"Scene name to activate: morning, away, movie, or night.",
+					}),
 				},
 			),
 			transitionScene: command(
@@ -324,7 +331,10 @@ export function createHome() {
 				{
 					description:
 						"Start a scene transition that acknowledges immediately and settles asynchronously.",
-					input: command.enum(SCENES),
+					input: command.enum(SCENES, {
+						description:
+							"Scene name to transition toward asynchronously: morning, away, movie, or night.",
+					}),
 				},
 			),
 			status: command(
