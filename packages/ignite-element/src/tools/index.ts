@@ -17,4 +17,7 @@ export type {
 	ToolDialect,
 	ToolError,
 	ToolObservation,
+	ToolStreamHandler,
+	ToolStreamObservation,
+	ToolStreamSubscription,
 } from "./types";

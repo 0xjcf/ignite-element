@@ -16,6 +16,8 @@ import type {
 	ToolDialect,
 	ToolError,
 	ToolObservation,
+	ToolStreamHandler,
+	ToolStreamSubscription,
 } from "./types";
 
 /** The neutral core surface, usable directly without a provider dialect. */
@@ -25,6 +27,7 @@ export type IgniteToolsNeutral<State, View, Events extends EventMap> = {
 	run(
 		call: NeutralToolCall,
 	): Promise<Result<ToolObservation<State, View, Events>, ToolError>>;
+	observe(handler: ToolStreamHandler<View, Events>): ToolStreamSubscription;
 };
 
 /** The neutral core plus a dialect's provider-shaped tools + translators. */
@@ -79,7 +82,8 @@ export function igniteTools(
 			? runtime.canExecute.bind(runtime)
 			: undefined;
 
-	const manifest = buildManifest(runtime.getSchema(), canExecute);
+	const schema = runtime.getSchema();
+	const manifest = buildManifest(schema, canExecute);
 
 	// The model supplies dynamic command names, so treat `execute` as the loose
 	// runtime contract at this boundary.
@@ -123,7 +127,47 @@ export function igniteTools(
 		}
 	};
 
-	const neutral = { manifest, resolveCall: boundResolveCall, run };
+	const observe = (
+		handler: ToolStreamHandler<unknown, EmptyEventMap>,
+	): ToolStreamSubscription => {
+		const on = runtime.on.bind(runtime) as unknown as (
+			eventName: string,
+			handler: (event: CustomEvent<unknown>) => void,
+		) => ToolStreamSubscription;
+		const watchView = runtime.watchView.bind(runtime) as unknown as (
+			handler: (view: unknown, prevView: unknown) => void,
+		) => ToolStreamSubscription;
+		const subscriptions = schema.events.map((eventName) =>
+			on(eventName, (event) => {
+				handler({
+					type: "event",
+					event: { type: eventName, payload: event.detail },
+				});
+			}),
+		);
+
+		subscriptions.push(
+			watchView((view, prevView) => {
+				handler({ type: "view", view, prevView });
+			}),
+		);
+
+		let unsubscribed = false;
+
+		return {
+			unsubscribe: () => {
+				if (unsubscribed) {
+					return;
+				}
+				unsubscribed = true;
+				for (const subscription of subscriptions) {
+					subscription.unsubscribe();
+				}
+			},
+		};
+	};
+
+	const neutral = { manifest, resolveCall: boundResolveCall, run, observe };
 
 	if (!dialect) {
 		return neutral;
