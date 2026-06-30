@@ -158,6 +158,9 @@ export type IgniteStory<
 	trace(): IgniteStoryTraceEntry[];
 	lifecycle(): IgniteStoryLifecycleEntry[];
 	summary(): IgniteStorySummary<State, Events, View>;
+	canExecute<CommandName extends keyof Commands & string>(
+		commandName: CommandName,
+	): boolean;
 	stop(): void;
 };
 
@@ -190,6 +193,9 @@ export type IgniteAgentRuntime<
 	SchemaState = IgniteSchemaValue,
 	View extends Record<string, unknown> = Record<never, never>,
 > = {
+	canExecute<CommandName extends keyof Commands & string>(
+		commandName: CommandName,
+	): boolean;
 	execute<CommandName extends keyof Commands & string>(
 		commandName: CommandName,
 		payload?: CommandPayload<Commands, CommandName>,

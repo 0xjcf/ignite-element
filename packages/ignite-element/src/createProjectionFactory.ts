@@ -1,6 +1,7 @@
 import type { IgniteAdapter, StateScope } from "@ignite-element/core";
 import type { BaseRenderArgs } from "./IgniteElementFactory";
 import type {
+	CommandHelper,
 	EmitFromEvents,
 	EmitPayloadArgs,
 	EmptyEventMap,
@@ -49,7 +50,12 @@ export type ProjectionFactoryOptions<
 > = {
 	scope?: StateScope;
 	view?: FacadeViewCallback<Snapshot, StatesResult>;
-	commands?: FacadeCommandsCallback<CommandActor, CommandsResult, Host>;
+	commands?: FacadeCommandsCallback<
+		CommandActor,
+		CommandsResult,
+		Host,
+		Snapshot
+	>;
 	effects?: FacadeEffectsLike<Snapshot, CommandActor, Events, Host>;
 	resolveStateSnapshot?: (adapter: IgniteAdapter<State, Event>) => Snapshot;
 	resolveCommandActor?: (adapter: IgniteAdapter<State, Event>) => CommandActor;
@@ -327,12 +333,13 @@ export function createProjectionFactory<
 			const commandCallback = commands as FacadeCommandsCallback<
 				CommandActor,
 				CommandsResult,
-				Host
+				Host,
+				Snapshot
 			>;
 			const actor = resolveActor(adapter);
 			const commandResult = commandCallback({
 				actor,
-				command: commandHelper,
+				command: commandHelper as CommandHelper<Snapshot>,
 				host,
 			});
 			ensureFacadeResult(commandResult, "commands", errorPrefix);

@@ -51,7 +51,8 @@ type ReduxBlueprintBaseConfig<
 	commands?: FacadeCommandsCallback<
 		ReduxCommandActorFor<Source>,
 		CommandsResult,
-		Host
+		Host,
+		InferStateAndEvent<Source>["State"]
 	>;
 	events?: EventsDefinition<Events>;
 	cleanup?: boolean;
@@ -109,7 +110,8 @@ type ReduxInstanceBaseConfig<
 	commands?: FacadeCommandsCallback<
 		ReduxCommandActorFor<StoreInstance>,
 		CommandsResult,
-		Host
+		Host,
+		InferStateAndEvent<StoreInstance>["State"]
 	>;
 	events?: EventsDefinition<Events>;
 	cleanup?: boolean;
@@ -161,7 +163,7 @@ type MobxBaseConfig<
 	adapter?: "mobx";
 	source: (() => State) | State;
 	view?: FacadeViewCallback<State, StatesResult>;
-	commands?: FacadeCommandsCallback<State, CommandsResult, Host>;
+	commands?: FacadeCommandsCallback<State, CommandsResult, Host, State>;
 	events?: EventsDefinition<Events>;
 	cleanup?: boolean;
 };

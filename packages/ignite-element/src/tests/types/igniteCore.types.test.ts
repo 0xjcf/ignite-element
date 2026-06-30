@@ -88,8 +88,8 @@ import type {
 	IgniteStoryTraceSnapshotEntry,
 } from "../../types/agent";
 import type {
+	IgniteAgentCommandContract,
 	IgniteAgentCommandSchema,
-	IgniteSchemaObject,
 } from "../../types/schema";
 import type { InferStateAndEvent } from "../../utils/igniteRedux";
 import type {
@@ -410,11 +410,16 @@ describe("igniteCore type inference", () => {
 			ActorWebShipmentContext["status"]
 		>();
 		expectTypeOf<RenderArgs["createShipment"]>().toEqualTypeOf<
-			CommandWithMetadata<(shipmentId: string) => Promise<unknown>>
+			CommandWithMetadata<
+				(shipmentId: string) => Promise<unknown>,
+				ActorWebExtendedState<ActorWebShipmentContext>
+			>
 		>();
 		expectTypeOf<
 			NonNullable<RenderArgs["createShipment"][typeof commandMetadataSymbol]>
-		>().toEqualTypeOf<CommandMetadata>();
+		>().toEqualTypeOf<
+			CommandMetadata<ActorWebExtendedState<ActorWebShipmentContext>>
+		>();
 	});
 
 	it("infers actor-web read-model source snapshots from a single source", () => {
@@ -1142,6 +1147,39 @@ describe("igniteCore type inference", () => {
 		>();
 	});
 
+	it("types command canExecute metadata from the adapter snapshot", () => {
+		const store = counterStore();
+
+		const register = igniteCore({
+			adapter: "redux",
+			source: store,
+			commands: ({ actor, command }) => ({
+				addWhenNonzero: command(
+					(amount: number) =>
+						actor.dispatch(counterSlice.actions.addByAmount(amount)),
+					{
+						description: "Add only after the count is nonzero.",
+						canExecute: ({ snapshot }) => {
+							expectTypeOf(snapshot.counter.count).toEqualTypeOf<number>();
+							return snapshot.counter.count > 0;
+						},
+					},
+				),
+			}),
+		});
+
+		expectTypeOf(
+			register.canExecute("addWhenNonzero"),
+		).toEqualTypeOf<boolean>();
+
+		const expectCommandNameValidation = () => {
+			// @ts-expect-error - canExecute is typed to known command names
+			register.canExecute("missing");
+		};
+
+		void expectCommandNameValidation;
+	});
+
 	it("types richer command metadata builders as object-shaped schema contracts", () => {
 		const store = counterStore();
 
@@ -1188,7 +1226,7 @@ describe("igniteCore type inference", () => {
 		expectTypeOf(schema.commands).toEqualTypeOf<IgniteAgentCommandSchema>();
 		expectTypeOf(
 			schema.commands.configureAlert,
-		).toEqualTypeOf<IgniteSchemaObject>();
+		).toEqualTypeOf<IgniteAgentCommandContract>();
 		expectTypeOf(
 			schema.commands.configureAlert.input,
 		).toEqualTypeOf<IgniteSchemaValue>();

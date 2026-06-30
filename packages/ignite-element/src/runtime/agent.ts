@@ -1,4 +1,4 @@
-import type { IgniteAdapter } from "@ignite-element/core";
+import type { CommandMetadata, IgniteAdapter } from "@ignite-element/core";
 import type {
 	IgniteAgentSubscription,
 	IgniteStory,
@@ -73,13 +73,37 @@ type IgniteStoryTraceEntryDraft =
 function getCommandContract(
 	commandValue: unknown,
 ): Record<string, IgniteSchemaValue> | undefined {
+	const metadata = getCommandMetadata(commandValue);
+	if (!metadata) {
+		return undefined;
+	}
+
+	const contract = toSchemaValue(metadata);
+	const commandContract =
+		contract !== null &&
+		typeof contract === "object" &&
+		!Array.isArray(contract)
+			? contract
+			: undefined;
+
+	if (hasCanExecute(metadata)) {
+		return {
+			...(commandContract ?? {}),
+			gated: true,
+		};
+	}
+
+	return commandContract;
+}
+
+function getCommandMetadata(
+	commandValue: unknown,
+): CommandMetadata | undefined {
 	if (typeof commandValue !== "function") {
 		return undefined;
 	}
 
-	const metadata = toSchemaValue(
-		Reflect.get(commandValue, commandMetadataSymbol),
-	);
+	const metadata = Reflect.get(commandValue, commandMetadataSymbol);
 
 	if (
 		typeof metadata === "undefined" ||
@@ -90,7 +114,15 @@ function getCommandContract(
 		return undefined;
 	}
 
-	return metadata;
+	return metadata as CommandMetadata;
+}
+
+function hasCanExecute(
+	metadata: CommandMetadata | undefined,
+): metadata is CommandMetadata & {
+	canExecute: NonNullable<CommandMetadata["canExecute"]>;
+} {
+	return typeof metadata?.canExecute === "function";
 }
 
 function normalizeTraceValue(value: unknown): IgniteSchemaValue {
@@ -199,6 +231,22 @@ export function createAgentRuntime<
 
 	const watchView = (handler: (view: View, prevView: View) => void) => {
 		return createWatcher(resolveView, handler);
+	};
+
+	const canExecuteCommand = (commandName: string) => {
+		const { adapter, additionalArgs } = resolveRuntime();
+		const command = (additionalArgs as Record<string, unknown>)[commandName];
+
+		if (typeof command !== "function") {
+			throw new Error(`[igniteCore] Unknown command "${commandName}".`);
+		}
+
+		const metadata = getCommandMetadata(command);
+		if (!hasCanExecute(metadata)) {
+			return true;
+		}
+
+		return metadata.canExecute({ snapshot: adapter.getSnapshot() });
 	};
 
 	const executeCommand = async (commandName: string, payload?: unknown) => {
@@ -414,6 +462,10 @@ export function createAgentRuntime<
 					lifecycleCount: lifecycleEntries.length,
 				};
 			},
+			canExecute(commandName: string) {
+				assertActive();
+				return canExecuteCommand(commandName);
+			},
 			stop() {
 				if (!active) {
 					return;
@@ -428,6 +480,7 @@ export function createAgentRuntime<
 	};
 
 	const runtime = {
+		canExecute: canExecuteCommand,
 		execute: executeCommand,
 		getSnapshot() {
 			return resolveRuntime().adapter.getSnapshot();

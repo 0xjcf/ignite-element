@@ -283,7 +283,8 @@ export type ActorWebConfig<
 	commands?: FacadeCommandsCallback<
 		ActorWebCommandActor<Context, Message, Emitted>,
 		CommandsResult,
-		HTMLElement
+		HTMLElement,
+		ActorWebExtendedState<Context>
 	>;
 	events?: EventsDefinition<Events>;
 	/**

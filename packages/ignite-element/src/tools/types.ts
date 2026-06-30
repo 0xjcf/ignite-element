@@ -29,7 +29,7 @@ export type NeutralTool = {
 	/**
 	 * Whether the command carries an availability predicate. A static meta-fact —
 	 * the dynamic per-snapshot decision is made by `canExecute` (see
-	 * `docs/can-execute.md`). Always `false` until `canExecute` ships.
+	 * `docs/can-execute.md`).
 	 */
 	gated: boolean;
 };
@@ -158,8 +158,8 @@ export type AvailabilityPredicate = (name: string) => boolean;
  * `getSchema` (the contract), `execute` (the single side effect), and `getView`
  * (the derived read-model captured into each observation so the agent grounds on
  * the view, not just the raw snapshot). Any `igniteCore(...)` return satisfies
- * it. `canExecute` is optional and duck-typed: present once it ships on the
- * runtime, it gates the manifest; absent today, all commands are offered.
+ * it. `canExecute` is optional and duck-typed so older runtimes still work; when
+ * present, it gates the manifest, and when absent all commands are offered.
  */
 export type IgniteToolsRuntime<
 	State = unknown,
@@ -171,7 +171,7 @@ export type IgniteToolsRuntime<
 	IgniteAgentRuntime<State, Commands, Events, SchemaState, View>,
 	"getSchema" | "execute" | "getView" | "on" | "watchView"
 > & {
-	canExecute?: AvailabilityPredicate;
+	canExecute?(commandName: keyof Commands & string): boolean;
 };
 
 export type ToolStreamSubscription = IgniteAgentSubscription;

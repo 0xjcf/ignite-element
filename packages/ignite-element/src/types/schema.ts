@@ -8,7 +8,14 @@ export type IgniteSchemaValue =
 	| IgniteSchemaValue[]
 	| IgniteSchemaObject;
 
-export type IgniteAgentCommandSchema = Record<string, IgniteSchemaObject>;
+export type IgniteAgentCommandContract = IgniteSchemaObject & {
+	gated?: boolean;
+};
+
+export type IgniteAgentCommandSchema = Record<
+	string,
+	IgniteAgentCommandContract
+>;
 
 export type IgniteAgentSchema<
 	State = IgniteSchemaValue,

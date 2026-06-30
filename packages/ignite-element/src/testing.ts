@@ -120,6 +120,9 @@ export type IgniteTestScenario<
 		expected: IgniteEventExpectation<Events>[],
 	): IgniteTestScenario<State, Commands, Events, View>;
 	expectNoEvents(): IgniteTestScenario<State, Commands, Events, View>;
+	canExecute<CommandName extends keyof Commands & string>(
+		commandName: CommandName,
+	): boolean;
 	getResult(): IgniteAgentExecutionResult<State, Events>;
 };
 
@@ -691,6 +694,7 @@ class IgniteTestDriver<
 			State,
 			Commands,
 			Events,
+			unknown,
 			View
 		>,
 	) {}
@@ -751,6 +755,12 @@ class IgniteTestDriver<
 		}
 
 		return this;
+	}
+
+	canExecute<CommandName extends keyof Commands & string>(
+		commandName: CommandName,
+	) {
+		return this.component.canExecute(commandName);
 	}
 
 	getResult() {
