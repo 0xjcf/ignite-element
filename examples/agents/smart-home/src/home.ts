@@ -6,6 +6,7 @@ import { assign, setup } from "xstate";
 // deliberately varied to stress the manifest + the Anthropic adapter:
 //   - object inputs   (toggleLight, setThermostat, setBlinds)
 //   - scalar enum     (lockDoor / unlockDoor / runScene  → Option D scalar wrap)
+//   - array input     (dimRooms → Option D scalar wrap)
 //   - no-arg          (status)
 
 export const ROOMS = ["living", "bedroom", "kitchen"] as const;
@@ -31,6 +32,7 @@ type HomeEvent =
 	| { type: "SET_THERMOSTAT"; room: Room; temp: number }
 	| { type: "SET_BLINDS"; room: Room; percent: number }
 	| { type: "SET_LOCK"; door: Door; locked: boolean }
+	| { type: "DIM_ROOMS"; rooms: Room[] }
 	| { type: "RUN_SCENE"; scene: Scene }
 	| { type: "START_SCENE_TRANSITION"; scene: Scene };
 
@@ -78,6 +80,27 @@ function applyScene(ctx: HomeContext, scene: Scene): HomeContext {
 				locks: { front: true, back: true, garage: true },
 			};
 	}
+}
+
+function dimRooms(ctx: HomeContext, rooms: readonly Room[]): HomeContext {
+	const lights = { ...ctx.lights };
+	const blinds = { ...ctx.blinds };
+	let changed = false;
+
+	for (const room of rooms) {
+		if (lights[room] !== false || blinds[room] !== 0) {
+			changed = true;
+		}
+		lights[room] = false;
+		blinds[room] = 0;
+	}
+
+	return {
+		...ctx,
+		lights,
+		blinds,
+		activeScene: changed ? null : ctx.activeScene,
+	};
 }
 
 const homeMachine = setup({
@@ -139,6 +162,11 @@ const homeMachine = setup({
 								? context.activeScene
 								: null,
 					}),
+				},
+				DIM_ROOMS: {
+					actions: assign(({ context, event }) =>
+						dimRooms(context, event.rooms),
+					),
 				},
 				RUN_SCENE: {
 					actions: assign(({ context, event }) =>
@@ -202,6 +230,11 @@ const homeMachine = setup({
 								? context.activeScene
 								: null,
 					}),
+				},
+				DIM_ROOMS: {
+					actions: assign(({ context, event }) =>
+						dimRooms(context, event.rooms),
+					),
 				},
 				RUN_SCENE: {
 					target: "active",
@@ -324,6 +357,23 @@ export function createHome() {
 						description:
 							"Scene name to activate: morning, away, movie, or night.",
 					}),
+				},
+			),
+			dimRooms: command(
+				(rooms: Room[]) => actor.send({ type: "DIM_ROOMS", rooms }),
+				{
+					description:
+						"Dim selected rooms by turning lights off and closing blinds.",
+					input: command.array(
+						command.enum(ROOMS, {
+							description: "Room id to dim.",
+						}),
+						{
+							description:
+								"Room ids to dim by turning lights off and closing blinds.",
+							minItems: 1,
+						},
+					),
 				},
 			),
 			transitionScene: command(

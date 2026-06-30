@@ -68,8 +68,14 @@ envelope), but the smart-home scalar input metadata now describes the wrapped
 model sees a semantic description on `input_schema.properties.value`, so the
 wire shape stays collision-free while the prompt surface is more legible.
 
-## 6. Array inputs not yet exercised (coverage)
+## 6. ✅ FIXED — array inputs are now exercised
 
-The command set covers object / scalar-enum / no-arg inputs. An array-input
-command (e.g. `dimRooms(rooms: Room[])`) would round out manifest + adapter
-coverage for the array JSON-Schema shape and its scalar `value`-wrap.
+**Was:** the command set covered object / scalar-enum / no-arg inputs, but no
+array-input command exercised the array JSON-Schema shape or its scalar
+`value`-wrap.
+
+**Fixed in this PR:** the smart-home now includes `dimRooms(rooms: Room[])`,
+declared with `command.array(command.enum(ROOMS), { minItems: 1 })`. The
+Anthropic schema test proves the array schema is object-wrapped under
+`input_schema.properties.value`, and the round-trip test proves `toolCalls()`
+unwraps `{ value: [...] }` before `run()` dims the selected rooms.
