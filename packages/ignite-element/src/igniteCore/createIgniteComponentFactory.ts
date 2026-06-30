@@ -31,7 +31,12 @@ export type IgniteComponentFactoryOptions<
 	Events extends EventMap = EmptyEventMap,
 > = {
 	view?: FacadeViewCallback<Snapshot, StatesResult>;
-	commands?: FacadeCommandsCallback<CommandActor, CommandsResult, HTMLElement>;
+	commands?: FacadeCommandsCallback<
+		CommandActor,
+		CommandsResult,
+		HTMLElement,
+		Snapshot
+	>;
 	effects?: FacadeEffectsLike<Snapshot, CommandActor, Events, HTMLElement>;
 	events?: ((builder: typeof event) => Events) | undefined;
 	/**

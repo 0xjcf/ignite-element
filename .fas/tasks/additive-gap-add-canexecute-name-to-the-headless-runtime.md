@@ -1,4 +1,4 @@
-# ADDITIVE (gap): add canExecute(name) to the headless runtime
+# ADDITIVE (gap): add canExecute(name) to the headless runtime per docs/v3-api-consistency.md. A command-availability query for UI-guard patterns (disable a control when a command is unavailable), backed by the same info getSchema() exposes. Affected files: packages/ignite-element/src/runtime/agent.ts, packages/ignite-element/src/types/agent.ts, tests, and a short docs note in guides/agent-runtime-v3.mdx.
 
 ## Source
 Created with `fas create-task` on 2026-06-18.
@@ -30,10 +30,41 @@ ADDITIVE (gap): add canExecute(name) to the headless runtime per docs/v3-api-con
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- Scope unknown.
+- .changeset/tall-buckets-execute.md
+- .fas/TASKS.md
+- docs/can-execute.md
+- docs/ignite-tools.md
+- docs/site/src/content/docs/api/command-metadata.mdx
+- docs/site/src/content/docs/api/headless-runtime.mdx
+- docs/site/src/content/docs/guides/agent-runtime-v3.mdx
+- docs/v3-api-consistency.md
+- docs/v3-stable-roadmap.md
+- examples/agents/smart-home/GAPS.md
+- packages/ignite-adapters/src/types.ts
+- packages/ignite-adapters/src/xstate.ts
+- packages/ignite-core/src/RenderArgs.ts
+- packages/ignite-core/src/index.ts
+- packages/ignite-element/src/RenderArgs.ts
+- packages/ignite-element/src/createProjectionFactory.ts
+- packages/ignite-element/src/igniteCore/createIgniteComponentFactory.ts
+- packages/ignite-element/src/igniteCore/types.ts
+- packages/ignite-element/src/runtime/agent.ts
+- packages/ignite-element/src/testing.ts
+- packages/ignite-element/src/tests/agent-runtime-headless-node.test.ts
+- packages/ignite-element/src/tests/testing.test.ts
+- packages/ignite-element/src/tests/types/igniteCore.types.test.ts
+- packages/ignite-element/src/tests/types/testing.types.test.ts
+- packages/ignite-element/src/tools/igniteTools.ts
+- packages/ignite-element/src/tools/types.ts
+- packages/ignite-element/src/types/agent.ts
+- packages/ignite-element/src/types/schema.ts
 
 ## Scope Amendments
-- None.
+- Expanded from the original runtime/types/tests/docs note because
+  `CommandMetadata` is defined in `@ignite-element/core`, adapter config types
+  must thread the adapter snapshot into command metadata, `igniteTools` consumes
+  the optional runtime availability method, and the public minor API requires
+  docs, smart-home gap tracker, and changeset updates.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

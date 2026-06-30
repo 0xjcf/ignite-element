@@ -22,6 +22,14 @@ export type CommandMetadataValue =
 	| readonly CommandMetadataValue[]
 	| { [key: string]: CommandMetadataValue | undefined };
 
+export type CommandCanExecuteContext<Snapshot = unknown> = {
+	snapshot: Snapshot;
+};
+
+export type CommandCanExecutePredicate<Snapshot = unknown> = (
+	context: CommandCanExecuteContext<Snapshot>,
+) => boolean;
+
 export type NumberCommandInputMetadata = {
 	type: "number";
 	description?: string;
@@ -112,23 +120,28 @@ export type ArrayCommandInputOptions = Omit<
 	"type" | "items"
 >;
 
-export type CommandMetadata = {
+export type CommandMetadata<Snapshot = unknown> = {
 	description?: string;
 	input?: CommandMetadataValue;
-	[key: string]: CommandMetadataValue | undefined;
+	canExecute?: CommandCanExecutePredicate<Snapshot>;
+	[key: string]:
+		| CommandCanExecutePredicate<Snapshot>
+		| CommandMetadataValue
+		| undefined;
 };
 
 export type CommandWithMetadata<
 	Command extends FacadeCommandFunction = FacadeCommandFunction,
+	Snapshot = unknown,
 > = Command & {
-	readonly [commandMetadataSymbol]?: CommandMetadata;
+	readonly [commandMetadataSymbol]?: CommandMetadata<Snapshot>;
 };
 
-export type CommandHelper = {
+export type CommandHelper<Snapshot = unknown> = {
 	<Command extends FacadeCommandFunction>(
 		commandFunction: Command,
-		metadata?: CommandMetadata,
-	): CommandWithMetadata<Command>;
+		metadata?: CommandMetadata<Snapshot>,
+	): CommandWithMetadata<Command, Snapshot>;
 	number(options?: NumberCommandInputOptions): NumberCommandInputMetadata;
 	string(options?: StringCommandInputOptions): StringCommandInputMetadata;
 	boolean(options?: BooleanCommandInputOptions): BooleanCommandInputMetadata;
@@ -255,9 +268,9 @@ export type EmitFromEvents<Events extends EventMap> = <
 	...args: EmitPayloadArgs<Events, Type>
 ) => void;
 
-export type CommandContext<Actor, Host = unknown> = {
+export type CommandContext<Actor, Host = unknown, Snapshot = unknown> = {
 	actor: Actor;
-	command: CommandHelper;
+	command: CommandHelper<Snapshot>;
 	host: Host;
 };
 
@@ -265,7 +278,8 @@ export type FacadeCommandsCallback<
 	Actor,
 	Result extends FacadeCommandResult = FacadeCommandResult,
 	Host = unknown,
-> = (context: CommandContext<Actor, Host>) => Result;
+	Snapshot = unknown,
+> = (context: CommandContext<Actor, Host, Snapshot>) => Result;
 
 export type EffectContext<
 	Actor,
@@ -341,7 +355,8 @@ type CommandResult<
 	Result = CommandCallback extends FacadeCommandsCallback<
 		infer _Actor,
 		infer CallbackResult,
-		infer _Host
+		infer _Host,
+		infer _Snapshot
 	>
 		? CallbackResult extends FacadeCommandResult
 			? CallbackResult

@@ -15,7 +15,7 @@ function createCounter() {
 	const machine = setup({
 		types: {
 			context: {} as { count: number },
-			events: {} as { type: "INC" },
+			events: {} as { type: "DEC" } | { type: "INC" },
 		},
 	}).createMachine({
 		id: "headless-counter",
@@ -27,6 +27,11 @@ function createCounter() {
 					INC: {
 						actions: assign({ count: ({ context }) => context.count + 1 }),
 					},
+					DEC: {
+						actions: assign({
+							count: ({ context }) => Math.max(0, context.count - 1),
+						}),
+					},
 				},
 			},
 		},
@@ -36,8 +41,12 @@ function createCounter() {
 		source: machine,
 		events: (event) => ({ counted: event<{ count: number }>() }),
 		view: ({ snapshot }) => ({ count: snapshot.context.count }),
-		commands: ({ actor }) => ({
+		commands: ({ actor, command }) => ({
 			increment: () => actor.send({ type: "INC" }),
+			decrement: command(() => actor.send({ type: "DEC" }), {
+				description: "Decrement the count when it is above zero.",
+				canExecute: ({ snapshot }) => snapshot.context.count > 0,
+			}),
 		}),
 		effects: ({ emit, select }) => {
 			const count = select((state) => state.context.count);
@@ -57,8 +66,29 @@ describe("agent runtime is DOM-free (pure Node, no jsdom)", () => {
 		const counter = createCounter();
 		const schema = counter.getSchema();
 		expect(Object.keys(schema.commands)).toContain("increment");
+		expect(schema.commands.decrement).toMatchObject({ gated: true });
+		expect(schema.commands.decrement).not.toHaveProperty("canExecute");
 		expect(schema.events).toContain("counted");
 		expect(schema.view).toMatchObject({ count: 0 });
+	});
+
+	it("canExecute() queries command availability against the current snapshot", async () => {
+		const counter = createCounter();
+
+		expect(counter.canExecute("increment")).toBe(true);
+		expect(counter.canExecute("decrement")).toBe(false);
+
+		await counter.execute("increment");
+		expect(counter.canExecute("decrement")).toBe(true);
+
+		await counter.execute("decrement");
+		expect(counter.canExecute("decrement")).toBe(false);
+		const dynamicCounter = counter as unknown as {
+			canExecute(commandName: string): boolean;
+		};
+		expect(() => dynamicCounter.canExecute("missing")).toThrow(
+			'[igniteCore] Unknown command "missing".',
+		);
 	});
 
 	it("execute() runs a command and returns the post-ack snapshot + events", async () => {

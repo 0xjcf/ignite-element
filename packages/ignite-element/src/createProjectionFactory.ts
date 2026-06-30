@@ -1,6 +1,7 @@
 import type { IgniteAdapter, StateScope } from "@ignite-element/core";
 import type { BaseRenderArgs } from "./IgniteElementFactory";
 import type {
+	CommandHelper,
 	EmitFromEvents,
 	EmitPayloadArgs,
 	EmptyEventMap,
@@ -49,7 +50,12 @@ export type ProjectionFactoryOptions<
 > = {
 	scope?: StateScope;
 	view?: FacadeViewCallback<Snapshot, StatesResult>;
-	commands?: FacadeCommandsCallback<CommandActor, CommandsResult, Host>;
+	commands?: FacadeCommandsCallback<
+		CommandActor,
+		CommandsResult,
+		Host,
+		Snapshot
+	>;
 	effects?: FacadeEffectsLike<Snapshot, CommandActor, Events, Host>;
 	resolveStateSnapshot?: (adapter: IgniteAdapter<State, Event>) => Snapshot;
 	resolveCommandActor?: (adapter: IgniteAdapter<State, Event>) => CommandActor;
@@ -112,7 +118,9 @@ type Phantom<T> = Record<never, T>;
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
-const isDevelopment = () => process.env.NODE_ENV !== "production";
+const isDevelopment = () =>
+	(globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env
+		?.NODE_ENV !== "production";
 
 function freezeIfDev<T extends object>(value: T): T {
 	return isDevelopment() ? Object.freeze(value) : value;
@@ -327,12 +335,13 @@ export function createProjectionFactory<
 			const commandCallback = commands as FacadeCommandsCallback<
 				CommandActor,
 				CommandsResult,
-				Host
+				Host,
+				Snapshot
 			>;
 			const actor = resolveActor(adapter);
 			const commandResult = commandCallback({
 				actor,
-				command: commandHelper,
+				command: commandHelper as CommandHelper<Snapshot>,
 				host,
 			});
 			ensureFacadeResult(commandResult, "commands", errorPrefix);

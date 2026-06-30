@@ -68,9 +68,15 @@ describe("ignite test DSL types", () => {
 		const componentConfig = {
 			adapter: "redux",
 			source: store,
-			commands: ({ actor }) => ({
+			commands: ({ actor, command }) => ({
 				increment: (amount: number) =>
 					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+				decrement: command(
+					() => actor.dispatch(counterSlice.actions.decrement()),
+					{
+						canExecute: ({ snapshot }) => snapshot.counter.count > 0,
+					},
+				),
 			}),
 			events: (event) => ({
 				"counter-incremented": event<{ count: number }>(),
@@ -83,13 +89,23 @@ describe("ignite test DSL types", () => {
 			Record<never, never>,
 			{
 				increment: (amount: number) => unknown;
+				decrement: () => unknown;
 			}
 		>;
 		const component = igniteCore(componentConfig);
 
 		igniteTest(component).when("increment", 2);
+		expectTypeOf(
+			igniteTest(component).canExecute("decrement"),
+		).toEqualTypeOf<boolean>();
+
+		const expectCommandNameValidation = () => {
+			// @ts-expect-error - canExecute is typed to known command names
+			igniteTest(component).canExecute("missing");
+		};
 
 		expectTypeOf(igniteTest(component).expectState).toBeFunction();
+		void expectCommandNameValidation;
 	});
 
 	it("types expectView from the runtime's view projection", () => {

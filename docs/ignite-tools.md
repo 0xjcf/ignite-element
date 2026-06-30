@@ -215,8 +215,9 @@ to the provider's `tool_result` (`is_error: true`) so the model can recover.
 ## Dependencies
 
 - **typed-view** ✓ + **`getSchema().view`** ✓ (done) — typed manifest inputs + view grounding.
-- **`canExecute`** (`docs/can-execute.md`) — composes for availability-gated tools (omit
-  unavailable commands from the manifest). Optional; without it all commands are offered.
+- **`canExecute`** (`docs/can-execute.md`) — composes for availability-gated tools
+  by omitting unavailable commands from the manifest. Older runtimes without the
+  optional method still offer all commands for compatibility.
 
 ## Alternatives considered
 

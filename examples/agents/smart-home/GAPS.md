@@ -17,15 +17,18 @@ captures it post-command, so every `run()` observation — and thus every
 `tool_result` the adapter serializes — carries the view. The agent grounds on the
 read-model out of the box. (See `result.trace[*].view` in the scripted test.)
 
-## 2. No availability gating (`canExecute`)
+## 2. ✅ FIXED — availability gating (`canExecute`) is now on the runtime
 
-The manifest offers **every** command regardless of state — `unlockDoor` is
-offered while the `away` scene is armed, `runScene` while a scene is already
-active. A smart home wants state-dependent availability ("don't offer unlock
-while armed"). `igniteTools` already composes with `canExecute` *if present*, but
-the runtime doesn't implement it yet. → tracked: `canExecute` task
-(`task-1781798486122`). Until then, gating must live inside command logic as an
-`ExecuteFailed`/validation, not as manifest availability.
+**Was:** the manifest offered **every** command regardless of state — `unlockDoor`
+while the `away` scene is armed, `runScene` while a scene is already active. A
+smart home wants state-dependent availability ("don't offer unlock while armed").
+
+**Fixed in this PR:** commands can declare `canExecute({ snapshot })` in their
+metadata, `getSchema().commands[name].gated` tells `igniteTools` which commands
+need dynamic availability checks, and the headless runtime exposes
+`canExecute(name)` for the current boolean result. `igniteTools` already composes
+with this surface, so gated unavailable commands can be omitted from the manifest
+instead of failing later as `ExecuteFailed`.
 
 ## 3. ✅ FIXED — `observe()` streams events and view changes between acts
 

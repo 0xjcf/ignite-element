@@ -7,6 +7,8 @@ export type {
 	BaseRenderArgs,
 	BooleanCommandInputMetadata,
 	BooleanCommandInputOptions,
+	CommandCanExecuteContext,
+	CommandCanExecutePredicate,
 	CommandContext,
 	CommandHelper,
 	CommandInputMetadata,

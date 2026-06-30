@@ -42,7 +42,8 @@ type XStateConfigBase<
 	commands?: FacadeCommandsCallback<
 		XStateCommandActor<Machine>,
 		CommandsResult,
-		Host
+		Host,
+		ExtendedState<Machine>
 	>;
 	events?: EventsDefinition<Events>;
 	cleanup?: boolean;

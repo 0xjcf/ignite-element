@@ -9,6 +9,8 @@ import type {
 	XStateCommandActor,
 } from "@ignite-element/adapters/xstate";
 import type {
+	CommandCanExecuteContext,
+	CommandCanExecutePredicate,
 	CommandHelper,
 	CommandMetadata,
 	CommandMetadataPrimitive,
@@ -54,6 +56,8 @@ export type {
 	FacadeCommandResult,
 	FacadeViewCallback,
 	CommandHelper,
+	CommandCanExecuteContext,
+	CommandCanExecutePredicate,
 	CommandMetadata,
 	CommandMetadataPrimitive,
 	CommandMetadataValue,
@@ -66,10 +70,11 @@ export type {
 	ReduxStoreCommandActor,
 } from "@ignite-element/adapters";
 
-export type CommandContext<Actor, Host = HTMLElement> = CoreCommandContext<
+export type CommandContext<
 	Actor,
-	Host
->;
+	Host = HTMLElement,
+	Snapshot = unknown,
+> = CoreCommandContext<Actor, Host, Snapshot>;
 
 export type EffectContext<
 	Actor,
@@ -94,7 +99,8 @@ export type FacadeCommandsCallback<
 	Actor,
 	Result extends FacadeCommandResult = FacadeCommandResult,
 	Host = HTMLElement,
-> = (context: CommandContext<Actor, Host>) => Result;
+	Snapshot = unknown,
+> = (context: CommandContext<Actor, Host, Snapshot>) => Result;
 
 type AdapterState<Source> = Source extends AnyStateMachine
 	? ExtendedState<Source>
@@ -170,7 +176,8 @@ type CommandResult<
 	Result = CommandCallback extends FacadeCommandsCallback<
 		AdapterActor<Source>,
 		infer CallbackResult,
-		infer _Events
+		infer _Host,
+		infer _Snapshot
 	>
 		? CallbackResult extends FacadeCommandResult
 			? CallbackResult

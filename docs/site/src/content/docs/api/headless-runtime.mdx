@@ -1,6 +1,6 @@
 ---
 title: Headless runtime
-description: The agent runtime API on the igniteCore return — execute, getSnapshot, getView, getSchema, on, watchSnapshot, watchView, and record.
+description: The agent runtime API on the igniteCore return — execute, canExecute, getSnapshot, getView, getSchema, on, watchSnapshot, watchView, and record.
 sidebar:
   label: Headless runtime
   order: 4
@@ -31,6 +31,7 @@ const counter = igniteCore({
 
 // Register a DOM projection later — the runtime is available immediately.
 const { state, events } = await counter.execute('toggle');
+const isToggleAvailable = counter.canExecute('toggle');
 const current = counter.getSnapshot();
 const view = counter.getView();
 const schema = counter.getSchema();
@@ -61,6 +62,22 @@ The shape:
 `events` is the same ordered stream the runtime emitted for that transition, so assertions stay deterministic and align with the events delivered to `on(...)` listeners.
 
 For sources with a native emit stream (Actor-Web today), domain events the **source** emits during the command window are captured too — each as `{ type, payload }` where `payload` is the emitted event object — independent of the `events:` declaration. See [declared vs source-emitted events](/ignite-element/guides/actor-web/#emitted-events).
+
+### `canExecute(commandName)`
+
+Returns whether a command is available for the current snapshot. Commands without
+a `canExecute` predicate are available by default; commands with
+[`command(..., { canExecute })`](/ignite-element/api/command-metadata/#availability-predicates)
+evaluate that predicate on demand.
+
+**Returns** `boolean`.
+
+```ts
+const canToggle = counter.canExecute('toggle');
+```
+
+Unknown command names throw the same unknown-command error shape as
+`execute(...)`.
 
 ### `getSnapshot()`
 
@@ -130,7 +147,7 @@ const subscription = counter.watchView((view, prevView) => {
 
 Returns a JSON-serializable contract describing the component's commands, public events, and current state. Command metadata declared with [`command(...)`](/ignite-element/api/command-metadata/) is included here.
 
-**Returns** `{ commands, events, state }` — a JSON-serializable `IgniteAgentSchema`: `commands` maps each name to its metadata (`{}` when none), `events` is the array of declared event names, and `state` is the current state value.
+**Returns** `{ commands, events, state }` — a JSON-serializable `IgniteAgentSchema`: `commands` maps each name to its metadata (`{}` when none), `events` is the array of declared event names, and `state` is the current state value. Commands with an availability predicate include `gated: true`; call `canExecute(commandName)` for the current boolean result.
 
 ```ts
 const schema = counter.getSchema();

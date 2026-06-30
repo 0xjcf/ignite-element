@@ -79,7 +79,7 @@ export function igniteTools(
 ) {
 	const canExecute: AvailabilityPredicate | undefined =
 		typeof runtime.canExecute === "function"
-			? runtime.canExecute.bind(runtime)
+			? (runtime.canExecute.bind(runtime) as AvailabilityPredicate)
 			: undefined;
 
 	const schema = runtime.getSchema();
