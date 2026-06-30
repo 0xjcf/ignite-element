@@ -41,14 +41,19 @@ schema-declared events and derived view transitions with a standard
 `unsubscribe()` handle, so the agent loop can stay on one act → observe → act
 surface instead of calling runtime `on()` / `watchView()` directly.
 
-## 4. Async / long-running effects (act+ack vs settle) are untested here
+## 4. ✅ FIXED — async / long-running effects are observed after act+ack
 
-Scenes in this example apply **synchronously**, so `run()`'s acknowledgement
-snapshot already reflects the full effect. The interesting contract case — `run()`
-returns at acknowledgement while the effect settles over time — needs a genuinely
-async scene (real-time transition) or a remote actor. Phase C (terminal↔browser
-over a transport) is the natural place to exercise it; it will show whether a
-bounded `settle` opt-in on `execute()` is warranted (currently deferred).
+**Was:** scenes in this example applied **synchronously**, so `run()`'s
+acknowledgement snapshot already reflected the full effect. The interesting
+contract case — `run()` returns at acknowledgement while the effect settles over
+time — was untested here.
+
+**Fixed in this PR:** the smart-home now has a delayed `transitionScene` command
+that acknowledges immediately with `pendingScene` in the view, then settles via
+the runtime observation stream. The focused test proves `run()` keeps act+ack
+semantics while `igniteTools(...).observe(...)` receives the later settled view
+and `scene-applied` event. Phase C still owns the broader terminal↔browser
+transport and cross-runtime bridge gaps.
 
 ## 5. Scalar `value`-wrapping costs LLM legibility (known Option D trade-off)
 

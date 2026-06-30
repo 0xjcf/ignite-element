@@ -11,6 +11,7 @@ import { assign, setup } from "xstate";
 export const ROOMS = ["living", "bedroom", "kitchen"] as const;
 export const DOORS = ["front", "back", "garage"] as const;
 export const SCENES = ["morning", "away", "movie", "night"] as const;
+const SCENE_TRANSITION_DELAY_MS = 25;
 
 export type Room = (typeof ROOMS)[number];
 export type Door = (typeof DOORS)[number];
@@ -22,6 +23,7 @@ export type HomeContext = {
 	blinds: Record<Room, number>; // % open, 0–100
 	locks: Record<Door, boolean>; // true = locked
 	activeScene: Scene | null;
+	pendingScene: Scene | null;
 };
 
 type HomeEvent =
@@ -29,13 +31,15 @@ type HomeEvent =
 	| { type: "SET_THERMOSTAT"; room: Room; temp: number }
 	| { type: "SET_BLINDS"; room: Room; percent: number }
 	| { type: "SET_LOCK"; door: Door; locked: boolean }
-	| { type: "RUN_SCENE"; scene: Scene };
+	| { type: "RUN_SCENE"; scene: Scene }
+	| { type: "START_SCENE_TRANSITION"; scene: Scene };
 
 const initialContext: HomeContext = {
 	lights: { living: false, bedroom: false, kitchen: false },
 	thermostat: { living: 68, bedroom: 68, kitchen: 68 },
 	blinds: { living: 0, bedroom: 0, kitchen: 0 },
 	activeScene: null,
+	pendingScene: null,
 	locks: { front: true, back: true, garage: true },
 };
 
@@ -141,6 +145,94 @@ const homeMachine = setup({
 						applyScene(context, event.scene),
 					),
 				},
+				START_SCENE_TRANSITION: {
+					target: "settlingScene",
+					actions: assign({
+						pendingScene: ({ event }) => event.scene,
+					}),
+				},
+			},
+		},
+		settlingScene: {
+			on: {
+				TOGGLE_LIGHT: {
+					actions: assign({
+						lights: ({ context, event }) => ({
+							...context.lights,
+							[event.room]: event.on,
+						}),
+						activeScene: ({ context, event }) =>
+							context.lights[event.room] === event.on
+								? context.activeScene
+								: null,
+					}),
+				},
+				SET_THERMOSTAT: {
+					actions: assign({
+						thermostat: ({ context, event }) => ({
+							...context.thermostat,
+							[event.room]: event.temp,
+						}),
+						activeScene: ({ context, event }) =>
+							context.thermostat[event.room] === event.temp
+								? context.activeScene
+								: null,
+					}),
+				},
+				SET_BLINDS: {
+					actions: assign({
+						blinds: ({ context, event }) => ({
+							...context.blinds,
+							[event.room]: event.percent,
+						}),
+						activeScene: ({ context, event }) =>
+							context.blinds[event.room] === event.percent
+								? context.activeScene
+								: null,
+					}),
+				},
+				SET_LOCK: {
+					actions: assign({
+						locks: ({ context, event }) => ({
+							...context.locks,
+							[event.door]: event.locked,
+						}),
+						activeScene: ({ context, event }) =>
+							context.locks[event.door] === event.locked
+								? context.activeScene
+								: null,
+					}),
+				},
+				RUN_SCENE: {
+					target: "active",
+					actions: assign(({ context, event }) => ({
+						...applyScene(context, event.scene),
+						pendingScene: null,
+					})),
+				},
+				START_SCENE_TRANSITION: {
+					target: "settlingScene",
+					reenter: true,
+					actions: assign({
+						pendingScene: ({ event }) => event.scene,
+					}),
+				},
+			},
+			after: {
+				[SCENE_TRANSITION_DELAY_MS]: {
+					target: "active",
+					actions: assign(({ context }) => {
+						const scene = context.pendingScene;
+						if (!scene) {
+							return { pendingScene: null };
+						}
+
+						return {
+							...applyScene(context, scene),
+							pendingScene: null,
+						};
+					}),
+				},
 			},
 		},
 	},
@@ -166,6 +258,7 @@ export function createHome() {
 				blinds: { ...c.blinds },
 				locks: { ...c.locks },
 				activeScene: c.activeScene,
+				pendingScene: c.pendingScene,
 				lightsOn: ROOMS.filter((room) => c.lights[room]),
 				allDoorsLocked: DOORS.every((door) => c.locks[door]),
 			};
@@ -223,6 +316,14 @@ export function createHome() {
 				{
 					description:
 						"Activate a scene: morning, away, movie, or night. Sets several devices at once.",
+					input: command.enum(SCENES),
+				},
+			),
+			transitionScene: command(
+				(scene: Scene) => actor.send({ type: "START_SCENE_TRANSITION", scene }),
+				{
+					description:
+						"Start a scene transition that acknowledges immediately and settles asynchronously.",
 					input: command.enum(SCENES),
 				},
 			),
