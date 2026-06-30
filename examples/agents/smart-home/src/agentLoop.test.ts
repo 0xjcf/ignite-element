@@ -80,6 +80,26 @@ describe("smart-home agent — Anthropic tool schemas (getSchema → adapter)", 
 		});
 	});
 
+	it("object-wraps an array command under a described `value` field (Option D)", () => {
+		expect(byName("dimRooms")?.input_schema).toMatchObject({
+			type: "object",
+			properties: {
+				value: {
+					type: "array",
+					description:
+						"Room ids to dim by turning lights off and closing blinds.",
+					items: {
+						type: "string",
+						enum: [...ROOMS],
+						description: "Room id to dim.",
+					},
+					minItems: 1,
+				},
+			},
+			required: ["value"],
+		});
+	});
+
 	it("emits an empty-object schema for a no-arg command", () => {
 		expect(byName("status")?.input_schema).toEqual({
 			type: "object",
@@ -214,6 +234,47 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 		});
 		// movie scene turned the living light back off after toggleLight turned it on.
 		expect(view.lights.living).toBe(false);
+	});
+
+	it("round-trips an array command through Anthropic value wrapping", async () => {
+		const home = createHome();
+		await home.execute("runScene", "morning");
+		const tools = igniteTools(home, anthropic);
+		const [call] = tools.toolCalls({
+			content: [
+				{
+					type: "tool_use",
+					id: "c-array",
+					name: "dimRooms",
+					input: { value: ["living", "kitchen"] },
+				},
+			],
+		});
+
+		expect(call).toMatchObject({
+			id: "c-array",
+			name: "dimRooms",
+			input: ["living", "kitchen"],
+		});
+
+		const result = await tools.run(call);
+
+		expect(isOk(result)).toBe(true);
+		if (!isOk(result)) {
+			throw new Error(`Expected dimRooms to run: ${result.error.kind}`);
+		}
+
+		expect(result.value.view).toMatchObject({
+			activeScene: null,
+			lights: { living: false, bedroom: true, kitchen: false },
+			blinds: { living: 0, bedroom: 100, kitchen: 0 },
+		});
+		expect(result.value.events).toEqual(
+			expect.arrayContaining([
+				{ type: "light-changed", payload: { room: "living", on: false } },
+				{ type: "light-changed", payload: { room: "kitchen", on: false } },
+			]),
+		);
 	});
 
 	it("clears the active scene when a device is manually overridden", async () => {
