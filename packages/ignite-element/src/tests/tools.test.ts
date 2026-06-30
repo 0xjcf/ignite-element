@@ -532,6 +532,25 @@ describe("igniteTools (neutral, no dialect)", () => {
 
 		expect(seen).toHaveLength(2);
 	});
+
+	it("observe cleans up partial subscriptions when registration fails", () => {
+		const component = createFakeComponent();
+		const unsubscribeEvent = vi.fn();
+		const on = vi.fn(() => ({ unsubscribe: unsubscribeEvent }));
+		const watchView = vi.fn(() => {
+			throw new Error("watch failed");
+		});
+
+		component.on = on as unknown as FakeComponent["on"];
+		component.watchView = watchView as unknown as FakeComponent["watchView"];
+
+		const { observe } = igniteTools(component);
+
+		expect(() => observe(() => undefined)).toThrow("watch failed");
+		expect(on).toHaveBeenCalledWith("item-added", expect.any(Function));
+		expect(watchView).toHaveBeenCalledTimes(1);
+		expect(unsubscribeEvent).toHaveBeenCalledTimes(1);
+	});
 });
 
 describe("igniteTools (with a ToolDialect)", () => {

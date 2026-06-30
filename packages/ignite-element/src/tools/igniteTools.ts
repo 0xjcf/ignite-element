@@ -137,20 +137,31 @@ export function igniteTools(
 		const watchView = runtime.watchView.bind(runtime) as unknown as (
 			handler: (view: unknown, prevView: unknown) => void,
 		) => ToolStreamSubscription;
-		const subscriptions = schema.events.map((eventName) =>
-			on(eventName, (event) => {
-				handler({
-					type: "event",
-					event: { type: eventName, payload: event.detail },
-				});
-			}),
-		);
+		const subscriptions: ToolStreamSubscription[] = [];
 
-		subscriptions.push(
-			watchView((view, prevView) => {
-				handler({ type: "view", view, prevView });
-			}),
-		);
+		try {
+			for (const eventName of schema.events) {
+				subscriptions.push(
+					on(eventName, (event) => {
+						handler({
+							type: "event",
+							event: { type: eventName, payload: event.detail },
+						});
+					}),
+				);
+			}
+
+			subscriptions.push(
+				watchView((view, prevView) => {
+					handler({ type: "view", view, prevView });
+				}),
+			);
+		} catch (cause) {
+			for (const subscription of subscriptions) {
+				subscription.unsubscribe();
+			}
+			throw cause;
+		}
 
 		let unsubscribed = false;
 

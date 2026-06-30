@@ -1660,17 +1660,6 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
-### Task: add an observe() observation channel to the neutral igniteTools core (events + view stream) for the agent act-observe loop
-
-- Title: add an observe() observation channel to the neutral igniteTools core (events + view stream) for the agent act-observe loop
-- Mode: single-agent
-- Status: implementing
-- Owner: implementer
-- Brief: .fas/tasks/add-an-observe-observation-channel-to-the-neutral-ignitetool.md
-- Verification lane: fast
-- Policy sensitivity: standard
-- Blast radius: cross-cutting
-
 ## Template
 
 ### Task: <short task title>
