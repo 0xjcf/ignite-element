@@ -118,7 +118,9 @@ type Phantom<T> = Record<never, T>;
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
-const isDevelopment = () => process.env.NODE_ENV !== "production";
+const isDevelopment = () =>
+	(globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env
+		?.NODE_ENV !== "production";
 
 function freezeIfDev<T extends object>(value: T): T {
 	return isDevelopment() ? Object.freeze(value) : value;
