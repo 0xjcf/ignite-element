@@ -129,15 +129,14 @@ two helpers; the OpenAI/Ollama dialect reuses them verbatim.
 "after the effect settles". The actor model has no
 bounded "done" for a long-running effect (a deploy spans minutes and many states),
 and a settle-wait would misattribute unrelated concurrent read-model updates. So
-for async/remote adapters the observation reflects **state at acknowledgement**;
-ongoing effects are observed via the **view/event stream** (`on()` / `watchView()`)
-— the agent loop is act → observe → act, with `canExecute` re-gating the tool list
-as state and transport change. A first-class `observe()` channel on `igniteTools`
-(so act and observe come from one place) is a separate neutral-core task, sequenced
-with the dogfood; a bounded `settle` opt-in on `execute()` is deferred (YAGNI until
-the dogfood shows short-command latency hurts). `ToolObservation` carries
-`{ snapshot, view, events }` — the derived view is captured at acknowledgement so
-the agent grounds on the read-model, not just raw state.
+for async/remote adapters the observation reflects **state at acknowledgement**.
+Ongoing effects are observed via `observe()`, which streams schema-declared
+events and derived view transitions from the same `igniteTools` surface: the
+agent loop is act → observe → act. A bounded `settle` opt-in on `execute()` is
+deferred (YAGNI until the dogfood shows short-command latency hurts).
+`ToolObservation` carries `{ snapshot, view, events }` — the derived view is
+captured at acknowledgement so the agent grounds on the read-model, not just raw
+state.
 
 ### API shape
 
@@ -145,7 +144,18 @@ the agent grounds on the read-model, not just raw state.
 import { igniteTools } from "ignite-element/tools";
 import { anthropic } from "ignite-element/tools/anthropic";
 
-const { tools, toolCalls, run, toolResult } = igniteTools(runtime, anthropic);
+const { tools, toolCalls, run, observe, toolResult } = igniteTools(
+  runtime,
+  anthropic,
+);
+
+const subscription = observe((observation) => {
+  if (observation.type === "view") {
+    console.log("view changed", observation.view);
+  } else {
+    console.log("event", observation.event);
+  }
+});
 
 // the consumer brings the SDK and runs the model loop:
 const res = await client.messages.create({ model, messages, tools });
@@ -155,7 +165,12 @@ for (const call of toolCalls(res)) {
 }
 
 // the neutral core is usable directly too:
-const { manifest, resolveCall, run } = igniteTools(runtime); // no dialect → neutral
+const {
+  manifest,
+  resolveCall,
+  run: runNeutral,
+  observe: observeNeutral,
+} = igniteTools(runtime); // no dialect → neutral
 ```
 
 `toolCalls(res)` stays single-arg for the consumer — `igniteTools` closes over the

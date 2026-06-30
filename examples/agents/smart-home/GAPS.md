@@ -27,13 +27,16 @@ the runtime doesn't implement it yet. → tracked: `canExecute` task
 (`task-1781798486122`). Until then, gating must live inside command logic as an
 `ExecuteFailed`/validation, not as manifest availability.
 
-## 3. No `observe()` channel — events seen only during the command window
+## 3. ✅ FIXED — `observe()` streams events and view changes between acts
 
-The agent sees `result.value.events` emitted **during** `run()`, but there is no
-channel to observe events/view **between** acts. The loop can't react to anything
-that happens outside a command window. A first-class `observe()` on igniteTools
-(events + view stream) would close the act → observe → act loop. → tracked:
-observe-channel task (`task-1782332528771`).
+**Was:** the agent saw `result.value.events` emitted **during** `run()`, but
+there was no channel to observe events/view **between** acts. The loop could not
+react to anything that happened outside a command window.
+
+**Fixed in this PR:** `igniteTools(...).observe(handler)` now streams
+schema-declared events and derived view transitions with a standard
+`unsubscribe()` handle, so the agent loop can stay on one act → observe → act
+surface instead of calling runtime `on()` / `watchView()` directly.
 
 ## 4. Async / long-running effects (act+ack vs settle) are untested here
 
