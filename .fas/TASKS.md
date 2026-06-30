@@ -1675,8 +1675,8 @@ No active tasks.
 
 - Title: Fix smart-home GAPS #5 by improving scalar value-wrapping legibility for single-argument commands without breaking Option D
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-smart-home-gaps-5-by-improving-scalar-value-wrapping-leg.md
 - Verification lane: fast
 - Policy sensitivity: standard
