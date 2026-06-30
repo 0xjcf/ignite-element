@@ -66,6 +66,7 @@ That registration gives agents a contract to inspect and a command surface to dr
 ```ts
 counter.getSchema(); // commands + metadata + events + state shape
 counter.getView();   // current projected view
+counter.canExecute('increment'); // current command availability
 
 await counter.execute('setLimit', 6);
 
@@ -76,7 +77,7 @@ while (!counter.getView().isLimited) {
 expect(counter.getView()).toMatchObject({ count: 6, limit: 6, isLimited: true });
 ```
 
-See [Headless runtime](/ignite-element/api/headless-runtime/) for every method (`execute`, `getSnapshot`, `getView`, `getSchema`, `on`, `watchSnapshot`, `watchView`, `record`) and its return shape.
+See [Headless runtime](/ignite-element/api/headless-runtime/) for every method (`execute`, `canExecute`, `getSnapshot`, `getView`, `getSchema`, `on`, `watchSnapshot`, `watchView`, `record`) and its return shape.
 
 ## Add the DOM layer
 
@@ -138,6 +139,24 @@ commands: ({ actor, command }) => ({
 ```
 
 Built-in helpers cover `number`, `string`, `boolean`, `enum`, `object`, and `array` while staying JSON-serializable, and `getSchema()` returns executable commands plus their metadata in one map. The full helper catalog and the serialized schema shape live in [Command metadata](/ignite-element/api/command-metadata/).
+
+Availability predicates live on the same command metadata but stay off the JSON
+schema. They are evaluated against the current snapshot by the headless runtime:
+
+```ts no-check
+commands: ({ actor, command }) => ({
+  submit: command(
+    () => actor.send({ type: 'SUBMIT' }),
+    {
+      description: 'Submit the current form.',
+      canExecute: ({ snapshot }) => snapshot.can({ type: 'SUBMIT' }),
+    },
+  ),
+});
+
+counter.getSchema().commands.submit.gated; // true
+counter.canExecute('submit');              // boolean for the current snapshot
+```
 
 ## Story recording
 

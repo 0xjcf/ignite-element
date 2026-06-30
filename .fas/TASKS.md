@@ -1219,8 +1219,8 @@ No active tasks.
 
 - Title: ADDITIVE (gap): add canExecute(name) to the headless runtime per docs/v3-api-consistency.md. A command-availability query for UI-guard patterns (disable a control when a command is unavailable), backed by the same info getSchema() exposes. Affected files: packages/ignite-element/src/runtime/agent.ts, packages/ignite-element/src/types/agent.ts, tests, and a short docs note in guides/agent-runtime-v3.mdx.
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/additive-gap-add-canexecute-name-to-the-headless-runtime.md
 - Automation mode: advisory
 

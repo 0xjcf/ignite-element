@@ -6,7 +6,7 @@ sidebar:
   order: 5
 ---
 
-Plain functions are valid commands. When an agent or inspector needs more context than a name, wrap a command with `command(fn, metadata)` to attach a JSON-serializable description and input schema. The metadata surfaces in [`getSchema()`](/ignite-element/api/headless-runtime/#getschema) without changing how the command is called.
+Plain functions are valid commands. When an agent or inspector needs more context than a name, wrap a command with `command(fn, metadata)` to attach a JSON-serializable description and input schema, plus an optional runtime availability predicate. The serializable metadata surfaces in [`getSchema()`](/ignite-element/api/headless-runtime/#getschema) without changing how the command is called.
 
 `command` is provided to your `commands` builder — no import is required:
 
@@ -35,6 +35,8 @@ Attaches non-enumerable metadata to a command without changing its behavior: cal
 
 - `description?: string` — human/agent-readable summary.
 - `input?` — an input schema produced by one of the helpers below.
+- `canExecute?: ({ snapshot }) => boolean` — current-snapshot availability for
+  the [headless runtime](/ignite-element/api/headless-runtime/#canexecutecommandname).
 - Additional JSON-serializable keys are allowed for custom conventions.
 
 ## Input helpers
@@ -71,6 +73,28 @@ const alertInput = command.object(
 
 `command.enum(values)` records `{ type: 'string', enum: [...values] }`. `command.object(properties)` and `command.array(items)` nest other helper results, so input schemas compose to any depth while staying JSON-serializable.
 
+## Availability predicates
+
+`canExecute` lets a command declare its current availability without moving guard
+logic into the provider or test harness. The predicate receives the adapter's
+current snapshot and returns a boolean:
+
+```ts no-check
+commands: ({ actor, command }) => ({
+  submit: command(
+    () => actor.send({ type: 'SUBMIT' }),
+    {
+      description: 'Submit the current form.',
+      canExecute: ({ snapshot }) => snapshot.can({ type: 'SUBMIT' }),
+    },
+  ),
+});
+```
+
+The predicate function is not serialized into `getSchema()`. Instead the schema
+marks the command with `gated: true`, and consumers call
+`runtime.canExecute('submit')` for the current answer.
+
 ## In `getSchema()`
 
 Once commands carry metadata, `getSchema()` returns executable commands and their metadata in one map. Commands without metadata appear as empty objects:
@@ -83,6 +107,10 @@ Once commands carry metadata, `getSchema()` returns executable commands and thei
     renamePreset: {
       description: 'Rename the saved preset label.',
       input: { type: 'string', minLength: 1, maxLength: 32 },
+    },
+    submit: {
+      description: 'Submit the current form.',
+      gated: true,
     },
     configureAlerts: {
       description: 'Update alert routing rules.',

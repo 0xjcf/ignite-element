@@ -57,7 +57,7 @@ still shape the API before the breaking cutover freezes it.
 | `ignite-element/react` helper + React demo (+ registration handle) | `1781805261094` | **DONE** (beta.7) — the gap-finder that surfaced `IgniteReactRef` + config-free lit auto-detect; `docs/ignite-react.md`. Remaining framework demos are Phase 0 |
 | `select().whenChanged()` | `1781798483059` | additive |
 | `expectView` | `1781798484574` | additive (does **not** rename expectState) |
-| `canExecute(name)` | `1781798486122` | additive (gap) |
+| `canExecute(name)` | `1781798486122` | ✅ done |
 | Test host seam (fluent `.host()`) | `1781619012619` | additive |
 | `igniteShell` + shared move-safe teardown | `1781817947799` | additive primitive |
 | Effects object-form / deprecate positional | `1781818975642` | additive → deprecate |
@@ -83,7 +83,7 @@ typed-view (1781971975611) ─▶ getSchema().view ─▶ igniteTools(component)
 - **typed-view** (`1781971975611`) — types `getView()` end-to-end; prereq for a typed schema view + typed tools.
 - **`getSchema().view`** — the missing read-model facet; agents see the projection they bind to. Brief `.fas/tasks/additive-expose-the-typed-view-projection-in-getschema-as-ig.md`.
 - **`igniteTools(component)`** — LLM tool manifest from `getSchema().commands`, `tool_use` → `execute`, events + view as observations. Agent analog of `igniteReact`; SDK-neutral core. Brief `.fas/tasks/additive-agent-api-add-ignitetools-*`.
-- **`canExecute`** (`1781798486122`) — now justified by the agent story: dynamic tool availability (hide a tool when its command can't run for the current snapshot). Unblock the design (per-command `available(snapshot)` predicate, off-schema) before the showcase app.
+- **`canExecute`** (`1781798486122`) — dynamic tool availability (hide a tool when its command can't run for the current snapshot) now ships as per-command `canExecute({ snapshot })` metadata plus the headless `canExecute(name)` query.
 - **Dogfood (actor-web)** — point a real agent at an actor-web component via `igniteTools`; proves the closed loop (flat events = native actor messages, transport-aware view). Brief `.fas/tasks/example-dogfood-prove-the-agent-runtime-*`.
 - **Showcase app** — headless agent runtime on a non-web projection (console/embedded) driving a **remote** actor-web actor (location transparency) with canExecute-gated tools. Brief `.fas/tasks/example-app-showcase-headless-*`.
 

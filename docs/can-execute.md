@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (design ✓). **Additive**, non-breaking — ships as a `3.x` minor. Tracked in
+Shipped. **Additive**, non-breaking — ships as a `3.x` minor. Tracked in
 `docs/v3-api-consistency.md` (additive gap) and the agent-runtime thread in
 `docs/v3-stable-roadmap.md`. Task `1781798486122`.
 
@@ -163,10 +163,10 @@ the runner's matchers for scalars.
 
 Additive. New: `CommandMetadata.canExecute?`, `runtime.canExecute`, scenario
 `canExecute`, `getSchema` `gated`. No behavior change for existing components (no
-predicate ⇒ always available). Likely files: `packages/ignite-core` (`CommandMetadata`),
+predicate ⇒ always available). Files: `packages/ignite-core` (`CommandMetadata`),
 `runtime/agent.ts` (`canExecute` + `gated` in `getSchema`), `types/agent.ts`
-(`IgniteAgentRuntime`), `testing.ts` (scenario `canExecute`), tests, docs. Ship with a
-changeset (minor).
+(`IgniteAgentRuntime`), `testing.ts` (scenario `canExecute`), tests, docs, and a
+minor changeset.
 
 ## Related
 
