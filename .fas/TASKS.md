@@ -1660,6 +1660,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: Fix smart-home GAPS #4 by adding focused async/long-running effect coverage for act+ack versus observe-stream settlement before Phase C
+
+- Title: Fix smart-home GAPS #4 by adding focused async/long-running effect coverage for act+ack versus observe-stream settlement before Phase C
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/fix-smart-home-gaps-4-by-adding-focused-async-long-running-e.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
