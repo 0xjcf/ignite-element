@@ -1,11 +1,13 @@
 import { describe, expectTypeOf, it } from "vitest";
 import { createMachine } from "xstate";
 import { igniteCore } from "../../IgniteCore";
+import type { EventDescriptor } from "../../RenderArgs";
 import type {
 	NeutralManifest,
 	NeutralToolCall,
 	ToolDialect,
 	ToolError,
+	ToolStreamObservation,
 } from "../../tools";
 import { igniteTools } from "../../tools";
 
@@ -62,6 +64,29 @@ describe("igniteTools types", () => {
 			}
 		};
 		void probe;
+	});
+
+	it("types observe() from the component's view + events", () => {
+		const { observe } = igniteTools(component);
+
+		observe((observation) => {
+			expectTypeOf(observation).toEqualTypeOf<
+				ToolStreamObservation<
+					{ isOn: boolean },
+					{ toggled: EventDescriptor<{ isOn: boolean }> }
+				>
+			>();
+
+			if (observation.type === "view") {
+				expectTypeOf(observation.view).toEqualTypeOf<{ isOn: boolean }>();
+				expectTypeOf(observation.prevView).toEqualTypeOf<{ isOn: boolean }>();
+			} else {
+				expectTypeOf(observation.event).toEqualTypeOf<{
+					type: "toggled";
+					payload: { isOn: boolean };
+				}>();
+			}
+		});
 	});
 
 	it("types a dialect's tools and translators from the dialect generics", () => {
