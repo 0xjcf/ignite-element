@@ -1,4 +1,4 @@
-# add an observe() observation channel to the neutral igniteTools core (events + view stream) for the agent act-observe lo
+# add an observe() observation channel to the neutral igniteTools core (events + view stream) for the agent act-observe loop
 
 ## Source
 Created with `fas create-task` on 2026-06-24.
@@ -30,11 +30,27 @@ Locked design (ignitetools-pr2-design-locked): the agent observation contract is
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
+- .fas-config.json
 - packages/ignite-element/src/tools/igniteTools.ts
 - packages/ignite-element/src/tools/types.ts
+- packages/ignite-element/src/tools/index.ts
+- packages/ignite-element/src/tests/tools.test.ts
+- packages/ignite-element/src/tests/types/tools.types.test.ts
+- docs/ignite-tools.md
+- examples/agents/smart-home/GAPS.md
 
 ## Scope Amendments
-- None.
+- Add `packages/ignite-element/src/tools/index.ts` to export the new stream
+  observation types from the public `ignite-element/tools` entrypoint.
+- Add `packages/ignite-element/src/tests/tools.test.ts` and
+  `packages/ignite-element/src/tests/types/tools.types.test.ts` for the required
+  TDD coverage of the new neutral `observe()` channel and typed stream payload.
+- Add `docs/ignite-tools.md` and `examples/agents/smart-home/GAPS.md` to update
+  the public design note and close the smart-home gap tracker entry for the
+  shipped `observe()` channel.
+- Add `.fas-config.json` because FAS closeout checks require the configured
+  `testCommand` itself to name the package test lane; `npm run test:full` was
+  correct behaviorally but opaque to the package-test coverage rule.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

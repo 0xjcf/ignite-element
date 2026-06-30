@@ -6,6 +6,7 @@ import type {
 	NeutralToolCall,
 	NeutralToolResult,
 	ToolDialect,
+	ToolStreamObservation,
 } from "../tools";
 import { buildManifest, igniteTools, isErr, isOk, resolveCall } from "../tools";
 import type { IgniteAgentSchema, IgniteSchemaObject } from "../types/schema";
@@ -63,11 +64,19 @@ type FakeComponent = IgniteToolsRuntime<
 	canExecute?: (name: string) => boolean;
 };
 
+type ObservableFakeComponent = FakeComponent & {
+	emitEvent: (event: { type: "item-added"; payload: { id: number } }) => void;
+	emitView: (view: FakeView) => void;
+};
+
 function createFakeComponent(
 	options: { canExecute?: (name: string) => boolean } = {},
-): FakeComponent {
+): ObservableFakeComponent {
 	const calls: Array<{ name: string; payload: unknown }> = [];
-	const component: FakeComponent = {
+	let view: FakeView = { count: 0, label: "zero" };
+	const eventHandlers = new Set<(event: CustomEvent<{ id: number }>) => void>();
+	const viewHandlers = new Set<(view: FakeView, prevView: FakeView) => void>();
+	const component: ObservableFakeComponent = {
 		calls,
 		getSchema: () => fakeSchema,
 		execute: (async (name: string, payload?: unknown) => {
@@ -75,16 +84,43 @@ function createFakeComponent(
 			if (name === "boom") {
 				throw new Error("kaboom");
 			}
+			view = { count: calls.length, label: "active" };
 			return {
 				state: { count: 1, last: name, payload },
 				events: [{ type: "item-added", payload: { id: 1 } }],
 			};
 		}) as FakeComponent["execute"],
 		// The derived read-model the agent grounds on; reflects the calls so far.
-		getView: () => ({
-			count: calls.length,
-			label: calls.length > 0 ? "active" : "zero",
-		}),
+		getView: () => view,
+		on: ((
+			eventName: "item-added",
+			handler: (event: CustomEvent<{ id: number }>) => void,
+		) => {
+			if (eventName === "item-added") {
+				eventHandlers.add(handler);
+			}
+			return {
+				unsubscribe: () => eventHandlers.delete(handler),
+			};
+		}) as FakeComponent["on"],
+		watchView: ((handler: (view: FakeView, prevView: FakeView) => void) => {
+			viewHandlers.add(handler);
+			return {
+				unsubscribe: () => viewHandlers.delete(handler),
+			};
+		}) as FakeComponent["watchView"],
+		emitEvent: (event) => {
+			for (const handler of eventHandlers) {
+				handler(new CustomEvent(event.type, { detail: event.payload }));
+			}
+		},
+		emitView: (nextView) => {
+			const prevView = view;
+			view = nextView;
+			for (const handler of viewHandlers) {
+				handler(nextView, prevView);
+			}
+		},
 	};
 	if (options.canExecute) {
 		component.canExecute = options.canExecute;
@@ -116,6 +152,14 @@ class ThisBoundFakeComponent implements FakeComponent {
 			count: this.calls.length,
 			label: this.calls.length > 0 ? "active" : "zero",
 		};
+	}
+
+	on() {
+		return { unsubscribe: () => undefined };
+	}
+
+	watchView() {
+		return { unsubscribe: () => undefined };
 	}
 }
 
@@ -458,6 +502,55 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { manifest } = igniteTools(component);
 		expect(manifest.find((t) => t.name === "adminOnly")).toBeUndefined();
 	});
+
+	it("observe streams schema-declared events and view changes between acts", () => {
+		const component = createFakeComponent();
+		const { observe } = igniteTools(component);
+		const seen: Array<ToolStreamObservation<FakeView, FakeEvents>> = [];
+
+		const subscription = observe((observation) => seen.push(observation));
+
+		component.emitEvent({ type: "item-added", payload: { id: 2 } });
+		component.emitView({ count: 2, label: "observed" });
+
+		expect(seen).toEqual([
+			{
+				type: "event",
+				event: { type: "item-added", payload: { id: 2 } },
+			},
+			{
+				type: "view",
+				view: { count: 2, label: "observed" },
+				prevView: { count: 0, label: "zero" },
+			},
+		]);
+
+		subscription.unsubscribe();
+		subscription.unsubscribe();
+		component.emitEvent({ type: "item-added", payload: { id: 3 } });
+		component.emitView({ count: 3, label: "ignored" });
+
+		expect(seen).toHaveLength(2);
+	});
+
+	it("observe cleans up partial subscriptions when registration fails", () => {
+		const component = createFakeComponent();
+		const unsubscribeEvent = vi.fn();
+		const on = vi.fn(() => ({ unsubscribe: unsubscribeEvent }));
+		const watchView = vi.fn(() => {
+			throw new Error("watch failed");
+		});
+
+		component.on = on as unknown as FakeComponent["on"];
+		component.watchView = watchView as unknown as FakeComponent["watchView"];
+
+		const { observe } = igniteTools(component);
+
+		expect(() => observe(() => undefined)).toThrow("watch failed");
+		expect(on).toHaveBeenCalledWith("item-added", expect.any(Function));
+		expect(watchView).toHaveBeenCalledTimes(1);
+		expect(unsubscribeEvent).toHaveBeenCalledTimes(1);
+	});
 });
 
 describe("igniteTools (with a ToolDialect)", () => {
@@ -467,6 +560,7 @@ describe("igniteTools (with a ToolDialect)", () => {
 		expect(tools.tools).toEqual(
 			tools.manifest.map((t) => ({ tool: t.name, schema: t.inputSchema })),
 		);
+		expect(typeof tools.observe).toBe("function");
 		expect(typeof tools.toolCalls).toBe("function");
 		expect(typeof tools.toolResult).toBe("function");
 	});

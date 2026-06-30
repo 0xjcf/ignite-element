@@ -1579,8 +1579,8 @@ No active tasks.
 
 - Title: add an observe() observation channel to the neutral igniteTools core (events + view stream) for the agent act-observe lo
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/add-an-observe-observation-channel-to-the-neutral-ignitetool.md
 - Automation mode: advisory
 

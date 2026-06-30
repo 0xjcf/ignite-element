@@ -11,7 +11,7 @@
 	"formatCheckCommand": "npm run format:check",
 	"formatFixCommand": "npm run format",
 	"typecheckCommand": "npm run typecheck",
-	"testCommand": "npm run test:full",
+	"testCommand": "pnpm --filter ignite-element test && pnpm run test:scripts && pnpm run test:examples",
 	"replayCommand": "",
 	"verifyScriptMode": "platform",
 	"screenshotArtifactDir": ".fas/artifacts/screenshots",

@@ -3,7 +3,11 @@ import type {
 	EventMap,
 	FacadeCommandResult,
 } from "../RenderArgs";
-import type { IgniteAgentRuntime, RuntimeEvent } from "../types/agent";
+import type {
+	IgniteAgentRuntime,
+	IgniteAgentSubscription,
+	RuntimeEvent,
+} from "../types/agent";
 import type { IgniteSchemaObject, IgniteSchemaValue } from "../types/schema";
 import type { Result } from "./result";
 
@@ -59,6 +63,30 @@ export type ToolObservation<
 	view: View;
 	events: RuntimeEvent<Events>[];
 };
+
+/**
+ * A live observation emitted between tool acts. `event` entries mirror the
+ * runtime's `{ type, payload }` event shape; `view` entries carry the derived
+ * read-model transition from `watchView`.
+ */
+export type ToolStreamObservation<
+	View = unknown,
+	Events extends EventMap = EmptyEventMap,
+> =
+	| {
+			type: "event";
+			event: RuntimeEvent<Events>;
+	  }
+	| {
+			type: "view";
+			view: View;
+			prevView: View;
+	  };
+
+export type ToolStreamHandler<
+	View = unknown,
+	Events extends EventMap = EmptyEventMap,
+> = (observation: ToolStreamObservation<View, Events>) => void;
 
 /**
  * Errors as values. Returned (never thrown) by `resolveCall`/`run` so the
@@ -141,7 +169,9 @@ export type IgniteToolsRuntime<
 	View extends Record<string, unknown> = Record<never, never>,
 > = Pick<
 	IgniteAgentRuntime<State, Commands, Events, SchemaState, View>,
-	"getSchema" | "execute" | "getView"
+	"getSchema" | "execute" | "getView" | "on" | "watchView"
 > & {
 	canExecute?: AvailabilityPredicate;
 };
+
+export type ToolStreamSubscription = IgniteAgentSubscription;
