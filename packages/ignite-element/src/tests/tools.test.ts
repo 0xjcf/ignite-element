@@ -526,6 +526,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		]);
 
 		subscription.unsubscribe();
+		subscription.unsubscribe();
 		component.emitEvent({ type: "item-added", payload: { id: 3 } });
 		component.emitView({ count: 3, label: "ignored" });
 
