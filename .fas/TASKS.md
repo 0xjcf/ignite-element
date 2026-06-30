@@ -1686,8 +1686,8 @@ No active tasks.
 
 - Title: Fix smart-home GAPS #6 by adding array-input command coverage to the smart-home example
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-smart-home-gaps-6-by-adding-array-input-command-coverage.md
 - Verification lane: fast
 - Policy sensitivity: standard
