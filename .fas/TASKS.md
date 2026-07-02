@@ -1693,6 +1693,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: Create ecosystem architecture constitution docs and ignite-element ADR
+
+- Title: Create ecosystem architecture constitution docs and ignite-element ADR
+- Mode: 6-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/create-ecosystem-architecture-constitution-docs-and-ignite-e.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>

@@ -1,14 +1,15 @@
 # `ignite-element` Architecture
 
-This repository follows a hexagonal architecture with actor-model behavior
-topology.
+This repository follows a hexagonal architecture with explicit actor- and
+state-machine-friendly boundaries.
 
 The short version:
 
-- Actors and state machines own behavior.
-- Adapters translate runtime/library realities into normalized facts.
-- `ignite-core` defines contract primitives and shared typing only.
-- `ignite-element` is the sole projection, assembly, and runtime-host surface.
+- consumers supply intent and behavior
+- `ignite-core` owns contract primitives only
+- adapters normalize runtime/library facts into stable Ignite contracts
+- `ignite-element` is the projection, assembly, and runtime-host surface
+- `ignite-renderer` stays renderer-only
 
 If code crosses those boundaries, it is wrong even when it appears to work.
 
@@ -20,12 +21,13 @@ If code crosses those boundaries, it is wrong even when it appears to work.
 
 The repo is layered as packages, but the responsibility model is hexagonal:
 
-- Behavior is owned by actors and state machines.
-- Ports are the event, command, state, and effect contracts.
-- Adapters integrate concrete runtimes such as XState, Redux, MobX, the DOM, and
-  renderer environments.
-- The shell assembles adapters, projections, and host lifecycle into a usable
-  component/runtime surface.
+- behavior remains in consumer-owned actors, machines, stores, or equivalent
+  sources
+- ports are the event, command, state, effect, and render-arg contracts
+- adapters translate concrete runtimes such as XState, Redux, MobX, actor-web,
+  the DOM, and renderer environments into normalized facts
+- the shell assembles projections, renderer integration, and host lifecycle into
+  a usable component/runtime surface
 
 ## Package Responsibilities
 
@@ -35,9 +37,8 @@ Contract-only.
 
 It owns:
 
-- event and effect typing
-- render argument contracts
-- adapter-neutral helpers like `matchState`
+- event, command, effect, and render-arg typing
+- adapter-neutral helpers such as `matchState`
 - shared primitives such as `StateScope`
 
 It does not own:
@@ -53,14 +54,14 @@ Adapter integration only.
 
 It owns:
 
-- XState, Redux, and MobX adapter factories
+- XState, Redux, MobX, and actor-web adapter factories
 - source guards and source-specific config/types
-- command-actor typing for integrated runtimes
+- command-actor typing and runtime translation for integrated sources
 
 It must:
 
 - normalize library/runtime behavior into stable adapter contracts
-- treat expected failures as data or no-op facts
+- treat expected failures as data or inert facts
 - avoid deciding product behavior or UI policy
 
 It must not:
@@ -71,45 +72,53 @@ It must not:
 
 ### `packages/ignite-renderer`
 
-Rendering runtime only.
+Renderer execution only.
 
 It owns:
 
-- JSX/lit rendering surfaces
-- style injection
-- renderer-specific utilities
+- JSX and lit rendering surfaces
+- renderer registration
+- renderer-specific utilities such as style injection
 
 It must not own:
 
 - domain behavior
 - adapter selection
 - component authoring policy
+- orchestration or product semantics
 
 ### `packages/ignite-element`
 
-This is the product surface.
+Projection, assembly, and runtime-host surface.
 
 It owns:
 
 - `igniteCore(...)` authoring
 - projection assembly
-- command/effect projection into render args
+- command and effect projection into render args
 - DOM/custom-element lifecycle
 - headless runtime access
 - public entrypoints such as `ignite-element/xstate`
 
-This package is where projected meaning becomes a usable UI/runtime contract.
+This package is where normalized runtime facts become a usable UI/runtime
+contract.
+
+It does not own:
+
+- provider or model ownership
+- external orchestration topology
+- app-level policy
 
 ## ADR-003 Layer Map
 
 | ADR-003 layer | Current Ignite owner | Current fact |
 | --- | --- | --- |
-| Intent | `ignite-element` commands and declared events | Commands are the public intent surface. Declared events are the outward fact surface for hosts, tests, and agent runtimes. |
-| Deterministic decision | User-provided actors/state machines plus `ignite-core` contracts | Ignite supplies typed contracts and adapter-neutral helpers. Product behavior remains in the consuming actor or state machine. |
-| Workflow and lifecycle | `ignite-element` custom-element lifecycle and headless runtime lifecycle | Ignite starts, watches, and stops adapters for DOM and headless usage; it does not own FAS workflow lifecycle. |
-| Imperative execution over time | `ignite-adapters`, renderer integration, config plugins | Runtime-library integration, DOM rendering, style injection, and bundler/config loading live at the edge. |
-| Projection | `ignite-element` projection assembly | `view`, `commands`, `effects`, and schema metadata turn state snapshots into a stable UI/runtime contract. |
-| Product composition | Consumer apps and examples | Apps compose registered custom elements. Ignite does not own app-level policy or cross-repo orchestration. |
+| Intent | consumer commands and declared events surfaced through `ignite-element` | Commands are the public intent surface. Declared events are the outward fact surface for hosts, tests, and headless runtimes. |
+| Deterministic decision | consumer-owned actors/state machines plus `ignite-core` contracts | Ignite supplies typed contracts and adapter-neutral helpers. Product behavior remains in the consuming source. |
+| Workflow and lifecycle | source lifecycles plus `ignite-element` host lifecycle | Ignite starts, watches, and releases adapters for DOM and headless usage; it does not own FAS workflow lifecycle or external orchestration policy. |
+| Imperative execution over time | `ignite-adapters` plus `ignite-element` runtime host coordination | Runtime-library integration, subscriptions, setup, cleanup, and command execution live at the edge. |
+| Projection | `ignite-element` projection assembly | `view`, `commands`, `effects`, and schema metadata turn source snapshots into a stable UI/runtime contract. |
+| Product composition | `ignite-element` package surface, then consumer apps on top | Ignite assembles the package family into a reusable component/runtime surface. Consumer apps compose those surfaces into products. |
 
 ## Current Fact Vs Target State
 
@@ -117,29 +126,25 @@ This package is where projected meaning becomes a usable UI/runtime contract.
 | --- | --- | --- |
 | Package boundaries | `ignite-core`, `ignite-adapters`, `ignite-renderer`, and `ignite-element` are split into workspace packages. | CI and FAS checks keep package imports aligned with this split. |
 | Boundary rules | `.fas-config.json` and `.fas/architecture-rules.json` define the committed repo map. | FAS and CI both evaluate the same committed rules before release. |
-| Actor-Web integration | Ignite documents future shared-runtime alignment but does not depend on Actor-Web. | A later explicit adapter can bridge Actor-Web actors into Ignite without making Ignite own orchestration. |
-| FAS integration | FAS remains the workflow/checking orchestrator. Ignite owns repo-local architecture facts. | FAS may consume the committed Ignite boundary map, but product semantics stay in Ignite and consumer apps. |
+| Actor-web integration | Ignite supports an optional actor-web adapter surface; that is compatibility, not a claim that this repo owns actor-web orchestration boundaries. | A later cross-repo contract can name actor-web's runtime role explicitly once that repository confirms it. |
+| FAS integration | FAS remains a workflow participant around this repo's planning and verification artifacts. Ignite owns repo-local architecture facts. | FAS may consume the committed Ignite boundary map, but product semantics stay in Ignite and consumer apps. |
 
-## Actor-Model Topology
+## Explanatory Topology
 
-Behavior should be modeled as message-driven actors or machines.
+The topology below is explanatory only. It shows responsibility flow inside this
+repository; it is not a dependency proof for any broader ecosystem stack.
 
-- Commands express intent.
-- Events report facts.
-- State transitions remain deterministic.
-- Effects are selected from state transitions, not hidden inside adapters or UI.
+`consumer intent -> source behavior -> adapter fact -> ignite-element projection -> renderer execution`
 
-The topology should read like this:
-
-`intent -> actor/machine -> state transition -> selected effect -> adapter fact -> actor/machine`
-
-That loop keeps causality explicit and replayable.
+That flow keeps causality explicit without implying that `ignite-element`
+depends on providers, models, or an external runtime kernel.
 
 ## Hexagonal Rules
 
 ### Behavior Boundary
 
-Behavior belongs in actors and machines, not in adapters or rendering code.
+Behavior belongs in consumer-owned actors, machines, stores, or equivalent
+sources, not in adapters or rendering code.
 
 Allowed:
 
@@ -165,8 +170,8 @@ They may talk to runtime libraries, stores, or browser APIs, but they must not:
 - mutate authoritative behavior state directly
 - throw for expected failures
 
-Expected failures should return facts, warnings, or inert no-op behavior that the
-shell can reason about. Exceptions are reserved for programmer mistakes and
+Expected failures should return facts, warnings, or inert no-op behavior that
+the shell can reason about. Exceptions are reserved for programmer mistakes and
 invariant breaches.
 
 ### Projection Boundary
@@ -181,6 +186,22 @@ UI should never:
 
 Instead, `ignite-element` converts snapshots plus commands/effects into a stable
 render/runtime surface.
+
+### Renderer Boundary
+
+`ignite-renderer` executes renderer strategy concerns only.
+
+It should:
+
+- register render strategies
+- translate projected surfaces into renderer calls
+- keep renderer-specific utilities isolated
+
+It should not:
+
+- decide behavior
+- normalize source/runtime facts
+- re-own projection or product policy
 
 ### UI Boundary
 
@@ -216,8 +237,8 @@ exceptions.
 
 - `packages/ignite-core/src/`: contract-only functional core
 - `packages/ignite-adapters/src/`: adapter integration boundary
-- `packages/ignite-renderer/src/`: renderer/runtime boundary
-- `packages/ignite-element/src/`: shell, projection, assembly, and host runtime
+- `packages/ignite-renderer/src/`: renderer execution boundary
+- `packages/ignite-element/src/`: projection, assembly, and host runtime surface
 
 FAS boundary rules and ADR-003 are the authoritative enforcement surfaces for
 these responsibilities.
@@ -226,10 +247,11 @@ these responsibilities.
 
 When adding a feature:
 
-1. Identify the actor or machine that owns the behavior.
-2. Express new intent and fact events.
+1. Identify the source that owns the behavior.
+2. Express new intent and fact events through explicit contracts.
 3. Add or extend adapters only for runtime/library integration.
 4. Project the resulting meaning through `ignite-element`.
 5. Render declaratively on top of that projected contract.
 
-If a change requires behavior in UI or adapters, the boundary is probably wrong.
+If a change requires behavior in UI, adapters, or renderer code, the boundary is
+probably wrong.

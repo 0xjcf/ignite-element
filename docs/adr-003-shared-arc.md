@@ -6,21 +6,29 @@ Proposed
 
 ## Context
 
-The shared architecture discussion has drifted between a normative decision and a descriptive model. That drift creates two problems:
+The shared architecture discussion has drifted between a normative decision and
+descriptive ecosystem sketches. That drift creates two problems:
 
-- ownership boundaries become harder to review because multiple documents appear to define them
-- repo-specific observations and cross-repo assumptions get mixed together as if they had the same evidentiary weight
+- ownership boundaries become harder to review because multiple documents appear
+  to define them
+- repo-local facts, cross-repo inferences, and target-state aspirations get
+  mixed together as if they had the same evidentiary weight
 
-This workspace grounds part of the shared architecture directly:
+This repository directly grounds only part of the shared architecture:
 
-- `ignite-core`, `ignite-adapters`, `ignite-renderer`, and `ignite-element` are explicit package families in this repository
-- the current package split and FAS memory both reinforce a layered model that must stay aligned with current package boundaries rather than aspirational end-state diagrams
+- `ignite-core`, `ignite-adapters`, `ignite-renderer`, and `ignite-element` are
+  explicit package families in this workspace
+- those package families already encode a layered boundary between contracts,
+  runtime translation, renderer execution, and product-facing assembly
 
-This workspace does not directly ground present-fact ownership claims for `FAS`, `actor-web`, or `Blueprint`. Those systems may still participate in the shared architecture, but any mapping for them must be treated as inferred or target-state until their own repositories confirm the contract.
+This repository does not directly ground present-fact ownership claims for
+`FAS`, `fas-local`, or `actor-web`. Those systems may participate in the shared
+architecture, but any mapping for them must stay labeled as inferred or
+target-state until their own repositories confirm the contract.
 
 ## Decision
 
-ADR-003 is the normative shared architecture contract for this ecosystem.
+ADR-003 is the single normative shared-architecture source for this repository.
 
 The contract defines six adjacent layers:
 
@@ -31,7 +39,27 @@ The contract defines six adjacent layers:
 5. Projection
 6. Product composition
 
-These layers describe responsibilities, not a one-repo-per-layer topology. A repository or package family may span adjacent layers when that boundary is explicit and reviewable. A repository or package family must not claim non-adjacent responsibilities by implication.
+These layers describe responsibilities, not a one-repo-per-layer topology.
+Repositories and package families may span adjacent layers when the boundary is
+explicit and reviewable. They must not claim non-adjacent responsibilities by
+implication.
+
+### Law Of Least Inference
+
+Prefer explicit contracts, explicit lifecycle, and explicit ownership over
+architectural inference.
+
+Default rule:
+
+- if a boundary can be made explicit through contracts, events, adapters, or
+  repository-local evidence, do that instead of inferring it from topology,
+  naming, or package adjacency
+
+Escape clause:
+
+- inference is acceptable when it is the narrowest reasonable way to preserve
+  correctness, latency, or cost, provided the document or code path names the
+  inference as such and does not present it as grounded present fact
 
 ### Layer contract
 
@@ -77,7 +105,7 @@ Does not own:
 
 Primary ownership:
 
-- asynchronous work, ordering, retries, scheduling, delivery, supervision, and failure isolation
+- asynchronous work, ordering, retries, scheduling, delivery, and supervision
 - runtime coordination that interacts with non-deterministic systems
 
 Does not own:
@@ -91,7 +119,8 @@ Does not own:
 Primary ownership:
 
 - read models and view models derived from internal state
-- translation of runtime or workflow state into consumable render or inspection surfaces
+- translation of runtime or workflow state into consumable render or inspection
+  surfaces
 
 Does not own:
 
@@ -114,45 +143,53 @@ Does not own:
 
 ### Grounded Ignite package-family mapping
 
-Within this repository, the shared architecture maps to package families as follows.
+Within this repository, the shared architecture maps to package families as
+follows.
 
 #### `ignite-core`
 
 Primary ownership:
 
-- deterministic decision primitives
-- state, command, event, and effect contracts used by higher layers
+- contract primitives for state, commands, events, effects, and render-facing
+  types
+- adapter-neutral helpers used by higher layers
 
 Does not own:
 
 - adapter integration details
 - renderer registration or DOM strategy concerns
-- product assembly
+- projection assembly
+- product composition
 
 #### `ignite-adapters`
 
 Primary ownership:
 
-- integration between Ignite contracts and external state/runtime sources such as Redux, MobX, and XState
-- boundary translation needed to expose those sources through Ignite contracts
+- translation between Ignite contracts and external runtime sources such as
+  Redux, MobX, XState, and actor-web
+- normalization of source-specific runtime facts into stable Ignite contracts
 
 Does not own:
 
 - canonical business policy
 - renderer strategy selection
+- projection assembly
 - product composition
 
 Notes:
 
-- this family may touch deterministic decision and workflow/lifecycle boundaries because adapters expose source-specific runtime facts
-- that adjacency does not make `ignite-adapters` the owner of orchestration or composition
+- this family may touch deterministic decision, lifecycle, and runtime
+  coordination boundaries because adapters expose source-specific facts
+- that adjacency does not make `ignite-adapters` the owner of workflow policy,
+  orchestration topology, or composition
 
 #### `ignite-renderer`
 
 Primary ownership:
 
-- render strategy registration and renderer-facing runtime utilities
-- translation from projections into renderer-specific execution surfaces
+- render-strategy registration
+- renderer-specific runtime utilities
+- translation from projected surfaces into renderer execution surfaces
 
 Does not own:
 
@@ -164,56 +201,86 @@ Does not own:
 
 Primary ownership:
 
-- public assembly of Ignite package families into a Web Component oriented product surface
-- component factory, runtime host coordination, and renderer-aware element registration
+- public projection and assembly surface for the Ignite package families
+- component factory, runtime host coordination, and renderer-aware element
+  registration
+- headless runtime access built on the same projected contract
 
 Does not own:
 
 - ecosystem-wide orchestration topology
+- provider or model ownership
 - cross-product composition rules outside this repository
-- authority to redefine the underlying shared architecture contract
+- authority to redefine the underlying shared-architecture contract
 
 Notes:
 
-- `ignite-element` spans adjacent projection and product-composition concerns because it assembles renderer and runtime packages into a consumable surface
-- this does not make the repository a monolithic layer
+- `ignite-element` spans adjacent projection and product-composition concerns
+  because it assembles contracts, adapters, and renderer integration into a
+  consumable surface
+- that does not imply a dependency chain from `ignite-element` to providers or
+  models, nor does it make this repository the owner of external runtime policy
 
 ### Cross-repo adoption rule
 
-Any repository mapping beyond the grounded Ignite package families must satisfy both rules before it is stated as current fact:
+Any repository mapping beyond the grounded Ignite package families must satisfy
+both rules before it is stated as current fact:
 
 1. the ownership claim is directly evidenced in that repository
 2. the mapping names both primary ownership and `does not own` boundaries
 
-Until then, cross-repo mappings belong in explanatory or target-state material, not in normative present-fact claims.
+Until then, cross-repo mappings belong in explanatory or target-state material,
+not in normative present-fact claims.
+
+### Current vs target posture for adjacent repos
+
+Current fact in this repository:
+
+- this repo ships an optional `actor-web` adapter surface
+- this repo is operated with FAS workflow artifacts and validation surfaces
+
+Target-state only from this repository's point of view:
+
+- `actor-web` may be an orchestration participant with explicit runtime
+  boundaries once that repository confirms the claim
+- `FAS` may remain a workflow-policy and evidence participant without being
+  treated here as the current owner of Ignite runtime behavior
+- `fas-local` may participate as a local runtime host or execution target in the
+  broader stack, but this repo does not treat it as a permanent kernel owner for
+  the ecosystem
 
 ### Optional cross-project integration
 
 Cross-project integration is additive, not mandatory.
 
-Each repository or package family should remain usable in isolation with local implementations of adjacent layers where needed. Shared ecosystem integrations should happen through explicit contracts, adapters, schemas, events, or configuration surfaces rather than hard sibling-repository runtime dependencies.
-
-In practice, the target shape is:
-
-- `ignite-element` alone: fully usable library
-- `ignite-element` + `Blueprint`: richer composition
-- `ignite-element` + `actor-web`: external orchestration and runtime coordination
-- `ignite-element` + `FAS`: workflow and policy tooling
-- all together: integrated platform stack
+Each repository or package family should remain usable in isolation with local
+implementations of adjacent layers where needed. Shared ecosystem integrations
+should happen through explicit contracts, adapters, schemas, events, read
+models, or configuration surfaces rather than hard sibling-repository runtime
+dependencies.
 
 ## Consequences
 
-- ADR-003 becomes the only normative source for the shared architecture contract
+- ADR-003 becomes the only normative source for the shared-architecture
+  contract in this repository
 - explanatory documents may interpret ADR-003, but they must not redefine it
-- reviews can now distinguish grounded current-state mappings from inferred or target-state adoption work
-- package-family and repo mappings must include ownership boundaries, not only layer labels
-- future cross-repo alignment work for `FAS`, `actor-web`, and `Blueprint` needs confirmation in those repositories before it can be treated as current state
-- standalone operation remains a first-class requirement even when richer cross-project integrations exist
+- reviews can distinguish grounded current-state mappings from inferred or
+  target-state adoption work
+- package-family and repo mappings must include ownership boundaries, not only
+  layer labels
+- diagrams and topology sketches are explanatory only unless backed by explicit
+  repo-local evidence
+- standalone operation remains a first-class requirement even when richer
+  cross-project integrations exist
 
-## Non-goals
+## Boundary Non-Goals
 
 - This ADR does not claim that one repository equals one architectural layer.
-- This ADR does not declare current-fact ownership for `FAS`, `actor-web`, or `Blueprint`.
-- This ADR does not treat any topology diagram as compliance truth by itself.
-- This ADR does not redefine current package boundaries to match a future migration target.
-- This ADR does not require sibling-project runtime dependencies for basic operation of an individual repository.
+- This ADR does not declare current-fact ownership for `FAS`, `fas-local`, or
+  `actor-web`.
+- This ADR does not treat any dependency or topology diagram as compliance truth
+  by itself.
+- This ADR does not redefine current package boundaries to match a future
+  migration target.
+- This ADR does not require sibling-project runtime dependencies for basic
+  operation of an individual repository.

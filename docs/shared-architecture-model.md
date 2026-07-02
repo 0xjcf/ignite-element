@@ -1,6 +1,7 @@
 # Shared Architecture Model
 
-This document explains ADR-003 and shows how to read the shared architecture contract against the evidence available in this workspace.
+This document explains ADR-003 and shows how to read the shared-architecture
+contract against the evidence available in this repository.
 
 ## Status
 
@@ -8,16 +9,20 @@ Draft
 
 ## Reading Guide
 
-ADR-003 is the normative contract. This companion document does two narrower jobs:
+ADR-003 is the normative contract. This companion document does three narrower
+jobs:
 
-- show the grounded current-state mapping that can be supported from this repository
-- separate inferred or target-state alignment work from repository-local facts
+- show the grounded current-state mapping supported by this repository
+- separate current facts from inferred or target-state alignment work
+- keep explanatory topology sketches from being mistaken for compliance truth
 
 ### Legend
 
-- `Grounded current state`: supported by files, package structure, or workflow surfaces in this workspace
-- `Inferred cross-repo mapping`: plausible interpretation of the broader stack, but not confirmed here as present fact
-- `Target state`: desired alignment or follow-up work that still needs explicit confirmation in the relevant repository
+- `Current fact`: supported by files, package structure, or workflow surfaces in
+  this repository
+- `Target state`: desired alignment or follow-up work that still needs explicit
+  confirmation in the relevant repository
+- `Explanatory only`: useful model or sketch, but not proof by itself
 
 ## ADR-003 Layer Summary
 
@@ -30,9 +35,11 @@ ADR-003 defines six adjacent layers:
 5. Projection
 6. Product composition
 
-The key reading rule is that repos and package families may span adjacent layers. The model is about ownership boundaries, not a forced one-repo-per-layer diagram.
+The key reading rule is that repos and package families may span adjacent
+layers. The model is about ownership boundaries, not a forced one-repo-per-layer
+layout.
 
-## Grounded Current State In This Workspace
+## Grounded Current State In This Repository
 
 ### Ignite package-family mapping
 
@@ -43,12 +50,12 @@ This repository directly grounds the following package families:
 - `ignite-renderer`
 - `ignite-element`
 
-| Package family | Primary ownership | Adjacent layers touched here | Does not own |
+| Package family | Current fact | Adjacent layers touched here | Does not own |
 | --- | --- | --- | --- |
-| `ignite-core` | deterministic decision primitives plus shared contracts for state, commands, events, and effects | intent, deterministic decision | adapter-specific integration, renderer strategy, projection assembly, product composition |
-| `ignite-adapters` | integration between Ignite contracts and external sources such as Redux, MobX, and XState | deterministic decision, workflow and lifecycle, imperative execution over time | canonical business policy, renderer ownership, projection assembly, product composition |
-| `ignite-renderer` | render-strategy registration and renderer/runtime utilities | projection | workflow policy, orchestration topology, product grammar |
-| `ignite-element` | public Web Component assembly surface, runtime host coordination, and renderer-aware element registration built on the other Ignite families | imperative execution over time, projection, product composition | ecosystem orchestration topology, repo-external composition ownership, authority to redefine ADR-003 |
+| `ignite-core` | contract primitives plus adapter-neutral helpers for state, commands, events, effects, and render args | intent, deterministic decision | adapter-specific integration, renderer strategy, projection assembly, product composition |
+| `ignite-adapters` | translation between Ignite contracts and external runtime sources, normalized into stable runtime facts | deterministic decision, workflow and lifecycle, imperative execution over time | canonical business policy, renderer ownership, projection assembly, product composition |
+| `ignite-renderer` | renderer registration and renderer-specific runtime utilities | projection | workflow policy, orchestration topology, product grammar |
+| `ignite-element` | projection, assembly, runtime host coordination, and public Web Component/headless runtime surface | imperative execution over time, projection, product composition | ecosystem orchestration topology, provider/model ownership, repo-external composition authority |
 
 ### Why the Ignite mapping is grounded
 
@@ -59,124 +66,181 @@ The package family split is explicit in this repository:
 - `packages/ignite-renderer`
 - `packages/ignite-element`
 
-The package metadata and exports also support the ownership split:
+The package metadata also supports the ownership split:
 
-- `ignite-core` describes adapter-neutral primitives
-- `ignite-adapters` describes state-library adapter integrations and depends on `ignite-core`
-- `ignite-renderer` describes renderer and runtime utilities
-- `ignite-element` depends on all three families and presents the default public package
+- `@ignite-element/core` describes adapter-neutral primitives
+- `@ignite-element/adapters` describes advanced state-library adapter
+  integrations
+- `@ignite-element/renderer` describes advanced renderer and runtime utilities
+- `ignite-element` describes the default public package for building
+  state-driven Web Components with Ignite
 
-### Grounded observations about FAS surfaces in this workspace
+### Explanatory topology sketch
 
-This repository contains FAS workflow surfaces such as `.fas/WORKFLOW.md`, `.fas/AGENTS.md`, task packets, and verification scripts. That grounds one narrow statement:
+The sketch below is explanatory only. It shows one way to read the current
+package boundaries without claiming that dependency direction alone proves the
+architecture.
 
-- this workspace is operated with explicit workflow and lifecycle guidance that matches ADR-003's lifecycle concerns
+```text
+consumer intent
+  -> ignite-core contracts
+  -> ignite-adapters normalize runtime facts
+  -> ignite-element projects and assembles
+  -> ignite-renderer executes a renderer strategy
+```
 
-It does not, by itself, ground the full present-fact ownership model of the separate `FAS` repository.
+The sketch is useful because it highlights contract flow and assembly flow. It
+is not compliance truth on its own.
+
+## Current Fact Vs Target State For Adjacent Repositories
+
+### `ignite-element`
+
+Current fact:
+
+- this repository owns the grounded package-family mapping in ADR-003
+- `ignite-element` is the public projection and assembly surface in this
+  workspace
+- `ignite-element` exposes optional integration surfaces, including actor-web
+  entrypoints, without claiming ownership of external orchestration
+
+Target state:
+
+- keep ADR-003 and the local package map aligned as the repo evolves
+- make any future cross-repo adoption language explicit, bounded, and evidenced
+
+### `actor-web`
+
+Current fact from this repository:
+
+- Ignite supports an optional actor-web adapter and subpath entrypoint
+- that support proves compatibility, not that this repo can declare actor-web's
+  present-fact ownership model
+
+Target state:
+
+- actor-web can adopt explicit ADR-003 language for orchestration/runtime
+  participation in its own repository
+- once confirmed there, this companion can link to that adoption instead of
+  speaking from inference
+
+### `FAS`
+
+Current fact from this repository:
+
+- this repo is operated with FAS workflow artifacts such as task packets,
+  planning state, commit plans, and verification scripts
+- that grounds FAS as a workflow participant around this repository, not as a
+  present-fact owner of Ignite runtime behavior
+
+Target state:
+
+- FAS can confirm its own workflow-policy, lifecycle, projection, and runtime
+  boundaries in its own repo-local ADRs
+- this document can then cite those boundaries instead of inferring them here
+
+### `fas-local`
+
+Current fact from this repository:
+
+- no permanent fas-local ownership claim is grounded here
+- when the broader stack is discussed from this repository, fas-local should be
+  described only as a possible local runtime host or execution target
+
+Target state:
+
+- fas-local can define its own execution-host boundaries in its own repository
+- until that happens, it should not be described here as the permanent kernel
+  owner of the ecosystem
 
 ## Grounded Current-State Reading Of The Layers
 
 ### Intent
 
-Grounded current state:
+Current fact:
 
-- Ignite exposes explicit commands and events rather than hiding requests in renderer mutations
+- Ignite exposes explicit commands and declared events rather than hiding
+  requests in renderer mutations
 
 ### Deterministic decision
 
-Grounded current state:
+Current fact:
 
-- `ignite-core` owns the core contracts used to describe state, commands, events, and effects
+- `ignite-core` owns the core contracts and adapter-neutral helpers used to
+  describe state, commands, events, effects, and render args
 
 ### Workflow and lifecycle
 
-Grounded current state:
+Current fact:
 
-- adapters and runtime-facing package surfaces expose lifecycle distinctions such as shared versus isolated scope
-- FAS workflow files in this repository encode explicit task phases and verification stages
+- adapters and runtime-facing package surfaces expose lifecycle distinctions
+  such as shared versus isolated scope
+- FAS workflow files in this repository encode explicit task phases and
+  verification stages for repo operation
 
 ### Imperative execution over time
 
-Grounded current state:
+Current fact:
 
-- adapter integrations and the `ignite-element` runtime host deal with subscriptions, runtime setup, and cleanup
+- adapter integrations and the `ignite-element` runtime host deal with
+  subscriptions, setup, cleanup, and headless runtime execution
 
 ### Projection
 
-Grounded current state:
+Current fact:
 
-- `ignite-element` owns projection assembly and turns source snapshots into render/runtime-facing surfaces
-- `ignite-renderer` turns those projected surfaces into renderer-specific execution
+- `ignite-element` turns source snapshots, commands, effects, and schema
+  metadata into a stable projected surface
+- `ignite-renderer` consumes that projected surface to execute a renderer
+  strategy
 
 ### Product composition
 
-Grounded current state:
+Current fact:
 
-- `ignite-element` assembles the lower-level package families into the public Web Component surface for this repository
+- `ignite-element` assembles the lower-level package families into the public
+  Web Component surface for this repository
 
-## Inferred Cross-Repo Mapping
+## Cross-Repo Topology Notes
 
-The sections below are intentionally not stated as current fact for the broader ecosystem. They are the best-fit reading of ADR-003 from this workspace, but they require confirmation in those repositories.
+Any broader ecosystem topology shown from this repository must stay labeled as
+current fact or target state per participant.
 
-### `editor-save-loop`
+Explanatory only sketch:
 
-Inferred cross-repo mapping:
+```text
+Current fact here:
+  FAS workflow surfaces -> this repo's planning/verification usage
+  actor-web adapter -> optional integration surface
+  ignite-element -> grounded projection/assembly package family
 
-- likely serves as a compact example of the same layered shape, especially around explicit lifecycle and isolated side effects
+Target state elsewhere:
+  actor-web -> explicit runtime/orchestration ownership in its own repo
+  FAS -> explicit workflow-policy ownership in its own repo
+  fas-local -> explicit local execution-host ownership in its own repo
+```
 
-Not yet grounded here:
-
-- whether it should be described as the proof of the architecture
-- the exact ownership boundaries it declares for projection, orchestration, and composition
-
-### `FAS`
-
-Inferred cross-repo mapping:
-
-- likely primary ownership: workflow policy, task lifecycle, and artifact handling
-- likely does not own: product composition, renderer projection, or repo-local UI assembly
-
-Not yet grounded here:
-
-- the full repo-level split between deterministic policy, orchestration runtime, and presentation surfaces inside the separate `FAS` codebase
-
-### `actor-web`
-
-Inferred cross-repo mapping:
-
-- likely primary ownership: orchestration topology and long-lived runtime coordination
-- likely does not own: canonical workflow policy, low-level projection primitives, or design-system composition
-
-Not yet grounded here:
-
-- whether it owns topology as present fact
-- where its boundaries stop relative to workflow policy and projection
-
-### `Blueprint`
-
-Inferred cross-repo mapping:
-
-- likely primary ownership: product composition and design-system level assembly
-- likely does not own: workflow policy, runtime orchestration, or low-level decision and lifecycle primitives
-
-Not yet grounded here:
-
-- whether it is the present-fact owner of composition for the ecosystem
-- which composition boundaries remain inside `ignite-element` versus move into `Blueprint`
+That sketch is intentionally about evidence posture, not dependency direction.
 
 ## Target-State Alignment Notes
 
-If the broader stack adopts ADR-003 consistently, the alignment should look like this:
+If the broader stack adopts ADR-003 consistently, the alignment should look like
+this:
 
-- each repository states its primary ownership and explicit `does not own` boundaries
-- no repository claims orchestration, projection, and composition ownership by implication alone
+- each repository states its primary ownership and explicit `does not own`
+  boundaries
+- no repository claims orchestration, projection, or composition ownership by
+  implication alone
 - no dependency chain is treated as architecture truth without direct evidence
 - topology diagrams remain explanatory, not compliance truth by themselves
+- optional integrations remain additive rather than mandatory runtime
+  dependencies
 
 ## Open Questions And Follow-Ups
 
-- Should `editor-save-loop` be described as a worked example, a seed model, or something weaker once its repository is reviewed directly?
-- What does the separate `FAS` repository claim as the boundary between policy, lifecycle control, and runtime execution?
-- Does `actor-web` explicitly own orchestration topology, or does it share that boundary with another runtime layer?
-- Which composition responsibilities, if any, belong to `Blueprint` rather than remaining inside `ignite-element` or another product layer?
-- Do we want a later cross-repo appendix once each repository has confirmed its own ADR-003 adoption language?
+- Should this repository later link directly to FAS, actor-web, or fas-local
+  adoption ADRs once those repos confirm their boundaries?
+- Do we want a bounded cross-repo appendix later, once those adoption records
+  exist, instead of carrying target-state notes in each repo?
+- Are there any remaining local docs that still imply dependency truth where the
+  contract only supports explanatory topology?
