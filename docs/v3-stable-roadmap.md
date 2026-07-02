@@ -4,9 +4,11 @@
 
 Active plan (updated 2026-06-19). The agreed order of work from current beta
 (`3.0.0-beta.7`) to the stable `3.0.0` cut. Dependencies are wired in the FAS
-queue so the critical path is enforced; phase order for non-gating work is
-guidance. **Phase 0 (framework-interop examples) is pulled ahead of the additive
-API as gap-finders** (owner, 2026-06-19).
+queue so the critical path is enforced. As of 2026-07-02, the queue also tracks
+the remaining roadmap work through first-class FAS epics so the full completion
+policy is explicit, not just prose guidance. **Phase 0 (framework-interop
+examples) is pulled ahead of the additive API as gap-finders** (owner,
+2026-06-19).
 
 ## North star + the enforced spine
 
@@ -21,8 +23,47 @@ breaking cutover (3 tasks) ──blocks──▶ main-merge (1781292613064) ─�
 **Only breaking changes are hard gates.** Breaking changes must land before
 `3.0.0` (you cannot break after 1.0). Additive work and polish are *wanted* in
 the stable release but are **not** hard blockers — anything additive can ship as
-a `3.x` minor afterward. So the queue wires only the breaking trio → main-merge →
-cut; additive/polish are sequenced by priority + this doc.
+a `3.x` minor afterward. Owner update, 2026-07-02: for this release effort, the
+queue now enforces the remaining additive, polish, and breaking roadmap work
+before the stable cut.
+
+## Enforced roadmap epics
+
+The queue preserves both the epic grouping and the execution chain:
+
+1. `epic-ignite-ecosystem-bridge` — Phase C terminal-to-browser bridge, runtime
+   host split, igniteTools follow-ups, and actor-web cleanup.
+2. `epic-v3-additive-api-and-examples` — worked examples, test host seam,
+   `igniteShell`, effects object-form, and example README cleanup.
+3. `epic-v3-launch-polish` — docs accuracy, bundle-size numbers, Renovate, GTM
+   spike, and Angular interop.
+4. `epic-v3-breaking-release-cutover` — breaking trio, main merge, and stable
+   `3.0.0` cut.
+
+The enforced order is:
+
+```text
+igniteTools Phase C
+  -> runtime host split
+  -> igniteTools PR2 follow-ups
+  -> actor-web address cleanup
+  -> actor-web warning cleanup
+  -> worked apps
+  -> testing host seam
+  -> igniteShell
+  -> effects object-form
+  -> example README snapshot cleanup
+  -> docs accuracy / UX / positioning
+  -> bundle-size numbers
+  -> Renovate
+  -> GTM spike
+  -> Angular interop
+  -> breaking event shape
+  -> breaking view/effects context
+  -> breaking snapshot rename
+  -> main merge
+  -> stable 3.0.0 cut
+```
 
 ## Phase 0 — Framework-interop examples (gap-finders, run first)
 
@@ -33,9 +74,10 @@ React, Vue, and Svelte demos now exist under `examples/frameworks/`. Each demo
 consumes a small ignite element via that framework's **standard** custom-element
 path and documents the friction honestly; **no** per-framework `ignite*` helpers
 (those stay follow-ups — the demos tell us if friction earns one). All
-single-agent. The **Angular demo is backlogged** (owner hold-off 2026-06-20):
-held off for now, and its claims were removed from the beta docs so nothing
-over-claims. With Angular off the chain, the next example work is worked-apps.
+single-agent. The **Angular demo was previously backlogged** (owner hold-off
+2026-06-20): its claims were removed from the beta docs so nothing over-claims.
+Owner update, 2026-07-02: Angular is back in the enforced pre-stable chain after
+launch-polish work and before the breaking cutover.
 
 | Task | id | Status |
 | --- | --- | --- |
@@ -43,9 +85,9 @@ over-claims. With Angular off the chain, the next example work is worked-apps.
 | Svelte demo (`<ignite-stepper>`, redux, zero config) | `1781919336709` | ✅ done |
 | Worked app: form-with-validation (XState + ignite-JSX) | `1781962208694` | ✅ done |
 | Worked apps: nested router + dashboard-with-shared-state | `1781805264107` | ▶ next (form split out + done) |
-| Angular demo (`CUSTOM_ELEMENTS_SCHEMA`) | `1781919547313` | ⏸ backlog (owner hold-off 2026-06-20) |
+| Angular demo (`CUSTOM_ELEMENTS_SCHEMA`) | `1781919547313` | queued in enforced pre-stable chain |
 
-Order: **Vue ✓ → Svelte ✓ → worked-apps → Phase 1.** (Angular demo → backlog.)
+Order: **Vue ✓ → Svelte ✓ → worked-apps → Phase 1 → launch polish → Angular → breaking cutover.**
 
 ## Phase 1 — Gap-finder + additive API (parallel, pre-cut)
 
@@ -98,20 +140,20 @@ migration note. Decisions are locked (see `docs/v3-api-consistency.md`).
 | Uniform view/effects context `{ snapshot }` | `1781818972687` | `docs/view-context-canonicalization.md` |
 | Full `state`→`snapshot` rename (`expectState`→`expectSnapshot` + `result.state`/`schema.state`/record-trace) + `expectEvent` member form | `1781818974159` | `docs/v3-api-consistency.md` |
 
-These three are wired to **block the main-merge**. Do them after Phase 1 settles
-so the cutover absorbs any interop-surfaced gaps. Coordinate with the cross-repo
-goodway `getInitialSnapshot` spike (in `../the-good-way-bluejf`) for the single
-migration note.
+These three are wired to **block the main-merge**. Do them after the enforced
+pre-stable epic chain settles so the cutover absorbs any interop- or
+polish-surfaced gaps. Coordinate with the cross-repo goodway `getInitialSnapshot`
+spike (in `../the-good-way-bluejf`) for the single migration note.
 
-## Phase 3 — Launch polish (pre-stable; recommended, not hard gates)
+## Phase 3 — Launch polish (pre-stable; enforced for this release effort)
 
 | Task | id | Note |
 | --- | --- | --- |
 | Docs accuracy / UX / positioning (beta.6 P0) | `1781724711926` | must be right before stable docs ship |
-| Worked apps (form / nested router / dashboard) | `1781805264107` | **moved to Phase 0** — gap-finder, wired after the framework demos |
-| Bundle-size numbers | `1781805262589` | credibility |
-| Renovate (dependency currency) | `1781743752184` | infra hygiene; parallel, anytime |
-| GTM spike (CLI / embeds / video / one-pager) | `1781724738855` | read-only; produces follow-ups; not gating |
+| Worked apps (form / nested router / dashboard) | `1781805264107` | **moved to Phase 0** — gap-finder, now wired into the enforced chain |
+| Bundle-size numbers | `1781805262589` | credibility, now sequenced after docs accuracy |
+| Renovate (dependency currency) | `1781743752184` | infra hygiene, now sequenced before GTM |
+| GTM spike (CLI / embeds / video / one-pager) | `1781724738855` | read-only; produces follow-ups before Angular/breaking work |
 
 ## Phase 4 — The cut (last)
 

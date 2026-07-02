@@ -55,6 +55,11 @@ packages/ignite-renderer/src/**/*.d.ts.map
 # >>> FAS managed ignore block >>>
 # FAS runtime data and local workspace state (generated, do not commit)
 .fas/*
+# Track the queue contract so durable epics and dependency edges survive clean
+# checkouts; keep queue backups and other runtime artifacts ignored.
+!.fas/queue/
+.fas/queue/*
+!.fas/queue/tasks.json
 # Local FAS memory is generated/operational state — keep it untracked. (It is
 # covered by `.fas/*` above; do not re-add `!.fas/memory/` negations.)
 !.fas/TASKS.md

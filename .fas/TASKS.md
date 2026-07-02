@@ -1420,9 +1420,9 @@ No active tasks.
 
 - Title: examples/frameworks: Angular interop demo — consume an ignite element (CUSTOM_ELEMENTS_SCHEMA)
 - Mode: single-agent
-- Status: blocked
+- Status: queued
 - Owner: runtime
-- Note: Backlog (owner hold-off 2026-06-20) — deferred out of the active chain to avoid a false Angular claim in the beta docs; revisit after the worked-apps examples / Phase 1. Brief preserved.
+- Note: Unblocked by owner on 2026-07-02 — complete all v3 stable roadmap tasks before the breaking cutover; Angular interop is back in the enforced pre-stable chain. Prior hold-off preserved as historical context in docs/v3-stable-roadmap.md.
 - Brief: .fas/tasks/examples-frameworks-angular-interop-demo-consume-an-ignite-e.md
 
 ### Task: examples/apps: form-with-validation worked app (XState + ignite-jsx)
