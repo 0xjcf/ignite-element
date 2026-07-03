@@ -1571,8 +1571,8 @@ No active tasks.
 
 - Title: update ActorWebAdapter dev-warning wording that still references the removed commandSource config concept after the beta
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/update-actorwebadapter-dev-warning-wording-that-still-refere.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1641,8 +1641,8 @@ No active tasks.
 
 - Title: Split the agent-runtime host type (EventTarget) from the render-host Host generic so the headless runtime needs no HTMLE
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/split-the-agent-runtime-host-type-eventtarget-from-the-rende.md
 - Automation mode: advisory
 
@@ -1650,8 +1650,8 @@ No active tasks.
 
 - Title: igniteTools PR2 CodeRabbit follow-ups — bind runtime.execute, strict scalar value envelope, fix canExecute doc wording
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/ignitetools-pr2-coderabbit-follow-ups-bind-runtime-execute-s.md
 - Automation mode: advisory
 - Verification lane: fast
