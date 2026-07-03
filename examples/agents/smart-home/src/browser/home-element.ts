@@ -24,6 +24,7 @@ type BridgeMachineEvent =
 	| { type: "SERVER_CONNECTED" }
 	| { type: "SERVER_DISCONNECTED" }
 	| { type: "SERVER_ERROR"; message: string }
+	| { type: "BRIDGE_MESSAGE_ERROR"; message: string }
 	| { type: "SERVER_MESSAGE"; message: HomeBridgeMessage };
 
 const styles = `
@@ -247,6 +248,11 @@ const bridgeMachine = setup({
 				error: ({ event }) => event.message,
 			}),
 		},
+		BRIDGE_MESSAGE_ERROR: {
+			actions: assign({
+				error: ({ event }) => event.message,
+			}),
+		},
 		SERVER_MESSAGE: {
 			actions: assign(({ context, event }) =>
 				applyBridgeMessage(context, event.message),
@@ -318,7 +324,7 @@ export function connectSmartHomeBridge(
 			}
 		} catch (error) {
 			bridgeActor.send({
-				type: "SERVER_ERROR",
+				type: "BRIDGE_MESSAGE_ERROR",
 				message: error instanceof Error ? error.message : String(error),
 			});
 		}
