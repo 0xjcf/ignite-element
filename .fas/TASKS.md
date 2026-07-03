@@ -1627,8 +1627,8 @@ No active tasks.
 
 - Title: igniteTools showcase Phase C — terminal-to-browser bridge: headless Claude agent and a browser ignite UI drive one live
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/ignitetools-showcase-phase-c-terminal-to-browser-bridge-head.md
 - Verification lane: fast
 - Policy sensitivity: standard
