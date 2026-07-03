@@ -141,11 +141,20 @@ function isBridgeMessage(value: unknown): value is HomeBridgeClientMessage {
 		case "home:view":
 			return isRecord(message.view);
 		case "home:event":
-			return isRecord(message.event) && isRecord(message.view);
+			return (
+				isRecord(message.event) &&
+				typeof message.event.type === "string" &&
+				isRecord(message.view)
+			);
 		case "home:command-result":
 			return typeof message.command === "string" && isRecord(message.view);
 		case "home:error":
-			return typeof message.message === "string";
+			return (
+				typeof message.message === "string" &&
+				(message.command === undefined ||
+					typeof message.command === "string") &&
+				(message.view === undefined || isRecord(message.view))
+			);
 		case "home:command":
 			return typeof message.command === "string";
 		default:

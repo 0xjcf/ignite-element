@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"test": "vitest run",
-		"demo": "vite-node src/server.ts",
+		"demo": "vite-node --script src/server.ts",
 		"mock": "vite-node src/mock.ts",
 		"anthropic": "vite-node src/anthropic.ts",
 		"typecheck": "tsc --noEmit"

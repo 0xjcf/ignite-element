@@ -1,5 +1,6 @@
 import { createServer as createHttpServer, type Server } from "node:http";
 import { dirname, join } from "node:path";
+import { createInterface, type Interface } from "node:readline";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
 	igniteTools,
@@ -21,6 +22,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import type { HomeBridgeClientMessage, HomeBridgeMessage } from "./bridge";
 import { parseBridgeMessage, serializeBridgeMessage } from "./bridge";
 import { type AnthropicMessage, type Model, scriptedModel } from "./model";
+import { renderHome } from "./render";
 import type { HomeView } from "./render";
 import { createHome } from "./shared/home";
 
@@ -39,6 +41,17 @@ type SharedHomeAgentTools = {
 		result: NeutralToolResult<unknown, HomeView>,
 	): AnthropicToolResultBlock;
 };
+
+type TerminalTools = {
+	run(
+		call: NeutralToolCall,
+	): Promise<Result<ToolObservation<unknown, HomeView>, ToolError>>;
+};
+
+export type TerminalBridgeCommand =
+	| { type: "command"; command: string; input?: unknown }
+	| { type: "help" }
+	| { type: "exit" };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const appRoot = join(__dirname, "..");
@@ -100,7 +113,12 @@ const demoScript: AnthropicResponse[] = [
 ];
 
 export async function startSmartHomeBridgeServer(
-	options: { port?: number; runAgent?: boolean; model?: Model } = {},
+	options: {
+		port?: number;
+		runAgent?: boolean;
+		model?: Model;
+		terminal?: boolean;
+	} = {},
 ): Promise<SmartHomeBridgeServer> {
 	const port = options.port ?? Number(process.env.PORT ?? DEFAULT_PORT);
 	const home = createHome();
@@ -117,6 +135,7 @@ export async function startSmartHomeBridgeServer(
 		});
 	});
 	const wss = new WebSocketServer({ server: httpServer, path: "/bridge" });
+	let agentStarted = false;
 
 	const broadcast = (message: HomeBridgeMessage) => {
 		const payload = serializeBridgeMessage(message);
@@ -143,6 +162,7 @@ export async function startSmartHomeBridgeServer(
 		socket.send(
 			serializeBridgeMessage({ type: "home:view", view: home.getView() }),
 		);
+		startAgentOnce();
 		socket.on("message", (payload) => {
 			void handleClientMessage(
 				String(payload),
@@ -197,8 +217,19 @@ export async function startSmartHomeBridgeServer(
 
 	await listen(httpServer, port);
 	const assignedPort = resolveServerPort(httpServer, port);
+	const terminal = options.terminal
+		? startTerminalControls({
+				home,
+				tools: tools as unknown as TerminalTools,
+				broadcast,
+			})
+		: undefined;
 
-	if (options.runAgent ?? true) {
+	function startAgentOnce(): void {
+		if (agentStarted || options.runAgent === false) {
+			return;
+		}
+		agentStarted = true;
 		runSharedHomeAgent(
 			options.model ?? scriptedModel(demoScript),
 			agentTools,
@@ -212,12 +243,169 @@ export async function startSmartHomeBridgeServer(
 	return {
 		port: assignedPort,
 		close: async () => {
+			terminal?.close();
 			stream.unsubscribe();
-			wss.close();
+			await closeWebSocketServer(wss);
 			await closeServer(httpServer);
 			await vite.close();
 		},
 	};
+}
+
+export function parseTerminalCommand(
+	line: string,
+): TerminalBridgeCommand | null {
+	const parts = line.trim().split(/\s+/).filter(Boolean);
+	if (parts.length === 0) {
+		return null;
+	}
+
+	const [verb, first, second] = parts;
+	switch (verb.toLowerCase()) {
+		case "help":
+		case "?":
+			return { type: "help" };
+		case "exit":
+		case "quit":
+			return { type: "exit" };
+		case "status":
+			return { type: "command", command: "status" };
+		case "scene":
+			return first
+				? { type: "command", command: "runScene", input: first }
+				: null;
+		case "light":
+			return first && second
+				? {
+						type: "command",
+						command: "toggleLight",
+						input: { room: first, on: second === "on" },
+					}
+				: null;
+		case "temp":
+		case "thermostat":
+			return first && second
+				? {
+						type: "command",
+						command: "setThermostat",
+						input: { room: first, temp: Number(second) },
+					}
+				: null;
+		case "blinds":
+			return first && second
+				? {
+						type: "command",
+						command: "setBlinds",
+						input: { room: first, percent: Number(second) },
+					}
+				: null;
+		case "lock":
+			return first
+				? { type: "command", command: "lockDoor", input: first }
+				: null;
+		case "unlock":
+			return first
+				? { type: "command", command: "unlockDoor", input: first }
+				: null;
+		case "dim":
+			return parts.length > 1
+				? { type: "command", command: "dimRooms", input: parts.slice(1) }
+				: null;
+		default:
+			return null;
+	}
+}
+
+function startTerminalControls(options: {
+	home: ReturnType<typeof createHome>;
+	tools: TerminalTools;
+	broadcast: (message: HomeBridgeMessage) => void;
+}): { close(): void } {
+	const rl = createInterface({
+		input: process.stdin,
+		output: process.stdout,
+		prompt: "smart-home> ",
+	});
+
+	printTerminalHelp(options.home.getView());
+	rl.prompt();
+
+	let closed = false;
+	rl.on("close", () => {
+		closed = true;
+	});
+	rl.on("line", (line) => {
+		void handleTerminalLine(line, options, rl).finally(() => {
+			if (!closed) {
+				rl.prompt();
+			}
+		});
+	});
+
+	return {
+		close: () => rl.close(),
+	};
+}
+
+async function handleTerminalLine(
+	line: string,
+	options: {
+		home: ReturnType<typeof createHome>;
+		tools: TerminalTools;
+		broadcast: (message: HomeBridgeMessage) => void;
+	},
+	rl: Interface,
+): Promise<void> {
+	const parsed = parseTerminalCommand(line);
+	if (!parsed) {
+		console.log("Unknown command. Type `help` for examples.");
+		return;
+	}
+
+	if (parsed.type === "help") {
+		printTerminalHelp(options.home.getView());
+		return;
+	}
+
+	if (parsed.type === "exit") {
+		rl.close();
+		return;
+	}
+
+	const result = await options.tools.run({
+		name: parsed.command,
+		input: parsed.input,
+	});
+
+	if (isOk(result)) {
+		options.broadcast({
+			type: "home:command-result",
+			command: parsed.command,
+			ok: true,
+			view: result.value.view,
+		});
+		console.log(renderHome(result.value.view));
+		return;
+	}
+
+	options.broadcast({
+		type: "home:error",
+		command: parsed.command,
+		message: result.error.kind,
+		view: options.home.getView(),
+	});
+	console.error(`Command failed: ${result.error.kind}`);
+}
+
+function printTerminalHelp(view: HomeView): void {
+	console.log("Terminal controls share the same live home as the browser.");
+	console.log("Examples:");
+	console.log("  scene away | scene movie");
+	console.log("  light kitchen on | light living off");
+	console.log("  temp bedroom 72 | blinds living 100");
+	console.log("  lock front | unlock garage | dim living bedroom");
+	console.log("  status | help | quit");
+	console.log(renderHome(view));
 }
 
 async function createViteMiddleware(): Promise<ViteDevServer> {
@@ -310,6 +498,22 @@ function closeServer(server: Server): Promise<void> {
 	});
 }
 
+function closeWebSocketServer(wss: WebSocketServer): Promise<void> {
+	for (const client of wss.clients) {
+		client.terminate();
+	}
+
+	return new Promise((resolve, reject) => {
+		wss.close((error) => {
+			if (error) {
+				reject(error);
+				return;
+			}
+			resolve();
+		});
+	});
+}
+
 function resolveServerPort(server: Server, fallback: number): number {
 	const address = server.address();
 	if (address && typeof address === "object") {
@@ -319,6 +523,6 @@ function resolveServerPort(server: Server, fallback: number): number {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
-	const server = await startSmartHomeBridgeServer();
+	const server = await startSmartHomeBridgeServer({ terminal: true });
 	console.log(`Smart-home bridge listening on http://localhost:${server.port}`);
 }

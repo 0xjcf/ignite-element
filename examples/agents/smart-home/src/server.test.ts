@@ -8,6 +8,7 @@ import {
 	serializeBridgeMessage,
 } from "./bridge";
 import {
+	parseTerminalCommand,
 	type SmartHomeBridgeServer,
 	startSmartHomeBridgeServer,
 } from "./server";
@@ -20,6 +21,31 @@ afterEach(async () => {
 });
 
 describe("smart-home bridge server", () => {
+	it("parses terminal commands for the shared runtime", () => {
+		expect(parseTerminalCommand("scene away")).toEqual({
+			type: "command",
+			command: "runScene",
+			input: "away",
+		});
+		expect(parseTerminalCommand("light kitchen on")).toEqual({
+			type: "command",
+			command: "toggleLight",
+			input: { room: "kitchen", on: true },
+		});
+		expect(parseTerminalCommand("temp bedroom 72")).toEqual({
+			type: "command",
+			command: "setThermostat",
+			input: { room: "bedroom", temp: 72 },
+		});
+		expect(parseTerminalCommand("dim living bedroom")).toEqual({
+			type: "command",
+			command: "dimRooms",
+			input: ["living", "bedroom"],
+		});
+		expect(parseTerminalCommand("help")).toEqual({ type: "help" });
+		expect(parseTerminalCommand("quit")).toEqual({ type: "exit" });
+	});
+
 	it("routes browser commands into the shared headless runtime", async () => {
 		server = await startSmartHomeBridgeServer({ port: 0, runAgent: false });
 		const socket = new WebSocket(`ws://127.0.0.1:${server.port}/bridge`);
@@ -45,12 +71,25 @@ describe("smart-home bridge server", () => {
 
 function collectMessages(socket: WebSocket) {
 	const queued: HomeBridgeClientMessage[] = [];
-	const waiters: Array<() => void> = [];
+	const waiters: Array<{
+		resolve(): void;
+		reject(error: Error): void;
+	}> = [];
 
 	socket.on("message", (payload) => {
 		queued.push(parseBridgeMessage(String(payload)));
-		for (const resolve of waiters.splice(0)) {
-			resolve();
+		for (const waiter of waiters.splice(0)) {
+			waiter.resolve();
+		}
+	});
+	socket.on("close", () => {
+		for (const waiter of waiters.splice(0)) {
+			waiter.reject(new Error("smart-home bridge socket closed"));
+		}
+	});
+	socket.on("error", (error) => {
+		for (const waiter of waiters.splice(0)) {
+			waiter.reject(error instanceof Error ? error : new Error(String(error)));
 		}
 	});
 
@@ -64,7 +103,9 @@ function collectMessages(socket: WebSocket) {
 					const [message] = queued.splice(index, 1);
 					return message as Extract<HomeBridgeClientMessage, { type: Type }>;
 				}
-				await new Promise<void>((resolve) => waiters.push(resolve));
+				await new Promise<void>((resolve, reject) =>
+					waiters.push({ resolve, reject }),
+				);
 			}
 		},
 	};

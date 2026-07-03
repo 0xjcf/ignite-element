@@ -36,6 +36,11 @@ runtime. The WebSocket bridge is intentionally small and local to this example;
 it stands in for actor-web-native location transparency until that integration is
 available.
 
+The terminal is also interactive. Type commands such as `scene away`,
+`light kitchen on`, `temp bedroom 72`, or `status` at the `smart-home>` prompt;
+they use the same `igniteTools.run()` path as the browser and broadcast the
+updated view back to the page.
+
 ## The loop
 
 ```

@@ -74,7 +74,7 @@ const styles = `
 }
 .content {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) minmax(17rem, 22rem);
+	grid-template-columns: minmax(0, 1fr) minmax(15rem, 20rem);
 	gap: 1rem;
 	padding: clamp(1rem, 3vw, 2rem);
 }
@@ -88,7 +88,7 @@ const styles = `
 }
 .rooms {
 	display: grid;
-	grid-template-columns: repeat(3, minmax(0, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
 	gap: 1rem;
 	background: transparent;
 	border: 0;
@@ -108,6 +108,7 @@ const styles = `
 	background: #ffffff;
 	border: 1px solid #d9dfd7;
 	border-radius: 8px;
+	min-width: 0;
 }
 .metrics {
 	display: grid;
@@ -136,6 +137,10 @@ const styles = `
 	display: flex;
 	flex-wrap: wrap;
 	gap: 0.5rem;
+}
+.actions button {
+	flex: 1 1 calc(50% - 0.5rem);
+	min-width: 8rem;
 }
 button {
 	border: 1px solid #a7b4ab;
@@ -248,10 +253,15 @@ const bridgeMachine = setup({
 
 const bridgeActor = createActor(bridgeMachine).start();
 let socket: WebSocket | undefined;
+let reconnectAttempt = 0;
+let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+let activeSocketToken = 0;
+let bridgeUrl: string | undefined;
 
 export function connectSmartHomeBridge(
 	url = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/bridge`,
 ): void {
+	bridgeUrl = url;
 	if (
 		socket &&
 		(socket.readyState === WebSocket.OPEN ||
@@ -260,21 +270,43 @@ export function connectSmartHomeBridge(
 		return;
 	}
 
+	if (reconnectTimer) {
+		clearTimeout(reconnectTimer);
+		reconnectTimer = undefined;
+	}
+	detachSocket(socket);
 	bridgeActor.send({ type: "SERVER_CONNECTING" });
-	socket = new WebSocket(url);
-	socket.addEventListener("open", () => {
+	const currentSocket = new WebSocket(url);
+	const socketToken = ++activeSocketToken;
+	socket = currentSocket;
+
+	currentSocket.onopen = () => {
+		if (socketToken !== activeSocketToken) {
+			return;
+		}
+		reconnectAttempt = 0;
 		bridgeActor.send({ type: "SERVER_CONNECTED" });
-	});
-	socket.addEventListener("close", () => {
+	};
+	currentSocket.onclose = () => {
+		if (socketToken !== activeSocketToken) {
+			return;
+		}
 		bridgeActor.send({ type: "SERVER_DISCONNECTED" });
-	});
-	socket.addEventListener("error", () => {
+		scheduleReconnect(url);
+	};
+	currentSocket.onerror = () => {
+		if (socketToken !== activeSocketToken) {
+			return;
+		}
 		bridgeActor.send({
 			type: "SERVER_ERROR",
 			message: "Browser bridge connection failed.",
 		});
-	});
-	socket.addEventListener("message", (event) => {
+	};
+	currentSocket.onmessage = (event) => {
+		if (socketToken !== activeSocketToken) {
+			return;
+		}
 		try {
 			const message = parseBridgeMessage(String(event.data));
 			if (message.type !== "home:command") {
@@ -286,7 +318,35 @@ export function connectSmartHomeBridge(
 				message: error instanceof Error ? error.message : String(error),
 			});
 		}
-	});
+	};
+}
+
+function scheduleReconnect(url: string): void {
+	if (reconnectTimer) {
+		return;
+	}
+	const delay = Math.min(1000 * 2 ** reconnectAttempt, 15_000);
+	reconnectAttempt++;
+	reconnectTimer = setTimeout(() => {
+		reconnectTimer = undefined;
+		connectSmartHomeBridge(url);
+	}, delay);
+}
+
+function detachSocket(target: WebSocket | undefined): void {
+	if (!target) {
+		return;
+	}
+	target.onopen = null;
+	target.onclose = null;
+	target.onerror = null;
+	target.onmessage = null;
+	if (
+		target.readyState === WebSocket.OPEN ||
+		target.readyState === WebSocket.CONNECTING
+	) {
+		target.close();
+	}
 }
 
 function sendCommand(command: string, input?: unknown): void {
@@ -350,6 +410,13 @@ registerHomeBridge("smart-home-bridge", (ctx) => {
 								class: ctx.connected ? "dot is-connected" : "dot",
 							}),
 							connectedLabel,
+							ctx.status === "disconnected"
+								? jsx("button", {
+										type: "button",
+										onClick: () => connectSmartHomeBridge(bridgeUrl),
+										children: "Reconnect",
+									})
+								: null,
 						],
 					}),
 				],
