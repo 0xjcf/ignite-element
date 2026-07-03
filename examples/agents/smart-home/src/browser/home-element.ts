@@ -20,6 +20,7 @@ import {
 } from "../shared/home";
 
 type BridgeMachineEvent =
+	| { type: "SERVER_CONNECTING" }
 	| { type: "SERVER_CONNECTED" }
 	| { type: "SERVER_DISCONNECTED" }
 	| { type: "SERVER_ERROR"; message: string }
@@ -210,19 +211,30 @@ const bridgeMachine = setup({
 	id: "smart-home-bridge-client",
 	context: createInitialBridgeState(),
 	on: {
+		SERVER_CONNECTING: {
+			actions: assign({
+				connected: () => false,
+				status: () => "connecting" as const,
+				error: () => null,
+			}),
+		},
 		SERVER_CONNECTED: {
 			actions: assign({
 				connected: () => true,
+				status: () => "connected" as const,
 				error: () => null,
 			}),
 		},
 		SERVER_DISCONNECTED: {
 			actions: assign({
 				connected: () => false,
+				status: () => "disconnected" as const,
 			}),
 		},
 		SERVER_ERROR: {
 			actions: assign({
+				connected: () => false,
+				status: () => "disconnected" as const,
 				error: ({ event }) => event.message,
 			}),
 		},
@@ -238,7 +250,7 @@ const bridgeActor = createActor(bridgeMachine).start();
 let socket: WebSocket | undefined;
 
 export function connectSmartHomeBridge(
-	url = `ws://${window.location.host}/bridge`,
+	url = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/bridge`,
 ): void {
 	if (
 		socket &&
@@ -248,6 +260,7 @@ export function connectSmartHomeBridge(
 		return;
 	}
 
+	bridgeActor.send({ type: "SERVER_CONNECTING" });
 	socket = new WebSocket(url);
 	socket.addEventListener("open", () => {
 		bridgeActor.send({ type: "SERVER_CONNECTED" });
@@ -290,7 +303,8 @@ function sendCommand(command: string, input?: unknown): void {
 const registerHomeBridge = igniteCore({
 	source: bridgeActor,
 	cleanup: false,
-	view: ({ snapshot }) => snapshot.context,
+	view: ({ snapshot }: { snapshot: { context: HomeBridgeState } }) =>
+		snapshot.context,
 	commands: () => ({
 		toggleLight: ({ room, on }: { room: Room; on: boolean }) =>
 			sendCommand("toggleLight", { room, on }),
@@ -306,7 +320,12 @@ const registerHomeBridge = igniteCore({
 
 registerHomeBridge("smart-home-bridge", (ctx) => {
 	const view = ctx.view;
-	const connectedLabel = ctx.connected ? "Live bridge connected" : "Connecting";
+	const connectedLabel =
+		ctx.status === "connected"
+			? "Live bridge connected"
+			: ctx.status === "connecting"
+				? "Connecting"
+				: "Disconnected";
 
 	return jsxs("section", {
 		class: "shell",
@@ -464,7 +483,7 @@ function doorsPanel(
 					jsx("button", {
 						onClick: () =>
 							view.locks[door] ? unlockDoor(door) : lockDoor(door),
-						children: `${title(door)}: ${view.locks[door] ? "Locked" : "Open"}`,
+						children: `${title(door)}: ${view.locks[door] ? "Locked" : "Unlocked"}`,
 					}),
 				),
 			}),

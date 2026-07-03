@@ -26,6 +26,7 @@ export type HomeBridgeClientMessage = HomeBridgeMessage | HomeCommandMessage;
 
 export type HomeBridgeState = {
 	connected: boolean;
+	status: "connecting" | "connected" | "disconnected";
 	view: HomeView | null;
 	lastEvent: HomeBridgeEvent | null;
 	lastCommand: string | null;
@@ -36,6 +37,7 @@ export type HomeBridgeState = {
 export function createInitialBridgeState(): HomeBridgeState {
 	return {
 		connected: false,
+		status: "connecting",
 		view: null,
 		lastEvent: null,
 		lastCommand: null,
@@ -63,6 +65,7 @@ export function applyBridgeMessage(
 			return {
 				...previous,
 				connected: true,
+				status: "connected",
 				view: message.view,
 				error: null,
 				log,
@@ -71,6 +74,7 @@ export function applyBridgeMessage(
 			return {
 				...previous,
 				connected: true,
+				status: "connected",
 				view: message.view,
 				lastEvent: message.event,
 				error: null,
@@ -80,6 +84,7 @@ export function applyBridgeMessage(
 			return {
 				...previous,
 				connected: true,
+				status: "connected",
 				view: message.view,
 				lastCommand: message.command,
 				error: null,
@@ -89,6 +94,7 @@ export function applyBridgeMessage(
 			return {
 				...previous,
 				connected: true,
+				status: "connected",
 				view: message.view ?? previous.view,
 				lastCommand: message.command ?? previous.lastCommand,
 				error: message.message,

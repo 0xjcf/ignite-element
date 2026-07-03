@@ -137,6 +137,9 @@ export async function startSmartHomeBridgeServer(
 	});
 
 	wss.on("connection", (socket) => {
+		socket.on("error", (error) => {
+			console.error("smart-home bridge socket error:", error);
+		});
 		socket.send(
 			serializeBridgeMessage({ type: "home:view", view: home.getView() }),
 		);
@@ -167,6 +170,17 @@ export async function startSmartHomeBridgeServer(
 									view: home.getView(),
 								}),
 							);
+						})
+						.catch((error) => {
+							socket.send(
+								serializeBridgeMessage({
+									type: "home:error",
+									command: commandMessage.command,
+									message:
+										error instanceof Error ? error.message : String(error),
+									view: home.getView(),
+								}),
+							);
 						}),
 				(error) => {
 					socket.send(
@@ -185,12 +199,14 @@ export async function startSmartHomeBridgeServer(
 	const assignedPort = resolveServerPort(httpServer, port);
 
 	if (options.runAgent ?? true) {
-		void runSharedHomeAgent(
+		runSharedHomeAgent(
 			options.model ?? scriptedModel(demoScript),
 			agentTools,
 			prompt,
 			broadcast,
-		);
+		).catch((error) => {
+			console.error("smart-home bridge agent failed:", error);
+		});
 	}
 
 	return {

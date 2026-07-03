@@ -10,7 +10,7 @@ an LLM reads the component's `getSchema()`, calls its commands as tools, and
 observes the result — the same `getSchema()` / `execute()` contract, no UI layer.
 The Phase C demo also exposes that same live home through a browser UI: a Node
 process owns the headless runtime, a terminal agent drives it with `igniteTools`,
-and a browser `igniteCore` element observes and sends commands over a thin
+and the browser `<smart-home-bridge>` element observes and sends commands over a thin
 WebSocket bridge.
 
 ## Run it
