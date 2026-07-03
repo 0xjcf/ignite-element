@@ -433,29 +433,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1782499303572",
-      "task": "Split the agent-runtime host type (EventTarget) from the render-host Host generic so the headless runtime needs no HTMLE",
-      "priority": "medium",
-      "source": "manual",
-      "details": "Phase A made the headless runtime DOM-free via createRuntimeHost returning a bare EventTarget cast to HTMLElement (IgniteElementFactory.ts). The cast is forced because the runtime host shares the render path's Host generic (typed HTMLElement for the JSX renderer host.appendChild). The agent runtime only uses host as an EventTarget (on() add/removeEventListener; effect emits via dispatchEvent) — verified no element-only API usage on the runtime host. Properly split the runtime-host type (EventTarget) from the render-host Host generic (HTMLElement) across createComponentFactory/createProjectionFactory/agent.ts so createRuntimeHost returns EventTarget honestly and the cast disappears. Found by CodeRabbit on the Phase A PR (major, accepted-with-justification + this follow-up).\nSee .fas/tasks/split-the-agent-runtime-host-type-eventtarget-from-the-rende.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "queued",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1782494866385"
-      ],
-      "blocks": [
-        "task-1782499305182"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-06-26T18:41:43.572Z",
-      "updatedAt": "2026-06-26T18:41:43.572Z"
-    },
-    {
       "id": "task-1782499305182",
       "task": "igniteTools PR2 CodeRabbit follow-ups — bind runtime.execute, strict scalar value envelope, fix canExecute doc wording",
       "priority": "medium",
@@ -464,7 +441,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -477,7 +454,7 @@
       "prDependencies": [],
       "createdAt": "2026-06-26T18:41:45.182Z",
       "updatedAt": "2026-06-26T18:41:45.182Z",
-      "deferredReason": "dependency_reopened: task-1782499303572",
+      "deferredReason": null,
       "invalidationReason": null
     }
   ],
@@ -2783,6 +2760,29 @@
       "terminalOutcome": null,
       "workflowId": "direct-1783093106382",
       "branchName": "fas/ignite-ecosystem-bridge",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1782499303572",
+      "task": "Split the agent-runtime host type (EventTarget) from the render-host Host generic so the headless runtime needs no HTMLE",
+      "priority": "medium",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1782494866385"
+      ],
+      "blocks": [
+        "task-1782499305182"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-03T17:03:43.953Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783097767418",
+      "branchName": "fas/ignite-ecosystem-followups",
       "prStatus": "draft-only"
     }
   ],
