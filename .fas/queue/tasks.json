@@ -391,7 +391,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -404,7 +404,7 @@
       "prDependencies": [],
       "createdAt": "2026-06-24T02:49:56.312Z",
       "updatedAt": "2026-06-24T02:49:56.312Z",
-      "deferredReason": "dependency_reopened: task-1782499305182",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -430,31 +430,6 @@
       "createdAt": "2026-06-24T02:50:14.711Z",
       "updatedAt": "2026-06-24T02:50:14.711Z",
       "deferredReason": "dependency_reopened: task-1782269396312",
-      "invalidationReason": null
-    },
-    {
-      "id": "task-1782499305182",
-      "task": "igniteTools PR2 CodeRabbit follow-ups — bind runtime.execute, strict scalar value envelope, fix canExecute doc wording",
-      "priority": "medium",
-      "source": "manual",
-      "details": "Three CodeRabbit findings on shipped PR2 code, out of the Phase A (DOM-free) scope. (1) igniteTools.ts: const execute = runtime.execute is unbound — bind it via runtime.execute.bind(runtime) like canExecute already is, else an execute that relies on this breaks when run() calls it; the current fake runtime uses an arrow so the gap is uncovered — add a class/this-based fake runtime regression test. (2) tools/scalar.ts: the scalar value envelope is not strict — { value: 7, extra: true } unwraps to 7, bypassing resolveCall validation; add additionalProperties:false on encode (toProviderInputSchema) and reject extra keys on decode (fromProviderInput) so a malformed provider envelope surfaces InvalidInput; add tests. (3) docs/ignite-tools.md: the observation note overpromises that canExecute re-gates the tool list as state changes, but igniteTools snapshots the manifest once — reword to say rebuild igniteTools() (or re-derive tools) to publish a fresh canExecute-gated manifest.\nSee .fas/tasks/ignitetools-pr2-coderabbit-follow-ups-bind-runtime-execute-s.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1782499303572"
-      ],
-      "blocks": [
-        "task-1782269396312"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-06-26T18:41:45.182Z",
-      "updatedAt": "2026-07-03T17:04:35.699Z",
-      "deferredReason": null,
       "invalidationReason": null
     }
   ],
@@ -2782,6 +2757,29 @@
       "completedAt": "2026-07-03T17:03:43.953Z",
       "terminalOutcome": null,
       "workflowId": "direct-1783097767418",
+      "branchName": "fas/ignite-ecosystem-followups",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1782499305182",
+      "task": "igniteTools PR2 CodeRabbit follow-ups — bind runtime.execute, strict scalar value envelope, fix canExecute doc wording",
+      "priority": "medium",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1782499303572"
+      ],
+      "blocks": [
+        "task-1782269396312"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-03T17:11:46.866Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783098275694",
       "branchName": "fas/ignite-ecosystem-followups",
       "prStatus": "draft-only"
     }
