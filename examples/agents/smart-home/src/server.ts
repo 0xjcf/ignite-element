@@ -48,6 +48,11 @@ type TerminalTools = {
 	): Promise<Result<ToolObservation<unknown, HomeView>, ToolError>>;
 };
 
+type TerminalControls = {
+	close(): void;
+	reportCommand(command: string, view: HomeView): void;
+};
+
 export type TerminalBridgeCommand =
 	| { type: "command"; command: string; input?: unknown }
 	| { type: "help" }
@@ -136,6 +141,7 @@ export async function startSmartHomeBridgeServer(
 	});
 	const wss = new WebSocketServer({ server: httpServer, path: "/bridge" });
 	let agentStarted = false;
+	let terminal: TerminalControls | undefined;
 
 	const broadcast = (message: HomeBridgeMessage) => {
 		const payload = serializeBridgeMessage(message);
@@ -143,6 +149,9 @@ export async function startSmartHomeBridgeServer(
 			if (client.readyState === WebSocket.OPEN) {
 				client.send(payload);
 			}
+		}
+		if (message.type === "home:command-result") {
+			terminal?.reportCommand(message.command, message.view);
 		}
 	};
 
@@ -217,13 +226,13 @@ export async function startSmartHomeBridgeServer(
 
 	await listen(httpServer, port);
 	const assignedPort = resolveServerPort(httpServer, port);
-	const terminal = options.terminal
-		? startTerminalControls({
-				home,
-				tools: tools as unknown as TerminalTools,
-				broadcast,
-			})
-		: undefined;
+	if (options.terminal) {
+		terminal = startTerminalControls({
+			home,
+			tools: tools as unknown as TerminalTools,
+			broadcast,
+		});
+	}
 
 	function startAgentOnce(): void {
 		if (agentStarted || options.runAgent === false) {
@@ -320,7 +329,7 @@ function startTerminalControls(options: {
 	home: ReturnType<typeof createHome>;
 	tools: TerminalTools;
 	broadcast: (message: HomeBridgeMessage) => void;
-}): { close(): void } {
+}): TerminalControls {
 	const rl = createInterface({
 		input: process.stdin,
 		output: process.stdout,
@@ -344,6 +353,14 @@ function startTerminalControls(options: {
 
 	return {
 		close: () => rl.close(),
+		reportCommand: (command, view) => {
+			if (closed) {
+				return;
+			}
+			console.log(`\n↳ ${command}`);
+			console.log(renderHome(view));
+			rl.prompt();
+		},
 	};
 }
 
@@ -384,7 +401,6 @@ async function handleTerminalLine(
 			ok: true,
 			view: result.value.view,
 		});
-		console.log(renderHome(result.value.view));
 		return;
 	}
 
