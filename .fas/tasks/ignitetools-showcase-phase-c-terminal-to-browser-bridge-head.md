@@ -35,9 +35,28 @@ A Node process owns the canonical headless smart-home (the Phase B component, DO
 - examples/agents/smart-home/src/bridge.ts
 - examples/agents/smart-home/README.md
 - examples/agents/smart-home/GAPS.md
+- examples/agents/smart-home/package.json
+- examples/agents/smart-home/src/bridge.test.ts
+- examples/agents/smart-home/src/server.test.ts
 
 ## Scope Amendments
-- None.
+- Type: scope-clarification
+- Added at: 2026-07-03
+- Trigger: Phase C implementation needs a self-contained WebSocket dependency and focused runtime bridge tests
+- Reason: The task brief included new server/browser bridge files but omitted the example package manifest required to declare ws/@types/ws and omitted the focused test file required by the TDD acceptance criteria.
+- Added paths: examples/agents/smart-home/package.json, examples/agents/smart-home/src/bridge.test.ts
+- Evidence source: implementation planning
+- Evidence: implementation planning | .fas/state/commit-plan.json
+- Accuracy signal: Existing server/browser bridge files are new, and the example already has ws in node_modules but not package.json.
+
+- Type: scope-clarification
+- Added at: 2026-07-03
+- Trigger: Phase C server bridge needs focused runtime coverage
+- Reason: The task adds a WebSocket bridge server, so the focused runtime test lane should cover server startup and browser command routing in addition to the pure bridge protocol reducer.
+- Added paths: examples/agents/smart-home/src/server.test.ts
+- Evidence source: implementation verification
+- Evidence: implementation verification | examples/agents/smart-home/src/server.ts
+- Accuracy signal: The new server owns the shared headless runtime and bridge transport, which is central to the task acceptance.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

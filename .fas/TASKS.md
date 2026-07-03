@@ -1627,9 +1627,12 @@ No active tasks.
 
 - Title: igniteTools showcase Phase C — terminal-to-browser bridge: headless Claude agent and a browser ignite UI drive one live
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/ignitetools-showcase-phase-c-terminal-to-browser-bridge-head.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Split the agent-runtime host type (EventTarget) from the render-host Host generic so the headless runtime needs no HTMLE
 

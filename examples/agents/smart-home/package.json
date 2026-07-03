@@ -5,6 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"test": "vitest run",
+		"demo": "vite-node --script src/server.ts",
 		"mock": "vite-node src/mock.ts",
 		"anthropic": "vite-node src/anthropic.ts",
 		"typecheck": "tsc --noEmit"
@@ -21,9 +22,11 @@
 	],
 	"license": "ISC",
 	"dependencies": {
+		"ws": "^8.18.3",
 		"xstate": "5.32.1"
 	},
 	"devDependencies": {
+		"@types/ws": "^8.18.1",
 		"typescript": "^5.9.3",
 		"vite": "^7.2.7",
 		"vite-node": "^6.0.0",

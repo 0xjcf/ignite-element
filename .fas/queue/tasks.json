@@ -62,7 +62,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "verification-quality",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "deferred",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -74,7 +74,9 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-16T14:10:12.619Z",
-      "updatedAt": "2026-06-16T14:10:12.619Z"
+      "updatedAt": "2026-06-16T14:10:12.619Z",
+      "deferredReason": "dependency_reopened: task-1781805264107",
+      "invalidationReason": null
     },
     {
       "id": "task-1781724711926",
@@ -85,7 +87,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "deferred",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -97,7 +99,9 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-17T19:31:51.926Z",
-      "updatedAt": "2026-06-18T21:44:37.423Z"
+      "updatedAt": "2026-06-18T21:44:37.423Z",
+      "deferredReason": "dependency_reopened: task-1782187745669",
+      "invalidationReason": null
     },
     {
       "id": "task-1781724738855",
@@ -108,7 +112,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "developer-experience",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "deferred",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -120,7 +124,9 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-17T19:32:18.855Z",
-      "updatedAt": "2026-06-17T19:32:18.855Z"
+      "updatedAt": "2026-06-17T19:32:18.855Z",
+      "deferredReason": "dependency_reopened: task-1781743752184",
+      "invalidationReason": null
     },
     {
       "id": "task-1781743752184",
@@ -131,7 +137,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "policy-surfacing",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "deferred",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -143,7 +149,9 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-18T00:49:12.184Z",
-      "updatedAt": "2026-06-18T00:49:12.184Z"
+      "updatedAt": "2026-06-18T00:49:12.184Z",
+      "deferredReason": "dependency_reopened: task-1781805262589",
+      "invalidationReason": null
     },
     {
       "id": "task-1781805262589",
@@ -154,7 +162,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "developer-experience",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "deferred",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -166,7 +174,9 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-18T17:54:22.589Z",
-      "updatedAt": "2026-06-18T17:54:22.589Z"
+      "updatedAt": "2026-06-18T17:54:22.589Z",
+      "deferredReason": "dependency_reopened: task-1781724711926",
+      "invalidationReason": null
     },
     {
       "id": "task-1781805264107",
@@ -177,7 +187,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "developer-experience",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "deferred",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -192,7 +202,7 @@
       "prDependencies": [],
       "createdAt": "2026-06-18T17:54:24.107Z",
       "updatedAt": "2026-06-20T07:07:22.721Z",
-      "deferredReason": null,
+      "deferredReason": "dependency_reopened: task-1782269414711",
       "invalidationReason": null
     },
     {
@@ -204,7 +214,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "policy-surfacing",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "deferred",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -216,7 +226,9 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-18T21:25:47.799Z",
-      "updatedAt": "2026-06-18T21:25:47.799Z"
+      "updatedAt": "2026-06-18T21:25:47.799Z",
+      "deferredReason": "dependency_reopened: task-1781619012619",
+      "invalidationReason": null
     },
     {
       "id": "task-1781818971210",
@@ -227,7 +239,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "workflow-quality",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "deferred",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -240,7 +252,9 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-18T21:42:51.210Z",
-      "updatedAt": "2026-06-18T21:43:50.963Z"
+      "updatedAt": "2026-06-18T21:43:50.963Z",
+      "deferredReason": "dependency_reopened: task-1781919547313",
+      "invalidationReason": null
     },
     {
       "id": "task-1781818972687",
@@ -251,7 +265,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "developer-experience",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "deferred",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -264,7 +278,9 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-18T21:42:52.687Z",
-      "updatedAt": "2026-06-18T21:43:50.963Z"
+      "updatedAt": "2026-06-18T21:43:50.963Z",
+      "deferredReason": "dependency_reopened: task-1781818971210",
+      "invalidationReason": null
     },
     {
       "id": "task-1781818974159",
@@ -275,7 +291,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "developer-experience",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "deferred",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -287,7 +303,9 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-18T21:42:54.159Z",
-      "updatedAt": "2026-06-18T21:43:50.963Z"
+      "updatedAt": "2026-06-18T21:43:50.963Z",
+      "deferredReason": "dependency_reopened: task-1781818972687",
+      "invalidationReason": null
     },
     {
       "id": "task-1781818975642",
@@ -298,7 +316,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "deferred",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -310,7 +328,9 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-18T21:42:55.642Z",
-      "updatedAt": "2026-06-18T21:42:55.642Z"
+      "updatedAt": "2026-06-18T21:42:55.642Z",
+      "deferredReason": "dependency_reopened: task-1781817947799",
+      "invalidationReason": null
     },
     {
       "id": "task-1781919547313",
@@ -321,7 +341,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "verification-quality",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "deferred",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -334,7 +354,7 @@
       "prDependencies": [],
       "createdAt": "2026-06-20T01:39:07.313Z",
       "updatedAt": "2026-07-02T20:00:00.000Z",
-      "deferredReason": null,
+      "deferredReason": "dependency_reopened: task-1781724738855",
       "invalidationReason": null
     },
     {
@@ -346,7 +366,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "deferred",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -358,7 +378,9 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-23T04:09:05.669Z",
-      "updatedAt": "2026-06-23T04:09:05.669Z"
+      "updatedAt": "2026-06-23T04:09:05.669Z",
+      "deferredReason": "dependency_reopened: task-1781818975642",
+      "invalidationReason": null
     },
     {
       "id": "task-1782269396312",
@@ -369,7 +391,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "deferred",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -381,7 +403,9 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-24T02:49:56.312Z",
-      "updatedAt": "2026-06-24T02:49:56.312Z"
+      "updatedAt": "2026-06-24T02:49:56.312Z",
+      "deferredReason": "dependency_reopened: task-1782499305182",
+      "invalidationReason": null
     },
     {
       "id": "task-1782269414711",
@@ -392,7 +416,7 @@
       "taskClassification": "standard",
       "selfImprovementCategory": null,
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "deferred",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -404,31 +428,8 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-24T02:50:14.711Z",
-      "updatedAt": "2026-06-24T02:50:14.711Z"
-    },
-    {
-      "id": "task-1782494866385",
-      "task": "igniteTools showcase Phase C — terminal-to-browser bridge: headless Claude agent and a browser ignite UI drive one live",
-      "priority": "high",
-      "source": "manual",
-      "details": "A Node process owns the canonical headless smart-home (the Phase B component, DOM-free) plus the igniteTools + Claude agent loop — the terminal face. It serves a WebSocket (broadcast the view on every change, accept commands) and a static page. The browser renders the same home as an ignite-element web component (real DOM — the render path), live from the WebSocket, and is clickable to control devices (commands flow back to the server). Bidirectional: the agent (terminal) and a human (browser) drive the SAME live home in real time — agent acts then broadcast then browser animates; human clicks then command then the agent observes on its next loop. The thin WebSocket bridge stands in for actor-web native location transparency, which is not turnkey yet (the @actor-web/runtime peer is not linked here; cross-repo and publish pending) — frame the WS explicitly as the seam actor-web fills, and file a follow-up to swap in real actor-web once it lands. GAP-CATCHING: does one ignite component cleanly serve both the headless agent and the browser render (cross-runtime sharing); the view/event stream as the broadcast channel; command round-trip latency vs the observation contract; reconnection and late-join. Produces a recordable demo for a promo video. Depends on Phase B.\nSee .fas/tasks/ignitetools-showcase-phase-c-terminal-to-browser-bridge-head.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1782494830471"
-      ],
-      "blocks": [
-        "task-1782499303572"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-06-26T17:27:46.385Z",
-      "updatedAt": "2026-06-30T21:30:54.520Z",
-      "deferredReason": null,
+      "updatedAt": "2026-06-24T02:50:14.711Z",
+      "deferredReason": "dependency_reopened: task-1782269396312",
       "invalidationReason": null
     },
     {
@@ -463,7 +464,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "deferred",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -475,7 +476,9 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-26T18:41:45.182Z",
-      "updatedAt": "2026-06-26T18:41:45.182Z"
+      "updatedAt": "2026-06-26T18:41:45.182Z",
+      "deferredReason": "dependency_reopened: task-1782499303572",
+      "invalidationReason": null
     }
   ],
   "completedTasks": [
@@ -2758,6 +2761,29 @@
       "workflowId": "operator:task-1781798486122",
       "completedBy": "FAS",
       "operatorEvidence": "Merged PR #77 (https://github.com/0xjcf/ignite-element/pull/77) implemented canExecute(name), updated docs/tests/GAPS, and passed FAS closeout on beta."
+    },
+    {
+      "id": "task-1782494866385",
+      "task": "igniteTools showcase Phase C — terminal-to-browser bridge: headless Claude agent and a browser ignite UI drive one live",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1782494830471"
+      ],
+      "blocks": [
+        "task-1782499303572"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-03T16:45:58.197Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783093106382",
+      "branchName": "fas/ignite-ecosystem-bridge",
+      "prStatus": "draft-only"
     }
   ],
   "pullRequests": [],
