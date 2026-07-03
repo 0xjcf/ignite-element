@@ -36,6 +36,7 @@ export function toProviderInputSchema(
 		type: "object",
 		properties: { [SCALAR_KEY]: schema },
 		required: [SCALAR_KEY],
+		additionalProperties: false,
 	};
 }
 
@@ -54,6 +55,7 @@ export function fromProviderInput(
 		schema !== undefined &&
 		schema.type !== "object" &&
 		isPlainObject(input) &&
+		Object.keys(input).length === 1 &&
 		SCALAR_KEY in input
 	) {
 		return input[SCALAR_KEY];

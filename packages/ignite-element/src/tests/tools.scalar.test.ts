@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { IgniteSchemaObject } from "../types/schema";
+import { isErr, resolveCall } from "../tools";
 import { fromProviderInput, toProviderInputSchema } from "../tools/scalar";
+import type { IgniteSchemaObject } from "../types/schema";
 
 // Every tool-calling provider (Anthropic / OpenAI / Ollama) requires OBJECT-shaped
 // tool inputs, but the neutral manifest carries SCALAR inputSchema for single-arg
@@ -19,6 +20,7 @@ describe("toProviderInputSchema", () => {
 			type: "object",
 			properties: { value: scalar },
 			required: ["value"],
+			additionalProperties: false,
 		});
 	});
 
@@ -31,6 +33,7 @@ describe("toProviderInputSchema", () => {
 			type: "object",
 			properties: { value: scalar },
 			required: ["value"],
+			additionalProperties: false,
 		});
 	});
 
@@ -73,5 +76,22 @@ describe("fromProviderInput", () => {
 
 	it("returns input unchanged for a scalar schema when the input is not a { value } envelope", () => {
 		expect(fromProviderInput(7, { type: "number" })).toBe(7);
+	});
+
+	it("rejects a scalar envelope with extra keys by leaving it for command validation", () => {
+		const input = { value: 7, extra: true };
+		const schema: IgniteSchemaObject = { type: "number" };
+		const providerInput = fromProviderInput(input, schema);
+		const result = resolveCall(
+			[{ name: "setLimit", inputSchema: schema, gated: false }],
+			"setLimit",
+			providerInput,
+		);
+
+		expect(providerInput).toBe(input);
+		expect(isErr(result)).toBe(true);
+		if (isErr(result)) {
+			expect(result.error.kind).toBe("InvalidInput");
+		}
 	});
 });

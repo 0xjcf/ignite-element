@@ -85,8 +85,8 @@ export function igniteTools(
 	const schema = runtime.getSchema();
 	const manifest = buildManifest(schema, canExecute);
 
-	// The model supplies dynamic command names, so treat `execute` as the loose
-	// runtime contract at this boundary.
+	// The model supplies dynamic command names, so bind the runtime method before
+	// storing it and treat `execute` as the loose contract at this boundary.
 	const execute = runtime.execute.bind(runtime) as unknown as (
 		name: string,
 		payload?: unknown,
