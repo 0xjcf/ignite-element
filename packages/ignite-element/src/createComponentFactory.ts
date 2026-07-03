@@ -41,7 +41,7 @@ export type ElementFactoryOptions<
 	scope?: StateScope;
 	createAdditionalArgs?: (
 		adapter: IgniteAdapter<State, Event>,
-		host?: HTMLElement,
+		host?: EventTarget,
 	) => AdditionalRenderArgs<State, Event, RenderArgs>;
 	createRenderStrategy?: RenderStrategyFactory<View>;
 	eventTypes?: readonly (keyof Events & string)[];
@@ -124,7 +124,7 @@ type BindProjectionToElementsOptions<
 };
 
 const createDomEmit = <Events extends EventMap>(
-	host: HTMLElement,
+	host: EventTarget,
 ): EmitFromEvents<Events> => {
 	return <Type extends keyof Events & string>(
 		type: Type,
@@ -187,9 +187,10 @@ export function bindProjectionToElements<
 					`[${errorPrefix}] Host element is required for projection.`,
 				);
 			}
+			const renderHost = host as HTMLElement;
 			return projection.createAdditionalArgs(
 				adapter,
-				host,
+				renderHost,
 				createDomEmit<Events>(host),
 			);
 		},

@@ -29,7 +29,7 @@ type RuntimeResources<
 > = {
 	adapter: IgniteAdapter<State, Event>;
 	additionalArgs: AdditionalArgs;
-	host: HTMLElement;
+	host: EventTarget;
 };
 
 type AgentRuntimeOptions<
