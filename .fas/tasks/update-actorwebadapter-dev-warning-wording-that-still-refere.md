@@ -23,9 +23,27 @@ After commandSource was removed (PR #67), these messages still say 'commandSourc
 
 ## Affected files
 - packages/ignite-adapters/src/adapters/ActorWebAdapter.ts
+- packages/ignite-element/src/tests/adapters/ActorWebAdapter.test.ts
 
 ## Scope Amendments
-- None.
+- Type: test-scope
+- Added at: 2026-07-03
+- Trigger: warning wording needs runtime-facing regression coverage
+- Reason: The adapter warning/error strings are exercised through the existing ignite-element ActorWebAdapter vitest suite.
+- Added paths: packages/ignite-element/src/tests/adapters/ActorWebAdapter.test.ts
+- Evidence source: focused-test
+- Evidence: focused-test | packages/ignite-element/src/tests/adapters/ActorWebAdapter.test.ts
+- Accuracy signal: focused test failed before implementation and passed after wording update
+- Follow-up needed: none
+
+- Type: test-scope
+- Added at: 2026-07-03
+- Trigger: explicit affected test path recorded
+- Reason: Refresh generated planning and task packet after adding ActorWebAdapter.test.ts to task scope.
+- Evidence source: task-brief
+- Evidence: task-brief | .fas/tasks/update-actorwebadapter-dev-warning-wording-that-still-refere.md
+- Accuracy signal: affected files now match live ChangeSet
+- Follow-up needed: none
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

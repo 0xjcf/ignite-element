@@ -47,6 +47,7 @@ describe("anthropic.tools (neutral manifest -> Anthropic tool defs)", () => {
 				type: "object",
 				properties: { value: { type: "number", minimum: 3, maximum: 12 } },
 				required: ["value"],
+				additionalProperties: false,
 			},
 		});
 	});

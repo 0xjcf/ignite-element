@@ -48,7 +48,10 @@ Drop the object branch + the TODO(actor-web > 0.1.0) comment in packages/ignite-
 - Validate generated scope, acceptance criteria, and verification evidence before closeout to avoid workflow drift.
 
 ## Dependencies
-- None known at task creation.
+- Blocked until `@actor-web/runtime` publishes the branded string `ActorAddress`
+  and this repo bumps the installed/devDependency version. Current verification
+  on 2026-07-03 shows `@ignite-element/adapters` still resolves
+  `@actor-web/runtime@0.1.0`, which uses the legacy object address.
 
 ## Open questions
 - None captured at task creation.

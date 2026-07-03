@@ -430,7 +430,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		}
 	});
 
-	it("binds runtime methods before calling execute and getView", async () => {
+	it("binds runtime.execute before storage and calls getView with runtime context", async () => {
 		const component = new ThisBoundFakeComponent();
 		const { run } = igniteTools(component);
 		const result = await run({ name: "setLimit", input: 7 });

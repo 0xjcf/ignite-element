@@ -187,7 +187,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "developer-experience",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -202,7 +202,7 @@
       "prDependencies": [],
       "createdAt": "2026-06-18T17:54:24.107Z",
       "updatedAt": "2026-06-20T07:07:22.721Z",
-      "deferredReason": "dependency_reopened: task-1782269414711",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -403,81 +403,8 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-24T02:49:56.312Z",
-      "updatedAt": "2026-06-24T02:49:56.312Z",
-      "deferredReason": "dependency_reopened: task-1782499305182",
-      "invalidationReason": null
-    },
-    {
-      "id": "task-1782269414711",
-      "task": "update ActorWebAdapter dev-warning wording that still references the removed commandSource config concept after the beta",
-      "priority": "low",
-      "source": "manual",
-      "details": "After commandSource was removed (PR #67), these messages still say 'commandSource' which no longer exists in the public API: failInvariant 'Actor-Web commandSource is required.' at packages/ignite-adapters/src/adapters/ActorWebAdapter.ts ~289 and ~327 (resolveCommandActor), and the send() console.warn 'Cannot send events without an Actor-Web commandSource.' ~468. Reword to reference 'a command-capable source (one that exposes send())'. Internal dev warnings only; behavior unchanged. Nit deferred from PR #67 babysit to avoid churning a green PR.\nSee .fas/tasks/update-actorwebadapter-dev-warning-wording-that-still-refere.md",
-      "taskClassification": "standard",
-      "selfImprovementCategory": null,
-      "signalFingerprint": null,
-      "status": "deferred",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1782269396312"
-      ],
-      "blocks": [
-        "task-1781805264107"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-06-24T02:50:14.711Z",
-      "updatedAt": "2026-06-24T02:50:14.711Z",
-      "deferredReason": "dependency_reopened: task-1782269396312",
-      "invalidationReason": null
-    },
-    {
-      "id": "task-1782499303572",
-      "task": "Split the agent-runtime host type (EventTarget) from the render-host Host generic so the headless runtime needs no HTMLE",
-      "priority": "medium",
-      "source": "manual",
-      "details": "Phase A made the headless runtime DOM-free via createRuntimeHost returning a bare EventTarget cast to HTMLElement (IgniteElementFactory.ts). The cast is forced because the runtime host shares the render path's Host generic (typed HTMLElement for the JSX renderer host.appendChild). The agent runtime only uses host as an EventTarget (on() add/removeEventListener; effect emits via dispatchEvent) — verified no element-only API usage on the runtime host. Properly split the runtime-host type (EventTarget) from the render-host Host generic (HTMLElement) across createComponentFactory/createProjectionFactory/agent.ts so createRuntimeHost returns EventTarget honestly and the cast disappears. Found by CodeRabbit on the Phase A PR (major, accepted-with-justification + this follow-up).\nSee .fas/tasks/split-the-agent-runtime-host-type-eventtarget-from-the-rende.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "queued",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1782494866385"
-      ],
-      "blocks": [
-        "task-1782499305182"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-06-26T18:41:43.572Z",
-      "updatedAt": "2026-06-26T18:41:43.572Z"
-    },
-    {
-      "id": "task-1782499305182",
-      "task": "igniteTools PR2 CodeRabbit follow-ups — bind runtime.execute, strict scalar value envelope, fix canExecute doc wording",
-      "priority": "medium",
-      "source": "manual",
-      "details": "Three CodeRabbit findings on shipped PR2 code, out of the Phase A (DOM-free) scope. (1) igniteTools.ts: const execute = runtime.execute is unbound — bind it via runtime.execute.bind(runtime) like canExecute already is, else an execute that relies on this breaks when run() calls it; the current fake runtime uses an arrow so the gap is uncovered — add a class/this-based fake runtime regression test. (2) tools/scalar.ts: the scalar value envelope is not strict — { value: 7, extra: true } unwraps to 7, bypassing resolveCall validation; add additionalProperties:false on encode (toProviderInputSchema) and reject extra keys on decode (fromProviderInput) so a malformed provider envelope surfaces InvalidInput; add tests. (3) docs/ignite-tools.md: the observation note overpromises that canExecute re-gates the tool list as state changes, but igniteTools snapshots the manifest once — reword to say rebuild igniteTools() (or re-derive tools) to publish a fresh canExecute-gated manifest.\nSee .fas/tasks/ignitetools-pr2-coderabbit-follow-ups-bind-runtime-execute-s.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "deferred",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1782499303572"
-      ],
-      "blocks": [
-        "task-1782269396312"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-06-26T18:41:45.182Z",
-      "updatedAt": "2026-06-26T18:41:45.182Z",
-      "deferredReason": "dependency_reopened: task-1782499303572",
+      "updatedAt": "2026-07-03T17:13:42.000Z",
+      "deferredReason": "blocked-until-actor-web-runtime-branded-address: current @actor-web/runtime resolves to 0.1.0, which still uses the legacy object address",
       "invalidationReason": null
     }
   ],
@@ -2783,6 +2710,75 @@
       "terminalOutcome": null,
       "workflowId": "direct-1783093106382",
       "branchName": "fas/ignite-ecosystem-bridge",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1782499303572",
+      "task": "Split the agent-runtime host type (EventTarget) from the render-host Host generic so the headless runtime needs no HTMLE",
+      "priority": "medium",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1782494866385"
+      ],
+      "blocks": [
+        "task-1782499305182"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-03T17:03:43.953Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783097767418",
+      "branchName": "fas/ignite-ecosystem-followups",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1782499305182",
+      "task": "igniteTools PR2 CodeRabbit follow-ups — bind runtime.execute, strict scalar value envelope, fix canExecute doc wording",
+      "priority": "medium",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1782499303572"
+      ],
+      "blocks": [
+        "task-1782269396312"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-03T17:25:38.445Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783098275694",
+      "branchName": "fas/ignite-ecosystem-followups",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1782269414711",
+      "task": "update ActorWebAdapter dev-warning wording that still references the removed commandSource config concept after the beta",
+      "priority": "low",
+      "source": "manual",
+      "taskClassification": "standard",
+      "selfImprovementCategory": null,
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1782269396312"
+      ],
+      "blocks": [
+        "task-1781805264107"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-03T17:18:57.748Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783098943999",
+      "branchName": "fas/ignite-ecosystem-followups",
       "prStatus": "draft-only"
     }
   ],

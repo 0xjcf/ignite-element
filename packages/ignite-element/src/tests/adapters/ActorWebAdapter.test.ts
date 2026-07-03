@@ -224,6 +224,33 @@ describe("ActorWebAdapter", () => {
 		expect(close).toHaveBeenCalledTimes(1);
 	});
 
+	it("describes missing send() as a missing command-capable source", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+		const source = createSource() as ReturnType<typeof createSource> & {
+			send?: unknown;
+		};
+		const { send: _send, ...readModelSource } = source;
+		const adapterFactory = createActorWebAdapter(
+			readModelSource as unknown as ActorWebSource<
+				ShipmentContext,
+				ShipmentCommand,
+				ShipmentEmitted
+			>,
+		);
+		const adapter = adapterFactory();
+
+		expect(() => adapterFactory.resolveCommandActor(adapter)).toThrow(
+			"Actor-Web command-capable source (one that exposes send()) is required.",
+		);
+
+		adapter.send({ type: "CREATE_SHIPMENT", shipmentId: "shipment-123" });
+
+		expect(warn).toHaveBeenCalledWith(
+			"[ActorWebAdapter] Cannot send events without an Actor-Web command-capable source (one that exposes send()).",
+		);
+		adapter.stop();
+	});
+
 	it("dedupes the initial notification when upstream replays synchronously", () => {
 		const source = createSource({
 			replayOnSubscribe: true,

@@ -5,7 +5,11 @@ import type {
 	ActorWebReadModelSource as AdapterActorWebReadModelSource,
 	ActorWebSource as AdapterActorWebSource,
 } from "@ignite-element/adapters/actor-web";
-import { command, commandMetadataSymbol } from "@ignite-element/core";
+import {
+	command,
+	commandMetadataSymbol,
+	type IgniteAdapter,
+} from "@ignite-element/core";
 import { makeAutoObservable } from "mobx";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { createMachine, type EventFrom, setup } from "xstate";
@@ -28,7 +32,6 @@ import * as actorWebPublic from "../../actor-web";
 import { igniteCore as igniteCoreActorWebEntrypoint } from "../../actor-web";
 import type { MobxEvent } from "../../adapters/MobxAdapter";
 import type { XStateSnapshot } from "../../adapters/XStateAdapter";
-import counterStore, { counterSlice } from "../fixtures/reduxCounterStore";
 import { igniteCore } from "../../IgniteCore";
 import type { AdapterPack } from "../../IgniteElementFactory";
 import type {
@@ -73,6 +76,7 @@ import type {
 	IgniteStoryTraceSnapshotEntry as ReduxIgniteStoryTraceSnapshotEntry,
 	IgniteTestHelpers as ReduxIgniteTestHelpers,
 } from "../../redux";
+import { createAgentRuntime } from "../../runtime/agent";
 import type {
 	IgniteDomBridge,
 	IgniteDomRoleExpectation,
@@ -107,6 +111,7 @@ import {
 	igniteCore as igniteCoreXState,
 	test as xstateTest,
 } from "../../xstate";
+import counterStore, { counterSlice } from "../fixtures/reduxCounterStore";
 
 type ActorWebShipmentContext = {
 	shipmentId: string | null;
@@ -196,6 +201,24 @@ const mobxCounterFactory = () =>
 	});
 
 describe("igniteCore type inference", () => {
+	it("accepts an EventTarget host for the headless agent runtime", () => {
+		const adapter = {} as IgniteAdapter<
+			{ count: number },
+			{ type: "INCREMENT" }
+		>;
+		const runtime = createAgentRuntime({
+			eventTypes: [],
+			resolveRuntime: () => ({
+				adapter,
+				additionalArgs: {},
+				host: new EventTarget(),
+			}),
+			resolveView: () => ({}),
+		});
+
+		void runtime;
+	});
+
 	it("re-exports IgniteCoreReturn from the xstate public entrypoint", () => {
 		expectTypeOf<
 			XStateIgniteCoreReturn<

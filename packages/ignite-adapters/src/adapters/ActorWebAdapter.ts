@@ -286,7 +286,9 @@ function createSharedFactory<
 	factory.resolveStateSnapshot = () => entry.snapshot();
 	factory.resolveCommandActor = () =>
 		entry.actor ??
-		failInvariant("[ActorWebAdapter] Actor-Web commandSource is required.");
+		failInvariant(
+			"[ActorWebAdapter] Actor-Web command-capable source (one that exposes send()) is required.",
+		);
 	return factory;
 }
 
@@ -324,7 +326,9 @@ function createIsolatedFactory<
 				adapter,
 				"[ActorWebAdapter] Unable to resolve actor for facade callbacks.",
 			).actor ??
-			failInvariant("[ActorWebAdapter] Actor-Web commandSource is required.")
+			failInvariant(
+				"[ActorWebAdapter] Actor-Web command-capable source (one that exposes send()) is required.",
+			)
 		);
 	};
 
@@ -465,7 +469,7 @@ function createAdapterEntry<
 
 			if (!commandSource) {
 				console.warn(
-					"[ActorWebAdapter] Cannot send events without an Actor-Web commandSource.",
+					"[ActorWebAdapter] Cannot send events without an Actor-Web command-capable source (one that exposes send()).",
 				);
 				return;
 			}

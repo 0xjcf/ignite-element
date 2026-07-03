@@ -86,7 +86,7 @@ type FactoryOptions<
 	eventTypes?: readonly string[];
 	createAdditionalArgs?: (
 		adapter: IgniteAdapter<State, Event>,
-		host?: HTMLElement,
+		host?: EventTarget,
 	) => AdditionalRenderArgs<State, Event, RenderArgs>;
 	resolveView?: (adapter: IgniteAdapter<State, Event>) => RuntimeView;
 	createRenderStrategy?: RenderStrategyFactory<View>;
@@ -189,7 +189,7 @@ export default function igniteElementFactory<
 		Event,
 		RenderArgs
 	> | null = null;
-	let runtimeHost: HTMLElement | null = null;
+	let runtimeHost: EventTarget | null = null;
 	let lifecycleSequence = 0;
 	let lifecycleInstanceSequence = 0;
 	const lifecycleObservers = new Set<
@@ -198,7 +198,7 @@ export default function igniteElementFactory<
 
 	const createAdditionalArgs: (
 		adapter: IgniteAdapter<State, Event>,
-		host?: HTMLElement,
+		host?: EventTarget,
 	) => AdditionalRenderArgs<State, Event, RenderArgs> =
 		options?.createAdditionalArgs ??
 		((_) => ({}) as AdditionalRenderArgs<State, Event, RenderArgs>);
@@ -327,23 +327,11 @@ export default function igniteElementFactory<
 		sharedInstanceCount = 0;
 	};
 
-	// The headless agent runtime (getSchema/execute/on/watchView) only ever uses
-	// its host as an EventTarget — `on()` calls host.addEventListener/
-	// removeEventListener and effect emits go through host.dispatchEvent. So in a
-	// non-DOM runtime (Node, edge) it does not need a real element: a bare
-	// EventTarget keeps the agent runtime fully DOM-free. The render path
-	// (createRuntimeDomBridge / the custom element) creates its own real element
-	// and still requires a DOM.
-	//
-	// The `as unknown as HTMLElement` cast is forced because the runtime host
-	// flows through the same `Host` generic the render path uses (typed
-	// HTMLElement for the JSX renderer's host.appendChild). It is safe here — no
-	// code path touches the runtime host with element-only APIs (verified) — but
-	// the proper fix is to split the agent-runtime host type (EventTarget) from
-	// the render-host `Host` generic so this cast disappears (tracked follow-up).
-	const createRuntimeHost = (): HTMLElement =>
+	// The headless agent runtime only needs EventTarget APIs for `on()` and
+	// effect-emitted events. The DOM render path creates its own real element.
+	const createRuntimeHost = (): EventTarget =>
 		typeof document === "undefined"
-			? (new EventTarget() as unknown as HTMLElement)
+			? new EventTarget()
 			: document.createElement("div");
 
 	const createRuntimeDomBridge = (

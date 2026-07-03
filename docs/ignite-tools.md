@@ -83,14 +83,16 @@ because that is the command's true contract (`getSchema()` must not lie). So the
 wrap/unwrap lives only at the provider boundary, in shared pure helpers
 (`tools/scalar.ts`):
 
-- `toProviderInputSchema(schema)` — wraps a scalar under a clean `value` key
-  (`{ type: "object", properties: { value: schema }, required: ["value"] }`);
-  object/no-arg schemas pass through unchanged. Adapters call it in `tools()`.
-- `fromProviderInput(input, schema)` — unwraps the model's `{ value: x }` back to
-  `x`, **gated on the manifest schema being scalar** (collision-free: an object
-  command that legitimately has its own `value` field is never unwrapped).
-  Adapters call it in `toolCalls()`, which is why the port hands `toolCalls` the
-  manifest.
+- `toProviderInputSchema(schema)` — wraps a scalar under a clean, strict `value`
+  key (`{ type: "object", properties: { value: schema }, required: ["value"],
+  additionalProperties: false }`); object/no-arg schemas pass through unchanged.
+  Adapters call it in `tools()`.
+- `fromProviderInput(input, schema)` — unwraps the model's exact `{ value: x }`
+  back to `x`, **gated on the manifest schema being scalar** (collision-free: an
+  object command that legitimately has its own `value` field is never unwrapped).
+  Extra keys keep the provider object intact so `resolveCall` reports
+  `InvalidInput`. Adapters call it in `toolCalls()`, which is why the port hands
+  `toolCalls` the manifest.
 
 The constraint is universal across providers, so it is fixed once in the port +
 two helpers; the OpenAI/Ollama dialect reuses them verbatim.
@@ -216,7 +218,10 @@ to the provider's `tool_result` (`is_error: true`) so the model can recover.
 
 - **typed-view** ✓ + **`getSchema().view`** ✓ (done) — typed manifest inputs + view grounding.
 - **`canExecute`** (`docs/can-execute.md`) — composes for availability-gated tools
-  by omitting unavailable commands from the manifest. Older runtimes without the
+  by omitting unavailable commands when `igniteTools(runtime)` builds the manifest
+  and by re-checking availability when `run()` routes a call. To publish a fresh
+  provider tool list after state changes, rebuild `igniteTools(runtime)` or
+  re-derive provider tools from a fresh manifest. Older runtimes without the
   optional method still offer all commands for compatibility.
 
 ## Alternatives considered

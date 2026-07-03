@@ -1562,7 +1562,7 @@ No active tasks.
 
 - Title: collapse ignite ActorWebAddress tolerant union to pure string once @actor-web/runtime publishes the opaque branded addre
 - Mode: single-agent
-- Status: queued
+- Status: deferred
 - Owner: runtime
 - Brief: .fas/tasks/collapse-ignite-actorwebaddress-tolerant-union-to-pure-strin.md
 - Automation mode: advisory
@@ -1571,9 +1571,12 @@ No active tasks.
 
 - Title: update ActorWebAdapter dev-warning wording that still references the removed commandSource config concept after the beta
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/update-actorwebadapter-dev-warning-wording-that-still-refere.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: add an observe() observation channel to the neutral igniteTools core (events + view stream) for the agent act-observe lo
 
@@ -1638,8 +1641,8 @@ No active tasks.
 
 - Title: Split the agent-runtime host type (EventTarget) from the render-host Host generic so the headless runtime needs no HTMLE
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/split-the-agent-runtime-host-type-eventtarget-from-the-rende.md
 - Automation mode: advisory
 
@@ -1647,10 +1650,13 @@ No active tasks.
 
 - Title: igniteTools PR2 CodeRabbit follow-ups — bind runtime.execute, strict scalar value envelope, fix canExecute doc wording
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/ignitetools-pr2-coderabbit-follow-ups-bind-runtime-execute-s.md
 - Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Fix example runtime test lanes before next igniteTools task
 
