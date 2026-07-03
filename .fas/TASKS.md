@@ -1638,8 +1638,8 @@ No active tasks.
 
 - Title: Split the agent-runtime host type (EventTarget) from the render-host Host generic so the headless runtime needs no HTMLE
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/split-the-agent-runtime-host-type-eventtarget-from-the-rende.md
 - Automation mode: advisory
 
