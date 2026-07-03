@@ -1571,9 +1571,12 @@ No active tasks.
 
 - Title: update ActorWebAdapter dev-warning wording that still references the removed commandSource config concept after the beta
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/update-actorwebadapter-dev-warning-wording-that-still-refere.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: add an observe() observation channel to the neutral igniteTools core (events + view stream) for the agent act-observe lo
 
