@@ -1697,8 +1697,8 @@ No active tasks.
 
 - Title: Create ecosystem architecture constitution docs and ignite-element ADR
 - Mode: 6-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/create-ecosystem-architecture-constitution-docs-and-ignite-e.md
 - Verification lane: fast
 - Policy sensitivity: standard

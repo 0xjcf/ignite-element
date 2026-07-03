@@ -26,6 +26,8 @@ Apply the ecosystem architecture review to ignite-element's shared architecture 
 - docs/adr-003-shared-arc.md
 - docs/shared-architecture-model.md
 - docs/architecture.md
+- .gitignore
+- docs/v3-stable-roadmap.md
 
 ## Scope Amendments
 - Type: scope-clarification
@@ -36,6 +38,15 @@ Apply the ecosystem architecture review to ignite-element's shared architecture 
 - Evidence source: delegated handoff
 - Evidence: delegated handoff | .fas/state/agent-orchestration-execution.json
 - Accuracy signal: fas_senior_engineer token was blocked until explicit affected files were added
+
+- Type: scope-clarification
+- Added at: 2026-07-03
+- Trigger: PR 81 merged with architecture-doc follow-through files outside the original explicit affected-file list
+- Reason: The architecture-doc task also committed the roadmap placement that captured the enforced epic ordering and the gitignore preservation/update produced by FAS closeout; both were already reviewed and merged with the task, but the brief needed the explicit affected-file record for FAS closeout.
+- Added paths: .gitignore, docs/v3-stable-roadmap.md
+- Evidence source: merged PR 81 closeout
+- Evidence: merged PR 81 closeout | .fas/state/closeout-readiness/latest.json
+- Accuracy signal: fas validate-task held on these two unexpected files after PR 81 was merged
 
 ## Implementation plan
 - Update ADR-003 normative language and non-goals
