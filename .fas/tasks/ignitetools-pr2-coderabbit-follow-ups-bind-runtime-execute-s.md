@@ -37,9 +37,37 @@ Three CodeRabbit findings on shipped PR2 code, out of the Phase A (DOM-free) sco
 - packages/ignite-element/src/tests/tools.test.ts
 - packages/ignite-element/src/tests/tools.scalar.test.ts
 - docs/ignite-tools.md
+- .changeset/strict-scalar-tool-envelope.md
+- packages/ignite-element/src/tests/tools.anthropic.test.ts
 
 ## Scope Amendments
-- None.
+- Type: implementation-scope
+- Added at: 2026-07-03
+- Trigger: strict scalar envelope requires package changeset and Anthropic golden fixture update
+- Reason: Acceptance criteria require a changeset, and adding additionalProperties:false changes the provider-facing Anthropic schema fixture.
+- Evidence source: closeout-readiness
+- Evidence: closeout-readiness | .fas/state/closeout-readiness/latest.json
+- Accuracy signal: live ChangeSet after focused tests
+- Follow-up needed: none
+
+- Type: implementation-scope
+- Added at: 2026-07-03
+- Trigger: strict scalar wrapper changed provider schema
+- Reason: The package patch changeset is required by acceptance criteria, and the Anthropic golden test must reflect additionalProperties:false emitted by the shared scalar helper.
+- Added paths: .changeset/strict-scalar-tool-envelope.md, packages/ignite-element/src/tests/tools.anthropic.test.ts
+- Evidence source: focused-verification
+- Evidence: focused-verification | .fas/state/verification/validate-task-1783098491.log
+- Accuracy signal: focused tests and typecheck passed before scope refresh
+- Follow-up needed: none
+
+- Type: implementation-scope
+- Added at: 2026-07-03
+- Trigger: explicit affected-file amendment recorded
+- Reason: Refresh generated planning and task packet after adding changeset and Anthropic fixture to the task scope.
+- Evidence source: task-brief
+- Evidence: task-brief | .fas/tasks/ignitetools-pr2-coderabbit-follow-ups-bind-runtime-execute-s.md
+- Accuracy signal: affected files now match live ChangeSet
+- Follow-up needed: none
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

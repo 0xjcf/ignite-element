@@ -1647,10 +1647,13 @@ No active tasks.
 
 - Title: igniteTools PR2 CodeRabbit follow-ups — bind runtime.execute, strict scalar value envelope, fix canExecute doc wording
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/ignitetools-pr2-coderabbit-follow-ups-bind-runtime-execute-s.md
 - Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Fix example runtime test lanes before next igniteTools task
 
