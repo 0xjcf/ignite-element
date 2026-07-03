@@ -168,10 +168,14 @@ button.primary {
 .pill {
 	display: inline-flex;
 	border-radius: 999px;
+	margin: 0 0 0.75rem;
 	padding: 0.25rem 0.55rem;
 	background: #e6eee9;
 	color: #245b44;
 	font-size: 0.75rem;
+}
+.side-section .pill {
+	margin-bottom: 0.85rem;
 }
 .log {
 	display: grid;
