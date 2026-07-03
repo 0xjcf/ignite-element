@@ -1,4 +1,4 @@
-# igniteTools gaps — found dogfooding the headless smart-home agent (Phase B)
+# igniteTools gaps — found dogfooding the headless smart-home agent
 
 Building a real agent loop against `getSchema()` / `execute()` / `igniteTools` +
 the Anthropic adapter surfaced these. Ordered by impact. Each is a candidate
@@ -79,3 +79,21 @@ declared with `command.array(command.enum(ROOMS), { minItems: 1 })`. The
 Anthropic schema test proves the array schema is object-wrapped under
 `input_schema.properties.value`, and the round-trip test proves `toolCalls()`
 unwraps `{ value: [...] }` before `run()` dims the selected rooms.
+
+## 7. ✅ PHASE C DEMO — terminal-to-browser bridge now shares one live runtime
+
+**Was:** Phase B proved the terminal agent could drive a DOM-free runtime, but
+the browser and terminal still lived as separate validation stories. There was
+no demo where the agent and a human UI acted on the same canonical home.
+
+**Now:** `npm run demo` starts one Node-owned `createHome()` runtime, runs a
+scripted `igniteTools` terminal agent against it, serves a browser
+`<smart-home-bridge>` Ignite element, and links both sides with a thin WebSocket
+protocol. Browser commands route back through `igniteTools.run()`, while
+`igniteTools.observe()` broadcasts runtime events and view updates.
+
+**Still a follow-up:** the bridge is intentionally example-local. It is the
+actor-web-native location-transparency stand-in, not the final integration. When
+actor-web exposes the durable transport contract, replace `src/bridge.ts` /
+`src/server.ts` with the real actor-web source boundary and keep the Ignite UI
+on the same `source`-first shape.

@@ -8,6 +8,10 @@ headless in Node, with no DOM and no jsdom**.
 It's the agent analog of the other examples: instead of a person clicking a UI,
 an LLM reads the component's `getSchema()`, calls its commands as tools, and
 observes the result — the same `getSchema()` / `execute()` contract, no UI layer.
+The Phase C demo also exposes that same live home through a browser UI: a Node
+process owns the headless runtime, a terminal agent drives it with `igniteTools`,
+and a browser `igniteCore` element observes and sends commands over a thin
+WebSocket bridge.
 
 ## Run it
 
@@ -19,9 +23,18 @@ npm run mock
 npm install @anthropic-ai/sdk
 ANTHROPIC_API_KEY=sk-... npm run anthropic -- "it's movie night"
 
+# terminal agent + browser UI, sharing one live headless home
+npm run demo
+
 # the always-on assertions (this is what proves it runs headless)
 npm test
 ```
+
+`npm run demo` serves <http://localhost:5177>. The scripted terminal agent starts
+automatically and browser clicks route back into the same shared headless
+runtime. The WebSocket bridge is intentionally small and local to this example;
+it stands in for actor-web-native location transparency until that integration is
+available.
 
 ## The loop
 
@@ -49,6 +62,9 @@ mock or the real `@anthropic-ai/sdk`) and runs the loop in `src/agentLoop.ts`.
   `tool_result` (never a throw), so the model can recover.
 - **Events as observations** — `runScene` emits `scene-applied`, captured in the
   command window.
+- **Terminal-to-browser bridge** — `src/server.ts` hosts one canonical headless
+  home, `igniteTools(...).observe()` broadcasts state changes, and
+  `<smart-home-bridge>` renders the same runtime as an Ignite web component.
 
 ## Gaps found
 
