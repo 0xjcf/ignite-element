@@ -391,7 +391,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "deferred",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -403,8 +403,8 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-24T02:49:56.312Z",
-      "updatedAt": "2026-06-24T02:49:56.312Z",
-      "deferredReason": null,
+      "updatedAt": "2026-07-03T17:13:42.000Z",
+      "deferredReason": "blocked-until-actor-web-runtime-branded-address: current @actor-web/runtime resolves to 0.1.0, which still uses the legacy object address",
       "invalidationReason": null
     },
     {
