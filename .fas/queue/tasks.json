@@ -202,7 +202,7 @@
       "prDependencies": [],
       "createdAt": "2026-06-18T17:54:24.107Z",
       "updatedAt": "2026-06-20T07:07:22.721Z",
-      "deferredReason": "dependency_reopened: task-1782269414711",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -405,31 +405,6 @@
       "createdAt": "2026-06-24T02:49:56.312Z",
       "updatedAt": "2026-07-03T17:13:42.000Z",
       "deferredReason": "blocked-until-actor-web-runtime-branded-address: current @actor-web/runtime resolves to 0.1.0, which still uses the legacy object address",
-      "invalidationReason": null
-    },
-    {
-      "id": "task-1782269414711",
-      "task": "update ActorWebAdapter dev-warning wording that still references the removed commandSource config concept after the beta",
-      "priority": "low",
-      "source": "manual",
-      "details": "After commandSource was removed (PR #67), these messages still say 'commandSource' which no longer exists in the public API: failInvariant 'Actor-Web commandSource is required.' at packages/ignite-adapters/src/adapters/ActorWebAdapter.ts ~289 and ~327 (resolveCommandActor), and the send() console.warn 'Cannot send events without an Actor-Web commandSource.' ~468. Reword to reference 'a command-capable source (one that exposes send())'. Internal dev warnings only; behavior unchanged. Nit deferred from PR #67 babysit to avoid churning a green PR.\nSee .fas/tasks/update-actorwebadapter-dev-warning-wording-that-still-refere.md",
-      "taskClassification": "standard",
-      "selfImprovementCategory": null,
-      "signalFingerprint": null,
-      "status": "deferred",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1782269396312"
-      ],
-      "blocks": [
-        "task-1781805264107"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-06-24T02:50:14.711Z",
-      "updatedAt": "2026-06-24T02:50:14.711Z",
-      "deferredReason": "dependency_reopened: task-1782269396312",
       "invalidationReason": null
     }
   ],
@@ -2780,6 +2755,29 @@
       "completedAt": "2026-07-03T17:11:46.866Z",
       "terminalOutcome": null,
       "workflowId": "direct-1783098275694",
+      "branchName": "fas/ignite-ecosystem-followups",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1782269414711",
+      "task": "update ActorWebAdapter dev-warning wording that still references the removed commandSource config concept after the beta",
+      "priority": "low",
+      "source": "manual",
+      "taskClassification": "standard",
+      "selfImprovementCategory": null,
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1782269396312"
+      ],
+      "blocks": [
+        "task-1781805264107"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-03T17:18:57.748Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783098943999",
       "branchName": "fas/ignite-ecosystem-followups",
       "prStatus": "draft-only"
     }
