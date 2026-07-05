@@ -38,6 +38,14 @@ const defineRouteElement = igniteCore({
 	}),
 });
 
+export const shouldHandleClientNavigation = (event: MouseEvent): boolean =>
+	!event.defaultPrevented &&
+	event.button === 0 &&
+	!event.metaKey &&
+	!event.ctrlKey &&
+	!event.shiftKey &&
+	!event.altKey;
+
 const parentLink = (
 	href: string,
 	label: string,
@@ -52,6 +60,10 @@ const parentLink = (
 			class={isActive ? "nav-link is-active" : "nav-link"}
 			aria-current={isActive ? "page" : undefined}
 			onClick={(event: Event) => {
+				if (!shouldHandleClientNavigation(event as MouseEvent)) {
+					return;
+				}
+
 				event.preventDefault();
 				navigate(href);
 			}}

@@ -46,7 +46,14 @@ export abstract class IgniteMoveSafeLifecycleElement extends HTMLElement {
 			}
 
 			this.disconnectTeardownScheduled = false;
-			teardown();
+			try {
+				teardown();
+			} catch (error) {
+				console.error(
+					"[IgniteElement] Deferred disconnect cleanup failed.",
+					error,
+				);
+			}
 		});
 	}
 }
