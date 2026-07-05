@@ -381,31 +381,6 @@
       "updatedAt": "2026-06-23T04:09:05.669Z",
       "deferredReason": "dependency_reopened: task-1781818975642",
       "invalidationReason": null
-    },
-    {
-      "id": "task-1782269396312",
-      "task": "collapse ignite ActorWebAddress tolerant union to pure string once @actor-web/runtime publishes the opaque branded addre",
-      "priority": "medium",
-      "source": "manual",
-      "details": "Drop the object branch + the TODO(actor-web > 0.1.0) comment in packages/ignite-adapters/src/adapters/ActorWebAdapter.ts so ActorWebAddress = string. Gated on: actor-web publishing the branded ActorAddress AND ignite bumping its @actor-web/runtime devDep (currently ^0.1.0, object address). Once installed, the drift guard actor-web-canonical-compat.types.ts enforces opaque string against the real branded runtime. Shipped tolerant in beta.8 (PR #67).\nSee .fas/tasks/collapse-ignite-actorwebaddress-tolerant-union-to-pure-strin.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "deferred",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1782499305182"
-      ],
-      "blocks": [
-        "task-1782269414711"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-06-24T02:49:56.312Z",
-      "updatedAt": "2026-07-03T17:13:42.000Z",
-      "deferredReason": "blocked-until-actor-web-runtime-branded-address: current @actor-web/runtime resolves to 0.1.0, which still uses the legacy object address",
-      "invalidationReason": null
     }
   ],
   "completedTasks": [
@@ -2780,6 +2755,31 @@
       "workflowId": "direct-1783098943999",
       "branchName": "fas/ignite-ecosystem-followups",
       "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1782269396312",
+      "task": "collapse ignite ActorWebAddress tolerant union to pure string once @actor-web/runtime publishes the opaque branded addre",
+      "priority": "medium",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1782499305182"
+      ],
+      "blocks": [
+        "task-1782269414711"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": "https://github.com/0xjcf/ignite-element/pull/84",
+      "completedAt": "2026-07-05T18:19:11.566Z",
+      "terminalOutcome": null,
+      "branchName": "fas/actorweb-address-collapse",
+      "prStatus": "merged",
+      "workflowId": "operator:task-1782269396312",
+      "completedBy": "Codex",
+      "operatorEvidence": "Completed by PR #84 (fix(actor-web): collapse address contract to string), merged into beta as e0f02553294edb6bd71d5b65a017b679cdd6bc41. Verified on merged beta with .fas/scripts/verify.sh --full and refreshed reviewer summary; CodeRabbit CLI on the PR branch raised 0 issues."
     }
   ],
   "pullRequests": [],
