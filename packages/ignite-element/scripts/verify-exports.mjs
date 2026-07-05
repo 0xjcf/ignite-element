@@ -43,7 +43,15 @@ const removedStableSubpaths = [
 ];
 
 const requiredExports = [
-	[".", { StateScope: "object", event: "function", test: "function" }],
+	[
+		".",
+		{
+			StateScope: "object",
+			event: "function",
+			igniteShell: "function",
+			test: "function",
+		},
+	],
 	[
 		"./xstate",
 		{ igniteCore: "function", matchState: "function", test: "function" },

@@ -561,16 +561,27 @@ export default function igniteElementFactory<
 				}
 
 				connectedCallback(): void {
+					const reconnectedBeforeTeardown = this.hasPendingDisconnectTeardown;
+					const { adapter } = resolveSharedResources();
+					if (this.adapter !== adapter) {
+						this.initializeAdapter(adapter);
+					}
 					this.additionalArgs = resolveSharedAdditionalArgs(this);
 					exposeCommands(this, this.additionalArgs as Record<string, unknown>);
-					this.disconnectAttrObserver = setupAttributeObservation(this);
-					sharedInstanceCount += 1;
+					this.disconnectAttrObserver ??= setupAttributeObservation(this);
+					if (!reconnectedBeforeTeardown) {
+						sharedInstanceCount += 1;
+					}
 					super.connectedCallback();
 				}
 
 				disconnectedCallback(): void {
-					this.disconnectAttrObserver?.();
 					super.disconnectedCallback();
+				}
+
+				protected onTrueDisconnect(): void {
+					this.disconnectAttrObserver?.();
+					this.disconnectAttrObserver = undefined;
 					cleanupAdditionalArgs(this.additionalArgs);
 					recordLifecycle(
 						"cleaned-up",
@@ -641,7 +652,12 @@ export default function igniteElementFactory<
 			}
 
 			disconnectedCallback(): void {
+				super.disconnectedCallback();
+			}
+
+			protected onTrueDisconnect(): void {
 				this.disconnectAttrObserver?.();
+				this.disconnectAttrObserver = undefined;
 				cleanupAdditionalArgs(this.additionalArgs);
 				this.additionalArgs = undefined;
 				this.adapterInstance = undefined;
@@ -651,7 +667,6 @@ export default function igniteElementFactory<
 					lifecycleScope,
 					this.lifecycleHooks.instanceId,
 				);
-				super.disconnectedCallback();
 			}
 
 			protected renderView(): View {

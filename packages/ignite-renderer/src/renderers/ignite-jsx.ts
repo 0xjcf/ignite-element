@@ -8,6 +8,7 @@ registerRenderStrategy("ignite-jsx", createIgniteJsxRenderStrategy);
 export {
 	clearNoDiffDenylistForTests,
 	createIgniteJsxRenderStrategy,
+	mountIgniteJsxOnce,
 	registerNoDiffDenylistTag,
 } from "./jsx/IgniteJsxRenderStrategy";
 export { Fragment, jsx, jsxDEV, jsxs } from "./jsx/jsx-runtime";

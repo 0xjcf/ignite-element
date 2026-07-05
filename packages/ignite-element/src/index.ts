@@ -16,6 +16,13 @@ export type {
 	NumberCommandInputOptions,
 } from "@ignite-element/core";
 export { event, StateScope } from "@ignite-element/core";
+export {
+	igniteShell,
+	type IgniteShellConfig,
+	type IgniteShellHost,
+	type IgniteShellRegistrar,
+	type IgniteShellTeardown,
+} from "./igniteShell";
 export type {
 	IgniteDomBridge,
 	IgniteDomRoleExpectation,
