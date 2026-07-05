@@ -1302,9 +1302,12 @@ No active tasks.
 
 - Title: feat: igniteShell sourceless composition root + shared move-safe teardown (per docs/ignite-shell.md)
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/feat-igniteshell-sourceless-composition-root-shared-move-saf.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: BREAKING (v3 cutover): canonical flat tagged event { type, ...fields } across emit/observe/expectEvent per docs/event-sh
 
