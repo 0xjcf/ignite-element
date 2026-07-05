@@ -1,6 +1,6 @@
 ---
 "ignite-element": minor
-"@ignite-element/renderer": patch
+"@ignite-element/renderer": minor
 ---
 
 Add the `igniteShell` sourceless composition-root primitive and make isolated
