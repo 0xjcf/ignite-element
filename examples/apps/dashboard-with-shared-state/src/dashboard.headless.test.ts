@@ -67,4 +67,19 @@ describe("dashboard shared state — headless runtime", () => {
 
 		actor.stop();
 	});
+
+	it("does not emit dismissal events for already dismissed alerts", async () => {
+		const actor = createSharedDashboard();
+		const summary = makeSummaryRuntime(actor);
+
+		await summary.execute("dismissAlert", "latency");
+		const result = await summary.execute("dismissAlert", "latency");
+
+		expect(result.events).not.toContainEqual({
+			type: "alertDismissed",
+			payload: { type: "alertDismissed", id: "latency" },
+		});
+
+		actor.stop();
+	});
 });

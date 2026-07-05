@@ -1775,6 +1775,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: fix: address CodeRabbit closeout findings for v3 examples epic
+
+- Title: fix: address CodeRabbit closeout findings for v3 examples epic
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/fix-address-coderabbit-closeout-findings-for-v3-examples-epi.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>

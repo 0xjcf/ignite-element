@@ -1,6 +1,6 @@
 import { igniteCore } from "ignite-element/xstate";
 import styles from "../styles.css?raw";
-import { routerActor } from "./routerStore";
+import { routerActor, routerNavigation } from "./routerStore";
 import type { DocsSection, ParentRoute, SettingsPanel } from "./routerMachine";
 
 const parentLinks: Array<{ href: string; label: string; route: ParentRoute }> =
@@ -29,12 +29,12 @@ const defineRouteElement = igniteCore({
 		path: snapshot.context.path,
 		label: snapshot.context.label,
 	}),
-	commands: ({ actor }) => ({
-		navigate: (to: string) => actor.send({ type: "NAVIGATE", to }),
+	commands: () => ({
+		navigate: (to: string) => routerNavigation.navigate(to),
 		openDocSection: (section: DocsSection) =>
-			actor.send({ type: "OPEN_DOC_SECTION", section }),
+			routerNavigation.openDocSection(section),
 		openSettingsPanel: (panel: SettingsPanel) =>
-			actor.send({ type: "OPEN_SETTINGS_PANEL", panel }),
+			routerNavigation.openSettingsPanel(panel),
 	}),
 });
 

@@ -1,4 +1,4 @@
-import { assign, emit, setup } from "xstate";
+import { assign, enqueueActions, setup } from "xstate";
 
 export type Team = "support" | "ops" | "success";
 export type Range = "day" | "week";
@@ -92,21 +92,22 @@ export const dashboardMachine = setup({
 		selectRange: assign(({ event }) =>
 			event.type === "SELECT_RANGE" ? { range: event.range } : {},
 		),
-		dismissAlert: assign(({ context, event }) => {
+		dismissAlert: enqueueActions(({ context, event, enqueue }) => {
 			if (
 				event.type !== "DISMISS_ALERT" ||
 				context.dismissedAlertIds.includes(event.id)
 			) {
-				return {};
+				return;
 			}
-			return {
+
+			enqueue.assign({
 				dismissedAlertIds: [...context.dismissedAlertIds, event.id],
-			};
+			});
+			enqueue.emit({
+				type: "alertDismissed" as const,
+				id: event.id,
+			});
 		}),
-		announceDismissal: emit(({ event }) => ({
-			type: "alertDismissed" as const,
-			id: event.type === "DISMISS_ALERT" ? event.id : "",
-		})),
 		reset: assign({
 			team: "support" as const,
 			range: "week" as const,
@@ -122,7 +123,7 @@ export const dashboardMachine = setup({
 	on: {
 		SELECT_TEAM: { actions: "selectTeam" },
 		SELECT_RANGE: { actions: "selectRange" },
-		DISMISS_ALERT: { actions: ["dismissAlert", "announceDismissal"] },
+		DISMISS_ALERT: { actions: "dismissAlert" },
 		RESET: { actions: "reset" },
 	},
 });

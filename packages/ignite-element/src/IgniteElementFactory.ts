@@ -177,20 +177,28 @@ export default function igniteElementFactory<
 	createAdapter: (host?: HTMLElement) => IgniteAdapter<State, Event>,
 	options?: FactoryOptions<State, Event, RenderArgs, RuntimeView, View>,
 ): ComponentFactory<State, Event, RenderArgs, View> {
+	type RuntimeAdditionalArgs = AdditionalRenderArgs<State, Event, RenderArgs>;
+	type RuntimeHostOverrideBase = {
+		host: EventTarget | null;
+		additionalArgs: RuntimeAdditionalArgs | null;
+	};
+	type RuntimeHostOverrideFrame = {
+		host: EventTarget;
+		additionalArgs: RuntimeAdditionalArgs;
+	};
+
 	let sharedAdapter: IgniteAdapter<State, Event> | null = null;
 	let sharedAdditionalArgs = new WeakMap<
 		IgniteElement<State, Event, View>,
-		AdditionalRenderArgs<State, Event, RenderArgs>
+		RuntimeAdditionalArgs
 	>();
 	let sharedInstanceCount = 0;
 	let sharedRuntimeActive = false;
 	let runtimeAdapter: IgniteAdapter<State, Event> | null = null;
-	let runtimeAdditionalArgs: AdditionalRenderArgs<
-		State,
-		Event,
-		RenderArgs
-	> | null = null;
+	let runtimeAdditionalArgs: RuntimeAdditionalArgs | null = null;
 	let runtimeHost: EventTarget | null = null;
+	let runtimeHostOverrideBase: RuntimeHostOverrideBase | null = null;
+	const runtimeHostOverrideFrames: RuntimeHostOverrideFrame[] = [];
 	let lifecycleSequence = 0;
 	let lifecycleInstanceSequence = 0;
 	const lifecycleObservers = new Set<
@@ -453,18 +461,45 @@ export default function igniteElementFactory<
 		callback: () => Result,
 	): Result => {
 		const { adapter } = resolveRuntimeResources();
-		const previousHost = runtimeHost;
+		if (runtimeHostOverrideFrames.length === 0) {
+			runtimeHostOverrideBase = {
+				host: runtimeHost,
+				additionalArgs: runtimeAdditionalArgs,
+			};
+		}
 
-		cleanupAdditionalArgs(runtimeAdditionalArgs);
-		runtimeHost = host;
-		runtimeAdditionalArgs = createAdditionalArgs(adapter, host);
+		const frame: RuntimeHostOverrideFrame = {
+			host,
+			additionalArgs: createAdditionalArgs(adapter, host),
+		};
+		runtimeHostOverrideFrames.push(frame);
+		runtimeHost = frame.host;
+		runtimeAdditionalArgs = frame.additionalArgs;
 
+		let restored = false;
 		const restore = () => {
-			cleanupAdditionalArgs(runtimeAdditionalArgs);
-			runtimeHost = previousHost;
-			runtimeAdditionalArgs = previousHost
-				? createAdditionalArgs(adapter, previousHost)
-				: null;
+			if (restored) {
+				return;
+			}
+			restored = true;
+
+			const frameIndex = runtimeHostOverrideFrames.indexOf(frame);
+			if (frameIndex !== -1) {
+				runtimeHostOverrideFrames.splice(frameIndex, 1);
+			}
+			cleanupAdditionalArgs(frame.additionalArgs);
+
+			const activeFrame =
+				runtimeHostOverrideFrames[runtimeHostOverrideFrames.length - 1];
+			if (activeFrame) {
+				runtimeHost = activeFrame.host;
+				runtimeAdditionalArgs = activeFrame.additionalArgs;
+				return;
+			}
+
+			runtimeHost = runtimeHostOverrideBase?.host ?? null;
+			runtimeAdditionalArgs = runtimeHostOverrideBase?.additionalArgs ?? null;
+			runtimeHostOverrideBase = null;
 		};
 
 		try {

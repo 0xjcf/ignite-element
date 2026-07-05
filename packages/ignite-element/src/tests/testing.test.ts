@@ -171,6 +171,63 @@ describe("ignite test DSL", () => {
 		expect(host.dataset.lastStarted).toBe("dispatch");
 	});
 
+	it("restores the baseline runtime host after overlapping host-scoped commands", async () => {
+		const machine = setup({
+			types: {
+				context: {} as { hostId: string },
+				events: {} as { type: "CAPTURE_HOST"; hostId: string },
+			},
+			actions: {
+				rememberHost: assign(({ event }) => ({
+					hostId: event.type === "CAPTURE_HOST" ? event.hostId : "unknown",
+				})),
+			},
+		}).createMachine({
+			context: { hostId: "" },
+			on: {
+				CAPTURE_HOST: { actions: "rememberHost" },
+			},
+		});
+
+		const component = igniteCore({
+			adapter: "xstate",
+			source: machine,
+			commands: ({ actor, host }) => ({
+				captureHost: async () => {
+					await new Promise((resolve) =>
+						setTimeout(
+							resolve,
+							Number((host as HTMLElement).dataset.delayMs ?? 0),
+						),
+					);
+					actor.send({
+						type: "CAPTURE_HOST",
+						hostId: (host as HTMLElement).dataset.hostId ?? "none",
+					});
+				},
+			}),
+		});
+
+		const hostA = document.createElement("section");
+		hostA.dataset.hostId = "a";
+		hostA.dataset.delayMs = "0";
+		const hostB = document.createElement("section");
+		hostB.dataset.hostId = "b";
+		hostB.dataset.delayMs = "20";
+
+		const firstCommand = igniteTest(component, { host: hostA }).when(
+			"captureHost",
+		);
+		const secondCommand = igniteTest(component, { host: hostB }).when(
+			"captureHost",
+		);
+
+		await Promise.all([firstCommand, secondCommand]);
+		await igniteTest(component).when("captureHost");
+
+		expect(component.getSnapshot().context.hostId).toBe("none");
+	});
+
 	it("matches partial state and event payloads for redux runtimes", async () => {
 		const store = counterStore();
 
