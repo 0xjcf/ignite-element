@@ -1819,6 +1819,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: fix: address CodeRabbit navigation and teardown findings
+
+- Title: fix: address CodeRabbit navigation and teardown findings
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/fix-address-coderabbit-navigation-and-teardown-findings.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
