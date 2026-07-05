@@ -1,0 +1,57 @@
+{
+	"extends": "../../../packages/ignite-element/tsconfig.typecheck.json",
+	"compilerOptions": {
+		"rootDir": "../../../",
+		"noEmit": true,
+		"composite": false,
+		"jsx": "react-jsx",
+		"jsxImportSource": "ignite-element/jsx",
+		"allowJs": false,
+		"paths": {
+			"ignite-element": ["../../../packages/ignite-element/src/index.ts"],
+			"ignite-element/jsx": [
+				"../../../packages/ignite-element/src/jsx/index.ts"
+			],
+			"ignite-element/jsx/jsx-runtime": [
+				"../../../packages/ignite-element/src/jsx/jsx-runtime.ts"
+			],
+			"ignite-element/jsx/jsx-dev-runtime": [
+				"../../../packages/ignite-element/src/jsx/jsx-dev-runtime.ts"
+			],
+			"ignite-element/*": ["../../../packages/ignite-element/src/*"],
+			"@ignite-element/core": ["../../../packages/ignite-core/src/index.ts"],
+			"@ignite-element/adapters": [
+				"../../../packages/ignite-adapters/src/index.ts"
+			],
+			"@ignite-element/adapters/xstate": [
+				"../../../packages/ignite-adapters/src/xstate.ts"
+			],
+			"@ignite-element/adapters/redux": [
+				"../../../packages/ignite-adapters/src/redux.ts"
+			],
+			"@ignite-element/adapters/mobx": [
+				"../../../packages/ignite-adapters/src/mobx.ts"
+			],
+			"@ignite-element/renderer": [
+				"../../../packages/ignite-renderer/src/index.ts"
+			],
+			"@ignite-element/renderer/jsx": [
+				"../../../packages/ignite-renderer/src/renderers/ignite-jsx.ts"
+			],
+			"@ignite-element/renderer/lit": [
+				"../../../packages/ignite-renderer/src/renderers/lit.ts"
+			],
+			"@ignite-element/renderer/jsx-runtime": [
+				"../../../packages/ignite-renderer/src/jsx/jsx-runtime.ts"
+			],
+			"@ignite-element/renderer/jsx-dev-runtime": [
+				"../../../packages/ignite-renderer/src/jsx/jsx-dev-runtime.ts"
+			],
+			"@ignite-element/renderer/jsx/index": [
+				"../../../packages/ignite-renderer/src/jsx/index.ts"
+			]
+		}
+	},
+	"include": ["./**/*.ts", "./**/*.tsx"],
+	"exclude": []
+}

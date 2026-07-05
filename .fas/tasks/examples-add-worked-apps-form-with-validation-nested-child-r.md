@@ -24,7 +24,35 @@ Remaining worked-app examples. form-with-validation shipped as a focused task (q
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- Scope unknown.
+- package.json
+- docs/examples/README.md
+- docs/site/src/content/docs/guides/routing.mdx
+- examples/apps/dashboard-with-shared-state/README.md
+- examples/apps/dashboard-with-shared-state/index.html
+- examples/apps/dashboard-with-shared-state/package.json
+- examples/apps/dashboard-with-shared-state/pnpm-lock.yaml
+- examples/apps/dashboard-with-shared-state/src/dashboard.css
+- examples/apps/dashboard-with-shared-state/src/dashboard.headless.test.ts
+- examples/apps/dashboard-with-shared-state/src/dashboard.tsx
+- examples/apps/dashboard-with-shared-state/src/dashboardModel.test.ts
+- examples/apps/dashboard-with-shared-state/src/dashboardModel.ts
+- examples/apps/dashboard-with-shared-state/src/dashboardStore.ts
+- examples/apps/dashboard-with-shared-state/src/env.d.ts
+- examples/apps/dashboard-with-shared-state/tsconfig.json
+- examples/apps/dashboard-with-shared-state/vite.config.ts
+- examples/apps/nested-child-router/README.md
+- examples/apps/nested-child-router/index.html
+- examples/apps/nested-child-router/package.json
+- examples/apps/nested-child-router/pnpm-lock.yaml
+- examples/apps/nested-child-router/src/env.d.ts
+- examples/apps/nested-child-router/src/router.headless.test.ts
+- examples/apps/nested-child-router/src/router.tsx
+- examples/apps/nested-child-router/src/routerMachine.test.ts
+- examples/apps/nested-child-router/src/routerMachine.ts
+- examples/apps/nested-child-router/src/routerStore.ts
+- examples/apps/nested-child-router/styles.css
+- examples/apps/nested-child-router/tsconfig.json
+- examples/apps/nested-child-router/vite.config.ts
 
 ## Scope Amendments
 - None.

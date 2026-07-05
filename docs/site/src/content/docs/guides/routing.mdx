@@ -12,8 +12,10 @@ matched route is a projection. This guide builds a small SPA router with the
 `xstate` adapter — history routing, dynamic params, and an auth guard — keeping
 the routing core pure so you can test it without a browser.
 
-The full, runnable version lives in
+The full, runnable SPA version lives in
 [`examples/apps/spa-router`](https://github.com/0xjcf/ignite-element/tree/main/examples/apps/spa-router).
+For parent/child outlet composition, see
+[`examples/apps/nested-child-router`](https://github.com/0xjcf/ignite-element/tree/main/examples/apps/nested-child-router).
 
 ## 1. The route table (plain data)
 
@@ -176,6 +178,8 @@ roots — a page rendered as its own element needs a flat selector (`.page`, not
 
 ## Where to go next
 
-- **Nested routes** — give a page its own child outlet.
+- **Nested routes** — give a page its own child outlet; the
+  [`nested-child-router`](https://github.com/0xjcf/ignite-element/tree/main/examples/apps/nested-child-router)
+  example shows parent and child outlets projecting the same shared actor.
 - **Lazy routes** — `import()` a page module inside the outlet and render a fallback.
 - **Emitted navigation events** — the machine `emit`s `navigated`; subscribe with `on("navigated")` or read `execute().events`. See [Build for agents](/ignite-element/guides/agent-runtime-v3/).

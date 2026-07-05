@@ -1255,9 +1255,12 @@ No active tasks.
 
 - Title: examples: add worked apps (form-with-validation, nested/child-router, dashboard-with-shared-state)
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/examples-add-worked-apps-form-with-validation-nested-child-r.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: chore(examples): make spa-router idiomatic — commands via injected actor + {snapshot} view
 

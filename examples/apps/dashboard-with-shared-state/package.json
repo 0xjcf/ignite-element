@@ -1,0 +1,26 @@
+{
+	"name": "dashboard-with-shared-state-example",
+	"version": "1.0.0",
+	"description": "Multi-widget dashboard with shared ignite-element state and headless coordination tests.",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview"
+	},
+	"keywords": [
+		"xstate",
+		"ignite-element",
+		"dashboard",
+		"shared-state",
+		"ignite-jsx"
+	],
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+		"xstate": "5.32.1"
+	},
+	"devDependencies": {
+		"vite": "^7.2.7"
+	}
+}
