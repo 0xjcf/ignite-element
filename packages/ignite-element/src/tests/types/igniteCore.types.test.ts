@@ -37,6 +37,7 @@ import type { AdapterPack } from "../../IgniteElementFactory";
 import type {
 	InferAdapterFromSource,
 	IgniteCoreReturn as SharedIgniteCoreReturn,
+	ReduxInstanceConfig,
 } from "../../igniteCore/types";
 import type {
 	IgniteDomBridge as RootIgniteDomBridge,
@@ -1006,6 +1007,34 @@ describe("igniteCore type inference", () => {
 		};
 
 		void expectRuntimeValidation;
+	});
+
+	it("rejects positional effects callbacks", () => {
+		const store = counterStore();
+		type StoreState = InferStateAndEvent<typeof store>["State"];
+		const positionalEffects = (
+			snapshot: StoreState,
+			prevSnapshot: StoreState,
+			context: { emit: () => void },
+		) => {
+			void snapshot;
+			void prevSnapshot;
+			void context;
+		};
+
+		const config = {
+			adapter: "redux" as const,
+			source: store,
+			effects: positionalEffects,
+		};
+
+		const expectPositionalEffectsRejection = () => {
+			// @ts-expect-error - v3 effects callbacks use the single object-form argument.
+			const rejectedConfig: ReduxInstanceConfig<typeof store> = config;
+			void rejectedConfig;
+		};
+
+		void expectPositionalEffectsRejection;
 	});
 
 	it("infers object-style xstate effects without core type imports", () => {

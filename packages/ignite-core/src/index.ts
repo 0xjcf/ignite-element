@@ -32,8 +32,6 @@ export type {
 	FacadeCommandResult,
 	FacadeCommandsCallback,
 	FacadeEffectArgs,
-	FacadeEffectsCallback,
-	FacadeEffectsLike,
 	FacadeEffectsObjectCallback,
 	FacadeViewCallback,
 	NumberCommandInputMetadata,

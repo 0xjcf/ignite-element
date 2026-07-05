@@ -5,7 +5,7 @@ import type {
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
-	FacadeEffectArgs,
+	FacadeEffectsObjectCallback,
 	FacadeViewCallback,
 } from "@ignite-element/core";
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
@@ -63,14 +63,12 @@ type ReduxBlueprintEffectsConfig<
 	Events extends EventMap,
 	Host,
 > = {
-	effects?: (
-		args: FacadeEffectArgs<
-			InferStateAndEvent<Source>["State"],
-			ReduxCommandActorFor<Source>,
-			Events,
-			Host
-		>,
-	) => void;
+	effects?: FacadeEffectsObjectCallback<
+		InferStateAndEvent<Source>["State"],
+		ReduxCommandActorFor<Source>,
+		Events,
+		Host
+	>;
 };
 
 export type ReduxBlueprintConfig<
@@ -122,14 +120,12 @@ type ReduxInstanceEffectsConfig<
 	Events extends EventMap,
 	Host,
 > = {
-	effects?: (
-		args: FacadeEffectArgs<
-			InferStateAndEvent<StoreInstance>["State"],
-			ReduxCommandActorFor<StoreInstance>,
-			Events,
-			Host
-		>,
-	) => void;
+	effects?: FacadeEffectsObjectCallback<
+		InferStateAndEvent<StoreInstance>["State"],
+		ReduxCommandActorFor<StoreInstance>,
+		Events,
+		Host
+	>;
 };
 
 export type ReduxInstanceConfig<
@@ -169,7 +165,7 @@ type MobxBaseConfig<
 };
 
 type MobxEffectsConfig<State extends object, Events extends EventMap, Host> = {
-	effects?: (args: FacadeEffectArgs<State, State, Events, Host>) => void;
+	effects?: FacadeEffectsObjectCallback<State, State, Events, Host>;
 };
 
 export type MobxConfig<

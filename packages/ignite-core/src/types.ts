@@ -4,7 +4,7 @@ import type {
 	EventMap,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
-	FacadeEffectsLike,
+	FacadeEffectsObjectCallback,
 	FacadeViewCallback,
 } from "./RenderArgs";
 
@@ -16,7 +16,11 @@ export type AnyCommandsCallback = FacadeCommandsCallback<
 	unknown,
 	FacadeCommandResult
 >;
-export type AnyEffectsCallback = FacadeEffectsLike<unknown, unknown, EventMap>;
+export type AnyEffectsCallback = FacadeEffectsObjectCallback<
+	unknown,
+	unknown,
+	EventMap
+>;
 
 export type EventsDefinition<Events> = (event: EventBuilder) => Events;
 export type AnyEventsDefinition = EventsDefinition<EventMap>;
