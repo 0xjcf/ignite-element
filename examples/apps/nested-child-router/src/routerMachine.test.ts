@@ -67,8 +67,30 @@ describe("nested child router core", () => {
 	});
 
 	it("announces committed nested route changes", () => {
-		const emitted = routerMachine.config.on?.NAVIGATE;
-		expect(emitted).toBeDefined();
+		const actor = createActor(routerMachine).start();
+		const seen: Array<{
+			parent: string;
+			child: string | null;
+			path: string;
+		}> = [];
+		actor.on("routed", (event) =>
+			seen.push({
+				parent: event.parent,
+				child: event.child,
+				path: event.path,
+			}),
+		);
+
+		actor.send({ type: "NAVIGATE", to: "/docs/api" });
+
+		expect(seen).toEqual([
+			{
+				parent: "docs",
+				child: "api",
+				path: "/docs/api",
+			},
+		]);
+		actor.stop();
 	});
 
 	it("seeds route state from the current browser path", () => {
