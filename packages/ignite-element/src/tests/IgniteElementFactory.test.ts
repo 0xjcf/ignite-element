@@ -4,6 +4,9 @@ import { StateScope } from "../IgniteAdapter";
 import igniteElementFactory from "../IgniteElementFactory";
 import MinimalMockAdapter from "./MockAdapter";
 
+const flushMicrotasks = () =>
+	new Promise<void>((resolve) => queueMicrotask(resolve));
+
 describe("igniteElementFactory", () => {
 	const initialState = { count: 0 };
 
@@ -166,7 +169,7 @@ describe("igniteElementFactory", () => {
 		expect(adapter.stop).not.toHaveBeenCalled();
 	});
 
-	it("still releases the shared adapter on last disconnect when cleanup:true is explicit", () => {
+	it("still releases the shared adapter on last disconnect when cleanup:true is explicit", async () => {
 		const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
 
 		const component = igniteElementFactory(() => adapter, {
@@ -179,6 +182,7 @@ describe("igniteElementFactory", () => {
 		const element = document.createElement(name);
 		document.body.appendChild(element);
 		element.remove();
+		await flushMicrotasks();
 
 		expect(adapter.stop).toHaveBeenCalledTimes(1);
 	});

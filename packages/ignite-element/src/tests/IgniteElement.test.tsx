@@ -12,6 +12,9 @@ function assertIgniteElement<State, Event>(
 	expect(element).toBeInstanceOf(IgniteElement);
 }
 
+const flushMicrotasks = () =>
+	new Promise<void>((resolve) => queueMicrotask(resolve));
+
 describe("IgniteElement", () => {
 	const initialState = { count: 0 };
 	type State = typeof initialState | undefined;
@@ -72,10 +75,11 @@ describe("IgniteElement", () => {
 		expect(element.isActive).toBe(false);
 	});
 
-	it("should unsubscribe and stop the adapter when disconnected", () => {
+	it("should unsubscribe and stop the adapter when disconnected", async () => {
 		element.remove();
 
 		expect(adapter.unsubscribe).toHaveBeenCalledTimes(1);
+		await flushMicrotasks();
 		expect(adapter.stop).toHaveBeenCalledTimes(1);
 	});
 
@@ -211,7 +215,7 @@ describe("IgniteElement", () => {
 		);
 	});
 
-	it("stops shared adapters on last disconnect when cleanup:true is set", () => {
+	it("stops shared adapters on last disconnect when cleanup:true is set", async () => {
 		const sharedAdapter = new MockAdapter(initialState, StateScope.Shared);
 		const createSharedAdapter = Object.assign(
 			vi.fn(() => sharedAdapter),
@@ -234,11 +238,12 @@ describe("IgniteElement", () => {
 
 		sharedElement.remove();
 
+		await flushMicrotasks();
 		expect(sharedAdapter.stop).toHaveBeenCalledTimes(1);
 		expect(sharedAdapter.unsubscribe).toHaveBeenCalledTimes(1);
 	});
 
-	it("does not stop shared adapters while other instances remain connected (cleanup:true)", () => {
+	it("does not stop shared adapters while other instances remain connected (cleanup:true)", async () => {
 		const sharedAdapter = new MockAdapter(initialState, StateScope.Shared);
 		const createSharedAdapter = Object.assign(
 			vi.fn(() => sharedAdapter),
@@ -264,14 +269,16 @@ describe("IgniteElement", () => {
 		expect(createSharedAdapter).toHaveBeenCalledTimes(1);
 
 		firstElement.remove();
+		await flushMicrotasks();
 		expect(sharedAdapter.stop).not.toHaveBeenCalled();
 
 		secondElement.remove();
+		await flushMicrotasks();
 		expect(createSharedAdapter).toHaveBeenCalledTimes(1);
 		expect(sharedAdapter.stop).toHaveBeenCalledTimes(1);
 	});
 
-	it("keeps shared (consumer-owned) adapters alive on disconnect by default", () => {
+	it("keeps shared (consumer-owned) adapters alive on disconnect by default", async () => {
 		const sharedAdapter = new MockAdapter(initialState, StateScope.Shared);
 		const createSharedAdapter = Object.assign(
 			vi.fn(() => sharedAdapter),
@@ -292,13 +299,14 @@ describe("IgniteElement", () => {
 
 		sharedElement.remove();
 
+		await flushMicrotasks();
 		// Default cleanup for shared (consumer-owned) sources is now false: the
 		// adapter lives for the core's lifetime and must not be stopped here.
 		expect(sharedAdapter.stop).not.toHaveBeenCalled();
 		expect(sharedAdapter.unsubscribe).toHaveBeenCalledTimes(1);
 	});
 
-	it("allows opting out of shared lifecycle management", () => {
+	it("allows opting out of shared lifecycle management", async () => {
 		const sharedAdapter = new MockAdapter(initialState, StateScope.Shared);
 		const createSharedAdapter = Object.assign(
 			vi.fn(() => sharedAdapter),
@@ -321,7 +329,52 @@ describe("IgniteElement", () => {
 
 		sharedElement.remove();
 
+		await flushMicrotasks();
 		expect(sharedAdapter.stop).not.toHaveBeenCalled();
 		expect(sharedAdapter.unsubscribe).toHaveBeenCalledTimes(1);
+	});
+
+	it("preserves isolated adapter state across same-tick DOM moves", async () => {
+		let adapterCreations = 0;
+		const createAdapter = vi.fn(
+			() =>
+				new MockAdapter<{ count: number }, Event>(
+					{ count: adapterCreations++ },
+					StateScope.Isolated,
+				),
+		);
+		const moveSafeComponent = igniteElementFactory(createAdapter);
+		const moveSafeName = `ignite-isolated-move-${crypto.randomUUID()}`;
+
+		moveSafeComponent(moveSafeName, ({ state }) => (
+			<div>Count: {state?.count}</div>
+		));
+
+		const moveSafeElement = document.createElement(moveSafeName);
+		assertIgniteElement<{ count: number }, Event>(moveSafeElement);
+		const firstParent = document.createElement("div");
+		const secondParent = document.createElement("div");
+		document.body.append(firstParent, secondParent);
+
+		firstParent.appendChild(moveSafeElement);
+		expect(moveSafeElement.shadowRoot?.textContent).toContain("Count: 0");
+
+		const adapter = moveSafeElement.adapter;
+		expect(adapter).toBeDefined();
+
+		secondParent.appendChild(moveSafeElement);
+		await flushMicrotasks();
+
+		expect(createAdapter).toHaveBeenCalledTimes(1);
+		expect(adapter?.stop).not.toHaveBeenCalled();
+		expect(moveSafeElement.adapter).toBe(adapter);
+		expect(moveSafeElement.shadowRoot?.textContent).toContain("Count: 0");
+
+		moveSafeElement.remove();
+		await flushMicrotasks();
+
+		expect(adapter?.stop).toHaveBeenCalledTimes(1);
+		firstParent.remove();
+		secondParent.remove();
 	});
 });
