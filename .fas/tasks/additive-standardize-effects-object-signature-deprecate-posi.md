@@ -1,20 +1,20 @@
-# ADDITIVE: standardize effects object signature, deprecate positional form per docs/v3-api-consistency.md
+# V3 BETA: remove positional effects callback per docs/v3-api-consistency.md
 
 ## Source
 Created with `fas create-task` on 2026-06-18.
 
 ## Problem
-Standardize on the object-form effects callback ({ snapshot, prevSnapshot, actor, emit, host, select }) and deprecate the positional (snapshot, prevSnapshot, {...}) form. Today runtime/effects.ts uses objectStyleCallbackPattern (a regex on Function.prototype.toString) to sniff which form the author wrote; the object form becomes canonical and the positional form warns (dev). Additive -> deprecate. Design note: docs/v3-api-consistency.md (Sub-decisions: effects single object signature).
+Remove the positional effects callback form for the v3 beta API. Object-form effects ({ snapshot, prevSnapshot, actor, emit, host, select }) are the only supported runtime and type surface. Delete the runtime Function.prototype.toString signature sniffing path, remove public positional effects support where the API allows, and update stale docs/readmes to object-form examples before v3 stable.
+
 
 ## Acceptance criteria
-- The new functionality works as described.
-- Existing behavior is not broken.
-- TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
-- TDD: every production code change in the change set is covered by an added or updated test.
-- DDD: respect domain boundaries — keep the functional core deterministic and side-effect-free (no reads, writes, network, or clock), confine coordination to the imperative shell, and have adapters return facts instead of throwing.
+- Object-form effects callbacks are the only supported runtime invocation path.
+- Public config/types no longer accept the positional effects(snapshot, prevSnapshot, context) callback form where this package owns the API surface.
+- Runtime effects no longer use Function.prototype.toString or objectStyleCallbackPattern to detect callback shape.
+- Stale docs/readmes/examples that still show positional effects are updated to object-form.
+- Tests cover canonical object-form runtime behavior and compile-time rejection of positional effects.
 - The work is tracked in `.fas/TASKS.md`.
 - The task has a clear implementation and verification plan before execution starts.
-- The task is queued in `.fas/queue/tasks.json` for the runtime.
 
 ## Proposed solution
 - Use the supplied problem context, acceptance criteria, and affected-file hints to draft the concrete implementation approach during planning.
@@ -27,20 +27,47 @@ Standardize on the object-form effects callback ({ snapshot, prevSnapshot, actor
 - packages/ignite-element/src/RenderArgs.ts
 - packages/ignite-core/src/RenderArgs.ts
 - .changeset/effects-object-form.md
+- packages/ignite-element/src/igniteCore/types.ts
+- packages/ignite-element/src/createProjectionFactory.ts
+- packages/ignite-element/src/igniteCore/createIgniteComponentFactory.ts
+- packages/ignite-core/src/index.ts
+- packages/ignite-core/src/types.ts
+- packages/ignite-adapters/src/types.ts
+- packages/ignite-adapters/src/xstate.ts
+- packages/ignite-element/src/tests/runtime-deprecations.test.ts
+- packages/ignite-element/src/tests/types/igniteCore.types.test.ts
+- docs/v3-api-consistency.md
+- docs/api/README.md
+- docs/testing.md
+- packages/ignite-element/README.md
+- docs/site/src/content/docs/api/ignite-core.mdx
+- docs/site/src/content/docs/migration/effects-events.mdx
+- docs/migrations/v2.2.3-effects-events.md
 
 ## Scope Amendments
-- None.
+- Type: scope-change
+- Added at: 2026-07-05
+- Trigger: owner-decision
+- Reason: The owner chose v3 beta removal instead of a temporary deprecation because stable v3 has not shipped and object-form effects should be the only API before release.
+- Added paths: packages/ignite-element/src/runtime/effects.ts, packages/ignite-element/src/RenderArgs.ts, packages/ignite-element/src/igniteCore/types.ts, packages/ignite-element/src/createProjectionFactory.ts, packages/ignite-element/src/igniteCore/createIgniteComponentFactory.ts, packages/ignite-core/src/RenderArgs.ts, packages/ignite-core/src/index.ts, packages/ignite-core/src/types.ts, packages/ignite-adapters/src/types.ts, packages/ignite-adapters/src/xstate.ts, packages/ignite-element/src/tests/runtime-deprecations.test.ts, packages/ignite-element/src/tests/types/igniteCore.types.test.ts, docs/v3-api-consistency.md, docs/api/README.md, docs/testing.md, packages/ignite-element/README.md, docs/site/src/content/docs/api/ignite-core.mdx, docs/site/src/content/docs/migration/effects-events.mdx, docs/migrations/v2.2.3-effects-events.md, .changeset/effects-object-form.md
+- Evidence source: repo scan
+- Evidence: repo scan | Most source examples and tests already use object-form effects; remaining positional usage is stale docs/readme content and one new deprecation test from the abandoned warning path.
+- Accuracy signal: Dirty files and rg results identify runtime, public types, adapter config surfaces, tests, and stale docs that must move together.
 
 ## Implementation plan
-- Convert the supplied context into a scoped implementation plan before editing.
-- Refresh affected-file scope before implementation if the generated hints are incomplete.
+- Remove positional effects types/usages from core, adapters, and ignite-element config surfaces.
+- Simplify attachEffects to invoke the object-form callback directly.
+- Update stale documentation snippets to object-form examples.
+- Add or update focused tests for object-form behavior and positional type rejection.
 
 ## Verification plan
-- Run `fas validate-task` for the inner-loop verification gate.
-- Run `.fas/scripts/verify.sh --full` at the final release-quality gate when tracked files change.
+- Run focused effects/runtime tests and affected package typechecks.
+- Run fas validate-task before committing.
+- Defer .fas/scripts/verify.sh --full and CodeRabbit review to the shared epic closeout lane.
 
 ## Risks
-- Validate generated scope, acceptance criteria, and verification evidence before closeout to avoid workflow drift.
+- This is a beta breaking change; users on positional effects must migrate before v3 stable.
+- Removing compatibility types can expose stale internal docs or type tests that still reference the positional form.
 
 ## Dependencies
 - None known at task creation.

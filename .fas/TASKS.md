@@ -1333,13 +1333,16 @@ No active tasks.
 - Owner: runtime
 - Brief: .fas/tasks/breaking-v3-cutover-rename-expectstate-expectsnapshot-deprec.md
 
-### Task: ADDITIVE: standardize effects object signature, deprecate positional form per docs/v3-api-consistency.md
+### Task: V3 BETA: remove positional effects callback per docs/v3-api-consistency.md
 
-- Title: ADDITIVE: standardize effects object signature, deprecate positional form per docs/v3-api-consistency.md
+- Title: V3 BETA: remove positional effects callback per docs/v3-api-consistency.md
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/additive-standardize-effects-object-signature-deprecate-posi.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: examples: add React/Vue/Svelte/Angular framework-interop demos under examples/frameworks + extend host-app-integration g
 

@@ -310,10 +310,10 @@
     },
     {
       "id": "task-1781818975642",
-      "task": "ADDITIVE: standardize effects object signature, deprecate positional form per docs/v3-api-consistency.md",
+      "task": "V3 BETA: remove positional effects callback per docs/v3-api-consistency.md",
       "priority": "high",
       "source": "manual",
-      "details": "Standardize on the object-form effects callback ({ snapshot, prevSnapshot, actor, emit, host, select }) and deprecate the positional (snapshot, prevSnapshot, {...}) form. Today runtime/effects.ts uses objectStyleCallbackPattern (a regex on Function.prototype.toString) to sniff which form the author wrote; the object form becomes canonical and the positional form warns (dev). Additive -> deprecate. Design note: docs/v3-api-consistency.md (Sub-decisions: effects single object signature).\nSee .fas/tasks/additive-standardize-effects-object-signature-deprecate-posi.md",
+      "details": "Remove the positional effects callback form for the v3 beta API. Object-form effects ({ snapshot, prevSnapshot, actor, emit, host, select }) are the only supported runtime and type surface. Delete the runtime Function.prototype.toString signature sniffing path, remove public positional effects support where the API allows, and update stale docs/readmes to object-form examples before v3 stable.\nSee .fas/tasks/additive-standardize-effects-object-signature-deprecate-posi.md",
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
