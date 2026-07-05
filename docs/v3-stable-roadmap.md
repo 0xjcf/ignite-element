@@ -2,13 +2,14 @@
 
 ## Status
 
-Active plan (updated 2026-06-19). The agreed order of work from current beta
+Active plan (updated 2026-07-05). The agreed order of work from current beta
 (`3.0.0-beta.7`) to the stable `3.0.0` cut. Dependencies are wired in the FAS
 queue so the critical path is enforced. As of 2026-07-02, the queue also tracks
 the remaining roadmap work through first-class FAS epics so the full completion
-policy is explicit, not just prose guidance. **Phase 0 (framework-interop
-examples) is pulled ahead of the additive API as gap-finders** (owner,
-2026-06-19).
+policy is explicit, not just prose guidance. As of 2026-07-05, the agent/local
+model ecosystem story is also enforced before launch polish and the breaking
+cutover. **Phase 0 (framework-interop examples) is pulled ahead of the additive
+API as gap-finders** (owner, 2026-06-19).
 
 ## North star + the enforced spine
 
@@ -24,8 +25,8 @@ breaking cutover (3 tasks) ──blocks──▶ main-merge (1781292613064) ─�
 `3.0.0` (you cannot break after 1.0). Additive work and polish are *wanted* in
 the stable release but are **not** hard blockers — anything additive can ship as
 a `3.x` minor afterward. Owner update, 2026-07-02: for this release effort, the
-queue now enforces the remaining additive, polish, and breaking roadmap work
-before the stable cut.
+queue now enforces the remaining additive, agent/local-model, polish, and
+breaking roadmap work before the stable cut.
 
 ## Enforced roadmap epics
 
@@ -35,9 +36,12 @@ The queue preserves both the epic grouping and the execution chain:
    host split, igniteTools follow-ups, and actor-web cleanup.
 2. `epic-v3-additive-api-and-examples` — worked examples, test host seam,
    `igniteShell`, effects object-form, and example README cleanup.
-3. `epic-v3-launch-polish` — docs accuracy, bundle-size numbers, Renovate, GTM
+3. `epic-v3-agent-local-model-showcase` — OpenAI-compatible tool dialect,
+   local MLX smart-home loop, actor-web-backed real-agent dogfood, and local
+   model boundary docs.
+4. `epic-v3-launch-polish` — docs accuracy, bundle-size numbers, Renovate, GTM
    spike, and Angular interop.
-4. `epic-v3-breaking-release-cutover` — breaking trio, main merge, and stable
+5. `epic-v3-breaking-release-cutover` — breaking trio, main merge, and stable
    `3.0.0` cut.
 
 The enforced order is:
@@ -53,6 +57,10 @@ igniteTools Phase C
   -> igniteShell
   -> effects object-form
   -> example README snapshot cleanup
+  -> OpenAI-compatible ToolDialect
+  -> local MLX smart-home agent loop
+  -> actor-web-backed real-agent dogfood
+  -> local-model agent docs / ecosystem boundaries
   -> docs accuracy / UX / positioning
   -> bundle-size numbers
   -> Renovate
@@ -87,7 +95,7 @@ launch-polish work and before the breaking cutover.
 | Worked apps: nested router + dashboard-with-shared-state | `1781805264107` | ▶ next (form split out + done) |
 | Angular demo (`CUSTOM_ELEMENTS_SCHEMA`) | `1781919547313` | queued in enforced pre-stable chain |
 
-Order: **Vue ✓ → Svelte ✓ → worked-apps → Phase 1 → launch polish → Angular → breaking cutover.**
+Order: **Vue ✓ → Svelte ✓ → worked-apps → Phase 1 → agent/local-model showcase → launch polish → Angular → breaking cutover.**
 
 ## Phase 1 — Gap-finder + additive API (parallel, pre-cut)
 
@@ -128,6 +136,22 @@ typed-view (1781971975611) ─▶ getSchema().view ─▶ igniteTools(component)
 - **`canExecute`** (`1781798486122`) — dynamic tool availability (hide a tool when its command can't run for the current snapshot) now ships as per-command `canExecute({ snapshot })` metadata plus the headless `canExecute(name)` query.
 - **Dogfood (actor-web)** — point a real agent at an actor-web component via `igniteTools`; proves the closed loop (flat events = native actor messages, transport-aware view). Brief `.fas/tasks/example-dogfood-prove-the-agent-runtime-*`.
 - **Showcase app** — headless agent runtime on a non-web projection (console/embedded) driving a **remote** actor-web actor (location transparency) with canExecute-gated tools. Brief `.fas/tasks/example-app-showcase-headless-*`.
+
+## Agent/local-model showcase (enforced before launch polish) — added 2026-07-05
+
+The v3 target now includes the local-model agent story, not just hosted Claude
+validation. This stays within Ignite's boundary: Ignite owns the headless runtime,
+schema/tool bridge, examples, and docs; fas-local owns durable MLX provider
+lifecycle; actor-web owns execution/data-plane hosting and topology. The local
+Ignite example can call a running OpenAI-compatible MLX server directly, while
+CI remains deterministic through fake provider responses.
+
+| Task | id | Note |
+| --- | --- | --- |
+| OpenAI-compatible `ToolDialect` (`ignite-element/tools/openai`) | `1783285994418` | Covers OpenAI, Ollama, and MLX-style `/v1/chat/completions` tool calls without provider SDK deps |
+| Smart-home local MLX loop + demo mode | `1783286005193` | Adds `npm run mlx` style local validation, with fake-response tests and self-contained setup docs |
+| Actor-web-backed real-agent dogfood | `1783286017890` | Proves a real agent loop driving an actor-web-backed Ignite component through `igniteTools` |
+| Local-model docs and ecosystem boundary closeout | `1783286029030` | Blocks launch-polish docs so the stable docs include the agent/local-model story |
 
 ## Phase 2 — Breaking cutover (one coordinated landing, pre-cut)
 

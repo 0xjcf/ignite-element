@@ -1716,6 +1716,39 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: igniteTools: add OpenAI-compatible ToolDialect for OpenAI, Ollama, and MLX servers
+
+- Title: igniteTools: add OpenAI-compatible ToolDialect for OpenAI, Ollama, and MLX servers
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/ignitetools-add-openai-compatible-tooldialect-for-openai-oll.md
+
+### Task: examples/smart-home: add local MLX OpenAI-compatible model loop and demo mode
+
+- Title: examples/smart-home: add local MLX OpenAI-compatible model loop and demo mode
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/examples-smart-home-add-local-mlx-openai-compatible-model-lo.md
+- Automation mode: advisory
+
+### Task: examples/agent: add actor-web-backed real-agent dogfood using igniteTools
+
+- Title: examples/agent: add actor-web-backed real-agent dogfood using igniteTools
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/examples-agent-add-actor-web-backed-real-agent-dogfood-using.md
+
+### Task: docs: document local-model agent workflows and ecosystem boundaries for v3
+
+- Title: docs: document local-model agent workflows and ecosystem boundaries for v3
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/docs-document-local-model-agent-workflows-and-ecosystem-boun.md
+
 ## Template
 
 ### Task: <short task title>

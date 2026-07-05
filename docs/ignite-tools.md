@@ -3,11 +3,12 @@
 ## Status
 
 Implementing. **PR1 shipped** the SDK-neutral core + `ToolDialect` port + the
-`ignite-element/tools` entrypoint (beta.8). **PR2** adds the first provider
-dialect (`ignite-element/tools/anthropic`) and refines the port to its final
-bare-noun shape — breaking to the pre-stable beta igniteTools surface, settled
-before stable. The agent analog of `ignite-element/react`. Agent-runtime thread
-in `docs/v3-stable-roadmap.md`.
+`ignite-element/tools` entrypoint (beta.8). **PR2 shipped** the first provider
+dialect (`ignite-element/tools/anthropic`) and refined the port to its final
+bare-noun shape. **PR3 is now live-queued for v3** as the OpenAI-compatible
+`ignite-element/tools/openai` dialect, which covers OpenAI, Ollama, and local
+MLX servers exposed through `/v1/chat/completions`. The agent analog of
+`ignite-element/react`. Agent-runtime thread in `docs/v3-stable-roadmap.md`.
 
 ## Context
 
@@ -18,11 +19,12 @@ in `docs/v3-stable-roadmap.md`.
 
 The key design decision: **this is ignite's own "no lock-in" philosophy applied one
 layer up.** Just as ignite adapts xstate/redux/mobx/actor-web behind one core,
-`igniteTools` adapts **Anthropic / OpenAI(Codex) / Ollama** behind one **port**. Baking
+`igniteTools` adapts **Anthropic / OpenAI(Codex) / Ollama / local MLX-compatible
+servers** behind one **port**. Baking
 in a single provider SDK would betray the principle the library is built on. And a local
-provider (**Ollama**, via its OpenAI-compatible endpoint) is what unlocks the headless /
-embedded / edge showcase — an on-device model driving a component with no cloud and no
-web UI.
+provider (**Ollama** or **MLX**, via an OpenAI-compatible endpoint) is what unlocks
+the headless / embedded / edge showcase — an on-device model driving a component
+with no cloud and no web UI.
 
 ## Decision — ports & adapters (hexagonal)
 
@@ -103,9 +105,10 @@ two helpers; the OpenAI/Ollama dialect reuses them verbatim.
   (`tools: [{ name, description, input_schema }]`, `tool_use` blocks, `tool_result`).
 - **`ignite-element/tools/openai`** — OpenAI Chat Completions tool format
   (`tools: [{ type: "function", function: { name, description, parameters } }]`,
-  `tool_calls`, `role: "tool"` results). **Covers OpenAI, Codex, and Ollama** (Ollama's
-  OpenAI-compatible endpoint). A dedicated **`ollama` native adapter** is an optional
-  future 4th, only if Ollama's native `/api/chat` tool quirks justify it.
+  `tool_calls`, `role: "tool"` results). **Covers OpenAI, Codex, Ollama, and MLX**
+  when those runtimes expose an OpenAI-compatible endpoint. Dedicated native adapters
+  are optional future work only if a provider's native endpoint has useful tool quirks
+  that the OpenAI-compatible shape cannot express.
 - Adapters are **pure format translators** — they emit/parse the documented JSON shapes
   and have **no provider-SDK runtime dependency** (optional SDK *types* for ergonomics
   only). The **consumer** brings the SDK to make the actual API call. This keeps adapters
@@ -190,7 +193,7 @@ here.
 | **Actor model + topology** | agent-actor → `[igniteTools seam]` → component-actor → remote actors; a tool-call *is* a message; location-transparent via actor-web |
 | **Projections** | the agent grounds on the **view** (`getView()` / `getSchema().view`), the derived read-model — distinct from the raw snapshot |
 | **TDD** | pure core + each dialect = unit-tested with **zero LLM calls** (golden neutral↔provider fixtures); red→green per piece |
-| **Manual validation** | headless loop per provider; **Ollama gives a fully-local, key-free loop** (the edge showcase) |
+| **Manual validation** | headless loop per provider; **Ollama/MLX give a fully-local, key-free loop** (the edge showcase) |
 
 ## `ToolError` (errors as values)
 
@@ -209,9 +212,10 @@ to the provider's `tool_result` (`is_error: true`) so the model can recover.
    neutral↔Anthropic fixtures (TDD); also lands the port's final bare-noun shape +
    the Option D scalar helpers (`tools/scalar.ts`). Manual validation: a headless
    Anthropic loop.
-3. **PR 3 — `openai` adapter** (`ignite-element/tools/openai`; covers Codex + Ollama via
-   OpenAI-compat). Golden fixtures (TDD); reuses the scalar helpers + the refined port.
-   Manual validation: headless OpenAI **and** a local Ollama (OpenAI-compat) loop —
+3. **PR 3 — `openai` adapter** (`ignite-element/tools/openai`; covers Codex,
+   Ollama, and MLX via OpenAI-compat). Golden fixtures (TDD); reuses the scalar
+   helpers + the refined port. Manual validation: headless OpenAI plus a local
+   OpenAI-compatible model loop — at minimum MLX for the v3 local-model example —
    proves the port generalizes cloud→local.
 
 ## Dependencies
