@@ -5,6 +5,7 @@ import {
 	getDashboardSummary,
 	getVisibleAlerts,
 } from "./dashboardModel";
+import styles from "./dashboard.css?raw";
 import { dashboardActor } from "./dashboardStore";
 
 const teams: Array<{ value: Team; label: string }> = [
@@ -37,6 +38,7 @@ const defineDashboardWidget = igniteCore({
 
 defineDashboardWidget("dashboard-app", (ctx) => (
 	<div class="dashboard">
+		<style>{styles}</style>
 		<header class="header">
 			<div>
 				<span class="eyebrow">Shared-state dashboard</span>
@@ -62,6 +64,7 @@ defineDashboardWidget("dashboard-app", (ctx) => (
 
 defineDashboardWidget("dashboard-filters", (ctx) => (
 	<aside class="panel controls" aria-label="Dashboard filters">
+		<style>{styles}</style>
 		<div class="control-group">
 			<h2>Team</h2>
 			<div class="button-row">
@@ -97,6 +100,7 @@ defineDashboardWidget("dashboard-filters", (ctx) => (
 
 defineDashboardWidget("metric-summary", (ctx) => (
 	<section class="panel" aria-labelledby="metric-summary-title">
+		<style>{styles}</style>
 		<h2 id="metric-summary-title">Metrics</h2>
 		<div class="metric-grid">
 			<article class="metric">
@@ -117,6 +121,7 @@ defineDashboardWidget("metric-summary", (ctx) => (
 
 defineDashboardWidget("alert-feed", (ctx) => (
 	<section class="panel" aria-labelledby="alert-feed-title">
+		<style>{styles}</style>
 		<h2 id="alert-feed-title">Alerts</h2>
 		<p class="muted">Dismissed alerts: {ctx.dismissedCount}</p>
 		<ul class="alerts">

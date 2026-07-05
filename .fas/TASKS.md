@@ -1797,6 +1797,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: fix: address final review findings for v3 examples epic
+
+- Title: fix: address final review findings for v3 examples epic
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/fix-address-final-review-findings-for-v3-examples-epic.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>

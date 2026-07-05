@@ -189,6 +189,7 @@ describe("ignite test DSL", () => {
 			},
 		});
 
+		const seenHostIds: string[] = [];
 		const component = igniteCore({
 			adapter: "xstate",
 			source: machine,
@@ -200,9 +201,11 @@ describe("ignite test DSL", () => {
 							Number((host as HTMLElement).dataset.delayMs ?? 0),
 						),
 					);
+					const hostId = (host as HTMLElement).dataset.hostId ?? "none";
+					seenHostIds.push(hostId);
 					actor.send({
 						type: "CAPTURE_HOST",
-						hostId: (host as HTMLElement).dataset.hostId ?? "none",
+						hostId,
 					});
 				},
 			}),
@@ -223,6 +226,7 @@ describe("ignite test DSL", () => {
 		);
 
 		await Promise.all([firstCommand, secondCommand]);
+		expect([...seenHostIds].sort()).toEqual(["a", "b"]);
 		await igniteTest(component).when("captureHost");
 
 		expect(component.getSnapshot().context.hostId).toBe("none");

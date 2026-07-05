@@ -78,12 +78,15 @@ describe("headless runtime canonical snapshot accessors", () => {
 
 	it("does not warn for canonical object-form effects callbacks", async () => {
 		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-		const { register } = createRegister();
+		try {
+			const { register } = createRegister();
 
-		await register.execute("increment");
-		await flushMicrotasks();
+			await register.execute("increment");
+			await flushMicrotasks();
 
-		expect(warnSpy).not.toHaveBeenCalled();
-		warnSpy.mockRestore();
+			expect(warnSpy).not.toHaveBeenCalled();
+		} finally {
+			warnSpy.mockRestore();
+		}
 	});
 });
