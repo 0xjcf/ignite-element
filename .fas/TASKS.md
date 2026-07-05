@@ -1764,6 +1764,17 @@ No active tasks.
 - Owner: runtime
 - Brief: .fas/tasks/docs-document-local-model-agent-workflows-and-ecosystem-boun.md
 
+### Task: test(examples): include new worked apps in example runtime lane fixture
+
+- Title: test(examples): include new worked apps in example runtime lane fixture
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/test-examples-include-new-worked-apps-in-example-runtime-lan.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
