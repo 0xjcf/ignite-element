@@ -186,4 +186,39 @@ describe("igniteElementFactory", () => {
 
 		expect(adapter.stop).toHaveBeenCalledTimes(1);
 	});
+
+	it("stops an isolated adapter when true disconnect cleanup throws", () => {
+		const adapter = new MinimalMockAdapter(initialState);
+		const component = igniteElementFactory(() => adapter);
+		const elementName = `ignite-disconnect-error-${crypto.randomUUID()}`;
+		component(elementName, () => html`<div></div>`);
+		const elementConstructor = customElements.get(elementName) as
+			| (CustomElementConstructor & {
+					prototype: { onTrueDisconnect: () => void };
+			  })
+			| undefined;
+		if (!elementConstructor) {
+			throw new Error(`Expected ${elementName} to be registered.`);
+		}
+		const disconnectError = new Error("cleanup failed");
+		const onTrueDisconnect = vi
+			.spyOn(elementConstructor.prototype, "onTrueDisconnect")
+			.mockImplementation(() => {
+				throw disconnectError;
+			});
+
+		const element = document.createElement(elementName);
+		document.body.appendChild(element);
+		const queuedMicrotasks: VoidFunction[] = [];
+		vi.spyOn(globalThis, "queueMicrotask").mockImplementation((callback) => {
+			queuedMicrotasks.push(callback);
+		});
+
+		element.remove();
+
+		expect(queuedMicrotasks).toHaveLength(1);
+		expect(() => queuedMicrotasks[0]?.()).toThrow(disconnectError);
+		expect(onTrueDisconnect).toHaveBeenCalledTimes(1);
+		expect(adapter.stop).toHaveBeenCalledTimes(1);
+	});
 });
