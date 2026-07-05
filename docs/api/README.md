@@ -44,7 +44,7 @@ const component = igniteCore({
   events: (event) => ({
     toggled: event<{ isOn: boolean }>(),
   }),
-  effects: (_snapshot, _prevSnapshot, { emit, select }) => {
+  effects: ({ emit, select }) => {
     const isOn = select((snapshot) => snapshot.matches("on"));
     if (!isOn.changed) return;
     emit("toggled", { isOn: isOn.current });

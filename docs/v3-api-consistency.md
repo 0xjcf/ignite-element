@@ -31,7 +31,7 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
 | ~~`select().whenChanged()` + structural-equality default~~ | `effects-change-detection.md` | additive | **dropped (2026-06-20)** — marginal sugar over `.changed`; see doc |
 | Flat tagged event `{ type, … }` (emit / observe / `expectEvent`) | `event-shape.md` | **breaking** | design ✓, task queued (1781818971210) |
 | Uniform view/effects context = `{ snapshot }` (drop the spread) | `view-context-canonicalization.md` | **breaking** | design ✓, task queued (1781818972687) |
-| Effects single (object) signature; deprecate positional | this doc | additive→deprecate | task queued (1781818975642) |
+| Effects single (object) signature; remove positional for v3 beta | this doc | beta breaking | shipped in this epic (1781818975642) |
 | `expectView` (add) + **full `state`→`snapshot` rename** (`expectState`→`expectSnapshot` + `result.state`/`schema.state`/record-trace) + `expectEvent` object form | `event-shape.md` + this doc | mixed | `expectView` shipped; rename task queued (1781818974159) — scope = full rename (b), resolved 2026-06-20 |
 | Test host seam: fluent `.host({ dataset, attributes })` | `task-1781619012619` | additive | task (refine brief to fluent shape) |
 | `canExecute(name)` command-availability query | `can-execute.md` | additive (gap) | shipped (1781798486122) |
