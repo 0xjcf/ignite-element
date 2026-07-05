@@ -171,13 +171,13 @@ apiShowcase("xstate-api-showcase", ({ count, increment }) => (
 
 ```ts
 apiShowcase.getSchema();
-apiShowcase.getState();
+apiShowcase.getSnapshot();
 apiShowcase.getView();
 
 const result = await apiShowcase.execute("increment");
 
 apiShowcase.on("api-count-changed", (event) => event.detail);
-apiShowcase.watch((state, prevState) => [prevState, state]);
+apiShowcase.watchSnapshot((snapshot, prevSnapshot) => [prevSnapshot, snapshot]);
 apiShowcase.watchView((view, prevView) => [prevView, view]);
 
 const story = apiShowcase.record("reaches limit");
