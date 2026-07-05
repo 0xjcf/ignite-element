@@ -1562,10 +1562,13 @@ No active tasks.
 
 - Title: collapse ignite ActorWebAddress tolerant union to pure string once @actor-web/runtime publishes the opaque branded addre
 - Mode: single-agent
-- Status: deferred
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/collapse-ignite-actorwebaddress-tolerant-union-to-pure-strin.md
 - Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: update ActorWebAdapter dev-warning wording that still references the removed commandSource config concept after the beta
 

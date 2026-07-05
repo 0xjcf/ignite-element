@@ -17,18 +17,11 @@ type ActorWebCommand = { type: "CREATE"; shipmentId: string };
 
 function createActorWebSource() {
 	const context = { shipmentId: "shipment-1", status: "created" };
+	const address = "actor://server/shipment";
 	return {
-		address: {
-			id: "shipment",
-			type: "actor",
-			path: "actor://server/actor/shipment",
-		},
+		address,
 		snapshot: () => ({
-			address: {
-				id: "shipment",
-				type: "actor",
-				path: "actor://server/actor/shipment",
-			},
+			address,
 			context,
 			phase: "created",
 			toJSON: () => context,

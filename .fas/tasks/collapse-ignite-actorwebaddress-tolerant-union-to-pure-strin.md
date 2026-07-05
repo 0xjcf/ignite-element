@@ -32,9 +32,44 @@ Drop the object branch + the TODO(actor-web > 0.1.0) comment in packages/ignite-
 ## Affected files
 - packages/ignite-adapters/src/adapters/ActorWebAdapter.ts
 - packages/ignite-adapters/src/__tests__/actor-web-canonical-compat.types.ts
+- packages/ignite-adapters/package.json
+- pnpm-lock.yaml
+- .changeset/collapse-actorweb-address.md
+- packages/ignite-element/src/tests/adapters/ActorWebAdapter.test.ts
+- packages/ignite-element/src/tests/entrypoints.test.ts
+- packages/ignite-element/src/tests/IgniteCore.test.ts
+- packages/ignite-element/src/tests/types/igniteCore.types.test.ts
 
 ## Scope Amendments
-- None.
+- Type: dependency-scope
+- Added at: 2026-07-05T17:30:00Z
+- Trigger: @actor-web/runtime 0.2.0 published and task dependency gate now requires the installed devDependency to resolve that runtime version
+- Reason: ActorWebAddress collapse cannot be validated against the canonical branded string address unless the adapter package dependency and lockfile install @actor-web/runtime 0.2.0
+- Added paths: packages/ignite-adapters/package.json, pnpm-lock.yaml
+- Evidence source: npm view @actor-web/runtime version
+- Evidence: npm view @actor-web/runtime version | npm resolves @actor-web/runtime to 0.2.0; package still declares ^0.1.0
+- Accuracy signal: task brief dependency section and package manifest agree the devDependency bump is required
+- Follow-up needed: none
+
+- Type: release-note-scope
+- Added at: 2026-07-05T17:38:00Z
+- Trigger: public ActorWebAddress type and optional actor-web peer floor changed
+- Reason: Published package type contract changes require a changeset for @ignite-element/adapters and ignite-element
+- Added paths: .changeset/collapse-actorweb-address.md
+- Evidence source: repo changeset policy
+- Evidence: repo changeset policy | ActorWebAddress is re-exported from ignite-element/actor-web and @ignite-element/adapters/actor-web
+- Accuracy signal: changeset file scoped to affected public packages only
+- Follow-up needed: none
+
+- Type: test-fixture-scope
+- Added at: 2026-07-05T17:47:00Z
+- Trigger: fas validate-task typecheck found legacy object actor-web address fixtures outside the adapter package
+- Reason: The address contract collapse requires downstream package test fixtures that instantiate ActorWebSourceSnapshot/ActorWebSource values to use string addresses
+- Added paths: packages/ignite-element/src/tests/adapters/ActorWebAdapter.test.ts, packages/ignite-element/src/tests/entrypoints.test.ts, packages/ignite-element/src/tests/IgniteCore.test.ts, packages/ignite-element/src/tests/types/igniteCore.types.test.ts
+- Evidence source: .fas/state/verification/validate-task-1783272749.log
+- Evidence: .fas/state/verification/validate-task-1783272749.log | TypeScript errors in ActorWebAdapter.test.ts, entrypoints.test.ts, IgniteCore.test.ts, and igniteCore.types.test.ts
+- Accuracy signal: All added files were named by the failed typecheck diagnostics
+- Follow-up needed: none
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

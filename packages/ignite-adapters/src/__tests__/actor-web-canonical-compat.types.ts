@@ -20,6 +20,7 @@
  * here ships and the runtime peer stays truly optional.
  */
 import type {
+	ActorAddress,
 	ActorCommandSource,
 	ActorEventSubscriptionOptions,
 	ActorReadModelSource,
@@ -35,22 +36,22 @@ import type {
 	ActorWebTransportStatus,
 } from "../adapters/ActorWebAdapter";
 
-// FIX 1 (actor-web opaque-address migration): actor-web's canonical `ActorAddress`
-// collapsed from an object interface to an opaque BRANDED STRING
-// (`string & { readonly [ACTOR_ADDRESS_BRAND]: 'ActorAddress' }`). ignite's loose
-// `ActorWebAddress` must accept that branded identity as well as the legacy object
-// shape. Declared locally so the assertion holds regardless of which
-// `@actor-web/runtime` version is installed (the published 0.1.0 still ships the
-// object address; the new branded runtime is unpublished, blocked on this beta).
-declare const ACTOR_ADDRESS_BRAND: unique symbol;
-type BrandedActorAddress = string & {
-	readonly [ACTOR_ADDRESS_BRAND]: "ActorAddress";
-};
-declare const brandedAddress: BrandedActorAddress;
-// Before the tolerant union this is a type error (a string is not assignable to
-// `{ id; path; … }`); after it, the branded string satisfies the `string` branch.
+// Actor-Web's canonical `ActorAddress` is now an opaque branded string. Ignite's
+// public `ActorWebAddress` should accept the branded identity without accepting
+// the legacy object address shape from actor-web 0.1.x.
+declare const brandedAddress: ActorAddress;
 const _igniteAcceptsBrandedAddress: ActorWebAddress = brandedAddress;
 void _igniteAcceptsBrandedAddress;
+
+// The migration is complete once the published actor-web runtime carries the
+// branded string address: ignite should no longer accept the legacy object
+// address shape in its public ActorWebAddress type.
+// @ts-expect-error legacy object addresses must not satisfy ActorWebAddress
+const _igniteRejectsLegacyObjectAddress: ActorWebAddress = {
+	id: "shipment",
+	path: "/shipment",
+};
+void _igniteRejectsLegacyObjectAddress;
 
 type ShipmentContext = {
 	shipmentId: string | null;
