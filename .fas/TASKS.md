@@ -1543,10 +1543,13 @@ No active tasks.
 
 - Title: docs(examples): replace deprecated getState()/watch() with getSnapshot()/watchSnapshot() in the example READMEs
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/docs-examples-replace-deprecated-getstate-watch-with-getsnap.md
 - Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: ci: add an example-typecheck job (per-example self-contained install + tsc) gated on PRs into beta
 
