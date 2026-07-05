@@ -1,6 +1,6 @@
 ---
-"@ignite-element/adapters": minor
-"ignite-element": minor
+"@ignite-element/adapters": major
+"ignite-element": major
 ---
 
 Collapse `ActorWebAddress` to plain `string` now that `@actor-web/runtime@0.2.0` publishes the canonical branded string `ActorAddress`.
