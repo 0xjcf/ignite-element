@@ -201,6 +201,7 @@ describe("igniteElementFactory", () => {
 			throw new Error(`Expected ${elementName} to be registered.`);
 		}
 		const disconnectError = new Error("cleanup failed");
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 		const onTrueDisconnect = vi
 			.spyOn(elementConstructor.prototype, "onTrueDisconnect")
 			.mockImplementation(() => {
@@ -217,7 +218,11 @@ describe("igniteElementFactory", () => {
 		element.remove();
 
 		expect(queuedMicrotasks).toHaveLength(1);
-		expect(() => queuedMicrotasks[0]?.()).toThrow(disconnectError);
+		expect(() => queuedMicrotasks[0]?.()).not.toThrow();
+		expect(errorSpy).toHaveBeenCalledWith(
+			"[IgniteElement] Deferred disconnect cleanup failed.",
+			disconnectError,
+		);
 		expect(onTrueDisconnect).toHaveBeenCalledTimes(1);
 		expect(adapter.stop).toHaveBeenCalledTimes(1);
 	});
