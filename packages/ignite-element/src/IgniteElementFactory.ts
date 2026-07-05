@@ -14,6 +14,7 @@ import { resolveConfiguredRenderStrategy } from "./renderers/resolveConfiguredRe
 import {
 	createAgentRuntime,
 	type IgniteDomBridgeOptions,
+	igniteRuntimeHostOverrideSymbol,
 } from "./runtime/agent";
 import { facadeCleanupSymbol } from "./runtime/effects";
 import type {
@@ -447,6 +448,44 @@ export default function igniteElementFactory<
 		};
 	};
 
+	const withRuntimeHost = <Result>(
+		host: EventTarget,
+		callback: () => Result,
+	): Result => {
+		const { adapter } = resolveRuntimeResources();
+		const previousHost = runtimeHost;
+
+		cleanupAdditionalArgs(runtimeAdditionalArgs);
+		runtimeHost = host;
+		runtimeAdditionalArgs = createAdditionalArgs(adapter, host);
+
+		const restore = () => {
+			cleanupAdditionalArgs(runtimeAdditionalArgs);
+			runtimeHost = previousHost;
+			runtimeAdditionalArgs = previousHost
+				? createAdditionalArgs(adapter, previousHost)
+				: null;
+		};
+
+		try {
+			const result = callback();
+			if (
+				typeof result === "object" &&
+				result !== null &&
+				"finally" in result &&
+				typeof result.finally === "function"
+			) {
+				return result.finally(restore) as Result;
+			}
+
+			restore();
+			return result;
+		} catch (error) {
+			restore();
+			throw error;
+		}
+	};
+
 	const register = (
 		elementName: string,
 		renderer: ComponentRenderer<RenderArgs, View>,
@@ -653,6 +692,9 @@ export default function igniteElementFactory<
 			resolveRuntime: resolveRuntimeResources,
 			resolveView,
 		}),
+		{
+			[igniteRuntimeHostOverrideSymbol]: withRuntimeHost,
+		},
 	);
 
 	return register;

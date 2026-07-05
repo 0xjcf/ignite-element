@@ -63,6 +63,14 @@ export type IgniteDomBridgeSession = {
 };
 
 export const igniteDomBridgeSymbol = Symbol("ignite-element.dom-bridge");
+export const igniteRuntimeHostOverrideSymbol = Symbol(
+	"ignite-element.runtime-host-override",
+);
+
+export type IgniteRuntimeHostOverride = <Result>(
+	host: EventTarget,
+	callback: () => Result,
+) => Result;
 
 type IgniteStoryTraceEntryDraft =
 	| Omit<IgniteStoryCommandTraceEntry, "sequence">

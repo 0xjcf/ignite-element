@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assign, createMachine, type StateFrom } from "xstate";
+import { assign, createMachine, setup, type StateFrom } from "xstate";
 import counterStore, { counterSlice } from "./fixtures/reduxCounterStore";
 import { igniteCore } from "../IgniteCore";
 import type { ReduxInstanceConfig, XStateConfig } from "../igniteCore/types";
@@ -99,6 +99,76 @@ describe("ignite test DSL", () => {
 		expect(() => scenario.expectView({ isOn: false })).toThrow(
 			/expectView failed/,
 		);
+	});
+
+	it("passes a supplied host to headless scenario commands and effects", async () => {
+		const machine = setup({
+			types: {
+				context: {} as { startedModule: string },
+				events: {} as { type: "START_MODULE"; moduleId: string },
+			},
+			actions: {
+				rememberStartedModule: assign(({ event }) => ({
+					startedModule:
+						event.type === "START_MODULE" ? event.moduleId : "unknown",
+				})),
+			},
+		}).createMachine({
+			context: { startedModule: "" },
+			on: {
+				START_MODULE: { actions: "rememberStartedModule" },
+			},
+		});
+		type ModuleSnapshot = StateFrom<typeof machine>;
+		type ModuleEventMap = {
+			"module-started": EventDescriptor<{ moduleId: string }>;
+		};
+
+		const host = document.createElement("section");
+		host.dataset.moduleId = "dispatch";
+
+		const component = igniteCore({
+			adapter: "xstate",
+			source: machine,
+			view: ({ snapshot }) => ({
+				moduleId: snapshot.context.startedModule,
+			}),
+			commands: ({ actor, host }) => ({
+				startModule: () =>
+					actor.send({
+						type: "START_MODULE",
+						moduleId: host.dataset.moduleId ?? "missing",
+					}),
+			}),
+			events: (event) => ({
+				"module-started": event<{ moduleId: string }>(),
+			}),
+			effects: ({
+				snapshot,
+				prevSnapshot,
+				emit,
+				host,
+			}: FacadeEffectArgs<ModuleSnapshot, unknown, ModuleEventMap>) => {
+				if (
+					snapshot.context.startedModule === prevSnapshot.context.startedModule
+				) {
+					return;
+				}
+
+				host.dataset.lastStarted = snapshot.context.startedModule;
+				emit("module-started", {
+					moduleId: snapshot.context.startedModule,
+				});
+			},
+		} satisfies XStateConfig<typeof machine, ModuleEventMap>);
+
+		const scenario = await igniteTest(component, { host }).when("startModule");
+
+		scenario
+			.expectState({ context: { startedModule: "dispatch" } })
+			.expectView({ moduleId: "dispatch" })
+			.expectEvent("module-started", { moduleId: "dispatch" });
+		expect(host.dataset.lastStarted).toBe("dispatch");
 	});
 
 	it("matches partial state and event payloads for redux runtimes", async () => {
