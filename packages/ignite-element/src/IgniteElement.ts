@@ -122,11 +122,13 @@ export default abstract class IgniteElement<
 		this._unsubscribe = undefined;
 
 		this.scheduleDisconnectTeardown(() => {
-			this.onTrueDisconnect();
-
-			if (this._adapter && this._adapter.scope !== StateScope.Shared) {
-				this._adapter.stop();
-				this._adapter = undefined;
+			try {
+				this.onTrueDisconnect();
+			} finally {
+				if (this._adapter && this._adapter.scope !== StateScope.Shared) {
+					this._adapter.stop();
+					this._adapter = undefined;
+				}
 			}
 		});
 
