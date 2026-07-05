@@ -35,6 +35,10 @@ Drop the object branch + the TODO(actor-web > 0.1.0) comment in packages/ignite-
 - packages/ignite-adapters/package.json
 - pnpm-lock.yaml
 - .changeset/collapse-actorweb-address.md
+- packages/ignite-element/src/tests/adapters/ActorWebAdapter.test.ts
+- packages/ignite-element/src/tests/entrypoints.test.ts
+- packages/ignite-element/src/tests/IgniteCore.test.ts
+- packages/ignite-element/src/tests/types/igniteCore.types.test.ts
 
 ## Scope Amendments
 - Type: dependency-scope
@@ -55,6 +59,16 @@ Drop the object branch + the TODO(actor-web > 0.1.0) comment in packages/ignite-
 - Evidence source: repo changeset policy
 - Evidence: repo changeset policy | ActorWebAddress is re-exported from ignite-element/actor-web and @ignite-element/adapters/actor-web
 - Accuracy signal: changeset file scoped to affected public packages only
+- Follow-up needed: none
+
+- Type: test-fixture-scope
+- Added at: 2026-07-05T17:47:00Z
+- Trigger: fas validate-task typecheck found legacy object actor-web address fixtures outside the adapter package
+- Reason: The address contract collapse requires downstream package test fixtures that instantiate ActorWebSourceSnapshot/ActorWebSource values to use string addresses
+- Added paths: packages/ignite-element/src/tests/adapters/ActorWebAdapter.test.ts, packages/ignite-element/src/tests/entrypoints.test.ts, packages/ignite-element/src/tests/IgniteCore.test.ts, packages/ignite-element/src/tests/types/igniteCore.types.test.ts
+- Evidence source: .fas/state/verification/validate-task-1783272749.log
+- Evidence: .fas/state/verification/validate-task-1783272749.log | TypeScript errors in ActorWebAdapter.test.ts, entrypoints.test.ts, IgniteCore.test.ts, and igniteCore.types.test.ts
+- Accuracy signal: All added files were named by the failed typecheck diagnostics
 - Follow-up needed: none
 
 ## Implementation plan

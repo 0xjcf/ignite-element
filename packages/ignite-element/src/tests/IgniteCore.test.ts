@@ -79,11 +79,7 @@ function createActorWebShipmentSource(): ActorWebCommandSource<
 	const eventListeners = new Set<(event: ActorWebShipmentEmitted) => void>();
 	const source = {
 		sent: [] as ActorWebShipmentCommand[],
-		address: {
-			id: "logistics-shipment",
-			type: "actor",
-			path: "actor://server/actor/logistics-shipment",
-		},
+		address: "actor://server/actor/logistics-shipment",
 		snapshot: () => ({
 			address: source.address,
 			context,

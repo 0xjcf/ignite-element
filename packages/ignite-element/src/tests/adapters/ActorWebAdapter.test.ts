@@ -39,10 +39,7 @@ function createSource(options?: {
 		shipmentId: null,
 		status: "idle",
 	};
-	const address = {
-		id: "shipment",
-		path: "actor://shipment",
-	};
+	const address = "actor://shipment";
 	let transport: ActorWebTransportStatus = {
 		state: "connected",
 		updatedAt: 1,

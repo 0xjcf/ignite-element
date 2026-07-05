@@ -132,11 +132,7 @@ const actorWebShipmentSource: ActorWebCommandSource<
 	ActorWebShipmentCommand,
 	ActorWebShipmentEvent
 > = {
-	address: {
-		id: "logistics-shipment",
-		type: "actor",
-		path: "actor://server/actor/logistics-shipment",
-	},
+	address: "actor://server/actor/logistics-shipment",
 	snapshot: () => ({
 		address: actorWebShipmentSource.address,
 		context: {
