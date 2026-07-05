@@ -23,6 +23,7 @@ Full epic verification failed because scripts/__tests__/test-examples.test.mjs s
 
 ## Affected files
 - scripts/__tests__/test-examples.test.mjs
+- .fas-config.json
 
 ## Scope Amendments
 - Type: closeout-fix
@@ -33,6 +34,15 @@ Full epic verification failed because scripts/__tests__/test-examples.test.mjs s
 - Evidence source: .fas/state/verification/latest.log
 - Evidence: .fas/state/verification/latest.log | .fas/state/verification/latest.log | test:scripts expected six runtime-tested examples while scripts/test-examples.mjs discovered dashboard-with-shared-state and nested-child-router as additional runtime-tested examples.
 - Accuracy signal: package.json test:full already includes both new example roots, so only the script test fixture is stale.
+
+- Type: closeout-fix
+- Added at: 2026-07-05
+- Trigger: full-verify-failure
+- Reason: The FAS testCommand duplicated the example runtime covered-package list and stayed stale after package.json test:full was updated.
+- Added paths: .fas-config.json
+- Evidence source: .fas/state/verification/latest.log
+- Evidence: .fas/state/verification/latest.log | .fas/state/verification/latest.log | test:examples missed dashboard-with-shared-state and nested-child-router when invoked through .fas-config.json testCommand.
+- Accuracy signal: package.json already routes test:full through the complete covered-package list, so FAS should delegate to npm run test:full instead of duplicating that list.
 
 ## Implementation plan
 - Update expectedExampleRoots in scripts/__tests__/test-examples.test.mjs to include the two new worked apps in sorted discovery order.
