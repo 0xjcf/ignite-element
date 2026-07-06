@@ -1769,9 +1769,12 @@ No active tasks.
 
 - Title: docs: document local-model agent workflows and ecosystem boundaries for v3
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/docs-document-local-model-agent-workflows-and-ecosystem-boun.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: test(examples): include new worked apps in example runtime lane fixture
 
