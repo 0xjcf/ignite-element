@@ -112,6 +112,13 @@ function shouldUseShell() {
 	return process.platform === "win32";
 }
 
+function normalizeScriptPath(filePath) {
+	const resolvedPath = path.resolve(filePath);
+	return process.platform === "win32"
+		? resolvedPath.toLowerCase()
+		: resolvedPath;
+}
+
 function ensureDependencies(exampleRoot, installMode) {
 	if (
 		installMode === "never" ||
@@ -237,6 +244,9 @@ async function main() {
 	);
 }
 
-if (path.resolve(process.argv[1] ?? "") === scriptPath) {
+if (
+	process.argv[1] &&
+	normalizeScriptPath(process.argv[1]) === normalizeScriptPath(scriptPath)
+) {
 	await main();
 }
