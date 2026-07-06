@@ -26,12 +26,15 @@ Add a focused dogfood example that points a real agent loop at an actor-web-back
 
 ## Affected files
 - examples/agents
-- packages/ignite-element/src/actor-web.ts
 - docs/v3-stable-roadmap.md
 - docs/ignite-tools.md
 
 ## Scope Amendments
-- None.
+- 2026-07-06: `packages/ignite-element/src/actor-web.ts` was demoted to
+  reference-only after architecture/staff/root review confirmed the dogfood can
+  use the existing `ignite-element/actor-web` bridge without changing the public
+  package API. The implementation belongs in the self-contained smart-home
+  example.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

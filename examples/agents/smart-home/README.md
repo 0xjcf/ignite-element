@@ -18,31 +18,39 @@ WebSocket bridge.
 ```bash
 # key-free, deterministic — a scripted "model" drives the home (no API key)
 npm run mock
+SMART_HOME_RUNTIME=actor-web npm run mock
 
 # the real loop — Claude drives the home
 npm install @anthropic-ai/sdk
 ANTHROPIC_API_KEY=sk-... npm run anthropic -- "it's movie night"
+SMART_HOME_RUNTIME=actor-web ANTHROPIC_API_KEY=sk-... npm run anthropic -- "it's movie night"
 
 # fully local loop — MLX exposes an OpenAI-compatible endpoint
 python -m pip install mlx-lm
 python -m mlx_lm.server --model <model> --port 8080
 MLX_MODEL=<model> npm run mlx -- "it's bedtime"
+SMART_HOME_RUNTIME=actor-web MLX_MODEL=<model> npm run mlx -- "it's bedtime"
 
 # terminal agent + browser UI, sharing one live headless home
 npm run demo
+SMART_HOME_RUNTIME=actor-web npm run demo
 
 # local MLX/OpenAI-compatible agent + browser UI, sharing one live home
 MLX_MODEL=<model> npm run demo:mlx
+SMART_HOME_RUNTIME=actor-web MLX_MODEL=<model> npm run demo:mlx
 
 # the always-on assertions (this is what proves it runs headless)
 npm test
 ```
 
+Set `SMART_HOME_RUNTIME=actor-web` to swap the default XState-backed home for an
+example-local actor-web runtime composed through `ignite-element/actor-web`.
+
 `npm run demo` serves <http://localhost:5177>. The scripted terminal agent starts
 automatically and browser clicks route back into the same shared headless
-runtime. The WebSocket bridge is intentionally small and local to this example;
-it stands in for actor-web-native location transparency until that integration is
-available.
+runtime. The WebSocket bridge is still intentionally small and example-local:
+the runtime behind it can now be actor-web-backed, but the browser transport is
+still a thin local WebSocket demo rather than the actor-web gateway/client path.
 
 The terminal is also interactive. Type commands such as `scene away`,
 `light kitchen on`, `temp bedroom 72`, or `status` at the `smart-home>` prompt;
@@ -80,10 +88,14 @@ OpenAI-compatible `/v1/chat/completions` server such as MLX.
   model and unwrapped on the way back.
 - **Provider-independent tool loop** — the same headless runtime runs with the
   Anthropic Messages shape or OpenAI-compatible Chat Completions shape.
+- **Runtime injection seam** — the same provider loops can drive the existing
+  local home runtime or an actor-web-backed Ignite runtime selected with
+  `SMART_HOME_RUNTIME=actor-web`.
 - **Errors as values** — an out-of-range input comes back as an `InvalidInput`
   `tool_result` (never a throw), so the model can recover.
-- **Events as observations** — `runScene` emits `scene-applied`, captured in the
-  command window.
+- **Actor-web native emits** — in actor-web mode, `runScene` emits
+  `scene-applied` from the runtime itself and `igniteTools.run()` captures it in
+  the command window.
 - **Terminal-to-browser bridge** — `src/server.ts` hosts one canonical headless
   home, `igniteTools(...).observe()` broadcasts state changes, and
   `<smart-home-bridge>` renders the same runtime as an Ignite web component.

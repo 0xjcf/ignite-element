@@ -1758,9 +1758,12 @@ No active tasks.
 
 - Title: examples/agent: add actor-web-backed real-agent dogfood using igniteTools
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/examples-agent-add-actor-web-backed-real-agent-dogfood-using.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: docs: document local-model agent workflows and ecosystem boundaries for v3
 

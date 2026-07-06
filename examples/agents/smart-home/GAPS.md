@@ -92,8 +92,13 @@ scripted `igniteTools` terminal agent against it, serves a browser
 protocol. Browser commands route back through `igniteTools.run()`, while
 `igniteTools.observe()` broadcasts runtime events and view updates.
 
-**Still a follow-up:** the bridge is intentionally example-local. It is the
-actor-web-native location-transparency stand-in, not the final integration. When
-actor-web exposes the durable transport contract, replace `src/bridge.ts` /
-`src/server.ts` with the real actor-web source boundary and keep the Ignite UI
-on the same `source`-first shape.
+**Update:** the example can now swap that shared runtime to an actor-web-backed
+Ignite runtime with `SMART_HOME_RUNTIME=actor-web`, so the dogfood loop proves
+real actor-web source projection, command execution, and emitted-event capture
+through `igniteTools`.
+
+**Still a follow-up:** the bridge is intentionally example-local. Even in
+actor-web mode it is not the runtime gateway/client path; it is still a thin
+local WebSocket shell around the shared home runtime. A later follow-up can
+replace `src/bridge.ts` / `src/server.ts` with the real actor-web transport
+surface while keeping the Ignite UI on the same `source`-first shape.
