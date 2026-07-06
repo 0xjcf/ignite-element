@@ -872,26 +872,70 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 		).rejects.toThrow(/choice\.message must be an object/);
 	});
 
-	it("rejects multi-choice OpenAI-compatible responses", async () => {
-		const close = vi.fn(async () => {});
-		const runtimeFactory = async () => ({
-			home: createHome(),
-			close,
-		});
-		const multiChoiceModel: OpenAICompatibleModel = async () => ({
-			choices: [
-				{ message: { content: "First choice." } },
-				{ message: { content: "Second choice." } },
-			],
-		});
+	it("normalizes multi-choice OpenAI-compatible responses to the first choice", async () => {
+		let turn = 0;
+		const multiChoiceModel: OpenAICompatibleModel = async () => {
+			const script: OpenAIChatCompletionResponse[] = [
+				{
+					choices: [
+						{
+							message: {
+								tool_calls: [
+									{
+										id: "multi-choice-1",
+										type: "function",
+										function: {
+											name: "toggleLight",
+											arguments: JSON.stringify({
+												room: "kitchen",
+												on: true,
+											}),
+										},
+									},
+								],
+							},
+						},
+						{
+							message: {
+								tool_calls: [
+									{
+										id: "multi-choice-2",
+										type: "function",
+										function: {
+											name: "unlockDoor",
+											arguments: JSON.stringify({ value: "front" }),
+										},
+									},
+								],
+							},
+						},
+					],
+				},
+				{ choices: [{ message: { content: "Kitchen light is on." } }] },
+			];
+			const response = script[turn++];
+			if (!response) {
+				throw new Error("multiChoiceModel exhausted");
+			}
+			return response;
+		};
 
-		await expect(
-			runHomeOpenAICompatibleAgent(multiChoiceModel, "status", {
-				runtimeFactory,
-			}),
-		).rejects.toThrow(/choices must contain exactly one choice/);
-
-		expect(close).toHaveBeenCalledTimes(1);
+		const result = await runHomeOpenAICompatibleAgent(
+			multiChoiceModel,
+			"turn on the kitchen light",
+		);
+		try {
+			expect(result.trace.map((entry) => entry.command)).toEqual([
+				"toggleLight",
+			]);
+			expect(result.finalText).toBe("Kitchen light is on.");
+			expect(result.home.getView()).toMatchObject({
+				lights: { kitchen: true },
+				allDoorsLocked: true,
+			});
+		} finally {
+			await result.close();
+		}
 	});
 
 	it("rejects malformed OpenAI-compatible model responses and closes the session", async () => {

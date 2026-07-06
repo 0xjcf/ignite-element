@@ -184,11 +184,6 @@ export function assertOpenAIChatCompletionResponse(
 			`${source} was malformed: choices must be a non-empty array.`,
 		);
 	}
-	if (value.choices.length !== 1) {
-		throw new Error(
-			`${source} was malformed: choices must contain exactly one choice.`,
-		);
-	}
 	for (const choice of value.choices) {
 		if (!isRecord(choice)) {
 			throw new Error(
@@ -211,6 +206,18 @@ export function assertOpenAIChatCompletionResponse(
 			);
 		}
 	}
+}
+
+export function firstOpenAIChoiceResponse(
+	response: OpenAIChatCompletionResponse,
+): OpenAIChatCompletionResponse {
+	const choice = response.choices[0];
+	if (!choice) {
+		throw new Error(
+			"OpenAI-compatible model response was malformed: choices must be a non-empty array.",
+		);
+	}
+	return { choices: [choice] };
 }
 
 export function toOpenAIAssistantMessage(

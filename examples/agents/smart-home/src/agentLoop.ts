@@ -16,6 +16,7 @@ import {
 } from "./home";
 import {
 	assertOpenAIChatCompletionResponse,
+	firstOpenAIChoiceResponse,
 	type AnthropicMessage,
 	type Model,
 	type OpenAICompatibleMessage,
@@ -159,12 +160,13 @@ export async function runHomeOpenAICompatibleAgent(
 				response,
 				"OpenAI-compatible model response",
 			);
+			const primaryResponse = firstOpenAIChoiceResponse(response);
 			modelCalls++;
-			messages.push(toOpenAIAssistantMessage(response));
+			messages.push(toOpenAIAssistantMessage(primaryResponse));
 
-			const calls = toolCalls(response);
+			const calls = toolCalls(primaryResponse);
 			if (calls.length === 0) {
-				finalText = textOfOpenAI(response);
+				finalText = textOfOpenAI(primaryResponse);
 				completed = true;
 				return {
 					home,

@@ -29,6 +29,7 @@ import type { HomeBridgeClientMessage, HomeBridgeMessage } from "./bridge";
 import { parseBridgeMessage, serializeBridgeMessage } from "./bridge";
 import {
 	assertOpenAIChatCompletionResponse,
+	firstOpenAIChoiceResponse,
 	type AnthropicMessage,
 	type Model,
 	type OpenAICompatibleMessage,
@@ -618,8 +619,9 @@ async function runSharedHomeOpenAICompatibleAgent(
 			response,
 			"OpenAI-compatible bridge model response",
 		);
-		messages.push(toOpenAIAssistantMessage(response));
-		const calls = tools.toolCalls(response);
+		const primaryResponse = firstOpenAIChoiceResponse(response);
+		messages.push(toOpenAIAssistantMessage(primaryResponse));
+		const calls = tools.toolCalls(primaryResponse);
 
 		if (calls.length === 0) {
 			return;
