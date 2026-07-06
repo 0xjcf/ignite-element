@@ -1,19 +1,26 @@
-# fix: address PR85 runtime cleanup ordering and metadata findings
+# fix: address PR85 final CodeRabbit runtime and testing findings
 
 ## Source
 Created with `fas create-task` on 2026-07-06.
 
 ## Problem
-CodeRabbit flagged that shared direct-runtime teardown could mask successful
-results, skip unconditional shared state reset when cleanup throws, and use a
-single active boolean that breaks with overlapping shared commands. The same
-review identified a host-context gap in test helper reads, a stale pnpm flag in
-the nested-child-router README, and a placeholder FAS brief from the prior
-follow-up.
+CodeRabbit's final PR85 closeout review found six issues: shared runtime access
+release can mask successful results, shared teardown must reset state even when
+cleanup throws, overlapping shared direct commands need count-based tracking,
+test helper state/view reads must honor the supplied host, the nested router
+README uses an unsupported pnpm flag, and the previous runtime cleanup FAS brief
+still had a placeholder problem statement.
 
 ## Acceptance criteria
 - The work is tracked in `.fas/TASKS.md`.
 - The task has a clear implementation and verification plan before execution starts.
+- Shared direct-runtime access uses count-based tracking and guarded release.
+- Shared teardown resets cached shared/runtime state even if facade cleanup or
+  adapter stop throws.
+- `igniteTest(..., { host })` uses the host for `given`, `expectState` fallback,
+  and `expectView` reads.
+- The nested-child-router README install command uses supported pnpm flags.
+- The prior PR85 runtime cleanup FAS brief states the concrete issue.
 
 ## Proposed solution
 - Use the supplied problem context, acceptance criteria, and affected-file hints to draft the concrete implementation approach during planning.
@@ -25,8 +32,10 @@ follow-up.
 - packages/ignite-element/src/IgniteElementFactory.ts
 - packages/ignite-element/src/runtime/agent.ts
 - packages/ignite-element/src/tests/IgniteElementFactory.test.ts
-- .fas/tasks/examples-add-worked-apps-form-with-validation-nested-child-r.md
-- .fas/tasks/fix-address-coderabbit-closeout-findings-for-v3-examples-epi.md
+- packages/ignite-element/src/testing.ts
+- packages/ignite-element/src/tests/testing.test.ts
+- examples/apps/nested-child-router/README.md
+- .fas/tasks/fix-address-pr85-runtime-cleanup-ordering-and-metadata-findi.md
 
 ## Scope Amendments
 - None.

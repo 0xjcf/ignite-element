@@ -31,7 +31,7 @@ while child outlets own their scoped tabs.
 
 ```bash
 cd examples/apps/nested-child-router
-pnpm install --ignore-workspace --no-link-workspace-packages
+pnpm install --ignore-workspace --link-workspace-packages=false
 pnpm run dev
 ```
 
