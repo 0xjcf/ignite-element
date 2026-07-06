@@ -211,9 +211,20 @@ export function assertOpenAIChatCompletionResponse(
 export function toOpenAIAssistantMessage(
 	response: OpenAIChatCompletionResponse,
 ): Extract<OpenAICompatibleMessage, { role: "assistant" }> {
-	const message = response.choices[0]?.message;
-	const content = isRecord(message) ? message.content : undefined;
-	const toolCalls = isRecord(message) ? message.tool_calls : undefined;
+	const choice = response.choices[0];
+	if (!isRecord(choice)) {
+		throw new Error(
+			"OpenAI-compatible model response was malformed: first choice must be an object.",
+		);
+	}
+	const message = choice.message;
+	if (!isRecord(message)) {
+		throw new Error(
+			"OpenAI-compatible model response was malformed: choice.message must be an object.",
+		);
+	}
+	const content = message.content;
+	const toolCalls = message.tool_calls;
 	return {
 		role: "assistant",
 		content: typeof content === "string" ? content : null,
@@ -230,7 +241,7 @@ function isOpenAIToolCall(value: unknown): value is OpenAIChatToolCall {
 		typeof value.id === "string" &&
 		isRecord(fn) &&
 		typeof fn.name === "string" &&
-		"arguments" in fn
+		(typeof fn.arguments === "string" || isRecord(fn.arguments))
 	);
 }
 

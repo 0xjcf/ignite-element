@@ -128,7 +128,9 @@ export const openai: ToolDialect<
 		return {
 			role: "tool",
 			tool_call_id: id,
-			content: JSON.stringify(isOk(result) ? result.value : result.error),
+			content: JSON.stringify(
+				(isOk(result) ? result.value : result.error) ?? null,
+			),
 		};
 	},
 };

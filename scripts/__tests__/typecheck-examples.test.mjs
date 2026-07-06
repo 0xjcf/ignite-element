@@ -1,9 +1,17 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import {
+	chmodSync,
+	mkdirSync,
+	mkdtempSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
+
+const node = process.execPath;
 
 const expectedExampleRoots = [
 	"examples/adapters/mobx",
@@ -22,7 +30,7 @@ const expectedExampleRoots = [
 describe("typecheck-examples", () => {
 	it("discovers self-contained example packages", () => {
 		const output = execFileSync(
-			"node",
+			node,
 			["scripts/typecheck-examples.mjs", "--list"],
 			{
 				encoding: "utf8",
@@ -34,7 +42,7 @@ describe("typecheck-examples", () => {
 
 	it("supports equals syntax for the examples root", () => {
 		const output = execFileSync(
-			"node",
+			node,
 			["scripts/typecheck-examples.mjs", "--list", "--examples-root=examples"],
 			{
 				encoding: "utf8",
@@ -48,7 +56,7 @@ describe("typecheck-examples", () => {
 		assert.throws(
 			() =>
 				execFileSync(
-					"node",
+					node,
 					["scripts/typecheck-examples.mjs", "--examples-root", "--list"],
 					{
 						encoding: "utf8",
@@ -65,7 +73,7 @@ describe("typecheck-examples", () => {
 		assert.throws(
 			() =>
 				execFileSync(
-					"node",
+					node,
 					["scripts/typecheck-examples.mjs", "--install=prompt"],
 					{
 						encoding: "utf8",
@@ -93,7 +101,7 @@ describe("typecheck-examples", () => {
 			assert.throws(
 				() =>
 					execFileSync(
-						"node",
+						node,
 						["scripts/typecheck-examples.mjs", "--examples-root", missingRoot],
 						{
 							encoding: "utf8",
@@ -111,6 +119,83 @@ describe("typecheck-examples", () => {
 			);
 		} finally {
 			rmSync(path.dirname(missingRoot), { force: true, recursive: true });
+		}
+	});
+
+	it("reports a clean error when an examples category cannot be read", () => {
+		const examplesRoot = mkdtempSync(
+			path.join(tmpdir(), "ignite-unreadable-examples-"),
+		);
+		const categoryRoot = path.join(examplesRoot, "apps");
+		mkdirSync(categoryRoot, { recursive: true });
+		chmodSync(categoryRoot, 0);
+
+		try {
+			assert.throws(
+				() =>
+					execFileSync(
+						node,
+						["scripts/typecheck-examples.mjs", "--examples-root", examplesRoot],
+						{
+							encoding: "utf8",
+							stderr: "pipe",
+						},
+					),
+				(error) => {
+					assert.equal(error.status, 1);
+					assert.match(
+						String(error.stderr),
+						/Unable to read examples category .*apps/,
+					);
+					return true;
+				},
+			);
+		} finally {
+			chmodSync(categoryRoot, 0o700);
+			rmSync(examplesRoot, { force: true, recursive: true });
+		}
+	});
+
+	it("reports a clean error when pnpm cannot be spawned", () => {
+		const examplesRoot = mkdtempSync(
+			path.join(tmpdir(), "ignite-missing-pnpm-"),
+		);
+		const exampleRoot = path.join(examplesRoot, "apps", "sample");
+		mkdirSync(exampleRoot, { recursive: true });
+		writeFileSync(
+			path.join(exampleRoot, "package.json"),
+			JSON.stringify({ name: "sample", scripts: { typecheck: "tsc" } }),
+		);
+		writeFileSync(path.join(exampleRoot, "tsconfig.json"), "{}");
+
+		try {
+			assert.throws(
+				() =>
+					execFileSync(
+						node,
+						[
+							"scripts/typecheck-examples.mjs",
+							"--examples-root",
+							examplesRoot,
+							"--install=always",
+						],
+						{
+							encoding: "utf8",
+							env: { ...process.env, PATH: "" },
+							stderr: "pipe",
+						},
+					),
+				(error) => {
+					assert.equal(error.status, 1);
+					assert.match(
+						String(error.stderr),
+						/Failed to run pnpm install in .*sample/,
+					);
+					return true;
+				},
+			);
+		} finally {
+			rmSync(examplesRoot, { force: true, recursive: true });
 		}
 	});
 });

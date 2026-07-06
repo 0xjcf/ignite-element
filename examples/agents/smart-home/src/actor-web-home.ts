@@ -179,10 +179,26 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 		home,
 		close: async () => {
 			clearPendingTransitionTimers();
+			const errors: unknown[] = [];
 			try {
 				await sourceHandle.stop();
-			} finally {
+			} catch (error) {
+				errors.push(error);
+			}
+			try {
 				await runtime.stop();
+			} catch (error) {
+				errors.push(error);
+			}
+			if (errors.length > 0) {
+				const primary = errors[0];
+				if (errors.length > 1 && primary instanceof Error) {
+					const errorWithSuppressed = primary as Error & {
+						suppressedErrors?: unknown[];
+					};
+					errorWithSuppressed.suppressedErrors = errors.slice(1);
+				}
+				throw primary;
 			}
 		},
 	};

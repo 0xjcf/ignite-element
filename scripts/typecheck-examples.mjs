@@ -72,7 +72,16 @@ async function discoverExampleRoots() {
 		}
 
 		const categoryRoot = path.join(examplesRoot, categoryEntry.name);
-		const exampleEntries = await readdir(categoryRoot, { withFileTypes: true });
+		let exampleEntries;
+		try {
+			exampleEntries = await readdir(categoryRoot, { withFileTypes: true });
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			console.error(
+				`Unable to read examples category ${categoryRoot}: ${message}`,
+			);
+			process.exit(1);
+		}
 
 		for (const exampleEntry of exampleEntries) {
 			if (!exampleEntry.isDirectory() || exampleEntry.name.startsWith(".")) {
@@ -107,6 +116,12 @@ function ensureDependencies(exampleRoot) {
 			stdio: "inherit",
 		},
 	);
+
+	if (result.error) {
+		console.error(
+			`Failed to run pnpm install in ${exampleRoot}: ${result.error.message}`,
+		);
+	}
 
 	return result.status === 0;
 }

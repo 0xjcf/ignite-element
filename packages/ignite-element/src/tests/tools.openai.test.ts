@@ -232,6 +232,19 @@ describe("openai.toolResult (neutral result -> OpenAI-compatible tool message)",
 		});
 	});
 
+	it("renders undefined observations as JSON null content", () => {
+		const result: NeutralToolResult = {
+			id: "call_empty",
+			name: "increment",
+			result: ok(undefined as never),
+		};
+		expect(openai.toolResult(result)).toEqual({
+			role: "tool",
+			tool_call_id: "call_empty",
+			content: "null",
+		});
+	});
+
 	it("throws when the neutral result has no id (OpenAI requires a tool_call_id)", () => {
 		const result: NeutralToolResult = {
 			name: "setLimit",
