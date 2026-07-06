@@ -113,8 +113,8 @@ breaking cutover freezes it.
 | `igniteShell` + shared move-safe teardown | `1781817947799` | additive primitive |
 | Effects object-form / remove positional | `1781818975642` | **DONE** (beta breaking) — object-form is the only v3 beta effects callback shape |
 
-Suggested intra-phase order: gap-finder + `whenChanged` → `expectView` →
-`canExecute` → host-seam → `igniteShell` → effects-object-form.
+Suggested intra-phase order for remaining work: `whenChanged` → `expectView` →
+host-seam → `igniteShell`.
 
 ## Agent-runtime thread (additive, getSchema-driven) — added 2026-06-21
 

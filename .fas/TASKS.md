@@ -2021,6 +2021,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: fix: address PR85 roadmap, router dedup, and shared cleanup coverage findings
+
+- Title: fix: address PR85 roadmap, router dedup, and shared cleanup coverage findings
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/fix-address-pr85-roadmap-router-dedup-and-shared-cleanup-cov.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
