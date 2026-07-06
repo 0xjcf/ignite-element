@@ -35,7 +35,7 @@ jobs:
         run: pnpm run architecture:check
 
       - name: Typecheck packages
-        run: pnpm run typecheck
+        run: pnpm run typecheck:packages
 
       - name: Build packages
         run: pnpm run build
@@ -86,30 +86,7 @@ jobs:
         run: pnpm install
 
       - name: Typecheck each example (self-contained install + tsc)
-        run: |
-          set -u
-          tsc="packages/ignite-element/node_modules/.bin/tsc"
-          if [ ! -x "$tsc" ]; then
-            echo "Error: tsc not found at $tsc — ensure typescript is a devDependency of packages/ignite-element"
-            exit 1
-          fi
-          failed=""
-          for dir in examples/adapters/* examples/apps/* examples/frameworks/* examples/agents/*; do
-            [ -f "$dir/package.json" ] || continue
-            echo "::group::$dir"
-            ( cd "$dir" && pnpm install --ignore-workspace --no-link-workspace-packages )
-            if "$tsc" --project "$dir/tsconfig.json"; then
-              echo "PASS $dir"
-            else
-              echo "FAIL $dir"
-              failed="$failed $dir"
-            fi
-            echo "::endgroup::"
-          done
-          if [ -n "$failed" ]; then
-            echo "Examples failed typecheck:$failed"
-            exit 1
-          fi
+        run: pnpm run typecheck:examples
 
   release:
     needs: build

@@ -5,7 +5,10 @@ import {
 	node,
 	startRuntime,
 } from "@actor-web/runtime";
-import { igniteCore } from "ignite-element/actor-web";
+import {
+	type ActorWebCommandSource,
+	igniteCore,
+} from "ignite-element/actor-web";
 import {
 	applyScene,
 	createLocalHomeSession,
@@ -56,8 +59,13 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 	const sourceHandle = runtime.topology.source("home")({
 		host: new EventTarget(),
 	});
+	const commandSource = sourceHandle.commandSource as ActorWebCommandSource<
+		HomeContext,
+		HomeCommand,
+		HomeActorEmitted
+	>;
 	sendAndFlush = async (message: HomeCommand) => {
-		await sourceHandle.commandSource.send(message);
+		await commandSource.send(message);
 		const localNode = runtime.nodes.local;
 		if (!localNode) {
 			throw new Error("Actor-web home runtime is missing the local node.");
@@ -65,7 +73,7 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 		await localNode.system.flush();
 	};
 	const home = igniteCore({
-		source: sourceHandle.commandSource,
+		source: commandSource,
 		view: ({ context }) => projectHomeView(context),
 		commands: ({ command }) => ({
 			toggleLight: command(
