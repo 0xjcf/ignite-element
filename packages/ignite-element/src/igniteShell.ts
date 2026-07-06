@@ -55,6 +55,7 @@ export function igniteShell(
 				}
 
 				if (!this.active) {
+					this.active = true;
 					let teardownResult: ReturnType<NonNullable<typeof config.onConnect>>;
 					try {
 						teardownResult = config.onConnect?.({
@@ -62,6 +63,7 @@ export function igniteShell(
 							shadowRoot: this.root,
 						});
 					} catch (error) {
+						this.active = false;
 						this.teardown = undefined;
 						console.error(
 							`[igniteShell] onConnect failed for "${tagName}".`,
@@ -71,7 +73,6 @@ export function igniteShell(
 					}
 					this.teardown =
 						typeof teardownResult === "function" ? teardownResult : undefined;
-					this.active = true;
 				}
 			}
 

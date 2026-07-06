@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { igniteShell } from "../index";
 import { Fragment, jsx, jsxs } from "../renderers/jsx/jsx-runtime";
 
@@ -6,6 +6,10 @@ const flushMicrotasks = () =>
 	new Promise<void>((resolve) => queueMicrotask(resolve));
 
 describe("igniteShell", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
 	it("renders direct shadow-root children without the ignite-jsx wrapper", () => {
 		let clicks = 0;
 		const register = igniteShell();
@@ -74,6 +78,32 @@ describe("igniteShell", () => {
 		expect(teardown).toHaveBeenCalledTimes(1);
 		firstParent.remove();
 		secondParent.remove();
+	});
+
+	it("does not re-run onConnect during reentrant connect calls", async () => {
+		const teardown = vi.fn();
+		const onConnect = vi.fn(({ element }) => {
+			(
+				element as HTMLElement & {
+					connectedCallback: () => void;
+				}
+			).connectedCallback();
+			return teardown;
+		});
+		const register = igniteShell({ onConnect });
+		const name = `ignite-shell-reentrant-connect-${crypto.randomUUID()}`;
+
+		register(name, () => jsx("div", { children: "Shell" }));
+
+		const element = document.createElement(name);
+		document.body.appendChild(element);
+
+		expect(onConnect).toHaveBeenCalledTimes(1);
+
+		element.remove();
+		await flushMicrotasks();
+
+		expect(teardown).toHaveBeenCalledTimes(1);
 	});
 
 	it("contains deferred teardown errors and resets lifecycle state", async () => {
