@@ -257,31 +257,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1783286005193",
-      "task": "examples/smart-home: add local MLX OpenAI-compatible model loop and demo mode",
-      "priority": "high",
-      "source": "manual",
-      "details": "Extend the existing smart-home agent example so the same headless runtime and igniteTools loop can run against a local MLX server exposed through an OpenAI-compatible /v1/chat/completions endpoint. Keep the example self-contained: tests use fake fetch or scripted responses, live validation is opt-in, and the example fails with actionable setup guidance when no local server is running. Include a CLI path such as npm run mlx and, if the existing bridge shape supports it cleanly, a demo:mlx mode where the local model and browser UI share one runtime.\nSee .fas/tasks/examples-smart-home-add-local-mlx-openai-compatible-model-lo.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1783285994418"
-      ],
-      "blocks": [
-        "task-1783286017890"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-05T21:13:25.193Z",
-      "updatedAt": "2026-07-06T15:13:45.912Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
       "id": "task-1783286017890",
       "task": "examples/agent: add actor-web-backed real-agent dogfood using igniteTools",
       "priority": "high",
@@ -290,7 +265,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -303,7 +278,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-05T21:13:37.891Z",
       "updatedAt": "2026-07-05T21:13:49.030Z",
-      "deferredReason": "dependency_reopened: task-1783286005193",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -2868,6 +2843,29 @@
       "completedAt": "2026-07-06T15:12:53.712Z",
       "terminalOutcome": null,
       "workflowId": "direct-1783350300693",
+      "branchName": "fas/local-model-agent-ecosystem",
+      "prStatus": null
+    },
+    {
+      "id": "task-1783286005193",
+      "task": "examples/smart-home: add local MLX OpenAI-compatible model loop and demo mode",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1783285994418"
+      ],
+      "blocks": [
+        "task-1783286017890"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-06T15:24:04.876Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783350825908",
       "branchName": "fas/local-model-agent-ecosystem",
       "prStatus": null
     }
