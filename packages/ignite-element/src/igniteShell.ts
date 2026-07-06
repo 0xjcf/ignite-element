@@ -55,9 +55,9 @@ export function igniteShell(
 				}
 
 				if (!this.active) {
-					let teardown: undefined | IgniteShellTeardown;
+					let teardownResult: ReturnType<NonNullable<typeof config.onConnect>>;
 					try {
-						teardown = config.onConnect?.({
+						teardownResult = config.onConnect?.({
 							element: this,
 							shadowRoot: this.root,
 						});
@@ -69,7 +69,8 @@ export function igniteShell(
 						);
 						return;
 					}
-					this.teardown = typeof teardown === "function" ? teardown : undefined;
+					this.teardown =
+						typeof teardownResult === "function" ? teardownResult : undefined;
 					this.active = true;
 				}
 			}
