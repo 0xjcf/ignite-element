@@ -42,15 +42,33 @@ export function igniteShell(
 				this.cancelDisconnectTeardown();
 
 				if (!this.mounted) {
-					mountIgniteJsxOnce(this.root, render());
+					try {
+						mountIgniteJsxOnce(this.root, render());
+					} catch (error) {
+						console.error(
+							`[igniteShell] Initial mount failed for "${tagName}".`,
+							error,
+						);
+						return;
+					}
 					this.mounted = true;
 				}
 
 				if (!this.active) {
-					const teardown = config.onConnect?.({
-						element: this,
-						shadowRoot: this.root,
-					});
+					let teardown: undefined | IgniteShellTeardown;
+					try {
+						teardown = config.onConnect?.({
+							element: this,
+							shadowRoot: this.root,
+						});
+					} catch (error) {
+						this.teardown = undefined;
+						console.error(
+							`[igniteShell] onConnect failed for "${tagName}".`,
+							error,
+						);
+						return;
+					}
 					this.teardown = typeof teardown === "function" ? teardown : undefined;
 					this.active = true;
 				}

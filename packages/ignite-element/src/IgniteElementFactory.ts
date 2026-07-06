@@ -492,14 +492,13 @@ export default function igniteElementFactory<
 			if (frameIndex !== -1) {
 				runtimeHostOverrideFrames.splice(frameIndex, 1);
 			}
-			cleanupAdditionalArgs(frame.additionalArgs);
-
 			const activeFrame =
 				runtimeHostOverrideFrames[runtimeHostOverrideFrames.length - 1];
 			if (activeFrame) {
 				runtimeHost = activeFrame.host;
 				runtimeAdditionalArgs = activeFrame.additionalArgs;
 				sharedRuntimeActive = activeFrame.sharedRuntimeActive;
+				cleanupAdditionalArgs(frame.additionalArgs);
 				return;
 			}
 
@@ -508,6 +507,7 @@ export default function igniteElementFactory<
 			sharedRuntimeActive =
 				runtimeHostOverrideBase?.sharedRuntimeActive ?? false;
 			runtimeHostOverrideBase = null;
+			cleanupAdditionalArgs(frame.additionalArgs);
 		};
 
 		try {
@@ -625,7 +625,7 @@ export default function igniteElementFactory<
 				protected onTrueDisconnect(): void {
 					this.disconnectAttrObserver?.();
 					this.disconnectAttrObserver = undefined;
-					cleanupAdditionalArgs(this.additionalArgs);
+					const additionalArgs = this.additionalArgs;
 					recordLifecycle(
 						"cleaned-up",
 						elementName,
@@ -645,6 +645,7 @@ export default function igniteElementFactory<
 					) {
 						releaseSharedResources();
 					}
+					cleanupAdditionalArgs(additionalArgs);
 				}
 
 				protected renderView(): View {
@@ -701,7 +702,7 @@ export default function igniteElementFactory<
 			protected onTrueDisconnect(): void {
 				this.disconnectAttrObserver?.();
 				this.disconnectAttrObserver = undefined;
-				cleanupAdditionalArgs(this.additionalArgs);
+				const additionalArgs = this.additionalArgs;
 				this.additionalArgs = undefined;
 				this.adapterInstance = undefined;
 				recordLifecycle(
@@ -710,6 +711,7 @@ export default function igniteElementFactory<
 					lifecycleScope,
 					this.lifecycleHooks.instanceId,
 				);
+				cleanupAdditionalArgs(additionalArgs);
 			}
 
 			protected renderView(): View {
