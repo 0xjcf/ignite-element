@@ -58,6 +58,23 @@ export type OpenAIChatToolResultMessage = {
 	content: string;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
+
+function isOpenAIChatToolCall(value: unknown): value is OpenAIChatToolCall {
+	if (!isRecord(value) || value.type !== "function") {
+		return false;
+	}
+	const fn = value.function;
+	return (
+		typeof value.id === "string" &&
+		isRecord(fn) &&
+		typeof fn.name === "string" &&
+		"arguments" in fn
+	);
+}
+
 function parseArguments(args: unknown): unknown {
 	if (typeof args !== "string") {
 		return args && typeof args === "object" ? args : {};
@@ -103,17 +120,28 @@ export const openai: ToolDialect<
 		response: OpenAIChatCompletionResponse,
 		manifest: NeutralManifest,
 	): NeutralToolCall[] {
-		return response.choices.flatMap((choice) =>
-			(choice.message?.tool_calls ?? []).map((call) => ({
-				id: call.id,
-				name: call.function.name,
-				input: fromProviderInput(
-					parseArguments(call.function.arguments),
-					manifest.find((tool) => tool.name === call.function.name)
-						?.inputSchema,
-				),
-			})),
-		);
+		return response.choices.flatMap((choice) => {
+			const calls = choice.message?.tool_calls;
+			if (!Array.isArray(calls)) {
+				return [];
+			}
+			return calls.flatMap((call) => {
+				if (!isOpenAIChatToolCall(call)) {
+					return [];
+				}
+				return [
+					{
+						id: call.id,
+						name: call.function.name,
+						input: fromProviderInput(
+							parseArguments(call.function.arguments),
+							manifest.find((tool) => tool.name === call.function.name)
+								?.inputSchema,
+						),
+					},
+				];
+			});
+		});
 	},
 
 	toolResult({ id, result }: NeutralToolResult): OpenAIChatToolResultMessage {

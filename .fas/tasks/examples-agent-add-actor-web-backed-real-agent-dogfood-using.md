@@ -25,7 +25,7 @@ Add a focused dogfood example that points a real agent loop at an actor-web-back
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- examples/agents
+- examples/agents/smart-home
 - docs/v3-stable-roadmap.md
 - docs/ignite-tools.md
 

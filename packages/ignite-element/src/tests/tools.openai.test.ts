@@ -190,6 +190,35 @@ describe("openai.toolCalls (OpenAI-compatible response -> neutral calls)", () =>
 			{ id: "call_object", name: "addItem", input: { name: "pear", qty: 3 } },
 		]);
 	});
+
+	it("skips malformed tool call entries instead of throwing", () => {
+		const malformed: OpenAIChatCompletionResponse = {
+			choices: [
+				{
+					message: {
+						tool_calls: [
+							{ id: "missing_function", type: "function" },
+							{
+								id: "call_valid",
+								type: "function",
+								function: {
+									name: "setLimit",
+									arguments: JSON.stringify({ value: 8 }),
+								},
+							},
+						] as unknown as NonNullable<
+							NonNullable<
+								OpenAIChatCompletionResponse["choices"][number]["message"]
+							>["tool_calls"]
+						>,
+					},
+				},
+			],
+		};
+		expect(openai.toolCalls(malformed, manifest)).toEqual([
+			{ id: "call_valid", name: "setLimit", input: 8 },
+		]);
+	});
 });
 
 describe("openai.toolResult (neutral result -> OpenAI-compatible tool message)", () => {
