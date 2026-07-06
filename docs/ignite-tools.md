@@ -193,6 +193,12 @@ const response = await client.chat.completions.create({
   messages,
   tools,
 });
+const assistant = response.choices[0]?.message ?? {};
+messages.push({
+  role: "assistant",
+  content: typeof assistant.content === "string" ? assistant.content : null,
+  tool_calls: assistant.tool_calls ?? undefined,
+});
 
 for (const call of toolCalls(response)) {
   const result = await run(call);
