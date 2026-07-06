@@ -4,7 +4,11 @@
 Created with `fas create-task` on 2026-07-05.
 
 ## Problem
-fix: snapshot runtime host override base before resolution
+Runtime host overrides captured the base host and additional args after resolving
+runtime resources. If an override created those resources, the restore path
+could cache additional args tied to an adapter that later stopped during shared
+cleanup, so the next headless runtime call could use stale command args instead
+of the fresh adapter.
 
 ## Automation admission
 - Expected operator value: Improves operator leverage around "fix: snapshot runtime host override base before resolution" by reducing manual coordination, repetitive execution, or trust gaps.

@@ -4,7 +4,9 @@
 Created with `fas create-task` on 2026-07-05.
 
 ## Problem
-fix: address PR85 final CodeRabbit minor findings
+CodeRabbit closeout review for PR #85 found minor documentation, task metadata,
+and lifecycle test coverage gaps that needed to be reconciled before the batch
+could close cleanly.
 
 ## Acceptance criteria
 - The defect no longer reproduces.
@@ -22,7 +24,11 @@ fix: address PR85 final CodeRabbit minor findings
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- docs/site/src/content/docs/migration/effects-events.mdx,.fas/tasks/fix-reconcile-coderabbit-audit-metadata-findings.md,.fas/tasks/fix-address-final-review-findings-for-v3-examples-epic.md,docs/examples/README.md,packages/ignite-element/src/tests/IgniteElement.test.tsx
+- docs/site/src/content/docs/migration/effects-events.mdx
+- .fas/tasks/fix-reconcile-coderabbit-audit-metadata-findings.md
+- .fas/tasks/fix-address-final-review-findings-for-v3-examples-epic.md
+- docs/examples/README.md
+- packages/ignite-element/src/tests/IgniteElement.test.tsx
 
 ## Scope Amendments
 - None.
