@@ -29,7 +29,8 @@ fix: snapshot runtime host override base before resolution
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- packages/ignite-element/src/IgniteElementFactory.ts,packages/ignite-element/src/tests/IgniteElementFactory.test.ts
+- packages/ignite-element/src/IgniteElementFactory.ts
+- packages/ignite-element/src/tests/IgniteElementFactory.test.ts
 
 ## Scope Amendments
 - None.

@@ -46,11 +46,12 @@ Full epic verification failed because scripts/__tests__/test-examples.test.mjs s
 
 ## Implementation plan
 - Update expectedExampleRoots in scripts/__tests__/test-examples.test.mjs to include the two new worked apps in sorted discovery order.
+- Update .fas-config.json so FAS delegates to npm run test:full instead of duplicating the example runtime package list.
 - Run the focused script test and fas validate-task before committing.
 
 ## Verification plan
 - Run node --test scripts/__tests__/test-examples.test.mjs.
-- Run fas validate-task.
+- Run fas validate-task to verify the .fas-config.json testCommand path.
 - Rerun .fas/scripts/verify.sh --full at batch closeout.
 
 ## Risks
