@@ -104,4 +104,50 @@ describe("igniteShell", () => {
 		element.remove();
 		await flushMicrotasks();
 	});
+
+	it("contains initial render errors without marking the shell mounted", () => {
+		const renderError = new Error("render failed");
+		const render = vi.fn(() => {
+			throw renderError;
+		});
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		const register = igniteShell();
+		const name = `ignite-shell-render-error-${crypto.randomUUID()}`;
+
+		register(name, render);
+
+		const element = document.createElement(name);
+		document.body.appendChild(element);
+		document.body.removeChild(element);
+		document.body.appendChild(element);
+
+		expect(render).toHaveBeenCalledTimes(2);
+		expect(errorSpy).toHaveBeenCalledWith(
+			`[igniteShell] Initial mount failed for "${name}".`,
+			renderError,
+		);
+	});
+
+	it("contains onConnect errors without marking the shell active", () => {
+		const connectError = new Error("connect failed");
+		const onConnect = vi.fn(() => {
+			throw connectError;
+		});
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		const register = igniteShell({ onConnect });
+		const name = `ignite-shell-connect-error-${crypto.randomUUID()}`;
+
+		register(name, () => jsx("div", { children: "Shell" }));
+
+		const element = document.createElement(name);
+		document.body.appendChild(element);
+		document.body.removeChild(element);
+		document.body.appendChild(element);
+
+		expect(onConnect).toHaveBeenCalledTimes(2);
+		expect(errorSpy).toHaveBeenCalledWith(
+			`[igniteShell] onConnect failed for "${name}".`,
+			connectError,
+		);
+	});
 });

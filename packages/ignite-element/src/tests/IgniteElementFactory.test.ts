@@ -3,9 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { StateScope } from "../IgniteAdapter";
 import igniteElementFactory from "../IgniteElementFactory";
 import {
-	igniteRuntimeHostOverrideSymbol,
 	type IgniteRuntimeHostOverride,
+	igniteRuntimeHostOverrideSymbol,
 } from "../runtime/agent";
+import { facadeCleanupSymbol } from "../runtime/effects";
 import MinimalMockAdapter from "./MockAdapter";
 
 const flushMicrotasks = () =>
@@ -233,6 +234,81 @@ describe("igniteElementFactory", () => {
 				}),
 			).toThrow("host override failed");
 		});
+	});
+
+	it("restores host override state before additional args cleanup can fail", async () => {
+		const cleanupError = new Error("runtime args cleanup failed");
+		const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
+		const component = igniteElementFactory(() => adapter, {
+			scope: StateScope.Shared,
+			cleanup: true,
+			createAdditionalArgs: () =>
+				({
+					[facadeCleanupSymbol]: () => {
+						throw cleanupError;
+					},
+				}) as never,
+		});
+		const name = `ignite-shared-runtime-cleanup-error-${crypto.randomUUID()}`;
+		component(name, () => html`<div></div>`);
+		const override = (
+			component as typeof component & {
+				[igniteRuntimeHostOverrideSymbol]: IgniteRuntimeHostOverride;
+			}
+		)[igniteRuntimeHostOverrideSymbol];
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		expect(() =>
+			override(document.createElement("section"), () => undefined),
+		).toThrow(cleanupError);
+
+		const element = document.createElement(name);
+		document.body.appendChild(element);
+		element.remove();
+		await flushMicrotasks();
+
+		expect(adapter.stop).toHaveBeenCalledTimes(1);
+		expect(errorSpy).toHaveBeenCalled();
+	});
+
+	it("clears isolated adapter bookkeeping before additional args cleanup can fail", async () => {
+		const cleanupError = new Error("isolated args cleanup failed");
+		const adapters: MinimalMockAdapter<
+			typeof initialState,
+			{ type: string }
+		>[] = [];
+		const createAdapter = vi.fn(() => {
+			const adapter = new MinimalMockAdapter(initialState);
+			adapters.push(adapter);
+			return adapter;
+		});
+		const component = igniteElementFactory(createAdapter, {
+			createAdditionalArgs: () =>
+				({
+					[facadeCleanupSymbol]: () => {
+						throw cleanupError;
+					},
+				}) as never,
+		});
+		const name = `ignite-isolated-cleanup-error-${crypto.randomUUID()}`;
+		component(name, () => html`<div></div>`);
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		const element = document.createElement(name);
+		document.body.appendChild(element);
+		element.remove();
+		await flushMicrotasks();
+		document.body.appendChild(element);
+
+		expect(createAdapter).toHaveBeenCalledTimes(2);
+		expect(adapters[0]?.stop).toHaveBeenCalledTimes(1);
+		expect(errorSpy).toHaveBeenCalledWith(
+			"[IgniteElement] Deferred disconnect cleanup failed.",
+			cleanupError,
+		);
+
+		element.remove();
+		await flushMicrotasks();
 	});
 
 	it("stops an isolated adapter when true disconnect cleanup throws", () => {
