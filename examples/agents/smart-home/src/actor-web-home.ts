@@ -55,8 +55,11 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 		pendingTransitionTimers.add(timer);
 	});
 	const runtime = await startRuntime(homeTopology);
+	let sourceHandle:
+		| ReturnType<ReturnType<typeof runtime.topology.source>>
+		| undefined;
 	try {
-		const sourceHandle = runtime.topology.source("home")({
+		sourceHandle = runtime.topology.source("home")({
 			host: new EventTarget(),
 		});
 		const commandSource = sourceHandle.commandSource as ActorWebCommandSource<
@@ -207,6 +210,14 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 		};
 	} catch (error) {
 		clearPendingTransitionTimers();
+		if (sourceHandle) {
+			await sourceHandle.stop().catch((cleanupError: unknown) => {
+				console.error(
+					"Failed to stop actor-web home source after setup failure",
+					cleanupError,
+				);
+			});
+		}
 		try {
 			await runtime.stop();
 		} catch (cleanupError) {

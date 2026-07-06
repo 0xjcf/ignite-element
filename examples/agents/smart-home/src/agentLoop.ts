@@ -86,7 +86,13 @@ export async function runHomeAgent(
 			if (calls.length === 0) {
 				finalText = textOf(response);
 				completed = true;
-				return { home, close: session.close, trace, finalText, modelCalls };
+				return {
+					home,
+					close: () => session.close(),
+					trace,
+					finalText,
+					modelCalls,
+				};
 			}
 
 			const resultBlocks: AnthropicToolResultBlock[] = [];
@@ -155,7 +161,13 @@ export async function runHomeOpenAICompatibleAgent(
 			if (calls.length === 0) {
 				finalText = textOfOpenAI(response);
 				completed = true;
-				return { home, close: session.close, trace, finalText, modelCalls };
+				return {
+					home,
+					close: () => session.close(),
+					trace,
+					finalText,
+					modelCalls,
+				};
 			}
 
 			const resultMessages: OpenAIChatToolResultMessage[] = [];

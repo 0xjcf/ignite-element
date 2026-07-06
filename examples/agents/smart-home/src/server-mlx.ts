@@ -2,13 +2,16 @@ import { createActorWebHomeSession } from "./actor-web-home";
 import { openAICompatibleModel } from "./model";
 import { startSmartHomeBridgeServer } from "./server";
 
+const defaultBaseUrl = "http://127.0.0.1:8080/v1";
 const baseUrl =
 	process.env.MLX_BASE_URL ??
 	process.env.OPENAI_COMPAT_BASE_URL ??
-	"http://127.0.0.1:8080/v1";
+	defaultBaseUrl;
 const model =
 	process.env.MLX_MODEL ?? process.env.OPENAI_COMPAT_MODEL ?? "mlx-local";
-const apiKey = process.env.OPENAI_COMPAT_API_KEY ?? process.env.OPENAI_API_KEY;
+const apiKey =
+	process.env.OPENAI_COMPAT_API_KEY ??
+	(baseUrl === defaultBaseUrl ? process.env.OPENAI_API_KEY : undefined);
 const runtimeFactory =
 	process.env.SMART_HOME_RUNTIME === "actor-web"
 		? createActorWebHomeSession

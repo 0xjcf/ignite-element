@@ -317,39 +317,40 @@ export async function startSmartHomeBridgeServer(
 		return {
 			port: assignedPort,
 			close: async () => {
-				terminal?.close();
-				await agentRun;
-				try {
-					bridgeStream.unsubscribe();
-					await closeWebSocketServer(bridgeWss);
-					await closeServer(bridgeHttpServer);
-					await bridgeVite.close();
-				} finally {
-					await session.close();
-				}
+				await cleanupBestEffort([
+					() => terminal?.close(),
+					async () => {
+						await agentRun;
+					},
+					() => bridgeStream.unsubscribe(),
+					() => closeWebSocketServer(bridgeWss),
+					() => closeServer(bridgeHttpServer),
+					() => bridgeVite.close(),
+					() => session.close(),
+				]);
 			},
 		};
 	} catch (error) {
-		try {
-			terminal?.close();
-		} catch (cleanupError) {
-			reportStartupCleanupError(cleanupError);
-		}
-		try {
-			stream?.unsubscribe();
-		} catch (cleanupError) {
-			reportStartupCleanupError(cleanupError);
-		}
-		if (wss && httpServer?.listening) {
-			await closeWebSocketServer(wss).catch(reportStartupCleanupError);
-		}
-		if (httpServer?.listening) {
-			await closeServer(httpServer).catch(reportStartupCleanupError);
-		}
-		if (vite) {
-			await vite.close().catch(reportStartupCleanupError);
-		}
-		await session.close().catch(reportStartupCleanupError);
+		await cleanupBestEffort([
+			() => terminal?.close(),
+			() => stream?.unsubscribe(),
+			async () => {
+				if (wss) {
+					await closeWebSocketServer(wss);
+				}
+			},
+			async () => {
+				if (httpServer?.listening) {
+					await closeServer(httpServer);
+				}
+			},
+			async () => {
+				if (vite) {
+					await vite.close();
+				}
+			},
+			() => session.close(),
+		]);
 		throw error;
 	}
 }
@@ -519,6 +520,18 @@ function printTerminalHelp(view: HomeView): void {
 
 function reportStartupCleanupError(error: unknown): void {
 	console.error("smart-home bridge startup cleanup failed:", error);
+}
+
+async function cleanupBestEffort(
+	cleanups: Array<() => void | Promise<void>>,
+): Promise<void> {
+	for (const cleanup of cleanups) {
+		try {
+			await cleanup();
+		} catch (error) {
+			reportStartupCleanupError(error);
+		}
+	}
 }
 
 async function createViteMiddleware(): Promise<ViteDevServer> {
