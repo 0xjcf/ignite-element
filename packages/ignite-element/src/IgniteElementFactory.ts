@@ -458,6 +458,12 @@ export default function igniteElementFactory<
 		host: EventTarget,
 		callback: () => Result,
 	): Result => {
+		const previousRuntimeHost = runtimeHost;
+		const previousRuntimeAdditionalArgs = runtimeAdditionalArgs;
+		const previousSharedRuntimeActive = sharedRuntimeActive;
+		const previousRuntimeHostOverrideBase = runtimeHostOverrideBase;
+		const previousRuntimeHostOverrideFrameCount =
+			runtimeHostOverrideFrames.length;
 		const baseFrame =
 			runtimeHostOverrideFrames.length === 0
 				? {
@@ -466,28 +472,17 @@ export default function igniteElementFactory<
 						sharedRuntimeActive,
 					}
 				: null;
-		const adapter = resolveRuntimeAdapter();
-		if (runtimeHostOverrideFrames.length === 0) {
-			runtimeHostOverrideBase = baseFrame;
-		}
-
-		const frame: RuntimeHostOverrideFrame = {
-			host,
-			additionalArgs: createAdditionalArgs(adapter, host),
-			sharedRuntimeActive,
-		};
-		runtimeHostOverrideFrames.push(frame);
-		runtimeHost = frame.host;
-		runtimeAdditionalArgs = frame.additionalArgs;
+		let frame: RuntimeHostOverrideFrame | null = null;
 
 		let restored = false;
 		const restore = () => {
-			if (restored) {
+			if (restored || !frame) {
 				return;
 			}
 			restored = true;
+			const frameToRestore = frame;
 
-			const frameIndex = runtimeHostOverrideFrames.indexOf(frame);
+			const frameIndex = runtimeHostOverrideFrames.indexOf(frameToRestore);
 			if (frameIndex !== -1) {
 				runtimeHostOverrideFrames.splice(frameIndex, 1);
 			}
@@ -497,7 +492,7 @@ export default function igniteElementFactory<
 				runtimeHost = activeFrame.host;
 				runtimeAdditionalArgs = activeFrame.additionalArgs;
 				sharedRuntimeActive = activeFrame.sharedRuntimeActive;
-				cleanupAdditionalArgs(frame.additionalArgs);
+				cleanupAdditionalArgs(frameToRestore.additionalArgs);
 				return;
 			}
 
@@ -506,10 +501,32 @@ export default function igniteElementFactory<
 			sharedRuntimeActive =
 				runtimeHostOverrideBase?.sharedRuntimeActive ?? false;
 			runtimeHostOverrideBase = null;
-			cleanupAdditionalArgs(frame.additionalArgs);
+			cleanupAdditionalArgs(frameToRestore.additionalArgs);
+		};
+		const rollbackSetup = () => {
+			runtimeHost = previousRuntimeHost;
+			runtimeAdditionalArgs = previousRuntimeAdditionalArgs;
+			sharedRuntimeActive = previousSharedRuntimeActive;
+			runtimeHostOverrideBase = previousRuntimeHostOverrideBase;
+			runtimeHostOverrideFrames.length = previousRuntimeHostOverrideFrameCount;
 		};
 
 		try {
+			const adapter = resolveRuntimeAdapter();
+			const additionalArgs = createAdditionalArgs(adapter, host);
+			if (runtimeHostOverrideFrames.length === 0) {
+				runtimeHostOverrideBase = baseFrame;
+			}
+
+			frame = {
+				host,
+				additionalArgs,
+				sharedRuntimeActive,
+			};
+			runtimeHostOverrideFrames.push(frame);
+			runtimeHost = frame.host;
+			runtimeAdditionalArgs = frame.additionalArgs;
+
 			const result = callback();
 			if (
 				typeof result === "object" &&
@@ -523,13 +540,17 @@ export default function igniteElementFactory<
 			restore();
 			return result;
 		} catch (error) {
-			try {
-				restore();
-			} catch (restoreError) {
-				console.error(
-					"[igniteElementFactory] Runtime host restore failed after callback error.",
-					restoreError,
-				);
+			if (frame) {
+				try {
+					restore();
+				} catch (restoreError) {
+					console.error(
+						"[igniteElementFactory] Runtime host restore failed after callback error.",
+						restoreError,
+					);
+				}
+			} else {
+				rollbackSetup();
 			}
 			throw error;
 		}

@@ -325,6 +325,38 @@ describe("igniteElementFactory", () => {
 		expect(errorSpy).toHaveBeenCalled();
 	});
 
+	it("rolls back host override state when additional args setup fails", async () => {
+		const setupError = new Error("runtime args setup failed");
+		const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
+		const overrideHost = document.createElement("section");
+		const component = igniteElementFactory(() => adapter, {
+			scope: StateScope.Shared,
+			cleanup: true,
+			createAdditionalArgs: (_adapter, host) => {
+				if (host === overrideHost) {
+					throw setupError;
+				}
+				return {} as never;
+			},
+		});
+		const name = `ignite-shared-runtime-setup-error-${crypto.randomUUID()}`;
+		component(name, () => html`<div></div>`);
+		const override = (
+			component as typeof component & {
+				[igniteRuntimeHostOverrideSymbol]: IgniteRuntimeHostOverride;
+			}
+		)[igniteRuntimeHostOverrideSymbol];
+
+		expect(() => override(overrideHost, () => undefined)).toThrow(setupError);
+
+		const element = document.createElement(name);
+		document.body.appendChild(element);
+		element.remove();
+		await flushMicrotasks();
+
+		expect(adapter.stop).toHaveBeenCalledTimes(1);
+	});
+
 	it("preserves host override callback errors when restore cleanup fails", () => {
 		const cleanupError = new Error("runtime args cleanup failed");
 		const callbackError = new Error("host override failed");
