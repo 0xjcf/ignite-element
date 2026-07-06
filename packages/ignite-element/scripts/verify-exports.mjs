@@ -18,6 +18,7 @@ const expectedPublicSubpaths = [
 	"./react",
 	"./tools",
 	"./tools/anthropic",
+	"./tools/openai",
 	"./package.json",
 ];
 
@@ -32,6 +33,7 @@ const expectedTypesVersions = [
 	"react",
 	"tools",
 	"tools/anthropic",
+	"tools/openai",
 ];
 
 const removedStableSubpaths = [
@@ -87,6 +89,7 @@ const requiredExports = [
 		},
 	],
 	["./tools/anthropic", { anthropic: "object" }],
+	["./tools/openai", { openai: "object" }],
 ];
 
 const recursiveImportPattern =
