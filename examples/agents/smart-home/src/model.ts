@@ -116,6 +116,7 @@ export function openAICompatibleModel(options: {
 				signal: controller.signal,
 			});
 		} catch (error) {
+			clearTimeout(timeoutId);
 			if (controller.signal.aborted || isAbortError(error)) {
 				throw openAICompatibleTimeoutError(baseUrl, timeoutMs);
 			}

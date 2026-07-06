@@ -723,6 +723,31 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 		).rejects.toThrow(/local MLX server/);
 	});
 
+	it("clears OpenAI-compatible request timeouts after network failures", async () => {
+		vi.useFakeTimers();
+		try {
+			const fetchImpl: typeof fetch = async () => {
+				throw new TypeError("fetch failed");
+			};
+			const model = openAICompatibleModel({
+				baseUrl: "http://127.0.0.1:8080/v1",
+				model: "mlx-test",
+				fetch: fetchImpl,
+				timeoutMs: 25,
+			});
+
+			await expect(
+				model({
+					tools: [],
+					messages: [{ role: "user", content: "status" }],
+				}),
+			).rejects.toThrow(/Could not reach OpenAI-compatible server/);
+			expect(vi.getTimerCount()).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it("times out hung OpenAI-compatible model requests", async () => {
 		vi.useFakeTimers();
 		try {
