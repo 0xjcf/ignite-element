@@ -43,6 +43,8 @@ Remove the positional effects callback form for the v3 beta API. Object-form eff
 - docs/site/src/content/docs/api/ignite-core.mdx
 - docs/site/src/content/docs/migration/effects-events.mdx
 - docs/migrations/v2.2.3-effects-events.md
+- README.md
+- docs/v3-stable-roadmap.md
 
 ## Scope Amendments
 - Type: scope-change
@@ -53,6 +55,15 @@ Remove the positional effects callback form for the v3 beta API. Object-form eff
 - Evidence source: repo scan
 - Evidence: repo scan | Most source examples and tests already use object-form effects; remaining positional usage is stale docs/readme content and one new deprecation test from the abandoned warning path.
 - Accuracy signal: Dirty files and rg results identify runtime, public types, adapter config surfaces, tests, and stale docs that must move together.
+
+- Type: scope-change
+- Added at: 2026-07-05
+- Trigger: owner-decision
+- Reason: Owner requested stale docs/readme examples be moved to object-form and additive/deprecate wording be replaced with v3 beta removal.
+- Added paths: README.md, docs/v3-stable-roadmap.md
+- Evidence source: repo scan
+- Evidence: repo scan | rg found positional effects examples in root README and additive/deprecate wording in roadmap/sequencing docs.
+- Accuracy signal: Dirty docs paths match the requested object-form and beta-removal copy cleanup.
 
 ## Implementation plan
 - Remove positional effects types/usages from core, adapters, and ignite-element config surfaces.

@@ -1841,6 +1841,18 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: fix: address runtime host and shell teardown review findings
+
+- Title: fix: address runtime host and shell teardown review findings
+- Mode: single-agent
+- Status: implementing
+- Owner: implementer
+- Brief: .fas/tasks/fix-address-runtime-host-and-shell-teardown-review-findings.md
+- Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
