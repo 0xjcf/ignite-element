@@ -1,10 +1,10 @@
-# fix: preserve disconnect teardown errors
+# fix: address PR85 final minor review findings
 
 ## Source
-Created with `fas create-task` on 2026-07-05.
+Created with `fas create-task` on 2026-07-06.
 
 ## Problem
-fix: preserve disconnect teardown errors
+fix: address PR85 final minor review findings
 
 ## Acceptance criteria
 - The defect no longer reproduces.
@@ -22,10 +22,9 @@ fix: preserve disconnect teardown errors
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- .fas/tasks/fix-snapshot-runtime-host-override-base-before-resolution.md
-- .fas/tasks/fix-address-pr85-final-coderabbit-minor-findings.md
-- packages/ignite-element/src/IgniteElement.ts
-- packages/ignite-element/src/tests/IgniteElement.test.tsx
+- examples/apps/dashboard-with-shared-state/src/dashboard.tsx
+- examples/apps/dashboard-with-shared-state/src/dashboard.dom.test.tsx
+- .fas/tasks/fix-preserve-disconnect-teardown-errors.md
 
 ## Scope Amendments
 - None.
