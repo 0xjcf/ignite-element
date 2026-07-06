@@ -505,7 +505,14 @@ export default function igniteElementFactory<
 			sharedInstanceCount === 0 &&
 			sharedRuntimeAccessCount === 0
 		) {
-			releaseSharedResources();
+			try {
+				releaseSharedResources();
+			} catch (error) {
+				console.error(
+					"[IgniteElement] Deferred disconnect cleanup failed.",
+					error,
+				);
+			}
 		}
 	};
 
