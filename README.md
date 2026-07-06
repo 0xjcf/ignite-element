@@ -118,7 +118,7 @@ const toggle = igniteCore({
     },
   }),
 
-  effects: (_snapshot, _prevSnapshot, { emit, select }) => {
+  effects: ({ emit, select }) => {
     const isOn = select((snapshot) => snapshot.matches("on"));
     if (!isOn.changed) return;
     emit("toggled", { isOn: isOn.current });
@@ -173,7 +173,7 @@ This keeps rendering tied to explicit state, not ad hoc imperative updates.
 Effects react to state transitions.
 
 ```ts
-effects: (_snapshot, _prevSnapshot, { emit, select }) => {
+effects: ({ emit, select }) => {
   const isOn = select((snapshot) => snapshot.matches("on"));
   if (!isOn.changed) return;
   emit("toggled", { isOn: isOn.current });
@@ -191,7 +191,7 @@ Effects:
 When one transition needs multiple consequences, keep each concern in its own guarded block inside the same `effects(...)` callback:
 
 ```ts
-effects: (snapshot, _prevSnapshot, { emit, host, select }) => {
+effects: ({ snapshot, emit, host, select }) => {
   const status = select((current) => current.context.status);
   const error = select((current) => current.context.error);
 

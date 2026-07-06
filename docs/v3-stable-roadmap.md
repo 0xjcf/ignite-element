@@ -110,7 +110,7 @@ still shape the API before the breaking cutover freezes it.
 | `canExecute(name)` | `1781798486122` | ✅ done |
 | Test host seam (fluent `.host()`) | `1781619012619` | additive |
 | `igniteShell` + shared move-safe teardown | `1781817947799` | additive primitive |
-| Effects object-form / deprecate positional | `1781818975642` | additive → deprecate |
+| Effects object-form / remove positional | `1781818975642` | **DONE** (beta breaking) — object-form is the only v3 beta effects callback shape |
 
 Suggested intra-phase order: gap-finder + `whenChanged` → `expectView` →
 `canExecute` → host-seam → `igniteShell` → effects-object-form.
