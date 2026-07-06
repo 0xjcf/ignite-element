@@ -16,8 +16,15 @@ import {
 	openai,
 } from "ignite-element/tools/openai";
 import { describe, expect, it, vi } from "vitest";
+import { createActorWebHomeSession } from "./actor-web-home";
 import { runHomeAgent, runHomeOpenAICompatibleAgent } from "./agentLoop";
-import { createHome, DOORS, ROOMS, SCENES } from "./home";
+import {
+	createHome,
+	DOORS,
+	ROOMS,
+	SCENE_TRANSITION_DELAY_MS,
+	SCENES,
+} from "./home";
 import {
 	type Model,
 	openAICompatibleModel,
@@ -678,5 +685,272 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 				messages: [{ role: "user", content: "status" }],
 			}),
 		).rejects.toThrow(/mlx_lm\.server/);
+	});
+
+	it("closes an injected runtime session when the Anthropic loop hits MAX_TURNS", async () => {
+		const close = vi.fn(async () => {});
+		const runtimeFactory = async () => ({
+			home: createHome(),
+			close,
+		});
+		const loopingScript: AnthropicResponse[] = Array.from(
+			{ length: 12 },
+			(_, turn) => ({
+				content: [
+					{
+						type: "tool_use",
+						id: `loop-${turn + 1}`,
+						name: "status",
+						input: {},
+					},
+				],
+			}),
+		);
+
+		await expect(
+			runHomeAgent(scriptedModel(loopingScript), "keep checking", {
+				runtimeFactory,
+			}),
+		).rejects.toThrow(/MAX_TURNS/);
+
+		expect(close).toHaveBeenCalledTimes(1);
+	});
+
+	it("closes an injected runtime session when the OpenAI-compatible loop hits MAX_TURNS", async () => {
+		const close = vi.fn(async () => {});
+		const runtimeFactory = async () => ({
+			home: createHome(),
+			close,
+		});
+		const loopingScript: OpenAIChatCompletionResponse[] = Array.from(
+			{ length: 12 },
+			(_, turn) => ({
+				choices: [
+					{
+						message: {
+							tool_calls: [
+								{
+									id: `loop-${turn + 1}`,
+									type: "function",
+									function: {
+										name: "status",
+										arguments: JSON.stringify({}),
+									},
+								},
+							],
+						},
+					},
+				],
+			}),
+		);
+
+		await expect(
+			runHomeOpenAICompatibleAgent(
+				scriptedOpenAICompatibleModel(loopingScript),
+				"keep checking",
+				{ runtimeFactory },
+			),
+		).rejects.toThrow(/MAX_TURNS/);
+
+		expect(close).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe("smart-home agent — actor-web runtime dogfood", () => {
+	it("drives an actor-web-backed runtime through the Anthropic loop via an injected runtimeFactory", async () => {
+		const script: AnthropicResponse[] = [
+			{
+				content: [
+					{
+						type: "tool_use",
+						id: "actor-web-1",
+						name: "toggleLight",
+						input: { room: "living", on: true },
+					},
+				],
+			},
+			{
+				content: [
+					{
+						type: "tool_use",
+						id: "actor-web-2",
+						name: "runScene",
+						input: { value: "movie" },
+					},
+				],
+			},
+			{
+				content: [
+					{
+						type: "text",
+						text: "Living room is ready for movie mode.",
+					},
+				],
+			},
+		];
+
+		const result = await runHomeAgent(
+			scriptedModel(script),
+			"Turn on the living room light, then start movie mode.",
+			{ runtimeFactory: createActorWebHomeSession },
+		);
+
+		try {
+			expect(result.trace.map((entry) => entry.command)).toEqual([
+				"toggleLight",
+				"runScene",
+			]);
+			expect(result.trace[0]?.view).toMatchObject({
+				lights: { living: true },
+				lightsOn: ["living"],
+			});
+			expect(result.trace[1]).toMatchObject({
+				command: "runScene",
+				input: "movie",
+				ok: true,
+				view: {
+					activeScene: "movie",
+					lights: { living: false },
+				},
+			});
+			expect(result.home.getView()).toMatchObject({
+				activeScene: "movie",
+				lights: { living: false },
+			});
+		} finally {
+			await result.close();
+		}
+	});
+
+	it("captures actor-web native emits in command-window observations and explicit runtime listeners", async () => {
+		const session = await createActorWebHomeSession();
+		const received: Array<{ scene: string }> = [];
+		const subscription = session.home.on("scene-applied", (event) => {
+			received.push(event.detail as { scene: string });
+		});
+
+		try {
+			const tools = igniteTools(session.home, anthropic);
+			const result = await tools.run({ name: "runScene", input: "movie" });
+
+			expect(isOk(result)).toBe(true);
+			if (!isOk(result)) {
+				return;
+			}
+
+			expect(result.value.view).toMatchObject({
+				activeScene: "movie",
+				lights: { living: false },
+			});
+			expect(result.value.events).toContainEqual(
+				expect.objectContaining({
+					type: "scene-applied",
+					payload: expect.objectContaining({ scene: "movie" }),
+				}),
+			);
+			expect(received).toHaveLength(1);
+			expect(received[0]).toMatchObject({ scene: "movie" });
+		} finally {
+			subscription.unsubscribe();
+			await session.close();
+		}
+	});
+
+	it("restarts actor-web delayed scene timing when transitionScene is repeated", async () => {
+		vi.useFakeTimers();
+		const session = await createActorWebHomeSession();
+
+		try {
+			const tools = igniteTools(session.home, anthropic);
+			const firstResult = await tools.run({
+				name: "transitionScene",
+				input: "morning",
+			});
+
+			if (!isOk(firstResult)) {
+				throw new Error(firstResult.error.kind);
+			}
+
+			expect(firstResult.value.view).toMatchObject({
+				activeScene: null,
+				pendingScene: "morning",
+			});
+
+			await vi.advanceTimersByTimeAsync(10);
+
+			const secondResult = await tools.run({
+				name: "transitionScene",
+				input: "movie",
+			});
+
+			if (!isOk(secondResult)) {
+				throw new Error(secondResult.error.kind);
+			}
+
+			expect(secondResult.value.view).toMatchObject({
+				activeScene: null,
+				pendingScene: "movie",
+			});
+
+			await vi.advanceTimersByTimeAsync(20);
+
+			expect(session.home.getView()).toMatchObject({
+				activeScene: null,
+				pendingScene: "movie",
+			});
+
+			await vi.advanceTimersByTimeAsync(5);
+
+			expect(session.home.getView()).toMatchObject({
+				activeScene: "movie",
+				pendingScene: null,
+				lights: { living: false },
+			});
+		} finally {
+			await session.close();
+			vi.useRealTimers();
+		}
+	});
+
+	it("cancels pending actor-web transition timers when the session closes", async () => {
+		vi.useFakeTimers();
+		const session = await createActorWebHomeSession();
+		let closed = false;
+
+		try {
+			const tools = igniteTools(session.home, anthropic);
+			const timerCountBeforeTransition = vi.getTimerCount();
+			const result = await tools.run({
+				name: "transitionScene",
+				input: "movie",
+			});
+
+			if (!isOk(result)) {
+				throw new Error(result.error.kind);
+			}
+
+			expect(result.value.view).toMatchObject({
+				activeScene: null,
+				pendingScene: "movie",
+			});
+			expect(vi.getTimerCount()).toBeGreaterThan(timerCountBeforeTransition);
+
+			await session.close();
+			closed = true;
+			expect(vi.getTimerCount()).toBeLessThanOrEqual(
+				timerCountBeforeTransition,
+			);
+
+			await vi.advanceTimersByTimeAsync(SCENE_TRANSITION_DELAY_MS + 1);
+			expect(session.home.getView()).toMatchObject({
+				activeScene: null,
+				pendingScene: "movie",
+			});
+		} finally {
+			if (!closed) {
+				await session.close();
+			}
+			vi.useRealTimers();
+		}
 	});
 });

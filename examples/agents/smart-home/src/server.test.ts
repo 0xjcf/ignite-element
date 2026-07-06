@@ -1,7 +1,9 @@
 // @vitest-environment node
+
+import type { OpenAIChatCompletionResponse } from "ignite-element/tools/openai";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
-import type { OpenAIChatCompletionResponse } from "ignite-element/tools/openai";
+import { createActorWebHomeSession } from "./actor-web-home";
 import {
 	createCommandMessage,
 	type HomeBridgeClientMessage,
@@ -111,6 +113,32 @@ describe("smart-home bridge server", () => {
 
 		expect(result.command).toBe("toggleLight");
 		expect(result.view.lights.kitchen).toBe(true);
+
+		socket.close();
+	});
+
+	it("routes browser commands into the actor-web-backed shared runtime when runtimeFactory is injected", async () => {
+		server = await startSmartHomeBridgeServer({
+			port: 0,
+			runAgent: false,
+			runtimeFactory: createActorWebHomeSession,
+		});
+		const socket = new WebSocket(`ws://127.0.0.1:${server.port}/bridge`);
+		const messages = collectMessages(socket);
+
+		await opened(socket);
+		await messages.next("home:view");
+
+		socket.send(
+			serializeBridgeMessage(createCommandMessage("runScene", "movie")),
+		);
+
+		const result = await messages.next("home:command-result");
+		expect(result.command).toBe("runScene");
+		expect(result.view).toMatchObject({
+			activeScene: "movie",
+			lights: { living: false },
+		});
 
 		socket.close();
 	});
