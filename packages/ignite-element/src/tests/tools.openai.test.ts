@@ -122,6 +122,29 @@ describe("openai.toolCalls (OpenAI-compatible response -> neutral calls)", () =>
 		expect(openai.toolCalls(textOnly, manifest)).toEqual([]);
 	});
 
+	it("ignores tool_calls from unselected extra choices", () => {
+		const multiChoice: OpenAIChatCompletionResponse = {
+			choices: [
+				{ message: { content: "I will not call a tool." } },
+				{
+					message: {
+						tool_calls: [
+							{
+								id: "call_unselected",
+								type: "function",
+								function: {
+									name: "setLimit",
+									arguments: JSON.stringify({ value: 99 }),
+								},
+							},
+						],
+					},
+				},
+			],
+		};
+		expect(openai.toolCalls(multiChoice, manifest)).toEqual([]);
+	});
+
 	it("leaves input untouched for a command not in the manifest", () => {
 		const unknown: OpenAIChatCompletionResponse = {
 			choices: [

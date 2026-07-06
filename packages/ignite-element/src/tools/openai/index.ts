@@ -120,27 +120,25 @@ export const openai: ToolDialect<
 		response: OpenAIChatCompletionResponse,
 		manifest: NeutralManifest,
 	): NeutralToolCall[] {
-		return response.choices.flatMap((choice) => {
-			const calls = choice.message?.tool_calls;
-			if (!Array.isArray(calls)) {
+		const calls = response.choices[0]?.message?.tool_calls;
+		if (!Array.isArray(calls)) {
+			return [];
+		}
+		return calls.flatMap((call) => {
+			if (!isOpenAIChatToolCall(call)) {
 				return [];
 			}
-			return calls.flatMap((call) => {
-				if (!isOpenAIChatToolCall(call)) {
-					return [];
-				}
-				return [
-					{
-						id: call.id,
-						name: call.function.name,
-						input: fromProviderInput(
-							parseArguments(call.function.arguments),
-							manifest.find((tool) => tool.name === call.function.name)
-								?.inputSchema,
-						),
-					},
-				];
-			});
+			return [
+				{
+					id: call.id,
+					name: call.function.name,
+					input: fromProviderInput(
+						parseArguments(call.function.arguments),
+						manifest.find((tool) => tool.name === call.function.name)
+							?.inputSchema,
+					),
+				},
+			];
 		});
 	},
 
