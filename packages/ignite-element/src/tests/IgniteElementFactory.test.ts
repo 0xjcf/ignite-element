@@ -290,6 +290,61 @@ describe("igniteElementFactory", () => {
 		expect(reportedAdapters).toEqual([adapters[0], adapters[1]]);
 	});
 
+	it("releases shared cleanup after direct runtime access and last disconnect", async () => {
+		const adapters: MinimalMockAdapter<
+			typeof initialState,
+			{ type: string }
+		>[] = [];
+		const reportedAdapters: MinimalMockAdapter<
+			typeof initialState,
+			{ type: string }
+		>[] = [];
+		const createAdapter = vi.fn(() => {
+			const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
+			adapters.push(adapter);
+			return adapter;
+		});
+		const component = igniteElementFactory(createAdapter, {
+			scope: StateScope.Shared,
+			cleanup: true,
+			createAdditionalArgs: (adapter) =>
+				({
+					reportAdapter: () => {
+						reportedAdapters.push(
+							adapter as MinimalMockAdapter<
+								typeof initialState,
+								{ type: string }
+							>,
+						);
+					},
+				}) as never,
+		});
+		const name = `ignite-direct-runtime-cleanup-${crypto.randomUUID()}`;
+		component(name, () => html`<div></div>`);
+		const runtime = component as typeof component & {
+			execute: (commandName: string) => Promise<unknown>;
+			getSnapshot: () => typeof initialState;
+		};
+
+		expect(runtime.getSnapshot()).toEqual(initialState);
+		await runtime.execute("reportAdapter");
+
+		const element = document.createElement(name);
+		document.body.appendChild(element);
+		element.remove();
+		await flushMicrotasks();
+
+		expect(createAdapter).toHaveBeenCalledTimes(1);
+		expect(adapters[0]?.stop).toHaveBeenCalledTimes(1);
+
+		await runtime.execute("reportAdapter");
+
+		expect(createAdapter).toHaveBeenCalledTimes(2);
+		expect(reportedAdapters).toHaveLength(2);
+		expect(reportedAdapters[0]).toBe(adapters[0]);
+		expect(reportedAdapters[1]).toBe(adapters[1]);
+	});
+
 	it("restores host override state when additional args cleanup fails", async () => {
 		const cleanupError = new Error("runtime args cleanup failed");
 		const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);

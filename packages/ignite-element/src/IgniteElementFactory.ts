@@ -196,6 +196,7 @@ export default function igniteElementFactory<
 	>();
 	let sharedInstanceCount = 0;
 	let sharedRuntimeActive = false;
+	let sharedCleanupPending = false;
 	let runtimeAdapter: IgniteAdapter<State, Event> | null = null;
 	let runtimeAdditionalArgs: RuntimeAdditionalArgs | null = null;
 	let runtimeHost: EventTarget | null = null;
@@ -336,6 +337,9 @@ export default function igniteElementFactory<
 		sharedAdapter = null;
 		sharedAdditionalArgs = new WeakMap();
 		sharedInstanceCount = 0;
+		sharedCleanupPending = false;
+		runtimeAdditionalArgs = null;
+		runtimeHost = null;
 	};
 
 	// The headless agent runtime only needs EventTarget APIs for `on()` and
@@ -452,6 +456,20 @@ export default function igniteElementFactory<
 			additionalArgs: runtimeAdditionalArgs,
 			host: runtimeHost,
 		};
+	};
+	const releaseRuntimeAccess = () => {
+		if (inferredScope !== StateScope.Shared) {
+			return;
+		}
+
+		sharedRuntimeActive = false;
+		if (
+			sharedCleanupPending &&
+			cleanupSharedLifecycle &&
+			sharedInstanceCount === 0
+		) {
+			releaseSharedResources();
+		}
 	};
 
 	const withRuntimeHost = <Result>(
@@ -698,6 +716,12 @@ export default function igniteElementFactory<
 						!sharedRuntimeActive
 					) {
 						releaseSharedResources();
+					} else if (
+						cleanupSharedLifecycle &&
+						sharedInstanceCount === 0 &&
+						sharedRuntimeActive
+					) {
+						sharedCleanupPending = true;
 					}
 					cleanupAdditionalArgs(additionalArgs);
 				}
@@ -803,6 +827,7 @@ export default function igniteElementFactory<
 				),
 			eventTypes,
 			observeLifecycle,
+			releaseRuntimeAccess,
 			resolveRuntime: resolveRuntimeResources,
 			resolveView,
 		}),

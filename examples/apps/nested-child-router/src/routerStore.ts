@@ -45,8 +45,13 @@ const updateBrowserPath = (
 	to: string,
 	options: NavigationOptions = {},
 ) => {
+	if (!target) {
+		return;
+	}
+
 	const normalizedTo = resolveNestedRoute(to).path;
-	if (!target || getBrowserPath(target) === normalizedTo) {
+	const currentPath = resolveNestedRoute(target.location.pathname).path;
+	if (currentPath === normalizedTo) {
 		return;
 	}
 

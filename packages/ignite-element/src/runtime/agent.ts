@@ -47,6 +47,7 @@ type AgentRuntimeOptions<
 		options?: IgniteDomBridgeOptions,
 	) => IgniteDomBridgeSession;
 	resolveRuntime: () => RuntimeResources<State, Event, AdditionalArgs>;
+	releaseRuntimeAccess?: () => void;
 	resolveView: (adapter: IgniteAdapter<State, Event>) => View;
 };
 
@@ -171,9 +172,38 @@ export function createAgentRuntime<
 	createDomBridge,
 	eventTypes,
 	observeLifecycle,
+	releaseRuntimeAccess,
 	resolveRuntime,
 	resolveView,
 }: AgentRuntimeOptions<State, Event, View, AdditionalArgs>) {
+	const isThenable = (value: unknown): value is PromiseLike<unknown> =>
+		(typeof value === "object" || typeof value === "function") &&
+		value !== null &&
+		"then" in value &&
+		typeof (value as { then?: unknown }).then === "function";
+	const withRuntimeAccess = <Result>(callback: () => Result): Result => {
+		try {
+			const result = callback();
+			if (isThenable(result)) {
+				return result.then(
+					(value) => {
+						releaseRuntimeAccess?.();
+						return value;
+					},
+					(error) => {
+						releaseRuntimeAccess?.();
+						throw error;
+					},
+				) as Result;
+			}
+
+			releaseRuntimeAccess?.();
+			return result;
+		} catch (error) {
+			releaseRuntimeAccess?.();
+			throw error;
+		}
+	};
 	const createWatcher = <Value>(
 		resolveCurrent: (adapter: IgniteAdapter<State, Event>) => Value,
 		handler: (value: Value, prevValue: Value) => void,
@@ -241,72 +271,74 @@ export function createAgentRuntime<
 		return createWatcher(resolveView, handler);
 	};
 
-	const canExecuteCommand = (commandName: string) => {
-		const { adapter, additionalArgs } = resolveRuntime();
-		const command = (additionalArgs as Record<string, unknown>)[commandName];
+	const canExecuteCommand = (commandName: string) =>
+		withRuntimeAccess(() => {
+			const { adapter, additionalArgs } = resolveRuntime();
+			const command = (additionalArgs as Record<string, unknown>)[commandName];
 
-		if (typeof command !== "function") {
-			throw new Error(`[igniteCore] Unknown command "${commandName}".`);
-		}
+			if (typeof command !== "function") {
+				throw new Error(`[igniteCore] Unknown command "${commandName}".`);
+			}
 
-		const metadata = getCommandMetadata(command);
-		if (!hasCanExecute(metadata)) {
-			return true;
-		}
+			const metadata = getCommandMetadata(command);
+			if (!hasCanExecute(metadata)) {
+				return true;
+			}
 
-		return metadata.canExecute({ snapshot: adapter.getSnapshot() });
-	};
-
-	const executeCommand = async (commandName: string, payload?: unknown) => {
-		const { adapter, additionalArgs, host } = resolveRuntime();
-		const command = (additionalArgs as Record<string, unknown>)[commandName];
-
-		if (typeof command !== "function") {
-			throw new Error(`[igniteCore] Unknown command "${commandName}".`);
-		}
-
-		const events: Array<{ type: string; payload: unknown }> = [];
-		const listeners = eventTypes.map((eventType) => {
-			const listener = (event: Event) => {
-				const customEvent = event as CustomEvent<unknown>;
-				events.push({
-					type: customEvent.type,
-					payload: customEvent.detail,
-				});
-			};
-
-			host.addEventListener(eventType, listener as EventListener);
-			return { eventType, listener };
+			return metadata.canExecute({ snapshot: adapter.getSnapshot() });
 		});
 
-		// Capture source-emitted events (the adapter's optional `subscribeEvents()`
-		// seam) during the command window — independent of the declared
-		// `eventTypes`, so dynamic emit types are collected with the uniform
-		// `{ type, payload }` shape.
-		const sourceSubscription = adapter.subscribeEvents?.((event: unknown) => {
-			const type = emittedEventType(event);
-			if (type !== undefined) {
-				events.push({ type, payload: event });
+	const executeCommand = async (commandName: string, payload?: unknown) =>
+		withRuntimeAccess(async () => {
+			const { adapter, additionalArgs, host } = resolveRuntime();
+			const command = (additionalArgs as Record<string, unknown>)[commandName];
+
+			if (typeof command !== "function") {
+				throw new Error(`[igniteCore] Unknown command "${commandName}".`);
+			}
+
+			const events: Array<{ type: string; payload: unknown }> = [];
+			const listeners = eventTypes.map((eventType) => {
+				const listener = (event: Event) => {
+					const customEvent = event as CustomEvent<unknown>;
+					events.push({
+						type: customEvent.type,
+						payload: customEvent.detail,
+					});
+				};
+
+				host.addEventListener(eventType, listener as EventListener);
+				return { eventType, listener };
+			});
+
+			// Capture source-emitted events (the adapter's optional `subscribeEvents()`
+			// seam) during the command window — independent of the declared
+			// `eventTypes`, so dynamic emit types are collected with the uniform
+			// `{ type, payload }` shape.
+			const sourceSubscription = adapter.subscribeEvents?.((event: unknown) => {
+				const type = emittedEventType(event);
+				if (type !== undefined) {
+					events.push({ type, payload: event });
+				}
+			});
+
+			try {
+				await (command as (arg?: unknown) => unknown)(payload);
+
+				// Flush microtask to allow post-render effects to emit events
+				await new Promise<void>((resolve) => queueMicrotask(resolve));
+
+				return {
+					state: adapter.getSnapshot(),
+					events,
+				};
+			} finally {
+				for (const { eventType, listener } of listeners) {
+					host.removeEventListener(eventType, listener as EventListener);
+				}
+				sourceSubscription?.unsubscribe();
 			}
 		});
-
-		try {
-			await (command as (arg?: unknown) => unknown)(payload);
-
-			// Flush microtask to allow post-render effects to emit events
-			await new Promise<void>((resolve) => queueMicrotask(resolve));
-
-			return {
-				state: adapter.getSnapshot(),
-				events,
-			};
-		} finally {
-			for (const { eventType, listener } of listeners) {
-				host.removeEventListener(eventType, listener as EventListener);
-			}
-			sourceSubscription?.unsubscribe();
-		}
-	};
 
 	const record = (name: string) => {
 		const traceEntries: IgniteStoryTraceEntry[] = [];
@@ -491,36 +523,39 @@ export function createAgentRuntime<
 		canExecute: canExecuteCommand,
 		execute: executeCommand,
 		getSnapshot() {
-			return resolveRuntime().adapter.getSnapshot();
+			return withRuntimeAccess(() => resolveRuntime().adapter.getSnapshot());
 		},
 		getView() {
-			return resolveView(resolveRuntime().adapter);
+			return withRuntimeAccess(() => resolveView(resolveRuntime().adapter));
 		},
 		getSchema() {
-			const { adapter, additionalArgs } = resolveRuntime();
-			const commandEntries = Object.entries(additionalArgs).filter(
-				([, value]) => typeof value === "function",
-			);
-			const commands = Object.fromEntries(
-				commandEntries
-					.map(
-						([name, value]) => [name, getCommandContract(value) ?? {}] as const,
-					)
-					.sort(([left], [right]) => left.localeCompare(right)),
-			);
+			return withRuntimeAccess(() => {
+				const { adapter, additionalArgs } = resolveRuntime();
+				const commandEntries = Object.entries(additionalArgs).filter(
+					([, value]) => typeof value === "function",
+				);
+				const commands = Object.fromEntries(
+					commandEntries
+						.map(
+							([name, value]) =>
+								[name, getCommandContract(value) ?? {}] as const,
+						)
+						.sort(([left], [right]) => left.localeCompare(right)),
+				);
 
-			return {
-				commands,
-				events: [...eventTypes].sort(),
-				state: (toSchemaValue(adapter.getSnapshot()) ?? null) as Exclude<
-					ReturnType<typeof toSchemaValue>,
-					undefined
-				>,
-				view: (toSchemaValue(resolveView(adapter)) ?? null) as Exclude<
-					ReturnType<typeof toSchemaValue>,
-					undefined
-				>,
-			};
+				return {
+					commands,
+					events: [...eventTypes].sort(),
+					state: (toSchemaValue(adapter.getSnapshot()) ?? null) as Exclude<
+						ReturnType<typeof toSchemaValue>,
+						undefined
+					>,
+					view: (toSchemaValue(resolveView(adapter)) ?? null) as Exclude<
+						ReturnType<typeof toSchemaValue>,
+						undefined
+					>,
+				};
+			});
 		},
 		on,
 		record,

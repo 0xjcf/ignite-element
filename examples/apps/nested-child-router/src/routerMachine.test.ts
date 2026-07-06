@@ -112,6 +112,26 @@ describe("nested child router core", () => {
 		actor.stop();
 	});
 
+	it("does not rewrite history when only the current query differs", () => {
+		const { target } = createNavigationTarget("/docs/api?tab=reference");
+		const actor = createActor(routerMachine, {
+			input: { path: getBrowserPath(target) },
+		}).start();
+		const navigation = createRouterNavigation(actor, target);
+
+		navigation.navigate("/docs/api");
+
+		expect(target.history.pushState).not.toHaveBeenCalled();
+		expect(target.history.replaceState).not.toHaveBeenCalled();
+		expect(actor.getSnapshot().context).toMatchObject({
+			parent: "docs",
+			child: "api",
+			path: "/docs/api",
+		});
+
+		actor.stop();
+	});
+
 	it("keeps browser history and route state synchronized", () => {
 		const { target, listeners, setPath } = createNavigationTarget("/");
 		const actor = createActor(routerMachine, {
