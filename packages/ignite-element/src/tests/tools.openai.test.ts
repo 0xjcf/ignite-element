@@ -166,6 +166,30 @@ describe("openai.toolCalls (OpenAI-compatible response -> neutral calls)", () =>
 			{ id: "call_bad", name: "setLimit", input: "{not-json" },
 		]);
 	});
+
+	it("accepts structured arguments from local OpenAI-compatible servers", () => {
+		const structured: OpenAIChatCompletionResponse = {
+			choices: [
+				{
+					message: {
+						tool_calls: [
+							{
+								id: "call_object",
+								type: "function",
+								function: {
+									name: "addItem",
+									arguments: { name: "pear", qty: 3 },
+								},
+							},
+						],
+					},
+				},
+			],
+		};
+		expect(openai.toolCalls(structured, manifest)).toEqual([
+			{ id: "call_object", name: "addItem", input: { name: "pear", qty: 3 } },
+		]);
+	});
 });
 
 describe("openai.toolResult (neutral result -> OpenAI-compatible tool message)", () => {

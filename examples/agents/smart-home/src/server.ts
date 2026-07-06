@@ -314,11 +314,14 @@ export async function startSmartHomeBridgeServer(
 			close: async () => {
 				terminal?.close();
 				await agentRun;
-				bridgeStream.unsubscribe();
-				await closeWebSocketServer(bridgeWss);
-				await closeServer(bridgeHttpServer);
-				await bridgeVite.close();
-				await session.close();
+				try {
+					bridgeStream.unsubscribe();
+					await closeWebSocketServer(bridgeWss);
+					await closeServer(bridgeHttpServer);
+					await bridgeVite.close();
+				} finally {
+					await session.close();
+				}
 			},
 		};
 	} catch (error) {

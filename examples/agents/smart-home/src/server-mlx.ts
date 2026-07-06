@@ -14,14 +14,20 @@ const runtimeFactory =
 		? createActorWebHomeSession
 		: undefined;
 
-const server = await startSmartHomeBridgeServer({
-	terminal: true,
-	openAIModel: openAICompatibleModel({ baseUrl, model, apiKey }),
-	runtimeFactory,
-});
+try {
+	const server = await startSmartHomeBridgeServer({
+		terminal: true,
+		openAIModel: openAICompatibleModel({ baseUrl, model, apiKey }),
+		runtimeFactory,
+	});
 
-console.log(
-	`Smart-home MLX bridge listening on http://localhost:${server.port}`,
-);
-console.log(`OpenAI-compatible endpoint: ${baseUrl}`);
-console.log(`Model: ${model}`);
+	console.log(
+		`Smart-home MLX bridge listening on http://localhost:${server.port}`,
+	);
+	console.log(`OpenAI-compatible endpoint: ${baseUrl}`);
+	console.log(`Model: ${model}`);
+} catch (error) {
+	const message = error instanceof Error ? error.message : String(error);
+	console.error(`\n${message}`);
+	process.exit(1);
+}

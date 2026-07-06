@@ -32,7 +32,7 @@ export type OpenAIChatToolCall = {
 	type: "function";
 	function: {
 		name: string;
-		arguments: string;
+		arguments: unknown;
 	};
 };
 
@@ -58,7 +58,10 @@ export type OpenAIChatToolResultMessage = {
 	content: string;
 };
 
-function parseArguments(args: string): unknown {
+function parseArguments(args: unknown): unknown {
+	if (typeof args !== "string") {
+		return args && typeof args === "object" ? args : {};
+	}
 	if (args.trim() === "") {
 		return {};
 	}

@@ -10,16 +10,15 @@ import {
 	igniteCore,
 } from "ignite-element/actor-web";
 import {
-	applyScene,
 	createLocalHomeSession,
 	DOORS,
 	type Door,
-	dimRooms,
 	type HomeCommand,
 	type HomeContext,
 	type HomeRuntimeSession,
 	initialHomeContext,
 	projectHomeView,
+	reduceHomeContext,
 	ROOMS,
 	type Room,
 	SCENE_TRANSITION_DELAY_MS,
@@ -212,79 +211,10 @@ function createActorWebHomeBehavior(scheduleTransition: TransitionScheduler) {
 	return defineBehavior<HomeCommand, HomeActorEmitted>()
 		.withContext(initialHomeContext)
 		.onMessage(({ context, message }) => {
-			switch (message.type) {
-				case "TOGGLE_LIGHT":
-					return updateContext(context, {
-						...context,
-						lights: {
-							...context.lights,
-							[message.room]: message.on,
-						},
-						activeScene:
-							context.lights[message.room] === message.on
-								? context.activeScene
-								: null,
-					});
-				case "SET_THERMOSTAT":
-					return updateContext(context, {
-						...context,
-						thermostat: {
-							...context.thermostat,
-							[message.room]: message.temp,
-						},
-						activeScene:
-							context.thermostat[message.room] === message.temp
-								? context.activeScene
-								: null,
-					});
-				case "SET_BLINDS":
-					return updateContext(context, {
-						...context,
-						blinds: {
-							...context.blinds,
-							[message.room]: message.percent,
-						},
-						activeScene:
-							context.blinds[message.room] === message.percent
-								? context.activeScene
-								: null,
-					});
-				case "SET_LOCK":
-					return updateContext(context, {
-						...context,
-						locks: {
-							...context.locks,
-							[message.door]: message.locked,
-						},
-						activeScene:
-							context.locks[message.door] === message.locked
-								? context.activeScene
-								: null,
-					});
-				case "DIM_ROOMS":
-					return updateContext(context, dimRooms(context, message.rooms));
-				case "RUN_SCENE":
-					return updateContext(context, applyScene(context, message.scene));
-				case "START_SCENE_TRANSITION":
-					scheduleTransition();
-					return {
-						context: {
-							...context,
-							pendingScene: message.scene,
-						},
-					};
-				case "APPLY_PENDING_SCENE": {
-					const scene = context.pendingScene;
-					if (!scene) {
-						return { context: { ...context, pendingScene: null } };
-					}
-
-					return updateContext(context, {
-						...applyScene(context, scene),
-						pendingScene: null,
-					});
-				}
+			if (message.type === "START_SCENE_TRANSITION") {
+				scheduleTransition();
 			}
+			return updateContext(context, reduceHomeContext(context, message));
 		})
 		.build();
 }

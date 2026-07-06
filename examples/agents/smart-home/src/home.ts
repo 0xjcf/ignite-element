@@ -108,6 +108,86 @@ export function dimRooms(
 	};
 }
 
+function runHomeScene(ctx: HomeContext, scene: Scene): HomeContext {
+	return {
+		...applyScene(ctx, scene),
+		pendingScene: null,
+	};
+}
+
+export function reduceHomeContext(
+	context: HomeContext,
+	command: HomeCommand,
+): HomeContext {
+	switch (command.type) {
+		case "TOGGLE_LIGHT":
+			return {
+				...context,
+				lights: {
+					...context.lights,
+					[command.room]: command.on,
+				},
+				activeScene:
+					context.lights[command.room] === command.on
+						? context.activeScene
+						: null,
+			};
+		case "SET_THERMOSTAT":
+			return {
+				...context,
+				thermostat: {
+					...context.thermostat,
+					[command.room]: command.temp,
+				},
+				activeScene:
+					context.thermostat[command.room] === command.temp
+						? context.activeScene
+						: null,
+			};
+		case "SET_BLINDS":
+			return {
+				...context,
+				blinds: {
+					...context.blinds,
+					[command.room]: command.percent,
+				},
+				activeScene:
+					context.blinds[command.room] === command.percent
+						? context.activeScene
+						: null,
+			};
+		case "SET_LOCK":
+			return {
+				...context,
+				locks: {
+					...context.locks,
+					[command.door]: command.locked,
+				},
+				activeScene:
+					context.locks[command.door] === command.locked
+						? context.activeScene
+						: null,
+			};
+		case "DIM_ROOMS":
+			return dimRooms(context, command.rooms);
+		case "RUN_SCENE":
+			return runHomeScene(context, command.scene);
+		case "START_SCENE_TRANSITION":
+			return {
+				...context,
+				pendingScene: command.scene,
+			};
+		case "APPLY_PENDING_SCENE": {
+			const scene = context.pendingScene;
+			if (!scene) {
+				return { ...context, pendingScene: null };
+			}
+
+			return runHomeScene(context, scene);
+		}
+	}
+}
+
 export function projectHomeView(context: HomeContext) {
 	return {
 		lights: { ...context.lights },
@@ -134,169 +214,96 @@ const homeMachine = setup({
 		active: {
 			on: {
 				TOGGLE_LIGHT: {
-					actions: assign({
-						lights: ({ context, event }) => ({
-							...context.lights,
-							[event.room]: event.on,
-						}),
-						activeScene: ({ context, event }) =>
-							context.lights[event.room] === event.on
-								? context.activeScene
-								: null,
-					}),
+					actions: assign(({ context, event }) =>
+						reduceHomeContext(context, event),
+					),
 				},
 				SET_THERMOSTAT: {
-					actions: assign({
-						thermostat: ({ context, event }) => ({
-							...context.thermostat,
-							[event.room]: event.temp,
-						}),
-						activeScene: ({ context, event }) =>
-							context.thermostat[event.room] === event.temp
-								? context.activeScene
-								: null,
-					}),
+					actions: assign(({ context, event }) =>
+						reduceHomeContext(context, event),
+					),
 				},
 				SET_BLINDS: {
-					actions: assign({
-						blinds: ({ context, event }) => ({
-							...context.blinds,
-							[event.room]: event.percent,
-						}),
-						activeScene: ({ context, event }) =>
-							context.blinds[event.room] === event.percent
-								? context.activeScene
-								: null,
-					}),
+					actions: assign(({ context, event }) =>
+						reduceHomeContext(context, event),
+					),
 				},
 				SET_LOCK: {
-					actions: assign({
-						locks: ({ context, event }) => ({
-							...context.locks,
-							[event.door]: event.locked,
-						}),
-						activeScene: ({ context, event }) =>
-							context.locks[event.door] === event.locked
-								? context.activeScene
-								: null,
-					}),
+					actions: assign(({ context, event }) =>
+						reduceHomeContext(context, event),
+					),
 				},
 				DIM_ROOMS: {
 					actions: assign(({ context, event }) =>
-						dimRooms(context, event.rooms),
+						reduceHomeContext(context, event),
 					),
 				},
 				RUN_SCENE: {
 					actions: assign(({ context, event }) =>
-						applyScene(context, event.scene),
+						reduceHomeContext(context, event),
 					),
 				},
 				START_SCENE_TRANSITION: {
 					target: "settlingScene",
-					actions: assign({
-						pendingScene: ({ event }) => event.scene,
-					}),
+					actions: assign(({ context, event }) =>
+						reduceHomeContext(context, event),
+					),
 				},
 			},
 		},
 		settlingScene: {
 			on: {
 				TOGGLE_LIGHT: {
-					actions: assign({
-						lights: ({ context, event }) => ({
-							...context.lights,
-							[event.room]: event.on,
-						}),
-						activeScene: ({ context, event }) =>
-							context.lights[event.room] === event.on
-								? context.activeScene
-								: null,
-					}),
+					actions: assign(({ context, event }) =>
+						reduceHomeContext(context, event),
+					),
 				},
 				SET_THERMOSTAT: {
-					actions: assign({
-						thermostat: ({ context, event }) => ({
-							...context.thermostat,
-							[event.room]: event.temp,
-						}),
-						activeScene: ({ context, event }) =>
-							context.thermostat[event.room] === event.temp
-								? context.activeScene
-								: null,
-					}),
+					actions: assign(({ context, event }) =>
+						reduceHomeContext(context, event),
+					),
 				},
 				SET_BLINDS: {
-					actions: assign({
-						blinds: ({ context, event }) => ({
-							...context.blinds,
-							[event.room]: event.percent,
-						}),
-						activeScene: ({ context, event }) =>
-							context.blinds[event.room] === event.percent
-								? context.activeScene
-								: null,
-					}),
+					actions: assign(({ context, event }) =>
+						reduceHomeContext(context, event),
+					),
 				},
 				SET_LOCK: {
-					actions: assign({
-						locks: ({ context, event }) => ({
-							...context.locks,
-							[event.door]: event.locked,
-						}),
-						activeScene: ({ context, event }) =>
-							context.locks[event.door] === event.locked
-								? context.activeScene
-								: null,
-					}),
+					actions: assign(({ context, event }) =>
+						reduceHomeContext(context, event),
+					),
 				},
 				DIM_ROOMS: {
 					actions: assign(({ context, event }) =>
-						dimRooms(context, event.rooms),
+						reduceHomeContext(context, event),
 					),
 				},
 				RUN_SCENE: {
 					target: "active",
-					actions: assign(({ context, event }) => ({
-						...applyScene(context, event.scene),
-						pendingScene: null,
-					})),
+					actions: assign(({ context, event }) =>
+						reduceHomeContext(context, event),
+					),
 				},
 				START_SCENE_TRANSITION: {
 					target: "settlingScene",
 					reenter: true,
-					actions: assign({
-						pendingScene: ({ event }) => event.scene,
-					}),
+					actions: assign(({ context, event }) =>
+						reduceHomeContext(context, event),
+					),
 				},
 				APPLY_PENDING_SCENE: {
 					target: "active",
-					actions: assign(({ context }) => {
-						const scene = context.pendingScene;
-						if (!scene) {
-							return { pendingScene: null };
-						}
-
-						return {
-							...applyScene(context, scene),
-							pendingScene: null,
-						};
-					}),
+					actions: assign(({ context }) =>
+						reduceHomeContext(context, { type: "APPLY_PENDING_SCENE" }),
+					),
 				},
 			},
 			after: {
 				[SCENE_TRANSITION_DELAY_MS]: {
 					target: "active",
-					actions: assign(({ context }) => {
-						const scene = context.pendingScene;
-						if (!scene) {
-							return { pendingScene: null };
-						}
-
-						return {
-							...applyScene(context, scene),
-							pendingScene: null,
-						};
-					}),
+					actions: assign(({ context }) =>
+						reduceHomeContext(context, { type: "APPLY_PENDING_SCENE" }),
+					),
 				},
 			},
 		},

@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, it } from "node:test";
 
 const expectedExampleRoots = [
@@ -78,5 +81,36 @@ describe("typecheck-examples", () => {
 				return true;
 			},
 		);
+	});
+
+	it("reports a clean error when the examples root is missing", () => {
+		const missingRoot = path.join(
+			mkdtempSync(path.join(tmpdir(), "ignite-missing-examples-")),
+			"missing",
+		);
+
+		try {
+			assert.throws(
+				() =>
+					execFileSync(
+						"node",
+						["scripts/typecheck-examples.mjs", "--examples-root", missingRoot],
+						{
+							encoding: "utf8",
+							stderr: "pipe",
+						},
+					),
+				(error) => {
+					assert.equal(error.status, 1);
+					assert.match(
+						String(error.stderr),
+						/Unable to read examples root .*missing/,
+					);
+					return true;
+				},
+			);
+		} finally {
+			rmSync(path.dirname(missingRoot), { force: true, recursive: true });
+		}
 	});
 });

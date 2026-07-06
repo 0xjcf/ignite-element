@@ -56,7 +56,14 @@ if (!["always", "missing", "never"].includes(installMode)) {
 }
 
 async function discoverExampleRoots() {
-	const categoryEntries = await readdir(examplesRoot, { withFileTypes: true });
+	let categoryEntries;
+	try {
+		categoryEntries = await readdir(examplesRoot, { withFileTypes: true });
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		console.error(`Unable to read examples root ${examplesRoot}: ${message}`);
+		process.exit(1);
+	}
 	const exampleRoots = [];
 
 	for (const categoryEntry of categoryEntries) {

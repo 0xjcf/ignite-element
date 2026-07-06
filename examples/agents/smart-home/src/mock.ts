@@ -88,11 +88,17 @@ console.log("Initial state:");
 console.log(renderHome(createHome().getView()));
 console.log(`\n🗣️  "${prompt}"\n`);
 
-const result = await runHomeAgent(scriptedModel(script), prompt, {
-	runtimeFactory,
-});
 try {
-	printSession(result);
-} finally {
-	await result.close();
+	const result = await runHomeAgent(scriptedModel(script), prompt, {
+		runtimeFactory,
+	});
+	try {
+		printSession(result);
+	} finally {
+		await result.close();
+	}
+} catch (error) {
+	const message = error instanceof Error ? error.message : String(error);
+	console.error(`\n${message}`);
+	process.exit(1);
 }
