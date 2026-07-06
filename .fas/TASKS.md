@@ -1966,6 +1966,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: docs: address PR85 final metadata and renderer export notes
+
+- Title: docs: address PR85 final metadata and renderer export notes
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/docs-address-pr85-final-metadata-and-renderer-export-notes.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>

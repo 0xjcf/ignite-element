@@ -4,7 +4,10 @@
 Created with `fas create-task` on 2026-07-05.
 
 ## Problem
-fix: address final PR85 runtime review findings
+CodeRabbit flagged final PR85 runtime review issues in host override cleanup and
+renderer entrypoint usage. The task keeps callback errors from being masked by
+override restore cleanup, imports the one-shot JSX mount through the public
+renderer JSX entrypoint, and reconciles related FAS metadata formatting.
 
 ## Automation admission
 - Expected operator value: Improves operator leverage around "fix: address final PR85 runtime review findings" by reducing manual coordination, repetitive execution, or trust gaps.
