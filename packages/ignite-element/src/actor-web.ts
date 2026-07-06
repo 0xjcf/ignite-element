@@ -32,6 +32,7 @@ export type {
 	IgniteStateExpectation,
 	IgniteTestHelpers,
 	IgniteTestScenario,
+	IgniteTestScenarioOptions,
 } from "./testing";
 export { test } from "./testing";
 export type {

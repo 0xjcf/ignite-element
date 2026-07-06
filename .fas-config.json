@@ -11,7 +11,7 @@
 	"formatCheckCommand": "npm run format:check",
 	"formatFixCommand": "npm run format",
 	"typecheckCommand": "npm run typecheck",
-	"testCommand": "pnpm --filter ignite-element test && pnpm run test:scripts && pnpm run test:examples -- --require-covered-packages-match-discovered --covers-package examples/adapters/mobx --covers-package examples/adapters/redux --covers-package examples/adapters/xstate --covers-package examples/agents/smart-home --covers-package examples/apps/form-with-validation --covers-package examples/apps/spa-router",
+	"testCommand": "pnpm --filter ignite-element test && pnpm run test:scripts && pnpm run test:examples -- --require-covered-packages-match-discovered --covers-package examples/adapters/mobx --covers-package examples/adapters/redux --covers-package examples/adapters/xstate --covers-package examples/agents/smart-home --covers-package examples/apps/dashboard-with-shared-state --covers-package examples/apps/form-with-validation --covers-package examples/apps/nested-child-router --covers-package examples/apps/spa-router",
 	"replayCommand": "",
 	"verifyScriptMode": "platform",
 	"screenshotArtifactDir": ".fas/artifacts/screenshots",

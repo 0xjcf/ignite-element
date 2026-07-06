@@ -1,0 +1,27 @@
+{
+	"name": "nested-child-router-example",
+	"version": "1.0.0",
+	"private": true,
+	"description": "Nested parent and child route outlets with ignite-element, XState, and headless route tests.",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview"
+	},
+	"keywords": [
+		"xstate",
+		"ignite-element",
+		"router",
+		"nested-router",
+		"ignite-jsx"
+	],
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+		"xstate": "5.32.1"
+	},
+	"devDependencies": {
+		"vite": "^7.2.7"
+	}
+}

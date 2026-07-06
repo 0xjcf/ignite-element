@@ -154,4 +154,31 @@ describe("ignite test DSL types", () => {
 
 		void expectViewTyping;
 	});
+
+	it("types the optional headless scenario host seam", () => {
+		const machine = createMachine({
+			initial: "idle",
+			states: { idle: {} },
+		});
+		const component = igniteCore({
+			adapter: "xstate",
+			source: machine,
+			commands: ({ actor, host }) => ({
+				readHost: () => {
+					void host.dataset.moduleId;
+					actor.send({ type: "PING" });
+				},
+			}),
+		});
+
+		const hostOptionTyping = () => {
+			const host = document.createElement("section");
+			igniteTest(component, { host }).canExecute("readHost");
+
+			// @ts-expect-error - the host seam must satisfy the HTMLElement contract
+			igniteTest(component, { host: new EventTarget() });
+		};
+
+		void hostOptionTyping;
+	});
 });

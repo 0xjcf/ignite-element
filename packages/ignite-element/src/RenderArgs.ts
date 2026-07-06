@@ -31,8 +31,6 @@ import type {
 	EventPayload,
 	FacadeCommandFunction,
 	FacadeCommandResult,
-	FacadeEffectsCallback,
-	FacadeEffectsLike,
 	FacadeEffectsObjectCallback,
 	FacadeViewCallback,
 	NumberCommandInputMetadata,
@@ -43,8 +41,6 @@ import type { AnyStateMachine, EventFrom, StateFrom } from "xstate";
 
 export type {
 	EmptyEventMap,
-	FacadeEffectsLike,
-	FacadeEffectsCallback,
 	FacadeEffectsObjectCallback,
 	EmitFromEvents,
 	EmitPayloadArgs,

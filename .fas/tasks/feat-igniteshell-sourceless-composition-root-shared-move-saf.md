@@ -30,9 +30,29 @@ Implement the igniteShell design in docs/ignite-shell.md (additive; fills the so
 - packages/ignite-element/src/tests/igniteShell.test.ts
 - packages/ignite-element/src/tests/IgniteElement.test.tsx
 - .changeset/ignite-shell.md
+- packages/ignite-element/scripts/verify-exports.mjs
+- packages/ignite-renderer/src/renderers/ignite-jsx.ts
+- packages/ignite-element/src/tests/IgniteCore.test.ts
+- packages/ignite-element/src/tests/IgniteElementFactory.test.ts
 
 ## Scope Amendments
-- None.
+- Type: scope-refresh-promotion
+- Added at: 2026-07-05
+- Trigger: dirty-low-confidence-scope
+- Reason: Promoted dirty low-confidence or dependency-reachable task-packet path(s) into affected scope.
+- Added paths: packages/ignite-renderer/src/renderers/jsx/IgniteJsxRenderStrategy.ts
+- Evidence source: task-packet dirty scope promotion
+- Evidence: task-packet dirty scope promotion | .fas/state/task-packet.json | Promoted dirty path(s): packages/ignite-renderer/src/renderers/jsx/IgniteJsxRenderStrategy.ts
+- Accuracy signal: Path was dirty in git status and present in task-packet low-confidence/dependency-reachable scope.
+
+- Type: scope-expansion
+- Added at: 2026-07-05
+- Trigger: build-and-lifecycle-validation
+- Reason: Added validation and adjacent lifecycle timing files required by the public igniteShell export and deferred true-disconnect behavior.
+- Added paths: packages/ignite-element/scripts/verify-exports.mjs, packages/ignite-renderer/src/renderers/ignite-jsx.ts, packages/ignite-element/src/tests/IgniteCore.test.ts, packages/ignite-element/src/tests/IgniteElementFactory.test.ts
+- Evidence source: focused verification
+- Evidence: focused verification | ignite-element build required verify-exports allowlist update; existing lifecycle tests required awaited true-disconnect cleanup assertions.
+- Accuracy signal: Paths were dirty after focused tests/build and directly validate the changed public API or lifecycle timing.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

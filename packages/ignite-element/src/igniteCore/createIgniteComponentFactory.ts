@@ -7,7 +7,7 @@ import type {
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
-	FacadeEffectsLike,
+	FacadeEffectsObjectCallback,
 	FacadeViewCallback,
 } from "../RenderArgs";
 import type { IgniteCoreReturn } from "./types";
@@ -37,7 +37,12 @@ export type IgniteComponentFactoryOptions<
 		HTMLElement,
 		Snapshot
 	>;
-	effects?: FacadeEffectsLike<Snapshot, CommandActor, Events, HTMLElement>;
+	effects?: FacadeEffectsObjectCallback<
+		Snapshot,
+		CommandActor,
+		Events,
+		HTMLElement
+	>;
 	events?: ((builder: typeof event) => Events) | undefined;
 	/**
 	 * Controls element-lifecycle teardown of the *shared* adapter.

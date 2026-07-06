@@ -28,7 +28,7 @@ component('tag-name', (props) => /* JSX or lit template */);
 - `events(mapper)`: optional; defines typed DOM events.
 - `view(ctx)`: derive render props from the snapshot context — an object snapshot's fields are spread onto `ctx` (with `ctx.snapshot` still available); runs on mount and on changes.
 - `commands(context)`: expose actions; receives `{ actor, host }`.
-- `effects(snapshot, prevSnapshot, context)`: optional; runs after every state update and receives `{ emit, actor, host, select }`.
+- `effects(context)`: optional; runs after every state update and receives `{ snapshot, prevSnapshot, emit, actor, host, select }`.
 - `cleanup`: shared-adapter teardown override. Defaults to `false` for **shared** (consumer-owned) sources — a live instance you pass lives for the core's lifetime, so the shared adapter is kept alive across element disconnects. For **isolated** sources (Ignite creates one adapter per element, stopped on disconnect) it has no practical effect. Set `cleanup: true` on a shared core to opt back into element-refcount teardown of the adapter. Ignite never stops or closes a source it did not create.
 
 ## Returns

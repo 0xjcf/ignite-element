@@ -1098,9 +1098,12 @@ No active tasks.
 
 - Title: Testing DX: createTestScenario/igniteTest has no host seam for host-reading commands/effects
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/testing-dx-createtestscenario-ignitetest-has-no-host-seam-f.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Docs accuracy + UX + positioning for v3 beta.6 (P0/P1/P2). P0 (CORRECTNESS — beta.6 behavior change): the shared-source ownership fix in 3.0.0-beta.6 changed cleanup semantics but the docs-site prose still teaches the OLD beta.5 default. New behavior: cleanup defaults to FALSE for shared (consumer-owned) sources — a live instance passed to igniteCore (started actor / store / observable / actor-web source) lives for the core's lifetime and is NOT released when the element refcount hits zero; isolated (ignite-created) sources keep per-element teardown. Adapters never stop/close a source they did not create (generalized ownsActor -> ownsSource; ActorWebAdapter no longer closes consumer-owned sources). Update to the new semantics and drop now-redundant 'cleanup: false' guidance (reframe 'cleanup: true' as the opt-in to refcount teardown for shared cores) in: docs/site/src/content/docs/concepts/the-ignite-model.mdx (~17,45,225,226); docs/site/src/content/docs/api/ignite-core.mdx (~32,40,45); docs/site/src/content/docs/guides/routing.mdx (~165); docs/site/src/content/docs/migration/v2.mdx (~19,89,90,96); docs/site/src/content/docs/getting-started/first-component.mdx (~87); docs/site/src/content/docs/guides/testing.mdx (~135). DO NOT edit archived docs/site/src/content/docs/2.x/** (frozen). P1 (UX): add a /guides/ index landing page — currently 404 (Starlight has no guides index; individual guides are live, e.g. /guides/routing/ = 200); add a landing page linking the seven guides. P2 (positioning + agent angle): (a) add a 'When to choose Ignite / Comparisons' page surfacing existing positioning from /overview/what-is-ignite-element/ (distribution layer vs framework; renderer-agnostic; no state-lib lock-in); (b) deepen getSchema() docs with example output and how agents/LLMs consume it for tool-calling/validation. CONSTRAINTS: respect docs guardrails — markdownlint, the Playwright AA-contrast check (docs/site/scripts/check-contrast.mjs), and the doc code-example typecheck (check-doc-examples.mjs; object-form effects, no manual igniteCore<...> args); verify with the docs build. Source of truth for new behavior: packages/ignite-element/src/IgniteElementFactory.ts (cleanup default), packages/ignite-adapters/src/adapters/{XStateAdapter,ActorWebAdapter}.ts (ownsSource), and TSDoc on igniteCore/createIgniteComponentFactory.ts + igniteCore/types.ts.
 
@@ -1255,9 +1258,12 @@ No active tasks.
 
 - Title: examples: add worked apps (form-with-validation, nested/child-router, dashboard-with-shared-state)
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/examples-add-worked-apps-form-with-validation-nested-child-r.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: chore(examples): make spa-router idiomatic — commands via injected actor + {snapshot} view
 
@@ -1296,9 +1302,12 @@ No active tasks.
 
 - Title: feat: igniteShell sourceless composition root + shared move-safe teardown (per docs/ignite-shell.md)
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/feat-igniteshell-sourceless-composition-root-shared-move-saf.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: BREAKING (v3 cutover): canonical flat tagged event { type, ...fields } across emit/observe/expectEvent per docs/event-sh
 
@@ -1324,13 +1333,16 @@ No active tasks.
 - Owner: runtime
 - Brief: .fas/tasks/breaking-v3-cutover-rename-expectstate-expectsnapshot-deprec.md
 
-### Task: ADDITIVE: standardize effects object signature, deprecate positional form per docs/v3-api-consistency.md
+### Task: V3 BETA: remove positional effects callback per docs/v3-api-consistency.md
 
-- Title: ADDITIVE: standardize effects object signature, deprecate positional form per docs/v3-api-consistency.md
+- Title: V3 BETA: remove positional effects callback per docs/v3-api-consistency.md
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/additive-standardize-effects-object-signature-deprecate-posi.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: examples: add React/Vue/Svelte/Angular framework-interop demos under examples/frameworks + extend host-app-integration g
 
@@ -1531,10 +1543,13 @@ No active tasks.
 
 - Title: docs(examples): replace deprecated getState()/watch() with getSnapshot()/watchSnapshot() in the example READMEs
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/docs-examples-replace-deprecated-getstate-watch-with-getsnap.md
 - Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: ci: add an example-typecheck job (per-example self-contained install + tsc) gated on PRs into beta
 
@@ -1748,6 +1763,307 @@ No active tasks.
 - Status: queued
 - Owner: runtime
 - Brief: .fas/tasks/docs-document-local-model-agent-workflows-and-ecosystem-boun.md
+
+### Task: test(examples): include new worked apps in example runtime lane fixture
+
+- Title: test(examples): include new worked apps in example runtime lane fixture
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/test-examples-include-new-worked-apps-in-example-runtime-lan.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: address CodeRabbit closeout findings for v3 examples epic
+
+- Title: fix: address CodeRabbit closeout findings for v3 examples epic
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-address-coderabbit-closeout-findings-for-v3-examples-epi.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: address second review findings for v3 examples epic
+
+- Title: fix: address second review findings for v3 examples epic
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-address-second-review-findings-for-v3-examples-epic.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: address final review findings for v3 examples epic
+
+- Title: fix: address final review findings for v3 examples epic
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-address-final-review-findings-for-v3-examples-epic.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: address disconnect cleanup review findings
+
+- Title: fix: address disconnect cleanup review findings
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-address-disconnect-cleanup-review-findings.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: address CodeRabbit navigation and teardown findings
+
+- Title: fix: address CodeRabbit navigation and teardown findings
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-address-coderabbit-navigation-and-teardown-findings.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: reconcile CodeRabbit audit metadata findings
+
+- Title: fix: reconcile CodeRabbit audit metadata findings
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-reconcile-coderabbit-audit-metadata-findings.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: address runtime host and shell teardown review findings
+
+- Title: fix: address runtime host and shell teardown review findings
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-address-runtime-host-and-shell-teardown-review-findings.md
+- Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: address PR85 nested-child-router examples-typecheck failure
+
+- Title: fix: address PR85 nested-child-router examples-typecheck failure
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-address-pr85-nested-child-router-examples-typecheck-fail.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: address PR85 CodeRabbit closeout findings
+
+- Title: fix: address PR85 CodeRabbit closeout findings
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-address-pr85-coderabbit-closeout-findings.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: address PR85 final CodeRabbit minor findings
+
+- Title: fix: address PR85 final CodeRabbit minor findings
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-address-pr85-final-coderabbit-minor-findings.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: snapshot runtime host override base before resolution
+
+- Title: fix: snapshot runtime host override base before resolution
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-snapshot-runtime-host-override-base-before-resolution.md
+- Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: docs: reconcile final PR85 review metadata
+
+- Title: docs: reconcile final PR85 review metadata
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/docs-reconcile-final-pr85-review-metadata.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: preserve disconnect teardown errors
+
+- Title: fix: preserve disconnect teardown errors
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-preserve-disconnect-teardown-errors.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: address final PR85 runtime review findings
+
+- Title: fix: address final PR85 runtime review findings
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-address-final-pr85-runtime-review-findings.md
+- Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: docs: align PR85 docs metadata acceptance criteria
+
+- Title: docs: align PR85 docs metadata acceptance criteria
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/docs-align-pr85-docs-metadata-acceptance-criteria.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: address PR85 final minor review findings
+
+- Title: fix: address PR85 final minor review findings
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-address-pr85-final-minor-review-findings.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: address PR85 final runtime and docs review findings
+
+- Title: fix: address PR85 final runtime and docs review findings
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-address-pr85-final-runtime-and-docs-review-findings.md
+- Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: docs: address PR85 final metadata and renderer export notes
+
+- Title: docs: address PR85 final metadata and renderer export notes
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/docs-address-pr85-final-metadata-and-renderer-export-notes.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: address PR85 shell reentrancy and docs findings
+
+- Title: fix: address PR85 shell reentrancy and docs findings
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-address-pr85-shell-reentrancy-and-docs-findings.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: docs: tighten PR85 docs-only task metadata
+
+- Title: docs: tighten PR85 docs-only task metadata
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/docs-tighten-pr85-docs-only-task-metadata.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: address PR85 async restore and nested router findings
+
+- Title: fix: address PR85 async restore and nested router findings
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-address-pr85-async-restore-and-nested-router-findings.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: preserve callback success when host restore cleanup fails
+
+- Title: fix: preserve callback success when host restore cleanup fails
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-preserve-callback-success-when-host-restore-cleanup-fail.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: address PR85 roadmap, router dedup, and shared cleanup coverage findings
+
+- Title: fix: address PR85 roadmap, router dedup, and shared cleanup coverage findings
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-address-pr85-roadmap-router-dedup-and-shared-cleanup-cov.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: address PR85 runtime cleanup ordering and metadata findings
+
+- Title: fix: address PR85 runtime cleanup ordering and metadata findings
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-address-pr85-runtime-cleanup-ordering-and-metadata-findi.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: address PR85 final CodeRabbit runtime and testing findings
+
+- Title: fix: address PR85 final CodeRabbit runtime and testing findings
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-address-pr85-final-coderabbit-runtime-and-testing-findin.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: guard deferred shared cleanup release
+
+- Title: fix: guard deferred shared cleanup release
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-guard-deferred-shared-cleanup-release.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ## Template
 

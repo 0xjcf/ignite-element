@@ -7,7 +7,9 @@ import type {
 import {
 	type IgniteDomBridgeOptions,
 	type IgniteDomBridgeSession,
+	type IgniteRuntimeHostOverride,
 	igniteDomBridgeSymbol,
+	igniteRuntimeHostOverrideSymbol,
 } from "./runtime/agent";
 import { toSchemaValue } from "./runtime/schema";
 import type {
@@ -67,6 +69,10 @@ export type IgniteStoryTraceExpectationEntry =
 
 export type IgniteStoryTraceAssertionOptions = {
 	exact?: boolean;
+};
+
+export type IgniteTestScenarioOptions = {
+	host?: HTMLElement;
 };
 
 export type IgniteDomRoleExpectation = {
@@ -697,10 +703,36 @@ class IgniteTestDriver<
 			unknown,
 			View
 		>,
+		private readonly options: IgniteTestScenarioOptions = {},
 	) {}
 
+	private withHost<Result>(callback: () => Result): Result {
+		const { host } = this.options;
+		if (!host) {
+			return callback();
+		}
+
+		const hostOverride = (
+			this.component as IgniteAgentRuntime<State, Commands, Events> & {
+				[igniteRuntimeHostOverrideSymbol]?: IgniteRuntimeHostOverride;
+			}
+		)[igniteRuntimeHostOverrideSymbol];
+
+		if (!hostOverride) {
+			throw new Error(
+				"[igniteTest] Host option is only available on Ignite component runtimes.",
+			);
+		}
+
+		return hostOverride(host, callback);
+	}
+
 	given(expected: IgniteStateExpectation<State>) {
-		assertState("given", this.component.getSnapshot(), expected);
+		assertState(
+			"given",
+			this.withHost(() => this.component.getSnapshot()),
+			expected,
+		);
 		return this;
 	}
 
@@ -708,15 +740,19 @@ class IgniteTestDriver<
 		commandName: CommandName,
 		payload?: unknown,
 	) {
-		this.lastResult = await this.component.execute(
-			commandName,
-			payload as Parameters<Commands[CommandName]>[0],
+		this.lastResult = await this.withHost(() =>
+			this.component.execute(
+				commandName,
+				payload as Parameters<Commands[CommandName]>[0],
+			),
 		);
 		return this;
 	}
 
 	expectState(expected: IgniteStateExpectation<State>) {
-		const state = this.lastResult?.state ?? this.component.getSnapshot();
+		const state =
+			this.lastResult?.state ??
+			this.withHost(() => this.component.getSnapshot());
 		assertState("expectState", state, expected);
 		return this;
 	}
@@ -725,7 +761,10 @@ class IgniteTestDriver<
 		// Mirrors the runtime's getView(): the projected view after the last
 		// command (execute awaits, so getView() reflects it). The execution result
 		// carries no view, so getView() is the single source.
-		assertView(this.component.getView(), expected);
+		assertView(
+			this.withHost(() => this.component.getView()),
+			expected,
+		);
 		return this;
 	}
 
@@ -760,7 +799,7 @@ class IgniteTestDriver<
 	canExecute<CommandName extends keyof Commands & string>(
 		commandName: CommandName,
 	) {
-		return this.component.canExecute(commandName);
+		return this.withHost(() => this.component.canExecute(commandName));
 	}
 
 	getResult() {
@@ -781,6 +820,7 @@ function createTestScenario<
 	},
 >(
 	component: Runtime,
+	options?: IgniteTestScenarioOptions,
 ): IgniteTestScenario<
 	RuntimeState<Runtime>,
 	RuntimeCommands<Runtime>,
@@ -794,6 +834,7 @@ function createTestScenario<
 			RuntimeEvents<Runtime>,
 			RuntimeView<Runtime>
 		>,
+		options,
 	);
 }
 

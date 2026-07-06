@@ -18,11 +18,51 @@ export type IgniteElementLifecycleHooks = {
 	) => void;
 };
 
+export abstract class IgniteMoveSafeLifecycleElement extends HTMLElement {
+	private disconnectTeardownScheduled = false;
+	private disconnectTeardownToken = 0;
+
+	protected get hasPendingDisconnectTeardown(): boolean {
+		return this.disconnectTeardownScheduled;
+	}
+
+	protected cancelDisconnectTeardown(): boolean {
+		const wasScheduled = this.disconnectTeardownScheduled;
+		this.disconnectTeardownScheduled = false;
+		return wasScheduled;
+	}
+
+	protected scheduleDisconnectTeardown(teardown: () => void): void {
+		this.disconnectTeardownScheduled = true;
+		const token = ++this.disconnectTeardownToken;
+
+		queueMicrotask(() => {
+			if (
+				this.isConnected ||
+				!this.disconnectTeardownScheduled ||
+				token !== this.disconnectTeardownToken
+			) {
+				return;
+			}
+
+			this.disconnectTeardownScheduled = false;
+			try {
+				teardown();
+			} catch (error) {
+				console.error(
+					"[IgniteElement] Deferred disconnect cleanup failed.",
+					error,
+				);
+			}
+		});
+	}
+}
+
 export default abstract class IgniteElement<
 	State,
 	Event,
 	View = unknown,
-> extends HTMLElement {
+> extends IgniteMoveSafeLifecycleElement {
 	private _adapter: IgniteAdapter<State, Event> | undefined;
 	private _shadowRoot: ShadowRoot;
 	private _currentState!: State;
@@ -63,6 +103,8 @@ export default abstract class IgniteElement<
 	}
 
 	connectedCallback(): void {
+		this.cancelDisconnectTeardown();
+
 		if (!this._unsubscribe && this._adapter) {
 			this.subscribeToAdapter();
 			this.updateCurrentState(this._adapter.getSnapshot());
@@ -86,13 +128,36 @@ export default abstract class IgniteElement<
 		this._unsubscribe?.();
 		this._unsubscribe = undefined;
 
-		if (this._adapter && this._adapter.scope !== StateScope.Shared) {
-			this._adapter.stop();
-			this._adapter = undefined;
-		}
+		this.scheduleDisconnectTeardown(() => {
+			let disconnectError: unknown;
+			try {
+				this.onTrueDisconnect();
+			} catch (error) {
+				disconnectError = error;
+			}
+
+			if (this._adapter && this._adapter.scope !== StateScope.Shared) {
+				try {
+					this._adapter.stop();
+				} catch (error) {
+					console.error(
+						"[IgniteElement] Adapter stop failed during disconnect teardown.",
+						error,
+					);
+				} finally {
+					this._adapter = undefined;
+				}
+			}
+
+			if (disconnectError !== undefined) {
+				throw disconnectError;
+			}
+		});
 
 		this.recordLifecycle("disconnected");
 	}
+
+	protected onTrueDisconnect(): void {}
 
 	protected send<AdapterEvent>(event: AdapterEvent): void {
 		if (!this._isActive || !this._adapter) {

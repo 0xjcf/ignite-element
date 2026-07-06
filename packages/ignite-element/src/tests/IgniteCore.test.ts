@@ -38,6 +38,9 @@ import { toSchemaValue } from "../runtime/schema";
 import { test as igniteTest } from "../testing";
 import type { InferStateAndEvent } from "../utils/igniteRedux";
 
+const flushMicrotasks = () =>
+	new Promise<void>((resolve) => queueMicrotask(resolve));
+
 type ActorWebShipmentContext = {
 	shipmentId: string | null;
 	status: "idle" | "created";
@@ -1172,6 +1175,7 @@ describe("igniteCore", () => {
 		document.body.appendChild(element);
 		await story.execute("increment");
 		element.remove();
+		await flushMicrotasks();
 
 		const lifecycle = story.lifecycle();
 		expect(lifecycle.map((entry) => entry.stage)).toEqual(

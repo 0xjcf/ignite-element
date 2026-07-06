@@ -9,7 +9,7 @@ import type {
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
-	FacadeEffectsLike,
+	FacadeEffectsObjectCallback,
 	FacadeViewCallback,
 	ViewContext,
 } from "./RenderArgs";
@@ -56,7 +56,7 @@ export type ProjectionFactoryOptions<
 		Host,
 		Snapshot
 	>;
-	effects?: FacadeEffectsLike<Snapshot, CommandActor, Events, Host>;
+	effects?: FacadeEffectsObjectCallback<Snapshot, CommandActor, Events, Host>;
 	resolveStateSnapshot?: (adapter: IgniteAdapter<State, Event>) => Snapshot;
 	resolveCommandActor?: (adapter: IgniteAdapter<State, Event>) => CommandActor;
 	createAdditionalArgs?: (

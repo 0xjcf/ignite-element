@@ -313,32 +313,17 @@ export type FacadeEffectArgs<
 	prevSnapshot: Snapshot;
 };
 
-export type FacadeEffectsCallback<
-	Snapshot,
-	Actor,
-	Events extends EventMap = EmptyEventMap,
-	Host = unknown,
-> = (
-	snapshot: Snapshot,
-	prevSnapshot: Snapshot,
-	context: EffectContext<Actor, Events, Host, Snapshot>,
-) => void;
+// biome-ignore lint/suspicious/noConfusingVoidType: effects callbacks may return nothing, or a promise the runtime catches.
+type EffectCallbackResult = void | PromiseLike<unknown>;
 
 export type FacadeEffectsObjectCallback<
 	Snapshot,
 	Actor,
 	Events extends EventMap = EmptyEventMap,
 	Host = unknown,
-> = (args: FacadeEffectArgs<Snapshot, Actor, Events, Host>) => void;
-
-export type FacadeEffectsLike<
-	Snapshot,
-	Actor,
-	Events extends EventMap = EmptyEventMap,
-	Host = unknown,
-> =
-	| FacadeEffectsCallback<Snapshot, Actor, Events, Host>
-	| FacadeEffectsObjectCallback<Snapshot, Actor, Events, Host>;
+> = (
+	args: FacadeEffectArgs<Snapshot, Actor, Events, Host>,
+) => EffectCallbackResult;
 
 type IsNever<T> = [T] extends [never] ? true : false;
 

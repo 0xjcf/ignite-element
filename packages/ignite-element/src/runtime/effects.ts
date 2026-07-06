@@ -4,8 +4,6 @@ import type {
 	EmitFromEvents,
 	EmptyEventMap,
 	EventMap,
-	FacadeEffectsCallback,
-	FacadeEffectsLike,
 	FacadeEffectsObjectCallback,
 } from "../RenderArgs";
 
@@ -24,7 +22,7 @@ type AttachEffectsOptions<
 	Host = unknown,
 > = {
 	adapter: IgniteAdapter<State, Event>;
-	effects: FacadeEffectsLike<Snapshot, CommandActor, Events, Host>;
+	effects: FacadeEffectsObjectCallback<Snapshot, CommandActor, Events, Host>;
 	resolveSnapshot: (adapter: IgniteAdapter<State, Event>) => Snapshot;
 	resolveActor: (adapter: IgniteAdapter<State, Event>) => CommandActor;
 	host: Host;
@@ -35,9 +33,6 @@ type ErrorHandlingHost = {
 	handleError?: (error: unknown) => void;
 	onError?: (error: unknown) => void;
 };
-
-const objectStyleCallbackPattern =
-	/^(?:async\s*)?(?:function\b[^(]*\(\s*\{|\(\s*\{|\{\s*)/;
 
 function createSelect<Snapshot>(
 	snapshot: Snapshot,
@@ -52,20 +47,6 @@ function createSelect<Snapshot>(
 			changed: !Object.is(current, previous),
 		};
 	};
-}
-
-function isObjectStyleEffectsCallback<
-	Snapshot,
-	CommandActor,
-	Events extends EventMap,
-	Host,
->(effects: FacadeEffectsLike<Snapshot, CommandActor, Events, Host>): boolean {
-	if (effects.length > 1) {
-		return false;
-	}
-
-	const source = Function.prototype.toString.call(effects).trim();
-	return objectStyleCallbackPattern.test(source);
 }
 
 function reportEffectError(host: unknown, error: unknown): void {
@@ -118,39 +99,14 @@ export function attachEffects<
 			try {
 				const actor = resolveActor(adapter);
 				const select = createSelect(snapshot, prev);
-				let result: unknown;
-
-				if (isObjectStyleEffectsCallback(effects)) {
-					result = (
-						effects as FacadeEffectsObjectCallback<
-							Snapshot,
-							CommandActor,
-							Events,
-							Host
-						>
-					)({
-						snapshot,
-						prevSnapshot: prev,
-						actor,
-						emit,
-						host,
-						select,
-					});
-				} else {
-					result = (
-						effects as FacadeEffectsCallback<
-							Snapshot,
-							CommandActor,
-							Events,
-							Host
-						>
-					)(snapshot, prev, {
-						actor,
-						emit,
-						host,
-						select,
-					});
-				}
+				const result = effects({
+					snapshot,
+					prevSnapshot: prev,
+					actor,
+					emit,
+					host,
+					select,
+				});
 
 				if (
 					result &&

@@ -49,8 +49,8 @@ const registerToggle = igniteCore({
 
 1. Remove `emit` from the `commands` parameter list.
 2. Keep commands limited to actor/store/observable intent.
-3. Add `effects(snapshot, prevSnapshot, ctx)`.
-4. Compare `snapshot` with `prevSnapshot` before emitting.
+3. Add an `effects` callback and destructure only the fields you use.
+4. Compare state before emitting, such as `snapshot` with `prevSnapshot`.
 5. Keep your `events` map so `emit` stays typed.
 
 ## Scripted assist

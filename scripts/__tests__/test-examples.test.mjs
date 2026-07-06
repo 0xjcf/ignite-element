@@ -10,7 +10,9 @@ const expectedExampleRoots = [
 	"examples/adapters/redux",
 	"examples/adapters/xstate",
 	"examples/agents/smart-home",
+	"examples/apps/dashboard-with-shared-state",
 	"examples/apps/form-with-validation",
+	"examples/apps/nested-child-router",
 	"examples/apps/spa-router",
 ];
 const expectedCoverageArgs = expectedExampleRoots.flatMap((exampleRoot) => [

@@ -29,7 +29,6 @@ import type {
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
-	FacadeEffectsCallback,
 	FacadeEffectsObjectCallback,
 	FacadeViewCallback,
 } from "@ignite-element/core";
@@ -296,25 +295,13 @@ export type ActorWebConfig<
 	 * not create.
 	 */
 	cleanup?: boolean;
-} & (
-	| {
-			effects?: FacadeEffectsCallback<
-				ActorWebExtendedState<Context>,
-				ActorWebCommandActor<Context, Message, Emitted>,
-				Events,
-				HTMLElement
-			>;
-	  }
-	| {
-			effects?: FacadeEffectsObjectCallback<
-				ActorWebExtendedState<Context>,
-				ActorWebCommandActor<Context, Message, Emitted>,
-				Events,
-				HTMLElement
-			>;
-	  }
-) &
-	ActorWebConfigSource<Context, Message, Emitted, Source>;
+	effects?: FacadeEffectsObjectCallback<
+		ActorWebExtendedState<Context>,
+		ActorWebCommandActor<Context, Message, Emitted>,
+		Events,
+		HTMLElement
+	>;
+} & ActorWebConfigSource<Context, Message, Emitted, Source>;
 
 type ActorWebConfigSource<
 	Context extends object,

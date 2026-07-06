@@ -133,6 +133,14 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 export const createIgniteJsxRenderStrategy = () =>
 	new IgniteJsxRenderStrategy();
 
+/** One-shot rootless JSX mount for static composition roots. */
+export function mountIgniteJsxOnce(
+	host: (Node & ParentNode) | ShadowRoot,
+	view: IgniteJsxChild,
+): void {
+	mountIgniteJsx(host, view);
+}
+
 export type { IgniteJsxChild };
 export {
 	clearNoDiffDenylistForTests,

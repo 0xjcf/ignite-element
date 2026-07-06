@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { assign, createMachine, type StateFrom } from "xstate";
-import counterStore, { counterSlice } from "./fixtures/reduxCounterStore";
+import { assign, createMachine, type StateFrom, setup } from "xstate";
 import { igniteCore } from "../IgniteCore";
 import type { ReduxInstanceConfig, XStateConfig } from "../igniteCore/types";
-import type { EventDescriptor, FacadeEffectArgs } from "../RenderArgs";
+import type {
+	EmptyEventMap,
+	EventDescriptor,
+	FacadeCommandResult,
+	FacadeEffectArgs,
+} from "../RenderArgs";
 import { jsx, jsxs } from "../renderers/jsx/jsx-runtime";
+import { igniteRuntimeHostOverrideSymbol } from "../runtime/agent";
 import { test as igniteTest } from "../testing";
-import type { IgniteStory } from "../types/agent";
+import type { IgniteAgentRuntime, IgniteStory } from "../types/agent";
+import counterStore, { counterSlice } from "./fixtures/reduxCounterStore";
 
 describe("ignite test DSL", () => {
 	it("drives xstate components through deterministic headless assertions", async () => {
@@ -99,6 +105,194 @@ describe("ignite test DSL", () => {
 		expect(() => scenario.expectView({ isOn: false })).toThrow(
 			/expectView failed/,
 		);
+	});
+
+	it("passes a supplied host to headless scenario commands and effects", async () => {
+		const machine = setup({
+			types: {
+				context: {} as { startedModule: string },
+				events: {} as { type: "START_MODULE"; moduleId: string },
+			},
+			actions: {
+				rememberStartedModule: assign(({ event }) => ({
+					startedModule:
+						event.type === "START_MODULE" ? event.moduleId : "unknown",
+				})),
+			},
+		}).createMachine({
+			context: { startedModule: "" },
+			on: {
+				START_MODULE: { actions: "rememberStartedModule" },
+			},
+		});
+		type ModuleSnapshot = StateFrom<typeof machine>;
+		type ModuleEventMap = {
+			"module-started": EventDescriptor<{ moduleId: string }>;
+		};
+
+		const host = document.createElement("section");
+		host.dataset.moduleId = "dispatch";
+
+		const component = igniteCore({
+			adapter: "xstate",
+			source: machine,
+			view: ({ snapshot }) => ({
+				moduleId: snapshot.context.startedModule,
+			}),
+			commands: ({ actor, host }) => ({
+				startModule: () =>
+					actor.send({
+						type: "START_MODULE",
+						moduleId: host.dataset.moduleId ?? "missing",
+					}),
+			}),
+			events: (event) => ({
+				"module-started": event<{ moduleId: string }>(),
+			}),
+			effects: ({
+				snapshot,
+				prevSnapshot,
+				emit,
+				host,
+			}: FacadeEffectArgs<ModuleSnapshot, unknown, ModuleEventMap>) => {
+				if (
+					snapshot.context.startedModule === prevSnapshot.context.startedModule
+				) {
+					return;
+				}
+
+				host.dataset.lastStarted = snapshot.context.startedModule;
+				emit("module-started", {
+					moduleId: snapshot.context.startedModule,
+				});
+			},
+		} satisfies XStateConfig<typeof machine, ModuleEventMap>);
+
+		const scenario = await igniteTest(component, { host }).when("startModule");
+
+		scenario
+			.expectState({ context: { startedModule: "dispatch" } })
+			.expectView({ moduleId: "dispatch" })
+			.expectEvent("module-started", { moduleId: "dispatch" });
+		expect(host.dataset.lastStarted).toBe("dispatch");
+	});
+
+	it("uses a supplied host for scenario state and view reads", () => {
+		const defaultHost = document.createElement("section");
+		defaultHost.dataset.hostId = "default";
+		const host = document.createElement("section");
+		host.dataset.hostId = "supplied";
+		let activeHost = defaultHost;
+		type HostState = { hostId: string };
+		const runtime: IgniteAgentRuntime<
+			HostState,
+			FacadeCommandResult,
+			EmptyEventMap,
+			HostState,
+			HostState
+		> & {
+			[igniteRuntimeHostOverrideSymbol]: <Result>(
+				nextHost: EventTarget,
+				callback: () => Result,
+			) => Result;
+		} = {
+			canExecute: () => false,
+			async execute() {
+				return { state: this.getSnapshot(), events: [] };
+			},
+			getSnapshot: () => ({ hostId: activeHost.dataset.hostId ?? "missing" }),
+			getView: () => ({ hostId: activeHost.dataset.hostId ?? "missing" }),
+			on: () => ({ unsubscribe: () => {} }),
+			watchSnapshot: () => ({ unsubscribe: () => {} }),
+			watchView: () => ({ unsubscribe: () => {} }),
+			getSchema: () => ({
+				commands: {},
+				events: [],
+				state: { hostId: activeHost.dataset.hostId ?? "missing" },
+				view: { hostId: activeHost.dataset.hostId ?? "missing" },
+			}),
+			record: () => {
+				throw new Error("record is not used by this test");
+			},
+			[igniteRuntimeHostOverrideSymbol]<Result>(
+				nextHost: EventTarget,
+				callback: () => Result,
+			): Result {
+				const previousHost = activeHost;
+				activeHost = nextHost as HTMLElement;
+				try {
+					return callback();
+				} finally {
+					activeHost = previousHost;
+				}
+			},
+		};
+
+		igniteTest(runtime, { host })
+			.given({ hostId: "supplied" })
+			.expectState({ hostId: "supplied" })
+			.expectView({ hostId: "supplied" });
+	});
+
+	it("restores the baseline runtime host after overlapping host-scoped commands", async () => {
+		const machine = setup({
+			types: {
+				context: {} as { hostId: string },
+				events: {} as { type: "CAPTURE_HOST"; hostId: string },
+			},
+			actions: {
+				rememberHost: assign(({ event }) => ({
+					hostId: event.type === "CAPTURE_HOST" ? event.hostId : "unknown",
+				})),
+			},
+		}).createMachine({
+			context: { hostId: "" },
+			on: {
+				CAPTURE_HOST: { actions: "rememberHost" },
+			},
+		});
+
+		const seenHostIds: string[] = [];
+		const component = igniteCore({
+			adapter: "xstate",
+			source: machine,
+			commands: ({ actor, host }) => ({
+				captureHost: async () => {
+					await new Promise((resolve) =>
+						setTimeout(
+							resolve,
+							Number((host as HTMLElement).dataset.delayMs ?? 0),
+						),
+					);
+					const hostId = (host as HTMLElement).dataset.hostId ?? "none";
+					seenHostIds.push(hostId);
+					actor.send({
+						type: "CAPTURE_HOST",
+						hostId,
+					});
+				},
+			}),
+		});
+
+		const hostA = document.createElement("section");
+		hostA.dataset.hostId = "a";
+		hostA.dataset.delayMs = "0";
+		const hostB = document.createElement("section");
+		hostB.dataset.hostId = "b";
+		hostB.dataset.delayMs = "20";
+
+		const firstCommand = igniteTest(component, { host: hostA }).when(
+			"captureHost",
+		);
+		const secondCommand = igniteTest(component, { host: hostB }).when(
+			"captureHost",
+		);
+
+		await Promise.all([firstCommand, secondCommand]);
+		expect([...seenHostIds].sort()).toEqual(["a", "b"]);
+		await igniteTest(component).when("captureHost");
+
+		expect(component.getSnapshot().context.hostId).toBe("none");
 	});
 
 	it("matches partial state and event payloads for redux runtimes", async () => {

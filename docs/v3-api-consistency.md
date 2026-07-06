@@ -31,7 +31,7 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
 | ~~`select().whenChanged()` + structural-equality default~~ | `effects-change-detection.md` | additive | **dropped (2026-06-20)** — marginal sugar over `.changed`; see doc |
 | Flat tagged event `{ type, … }` (emit / observe / `expectEvent`) | `event-shape.md` | **breaking** | design ✓, task queued (1781818971210) |
 | Uniform view/effects context = `{ snapshot }` (drop the spread) | `view-context-canonicalization.md` | **breaking** | design ✓, task queued (1781818972687) |
-| Effects single (object) signature; deprecate positional | this doc | additive→deprecate | task queued (1781818975642) |
+| Effects single (object) signature; remove positional for v3 beta | this doc | beta breaking | shipped in this epic (1781818975642) |
 | `expectView` (add) + **full `state`→`snapshot` rename** (`expectState`→`expectSnapshot` + `result.state`/`schema.state`/record-trace) + `expectEvent` object form | `event-shape.md` + this doc | mixed | `expectView` shipped; rename task queued (1781818974159) — scope = full rename (b), resolved 2026-06-20 |
 | Test host seam: fluent `.host({ dataset, attributes })` | `task-1781619012619` | additive | task (refine brief to fluent shape) |
 | `canExecute(name)` command-availability query | `can-execute.md` | additive (gap) | shipped (1781798486122) |
@@ -54,8 +54,8 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
 
 ## Sequencing
 
-- **Additive** (`expectView`, host seam, `canExecute`,
-  effects-object-form): ship independently, anytime.
+- **Additive** (`expectView`, host seam, `canExecute`): ship independently,
+  anytime.
 - **Breaking** (event shape, view-context `{ snapshot }`, full `state`→`snapshot`
   rename): land **together** in one pre-stable cutover, one coordinated changeset,
   one goodway migration note. Tracked here so they cut over once.
@@ -65,9 +65,10 @@ doc code-example guardrail (`check-doc-examples.mjs`) typechecks every `ts`/`tsx
 fence against the real API, so **every `docs/site` example** using `emit`, the view
 context, or `expectState`/`result.state` must migrate in the *same* change or the
 guardrail fails. Budget the cutover as **src + docs-site sweep + the three design
-docs + one goodway migration note**. Ship the additive **effects object-form**
-(`1781818975642`) *before* the emit-shape break so the effects callback changes once,
-cleanly. One consolidated migration table covers all transforms: `emit(t,p)` →
+docs + one goodway migration note**. The beta-breaking **effects object-form**
+(`1781818975642`) has already removed positional callbacks so the effects callback
+changes once, cleanly, before the emit-shape break. One consolidated migration table
+covers all transforms: `emit(t,p)` →
 `emit({type:t,…})`; `event.payload` → the member; `{ context }` → `{ snapshot }` +
 `snapshot.*`; `expectState`/`result.state`/`schema.state` → `…snapshot`;
 `expectEvent(t,p)` → `expectEvent({type:t,…})`.

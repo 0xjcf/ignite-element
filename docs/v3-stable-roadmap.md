@@ -99,8 +99,9 @@ Order: **Vue ✓ → Svelte ✓ → worked-apps → Phase 1 → agent/local-mode
 
 ## Phase 1 — Gap-finder + additive API (parallel, pre-cut)
 
-Low-risk, independent, non-breaking. Run the gap-finder early so its findings can
-still shape the API before the breaking cutover freezes it.
+Mostly low-risk and independent, with beta-only breaks allowed before v3 stable.
+Run the gap-finder early so its findings can still shape the API before the
+breaking cutover freezes it.
 
 | Task | id | Note |
 | --- | --- | --- |
@@ -110,10 +111,10 @@ still shape the API before the breaking cutover freezes it.
 | `canExecute(name)` | `1781798486122` | ✅ done |
 | Test host seam (fluent `.host()`) | `1781619012619` | additive |
 | `igniteShell` + shared move-safe teardown | `1781817947799` | additive primitive |
-| Effects object-form / deprecate positional | `1781818975642` | additive → deprecate |
+| Effects object-form / remove positional | `1781818975642` | **DONE** (beta breaking) — object-form is the only v3 beta effects callback shape |
 
-Suggested intra-phase order: gap-finder + `whenChanged` → `expectView` →
-`canExecute` → host-seam → `igniteShell` → effects-object-form.
+Suggested intra-phase order for remaining work: `whenChanged` → `expectView` →
+host-seam → `igniteShell`.
 
 ## Agent-runtime thread (additive, getSchema-driven) — added 2026-06-21
 

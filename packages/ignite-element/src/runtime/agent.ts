@@ -47,6 +47,8 @@ type AgentRuntimeOptions<
 		options?: IgniteDomBridgeOptions,
 	) => IgniteDomBridgeSession;
 	resolveRuntime: () => RuntimeResources<State, Event, AdditionalArgs>;
+	retainRuntimeAccess?: () => void;
+	releaseRuntimeAccess?: () => void;
 	resolveView: (adapter: IgniteAdapter<State, Event>) => View;
 };
 
@@ -63,6 +65,14 @@ export type IgniteDomBridgeSession = {
 };
 
 export const igniteDomBridgeSymbol = Symbol("ignite-element.dom-bridge");
+export const igniteRuntimeHostOverrideSymbol = Symbol(
+	"ignite-element.runtime-host-override",
+);
+
+export type IgniteRuntimeHostOverride = <Result>(
+	host: EventTarget,
+	callback: () => Result,
+) => Result;
 
 type IgniteStoryTraceEntryDraft =
 	| Omit<IgniteStoryCommandTraceEntry, "sequence">
@@ -163,13 +173,84 @@ export function createAgentRuntime<
 	createDomBridge,
 	eventTypes,
 	observeLifecycle,
+	retainRuntimeAccess,
+	releaseRuntimeAccess,
 	resolveRuntime,
 	resolveView,
 }: AgentRuntimeOptions<State, Event, View, AdditionalArgs>) {
+	const isThenable = (value: unknown): value is PromiseLike<unknown> =>
+		(typeof value === "object" || typeof value === "function") &&
+		value !== null &&
+		"then" in value &&
+		typeof (value as { then?: unknown }).then === "function";
+	const releaseAfterSuccess = (message: string) => {
+		try {
+			releaseRuntimeAccess?.();
+		} catch (error) {
+			console.error(message, error);
+		}
+	};
+	const releaseAfterError = (message: string) => {
+		try {
+			releaseRuntimeAccess?.();
+		} catch (error) {
+			console.error(message, error);
+		}
+	};
+	const withRuntimeAccess = <Result>(callback: () => Result): Result => {
+		retainRuntimeAccess?.();
+		try {
+			const result = callback();
+			if (isThenable(result)) {
+				return result.then(
+					(value) => {
+						releaseAfterSuccess(
+							"[igniteCore] Runtime access release failed after callback resolution.",
+						);
+						return value;
+					},
+					(error) => {
+						releaseAfterError(
+							"[igniteCore] Runtime access release failed after callback error.",
+						);
+						throw error;
+					},
+				) as Result;
+			}
+
+			releaseAfterSuccess(
+				"[igniteCore] Runtime access release failed after callback completion.",
+			);
+			return result;
+		} catch (error) {
+			releaseAfterError(
+				"[igniteCore] Runtime access release failed after callback error.",
+			);
+			throw error;
+		}
+	};
+	const withSynchronousRuntimeAccess = <Result>(
+		callback: () => Result,
+	): Result => {
+		retainRuntimeAccess?.();
+		try {
+			const result = callback();
+			releaseAfterSuccess(
+				"[igniteCore] Runtime access release failed after callback completion.",
+			);
+			return result;
+		} catch (error) {
+			releaseAfterError(
+				"[igniteCore] Runtime access release failed after callback error.",
+			);
+			throw error;
+		}
+	};
 	const createWatcher = <Value>(
 		resolveCurrent: (adapter: IgniteAdapter<State, Event>) => Value,
 		handler: (value: Value, prevValue: Value) => void,
 	) => {
+		retainRuntimeAccess?.();
 		const { adapter } = resolveRuntime();
 		let prevValue = resolveCurrent(adapter);
 		let seeded = false;
@@ -189,7 +270,11 @@ export function createAgentRuntime<
 
 		return {
 			unsubscribe: () => {
-				subscription.unsubscribe();
+				try {
+					subscription.unsubscribe();
+				} finally {
+					releaseRuntimeAccess?.();
+				}
 			},
 		};
 	};
@@ -198,6 +283,7 @@ export function createAgentRuntime<
 		eventName: string,
 		handler: (event: CustomEvent<unknown>) => void,
 	) => {
+		retainRuntimeAccess?.();
 		const { host, adapter } = resolveRuntime();
 		const listener = (event: Event) => {
 			handler(event as CustomEvent<unknown>);
@@ -217,8 +303,12 @@ export function createAgentRuntime<
 
 		return {
 			unsubscribe: () => {
-				host.removeEventListener(eventName, listener as EventListener);
-				eventsSubscription?.unsubscribe();
+				try {
+					host.removeEventListener(eventName, listener as EventListener);
+					eventsSubscription?.unsubscribe();
+				} finally {
+					releaseRuntimeAccess?.();
+				}
 			},
 		};
 	};
@@ -233,72 +323,74 @@ export function createAgentRuntime<
 		return createWatcher(resolveView, handler);
 	};
 
-	const canExecuteCommand = (commandName: string) => {
-		const { adapter, additionalArgs } = resolveRuntime();
-		const command = (additionalArgs as Record<string, unknown>)[commandName];
+	const canExecuteCommand = (commandName: string) =>
+		withRuntimeAccess(() => {
+			const { adapter, additionalArgs } = resolveRuntime();
+			const command = (additionalArgs as Record<string, unknown>)[commandName];
 
-		if (typeof command !== "function") {
-			throw new Error(`[igniteCore] Unknown command "${commandName}".`);
-		}
+			if (typeof command !== "function") {
+				throw new Error(`[igniteCore] Unknown command "${commandName}".`);
+			}
 
-		const metadata = getCommandMetadata(command);
-		if (!hasCanExecute(metadata)) {
-			return true;
-		}
+			const metadata = getCommandMetadata(command);
+			if (!hasCanExecute(metadata)) {
+				return true;
+			}
 
-		return metadata.canExecute({ snapshot: adapter.getSnapshot() });
-	};
-
-	const executeCommand = async (commandName: string, payload?: unknown) => {
-		const { adapter, additionalArgs, host } = resolveRuntime();
-		const command = (additionalArgs as Record<string, unknown>)[commandName];
-
-		if (typeof command !== "function") {
-			throw new Error(`[igniteCore] Unknown command "${commandName}".`);
-		}
-
-		const events: Array<{ type: string; payload: unknown }> = [];
-		const listeners = eventTypes.map((eventType) => {
-			const listener = (event: Event) => {
-				const customEvent = event as CustomEvent<unknown>;
-				events.push({
-					type: customEvent.type,
-					payload: customEvent.detail,
-				});
-			};
-
-			host.addEventListener(eventType, listener as EventListener);
-			return { eventType, listener };
+			return metadata.canExecute({ snapshot: adapter.getSnapshot() });
 		});
 
-		// Capture source-emitted events (the adapter's optional `subscribeEvents()`
-		// seam) during the command window — independent of the declared
-		// `eventTypes`, so dynamic emit types are collected with the uniform
-		// `{ type, payload }` shape.
-		const sourceSubscription = adapter.subscribeEvents?.((event: unknown) => {
-			const type = emittedEventType(event);
-			if (type !== undefined) {
-				events.push({ type, payload: event });
+	const executeCommand = async (commandName: string, payload?: unknown) =>
+		withRuntimeAccess(async () => {
+			const { adapter, additionalArgs, host } = resolveRuntime();
+			const command = (additionalArgs as Record<string, unknown>)[commandName];
+
+			if (typeof command !== "function") {
+				throw new Error(`[igniteCore] Unknown command "${commandName}".`);
+			}
+
+			const events: Array<{ type: string; payload: unknown }> = [];
+			const listeners = eventTypes.map((eventType) => {
+				const listener = (event: Event) => {
+					const customEvent = event as CustomEvent<unknown>;
+					events.push({
+						type: customEvent.type,
+						payload: customEvent.detail,
+					});
+				};
+
+				host.addEventListener(eventType, listener as EventListener);
+				return { eventType, listener };
+			});
+
+			// Capture source-emitted events (the adapter's optional `subscribeEvents()`
+			// seam) during the command window — independent of the declared
+			// `eventTypes`, so dynamic emit types are collected with the uniform
+			// `{ type, payload }` shape.
+			const sourceSubscription = adapter.subscribeEvents?.((event: unknown) => {
+				const type = emittedEventType(event);
+				if (type !== undefined) {
+					events.push({ type, payload: event });
+				}
+			});
+
+			try {
+				await (command as (arg?: unknown) => unknown)(payload);
+
+				// Flush microtask to allow post-render effects to emit events
+				await new Promise<void>((resolve) => queueMicrotask(resolve));
+
+				return {
+					state: adapter.getSnapshot(),
+					events,
+				};
+			} finally {
+				for (const { eventType, listener } of listeners) {
+					host.removeEventListener(eventType, listener as EventListener);
+				}
+				sourceSubscription?.unsubscribe();
 			}
 		});
-
-		try {
-			await (command as (arg?: unknown) => unknown)(payload);
-
-			// Flush microtask to allow post-render effects to emit events
-			await new Promise<void>((resolve) => queueMicrotask(resolve));
-
-			return {
-				state: adapter.getSnapshot(),
-				events,
-			};
-		} finally {
-			for (const { eventType, listener } of listeners) {
-				host.removeEventListener(eventType, listener as EventListener);
-			}
-			sourceSubscription?.unsubscribe();
-		}
-	};
 
 	const record = (name: string) => {
 		const traceEntries: IgniteStoryTraceEntry[] = [];
@@ -483,36 +575,43 @@ export function createAgentRuntime<
 		canExecute: canExecuteCommand,
 		execute: executeCommand,
 		getSnapshot() {
-			return resolveRuntime().adapter.getSnapshot();
+			return withSynchronousRuntimeAccess(() =>
+				resolveRuntime().adapter.getSnapshot(),
+			);
 		},
 		getView() {
-			return resolveView(resolveRuntime().adapter);
+			return withSynchronousRuntimeAccess(() =>
+				resolveView(resolveRuntime().adapter),
+			);
 		},
 		getSchema() {
-			const { adapter, additionalArgs } = resolveRuntime();
-			const commandEntries = Object.entries(additionalArgs).filter(
-				([, value]) => typeof value === "function",
-			);
-			const commands = Object.fromEntries(
-				commandEntries
-					.map(
-						([name, value]) => [name, getCommandContract(value) ?? {}] as const,
-					)
-					.sort(([left], [right]) => left.localeCompare(right)),
-			);
+			return withRuntimeAccess(() => {
+				const { adapter, additionalArgs } = resolveRuntime();
+				const commandEntries = Object.entries(additionalArgs).filter(
+					([, value]) => typeof value === "function",
+				);
+				const commands = Object.fromEntries(
+					commandEntries
+						.map(
+							([name, value]) =>
+								[name, getCommandContract(value) ?? {}] as const,
+						)
+						.sort(([left], [right]) => left.localeCompare(right)),
+				);
 
-			return {
-				commands,
-				events: [...eventTypes].sort(),
-				state: (toSchemaValue(adapter.getSnapshot()) ?? null) as Exclude<
-					ReturnType<typeof toSchemaValue>,
-					undefined
-				>,
-				view: (toSchemaValue(resolveView(adapter)) ?? null) as Exclude<
-					ReturnType<typeof toSchemaValue>,
-					undefined
-				>,
-			};
+				return {
+					commands,
+					events: [...eventTypes].sort(),
+					state: (toSchemaValue(adapter.getSnapshot()) ?? null) as Exclude<
+						ReturnType<typeof toSchemaValue>,
+						undefined
+					>,
+					view: (toSchemaValue(resolveView(adapter)) ?? null) as Exclude<
+						ReturnType<typeof toSchemaValue>,
+						undefined
+					>,
+				};
+			});
 		},
 		on,
 		record,
