@@ -83,6 +83,45 @@ describe("IgniteElement", () => {
 		expect(adapter.stop).toHaveBeenCalledTimes(1);
 	});
 
+	it("should report disconnect and adapter stop errors independently", async () => {
+		const disconnectError = new Error("disconnect cleanup failed");
+		const stopError = new Error("adapter stop failed");
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		const elementConstructor = customElements.get(elementName) as
+			| (CustomElementConstructor & {
+					prototype: { onTrueDisconnect: () => void };
+			  })
+			| undefined;
+		if (!elementConstructor) {
+			throw new Error(`Expected ${elementName} to be registered.`);
+		}
+		const disconnectSpy = vi
+			.spyOn(elementConstructor.prototype, "onTrueDisconnect")
+			.mockImplementation(() => {
+				throw disconnectError;
+			});
+		adapter.stop.mockImplementation(() => {
+			throw stopError;
+		});
+
+		try {
+			element.remove();
+			await flushMicrotasks();
+
+			expect(errorSpy).toHaveBeenCalledWith(
+				"[IgniteElement] Adapter stop failed during disconnect teardown.",
+				stopError,
+			);
+			expect(errorSpy).toHaveBeenCalledWith(
+				"[IgniteElement] Deferred disconnect cleanup failed.",
+				disconnectError,
+			);
+		} finally {
+			disconnectSpy.mockRestore();
+			errorSpy.mockRestore();
+		}
+	});
+
 	it("should render snapshots emitted during the move window after reconnect", async () => {
 		const subscriptionListener = adapter.subscribeSnapshots.mock.calls[0][0];
 
