@@ -2032,6 +2032,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: fix: address PR85 runtime cleanup ordering and metadata findings
+
+- Title: fix: address PR85 runtime cleanup ordering and metadata findings
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/fix-address-pr85-runtime-cleanup-ordering-and-metadata-findi.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>

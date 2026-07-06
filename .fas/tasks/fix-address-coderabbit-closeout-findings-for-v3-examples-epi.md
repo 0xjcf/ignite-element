@@ -4,13 +4,15 @@
 Created with `fas create-task` on 2026-07-05.
 
 ## Problem
-CodeRabbit committed review against beta returned four findings: runtime host override unwinding in IgniteElementFactory, dashboard alertDismissed emission on no-op dismissal, nested router navigation not synchronizing History API, and routerStore not seeding deep links from the browser URL.
+CodeRabbit committed review against beta returned four findings: runtime host override unwinding in IgniteElementFactory, dashboard alertDismissed emission on no-op dismissal, nested router navigation not synchronizing History API, and routerStore not seeding deep links from the browser URL. The closeout also needed the FAS `testCommand` lane to cover the new example runtime tests consistently.
 
 ## Acceptance criteria
 - withRuntimeHost restores the correct active runtime host/additional args under overlapping async calls.
 - dashboard DISMISS_ALERT only emits alertDismissed after a real dismissal.
 - nested-child-router navigate updates browser history and popstate updates router state.
 - routerStore starts from the current browser path when available.
+- `.fas-config.json` points FAS verification at the full lane that includes package
+  and example runtime tests.
 - Focused regression tests pass before batch snapshot.
 - TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
 - TDD: every production code change in the change set is covered by an added or updated test.
