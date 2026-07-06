@@ -424,21 +424,11 @@ export default function igniteElementFactory<
 		};
 	};
 
-	const resolveRuntimeResources = () => {
+	const resolveRuntimeAdapter = () => {
 		if (inferredScope === StateScope.Shared) {
 			const { adapter } = resolveSharedResources();
 			sharedRuntimeActive = true;
-
-			if (!runtimeHost || !runtimeAdditionalArgs) {
-				runtimeHost = createRuntimeHost();
-				runtimeAdditionalArgs = createAdditionalArgs(adapter, runtimeHost);
-			}
-
-			return {
-				adapter,
-				additionalArgs: runtimeAdditionalArgs,
-				host: runtimeHost,
-			};
+			return adapter;
 		}
 
 		if (!runtimeAdapter) {
@@ -446,13 +436,19 @@ export default function igniteElementFactory<
 			runtimeAdapter.scope ??= StateScope.Isolated;
 		}
 
+		return runtimeAdapter;
+	};
+
+	const resolveRuntimeResources = () => {
+		const adapter = resolveRuntimeAdapter();
+
 		if (!runtimeHost || !runtimeAdditionalArgs) {
 			runtimeHost = createRuntimeHost();
-			runtimeAdditionalArgs = createAdditionalArgs(runtimeAdapter, runtimeHost);
+			runtimeAdditionalArgs = createAdditionalArgs(adapter, runtimeHost);
 		}
 
 		return {
-			adapter: runtimeAdapter,
+			adapter,
 			additionalArgs: runtimeAdditionalArgs,
 			host: runtimeHost,
 		};
@@ -462,14 +458,17 @@ export default function igniteElementFactory<
 		host: EventTarget,
 		callback: () => Result,
 	): Result => {
-		const previousSharedRuntimeActive = sharedRuntimeActive;
-		const { adapter } = resolveRuntimeResources();
+		const baseFrame =
+			runtimeHostOverrideFrames.length === 0
+				? {
+						host: runtimeHost,
+						additionalArgs: runtimeAdditionalArgs,
+						sharedRuntimeActive,
+					}
+				: null;
+		const adapter = resolveRuntimeAdapter();
 		if (runtimeHostOverrideFrames.length === 0) {
-			runtimeHostOverrideBase = {
-				host: runtimeHost,
-				additionalArgs: runtimeAdditionalArgs,
-				sharedRuntimeActive: previousSharedRuntimeActive,
-			};
+			runtimeHostOverrideBase = baseFrame;
 		}
 
 		const frame: RuntimeHostOverrideFrame = {

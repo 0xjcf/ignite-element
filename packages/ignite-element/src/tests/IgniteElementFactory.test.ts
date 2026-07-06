@@ -236,6 +236,60 @@ describe("igniteElementFactory", () => {
 		});
 	});
 
+	it("does not restore host override resources created during override as the runtime base", async () => {
+		const adapters: MinimalMockAdapter<
+			typeof initialState,
+			{ type: string }
+		>[] = [];
+		const reportedAdapters: MinimalMockAdapter<
+			typeof initialState,
+			{ type: string }
+		>[] = [];
+		const createAdapter = vi.fn(() => {
+			const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
+			adapters.push(adapter);
+			return adapter;
+		});
+		const component = igniteElementFactory(createAdapter, {
+			scope: StateScope.Shared,
+			cleanup: true,
+			createAdditionalArgs: (adapter) =>
+				({
+					reportAdapter: () => {
+						reportedAdapters.push(
+							adapter as MinimalMockAdapter<
+								typeof initialState,
+								{ type: string }
+							>,
+						);
+					},
+				}) as never,
+		});
+		const name = `ignite-runtime-override-base-${crypto.randomUUID()}`;
+		component(name, () => html`<div></div>`);
+		const runtime = component as typeof component & {
+			execute: (commandName: string) => Promise<unknown>;
+		};
+		const override = (
+			component as typeof component & {
+				[igniteRuntimeHostOverrideSymbol]: IgniteRuntimeHostOverride;
+			}
+		)[igniteRuntimeHostOverrideSymbol];
+
+		await override(document.createElement("section"), () =>
+			runtime.execute("reportAdapter"),
+		);
+		const element = document.createElement(name);
+		document.body.appendChild(element);
+		element.remove();
+		await flushMicrotasks();
+		await runtime.execute("reportAdapter");
+
+		expect(createAdapter).toHaveBeenCalledTimes(2);
+		expect(adapters[0]?.stop).toHaveBeenCalledTimes(1);
+		expect(reportedAdapters).toEqual([adapters[0], adapters[1]]);
+	});
+
 	it("restores host override state before additional args cleanup can fail", async () => {
 		const cleanupError = new Error("runtime args cleanup failed");
 		const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
