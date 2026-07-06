@@ -39,9 +39,9 @@ The lightweight headless test harness (test/createTestScenario from ignite-eleme
 - Added at: 2026-07-05
 - Trigger: dirty-low-confidence-scope
 - Reason: Promoted dirty low-confidence or dependency-reachable task-packet path(s) into affected scope.
-- Added paths: packages/ignite-element/src/actor-web.ts, packages/ignite-element/src/index.ts, packages/ignite-element/src/mobx.ts, packages/ignite-element/src/redux.ts, packages/ignite-element/src/testing.ts, packages/ignite-element/src/IgniteElementFactory.ts, packages/ignite-element/src/tests/testing.test.ts, packages/ignite-element/src/xstate.ts
+- Added paths: packages/ignite-element/src/actor-web.ts, packages/ignite-element/src/index.ts, packages/ignite-element/src/mobx.ts, packages/ignite-element/src/redux.ts, packages/ignite-element/src/testing.ts, packages/ignite-element/src/IgniteElementFactory.ts, packages/ignite-element/src/tests/testing.test.ts, packages/ignite-element/src/tests/types/testing.types.test.ts, packages/ignite-element/src/xstate.ts
 - Evidence source: task-packet dirty scope promotion
-- Evidence: task-packet dirty scope promotion | .fas/state/task-packet.json | Promoted dirty path(s): packages/ignite-element/src/actor-web.ts, packages/ignite-element/src/index.ts, packages/ignite-element/src/mobx.ts, packages/ignite-element/src/redux.ts, packages/ignite-element/src/testing.ts, packages/ignite-element/src/IgniteElementFactory.ts, packages/ignite-element/src/tests/testing.test.ts, packages/ignite-element/src/xstate.ts
+- Evidence: task-packet dirty scope promotion | .fas/state/task-packet.json | Promoted dirty path(s): packages/ignite-element/src/actor-web.ts, packages/ignite-element/src/index.ts, packages/ignite-element/src/mobx.ts, packages/ignite-element/src/redux.ts, packages/ignite-element/src/testing.ts, packages/ignite-element/src/IgniteElementFactory.ts, packages/ignite-element/src/tests/testing.test.ts, packages/ignite-element/src/tests/types/testing.types.test.ts, packages/ignite-element/src/xstate.ts
 - Accuracy signal: Path was dirty in git status and present in task-packet low-confidence/dependency-reachable scope.
 
 ## Implementation plan
