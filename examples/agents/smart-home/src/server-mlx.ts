@@ -14,8 +14,31 @@ const runtimeFactory =
 		? createActorWebHomeSession
 		: undefined;
 
+let server: Awaited<ReturnType<typeof startSmartHomeBridgeServer>> | undefined;
+let shuttingDown = false;
+
+const shutdown = async (signal: string) => {
+	if (shuttingDown) {
+		return;
+	}
+	shuttingDown = true;
+	try {
+		await server?.close();
+		process.exit(0);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		console.error(
+			`\nFailed to close smart-home MLX bridge after ${signal}: ${message}`,
+		);
+		process.exit(1);
+	}
+};
+
+process.once("SIGINT", shutdown);
+process.once("SIGTERM", shutdown);
+
 try {
-	const server = await startSmartHomeBridgeServer({
+	server = await startSmartHomeBridgeServer({
 		terminal: true,
 		openAIModel: openAICompatibleModel({ baseUrl, model, apiKey }),
 		runtimeFactory,

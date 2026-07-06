@@ -55,153 +55,168 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 		pendingTransitionTimers.add(timer);
 	});
 	const runtime = await startRuntime(homeTopology);
-	const sourceHandle = runtime.topology.source("home")({
-		host: new EventTarget(),
-	});
-	const commandSource = sourceHandle.commandSource as ActorWebCommandSource<
-		HomeContext,
-		HomeCommand,
-		HomeActorEmitted
-	>;
-	sendAndFlush = async (message: HomeCommand) => {
-		await commandSource.send(message);
-		const localNode = runtime.nodes.local;
-		if (!localNode) {
-			throw new Error("Actor-web home runtime is missing the local node.");
-		}
-		await localNode.system.flush();
-	};
-	const home = igniteCore({
-		source: commandSource,
-		view: ({ context }) => projectHomeView(context),
-		commands: ({ command }) => ({
-			toggleLight: command(
-				({ room, on }: { room: Room; on: boolean }) =>
-					sendAndFlush({ type: "TOGGLE_LIGHT", room, on }),
-				{
-					description: "Turn a room's light on or off.",
-					input: command.object({
-						room: command.enum(ROOMS),
-						on: command.boolean(),
-					}),
-				},
-			),
-			setThermostat: command(
-				({ room, temp }: { room: Room; temp: number }) =>
-					sendAndFlush({ type: "SET_THERMOSTAT", room, temp }),
-				{
-					description: "Set a room's target temperature in °F.",
-					input: command.object({
-						room: command.enum(ROOMS),
-						temp: command.number({ minimum: 50, maximum: 90 }),
-					}),
-				},
-			),
-			setBlinds: command(
-				({ room, percent }: { room: Room; percent: number }) =>
-					sendAndFlush({ type: "SET_BLINDS", room, percent }),
-				{
-					description: "Set how far a room's blinds are open (0–100%).",
-					input: command.object({
-						room: command.enum(ROOMS),
-						percent: command.number({ minimum: 0, maximum: 100 }),
-					}),
-				},
-			),
-			lockDoor: command(
-				(door: Door) => sendAndFlush({ type: "SET_LOCK", door, locked: true }),
-				{
-					description: "Lock a door.",
-					input: command.enum(DOORS, {
-						description: "Door id to lock: front, back, or garage.",
-					}),
-				},
-			),
-			unlockDoor: command(
-				(door: Door) => sendAndFlush({ type: "SET_LOCK", door, locked: false }),
-				{
-					description: "Unlock a door.",
-					input: command.enum(DOORS, {
-						description: "Door id to unlock: front, back, or garage.",
-					}),
-				},
-			),
-			runScene: command(
-				(scene: Scene) => sendAndFlush({ type: "RUN_SCENE", scene }),
-				{
-					description:
-						"Activate a scene: morning, away, movie, or night. Sets several devices at once.",
-					input: command.enum(SCENES, {
-						description:
-							"Scene name to activate: morning, away, movie, or night.",
-					}),
-				},
-			),
-			dimRooms: command(
-				(rooms: Room[]) => sendAndFlush({ type: "DIM_ROOMS", rooms }),
-				{
-					description:
-						"Dim selected rooms by turning lights off and closing blinds.",
-					input: command.array(
-						command.enum(ROOMS, {
-							description: "Room id to dim.",
+	try {
+		const sourceHandle = runtime.topology.source("home")({
+			host: new EventTarget(),
+		});
+		const commandSource = sourceHandle.commandSource as ActorWebCommandSource<
+			HomeContext,
+			HomeCommand,
+			HomeActorEmitted
+		>;
+		sendAndFlush = async (message: HomeCommand) => {
+			await commandSource.send(message);
+			const localNode = runtime.nodes.local;
+			if (!localNode) {
+				throw new Error("Actor-web home runtime is missing the local node.");
+			}
+			await localNode.system.flush();
+		};
+		const home = igniteCore({
+			source: commandSource,
+			view: ({ context }) => projectHomeView(context),
+			commands: ({ command }) => ({
+				toggleLight: command(
+					({ room, on }: { room: Room; on: boolean }) =>
+						sendAndFlush({ type: "TOGGLE_LIGHT", room, on }),
+					{
+						description: "Turn a room's light on or off.",
+						input: command.object({
+							room: command.enum(ROOMS),
+							on: command.boolean(),
 						}),
-						{
-							description:
-								"Room ids to dim by turning lights off and closing blinds.",
-							minItems: 1,
-						},
-					),
-				},
-			),
-			transitionScene: command(
-				(scene: Scene) =>
-					sendAndFlush({ type: "START_SCENE_TRANSITION", scene }),
-				{
-					description:
-						"Start a scene transition that acknowledges immediately and settles asynchronously.",
-					input: command.enum(SCENES, {
+					},
+				),
+				setThermostat: command(
+					({ room, temp }: { room: Room; temp: number }) =>
+						sendAndFlush({ type: "SET_THERMOSTAT", room, temp }),
+					{
+						description: "Set a room's target temperature in °F.",
+						input: command.object({
+							room: command.enum(ROOMS),
+							temp: command.number({ minimum: 50, maximum: 90 }),
+						}),
+					},
+				),
+				setBlinds: command(
+					({ room, percent }: { room: Room; percent: number }) =>
+						sendAndFlush({ type: "SET_BLINDS", room, percent }),
+					{
+						description: "Set how far a room's blinds are open (0–100%).",
+						input: command.object({
+							room: command.enum(ROOMS),
+							percent: command.number({ minimum: 0, maximum: 100 }),
+						}),
+					},
+				),
+				lockDoor: command(
+					(door: Door) =>
+						sendAndFlush({ type: "SET_LOCK", door, locked: true }),
+					{
+						description: "Lock a door.",
+						input: command.enum(DOORS, {
+							description: "Door id to lock: front, back, or garage.",
+						}),
+					},
+				),
+				unlockDoor: command(
+					(door: Door) =>
+						sendAndFlush({ type: "SET_LOCK", door, locked: false }),
+					{
+						description: "Unlock a door.",
+						input: command.enum(DOORS, {
+							description: "Door id to unlock: front, back, or garage.",
+						}),
+					},
+				),
+				runScene: command(
+					(scene: Scene) => sendAndFlush({ type: "RUN_SCENE", scene }),
+					{
 						description:
-							"Scene name to transition toward asynchronously: morning, away, movie, or night.",
-					}),
-				},
-			),
-			status: command(
-				() => {
-					// No-op: callers read the current view from the command result.
-				},
-				{ description: "Read the current home state (no change)." },
-			),
-		}),
-	});
+							"Activate a scene: morning, away, movie, or night. Sets several devices at once.",
+						input: command.enum(SCENES, {
+							description:
+								"Scene name to activate: morning, away, movie, or night.",
+						}),
+					},
+				),
+				dimRooms: command(
+					(rooms: Room[]) => sendAndFlush({ type: "DIM_ROOMS", rooms }),
+					{
+						description:
+							"Dim selected rooms by turning lights off and closing blinds.",
+						input: command.array(
+							command.enum(ROOMS, {
+								description: "Room id to dim.",
+							}),
+							{
+								description:
+									"Room ids to dim by turning lights off and closing blinds.",
+								minItems: 1,
+							},
+						),
+					},
+				),
+				transitionScene: command(
+					(scene: Scene) =>
+						sendAndFlush({ type: "START_SCENE_TRANSITION", scene }),
+					{
+						description:
+							"Start a scene transition that acknowledges immediately and settles asynchronously.",
+						input: command.enum(SCENES, {
+							description:
+								"Scene name to transition toward asynchronously: morning, away, movie, or night.",
+						}),
+					},
+				),
+				status: command(
+					() => {
+						// No-op: callers read the current view from the command result.
+					},
+					{ description: "Read the current home state (no change)." },
+				),
+			}),
+		});
 
-	return {
-		home,
-		close: async () => {
-			clearPendingTransitionTimers();
-			const errors: unknown[] = [];
-			try {
-				await sourceHandle.stop();
-			} catch (error) {
-				errors.push(error);
-			}
-			try {
-				await runtime.stop();
-			} catch (error) {
-				errors.push(error);
-			}
-			if (errors.length > 0) {
-				const primary = errors[0];
-				if (errors.length > 1 && primary instanceof Error) {
-					const errorWithSuppressed = primary as Error & {
-						suppressedErrors?: unknown[];
-					};
-					errorWithSuppressed.suppressedErrors = errors.slice(1);
+		return {
+			home,
+			close: async () => {
+				clearPendingTransitionTimers();
+				const errors: unknown[] = [];
+				try {
+					await sourceHandle.stop();
+				} catch (error) {
+					errors.push(error);
 				}
-				throw primary;
-			}
-		},
-	};
+				try {
+					await runtime.stop();
+				} catch (error) {
+					errors.push(error);
+				}
+				if (errors.length > 0) {
+					const primary = errors[0];
+					if (errors.length > 1 && primary instanceof Error) {
+						const errorWithSuppressed = primary as Error & {
+							suppressedErrors?: unknown[];
+						};
+						errorWithSuppressed.suppressedErrors = errors.slice(1);
+					}
+					throw primary;
+				}
+			},
+		};
+	} catch (error) {
+		clearPendingTransitionTimers();
+		try {
+			await runtime.stop();
+		} catch (cleanupError) {
+			console.error(
+				"Failed to stop actor-web home runtime after setup failure",
+				cleanupError,
+			);
+		}
+		throw error;
+	}
 }
 
 export async function createDefaultHomeSession(options?: {
