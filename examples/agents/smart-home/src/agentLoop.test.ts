@@ -872,6 +872,28 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 		).rejects.toThrow(/choice\.message must be an object/);
 	});
 
+	it("rejects multi-choice OpenAI-compatible responses", async () => {
+		const close = vi.fn(async () => {});
+		const runtimeFactory = async () => ({
+			home: createHome(),
+			close,
+		});
+		const multiChoiceModel: OpenAICompatibleModel = async () => ({
+			choices: [
+				{ message: { content: "First choice." } },
+				{ message: { content: "Second choice." } },
+			],
+		});
+
+		await expect(
+			runHomeOpenAICompatibleAgent(multiChoiceModel, "status", {
+				runtimeFactory,
+			}),
+		).rejects.toThrow(/choices must contain exactly one choice/);
+
+		expect(close).toHaveBeenCalledTimes(1);
+	});
+
 	it("rejects malformed OpenAI-compatible model responses and closes the session", async () => {
 		const close = vi.fn(async () => {});
 		const runtimeFactory = async () => ({

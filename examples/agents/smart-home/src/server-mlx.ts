@@ -15,6 +15,7 @@ const runtimeFactory =
 		: undefined;
 
 let server: Awaited<ReturnType<typeof startSmartHomeBridgeServer>> | undefined;
+let startupPromise: ReturnType<typeof startSmartHomeBridgeServer> | undefined;
 let shuttingDown = false;
 
 const shutdown = async (signal: string) => {
@@ -23,6 +24,9 @@ const shutdown = async (signal: string) => {
 	}
 	shuttingDown = true;
 	try {
+		if (startupPromise) {
+			server = await startupPromise.catch(() => undefined);
+		}
 		await server?.close();
 		process.exit(0);
 	} catch (error) {
@@ -38,11 +42,12 @@ process.once("SIGINT", shutdown);
 process.once("SIGTERM", shutdown);
 
 try {
-	server = await startSmartHomeBridgeServer({
+	startupPromise = startSmartHomeBridgeServer({
 		terminal: true,
 		openAIModel: openAICompatibleModel({ baseUrl, model, apiKey }),
 		runtimeFactory,
 	});
+	server = await startupPromise;
 
 	console.log(
 		`Smart-home MLX bridge listening on http://localhost:${server.port}`,

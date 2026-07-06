@@ -97,8 +97,8 @@ getSchema()  →  dialect.tools(manifest)  →  [ model ]  →  tool call
 ```
 
 `igniteTools(home, anthropic)` and `igniteTools(home, openai)` both return
-`{ tools, toolCalls, run, toolResult }`. The consumer brings the model seam in
-`src/model.ts`: a scripted mock, the real `@anthropic-ai/sdk`, or any
+`{ tools, toolCalls, run, observe, toolResult }`. The consumer brings the model
+seam in `src/model.ts`: a scripted mock, the real `@anthropic-ai/sdk`, or any
 OpenAI-compatible `/v1/chat/completions` server such as MLX.
 
 ## What it exercises

@@ -184,6 +184,11 @@ export function assertOpenAIChatCompletionResponse(
 			`${source} was malformed: choices must be a non-empty array.`,
 		);
 	}
+	if (value.choices.length !== 1) {
+		throw new Error(
+			`${source} was malformed: choices must contain exactly one choice.`,
+		);
+	}
 	for (const choice of value.choices) {
 		if (!isRecord(choice)) {
 			throw new Error(
