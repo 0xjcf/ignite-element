@@ -580,6 +580,7 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 				choices: [
 					{
 						message: {
+							role: "assistant",
 							tool_calls: [
 								{
 									id: "call_1",
@@ -601,6 +602,7 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 				choices: [
 					{
 						message: {
+							role: "assistant",
 							tool_calls: [
 								{
 									id: "call_2",
@@ -627,6 +629,7 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 				choices: [
 					{
 						message: {
+							role: "assistant",
 							content:
 								"Living light toggled, front door locked, movie mode on.",
 						},
@@ -669,7 +672,9 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 
 	it("omits empty tools from Chat Completions requests", async () => {
 		const response: OpenAIChatCompletionResponse = {
-			choices: [{ message: { content: "No tools needed." } }],
+			choices: [
+				{ message: { role: "assistant", content: "No tools needed." } },
+			],
 		};
 		const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
 		const fetchImpl: typeof fetch = async (input, init) => {
@@ -705,7 +710,9 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 
 	it("includes non-empty tools in Chat Completions requests", async () => {
 		const response: OpenAIChatCompletionResponse = {
-			choices: [{ message: { content: "Tools are available." } }],
+			choices: [
+				{ message: { role: "assistant", content: "Tools are available." } },
+			],
 		};
 		const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
 		const fetchImpl: typeof fetch = async (input, init) => {
@@ -929,6 +936,31 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 		).rejects.toThrow(/choice\.message must be an object/);
 	});
 
+	it("rejects non-assistant OpenAI-compatible choice messages", async () => {
+		const fetchImpl: typeof fetch = async () =>
+			new Response(
+				JSON.stringify({
+					choices: [{ message: { role: "tool", content: "not an assistant" } }],
+				}),
+				{
+					status: 200,
+					headers: { "content-type": "application/json" },
+				},
+			);
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).rejects.toThrow(/choice\.message\.role must be "assistant"/);
+	});
+
 	it("normalizes multi-choice OpenAI-compatible responses to the first choice", async () => {
 		let turn = 0;
 		const multiChoiceModel: OpenAICompatibleModel = async () => {
@@ -937,6 +969,7 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 					choices: [
 						{
 							message: {
+								role: "assistant",
 								tool_calls: [
 									{
 										id: "multi-choice-1",
@@ -954,6 +987,7 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 						},
 						{
 							message: {
+								role: "assistant",
 								tool_calls: [
 									{
 										id: "multi-choice-2",
@@ -968,7 +1002,11 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 						},
 					],
 				},
-				{ choices: [{ message: { content: "Kitchen light is on." } }] },
+				{
+					choices: [
+						{ message: { role: "assistant", content: "Kitchen light is on." } },
+					],
+				},
 			];
 			const response = script[turn++];
 			if (!response) {
@@ -1054,6 +1092,7 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 				choices: [
 					{
 						message: {
+							role: "assistant",
 							tool_calls: [
 								{
 									id: `loop-${turn + 1}`,

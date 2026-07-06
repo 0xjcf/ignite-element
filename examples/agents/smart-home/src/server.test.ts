@@ -78,6 +78,7 @@ describe("smart-home bridge server", () => {
 				choices: [
 					{
 						message: {
+							role: "assistant",
 							tool_calls: [
 								{
 									id: "mlx-bridge-1",
@@ -92,7 +93,11 @@ describe("smart-home bridge server", () => {
 					},
 				],
 			},
-			{ choices: [{ message: { content: "Kitchen light is on." } }] },
+			{
+				choices: [
+					{ message: { role: "assistant", content: "Kitchen light is on." } },
+				],
+			},
 		];
 		let turn = 0;
 		server = await startSmartHomeBridgeServer({
@@ -155,7 +160,9 @@ describe("smart-home bridge server", () => {
 			]),
 		).resolves.toBe("closed");
 
-		resolveModel?.({ choices: [{ message: { content: "Done." } }] });
+		resolveModel?.({
+			choices: [{ message: { role: "assistant", content: "Done." } }],
+		});
 		server = undefined;
 		socket.close();
 		expect(closed).toBe(true);
@@ -187,6 +194,7 @@ describe("smart-home bridge server", () => {
 				choices: [
 					{
 						message: {
+							role: "assistant",
 							tool_calls: [
 								{
 									id: "call_bad_temp",
@@ -204,7 +212,16 @@ describe("smart-home bridge server", () => {
 					},
 				],
 			},
-			{ choices: [{ message: { content: "Unable to set bedroom temp." } }] },
+			{
+				choices: [
+					{
+						message: {
+							role: "assistant",
+							content: "Unable to set bedroom temp.",
+						},
+					},
+				],
+			},
 		];
 		let turn = 0;
 		server = await startSmartHomeBridgeServer({

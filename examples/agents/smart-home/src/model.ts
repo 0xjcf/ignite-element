@@ -203,6 +203,11 @@ export function assertOpenAIChatCompletionResponse(
 				`${source} was malformed: choice.message must be an object.`,
 			);
 		}
+		if (message.role !== "assistant") {
+			throw new Error(
+				`${source} was malformed: choice.message.role must be "assistant".`,
+			);
+		}
 		const toolCalls = message.tool_calls;
 		if (toolCalls == null) {
 			continue;
