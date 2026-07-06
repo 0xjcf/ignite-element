@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { assign, createMachine, setup, type StateFrom } from "xstate";
-import counterStore, { counterSlice } from "./fixtures/reduxCounterStore";
+import { assign, createMachine, type StateFrom, setup } from "xstate";
 import { igniteCore } from "../IgniteCore";
 import type { ReduxInstanceConfig, XStateConfig } from "../igniteCore/types";
-import type { EventDescriptor, FacadeEffectArgs } from "../RenderArgs";
+import type {
+	EmptyEventMap,
+	EventDescriptor,
+	FacadeCommandResult,
+	FacadeEffectArgs,
+} from "../RenderArgs";
 import { jsx, jsxs } from "../renderers/jsx/jsx-runtime";
 import { igniteRuntimeHostOverrideSymbol } from "../runtime/agent";
 import { test as igniteTest } from "../testing";
-import type { IgniteStory } from "../types/agent";
+import type { IgniteAgentRuntime, IgniteStory } from "../types/agent";
+import counterStore, { counterSlice } from "./fixtures/reduxCounterStore";
 
 describe("ignite test DSL", () => {
 	it("drives xstate components through deterministic headless assertions", async () => {
@@ -179,20 +184,36 @@ describe("ignite test DSL", () => {
 		host.dataset.hostId = "supplied";
 		let activeHost = defaultHost;
 		type HostState = { hostId: string };
-		const runtime: {
-			execute: () => Promise<{ state: HostState; events: [] }>;
-			getSnapshot: () => HostState;
-			getView: () => HostState;
+		const runtime: IgniteAgentRuntime<
+			HostState,
+			FacadeCommandResult,
+			EmptyEventMap,
+			HostState,
+			HostState
+		> & {
 			[igniteRuntimeHostOverrideSymbol]: <Result>(
 				nextHost: EventTarget,
 				callback: () => Result,
 			) => Result;
 		} = {
+			canExecute: () => false,
 			async execute() {
 				return { state: this.getSnapshot(), events: [] };
 			},
 			getSnapshot: () => ({ hostId: activeHost.dataset.hostId ?? "missing" }),
 			getView: () => ({ hostId: activeHost.dataset.hostId ?? "missing" }),
+			on: () => ({ unsubscribe: () => {} }),
+			watchSnapshot: () => ({ unsubscribe: () => {} }),
+			watchView: () => ({ unsubscribe: () => {} }),
+			getSchema: () => ({
+				commands: {},
+				events: [],
+				state: { hostId: activeHost.dataset.hostId ?? "missing" },
+				view: { hostId: activeHost.dataset.hostId ?? "missing" },
+			}),
+			record: () => {
+				throw new Error("record is not used by this test");
+			},
 			[igniteRuntimeHostOverrideSymbol]<Result>(
 				nextHost: EventTarget,
 				callback: () => Result,
@@ -207,7 +228,7 @@ describe("ignite test DSL", () => {
 			},
 		};
 
-		igniteTest(runtime as any, { host })
+		igniteTest(runtime, { host })
 			.given({ hostId: "supplied" })
 			.expectState({ hostId: "supplied" })
 			.expectView({ hostId: "supplied" });
