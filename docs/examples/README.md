@@ -38,12 +38,9 @@ one directly from its directory:
 
 ```bash
 cd examples/apps/nested-child-router
-pnpm install --ignore-workspace
+pnpm install --ignore-workspace --no-link-workspace-packages
 pnpm run dev
 ```
-
-If workspace linking needs to stay disabled, configure
-`linkWorkspacePackages: false` in `pnpm-workspace.yaml`.
 
 Use the same shape for `spa-router`, `form-with-validation`, and
 `dashboard-with-shared-state`.
