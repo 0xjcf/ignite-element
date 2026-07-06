@@ -120,7 +120,7 @@ export const openai: ToolDialect<
 		response: OpenAIChatCompletionResponse,
 		manifest: NeutralManifest,
 	): NeutralToolCall[] {
-		const calls = response.choices[0]?.message?.tool_calls;
+		const calls = response.choices?.[0]?.message?.tool_calls;
 		if (!Array.isArray(calls)) {
 			return [];
 		}

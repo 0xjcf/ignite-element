@@ -26,9 +26,23 @@ const shutdown = async (signal: string) => {
 	shuttingDown = true;
 	try {
 		if (startupPromise) {
-			server = await startupPromise.catch(() => undefined);
+			try {
+				server = await startupPromise;
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				console.error(
+					`\nSmart-home MLX bridge failed to start before ${signal}: ${message}`,
+				);
+				process.exit(1);
+			}
 		}
-		await server?.close();
+		if (!server) {
+			console.error(
+				`\nSmart-home MLX bridge was not available before ${signal}.`,
+			);
+			process.exit(1);
+		}
+		await server.close();
 		process.exit(0);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);

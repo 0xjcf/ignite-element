@@ -156,12 +156,12 @@ export async function runHomeOpenAICompatibleAgent(
 
 		for (let turn = 0; turn < MAX_TURNS; turn++) {
 			const response = await model({ tools, messages });
+			modelCalls++;
 			assertOpenAIChatCompletionResponse(
 				response,
 				"OpenAI-compatible model response",
 			);
 			const primaryResponse = firstOpenAIChoiceResponse(response);
-			modelCalls++;
 			messages.push(toOpenAIAssistantMessage(primaryResponse));
 
 			const calls = toolCalls(primaryResponse);

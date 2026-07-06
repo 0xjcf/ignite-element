@@ -118,7 +118,7 @@ describe("smart-home bridge server", () => {
 		socket.close();
 	});
 
-	it("waits for an in-flight OpenAI-compatible agent run before closing", async () => {
+	it("closes promptly with an in-flight OpenAI-compatible agent run", async () => {
 		let resolveModel:
 			| ((response: OpenAIChatCompletionResponse) => void)
 			| undefined;
@@ -148,11 +148,14 @@ describe("smart-home bridge server", () => {
 		const closePromise = server.close().then(() => {
 			closed = true;
 		});
-		await delay(20);
-		expect(closed).toBe(false);
+		await expect(
+			Promise.race([
+				closePromise.then(() => "closed"),
+				delay(100).then(() => "timeout"),
+			]),
+		).resolves.toBe("closed");
 
 		resolveModel?.({ choices: [{ message: { content: "Done." } }] });
-		await closePromise;
 		server = undefined;
 		socket.close();
 		expect(closed).toBe(true);
@@ -173,6 +176,55 @@ describe("smart-home bridge server", () => {
 		const error = await messages.next("home:error");
 
 		expect(error.message).toBe("agent failed in test");
+		expect(error.view).toMatchObject({ allDoorsLocked: true });
+
+		socket.close();
+	});
+
+	it("broadcasts the current view when OpenAI-compatible tool calls fail", async () => {
+		const script: OpenAIChatCompletionResponse[] = [
+			{
+				choices: [
+					{
+						message: {
+							tool_calls: [
+								{
+									id: "call_bad_temp",
+									type: "function",
+									function: {
+										name: "setThermostat",
+										arguments: JSON.stringify({
+											room: "bedroom",
+											temp: "warm",
+										}),
+									},
+								},
+							],
+						},
+					},
+				],
+			},
+			{ choices: [{ message: { content: "Unable to set bedroom temp." } }] },
+		];
+		let turn = 0;
+		server = await startSmartHomeBridgeServer({
+			port: 0,
+			openAIModel: async () => {
+				const response = script[turn++];
+				if (!response) {
+					throw new Error("OpenAI bridge script exhausted");
+				}
+				return response;
+			},
+		});
+		const socket = new WebSocket(`ws://127.0.0.1:${server.port}/bridge`);
+		const messages = collectMessages(socket);
+
+		await opened(socket);
+		await messages.next("home:view");
+		const error = await messages.next("home:error");
+
+		expect(error.command).toBe("setThermostat");
 		expect(error.view).toMatchObject({ allDoorsLocked: true });
 
 		socket.close();

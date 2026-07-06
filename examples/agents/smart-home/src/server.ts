@@ -160,7 +160,7 @@ export async function startSmartHomeBridgeServer(
 	const port = options.port ?? Number(process.env.PORT ?? DEFAULT_PORT);
 	const session = await resolveSharedHomeSession(options.runtimeFactory);
 	let agentStarted = false;
-	let agentRun: Promise<void> | undefined;
+	let closing = false;
 	let terminal: TerminalControls | undefined;
 	let stream: { unsubscribe(): void } | undefined;
 	let vite: ViteDevServer | undefined;
@@ -188,6 +188,9 @@ export async function startSmartHomeBridgeServer(
 		wss = new WebSocketServer({ server: httpServer, path: "/bridge" });
 
 		const broadcast = (message: HomeBridgeMessage) => {
+			if (closing) {
+				return;
+			}
 			const payload = serializeBridgeMessage(message);
 			for (const client of wss?.clients ?? []) {
 				if (client.readyState === WebSocket.OPEN) {
@@ -279,25 +282,32 @@ export async function startSmartHomeBridgeServer(
 		}
 
 		function startAgentOnce(): void {
-			if (agentStarted || options.runAgent === false) {
+			if (agentStarted || options.runAgent === false || closing) {
 				return;
 			}
 			agentStarted = true;
-			agentRun = (
+			void (
 				options.openAIModel
 					? runSharedHomeOpenAICompatibleAgent(
 							options.openAIModel,
 							openAIAgentTools,
 							prompt,
 							broadcast,
+							() => home.getView(),
+							() => closing,
 						)
 					: runSharedHomeAgent(
 							options.model ?? scriptedModel(demoScript),
 							agentTools,
 							prompt,
 							broadcast,
+							() => home.getView(),
+							() => closing,
 						)
 			).catch((error) => {
+				if (closing) {
+					return;
+				}
 				console.error("smart-home bridge agent failed:", error);
 				broadcast({
 					type: "home:error",
@@ -318,11 +328,9 @@ export async function startSmartHomeBridgeServer(
 		return {
 			port: assignedPort,
 			close: async () => {
+				closing = true;
 				await cleanupBestEffort([
 					() => terminal?.close(),
-					async () => {
-						await agentRun;
-					},
 					() => bridgeStream.unsubscribe(),
 					() => closeWebSocketServer(bridgeWss),
 					() => closeServer(bridgeHttpServer),
@@ -566,11 +574,19 @@ async function runSharedHomeAgent(
 	tools: SharedHomeAgentTools,
 	userPrompt: string,
 	broadcast: (message: HomeBridgeMessage) => void,
+	getView: () => HomeView,
+	shouldStop: () => boolean,
 ): Promise<void> {
 	const messages: AnthropicMessage[] = [{ role: "user", content: userPrompt }];
 
 	for (let turn = 0; turn < MAX_TURNS; turn++) {
+		if (shouldStop()) {
+			return;
+		}
 		const response = await model({ tools: tools.tools, messages });
+		if (shouldStop()) {
+			return;
+		}
 		messages.push({ role: "assistant", content: response.content });
 		const calls = tools.toolCalls(response);
 
@@ -580,7 +596,13 @@ async function runSharedHomeAgent(
 
 		const resultBlocks: AnthropicToolResultBlock[] = [];
 		for (const call of calls) {
+			if (shouldStop()) {
+				return;
+			}
 			const result = await tools.run(call);
+			if (shouldStop()) {
+				return;
+			}
 			if (isOk(result)) {
 				broadcast({
 					type: "home:command-result",
@@ -593,6 +615,7 @@ async function runSharedHomeAgent(
 					type: "home:error",
 					command: call.name,
 					message: result.error.kind,
+					view: getView(),
 				});
 			}
 			resultBlocks.push(
@@ -608,13 +631,21 @@ async function runSharedHomeOpenAICompatibleAgent(
 	tools: SharedHomeOpenAICompatibleAgentTools,
 	userPrompt: string,
 	broadcast: (message: HomeBridgeMessage) => void,
+	getView: () => HomeView,
+	shouldStop: () => boolean,
 ): Promise<void> {
 	const messages: OpenAICompatibleMessage[] = [
 		{ role: "user", content: userPrompt },
 	];
 
 	for (let turn = 0; turn < MAX_TURNS; turn++) {
+		if (shouldStop()) {
+			return;
+		}
 		const response = await model({ tools: tools.tools, messages });
+		if (shouldStop()) {
+			return;
+		}
 		assertOpenAIChatCompletionResponse(
 			response,
 			"OpenAI-compatible bridge model response",
@@ -629,7 +660,13 @@ async function runSharedHomeOpenAICompatibleAgent(
 
 		const resultMessages: OpenAIChatToolResultMessage[] = [];
 		for (const call of calls) {
+			if (shouldStop()) {
+				return;
+			}
 			const result = await tools.run(call);
+			if (shouldStop()) {
+				return;
+			}
 			if (isOk(result)) {
 				broadcast({
 					type: "home:command-result",
@@ -642,6 +679,7 @@ async function runSharedHomeOpenAICompatibleAgent(
 					type: "home:error",
 					command: call.name,
 					message: result.error.kind,
+					view: getView(),
 				});
 			}
 			resultMessages.push(

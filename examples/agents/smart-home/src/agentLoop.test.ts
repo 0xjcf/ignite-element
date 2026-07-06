@@ -640,27 +640,31 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 			"Turn on the living room light, lock the front door, and start movie mode.",
 		);
 
-		expect(result.modelCalls).toBe(3);
-		expect(result.trace.map((entry) => entry.command)).toEqual([
-			"toggleLight",
-			"lockDoor",
-			"runScene",
-		]);
-		expect(result.trace[1]).toMatchObject({
-			command: "lockDoor",
-			input: "front",
-			ok: true,
-		});
-		expect(result.trace[2]).toMatchObject({
-			command: "runScene",
-			input: "movie",
-			ok: true,
-		});
-		expect(result.home.getView()).toMatchObject({
-			activeScene: "movie",
-			locks: { front: true },
-		});
-		expect(result.finalText).toContain("movie mode");
+		try {
+			expect(result.modelCalls).toBe(3);
+			expect(result.trace.map((entry) => entry.command)).toEqual([
+				"toggleLight",
+				"lockDoor",
+				"runScene",
+			]);
+			expect(result.trace[1]).toMatchObject({
+				command: "lockDoor",
+				input: "front",
+				ok: true,
+			});
+			expect(result.trace[2]).toMatchObject({
+				command: "runScene",
+				input: "movie",
+				ok: true,
+			});
+			expect(result.home.getView()).toMatchObject({
+				activeScene: "movie",
+				locks: { front: true },
+			});
+			expect(result.finalText).toContain("movie mode");
+		} finally {
+			await result.close();
+		}
 	});
 
 	it("omits empty tools from Chat Completions requests", async () => {

@@ -122,6 +122,12 @@ describe("openai.toolCalls (OpenAI-compatible response -> neutral calls)", () =>
 		expect(openai.toolCalls(textOnly, manifest)).toEqual([]);
 	});
 
+	it("returns no calls when a malformed response is missing choices", () => {
+		expect(
+			openai.toolCalls({} as OpenAIChatCompletionResponse, manifest),
+		).toEqual([]);
+	});
+
 	it("ignores tool_calls from unselected extra choices", () => {
 		const multiChoice: OpenAIChatCompletionResponse = {
 			choices: [
