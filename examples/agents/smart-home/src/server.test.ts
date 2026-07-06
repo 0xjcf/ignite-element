@@ -117,6 +117,46 @@ describe("smart-home bridge server", () => {
 		socket.close();
 	});
 
+	it("waits for an in-flight OpenAI-compatible agent run before closing", async () => {
+		let resolveModel:
+			| ((response: OpenAIChatCompletionResponse) => void)
+			| undefined;
+		let modelStarted: (() => void) | undefined;
+		const started = new Promise<void>((resolve) => {
+			modelStarted = resolve;
+		});
+		const modelResponse = new Promise<OpenAIChatCompletionResponse>(
+			(resolve) => {
+				resolveModel = resolve;
+			},
+		);
+
+		server = await startSmartHomeBridgeServer({
+			port: 0,
+			openAIModel: async () => {
+				modelStarted?.();
+				return await modelResponse;
+			},
+		});
+		const socket = new WebSocket(`ws://127.0.0.1:${server.port}/bridge`);
+
+		await opened(socket);
+		await started;
+
+		let closed = false;
+		const closePromise = server.close().then(() => {
+			closed = true;
+		});
+		await delay(20);
+		expect(closed).toBe(false);
+
+		resolveModel?.({ choices: [{ message: { content: "Done." } }] });
+		await closePromise;
+		server = undefined;
+		socket.close();
+		expect(closed).toBe(true);
+	});
+
 	it("routes browser commands into the actor-web-backed shared runtime when runtimeFactory is injected", async () => {
 		server = await startSmartHomeBridgeServer({
 			port: 0,
@@ -191,4 +231,8 @@ function opened(socket: WebSocket): Promise<void> {
 		socket.once("open", () => resolve());
 		socket.once("error", reject);
 	});
+}
+
+function delay(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }

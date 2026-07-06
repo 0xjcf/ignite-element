@@ -20,6 +20,7 @@ import { createActorWebHomeSession } from "./actor-web-home";
 import { runHomeAgent, runHomeOpenAICompatibleAgent } from "./agentLoop";
 import {
 	createHome,
+	createLocalHomeSession,
 	DOORS,
 	ROOMS,
 	SCENE_TRANSITION_DELAY_MS,
@@ -520,6 +521,34 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 		});
 	});
 
+	it("stops the local runtime when closing the local session", async () => {
+		vi.useFakeTimers();
+		const session = createLocalHomeSession();
+		try {
+			const tools = igniteTools(session.home, anthropic);
+			const result = await tools.run({
+				name: "transitionScene",
+				input: "movie",
+			});
+
+			expect(isOk(result)).toBe(true);
+			expect(session.home.getView()).toMatchObject({
+				pendingScene: "movie",
+				activeScene: null,
+			});
+
+			await session.close();
+			await vi.advanceTimersByTimeAsync(SCENE_TRANSITION_DELAY_MS);
+
+			expect(session.home.getView()).toMatchObject({
+				pendingScene: "movie",
+				activeScene: null,
+			});
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it("fails loudly when a scripted fixture runs out of model turns", async () => {
 		const model = scriptedModel([
 			{ content: [{ type: "text", text: "done" }] },
@@ -714,7 +743,42 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 				tools: [],
 				messages: [{ role: "user", content: "status" }],
 			});
-			const expectation = expect(result).rejects.toThrow(/request aborted/);
+			const expectation =
+				expect(result).rejects.toThrow(/timed out after 25ms/);
+			await vi.advanceTimersByTimeAsync(25);
+
+			await expectation;
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("keeps the timeout active while reading OpenAI-compatible response bodies", async () => {
+		vi.useFakeTimers();
+		try {
+			const fetchImpl: typeof fetch = async (_input, init) =>
+				({
+					ok: true,
+					json: () =>
+						new Promise<unknown>((_resolve, reject) => {
+							init?.signal?.addEventListener("abort", () => {
+								reject(new Error("body aborted"));
+							});
+						}),
+				}) as Response;
+			const model = openAICompatibleModel({
+				baseUrl: "http://127.0.0.1:8080/v1",
+				model: "mlx-test",
+				fetch: fetchImpl,
+				timeoutMs: 25,
+			});
+
+			const result = model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			});
+			const expectation =
+				expect(result).rejects.toThrow(/timed out after 25ms/);
 			await vi.advanceTimersByTimeAsync(25);
 
 			await expectation;

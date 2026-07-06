@@ -116,36 +116,54 @@ export function openAICompatibleModel(options: {
 				signal: controller.signal,
 			});
 		} catch (error) {
+			if (controller.signal.aborted || isAbortError(error)) {
+				throw openAICompatibleTimeoutError(baseUrl, timeoutMs);
+			}
 			throw new Error(
 				`Could not reach OpenAI-compatible server at ${baseUrl}. Verify the server is running and reachable (for a local MLX server: \`python -m mlx_lm.server --model <model> --port 8080\`). Original error: ${
 					error instanceof Error ? error.message : String(error)
 				}`,
 			);
+		}
+
+		try {
+			if (!response.ok) {
+				const detail = await response.text().catch((error) => {
+					if (controller.signal.aborted || isAbortError(error)) {
+						throw error;
+					}
+					return "";
+				});
+				throw new Error(
+					`OpenAI-compatible server at ${endpoint} returned ${response.status} ${response.statusText}${
+						detail ? `: ${detail}` : ""
+					}`,
+				);
+			}
+
+			let payload: unknown;
+			try {
+				payload = await response.json();
+			} catch (error) {
+				if (controller.signal.aborted || isAbortError(error)) {
+					throw openAICompatibleTimeoutError(baseUrl, timeoutMs);
+				}
+				throw new Error(
+					`OpenAI-compatible server at ${endpoint} returned invalid JSON. Original error: ${
+						error instanceof Error ? error.message : String(error)
+					}`,
+				);
+			}
+			assertOpenAIChatCompletionResponse(payload, endpoint);
+			return payload;
+		} catch (error) {
+			if (controller.signal.aborted || isAbortError(error)) {
+				throw openAICompatibleTimeoutError(baseUrl, timeoutMs);
+			}
+			throw error;
 		} finally {
 			clearTimeout(timeoutId);
 		}
-
-		if (!response.ok) {
-			const detail = await response.text().catch(() => "");
-			throw new Error(
-				`OpenAI-compatible server at ${endpoint} returned ${response.status} ${response.statusText}${
-					detail ? `: ${detail}` : ""
-				}`,
-			);
-		}
-
-		let payload: unknown;
-		try {
-			payload = await response.json();
-		} catch (error) {
-			throw new Error(
-				`OpenAI-compatible server at ${endpoint} returned invalid JSON. Original error: ${
-					error instanceof Error ? error.message : String(error)
-				}`,
-			);
-		}
-		assertOpenAIChatCompletionResponse(payload, endpoint);
-		return payload;
 	};
 }
 
@@ -220,6 +238,19 @@ function isOpenAIToolCall(value: unknown): value is OpenAIChatToolCall {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
+}
+
+function isAbortError(error: unknown): boolean {
+	return error instanceof DOMException && error.name === "AbortError";
+}
+
+function openAICompatibleTimeoutError(
+	baseUrl: string,
+	timeoutMs: number,
+): Error {
+	return new Error(
+		`OpenAI-compatible server at ${baseUrl} timed out after ${timeoutMs}ms.`,
+	);
 }
 
 /**

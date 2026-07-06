@@ -177,6 +177,7 @@ export async function startSmartHomeBridgeServer(
 	});
 	const wss = new WebSocketServer({ server: httpServer, path: "/bridge" });
 	let agentStarted = false;
+	let agentRun: Promise<void> | undefined;
 	let terminal: TerminalControls | undefined;
 
 	const broadcast = (message: HomeBridgeMessage) => {
@@ -275,20 +276,21 @@ export async function startSmartHomeBridgeServer(
 			return;
 		}
 		agentStarted = true;
-		const agentRun = options.openAIModel
-			? runSharedHomeOpenAICompatibleAgent(
-					options.openAIModel,
-					openAIAgentTools,
-					prompt,
-					broadcast,
-				)
-			: runSharedHomeAgent(
-					options.model ?? scriptedModel(demoScript),
-					agentTools,
-					prompt,
-					broadcast,
-				);
-		agentRun.catch((error) => {
+		agentRun = (
+			options.openAIModel
+				? runSharedHomeOpenAICompatibleAgent(
+						options.openAIModel,
+						openAIAgentTools,
+						prompt,
+						broadcast,
+					)
+				: runSharedHomeAgent(
+						options.model ?? scriptedModel(demoScript),
+						agentTools,
+						prompt,
+						broadcast,
+					)
+		).catch((error) => {
 			console.error("smart-home bridge agent failed:", error);
 		});
 	}
@@ -297,6 +299,7 @@ export async function startSmartHomeBridgeServer(
 		port: assignedPort,
 		close: async () => {
 			terminal?.close();
+			await agentRun;
 			stream.unsubscribe();
 			await closeWebSocketServer(wss);
 			await closeServer(httpServer);

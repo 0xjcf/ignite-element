@@ -1,6 +1,6 @@
 import type { IgniteToolsRuntime } from "ignite-element/tools";
 import { igniteCore } from "ignite-element/xstate";
-import { assign, setup } from "xstate";
+import { assign, createActor, setup } from "xstate";
 
 // A virtual smart home the agent drives. No hardware — the browser UI (Phase C)
 // will render these devices; here the terminal renders them. The command set is
@@ -308,8 +308,14 @@ const homeMachine = setup({
  * (`getSchema()` + `execute()` + `getView()` + `on()` + `watchView()`), no DOM.
  */
 export function createHome() {
+	return createHomeFromSource(homeMachine);
+}
+
+type HomeActor = ReturnType<typeof createActor<typeof homeMachine>>;
+
+function createHomeFromSource(source: typeof homeMachine | HomeActor) {
 	return igniteCore({
-		source: homeMachine,
+		source,
 		events: (event) => ({
 			"light-changed": event<{ room: Room; on: boolean }>(),
 			"scene-applied": event<{ scene: Scene }>(),
@@ -455,8 +461,12 @@ export type HomeRuntimeFactory = () =>
 	| Promise<HomeRuntimeSession>;
 
 export function createLocalHomeSession(): HomeRuntimeSession {
+	const actor = createActor(homeMachine);
+	const home = createHomeFromSource(actor);
 	return {
-		home: createHome(),
-		close: async () => {},
+		home,
+		close: async () => {
+			actor.stop();
+		},
 	};
 }
