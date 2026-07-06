@@ -174,11 +174,11 @@ apiShowcase.getSchema();
 apiShowcase.getSnapshot();
 apiShowcase.getView();
 
-const result = await apiShowcase.execute("increment");
-
 apiShowcase.on("api-count-changed", (event) => event.detail);
 apiShowcase.watchSnapshot((snapshot, prevSnapshot) => [prevSnapshot, snapshot]);
 apiShowcase.watchView((view, prevView) => [prevView, view]);
+
+const result = await apiShowcase.execute("increment");
 
 const story = apiShowcase.record("reaches limit");
 await story.execute("setLimit", 6);

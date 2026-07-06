@@ -32,6 +32,7 @@ Remaining worked-app examples. form-with-validation shipped as a focused task (q
 - examples/apps/dashboard-with-shared-state/package.json
 - examples/apps/dashboard-with-shared-state/pnpm-lock.yaml
 - examples/apps/dashboard-with-shared-state/src/dashboard.css
+- examples/apps/dashboard-with-shared-state/src/dashboard.dom.test.tsx
 - examples/apps/dashboard-with-shared-state/src/dashboard.headless.test.ts
 - examples/apps/dashboard-with-shared-state/src/dashboard.tsx
 - examples/apps/dashboard-with-shared-state/src/dashboardModel.test.ts
