@@ -167,14 +167,18 @@ export function assertOpenAIChatCompletionResponse(
 	}
 	for (const choice of value.choices) {
 		if (!isRecord(choice)) {
-			throw new Error(`${source} was malformed: each choice must be an object.`);
+			throw new Error(
+				`${source} was malformed: each choice must be an object.`,
+			);
 		}
 		const message = choice.message;
 		if (message == null) {
 			continue;
 		}
 		if (!isRecord(message)) {
-			throw new Error(`${source} was malformed: choice.message must be an object.`);
+			throw new Error(
+				`${source} was malformed: choice.message must be an object.`,
+			);
 		}
 		const toolCalls = message.tool_calls;
 		if (toolCalls == null) {
