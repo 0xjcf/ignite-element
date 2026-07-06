@@ -33,11 +33,18 @@ Extend the existing smart-home agent example so the same headless runtime and ig
 
 ## Affected files
 - examples/agents/smart-home
-- packages/ignite-element/src/tools/openai
 - docs/ignite-tools.md
 
 ## Scope Amendments
-- None.
+- Type: scope correction
+- Added at: 2026-07-06T15:22:00Z
+- Trigger: closeout plan-alignment hold reported `packages/ignite-element/src/tools/openai` as a missing planned path.
+- Reason: the OpenAI-compatible dialect package was implemented by the prerequisite task; this task consumes that dialect from the smart-home example and only needs example/docs changes.
+- Evidence source: closeout-readiness
+- Evidence path: `.fas/state/closeout-readiness/latest.json`
+- Evidence detail: missing planned file was `packages/ignite-element/src/tools/openai` while implemented files were under `examples/agents/smart-home` plus `docs/ignite-tools.md`.
+- Accuracy signal: focused tests, example runtime lane, and fast FAS code checks passed without package dialect changes.
+- Follow-up: none.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

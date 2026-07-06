@@ -1746,10 +1746,13 @@ No active tasks.
 
 - Title: examples/smart-home: add local MLX OpenAI-compatible model loop and demo mode
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/examples-smart-home-add-local-mlx-openai-compatible-model-lo.md
 - Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: examples/agent: add actor-web-backed real-agent dogfood using igniteTools
 
