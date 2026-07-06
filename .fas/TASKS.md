@@ -1879,8 +1879,8 @@ No active tasks.
 
 - Title: fix: address PR85 final CodeRabbit minor findings
 - Mode: single-agent
-- Status: implementing
-- Owner: implementer
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/fix-address-pr85-final-coderabbit-minor-findings.md
 - Verification lane: fast
 - Policy sensitivity: standard
