@@ -1,14 +1,14 @@
-# docs: reconcile final PR85 review metadata
+# docs: align PR85 docs metadata acceptance criteria
 
 ## Source
-Created with `fas create-task` on 2026-07-05.
+Created with `fas create-task` on 2026-07-06.
 
 ## Problem
-docs: reconcile final PR85 review metadata
+docs: align PR85 docs metadata acceptance criteria
 
 ## Acceptance criteria
-- The task packet scope matches the referenced docs/task files.
-- The linked docs and task packets use the same example names, paths, and verification steps.
+- The affected task metadata uses docs-only acceptance criteria.
+- The task packet scope stays limited to FAS docs/task metadata.
 - The documentation-only metadata change is verified without requiring code-focused TDD or runtime coverage.
 - The work is tracked in `.fas/TASKS.md`.
 - The task has a clear implementation and verification plan before execution starts.
@@ -20,9 +20,7 @@ docs: reconcile final PR85 review metadata
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- .fas/tasks/test-examples-include-new-worked-apps-in-example-runtime-lan.md
-- .fas/tasks/fix-snapshot-runtime-host-override-base-before-resolution.md
-- docs/examples/README.md
+- .fas/tasks/docs-reconcile-final-pr85-review-metadata.md
 
 ## Scope Amendments
 - None.

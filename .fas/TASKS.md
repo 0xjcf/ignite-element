@@ -1932,6 +1932,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: docs: align PR85 docs metadata acceptance criteria
+
+- Title: docs: align PR85 docs metadata acceptance criteria
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/docs-align-pr85-docs-metadata-acceptance-criteria.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
