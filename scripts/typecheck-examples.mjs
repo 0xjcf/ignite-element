@@ -10,6 +10,7 @@ const repoRoot = path.resolve(path.dirname(scriptPath), "..");
 
 const examplesRootAssignmentPrefix = "--examples-root=";
 const installModeAssignmentPrefix = "--install=";
+const INSTALL_TIMEOUT_MS = 5 * 60 * 1_000;
 
 function isMissingPathValue(value) {
 	return !value || value.startsWith("--");
@@ -145,6 +146,7 @@ function ensureDependencies(exampleRoot, installMode) {
 			env: { ...process.env, CI: process.env.CI ?? "true" },
 			shell: shouldUseShell(),
 			stdio: "inherit",
+			timeout: INSTALL_TIMEOUT_MS,
 		},
 	);
 
@@ -174,6 +176,12 @@ function runTypecheck(tsc, exampleRoot) {
 		cwd: repoRoot,
 		stdio: "inherit",
 	});
+
+	if (result.error) {
+		console.error(
+			`Failed to run tsc for ${exampleRoot}: ${result.error.message}`,
+		);
+	}
 
 	return result.status === 0;
 }

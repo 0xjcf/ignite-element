@@ -11,6 +11,8 @@
 			"**",
 			"!**/dist",
 			"!**/coverage",
+			"!**/node_modules",
+			"!**/.pnpm-store",
 			"!**/.astro",
 			"!**/.fas",
 			"!**/.cursor",
