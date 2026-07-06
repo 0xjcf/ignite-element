@@ -1853,6 +1853,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: fix: address PR85 nested-child-router examples-typecheck failure
+
+- Title: fix: address PR85 nested-child-router examples-typecheck failure
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/fix-address-pr85-nested-child-router-examples-typecheck-fail.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>

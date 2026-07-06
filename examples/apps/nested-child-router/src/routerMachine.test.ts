@@ -69,7 +69,9 @@ describe("nested child router core", () => {
 	});
 
 	it("announces committed nested route changes", () => {
-		const actor = createActor(routerMachine).start();
+		const actor = createActor(routerMachine, {
+			input: undefined,
+		}).start();
 		const seen: Array<{
 			parent: string;
 			child: string | null;
