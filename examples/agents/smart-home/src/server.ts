@@ -298,6 +298,11 @@ export async function startSmartHomeBridgeServer(
 						)
 			).catch((error) => {
 				console.error("smart-home bridge agent failed:", error);
+				broadcast({
+					type: "home:error",
+					message: error instanceof Error ? error.message : String(error),
+					view: home.getView(),
+				});
 			});
 		}
 
@@ -325,8 +330,16 @@ export async function startSmartHomeBridgeServer(
 			},
 		};
 	} catch (error) {
-		terminal?.close();
-		stream?.unsubscribe();
+		try {
+			terminal?.close();
+		} catch (cleanupError) {
+			reportStartupCleanupError(cleanupError);
+		}
+		try {
+			stream?.unsubscribe();
+		} catch (cleanupError) {
+			reportStartupCleanupError(cleanupError);
+		}
 		if (wss && httpServer?.listening) {
 			await closeWebSocketServer(wss).catch(reportStartupCleanupError);
 		}

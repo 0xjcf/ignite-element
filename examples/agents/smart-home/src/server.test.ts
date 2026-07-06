@@ -158,6 +158,26 @@ describe("smart-home bridge server", () => {
 		expect(closed).toBe(true);
 	});
 
+	it("broadcasts agent failures to connected browser clients", async () => {
+		server = await startSmartHomeBridgeServer({
+			port: 0,
+			model: async () => {
+				throw new Error("agent failed in test");
+			},
+		});
+		const socket = new WebSocket(`ws://127.0.0.1:${server.port}/bridge`);
+		const messages = collectMessages(socket);
+
+		await opened(socket);
+		await messages.next("home:view");
+		const error = await messages.next("home:error");
+
+		expect(error.message).toBe("agent failed in test");
+		expect(error.view).toMatchObject({ allDoorsLocked: true });
+
+		socket.close();
+	});
+
 	it("routes browser commands into the actor-web-backed shared runtime when runtimeFactory is injected", async () => {
 		server = await startSmartHomeBridgeServer({
 			port: 0,

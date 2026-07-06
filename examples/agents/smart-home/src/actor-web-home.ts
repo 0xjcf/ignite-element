@@ -179,13 +179,18 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 		home,
 		close: async () => {
 			clearPendingTransitionTimers();
-			await sourceHandle.stop();
-			await runtime.stop();
+			try {
+				await sourceHandle.stop();
+			} finally {
+				await runtime.stop();
+			}
 		},
 	};
 }
 
-export function createDefaultHomeSession(options?: { actorWeb?: boolean }) {
+export async function createDefaultHomeSession(options?: {
+	actorWeb?: boolean;
+}): Promise<HomeRuntimeSession> {
 	if (options?.actorWeb) {
 		return createActorWebHomeSession();
 	}

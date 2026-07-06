@@ -191,9 +191,6 @@ export function assertOpenAIChatCompletionResponse(
 			);
 		}
 		const message = choice.message;
-		if (message == null) {
-			continue;
-		}
 		if (!isRecord(message)) {
 			throw new Error(
 				`${source} was malformed: choice.message must be an object.`,
@@ -233,7 +230,7 @@ function isOpenAIToolCall(value: unknown): value is OpenAIChatToolCall {
 		typeof value.id === "string" &&
 		isRecord(fn) &&
 		typeof fn.name === "string" &&
-		typeof fn.arguments === "string"
+		"arguments" in fn
 	);
 }
 
