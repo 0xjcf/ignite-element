@@ -215,11 +215,18 @@ export async function startSmartHomeBridgeServer(
 			socket.on("error", (error) => {
 				console.error("smart-home bridge socket error:", error);
 			});
-			socket.send(
-				serializeBridgeMessage({ type: "home:view", view: home.getView() }),
-			);
+			const sendSocketMessage = (message: HomeBridgeMessage) => {
+				if (closing || socket.readyState !== WebSocket.OPEN) {
+					return;
+				}
+				socket.send(serializeBridgeMessage(message));
+			};
+			sendSocketMessage({ type: "home:view", view: home.getView() });
 			startAgentOnce();
 			socket.on("message", (payload) => {
+				if (closing) {
+					return;
+				}
 				void handleClientMessage(
 					String(payload),
 					(commandMessage) =>
@@ -229,6 +236,9 @@ export async function startSmartHomeBridgeServer(
 								input: commandMessage.input,
 							})
 							.then((result) => {
+								if (closing) {
+									return;
+								}
 								if (isOk(result)) {
 									broadcast({
 										type: "home:command-result",
@@ -238,34 +248,28 @@ export async function startSmartHomeBridgeServer(
 									});
 									return;
 								}
-								socket.send(
-									serializeBridgeMessage({
-										type: "home:error",
-										command: commandMessage.command,
-										message: result.error.kind,
-										view: home.getView(),
-									}),
-								);
+								sendSocketMessage({
+									type: "home:error",
+									command: commandMessage.command,
+									message: result.error.kind,
+									view: home.getView(),
+								});
 							})
 							.catch((error) => {
-								socket.send(
-									serializeBridgeMessage({
-										type: "home:error",
-										command: commandMessage.command,
-										message:
-											error instanceof Error ? error.message : String(error),
-										view: home.getView(),
-									}),
-								);
+								sendSocketMessage({
+									type: "home:error",
+									command: commandMessage.command,
+									message:
+										error instanceof Error ? error.message : String(error),
+									view: home.getView(),
+								});
 							}),
 					(error) => {
-						socket.send(
-							serializeBridgeMessage({
-								type: "home:error",
-								message: error instanceof Error ? error.message : String(error),
-								view: home.getView(),
-							}),
-						);
+						sendSocketMessage({
+							type: "home:error",
+							message: error instanceof Error ? error.message : String(error),
+							view: home.getView(),
+						});
 					},
 				);
 			});

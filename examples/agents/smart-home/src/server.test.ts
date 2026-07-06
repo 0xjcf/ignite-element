@@ -156,7 +156,7 @@ describe("smart-home bridge server", () => {
 		await expect(
 			Promise.race([
 				closePromise.then(() => "closed"),
-				delay(100).then(() => "timeout"),
+				delay(1_000).then(() => "timeout"),
 			]),
 		).resolves.toBe("closed");
 

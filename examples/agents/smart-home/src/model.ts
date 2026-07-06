@@ -213,10 +213,27 @@ export function assertOpenAIChatCompletionResponse(
 			);
 		}
 		const toolCalls = message.tool_calls;
+		const content = message.content;
+		const hasTextContent =
+			typeof content === "string" && content.trim().length > 0;
+		if (content != null && typeof content !== "string") {
+			throw new Error(
+				`${source} was malformed: choice.message.content must be a string when present.`,
+			);
+		}
 		if (toolCalls == null) {
+			if (!hasTextContent) {
+				throw new Error(
+					`${source} was malformed: assistant messages must include content or tool_calls.`,
+				);
+			}
 			continue;
 		}
-		if (!Array.isArray(toolCalls) || !toolCalls.every(isOpenAIToolCall)) {
+		if (
+			!Array.isArray(toolCalls) ||
+			toolCalls.length === 0 ||
+			!toolCalls.every(isOpenAIToolCall)
+		) {
 			throw new Error(
 				`${source} was malformed: message.tool_calls must be valid function tool calls.`,
 			);
@@ -233,7 +250,7 @@ export function firstOpenAIChoiceResponse(
 			"OpenAI-compatible model response was malformed: choices must be a non-empty array.",
 		);
 	}
-	return { choices: [choice] };
+	return { choices: [normalizeOpenAIChoice(choice)] };
 }
 
 export function toOpenAIAssistantMessage(
@@ -257,18 +274,49 @@ export function toOpenAIAssistantMessage(
 		role: "assistant",
 		content: typeof content === "string" ? content : null,
 		tool_calls: Array.isArray(toolCalls)
-			? toolCalls.map((call) => ({
-					...call,
-					function: {
-						...call.function,
-						arguments:
-							typeof call.function.arguments === "string"
-								? call.function.arguments
-								: JSON.stringify(call.function.arguments),
-					},
-				}))
+			? normalizeOpenAIToolCalls(toolCalls)
 			: undefined,
 	};
+}
+
+function normalizeOpenAIChoice(
+	choice: OpenAIChatCompletionResponse["choices"][number],
+): OpenAIChatCompletionResponse["choices"][number] {
+	const message = choice.message;
+	if (!isRecord(message) || !Array.isArray(message.tool_calls)) {
+		return choice;
+	}
+
+	return {
+		...choice,
+		message: {
+			...message,
+			tool_calls: normalizeOpenAIToolCalls(message.tool_calls),
+		},
+	};
+}
+
+function normalizeOpenAIToolCalls(
+	toolCalls: OpenAIChatToolCall[],
+): OpenAIChatToolCall[] {
+	return toolCalls.map((call) => ({
+		...call,
+		function: {
+			...call.function,
+			arguments: stringifyOpenAIArguments(call.function.arguments),
+		},
+	}));
+}
+
+function stringifyOpenAIArguments(value: unknown): string {
+	if (typeof value === "string") {
+		return value;
+	}
+	try {
+		return JSON.stringify(value) ?? "null";
+	} catch {
+		return JSON.stringify(String(value)) ?? '"[unserializable]"';
+	}
 }
 
 function isOpenAIToolCall(value: unknown): value is OpenAIChatToolCall {

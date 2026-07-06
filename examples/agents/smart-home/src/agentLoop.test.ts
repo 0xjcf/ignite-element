@@ -403,24 +403,6 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 				lights: { living: false, bedroom: false, kitchen: false },
 			});
 
-			const interimResult = await tools.run({
-				name: "setThermostat",
-				input: { room: "living", temp: 69 },
-			});
-
-			expect(isOk(interimResult)).toBe(true);
-			if (!isOk(interimResult)) {
-				throw new Error(
-					`Expected setThermostat to run: ${interimResult.error.kind}`,
-				);
-			}
-
-			expect(interimResult.value.view).toMatchObject({
-				activeScene: null,
-				pendingScene: "morning",
-				thermostat: { living: 69 },
-			});
-
 			await vi.runOnlyPendingTimersAsync();
 
 			expect(home.getView()).toMatchObject({
@@ -451,6 +433,60 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 			);
 		} finally {
 			subscription.unsubscribe();
+			vi.useRealTimers();
+		}
+	});
+
+	it("cancels a delayed scene when a manual command runs before the timer", async () => {
+		vi.useFakeTimers();
+		const home = createHome();
+		const tools = igniteTools(home);
+
+		try {
+			const result = await tools.run({
+				name: "transitionScene",
+				input: "morning",
+			});
+
+			expect(isOk(result)).toBe(true);
+			if (!isOk(result)) {
+				throw new Error(
+					`Expected transitionScene to run: ${result.error.kind}`,
+				);
+			}
+
+			expect(result.value.view).toMatchObject({
+				activeScene: null,
+				pendingScene: "morning",
+			});
+
+			const interimResult = await tools.run({
+				name: "setThermostat",
+				input: { room: "living", temp: 69 },
+			});
+
+			expect(isOk(interimResult)).toBe(true);
+			if (!isOk(interimResult)) {
+				throw new Error(
+					`Expected setThermostat to run: ${interimResult.error.kind}`,
+				);
+			}
+
+			expect(interimResult.value.view).toMatchObject({
+				activeScene: null,
+				pendingScene: null,
+				thermostat: { living: 69 },
+			});
+
+			await vi.runOnlyPendingTimersAsync();
+
+			expect(home.getView()).toMatchObject({
+				activeScene: null,
+				pendingScene: null,
+				lights: { living: false, bedroom: false, kitchen: false },
+				thermostat: { living: 69 },
+			});
+		} finally {
 			vi.useRealTimers();
 		}
 	});
@@ -989,6 +1025,56 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 		).rejects.toThrow(/choice\.message\.role must be "assistant"/);
 	});
 
+	it("rejects empty OpenAI-compatible assistant messages", async () => {
+		const fetchImpl: typeof fetch = async () =>
+			new Response(
+				JSON.stringify({
+					choices: [{ message: { role: "assistant" } }],
+				}),
+				{
+					status: 200,
+					headers: { "content-type": "application/json" },
+				},
+			);
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).rejects.toThrow(/assistant messages must include content or tool_calls/);
+	});
+
+	it("rejects empty OpenAI-compatible tool call arrays", async () => {
+		const fetchImpl: typeof fetch = async () =>
+			new Response(
+				JSON.stringify({
+					choices: [{ message: { role: "assistant", tool_calls: [] } }],
+				}),
+				{
+					status: 200,
+					headers: { "content-type": "application/json" },
+				},
+			);
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).rejects.toThrow(/message\.tool_calls must be valid/);
+	});
+
 	it("serializes assistant tool call arguments for replay", () => {
 		const message = toOpenAIAssistantMessage({
 			choices: [
@@ -1013,6 +1099,76 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 		expect(message.tool_calls?.[0]?.function.arguments).toBe(
 			JSON.stringify({ room: "living", on: true }),
 		);
+	});
+
+	it("normalizes structured OpenAI-compatible tool arguments before execution and replay", async () => {
+		const observedMessages: Array<
+			Parameters<OpenAICompatibleModel>[0]["messages"]
+		> = [];
+		let turn = 0;
+		const model: OpenAICompatibleModel = async ({ messages }) => {
+			observedMessages.push(
+				JSON.parse(
+					JSON.stringify(messages),
+				) as Parameters<OpenAICompatibleModel>[0]["messages"],
+			);
+			turn += 1;
+			if (turn === 1) {
+				return {
+					choices: [
+						{
+							message: {
+								role: "assistant",
+								tool_calls: [
+									{
+										id: "call_structured_loop",
+										type: "function",
+										function: {
+											name: "toggleLight",
+											arguments: { room: "living", on: true },
+										},
+									},
+								],
+							},
+						},
+					],
+				};
+			}
+			return {
+				choices: [
+					{ message: { role: "assistant", content: "Living room is on." } },
+				],
+			};
+		};
+
+		const result = await runHomeOpenAICompatibleAgent(
+			model,
+			"turn on the living room light",
+		);
+
+		try {
+			expect(result.trace).toHaveLength(1);
+			expect(result.trace[0]).toMatchObject({
+				command: "toggleLight",
+				input: { room: "living", on: true },
+				ok: true,
+			});
+			expect(result.home.getView().lights.living).toBe(true);
+
+			const replayAssistantMessage = observedMessages[1]?.[1];
+			expect(replayAssistantMessage).toMatchObject({
+				role: "assistant",
+				tool_calls: [
+					{
+						function: {
+							arguments: JSON.stringify({ room: "living", on: true }),
+						},
+					},
+				],
+			});
+		} finally {
+			await result.close();
+		}
 	});
 
 	it("normalizes multi-choice OpenAI-compatible responses to the first choice", async () => {

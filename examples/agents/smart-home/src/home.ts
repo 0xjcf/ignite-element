@@ -104,6 +104,7 @@ export function dimRooms(
 		...ctx,
 		lights,
 		blinds,
+		pendingScene: null,
 		activeScene: changed ? null : ctx.activeScene,
 	};
 }
@@ -127,6 +128,7 @@ export function reduceHomeContext(
 					...context.lights,
 					[command.room]: command.on,
 				},
+				pendingScene: null,
 				activeScene:
 					context.lights[command.room] === command.on
 						? context.activeScene
@@ -139,6 +141,7 @@ export function reduceHomeContext(
 					...context.thermostat,
 					[command.room]: command.temp,
 				},
+				pendingScene: null,
 				activeScene:
 					context.thermostat[command.room] === command.temp
 						? context.activeScene
@@ -151,6 +154,7 @@ export function reduceHomeContext(
 					...context.blinds,
 					[command.room]: command.percent,
 				},
+				pendingScene: null,
 				activeScene:
 					context.blinds[command.room] === command.percent
 						? context.activeScene
@@ -163,6 +167,7 @@ export function reduceHomeContext(
 					...context.locks,
 					[command.door]: command.locked,
 				},
+				pendingScene: null,
 				activeScene:
 					context.locks[command.door] === command.locked
 						? context.activeScene
@@ -468,7 +473,7 @@ export type HomeRuntimeFactory = () =>
 	| Promise<HomeRuntimeSession>;
 
 export function createLocalHomeSession(): HomeRuntimeSession {
-	const actor = createActor(homeMachine);
+	const actor = createActor(homeMachine).start();
 	const home = createHomeFromSource(actor);
 	return {
 		home,
