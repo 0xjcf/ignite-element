@@ -1830,6 +1830,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: fix: reconcile CodeRabbit audit metadata findings
+
+- Title: fix: reconcile CodeRabbit audit metadata findings
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/fix-reconcile-coderabbit-audit-metadata-findings.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
