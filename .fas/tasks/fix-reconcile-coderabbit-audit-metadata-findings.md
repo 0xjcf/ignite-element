@@ -26,6 +26,9 @@ CodeRabbit committed review returned three valid minor findings: align two FAS t
 ## Affected files
 - .fas/tasks/test-examples-include-new-worked-apps-in-example-runtime-lan.md
 - .fas/tasks/testing-dx-createtestscenario-ignitetest-has-no-host-seam-f.md
+- .fas-config.json
+- scripts/__tests__/test-examples.test.mjs
+- packages/ignite-element/src/tests/types/testing.types.test.ts
 - examples/apps/nested-child-router/package.json
 
 ## Scope Amendments

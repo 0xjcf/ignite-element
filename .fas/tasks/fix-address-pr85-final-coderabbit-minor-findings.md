@@ -1,16 +1,14 @@
-# fix: address final review findings for v3 examples epic
+# fix: address PR85 final CodeRabbit minor findings
 
 ## Source
 Created with `fas create-task` on 2026-07-05.
 
 ## Problem
-Third CodeRabbit committed review returned three findings: restore console.warn spy with try/finally, strengthen overlapping host regression to prove each async command observed its own host, and inline dashboard widget CSS into shadow roots instead of relying on global dashboard.css.
+fix: address PR85 final CodeRabbit minor findings
 
 ## Acceptance criteria
-- runtime-deprecations warn spy restores in finally.
-- overlapping host test records both host ids before asserting baseline reset.
-- dashboard widgets receive dashboard styles inside their shadow DOM.
-- Focused verification passes before batch snapshot.
+- The defect no longer reproduces.
+- A regression test covers the fix.
 - TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
 - TDD: every production code change in the change set is covered by an added or updated test.
 - DDD: respect domain boundaries — keep the functional core deterministic and side-effect-free (no reads, writes, network, or clock), confine coordination to the imperative shell, and have adapters return facts instead of throwing.
@@ -24,10 +22,7 @@ Third CodeRabbit committed review returned three findings: restore console.warn 
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- packages/ignite-element/src/tests/runtime-deprecations.test.ts
-- packages/ignite-element/src/tests/testing.test.ts
-- examples/apps/dashboard-with-shared-state/src/dashboard.tsx
-- examples/apps/dashboard-with-shared-state/src/dashboard.css
+- docs/site/src/content/docs/migration/effects-events.mdx,.fas/tasks/fix-reconcile-coderabbit-audit-metadata-findings.md,.fas/tasks/fix-address-final-review-findings-for-v3-examples-epic.md,docs/examples/README.md,packages/ignite-element/src/tests/IgniteElement.test.tsx
 
 ## Scope Amendments
 - None.
