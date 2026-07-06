@@ -523,7 +523,14 @@ export default function igniteElementFactory<
 			restore();
 			return result;
 		} catch (error) {
-			restore();
+			try {
+				restore();
+			} catch (restoreError) {
+				console.error(
+					"[igniteElementFactory] Runtime host restore failed after callback error.",
+					restoreError,
+				);
+			}
 			throw error;
 		}
 	};

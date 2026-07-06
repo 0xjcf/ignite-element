@@ -1,6 +1,6 @@
 import type { IgniteJsxChild } from "@ignite-element/renderer";
+import { mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";
 import { IgniteMoveSafeLifecycleElement } from "./IgniteElement";
-import { mountIgniteJsxOnce } from "./renderers/ignite-jsx";
 
 export type IgniteShellHost = {
 	readonly element: HTMLElement;
