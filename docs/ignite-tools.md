@@ -211,6 +211,50 @@ The smart-home agent example dogfoods this boundary with a local MLX path:
 terminal bridge over one shared headless runtime. Both paths stay opt-in; CI uses
 scripted responses and fake `fetch` instead of a live model server.
 
+## Local model workflow and ecosystem boundaries
+
+The local-model path is deliberately just the OpenAI-compatible dialect plus a
+consumer-owned client loop. Ignite does not start, supervise, or vendor an MLX
+runtime. A local model server is another OpenAI-compatible provider endpoint:
+
+```bash
+python -m pip install mlx-lm
+python -m mlx_lm.server --model <model> --port 8080
+
+MLX_BASE_URL=http://127.0.0.1:8080/v1 \
+MLX_MODEL=<model> \
+npm run mlx -- "turn on the kitchen lights"
+```
+
+The same `ignite-element/tools/openai` adapter also works with hosted OpenAI and
+Ollama-style `/v1/chat/completions` servers. The consumer owns endpoint selection,
+credentials, retry policy, and model process lifecycle; `igniteTools` only owns
+the pure manifest/call/result translation and the call into the supplied headless
+runtime. That keeps the core SDK-free and avoids a new MLX-specific dependency.
+
+For ecosystem work, the boundaries are:
+
+| Layer | Owns | Does not own |
+| --- | --- | --- |
+| `ignite-element` | projection, headless `execute`/`observe`, `getSchema`, `igniteTools`, provider dialect translators, examples | durable model-process lifecycle, distributed actor hosting |
+| `fas-local` | durable local MLX provider lifecycle, operator setup, process reuse, local model health | Ignite projection semantics or component command contracts |
+| `actor-web` | execution/data-plane hosting, topology, actor addresses, future gateway/client transport | Ignite's tool manifest, view projection, or provider dialects |
+
+The smart-home example now exercises two runtime factories:
+
+- default XState runtime: a local deterministic runtime that proves the
+  `getSchema` -> `igniteTools` -> `execute` loop with no DOM dependency.
+- `SMART_HOME_RUNTIME=actor-web`: an example-local actor-web runtime composed
+  through `ignite-element/actor-web`, proving actor-web source projection,
+  command execution, and actor-native emitted events through the same
+  `igniteTools` loop.
+
+The browser demo bridge remains intentionally local. It proves that a terminal
+agent and browser UI can share one Node-owned headless runtime, but it is not the
+final actor-web gateway/client transport. Replacing that thin WebSocket shell
+with actor-web-hosted transport belongs in actor-web/future integration work,
+not in the Ignite tool dialect.
+
 ## How the design embodies the principles
 
 | Principle | Where it lives |

@@ -2,7 +2,7 @@
 
 ## Status
 
-Active plan (updated 2026-07-05). The agreed order of work from current beta
+Active plan (updated 2026-07-06). The agreed order of work from current beta
 (`3.0.0-beta.7`) to the stable `3.0.0` cut. Dependencies are wired in the FAS
 queue so the critical path is enforced. As of 2026-07-02, the queue also tracks
 the remaining roadmap work through first-class FAS epics so the full completion
@@ -146,6 +146,18 @@ schema/tool bridge, examples, and docs; fas-local owns durable MLX provider
 lifecycle; actor-web owns execution/data-plane hosting and topology. The local
 Ignite example can call a running OpenAI-compatible MLX server directly, while
 CI remains deterministic through fake provider responses.
+
+Completion standard for this epic:
+
+- Ignite has one SDK-free OpenAI-compatible dialect for hosted OpenAI, Ollama,
+  and local MLX-style `/v1/chat/completions` servers.
+- The smart-home example documents both deterministic CI coverage and opt-in
+  live local-model validation.
+- `SMART_HOME_RUNTIME=actor-web` proves actor-web-backed projection and command
+  execution through `igniteTools`, while the local WebSocket browser bridge stays
+  documented as an example shell, not the final actor-web gateway/client path.
+- Durable MLX provider lifecycle remains a fas-local concern; distributed
+  runtime hosting remains an actor-web concern.
 
 | Task | id | Note |
 | --- | --- | --- |
