@@ -1,20 +1,18 @@
-# fix: address PR85 shell reentrancy and docs findings
+# fix: address PR85 async restore and nested router findings
 
 ## Source
 Created with `fas create-task` on 2026-07-06.
 
 ## Problem
-CodeRabbit flagged shell lifecycle reentrancy, test cleanup, and docs metadata
-issues during PR85 closeout. The shell should mark itself active before running
-`onConnect` so reentrant connects do not call the hook twice, tests should
-restore console spies, and the related example docs/FAS inventories should match
-the files and subscription ordering under review.
+CodeRabbit flagged two runtime alignment issues during PR85 closeout: async host
+override cleanup could mask the original rejected callback error, and nested
+router browser history could keep an unnormalized URL while router state stored
+the normalized path. The same follow-up also tightens the prior shell task's
+acceptance criteria for spy cleanup and docs/FAS inventory alignment.
 
 ## Acceptance criteria
 - The defect no longer reproduces.
 - A regression test covers the fix.
-- The shell tests restore console spies after each run.
-- The example docs/FAS inventories include the reviewed files and subscription ordering.
 - TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
 - TDD: every production code change in the change set is covered by an added or updated test.
 - DDD: respect domain boundaries — keep the functional core deterministic and side-effect-free (no reads, writes, network, or clock), confine coordination to the imperative shell, and have adapters return facts instead of throwing.
@@ -28,10 +26,11 @@ the files and subscription ordering under review.
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- packages/ignite-element/src/igniteShell.ts
-- packages/ignite-element/src/tests/igniteShell.test.ts
-- .fas/tasks/examples-add-worked-apps-form-with-validation-nested-child-r.md
-- examples/adapters/xstate/README.md
+- packages/ignite-element/src/IgniteElementFactory.ts
+- packages/ignite-element/src/tests/IgniteElementFactory.test.ts
+- examples/apps/nested-child-router/src/routerStore.ts
+- examples/apps/nested-child-router/src/routerMachine.test.ts
+- .fas/tasks/fix-address-pr85-shell-reentrancy-and-docs-findings.md
 
 ## Scope Amendments
 - None.
