@@ -65,6 +65,7 @@ export async function runHomeAgent(
 ): Promise<AgentResult> {
 	const session = await resolveHomeSession(options.runtimeFactory);
 	let completed = false;
+	let hasPendingError = false;
 
 	try {
 		const { home } = session;
@@ -116,9 +117,12 @@ export async function runHomeAgent(
 		throw new Error(
 			`runHomeAgent hit MAX_TURNS (${MAX_TURNS}) before producing a final response`,
 		);
+	} catch (error) {
+		hasPendingError = true;
+		throw error;
 	} finally {
 		if (!completed) {
-			await session.close();
+			await closeIncompleteSession(session, hasPendingError);
 		}
 	}
 }
@@ -136,6 +140,7 @@ export async function runHomeOpenAICompatibleAgent(
 ): Promise<AgentResult> {
 	const session = await resolveHomeSession(options.runtimeFactory);
 	let completed = false;
+	let hasPendingError = false;
 
 	try {
 		const { home } = session;
@@ -193,10 +198,27 @@ export async function runHomeOpenAICompatibleAgent(
 		throw new Error(
 			`runHomeOpenAICompatibleAgent hit MAX_TURNS (${MAX_TURNS}) before producing a final response`,
 		);
+	} catch (error) {
+		hasPendingError = true;
+		throw error;
 	} finally {
 		if (!completed) {
-			await session.close();
+			await closeIncompleteSession(session, hasPendingError);
 		}
+	}
+}
+
+async function closeIncompleteSession(
+	session: { close(): Promise<void> },
+	hasPendingError: boolean,
+): Promise<void> {
+	try {
+		await session.close();
+	} catch (closeError) {
+		if (!hasPendingError) {
+			throw closeError;
+		}
+		console.error("smart-home agent cleanup failed:", closeError);
 	}
 }
 

@@ -109,7 +109,12 @@ function ensureDependencies(exampleRoot) {
 
 	const result = spawnSync(
 		"pnpm",
-		["install", "--ignore-workspace", "--no-link-workspace-packages"],
+		[
+			"install",
+			"--ignore-workspace",
+			"--no-link-workspace-packages",
+			"--no-frozen-lockfile",
+		],
 		{
 			cwd: exampleRoot,
 			env: { ...process.env, CI: process.env.CI ?? "true" },
