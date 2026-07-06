@@ -1898,6 +1898,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: docs: reconcile final PR85 review metadata
+
+- Title: docs: reconcile final PR85 review metadata
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/docs-reconcile-final-pr85-review-metadata.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
