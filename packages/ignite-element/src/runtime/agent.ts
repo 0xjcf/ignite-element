@@ -47,6 +47,7 @@ type AgentRuntimeOptions<
 		options?: IgniteDomBridgeOptions,
 	) => IgniteDomBridgeSession;
 	resolveRuntime: () => RuntimeResources<State, Event, AdditionalArgs>;
+	retainRuntimeAccess?: () => void;
 	releaseRuntimeAccess?: () => void;
 	resolveView: (adapter: IgniteAdapter<State, Event>) => View;
 };
@@ -172,6 +173,7 @@ export function createAgentRuntime<
 	createDomBridge,
 	eventTypes,
 	observeLifecycle,
+	retainRuntimeAccess,
 	releaseRuntimeAccess,
 	resolveRuntime,
 	resolveView,
@@ -181,42 +183,74 @@ export function createAgentRuntime<
 		value !== null &&
 		"then" in value &&
 		typeof (value as { then?: unknown }).then === "function";
+	const releaseAfterSuccess = (message: string) => {
+		try {
+			releaseRuntimeAccess?.();
+		} catch (error) {
+			console.error(message, error);
+		}
+	};
+	const releaseAfterError = (message: string) => {
+		try {
+			releaseRuntimeAccess?.();
+		} catch (error) {
+			console.error(message, error);
+		}
+	};
 	const withRuntimeAccess = <Result>(callback: () => Result): Result => {
+		retainRuntimeAccess?.();
 		try {
 			const result = callback();
 			if (isThenable(result)) {
 				return result.then(
 					(value) => {
-						releaseRuntimeAccess?.();
+						releaseAfterSuccess(
+							"[igniteCore] Runtime access release failed after callback resolution.",
+						);
 						return value;
 					},
 					(error) => {
-						releaseRuntimeAccess?.();
+						releaseAfterError(
+							"[igniteCore] Runtime access release failed after callback error.",
+						);
 						throw error;
 					},
 				) as Result;
 			}
 
-			releaseRuntimeAccess?.();
+			releaseAfterSuccess(
+				"[igniteCore] Runtime access release failed after callback completion.",
+			);
 			return result;
 		} catch (error) {
-			releaseRuntimeAccess?.();
+			releaseAfterError(
+				"[igniteCore] Runtime access release failed after callback error.",
+			);
 			throw error;
 		}
 	};
 	const withSynchronousRuntimeAccess = <Result>(
 		callback: () => Result,
 	): Result => {
+		retainRuntimeAccess?.();
 		try {
-			return callback();
-		} finally {
-			releaseRuntimeAccess?.();
+			const result = callback();
+			releaseAfterSuccess(
+				"[igniteCore] Runtime access release failed after callback completion.",
+			);
+			return result;
+		} catch (error) {
+			releaseAfterError(
+				"[igniteCore] Runtime access release failed after callback error.",
+			);
+			throw error;
 		}
 	};
 	const createWatcher = <Value>(
 		resolveCurrent: (adapter: IgniteAdapter<State, Event>) => Value,
 		handler: (value: Value, prevValue: Value) => void,
 	) => {
+		retainRuntimeAccess?.();
 		const { adapter } = resolveRuntime();
 		let prevValue = resolveCurrent(adapter);
 		let seeded = false;
@@ -236,7 +270,11 @@ export function createAgentRuntime<
 
 		return {
 			unsubscribe: () => {
-				subscription.unsubscribe();
+				try {
+					subscription.unsubscribe();
+				} finally {
+					releaseRuntimeAccess?.();
+				}
 			},
 		};
 	};
@@ -245,6 +283,7 @@ export function createAgentRuntime<
 		eventName: string,
 		handler: (event: CustomEvent<unknown>) => void,
 	) => {
+		retainRuntimeAccess?.();
 		const { host, adapter } = resolveRuntime();
 		const listener = (event: Event) => {
 			handler(event as CustomEvent<unknown>);
@@ -264,8 +303,12 @@ export function createAgentRuntime<
 
 		return {
 			unsubscribe: () => {
-				host.removeEventListener(eventName, listener as EventListener);
-				eventsSubscription?.unsubscribe();
+				try {
+					host.removeEventListener(eventName, listener as EventListener);
+					eventsSubscription?.unsubscribe();
+				} finally {
+					releaseRuntimeAccess?.();
+				}
 			},
 		};
 	};

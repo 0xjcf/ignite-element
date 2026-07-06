@@ -728,7 +728,11 @@ class IgniteTestDriver<
 	}
 
 	given(expected: IgniteStateExpectation<State>) {
-		assertState("given", this.component.getSnapshot(), expected);
+		assertState(
+			"given",
+			this.withHost(() => this.component.getSnapshot()),
+			expected,
+		);
 		return this;
 	}
 
@@ -746,7 +750,9 @@ class IgniteTestDriver<
 	}
 
 	expectState(expected: IgniteStateExpectation<State>) {
-		const state = this.lastResult?.state ?? this.component.getSnapshot();
+		const state =
+			this.lastResult?.state ??
+			this.withHost(() => this.component.getSnapshot());
 		assertState("expectState", state, expected);
 		return this;
 	}
@@ -755,7 +761,10 @@ class IgniteTestDriver<
 		// Mirrors the runtime's getView(): the projected view after the last
 		// command (execute awaits, so getView() reflects it). The execution result
 		// carries no view, so getView() is the single source.
-		assertView(this.component.getView(), expected);
+		assertView(
+			this.withHost(() => this.component.getView()),
+			expected,
+		);
 		return this;
 	}
 

@@ -5,6 +5,7 @@ import { igniteCore } from "../IgniteCore";
 import type { ReduxInstanceConfig, XStateConfig } from "../igniteCore/types";
 import type { EventDescriptor, FacadeEffectArgs } from "../RenderArgs";
 import { jsx, jsxs } from "../renderers/jsx/jsx-runtime";
+import { igniteRuntimeHostOverrideSymbol } from "../runtime/agent";
 import { test as igniteTest } from "../testing";
 import type { IgniteStory } from "../types/agent";
 
@@ -169,6 +170,47 @@ describe("ignite test DSL", () => {
 			.expectView({ moduleId: "dispatch" })
 			.expectEvent("module-started", { moduleId: "dispatch" });
 		expect(host.dataset.lastStarted).toBe("dispatch");
+	});
+
+	it("uses a supplied host for scenario state and view reads", () => {
+		const defaultHost = document.createElement("section");
+		defaultHost.dataset.hostId = "default";
+		const host = document.createElement("section");
+		host.dataset.hostId = "supplied";
+		let activeHost = defaultHost;
+		type HostState = { hostId: string };
+		const runtime: {
+			execute: () => Promise<{ state: HostState; events: [] }>;
+			getSnapshot: () => HostState;
+			getView: () => HostState;
+			[igniteRuntimeHostOverrideSymbol]: <Result>(
+				nextHost: EventTarget,
+				callback: () => Result,
+			) => Result;
+		} = {
+			async execute() {
+				return { state: this.getSnapshot(), events: [] };
+			},
+			getSnapshot: () => ({ hostId: activeHost.dataset.hostId ?? "missing" }),
+			getView: () => ({ hostId: activeHost.dataset.hostId ?? "missing" }),
+			[igniteRuntimeHostOverrideSymbol]<Result>(
+				nextHost: EventTarget,
+				callback: () => Result,
+			): Result {
+				const previousHost = activeHost;
+				activeHost = nextHost as HTMLElement;
+				try {
+					return callback();
+				} finally {
+					activeHost = previousHost;
+				}
+			},
+		};
+
+		igniteTest(runtime as any, { host })
+			.given({ hostId: "supplied" })
+			.expectState({ hostId: "supplied" })
+			.expectView({ hostId: "supplied" });
 	});
 
 	it("restores the baseline runtime host after overlapping host-scoped commands", async () => {

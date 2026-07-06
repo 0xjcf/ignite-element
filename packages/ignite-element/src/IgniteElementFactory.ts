@@ -196,6 +196,7 @@ export default function igniteElementFactory<
 	>();
 	let sharedInstanceCount = 0;
 	let sharedRuntimeActive = false;
+	let sharedRuntimeAccessCount = 0;
 	let sharedCleanupPending = false;
 	let runtimeAdapter: IgniteAdapter<State, Event> | null = null;
 	let runtimeAdditionalArgs: RuntimeAdditionalArgs | null = null;
@@ -333,17 +334,33 @@ export default function igniteElementFactory<
 			return;
 		}
 
+		const adapterToStop = sharedAdapter;
 		const runtimeArgsToCleanup = runtimeAdditionalArgs;
-		if (runtimeArgsToCleanup) {
-			cleanupAdditionalArgs(runtimeArgsToCleanup);
+		let releaseError: unknown;
+		try {
+			if (runtimeArgsToCleanup) {
+				cleanupAdditionalArgs(runtimeArgsToCleanup);
+			}
+		} catch (error) {
+			releaseError = error;
 		}
-		sharedAdapter.stop();
-		sharedAdapter = null;
-		sharedAdditionalArgs = new WeakMap();
-		sharedInstanceCount = 0;
-		sharedCleanupPending = false;
-		runtimeAdditionalArgs = null;
-		runtimeHost = null;
+		try {
+			adapterToStop.stop();
+		} catch (error) {
+			releaseError ??= error;
+		} finally {
+			sharedAdapter = null;
+			sharedAdditionalArgs = new WeakMap();
+			sharedInstanceCount = 0;
+			sharedRuntimeAccessCount = 0;
+			sharedRuntimeActive = false;
+			sharedCleanupPending = false;
+			runtimeAdditionalArgs = null;
+			runtimeHost = null;
+		}
+		if (releaseError !== undefined) {
+			throw releaseError;
+		}
 	};
 
 	// The headless agent runtime only needs EventTarget APIs for `on()` and
@@ -358,6 +375,7 @@ export default function igniteElementFactory<
 		options?: IgniteDomBridgeOptions,
 	) => {
 		const { adapter, additionalArgs } = resolveRuntimeResources();
+		retainRuntimeAccess();
 		const bridgeHost = document.createElement("div");
 		const bridgeRoot = bridgeHost.attachShadow({ mode: "open" });
 		const strategy = renderStrategyFactory();
@@ -413,21 +431,25 @@ export default function igniteElementFactory<
 				}
 
 				active = false;
-				subscription.unsubscribe();
-				recordLifecycle(
-					"disconnected",
-					bridgeElementName,
-					lifecycleHooks.scope,
-					lifecycleHooks.instanceId,
-				);
-				strategy.detach?.();
-				bridgeHost.remove();
-				recordLifecycle(
-					"cleaned-up",
-					bridgeElementName,
-					lifecycleHooks.scope,
-					lifecycleHooks.instanceId,
-				);
+				try {
+					subscription.unsubscribe();
+					recordLifecycle(
+						"disconnected",
+						bridgeElementName,
+						lifecycleHooks.scope,
+						lifecycleHooks.instanceId,
+					);
+					strategy.detach?.();
+					bridgeHost.remove();
+					recordLifecycle(
+						"cleaned-up",
+						bridgeElementName,
+						lifecycleHooks.scope,
+						lifecycleHooks.instanceId,
+					);
+				} finally {
+					releaseRuntimeAccess();
+				}
 			},
 		};
 	};
@@ -435,7 +457,6 @@ export default function igniteElementFactory<
 	const resolveRuntimeAdapter = () => {
 		if (inferredScope === StateScope.Shared) {
 			const { adapter } = resolveSharedResources();
-			sharedRuntimeActive = true;
 			return adapter;
 		}
 
@@ -461,16 +482,28 @@ export default function igniteElementFactory<
 			host: runtimeHost,
 		};
 	};
+	const retainRuntimeAccess = () => {
+		if (inferredScope !== StateScope.Shared) {
+			return;
+		}
+
+		sharedRuntimeAccessCount += 1;
+		sharedRuntimeActive = true;
+	};
 	const releaseRuntimeAccess = () => {
 		if (inferredScope !== StateScope.Shared) {
 			return;
 		}
 
-		sharedRuntimeActive = false;
+		if (sharedRuntimeAccessCount > 0) {
+			sharedRuntimeAccessCount -= 1;
+		}
+		sharedRuntimeActive = sharedRuntimeAccessCount > 0;
 		if (
 			sharedCleanupPending &&
 			cleanupSharedLifecycle &&
-			sharedInstanceCount === 0
+			sharedInstanceCount === 0 &&
+			sharedRuntimeAccessCount === 0
 		) {
 			releaseSharedResources();
 		}
@@ -831,6 +864,7 @@ export default function igniteElementFactory<
 				),
 			eventTypes,
 			observeLifecycle,
+			retainRuntimeAccess,
 			releaseRuntimeAccess,
 			resolveRuntime: resolveRuntimeResources,
 			resolveView,
