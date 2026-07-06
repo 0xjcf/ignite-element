@@ -2,6 +2,10 @@ import { html } from "lit-html";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StateScope } from "../IgniteAdapter";
 import igniteElementFactory from "../IgniteElementFactory";
+import {
+	igniteRuntimeHostOverrideSymbol,
+	type IgniteRuntimeHostOverride,
+} from "../runtime/agent";
 import MinimalMockAdapter from "./MockAdapter";
 
 const flushMicrotasks = () =>
@@ -185,6 +189,50 @@ describe("igniteElementFactory", () => {
 		await flushMicrotasks();
 
 		expect(adapter.stop).toHaveBeenCalledTimes(1);
+	});
+
+	it("restores shared runtime state after host overrides so cleanup:true can release", async () => {
+		const runCase = async (
+			runOverride: (
+				override: IgniteRuntimeHostOverride,
+			) => Promise<void> | void,
+		) => {
+			const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
+			const component = igniteElementFactory(() => adapter, {
+				scope: StateScope.Shared,
+				cleanup: true,
+			});
+			const name = `ignite-shared-runtime-restore-${crypto.randomUUID()}`;
+			component(name, () => html`<div></div>`);
+
+			const override = (
+				component as typeof component & {
+					[igniteRuntimeHostOverrideSymbol]: IgniteRuntimeHostOverride;
+				}
+			)[igniteRuntimeHostOverrideSymbol];
+			await runOverride(override);
+
+			const element = document.createElement(name);
+			document.body.appendChild(element);
+			element.remove();
+			await flushMicrotasks();
+
+			expect(adapter.stop).toHaveBeenCalledTimes(1);
+		};
+
+		await runCase((override) => {
+			override(document.createElement("section"), () => undefined);
+		});
+		await runCase(async (override) => {
+			await override(document.createElement("section"), async () => undefined);
+		});
+		await runCase((override) => {
+			expect(() =>
+				override(document.createElement("section"), () => {
+					throw new Error("host override failed");
+				}),
+			).toThrow("host override failed");
+		});
 	});
 
 	it("stops an isolated adapter when true disconnect cleanup throws", () => {

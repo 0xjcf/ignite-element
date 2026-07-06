@@ -1845,8 +1845,8 @@ No active tasks.
 
 - Title: fix: address runtime host and shell teardown review findings
 - Mode: single-agent
-- Status: implementing
-- Owner: implementer
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/fix-address-runtime-host-and-shell-teardown-review-findings.md
 - Automation mode: advisory
 - Verification lane: fast

@@ -32,12 +32,28 @@ CodeRabbit committed review returned two valid findings: restore the previous sh
 
 ## Affected files
 - packages/ignite-element/src/IgniteElementFactory.ts
-- packages/ignite-element/src/tests/testing.test.ts
 - packages/ignite-element/src/igniteShell.ts
 - packages/ignite-element/src/tests/igniteShell.test.ts
+- packages/ignite-element/src/tests/IgniteElementFactory.test.ts
 
 ## Scope Amendments
-- None.
+- Type: scope-change
+- Added at: 2026-07-06
+- Trigger: coderabbit-review
+- Reason: withRuntimeHost sharedRuntimeActive cleanup regression is best covered beside existing shared cleanup tests with direct adapter stop assertions.
+- Added paths: packages/ignite-element/src/tests/IgniteElementFactory.test.ts
+- Evidence source: source inspection
+- Evidence: source inspection | IgniteElementFactory.test.ts already covers cleanup:true shared adapter release; extending it avoids indirect testing-only assertions.
+- Accuracy signal: CodeRabbit finding targets IgniteElementFactory with runtime host override state; testing.test.ts stayed out of implementation because direct adapter cleanup is not observable there.
+
+- Type: scope-refresh-promotion
+- Added at: 2026-07-06
+- Trigger: dirty-low-confidence-scope
+- Reason: Promoted dirty low-confidence or dependency-reachable task-packet path(s) into affected scope.
+- Added paths: packages/ignite-element/src/IgniteElementFactory.ts
+- Evidence source: task-packet dirty scope promotion
+- Evidence: task-packet dirty scope promotion | .fas/state/task-packet.json | Promoted dirty path(s): packages/ignite-element/src/IgniteElementFactory.ts
+- Accuracy signal: Path was dirty in git status and present in task-packet low-confidence/dependency-reachable scope.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

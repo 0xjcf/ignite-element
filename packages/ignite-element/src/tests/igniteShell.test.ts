@@ -75,4 +75,33 @@ describe("igniteShell", () => {
 		firstParent.remove();
 		secondParent.remove();
 	});
+
+	it("contains deferred teardown errors and resets lifecycle state", async () => {
+		const teardownError = new Error("teardown failed");
+		const teardown = vi.fn(() => {
+			throw teardownError;
+		});
+		const onConnect = vi.fn(() => teardown);
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		const register = igniteShell({ onConnect });
+		const name = `ignite-shell-teardown-error-${crypto.randomUUID()}`;
+
+		register(name, () => jsx("div", { children: "Shell" }));
+
+		const element = document.createElement(name);
+		document.body.appendChild(element);
+		element.remove();
+		await flushMicrotasks();
+
+		expect(teardown).toHaveBeenCalledTimes(1);
+		expect(errorSpy).toHaveBeenCalledWith(
+			`[igniteShell] Deferred disconnect cleanup failed for "${name}".`,
+			teardownError,
+		);
+
+		document.body.appendChild(element);
+		expect(onConnect).toHaveBeenCalledTimes(2);
+		element.remove();
+		await flushMicrotasks();
+	});
 });

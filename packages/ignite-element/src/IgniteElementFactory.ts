@@ -181,10 +181,12 @@ export default function igniteElementFactory<
 	type RuntimeHostOverrideBase = {
 		host: EventTarget | null;
 		additionalArgs: RuntimeAdditionalArgs | null;
+		sharedRuntimeActive: boolean;
 	};
 	type RuntimeHostOverrideFrame = {
 		host: EventTarget;
 		additionalArgs: RuntimeAdditionalArgs;
+		sharedRuntimeActive: boolean;
 	};
 
 	let sharedAdapter: IgniteAdapter<State, Event> | null = null;
@@ -460,17 +462,20 @@ export default function igniteElementFactory<
 		host: EventTarget,
 		callback: () => Result,
 	): Result => {
+		const previousSharedRuntimeActive = sharedRuntimeActive;
 		const { adapter } = resolveRuntimeResources();
 		if (runtimeHostOverrideFrames.length === 0) {
 			runtimeHostOverrideBase = {
 				host: runtimeHost,
 				additionalArgs: runtimeAdditionalArgs,
+				sharedRuntimeActive: previousSharedRuntimeActive,
 			};
 		}
 
 		const frame: RuntimeHostOverrideFrame = {
 			host,
 			additionalArgs: createAdditionalArgs(adapter, host),
+			sharedRuntimeActive,
 		};
 		runtimeHostOverrideFrames.push(frame);
 		runtimeHost = frame.host;
@@ -494,11 +499,14 @@ export default function igniteElementFactory<
 			if (activeFrame) {
 				runtimeHost = activeFrame.host;
 				runtimeAdditionalArgs = activeFrame.additionalArgs;
+				sharedRuntimeActive = activeFrame.sharedRuntimeActive;
 				return;
 			}
 
 			runtimeHost = runtimeHostOverrideBase?.host ?? null;
 			runtimeAdditionalArgs = runtimeHostOverrideBase?.additionalArgs ?? null;
+			sharedRuntimeActive =
+				runtimeHostOverrideBase?.sharedRuntimeActive ?? false;
 			runtimeHostOverrideBase = null;
 		};
 

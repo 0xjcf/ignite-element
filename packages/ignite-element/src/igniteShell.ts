@@ -59,8 +59,20 @@ export function igniteShell(
 			disconnectedCallback(): void {
 				this.scheduleDisconnectTeardown(() => {
 					this.active = false;
-					this.teardown?.();
+					const teardown = this.teardown;
 					this.teardown = undefined;
+					if (!teardown) {
+						return;
+					}
+
+					try {
+						teardown();
+					} catch (error) {
+						console.error(
+							`[igniteShell] Deferred disconnect cleanup failed for "${tagName}".`,
+							error,
+						);
+					}
 				});
 			}
 		}
