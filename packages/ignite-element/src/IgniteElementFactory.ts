@@ -333,6 +333,10 @@ export default function igniteElementFactory<
 			return;
 		}
 
+		const runtimeArgsToCleanup = runtimeAdditionalArgs;
+		if (runtimeArgsToCleanup) {
+			cleanupAdditionalArgs(runtimeArgsToCleanup);
+		}
 		sharedAdapter.stop();
 		sharedAdapter = null;
 		sharedAdditionalArgs = new WeakMap();

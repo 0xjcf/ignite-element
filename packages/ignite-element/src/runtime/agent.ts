@@ -204,6 +204,15 @@ export function createAgentRuntime<
 			throw error;
 		}
 	};
+	const withSynchronousRuntimeAccess = <Result>(
+		callback: () => Result,
+	): Result => {
+		try {
+			return callback();
+		} finally {
+			releaseRuntimeAccess?.();
+		}
+	};
 	const createWatcher = <Value>(
 		resolveCurrent: (adapter: IgniteAdapter<State, Event>) => Value,
 		handler: (value: Value, prevValue: Value) => void,
@@ -523,10 +532,14 @@ export function createAgentRuntime<
 		canExecute: canExecuteCommand,
 		execute: executeCommand,
 		getSnapshot() {
-			return withRuntimeAccess(() => resolveRuntime().adapter.getSnapshot());
+			return withSynchronousRuntimeAccess(() =>
+				resolveRuntime().adapter.getSnapshot(),
+			);
 		},
 		getView() {
-			return withRuntimeAccess(() => resolveView(resolveRuntime().adapter));
+			return withSynchronousRuntimeAccess(() =>
+				resolveView(resolveRuntime().adapter),
+			);
 		},
 		getSchema() {
 			return withRuntimeAccess(() => {

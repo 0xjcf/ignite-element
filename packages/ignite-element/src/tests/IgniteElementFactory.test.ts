@@ -250,6 +250,7 @@ describe("igniteElementFactory", () => {
 			adapters.push(adapter);
 			return adapter;
 		});
+		const cleanupAdditionalArgs = vi.fn();
 		const component = igniteElementFactory(createAdapter, {
 			scope: StateScope.Shared,
 			cleanup: true,
@@ -263,6 +264,7 @@ describe("igniteElementFactory", () => {
 							>,
 						);
 					},
+					[facadeCleanupSymbol]: cleanupAdditionalArgs,
 				}) as never,
 		});
 		const name = `ignite-runtime-override-base-${crypto.randomUUID()}`;
@@ -304,6 +306,7 @@ describe("igniteElementFactory", () => {
 			adapters.push(adapter);
 			return adapter;
 		});
+		const cleanupAdditionalArgs = vi.fn();
 		const component = igniteElementFactory(createAdapter, {
 			scope: StateScope.Shared,
 			cleanup: true,
@@ -317,6 +320,7 @@ describe("igniteElementFactory", () => {
 							>,
 						);
 					},
+					[facadeCleanupSymbol]: cleanupAdditionalArgs,
 				}) as never,
 		});
 		const name = `ignite-direct-runtime-cleanup-${crypto.randomUUID()}`;
@@ -336,6 +340,7 @@ describe("igniteElementFactory", () => {
 
 		expect(createAdapter).toHaveBeenCalledTimes(1);
 		expect(adapters[0]?.stop).toHaveBeenCalledTimes(1);
+		expect(cleanupAdditionalArgs).toHaveBeenCalledTimes(2);
 
 		await runtime.execute("reportAdapter");
 
