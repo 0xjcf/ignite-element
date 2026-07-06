@@ -99,8 +99,9 @@ Order: **Vue ✓ → Svelte ✓ → worked-apps → Phase 1 → agent/local-mode
 
 ## Phase 1 — Gap-finder + additive API (parallel, pre-cut)
 
-Low-risk, independent, non-breaking. Run the gap-finder early so its findings can
-still shape the API before the breaking cutover freezes it.
+Mostly low-risk and independent, with beta-only breaks allowed before v3 stable.
+Run the gap-finder early so its findings can still shape the API before the
+breaking cutover freezes it.
 
 | Task | id | Note |
 | --- | --- | --- |
