@@ -54,31 +54,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1781619012619",
-      "task": "Testing DX: createTestScenario/igniteTest has no host seam for host-reading commands/effects",
-      "priority": "medium",
-      "source": "manual",
-      "details": "The lightweight headless test harness (test/createTestScenario from ignite-element/xstate testing) provides no way to supply a host, so commands/effects that read host (e.g. host.dataset.*) cannot be exercised via the scenario harness — only via the heavier accessibilityBridge (which needs a renderer). Add an optional host (or DOM seam) e.g. createTestScenario(component, { host }) so host-reading command/effect logic is unit-testable headlessly. Surfaced in the-good-way goodway: a startModule command read host.dataset.moduleId; worked around by sourcing the id from the machine snapshot (actor.state.context) instead, but a host seam would let consumers test host-dependent seams directly.\nSee .fas/tasks/testing-dx-createtestscenario-ignitetest-has-no-host-seam-f.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "verification-quality",
-      "signalFingerprint": null,
-      "status": "deferred",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1781805264107"
-      ],
-      "blocks": [
-        "task-1781817947799"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-06-16T14:10:12.619Z",
-      "updatedAt": "2026-06-16T14:10:12.619Z",
-      "deferredReason": "dependency_reopened: task-1781805264107",
-      "invalidationReason": null
-    },
-    {
       "id": "task-1781724711926",
       "task": "Docs accuracy + UX + positioning for v3 beta.6 (P0/P1/P2). P0 (CORRECTNESS — beta.6 behavior change): the shared-source ownership fix in 3.0.0-beta.6 changed cleanup semantics but the docs-site prose still teaches the OLD beta.5 default. New behavior: cleanup defaults to FALSE for shared (consumer-owned) sources — a live instance passed to igniteCore (started actor / store / observable / actor-web source) lives for the core's lifetime and is NOT released when the element refcount hits zero; isolated (ignite-created) sources keep per-element teardown. Adapters never stop/close a source they did not create (generalized ownsActor -> ownsSource; ActorWebAdapter no longer closes consumer-owned sources). Update to the new semantics and drop now-redundant 'cleanup: false' guidance (reframe 'cleanup: true' as the opt-in to refcount teardown for shared cores) in: docs/site/src/content/docs/concepts/the-ignite-model.mdx (~17,45,225,226); docs/site/src/content/docs/api/ignite-core.mdx (~32,40,45); docs/site/src/content/docs/guides/routing.mdx (~165); docs/site/src/content/docs/migration/v2.mdx (~19,89,90,96); docs/site/src/content/docs/getting-started/first-component.mdx (~87); docs/site/src/content/docs/guides/testing.mdx (~135). DO NOT edit archived docs/site/src/content/docs/2.x/** (frozen). P1 (UX): add a /guides/ index landing page — currently 404 (Starlight has no guides index; individual guides are live, e.g. /guides/routing/ = 200); add a landing page linking the seven guides. P2 (positioning + agent angle): (a) add a 'When to choose Ignite / Comparisons' page surfacing existing positioning from /overview/what-is-ignite-element/ (distribution layer vs framework; renderer-agnostic; no state-lib lock-in); (b) deepen getSchema() docs with example output and how agents/LLMs consume it for tool-calling/validation. CONSTRAINTS: respect docs guardrails — markdownlint, the Playwright AA-contrast check (docs/site/scripts/check-contrast.mjs), and the doc code-example typecheck (check-doc-examples.mjs; object-form effects, no manual igniteCore<...> args); verify with the docs build. Source of truth for new behavior: packages/ignite-element/src/IgniteElementFactory.ts (cleanup default), packages/ignite-adapters/src/adapters/{XStateAdapter,ActorWebAdapter}.ts (ownsSource), and TSDoc on igniteCore/createIgniteComponentFactory.ts + igniteCore/types.ts.",
       "priority": "high",
@@ -101,7 +76,7 @@
       "prDependencies": [],
       "createdAt": "2026-06-17T19:31:51.926Z",
       "updatedAt": "2026-07-05T21:13:49.030Z",
-      "deferredReason": "dependency_reopened: task-1782187745669, task-1783286029030",
+      "deferredReason": "dependency_reopened: task-1783286029030",
       "invalidationReason": null
     },
     {
@@ -177,58 +152,6 @@
       "createdAt": "2026-06-18T17:54:22.589Z",
       "updatedAt": "2026-06-18T17:54:22.589Z",
       "deferredReason": "dependency_reopened: task-1781724711926",
-      "invalidationReason": null
-    },
-    {
-      "id": "task-1781805264107",
-      "task": "examples: add worked apps (form-with-validation, nested/child-router, dashboard-with-shared-state)",
-      "priority": "medium",
-      "source": "manual",
-      "details": "Decomposed from task-1781724737259, deliverable (3). Add three worked-app examples under packages/ignite-element/src/examples/apps: form-with-validation, a nested/child-router (building on spa-router), and dashboard-with-shared-state. Each minimal and headless-testable, reusing the vite + source-alias scaffolding. Wire into docs as proof points. Depends on the examples restructure (lands in examples/apps).\nSee .fas/tasks/examples-add-worked-apps-form-with-validation-nested-child-r.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "developer-experience",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1781805151129",
-        "task-1781811756204",
-        "task-1782269414711"
-      ],
-      "blocks": [
-        "task-1781619012619"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-06-18T17:54:24.107Z",
-      "updatedAt": "2026-07-05T21:24:31.120Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
-      "id": "task-1781817947799",
-      "task": "feat: igniteShell sourceless composition root + shared move-safe teardown (per docs/ignite-shell.md)",
-      "priority": "high",
-      "source": "manual",
-      "details": "Implement the igniteShell design in docs/ignite-shell.md (additive; fills the sourceless-composition gap hit by fas-studio fas-shell). DELIVERABLES in order: (1) TDD FIRST — a failing test that moves an ISOLATED igniteCore element in the DOM (disconnect then reconnect in the same tick) and asserts state is preserved; confirms the latent move-bug before the fix. (2) Shared move-safe lifecycle (Decision 1/A): in the element base (IgniteElement.ts) + factory subclasses (IgniteElementFactory.ts), defer disconnect teardown to a microtask and cancel it if the element reconnects same-tick; connectedCallback must REUSE a surviving adapter, not recreate it. Fixes isolated-adapter move-safety (shared adapters already survive via the scope guard); this is the teardown mechanism igniteShell rides. (3) Rootless mount (Decision 2/B): add an internal mountIgniteJsxOnce in ignite-renderer that reuses the SAME JSX-to-DOM core as the reactive strategy but mounts the fragment directly into the shadow root — no ignite-jsx-root wrapper, no diffing — wired ONLY through igniteShell (do NOT add a public mount mode to the strategy yet). Verify event delegation/replacement work without the wrapper node. (4) The igniteShell registrar + public export (index.ts): igniteShell(config?) returns (tagName, render) => void; config is { onConnect?: (host) => void | teardown }; render is pure ignite-JSX taking no args (render-once); idempotent customElements.define; shadow root; styles via style-in-render (NO styles config field). NO source/view/commands/events/onDisconnect/reconnect/agent-surface — that is the boundary; if any are needed it is igniteCore. (5) Tests: renders rootless (children are direct shadow-root kids so :host layout governs them); onConnect teardown fires only on true disconnect and NOT on a move. (6) Changeset: additive igniteShell primitive PLUS the igniteCore isolated-adapter move-safety behavior change. Verify: fas validate-task + verify.sh --full green. Full design + rationale (incl. why not optional-source igniteCore): docs/ignite-shell.md.\nSee .fas/tasks/feat-igniteshell-sourceless-composition-root-shared-move-saf.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "policy-surfacing",
-      "signalFingerprint": null,
-      "status": "deferred",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1781619012619"
-      ],
-      "blocks": [
-        "task-1781818975642"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-06-18T21:25:47.799Z",
-      "updatedAt": "2026-06-18T21:25:47.799Z",
-      "deferredReason": "dependency_reopened: task-1781619012619",
       "invalidationReason": null
     },
     {
@@ -309,31 +232,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1781818975642",
-      "task": "V3 BETA: remove positional effects callback per docs/v3-api-consistency.md",
-      "priority": "high",
-      "source": "manual",
-      "details": "Remove the positional effects callback form for the v3 beta API. Object-form effects ({ snapshot, prevSnapshot, actor, emit, host, select }) are the only supported runtime and type surface. Delete the runtime Function.prototype.toString signature sniffing path, remove public positional effects support where the API allows, and update stale docs/readmes to object-form examples before v3 stable.\nSee .fas/tasks/additive-standardize-effects-object-signature-deprecate-posi.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "deferred",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1781817947799"
-      ],
-      "blocks": [
-        "task-1782187745669"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-06-18T21:42:55.642Z",
-      "updatedAt": "2026-06-18T21:42:55.642Z",
-      "deferredReason": "dependency_reopened: task-1781817947799",
-      "invalidationReason": null
-    },
-    {
       "id": "task-1781919547313",
       "task": "examples/frameworks: Angular interop demo — consume an ignite element (CUSTOM_ELEMENTS_SCHEMA)",
       "priority": "high",
@@ -359,32 +257,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1782187745669",
-      "task": "docs(examples): replace deprecated getState()/watch() with getSnapshot()/watchSnapshot() in the example READMEs",
-      "priority": "high",
-      "source": "manual",
-      "details": "CodeRabbit (PR #65) flagged that the example app READMEs document the deprecated v3 agent-runtime API. examples/adapters/xstate/README.md (and likely the other example READMEs) still use getState() and watch(), renamed to getSnapshot() and watchSnapshot() (the canonical v3 runtime accessors); the typed read-model is getView()/watchView(). Examples now live at TOP-LEVEL examples/ (relocated out of packages/ignite-element/src/examples in PR #65). Verify authoritative method names against packages/ignite-element/src/types/agent.ts (IgniteAgentRuntime) and packages/ignite-element/src/runtime/agent.ts before editing. Documentation only — do not change example source/config. After editing, run the repo-root biome (packages/ignite-element/node_modules/.bin/biome format examples/) and markdownlint if present.\nSee .fas/tasks/docs-examples-replace-deprecated-getstate-watch-with-getsnap.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "deferred",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1781818975642"
-      ],
-      "blocks": [
-        "task-1781724711926",
-        "task-1783285994418"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-06-23T04:09:05.669Z",
-      "updatedAt": "2026-07-05T21:13:14.418Z",
-      "deferredReason": "dependency_reopened: task-1781818975642",
-      "invalidationReason": null
-    },
-    {
       "id": "task-1783285994418",
       "task": "igniteTools: add OpenAI-compatible ToolDialect for OpenAI, Ollama, and MLX servers",
       "priority": "high",
@@ -393,7 +265,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -406,7 +278,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-05T21:13:14.418Z",
       "updatedAt": "2026-07-05T21:13:25.193Z",
-      "deferredReason": "dependency_reopened: task-1782187745669",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -2882,6 +2754,124 @@
       "workflowId": "operator:task-1782269396312",
       "completedBy": "Codex",
       "operatorEvidence": "Completed by PR #84 (fix(actor-web): collapse address contract to string), merged into beta as e0f02553294edb6bd71d5b65a017b679cdd6bc41. Verified on merged beta with .fas/scripts/verify.sh --full and refreshed reviewer summary; CodeRabbit CLI on the PR branch raised 0 issues."
+    },
+    {
+      "id": "task-1781805264107",
+      "task": "examples: add worked apps (form-with-validation, nested/child-router, dashboard-with-shared-state)",
+      "priority": "medium",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "developer-experience",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1781805151129",
+        "task-1781811756204",
+        "task-1782269414711"
+      ],
+      "blocks": [
+        "task-1781619012619"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-06T13:40:38.420Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783286671116",
+      "branchName": "fas/v3-additive-api-and-examples",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1781619012619",
+      "task": "Testing DX: createTestScenario/igniteTest has no host seam for host-reading commands/effects",
+      "priority": "medium",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "verification-quality",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1781805264107"
+      ],
+      "blocks": [
+        "task-1781817947799"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-06T13:40:52.028Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783287444548",
+      "branchName": "fas/v3-additive-api-and-examples",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1781817947799",
+      "task": "feat: igniteShell sourceless composition root + shared move-safe teardown (per docs/ignite-shell.md)",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1781619012619"
+      ],
+      "blocks": [
+        "task-1781818975642"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-06T13:41:05.682Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783288107694",
+      "branchName": "fas/v3-additive-api-and-examples",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1781818975642",
+      "task": "V3 BETA: remove positional effects callback per docs/v3-api-consistency.md",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1781817947799"
+      ],
+      "blocks": [
+        "task-1782187745669"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-06T13:41:19.511Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783288845982",
+      "branchName": "fas/v3-additive-api-and-examples",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1782187745669",
+      "task": "docs(examples): replace deprecated getState()/watch() with getSnapshot()/watchSnapshot() in the example READMEs",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1781818975642"
+      ],
+      "blocks": [
+        "task-1781724711926",
+        "task-1783285994418"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-06T13:41:32.302Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783290160006",
+      "branchName": "fas/v3-additive-api-and-examples",
+      "prStatus": "draft-only"
     }
   ],
   "pullRequests": [],

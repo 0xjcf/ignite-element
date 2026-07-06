@@ -1098,8 +1098,8 @@ No active tasks.
 
 - Title: Testing DX: createTestScenario/igniteTest has no host seam for host-reading commands/effects
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/testing-dx-createtestscenario-ignitetest-has-no-host-seam-f.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1258,8 +1258,8 @@ No active tasks.
 
 - Title: examples: add worked apps (form-with-validation, nested/child-router, dashboard-with-shared-state)
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/examples-add-worked-apps-form-with-validation-nested-child-r.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1302,8 +1302,8 @@ No active tasks.
 
 - Title: feat: igniteShell sourceless composition root + shared move-safe teardown (per docs/ignite-shell.md)
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/feat-igniteshell-sourceless-composition-root-shared-move-saf.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1337,8 +1337,8 @@ No active tasks.
 
 - Title: V3 BETA: remove positional effects callback per docs/v3-api-consistency.md
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/additive-standardize-effects-object-signature-deprecate-posi.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1543,8 +1543,8 @@ No active tasks.
 
 - Title: docs(examples): replace deprecated getState()/watch() with getSnapshot()/watchSnapshot() in the example READMEs
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/docs-examples-replace-deprecated-getstate-watch-with-getsnap.md
 - Automation mode: advisory
 - Verification lane: fast
@@ -1768,8 +1768,8 @@ No active tasks.
 
 - Title: test(examples): include new worked apps in example runtime lane fixture
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/test-examples-include-new-worked-apps-in-example-runtime-lan.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1779,8 +1779,8 @@ No active tasks.
 
 - Title: fix: address CodeRabbit closeout findings for v3 examples epic
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-address-coderabbit-closeout-findings-for-v3-examples-epi.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1790,8 +1790,8 @@ No active tasks.
 
 - Title: fix: address second review findings for v3 examples epic
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-address-second-review-findings-for-v3-examples-epic.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1801,8 +1801,8 @@ No active tasks.
 
 - Title: fix: address final review findings for v3 examples epic
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-address-final-review-findings-for-v3-examples-epic.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1812,8 +1812,8 @@ No active tasks.
 
 - Title: fix: address disconnect cleanup review findings
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-address-disconnect-cleanup-review-findings.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1823,8 +1823,8 @@ No active tasks.
 
 - Title: fix: address CodeRabbit navigation and teardown findings
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-address-coderabbit-navigation-and-teardown-findings.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1834,8 +1834,8 @@ No active tasks.
 
 - Title: fix: reconcile CodeRabbit audit metadata findings
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-reconcile-coderabbit-audit-metadata-findings.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1845,8 +1845,8 @@ No active tasks.
 
 - Title: fix: address runtime host and shell teardown review findings
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-address-runtime-host-and-shell-teardown-review-findings.md
 - Automation mode: advisory
 - Verification lane: fast
@@ -1857,8 +1857,8 @@ No active tasks.
 
 - Title: fix: address PR85 nested-child-router examples-typecheck failure
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-address-pr85-nested-child-router-examples-typecheck-fail.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1868,8 +1868,8 @@ No active tasks.
 
 - Title: fix: address PR85 CodeRabbit closeout findings
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-address-pr85-coderabbit-closeout-findings.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1879,8 +1879,8 @@ No active tasks.
 
 - Title: fix: address PR85 final CodeRabbit minor findings
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-address-pr85-final-coderabbit-minor-findings.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1890,8 +1890,8 @@ No active tasks.
 
 - Title: fix: snapshot runtime host override base before resolution
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-snapshot-runtime-host-override-base-before-resolution.md
 - Automation mode: advisory
 - Verification lane: fast
@@ -1902,8 +1902,8 @@ No active tasks.
 
 - Title: docs: reconcile final PR85 review metadata
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/docs-reconcile-final-pr85-review-metadata.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1913,8 +1913,8 @@ No active tasks.
 
 - Title: fix: preserve disconnect teardown errors
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-preserve-disconnect-teardown-errors.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1924,8 +1924,8 @@ No active tasks.
 
 - Title: fix: address final PR85 runtime review findings
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-address-final-pr85-runtime-review-findings.md
 - Automation mode: advisory
 - Verification lane: fast
@@ -1936,8 +1936,8 @@ No active tasks.
 
 - Title: docs: align PR85 docs metadata acceptance criteria
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/docs-align-pr85-docs-metadata-acceptance-criteria.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1947,8 +1947,8 @@ No active tasks.
 
 - Title: fix: address PR85 final minor review findings
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-address-pr85-final-minor-review-findings.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1958,8 +1958,8 @@ No active tasks.
 
 - Title: fix: address PR85 final runtime and docs review findings
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-address-pr85-final-runtime-and-docs-review-findings.md
 - Automation mode: advisory
 - Verification lane: fast
@@ -1970,8 +1970,8 @@ No active tasks.
 
 - Title: docs: address PR85 final metadata and renderer export notes
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/docs-address-pr85-final-metadata-and-renderer-export-notes.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1981,8 +1981,8 @@ No active tasks.
 
 - Title: fix: address PR85 shell reentrancy and docs findings
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-address-pr85-shell-reentrancy-and-docs-findings.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1992,8 +1992,8 @@ No active tasks.
 
 - Title: docs: tighten PR85 docs-only task metadata
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/docs-tighten-pr85-docs-only-task-metadata.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -2003,8 +2003,8 @@ No active tasks.
 
 - Title: fix: address PR85 async restore and nested router findings
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-address-pr85-async-restore-and-nested-router-findings.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -2014,8 +2014,8 @@ No active tasks.
 
 - Title: fix: preserve callback success when host restore cleanup fails
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-preserve-callback-success-when-host-restore-cleanup-fail.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -2025,8 +2025,8 @@ No active tasks.
 
 - Title: fix: address PR85 roadmap, router dedup, and shared cleanup coverage findings
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-address-pr85-roadmap-router-dedup-and-shared-cleanup-cov.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -2036,8 +2036,8 @@ No active tasks.
 
 - Title: fix: address PR85 runtime cleanup ordering and metadata findings
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-address-pr85-runtime-cleanup-ordering-and-metadata-findi.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -2047,8 +2047,8 @@ No active tasks.
 
 - Title: fix: address PR85 final CodeRabbit runtime and testing findings
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-address-pr85-final-coderabbit-runtime-and-testing-findin.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -2058,8 +2058,8 @@ No active tasks.
 
 - Title: fix: guard deferred shared cleanup release
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-guard-deferred-shared-cleanup-release.md
 - Verification lane: fast
 - Policy sensitivity: standard
