@@ -1,6 +1,7 @@
 {
 	"name": "nested-child-router-example",
 	"version": "1.0.0",
+	"private": true,
 	"description": "Nested parent and child route outlets with ignite-element, XState, and headless route tests.",
 	"type": "module",
 	"scripts": {
