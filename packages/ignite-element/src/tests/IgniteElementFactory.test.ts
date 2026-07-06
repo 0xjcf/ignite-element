@@ -391,6 +391,40 @@ describe("igniteElementFactory", () => {
 		);
 	});
 
+	it("preserves async host override callback errors when restore cleanup fails", async () => {
+		const cleanupError = new Error("runtime args cleanup failed");
+		const callbackError = new Error("async host override failed");
+		const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
+		const component = igniteElementFactory(() => adapter, {
+			scope: StateScope.Shared,
+			cleanup: true,
+			createAdditionalArgs: () =>
+				({
+					[facadeCleanupSymbol]: () => {
+						throw cleanupError;
+					},
+				}) as never,
+		});
+		const name = `ignite-shared-runtime-async-callback-error-${crypto.randomUUID()}`;
+		component(name, () => html`<div></div>`);
+		const override = (
+			component as typeof component & {
+				[igniteRuntimeHostOverrideSymbol]: IgniteRuntimeHostOverride;
+			}
+		)[igniteRuntimeHostOverrideSymbol];
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		await expect(
+			override(document.createElement("section"), () =>
+				Promise.reject(callbackError),
+			),
+		).rejects.toThrow(callbackError);
+		expect(errorSpy).toHaveBeenCalledWith(
+			"[igniteElementFactory] Runtime host restore failed after callback error.",
+			cleanupError,
+		);
+	});
+
 	it("clears isolated adapter bookkeeping before additional args cleanup can fail", async () => {
 		const cleanupError = new Error("isolated args cleanup failed");
 		const adapters: MinimalMockAdapter<

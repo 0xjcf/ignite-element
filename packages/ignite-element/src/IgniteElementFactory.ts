@@ -510,6 +510,11 @@ export default function igniteElementFactory<
 			runtimeHostOverrideBase = previousRuntimeHostOverrideBase;
 			runtimeHostOverrideFrames.length = previousRuntimeHostOverrideFrameCount;
 		};
+		const isThenable = (value: unknown): value is PromiseLike<unknown> =>
+			(typeof value === "object" || typeof value === "function") &&
+			value !== null &&
+			"then" in value &&
+			typeof (value as { then?: unknown }).then === "function";
 
 		try {
 			const adapter = resolveRuntimeAdapter();
@@ -528,13 +533,24 @@ export default function igniteElementFactory<
 			runtimeAdditionalArgs = frame.additionalArgs;
 
 			const result = callback();
-			if (
-				typeof result === "object" &&
-				result !== null &&
-				"finally" in result &&
-				typeof result.finally === "function"
-			) {
-				return result.finally(restore) as Result;
+			if (isThenable(result)) {
+				return result.then(
+					(value) => {
+						restore();
+						return value;
+					},
+					(error) => {
+						try {
+							restore();
+						} catch (restoreError) {
+							console.error(
+								"[igniteElementFactory] Runtime host restore failed after callback error.",
+								restoreError,
+							);
+						}
+						throw error;
+					},
+				) as Result;
 			}
 
 			restore();
