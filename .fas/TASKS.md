@@ -1988,6 +1988,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: docs: tighten PR85 docs-only task metadata
+
+- Title: docs: tighten PR85 docs-only task metadata
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/docs-tighten-pr85-docs-only-task-metadata.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>

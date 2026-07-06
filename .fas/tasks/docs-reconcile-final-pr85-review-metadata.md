@@ -4,7 +4,9 @@
 Created with `fas create-task` on 2026-07-05.
 
 ## Problem
-docs: reconcile final PR85 review metadata
+PR85 review metadata drifted from the docs-only scope: affected-file entries,
+example install guidance, and task references needed to match the actual docs
+and example files changed during closeout.
 
 ## Acceptance criteria
 - The task packet scope matches the referenced docs/task files.
@@ -33,7 +35,6 @@ docs: reconcile final PR85 review metadata
 
 ## Verification plan
 - Run `fas validate-task` for the inner-loop verification gate.
-- Run `.fas/scripts/verify.sh --full` at the final release-quality gate when tracked files change.
 
 ## Risks
 - Validate generated scope, acceptance criteria, and verification evidence before closeout to avoid workflow drift.

@@ -1,17 +1,18 @@
-# docs: align PR85 docs metadata acceptance criteria
+# docs: tighten PR85 docs-only task metadata
 
 ## Source
 Created with `fas create-task` on 2026-07-06.
 
 ## Problem
-The docs reconciliation task used code-change acceptance criteria even though
-its scope was limited to FAS docs/task metadata. This task narrows those
-criteria so the packet describes docs-only validation instead of runtime TDD.
+CodeRabbit flagged two docs-only PR85 task briefs whose Problem sections still
+repeated their titles and whose verification plans referenced the full
+release-quality gate. This task makes those metadata packets concrete and keeps
+their verification guidance scoped to `fas validate-task`.
 
 ## Acceptance criteria
-- The affected task metadata uses docs-only acceptance criteria.
+- The affected docs-only task briefs describe the concrete metadata mismatch.
+- The affected docs-only verification plans reference `fas validate-task` only.
 - The task packet scope stays limited to FAS docs/task metadata.
-- The documentation-only metadata change is verified without requiring code-focused TDD or runtime coverage.
 - The work is tracked in `.fas/TASKS.md`.
 - The task has a clear implementation and verification plan before execution starts.
 
@@ -23,6 +24,7 @@ criteria so the packet describes docs-only validation instead of runtime TDD.
 
 ## Affected files
 - .fas/tasks/docs-reconcile-final-pr85-review-metadata.md
+- .fas/tasks/docs-align-pr85-docs-metadata-acceptance-criteria.md
 
 ## Scope Amendments
 - None.
