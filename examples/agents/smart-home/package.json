@@ -15,6 +15,7 @@
 	"keywords": [
 		"ignite-element",
 		"igniteTools",
+		"actor-web",
 		"anthropic",
 		"openai-compatible",
 		"mlx",
@@ -26,6 +27,7 @@
 	],
 	"license": "ISC",
 	"dependencies": {
+		"@actor-web/runtime": "^0.2.0",
 		"ws": "^8.18.3",
 		"xstate": "5.32.1"
 	},

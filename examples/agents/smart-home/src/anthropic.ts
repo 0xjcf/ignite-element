@@ -1,3 +1,4 @@
+import { createActorWebHomeSession } from "./actor-web-home";
 import type { AgentResult } from "./agentLoop";
 import { runHomeAgent } from "./agentLoop";
 import { createHome } from "./home";
@@ -35,14 +36,25 @@ function printSession(result: AgentResult): void {
 	console.log(renderHome(result.home.getView()));
 }
 
+const runtimeFactory =
+	process.env.SMART_HOME_RUNTIME === "actor-web"
+		? createActorWebHomeSession
+		: undefined;
+
 console.log("🏠 Smart-home agent — live Anthropic loop, headless (no DOM)\n");
 console.log("Initial state:");
 console.log(renderHome(createHome().getView()));
 console.log(`\n🗣️  "${prompt}"\n`);
 
 try {
-	const result = await runHomeAgent(anthropicModel({ apiKey }), prompt);
-	printSession(result);
+	const result = await runHomeAgent(anthropicModel({ apiKey }), prompt, {
+		runtimeFactory,
+	});
+	try {
+		printSession(result);
+	} finally {
+		await result.close();
+	}
 } catch (error) {
 	const message = error instanceof Error ? error.message : String(error);
 	const code =

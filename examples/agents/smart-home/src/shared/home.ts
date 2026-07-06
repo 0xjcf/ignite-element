@@ -1,2 +1,17 @@
-export type { Door, HomeContext, Room, Scene } from "../home";
-export { createHome, DOORS, ROOMS, SCENES } from "../home";
+export type {
+	Door,
+	HomeAgentRuntime,
+	HomeCommand,
+	HomeContext,
+	HomeRuntimeFactory,
+	HomeRuntimeSession,
+	Room,
+	Scene,
+} from "../home";
+export {
+	createHome,
+	createLocalHomeSession,
+	DOORS,
+	ROOMS,
+	SCENES,
+} from "../home";

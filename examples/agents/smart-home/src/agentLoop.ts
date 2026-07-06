@@ -9,7 +9,11 @@ import {
 	type OpenAIChatToolResultMessage,
 	openai,
 } from "ignite-element/tools/openai";
-import { createHome } from "./home";
+import {
+	createLocalHomeSession,
+	type HomeAgentRuntime,
+	type HomeRuntimeFactory,
+} from "./home";
 import type {
 	AnthropicMessage,
 	Model,
@@ -32,7 +36,8 @@ export type AgentTraceEntry = {
 };
 
 export type AgentResult = {
-	home: ReturnType<typeof createHome>;
+	home: HomeAgentRuntime;
+	close(): Promise<void>;
 	trace: AgentTraceEntry[];
 	finalText: string;
 	modelCalls: number;
@@ -54,47 +59,60 @@ const MAX_TURNS = 12;
 export async function runHomeAgent(
 	model: Model,
 	userPrompt: string,
+	options: { runtimeFactory?: HomeRuntimeFactory } = {},
 ): Promise<AgentResult> {
-	const home = createHome();
-	const { tools, toolCalls, run, toolResult } = igniteTools(home, anthropic);
+	const session = await resolveHomeSession(options.runtimeFactory);
+	let completed = false;
 
-	const messages: AnthropicMessage[] = [{ role: "user", content: userPrompt }];
-	const trace: AgentTraceEntry[] = [];
-	let finalText = "";
-	let modelCalls = 0;
+	try {
+		const { home } = session;
+		const { tools, toolCalls, run, toolResult } = igniteTools(home, anthropic);
 
-	for (let turn = 0; turn < MAX_TURNS; turn++) {
-		const response = await model({ tools, messages });
-		modelCalls++;
-		messages.push({ role: "assistant", content: response.content });
+		const messages: AnthropicMessage[] = [
+			{ role: "user", content: userPrompt },
+		];
+		const trace: AgentTraceEntry[] = [];
+		let finalText = "";
+		let modelCalls = 0;
 
-		const calls = toolCalls(response);
-		if (calls.length === 0) {
-			finalText = textOf(response);
-			return { home, trace, finalText, modelCalls };
+		for (let turn = 0; turn < MAX_TURNS; turn++) {
+			const response = await model({ tools, messages });
+			modelCalls++;
+			messages.push({ role: "assistant", content: response.content });
+
+			const calls = toolCalls(response);
+			if (calls.length === 0) {
+				finalText = textOf(response);
+				completed = true;
+				return { home, close: session.close, trace, finalText, modelCalls };
+			}
+
+			const resultBlocks: AnthropicToolResultBlock[] = [];
+			for (const call of calls) {
+				const result = await run(call);
+				trace.push({
+					command: call.name,
+					input: call.input,
+					ok: isOk(result),
+					errorKind: isOk(result) ? undefined : result.error.kind,
+					view: isOk(result) ? result.value.view : undefined,
+					events: isOk(result)
+						? result.value.events.map((event) => event.type)
+						: [],
+				});
+				resultBlocks.push(toolResult({ id: call.id, name: call.name, result }));
+			}
+			messages.push({ role: "user", content: resultBlocks });
 		}
 
-		const resultBlocks: AnthropicToolResultBlock[] = [];
-		for (const call of calls) {
-			const result = await run(call);
-			trace.push({
-				command: call.name,
-				input: call.input,
-				ok: isOk(result),
-				errorKind: isOk(result) ? undefined : result.error.kind,
-				view: isOk(result) ? result.value.view : undefined,
-				events: isOk(result)
-					? result.value.events.map((event) => event.type)
-					: [],
-			});
-			resultBlocks.push(toolResult({ id: call.id, name: call.name, result }));
+		throw new Error(
+			`runHomeAgent hit MAX_TURNS (${MAX_TURNS}) before producing a final response`,
+		);
+	} finally {
+		if (!completed) {
+			await session.close();
 		}
-		messages.push({ role: "user", content: resultBlocks });
 	}
-
-	throw new Error(
-		`runHomeAgent hit MAX_TURNS (${MAX_TURNS}) before producing a final response`,
-	);
 }
 
 /**
@@ -106,57 +124,70 @@ export async function runHomeAgent(
 export async function runHomeOpenAICompatibleAgent(
 	model: OpenAICompatibleModel,
 	userPrompt: string,
+	options: { runtimeFactory?: HomeRuntimeFactory } = {},
 ): Promise<AgentResult> {
-	const home = createHome();
-	const { tools, toolCalls, run, toolResult } = igniteTools(home, openai);
+	const session = await resolveHomeSession(options.runtimeFactory);
+	let completed = false;
 
-	const messages: OpenAICompatibleMessage[] = [
-		{ role: "user", content: userPrompt },
-	];
-	const trace: AgentTraceEntry[] = [];
-	let finalText = "";
-	let modelCalls = 0;
+	try {
+		const { home } = session;
+		const { tools, toolCalls, run, toolResult } = igniteTools(home, openai);
 
-	for (let turn = 0; turn < MAX_TURNS; turn++) {
-		const response = await model({ tools, messages });
-		modelCalls++;
-		const assistantMessage = response.choices[0]?.message ?? {};
-		messages.push({
-			role: "assistant",
-			content:
-				typeof assistantMessage.content === "string"
-					? assistantMessage.content
-					: null,
-			tool_calls: assistantMessage.tool_calls ?? undefined,
-		});
+		const messages: OpenAICompatibleMessage[] = [
+			{ role: "user", content: userPrompt },
+		];
+		const trace: AgentTraceEntry[] = [];
+		let finalText = "";
+		let modelCalls = 0;
 
-		const calls = toolCalls(response);
-		if (calls.length === 0) {
-			finalText = textOfOpenAI(response);
-			return { home, trace, finalText, modelCalls };
-		}
-
-		const resultMessages: OpenAIChatToolResultMessage[] = [];
-		for (const call of calls) {
-			const result = await run(call);
-			trace.push({
-				command: call.name,
-				input: call.input,
-				ok: isOk(result),
-				errorKind: isOk(result) ? undefined : result.error.kind,
-				view: isOk(result) ? result.value.view : undefined,
-				events: isOk(result)
-					? result.value.events.map((event) => event.type)
-					: [],
+		for (let turn = 0; turn < MAX_TURNS; turn++) {
+			const response = await model({ tools, messages });
+			modelCalls++;
+			const assistantMessage = response.choices[0]?.message ?? {};
+			messages.push({
+				role: "assistant",
+				content:
+					typeof assistantMessage.content === "string"
+						? assistantMessage.content
+						: null,
+				tool_calls: assistantMessage.tool_calls ?? undefined,
 			});
-			resultMessages.push(toolResult({ id: call.id, name: call.name, result }));
-		}
-		messages.push(...resultMessages);
-	}
 
-	throw new Error(
-		`runHomeOpenAICompatibleAgent hit MAX_TURNS (${MAX_TURNS}) before producing a final response`,
-	);
+			const calls = toolCalls(response);
+			if (calls.length === 0) {
+				finalText = textOfOpenAI(response);
+				completed = true;
+				return { home, close: session.close, trace, finalText, modelCalls };
+			}
+
+			const resultMessages: OpenAIChatToolResultMessage[] = [];
+			for (const call of calls) {
+				const result = await run(call);
+				trace.push({
+					command: call.name,
+					input: call.input,
+					ok: isOk(result),
+					errorKind: isOk(result) ? undefined : result.error.kind,
+					view: isOk(result) ? result.value.view : undefined,
+					events: isOk(result)
+						? result.value.events.map((event) => event.type)
+						: [],
+				});
+				resultMessages.push(
+					toolResult({ id: call.id, name: call.name, result }),
+				);
+			}
+			messages.push(...resultMessages);
+		}
+
+		throw new Error(
+			`runHomeOpenAICompatibleAgent hit MAX_TURNS (${MAX_TURNS}) before producing a final response`,
+		);
+	} finally {
+		if (!completed) {
+			await session.close();
+		}
+	}
 }
 
 /** Concatenate the text blocks of an Anthropic response. */
@@ -176,4 +207,8 @@ function textOfOpenAI(response: OpenAIChatCompletionResponse): string {
 		)
 		.filter(Boolean)
 		.join("\n");
+}
+
+async function resolveHomeSession(runtimeFactory?: HomeRuntimeFactory) {
+	return await (runtimeFactory?.() ?? createLocalHomeSession());
 }

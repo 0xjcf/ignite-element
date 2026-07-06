@@ -1,3 +1,4 @@
+import type { IgniteToolsRuntime } from "ignite-element/tools";
 import { igniteCore } from "ignite-element/xstate";
 import { assign, setup } from "xstate";
 
@@ -12,7 +13,7 @@ import { assign, setup } from "xstate";
 export const ROOMS = ["living", "bedroom", "kitchen"] as const;
 export const DOORS = ["front", "back", "garage"] as const;
 export const SCENES = ["morning", "away", "movie", "night"] as const;
-const SCENE_TRANSITION_DELAY_MS = 25;
+export const SCENE_TRANSITION_DELAY_MS = 25;
 
 export type Room = (typeof ROOMS)[number];
 export type Door = (typeof DOORS)[number];
@@ -27,16 +28,17 @@ export type HomeContext = {
 	pendingScene: Scene | null;
 };
 
-type HomeEvent =
+export type HomeCommand =
 	| { type: "TOGGLE_LIGHT"; room: Room; on: boolean }
 	| { type: "SET_THERMOSTAT"; room: Room; temp: number }
 	| { type: "SET_BLINDS"; room: Room; percent: number }
 	| { type: "SET_LOCK"; door: Door; locked: boolean }
 	| { type: "DIM_ROOMS"; rooms: Room[] }
 	| { type: "RUN_SCENE"; scene: Scene }
-	| { type: "START_SCENE_TRANSITION"; scene: Scene };
+	| { type: "START_SCENE_TRANSITION"; scene: Scene }
+	| { type: "APPLY_PENDING_SCENE" };
 
-const initialContext: HomeContext = {
+export const initialHomeContext: HomeContext = {
 	lights: { living: false, bedroom: false, kitchen: false },
 	thermostat: { living: 68, bedroom: 68, kitchen: 68 },
 	blinds: { living: 0, bedroom: 0, kitchen: 0 },
@@ -46,7 +48,7 @@ const initialContext: HomeContext = {
 };
 
 /** What each scene sets. Returns the full next context (merged). */
-function applyScene(ctx: HomeContext, scene: Scene): HomeContext {
+export function applyScene(ctx: HomeContext, scene: Scene): HomeContext {
 	switch (scene) {
 		case "morning":
 			return {
@@ -82,7 +84,10 @@ function applyScene(ctx: HomeContext, scene: Scene): HomeContext {
 	}
 }
 
-function dimRooms(ctx: HomeContext, rooms: readonly Room[]): HomeContext {
+export function dimRooms(
+	ctx: HomeContext,
+	rooms: readonly Room[],
+): HomeContext {
 	const lights = { ...ctx.lights };
 	const blinds = { ...ctx.blinds };
 	let changed = false;
@@ -103,14 +108,27 @@ function dimRooms(ctx: HomeContext, rooms: readonly Room[]): HomeContext {
 	};
 }
 
+export function projectHomeView(context: HomeContext) {
+	return {
+		lights: { ...context.lights },
+		thermostat: { ...context.thermostat },
+		blinds: { ...context.blinds },
+		locks: { ...context.locks },
+		activeScene: context.activeScene,
+		pendingScene: context.pendingScene,
+		lightsOn: ROOMS.filter((room) => context.lights[room]),
+		allDoorsLocked: DOORS.every((door) => context.locks[door]),
+	};
+}
+
 const homeMachine = setup({
 	types: {
 		context: {} as HomeContext,
-		events: {} as HomeEvent,
+		events: {} as HomeCommand,
 	},
 }).createMachine({
 	id: "smart-home",
-	context: initialContext,
+	context: initialHomeContext,
 	initial: "active",
 	states: {
 		active: {
@@ -250,6 +268,20 @@ const homeMachine = setup({
 						pendingScene: ({ event }) => event.scene,
 					}),
 				},
+				APPLY_PENDING_SCENE: {
+					target: "active",
+					actions: assign(({ context }) => {
+						const scene = context.pendingScene;
+						if (!scene) {
+							return { pendingScene: null };
+						}
+
+						return {
+							...applyScene(context, scene),
+							pendingScene: null,
+						};
+					}),
+				},
 			},
 			after: {
 				[SCENE_TRANSITION_DELAY_MS]: {
@@ -283,19 +315,7 @@ export function createHome() {
 			"scene-applied": event<{ scene: Scene }>(),
 			"security-changed": event<{ allDoorsLocked: boolean }>(),
 		}),
-		view: ({ snapshot }) => {
-			const c = snapshot.context;
-			return {
-				lights: { ...c.lights },
-				thermostat: { ...c.thermostat },
-				blinds: { ...c.blinds },
-				locks: { ...c.locks },
-				activeScene: c.activeScene,
-				pendingScene: c.pendingScene,
-				lightsOn: ROOMS.filter((room) => c.lights[room]),
-				allDoorsLocked: DOORS.every((door) => c.locks[door]),
-			};
-		},
+		view: ({ snapshot }) => projectHomeView(snapshot.context),
 		commands: ({ actor, command }) => ({
 			toggleLight: command(
 				({ room, on }: { room: Room; on: boolean }) =>
@@ -415,4 +435,28 @@ export function createHome() {
 			}
 		},
 	});
+}
+
+export type HomeAgentRuntime = IgniteToolsRuntime<
+	unknown,
+	any,
+	any,
+	unknown,
+	ReturnType<typeof projectHomeView>
+>;
+
+export type HomeRuntimeSession = {
+	home: HomeAgentRuntime;
+	close(): Promise<void>;
+};
+
+export type HomeRuntimeFactory = () =>
+	| HomeRuntimeSession
+	| Promise<HomeRuntimeSession>;
+
+export function createLocalHomeSession(): HomeRuntimeSession {
+	return {
+		home: createHome(),
+		close: async () => {},
+	};
 }

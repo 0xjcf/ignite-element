@@ -24,6 +24,7 @@ import {
 import type { ViteDevServer } from "vite";
 import { createServer as createViteServer } from "vite";
 import { WebSocket, WebSocketServer } from "ws";
+import { createActorWebHomeSession } from "./actor-web-home";
 import type { HomeBridgeClientMessage, HomeBridgeMessage } from "./bridge";
 import { parseBridgeMessage, serializeBridgeMessage } from "./bridge";
 import {
@@ -35,7 +36,11 @@ import {
 } from "./model";
 import { renderHome } from "./render";
 import type { HomeView } from "./render";
-import { createHome } from "./shared/home";
+import {
+	createLocalHomeSession,
+	type HomeAgentRuntime,
+	type HomeRuntimeFactory,
+} from "./shared/home";
 
 export type SmartHomeBridgeServer = {
 	port: number;
@@ -146,10 +151,12 @@ export async function startSmartHomeBridgeServer(
 		model?: Model;
 		openAIModel?: OpenAICompatibleModel;
 		terminal?: boolean;
+		runtimeFactory?: HomeRuntimeFactory;
 	} = {},
 ): Promise<SmartHomeBridgeServer> {
 	const port = options.port ?? Number(process.env.PORT ?? DEFAULT_PORT);
-	const home = createHome();
+	const session = await resolveSharedHomeSession(options.runtimeFactory);
+	const { home } = session;
 	const tools = igniteTools(home);
 	const agentTools = igniteTools(
 		home,
@@ -292,6 +299,7 @@ export async function startSmartHomeBridgeServer(
 			await closeWebSocketServer(wss);
 			await closeServer(httpServer);
 			await vite.close();
+			await session.close();
 		},
 	};
 }
@@ -361,7 +369,7 @@ export function parseTerminalCommand(
 }
 
 function startTerminalControls(options: {
-	home: ReturnType<typeof createHome>;
+	home: HomeAgentRuntime;
 	tools: TerminalTools;
 	broadcast: (message: HomeBridgeMessage) => void;
 }): TerminalControls {
@@ -402,7 +410,7 @@ function startTerminalControls(options: {
 async function handleTerminalLine(
 	line: string,
 	options: {
-		home: ReturnType<typeof createHome>;
+		home: HomeAgentRuntime;
 		tools: TerminalTools;
 		broadcast: (message: HomeBridgeMessage) => void;
 	},
@@ -625,7 +633,18 @@ function resolveServerPort(server: Server, fallback: number): number {
 	return fallback;
 }
 
+async function resolveSharedHomeSession(runtimeFactory?: HomeRuntimeFactory) {
+	return await (runtimeFactory?.() ?? createLocalHomeSession());
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
-	const server = await startSmartHomeBridgeServer({ terminal: true });
+	const runtimeFactory =
+		process.env.SMART_HOME_RUNTIME === "actor-web"
+			? createActorWebHomeSession
+			: undefined;
+	const server = await startSmartHomeBridgeServer({
+		terminal: true,
+		runtimeFactory,
+	});
 	console.log(`Smart-home bridge listening on http://localhost:${server.port}`);
 }

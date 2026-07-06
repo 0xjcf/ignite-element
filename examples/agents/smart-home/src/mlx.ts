@@ -1,3 +1,4 @@
+import { createActorWebHomeSession } from "./actor-web-home";
 import type { AgentResult } from "./agentLoop";
 import { runHomeOpenAICompatibleAgent } from "./agentLoop";
 import { createHome } from "./home";
@@ -35,6 +36,11 @@ function printSession(result: AgentResult): void {
 	console.log(renderHome(result.home.getView()));
 }
 
+const runtimeFactory =
+	process.env.SMART_HOME_RUNTIME === "actor-web"
+		? createActorWebHomeSession
+		: undefined;
+
 console.log("Smart-home agent - local MLX/OpenAI-compatible loop, headless\n");
 console.log(`Endpoint: ${baseUrl}`);
 console.log(`Model: ${model}`);
@@ -46,8 +52,13 @@ try {
 	const result = await runHomeOpenAICompatibleAgent(
 		openAICompatibleModel({ baseUrl, model, apiKey }),
 		prompt,
+		{ runtimeFactory },
 	);
-	printSession(result);
+	try {
+		printSession(result);
+	} finally {
+		await result.close();
+	}
 } catch (error) {
 	const message = error instanceof Error ? error.message : String(error);
 	console.error(`\n${message}`);
