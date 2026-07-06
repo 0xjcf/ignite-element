@@ -2081,8 +2081,8 @@ No active tasks.
 
 - Title: fix: address local-model epic CodeRabbit findings
 - Mode: single-agent
-- Status: implementing
-- Owner: implementer
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/fix-address-local-model-epic-coderabbit-findings.md
 - Verification lane: fast
 - Policy sensitivity: standard
