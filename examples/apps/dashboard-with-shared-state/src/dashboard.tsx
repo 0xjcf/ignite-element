@@ -133,7 +133,11 @@ defineDashboardWidget("alert-feed", (ctx) => (
 							{alert.team} / {alert.severity}
 						</div>
 					</div>
-					<button type="button" onClick={() => ctx.dismissAlert(alert.id)}>
+					<button
+						type="button"
+						aria-label={`Dismiss ${alert.title}`}
+						onClick={() => ctx.dismissAlert(alert.id)}
+					>
 						Dismiss
 					</button>
 				</li>
