@@ -17,14 +17,29 @@ fix: address local-model epic CodeRabbit findings
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
+- .github/workflows/ci.yml
+- .gitignore
+- biome.json
+- package.json
 - examples/agents/smart-home/src/actor-web-home.ts
+- examples/agents/smart-home/src/mlx.ts
+- examples/agents/smart-home/src/mock.ts
+- examples/agents/smart-home/src/server-mlx.ts
 - examples/agents/smart-home/src/model.ts
 - examples/agents/smart-home/src/agentLoop.ts
 - examples/agents/smart-home/src/agentLoop.test.ts
 - examples/agents/smart-home/src/home.ts
 - examples/agents/smart-home/src/server.test.ts
 - examples/agents/smart-home/src/server.ts
+- examples/agents/smart-home/README.md
+- examples/agents/smart-home/pnpm-lock.yaml
+- examples/agents/smart-home/tsconfig.json
+- packages/ignite-element/src/tools/openai/index.ts
+- packages/ignite-element/src/tests/tools.openai.test.ts
+- scripts/typecheck-examples.mjs
+- scripts/__tests__/typecheck-examples.test.mjs
 - docs/ignite-tools.md
+- docs/v3-stable-roadmap.md
 - .fas/queue/tasks.json
 
 ## Scope Amendments
@@ -33,6 +48,10 @@ fix: address local-model epic CodeRabbit findings
   needed ownership of a stoppable XState actor.
 - Added `examples/agents/smart-home/src/server.test.ts` to cover the bridge
   server close behavior while an OpenAI-compatible agent run is in flight.
+- Added the CI, example typecheck, OpenAI dialect, smart-home MLX/mock/server,
+  package metadata, and Biome ignore paths after CodeRabbit follow-up fixes and
+  the stale remote `examples-typecheck` CI failure showed the review-fix scope
+  needed to include the full local-model closeout surface.
 
 - Type: scope-refresh-promotion
 - Added at: 2026-07-06
@@ -41,6 +60,15 @@ fix: address local-model epic CodeRabbit findings
 - Added paths: examples/agents/smart-home/src/agentLoop.test.ts, examples/agents/smart-home/src/home.ts, examples/agents/smart-home/src/server.test.ts
 - Evidence source: task-packet dirty scope promotion
 - Evidence: task-packet dirty scope promotion | .fas/state/task-packet.json | Promoted dirty path(s): examples/agents/smart-home/src/agentLoop.test.ts, examples/agents/smart-home/src/home.ts, examples/agents/smart-home/src/server.test.ts
+- Accuracy signal: Path was dirty in git status and present in task-packet low-confidence/dependency-reachable scope.
+
+- Type: scope-refresh-promotion
+- Added at: 2026-07-06
+- Trigger: dirty-low-confidence-scope
+- Reason: Promoted dirty low-confidence or dependency-reachable task-packet path(s) into affected scope.
+- Added paths: examples/agents/smart-home/src/agentLoop.test.ts
+- Evidence source: task-packet dirty scope promotion
+- Evidence: task-packet dirty scope promotion | .fas/state/task-packet.json | Promoted dirty path(s): examples/agents/smart-home/src/agentLoop.test.ts
 - Accuracy signal: Path was dirty in git status and present in task-packet low-confidence/dependency-reachable scope.
 
 ## Implementation plan
