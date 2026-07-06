@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { StateScope } from "../IgniteAdapter";
 import igniteElementFactory from "../IgniteElementFactory";
 import {
+	igniteDomBridgeSymbol,
 	type IgniteRuntimeHostOverride,
 	igniteRuntimeHostOverrideSymbol,
 } from "../runtime/agent";
@@ -408,6 +409,43 @@ describe("igniteElementFactory", () => {
 		expect(reportedAdapters).toHaveLength(2);
 		expect(reportedAdapters[0]).toBe(adapters[0]);
 		expect(reportedAdapters[1]).toBe(adapters[1]);
+	});
+
+	it("logs deferred shared cleanup failures when bridge stop releases runtime access", async () => {
+		const cleanupError = new Error("bridge runtime cleanup failed");
+		const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
+		const component = igniteElementFactory(() => adapter, {
+			scope: StateScope.Shared,
+			cleanup: true,
+			createAdditionalArgs: () =>
+				({
+					[facadeCleanupSymbol]: () => {
+						throw cleanupError;
+					},
+				}) as never,
+		});
+		const name = `ignite-bridge-deferred-cleanup-error-${crypto.randomUUID()}`;
+		component(name, () => html`<div></div>`);
+		const bridge = (
+			component as typeof component & {
+				[igniteDomBridgeSymbol]: (renderer: () => unknown) => {
+					stop: () => void;
+				};
+			}
+		)[igniteDomBridgeSymbol](() => html`<span>bridge</span>`);
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		const element = document.createElement(name);
+		document.body.appendChild(element);
+		element.remove();
+		await flushMicrotasks();
+
+		expect(() => bridge.stop()).not.toThrow();
+		expect(adapter.stop).toHaveBeenCalledTimes(1);
+		expect(errorSpy).toHaveBeenCalledWith(
+			"[IgniteElement] Deferred disconnect cleanup failed.",
+			cleanupError,
+		);
 	});
 
 	it("restores host override state when additional args cleanup fails", async () => {
