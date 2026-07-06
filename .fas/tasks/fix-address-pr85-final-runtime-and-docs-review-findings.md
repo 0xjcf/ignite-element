@@ -1,13 +1,21 @@
-# fix: preserve disconnect teardown errors
+# fix: address PR85 final runtime and docs review findings
 
 ## Source
-Created with `fas create-task` on 2026-07-05.
+Created with `fas create-task` on 2026-07-06.
 
 ## Problem
-Disconnect teardown could lose the original `onTrueDisconnect()` failure when
-adapter `stop()` also failed. The task preserves and reports both failure paths:
-adapter stop failures are logged separately, while the deferred disconnect
-cleanup still reports the original teardown error.
+CodeRabbit flagged final PR85 review issues in runtime setup cleanup, migration
+docs, and FAS task metadata. The task should keep `withRuntimeHost` state
+consistent when override setup fails, align the effects migration checklist with
+the current `select(...).changed` recipe, and replace placeholder task metadata
+with concrete problem descriptions.
+
+## Automation admission
+- Expected operator value: Improves operator leverage around "fix: address PR85 final runtime and docs review findings" by reducing manual coordination, repetitive execution, or trust gaps.
+- Observability surface: Use authoritative FAS surfaces such as `fas runtime status`, `fas runtime watch`, workflow logs, receipts, or notifications to show whether the automation is active, quiet, stalled, blocked, or complete.
+- Recovery path: A human can abort, retry, recover, or rerun this workflow without leaving stale queue, lease, branch, or current-task state.
+- Autonomy mode: advisory
+- Promotion criteria: Promote beyond advisory only after dogfood runs prove clear operator value, trustworthy observability, and bounded recovery.
 
 ## Acceptance criteria
 - The defect no longer reproduces.
@@ -25,10 +33,11 @@ cleanup still reports the original teardown error.
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- .fas/tasks/fix-snapshot-runtime-host-override-base-before-resolution.md
-- .fas/tasks/fix-address-pr85-final-coderabbit-minor-findings.md
-- packages/ignite-element/src/IgniteElement.ts
-- packages/ignite-element/src/tests/IgniteElement.test.tsx
+- packages/ignite-element/src/IgniteElementFactory.ts
+- packages/ignite-element/src/tests/IgniteElementFactory.test.ts
+- docs/migrations/v2.2.3-effects-events.md
+- .fas/tasks/fix-address-pr85-final-minor-review-findings.md
+- .fas/tasks/fix-preserve-disconnect-teardown-errors.md
 
 ## Scope Amendments
 - None.

@@ -4,7 +4,11 @@
 Created with `fas create-task` on 2026-07-06.
 
 ## Problem
-fix: address PR85 final minor review findings
+CodeRabbit flagged two final minor issues in PR85 closeout: the dashboard
+alert-feed dismiss buttons reused the same accessible name for every alert, and
+one FAS task brief still had a comma-joined affected-files entry. The task
+should verify the alert buttons include per-alert context and the task metadata
+uses one path per bullet.
 
 ## Acceptance criteria
 - The defect no longer reproduces.
