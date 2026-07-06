@@ -872,6 +872,26 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 		).rejects.toThrow(/choice\.message must be an object/);
 	});
 
+	it("rejects array-shaped OpenAI-compatible choice messages", async () => {
+		const fetchImpl: typeof fetch = async () =>
+			new Response(JSON.stringify({ choices: [{ message: [] }] }), {
+				status: 200,
+				headers: { "content-type": "application/json" },
+			});
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).rejects.toThrow(/choice\.message must be an object/);
+	});
+
 	it("normalizes multi-choice OpenAI-compatible responses to the first choice", async () => {
 		let turn = 0;
 		const multiChoiceModel: OpenAICompatibleModel = async () => {

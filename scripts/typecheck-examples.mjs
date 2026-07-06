@@ -8,52 +8,58 @@ import { fileURLToPath } from "node:url";
 const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(scriptPath), "..");
 
-const rawArgs = process.argv.slice(2);
-const args = new Set(rawArgs);
 const examplesRootAssignmentPrefix = "--examples-root=";
-const examplesRootArgIndex = rawArgs.findIndex(
-	(arg) =>
-		arg === "--examples-root" || arg.startsWith(examplesRootAssignmentPrefix),
-);
+const installModeAssignmentPrefix = "--install=";
 
 function isMissingPathValue(value) {
 	return !value || value.startsWith("--");
 }
 
-let examplesRootArg;
+function parseOptions(rawArgs = process.argv.slice(2)) {
+	const args = new Set(rawArgs);
+	const examplesRootArgIndex = rawArgs.findIndex(
+		(arg) =>
+			arg === "--examples-root" || arg.startsWith(examplesRootAssignmentPrefix),
+	);
+	let examplesRootArg;
 
-if (examplesRootArgIndex !== -1) {
-	const matchedArg = rawArgs[examplesRootArgIndex];
-	examplesRootArg = matchedArg.startsWith(examplesRootAssignmentPrefix)
-		? matchedArg.slice(examplesRootAssignmentPrefix.length)
-		: rawArgs[examplesRootArgIndex + 1];
+	if (examplesRootArgIndex !== -1) {
+		const matchedArg = rawArgs[examplesRootArgIndex];
+		examplesRootArg = matchedArg.startsWith(examplesRootAssignmentPrefix)
+			? matchedArg.slice(examplesRootAssignmentPrefix.length)
+			: rawArgs[examplesRootArgIndex + 1];
 
-	if (isMissingPathValue(examplesRootArg)) {
-		console.error("--examples-root requires a path.");
+		if (isMissingPathValue(examplesRootArg)) {
+			console.error("--examples-root requires a path.");
+			process.exit(1);
+		}
+	}
+
+	const examplesRoot =
+		examplesRootArgIndex === -1
+			? path.join(repoRoot, "examples")
+			: path.resolve(repoRoot, examplesRootArg);
+	const installModeArg = rawArgs.find((arg) =>
+		arg.startsWith(installModeAssignmentPrefix),
+	);
+	const installMode = installModeArg
+		? installModeArg.slice(installModeAssignmentPrefix.length)
+		: args.has("--skip-install")
+			? "never"
+			: "always";
+
+	if (!["always", "missing", "never"].includes(installMode)) {
+		console.error("--install must be one of: always, missing, never.");
 		process.exit(1);
 	}
+
+	return { args, examplesRoot, installMode };
 }
 
-const examplesRoot =
-	examplesRootArgIndex === -1
-		? path.join(repoRoot, "examples")
-		: path.resolve(repoRoot, examplesRootArg);
-const installModeAssignmentPrefix = "--install=";
-const installModeArg = rawArgs.find((arg) =>
-	arg.startsWith(installModeAssignmentPrefix),
-);
-const installMode = installModeArg
-	? installModeArg.slice(installModeAssignmentPrefix.length)
-	: args.has("--skip-install")
-		? "never"
-		: "always";
-
-if (!["always", "missing", "never"].includes(installMode)) {
-	console.error("--install must be one of: always, missing, never.");
-	process.exit(1);
-}
-
-export async function discoverExampleRoots(root = examplesRoot, options = {}) {
+export async function discoverExampleRoots(
+	root = path.join(repoRoot, "examples"),
+	options = {},
+) {
 	const readDir = options.readdir ?? readdir;
 	const fileExists = options.existsSync ?? existsSync;
 	const fail =
@@ -102,7 +108,11 @@ export async function discoverExampleRoots(root = examplesRoot, options = {}) {
 	return exampleRoots.sort((left, right) => left.localeCompare(right));
 }
 
-function ensureDependencies(exampleRoot) {
+function shouldUseShell() {
+	return process.platform === "win32";
+}
+
+function ensureDependencies(exampleRoot, installMode) {
 	if (
 		installMode === "never" ||
 		(installMode === "missing" &&
@@ -122,6 +132,7 @@ function ensureDependencies(exampleRoot) {
 		{
 			cwd: exampleRoot,
 			env: { ...process.env, CI: process.env.CI ?? "true" },
+			shell: shouldUseShell(),
 			stdio: "inherit",
 		},
 	);
@@ -150,6 +161,7 @@ function runTypecheck(tsc, exampleRoot) {
 
 	const result = spawnSync(tsc, ["--project", tsconfig], {
 		cwd: repoRoot,
+		shell: shouldUseShell(),
 		stdio: "inherit",
 	});
 
@@ -157,10 +169,16 @@ function runTypecheck(tsc, exampleRoot) {
 }
 
 async function main() {
-	const exampleRoots = await discoverExampleRoots();
+	const { args, examplesRoot, installMode } = parseOptions();
+	const exampleRoots = await discoverExampleRoots(examplesRoot);
 
 	if (exampleRoots.length === 0) {
-		console.error("No example packages were discovered under examples/.");
+		console.error(
+			`No example packages were discovered under ${path.relative(
+				repoRoot,
+				examplesRoot,
+			)}/.`,
+		);
 		process.exit(1);
 	}
 
@@ -196,7 +214,7 @@ async function main() {
 		const relativeRoot = path.relative(repoRoot, exampleRoot);
 		console.log(`\n==> ${relativeRoot}`);
 
-		if (!ensureDependencies(exampleRoot)) {
+		if (!ensureDependencies(exampleRoot, installMode)) {
 			failedExamples.push(relativeRoot);
 			continue;
 		}
