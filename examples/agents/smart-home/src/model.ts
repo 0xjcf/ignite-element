@@ -136,12 +136,16 @@ export function openAICompatibleModel(options: {
 
 		try {
 			if (!response.ok) {
-				const detail = await response.text().catch((error) => {
+				const rawDetail = await response.text().catch((error) => {
 					if (controller.signal.aborted || isAbortError(error)) {
 						throw error;
 					}
 					return "";
 				});
+				const detail =
+					rawDetail.length > 1_000
+						? `${rawDetail.slice(0, 1_000)}...`
+						: rawDetail;
 				throw new Error(
 					`OpenAI-compatible server at ${endpoint} returned ${response.status} ${response.statusText}${
 						detail ? `: ${detail}` : ""
@@ -252,7 +256,18 @@ export function toOpenAIAssistantMessage(
 	return {
 		role: "assistant",
 		content: typeof content === "string" ? content : null,
-		tool_calls: Array.isArray(toolCalls) ? toolCalls : undefined,
+		tool_calls: Array.isArray(toolCalls)
+			? toolCalls.map((call) => ({
+					...call,
+					function: {
+						...call.function,
+						arguments:
+							typeof call.function.arguments === "string"
+								? call.function.arguments
+								: JSON.stringify(call.function.arguments),
+					},
+				}))
+			: undefined,
 	};
 }
 

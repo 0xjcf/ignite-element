@@ -170,9 +170,8 @@ function runTypecheck(tsc, exampleRoot) {
 		return false;
 	}
 
-	const result = spawnSync(tsc, ["--project", tsconfig], {
+	const result = spawnSync(process.execPath, [tsc, "--project", tsconfig], {
 		cwd: repoRoot,
-		shell: shouldUseShell(),
 		stdio: "inherit",
 	});
 
@@ -205,8 +204,9 @@ async function main() {
 		"packages",
 		"ignite-element",
 		"node_modules",
-		".bin",
-		process.platform === "win32" ? "tsc.cmd" : "tsc",
+		"typescript",
+		"bin",
+		"tsc",
 	);
 
 	if (!existsSync(tsc)) {

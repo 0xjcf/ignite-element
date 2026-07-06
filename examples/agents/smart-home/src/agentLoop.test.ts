@@ -32,6 +32,7 @@ import {
 	openAICompatibleModel,
 	scriptedModel,
 	scriptedOpenAICompatibleModel,
+	toOpenAIAssistantMessage,
 } from "./model";
 
 describe("smart-home agent — Anthropic tool schemas (getSchema → adapter)", () => {
@@ -767,6 +768,33 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 		).rejects.toThrow(/local MLX server/);
 	});
 
+	it("bounds OpenAI-compatible error response details", async () => {
+		const rawDetail = "x".repeat(1_200);
+		const fetchImpl: typeof fetch = async () =>
+			new Response(rawDetail, {
+				status: 500,
+				statusText: "Model Error",
+			});
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).rejects.toThrow(`${"x".repeat(1_000)}...`);
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).rejects.not.toThrow("x".repeat(1_001));
+	});
+
 	it("clears OpenAI-compatible request timeouts after network failures", async () => {
 		vi.useFakeTimers();
 		try {
@@ -959,6 +987,32 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 				messages: [{ role: "user", content: "status" }],
 			}),
 		).rejects.toThrow(/choice\.message\.role must be "assistant"/);
+	});
+
+	it("serializes assistant tool call arguments for replay", () => {
+		const message = toOpenAIAssistantMessage({
+			choices: [
+				{
+					message: {
+						role: "assistant",
+						tool_calls: [
+							{
+								id: "call_structured",
+								type: "function",
+								function: {
+									name: "toggleLight",
+									arguments: { room: "living", on: true },
+								},
+							},
+						],
+					},
+				},
+			],
+		});
+
+		expect(message.tool_calls?.[0]?.function.arguments).toBe(
+			JSON.stringify({ room: "living", on: true }),
+		);
 	});
 
 	it("normalizes multi-choice OpenAI-compatible responses to the first choice", async () => {
