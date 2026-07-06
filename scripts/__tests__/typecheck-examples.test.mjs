@@ -164,6 +164,7 @@ describe("typecheck-examples", () => {
 			JSON.stringify({ name: "sample", scripts: { typecheck: "tsc" } }),
 		);
 		writeFileSync(path.join(exampleRoot, "tsconfig.json"), "{}");
+		const env = { ...process.env, PATH: "", Path: "" };
 
 		try {
 			assert.throws(
@@ -178,7 +179,7 @@ describe("typecheck-examples", () => {
 						],
 						{
 							encoding: "utf8",
-							env: { ...process.env, PATH: "" },
+							env,
 							stderr: "pipe",
 						},
 					),

@@ -77,7 +77,7 @@ function isOpenAIChatToolCall(value: unknown): value is OpenAIChatToolCall {
 
 function parseArguments(args: unknown): unknown {
 	if (typeof args !== "string") {
-		return args && typeof args === "object" ? args : {};
+		return args;
 	}
 	if (args.trim() === "") {
 		return {};

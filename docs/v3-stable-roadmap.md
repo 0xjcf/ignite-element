@@ -149,8 +149,8 @@ CI remains deterministic through fake provider responses.
 
 Completion standard for this epic:
 
-- Ignite has one SDK-free OpenAI-compatible dialect for hosted OpenAI, Ollama,
-  and local MLX-style `/v1/chat/completions` servers.
+- Ignite has one SDK-free OpenAI-compatible dialect for Codex and hosted OpenAI
+  surfaces, Ollama, and local MLX-style `/v1/chat/completions` servers.
 - The smart-home example documents both deterministic CI coverage and opt-in
   live local-model validation.
 - `SMART_HOME_RUNTIME=actor-web` proves actor-web-backed projection and command

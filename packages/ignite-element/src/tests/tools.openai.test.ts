@@ -214,6 +214,30 @@ describe("openai.toolCalls (OpenAI-compatible response -> neutral calls)", () =>
 		]);
 	});
 
+	it("keeps malformed primitive arguments as data for validation", () => {
+		const primitiveArguments: OpenAIChatCompletionResponse = {
+			choices: [
+				{
+					message: {
+						tool_calls: [
+							{
+								id: "call_primitive",
+								type: "function",
+								function: {
+									name: "addItem",
+									arguments: 7,
+								},
+							},
+						],
+					},
+				},
+			],
+		};
+		expect(openai.toolCalls(primitiveArguments, manifest)).toEqual([
+			{ id: "call_primitive", name: "addItem", input: 7 },
+		]);
+	});
+
 	it("skips malformed tool call entries instead of throwing", () => {
 		const malformed: OpenAIChatCompletionResponse = {
 			choices: [

@@ -17,9 +17,7 @@ const baseUrl =
 	defaultBaseUrl;
 const model =
 	process.env.MLX_MODEL ?? process.env.OPENAI_COMPAT_MODEL ?? "mlx-local";
-const apiKey =
-	process.env.OPENAI_COMPAT_API_KEY ??
-	(baseUrl === defaultBaseUrl ? process.env.OPENAI_API_KEY : undefined);
+const apiKey = process.env.OPENAI_COMPAT_API_KEY;
 
 const prompt =
 	process.argv.slice(2).join(" ") ||
