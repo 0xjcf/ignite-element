@@ -5,6 +5,7 @@ import {
 	type SettingsPanel,
 	pathForDocSection,
 	pathForSettingsPanel,
+	resolveNestedRoute,
 	routerMachine,
 } from "./routerMachine";
 
@@ -44,16 +45,17 @@ const updateBrowserPath = (
 	to: string,
 	options: NavigationOptions = {},
 ) => {
-	if (!target || getBrowserPath(target) === to) {
+	const normalizedTo = resolveNestedRoute(to).path;
+	if (!target || getBrowserPath(target) === normalizedTo) {
 		return;
 	}
 
 	if (options.replace) {
-		target.history.replaceState(null, "", to);
+		target.history.replaceState(null, "", normalizedTo);
 		return;
 	}
 
-	target.history.pushState(null, "", to);
+	target.history.pushState(null, "", normalizedTo);
 };
 
 export const createRouterNavigation = (

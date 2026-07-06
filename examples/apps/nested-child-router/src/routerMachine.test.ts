@@ -132,6 +132,19 @@ describe("nested child router core", () => {
 			child: "api",
 		});
 
+		navigation.navigate("/docs/unknown?tab=api");
+
+		expect(target.history.pushState).toHaveBeenLastCalledWith(
+			null,
+			"",
+			"/docs/unknown",
+		);
+		expect(actor.getSnapshot().context).toMatchObject({
+			parent: "not-found",
+			child: null,
+			path: "/docs/unknown",
+		});
+
 		setPath("/settings/billing");
 		listeners.get("popstate")?.(new Event("popstate"));
 
