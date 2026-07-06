@@ -515,6 +515,13 @@ export default function igniteElementFactory<
 			value !== null &&
 			"then" in value &&
 			typeof (value as { then?: unknown }).then === "function";
+		const restoreAfterSuccess = (message: string) => {
+			try {
+				restore();
+			} catch (restoreError) {
+				console.error(message, restoreError);
+			}
+		};
 
 		try {
 			const adapter = resolveRuntimeAdapter();
@@ -536,7 +543,9 @@ export default function igniteElementFactory<
 			if (isThenable(result)) {
 				return result.then(
 					(value) => {
-						restore();
+						restoreAfterSuccess(
+							"[igniteElementFactory] Runtime host restore failed after callback resolution.",
+						);
 						return value;
 					},
 					(error) => {
@@ -553,7 +562,9 @@ export default function igniteElementFactory<
 				) as Result;
 			}
 
-			restore();
+			restoreAfterSuccess(
+				"[igniteElementFactory] Runtime host restore failed after callback completion.",
+			);
 			return result;
 		} catch (error) {
 			if (frame) {

@@ -2010,6 +2010,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: fix: preserve callback success when host restore cleanup fails
+
+- Title: fix: preserve callback success when host restore cleanup fails
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/fix-preserve-callback-success-when-host-restore-cleanup-fail.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>

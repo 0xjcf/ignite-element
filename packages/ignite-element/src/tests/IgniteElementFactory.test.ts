@@ -290,7 +290,7 @@ describe("igniteElementFactory", () => {
 		expect(reportedAdapters).toEqual([adapters[0], adapters[1]]);
 	});
 
-	it("restores host override state before additional args cleanup can fail", async () => {
+	it("restores host override state when additional args cleanup fails", async () => {
 		const cleanupError = new Error("runtime args cleanup failed");
 		const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
 		const component = igniteElementFactory(() => adapter, {
@@ -312,9 +312,9 @@ describe("igniteElementFactory", () => {
 		)[igniteRuntimeHostOverrideSymbol];
 		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-		expect(() =>
-			override(document.createElement("section"), () => undefined),
-		).toThrow(cleanupError);
+		expect(override(document.createElement("section"), () => undefined)).toBe(
+			undefined,
+		);
 
 		const element = document.createElement(name);
 		document.body.appendChild(element);
@@ -322,7 +322,10 @@ describe("igniteElementFactory", () => {
 		await flushMicrotasks();
 
 		expect(adapter.stop).toHaveBeenCalledTimes(1);
-		expect(errorSpy).toHaveBeenCalled();
+		expect(errorSpy).toHaveBeenCalledWith(
+			"[igniteElementFactory] Runtime host restore failed after callback completion.",
+			cleanupError,
+		);
 	});
 
 	it("rolls back host override state when additional args setup fails", async () => {
@@ -391,6 +394,35 @@ describe("igniteElementFactory", () => {
 		);
 	});
 
+	it("preserves host override callback results when restore cleanup fails", () => {
+		const cleanupError = new Error("runtime args cleanup failed");
+		const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
+		const component = igniteElementFactory(() => adapter, {
+			scope: StateScope.Shared,
+			cleanup: true,
+			createAdditionalArgs: () =>
+				({
+					[facadeCleanupSymbol]: () => {
+						throw cleanupError;
+					},
+				}) as never,
+		});
+		const name = `ignite-shared-runtime-callback-result-${crypto.randomUUID()}`;
+		component(name, () => html`<div></div>`);
+		const override = (
+			component as typeof component & {
+				[igniteRuntimeHostOverrideSymbol]: IgniteRuntimeHostOverride;
+			}
+		)[igniteRuntimeHostOverrideSymbol];
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		expect(override(document.createElement("section"), () => "ok")).toBe("ok");
+		expect(errorSpy).toHaveBeenCalledWith(
+			"[igniteElementFactory] Runtime host restore failed after callback completion.",
+			cleanupError,
+		);
+	});
+
 	it("preserves async host override callback errors when restore cleanup fails", async () => {
 		const cleanupError = new Error("runtime args cleanup failed");
 		const callbackError = new Error("async host override failed");
@@ -421,6 +453,37 @@ describe("igniteElementFactory", () => {
 		).rejects.toThrow(callbackError);
 		expect(errorSpy).toHaveBeenCalledWith(
 			"[igniteElementFactory] Runtime host restore failed after callback error.",
+			cleanupError,
+		);
+	});
+
+	it("preserves async host override callback results when restore cleanup fails", async () => {
+		const cleanupError = new Error("runtime args cleanup failed");
+		const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
+		const component = igniteElementFactory(() => adapter, {
+			scope: StateScope.Shared,
+			cleanup: true,
+			createAdditionalArgs: () =>
+				({
+					[facadeCleanupSymbol]: () => {
+						throw cleanupError;
+					},
+				}) as never,
+		});
+		const name = `ignite-shared-runtime-async-callback-result-${crypto.randomUUID()}`;
+		component(name, () => html`<div></div>`);
+		const override = (
+			component as typeof component & {
+				[igniteRuntimeHostOverrideSymbol]: IgniteRuntimeHostOverride;
+			}
+		)[igniteRuntimeHostOverrideSymbol];
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		await expect(
+			override(document.createElement("section"), () => Promise.resolve("ok")),
+		).resolves.toBe("ok");
+		expect(errorSpy).toHaveBeenCalledWith(
+			"[igniteElementFactory] Runtime host restore failed after callback resolution.",
 			cleanupError,
 		);
 	});
