@@ -257,31 +257,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1783285994418",
-      "task": "igniteTools: add OpenAI-compatible ToolDialect for OpenAI, Ollama, and MLX servers",
-      "priority": "high",
-      "source": "manual",
-      "details": "Promote the existing OpenAI-compatible provider plan into the live v3 queue. Implement ignite-element/tools/openai as an SDK-free ToolDialect that maps NeutralManifest to OpenAI Chat Completions tool definitions, parses tool_calls back to NeutralToolCall, emits role=tool result messages, and reuses the shared scalar wrap/unwrap helpers. This is the provider seam required for local MLX servers and other OpenAI-compatible runtimes without adding provider SDK dependencies to ignite-element core.\nSee .fas/tasks/ignitetools-add-openai-compatible-tooldialect-for-openai-oll.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1782187745669"
-      ],
-      "blocks": [
-        "task-1783286005193"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-05T21:13:14.418Z",
-      "updatedAt": "2026-07-06T15:05:00.698Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
       "id": "task-1783286005193",
       "task": "examples/smart-home: add local MLX OpenAI-compatible model loop and demo mode",
       "priority": "high",
@@ -290,7 +265,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -303,7 +278,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-05T21:13:25.193Z",
       "updatedAt": "2026-07-05T21:13:37.891Z",
-      "deferredReason": "dependency_reopened: task-1783285994418",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -2872,6 +2847,29 @@
       "workflowId": "direct-1783290160006",
       "branchName": "fas/v3-additive-api-and-examples",
       "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1783285994418",
+      "task": "igniteTools: add OpenAI-compatible ToolDialect for OpenAI, Ollama, and MLX servers",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1782187745669"
+      ],
+      "blocks": [
+        "task-1783286005193"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-06T15:12:53.712Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783350300693",
+      "branchName": "fas/local-model-agent-ecosystem",
+      "prStatus": null
     }
   ],
   "pullRequests": [],
