@@ -83,6 +83,22 @@ describe("IgniteElement", () => {
 		expect(adapter.stop).toHaveBeenCalledTimes(1);
 	});
 
+	it("should render snapshots emitted during the move window after reconnect", async () => {
+		const subscriptionListener = adapter.subscribeSnapshots.mock.calls[0][0];
+
+		element.remove();
+		adapter.getSnapshot.mockReturnValue({ count: 2 });
+		subscriptionListener({ count: 2 });
+		document.body.appendChild(element);
+
+		expect(adapter.unsubscribe).toHaveBeenCalledTimes(1);
+		expect(adapter.stop).not.toHaveBeenCalled();
+		expect(element.shadowRoot?.textContent).toContain("Count: 2");
+
+		element.remove();
+		await flushMicrotasks();
+	});
+
 	it("should not send events when inactive", () => {
 		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 		element.remove();
