@@ -257,31 +257,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1783286017890",
-      "task": "examples/agent: add actor-web-backed real-agent dogfood using igniteTools",
-      "priority": "high",
-      "source": "manual",
-      "details": "Add a focused dogfood example that points a real agent loop at an actor-web-backed ignite component through igniteTools. The goal is to prove the closed loop across actor-web source projection, command execution, emitted events, canExecute/tool gating where applicable, and view-grounded observations without making ignite-element own actor-web runtime semantics. Prefer the established Actor-Web + Ignite DX: defineActor -> defineActorWebTopology -> igniteCore, explicit topology.source(actorKey), and commands that call actor.send or actor.ask. Live model validation may use the OpenAI-compatible/MLX path, but CI must remain deterministic with fake provider responses.\nSee .fas/tasks/examples-agent-add-actor-web-backed-real-agent-dogfood-using.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [
-        "task-1783286005193"
-      ],
-      "blocks": [
-        "task-1783286029030"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-05T21:13:37.891Z",
-      "updatedAt": "2026-07-06T15:25:00.457Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
       "id": "task-1783286029030",
       "task": "docs: document local-model agent workflows and ecosystem boundaries for v3",
       "priority": "high",
@@ -290,7 +265,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -303,7 +278,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-05T21:13:49.030Z",
       "updatedAt": "2026-07-05T21:13:49.030Z",
-      "deferredReason": "dependency_reopened: task-1783286017890",
+      "deferredReason": null,
       "invalidationReason": null
     }
   ],
@@ -2866,6 +2841,29 @@
       "completedAt": "2026-07-06T15:24:04.876Z",
       "terminalOutcome": null,
       "workflowId": "direct-1783350825908",
+      "branchName": "fas/local-model-agent-ecosystem",
+      "prStatus": null
+    },
+    {
+      "id": "task-1783286017890",
+      "task": "examples/agent: add actor-web-backed real-agent dogfood using igniteTools",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1783286005193"
+      ],
+      "blocks": [
+        "task-1783286029030"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-06T16:43:35.797Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783351500451",
       "branchName": "fas/local-model-agent-ecosystem",
       "prStatus": null
     }
