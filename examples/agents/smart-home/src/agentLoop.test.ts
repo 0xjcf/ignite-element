@@ -663,7 +663,7 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 		expect(result.finalText).toContain("movie mode");
 	});
 
-	it("posts a Chat Completions request with tools using injected fake fetch", async () => {
+	it("omits empty tools from Chat Completions requests", async () => {
 		const response: OpenAIChatCompletionResponse = {
 			choices: [{ message: { content: "No tools needed." } }],
 		};
@@ -695,8 +695,41 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 		expect(body).toMatchObject({
 			model: "mlx-test",
 			messages: [{ role: "user", content: "status" }],
-			tools: [],
 		});
+		expect(body).not.toHaveProperty("tools");
+	});
+
+	it("includes non-empty tools in Chat Completions requests", async () => {
+		const response: OpenAIChatCompletionResponse = {
+			choices: [{ message: { content: "Tools are available." } }],
+		};
+		const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+		const fetchImpl: typeof fetch = async (input, init) => {
+			calls.push({ input, init });
+			return new Response(JSON.stringify(response), {
+				status: 200,
+				headers: { "content-type": "application/json" },
+			});
+		};
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+		const [tool] = igniteTools(createHome(), openai).tools;
+		if (!tool) {
+			throw new Error("Expected smart-home OpenAI tool definitions.");
+		}
+
+		await expect(
+			model({
+				tools: [tool],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).resolves.toEqual(response);
+
+		const body = JSON.parse(String(calls[0].init?.body));
+		expect(body.tools).toEqual([tool]);
 	});
 
 	it("fails with generic OpenAI-compatible guidance when the server is unreachable", async () => {

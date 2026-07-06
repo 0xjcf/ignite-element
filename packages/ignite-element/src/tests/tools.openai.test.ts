@@ -274,6 +274,21 @@ describe("openai.toolResult (neutral result -> OpenAI-compatible tool message)",
 		});
 	});
 
+	it("renders unserializable observations as string content", () => {
+		const circular: Record<string, unknown> = {};
+		circular.self = circular;
+		const result: NeutralToolResult = {
+			id: "call_circular",
+			name: "increment",
+			result: ok(circular as never),
+		};
+		expect(openai.toolResult(result)).toEqual({
+			role: "tool",
+			tool_call_id: "call_circular",
+			content: JSON.stringify(String(circular)),
+		});
+	});
+
 	it("throws when the neutral result has no id (OpenAI requires a tool_call_id)", () => {
 		const result: NeutralToolResult = {
 			name: "setLimit",

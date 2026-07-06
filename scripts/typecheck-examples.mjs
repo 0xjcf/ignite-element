@@ -39,9 +39,13 @@ function parseOptions(rawArgs = process.argv.slice(2)) {
 		examplesRootArgIndex === -1
 			? path.join(repoRoot, "examples")
 			: path.resolve(repoRoot, examplesRootArg);
-	const installModeArg = rawArgs.find((arg) =>
-		arg.startsWith(installModeAssignmentPrefix),
+	const installModeArg = rawArgs.find(
+		(arg) => arg === "--install" || arg.startsWith(installModeAssignmentPrefix),
 	);
+	if (installModeArg === "--install") {
+		console.error("--install requires a value (always, missing, or never).");
+		process.exit(1);
+	}
 	const installMode = installModeArg
 		? installModeArg.slice(installModeAssignmentPrefix.length)
 		: args.has("--skip-install")

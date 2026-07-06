@@ -100,6 +100,17 @@ export function openAICompatibleModel(options: {
 		const bodyMessages = options.system
 			? [{ role: "system" as const, content: options.system }, ...messages]
 			: messages;
+		const body: {
+			model: string;
+			messages: OpenAICompatibleMessage[];
+			tools?: OpenAIChatTool[];
+		} = {
+			model,
+			messages: bodyMessages,
+		};
+		if (tools.length > 0) {
+			body.tools = tools;
+		}
 
 		let response: Response;
 		const controller = new AbortController();
@@ -108,11 +119,7 @@ export function openAICompatibleModel(options: {
 			response = await fetchImpl(endpoint, {
 				method: "POST",
 				headers,
-				body: JSON.stringify({
-					model,
-					messages: bodyMessages,
-					tools,
-				}),
+				body: JSON.stringify(body),
 				signal: controller.signal,
 			});
 		} catch (error) {

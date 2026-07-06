@@ -83,6 +83,22 @@ describe("typecheck-examples", () => {
 				return true;
 			},
 		);
+
+		assert.throws(
+			() =>
+				execFileSync(node, ["scripts/typecheck-examples.mjs", "--install"], {
+					encoding: "utf8",
+					stderr: "pipe",
+				}),
+			(error) => {
+				assert.equal(error.status, 1);
+				assert.match(
+					String(error.stderr),
+					/--install requires a value \(always, missing, or never\)\./,
+				);
+				return true;
+			},
+		);
 	});
 
 	it("reports a clean error when the examples root is missing", () => {

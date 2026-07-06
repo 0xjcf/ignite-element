@@ -153,12 +153,17 @@ export const openai: ToolDialect<
 				"openai.toolResult requires a tool_call_id; pass the id from the originating tool_calls entry (call.id from toolCalls()).",
 			);
 		}
+		const payload = (isOk(result) ? result.value : result.error) ?? null;
+		let content = "null";
+		try {
+			content = JSON.stringify(payload) ?? "null";
+		} catch {
+			content = JSON.stringify(String(payload)) ?? '"[unserializable]"';
+		}
 		return {
 			role: "tool",
 			tool_call_id: id,
-			content: JSON.stringify(
-				(isOk(result) ? result.value : result.error) ?? null,
-			),
+			content,
 		};
 	},
 };
