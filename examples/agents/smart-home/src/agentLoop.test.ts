@@ -11,10 +11,19 @@ import {
 	type AnthropicResponse,
 	anthropic,
 } from "ignite-element/tools/anthropic";
+import {
+	type OpenAIChatCompletionResponse,
+	openai,
+} from "ignite-element/tools/openai";
 import { describe, expect, it, vi } from "vitest";
-import { runHomeAgent } from "./agentLoop";
+import { runHomeAgent, runHomeOpenAICompatibleAgent } from "./agentLoop";
 import { createHome, DOORS, ROOMS, SCENES } from "./home";
-import { type Model, scriptedModel } from "./model";
+import {
+	type Model,
+	openAICompatibleModel,
+	scriptedModel,
+	scriptedOpenAICompatibleModel,
+} from "./model";
 
 describe("smart-home agent — Anthropic tool schemas (getSchema → adapter)", () => {
 	const { tools } = igniteTools(createHome(), anthropic);
@@ -104,6 +113,47 @@ describe("smart-home agent — Anthropic tool schemas (getSchema → adapter)", 
 		expect(byName("status")?.input_schema).toEqual({
 			type: "object",
 			properties: {},
+		});
+	});
+});
+
+describe("smart-home agent — OpenAI-compatible tool schemas (getSchema → adapter)", () => {
+	const { tools } = igniteTools(createHome(), openai);
+	const byName = (name: string) =>
+		tools.find((tool) => tool.function.name === name);
+
+	it("translates an object command to OpenAI function parameters", () => {
+		expect(byName("toggleLight")?.function.parameters).toMatchObject({
+			type: "object",
+			properties: {
+				room: { type: "string", enum: [...ROOMS] },
+				on: { type: "boolean" },
+			},
+		});
+	});
+
+	it("object-wraps scalar enum commands under OpenAI function parameters.value", () => {
+		expect(byName("lockDoor")?.function.parameters).toMatchObject({
+			type: "object",
+			properties: {
+				value: {
+					type: "string",
+					enum: [...DOORS],
+					description: "Door id to lock: front, back, or garage.",
+				},
+			},
+			required: ["value"],
+		});
+		expect(byName("runScene")?.function.parameters).toMatchObject({
+			properties: {
+				value: {
+					type: "string",
+					enum: [...SCENES],
+					description:
+						"Scene name to activate: morning, away, movie, or night.",
+				},
+			},
+			required: ["value"],
 		});
 	});
 });
@@ -483,5 +533,150 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 		await expect(runHomeAgent(toolOnlyModel, "never finish")).rejects.toThrow(
 			/runHomeAgent hit MAX_TURNS/,
 		);
+	});
+});
+
+describe("smart-home agent — OpenAI-compatible scripted session", () => {
+	it("drives the same headless home through Chat Completions tool_calls", async () => {
+		const script: OpenAIChatCompletionResponse[] = [
+			{
+				choices: [
+					{
+						message: {
+							tool_calls: [
+								{
+									id: "call_1",
+									type: "function",
+									function: {
+										name: "toggleLight",
+										arguments: JSON.stringify({
+											room: "living",
+											on: true,
+										}),
+									},
+								},
+							],
+						},
+					},
+				],
+			},
+			{
+				choices: [
+					{
+						message: {
+							tool_calls: [
+								{
+									id: "call_2",
+									type: "function",
+									function: {
+										name: "lockDoor",
+										arguments: JSON.stringify({ value: "front" }),
+									},
+								},
+								{
+									id: "call_3",
+									type: "function",
+									function: {
+										name: "runScene",
+										arguments: JSON.stringify({ value: "movie" }),
+									},
+								},
+							],
+						},
+					},
+				],
+			},
+			{
+				choices: [
+					{
+						message: {
+							content:
+								"Living light toggled, front door locked, movie mode on.",
+						},
+					},
+				],
+			},
+		];
+
+		const result = await runHomeOpenAICompatibleAgent(
+			scriptedOpenAICompatibleModel(script),
+			"Turn on the living room light, lock the front door, and start movie mode.",
+		);
+
+		expect(result.modelCalls).toBe(3);
+		expect(result.trace.map((entry) => entry.command)).toEqual([
+			"toggleLight",
+			"lockDoor",
+			"runScene",
+		]);
+		expect(result.trace[1]).toMatchObject({
+			command: "lockDoor",
+			input: "front",
+			ok: true,
+		});
+		expect(result.trace[2]).toMatchObject({
+			command: "runScene",
+			input: "movie",
+			ok: true,
+		});
+		expect(result.home.getView()).toMatchObject({
+			activeScene: "movie",
+			locks: { front: true },
+		});
+		expect(result.finalText).toContain("movie mode");
+	});
+
+	it("posts a Chat Completions request with tools using injected fake fetch", async () => {
+		const response: OpenAIChatCompletionResponse = {
+			choices: [{ message: { content: "No tools needed." } }],
+		};
+		const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+		const fetchImpl: typeof fetch = async (input, init) => {
+			calls.push({ input, init });
+			return new Response(JSON.stringify(response), {
+				status: 200,
+				headers: { "content-type": "application/json" },
+			});
+		};
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).resolves.toEqual(response);
+
+		expect(calls).toHaveLength(1);
+		expect(calls[0].input).toBe("http://127.0.0.1:8080/v1/chat/completions");
+		expect(calls[0].init?.method).toBe("POST");
+		const body = JSON.parse(String(calls[0].init?.body));
+		expect(body).toMatchObject({
+			model: "mlx-test",
+			messages: [{ role: "user", content: "status" }],
+			tools: [],
+		});
+	});
+
+	it("fails with MLX setup guidance when the local server is unreachable", async () => {
+		const fetchImpl: typeof fetch = async () => {
+			throw new TypeError("fetch failed");
+		};
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).rejects.toThrow(/mlx_lm\.server/);
 	});
 });

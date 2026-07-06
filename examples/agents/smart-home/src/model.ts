@@ -2,6 +2,11 @@ import type {
 	AnthropicResponse,
 	AnthropicTool,
 } from "ignite-element/tools/anthropic";
+import type {
+	OpenAIChatCompletionResponse,
+	OpenAIChatTool,
+	OpenAIChatToolCall,
+} from "ignite-element/tools/openai";
 
 /**
  * One Anthropic Messages turn — the subset the loop sends back. `content` is the
@@ -23,6 +28,20 @@ export type Model = (request: {
 	messages: AnthropicMessage[];
 }) => Promise<AnthropicResponse>;
 
+export type OpenAICompatibleMessage =
+	| { role: "system" | "user"; content: string }
+	| {
+			role: "assistant";
+			content?: string | null;
+			tool_calls?: OpenAIChatToolCall[];
+	  }
+	| { role: "tool"; tool_call_id: string; content: string };
+
+export type OpenAICompatibleModel = (request: {
+	tools: OpenAIChatTool[];
+	messages: OpenAICompatibleMessage[];
+}) => Promise<OpenAIChatCompletionResponse>;
+
 /**
  * A deterministic, key-free model: replays a fixed script of responses. Lets the
  * whole loop run and be asserted with zero network — the manual-validation
@@ -37,6 +56,83 @@ export function scriptedModel(script: AnthropicResponse[]): Model {
 		}
 		return response;
 	};
+}
+
+export function scriptedOpenAICompatibleModel(
+	script: OpenAIChatCompletionResponse[],
+): OpenAICompatibleModel {
+	let turn = 0;
+	return async () => {
+		const response = script[turn++];
+		if (!response) {
+			throw new Error(
+				"scriptedOpenAICompatibleModel exhausted its scripted responses",
+			);
+		}
+		return response;
+	};
+}
+
+export function openAICompatibleModel(options: {
+	baseUrl?: string;
+	apiKey?: string;
+	model?: string;
+	system?: string;
+	fetch?: typeof fetch;
+}): OpenAICompatibleModel {
+	const baseUrl = stripTrailingSlash(
+		options.baseUrl ?? "http://127.0.0.1:8080/v1",
+	);
+	const endpoint = `${baseUrl}/chat/completions`;
+	const model = options.model ?? "mlx-local";
+	const fetchImpl = options.fetch ?? fetch;
+
+	return async ({ tools, messages }) => {
+		const headers: Record<string, string> = {
+			"content-type": "application/json",
+		};
+		if (options.apiKey) {
+			headers.authorization = `Bearer ${options.apiKey}`;
+		}
+
+		const bodyMessages = options.system
+			? [{ role: "system" as const, content: options.system }, ...messages]
+			: messages;
+
+		let response: Response;
+		try {
+			response = await fetchImpl(endpoint, {
+				method: "POST",
+				headers,
+				body: JSON.stringify({
+					model,
+					messages: bodyMessages,
+					tools,
+				}),
+			});
+		} catch (error) {
+			throw new Error(
+				`Could not reach OpenAI-compatible server at ${baseUrl}. Start MLX with \`python -m mlx_lm.server --model <model> --port 8080\`, then run \`MLX_BASE_URL=${baseUrl} MLX_MODEL=${model} npm run mlx -- "<prompt>"\`. Original error: ${
+					error instanceof Error ? error.message : String(error)
+				}`,
+			);
+		}
+
+		if (!response.ok) {
+			const detail = await response.text().catch(() => "");
+			throw new Error(
+				`OpenAI-compatible server at ${endpoint} returned ${response.status} ${response.statusText}${
+					detail ? `: ${detail}` : ""
+				}`,
+			);
+		}
+
+		return (await response.json()) as OpenAIChatCompletionResponse;
+	};
+}
+
+function stripTrailingSlash(value: string): string {
+	return value.replace(/\/+$/, "");
 }
 
 /**

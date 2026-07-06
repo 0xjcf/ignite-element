@@ -16,12 +16,23 @@ import {
 	type AnthropicToolResultBlock,
 	anthropic,
 } from "ignite-element/tools/anthropic";
+import {
+	type OpenAIChatCompletionResponse,
+	type OpenAIChatToolResultMessage,
+	openai,
+} from "ignite-element/tools/openai";
 import type { ViteDevServer } from "vite";
 import { createServer as createViteServer } from "vite";
 import { WebSocket, WebSocketServer } from "ws";
 import type { HomeBridgeClientMessage, HomeBridgeMessage } from "./bridge";
 import { parseBridgeMessage, serializeBridgeMessage } from "./bridge";
-import { type AnthropicMessage, type Model, scriptedModel } from "./model";
+import {
+	type AnthropicMessage,
+	type Model,
+	type OpenAICompatibleMessage,
+	type OpenAICompatibleModel,
+	scriptedModel,
+} from "./model";
 import { renderHome } from "./render";
 import type { HomeView } from "./render";
 import { createHome } from "./shared/home";
@@ -40,6 +51,17 @@ type SharedHomeAgentTools = {
 	toolResult(
 		result: NeutralToolResult<unknown, HomeView>,
 	): AnthropicToolResultBlock;
+};
+
+type SharedHomeOpenAICompatibleAgentTools = {
+	tools: Parameters<OpenAICompatibleModel>[0]["tools"];
+	toolCalls(response: OpenAIChatCompletionResponse): NeutralToolCall[];
+	run(
+		call: NeutralToolCall,
+	): Promise<Result<ToolObservation<unknown, HomeView>, ToolError>>;
+	toolResult(
+		result: NeutralToolResult<unknown, HomeView>,
+	): OpenAIChatToolResultMessage;
 };
 
 type TerminalTools = {
@@ -122,6 +144,7 @@ export async function startSmartHomeBridgeServer(
 		port?: number;
 		runAgent?: boolean;
 		model?: Model;
+		openAIModel?: OpenAICompatibleModel;
 		terminal?: boolean;
 	} = {},
 ): Promise<SmartHomeBridgeServer> {
@@ -132,6 +155,10 @@ export async function startSmartHomeBridgeServer(
 		home,
 		anthropic,
 	) as unknown as SharedHomeAgentTools;
+	const openAIAgentTools = igniteTools(
+		home,
+		openai,
+	) as unknown as SharedHomeOpenAICompatibleAgentTools;
 	const vite = await createViteMiddleware();
 	const httpServer = createHttpServer((request, response) => {
 		vite.middlewares(request, response, () => {
@@ -239,12 +266,20 @@ export async function startSmartHomeBridgeServer(
 			return;
 		}
 		agentStarted = true;
-		runSharedHomeAgent(
-			options.model ?? scriptedModel(demoScript),
-			agentTools,
-			prompt,
-			broadcast,
-		).catch((error) => {
+		const agentRun = options.openAIModel
+			? runSharedHomeOpenAICompatibleAgent(
+					options.openAIModel,
+					openAIAgentTools,
+					prompt,
+					broadcast,
+				)
+			: runSharedHomeAgent(
+					options.model ?? scriptedModel(demoScript),
+					agentTools,
+					prompt,
+					broadcast,
+				);
+		agentRun.catch((error) => {
 			console.error("smart-home bridge agent failed:", error);
 		});
 	}
@@ -489,6 +524,58 @@ async function runSharedHomeAgent(
 			);
 		}
 		messages.push({ role: "user", content: resultBlocks });
+	}
+}
+
+async function runSharedHomeOpenAICompatibleAgent(
+	model: OpenAICompatibleModel,
+	tools: SharedHomeOpenAICompatibleAgentTools,
+	userPrompt: string,
+	broadcast: (message: HomeBridgeMessage) => void,
+): Promise<void> {
+	const messages: OpenAICompatibleMessage[] = [
+		{ role: "user", content: userPrompt },
+	];
+
+	for (let turn = 0; turn < MAX_TURNS; turn++) {
+		const response = await model({ tools: tools.tools, messages });
+		const assistantMessage = response.choices[0]?.message ?? {};
+		messages.push({
+			role: "assistant",
+			content:
+				typeof assistantMessage.content === "string"
+					? assistantMessage.content
+					: null,
+			tool_calls: assistantMessage.tool_calls ?? undefined,
+		});
+		const calls = tools.toolCalls(response);
+
+		if (calls.length === 0) {
+			return;
+		}
+
+		const resultMessages: OpenAIChatToolResultMessage[] = [];
+		for (const call of calls) {
+			const result = await tools.run(call);
+			if (isOk(result)) {
+				broadcast({
+					type: "home:command-result",
+					command: call.name,
+					ok: true,
+					view: result.value.view,
+				});
+			} else {
+				broadcast({
+					type: "home:error",
+					command: call.name,
+					message: result.error.kind,
+				});
+			}
+			resultMessages.push(
+				tools.toolResult({ id: call.id, name: call.name, result }),
+			);
+		}
+		messages.push(...resultMessages);
 	}
 }
 

@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
+import type { OpenAIChatCompletionResponse } from "ignite-element/tools/openai";
 import {
 	createCommandMessage,
 	type HomeBridgeClientMessage,
@@ -62,6 +63,52 @@ describe("smart-home bridge server", () => {
 		);
 
 		const result = await messages.next("home:command-result");
+		expect(result.command).toBe("toggleLight");
+		expect(result.view.lights.kitchen).toBe(true);
+
+		socket.close();
+	});
+
+	it("can let an OpenAI-compatible model drive the shared browser runtime", async () => {
+		const script: OpenAIChatCompletionResponse[] = [
+			{
+				choices: [
+					{
+						message: {
+							tool_calls: [
+								{
+									id: "mlx-bridge-1",
+									type: "function",
+									function: {
+										name: "toggleLight",
+										arguments: JSON.stringify({ room: "kitchen", on: true }),
+									},
+								},
+							],
+						},
+					},
+				],
+			},
+			{ choices: [{ message: { content: "Kitchen light is on." } }] },
+		];
+		let turn = 0;
+		server = await startSmartHomeBridgeServer({
+			port: 0,
+			openAIModel: async () => {
+				const response = script[turn++];
+				if (!response) {
+					throw new Error("OpenAI-compatible bridge script exhausted");
+				}
+				return response;
+			},
+		});
+		const socket = new WebSocket(`ws://127.0.0.1:${server.port}/bridge`);
+		const messages = collectMessages(socket);
+
+		await opened(socket);
+		await messages.next("home:view");
+		const result = await messages.next("home:command-result");
+
 		expect(result.command).toBe("toggleLight");
 		expect(result.view.lights.kitchen).toBe(true);
 
