@@ -1,9 +1,9 @@
-# Headless smart-home agent (igniteTools + Anthropic)
+# Headless smart-home agent (igniteTools + local/cloud models)
 
 A virtual smart home (lights, thermostat, blinds, door locks, scenes) built as an
-ordinary `ignite-element` component and **driven by Claude** through
-`igniteTools` + the `ignite-element/tools/anthropic` adapter — running **fully
-headless in Node, with no DOM and no jsdom**.
+ordinary `ignite-element` component and **driven by an LLM** through
+`igniteTools` + provider adapters — running **fully headless in Node, with no
+DOM and no jsdom**.
 
 It's the agent analog of the other examples: instead of a person clicking a UI,
 an LLM reads the component's `getSchema()`, calls its commands as tools, and
@@ -23,8 +23,16 @@ npm run mock
 npm install @anthropic-ai/sdk
 ANTHROPIC_API_KEY=sk-... npm run anthropic -- "it's movie night"
 
+# fully local loop — MLX exposes an OpenAI-compatible endpoint
+python -m pip install mlx-lm
+python -m mlx_lm.server --model <model> --port 8080
+MLX_MODEL=<model> npm run mlx -- "it's bedtime"
+
 # terminal agent + browser UI, sharing one live headless home
 npm run demo
+
+# local MLX/OpenAI-compatible agent + browser UI, sharing one live home
+MLX_MODEL=<model> npm run demo:mlx
 
 # the always-on assertions (this is what proves it runs headless)
 npm test
@@ -41,17 +49,24 @@ The terminal is also interactive. Type commands such as `scene away`,
 they use the same `igniteTools.run()` path as the browser and broadcast the
 updated view back to the page.
 
+`npm run mlx` and `npm run demo:mlx` default to
+`http://127.0.0.1:8080/v1`. Override with `MLX_BASE_URL` or
+`OPENAI_COMPAT_BASE_URL`; use `MLX_MODEL` or `OPENAI_COMPAT_MODEL` for the model
+name. Tests use scripted responses and injected `fetch`, so CI never needs an
+installed MLX model or a live network server.
+
 ## The loop
 
 ```
-getSchema()  →  anthropic.tools(manifest)  →  [ model ]  →  tool_use
+getSchema()  →  dialect.tools(manifest)  →  [ model ]  →  tool call
      ▲                                                          │
-     └──  tool_result  ←  anthropic.toolResult  ←  run()  ←  toolCalls()
+     └──  tool result  ←  dialect.toolResult  ←  run()  ←  toolCalls()
 ```
 
-`igniteTools(home, anthropic)` returns `{ tools, toolCalls, run, toolResult }`.
-The consumer brings the model (the `Model` seam in `src/model.ts`: a scripted
-mock or the real `@anthropic-ai/sdk`) and runs the loop in `src/agentLoop.ts`.
+`igniteTools(home, anthropic)` and `igniteTools(home, openai)` both return
+`{ tools, toolCalls, run, toolResult }`. The consumer brings the model seam in
+`src/model.ts`: a scripted mock, the real `@anthropic-ai/sdk`, or any
+OpenAI-compatible `/v1/chat/completions` server such as MLX.
 
 ## What it exercises
 
@@ -63,6 +78,8 @@ mock or the real `@anthropic-ai/sdk`) and runs the loop in `src/agentLoop.ts`.
 - **Option D value-wrap round-trip** — a non-object single-arg command
   (`lockDoor(door)`, `dimRooms(rooms)`) is object-wrapped as `{ value }` for the
   model and unwrapped on the way back.
+- **Provider-independent tool loop** — the same headless runtime runs with the
+  Anthropic Messages shape or OpenAI-compatible Chat Completions shape.
 - **Errors as values** — an out-of-range input comes back as an `InvalidInput`
   `tool_result` (never a throw), so the model can recover.
 - **Events as observations** — `runScene` emits `scene-applied`, captured in the

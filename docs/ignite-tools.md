@@ -205,6 +205,12 @@ shared `/v1/chat/completions` shape, so hosted OpenAI, Ollama, and local MLX
 servers can reuse the same SDK-free translator while the consumer owns endpoint
 configuration, credentials, and network calls.
 
+The smart-home agent example dogfoods this boundary with a local MLX path:
+`examples/agents/smart-home` exposes `npm run mlx` for a headless prompt and
+`npm run demo:mlx` for the same OpenAI-compatible model driving the browser and
+terminal bridge over one shared headless runtime. Both paths stay opt-in; CI uses
+scripted responses and fake `fetch` instead of a live model server.
+
 ## How the design embodies the principles
 
 | Principle | Where it lives |
