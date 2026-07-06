@@ -158,155 +158,184 @@ export async function startSmartHomeBridgeServer(
 ): Promise<SmartHomeBridgeServer> {
 	const port = options.port ?? Number(process.env.PORT ?? DEFAULT_PORT);
 	const session = await resolveSharedHomeSession(options.runtimeFactory);
-	const { home } = session;
-	const tools = igniteTools(home);
-	const agentTools = igniteTools(
-		home,
-		anthropic,
-	) as unknown as SharedHomeAgentTools;
-	const openAIAgentTools = igniteTools(
-		home,
-		openai,
-	) as unknown as SharedHomeOpenAICompatibleAgentTools;
-	const vite = await createViteMiddleware();
-	const httpServer = createHttpServer((request, response) => {
-		vite.middlewares(request, response, () => {
-			response.statusCode = 404;
-			response.end("Not found");
-		});
-	});
-	const wss = new WebSocketServer({ server: httpServer, path: "/bridge" });
 	let agentStarted = false;
 	let agentRun: Promise<void> | undefined;
 	let terminal: TerminalControls | undefined;
+	let stream: { unsubscribe(): void } | undefined;
+	let vite: ViteDevServer | undefined;
+	let httpServer: Server | undefined;
+	let wss: WebSocketServer | undefined;
 
-	const broadcast = (message: HomeBridgeMessage) => {
-		const payload = serializeBridgeMessage(message);
-		for (const client of wss.clients) {
-			if (client.readyState === WebSocket.OPEN) {
-				client.send(payload);
-			}
-		}
-		if (message.type === "home:command-result") {
-			terminal?.reportCommand(message.command, message.view);
-		}
-	};
-
-	const stream = tools.observe((observation) => {
-		const view = home.getView();
-		if (observation.type === "event") {
-			broadcast({ type: "home:event", event: observation.event, view });
-		} else {
-			broadcast({ type: "home:view", view });
-		}
-	});
-
-	wss.on("connection", (socket) => {
-		socket.on("error", (error) => {
-			console.error("smart-home bridge socket error:", error);
-		});
-		socket.send(
-			serializeBridgeMessage({ type: "home:view", view: home.getView() }),
-		);
-		startAgentOnce();
-		socket.on("message", (payload) => {
-			void handleClientMessage(
-				String(payload),
-				(commandMessage) =>
-					void tools
-						.run({
-							name: commandMessage.command,
-							input: commandMessage.input,
-						})
-						.then((result) => {
-							if (isOk(result)) {
-								broadcast({
-									type: "home:command-result",
-									command: commandMessage.command,
-									ok: true,
-									view: home.getView(),
-								});
-								return;
-							}
-							socket.send(
-								serializeBridgeMessage({
-									type: "home:error",
-									command: commandMessage.command,
-									message: result.error.kind,
-									view: home.getView(),
-								}),
-							);
-						})
-						.catch((error) => {
-							socket.send(
-								serializeBridgeMessage({
-									type: "home:error",
-									command: commandMessage.command,
-									message:
-										error instanceof Error ? error.message : String(error),
-									view: home.getView(),
-								}),
-							);
-						}),
-				(error) => {
-					socket.send(
-						serializeBridgeMessage({
-							type: "home:error",
-							message: error instanceof Error ? error.message : String(error),
-							view: home.getView(),
-						}),
-					);
-				},
-			);
-		});
-	});
-
-	await listen(httpServer, port);
-	const assignedPort = resolveServerPort(httpServer, port);
-	if (options.terminal) {
-		terminal = startTerminalControls({
+	try {
+		const { home } = session;
+		const tools = igniteTools(home);
+		const agentTools = igniteTools(
 			home,
-			tools: tools as unknown as TerminalTools,
-			broadcast,
+			anthropic,
+		) as unknown as SharedHomeAgentTools;
+		const openAIAgentTools = igniteTools(
+			home,
+			openai,
+		) as unknown as SharedHomeOpenAICompatibleAgentTools;
+		vite = await createViteMiddleware();
+		httpServer = createHttpServer((request, response) => {
+			vite?.middlewares(request, response, () => {
+				response.statusCode = 404;
+				response.end("Not found");
+			});
 		});
-	}
+		wss = new WebSocketServer({ server: httpServer, path: "/bridge" });
 
-	function startAgentOnce(): void {
-		if (agentStarted || options.runAgent === false) {
-			return;
+		const broadcast = (message: HomeBridgeMessage) => {
+			const payload = serializeBridgeMessage(message);
+			for (const client of wss?.clients ?? []) {
+				if (client.readyState === WebSocket.OPEN) {
+					client.send(payload);
+				}
+			}
+			if (message.type === "home:command-result") {
+				terminal?.reportCommand(message.command, message.view);
+			}
+		};
+
+		stream = tools.observe((observation) => {
+			const view = home.getView();
+			if (observation.type === "event") {
+				broadcast({ type: "home:event", event: observation.event, view });
+			} else {
+				broadcast({ type: "home:view", view });
+			}
+		});
+
+		wss.on("connection", (socket) => {
+			socket.on("error", (error) => {
+				console.error("smart-home bridge socket error:", error);
+			});
+			socket.send(
+				serializeBridgeMessage({ type: "home:view", view: home.getView() }),
+			);
+			startAgentOnce();
+			socket.on("message", (payload) => {
+				void handleClientMessage(
+					String(payload),
+					(commandMessage) =>
+						void tools
+							.run({
+								name: commandMessage.command,
+								input: commandMessage.input,
+							})
+							.then((result) => {
+								if (isOk(result)) {
+									broadcast({
+										type: "home:command-result",
+										command: commandMessage.command,
+										ok: true,
+										view: home.getView(),
+									});
+									return;
+								}
+								socket.send(
+									serializeBridgeMessage({
+										type: "home:error",
+										command: commandMessage.command,
+										message: result.error.kind,
+										view: home.getView(),
+									}),
+								);
+							})
+							.catch((error) => {
+								socket.send(
+									serializeBridgeMessage({
+										type: "home:error",
+										command: commandMessage.command,
+										message:
+											error instanceof Error ? error.message : String(error),
+										view: home.getView(),
+									}),
+								);
+							}),
+					(error) => {
+						socket.send(
+							serializeBridgeMessage({
+								type: "home:error",
+								message: error instanceof Error ? error.message : String(error),
+								view: home.getView(),
+							}),
+						);
+					},
+				);
+			});
+		});
+
+		await listen(httpServer, port);
+		const assignedPort = resolveServerPort(httpServer, port);
+		if (options.terminal) {
+			terminal = startTerminalControls({
+				home,
+				tools: tools as unknown as TerminalTools,
+				broadcast,
+			});
 		}
-		agentStarted = true;
-		agentRun = (
-			options.openAIModel
-				? runSharedHomeOpenAICompatibleAgent(
-						options.openAIModel,
-						openAIAgentTools,
-						prompt,
-						broadcast,
-					)
-				: runSharedHomeAgent(
-						options.model ?? scriptedModel(demoScript),
-						agentTools,
-						prompt,
-						broadcast,
-					)
-		).catch((error) => {
-			console.error("smart-home bridge agent failed:", error);
-		});
-	}
 
-	return {
-		port: assignedPort,
-		close: async () => {
-			terminal?.close();
-			await agentRun;
-			stream.unsubscribe();
-			await closeWebSocketServer(wss);
-			await closeServer(httpServer);
-			await vite.close();
-			await session.close();
-		},
-	};
+		function startAgentOnce(): void {
+			if (agentStarted || options.runAgent === false) {
+				return;
+			}
+			agentStarted = true;
+			agentRun = (
+				options.openAIModel
+					? runSharedHomeOpenAICompatibleAgent(
+							options.openAIModel,
+							openAIAgentTools,
+							prompt,
+							broadcast,
+						)
+					: runSharedHomeAgent(
+							options.model ?? scriptedModel(demoScript),
+							agentTools,
+							prompt,
+							broadcast,
+						)
+			).catch((error) => {
+				console.error("smart-home bridge agent failed:", error);
+			});
+		}
+
+		if (!stream || !wss || !httpServer || !vite) {
+			throw new Error("smart-home bridge server startup was incomplete.");
+		}
+		const bridgeStream = stream;
+		const bridgeWss = wss;
+		const bridgeHttpServer = httpServer;
+		const bridgeVite = vite;
+
+		return {
+			port: assignedPort,
+			close: async () => {
+				terminal?.close();
+				await agentRun;
+				bridgeStream.unsubscribe();
+				await closeWebSocketServer(bridgeWss);
+				await closeServer(bridgeHttpServer);
+				await bridgeVite.close();
+				await session.close();
+			},
+		};
+	} catch (error) {
+		terminal?.close();
+		stream?.unsubscribe();
+		if (wss && httpServer?.listening) {
+			await closeWebSocketServer(wss).catch(reportStartupCleanupError);
+		}
+		if (httpServer?.listening) {
+			await closeServer(httpServer).catch(reportStartupCleanupError);
+		}
+		if (vite) {
+			await vite.close().catch(reportStartupCleanupError);
+		}
+		await session.close().catch(reportStartupCleanupError);
+		throw error;
+	}
 }
 
 export function parseTerminalCommand(
@@ -470,6 +499,10 @@ function printTerminalHelp(view: HomeView): void {
 	console.log("  lock front | unlock garage | dim living bedroom");
 	console.log("  status | help | quit");
 	console.log(renderHome(view));
+}
+
+function reportStartupCleanupError(error: unknown): void {
+	console.error("smart-home bridge startup cleanup failed:", error);
 }
 
 async function createViteMiddleware(): Promise<ViteDevServer> {

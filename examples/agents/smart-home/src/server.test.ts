@@ -15,6 +15,7 @@ import {
 	type SmartHomeBridgeServer,
 	startSmartHomeBridgeServer,
 } from "./server";
+import { createLocalHomeSession, type HomeAgentRuntime } from "./shared/home";
 
 let server: SmartHomeBridgeServer | undefined;
 
@@ -181,6 +182,32 @@ describe("smart-home bridge server", () => {
 		});
 
 		socket.close();
+	});
+
+	it("closes an acquired runtime session when setup fails after acquisition", async () => {
+		const session = createLocalHomeSession();
+		let sessionClosed = false;
+
+		await expect(
+			startSmartHomeBridgeServer({
+				port: 0,
+				runAgent: false,
+				runtimeFactory: () => ({
+					home: undefined as unknown as HomeAgentRuntime,
+					close: async () => {
+						sessionClosed = true;
+						await session.close();
+					},
+				}),
+			}),
+		).rejects.toThrow();
+		try {
+			expect(sessionClosed).toBe(true);
+		} finally {
+			if (!sessionClosed) {
+				await session.close();
+			}
+		}
 	});
 });
 
