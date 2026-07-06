@@ -62,7 +62,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -76,7 +76,7 @@
       "prDependencies": [],
       "createdAt": "2026-06-17T19:31:51.926Z",
       "updatedAt": "2026-07-05T21:13:49.030Z",
-      "deferredReason": "dependency_reopened: task-1783286029030",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -254,31 +254,6 @@
       "createdAt": "2026-06-20T01:39:07.313Z",
       "updatedAt": "2026-07-02T20:00:00.000Z",
       "deferredReason": "dependency_reopened: task-1781724738855",
-      "invalidationReason": null
-    },
-    {
-      "id": "task-1783286029030",
-      "task": "docs: document local-model agent workflows and ecosystem boundaries for v3",
-      "priority": "high",
-      "source": "manual",
-      "details": "Close the Ignite-side agent/local-model showcase by documenting how to use the OpenAI-compatible ToolDialect with hosted OpenAI-compatible providers and local MLX servers, how the smart-home example is validated, and how the actor-web-backed real-agent dogfood fits the ecosystem. Update roadmap language so the agent/local-model epic is explicitly before launch polish and stable v3. Preserve the ownership split: ignite-element owns projection, headless runtime, and tool manifest bridge; fas-local owns durable MLX provider lifecycle; actor-web owns execution/data-plane hosting and topology.\nSee .fas/tasks/docs-document-local-model-agent-workflows-and-ecosystem-boun.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1783286017890"
-      ],
-      "blocks": [
-        "task-1781724711926"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-05T21:13:49.030Z",
-      "updatedAt": "2026-07-06T16:44:51.573Z",
-      "deferredReason": null,
       "invalidationReason": null
     }
   ],
@@ -2816,11 +2791,11 @@
       "branchBase": null,
       "prDependencies": [],
       "prRef": null,
-      "completedAt": "2026-07-06T15:12:53.712Z",
+      "completedAt": "2026-07-06T17:55:17.123Z",
       "terminalOutcome": null,
       "workflowId": "direct-1783350300693",
       "branchName": "fas/local-model-agent-ecosystem",
-      "prStatus": null
+      "prStatus": "draft-only"
     },
     {
       "id": "task-1783286005193",
@@ -2840,11 +2815,11 @@
       "branchBase": null,
       "prDependencies": [],
       "prRef": null,
-      "completedAt": "2026-07-06T15:24:04.876Z",
+      "completedAt": "2026-07-06T17:55:30.868Z",
       "terminalOutcome": null,
       "workflowId": "direct-1783350825908",
       "branchName": "fas/local-model-agent-ecosystem",
-      "prStatus": null
+      "prStatus": "draft-only"
     },
     {
       "id": "task-1783286017890",
@@ -2864,11 +2839,34 @@
       "branchBase": null,
       "prDependencies": [],
       "prRef": null,
-      "completedAt": "2026-07-06T16:43:35.797Z",
+      "completedAt": "2026-07-06T17:55:45.175Z",
       "terminalOutcome": null,
       "workflowId": "direct-1783351500451",
       "branchName": "fas/local-model-agent-ecosystem",
-      "prStatus": null
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1783286029030",
+      "task": "docs: document local-model agent workflows and ecosystem boundaries for v3",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1783286017890"
+      ],
+      "blocks": [
+        "task-1781724711926"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-06T17:55:56.575Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783356291569",
+      "branchName": "fas/local-model-agent-ecosystem",
+      "prStatus": "draft-only"
     }
   ],
   "pullRequests": [],

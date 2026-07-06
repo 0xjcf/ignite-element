@@ -1735,8 +1735,8 @@ No active tasks.
 
 - Title: igniteTools: add OpenAI-compatible ToolDialect for OpenAI, Ollama, and MLX servers
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/ignitetools-add-openai-compatible-tooldialect-for-openai-oll.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1746,8 +1746,8 @@ No active tasks.
 
 - Title: examples/smart-home: add local MLX OpenAI-compatible model loop and demo mode
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/examples-smart-home-add-local-mlx-openai-compatible-model-lo.md
 - Automation mode: advisory
 - Verification lane: fast
@@ -1758,8 +1758,8 @@ No active tasks.
 
 - Title: examples/agent: add actor-web-backed real-agent dogfood using igniteTools
 - Mode: 6-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/examples-agent-add-actor-web-backed-real-agent-dogfood-using.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -1769,8 +1769,8 @@ No active tasks.
 
 - Title: docs: document local-model agent workflows and ecosystem boundaries for v3
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/docs-document-local-model-agent-workflows-and-ecosystem-boun.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -2081,8 +2081,8 @@ No active tasks.
 
 - Title: fix: address local-model epic CodeRabbit findings
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/fix-address-local-model-epic-coderabbit-findings.md
 - Verification lane: fast
 - Policy sensitivity: standard
