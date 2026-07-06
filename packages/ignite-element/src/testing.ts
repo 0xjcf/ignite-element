@@ -7,8 +7,8 @@ import type {
 import {
 	type IgniteDomBridgeOptions,
 	type IgniteDomBridgeSession,
-	igniteDomBridgeSymbol,
 	type IgniteRuntimeHostOverride,
+	igniteDomBridgeSymbol,
 	igniteRuntimeHostOverrideSymbol,
 } from "./runtime/agent";
 import { toSchemaValue } from "./runtime/schema";
