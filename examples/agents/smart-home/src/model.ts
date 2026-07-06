@@ -79,6 +79,7 @@ export function openAICompatibleModel(options: {
 	model?: string;
 	system?: string;
 	fetch?: typeof fetch;
+	timeoutMs?: number;
 }): OpenAICompatibleModel {
 	const baseUrl = stripTrailingSlash(
 		options.baseUrl ?? "http://127.0.0.1:8080/v1",
@@ -86,6 +87,7 @@ export function openAICompatibleModel(options: {
 	const endpoint = `${baseUrl}/chat/completions`;
 	const model = options.model ?? "mlx-local";
 	const fetchImpl = options.fetch ?? fetch;
+	const timeoutMs = options.timeoutMs ?? 30_000;
 
 	return async ({ tools, messages }) => {
 		const headers: Record<string, string> = {
@@ -100,6 +102,8 @@ export function openAICompatibleModel(options: {
 			: messages;
 
 		let response: Response;
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 		try {
 			response = await fetchImpl(endpoint, {
 				method: "POST",
@@ -109,13 +113,16 @@ export function openAICompatibleModel(options: {
 					messages: bodyMessages,
 					tools,
 				}),
+				signal: controller.signal,
 			});
 		} catch (error) {
 			throw new Error(
-				`Could not reach OpenAI-compatible server at ${baseUrl}. Start MLX with \`python -m mlx_lm.server --model <model> --port 8080\`, then run \`MLX_BASE_URL=${baseUrl} MLX_MODEL=${model} npm run mlx -- "<prompt>"\`. Original error: ${
+				`Could not reach OpenAI-compatible server at ${baseUrl}. Verify the server is running and reachable (for a local MLX server: \`python -m mlx_lm.server --model <model> --port 8080\`). Original error: ${
 					error instanceof Error ? error.message : String(error)
 				}`,
 			);
+		} finally {
+			clearTimeout(timeoutId);
 		}
 
 		if (!response.ok) {
@@ -127,12 +134,88 @@ export function openAICompatibleModel(options: {
 			);
 		}
 
-		return (await response.json()) as OpenAIChatCompletionResponse;
+		let payload: unknown;
+		try {
+			payload = await response.json();
+		} catch (error) {
+			throw new Error(
+				`OpenAI-compatible server at ${endpoint} returned invalid JSON. Original error: ${
+					error instanceof Error ? error.message : String(error)
+				}`,
+			);
+		}
+		assertOpenAIChatCompletionResponse(payload, endpoint);
+		return payload;
 	};
 }
 
 function stripTrailingSlash(value: string): string {
 	return value.replace(/\/+$/, "");
+}
+
+export function assertOpenAIChatCompletionResponse(
+	value: unknown,
+	source = "OpenAI-compatible response",
+): asserts value is OpenAIChatCompletionResponse {
+	if (!isRecord(value)) {
+		throw new Error(`${source} was malformed: expected an object response.`);
+	}
+	if (!Array.isArray(value.choices) || value.choices.length === 0) {
+		throw new Error(
+			`${source} was malformed: choices must be a non-empty array.`,
+		);
+	}
+	for (const choice of value.choices) {
+		if (!isRecord(choice)) {
+			throw new Error(`${source} was malformed: each choice must be an object.`);
+		}
+		const message = choice.message;
+		if (message == null) {
+			continue;
+		}
+		if (!isRecord(message)) {
+			throw new Error(`${source} was malformed: choice.message must be an object.`);
+		}
+		const toolCalls = message.tool_calls;
+		if (toolCalls == null) {
+			continue;
+		}
+		if (!Array.isArray(toolCalls) || !toolCalls.every(isOpenAIToolCall)) {
+			throw new Error(
+				`${source} was malformed: message.tool_calls must be valid function tool calls.`,
+			);
+		}
+	}
+}
+
+export function toOpenAIAssistantMessage(
+	response: OpenAIChatCompletionResponse,
+): Extract<OpenAICompatibleMessage, { role: "assistant" }> {
+	const message = response.choices[0]?.message;
+	const content = isRecord(message) ? message.content : undefined;
+	const toolCalls = isRecord(message) ? message.tool_calls : undefined;
+	return {
+		role: "assistant",
+		content: typeof content === "string" ? content : null,
+		tool_calls: Array.isArray(toolCalls) ? toolCalls : undefined,
+	};
+}
+
+function isOpenAIToolCall(value: unknown): value is OpenAIChatToolCall {
+	if (!isRecord(value) || value.type !== "function") {
+		return false;
+	}
+	const fn = value.function;
+	return (
+		typeof value.id === "string" &&
+		isRecord(fn) &&
+		typeof fn.name === "string" &&
+		typeof fn.arguments === "string"
+	);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
 }
 
 /**

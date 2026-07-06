@@ -27,6 +27,7 @@ import {
 } from "./home";
 import {
 	type Model,
+	type OpenAICompatibleModel,
 	openAICompatibleModel,
 	scriptedModel,
 	scriptedOpenAICompatibleModel,
@@ -669,7 +670,7 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 		});
 	});
 
-	it("fails with MLX setup guidance when the local server is unreachable", async () => {
+	it("fails with generic OpenAI-compatible guidance when the server is unreachable", async () => {
 		const fetchImpl: typeof fetch = async () => {
 			throw new TypeError("fetch failed");
 		};
@@ -684,7 +685,100 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 				tools: [],
 				messages: [{ role: "user", content: "status" }],
 			}),
-		).rejects.toThrow(/mlx_lm\.server/);
+		).rejects.toThrow(/Could not reach OpenAI-compatible server/);
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).rejects.toThrow(/local MLX server/);
+	});
+
+	it("times out hung OpenAI-compatible model requests", async () => {
+		vi.useFakeTimers();
+		try {
+			const fetchImpl: typeof fetch = async (_input, init) =>
+				new Promise<Response>((_resolve, reject) => {
+					init?.signal?.addEventListener("abort", () => {
+						reject(new Error("request aborted"));
+					});
+				});
+			const model = openAICompatibleModel({
+				baseUrl: "http://127.0.0.1:8080/v1",
+				model: "mlx-test",
+				fetch: fetchImpl,
+				timeoutMs: 25,
+			});
+
+			const result = model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			});
+			const expectation = expect(result).rejects.toThrow(/request aborted/);
+			await vi.advanceTimersByTimeAsync(25);
+
+			await expectation;
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("reports invalid JSON from an OpenAI-compatible server", async () => {
+		const fetchImpl: typeof fetch = async () =>
+			new Response("not json", {
+				status: 200,
+				headers: { "content-type": "application/json" },
+			});
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).rejects.toThrow(/returned invalid JSON/);
+	});
+
+	it("reports malformed OpenAI-compatible response bodies", async () => {
+		const fetchImpl: typeof fetch = async () =>
+			new Response(JSON.stringify({ choices: [] }), {
+				status: 200,
+				headers: { "content-type": "application/json" },
+			});
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).rejects.toThrow(/choices must be a non-empty array/);
+	});
+
+	it("rejects malformed OpenAI-compatible model responses and closes the session", async () => {
+		const close = vi.fn(async () => {});
+		const runtimeFactory = async () => ({
+			home: createHome(),
+			close,
+		});
+		const malformedModel: OpenAICompatibleModel = async () =>
+			({ choices: [] }) as OpenAIChatCompletionResponse;
+
+		await expect(
+			runHomeOpenAICompatibleAgent(malformedModel, "status", {
+				runtimeFactory,
+			}),
+		).rejects.toThrow(/choices must be a non-empty array/);
+
+		expect(close).toHaveBeenCalledTimes(1);
 	});
 
 	it("closes an injected runtime session when the Anthropic loop hits MAX_TURNS", async () => {

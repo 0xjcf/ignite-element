@@ -46,7 +46,9 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 		clearPendingTransitionTimers();
 		const timer = setTimeout(() => {
 			pendingTransitionTimers.delete(timer);
-			void sendAndFlush({ type: "APPLY_PENDING_SCENE" });
+			void sendAndFlush({ type: "APPLY_PENDING_SCENE" }).catch((error) => {
+				console.error("Failed to apply pending scene transition", error);
+			});
 		}, SCENE_TRANSITION_DELAY_MS);
 		pendingTransitionTimers.add(timer);
 	});
@@ -56,7 +58,11 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 	});
 	sendAndFlush = async (message: HomeCommand) => {
 		await sourceHandle.commandSource.send(message);
-		await runtime.nodes.local?.system.flush();
+		const localNode = runtime.nodes.local;
+		if (!localNode) {
+			throw new Error("Actor-web home runtime is missing the local node.");
+		}
+		await localNode.system.flush();
 	};
 	const home = igniteCore({
 		source: sourceHandle.commandSource,

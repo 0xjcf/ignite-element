@@ -14,11 +14,13 @@ import {
 	type HomeAgentRuntime,
 	type HomeRuntimeFactory,
 } from "./home";
-import type {
-	AnthropicMessage,
-	Model,
-	OpenAICompatibleMessage,
-	OpenAICompatibleModel,
+import {
+	assertOpenAIChatCompletionResponse,
+	type AnthropicMessage,
+	type Model,
+	type OpenAICompatibleMessage,
+	type OpenAICompatibleModel,
+	toOpenAIAssistantMessage,
 } from "./model";
 
 /** One tool call the agent made, plus what came back. */
@@ -142,16 +144,12 @@ export async function runHomeOpenAICompatibleAgent(
 
 		for (let turn = 0; turn < MAX_TURNS; turn++) {
 			const response = await model({ tools, messages });
+			assertOpenAIChatCompletionResponse(
+				response,
+				"OpenAI-compatible model response",
+			);
 			modelCalls++;
-			const assistantMessage = response.choices[0]?.message ?? {};
-			messages.push({
-				role: "assistant",
-				content:
-					typeof assistantMessage.content === "string"
-						? assistantMessage.content
-						: null,
-				tool_calls: assistantMessage.tool_calls ?? undefined,
-			});
+			messages.push(toOpenAIAssistantMessage(response));
 
 			const calls = toolCalls(response);
 			if (calls.length === 0) {

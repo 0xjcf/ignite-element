@@ -28,11 +28,13 @@ import { createActorWebHomeSession } from "./actor-web-home";
 import type { HomeBridgeClientMessage, HomeBridgeMessage } from "./bridge";
 import { parseBridgeMessage, serializeBridgeMessage } from "./bridge";
 import {
+	assertOpenAIChatCompletionResponse,
 	type AnthropicMessage,
 	type Model,
 	type OpenAICompatibleMessage,
 	type OpenAICompatibleModel,
 	scriptedModel,
+	toOpenAIAssistantMessage,
 } from "./model";
 import { renderHome } from "./render";
 import type { HomeView } from "./render";
@@ -547,15 +549,11 @@ async function runSharedHomeOpenAICompatibleAgent(
 
 	for (let turn = 0; turn < MAX_TURNS; turn++) {
 		const response = await model({ tools: tools.tools, messages });
-		const assistantMessage = response.choices[0]?.message ?? {};
-		messages.push({
-			role: "assistant",
-			content:
-				typeof assistantMessage.content === "string"
-					? assistantMessage.content
-					: null,
-			tool_calls: assistantMessage.tool_calls ?? undefined,
-		});
+		assertOpenAIChatCompletionResponse(
+			response,
+			"OpenAI-compatible bridge model response",
+		);
+		messages.push(toOpenAIAssistantMessage(response));
 		const calls = tools.toolCalls(response);
 
 		if (calls.length === 0) {
