@@ -5,10 +5,8 @@ import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const repoRoot = path.resolve(
-	path.dirname(fileURLToPath(import.meta.url)),
-	"..",
-);
+const scriptPath = fileURLToPath(import.meta.url);
+const repoRoot = path.resolve(path.dirname(scriptPath), "..");
 
 const rawArgs = process.argv.slice(2);
 const args = new Set(rawArgs);
@@ -55,14 +53,21 @@ if (!["always", "missing", "never"].includes(installMode)) {
 	process.exit(1);
 }
 
-async function discoverExampleRoots() {
+export async function discoverExampleRoots(root = examplesRoot, options = {}) {
+	const readDir = options.readdir ?? readdir;
+	const fileExists = options.existsSync ?? existsSync;
+	const fail =
+		options.fail ??
+		((message) => {
+			console.error(message);
+			process.exit(1);
+		});
 	let categoryEntries;
 	try {
-		categoryEntries = await readdir(examplesRoot, { withFileTypes: true });
+		categoryEntries = await readDir(root, { withFileTypes: true });
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		console.error(`Unable to read examples root ${examplesRoot}: ${message}`);
-		process.exit(1);
+		return fail(`Unable to read examples root ${root}: ${message}`);
 	}
 	const exampleRoots = [];
 
@@ -71,16 +76,15 @@ async function discoverExampleRoots() {
 			continue;
 		}
 
-		const categoryRoot = path.join(examplesRoot, categoryEntry.name);
+		const categoryRoot = path.join(root, categoryEntry.name);
 		let exampleEntries;
 		try {
-			exampleEntries = await readdir(categoryRoot, { withFileTypes: true });
+			exampleEntries = await readDir(categoryRoot, { withFileTypes: true });
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
-			console.error(
+			return fail(
 				`Unable to read examples category ${categoryRoot}: ${message}`,
 			);
-			process.exit(1);
 		}
 
 		for (const exampleEntry of exampleEntries) {
@@ -89,7 +93,7 @@ async function discoverExampleRoots() {
 			}
 
 			const exampleRoot = path.join(categoryRoot, exampleEntry.name);
-			if (existsSync(path.join(exampleRoot, "package.json"))) {
+			if (fileExists(path.join(exampleRoot, "package.json"))) {
 				exampleRoots.push(exampleRoot);
 			}
 		}
@@ -152,63 +156,69 @@ function runTypecheck(tsc, exampleRoot) {
 	return result.status === 0;
 }
 
-const exampleRoots = await discoverExampleRoots();
+async function main() {
+	const exampleRoots = await discoverExampleRoots();
 
-if (exampleRoots.length === 0) {
-	console.error("No example packages were discovered under examples/.");
-	process.exit(1);
-}
-
-if (args.has("--list")) {
-	for (const exampleRoot of exampleRoots) {
-		console.log(path.relative(repoRoot, exampleRoot));
+	if (exampleRoots.length === 0) {
+		console.error("No example packages were discovered under examples/.");
+		process.exit(1);
 	}
-	process.exit(0);
-}
 
-const tsc = path.join(
-	repoRoot,
-	"packages",
-	"ignite-element",
-	"node_modules",
-	".bin",
-	process.platform === "win32" ? "tsc.cmd" : "tsc",
-);
+	if (args.has("--list")) {
+		for (const exampleRoot of exampleRoots) {
+			console.log(path.relative(repoRoot, exampleRoot));
+		}
+		process.exit(0);
+	}
 
-if (!existsSync(tsc)) {
-	console.error(
-		`Error: tsc not found at ${path.relative(
-			repoRoot,
-			tsc,
-		)}. Run pnpm install first.`,
+	const tsc = path.join(
+		repoRoot,
+		"packages",
+		"ignite-element",
+		"node_modules",
+		".bin",
+		process.platform === "win32" ? "tsc.cmd" : "tsc",
 	);
-	process.exit(1);
-}
 
-const failedExamples = [];
-
-for (const exampleRoot of exampleRoots) {
-	const relativeRoot = path.relative(repoRoot, exampleRoot);
-	console.log(`\n==> ${relativeRoot}`);
-
-	if (!ensureDependencies(exampleRoot)) {
-		failedExamples.push(relativeRoot);
-		continue;
+	if (!existsSync(tsc)) {
+		console.error(
+			`Error: tsc not found at ${path.relative(
+				repoRoot,
+				tsc,
+			)}. Run pnpm install first.`,
+		);
+		process.exit(1);
 	}
 
-	if (runTypecheck(tsc, exampleRoot)) {
-		console.log(`PASS ${relativeRoot}`);
-	} else {
-		console.log(`FAIL ${relativeRoot}`);
-		failedExamples.push(relativeRoot);
+	const failedExamples = [];
+
+	for (const exampleRoot of exampleRoots) {
+		const relativeRoot = path.relative(repoRoot, exampleRoot);
+		console.log(`\n==> ${relativeRoot}`);
+
+		if (!ensureDependencies(exampleRoot)) {
+			failedExamples.push(relativeRoot);
+			continue;
+		}
+
+		if (runTypecheck(tsc, exampleRoot)) {
+			console.log(`PASS ${relativeRoot}`);
+		} else {
+			console.log(`FAIL ${relativeRoot}`);
+			failedExamples.push(relativeRoot);
+		}
 	}
+
+	if (failedExamples.length > 0) {
+		console.error(`\nExample typecheck failed: ${failedExamples.join(", ")}`);
+		process.exit(1);
+	}
+
+	console.log(
+		`\nExample typecheck passed for ${exampleRoots.length} example(s).`,
+	);
 }
 
-if (failedExamples.length > 0) {
-	console.error(`\nExample typecheck failed: ${failedExamples.join(", ")}`);
-	process.exit(1);
+if (path.resolve(process.argv[1] ?? "") === scriptPath) {
+	await main();
 }
-
-console.log(
-	`\nExample typecheck passed for ${exampleRoots.length} example(s).`,
-);

@@ -468,7 +468,7 @@ export type HomeRuntimeFactory = () =>
 	| Promise<HomeRuntimeSession>;
 
 export function createLocalHomeSession(): HomeRuntimeSession {
-	const actor = createActor(homeMachine).start();
+	const actor = createActor(homeMachine);
 	const home = createHomeFromSource(actor);
 	return {
 		home,

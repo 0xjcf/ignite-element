@@ -1,12 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import {
-	chmodSync,
-	mkdirSync,
-	mkdtempSync,
-	rmSync,
-	writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -122,38 +116,25 @@ describe("typecheck-examples", () => {
 		}
 	});
 
-	it("reports a clean error when an examples category cannot be read", () => {
-		const examplesRoot = mkdtempSync(
-			path.join(tmpdir(), "ignite-unreadable-examples-"),
-		);
-		const categoryRoot = path.join(examplesRoot, "apps");
-		mkdirSync(categoryRoot, { recursive: true });
-		chmodSync(categoryRoot, 0);
+	it("reports a clean error when an examples category cannot be read", async () => {
+		const { discoverExampleRoots } = await import("../typecheck-examples.mjs");
+		const examplesRoot = path.join(tmpdir(), "ignite-examples");
 
-		try {
-			assert.throws(
-				() =>
-					execFileSync(
-						node,
-						["scripts/typecheck-examples.mjs", "--examples-root", examplesRoot],
-						{
-							encoding: "utf8",
-							stderr: "pipe",
-						},
-					),
-				(error) => {
-					assert.equal(error.status, 1);
-					assert.match(
-						String(error.stderr),
-						/Unable to read examples category .*apps/,
-					);
-					return true;
-				},
-			);
-		} finally {
-			chmodSync(categoryRoot, 0o700);
-			rmSync(examplesRoot, { force: true, recursive: true });
-		}
+		await assert.rejects(
+			() =>
+				discoverExampleRoots(examplesRoot, {
+					readdir: async (target) => {
+						if (target === examplesRoot) {
+							return [{ name: "apps", isDirectory: () => true }];
+						}
+						throw new Error("mock category read failure");
+					},
+					fail: (message) => {
+						throw new Error(message);
+					},
+				}),
+			/Unable to read examples category .*apps.*mock category read failure/,
+		);
 	});
 
 	it("reports a clean error when pnpm cannot be spawned", () => {
