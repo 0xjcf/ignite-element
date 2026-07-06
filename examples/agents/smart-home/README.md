@@ -63,6 +63,31 @@ updated view back to the page.
 name. Tests use scripted responses and injected `fetch`, so CI never needs an
 installed MLX model or a live network server.
 
+## Validation model
+
+The always-on validation is deterministic:
+
+- `npm test` runs in the Vitest `node` environment and proves the runtime is
+  DOM-free.
+- OpenAI-compatible behavior is covered with scripted responses and injected
+  `fetch`; no hosted API key or local MLX server is required.
+- Actor-web dogfood is covered by `SMART_HOME_RUNTIME=actor-web` tests that
+  inject the runtime factory and assert actor-native events through
+  `igniteTools`.
+
+Live model validation is opt-in:
+
+- `npm run anthropic` uses the consumer-installed Anthropic SDK and API key.
+- `npm run mlx` and `npm run demo:mlx` call a running OpenAI-compatible server,
+  usually `python -m mlx_lm.server`.
+- `SMART_HOME_RUNTIME=actor-web` switches the local home implementation behind
+  the same agent loop; it does not change the provider dialect.
+
+That split is intentional. The example proves Ignite's side of the ecosystem:
+projection, headless command execution, observations, and provider-neutral tool
+manifests. It does not own durable MLX process management or distributed
+actor-web transport. Those belong to fas-local and actor-web respectively.
+
 ## The loop
 
 ```

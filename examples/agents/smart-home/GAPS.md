@@ -102,3 +102,19 @@ actor-web mode it is not the runtime gateway/client path; it is still a thin
 local WebSocket shell around the shared home runtime. A later follow-up can
 replace `src/bridge.ts` / `src/server.ts` with the real actor-web transport
 surface while keeping the Ignite UI on the same `source`-first shape.
+
+## Boundary closeout
+
+The current dogfood story is complete for Ignite's v3 target: a real agent loop
+can drive a headless Ignite runtime through `igniteTools`, can use an
+OpenAI-compatible local MLX server without an MLX-specific Ignite dependency, and
+can swap the backing runtime to actor-web through the same command/view contract.
+
+The remaining ecosystem work is deliberately outside this example's ownership:
+
+- durable MLX provider lifecycle and operator setup belong in fas-local.
+- actor-web gateway/client transport and distributed runtime hosting belong in
+  actor-web.
+- this example should continue to validate Ignite's projection, command,
+  observation, and tool-manifest seams with deterministic tests first, then
+  opt-in live model/manual validation.
