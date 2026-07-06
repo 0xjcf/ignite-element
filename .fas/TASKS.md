@@ -1735,9 +1735,12 @@ No active tasks.
 
 - Title: igniteTools: add OpenAI-compatible ToolDialect for OpenAI, Ollama, and MLX servers
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/ignitetools-add-openai-compatible-tooldialect-for-openai-oll.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: examples/smart-home: add local MLX OpenAI-compatible model loop and demo mode
 

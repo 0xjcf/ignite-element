@@ -5,7 +5,7 @@
 Implementing. **PR1 shipped** the SDK-neutral core + `ToolDialect` port + the
 `ignite-element/tools` entrypoint (beta.8). **PR2 shipped** the first provider
 dialect (`ignite-element/tools/anthropic`) and refined the port to its final
-bare-noun shape. **PR3 is now live-queued for v3** as the OpenAI-compatible
+bare-noun shape. **PR3 adds** the OpenAI-compatible
 `ignite-element/tools/openai` dialect, which covers OpenAI, Ollama, and local
 MLX servers exposed through `/v1/chat/completions`. The agent analog of
 `ignite-element/react`. Agent-runtime thread in `docs/v3-stable-roadmap.md`.
@@ -148,6 +148,7 @@ state.
 ```ts
 import { igniteTools } from "ignite-element/tools";
 import { anthropic } from "ignite-element/tools/anthropic";
+import { openai } from "ignite-element/tools/openai";
 
 const { tools, toolCalls, run, observe, toolResult } = igniteTools(
   runtime,
@@ -181,6 +182,28 @@ const {
 `toolCalls(res)` stays single-arg for the consumer — `igniteTools` closes over the
 manifest internally and hands it to the dialect, so scalar unwrapping is invisible
 here.
+
+For OpenAI-compatible model loops, pass `openai` instead of `anthropic`; the
+consumer still brings the SDK or `fetch` client:
+
+```ts
+const { tools, toolCalls, run, toolResult } = igniteTools(runtime, openai);
+const response = await client.chat.completions.create({
+  model,
+  messages,
+  tools,
+});
+
+for (const call of toolCalls(response)) {
+  const result = await run(call);
+  messages.push(toolResult({ id: call.id, name: call.name, result }));
+}
+```
+
+The OpenAI-compatible dialect is intentionally not MLX-specific. It targets the
+shared `/v1/chat/completions` shape, so hosted OpenAI, Ollama, and local MLX
+servers can reuse the same SDK-free translator while the consumer owns endpoint
+configuration, credentials, and network calls.
 
 ## How the design embodies the principles
 
