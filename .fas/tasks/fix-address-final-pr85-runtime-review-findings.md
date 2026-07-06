@@ -1,13 +1,21 @@
-# docs: reconcile final PR85 review metadata
+# fix: address final PR85 runtime review findings
 
 ## Source
 Created with `fas create-task` on 2026-07-05.
 
 ## Problem
-docs: reconcile final PR85 review metadata
+fix: address final PR85 runtime review findings
+
+## Automation admission
+- Expected operator value: Improves operator leverage around "fix: address final PR85 runtime review findings" by reducing manual coordination, repetitive execution, or trust gaps.
+- Observability surface: Use authoritative FAS surfaces such as `fas runtime status`, `fas runtime watch`, workflow logs, receipts, or notifications to show whether the automation is active, quiet, stalled, blocked, or complete.
+- Recovery path: A human can abort, retry, recover, or rerun this workflow without leaving stale queue, lease, branch, or current-task state.
+- Autonomy mode: advisory
+- Promotion criteria: Promote beyond advisory only after dogfood runs prove clear operator value, trustworthy observability, and bounded recovery.
 
 ## Acceptance criteria
-- The change is verified and does not introduce regressions.
+- The defect no longer reproduces.
+- A regression test covers the fix.
 - TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
 - TDD: every production code change in the change set is covered by an added or updated test.
 - DDD: respect domain boundaries — keep the functional core deterministic and side-effect-free (no reads, writes, network, or clock), confine coordination to the imperative shell, and have adapters return facts instead of throwing.
@@ -21,9 +29,10 @@ docs: reconcile final PR85 review metadata
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- .fas/tasks/test-examples-include-new-worked-apps-in-example-runtime-lan.md
-- .fas/tasks/fix-snapshot-runtime-host-override-base-before-resolution.md
-- docs/examples/README.md
+- packages/ignite-element/src/igniteShell.ts
+- packages/ignite-element/src/IgniteElementFactory.ts
+- packages/ignite-element/src/tests/IgniteElementFactory.test.ts
+- .fas/tasks/docs-reconcile-final-pr85-review-metadata.md
 
 ## Scope Amendments
 - None.
