@@ -129,13 +129,28 @@ export default abstract class IgniteElement<
 		this._unsubscribe = undefined;
 
 		this.scheduleDisconnectTeardown(() => {
+			let disconnectError: unknown;
 			try {
 				this.onTrueDisconnect();
-			} finally {
-				if (this._adapter && this._adapter.scope !== StateScope.Shared) {
+			} catch (error) {
+				disconnectError = error;
+			}
+
+			if (this._adapter && this._adapter.scope !== StateScope.Shared) {
+				try {
 					this._adapter.stop();
+				} catch (error) {
+					console.error(
+						"[IgniteElement] Adapter stop failed during disconnect teardown.",
+						error,
+					);
+				} finally {
 					this._adapter = undefined;
 				}
+			}
+
+			if (disconnectError !== undefined) {
+				throw disconnectError;
 			}
 		});
 
