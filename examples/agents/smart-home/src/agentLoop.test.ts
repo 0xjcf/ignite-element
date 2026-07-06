@@ -1081,6 +1081,47 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 		}
 	});
 
+	it("emits actor-web security changes for individual door updates", async () => {
+		const session = await createActorWebHomeSession();
+		const received: Array<{ allDoorsLocked: boolean }> = [];
+		const subscription = session.home.on("security-changed", (event) => {
+			received.push(event.detail as { allDoorsLocked: boolean });
+		});
+
+		try {
+			const tools = igniteTools(session.home, anthropic);
+			const first = await tools.run({ name: "unlockDoor", input: "front" });
+			const second = await tools.run({ name: "unlockDoor", input: "back" });
+
+			expect(isOk(first)).toBe(true);
+			expect(isOk(second)).toBe(true);
+			if (!isOk(first) || !isOk(second)) {
+				return;
+			}
+
+			expect(first.value.events).toContainEqual(
+				expect.objectContaining({
+					type: "security-changed",
+					payload: expect.objectContaining({ allDoorsLocked: false }),
+				}),
+			);
+			expect(second.value.events).toContainEqual(
+				expect.objectContaining({
+					type: "security-changed",
+					payload: expect.objectContaining({ allDoorsLocked: false }),
+				}),
+			);
+			expect(received).toHaveLength(2);
+			expect(received).toEqual([
+				expect.objectContaining({ allDoorsLocked: false }),
+				expect.objectContaining({ allDoorsLocked: false }),
+			]);
+		} finally {
+			subscription.unsubscribe();
+			await session.close();
+		}
+	});
+
 	it("restarts actor-web delayed scene timing when transitionScene is repeated", async () => {
 		vi.useFakeTimers();
 		const session = await createActorWebHomeSession();

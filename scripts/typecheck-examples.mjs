@@ -167,7 +167,7 @@ const tsc = path.join(
 	"ignite-element",
 	"node_modules",
 	".bin",
-	"tsc",
+	process.platform === "win32" ? "tsc.cmd" : "tsc",
 );
 
 if (!existsSync(tsc)) {

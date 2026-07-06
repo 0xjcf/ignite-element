@@ -278,13 +278,14 @@ function deriveEmittedEvents(
 		events.push({ type: "scene-applied", scene: next.activeScene });
 	}
 
-	const allDoorsLockedBefore = DOORS.every((door) => previous.locks[door]);
-	const allDoorsLockedAfter = DOORS.every((door) => next.locks[door]);
-	if (allDoorsLockedBefore !== allDoorsLockedAfter) {
-		events.push({
-			type: "security-changed",
-			allDoorsLocked: allDoorsLockedAfter,
-		});
+	for (const door of DOORS) {
+		if (previous.locks[door] !== next.locks[door]) {
+			events.push({
+				type: "security-changed",
+				allDoorsLocked: DOORS.every((item) => next.locks[item]),
+			});
+			break;
+		}
 	}
 
 	return events;
