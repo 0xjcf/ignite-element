@@ -58,7 +58,7 @@ requires one.
 ### 0:00 - Open with the contract
 
 Show the docs page
-`/overview/ignite-for-ai-agents/`.
+`/ignite-element/overview/ignite-for-ai-agents/`.
 
 Narration:
 
