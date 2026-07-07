@@ -55,10 +55,26 @@ try {
 		prompt,
 		{ runtimeFactory },
 	);
+	let printError: unknown;
+	let closeError: unknown;
 	try {
 		printSession(result);
-	} finally {
+	} catch (error) {
+		printError = error;
+	}
+	try {
 		await result.close();
+	} catch (error) {
+		closeError = error;
+	}
+	if (printError !== undefined) {
+		if (closeError !== undefined) {
+			console.error("Failed to close session cleanly:", closeError);
+		}
+		throw printError;
+	}
+	if (closeError !== undefined) {
+		throw closeError;
 	}
 } catch (error) {
 	const message = error instanceof Error ? error.message : String(error);
