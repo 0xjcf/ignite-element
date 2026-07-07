@@ -2147,6 +2147,14 @@ No active tasks.
 - Owner: planner
 - Brief: .fas/tasks/playgrounds-add-published-package-open-in-stackblitz-links-a.md
 
+### Task: Normalize remaining self-contained example install commands to pnpm current workspace-link flag
+
+- Title: Normalize remaining self-contained example install commands to pnpm current workspace-link flag
+- Mode: single-agent
+- Status: backlog
+- Owner: planner
+- Brief: .fas/tasks/normalize-remaining-self-contained-example-install-commands-.md
+
 ## Template
 
 ### Task: <short task title>
