@@ -1336,9 +1336,9 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
-### Task: BREAKING (v3 cutover): rename expectState -> expectSnapshot (deprecated alias) + expectEvent member form per docs/v3-api
+### Task: BREAKING (v3 cutover): hard-cut expectState -> expectSnapshot + expectEvent member form per docs/v3-api
 
-- Title: BREAKING (v3 cutover): rename expectState -> expectSnapshot (deprecated alias) + expectEvent member form per docs/v3-api
+- Title: BREAKING (v3 cutover): hard-cut expectState -> expectSnapshot + expectEvent member form per docs/v3-api
 - Mode: single-agent
 - Status: done
 - Owner: reviewer

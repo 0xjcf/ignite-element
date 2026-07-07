@@ -49,14 +49,10 @@ Implement docs/view-context-canonicalization.md. Drop the createProjectionFactor
 - .changeset/view-context-snapshot-spread.md
 
 ## Scope Amendments
-- Type: scope-refresh-promotion
-- Added at: 2026-07-07
-- Trigger: dirty-low-confidence-scope
-- Reason: Promoted dirty low-confidence or dependency-reachable task-packet path(s) into affected scope.
-- Added paths: packages/ignite-element/src/createProjectionFactory.ts, packages/ignite-element/src/tests/types/igniteCore.types.test.ts
-- Evidence source: task-packet dirty scope promotion
-- Evidence: task-packet dirty scope promotion | .fas/state/task-packet.json | Promoted dirty path(s): packages/ignite-element/src/createProjectionFactory.ts, packages/ignite-element/src/tests/types/igniteCore.types.test.ts
-- Accuracy signal: Path was dirty in git status and present in task-packet low-confidence/dependency-reachable scope.
+- 2026-07-07: scope refresh found no genuinely new affected paths to promote.
+  `packages/ignite-element/src/createProjectionFactory.ts` and
+  `packages/ignite-element/src/tests/types/igniteCore.types.test.ts` were already
+  listed in affected files above, so no separate promotion is recorded.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

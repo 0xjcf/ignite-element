@@ -74,9 +74,10 @@ Implement docs/event-shape.md. emit unifies on the single-object member form { t
 - packages/ignite-element/src/xstate.ts
 
 ## Scope Amendments
-- Expanded during implementation because canonicalizing the event shape affects
-  public entrypoints, tool dialect types, runtime tests, top-level example
-  runtime tests, and docs examples. `runtime/effects.ts` and
+- 2026-07-07: implementation confirmed the affected-file list above already
+  covers the event-shape cutover across public entrypoints, tool dialect types,
+  runtime tests, top-level example runtime tests, and docs examples. No separate
+  scope-promotion paths are recorded here. `runtime/effects.ts` and
   `runtime/schema.ts` were inspected from the initial brief scope but did not
   require edits for this cutover.
 

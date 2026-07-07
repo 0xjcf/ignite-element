@@ -2858,7 +2858,7 @@
     },
     {
       "id": "task-1781818974159",
-      "task": "BREAKING (v3 cutover): rename expectState -> expectSnapshot (deprecated alias) + expectEvent member form per docs/v3-api",
+      "task": "BREAKING (v3 cutover): hard-cut expectState -> expectSnapshot + expectEvent member form per docs/v3-api",
       "priority": "high",
       "source": "manual",
       "taskClassification": "self-improvement",

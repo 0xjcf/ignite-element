@@ -1,4 +1,4 @@
-# BREAKING (v3 cutover): rename expectState -> expectSnapshot (deprecated alias) + expectEvent member form per docs/v3-api
+# BREAKING (v3 cutover): hard-cut expectState -> expectSnapshot + expectEvent member form per docs/v3-api
 
 ## Source
 Created with `fas create-task` on 2026-06-18.
@@ -60,7 +60,7 @@ SCOPE EXPANDED 2026-06-20 to the FULL rename (option b), not method-only. The va
 
 ## Scope Amendments
 - 2026-06-20: expanded from method-only (a) to the full `state`->`snapshot` rename (b) — see Problem. Owner-approved. Historical sequencing note: this originally paired with the typed-view follow-up (task-1781971975611), which is now complete.
-- 2026-07-07: amended from beta soft-landing/deprecated aliases to v3 beta removal. This matches the current breaking cutover batch policy already applied to event shape and view context.
+- 2026-07-07: amended from beta soft-landing compatibility to v3 beta removal. This matches the current breaking cutover batch policy already applied to event shape and view context.
 - 2026-07-07: CodeRabbit closeout review found one stale XState adapter README event-shape snippet. Include that self-contained example doc in this task so the flat event/snapshot cutover examples stay copy-pasteable.
 
 ## Implementation plan
