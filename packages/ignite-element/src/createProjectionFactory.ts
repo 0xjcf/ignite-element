@@ -129,14 +129,7 @@ function freezeIfDev<T extends object>(value: T): T {
 const createViewContext = <Snapshot>(
 	snapshot: Snapshot,
 ): ViewContext<Snapshot> => {
-	if (typeof snapshot === "object" && snapshot !== null) {
-		return {
-			...(snapshot as object),
-			snapshot,
-		} as ViewContext<Snapshot>;
-	}
-
-	return { snapshot } as ViewContext<Snapshot>;
+	return { snapshot };
 };
 
 function ensureFacadeResult(

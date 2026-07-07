@@ -36,7 +36,10 @@ const counterMachine = setup({
 
 const counterCore = igniteCore({
 	source: counterMachine,
-	view: ({ context }) => ({ count: context.count, label: context.label }),
+	view: ({ snapshot }) => ({
+		count: snapshot.context.count,
+		label: snapshot.context.label,
+	}),
 	commands: ({ actor }) => ({
 		increment: () => actor.send({ type: "INC" }),
 		decrement: () => actor.send({ type: "DEC" }),

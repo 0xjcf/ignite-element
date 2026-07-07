@@ -1,6 +1,4 @@
-export type ViewContext<Snapshot> = Snapshot extends object
-	? Snapshot & { snapshot: Snapshot }
-	: { snapshot: Snapshot };
+export type ViewContext<Snapshot> = { snapshot: Snapshot };
 
 export type FacadeViewCallback<
 	Snapshot,
