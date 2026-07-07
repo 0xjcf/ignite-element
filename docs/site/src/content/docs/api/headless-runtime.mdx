@@ -159,13 +159,77 @@ The shape:
 // getSchema() returns:
 {
   commands: {
-    toggle: {},
+    toggle: {
+      description: 'Toggle the panel open state.',
+    },
+    setMode: {
+      description: 'Switch the device mode.',
+      input: {
+        type: 'string',
+        enum: ['auto', 'manual', 'off'],
+      },
+    },
+    armAlarm: {
+      description: 'Arm the alarm when every zone is closed.',
+      gated: true,
+    },
   },
-  events: [{ type: 'toggled' }],
-  snapshot: { value: 'off', context: {} },
-  view: { isOn: false },
+  events: [{ type: 'toggled' }, { type: 'alarm-armed' }],
+  snapshot: {
+    value: 'idle',
+    context: {
+      mode: 'auto',
+      zonesOpen: 0,
+      armed: false,
+    },
+  },
+  view: {
+    mode: 'auto',
+    canArmAlarm: true,
+    statusLabel: 'Ready',
+  },
 }
 ```
+
+How tools usually consume it:
+
+1. Read `commands` to decide which actions exist and whether any carry input schemas or descriptions.
+2. Use `input` to shape payloads before calling `execute(commandName, payload?)`.
+3. Treat `gated: true` as "availability is dynamic" and call `canExecute(commandName)` before offering or invoking that command.
+4. Use `snapshot` when the raw source state matters, and `view` when the projected UI-facing state is the better contract.
+5. Observe outcomes with `execute().events`, `on(...)`, or `watchView(...)` instead of assuming a command succeeded silently.
+
+Example runtime flow:
+
+```ts no-check
+const schema = panel.getSchema();
+const armMetadata = schema.commands.armAlarm;
+
+const eventSubscription = panel.on('alarm-armed', (event) => {
+  console.log('Alarm status:', event.detail);
+});
+
+const viewSubscription = panel.watchView((view) => {
+  console.log('Status label:', view.statusLabel);
+});
+
+if (armMetadata.gated && !panel.canExecute('armAlarm')) {
+  throw new Error('Alarm cannot be armed while a zone is open.');
+}
+
+const result = await panel.execute('armAlarm');
+console.log('Command events:', result.events);
+
+eventSubscription.unsubscribe();
+viewSubscription.unsubscribe();
+```
+
+This separation is intentional:
+
+- `getSchema()` tells you what the runtime exposes right now in JSON-safe form.
+- `canExecute()` answers dynamic command availability.
+- `execute()` performs the transition and returns the resulting snapshot plus emitted events.
+- `on(...)` and `watchView(...)` keep long-lived observers in sync after the initial schema read.
 
 :::note[Dynamic events are not listed]
 `events` enumerates only the names **declared** in the `events:` map. Events emitted by the source itself (the Actor-Web [emitted-event bridge](/ignite-element/guides/actor-web/#emitted-events)) are a compile-time union with no runtime registry, so they don't appear in the schema — observe them via `on(...)` and `execute().events` instead.

@@ -80,6 +80,14 @@ expect(counter.getView()).toMatchObject({ count: 6, limit: 6, isLimited: true })
 
 See [Headless runtime](/ignite-element/api/headless-runtime/) for every method (`execute`, `canExecute`, `getSnapshot`, `getView`, `getSchema`, `on`, `watchSnapshot`, `watchView`, `record`) and its return shape.
 
+In practice, the loop is:
+
+1. Read `getSchema()` to discover commands, declared events, snapshot, and projected view.
+2. Use command metadata input schemas to shape payloads instead of guessing argument structure.
+3. Check `canExecute()` when a command is marked as `gated`.
+4. Run `execute()` and inspect the returned snapshot plus emitted events.
+5. Keep long-lived observers attached with `on(...)` or `watchView(...)` when the workflow spans multiple actions.
+
 ## Add the DOM layer
 
 Once the behavior is stable, the custom element stays thin — it consumes projected view values and command functions. The default DOM layer uses the public `ignite-element/jsx` runtime and ordinary local style tags; no project config is required.
@@ -158,6 +166,8 @@ commands: ({ actor, command }) => ({
 counter.getSchema().commands.submit.gated; // true
 counter.canExecute('submit');              // boolean for the current snapshot
 ```
+
+That means an agent or provider can keep the contract discovery step pure and JSON-safe, then defer the live authorization question to `canExecute()` immediately before invocation. The full runtime example is in [`getSchema()`](/ignite-element/api/headless-runtime/#getschema).
 
 ## Story recording
 

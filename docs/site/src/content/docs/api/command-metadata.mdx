@@ -95,6 +95,8 @@ The predicate function is not serialized into `getSchema()`. Instead the schema
 marks the command with `gated: true`, and consumers call
 `runtime.canExecute('submit')` for the current answer.
 
+That split keeps `getSchema()` JSON-serializable for agents and tool providers while leaving the current availability check in the live runtime. See the richer [`getSchema()` walkthrough](/ignite-element/api/headless-runtime/#getschema) for the full read -> gate -> execute flow.
+
 ## In `getSchema()`
 
 Once commands carry metadata, `getSchema()` returns executable commands and their metadata in one map. Commands without metadata appear as empty objects:
