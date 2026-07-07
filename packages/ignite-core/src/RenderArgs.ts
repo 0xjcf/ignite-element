@@ -254,18 +254,36 @@ export type EventPayload<Descriptor> = Descriptor extends EventDescriptor<
 	? Payload
 	: never;
 
-export type EmitPayloadArgs<
+export type EventMemberFields<Descriptor> = Exclude<
+	EventPayload<Descriptor>,
+	undefined
+>;
+
+type SimplifyEventMember<T> = { [Key in keyof T]: T[Key] };
+
+type EventMemberFromPayload<Type extends string, Payload> = [
+	Exclude<Payload, undefined>,
+] extends [never]
+	? { type: Type }
+	: Exclude<Payload, undefined> extends infer Fields
+		? Fields extends { type: string }
+			? SimplifyEventMember<Extract<Fields, { type: Type }>>
+			: SimplifyEventMember<{ type: Type } & Fields>
+		: never;
+
+export type EventMember<
 	Events extends EventMap,
-	Type extends keyof Events & string,
-> = undefined extends EventPayload<Events[Type]>
-	? [payload?: EventPayload<Events[Type]> | undefined]
-	: [payload: EventPayload<Events[Type]>];
+	Type extends keyof Events & string = keyof Events & string,
+> = Type extends keyof Events & string
+	? string extends keyof Events & string
+		? SimplifyEventMember<{ type: Type } & Record<string, unknown>>
+		: EventMemberFromPayload<Type, EventPayload<Events[Type]>>
+	: never;
 
 export type EmitFromEvents<Events extends EventMap> = <
 	Type extends keyof Events & string,
 >(
-	type: Type,
-	...args: EmitPayloadArgs<Events, Type>
+	event: EventMember<Events, Type>,
 ) => void;
 
 export type CommandContext<Actor, Host = unknown, Snapshot = unknown> = {

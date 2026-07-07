@@ -1,16 +1,13 @@
 import type {
 	EmptyEventMap,
 	EventMap,
-	EventPayload,
+	EventMember,
 	FacadeCommandResult,
 } from "../RenderArgs";
 import type { IgniteAgentSchema, IgniteSchemaValue } from "./schema";
 
 type RuntimeEventUnion<Events extends EventMap> = {
-	[Type in keyof Events & string]: {
-		type: Type;
-		payload: EventPayload<Events[Type]>;
-	};
+	[Type in keyof Events & string]: EventMember<Events, Type>;
 }[keyof Events & string];
 
 export type RuntimeEvent<Events extends EventMap = EmptyEventMap> = [
@@ -18,7 +15,7 @@ export type RuntimeEvent<Events extends EventMap = EmptyEventMap> = [
 ] extends [never]
 	? {
 			type: string;
-			payload: unknown;
+			[key: string]: unknown;
 		}
 	: RuntimeEventUnion<Events>;
 
@@ -115,8 +112,7 @@ export type IgniteStorySummary<
 
 export type IgniteStorySnapshotEvent = {
 	type: string;
-	payload?: IgniteSchemaValue;
-};
+} & Record<string, IgniteSchemaValue>;
 
 export type IgniteStorySummarySnapshot = {
 	name: string;
@@ -175,7 +171,7 @@ export type IgniteAgentExecutionResult<
 export type IgniteAgentEventListener<
 	Events extends EventMap = EmptyEventMap,
 	Type extends keyof Events & string = keyof Events & string,
-> = (event: CustomEvent<EventPayload<Events[Type]>>) => void;
+> = (event: EventMember<Events, Type>) => void;
 
 export type IgniteAgentSnapshotListener<Snapshot> = (
 	snapshot: Snapshot,

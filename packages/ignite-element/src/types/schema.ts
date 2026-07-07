@@ -17,12 +17,16 @@ export type IgniteAgentCommandSchema = Record<
 	IgniteAgentCommandContract
 >;
 
+export type IgniteAgentEventSchema = IgniteSchemaObject & {
+	type: string;
+};
+
 export type IgniteAgentSchema<
 	State = IgniteSchemaValue,
 	View = IgniteSchemaValue,
 > = {
 	commands: IgniteAgentCommandSchema;
-	events: string[];
+	events: IgniteAgentEventSchema[];
 	state: State;
 	view: View;
 };

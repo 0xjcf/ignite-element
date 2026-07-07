@@ -13,13 +13,49 @@ import type { IgniteSchemaValue } from "../types/schema";
 import { commandMetadataSymbol } from "./commands";
 import { toSchemaValue } from "./schema";
 
-// Reads the discriminant `type` of a source-emitted event (the adapter's
-// optional `subscribeEvents()` seam yields plain `{ type, ... }` objects).
-function emittedEventType(event: unknown): string | undefined {
-	if (typeof event === "object" && event !== null && "type" in event) {
-		return String((event as { type: unknown }).type);
+type RuntimeEventMember = {
+	type: string;
+	[key: string]: unknown;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function customEventToRuntimeEvent(
+	event: CustomEvent<unknown>,
+): RuntimeEventMember {
+	if (isRecord(event.detail)) {
+		return { ...event.detail, type: event.type };
 	}
-	return undefined;
+
+	if (typeof event.detail === "undefined") {
+		return { type: event.type };
+	}
+
+	return { type: event.type, detail: event.detail };
+}
+
+function sourceEventToRuntimeEvent(
+	event: unknown,
+): RuntimeEventMember | undefined {
+	if (!isRecord(event) || !("type" in event)) {
+		return undefined;
+	}
+
+	return {
+		...event,
+		type: String(event.type),
+	};
+}
+
+function cloneRuntimeEvent(event: RuntimeEventMember): RuntimeEventMember {
+	return { ...event };
+}
+
+function eventFields(event: RuntimeEventMember): Record<string, unknown> {
+	const { type: _type, ...fields } = event;
+	return fields;
 }
 
 type RuntimeResources<
@@ -281,23 +317,22 @@ export function createAgentRuntime<
 
 	const on = (
 		eventName: string,
-		handler: (event: CustomEvent<unknown>) => void,
+		handler: (event: RuntimeEventMember) => void,
 	) => {
 		retainRuntimeAccess?.();
 		const { host, adapter } = resolveRuntime();
 		const listener = (event: Event) => {
-			handler(event as CustomEvent<unknown>);
+			handler(customEventToRuntimeEvent(event as CustomEvent<unknown>));
 		};
 
 		host.addEventListener(eventName, listener as EventListener);
 
 		// Bridge source-emitted events (the adapter's optional `subscribeEvents()`
-		// seam) to this listener with the uniform `{ type, payload }` shape
-		// (payload = the emitted event). Effects-emitted events keep arriving via
-		// the host above.
+		// seam) to this listener with the same flat member shape as effects.
 		const eventsSubscription = adapter.subscribeEvents?.((event: unknown) => {
-			if (emittedEventType(event) === eventName) {
-				handler(new CustomEvent(eventName, { detail: event }));
+			const member = sourceEventToRuntimeEvent(event);
+			if (member?.type === eventName) {
+				handler(member);
 			}
 		});
 
@@ -349,28 +384,22 @@ export function createAgentRuntime<
 				throw new Error(`[igniteCore] Unknown command "${commandName}".`);
 			}
 
-			const events: Array<{ type: string; payload: unknown }> = [];
+			const events: RuntimeEventMember[] = [];
 			const listeners = eventTypes.map((eventType) => {
 				const listener = (event: Event) => {
-					const customEvent = event as CustomEvent<unknown>;
-					events.push({
-						type: customEvent.type,
-						payload: customEvent.detail,
-					});
+					events.push(customEventToRuntimeEvent(event as CustomEvent<unknown>));
 				};
 
 				host.addEventListener(eventType, listener as EventListener);
 				return { eventType, listener };
 			});
 
-			// Capture source-emitted events (the adapter's optional `subscribeEvents()`
-			// seam) during the command window — independent of the declared
-			// `eventTypes`, so dynamic emit types are collected with the uniform
-			// `{ type, payload }` shape.
+			// Capture source-emitted events during the command window independent of
+			// declared eventTypes, so dynamic emit types are collected as flat members.
 			const sourceSubscription = adapter.subscribeEvents?.((event: unknown) => {
-				const type = emittedEventType(event);
-				if (type !== undefined) {
-					events.push({ type, payload: event });
+				const member = sourceEventToRuntimeEvent(event);
+				if (member) {
+					events.push(member);
 				}
 			});
 
@@ -395,7 +424,7 @@ export function createAgentRuntime<
 	const record = (name: string) => {
 		const traceEntries: IgniteStoryTraceEntry[] = [];
 		const lifecycleEntries: IgniteStoryLifecycleEntry[] = [];
-		const emittedEvents: Array<{ type: string; payload: unknown }> = [];
+		const emittedEvents: RuntimeEventMember[] = [];
 		let active = true;
 		let commandCount = 0;
 		let traceSequence = 0;
@@ -423,10 +452,7 @@ export function createAgentRuntime<
 		};
 
 		const copyEvents = () =>
-			emittedEvents.map((event) => ({
-				type: event.type,
-				payload: event.payload,
-			}));
+			emittedEvents.map((event) => cloneRuntimeEvent(event));
 
 		const story = {
 			name,
@@ -467,15 +493,12 @@ export function createAgentRuntime<
 				const result = await executeCommand(commandName, payload);
 
 				for (const event of result.events) {
-					emittedEvents.push({
-						type: event.type,
-						payload: event.payload,
-					});
+					emittedEvents.push(cloneRuntimeEvent(event));
 					pushTrace({
 						kind: "event",
 						step,
 						event: event.type,
-						payload: normalizeTraceValue(event.payload),
+						payload: normalizeTraceValue(eventFields(event)),
 					});
 				}
 
@@ -601,7 +624,7 @@ export function createAgentRuntime<
 
 				return {
 					commands,
-					events: [...eventTypes].sort(),
+					events: [...eventTypes].sort().map((type) => ({ type })),
 					state: (toSchemaValue(adapter.getSnapshot()) ?? null) as Exclude<
 						ReturnType<typeof toSchemaValue>,
 						undefined

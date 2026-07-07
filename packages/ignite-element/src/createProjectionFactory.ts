@@ -3,9 +3,9 @@ import type { BaseRenderArgs } from "./IgniteElementFactory";
 import type {
 	CommandHelper,
 	EmitFromEvents,
-	EmitPayloadArgs,
 	EmptyEventMap,
 	EventMap,
+	EventMember,
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeCommandsCallback,
@@ -274,18 +274,17 @@ export function createProjectionFactory<
 
 	const createEmit = (emit: EmitFromEvents<Events>): EmitFromEvents<Events> => {
 		return <Type extends keyof Events & string>(
-			type: Type,
-			...args: EmitPayloadArgs<Events, Type>
+			event: EventMember<Events, Type>,
 		) => {
 			if (isDevelopment()) {
-				if (!(type in eventDefinitions)) {
+				if (!(event.type in eventDefinitions)) {
 					throw new Error(
-						`[${errorPrefix}] Unknown event "${type}". Declare it in the events map before emitting.`,
+						`[${errorPrefix}] Unknown event "${event.type}". Declare it in the events map before emitting.`,
 					);
 				}
 			}
 
-			return emit(type, ...args);
+			return emit(event);
 		};
 	};
 
