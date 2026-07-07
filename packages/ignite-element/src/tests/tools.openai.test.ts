@@ -248,17 +248,14 @@ describe("openai.toolCalls (OpenAI-compatible response -> neutral calls)", () =>
 		{
 			label: "a non-object entry",
 			call: null,
-			message: /tool_calls\[0\] to be an object/,
 		},
 		{
 			label: "a non-function tool-call type",
 			call: { id: "call_other", type: "custom", function: {} },
-			message: /tool_calls\[0\]\.type/,
 		},
 		{
 			label: "a missing function object",
 			call: { id: "call_missing_function", type: "function" },
-			message: /tool_calls\[0\]\.function to be an object/,
 		},
 		{
 			label: "a missing function name",
@@ -267,7 +264,6 @@ describe("openai.toolCalls (OpenAI-compatible response -> neutral calls)", () =>
 				type: "function",
 				function: { arguments: "{}" },
 			},
-			message: /tool_calls\[0\]\.function\.name/,
 		},
 		{
 			label: "missing function arguments",
@@ -276,9 +272,8 @@ describe("openai.toolCalls (OpenAI-compatible response -> neutral calls)", () =>
 				type: "function",
 				function: { name: "setLimit" },
 			},
-			message: /tool_calls\[0\]\.function\.arguments/,
 		},
-	])("throws when a provider returns $label", ({ call, message }) => {
+	])("skips $label from provider tool calls", ({ call }) => {
 		const malformed: OpenAIChatCompletionResponse = {
 			choices: [
 				{
@@ -292,7 +287,36 @@ describe("openai.toolCalls (OpenAI-compatible response -> neutral calls)", () =>
 				},
 			],
 		};
-		expect(() => openai.toolCalls(malformed, manifest)).toThrow(message);
+		expect(openai.toolCalls(malformed, manifest)).toEqual([]);
+	});
+
+	it("keeps valid sibling calls when a provider returns a malformed tool call", () => {
+		const mixed: OpenAIChatCompletionResponse = {
+			choices: [
+				{
+					message: {
+						tool_calls: [
+							{ id: "call_other", type: "custom", function: {} },
+							{
+								id: "call_valid",
+								type: "function",
+								function: {
+									name: "setLimit",
+									arguments: JSON.stringify({ value: 8 }),
+								},
+							},
+						] as unknown as NonNullable<
+							NonNullable<
+								OpenAIChatCompletionResponse["choices"][number]["message"]
+							>["tool_calls"]
+						>,
+					},
+				},
+			],
+		};
+		expect(openai.toolCalls(mixed, manifest)).toEqual([
+			{ id: "call_valid", name: "setLimit", input: 8 },
+		]);
 	});
 
 	it("synthesizes stable call ids when a provider omits them", () => {

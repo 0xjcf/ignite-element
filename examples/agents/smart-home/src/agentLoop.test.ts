@@ -1322,6 +1322,67 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 		}
 	});
 
+	it("continues through valid OpenAI-compatible tool call siblings", async () => {
+		const observedMessages: Array<
+			Parameters<OpenAICompatibleModel>[0]["messages"]
+		> = [];
+		let turn = 0;
+		const model: OpenAICompatibleModel = async ({ messages }) => {
+			observedMessages.push(
+				JSON.parse(
+					JSON.stringify(messages),
+				) as Parameters<OpenAICompatibleModel>[0]["messages"],
+			);
+			turn += 1;
+			if (turn === 1) {
+				return {
+					choices: [
+						{
+							message: {
+								role: "assistant",
+								tool_calls: [
+									{ id: "call_bad", type: "custom", function: {} },
+									{
+										id: "call_valid",
+										type: "function",
+										function: { name: "status", arguments: "{}" },
+									},
+								] as unknown as NonNullable<
+									NonNullable<
+										OpenAIChatCompletionResponse["choices"][number]["message"]
+									>["tool_calls"]
+								>,
+							},
+						},
+					],
+				};
+			}
+			return {
+				choices: [{ message: { role: "assistant", content: "Status read." } }],
+			};
+		};
+
+		const result = await runHomeOpenAICompatibleAgent(model, "read status");
+
+		try {
+			expect(result.trace).toHaveLength(1);
+			expect(result.trace[0]).toMatchObject({
+				command: "status",
+				ok: true,
+			});
+			expect(observedMessages[1]?.[1]).toMatchObject({
+				role: "assistant",
+				tool_calls: [{ id: "call_valid" }],
+			});
+			expect(observedMessages[1]?.[2]).toMatchObject({
+				role: "tool",
+				tool_call_id: "call_valid",
+			});
+		} finally {
+			await result.close();
+		}
+	});
+
 	it("normalizes multi-choice OpenAI-compatible responses to the first choice", async () => {
 		let turn = 0;
 		const multiChoiceModel: OpenAICompatibleModel = async () => {

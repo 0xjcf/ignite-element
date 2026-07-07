@@ -232,9 +232,14 @@ export function assertOpenAIChatCompletionResponse(
 			}
 			continue;
 		}
-		if (!Array.isArray(toolCalls) || !toolCalls.every(isOpenAIToolCall)) {
+		if (!Array.isArray(toolCalls)) {
 			throw new Error(
 				`${source} was malformed: message.tool_calls must be valid function tool calls.`,
+			);
+		}
+		if (!toolCalls.some(isOpenAIToolCall) && !hasTextContent) {
+			throw new Error(
+				`${source} was malformed: message.tool_calls must include at least one valid function tool call when content is empty.`,
 			);
 		}
 	}
@@ -273,7 +278,7 @@ export function toOpenAIAssistantMessage(
 		role: "assistant",
 		content: typeof content === "string" ? content : null,
 		tool_calls: Array.isArray(toolCalls)
-			? normalizeOpenAIToolCalls(toolCalls)
+			? normalizeOpenAIToolCalls(toolCalls.filter(isOpenAIToolCall))
 			: undefined,
 	};
 }
@@ -285,12 +290,13 @@ function normalizeOpenAIChoice(
 	if (!isRecord(message) || !Array.isArray(message.tool_calls)) {
 		return choice;
 	}
+	const validToolCalls = message.tool_calls.filter(isOpenAIToolCall);
 
 	return {
 		...choice,
 		message: {
 			...message,
-			tool_calls: normalizeOpenAIToolCalls(message.tool_calls),
+			tool_calls: normalizeOpenAIToolCalls(validToolCalls),
 		},
 	};
 }

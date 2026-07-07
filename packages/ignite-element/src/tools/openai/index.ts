@@ -158,22 +158,29 @@ export const openai: ToolDialect<
 		if (!Array.isArray(calls)) {
 			return [];
 		}
-		return calls.map((call, index) => {
-			assertOpenAIChatToolCall(call, index);
-			const id =
-				typeof call.id === "string" && call.id.length > 0
-					? call.id
-					: `call_${index}`;
-			return {
-				id,
-				name: call.function.name,
-				input: fromProviderInput(
-					parseArguments(call.function.arguments),
-					manifest.find((tool) => tool.name === call.function.name)
-						?.inputSchema,
-				),
-			};
-		});
+		const parsedCalls: NeutralToolCall[] = [];
+		for (const [index, call] of calls.entries()) {
+			try {
+				assertOpenAIChatToolCall(call, index);
+				const id =
+					typeof call.id === "string" && call.id.length > 0
+						? call.id
+						: `call_${index}`;
+				parsedCalls.push({
+					id,
+					name: call.function.name,
+					input: fromProviderInput(
+						parseArguments(call.function.arguments),
+						manifest.find((tool) => tool.name === call.function.name)
+							?.inputSchema,
+					),
+				});
+			} catch {
+				// Provider output is untrusted. Drop malformed sibling entries while
+				// preserving any valid calls from the same assistant turn.
+			}
+		}
+		return parsedCalls;
 	},
 
 	toolResult({ id, result }: NeutralToolResult): OpenAIChatToolResultMessage {
