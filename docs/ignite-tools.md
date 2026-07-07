@@ -188,21 +188,29 @@ consumer still brings the SDK or `fetch` client:
 
 ```ts
 const { tools, toolCalls, run, toolResult } = igniteTools(runtime, openai);
-const response = await client.chat.completions.create({
-  model,
-  messages,
-  tools,
-});
-const assistant = response.choices[0]?.message ?? {};
-messages.push({
-  role: "assistant",
-  content: typeof assistant.content === "string" ? assistant.content : null,
-  tool_calls: assistant.tool_calls ?? undefined,
-});
 
-for (const call of toolCalls(response)) {
-  const result = await run(call);
-  messages.push(toolResult({ id: call.id, name: call.name, result }));
+for (let turn = 0; turn < 8; turn++) {
+  const response = await client.chat.completions.create({
+    model,
+    messages,
+    tools,
+  });
+  const assistant = response.choices[0]?.message ?? {};
+  messages.push({
+    role: "assistant",
+    content: typeof assistant.content === "string" ? assistant.content : null,
+    tool_calls: assistant.tool_calls ?? undefined,
+  });
+
+  const calls = toolCalls(response);
+  if (calls.length === 0) {
+    break;
+  }
+
+  for (const call of calls) {
+    const result = await run(call);
+    messages.push(toolResult({ id: call.id, name: call.name, result }));
+  }
 }
 ```
 
