@@ -976,8 +976,9 @@ No active tasks.
 
 - Title: Cut stable v3.0.0: changeset pre exit + lockstep publish
 - Mode: single-agent
-- Status: queued
+- Status: deferred
 - Owner: runtime
+- Note: Re-sequenced 2026-07-07 — still last; blocked by main merge after breaking cutover plus docs final sweep.
 - Brief: .fas/tasks/cut-stable-v3-0-0-changeset-pre-exit-lockstep-publish.md
 
 ### Task: Replace docs homepage StackBlitz embed with a docs-native interactive counter demo (keep StackBlitz/repo links as plain links); fixes the 'Unable to run Embedded Project' isolation-header failure on GitHub Pages
@@ -1025,8 +1026,9 @@ No active tasks.
 
 - Title: Stable v3: merge the v3 line to main and retire branch-dispatch docs deploys
 - Mode: single-agent
-- Status: queued
+- Status: deferred
 - Owner: runtime
+- Note: Re-sequenced 2026-07-07 — blocked by docs final sweep after the breaking API cutover batch.
 - Brief: .fas/tasks/stable-v3-merge-the-v3-line-to-main-and-retire-branch-dispa.md
 
 ### Task: XStateAdapter: implement stream() over XState v5 emitted events
@@ -1136,8 +1138,9 @@ No active tasks.
 
 - Title: Beta.6 docs accuracy + polish. P0 (correctness): the docs-site prose still teaches the pre-beta.6 cleanup/ownership default and is now inaccurate. Update to beta.6 semantics — 'cleanup' defaults to FALSE for shared (consumer-owned) sources (an already-live actor/store/observable/source passed to igniteCore); shared adapters are NOT released on element-refcount-zero by default (they live for the core's lifetime); adapters never stop or close a source they did not create (generalized ownsActor->ownsSource). Affected docs: docs/site/src/content/docs/concepts/the-ignite-model.mdx (cleanup/scope sections ~17,45,225,226), docs/site/src/content/docs/api/ignite-core.mdx (~32,40,45), docs/site/src/content/docs/guides/routing.mdx (~165 — drop the now-redundant cleanup:false guidance; explain the new default), docs/site/src/content/docs/migration/v2.mdx (~19,89,90,96), docs/site/src/content/docs/getting-started/first-component.mdx (~87), docs/site/src/content/docs/guides/testing.mdx (~135 — Ignite-owned vs consumer-owned teardown wording). P1 (UX): add a /guides/ index landing page (bare /guides/ currently 404s while individual guides are live). P2 (depth): add a 'When to choose Ignite / comparisons' page surfacing existing positioning, and deepen the getSchema() docs (guides/agent-runtime-v3.mdx and/or api) with example output for the agent angle. Verify via the docs build + contrast/markdownlint/code-example guardrails. Do NOT modify archived docs under docs/site/src/content/docs/2.x/.
 - Mode: 6-agent
-- Status: done
-- Owner: implementer
+- Status: deferred
+- Owner: runtime
+- Note: Re-sequenced 2026-07-07 — final sweep in the breaking API batch, after expectSnapshot, before main merge.
 - Brief: .fas/tasks/beta-6-docs-accuracy-polish-p0-correctness-the-docs-si.md
 - Automation mode: advisory
 - Verification lane: fast
@@ -1192,8 +1195,9 @@ No active tasks.
 
 - Title: Add Renovate for ongoing dependency currency so state-lib versions stop drifting (would have caught the xstate 5.25/5.30 split). Add a renovate.json (or .github/renovate.json) configured for this pnpm-workspace monorepo: (1) group the state libraries (xstate, @reduxjs/toolkit, redux, mobx) into a single grouped PR so adapter+example bumps land together; (2) limit automated bumps to devDependencies and the example packages — never auto-bump the published packages' own versions or peer-dependency floors (those are deliberate, changeset-gated decisions); (3) keep examples pinned where determinism matters (e.g. xstate examples are pinned exact to avoid the in-place-install typecheck skew); (4) a sane schedule + PR concurrency limit; (5) respect the changesets release flow (do not touch .changeset or package versions). Evaluate Dependabot as the simpler GitHub-native alternative, but Renovate is preferred for its monorepo grouping. Document the policy briefly. Affected files: renovate.json (new), and a short note in the contributing/release docs.
 - Mode: single-agent
-- Status: queued
+- Status: deferred
 - Owner: runtime
+- Note: Re-sequenced 2026-07-07 — parked launch-polish side-chain after bundle-size numbers.
 - Brief: .fas/tasks/add-renovate-for-ongoing-dependency-currency-so-state-lib-ve.md
 - Automation mode: advisory
 
@@ -1250,8 +1254,9 @@ No active tasks.
 
 - Title: docs: publish per-entrypoint bundle-size numbers (tree-shaken + gzip) with optional CI size budget
 - Mode: single-agent
-- Status: queued
+- Status: deferred
 - Owner: runtime
+- Note: Re-sequenced 2026-07-07 — parked launch-polish side-chain after docs final sweep; not the next release gate.
 - Brief: .fas/tasks/docs-publish-per-entrypoint-bundle-size-numbers-tree-shaken-.md
 
 ### Task: examples: add worked apps (form-with-validation, nested/child-router, dashboard-with-shared-state)
@@ -1315,22 +1320,25 @@ No active tasks.
 - Mode: single-agent
 - Status: queued
 - Owner: runtime
+- Note: Re-sequenced 2026-07-07 — starts the breaking API batch.
 - Brief: .fas/tasks/breaking-v3-cutover-canonical-flat-tagged-event-type-fields-.md
 
 ### Task: BREAKING (v3 cutover): uniform view/effects context = { snapshot } only (drop the spread) per docs/view-context-canonica
 
 - Title: BREAKING (v3 cutover): uniform view/effects context = { snapshot } only (drop the spread) per docs/view-context-canonica
 - Mode: single-agent
-- Status: queued
+- Status: deferred
 - Owner: runtime
+- Note: Re-sequenced 2026-07-07 — follows the event-shape cutover.
 - Brief: .fas/tasks/breaking-v3-cutover-uniform-view-effects-context-snapshot-on.md
 
 ### Task: BREAKING (v3 cutover): rename expectState -> expectSnapshot (deprecated alias) + expectEvent member form per docs/v3-api
 
 - Title: BREAKING (v3 cutover): rename expectState -> expectSnapshot (deprecated alias) + expectEvent member form per docs/v3-api
 - Mode: single-agent
-- Status: queued
+- Status: deferred
 - Owner: runtime
+- Note: Re-sequenced 2026-07-07 — follows the view/effects context cutover and unblocks docs final sweep.
 - Brief: .fas/tasks/breaking-v3-cutover-rename-expectstate-expectsnapshot-deprec.md
 
 ### Task: V3 BETA: remove positional effects callback per docs/v3-api-consistency.md
@@ -1432,9 +1440,9 @@ No active tasks.
 
 - Title: examples/frameworks: Angular interop demo — consume an ignite element (CUSTOM_ELEMENTS_SCHEMA)
 - Mode: single-agent
-- Status: queued
+- Status: deferred
 - Owner: runtime
-- Note: Unblocked by owner on 2026-07-02 — complete all v3 stable roadmap tasks before the breaking cutover; Angular interop is back in the enforced pre-stable chain. Prior hold-off preserved as historical context in docs/v3-stable-roadmap.md.
+- Note: Re-sequenced 2026-07-07 — parked in the launch-polish side-chain after GTM; no longer blocks the breaking API cutover.
 - Brief: .fas/tasks/examples-frameworks-angular-interop-demo-consume-an-ignite-e.md
 
 ### Task: examples/apps: form-with-validation worked app (XState + ignite-jsx)

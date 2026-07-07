@@ -2,14 +2,16 @@
 
 ## Status
 
-Active plan (updated 2026-07-06). The agreed order of work from current beta
+Active plan (updated 2026-07-07). The agreed order of work from current beta
 (`3.0.0-beta.7`) to the stable `3.0.0` cut. Dependencies are wired in the FAS
 queue so the critical path is enforced. As of 2026-07-02, the queue also tracks
 the remaining roadmap work through first-class FAS epics so the full completion
 policy is explicit, not just prose guidance. As of 2026-07-05, the agent/local
 model ecosystem story is also enforced before launch polish and the breaking
 cutover. **Phase 0 (framework-interop examples) is pulled ahead of the additive
-API as gap-finders** (owner, 2026-06-19).
+API as gap-finders** (owner, 2026-06-19). Owner update, 2026-07-07: the next
+FAS batch is the breaking API cutover, with docs polish as the final sweep before
+main merge.
 
 ## North star + the enforced spine
 
@@ -18,15 +20,14 @@ prerequisites (adapter-contract-naming, tracker-hygiene, T7 deprecated-surface
 removal) are already done, so the only hard gates left are:
 
 ```
-breaking cutover (3 tasks) ──blocks──▶ main-merge (1781292613064) ──blocks──▶ cut stable 3.0.0 (1781197578529)
+breaking cutover (3 tasks) ──blocks──▶ docs final sweep (1781724711926) ──blocks──▶ main-merge (1781292613064) ──blocks──▶ cut stable 3.0.0 (1781197578529)
 ```
 
-**Only breaking changes are hard gates.** Breaking changes must land before
-`3.0.0` (you cannot break after 1.0). Additive work and polish are *wanted* in
-the stable release but are **not** hard blockers — anything additive can ship as
-a `3.x` minor afterward. Owner update, 2026-07-02: for this release effort, the
-queue now enforces the remaining additive, agent/local-model, polish, and
-breaking roadmap work before the stable cut.
+Breaking changes must land before `3.0.0` (you cannot break after 1.0). The docs
+final sweep is also a release gate now because it must describe the final
+post-cutover API before the v3 line merges to `main`. Other additive work and
+polish remain *wanted* for the broader roadmap but can ship as `3.x` follow-ups
+unless the owner explicitly pulls them back into the release gate.
 
 ## Enforced roadmap epics
 
@@ -39,10 +40,10 @@ The queue preserves both the epic grouping and the execution chain:
 3. `epic-v3-agent-local-model-showcase` — OpenAI-compatible tool dialect,
    local MLX smart-home loop, actor-web-backed real-agent dogfood, and local
    model boundary docs.
-4. `epic-v3-launch-polish` — docs accuracy, bundle-size numbers, Renovate, GTM
-   spike, and Angular interop.
-5. `epic-v3-breaking-release-cutover` — breaking trio, main merge, and stable
-   `3.0.0` cut.
+4. `epic-v3-breaking-release-cutover` — breaking trio, docs final sweep, main
+   merge, and stable `3.0.0` cut.
+5. `epic-v3-launch-polish` — parked side-chain for bundle-size numbers,
+   Renovate, GTM spike, and Angular interop.
 
 The enforced order is:
 
@@ -61,16 +62,18 @@ igniteTools Phase C
   -> local MLX smart-home agent loop
   -> actor-web-backed real-agent dogfood
   -> local-model agent docs / ecosystem boundaries
-  -> docs accuracy / UX / positioning
-  -> bundle-size numbers
-  -> Renovate
-  -> GTM spike
-  -> Angular interop
   -> breaking event shape
   -> breaking view/effects context
   -> breaking snapshot rename
+  -> docs accuracy / UX / positioning
   -> main merge
   -> stable 3.0.0 cut
+```
+
+Parked launch-polish side-chain after the docs sweep:
+
+```text
+bundle-size numbers -> Renovate -> GTM spike -> Angular interop
 ```
 
 ## Phase 0 — Framework-interop examples (gap-finders, run first)
@@ -85,7 +88,9 @@ path and documents the friction honestly; **no** per-framework `ignite*` helpers
 single-agent. The **Angular demo was previously backlogged** (owner hold-off
 2026-06-20): its claims were removed from the beta docs so nothing over-claims.
 Owner update, 2026-07-02: Angular is back in the enforced pre-stable chain after
-launch-polish work and before the breaking cutover.
+launch-polish work and before the breaking cutover. Owner update, 2026-07-07:
+Angular is re-parked in the launch-polish side-chain so the breaking API cutover
+can land before stable.
 
 | Task | id | Status |
 | --- | --- | --- |
@@ -93,9 +98,9 @@ launch-polish work and before the breaking cutover.
 | Svelte demo (`<ignite-stepper>`, redux, zero config) | `1781919336709` | ✅ done |
 | Worked app: form-with-validation (XState + ignite-JSX) | `1781962208694` | ✅ done |
 | Worked apps: nested router + dashboard-with-shared-state | `1781805264107` | ▶ next (form split out + done) |
-| Angular demo (`CUSTOM_ELEMENTS_SCHEMA`) | `1781919547313` | queued in enforced pre-stable chain |
+| Angular demo (`CUSTOM_ELEMENTS_SCHEMA`) | `1781919547313` | parked launch-polish side-chain |
 
-Order: **Vue ✓ → Svelte ✓ → worked-apps → Phase 1 → agent/local-model showcase → launch polish → Angular → breaking cutover.**
+Order: **Vue ✓ → Svelte ✓ → worked-apps → Phase 1 → agent/local-model showcase → breaking cutover → docs final sweep.**
 
 ## Phase 1 — Gap-finder + additive API (parallel, pre-cut)
 
@@ -166,45 +171,49 @@ Completion standard for this epic:
 | Actor-web-backed real-agent dogfood | `1783286017890` | Proves a real agent loop driving an actor-web-backed Ignite component through `igniteTools` |
 | Local-model docs and ecosystem boundary closeout | `1783286029030` | Blocks launch-polish docs so the stable docs include the agent/local-model story |
 
-## Phase 2 — Breaking cutover (one coordinated landing, pre-cut)
+## Phase 2 — Breaking cutover + docs final sweep (one coordinated landing, pre-cut)
 
-The hard gate. Land **together** in the **same beta**, with **one** goodway
-migration note. Decisions are locked (see `docs/v3-api-consistency.md`).
+The hard gate. Land the three breaking API changes **together** in the **same
+beta**, then run the docs polish as the final sweep in the same FAS batch.
+Use **one** goodway migration note. Decisions are locked (see
+`docs/v3-api-consistency.md`).
 
 | Task | id | Doc |
 | --- | --- | --- |
 | Flat tagged event `{ type, … }` | `1781818971210` | `docs/event-shape.md` |
 | Uniform view/effects context `{ snapshot }` | `1781818972687` | `docs/view-context-canonicalization.md` |
 | Full `state`→`snapshot` rename (`expectState`→`expectSnapshot` + `result.state`/`schema.state`/record-trace) + `expectEvent` member form | `1781818974159` | `docs/v3-api-consistency.md` |
+| Docs accuracy / UX / positioning final sweep | `1781724711926` | stable docs must describe the final post-cutover API |
 
-These three are wired to **block the main-merge**. Do them after the enforced
-pre-stable epic chain settles so the cutover absorbs any interop- or
-polish-surfaced gaps. Coordinate with the cross-repo goodway `getInitialSnapshot`
-spike (in `../the-good-way-bluejf`) for the single migration note.
+The breaking trio feeds the docs final sweep, and the docs sweep blocks the
+main-merge. Coordinate with the cross-repo goodway `getInitialSnapshot` spike
+(in `../the-good-way-bluejf`) for the single migration note.
 
-## Phase 3 — Launch polish (pre-stable; enforced for this release effort)
+## Phase 3 — Launch polish side-chain (parked unless pulled forward)
 
 | Task | id | Note |
 | --- | --- | --- |
-| Docs accuracy / UX / positioning (beta.6 P0) | `1781724711926` | must be right before stable docs ship |
+| Docs accuracy / UX / positioning (beta.6 P0) | `1781724711926` | **moved to Phase 2 final sweep** |
 | Worked apps (form / nested router / dashboard) | `1781805264107` | **moved to Phase 0** — gap-finder, now wired into the enforced chain |
-| Bundle-size numbers | `1781805262589` | credibility, now sequenced after docs accuracy |
+| Bundle-size numbers | `1781805262589` | credibility; sequenced after docs accuracy, not a release gate |
 | Renovate (dependency currency) | `1781743752184` | infra hygiene, now sequenced before GTM |
-| GTM spike (CLI / embeds / video / one-pager) | `1781724738855` | read-only; produces follow-ups before Angular/breaking work |
+| GTM spike (CLI / embeds / video / one-pager) | `1781724738855` | read-only; produces follow-ups before Angular |
+| Angular interop demo (`CUSTOM_ELEMENTS_SCHEMA`) | `1781919547313` | parked after GTM as a launch-polish follow-up |
 
 ## Phase 4 — The cut (last)
 
 | Task | id | Gate |
 | --- | --- | --- |
-| Merge v3 line → `main`, retire branch-dispatch docs deploys | `1781292613064` | deferred behind the breaking trio |
+| Merge v3 line → `main`, retire branch-dispatch docs deploys | `1781292613064` | deferred behind the breaking trio plus docs final sweep |
 | Cut stable `3.0.0` (changeset pre-exit + lockstep publish) | `1781197578529` | deferred behind main-merge |
 
 ## Release mechanics
 
 Betas keep cutting incrementally as Phase 1–3 land (changesets accumulate —
 e.g. `xstate-command-actor-getsnapshot`, the pending `igniteShell` one). The
-breaking trio ships as one beta. Stable `3.0.0` is the final lockstep publish from
-`main` (see the `release-beta` skill + `v3-beta-release-flow` memory).
+breaking trio plus docs final sweep ship as one beta. Stable `3.0.0` is the
+final lockstep publish from `main` (see the `release-beta` skill +
+`v3-beta-release-flow` memory).
 
 ## Done this session (context)
 

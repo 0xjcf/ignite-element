@@ -39,9 +39,7 @@
       "mode": "single-agent",
       "dependsOn": [
         "task-1781302274543",
-        "task-1781818971210",
-        "task-1781818972687",
-        "task-1781818974159"
+        "task-1781724711926"
       ],
       "blocks": [
         "task-1781197578529"
@@ -49,8 +47,8 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-12T19:30:13.064Z",
-      "updatedAt": "2026-06-18T21:43:50.963Z",
-      "deferredReason": "dependency_reopened: task-1781818971210, task-1781818972687, task-1781818974159",
+      "updatedAt": "2026-07-07T14:56:41.000Z",
+      "deferredReason": "dependency_reopened: task-1781724711926",
       "invalidationReason": null
     },
     {
@@ -62,21 +60,22 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "deferred",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
         "task-1782187745669",
-        "task-1783357471256"
+        "task-1783357471256",
+        "task-1781818974159"
       ],
       "blocks": [
-        "task-1781805262589"
+        "task-1781292613064"
       ],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-17T19:31:51.926Z",
-      "updatedAt": "2026-07-05T21:13:49.030Z",
-      "deferredReason": null,
+      "updatedAt": "2026-07-07T14:56:41.000Z",
+      "deferredReason": "dependency_reopened: task-1781818974159",
       "invalidationReason": null
     },
     {
@@ -163,21 +162,18 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "workflow-quality",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "single-agent",
-      "dependsOn": [
-        "task-1781919547313"
-      ],
+      "dependsOn": [],
       "blocks": [
-        "task-1781292613064",
         "task-1781818972687"
       ],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-18T21:42:51.210Z",
-      "updatedAt": "2026-06-18T21:43:50.963Z",
-      "deferredReason": "dependency_reopened: task-1781919547313",
+      "updatedAt": "2026-07-07T14:56:41.000Z",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -196,7 +192,6 @@
         "task-1781818971210"
       ],
       "blocks": [
-        "task-1781292613064",
         "task-1781818974159"
       ],
       "branchBase": null,
@@ -222,7 +217,7 @@
         "task-1781818972687"
       ],
       "blocks": [
-        "task-1781292613064"
+        "task-1781724711926"
       ],
       "branchBase": null,
       "prDependencies": [],
@@ -246,9 +241,7 @@
       "dependsOn": [
         "task-1781724738855"
       ],
-      "blocks": [
-        "task-1781818971210"
-      ],
+      "blocks": [],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-20T01:39:07.313Z",
