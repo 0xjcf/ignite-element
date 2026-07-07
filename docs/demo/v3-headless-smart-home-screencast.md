@@ -21,7 +21,7 @@ From a clean repo checkout:
 ```bash
 pnpm install
 cd examples/agents/smart-home
-pnpm install --ignore-workspace --no-link-workspace-packages
+pnpm install --ignore-workspace --link-workspace-packages=false
 npm test
 ```
 
