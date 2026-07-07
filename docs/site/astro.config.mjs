@@ -65,6 +65,7 @@ export default defineConfig({
 							label: "When to choose Ignite",
 							slug: "overview/when-to-choose-ignite",
 						},
+						{ label: "Bundle size", slug: "overview/bundle-size" },
 					],
 				},
 				{

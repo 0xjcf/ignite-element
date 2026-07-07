@@ -1028,7 +1028,6 @@ No active tasks.
 - Mode: single-agent
 - Status: deferred
 - Owner: runtime
-- Note: Re-sequenced 2026-07-07 — blocked by docs final sweep after the breaking API cutover batch.
 - Brief: .fas/tasks/stable-v3-merge-the-v3-line-to-main-and-retire-branch-dispa.md
 
 ### Task: XStateAdapter: implement stream() over XState v5 emitted events
@@ -1254,10 +1253,12 @@ No active tasks.
 
 - Title: docs: publish per-entrypoint bundle-size numbers (tree-shaken + gzip) with optional CI size budget
 - Mode: single-agent
-- Status: deferred
-- Owner: runtime
-- Note: Re-sequenced 2026-07-07 — parked launch-polish side-chain after docs final sweep; not the next release gate.
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/docs-publish-per-entrypoint-bundle-size-numbers-tree-shaken-.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: examples: add worked apps (form-with-validation, nested/child-router, dashboard-with-shared-state)
 
