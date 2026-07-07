@@ -31,6 +31,7 @@ import type {
 	FacadeEffectArgs,
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
+	ViewContext,
 } from "../RenderArgs";
 import { jsx, jsxs } from "../renderers/jsx/jsx-runtime";
 import { toSchemaValue } from "../runtime/schema";
@@ -207,6 +208,28 @@ describe("igniteCore", () => {
 		vi.restoreAllMocks();
 	});
 
+	it("passes only the snapshot wrapper to view callbacks", () => {
+		const store = counterStore();
+		type StoreState = InferStateAndEvent<typeof store>["State"];
+
+		const register = igniteCore({
+			adapter: "redux",
+			source: store,
+			view: (context: ViewContext<StoreState>) => ({
+				count: context.snapshot.counter.count,
+				hasCounterAlias: Object.getOwnPropertyDescriptor(
+					context,
+					"counter",
+				) !== undefined,
+			}),
+		});
+
+		expect(register.getView()).toEqual({
+			count: 0,
+			hasCounterAlias: false,
+		});
+	});
+
 	it("should initialize without errors for XState adapter", () => {
 		const core = igniteCore({
 			adapter: "xstate",
@@ -296,8 +319,8 @@ describe("igniteCore", () => {
 		};
 		const register = igniteCore({
 			source: sourceFactory,
-			view: ({ context }) => ({
-				status: context.status,
+			view: ({ snapshot }) => ({
+				status: snapshot.context.status,
 			}),
 		});
 		const elementName = `actor-web-inferred-host-source-${crypto.randomUUID()}`;
@@ -334,8 +357,8 @@ describe("igniteCore", () => {
 		const register = igniteCore({
 			adapter: "actor-web",
 			source: sourceFactory,
-			view: ({ context }) => ({
-				status: context.status,
+			view: ({ snapshot }) => ({
+				status: snapshot.context.status,
 			}),
 		});
 		const elementName = `actor-web-defaulted-host-source-${crypto.randomUUID()}`;
@@ -363,8 +386,8 @@ describe("igniteCore", () => {
 		const register = igniteCore({
 			adapter: "actor-web",
 			source: sourceFactory,
-			view: ({ context }) => ({
-				status: context.status,
+			view: ({ snapshot }) => ({
+				status: snapshot.context.status,
 			}),
 		});
 		const elementName = `actor-web-host-source-${crypto.randomUUID()}`;
@@ -408,10 +431,10 @@ describe("igniteCore", () => {
 		const source = createActorWebShipmentSource();
 		const register = igniteCore({
 			source,
-			view: ({ context, snapshot, transport }) => ({
-				status: context.status,
-				shipmentId: context.shipmentId,
-				connected: transport.state === "connected",
+			view: ({ snapshot }) => ({
+				status: snapshot.context.status,
+				shipmentId: snapshot.context.shipmentId,
+				connected: snapshot.transport.state === "connected",
 				snapshotStatus: snapshot.context.status,
 			}),
 			commands: ({ actor }) => ({
@@ -487,10 +510,10 @@ describe("igniteCore", () => {
 		const source = createActorWebShipmentSource();
 		const register = igniteCore({
 			source,
-			view: ({ context, transport }) => ({
-				status: context.status,
-				shipmentId: context.shipmentId,
-				connected: transport.state === "connected",
+			view: ({ snapshot }) => ({
+				status: snapshot.context.status,
+				shipmentId: snapshot.context.shipmentId,
+				connected: snapshot.transport.state === "connected",
 			}),
 			commands: ({ actor }) => ({
 				createShipment: (shipmentId: string) =>
@@ -626,7 +649,7 @@ describe("igniteCore", () => {
 		type SliceEvent = InferStateAndEvent<typeof counterSlice>["Event"];
 		type SliceActor = ReduxSliceCommandActor<typeof counterSlice>;
 
-		const viewCallback = (snapshot: SliceState) => ({
+		const viewCallback = ({ snapshot }: ViewContext<SliceState>) => ({
 			count: snapshot.count,
 		});
 		const commandsCallback = ({ actor }: { actor: SliceActor }) => ({
@@ -670,7 +693,7 @@ describe("igniteCore", () => {
 		const store = counterStore();
 		const dispatchSpy = vi.spyOn(store, "dispatch");
 		type EventStoreState = InferStateAndEvent<typeof store>["State"];
-		const eventView = (snapshot: EventStoreState) => ({
+		const eventView = ({ snapshot }: ViewContext<EventStoreState>) => ({
 			count: snapshot.counter.count,
 		});
 		type CounterEventMap = {
@@ -767,7 +790,7 @@ describe("igniteCore", () => {
 		const runtimeConfig = {
 			adapter: "redux",
 			source: store,
-			view: (snapshot: StoreState) => ({
+			view: ({ snapshot }: ViewContext<StoreState>) => ({
 				count: snapshot.counter.count,
 			}),
 			commands: ({ actor }) => ({
@@ -827,7 +850,7 @@ describe("igniteCore", () => {
 		const runtimeConfig = {
 			adapter: "redux",
 			source: store,
-			view: (snapshot: StoreState) => ({
+			view: ({ snapshot }: ViewContext<StoreState>) => ({
 				count: snapshot.counter.count,
 			}),
 			commands: ({ actor }) => ({
@@ -1161,7 +1184,7 @@ describe("igniteCore", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: (snapshot: StoreState) => ({
+			view: ({ snapshot }: ViewContext<StoreState>) => ({
 				count: snapshot.counter.count,
 			}),
 			commands: ({ actor }) => ({
@@ -1218,7 +1241,7 @@ describe("igniteCore", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: (snapshot: StoreState) => ({
+			view: ({ snapshot }: ViewContext<StoreState>) => ({
 				count: snapshot.counter.count,
 			}),
 			commands: ({ actor }) => ({
@@ -1301,7 +1324,7 @@ describe("igniteCore", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: (snapshot) => ({
+			view: ({ snapshot }) => ({
 				count: snapshot.counter.count,
 			}),
 			commands: ({ actor }) => ({
@@ -1334,7 +1357,7 @@ describe("igniteCore", () => {
 		const core = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: (snapshot) => ({
+			view: ({ snapshot }) => ({
 				count: snapshot.counter.count,
 			}),
 			commands: ({ actor }) => ({
@@ -1368,7 +1391,7 @@ describe("igniteCore", () => {
 		const core = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: (snapshot) => ({ count: snapshot.counter.count }),
+			view: ({ snapshot }) => ({ count: snapshot.counter.count }),
 			commands: ({ actor }) => ({
 				increment: () => actor.dispatch(counterSlice.actions.increment()),
 			}),
@@ -1404,7 +1427,7 @@ describe("igniteCore", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: (snapshot) => ({
+			view: ({ snapshot }) => ({
 				count: snapshot.counter.count,
 			}),
 			commands: ({ actor, command }) => ({
@@ -1454,7 +1477,7 @@ describe("igniteCore", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: (snapshot) => ({
+			view: ({ snapshot }) => ({
 				count: snapshot.counter.count,
 			}),
 			commands: ({ actor, command }) => ({
@@ -1629,7 +1652,7 @@ describe("igniteCore", () => {
 		type StoreEvent = InferStateAndEvent<StoreInstance>["Event"];
 		type StoreActor = ReduxStoreCommandActor<StoreInstance>;
 
-		const viewCallback = (snapshot: StoreState) => ({
+		const viewCallback = ({ snapshot }: ViewContext<StoreState>) => ({
 			count: snapshot.counter.count,
 		});
 		const commandsCallback = ({ actor }: { actor: StoreActor }) => ({
@@ -1701,7 +1724,7 @@ describe("igniteCore", () => {
 		type StoreState = ReturnType<typeof createStore>;
 		type StoreEvent = MobxEvent<StoreState>;
 
-		const viewCallback = (snapshot: StoreState) => ({
+		const viewCallback = ({ snapshot }: ViewContext<StoreState>) => ({
 			count: snapshot.count,
 		});
 		const commandsCallback = ({
@@ -1781,7 +1804,7 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 		const source = createActorWebShipmentSource();
 		const register = igniteCore({
 			source,
-			view: ({ context }) => ({ status: context.status }),
+			view: ({ snapshot }) => ({ status: snapshot.context.status }),
 		});
 
 		const received: ActorWebShipmentEmitted[] = [];
@@ -1804,7 +1827,7 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 		const source = createActorWebShipmentSource();
 		const register = igniteCore({
 			source,
-			view: ({ context }) => ({ status: context.status }),
+			view: ({ snapshot }) => ({ status: snapshot.context.status }),
 			commands: ({ actor }) => ({
 				createShipment: (shipmentId: string) =>
 					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
@@ -1831,7 +1854,7 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 		const source = createActorWebShipmentSource();
 		const register = igniteCore({
 			source,
-			view: ({ context }) => ({ status: context.status }),
+			view: ({ snapshot }) => ({ status: snapshot.context.status }),
 			events: (event) => ({
 				"shipment-recorded": event<{ shipmentId: string }>(),
 			}),
@@ -1880,7 +1903,7 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 		const source = createActorWebShipmentSource();
 		const register = igniteCore({
 			source,
-			view: ({ context }) => ({ status: context.status }),
+			view: ({ snapshot }) => ({ status: snapshot.context.status }),
 			commands: ({ actor }) => ({
 				createShipment: (shipmentId: string) =>
 					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
@@ -1911,7 +1934,7 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: (snapshot) => ({ count: snapshot.counter.count }),
+			view: ({ snapshot }) => ({ count: snapshot.counter.count }),
 			commands: ({ actor }) => ({
 				increment: () => actor.dispatch(counterSlice.actions.increment()),
 			}),
@@ -1959,7 +1982,7 @@ describe("igniteCore xstate emitted-event bridge", () => {
 	it("forwards machine emits to on(type) and stops after unsubscribe", () => {
 		const register = igniteCore({
 			source: emittingCounterMachine,
-			view: ({ context }) => ({ count: context.count }),
+			view: ({ snapshot }) => ({ count: snapshot.context.count }),
 			commands: ({ actor }) => ({
 				increment: () => actor.send({ type: "INC" }),
 			}),
@@ -1982,7 +2005,7 @@ describe("igniteCore xstate emitted-event bridge", () => {
 	it("captures command-driven emits in execute().events with the uniform shape", async () => {
 		const register = igniteCore({
 			source: emittingCounterMachine,
-			view: ({ context }) => ({ count: context.count }),
+			view: ({ snapshot }) => ({ count: snapshot.context.count }),
 			commands: ({ actor }) => ({
 				increment: () => actor.send({ type: "INC" }),
 			}),
@@ -2004,7 +2027,7 @@ describe("igniteCore xstate emitted-event bridge", () => {
 	it("records machine emits in story traces", async () => {
 		const register = igniteCore({
 			source: emittingCounterMachine,
-			view: ({ context }) => ({ count: context.count }),
+			view: ({ snapshot }) => ({ count: snapshot.context.count }),
 			commands: ({ actor }) => ({
 				increment: () => actor.send({ type: "INC" }),
 			}),

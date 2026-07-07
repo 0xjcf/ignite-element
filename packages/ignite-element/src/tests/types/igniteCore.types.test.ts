@@ -66,6 +66,7 @@ import type {
 	IgniteSchemaValue,
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
+	ViewContext,
 } from "../../RenderArgs";
 import type {
 	IgniteDomBridge as ReduxIgniteDomBridge,
@@ -361,9 +362,9 @@ describe("igniteCore type inference", () => {
 	it("infers actor-web view context, transport, and command actor facades", () => {
 		const register = igniteCore({
 			source: actorWebShipmentSource,
-			view: ({ context, snapshot, transport }) => ({
-				status: context.status,
-				connected: transport.state === "connected",
+			view: ({ snapshot }) => ({
+				status: snapshot.context.status,
+				connected: snapshot.transport.state === "connected",
 				snapshotStatus: snapshot.context.status,
 			}),
 			commands: ({ actor }) => ({
@@ -446,23 +447,14 @@ describe("igniteCore type inference", () => {
 	it("infers actor-web read-model source snapshots from a single source", () => {
 		const register = igniteCoreActorWebEntrypoint({
 			source: actorWebShipmentReadModelHostFactory,
-			view: ({
-				context,
-				phase,
-				status,
-				value,
-				matches,
-				can,
-				hasTag,
-				snapshot,
-			}) => ({
-				shipmentId: context.shipmentId,
-				phase,
-				status,
-				value,
-				idle: matches?.("idle") ?? false,
-				canCreate: can?.({ type: "CREATE_SHIPMENT" }) ?? false,
-				ready: hasTag?.("ready") ?? false,
+			view: ({ snapshot }) => ({
+				shipmentId: snapshot.context.shipmentId,
+				phase: snapshot.phase,
+				status: snapshot.status,
+				value: snapshot.value,
+				idle: snapshot.matches?.("idle") ?? false,
+				canCreate: snapshot.can?.({ type: "CREATE_SHIPMENT" }) ?? false,
+				ready: snapshot.hasTag?.("ready") ?? false,
 				snapshotShipmentId: snapshot.context.shipmentId,
 			}),
 			commands: ({ actor }) => ({
@@ -677,7 +669,7 @@ describe("igniteCore type inference", () => {
 
 		const register = igniteCore({
 			source: machine,
-			view: (snapshot: Snapshot) => ({
+			view: ({ snapshot }: ViewContext<Snapshot>) => ({
 				count: snapshot.context.count,
 			}),
 			commands: ({ actor }) => ({
@@ -786,7 +778,7 @@ describe("igniteCore type inference", () => {
 
 		igniteCoreXState({
 			source: leaderboardMachine,
-			view: (snapshot) => ({
+			view: ({ snapshot }) => ({
 				leaderboard: snapshot.context.leaderboard,
 				sort: snapshot.context.sort,
 			}),
@@ -1353,7 +1345,7 @@ describe("igniteCore type inference", () => {
 		type SliceEvent = InferStateAndEvent<typeof counterSlice>["Event"];
 		type SliceActor = ReduxSliceCommandActor<typeof counterSlice>;
 
-		const viewCallback = (snapshot: SliceState) => ({
+		const viewCallback = ({ snapshot }: ViewContext<SliceState>) => ({
 			count: snapshot.count,
 		});
 		const commandsCallback = ({ actor }: { actor: SliceActor }) => ({
@@ -1382,7 +1374,7 @@ describe("igniteCore type inference", () => {
 		type SliceContext = CommandContext<
 			ReduxSliceCommandActor<typeof counterSlice>
 		>;
-		const sliceView = (snapshot: SliceState) => ({
+		const sliceView = ({ snapshot }: ViewContext<SliceState>) => ({
 			count: snapshot.count,
 		});
 		const sliceCommands = ({ actor }: SliceContext) => ({
@@ -1411,7 +1403,7 @@ describe("igniteCore type inference", () => {
 		type StoreEvent = InferStateAndEvent<StoreInstance>["Event"];
 		type StoreActor = ReduxStoreCommandActor<StoreInstance>;
 
-		const viewCallback = (snapshot: StoreState) => ({
+		const viewCallback = ({ snapshot }: ViewContext<StoreState>) => ({
 			count: snapshot.counter.count,
 		});
 		const commandsCallback = ({ actor }: { actor: StoreActor }) => ({
@@ -1439,7 +1431,7 @@ describe("igniteCore type inference", () => {
 		const store = counterStore();
 		type StoreState = InferStateAndEvent<typeof store>["State"];
 		type StoreContext = CommandContext<ReduxStoreCommandActor<typeof store>>;
-		const storeStates = (snapshot: StoreState) => ({
+		const storeStates = ({ snapshot }: ViewContext<StoreState>) => ({
 			count: snapshot.counter.count,
 		});
 		const storeCommands = ({ actor }: StoreContext) => ({
@@ -1473,7 +1465,7 @@ describe("igniteCore type inference", () => {
 		type StoreState = ReturnType<typeof createStore>;
 		type StoreEvent = MobxEvent<StoreState>;
 
-		const viewCallback = (snapshot: StoreState) => ({
+		const viewCallback = ({ snapshot }: ViewContext<StoreState>) => ({
 			count: snapshot.count,
 		});
 		const commandsCallback = ({
@@ -1511,7 +1503,9 @@ describe("igniteCore type inference", () => {
 
 		type SharedStore = typeof sharedStore;
 		type SharedContext = CommandContext<SharedStore>;
-		const sharedStates = (snapshot: SharedStore) => ({ count: snapshot.count });
+		const sharedStates = ({ snapshot }: ViewContext<SharedStore>) => ({
+			count: snapshot.count,
+		});
 		const sharedCommands = ({ actor: storeInstance }: SharedContext) => ({
 			increment: () => storeInstance.increment(),
 		});
