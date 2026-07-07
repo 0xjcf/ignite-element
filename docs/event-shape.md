@@ -8,9 +8,10 @@ this is still beta, there is no read-time `.payload` compatibility accessor.
 
 ## Context
 
-ignite's event surface has accumulated three shapes that disagree:
+Before the cutover, ignite's event surface had accumulated three shapes that
+disagreed:
 
-| Surface | Shape today |
+| Surface | Pre-cutover shape |
 | --- | --- |
 | author — effects | `emit("toggled", { isOn: true })` — positional `(type, ...payload)` (`EmitFromEvents`) |
 | author — source | `source.emitEvent({ type: "SHIPMENT_CREATED", shipmentId })` — flat tagged object |
@@ -56,8 +57,10 @@ expectEvent({ type: "toggled", isOn: true });
   vocabulary-coherence argument as `select().whenChanged()` and `expectSnapshot`).
 - Removes the redundant `{ type, payload: { type, … } }` nesting.
 - The envelope's one virtue — a uniform `.payload` slot for generic agent routing —
-  is recoverable: `getSchema` already advertises each event's fields, so agents
-  route on `type` and read fields directly.
+  is recoverable without changing the event shape: `getSchema` advertises event
+  names as flat `{ type }` descriptors today, agents route on `type`, and
+  field-level runtime metadata can be added later because payload fields are
+  type-only in the current contract.
 
 ## Impact / migration (this is the cost)
 

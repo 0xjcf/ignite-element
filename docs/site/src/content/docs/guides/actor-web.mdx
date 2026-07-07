@@ -213,7 +213,7 @@ for (const entry of result.events) {
 
 How the bridge behaves:
 
-- **Uniform shape.** An emitted member `M` surfaces as `{ type: M.type, payload: M }` in `execute().events` and `record()` summaries, and as `event.detail === M` in `on(...)` handlers — the same shape declared events use.
+- **Uniform shape.** An emitted member `M` surfaces directly in `execute().events`, `record()` summaries, and `on(...)` handlers — the same flat member shape declared events use.
 - **Command-window capture.** `execute()` collects the emits that arrive between command start and the post-command flush; `record()` inherits them through `execute`. Emits outside a command window still reach `on(...)` listeners, which stay subscribed for their lifetime.
 - **Leak-free.** Each `on(...)` subscription and each `execute()` call manages its own source subscription and releases it on `unsubscribe()` / command completion.
 - **Effects stay additive.** `events:` + `effects:` remain the way to emit **UI-derived** events (computed from snapshot changes); source-emitted events need neither. Both flow side by side into the same `execute().events` stream and `on(...)` surface.
