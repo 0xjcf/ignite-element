@@ -93,10 +93,10 @@ import { igniteCore } from "ignite-element/actor-web";
 
 const shipmentCard = igniteCore({
   source: ({ host }) => checkoutRuntime.shipments.commandSource({ host }),
-  view: ({ context }) => ({
-    shipmentId: context.shipmentId,
-    status: context.status,
-    etaLabel: context.etaLabel,
+  view: ({ snapshot }) => ({
+    shipmentId: snapshot.context.shipmentId,
+    status: snapshot.context.status,
+    etaLabel: snapshot.context.etaLabel,
   }),
   commands: ({ actor }) => ({
     refresh: (shipmentId: string) =>
@@ -110,10 +110,10 @@ const shipmentCard = igniteCore({
 Keep ordinary UI projections focused on business/read-model fields. Opt into runtime metadata only when the component needs it:
 
 ```ts
-states: ({ context, transport }) => ({
-  shipmentId: context.shipmentId,
-  status: context.status,
-  syncState: transport.state,
+view: ({ snapshot }) => ({
+  shipmentId: snapshot.context.shipmentId,
+  status: snapshot.context.status,
+  syncState: snapshot.transport.state,
 });
 ```
 

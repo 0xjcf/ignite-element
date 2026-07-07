@@ -154,29 +154,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1781818971210",
-      "task": "BREAKING (v3 cutover): canonical flat tagged event { type, ...fields } across emit/observe/expectEvent per docs/event-sh",
-      "priority": "high",
-      "source": "manual",
-      "details": "Implement docs/event-shape.md. emit unifies on the single-object member form { type, ...fields } (drop positional emit(type,payload)); observe pipeline (on / execute().events / record) delivers the flat member and DROPS the { type, payload } envelope + doubled type; getSchema event descriptors become the flat member shape; expectEvent takes the member object; EmitFromEvents typing infers fields from the Events map. BREAKING — the observe shape is the agent contract. MUST land in the SAME pre-stable beta as the view-context and expectState-rename tasks, with ONE coordinated goodway migration note. Refine the adapter subscribeEvents bridge + exact scope at planning. Decision locked 2026-06-18. Design: docs/event-shape.md.\nSee .fas/tasks/breaking-v3-cutover-canonical-flat-tagged-event-type-fields-.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "workflow-quality",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [],
-      "blocks": [
-        "task-1781818972687"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-06-18T21:42:51.210Z",
-      "updatedAt": "2026-07-07T15:04:18.106Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
       "id": "task-1781818972687",
       "task": "BREAKING (v3 cutover): uniform view/effects context = { snapshot } only (drop the spread) per docs/view-context-canonica",
       "priority": "high",
@@ -185,7 +162,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "developer-experience",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "processing",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -197,8 +174,8 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-18T21:42:52.687Z",
-      "updatedAt": "2026-06-18T21:43:50.963Z",
-      "deferredReason": "dependency_reopened: task-1781818971210",
+      "updatedAt": "2026-07-07T15:37:47.827Z",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -528,7 +505,7 @@
       "prDependencies": [],
       "prRef": null,
       "completedAt": "2026-05-26T19:11:47.029Z",
-      "terminalOutcome": "success",
+      "terminalOutcome": null,
       "workflowId": "direct-1779819916720",
       "branchName": "codex/beta-monorepo-baseline",
       "prStatus": "draft-only"
@@ -2884,6 +2861,27 @@
       "workflowId": "direct-1783357471256",
       "branchName": "fas/local-model-agent-ecosystem",
       "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1781818971210",
+      "task": "BREAKING (v3 cutover): canonical flat tagged event { type, ...fields } across emit/observe/expectEvent per docs/event-sh",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "workflow-quality",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [
+        "task-1781818972687"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-07T15:37:30.265Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783436658102",
+      "branchName": null,
+      "prStatus": null
     }
   ],
   "pullRequests": [],

@@ -3,4 +3,4 @@
 "@ignite-element/core": minor
 ---
 
-Promote the view-first single-source DX so object snapshots spread their fields directly onto the view context. `ViewContext<Snapshot>` now resolves to `Snapshot & { snapshot: Snapshot }` for object snapshots, letting view callbacks destructure `context`, `transport`, `phase`, etc. at the top level while `snapshot` stays available for the full read model. Non-object snapshots keep the `{ snapshot }` shape.
+Remove the view-context snapshot spread for the v3 cutover. `view` callbacks now receive a single `{ snapshot }` argument across every adapter, matching the object-form callback shape used by effects and command availability checks. XState and Actor-Web projections should read `snapshot.context` and Actor-Web transport metadata from `snapshot.transport`; Redux and MobX projections read their store state directly from `snapshot`.

@@ -1329,10 +1329,12 @@ No active tasks.
 
 - Title: BREAKING (v3 cutover): uniform view/effects context = { snapshot } only (drop the spread) per docs/view-context-canonica
 - Mode: single-agent
-- Status: deferred
-- Owner: runtime
-- Note: Re-sequenced 2026-07-07 — follows the event-shape cutover.
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/breaking-v3-cutover-uniform-view-effects-context-snapshot-on.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: BREAKING (v3 cutover): rename expectState -> expectSnapshot (deprecated alias) + expectEvent member form per docs/v3-api
 

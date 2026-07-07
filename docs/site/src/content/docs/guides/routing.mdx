@@ -122,7 +122,10 @@ import { igniteCore } from "ignite-element/xstate";
 
 const outlet = igniteCore({
   source: routerActor,
-  view: ({ context }) => ({ route: context.route, path: context.path }),
+  view: ({ snapshot }) => ({
+    route: snapshot.context.route,
+    path: snapshot.context.path,
+  }),
   commands: () => ({ navigate }),
   effects: ({ snapshot, prevSnapshot }) => {
     if (snapshot.context.source === "navigate" && snapshot.context.path !== prevSnapshot.context.path) {
@@ -152,7 +155,10 @@ and assert on projected route state with no DOM and no jsdom history shims:
 // docs-check: skip
 const router = igniteCore({
   source: routerMachine,
-  view: ({ context }) => ({ id: context.params.id ?? null, path: context.path }),
+  view: ({ snapshot }) => ({
+    id: snapshot.context.params.id ?? null,
+    path: snapshot.context.path,
+  }),
 });
 
 await router.execute("navigate", "/users/7");

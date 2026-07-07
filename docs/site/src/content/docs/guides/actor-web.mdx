@@ -43,11 +43,11 @@ declare const shipmentSource: ActorWebCommandSource<
 
 export const shipmentCard = igniteCore({
   source: shipmentSource,
-  view: ({ context }) => ({
-    shipmentId: context.shipmentId,
-    status: context.status,
-    etaLabel: context.etaLabel,
-    canCancel: context.canCancel,
+  view: ({ snapshot }) => ({
+    shipmentId: snapshot.context.shipmentId,
+    status: snapshot.context.status,
+    etaLabel: snapshot.context.etaLabel,
+    canCancel: snapshot.context.canCancel,
   }),
   commands: ({ actor }) => ({
     refresh: (shipmentId: string) =>
@@ -58,7 +58,7 @@ export const shipmentCard = igniteCore({
 });
 ```
 
-`ShipmentProjection` flows into the `view` `context`, and `ShipmentRequest` flows into `actor.send`, all inferred from `shipmentSource` — no `igniteCore<...>` annotations. The projected `context` carries business/read-model state; updating it stays Actor-Web's job. Ignite sends requests back and re-renders when the next projection snapshot arrives.
+`ShipmentProjection` flows into `view` as `snapshot.context`, and `ShipmentRequest` flows into `actor.send`, all inferred from `shipmentSource` — no `igniteCore<...>` annotations. The projected context carries business/read-model state inside the snapshot; updating it stays Actor-Web's job. Ignite sends requests back and re-renders when the next projection snapshot arrives.
 
 :::note[Source shapes]
 `source` accepts a source **value** (read-only or command-capable), a zero-argument factory, or a host-context factory `({ host }) => source`. When a source exposes `close()`, Ignite calls it during adapter teardown. Passing a typed source **value** gives the cleanest inference; the `ignite-element/actor-web` entrypoint is required for zero-argument and defaulted factories (see [Source factory adapter inference](/ignite-element/concepts/the-ignite-model/)).
@@ -155,12 +155,12 @@ declare const shipmentReadModel: ActorWebReadModelSource<
 
 export const shipmentBadge = igniteCore({
   source: shipmentReadModel,
-  view: ({ context, transport }) => ({
-    shipmentId: context.shipmentId,
-    status: context.status,
-    syncState: transport.state,
+  view: ({ snapshot }) => ({
+    shipmentId: snapshot.context.shipmentId,
+    status: snapshot.context.status,
+    syncState: snapshot.transport.state,
     degradedReason:
-      transport.state === 'degraded' ? transport.reason ?? null : null,
+      snapshot.transport.state === 'degraded' ? snapshot.transport.reason ?? null : null,
   }),
 });
 ```
@@ -189,7 +189,7 @@ declare const shipmentSource: ActorWebCommandSource<
 
 export const shipmentFeed = igniteCore({
   source: shipmentSource,
-  view: ({ context }) => ({ status: context.status }),
+  view: ({ snapshot }) => ({ status: snapshot.context.status }),
   commands: ({ actor }) => ({
     cancel: (shipmentId: string) =>
       actor.send({ type: 'shipment.cancel', shipmentId }),

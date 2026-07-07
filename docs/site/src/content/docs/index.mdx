@@ -64,7 +64,7 @@ import { counterMachine } from './counter-machine';
 
 const counter = igniteCore({
   source: counterMachine,
-  view: ({ context }) => ({ count: context.count }),
+  view: ({ snapshot }) => ({ count: snapshot.context.count }),
   commands: ({ actor }) => ({
     increment: () => actor.send({ type: 'INC' }),
     decrement: () => actor.send({ type: 'DEC' }),
