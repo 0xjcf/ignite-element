@@ -2132,9 +2132,12 @@ No active tasks.
 
 - Title: docs-demo: write v3 headless execute and smart-home agent screencast script
 - Mode: single-agent
-- Status: deferred
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/docs-demo-write-v3-headless-execute-and-smart-home-agent-scr.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: playgrounds: add published-package Open in StackBlitz links after the v3 stable tag
 

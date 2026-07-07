@@ -35,6 +35,7 @@ docs: behavior contract first, headless execution, then an agent/tool loop.
 
 ## Affected files
 - A new markdown script artifact under docs/release/demo, docs/site content, or another repo-approved release-assets location
+- docs/demo/v3-headless-smart-home-screencast.md
 - examples/agents/smart-home/README.md only if command wording must be corrected
 
 ## Scope Amendments

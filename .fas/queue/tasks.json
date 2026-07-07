@@ -135,7 +135,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "developer-experience",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "processing",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -147,8 +147,8 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-07T22:06:53.000Z",
-      "updatedAt": "2026-07-07T22:06:53.000Z",
-      "deferredReason": "dependency_reopened: task-1783461996096",
+      "updatedAt": "2026-07-07T22:15:06.285Z",
+      "deferredReason": null,
       "invalidationReason": null
     }
   ],
