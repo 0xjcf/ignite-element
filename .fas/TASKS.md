@@ -1341,7 +1341,7 @@ No active tasks.
 - Title: BREAKING (v3 cutover): hard-cut expectState -> expectSnapshot + expectEvent member form per docs/v3-api
 - Mode: single-agent
 - Status: done
-- Owner: reviewer
+- Owner: implementer
 - Brief: .fas/tasks/breaking-v3-cutover-rename-expectstate-expectsnapshot-deprec.md
 - Verification lane: fast
 - Policy sensitivity: standard

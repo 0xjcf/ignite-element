@@ -2873,11 +2873,11 @@
       "branchBase": null,
       "prDependencies": [],
       "prRef": null,
-      "completedAt": "2026-07-07T16:14:03.964Z",
+      "completedAt": "2026-07-07T19:04:02.094Z",
       "terminalOutcome": null,
       "workflowId": "direct-1783440023347",
-      "branchName": null,
-      "prStatus": null
+      "branchName": "fas/v3-breaking-cutover-batch",
+      "prStatus": "draft-only"
     }
   ],
   "pullRequests": [],
