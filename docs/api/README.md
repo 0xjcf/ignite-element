@@ -60,7 +60,7 @@ const result = await component.execute("toggle");
 
 subscription.unsubscribe();
 
-expect(result.state.value).toBe("on");
+expect(result.snapshot.value).toBe("on");
 expect(result.events).toEqual([
   { type: "toggled", isOn: true },
 ]);

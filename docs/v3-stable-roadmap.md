@@ -112,7 +112,7 @@ breaking cutover freezes it.
 | --- | --- | --- |
 | `ignite-element/react` helper + React demo (+ registration handle) | `1781805261094` | **DONE** (beta.7) — the gap-finder that surfaced `IgniteReactRef` + config-free lit auto-detect; `docs/ignite-react.md`. Remaining framework demos are Phase 0 |
 | `select().whenChanged()` | `1781798483059` | additive |
-| `expectView` | `1781798484574` | additive (does **not** rename expectState) |
+| `expectView` | `1781798484574` | additive (does **not** rename expectSnapshot) |
 | `canExecute(name)` | `1781798486122` | ✅ done |
 | Test host seam (fluent `.host()`) | `1781619012619` | additive |
 | `igniteShell` + shared move-safe teardown | `1781817947799` | additive primitive |
@@ -182,7 +182,7 @@ Use **one** goodway migration note. Decisions are locked (see
 | --- | --- | --- |
 | Flat tagged event `{ type, … }` | `1781818971210` | `docs/event-shape.md` |
 | Uniform view/effects context `{ snapshot }` | `1781818972687` | `docs/view-context-canonicalization.md` |
-| Full `state`→`snapshot` rename (`expectState`→`expectSnapshot` + `result.state`/`schema.state`/record-trace) + `expectEvent` member form | `1781818974159` | `docs/v3-api-consistency.md` |
+| Full `state`→`snapshot` rename (`expectSnapshot`→`expectSnapshot` + `result.snapshot`/`schema.snapshot`/record-trace) + `expectEvent` member form | `1781818974159` | `docs/v3-api-consistency.md` |
 | Docs accuracy / UX / positioning final sweep | `1781724711926` | stable docs must describe the final post-cutover API |
 
 The breaking trio feeds the docs final sweep, and the docs sweep blocks the

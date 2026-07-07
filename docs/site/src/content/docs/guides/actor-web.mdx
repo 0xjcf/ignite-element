@@ -196,18 +196,17 @@ export const shipmentFeed = igniteCore({
   }),
 });
 
-// on(type) — the handler's `detail` IS the emitted event object.
+// on(type) — the handler receives the flat emitted event object.
 const subscription = shipmentFeed.on('SHIPMENT_CANCELLED', (event) => {
-  console.log(event.detail.reason);
+  console.log(event.reason);
 });
 subscription.unsubscribe();
 
-// execute().events — emits captured during the command window, each as
-// { type, payload } where payload is the emitted event object.
+// execute().events — emits captured during the command window as flat members.
 const result = await shipmentFeed.execute('cancel', 'shipment-1');
 for (const entry of result.events) {
   if (entry.type === 'SHIPMENT_CANCELLED') {
-    console.log(entry.payload.reason);
+    console.log(entry.reason);
   }
 }
 ```

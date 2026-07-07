@@ -14,8 +14,8 @@ import { igniteCore } from 'ignite-element/xstate';
 
 const counter = igniteCore({
   source: counterMachine,
-  view: ({ matches }) => ({
-    isOn: matches('on'),
+  view: ({ snapshot }) => ({
+    isOn: snapshot.matches('on'),
   }),
   commands: ({ actor }) => ({
     toggle: () => actor.send({ type: 'TOGGLE' }),
@@ -26,26 +26,26 @@ const counter = igniteCore({
   effects: ({ emit, select }) => {
     const isOn = select((snapshot) => snapshot.matches('on'));
     if (!isOn.changed) return;
-    emit('toggled', { isOn: isOn.current });
+    emit({ type: 'toggled', isOn: isOn.current });
   },
 });
 ```
 
 ## Scenarios
 
-Call `igniteTest(component)` with a runtime to get a chainable scenario. `given(...)` asserts the starting state, `when(...)` executes a command (it is async — `await` it), and the `expect*` methods assert the result of the most recent `when(...)`.
+Call `igniteTest(component)` with a runtime to get a chainable scenario. `given(...)` asserts the starting snapshot, `when(...)` executes a command (it is async — `await` it), and the `expect*` methods assert the result of the most recent `when(...)`.
 
 ```ts
-(await igniteTest(counter).given('off').when('toggle'))
-  .expectState('on')
-  .expectEvent('toggled', { isOn: true });
+(await igniteTest(counter).given({ value: 'off' }).when('toggle'))
+  .expectSnapshot({ value: 'on' })
+  .expectEvent({ type: 'toggled', isOn: true });
 ```
 
 Scenario methods — every `given`/`expect*` **returns the scenario** so calls chain; `when(...)` returns a `Promise` of the scenario:
 
-- `given(expected)` — assert the current state before acting. Accepts a state value, a deep-partial match, or a predicate.
+- `given(expected)` — assert the current snapshot before acting. Accepts a deep-partial snapshot match or a predicate.
 - `when(commandName, payload?)` — execute a command; returns a `Promise` of the scenario.
-- `expectState(expected)` — assert the post-command state.
+- `expectSnapshot(expected)` — assert the post-command snapshot.
 - `expectView(expected)` — assert the projected view (mirrors `getView()`). Accepts a deep-partial object or a predicate.
 - `expectEvent(type, payload?)` — assert an event was emitted, optionally matching its payload.
 - `expectEvents(expected)` — assert several events by `{ type, payload? }`.
@@ -77,9 +77,9 @@ Story methods:
 
 - `execute(commandName, payload?)` — run a command and record it; resolves to the same `{ state, events }` as the runtime.
 - `until(viewPredicate, action, options?)` — repeatedly run `action` until the projected view satisfies `viewPredicate`. `options.maxSteps` bounds the loop. Returns a `Promise<View>` (the satisfying view).
-- `trace()` — returns `IgniteStoryTraceEntry[]`: the ordered behavior trace of `command`, `state`, `view`, and `event` entries with `kind`, `sequence`, and `step`.
+- `trace()` — returns `IgniteStoryTraceEntry[]`: the ordered behavior trace of `command`, `snapshot`, `view`, and `event` entries with `kind`, `sequence`, and `step`.
 - `lifecycle()` — returns `IgniteStoryLifecycleEntry[]`: DOM lifecycle evidence (registration, connection, render, disconnection, cleanup) when a custom element or accessibility bridge participates; otherwise an empty array.
-- `summary()` — returns `{ name, finalState, finalView, events, commandCount, traceCount, lifecycleCount }`.
+- `summary()` — returns `{ name, finalSnapshot, finalView, events, commandCount, traceCount, lifecycleCount }`.
 - `stop()` — releases the story's runtime subscriptions; returns nothing.
 
 `story.trace()` holds only behavior evidence; DOM evidence stays on the separate `story.lifecycle()` channel, so logic stays inspectable without a DOM.

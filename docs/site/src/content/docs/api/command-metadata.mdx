@@ -125,8 +125,9 @@ Once commands carry metadata, `getSchema()` returns executable commands and thei
       },
     },
   },
-  events: ['limit-reached'],
-  state: { value: 'active', context: { count: 0, limit: 6 } },
+  events: [{ type: 'limit-reached' }],
+  snapshot: { value: 'active', context: { count: 0, limit: 6 } },
+  view: { count: 0, limit: 6 },
 }
 ```
 

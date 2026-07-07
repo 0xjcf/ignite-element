@@ -32,7 +32,7 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
 | Flat tagged event `{ type, … }` (emit / observe / `expectEvent`) | `event-shape.md` | **breaking** | design ✓, task queued (1781818971210) |
 | Uniform view/effects context = `{ snapshot }` (drop the spread) | `view-context-canonicalization.md` | **breaking** | design ✓, task queued (1781818972687) |
 | Effects single (object) signature; remove positional for v3 beta | this doc | beta breaking | shipped in this epic (1781818975642) |
-| `expectView` (add) + **full `state`→`snapshot` rename** (`expectState`→`expectSnapshot` + `result.state`/`schema.state`/record-trace) + `expectEvent` object form | `event-shape.md` + this doc | mixed | `expectView` shipped; rename task queued (1781818974159) — scope = full rename (b), resolved 2026-06-20 |
+| `expectView` (add) + **full `state`→`snapshot` rename** (`expectSnapshot`→`expectSnapshot` + `result.snapshot`/`schema.snapshot`/record-trace) + `expectEvent` object form | `event-shape.md` + this doc | mixed | `expectView` shipped; rename task queued (1781818974159) — scope = full rename (b), resolved 2026-06-20 |
 | Test host seam: fluent `.host({ dataset, attributes })` | `task-1781619012619` | additive | task (refine brief to fluent shape) |
 | `canExecute(name)` command-availability query | `can-execute.md` | additive (gap) | shipped (1781798486122) |
 | `igniteShell` sourceless composition root (+ shared move-safe teardown) | `ignite-shell.md` | additive (gap) | design ✓ |
@@ -63,14 +63,14 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
 **Cutover scope reality (all three).** The breaking landing is not just `src`: the
 doc code-example guardrail (`check-doc-examples.mjs`) typechecks every `ts`/`tsx`
 fence against the real API, so **every `docs/site` example** using `emit`, the view
-context, or `expectState`/`result.state` must migrate in the *same* change or the
+context, or `expectSnapshot`/`result.snapshot` must migrate in the *same* change or the
 guardrail fails. Budget the cutover as **src + docs-site sweep + the three design
 docs + one goodway migration note**. The beta-breaking **effects object-form**
 (`1781818975642`) has already removed positional callbacks so the effects callback
 changes once, cleanly, before the emit-shape break. One consolidated migration table
 covers all transforms: `emit(t,p)` →
 `emit({type:t,…})`; `event.payload` → direct member fields; `{ context }` → `{ snapshot }` +
-`snapshot.*`; `expectState`/`result.state`/`schema.state` → `…snapshot`;
+`snapshot.*`; `expectSnapshot`/`result.snapshot`/`schema.snapshot` → `…snapshot`;
 `expectEvent(t,p)` → `expectEvent({type:t,…})`.
 
 ## Decisions (resolved 2026-06-18)
@@ -99,16 +99,15 @@ covers all transforms: `emit(t,p)` →
    - **observe / schema** — `getSchema().state` → `getSchema().snapshot`
      (`IgniteAgentSchema`).
    - **observe / record + story** (agent-facing replay) — trace `kind: "state"` →
-     `"snapshot"`, `IgniteStoryStateTraceEntry.state` → `.snapshot`,
-     `IgniteStorySummary.finalState` and serialized `IgniteStorySummarySnapshot
-     .finalState` → `finalSnapshot`. *This changes serialized trace output — trace
-     snapshot tests migrate with it.*
+     `"snapshot"`, `IgniteStoryStateTraceEntry.state` →
+     `IgniteStorySnapshotTraceEntry.snapshot`, `IgniteStorySummary.finalState` and
+     serialized `IgniteStorySummarySnapshot.finalState` → `finalSnapshot`. *This
+     changes serialized trace output — trace snapshot tests migrate with it.*
    - `expectEvent` adopts the flat member object (coordinated with `event-shape.md`).
-   - **Soft landing through beta, dropped at the stable cut:** delegating
-     `expectState` alias + once-per-process `console.warn` (same pattern as
-     `getState`→`getSnapshot`); a `state` getter beside `snapshot` on the execute
-     result; and the schema JSON emits **both** `state` and `snapshot` keys during
-     beta. Tasked: `1781818974159` (scope expanded to the full rename).
+   - **v3 beta hard cut:** no delegating `expectState` alias, no `state` getter beside
+     `snapshot` on the execute result, no schema `state` mirror, and no story
+     `finalState`/trace `state` compatibility. Tasked: `1781818974159` (scope
+     expanded to the full rename).
 
 The breaking trio (event shape / view-context / rename) is wired to **block the
 main-merge**, which blocks the stable cut — see `docs/v3-stable-roadmap.md`.

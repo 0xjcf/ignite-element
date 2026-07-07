@@ -27,17 +27,17 @@ const component = igniteCore({
 });
 
 igniteTest(component)
-  .given("off")
+  .given({ value: "off" })
   .when("toggle")
-  .expectState("on")
+  .expectSnapshot({ value: "on" })
   .expectEvent({ type: "toggled", isOn: true });
 ```
 
 The helper:
 
-- asserts against the current runtime state with `given(...)`
+- asserts against the current runtime snapshot with `given(...)`
 - executes a typed command with `when(...)`
-- inspects the deterministic post-command state with `expectState(...)`
+- inspects the deterministic post-command snapshot with `expectSnapshot(...)`
 - verifies emitted effects with `expectEvent(...)` or `expectEvents(...)`
 
 Because it wraps the headless runtime, this style stays aligned with effects-based event emission and remains replay-friendly.

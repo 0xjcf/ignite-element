@@ -32,7 +32,7 @@ import { toggleMachine } from './toggle-machine';
 
 const toggle = igniteCore({
   source: toggleMachine,
-  view: ({ matches }) => ({ isOn: matches('on') }),
+  view: ({ snapshot }) => ({ isOn: snapshot.matches('on') }),
   commands: ({ actor }) => ({ toggle: () => actor.send({ type: 'TOGGLE' }) }),
 });
 
