@@ -1129,9 +1129,12 @@ No active tasks.
 
 - Title: SPIKE (read-only, discussion/decision): evaluate the non-engineering / go-to-market polish items from the v3 beta review and decide which to pursue and how. Cover: (1) a CLI scaffolder / project generator ('create-ignite-element' style) — worth building? what would it scaffold? alternatives (degit template, docs copy-paste); scope + ROI. (2) StackBlitz/CodeSandbox embeds for the examples (esp. spa-router) — feasibility given the source-alias monorepo setup vs the published @beta package; recommend an approach. (3) a demo video / screencast — outline a short script and what it should show (headless execute + agent angle). (4) an 'Ignite Element for AI Agents' one-pager — positioning + outline. OUTPUT: a recommendation per item (do now / defer / drop) with rationale + rough effort, plus follow-up task briefs for anything greenlit. Do NOT implement during the spike — these are partly marketing/non-code.
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/spike-read-only-discussion-decision-evaluate-the-non-eng.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Beta.6 docs accuracy + polish. P0 (correctness): the docs-site prose still teaches the pre-beta.6 cleanup/ownership default and is now inaccurate. Update to beta.6 semantics — 'cleanup' defaults to FALSE for shared (consumer-owned) sources (an already-live actor/store/observable/source passed to igniteCore); shared adapters are NOT released on element-refcount-zero by default (they live for the core's lifetime); adapters never stop or close a source they did not create (generalized ownsActor->ownsSource). Affected docs: docs/site/src/content/docs/concepts/the-ignite-model.mdx (cleanup/scope sections ~17,45,225,226), docs/site/src/content/docs/api/ignite-core.mdx (~32,40,45), docs/site/src/content/docs/guides/routing.mdx (~165 — drop the now-redundant cleanup:false guidance; explain the new default), docs/site/src/content/docs/migration/v2.mdx (~19,89,90,96), docs/site/src/content/docs/getting-started/first-component.mdx (~87), docs/site/src/content/docs/guides/testing.mdx (~135 — Ignite-owned vs consumer-owned teardown wording). P1 (UX): add a /guides/ index landing page (bare /guides/ currently 404s while individual guides are live). P2 (depth): add a 'When to choose Ignite / comparisons' page surfacing existing positioning, and deepen the getSchema() docs (guides/agent-runtime-v3.mdx and/or api) with example output for the agent angle. Verify via the docs build + contrast/markdownlint/code-example guardrails. Do NOT modify archived docs under docs/site/src/content/docs/2.x/.
 
@@ -2113,6 +2116,30 @@ No active tasks.
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
+
+### Task: docs: add Ignite Element for AI Agents one-pager before v3 stable
+
+- Title: docs: add Ignite Element for AI Agents one-pager before v3 stable
+- Mode: single-agent
+- Status: backlog
+- Owner: planner
+- Brief: .fas/tasks/docs-add-ignite-element-for-ai-agents-one-pager-before-v3-st.md
+
+### Task: docs-demo: write v3 headless execute and smart-home agent screencast script
+
+- Title: docs-demo: write v3 headless execute and smart-home agent screencast script
+- Mode: single-agent
+- Status: backlog
+- Owner: planner
+- Brief: .fas/tasks/docs-demo-write-v3-headless-execute-and-smart-home-agent-scr.md
+
+### Task: playgrounds: add published-package Open in StackBlitz links after the v3 stable tag
+
+- Title: playgrounds: add published-package Open in StackBlitz links after the v3 stable tag
+- Mode: single-agent
+- Status: backlog
+- Owner: planner
+- Brief: .fas/tasks/playgrounds-add-published-package-open-in-stackblitz-links-a.md
 
 ## Template
 

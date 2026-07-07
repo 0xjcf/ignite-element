@@ -23,7 +23,11 @@ SPIKE (read-only, discussion/decision): evaluate the non-engineering / go-to-mar
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- Scope unknown.
+- .fas/TASKS.md
+- .fas/queue/tasks.json
+- .fas/tasks/docs-add-ignite-element-for-ai-agents-one-pager-before-v3-st.md
+- .fas/tasks/docs-demo-write-v3-headless-execute-and-smart-home-agent-scr.md
+- .fas/tasks/playgrounds-add-published-package-open-in-stackblitz-links-a.md
 
 ## Scope Amendments
 - None.
