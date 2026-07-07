@@ -10,17 +10,17 @@ import {
 	igniteCore,
 } from "ignite-element/actor-web";
 import {
-	createLocalHomeSession,
 	createHomeCommands,
+	createInitialHomeContext,
+	createLocalHomeSession,
 	DOORS,
 	type HomeCommand,
 	type HomeContext,
 	type HomeRuntimeSession,
-	initialHomeContext,
 	projectHomeView,
-	reduceHomeContext,
 	ROOMS,
 	type Room,
+	reduceHomeContext,
 	SCENE_TRANSITION_DELAY_MS,
 	type Scene,
 } from "./home";
@@ -197,7 +197,7 @@ function createHomeTopology(scheduleTransition: TransitionScheduler) {
 
 function createActorWebHomeBehavior(scheduleTransition: TransitionScheduler) {
 	return defineBehavior<HomeCommand, HomeActorEmitted>()
-		.withContext(initialHomeContext)
+		.withContext(createInitialHomeContext())
 		.onMessage(({ context, message }) => {
 			if (message.type === "START_SCENE_TRANSITION") {
 				scheduleTransition();

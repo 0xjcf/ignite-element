@@ -38,14 +38,40 @@ export type HomeCommand =
 	| { type: "START_SCENE_TRANSITION"; scene: Scene }
 	| { type: "APPLY_PENDING_SCENE" };
 
-export const initialHomeContext: HomeContext = {
-	lights: { living: false, bedroom: false, kitchen: false },
-	thermostat: { living: 68, bedroom: 68, kitchen: 68 },
-	blinds: { living: 0, bedroom: 0, kitchen: 0 },
-	activeScene: null,
-	pendingScene: null,
-	locks: { front: true, back: true, garage: true },
+type ReadonlyHomeContext = {
+	readonly lights: Readonly<Record<Room, boolean>>;
+	readonly thermostat: Readonly<Record<Room, number>>;
+	readonly blinds: Readonly<Record<Room, number>>;
+	readonly locks: Readonly<Record<Door, boolean>>;
+	readonly activeScene: Scene | null;
+	readonly pendingScene: Scene | null;
 };
+
+export function createInitialHomeContext(): HomeContext {
+	return {
+		lights: { living: false, bedroom: false, kitchen: false },
+		thermostat: { living: 68, bedroom: 68, kitchen: 68 },
+		blinds: { living: 0, bedroom: 0, kitchen: 0 },
+		activeScene: null,
+		pendingScene: null,
+		locks: { front: true, back: true, garage: true },
+	};
+}
+
+export const initialHomeContext: ReadonlyHomeContext = freezeHomeContext(
+	createInitialHomeContext(),
+);
+
+function freezeHomeContext(context: HomeContext): ReadonlyHomeContext {
+	return Object.freeze({
+		lights: Object.freeze({ ...context.lights }),
+		thermostat: Object.freeze({ ...context.thermostat }),
+		blinds: Object.freeze({ ...context.blinds }),
+		locks: Object.freeze({ ...context.locks }),
+		activeScene: context.activeScene,
+		pendingScene: context.pendingScene,
+	});
+}
 
 /** What each scene sets. Returns the full next context (merged). */
 export function applyScene(ctx: HomeContext, scene: Scene): HomeContext {
@@ -104,7 +130,7 @@ export function dimRooms(
 		...ctx,
 		lights,
 		blinds,
-		pendingScene: null,
+		pendingScene: changed ? null : ctx.pendingScene,
 		activeScene: changed ? null : ctx.activeScene,
 	};
 }
@@ -128,7 +154,10 @@ export function reduceHomeContext(
 					...context.lights,
 					[command.room]: command.on,
 				},
-				pendingScene: null,
+				pendingScene:
+					context.lights[command.room] === command.on
+						? context.pendingScene
+						: null,
 				activeScene:
 					context.lights[command.room] === command.on
 						? context.activeScene
@@ -141,7 +170,10 @@ export function reduceHomeContext(
 					...context.thermostat,
 					[command.room]: command.temp,
 				},
-				pendingScene: null,
+				pendingScene:
+					context.thermostat[command.room] === command.temp
+						? context.pendingScene
+						: null,
 				activeScene:
 					context.thermostat[command.room] === command.temp
 						? context.activeScene
@@ -154,7 +186,10 @@ export function reduceHomeContext(
 					...context.blinds,
 					[command.room]: command.percent,
 				},
-				pendingScene: null,
+				pendingScene:
+					context.blinds[command.room] === command.percent
+						? context.pendingScene
+						: null,
 				activeScene:
 					context.blinds[command.room] === command.percent
 						? context.activeScene
@@ -167,7 +202,10 @@ export function reduceHomeContext(
 					...context.locks,
 					[command.door]: command.locked,
 				},
-				pendingScene: null,
+				pendingScene:
+					context.locks[command.door] === command.locked
+						? context.pendingScene
+						: null,
 				activeScene:
 					context.locks[command.door] === command.locked
 						? context.activeScene
@@ -344,7 +382,7 @@ const homeMachine = setup({
 	},
 }).createMachine({
 	id: "smart-home",
-	context: initialHomeContext,
+	context: () => createInitialHomeContext(),
 	initial: "active",
 	states: {
 		active: {

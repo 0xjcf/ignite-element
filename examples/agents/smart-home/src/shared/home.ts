@@ -10,6 +10,7 @@ export type {
 } from "../home";
 export {
 	applyScene,
+	createInitialHomeContext,
 	createHome,
 	createHomeCommands,
 	createLocalHomeSession,

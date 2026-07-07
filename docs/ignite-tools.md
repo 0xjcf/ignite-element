@@ -183,8 +183,10 @@ const {
 manifest internally and hands it to the dialect, so scalar unwrapping is invisible
 here.
 
-For OpenAI-compatible model loops, pass `openai` instead of `anthropic`; the
-consumer still brings the SDK or `fetch` client:
+For OpenAI-compatible model loops, pass `openai` instead of `anthropic`. The
+consumer still brings the SDK or a thin `fetch` wrapper, but `toolCalls(response)`
+expects the parsed Chat Completions JSON object. If you use raw `fetch`, call
+`await response.json()` before handing the value to `toolCalls`:
 
 ```ts
 import { openai } from "ignite-element/tools/openai";

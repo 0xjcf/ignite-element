@@ -153,18 +153,20 @@ describe("smart-home bridge server", () => {
 		const closePromise = server.close().then(() => {
 			closed = true;
 		});
-		await expect(
-			Promise.race([
-				closePromise.then(() => "closed"),
-				delay(1_000).then(() => "timeout"),
-			]),
-		).resolves.toBe("closed");
-
-		resolveModel?.({
-			choices: [{ message: { role: "assistant", content: "Done." } }],
-		});
-		server = undefined;
-		socket.close();
+		try {
+			await expect(
+				Promise.race([
+					closePromise.then(() => "closed"),
+					delay(1_000).then(() => "timeout"),
+				]),
+			).resolves.toBe("closed");
+		} finally {
+			resolveModel?.({
+				choices: [{ message: { role: "assistant", content: "Done." } }],
+			});
+			server = undefined;
+			socket.close();
+		}
 		expect(closed).toBe(true);
 	});
 

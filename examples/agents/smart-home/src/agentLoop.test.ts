@@ -20,11 +20,11 @@ import { createActorWebHomeSession } from "./actor-web-home";
 import { runHomeAgent, runHomeOpenAICompatibleAgent } from "./agentLoop";
 import {
 	createHome,
+	createInitialHomeContext,
 	createLocalHomeSession,
 	DOORS,
-	initialHomeContext,
-	reduceHomeContext,
 	ROOMS,
+	reduceHomeContext,
 	SCENE_TRANSITION_DELAY_MS,
 	SCENES,
 } from "./home";
@@ -153,7 +153,9 @@ describe("smart-home agent — Anthropic tool schemas (getSchema → adapter)", 
 describe("smart-home shared reducer", () => {
 	it("fails loudly for unknown runtime command types", () => {
 		expect(() =>
-			reduceHomeContext(initialHomeContext, { type: "UNKNOWN" } as never),
+			reduceHomeContext(createInitialHomeContext(), {
+				type: "UNKNOWN",
+			} as never),
 		).toThrow(/Unsupported home command type: UNKNOWN/);
 	});
 });
@@ -401,6 +403,29 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 		expect(home.getView().activeScene).toBe("morning");
 		await home.execute("toggleLight", { room: "living", on: true });
 		expect(home.getView().activeScene).toBe("morning");
+	});
+
+	it("keeps a pending scene when a manual command is a no-op", async () => {
+		vi.useFakeTimers();
+		const home = createHome();
+
+		try {
+			await home.execute("transitionScene", "movie");
+			expect(home.getView()).toMatchObject({
+				activeScene: null,
+				pendingScene: "movie",
+			});
+
+			await home.execute("lockDoor", "front");
+			await home.execute("setThermostat", { room: "living", temp: 68 });
+
+			expect(home.getView()).toMatchObject({
+				activeScene: null,
+				pendingScene: "movie",
+			});
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it("observes a delayed scene after run() acknowledges the pending view", async () => {
