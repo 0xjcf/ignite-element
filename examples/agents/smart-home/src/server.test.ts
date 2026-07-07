@@ -298,6 +298,23 @@ describe("smart-home bridge server", () => {
 			}
 		}
 	});
+
+	it("reports normal shutdown cleanup failures after closing acquired resources", async () => {
+		const session = createLocalHomeSession();
+		const bridge = await startSmartHomeBridgeServer({
+			port: 0,
+			runAgent: false,
+			runtimeFactory: () => ({
+				home: session.home,
+				close: async () => {
+					await session.close();
+					throw new Error("session close failed");
+				},
+			}),
+		});
+
+		await expect(bridge.close()).rejects.toThrow("session close failed");
+	});
 });
 
 function collectMessages(socket: WebSocket) {

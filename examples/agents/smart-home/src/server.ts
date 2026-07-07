@@ -333,7 +333,7 @@ export async function startSmartHomeBridgeServer(
 			port: assignedPort,
 			close: async () => {
 				closing = true;
-				await cleanupBestEffort([
+				await cleanupAndThrow([
 					() => terminal?.close(),
 					() => bridgeStream.unsubscribe(),
 					() => closeWebSocketServer(bridgeWss),
@@ -535,16 +535,53 @@ function reportStartupCleanupError(error: unknown): void {
 	console.error("smart-home bridge startup cleanup failed:", error);
 }
 
-async function cleanupBestEffort(
+async function collectCleanupErrors(
 	cleanups: Array<() => void | Promise<void>>,
-): Promise<void> {
+): Promise<unknown[]> {
+	const errors: unknown[] = [];
 	for (const cleanup of cleanups) {
 		try {
 			await cleanup();
 		} catch (error) {
-			reportStartupCleanupError(error);
+			errors.push(error);
 		}
 	}
+	return errors;
+}
+
+async function cleanupBestEffort(
+	cleanups: Array<() => void | Promise<void>>,
+): Promise<void> {
+	for (const error of await collectCleanupErrors(cleanups)) {
+		reportStartupCleanupError(error);
+	}
+}
+
+async function cleanupAndThrow(
+	cleanups: Array<() => void | Promise<void>>,
+): Promise<void> {
+	const errors = await collectCleanupErrors(cleanups);
+	if (errors.length === 0) {
+		return;
+	}
+	const primary = errors[0];
+	if (primary instanceof Error) {
+		if (errors.length > 1) {
+			const errorWithSuppressed = primary as Error & {
+				suppressedErrors?: unknown[];
+			};
+			errorWithSuppressed.suppressedErrors = errors.slice(1);
+		}
+		throw primary;
+	}
+	const error = new Error(String(primary));
+	if (errors.length > 1) {
+		const errorWithSuppressed = error as Error & {
+			suppressedErrors?: unknown[];
+		};
+		errorWithSuppressed.suppressedErrors = errors.slice(1);
+	}
+	throw error;
 }
 
 async function createViteMiddleware(): Promise<ViteDevServer> {

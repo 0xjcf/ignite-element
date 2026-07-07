@@ -7,8 +7,9 @@ Implementing. **PR1 shipped** the SDK-neutral core + `ToolDialect` port + the
 dialect (`ignite-element/tools/anthropic`) and refined the port to its final
 bare-noun shape. **PR3 adds** the OpenAI-compatible
 `ignite-element/tools/openai` dialect, which covers OpenAI, Ollama, and local
-MLX servers exposed through `/v1/chat/completions`. The agent analog of
-`ignite-element/react`. Agent-runtime thread in `docs/v3-stable-roadmap.md`.
+MLX servers exposed through `/v1/chat/completions`. Together, these are the
+agent-runtime counterpart to `ignite-element/react`; the roadmap thread lives in
+`docs/v3-stable-roadmap.md`.
 
 ## Context
 
