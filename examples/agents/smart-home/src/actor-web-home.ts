@@ -87,8 +87,11 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 			HomeCommand,
 			HomeActorEmitted
 		>;
-		sendAndFlush = (message: HomeCommand) =>
-			trackPendingSend(
+		sendAndFlush = (message: HomeCommand) => {
+			if (closed) {
+				return Promise.reject(new Error("Actor-web home session is closed."));
+			}
+			return trackPendingSend(
 				(async () => {
 					await commandSource.send(message);
 					const localNode = runtime.nodes.local;
@@ -100,6 +103,7 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 					await localNode.system.flush();
 				})(),
 			);
+		};
 		const home = igniteCore({
 			source: commandSource,
 			events: (event) => ({

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, rmSync, statSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -139,9 +139,7 @@ function normalizeScriptPath(filePath) {
 function ensureDependencies(exampleRoot, installMode) {
 	if (
 		installMode === "never" ||
-		(installMode === "missing" &&
-			existsSync(path.join(exampleRoot, "node_modules")) &&
-			existsSync(getTypeScriptCompilerPath(exampleRoot)))
+		(installMode === "missing" && hasFreshDependencies(exampleRoot))
 	) {
 		return true;
 	}
@@ -187,6 +185,28 @@ function ensureDependencies(exampleRoot, installMode) {
 	}
 
 	return result.status === 0;
+}
+
+function hasFreshDependencies(exampleRoot) {
+	const nodeModules = path.join(exampleRoot, "node_modules");
+	const installMarker = path.join(nodeModules, ".modules.yaml");
+	if (
+		!existsSync(nodeModules) ||
+		!existsSync(installMarker) ||
+		!existsSync(getTypeScriptCompilerPath(exampleRoot))
+	) {
+		return false;
+	}
+
+	const installedAt = statSync(installMarker).mtimeMs;
+	const dependencyInputs = [
+		path.join(exampleRoot, "package.json"),
+		path.join(exampleRoot, "pnpm-lock.yaml"),
+	].filter((filePath) => existsSync(filePath));
+
+	return dependencyInputs.every(
+		(filePath) => statSync(filePath).mtimeMs <= installedAt,
+	);
 }
 
 function getTypeScriptCompilerPath(exampleRoot) {

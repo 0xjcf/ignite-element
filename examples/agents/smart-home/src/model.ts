@@ -344,6 +344,7 @@ function isOpenAIToolCall(value: unknown): value is OpenAIChatToolCall {
 		(value.id == null || typeof value.id === "string") &&
 		isRecord(fn) &&
 		typeof fn.name === "string" &&
+		fn.name.trim().length > 0 &&
 		(!("arguments" in fn) ||
 			fn.arguments == null ||
 			typeof fn.arguments === "string" ||

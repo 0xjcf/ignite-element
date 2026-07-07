@@ -45,24 +45,28 @@ export async function printAndCloseAgentResult(
 	printSession: (result: AgentResult) => void | Promise<void>,
 ): Promise<void> {
 	let printError: unknown;
+	let printFailed = false;
 	let closeError: unknown;
+	let closeFailed = false;
 	try {
 		await printSession(result);
 	} catch (error) {
 		printError = error;
+		printFailed = true;
 	}
 	try {
 		await waitForLifecyclePromise(result.close(), "closing agent session");
 	} catch (error) {
 		closeError = error;
+		closeFailed = true;
 	}
-	if (printError !== undefined) {
-		if (closeError !== undefined) {
+	if (printFailed) {
+		if (closeFailed) {
 			throw new AgentResultCloseError(printError, closeError);
 		}
 		throw printError;
 	}
-	if (closeError !== undefined) {
+	if (closeFailed) {
 		throw closeError;
 	}
 }
