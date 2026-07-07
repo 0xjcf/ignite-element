@@ -1129,8 +1129,8 @@ No active tasks.
 
 - Title: SPIKE (read-only, discussion/decision): evaluate the non-engineering / go-to-market polish items from the v3 beta review and decide which to pursue and how. Cover: (1) a CLI scaffolder / project generator ('create-ignite-element' style) — worth building? what would it scaffold? alternatives (degit template, docs copy-paste); scope + ROI. (2) StackBlitz/CodeSandbox embeds for the examples (esp. spa-router) — feasibility given the source-alias monorepo setup vs the published @beta package; recommend an approach. (3) a demo video / screencast — outline a short script and what it should show (headless execute + agent angle). (4) an 'Ignite Element for AI Agents' one-pager — positioning + outline. OUTPUT: a recommendation per item (do now / defer / drop) with rationale + rough effort, plus follow-up task briefs for anything greenlit. Do NOT implement during the spike — these are partly marketing/non-code.
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/spike-read-only-discussion-decision-evaluate-the-non-eng.md
 - Verification lane: fast
 - Policy sensitivity: standard
