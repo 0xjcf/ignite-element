@@ -371,6 +371,37 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 		story.stop();
 	});
 
+	it("deep-clones retained story events when schema normalization omits toJSON payloads", async () => {
+		const h = makeHarness({
+			acceptFork() {
+				h.emit({
+					type: "OUTCOME_RESOLVED",
+					nested: { count: 1 },
+					toJSON() {
+						return undefined;
+					},
+				} as unknown as Emitted);
+			},
+		});
+		const story = h.runtime.record("compare");
+
+		await story.execute("acceptFork");
+		const firstSummary = story.summary();
+		const firstNested = firstSummary.events[0]?.nested;
+		if (
+			typeof firstNested !== "object" ||
+			firstNested === null ||
+			!("count" in firstNested)
+		) {
+			throw new Error("expected first summary event to include nested count");
+		}
+		firstNested.count = 99;
+
+		const secondNested = story.summary().events[0]?.nested;
+		expect(secondNested).toMatchObject({ count: 1 });
+		story.stop();
+	});
+
 	it("adapters without subscribeEvents() are unaffected", async () => {
 		const host = document.createElement("div");
 		let state = { count: 0 };

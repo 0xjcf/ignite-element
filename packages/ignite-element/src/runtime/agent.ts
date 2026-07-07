@@ -58,6 +58,62 @@ function sourceEventToRuntimeEvent(
 	};
 }
 
+function cloneFallbackValue(
+	value: unknown,
+	seen: WeakMap<object, unknown> = new WeakMap(),
+): unknown {
+	switch (typeof value) {
+		case "boolean":
+		case "number":
+		case "string":
+		case "bigint":
+			return value;
+		case "symbol":
+			return value.toString();
+		case "function":
+			return "[Function]";
+		case "undefined":
+			return undefined;
+		case "object": {
+			if (value === null) {
+				return null;
+			}
+
+			const cached = seen.get(value);
+			if (cached) {
+				return cached;
+			}
+
+			if (value instanceof Date) {
+				return value.toISOString();
+			}
+
+			if (Array.isArray(value)) {
+				const cloned: unknown[] = [];
+				seen.set(value, cloned);
+				for (const item of value) {
+					cloned.push(cloneFallbackValue(item, seen));
+				}
+				return cloned;
+			}
+
+			const cloned: Record<string, unknown> = {};
+			seen.set(value, cloned);
+			for (const [key, entry] of Object.entries(
+				value as Record<string, unknown>,
+			)) {
+				const clonedEntry = cloneFallbackValue(entry, seen);
+				if (typeof clonedEntry !== "undefined") {
+					cloned[key] = clonedEntry;
+				}
+			}
+			return cloned;
+		}
+		default:
+			return String(value);
+	}
+}
+
 function cloneValue(value: unknown): unknown {
 	if (typeof globalThis.structuredClone === "function") {
 		try {
@@ -68,7 +124,9 @@ function cloneValue(value: unknown): unknown {
 	}
 
 	const normalized = toSchemaValue(value);
-	return typeof normalized === "undefined" ? value : normalized;
+	return typeof normalized === "undefined"
+		? cloneFallbackValue(value)
+		: normalized;
 }
 
 function cloneRuntimeEvent(event: RuntimeEventMember): RuntimeEventMember {

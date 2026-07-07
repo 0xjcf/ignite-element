@@ -162,7 +162,7 @@ const apiShowcase = igniteCore({
       emit({
         type: "api-count-changed",
         count: snapshot.context.count,
-        previousCount: count.previous,
+        previousCount: prevSnapshot.context.count,
         state: String(snapshot.value),
       });
     }

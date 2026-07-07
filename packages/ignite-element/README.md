@@ -59,8 +59,8 @@ const toggle = igniteCore({
   events: (event) => ({
     toggled: event<{ isOn: boolean }>(),
   }),
-  view: ({ matches }) => ({
-    isOn: matches("on"),
+  view: ({ snapshot }) => ({
+    isOn: snapshot.matches("on"),
   }),
   commands: ({ actor }) => ({
     toggle: () => actor.send({ type: "TOGGLE" }),
@@ -127,11 +127,11 @@ Headless runtime APIs are available on the same component contract:
 
 ```ts
 await toggle.execute("toggle");
-toggle.getState();
+toggle.getSnapshot();
 toggle.getView();
 toggle.getSchema();
 toggle.on("toggled", handler);
-toggle.watch((state, prevState) => {});
+toggle.watchSnapshot((snapshot, prevSnapshot) => {});
 toggle.watchView((view, prevView) => {});
 const story = toggle.record("turns on");
 await story.execute("toggle");
