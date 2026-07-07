@@ -1,4 +1,4 @@
-import { createActorWebHomeSession } from "./actor-web-home";
+import { resolveSmartHomeRuntimeFactory } from "./cli";
 import { waitForLifecyclePromise } from "./lifecycle";
 import { openAICompatibleModel } from "./model";
 import { startSmartHomeBridgeServer } from "./server";
@@ -11,10 +11,7 @@ const baseUrl =
 const model =
 	process.env.MLX_MODEL ?? process.env.OPENAI_COMPAT_MODEL ?? "mlx-local";
 const apiKey = process.env.OPENAI_COMPAT_API_KEY;
-const runtimeFactory =
-	process.env.SMART_HOME_RUNTIME === "actor-web"
-		? createActorWebHomeSession
-		: undefined;
+const runtimeFactory = resolveSmartHomeRuntimeFactory();
 
 let server: Awaited<ReturnType<typeof startSmartHomeBridgeServer>> | undefined;
 let startupPromise: ReturnType<typeof startSmartHomeBridgeServer> | undefined;

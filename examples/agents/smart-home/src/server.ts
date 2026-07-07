@@ -24,9 +24,9 @@ import {
 import type { ViteDevServer } from "vite";
 import { createServer as createViteServer } from "vite";
 import { WebSocket, WebSocketServer } from "ws";
-import { createActorWebHomeSession } from "./actor-web-home";
 import type { HomeBridgeClientMessage, HomeBridgeMessage } from "./bridge";
 import { parseBridgeMessage, serializeBridgeMessage } from "./bridge";
+import { resolveSmartHomeRuntimeFactory } from "./cli";
 import { waitForLifecyclePromise } from "./lifecycle";
 import {
 	type AnthropicMessage,
@@ -787,10 +787,7 @@ async function resolveSharedHomeSession(runtimeFactory?: HomeRuntimeFactory) {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
-	const runtimeFactory =
-		process.env.SMART_HOME_RUNTIME === "actor-web"
-			? createActorWebHomeSession
-			: undefined;
+	const runtimeFactory = resolveSmartHomeRuntimeFactory();
 	let server: SmartHomeBridgeServer | undefined;
 	let startupPromise: ReturnType<typeof startSmartHomeBridgeServer> | undefined;
 	let shuttingDown = false;
