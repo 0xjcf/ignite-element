@@ -23,6 +23,7 @@
 		"lint": "biome lint . && pnpm run lint:md",
 		"lint:md": "markdownlint-cli2",
 		"architecture:check": "node scripts/check-architecture-rules.mjs",
+		"size:entrypoints": "pnpm --filter ignite-element... build && node scripts/measure-bundle-sizes.mjs",
 		"docs:dev": "pnpm --filter docs-site dev",
 		"docs:build": "pnpm --filter docs-site build",
 		"docs:preview": "pnpm --filter docs-site preview",
