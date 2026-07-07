@@ -114,7 +114,11 @@ export async function runSmartHomeBridgeCli<
 
 	try {
 		startupPromise = options.start();
-		server = await startupPromise;
+		server = await waitForLifecyclePromise(
+			startupPromise,
+			`starting ${options.displayName}`,
+			options.startupTimeoutMs ?? SMART_HOME_STARTUP_WAIT_TIMEOUT_MS,
+		);
 		try {
 			options.onStarted(server);
 		} catch (error) {
