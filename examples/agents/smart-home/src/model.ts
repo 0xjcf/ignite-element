@@ -274,12 +274,16 @@ export function toOpenAIAssistantMessage(
 	}
 	const content = message.content;
 	const toolCalls = message.tool_calls;
+	const normalizedToolCalls = Array.isArray(toolCalls)
+		? normalizeOpenAIToolCalls(toolCalls.filter(isOpenAIToolCall))
+		: undefined;
 	return {
 		role: "assistant",
 		content: typeof content === "string" ? content : null,
-		tool_calls: Array.isArray(toolCalls)
-			? normalizeOpenAIToolCalls(toolCalls.filter(isOpenAIToolCall))
-			: undefined,
+		tool_calls:
+			normalizedToolCalls && normalizedToolCalls.length > 0
+				? normalizedToolCalls
+				: undefined,
 	};
 }
 

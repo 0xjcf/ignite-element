@@ -617,6 +617,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 	it("stops the local runtime when closing the local session", async () => {
 		vi.useFakeTimers();
 		const session = createLocalHomeSession();
+		let closed = false;
 		try {
 			const tools = igniteTools(session.home, anthropic);
 			const result = await tools.run({
@@ -631,6 +632,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 			});
 
 			await session.close();
+			closed = true;
 			await vi.advanceTimersByTimeAsync(SCENE_TRANSITION_DELAY_MS);
 
 			expect(session.home.getView()).toMatchObject({
@@ -638,6 +640,9 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 				activeScene: null,
 			});
 		} finally {
+			if (!closed) {
+				await session.close();
+			}
 			vi.useRealTimers();
 		}
 	});
@@ -1154,6 +1159,23 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 				{ message: { role: "assistant", content: "No action needed." } },
 			],
 		});
+	});
+
+	it("omits invalid OpenAI-compatible tool call arrays with text content", () => {
+		const message = toOpenAIAssistantMessage({
+			choices: [
+				{
+					message: {
+						role: "assistant",
+						content: "No action needed.",
+						tool_calls: [{}] as never,
+					},
+				},
+			],
+		});
+
+		expect(message.tool_calls).toBeUndefined();
+		expect(JSON.stringify(message)).not.toContain("tool_calls");
 	});
 
 	it("serializes assistant tool call arguments for replay", () => {

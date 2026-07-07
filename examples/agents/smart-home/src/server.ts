@@ -347,8 +347,8 @@ export async function startSmartHomeBridgeServer(
 				closing = true;
 				const currentAgentLifecycle = agentLifecycle;
 				await cleanupAndThrow([
-					() => waitForAgentLifecycle(currentAgentLifecycle),
 					() => terminal?.close(),
+					() => waitForAgentLifecycle(currentAgentLifecycle),
 					() => bridgeStream.unsubscribe(),
 					() => closeWebSocketServer(bridgeWss),
 					() => closeServer(bridgeHttpServer),

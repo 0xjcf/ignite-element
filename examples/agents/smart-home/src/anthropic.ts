@@ -64,8 +64,9 @@ try {
 		console.error(
 			"\n@anthropic-ai/sdk is not installed. Run `npm install @anthropic-ai/sdk` and retry.",
 		);
-		process.exit(1);
+		process.exitCode = 1;
+	} else {
+		console.error(`\n${message}`);
+		process.exitCode = 1;
 	}
-	console.error(`\n${message}`);
-	process.exit(1);
 }
