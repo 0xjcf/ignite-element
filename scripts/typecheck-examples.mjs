@@ -53,7 +53,7 @@ function parseOptions(rawArgs = process.argv.slice(2)) {
 	const installModeArgIndex = rawArgs.findIndex(
 		(arg) => arg === "--install" || arg.startsWith(installModeAssignmentPrefix),
 	);
-	let installMode = "always";
+	let installMode = "missing";
 	if (installModeArgIndex !== -1) {
 		const installModeArg = rawArgs[installModeArgIndex];
 		const installValue = installModeArg.startsWith(installModeAssignmentPrefix)
