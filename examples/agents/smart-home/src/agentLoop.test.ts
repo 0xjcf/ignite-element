@@ -1050,7 +1050,7 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 		).rejects.toThrow(/assistant messages must include content or tool_calls/);
 	});
 
-	it("rejects empty OpenAI-compatible tool call arrays", async () => {
+	it("rejects empty OpenAI-compatible tool call arrays without text content", async () => {
 		const fetchImpl: typeof fetch = async () =>
 			new Response(
 				JSON.stringify({
@@ -1072,7 +1072,44 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 				tools: [],
 				messages: [{ role: "user", content: "status" }],
 			}),
-		).rejects.toThrow(/message\.tool_calls must be valid/);
+		).rejects.toThrow(/assistant messages must include content or tool_calls/);
+	});
+
+	it("accepts empty OpenAI-compatible tool call arrays with text content", async () => {
+		const fetchImpl: typeof fetch = async () =>
+			new Response(
+				JSON.stringify({
+					choices: [
+						{
+							message: {
+								role: "assistant",
+								content: "No action needed.",
+								tool_calls: [],
+							},
+						},
+					],
+				}),
+				{
+					status: 200,
+					headers: { "content-type": "application/json" },
+				},
+			);
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).resolves.toMatchObject({
+			choices: [
+				{ message: { role: "assistant", content: "No action needed." } },
+			],
+		});
 	});
 
 	it("serializes assistant tool call arguments for replay", () => {
@@ -1224,6 +1261,61 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 						},
 					},
 				],
+			});
+		} finally {
+			await result.close();
+		}
+	});
+
+	it("normalizes missing OpenAI-compatible tool call ids for replay and results", async () => {
+		const observedMessages: Array<
+			Parameters<OpenAICompatibleModel>[0]["messages"]
+		> = [];
+		let turn = 0;
+		const model: OpenAICompatibleModel = async ({ messages }) => {
+			observedMessages.push(
+				JSON.parse(
+					JSON.stringify(messages),
+				) as Parameters<OpenAICompatibleModel>[0]["messages"],
+			);
+			turn += 1;
+			if (turn === 1) {
+				return {
+					choices: [
+						{
+							message: {
+								role: "assistant",
+								tool_calls: [
+									{
+										type: "function",
+										function: { name: "status", arguments: "{}" },
+									},
+								],
+							},
+						},
+					],
+				};
+			}
+			return {
+				choices: [{ message: { role: "assistant", content: "Status read." } }],
+			};
+		};
+
+		const result = await runHomeOpenAICompatibleAgent(model, "read status");
+
+		try {
+			expect(result.trace).toHaveLength(1);
+			expect(result.trace[0]).toMatchObject({
+				command: "status",
+				ok: true,
+			});
+			expect(observedMessages[1]?.[1]).toMatchObject({
+				role: "assistant",
+				tool_calls: [{ id: "call_0" }],
+			});
+			expect(observedMessages[1]?.[2]).toMatchObject({
+				role: "tool",
+				tool_call_id: "call_0",
 			});
 		} finally {
 			await result.close();

@@ -221,7 +221,10 @@ export function assertOpenAIChatCompletionResponse(
 				`${source} was malformed: choice.message.content must be a string when present.`,
 			);
 		}
-		if (toolCalls == null) {
+		if (
+			toolCalls == null ||
+			(Array.isArray(toolCalls) && toolCalls.length === 0)
+		) {
 			if (!hasTextContent) {
 				throw new Error(
 					`${source} was malformed: assistant messages must include content or tool_calls.`,
@@ -229,11 +232,7 @@ export function assertOpenAIChatCompletionResponse(
 			}
 			continue;
 		}
-		if (
-			!Array.isArray(toolCalls) ||
-			toolCalls.length === 0 ||
-			!toolCalls.every(isOpenAIToolCall)
-		) {
+		if (!Array.isArray(toolCalls) || !toolCalls.every(isOpenAIToolCall)) {
 			throw new Error(
 				`${source} was malformed: message.tool_calls must be valid function tool calls.`,
 			);
@@ -299,8 +298,12 @@ function normalizeOpenAIChoice(
 function normalizeOpenAIToolCalls(
 	toolCalls: OpenAIChatToolCall[],
 ): OpenAIChatToolCall[] {
-	return toolCalls.map((call) => ({
+	return toolCalls.map((call, index) => ({
 		...call,
+		id:
+			typeof call.id === "string" && call.id.length > 0
+				? call.id
+				: `call_${index}`,
 		function: {
 			...call.function,
 			arguments: stringifyOpenAIArguments(call.function.arguments),
@@ -328,7 +331,7 @@ function isOpenAIToolCall(value: unknown): value is OpenAIChatToolCall {
 	}
 	const fn = value.function;
 	return (
-		typeof value.id === "string" &&
+		(value.id == null || typeof value.id === "string") &&
 		isRecord(fn) &&
 		typeof fn.name === "string" &&
 		(!("arguments" in fn) ||
