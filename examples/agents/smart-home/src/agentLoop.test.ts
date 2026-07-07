@@ -883,6 +883,21 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 		).rejects.not.toThrow("x".repeat(1_001));
 	});
 
+	it("rejects invalid OpenAI-compatible request timeouts before requests start", () => {
+		for (const timeoutMs of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+			expect(() =>
+				openAICompatibleModel({
+					baseUrl: "http://127.0.0.1:8080/v1",
+					model: "mlx-test",
+					fetch: vi.fn(),
+					timeoutMs,
+				}),
+			).toThrow(
+				"OpenAI-compatible timeoutMs must be a positive finite number.",
+			);
+		}
+	});
+
 	it("clears OpenAI-compatible request timeouts after network failures", async () => {
 		vi.useFakeTimers();
 		try {

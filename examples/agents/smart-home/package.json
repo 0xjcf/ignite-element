@@ -1,7 +1,7 @@
 {
 	"name": "smart-home-agent-example",
 	"version": "1.0.0",
-	"description": "Drive a headless ignite-element smart home with Claude or a local MLX/OpenAI-compatible model via igniteTools, all in pure Node (no DOM).",
+	"description": "Drive a headless ignite-element smart home with Claude or a Python-hosted local MLX/OpenAI-compatible endpoint via igniteTools from Node (no DOM).",
 	"type": "module",
 	"scripts": {
 		"test": "vitest run",

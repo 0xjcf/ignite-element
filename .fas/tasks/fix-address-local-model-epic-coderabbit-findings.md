@@ -36,6 +36,7 @@ fix: address local-model epic CodeRabbit findings
 - examples/agents/smart-home/src/server.test.ts
 - examples/agents/smart-home/src/server.ts
 - examples/agents/smart-home/README.md
+- examples/agents/smart-home/package.json
 - examples/agents/smart-home/pnpm-lock.yaml
 - examples/agents/smart-home/tsconfig.json
 - packages/ignite-element/src/tools/openai/index.ts
@@ -85,6 +86,9 @@ fix: address local-model epic CodeRabbit findings
 - Added `examples/agents/smart-home/src/lifecycle.ts` after CodeRabbit flagged
   duplicated bridge startup/shutdown timeout logic between the default and MLX
   server entrypoints.
+- Added `examples/agents/smart-home/package.json` after CodeRabbit flagged that
+  the smart-home package metadata overstated the local MLX flow as pure Node
+  even though the model endpoint is hosted by `python -m mlx_lm.server`.
 
 - Type: scope-refresh-promotion
 - Added at: 2026-07-06

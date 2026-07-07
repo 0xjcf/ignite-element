@@ -88,6 +88,11 @@ export function openAICompatibleModel(options: {
 	const model = options.model ?? "mlx-local";
 	const fetchImpl = options.fetch ?? fetch;
 	const timeoutMs = options.timeoutMs ?? 30_000;
+	if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+		throw new Error(
+			"OpenAI-compatible timeoutMs must be a positive finite number.",
+		);
+	}
 
 	return async ({ tools, messages }) => {
 		const headers: Record<string, string> = {
