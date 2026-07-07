@@ -1,3 +1,4 @@
+import type { EmptyEventMap, EventMap } from "../../RenderArgs";
 import type { IgniteSchemaObject } from "../../types/schema";
 import { isOk } from "../result";
 import { fromProviderInput, toProviderInputSchema } from "../scalar";
@@ -183,7 +184,14 @@ export const openai: ToolDialect<
 		return parsedCalls;
 	},
 
-	toolResult({ id, result }: NeutralToolResult): OpenAIChatToolResultMessage {
+	toolResult<
+		Snapshot = unknown,
+		View = unknown,
+		Events extends EventMap = EmptyEventMap,
+	>({
+		id,
+		result,
+	}: NeutralToolResult<Snapshot, View, Events>): OpenAIChatToolResultMessage {
 		// OpenAI-compatible chat completions reject a tool message without the
 		// originating tool_call_id. The neutral id is optional because the port is
 		// provider-agnostic; for this dialect, a missing id is a pairing bug.

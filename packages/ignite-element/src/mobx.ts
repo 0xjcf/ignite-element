@@ -18,7 +18,6 @@ export type {
 	IgniteDomBridge,
 	IgniteDomRoleExpectation,
 	IgniteEventExpectation,
-	IgniteEventPayloadExpectation,
 	IgniteStateExpectation,
 	IgniteTestHelpers,
 	IgniteTestScenario,
@@ -53,6 +52,7 @@ export type {
 } from "./types/agent";
 export type {
 	IgniteAgentCommandSchema,
+	IgniteAgentEventSchema,
 	IgniteAgentSchema,
 	IgniteSchemaValue,
 } from "./types/schema";

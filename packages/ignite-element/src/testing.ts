@@ -1,7 +1,7 @@
 import type {
 	EmptyEventMap,
 	EventMap,
-	EventPayload,
+	EventMember,
 	FacadeCommandResult,
 } from "./RenderArgs";
 import {
@@ -47,17 +47,12 @@ export type IgniteViewExpectation<View> =
 	| DeepPartial<View>
 	| ((view: View) => boolean);
 
-export type IgniteEventPayloadExpectation<Payload> =
-	| DeepPartial<Payload>
-	| ((payload: Payload) => boolean);
-
 export type IgniteEventExpectation<
 	Events extends EventMap = EmptyEventMap,
 	Type extends keyof Events & string = keyof Events & string,
-> = {
-	type: Type;
-	payload?: IgniteEventPayloadExpectation<EventPayload<Events[Type]>>;
-};
+> =
+	| ({ type: Type } & DeepPartial<Omit<EventMember<Events, Type>, "type">>)
+	| ((event: EventMember<Events, Type>) => boolean);
 
 export type IgniteStoryTraceExpectationEntry =
 	| DeepPartial<IgniteStoryTraceSnapshotEntry>
@@ -119,8 +114,7 @@ export type IgniteTestScenario<
 		expected: IgniteViewExpectation<View>,
 	): IgniteTestScenario<State, Commands, Events, View>;
 	expectEvent<Type extends keyof Events & string>(
-		type: Type,
-		payload?: IgniteEventPayloadExpectation<EventPayload<Events[Type]>>,
+		expected: IgniteEventExpectation<Events, Type>,
 	): IgniteTestScenario<State, Commands, Events, View>;
 	expectEvents(
 		expected: IgniteEventExpectation<Events>[],
@@ -553,26 +547,26 @@ const assertEvent = <
 	Type extends keyof Events & string,
 >(
 	events: RuntimeEvent<Events>[],
-	type: Type,
-	payload?: IgniteEventPayloadExpectation<EventPayload<Events[Type]>>,
+	expected: IgniteEventExpectation<Events, Type>,
 ) => {
-	const matchedEvent = events.find((event) => event.type === type);
+	const matchedEvent =
+		typeof expected === "function"
+			? events.find((event) => valuesMatch(event, expected))
+			: events.find((event) => event.type === expected.type);
 
 	if (!matchedEvent) {
 		throw new Error(
-			`[igniteTest] Expected event "${type}" but received ${formatValue(events)}.`,
+			`[igniteTest] Expected event ${formatValue(expected)} but received ${formatValue(events)}.`,
 		);
 	}
 
-	if (typeof payload === "undefined") {
+	if (valuesMatch(matchedEvent, expected)) {
 		return;
 	}
 
-	if (!valuesMatch(matchedEvent.payload, payload)) {
-		throw new Error(
-			`[igniteTest] Event "${type}" payload mismatch.\nExpected: ${formatValue(payload)}\nReceived: ${formatValue(matchedEvent.payload)}`,
-		);
-	}
+	throw new Error(
+		`[igniteTest] Event mismatch.\nExpected: ${formatValue(expected)}\nReceived: ${formatValue(matchedEvent)}`,
+	);
 };
 
 const serializeTrace = (
@@ -599,8 +593,10 @@ const serializeEvent = (event: RuntimeEvent): IgniteStorySnapshotEvent => {
 		type: event.type,
 	};
 
-	if ("payload" in event) {
-		snapshotEvent.payload = normalizeSnapshotValue(event.payload);
+	for (const [key, value] of Object.entries(event)) {
+		if (key !== "type") {
+			snapshotEvent[key] = normalizeSnapshotValue(value);
+		}
 	}
 
 	return snapshotEvent;
@@ -769,16 +765,15 @@ class IgniteTestDriver<
 	}
 
 	expectEvent<Type extends keyof Events & string>(
-		type: Type,
-		payload?: IgniteEventPayloadExpectation<EventPayload<Events[Type]>>,
+		expected: IgniteEventExpectation<Events, Type>,
 	) {
-		assertEvent(this.getResult().events, type, payload);
+		assertEvent(this.getResult().events, expected);
 		return this;
 	}
 
 	expectEvents(expected: IgniteEventExpectation<Events>[]) {
 		for (const event of expected) {
-			assertEvent(this.getResult().events, event.type, event.payload);
+			assertEvent(this.getResult().events, event);
 		}
 
 		return this;

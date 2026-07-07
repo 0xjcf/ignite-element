@@ -52,10 +52,9 @@ export type IgniteReactRef<Component> = Component extends IgniteComponent<
 type EventHandlerName<Type extends string> = `on${Capitalize<Type>}`;
 
 /**
- * Events map -> `on<Event>` callback props. Each handler receives the flat
- * event member directly (the wrapper forwards `event.detail`, which is the bare
- * payload for effects emits / the whole member for source emits — never the
- * `{ type, payload }` envelope).
+ * Events map -> `on<Event>` callback props. Each handler receives the custom
+ * element's DOM `event.detail` directly — never the `{ type, payload }`
+ * envelope.
  */
 export type IgniteReactEventProps<Events extends EventMap> = {
 	[K in keyof Events & string as EventHandlerName<K>]?: (
@@ -142,10 +141,9 @@ export function igniteReact<
 			const propsRef = React.useRef(props);
 			propsRef.current = props;
 
-			// Wire event listeners from the schema's event types. Handlers forward
-			// `event.detail` directly — the single normalize seam (a future flat
-			// event-shape change is a one-line update here). Re-reads the latest
-			// callback through propsRef so listeners stay stable across renders.
+			// Wire event listeners from the schema's event descriptors. Handlers
+			// forward `event.detail` directly. Re-reads the latest callback through
+			// propsRef so listeners stay stable across renders.
 			// `component` is the closed-over handle and is stable for the wrapper's
 			// lifetime, so the empty deps array is intentional — re-wiring on every
 			// render would tear down and re-add listeners needlessly.
@@ -153,7 +151,9 @@ export function igniteReact<
 			React.useEffect(() => {
 				const el = elRef.current;
 				if (!el) return;
-				const eventTypes = component.getSchema().events;
+				const eventTypes = component
+					.getSchema()
+					.events.map((event) => event.type);
 				const offs = eventTypes.map((type) => {
 					const handlerName = toHandlerName(type);
 					const listener = (event: Event) => {

@@ -73,9 +73,18 @@ export function igniteTools<
  * the result also carries provider-shaped `tools` and the parse/result
  * translators — the consumer brings the SDK and runs the model loop.
  */
-export function igniteTools(
-	runtime: IgniteToolsRuntime,
-	dialect?: ToolDialect,
+export function igniteTools<
+	State,
+	Commands extends FacadeCommandResult,
+	Events extends EventMap,
+	SchemaState,
+	View extends Record<string, unknown>,
+	Tools,
+	Response,
+	ResultBlock,
+>(
+	runtime: IgniteToolsRuntime<State, Commands, Events, SchemaState, View>,
+	dialect?: ToolDialect<Tools, Response, ResultBlock>,
 ) {
 	const canExecute: AvailabilityPredicate | undefined =
 		typeof runtime.canExecute === "function"
@@ -132,7 +141,7 @@ export function igniteTools(
 	): ToolStreamSubscription => {
 		const on = runtime.on.bind(runtime) as unknown as (
 			eventName: string,
-			handler: (event: CustomEvent<unknown>) => void,
+			handler: (event: { type: string; [key: string]: unknown }) => void,
 		) => ToolStreamSubscription;
 		const watchView = runtime.watchView.bind(runtime) as unknown as (
 			handler: (view: unknown, prevView: unknown) => void,
@@ -140,12 +149,12 @@ export function igniteTools(
 		const subscriptions: ToolStreamSubscription[] = [];
 
 		try {
-			for (const eventName of schema.events) {
+			for (const eventDescriptor of schema.events) {
 				subscriptions.push(
-					on(eventName, (event) => {
+					on(eventDescriptor.type, (event) => {
 						handler({
 							type: "event",
-							event: { type: eventName, payload: event.detail },
+							event,
 						});
 					}),
 				);
@@ -187,7 +196,8 @@ export function igniteTools(
 	return {
 		...neutral,
 		tools: dialect.tools(manifest),
-		toolCalls: (response: unknown) => dialect.toolCalls(response, manifest),
-		toolResult: (result: NeutralToolResult) => dialect.toolResult(result),
+		toolCalls: (response: Response) => dialect.toolCalls(response, manifest),
+		toolResult: (result: NeutralToolResult<State, View, Events>) =>
+			dialect.toolResult(result),
 	};
 }

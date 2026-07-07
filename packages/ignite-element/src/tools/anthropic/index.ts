@@ -1,3 +1,4 @@
+import type { EmptyEventMap, EventMap } from "../../RenderArgs";
 import type { IgniteSchemaObject } from "../../types/schema";
 import { isOk } from "../result";
 import { fromProviderInput, toProviderInputSchema } from "../scalar";
@@ -100,7 +101,14 @@ export const anthropic: ToolDialect<
 			}));
 	},
 
-	toolResult({ id, result }: NeutralToolResult): AnthropicToolResultBlock {
+	toolResult<
+		Snapshot = unknown,
+		View = unknown,
+		Events extends EventMap = EmptyEventMap,
+	>({
+		id,
+		result,
+	}: NeutralToolResult<Snapshot, View, Events>): AnthropicToolResultBlock {
 		// Anthropic rejects a tool_result without a tool_use_id. The neutral id is
 		// optional (provider-agnostic), but for Anthropic it always originates from
 		// a tool_use block via toolCalls() — a missing id is a pairing bug, not an
