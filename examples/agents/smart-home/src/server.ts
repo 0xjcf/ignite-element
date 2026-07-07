@@ -28,17 +28,17 @@ import { createActorWebHomeSession } from "./actor-web-home";
 import type { HomeBridgeClientMessage, HomeBridgeMessage } from "./bridge";
 import { parseBridgeMessage, serializeBridgeMessage } from "./bridge";
 import {
+	type AnthropicMessage,
 	assertOpenAIChatCompletionResponse,
 	firstOpenAIChoiceResponse,
-	type AnthropicMessage,
 	type Model,
 	type OpenAICompatibleMessage,
 	type OpenAICompatibleModel,
 	scriptedModel,
 	toOpenAIAssistantMessage,
 } from "./model";
-import { renderHome } from "./render";
 import type { HomeView } from "./render";
+import { renderHome } from "./render";
 import {
 	createLocalHomeSession,
 	type HomeAgentRuntime,
@@ -787,9 +787,38 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
 		process.env.SMART_HOME_RUNTIME === "actor-web"
 			? createActorWebHomeSession
 			: undefined;
-	const server = await startSmartHomeBridgeServer({
-		terminal: true,
-		runtimeFactory,
-	});
-	console.log(`Smart-home bridge listening on http://localhost:${server.port}`);
+	let server: SmartHomeBridgeServer | undefined;
+	let shuttingDown = false;
+	const shutdown = async (signal: string) => {
+		if (shuttingDown) {
+			return;
+		}
+		shuttingDown = true;
+		try {
+			await server?.close();
+			process.exit(0);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			console.error(
+				`\nFailed to close smart-home bridge after ${signal}: ${message}`,
+			);
+			process.exit(1);
+		}
+	};
+	process.once("SIGINT", () => void shutdown("SIGINT"));
+	process.once("SIGTERM", () => void shutdown("SIGTERM"));
+
+	try {
+		server = await startSmartHomeBridgeServer({
+			terminal: true,
+			runtimeFactory,
+		});
+		console.log(
+			`Smart-home bridge listening on http://localhost:${server.port}`,
+		);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		console.error(`\n${message}`);
+		process.exit(1);
+	}
 }

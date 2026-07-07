@@ -125,13 +125,15 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 				}
 				if (errors.length > 0) {
 					const primary = errors[0];
-					if (errors.length > 1 && primary instanceof Error) {
-						const errorWithSuppressed = primary as Error & {
+					const cleanupError =
+						primary instanceof Error ? primary : new Error(String(primary));
+					if (errors.length > 1) {
+						const errorWithSuppressed = cleanupError as Error & {
 							suppressedErrors?: unknown[];
 						};
 						errorWithSuppressed.suppressedErrors = errors.slice(1);
 					}
-					throw primary;
+					throw cleanupError;
 				}
 			},
 		};

@@ -1533,9 +1533,12 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 
 	it("restarts actor-web delayed scene timing when transitionScene is repeated", async () => {
 		vi.useFakeTimers();
-		const session = await createActorWebHomeSession();
+		let session:
+			| Awaited<ReturnType<typeof createActorWebHomeSession>>
+			| undefined;
 
 		try {
+			session = await createActorWebHomeSession();
 			const tools = igniteTools(session.home, anthropic);
 			const firstResult = await tools.run({
 				name: "transitionScene",
@@ -1582,17 +1585,22 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 				lights: { living: false },
 			});
 		} finally {
-			await session.close();
+			if (session) {
+				await session.close();
+			}
 			vi.useRealTimers();
 		}
 	});
 
 	it("cancels pending actor-web transition timers when the session closes", async () => {
 		vi.useFakeTimers();
-		const session = await createActorWebHomeSession();
+		let session:
+			| Awaited<ReturnType<typeof createActorWebHomeSession>>
+			| undefined;
 		let closed = false;
 
 		try {
+			session = await createActorWebHomeSession();
 			const tools = igniteTools(session.home, anthropic);
 			const timerCountBeforeTransition = vi.getTimerCount();
 			const result = await tools.run({
@@ -1622,7 +1630,7 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 				pendingScene: "movie",
 			});
 		} finally {
-			if (!closed) {
+			if (session && !closed) {
 				await session.close();
 			}
 			vi.useRealTimers();
