@@ -1,4 +1,5 @@
 export const SMART_HOME_LIFECYCLE_WAIT_TIMEOUT_MS = 10_000;
+export const SMART_HOME_STARTUP_WAIT_TIMEOUT_MS = 30_000;
 
 export async function waitForLifecyclePromise<T>(
 	promise: Promise<T>,
@@ -33,6 +34,7 @@ export async function runSmartHomeBridgeCli<
 	displayName: string;
 	start(): Promise<TServer>;
 	onStarted(server: TServer): void;
+	startupTimeoutMs?: number;
 }): Promise<void> {
 	let server: TServer | undefined;
 	let startupPromise: Promise<TServer> | undefined;
@@ -49,6 +51,7 @@ export async function runSmartHomeBridgeCli<
 					server = await waitForLifecyclePromise(
 						startupPromise,
 						`waiting for ${options.displayName} startup before ${signal}`,
+						options.startupTimeoutMs ?? SMART_HOME_STARTUP_WAIT_TIMEOUT_MS,
 					);
 				} catch (error) {
 					const message =
