@@ -1171,6 +1171,65 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 		}
 	});
 
+	it("normalizes missing OpenAI-compatible tool arguments to an empty object", async () => {
+		const observedMessages: Array<
+			Parameters<OpenAICompatibleModel>[0]["messages"]
+		> = [];
+		let turn = 0;
+		const model: OpenAICompatibleModel = async ({ messages }) => {
+			observedMessages.push(
+				JSON.parse(
+					JSON.stringify(messages),
+				) as Parameters<OpenAICompatibleModel>[0]["messages"],
+			);
+			turn += 1;
+			if (turn === 1) {
+				return {
+					choices: [
+						{
+							message: {
+								role: "assistant",
+								tool_calls: [
+									{
+										id: "call_status",
+										type: "function",
+										function: { name: "status" },
+									},
+								],
+							},
+						},
+					],
+				} as unknown as OpenAIChatCompletionResponse;
+			}
+			return {
+				choices: [{ message: { role: "assistant", content: "Status read." } }],
+			};
+		};
+
+		const result = await runHomeOpenAICompatibleAgent(model, "read status");
+
+		try {
+			expect(result.trace).toHaveLength(1);
+			expect(result.trace[0]).toMatchObject({
+				command: "status",
+				ok: true,
+			});
+			const replayAssistantMessage = observedMessages[1]?.[1];
+			expect(replayAssistantMessage).toMatchObject({
+				role: "assistant",
+				tool_calls: [
+					{
+						function: {
+							arguments: "{}",
+						},
+					},
+				],
+			});
+		} finally {
+			await result.close();
+		}
+	});
+
 	it("normalizes multi-choice OpenAI-compatible responses to the first choice", async () => {
 		let turn = 0;
 		const multiChoiceModel: OpenAICompatibleModel = async () => {

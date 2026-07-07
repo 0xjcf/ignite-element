@@ -312,6 +312,9 @@ function stringifyOpenAIArguments(value: unknown): string {
 	if (typeof value === "string") {
 		return value;
 	}
+	if (value == null) {
+		return "{}";
+	}
 	try {
 		return JSON.stringify(value) ?? "null";
 	} catch {
@@ -328,7 +331,10 @@ function isOpenAIToolCall(value: unknown): value is OpenAIChatToolCall {
 		typeof value.id === "string" &&
 		isRecord(fn) &&
 		typeof fn.name === "string" &&
-		(typeof fn.arguments === "string" || isRecord(fn.arguments))
+		(!("arguments" in fn) ||
+			fn.arguments == null ||
+			typeof fn.arguments === "string" ||
+			isRecord(fn.arguments))
 	);
 }
 

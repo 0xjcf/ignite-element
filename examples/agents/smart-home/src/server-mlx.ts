@@ -43,7 +43,7 @@ const shutdown = async (signal: string) => {
 			);
 			process.exit(1);
 		}
-		await server.close();
+		await waitForShutdownBeforeExit(server.close(), signal);
 		process.exit(0);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
@@ -53,6 +53,33 @@ const shutdown = async (signal: string) => {
 		process.exit(1);
 	}
 };
+
+async function waitForShutdownBeforeExit(
+	promise: ReturnType<
+		Awaited<ReturnType<typeof startSmartHomeBridgeServer>>["close"]
+	>,
+	signal: string,
+): Promise<void> {
+	let timeoutId: ReturnType<typeof setTimeout> | undefined;
+	try {
+		await Promise.race([
+			promise,
+			new Promise<never>((_, reject) => {
+				timeoutId = setTimeout(() => {
+					reject(
+						new Error(
+							`Timed out after ${STARTUP_WAIT_TIMEOUT_MS}ms closing smart-home MLX bridge after ${signal}.`,
+						),
+					);
+				}, STARTUP_WAIT_TIMEOUT_MS);
+			}),
+		]);
+	} finally {
+		if (timeoutId) {
+			clearTimeout(timeoutId);
+		}
+	}
+}
 
 async function waitForStartupBeforeShutdown(
 	promise: ReturnType<typeof startSmartHomeBridgeServer>,
