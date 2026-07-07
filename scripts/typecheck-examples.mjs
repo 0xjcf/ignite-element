@@ -12,6 +12,17 @@ const examplesRootAssignmentPrefix = "--examples-root=";
 const installModeAssignmentPrefix = "--install=";
 const INSTALL_TIMEOUT_MS = 5 * 60 * 1_000;
 
+class CliError extends Error {
+	constructor(message) {
+		super(message);
+		this.name = "CliError";
+	}
+}
+
+function failCli(message) {
+	throw new CliError(message);
+}
+
 function isMissingPathValue(value) {
 	return !value || value.startsWith("--");
 }
@@ -31,8 +42,7 @@ function parseOptions(rawArgs = process.argv.slice(2)) {
 			: rawArgs[examplesRootArgIndex + 1];
 
 		if (isMissingPathValue(examplesRootArg)) {
-			console.error("--examples-root requires a path.");
-			process.exit(1);
+			failCli("--examples-root requires a path.");
 		}
 	}
 
@@ -44,8 +54,7 @@ function parseOptions(rawArgs = process.argv.slice(2)) {
 		(arg) => arg === "--install" || arg.startsWith(installModeAssignmentPrefix),
 	);
 	if (installModeArg === "--install") {
-		console.error("--install requires a value (always, missing, or never).");
-		process.exit(1);
+		failCli("--install requires a value (always, missing, or never).");
 	}
 	const installMode = installModeArg
 		? installModeArg.slice(installModeAssignmentPrefix.length)
@@ -54,8 +63,7 @@ function parseOptions(rawArgs = process.argv.slice(2)) {
 			: "always";
 
 	if (!["always", "missing", "never"].includes(installMode)) {
-		console.error("--install must be one of: always, missing, never.");
-		process.exit(1);
+		failCli("--install must be one of: always, missing, never.");
 	}
 
 	return { args, examplesRoot, installMode };
@@ -70,8 +78,7 @@ export async function discoverExampleRoots(
 	const fail =
 		options.fail ??
 		((message) => {
-			console.error(message);
-			process.exit(1);
+			failCli(message);
 		});
 	let categoryEntries;
 	try {
@@ -191,20 +198,19 @@ async function main() {
 	const exampleRoots = await discoverExampleRoots(examplesRoot);
 
 	if (exampleRoots.length === 0) {
-		console.error(
+		failCli(
 			`No example packages were discovered under ${path.relative(
 				repoRoot,
 				examplesRoot,
 			)}/.`,
 		);
-		process.exit(1);
 	}
 
 	if (args.has("--list")) {
 		for (const exampleRoot of exampleRoots) {
 			console.log(path.relative(repoRoot, exampleRoot));
 		}
-		process.exit(0);
+		return;
 	}
 
 	const tsc = path.join(
@@ -218,13 +224,12 @@ async function main() {
 	);
 
 	if (!existsSync(tsc)) {
-		console.error(
+		failCli(
 			`Error: tsc not found at ${path.relative(
 				repoRoot,
 				tsc,
 			)}. Run pnpm install first.`,
 		);
-		process.exit(1);
 	}
 
 	const failedExamples = [];
@@ -247,8 +252,7 @@ async function main() {
 	}
 
 	if (failedExamples.length > 0) {
-		console.error(`\nExample typecheck failed: ${failedExamples.join(", ")}`);
-		process.exit(1);
+		failCli(`\nExample typecheck failed: ${failedExamples.join(", ")}`);
 	}
 
 	console.log(
@@ -260,5 +264,14 @@ if (
 	process.argv[1] &&
 	normalizeScriptPath(process.argv[1]) === normalizeScriptPath(scriptPath)
 ) {
-	await main();
+	try {
+		await main();
+	} catch (error) {
+		if (error instanceof CliError) {
+			process.stderr.write(`${error.message}\n`);
+			process.exitCode = 1;
+		} else {
+			throw error;
+		}
+	}
 }
