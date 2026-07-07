@@ -1,4 +1,5 @@
 import { createActorWebHomeSession } from "./actor-web-home";
+import { waitForLifecyclePromise } from "./lifecycle";
 import { openAICompatibleModel } from "./model";
 import { startSmartHomeBridgeServer } from "./server";
 
@@ -14,7 +15,6 @@ const runtimeFactory =
 	process.env.SMART_HOME_RUNTIME === "actor-web"
 		? createActorWebHomeSession
 		: undefined;
-const STARTUP_WAIT_TIMEOUT_MS = 10_000;
 
 let server: Awaited<ReturnType<typeof startSmartHomeBridgeServer>> | undefined;
 let startupPromise: ReturnType<typeof startSmartHomeBridgeServer> | undefined;
@@ -28,7 +28,10 @@ const shutdown = async (signal: string) => {
 	try {
 		if (startupPromise) {
 			try {
-				server = await waitForStartupBeforeShutdown(startupPromise, signal);
+				server = await waitForLifecyclePromise(
+					startupPromise,
+					`waiting for smart-home MLX bridge startup before ${signal}`,
+				);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				console.error(
@@ -43,7 +46,10 @@ const shutdown = async (signal: string) => {
 			);
 			process.exit(1);
 		}
-		await waitForShutdownBeforeExit(server.close(), signal);
+		await waitForLifecyclePromise(
+			server.close(),
+			`closing smart-home MLX bridge after ${signal}`,
+		);
 		process.exit(0);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
@@ -53,58 +59,6 @@ const shutdown = async (signal: string) => {
 		process.exit(1);
 	}
 };
-
-async function waitForShutdownBeforeExit(
-	promise: ReturnType<
-		Awaited<ReturnType<typeof startSmartHomeBridgeServer>>["close"]
-	>,
-	signal: string,
-): Promise<void> {
-	let timeoutId: ReturnType<typeof setTimeout> | undefined;
-	try {
-		await Promise.race([
-			promise,
-			new Promise<never>((_, reject) => {
-				timeoutId = setTimeout(() => {
-					reject(
-						new Error(
-							`Timed out after ${STARTUP_WAIT_TIMEOUT_MS}ms closing smart-home MLX bridge after ${signal}.`,
-						),
-					);
-				}, STARTUP_WAIT_TIMEOUT_MS);
-			}),
-		]);
-	} finally {
-		if (timeoutId) {
-			clearTimeout(timeoutId);
-		}
-	}
-}
-
-async function waitForStartupBeforeShutdown(
-	promise: ReturnType<typeof startSmartHomeBridgeServer>,
-	signal: string,
-): Promise<Awaited<ReturnType<typeof startSmartHomeBridgeServer>>> {
-	let timeoutId: ReturnType<typeof setTimeout> | undefined;
-	try {
-		return await Promise.race([
-			promise,
-			new Promise<never>((_, reject) => {
-				timeoutId = setTimeout(() => {
-					reject(
-						new Error(
-							`Timed out after ${STARTUP_WAIT_TIMEOUT_MS}ms waiting for smart-home MLX bridge startup before ${signal}.`,
-						),
-					);
-				}, STARTUP_WAIT_TIMEOUT_MS);
-			}),
-		]);
-	} finally {
-		if (timeoutId) {
-			clearTimeout(timeoutId);
-		}
-	}
-}
 
 process.once("SIGINT", shutdown);
 process.once("SIGTERM", shutdown);
