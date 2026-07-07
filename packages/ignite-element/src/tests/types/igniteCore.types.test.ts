@@ -960,7 +960,7 @@ describe("igniteCore type inference", () => {
 		expectTypeOf(schema.events).toEqualTypeOf<IgniteAgentEventSchema[]>();
 		expectTypeOf(schema.snapshot).toEqualTypeOf<IgniteSchemaValue>();
 		// getSchema().view carries the typed view projection (mirrors getView()),
-		// not the loose IgniteSchemaValue that `state` falls back to.
+		// not the loose IgniteSchemaValue that `snapshot` falls back to.
 		expectTypeOf(schema.view).toEqualTypeOf<{ count: number }>();
 		register.on("counter-incremented", (event) => {
 			expectTypeOf(event).toEqualTypeOf<{

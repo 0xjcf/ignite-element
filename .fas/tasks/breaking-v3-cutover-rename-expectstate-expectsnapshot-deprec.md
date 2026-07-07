@@ -4,7 +4,7 @@
 Created with `fas create-task` on 2026-06-18.
 
 ## Problem
-Add expectSnapshot as the canonical assertion (mirrors getSnapshot/getView) and remove expectState from the v3 beta public surface. expectEvent adopts the flat member object (coordinated with the event-shape task). Update tests, type tests, and docs. BREAKING surface change; MUST land in the SAME beta as event-shape + view-context, one goodway migration note. Decision locked 2026-06-18: rename yes (revisits the prior keep-state-in-assertions non-goal). Design: docs/v3-api-consistency.md + docs/event-shape.md.
+Rename the test assertion from expectState to expectSnapshot and remove expectState from the v3 beta public surface. expectEvent adopts the flat member object (coordinated with the event-shape task). Update tests, type tests, and docs. BREAKING surface change; MUST land in the SAME beta as event-shape + view-context, one goodway migration note. Decision locked 2026-06-18: rename yes (revisits the prior keep-state-in-assertions non-goal). Design: docs/v3-api-consistency.md + docs/event-shape.md.
 
 SCOPE EXPANDED 2026-06-20 to the FULL rename (option b), not method-only. The value getSnapshot() returns is a snapshot (xstate ExtendedState = StateFrom & context; redux state tree; mobx store; actor-web extended state), NOT a state-machine "state" (the FSM state is only snapshot.value) — so rename "state" everywhere the value is named:
 - assert: expectState -> expectSnapshot; type IgniteStateExpectation -> IgniteSnapshotExpectation.
