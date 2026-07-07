@@ -34,13 +34,15 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "policy-surfacing",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "deferred",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
         "task-1781302274543",
         "task-1781724711926",
-        "task-1781805262589"
+        "task-1781805262589",
+        "task-1781743752184",
+        "task-1781919547313"
       ],
       "blocks": [
         "task-1781197578529"
@@ -49,7 +51,7 @@
       "prDependencies": [],
       "createdAt": "2026-06-12T19:30:13.064Z",
       "updatedAt": "2026-07-07T20:52:36.298Z",
-      "deferredReason": null,
+      "deferredReason": "dependency_reopened: task-1781743752184",
       "invalidationReason": null
     },
     {
@@ -61,12 +63,10 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "developer-experience",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "single-agent",
-      "dependsOn": [
-        "task-1781743752184"
-      ],
+      "dependsOn": [],
       "blocks": [
         "task-1781919547313"
       ],
@@ -74,7 +74,7 @@
       "prDependencies": [],
       "createdAt": "2026-06-17T19:32:18.855Z",
       "updatedAt": "2026-06-17T19:32:18.855Z",
-      "deferredReason": "dependency_reopened: task-1781743752184",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -93,7 +93,7 @@
         "task-1781805262589"
       ],
       "blocks": [
-        "task-1781724738855"
+        "task-1781292613064"
       ],
       "branchBase": null,
       "prDependencies": [],
