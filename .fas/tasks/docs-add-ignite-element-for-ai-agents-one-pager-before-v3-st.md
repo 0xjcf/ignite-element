@@ -43,9 +43,12 @@ positioning themselves.
 ## Affected files
 - docs/site/src/content/docs/overview/** or docs/site/src/content/docs/guides/**
 - docs/site/src/content/docs/index.mdx or nearby navigation only if a link is needed
+- docs/site/astro.config.mjs for the hard-coded Starlight sidebar entry
 
 ## Scope Amendments
-- None.
+- Add `docs/site/astro.config.mjs` because the current docs site uses a
+  hard-coded Starlight sidebar; adding the one-pager to navigation requires this
+  config entry.
 
 ## Implementation plan
 - Pick the page location and sidebar order after checking the current docs IA.

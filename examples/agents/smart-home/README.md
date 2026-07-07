@@ -13,6 +13,9 @@ process owns the headless runtime, a terminal agent drives it with `igniteTools`
 and the browser `<smart-home-bridge>` element observes and sends commands over a thin
 WebSocket bridge.
 
+For release recording, use the
+[v3 headless smart-home screencast script](../../../docs/demo/v3-headless-smart-home-screencast.md).
+
 ## Run it
 
 ```bash
