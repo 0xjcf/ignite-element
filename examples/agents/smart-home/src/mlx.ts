@@ -2,6 +2,7 @@ import type { AgentResult } from "./agentLoop";
 import { runHomeOpenAICompatibleAgent } from "./agentLoop";
 import {
 	printAndCloseAgentResult,
+	resolveMlxConnectionOptions,
 	resolveSmartHomeRuntimeFactory,
 } from "./cli";
 import { createHome } from "./home";
@@ -13,14 +14,7 @@ import { renderHome } from "./render";
 //   python -m mlx_lm.server --model <model> --port 8080
 //   MLX_MODEL=<model> npm run mlx -- "it's bedtime"
 
-const defaultBaseUrl = "http://127.0.0.1:8080/v1";
-const baseUrl =
-	process.env.MLX_BASE_URL ??
-	process.env.OPENAI_COMPAT_BASE_URL ??
-	defaultBaseUrl;
-const model =
-	process.env.MLX_MODEL ?? process.env.OPENAI_COMPAT_MODEL ?? "mlx-local";
-const apiKey = process.env.OPENAI_COMPAT_API_KEY;
+const { baseUrl, model, apiKey } = resolveMlxConnectionOptions();
 
 const prompt =
 	process.argv.slice(2).join(" ") ||

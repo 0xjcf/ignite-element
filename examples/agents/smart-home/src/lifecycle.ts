@@ -82,8 +82,16 @@ export async function runSmartHomeBridgeCli<
 		}
 	};
 
-	process.once("SIGINT", () => void shutdown("SIGINT"));
-	process.once("SIGTERM", () => void shutdown("SIGTERM"));
+	const handleSignal = (signal: string) => {
+		if (shuttingDown) {
+			console.error(`\nForcing exit on repeated ${signal}.`);
+			process.exit(1);
+		}
+		void shutdown(signal);
+	};
+
+	process.on("SIGINT", () => handleSignal("SIGINT"));
+	process.on("SIGTERM", () => handleSignal("SIGTERM"));
 
 	try {
 		startupPromise = options.start();
