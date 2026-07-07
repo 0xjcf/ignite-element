@@ -1,6 +1,9 @@
-import { createActorWebHomeSession } from "./actor-web-home";
 import type { AgentResult } from "./agentLoop";
 import { runHomeOpenAICompatibleAgent } from "./agentLoop";
+import {
+	printAndCloseAgentResult,
+	resolveSmartHomeRuntimeFactory,
+} from "./cli";
 import { createHome } from "./home";
 import { openAICompatibleModel } from "./model";
 import { renderHome } from "./render";
@@ -37,10 +40,7 @@ function printSession(result: AgentResult): void {
 	console.log(renderHome(result.home.getView()));
 }
 
-const runtimeFactory =
-	process.env.SMART_HOME_RUNTIME === "actor-web"
-		? createActorWebHomeSession
-		: undefined;
+const runtimeFactory = resolveSmartHomeRuntimeFactory();
 
 console.log("Smart-home agent - local MLX/OpenAI-compatible loop, headless\n");
 console.log(`Endpoint: ${baseUrl}`);
@@ -55,27 +55,7 @@ try {
 		prompt,
 		{ runtimeFactory },
 	);
-	let printError: unknown;
-	let closeError: unknown;
-	try {
-		printSession(result);
-	} catch (error) {
-		printError = error;
-	}
-	try {
-		await result.close();
-	} catch (error) {
-		closeError = error;
-	}
-	if (printError !== undefined) {
-		if (closeError !== undefined) {
-			console.error("Failed to close session cleanly:", closeError);
-		}
-		throw printError;
-	}
-	if (closeError !== undefined) {
-		throw closeError;
-	}
+	await printAndCloseAgentResult(result, printSession);
 } catch (error) {
 	const message = error instanceof Error ? error.message : String(error);
 	console.error(`\n${message}`);
