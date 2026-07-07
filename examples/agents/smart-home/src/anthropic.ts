@@ -70,5 +70,6 @@ try {
 		);
 		process.exit(1);
 	}
-	throw error;
+	console.error(`\n${message}`);
+	process.exit(1);
 }

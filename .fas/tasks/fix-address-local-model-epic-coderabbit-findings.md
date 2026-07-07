@@ -22,6 +22,7 @@ fix: address local-model epic CodeRabbit findings
 - biome.json
 - package.json
 - examples/agents/smart-home/src/actor-web-home.ts
+- examples/agents/smart-home/src/anthropic.ts
 - examples/agents/smart-home/src/mlx.ts
 - examples/agents/smart-home/src/mock.ts
 - examples/agents/smart-home/src/server-mlx.ts
@@ -60,6 +61,15 @@ fix: address local-model epic CodeRabbit findings
 - Added paths: examples/agents/smart-home/src/agentLoop.test.ts, examples/agents/smart-home/src/home.ts, examples/agents/smart-home/src/server.test.ts
 - Evidence source: task-packet dirty scope promotion
 - Evidence: task-packet dirty scope promotion | .fas/state/task-packet.json | Promoted dirty path(s): examples/agents/smart-home/src/agentLoop.test.ts, examples/agents/smart-home/src/home.ts, examples/agents/smart-home/src/server.test.ts
+- Accuracy signal: Path was dirty in git status and present in task-packet low-confidence/dependency-reachable scope.
+
+- Type: scope-refresh-promotion
+- Added at: 2026-07-07
+- Trigger: dirty-low-confidence-scope
+- Reason: Promoted dirty low-confidence or dependency-reachable task-packet path(s) into affected scope.
+- Added paths: examples/agents/smart-home/src/anthropic.ts
+- Evidence source: task-packet dirty scope promotion
+- Evidence: task-packet dirty scope promotion | .fas/state/task-packet.json | Promoted dirty path(s): examples/agents/smart-home/src/anthropic.ts
 - Accuracy signal: Path was dirty in git status and present in task-packet low-confidence/dependency-reachable scope.
 
 ## Implementation plan

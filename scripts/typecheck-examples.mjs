@@ -182,6 +182,7 @@ function runTypecheck(tsc, exampleRoot) {
 	const result = spawnSync(process.execPath, [tsc, "--project", tsconfig], {
 		cwd: repoRoot,
 		stdio: "inherit",
+		timeout: INSTALL_TIMEOUT_MS,
 	});
 
 	if (result.error) {
