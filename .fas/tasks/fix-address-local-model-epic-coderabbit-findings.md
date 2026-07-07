@@ -46,6 +46,7 @@ fix: address local-model epic CodeRabbit findings
 - docs/v3-stable-roadmap.md
 - .fas/queue/tasks.json
 - .changeset/ignitetools-openai-dialect.md
+- .fas-config.json
 
 ## Scope Amendments
 - Added `examples/agents/smart-home/src/home.ts` after the second CodeRabbit
@@ -120,6 +121,15 @@ fix: address local-model epic CodeRabbit findings
 - Evidence source: CodeRabbit committed review
 - Evidence: CodeRabbit committed review | .changeset/ignitetools-openai-dialect.md | Missing opening frontmatter delimiter before the ignite-element minor entry.
 - Accuracy signal: pnpm changeset status --since beta parses the corrected changeset successfully.
+
+- Type: review-fix-scope
+- Added at: 2026-07-07
+- Trigger: CodeRabbit FAS typecheck hook finding
+- Reason: Added .fas-config.json after CodeRabbit identified that the FAS typecheck hook should align with the packages-only CI build lane while full verification keeps example typecheck coverage through its explicit example lane.
+- Added paths: .fas-config.json
+- Evidence source: CodeRabbit committed review
+- Evidence: CodeRabbit committed review | .fas-config.json | typecheckCommand now points to npm run typecheck:packages; package.json keeps typecheck:full and typecheck:examples for full/local and CI coverage.
+- Accuracy signal: fas validate-task typecheck stage passed in 4s with the packages-only hook, matching the CI build job.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
