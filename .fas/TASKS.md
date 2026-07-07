@@ -2121,16 +2121,16 @@ No active tasks.
 
 - Title: docs: add Ignite Element for AI Agents one-pager before v3 stable
 - Mode: single-agent
-- Status: backlog
-- Owner: planner
+- Status: queued
+- Owner: runtime
 - Brief: .fas/tasks/docs-add-ignite-element-for-ai-agents-one-pager-before-v3-st.md
 
 ### Task: docs-demo: write v3 headless execute and smart-home agent screencast script
 
 - Title: docs-demo: write v3 headless execute and smart-home agent screencast script
 - Mode: single-agent
-- Status: backlog
-- Owner: planner
+- Status: deferred
+- Owner: runtime
 - Brief: .fas/tasks/docs-demo-write-v3-headless-execute-and-smart-home-agent-scr.md
 
 ### Task: playgrounds: add published-package Open in StackBlitz links after the v3 stable tag
