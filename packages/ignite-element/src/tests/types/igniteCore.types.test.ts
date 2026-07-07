@@ -742,6 +742,20 @@ describe("igniteCore type inference", () => {
 		void assertWidenedTypePayload;
 	});
 
+	it("treats void event payloads as no-fields event members", () => {
+		type VoidEvents = {
+			heartbeat: EventDescriptor<void>;
+		};
+
+		const assertVoidPayload = (emit: EmitFromEvents<VoidEvents>) => {
+			emit({ type: "heartbeat" });
+
+			// @ts-expect-error - void event payloads do not accept member fields
+			emit({ type: "heartbeat", id: "extra" });
+		};
+		void assertVoidPayload;
+	});
+
 	it("types effects emit when effects appear before events", () => {
 		const machine = createMachine({
 			initial: "idle",

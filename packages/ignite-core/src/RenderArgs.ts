@@ -252,9 +252,15 @@ export type EventPayload<Descriptor> = Descriptor extends EventDescriptor<
 	? Payload
 	: never;
 
-export type EventMemberFields<Descriptor> = Exclude<
-	EventPayload<Descriptor>,
-	undefined
+// biome-ignore lint/suspicious/noConfusingVoidType: `event<void>()` is a supported no-payload authoring form.
+type EventPayloadFields<Payload> = void extends Payload
+	? Exclude<Payload, void>
+	: undefined extends Payload
+		? Exclude<Payload, undefined>
+		: Payload;
+
+export type EventMemberFields<Descriptor> = EventPayloadFields<
+	EventPayload<Descriptor>
 >;
 
 type SimplifyEventMember<T> = { [Key in keyof T]: T[Key] };
@@ -275,10 +281,10 @@ type EventMemberFromTypedPayload<Type extends string, Fields> = Extract<
 	: SimplifyEventMember<Extract<Fields, { type: Type }>>;
 
 type EventMemberFromPayload<Type extends string, Payload> = [
-	Exclude<Payload, undefined>,
+	EventPayloadFields<Payload>,
 ] extends [never]
 	? { type: Type }
-	: Exclude<Payload, undefined> extends infer Fields
+	: EventPayloadFields<Payload> extends infer Fields
 		? Fields extends { type: string }
 			? EventMemberFromTypedPayload<Type, Fields>
 			: SimplifyEventMember<{ type: Type } & Fields>
