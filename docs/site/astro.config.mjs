@@ -61,6 +61,10 @@ export default defineConfig({
 							label: "What is Ignite Element?",
 							slug: "overview/what-is-ignite-element",
 						},
+						{
+							label: "When to choose Ignite",
+							slug: "overview/when-to-choose-ignite",
+						},
 					],
 				},
 				{

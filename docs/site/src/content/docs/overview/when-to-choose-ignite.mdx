@@ -1,0 +1,73 @@
+---
+title: When to choose Ignite
+description: Decide when Ignite Element fits, when it does not, and how it compares to frameworks, web-component renderers, and state-library lock-in.
+sidebar:
+  label: When to choose Ignite
+  order: 3
+---
+
+Choose Ignite when you want to ship **stateful UI as platform-native custom elements** without coupling the component contract to one app framework or one state library.
+
+Ignite is a good fit when these are true:
+
+- You need one UI contract that can ship to plain HTML, React, Vue, tests, or automation.
+- Your team already has state logic in XState, Redux Toolkit, MobX, or Actor-Web and does not want to rewrite it into a framework-local model.
+- You want commands, projected view state, effects, and typed public events to stay explicit and inspectable.
+- You need a headless runtime that agents, tests, and wrappers can drive through `execute()`, `getView()`, `getSchema()`, and `canExecute()`.
+
+Ignite is usually the wrong fit when these are true:
+
+- You want a full app framework with routing, data loading, server rendering, and app-shell conventions included.
+- Your UI is entirely local to one React, Vue, or Solid app and will never be distributed across host boundaries.
+- You prefer a renderer-specific mental model over an explicit behavior contract.
+- You do not need a DOM-native custom-element surface or a headless runtime.
+
+## Compared with app frameworks
+
+Frameworks like React, Vue, and Solid are full application environments. They solve page composition, ecosystem integration, and framework-native reactivity.
+
+Ignite does not try to replace that layer. It sits lower in the stack:
+
+- Use a framework when the framework is your product shell.
+- Use Ignite when you need portable, stateful UI that can plug into multiple shells.
+
+That means the common pairing is not “Ignite instead of React.” It is “React app shell, Ignite component contract.”
+
+## Compared with web-component renderers
+
+Tools like lit or Stencil focus on authoring and rendering custom elements. Ignite focuses on **behavior contracts** first:
+
+- Commands express intent.
+- `view(...)` projects state for renderers and tools.
+- `effects(...)` expresses consequences from state transitions.
+- The headless runtime exposes the same contract without a DOM.
+
+If your main problem is templating ergonomics, a renderer-first tool may be enough. If your main problem is shipping a behavior contract that remains testable, observable, and agent-readable across hosts, Ignite is the better fit.
+
+## Compared with state-library lock-in
+
+Many UI stacks quietly force a second state model:
+
+- Framework state for the component.
+- A separate external store for business logic.
+
+Ignite avoids that extra lock-in. Keep the state source you already trust, then layer a consistent UI contract on top of it. You can move between XState, Redux Toolkit, MobX, or Actor-Web without rewriting the renderer surface each time.
+
+That separation matters for long-lived design systems and agent-facing workflows: the component API stays stable even when the underlying state engine changes.
+
+## Agent and tooling angle
+
+Ignite is a strong fit when the same component needs to serve humans and tools:
+
+- `getSchema()` exposes commands, declared events, snapshot, and projected view as JSON-serializable data.
+- `canExecute()` answers whether a gated command is currently available.
+- `execute()` runs the command and returns the resulting snapshot plus emitted events.
+- `on(...)` and `watchView(...)` let tools observe public events and projected state over time.
+
+That is why Ignite works well for test DSLs, assistant workflows, and tool-calling adapters without requiring DOM scraping as the primary integration surface.
+
+## Next steps
+
+- Read [What is Ignite Element?](/ignite-element/overview/what-is-ignite-element/) for the short product overview.
+- Read [Build for agents](/ignite-element/guides/agent-runtime-v3/) for the behavior-first workflow.
+- Read [Headless runtime](/ignite-element/api/headless-runtime/#getschema) for the exact `getSchema()` contract.
