@@ -1318,10 +1318,12 @@ No active tasks.
 
 - Title: BREAKING (v3 cutover): canonical flat tagged event { type, ...fields } across emit/observe/expectEvent per docs/event-sh
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
-- Note: Re-sequenced 2026-07-07 — starts the breaking API batch.
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/breaking-v3-cutover-canonical-flat-tagged-event-type-fields-.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: BREAKING (v3 cutover): uniform view/effects context = { snapshot } only (drop the spread) per docs/view-context-canonica
 

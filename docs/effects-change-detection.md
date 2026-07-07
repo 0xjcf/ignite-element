@@ -23,7 +23,7 @@ and the headless/agent runtime (shared `attachEffects` in
 effects: ({ select, emit }) => {
   const isOn = select((s) => s.matches("on"));
   if (!isOn.changed) return;            // the ceremony
-  emit("toggled", { isOn: isOn.current });
+  emit({ type: "toggled", isOn: isOn.current });
 };
 ```
 
@@ -48,7 +48,9 @@ Two additive changes to `select` (no breaking change to existing fields):
 
    ```ts
    effects: ({ select, emit }) => {
-     select((s) => s.matches("on")).whenChanged((isOn) => emit("toggled", { isOn }));
+     select((s) => s.matches("on")).whenChanged((isOn) =>
+       emit({ type: "toggled", isOn }),
+     );
    };
    ```
 
@@ -56,7 +58,9 @@ Two additive changes to `select` (no breaking change to existing fields):
    so object selections keep the same single-arg shape (no comparator required):
 
    ```ts
-   select((s) => s.context.params).whenChanged((params) => emit("paramsChanged", { params }));
+   select((s) => s.context.params).whenChanged((params) =>
+     emit({ type: "paramsChanged", params }),
+   );
    ```
 
    An optional `isEqual` override remains for exotic values (Date/Map/class
@@ -69,7 +73,9 @@ single callback can't express:
 effects: ({ select, emit }) => {
   const route = select((s) => s.context.route);
   const authed = select((s) => s.context.authed);
-  if (route.changed && authed.current) emit("enteredAuthedRoute", { route: route.current });
+  if (route.changed && authed.current) {
+    emit({ type: "enteredAuthedRoute", route: route.current });
+  }
 };
 ```
 

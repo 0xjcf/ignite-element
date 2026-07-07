@@ -111,15 +111,15 @@ From the handle's `Commands` / `Events` generics + `getSchema()` at runtime:
 - **Single-arg `setX` commands** → optional **props** (`label?: string`), set as
   string attributes (mirrors `inferObservedAttributes`).
 - **Events map** → `on<Event>` **callback props**
-  (`onCountChanged?: (e: { count: number }) => void`), receiving the event
-  member directly.
+  (`onCountChanged?: (e: { count: number }) => void`), receiving the DOM event
+  detail directly.
 - Unmapped props → attribute/property passthrough.
 
 ### 4. Wrapper internals (sketch)
 
 ```tsx
 export function igniteReact(component) {
-  const eventTypes = component.getSchema().events.map((e) => e.type);
+  const eventTypes = component.getSchema().events.map((event) => event.type);
   return forwardRef(function IgniteReact(props, ref) {
     const elRef = useRef(null);
     const { handlers, attrs } = splitProps(props, eventTypes);

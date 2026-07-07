@@ -85,7 +85,7 @@ const registerSharedXState = igniteCore({
   }),
   effects: ({ snapshot, prevSnapshot, emit }) => {
     if (snapshot.context.darkMode === prevSnapshot.context.darkMode) return;
-    emit("toggled", { isDark: snapshot.context.darkMode });
+    emit({ type: "toggled", isDark: snapshot.context.darkMode });
   }),
 });
 
@@ -155,7 +155,10 @@ const apiShowcase = igniteCore({
   }),
   effects: ({ snapshot, prevSnapshot, emit }) => {
     if (snapshot.context.count !== prevSnapshot.context.count) {
-      emit("api-count-changed", { count: snapshot.context.count });
+      emit({
+        type: "api-count-changed",
+        count: snapshot.context.count,
+      });
     }
   },
 });
@@ -174,7 +177,7 @@ apiShowcase.getSchema();
 apiShowcase.getSnapshot();
 apiShowcase.getView();
 
-apiShowcase.on("api-count-changed", (event) => event.detail);
+apiShowcase.on("api-count-changed", (event) => event);
 apiShowcase.watchSnapshot((snapshot, prevSnapshot) => [prevSnapshot, snapshot]);
 apiShowcase.watchView((view, prevView) => [prevView, view]);
 

@@ -22,7 +22,7 @@ const component = igniteCore({
   effects: ({ emit, select }) => {
     const isOn = select((snapshot) => snapshot.matches("on"));
     if (!isOn.changed) return;
-    emit("toggled", { isOn: isOn.current });
+    emit({ type: "toggled", isOn: isOn.current });
   },
 });
 
@@ -30,7 +30,7 @@ igniteTest(component)
   .given("off")
   .when("toggle")
   .expectState("on")
-  .expectEvent("toggled", { isOn: true });
+  .expectEvent({ type: "toggled", isOn: true });
 ```
 
 The helper:

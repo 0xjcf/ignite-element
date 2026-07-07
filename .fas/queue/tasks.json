@@ -162,7 +162,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "workflow-quality",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "processing",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [],
@@ -172,7 +172,7 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-18T21:42:51.210Z",
-      "updatedAt": "2026-07-07T14:56:41.000Z",
+      "updatedAt": "2026-07-07T15:04:18.106Z",
       "deferredReason": null,
       "invalidationReason": null
     },
@@ -528,7 +528,7 @@
       "prDependencies": [],
       "prRef": null,
       "completedAt": "2026-05-26T19:11:47.029Z",
-      "terminalOutcome": null,
+      "terminalOutcome": "success",
       "workflowId": "direct-1779819916720",
       "branchName": "codex/beta-monorepo-baseline",
       "prStatus": "draft-only"
@@ -2880,7 +2880,7 @@
       "prDependencies": [],
       "prRef": null,
       "completedAt": "2026-07-07T06:04:44.828Z",
-      "terminalOutcome": "success",
+      "terminalOutcome": null,
       "workflowId": "direct-1783357471256",
       "branchName": "fas/local-model-agent-ecosystem",
       "prStatus": "draft-only"

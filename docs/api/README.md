@@ -47,13 +47,13 @@ const component = igniteCore({
   effects: ({ emit, select }) => {
     const isOn = select((snapshot) => snapshot.matches("on"));
     if (!isOn.changed) return;
-    emit("toggled", { isOn: isOn.current });
+    emit({ type: "toggled", isOn: isOn.current });
   },
 });
 
-const seen: Array<{ isOn: boolean }> = [];
+const seen: Array<{ type: "toggled"; isOn: boolean }> = [];
 const subscription = component.on("toggled", (event) => {
-  seen.push(event.detail);
+  seen.push(event);
 });
 
 const result = await component.execute("toggle");
@@ -62,9 +62,9 @@ subscription.unsubscribe();
 
 expect(result.state.value).toBe("on");
 expect(result.events).toEqual([
-  { type: "toggled", payload: { isOn: true } },
+  { type: "toggled", isOn: true },
 ]);
-expect(seen).toEqual([{ isOn: true }]);
+expect(seen).toEqual([{ type: "toggled", isOn: true }]);
 ```
 
 Use `execute()` for command-driven assertions, `on(...)` for emitted events, and `watch(...)` or `watchView(...)` when a test needs to observe longer-lived state or projection changes.

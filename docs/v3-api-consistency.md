@@ -69,7 +69,7 @@ docs + one goodway migration note**. The beta-breaking **effects object-form**
 (`1781818975642`) has already removed positional callbacks so the effects callback
 changes once, cleanly, before the emit-shape break. One consolidated migration table
 covers all transforms: `emit(t,p)` →
-`emit({type:t,…})`; `event.payload` → the member; `{ context }` → `{ snapshot }` +
+`emit({type:t,…})`; `event.payload` → direct member fields; `{ context }` → `{ snapshot }` +
 `snapshot.*`; `expectState`/`result.state`/`schema.state` → `…snapshot`;
 `expectEvent(t,p)` → `expectEvent({type:t,…})`.
 
