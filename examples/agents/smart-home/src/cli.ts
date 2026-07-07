@@ -9,6 +9,16 @@ export type SmartHomeMlxConnectionOptions = {
 	apiKey: string | undefined;
 };
 
+export class AgentResultCloseError extends Error {
+	readonly errors: readonly [unknown, unknown];
+
+	constructor(printError: unknown, closeError: unknown) {
+		super("Failed to print session and close agent session cleanly");
+		this.name = "AgentResultCloseError";
+		this.errors = [printError, closeError];
+	}
+}
+
 export function resolveSmartHomeRuntimeFactory():
 	| HomeRuntimeFactory
 	| undefined {
@@ -48,7 +58,7 @@ export async function printAndCloseAgentResult(
 	}
 	if (printError !== undefined) {
 		if (closeError !== undefined) {
-			console.error("Failed to close session cleanly:", closeError);
+			throw new AgentResultCloseError(printError, closeError);
 		}
 		throw printError;
 	}
