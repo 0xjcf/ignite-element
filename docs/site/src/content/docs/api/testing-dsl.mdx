@@ -47,16 +47,16 @@ Scenario methods — every `given`/`expect*` **returns the scenario** so calls c
 - `when(commandName, payload?)` — execute a command; returns a `Promise` of the scenario.
 - `expectSnapshot(expected)` — assert the post-command snapshot.
 - `expectView(expected)` — assert the projected view (mirrors `getView()`). Accepts a deep-partial object or a predicate.
-- `expectEvent(type, payload?)` — assert an event was emitted, optionally matching its payload.
-- `expectEvents(expected)` — assert several events by `{ type, payload? }`.
+- `expectEvent({ type, ...fields })` — assert an event was emitted, optionally matching its fields.
+- `expectEvents(expected)` — assert several events by an array of `{ type, ...fields }` objects.
 - `expectNoEvents()` — assert the command emitted nothing.
-- `getResult()` — return the raw `{ state, events }` of the last `when(...)`.
+- `getResult()` — return the raw `{ snapshot, events }` of the last `when(...)`.
 
-State, view, and payload expectations accept a deep-partial object, a predicate function, or — for state — the bare state value.
+Snapshot, view, and payload expectations accept a deep-partial object or a predicate function.
 
 ## Stories
 
-A story records command, state, view, and event activity as one ordered behavior trace. Start one from the runtime's [`record(name)`](/ignite-element/api/headless-runtime/#recordname):
+A story records command, snapshot, view, and event activity as one ordered behavior trace. Start one from the runtime's [`record(name)`](/ignite-element/api/headless-runtime/#recordname):
 
 ```ts
 const story = counter.record('toggles on');
@@ -75,7 +75,7 @@ story.stop();
 
 Story methods:
 
-- `execute(commandName, payload?)` — run a command and record it; resolves to the same `{ state, events }` as the runtime.
+- `execute(commandName, payload?)` — run a command and record it; resolves to the same `{ snapshot, events }` as the runtime.
 - `until(viewPredicate, action, options?)` — repeatedly run `action` until the projected view satisfies `viewPredicate`. `options.maxSteps` bounds the loop. Returns a `Promise<View>` (the satisfying view).
 - `trace()` — returns `IgniteStoryTraceEntry[]`: the ordered behavior trace of `command`, `snapshot`, `view`, and `event` entries with `kind`, `sequence`, and `step`.
 - `lifecycle()` — returns `IgniteStoryLifecycleEntry[]`: DOM lifecycle evidence (registration, connection, render, disconnection, cleanup) when a custom element or accessibility bridge participates; otherwise an empty array.

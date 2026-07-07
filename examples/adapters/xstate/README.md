@@ -86,7 +86,7 @@ const registerSharedXState = igniteCore({
   effects: ({ snapshot, prevSnapshot, emit }) => {
     if (snapshot.context.darkMode === prevSnapshot.context.darkMode) return;
     emit({ type: "toggled", isDark: snapshot.context.darkMode });
-  }),
+  },
 });
 
 // Isolated variant: same facade as above, just change source to a machine

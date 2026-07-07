@@ -525,23 +525,25 @@ const assertEvent = <
 	events: RuntimeEvent<Events>[],
 	expected: IgniteEventExpectation<Events, Type>,
 ) => {
-	const matchedEvent =
+	const matchedEvent = events.find((event) => valuesMatch(event, expected));
+
+	if (matchedEvent) {
+		return;
+	}
+
+	const typeMatched =
 		typeof expected === "function"
-			? events.find((event) => valuesMatch(event, expected))
+			? undefined
 			: events.find((event) => event.type === expected.type);
 
-	if (!matchedEvent) {
+	if (!typeMatched) {
 		throw new Error(
 			`[igniteTest] Expected event ${formatValue(expected)} but received ${formatValue(events)}.`,
 		);
 	}
 
-	if (valuesMatch(matchedEvent, expected)) {
-		return;
-	}
-
 	throw new Error(
-		`[igniteTest] Event mismatch.\nExpected: ${formatValue(expected)}\nReceived: ${formatValue(matchedEvent)}`,
+		`[igniteTest] Event mismatch.\nExpected: ${formatValue(expected)}\nReceived: ${formatValue(typeMatched)}`,
 	);
 };
 

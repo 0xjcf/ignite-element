@@ -53,7 +53,7 @@ const component = igniteCore({
 
 const seen: Array<{ type: "toggled"; isOn: boolean }> = [];
 const subscription = component.on("toggled", (event) => {
-  seen.push(event);
+  seen.push(event.detail);
 });
 
 const result = await component.execute("toggle");

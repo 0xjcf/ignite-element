@@ -357,6 +357,40 @@ describe("ignite test DSL", () => {
 		]);
 	});
 
+	it("matches later same-type events when the first event payload differs", async () => {
+		const store = counterStore();
+		const component = igniteCore({
+			adapter: "redux",
+			source: store,
+			commands: ({ actor }) => ({
+				increment: (amount: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+			}),
+			events: (event) => ({
+				"counter-incremented": event<{ count: number }>(),
+			}),
+			effects: ({ snapshot, prevSnapshot, emit }) => {
+				if (snapshot.counter.count === prevSnapshot.counter.count) {
+					return;
+				}
+
+				emit({
+					type: "counter-incremented",
+					count: snapshot.counter.count - 1,
+				});
+				emit({
+					type: "counter-incremented",
+					count: snapshot.counter.count,
+				});
+			},
+		});
+
+		(await igniteTest(component).when("increment", 2)).expectEvent({
+			type: "counter-incremented",
+			count: 2,
+		});
+	});
+
 	it("uses snapshot vocabulary for scenario results, schemas, and stories", async () => {
 		const store = counterStore();
 		const component = igniteCore({
