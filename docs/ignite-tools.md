@@ -149,7 +149,6 @@ state.
 ```ts
 import { igniteTools } from "ignite-element/tools";
 import { anthropic } from "ignite-element/tools/anthropic";
-import { openai } from "ignite-element/tools/openai";
 
 const { tools, toolCalls, run, observe, toolResult } = igniteTools(
   runtime,
@@ -188,6 +187,8 @@ For OpenAI-compatible model loops, pass `openai` instead of `anthropic`; the
 consumer still brings the SDK or `fetch` client:
 
 ```ts
+import { openai } from "ignite-element/tools/openai";
+
 const { tools, toolCalls, run, toolResult } = igniteTools(runtime, openai);
 
 for (let turn = 0; turn < 8; turn++) {
