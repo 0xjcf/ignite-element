@@ -2827,11 +2827,11 @@
       "branchBase": null,
       "prDependencies": [],
       "prRef": null,
-      "completedAt": "2026-07-07T15:37:30.265Z",
+      "completedAt": "2026-07-07T19:01:11.384Z",
       "terminalOutcome": null,
       "workflowId": "direct-1783436658102",
-      "branchName": null,
-      "prStatus": null
+      "branchName": "fas/v3-breaking-cutover-batch",
+      "prStatus": "draft-only"
     },
     {
       "id": "task-1781818972687",
@@ -2850,11 +2850,11 @@
       "branchBase": null,
       "prDependencies": [],
       "prRef": null,
-      "completedAt": "2026-07-07T15:59:48.851Z",
+      "completedAt": "2026-07-07T19:01:26.263Z",
       "terminalOutcome": null,
       "workflowId": "direct-1783438667823",
-      "branchName": null,
-      "prStatus": null
+      "branchName": "fas/v3-breaking-cutover-batch",
+      "prStatus": "draft-only"
     },
     {
       "id": "task-1781818974159",
