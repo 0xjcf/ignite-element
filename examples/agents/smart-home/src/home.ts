@@ -548,9 +548,18 @@ export type HomeRuntimeFactory = () =>
 export function createLocalHomeSession(): HomeRuntimeSession {
 	const actor = createActor(homeMachine).start();
 	const home = createHomeFromSource(actor);
+	let closed = false;
+
 	return {
 		home,
 		close: async () => {
+			if (closed) {
+				return;
+			}
+
+			closed = true;
+			// The session owns the started actor; the tools runtime is only the
+			// command/view facade over that actor and has no lifecycle handle.
 			actor.stop();
 		},
 	};
