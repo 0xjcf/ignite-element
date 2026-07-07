@@ -39,6 +39,21 @@ export async function runSmartHomeBridgeCli<
 	let server: TServer | undefined;
 	let startupPromise: Promise<TServer> | undefined;
 	let shuttingDown = false;
+	let closePromise: Promise<void> | undefined;
+
+	const closeServer = (description: string) => {
+		if (!server) {
+			return Promise.reject(
+				new Error(`${options.displayName} is not available to close.`),
+			);
+		}
+		closePromise ??= waitForLifecyclePromise(server.close(), description);
+		return closePromise;
+	};
+
+	const markExit = (code: number) => {
+		process.exitCode = code;
+	};
 
 	const shutdown = async (signal: string) => {
 		if (shuttingDown) {
@@ -59,7 +74,7 @@ export async function runSmartHomeBridgeCli<
 					console.error(
 						`\n${options.displayName} failed to start before ${signal}: ${message}`,
 					);
-					process.exit(1);
+					markExit(1);
 					return;
 				}
 			}
@@ -67,29 +82,29 @@ export async function runSmartHomeBridgeCli<
 				console.error(
 					`\n${options.displayName} was not available before ${signal}.`,
 				);
-				process.exit(1);
+				markExit(1);
 				return;
 			}
-			await waitForLifecyclePromise(
-				server.close(),
-				`closing ${options.displayName} after ${signal}`,
-			);
-			process.exit(0);
+			await closeServer(`closing ${options.displayName} after ${signal}`);
+			if (!process.exitCode) {
+				markExit(0);
+			}
 			return;
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			console.error(
 				`\nFailed to close ${options.displayName} after ${signal}: ${message}`,
 			);
-			process.exit(1);
+			markExit(1);
 			return;
 		}
 	};
 
 	const handleSignal = (signal: string) => {
 		if (shuttingDown) {
-			console.error(`\nForcing exit on repeated ${signal}.`);
-			process.exit(1);
+			console.error(`\nExit already in progress after repeated ${signal}.`);
+			markExit(1);
+			return;
 		}
 		void shutdown(signal);
 	};
@@ -103,8 +118,7 @@ export async function runSmartHomeBridgeCli<
 		try {
 			options.onStarted(server);
 		} catch (error) {
-			await waitForLifecyclePromise(
-				server.close(),
+			await closeServer(
 				`closing ${options.displayName} after startup callback failure`,
 			).catch(() => undefined);
 			throw error;
@@ -112,6 +126,6 @@ export async function runSmartHomeBridgeCli<
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		console.error(`\n${message}`);
-		process.exit(1);
+		markExit(1);
 	}
 }
