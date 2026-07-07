@@ -147,13 +147,16 @@ function ensureDependencies(exampleRoot, installMode) {
 
 	const lockfile = path.join(exampleRoot, "pnpm-lock.yaml");
 	const hadLockfile = existsSync(lockfile);
+	const lockfileFlag = hadLockfile
+		? "--frozen-lockfile"
+		: "--no-frozen-lockfile";
 	const result = spawnSync(
 		"pnpm",
 		[
 			"install",
 			"--ignore-workspace",
 			"--no-link-workspace-packages",
-			"--no-frozen-lockfile",
+			lockfileFlag,
 		],
 		{
 			cwd: exampleRoot,

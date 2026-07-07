@@ -246,7 +246,7 @@ describe("typecheck-examples", () => {
 		writeFileSync(path.join(exampleRoot, "src", "index.ts"), "export {};\n");
 		writeFileSync(
 			fakePnpm,
-			"#!/bin/sh\nprintf 'lockfileVersion: \"9.0\"\\n' > pnpm-lock.yaml\nmkdir -p node_modules\n",
+			"#!/bin/sh\ncase \" $* \" in *' --no-frozen-lockfile '*) ;; *) exit 42 ;; esac\nprintf 'lockfileVersion: \"9.0\"\\n' > pnpm-lock.yaml\nmkdir -p node_modules\n",
 		);
 		chmodSync(fakePnpm, 0o755);
 
@@ -269,6 +269,68 @@ describe("typecheck-examples", () => {
 			);
 
 			assert.equal(existsSync(path.join(exampleRoot, "pnpm-lock.yaml")), false);
+		} finally {
+			rmSync(tempRoot, { force: true, recursive: true });
+		}
+	});
+
+	it("uses frozen lockfile validation when an example lockfile exists", () => {
+		const tempRoot = mkdtempSync(
+			path.join(tmpdir(), "ignite-existing-lockfile-"),
+		);
+		const fakeBin = path.join(tempRoot, "bin");
+		const examplesRoot = path.join(tempRoot, "examples");
+		const exampleRoot = path.join(examplesRoot, "apps", "sample");
+		const fakePnpm = path.join(fakeBin, "pnpm");
+
+		mkdirSync(path.join(exampleRoot, "src"), { recursive: true });
+		mkdirSync(fakeBin, { recursive: true });
+		writeFileSync(
+			path.join(exampleRoot, "package.json"),
+			JSON.stringify({ name: "sample", scripts: { typecheck: "tsc" } }),
+		);
+		writeFileSync(
+			path.join(exampleRoot, "pnpm-lock.yaml"),
+			"lockfileVersion: '9.0'\n",
+		);
+		writeFileSync(
+			path.join(exampleRoot, "tsconfig.json"),
+			JSON.stringify({
+				compilerOptions: {
+					module: "ESNext",
+					moduleResolution: "Bundler",
+					strict: true,
+					target: "ES2022",
+				},
+				include: ["src/**/*.ts"],
+			}),
+		);
+		writeFileSync(path.join(exampleRoot, "src", "index.ts"), "export {};\n");
+		writeFileSync(
+			fakePnpm,
+			"#!/bin/sh\ncase \" $* \" in *' --frozen-lockfile '*) ;; *) exit 42 ;; esac\nmkdir -p node_modules\n",
+		);
+		chmodSync(fakePnpm, 0o755);
+
+		try {
+			execFileSync(
+				node,
+				[
+					"scripts/typecheck-examples.mjs",
+					"--examples-root",
+					examplesRoot,
+					"--install=always",
+				],
+				{
+					encoding: "utf8",
+					env: {
+						...process.env,
+						PATH: `${fakeBin}${path.delimiter}${process.env.PATH ?? ""}`,
+					},
+				},
+			);
+
+			assert.equal(existsSync(path.join(exampleRoot, "pnpm-lock.yaml")), true);
 		} finally {
 			rmSync(tempRoot, { force: true, recursive: true });
 		}
