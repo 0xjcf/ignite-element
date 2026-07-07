@@ -187,7 +187,7 @@ export const openai: ToolDialect<
 		// OpenAI-compatible chat completions reject a tool message without the
 		// originating tool_call_id. The neutral id is optional because the port is
 		// provider-agnostic; for this dialect, a missing id is a pairing bug.
-		if (id === undefined) {
+		if (typeof id !== "string" || id.length === 0) {
 			throw new Error(
 				"openai.toolResult requires a tool_call_id; pass the id from the originating tool_calls entry (call.id from toolCalls()).",
 			);

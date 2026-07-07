@@ -426,4 +426,17 @@ describe("openai.toolResult (neutral result -> OpenAI-compatible tool message)",
 		};
 		expect(() => openai.toolResult(result)).toThrow(/tool_call_id/);
 	});
+
+	it("throws when the neutral result has an empty id", () => {
+		const result: NeutralToolResult = {
+			id: "",
+			name: "setLimit",
+			result: ok({
+				snapshot: { count: 7 },
+				view: { atLimit: false },
+				events: [],
+			}),
+		};
+		expect(() => openai.toolResult(result)).toThrow(/tool_call_id/);
+	});
 });
