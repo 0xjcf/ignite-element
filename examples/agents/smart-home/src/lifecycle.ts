@@ -60,6 +60,7 @@ export async function runSmartHomeBridgeCli<
 						`\n${options.displayName} failed to start before ${signal}: ${message}`,
 					);
 					process.exit(1);
+					return;
 				}
 			}
 			if (!server) {
@@ -67,18 +68,21 @@ export async function runSmartHomeBridgeCli<
 					`\n${options.displayName} was not available before ${signal}.`,
 				);
 				process.exit(1);
+				return;
 			}
 			await waitForLifecyclePromise(
 				server.close(),
 				`closing ${options.displayName} after ${signal}`,
 			);
 			process.exit(0);
+			return;
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			console.error(
 				`\nFailed to close ${options.displayName} after ${signal}: ${message}`,
 			);
 			process.exit(1);
+			return;
 		}
 	};
 
