@@ -1181,6 +1181,29 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 		expect(JSON.stringify(message)).not.toContain("tool_calls");
 	});
 
+	it("omits OpenAI-compatible tool calls with empty function names", () => {
+		const message = toOpenAIAssistantMessage({
+			choices: [
+				{
+					message: {
+						role: "assistant",
+						content: "No action needed.",
+						tool_calls: [
+							{
+								id: "call_empty_name",
+								type: "function",
+								function: { name: "  ", arguments: "{}" },
+							},
+						] as never,
+					},
+				},
+			],
+		});
+
+		expect(message.tool_calls).toBeUndefined();
+		expect(JSON.stringify(message)).not.toContain("call_empty_name");
+	});
+
 	it("serializes assistant tool call arguments for replay", () => {
 		const message = toOpenAIAssistantMessage({
 			choices: [
@@ -1751,6 +1774,19 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 			subscription.unsubscribe();
 			await session.close();
 		}
+	});
+
+	it("fails actor-web commands after session close starts", async () => {
+		const session = await createActorWebHomeSession();
+		const tools = igniteTools(session.home, anthropic);
+
+		await session.close();
+		const result = await tools.run({
+			name: "toggleLight",
+			input: { room: "living", on: true },
+		});
+
+		expect(isOk(result)).toBe(false);
 	});
 
 	it("restarts actor-web delayed scene timing when transitionScene is repeated", async () => {

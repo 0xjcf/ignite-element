@@ -266,6 +266,53 @@ describe("typecheck-examples", () => {
 		}
 	});
 
+	it("reinstalls missing dependencies when node_modules lacks an install marker", () => {
+		const tempRoot = mkdtempSync(path.join(tmpdir(), "ignite-stale-install-"));
+		const fakeBin = path.join(tempRoot, "bin");
+		const examplesRoot = path.join(tempRoot, "examples");
+		const exampleRoot = path.join(examplesRoot, "apps", "sample");
+		const fakePnpm = path.join(fakeBin, "pnpm");
+		const installMarker = path.join(tempRoot, "install-ran");
+
+		mkdirSync(path.join(exampleRoot, "src"), { recursive: true });
+		mkdirSync(fakeBin, { recursive: true });
+		writeFileSync(
+			path.join(exampleRoot, "package.json"),
+			JSON.stringify({ name: "sample", scripts: { typecheck: "tsc" } }),
+		);
+		writeFileSync(path.join(exampleRoot, "tsconfig.json"), "{}");
+		writeFakeTypeScript(exampleRoot);
+		writeFileSync(
+			fakePnpm,
+			'#!/bin/sh\nprintf ok > "$INSTALL_MARKER"\nmkdir -p node_modules\n',
+		);
+		chmodSync(fakePnpm, 0o755);
+
+		try {
+			execFileSync(
+				node,
+				[
+					"scripts/typecheck-examples.mjs",
+					"--examples-root",
+					examplesRoot,
+					"--install=missing",
+				],
+				{
+					encoding: "utf8",
+					env: {
+						...process.env,
+						INSTALL_MARKER: installMarker,
+						PATH: `${fakeBin}${path.delimiter}${process.env.PATH ?? ""}`,
+					},
+				},
+			);
+
+			assert.equal(existsSync(installMarker), true);
+		} finally {
+			rmSync(tempRoot, { force: true, recursive: true });
+		}
+	});
+
 	it("removes lockfiles created by the example install flow", () => {
 		const tempRoot = mkdtempSync(
 			path.join(tmpdir(), "ignite-generated-lockfile-"),

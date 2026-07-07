@@ -56,4 +56,23 @@ describe("smart-home CLI helpers", () => {
 			]);
 		}
 	});
+
+	it("preserves undefined print and close rejections together", async () => {
+		const result = createAgentResult(async () => {
+			throw undefined;
+		});
+
+		try {
+			await printAndCloseAgentResult(result, async () => {
+				throw undefined;
+			});
+			throw new Error("Expected printAndCloseAgentResult to reject.");
+		} catch (error) {
+			expect(error).toBeInstanceOf(AgentResultCloseError);
+			expect((error as AgentResultCloseError).errors).toEqual([
+				undefined,
+				undefined,
+			]);
+		}
+	});
 });
