@@ -46,6 +46,18 @@ describe("typecheck-examples", () => {
 		assert.deepEqual(output.trim().split("\n"), expectedExampleRoots);
 	});
 
+	it("supports space-separated install mode syntax", () => {
+		const output = execFileSync(
+			node,
+			["scripts/typecheck-examples.mjs", "--list", "--install", "missing"],
+			{
+				encoding: "utf8",
+			},
+		);
+
+		assert.deepEqual(output.trim().split("\n"), expectedExampleRoots);
+	});
+
 	it("rejects invalid options", () => {
 		assert.throws(
 			() =>

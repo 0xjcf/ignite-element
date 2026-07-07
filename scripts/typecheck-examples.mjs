@@ -50,17 +50,22 @@ function parseOptions(rawArgs = process.argv.slice(2)) {
 		examplesRootArgIndex === -1
 			? path.join(repoRoot, "examples")
 			: path.resolve(repoRoot, examplesRootArg);
-	const installModeArg = rawArgs.find(
+	const installModeArgIndex = rawArgs.findIndex(
 		(arg) => arg === "--install" || arg.startsWith(installModeAssignmentPrefix),
 	);
-	if (installModeArg === "--install") {
-		failCli("--install requires a value (always, missing, or never).");
+	let installMode = "always";
+	if (installModeArgIndex !== -1) {
+		const installModeArg = rawArgs[installModeArgIndex];
+		const installValue = installModeArg.startsWith(installModeAssignmentPrefix)
+			? installModeArg.slice(installModeAssignmentPrefix.length)
+			: rawArgs[installModeArgIndex + 1];
+		if (isMissingPathValue(installValue)) {
+			failCli("--install requires a value (always, missing, or never).");
+		}
+		installMode = installValue;
+	} else if (args.has("--skip-install")) {
+		installMode = "never";
 	}
-	const installMode = installModeArg
-		? installModeArg.slice(installModeAssignmentPrefix.length)
-		: args.has("--skip-install")
-			? "never"
-			: "always";
 
 	if (!["always", "missing", "never"].includes(installMode)) {
 		failCli("--install must be one of: always, missing, never.");
