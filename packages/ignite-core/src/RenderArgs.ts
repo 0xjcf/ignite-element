@@ -259,13 +259,28 @@ export type EventMemberFields<Descriptor> = Exclude<
 
 type SimplifyEventMember<T> = { [Key in keyof T]: T[Key] };
 
+type EventMemberWithType<Type extends string, Fields> = SimplifyEventMember<
+	Omit<Fields, "type"> & { type: Type }
+>;
+
+type EventMemberFromTypedPayload<Type extends string, Fields> = Extract<
+	Fields,
+	{ type: Type }
+> extends never
+	? Fields extends { type: infer PayloadType }
+		? Type extends PayloadType & string
+			? EventMemberWithType<Type, Fields>
+			: never
+		: never
+	: SimplifyEventMember<Extract<Fields, { type: Type }>>;
+
 type EventMemberFromPayload<Type extends string, Payload> = [
 	Exclude<Payload, undefined>,
 ] extends [never]
 	? { type: Type }
 	: Exclude<Payload, undefined> extends infer Fields
 		? Fields extends { type: string }
-			? SimplifyEventMember<Extract<Fields, { type: Type }>>
+			? EventMemberFromTypedPayload<Type, Fields>
 			: SimplifyEventMember<{ type: Type } & Fields>
 		: never;
 

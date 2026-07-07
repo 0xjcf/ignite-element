@@ -63,6 +63,8 @@ import type {
 	CommandContext,
 	CommandMetadata,
 	CommandWithMetadata,
+	EmitFromEvents,
+	EventDescriptor,
 	IgniteSchemaValue,
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
@@ -724,6 +726,20 @@ describe("igniteCore type inference", () => {
 				},
 			}),
 		});
+	});
+
+	it("keeps emit callable for payloads with widened type discriminants", () => {
+		type ExternalEvents = {
+			external: EventDescriptor<{ type: string; data: unknown }>;
+		};
+
+		const assertWidenedTypePayload = (emit: EmitFromEvents<ExternalEvents>) => {
+			emit({ type: "external", data: { id: "evt-1" } });
+
+			// @ts-expect-error - `data` is still required when the payload widens `type`
+			emit({ type: "external" });
+		};
+		void assertWidenedTypePayload;
 	});
 
 	it("types effects emit when effects appear before events", () => {

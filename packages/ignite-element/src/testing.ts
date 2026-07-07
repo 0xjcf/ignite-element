@@ -728,9 +728,9 @@ class IgniteTestDriver<
 	}
 
 	expectSnapshot(expected: IgniteSnapshotExpectation<State>) {
-		const snapshot =
-			this.lastResult?.snapshot ??
-			this.withHost(() => this.component.getSnapshot());
+		const snapshot = this.lastResult
+			? this.lastResult.snapshot
+			: this.withHost(() => this.component.getSnapshot());
 		assertSnapshot("expectSnapshot", snapshot, expected);
 		return this;
 	}

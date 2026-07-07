@@ -87,6 +87,19 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 		expect(received).toHaveLength(1); // no longer listening
 	});
 
+	it("ignores source emits without a string type", () => {
+		const { runtime, emit } = makeHarness();
+		const received: unknown[] = [];
+
+		const subscription = runtime.on("123", (event) => {
+			received.push(event);
+		});
+		emit({ type: 123, outcome: "coerced" } as unknown as Emitted);
+
+		expect(received).toEqual([]);
+		subscription.unsubscribe();
+	});
+
 	it("execute().events captures source emits (uniform shape) alongside declared/effects events", async () => {
 		// The command emits both a declared/effects event (host bus) and a source
 		// event (subscribeEvents seam) during the command window.
@@ -212,6 +225,105 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 			expect.any(Function),
 		);
 		expect(releaseCount).toBe(1);
+	});
+
+	it("does not let command source cleanup failures mask successful execution", async () => {
+		const cleanupError = new Error("unsubscribe failed");
+		const consoleError = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => {});
+		const host = document.createElement("div");
+		const state = { count: 1 };
+		const adapter: IgniteAdapter<typeof state, { type: string }> = {
+			subscribeSnapshots: () => ({ unsubscribe() {} }),
+			subscribeEvents: () => ({
+				unsubscribe() {
+					throw cleanupError;
+				},
+			}),
+			send: () => {},
+			getSnapshot: () => state,
+			stop: () => {},
+		};
+		const runtime = createAgentRuntime<
+			typeof state,
+			{ type: string },
+			Record<string, never>,
+			Record<string, unknown>
+		>({
+			eventTypes: [],
+			resolveRuntime: () => ({
+				adapter,
+				additionalArgs: {
+					noop() {},
+				},
+				host,
+			}),
+			resolveView: () => ({}),
+		});
+
+		try {
+			await expect(runtime.execute("noop")).resolves.toMatchObject({
+				snapshot: state,
+				events: [],
+			});
+			expect(consoleError).toHaveBeenCalledWith(
+				"[igniteCore] Source event subscription cleanup failed after command execution.",
+				cleanupError,
+			);
+		} finally {
+			consoleError.mockRestore();
+		}
+	});
+
+	it("releases runtime access when on() source cleanup throws", () => {
+		const cleanupError = new Error("unsubscribe failed");
+		const consoleError = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => {});
+		const host = document.createElement("div");
+		const state = { count: 1 };
+		let releaseCount = 0;
+		const adapter: IgniteAdapter<typeof state, { type: string }> = {
+			subscribeSnapshots: () => ({ unsubscribe() {} }),
+			subscribeEvents: () => ({
+				unsubscribe() {
+					throw cleanupError;
+				},
+			}),
+			send: () => {},
+			getSnapshot: () => state,
+			stop: () => {},
+		};
+		const runtime = createAgentRuntime<
+			typeof state,
+			{ type: string },
+			Record<string, never>,
+			Record<string, unknown>
+		>({
+			eventTypes: [],
+			releaseRuntimeAccess: () => {
+				releaseCount += 1;
+			},
+			resolveRuntime: () => ({
+				adapter,
+				additionalArgs: {},
+				host,
+			}),
+			resolveView: () => ({}),
+		});
+
+		try {
+			const subscription = runtime.on("ui-event", () => {});
+			expect(() => subscription.unsubscribe()).not.toThrow();
+			expect(releaseCount).toBe(1);
+			expect(consoleError).toHaveBeenCalledWith(
+				"[igniteCore] Source event subscription cleanup failed.",
+				cleanupError,
+			);
+		} finally {
+			consoleError.mockRestore();
+		}
 	});
 
 	it("record() trace + summary include source emits", async () => {

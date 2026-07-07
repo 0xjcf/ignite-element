@@ -70,6 +70,34 @@ describe("ignite test DSL", () => {
 			.expectEvent({ type: "toggled", isOn: true });
 	});
 
+	it("asserts nullable command-result snapshots without falling back", async () => {
+		type Commands = {
+			noop: () => unknown;
+		};
+		const runtime = {
+			execute: async () => ({
+				snapshot: null,
+				events: [],
+			}),
+			getSnapshot: () => ({ fallback: true }),
+			getView: () => ({}),
+			canExecute: () => true,
+			on: () => ({ unsubscribe() {} }),
+			watchSnapshot: () => ({ unsubscribe() {} }),
+			watchView: () => ({ unsubscribe() {} }),
+		} as unknown as IgniteAgentRuntime<
+			null,
+			Commands,
+			EmptyEventMap,
+			unknown,
+			Record<string, never>
+		>;
+
+		const scenario = await igniteTest(runtime).when("noop");
+
+		expect(() => scenario.expectSnapshot(null)).not.toThrow();
+	});
+
 	it("asserts the projected view with expectView (object, predicate, mismatch)", async () => {
 		const machine = createMachine({
 			initial: "off",

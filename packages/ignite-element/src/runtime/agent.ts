@@ -48,13 +48,13 @@ function domEventToRuntimeEvent(event: globalThis.Event): RuntimeEventMember {
 function sourceEventToRuntimeEvent(
 	event: unknown,
 ): RuntimeEventMember | undefined {
-	if (!isPlainRecord(event) || !("type" in event)) {
+	if (!isPlainRecord(event) || typeof event.type !== "string") {
 		return undefined;
 	}
 
 	return {
 		...event,
-		type: String(event.type),
+		type: event.type,
 	};
 }
 
@@ -258,6 +258,13 @@ export function createAgentRuntime<
 			console.error(message, error);
 		}
 	};
+	const runCleanup = (message: string, cleanup: () => void) => {
+		try {
+			cleanup();
+		} catch (error) {
+			console.error(message, error);
+		}
+	};
 	const withRuntimeAccess = <Result>(callback: () => Result): Result => {
 		retainRuntimeAccess?.();
 		try {
@@ -368,24 +375,38 @@ export function createAgentRuntime<
 				}
 			});
 		} catch (error) {
-			if (host && listener) {
-				host.removeEventListener(eventName, listener);
-			}
-			eventsSubscription?.unsubscribe();
-			releaseRuntimeAccess?.();
+			runCleanup(
+				"[igniteCore] Event listener cleanup failed after listener setup error.",
+				() => {
+					if (host && listener) {
+						host.removeEventListener(eventName, listener);
+					}
+				},
+			);
+			runCleanup(
+				"[igniteCore] Source event subscription cleanup failed after listener setup error.",
+				() => eventsSubscription?.unsubscribe(),
+			);
+			releaseAfterError(
+				"[igniteCore] Runtime access release failed after listener setup error.",
+			);
 			throw error;
 		}
 
 		return {
 			unsubscribe: () => {
-				try {
+				runCleanup("[igniteCore] Event listener cleanup failed.", () => {
 					if (host && listener) {
 						host.removeEventListener(eventName, listener);
 					}
-					eventsSubscription?.unsubscribe();
-				} finally {
-					releaseRuntimeAccess?.();
-				}
+				});
+				runCleanup(
+					"[igniteCore] Source event subscription cleanup failed.",
+					() => eventsSubscription?.unsubscribe(),
+				);
+				releaseAfterSuccess(
+					"[igniteCore] Runtime access release failed after listener cleanup.",
+				);
 			},
 		};
 	};
@@ -463,9 +484,16 @@ export function createAgentRuntime<
 				};
 			} finally {
 				for (const { eventType, listener } of listeners) {
-					host.removeEventListener(eventType, listener as EventListener);
+					runCleanup(
+						"[igniteCore] Event listener cleanup failed after command execution.",
+						() =>
+							host.removeEventListener(eventType, listener as EventListener),
+					);
 				}
-				sourceSubscription?.unsubscribe();
+				runCleanup(
+					"[igniteCore] Source event subscription cleanup failed after command execution.",
+					() => sourceSubscription?.unsubscribe(),
+				);
 			}
 		});
 
