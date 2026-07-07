@@ -31,6 +31,7 @@ fix: address local-model epic CodeRabbit findings
 - examples/agents/smart-home/src/agentLoop.test.ts
 - examples/agents/smart-home/src/cli.ts
 - examples/agents/smart-home/src/home.ts
+- examples/agents/smart-home/src/lifecycle.ts
 - examples/agents/smart-home/src/shared/home.ts
 - examples/agents/smart-home/src/server.test.ts
 - examples/agents/smart-home/src/server.ts
@@ -61,6 +62,9 @@ fix: address local-model epic CodeRabbit findings
 - Added `examples/agents/smart-home/src/cli.ts` after CodeRabbit flagged the
   duplicated smart-home CLI runtime selection and print/close coordination
   across Anthropic, mock, and MLX entrypoints.
+- Added `examples/agents/smart-home/src/lifecycle.ts` after CodeRabbit flagged
+  duplicated bridge startup/shutdown timeout logic between the default and MLX
+  server entrypoints.
 
 - Type: scope-refresh-promotion
 - Added at: 2026-07-06
