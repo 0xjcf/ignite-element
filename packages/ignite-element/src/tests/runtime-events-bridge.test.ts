@@ -1,5 +1,5 @@
 import type { IgniteAdapter } from "@ignite-element/core";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createAgentRuntime } from "../runtime/agent";
 
 /**
@@ -117,6 +117,103 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 		expect(h.activeStreamSubscriptions()).toBe(0);
 	});
 
+	it("preserves non-plain CustomEvent detail instead of flattening it", async () => {
+		const detail = new Date("2026-07-07T16:00:00.000Z");
+		const h = makeHarness({
+			emitDate() {
+				h.host.dispatchEvent(new CustomEvent("ui-event", { detail }));
+			},
+		});
+
+		const result = await h.runtime.execute("emitDate");
+
+		expect(result.events).toEqual([
+			{
+				type: "ui-event",
+				detail,
+			},
+		]);
+	});
+
+	it("cleans execute listeners when source event subscription setup throws", async () => {
+		const host = document.createElement("div");
+		const removeEventListener = vi.spyOn(host, "removeEventListener");
+		const setupError = new Error("subscribe failed");
+		const state = { count: 0 };
+		const adapter: IgniteAdapter<typeof state, { type: string }> = {
+			subscribeSnapshots: () => ({ unsubscribe() {} }),
+			subscribeEvents: () => {
+				throw setupError;
+			},
+			send: () => {},
+			getSnapshot: () => state,
+			stop: () => {},
+		};
+		const runtime = createAgentRuntime<
+			typeof state,
+			{ type: string },
+			Record<string, never>,
+			Record<string, unknown>
+		>({
+			eventTypes: ["ui-event"],
+			resolveRuntime: () => ({
+				adapter,
+				additionalArgs: {
+					noop() {},
+				},
+				host,
+			}),
+			resolveView: () => ({}),
+		});
+
+		await expect(runtime.execute("noop")).rejects.toThrow(setupError);
+		expect(removeEventListener).toHaveBeenCalledWith(
+			"ui-event",
+			expect.any(Function),
+		);
+	});
+
+	it("cleans on() listeners and runtime access when source event subscription setup throws", () => {
+		const host = document.createElement("div");
+		const removeEventListener = vi.spyOn(host, "removeEventListener");
+		const setupError = new Error("subscribe failed");
+		const state = { count: 0 };
+		let releaseCount = 0;
+		const adapter: IgniteAdapter<typeof state, { type: string }> = {
+			subscribeSnapshots: () => ({ unsubscribe() {} }),
+			subscribeEvents: () => {
+				throw setupError;
+			},
+			send: () => {},
+			getSnapshot: () => state,
+			stop: () => {},
+		};
+		const runtime = createAgentRuntime<
+			typeof state,
+			{ type: string },
+			Record<string, never>,
+			Record<string, unknown>
+		>({
+			eventTypes: [],
+			releaseRuntimeAccess: () => {
+				releaseCount += 1;
+			},
+			resolveRuntime: () => ({
+				adapter,
+				additionalArgs: {},
+				host,
+			}),
+			resolveView: () => ({}),
+		});
+
+		expect(() => runtime.on("ui-event", () => {})).toThrow(setupError);
+		expect(removeEventListener).toHaveBeenCalledWith(
+			"ui-event",
+			expect.any(Function),
+		);
+		expect(releaseCount).toBe(1);
+	});
+
 	it("record() trace + summary include source emits", async () => {
 		const h = makeHarness({
 			acceptFork() {
@@ -131,6 +228,34 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 			type: "OUTCOME_RESOLVED",
 			outcome: "accepted-fork",
 		});
+		story.stop();
+	});
+
+	it("deep-clones retained story events before returning summaries", async () => {
+		const h = makeHarness({
+			acceptFork() {
+				h.emit({
+					type: "OUTCOME_RESOLVED",
+					nested: { count: 1 },
+				});
+			},
+		});
+		const story = h.runtime.record("compare");
+
+		await story.execute("acceptFork");
+		const firstSummary = story.summary();
+		const firstNested = firstSummary.events[0]?.nested;
+		if (
+			typeof firstNested !== "object" ||
+			firstNested === null ||
+			!("count" in firstNested)
+		) {
+			throw new Error("expected first summary event to include nested count");
+		}
+		firstNested.count = 99;
+
+		const secondNested = story.summary().events[0]?.nested;
+		expect(secondNested).toMatchObject({ count: 1 });
 		story.stop();
 	});
 

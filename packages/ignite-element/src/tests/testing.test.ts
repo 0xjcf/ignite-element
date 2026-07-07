@@ -391,6 +391,39 @@ describe("ignite test DSL", () => {
 		});
 	});
 
+	it("requires distinct emitted events for repeated expectEvents entries", async () => {
+		const store = counterStore();
+		const component = igniteCore({
+			adapter: "redux",
+			source: store,
+			commands: ({ actor }) => ({
+				increment: (amount: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+			}),
+			events: (event) => ({
+				"counter-incremented": event<{ count: number }>(),
+			}),
+			effects: ({ snapshot, prevSnapshot, emit }) => {
+				if (snapshot.counter.count === prevSnapshot.counter.count) {
+					return;
+				}
+
+				emit({
+					type: "counter-incremented",
+					count: snapshot.counter.count,
+				});
+			},
+		});
+		const scenario = await igniteTest(component).when("increment", 2);
+
+		expect(() =>
+			scenario.expectEvents([
+				{ type: "counter-incremented", count: 2 },
+				{ type: "counter-incremented", count: 2 },
+			]),
+		).toThrow("[igniteTest] Expected event");
+	});
+
 	it("uses snapshot vocabulary for scenario results, schemas, and stories", async () => {
 		const store = counterStore();
 		const component = igniteCore({

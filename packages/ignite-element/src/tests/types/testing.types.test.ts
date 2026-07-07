@@ -26,6 +26,7 @@ describe("ignite test DSL types", () => {
 		type ToggleSnapshot = StateFrom<typeof machine>;
 		type ToggleEventMap = {
 			toggled: EventDescriptor<{ isOn: boolean }>;
+			failed: EventDescriptor<{ message: string }>;
 		};
 
 		const componentConfig = {
@@ -39,6 +40,7 @@ describe("ignite test DSL types", () => {
 			}),
 			events: (event) => ({
 				toggled: event<{ isOn: boolean }>(),
+				failed: event<{ message: string }>(),
 			}),
 			effects: ({
 				emit,
@@ -64,8 +66,19 @@ describe("ignite test DSL types", () => {
 			.expectEvent({ type: "toggled", isOn: true });
 
 		expectTypeOf(scenario.getResult().events).toEqualTypeOf<
-			Array<{ type: "toggled"; isOn: boolean }>
+			Array<
+				{ type: "toggled"; isOn: boolean } | { type: "failed"; message: string }
+			>
 		>();
+		const expectEventTypePairing = () => {
+			// @ts-expect-error - `isOn` belongs to `toggled`, not `failed`
+			scenario.expectEvent({ type: "failed", isOn: true });
+			scenario.expectEvents([
+				// @ts-expect-error - `message` belongs to `failed`, not `toggled`
+				{ type: "toggled", message: "not paired" },
+			]);
+		};
+		void expectEventTypePairing;
 	});
 
 	it("infers command payloads for redux runtimes", () => {
