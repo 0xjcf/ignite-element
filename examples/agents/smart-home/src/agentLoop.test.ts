@@ -640,10 +640,13 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 				activeScene: null,
 			});
 		} finally {
-			if (!closed) {
-				await session.close();
+			try {
+				if (!closed) {
+					await session.close();
+				}
+			} finally {
+				vi.useRealTimers();
 			}
-			vi.useRealTimers();
 		}
 	});
 
@@ -1804,10 +1807,13 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 				lights: { living: false },
 			});
 		} finally {
-			if (session) {
-				await session.close();
+			try {
+				if (session) {
+					await session.close();
+				}
+			} finally {
+				vi.useRealTimers();
 			}
-			vi.useRealTimers();
 		}
 	});
 
@@ -1849,10 +1855,13 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 				pendingScene: "movie",
 			});
 		} finally {
-			if (session && !closed) {
-				await session.close();
+			try {
+				if (session && !closed) {
+					await session.close();
+				}
+			} finally {
+				vi.useRealTimers();
 			}
-			vi.useRealTimers();
 		}
 	});
 });
