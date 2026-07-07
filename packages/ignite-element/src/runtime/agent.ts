@@ -5,7 +5,7 @@ import type {
 	IgniteStoryCommandTraceEntry,
 	IgniteStoryEventTraceEntry,
 	IgniteStoryLifecycleEntry,
-	IgniteStoryStateTraceEntry,
+	IgniteStorySnapshotTraceEntry,
 	IgniteStoryTraceEntry,
 	IgniteStoryViewTraceEntry,
 } from "../types/agent";
@@ -113,7 +113,7 @@ export type IgniteRuntimeHostOverride = <Result>(
 type IgniteStoryTraceEntryDraft =
 	| Omit<IgniteStoryCommandTraceEntry, "sequence">
 	| Omit<IgniteStoryEventTraceEntry, "sequence">
-	| Omit<IgniteStoryStateTraceEntry, "sequence">
+	| Omit<IgniteStorySnapshotTraceEntry, "sequence">
 	| Omit<IgniteStoryViewTraceEntry, "sequence">;
 
 function getCommandContract(
@@ -187,8 +187,8 @@ function cloneTraceEntry(entry: IgniteStoryTraceEntry): IgniteStoryTraceEntry {
 				: { ...entry, payload: cloneSchemaValue(entry.payload) };
 		case "event":
 			return { ...entry, payload: cloneSchemaValue(entry.payload) };
-		case "state":
-			return { ...entry, state: cloneSchemaValue(entry.state) };
+		case "snapshot":
+			return { ...entry, snapshot: cloneSchemaValue(entry.snapshot) };
 		case "view":
 			return { ...entry, view: cloneSchemaValue(entry.view) };
 	}
@@ -410,7 +410,7 @@ export function createAgentRuntime<
 				await new Promise<void>((resolve) => queueMicrotask(resolve));
 
 				return {
-					state: adapter.getSnapshot(),
+					snapshot: adapter.getSnapshot(),
 					events,
 				};
 			} finally {
@@ -478,10 +478,10 @@ export function createAgentRuntime<
 					});
 				}
 				pushTrace({
-					kind: "state",
+					kind: "snapshot",
 					step,
 					phase: "before",
-					state: normalizeTraceValue(beforeState),
+					snapshot: normalizeTraceValue(beforeState),
 				});
 				pushTrace({
 					kind: "view",
@@ -503,10 +503,10 @@ export function createAgentRuntime<
 				}
 
 				pushTrace({
-					kind: "state",
+					kind: "snapshot",
 					step,
 					phase: "after",
-					state: normalizeTraceValue(result.state),
+					snapshot: normalizeTraceValue(result.snapshot),
 				});
 				pushTrace({
 					kind: "view",
@@ -569,7 +569,7 @@ export function createAgentRuntime<
 			summary() {
 				return {
 					name,
-					finalState: resolveRuntime().adapter.getSnapshot(),
+					finalSnapshot: resolveRuntime().adapter.getSnapshot(),
 					finalView: resolveView(resolveRuntime().adapter),
 					events: copyEvents(),
 					commandCount,
@@ -625,7 +625,7 @@ export function createAgentRuntime<
 				return {
 					commands,
 					events: [...eventTypes].sort().map((type) => ({ type })),
-					state: (toSchemaValue(adapter.getSnapshot()) ?? null) as Exclude<
+					snapshot: (toSchemaValue(adapter.getSnapshot()) ?? null) as Exclude<
 						ReturnType<typeof toSchemaValue>,
 						undefined
 					>,

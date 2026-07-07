@@ -26,7 +26,7 @@ type CommandPayload<
 	? undefined
 	: Parameters<Commands[CommandName]>[0];
 
-export type IgniteStoryTraceKind = "command" | "state" | "view" | "event";
+export type IgniteStoryTraceKind = "command" | "snapshot" | "view" | "event";
 
 export type IgniteStoryTracePhase = "before" | "after";
 
@@ -38,12 +38,12 @@ export type IgniteStoryCommandTraceEntry = {
 	payload?: IgniteSchemaValue;
 };
 
-export type IgniteStoryStateTraceEntry = {
-	kind: "state";
+export type IgniteStorySnapshotTraceEntry = {
+	kind: "snapshot";
 	sequence: number;
 	step: number;
 	phase: IgniteStoryTracePhase;
-	state: IgniteSchemaValue;
+	snapshot: IgniteSchemaValue;
 };
 
 export type IgniteStoryViewTraceEntry = {
@@ -64,7 +64,7 @@ export type IgniteStoryEventTraceEntry = {
 
 export type IgniteStoryTraceEntry =
 	| IgniteStoryCommandTraceEntry
-	| IgniteStoryStateTraceEntry
+	| IgniteStorySnapshotTraceEntry
 	| IgniteStoryViewTraceEntry
 	| IgniteStoryEventTraceEntry;
 
@@ -102,7 +102,7 @@ export type IgniteStorySummary<
 	View extends Record<string, unknown> = Record<never, never>,
 > = {
 	name: string;
-	finalState: State;
+	finalSnapshot: State;
 	finalView: View;
 	events: RuntimeEvent<Events>[];
 	commandCount: number;
@@ -116,7 +116,7 @@ export type IgniteStorySnapshotEvent = {
 
 export type IgniteStorySummarySnapshot = {
 	name: string;
-	finalState: IgniteSchemaValue;
+	finalSnapshot: IgniteSchemaValue;
 	finalView: IgniteSchemaValue;
 	events: IgniteStorySnapshotEvent[];
 	commandCount: number;
@@ -164,7 +164,7 @@ export type IgniteAgentExecutionResult<
 	State,
 	Events extends EventMap = EmptyEventMap,
 > = {
-	state: State;
+	snapshot: State;
 	events: RuntimeEvent<Events>[];
 };
 

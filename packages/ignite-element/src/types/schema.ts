@@ -22,11 +22,11 @@ export type IgniteAgentEventSchema = IgniteSchemaObject & {
 };
 
 export type IgniteAgentSchema<
-	State = IgniteSchemaValue,
+	Snapshot = IgniteSchemaValue,
 	View = IgniteSchemaValue,
 > = {
 	commands: IgniteAgentCommandSchema;
 	events: IgniteAgentEventSchema[];
-	state: State;
+	snapshot: Snapshot;
 	view: View;
 };

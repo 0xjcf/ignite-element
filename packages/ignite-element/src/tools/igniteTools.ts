@@ -121,11 +121,11 @@ export function igniteTools<
 		}
 
 		try {
-			const { state, events } = await execute(
+			const { snapshot, events } = await execute(
 				routed.value.command,
 				routed.value.payload,
 			);
-			return ok({ snapshot: state, view: getView(), events });
+			return ok({ snapshot, view: getView(), events });
 		} catch (cause) {
 			return err({
 				kind: "ExecuteFailed",
