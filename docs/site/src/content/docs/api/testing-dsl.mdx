@@ -52,7 +52,7 @@ Scenario methods — every `given`/`expect*` **returns the scenario** so calls c
 - `expectNoEvents()` — assert the command emitted nothing.
 - `getResult()` — return the raw `{ snapshot, events }` of the last `when(...)`.
 
-Snapshot, view, and payload expectations accept a deep-partial object or a predicate function.
+Snapshot, view, and event expectations accept a deep-partial object or a predicate function. Event expectations match flat `{ type, ...fields }` members.
 
 ## Stories
 
@@ -99,8 +99,28 @@ await story.execute('toggle');
 const snapshot = igniteTest.serializeTrace(story.trace());
 
 igniteTest.expectTrace(story.trace(), [
-  { kind: 'command', command: 'toggle' },
-  { kind: 'event', event: 'toggled', payload: { isOn: true } },
+  { kind: 'command', sequence: 1, step: 1, command: 'toggle' },
+  {
+    kind: 'snapshot',
+    sequence: 2,
+    step: 1,
+    phase: 'before',
+    snapshot: { value: 'off' },
+  },
+  {
+    kind: 'view',
+    sequence: 3,
+    step: 1,
+    phase: 'before',
+    view: { isOn: false },
+  },
+  {
+    kind: 'event',
+    sequence: 4,
+    step: 1,
+    event: 'toggled',
+    payload: { isOn: true },
+  },
 ]);
 
 const full = igniteTest.snapshotStory(story);

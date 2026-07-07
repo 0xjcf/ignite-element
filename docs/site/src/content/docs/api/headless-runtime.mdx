@@ -147,7 +147,7 @@ const subscription = counter.watchView((view, prevView) => {
 
 Returns a JSON-serializable contract describing the component's commands, public events, and current state. Command metadata declared with [`command(...)`](/ignite-element/api/command-metadata/) is included here.
 
-**Returns** `{ commands, events, snapshot, view }` — a JSON-serializable `IgniteAgentSchema`: `commands` maps each name to its metadata (`{}` when none), `events` is the array of declared event names, `snapshot` is the current snapshot value, and `view` is the projected view. Commands with an availability predicate include `gated: true`; call `canExecute(commandName)` for the current boolean result.
+**Returns** `{ commands, events, snapshot, view }` — a JSON-serializable `IgniteAgentSchema`: `commands` maps each name to its metadata (`{}` when none), `events` is the array of declared event descriptors such as `{ type }`, `snapshot` is the current snapshot value, and `view` is the projected view. Commands with an availability predicate include `gated: true`; call `canExecute(commandName)` for the current boolean result.
 
 ```ts
 const schema = counter.getSchema();

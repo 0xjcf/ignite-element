@@ -53,7 +53,7 @@ const component = igniteCore({
 
 const seen: Array<{ type: "toggled"; isOn: boolean }> = [];
 const subscription = component.on("toggled", (event) => {
-  seen.push(event.detail);
+  seen.push(event);
 });
 
 const result = await component.execute("toggle");
@@ -67,7 +67,7 @@ expect(result.events).toEqual([
 expect(seen).toEqual([{ type: "toggled", isOn: true }]);
 ```
 
-Use `execute()` for command-driven assertions, `on(...)` for emitted events, and `watch(...)` or `watchView(...)` when a test needs to observe longer-lived state or projection changes.
+Use `execute()` for command-driven assertions, `on(...)` for emitted events, and `watchSnapshot(...)` or `watchView(...)` when a test needs to observe longer-lived snapshots or projection changes.
 
 ## Advanced renderer config
 

@@ -137,7 +137,11 @@ registerSharedXState("my-counter-xstate", ({ count, increment }) => (
 const apiShowcase = igniteCore({
   source: apiShowcaseMachine,
   events: (event) => ({
-    "api-count-changed": event<{ count: number }>(),
+    "api-count-changed": event<{
+      count: number;
+      previousCount: number;
+      state: string;
+    }>(),
   }),
   view: ({ snapshot }) => ({
     count: snapshot.context.count,
@@ -158,6 +162,8 @@ const apiShowcase = igniteCore({
       emit({
         type: "api-count-changed",
         count: snapshot.context.count,
+        previousCount: count.previous,
+        state: String(snapshot.value),
       });
     }
   },
@@ -177,7 +183,11 @@ apiShowcase.getSchema();
 apiShowcase.getSnapshot();
 apiShowcase.getView();
 
-apiShowcase.on("api-count-changed", (event) => event);
+apiShowcase.on("api-count-changed", (event) => [
+  event.count,
+  event.previousCount,
+  event.state,
+]);
 apiShowcase.watchSnapshot((snapshot, prevSnapshot) => [prevSnapshot, snapshot]);
 apiShowcase.watchView((view, prevView) => [prevView, view]);
 
