@@ -364,8 +364,8 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 		});
 		expect(result.value.events).toEqual(
 			expect.arrayContaining([
-				{ type: "light-changed", payload: { room: "living", on: false } },
-				{ type: "light-changed", payload: { room: "kitchen", on: false } },
+				{ type: "light-changed", room: "living", on: false },
+				{ type: "light-changed", room: "kitchen", on: false },
 			]),
 		);
 	});
@@ -471,7 +471,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 				expect.arrayContaining([
 					{
 						type: "event",
-						event: { type: "scene-applied", payload: { scene: "morning" } },
+						event: { type: "scene-applied", scene: "morning" },
 					},
 					expect.objectContaining({
 						type: "view",
@@ -1717,9 +1717,9 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 
 	it("captures actor-web native emits in command-window observations and explicit runtime listeners", async () => {
 		const session = await createActorWebHomeSession();
-		const received: Array<{ scene: string }> = [];
+		const received: Array<{ type: "scene-applied"; scene: string }> = [];
 		const subscription = session.home.on("scene-applied", (event) => {
-			received.push(event.detail as { scene: string });
+			received.push(event);
 		});
 
 		try {
@@ -1738,7 +1738,7 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 			expect(result.value.events).toContainEqual(
 				expect.objectContaining({
 					type: "scene-applied",
-					payload: expect.objectContaining({ scene: "movie" }),
+					scene: "movie",
 				}),
 			);
 			expect(received).toHaveLength(1);
@@ -1751,9 +1751,12 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 
 	it("emits actor-web security changes for individual door updates", async () => {
 		const session = await createActorWebHomeSession();
-		const received: Array<{ allDoorsLocked: boolean }> = [];
+		const received: Array<{
+			type: "security-changed";
+			allDoorsLocked: boolean;
+		}> = [];
 		const subscription = session.home.on("security-changed", (event) => {
-			received.push(event.detail as { allDoorsLocked: boolean });
+			received.push(event);
 		});
 
 		try {
@@ -1770,13 +1773,13 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 			expect(first.value.events).toContainEqual(
 				expect.objectContaining({
 					type: "security-changed",
-					payload: expect.objectContaining({ allDoorsLocked: false }),
+					allDoorsLocked: false,
 				}),
 			);
 			expect(second.value.events).toContainEqual(
 				expect.objectContaining({
 					type: "security-changed",
-					payload: expect.objectContaining({ allDoorsLocked: false }),
+					allDoorsLocked: false,
 				}),
 			);
 			expect(received).toHaveLength(2);

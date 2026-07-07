@@ -510,19 +510,22 @@ function createHomeFromSource(source: typeof homeMachine | HomeActor) {
 			if (lights.changed) {
 				for (const room of ROOMS) {
 					if (lights.current[room] !== lights.previous[room]) {
-						emit("light-changed", { room, on: lights.current[room] });
+						emit({ type: "light-changed", room, on: lights.current[room] });
 					}
 				}
 			}
 			const scene = select((state) => state.context.activeScene);
 			if (scene.changed && scene.current) {
-				emit("scene-applied", { scene: scene.current });
+				emit({ type: "scene-applied", scene: scene.current });
 			}
 			const locked = select((state) =>
 				DOORS.every((door) => state.context.locks[door]),
 			);
 			if (locked.changed) {
-				emit("security-changed", { allDoorsLocked: locked.current });
+				emit({
+					type: "security-changed",
+					allDoorsLocked: locked.current,
+				});
 			}
 		},
 	});

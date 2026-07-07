@@ -71,9 +71,9 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 		const { runtime, emit, activeStreamSubscriptions } = makeHarness();
 		const received: unknown[] = [];
 
-		const subscription = runtime.on("OUTCOME_RESOLVED", (event) =>
-			received.push(event.detail),
-		);
+		const subscription = runtime.on("OUTCOME_RESOLVED", (event) => {
+			received.push(event);
+		});
 		emit({ type: "OUTCOME_RESOLVED", outcome: "accepted-fork" });
 		emit({ type: "OTHER", n: 1 }); // different type — ignored by this listener
 
@@ -103,11 +103,11 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 
 		expect(result.events).toContainEqual({
 			type: "OUTCOME_RESOLVED",
-			payload: { type: "OUTCOME_RESOLVED", outcome: "accepted-fork" },
+			outcome: "accepted-fork",
 		});
 		expect(result.events).toContainEqual({
 			type: "ui-event",
-			payload: { clicked: true },
+			clicked: true,
 		});
 		// no double-count of the source event
 		expect(
@@ -129,7 +129,7 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 
 		expect(story.summary().events).toContainEqual({
 			type: "OUTCOME_RESOLVED",
-			payload: { type: "OUTCOME_RESOLVED", outcome: "accepted-fork" },
+			outcome: "accepted-fork",
 		});
 		story.stop();
 	});

@@ -17,7 +17,7 @@ type ApiShowcaseView = ReturnType<typeof apiShowcase.getView>;
 type ApiShowcaseStory = ReturnType<typeof apiShowcase.record>;
 type RuntimeEventRecord = {
 	type: string;
-	payload: unknown;
+	[key: string]: unknown;
 };
 type RuntimeExecution = {
 	resultEvents: RuntimeEventRecord[];
@@ -72,6 +72,15 @@ type AgentRuntimeEvent =
 	| { type: "APPLY_LIMIT" };
 
 const formatPayload = (payload: unknown) => JSON.stringify(payload);
+const formatEventFields = (event: RuntimeEventRecord) => {
+	const fields: Record<string, unknown> = {};
+	for (const [key, value] of Object.entries(event)) {
+		if (key !== "type") {
+			fields[key] = value;
+		}
+	}
+	return formatPayload(fields);
+};
 
 const summarizeState = (state: ApiShowcaseState): RuntimeReport["state"] => ({
 	value: String(state.value),
@@ -125,8 +134,7 @@ const mapRuntimeEvents = (
 	events: ReadonlyArray<RuntimeEventRecord>,
 ): RuntimeEventRecord[] =>
 	events.map((event) => ({
-		type: event.type,
-		payload: event.payload,
+		...event,
 	}));
 
 const codeForCommand = (
@@ -188,12 +196,14 @@ const inspectRuntime = (): RuntimeExecution => {
 	const state = summarizeState(apiShowcase.getSnapshot());
 	const view = apiShowcase.getView();
 	const commandNames = Object.keys(schema.commands);
+	const eventNames = schema.events.map((event) => event.type);
 
 	return {
 		resultEvents: [],
 		agentLog: [
 			`getSchema() -> ${commandNames.length} commands, ${schema.events.length} events`,
 			`commands -> ${commandNames.join(", ") || "none"}`,
+			`events -> ${eventNames.join(", ") || "none"}`,
 			`getSnapshot() -> count ${state.count}/${state.limit}, state ${state.value}`,
 			`getView() -> ${view.stateLabel}, progress ${view.progress}%`,
 		],
@@ -306,13 +316,13 @@ const createRuntimeReport = async (
 	);
 
 	const countSubscription = apiShowcase.on("api-count-changed", (event) => {
-		eventLog.push(`on("api-count-changed") -> ${formatPayload(event.detail)}`);
+		eventLog.push(`on("api-count-changed") -> ${formatEventFields(event)}`);
 	});
 	const limitSubscription = apiShowcase.on("api-limit-reached", (event) => {
-		eventLog.push(`on("api-limit-reached") -> ${formatPayload(event.detail)}`);
+		eventLog.push(`on("api-limit-reached") -> ${formatEventFields(event)}`);
 	});
 	const resetSubscription = apiShowcase.on("api-reset", (event) => {
-		eventLog.push(`on("api-reset") -> ${formatPayload(event.detail)}`);
+		eventLog.push(`on("api-reset") -> ${formatEventFields(event)}`);
 	});
 	const stateSubscription = apiShowcase.watchSnapshot((state, prevState) => {
 		stateLog.push(
@@ -627,7 +637,9 @@ agentRuntimeShowcase("xstate-agent-runtime-showcase", (ctx) => (
 					</div>
 					<div>
 						<dt class="font-medium text-slate-900">Events</dt>
-						<dd class="break-words">{ctx.report.schema.events.join(", ")}</dd>
+						<dd class="break-words">
+							{ctx.report.schema.events.map((event) => event.type).join(", ")}
+						</dd>
 					</div>
 					<div class="min-w-0">
 						<dt class="font-medium text-slate-900">Command metadata</dt>
@@ -712,7 +724,7 @@ agentRuntimeShowcase("xstate-agent-runtime-showcase", (ctx) => (
 								class="rounded bg-white px-3 py-2"
 								key={`${event.type}-${index}`}
 							>
-								{event.type}: {formatPayload(event.payload)}
+								{event.type}: {formatEventFields(event)}
 							</li>
 						))
 					) : (

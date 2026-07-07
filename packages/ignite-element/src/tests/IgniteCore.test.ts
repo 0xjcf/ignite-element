@@ -23,7 +23,6 @@ import type {
 	ExtendedState,
 	XStateCommandActor,
 } from "../adapters/XStateAdapter";
-import counterStore, { counterSlice } from "./fixtures/reduxCounterStore";
 import { igniteCore } from "../IgniteCore";
 import type { ReduxInstanceConfig } from "../igniteCore/types";
 import type {
@@ -37,6 +36,7 @@ import { jsx, jsxs } from "../renderers/jsx/jsx-runtime";
 import { toSchemaValue } from "../runtime/schema";
 import { test as igniteTest } from "../testing";
 import type { InferStateAndEvent } from "../utils/igniteRedux";
+import counterStore, { counterSlice } from "./fixtures/reduxCounterStore";
 
 const flushMicrotasks = () =>
 	new Promise<void>((resolve) => queueMicrotask(resolve));
@@ -703,7 +703,10 @@ describe("igniteCore", () => {
 
 			const amountAttr = host.getAttribute("data-amount");
 			const amount = amountAttr ? Number(amountAttr) : 1;
-			emit("counter-incremented", { amount });
+			emit({
+				type: "counter-incremented",
+				amount,
+			});
 		};
 		const register = igniteCore({
 			adapter: "redux",
@@ -774,7 +777,8 @@ describe("igniteCore", () => {
 				"counter-incremented": event<{ count: number }>(),
 			}),
 			effects: ({ snapshot, emit }) => {
-				emit("counter-incremented", {
+				emit({
+					type: "counter-incremented",
 					count: snapshot.counter.count,
 				});
 			},
@@ -841,7 +845,8 @@ describe("igniteCore", () => {
 				}
 
 				order.push("effect");
-				emit("counter-incremented", {
+				emit({
+					type: "counter-incremented",
 					count: snapshot.counter.count,
 				});
 			},
@@ -942,16 +947,19 @@ describe("igniteCore", () => {
 					return;
 				}
 
-				emit("counter-incremented", {
+				emit({
+					type: "counter-incremented",
 					count: count.current,
 				});
 			},
 		} satisfies ReduxInstanceConfig<typeof store, RuntimeEventMap>;
 		const register = igniteCore(runtimeConfig);
 
-		const listener = vi.fn((event: CustomEvent<{ count: number }>) => {
-			expect(event.detail.count).toBe(3);
-		});
+		const listener = vi.fn(
+			(event: { type: "counter-incremented"; count: number }) => {
+				expect(event.count).toBe(3);
+			},
+		);
 		const watchListener = vi.fn((state: StoreState, prevState: StoreState) => {
 			expect(prevState.counter.count).toBe(0);
 			expect(state.counter.count).toBe(3);
@@ -972,7 +980,7 @@ describe("igniteCore", () => {
 		expect(result.events).toEqual([
 			{
 				type: "counter-incremented",
-				payload: { count: 3 },
+				count: 3,
 			},
 		]);
 		expect(listener).toHaveBeenCalledTimes(1);
@@ -1019,7 +1027,8 @@ describe("igniteCore", () => {
 					return;
 				}
 
-				emit("counter-incremented", {
+				emit({
+					type: "counter-incremented",
 					count: snapshot.counter.count,
 				});
 			},
@@ -1038,7 +1047,7 @@ describe("igniteCore", () => {
 		expect(result.events).toEqual([
 			{
 				type: "counter-incremented",
-				payload: { count: 1 },
+				count: 1,
 			},
 		]);
 	});
@@ -1072,7 +1081,8 @@ describe("igniteCore", () => {
 					return;
 				}
 
-				emit("counter-incremented", {
+				emit({
+					type: "counter-incremented",
 					count: snapshot.counter.count,
 				});
 			},
@@ -1125,11 +1135,11 @@ describe("igniteCore", () => {
 		const summary = story.summary();
 		expect(summary.finalState.counter.count).toBe(5);
 		expect(summary.finalView).toEqual({ count: 5, isEven: false });
-		expect(summary.events.map((event) => event.payload)).toEqual([
-			{ count: 2 },
-			{ count: 3 },
-			{ count: 4 },
-			{ count: 5 },
+		expect(summary.events).toEqual([
+			{ type: "counter-incremented", count: 2 },
+			{ type: "counter-incremented", count: 3 },
+			{ type: "counter-incremented", count: 4 },
+			{ type: "counter-incremented", count: 5 },
 		]);
 		expect(summary.commandCount).toBe(4);
 		expect(summary.traceCount).toBe(24);
@@ -1306,7 +1316,7 @@ describe("igniteCore", () => {
 			commands: {
 				increment: {},
 			},
-			events: ["counter-incremented"],
+			events: [{ type: "counter-incremented" }],
 			state: {
 				counter: {
 					count: 0,
@@ -1346,7 +1356,7 @@ describe("igniteCore", () => {
 		expect(component.getSchema()).toEqual(core.getSchema());
 		expect(component.getSchema()).toEqual({
 			commands: { increment: {} },
-			events: ["counter-incremented"],
+			events: [{ type: "counter-incremented" }],
 			state: { counter: { count: 0 } },
 			view: { count: 0 },
 		});
@@ -1776,8 +1786,8 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 
 		const received: ActorWebShipmentEmitted[] = [];
 		const subscription = register.on("SHIPMENT_CREATED", (event) => {
-			// Uniform shape: on() handlers receive the emitted member as `detail`.
-			received.push(event.detail);
+			// Uniform shape: on() handlers receive the emitted member directly.
+			received.push(event);
 		});
 
 		source.emitEvent({ type: "SHIPMENT_CREATED", shipmentId: "shipment-7" });
@@ -1806,10 +1816,10 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 		expect(source.sent).toEqual([
 			{ type: "CREATE_SHIPMENT", shipmentId: "shipment-1001" },
 		]);
-		// Uniform shape: { type: M.type, payload: M } where M is the emitted member.
+		// Uniform shape: the emitted member itself.
 		expect(result.events).toContainEqual({
 			type: "SHIPMENT_CREATED",
-			payload: { type: "SHIPMENT_CREATED", shipmentId: "shipment-1001" },
+			shipmentId: "shipment-1001",
 		});
 		// Single capture per emit — no double-count from the transient subscription.
 		expect(
@@ -1838,7 +1848,8 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 					return;
 				}
 
-				emit("shipment-recorded", {
+				emit({
+					type: "shipment-recorded",
 					shipmentId: snapshot.context.shipmentId ?? "",
 				});
 			},
@@ -1856,12 +1867,12 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 		// Stream-bridged source event.
 		expect(result.events).toContainEqual({
 			type: "SHIPMENT_CREATED",
-			payload: { type: "SHIPMENT_CREATED", shipmentId: "shipment-2002" },
+			shipmentId: "shipment-2002",
 		});
 		// Effects-declared event still flows alongside the bridge.
 		expect(result.events).toContainEqual({
 			type: "shipment-recorded",
-			payload: { shipmentId: "shipment-2002" },
+			shipmentId: "shipment-2002",
 		});
 	});
 
@@ -1881,15 +1892,16 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 
 		const emitted = {
 			type: "SHIPMENT_CREATED",
-			payload: { type: "SHIPMENT_CREATED", shipmentId: "shipment-3003" },
+			shipmentId: "shipment-3003",
 		};
 		expect(story.summary().events).toContainEqual(emitted);
-		expect(
-			story
-				.trace()
-				.filter((entry) => entry.kind === "event")
-				.map((entry) => ({ type: entry.event, payload: entry.payload })),
-		).toContainEqual(emitted);
+		expect(story.trace()).toContainEqual(
+			expect.objectContaining({
+				kind: "event",
+				event: "SHIPMENT_CREATED",
+				payload: { shipmentId: "shipment-3003" },
+			}),
+		);
 
 		story.stop();
 	});
@@ -1955,8 +1967,8 @@ describe("igniteCore xstate emitted-event bridge", () => {
 
 		const received: Array<{ type: string; count: number }> = [];
 		const subscription = register.on("count-changed", (event) => {
-			// Uniform shape: on() handlers receive the emitted member as `detail`.
-			received.push(event.detail);
+			// Uniform shape: on() handlers receive the emitted member directly.
+			received.push(event);
 		});
 
 		void register.execute("increment");
@@ -1978,10 +1990,10 @@ describe("igniteCore xstate emitted-event bridge", () => {
 
 		const result = await register.execute("increment");
 
-		// Uniform shape: { type: M.type, payload: M } where M is the emitted member.
+		// Uniform shape: the emitted member itself.
 		expect(result.events).toContainEqual({
 			type: "count-changed",
-			payload: { type: "count-changed", count: 1 },
+			count: 1,
 		});
 		// Single capture per emit — no double-count from the transient subscription.
 		expect(
@@ -2003,7 +2015,7 @@ describe("igniteCore xstate emitted-event bridge", () => {
 
 		const emitted = {
 			type: "count-changed",
-			payload: { type: "count-changed", count: 1 },
+			count: 1,
 		};
 		expect(story.summary().events).toContainEqual(emitted);
 

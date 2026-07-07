@@ -51,7 +51,7 @@ function createCounter() {
 		effects: ({ emit, select }) => {
 			const count = select((state) => state.context.count);
 			if (count.changed) {
-				emit("counted", { count: count.current });
+				emit({ type: "counted", count: count.current });
 			}
 		},
 	});
@@ -68,7 +68,7 @@ describe("agent runtime is DOM-free (pure Node, no jsdom)", () => {
 		expect(Object.keys(schema.commands)).toContain("increment");
 		expect(schema.commands.decrement).toMatchObject({ gated: true });
 		expect(schema.commands.decrement).not.toHaveProperty("canExecute");
-		expect(schema.events).toContain("counted");
+		expect(schema.events).toContainEqual({ type: "counted" });
 		expect(schema.view).toMatchObject({ count: 0 });
 	});
 
@@ -95,7 +95,7 @@ describe("agent runtime is DOM-free (pure Node, no jsdom)", () => {
 		const counter = createCounter();
 		const result = await counter.execute("increment");
 		expect(result.state.context.count).toBe(1);
-		expect(result.events).toEqual([{ type: "counted", payload: { count: 1 } }]);
+		expect(result.events).toEqual([{ type: "counted", count: 1 }]);
 	});
 
 	it("on() receives effect-emitted events via the host EventTarget", async () => {
@@ -106,8 +106,7 @@ describe("agent runtime is DOM-free (pure Node, no jsdom)", () => {
 		await counter.execute("increment");
 
 		expect(handler).toHaveBeenCalledTimes(1);
-		const event = handler.mock.calls[0][0] as CustomEvent<{ count: number }>;
-		expect(event.detail).toEqual({ count: 1 });
+		expect(handler.mock.calls[0][0]).toEqual({ type: "counted", count: 1 });
 		subscription.unsubscribe();
 	});
 

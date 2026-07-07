@@ -1,10 +1,10 @@
 import { describe, expectTypeOf, it } from "vitest";
 import { createMachine, type StateFrom } from "xstate";
-import counterStore, { counterSlice } from "../fixtures/reduxCounterStore";
 import { igniteCore } from "../../IgniteCore";
 import type { ReduxInstanceConfig, XStateConfig } from "../../igniteCore/types";
 import type { EventDescriptor, FacadeEffectArgs } from "../../RenderArgs";
 import { test as igniteTest } from "../../testing";
+import counterStore, { counterSlice } from "../fixtures/reduxCounterStore";
 
 describe("ignite test DSL types", () => {
 	it("infers command payloads, xstate value matching, and event payloads", async () => {
@@ -49,17 +49,20 @@ describe("ignite test DSL types", () => {
 					return;
 				}
 
-				emit("toggled", { isOn: isOn.current });
+				emit({
+					type: "toggled",
+					isOn: isOn.current,
+				});
 			},
 		} satisfies XStateConfig<typeof machine, ToggleEventMap>;
 		const component = igniteCore(componentConfig);
 
 		const scenario = (await igniteTest(component).given("off").when("toggle"))
 			.expectState("on")
-			.expectEvent("toggled", { isOn: true });
+			.expectEvent({ type: "toggled", isOn: true });
 
 		expectTypeOf(scenario.getResult().events).toEqualTypeOf<
-			Array<{ type: "toggled"; payload: { isOn: boolean } }>
+			Array<{ type: "toggled"; isOn: boolean }>
 		>();
 	});
 

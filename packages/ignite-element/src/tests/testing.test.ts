@@ -57,7 +57,8 @@ describe("ignite test DSL", () => {
 					return;
 				}
 
-				emit("toggled", {
+				emit({
+					type: "toggled",
 					isOn: isOn.current,
 				});
 			},
@@ -66,7 +67,7 @@ describe("ignite test DSL", () => {
 
 		(await igniteTest(component).given("off").when("toggle"))
 			.expectState("on")
-			.expectEvent("toggled", { isOn: true });
+			.expectEvent({ type: "toggled", isOn: true });
 	});
 
 	it("asserts the projected view with expectView (object, predicate, mismatch)", async () => {
@@ -162,7 +163,8 @@ describe("ignite test DSL", () => {
 				}
 
 				host.dataset.lastStarted = snapshot.context.startedModule;
-				emit("module-started", {
+				emit({
+					type: "module-started",
 					moduleId: snapshot.context.startedModule,
 				});
 			},
@@ -173,7 +175,7 @@ describe("ignite test DSL", () => {
 		scenario
 			.expectState({ context: { startedModule: "dispatch" } })
 			.expectView({ moduleId: "dispatch" })
-			.expectEvent("module-started", { moduleId: "dispatch" });
+			.expectEvent({ type: "module-started", moduleId: "dispatch" });
 		expect(host.dataset.lastStarted).toBe("dispatch");
 	});
 
@@ -313,7 +315,8 @@ describe("ignite test DSL", () => {
 					return;
 				}
 
-				emit("counter-incremented", {
+				emit({
+					type: "counter-incremented",
 					count: snapshot.counter.count,
 				});
 			},
@@ -338,7 +341,7 @@ describe("ignite test DSL", () => {
 			.expectEvents([
 				{
 					type: "counter-incremented",
-					payload: { count: 2 },
+					count: 2,
 				},
 			])
 			.getResult();
@@ -347,7 +350,7 @@ describe("ignite test DSL", () => {
 		expect(result.events).toEqual([
 			{
 				type: "counter-incremented",
-				payload: { count: 2 },
+				count: 2,
 			},
 		]);
 	});
@@ -402,7 +405,8 @@ describe("ignite test DSL", () => {
 					return;
 				}
 
-				emit("counter-incremented", {
+				emit({
+					type: "counter-incremented",
 					count: snapshot.counter.count,
 				});
 			},
@@ -436,15 +440,11 @@ describe("ignite test DSL", () => {
 			    "commandCount": 2,
 			    "events": [
 			      {
-			        "payload": {
-			          "count": 2,
-			        },
+			        "count": 2,
 			        "type": "counter-incremented",
 			      },
 			      {
-			        "payload": {
-			          "count": 3,
-			        },
+			        "count": 3,
 			        "type": "counter-incremented",
 			      },
 			    ],
@@ -747,7 +747,7 @@ describe("ignite test DSL", () => {
 				events: [
 					{
 						type: "counter-incremented",
-						payload,
+						...payload,
 					},
 				],
 				commandCount: 1,
@@ -777,7 +777,8 @@ describe("ignite test DSL", () => {
 			events: [
 				{
 					type: "counter-incremented",
-					payload: {
+					count: "4",
+					self: {
 						count: "4",
 						self: "[Circular]",
 					},

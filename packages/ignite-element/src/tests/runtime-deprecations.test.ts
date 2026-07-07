@@ -36,7 +36,10 @@ function createRegister() {
 			if (!count.changed) {
 				return;
 			}
-			emit("counter-incremented", { count: count.current });
+			emit({
+				type: "counter-incremented",
+				count: count.current,
+			});
 		},
 	} satisfies ReduxInstanceConfig<typeof store, RuntimeEventMap>;
 

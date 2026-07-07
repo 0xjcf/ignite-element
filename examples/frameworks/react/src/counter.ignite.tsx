@@ -51,7 +51,7 @@ const counterCore = igniteCore({
 	effects: ({ snapshot, emit, select }) => {
 		const count = select((current) => current.context.count);
 		if (!count.changed) return;
-		emit("countChanged", { count: snapshot.context.count });
+		emit({ type: "countChanged", count: snapshot.context.count });
 	},
 });
 

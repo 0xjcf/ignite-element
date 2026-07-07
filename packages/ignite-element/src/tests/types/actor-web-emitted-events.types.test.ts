@@ -37,13 +37,13 @@ async function _typeAssertions() {
 
 	// on() accepts emitted event names, with the payload typed to the member.
 	register.on("OUTCOME_RESOLVED", (event) => {
-		expectTypeOf(event.detail).toEqualTypeOf<{
+		expectTypeOf(event).toEqualTypeOf<{
 			type: "OUTCOME_RESOLVED";
 			outcome: string;
 		}>();
 	});
 	register.on("SHIPMENT_CREATED", (event) => {
-		expectTypeOf(event.detail).toEqualTypeOf<{
+		expectTypeOf(event).toEqualTypeOf<{
 			type: "SHIPMENT_CREATED";
 			shipmentId: string;
 		}>();
@@ -52,18 +52,12 @@ async function _typeAssertions() {
 	// @ts-expect-error — a name that is neither declared nor emitted is rejected.
 	register.on("NOT_AN_EVENT", () => {});
 
-	// execute().events is typed to the emitted union (uniform { type, payload }).
+	// execute().events is typed to the emitted union (flat member shape).
 	const result = await register.execute("cancel");
 	expectTypeOf(result.events).toEqualTypeOf<
 		Array<
-			| {
-					type: "OUTCOME_RESOLVED";
-					payload: { type: "OUTCOME_RESOLVED"; outcome: string };
-			  }
-			| {
-					type: "SHIPMENT_CREATED";
-					payload: { type: "SHIPMENT_CREATED"; shipmentId: string };
-			  }
+			| { type: "OUTCOME_RESOLVED"; outcome: string }
+			| { type: "SHIPMENT_CREATED"; shipmentId: string }
 		>
 	>();
 }

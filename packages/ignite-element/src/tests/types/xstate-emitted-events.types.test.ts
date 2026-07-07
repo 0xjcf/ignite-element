@@ -60,13 +60,13 @@ async function _typeAssertions() {
 
 	// on() accepts emitted event names, with the payload typed to the member.
 	register.on("count-changed", (event) => {
-		expectTypeOf(event.detail).toEqualTypeOf<{
+		expectTypeOf(event).toEqualTypeOf<{
 			type: "count-changed";
 			count: number;
 		}>();
 	});
 	register.on("limit-reached", (event) => {
-		expectTypeOf(event.detail).toEqualTypeOf<{ type: "limit-reached" }>();
+		expectTypeOf(event).toEqualTypeOf<{ type: "limit-reached" }>();
 	});
 
 	// @ts-expect-error — a name that is neither declared nor emitted is rejected.
@@ -95,7 +95,7 @@ async function _typeAssertions() {
 		}),
 	});
 	subpathRegister.on("count-changed", (event) => {
-		expectTypeOf(event.detail).toEqualTypeOf<{
+		expectTypeOf(event).toEqualTypeOf<{
 			type: "count-changed";
 			count: number;
 		}>();

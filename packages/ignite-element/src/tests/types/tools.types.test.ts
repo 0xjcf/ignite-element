@@ -57,7 +57,7 @@ describe("igniteTools types", () => {
 				// component's `view` projection.
 				expectTypeOf(result.value.view).toEqualTypeOf<{ isOn: boolean }>();
 				expectTypeOf(result.value.events).toEqualTypeOf<
-					Array<{ type: "toggled"; payload: { isOn: boolean } }>
+					Array<{ type: "toggled"; isOn: boolean }>
 				>();
 			} else {
 				expectTypeOf(result.error).toEqualTypeOf<ToolError>();
@@ -83,7 +83,7 @@ describe("igniteTools types", () => {
 			} else {
 				expectTypeOf(observation.event).toEqualTypeOf<{
 					type: "toggled";
-					payload: { isOn: boolean };
+					isOn: boolean;
 				}>();
 			}
 		});

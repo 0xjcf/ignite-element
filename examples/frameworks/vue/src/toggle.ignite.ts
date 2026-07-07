@@ -39,7 +39,7 @@ const toggle = igniteCore({
 	effects: ({ snapshot, emit, select }) => {
 		const on = select((current) => current.context.on);
 		if (!on.changed) return;
-		emit("toggled", { isOn: snapshot.context.on });
+		emit({ type: "toggled", isOn: snapshot.context.on });
 	},
 });
 
