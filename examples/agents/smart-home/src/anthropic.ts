@@ -39,14 +39,13 @@ function printSession(result: AgentResult): void {
 	console.log(renderHome(result.home.getView()));
 }
 
-const runtimeFactory = resolveSmartHomeRuntimeFactory();
-
 console.log("🏠 Smart-home agent — live Anthropic loop, headless (no DOM)\n");
 console.log("Initial state:");
 console.log(renderHome(createHome().getView()));
 console.log(`\n🗣️  "${prompt}"\n`);
 
 try {
+	const runtimeFactory = resolveSmartHomeRuntimeFactory();
 	const result = await runHomeAgent(anthropicModel({ apiKey }), prompt, {
 		runtimeFactory,
 	});

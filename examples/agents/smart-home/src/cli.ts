@@ -42,12 +42,12 @@ export function resolveMlxConnectionOptions(): SmartHomeMlxConnectionOptions {
 
 export async function printAndCloseAgentResult(
 	result: AgentResult,
-	printSession: (result: AgentResult) => void,
+	printSession: (result: AgentResult) => void | Promise<void>,
 ): Promise<void> {
 	let printError: unknown;
 	let closeError: unknown;
 	try {
-		printSession(result);
+		await printSession(result);
 	} catch (error) {
 		printError = error;
 	}

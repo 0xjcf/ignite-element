@@ -14,8 +14,6 @@ import { renderHome } from "./render";
 //   python -m mlx_lm.server --model <model> --port 8080
 //   MLX_MODEL=<model> npm run mlx -- "it's bedtime"
 
-const { baseUrl, model, apiKey } = resolveMlxConnectionOptions();
-
 const prompt =
 	process.argv.slice(2).join(" ") ||
 	"It's bedtime — turn off all the lights and lock every door.";
@@ -34,16 +32,19 @@ function printSession(result: AgentResult): void {
 	console.log(renderHome(result.home.getView()));
 }
 
-const runtimeFactory = resolveSmartHomeRuntimeFactory();
-
-console.log("Smart-home agent - local MLX/OpenAI-compatible loop, headless\n");
-console.log(`Endpoint: ${baseUrl}`);
-console.log(`Model: ${model}`);
-console.log("\nInitial state:");
-console.log(renderHome(createHome().getView()));
-console.log(`\nPrompt: "${prompt}"\n`);
-
 try {
+	const { baseUrl, model, apiKey } = resolveMlxConnectionOptions();
+	const runtimeFactory = resolveSmartHomeRuntimeFactory();
+
+	console.log(
+		"Smart-home agent - local MLX/OpenAI-compatible loop, headless\n",
+	);
+	console.log(`Endpoint: ${baseUrl}`);
+	console.log(`Model: ${model}`);
+	console.log("\nInitial state:");
+	console.log(renderHome(createHome().getView()));
+	console.log(`\nPrompt: "${prompt}"\n`);
+
 	const result = await runHomeOpenAICompatibleAgent(
 		openAICompatibleModel({ baseUrl, model, apiKey }),
 		prompt,

@@ -100,7 +100,15 @@ export async function runSmartHomeBridgeCli<
 	try {
 		startupPromise = options.start();
 		server = await startupPromise;
-		options.onStarted(server);
+		try {
+			options.onStarted(server);
+		} catch (error) {
+			await waitForLifecyclePromise(
+				server.close(),
+				`closing ${options.displayName} after startup callback failure`,
+			).catch(() => undefined);
+			throw error;
+		}
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		console.error(`\n${message}`);
