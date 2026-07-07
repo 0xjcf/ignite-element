@@ -123,7 +123,7 @@ describe("smart-home bridge server", () => {
 		socket.close();
 	});
 
-	it("closes promptly with an in-flight OpenAI-compatible agent run", async () => {
+	it("waits for an in-flight OpenAI-compatible agent run before close", async () => {
 		let resolveModel:
 			| ((response: OpenAIChatCompletionResponse) => void)
 			| undefined;
@@ -150,24 +150,32 @@ describe("smart-home bridge server", () => {
 		await started;
 
 		let closed = false;
-		const closePromise = server.close().then(() => {
-			closed = true;
-		});
+		let closePromise: Promise<void> | undefined;
 		try {
+			closePromise = server.close().then(() => {
+				closed = true;
+			});
 			await expect(
 				Promise.race([
 					closePromise.then(() => "closed"),
-					delay(1_000).then(() => "timeout"),
+					delay(25).then(() => "waiting"),
 				]),
-			).resolves.toBe("closed");
+			).resolves.toBe("waiting");
+
+			resolveModel?.({
+				choices: [{ message: { role: "assistant", content: "Done." } }],
+			});
+			resolveModel = undefined;
+			await closePromise;
+			expect(closed).toBe(true);
 		} finally {
 			resolveModel?.({
 				choices: [{ message: { role: "assistant", content: "Done." } }],
 			});
+			await closePromise?.catch(() => undefined);
 			server = undefined;
 			socket.close();
 		}
-		expect(closed).toBe(true);
 	});
 
 	it("broadcasts agent failures to connected browser clients", async () => {

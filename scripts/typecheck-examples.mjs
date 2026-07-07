@@ -245,6 +245,7 @@ async function main() {
 		console.log(`\n==> ${relativeRoot}`);
 
 		if (!ensureDependencies(exampleRoot, installMode)) {
+			console.log(`FAIL ${relativeRoot}`);
 			failedExamples.push(relativeRoot);
 			continue;
 		}

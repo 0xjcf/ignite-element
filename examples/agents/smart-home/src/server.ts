@@ -27,7 +27,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import type { HomeBridgeClientMessage, HomeBridgeMessage } from "./bridge";
 import { parseBridgeMessage, serializeBridgeMessage } from "./bridge";
 import { resolveSmartHomeRuntimeFactory } from "./cli";
-import { waitForLifecyclePromise } from "./lifecycle";
+import { runSmartHomeBridgeCli, waitForLifecyclePromise } from "./lifecycle";
 import {
 	type AnthropicMessage,
 	assertOpenAIChatCompletionResponse,
@@ -161,6 +161,7 @@ export async function startSmartHomeBridgeServer(
 	const port = options.port ?? Number(process.env.PORT ?? DEFAULT_PORT);
 	const session = await resolveSharedHomeSession(options.runtimeFactory);
 	let agentStarted = false;
+	let agentLifecycle: Promise<void> | undefined;
 	let closing = false;
 	let terminal: TerminalControls | undefined;
 	let stream: { unsubscribe(): void } | undefined;
@@ -294,7 +295,7 @@ export async function startSmartHomeBridgeServer(
 				return;
 			}
 			agentStarted = true;
-			void (
+			const runPromise = (
 				options.openAIModel
 					? runSharedHomeOpenAICompatibleAgent(
 							options.openAIModel,
@@ -323,6 +324,13 @@ export async function startSmartHomeBridgeServer(
 					view: home.getView(),
 				});
 			});
+			const lifecycle = runPromise.finally(() => {
+				if (agentLifecycle === lifecycle) {
+					agentLifecycle = undefined;
+				}
+			});
+			agentLifecycle = lifecycle;
+			void lifecycle;
 		}
 
 		if (!stream || !wss || !httpServer || !vite) {
@@ -337,7 +345,9 @@ export async function startSmartHomeBridgeServer(
 			port: assignedPort,
 			close: async () => {
 				closing = true;
+				const currentAgentLifecycle = agentLifecycle;
 				await cleanupAndThrow([
+					() => waitForAgentLifecycle(currentAgentLifecycle),
 					() => terminal?.close(),
 					() => bridgeStream.unsubscribe(),
 					() => closeWebSocketServer(bridgeWss),
@@ -349,7 +359,9 @@ export async function startSmartHomeBridgeServer(
 		};
 	} catch (error) {
 		closing = true;
+		const currentAgentLifecycle = agentLifecycle;
 		await cleanupBestEffort([
+			() => waitForAgentLifecycle(currentAgentLifecycle),
 			() => terminal?.close(),
 			() => stream?.unsubscribe(),
 			async () => {
@@ -786,66 +798,31 @@ async function resolveSharedHomeSession(runtimeFactory?: HomeRuntimeFactory) {
 	return await (runtimeFactory?.() ?? createLocalHomeSession());
 }
 
+async function waitForAgentLifecycle(
+	agentLifecycle: Promise<void> | undefined,
+): Promise<void> {
+	if (!agentLifecycle) {
+		return;
+	}
+	await waitForLifecyclePromise(
+		agentLifecycle,
+		"waiting for smart-home bridge agent before shutdown",
+	);
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
 	const runtimeFactory = resolveSmartHomeRuntimeFactory();
-	let server: SmartHomeBridgeServer | undefined;
-	let startupPromise: ReturnType<typeof startSmartHomeBridgeServer> | undefined;
-	let shuttingDown = false;
-	const shutdown = async (signal: string) => {
-		if (shuttingDown) {
-			return;
-		}
-		shuttingDown = true;
-		try {
-			if (startupPromise) {
-				try {
-					server = await waitForLifecyclePromise(
-						startupPromise,
-						`waiting for smart-home bridge startup before ${signal}`,
-					);
-				} catch (error) {
-					const message =
-						error instanceof Error ? error.message : String(error);
-					console.error(
-						`\nSmart-home bridge failed to start before ${signal}: ${message}`,
-					);
-					process.exit(1);
-				}
-			}
-			if (!server) {
-				console.error(
-					`\nSmart-home bridge was not available before ${signal}.`,
-				);
-				process.exit(1);
-			}
-			await waitForLifecyclePromise(
-				server.close(),
-				`closing smart-home bridge after ${signal}`,
+	await runSmartHomeBridgeCli({
+		displayName: "Smart-home bridge",
+		start: () =>
+			startSmartHomeBridgeServer({
+				terminal: true,
+				runtimeFactory,
+			}),
+		onStarted: (server) => {
+			console.log(
+				`Smart-home bridge listening on http://localhost:${server.port}`,
 			);
-			process.exit(0);
-		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error);
-			console.error(
-				`\nFailed to close smart-home bridge after ${signal}: ${message}`,
-			);
-			process.exit(1);
-		}
-	};
-	process.once("SIGINT", () => void shutdown("SIGINT"));
-	process.once("SIGTERM", () => void shutdown("SIGTERM"));
-
-	try {
-		startupPromise = startSmartHomeBridgeServer({
-			terminal: true,
-			runtimeFactory,
-		});
-		server = await startupPromise;
-		console.log(
-			`Smart-home bridge listening on http://localhost:${server.port}`,
-		);
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		console.error(`\n${message}`);
-		process.exit(1);
-	}
+		},
+	});
 }

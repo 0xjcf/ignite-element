@@ -1,5 +1,5 @@
 import { resolveSmartHomeRuntimeFactory } from "./cli";
-import { waitForLifecyclePromise } from "./lifecycle";
+import { runSmartHomeBridgeCli } from "./lifecycle";
 import { openAICompatibleModel } from "./model";
 import { startSmartHomeBridgeServer } from "./server";
 
@@ -13,68 +13,19 @@ const model =
 const apiKey = process.env.OPENAI_COMPAT_API_KEY;
 const runtimeFactory = resolveSmartHomeRuntimeFactory();
 
-let server: Awaited<ReturnType<typeof startSmartHomeBridgeServer>> | undefined;
-let startupPromise: ReturnType<typeof startSmartHomeBridgeServer> | undefined;
-let shuttingDown = false;
-
-const shutdown = async (signal: string) => {
-	if (shuttingDown) {
-		return;
-	}
-	shuttingDown = true;
-	try {
-		if (startupPromise) {
-			try {
-				server = await waitForLifecyclePromise(
-					startupPromise,
-					`waiting for smart-home MLX bridge startup before ${signal}`,
-				);
-			} catch (error) {
-				const message = error instanceof Error ? error.message : String(error);
-				console.error(
-					`\nSmart-home MLX bridge failed to start before ${signal}: ${message}`,
-				);
-				process.exit(1);
-			}
-		}
-		if (!server) {
-			console.error(
-				`\nSmart-home MLX bridge was not available before ${signal}.`,
-			);
-			process.exit(1);
-		}
-		await waitForLifecyclePromise(
-			server.close(),
-			`closing smart-home MLX bridge after ${signal}`,
+await runSmartHomeBridgeCli({
+	displayName: "Smart-home MLX bridge",
+	start: () =>
+		startSmartHomeBridgeServer({
+			terminal: true,
+			openAIModel: openAICompatibleModel({ baseUrl, model, apiKey }),
+			runtimeFactory,
+		}),
+	onStarted: (server) => {
+		console.log(
+			`Smart-home MLX bridge listening on http://localhost:${server.port}`,
 		);
-		process.exit(0);
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		console.error(
-			`\nFailed to close smart-home MLX bridge after ${signal}: ${message}`,
-		);
-		process.exit(1);
-	}
-};
-
-process.once("SIGINT", shutdown);
-process.once("SIGTERM", shutdown);
-
-try {
-	startupPromise = startSmartHomeBridgeServer({
-		terminal: true,
-		openAIModel: openAICompatibleModel({ baseUrl, model, apiKey }),
-		runtimeFactory,
-	});
-	server = await startupPromise;
-
-	console.log(
-		`Smart-home MLX bridge listening on http://localhost:${server.port}`,
-	);
-	console.log(`OpenAI-compatible endpoint: ${baseUrl}`);
-	console.log(`Model: ${model}`);
-} catch (error) {
-	const message = error instanceof Error ? error.message : String(error);
-	console.error(`\n${message}`);
-	process.exit(1);
-}
+		console.log(`OpenAI-compatible endpoint: ${baseUrl}`);
+		console.log(`Model: ${model}`);
+	},
+});

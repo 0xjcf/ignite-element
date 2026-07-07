@@ -21,3 +21,74 @@ export async function waitForLifecyclePromise<T>(
 		}
 	}
 }
+
+type SmartHomeBridgeLifecycleServer = {
+	port: number;
+	close(): Promise<void>;
+};
+
+export async function runSmartHomeBridgeCli<
+	TServer extends SmartHomeBridgeLifecycleServer,
+>(options: {
+	displayName: string;
+	start(): Promise<TServer>;
+	onStarted(server: TServer): void;
+}): Promise<void> {
+	let server: TServer | undefined;
+	let startupPromise: Promise<TServer> | undefined;
+	let shuttingDown = false;
+
+	const shutdown = async (signal: string) => {
+		if (shuttingDown) {
+			return;
+		}
+		shuttingDown = true;
+		try {
+			if (startupPromise) {
+				try {
+					server = await waitForLifecyclePromise(
+						startupPromise,
+						`waiting for ${options.displayName} startup before ${signal}`,
+					);
+				} catch (error) {
+					const message =
+						error instanceof Error ? error.message : String(error);
+					console.error(
+						`\n${options.displayName} failed to start before ${signal}: ${message}`,
+					);
+					process.exit(1);
+				}
+			}
+			if (!server) {
+				console.error(
+					`\n${options.displayName} was not available before ${signal}.`,
+				);
+				process.exit(1);
+			}
+			await waitForLifecyclePromise(
+				server.close(),
+				`closing ${options.displayName} after ${signal}`,
+			);
+			process.exit(0);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			console.error(
+				`\nFailed to close ${options.displayName} after ${signal}: ${message}`,
+			);
+			process.exit(1);
+		}
+	};
+
+	process.once("SIGINT", () => void shutdown("SIGINT"));
+	process.once("SIGTERM", () => void shutdown("SIGTERM"));
+
+	try {
+		startupPromise = options.start();
+		server = await startupPromise;
+		options.onStarted(server);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		console.error(`\n${message}`);
+		process.exit(1);
+	}
+}
