@@ -22,24 +22,33 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function customEventToRuntimeEvent(
-	event: CustomEvent<unknown>,
-): RuntimeEventMember {
-	if (isRecord(event.detail)) {
-		return { ...event.detail, type: event.type };
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+	if (!isRecord(value)) {
+		return false;
 	}
 
-	if (typeof event.detail === "undefined") {
+	const prototype = Object.getPrototypeOf(value);
+	return prototype === Object.prototype || prototype === null;
+}
+
+function domEventToRuntimeEvent(event: globalThis.Event): RuntimeEventMember {
+	const detail = "detail" in event ? event.detail : undefined;
+
+	if (isPlainRecord(detail)) {
+		return { ...detail, type: event.type };
+	}
+
+	if (typeof detail === "undefined") {
 		return { type: event.type };
 	}
 
-	return { type: event.type, detail: event.detail };
+	return { type: event.type, detail };
 }
 
 function sourceEventToRuntimeEvent(
 	event: unknown,
 ): RuntimeEventMember | undefined {
-	if (!isRecord(event) || !("type" in event)) {
+	if (!isPlainRecord(event) || !("type" in event)) {
 		return undefined;
 	}
 
@@ -49,8 +58,24 @@ function sourceEventToRuntimeEvent(
 	};
 }
 
+function cloneValue(value: unknown): unknown {
+	if (typeof globalThis.structuredClone === "function") {
+		try {
+			return globalThis.structuredClone(value);
+		} catch {
+			// Fall back to schema normalization for non-cloneable event payloads.
+		}
+	}
+
+	const normalized = toSchemaValue(value);
+	return typeof normalized === "undefined" ? value : normalized;
+}
+
 function cloneRuntimeEvent(event: RuntimeEventMember): RuntimeEventMember {
-	return { ...event };
+	const cloned = cloneValue(event);
+	return isPlainRecord(cloned) && typeof cloned.type === "string"
+		? { ...cloned, type: cloned.type }
+		: { type: event.type, detail: cloneValue(event) };
 }
 
 function eventFields(event: RuntimeEventMember): Record<string, unknown> {
@@ -320,26 +345,43 @@ export function createAgentRuntime<
 		handler: (event: RuntimeEventMember) => void,
 	) => {
 		retainRuntimeAccess?.();
-		const { host, adapter } = resolveRuntime();
-		const listener = (event: Event) => {
-			handler(customEventToRuntimeEvent(event as CustomEvent<unknown>));
-		};
+		let host: EventTarget | undefined;
+		let eventsSubscription: IgniteAgentSubscription | undefined;
+		let listener: EventListener | undefined;
 
-		host.addEventListener(eventName, listener as EventListener);
+		try {
+			const runtime = resolveRuntime();
+			host = runtime.host;
+			const { adapter } = runtime;
+			listener = (event: globalThis.Event) => {
+				handler(domEventToRuntimeEvent(event));
+			};
 
-		// Bridge source-emitted events (the adapter's optional `subscribeEvents()`
-		// seam) to this listener with the same flat member shape as effects.
-		const eventsSubscription = adapter.subscribeEvents?.((event: unknown) => {
-			const member = sourceEventToRuntimeEvent(event);
-			if (member?.type === eventName) {
-				handler(member);
+			host.addEventListener(eventName, listener);
+
+			// Bridge source-emitted events (the adapter's optional `subscribeEvents()`
+			// seam) to this listener with the same flat member shape as effects.
+			eventsSubscription = adapter.subscribeEvents?.((event: unknown) => {
+				const member = sourceEventToRuntimeEvent(event);
+				if (member?.type === eventName) {
+					handler(member);
+				}
+			});
+		} catch (error) {
+			if (host && listener) {
+				host.removeEventListener(eventName, listener);
 			}
-		});
+			eventsSubscription?.unsubscribe();
+			releaseRuntimeAccess?.();
+			throw error;
+		}
 
 		return {
 			unsubscribe: () => {
 				try {
-					host.removeEventListener(eventName, listener as EventListener);
+					if (host && listener) {
+						host.removeEventListener(eventName, listener);
+					}
 					eventsSubscription?.unsubscribe();
 				} finally {
 					releaseRuntimeAccess?.();
@@ -385,25 +427,31 @@ export function createAgentRuntime<
 			}
 
 			const events: RuntimeEventMember[] = [];
-			const listeners = eventTypes.map((eventType) => {
-				const listener = (event: Event) => {
-					events.push(customEventToRuntimeEvent(event as CustomEvent<unknown>));
-				};
-
-				host.addEventListener(eventType, listener as EventListener);
-				return { eventType, listener };
-			});
-
-			// Capture source-emitted events during the command window independent of
-			// declared eventTypes, so dynamic emit types are collected as flat members.
-			const sourceSubscription = adapter.subscribeEvents?.((event: unknown) => {
-				const member = sourceEventToRuntimeEvent(event);
-				if (member) {
-					events.push(member);
-				}
-			});
+			const listeners: Array<{
+				eventType: string;
+				listener: EventListener;
+			}> = [];
+			let sourceSubscription: IgniteAgentSubscription | undefined;
 
 			try {
+				for (const eventType of eventTypes) {
+					const listener: EventListener = (event: globalThis.Event) => {
+						events.push(domEventToRuntimeEvent(event));
+					};
+
+					host.addEventListener(eventType, listener);
+					listeners.push({ eventType, listener });
+				}
+
+				// Capture source-emitted events during the command window independent of
+				// declared eventTypes, so dynamic emit types are collected as flat members.
+				sourceSubscription = adapter.subscribeEvents?.((event: unknown) => {
+					const member = sourceEventToRuntimeEvent(event);
+					if (member) {
+						events.push(member);
+					}
+				});
+
 				await (command as (arg?: unknown) => unknown)(payload);
 
 				// Flush microtask to allow post-render effects to emit events

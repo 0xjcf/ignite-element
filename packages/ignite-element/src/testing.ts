@@ -46,7 +46,9 @@ export type IgniteEventExpectation<
 	Events extends EventMap = EmptyEventMap,
 	Type extends keyof Events & string = keyof Events & string,
 > =
-	| ({ type: Type } & DeepPartial<Omit<EventMember<Events, Type>, "type">>)
+	| (Type extends keyof Events & string
+			? { type: Type } & DeepPartial<Omit<EventMember<Events, Type>, "type">>
+			: never)
 	| ((event: EventMember<Events, Type>) => boolean);
 
 export type IgniteStoryTraceExpectationEntry =
@@ -525,10 +527,12 @@ const assertEvent = <
 	events: RuntimeEvent<Events>[],
 	expected: IgniteEventExpectation<Events, Type>,
 ) => {
-	const matchedEvent = events.find((event) => valuesMatch(event, expected));
+	const matchedIndex = events.findIndex((event) =>
+		valuesMatch(event, expected),
+	);
 
-	if (matchedEvent) {
-		return;
+	if (matchedIndex >= 0) {
+		return matchedIndex;
 	}
 
 	const typeMatched =
@@ -750,8 +754,11 @@ class IgniteTestDriver<
 	}
 
 	expectEvents(expected: IgniteEventExpectation<Events>[]) {
+		const remainingEvents = [...this.getResult().events];
+
 		for (const event of expected) {
-			assertEvent(this.getResult().events, event);
+			const matchedIndex = assertEvent(remainingEvents, event);
+			remainingEvents.splice(matchedIndex, 1);
 		}
 
 		return this;
