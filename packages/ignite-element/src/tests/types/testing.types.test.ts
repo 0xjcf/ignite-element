@@ -57,8 +57,10 @@ describe("ignite test DSL types", () => {
 		} satisfies XStateConfig<typeof machine, ToggleEventMap>;
 		const component = igniteCore(componentConfig);
 
-		const scenario = (await igniteTest(component).given("off").when("toggle"))
-			.expectState("on")
+		const scenario = (
+			await igniteTest(component).given({ value: "off" }).when("toggle")
+		)
+			.expectSnapshot({ value: "on" })
 			.expectEvent({ type: "toggled", isOn: true });
 
 		expectTypeOf(scenario.getResult().events).toEqualTypeOf<
@@ -107,7 +109,7 @@ describe("ignite test DSL types", () => {
 			igniteTest(component).canExecute("missing");
 		};
 
-		expectTypeOf(igniteTest(component).expectState).toBeFunction();
+		expectTypeOf(igniteTest(component).expectSnapshot).toBeFunction();
 		void expectCommandNameValidation;
 	});
 

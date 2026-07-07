@@ -265,7 +265,7 @@ describe("igniteCore type inference", () => {
 		expectTypeOf<ActorWebIgniteStoryTraceSnapshot>().toEqualTypeOf<IgniteStoryTraceSnapshot>();
 		expectTypeOf<ActorWebIgniteStoryTraceSnapshotEntry>().toEqualTypeOf<IgniteStoryTraceSnapshotEntry>();
 		expectTypeOf<
-			IgniteStorySnapshot["summary"]["finalState"]
+			IgniteStorySnapshot["summary"]["finalSnapshot"]
 		>().toEqualTypeOf<IgniteSchemaValue>();
 		expectTypeOf<
 			IgniteStorySnapshot["summary"]["finalView"]
@@ -948,7 +948,7 @@ describe("igniteCore type inference", () => {
 		const schema = register.getSchema();
 		expectTypeOf(result).toEqualTypeOf<
 			Promise<{
-				state: StoreState;
+				snapshot: StoreState;
 				events: Array<{
 					type: "counter-incremented";
 					count: number;
@@ -958,7 +958,7 @@ describe("igniteCore type inference", () => {
 		expectTypeOf(register.getView()).toEqualTypeOf<{ count: number }>();
 		expectTypeOf(schema.commands).toEqualTypeOf<IgniteAgentCommandSchema>();
 		expectTypeOf(schema.events).toEqualTypeOf<IgniteAgentEventSchema[]>();
-		expectTypeOf(schema.state).toEqualTypeOf<IgniteSchemaValue>();
+		expectTypeOf(schema.snapshot).toEqualTypeOf<IgniteSchemaValue>();
 		// getSchema().view carries the typed view projection (mirrors getView()),
 		// not the loose IgniteSchemaValue that `state` falls back to.
 		expectTypeOf(schema.view).toEqualTypeOf<{ count: number }>();
@@ -991,7 +991,7 @@ describe("igniteCore type inference", () => {
 		const storySummary = story.summary();
 		expectTypeOf(storyResult).toEqualTypeOf<
 			Promise<{
-				state: StoreState;
+				snapshot: StoreState;
 				events: Array<{
 					type: "counter-incremented";
 					count: number;
@@ -1001,7 +1001,7 @@ describe("igniteCore type inference", () => {
 		expectTypeOf(storyView).toEqualTypeOf<Promise<{ count: number }>>();
 		expectTypeOf(storyTrace).toEqualTypeOf<IgniteStoryTraceEntry[]>();
 		expectTypeOf(storyLifecycle).toEqualTypeOf<IgniteStoryLifecycleEntry[]>();
-		expectTypeOf(storySummary.finalState).toEqualTypeOf<StoreState>();
+		expectTypeOf(storySummary.finalSnapshot).toEqualTypeOf<StoreState>();
 		expectTypeOf(storySummary.finalView).toEqualTypeOf<{ count: number }>();
 		expectTypeOf(storySummary.events).toEqualTypeOf<
 			Array<{ type: "counter-incremented"; count: number }>
@@ -1134,7 +1134,7 @@ describe("igniteCore type inference", () => {
 
 		expectTypeOf(register.execute("increment")).toEqualTypeOf<
 			Promise<{
-				state: XStateSnapshot<typeof machine>;
+				snapshot: XStateSnapshot<typeof machine>;
 				events: Array<
 					| {
 							type: "counter-incremented";
@@ -1151,7 +1151,7 @@ describe("igniteCore type inference", () => {
 		const story = register.record("typed xstate authoring");
 		expectTypeOf(story.execute("increment")).toEqualTypeOf<
 			Promise<{
-				state: XStateSnapshot<typeof machine>;
+				snapshot: XStateSnapshot<typeof machine>;
 				events: Array<
 					| {
 							type: "counter-incremented";

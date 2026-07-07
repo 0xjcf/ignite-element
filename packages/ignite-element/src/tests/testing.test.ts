@@ -65,8 +65,8 @@ describe("ignite test DSL", () => {
 		} satisfies XStateConfig<typeof machine, ToggleEventMap>;
 		const component = igniteCore(componentConfig);
 
-		(await igniteTest(component).given("off").when("toggle"))
-			.expectState("on")
+		(await igniteTest(component).given({ value: "off" }).when("toggle"))
+			.expectSnapshot({ value: "on" })
 			.expectEvent({ type: "toggled", isOn: true });
 	});
 
@@ -91,7 +91,9 @@ describe("ignite test DSL", () => {
 			}),
 		});
 
-		const scenario = await igniteTest(component).given("off").when("toggle");
+		const scenario = await igniteTest(component)
+			.given({ value: "off" })
+			.when("toggle");
 
 		scenario
 			// partial-object match against the projected view
@@ -173,7 +175,7 @@ describe("ignite test DSL", () => {
 		const scenario = await igniteTest(component, { host }).when("startModule");
 
 		scenario
-			.expectState({ context: { startedModule: "dispatch" } })
+			.expectSnapshot({ context: { startedModule: "dispatch" } })
 			.expectView({ moduleId: "dispatch" })
 			.expectEvent({ type: "module-started", moduleId: "dispatch" });
 		expect(host.dataset.lastStarted).toBe("dispatch");
@@ -200,7 +202,7 @@ describe("ignite test DSL", () => {
 		} = {
 			canExecute: () => false,
 			async execute() {
-				return { state: this.getSnapshot(), events: [] };
+				return { snapshot: this.getSnapshot(), events: [] };
 			},
 			getSnapshot: () => ({ hostId: activeHost.dataset.hostId ?? "missing" }),
 			getView: () => ({ hostId: activeHost.dataset.hostId ?? "missing" }),
@@ -210,7 +212,7 @@ describe("ignite test DSL", () => {
 			getSchema: () => ({
 				commands: {},
 				events: [],
-				state: { hostId: activeHost.dataset.hostId ?? "missing" },
+				snapshot: { hostId: activeHost.dataset.hostId ?? "missing" },
 				view: { hostId: activeHost.dataset.hostId ?? "missing" },
 			}),
 			record: () => {
@@ -232,7 +234,7 @@ describe("ignite test DSL", () => {
 
 		igniteTest(runtime, { host })
 			.given({ hostId: "supplied" })
-			.expectState({ hostId: "supplied" })
+			.expectSnapshot({ hostId: "supplied" })
 			.expectView({ hostId: "supplied" });
 	});
 
@@ -337,7 +339,7 @@ describe("ignite test DSL", () => {
 				.given({ counter: { count: 0 } })
 				.when("increment", 2)
 		)
-			.expectState({ counter: { count: 2 } })
+			.expectSnapshot({ counter: { count: 2 } })
 			.expectEvents([
 				{
 					type: "counter-incremented",
@@ -346,13 +348,47 @@ describe("ignite test DSL", () => {
 			])
 			.getResult();
 
-		expect(result.state.counter.count).toBe(2);
+		expect(result.snapshot.counter.count).toBe(2);
 		expect(result.events).toEqual([
 			{
 				type: "counter-incremented",
 				count: 2,
 			},
 		]);
+	});
+
+	it("uses snapshot vocabulary for scenario results, schemas, and stories", async () => {
+		const store = counterStore();
+		const component = igniteCore({
+			adapter: "redux",
+			source: store,
+			commands: ({ actor }) => ({
+				increment: (amount: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+			}),
+		});
+
+		const scenario = await igniteTest(component).when("increment", 1);
+		const result = scenario
+			.expectSnapshot({ counter: { count: 1 } })
+			.getResult();
+
+		expect(result.snapshot.counter.count).toBe(1);
+		expect(component.getSchema().snapshot).toEqual({
+			counter: { count: 1 },
+		});
+
+		const story = component.record("snapshot vocabulary");
+		await story.execute("increment", 2);
+
+		expect(story.summary().finalSnapshot.counter.count).toBe(3);
+		expect(story.trace()).toContainEqual(
+			expect.objectContaining({
+				kind: "snapshot",
+				phase: "after",
+				snapshot: { counter: { count: 3 } },
+			}),
+		);
 	});
 
 	it("reads command availability with canExecute", async () => {
@@ -448,7 +484,7 @@ describe("ignite test DSL", () => {
 			        "type": "counter-incremented",
 			      },
 			    ],
-			    "finalState": {
+			    "finalSnapshot": {
 			      "counter": {
 			        "count": 3,
 			      },
@@ -470,10 +506,10 @@ describe("ignite test DSL", () => {
 			      "step": 1,
 			    },
 			    {
-			      "kind": "state",
+			      "kind": "snapshot",
 			      "phase": "before",
 			      "sequence": 2,
-			      "state": {
+			      "snapshot": {
 			        "counter": {
 			          "count": 0,
 			        },
@@ -500,10 +536,10 @@ describe("ignite test DSL", () => {
 			      "step": 1,
 			    },
 			    {
-			      "kind": "state",
+			      "kind": "snapshot",
 			      "phase": "after",
 			      "sequence": 5,
-			      "state": {
+			      "snapshot": {
 			        "counter": {
 			          "count": 2,
 			        },
@@ -528,10 +564,10 @@ describe("ignite test DSL", () => {
 			      "step": 2,
 			    },
 			    {
-			      "kind": "state",
+			      "kind": "snapshot",
 			      "phase": "before",
 			      "sequence": 8,
-			      "state": {
+			      "snapshot": {
 			        "counter": {
 			          "count": 2,
 			        },
@@ -558,10 +594,10 @@ describe("ignite test DSL", () => {
 			      "step": 2,
 			    },
 			    {
-			      "kind": "state",
+			      "kind": "snapshot",
 			      "phase": "after",
 			      "sequence": 11,
-			      "state": {
+			      "snapshot": {
 			        "counter": {
 			          "count": 3,
 			        },
@@ -615,23 +651,23 @@ describe("ignite test DSL", () => {
 		const serializedTrace = igniteTest.serializeTrace(originalTrace);
 
 		igniteTest.expectTrace(serializedTrace, serializedTrace, { exact: true });
-		const mutatedStateEntry = serializedTrace[1];
-		if (mutatedStateEntry.kind !== "state") {
-			throw new Error("expected the second trace entry to be state");
+		const mutatedSnapshotEntry = serializedTrace[1];
+		if (mutatedSnapshotEntry.kind !== "snapshot") {
+			throw new Error("expected the second trace entry to be snapshot");
 		}
-		mutatedStateEntry.state = { counter: { count: 999 } };
+		mutatedSnapshotEntry.snapshot = { counter: { count: 999 } };
 
 		expect(story.trace()[1]).toMatchObject({
-			kind: "state",
-			state: {
+			kind: "snapshot",
+			snapshot: {
 				counter: {
 					count: 0,
 				},
 			},
 		});
 		expect(originalTrace[1]).toMatchObject({
-			kind: "state",
-			state: {
+			kind: "snapshot",
+			snapshot: {
 				counter: {
 					count: 0,
 				},
@@ -699,9 +735,9 @@ describe("ignite test DSL", () => {
 		).toHaveLength(2);
 		expect(story.trace().map((entry) => entry.kind)).toEqual([
 			"command",
-			"state",
+			"snapshot",
 			"view",
-			"state",
+			"snapshot",
 			"view",
 		]);
 		expect(story.lifecycle().map((entry) => entry.elementName)).toContain(
@@ -724,8 +760,8 @@ describe("ignite test DSL", () => {
 			noop: () => void;
 		};
 
-		const finalState: CircularPayload = { count: BigInt(2) };
-		finalState.self = finalState;
+		const finalSnapshot: CircularPayload = { count: BigInt(2) };
+		finalSnapshot.self = finalSnapshot;
 		const finalView: CircularPayload = { count: BigInt(3) };
 		finalView.self = finalView;
 		const payload: CircularPayload = { count: BigInt(4) };
@@ -734,7 +770,7 @@ describe("ignite test DSL", () => {
 		const story = {
 			name: "schema-safe summary",
 			execute: async () => ({
-				state: finalState,
+				snapshot: finalSnapshot,
 				events: [],
 			}),
 			until: async () => finalView,
@@ -742,7 +778,7 @@ describe("ignite test DSL", () => {
 			lifecycle: () => [],
 			summary: () => ({
 				name: "schema-safe summary",
-				finalState,
+				finalSnapshot,
 				finalView,
 				events: [
 					{
@@ -766,7 +802,7 @@ describe("ignite test DSL", () => {
 		expect(() => igniteTest.snapshotStory(story)).not.toThrow();
 		expect(igniteTest.snapshotStory(story).summary).toEqual({
 			name: "schema-safe summary",
-			finalState: {
+			finalSnapshot: {
 				count: "2",
 				self: "[Circular]",
 			},
@@ -891,10 +927,10 @@ describe("ignite test DSL", () => {
 			  },
 			  {
 			    "sequence": 2,
-			    "kind": "state",
+			    "kind": "snapshot",
 			    "step": 1,
 			    "phase": "before",
-			    "state": {
+			    "snapshot": {
 			      "counter": {
 			        "count": 0
 			      }
@@ -909,10 +945,10 @@ describe("ignite test DSL", () => {
 			  },
 			  {
 			    "sequence": 4,
-			    "kind": "state",
+			    "kind": "snapshot",
 			    "step": 1,
 			    "phase": "after",
-			    "state": {
+			    "snapshot": {
 			      "counter": {
 			        "count": 1
 			      }
@@ -952,7 +988,7 @@ describe("ignite test DSL", () => {
 				{
 					async execute() {
 						return {
-							state: {},
+							snapshot: {},
 							events: [],
 						};
 					},

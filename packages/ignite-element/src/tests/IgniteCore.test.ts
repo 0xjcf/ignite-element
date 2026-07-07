@@ -217,10 +217,8 @@ describe("igniteCore", () => {
 			source: store,
 			view: (context: ViewContext<StoreState>) => ({
 				count: context.snapshot.counter.count,
-				hasCounterAlias: Object.getOwnPropertyDescriptor(
-					context,
-					"counter",
-				) !== undefined,
+				hasCounterAlias:
+					Object.getOwnPropertyDescriptor(context, "counter") !== undefined,
 			}),
 		});
 
@@ -930,7 +928,7 @@ describe("igniteCore", () => {
 
 		const result = await register.execute("increment");
 
-		expect(result.state.counter.count).toBe(1);
+		expect(result.snapshot.counter.count).toBe(1);
 		expect(consoleError).toHaveBeenCalledWith(
 			"[igniteCore] Effect callback failed.",
 			effectError,
@@ -999,7 +997,7 @@ describe("igniteCore", () => {
 
 		expect(register.getSnapshot().counter.count).toBe(3);
 		expect(register.getView()).toEqual({ count: 3, isEven: false });
-		expect(result.state.counter.count).toBe(3);
+		expect(result.snapshot.counter.count).toBe(3);
 		expect(result.events).toEqual([
 			{
 				type: "counter-incremented",
@@ -1124,28 +1122,28 @@ describe("igniteCore", () => {
 		expect(finalView).toEqual({ count: 5, isEven: false });
 		expect(story.trace().map((entry) => entry.kind)).toEqual([
 			"command",
-			"state",
+			"snapshot",
 			"view",
 			"event",
-			"state",
+			"snapshot",
 			"view",
 			"command",
-			"state",
+			"snapshot",
 			"view",
 			"event",
-			"state",
+			"snapshot",
 			"view",
 			"command",
-			"state",
+			"snapshot",
 			"view",
 			"event",
-			"state",
+			"snapshot",
 			"view",
 			"command",
-			"state",
+			"snapshot",
 			"view",
 			"event",
-			"state",
+			"snapshot",
 			"view",
 		]);
 		expect(
@@ -1156,7 +1154,7 @@ describe("igniteCore", () => {
 		).toEqual(["increment", "increment", "increment", "increment"]);
 
 		const summary = story.summary();
-		expect(summary.finalState.counter.count).toBe(5);
+		expect(summary.finalSnapshot.counter.count).toBe(5);
 		expect(summary.finalView).toEqual({ count: 5, isEven: false });
 		expect(summary.events).toEqual([
 			{ type: "counter-incremented", count: 2 },
@@ -1173,9 +1171,9 @@ describe("igniteCore", () => {
 		await expect(() => story.execute("increment", 1)).rejects.toThrow(
 			'[igniteCore] Story "counter reaches five" has been stopped.',
 		);
-		expect((await register.execute("increment", 1)).state.counter.count).toBe(
-			6,
-		);
+		expect(
+			(await register.execute("increment", 1)).snapshot.counter.count,
+		).toBe(6);
 	});
 
 	it("records DOM lifecycle evidence for active stories and detaches on stop", async () => {
@@ -1232,7 +1230,9 @@ describe("igniteCore", () => {
 		secondElement.remove();
 
 		expect(story.lifecycle()).toHaveLength(lifecycleCount);
-		expect((await register.execute("increment")).state.counter.count).toBe(2);
+		expect((await register.execute("increment")).snapshot.counter.count).toBe(
+			2,
+		);
 	});
 
 	it("projects runtime stories into an accessibility bridge without mixing trace entries", async () => {
@@ -1295,9 +1295,9 @@ describe("igniteCore", () => {
 		expect(buttonElement.textContent?.trim()).toBe("Increment");
 		expect(story.trace().map((entry) => entry.kind)).toEqual([
 			"command",
-			"state",
+			"snapshot",
 			"view",
-			"state",
+			"snapshot",
 			"view",
 		]);
 		expect(story.lifecycle().map((entry) => entry.stage)).toEqual(
@@ -1340,7 +1340,7 @@ describe("igniteCore", () => {
 				increment: {},
 			},
 			events: [{ type: "counter-incremented" }],
-			state: {
+			snapshot: {
 				counter: {
 					count: 0,
 				},
@@ -1380,7 +1380,7 @@ describe("igniteCore", () => {
 		expect(component.getSchema()).toEqual({
 			commands: { increment: {} },
 			events: [{ type: "counter-incremented" }],
-			state: { counter: { count: 0 } },
+			snapshot: { counter: { count: 0 } },
 			view: { count: 0 },
 		});
 	});
@@ -1445,7 +1445,7 @@ describe("igniteCore", () => {
 
 		const result = await register.execute("addByAmount", 3);
 
-		expect(result.state.counter.count).toBe(3);
+		expect(result.snapshot.counter.count).toBe(3);
 		expect(register.getView()).toEqual({ count: 3 });
 		expect(register.getSchema()).toEqual({
 			commands: {
@@ -1460,7 +1460,7 @@ describe("igniteCore", () => {
 				increment: {},
 			},
 			events: [],
-			state: {
+			snapshot: {
 				counter: {
 					count: 3,
 				},
@@ -1538,7 +1538,7 @@ describe("igniteCore", () => {
 			limits: { minimum: 0, maximum: 12 },
 		});
 
-		expect(result.state.counter.count).toBe(6);
+		expect(result.snapshot.counter.count).toBe(6);
 		expect(register.getView()).toEqual({ count: 6 });
 		expect(register.getSchema()).toEqual({
 			commands: {
@@ -1589,7 +1589,7 @@ describe("igniteCore", () => {
 				},
 			},
 			events: [],
-			state: {
+			snapshot: {
 				counter: {
 					count: 6,
 				},

@@ -94,7 +94,7 @@ describe("agent runtime is DOM-free (pure Node, no jsdom)", () => {
 	it("execute() runs a command and returns the post-ack snapshot + events", async () => {
 		const counter = createCounter();
 		const result = await counter.execute("increment");
-		expect(result.state.context.count).toBe(1);
+		expect(result.snapshot.context.count).toBe(1);
 		expect(result.events).toEqual([{ type: "counted", count: 1 }]);
 	});
 

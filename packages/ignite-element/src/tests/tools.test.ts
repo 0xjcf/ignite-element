@@ -49,7 +49,7 @@ const fakeSchema: IgniteAgentSchema<FakeState, FakeView> = {
 		adminOnly: { description: "Admin only.", gated: true },
 	},
 	events: [{ type: "item-added" }],
-	state: { count: 0 },
+	snapshot: { count: 0 },
 	view: { count: 0, label: "zero" },
 };
 
@@ -88,7 +88,7 @@ function createFakeComponent(
 			}
 			view = { count: calls.length, label: "active" };
 			return {
-				state: { count: 1, last: name, payload },
+				snapshot: { count: 1, last: name, payload },
 				events: [{ type: "item-added", id: 1 }],
 			};
 		}) as FakeComponent["execute"],
@@ -140,7 +140,7 @@ class ThisBoundFakeComponent implements FakeComponent {
 	) {
 		this.calls.push({ name, payload });
 		return {
-			state: { count: this.calls.length, last: name, payload },
+			snapshot: { count: this.calls.length, last: name, payload },
 			events: [{ type: "item-added", id: this.calls.length }],
 		};
 	} as FakeComponent["execute"];
