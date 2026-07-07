@@ -60,7 +60,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -75,7 +75,7 @@
       "prDependencies": [],
       "createdAt": "2026-06-17T19:31:51.926Z",
       "updatedAt": "2026-07-07T14:56:41.000Z",
-      "deferredReason": "dependency_reopened: task-1781818974159",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -151,31 +151,6 @@
       "createdAt": "2026-06-18T17:54:22.589Z",
       "updatedAt": "2026-06-18T17:54:22.589Z",
       "deferredReason": "dependency_reopened: task-1781724711926",
-      "invalidationReason": null
-    },
-    {
-      "id": "task-1781818974159",
-      "task": "BREAKING (v3 cutover): rename expectState -> expectSnapshot (deprecated alias) + expectEvent member form per docs/v3-api",
-      "priority": "high",
-      "source": "manual",
-      "details": "Add expectSnapshot as the canonical assertion (mirrors getSnapshot/getView) and deprecate expectState as a delegating alias with a once-per-process dev console.warn (same pattern as getState->getSnapshot). expectEvent adopts the flat member object (coordinated with the event-shape task). Update tests, type tests, and docs. BREAKING surface change; MUST land in the SAME beta as event-shape + view-context, one goodway migration note. Decision locked 2026-06-18: rename yes (revisits the prior keep-state-in-assertions non-goal). Design: docs/v3-api-consistency.md + docs/event-shape.md.\nSee .fas/tasks/breaking-v3-cutover-rename-expectstate-expectsnapshot-deprec.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "developer-experience",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1781818972687"
-      ],
-      "blocks": [
-        "task-1781724711926"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-06-18T21:42:54.159Z",
-      "updatedAt": "2026-07-07T16:00:23.351Z",
-      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -2878,6 +2853,29 @@
       "completedAt": "2026-07-07T15:59:48.851Z",
       "terminalOutcome": null,
       "workflowId": "direct-1783438667823",
+      "branchName": null,
+      "prStatus": null
+    },
+    {
+      "id": "task-1781818974159",
+      "task": "BREAKING (v3 cutover): rename expectState -> expectSnapshot (deprecated alias) + expectEvent member form per docs/v3-api",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "developer-experience",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1781818972687"
+      ],
+      "blocks": [
+        "task-1781724711926"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-07T16:14:03.964Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783440023347",
       "branchName": null,
       "prStatus": null
     }
