@@ -256,14 +256,6 @@ describe("openai.toolCalls (OpenAI-compatible response -> neutral calls)", () =>
 			message: /tool_calls\[0\]\.type/,
 		},
 		{
-			label: "a missing id",
-			call: {
-				type: "function",
-				function: { name: "setLimit", arguments: "{}" },
-			},
-			message: /tool_calls\[0\]\.id/,
-		},
-		{
 			label: "a missing function object",
 			call: { id: "call_missing_function", type: "function" },
 			message: /tool_calls\[0\]\.function to be an object/,
@@ -301,6 +293,29 @@ describe("openai.toolCalls (OpenAI-compatible response -> neutral calls)", () =>
 			],
 		};
 		expect(() => openai.toolCalls(malformed, manifest)).toThrow(message);
+	});
+
+	it("synthesizes stable call ids when a provider omits them", () => {
+		const missingId: OpenAIChatCompletionResponse = {
+			choices: [
+				{
+					message: {
+						tool_calls: [
+							{
+								type: "function",
+								function: {
+									name: "setLimit",
+									arguments: JSON.stringify({ value: 8 }),
+								},
+							},
+						],
+					},
+				},
+			],
+		};
+		expect(openai.toolCalls(missingId, manifest)).toEqual([
+			{ id: "call_0", name: "setLimit", input: 8 },
+		]);
 	});
 });
 

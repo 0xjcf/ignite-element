@@ -28,7 +28,7 @@ export type OpenAIChatTool = {
 
 /** One OpenAI-compatible assistant `tool_calls` entry. */
 export type OpenAIChatToolCall = {
-	id: string;
+	id?: string;
 	type: "function";
 	function: {
 		name: string;
@@ -74,11 +74,6 @@ function assertOpenAIChatToolCall(
 	if (value.type !== "function") {
 		throw new Error(
 			`openai.toolCalls expected tool_calls[${index}].type to be "function".`,
-		);
-	}
-	if (typeof value.id !== "string" || value.id.length === 0) {
-		throw new Error(
-			`openai.toolCalls expected tool_calls[${index}].id to be a non-empty string.`,
 		);
 	}
 	const fn = value.function;
@@ -165,8 +160,12 @@ export const openai: ToolDialect<
 		}
 		return calls.map((call, index) => {
 			assertOpenAIChatToolCall(call, index);
+			const id =
+				typeof call.id === "string" && call.id.length > 0
+					? call.id
+					: `call_${index}`;
 			return {
-				id: call.id,
+				id,
 				name: call.function.name,
 				input: fromProviderInput(
 					parseArguments(call.function.arguments),
