@@ -244,22 +244,54 @@ describe("openai.toolCalls (OpenAI-compatible response -> neutral calls)", () =>
 		]);
 	});
 
-	it("skips malformed tool call entries instead of throwing", () => {
+	it.each([
+		{
+			label: "a non-object entry",
+			call: null,
+			message: /tool_calls\[0\] to be an object/,
+		},
+		{
+			label: "a non-function tool-call type",
+			call: { id: "call_other", type: "custom", function: {} },
+			message: /tool_calls\[0\]\.type/,
+		},
+		{
+			label: "a missing id",
+			call: {
+				type: "function",
+				function: { name: "setLimit", arguments: "{}" },
+			},
+			message: /tool_calls\[0\]\.id/,
+		},
+		{
+			label: "a missing function object",
+			call: { id: "call_missing_function", type: "function" },
+			message: /tool_calls\[0\]\.function to be an object/,
+		},
+		{
+			label: "a missing function name",
+			call: {
+				id: "call_missing_name",
+				type: "function",
+				function: { arguments: "{}" },
+			},
+			message: /tool_calls\[0\]\.function\.name/,
+		},
+		{
+			label: "missing function arguments",
+			call: {
+				id: "call_missing_args",
+				type: "function",
+				function: { name: "setLimit" },
+			},
+			message: /tool_calls\[0\]\.function\.arguments/,
+		},
+	])("throws when a provider returns $label", ({ call, message }) => {
 		const malformed: OpenAIChatCompletionResponse = {
 			choices: [
 				{
 					message: {
-						tool_calls: [
-							{ id: "missing_function", type: "function" },
-							{
-								id: "call_valid",
-								type: "function",
-								function: {
-									name: "setLimit",
-									arguments: JSON.stringify({ value: 8 }),
-								},
-							},
-						] as unknown as NonNullable<
+						tool_calls: [call] as unknown as NonNullable<
 							NonNullable<
 								OpenAIChatCompletionResponse["choices"][number]["message"]
 							>["tool_calls"]
@@ -268,9 +300,7 @@ describe("openai.toolCalls (OpenAI-compatible response -> neutral calls)", () =>
 				},
 			],
 		};
-		expect(openai.toolCalls(malformed, manifest)).toEqual([
-			{ id: "call_valid", name: "setLimit", input: 8 },
-		]);
+		expect(() => openai.toolCalls(malformed, manifest)).toThrow(message);
 	});
 });
 

@@ -62,17 +62,41 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
 }
 
-function isOpenAIChatToolCall(value: unknown): value is OpenAIChatToolCall {
-	if (!isRecord(value) || value.type !== "function") {
-		return false;
+function assertOpenAIChatToolCall(
+	value: unknown,
+	index: number,
+): asserts value is OpenAIChatToolCall {
+	if (!isRecord(value)) {
+		throw new Error(
+			`openai.toolCalls expected tool_calls[${index}] to be an object.`,
+		);
+	}
+	if (value.type !== "function") {
+		throw new Error(
+			`openai.toolCalls expected tool_calls[${index}].type to be "function".`,
+		);
+	}
+	if (typeof value.id !== "string" || value.id.length === 0) {
+		throw new Error(
+			`openai.toolCalls expected tool_calls[${index}].id to be a non-empty string.`,
+		);
 	}
 	const fn = value.function;
-	return (
-		typeof value.id === "string" &&
-		isRecord(fn) &&
-		typeof fn.name === "string" &&
-		"arguments" in fn
-	);
+	if (!isRecord(fn)) {
+		throw new Error(
+			`openai.toolCalls expected tool_calls[${index}].function to be an object.`,
+		);
+	}
+	if (typeof fn.name !== "string" || fn.name.length === 0) {
+		throw new Error(
+			`openai.toolCalls expected tool_calls[${index}].function.name to be a non-empty string.`,
+		);
+	}
+	if (!("arguments" in fn)) {
+		throw new Error(
+			`openai.toolCalls expected tool_calls[${index}].function.arguments to be present.`,
+		);
+	}
 }
 
 function parseArguments(args: unknown): unknown {
@@ -124,21 +148,17 @@ export const openai: ToolDialect<
 		if (!Array.isArray(calls)) {
 			return [];
 		}
-		return calls.flatMap((call) => {
-			if (!isOpenAIChatToolCall(call)) {
-				return [];
-			}
-			return [
-				{
-					id: call.id,
-					name: call.function.name,
-					input: fromProviderInput(
-						parseArguments(call.function.arguments),
-						manifest.find((tool) => tool.name === call.function.name)
-							?.inputSchema,
-					),
-				},
-			];
+		return calls.map((call, index) => {
+			assertOpenAIChatToolCall(call, index);
+			return {
+				id: call.id,
+				name: call.function.name,
+				input: fromProviderInput(
+					parseArguments(call.function.arguments),
+					manifest.find((tool) => tool.name === call.function.name)
+						?.inputSchema,
+				),
+			};
 		});
 	},
 

@@ -11,8 +11,8 @@ import {
 } from "ignite-element/actor-web";
 import {
 	createLocalHomeSession,
+	createHomeCommands,
 	DOORS,
-	type Door,
 	type HomeCommand,
 	type HomeContext,
 	type HomeRuntimeSession,
@@ -22,7 +22,6 @@ import {
 	ROOMS,
 	type Room,
 	SCENE_TRANSITION_DELAY_MS,
-	SCENES,
 	type Scene,
 } from "./home";
 
@@ -90,107 +89,7 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 		const home = igniteCore({
 			source: commandSource,
 			view: ({ context }) => projectHomeView(context),
-			commands: ({ command }) => ({
-				toggleLight: command(
-					({ room, on }: { room: Room; on: boolean }) =>
-						sendAndFlush({ type: "TOGGLE_LIGHT", room, on }),
-					{
-						description: "Turn a room's light on or off.",
-						input: command.object({
-							room: command.enum(ROOMS),
-							on: command.boolean(),
-						}),
-					},
-				),
-				setThermostat: command(
-					({ room, temp }: { room: Room; temp: number }) =>
-						sendAndFlush({ type: "SET_THERMOSTAT", room, temp }),
-					{
-						description: "Set a room's target temperature in °F.",
-						input: command.object({
-							room: command.enum(ROOMS),
-							temp: command.number({ minimum: 50, maximum: 90 }),
-						}),
-					},
-				),
-				setBlinds: command(
-					({ room, percent }: { room: Room; percent: number }) =>
-						sendAndFlush({ type: "SET_BLINDS", room, percent }),
-					{
-						description: "Set how far a room's blinds are open (0–100%).",
-						input: command.object({
-							room: command.enum(ROOMS),
-							percent: command.number({ minimum: 0, maximum: 100 }),
-						}),
-					},
-				),
-				lockDoor: command(
-					(door: Door) =>
-						sendAndFlush({ type: "SET_LOCK", door, locked: true }),
-					{
-						description: "Lock a door.",
-						input: command.enum(DOORS, {
-							description: "Door id to lock: front, back, or garage.",
-						}),
-					},
-				),
-				unlockDoor: command(
-					(door: Door) =>
-						sendAndFlush({ type: "SET_LOCK", door, locked: false }),
-					{
-						description: "Unlock a door.",
-						input: command.enum(DOORS, {
-							description: "Door id to unlock: front, back, or garage.",
-						}),
-					},
-				),
-				runScene: command(
-					(scene: Scene) => sendAndFlush({ type: "RUN_SCENE", scene }),
-					{
-						description:
-							"Activate a scene: morning, away, movie, or night. Sets several devices at once.",
-						input: command.enum(SCENES, {
-							description:
-								"Scene name to activate: morning, away, movie, or night.",
-						}),
-					},
-				),
-				dimRooms: command(
-					(rooms: Room[]) => sendAndFlush({ type: "DIM_ROOMS", rooms }),
-					{
-						description:
-							"Dim selected rooms by turning lights off and closing blinds.",
-						input: command.array(
-							command.enum(ROOMS, {
-								description: "Room id to dim.",
-							}),
-							{
-								description:
-									"Room ids to dim by turning lights off and closing blinds.",
-								minItems: 1,
-							},
-						),
-					},
-				),
-				transitionScene: command(
-					(scene: Scene) =>
-						sendAndFlush({ type: "START_SCENE_TRANSITION", scene }),
-					{
-						description:
-							"Start a scene transition that acknowledges immediately and settles asynchronously.",
-						input: command.enum(SCENES, {
-							description:
-								"Scene name to transition toward asynchronously: morning, away, movie, or night.",
-						}),
-					},
-				),
-				status: command(
-					() => {
-						// No-op: callers read the current view from the command result.
-					},
-					{ description: "Read the current home state (no change)." },
-				),
-			}),
+			commands: ({ command }) => createHomeCommands(command, sendAndFlush),
 		});
 
 		return {

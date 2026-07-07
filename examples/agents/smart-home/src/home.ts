@@ -1,5 +1,5 @@
 import type { IgniteToolsRuntime } from "ignite-element/tools";
-import { igniteCore } from "ignite-element/xstate";
+import { type CommandHelper, igniteCore } from "ignite-element/xstate";
 import { assign, createActor, setup } from "xstate";
 
 // A virtual smart home the agent drives. No hardware — the browser UI (Phase C)
@@ -206,6 +206,114 @@ export function projectHomeView(context: HomeContext) {
 	};
 }
 
+type HomeCommandSender = (message: HomeCommand) => void | Promise<void>;
+
+export function createHomeCommands(
+	command: CommandHelper,
+	sendHomeCommand: HomeCommandSender,
+) {
+	return {
+		toggleLight: command(
+			({ room, on }: { room: Room; on: boolean }) =>
+				sendHomeCommand({ type: "TOGGLE_LIGHT", room, on }),
+			{
+				description: "Turn a room's light on or off.",
+				input: command.object({
+					room: command.enum(ROOMS),
+					on: command.boolean(),
+				}),
+			},
+		),
+		setThermostat: command(
+			({ room, temp }: { room: Room; temp: number }) =>
+				sendHomeCommand({ type: "SET_THERMOSTAT", room, temp }),
+			{
+				description: "Set a room's target temperature in °F.",
+				input: command.object({
+					room: command.enum(ROOMS),
+					temp: command.number({ minimum: 50, maximum: 90 }),
+				}),
+			},
+		),
+		setBlinds: command(
+			({ room, percent }: { room: Room; percent: number }) =>
+				sendHomeCommand({ type: "SET_BLINDS", room, percent }),
+			{
+				description: "Set how far a room's blinds are open (0–100%).",
+				input: command.object({
+					room: command.enum(ROOMS),
+					percent: command.number({ minimum: 0, maximum: 100 }),
+				}),
+			},
+		),
+		lockDoor: command(
+			(door: Door) => sendHomeCommand({ type: "SET_LOCK", door, locked: true }),
+			{
+				description: "Lock a door.",
+				input: command.enum(DOORS, {
+					description: "Door id to lock: front, back, or garage.",
+				}),
+			},
+		),
+		unlockDoor: command(
+			(door: Door) =>
+				sendHomeCommand({ type: "SET_LOCK", door, locked: false }),
+			{
+				description: "Unlock a door.",
+				input: command.enum(DOORS, {
+					description: "Door id to unlock: front, back, or garage.",
+				}),
+			},
+		),
+		runScene: command(
+			(scene: Scene) => sendHomeCommand({ type: "RUN_SCENE", scene }),
+			{
+				description:
+					"Activate a scene: morning, away, movie, or night. Sets several devices at once.",
+				input: command.enum(SCENES, {
+					description:
+						"Scene name to activate: morning, away, movie, or night.",
+				}),
+			},
+		),
+		dimRooms: command(
+			(rooms: Room[]) => sendHomeCommand({ type: "DIM_ROOMS", rooms }),
+			{
+				description:
+					"Dim selected rooms by turning lights off and closing blinds.",
+				input: command.array(
+					command.enum(ROOMS, {
+						description: "Room id to dim.",
+					}),
+					{
+						description:
+							"Room ids to dim by turning lights off and closing blinds.",
+						minItems: 1,
+					},
+				),
+			},
+		),
+		transitionScene: command(
+			(scene: Scene) =>
+				sendHomeCommand({ type: "START_SCENE_TRANSITION", scene }),
+			{
+				description:
+					"Start a scene transition that acknowledges immediately and settles asynchronously.",
+				input: command.enum(SCENES, {
+					description:
+						"Scene name to transition toward asynchronously: morning, away, movie, or night.",
+				}),
+			},
+		),
+		status: command(
+			() => {
+				// No-op: the home state is read from the returned snapshot / getView().
+			},
+			{ description: "Read the current home state (no change)." },
+		),
+	};
+}
+
 const homeMachine = setup({
 	types: {
 		context: {} as HomeContext,
@@ -334,104 +442,8 @@ function createHomeFromSource(source: typeof homeMachine | HomeActor) {
 			"security-changed": event<{ allDoorsLocked: boolean }>(),
 		}),
 		view: ({ snapshot }) => projectHomeView(snapshot.context),
-		commands: ({ actor, command }) => ({
-			toggleLight: command(
-				({ room, on }: { room: Room; on: boolean }) =>
-					actor.send({ type: "TOGGLE_LIGHT", room, on }),
-				{
-					description: "Turn a room's light on or off.",
-					input: command.object({
-						room: command.enum(ROOMS),
-						on: command.boolean(),
-					}),
-				},
-			),
-			setThermostat: command(
-				({ room, temp }: { room: Room; temp: number }) =>
-					actor.send({ type: "SET_THERMOSTAT", room, temp }),
-				{
-					description: "Set a room's target temperature in °F.",
-					input: command.object({
-						room: command.enum(ROOMS),
-						temp: command.number({ minimum: 50, maximum: 90 }),
-					}),
-				},
-			),
-			setBlinds: command(
-				({ room, percent }: { room: Room; percent: number }) =>
-					actor.send({ type: "SET_BLINDS", room, percent }),
-				{
-					description: "Set how far a room's blinds are open (0–100%).",
-					input: command.object({
-						room: command.enum(ROOMS),
-						percent: command.number({ minimum: 0, maximum: 100 }),
-					}),
-				},
-			),
-			lockDoor: command(
-				(door: Door) => actor.send({ type: "SET_LOCK", door, locked: true }),
-				{
-					description: "Lock a door.",
-					input: command.enum(DOORS, {
-						description: "Door id to lock: front, back, or garage.",
-					}),
-				},
-			),
-			unlockDoor: command(
-				(door: Door) => actor.send({ type: "SET_LOCK", door, locked: false }),
-				{
-					description: "Unlock a door.",
-					input: command.enum(DOORS, {
-						description: "Door id to unlock: front, back, or garage.",
-					}),
-				},
-			),
-			runScene: command(
-				(scene: Scene) => actor.send({ type: "RUN_SCENE", scene }),
-				{
-					description:
-						"Activate a scene: morning, away, movie, or night. Sets several devices at once.",
-					input: command.enum(SCENES, {
-						description:
-							"Scene name to activate: morning, away, movie, or night.",
-					}),
-				},
-			),
-			dimRooms: command(
-				(rooms: Room[]) => actor.send({ type: "DIM_ROOMS", rooms }),
-				{
-					description:
-						"Dim selected rooms by turning lights off and closing blinds.",
-					input: command.array(
-						command.enum(ROOMS, {
-							description: "Room id to dim.",
-						}),
-						{
-							description:
-								"Room ids to dim by turning lights off and closing blinds.",
-							minItems: 1,
-						},
-					),
-				},
-			),
-			transitionScene: command(
-				(scene: Scene) => actor.send({ type: "START_SCENE_TRANSITION", scene }),
-				{
-					description:
-						"Start a scene transition that acknowledges immediately and settles asynchronously.",
-					input: command.enum(SCENES, {
-						description:
-							"Scene name to transition toward asynchronously: morning, away, movie, or night.",
-					}),
-				},
-			),
-			status: command(
-				() => {
-					// No-op: the home state is read from the returned snapshot / getView().
-				},
-				{ description: "Read the current home state (no change)." },
-			),
-		}),
+		commands: ({ actor, command }) =>
+			createHomeCommands(command, (message) => actor.send(message)),
 		effects: ({ emit, select }) => {
 			const lights = select((state) => state.context.lights);
 			if (lights.changed) {
