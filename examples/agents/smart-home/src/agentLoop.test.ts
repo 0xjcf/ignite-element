@@ -1450,7 +1450,6 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 								tool_calls: [
 									{ id: "call_bad", type: "custom", function: {} },
 									{
-										id: "call_valid",
 										type: "function",
 										function: { name: "status", arguments: "{}" },
 									},
@@ -1479,11 +1478,11 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 			});
 			expect(observedMessages[1]?.[1]).toMatchObject({
 				role: "assistant",
-				tool_calls: [{ id: "call_valid" }],
+				tool_calls: [{ id: "call_0" }],
 			});
 			expect(observedMessages[1]?.[2]).toMatchObject({
 				role: "tool",
-				tool_call_id: "call_valid",
+				tool_call_id: "call_0",
 			});
 		} finally {
 			await result.close();

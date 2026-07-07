@@ -120,7 +120,13 @@ export async function runSmartHomeBridgeCli<
 		} catch (error) {
 			await closeServer(
 				`closing ${options.displayName} after startup callback failure`,
-			).catch(() => undefined);
+			).catch((closeError) => {
+				const closeMessage =
+					closeError instanceof Error ? closeError.message : String(closeError);
+				console.error(
+					`\nFailed to close ${options.displayName} after startup callback failure: ${closeMessage}`,
+				);
+			});
 			throw error;
 		}
 	} catch (error) {

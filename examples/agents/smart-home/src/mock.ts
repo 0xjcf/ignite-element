@@ -81,14 +81,14 @@ function printSession(result: AgentResult): void {
 	console.log(renderHome(result.home.getView()));
 }
 
-const runtimeFactory = resolveSmartHomeRuntimeFactory();
-
-console.log("🏠 Smart-home agent — scripted, key-free, headless (no DOM)\n");
-console.log("Initial state:");
-console.log(renderHome(createHome().getView()));
-console.log(`\n🗣️  "${prompt}"\n`);
-
 try {
+	const runtimeFactory = resolveSmartHomeRuntimeFactory();
+
+	console.log("🏠 Smart-home agent — scripted, key-free, headless (no DOM)\n");
+	console.log("Initial state:");
+	console.log(renderHome(createHome().getView()));
+	console.log(`\n🗣️  "${prompt}"\n`);
+
 	const result = await runHomeAgent(scriptedModel(script), prompt, {
 		runtimeFactory,
 	});

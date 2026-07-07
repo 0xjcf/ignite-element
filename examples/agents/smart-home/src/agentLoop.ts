@@ -162,9 +162,12 @@ export async function runHomeOpenAICompatibleAgent(
 				"OpenAI-compatible model response",
 			);
 			const primaryResponse = firstOpenAIChoiceResponse(response);
-			messages.push(toOpenAIAssistantMessage(primaryResponse));
+			const assistantMessage = toOpenAIAssistantMessage(primaryResponse);
+			messages.push(assistantMessage);
 
-			const calls = toolCalls(primaryResponse);
+			const calls = toolCalls({
+				choices: [{ message: { tool_calls: assistantMessage.tool_calls } }],
+			});
 			if (calls.length === 0) {
 				finalText = textOfOpenAI(primaryResponse);
 				completed = true;

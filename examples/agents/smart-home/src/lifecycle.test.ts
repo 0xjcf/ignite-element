@@ -94,4 +94,39 @@ describe("smart-home bridge lifecycle", () => {
 			vi.restoreAllMocks();
 		}
 	});
+
+	it("logs cleanup failures after startup callback failures", async () => {
+		const restoreProcess = captureProcessState();
+		const exitSpy = vi
+			.spyOn(process, "exit")
+			.mockImplementation(() => undefined as never);
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		const server = {
+			port: 5177,
+			close: vi.fn(async () => {
+				throw new Error("close failed");
+			}),
+		};
+
+		try {
+			await runSmartHomeBridgeCli({
+				displayName: "Smart-home test bridge",
+				start: async () => server,
+				onStarted: () => {
+					throw new Error("startup callback failed");
+				},
+			});
+
+			expect(server.close).toHaveBeenCalledTimes(1);
+			expect(errorSpy).toHaveBeenCalledWith(
+				"\nFailed to close Smart-home test bridge after startup callback failure: close failed",
+			);
+			expect(errorSpy).toHaveBeenCalledWith("\nstartup callback failed");
+			expect(process.exitCode).toBe(1);
+			expect(exitSpy).not.toHaveBeenCalled();
+		} finally {
+			restoreProcess();
+			vi.restoreAllMocks();
+		}
+	});
 });
