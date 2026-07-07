@@ -28,9 +28,20 @@ Promote the existing OpenAI-compatible provider plan into the live v3 queue. Imp
 - packages/ignite-element/src/tools
 - packages/ignite-element/src/tests
 - docs/ignite-tools.md
+- .changeset/ignitetools-openai-dialect.md
+- packages/ignite-element/package.json
+- packages/ignite-element/scripts/verify-exports.mjs
+- packages/ignite-element/vite.config.ts
 
 ## Scope Amendments
-- None.
+- Type: implementation-scope
+- Added at: 2026-07-06
+- Trigger: closeout-readiness unexpected files
+- Reason: New public subpath requires package export metadata, build entry, export verification, and changeset support.
+- Added paths: .changeset/ignitetools-openai-dialect.md, packages/ignite-element/package.json, packages/ignite-element/scripts/verify-exports.mjs, packages/ignite-element/vite.config.ts
+- Evidence source: fas validate-task
+- Evidence: fas validate-task | .fas/state/closeout-readiness/latest.json | ChangeSet gate reported these public-surface support files as unexpected.
+- Accuracy signal: required for ignite-element/tools/openai package export and release notes
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

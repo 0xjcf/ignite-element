@@ -5,10 +5,11 @@
 Implementing. **PR1 shipped** the SDK-neutral core + `ToolDialect` port + the
 `ignite-element/tools` entrypoint (beta.8). **PR2 shipped** the first provider
 dialect (`ignite-element/tools/anthropic`) and refined the port to its final
-bare-noun shape. **PR3 is now live-queued for v3** as the OpenAI-compatible
+bare-noun shape. **PR3 adds** the OpenAI-compatible
 `ignite-element/tools/openai` dialect, which covers OpenAI, Ollama, and local
-MLX servers exposed through `/v1/chat/completions`. The agent analog of
-`ignite-element/react`. Agent-runtime thread in `docs/v3-stable-roadmap.md`.
+MLX servers exposed through `/v1/chat/completions`. Together, these are the
+agent-runtime counterpart to `ignite-element/react`; the roadmap thread lives in
+`docs/v3-stable-roadmap.md`.
 
 ## Context
 
@@ -181,6 +182,96 @@ const {
 `toolCalls(res)` stays single-arg for the consumer — `igniteTools` closes over the
 manifest internally and hands it to the dialect, so scalar unwrapping is invisible
 here.
+
+For OpenAI-compatible model loops, pass `openai` instead of `anthropic`. The
+consumer still brings the SDK or a thin `fetch` wrapper, but `toolCalls(response)`
+expects the parsed Chat Completions JSON object. If you use raw `fetch`, call
+`await response.json()` before handing the value to `toolCalls`:
+
+```ts
+import { openai } from "ignite-element/tools/openai";
+
+const { tools, toolCalls, run, toolResult } = igniteTools(runtime, openai);
+
+for (let turn = 0; turn < 8; turn++) {
+  const response = await client.chat.completions.create({
+    model,
+    messages,
+    tools,
+  });
+  const assistant = response.choices[0]?.message ?? {};
+  messages.push({
+    role: "assistant",
+    content: typeof assistant.content === "string" ? assistant.content : null,
+    tool_calls: assistant.tool_calls ?? undefined,
+  });
+
+  const calls = toolCalls(response);
+  if (calls.length === 0) {
+    break;
+  }
+
+  for (const call of calls) {
+    const result = await run(call);
+    messages.push(toolResult({ id: call.id, name: call.name, result }));
+  }
+}
+```
+
+The OpenAI-compatible dialect is intentionally not MLX-specific. It targets the
+shared `/v1/chat/completions` shape, so hosted OpenAI, Ollama, and local MLX
+servers can reuse the same SDK-free translator while the consumer owns endpoint
+configuration, credentials, and network calls.
+
+The smart-home agent example dogfoods this boundary with a local MLX path:
+`examples/agents/smart-home` exposes `npm run mlx` for a headless prompt and
+`npm run demo:mlx` for the same OpenAI-compatible model driving the browser and
+terminal bridge over one shared headless runtime. Both paths stay opt-in; CI uses
+scripted responses and fake `fetch` instead of a live model server.
+
+## Local model workflow and ecosystem boundaries
+
+The local-model path is deliberately just the OpenAI-compatible dialect plus a
+consumer-owned client loop. Ignite does not start, supervise, or vendor an MLX
+runtime. A local model server is another OpenAI-compatible provider endpoint:
+
+```bash
+python -m pip install mlx-lm
+python -m mlx_lm.server --model <model> --port 8080
+
+MLX_BASE_URL=http://127.0.0.1:8080/v1 \
+MLX_MODEL=<model> \
+npm run mlx -- "turn on the kitchen lights"
+```
+
+The same `ignite-element/tools/openai` adapter also works with hosted OpenAI and
+Ollama-style `/v1/chat/completions` servers. The consumer owns endpoint selection,
+credentials, retry policy, and model process lifecycle; `igniteTools` only owns
+the pure manifest/call/result translation and the call into the supplied headless
+runtime. That keeps the core SDK-free and avoids a new MLX-specific dependency.
+
+For ecosystem work, the boundaries are:
+
+| Layer | Owns | Does not own |
+| --- | --- | --- |
+| `ignite-element` | projection, headless `execute`/`observe`, `getSchema`, `igniteTools`, provider dialect translators, examples | durable model-process lifecycle, distributed actor hosting |
+| `fas-local` | durable local MLX provider lifecycle, operator setup, process reuse, local model health | Ignite projection semantics or component command contracts |
+| `actor-web` | execution/data-plane hosting, topology, actor addresses, future gateway/client transport | Ignite's tool manifest, view projection, or provider dialects |
+
+The smart-home example now exercises two runtime factories:
+
+- default XState runtime: a local deterministic runtime that proves the
+  `getSchema` -> `igniteTools` -> `execute` loop with no DOM dependency.
+- `SMART_HOME_RUNTIME=actor-web`: an example-local actor-web runtime composed
+  through `ignite-element/actor-web`, proving actor-web source projection,
+  command execution, and actor-native emitted events through the same
+  `igniteTools` loop.
+
+The browser demo bridge remains intentionally local. It proves that a terminal
+agent and browser UI can share one Node-owned headless runtime, but it is not the
+final actor-web gateway/client transport. Replacing that thin WebSocket shell
+with actor-web-hosted transport belongs in actor-web/future integration work,
+not in the Ignite tool dialect.
 
 ## How the design embodies the principles
 

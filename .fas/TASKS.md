@@ -1735,34 +1735,46 @@ No active tasks.
 
 - Title: igniteTools: add OpenAI-compatible ToolDialect for OpenAI, Ollama, and MLX servers
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/ignitetools-add-openai-compatible-tooldialect-for-openai-oll.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: examples/smart-home: add local MLX OpenAI-compatible model loop and demo mode
 
 - Title: examples/smart-home: add local MLX OpenAI-compatible model loop and demo mode
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/examples-smart-home-add-local-mlx-openai-compatible-model-lo.md
 - Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: examples/agent: add actor-web-backed real-agent dogfood using igniteTools
 
 - Title: examples/agent: add actor-web-backed real-agent dogfood using igniteTools
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/examples-agent-add-actor-web-backed-real-agent-dogfood-using.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: docs: document local-model agent workflows and ecosystem boundaries for v3
 
 - Title: docs: document local-model agent workflows and ecosystem boundaries for v3
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/docs-document-local-model-agent-workflows-and-ecosystem-boun.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: test(examples): include new worked apps in example runtime lane fixture
 
@@ -2061,6 +2073,17 @@ No active tasks.
 - Status: done
 - Owner: implementer
 - Brief: .fas/tasks/fix-guard-deferred-shared-cleanup-release.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: fix: address local-model epic CodeRabbit findings
+
+- Title: fix: address local-model epic CodeRabbit findings
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/fix-address-local-model-epic-coderabbit-findings.md
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting

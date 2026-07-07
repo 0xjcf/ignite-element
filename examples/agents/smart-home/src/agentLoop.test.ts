@@ -11,10 +11,52 @@ import {
 	type AnthropicResponse,
 	anthropic,
 } from "ignite-element/tools/anthropic";
+import {
+	type OpenAIChatCompletionResponse,
+	openai,
+} from "ignite-element/tools/openai";
 import { describe, expect, it, vi } from "vitest";
-import { runHomeAgent } from "./agentLoop";
-import { createHome, DOORS, ROOMS, SCENES } from "./home";
-import { type Model, scriptedModel } from "./model";
+import { createActorWebHomeSession } from "./actor-web-home";
+import { runHomeAgent, runHomeOpenAICompatibleAgent } from "./agentLoop";
+import {
+	createHome,
+	createInitialHomeContext,
+	createLocalHomeSession,
+	DOORS,
+	ROOMS,
+	reduceHomeContext,
+	SCENE_TRANSITION_DELAY_MS,
+	SCENES,
+} from "./home";
+import {
+	type Model,
+	type OpenAICompatibleModel,
+	openAICompatibleModel,
+	scriptedModel,
+	scriptedOpenAICompatibleModel,
+	toOpenAIAssistantMessage,
+} from "./model";
+
+type RecordedFetchCall = { input: RequestInfo | URL; init?: RequestInit };
+
+function recordingOpenAICompatibleFetch(
+	response: OpenAIChatCompletionResponse,
+): {
+	calls: RecordedFetchCall[];
+	fetch: typeof fetch;
+} {
+	const calls: RecordedFetchCall[] = [];
+	return {
+		calls,
+		fetch: async (input, init) => {
+			calls.push({ input, init });
+			return new Response(JSON.stringify(response), {
+				status: 200,
+				headers: { "content-type": "application/json" },
+			});
+		},
+	};
+}
 
 describe("smart-home agent — Anthropic tool schemas (getSchema → adapter)", () => {
 	const { tools } = igniteTools(createHome(), anthropic);
@@ -104,6 +146,57 @@ describe("smart-home agent — Anthropic tool schemas (getSchema → adapter)", 
 		expect(byName("status")?.input_schema).toEqual({
 			type: "object",
 			properties: {},
+		});
+	});
+});
+
+describe("smart-home shared reducer", () => {
+	it("fails loudly for unknown runtime command types", () => {
+		expect(() =>
+			reduceHomeContext(createInitialHomeContext(), {
+				type: "UNKNOWN",
+			} as never),
+		).toThrow(/Unsupported home command type: UNKNOWN/);
+	});
+});
+
+describe("smart-home agent — OpenAI-compatible tool schemas (getSchema → adapter)", () => {
+	const { tools } = igniteTools(createHome(), openai);
+	const byName = (name: string) =>
+		tools.find((tool) => tool.function.name === name);
+
+	it("translates an object command to OpenAI function parameters", () => {
+		expect(byName("toggleLight")?.function.parameters).toMatchObject({
+			type: "object",
+			properties: {
+				room: { type: "string", enum: [...ROOMS] },
+				on: { type: "boolean" },
+			},
+		});
+	});
+
+	it("object-wraps scalar enum commands under OpenAI function parameters.value", () => {
+		expect(byName("lockDoor")?.function.parameters).toMatchObject({
+			type: "object",
+			properties: {
+				value: {
+					type: "string",
+					enum: [...DOORS],
+					description: "Door id to lock: front, back, or garage.",
+				},
+			},
+			required: ["value"],
+		});
+		expect(byName("runScene")?.function.parameters).toMatchObject({
+			properties: {
+				value: {
+					type: "string",
+					enum: [...SCENES],
+					description:
+						"Scene name to activate: morning, away, movie, or night.",
+				},
+			},
+			required: ["value"],
 		});
 	});
 });
@@ -312,6 +405,29 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 		expect(home.getView().activeScene).toBe("morning");
 	});
 
+	it("keeps a pending scene when a manual command is a no-op", async () => {
+		vi.useFakeTimers();
+		const home = createHome();
+
+		try {
+			await home.execute("transitionScene", "movie");
+			expect(home.getView()).toMatchObject({
+				activeScene: null,
+				pendingScene: "movie",
+			});
+
+			await home.execute("lockDoor", "front");
+			await home.execute("setThermostat", { room: "living", temp: 68 });
+
+			expect(home.getView()).toMatchObject({
+				activeScene: null,
+				pendingScene: "movie",
+			});
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it("observes a delayed scene after run() acknowledges the pending view", async () => {
 		vi.useFakeTimers();
 		const home = createHome();
@@ -341,24 +457,6 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 				activeScene: null,
 				pendingScene: "morning",
 				lights: { living: false, bedroom: false, kitchen: false },
-			});
-
-			const interimResult = await tools.run({
-				name: "setThermostat",
-				input: { room: "living", temp: 69 },
-			});
-
-			expect(isOk(interimResult)).toBe(true);
-			if (!isOk(interimResult)) {
-				throw new Error(
-					`Expected setThermostat to run: ${interimResult.error.kind}`,
-				);
-			}
-
-			expect(interimResult.value.view).toMatchObject({
-				activeScene: null,
-				pendingScene: "morning",
-				thermostat: { living: 69 },
 			});
 
 			await vi.runOnlyPendingTimersAsync();
@@ -391,6 +489,60 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 			);
 		} finally {
 			subscription.unsubscribe();
+			vi.useRealTimers();
+		}
+	});
+
+	it("cancels a delayed scene when a manual command runs before the timer", async () => {
+		vi.useFakeTimers();
+		const home = createHome();
+		const tools = igniteTools(home);
+
+		try {
+			const result = await tools.run({
+				name: "transitionScene",
+				input: "morning",
+			});
+
+			expect(isOk(result)).toBe(true);
+			if (!isOk(result)) {
+				throw new Error(
+					`Expected transitionScene to run: ${result.error.kind}`,
+				);
+			}
+
+			expect(result.value.view).toMatchObject({
+				activeScene: null,
+				pendingScene: "morning",
+			});
+
+			const interimResult = await tools.run({
+				name: "setThermostat",
+				input: { room: "living", temp: 69 },
+			});
+
+			expect(isOk(interimResult)).toBe(true);
+			if (!isOk(interimResult)) {
+				throw new Error(
+					`Expected setThermostat to run: ${interimResult.error.kind}`,
+				);
+			}
+
+			expect(interimResult.value.view).toMatchObject({
+				activeScene: null,
+				pendingScene: null,
+				thermostat: { living: 69 },
+			});
+
+			await vi.runOnlyPendingTimersAsync();
+
+			expect(home.getView()).toMatchObject({
+				activeScene: null,
+				pendingScene: null,
+				lights: { living: false, bedroom: false, kitchen: false },
+				thermostat: { living: 69 },
+			});
+		} finally {
 			vi.useRealTimers();
 		}
 	});
@@ -462,6 +614,42 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 		});
 	});
 
+	it("stops the local runtime when closing the local session", async () => {
+		vi.useFakeTimers();
+		const session = createLocalHomeSession();
+		let closed = false;
+		try {
+			const tools = igniteTools(session.home, anthropic);
+			const result = await tools.run({
+				name: "transitionScene",
+				input: "movie",
+			});
+
+			expect(isOk(result)).toBe(true);
+			expect(session.home.getView()).toMatchObject({
+				pendingScene: "movie",
+				activeScene: null,
+			});
+
+			await session.close();
+			closed = true;
+			await vi.advanceTimersByTimeAsync(SCENE_TRANSITION_DELAY_MS);
+
+			expect(session.home.getView()).toMatchObject({
+				pendingScene: "movie",
+				activeScene: null,
+			});
+		} finally {
+			try {
+				if (!closed) {
+					await session.close();
+				}
+			} finally {
+				vi.useRealTimers();
+			}
+		}
+	});
+
 	it("fails loudly when a scripted fixture runs out of model turns", async () => {
 		const model = scriptedModel([
 			{ content: [{ type: "text", text: "done" }] },
@@ -483,5 +671,1247 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 		await expect(runHomeAgent(toolOnlyModel, "never finish")).rejects.toThrow(
 			/runHomeAgent hit MAX_TURNS/,
 		);
+	});
+});
+
+describe("smart-home agent — OpenAI-compatible scripted session", () => {
+	it("drives the same headless home through Chat Completions tool_calls", async () => {
+		const script: OpenAIChatCompletionResponse[] = [
+			{
+				choices: [
+					{
+						message: {
+							role: "assistant",
+							tool_calls: [
+								{
+									id: "call_1",
+									type: "function",
+									function: {
+										name: "toggleLight",
+										arguments: JSON.stringify({
+											room: "living",
+											on: true,
+										}),
+									},
+								},
+							],
+						},
+					},
+				],
+			},
+			{
+				choices: [
+					{
+						message: {
+							role: "assistant",
+							tool_calls: [
+								{
+									id: "call_2",
+									type: "function",
+									function: {
+										name: "lockDoor",
+										arguments: JSON.stringify({ value: "front" }),
+									},
+								},
+								{
+									id: "call_3",
+									type: "function",
+									function: {
+										name: "runScene",
+										arguments: JSON.stringify({ value: "movie" }),
+									},
+								},
+							],
+						},
+					},
+				],
+			},
+			{
+				choices: [
+					{
+						message: {
+							role: "assistant",
+							content:
+								"Living light toggled, front door locked, movie mode on.",
+						},
+					},
+				],
+			},
+		];
+
+		const result = await runHomeOpenAICompatibleAgent(
+			scriptedOpenAICompatibleModel(script),
+			"Turn on the living room light, lock the front door, and start movie mode.",
+		);
+
+		try {
+			expect(result.modelCalls).toBe(3);
+			expect(result.trace.map((entry) => entry.command)).toEqual([
+				"toggleLight",
+				"lockDoor",
+				"runScene",
+			]);
+			expect(result.trace[1]).toMatchObject({
+				command: "lockDoor",
+				input: "front",
+				ok: true,
+			});
+			expect(result.trace[2]).toMatchObject({
+				command: "runScene",
+				input: "movie",
+				ok: true,
+			});
+			expect(result.home.getView()).toMatchObject({
+				activeScene: "movie",
+				locks: { front: true },
+			});
+			expect(result.finalText).toContain("movie mode");
+		} finally {
+			await result.close();
+		}
+	});
+
+	it("omits empty tools from Chat Completions requests", async () => {
+		const response: OpenAIChatCompletionResponse = {
+			choices: [
+				{ message: { role: "assistant", content: "No tools needed." } },
+			],
+		};
+		const { calls, fetch: fetchImpl } =
+			recordingOpenAICompatibleFetch(response);
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).resolves.toEqual(response);
+
+		expect(calls).toHaveLength(1);
+		expect(calls[0].input).toBe("http://127.0.0.1:8080/v1/chat/completions");
+		expect(calls[0].init?.method).toBe("POST");
+		const body = JSON.parse(String(calls[0].init?.body));
+		expect(body).toMatchObject({
+			model: "mlx-test",
+			messages: [{ role: "user", content: "status" }],
+		});
+		expect(body).not.toHaveProperty("tools");
+	});
+
+	it("includes non-empty tools in Chat Completions requests", async () => {
+		const response: OpenAIChatCompletionResponse = {
+			choices: [
+				{ message: { role: "assistant", content: "Tools are available." } },
+			],
+		};
+		const { calls, fetch: fetchImpl } =
+			recordingOpenAICompatibleFetch(response);
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+		const [tool] = igniteTools(createHome(), openai).tools;
+		if (!tool) {
+			throw new Error("Expected smart-home OpenAI tool definitions.");
+		}
+
+		await expect(
+			model({
+				tools: [tool],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).resolves.toEqual(response);
+
+		const body = JSON.parse(String(calls[0].init?.body));
+		expect(body.tools).toEqual([tool]);
+	});
+
+	it("fails with generic OpenAI-compatible guidance when the server is unreachable", async () => {
+		const fetchImpl: typeof fetch = async () => {
+			throw new TypeError("fetch failed");
+		};
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).rejects.toThrow(/Could not reach OpenAI-compatible server/);
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).rejects.toThrow(/local MLX server/);
+	});
+
+	it("bounds OpenAI-compatible error response details", async () => {
+		const rawDetail = "x".repeat(1_200);
+		const fetchImpl: typeof fetch = async () =>
+			new Response(rawDetail, {
+				status: 500,
+				statusText: "Model Error",
+			});
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).rejects.toThrow(`${"x".repeat(1_000)}...`);
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).rejects.not.toThrow("x".repeat(1_001));
+	});
+
+	it("rejects invalid OpenAI-compatible request timeouts before requests start", () => {
+		for (const timeoutMs of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+			expect(() =>
+				openAICompatibleModel({
+					baseUrl: "http://127.0.0.1:8080/v1",
+					model: "mlx-test",
+					fetch: vi.fn(),
+					timeoutMs,
+				}),
+			).toThrow(
+				"OpenAI-compatible timeoutMs must be a positive finite number.",
+			);
+		}
+	});
+
+	it("clears OpenAI-compatible request timeouts after network failures", async () => {
+		vi.useFakeTimers();
+		try {
+			const fetchImpl: typeof fetch = async () => {
+				throw new TypeError("fetch failed");
+			};
+			const model = openAICompatibleModel({
+				baseUrl: "http://127.0.0.1:8080/v1",
+				model: "mlx-test",
+				fetch: fetchImpl,
+				timeoutMs: 25,
+			});
+
+			await expect(
+				model({
+					tools: [],
+					messages: [{ role: "user", content: "status" }],
+				}),
+			).rejects.toThrow(/Could not reach OpenAI-compatible server/);
+			expect(vi.getTimerCount()).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("times out hung OpenAI-compatible model requests", async () => {
+		vi.useFakeTimers();
+		try {
+			const fetchImpl: typeof fetch = async (_input, init) =>
+				new Promise<Response>((_resolve, reject) => {
+					init?.signal?.addEventListener("abort", () => {
+						reject(new Error("request aborted"));
+					});
+				});
+			const model = openAICompatibleModel({
+				baseUrl: "http://127.0.0.1:8080/v1",
+				model: "mlx-test",
+				fetch: fetchImpl,
+				timeoutMs: 25,
+			});
+
+			const result = model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			});
+			const expectation =
+				expect(result).rejects.toThrow(/timed out after 25ms/);
+			await vi.advanceTimersByTimeAsync(25);
+
+			await expectation;
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("keeps the timeout active while reading OpenAI-compatible response bodies", async () => {
+		vi.useFakeTimers();
+		try {
+			const fetchImpl: typeof fetch = async (_input, init) =>
+				({
+					ok: true,
+					json: () =>
+						new Promise<unknown>((_resolve, reject) => {
+							init?.signal?.addEventListener("abort", () => {
+								reject(new Error("body aborted"));
+							});
+						}),
+				}) as Response;
+			const model = openAICompatibleModel({
+				baseUrl: "http://127.0.0.1:8080/v1",
+				model: "mlx-test",
+				fetch: fetchImpl,
+				timeoutMs: 25,
+			});
+
+			const result = model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			});
+			const expectation =
+				expect(result).rejects.toThrow(/timed out after 25ms/);
+			await vi.advanceTimersByTimeAsync(25);
+
+			await expectation;
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("reports invalid JSON from an OpenAI-compatible server", async () => {
+		const fetchImpl: typeof fetch = async () =>
+			new Response("not json", {
+				status: 200,
+				headers: { "content-type": "application/json" },
+			});
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).rejects.toThrow(/returned invalid JSON/);
+	});
+
+	it("reports malformed OpenAI-compatible response bodies", async () => {
+		const fetchImpl: typeof fetch = async () =>
+			new Response(JSON.stringify({ choices: [] }), {
+				status: 200,
+				headers: { "content-type": "application/json" },
+			});
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).rejects.toThrow(/choices must be a non-empty array/);
+	});
+
+	it("rejects OpenAI-compatible choices without a message object", async () => {
+		const fetchImpl: typeof fetch = async () =>
+			new Response(JSON.stringify({ choices: [{}] }), {
+				status: 200,
+				headers: { "content-type": "application/json" },
+			});
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).rejects.toThrow(/choice\.message must be an object/);
+	});
+
+	it("rejects array-shaped OpenAI-compatible choice messages", async () => {
+		const fetchImpl: typeof fetch = async () =>
+			new Response(JSON.stringify({ choices: [{ message: [] }] }), {
+				status: 200,
+				headers: { "content-type": "application/json" },
+			});
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).rejects.toThrow(/choice\.message must be an object/);
+	});
+
+	it("rejects non-assistant OpenAI-compatible choice messages", async () => {
+		const fetchImpl: typeof fetch = async () =>
+			new Response(
+				JSON.stringify({
+					choices: [{ message: { role: "tool", content: "not an assistant" } }],
+				}),
+				{
+					status: 200,
+					headers: { "content-type": "application/json" },
+				},
+			);
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).rejects.toThrow(/choice\.message\.role must be "assistant"/);
+	});
+
+	it("rejects empty OpenAI-compatible assistant messages", async () => {
+		const fetchImpl: typeof fetch = async () =>
+			new Response(
+				JSON.stringify({
+					choices: [{ message: { role: "assistant" } }],
+				}),
+				{
+					status: 200,
+					headers: { "content-type": "application/json" },
+				},
+			);
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).rejects.toThrow(/assistant messages must include content or tool_calls/);
+	});
+
+	it("rejects empty OpenAI-compatible tool call arrays without text content", async () => {
+		const fetchImpl: typeof fetch = async () =>
+			new Response(
+				JSON.stringify({
+					choices: [{ message: { role: "assistant", tool_calls: [] } }],
+				}),
+				{
+					status: 200,
+					headers: { "content-type": "application/json" },
+				},
+			);
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).rejects.toThrow(/assistant messages must include content or tool_calls/);
+	});
+
+	it("accepts empty OpenAI-compatible tool call arrays with text content", async () => {
+		const fetchImpl: typeof fetch = async () =>
+			new Response(
+				JSON.stringify({
+					choices: [
+						{
+							message: {
+								role: "assistant",
+								content: "No action needed.",
+								tool_calls: [],
+							},
+						},
+					],
+				}),
+				{
+					status: 200,
+					headers: { "content-type": "application/json" },
+				},
+			);
+		const model = openAICompatibleModel({
+			baseUrl: "http://127.0.0.1:8080/v1",
+			model: "mlx-test",
+			fetch: fetchImpl,
+		});
+
+		await expect(
+			model({
+				tools: [],
+				messages: [{ role: "user", content: "status" }],
+			}),
+		).resolves.toMatchObject({
+			choices: [
+				{ message: { role: "assistant", content: "No action needed." } },
+			],
+		});
+	});
+
+	it("omits invalid OpenAI-compatible tool call arrays with text content", () => {
+		const message = toOpenAIAssistantMessage({
+			choices: [
+				{
+					message: {
+						role: "assistant",
+						content: "No action needed.",
+						tool_calls: [{}] as never,
+					},
+				},
+			],
+		});
+
+		expect(message.tool_calls).toBeUndefined();
+		expect(JSON.stringify(message)).not.toContain("tool_calls");
+	});
+
+	it("omits OpenAI-compatible tool calls with empty function names", () => {
+		const message = toOpenAIAssistantMessage({
+			choices: [
+				{
+					message: {
+						role: "assistant",
+						content: "No action needed.",
+						tool_calls: [
+							{
+								id: "call_empty_name",
+								type: "function",
+								function: { name: "  ", arguments: "{}" },
+							},
+						] as never,
+					},
+				},
+			],
+		});
+
+		expect(message.tool_calls).toBeUndefined();
+		expect(JSON.stringify(message)).not.toContain("call_empty_name");
+	});
+
+	it("serializes assistant tool call arguments for replay", () => {
+		const message = toOpenAIAssistantMessage({
+			choices: [
+				{
+					message: {
+						role: "assistant",
+						tool_calls: [
+							{
+								id: "call_structured",
+								type: "function",
+								function: {
+									name: "toggleLight",
+									arguments: { room: "living", on: true },
+								},
+							},
+						],
+					},
+				},
+			],
+		});
+
+		expect(message.tool_calls?.[0]?.function.arguments).toBe(
+			JSON.stringify({ room: "living", on: true }),
+		);
+	});
+
+	it("normalizes structured OpenAI-compatible tool arguments before execution and replay", async () => {
+		const observedMessages: Array<
+			Parameters<OpenAICompatibleModel>[0]["messages"]
+		> = [];
+		let turn = 0;
+		const model: OpenAICompatibleModel = async ({ messages }) => {
+			observedMessages.push(
+				JSON.parse(
+					JSON.stringify(messages),
+				) as Parameters<OpenAICompatibleModel>[0]["messages"],
+			);
+			turn += 1;
+			if (turn === 1) {
+				return {
+					choices: [
+						{
+							message: {
+								role: "assistant",
+								tool_calls: [
+									{
+										id: "call_structured_loop",
+										type: "function",
+										function: {
+											name: "toggleLight",
+											arguments: { room: "living", on: true },
+										},
+									},
+								],
+							},
+						},
+					],
+				};
+			}
+			return {
+				choices: [
+					{ message: { role: "assistant", content: "Living room is on." } },
+				],
+			};
+		};
+
+		const result = await runHomeOpenAICompatibleAgent(
+			model,
+			"turn on the living room light",
+		);
+
+		try {
+			expect(result.trace).toHaveLength(1);
+			expect(result.trace[0]).toMatchObject({
+				command: "toggleLight",
+				input: { room: "living", on: true },
+				ok: true,
+			});
+			expect(result.home.getView().lights.living).toBe(true);
+
+			const replayAssistantMessage = observedMessages[1]?.[1];
+			expect(replayAssistantMessage).toMatchObject({
+				role: "assistant",
+				tool_calls: [
+					{
+						function: {
+							arguments: JSON.stringify({ room: "living", on: true }),
+						},
+					},
+				],
+			});
+		} finally {
+			await result.close();
+		}
+	});
+
+	it("normalizes missing OpenAI-compatible tool arguments to an empty object", async () => {
+		const observedMessages: Array<
+			Parameters<OpenAICompatibleModel>[0]["messages"]
+		> = [];
+		let turn = 0;
+		const model: OpenAICompatibleModel = async ({ messages }) => {
+			observedMessages.push(
+				JSON.parse(
+					JSON.stringify(messages),
+				) as Parameters<OpenAICompatibleModel>[0]["messages"],
+			);
+			turn += 1;
+			if (turn === 1) {
+				return {
+					choices: [
+						{
+							message: {
+								role: "assistant",
+								tool_calls: [
+									{
+										id: "call_status",
+										type: "function",
+										function: { name: "status" },
+									},
+								],
+							},
+						},
+					],
+				} as unknown as OpenAIChatCompletionResponse;
+			}
+			return {
+				choices: [{ message: { role: "assistant", content: "Status read." } }],
+			};
+		};
+
+		const result = await runHomeOpenAICompatibleAgent(model, "read status");
+
+		try {
+			expect(result.trace).toHaveLength(1);
+			expect(result.trace[0]).toMatchObject({
+				command: "status",
+				ok: true,
+			});
+			const replayAssistantMessage = observedMessages[1]?.[1];
+			expect(replayAssistantMessage).toMatchObject({
+				role: "assistant",
+				tool_calls: [
+					{
+						function: {
+							arguments: "{}",
+						},
+					},
+				],
+			});
+		} finally {
+			await result.close();
+		}
+	});
+
+	it("normalizes missing OpenAI-compatible tool call ids for replay and results", async () => {
+		const observedMessages: Array<
+			Parameters<OpenAICompatibleModel>[0]["messages"]
+		> = [];
+		let turn = 0;
+		const model: OpenAICompatibleModel = async ({ messages }) => {
+			observedMessages.push(
+				JSON.parse(
+					JSON.stringify(messages),
+				) as Parameters<OpenAICompatibleModel>[0]["messages"],
+			);
+			turn += 1;
+			if (turn === 1) {
+				return {
+					choices: [
+						{
+							message: {
+								role: "assistant",
+								tool_calls: [
+									{
+										type: "function",
+										function: { name: "status", arguments: "{}" },
+									},
+								],
+							},
+						},
+					],
+				};
+			}
+			return {
+				choices: [{ message: { role: "assistant", content: "Status read." } }],
+			};
+		};
+
+		const result = await runHomeOpenAICompatibleAgent(model, "read status");
+
+		try {
+			expect(result.trace).toHaveLength(1);
+			expect(result.trace[0]).toMatchObject({
+				command: "status",
+				ok: true,
+			});
+			expect(observedMessages[1]?.[1]).toMatchObject({
+				role: "assistant",
+				tool_calls: [{ id: "call_0" }],
+			});
+			expect(observedMessages[1]?.[2]).toMatchObject({
+				role: "tool",
+				tool_call_id: "call_0",
+			});
+		} finally {
+			await result.close();
+		}
+	});
+
+	it("continues through valid OpenAI-compatible tool call siblings", async () => {
+		const observedMessages: Array<
+			Parameters<OpenAICompatibleModel>[0]["messages"]
+		> = [];
+		let turn = 0;
+		const model: OpenAICompatibleModel = async ({ messages }) => {
+			observedMessages.push(
+				JSON.parse(
+					JSON.stringify(messages),
+				) as Parameters<OpenAICompatibleModel>[0]["messages"],
+			);
+			turn += 1;
+			if (turn === 1) {
+				return {
+					choices: [
+						{
+							message: {
+								role: "assistant",
+								tool_calls: [
+									{ id: "call_bad", type: "custom", function: {} },
+									{
+										type: "function",
+										function: { name: "status", arguments: "{}" },
+									},
+								] as unknown as NonNullable<
+									NonNullable<
+										OpenAIChatCompletionResponse["choices"][number]["message"]
+									>["tool_calls"]
+								>,
+							},
+						},
+					],
+				};
+			}
+			return {
+				choices: [{ message: { role: "assistant", content: "Status read." } }],
+			};
+		};
+
+		const result = await runHomeOpenAICompatibleAgent(model, "read status");
+
+		try {
+			expect(result.trace).toHaveLength(1);
+			expect(result.trace[0]).toMatchObject({
+				command: "status",
+				ok: true,
+			});
+			expect(observedMessages[1]?.[1]).toMatchObject({
+				role: "assistant",
+				tool_calls: [{ id: "call_0" }],
+			});
+			expect(observedMessages[1]?.[2]).toMatchObject({
+				role: "tool",
+				tool_call_id: "call_0",
+			});
+		} finally {
+			await result.close();
+		}
+	});
+
+	it("normalizes multi-choice OpenAI-compatible responses to the first choice", async () => {
+		let turn = 0;
+		const multiChoiceModel: OpenAICompatibleModel = async () => {
+			const script: OpenAIChatCompletionResponse[] = [
+				{
+					choices: [
+						{
+							message: {
+								role: "assistant",
+								tool_calls: [
+									{
+										id: "multi-choice-1",
+										type: "function",
+										function: {
+											name: "toggleLight",
+											arguments: JSON.stringify({
+												room: "kitchen",
+												on: true,
+											}),
+										},
+									},
+								],
+							},
+						},
+						{
+							message: {
+								role: "assistant",
+								tool_calls: [
+									{
+										id: "multi-choice-2",
+										type: "function",
+										function: {
+											name: "unlockDoor",
+											arguments: JSON.stringify({ value: "front" }),
+										},
+									},
+								],
+							},
+						},
+					],
+				},
+				{
+					choices: [
+						{ message: { role: "assistant", content: "Kitchen light is on." } },
+					],
+				},
+			];
+			const response = script[turn++];
+			if (!response) {
+				throw new Error("multiChoiceModel exhausted");
+			}
+			return response;
+		};
+
+		const result = await runHomeOpenAICompatibleAgent(
+			multiChoiceModel,
+			"turn on the kitchen light",
+		);
+		try {
+			expect(result.trace.map((entry) => entry.command)).toEqual([
+				"toggleLight",
+			]);
+			expect(result.finalText).toBe("Kitchen light is on.");
+			expect(result.home.getView()).toMatchObject({
+				lights: { kitchen: true },
+				allDoorsLocked: true,
+			});
+		} finally {
+			await result.close();
+		}
+	});
+
+	it("rejects malformed OpenAI-compatible model responses and closes the session", async () => {
+		const close = vi.fn(async () => {});
+		const runtimeFactory = async () => ({
+			home: createHome(),
+			close,
+		});
+		const malformedModel: OpenAICompatibleModel = async () =>
+			({ choices: [] }) as OpenAIChatCompletionResponse;
+
+		await expect(
+			runHomeOpenAICompatibleAgent(malformedModel, "status", {
+				runtimeFactory,
+			}),
+		).rejects.toThrow(/choices must be a non-empty array/);
+
+		expect(close).toHaveBeenCalledTimes(1);
+	});
+
+	it("closes an injected runtime session when the Anthropic loop hits MAX_TURNS", async () => {
+		const close = vi.fn(async () => {});
+		const runtimeFactory = async () => ({
+			home: createHome(),
+			close,
+		});
+		const loopingScript: AnthropicResponse[] = Array.from(
+			{ length: 12 },
+			(_, turn) => ({
+				content: [
+					{
+						type: "tool_use",
+						id: `loop-${turn + 1}`,
+						name: "status",
+						input: {},
+					},
+				],
+			}),
+		);
+
+		await expect(
+			runHomeAgent(scriptedModel(loopingScript), "keep checking", {
+				runtimeFactory,
+			}),
+		).rejects.toThrow(/MAX_TURNS/);
+
+		expect(close).toHaveBeenCalledTimes(1);
+	});
+
+	it("closes an injected runtime session when the OpenAI-compatible loop hits MAX_TURNS", async () => {
+		const close = vi.fn(async () => {});
+		const runtimeFactory = async () => ({
+			home: createHome(),
+			close,
+		});
+		const loopingScript: OpenAIChatCompletionResponse[] = Array.from(
+			{ length: 12 },
+			(_, turn) => ({
+				choices: [
+					{
+						message: {
+							role: "assistant",
+							tool_calls: [
+								{
+									id: `loop-${turn + 1}`,
+									type: "function",
+									function: {
+										name: "status",
+										arguments: JSON.stringify({}),
+									},
+								},
+							],
+						},
+					},
+				],
+			}),
+		);
+
+		await expect(
+			runHomeOpenAICompatibleAgent(
+				scriptedOpenAICompatibleModel(loopingScript),
+				"keep checking",
+				{ runtimeFactory },
+			),
+		).rejects.toThrow(/MAX_TURNS/);
+
+		expect(close).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe("smart-home agent — actor-web runtime dogfood", () => {
+	it("drives an actor-web-backed runtime through the Anthropic loop via an injected runtimeFactory", async () => {
+		const script: AnthropicResponse[] = [
+			{
+				content: [
+					{
+						type: "tool_use",
+						id: "actor-web-1",
+						name: "toggleLight",
+						input: { room: "living", on: true },
+					},
+				],
+			},
+			{
+				content: [
+					{
+						type: "tool_use",
+						id: "actor-web-2",
+						name: "runScene",
+						input: { value: "movie" },
+					},
+				],
+			},
+			{
+				content: [
+					{
+						type: "text",
+						text: "Living room is ready for movie mode.",
+					},
+				],
+			},
+		];
+
+		const result = await runHomeAgent(
+			scriptedModel(script),
+			"Turn on the living room light, then start movie mode.",
+			{ runtimeFactory: createActorWebHomeSession },
+		);
+
+		try {
+			expect(result.trace.map((entry) => entry.command)).toEqual([
+				"toggleLight",
+				"runScene",
+			]);
+			expect(result.trace[0]?.view).toMatchObject({
+				lights: { living: true },
+				lightsOn: ["living"],
+			});
+			expect(result.trace[1]).toMatchObject({
+				command: "runScene",
+				input: "movie",
+				ok: true,
+				view: {
+					activeScene: "movie",
+					lights: { living: false },
+				},
+			});
+			expect(result.home.getView()).toMatchObject({
+				activeScene: "movie",
+				lights: { living: false },
+			});
+		} finally {
+			await result.close();
+		}
+	});
+
+	it("captures actor-web native emits in command-window observations and explicit runtime listeners", async () => {
+		const session = await createActorWebHomeSession();
+		const received: Array<{ scene: string }> = [];
+		const subscription = session.home.on("scene-applied", (event) => {
+			received.push(event.detail as { scene: string });
+		});
+
+		try {
+			const tools = igniteTools(session.home, anthropic);
+			const result = await tools.run({ name: "runScene", input: "movie" });
+
+			expect(isOk(result)).toBe(true);
+			if (!isOk(result)) {
+				return;
+			}
+
+			expect(result.value.view).toMatchObject({
+				activeScene: "movie",
+				lights: { living: false },
+			});
+			expect(result.value.events).toContainEqual(
+				expect.objectContaining({
+					type: "scene-applied",
+					payload: expect.objectContaining({ scene: "movie" }),
+				}),
+			);
+			expect(received).toHaveLength(1);
+			expect(received[0]).toMatchObject({ scene: "movie" });
+		} finally {
+			subscription.unsubscribe();
+			await session.close();
+		}
+	});
+
+	it("emits actor-web security changes for individual door updates", async () => {
+		const session = await createActorWebHomeSession();
+		const received: Array<{ allDoorsLocked: boolean }> = [];
+		const subscription = session.home.on("security-changed", (event) => {
+			received.push(event.detail as { allDoorsLocked: boolean });
+		});
+
+		try {
+			const tools = igniteTools(session.home, anthropic);
+			const first = await tools.run({ name: "unlockDoor", input: "front" });
+			const second = await tools.run({ name: "unlockDoor", input: "back" });
+
+			expect(isOk(first)).toBe(true);
+			expect(isOk(second)).toBe(true);
+			if (!isOk(first) || !isOk(second)) {
+				return;
+			}
+
+			expect(first.value.events).toContainEqual(
+				expect.objectContaining({
+					type: "security-changed",
+					payload: expect.objectContaining({ allDoorsLocked: false }),
+				}),
+			);
+			expect(second.value.events).toContainEqual(
+				expect.objectContaining({
+					type: "security-changed",
+					payload: expect.objectContaining({ allDoorsLocked: false }),
+				}),
+			);
+			expect(received).toHaveLength(2);
+			expect(received).toEqual([
+				expect.objectContaining({ allDoorsLocked: false }),
+				expect.objectContaining({ allDoorsLocked: false }),
+			]);
+		} finally {
+			subscription.unsubscribe();
+			await session.close();
+		}
+	});
+
+	it("fails actor-web commands after session close starts", async () => {
+		const session = await createActorWebHomeSession();
+		const tools = igniteTools(session.home, anthropic);
+
+		await session.close();
+		const result = await tools.run({
+			name: "toggleLight",
+			input: { room: "living", on: true },
+		});
+
+		expect(isOk(result)).toBe(false);
+	});
+
+	it("restarts actor-web delayed scene timing when transitionScene is repeated", async () => {
+		vi.useFakeTimers();
+		let session:
+			| Awaited<ReturnType<typeof createActorWebHomeSession>>
+			| undefined;
+
+		try {
+			session = await createActorWebHomeSession();
+			const tools = igniteTools(session.home, anthropic);
+			const firstResult = await tools.run({
+				name: "transitionScene",
+				input: "morning",
+			});
+
+			if (!isOk(firstResult)) {
+				throw new Error(firstResult.error.kind);
+			}
+
+			expect(firstResult.value.view).toMatchObject({
+				activeScene: null,
+				pendingScene: "morning",
+			});
+
+			await vi.advanceTimersByTimeAsync(10);
+
+			const secondResult = await tools.run({
+				name: "transitionScene",
+				input: "movie",
+			});
+
+			if (!isOk(secondResult)) {
+				throw new Error(secondResult.error.kind);
+			}
+
+			expect(secondResult.value.view).toMatchObject({
+				activeScene: null,
+				pendingScene: "movie",
+			});
+
+			await vi.advanceTimersByTimeAsync(20);
+
+			expect(session.home.getView()).toMatchObject({
+				activeScene: null,
+				pendingScene: "movie",
+			});
+
+			await vi.advanceTimersByTimeAsync(5);
+
+			expect(session.home.getView()).toMatchObject({
+				activeScene: "movie",
+				pendingScene: null,
+				lights: { living: false },
+			});
+		} finally {
+			try {
+				if (session) {
+					await session.close();
+				}
+			} finally {
+				vi.useRealTimers();
+			}
+		}
+	});
+
+	it("cancels pending actor-web transition timers when the session closes", async () => {
+		vi.useFakeTimers();
+		let session:
+			| Awaited<ReturnType<typeof createActorWebHomeSession>>
+			| undefined;
+		let closed = false;
+
+		try {
+			session = await createActorWebHomeSession();
+			const tools = igniteTools(session.home, anthropic);
+			const timerCountBeforeTransition = vi.getTimerCount();
+			const result = await tools.run({
+				name: "transitionScene",
+				input: "movie",
+			});
+
+			if (!isOk(result)) {
+				throw new Error(result.error.kind);
+			}
+
+			expect(result.value.view).toMatchObject({
+				activeScene: null,
+				pendingScene: "movie",
+			});
+			expect(vi.getTimerCount()).toBeGreaterThan(timerCountBeforeTransition);
+
+			await session.close();
+			closed = true;
+			expect(vi.getTimerCount()).toBeLessThanOrEqual(
+				timerCountBeforeTransition,
+			);
+
+			await vi.advanceTimersByTimeAsync(SCENE_TRANSITION_DELAY_MS + 1);
+			expect(session.home.getView()).toMatchObject({
+				activeScene: null,
+				pendingScene: "movie",
+			});
+		} finally {
+			try {
+				if (session && !closed) {
+					await session.close();
+				}
+			} finally {
+				vi.useRealTimers();
+			}
+		}
 	});
 });

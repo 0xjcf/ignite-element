@@ -1,6 +1,9 @@
 // @vitest-environment node
+
+import type { OpenAIChatCompletionResponse } from "ignite-element/tools/openai";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
+import { createActorWebHomeSession } from "./actor-web-home";
 import {
 	createCommandMessage,
 	type HomeBridgeClientMessage,
@@ -12,6 +15,7 @@ import {
 	type SmartHomeBridgeServer,
 	startSmartHomeBridgeServer,
 } from "./server";
+import { createLocalHomeSession, type HomeAgentRuntime } from "./shared/home";
 
 let server: SmartHomeBridgeServer | undefined;
 
@@ -67,6 +71,260 @@ describe("smart-home bridge server", () => {
 
 		socket.close();
 	});
+
+	it("can let an OpenAI-compatible model drive the shared browser runtime", async () => {
+		const script: OpenAIChatCompletionResponse[] = [
+			{
+				choices: [
+					{
+						message: {
+							role: "assistant",
+							tool_calls: [
+								{
+									id: "mlx-bridge-1",
+									type: "function",
+									function: {
+										name: "toggleLight",
+										arguments: JSON.stringify({ room: "kitchen", on: true }),
+									},
+								},
+							],
+						},
+					},
+				],
+			},
+			{
+				choices: [
+					{ message: { role: "assistant", content: "Kitchen light is on." } },
+				],
+			},
+		];
+		let turn = 0;
+		server = await startSmartHomeBridgeServer({
+			port: 0,
+			openAIModel: async () => {
+				const response = script[turn++];
+				if (!response) {
+					throw new Error("OpenAI-compatible bridge script exhausted");
+				}
+				return response;
+			},
+		});
+		const socket = new WebSocket(`ws://127.0.0.1:${server.port}/bridge`);
+		const messages = collectMessages(socket);
+
+		await opened(socket);
+		await messages.next("home:view");
+		const result = await messages.next("home:command-result");
+
+		expect(result.command).toBe("toggleLight");
+		expect(result.view.lights.kitchen).toBe(true);
+
+		socket.close();
+	});
+
+	it("waits for an in-flight OpenAI-compatible agent run before close", async () => {
+		let resolveModel:
+			| ((response: OpenAIChatCompletionResponse) => void)
+			| undefined;
+		let modelStarted: (() => void) | undefined;
+		const started = new Promise<void>((resolve) => {
+			modelStarted = resolve;
+		});
+		const modelResponse = new Promise<OpenAIChatCompletionResponse>(
+			(resolve) => {
+				resolveModel = resolve;
+			},
+		);
+
+		server = await startSmartHomeBridgeServer({
+			port: 0,
+			openAIModel: async () => {
+				modelStarted?.();
+				return await modelResponse;
+			},
+		});
+		const socket = new WebSocket(`ws://127.0.0.1:${server.port}/bridge`);
+
+		await opened(socket);
+		await started;
+
+		let closed = false;
+		let closePromise: Promise<void> | undefined;
+		try {
+			closePromise = server.close().then(() => {
+				closed = true;
+			});
+			await expect(
+				Promise.race([
+					closePromise.then(() => "closed"),
+					delay(25).then(() => "waiting"),
+				]),
+			).resolves.toBe("waiting");
+
+			resolveModel?.({
+				choices: [{ message: { role: "assistant", content: "Done." } }],
+			});
+			resolveModel = undefined;
+			await closePromise;
+			expect(closed).toBe(true);
+		} finally {
+			resolveModel?.({
+				choices: [{ message: { role: "assistant", content: "Done." } }],
+			});
+			await closePromise?.catch(() => undefined);
+			server = undefined;
+			socket.close();
+		}
+	});
+
+	it("broadcasts agent failures to connected browser clients", async () => {
+		server = await startSmartHomeBridgeServer({
+			port: 0,
+			model: async () => {
+				throw new Error("agent failed in test");
+			},
+		});
+		const socket = new WebSocket(`ws://127.0.0.1:${server.port}/bridge`);
+		const messages = collectMessages(socket);
+
+		await opened(socket);
+		await messages.next("home:view");
+		const error = await messages.next("home:error");
+
+		expect(error.message).toBe("agent failed in test");
+		expect(error.view).toMatchObject({ allDoorsLocked: true });
+
+		socket.close();
+	});
+
+	it("broadcasts the current view when OpenAI-compatible tool calls fail", async () => {
+		const script: OpenAIChatCompletionResponse[] = [
+			{
+				choices: [
+					{
+						message: {
+							role: "assistant",
+							tool_calls: [
+								{
+									id: "call_bad_temp",
+									type: "function",
+									function: {
+										name: "setThermostat",
+										arguments: JSON.stringify({
+											room: "bedroom",
+											temp: "warm",
+										}),
+									},
+								},
+							],
+						},
+					},
+				],
+			},
+			{
+				choices: [
+					{
+						message: {
+							role: "assistant",
+							content: "Unable to set bedroom temp.",
+						},
+					},
+				],
+			},
+		];
+		let turn = 0;
+		server = await startSmartHomeBridgeServer({
+			port: 0,
+			openAIModel: async () => {
+				const response = script[turn++];
+				if (!response) {
+					throw new Error("OpenAI bridge script exhausted");
+				}
+				return response;
+			},
+		});
+		const socket = new WebSocket(`ws://127.0.0.1:${server.port}/bridge`);
+		const messages = collectMessages(socket);
+
+		await opened(socket);
+		await messages.next("home:view");
+		const error = await messages.next("home:error");
+
+		expect(error.command).toBe("setThermostat");
+		expect(error.view).toMatchObject({ allDoorsLocked: true });
+
+		socket.close();
+	});
+
+	it("routes browser commands into the actor-web-backed shared runtime when runtimeFactory is injected", async () => {
+		server = await startSmartHomeBridgeServer({
+			port: 0,
+			runAgent: false,
+			runtimeFactory: createActorWebHomeSession,
+		});
+		const socket = new WebSocket(`ws://127.0.0.1:${server.port}/bridge`);
+		const messages = collectMessages(socket);
+
+		await opened(socket);
+		await messages.next("home:view");
+
+		socket.send(
+			serializeBridgeMessage(createCommandMessage("runScene", "movie")),
+		);
+
+		const result = await messages.next("home:command-result");
+		expect(result.command).toBe("runScene");
+		expect(result.view).toMatchObject({
+			activeScene: "movie",
+			lights: { living: false },
+		});
+
+		socket.close();
+	});
+
+	it("closes an acquired runtime session when setup fails after acquisition", async () => {
+		const session = createLocalHomeSession();
+		let sessionClosed = false;
+
+		await expect(
+			startSmartHomeBridgeServer({
+				port: 0,
+				runAgent: false,
+				runtimeFactory: () => ({
+					home: undefined as unknown as HomeAgentRuntime,
+					close: async () => {
+						sessionClosed = true;
+						await session.close();
+					},
+				}),
+			}),
+		).rejects.toThrow();
+		try {
+			expect(sessionClosed).toBe(true);
+		} finally {
+			if (!sessionClosed) {
+				await session.close();
+			}
+		}
+	});
+
+	it("reports normal shutdown cleanup failures after closing acquired resources", async () => {
+		const session = createLocalHomeSession();
+		const bridge = await startSmartHomeBridgeServer({
+			port: 0,
+			runAgent: false,
+			runtimeFactory: () => ({
+				home: session.home,
+				close: async () => {
+					await session.close();
+					throw new Error("session close failed");
+				},
+			}),
+		});
+
+		await expect(bridge.close()).rejects.toThrow("session close failed");
+	});
 });
 
 function collectMessages(socket: WebSocket) {
@@ -116,4 +374,8 @@ function opened(socket: WebSocket): Promise<void> {
 		socket.once("open", () => resolve());
 		socket.once("error", reject);
 	});
+}
+
+function delay(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }

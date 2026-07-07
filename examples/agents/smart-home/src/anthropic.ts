@@ -1,5 +1,9 @@
 import type { AgentResult } from "./agentLoop";
 import { runHomeAgent } from "./agentLoop";
+import {
+	printAndCloseAgentResult,
+	resolveSmartHomeRuntimeFactory,
+} from "./cli";
 import { createHome } from "./home";
 import { anthropicModel } from "./model";
 import { renderHome } from "./render";
@@ -41,8 +45,11 @@ console.log(renderHome(createHome().getView()));
 console.log(`\n🗣️  "${prompt}"\n`);
 
 try {
-	const result = await runHomeAgent(anthropicModel({ apiKey }), prompt);
-	printSession(result);
+	const runtimeFactory = resolveSmartHomeRuntimeFactory();
+	const result = await runHomeAgent(anthropicModel({ apiKey }), prompt, {
+		runtimeFactory,
+	});
+	await printAndCloseAgentResult(result, printSession);
 } catch (error) {
 	const message = error instanceof Error ? error.message : String(error);
 	const code =
@@ -56,7 +63,9 @@ try {
 		console.error(
 			"\n@anthropic-ai/sdk is not installed. Run `npm install @anthropic-ai/sdk` and retry.",
 		);
-		process.exit(1);
+		process.exitCode = 1;
+	} else {
+		console.error(`\n${message}`);
+		process.exitCode = 1;
 	}
-	throw error;
 }

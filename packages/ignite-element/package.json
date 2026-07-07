@@ -36,6 +36,9 @@
 			],
 			"tools/anthropic": [
 				"dist/types/tools/anthropic/index.d.ts"
+			],
+			"tools/openai": [
+				"dist/types/tools/openai/index.d.ts"
 			]
 		}
 	},
@@ -105,6 +108,12 @@
 			"import": "./dist/tools/anthropic.es.js",
 			"require": "./dist/tools/anthropic.cjs.js",
 			"default": "./dist/tools/anthropic.es.js"
+		},
+		"./tools/openai": {
+			"types": "./dist/types/tools/openai/index.d.ts",
+			"import": "./dist/tools/openai.es.js",
+			"require": "./dist/tools/openai.cjs.js",
+			"default": "./dist/tools/openai.es.js"
 		},
 		"./package.json": "./package.json"
 	},

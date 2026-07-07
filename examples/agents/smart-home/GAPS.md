@@ -92,8 +92,29 @@ scripted `igniteTools` terminal agent against it, serves a browser
 protocol. Browser commands route back through `igniteTools.run()`, while
 `igniteTools.observe()` broadcasts runtime events and view updates.
 
-**Still a follow-up:** the bridge is intentionally example-local. It is the
-actor-web-native location-transparency stand-in, not the final integration. When
-actor-web exposes the durable transport contract, replace `src/bridge.ts` /
-`src/server.ts` with the real actor-web source boundary and keep the Ignite UI
-on the same `source`-first shape.
+**Update:** the example can now swap that shared runtime to an actor-web-backed
+Ignite runtime with `SMART_HOME_RUNTIME=actor-web`, so the dogfood loop proves
+real actor-web source projection, command execution, and emitted-event capture
+through `igniteTools`.
+
+**Still a follow-up:** the bridge is intentionally example-local. Even in
+actor-web mode it is not the runtime gateway/client path; it is still a thin
+local WebSocket shell around the shared home runtime. A later follow-up can
+replace `src/bridge.ts` / `src/server.ts` with the real actor-web transport
+surface while keeping the Ignite UI on the same `source`-first shape.
+
+## Boundary closeout
+
+The current dogfood story is complete for Ignite's v3 target: a real agent loop
+can drive a headless Ignite runtime through `igniteTools`, can use an
+OpenAI-compatible local MLX server without an MLX-specific Ignite dependency, and
+can swap the backing runtime to actor-web through the same command/view contract.
+
+The remaining ecosystem work is deliberately outside this example's ownership:
+
+- durable MLX provider lifecycle and operator setup belong in fas-local.
+- actor-web gateway/client transport and distributed runtime hosting belong in
+  actor-web.
+- this example should continue to validate Ignite's projection, command,
+  observation, and tool-manifest seams with deterministic tests first, then
+  opt-in live model/manual validation.

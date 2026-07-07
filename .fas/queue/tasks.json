@@ -62,12 +62,12 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
         "task-1782187745669",
-        "task-1783286029030"
+        "task-1783357471256"
       ],
       "blocks": [
         "task-1781805262589"
@@ -76,7 +76,7 @@
       "prDependencies": [],
       "createdAt": "2026-06-17T19:31:51.926Z",
       "updatedAt": "2026-07-05T21:13:49.030Z",
-      "deferredReason": "dependency_reopened: task-1783286029030",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -254,106 +254,6 @@
       "createdAt": "2026-06-20T01:39:07.313Z",
       "updatedAt": "2026-07-02T20:00:00.000Z",
       "deferredReason": "dependency_reopened: task-1781724738855",
-      "invalidationReason": null
-    },
-    {
-      "id": "task-1783285994418",
-      "task": "igniteTools: add OpenAI-compatible ToolDialect for OpenAI, Ollama, and MLX servers",
-      "priority": "high",
-      "source": "manual",
-      "details": "Promote the existing OpenAI-compatible provider plan into the live v3 queue. Implement ignite-element/tools/openai as an SDK-free ToolDialect that maps NeutralManifest to OpenAI Chat Completions tool definitions, parses tool_calls back to NeutralToolCall, emits role=tool result messages, and reuses the shared scalar wrap/unwrap helpers. This is the provider seam required for local MLX servers and other OpenAI-compatible runtimes without adding provider SDK dependencies to ignite-element core.\nSee .fas/tasks/ignitetools-add-openai-compatible-tooldialect-for-openai-oll.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "queued",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1782187745669"
-      ],
-      "blocks": [
-        "task-1783286005193"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-05T21:13:14.418Z",
-      "updatedAt": "2026-07-05T21:13:25.193Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
-      "id": "task-1783286005193",
-      "task": "examples/smart-home: add local MLX OpenAI-compatible model loop and demo mode",
-      "priority": "high",
-      "source": "manual",
-      "details": "Extend the existing smart-home agent example so the same headless runtime and igniteTools loop can run against a local MLX server exposed through an OpenAI-compatible /v1/chat/completions endpoint. Keep the example self-contained: tests use fake fetch or scripted responses, live validation is opt-in, and the example fails with actionable setup guidance when no local server is running. Include a CLI path such as npm run mlx and, if the existing bridge shape supports it cleanly, a demo:mlx mode where the local model and browser UI share one runtime.\nSee .fas/tasks/examples-smart-home-add-local-mlx-openai-compatible-model-lo.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "deferred",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1783285994418"
-      ],
-      "blocks": [
-        "task-1783286017890"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-05T21:13:25.193Z",
-      "updatedAt": "2026-07-05T21:13:37.891Z",
-      "deferredReason": "dependency_reopened: task-1783285994418",
-      "invalidationReason": null
-    },
-    {
-      "id": "task-1783286017890",
-      "task": "examples/agent: add actor-web-backed real-agent dogfood using igniteTools",
-      "priority": "high",
-      "source": "manual",
-      "details": "Add a focused dogfood example that points a real agent loop at an actor-web-backed ignite component through igniteTools. The goal is to prove the closed loop across actor-web source projection, command execution, emitted events, canExecute/tool gating where applicable, and view-grounded observations without making ignite-element own actor-web runtime semantics. Prefer the established Actor-Web + Ignite DX: defineActor -> defineActorWebTopology -> igniteCore, explicit topology.source(actorKey), and commands that call actor.send or actor.ask. Live model validation may use the OpenAI-compatible/MLX path, but CI must remain deterministic with fake provider responses.\nSee .fas/tasks/examples-agent-add-actor-web-backed-real-agent-dogfood-using.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "deferred",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [
-        "task-1783286005193"
-      ],
-      "blocks": [
-        "task-1783286029030"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-05T21:13:37.891Z",
-      "updatedAt": "2026-07-05T21:13:49.030Z",
-      "deferredReason": "dependency_reopened: task-1783286005193",
-      "invalidationReason": null
-    },
-    {
-      "id": "task-1783286029030",
-      "task": "docs: document local-model agent workflows and ecosystem boundaries for v3",
-      "priority": "high",
-      "source": "manual",
-      "details": "Close the Ignite-side agent/local-model showcase by documenting how to use the OpenAI-compatible ToolDialect with hosted OpenAI-compatible providers and local MLX servers, how the smart-home example is validated, and how the actor-web-backed real-agent dogfood fits the ecosystem. Update roadmap language so the agent/local-model epic is explicitly before launch polish and stable v3. Preserve the ownership split: ignite-element owns projection, headless runtime, and tool manifest bridge; fas-local owns durable MLX provider lifecycle; actor-web owns execution/data-plane hosting and topology.\nSee .fas/tasks/docs-document-local-model-agent-workflows-and-ecosystem-boun.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "deferred",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1783286017890"
-      ],
-      "blocks": [
-        "task-1781724711926"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-05T21:13:49.030Z",
-      "updatedAt": "2026-07-05T21:13:49.030Z",
-      "deferredReason": "dependency_reopened: task-1783286017890",
       "invalidationReason": null
     }
   ],
@@ -2871,6 +2771,125 @@
       "terminalOutcome": null,
       "workflowId": "direct-1783290160006",
       "branchName": "fas/v3-additive-api-and-examples",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1783285994418",
+      "task": "igniteTools: add OpenAI-compatible ToolDialect for OpenAI, Ollama, and MLX servers",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "done",
+      "dependsOn": [
+        "task-1782187745669"
+      ],
+      "blocks": [
+        "task-1783286005193"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-06T17:55:17.123Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783350300693",
+      "branchName": "fas/local-model-agent-ecosystem",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1783286005193",
+      "task": "examples/smart-home: add local MLX OpenAI-compatible model loop and demo mode",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "done",
+      "dependsOn": [
+        "task-1783285994418"
+      ],
+      "blocks": [
+        "task-1783286017890"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-06T17:55:30.868Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783350825908",
+      "branchName": "fas/local-model-agent-ecosystem",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1783286017890",
+      "task": "examples/agent: add actor-web-backed real-agent dogfood using igniteTools",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "done",
+      "dependsOn": [
+        "task-1783286005193"
+      ],
+      "blocks": [
+        "task-1783286029030"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-06T17:55:45.175Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783351500451",
+      "branchName": "fas/local-model-agent-ecosystem",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1783286029030",
+      "task": "docs: document local-model agent workflows and ecosystem boundaries for v3",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1783286017890"
+      ],
+      "blocks": [
+        "task-1783357471256"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-06T17:55:56.575Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783356291569",
+      "branchName": "fas/local-model-agent-ecosystem",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1783357471256",
+      "task": "fix: address local-model epic CodeRabbit findings",
+      "priority": "high",
+      "source": "code-review",
+      "taskClassification": "standard",
+      "selfImprovementCategory": null,
+      "signalFingerprint": null,
+      "status": "done",
+      "dependsOn": [
+        "task-1783286029030"
+      ],
+      "blocks": [
+        "task-1781724711926"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-07T06:04:44.828Z",
+      "terminalOutcome": "success",
+      "workflowId": "direct-1783357471256",
+      "branchName": "fas/local-model-agent-ecosystem",
       "prStatus": "draft-only"
     }
   ],

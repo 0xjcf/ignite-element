@@ -1,6 +1,10 @@
 import type { AnthropicResponse } from "ignite-element/tools/anthropic";
 import type { AgentResult } from "./agentLoop";
 import { runHomeAgent } from "./agentLoop";
+import {
+	printAndCloseAgentResult,
+	resolveSmartHomeRuntimeFactory,
+} from "./cli";
 import { createHome } from "./home";
 import { scriptedModel } from "./model";
 import { renderHome } from "./render";
@@ -77,10 +81,20 @@ function printSession(result: AgentResult): void {
 	console.log(renderHome(result.home.getView()));
 }
 
-console.log("🏠 Smart-home agent — scripted, key-free, headless (no DOM)\n");
-console.log("Initial state:");
-console.log(renderHome(createHome().getView()));
-console.log(`\n🗣️  "${prompt}"\n`);
+try {
+	const runtimeFactory = resolveSmartHomeRuntimeFactory();
 
-const result = await runHomeAgent(scriptedModel(script), prompt);
-printSession(result);
+	console.log("🏠 Smart-home agent — scripted, key-free, headless (no DOM)\n");
+	console.log("Initial state:");
+	console.log(renderHome(createHome().getView()));
+	console.log(`\n🗣️  "${prompt}"\n`);
+
+	const result = await runHomeAgent(scriptedModel(script), prompt, {
+		runtimeFactory,
+	});
+	await printAndCloseAgentResult(result, printSession);
+} catch (error) {
+	const message = error instanceof Error ? error.message : String(error);
+	console.error(`\n${message}`);
+	process.exitCode = 1;
+}

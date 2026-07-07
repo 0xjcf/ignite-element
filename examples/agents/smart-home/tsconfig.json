@@ -26,6 +26,9 @@
 			"@ignite-element/adapters/xstate": [
 				"../../../packages/ignite-adapters/src/xstate.ts"
 			],
+			"@ignite-element/adapters/actor-web": [
+				"../../../packages/ignite-adapters/src/actor-web.ts"
+			],
 			"@ignite-element/adapters/redux": [
 				"../../../packages/ignite-adapters/src/redux.ts"
 			],

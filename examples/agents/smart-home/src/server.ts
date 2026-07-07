@@ -16,15 +16,35 @@ import {
 	type AnthropicToolResultBlock,
 	anthropic,
 } from "ignite-element/tools/anthropic";
+import {
+	type OpenAIChatCompletionResponse,
+	type OpenAIChatToolResultMessage,
+	openai,
+} from "ignite-element/tools/openai";
 import type { ViteDevServer } from "vite";
 import { createServer as createViteServer } from "vite";
 import { WebSocket, WebSocketServer } from "ws";
 import type { HomeBridgeClientMessage, HomeBridgeMessage } from "./bridge";
 import { parseBridgeMessage, serializeBridgeMessage } from "./bridge";
-import { type AnthropicMessage, type Model, scriptedModel } from "./model";
-import { renderHome } from "./render";
+import { resolveSmartHomeRuntimeFactory } from "./cli";
+import { runSmartHomeBridgeCli, waitForLifecyclePromise } from "./lifecycle";
+import {
+	type AnthropicMessage,
+	assertOpenAIChatCompletionResponse,
+	firstOpenAIChoiceResponse,
+	type Model,
+	type OpenAICompatibleMessage,
+	type OpenAICompatibleModel,
+	scriptedModel,
+	toOpenAIAssistantMessage,
+} from "./model";
 import type { HomeView } from "./render";
-import { createHome } from "./shared/home";
+import { renderHome } from "./render";
+import {
+	createLocalHomeSession,
+	type HomeAgentRuntime,
+	type HomeRuntimeFactory,
+} from "./shared/home";
 
 export type SmartHomeBridgeServer = {
 	port: number;
@@ -40,6 +60,17 @@ type SharedHomeAgentTools = {
 	toolResult(
 		result: NeutralToolResult<unknown, HomeView>,
 	): AnthropicToolResultBlock;
+};
+
+type SharedHomeOpenAICompatibleAgentTools = {
+	tools: Parameters<OpenAICompatibleModel>[0]["tools"];
+	toolCalls(response: OpenAIChatCompletionResponse): NeutralToolCall[];
+	run(
+		call: NeutralToolCall,
+	): Promise<Result<ToolObservation<unknown, HomeView>, ToolError>>;
+	toolResult(
+		result: NeutralToolResult<unknown, HomeView>,
+	): OpenAIChatToolResultMessage;
 };
 
 type TerminalTools = {
@@ -122,143 +153,236 @@ export async function startSmartHomeBridgeServer(
 		port?: number;
 		runAgent?: boolean;
 		model?: Model;
+		openAIModel?: OpenAICompatibleModel;
 		terminal?: boolean;
+		runtimeFactory?: HomeRuntimeFactory;
 	} = {},
 ): Promise<SmartHomeBridgeServer> {
 	const port = options.port ?? Number(process.env.PORT ?? DEFAULT_PORT);
-	const home = createHome();
-	const tools = igniteTools(home);
-	const agentTools = igniteTools(
-		home,
-		anthropic,
-	) as unknown as SharedHomeAgentTools;
-	const vite = await createViteMiddleware();
-	const httpServer = createHttpServer((request, response) => {
-		vite.middlewares(request, response, () => {
-			response.statusCode = 404;
-			response.end("Not found");
-		});
-	});
-	const wss = new WebSocketServer({ server: httpServer, path: "/bridge" });
+	const session = await resolveSharedHomeSession(options.runtimeFactory);
 	let agentStarted = false;
+	let agentLifecycle: Promise<void> | undefined;
+	let closing = false;
 	let terminal: TerminalControls | undefined;
+	let stream: { unsubscribe(): void } | undefined;
+	let vite: ViteDevServer | undefined;
+	let httpServer: Server | undefined;
+	let wss: WebSocketServer | undefined;
 
-	const broadcast = (message: HomeBridgeMessage) => {
-		const payload = serializeBridgeMessage(message);
-		for (const client of wss.clients) {
-			if (client.readyState === WebSocket.OPEN) {
-				client.send(payload);
-			}
-		}
-		if (message.type === "home:command-result") {
-			terminal?.reportCommand(message.command, message.view);
-		}
-	};
-
-	const stream = tools.observe((observation) => {
-		const view = home.getView();
-		if (observation.type === "event") {
-			broadcast({ type: "home:event", event: observation.event, view });
-		} else {
-			broadcast({ type: "home:view", view });
-		}
-	});
-
-	wss.on("connection", (socket) => {
-		socket.on("error", (error) => {
-			console.error("smart-home bridge socket error:", error);
+	try {
+		const { home } = session;
+		const tools = igniteTools(home);
+		const agentTools = igniteTools(
+			home,
+			anthropic,
+		) as unknown as SharedHomeAgentTools;
+		const openAIAgentTools = igniteTools(
+			home,
+			openai,
+		) as unknown as SharedHomeOpenAICompatibleAgentTools;
+		vite = await createViteMiddleware();
+		httpServer = createHttpServer((request, response) => {
+			vite?.middlewares(request, response, () => {
+				response.statusCode = 404;
+				response.end("Not found");
+			});
 		});
-		socket.send(
-			serializeBridgeMessage({ type: "home:view", view: home.getView() }),
-		);
-		startAgentOnce();
-		socket.on("message", (payload) => {
-			void handleClientMessage(
-				String(payload),
-				(commandMessage) =>
-					void tools
-						.run({
-							name: commandMessage.command,
-							input: commandMessage.input,
-						})
-						.then((result) => {
-							if (isOk(result)) {
-								broadcast({
-									type: "home:command-result",
-									command: commandMessage.command,
-									ok: true,
-									view: home.getView(),
-								});
-								return;
-							}
-							socket.send(
-								serializeBridgeMessage({
+		wss = new WebSocketServer({ server: httpServer, path: "/bridge" });
+
+		const broadcast = (message: HomeBridgeMessage) => {
+			if (closing) {
+				return;
+			}
+			const payload = serializeBridgeMessage(message);
+			for (const client of wss?.clients ?? []) {
+				if (client.readyState === WebSocket.OPEN) {
+					client.send(payload);
+				}
+			}
+			if (message.type === "home:command-result") {
+				terminal?.reportCommand(message.command, message.view);
+			}
+		};
+
+		stream = tools.observe((observation) => {
+			const view = home.getView();
+			if (observation.type === "event") {
+				broadcast({ type: "home:event", event: observation.event, view });
+			} else {
+				broadcast({ type: "home:view", view });
+			}
+		});
+
+		wss.on("connection", (socket) => {
+			socket.on("error", (error) => {
+				console.error("smart-home bridge socket error:", error);
+			});
+			const sendSocketMessage = (message: HomeBridgeMessage) => {
+				if (closing || socket.readyState !== WebSocket.OPEN) {
+					return;
+				}
+				socket.send(serializeBridgeMessage(message));
+			};
+			sendSocketMessage({ type: "home:view", view: home.getView() });
+			startAgentOnce();
+			socket.on("message", (payload) => {
+				if (closing) {
+					return;
+				}
+				void handleClientMessage(
+					String(payload),
+					(commandMessage) =>
+						void tools
+							.run({
+								name: commandMessage.command,
+								input: commandMessage.input,
+							})
+							.then((result) => {
+								if (closing) {
+									return;
+								}
+								if (isOk(result)) {
+									broadcast({
+										type: "home:command-result",
+										command: commandMessage.command,
+										ok: true,
+										view: home.getView(),
+									});
+									return;
+								}
+								sendSocketMessage({
 									type: "home:error",
 									command: commandMessage.command,
 									message: result.error.kind,
 									view: home.getView(),
-								}),
-							);
-						})
-						.catch((error) => {
-							socket.send(
-								serializeBridgeMessage({
+								});
+							})
+							.catch((error) => {
+								if (closing) {
+									return;
+								}
+								sendSocketMessage({
 									type: "home:error",
 									command: commandMessage.command,
 									message:
 										error instanceof Error ? error.message : String(error),
 									view: home.getView(),
-								}),
-							);
-						}),
-				(error) => {
-					socket.send(
-						serializeBridgeMessage({
+								});
+							}),
+					(error) => {
+						sendSocketMessage({
 							type: "home:error",
 							message: error instanceof Error ? error.message : String(error),
 							view: home.getView(),
-						}),
-					);
-				},
-			);
+						});
+					},
+				);
+			});
 		});
-	});
 
-	await listen(httpServer, port);
-	const assignedPort = resolveServerPort(httpServer, port);
-	if (options.terminal) {
-		terminal = startTerminalControls({
-			home,
-			tools: tools as unknown as TerminalTools,
-			broadcast,
-		});
-	}
-
-	function startAgentOnce(): void {
-		if (agentStarted || options.runAgent === false) {
-			return;
+		await listen(httpServer, port);
+		const assignedPort = resolveServerPort(httpServer, port);
+		if (options.terminal) {
+			terminal = startTerminalControls({
+				home,
+				tools: tools as unknown as TerminalTools,
+				broadcast,
+			});
 		}
-		agentStarted = true;
-		runSharedHomeAgent(
-			options.model ?? scriptedModel(demoScript),
-			agentTools,
-			prompt,
-			broadcast,
-		).catch((error) => {
-			console.error("smart-home bridge agent failed:", error);
-		});
-	}
 
-	return {
-		port: assignedPort,
-		close: async () => {
-			terminal?.close();
-			stream.unsubscribe();
-			await closeWebSocketServer(wss);
-			await closeServer(httpServer);
-			await vite.close();
-		},
-	};
+		function startAgentOnce(): void {
+			if (agentStarted || options.runAgent === false || closing) {
+				return;
+			}
+			agentStarted = true;
+			const runPromise = (
+				options.openAIModel
+					? runSharedHomeOpenAICompatibleAgent(
+							options.openAIModel,
+							openAIAgentTools,
+							prompt,
+							broadcast,
+							() => home.getView(),
+							() => closing,
+						)
+					: runSharedHomeAgent(
+							options.model ?? scriptedModel(demoScript),
+							agentTools,
+							prompt,
+							broadcast,
+							() => home.getView(),
+							() => closing,
+						)
+			).catch((error) => {
+				if (closing) {
+					return;
+				}
+				console.error("smart-home bridge agent failed:", error);
+				broadcast({
+					type: "home:error",
+					message: error instanceof Error ? error.message : String(error),
+					view: home.getView(),
+				});
+			});
+			const lifecycle = runPromise.finally(() => {
+				if (agentLifecycle === lifecycle) {
+					agentLifecycle = undefined;
+				}
+			});
+			agentLifecycle = lifecycle;
+			void lifecycle;
+		}
+
+		if (!stream || !wss || !httpServer || !vite) {
+			throw new Error("smart-home bridge server startup was incomplete.");
+		}
+		const bridgeStream = stream;
+		const bridgeWss = wss;
+		const bridgeHttpServer = httpServer;
+		const bridgeVite = vite;
+
+		return {
+			port: assignedPort,
+			close: async () => {
+				closing = true;
+				const currentAgentLifecycle = agentLifecycle;
+				await cleanupAndThrow([
+					() => terminal?.close(),
+					() => waitForAgentLifecycle(currentAgentLifecycle),
+					() => bridgeStream.unsubscribe(),
+					() => closeWebSocketServer(bridgeWss),
+					() => closeServer(bridgeHttpServer),
+					() => bridgeVite.close(),
+					() => session.close(),
+				]);
+			},
+		};
+	} catch (error) {
+		closing = true;
+		const currentAgentLifecycle = agentLifecycle;
+		await cleanupBestEffort([
+			() => waitForAgentLifecycle(currentAgentLifecycle),
+			() => terminal?.close(),
+			() => stream?.unsubscribe(),
+			async () => {
+				if (wss) {
+					await closeWebSocketServer(wss);
+				}
+			},
+			async () => {
+				if (httpServer?.listening) {
+					await closeServer(httpServer);
+				}
+			},
+			async () => {
+				if (vite) {
+					await vite.close();
+				}
+			},
+			() => session.close(),
+		]);
+		throw error;
+	}
 }
 
 export function parseTerminalCommand(
@@ -326,7 +450,7 @@ export function parseTerminalCommand(
 }
 
 function startTerminalControls(options: {
-	home: ReturnType<typeof createHome>;
+	home: HomeAgentRuntime;
 	tools: TerminalTools;
 	broadcast: (message: HomeBridgeMessage) => void;
 }): TerminalControls {
@@ -367,7 +491,7 @@ function startTerminalControls(options: {
 async function handleTerminalLine(
 	line: string,
 	options: {
-		home: ReturnType<typeof createHome>;
+		home: HomeAgentRuntime;
 		tools: TerminalTools;
 		broadcast: (message: HomeBridgeMessage) => void;
 	},
@@ -424,6 +548,59 @@ function printTerminalHelp(view: HomeView): void {
 	console.log(renderHome(view));
 }
 
+function reportStartupCleanupError(error: unknown): void {
+	console.error("smart-home bridge startup cleanup failed:", error);
+}
+
+async function collectCleanupErrors(
+	cleanups: Array<() => void | Promise<void>>,
+): Promise<unknown[]> {
+	const errors: unknown[] = [];
+	for (const cleanup of cleanups) {
+		try {
+			await cleanup();
+		} catch (error) {
+			errors.push(error);
+		}
+	}
+	return errors;
+}
+
+async function cleanupBestEffort(
+	cleanups: Array<() => void | Promise<void>>,
+): Promise<void> {
+	for (const error of await collectCleanupErrors(cleanups)) {
+		reportStartupCleanupError(error);
+	}
+}
+
+async function cleanupAndThrow(
+	cleanups: Array<() => void | Promise<void>>,
+): Promise<void> {
+	const errors = await collectCleanupErrors(cleanups);
+	if (errors.length === 0) {
+		return;
+	}
+	const primary = errors[0];
+	if (primary instanceof Error) {
+		if (errors.length > 1) {
+			const errorWithSuppressed = primary as Error & {
+				suppressedErrors?: unknown[];
+			};
+			errorWithSuppressed.suppressedErrors = errors.slice(1);
+		}
+		throw primary;
+	}
+	const error = new Error(String(primary));
+	if (errors.length > 1) {
+		const errorWithSuppressed = error as Error & {
+			suppressedErrors?: unknown[];
+		};
+		errorWithSuppressed.suppressedErrors = errors.slice(1);
+	}
+	throw error;
+}
+
 async function createViteMiddleware(): Promise<ViteDevServer> {
 	return createViteServer({
 		root: appRoot,
@@ -455,11 +632,19 @@ async function runSharedHomeAgent(
 	tools: SharedHomeAgentTools,
 	userPrompt: string,
 	broadcast: (message: HomeBridgeMessage) => void,
+	getView: () => HomeView,
+	shouldStop: () => boolean,
 ): Promise<void> {
 	const messages: AnthropicMessage[] = [{ role: "user", content: userPrompt }];
 
 	for (let turn = 0; turn < MAX_TURNS; turn++) {
+		if (shouldStop()) {
+			return;
+		}
 		const response = await model({ tools: tools.tools, messages });
+		if (shouldStop()) {
+			return;
+		}
 		messages.push({ role: "assistant", content: response.content });
 		const calls = tools.toolCalls(response);
 
@@ -469,7 +654,13 @@ async function runSharedHomeAgent(
 
 		const resultBlocks: AnthropicToolResultBlock[] = [];
 		for (const call of calls) {
+			if (shouldStop()) {
+				return;
+			}
 			const result = await tools.run(call);
+			if (shouldStop()) {
+				return;
+			}
 			if (isOk(result)) {
 				broadcast({
 					type: "home:command-result",
@@ -482,6 +673,7 @@ async function runSharedHomeAgent(
 					type: "home:error",
 					command: call.name,
 					message: result.error.kind,
+					view: getView(),
 				});
 			}
 			resultBlocks.push(
@@ -489,6 +681,70 @@ async function runSharedHomeAgent(
 			);
 		}
 		messages.push({ role: "user", content: resultBlocks });
+	}
+}
+
+async function runSharedHomeOpenAICompatibleAgent(
+	model: OpenAICompatibleModel,
+	tools: SharedHomeOpenAICompatibleAgentTools,
+	userPrompt: string,
+	broadcast: (message: HomeBridgeMessage) => void,
+	getView: () => HomeView,
+	shouldStop: () => boolean,
+): Promise<void> {
+	const messages: OpenAICompatibleMessage[] = [
+		{ role: "user", content: userPrompt },
+	];
+
+	for (let turn = 0; turn < MAX_TURNS; turn++) {
+		if (shouldStop()) {
+			return;
+		}
+		const response = await model({ tools: tools.tools, messages });
+		if (shouldStop()) {
+			return;
+		}
+		assertOpenAIChatCompletionResponse(
+			response,
+			"OpenAI-compatible bridge model response",
+		);
+		const primaryResponse = firstOpenAIChoiceResponse(response);
+		messages.push(toOpenAIAssistantMessage(primaryResponse));
+		const calls = tools.toolCalls(primaryResponse);
+
+		if (calls.length === 0) {
+			return;
+		}
+
+		const resultMessages: OpenAIChatToolResultMessage[] = [];
+		for (const call of calls) {
+			if (shouldStop()) {
+				return;
+			}
+			const result = await tools.run(call);
+			if (shouldStop()) {
+				return;
+			}
+			if (isOk(result)) {
+				broadcast({
+					type: "home:command-result",
+					command: call.name,
+					ok: true,
+					view: result.value.view,
+				});
+			} else {
+				broadcast({
+					type: "home:error",
+					command: call.name,
+					message: result.error.kind,
+					view: getView(),
+				});
+			}
+			resultMessages.push(
+				tools.toolResult({ id: call.id, name: call.name, result }),
+			);
+		}
+		messages.push(...resultMessages);
 	}
 }
 
@@ -538,7 +794,35 @@ function resolveServerPort(server: Server, fallback: number): number {
 	return fallback;
 }
 
+async function resolveSharedHomeSession(runtimeFactory?: HomeRuntimeFactory) {
+	return await (runtimeFactory?.() ?? createLocalHomeSession());
+}
+
+async function waitForAgentLifecycle(
+	agentLifecycle: Promise<void> | undefined,
+): Promise<void> {
+	if (!agentLifecycle) {
+		return;
+	}
+	await waitForLifecyclePromise(
+		agentLifecycle,
+		"waiting for smart-home bridge agent before shutdown",
+	);
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
-	const server = await startSmartHomeBridgeServer({ terminal: true });
-	console.log(`Smart-home bridge listening on http://localhost:${server.port}`);
+	const runtimeFactory = resolveSmartHomeRuntimeFactory();
+	await runSmartHomeBridgeCli({
+		displayName: "Smart-home bridge",
+		start: () =>
+			startSmartHomeBridgeServer({
+				terminal: true,
+				runtimeFactory,
+			}),
+		onStarted: (server) => {
+			console.log(
+				`Smart-home bridge listening on http://localhost:${server.port}`,
+			);
+		},
+	});
 }
