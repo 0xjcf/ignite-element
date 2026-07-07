@@ -46,13 +46,20 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 			await Promise.allSettled([...pendingTransitionSends]);
 		}
 	};
+	let closed = false;
 	let sendAndFlush: (message: HomeCommand) => Promise<void> = async () => {
 		throw new Error("Actor-web home session is not ready.");
 	};
 	const homeTopology = createHomeTopology(() => {
+		if (closed) {
+			return;
+		}
 		clearPendingTransitionTimers();
 		const timer = setTimeout(() => {
 			pendingTransitionTimers.delete(timer);
+			if (closed) {
+				return;
+			}
 			const pendingSend = sendAndFlush({ type: "APPLY_PENDING_SCENE" }).catch(
 				(error) => {
 					console.error("Failed to apply pending scene transition", error);
@@ -100,6 +107,7 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 		return {
 			home,
 			close: async () => {
+				closed = true;
 				clearPendingTransitionTimers();
 				await waitForPendingTransitionSends();
 				const errors: unknown[] = [];
@@ -128,6 +136,7 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 			},
 		};
 	} catch (error) {
+		closed = true;
 		clearPendingTransitionTimers();
 		if (sourceHandle) {
 			await sourceHandle.stop().catch((cleanupError: unknown) => {

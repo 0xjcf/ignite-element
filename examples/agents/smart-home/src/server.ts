@@ -344,6 +344,7 @@ export async function startSmartHomeBridgeServer(
 			},
 		};
 	} catch (error) {
+		closing = true;
 		await cleanupBestEffort([
 			() => terminal?.close(),
 			() => stream?.unsubscribe(),
