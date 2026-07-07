@@ -59,7 +59,7 @@ SCOPE EXPANDED 2026-06-20 to the FULL rename (option b), not method-only. The va
 - (refine the exact file set during planning; this is the full-rename (b) estimate)
 
 ## Scope Amendments
-- 2026-06-20: expanded from method-only (a) to the full `state`->`snapshot` rename (b) — see Problem. Owner-approved. Pairs with the typed-view follow-up (task-1781971975611), which also touches types/agent.ts + the view projection — sequence typed-view first (additive) or fold its threading into the view-context change so the agent-runtime types aren't double-touched.
+- 2026-06-20: expanded from method-only (a) to the full `state`->`snapshot` rename (b) — see Problem. Owner-approved. Historical sequencing note: this originally paired with the typed-view follow-up (task-1781971975611), which is now complete.
 - 2026-07-07: amended from beta soft-landing/deprecated aliases to v3 beta removal. This matches the current breaking cutover batch policy already applied to event shape and view context.
 - 2026-07-07: CodeRabbit closeout review found one stale XState adapter README event-shape snippet. Include that self-contained example doc in this task so the flat event/snapshot cutover examples stay copy-pasteable.
 

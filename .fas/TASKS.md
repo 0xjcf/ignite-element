@@ -1318,7 +1318,7 @@ No active tasks.
 
 - Title: BREAKING (v3 cutover): canonical flat tagged event { type, ...fields } across emit/observe/expectEvent per docs/event-sh
 - Mode: single-agent
-- Status: review
+- Status: done
 - Owner: reviewer
 - Brief: .fas/tasks/breaking-v3-cutover-canonical-flat-tagged-event-type-fields-.md
 - Verification lane: fast
@@ -1329,7 +1329,7 @@ No active tasks.
 
 - Title: BREAKING (v3 cutover): uniform view/effects context = { snapshot } only (drop the spread) per docs/view-context-canonica
 - Mode: single-agent
-- Status: review
+- Status: done
 - Owner: reviewer
 - Brief: .fas/tasks/breaking-v3-cutover-uniform-view-effects-context-snapshot-on.md
 - Verification lane: fast
@@ -1340,7 +1340,7 @@ No active tasks.
 
 - Title: BREAKING (v3 cutover): rename expectState -> expectSnapshot (deprecated alias) + expectEvent member form per docs/v3-api
 - Mode: single-agent
-- Status: review
+- Status: done
 - Owner: reviewer
 - Brief: .fas/tasks/breaking-v3-cutover-rename-expectstate-expectsnapshot-deprec.md
 - Verification lane: fast
