@@ -35,6 +35,27 @@ import {
 	toOpenAIAssistantMessage,
 } from "./model";
 
+type RecordedFetchCall = { input: RequestInfo | URL; init?: RequestInit };
+
+function recordingOpenAICompatibleFetch(
+	response: OpenAIChatCompletionResponse,
+): {
+	calls: RecordedFetchCall[];
+	fetch: typeof fetch;
+} {
+	const calls: RecordedFetchCall[] = [];
+	return {
+		calls,
+		fetch: async (input, init) => {
+			calls.push({ input, init });
+			return new Response(JSON.stringify(response), {
+				status: 200,
+				headers: { "content-type": "application/json" },
+			});
+		},
+	};
+}
+
 describe("smart-home agent — Anthropic tool schemas (getSchema → adapter)", () => {
 	const { tools } = igniteTools(createHome(), anthropic);
 	const byName = (name: string) => tools.find((tool) => tool.name === name);
@@ -713,14 +734,8 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 				{ message: { role: "assistant", content: "No tools needed." } },
 			],
 		};
-		const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
-		const fetchImpl: typeof fetch = async (input, init) => {
-			calls.push({ input, init });
-			return new Response(JSON.stringify(response), {
-				status: 200,
-				headers: { "content-type": "application/json" },
-			});
-		};
+		const { calls, fetch: fetchImpl } =
+			recordingOpenAICompatibleFetch(response);
 		const model = openAICompatibleModel({
 			baseUrl: "http://127.0.0.1:8080/v1",
 			model: "mlx-test",
@@ -751,14 +766,8 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 				{ message: { role: "assistant", content: "Tools are available." } },
 			],
 		};
-		const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
-		const fetchImpl: typeof fetch = async (input, init) => {
-			calls.push({ input, init });
-			return new Response(JSON.stringify(response), {
-				status: 200,
-				headers: { "content-type": "application/json" },
-			});
-		};
+		const { calls, fetch: fetchImpl } =
+			recordingOpenAICompatibleFetch(response);
 		const model = openAICompatibleModel({
 			baseUrl: "http://127.0.0.1:8080/v1",
 			model: "mlx-test",

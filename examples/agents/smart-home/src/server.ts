@@ -257,6 +257,9 @@ export async function startSmartHomeBridgeServer(
 								});
 							})
 							.catch((error) => {
+								if (closing) {
+									return;
+								}
 								sendSocketMessage({
 									type: "home:error",
 									command: commandMessage.command,
