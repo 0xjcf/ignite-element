@@ -154,31 +154,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1781818972687",
-      "task": "BREAKING (v3 cutover): uniform view/effects context = { snapshot } only (drop the spread) per docs/view-context-canonica",
-      "priority": "high",
-      "source": "manual",
-      "details": "Implement docs/view-context-canonicalization.md. Drop the createProjectionFactory spread ({ ...snapshot, snapshot }); the view (and effects) callback receives a single uniform { snapshot } arg with one data path (snapshot.*). Audit FacadeViewCallback / ViewContext typing and the headless getView projection. Update examples/docs still using { context }. BREAKING. MUST land in the SAME beta as event-shape + expectState rename, one goodway migration note. Decision locked 2026-06-18: { snapshot }-only (no convenience alias). Design: docs/view-context-canonicalization.md.\nSee .fas/tasks/breaking-v3-cutover-uniform-view-effects-context-snapshot-on.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "developer-experience",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1781818971210"
-      ],
-      "blocks": [
-        "task-1781818974159"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-06-18T21:42:52.687Z",
-      "updatedAt": "2026-07-07T15:37:47.827Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
       "id": "task-1781818974159",
       "task": "BREAKING (v3 cutover): rename expectState -> expectSnapshot (deprecated alias) + expectEvent member form per docs/v3-api",
       "priority": "high",
@@ -187,7 +162,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "developer-experience",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "processing",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -199,8 +174,8 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-18T21:42:54.159Z",
-      "updatedAt": "2026-06-18T21:43:50.963Z",
-      "deferredReason": "dependency_reopened: task-1781818972687",
+      "updatedAt": "2026-07-07T16:00:23.351Z",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -2880,6 +2855,29 @@
       "completedAt": "2026-07-07T15:37:30.265Z",
       "terminalOutcome": null,
       "workflowId": "direct-1783436658102",
+      "branchName": null,
+      "prStatus": null
+    },
+    {
+      "id": "task-1781818972687",
+      "task": "BREAKING (v3 cutover): uniform view/effects context = { snapshot } only (drop the spread) per docs/view-context-canonica",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "developer-experience",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1781818971210"
+      ],
+      "blocks": [
+        "task-1781818974159"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-07T15:59:48.851Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783438667823",
       "branchName": null,
       "prStatus": null
     }

@@ -1340,10 +1340,12 @@ No active tasks.
 
 - Title: BREAKING (v3 cutover): rename expectState -> expectSnapshot (deprecated alias) + expectEvent member form per docs/v3-api
 - Mode: single-agent
-- Status: deferred
-- Owner: runtime
-- Note: Re-sequenced 2026-07-07 — follows the view/effects context cutover and unblocks docs final sweep.
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/breaking-v3-cutover-rename-expectstate-expectsnapshot-deprec.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: V3 BETA: remove positional effects callback per docs/v3-api-consistency.md
 
