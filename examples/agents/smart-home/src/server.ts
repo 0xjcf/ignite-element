@@ -782,12 +782,65 @@ async function resolveSharedHomeSession(runtimeFactory?: HomeRuntimeFactory) {
 	return await (runtimeFactory?.() ?? createLocalHomeSession());
 }
 
+const BRIDGE_SHUTDOWN_WAIT_TIMEOUT_MS = 10_000;
+
+async function waitForBridgeShutdownBeforeExit(
+	promise: ReturnType<SmartHomeBridgeServer["close"]>,
+	signal: string,
+): Promise<void> {
+	let timeoutId: ReturnType<typeof setTimeout> | undefined;
+	try {
+		await Promise.race([
+			promise,
+			new Promise<never>((_, reject) => {
+				timeoutId = setTimeout(() => {
+					reject(
+						new Error(
+							`Timed out after ${BRIDGE_SHUTDOWN_WAIT_TIMEOUT_MS}ms closing smart-home bridge after ${signal}.`,
+						),
+					);
+				}, BRIDGE_SHUTDOWN_WAIT_TIMEOUT_MS);
+			}),
+		]);
+	} finally {
+		if (timeoutId) {
+			clearTimeout(timeoutId);
+		}
+	}
+}
+
+async function waitForBridgeStartupBeforeShutdown(
+	promise: ReturnType<typeof startSmartHomeBridgeServer>,
+	signal: string,
+): Promise<Awaited<ReturnType<typeof startSmartHomeBridgeServer>>> {
+	let timeoutId: ReturnType<typeof setTimeout> | undefined;
+	try {
+		return await Promise.race([
+			promise,
+			new Promise<never>((_, reject) => {
+				timeoutId = setTimeout(() => {
+					reject(
+						new Error(
+							`Timed out after ${BRIDGE_SHUTDOWN_WAIT_TIMEOUT_MS}ms waiting for smart-home bridge startup before ${signal}.`,
+						),
+					);
+				}, BRIDGE_SHUTDOWN_WAIT_TIMEOUT_MS);
+			}),
+		]);
+	} finally {
+		if (timeoutId) {
+			clearTimeout(timeoutId);
+		}
+	}
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
 	const runtimeFactory =
 		process.env.SMART_HOME_RUNTIME === "actor-web"
 			? createActorWebHomeSession
 			: undefined;
 	let server: SmartHomeBridgeServer | undefined;
+	let startupPromise: ReturnType<typeof startSmartHomeBridgeServer> | undefined;
 	let shuttingDown = false;
 	const shutdown = async (signal: string) => {
 		if (shuttingDown) {
@@ -795,7 +848,19 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
 		}
 		shuttingDown = true;
 		try {
-			await server?.close();
+			if (startupPromise) {
+				server = await waitForBridgeStartupBeforeShutdown(
+					startupPromise,
+					signal,
+				);
+			}
+			if (!server) {
+				console.error(
+					`\nSmart-home bridge was not available before ${signal}.`,
+				);
+				process.exit(1);
+			}
+			await waitForBridgeShutdownBeforeExit(server.close(), signal);
 			process.exit(0);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
@@ -809,10 +874,11 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
 	process.once("SIGTERM", () => void shutdown("SIGTERM"));
 
 	try {
-		server = await startSmartHomeBridgeServer({
+		startupPromise = startSmartHomeBridgeServer({
 			terminal: true,
 			runtimeFactory,
 		});
+		server = await startupPromise;
 		console.log(
 			`Smart-home bridge listening on http://localhost:${server.port}`,
 		);
