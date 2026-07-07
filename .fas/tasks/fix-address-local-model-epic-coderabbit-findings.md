@@ -47,6 +47,24 @@ fix: address local-model epic CodeRabbit findings
 - .fas/queue/tasks.json
 - .changeset/ignitetools-openai-dialect.md
 - .fas-config.json
+- examples/adapters/redux/package.json
+- examples/adapters/redux/pnpm-lock.yaml
+- examples/adapters/xstate/package.json
+- examples/adapters/xstate/pnpm-lock.yaml
+- examples/apps/dashboard-with-shared-state/package.json
+- examples/apps/dashboard-with-shared-state/pnpm-lock.yaml
+- examples/apps/form-with-validation/package.json
+- examples/apps/form-with-validation/pnpm-lock.yaml
+- examples/apps/nested-child-router/package.json
+- examples/apps/nested-child-router/pnpm-lock.yaml
+- examples/apps/spa-router/package.json
+- examples/apps/spa-router/pnpm-lock.yaml
+- examples/frameworks/react/package.json
+- examples/frameworks/react/pnpm-lock.yaml
+- examples/frameworks/svelte/package.json
+- examples/frameworks/svelte/pnpm-lock.yaml
+- examples/frameworks/vue/package.json
+- examples/frameworks/vue/pnpm-lock.yaml
 
 ## Scope Amendments
 - Added `examples/agents/smart-home/src/home.ts` after the second CodeRabbit
@@ -130,6 +148,15 @@ fix: address local-model epic CodeRabbit findings
 - Evidence source: CodeRabbit committed review
 - Evidence: CodeRabbit committed review | .fas-config.json | typecheckCommand now points to npm run typecheck:packages; package.json keeps typecheck:full and typecheck:examples for full/local and CI coverage.
 - Accuracy signal: fas validate-task typecheck stage passed in 4s with the packages-only hook, matching the CI build job.
+
+- Type: review-fix-scope
+- Added at: 2026-07-07
+- Trigger: CodeRabbit example compiler finding
+- Reason: Added example package manifests and lockfiles after CodeRabbit identified that the example runtime typecheck lane should use each self-contained example package's local TypeScript compiler instead of the root package compiler.
+- Added paths: examples/adapters/redux/package.json, examples/adapters/redux/pnpm-lock.yaml, examples/adapters/xstate/package.json, examples/adapters/xstate/pnpm-lock.yaml, examples/apps/dashboard-with-shared-state/package.json, examples/apps/dashboard-with-shared-state/pnpm-lock.yaml, examples/apps/form-with-validation/package.json, examples/apps/form-with-validation/pnpm-lock.yaml, examples/apps/nested-child-router/package.json, examples/apps/nested-child-router/pnpm-lock.yaml, examples/apps/spa-router/package.json, examples/apps/spa-router/pnpm-lock.yaml, examples/frameworks/react/package.json, examples/frameworks/react/pnpm-lock.yaml, examples/frameworks/svelte/package.json, examples/frameworks/svelte/pnpm-lock.yaml, examples/frameworks/vue/package.json, examples/frameworks/vue/pnpm-lock.yaml
+- Evidence source: CodeRabbit committed review
+- Evidence: CodeRabbit committed review | scripts/typecheck-examples.mjs | Review requested example-local tsc resolution or an explicit shared compiler policy; this task chose example-local compilers and added TypeScript dev dependencies to examples that did not declare one.
+- Accuracy signal: npm run typecheck:examples passed for all 11 examples using local TypeScript compiler paths.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

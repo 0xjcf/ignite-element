@@ -140,7 +140,8 @@ function ensureDependencies(exampleRoot, installMode) {
 	if (
 		installMode === "never" ||
 		(installMode === "missing" &&
-			existsSync(path.join(exampleRoot, "node_modules")))
+			existsSync(path.join(exampleRoot, "node_modules")) &&
+			existsSync(getTypeScriptCompilerPath(exampleRoot)))
 	) {
 		return true;
 	}
@@ -188,7 +189,27 @@ function ensureDependencies(exampleRoot, installMode) {
 	return result.status === 0;
 }
 
-function runTypecheck(tsc, exampleRoot) {
+function getTypeScriptCompilerPath(exampleRoot) {
+	return path.join(exampleRoot, "node_modules", "typescript", "bin", "tsc");
+}
+
+function resolveTypeScriptCompiler(exampleRoot) {
+	const tsc = getTypeScriptCompilerPath(exampleRoot);
+
+	if (!existsSync(tsc)) {
+		console.error(
+			`Example package is missing TypeScript: ${path.relative(
+				repoRoot,
+				exampleRoot,
+			)}. Run this script with --install=missing or install the example dependencies.`,
+		);
+		return undefined;
+	}
+
+	return tsc;
+}
+
+function runTypecheck(exampleRoot) {
 	const tsconfig = path.join(exampleRoot, "tsconfig.json");
 
 	if (!existsSync(tsconfig)) {
@@ -201,8 +222,13 @@ function runTypecheck(tsc, exampleRoot) {
 		return false;
 	}
 
+	const tsc = resolveTypeScriptCompiler(exampleRoot);
+	if (!tsc) {
+		return false;
+	}
+
 	const result = spawnSync(process.execPath, [tsc, "--project", tsconfig], {
-		cwd: repoRoot,
+		cwd: exampleRoot,
 		stdio: "inherit",
 		timeout: INSTALL_TIMEOUT_MS,
 	});
@@ -236,25 +262,6 @@ async function main() {
 		return;
 	}
 
-	const tsc = path.join(
-		repoRoot,
-		"packages",
-		"ignite-element",
-		"node_modules",
-		"typescript",
-		"bin",
-		"tsc",
-	);
-
-	if (!existsSync(tsc)) {
-		failCli(
-			`Error: tsc not found at ${path.relative(
-				repoRoot,
-				tsc,
-			)}. Run pnpm install first.`,
-		);
-	}
-
 	const failedExamples = [];
 
 	for (const exampleRoot of exampleRoots) {
@@ -267,7 +274,7 @@ async function main() {
 			continue;
 		}
 
-		if (runTypecheck(tsc, exampleRoot)) {
+		if (runTypecheck(exampleRoot)) {
 			console.log(`PASS ${relativeRoot}`);
 		} else {
 			console.log(`FAIL ${relativeRoot}`);

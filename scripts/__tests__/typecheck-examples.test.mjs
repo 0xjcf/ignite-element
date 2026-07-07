@@ -28,6 +28,17 @@ const expectedExampleRoots = [
 	"examples/frameworks/vue",
 ];
 
+function writeFakeTypeScript(exampleRoot, script = "process.exit(0);\n") {
+	const typescriptBin = path.join(
+		exampleRoot,
+		"node_modules",
+		"typescript",
+		"bin",
+	);
+	mkdirSync(typescriptBin, { recursive: true });
+	writeFileSync(path.join(typescriptBin, "tsc"), script);
+}
+
 describe("typecheck-examples", () => {
 	it("discovers self-contained example packages", () => {
 		const output = execFileSync(
@@ -216,6 +227,45 @@ describe("typecheck-examples", () => {
 		}
 	});
 
+	it("runs each example with its local TypeScript compiler", () => {
+		const tempRoot = mkdtempSync(path.join(tmpdir(), "ignite-local-tsc-"));
+		const examplesRoot = path.join(tempRoot, "examples");
+		const exampleRoot = path.join(examplesRoot, "apps", "sample");
+		const markerFile = path.join(tempRoot, "local-tsc-ran");
+
+		mkdirSync(path.join(exampleRoot, "src"), { recursive: true });
+		writeFileSync(
+			path.join(exampleRoot, "package.json"),
+			JSON.stringify({ name: "sample", scripts: { typecheck: "tsc" } }),
+		);
+		writeFileSync(path.join(exampleRoot, "tsconfig.json"), "{}");
+		writeFakeTypeScript(
+			exampleRoot,
+			`import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(
+				markerFile,
+			)}, "ok\\n");\n`,
+		);
+
+		try {
+			execFileSync(
+				node,
+				[
+					"scripts/typecheck-examples.mjs",
+					"--examples-root",
+					examplesRoot,
+					"--install=never",
+				],
+				{
+					encoding: "utf8",
+				},
+			);
+
+			assert.equal(existsSync(markerFile), true);
+		} finally {
+			rmSync(tempRoot, { force: true, recursive: true });
+		}
+	});
+
 	it("removes lockfiles created by the example install flow", () => {
 		const tempRoot = mkdtempSync(
 			path.join(tmpdir(), "ignite-generated-lockfile-"),
@@ -244,6 +294,7 @@ describe("typecheck-examples", () => {
 			}),
 		);
 		writeFileSync(path.join(exampleRoot, "src", "index.ts"), "export {};\n");
+		writeFakeTypeScript(exampleRoot);
 		writeFileSync(
 			fakePnpm,
 			"#!/bin/sh\ncase \" $* \" in *' --no-frozen-lockfile '*) ;; *) exit 42 ;; esac\nprintf 'lockfileVersion: \"9.0\"\\n' > pnpm-lock.yaml\nmkdir -p node_modules\n",
@@ -306,6 +357,7 @@ describe("typecheck-examples", () => {
 			}),
 		);
 		writeFileSync(path.join(exampleRoot, "src", "index.ts"), "export {};\n");
+		writeFakeTypeScript(exampleRoot);
 		writeFileSync(
 			fakePnpm,
 			"#!/bin/sh\ncase \" $* \" in *' --frozen-lockfile '*) ;; *) exit 42 ;; esac\nmkdir -p node_modules\n",
