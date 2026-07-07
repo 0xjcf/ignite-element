@@ -190,7 +190,16 @@ export function reduceHomeContext(
 
 			return runHomeScene(context, scene);
 		}
+		default:
+			return assertNeverHomeCommand(command);
 	}
+}
+
+function assertNeverHomeCommand(command: never): never {
+	const candidate = command as { type?: unknown };
+	throw new Error(
+		`Unsupported home command type: ${String(candidate.type ?? "unknown")}`,
+	);
 }
 
 export function projectHomeView(context: HomeContext) {

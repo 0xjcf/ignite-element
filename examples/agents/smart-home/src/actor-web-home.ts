@@ -24,6 +24,7 @@ import {
 	SCENE_TRANSITION_DELAY_MS,
 	type Scene,
 } from "./home";
+import { waitForLifecyclePromise } from "./lifecycle";
 
 type HomeActorEmitted =
 	| { type: "light-changed"; room: Room; on: boolean }
@@ -34,16 +35,23 @@ type TransitionScheduler = () => void;
 
 export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 	const pendingTransitionTimers = new Set<ReturnType<typeof setTimeout>>();
-	const pendingTransitionSends = new Set<Promise<void>>();
+	const pendingSends = new Set<Promise<void>>();
 	const clearPendingTransitionTimers = () => {
 		for (const timer of pendingTransitionTimers) {
 			clearTimeout(timer);
 		}
 		pendingTransitionTimers.clear();
 	};
-	const waitForPendingTransitionSends = async () => {
-		while (pendingTransitionSends.size > 0) {
-			await Promise.allSettled([...pendingTransitionSends]);
+	const trackPendingSend = (send: Promise<void>) => {
+		const tracked = send.finally(() => {
+			pendingSends.delete(tracked);
+		});
+		pendingSends.add(tracked);
+		return tracked;
+	};
+	const waitForPendingSends = async () => {
+		while (pendingSends.size > 0) {
+			await Promise.allSettled([...pendingSends]);
 		}
 	};
 	let closed = false;
@@ -60,14 +68,8 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 			if (closed) {
 				return;
 			}
-			const pendingSend = sendAndFlush({ type: "APPLY_PENDING_SCENE" }).catch(
-				(error) => {
-					console.error("Failed to apply pending scene transition", error);
-				},
-			);
-			pendingTransitionSends.add(pendingSend);
-			void pendingSend.finally(() => {
-				pendingTransitionSends.delete(pendingSend);
+			void sendAndFlush({ type: "APPLY_PENDING_SCENE" }).catch((error) => {
+				console.error("Failed to apply pending scene transition", error);
 			});
 		}, SCENE_TRANSITION_DELAY_MS);
 		pendingTransitionTimers.add(timer);
@@ -85,14 +87,19 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 			HomeCommand,
 			HomeActorEmitted
 		>;
-		sendAndFlush = async (message: HomeCommand) => {
-			await commandSource.send(message);
-			const localNode = runtime.nodes.local;
-			if (!localNode) {
-				throw new Error("Actor-web home runtime is missing the local node.");
-			}
-			await localNode.system.flush();
-		};
+		sendAndFlush = (message: HomeCommand) =>
+			trackPendingSend(
+				(async () => {
+					await commandSource.send(message);
+					const localNode = runtime.nodes.local;
+					if (!localNode) {
+						throw new Error(
+							"Actor-web home runtime is missing the local node.",
+						);
+					}
+					await localNode.system.flush();
+				})(),
+			);
 		const home = igniteCore({
 			source: commandSource,
 			events: (event) => ({
@@ -106,36 +113,40 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 
 		return {
 			home,
-			close: async () => {
-				closed = true;
-				clearPendingTransitionTimers();
-				await waitForPendingTransitionSends();
-				const errors: unknown[] = [];
-				if (sourceHandle) {
-					try {
-						await sourceHandle.stop();
-					} catch (error) {
-						errors.push(error);
-					}
-				}
-				try {
-					await runtime.stop();
-				} catch (error) {
-					errors.push(error);
-				}
-				if (errors.length > 0) {
-					const primary = errors[0];
-					const cleanupError =
-						primary instanceof Error ? primary : new Error(String(primary));
-					if (errors.length > 1) {
-						const errorWithSuppressed = cleanupError as Error & {
-							suppressedErrors?: unknown[];
-						};
-						errorWithSuppressed.suppressedErrors = errors.slice(1);
-					}
-					throw cleanupError;
-				}
-			},
+			close: async () =>
+				await waitForLifecyclePromise(
+					(async () => {
+						closed = true;
+						clearPendingTransitionTimers();
+						await waitForPendingSends();
+						const errors: unknown[] = [];
+						if (sourceHandle) {
+							try {
+								await sourceHandle.stop();
+							} catch (error) {
+								errors.push(error);
+							}
+						}
+						try {
+							await runtime.stop();
+						} catch (error) {
+							errors.push(error);
+						}
+						if (errors.length > 0) {
+							const primary = errors[0];
+							const cleanupError =
+								primary instanceof Error ? primary : new Error(String(primary));
+							if (errors.length > 1) {
+								const errorWithSuppressed = cleanupError as Error & {
+									suppressedErrors?: unknown[];
+								};
+								errorWithSuppressed.suppressedErrors = errors.slice(1);
+							}
+							throw cleanupError;
+						}
+					})(),
+					"closing actor-web home session",
+				),
 		};
 	} catch (error) {
 		closed = true;

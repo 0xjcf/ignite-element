@@ -801,10 +801,19 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
 		shuttingDown = true;
 		try {
 			if (startupPromise) {
-				server = await waitForLifecyclePromise(
-					startupPromise,
-					`waiting for smart-home bridge startup before ${signal}`,
-				);
+				try {
+					server = await waitForLifecyclePromise(
+						startupPromise,
+						`waiting for smart-home bridge startup before ${signal}`,
+					);
+				} catch (error) {
+					const message =
+						error instanceof Error ? error.message : String(error);
+					console.error(
+						`\nSmart-home bridge failed to start before ${signal}: ${message}`,
+					);
+					process.exit(1);
+				}
 			}
 			if (!server) {
 				console.error(

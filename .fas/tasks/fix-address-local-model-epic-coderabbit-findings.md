@@ -45,6 +45,7 @@ fix: address local-model epic CodeRabbit findings
 - docs/ignite-tools.md
 - docs/v3-stable-roadmap.md
 - .fas/queue/tasks.json
+- .changeset/ignitetools-openai-dialect.md
 
 ## Scope Amendments
 - Added `examples/agents/smart-home/src/home.ts` after the second CodeRabbit
@@ -101,6 +102,24 @@ fix: address local-model epic CodeRabbit findings
 - Evidence source: task-packet dirty scope promotion
 - Evidence: task-packet dirty scope promotion | .fas/state/task-packet.json | Promoted dirty path(s): examples/agents/smart-home/src/anthropic.ts, examples/agents/smart-home/src/mlx.ts, examples/agents/smart-home/src/agentLoop.test.ts
 - Accuracy signal: Path was dirty in git status and present in task-packet low-confidence/dependency-reachable scope.
+
+- Type: scope-refresh-promotion
+- Added at: 2026-07-07
+- Trigger: dirty-low-confidence-scope
+- Reason: Promoted dirty low-confidence or dependency-reachable task-packet path(s) into affected scope.
+- Added paths: examples/agents/smart-home/src/agentLoop.test.ts
+- Evidence source: task-packet dirty scope promotion
+- Evidence: task-packet dirty scope promotion | .fas/state/task-packet.json | Promoted dirty path(s): examples/agents/smart-home/src/agentLoop.test.ts
+- Accuracy signal: Path was dirty in git status and present in task-packet low-confidence/dependency-reachable scope.
+
+- Type: review-follow-up
+- Added at: 2026-07-07
+- Trigger: coderabbit-release-metadata-finding
+- Reason: Added the OpenAI dialect changeset after CodeRabbit identified malformed Changesets frontmatter that would break release metadata parsing.
+- Added paths: .changeset/ignitetools-openai-dialect.md
+- Evidence source: CodeRabbit committed review
+- Evidence: CodeRabbit committed review | .changeset/ignitetools-openai-dialect.md | Missing opening frontmatter delimiter before the ignite-element minor entry.
+- Accuracy signal: pnpm changeset status --since beta parses the corrected changeset successfully.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

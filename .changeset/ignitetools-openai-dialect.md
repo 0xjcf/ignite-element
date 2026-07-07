@@ -1,3 +1,4 @@
+---
 "ignite-element": minor
 ---
 

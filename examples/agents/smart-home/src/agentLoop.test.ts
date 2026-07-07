@@ -22,6 +22,8 @@ import {
 	createHome,
 	createLocalHomeSession,
 	DOORS,
+	initialHomeContext,
+	reduceHomeContext,
 	ROOMS,
 	SCENE_TRANSITION_DELAY_MS,
 	SCENES,
@@ -145,6 +147,14 @@ describe("smart-home agent — Anthropic tool schemas (getSchema → adapter)", 
 			type: "object",
 			properties: {},
 		});
+	});
+});
+
+describe("smart-home shared reducer", () => {
+	it("fails loudly for unknown runtime command types", () => {
+		expect(() =>
+			reduceHomeContext(initialHomeContext, { type: "UNKNOWN" } as never),
+		).toThrow(/Unsupported home command type: UNKNOWN/);
 	});
 });
 
