@@ -30,6 +30,7 @@ fix: address local-model epic CodeRabbit findings
 - examples/agents/smart-home/src/agentLoop.ts
 - examples/agents/smart-home/src/agentLoop.test.ts
 - examples/agents/smart-home/src/home.ts
+- examples/agents/smart-home/src/shared/home.ts
 - examples/agents/smart-home/src/server.test.ts
 - examples/agents/smart-home/src/server.ts
 - examples/agents/smart-home/README.md
@@ -53,6 +54,9 @@ fix: address local-model epic CodeRabbit findings
   package metadata, and Biome ignore paths after CodeRabbit follow-up fixes and
   the stale remote `examples-typecheck` CI failure showed the review-fix scope
   needed to include the full local-model closeout surface.
+- Added `examples/agents/smart-home/src/shared/home.ts` after the latest
+  CodeRabbit review identified that shared home helpers and constants needed to
+  be exported from the self-contained shared module surface.
 
 - Type: scope-refresh-promotion
 - Added at: 2026-07-06
@@ -70,6 +74,15 @@ fix: address local-model epic CodeRabbit findings
 - Added paths: examples/agents/smart-home/src/anthropic.ts
 - Evidence source: task-packet dirty scope promotion
 - Evidence: task-packet dirty scope promotion | .fas/state/task-packet.json | Promoted dirty path(s): examples/agents/smart-home/src/anthropic.ts
+- Accuracy signal: Path was dirty in git status and present in task-packet low-confidence/dependency-reachable scope.
+
+- Type: scope-refresh-promotion
+- Added at: 2026-07-07
+- Trigger: dirty-low-confidence-scope
+- Reason: Promoted dirty low-confidence or dependency-reachable task-packet path(s) into affected scope.
+- Added paths: examples/agents/smart-home/src/anthropic.ts, examples/agents/smart-home/src/agentLoop.test.ts
+- Evidence source: task-packet dirty scope promotion
+- Evidence: task-packet dirty scope promotion | .fas/state/task-packet.json | Promoted dirty path(s): examples/agents/smart-home/src/anthropic.ts, examples/agents/smart-home/src/agentLoop.test.ts
 - Accuracy signal: Path was dirty in git status and present in task-packet low-confidence/dependency-reachable scope.
 
 ## Implementation plan
