@@ -2121,8 +2121,8 @@ No active tasks.
 
 - Title: docs: add Ignite Element for AI Agents one-pager before v3 stable
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/docs-add-ignite-element-for-ai-agents-one-pager-before-v3-st.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -2132,8 +2132,8 @@ No active tasks.
 
 - Title: docs-demo: write v3 headless execute and smart-home agent screencast script
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/docs-demo-write-v3-headless-execute-and-smart-home-agent-scr.md
 - Verification lane: fast
 - Policy sensitivity: standard

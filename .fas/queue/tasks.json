@@ -52,7 +52,7 @@
       "prDependencies": [],
       "createdAt": "2026-06-12T19:30:13.064Z",
       "updatedAt": "2026-07-07T22:06:53.000Z",
-      "deferredReason": "dependency_reopened: task-1781743752184, task-1781919547313, task-1783461996097",
+      "deferredReason": "dependency_reopened: task-1781743752184, task-1781919547313",
       "invalidationReason": null
     },
     {
@@ -100,54 +100,6 @@
       "prDependencies": [],
       "createdAt": "2026-06-20T01:39:07.313Z",
       "updatedAt": "2026-07-02T20:00:00.000Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
-      "id": "task-1783461996096",
-      "task": "docs: add Ignite Element for AI Agents one-pager before v3 stable",
-      "priority": "high",
-      "source": "manual",
-      "details": "See .fas/tasks/docs-add-ignite-element-for-ai-agents-one-pager-before-v3-st.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "developer-experience",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [],
-      "blocks": [
-        "task-1783461996097"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-07T22:06:53.000Z",
-      "updatedAt": "2026-07-07T22:08:31.483Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
-      "id": "task-1783461996097",
-      "task": "docs-demo: write v3 headless execute and smart-home agent screencast script",
-      "priority": "high",
-      "source": "manual",
-      "details": "See .fas/tasks/docs-demo-write-v3-headless-execute-and-smart-home-agent-scr.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "developer-experience",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1783461996096"
-      ],
-      "blocks": [
-        "task-1781292613064"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-07T22:06:53.000Z",
-      "updatedAt": "2026-07-07T22:15:06.285Z",
       "deferredReason": null,
       "invalidationReason": null
     }
@@ -2922,6 +2874,50 @@
       "terminalOutcome": null,
       "workflowId": "direct-1783460401998",
       "branchName": "beta",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1783461996096",
+      "task": "docs: add Ignite Element for AI Agents one-pager before v3 stable",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "developer-experience",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [
+        "task-1783461996097"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-07T22:23:19.144Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783462111479",
+      "branchName": "fas/agent-positioning-followups",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1783461996097",
+      "task": "docs-demo: write v3 headless execute and smart-home agent screencast script",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "developer-experience",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1783461996096"
+      ],
+      "blocks": [
+        "task-1781292613064"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-07T22:23:30.482Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783462506281",
+      "branchName": "fas/agent-positioning-followups",
       "prStatus": "draft-only"
     }
   ],
