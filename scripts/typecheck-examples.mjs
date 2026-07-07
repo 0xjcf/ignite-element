@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -145,6 +145,8 @@ function ensureDependencies(exampleRoot, installMode) {
 		return true;
 	}
 
+	const lockfile = path.join(exampleRoot, "pnpm-lock.yaml");
+	const hadLockfile = existsSync(lockfile);
 	const result = spawnSync(
 		"pnpm",
 		[
@@ -166,6 +168,18 @@ function ensureDependencies(exampleRoot, installMode) {
 		console.error(
 			`Failed to run pnpm install in ${exampleRoot}: ${result.error.message}`,
 		);
+	}
+
+	if (!hadLockfile && existsSync(lockfile)) {
+		try {
+			rmSync(lockfile, { force: true });
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			console.error(
+				`Failed to clean generated pnpm lockfile in ${exampleRoot}: ${message}`,
+			);
+			return false;
+		}
 	}
 
 	return result.status === 0;

@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+	chmodSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -206,6 +213,64 @@ describe("typecheck-examples", () => {
 			);
 		} finally {
 			rmSync(examplesRoot, { force: true, recursive: true });
+		}
+	});
+
+	it("removes lockfiles created by the example install flow", () => {
+		const tempRoot = mkdtempSync(
+			path.join(tmpdir(), "ignite-generated-lockfile-"),
+		);
+		const fakeBin = path.join(tempRoot, "bin");
+		const examplesRoot = path.join(tempRoot, "examples");
+		const exampleRoot = path.join(examplesRoot, "apps", "sample");
+		const fakePnpm = path.join(fakeBin, "pnpm");
+
+		mkdirSync(path.join(exampleRoot, "src"), { recursive: true });
+		mkdirSync(fakeBin, { recursive: true });
+		writeFileSync(
+			path.join(exampleRoot, "package.json"),
+			JSON.stringify({ name: "sample", scripts: { typecheck: "tsc" } }),
+		);
+		writeFileSync(
+			path.join(exampleRoot, "tsconfig.json"),
+			JSON.stringify({
+				compilerOptions: {
+					module: "ESNext",
+					moduleResolution: "Bundler",
+					strict: true,
+					target: "ES2022",
+				},
+				include: ["src/**/*.ts"],
+			}),
+		);
+		writeFileSync(path.join(exampleRoot, "src", "index.ts"), "export {};\n");
+		writeFileSync(
+			fakePnpm,
+			"#!/bin/sh\nprintf 'lockfileVersion: \"9.0\"\\n' > pnpm-lock.yaml\nmkdir -p node_modules\n",
+		);
+		chmodSync(fakePnpm, 0o755);
+
+		try {
+			execFileSync(
+				node,
+				[
+					"scripts/typecheck-examples.mjs",
+					"--examples-root",
+					examplesRoot,
+					"--install=always",
+				],
+				{
+					encoding: "utf8",
+					env: {
+						...process.env,
+						PATH: `${fakeBin}${path.delimiter}${process.env.PATH ?? ""}`,
+					},
+				},
+			);
+
+			assert.equal(existsSync(path.join(exampleRoot, "pnpm-lock.yaml")), false);
+		} finally {
+			rmSync(tempRoot, { force: true, recursive: true });
 		}
 	});
 });
