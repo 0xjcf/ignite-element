@@ -1,0 +1,121 @@
+---
+title: Ignite Element for AI Agents
+description: How Ignite Element exposes behavior contracts that tools, tests, humans, and local-model agents can all drive.
+sidebar:
+  label: For AI agents
+  order: 4
+---
+
+Ignite Element gives agents a behavior contract instead of asking them to scrape
+the DOM. The same `igniteCore(...)` value that registers a custom element also
+exposes a headless runtime with commands, projected view state, emitted events,
+and agent-readable metadata.
+
+That contract is useful because it is the same surface for humans, tests, and
+tools:
+
+- Humans click the custom element and see the projected view.
+- Tests call the runtime directly and assert snapshots, views, and events.
+- Agents inspect `getSchema()`, check `canExecute()`, call `execute()`, and
+  observe outcomes through `on(...)` or `watchView(...)`.
+
+Ignite is not a separate agent framework. It is the component boundary that
+turns UI behavior into explicit tools.
+
+## The contract
+
+An Ignite component exposes these runtime methods before any DOM projection
+exists:
+
+- `getSchema()` returns the current JSON-serializable contract: commands,
+  command metadata, declared events, raw snapshot, and projected view.
+- `execute(commandName, payload?)` runs a command and returns the post-command
+  snapshot plus emitted events from that transition.
+- `canExecute(commandName)` evaluates dynamic command availability for gated
+  commands.
+- `getView()` returns the projected state that renderers, tests, and agents can
+  use without reading DOM nodes.
+- `on(eventName, handler)` subscribes to public emitted events.
+- `watchView(handler)` subscribes to projected view changes over time.
+
+Command metadata keeps model prompts and tool manifests grounded in the
+component's own contract:
+
+```ts
+commands: ({ actor, command }) => ({
+  setTemperature: command(
+    (temperature: number) =>
+      actor.send({ type: 'SET_TEMPERATURE', temperature }),
+    {
+      description: 'Set the thermostat target temperature.',
+      input: command.number({ minimum: 58, maximum: 82 }),
+    },
+  ),
+});
+```
+
+The serialized schema includes the description and input shape, while the live
+runtime keeps execution and availability checks close to the state source.
+
+## What agents should do
+
+The reliable flow is:
+
+1. Read `getSchema()` to learn the commands, payload shapes, events, snapshot,
+   and view.
+2. Prefer the projected `view` for user-facing reasoning; use `snapshot` when
+   the raw state source matters.
+3. Treat `gated: true` as dynamic and call `canExecute(commandName)` immediately
+   before invoking that command.
+4. Call `execute(commandName, payload?)` and inspect the returned `events` and
+   `snapshot`.
+5. Keep long-lived workflows synchronized with `on(...)` for events and
+   `watchView(...)` for projected state.
+
+That keeps the model out of selector guessing and stale DOM assumptions. The
+agent reasons over named commands and typed state transitions.
+
+## Where `igniteTools` fits
+
+`igniteTools(runtime, dialect)` adapts the headless runtime into provider tool
+definitions and tool-call execution. The runtime still owns behavior. The
+dialect only translates between provider message shapes and Ignite commands.
+
+The smart-home example exercises this split with:
+
+- an XState-backed smart-home runtime,
+- an actor-web-backed runtime selected with `SMART_HOME_RUNTIME=actor-web`,
+- deterministic scripted-model tests,
+- Anthropic tool calls,
+- OpenAI-compatible tool calls for local MLX servers,
+- a terminal agent and browser UI sharing one live headless runtime.
+
+Run it from
+[`examples/agents/smart-home`](https://github.com/0xjcf/ignite-element/tree/main/examples/agents/smart-home)
+to see the contract driven without a DOM first, then shared with a browser UI.
+
+## Ecosystem boundaries
+
+Ignite owns the component contract: commands, projected view state, effects,
+events, schema, and headless execution.
+
+Provider adapters and examples can turn that contract into model tools, including
+OpenAI-compatible local-model calls for MLX. Ignite does not own durable model
+serving, process management, or operator setup for MLX. Those belong outside the
+component package.
+
+Actor-Web integration follows the same boundary. `ignite-element/actor-web`
+projects an Actor-Web runtime and sends explicit requests through a
+command-capable source. Ignite does not become the distributed transport,
+gateway, or supervision layer.
+
+## Read next
+
+- [Build for agents](/ignite-element/guides/agent-runtime-v3/) for the
+  behavior-first workflow.
+- [Headless runtime](/ignite-element/api/headless-runtime/) for exact method
+  signatures and return shapes.
+- [Command metadata](/ignite-element/api/command-metadata/) for tool-readable
+  command descriptions and input schemas.
+- [Testing DSL](/ignite-element/api/testing-dsl/) for scenario and story helpers
+  built on the same runtime.

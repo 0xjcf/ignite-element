@@ -65,6 +65,10 @@ export default defineConfig({
 							label: "When to choose Ignite",
 							slug: "overview/when-to-choose-ignite",
 						},
+						{
+							label: "For AI agents",
+							slug: "overview/ignite-for-ai-agents",
+						},
 						{ label: "Bundle size", slug: "overview/bundle-size" },
 					],
 				},

@@ -112,7 +112,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "developer-experience",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "processing",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [],
@@ -122,7 +122,7 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-07T22:06:53.000Z",
-      "updatedAt": "2026-07-07T22:06:53.000Z",
+      "updatedAt": "2026-07-07T22:08:31.483Z",
       "deferredReason": null,
       "invalidationReason": null
     },
