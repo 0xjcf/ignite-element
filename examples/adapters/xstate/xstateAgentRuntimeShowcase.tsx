@@ -100,8 +100,8 @@ const formatTraceEntry = (
 			return `command #${entry.step}: ${entry.command}`;
 		case "event":
 			return `event #${entry.step}: ${entry.event}`;
-		case "state":
-			return `state ${entry.phase} #${entry.step}`;
+		case "snapshot":
+			return `snapshot ${entry.phase} #${entry.step}`;
 		case "view":
 			return `view ${entry.phase} #${entry.step}`;
 	}

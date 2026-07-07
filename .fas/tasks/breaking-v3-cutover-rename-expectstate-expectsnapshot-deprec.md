@@ -59,6 +59,7 @@ SCOPE EXPANDED 2026-06-20 to the FULL rename (option b), not method-only. The va
 - docs/v3-stable-roadmap.md
 - docs/can-execute.md
 - examples/adapters/xstate/README.md
+- examples/adapters/xstate/xstateAgentRuntimeShowcase.tsx
 - .changeset/expect-snapshot-rename.md
 - .changeset/expectview-test-dsl.md
 - (refine the exact file set during planning; this is the full-rename (b) estimate)
@@ -68,6 +69,7 @@ SCOPE EXPANDED 2026-06-20 to the FULL rename (option b), not method-only. The va
 - 2026-07-07: amended from beta soft-landing compatibility to v3 beta removal. This matches the current breaking cutover batch policy already applied to event shape and view context.
 - 2026-07-07: CodeRabbit closeout review found one stale XState adapter README event-shape snippet. Include that self-contained example doc in this task so the flat event/snapshot cutover examples stay copy-pasteable.
 - 2026-07-07: final shared CodeRabbit closeout follow-ups touched cross-task event typing, runtime event clone safety, and stale public docs while this task was the only remaining open batch item. Include `packages/ignite-core/src/RenderArgs.ts`, `packages/ignite-element/src/tests/runtime-events-bridge.test.ts`, `packages/ignite-element/README.md`, and the testing/headless runtime docs as explicit closeout scope for the final batch reconciliation.
+- 2026-07-07: CI `examples-typecheck` found the XState agent runtime showcase still formatting story trace entries with the removed `kind: "state"` vocabulary. Include that example source file in the snapshot-vocabulary cutover scope.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
