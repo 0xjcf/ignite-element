@@ -1,12 +1,15 @@
 # docs: publish per-entrypoint bundle-size numbers (tree-shaken + gzip) with optional CI size budget
 
 ## Source
+
 Created with `fas create-task` on 2026-06-18.
 
 ## Problem
+
 Decomposed from task-1781724737259, deliverable (2). Measure tree-shaken + gzip sizes per published entrypoint (root, xstate/redux/mobx/actor-web adapters, jsx, lit) and publish them as a docs page; optionally add a CI size-budget check. Independent of the examples restructure (measures dist bundles, not examples) so NO dependency. Source of truth: the built dist for each entrypoint.
 
 ## Acceptance criteria
+
 - The change is verified and does not introduce regressions.
 - TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
 - TDD: every production code change in the change set is covered by an added or updated test.
@@ -16,35 +19,51 @@ Decomposed from task-1781724737259, deliverable (2). Measure tree-shaken + gzip 
 - The task is queued in `.fas/queue/tasks.json` for the runtime.
 
 ## Proposed solution
+
 - Use the supplied problem context, acceptance criteria, and affected-file hints to draft the concrete implementation approach during planning.
 
 ## Alternatives considered
+
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- Scope unknown.
+
+- scripts/measure-bundle-sizes.mjs
+- scripts/__tests__/measure-bundle-sizes.test.mjs
+- package.json
+- docs/site/astro.config.mjs
+- docs/site/src/content/docs/overview/bundle-size.mdx
 
 ## Scope Amendments
-- None.
+
+- Type: scope-refresh
+- Added at: 2026-07-07
+- Added paths: scripts/measure-bundle-sizes.mjs, scripts/__tests__/measure-bundle-sizes.test.mjs, package.json, docs/site/astro.config.mjs, docs/site/src/content/docs/overview/bundle-size.mdx
 
 ## Implementation plan
+
 - Convert the supplied context into a scoped implementation plan before editing.
 - Refresh affected-file scope before implementation if the generated hints are incomplete.
 
 ## Verification plan
+
 - Run `fas validate-task` for the inner-loop verification gate.
 - Run `.fas/scripts/verify.sh --full` at the final release-quality gate when tracked files change.
 
 ## Risks
+
 - Validate generated scope, acceptance criteria, and verification evidence before closeout to avoid workflow drift.
 
 ## Dependencies
+
 - None known at task creation.
 
 ## Open questions
+
 - None captured at task creation.
 
 ## Artifact links
+
 - Planning: `.fas/state/planning.json`
 - Task packet: `.fas/state/task-packet.json`
 - Commit plan: `.fas/state/commit-plan.json`

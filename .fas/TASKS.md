@@ -1253,9 +1253,12 @@ No active tasks.
 
 - Title: docs: publish per-entrypoint bundle-size numbers (tree-shaken + gzip) with optional CI size budget
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/docs-publish-per-entrypoint-bundle-size-numbers-tree-shaken-.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: examples: add worked apps (form-with-validation, nested/child-router, dashboard-with-shared-state)
 
