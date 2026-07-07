@@ -115,6 +115,21 @@ function parseArguments(args: unknown): unknown {
 	}
 }
 
+function describeUnserializablePayload(
+	payload: unknown,
+	error: unknown,
+): Record<string, unknown> {
+	const diagnostic: Record<string, unknown> = {
+		error: "unserializable tool result",
+		reason: error instanceof Error ? error.message : String(error),
+		type: Array.isArray(payload) ? "array" : typeof payload,
+	};
+	if (isRecord(payload)) {
+		diagnostic.keys = Object.keys(payload);
+	}
+	return diagnostic;
+}
+
 /**
  * The OpenAI-compatible tool-use dialect. Stateless and provider-SDK-free, so it
  * is a shared singleton.
@@ -175,8 +190,8 @@ export const openai: ToolDialect<
 		let content = "null";
 		try {
 			content = JSON.stringify(payload) ?? "null";
-		} catch {
-			content = JSON.stringify(String(payload)) ?? '"[unserializable]"';
+		} catch (error) {
+			content = JSON.stringify(describeUnserializablePayload(payload, error));
 		}
 		return {
 			role: "tool",

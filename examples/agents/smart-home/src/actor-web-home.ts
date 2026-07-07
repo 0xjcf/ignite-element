@@ -88,6 +88,11 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 		};
 		const home = igniteCore({
 			source: commandSource,
+			events: (event) => ({
+				"light-changed": event<{ room: Room; on: boolean }>(),
+				"scene-applied": event<{ scene: Scene }>(),
+				"security-changed": event<{ allDoorsLocked: boolean }>(),
+			}),
 			view: ({ context }) => projectHomeView(context),
 			commands: ({ command }) => createHomeCommands(command, sendAndFlush),
 		});

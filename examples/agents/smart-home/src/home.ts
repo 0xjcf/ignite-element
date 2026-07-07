@@ -314,6 +314,20 @@ export function createHomeCommands(
 	};
 }
 
+type HomeRuntimeCommands = ReturnType<typeof createHomeCommands>;
+
+type HomeRuntimeEvents = {
+	readonly "light-changed": {
+		readonly __payload?: { room: Room; on: boolean };
+	};
+	readonly "scene-applied": { readonly __payload?: { scene: Scene } };
+	readonly "security-changed": {
+		readonly __payload?: { allDoorsLocked: boolean };
+	};
+};
+
+type HomeRuntimeView = ReturnType<typeof projectHomeView>;
+
 const homeMachine = setup({
 	types: {
 		context: {} as HomeContext,
@@ -469,10 +483,10 @@ function createHomeFromSource(source: typeof homeMachine | HomeActor) {
 
 export type HomeAgentRuntime = IgniteToolsRuntime<
 	unknown,
-	any,
-	any,
+	HomeRuntimeCommands,
+	HomeRuntimeEvents,
 	unknown,
-	ReturnType<typeof projectHomeView>
+	HomeRuntimeView
 >;
 
 export type HomeRuntimeSession = {
