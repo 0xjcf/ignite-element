@@ -43,11 +43,11 @@ declare const shipmentSource: ActorWebCommandSource<
 
 export const shipmentCard = igniteCore({
   source: shipmentSource,
-  view: ({ context }) => ({
-    shipmentId: context.shipmentId,
-    status: context.status,
-    etaLabel: context.etaLabel,
-    canCancel: context.canCancel,
+  view: ({ snapshot }) => ({
+    shipmentId: snapshot.context.shipmentId,
+    status: snapshot.context.status,
+    etaLabel: snapshot.context.etaLabel,
+    canCancel: snapshot.context.canCancel,
   }),
   commands: ({ actor }) => ({
     refresh: (shipmentId: string) =>
@@ -58,7 +58,7 @@ export const shipmentCard = igniteCore({
 });
 ```
 
-`ShipmentProjection` flows into the `view` `context`, and `ShipmentRequest` flows into `actor.send`, all inferred from `shipmentSource` — no `igniteCore<...>` annotations. The projected `context` carries business/read-model state; updating it stays Actor-Web's job. Ignite sends requests back and re-renders when the next projection snapshot arrives.
+`ShipmentProjection` flows into `view` as `snapshot.context`, and `ShipmentRequest` flows into `actor.send`, all inferred from `shipmentSource` — no `igniteCore<...>` annotations. The projected context carries business/read-model state inside the snapshot; updating it stays Actor-Web's job. Ignite sends requests back and re-renders when the next projection snapshot arrives.
 
 :::note[Source shapes]
 `source` accepts a source **value** (read-only or command-capable), a zero-argument factory, or a host-context factory `({ host }) => source`. When a source exposes `close()`, Ignite calls it during adapter teardown. Passing a typed source **value** gives the cleanest inference; the `ignite-element/actor-web` entrypoint is required for zero-argument and defaulted factories (see [Source factory adapter inference](/ignite-element/concepts/the-ignite-model/)).
@@ -155,12 +155,12 @@ declare const shipmentReadModel: ActorWebReadModelSource<
 
 export const shipmentBadge = igniteCore({
   source: shipmentReadModel,
-  view: ({ context, transport }) => ({
-    shipmentId: context.shipmentId,
-    status: context.status,
-    syncState: transport.state,
+  view: ({ snapshot }) => ({
+    shipmentId: snapshot.context.shipmentId,
+    status: snapshot.context.status,
+    syncState: snapshot.transport.state,
     degradedReason:
-      transport.state === 'degraded' ? transport.reason ?? null : null,
+      snapshot.transport.state === 'degraded' ? snapshot.transport.reason ?? null : null,
   }),
 });
 ```
@@ -189,32 +189,31 @@ declare const shipmentSource: ActorWebCommandSource<
 
 export const shipmentFeed = igniteCore({
   source: shipmentSource,
-  view: ({ context }) => ({ status: context.status }),
+  view: ({ snapshot }) => ({ status: snapshot.context.status }),
   commands: ({ actor }) => ({
     cancel: (shipmentId: string) =>
       actor.send({ type: 'shipment.cancel', shipmentId }),
   }),
 });
 
-// on(type) — the handler's `detail` IS the emitted event object.
+// on(type) — the handler receives the flat emitted event object.
 const subscription = shipmentFeed.on('SHIPMENT_CANCELLED', (event) => {
-  console.log(event.detail.reason);
+  console.log(event.reason);
 });
 subscription.unsubscribe();
 
-// execute().events — emits captured during the command window, each as
-// { type, payload } where payload is the emitted event object.
+// execute().events — emits captured during the command window as flat members.
 const result = await shipmentFeed.execute('cancel', 'shipment-1');
 for (const entry of result.events) {
   if (entry.type === 'SHIPMENT_CANCELLED') {
-    console.log(entry.payload.reason);
+    console.log(entry.reason);
   }
 }
 ```
 
 How the bridge behaves:
 
-- **Uniform shape.** An emitted member `M` surfaces as `{ type: M.type, payload: M }` in `execute().events` and `record()` summaries, and as `event.detail === M` in `on(...)` handlers — the same shape declared events use.
+- **Uniform shape.** An emitted member `M` surfaces directly in `execute().events`, `record()` summaries, and `on(...)` handlers — the same flat member shape declared events use.
 - **Command-window capture.** `execute()` collects the emits that arrive between command start and the post-command flush; `record()` inherits them through `execute`. Emits outside a command window still reach `on(...)` listeners, which stay subscribed for their lifetime.
 - **Leak-free.** Each `on(...)` subscription and each `execute()` call manages its own source subscription and releases it on `unsubscribe()` / command completion.
 - **Effects stay additive.** `events:` + `effects:` remain the way to emit **UI-derived** events (computed from snapshot changes); source-emitted events need neither. Both flow side by side into the same `execute().events` stream and `on(...)` surface.

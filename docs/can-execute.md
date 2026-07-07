@@ -126,7 +126,7 @@ surface. Both are thin reads of the authoritative machine.
 ## Test DSL — no bespoke assertion
 
 **No `expectCanExecute` helper.** The DSL's `expect*` methods earn their place only where
-they add matching power over the host runner — `expectState`/`expectView` do
+they add matching power over the host runner — `expectSnapshot`/`expectView` do
 partial-object + predicate matching, `expectEvent(s)` collect events emitted during a
 step. `canExecute` returns a plain boolean, which the native matcher covers completely.
 So the scenario exposes `canExecute(name): boolean` (mirroring the runtime) and you assert

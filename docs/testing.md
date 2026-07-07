@@ -1,6 +1,6 @@
 # Testing Ignite Element
 
-Ignite Element now supports deterministic headless testing through the same runtime that powers `execute()`, `getState()`, `on()`, and `watch()`.
+Ignite Element now supports deterministic headless testing through the same runtime that powers `execute()`, `getSnapshot()`, `on()`, and `watchSnapshot()`.
 
 ## Scenario helper
 
@@ -22,22 +22,22 @@ const component = igniteCore({
   effects: ({ emit, select }) => {
     const isOn = select((snapshot) => snapshot.matches("on"));
     if (!isOn.changed) return;
-    emit("toggled", { isOn: isOn.current });
+    emit({ type: "toggled", isOn: isOn.current });
   },
 });
 
-igniteTest(component)
-  .given("off")
-  .when("toggle")
-  .expectState("on")
-  .expectEvent("toggled", { isOn: true });
+(await igniteTest(component)
+  .given({ value: "off" })
+  .when("toggle"))
+  .expectSnapshot({ value: "on" })
+  .expectEvent({ type: "toggled", isOn: true });
 ```
 
 The helper:
 
-- asserts against the current runtime state with `given(...)`
+- asserts against the current runtime snapshot with `given(...)`
 - executes a typed command with `when(...)`
-- inspects the deterministic post-command state with `expectState(...)`
+- inspects the deterministic post-command snapshot with `expectSnapshot(...)`
 - verifies emitted effects with `expectEvent(...)` or `expectEvents(...)`
 
 Because it wraps the headless runtime, this style stays aligned with effects-based event emission and remains replay-friendly.

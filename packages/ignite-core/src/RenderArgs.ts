@@ -1,6 +1,4 @@
-export type ViewContext<Snapshot> = Snapshot extends object
-	? Snapshot & { snapshot: Snapshot }
-	: { snapshot: Snapshot };
+export type ViewContext<Snapshot> = { snapshot: Snapshot };
 
 export type FacadeViewCallback<
 	Snapshot,
@@ -254,18 +252,57 @@ export type EventPayload<Descriptor> = Descriptor extends EventDescriptor<
 	? Payload
 	: never;
 
-export type EmitPayloadArgs<
+// biome-ignore lint/suspicious/noConfusingVoidType: `event<void>()` is a supported no-payload authoring form.
+type EventPayloadFields<Payload> = void extends Payload
+	? Exclude<Payload, void>
+	: undefined extends Payload
+		? Exclude<Payload, undefined>
+		: Payload;
+
+export type EventMemberFields<Descriptor> = EventPayloadFields<
+	EventPayload<Descriptor>
+>;
+
+type SimplifyEventMember<T> = { [Key in keyof T]: T[Key] };
+
+type EventMemberWithType<Type extends string, Fields> = SimplifyEventMember<
+	Omit<Fields, "type"> & { type: Type }
+>;
+
+type EventMemberFromTypedPayload<Type extends string, Fields> = Extract<
+	Fields,
+	{ type: Type }
+> extends never
+	? Fields extends { type: infer PayloadType }
+		? Type extends PayloadType & string
+			? EventMemberWithType<Type, Fields>
+			: never
+		: never
+	: SimplifyEventMember<Extract<Fields, { type: Type }>>;
+
+type EventMemberFromPayload<Type extends string, Payload> = [
+	EventPayloadFields<Payload>,
+] extends [never]
+	? { type: Type }
+	: EventPayloadFields<Payload> extends infer Fields
+		? Fields extends { type: string }
+			? EventMemberFromTypedPayload<Type, Fields>
+			: SimplifyEventMember<{ type: Type } & Fields>
+		: never;
+
+export type EventMember<
 	Events extends EventMap,
-	Type extends keyof Events & string,
-> = undefined extends EventPayload<Events[Type]>
-	? [payload?: EventPayload<Events[Type]> | undefined]
-	: [payload: EventPayload<Events[Type]>];
+	Type extends keyof Events & string = keyof Events & string,
+> = Type extends keyof Events & string
+	? string extends keyof Events & string
+		? SimplifyEventMember<{ type: Type } & Record<string, unknown>>
+		: EventMemberFromPayload<Type, EventPayload<Events[Type]>>
+	: never;
 
 export type EmitFromEvents<Events extends EventMap> = <
 	Type extends keyof Events & string,
 >(
-	type: Type,
-	...args: EmitPayloadArgs<Events, Type>
+	event: EventMember<Events, Type>,
 ) => void;
 
 export type CommandContext<Actor, Host = unknown, Snapshot = unknown> = {

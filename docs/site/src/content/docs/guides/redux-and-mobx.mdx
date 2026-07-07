@@ -120,7 +120,7 @@ export const registerCounter = igniteCore({
   }),
   effects: ({ snapshot, prevSnapshot, emit }) => {
     if (snapshot.count === prevSnapshot.count) return;
-    emit('incremented', { count: snapshot.count });
+    emit({ type: 'incremented', count: snapshot.count });
   },
 });
 ```

@@ -17,9 +17,9 @@ import igniteElementFactory, {
 } from "./IgniteElementFactory";
 import type {
 	EmitFromEvents,
-	EmitPayloadArgs,
 	EmptyEventMap,
 	EventMap,
+	EventMember,
 	FacadeCommandFunction,
 	FacadeCommandResult,
 } from "./RenderArgs";
@@ -127,10 +127,9 @@ const createDomEmit = <Events extends EventMap>(
 	host: EventTarget,
 ): EmitFromEvents<Events> => {
 	return <Type extends keyof Events & string>(
-		type: Type,
-		...args: EmitPayloadArgs<Events, Type>
+		event: EventMember<Events, Type>,
 	) => {
-		const detail = args[0];
+		const { type, ...detail } = event;
 		const customEvent = new CustomEvent(type, {
 			detail,
 			bubbles: true,

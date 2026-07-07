@@ -41,8 +41,7 @@ export type {
 	IgniteDomBridge,
 	IgniteDomRoleExpectation,
 	IgniteEventExpectation,
-	IgniteEventPayloadExpectation,
-	IgniteStateExpectation,
+	IgniteSnapshotExpectation,
 	IgniteTestHelpers,
 	IgniteTestScenario,
 	IgniteTestScenarioOptions,
@@ -61,7 +60,7 @@ export type {
 	IgniteStoryLifecycleStage,
 	IgniteStorySnapshot,
 	IgniteStorySnapshotEvent,
-	IgniteStoryStateTraceEntry,
+	IgniteStorySnapshotTraceEntry,
 	IgniteStorySummary,
 	IgniteStorySummarySnapshot,
 	IgniteStoryTraceEntry,
@@ -76,6 +75,7 @@ export type {
 } from "./types/agent";
 export type {
 	IgniteAgentCommandSchema,
+	IgniteAgentEventSchema,
 	IgniteAgentSchema,
 	IgniteSchemaValue,
 } from "./types/schema";
@@ -214,22 +214,6 @@ export function igniteCore<
 		CommandsResult,
 		HTMLElement
 	>,
-): IgniteCoreReturn<
-	ExtendedState<Machine>,
-	EventFrom<Machine>,
-	ExtendedState<Machine>,
-	StatesResult,
-	XStateCommandActor<Machine>,
-	CommandsResult,
-	EmptyEventMap
-> {
-	return baseIgniteCoreXState(options) as IgniteCoreReturn<
-		ExtendedState<Machine>,
-		EventFrom<Machine>,
-		ExtendedState<Machine>,
-		StatesResult,
-		XStateCommandActor<Machine>,
-		CommandsResult,
-		EmptyEventMap
-	>;
+) {
+	return baseIgniteCoreXState(options);
 }

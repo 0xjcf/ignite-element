@@ -22,13 +22,37 @@ Implement docs/view-context-canonicalization.md. Drop the createProjectionFactor
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- packages/ignite-core/src/createProjectionFactory.ts
 - packages/ignite-core/src/RenderArgs.ts
-- packages/ignite-element/src/RenderArgs.ts
-- .changeset/view-context-snapshot.md
+- packages/ignite-element/src/createProjectionFactory.ts
+- packages/ignite-element/src/tests/IgniteCore.test.ts
+- packages/ignite-element/src/tests/createComponentFactory.test.ts
+- packages/ignite-element/src/tests/react/igniteReact.test.tsx
+- packages/ignite-element/src/tests/types/actor-web-emitted-events.types.test.ts
+- packages/ignite-element/src/tests/types/igniteCore.types.test.ts
+- packages/ignite-element/src/tests/types/igniteReact.types.test.ts
+- packages/ignite-element/src/tests/types/xstate-emitted-events.types.test.ts
+- examples/agents/smart-home/src/actor-web-home.ts
+- examples/apps/spa-router/README.md
+- examples/frameworks/react/src/counter.ignite.tsx
+- examples/frameworks/vue/src/toggle.ignite.ts
+- docs/view-context-canonicalization.md
+- docs/site/scripts/check-doc-examples.mjs
+- docs/site/src/content/docs/api/ignite-core.mdx
+- docs/site/src/content/docs/concepts/the-ignite-model.mdx
+- docs/site/src/content/docs/guides/actor-web.mdx
+- docs/site/src/content/docs/guides/agent-runtime-v3.mdx
+- docs/site/src/content/docs/guides/routing.mdx
+- docs/site/src/content/docs/guides/testing.mdx
+- docs/site/src/content/docs/index.mdx
+- docs/site/src/content/docs/migration/v3.mdx
+- packages/ignite-element/README.md
+- .changeset/view-context-snapshot-spread.md
 
 ## Scope Amendments
-- None.
+- 2026-07-07: scope refresh found no genuinely new affected paths to promote.
+  `packages/ignite-element/src/createProjectionFactory.ts` and
+  `packages/ignite-element/src/tests/types/igniteCore.types.test.ts` were already
+  listed in affected files above, so no separate promotion is recorded.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

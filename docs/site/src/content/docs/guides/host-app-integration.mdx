@@ -24,8 +24,8 @@ const toggle = igniteCore({
   events: (event) => ({
     toggled: event<{ isOn: boolean }>(),
   }),
-  view: ({ matches }) => ({
-    isOn: matches('on'),
+  view: ({ snapshot }) => ({
+    isOn: snapshot.matches('on'),
   }),
   commands: ({ actor }) => ({
     toggle: () => actor.send({ type: 'TOGGLE' }),
@@ -33,7 +33,7 @@ const toggle = igniteCore({
   effects: ({ emit, select }) => {
     const isOn = select((snapshot) => snapshot.matches('on'));
     if (!isOn.changed) return;
-    emit('toggled', { isOn: isOn.current });
+    emit({ type: 'toggled', isOn: isOn.current });
   },
 });
 
@@ -247,11 +247,11 @@ effects: ({ snapshot, emit, select }) => {
   const error = select((current) => current.context.error);
 
   if (status.changed && status.current === 'saved') {
-    emit('saveSucceeded', { id: snapshot.context.id });
+    emit({ type: 'saveSucceeded', id: snapshot.context.id });
   }
 
   if (error.changed && error.current) {
-    emit('saveFailed', { message: error.current });
+    emit({ type: 'saveFailed', message: error.current });
   }
 },
 ```

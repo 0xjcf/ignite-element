@@ -52,7 +52,7 @@ async function _typeAssertions() {
 	// No igniteCore<...> type arguments and no `events:` map.
 	const register = igniteCore({
 		source: emittingMachine,
-		view: ({ context }) => ({ count: context.count }),
+		view: ({ snapshot }) => ({ count: snapshot.context.count }),
 		commands: ({ actor }) => ({
 			increment: () => actor.send({ type: "INC" }),
 		}),
@@ -60,13 +60,13 @@ async function _typeAssertions() {
 
 	// on() accepts emitted event names, with the payload typed to the member.
 	register.on("count-changed", (event) => {
-		expectTypeOf(event.detail).toEqualTypeOf<{
+		expectTypeOf(event).toEqualTypeOf<{
 			type: "count-changed";
 			count: number;
 		}>();
 	});
 	register.on("limit-reached", (event) => {
-		expectTypeOf(event.detail).toEqualTypeOf<{ type: "limit-reached" }>();
+		expectTypeOf(event).toEqualTypeOf<{ type: "limit-reached" }>();
 	});
 
 	// @ts-expect-error — a name that is neither declared nor emitted is rejected.
@@ -89,13 +89,13 @@ async function _typeAssertions() {
 	// this is the path every example and consumer actually imports.
 	const subpathRegister = subpathIgniteCore({
 		source: emittingMachine,
-		view: ({ context }) => ({ count: context.count }),
+		view: ({ snapshot }) => ({ count: snapshot.context.count }),
 		commands: ({ actor }) => ({
 			increment: () => actor.send({ type: "INC" }),
 		}),
 	});
 	subpathRegister.on("count-changed", (event) => {
-		expectTypeOf(event.detail).toEqualTypeOf<{
+		expectTypeOf(event).toEqualTypeOf<{
 			type: "count-changed";
 			count: number;
 		}>();

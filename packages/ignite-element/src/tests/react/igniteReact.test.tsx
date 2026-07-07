@@ -65,7 +65,10 @@ describe("igniteReact behavior", () => {
 	it("fires on<Event> props with the flat event.detail payload", () => {
 		const Counter = igniteCore({
 			source: counterMachine,
-			view: ({ context }) => ({ count: context.count, label: context.label }),
+			view: ({ snapshot }) => ({
+				count: snapshot.context.count,
+				label: snapshot.context.label,
+			}),
 			commands: ({ actor }) => ({
 				increment: () => actor.send({ type: "INC" }),
 			}),
@@ -98,7 +101,7 @@ describe("igniteReact behavior", () => {
 	it("removes its event listeners on unmount", () => {
 		const Counter = igniteCore({
 			source: counterMachine,
-			view: ({ context }) => ({ count: context.count }),
+			view: ({ snapshot }) => ({ count: snapshot.context.count }),
 			commands: ({ actor }) => ({
 				increment: () => actor.send({ type: "INC" }),
 			}),
@@ -134,7 +137,7 @@ describe("igniteReact behavior", () => {
 		const incSpy = vi.fn();
 		const Counter = igniteCore({
 			source: counterMachine,
-			view: ({ context }) => ({ count: context.count }),
+			view: ({ snapshot }) => ({ count: snapshot.context.count }),
 			commands: ({ actor }) => ({
 				increment: () => {
 					incSpy();
@@ -160,7 +163,7 @@ describe("igniteReact behavior", () => {
 		const setLabelSpy = vi.fn();
 		const Counter = igniteCore({
 			source: counterMachine,
-			view: ({ context }) => ({ label: context.label }),
+			view: ({ snapshot }) => ({ label: snapshot.context.label }),
 			commands: ({ actor }) => ({
 				setLabel: (label: string) => {
 					setLabelSpy(label);

@@ -2,6 +2,7 @@ import { html } from "lit-html";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createComponentFactory } from "../createComponentFactory";
 import { StateScope } from "../IgniteAdapter";
+import type { ViewContext } from "../RenderArgs";
 import MockAdapter from "./MockAdapter";
 
 describe("createComponentFactory", () => {
@@ -104,7 +105,7 @@ describe("createComponentFactory", () => {
 			scope: StateScope.Isolated,
 		});
 
-		const viewCallback = (snapshot: CounterState) => ({
+		const viewCallback = ({ snapshot }: ViewContext<CounterState>) => ({
 			count: snapshot.count,
 		});
 		type FallbackActor = {
@@ -176,7 +177,7 @@ describe("createComponentFactory", () => {
 		};
 		const customActorResolver = vi.fn((): CustomActor => actor);
 
-		const viewCallback = (snapshot: CustomState) => ({
+		const viewCallback = ({ snapshot }: ViewContext<CustomState>) => ({
 			value: snapshot.value,
 		});
 		const commandsCallback = ({
@@ -228,7 +229,9 @@ describe("createComponentFactory", () => {
 			scope: StateScope.Isolated,
 		});
 
-		const view = (snapshot: CounterState) => ({ count: snapshot.count });
+		const view = ({ snapshot }: ViewContext<CounterState>) => ({
+			count: snapshot.count,
+		});
 		const commands = ({
 			actor,
 			host,

@@ -111,7 +111,7 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 				"scene-applied": event<{ scene: Scene }>(),
 				"security-changed": event<{ allDoorsLocked: boolean }>(),
 			}),
-			view: ({ context }) => projectHomeView(context),
+			view: ({ snapshot }) => projectHomeView(snapshot.context),
 			commands: ({ command }) => createHomeCommands(command, sendAndFlush),
 		});
 

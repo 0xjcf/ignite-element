@@ -58,12 +58,9 @@ describe("nested child router — headless runtime", () => {
 
 		expect(result.events).toContainEqual({
 			type: "routed",
-			payload: {
-				type: "routed",
-				parent: "docs",
-				child: "api",
-				path: "/docs/api",
-			},
+			parent: "docs",
+			child: "api",
+			path: "/docs/api",
 		});
 	});
 });

@@ -1,10 +1,10 @@
 import { describe, expectTypeOf, it } from "vitest";
 import { createMachine, type StateFrom } from "xstate";
-import counterStore, { counterSlice } from "../fixtures/reduxCounterStore";
 import { igniteCore } from "../../IgniteCore";
 import type { ReduxInstanceConfig, XStateConfig } from "../../igniteCore/types";
 import type { EventDescriptor, FacadeEffectArgs } from "../../RenderArgs";
 import { test as igniteTest } from "../../testing";
+import counterStore, { counterSlice } from "../fixtures/reduxCounterStore";
 
 describe("ignite test DSL types", () => {
 	it("infers command payloads, xstate value matching, and event payloads", async () => {
@@ -26,6 +26,7 @@ describe("ignite test DSL types", () => {
 		type ToggleSnapshot = StateFrom<typeof machine>;
 		type ToggleEventMap = {
 			toggled: EventDescriptor<{ isOn: boolean }>;
+			failed: EventDescriptor<{ message: string }>;
 		};
 
 		const componentConfig = {
@@ -39,6 +40,7 @@ describe("ignite test DSL types", () => {
 			}),
 			events: (event) => ({
 				toggled: event<{ isOn: boolean }>(),
+				failed: event<{ message: string }>(),
 			}),
 			effects: ({
 				emit,
@@ -49,18 +51,34 @@ describe("ignite test DSL types", () => {
 					return;
 				}
 
-				emit("toggled", { isOn: isOn.current });
+				emit({
+					type: "toggled",
+					isOn: isOn.current,
+				});
 			},
 		} satisfies XStateConfig<typeof machine, ToggleEventMap>;
 		const component = igniteCore(componentConfig);
 
-		const scenario = (await igniteTest(component).given("off").when("toggle"))
-			.expectState("on")
-			.expectEvent("toggled", { isOn: true });
+		const scenario = (
+			await igniteTest(component).given({ value: "off" }).when("toggle")
+		)
+			.expectSnapshot({ value: "on" })
+			.expectEvent({ type: "toggled", isOn: true });
 
 		expectTypeOf(scenario.getResult().events).toEqualTypeOf<
-			Array<{ type: "toggled"; payload: { isOn: boolean } }>
+			Array<
+				{ type: "toggled"; isOn: boolean } | { type: "failed"; message: string }
+			>
 		>();
+		const expectEventTypePairing = () => {
+			// @ts-expect-error - `isOn` belongs to `toggled`, not `failed`
+			scenario.expectEvent({ type: "failed", isOn: true });
+			scenario.expectEvents([
+				// @ts-expect-error - `message` belongs to `failed`, not `toggled`
+				{ type: "toggled", message: "not paired" },
+			]);
+		};
+		void expectEventTypePairing;
 	});
 
 	it("infers command payloads for redux runtimes", () => {
@@ -104,7 +122,7 @@ describe("ignite test DSL types", () => {
 			igniteTest(component).canExecute("missing");
 		};
 
-		expectTypeOf(igniteTest(component).expectState).toBeFunction();
+		expectTypeOf(igniteTest(component).expectSnapshot).toBeFunction();
 		void expectCommandNameValidation;
 	});
 

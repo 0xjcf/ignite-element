@@ -64,7 +64,7 @@ const stepper = igniteCore({
 	effects: ({ snapshot, emit, select }) => {
 		const value = select((current) => current.value);
 		if (!value.changed) return;
-		emit("changed", { value: snapshot.value });
+		emit({ type: "changed", value: snapshot.value });
 	},
 });
 

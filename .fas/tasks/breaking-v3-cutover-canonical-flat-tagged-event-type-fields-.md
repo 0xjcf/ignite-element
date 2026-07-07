@@ -22,16 +22,64 @@ Implement docs/event-shape.md. emit unifies on the single-object member form { t
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-- packages/ignite-core/src/RenderArgs.ts
-- packages/ignite-element/src/RenderArgs.ts
-- packages/ignite-element/src/runtime/effects.ts
-- packages/ignite-element/src/runtime/agent.ts
-- packages/ignite-element/src/runtime/schema.ts
-- packages/ignite-element/src/testing.ts
 - .changeset/event-shape.md
+- docs/api/README.md
+- docs/effects-change-detection.md
+- docs/event-shape.md
+- docs/ignite-react.md
+- docs/testing.md
+- docs/v3-api-consistency.md
+- examples/adapters/xstate/README.md
+- examples/adapters/xstate/xstateAgentRuntimeShowcase.tsx
+- examples/adapters/xstate/xstateApiShowcaseRuntime.ts
+- examples/agents/smart-home/src/agentLoop.test.ts
+- examples/agents/smart-home/src/home.ts
+- examples/apps/dashboard-with-shared-state/src/dashboard.headless.test.ts
+- examples/apps/nested-child-router/src/router.headless.test.ts
+- examples/apps/spa-router/src/router.headless.test.ts
+- examples/frameworks/react/src/counter.ignite.tsx
+- examples/frameworks/svelte/src/stepper.ignite.ts
+- examples/frameworks/vue/src/toggle.ignite.ts
+- packages/ignite-core/src/RenderArgs.ts
+- packages/ignite-core/src/index.ts
+- packages/ignite-element/README.md
+- packages/ignite-element/src/RenderArgs.ts
+- packages/ignite-element/src/actor-web.ts
+- packages/ignite-element/src/createComponentFactory.ts
+- packages/ignite-element/src/createProjectionFactory.ts
+- packages/ignite-element/src/igniteCore/types.ts
+- packages/ignite-element/src/index.ts
+- packages/ignite-element/src/mobx.ts
+- packages/ignite-element/src/react/igniteReact.tsx
+- packages/ignite-element/src/redux.ts
+- packages/ignite-element/src/runtime/agent.ts
+- packages/ignite-element/src/testing.ts
+- packages/ignite-element/src/tests/IgniteCore.test.ts
+- packages/ignite-element/src/tests/agent-runtime-headless-node.test.ts
+- packages/ignite-element/src/tests/runtime-deprecations.test.ts
+- packages/ignite-element/src/tests/runtime-events-bridge.test.ts
+- packages/ignite-element/src/tests/testing.test.ts
+- packages/ignite-element/src/tests/tools.test.ts
+- packages/ignite-element/src/tests/types/actor-web-emitted-events.types.test.ts
+- packages/ignite-element/src/tests/types/igniteCore.types.test.ts
+- packages/ignite-element/src/tests/types/testing.types.test.ts
+- packages/ignite-element/src/tests/types/tools.types.test.ts
+- packages/ignite-element/src/tests/types/xstate-emitted-events.types.test.ts
+- packages/ignite-element/src/tools/anthropic/index.ts
+- packages/ignite-element/src/tools/igniteTools.ts
+- packages/ignite-element/src/tools/openai/index.ts
+- packages/ignite-element/src/tools/types.ts
+- packages/ignite-element/src/types/agent.ts
+- packages/ignite-element/src/types/schema.ts
+- packages/ignite-element/src/xstate.ts
 
 ## Scope Amendments
-- None.
+- 2026-07-07: implementation confirmed the affected-file list above already
+  covers the event-shape cutover across public entrypoints, tool dialect types,
+  runtime tests, top-level example runtime tests, and docs examples. No separate
+  scope-promotion paths are recorded here. `runtime/effects.ts` and
+  `runtime/schema.ts` were inspected from the initial brief scope but did not
+  require edits for this cutover.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

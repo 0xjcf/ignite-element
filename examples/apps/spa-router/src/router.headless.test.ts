@@ -38,7 +38,7 @@ describe("SPA router — headless runtime", () => {
 		const router = makeRouter();
 		const seen: string[] = [];
 		router.on("navigated", (event) => {
-			seen.push((event.detail as { route: string }).route);
+			seen.push(event.route);
 		});
 
 		void router.execute("navigate", "/about");
@@ -50,7 +50,8 @@ describe("SPA router — headless runtime", () => {
 		const result = await router.execute("navigate", "/users/3");
 		expect(result.events).toContainEqual({
 			type: "navigated",
-			payload: { type: "navigated", path: "/users/3", route: "user" },
+			path: "/users/3",
+			route: "user",
 		});
 	});
 

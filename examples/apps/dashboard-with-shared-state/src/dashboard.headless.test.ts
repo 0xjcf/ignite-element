@@ -1,6 +1,6 @@
 import { igniteCore } from "ignite-element/xstate";
-import { createActor } from "xstate";
 import { describe, expect, it } from "vitest";
+import { createActor } from "xstate";
 import { dashboardMachine, getDashboardSummary } from "./dashboardModel";
 
 const createSharedDashboard = () => createActor(dashboardMachine).start();
@@ -62,7 +62,7 @@ describe("dashboard shared state — headless runtime", () => {
 
 		expect(result.events).toContainEqual({
 			type: "alertDismissed",
-			payload: { type: "alertDismissed", id: "latency" },
+			id: "latency",
 		});
 
 		actor.stop();
@@ -77,7 +77,7 @@ describe("dashboard shared state — headless runtime", () => {
 
 		expect(result.events).not.toContainEqual({
 			type: "alertDismissed",
-			payload: { type: "alertDismissed", id: "latency" },
+			id: "latency",
 		});
 
 		actor.stop();

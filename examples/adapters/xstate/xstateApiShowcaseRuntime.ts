@@ -71,7 +71,8 @@ export const apiShowcase = igniteCore({
 	effects: ({ emit, select, snapshot, prevSnapshot }) => {
 		const count = select((state) => state.context.count);
 		if (count.changed) {
-			emit("api-count-changed", {
+			emit({
+				type: "api-count-changed",
 				count: count.current,
 				previousCount: count.previous,
 				state: String(snapshot.value),
@@ -80,14 +81,16 @@ export const apiShowcase = igniteCore({
 
 		const limitReached = select((state) => state.matches("limited"));
 		if (limitReached.changed && limitReached.current) {
-			emit("api-limit-reached", {
+			emit({
+				type: "api-limit-reached",
 				count: snapshot.context.count,
 				limit: snapshot.context.limit,
 			});
 		}
 
 		if (prevSnapshot.context.count > 0 && snapshot.context.count === 0) {
-			emit("api-reset", {
+			emit({
+				type: "api-reset",
 				previousCount: prevSnapshot.context.count,
 			});
 		}

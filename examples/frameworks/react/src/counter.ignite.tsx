@@ -36,7 +36,10 @@ const counterMachine = setup({
 
 const counterCore = igniteCore({
 	source: counterMachine,
-	view: ({ context }) => ({ count: context.count, label: context.label }),
+	view: ({ snapshot }) => ({
+		count: snapshot.context.count,
+		label: snapshot.context.label,
+	}),
 	commands: ({ actor }) => ({
 		increment: () => actor.send({ type: "INC" }),
 		decrement: () => actor.send({ type: "DEC" }),
@@ -51,7 +54,7 @@ const counterCore = igniteCore({
 	effects: ({ snapshot, emit, select }) => {
 		const count = select((current) => current.context.count);
 		if (!count.changed) return;
-		emit("countChanged", { count: snapshot.context.count });
+		emit({ type: "countChanged", count: snapshot.context.count });
 	},
 });
 

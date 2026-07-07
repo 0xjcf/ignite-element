@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { EventDescriptor } from "../RenderArgs";
+import type { EventDescriptor, EventMap } from "../RenderArgs";
 import type {
 	IgniteToolsRuntime,
 	NeutralManifest,
@@ -48,8 +48,8 @@ const fakeSchema: IgniteAgentSchema<FakeState, FakeView> = {
 		// gated command (availability predicate exists)
 		adminOnly: { description: "Admin only.", gated: true },
 	},
-	events: ["item-added"],
-	state: { count: 0 },
+	events: [{ type: "item-added" }],
+	snapshot: { count: 0 },
 	view: { count: 0, label: "zero" },
 };
 
@@ -65,7 +65,7 @@ type FakeComponent = IgniteToolsRuntime<
 };
 
 type ObservableFakeComponent = FakeComponent & {
-	emitEvent: (event: { type: "item-added"; payload: { id: number } }) => void;
+	emitEvent: (event: { type: "item-added"; id: number }) => void;
 	emitView: (view: FakeView) => void;
 };
 
@@ -74,7 +74,9 @@ function createFakeComponent(
 ): ObservableFakeComponent {
 	const calls: Array<{ name: string; payload: unknown }> = [];
 	let view: FakeView = { count: 0, label: "zero" };
-	const eventHandlers = new Set<(event: CustomEvent<{ id: number }>) => void>();
+	const eventHandlers = new Set<
+		(event: { type: "item-added"; id: number }) => void
+	>();
 	const viewHandlers = new Set<(view: FakeView, prevView: FakeView) => void>();
 	const component: ObservableFakeComponent = {
 		calls,
@@ -86,15 +88,15 @@ function createFakeComponent(
 			}
 			view = { count: calls.length, label: "active" };
 			return {
-				state: { count: 1, last: name, payload },
-				events: [{ type: "item-added", payload: { id: 1 } }],
+				snapshot: { count: 1, last: name, payload },
+				events: [{ type: "item-added", id: 1 }],
 			};
 		}) as FakeComponent["execute"],
 		// The derived read-model the agent grounds on; reflects the calls so far.
 		getView: () => view,
 		on: ((
 			eventName: "item-added",
-			handler: (event: CustomEvent<{ id: number }>) => void,
+			handler: (event: { type: "item-added"; id: number }) => void,
 		) => {
 			if (eventName === "item-added") {
 				eventHandlers.add(handler);
@@ -111,7 +113,7 @@ function createFakeComponent(
 		}) as FakeComponent["watchView"],
 		emitEvent: (event) => {
 			for (const handler of eventHandlers) {
-				handler(new CustomEvent(event.type, { detail: event.payload }));
+				handler(event);
 			}
 		},
 		emitView: (nextView) => {
@@ -138,8 +140,8 @@ class ThisBoundFakeComponent implements FakeComponent {
 	) {
 		this.calls.push({ name, payload });
 		return {
-			state: { count: this.calls.length, last: name, payload },
-			events: [{ type: "item-added", payload: { id: this.calls.length } }],
+			snapshot: { count: this.calls.length, last: name, payload },
+			events: [{ type: "item-added", id: this.calls.length }],
 		};
 	} as FakeComponent["execute"];
 
@@ -182,11 +184,15 @@ const fakeDialect: ToolDialect<FakeToolDefs, FakeResponse, FakeResultBlock> = {
 	// (no scalar wrapping to undo) — proving the param is optional to consume.
 	toolCalls: (response: FakeResponse): NeutralToolCall[] =>
 		response.calls.map((c) => ({ id: c.id, name: c.name, input: c.input })),
-	toolResult: (result: NeutralToolResult): FakeResultBlock => ({
-		tool_use_id: result.id,
-		is_error: isErr(result.result),
-		content: result.result.ok ? result.result.value : result.result.error,
-	}),
+	toolResult<Snapshot, View, Events extends EventMap>(
+		result: NeutralToolResult<Snapshot, View, Events>,
+	): FakeResultBlock {
+		return {
+			tool_use_id: result.id,
+			is_error: isErr(result.result),
+			content: result.result.ok ? result.result.value : result.result.error,
+		};
+	},
 };
 
 // --- buildManifest (pure core) ------------------------------------------------
@@ -424,9 +430,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 			// The observation carries the derived view (post-command), so the agent
 			// can ground on the read-model, not just the raw snapshot.
 			expect(result.value.view).toEqual({ count: 1, label: "active" });
-			expect(result.value.events).toEqual([
-				{ type: "item-added", payload: { id: 1 } },
-			]);
+			expect(result.value.events).toEqual([{ type: "item-added", id: 1 }]);
 		}
 	});
 
@@ -510,13 +514,13 @@ describe("igniteTools (neutral, no dialect)", () => {
 
 		const subscription = observe((observation) => seen.push(observation));
 
-		component.emitEvent({ type: "item-added", payload: { id: 2 } });
+		component.emitEvent({ type: "item-added", id: 2 });
 		component.emitView({ count: 2, label: "observed" });
 
 		expect(seen).toEqual([
 			{
 				type: "event",
-				event: { type: "item-added", payload: { id: 2 } },
+				event: { type: "item-added", id: 2 },
 			},
 			{
 				type: "view",
@@ -527,7 +531,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 
 		subscription.unsubscribe();
 		subscription.unsubscribe();
-		component.emitEvent({ type: "item-added", payload: { id: 3 } });
+		component.emitEvent({ type: "item-added", id: 3 });
 		component.emitView({ count: 3, label: "ignored" });
 
 		expect(seen).toHaveLength(2);

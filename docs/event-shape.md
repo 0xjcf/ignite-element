@@ -2,14 +2,16 @@
 
 ## Status
 
-Proposed (design only — not implemented). **Breaking, agent-facing** → land in the
-pre-stable v3 window with a changeset and a downstream (goodway) migration note.
+Implemented in the v3 beta cutover. **Breaking, agent-facing** → shipped in the
+pre-stable v3 window with a changeset and a downstream migration note. Because
+this is still beta, there is no read-time `.payload` compatibility accessor.
 
 ## Context
 
-ignite's event surface has accumulated three shapes that disagree:
+Before the cutover, ignite's event surface had accumulated three shapes that
+disagreed:
 
-| Surface | Shape today |
+| Surface | Pre-cutover shape |
 | --- | --- |
 | author — effects | `emit("toggled", { isOn: true })` — positional `(type, ...payload)` (`EmitFromEvents`) |
 | author — source | `source.emitEvent({ type: "SHIPMENT_CREATED", shipmentId })` — flat tagged object |
@@ -44,7 +46,9 @@ expectEvent({ type: "toggled", isOn: true });
 - **Observe** (`on`, `execute().events`, `record()` summaries) delivers the member
   directly — drop the `{ type, payload }` envelope and the redundant doubled `type`.
 - **`expectEvent`** accepts the member object: `expectEvent({ type, ...fields })`.
-- **`getSchema`** describes each event as its flat member shape.
+- **`getSchema`** describes events as flat `{ type }` descriptors. Runtime field
+  metadata remains a separate future enhancement because event payload types are
+  type-only today.
 
 ## Why flat, not the envelope
 
@@ -53,8 +57,10 @@ expectEvent({ type: "toggled", isOn: true });
   vocabulary-coherence argument as `select().whenChanged()` and `expectSnapshot`).
 - Removes the redundant `{ type, payload: { type, … } }` nesting.
 - The envelope's one virtue — a uniform `.payload` slot for generic agent routing —
-  is recoverable: `getSchema` already advertises each event's fields, so agents
-  route on `type` and read fields directly.
+  is recoverable without changing the event shape: `getSchema` advertises event
+  names as flat `{ type }` descriptors today, agents route on `type`, and
+  field-level runtime metadata can be added later because payload fields are
+  type-only in the current contract.
 
 ## Impact / migration (this is the cost)
 
@@ -66,8 +72,7 @@ The observe shape is the **agent contract**, so flattening is breaking:
   the flat shape.
 - **`emit` callers change** — effects move from `emit("t", { … })` to
   `emit({ type: "t", … })`; ripples through `EmitFromEvents` typing.
-- Ship with a changeset; coordinate the goodway migration; consider a temporary
-  read-time `.payload` compat accessor if a soft landing is needed.
+- Ship with a changeset and coordinate the downstream migration.
 
 ## Alternatives considered
 
@@ -79,14 +84,14 @@ The observe shape is the **agent contract**, so flattening is breaking:
 - **Keep positional `emit(type, payload)`** — rejected: not uniform with source
   emits or with the member-as-event mental model.
 
-## Open questions / next steps
+## Implementation notes
 
 - Unify `EmitFromEvents` typing on the single-member form; confirm payload-field
   typing still infers from the `Events` map.
 - Update the observe pipeline (adapter `subscribeEvents` bridge → `on` /
   `execute().events` / `record()`), removing the envelope.
 - Update `getSchema` event descriptors + the `record()` `.payload` mapping.
-- goodway migration note + whether to keep a temporary `.payload` accessor.
+- Coordinate the downstream goodway migration.
 - Sequence alongside the assertion-surface change (`expectSnapshot`/`expectView` +
   `expectEvent` object form) — same pre-stable vocabulary pass, but track the
   breaking wire change distinctly from the additive assertion work.

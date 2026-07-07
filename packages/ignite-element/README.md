@@ -59,8 +59,8 @@ const toggle = igniteCore({
   events: (event) => ({
     toggled: event<{ isOn: boolean }>(),
   }),
-  view: ({ matches }) => ({
-    isOn: matches("on"),
+  view: ({ snapshot }) => ({
+    isOn: snapshot.matches("on"),
   }),
   commands: ({ actor }) => ({
     toggle: () => actor.send({ type: "TOGGLE" }),
@@ -68,7 +68,7 @@ const toggle = igniteCore({
   effects: ({ emit, select }) => {
     const isOn = select((snapshot) => snapshot.matches("on"));
     if (!isOn.changed) return;
-    emit("toggled", { isOn: isOn.current });
+    emit({ type: "toggled", isOn: isOn.current });
   },
 });
 
@@ -93,10 +93,10 @@ import { igniteCore } from "ignite-element/actor-web";
 
 const shipmentCard = igniteCore({
   source: ({ host }) => checkoutRuntime.shipments.commandSource({ host }),
-  view: ({ context }) => ({
-    shipmentId: context.shipmentId,
-    status: context.status,
-    etaLabel: context.etaLabel,
+  view: ({ snapshot }) => ({
+    shipmentId: snapshot.context.shipmentId,
+    status: snapshot.context.status,
+    etaLabel: snapshot.context.etaLabel,
   }),
   commands: ({ actor }) => ({
     refresh: (shipmentId: string) =>
@@ -110,10 +110,10 @@ const shipmentCard = igniteCore({
 Keep ordinary UI projections focused on business/read-model fields. Opt into runtime metadata only when the component needs it:
 
 ```ts
-states: ({ context, transport }) => ({
-  shipmentId: context.shipmentId,
-  status: context.status,
-  syncState: transport.state,
+view: ({ snapshot }) => ({
+  shipmentId: snapshot.context.shipmentId,
+  status: snapshot.context.status,
+  syncState: snapshot.transport.state,
 });
 ```
 
@@ -127,11 +127,11 @@ Headless runtime APIs are available on the same component contract:
 
 ```ts
 await toggle.execute("toggle");
-toggle.getState();
+toggle.getSnapshot();
 toggle.getView();
 toggle.getSchema();
 toggle.on("toggled", handler);
-toggle.watch((state, prevState) => {});
+toggle.watchSnapshot((snapshot, prevSnapshot) => {});
 toggle.watchView((view, prevView) => {});
 const story = toggle.record("turns on");
 await story.execute("toggle");

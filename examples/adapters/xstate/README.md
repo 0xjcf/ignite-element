@@ -85,8 +85,8 @@ const registerSharedXState = igniteCore({
   }),
   effects: ({ snapshot, prevSnapshot, emit }) => {
     if (snapshot.context.darkMode === prevSnapshot.context.darkMode) return;
-    emit("toggled", { isDark: snapshot.context.darkMode });
-  }),
+    emit({ type: "toggled", isDark: snapshot.context.darkMode });
+  },
 });
 
 // Isolated variant: same facade as above, just change source to a machine
@@ -137,7 +137,11 @@ registerSharedXState("my-counter-xstate", ({ count, increment }) => (
 const apiShowcase = igniteCore({
   source: apiShowcaseMachine,
   events: (event) => ({
-    "api-count-changed": event<{ count: number }>(),
+    "api-count-changed": event<{
+      count: number;
+      previousCount: number;
+      state: string;
+    }>(),
   }),
   view: ({ snapshot }) => ({
     count: snapshot.context.count,
@@ -155,7 +159,12 @@ const apiShowcase = igniteCore({
   }),
   effects: ({ snapshot, prevSnapshot, emit }) => {
     if (snapshot.context.count !== prevSnapshot.context.count) {
-      emit("api-count-changed", { count: snapshot.context.count });
+      emit({
+        type: "api-count-changed",
+        count: snapshot.context.count,
+        previousCount: prevSnapshot.context.count,
+        state: String(snapshot.value),
+      });
     }
   },
 });
@@ -174,7 +183,11 @@ apiShowcase.getSchema();
 apiShowcase.getSnapshot();
 apiShowcase.getView();
 
-apiShowcase.on("api-count-changed", (event) => event.detail);
+apiShowcase.on("api-count-changed", (event) => [
+  event.count,
+  event.previousCount,
+  event.state,
+]);
 apiShowcase.watchSnapshot((snapshot, prevSnapshot) => [prevSnapshot, snapshot]);
 apiShowcase.watchView((view, prevView) => [prevView, view]);
 

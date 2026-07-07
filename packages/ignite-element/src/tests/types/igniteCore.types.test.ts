@@ -36,8 +36,8 @@ import { igniteCore } from "../../IgniteCore";
 import type { AdapterPack } from "../../IgniteElementFactory";
 import type {
 	InferAdapterFromSource,
-	IgniteCoreReturn as SharedIgniteCoreReturn,
 	ReduxInstanceConfig,
+	IgniteCoreReturn as SharedIgniteCoreReturn,
 } from "../../igniteCore/types";
 import type {
 	IgniteDomBridge as RootIgniteDomBridge,
@@ -63,9 +63,12 @@ import type {
 	CommandContext,
 	CommandMetadata,
 	CommandWithMetadata,
+	EmitFromEvents,
+	EventDescriptor,
 	IgniteSchemaValue,
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
+	ViewContext,
 } from "../../RenderArgs";
 import type {
 	IgniteDomBridge as ReduxIgniteDomBridge,
@@ -95,6 +98,7 @@ import type {
 import type {
 	IgniteAgentCommandContract,
 	IgniteAgentCommandSchema,
+	IgniteAgentEventSchema,
 } from "../../types/schema";
 import type { InferStateAndEvent } from "../../utils/igniteRedux";
 import type {
@@ -263,7 +267,7 @@ describe("igniteCore type inference", () => {
 		expectTypeOf<ActorWebIgniteStoryTraceSnapshot>().toEqualTypeOf<IgniteStoryTraceSnapshot>();
 		expectTypeOf<ActorWebIgniteStoryTraceSnapshotEntry>().toEqualTypeOf<IgniteStoryTraceSnapshotEntry>();
 		expectTypeOf<
-			IgniteStorySnapshot["summary"]["finalState"]
+			IgniteStorySnapshot["summary"]["finalSnapshot"]
 		>().toEqualTypeOf<IgniteSchemaValue>();
 		expectTypeOf<
 			IgniteStorySnapshot["summary"]["finalView"]
@@ -360,9 +364,9 @@ describe("igniteCore type inference", () => {
 	it("infers actor-web view context, transport, and command actor facades", () => {
 		const register = igniteCore({
 			source: actorWebShipmentSource,
-			view: ({ context, snapshot, transport }) => ({
-				status: context.status,
-				connected: transport.state === "connected",
+			view: ({ snapshot }) => ({
+				status: snapshot.context.status,
+				connected: snapshot.transport.state === "connected",
 				snapshotStatus: snapshot.context.status,
 			}),
 			commands: ({ actor }) => ({
@@ -445,23 +449,14 @@ describe("igniteCore type inference", () => {
 	it("infers actor-web read-model source snapshots from a single source", () => {
 		const register = igniteCoreActorWebEntrypoint({
 			source: actorWebShipmentReadModelHostFactory,
-			view: ({
-				context,
-				phase,
-				status,
-				value,
-				matches,
-				can,
-				hasTag,
-				snapshot,
-			}) => ({
-				shipmentId: context.shipmentId,
-				phase,
-				status,
-				value,
-				idle: matches?.("idle") ?? false,
-				canCreate: can?.({ type: "CREATE_SHIPMENT" }) ?? false,
-				ready: hasTag?.("ready") ?? false,
+			view: ({ snapshot }) => ({
+				shipmentId: snapshot.context.shipmentId,
+				phase: snapshot.phase,
+				status: snapshot.status,
+				value: snapshot.value,
+				idle: snapshot.matches?.("idle") ?? false,
+				canCreate: snapshot.can?.({ type: "CREATE_SHIPMENT" }) ?? false,
+				ready: snapshot.hasTag?.("ready") ?? false,
 				snapshotShipmentId: snapshot.context.shipmentId,
 			}),
 			commands: ({ actor }) => ({
@@ -676,7 +671,7 @@ describe("igniteCore type inference", () => {
 
 		const register = igniteCore({
 			source: machine,
-			view: (snapshot: Snapshot) => ({
+			view: ({ snapshot }: ViewContext<Snapshot>) => ({
 				count: snapshot.context.count,
 			}),
 			commands: ({ actor }) => ({
@@ -715,7 +710,10 @@ describe("igniteCore type inference", () => {
 				},
 			}),
 			effects: ({ emit }) => {
-				emit("checkout-submitted", { email: "user@example.com" });
+				emit({
+					type: "checkout-submitted",
+					email: "user@example.com",
+				});
 			},
 		});
 
@@ -728,6 +726,34 @@ describe("igniteCore type inference", () => {
 				},
 			}),
 		});
+	});
+
+	it("keeps emit callable for payloads with widened type discriminants", () => {
+		type ExternalEvents = {
+			external: EventDescriptor<{ type: string; data: unknown }>;
+		};
+
+		const assertWidenedTypePayload = (emit: EmitFromEvents<ExternalEvents>) => {
+			emit({ type: "external", data: { id: "evt-1" } });
+
+			// @ts-expect-error - `data` is still required when the payload widens `type`
+			emit({ type: "external" });
+		};
+		void assertWidenedTypePayload;
+	});
+
+	it("treats void event payloads as no-fields event members", () => {
+		type VoidEvents = {
+			heartbeat: EventDescriptor<void>;
+		};
+
+		const assertVoidPayload = (emit: EmitFromEvents<VoidEvents>) => {
+			emit({ type: "heartbeat" });
+
+			// @ts-expect-error - void event payloads do not accept member fields
+			emit({ type: "heartbeat", id: "extra" });
+		};
+		void assertVoidPayload;
 	});
 
 	it("types effects emit when effects appear before events", () => {
@@ -746,7 +772,11 @@ describe("igniteCore type inference", () => {
 				trigger: () => actor.send({ type: "PING" }),
 			}),
 			effects: ({ emit }) => {
-				emit("leaderboardRefresh", { tournamentId: "t-1", sort: "alpha" });
+				emit({
+					type: "leaderboardRefresh",
+					tournamentId: "t-1",
+					sort: "alpha",
+				});
 			},
 			events: (event) => ({
 				leaderboardRefresh: event<{
@@ -778,7 +808,7 @@ describe("igniteCore type inference", () => {
 
 		igniteCoreXState({
 			source: leaderboardMachine,
-			view: (snapshot) => ({
+			view: ({ snapshot }) => ({
 				leaderboard: snapshot.context.leaderboard,
 				sort: snapshot.context.sort,
 			}),
@@ -789,7 +819,8 @@ describe("igniteCore type inference", () => {
 			}),
 			effects: ({ actor, emit }) => {
 				const { activeTournamentId, sort } = actor.getSnapshot().context;
-				emit("leaderboardRefresh", {
+				emit({
+					type: "leaderboardRefresh",
 					tournamentId: activeTournamentId,
 					sort,
 				});
@@ -819,10 +850,16 @@ describe("igniteCore type inference", () => {
 				trigger: () => actor.send({ type: "PING" }),
 			}),
 			effects: ({ emit }) => {
-				emit("optional-payload");
-				emit("optional-payload", { id: "123" });
-				emit("optional-payload", undefined);
-				emit("required-payload", { id: "123" });
+				emit({ type: "optional-payload" });
+				emit({
+					type: "optional-payload",
+					id: "123",
+				});
+				emit({ type: "optional-payload" });
+				emit({
+					type: "required-payload",
+					id: "123",
+				});
 			},
 			events: (event) => ({
 				"optional-payload": event<{ id?: string } | undefined>(),
@@ -850,9 +887,12 @@ describe("igniteCore type inference", () => {
 				trigger: () => actor.send({ type: "PING" }),
 			}),
 			effects: ({ emit }) => {
-				emit("pinged-event", { id: "123" });
+				emit({
+					type: "pinged-event",
+					id: "123",
+				});
 				// @ts-expect-error - payload is required
-				emit("pinged-event");
+				emit({ type: "pinged-event" });
 			},
 		});
 	});
@@ -927,7 +967,8 @@ describe("igniteCore type inference", () => {
 					return;
 				}
 
-				emit("counter-incremented", {
+				emit({
+					type: "counter-incremented",
 					count: snapshot.counter.count,
 				});
 			},
@@ -937,22 +978,25 @@ describe("igniteCore type inference", () => {
 		const schema = register.getSchema();
 		expectTypeOf(result).toEqualTypeOf<
 			Promise<{
-				state: StoreState;
+				snapshot: StoreState;
 				events: Array<{
 					type: "counter-incremented";
-					payload: { count: number };
+					count: number;
 				}>;
 			}>
 		>();
 		expectTypeOf(register.getView()).toEqualTypeOf<{ count: number }>();
 		expectTypeOf(schema.commands).toEqualTypeOf<IgniteAgentCommandSchema>();
-		expectTypeOf(schema.events).toEqualTypeOf<string[]>();
-		expectTypeOf(schema.state).toEqualTypeOf<IgniteSchemaValue>();
+		expectTypeOf(schema.events).toEqualTypeOf<IgniteAgentEventSchema[]>();
+		expectTypeOf(schema.snapshot).toEqualTypeOf<IgniteSchemaValue>();
 		// getSchema().view carries the typed view projection (mirrors getView()),
-		// not the loose IgniteSchemaValue that `state` falls back to.
+		// not the loose IgniteSchemaValue that `snapshot` falls back to.
 		expectTypeOf(schema.view).toEqualTypeOf<{ count: number }>();
 		register.on("counter-incremented", (event) => {
-			expectTypeOf(event.detail).toEqualTypeOf<{ count: number }>();
+			expectTypeOf(event).toEqualTypeOf<{
+				type: "counter-incremented";
+				count: number;
+			}>();
 		});
 		register.watchSnapshot((state, prevState) => {
 			expectTypeOf(state).toEqualTypeOf<StoreState>();
@@ -977,20 +1021,20 @@ describe("igniteCore type inference", () => {
 		const storySummary = story.summary();
 		expectTypeOf(storyResult).toEqualTypeOf<
 			Promise<{
-				state: StoreState;
+				snapshot: StoreState;
 				events: Array<{
 					type: "counter-incremented";
-					payload: { count: number };
+					count: number;
 				}>;
 			}>
 		>();
 		expectTypeOf(storyView).toEqualTypeOf<Promise<{ count: number }>>();
 		expectTypeOf(storyTrace).toEqualTypeOf<IgniteStoryTraceEntry[]>();
 		expectTypeOf(storyLifecycle).toEqualTypeOf<IgniteStoryLifecycleEntry[]>();
-		expectTypeOf(storySummary.finalState).toEqualTypeOf<StoreState>();
+		expectTypeOf(storySummary.finalSnapshot).toEqualTypeOf<StoreState>();
 		expectTypeOf(storySummary.finalView).toEqualTypeOf<{ count: number }>();
 		expectTypeOf(storySummary.events).toEqualTypeOf<
-			Array<{ type: "counter-incremented"; payload: { count: number } }>
+			Array<{ type: "counter-incremented"; count: number }>
 		>();
 		expectTypeOf(storySummary.commandCount).toEqualTypeOf<number>();
 		expectTypeOf(storySummary.traceCount).toEqualTypeOf<number>();
@@ -1099,17 +1143,20 @@ describe("igniteCore type inference", () => {
 				expectTypeOf(count.previous).toEqualTypeOf<number>();
 				expectTypeOf(count.changed).toEqualTypeOf<boolean>();
 
-				emit("counter-incremented", {
+				emit({
+					type: "counter-incremented",
 					count: snapshot.context.count,
 				});
-				emit("ready-changed", {
+				emit({
+					type: "ready-changed",
 					ready: snapshot.context.ready,
 				});
 
 				// @ts-expect-error - payload remains required
-				emit("counter-incremented");
-				// @ts-expect-error - event names remain constrained to declared events
-				emit("counter-incrementedd", {
+				emit({ type: "counter-incremented" });
+				emit({
+					// @ts-expect-error - event names remain constrained to declared events
+					type: "counter-incrementedd",
 					count: snapshot.context.count,
 				});
 			},
@@ -1117,15 +1164,15 @@ describe("igniteCore type inference", () => {
 
 		expectTypeOf(register.execute("increment")).toEqualTypeOf<
 			Promise<{
-				state: XStateSnapshot<typeof machine>;
+				snapshot: XStateSnapshot<typeof machine>;
 				events: Array<
 					| {
 							type: "counter-incremented";
-							payload: { count: number };
+							count: number;
 					  }
 					| {
 							type: "ready-changed";
-							payload: { ready: boolean };
+							ready: boolean;
 					  }
 				>;
 			}>
@@ -1134,15 +1181,15 @@ describe("igniteCore type inference", () => {
 		const story = register.record("typed xstate authoring");
 		expectTypeOf(story.execute("increment")).toEqualTypeOf<
 			Promise<{
-				state: XStateSnapshot<typeof machine>;
+				snapshot: XStateSnapshot<typeof machine>;
 				events: Array<
 					| {
 							type: "counter-incremented";
-							payload: { count: number };
+							count: number;
 					  }
 					| {
 							type: "ready-changed";
-							payload: { ready: boolean };
+							ready: boolean;
 					  }
 				>;
 			}>
@@ -1328,7 +1375,7 @@ describe("igniteCore type inference", () => {
 		type SliceEvent = InferStateAndEvent<typeof counterSlice>["Event"];
 		type SliceActor = ReduxSliceCommandActor<typeof counterSlice>;
 
-		const viewCallback = (snapshot: SliceState) => ({
+		const viewCallback = ({ snapshot }: ViewContext<SliceState>) => ({
 			count: snapshot.count,
 		});
 		const commandsCallback = ({ actor }: { actor: SliceActor }) => ({
@@ -1357,7 +1404,7 @@ describe("igniteCore type inference", () => {
 		type SliceContext = CommandContext<
 			ReduxSliceCommandActor<typeof counterSlice>
 		>;
-		const sliceView = (snapshot: SliceState) => ({
+		const sliceView = ({ snapshot }: ViewContext<SliceState>) => ({
 			count: snapshot.count,
 		});
 		const sliceCommands = ({ actor }: SliceContext) => ({
@@ -1386,7 +1433,7 @@ describe("igniteCore type inference", () => {
 		type StoreEvent = InferStateAndEvent<StoreInstance>["Event"];
 		type StoreActor = ReduxStoreCommandActor<StoreInstance>;
 
-		const viewCallback = (snapshot: StoreState) => ({
+		const viewCallback = ({ snapshot }: ViewContext<StoreState>) => ({
 			count: snapshot.counter.count,
 		});
 		const commandsCallback = ({ actor }: { actor: StoreActor }) => ({
@@ -1414,7 +1461,7 @@ describe("igniteCore type inference", () => {
 		const store = counterStore();
 		type StoreState = InferStateAndEvent<typeof store>["State"];
 		type StoreContext = CommandContext<ReduxStoreCommandActor<typeof store>>;
-		const storeStates = (snapshot: StoreState) => ({
+		const storeStates = ({ snapshot }: ViewContext<StoreState>) => ({
 			count: snapshot.counter.count,
 		});
 		const storeCommands = ({ actor }: StoreContext) => ({
@@ -1448,7 +1495,7 @@ describe("igniteCore type inference", () => {
 		type StoreState = ReturnType<typeof createStore>;
 		type StoreEvent = MobxEvent<StoreState>;
 
-		const viewCallback = (snapshot: StoreState) => ({
+		const viewCallback = ({ snapshot }: ViewContext<StoreState>) => ({
 			count: snapshot.count,
 		});
 		const commandsCallback = ({
@@ -1486,7 +1533,9 @@ describe("igniteCore type inference", () => {
 
 		type SharedStore = typeof sharedStore;
 		type SharedContext = CommandContext<SharedStore>;
-		const sharedStates = (snapshot: SharedStore) => ({ count: snapshot.count });
+		const sharedStates = ({ snapshot }: ViewContext<SharedStore>) => ({
+			count: snapshot.count,
+		});
 		const sharedCommands = ({ actor: storeInstance }: SharedContext) => ({
 			increment: () => storeInstance.increment(),
 		});

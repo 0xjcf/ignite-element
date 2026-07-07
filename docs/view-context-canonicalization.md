@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (design only). **Breaking.** Part of `docs/v3-api-consistency.md`.
+Implemented. **Breaking.** Part of `docs/v3-api-consistency.md`.
 
 ## Context
 
@@ -13,9 +13,9 @@ object (`createProjectionFactory`: `{ ...snapshot, snapshot }`). Two problems:
    → ambiguous, fragile to refactor, unclear which is "the" path.
 2. **Shape differs per adapter** — what you destructure depends on the adapter's
    snapshot:
-   - xstate: `view: ({ context }) => context.x` (ExtendedState merges `context`)
+   - xstate: `view: ({ snapshot }) => snapshot.context.x`
    - redux / mobx: `view: ({ snapshot }) => snapshot.x` (the snapshot *is* the state)
-   - actor-web: `view: ({ context, transport }) => …` (adds `transport`)
+   - actor-web: `view: ({ snapshot }) => …` (reads `snapshot.context` and `snapshot.transport`)
 
    So the **arg shape is heterogeneous** across adapters — a consumer learns a
    different destructure per source, which undercuts "swap the source without
@@ -68,7 +68,5 @@ changeset + migration note; land with the other breaking items
 
 ## Open questions
 
-- Keep a deprecated convenience (still expose `context` for xstate/actor-web) during
-  beta, or hard cut?
-- Audit `createProjectionFactory` + `FacadeViewCallback`/`ViewContext` typing for the
-  spread removal, and the headless runtime's `getView` projection path.
+- No deprecated convenience alias in v3 beta; the cutover removes the spread.
+- Headless `getView()` uses the same projection path as element rendering.

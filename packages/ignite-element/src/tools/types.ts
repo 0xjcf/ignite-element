@@ -147,7 +147,11 @@ export interface ToolDialect<
 	 */
 	toolCalls(response: Response, manifest: NeutralManifest): NeutralToolCall[];
 	/** Neutral result → provider tool-result block (encoded one call at a time). */
-	toolResult(result: NeutralToolResult): ResultBlock;
+	toolResult<
+		Snapshot = unknown,
+		View = unknown,
+		Events extends EventMap = EmptyEventMap,
+	>(result: NeutralToolResult<Snapshot, View, Events>): ResultBlock;
 }
 
 /** Per-command availability predicate, evaluated against the current snapshot. */

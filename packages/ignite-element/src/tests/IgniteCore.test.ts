@@ -23,7 +23,6 @@ import type {
 	ExtendedState,
 	XStateCommandActor,
 } from "../adapters/XStateAdapter";
-import counterStore, { counterSlice } from "./fixtures/reduxCounterStore";
 import { igniteCore } from "../IgniteCore";
 import type { ReduxInstanceConfig } from "../igniteCore/types";
 import type {
@@ -32,11 +31,13 @@ import type {
 	FacadeEffectArgs,
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
+	ViewContext,
 } from "../RenderArgs";
 import { jsx, jsxs } from "../renderers/jsx/jsx-runtime";
 import { toSchemaValue } from "../runtime/schema";
 import { test as igniteTest } from "../testing";
 import type { InferStateAndEvent } from "../utils/igniteRedux";
+import counterStore, { counterSlice } from "./fixtures/reduxCounterStore";
 
 const flushMicrotasks = () =>
 	new Promise<void>((resolve) => queueMicrotask(resolve));
@@ -207,6 +208,26 @@ describe("igniteCore", () => {
 		vi.restoreAllMocks();
 	});
 
+	it("passes only the snapshot wrapper to view callbacks", () => {
+		const store = counterStore();
+		type StoreState = InferStateAndEvent<typeof store>["State"];
+
+		const register = igniteCore({
+			adapter: "redux",
+			source: store,
+			view: (context: ViewContext<StoreState>) => ({
+				count: context.snapshot.counter.count,
+				hasCounterAlias:
+					Object.getOwnPropertyDescriptor(context, "counter") !== undefined,
+			}),
+		});
+
+		expect(register.getView()).toEqual({
+			count: 0,
+			hasCounterAlias: false,
+		});
+	});
+
 	it("should initialize without errors for XState adapter", () => {
 		const core = igniteCore({
 			adapter: "xstate",
@@ -296,8 +317,8 @@ describe("igniteCore", () => {
 		};
 		const register = igniteCore({
 			source: sourceFactory,
-			view: ({ context }) => ({
-				status: context.status,
+			view: ({ snapshot }) => ({
+				status: snapshot.context.status,
 			}),
 		});
 		const elementName = `actor-web-inferred-host-source-${crypto.randomUUID()}`;
@@ -334,8 +355,8 @@ describe("igniteCore", () => {
 		const register = igniteCore({
 			adapter: "actor-web",
 			source: sourceFactory,
-			view: ({ context }) => ({
-				status: context.status,
+			view: ({ snapshot }) => ({
+				status: snapshot.context.status,
 			}),
 		});
 		const elementName = `actor-web-defaulted-host-source-${crypto.randomUUID()}`;
@@ -363,8 +384,8 @@ describe("igniteCore", () => {
 		const register = igniteCore({
 			adapter: "actor-web",
 			source: sourceFactory,
-			view: ({ context }) => ({
-				status: context.status,
+			view: ({ snapshot }) => ({
+				status: snapshot.context.status,
 			}),
 		});
 		const elementName = `actor-web-host-source-${crypto.randomUUID()}`;
@@ -408,10 +429,10 @@ describe("igniteCore", () => {
 		const source = createActorWebShipmentSource();
 		const register = igniteCore({
 			source,
-			view: ({ context, snapshot, transport }) => ({
-				status: context.status,
-				shipmentId: context.shipmentId,
-				connected: transport.state === "connected",
+			view: ({ snapshot }) => ({
+				status: snapshot.context.status,
+				shipmentId: snapshot.context.shipmentId,
+				connected: snapshot.transport.state === "connected",
 				snapshotStatus: snapshot.context.status,
 			}),
 			commands: ({ actor }) => ({
@@ -487,10 +508,10 @@ describe("igniteCore", () => {
 		const source = createActorWebShipmentSource();
 		const register = igniteCore({
 			source,
-			view: ({ context, transport }) => ({
-				status: context.status,
-				shipmentId: context.shipmentId,
-				connected: transport.state === "connected",
+			view: ({ snapshot }) => ({
+				status: snapshot.context.status,
+				shipmentId: snapshot.context.shipmentId,
+				connected: snapshot.transport.state === "connected",
 			}),
 			commands: ({ actor }) => ({
 				createShipment: (shipmentId: string) =>
@@ -626,7 +647,7 @@ describe("igniteCore", () => {
 		type SliceEvent = InferStateAndEvent<typeof counterSlice>["Event"];
 		type SliceActor = ReduxSliceCommandActor<typeof counterSlice>;
 
-		const viewCallback = (snapshot: SliceState) => ({
+		const viewCallback = ({ snapshot }: ViewContext<SliceState>) => ({
 			count: snapshot.count,
 		});
 		const commandsCallback = ({ actor }: { actor: SliceActor }) => ({
@@ -670,7 +691,7 @@ describe("igniteCore", () => {
 		const store = counterStore();
 		const dispatchSpy = vi.spyOn(store, "dispatch");
 		type EventStoreState = InferStateAndEvent<typeof store>["State"];
-		const eventView = (snapshot: EventStoreState) => ({
+		const eventView = ({ snapshot }: ViewContext<EventStoreState>) => ({
 			count: snapshot.counter.count,
 		});
 		type CounterEventMap = {
@@ -703,7 +724,10 @@ describe("igniteCore", () => {
 
 			const amountAttr = host.getAttribute("data-amount");
 			const amount = amountAttr ? Number(amountAttr) : 1;
-			emit("counter-incremented", { amount });
+			emit({
+				type: "counter-incremented",
+				amount,
+			});
 		};
 		const register = igniteCore({
 			adapter: "redux",
@@ -764,7 +788,7 @@ describe("igniteCore", () => {
 		const runtimeConfig = {
 			adapter: "redux",
 			source: store,
-			view: (snapshot: StoreState) => ({
+			view: ({ snapshot }: ViewContext<StoreState>) => ({
 				count: snapshot.counter.count,
 			}),
 			commands: ({ actor }) => ({
@@ -774,7 +798,8 @@ describe("igniteCore", () => {
 				"counter-incremented": event<{ count: number }>(),
 			}),
 			effects: ({ snapshot, emit }) => {
-				emit("counter-incremented", {
+				emit({
+					type: "counter-incremented",
 					count: snapshot.counter.count,
 				});
 			},
@@ -823,7 +848,7 @@ describe("igniteCore", () => {
 		const runtimeConfig = {
 			adapter: "redux",
 			source: store,
-			view: (snapshot: StoreState) => ({
+			view: ({ snapshot }: ViewContext<StoreState>) => ({
 				count: snapshot.counter.count,
 			}),
 			commands: ({ actor }) => ({
@@ -841,7 +866,8 @@ describe("igniteCore", () => {
 				}
 
 				order.push("effect");
-				emit("counter-incremented", {
+				emit({
+					type: "counter-incremented",
 					count: snapshot.counter.count,
 				});
 			},
@@ -902,7 +928,7 @@ describe("igniteCore", () => {
 
 		const result = await register.execute("increment");
 
-		expect(result.state.counter.count).toBe(1);
+		expect(result.snapshot.counter.count).toBe(1);
 		expect(consoleError).toHaveBeenCalledWith(
 			"[igniteCore] Effect callback failed.",
 			effectError,
@@ -942,16 +968,19 @@ describe("igniteCore", () => {
 					return;
 				}
 
-				emit("counter-incremented", {
+				emit({
+					type: "counter-incremented",
 					count: count.current,
 				});
 			},
 		} satisfies ReduxInstanceConfig<typeof store, RuntimeEventMap>;
 		const register = igniteCore(runtimeConfig);
 
-		const listener = vi.fn((event: CustomEvent<{ count: number }>) => {
-			expect(event.detail.count).toBe(3);
-		});
+		const listener = vi.fn(
+			(event: { type: "counter-incremented"; count: number }) => {
+				expect(event.count).toBe(3);
+			},
+		);
 		const watchListener = vi.fn((state: StoreState, prevState: StoreState) => {
 			expect(prevState.counter.count).toBe(0);
 			expect(state.counter.count).toBe(3);
@@ -968,11 +997,11 @@ describe("igniteCore", () => {
 
 		expect(register.getSnapshot().counter.count).toBe(3);
 		expect(register.getView()).toEqual({ count: 3, isEven: false });
-		expect(result.state.counter.count).toBe(3);
+		expect(result.snapshot.counter.count).toBe(3);
 		expect(result.events).toEqual([
 			{
 				type: "counter-incremented",
-				payload: { count: 3 },
+				count: 3,
 			},
 		]);
 		expect(listener).toHaveBeenCalledTimes(1);
@@ -1019,7 +1048,8 @@ describe("igniteCore", () => {
 					return;
 				}
 
-				emit("counter-incremented", {
+				emit({
+					type: "counter-incremented",
 					count: snapshot.counter.count,
 				});
 			},
@@ -1038,7 +1068,7 @@ describe("igniteCore", () => {
 		expect(result.events).toEqual([
 			{
 				type: "counter-incremented",
-				payload: { count: 1 },
+				count: 1,
 			},
 		]);
 	});
@@ -1072,7 +1102,8 @@ describe("igniteCore", () => {
 					return;
 				}
 
-				emit("counter-incremented", {
+				emit({
+					type: "counter-incremented",
 					count: snapshot.counter.count,
 				});
 			},
@@ -1091,28 +1122,28 @@ describe("igniteCore", () => {
 		expect(finalView).toEqual({ count: 5, isEven: false });
 		expect(story.trace().map((entry) => entry.kind)).toEqual([
 			"command",
-			"state",
+			"snapshot",
 			"view",
 			"event",
-			"state",
+			"snapshot",
 			"view",
 			"command",
-			"state",
+			"snapshot",
 			"view",
 			"event",
-			"state",
+			"snapshot",
 			"view",
 			"command",
-			"state",
+			"snapshot",
 			"view",
 			"event",
-			"state",
+			"snapshot",
 			"view",
 			"command",
-			"state",
+			"snapshot",
 			"view",
 			"event",
-			"state",
+			"snapshot",
 			"view",
 		]);
 		expect(
@@ -1123,13 +1154,13 @@ describe("igniteCore", () => {
 		).toEqual(["increment", "increment", "increment", "increment"]);
 
 		const summary = story.summary();
-		expect(summary.finalState.counter.count).toBe(5);
+		expect(summary.finalSnapshot.counter.count).toBe(5);
 		expect(summary.finalView).toEqual({ count: 5, isEven: false });
-		expect(summary.events.map((event) => event.payload)).toEqual([
-			{ count: 2 },
-			{ count: 3 },
-			{ count: 4 },
-			{ count: 5 },
+		expect(summary.events).toEqual([
+			{ type: "counter-incremented", count: 2 },
+			{ type: "counter-incremented", count: 3 },
+			{ type: "counter-incremented", count: 4 },
+			{ type: "counter-incremented", count: 5 },
 		]);
 		expect(summary.commandCount).toBe(4);
 		expect(summary.traceCount).toBe(24);
@@ -1140,9 +1171,9 @@ describe("igniteCore", () => {
 		await expect(() => story.execute("increment", 1)).rejects.toThrow(
 			'[igniteCore] Story "counter reaches five" has been stopped.',
 		);
-		expect((await register.execute("increment", 1)).state.counter.count).toBe(
-			6,
-		);
+		expect(
+			(await register.execute("increment", 1)).snapshot.counter.count,
+		).toBe(6);
 	});
 
 	it("records DOM lifecycle evidence for active stories and detaches on stop", async () => {
@@ -1151,7 +1182,7 @@ describe("igniteCore", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: (snapshot: StoreState) => ({
+			view: ({ snapshot }: ViewContext<StoreState>) => ({
 				count: snapshot.counter.count,
 			}),
 			commands: ({ actor }) => ({
@@ -1199,7 +1230,9 @@ describe("igniteCore", () => {
 		secondElement.remove();
 
 		expect(story.lifecycle()).toHaveLength(lifecycleCount);
-		expect((await register.execute("increment")).state.counter.count).toBe(2);
+		expect((await register.execute("increment")).snapshot.counter.count).toBe(
+			2,
+		);
 	});
 
 	it("projects runtime stories into an accessibility bridge without mixing trace entries", async () => {
@@ -1208,7 +1241,7 @@ describe("igniteCore", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: (snapshot: StoreState) => ({
+			view: ({ snapshot }: ViewContext<StoreState>) => ({
 				count: snapshot.counter.count,
 			}),
 			commands: ({ actor }) => ({
@@ -1262,9 +1295,9 @@ describe("igniteCore", () => {
 		expect(buttonElement.textContent?.trim()).toBe("Increment");
 		expect(story.trace().map((entry) => entry.kind)).toEqual([
 			"command",
-			"state",
+			"snapshot",
 			"view",
-			"state",
+			"snapshot",
 			"view",
 		]);
 		expect(story.lifecycle().map((entry) => entry.stage)).toEqual(
@@ -1291,7 +1324,7 @@ describe("igniteCore", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: (snapshot) => ({
+			view: ({ snapshot }) => ({
 				count: snapshot.counter.count,
 			}),
 			commands: ({ actor }) => ({
@@ -1306,8 +1339,8 @@ describe("igniteCore", () => {
 			commands: {
 				increment: {},
 			},
-			events: ["counter-incremented"],
-			state: {
+			events: [{ type: "counter-incremented" }],
+			snapshot: {
 				counter: {
 					count: 0,
 				},
@@ -1324,7 +1357,7 @@ describe("igniteCore", () => {
 		const core = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: (snapshot) => ({
+			view: ({ snapshot }) => ({
 				count: snapshot.counter.count,
 			}),
 			commands: ({ actor }) => ({
@@ -1346,8 +1379,8 @@ describe("igniteCore", () => {
 		expect(component.getSchema()).toEqual(core.getSchema());
 		expect(component.getSchema()).toEqual({
 			commands: { increment: {} },
-			events: ["counter-incremented"],
-			state: { counter: { count: 0 } },
+			events: [{ type: "counter-incremented" }],
+			snapshot: { counter: { count: 0 } },
 			view: { count: 0 },
 		});
 	});
@@ -1358,7 +1391,7 @@ describe("igniteCore", () => {
 		const core = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: (snapshot) => ({ count: snapshot.counter.count }),
+			view: ({ snapshot }) => ({ count: snapshot.counter.count }),
 			commands: ({ actor }) => ({
 				increment: () => actor.dispatch(counterSlice.actions.increment()),
 			}),
@@ -1394,7 +1427,7 @@ describe("igniteCore", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: (snapshot) => ({
+			view: ({ snapshot }) => ({
 				count: snapshot.counter.count,
 			}),
 			commands: ({ actor, command }) => ({
@@ -1412,7 +1445,7 @@ describe("igniteCore", () => {
 
 		const result = await register.execute("addByAmount", 3);
 
-		expect(result.state.counter.count).toBe(3);
+		expect(result.snapshot.counter.count).toBe(3);
 		expect(register.getView()).toEqual({ count: 3 });
 		expect(register.getSchema()).toEqual({
 			commands: {
@@ -1427,7 +1460,7 @@ describe("igniteCore", () => {
 				increment: {},
 			},
 			events: [],
-			state: {
+			snapshot: {
 				counter: {
 					count: 3,
 				},
@@ -1444,7 +1477,7 @@ describe("igniteCore", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: (snapshot) => ({
+			view: ({ snapshot }) => ({
 				count: snapshot.counter.count,
 			}),
 			commands: ({ actor, command }) => ({
@@ -1505,7 +1538,7 @@ describe("igniteCore", () => {
 			limits: { minimum: 0, maximum: 12 },
 		});
 
-		expect(result.state.counter.count).toBe(6);
+		expect(result.snapshot.counter.count).toBe(6);
 		expect(register.getView()).toEqual({ count: 6 });
 		expect(register.getSchema()).toEqual({
 			commands: {
@@ -1556,7 +1589,7 @@ describe("igniteCore", () => {
 				},
 			},
 			events: [],
-			state: {
+			snapshot: {
 				counter: {
 					count: 6,
 				},
@@ -1619,7 +1652,7 @@ describe("igniteCore", () => {
 		type StoreEvent = InferStateAndEvent<StoreInstance>["Event"];
 		type StoreActor = ReduxStoreCommandActor<StoreInstance>;
 
-		const viewCallback = (snapshot: StoreState) => ({
+		const viewCallback = ({ snapshot }: ViewContext<StoreState>) => ({
 			count: snapshot.counter.count,
 		});
 		const commandsCallback = ({ actor }: { actor: StoreActor }) => ({
@@ -1691,7 +1724,7 @@ describe("igniteCore", () => {
 		type StoreState = ReturnType<typeof createStore>;
 		type StoreEvent = MobxEvent<StoreState>;
 
-		const viewCallback = (snapshot: StoreState) => ({
+		const viewCallback = ({ snapshot }: ViewContext<StoreState>) => ({
 			count: snapshot.count,
 		});
 		const commandsCallback = ({
@@ -1771,13 +1804,13 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 		const source = createActorWebShipmentSource();
 		const register = igniteCore({
 			source,
-			view: ({ context }) => ({ status: context.status }),
+			view: ({ snapshot }) => ({ status: snapshot.context.status }),
 		});
 
 		const received: ActorWebShipmentEmitted[] = [];
 		const subscription = register.on("SHIPMENT_CREATED", (event) => {
-			// Uniform shape: on() handlers receive the emitted member as `detail`.
-			received.push(event.detail);
+			// Uniform shape: on() handlers receive the emitted member directly.
+			received.push(event);
 		});
 
 		source.emitEvent({ type: "SHIPMENT_CREATED", shipmentId: "shipment-7" });
@@ -1794,7 +1827,7 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 		const source = createActorWebShipmentSource();
 		const register = igniteCore({
 			source,
-			view: ({ context }) => ({ status: context.status }),
+			view: ({ snapshot }) => ({ status: snapshot.context.status }),
 			commands: ({ actor }) => ({
 				createShipment: (shipmentId: string) =>
 					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
@@ -1806,10 +1839,10 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 		expect(source.sent).toEqual([
 			{ type: "CREATE_SHIPMENT", shipmentId: "shipment-1001" },
 		]);
-		// Uniform shape: { type: M.type, payload: M } where M is the emitted member.
+		// Uniform shape: the emitted member itself.
 		expect(result.events).toContainEqual({
 			type: "SHIPMENT_CREATED",
-			payload: { type: "SHIPMENT_CREATED", shipmentId: "shipment-1001" },
+			shipmentId: "shipment-1001",
 		});
 		// Single capture per emit — no double-count from the transient subscription.
 		expect(
@@ -1821,7 +1854,7 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 		const source = createActorWebShipmentSource();
 		const register = igniteCore({
 			source,
-			view: ({ context }) => ({ status: context.status }),
+			view: ({ snapshot }) => ({ status: snapshot.context.status }),
 			events: (event) => ({
 				"shipment-recorded": event<{ shipmentId: string }>(),
 			}),
@@ -1838,7 +1871,8 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 					return;
 				}
 
-				emit("shipment-recorded", {
+				emit({
+					type: "shipment-recorded",
 					shipmentId: snapshot.context.shipmentId ?? "",
 				});
 			},
@@ -1856,12 +1890,12 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 		// Stream-bridged source event.
 		expect(result.events).toContainEqual({
 			type: "SHIPMENT_CREATED",
-			payload: { type: "SHIPMENT_CREATED", shipmentId: "shipment-2002" },
+			shipmentId: "shipment-2002",
 		});
 		// Effects-declared event still flows alongside the bridge.
 		expect(result.events).toContainEqual({
 			type: "shipment-recorded",
-			payload: { shipmentId: "shipment-2002" },
+			shipmentId: "shipment-2002",
 		});
 	});
 
@@ -1869,7 +1903,7 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 		const source = createActorWebShipmentSource();
 		const register = igniteCore({
 			source,
-			view: ({ context }) => ({ status: context.status }),
+			view: ({ snapshot }) => ({ status: snapshot.context.status }),
 			commands: ({ actor }) => ({
 				createShipment: (shipmentId: string) =>
 					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
@@ -1881,15 +1915,16 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 
 		const emitted = {
 			type: "SHIPMENT_CREATED",
-			payload: { type: "SHIPMENT_CREATED", shipmentId: "shipment-3003" },
+			shipmentId: "shipment-3003",
 		};
 		expect(story.summary().events).toContainEqual(emitted);
-		expect(
-			story
-				.trace()
-				.filter((entry) => entry.kind === "event")
-				.map((entry) => ({ type: entry.event, payload: entry.payload })),
-		).toContainEqual(emitted);
+		expect(story.trace()).toContainEqual(
+			expect.objectContaining({
+				kind: "event",
+				event: "SHIPMENT_CREATED",
+				payload: { shipmentId: "shipment-3003" },
+			}),
+		);
 
 		story.stop();
 	});
@@ -1899,7 +1934,7 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: (snapshot) => ({ count: snapshot.counter.count }),
+			view: ({ snapshot }) => ({ count: snapshot.counter.count }),
 			commands: ({ actor }) => ({
 				increment: () => actor.dispatch(counterSlice.actions.increment()),
 			}),
@@ -1947,7 +1982,7 @@ describe("igniteCore xstate emitted-event bridge", () => {
 	it("forwards machine emits to on(type) and stops after unsubscribe", () => {
 		const register = igniteCore({
 			source: emittingCounterMachine,
-			view: ({ context }) => ({ count: context.count }),
+			view: ({ snapshot }) => ({ count: snapshot.context.count }),
 			commands: ({ actor }) => ({
 				increment: () => actor.send({ type: "INC" }),
 			}),
@@ -1955,8 +1990,8 @@ describe("igniteCore xstate emitted-event bridge", () => {
 
 		const received: Array<{ type: string; count: number }> = [];
 		const subscription = register.on("count-changed", (event) => {
-			// Uniform shape: on() handlers receive the emitted member as `detail`.
-			received.push(event.detail);
+			// Uniform shape: on() handlers receive the emitted member directly.
+			received.push(event);
 		});
 
 		void register.execute("increment");
@@ -1970,7 +2005,7 @@ describe("igniteCore xstate emitted-event bridge", () => {
 	it("captures command-driven emits in execute().events with the uniform shape", async () => {
 		const register = igniteCore({
 			source: emittingCounterMachine,
-			view: ({ context }) => ({ count: context.count }),
+			view: ({ snapshot }) => ({ count: snapshot.context.count }),
 			commands: ({ actor }) => ({
 				increment: () => actor.send({ type: "INC" }),
 			}),
@@ -1978,10 +2013,10 @@ describe("igniteCore xstate emitted-event bridge", () => {
 
 		const result = await register.execute("increment");
 
-		// Uniform shape: { type: M.type, payload: M } where M is the emitted member.
+		// Uniform shape: the emitted member itself.
 		expect(result.events).toContainEqual({
 			type: "count-changed",
-			payload: { type: "count-changed", count: 1 },
+			count: 1,
 		});
 		// Single capture per emit — no double-count from the transient subscription.
 		expect(
@@ -1992,7 +2027,7 @@ describe("igniteCore xstate emitted-event bridge", () => {
 	it("records machine emits in story traces", async () => {
 		const register = igniteCore({
 			source: emittingCounterMachine,
-			view: ({ context }) => ({ count: context.count }),
+			view: ({ snapshot }) => ({ count: snapshot.context.count }),
 			commands: ({ actor }) => ({
 				increment: () => actor.send({ type: "INC" }),
 			}),
@@ -2003,7 +2038,7 @@ describe("igniteCore xstate emitted-event bridge", () => {
 
 		const emitted = {
 			type: "count-changed",
-			payload: { type: "count-changed", count: 1 },
+			count: 1,
 		};
 		expect(story.summary().events).toContainEqual(emitted);
 

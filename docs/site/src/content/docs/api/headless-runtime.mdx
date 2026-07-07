@@ -13,8 +13,8 @@ import { igniteCore } from 'ignite-element/xstate';
 
 const counter = igniteCore({
   source: counterMachine,
-  view: ({ matches }) => ({
-    isOn: matches('on'),
+  view: ({ snapshot }) => ({
+    isOn: snapshot.matches('on'),
   }),
   commands: ({ actor }) => ({
     toggle: () => actor.send({ type: 'TOGGLE' }),
@@ -25,12 +25,12 @@ const counter = igniteCore({
   effects: ({ emit, select }) => {
     const isOn = select((snapshot) => snapshot.matches('on'));
     if (!isOn.changed) return;
-    emit('toggled', { isOn: isOn.current });
+    emit({ type: 'toggled', isOn: isOn.current });
   },
 });
 
 // Register a DOM projection later — the runtime is available immediately.
-const { state, events } = await counter.execute('toggle');
+const { snapshot, events } = await counter.execute('toggle');
 const isToggleAvailable = counter.canExecute('toggle');
 const current = counter.getSnapshot();
 const view = counter.getView();
@@ -43,7 +43,7 @@ const schema = counter.getSchema();
 
 Runs a command by name and resolves once the resulting transition settles. The payload type is inferred from the command function's first parameter, so commands that take no argument are called with the name alone.
 
-**Returns** `Promise<{ state, events }>` — the state **after** the transition plus the ordered events emitted by that single transition (an `IgniteAgentExecutionResult`).
+**Returns** `Promise<{ snapshot, events }>` — the snapshot **after** the transition plus the ordered events emitted by that single transition (an `IgniteAgentExecutionResult`).
 
 ```ts
 const result = await counter.execute('toggle');
@@ -54,14 +54,14 @@ The shape:
 ```ts
 // IgniteAgentExecutionResult<State, Events>
 {
-  state: { value: 'on', context: {} },
-  events: [{ type: 'toggled', payload: { isOn: true } }],
+  snapshot: { value: 'on', context: {} },
+  events: [{ type: 'toggled', isOn: true }],
 }
 ```
 
 `events` is the same ordered stream the runtime emitted for that transition, so assertions stay deterministic and align with the events delivered to `on(...)` listeners.
 
-For sources with a native emit stream (Actor-Web today), domain events the **source** emits during the command window are captured too — each as `{ type, payload }` where `payload` is the emitted event object — independent of the `events:` declaration. See [declared vs source-emitted events](/ignite-element/guides/actor-web/#emitted-events).
+For sources with a native emit stream (Actor-Web today), domain events the **source** emits during the command window are captured too as flat `{ type, ...fields }` members, independent of the `events:` declaration. See [declared vs source-emitted events](/ignite-element/guides/actor-web/#emitted-events).
 
 ### `canExecute(commandName)`
 
@@ -147,7 +147,7 @@ const subscription = counter.watchView((view, prevView) => {
 
 Returns a JSON-serializable contract describing the component's commands, public events, and current state. Command metadata declared with [`command(...)`](/ignite-element/api/command-metadata/) is included here.
 
-**Returns** `{ commands, events, state }` — a JSON-serializable `IgniteAgentSchema`: `commands` maps each name to its metadata (`{}` when none), `events` is the array of declared event names, and `state` is the current state value. Commands with an availability predicate include `gated: true`; call `canExecute(commandName)` for the current boolean result.
+**Returns** `{ commands, events, snapshot, view }` — a JSON-serializable `IgniteAgentSchema`: `commands` maps each name to its metadata (`{}` when none), `events` is the array of declared event descriptors such as `{ type }`, `snapshot` is the current snapshot value, and `view` is the projected view. Commands with an availability predicate include `gated: true`; call `canExecute(commandName)` for the current boolean result.
 
 ```ts
 const schema = counter.getSchema();
@@ -161,8 +161,9 @@ The shape:
   commands: {
     toggle: {},
   },
-  events: ['toggled'],
-  state: { value: 'off', context: {} },
+  events: [{ type: 'toggled' }],
+  snapshot: { value: 'off', context: {} },
+  view: { isOn: false },
 }
 ```
 
@@ -174,7 +175,7 @@ The shape:
 
 Starts a named [story](/ignite-element/api/testing-dsl/#stories) recorder over the same runtime.
 
-**Returns** a [story](/ignite-element/api/testing-dsl/#stories) — an object that records command, state, view, and event activity as one ordered behavior trace (`execute`, `until`, `trace`, `lifecycle`, `summary`, `stop`).
+**Returns** a [story](/ignite-element/api/testing-dsl/#stories) — an object that records command, snapshot, view, and event activity as one ordered behavior trace (`execute`, `until`, `trace`, `lifecycle`, `summary`, `stop`).
 
 ```ts
 const story = counter.record('toggles on');

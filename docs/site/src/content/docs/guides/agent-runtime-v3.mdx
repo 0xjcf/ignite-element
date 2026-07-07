@@ -28,9 +28,9 @@ import { igniteCore } from 'ignite-element/xstate';
 export const counter = igniteCore({
   source: counterMachine,
 
-  view: ({ context, snapshot }) => ({
-    count: context.count,
-    limit: context.limit,
+  view: ({ snapshot }) => ({
+    count: snapshot.context.count,
+    limit: snapshot.context.limit,
     isLimited: snapshot.matches('limited'),
   }),
 
@@ -52,7 +52,8 @@ export const counter = igniteCore({
 
   effects: ({ snapshot, prevSnapshot, emit }) => {
     if (!prevSnapshot.matches('limited') && snapshot.matches('limited')) {
-      emit('limit-reached', {
+      emit({
+        type: 'limit-reached',
         count: snapshot.context.count,
         limit: snapshot.context.limit,
       });

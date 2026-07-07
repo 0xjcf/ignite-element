@@ -29,7 +29,7 @@ uses none of those.
 
 1. Install the beta: `pnpm add ignite-element@beta` (plus the one state library you use).
 2. State libraries (`xstate`, `redux`, `@reduxjs/toolkit`, `mobx`) and `lit-html` are now **optional** peers — install only what you use.
-3. Destructure your facade context directly: `view: ({ context }) => …` instead of `view: ({ snapshot }) => …` (`snapshot` still works).
+3. Use the canonical view context: `view: ({ snapshot }) => …`; object snapshot fields are no longer spread onto the callback argument.
 4. The removed `ignite-element/config/*` and `ignite-element/renderers/*` subpaths are no longer part of the public API.
 
 ## 1) Install the beta
@@ -48,25 +48,25 @@ In v3 the state libraries and `lit-html` are declared as **optional** peer depen
 
 Selecting lit is now **config-free**: install `lit-html`, import `@ignite-element/renderer/lit`, and author lit-html templates — Ignite auto-detects them and renders with lit. You no longer set `renderer: 'lit'` in `ignite.config.ts` just to use lit (it remains the way to *force* one renderer project-wide). See [Rendering](/ignite-element/concepts/rendering/).
 
-## 3) View-first context
+## 3) Canonical view context
 
-The facade `view(...)` callback now receives an object snapshot's fields spread directly onto its context, so you can destructure the read model without reaching through `snapshot`:
+The facade `view(...)` callback now receives a single `{ snapshot }` argument. Read adapter-specific state through that snapshot:
 
 ```ts
-// v2
-view: ({ snapshot }) => ({
-  status: snapshot.context.status,
-  connected: snapshot.transport.state === "connected",
-});
-
-// v3 — destructure directly; `snapshot` is still available
+// v2 / early v3 beta
 view: ({ context, transport }) => ({
   status: context.status,
   connected: transport.state === "connected",
 });
+
+// v3
+view: ({ snapshot }) => ({
+  status: snapshot.context.status,
+  connected: snapshot.transport.state === "connected",
+});
 ```
 
-`ViewContext<Snapshot>` resolves to `Snapshot & { snapshot: Snapshot }` for object snapshots, so existing `({ snapshot }) => …` callbacks keep working — this is additive.
+`ViewContext<Snapshot>` is exactly `{ snapshot: Snapshot }`. XState and Actor-Web state live under `snapshot.context`; Redux and MobX state are the snapshot itself.
 
 ## 4) Narrower public API
 

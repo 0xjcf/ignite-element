@@ -32,7 +32,7 @@ import { toggleMachine } from './toggle-machine';
 
 const toggle = igniteCore({
   source: toggleMachine,
-  view: ({ matches }) => ({ isOn: matches('on') }),
+  view: ({ snapshot }) => ({ isOn: snapshot.matches('on') }),
   commands: ({ actor }) => ({ toggle: () => actor.send({ type: 'TOGGLE' }) }),
 });
 
@@ -64,7 +64,7 @@ import { counterMachine } from './counter-machine';
 
 const counter = igniteCore({
   source: counterMachine,
-  view: ({ context }) => ({ count: context.count }),
+  view: ({ snapshot }) => ({ count: snapshot.context.count }),
   commands: ({ actor }) => ({
     increment: () => actor.send({ type: 'INC' }),
     decrement: () => actor.send({ type: 'DEC' }),

@@ -1,7 +1,7 @@
 import type {
 	EmptyEventMap,
 	EventMap,
-	EventPayload,
+	EventMember,
 	FacadeCommandResult,
 } from "./RenderArgs";
 import {
@@ -34,30 +34,22 @@ type DeepPartial<T> = T extends readonly (infer Item)[]
 				[K in keyof T]?: DeepPartial<T[K]>;
 			}
 		: T;
-type StateValueExpectation<State> = State extends { value: infer Value }
-	? Value
-	: never;
-
-export type IgniteStateExpectation<State> =
+export type IgniteSnapshotExpectation<State> =
 	| DeepPartial<State>
-	| StateValueExpectation<State>
-	| ((state: State) => boolean);
+	| ((snapshot: State) => boolean);
 
 export type IgniteViewExpectation<View> =
 	| DeepPartial<View>
 	| ((view: View) => boolean);
 
-export type IgniteEventPayloadExpectation<Payload> =
-	| DeepPartial<Payload>
-	| ((payload: Payload) => boolean);
-
 export type IgniteEventExpectation<
 	Events extends EventMap = EmptyEventMap,
 	Type extends keyof Events & string = keyof Events & string,
-> = {
-	type: Type;
-	payload?: IgniteEventPayloadExpectation<EventPayload<Events[Type]>>;
-};
+> =
+	| (Type extends keyof Events & string
+			? { type: Type } & DeepPartial<Omit<EventMember<Events, Type>, "type">>
+			: never)
+	| ((event: EventMember<Events, Type>) => boolean);
 
 export type IgniteStoryTraceExpectationEntry =
 	| DeepPartial<IgniteStoryTraceSnapshotEntry>
@@ -106,21 +98,20 @@ export type IgniteTestScenario<
 	View extends Record<string, unknown> = Record<string, unknown>,
 > = {
 	given(
-		expected: IgniteStateExpectation<State>,
+		expected: IgniteSnapshotExpectation<State>,
 	): IgniteTestScenario<State, Commands, Events, View>;
 	when<CommandName extends keyof Commands & string>(
 		commandName: CommandName,
 		payload?: unknown,
 	): Promise<IgniteTestScenario<State, Commands, Events, View>>;
-	expectState(
-		expected: IgniteStateExpectation<State>,
+	expectSnapshot(
+		expected: IgniteSnapshotExpectation<State>,
 	): IgniteTestScenario<State, Commands, Events, View>;
 	expectView(
 		expected: IgniteViewExpectation<View>,
 	): IgniteTestScenario<State, Commands, Events, View>;
 	expectEvent<Type extends keyof Events & string>(
-		type: Type,
-		payload?: IgniteEventPayloadExpectation<EventPayload<Events[Type]>>,
+		expected: IgniteEventExpectation<Events, Type>,
 	): IgniteTestScenario<State, Commands, Events, View>;
 	expectEvents(
 		expected: IgniteEventExpectation<Events>[],
@@ -243,8 +234,8 @@ const cloneTraceSnapshotEntry = (
 				: { ...entry, payload: cloneSerializable(entry.payload) };
 		case "event":
 			return { ...entry, payload: cloneSerializable(entry.payload) };
-		case "state":
-			return { ...entry, state: cloneSerializable(entry.state) };
+		case "snapshot":
+			return { ...entry, snapshot: cloneSerializable(entry.snapshot) };
 		case "view":
 			return { ...entry, view: cloneSerializable(entry.view) };
 	}
@@ -506,33 +497,14 @@ const expectControls = (
 ): HTMLElement[] =>
 	expected.map((expectation) => assertControl(bridge, expectation));
 
-const resolveStateSubject = <State>(
-	state: State,
-	expected: IgniteStateExpectation<State>,
+const assertSnapshot = <State>(
+	label: "given" | "expectSnapshot",
+	snapshot: State,
+	expected: IgniteSnapshotExpectation<State>,
 ) => {
-	if (
-		typeof expected !== "function" &&
-		(typeof expected !== "object" || expected === null) &&
-		typeof state === "object" &&
-		state !== null &&
-		"value" in (state as Record<string, unknown>)
-	) {
-		return (state as unknown as { value: unknown }).value;
-	}
-
-	return state;
-};
-
-const assertState = <State>(
-	label: "given" | "expectState",
-	state: State,
-	expected: IgniteStateExpectation<State>,
-) => {
-	const subject = resolveStateSubject(state, expected);
-
-	if (!valuesMatch(subject, expected)) {
+	if (!valuesMatch(snapshot, expected)) {
 		throw new Error(
-			`[igniteTest] ${label} failed.\nExpected: ${formatValue(expected)}\nReceived: ${formatValue(subject)}`,
+			`[igniteTest] ${label} failed.\nExpected: ${formatValue(expected)}\nReceived: ${formatValue(snapshot)}`,
 		);
 	}
 };
@@ -553,26 +525,30 @@ const assertEvent = <
 	Type extends keyof Events & string,
 >(
 	events: RuntimeEvent<Events>[],
-	type: Type,
-	payload?: IgniteEventPayloadExpectation<EventPayload<Events[Type]>>,
+	expected: IgniteEventExpectation<Events, Type>,
 ) => {
-	const matchedEvent = events.find((event) => event.type === type);
+	const matchedIndex = events.findIndex((event) =>
+		valuesMatch(event, expected),
+	);
 
-	if (!matchedEvent) {
+	if (matchedIndex >= 0) {
+		return matchedIndex;
+	}
+
+	const typeMatched =
+		typeof expected === "function"
+			? undefined
+			: events.find((event) => event.type === expected.type);
+
+	if (!typeMatched) {
 		throw new Error(
-			`[igniteTest] Expected event "${type}" but received ${formatValue(events)}.`,
+			`[igniteTest] Expected event ${formatValue(expected)} but received ${formatValue(events)}.`,
 		);
 	}
 
-	if (typeof payload === "undefined") {
-		return;
-	}
-
-	if (!valuesMatch(matchedEvent.payload, payload)) {
-		throw new Error(
-			`[igniteTest] Event "${type}" payload mismatch.\nExpected: ${formatValue(payload)}\nReceived: ${formatValue(matchedEvent.payload)}`,
-		);
-	}
+	throw new Error(
+		`[igniteTest] Event mismatch.\nExpected: ${formatValue(expected)}\nReceived: ${formatValue(typeMatched)}`,
+	);
 };
 
 const serializeTrace = (
@@ -599,8 +575,10 @@ const serializeEvent = (event: RuntimeEvent): IgniteStorySnapshotEvent => {
 		type: event.type,
 	};
 
-	if ("payload" in event) {
-		snapshotEvent.payload = normalizeSnapshotValue(event.payload);
+	for (const [key, value] of Object.entries(event)) {
+		if (key !== "type") {
+			snapshotEvent[key] = normalizeSnapshotValue(value);
+		}
 	}
 
 	return snapshotEvent;
@@ -614,7 +592,7 @@ const serializeSummary = <
 	summary: IgniteStorySummary<State, Events, View>,
 ): IgniteStorySummarySnapshot => ({
 	name: summary.name,
-	finalState: normalizeSnapshotValue(summary.finalState),
+	finalSnapshot: normalizeSnapshotValue(summary.finalSnapshot),
 	finalView: normalizeSnapshotValue(summary.finalView),
 	events: summary.events.map((event) => serializeEvent(event as RuntimeEvent)),
 	commandCount: summary.commandCount,
@@ -727,8 +705,8 @@ class IgniteTestDriver<
 		return hostOverride(host, callback);
 	}
 
-	given(expected: IgniteStateExpectation<State>) {
-		assertState(
+	given(expected: IgniteSnapshotExpectation<State>) {
+		assertSnapshot(
 			"given",
 			this.withHost(() => this.component.getSnapshot()),
 			expected,
@@ -749,11 +727,11 @@ class IgniteTestDriver<
 		return this;
 	}
 
-	expectState(expected: IgniteStateExpectation<State>) {
-		const state =
-			this.lastResult?.state ??
-			this.withHost(() => this.component.getSnapshot());
-		assertState("expectState", state, expected);
+	expectSnapshot(expected: IgniteSnapshotExpectation<State>) {
+		const snapshot = this.lastResult
+			? this.lastResult.snapshot
+			: this.withHost(() => this.component.getSnapshot());
+		assertSnapshot("expectSnapshot", snapshot, expected);
 		return this;
 	}
 
@@ -769,16 +747,18 @@ class IgniteTestDriver<
 	}
 
 	expectEvent<Type extends keyof Events & string>(
-		type: Type,
-		payload?: IgniteEventPayloadExpectation<EventPayload<Events[Type]>>,
+		expected: IgniteEventExpectation<Events, Type>,
 	) {
-		assertEvent(this.getResult().events, type, payload);
+		assertEvent(this.getResult().events, expected);
 		return this;
 	}
 
 	expectEvents(expected: IgniteEventExpectation<Events>[]) {
+		const remainingEvents = [...this.getResult().events];
+
 		for (const event of expected) {
-			assertEvent(this.getResult().events, event.type, event.payload);
+			const matchedIndex = assertEvent(remainingEvents, event);
+			remainingEvents.splice(matchedIndex, 1);
 		}
 
 		return this;

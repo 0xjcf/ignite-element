@@ -89,7 +89,7 @@ import { counterMachine } from './counter.machine';
 export const registerCounterElement = () =>
   igniteCore({
     source: counterMachine,
-    view: ({ context }) => ({ count: context.count }),
+    view: ({ snapshot }) => ({ count: snapshot.context.count }),
     commands: ({ actor }) => ({
       inc: () => actor.send({ type: 'INC' }),
       dec: () => actor.send({ type: 'DEC' }),

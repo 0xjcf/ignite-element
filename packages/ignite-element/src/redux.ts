@@ -20,8 +20,7 @@ export type {
 	IgniteDomBridge,
 	IgniteDomRoleExpectation,
 	IgniteEventExpectation,
-	IgniteEventPayloadExpectation,
-	IgniteStateExpectation,
+	IgniteSnapshotExpectation,
 	IgniteTestHelpers,
 	IgniteTestScenario,
 	IgniteTestScenarioOptions,
@@ -40,7 +39,7 @@ export type {
 	IgniteStoryLifecycleStage,
 	IgniteStorySnapshot,
 	IgniteStorySnapshotEvent,
-	IgniteStoryStateTraceEntry,
+	IgniteStorySnapshotTraceEntry,
 	IgniteStorySummary,
 	IgniteStorySummarySnapshot,
 	IgniteStoryTraceEntry,
@@ -55,6 +54,7 @@ export type {
 } from "./types/agent";
 export type {
 	IgniteAgentCommandSchema,
+	IgniteAgentEventSchema,
 	IgniteAgentSchema,
 	IgniteSchemaValue,
 } from "./types/schema";

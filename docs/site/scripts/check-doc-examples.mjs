@@ -4,10 +4,10 @@
  *
  * Extracts TypeScript / TSX code fences from the CURRENT (v3) docs and
  * typechecks them against the REAL `ignite-element` package types, so doc
- * examples can't drift from the public API (the failure mode that shipped a
- * `view: ({ context }) => ({ ...snapshot.matches() })` example referencing a
- * `snapshot` variable that isn't in scope, and positional `effects` callbacks
- * that don't match the xstate adapter's object-form `effects` type).
+ * examples can't drift from the public API (failure modes include examples that
+ * reference variables outside the callback scope, positional `emit` calls, or
+ * positional `effects` callbacks that don't match the xstate adapter's
+ * object-form `effects` type).
  *
  * Robustness against doc realities (so it reports real drift, not noise):
  *  - `ignite-element` + subpaths and `@ignite-element/*` map to the package

@@ -26,7 +26,10 @@ const toggleMachine = setup({
 
 const toggle = igniteCore({
 	source: toggleMachine,
-	view: ({ context }) => ({ on: context.on, label: context.label }),
+	view: ({ snapshot }) => ({
+		on: snapshot.context.on,
+		label: snapshot.context.label,
+	}),
 	commands: ({ actor }) => ({
 		toggle: () => actor.send({ type: "TOGGLE" }),
 		// Single-arg `setX` command -> exposed as the `label` string attribute.
@@ -39,7 +42,7 @@ const toggle = igniteCore({
 	effects: ({ snapshot, emit, select }) => {
 		const on = select((current) => current.context.on);
 		if (!on.changed) return;
-		emit("toggled", { isOn: snapshot.context.on });
+		emit({ type: "toggled", isOn: snapshot.context.on });
 	},
 });
 
