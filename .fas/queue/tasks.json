@@ -34,7 +34,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "policy-surfacing",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -49,7 +49,7 @@
       "prDependencies": [],
       "createdAt": "2026-06-12T19:30:13.064Z",
       "updatedAt": "2026-07-07T20:52:36.298Z",
-      "deferredReason": "dependency_reopened: task-1781805262589",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -86,7 +86,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "policy-surfacing",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -99,32 +99,6 @@
       "prDependencies": [],
       "createdAt": "2026-06-18T00:49:12.184Z",
       "updatedAt": "2026-06-18T00:49:12.184Z",
-      "deferredReason": "dependency_reopened: task-1781805262589",
-      "invalidationReason": null
-    },
-    {
-      "id": "task-1781805262589",
-      "task": "docs: publish per-entrypoint bundle-size numbers (tree-shaken + gzip) with optional CI size budget",
-      "priority": "medium",
-      "source": "manual",
-      "details": "Decomposed from task-1781724737259, deliverable (2). Measure tree-shaken + gzip sizes per published entrypoint (root, xstate/redux/mobx/actor-web adapters, jsx, lit) and publish them as a docs page; optionally add a CI size-budget check. Independent of the examples restructure (measures dist bundles, not examples) so NO dependency. Source of truth: the built dist for each entrypoint.\nSee .fas/tasks/docs-publish-per-entrypoint-bundle-size-numbers-tree-shaken-.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "developer-experience",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1781724711926"
-      ],
-      "blocks": [
-        "task-1781743752184",
-        "task-1781292613064"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-06-18T17:54:22.589Z",
-      "updatedAt": "2026-07-07T20:53:17.119Z",
       "deferredReason": null,
       "invalidationReason": null
     },
@@ -2877,6 +2851,30 @@
       "terminalOutcome": null,
       "workflowId": "direct-1783453213217",
       "branchName": "fas/docs-accuracy-ux-positioning",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1781805262589",
+      "task": "docs: publish per-entrypoint bundle-size numbers (tree-shaken + gzip) with optional CI size budget",
+      "priority": "medium",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "developer-experience",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1781724711926"
+      ],
+      "blocks": [
+        "task-1781743752184",
+        "task-1781292613064"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-07T21:29:25.697Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783457597115",
+      "branchName": "beta",
       "prStatus": "draft-only"
     }
   ],

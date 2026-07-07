@@ -1253,8 +1253,8 @@ No active tasks.
 
 - Title: docs: publish per-entrypoint bundle-size numbers (tree-shaken + gzip) with optional CI size budget
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/docs-publish-per-entrypoint-bundle-size-numbers-tree-shaken-.md
 - Verification lane: fast
 - Policy sensitivity: standard
