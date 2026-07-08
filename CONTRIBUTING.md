@@ -95,6 +95,19 @@ git pull upstream main
 git push origin main
 ```
 
+#### Dependency Updates
+
+Renovate runs weekly from this repository's GitHub Actions workflow using the
+project-owned `RENOVATE_TOKEN` secret. It targets the `beta` branch while v3 is
+in beta.
+
+Renovate may open PRs for workspace `devDependencies` and top-level
+`examples/**` dependencies. State-library updates (`xstate`,
+`@reduxjs/toolkit`, `redux`, and `mobx`) are grouped so adapters and examples
+move together. Published package versions, runtime dependencies, peer-dependency
+floors, and Changesets remain manual release decisions. Automerge is off for
+the initial rollout.
+
 ---
 
 ## **Ways to Contribute**

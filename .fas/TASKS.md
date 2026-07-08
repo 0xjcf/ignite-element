@@ -1197,8 +1197,8 @@ No active tasks.
 
 - Title: Add Renovate for ongoing dependency currency so state-lib versions stop drifting (would have caught the xstate 5.25/5.30 split). Add a renovate.json (or .github/renovate.json) configured for this pnpm-workspace monorepo: (1) group the state libraries (xstate, @reduxjs/toolkit, redux, mobx) into a single grouped PR so adapter+example bumps land together; (2) limit automated bumps to devDependencies and the example packages — never auto-bump the published packages' own versions or peer-dependency floors (those are deliberate, changeset-gated decisions); (3) keep examples pinned where determinism matters (e.g. xstate examples are pinned exact to avoid the in-place-install typecheck skew); (4) a sane schedule + PR concurrency limit; (5) respect the changesets release flow (do not touch .changeset or package versions). Evaluate Dependabot as the simpler GitHub-native alternative, but Renovate is preferred for its monorepo grouping. Document the policy briefly. Affected files: renovate.json (new), and a short note in the contributing/release docs.
 - Mode: single-agent
-- Status: deferred
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Note: Re-sequenced 2026-07-07 — parked launch-polish side-chain after bundle-size numbers.
 - Brief: .fas/tasks/add-renovate-for-ongoing-dependency-currency-so-state-lib-ve.md
 - Automation mode: advisory
@@ -2154,6 +2154,17 @@ No active tasks.
 - Status: backlog
 - Owner: planner
 - Brief: .fas/tasks/normalize-remaining-self-contained-example-install-commands-.md
+
+### Task: Add Renovate for ongoing dependency currency so state-lib versions stop drifting
+
+- Title: Add Renovate for ongoing dependency currency so state-lib versions stop drifting
+- Mode: single-agent
+- Status: implementing
+- Owner: implementer
+- Brief: .fas/tasks/add-renovate-for-ongoing-dependency-currency-so-state-lib-ve.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ## Template
 

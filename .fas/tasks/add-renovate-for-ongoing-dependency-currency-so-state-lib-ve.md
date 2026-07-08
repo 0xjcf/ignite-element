@@ -1,4 +1,4 @@
-# Add Renovate for ongoing dependency currency so state-lib ve
+# Add Renovate for ongoing dependency currency so state-lib versions stop drifting
 
 ## Source
 Created with `fas create-task` on 2026-06-17.
@@ -42,9 +42,18 @@ Add Renovate for ongoing dependency currency so state-lib versions stop drifting
 - renovate.json (new) — or .github/renovate.json
 - .github/workflows/ (new Renovate workflow, if self-hosted)
 - a short policy note in contributing/release docs
+- CONTRIBUTING.md
 
 ## Scope Amendments
-- None.
+- Type: docs-scope-promotion
+- Added at: 2026-07-08
+- Trigger: Implementation added the brief-required short contributing/release policy note.
+- Reason: The generated affected path list captured Renovate config and workflow but omitted the explicit documentation deliverable from the task brief.
+- Added paths: CONTRIBUTING.md
+- Evidence source: task brief
+- Evidence: task brief | .fas/tasks/add-renovate-for-ongoing-dependency-currency-so-state-lib-ve.md | Problem and proposed solution require documenting the dependency update policy briefly.
+- Accuracy signal: CONTRIBUTING.md now contains the Renovate policy note.
+- Follow-up needed: none
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
