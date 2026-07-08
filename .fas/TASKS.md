@@ -2155,17 +2155,6 @@ No active tasks.
 - Owner: planner
 - Brief: .fas/tasks/normalize-remaining-self-contained-example-install-commands-.md
 
-### Task: Add Renovate for ongoing dependency currency so state-lib versions stop drifting
-
-- Title: Add Renovate for ongoing dependency currency so state-lib versions stop drifting
-- Mode: single-agent
-- Status: implementing
-- Owner: implementer
-- Brief: .fas/tasks/add-renovate-for-ongoing-dependency-currency-so-state-lib-ve.md
-- Verification lane: fast
-- Policy sensitivity: standard
-- Blast radius: cross-cutting
-
 ## Template
 
 ### Task: <short task title>
