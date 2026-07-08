@@ -34,7 +34,13 @@
 			"enabled": false
 		},
 		{
-			"description": "Only examples may receive dependency updates outside devDependencies.",
+			"description": "Allow top-level examples to receive dependency updates outside devDependencies.",
+			"matchFileNames": ["examples/**/package.json"],
+			"matchDepTypes": ["dependencies", "optionalDependencies"],
+			"enabled": true
+		},
+		{
+			"description": "Do not update docs-site runtime dependencies automatically.",
 			"matchFileNames": ["docs/**/package.json"],
 			"matchDepTypes": [
 				"dependencies",
