@@ -52,32 +52,7 @@
       "prDependencies": [],
       "createdAt": "2026-06-12T19:30:13.064Z",
       "updatedAt": "2026-07-07T22:06:53.000Z",
-      "deferredReason": "dependency_reopened: task-1781743752184, task-1781919547313",
-      "invalidationReason": null
-    },
-    {
-      "id": "task-1781743752184",
-      "task": "Add Renovate for ongoing dependency currency so state-lib versions stop drifting (would have caught the xstate 5.25/5.30 split). Add a renovate.json (or .github/renovate.json) configured for this pnpm-workspace monorepo: (1) group the state libraries (xstate, @reduxjs/toolkit, redux, mobx) into a single grouped PR so adapter+example bumps land together; (2) limit automated bumps to devDependencies and the example packages — never auto-bump the published packages' own versions or peer-dependency floors (those are deliberate, changeset-gated decisions); (3) keep examples pinned where determinism matters (e.g. xstate examples are pinned exact to avoid the in-place-install typecheck skew); (4) a sane schedule + PR concurrency limit; (5) respect the changesets release flow (do not touch .changeset or package versions). Evaluate Dependabot as the simpler GitHub-native alternative, but Renovate is preferred for its monorepo grouping. Document the policy briefly. Affected files: renovate.json (new), and a short note in the contributing/release docs.",
-      "priority": "high",
-      "source": "manual",
-      "details": "See .fas/tasks/add-renovate-for-ongoing-dependency-currency-so-state-lib-ve.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "policy-surfacing",
-      "signalFingerprint": null,
-      "status": "queued",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1781805262589"
-      ],
-      "blocks": [
-        "task-1781292613064"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-06-18T00:49:12.184Z",
-      "updatedAt": "2026-06-18T00:49:12.184Z",
-      "deferredReason": null,
+      "deferredReason": "dependency_reopened: task-1781919547313",
       "invalidationReason": null
     },
     {
@@ -3063,6 +3038,29 @@
       "workflowId": "direct-1783462506281",
       "branchName": "fas/agent-positioning-followups",
       "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1781743752184",
+      "task": "Add Renovate for ongoing dependency currency so state-lib versions stop drifting (would have caught the xstate 5.25/5.30 split). Add a renovate.json (or .github/renovate.json) configured for this pnpm-workspace monorepo: (1) group the state libraries (xstate, @reduxjs/toolkit, redux, mobx) into a single grouped PR so adapter+example bumps land together; (2) limit automated bumps to devDependencies and the example packages — never auto-bump the published packages' own versions or peer-dependency floors (those are deliberate, changeset-gated decisions); (3) keep examples pinned where determinism matters (e.g. xstate examples are pinned exact to avoid the in-place-install typecheck skew); (4) a sane schedule + PR concurrency limit; (5) respect the changesets release flow (do not touch .changeset or package versions). Evaluate Dependabot as the simpler GitHub-native alternative, but Renovate is preferred for its monorepo grouping. Document the policy briefly. Affected files: renovate.json (new), and a short note in the contributing/release docs.",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1781805262589"
+      ],
+      "blocks": [
+        "task-1781292613064"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": "https://github.com/0xjcf/ignite-element/pull/91",
+      "completedAt": "2026-07-09T20:41:29.747Z",
+      "terminalOutcome": null,
+      "workflowId": "wf_direct-1783527500698",
+      "branchName": "fas/renovate-dependency-currency",
+      "prStatus": "merged"
     }
   ],
   "pullRequests": [],
