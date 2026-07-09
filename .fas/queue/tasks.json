@@ -53,7 +53,7 @@
       "prDependencies": [],
       "createdAt": "2026-06-12T19:30:13.064Z",
       "updatedAt": "2026-07-07T22:06:53.000Z",
-      "deferredReason": "dependency_reopened: task-1781919547313",
+      "deferredReason": "dependency_reopened: task-1781919547313, task-1783610965770",
       "invalidationReason": null
     },
     {
@@ -80,27 +80,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1783610893968",
-      "task": "Design projection contracts and behavior-first interface DX",
-      "priority": "high",
-      "source": "manual",
-      "details": "Produce the architecture/DX design before implementation for Ignite as a projection runtime over behavior contracts. Treat v3 beta as the breaking-change window: prefer clean projection vocabulary/API over compatibility aliases if the design accepts it. Define ProjectionRequest, ProjectionSpec, ProjectionInstance, ProjectionContext, a projection registry, and deterministic projection-selection hooks. Specify how voice/agent inputs request known projection types rather than generating raw UI code; compare native JSX-only guidance, helper utilities/guardrails, optional component primitives, and projection registry/selection surfaces; explain visual, voice, assistive, and agent/non-visual interface use cases; define what can be proven headlessly versus only in rendered DOM; preserve actor-web behavior graph alignment without making Ignite own execution topology.\nSee .fas/tasks/design-the-ignite-element-accessibility-contract-api-and-dx.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [],
-      "blocks": [
-        "task-1783610917796"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-09T15:28:13.968Z",
-      "updatedAt": "2026-07-09T20:55:31.377Z"
-    },
-    {
       "id": "task-1783610917796",
       "task": "Implement projection registry, behavior metadata, and native JSX guardrails",
       "priority": "high",
@@ -109,7 +88,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "policy-surfacing",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -122,7 +101,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-09T15:28:37.796Z",
       "updatedAt": "2026-07-09T15:28:53.373Z",
-      "deferredReason": "dependency_reopened: task-1783610893968",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -3064,6 +3043,29 @@
       "workflowId": "wf_direct-1783527500698",
       "branchName": "fas/renovate-dependency-currency",
       "prStatus": "merged"
+    },
+    {
+      "id": "task-1783610893968",
+      "task": "Design projection contracts and behavior-first interface DX",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [
+        "task-1783610917796"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-09T21:42:54.595Z",
+      "terminalOutcome": null,
+      "branchName": "fas/accessibility-contract-epic",
+      "prStatus": null,
+      "workflowId": "operator:task-1783610893968",
+      "completedBy": "root-session",
+      "operatorEvidence": "Focused validation, six-agent review, three planned commits, and fas batch snapshot direct-1783630531373 completed; full verification is intentionally deferred to shared epic closeout."
     }
   ],
   "pullRequests": [],
