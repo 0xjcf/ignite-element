@@ -102,6 +102,150 @@
       "updatedAt": "2026-07-02T20:00:00.000Z",
       "deferredReason": null,
       "invalidationReason": null
+    },
+    {
+      "id": "task-1783610893968",
+      "task": "Design projection contracts and behavior-first interface DX",
+      "priority": "high",
+      "source": "manual",
+      "details": "Produce the architecture/DX design before implementation for Ignite as a projection runtime over behavior contracts. Treat v3 beta as the breaking-change window: prefer clean projection vocabulary/API over compatibility aliases if the design accepts it. Define ProjectionRequest, ProjectionSpec, ProjectionInstance, ProjectionContext, a projection registry, and deterministic projection-selection hooks. Specify how voice/agent inputs request known projection types rather than generating raw UI code; compare native JSX-only guidance, helper utilities/guardrails, optional component primitives, and projection registry/selection surfaces; explain visual, voice, assistive, and agent/non-visual interface use cases; define what can be proven headlessly versus only in rendered DOM; preserve actor-web behavior graph alignment without making Ignite own execution topology.\nSee .fas/tasks/design-the-ignite-element-accessibility-contract-api-and-dx.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "queued",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [],
+      "blocks": [
+        "task-1783610917796"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-09T15:28:13.968Z",
+      "updatedAt": "2026-07-09T15:28:37.796Z"
+    },
+    {
+      "id": "task-1783610917796",
+      "task": "Implement projection registry, behavior metadata, and native JSX guardrails",
+      "priority": "high",
+      "source": "manual",
+      "details": "After the projection-contract design is accepted, implement the minimal runtime/JSX support needed for accessible-by-default and non-visual interfaces. Prefer projection registry/selection hooks, behavior metadata, and guardrails over a new accessibility projection callback or bundled component library. Preserve functional-core boundaries, avoid DOM scraping, and keep JSX/native elements as the browser accessibility layer while exposing behavior facts and projection specs that tests, agents, voice adapters, and DOM validation can consume. Because this is pre-stable v3 beta, use the clean accepted vocabulary/API instead of compatibility aliases unless the design explicitly justifies them.\nSee .fas/tasks/implement-the-core-accessibility-semantics-projection-surfac.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1783610893968"
+      ],
+      "blocks": [
+        "task-1783610933373"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-09T15:28:37.796Z",
+      "updatedAt": "2026-07-09T15:28:53.373Z",
+      "deferredReason": "dependency_reopened: task-1783610893968",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1783610933373",
+      "task": "Add headless behavior-contract assertions for accessibility-relevant flows",
+      "priority": "high",
+      "source": "manual",
+      "details": "Add testing utilities that let scenarios assert accessibility-relevant behavior contracts in pure headless runtime tests: command labels, descriptions, availability, validation/error messages, focus intent, announcements, and actor-web behavior graph paths where available. The DSL should produce useful failure messages and clarify which checks still require rendered DOM accessibility verification.\nSee .fas/tasks/add-headless-accessibility-contract-assertions-to-the-test-d.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "4-agent",
+      "dependsOn": [
+        "task-1783610917796"
+      ],
+      "blocks": [
+        "task-1783613728381"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-09T15:28:53.373Z",
+      "updatedAt": "2026-07-09T16:15:28.381Z",
+      "deferredReason": "dependency_reopened: task-1783610917796",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1783610950265",
+      "task": "Add rendered DOM accessibility verification for Ignite examples",
+      "priority": "high",
+      "source": "manual",
+      "details": "Add rendered-DOM accessibility verification for representative examples after the headless behavior-contract assertions exist. Prove that native JSX/elements realize the behavior contract through keyboard operation, focus behavior, accessible names, roles, disabled/busy/error states, validation messaging, and announcements where relevant. Prefer existing example runtime lanes and Playwright/Vitest patterns; avoid making top-level examples workspace members.\nSee .fas/tasks/add-dom-accessibility-verification-for-ignite-examples.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "4-agent",
+      "dependsOn": [
+        "task-1783613728381"
+      ],
+      "blocks": [
+        "task-1783610965770"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-09T15:29:10.265Z",
+      "updatedAt": "2026-07-09T16:15:28.381Z",
+      "deferredReason": "dependency_reopened: task-1783613728381",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1783610965770",
+      "task": "Document projection runtime, accessibility-first, and non-visual patterns",
+      "priority": "high",
+      "source": "manual",
+      "details": "After the design, guardrails, headless assertions, projection workbench, and example validation are in place, publish the projection runtime/accessibility-first/non-visual interface DX docs. The guide should teach ProjectionRequest, ProjectionSpec, ProjectionInstance, projection registry/selection, native-first markup, when ARIA is appropriate, how behavior metadata powers headless tests, voice/agent/non-visual interfaces, when to run DOM checks, and how actor-web behavior graph alignment fits without implying DOM scraping or raw generated UI.\nSee .fas/tasks/document-accessibility-first-ignite-implementation-patterns.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "single-agent",
+      "dependsOn": [
+        "task-1783610950265"
+      ],
+      "blocks": [],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-09T15:29:25.770Z",
+      "updatedAt": "2026-07-09T15:29:25.770Z",
+      "deferredReason": "dependency_reopened: task-1783610950265",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1783613728381",
+      "task": "Build voice/text projection control-center workbench example",
+      "priority": "high",
+      "source": "manual",
+      "details": "Build examples/agents/voice-workbench as a voice/text projection control-center dashboard that stress-tests behavior-first interfaces. The example should run with a deterministic mock model/speech adapter in CI and optional live OpenAI-compatible or MLX path. A user can speak or type instructions; the agent uses igniteTools against a headless runtime to create ProjectionRequest objects and update structured ProjectionSpec objects such as checklists, forms, status cards, dashboards, timelines, conversations, and decision logs rather than arbitrary generated component code. The browser renders projections as accessible native JSX/custom elements with a cinematic command-center UX, while voice/text responses summarize state and next actions. Include actor-web-backed mode if available, or frame the bridge seam as the future actor-web-hosted behavior graph.\nSee .fas/tasks/build-voice-text-agent-control-center-workbench-example-for-.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1783610933373"
+      ],
+      "blocks": [
+        "task-1783610950265"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-09T16:15:28.381Z",
+      "updatedAt": "2026-07-09T16:15:28.381Z",
+      "deferredReason": "dependency_reopened: task-1783610933373",
+      "invalidationReason": null
     }
   ],
   "completedTasks": [
@@ -3096,6 +3240,49 @@
           "taskId": "task-1781197578529",
           "epicRole": "stable-cut"
         }
+      ]
+    },
+    {
+      "members": [
+        {
+          "taskId": "task-1783610893968",
+          "epicRole": "design"
+        },
+        {
+          "taskId": "task-1783610917796",
+          "epicRole": "implementation"
+        },
+        {
+          "taskId": "task-1783610933373",
+          "epicRole": "testing"
+        },
+        {
+          "taskId": "task-1783613728381",
+          "epicRole": "example"
+        },
+        {
+          "taskId": "task-1783610950265",
+          "epicRole": "validation"
+        },
+        {
+          "taskId": "task-1783610965770",
+          "epicRole": "documentation"
+        }
+      ],
+      "id": "epic-accessibility-contract",
+      "title": "Projection Runtime, Accessibility & Non-Visual Interfaces",
+      "priority": "high",
+      "consumer": "ignite-element",
+      "goal": "Make accessible and non-visual Ignite interfaces the default outcome by grounding JSX, headless tests, voice/agent adapters, rendered DOM validation, and projection selection in projection contracts over behavior contracts rather than a separate accessibility projection API.",
+      "acceptance": [
+        "The design defines ProjectionRequest, ProjectionSpec, ProjectionInstance, ProjectionContext, projection registry semantics, and deterministic projection-selection hooks before implementation.",
+        "The design explicitly avoids a mandatory top-level accessibility callback unless the comparison proves it is necessary.",
+        "The design treats v3 beta as a breaking-change window and prefers clean projection vocabulary/API over compatibility aliases when the accepted design requires a public rename.",
+        "Native JSX/elements remain the primary browser accessibility layer, with helper utilities or primitives considered only where they reduce repeated unsafe patterns.",
+        "The headless runtime can assert accessibility-relevant behavior facts such as command labels, availability, validation messages, focus intent, announcements, and behavior graph paths without DOM scraping.",
+        "A voice/text control-center workbench proves that an agent can request and update structured projections through the same behavior contract used by browser, voice, text, and tests.",
+        "Examples include DOM-level keyboard, focus, accessible-name, and native/ARIA state verification where relevant.",
+        "Docs teach accessibility-first and non-visual Ignite patterns using behavior contracts, native elements first, and actor-web behavior graph alignment."
       ]
     }
   ]

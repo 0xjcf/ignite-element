@@ -2155,6 +2155,54 @@ No active tasks.
 - Owner: planner
 - Brief: .fas/tasks/normalize-remaining-self-contained-example-install-commands-.md
 
+### Task: Design projection contracts and behavior-first interface DX
+
+- Title: Design projection contracts and behavior-first interface DX
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/design-the-ignite-element-accessibility-contract-api-and-dx.md
+
+### Task: Implement projection registry, behavior metadata, and native JSX guardrails
+
+- Title: Implement projection registry, behavior metadata, and native JSX guardrails
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/implement-the-core-accessibility-semantics-projection-surfac.md
+
+### Task: Add headless behavior-contract assertions for accessibility-relevant flows
+
+- Title: Add headless behavior-contract assertions for accessibility-relevant flows
+- Mode: 4-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/add-headless-accessibility-contract-assertions-to-the-test-d.md
+
+### Task: Build voice/text projection control-center workbench example
+
+- Title: Build voice/text projection control-center workbench example
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/build-voice-text-agent-control-center-workbench-example-for-.md
+
+### Task: Add rendered DOM accessibility verification for Ignite examples
+
+- Title: Add rendered DOM accessibility verification for Ignite examples
+- Mode: 4-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/add-dom-accessibility-verification-for-ignite-examples.md
+
+### Task: Document projection runtime, accessibility-first, and non-visual patterns
+
+- Title: Document projection runtime, accessibility-first, and non-visual patterns
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/document-accessibility-first-ignite-implementation-patterns.md
+
 ## Template
 
 ### Task: <short task title>
