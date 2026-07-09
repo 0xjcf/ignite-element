@@ -1,0 +1,59 @@
+{
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"extends": ["config:recommended"],
+	"baseBranchPatterns": ["beta"],
+	"dependencyDashboard": true,
+	"timezone": "America/New_York",
+	"schedule": ["before 6am on monday"],
+	"prConcurrentLimit": 2,
+	"prHourlyLimit": 1,
+	"automerge": false,
+	"enabledManagers": ["npm"],
+	"ignorePaths": [".changeset/**"],
+	"lockFileMaintenance": {
+		"enabled": true,
+		"schedule": ["before 6am on monday"]
+	},
+	"packageRules": [
+		{
+			"description": "Keep state-library updates together across adapters and examples.",
+			"matchManagers": ["npm"],
+			"matchPackageNames": ["xstate", "@reduxjs/toolkit", "redux", "mobx"],
+			"groupName": "state libraries",
+			"groupSlug": "state-libraries",
+			"automerge": false
+		},
+		{
+			"description": "Do not update published package runtime dependencies or peer dependency floors.",
+			"matchFileNames": ["packages/**/package.json"],
+			"matchDepTypes": [
+				"dependencies",
+				"optionalDependencies",
+				"peerDependencies"
+			],
+			"enabled": false
+		},
+		{
+			"description": "Allow top-level examples to receive dependency updates outside devDependencies.",
+			"matchFileNames": ["examples/**/package.json"],
+			"matchDepTypes": ["dependencies", "optionalDependencies"],
+			"enabled": true
+		},
+		{
+			"description": "Do not update docs-site runtime dependencies automatically.",
+			"matchFileNames": ["docs/**/package.json"],
+			"matchDepTypes": [
+				"dependencies",
+				"optionalDependencies",
+				"peerDependencies"
+			],
+			"enabled": false
+		},
+		{
+			"description": "Require dashboard approval for major updates.",
+			"matchUpdateTypes": ["major"],
+			"dependencyDashboardApproval": true,
+			"automerge": false
+		}
+	]
+}
