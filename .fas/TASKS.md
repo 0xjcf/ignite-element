@@ -2160,9 +2160,12 @@ No active tasks.
 
 - Title: Design projection contracts and behavior-first interface DX
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/design-the-ignite-element-accessibility-contract-api-and-dx.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Implement projection registry, behavior metadata, and native JSX guardrails
 

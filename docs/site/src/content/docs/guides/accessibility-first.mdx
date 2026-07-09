@@ -1,0 +1,239 @@
+---
+title: Accessibility first
+description: Build accessible Ignite Element interfaces from behavior contracts, native HTML, and rendered-browser verification.
+sidebar:
+  label: Accessibility first
+  order: 6
+---
+
+Ignite Element works best when accessibility is treated as part of the behavior
+contract, not as a late DOM patch. The same headless runtime that powers tests
+and agents already exposes the facts that accessible interfaces depend on:
+commands, command metadata, projected view state, dynamic availability, and
+status updates.
+
+This guide shows how to start from those facts, keep the DOM native-first, and
+understand what headless verification can and cannot prove.
+
+:::note[Related docs]
+For exact runtime signatures, see [Headless runtime](/ignite-element/api/headless-runtime/).
+For actor-web boundaries, see [Actor-Web](/ignite-element/guides/actor-web/).
+For the agent framing, see [Ignite Element for AI Agents](/ignite-element/overview/ignite-for-ai-agents/).
+For test workflows, see [Testing DSL](/ignite-element/api/testing-dsl/).
+:::
+
+## Start from the behavior contract
+
+An accessible component usually needs the same facts regardless of channel:
+
+- a stable label,
+- helper or error text,
+- clear command descriptions,
+- dynamic availability,
+- a status summary,
+- and sometimes focus or announcement intent.
+
+Those facts belong in the runtime contract before they are styled in the DOM.
+
+```ts no-check
+import { igniteCore } from 'ignite-element/xstate';
+
+export const thermostat = igniteCore({
+  source: thermostatMachine,
+
+  view: ({ snapshot }) => ({
+    target: snapshot.context.target,
+    targetLabel: 'Target temperature',
+    targetHint: 'Choose a value between 58 and 82 degrees.',
+    statusLabel: snapshot.context.isSaving ? 'Saving target' : 'Ready',
+    errorText: snapshot.context.errorText,
+    canSave: snapshot.can({ type: 'SAVE_TARGET' }),
+  }),
+
+  commands: ({ actor, command }) => ({
+    saveTarget: command(
+      (target: number) => actor.send({ type: 'SAVE_TARGET', target }),
+      {
+        description: 'Save the target temperature.',
+        input: command.number({ minimum: 58, maximum: 82 }),
+        canExecute: ({ snapshot }) => snapshot.can({ type: 'SAVE_TARGET' }),
+      },
+    ),
+  }),
+});
+```
+
+That single registration already supports three consumers:
+
+1. A browser UI can render labels, hints, and disabled states.
+2. A headless test can assert `getView()`, `getSchema()`, and `canExecute()`.
+3. An agent can inspect the same facts without scraping the DOM.
+
+## Use native elements first
+
+Once the behavior contract is stable, render it with native controls before
+reaching for ARIA.
+
+```tsx no-check
+thermostat('thermostat-panel', ({ target, targetLabel, targetHint, statusLabel, errorText, canSave, saveTarget }) => (
+  <form aria-describedby="thermostat-hint thermostat-status">
+    <label for="thermostat-target">{targetLabel}</label>
+    <input
+      id="thermostat-target"
+      type="range"
+      min={58}
+      max={82}
+      value={target}
+      aria-invalid={errorText ? 'true' : undefined}
+      aria-describedby={errorText ? 'thermostat-hint thermostat-error thermostat-status' : 'thermostat-hint thermostat-status'}
+      onInput={(event) => saveTarget(Number(event.currentTarget.value))}
+    />
+
+    <p id="thermostat-hint">{targetHint}</p>
+    <p id="thermostat-status" aria-live="polite">{statusLabel}</p>
+    {errorText && <p id="thermostat-error">{errorText}</p>}
+
+    <button type="button" disabled={!canSave} onClick={() => saveTarget(target)}>
+      Save target
+    </button>
+  </form>
+));
+```
+
+The important part is not the markup alone. The behavior contract already knew:
+
+- what the control is called,
+- when saving is allowed,
+- what status text should be announced,
+- and whether an error exists.
+
+The DOM projection expresses those facts with native semantics instead of trying
+to reconstruct them later.
+
+## Use the existing headless APIs
+
+Ignite's current runtime APIs are already enough to verify most of the contract
+before any DOM assertion:
+
+```ts no-check
+const schema = thermostat.getSchema();
+const view = thermostat.getView();
+const canSave = thermostat.canExecute('saveTarget');
+
+if (canSave) {
+  const result = await thermostat.execute('saveTarget', 70);
+  console.log(result.snapshot, result.events);
+}
+
+console.log(schema.commands.saveTarget.description);
+console.log(view.statusLabel);
+```
+
+This is the right place to verify:
+
+- command descriptions and input shapes,
+- dynamic availability,
+- projected status summaries,
+- and post-command events.
+
+It is not the right place to claim that the browser computed the right
+accessible name or focus order.
+
+## Projection contracts for non-visual consumers
+
+The current runtime APIs are executable today. Projection selection is the v3
+design layer that lets non-visual consumers request known representations over
+that same runtime contract.
+
+```ts
+type ProjectionChannel = "dom" | "voice" | "assistive" | "agent";
+
+interface ProjectionRequest {
+  readonly projectionId?: string;
+  readonly channel: ProjectionChannel;
+  readonly intent?: string;
+  readonly locale?: string;
+  readonly capabilities?: readonly string[];
+}
+
+interface ProjectionContext<TSnapshot, TView, TSchema> {
+  readonly snapshot: TSnapshot;
+  readonly view: TView;
+  readonly schema: TSchema;
+  readonly channel: ProjectionChannel;
+  readonly locale?: string;
+  canExecute(name: string): boolean;
+}
+
+interface ProjectionInstance<TFacts, TOutput> {
+  readonly projectionId: string;
+  readonly channel: ProjectionChannel;
+  readonly request: ProjectionRequest;
+  readonly facts: TFacts;
+  readonly output: TOutput;
+}
+```
+
+That model keeps the terminology clear:
+
+- `view` is still the existing derived-state callback.
+- `getView()` is still the existing runtime read.
+- `getSchema()` is still existing introspection.
+- Projections are channel-specific resolutions over those facts.
+
+Agents request a known projection. They do not submit JSX, HTML, or arbitrary
+rendering code.
+
+## Actor-Web boundary
+
+Projection design does not move Actor-Web ownership into Ignite.
+
+- Actor-Web owns topology, transport, supervision, and source lifecycle.
+- Ignite consumes the source snapshot, derives `view`, exposes commands, and
+  can resolve a projection over those facts.
+
+If a component is backed by `ignite-element/actor-web`, projection selection can
+use the read model that Actor-Web already provides. It still must not touch
+transport or orchestration internals directly.
+
+## Rejected alternatives
+
+### A mandatory top-level accessibility callback
+
+Rejected because it duplicates `view`, command metadata, and event semantics
+with a second authoring surface.
+
+### Raw generated UI for agents
+
+Rejected because it bypasses the component contract and makes deterministic
+verification impossible.
+
+### Headless accessibility-tree proof
+
+Rejected because browser accessibility semantics, focus order, and assistive
+technology behavior must be verified in rendered DOM.
+
+## Verification checklist
+
+Use this split when you review an accessibility-first component.
+
+### Headless runtime can verify
+
+- `getSchema()` exposes the right commands and input metadata.
+- `canExecute()` matches the current availability rules.
+- `getView()` exposes labels, status summaries, errors, and disabled reasons.
+- `execute()` produces the expected events and resulting snapshot.
+- A projection request can resolve to typed facts or a typed no-match result.
+
+### Rendered DOM must verify
+
+- accessible names and descriptions,
+- label and helper-text wiring,
+- keyboard flows and focus order,
+- live-region timing,
+- visual hiding and visibility behavior,
+- browser and assistive technology integration.
+
+Accessibility first in Ignite means the behavior contract comes first, the DOM
+stays native-first, and verification stays honest about the boundary between
+headless facts and browser truth.
