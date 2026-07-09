@@ -1029,6 +1029,7 @@ No active tasks.
 - Status: deferred
 - Owner: runtime
 - Brief: .fas/tasks/stable-v3-merge-the-v3-line-to-main-and-retire-branch-dispa.md
+- Note: Stable v3 is gated on completion of the Projection Runtime epic through task-1783610965770.
 
 ### Task: XStateAdapter: implement stream() over XState v5 emitted events
 

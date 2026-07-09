@@ -43,7 +43,8 @@ Pre-stable-v3 audit finding F1 (high). main (origin/main 94a78b9) is ~306 commit
 - Validate generated scope, acceptance criteria, and verification evidence before closeout to avoid workflow drift.
 
 ## Dependencies
-- None known at task creation.
+- Depends on `task-1783610965770`, the final Projection Runtime epic task, in
+  addition to the existing release prerequisites recorded in the live queue.
 
 ## Open questions
 - None captured at task creation.

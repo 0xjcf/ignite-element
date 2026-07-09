@@ -46,7 +46,9 @@ After the design, guardrails, headless assertions, projection workbench, and exa
 - Validate generated scope, acceptance criteria, and verification evidence before closeout to avoid workflow drift.
 
 ## Dependencies
-- None known at task creation.
+- Depends on `task-1783610950265` (rendered DOM accessibility verification).
+- Blocks `task-1781292613064` so stable v3 cannot merge to `main` until the
+  Projection Runtime epic is documented and complete.
 
 ## Open questions
 - None captured at task creation.
