@@ -1,6 +1,6 @@
 ---
 title: Accessibility first
-description: Build accessible Ignite Element interfaces from behavior contracts, native HTML, and rendered-browser verification.
+description: Build accessible Ignite Element interfaces from behavior contracts, validated semantic documents, and rendered-browser verification.
 sidebar:
   label: Accessibility first
   order: 6
@@ -9,11 +9,11 @@ sidebar:
 Ignite Element works best when accessibility is treated as part of the behavior
 contract, not as a late DOM patch. The same headless runtime that powers tests
 and agents already exposes the facts that accessible interfaces depend on:
-commands, command metadata, projected view state, dynamic availability, and
-status updates.
+commands, command metadata, derived view state, dynamic availability, and
+validated semantic projection state.
 
 This guide shows how to start from those facts, keep the DOM native-first, and
-understand what headless verification can and cannot prove.
+stay honest about what headless verification can and cannot prove.
 
 :::note[Related docs]
 For exact runtime signatures, see [Headless runtime](/ignite-element/api/headless-runtime/).
@@ -100,7 +100,7 @@ thermostat('thermostat-panel', ({ target, targetLabel, targetHint, statusLabel, 
 ));
 ```
 
-The important part is not the markup alone. The behavior contract already knew:
+The runtime contract already knew:
 
 - what the control is called,
 - when saving is allowed,
@@ -139,50 +139,36 @@ This is the right place to verify:
 It is not the right place to claim that the browser computed the right
 accessible name or focus order.
 
-## Projection contracts for non-visual consumers
+## Use validated semantic documents for shared non-DOM output
 
-The current runtime APIs are executable today. Projection selection is the v3
-design layer that lets non-visual consumers request known representations over
-that same runtime contract.
+When multiple channels need more than raw `view` state, Ignite's accepted v3
+direction is to use actor-owned validated semantic documents rather than a
+public projection registry.
 
-```ts
-type ProjectionChannel = "dom" | "voice" | "assistive" | "agent";
+That means:
 
-interface ProjectionRequest {
-  readonly projectionId?: string;
-  readonly channel: ProjectionChannel;
-  readonly intent?: string;
-  readonly locale?: string;
-  readonly capabilities?: readonly string[];
-}
+- the source writes durable `ProjectionDocument` state through commands,
+- the runtime validates safe semantic nodes,
+- command-backed actions resolve against existing commands,
+- DOM, text, terminal, and speech committers consume the same document.
 
-interface ProjectionContext<TSnapshot, TView, TSchema> {
-  readonly snapshot: TSnapshot;
-  readonly view: TView;
-  readonly schema: TSchema;
-  readonly channel: ProjectionChannel;
-  readonly locale?: string;
-  canExecute(name: string): boolean;
-}
+The document remains data, not executable UI. Ignite rejects raw JSX,
+JavaScript, imports, event handlers, DOM references, and arbitrary executable
+strings in this path.
 
-interface ProjectionInstance<TFacts, TOutput> {
-  readonly projectionId: string;
-  readonly channel: ProjectionChannel;
-  readonly request: ProjectionRequest;
-  readonly facts: TFacts;
-  readonly output: TOutput;
-}
-```
+## Speech is request-driven
 
-That model keeps the terminology clear:
+Speech and announcements need stricter lifecycle rules than ordinary DOM or text
+updates:
 
-- `view` is still the existing derived-state callback.
-- `getView()` is still the existing runtime read.
-- `getSchema()` is still existing introspection.
-- Projections are channel-specific resolutions over those facts.
+- DOM and text projections can be change-driven.
+- Speech should be request-driven.
+- Spoken text or structured speech first becomes durable actor state.
+- Each utterance has stable identity.
+- Acknowledged utterances must not replay when state is re-read or a session is
+  rebound.
 
-Agents request a known projection. They do not submit JSX, HTML, or arbitrary
-rendering code.
+This keeps announcement behavior explicit and testable.
 
 ## Actor-Web boundary
 
@@ -190,18 +176,18 @@ Projection design does not move Actor-Web ownership into Ignite.
 
 - Actor-Web owns topology, transport, supervision, and source lifecycle.
 - Ignite consumes the source snapshot, derives `view`, exposes commands, and
-  can resolve a projection over those facts.
+  projects validated state to different targets.
 
-If a component is backed by `ignite-element/actor-web`, projection selection can
-use the read model that Actor-Web already provides. It still must not touch
+If a component is backed by `ignite-element/actor-web`, projection state still
+flows through the same read-model and command boundaries. It does not reach into
 transport or orchestration internals directly.
 
 ## Rejected alternatives
 
 ### A mandatory top-level accessibility callback
 
-Rejected because it duplicates `view`, command metadata, and event semantics
-with a second authoring surface.
+Rejected because it duplicates `view`, command metadata, and semantic document
+state with a second authoring surface.
 
 ### Raw generated UI for agents
 
@@ -222,8 +208,10 @@ Use this split when you review an accessibility-first component.
 - `getSchema()` exposes the right commands and input metadata.
 - `canExecute()` matches the current availability rules.
 - `getView()` exposes labels, status summaries, errors, and disabled reasons.
+- Validated semantic documents reject unsafe content and keep stable ids.
+- Command-backed actions resolve against existing commands and schema.
+- Speech requests dedupe and acknowledge correctly.
 - `execute()` produces the expected events and resulting snapshot.
-- A projection request can resolve to typed facts or a typed no-match result.
 
 ### Rendered DOM must verify
 

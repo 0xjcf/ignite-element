@@ -2,60 +2,85 @@
 
 ## Status
 
-Proposed documentation for the Ignite Element v3 beta design window. This file
-describes the accessibility contract that surrounds the projection runtime and
-the existing headless APIs.
+Accepted replacement guidance for the Ignite Element v3 beta design window.
+This document now aligns with the validated projection-document runtime instead
+of the rejected registry design.
 
 ## Core position
 
 Ignite should be accessibility-first by default, but not by introducing a
-parallel accessibility DSL. The correct default is:
+parallel accessibility DSL or by making a model generate DOM.
+
+The correct default is:
 
 1. Start with native HTML semantics.
-2. Add ARIA only where native semantics are insufficient.
-3. Model the behavior facts that every consumer needs.
-4. Verify those facts headlessly.
-5. Verify final browser and assistive behavior in rendered DOM.
+2. Keep behavior facts explicit in `view`, commands, and validated semantic
+   documents.
+3. Use headless runtime checks to prove those facts are coherent.
+4. Use rendered DOM checks to prove browser accessibility behavior.
 
-That keeps one behavior contract for browser UI, voice interfaces, screen
-reader-oriented summaries, and agent tools.
+That keeps one behavior contract for browser UI, voice, assistive summaries, and
+agent tooling.
 
-## Native-first, not callback-first
+## Runtime facts before DOM
 
-Accessibility is primarily realized in the DOM layer that consumes the runtime:
+Accessibility begins in the runtime contract, not in a post-hoc DOM scrape.
+Ignite already exposes the facts most accessible interfaces need:
+
+- derived state through `view` and `getView()`,
+- command descriptions and input shapes through `getSchema()`,
+- dynamic availability through `canExecute()`,
+- command results and emitted events through `execute()` and `on(...)`,
+- validated semantic projection state through actor-owned
+  `ProjectionDocument` data.
+
+Those facts are channel-neutral. A DOM renderer, a speech target, and a text
+summary should all consume the same durable source of truth.
+
+## Semantic documents, not raw generated UI
+
+When non-trivial presentation needs to be shared across channels, Ignite uses
+validated semantic nodes instead of raw generated UI code.
+
+This matters for accessibility because it keeps the contract explicit:
+
+- a checklist is a checklist,
+- a form is a form,
+- an action is a reference to an existing command,
+- a status block is structured text,
+- a speech utterance is a durable request with stable identity.
+
+Ignite rejects raw JSX, JavaScript, imports, event handlers, DOM references,
+and arbitrary executable strings in projection state. That prevents "accessible"
+output from depending on generated code that cannot be validated or replayed.
+
+## Command-backed action semantics
+
+Accessible interaction still has to respect the command surface.
+
+Command-backed action nodes must:
+
+- resolve to an existing command in `getSchema().commands`,
+- validate any payload against the declared command schema,
+- check current availability through `canExecute()` at commit time.
+
+This keeps accessible controls aligned with the same executable contract agents
+and headless tests already use.
+
+## Native-first DOM mapping
+
+Rendered accessibility remains a DOM concern. The runtime should supply facts;
+the DOM renderer should express those facts with native elements first:
 
 - buttons stay buttons,
 - labels stay native `<label>` associations,
-- validation messages stay explicit text in the DOM,
-- disabled and busy states stay native attributes when available.
+- status summaries stay text,
+- disabled and busy states stay native attributes where possible.
 
-Ignite therefore should not introduce a mandatory top-level `accessibility:`
-callback that duplicates `view`, command metadata, and event semantics. The
-existing model already has the right places for accessibility facts:
+ARIA supplements native semantics when needed. It should not become the primary
+runtime contract.
 
-- `view` and `getView()` expose derived state,
-- `getSchema()` exposes commands and metadata,
-- `canExecute()` exposes dynamic availability,
-- `execute()` and `on(...)` expose outcomes,
-- projection selection can resolve channel-specific summaries over those facts.
-
-## Behavior facts that matter
-
-An accessibility-first component should make these facts explicit in its
-behavior contract:
-
-- control labels and helper text,
-- command descriptions and input shapes,
-- dynamic availability and disabled reasons,
-- validation state and error text,
-- focus intent,
-- announcement intent,
-- status summaries that do not require DOM traversal.
-
-The contract should describe the state, not simulate the browser accessibility
-tree inside Node.
-
-## Example: behavior facts without a second DSL
+## Example: runtime facts without a second DSL
 
 ```ts
 import { igniteCore } from "ignite-element/xstate";
@@ -64,14 +89,12 @@ const thermostat = igniteCore({
   source: thermostatMachine,
   view: ({ snapshot }) => ({
     target: snapshot.context.target,
-    statusLabel: snapshot.context.isSaving ? "Saving target" : "Ready",
     targetLabel: "Target temperature",
     targetHint: "Choose a value between 58 and 82 degrees.",
-    canSave: snapshot.can({ type: "SAVE_TARGET" }),
+    statusLabel: snapshot.context.isSaving ? "Saving target" : "Ready",
     disabledReason: snapshot.can({ type: "SAVE_TARGET" })
       ? null
       : "Connect to the thermostat before saving.",
-    announceOnSave: snapshot.context.lastSavedAt !== null,
   }),
   commands: ({ actor, command }) => ({
     saveTarget: command(
@@ -87,7 +110,21 @@ const thermostat = igniteCore({
 ```
 
 Nothing new is invented here. The runtime already carries the facts that a DOM
-projection, a voice summary, and an agent tool need to stay aligned.
+projection, assistive summary, speech output, and agent tool need to stay
+aligned.
+
+## Speech and announcement boundaries
+
+Speech is not just another DOM diff.
+
+- DOM and text committers are change-driven.
+- Speech is request-driven.
+- A speech request must be written into durable state first.
+- Each utterance needs stable identity so rebinding does not replay it.
+- Acknowledgement and deduplication are part of the runtime contract.
+
+This matters for accessibility because announcements must be intentional and
+testable, not accidental side effects of repeated reads.
 
 ## Headless facts vs rendered guarantees
 
@@ -95,82 +132,51 @@ projection, a voice summary, and an agent tool need to stay aligned.
 | --- | --- | --- |
 | Command existence and descriptions | Yes via `getSchema()` | No |
 | Dynamic availability | Yes via `canExecute()` | No |
-| Validation state and status summaries | Yes via `getView()` or projection facts | No |
-| Focus or announcement intent exists | Yes as explicit view/projection facts | No |
+| Semantic document validity | Yes | No |
+| Action payload validity | Yes | No |
+| Speech request identity and dedupe | Yes | No |
+| Status summaries and disabled reasons | Yes via `getView()` and semantic documents | No |
 | Computed accessible name/description | No | Yes |
 | Focus order, trap, and restoration | No | Yes |
 | Keyboard interaction details | No | Yes |
-| DOM relationships such as `for`, `aria-describedby`, `aria-controls` | No | Yes |
+| DOM relationships such as `for` or `aria-describedby` | No | Yes |
 | Live-region timing and assistive tech behavior | No | Yes |
 | CSS visibility and visually-hidden correctness | No | Yes |
 
 The practical rule is simple: headless verification proves contract quality;
 rendered verification proves browser accessibility.
 
-## Voice, assistive, text, and agent consumers
-
-The same behavior facts should serve multiple consumers:
-
-- DOM projections turn them into native controls and text.
-- Voice projections turn them into prompts and confirmations.
-- Assistive summaries turn them into compact status facts.
-- Agent projections turn them into tool-facing responses.
-
-This is why projection selection is useful: each channel can ask for a known
-representation while staying grounded in the same runtime contract.
-
 ## Rejected approaches
 
 ### DOM scraping as the primary agent path
 
-Rejected because it is fragile, non-deterministic, and conflates rendered output
-with the behavior contract. Agents should start from `getSchema()`, `getView()`,
-`canExecute()`, and typed projection facts before any selector work.
+Rejected because it is fragile and couples agent logic to rendered output rather
+than the behavior contract.
 
 ### Accessibility-tree simulation in Node
 
-Rejected because Node cannot faithfully prove browser accessibility behavior,
-accessible-name computation, focus order, or assistive technology integration.
-Those are browser responsibilities.
+Rejected because Node cannot faithfully prove browser accessibility semantics,
+focus order, or assistive technology integration.
 
-### First-party component primitives as the core answer
+### A mandatory accessibility callback
 
-Rejected for the core runtime because it makes Ignite own a much larger styling
-and maintenance surface without solving the underlying contract problem.
-Optional examples and helpers can still demonstrate good native patterns.
+Rejected because it duplicates `view`, command metadata, and semantic document
+state with a second authoring surface.
 
-## Verification ladder
+### Raw model-authored UI
 
-1. Behavior unit tests verify source logic and state transitions.
-2. Headless runtime checks verify `getSchema()`, `getView()`, `canExecute()`,
-   emitted events, and typed projection facts.
-3. Rendered DOM tests verify role queries, accessible names, helper text,
-   keyboard flows, focus movement, and live-region output in a browser-capable
-   environment.
-
-Each rung proves something different. Skipping rendered checks because headless
-facts look correct is a category mistake.
-
-## Practical authoring guidance
-
-- Prefer native `<button>`, `<input>`, `<select>`, `<fieldset>`, `<label>`,
-  `<output>`, and `<form>` before ARIA roles.
-- Use ARIA to supplement missing semantics, not to recreate native controls.
-- Keep disabled reasons, validation text, and status summaries in `view` or
-  projection facts so every consumer can reason over them.
-- Use command metadata descriptions and input schemas to keep prompts and forms
-  aligned.
-- Treat headless accessibility facts as prerequisites for good UI, not as proof
-  of browser conformance.
+Rejected because generated JSX or DOM fragments are not a safe or durable
+accessibility contract.
 
 ## Decision
 
-Ignite's accessibility story should be native-first and contract-first:
+Ignite's accessibility story is native-first and contract-first:
 
 - no mandatory accessibility callback,
 - no raw generated UI as the default agent path,
+- no public projection registry,
 - no headless claims that exceed what Node can prove,
-- and no actor-web ownership drift into Ignite.
+- and no drift of actor or provider ownership into Ignite core.
 
-The runtime owns behavior facts. The rendered DOM owns final accessibility
-semantics.
+The runtime owns behavior facts and validated semantic documents. The rendered
+DOM owns final accessibility semantics.

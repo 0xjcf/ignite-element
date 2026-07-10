@@ -1,12 +1,11 @@
-# Design: Projection runtime over behavior contracts
+# Design: Internal projection runtime over behavior contracts
 
 ## Status
 
-Proposed for the Ignite Element v3 beta design window. This document defines
-the documentation-level contract for projection selection without introducing
-new runtime exports in this task.
+Accepted replacement direction for the Ignite Element v3 beta design window.
+This document supersedes the earlier registry-oriented proposal.
 
-## Why a projection runtime
+## Why this changed
 
 Ignite already has the right behavior boundary:
 
@@ -15,334 +14,180 @@ Ignite already has the right behavior boundary:
 - `getSchema()` returns JSON-serializable commands, events, snapshot, and view.
 - `execute()` and `canExecute()` keep intent and availability explicit.
 
-That contract is enough to avoid DOM scraping, but multi-channel consumers still
-need one more layer: a deterministic way to ask for a known projection over the
-same behavior facts. A browser UI, a screen reader-oriented summary, a voice
-response, and an agent tool response should all start from the same runtime
-state instead of inventing parallel callback systems.
+The rejected design added a public projection registry and selection model on top
+of those contracts. That widened the API surface, split ownership across config
+and runtime, and encouraged projection-specific metadata to leak into
+`igniteCore`.
 
-The projection runtime adds that layer. It does not replace `view`,
-`getView()`, or `getSchema()`, and it does not make the internal
-`createProjectionFactory` helper public.
+The replacement keeps the behavior boundary intact and adds only one narrow
+public seam: the existing callable `igniteCore(...)` value can be used either as
+`component(tagName, renderer)` for DOM registration or as `component(target)`
+for a first-party non-DOM projection target.
 
-## Glossary
+## Public contract
 
-- `view`: Ignite's existing derived-state callback.
-- `getView()`: the existing headless read of the current derived view.
-- `getSchema()`: the existing JSON-serializable runtime contract.
-- `ProjectionRequest`: a serializable request for a known projection.
-- `ProjectionContext`: immutable runtime facts available during selection.
-- `ProjectionSpec`: an application-authored registry entry.
-- `ProjectionInstance`: the resolved projection result.
-- `ProjectionResolution`: the typed success or no-match result.
+The public surface remains intentionally small:
 
-## Contract shapes
+- `igniteCore` keeps the current source, view, commands, events, and effects
+  config shape.
+- `counter(tagName, renderer)` remains source-compatible.
+- One additive overload is allowed: `counter(target)`.
+- `target` is a first-party opaque branded value, not a plain object, callback,
+  registry key, or model-authored document.
+- The one-argument overload returns only a disposable handle:
+  `{ dispose(): void }`.
 
-These are docs-level shapes for the accepted design direction. They are not
-production exports in this task.
+Everything else stays private:
 
-```ts
-type ProjectionChannel = "dom" | "voice" | "assistive" | "agent";
+- no public `projections:` config,
+- no public registry,
+- no public `bind`, `inspect`, or `project` method,
+- no public `Projection<Format, Output>` generic,
+- no behavior-presentation metadata threaded through adapters.
 
-interface ProjectionRequest {
-  readonly projectionId?: string;
-  readonly channel: ProjectionChannel;
-  readonly intent?: string;
-  readonly locale?: string;
-  readonly capabilities?: readonly string[];
-}
+## Internal runtime model
 
-interface ProjectionContext<TSnapshot, TView, TSchema> {
-  readonly snapshot: TSnapshot;
-  readonly view: TView;
-  readonly schema: TSchema;
-  readonly channel: ProjectionChannel;
-  readonly locale?: string;
-  canExecute(name: string): boolean;
-}
+Ignite's projection runtime is an internal substrate built around one coherent
+inspection read. Every DOM and non-DOM consumer must start from the same
+deterministic bundle:
 
-interface ProjectionSpec<TSnapshot, TView, TSchema, TFacts, TOutput> {
-  readonly id: string;
-  readonly channel: ProjectionChannel;
-  readonly priority?: number;
-  supports(
-    request: ProjectionRequest,
-    context: ProjectionContext<TSnapshot, TView, TSchema>,
-  ): boolean;
-  resolve(
-    context: ProjectionContext<TSnapshot, TView, TSchema>,
-    request: ProjectionRequest,
-  ): ProjectionInstance<TFacts, TOutput>;
-}
+- snapshot,
+- derived view,
+- schema,
+- `canExecute`,
+- validated `ProjectionDocument` state,
+- stable revision identity.
 
-interface ProjectionInstance<TFacts, TOutput> {
-  readonly projectionId: string;
-  readonly channel: ProjectionChannel;
-  readonly request: ProjectionRequest;
-  readonly facts: TFacts;
-  readonly output: TOutput;
-}
+That read feeds private binders and committers:
 
-type ProjectionResolution<TFacts, TOutput> =
-  | {
-      readonly ok: true;
-      readonly instance: ProjectionInstance<TFacts, TOutput>;
-    }
-  | {
-      readonly ok: false;
-      readonly reason:
-        | "unknown-projection"
-        | "projection-unavailable"
-        | "no-channel-match";
-      readonly request: ProjectionRequest;
-      readonly availableProjectionIds: readonly string[];
-    };
-```
+- DOM rendering,
+- accessible JSX mapping,
+- terminal or text outputs,
+- speech outputs,
+- future first-party non-DOM targets.
 
-## Responsibilities
+Committers are imperative-shell adapters. They consume deterministic facts and
+return facts such as success, unsupported capability, or explicit error. They
+do not become the source of truth.
 
-### `ProjectionRequest`
+## ProjectionDocument state
 
-`ProjectionRequest` is the only agent-authored input in the model. It is
-JSON-serializable and narrow on purpose:
+Dynamic multi-channel output is represented as actor-owned validated
+`ProjectionDocument` data, not as generated UI code.
 
-- It can name a known projection with `projectionId`.
-- It can declare the target channel.
-- It can add stable hints such as intent, locale, and capabilities.
+`ProjectionDocument` is:
 
-It cannot carry JSX, HTML, callback functions, CSS, DOM references, transport
-handles, or arbitrary rendering programs. Agents ask for a known shape. Ignite
-and the application decide how that shape is fulfilled.
+- durable source state,
+- revisioned,
+- stable-id based,
+- validated before commit,
+- shared across channels.
 
-### `ProjectionContext`
+The document catalog is semantic and safe. Node families include:
 
-`ProjectionContext` is derived from the existing headless runtime and is
-immutable during a selection pass:
+- text,
+- checklist,
+- form,
+- table,
+- timeline,
+- chart,
+- code diff,
+- decision log,
+- command-backed action.
 
-- `snapshot` preserves the raw source state.
-- `view` preserves the existing derived-state contract.
-- `schema` preserves the serialized command and event contract from
-  `getSchema()`.
-- `canExecute(name)` exposes dynamic availability without making schema itself
-  impure.
+Validation rejects executable or environment-coupled content, including:
 
-This keeps selection grounded in the same state that already powers the
-component. No projection gets direct DOM access, random input, mutable registry
-state, network IO, clock IO, or actor-web topology handles.
+- raw JSX,
+- JavaScript,
+- imports,
+- event handlers,
+- DOM references,
+- arbitrary executable strings passed off as UI.
 
-### `ProjectionSpec`
+## Command-backed actions
 
-`ProjectionSpec` is application-authored and trusted. It defines:
+Action nodes never carry closures. They reference existing runtime commands by
+name and are validated against the runtime contract:
 
-- a stable `id`,
-- a target `channel`,
-- an optional `priority` with deterministic ordering,
-- a pure `supports(...)` predicate,
-- and a pure `resolve(...)` function.
+1. the command must exist in `getSchema().commands`,
+2. any payload must satisfy the declared schema,
+3. commit-time execution must still respect current availability through
+   `canExecute`.
 
-`supports(...)` decides whether the spec is eligible for the request and
-context. `resolve(...)` returns the final `ProjectionInstance`.
+This keeps actions grounded in the same command system that already powers
+`execute()`.
 
-### `ProjectionInstance`
+## LLM authorship flow
 
-`ProjectionInstance` separates semantic facts from channel output:
+LLMs do not generate JSX, DOM fragments, or executable projection code.
 
-- `facts` is the headless contract.
-- `output` is the trusted channel-specific result.
+Instead:
 
-For a DOM channel, `output` may be renderable data or native render surface
-instructions authored by the application. For a voice or agent channel,
-`output` may be structured text payloads. In every case, `facts` remains the
-stable cross-channel contract that tests and tools can assert.
+1. `igniteTools` exposes the runtime schema as tools,
+2. the model issues explicit domain commands such as `upsertProjection` or
+   `patchProjection`,
+3. those commands write validated `ProjectionDocument` state,
+4. Ignite committers consume the resulting durable document.
 
-## Deterministic registry semantics
+That keeps provider/model contracts outside `igniteCore` while still letting a
+model author or patch projection content.
 
-Projection selection must be replayable. The accepted rules are:
+## Speech is request-driven
 
-1. Registry creation validates unique ids and snapshots the spec list.
-2. Duplicate ids are configuration errors and fail registry creation.
-3. Registration order never determines selection.
-4. If `projectionId` is present, it is authoritative.
-5. If the id is missing, return `unknown-projection`.
-6. If the id exists but the channel or `supports(...)` check fails, return
-   `projection-unavailable`.
-7. Without an explicit id, filter specs by matching `channel` and pure
-   `supports(...)`.
-8. Sort eligible specs by `priority` descending and then `id` ascending.
-9. Default `priority` is `0`.
-10. Select the first spec or return `no-channel-match`.
-11. Never silently fall back from an explicit `projectionId`.
-12. Never delegate the final selection to an LLM.
+Persistent projections such as DOM, terminal, or text summaries are
+change-driven and should only re-commit when the inspected revision changes.
 
-The result is a typed no-match fact instead of a runtime exception.
+Speech is different:
 
-## Typed resolution examples
+- speech is request-driven, not change-driven,
+- authored text or structured speech is first written to durable state,
+- each utterance has a stable identity,
+- a speech committer acknowledges each utterance at most once,
+- rebinding or rereading state must not replay acknowledged speech.
 
-### Explicit id success
+Microphone handling and provider loops remain outside core. Ignite only consumes
+validated state and commits it through an injected speech-capable target.
 
-```ts
-type ThermostatView = {
-  readonly target: number;
-  readonly mode: "heat" | "cool" | "off";
-  readonly canChangeTarget: boolean;
-};
+## Lifecycle rules
 
-type ThermostatSchema = {
-  readonly commands: {
-    readonly setTarget: {
-      readonly description: string;
-      readonly input: { readonly type: "number" };
-      readonly gated?: true;
-    };
-  };
-  readonly events: readonly { readonly type: string }[];
-  readonly snapshot: unknown;
-  readonly view: ThermostatView;
-};
+The non-DOM overload follows existing runtime ownership semantics:
 
-type AgentFacts = {
-  readonly summary: string;
-  readonly commands: readonly string[];
-};
+- shared source:
+  - sessions reuse the shared runtime access path,
+  - disposing one session releases only that binding,
+  - consumer-owned shared sources stay alive;
+- isolated source:
+  - each session owns its own adapter subscription path,
+  - disposing tears down only that session.
 
-type AgentOutput = {
-  readonly role: "tool-response";
-  readonly text: string;
-};
+DOM and non-DOM sessions can coexist on the same `igniteCore` value.
+Non-DOM sessions must not depend on `customElements`, `ShadowRoot`, or DOM
+globals.
 
-const agentSpec: ProjectionSpec<
-  { readonly context: { readonly target: number } },
-  ThermostatView,
-  ThermostatSchema,
-  AgentFacts,
-  AgentOutput
-> = {
-  id: "thermostat.agent.summary",
-  channel: "agent",
-  priority: 20,
-  supports(request, context) {
-    return (
-      request.intent === "status" &&
-      context.canExecute("setTarget") === context.view.canChangeTarget
-    );
-  },
-  resolve(context, request) {
-    return {
-      projectionId: "thermostat.agent.summary",
-      channel: request.channel,
-      request,
-      facts: {
-        summary: `Target ${context.view.target} in ${context.view.mode} mode`,
-        commands: Object.keys(context.schema.commands),
-      },
-      output: {
-        role: "tool-response",
-        text: `The thermostat is set to ${context.view.target}.`,
-      },
-    };
-  },
-};
-```
+## Accessibility relationship
 
-### Explicit id no-match
+Accessible DOM rendering is one committer over the same validated semantic
+document. Ignite does not solve accessibility by adding a second callback DSL or
+by asking models to write DOM directly. The runtime owns behavior facts and
+validated semantic documents; rendered DOM owns final browser accessibility
+semantics.
 
-```ts
-const unavailable: ProjectionResolution<
-  { readonly summary: string },
-  { readonly text: string }
-> = {
-  ok: false,
-  reason: "projection-unavailable",
-  request: {
-    projectionId: "thermostat.agent.summary",
-    channel: "agent",
-    intent: "status",
-  },
-  availableProjectionIds: ["thermostat.agent.summary", "thermostat.dom.card"],
-};
-```
+## Rejected approaches
 
-### Registry-driven channel match
+- Public `ProjectionRequest` / `ProjectionSpec` / registry selection.
+- Public `project()` / `bind()` / `inspect()` methods.
+- Behavior-presentation metadata embedded into `igniteCore` commands or adapter
+  config.
+- Raw model-authored JSX, HTML, or JavaScript as runtime projection output.
+- Committers that own truth instead of consuming actor-owned state.
 
-```ts
-const matched: ProjectionResolution<
-  { readonly summary: string },
-  { readonly text: string }
-> = {
-  ok: true,
-  instance: {
-    projectionId: "thermostat.agent.summary",
-    channel: "agent",
-    request: {
-      channel: "agent",
-      intent: "status",
-      locale: "en-US",
-    },
-    facts: {
-      summary: "Target 70 in cool mode",
-    },
-    output: {
-      text: "The thermostat is cooling to 70 degrees.",
-    },
-  },
-};
-```
+## Decision
 
-## Safe agent boundary
+Ignite's projection runtime is now defined as:
 
-The safe boundary is strict:
-
-- Agents may submit `ProjectionRequest`.
-- Applications author `ProjectionSpec` and trusted `output`.
-- Ignite resolves against runtime facts.
-- Agents consume returned `facts` and trusted output.
-
-That boundary explicitly rejects raw generated UI code as the default path.
-Model-authored JSX or DOM fragments would bypass the component's command,
-schema, and accessibility contract, which would collapse determinism and make
-verification impossible.
-
-## Ignite and actor-web ownership
-
-| Concern | Ignite owns | actor-web owns |
-| --- | --- | --- |
-| `view`, `getView()`, `getSchema()`, `execute()`, `canExecute()` | Yes | No |
-| Projection request/selection contract | Yes | No |
-| Projection registry contents | Application-authored through Ignite-facing docs | No |
-| Source lifecycle for distributed actors | No | Yes |
-| Topology, transport, supervision, routing | No | Yes |
-| Read-model production and command transport | No | Yes |
-
-Ignite is a projection runtime over behavior contracts. actor-web remains the
-owner of distributed runtime topology and source execution. Projection selection
-may read actor-web-produced snapshots through Ignite, but it must not become a
-transport or orchestration layer.
-
-## v3 beta terminology decision
-
-The v3 beta window is the right place to adopt projection vocabulary directly:
-
-- Use `ProjectionRequest`, `ProjectionContext`, `ProjectionSpec`, and
-  `ProjectionInstance` in the design.
-- Do not add compatibility aliases for these new concepts.
-- Do not rename `view`, `getView()`, or `getSchema()`.
-
-This is additive vocabulary over the existing runtime, not a replacement for the
-existing headless contract.
-
-## Alternatives considered
-
-| Alternative | Why it was rejected |
-| --- | --- |
-| Native JSX guidance only | It helps DOM authors but does not give voice, assistive, or agent consumers deterministic selection. |
-| Mandatory top-level accessibility callback | It duplicates `view` and command metadata with a second authoring surface. |
-| First-party component suite as the primary accessibility story | It expands core ownership into styling, maintenance, and framework-specific ergonomics that do not solve multi-channel selection. |
-| Registry plus metadata and native guardrails | Recommended because it keeps selection deterministic, typed, and additive to the existing runtime. |
-
-## What this design does not claim
-
-Projection resolution can prove that a component exposes the facts needed to
-support multiple consumers. It cannot prove that rendered browser output meets
-accessible-name computation, focus order, live-region timing, or assistive
-technology behavior. Those remain rendered-DOM concerns and are covered in
-`docs/accessibility-by-default.md`.
+- a private coherent inspection primitive,
+- a private `Projection<Format, Output>` substrate,
+- actor-owned validated `ProjectionDocument` state,
+- command-backed semantic actions,
+- request-driven speech with stable utterance identity,
+- and exactly one narrow public non-DOM overload through an opaque target.
