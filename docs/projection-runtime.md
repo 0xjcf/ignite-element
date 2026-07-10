@@ -104,6 +104,25 @@ Validation rejects executable or environment-coupled content, including:
 - DOM references,
 - arbitrary executable strings passed off as UI.
 
+### Projection data trust boundary
+
+Projection documents are rebuilt as canonical JSON-like data before validation
+or commit. Arbitrary business data is preserved only in the documented action,
+form, and table data islands. At URI-bearing keys, strings and dense arrays use
+a deterministic, non-invoking coercion model: nested arrays are joined with
+commas, null contributes an empty segment, and other JSON scalar or object
+elements contribute a fixed blocker. The completed candidate is checked for
+executable schemes and executable HTML or SVG data URLs without calling
+application coercion hooks.
+
+This validation begins after an adapter has acquired source state. Redux passes
+store state through directly. MobX observable evaluation through `toJS`,
+Actor-Web snapshot and `toJSON` callbacks, and custom adapter source callbacks
+remain trusted programmatic boundaries outside the canonical projection-data
+contract. XState snapshots are flattened with property descriptors so
+projection-bearing accessors are preserved for fail-closed inspection rather
+than invoked by Ignite's adapter.
+
 ## Command-backed actions
 
 Action nodes never carry closures. They reference existing runtime commands by

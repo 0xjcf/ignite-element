@@ -71,6 +71,7 @@ const executableDataMediaTypes = new Set([
 	"image/svg+xml",
 	"text/html",
 ]);
+const uriArrayScalarBlocker = "#";
 
 function removeAsciiWhitespaceAndControl(value: string): string {
 	let normalized = "";
@@ -107,6 +108,40 @@ function isExecutableUri(value: string): boolean {
 		separatorIndex < 0 ? undefined : separatorIndex,
 	);
 	return executableDataMediaTypes.has(mediaType);
+}
+
+function createUriArrayCandidate(value: unknown[]): string {
+	let candidate = "";
+	for (let index = 0; index < value.length; index += 1) {
+		if (index > 0) {
+			candidate += ",";
+		}
+
+		const entry: unknown = value[index];
+		if (entry === null) {
+			continue;
+		}
+		if (typeof entry === "string") {
+			candidate += entry;
+			continue;
+		}
+		if (Array.isArray(entry)) {
+			candidate += createUriArrayCandidate(entry);
+			continue;
+		}
+
+		candidate += uriArrayScalarBlocker;
+	}
+	return candidate;
+}
+
+function containsExecutableUri(value: unknown): boolean {
+	if (typeof value === "string") {
+		return isExecutableUri(value);
+	}
+	return (
+		Array.isArray(value) && isExecutableUri(createUriArrayCandidate(value))
+	);
 }
 
 type MaterializedObject = {
@@ -1076,9 +1111,9 @@ function collectForbiddenContent(
 	issues: string[],
 ): void {
 	if (Array.isArray(value)) {
-		value.forEach((entry, index) => {
-			collectForbiddenContent(entry, `${path}[${index}]`, issues);
-		});
+		for (let index = 0; index < value.length; index += 1) {
+			collectForbiddenContent(value[index], `${path}[${index}]`, issues);
+		}
 		return;
 	}
 
@@ -1086,7 +1121,8 @@ function collectForbiddenContent(
 		return;
 	}
 
-	for (const [key, entry] of Object.entries(value)) {
+	for (const key of Object.keys(value)) {
+		const entry: unknown = value[key];
 		const normalizedKey = key.toLowerCase();
 		if (
 			forbiddenKeys.has(normalizedKey) ||
@@ -1094,11 +1130,7 @@ function collectForbiddenContent(
 		) {
 			issues.push(`${path}.${key}: executable content is not allowed`);
 		}
-		if (
-			uriBearingKeys.has(normalizedKey) &&
-			typeof entry === "string" &&
-			isExecutableUri(entry)
-		) {
+		if (uriBearingKeys.has(normalizedKey) && containsExecutableUri(entry)) {
 			issues.push(`${path}.${key}: executable URI is not allowed`);
 		}
 		collectForbiddenContent(entry, `${path}.${key}`, issues);

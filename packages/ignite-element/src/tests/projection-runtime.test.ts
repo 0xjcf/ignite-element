@@ -1215,6 +1215,24 @@ describe("projection targets", () => {
 				name: "SVG data URI",
 				value: { href: "data:\nimage/svg+xml;charset=utf-8,<svg></svg>" },
 			},
+			{
+				name: "single executable URI array",
+				value: { href: ["javascript:unsafe()"] },
+			},
+			{
+				name: "nested executable URI array",
+				value: { SRC: [["\tJaVa\nScRiPt:unsafe()"]] },
+			},
+			{
+				name: "executable URI array with trailing null",
+				value: { action: ["vbscript:unsafe()", null] },
+			},
+			{
+				name: "executable data URI array with trailing blockers",
+				value: {
+					FORMAction: ["data:text/html,<script>unsafe()</script>", {}, true, 1],
+				},
+			},
 		];
 		const errorSpy = vi
 			.spyOn(console, "error")
@@ -1249,6 +1267,208 @@ describe("projection targets", () => {
 		} finally {
 			errorSpy.mockRestore();
 		}
+	});
+
+	it("applies deterministic join-like URI analysis to canonical JSON data", async () => {
+		const cases: Array<{
+			name: string;
+			value: IgniteSchemaValue;
+			allowed: boolean;
+		}> = [
+			{ name: "empty array", value: { href: [] }, allowed: true },
+			{ name: "nested empty array", value: { href: [[]] }, allowed: true },
+			{
+				name: "leading null",
+				value: { href: [null, "javascript:unsafe()"] },
+				allowed: true,
+			},
+			{
+				name: "trailing null",
+				value: { href: ["javascript:unsafe()", null] },
+				allowed: false,
+			},
+			{
+				name: "trailing nested empty array",
+				value: { href: ["javascript:unsafe()", []] },
+				allowed: false,
+			},
+			{
+				name: "comma-split scheme",
+				value: { href: ["java", "script:unsafe()"] },
+				allowed: true,
+			},
+			{
+				name: "object blocker before scheme",
+				value: { href: [{}, "javascript:unsafe()"] },
+				allowed: true,
+			},
+			{
+				name: "boolean blocker before scheme",
+				value: { href: [true, "javascript:unsafe()"] },
+				allowed: true,
+			},
+			{
+				name: "number blocker before scheme",
+				value: { href: [1, "javascript:unsafe()"] },
+				allowed: true,
+			},
+			{
+				name: "object blocker after scheme",
+				value: { href: ["javascript:unsafe()", {}] },
+				allowed: false,
+			},
+			{
+				name: "boolean blocker after scheme",
+				value: { href: ["javascript:unsafe()", false] },
+				allowed: false,
+			},
+			{
+				name: "number blocker after scheme",
+				value: { href: ["javascript:unsafe()", 0] },
+				allowed: false,
+			},
+			{
+				name: "nested executable array",
+				value: { href: [["javascript:unsafe()"]] },
+				allowed: false,
+			},
+			{
+				name: "safe HTTPS array",
+				value: { href: ["https://example.com/path"] },
+				allowed: true,
+			},
+			{
+				name: "safe relative array",
+				value: { href: [["../relative/path"]] },
+				allowed: true,
+			},
+			{
+				name: "safe image data array",
+				value: { src: ["data:image/png;base64,iVBORw0KGgo="] },
+				allowed: true,
+			},
+			{ name: "direct null", value: { href: null }, allowed: true },
+			{ name: "direct boolean", value: { href: true }, allowed: true },
+			{ name: "direct finite number", value: { href: 42 }, allowed: true },
+			{
+				name: "direct plain object",
+				value: { href: { label: "javascript:ordinary business text" } },
+				allowed: true,
+			},
+			{
+				name: "nested URI child in object",
+				value: { href: { child: { src: ["javascript:unsafe()"] } } },
+				allowed: false,
+			},
+			{
+				name: "nested URI child in array",
+				value: {
+					href: [{ child: { action: [["data:image/svg+xml,<svg></svg>"]] } }],
+				},
+				allowed: false,
+			},
+		];
+		const errorSpy = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => undefined);
+
+		try {
+			for (let index = 0; index < cases.length; index += 1) {
+				const scenario = cases[index];
+				if (!scenario) {
+					continue;
+				}
+				const core = createProjectionCore();
+				const commitDocument = vi.fn();
+				const session = core(
+					createProjectionDocumentTarget({ commitDocument }),
+				);
+				const document = createJsonIslandDocument(
+					"table-cell",
+					scenario.value,
+					`uri-array-${index}`,
+				);
+
+				await core.execute("upsertProjection", document);
+				await flushMicrotasks();
+
+				if (scenario.allowed) {
+					expect(commitDocument, scenario.name).toHaveBeenCalledWith(document);
+				} else {
+					expect(commitDocument, scenario.name).not.toHaveBeenCalled();
+				}
+				session.dispose();
+			}
+		} finally {
+			errorSpy.mockRestore();
+		}
+	});
+
+	it("rejects URI coercion hooks without invoking application code", async () => {
+		const toStringHook = vi.fn(() => "javascript:unsafe()");
+		const valueOfHook = vi.fn(() => "javascript:unsafe()");
+		const toJsonHook = vi.fn(() => "javascript:unsafe()");
+		const joinHook = vi.fn(() => "javascript:unsafe()");
+		const iteratorHook = vi.fn(() =>
+			["javascript:unsafe()"][Symbol.iterator](),
+		);
+		const hookValues: unknown[] = [
+			{ href: { toString: toStringHook } },
+			{ href: { valueOf: valueOfHook } },
+			{ href: { toJSON: toJsonHook } },
+		];
+		const joinArray: unknown[] = ["javascript:unsafe()"];
+		Object.defineProperty(joinArray, "join", {
+			value: joinHook,
+			enumerable: true,
+		});
+		hookValues.push({ href: joinArray });
+		const iterableArray: unknown[] = ["javascript:unsafe()"];
+		Object.defineProperty(iterableArray, Symbol.iterator, {
+			value: iteratorHook,
+			enumerable: true,
+		});
+		hookValues.push({ href: iterableArray });
+		const { core, setDocuments } = createRawProjectionCore();
+		const commitDocument = vi.fn();
+		const session = core(createProjectionDocumentTarget({ commitDocument }));
+		const unhandled: unknown[] = [];
+		const captureUnhandled = (reason: unknown) => {
+			unhandled.push(reason);
+		};
+
+		process.on("unhandledRejection", captureUnhandled);
+		try {
+			for (let index = 0; index < hookValues.length; index += 1) {
+				setDocuments([
+					{
+						id: `hook-${index}`,
+						revision: "1",
+						nodes: [
+							{
+								kind: "table",
+								id: "table",
+								columns: [{ id: "value", label: "Value" }],
+								rows: [{ id: "row", cells: [hookValues[index]] }],
+							},
+						],
+					},
+				]);
+				await flushMicrotasks();
+			}
+			await flushMicrotasks();
+		} finally {
+			process.off("unhandledRejection", captureUnhandled);
+			session.dispose();
+		}
+
+		expect(toStringHook).not.toHaveBeenCalled();
+		expect(valueOfHook).not.toHaveBeenCalled();
+		expect(toJsonHook).not.toHaveBeenCalled();
+		expect(joinHook).not.toHaveBeenCalled();
+		expect(iteratorHook).not.toHaveBeenCalled();
+		expect(commitDocument).not.toHaveBeenCalled();
+		expect(unhandled).toEqual([]);
 	});
 
 	it("preserves safe business data and URLs in every JSON island", async () => {
