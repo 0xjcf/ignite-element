@@ -565,6 +565,16 @@ describe("projection document helpers", () => {
 			"onAnimationEnd",
 			"onTransitionEnd",
 			"onBeforeInput",
+			"onreadystatechange",
+			"ONREADYSTATECHANGE",
+			"onvisibilitychange",
+			"ONVISIBILITYCHANGE",
+			"onwebkitanimationend",
+			"ONWEBKITANIMATIONEND",
+			"onwebkittransitionend",
+			"ONWEBKITTRANSITIONEND",
+			"onFuturePlatformEvent",
+			"ONFUTUREPLATFORMEVENT",
 		];
 
 		for (const island of islands) {
