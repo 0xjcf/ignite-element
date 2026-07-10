@@ -1,3 +1,6 @@
-export function failInvariant(message: string): never {
-	throw new Error(message);
+export function failInvariant(value: unknown): never {
+	if (typeof value === "string") {
+		throw new Error(value);
+	}
+	throw value;
 }

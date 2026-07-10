@@ -445,7 +445,7 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 			}
 
 			if (hasError) {
-				throw firstError;
+				failInvariant(firstError);
 			}
 		},
 		scope,
