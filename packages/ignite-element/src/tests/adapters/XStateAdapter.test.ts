@@ -1,8 +1,44 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { assign, createActor, createMachine, emit, setup } from "xstate";
+import {
+	assign,
+	createActor,
+	createMachine,
+	emit,
+	type Observer,
+	setup,
+} from "xstate";
 import createXStateAdapter from "../../adapters/XStateAdapter";
 import counterMachine from "../fixtures/xstateCounterMachine";
 import { StateScope } from "../../IgniteAdapter";
+
+function createLifecycleActor() {
+	const actor = createActor(
+		createMachine({
+			context: { count: 0 },
+			initial: "idle",
+			states: {
+				idle: { on: { NEXT: "active" } },
+				active: { on: { RESET: "idle" } },
+			},
+		}),
+	);
+	actor.start();
+	return actor;
+}
+
+function deliverSnapshot<Snapshot>(
+	observer: Observer<Snapshot> | ((snapshot: Snapshot) => void) | undefined,
+	snapshot: Snapshot,
+): void {
+	if (!observer) {
+		return;
+	}
+	if (typeof observer === "function") {
+		observer(snapshot);
+		return;
+	}
+	observer.next?.(snapshot);
+}
 
 describe("XStateAdapter", () => {
 	let adapterFactory: ReturnType<typeof createXStateAdapter>;
@@ -335,50 +371,417 @@ describe("XStateAdapter", () => {
 		actor.stop();
 	});
 
-	it("fails safely when snapshot context is absent or accessor-backed", () => {
-		const absentActor = createActor(
-			createMachine({
-				context: { count: 0 },
-				initial: "idle",
-				states: { idle: {} },
-			}),
-		);
-		absentActor.start();
-		Reflect.deleteProperty(absentActor.getSnapshot(), "context");
-		const absentAdapter = createXStateAdapter(absentActor)();
+	it("recovers transactionally from missing and accessor-backed context", () => {
+		for (const contextShape of ["missing", "accessor"]) {
+			const actor = createLifecycleActor();
+			const stopSpy = vi.spyOn(actor, "stop");
+			const subscribeSpy = vi.spyOn(actor, "subscribe");
+			const snapshot = actor.getSnapshot();
+			const contextDescriptor = Object.getOwnPropertyDescriptor(
+				snapshot,
+				"context",
+			);
+			expect(contextDescriptor).toBeDefined();
+			if (!contextDescriptor) {
+				actor.stop();
+				continue;
+			}
+			const contextGetter = vi.fn(() => contextDescriptor.value);
+			if (contextShape === "missing") {
+				Reflect.deleteProperty(snapshot, "context");
+			} else {
+				Object.defineProperty(snapshot, "context", {
+					enumerable: true,
+					configurable: true,
+					get: contextGetter,
+				});
+			}
+			const factory = createXStateAdapter(actor);
+			const adapterA = factory();
+			const adapterB = factory();
+			const failedListener = vi.fn();
 
-		expect(() => absentAdapter.getSnapshot()).toThrow(
+			expect(() => adapterA.subscribeSnapshots(failedListener)).toThrow(
+				"[XStateAdapter] Snapshot context must be an own data property.",
+			);
+			expect(subscribeSpy).not.toHaveBeenCalled();
+
+			Object.defineProperty(snapshot, "context", contextDescriptor);
+			actor.send({ type: "NEXT" });
+			expect(failedListener).not.toHaveBeenCalled();
+			expect(contextGetter).not.toHaveBeenCalled();
+
+			const recoveredListener = vi.fn();
+			const recoveredSubscription =
+				adapterB.subscribeSnapshots(recoveredListener);
+			expect(adapterB).toBe(adapterA);
+			expect(recoveredListener).toHaveBeenCalledTimes(1);
+			expect(recoveredListener).toHaveBeenLastCalledWith(
+				expect.objectContaining({ value: "active" }),
+			);
+			actor.send({ type: "RESET" });
+			expect(recoveredListener).toHaveBeenCalledTimes(2);
+
+			recoveredSubscription.unsubscribe();
+			recoveredSubscription.unsubscribe();
+			adapterA.stop();
+			adapterB.stop();
+			expect(stopSpy).not.toHaveBeenCalled();
+			actor.stop();
+		}
+	});
+
+	it("rolls back snapshot acquisition and descriptor failures before subscribe", () => {
+		const actor = createLifecycleActor();
+		const factory = createXStateAdapter(actor);
+		const lifecycleAdapter = factory();
+		const subscribeSpy = vi.spyOn(actor, "subscribe");
+		const getSnapshotSpy = vi.spyOn(actor, "getSnapshot");
+		const acquisitionListener = vi.fn();
+		getSnapshotSpy.mockImplementationOnce(() => {
+			throw new Error("snapshot acquisition failed");
+		});
+
+		expect(() =>
+			lifecycleAdapter.subscribeSnapshots(acquisitionListener),
+		).toThrow("snapshot acquisition failed");
+		expect(acquisitionListener).not.toHaveBeenCalled();
+		expect(subscribeSpy).not.toHaveBeenCalled();
+
+		const snapshot = actor.getSnapshot();
+		const contextDescriptor = Object.getOwnPropertyDescriptor(
+			snapshot,
+			"context",
+		);
+		expect(contextDescriptor).toBeDefined();
+		if (!contextDescriptor || !("value" in contextDescriptor)) {
+			lifecycleAdapter.stop();
+			actor.stop();
+			return;
+		}
+		const ownKeysTrap = vi.fn(() => {
+			throw new Error("descriptor trap failed");
+		});
+		const unsafeContext = new Proxy(contextDescriptor.value, {
+			ownKeys: ownKeysTrap,
+		});
+		Object.defineProperty(snapshot, "context", {
+			...contextDescriptor,
+			value: unsafeContext,
+		});
+		const descriptorListener = vi.fn();
+
+		expect(() =>
+			lifecycleAdapter.subscribeSnapshots(descriptorListener),
+		).toThrow("[XStateAdapter] Unable to inspect snapshot descriptors safely.");
+		expect(descriptorListener).not.toHaveBeenCalled();
+		expect(subscribeSpy).not.toHaveBeenCalled();
+		expect(ownKeysTrap).toHaveBeenCalled();
+
+		Object.defineProperty(snapshot, "context", contextDescriptor);
+		const recoveredListener = vi.fn();
+		const subscription = lifecycleAdapter.subscribeSnapshots(recoveredListener);
+		expect(recoveredListener).toHaveBeenCalledTimes(1);
+		actor.send({ type: "NEXT" });
+		expect(recoveredListener).toHaveBeenCalledTimes(2);
+		expect(acquisitionListener).not.toHaveBeenCalled();
+		expect(descriptorListener).not.toHaveBeenCalled();
+
+		subscription.unsubscribe();
+		lifecycleAdapter.stop();
+		actor.stop();
+	});
+
+	it("makes retained callbacks inert when source subscribe throws", () => {
+		const actor = createLifecycleActor();
+		const factory = createXStateAdapter(actor);
+		const lifecycleAdapter = factory();
+		const subscribeSpy = vi.spyOn(actor, "subscribe");
+		let retainedObserver:
+			| Observer<ReturnType<typeof actor.getSnapshot>>
+			| ((snapshot: ReturnType<typeof actor.getSnapshot>) => void)
+			| undefined;
+		subscribeSpy.mockImplementationOnce((observer) => {
+			retainedObserver = observer;
+			throw new Error("source subscribe failed");
+		});
+		const failedListener = vi.fn();
+
+		expect(() => lifecycleAdapter.subscribeSnapshots(failedListener)).toThrow(
+			"source subscribe failed",
+		);
+		if (retainedObserver) {
+			deliverSnapshot(retainedObserver, actor.getSnapshot());
+		}
+		expect(failedListener).not.toHaveBeenCalled();
+
+		const recoveredListener = vi.fn();
+		const subscription = lifecycleAdapter.subscribeSnapshots(recoveredListener);
+		expect(recoveredListener).toHaveBeenCalledTimes(1);
+		actor.send({ type: "NEXT" });
+		expect(recoveredListener).toHaveBeenCalledTimes(2);
+		expect(failedListener).not.toHaveBeenCalled();
+
+		subscription.unsubscribe();
+		lifecycleAdapter.stop();
+		actor.stop();
+	});
+
+	it("buffers synchronous source snapshots into one validated initial delivery", () => {
+		for (const synchronousValue of ["current", "newer"]) {
+			const actor = createLifecycleActor();
+			const factory = createXStateAdapter(actor);
+			const lifecycleAdapter = factory();
+			const unsubscribe = vi.fn();
+			vi.spyOn(actor, "subscribe").mockImplementation((observer) => {
+				if (synchronousValue === "newer") {
+					actor.send({ type: "NEXT" });
+				}
+				deliverSnapshot(observer, actor.getSnapshot());
+				return { unsubscribe };
+			});
+			const values: unknown[] = [];
+			const subscription = lifecycleAdapter.subscribeSnapshots((state) => {
+				values.push(state.value);
+			});
+
+			expect(values).toEqual([
+				synchronousValue === "newer" ? "active" : "idle",
+			]);
+			subscription.unsubscribe();
+			subscription.unsubscribe();
+			lifecycleAdapter.stop();
+			lifecycleAdapter.stop();
+			expect(unsubscribe).toHaveBeenCalledTimes(1);
+			actor.stop();
+		}
+	});
+
+	it("unsubscribes a provisional handle when its buffered snapshot is invalid", () => {
+		const actor = createLifecycleActor();
+		const factory = createXStateAdapter(actor);
+		const lifecycleAdapter = factory();
+		const unsubscribe = vi.fn(() => {
+			throw new Error("source unsubscribe failed");
+		});
+		const snapshot = actor.getSnapshot();
+		const contextDescriptor = Object.getOwnPropertyDescriptor(
+			snapshot,
+			"context",
+		);
+		expect(contextDescriptor).toBeDefined();
+		vi.spyOn(actor, "subscribe").mockImplementation((observer) => {
+			Reflect.deleteProperty(snapshot, "context");
+			deliverSnapshot(observer, snapshot);
+			return { unsubscribe };
+		});
+		const failedListener = vi.fn();
+
+		expect(() => lifecycleAdapter.subscribeSnapshots(failedListener)).toThrow(
 			"[XStateAdapter] Snapshot context must be an own data property.",
 		);
+		expect(failedListener).not.toHaveBeenCalled();
+		expect(unsubscribe).toHaveBeenCalledTimes(1);
 
-		absentAdapter.stop();
-		absentActor.stop();
+		if (contextDescriptor) {
+			Object.defineProperty(snapshot, "context", contextDescriptor);
+		}
+		lifecycleAdapter.stop();
+		actor.stop();
+	});
 
-		const contextGetter = vi.fn(() => ({ count: 0 }));
-		const accessorActor = createActor(
-			createMachine({
-				context: { count: 0 },
-				initial: "idle",
-				states: { idle: {} },
-			}),
+	it("rolls back first and additional initial-listener failures", () => {
+		const firstActor = createLifecycleActor();
+		const firstFactory = createXStateAdapter(firstActor);
+		const firstAdapter = firstFactory();
+		const firstObservers = new Set<
+			| Observer<ReturnType<typeof firstActor.getSnapshot>>
+			| ((snapshot: ReturnType<typeof firstActor.getSnapshot>) => void)
+		>();
+		const firstUnsubscribe = vi.fn();
+		vi.spyOn(firstActor, "subscribe").mockImplementation((observer) => {
+			if (!observer) {
+				return { unsubscribe: firstUnsubscribe };
+			}
+			firstObservers.add(observer);
+			deliverSnapshot(observer, firstActor.getSnapshot());
+			return {
+				unsubscribe: () => {
+					firstUnsubscribe();
+					firstObservers.delete(observer);
+				},
+			};
+		});
+		const firstListener = vi.fn(() => {
+			throw new Error("first listener failed");
+		});
+
+		expect(() => firstAdapter.subscribeSnapshots(firstListener)).toThrow(
+			"first listener failed",
 		);
-		accessorActor.start();
-		Object.defineProperty(accessorActor.getSnapshot(), "context", {
+		expect(firstListener).toHaveBeenCalledTimes(1);
+		expect(firstObservers.size).toBe(0);
+		expect(firstUnsubscribe).toHaveBeenCalledTimes(1);
+		firstAdapter.stop();
+		firstActor.stop();
+
+		const additionalActor = createLifecycleActor();
+		const additionalFactory = createXStateAdapter(additionalActor);
+		const additionalAdapter = additionalFactory();
+		let sourceObserver:
+			| Observer<ReturnType<typeof additionalActor.getSnapshot>>
+			| ((snapshot: ReturnType<typeof additionalActor.getSnapshot>) => void)
+			| undefined;
+		const additionalUnsubscribe = vi.fn();
+		const subscribeSpy = vi
+			.spyOn(additionalActor, "subscribe")
+			.mockImplementation((observer) => {
+				sourceObserver = observer;
+				return { unsubscribe: additionalUnsubscribe };
+			});
+		const establishedListener = vi.fn();
+		const establishedSubscription =
+			additionalAdapter.subscribeSnapshots(establishedListener);
+		const failedAdditionalListener = vi.fn(() => {
+			throw new Error("additional listener failed");
+		});
+
+		expect(() =>
+			additionalAdapter.subscribeSnapshots(failedAdditionalListener),
+		).toThrow("additional listener failed");
+		additionalActor.send({ type: "NEXT" });
+		if (sourceObserver) {
+			deliverSnapshot(sourceObserver, additionalActor.getSnapshot());
+		}
+		expect(subscribeSpy).toHaveBeenCalledTimes(1);
+		expect(establishedListener).toHaveBeenCalledTimes(2);
+		expect(failedAdditionalListener).toHaveBeenCalledTimes(1);
+		expect(additionalUnsubscribe).not.toHaveBeenCalled();
+
+		establishedSubscription.unsubscribe();
+		establishedSubscription.unsubscribe();
+		additionalAdapter.stop();
+		expect(additionalUnsubscribe).toHaveBeenCalledTimes(1);
+		additionalActor.stop();
+	});
+
+	it("preserves established listeners across additional preflight failures", () => {
+		const actor = createLifecycleActor();
+		const factory = createXStateAdapter(actor);
+		const lifecycleAdapter = factory();
+		const subscribeSpy = vi.spyOn(actor, "subscribe");
+		const establishedListener = vi.fn();
+		const establishedSubscription =
+			lifecycleAdapter.subscribeSnapshots(establishedListener);
+		const snapshot = actor.getSnapshot();
+		const contextDescriptor = Object.getOwnPropertyDescriptor(
+			snapshot,
+			"context",
+		);
+		expect(contextDescriptor).toBeDefined();
+		if (!contextDescriptor) {
+			establishedSubscription.unsubscribe();
+			lifecycleAdapter.stop();
+			actor.stop();
+			return;
+		}
+		const contextGetter = vi.fn(() => contextDescriptor.value);
+		const missingListener = vi.fn();
+		Reflect.deleteProperty(snapshot, "context");
+		expect(() => lifecycleAdapter.subscribeSnapshots(missingListener)).toThrow(
+			"[XStateAdapter] Snapshot context must be an own data property.",
+		);
+		Object.defineProperty(snapshot, "context", {
 			enumerable: true,
 			configurable: true,
 			get: contextGetter,
 		});
-		const accessorAdapter = createXStateAdapter(accessorActor)();
-		const listener = vi.fn();
-
-		expect(() => accessorAdapter.subscribeSnapshots(listener)).toThrow(
+		const accessorListener = vi.fn();
+		expect(() => lifecycleAdapter.subscribeSnapshots(accessorListener)).toThrow(
 			"[XStateAdapter] Snapshot context must be an own data property.",
 		);
-		expect(contextGetter).not.toHaveBeenCalled();
-		expect(listener).not.toHaveBeenCalled();
+		Object.defineProperty(snapshot, "context", contextDescriptor);
+		const acquisitionListener = vi.fn();
+		vi.spyOn(actor, "getSnapshot").mockImplementationOnce(() => {
+			throw new Error("additional snapshot failed");
+		});
+		expect(() =>
+			lifecycleAdapter.subscribeSnapshots(acquisitionListener),
+		).toThrow("additional snapshot failed");
 
-		accessorAdapter.stop();
-		accessorActor.stop();
+		actor.send({ type: "NEXT" });
+		expect(establishedListener).toHaveBeenCalledTimes(2);
+		expect(missingListener).not.toHaveBeenCalled();
+		expect(accessorListener).not.toHaveBeenCalled();
+		expect(acquisitionListener).not.toHaveBeenCalled();
+		expect(contextGetter).not.toHaveBeenCalled();
+		expect(subscribeSpy).toHaveBeenCalledTimes(1);
+
+		establishedSubscription.unsubscribe();
+		lifecycleAdapter.stop();
+		actor.stop();
+	});
+
+	it("delivers listener-triggered transitions without duplicating initial state", () => {
+		const actor = createLifecycleActor();
+		const factory = createXStateAdapter(actor);
+		const lifecycleAdapter = factory();
+		const values: unknown[] = [];
+		const subscription = lifecycleAdapter.subscribeSnapshots((state) => {
+			values.push(state.value);
+			if (state.value === "idle") {
+				actor.send({ type: "NEXT" });
+			}
+		});
+
+		expect(values).toEqual(["idle", "active"]);
+		subscription.unsubscribe();
+		lifecycleAdapter.stop();
+		actor.stop();
+	});
+
+	it("keeps steady-state failures registered and stop cleanup idempotent", () => {
+		const actor = createLifecycleActor();
+		const stopSpy = vi.spyOn(actor, "stop");
+		const factory = createXStateAdapter(actor);
+		const lifecycleAdapter = factory();
+		let sourceObserver:
+			| Observer<ReturnType<typeof actor.getSnapshot>>
+			| ((snapshot: ReturnType<typeof actor.getSnapshot>) => void)
+			| undefined;
+		const sourceUnsubscribe = vi.fn();
+		vi.spyOn(actor, "subscribe").mockImplementation((observer) => {
+			sourceObserver = observer;
+			return { unsubscribe: sourceUnsubscribe };
+		});
+		const listener = vi.fn((state) => {
+			if (state.value === "active") {
+				throw new Error("steady-state listener failed");
+			}
+		});
+		const subscription = lifecycleAdapter.subscribeSnapshots(listener);
+
+		actor.send({ type: "NEXT" });
+		expect(() => deliverSnapshot(sourceObserver, actor.getSnapshot())).toThrow(
+			"steady-state listener failed",
+		);
+		actor.send({ type: "RESET" });
+		expect(() =>
+			deliverSnapshot(sourceObserver, actor.getSnapshot()),
+		).not.toThrow();
+		expect(listener).toHaveBeenCalledTimes(3);
+
+		lifecycleAdapter.stop();
+		lifecycleAdapter.stop();
+		subscription.unsubscribe();
+		subscription.unsubscribe();
+		expect(sourceUnsubscribe).toHaveBeenCalledTimes(1);
+		expect(stopSpy).not.toHaveBeenCalled();
+
+		actor.send({ type: "NEXT" });
+		deliverSnapshot(sourceObserver, actor.getSnapshot());
+		expect(listener).toHaveBeenCalledTimes(3);
+		actor.stop();
 	});
 });
 

@@ -2113,6 +2113,263 @@ describe("projection targets", () => {
 		expect(unhandled).toEqual([]);
 	});
 
+	it("recovers public XState projection sessions without ghost commits", async () => {
+		const initialDocument: ProjectionDocument = {
+			id: "panel",
+			revision: "1",
+			nodes: [{ kind: "text", id: "summary", text: "Initial" }],
+		};
+		const updatedDocument: ProjectionDocument = {
+			id: "panel",
+			revision: "2",
+			nodes: [{ kind: "text", id: "summary", text: "Updated" }],
+		};
+		const finalDocument: ProjectionDocument = {
+			id: "panel",
+			revision: "3",
+			nodes: [{ kind: "text", id: "summary", text: "Final" }],
+		};
+		const context: {
+			documents: ProjectionDocument[];
+			speech: ProjectionSpeechRequest | null;
+		} = {
+			documents: [initialDocument],
+			speech: {
+				id: "speech-1",
+				text: "Initial speech",
+				status: "pending",
+			},
+		};
+		const machine = createMachine({
+			context,
+			initial: "idle",
+			states: {
+				idle: { on: { RECOVER: "active" } },
+				active: {
+					on: {
+						UPDATE: {
+							actions: assign({
+								documents: () => [updatedDocument],
+								speech: () => ({
+									id: "speech-2",
+									text: "Updated speech",
+									status: "pending",
+								}),
+							}),
+						},
+						FINAL: {
+							actions: assign({
+								documents: () => [finalDocument],
+								speech: () => ({
+									id: "speech-3",
+									text: "Final speech",
+									status: "pending",
+								}),
+							}),
+						},
+					},
+				},
+			},
+		});
+		const actor = createActor(machine);
+		actor.start();
+		const stopSpy = vi.spyOn(actor, "stop");
+		const snapshot = actor.getSnapshot();
+		const contextDescriptor = Object.getOwnPropertyDescriptor(
+			snapshot,
+			"context",
+		);
+		expect(contextDescriptor).toBeDefined();
+		if (!contextDescriptor) {
+			actor.stop();
+			return;
+		}
+		const contextGetter = vi.fn(() => contextDescriptor.value);
+		Reflect.deleteProperty(snapshot, "context");
+		const core = igniteCore({
+			source: actor,
+			view: () => ({}),
+			commands: () => ({ acknowledgeSpeech: () => undefined }),
+		});
+		const ghostDocumentCommit = vi.fn();
+		const ghostSpeechCommit = vi.fn();
+		const unhandled: unknown[] = [];
+		const captureUnhandled = (reason: unknown) => {
+			unhandled.push(reason);
+		};
+
+		process.on("unhandledRejection", captureUnhandled);
+		try {
+			expect(() =>
+				core(
+					createProjectionDocumentTarget({
+						commitDocument: ghostDocumentCommit,
+					}),
+				),
+			).toThrow(
+				"[XStateAdapter] Snapshot context must be an own data property.",
+			);
+			await flushMicrotasks();
+			await flushMicrotasks();
+			expect(ghostDocumentCommit).not.toHaveBeenCalled();
+			Object.defineProperty(snapshot, "context", {
+				enumerable: true,
+				configurable: true,
+				get: contextGetter,
+			});
+			expect(() =>
+				core(
+					createProjectionSpeechTarget({
+						commitSpeech: ghostSpeechCommit,
+						acknowledgeCommandName: "acknowledgeSpeech",
+					}),
+				),
+			).toThrow(
+				"[XStateAdapter] Snapshot context must be an own data property.",
+			);
+			await flushMicrotasks();
+			await flushMicrotasks();
+			expect(ghostSpeechCommit).not.toHaveBeenCalled();
+			expect(contextGetter).not.toHaveBeenCalled();
+
+			Object.defineProperty(snapshot, "context", contextDescriptor);
+			actor.send({ type: "RECOVER" });
+			await flushMicrotasks();
+			expect(ghostDocumentCommit).not.toHaveBeenCalled();
+			expect(ghostSpeechCommit).not.toHaveBeenCalled();
+
+			const commitDocument = vi.fn();
+			const commitSpeech = vi.fn();
+			const documentSession = core(
+				createProjectionDocumentTarget({ commitDocument }),
+			);
+			const speechSession = core(
+				createProjectionSpeechTarget({
+					commitSpeech,
+					acknowledgeCommandName: "acknowledgeSpeech",
+				}),
+			);
+			await flushMicrotasks();
+			expect(commitDocument).toHaveBeenCalledTimes(1);
+			expect(commitSpeech).toHaveBeenCalledTimes(1);
+
+			actor.send({ type: "UPDATE" });
+			await vi.waitFor(() => {
+				expect(commitDocument).toHaveBeenCalledTimes(2);
+				expect(commitSpeech).toHaveBeenCalledTimes(2);
+			});
+
+			documentSession.dispose();
+			speechSession.dispose();
+			actor.send({ type: "FINAL" });
+			await flushMicrotasks();
+			await flushMicrotasks();
+			expect(commitDocument).toHaveBeenCalledTimes(2);
+			expect(commitSpeech).toHaveBeenCalledTimes(2);
+			expect(stopSpy).not.toHaveBeenCalled();
+		} finally {
+			process.off("unhandledRejection", captureUnhandled);
+			actor.stop();
+		}
+
+		expect(unhandled).toEqual([]);
+	});
+
+	it("recovers an isolated XState projection session after failed initial binding", async () => {
+		const initialDocument: ProjectionDocument = {
+			id: "isolated-panel",
+			revision: "1",
+			nodes: [{ kind: "text", id: "summary", text: "Initial" }],
+		};
+		const updatedDocument: ProjectionDocument = {
+			id: "isolated-panel",
+			revision: "2",
+			nodes: [{ kind: "text", id: "summary", text: "Updated" }],
+		};
+		const finalDocument: ProjectionDocument = {
+			id: "isolated-panel",
+			revision: "3",
+			nodes: [{ kind: "text", id: "summary", text: "Final" }],
+		};
+		const machine = createMachine({
+			context: { documents: [initialDocument], speech: null },
+			initial: "idle",
+			states: {
+				idle: { on: { RECOVER: "active" } },
+				active: {
+					on: {
+						UPDATE: {
+							actions: assign({ documents: () => [updatedDocument] }),
+						},
+						FINAL: {
+							actions: assign({ documents: () => [finalDocument] }),
+						},
+					},
+				},
+			},
+		});
+		const getInitialSnapshot = machine.getInitialSnapshot.bind(machine);
+		let capturedSnapshot:
+			| ReturnType<typeof machine.getInitialSnapshot>
+			| undefined;
+		let capturedContextDescriptor: PropertyDescriptor | undefined;
+		vi.spyOn(machine, "getInitialSnapshot").mockImplementation(
+			(actorScope, input) => {
+				const snapshot = getInitialSnapshot(actorScope, input);
+				capturedSnapshot = snapshot;
+				capturedContextDescriptor = Object.getOwnPropertyDescriptor(
+					snapshot,
+					"context",
+				);
+				Reflect.deleteProperty(snapshot, "context");
+				return snapshot;
+			},
+		);
+		const core = igniteCore({
+			source: machine,
+			view: () => ({}),
+			commands: ({ actor }) => ({
+				recover: () => actor.send({ type: "RECOVER" }),
+				update: () => actor.send({ type: "UPDATE" }),
+				finalize: () => actor.send({ type: "FINAL" }),
+			}),
+		});
+		const ghostCommit = vi.fn();
+
+		expect(() =>
+			core(createProjectionDocumentTarget({ commitDocument: ghostCommit })),
+		).toThrow("[XStateAdapter] Snapshot context must be an own data property.");
+		await flushMicrotasks();
+		await flushMicrotasks();
+		expect(ghostCommit).not.toHaveBeenCalled();
+
+		if (!capturedSnapshot || !capturedContextDescriptor) {
+			return;
+		}
+		Object.defineProperty(
+			capturedSnapshot,
+			"context",
+			capturedContextDescriptor,
+		);
+		await core.execute("recover");
+		await flushMicrotasks();
+		expect(ghostCommit).not.toHaveBeenCalled();
+
+		const commitDocument = vi.fn();
+		const session = core(createProjectionDocumentTarget({ commitDocument }));
+		await flushMicrotasks();
+		expect(commitDocument).toHaveBeenCalledTimes(1);
+		await core.execute("update");
+		await vi.waitFor(() => {
+			expect(commitDocument).toHaveBeenCalledTimes(2);
+		});
+
+		session.dispose();
+		await core.execute("finalize");
+		await flushMicrotasks();
+		expect(commitDocument).toHaveBeenCalledTimes(2);
+	});
+
 	it("binds a branded document target, commits revision changes, and disposes cleanly", async () => {
 		const core = createProjectionCore();
 		const commits: string[] = [];

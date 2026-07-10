@@ -153,7 +153,17 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 	const listeners = new Set<(state: ExtendedState<Machine>) => void>();
 	let subscription: Subscription | null = null;
 	let isStopped = false;
-	let lastKnownSnapshot = actor.getSnapshot();
+	let lastKnownSnapshot: StateFrom<Machine> = actor.getSnapshot();
+	type InitialSnapshotState = {
+		snapshot: StateFrom<Machine>;
+		state: ExtendedState<Machine>;
+	};
+	type ProvisionalCallbackState = {
+		active: boolean;
+		installing: boolean;
+		hasBufferedSnapshot: boolean;
+		bufferedSnapshot: StateFrom<Machine> | undefined;
+	};
 
 	function notify(snapshot: StateFrom<Machine>) {
 		const state = toExtendedState(snapshot);
@@ -162,19 +172,10 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 		}
 	}
 
-	function ensureSubscription() {
-		if (subscription) {
-			return;
-		}
-		subscription = actor.subscribe((state) => {
-			lastKnownSnapshot = state;
-			notify(state);
-		});
-	}
-
 	function cleanupSubscription() {
-		subscription?.unsubscribe();
+		const currentSubscription = subscription;
 		subscription = null;
+		currentSubscription?.unsubscribe();
 	}
 
 	function toExtendedState(
@@ -215,6 +216,100 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 		}
 	}
 
+	function createGuardedSubscription(
+		sourceSubscription: Subscription,
+		callbackState: ProvisionalCallbackState,
+	): Subscription {
+		let unsubscribed = false;
+		return {
+			unsubscribe() {
+				if (unsubscribed) {
+					return;
+				}
+				unsubscribed = true;
+				callbackState.active = false;
+				sourceSubscription.unsubscribe();
+			},
+		};
+	}
+
+	function installSubscription(
+		preflightSnapshot: StateFrom<Machine>,
+		preflightState: ExtendedState<Machine>,
+	): InitialSnapshotState {
+		const callbackState: ProvisionalCallbackState = {
+			active: true,
+			installing: true,
+			hasBufferedSnapshot: false,
+			bufferedSnapshot: undefined,
+		};
+		let sourceSubscription: Subscription | null = null;
+		let subscribeReturned = false;
+		try {
+			sourceSubscription = actor.subscribe((state) => {
+				if (!callbackState.active) {
+					return;
+				}
+				if (callbackState.installing) {
+					callbackState.hasBufferedSnapshot = true;
+					callbackState.bufferedSnapshot = state;
+					return;
+				}
+
+				lastKnownSnapshot = state;
+				notify(state);
+			});
+			subscribeReturned = true;
+		} finally {
+			if (!subscribeReturned) {
+				callbackState.active = false;
+				callbackState.installing = false;
+			}
+		}
+
+		if (!sourceSubscription) {
+			callbackState.active = false;
+			callbackState.installing = false;
+			return failInvariant(
+				"[XStateAdapter] Actor subscription must return a cleanup handle.",
+			);
+		}
+
+		const guardedSubscription = createGuardedSubscription(
+			sourceSubscription,
+			callbackState,
+		);
+		subscription = guardedSubscription;
+		let installationSucceeded = false;
+		try {
+			let initialSnapshot = preflightSnapshot;
+			let initialState = preflightState;
+			if (
+				callbackState.hasBufferedSnapshot &&
+				typeof callbackState.bufferedSnapshot !== "undefined"
+			) {
+				initialSnapshot = callbackState.bufferedSnapshot;
+				initialState = toExtendedState(initialSnapshot);
+			}
+			lastKnownSnapshot = initialSnapshot;
+			callbackState.installing = false;
+			installationSucceeded = true;
+			return { snapshot: initialSnapshot, state: initialState };
+		} finally {
+			if (!installationSucceeded) {
+				callbackState.installing = false;
+				if (subscription === guardedSubscription) {
+					subscription = null;
+				}
+				try {
+					guardedSubscription.unsubscribe();
+				} catch {
+					// Preserve the setup failure; the guarded callback is already inert.
+				}
+			}
+		}
+	}
+
 	const typedAdapter: IgniteAdapter<
 		ExtendedState<Machine>,
 		EventFrom<Machine>,
@@ -226,21 +321,42 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 				return { unsubscribe: () => {} };
 			}
 
+			const preflightSnapshot = actor.getSnapshot();
+			const preflightState = toExtendedState(preflightSnapshot);
+			const initial = subscription
+				? { snapshot: preflightSnapshot, state: preflightState }
+				: installSubscription(preflightSnapshot, preflightState);
+			lastKnownSnapshot = initial.snapshot;
 			listeners.add(listener);
-			ensureSubscription();
-
-			const snapshot = actor.getSnapshot();
-			lastKnownSnapshot = snapshot;
-			listener(toExtendedState(snapshot));
-
-			return {
-				unsubscribe: () => {
+			let setupSucceeded = false;
+			try {
+				listener(initial.state);
+				setupSucceeded = true;
+				let unsubscribed = false;
+				return {
+					unsubscribe: () => {
+						if (unsubscribed) {
+							return;
+						}
+						unsubscribed = true;
+						listeners.delete(listener);
+						if (!listeners.size) {
+							cleanupSubscription();
+						}
+					},
+				};
+			} finally {
+				if (!setupSucceeded) {
 					listeners.delete(listener);
 					if (!listeners.size) {
-						cleanupSubscription();
+						try {
+							cleanupSubscription();
+						} catch {
+							// Preserve the original snapshot or listener failure.
+						}
 					}
-				},
-			};
+				}
+			}
 		},
 		subscribeEvents(listener) {
 			// Bridge the actor's emitted domain events (XState v5 `emit(...)`)
