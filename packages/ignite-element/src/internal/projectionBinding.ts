@@ -24,8 +24,8 @@ export type ProjectionInspection = {
 	readonly speech: ProjectionSpeechRequest | null;
 };
 
-type Projection<_Format, Output> = {
-	readonly channel: "document" | "speech";
+type Projection<Format extends "document" | "speech", Output> = {
+	readonly channel: Format;
 	select(inspection: ProjectionInspection): Output | null;
 	identity(value: Output): string;
 };

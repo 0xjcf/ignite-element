@@ -55,6 +55,11 @@ const createInspection = (): ProjectionInspection => ({
 });
 
 describe("private projection binding", () => {
+	it("preserves literal channels on private projection helpers", () => {
+		expect(createProjectionDocument().channel).toBe("document");
+		expect(createProjectionSpeech().channel).toBe("speech");
+	});
+
 	it("returns an unsupported fact instead of throwing when a document committer cannot run", async () => {
 		const fact = await commitProjectionDocumentTarget({
 			state: createProjectionBindingState(),
