@@ -98,7 +98,10 @@ const thermostat = igniteCore({
     targetLabel: "Target temperature",
     targetHint: "Choose a value between 58 and 82 degrees.",
     statusLabel: snapshot.context.isSaving ? "Saving target" : "Ready",
-    disabledReason: snapshot.can({ type: "SAVE_TARGET" })
+    disabledReason: snapshot.can({
+      type: "SAVE_TARGET",
+      target: snapshot.context.target,
+    })
       ? null
       : "Connect to the thermostat before saving.",
   }),
@@ -108,7 +111,10 @@ const thermostat = igniteCore({
       {
         description: "Save the target temperature.",
         input: command.number({ minimum: 58, maximum: 82 }),
-        canExecute: ({ snapshot }) => snapshot.can({ type: "SAVE_TARGET" }),
+        canExecute: ({ snapshot }) => snapshot.can({
+          type: "SAVE_TARGET",
+          target: snapshot.context.target,
+        }),
       },
     ),
   }),

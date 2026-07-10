@@ -95,11 +95,13 @@ export function toInspectableSchemaValue(
 		case "symbol":
 			return undefined;
 		case "object": {
+			let addedToPath = false;
 			try {
 				if (seen.has(value)) {
 					return "[Circular]";
 				}
 				seen.add(value);
+				addedToPath = true;
 
 				if (value instanceof Date) {
 					return Date.prototype.toISOString.call(value);
@@ -149,6 +151,10 @@ export function toInspectableSchemaValue(
 				return Object.fromEntries(entries);
 			} catch {
 				return undefined;
+			} finally {
+				if (addedToPath) {
+					seen.delete(value);
+				}
 			}
 		}
 		default:

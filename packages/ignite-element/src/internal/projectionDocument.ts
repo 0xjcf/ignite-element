@@ -1379,14 +1379,20 @@ export function validateProjectionDocument(
 	}
 
 	const seenNodeIds = new Set<string>();
+	const validateNodeId = (id: string, path: string): void => {
+		if (seenNodeIds.has(id)) {
+			issues.push(`${path}: duplicate node id "${id}"`);
+		}
+		seenNodeIds.add(id);
+	};
 	for (const [index, node] of document.nodes.entries()) {
 		for (const issue of validateNode(node, context, `nodes[${index}]`)) {
 			issues.push(issue);
 		}
-		if (seenNodeIds.has(node.id)) {
-			issues.push(`nodes[${index}].id: duplicate node id "${node.id}"`);
+		validateNodeId(node.id, `nodes[${index}].id`);
+		if (node.kind === "form" && node.submit) {
+			validateNodeId(node.submit.id, `nodes[${index}].submit.id`);
 		}
-		seenNodeIds.add(node.id);
 	}
 
 	return issues;

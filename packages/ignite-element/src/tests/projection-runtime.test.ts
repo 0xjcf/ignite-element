@@ -420,6 +420,49 @@ describe("projection document helpers", () => {
 		).toEqual([]);
 	});
 
+	it("rejects duplicate nested form submit node ids", () => {
+		const core = createProjectionCore();
+		expect(
+			validateProjectionDocument(
+				{
+					id: "form-panel",
+					revision: "1",
+					nodes: [
+						{
+							kind: "form",
+							id: "profile-form",
+							fields: [
+								{
+									id: "name",
+									label: "Name",
+									input: { type: "string" },
+								},
+							],
+							submit: {
+								kind: "action",
+								id: "save-profile",
+								label: "Save profile",
+								commandName: "confirm",
+								payload: { value: 1 },
+							},
+						},
+						{
+							kind: "action",
+							id: "save-profile",
+							label: "Save profile again",
+							commandName: "confirm",
+							payload: { value: 1 },
+						},
+					],
+				},
+				{
+					schema: core.getSchema(),
+					canExecute: core.canExecute,
+				},
+			),
+		).toContain('nodes[1].id: duplicate node id "save-profile"');
+	});
+
 	it("rejects exact unsafe keys inside canonical schema payloads", () => {
 		const core = createProjectionCore();
 		const unsafeKeys = [
@@ -1456,6 +1499,33 @@ describe("projection targets", () => {
 			view: { visible: "view" },
 		});
 		expect(toJSON).not.toHaveBeenCalled();
+	});
+
+	it("preserves shared schema references without marking them circular", () => {
+		const shared = { label: "shared" };
+		const snapshot = { first: shared, second: shared };
+		const adapter: IgniteAdapter<typeof snapshot, InspectionEvent> = {
+			scope: StateScope.Isolated,
+			subscribeSnapshots: () => ({ unsubscribe: () => undefined }),
+			send: () => undefined,
+			getSnapshot: () => snapshot,
+			stop: vi.fn(),
+		};
+		const runtime = createAgentRuntime({
+			eventTypes: [],
+			resolveInspection: () => ({ snapshot, view: {} }),
+			resolveRuntime: () => ({
+				adapter,
+				additionalArgs: {},
+				host: new EventTarget(),
+			}),
+			resolveView: () => ({}),
+		});
+
+		expect(runtime.getSchema().snapshot).toEqual({
+			first: { label: "shared" },
+			second: { label: "shared" },
+		});
 	});
 
 	it("skips enumerable command accessors in schema and projection inspection", async () => {

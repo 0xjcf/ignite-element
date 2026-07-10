@@ -56,7 +56,7 @@ incremental commit after every commit-plan step before advancing a review gate.
 
 ## Risks
 - Do not send private inspection state to a model without explicit selection/redaction.
-- Do not allow arbitrary code, selectors, imports, DOM references, or model-owned command execution.
+- Do not allow arbitrary code, selectors, imports, DOM references, or unapproved model-owned command execution; models may invoke only validated, allowlisted igniteTools actions.
 - Do not make live provider or browser speech availability a CI requirement.
 
 ## Dependencies

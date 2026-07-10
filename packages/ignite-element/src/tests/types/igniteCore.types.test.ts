@@ -305,8 +305,13 @@ describe("igniteCore type inference", () => {
 		expectTypeOf<SpeechTargetExposesConfiguration>().toEqualTypeOf<false>();
 		const documentSession = counter(documentTarget);
 		const speechSession = counter(speechTarget);
-		expectTypeOf(documentSession.dispose).toEqualTypeOf<() => void>();
-		expectTypeOf(speechSession.dispose).toEqualTypeOf<() => void>();
+		try {
+			expectTypeOf(documentSession.dispose).toEqualTypeOf<() => void>();
+			expectTypeOf(speechSession.dispose).toEqualTypeOf<() => void>();
+		} finally {
+			documentSession.dispose();
+			speechSession.dispose();
+		}
 		const assertInvalidOneArgumentUsage = (
 			invalidCounter: typeof counter,
 		): void => {
