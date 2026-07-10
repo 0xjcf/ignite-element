@@ -174,7 +174,9 @@ describe("private projection binding", () => {
 
 	it("acknowledges speech at most once even when the target is evaluated repeatedly", async () => {
 		const state = createProjectionBindingState();
-		const commitSpeech = vi.fn(async () => ({ status: "committed" as const }));
+		const commitSpeech = vi.fn<
+			(_: unknown) => Promise<{ status: "committed" }>
+		>(async () => ({ status: "committed" }));
 		const acknowledge = vi.fn(async () => undefined);
 
 		await commitProjectionSpeechTarget({
