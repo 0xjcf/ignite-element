@@ -45,13 +45,44 @@ const thermostatMachine = createMachine({
     isSaving: false,
     errorText: undefined,
   },
-  on: {
-    SET_TARGET_DRAFT: {
-      actions: assign({
-        target: ({ event }) => event.target,
-      }),
+  initial: 'ready',
+  states: {
+    ready: {
+      on: {
+        SET_TARGET_DRAFT: {
+          actions: assign({
+            target: ({ event }) => event.target,
+            errorText: () => undefined,
+          }),
+        },
+        SAVE_TARGET: {
+          target: 'saving',
+          actions: assign({
+            target: ({ event }) => event.target,
+            isSaving: () => true,
+            errorText: () => undefined,
+          }),
+        },
+      },
     },
-    SAVE_TARGET: {},
+    saving: {
+      on: {
+        SAVE_SUCCESS: {
+          target: 'ready',
+          actions: assign({
+            isSaving: () => false,
+            errorText: () => undefined,
+          }),
+        },
+        SAVE_FAILURE: {
+          target: 'ready',
+          actions: assign({
+            isSaving: () => false,
+            errorText: ({ event }) => event.message,
+          }),
+        },
+      },
+    },
   },
 });
 
@@ -87,6 +118,11 @@ export const thermostat = igniteCore({
   }),
 });
 ```
+
+The application persistence service handles the `SAVE_TARGET` request and sends
+`SAVE_SUCCESS` or `SAVE_FAILURE` back to the actor. While the machine is in
+`saving`, neither draft edits nor another save transition are available, so
+`canEditTarget` and `canSave` disable their respective controls from actor facts.
 
 That single registration already supports three consumers:
 

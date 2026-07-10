@@ -285,8 +285,24 @@ describe("igniteCore type inference", () => {
 
 		type DocumentTarget = ReturnType<typeof createProjectionDocumentTarget>;
 		type SpeechTarget = ReturnType<typeof createProjectionSpeechTarget>;
+		type DocumentTargetExposesConfiguration =
+			"commitDocument" extends keyof DocumentTarget
+				? true
+				: "documentId" extends keyof DocumentTarget
+					? true
+					: false;
+		type SpeechTargetExposesConfiguration =
+			"commitSpeech" extends keyof SpeechTarget
+				? true
+				: "acknowledgeCommandName" extends keyof SpeechTarget
+					? true
+					: "resolveAcknowledgePayload" extends keyof SpeechTarget
+						? true
+						: false;
 		expectTypeOf(documentTarget).toEqualTypeOf<DocumentTarget>();
 		expectTypeOf(speechTarget).toEqualTypeOf<SpeechTarget>();
+		expectTypeOf<DocumentTargetExposesConfiguration>().toEqualTypeOf<false>();
+		expectTypeOf<SpeechTargetExposesConfiguration>().toEqualTypeOf<false>();
 		const documentSession = counter(documentTarget);
 		const speechSession = counter(speechTarget);
 		expectTypeOf(documentSession.dispose).toEqualTypeOf<() => void>();

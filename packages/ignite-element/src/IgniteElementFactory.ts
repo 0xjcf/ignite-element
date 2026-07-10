@@ -26,7 +26,7 @@ import {
 } from "./runtime/agent";
 import { commandMetadataSymbol } from "./runtime/commands";
 import { facadeCleanupSymbol } from "./runtime/effects";
-import { isProjectionTarget } from "./runtime/projectionTargets";
+import { resolveProjectionTarget } from "./runtime/projectionTargets";
 import { toSchemaValue } from "./runtime/schema";
 import {
 	parseProjectionDocumentCollection,
@@ -967,7 +967,8 @@ export default function igniteElementFactory<
 	});
 
 	const bindProjectionTarget = (target: unknown): IgniteProjectionSession => {
-		if (!isProjectionTarget(target)) {
+		const targetConfiguration = resolveProjectionTarget(target);
+		if (!targetConfiguration) {
 			throw new Error(
 				"[igniteElementFactory] The one-argument overload only accepts first-party projection targets.",
 			);
@@ -991,28 +992,31 @@ export default function igniteElementFactory<
 
 					const inspection = resolveProjectionInspection();
 					const fact =
-						target.kind === "document"
+						targetConfiguration.kind === "document"
 							? await commitProjectionDocumentTarget({
 									state: bindingState,
 									inspection,
-									projection: createProjectionDocument(target.documentId),
-									commitDocument: target.commitDocument,
+									projection: createProjectionDocument(
+										targetConfiguration.documentId,
+									),
+									commitDocument: targetConfiguration.commitDocument,
 								})
 							: await commitProjectionSpeechTarget({
 									state: bindingState,
 									inspection,
 									projection: createProjectionSpeech(),
-									commitSpeech: target.commitSpeech,
+									commitSpeech: targetConfiguration.commitSpeech,
 									acknowledge: async (speech) => {
-										const payload = target.resolveAcknowledgePayload?.(speech);
+										const payload =
+											targetConfiguration.resolveAcknowledgePayload?.(speech);
 										const { additionalArgs } = resolveRuntimeResources();
 										const command = getAdditionalArg(
 											additionalArgs,
-											target.acknowledgeCommandName,
+											targetConfiguration.acknowledgeCommandName,
 										);
 										if (typeof command !== "function") {
 											throw new Error(
-												`Unknown command "${target.acknowledgeCommandName}".`,
+												`Unknown command "${targetConfiguration.acknowledgeCommandName}".`,
 											);
 										}
 										await command(payload);

@@ -11,8 +11,16 @@ type ProjectionTargetCommitResult =
 
 type ProjectionTargetCommitValue = ProjectionTargetCommitResult | undefined;
 
-type InternalProjectionDocumentTarget = IgniteProjectionTarget & {
-	readonly [igniteProjectionTargetBrand]: true;
+type ProjectionDocumentTargetShell = IgniteProjectionTarget & {
+	readonly kind: "document";
+	readonly documentId?: string;
+};
+
+type ProjectionSpeechTargetShell = IgniteProjectionTarget & {
+	readonly kind: "speech";
+};
+
+type InternalProjectionDocumentTarget = {
 	readonly kind: "document";
 	readonly documentId?: string;
 	readonly commitDocument: (
@@ -24,8 +32,7 @@ type InternalProjectionDocumentTarget = IgniteProjectionTarget & {
 		| Promise<void>;
 };
 
-type InternalProjectionSpeechTarget = IgniteProjectionTarget & {
-	readonly [igniteProjectionTargetBrand]: true;
+type InternalProjectionSpeechTarget = {
 	readonly kind: "speech";
 	readonly acknowledgeCommandName: string;
 	readonly commitSpeech: (
@@ -40,7 +47,7 @@ type InternalProjectionSpeechTarget = IgniteProjectionTarget & {
 	) => unknown;
 };
 
-export type InternalProjectionTarget =
+type InternalProjectionTarget =
 	| InternalProjectionDocumentTarget
 	| InternalProjectionSpeechTarget;
 
@@ -69,62 +76,93 @@ type ProjectionSpeechTargetOptions = {
 	) => unknown;
 };
 
+const projectionTargetConfigurations = new WeakMap<
+	object,
+	InternalProjectionTarget
+>();
+
 export function createProjectionDocumentTarget(
 	options: ProjectionDocumentTargetOptions,
 ): IgniteProjectionTarget {
-	const target: InternalProjectionDocumentTarget = {
+	const target: ProjectionDocumentTargetShell = {
 		[igniteProjectionTargetBrand]: true,
 		kind: "document",
 		documentId: options.documentId,
-		commitDocument: options.commitDocument,
 	};
-	return target;
+	Object.defineProperties(target, {
+		[igniteProjectionTargetBrand]: {
+			value: true,
+			enumerable: false,
+			writable: false,
+			configurable: false,
+		},
+		kind: {
+			value: "document",
+			enumerable: false,
+			writable: false,
+			configurable: false,
+		},
+		documentId: {
+			value: options.documentId,
+			enumerable: false,
+			writable: false,
+			configurable: false,
+		},
+	});
+	projectionTargetConfigurations.set(
+		target,
+		Object.freeze({
+			kind: "document",
+			documentId: options.documentId,
+			commitDocument: options.commitDocument,
+		}),
+	);
+	return Object.freeze(target);
 }
 
 export function createProjectionSpeechTarget(
 	options: ProjectionSpeechTargetOptions,
 ): IgniteProjectionTarget {
-	const target: InternalProjectionSpeechTarget = {
+	const target: ProjectionSpeechTargetShell = {
 		[igniteProjectionTargetBrand]: true,
 		kind: "speech",
-		acknowledgeCommandName: options.acknowledgeCommandName,
-		commitSpeech: options.commitSpeech,
-		resolveAcknowledgePayload: options.resolveAcknowledgePayload,
 	};
-	return target;
-}
-
-function isProjectionDocumentTarget(
-	value: object,
-): value is InternalProjectionDocumentTarget {
-	return (
-		Reflect.get(value, igniteProjectionTargetBrand) === true &&
-		Reflect.get(value, "kind") === "document" &&
-		(typeof Reflect.get(value, "documentId") === "undefined" ||
-			typeof Reflect.get(value, "documentId") === "string") &&
-		typeof Reflect.get(value, "commitDocument") === "function"
+	Object.defineProperties(target, {
+		[igniteProjectionTargetBrand]: {
+			value: true,
+			enumerable: false,
+			writable: false,
+			configurable: false,
+		},
+		kind: {
+			value: "speech",
+			enumerable: false,
+			writable: false,
+			configurable: false,
+		},
+	});
+	projectionTargetConfigurations.set(
+		target,
+		Object.freeze({
+			kind: "speech",
+			acknowledgeCommandName: options.acknowledgeCommandName,
+			commitSpeech: options.commitSpeech,
+			resolveAcknowledgePayload: options.resolveAcknowledgePayload,
+		}),
 	);
+	return Object.freeze(target);
 }
 
-function isProjectionSpeechTarget(
-	value: object,
-): value is InternalProjectionSpeechTarget {
-	return (
-		Reflect.get(value, igniteProjectionTargetBrand) === true &&
-		Reflect.get(value, "kind") === "speech" &&
-		typeof Reflect.get(value, "acknowledgeCommandName") === "string" &&
-		typeof Reflect.get(value, "commitSpeech") === "function" &&
-		(typeof Reflect.get(value, "resolveAcknowledgePayload") === "undefined" ||
-			typeof Reflect.get(value, "resolveAcknowledgePayload") === "function")
-	);
-}
-
-export function isProjectionTarget(
+export function resolveProjectionTarget(
 	value: unknown,
-): value is InternalProjectionTarget {
+): InternalProjectionTarget | undefined {
 	if (typeof value !== "object" || value === null) {
-		return false;
+		return undefined;
 	}
 
-	return isProjectionDocumentTarget(value) || isProjectionSpeechTarget(value);
+	return projectionTargetConfigurations.get(value);
+}
+
+export function isProjectionTarget(value: unknown): boolean {
+	return resolveProjectionTarget(value) !== undefined;
 }

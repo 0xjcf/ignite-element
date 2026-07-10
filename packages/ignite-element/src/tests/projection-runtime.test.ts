@@ -3204,11 +3204,22 @@ describe("projection targets", () => {
 
 	it("rejects invalid one-argument overload inputs instead of returning a no-op session", () => {
 		const core = createProjectionCore();
+		const target = createProjectionDocumentTarget({
+			commitDocument: () => undefined,
+		});
+		const clonedTarget = {};
+		Object.defineProperties(
+			clonedTarget,
+			Object.getOwnPropertyDescriptors(target),
+		);
 
 		expect(() => core("div" as never)).toThrow(
 			"[igniteElementFactory] The one-argument overload only accepts first-party projection targets.",
 		);
 		expect(() => core({ kind: "document" } as never)).toThrow(
+			"[igniteElementFactory] The one-argument overload only accepts first-party projection targets.",
+		);
+		expect(() => Reflect.apply(core, undefined, [clonedTarget])).toThrow(
 			"[igniteElementFactory] The one-argument overload only accepts first-party projection targets.",
 		);
 	});

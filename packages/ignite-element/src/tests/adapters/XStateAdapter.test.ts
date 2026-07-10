@@ -896,6 +896,7 @@ describe("XStateAdapter", () => {
 
 		for (const scenario of scenarios) {
 			const probeActor = createLifecycleActor();
+			let restoreConsoleError: (() => void) | undefined;
 			const actorPrototype = Object.getPrototypeOf(probeActor);
 			const subscribeDescriptor = Object.getOwnPropertyDescriptor(
 				actorPrototype,
@@ -1000,6 +1001,7 @@ describe("XStateAdapter", () => {
 				const errorSpy = vi
 					.spyOn(console, "error")
 					.mockImplementation(() => {});
+				restoreConsoleError = () => errorSpy.mockRestore();
 				const expectedError =
 					scenario.expectedStage === "unsubscribe"
 						? unsubscribeError
@@ -1024,8 +1026,8 @@ describe("XStateAdapter", () => {
 				expect(() => handle.unsubscribe()).not.toThrow();
 				expect(sourceUnsubscribe).toHaveBeenCalledTimes(1);
 				expect(stopActor).toHaveBeenCalledTimes(1);
-				errorSpy.mockRestore();
 			} finally {
+				restoreConsoleError?.();
 				Object.defineProperty(actorPrototype, "subscribe", subscribeDescriptor);
 				Object.defineProperty(
 					actorPrototype,
