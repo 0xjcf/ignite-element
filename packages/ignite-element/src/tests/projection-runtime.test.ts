@@ -215,6 +215,47 @@ function createInspectionCore(
 	return { adapter, core };
 }
 
+function createRawProjectionCore() {
+	type RawProjectionSnapshot = { documents: unknown[] };
+	type RawProjectionEvent = {
+		type: "SET_DOCUMENTS";
+		documents: unknown[];
+	};
+	let snapshot: RawProjectionSnapshot = { documents: [] };
+	const listeners = new Set<(state: RawProjectionSnapshot) => void>();
+	const adapter: IgniteAdapter<RawProjectionSnapshot, RawProjectionEvent> = {
+		scope: StateScope.Isolated,
+		subscribeSnapshots: (listener) => {
+			listeners.add(listener);
+			return { unsubscribe: () => listeners.delete(listener) };
+		},
+		send: (event) => {
+			snapshot = { documents: event.documents };
+			for (const listener of listeners) {
+				listener(snapshot);
+			}
+		},
+		getSnapshot: () => snapshot,
+		stop: vi.fn(),
+	};
+	const createAdapter = Object.assign(() => adapter, {
+		scope: StateScope.Isolated,
+		resolveStateSnapshot: (
+			current: IgniteAdapter<RawProjectionSnapshot, RawProjectionEvent>,
+		) => current.getSnapshot(),
+	});
+	const core = createIgniteComponentFactory(createAdapter, {
+		view: () => ({}),
+		commands: () => ({}),
+	});
+
+	return {
+		core,
+		setDocuments: (documents: unknown[]) =>
+			adapter.send({ type: "SET_DOCUMENTS", documents }),
+	};
+}
+
 describe("projection document helpers", () => {
 	it("validates safe semantic documents and command-backed actions", () => {
 		const document: ProjectionDocument = {
@@ -245,7 +286,7 @@ describe("projection document helpers", () => {
 		).toEqual([]);
 	});
 
-	it("rejects unsafe keys case-insensitively after parsing unknown input", () => {
+	it("rejects exact unsafe keys inside canonical schema payloads", () => {
 		const core = createProjectionCore();
 		const unsafeKeys = [
 			"onClick",
@@ -264,10 +305,14 @@ describe("projection document helpers", () => {
 				revision: "1",
 				nodes: [
 					{
-						kind: "text",
-						id: "unsafe-text",
-						text: "Unsafe",
-						[unsafeKey]: "executable",
+						kind: "action",
+						id: "unsafe-action",
+						label: "Unsafe",
+						commandName: "confirm",
+						payload: {
+							value: 2,
+							[unsafeKey]: "executable",
+						},
 					},
 				],
 			});
@@ -279,7 +324,9 @@ describe("projection document helpers", () => {
 						schema: core.getSchema(),
 						canExecute: core.canExecute,
 					}),
-				).toContain(`nodes[0].${unsafeKey}: executable content is not allowed`);
+				).toContain(
+					`nodes[0].payload.${unsafeKey}: executable content is not allowed`,
+				);
 			} else {
 				expect(parsed.issues).toEqual([]);
 			}
@@ -291,18 +338,19 @@ describe("projection document helpers", () => {
 		const unsafeKeys = ["onMouseOver", "onerror", "ONLOAD", "onPointerDown"];
 
 		for (const unsafeKey of unsafeKeys) {
-			const handler = vi.fn();
 			const parse = () =>
 				parseProjectionDocument({
 					id: `unsafe-${unsafeKey}`,
 					revision: "1",
 					nodes: [
 						{
-							kind: "text",
-							id: "unsafe-text",
-							text: "Unsafe",
-							metadata: {
-								[unsafeKey]: handler,
+							kind: "action",
+							id: "unsafe-action",
+							label: "Unsafe",
+							commandName: "confirm",
+							payload: {
+								value: 2,
+								[unsafeKey]: "executable",
 							},
 						},
 					],
@@ -310,7 +358,6 @@ describe("projection document helpers", () => {
 
 			expect(parse).not.toThrow();
 			const parsed = parse();
-			expect(handler).not.toHaveBeenCalled();
 			expect(parsed.ok).toBe(true);
 			if (parsed.ok) {
 				expect(
@@ -319,13 +366,280 @@ describe("projection document helpers", () => {
 						canExecute: core.canExecute,
 					}),
 				).toContain(
-					`nodes[0].metadata.${unsafeKey}: executable content is not allowed`,
+					`nodes[0].payload.${unsafeKey}: executable content is not allowed`,
 				);
 			} else {
 				expect(parsed.issues).toEqual([]);
 			}
-			expect(handler).not.toHaveBeenCalled();
 		}
+	});
+
+	it("canonicalizes every semantic node through explicit field allowlists", () => {
+		const parsed = parseProjectionDocument({
+			id: "catalog",
+			revision: "1",
+			title: "Semantic catalog",
+			innerHTML: "<script>topLevel()</script>",
+			nodes: [
+				{
+					kind: "text",
+					id: "text",
+					text: "Ready",
+					metadata: { dangerouslySetInnerHTML: { __html: "unsafe" } },
+				},
+				{
+					kind: "checklist",
+					id: "checklist",
+					items: [
+						{
+							id: "checked",
+							label: "Checked",
+							checked: true,
+							srcdoc: "<script>nested()</script>",
+						},
+					],
+				},
+				{
+					kind: "action",
+					id: "confirm",
+					label: "Confirm",
+					commandName: "confirm",
+					payload: { value: 2 },
+					description: "Confirm the value",
+					href: "javascript:confirm()",
+				},
+				{
+					kind: "form",
+					id: "form",
+					title: "Profile",
+					fields: [
+						{
+							id: "name",
+							label: "Name",
+							input: { type: "string", minLength: 1 },
+							value: "Ada",
+							description: "Display name",
+							innerHTML: "<script>field()</script>",
+						},
+					],
+					submit: {
+						kind: "action",
+						id: "save",
+						label: "Save",
+						commandName: "confirm",
+						payload: { value: 3 },
+						description: "Save profile",
+						dangerouslySetInnerHTML: { __html: "unsafe" },
+					},
+				},
+				{
+					kind: "table",
+					id: "table",
+					columns: [{ id: "name", label: "Name", srcdoc: "unsafe" }],
+					rows: [
+						{
+							id: "row",
+							cells: ["Ada", { active: true }],
+							innerHTML: "unsafe",
+						},
+					],
+				},
+				{
+					kind: "timeline",
+					id: "timeline",
+					events: [
+						{
+							id: "created",
+							label: "Created",
+							timestamp: "2026-07-10T00:00:00Z",
+							detail: "Created safely",
+							href: "javascript:timeline()",
+						},
+					],
+				},
+				{
+					kind: "chart",
+					id: "chart",
+					chartType: "bar",
+					series: [
+						{
+							id: "value",
+							label: "Value",
+							value: 4,
+							srcdoc: "unsafe",
+						},
+					],
+				},
+				{
+					kind: "code-diff",
+					id: "diff",
+					language: "ts",
+					before: "const before = true;",
+					after: "const after = true;",
+					dangerouslySetInnerHTML: { __html: "unsafe" },
+				},
+				{
+					kind: "decision-log",
+					id: "decisions",
+					entries: [
+						{
+							id: "decision",
+							title: "Use data",
+							decision: "Canonicalize input",
+							rationale: "Keep committers safe",
+							innerHTML: "unsafe",
+						},
+					],
+				},
+			],
+		});
+
+		expect(parsed).toEqual({
+			ok: true,
+			document: {
+				id: "catalog",
+				revision: "1",
+				title: "Semantic catalog",
+				nodes: [
+					{ kind: "text", id: "text", text: "Ready" },
+					{
+						kind: "checklist",
+						id: "checklist",
+						items: [{ id: "checked", label: "Checked", checked: true }],
+					},
+					{
+						kind: "action",
+						id: "confirm",
+						label: "Confirm",
+						commandName: "confirm",
+						payload: { value: 2 },
+						description: "Confirm the value",
+					},
+					{
+						kind: "form",
+						id: "form",
+						title: "Profile",
+						fields: [
+							{
+								id: "name",
+								label: "Name",
+								input: { type: "string", minLength: 1 },
+								value: "Ada",
+								description: "Display name",
+							},
+						],
+						submit: {
+							kind: "action",
+							id: "save",
+							label: "Save",
+							commandName: "confirm",
+							payload: { value: 3 },
+							description: "Save profile",
+						},
+					},
+					{
+						kind: "table",
+						id: "table",
+						columns: [{ id: "name", label: "Name" }],
+						rows: [{ id: "row", cells: ["Ada", { active: true }] }],
+					},
+					{
+						kind: "timeline",
+						id: "timeline",
+						events: [
+							{
+								id: "created",
+								label: "Created",
+								timestamp: "2026-07-10T00:00:00Z",
+								detail: "Created safely",
+							},
+						],
+					},
+					{
+						kind: "chart",
+						id: "chart",
+						chartType: "bar",
+						series: [{ id: "value", label: "Value", value: 4 }],
+					},
+					{
+						kind: "code-diff",
+						id: "diff",
+						language: "ts",
+						before: "const before = true;",
+						after: "const after = true;",
+					},
+					{
+						kind: "decision-log",
+						id: "decisions",
+						entries: [
+							{
+								id: "decision",
+								title: "Use data",
+								decision: "Canonicalize input",
+								rationale: "Keep committers safe",
+							},
+						],
+					},
+				],
+			},
+		});
+	});
+
+	it("rejects accessor-bearing projection data without invoking getters", () => {
+		const getter = vi.fn(() => {
+			throw new Error("getter executed");
+		});
+		const node = {
+			kind: "text",
+			id: "summary",
+			text: "Ready",
+		};
+		Object.defineProperty(node, "metadata", {
+			enumerable: true,
+			get: getter,
+		});
+
+		const parsed = parseProjectionDocument({
+			id: "panel",
+			revision: "1",
+			nodes: [node],
+		});
+
+		expect(getter).not.toHaveBeenCalled();
+		expect(parsed).toEqual({
+			ok: false,
+			issues: ["nodes[0].metadata: accessor properties are not allowed"],
+		});
+		const topLevelGetter = vi.fn(() => {
+			throw new Error("top-level getter executed");
+		});
+		const topLevelDocument = { id: "panel", revision: "1" };
+		Object.defineProperty(topLevelDocument, "nodes", {
+			enumerable: true,
+			get: topLevelGetter,
+		});
+		expect(parseProjectionDocument(topLevelDocument)).toEqual({
+			ok: false,
+			issues: ["nodes: accessor properties are not allowed"],
+		});
+		expect(topLevelGetter).not.toHaveBeenCalled();
+		expect(
+			parseProjectionDocument({
+				id: "panel",
+				revision: "1",
+				nodes: [
+					{
+						kind: "text",
+						id: "summary",
+						text: "Ready",
+						metadata: new Map([["unsafe", "value"]]),
+					},
+				],
+			}),
+		).toEqual({
+			ok: false,
+			issues: ["nodes[0].metadata: expected plain data object"],
+		});
 	});
 
 	it("rejects missing commands and invalid payloads", () => {
@@ -693,6 +1007,91 @@ describe("projection targets", () => {
 		);
 
 		session.dispose();
+	});
+
+	it("removes executable fields before committing raw projection data", async () => {
+		const { core, setDocuments } = createRawProjectionCore();
+		const commitDocument = vi.fn<(document: ProjectionDocument) => void>();
+		const session = core(createProjectionDocumentTarget({ commitDocument }));
+
+		setDocuments([
+			{
+				id: "panel",
+				revision: "1",
+				dangerouslySetInnerHTML: { __html: "<script>topLevel()</script>" },
+				innerHTML: "<script>topLevel()</script>",
+				srcdoc: "<script>topLevel()</script>",
+				href: "javascript:topLevel()",
+				nodes: [
+					{
+						kind: "text",
+						id: "summary",
+						text: "Ready",
+						metadata: {
+							dangerouslySetInnerHTML: {
+								__html: "<img src=x onerror=nested()>",
+							},
+							innerHTML: "<script>nested()</script>",
+							srcdoc: "<script>nested()</script>",
+							href: "javascript:nested()",
+						},
+					},
+				],
+			},
+		]);
+		await flushMicrotasks();
+		await flushMicrotasks();
+
+		expect(commitDocument).toHaveBeenCalledTimes(1);
+		expect(commitDocument).toHaveBeenCalledWith({
+			id: "panel",
+			revision: "1",
+			nodes: [{ kind: "text", id: "summary", text: "Ready" }],
+		});
+
+		session.dispose();
+	});
+
+	it("fails closed on raw accessor data without an unhandled rejection", async () => {
+		const { core, setDocuments } = createRawProjectionCore();
+		const commitDocument = vi.fn();
+		const session = core(createProjectionDocumentTarget({ commitDocument }));
+		const getter = vi.fn(() => {
+			throw new Error("getter executed");
+		});
+		const node = {
+			kind: "text",
+			id: "summary",
+			text: "Ready",
+		};
+		Object.defineProperty(node, "metadata", {
+			enumerable: true,
+			get: getter,
+		});
+		const unhandled: unknown[] = [];
+		const captureUnhandled = (reason: unknown) => {
+			unhandled.push(reason);
+		};
+
+		process.on("unhandledRejection", captureUnhandled);
+		try {
+			setDocuments([
+				{
+					id: "panel",
+					revision: "1",
+					nodes: [node],
+				},
+			]);
+			await flushMicrotasks();
+			await flushMicrotasks();
+		} finally {
+			process.off("unhandledRejection", captureUnhandled);
+			session.dispose();
+		}
+
+		expect(getter).not.toHaveBeenCalled();
+		expect(commitDocument).not.toHaveBeenCalled();
+		expect(unhandled).toEqual([]);
 	});
 
 	it("binds a branded document target, commits revision changes, and disposes cleanly", async () => {

@@ -753,71 +753,120 @@ export default function igniteElementFactory<
 		value: unknown,
 	): value is Record<string, unknown> =>
 		typeof value === "object" && value !== null && !Array.isArray(value);
-	const hasInspectableKey = (
+	type InspectablePropertyRead =
+		| { found: false }
+		| { found: true; safe: false }
+		| { found: true; safe: true; value: unknown };
+	const readInspectableProperty = (
 		value: Record<string, unknown>,
 		key: string,
-	): boolean => Object.getOwnPropertyDescriptor(value, key) !== undefined;
+	): InspectablePropertyRead => {
+		const descriptor = Object.getOwnPropertyDescriptor(value, key);
+		if (!descriptor) {
+			return { found: false };
+		}
+		if (!("value" in descriptor)) {
+			return { found: true, safe: false };
+		}
+		const propertyValue: unknown = descriptor.value;
+		return { found: true, safe: true, value: propertyValue };
+	};
 	type ProjectionDocumentsRead =
-		| { found: false }
+		| { found: false; safe: true }
 		| {
 				found: true;
+				safe: boolean;
 				value: readonly ProjectionInspection["documents"][number][];
 		  };
 	type ProjectionSpeechRead =
-		| { found: false }
-		| { found: true; value: ProjectionInspection["speech"] };
+		| { found: false; safe: true }
+		| {
+				found: true;
+				safe: boolean;
+				value: ProjectionInspection["speech"];
+		  };
 
 	const readProjectionDocuments = (
 		candidate: unknown,
 	): ProjectionDocumentsRead => {
-		if (
-			!isInspectableRecord(candidate) ||
-			!hasInspectableKey(candidate, "documents")
-		) {
-			return { found: false };
+		if (!isInspectableRecord(candidate)) {
+			return { found: false, safe: true };
 		}
 
-		const documents = Reflect.get(candidate, "documents");
+		const property = readInspectableProperty(candidate, "documents");
+		if (!property.found) {
+			return { found: false, safe: true };
+		}
+		if (!property.safe) {
+			return { found: true, safe: false, value: [] };
+		}
+
+		const documents = property.value;
 		if (!Array.isArray(documents)) {
-			return { found: true, value: [] };
+			return { found: true, safe: true, value: [] };
 		}
 
 		const parsedDocuments: ProjectionInspection["documents"][number][] = [];
+		let safe = true;
 		for (const document of documents) {
 			const parsed = parseProjectionDocument(document);
 			if (parsed.ok) {
 				parsedDocuments.push(parsed.document);
+			} else {
+				safe = false;
 			}
 		}
-		return { found: true, value: parsedDocuments };
+		return { found: true, safe, value: parsedDocuments };
 	};
 
 	const readProjectionSpeech = (candidate: unknown): ProjectionSpeechRead => {
-		if (
-			!isInspectableRecord(candidate) ||
-			!hasInspectableKey(candidate, "speech")
-		) {
-			return { found: false };
+		if (!isInspectableRecord(candidate)) {
+			return { found: false, safe: true };
 		}
 
-		const speech = Reflect.get(candidate, "speech");
-		const parsed = parseProjectionSpeechRequest(speech);
-		return { found: true, value: parsed.ok ? parsed.speech : null };
+		const property = readInspectableProperty(candidate, "speech");
+		if (!property.found) {
+			return { found: false, safe: true };
+		}
+		if (!property.safe) {
+			return { found: true, safe: false, value: null };
+		}
+
+		const parsed = parseProjectionSpeechRequest(property.value);
+		return {
+			found: true,
+			safe: parsed.ok,
+			value: parsed.ok ? parsed.speech : null,
+		};
 	};
 
 	const resolveProjectionState = (
 		snapshot: unknown,
 		view: unknown,
-	): Pick<ProjectionInspection, "documents" | "speech"> => {
+	): Pick<ProjectionInspection, "documents" | "speech"> & {
+		inspectionDataSafe: boolean;
+	} => {
+		let inspectionDataSafe = true;
 		const actorOwnedContainers = [snapshot];
 		if (isInspectableRecord(snapshot)) {
-			actorOwnedContainers.push(Reflect.get(snapshot, "context"));
-			actorOwnedContainers.push(Reflect.get(snapshot, "projection"));
+			for (const key of ["context", "projection"]) {
+				const property = readInspectableProperty(snapshot, key);
+				if (property.found && property.safe) {
+					actorOwnedContainers.push(property.value);
+				} else if (property.found) {
+					inspectionDataSafe = false;
+				}
+			}
 		}
 
 		const derivedViewContainers = [view];
 		if (isInspectableRecord(view)) {
-			derivedViewContainers.push(Reflect.get(view, "projection"));
+			const property = readInspectableProperty(view, "projection");
+			if (property.found && property.safe) {
+				derivedViewContainers.push(property.value);
+			} else if (property.found) {
+				inspectionDataSafe = false;
+			}
 		}
 		const containers = [...actorOwnedContainers, ...derivedViewContainers];
 
@@ -828,22 +877,21 @@ export default function igniteElementFactory<
 		let speechFound = false;
 
 		for (const container of containers) {
-			if (typeof documents === "undefined") {
-				const read = readProjectionDocuments(container);
-				if (read.found) {
-					documents = read.value;
-				}
+			const documentsRead = readProjectionDocuments(container);
+			inspectionDataSafe = inspectionDataSafe && documentsRead.safe;
+			if (typeof documents === "undefined" && documentsRead.found) {
+				documents = documentsRead.value;
 			}
-			if (!speechFound) {
-				const read = readProjectionSpeech(container);
-				if (read.found) {
-					speech = read.value;
-					speechFound = true;
-				}
+
+			const speechRead = readProjectionSpeech(container);
+			inspectionDataSafe = inspectionDataSafe && speechRead.safe;
+			if (!speechFound && speechRead.found) {
+				speech = speechRead.value;
+				speechFound = true;
 			}
 		}
 
-		return { documents: documents ?? [], speech };
+		return { documents: documents ?? [], speech, inspectionDataSafe };
 	};
 
 	const resolveProjectionInspection = (): ProjectionInspection => {
@@ -860,8 +908,12 @@ export default function igniteElementFactory<
 					.sort(([left], [right]) => left.localeCompare(right)),
 			),
 			events: [...eventTypes].sort().map((type) => ({ type })),
-			snapshot: toInspectableSchemaValue(snapshot),
-			view: toInspectableSchemaValue(view),
+			snapshot: projectionState.inspectionDataSafe
+				? toInspectableSchemaValue(snapshot)
+				: null,
+			view: projectionState.inspectionDataSafe
+				? toInspectableSchemaValue(view)
+				: null,
 		};
 		const revision = JSON.stringify({
 			snapshot: schema.snapshot,

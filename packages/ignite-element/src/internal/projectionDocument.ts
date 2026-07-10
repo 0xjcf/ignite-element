@@ -52,6 +52,227 @@ const forbiddenKeys = new Set([
 ]);
 const eventHandlerKeyPattern = /^on[a-z]/;
 
+type MaterializedObject = {
+	[key: string]: MaterializedValue;
+};
+
+type MaterializedValue =
+	| null
+	| boolean
+	| number
+	| string
+	| MaterializedValue[]
+	| MaterializedObject;
+
+type MaterializedValueResult =
+	| { ok: true; value: MaterializedValue }
+	| { ok: false };
+
+function joinDataPath(path: string, key: string): string {
+	return path.length > 0 ? `${path}.${key}` : key;
+}
+
+function displayDataPath(path: string): string {
+	return path.length > 0 ? path : "document";
+}
+
+function materializeDataProperty(
+	container: object,
+	key: string,
+	path: string,
+	issues: string[],
+	active: WeakSet<object>,
+): MaterializedValueResult {
+	const descriptor = Object.getOwnPropertyDescriptor(container, key);
+	if (!descriptor || !("value" in descriptor)) {
+		issues.push(`${path}: accessor properties are not allowed`);
+		return { ok: false };
+	}
+	if (descriptor.enumerable !== true) {
+		issues.push(`${path}: non-enumerable properties are not allowed`);
+		return { ok: false };
+	}
+	const propertyValue: unknown = descriptor.value;
+	return materializeDataValue(propertyValue, path, issues, active);
+}
+
+function materializeDataArray(
+	value: unknown[],
+	path: string,
+	issues: string[],
+	active: WeakSet<object>,
+): MaterializedValueResult {
+	if (Object.getPrototypeOf(value) !== Array.prototype) {
+		issues.push(`${displayDataPath(path)}: expected plain data array`);
+		return { ok: false };
+	}
+
+	const lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
+	if (!lengthDescriptor || !("value" in lengthDescriptor)) {
+		issues.push(`${displayDataPath(path)}: invalid array length`);
+		return { ok: false };
+	}
+	const lengthValue: unknown = lengthDescriptor.value;
+	if (
+		typeof lengthValue !== "number" ||
+		!Number.isSafeInteger(lengthValue) ||
+		lengthValue < 0
+	) {
+		issues.push(`${displayDataPath(path)}: invalid array length`);
+		return { ok: false };
+	}
+	const length = lengthValue;
+
+	for (const key of Reflect.ownKeys(value)) {
+		if (key === "length") {
+			continue;
+		}
+		if (typeof key !== "string") {
+			issues.push(
+				`${displayDataPath(path)}: symbol properties are not allowed`,
+			);
+			return { ok: false };
+		}
+		const index = Number(key);
+		if (
+			!Number.isSafeInteger(index) ||
+			index < 0 ||
+			index >= length ||
+			String(index) !== key
+		) {
+			issues.push(`${joinDataPath(path, key)}: unexpected array property`);
+			return { ok: false };
+		}
+	}
+
+	if (active.has(value)) {
+		issues.push(`${displayDataPath(path)}: cyclic data is not allowed`);
+		return { ok: false };
+	}
+	active.add(value);
+	const output: MaterializedValue[] = [];
+	for (let index = 0; index < length; index += 1) {
+		const itemPath = `${path}[${index}]`;
+		const item = materializeDataProperty(
+			value,
+			String(index),
+			itemPath,
+			issues,
+			active,
+		);
+		if (!item.ok) {
+			active.delete(value);
+			return item;
+		}
+		output.push(item.value);
+	}
+	active.delete(value);
+	return { ok: true, value: output };
+}
+
+function materializeDataObject(
+	value: object,
+	path: string,
+	issues: string[],
+	active: WeakSet<object>,
+): MaterializedValueResult {
+	const prototype = Object.getPrototypeOf(value);
+	if (prototype !== Object.prototype && prototype !== null) {
+		issues.push(`${displayDataPath(path)}: expected plain data object`);
+		return { ok: false };
+	}
+	if (active.has(value)) {
+		issues.push(`${displayDataPath(path)}: cyclic data is not allowed`);
+		return { ok: false };
+	}
+
+	active.add(value);
+	const output: MaterializedObject = {};
+	for (const key of Reflect.ownKeys(value)) {
+		if (typeof key !== "string") {
+			issues.push(
+				`${displayDataPath(path)}: symbol properties are not allowed`,
+			);
+			active.delete(value);
+			return { ok: false };
+		}
+		const propertyPath = joinDataPath(path, key);
+		const property = materializeDataProperty(
+			value,
+			key,
+			propertyPath,
+			issues,
+			active,
+		);
+		if (!property.ok) {
+			active.delete(value);
+			return property;
+		}
+		Object.defineProperty(output, key, {
+			value: property.value,
+			enumerable: true,
+			configurable: true,
+			writable: true,
+		});
+	}
+	active.delete(value);
+	return { ok: true, value: output };
+}
+
+function materializeDataValue(
+	value: unknown,
+	path: string,
+	issues: string[],
+	active: WeakSet<object>,
+): MaterializedValueResult {
+	try {
+		if (
+			value === null ||
+			typeof value === "boolean" ||
+			typeof value === "string"
+		) {
+			return { ok: true, value };
+		}
+		if (typeof value === "number") {
+			if (Number.isFinite(value)) {
+				return { ok: true, value };
+			}
+			issues.push(`${displayDataPath(path)}: expected finite number`);
+			return { ok: false };
+		}
+		if (Array.isArray(value)) {
+			return materializeDataArray(value, path, issues, active);
+		}
+		if (typeof value === "object") {
+			return materializeDataObject(value, path, issues, active);
+		}
+
+		issues.push(`${displayDataPath(path)}: expected JSON-like data`);
+		return { ok: false };
+	} catch {
+		issues.push(`${displayDataPath(path)}: unable to inspect data safely`);
+		return { ok: false };
+	}
+}
+
+function materializeRootObject(
+	value: unknown,
+	path: string,
+	issues: string[],
+): MaterializedObject | null {
+	try {
+		if (typeof value !== "object" || value === null || Array.isArray(value)) {
+			issues.push(`${displayDataPath(path)}: expected object`);
+			return null;
+		}
+		const result = materializeDataValue(value, path, issues, new WeakSet());
+		return result.ok && isRecord(result.value) ? result.value : null;
+	} catch {
+		issues.push(`${displayDataPath(path)}: unable to inspect data safely`);
+		return null;
+	}
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -194,7 +415,6 @@ function readChecklistItems(
 		);
 		if (id && label && checked !== null) {
 			items.push({
-				...item,
 				id,
 				label,
 				checked,
@@ -226,7 +446,6 @@ function readActionNode(
 		return null;
 	}
 	return {
-		...value,
 		kind: "action",
 		id: base.id,
 		label,
@@ -278,7 +497,6 @@ function readFormFields(
 		);
 		if (id && label && inputType) {
 			fields.push({
-				...field,
 				id,
 				label,
 				input,
@@ -313,22 +531,30 @@ function readArrayOfObjects(
 export function parseProjectionSpeechRequest(
 	speech: unknown,
 ): ProjectionSpeechParseResult {
-	if (!isRecord(speech)) {
+	const issues: string[] = [];
+	const materializedSpeech = materializeRootObject(speech, "speech", issues);
+	if (!materializedSpeech) {
 		return {
 			ok: false,
-			issues: ["speech: expected object"],
+			issues,
 		};
 	}
-	const issues: string[] = [];
-	const id = readString(speech.id, "speech.id", issues);
-	const text = readString(speech.text, "speech.text", issues);
+	const id = readString(materializedSpeech.id, "speech.id", issues);
+	const text = readString(materializedSpeech.text, "speech.text", issues);
 	let status: ProjectionSpeechRequest["status"] | null = null;
-	if (speech.status === "pending" || speech.status === "acknowledged") {
-		status = speech.status;
+	if (
+		materializedSpeech.status === "pending" ||
+		materializedSpeech.status === "acknowledged"
+	) {
+		status = materializedSpeech.status;
 	} else {
 		issues.push("speech.status: required");
 	}
-	const voice = readOptionalString(speech.voice, "speech.voice", issues);
+	const voice = readOptionalString(
+		materializedSpeech.voice,
+		"speech.voice",
+		issues,
+	);
 	if (!id || !text || status === null || issues.length > 0) {
 		return { ok: false, issues };
 	}
@@ -346,18 +572,23 @@ export function parseProjectionSpeechRequest(
 export function parseProjectionDocument(
 	document: unknown,
 ): ProjectionDocumentParseResult {
-	if (!isRecord(document)) {
+	const issues: string[] = [];
+	const materializedDocument = materializeRootObject(document, "", issues);
+	if (!materializedDocument) {
 		return {
 			ok: false,
-			issues: ["document: expected object"],
+			issues,
 		};
 	}
 
-	const issues: string[] = [];
-	const id = readString(document.id, "id", issues);
-	const revision = readString(document.revision, "revision", issues);
-	const title = readOptionalString(document.title, "title", issues);
-	if (!Array.isArray(document.nodes)) {
+	const id = readString(materializedDocument.id, "id", issues);
+	const revision = readString(
+		materializedDocument.revision,
+		"revision",
+		issues,
+	);
+	const title = readOptionalString(materializedDocument.title, "title", issues);
+	if (!Array.isArray(materializedDocument.nodes)) {
 		return {
 			ok: false,
 			issues: ["nodes: expected array"],
@@ -365,7 +596,7 @@ export function parseProjectionDocument(
 	}
 
 	const nodes: ProjectionDocumentNode[] = [];
-	for (const [index, node] of document.nodes.entries()) {
+	for (const [index, node] of materializedDocument.nodes.entries()) {
 		if (!isRecord(node)) {
 			issues.push(`nodes[${index}]: expected object`);
 			continue;
@@ -380,7 +611,6 @@ export function parseProjectionDocument(
 				const text = readString(node.text, `nodes[${index}].text`, issues);
 				if (text) {
 					nodes.push({
-						...node,
 						kind: "text",
 						id: base.id,
 						text,
@@ -396,7 +626,6 @@ export function parseProjectionDocument(
 				);
 				if (items) {
 					nodes.push({
-						...node,
 						kind: "checklist",
 						id: base.id,
 						items,
@@ -439,7 +668,6 @@ export function parseProjectionDocument(
 				);
 				if (fields) {
 					nodes.push({
-						...node,
 						kind: "form",
 						id: base.id,
 						fields,
@@ -476,7 +704,6 @@ export function parseProjectionDocument(
 						);
 						if (columnId && label) {
 							columns.push({
-								...column,
 								id: columnId,
 								label,
 							});
@@ -507,14 +734,12 @@ export function parseProjectionDocument(
 						}
 						if (rowId) {
 							rows.push({
-								...row,
 								id: rowId,
 								cells,
 							});
 						}
 					}
 					nodes.push({
-						...node,
 						kind: "table",
 						id: base.id,
 						columns,
@@ -554,7 +779,6 @@ export function parseProjectionDocument(
 						);
 						if (eventId && label && timestamp) {
 							parsedEvents.push({
-								...event,
 								id: eventId,
 								label,
 								timestamp,
@@ -563,7 +787,6 @@ export function parseProjectionDocument(
 						}
 					}
 					nodes.push({
-						...node,
 						kind: "timeline",
 						id: base.id,
 						events: parsedEvents,
@@ -607,7 +830,6 @@ export function parseProjectionDocument(
 						);
 						if (seriesId && label && value !== null) {
 							parsedSeries.push({
-								...entry,
 								id: seriesId,
 								label,
 								value,
@@ -615,7 +837,6 @@ export function parseProjectionDocument(
 						}
 					}
 					nodes.push({
-						...node,
 						kind: "chart",
 						id: base.id,
 						chartType,
@@ -641,7 +862,6 @@ export function parseProjectionDocument(
 					issues,
 				);
 				nodes.push({
-					...node,
 					kind: "code-diff",
 					id: base.id,
 					...(language ? { language } : {}),
@@ -682,7 +902,6 @@ export function parseProjectionDocument(
 						);
 						if (entryId && title && decision) {
 							parsedEntries.push({
-								...entry,
 								id: entryId,
 								title,
 								decision,
@@ -691,7 +910,6 @@ export function parseProjectionDocument(
 						}
 					}
 					nodes.push({
-						...node,
 						kind: "decision-log",
 						id: base.id,
 						entries: parsedEntries,
@@ -711,7 +929,6 @@ export function parseProjectionDocument(
 	return {
 		ok: true,
 		document: {
-			...document,
 			id,
 			revision,
 			...(title ? { title } : {}),
