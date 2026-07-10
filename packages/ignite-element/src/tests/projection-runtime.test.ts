@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { command, type IgniteAdapter, StateScope } from "@ignite-element/core";
-import { assign, setup } from "xstate";
+import { assign, createActor, createMachine, setup } from "xstate";
 import { describe, expect, it, vi } from "vitest";
 import { igniteCore } from "../xstate";
 import { createIgniteComponentFactory } from "../igniteCore/createIgniteComponentFactory";
@@ -1960,6 +1960,157 @@ describe("projection targets", () => {
 			voice: "vbscript: is an inert voice label",
 		});
 		session.dispose();
+	});
+
+	it("fails isolated XState projection accessors closed before derived fallback", async () => {
+		const documentGetter = vi.fn(() => [
+			{
+				id: "actor-document",
+				revision: "1",
+				nodes: [{ kind: "text", id: "actor", text: "Actor" }],
+			},
+		]);
+		const speechGetter = vi.fn(() => {
+			throw new Error("speech getter invoked");
+		});
+		const context = { allowConfirm: true };
+		Object.defineProperty(context, "documents", {
+			enumerable: true,
+			get: documentGetter,
+		});
+		Object.defineProperty(context, "speech", {
+			enumerable: true,
+			get: speechGetter,
+		});
+		const machine = createMachine({
+			context,
+			initial: "active",
+			states: { active: {} },
+		});
+		const derivedDocument: ProjectionDocument = {
+			id: "derived-document",
+			revision: "1",
+			nodes: [{ kind: "text", id: "derived", text: "Derived" }],
+		};
+		const core = igniteCore({
+			source: machine,
+			view: () => ({
+				documents: [derivedDocument],
+				speech: {
+					id: "derived-speech",
+					text: "Derived speech",
+					status: "pending",
+				},
+			}),
+			commands: () => ({ acknowledgeSpeech: () => undefined }),
+		});
+		const commitDocument = vi.fn();
+		const commitSpeech = vi.fn();
+		const sessions: Array<{ dispose(): void }> = [];
+		const unhandled: unknown[] = [];
+		const captureUnhandled = (reason: unknown) => {
+			unhandled.push(reason);
+		};
+
+		process.on("unhandledRejection", captureUnhandled);
+		try {
+			expect(() => {
+				sessions.push(core(createProjectionDocumentTarget({ commitDocument })));
+				sessions.push(
+					core(
+						createProjectionSpeechTarget({
+							commitSpeech,
+							acknowledgeCommandName: "acknowledgeSpeech",
+						}),
+					),
+				);
+			}).not.toThrow();
+			await flushMicrotasks();
+			await flushMicrotasks();
+		} finally {
+			process.off("unhandledRejection", captureUnhandled);
+			for (const session of sessions) {
+				session.dispose();
+			}
+		}
+
+		expect(documentGetter).not.toHaveBeenCalled();
+		expect(speechGetter).not.toHaveBeenCalled();
+		expect(commitDocument).not.toHaveBeenCalled();
+		expect(commitSpeech).not.toHaveBeenCalled();
+		expect(unhandled).toEqual([]);
+	});
+
+	it("fails shared XState projection accessors closed on subsequent snapshots", async () => {
+		const documentGetter = vi.fn(() => {
+			throw new Error("document getter invoked");
+		});
+		const speechGetter = vi.fn(() => ({
+			id: "actor-speech",
+			text: "Actor speech",
+			status: "pending",
+		}));
+		const context = { allowConfirm: true };
+		Object.defineProperty(context, "documents", {
+			enumerable: true,
+			get: documentGetter,
+		});
+		Object.defineProperty(context, "speech", {
+			enumerable: true,
+			get: speechGetter,
+		});
+		const machine = createMachine({
+			context,
+			initial: "idle",
+			states: {
+				idle: { on: { NEXT: "active" } },
+				active: {},
+			},
+		});
+		const actor = createActor(machine);
+		actor.start();
+		const core = igniteCore({
+			source: actor,
+			view: () => ({}),
+			commands: () => ({ acknowledgeSpeech: () => undefined }),
+		});
+		const commitDocument = vi.fn();
+		const commitSpeech = vi.fn();
+		const sessions: Array<{ dispose(): void }> = [];
+		const unhandled: unknown[] = [];
+		const captureUnhandled = (reason: unknown) => {
+			unhandled.push(reason);
+		};
+
+		process.on("unhandledRejection", captureUnhandled);
+		try {
+			expect(() => {
+				sessions.push(core(createProjectionDocumentTarget({ commitDocument })));
+				sessions.push(
+					core(
+						createProjectionSpeechTarget({
+							commitSpeech,
+							acknowledgeCommandName: "acknowledgeSpeech",
+						}),
+					),
+				);
+			}).not.toThrow();
+			actor.send({ type: "NEXT" });
+			await flushMicrotasks();
+			await flushMicrotasks();
+		} finally {
+			process.off("unhandledRejection", captureUnhandled);
+			for (const session of sessions) {
+				session.dispose();
+			}
+			actor.stop();
+		}
+
+		expect(documentGetter).not.toHaveBeenCalled();
+		expect(speechGetter).not.toHaveBeenCalled();
+		expect(commitDocument).not.toHaveBeenCalled();
+		expect(commitSpeech).not.toHaveBeenCalled();
+		expect(unhandled).toEqual([]);
 	});
 
 	it("binds a branded document target, commits revision changes, and disposes cleanly", async () => {

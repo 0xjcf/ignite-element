@@ -51,6 +51,26 @@ type AdapterEntry<Machine extends AnyStateMachine> = {
 
 const stoppedSubscribeWarning =
 	"[XStateAdapter] Cannot subscribe when adapter is stopped.";
+const invalidSnapshotContextMessage =
+	"[XStateAdapter] Snapshot context must be an own data property.";
+const unsafeSnapshotInspectionMessage =
+	"[XStateAdapter] Unable to inspect snapshot descriptors safely.";
+
+function collectEnumerableDescriptors(
+	source: object,
+	descriptors: Map<PropertyKey, PropertyDescriptor>,
+	omitContext: boolean,
+): void {
+	for (const key of Reflect.ownKeys(source)) {
+		if (omitContext && key === "context") {
+			continue;
+		}
+		const descriptor = Object.getOwnPropertyDescriptor(source, key);
+		if (descriptor?.enumerable === true) {
+			descriptors.set(key, descriptor);
+		}
+	}
+}
 
 function requireEntry<Machine extends AnyStateMachine>(
 	registry: WeakMap<
@@ -160,15 +180,39 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 	function toExtendedState(
 		snapshot: StateFrom<Machine>,
 	): ExtendedState<Machine> {
-		const { context, ...rest } = snapshot as StateFrom<Machine> & {
-			context: StateFrom<Machine>["context"];
-		};
+		let contextDescriptor: PropertyDescriptor | undefined;
+		try {
+			contextDescriptor = Object.getOwnPropertyDescriptor(snapshot, "context");
+		} catch {
+			return failInvariant(unsafeSnapshotInspectionMessage);
+		}
+		if (!contextDescriptor || !("value" in contextDescriptor)) {
+			return failInvariant(invalidSnapshotContextMessage);
+		}
+		const context: unknown = contextDescriptor.value;
+		if (typeof context !== "object" || context === null) {
+			return failInvariant(invalidSnapshotContextMessage);
+		}
 
-		return {
-			...rest,
-			...context,
-			context,
-		};
+		try {
+			const descriptors = new Map<PropertyKey, PropertyDescriptor>();
+			collectEnumerableDescriptors(snapshot, descriptors, true);
+			collectEnumerableDescriptors(context, descriptors, false);
+			descriptors.set("context", {
+				value: context,
+				enumerable: true,
+				writable: true,
+				configurable: true,
+			});
+
+			const extendedState = Object.create(Object.prototype);
+			for (const [key, descriptor] of descriptors) {
+				Object.defineProperty(extendedState, key, descriptor);
+			}
+			return extendedState;
+		} catch {
+			return failInvariant(unsafeSnapshotInspectionMessage);
+		}
 	}
 
 	const typedAdapter: IgniteAdapter<

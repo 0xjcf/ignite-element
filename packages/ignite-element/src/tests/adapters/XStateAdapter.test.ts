@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { assign, createActor, emit, setup } from "xstate";
+import { assign, createActor, createMachine, emit, setup } from "xstate";
 import createXStateAdapter from "../../adapters/XStateAdapter";
 import counterMachine from "../fixtures/xstateCounterMachine";
 import { StateScope } from "../../IgniteAdapter";
@@ -235,6 +235,150 @@ describe("XStateAdapter", () => {
 		expect(sharedAdapter.getSnapshot().value).toBe("active");
 		sharedAdapter.stop();
 		actor.stop();
+	});
+
+	it("preserves snapshot and context descriptors across reads and delivery", () => {
+		const contextAccessor = vi.fn(() => "context accessor value");
+		const snapshotAccessor = vi.fn(() => "snapshot accessor value");
+		const contextSymbol = Symbol("context");
+		const snapshotSymbol = Symbol("snapshot");
+		const context = {
+			context: "context collision",
+			value: "context value",
+			visibleContext: "visible context",
+		};
+		Object.defineProperty(context, "contextAccessor", {
+			enumerable: true,
+			get: contextAccessor,
+		});
+		Object.defineProperty(context, "hiddenContext", {
+			value: "hidden context",
+			enumerable: false,
+		});
+		Object.defineProperty(context, contextSymbol, {
+			value: "context symbol",
+			enumerable: true,
+		});
+		const machine = createMachine({
+			context,
+			initial: "idle",
+			states: { idle: {} },
+		});
+		const actor = createActor(machine);
+		actor.start();
+		const snapshot = actor.getSnapshot();
+		Object.defineProperty(snapshot, "snapshotAccessor", {
+			enumerable: true,
+			get: snapshotAccessor,
+		});
+		Object.defineProperty(snapshot, "hiddenSnapshot", {
+			value: "hidden snapshot",
+			enumerable: false,
+		});
+		Object.defineProperty(snapshot, snapshotSymbol, {
+			value: "snapshot symbol",
+			enumerable: true,
+		});
+		const sharedFactory = createXStateAdapter(actor);
+		const sharedAdapter = sharedFactory();
+		const listener = vi.fn();
+		const subscription = sharedAdapter.subscribeSnapshots(listener);
+		const current = sharedAdapter.getSnapshot();
+		const delivered: unknown = listener.mock.calls[0]?.[0];
+
+		const verifyDescriptors = (state: unknown) => {
+			expect(state).toBeTypeOf("object");
+			if (typeof state !== "object" || state === null) {
+				return;
+			}
+			expect(Object.getOwnPropertyDescriptor(state, "value")?.value).toBe(
+				"context value",
+			);
+			expect(
+				Object.getOwnPropertyDescriptor(state, "visibleContext")?.value,
+			).toBe("visible context");
+			expect(Object.getOwnPropertyDescriptor(state, "context")?.value).toBe(
+				context,
+			);
+			expect(Object.getOwnPropertyDescriptor(state, "context")).toMatchObject({
+				enumerable: true,
+				writable: true,
+				configurable: true,
+			});
+			expect(
+				Object.getOwnPropertyDescriptor(state, "contextAccessor")?.get,
+			).toBe(contextAccessor);
+			expect(
+				Object.getOwnPropertyDescriptor(state, "snapshotAccessor")?.get,
+			).toBe(snapshotAccessor);
+			expect(Object.getOwnPropertyDescriptor(state, contextSymbol)?.value).toBe(
+				"context symbol",
+			);
+			expect(
+				Object.getOwnPropertyDescriptor(state, snapshotSymbol)?.value,
+			).toBe("snapshot symbol");
+			expect(Object.prototype.hasOwnProperty.call(state, "hiddenContext")).toBe(
+				false,
+			);
+			expect(
+				Object.prototype.hasOwnProperty.call(state, "hiddenSnapshot"),
+			).toBe(false);
+		};
+
+		verifyDescriptors(current);
+		verifyDescriptors(delivered);
+		expect(contextAccessor).not.toHaveBeenCalled();
+		expect(snapshotAccessor).not.toHaveBeenCalled();
+
+		subscription.unsubscribe();
+		sharedAdapter.stop();
+		actor.stop();
+	});
+
+	it("fails safely when snapshot context is absent or accessor-backed", () => {
+		const absentActor = createActor(
+			createMachine({
+				context: { count: 0 },
+				initial: "idle",
+				states: { idle: {} },
+			}),
+		);
+		absentActor.start();
+		Reflect.deleteProperty(absentActor.getSnapshot(), "context");
+		const absentAdapter = createXStateAdapter(absentActor)();
+
+		expect(() => absentAdapter.getSnapshot()).toThrow(
+			"[XStateAdapter] Snapshot context must be an own data property.",
+		);
+
+		absentAdapter.stop();
+		absentActor.stop();
+
+		const contextGetter = vi.fn(() => ({ count: 0 }));
+		const accessorActor = createActor(
+			createMachine({
+				context: { count: 0 },
+				initial: "idle",
+				states: { idle: {} },
+			}),
+		);
+		accessorActor.start();
+		Object.defineProperty(accessorActor.getSnapshot(), "context", {
+			enumerable: true,
+			configurable: true,
+			get: contextGetter,
+		});
+		const accessorAdapter = createXStateAdapter(accessorActor)();
+		const listener = vi.fn();
+
+		expect(() => accessorAdapter.subscribeSnapshots(listener)).toThrow(
+			"[XStateAdapter] Snapshot context must be an own data property.",
+		);
+		expect(contextGetter).not.toHaveBeenCalled();
+		expect(listener).not.toHaveBeenCalled();
+
+		accessorAdapter.stop();
+		accessorActor.stop();
 	});
 });
 
