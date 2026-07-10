@@ -9,11 +9,7 @@ type ProjectionTargetCommitResult =
 	| { status: "committed" }
 	| { status: "unsupported"; reason: string };
 
-type ProjectionTargetCommitValue = ProjectionTargetCommitResult | void;
-
-type MaybeProjectionTargetCommitResult =
-	| ProjectionTargetCommitValue
-	| Promise<ProjectionTargetCommitValue>;
+type ProjectionTargetCommitValue = ProjectionTargetCommitResult | undefined;
 
 type InternalProjectionDocumentTarget = IgniteProjectionTarget & {
 	readonly [igniteProjectionTargetBrand]: true;
@@ -21,7 +17,11 @@ type InternalProjectionDocumentTarget = IgniteProjectionTarget & {
 	readonly documentId?: string;
 	readonly commitDocument: (
 		document: ProjectionDocument,
-	) => MaybeProjectionTargetCommitResult;
+	) =>
+		| ProjectionTargetCommitValue
+		| void
+		| Promise<ProjectionTargetCommitValue>
+		| Promise<void>;
 };
 
 type InternalProjectionSpeechTarget = IgniteProjectionTarget & {
@@ -30,7 +30,11 @@ type InternalProjectionSpeechTarget = IgniteProjectionTarget & {
 	readonly acknowledgeCommandName: string;
 	readonly commitSpeech: (
 		speech: ProjectionSpeechRequest,
-	) => MaybeProjectionTargetCommitResult;
+	) =>
+		| ProjectionTargetCommitValue
+		| void
+		| Promise<ProjectionTargetCommitValue>
+		| Promise<void>;
 	readonly resolveAcknowledgePayload?: (
 		speech: ProjectionSpeechRequest,
 	) => unknown;
@@ -44,14 +48,22 @@ type ProjectionDocumentTargetOptions = {
 	readonly documentId?: string;
 	readonly commitDocument: (
 		document: ProjectionDocument,
-	) => MaybeProjectionTargetCommitResult;
+	) =>
+		| ProjectionTargetCommitValue
+		| void
+		| Promise<ProjectionTargetCommitValue>
+		| Promise<void>;
 };
 
 type ProjectionSpeechTargetOptions = {
 	readonly acknowledgeCommandName: string;
 	readonly commitSpeech: (
 		speech: ProjectionSpeechRequest,
-	) => MaybeProjectionTargetCommitResult;
+	) =>
+		| ProjectionTargetCommitValue
+		| void
+		| Promise<ProjectionTargetCommitValue>
+		| Promise<void>;
 	readonly resolveAcknowledgePayload?: (
 		speech: ProjectionSpeechRequest,
 	) => unknown;

@@ -48,6 +48,10 @@ export type ElementFactoryOptions<
 	resolveView?: (
 		adapter: IgniteAdapter<State, Event>,
 	) => RuntimeView | Record<never, never>;
+	resolveInspection?: (adapter: IgniteAdapter<State, Event>) => {
+		snapshot: unknown;
+		view: RuntimeView | Record<never, never>;
+	};
 	cleanup?: boolean;
 };
 
@@ -148,7 +152,14 @@ export function bindProjectionToElements<
 	Events extends EventMap = EmptyEventMap,
 	RuntimeView extends Record<string, unknown> = Record<never, never>,
 >(
-	projection: ProjectionFactory<State, Event, RenderArgs, HTMLElement, Events>,
+	projection: ProjectionFactory<
+		State,
+		Event,
+		RenderArgs,
+		HTMLElement,
+		Events,
+		RuntimeView
+	>,
 	options: BindProjectionToElementsOptions<
 		State,
 		Event,
@@ -176,9 +187,8 @@ export function bindProjectionToElements<
 		scope: projection.scope,
 		cleanup: projection.cleanup,
 		eventTypes: projection.eventTypes,
-		resolveView: projection.resolveView as (
-			adapter: IgniteAdapter<State, Event>,
-		) => RuntimeView,
+		resolveInspection: projection.resolveInspection,
+		resolveView: projection.resolveView,
 		createRenderStrategy: options.createRenderStrategy,
 		createAdditionalArgs: (adapter, host) => {
 			if (!host) {

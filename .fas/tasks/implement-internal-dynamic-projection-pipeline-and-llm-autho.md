@@ -41,6 +41,8 @@ Replace the superseded ProjectionRequest/ProjectionSpec registry and command-pre
 - docs/site/src/content/docs/guides/accessibility-first.mdx
 - packages/ignite-element/src/internal/projectionBinding.ts
 - packages/ignite-element/src/internal/projectionDocument.ts
+- packages/ignite-element/src/createProjectionFactory.ts
+- packages/ignite-element/src/createComponentFactory.ts
 - packages/ignite-element/src/runtime/agent.ts
 - packages/ignite-element/src/runtime/projectionTargets.ts
 - packages/ignite-element/src/IgniteElementFactory.ts
@@ -55,6 +57,7 @@ Replace the superseded ProjectionRequest/ProjectionSpec registry and command-pre
 - packages/ignite-element/src/tools/core.ts
 - packages/ignite-element/src/tests/projection-runtime.test.ts
 - packages/ignite-element/src/tests/projection-binding.test.ts
+- packages/ignite-element/src/tests/createProjectionFactory.test.ts
 - packages/ignite-element/src/tests/projection-target-guard.test.ts
 - packages/ignite-element/src/tests/tools.test.ts
 - packages/ignite-element/src/tests/types/igniteCore.types.test.ts

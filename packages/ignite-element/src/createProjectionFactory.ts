@@ -95,6 +95,10 @@ export type ProjectionFactory<
 	scope?: StateScope;
 	cleanup?: boolean;
 	eventTypes: readonly (keyof Events & string)[];
+	resolveInspection: (adapter: IgniteAdapter<State, Event>) => {
+		snapshot: unknown;
+		view: FacadeStateResult<ViewResult>;
+	};
 	resolveView: (
 		adapter: IgniteAdapter<State, Event>,
 	) => FacadeStateResult<ViewResult>;
@@ -124,6 +128,27 @@ const isDevelopment = () =>
 
 function freezeIfDev<T extends object>(value: T): T {
 	return isDevelopment() ? Object.freeze(value) : value;
+}
+
+// Snapshot defaults to the adapter snapshot when no explicit resolver is
+// provided. The generic path above cannot prove that relationship, so this
+// assertion is the single fallback boundary for the internal factory.
+function defaultResolveSnapshot<State, Event, Snapshot>(
+	adapter: IgniteAdapter<State, Event>,
+): Snapshot {
+	return adapter.getSnapshot() as unknown as Snapshot;
+}
+
+function defaultResolveActor<State, Event>(
+	adapter: IgniteAdapter<State, Event>,
+): {
+	send: (event: Event) => void;
+	getState: () => State;
+} {
+	return {
+		send: (event: Event) => adapter.send(event),
+		getState: () => adapter.getSnapshot(),
+	};
 }
 
 const createViewContext = <Snapshot>(
@@ -225,32 +250,47 @@ export function createProjectionFactory<
 		(createAdapter.resolveStateSnapshot as
 			| ((adapter: IgniteAdapter<State, Event>) => Snapshot)
 			| undefined) ??
-		((adapter: IgniteAdapter<State, Event>) =>
-			adapter.getSnapshot() as unknown as Snapshot);
+		defaultResolveSnapshot<State, Event, Snapshot>;
 
 	const resolveActor =
 		resolveCommandActor ??
 		(createAdapter.resolveCommandActor as
 			| ((adapter: IgniteAdapter<State, Event>) => CommandActor)
 			| undefined) ??
+		// CommandActor defaults to the internal send/getState actor shape. When a
+		// caller overrides it they should supply a resolver.
 		((adapter: IgniteAdapter<State, Event>) =>
-			({
-				send: (event: Event) => adapter.send(event),
-				getState: () => adapter.getSnapshot(),
-			}) as CommandActor);
+			defaultResolveActor<State, Event>(adapter) as CommandActor);
 
 	const userAdditionalArgs = createAdditionalArgs ?? (() => ({}) as Additional);
 	const resolvedView = view;
+	const resolveInspection: ProjectionFactory<
+		State,
+		Event,
+		FinalRenderArgs,
+		Host,
+		Events,
+		StatesResult
+	>["resolveInspection"] = (adapter: IgniteAdapter<State, Event>) => {
+		const snapshot = resolveSnapshot(adapter);
+		if (!resolvedView) {
+			return {
+				snapshot,
+				view: Object.create(null) as FacadeStateResult<StatesResult>,
+			};
+		}
+
+		const result = resolvedView(createViewContext(snapshot));
+		ensureFacadeResult(result, "view", errorPrefix);
+		return {
+			snapshot,
+			view: result,
+		};
+	};
 	const resolveView = (
 		adapter: IgniteAdapter<State, Event>,
 	): FacadeStateResult<StatesResult> => {
-		if (resolvedView) {
-			const result = resolvedView(createViewContext(resolveSnapshot(adapter)));
-			ensureFacadeResult(result, "view", errorPrefix);
-			return result;
-		}
-
-		return Object.create(null) as FacadeStateResult<StatesResult>;
+		return resolveInspection(adapter).view;
 	};
 
 	type FinalRenderArgs = WithFacadeRenderArgs<
@@ -383,6 +423,7 @@ export function createProjectionFactory<
 		scope: scope ?? createAdapter.scope,
 		cleanup,
 		eventTypes: Object.keys(eventDefinitions) as Array<keyof Events & string>,
+		resolveInspection,
 		resolveView,
 		createAdditionalArgs: createMergedArgs as ProjectionFactory<
 			State,

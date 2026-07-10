@@ -11,7 +11,9 @@ import IgniteElement, {
 import {
 	commitProjectionDocumentTarget,
 	commitProjectionSpeechTarget,
+	createProjectionDocument,
 	createProjectionBindingState,
+	createProjectionSpeech,
 	type ProjectionInspection,
 } from "./internal/projectionBinding";
 import "./renderers/ignite-jsx";
@@ -26,6 +28,10 @@ import { commandMetadataSymbol } from "./runtime/commands";
 import { facadeCleanupSymbol } from "./runtime/effects";
 import { isProjectionTarget } from "./runtime/projectionTargets";
 import { toSchemaValue } from "./runtime/schema";
+import {
+	parseProjectionDocument,
+	parseProjectionSpeechRequest,
+} from "./internal/projectionDocument";
 import type {
 	IgniteProjectionSession,
 	IgniteProjectionTarget,
@@ -106,6 +112,10 @@ type FactoryOptions<
 		host?: EventTarget,
 	) => AdditionalRenderArgs<State, Event, RenderArgs>;
 	resolveView?: (adapter: IgniteAdapter<State, Event>) => RuntimeView;
+	resolveInspection?: (adapter: IgniteAdapter<State, Event>) => {
+		snapshot: unknown;
+		view: RuntimeView;
+	};
 	createRenderStrategy?: RenderStrategyFactory<View>;
 	cleanup?: boolean;
 };
@@ -173,6 +183,13 @@ function getAdditionalArg(
 	commandName: string,
 ): unknown {
 	return Reflect.get(additionalArgs, commandName);
+}
+
+function createCommandSchemaEntry(
+	name: string,
+	commandValue: unknown,
+): [string, Record<string, IgniteSchemaValue>] {
+	return [name, getCommandContract(commandValue) ?? {}];
 }
 
 /**
@@ -317,6 +334,12 @@ export default function igniteElementFactory<
 	const eventTypes = options?.eventTypes ?? [];
 	const resolveView =
 		options?.resolveView ?? ((_) => Object.create(null) as RuntimeView);
+	const resolveInspection =
+		options?.resolveInspection ??
+		((adapter: IgniteAdapter<State, Event>) => ({
+			snapshot: adapter.getSnapshot(),
+			view: resolveView(adapter),
+		}));
 	const resolveLifecycleScope = (): IgniteStoryLifecycleScope =>
 		inferredScope === StateScope.Shared ? "shared" : "isolated";
 
@@ -731,22 +754,6 @@ export default function igniteElementFactory<
 	): value is Record<string, unknown> =>
 		typeof value === "object" && value !== null && !Array.isArray(value);
 
-	const isProjectionDocumentLike = (
-		value: unknown,
-	): value is ProjectionInspection["documents"][number] =>
-		isInspectableRecord(value) &&
-		typeof value.id === "string" &&
-		typeof value.revision === "string" &&
-		Array.isArray(value.nodes);
-
-	const isProjectionSpeechLike = (
-		value: unknown,
-	): value is NonNullable<ProjectionInspection["speech"]> =>
-		isInspectableRecord(value) &&
-		typeof value.id === "string" &&
-		typeof value.text === "string" &&
-		(value.status === "pending" || value.status === "acknowledged");
-
 	const readProjectionDocuments = (
 		candidate: unknown,
 	): readonly ProjectionInspection["documents"][number][] => {
@@ -755,9 +762,18 @@ export default function igniteElementFactory<
 		}
 
 		const documents = Reflect.get(candidate, "documents");
-		return Array.isArray(documents)
-			? documents.filter(isProjectionDocumentLike)
-			: [];
+		if (!Array.isArray(documents)) {
+			return [];
+		}
+
+		const parsedDocuments: ProjectionInspection["documents"][number][] = [];
+		for (const document of documents) {
+			const parsed = parseProjectionDocument(document);
+			if (parsed.ok) {
+				parsedDocuments.push(parsed.document);
+			}
+		}
+		return parsedDocuments;
 	};
 
 	const readProjectionSpeech = (
@@ -768,7 +784,8 @@ export default function igniteElementFactory<
 		}
 
 		const speech = Reflect.get(candidate, "speech");
-		return isProjectionSpeechLike(speech) ? speech : null;
+		const parsed = parseProjectionSpeechRequest(speech);
+		return parsed.ok ? parsed.speech : null;
 	};
 
 	const resolveProjectionState = (
@@ -804,15 +821,12 @@ export default function igniteElementFactory<
 		const commandEntries = Object.entries(additionalArgs).filter(
 			([, value]) => typeof value === "function",
 		);
-		const snapshot = adapter.getSnapshot();
-		const view = resolveView(adapter);
+		const { snapshot, view } = resolveInspection(adapter);
 		const projectionState = resolveProjectionState(snapshot, view);
 		const schema = {
 			commands: Object.fromEntries(
 				commandEntries
-					.map(
-						([name, value]) => [name, getCommandContract(value) ?? {}] as const,
-					)
+					.map(([name, value]) => createCommandSchemaEntry(name, value))
 					.sort(([left], [right]) => left.localeCompare(right)),
 			),
 			events: [...eventTypes].sort().map((type) => ({ type })),
@@ -895,12 +909,13 @@ export default function igniteElementFactory<
 							? await commitProjectionDocumentTarget({
 									state: bindingState,
 									inspection,
-									documentId: target.documentId,
+									projection: createProjectionDocument(target.documentId),
 									commitDocument: target.commitDocument,
 								})
 							: await commitProjectionSpeechTarget({
 									state: bindingState,
 									inspection,
+									projection: createProjectionSpeech(),
 									commitSpeech: target.commitSpeech,
 									acknowledge: async (speech) => {
 										const payload = target.resolveAcknowledgePayload?.(speech);

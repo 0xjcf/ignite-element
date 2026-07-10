@@ -4,6 +4,8 @@ import {
 	commitProjectionDocumentTarget,
 	commitProjectionSpeechTarget,
 	createProjectionBindingState,
+	createProjectionDocument,
+	createProjectionSpeech,
 	type ProjectionInspection,
 } from "../internal/projectionBinding";
 
@@ -90,5 +92,49 @@ describe("private projection binding", () => {
 		});
 
 		expect(acknowledge).toHaveBeenCalledTimes(1);
+	});
+
+	it("keeps only the latest document revision and current speech identity in binding state", async () => {
+		const state = createProjectionBindingState();
+		const firstInspection = createInspection();
+		const secondInspection: ProjectionInspection = {
+			...createInspection(),
+			documents: [
+				{
+					id: "panel",
+					revision: "2",
+					nodes: [{ kind: "text", id: "summary", text: "Updated" }],
+				},
+			],
+			speech: {
+				id: "speech-2",
+				text: "Updated.",
+				status: "pending",
+			},
+		};
+
+		await commitProjectionDocumentTarget({
+			state,
+			inspection: firstInspection,
+			projection: createProjectionDocument(),
+			commitDocument: () => ({ status: "committed" }),
+		});
+		await commitProjectionDocumentTarget({
+			state,
+			inspection: secondInspection,
+			projection: createProjectionDocument(),
+			commitDocument: () => ({ status: "committed" }),
+		});
+		await commitProjectionSpeechTarget({
+			state,
+			inspection: secondInspection,
+			projection: createProjectionSpeech(),
+			commitSpeech: () => ({ status: "committed" }),
+			acknowledge: async () => undefined,
+		});
+
+		expect([...state.documentRevisionById.entries()]).toEqual([["panel", "2"]]);
+		expect(state.activeSpeechId).toBe("speech-2");
+		expect(state.lastAcknowledgedSpeechId).toBe("speech-2");
 	});
 });

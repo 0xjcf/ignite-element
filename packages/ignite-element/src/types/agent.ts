@@ -350,18 +350,6 @@ export type IgniteProjectionSession = {
 	dispose(): void;
 };
 
-export type IgniteProjectionInspection<
-	Snapshot = unknown,
-	SchemaState extends IgniteSchemaValue = IgniteSchemaValue,
-	View extends IgniteSchemaValue = IgniteSchemaValue,
-> = {
-	snapshot: Snapshot;
-	view: View;
-	schema: IgniteAgentSchema<SchemaState, View>;
-	canExecute(commandName: string): boolean;
-	revision: string;
-};
-
 export type IgniteProjectionTarget = {
 	readonly [igniteProjectionTargetBrand]: true;
 };

@@ -12,7 +12,7 @@ type ProjectionCommitResult =
 	| { status: "committed" }
 	| { status: "unsupported"; reason: string };
 
-type ProjectionCommitValue = ProjectionCommitResult | void;
+type ProjectionCommitValue = ProjectionCommitResult | undefined;
 
 export type ProjectionInspection = {
 	readonly snapshot: unknown;
@@ -24,9 +24,16 @@ export type ProjectionInspection = {
 	readonly speech: ProjectionSpeechRequest | null;
 };
 
+type Projection<_Format, Output> = {
+	readonly channel: "document" | "speech";
+	select(inspection: ProjectionInspection): Output | null;
+	identity(value: Output): string;
+};
+
 export type ProjectionBindingState = {
-	readonly documentRevisions: Set<string>;
-	readonly speechIds: Set<string>;
+	readonly documentRevisionById: Map<string, string>;
+	activeSpeechId: string | null;
+	lastAcknowledgedSpeechId: string | null;
 };
 
 export type ProjectionBindingFact =
@@ -80,8 +87,41 @@ export type ProjectionBindingFact =
 
 export function createProjectionBindingState(): ProjectionBindingState {
 	return {
-		documentRevisions: new Set<string>(),
-		speechIds: new Set<string>(),
+		documentRevisionById: new Map<string, string>(),
+		activeSpeechId: null,
+		lastAcknowledgedSpeechId: null,
+	};
+}
+
+export function createProjectionDocument(
+	documentId?: string,
+): Projection<"document", ProjectionDocument> {
+	return {
+		channel: "document",
+		select(inspection) {
+			return typeof documentId === "string"
+				? (inspection.documents.find((entry) => entry.id === documentId) ??
+						null)
+				: (inspection.documents[0] ?? null);
+		},
+		identity(document) {
+			return `${document.id}:${document.revision}`;
+		},
+	};
+}
+
+export function createProjectionSpeech(): Projection<
+	"speech",
+	ProjectionSpeechRequest
+> {
+	return {
+		channel: "speech",
+		select(inspection) {
+			return inspection.speech;
+		},
+		identity(speech) {
+			return speech.id;
+		},
 	};
 }
 
@@ -94,20 +134,21 @@ function normalizeCommitResult(
 export async function commitProjectionDocumentTarget({
 	state,
 	inspection,
-	documentId,
+	projection = createProjectionDocument(),
 	commitDocument,
 }: {
 	state: ProjectionBindingState;
 	inspection: ProjectionInspection;
-	documentId?: string;
+	projection?: Projection<"document", ProjectionDocument>;
 	commitDocument: (
 		document: ProjectionDocument,
-	) => ProjectionCommitValue | Promise<ProjectionCommitValue>;
+	) =>
+		| ProjectionCommitValue
+		| void
+		| Promise<ProjectionCommitValue>
+		| Promise<void>;
 }): Promise<ProjectionBindingFact> {
-	const document =
-		typeof documentId === "string"
-			? inspection.documents.find((entry) => entry.id === documentId)
-			: inspection.documents[0];
+	const document = projection.select(inspection);
 
 	if (!document) {
 		return {
@@ -117,8 +158,8 @@ export async function commitProjectionDocumentTarget({
 		};
 	}
 
-	const reservationKey = `${document.id}:${document.revision}`;
-	if (state.documentRevisions.has(reservationKey)) {
+	const previousRevision = state.documentRevisionById.get(document.id);
+	if (previousRevision === document.revision) {
 		return {
 			channel: "document",
 			status: "skipped",
@@ -137,10 +178,12 @@ export async function commitProjectionDocumentTarget({
 		};
 	}
 
-	state.documentRevisions.add(reservationKey);
+	state.documentRevisionById.set(document.id, document.revision);
 
 	try {
-		const result = normalizeCommitResult(await commitDocument(document));
+		const result = normalizeCommitResult(
+			(await commitDocument(document)) ?? undefined,
+		);
 		if (result.status === "unsupported") {
 			return {
 				channel: "document",
@@ -171,19 +214,24 @@ export async function commitProjectionDocumentTarget({
 export async function commitProjectionSpeechTarget({
 	state,
 	inspection,
+	projection = createProjectionSpeech(),
 	commitSpeech,
 	acknowledge,
 }: {
 	state: ProjectionBindingState;
 	inspection: ProjectionInspection;
+	projection?: Projection<"speech", ProjectionSpeechRequest>;
 	commitSpeech: (
 		speech: ProjectionSpeechRequest,
-	) => ProjectionCommitValue | Promise<ProjectionCommitValue>;
+	) =>
+		| ProjectionCommitValue
+		| void
+		| Promise<ProjectionCommitValue>
+		| Promise<void>;
 	acknowledge: (speech: ProjectionSpeechRequest) => Promise<void>;
 }): Promise<ProjectionBindingFact> {
-	const speech = inspection.speech;
-	const wasAcknowledged =
-		inspection.speech !== null && inspection.speech.status === "acknowledged";
+	const speech = projection.select(inspection);
+	const wasAcknowledged = speech !== null && speech.status === "acknowledged";
 	if (!isPendingSpeechRequest(speech)) {
 		return {
 			channel: "speech",
@@ -192,7 +240,10 @@ export async function commitProjectionSpeechTarget({
 		};
 	}
 
-	if (state.speechIds.has(speech.id)) {
+	if (
+		state.activeSpeechId === projection.identity(speech) ||
+		state.lastAcknowledgedSpeechId === projection.identity(speech)
+	) {
 		return {
 			channel: "speech",
 			status: "skipped",
@@ -200,10 +251,12 @@ export async function commitProjectionSpeechTarget({
 		};
 	}
 
-	state.speechIds.add(speech.id);
+	state.activeSpeechId = projection.identity(speech);
 
 	try {
-		const result = normalizeCommitResult(await commitSpeech(speech));
+		const result = normalizeCommitResult(
+			(await commitSpeech(speech)) ?? undefined,
+		);
 		if (result.status === "unsupported") {
 			return {
 				channel: "speech",
@@ -214,6 +267,7 @@ export async function commitProjectionSpeechTarget({
 		}
 
 		await acknowledge(speech);
+		state.lastAcknowledgedSpeechId = projection.identity(speech);
 		return {
 			channel: "speech",
 			status: "committed",

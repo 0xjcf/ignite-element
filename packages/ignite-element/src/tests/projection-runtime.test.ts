@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { igniteCore } from "../xstate";
 import {
 	applyProjectionDocumentPatch,
+	parseProjectionDocument,
 	upsertProjectionDocument,
 	validateProjectionDocument,
 } from "../internal/projectionDocument";
@@ -192,7 +193,7 @@ describe("projection document helpers", () => {
 
 	it("rejects executable content, missing commands, and invalid payloads", () => {
 		const core = createProjectionCore();
-		const unsafeDocument = {
+		const unsafeDocument = parseProjectionDocument({
 			id: "unsafe",
 			revision: "1",
 			nodes: [
@@ -203,33 +204,34 @@ describe("projection document helpers", () => {
 					jsx: "<button />",
 				},
 			],
-		};
+		});
+		const unsafeCaseDocument = parseProjectionDocument({
+			id: "unsafe-case",
+			revision: "1",
+			nodes: [
+				{
+					kind: "text",
+					id: "unsafe-case-text",
+					text: "Unsafe",
+					JSX: "<button />",
+				},
+			],
+		});
+		if (!unsafeDocument.ok || !unsafeCaseDocument.ok) {
+			throw new Error("Expected unsafe documents to parse structurally.");
+		}
 
 		expect(
-			validateProjectionDocument(unsafeDocument as ProjectionDocument, {
+			validateProjectionDocument(unsafeDocument.document, {
 				schema: core.getSchema(),
 				canExecute: core.canExecute,
 			}),
 		).toContain("nodes[0].jsx: executable content is not allowed");
 		expect(
-			validateProjectionDocument(
-				{
-					id: "unsafe-case",
-					revision: "1",
-					nodes: [
-						{
-							kind: "text",
-							id: "unsafe-case-text",
-							text: "Unsafe",
-							JSX: "<button />",
-						},
-					],
-				} as unknown as ProjectionDocument,
-				{
-					schema: core.getSchema(),
-					canExecute: core.canExecute,
-				},
-			),
+			validateProjectionDocument(unsafeCaseDocument.document, {
+				schema: core.getSchema(),
+				canExecute: core.canExecute,
+			}),
 		).toContain("nodes[0].JSX: executable content is not allowed");
 
 		expect(
@@ -299,6 +301,52 @@ describe("projection document helpers", () => {
 				"nodes[0].items[0].label: required",
 			]),
 		);
+	});
+
+	it("parses unknown input without throwing and rejects malformed documents", () => {
+		expect(parseProjectionDocument(null)).toEqual({
+			ok: false,
+			issues: ["document: expected object"],
+		});
+
+		expect(
+			parseProjectionDocument({
+				id: "panel",
+				revision: "1",
+				nodes: null,
+			}),
+		).toEqual({
+			ok: false,
+			issues: ["nodes: expected array"],
+		});
+
+		expect(
+			parseProjectionDocument({
+				id: "panel",
+				revision: "1",
+				nodes: [null],
+			}),
+		).toEqual({
+			ok: false,
+			issues: ["nodes[0]: expected object"],
+		});
+
+		expect(
+			parseProjectionDocument({
+				id: "panel",
+				revision: "1",
+				nodes: [
+					{
+						kind: "checklist",
+						id: "items",
+						items: {},
+					},
+				],
+			}),
+		).toEqual({
+			ok: false,
+			issues: ["nodes[0].items: expected array"],
+		});
 	});
 
 	it("applies revision-aware document patches by stable node id", () => {
@@ -376,6 +424,21 @@ describe("projection document helpers", () => {
 			code: "document-mismatch",
 			reason:
 				'Projection patch target "other-panel" does not match document "panel".',
+		});
+
+		expect(
+			applyProjectionDocumentPatch(original, {
+				documentId: "panel",
+				baseRevision: "2",
+				revision: "2",
+				type: "remove-node",
+				nodeId: "summary",
+			}),
+		).toEqual({
+			ok: false,
+			code: "stale-revision",
+			reason:
+				'Projection patch revision "2" must advance beyond base revision "2".',
 		});
 	});
 });
@@ -578,6 +641,89 @@ describe("projection targets", () => {
 		}
 
 		expect(commitDocument).not.toHaveBeenCalled();
+		expect(unhandled).toEqual([]);
+	});
+
+	it("does not throw or reject when malformed raw projection data enters state", async () => {
+		const malformedMachine = setup({
+			types: {
+				context: {} as {
+					documents: unknown[];
+					speech: unknown;
+				},
+				events: {} as
+					| { type: "SET_DOCUMENTS"; documents: unknown[] }
+					| { type: "SET_SPEECH"; speech: unknown },
+			},
+		}).createMachine({
+			context: {
+				documents: [],
+				speech: null,
+			},
+			initial: "active",
+			states: {
+				active: {
+					on: {
+						SET_DOCUMENTS: {
+							actions: assign({
+								documents: ({ event }) => event.documents,
+							}),
+						},
+						SET_SPEECH: {
+							actions: assign({
+								speech: ({ event }) => event.speech,
+							}),
+						},
+					},
+				},
+			},
+		});
+		const core = igniteCore({
+			source: malformedMachine,
+			view: () => ({}),
+			commands: ({ actor, command }) => ({
+				setDocuments: command(
+					(documents: unknown[]) =>
+						actor.send({ type: "SET_DOCUMENTS", documents }),
+					{ input: command.array() },
+				),
+				setSpeech: command(
+					(speech: unknown) => actor.send({ type: "SET_SPEECH", speech }),
+					{ input: command.object() },
+				),
+			}),
+		});
+		const commitDocument = vi.fn();
+		const commitSpeech = vi.fn();
+		const sessionA = core(
+			createProjectionDocumentTarget({
+				commitDocument,
+			}),
+		);
+		const sessionB = core(
+			createProjectionSpeechTarget({
+				commitSpeech,
+				acknowledgeCommandName: "setSpeech",
+			}),
+		);
+		const unhandled: unknown[] = [];
+		const captureUnhandled = (reason: unknown) => {
+			unhandled.push(reason);
+		};
+
+		process.on("unhandledRejection", captureUnhandled);
+		try {
+			await core.execute("setDocuments", [null, { id: "broken" }]);
+			await core.execute("setSpeech", { id: 1, text: null, status: "pending" });
+			await flushMicrotasks();
+		} finally {
+			process.off("unhandledRejection", captureUnhandled);
+			sessionA.dispose();
+			sessionB.dispose();
+		}
+
+		expect(commitDocument).not.toHaveBeenCalled();
+		expect(commitSpeech).not.toHaveBeenCalled();
 		expect(unhandled).toEqual([]);
 	});
 });
