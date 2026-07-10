@@ -36,7 +36,11 @@ import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type { AnyStateMachine } from "xstate";
 import type { WithFacadeRenderArgs } from "../createProjectionFactory";
 import type { ComponentFactory } from "../IgniteElementFactory";
-import type { IgniteAgentRuntime } from "../types/agent";
+import type {
+	IgniteAgentRuntime,
+	IgniteProjectionSession,
+	IgniteProjectionTarget,
+} from "../types/agent";
 import type { IgniteAgentSchema, IgniteSchemaValue } from "../types/schema";
 
 /**
@@ -101,36 +105,48 @@ export type IgniteCoreReturn<
 		FacadeCommandFunction
 	>,
 	Events extends EventMap = EmptyEventMap,
-> = ((
+> = {
 	// Call signature mirrors ComponentFactory's parameter typing (same
 	// elementName + projected RenderArgs renderer) but returns a typed
 	// IgniteComponent handle instead of void. The handle return is additive — a
 	// function returning an object is assignable to a void-expecting position —
 	// so existing side-effect callers compile unchanged.
-	...args: Parameters<
-		ComponentFactory<
-			State,
-			Event,
-			WithFacadeRenderArgs<
+	(
+		...args: Parameters<
+			ComponentFactory<
 				State,
 				Event,
-				StatesResult,
-				CommandActor,
-				CommandsResult,
-				Record<never, never>,
-				Events
-			> &
-				Record<never, Snapshot>
+				WithFacadeRenderArgs<
+					State,
+					Event,
+					StatesResult,
+					CommandActor,
+					CommandsResult,
+					Record<never, never>,
+					Events
+				> &
+					Record<never, Snapshot>
+			>
 		>
-	>
-) => IgniteComponent<CommandsResult, Events>) &
-	IgniteAgentRuntime<
-		Snapshot,
+	): IgniteComponent<CommandsResult, Events>;
+	(target: IgniteProjectionTarget): IgniteProjectionSession;
+	readonly __igniteRenderArgs?: WithFacadeRenderArgs<
+		State,
+		Event,
+		StatesResult,
+		CommandActor,
 		CommandsResult,
-		Events,
-		IgniteSchemaValue,
-		StatesResult
-	>;
+		Record<never, never>,
+		Events
+	> &
+		Record<never, Snapshot>;
+} & IgniteAgentRuntime<
+	Snapshot,
+	CommandsResult,
+	Events,
+	IgniteSchemaValue,
+	StatesResult
+>;
 export type {
 	AnyCommandsCallback,
 	AnyEffectsCallback,

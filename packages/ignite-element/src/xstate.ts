@@ -47,11 +47,31 @@ export type {
 	IgniteTestScenarioOptions,
 } from "./testing";
 export { test } from "./testing";
+export {
+	createProjectionDocumentTarget,
+	createProjectionSpeechTarget,
+} from "./runtime/projectionTargets";
 export type {
 	IgniteAgentEventListener,
 	IgniteAgentExecutionResult,
+	IgniteProjectionInspection,
+	IgniteProjectionSession,
+	IgniteProjectionTarget,
 	IgniteAgentRuntime,
 	IgniteAgentSubscription,
+	ProjectionActionNode,
+	ProjectionChartNode,
+	ProjectionChecklistNode,
+	ProjectionCodeDiffNode,
+	ProjectionDecisionLogNode,
+	ProjectionDocument,
+	ProjectionDocumentNode,
+	ProjectionDocumentPatch,
+	ProjectionFormNode,
+	ProjectionSpeechRequest,
+	ProjectionTableNode,
+	ProjectionTextNode,
+	ProjectionTimelineNode,
 	IgniteStory,
 	IgniteStoryCommandTraceEntry,
 	IgniteStoryEventTraceEntry,

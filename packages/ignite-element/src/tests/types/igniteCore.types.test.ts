@@ -42,12 +42,18 @@ import type {
 import type {
 	IgniteDomBridge as RootIgniteDomBridge,
 	IgniteDomRoleExpectation as RootIgniteDomRoleExpectation,
+	IgniteProjectionSession as RootIgniteProjectionSession,
+	IgniteProjectionTarget as RootIgniteProjectionTarget,
 	IgniteStorySnapshot as RootIgniteStorySnapshot,
 	IgniteStorySnapshotEvent as RootIgniteStorySnapshotEvent,
 	IgniteStorySummarySnapshot as RootIgniteStorySummarySnapshot,
 	IgniteStoryTraceSnapshot as RootIgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry as RootIgniteStoryTraceSnapshotEntry,
 	IgniteTestHelpers as RootIgniteTestHelpers,
+} from "../../index";
+import {
+	createProjectionDocumentTarget,
+	createProjectionSpeechTarget,
 } from "../../index";
 import type {
 	IgniteDomBridge as MobxIgniteDomBridge,
@@ -202,6 +208,59 @@ const mobxCounterFactory = () =>
 	});
 
 describe("igniteCore type inference", () => {
+	it("accepts only first-party branded projection targets on the one-argument overload", () => {
+		const machine = setup({
+			types: {
+				context: {} as { count: number },
+				events: {} as { type: "INC" },
+			},
+		}).createMachine({
+			context: { count: 0 },
+			initial: "active",
+			states: {
+				active: {
+					on: {
+						INC: {
+							actions: () => undefined,
+						},
+					},
+				},
+			},
+		});
+		const counter = igniteCore({
+			source: machine,
+			view: ({ snapshot }) => ({ count: snapshot.context.count }),
+		});
+
+		const documentTarget = createProjectionDocumentTarget({
+			selectDocument: () => null,
+			commitDocument: () => undefined,
+		});
+		const speechTarget = createProjectionSpeechTarget({
+			selectSpeech: () => null,
+			commitSpeech: () => undefined,
+			acknowledgeCommandName: "acknowledgeSpeech",
+		});
+
+		expectTypeOf(documentTarget).toEqualTypeOf<RootIgniteProjectionTarget>();
+		expectTypeOf(speechTarget).toEqualTypeOf<RootIgniteProjectionTarget>();
+		expectTypeOf(
+			counter(documentTarget),
+		).toEqualTypeOf<RootIgniteProjectionSession>();
+		expectTypeOf(
+			counter(speechTarget),
+		).toEqualTypeOf<RootIgniteProjectionSession>();
+		expectTypeOf(counter(documentTarget).dispose).toEqualTypeOf<() => void>();
+
+		const plainTarget = {
+			selectDocument: () => null,
+			commitDocument: () => undefined,
+		};
+		// @ts-expect-error plain objects are not valid projection targets
+		const invalidTarget: RootIgniteProjectionTarget = plainTarget;
+		void invalidTarget;
+	});
+
 	it("accepts an EventTarget host for the headless agent runtime", () => {
 		const adapter = {} as IgniteAdapter<
 			{ count: number },

@@ -85,7 +85,7 @@ export function resolveCall(
 		return err({ kind: "Unavailable", name });
 	}
 
-	const issues = validateValue(tool.inputSchema, input, "input");
+	const issues = validateToolInputValue(tool.inputSchema, input, "input");
 	if (issues.length > 0) {
 		return err({ kind: "InvalidInput", name, issues });
 	}
@@ -99,7 +99,7 @@ export function resolveCall(
  * returns the list of issues (empty = valid). Not a full JSON-Schema validator —
  * scoped to the shapes `command.*` can produce.
  */
-function validateValue(
+export function validateToolInputValue(
 	schema: IgniteSchemaObject,
 	value: unknown,
 	path: string,
@@ -113,7 +113,7 @@ function validateValue(
 			return [];
 		}
 		if (type === "object") {
-			return validateValue(schema, {}, path);
+			return validateToolInputValue(schema, {}, path);
 		}
 		return [`${path}: expected ${String(type)} but received undefined`];
 	}
@@ -189,7 +189,7 @@ function validateValue(
 			for (const [key, propSchema] of Object.entries(properties)) {
 				if (key in value && isPlainObject(propSchema)) {
 					issues.push(
-						...validateValue(
+						...validateToolInputValue(
 							propSchema as IgniteSchemaObject,
 							value[key],
 							`${path}.${key}`,
@@ -219,7 +219,9 @@ function validateValue(
 			if (isPlainObject(schema.items)) {
 				const itemSchema = schema.items as IgniteSchemaObject;
 				value.forEach((item, index) => {
-					issues.push(...validateValue(itemSchema, item, `${path}[${index}]`));
+					issues.push(
+						...validateToolInputValue(itemSchema, item, `${path}[${index}]`),
+					);
 				});
 			}
 			return issues;

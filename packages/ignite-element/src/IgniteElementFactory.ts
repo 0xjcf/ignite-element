@@ -1,4 +1,4 @@
-import type { IgniteAdapter } from "@ignite-element/core";
+import type { CommandMetadata, IgniteAdapter } from "@ignite-element/core";
 import { StateScope } from "@ignite-element/core";
 import type {
 	IgniteJsxChild,
@@ -10,19 +10,29 @@ import IgniteElement, {
 } from "./IgniteElement";
 import "./renderers/ignite-jsx";
 import type { IgniteComponent } from "./igniteCore/types";
+import {
+	isPendingSpeechRequest,
+	validateProjectionSelection,
+} from "./internal/projectionDocument";
 import { resolveConfiguredRenderStrategy } from "./renderers/resolveConfiguredRenderStrategy";
 import {
 	createAgentRuntime,
 	type IgniteDomBridgeOptions,
 	igniteRuntimeHostOverrideSymbol,
 } from "./runtime/agent";
+import { commandMetadataSymbol } from "./runtime/commands";
 import { facadeCleanupSymbol } from "./runtime/effects";
+import { isProjectionTarget } from "./runtime/projectionTargets";
+import { toSchemaValue } from "./runtime/schema";
 import type {
-	IgniteAgentRuntime,
+	IgniteProjectionInspection,
+	IgniteProjectionSession,
+	IgniteProjectionTarget,
 	IgniteStoryLifecycleEntry,
 	IgniteStoryLifecycleScope,
 	IgniteStoryLifecycleStage,
 } from "./types/agent";
+import type { IgniteSchemaValue } from "./types/schema";
 
 export type BaseRenderArgs<State, Event> = {
 	state: State;
@@ -69,12 +79,17 @@ export type AdapterPack<Factory> = Factory extends ComponentFactory<
 	infer _View
 >
 	? RenderArgs
-	: Factory extends (
-				elementName: string,
-				renderFn: (args: infer RenderArgs) => TemplateResult,
-			) => void
-		? RenderArgs
-		: never;
+	: Factory extends {
+				readonly __igniteRenderArgs?: infer RenderArgs;
+			}
+		? Exclude<RenderArgs, undefined>
+		: Factory extends (elementName: string, renderer: infer Renderer) => unknown
+			? Renderer extends ComponentRenderer<infer RenderArgs, infer _View>
+				? RenderArgs
+				: Renderer extends (args: infer RenderArgs) => unknown
+					? RenderArgs
+					: never
+			: never;
 
 type FactoryOptions<
 	State,
@@ -93,6 +108,60 @@ type FactoryOptions<
 	createRenderStrategy?: RenderStrategyFactory<View>;
 	cleanup?: boolean;
 };
+
+function getCommandMetadata(
+	commandValue: unknown,
+): CommandMetadata | undefined {
+	if (typeof commandValue !== "function") {
+		return undefined;
+	}
+
+	const metadata = Reflect.get(commandValue, commandMetadataSymbol);
+	if (
+		typeof metadata === "undefined" ||
+		metadata === null ||
+		Array.isArray(metadata) ||
+		typeof metadata !== "object"
+	) {
+		return undefined;
+	}
+
+	return metadata as CommandMetadata;
+}
+
+function hasCanExecute(
+	metadata: CommandMetadata | undefined,
+): metadata is CommandMetadata & {
+	canExecute: NonNullable<CommandMetadata["canExecute"]>;
+} {
+	return typeof metadata?.canExecute === "function";
+}
+
+function getCommandContract(
+	commandValue: unknown,
+): Record<string, IgniteSchemaValue> | undefined {
+	const metadata = getCommandMetadata(commandValue);
+	if (!metadata) {
+		return undefined;
+	}
+
+	const contract = toSchemaValue(metadata);
+	const commandContract =
+		contract !== null &&
+		typeof contract === "object" &&
+		!Array.isArray(contract)
+			? contract
+			: undefined;
+
+	if (hasCanExecute(metadata)) {
+		return {
+			...(commandContract ?? {}),
+			gated: true,
+		};
+	}
+
+	return commandContract;
+}
 
 /**
  * Expose command functions from additionalArgs as methods on the custom element.
@@ -645,10 +714,161 @@ export default function igniteElementFactory<
 		}
 	};
 
+	const resolveProjectionInspection = (): IgniteProjectionInspection<
+		State,
+		ReturnType<typeof toSchemaValue>,
+		RuntimeView
+	> => {
+		const { adapter, additionalArgs } = resolveRuntimeResources();
+		const commandEntries = Object.entries(additionalArgs).filter(
+			([, value]) => typeof value === "function",
+		);
+		const schema = {
+			commands: Object.fromEntries(
+				commandEntries
+					.map(
+						([name, value]) => [name, getCommandContract(value) ?? {}] as const,
+					)
+					.sort(([left], [right]) => left.localeCompare(right)),
+			),
+			events: [...eventTypes].sort().map((type) => ({ type })),
+			snapshot: (toSchemaValue(adapter.getSnapshot()) ?? null) as Exclude<
+				ReturnType<typeof toSchemaValue>,
+				undefined
+			>,
+			view: (toSchemaValue(resolveView(adapter)) ?? null) as Exclude<
+				ReturnType<typeof toSchemaValue>,
+				undefined
+			>,
+		};
+		const snapshot = adapter.getSnapshot();
+		const view = resolveView(adapter);
+		const revision = JSON.stringify({
+			snapshot: schema.snapshot,
+			view: schema.view,
+			commands: Object.keys(schema.commands),
+		});
+
+		return {
+			snapshot,
+			view,
+			schema,
+			canExecute: (commandName: string) => {
+				const command = (additionalArgs as Record<string, unknown>)[
+					commandName
+				];
+				if (typeof command !== "function") {
+					return false;
+				}
+				const metadata = getCommandMetadata(command);
+				if (!hasCanExecute(metadata)) {
+					return true;
+				}
+				return metadata.canExecute({ snapshot: adapter.getSnapshot() });
+			},
+			revision,
+		};
+	};
+
+	const agentRuntime = createAgentRuntime<
+		State,
+		Event,
+		RuntimeView,
+		AdditionalRenderArgs<State, Event, RenderArgs>
+	>({
+		createDomBridge: (renderer, options) =>
+			createRuntimeDomBridge(
+				renderer as ComponentRenderer<RenderArgs, View>,
+				options,
+			),
+		eventTypes,
+		observeLifecycle,
+		retainRuntimeAccess,
+		releaseRuntimeAccess,
+		resolveRuntime: resolveRuntimeResources,
+		resolveView,
+	});
+
+	const bindProjectionTarget = (target: unknown): IgniteProjectionSession => {
+		if (!isProjectionTarget(target)) {
+			throw new Error(
+				"[igniteElementFactory] The one-argument overload only accepts first-party projection targets.",
+			);
+		}
+
+		let active = true;
+		let lastDocumentRevision: string | null = null;
+		let lastSpeechId: string | null = null;
+
+		const commitCurrent = async () => {
+			if (!active) {
+				return;
+			}
+
+			const inspection = resolveProjectionInspection();
+			if ("selectDocument" in target) {
+				const document = target.selectDocument(inspection);
+				if (!document || document.revision === lastDocumentRevision) {
+					return;
+				}
+
+				const issues = validateProjectionSelection(document, inspection);
+				if (issues.length > 0) {
+					throw new Error(
+						`[igniteElementFactory] Invalid projection document: ${issues.join("; ")}`,
+					);
+				}
+
+				await target.commitDocument(document, inspection);
+				lastDocumentRevision = document.revision;
+				return;
+			}
+
+			const speech = target.selectSpeech(inspection);
+			if (!isPendingSpeechRequest(speech) || speech.id === lastSpeechId) {
+				return;
+			}
+
+			await target.commitSpeech(speech, inspection);
+			lastSpeechId = speech.id;
+			const payload = target.resolveAcknowledgePayload?.(speech, inspection);
+			await agentRuntime.execute(
+				target.acknowledgeCommandName,
+				payload as never,
+			);
+		};
+
+		void commitCurrent();
+		const subscription = agentRuntime.watchSnapshot(() => {
+			void commitCurrent();
+		});
+
+		return {
+			dispose() {
+				if (!active) {
+					return;
+				}
+				active = false;
+				subscription.unsubscribe();
+			},
+		};
+	};
+
 	const register = (
-		elementName: string,
-		renderer: ComponentRenderer<RenderArgs, View>,
-	): IgniteComponent => {
+		elementNameOrTarget: string | IgniteProjectionTarget,
+		renderer?: ComponentRenderer<RenderArgs, View>,
+	): IgniteComponent | IgniteProjectionSession => {
+		if (renderer === undefined) {
+			return bindProjectionTarget(elementNameOrTarget);
+		}
+
+		if (typeof elementNameOrTarget !== "string") {
+			throw new Error(
+				"[igniteElementFactory] DOM registration requires an element name and renderer.",
+			);
+		}
+
+		const elementName = elementNameOrTarget;
 		// The handle delegates getSchema LAZILY: createAgentRuntime(...) is
 		// Object.assign-ed onto `register` AFTER this body is defined, so we must
 		// call through `register.getSchema()` at invocation time rather than
@@ -656,8 +876,7 @@ export default function igniteElementFactory<
 		// sole schema source of truth (it resolves the runtime adapter on demand).
 		const handle: IgniteComponent = {
 			tagName: elementName,
-			getSchema: () =>
-				(register as unknown as IgniteAgentRuntime<unknown>).getSchema(),
+			getSchema: () => agentRuntime.getSchema(),
 		};
 
 		if (customElements.get(elementName)) {
@@ -784,6 +1003,8 @@ export default function igniteElementFactory<
 			return handle;
 		}
 
+		const isolatedRender = resolveRenderer(renderer);
+
 		class IsolatedIgniteComponent extends IgniteElement<State, Event, View> {
 			private additionalArgs:
 				| AdditionalRenderArgs<State, Event, RenderArgs>
@@ -800,7 +1021,7 @@ export default function igniteElementFactory<
 				);
 				super(undefined, renderStrategyFactory(), lifecycleHooks);
 				this.lifecycleHooks = lifecycleHooks;
-				this.renderImpl = resolveRenderer(renderer);
+				this.renderImpl = isolatedRender;
 			}
 
 			connectedCallback(): void {
@@ -856,30 +1077,9 @@ export default function igniteElementFactory<
 		return handle;
 	};
 
-	Object.assign(
-		register,
-		createAgentRuntime<
-			State,
-			Event,
-			RuntimeView,
-			AdditionalRenderArgs<State, Event, RenderArgs>
-		>({
-			createDomBridge: (renderer, options) =>
-				createRuntimeDomBridge(
-					renderer as ComponentRenderer<RenderArgs, View>,
-					options,
-				),
-			eventTypes,
-			observeLifecycle,
-			retainRuntimeAccess,
-			releaseRuntimeAccess,
-			resolveRuntime: resolveRuntimeResources,
-			resolveView,
-		}),
-		{
-			[igniteRuntimeHostOverrideSymbol]: withRuntimeHost,
-		},
-	);
+	Object.assign(register, agentRuntime, {
+		[igniteRuntimeHostOverrideSymbol]: withRuntimeHost,
+	});
 
 	return register;
 

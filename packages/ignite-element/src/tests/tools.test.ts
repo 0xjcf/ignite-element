@@ -499,6 +499,78 @@ describe("igniteTools (neutral, no dialect)", () => {
 		if (isErr(result)) expect(result.error.kind).toBe("Unavailable");
 	});
 
+	it("keeps projection authorship in commands instead of adding a projection registry surface", async () => {
+		const projectionSchema: IgniteAgentSchema<
+			{ documents: unknown[] },
+			{ count: number }
+		> = {
+			commands: {
+				upsertProjection: {
+					description: "Create or replace a projection document.",
+					input: {
+						type: "object",
+						properties: {
+							id: { type: "string" },
+							revision: { type: "string" },
+						},
+						required: ["id", "revision"],
+					},
+				},
+				patchProjection: {
+					description: "Patch an existing projection document.",
+					input: {
+						type: "object",
+						properties: {
+							documentId: { type: "string" },
+							revision: { type: "string" },
+							type: { type: "string", enum: ["set-node", "remove-node"] },
+						},
+						required: ["documentId", "revision", "type"],
+					},
+				},
+			},
+			events: [],
+			snapshot: { documents: [] },
+			view: { count: 0 },
+		};
+		const calls: Array<{ name: string; payload: unknown }> = [];
+		const tools = igniteTools({
+			getSchema: () => projectionSchema,
+			execute: async (name: string, payload?: unknown) => {
+				calls.push({ name, payload });
+				return {
+					snapshot: { documents: [payload] },
+					events: [],
+				};
+			},
+			getView: () => ({ count: calls.length }),
+			on: () => ({ unsubscribe: () => undefined }),
+			watchView: () => ({ unsubscribe: () => undefined }),
+		});
+
+		expect(tools.manifest.map((tool) => tool.name)).toEqual([
+			"patchProjection",
+			"upsertProjection",
+		]);
+
+		const result = await tools.run({
+			id: "projection-1",
+			name: "upsertProjection",
+			input: { id: "panel", revision: "1" },
+		});
+
+		expect(calls).toEqual([
+			{
+				name: "upsertProjection",
+				payload: { id: "panel", revision: "1" },
+			},
+		]);
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.value.view).toEqual({ count: 1 });
+		}
+	});
+
 	it("omits gated, unavailable commands from the manifest", () => {
 		const component = createFakeComponent({
 			canExecute: (name) => name !== "adminOnly",
