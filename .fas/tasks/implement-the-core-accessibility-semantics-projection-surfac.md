@@ -37,7 +37,14 @@ After the projection-contract design is accepted, implement the minimal runtime/
 - packages/ignite-element/src/tests
 
 ## Scope Amendments
-- None.
+- Type: superseded-before-implementation
+- Added at: 2026-07-09
+- Trigger: The provisional implementation demonstrated that registry/config integration and behavior presentation metadata would spread through every igniteCore adapter, factory, schema, and entrypoint.
+- Reason: The user rejected that API direction. All uncommitted source changes were restored, and queue task task-1783610917796 was superseded by task-1783650880370.
+- Evidence source: architecture discussion and clean-tree restoration
+- Evidence path: `.fas/tasks/implement-internal-dynamic-projection-pipeline-and-llm-autho.md`
+- Accuracy signal: high
+- Follow-up: Keep this brief for audit history only; do not use it for implementation guidance.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

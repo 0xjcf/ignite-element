@@ -1,22 +1,22 @@
-# Add headless behavior-contract assertions for accessibility-relevant flows
+# Add headless assertions for dynamic projection documents and behavior facts
 
 ## Source
 Created with `fas create-task` on 2026-07-09.
 
 ## Problem
-Add testing utilities that let scenarios assert accessibility-relevant behavior contracts in pure headless runtime tests: command labels, descriptions, availability, validation/error messages, focus intent, announcements, and actor-web behavior graph paths where available. The DSL should produce useful failure messages and clarify which checks still require rendered DOM accessibility verification.
+Add deterministic headless testing support for the replacement architecture. Tests should assert coherent behavior facts, command descriptions/input/availability, validated ProjectionDocument state, incremental upsert/patch operations, command-backed action references, model-authored text/speech data, and actor-web behavior paths where available. Do not add command label, focus, announcement, validation-copy, or error-copy metadata to igniteCore. Clarify that accessible-name, focus order, keyboard behavior, and live-region behavior remain rendered DOM concerns.
+
 
 ## Acceptance criteria
-- Scenario tests can assert accessibility-relevant behavior facts without a browser DOM.
-- Failure messages identify the missing or mismatched command label, description, availability, validation message, focus intent, announcement, or behavior path.
-- Type tests cover the public assertion API.
-- Docs or examples show when to use headless behavior assertions versus DOM accessibility checks.
-- TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
-- TDD: every production code change in the change set is covered by an added or updated test.
-- DDD: respect domain boundaries — keep the functional core deterministic and side-effect-free (no reads, writes, network, or clock), confine coordination to the imperative shell, and have adapters return facts instead of throwing.
+- Scenario tests assert validated projection documents and actor-owned projection state without a DOM.
+- Tests reject raw JSX, JavaScript, event handlers, imports, DOM references, unsupported node kinds, invalid patches, and actions targeting unknown or unavailable commands.
+- Tests assert command descriptions, input contracts, current availability, model-authored text/speech fields, and actor-web behavior paths where available.
+- Failure messages identify the invalid node, patch, action, command, or behavior fact without claiming browser accessibility conformance.
+- Type tests cover only the minimal public testing surface proven necessary by the replacement implementation.
+- Docs distinguish headless projection/behavior assertions from rendered DOM accessibility verification.
+- TDD and DDD requirements remain mandatory.
 - The work is tracked in `.fas/TASKS.md`.
 - The task has a clear implementation and verification plan before execution starts.
-- The task is queued in `.fas/queue/tasks.json` for the runtime.
 
 ## Proposed solution
 - Use the supplied problem context, acceptance criteria, and affected-file hints to draft the concrete implementation approach during planning.
@@ -34,18 +34,21 @@ Add testing utilities that let scenarios assert accessibility-relevant behavior 
 - None.
 
 ## Implementation plan
-- Convert the supplied context into a scoped implementation plan before editing.
-- Refresh affected-file scope before implementation if the generated hints are incomplete.
+- Derive assertions from the replacement ProjectionDocument validator and actor-state contract rather than duplicating schemas.
+- Add deterministic scripted fixtures that exercise create, patch, reject, command-action, text, and speech flows.
+- Keep browser-only assertions out of the headless DSL.
 
 ## Verification plan
-- Run `fas validate-task` for the inner-loop verification gate.
-- Run `.fas/scripts/verify.sh --full` at the final release-quality gate when tracked files change.
+- Run focused testing/runtime/type tests and fas validate-task.
+- Use the epic shared full verification and CodeRabbit review at closeout.
 
 ## Risks
-- Validate generated scope, acceptance criteria, and verification evidence before closeout to avoid workflow drift.
+- Avoid turning the testing DSL into a parallel projection authoring API.
+- Avoid asserting accessibility properties that require a rendered browser.
 
 ## Dependencies
-- None known at task creation.
+- Depends on task-1783650880370.
+- Blocks task-1783613728381.
 
 ## Open questions
 - None captured at task creation.

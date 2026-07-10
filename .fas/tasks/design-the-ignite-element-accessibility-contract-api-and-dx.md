@@ -34,7 +34,14 @@ Produce the architecture/DX design before implementation for Ignite as a project
 - docs/site/src/content/docs/guides/accessibility-first.mdx
 
 ## Scope Amendments
-- None.
+- Type: architecture-superseded
+- Added at: 2026-07-09
+- Trigger: Implementation review showed that the accepted registry and behavior-metadata design expanded igniteCore across every adapter and mixed behavior facts with presentation policy.
+- Reason: Keep this completed task as historical decision evidence, but treat its ProjectionRequest, ProjectionSpec, ProjectionInstance, registry-selection, and command-presentation-metadata conclusions as superseded by task-1783650880370.
+- Evidence source: architecture discussion
+- Evidence path: `.fas/tasks/implement-internal-dynamic-projection-pipeline-and-llm-autho.md`
+- Accuracy signal: high
+- Follow-up: Reconcile the committed design documents before replacement source implementation.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
