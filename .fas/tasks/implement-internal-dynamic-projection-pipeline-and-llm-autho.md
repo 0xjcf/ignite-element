@@ -44,6 +44,8 @@ Replace the superseded ProjectionRequest/ProjectionSpec registry and command-pre
 - packages/ignite-element/src/internal/projectionDocument.ts
 - packages/ignite-element/src/createProjectionFactory.ts
 - packages/ignite-element/src/createComponentFactory.ts
+- packages/ignite-element/src/igniteCore/createIgniteComponentFactory.ts
+- packages/ignite-element/src/igniteCore/redux.ts
 - packages/ignite-element/src/runtime/agent.ts
 - packages/ignite-element/src/runtime/projectionTargets.ts
 - packages/ignite-element/src/IgniteElementFactory.ts

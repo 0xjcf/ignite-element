@@ -17,8 +17,8 @@ describe("createComponentFactory", () => {
 			scope: StateScope.Shared,
 		});
 
+		// @ts-expect-error - view callback returns a non-object for runtime validation.
 		const factory = createComponentFactory(createAdapter, {
-			// @ts-expect-error - view callback returns a non-object for runtime validation.
 			view: () => 123,
 		});
 
@@ -45,9 +45,9 @@ describe("createComponentFactory", () => {
 			scope: StateScope.Shared,
 		});
 
+		// @ts-expect-error - commands callback must return a plain object.
 		const factory = createComponentFactory(createAdapter, {
 			view: () => ({}),
-			// @ts-expect-error - commands callback must return a plain object.
 			commands: () => 42,
 		});
 
@@ -74,9 +74,9 @@ describe("createComponentFactory", () => {
 			scope: StateScope.Shared,
 		});
 
+		// @ts-expect-error - command results must be callable.
 		const factory = createComponentFactory(createAdapter, {
 			view: () => ({}),
-			// @ts-expect-error - command results must be callable.
 			commands: () => ({ bad: 1 }),
 		});
 
@@ -252,7 +252,10 @@ describe("createComponentFactory", () => {
 			CounterEvent,
 			CounterState,
 			{ count: number },
-			{ send: (event: CounterEvent) => void },
+			{
+				send: (event: CounterEvent) => void;
+				getState: () => CounterState;
+			},
 			{ increment: () => void },
 			Record<never, never>
 		>(createAdapter, {
@@ -289,5 +292,25 @@ describe("createComponentFactory", () => {
 
 		expect(element.getAttribute("data-last-amount")).toBe("5");
 		expect(order).toEqual(["send"]);
+	});
+
+	it("requires a resolver for a custom component command actor generic", () => {
+		type State = { count: number };
+		type Event = { type: "NOOP" };
+		type CustomActor = { record(): void };
+		const adapter = new MockAdapter<State, Event>({ count: 0 });
+		const createAdapter = () => adapter;
+		const assertResolverRequirement = () => {
+			// @ts-expect-error custom command actors require a typed resolver
+			createComponentFactory<
+				State,
+				Event,
+				State,
+				Record<never, never>,
+				CustomActor
+			>(createAdapter, {});
+		};
+
+		void assertResolverRequirement;
 	});
 });

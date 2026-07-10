@@ -105,6 +105,10 @@ export const thermostat = igniteCore({
       {
         description: 'Synchronize the actor-owned target draft.',
         input: command.number({ minimum: 58, maximum: 82 }),
+        canExecute: ({ snapshot }) => snapshot.can({
+          type: 'SET_TARGET_DRAFT',
+          target: snapshot.context.target,
+        }),
       },
     ),
     saveTarget: command(

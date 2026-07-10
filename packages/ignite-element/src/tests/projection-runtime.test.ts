@@ -202,6 +202,12 @@ function createInspectionCore(
 		resolveStateSnapshot: (
 			current: IgniteAdapter<InspectionSnapshot, InspectionEvent>,
 		) => current.getSnapshot(),
+		resolveCommandActor: (
+			current: IgniteAdapter<InspectionSnapshot, InspectionEvent>,
+		) => ({
+			send: (event: InspectionEvent) => current.send(event),
+			getState: () => current.getSnapshot(),
+		}),
 	});
 	const core = createIgniteComponentFactory(createAdapter, {
 		view: ({ snapshot }) => resolveView(snapshot),
@@ -249,6 +255,12 @@ function createRawProjectionCore(
 		resolveStateSnapshot: (
 			current: IgniteAdapter<unknown, RawProjectionEvent>,
 		) => current.getSnapshot(),
+		resolveCommandActor: (
+			current: IgniteAdapter<unknown, RawProjectionEvent>,
+		) => ({
+			send: (event: RawProjectionEvent) => current.send(event),
+			getState: () => current.getSnapshot(),
+		}),
 	});
 	const core = createIgniteComponentFactory(createAdapter, {
 		view: resolveView,
@@ -1500,6 +1512,12 @@ describe("projection targets", () => {
 		const createAdapter = Object.assign(() => adapter, {
 			scope: StateScope.Isolated,
 			resolveStateSnapshot,
+			resolveCommandActor: (
+				current: IgniteAdapter<SourceSnapshot, InspectionEvent>,
+			) => ({
+				send: (event: InspectionEvent) => current.send(event),
+				getState: () => current.getSnapshot(),
+			}),
 		});
 		const availabilitySequences: number[] = [];
 		const core = createIgniteComponentFactory(createAdapter, {
@@ -1584,6 +1602,12 @@ describe("projection targets", () => {
 				resolveStateSnapshot: (
 					current: IgniteAdapter<typeof snapshot, { type: "NOOP" }>,
 				) => current.getSnapshot(),
+				resolveCommandActor: (
+					current: IgniteAdapter<typeof snapshot, { type: "NOOP" }>,
+				) => ({
+					send: (event: { type: "NOOP" }) => current.send(event),
+					getState: () => current.getSnapshot(),
+				}),
 			});
 			const core = createIgniteComponentFactory(createAdapter, {
 				view: () => ({}),
@@ -1630,6 +1654,12 @@ describe("projection targets", () => {
 			resolveStateSnapshot: (
 				current: IgniteAdapter<typeof snapshot, { type: "NOOP" }>,
 			) => current.getSnapshot(),
+			resolveCommandActor: (
+				current: IgniteAdapter<typeof snapshot, { type: "NOOP" }>,
+			) => ({
+				send: (event: { type: "NOOP" }) => current.send(event),
+				getState: () => current.getSnapshot(),
+			}),
 		});
 		const core = createIgniteComponentFactory(createAdapter, {
 			view: () => ({}),

@@ -20,13 +20,37 @@ import {
 	facadeCleanupSymbol,
 } from "./runtime/effects";
 
-export type AdapterFactory<State, Event, Host = EventTarget> = ((
+export type StandardCommandActor<State, Event> = {
+	send: (event: Event) => void;
+	getState: () => State;
+};
+
+export type BaseAdapterFactory<State, Event, Host = EventTarget> = ((
 	host?: Host,
 ) => IgniteAdapter<State, Event>) & {
 	scope?: StateScope;
-	resolveStateSnapshot?: (adapter: IgniteAdapter<State, Event>) => unknown;
-	resolveCommandActor?: (adapter: IgniteAdapter<State, Event>) => unknown;
 };
+
+export type ResolvedAdapterFactory<
+	State,
+	Event,
+	Host = EventTarget,
+	Snapshot = State,
+	CommandActor = StandardCommandActor<State, Event>,
+> = BaseAdapterFactory<State, Event, Host> & {
+	resolveStateSnapshot: (adapter: IgniteAdapter<State, Event>) => Snapshot;
+	resolveCommandActor: (adapter: IgniteAdapter<State, Event>) => CommandActor;
+};
+
+export type AdapterFactory<
+	State,
+	Event,
+	Host = EventTarget,
+	Snapshot = State,
+	CommandActor = StandardCommandActor<State, Event>,
+> =
+	| BaseAdapterFactory<State, Event, Host>
+	| ResolvedAdapterFactory<State, Event, Host, Snapshot, CommandActor>;
 
 type AdditionalRenderArgs<
 	State,
@@ -37,9 +61,9 @@ type AdditionalRenderArgs<
 export type ProjectionFactoryOptions<
 	State,
 	Event,
-	Snapshot,
+	Snapshot = State,
 	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandActor = unknown,
+	CommandActor = StandardCommandActor<State, Event>,
 	CommandsResult extends FacadeCommandResult = Record<
 		never,
 		FacadeCommandFunction
@@ -91,7 +115,7 @@ export type ProjectionFactory<
 	Events extends EventMap = EmptyEventMap,
 	ViewResult extends Record<string, unknown> = Record<never, never>,
 > = {
-	createAdapter: AdapterFactory<State, Event, Host>;
+	createAdapter: BaseAdapterFactory<State, Event, Host>;
 	scope?: StateScope;
 	cleanup?: boolean;
 	eventTypes: readonly (keyof Events & string)[];
@@ -119,6 +143,225 @@ type ExtractCommandResult<Result> = [Result] extends [FacadeCommandResult]
 
 type Phantom<T> = Record<never, T>;
 
+type ProjectionFactoryResult<
+	State,
+	Event,
+	StatesResult extends Record<string, unknown>,
+	CommandActor,
+	CommandsResult extends FacadeCommandResult,
+	Additional extends Record<string, unknown>,
+	Events extends EventMap,
+	Host,
+> = ProjectionFactory<
+	State,
+	Event,
+	WithFacadeRenderArgs<
+		State,
+		Event,
+		StatesResult,
+		CommandActor,
+		CommandsResult,
+		Additional,
+		Events
+	>,
+	Host,
+	Events,
+	StatesResult
+>;
+
+type ResolvedProjectionFactoryOptions<
+	State,
+	Event,
+	Snapshot,
+	StatesResult extends Record<string, unknown>,
+	CommandActor,
+	CommandsResult extends FacadeCommandResult,
+	Additional extends Record<string, unknown>,
+	Events extends EventMap,
+	Host,
+> = Omit<
+	ProjectionFactoryOptions<
+		State,
+		Event,
+		Snapshot,
+		StatesResult,
+		CommandActor,
+		CommandsResult,
+		Additional,
+		Events,
+		Host
+	>,
+	"resolveStateSnapshot" | "resolveCommandActor"
+> & {
+	resolveStateSnapshot: (adapter: IgniteAdapter<State, Event>) => Snapshot;
+	resolveCommandActor: (adapter: IgniteAdapter<State, Event>) => CommandActor;
+};
+
+type DefaultProjectionFactoryOptions<
+	State,
+	Event,
+	StatesResult extends Record<string, unknown>,
+	CommandsResult extends FacadeCommandResult,
+	Additional extends Record<string, unknown>,
+	Events extends EventMap,
+	Host,
+> = Omit<
+	ProjectionFactoryOptions<
+		State,
+		Event,
+		State,
+		StatesResult,
+		StandardCommandActor<State, Event>,
+		CommandsResult,
+		Additional,
+		Events,
+		Host
+	>,
+	"resolveStateSnapshot" | "resolveCommandActor"
+> & {
+	resolveStateSnapshot?: never;
+	resolveCommandActor?: never;
+};
+
+type IsExactly<Left, Right> = (<Value>() => Value extends Left
+	? 1
+	: 2) extends <Value>() => Value extends Right ? 1 : 2
+	? (<Value>() => Value extends Right ? 1 : 2) extends <
+			Value,
+		>() => Value extends Left ? 1 : 2
+		? true
+		: false
+	: false;
+
+type UsesDefaultResolvers<State, Event, Snapshot, CommandActor> = IsExactly<
+	State,
+	Snapshot
+> extends true
+	? IsExactly<StandardCommandActor<State, Event>, CommandActor> extends true
+		? true
+		: false
+	: false;
+
+type MetadataProjectionFactoryInvocation<
+	State,
+	Event,
+	Snapshot,
+	StatesResult extends Record<string, unknown>,
+	CommandActor,
+	CommandsResult extends FacadeCommandResult,
+	Additional extends Record<string, unknown>,
+	Events extends EventMap,
+	Host,
+> = [
+	createAdapter: ResolvedAdapterFactory<
+		State,
+		Event,
+		Host,
+		Snapshot,
+		CommandActor
+	>,
+	options?: ProjectionFactoryOptions<
+		State,
+		Event,
+		Snapshot,
+		StatesResult,
+		CommandActor,
+		CommandsResult,
+		Additional,
+		Events,
+		Host
+	>,
+];
+
+type ExplicitProjectionFactoryInvocation<
+	State,
+	Event,
+	Snapshot,
+	StatesResult extends Record<string, unknown>,
+	CommandActor,
+	CommandsResult extends FacadeCommandResult,
+	Additional extends Record<string, unknown>,
+	Events extends EventMap,
+	Host,
+> = [
+	createAdapter: BaseAdapterFactory<State, Event, Host>,
+	options: ResolvedProjectionFactoryOptions<
+		State,
+		Event,
+		Snapshot,
+		StatesResult,
+		CommandActor,
+		CommandsResult,
+		Additional,
+		Events,
+		Host
+	>,
+];
+
+type DefaultProjectionFactoryInvocation<
+	State,
+	Event,
+	StatesResult extends Record<string, unknown>,
+	CommandsResult extends FacadeCommandResult,
+	Additional extends Record<string, unknown>,
+	Events extends EventMap,
+	Host,
+> = [
+	createAdapter: BaseAdapterFactory<State, Event, Host>,
+	options?: DefaultProjectionFactoryOptions<
+		State,
+		Event,
+		StatesResult,
+		CommandsResult,
+		Additional,
+		Events,
+		Host
+	>,
+];
+
+type ProjectionFactoryInvocation<
+	State,
+	Event,
+	Snapshot,
+	StatesResult extends Record<string, unknown>,
+	CommandActor,
+	CommandsResult extends FacadeCommandResult,
+	Additional extends Record<string, unknown>,
+	Events extends EventMap,
+	Host,
+> =
+	| MetadataProjectionFactoryInvocation<
+			State,
+			Event,
+			Snapshot,
+			StatesResult,
+			CommandActor,
+			CommandsResult,
+			Additional,
+			Events,
+			Host
+	  >
+	| ExplicitProjectionFactoryInvocation<
+			State,
+			Event,
+			Snapshot,
+			StatesResult,
+			CommandActor,
+			CommandsResult,
+			Additional,
+			Events,
+			Host
+	  >
+	| DefaultProjectionFactoryInvocation<
+			State,
+			Event,
+			StatesResult,
+			CommandsResult,
+			Additional,
+			Events,
+			Host
+	  >;
+
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -130,13 +373,10 @@ function freezeIfDev<T extends object>(value: T): T {
 	return isDevelopment() ? Object.freeze(value) : value;
 }
 
-// Snapshot defaults to the adapter snapshot when no explicit resolver is
-// provided. The generic path above cannot prove that relationship, so this
-// assertion is the single fallback boundary for the internal factory.
-function defaultResolveSnapshot<State, Event, Snapshot>(
+function defaultResolveSnapshot<State, Event>(
 	adapter: IgniteAdapter<State, Event>,
-): Snapshot {
-	return adapter.getSnapshot() as unknown as Snapshot;
+): State {
+	return adapter.getSnapshot();
 }
 
 function defaultResolveActor<State, Event>(
@@ -181,6 +421,89 @@ function assertCommandFunction(
 	}
 }
 
+function isMetadataProjectionFactoryInvocation<
+	State,
+	Event,
+	Snapshot,
+	StatesResult extends Record<string, unknown>,
+	CommandActor,
+	CommandsResult extends FacadeCommandResult,
+	Additional extends Record<string, unknown>,
+	Events extends EventMap,
+	Host,
+>(
+	invocation: ProjectionFactoryInvocation<
+		State,
+		Event,
+		Snapshot,
+		StatesResult,
+		CommandActor,
+		CommandsResult,
+		Additional,
+		Events,
+		Host
+	>,
+): invocation is MetadataProjectionFactoryInvocation<
+	State,
+	Event,
+	Snapshot,
+	StatesResult,
+	CommandActor,
+	CommandsResult,
+	Additional,
+	Events,
+	Host
+> {
+	const createAdapter = invocation[0];
+	return (
+		"resolveStateSnapshot" in createAdapter &&
+		typeof createAdapter.resolveStateSnapshot === "function" &&
+		"resolveCommandActor" in createAdapter &&
+		typeof createAdapter.resolveCommandActor === "function"
+	);
+}
+
+function isExplicitProjectionFactoryInvocation<
+	State,
+	Event,
+	Snapshot,
+	StatesResult extends Record<string, unknown>,
+	CommandActor,
+	CommandsResult extends FacadeCommandResult,
+	Additional extends Record<string, unknown>,
+	Events extends EventMap,
+	Host,
+>(
+	invocation: ProjectionFactoryInvocation<
+		State,
+		Event,
+		Snapshot,
+		StatesResult,
+		CommandActor,
+		CommandsResult,
+		Additional,
+		Events,
+		Host
+	>,
+): invocation is ExplicitProjectionFactoryInvocation<
+	State,
+	Event,
+	Snapshot,
+	StatesResult,
+	CommandActor,
+	CommandsResult,
+	Additional,
+	Events,
+	Host
+> {
+	const options = invocation[1];
+	return (
+		options !== undefined &&
+		typeof options.resolveStateSnapshot === "function" &&
+		typeof options.resolveCommandActor === "function"
+	);
+}
+
 /**
  * @internal Low-level projection factory used by `igniteCore`. Not part of the
  * public `ignite-element` surface — no package entry re-exports it.
@@ -188,12 +511,9 @@ function assertCommandFunction(
 export function createProjectionFactory<
 	State,
 	Event,
-	Snapshot,
+	Snapshot = State,
 	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandActor = {
-		send: (event: Event) => void;
-		getState: () => State;
-	},
+	CommandActor = StandardCommandActor<State, Event>,
 	CommandsResult extends FacadeCommandResult = Record<
 		never,
 		FacadeCommandFunction
@@ -201,24 +521,14 @@ export function createProjectionFactory<
 	Additional extends Record<string, unknown> = Record<never, never>,
 	Events extends EventMap = EmptyEventMap,
 	Host = unknown,
-	FactoryResult = ProjectionFactory<
+>(
+	createAdapter: ResolvedAdapterFactory<
 		State,
 		Event,
-		WithFacadeRenderArgs<
-			State,
-			Event,
-			StatesResult,
-			CommandActor,
-			CommandsResult,
-			Additional,
-			Events
-		>,
 		Host,
-		Events,
-		StatesResult
+		Snapshot,
+		CommandActor
 	>,
->(
-	createAdapter: AdapterFactory<State, Event, Host>,
 	options?: ProjectionFactoryOptions<
 		State,
 		Event,
@@ -230,7 +540,178 @@ export function createProjectionFactory<
 		Events,
 		Host
 	>,
-): FactoryResult {
+): ProjectionFactoryResult<
+	State,
+	Event,
+	StatesResult,
+	CommandActor,
+	CommandsResult,
+	Additional,
+	Events,
+	Host
+>;
+export function createProjectionFactory<
+	State,
+	Event,
+	Snapshot = State,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandActor = StandardCommandActor<State, Event>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+	Additional extends Record<string, unknown> = Record<never, never>,
+	Events extends EventMap = EmptyEventMap,
+	Host = unknown,
+>(
+	createAdapter: BaseAdapterFactory<State, Event, Host>,
+	options: ResolvedProjectionFactoryOptions<
+		State,
+		Event,
+		Snapshot,
+		StatesResult,
+		CommandActor,
+		CommandsResult,
+		Additional,
+		Events,
+		Host
+	>,
+): ProjectionFactoryResult<
+	State,
+	Event,
+	StatesResult,
+	CommandActor,
+	CommandsResult,
+	Additional,
+	Events,
+	Host
+>;
+export function createProjectionFactory<
+	State,
+	Event,
+	Snapshot = State,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandActor = StandardCommandActor<State, Event>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+	Additional extends Record<string, unknown> = Record<never, never>,
+	Events extends EventMap = EmptyEventMap,
+	Host = unknown,
+>(
+	createAdapter: UsesDefaultResolvers<
+		State,
+		Event,
+		Snapshot,
+		CommandActor
+	> extends true
+		? BaseAdapterFactory<State, Event, Host>
+		: never,
+	options?: DefaultProjectionFactoryOptions<
+		State,
+		Event,
+		StatesResult,
+		CommandsResult,
+		Additional,
+		Events,
+		Host
+	>,
+): ProjectionFactoryResult<
+	State,
+	Event,
+	StatesResult,
+	StandardCommandActor<State, Event>,
+	CommandsResult,
+	Additional,
+	Events,
+	Host
+>;
+export function createProjectionFactory<
+	State,
+	Event,
+	Snapshot = State,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandActor = StandardCommandActor<State, Event>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+	Additional extends Record<string, unknown> = Record<never, never>,
+	Events extends EventMap = EmptyEventMap,
+	Host = unknown,
+>(
+	...invocation: ProjectionFactoryInvocation<
+		State,
+		Event,
+		Snapshot,
+		StatesResult,
+		CommandActor,
+		CommandsResult,
+		Additional,
+		Events,
+		Host
+	>
+): unknown {
+	if (isMetadataProjectionFactoryInvocation(invocation)) {
+		const [createAdapter, options = {}] = invocation;
+		return createProjectionFactoryWithResolvers(createAdapter, {
+			...options,
+			resolveStateSnapshot:
+				options.resolveStateSnapshot ?? createAdapter.resolveStateSnapshot,
+			resolveCommandActor:
+				options.resolveCommandActor ?? createAdapter.resolveCommandActor,
+		});
+	}
+
+	if (isExplicitProjectionFactoryInvocation(invocation)) {
+		return createProjectionFactoryWithResolvers(invocation[0], invocation[1]);
+	}
+
+	const [createAdapter, options = {}] = invocation;
+	return createProjectionFactoryWithResolvers(createAdapter, {
+		...options,
+		resolveStateSnapshot: defaultResolveSnapshot,
+		resolveCommandActor: defaultResolveActor,
+	});
+}
+
+function createProjectionFactoryWithResolvers<
+	State,
+	Event,
+	Snapshot,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandActor = StandardCommandActor<State, Event>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+	Additional extends Record<string, unknown> = Record<never, never>,
+	Events extends EventMap = EmptyEventMap,
+	Host = unknown,
+>(
+	createAdapter: BaseAdapterFactory<State, Event, Host>,
+	options: ResolvedProjectionFactoryOptions<
+		State,
+		Event,
+		Snapshot,
+		StatesResult,
+		CommandActor,
+		CommandsResult,
+		Additional,
+		Events,
+		Host
+	>,
+): ProjectionFactoryResult<
+	State,
+	Event,
+	StatesResult,
+	CommandActor,
+	CommandsResult,
+	Additional,
+	Events,
+	Host
+> {
 	const {
 		scope,
 		view,
@@ -242,25 +723,11 @@ export function createProjectionFactory<
 		events,
 		cleanup,
 		debugName,
-	} = options ?? {};
+	} = options;
 	const errorPrefix = debugName ?? "createProjectionFactory";
 
-	const resolveSnapshot =
-		resolveStateSnapshot ??
-		(createAdapter.resolveStateSnapshot as
-			| ((adapter: IgniteAdapter<State, Event>) => Snapshot)
-			| undefined) ??
-		defaultResolveSnapshot<State, Event, Snapshot>;
-
-	const resolveActor =
-		resolveCommandActor ??
-		(createAdapter.resolveCommandActor as
-			| ((adapter: IgniteAdapter<State, Event>) => CommandActor)
-			| undefined) ??
-		// CommandActor defaults to the internal send/getState actor shape. When a
-		// caller overrides it they should supply a resolver.
-		((adapter: IgniteAdapter<State, Event>) =>
-			defaultResolveActor<State, Event>(adapter) as CommandActor);
+	const resolveSnapshot = resolveStateSnapshot;
+	const resolveActor = resolveCommandActor;
 
 	const userAdditionalArgs = createAdditionalArgs ?? (() => ({}) as Additional);
 	const resolvedView = view;
@@ -425,13 +892,6 @@ export function createProjectionFactory<
 		eventTypes: Object.keys(eventDefinitions) as Array<keyof Events & string>,
 		resolveInspection,
 		resolveView,
-		createAdditionalArgs: createMergedArgs as ProjectionFactory<
-			State,
-			Event,
-			FinalRenderArgs,
-			Host,
-			Events,
-			StatesResult
-		>["createAdditionalArgs"],
-	} as FactoryResult;
+		createAdditionalArgs: createMergedArgs,
+	};
 }
