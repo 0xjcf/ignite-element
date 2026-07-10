@@ -84,6 +84,7 @@ runtime contract.
 
 ```ts
 import { igniteCore } from "ignite-element/xstate";
+import { thermostatMachine } from "./thermostatMachine";
 
 const thermostat = igniteCore({
   source: thermostatMachine,

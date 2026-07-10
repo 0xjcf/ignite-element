@@ -64,6 +64,7 @@ export const thermostat = igniteCore({
     targetHint: 'Choose a value between 58 and 82 degrees.',
     statusLabel: snapshot.context.isSaving ? 'Saving target' : 'Ready',
     errorText: snapshot.context.errorText,
+    canEditTarget: snapshot.can({ type: 'SET_TARGET_DRAFT', target: snapshot.context.target }),
     canSave: snapshot.can({ type: 'SAVE_TARGET' }),
   }),
 
@@ -99,7 +100,7 @@ Once the behavior contract is stable, render it with native controls before
 reaching for ARIA.
 
 ```tsx no-check
-thermostat('thermostat-panel', ({ target, targetLabel, targetHint, statusLabel, errorText, canSave, setTargetDraft, saveTarget }) => (
+thermostat('thermostat-panel', ({ target, targetLabel, targetHint, statusLabel, errorText, canEditTarget, canSave, setTargetDraft, saveTarget }) => (
   <form aria-describedby="thermostat-hint thermostat-status">
     <label for="thermostat-target">{targetLabel}</label>
     <input
@@ -110,7 +111,7 @@ thermostat('thermostat-panel', ({ target, targetLabel, targetHint, statusLabel, 
       max={82}
       value={target}
       onInput={(event) => setTargetDraft(Number(event.currentTarget.value))}
-      disabled={!canSave}
+      disabled={!canEditTarget}
       aria-invalid={errorText ? 'true' : undefined}
       aria-describedby={errorText ? 'thermostat-hint thermostat-error thermostat-status' : 'thermostat-hint thermostat-status'}
     />

@@ -455,9 +455,20 @@ describe("projection document helpers", () => {
 		}
 	});
 
-	it("rejects arbitrary event-handler-shaped keys recursively", () => {
+	it("rejects actual DOM event-handler attribute keys recursively", () => {
 		const core = createProjectionCore();
-		const unsafeKeys = ["onMouseOver", "onerror", "ONLOAD", "onPointerDown"];
+		const unsafeKeys = [
+			"onMouseOver",
+			"onerror",
+			"ONLOAD",
+			"onPointerDown",
+			"onKeyDown",
+			"onSubmit",
+			"onTouchStart",
+			"onAnimationEnd",
+			"onTransitionEnd",
+			"onBeforeInput",
+		];
 
 		for (const unsafeKey of unsafeKeys) {
 			const parse = () =>
@@ -492,6 +503,93 @@ describe("projection document helpers", () => {
 				);
 			} else {
 				expect(parsed.issues).toEqual([]);
+			}
+		}
+	});
+
+	it("preserves benign on-prefixed vocabulary recursively in every JSON island", () => {
+		const core = createProjectionCore();
+		const benignValue: IgniteSchemaValue = {
+			online: {
+				only: [
+					{
+						once: true,
+						onboarding: "complete",
+					},
+				],
+			},
+		};
+		const islands: ProjectionJsonIsland[] = [
+			"action-payload",
+			"submit-payload",
+			"form-input",
+			"form-value",
+			"table-cell",
+		];
+
+		for (const island of islands) {
+			const parsed = parseProjectionDocument(
+				createJsonIslandDocument(island, benignValue, `benign-${island}`),
+			);
+			expect(parsed.ok).toBe(true);
+			if (parsed.ok) {
+				expect(
+					validateProjectionDocument(parsed.document, {
+						schema: core.getSchema(),
+						canExecute: core.canExecute,
+					}),
+				).toEqual([]);
+			}
+		}
+	});
+
+	it("rejects real handler attributes recursively in every JSON island", () => {
+		const core = createProjectionCore();
+		const islands: ProjectionJsonIsland[] = [
+			"action-payload",
+			"submit-payload",
+			"form-input",
+			"form-value",
+			"table-cell",
+		];
+		const handlerKeys = [
+			"onClick",
+			"onInput",
+			"onMouseOver",
+			"onerror",
+			"ONLOAD",
+			"onPointerDown",
+			"onKeyDown",
+			"onSubmit",
+			"onTouchStart",
+			"onAnimationEnd",
+			"onTransitionEnd",
+			"onBeforeInput",
+		];
+
+		for (const island of islands) {
+			for (const handlerKey of handlerKeys) {
+				const parsed = parseProjectionDocument(
+					createJsonIslandDocument(
+						island,
+						{ nested: { [handlerKey]: "unsafe" } },
+						`handler-${island}-${handlerKey}`,
+					),
+				);
+				expect(parsed.ok).toBe(true);
+				if (parsed.ok) {
+					const issues = validateProjectionDocument(parsed.document, {
+						schema: core.getSchema(),
+						canExecute: core.canExecute,
+					});
+					expect(
+						issues.some((issue) =>
+							issue.endsWith(
+								`.nested.${handlerKey}: executable content is not allowed`,
+							),
+						),
+					).toBe(true);
+				}
 			}
 		}
 	});
@@ -914,6 +1012,25 @@ describe("projection document helpers", () => {
 		).toEqual({
 			ok: false,
 			issues: ["nodes[0].items: expected array"],
+		});
+	});
+
+	it("accumulates document field and nodes shape issues", () => {
+		expect(
+			parseProjectionDocument({
+				id: "",
+				revision: null,
+				title: "",
+				nodes: null,
+			}),
+		).toEqual({
+			ok: false,
+			issues: [
+				"id: required",
+				"revision: required",
+				"title: required",
+				"nodes: expected array",
+			],
 		});
 	});
 
