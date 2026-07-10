@@ -195,6 +195,21 @@ function createCommandSchemaEntry(
 	return [name, getCommandContract(commandValue) ?? {}];
 }
 
+function getOwnCommandEntries(value: object): Array<[string, unknown]> {
+	const entries: Array<[string, unknown]> = [];
+	for (const name of Object.keys(value)) {
+		const descriptor = Object.getOwnPropertyDescriptor(value, name);
+		if (
+			descriptor &&
+			"value" in descriptor &&
+			typeof descriptor.value === "function"
+		) {
+			entries.push([name, descriptor.value]);
+		}
+	}
+	return entries;
+}
+
 /**
  * Expose command functions from additionalArgs as methods on the custom element.
  * Commands are identified as enumerable own properties that are functions with
@@ -889,9 +904,7 @@ export default function igniteElementFactory<
 
 	const resolveProjectionInspection = (): ProjectionInspection => {
 		const { adapter, additionalArgs } = resolveRuntimeResources();
-		const commandEntries = Object.entries(additionalArgs).filter(
-			([, value]) => typeof value === "function",
-		);
+		const commandEntries = getOwnCommandEntries(additionalArgs);
 		const { snapshot, view } = resolveInspection(adapter);
 		const projectionState = resolveProjectionState(snapshot, view);
 		const schema = {

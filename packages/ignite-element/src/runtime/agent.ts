@@ -251,6 +251,21 @@ function getCommandMetadata(
 	return metadata;
 }
 
+function getOwnCommandEntries(value: object): Array<[string, unknown]> {
+	const entries: Array<[string, unknown]> = [];
+	for (const name of Object.keys(value)) {
+		const descriptor = Object.getOwnPropertyDescriptor(value, name);
+		if (
+			descriptor &&
+			"value" in descriptor &&
+			typeof descriptor.value === "function"
+		) {
+			entries.push([name, descriptor.value]);
+		}
+	}
+	return entries;
+}
+
 function hasCanExecute(
 	metadata: CommandMetadata | undefined,
 ): metadata is CommandMetadata & {
@@ -392,12 +407,11 @@ export function createAgentRuntime<
 		retainRuntimeAccess?.();
 		const { adapter } = resolveRuntime();
 		let prevValue = resolveCurrent(adapter);
-		let seeded = false;
+		let installing = true;
 
 		const subscription = adapter.subscribeSnapshots(() => {
 			const nextValue = resolveCurrent(adapter);
-			if (!seeded) {
-				seeded = true;
+			if (installing) {
 				prevValue = nextValue;
 				return;
 			}
@@ -406,6 +420,7 @@ export function createAgentRuntime<
 			prevValue = nextValue;
 			handler(nextValue, lastValue);
 		});
+		installing = false;
 
 		return {
 			unsubscribe: () => {
@@ -506,7 +521,9 @@ export function createAgentRuntime<
 				return true;
 			}
 
-			return metadata.canExecute({ snapshot: adapter.getSnapshot() });
+			return metadata.canExecute({
+				snapshot: resolveRuntimeInspection(adapter).snapshot,
+			});
 		});
 
 	const executeCommand = async (commandName: string, payload?: unknown) =>
@@ -758,9 +775,7 @@ export function createAgentRuntime<
 			return withRuntimeAccess(() => {
 				const { adapter, additionalArgs } = resolveRuntime();
 				const inspection = resolveRuntimeInspection(adapter);
-				const commandEntries = Object.entries(additionalArgs).filter(
-					([, value]) => typeof value === "function",
-				);
+				const commandEntries = getOwnCommandEntries(additionalArgs);
 				const commands = Object.fromEntries(
 					commandEntries
 						.map(

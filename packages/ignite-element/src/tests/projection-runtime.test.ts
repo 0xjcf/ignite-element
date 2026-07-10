@@ -1,21 +1,21 @@
 // @vitest-environment node
 import { command, type IgniteAdapter, StateScope } from "@ignite-element/core";
-import { assign, createActor, createMachine, setup } from "xstate";
 import { describe, expect, it, vi } from "vitest";
+import { assign, createActor, createMachine, setup } from "xstate";
 import "../internal/setupDomPolyfill";
 import { createComponentFactory } from "../createComponentFactory";
-import { igniteCore } from "../xstate";
 import { createIgniteComponentFactory } from "../igniteCore/createIgniteComponentFactory";
-import {
-	applyProjectionDocumentPatch,
-	parseProjectionDocument,
-	upsertProjectionDocument,
-	validateProjectionDocument,
-} from "../internal/projectionDocument";
 import {
 	createProjectionDocumentTarget,
 	createProjectionSpeechTarget,
 } from "../index";
+import {
+	applyProjectionDocumentPatch,
+	parseProjectionDocument,
+	parseProjectionDocumentCollection,
+	upsertProjectionDocument,
+	validateProjectionDocument,
+} from "../internal/projectionDocument";
 import { createAgentRuntime } from "../runtime/agent";
 import type {
 	ProjectionDocument,
@@ -23,6 +23,7 @@ import type {
 	ProjectionSpeechRequest,
 } from "../types/agent";
 import type { IgniteSchemaValue } from "../types/schema";
+import { igniteCore } from "../xstate";
 
 type ProjectionContext = {
 	documents: ProjectionDocument[];
@@ -835,6 +836,41 @@ describe("projection document helpers", () => {
 		);
 	});
 
+	it("rejects inherited command names through the unknown-command path", () => {
+		const core = createProjectionCore();
+		const inheritedCommands = Object.create({
+			constructor: {},
+			toString: {},
+		});
+		const schema = {
+			...core.getSchema(),
+			commands: inheritedCommands,
+		};
+		const canExecute = vi.fn(() => true);
+
+		for (const commandName of ["toString", "constructor"]) {
+			expect(
+				validateProjectionDocument(
+					{
+						id: `inherited-${commandName}`,
+						revision: "1",
+						nodes: [
+							{
+								kind: "action",
+								id: "inherited-action",
+								label: "Inherited",
+								commandName,
+							},
+						],
+					},
+					{ schema, canExecute },
+				),
+			).toContain(`nodes[0].commandName: unknown command "${commandName}"`);
+		}
+
+		expect(canExecute).not.toHaveBeenCalled();
+	});
+
 	it("parses unknown input without throwing and rejects malformed documents", () => {
 		expect(parseProjectionDocument(null)).toEqual({
 			ok: false,
@@ -879,6 +915,130 @@ describe("projection document helpers", () => {
 			ok: false,
 			issues: ["nodes[0].items: expected array"],
 		});
+	});
+
+	it("rejects duplicate document ids as an all-or-nothing collection", () => {
+		expect(
+			parseProjectionDocumentCollection([
+				{
+					id: "panel",
+					revision: "1",
+					nodes: [{ kind: "text", id: "first", text: "First" }],
+				},
+				{
+					id: "other",
+					revision: "1",
+					nodes: [{ kind: "text", id: "other", text: "Other" }],
+				},
+				{
+					id: "panel",
+					revision: "2",
+					nodes: [{ kind: "text", id: "duplicate", text: "Duplicate" }],
+				},
+			]),
+		).toEqual({
+			ok: false,
+			issues: ['documents[2].id: duplicate document id "panel"'],
+		});
+	});
+
+	it("preserves catalog and node order when replacing stable ids", () => {
+		const first: ProjectionDocument = {
+			id: "first",
+			revision: "1",
+			nodes: [{ kind: "text", id: "first-node", text: "First" }],
+		};
+		const middle: ProjectionDocument = {
+			id: "middle",
+			revision: "1",
+			nodes: [{ kind: "text", id: "middle-node", text: "Middle" }],
+		};
+		const last: ProjectionDocument = {
+			id: "last",
+			revision: "1",
+			nodes: [{ kind: "text", id: "last-node", text: "Last" }],
+		};
+		const documents = [first, middle, last];
+		const replacement: ProjectionDocument = {
+			...middle,
+			revision: "2",
+		};
+
+		const replacedDocuments = upsertProjectionDocument(documents, replacement);
+		expect(replacedDocuments.map((document) => document.id)).toEqual([
+			"first",
+			"middle",
+			"last",
+		]);
+		expect(replacedDocuments[1]).toBe(replacement);
+		expect(documents[1]).toBe(middle);
+
+		const appendedDocuments = upsertProjectionDocument(replacedDocuments, {
+			id: "appended",
+			revision: "1",
+			nodes: [{ kind: "text", id: "appended-node", text: "Appended" }],
+		});
+		expect(appendedDocuments.map((document) => document.id)).toEqual([
+			"first",
+			"middle",
+			"last",
+			"appended",
+		]);
+
+		const original: ProjectionDocument = {
+			id: "panel",
+			revision: "1",
+			nodes: [
+				{ kind: "text", id: "first", text: "First" },
+				{ kind: "text", id: "middle", text: "Before" },
+				{ kind: "text", id: "last", text: "Last" },
+			],
+		};
+		const replacedNode = applyProjectionDocumentPatch(original, {
+			documentId: "panel",
+			baseRevision: "1",
+			revision: "2",
+			type: "set-node",
+			node: { kind: "text", id: "middle", text: "After" },
+		});
+		expect(replacedNode).toEqual({
+			ok: true,
+			document: {
+				...original,
+				revision: "2",
+				nodes: [
+					{ kind: "text", id: "first", text: "First" },
+					{ kind: "text", id: "middle", text: "After" },
+					{ kind: "text", id: "last", text: "Last" },
+				],
+			},
+		});
+		expect(original.nodes[1]).toEqual({
+			kind: "text",
+			id: "middle",
+			text: "Before",
+		});
+		if (replacedNode.ok) {
+			expect(
+				applyProjectionDocumentPatch(replacedNode.document, {
+					documentId: "panel",
+					baseRevision: "2",
+					revision: "3",
+					type: "set-node",
+					node: { kind: "text", id: "appended", text: "Appended" },
+				}),
+			).toMatchObject({
+				ok: true,
+				document: {
+					nodes: [
+						{ id: "first" },
+						{ id: "middle" },
+						{ id: "last" },
+						{ id: "appended" },
+					],
+				},
+			});
+		}
 	});
 
 	it("applies revision-aware document patches by stable node id", () => {
@@ -1012,6 +1172,133 @@ describe("projection targets", () => {
 		expect(resolveView).not.toHaveBeenCalled();
 	});
 
+	it("skips enumerable command accessors in schema and projection inspection", async () => {
+		const document: ProjectionDocument = {
+			id: "descriptor-panel",
+			revision: "1",
+			nodes: [{ kind: "text", id: "summary", text: "Ready" }],
+		};
+		const snapshot = { documents: [document], speech: null };
+		const adapter: IgniteAdapter<typeof snapshot, InspectionEvent> = {
+			scope: StateScope.Isolated,
+			subscribeSnapshots: () => ({ unsubscribe: () => undefined }),
+			send: () => undefined,
+			getSnapshot: () => snapshot,
+			stop: vi.fn(),
+		};
+		const createAdapter = Object.assign(() => adapter, {
+			scope: StateScope.Isolated,
+			resolveStateSnapshot: (
+				current: IgniteAdapter<typeof snapshot, InspectionEvent>,
+			) => current.getSnapshot(),
+		});
+		const getter = vi.fn(() => {
+			throw new Error("command accessor invoked");
+		});
+		const additionalArgs = {};
+		Object.defineProperty(additionalArgs, "accessorCommand", {
+			enumerable: true,
+			get: getter,
+		});
+		const core = createComponentFactory(createAdapter, {
+			view: () => ({}),
+			commands: () => ({}),
+			createAdditionalArgs: () => additionalArgs,
+			createRenderStrategy: () => ({
+				attach: () => undefined,
+				render: () => undefined,
+			}),
+		});
+
+		const getSchema = Reflect.get(core, "getSchema");
+		expect(typeof getSchema).toBe("function");
+		if (typeof getSchema !== "function") {
+			throw new Error("component factory is missing getSchema");
+		}
+		const schema = Reflect.apply(getSchema, core, []);
+		if (typeof schema !== "object" || schema === null) {
+			throw new Error("component factory returned an invalid schema");
+		}
+		expect(Reflect.get(schema, "commands")).toEqual({});
+		expect(getter).not.toHaveBeenCalled();
+
+		const commitDocument = vi.fn();
+		const session = Reflect.apply(core, undefined, [
+			createProjectionDocumentTarget({ commitDocument }),
+		]);
+		await flushMicrotasks();
+		await flushMicrotasks();
+
+		expect(commitDocument).toHaveBeenCalledWith(document);
+		expect(getter).not.toHaveBeenCalled();
+		const dispose = Reflect.get(session, "dispose");
+		expect(typeof dispose).toBe("function");
+		if (typeof dispose === "function") {
+			Reflect.apply(dispose, session, []);
+		}
+	});
+
+	it("delivers the first post-install watcher update after synchronous seeds", () => {
+		type Snapshot = { value: number };
+
+		for (const synchronousSeeds of [
+			[],
+			[{ value: 1 }],
+			[{ value: 1 }, { value: 2 }, { value: 3 }],
+		]) {
+			let current: Snapshot = { value: 0 };
+			let notify: (() => void) | undefined;
+			const unsubscribe = vi.fn();
+			const retainRuntimeAccess = vi.fn();
+			const releaseRuntimeAccess = vi.fn();
+			const adapter: IgniteAdapter<Snapshot, InspectionEvent> = {
+				scope: StateScope.Isolated,
+				subscribeSnapshots: (listener) => {
+					notify = () => listener(current);
+					for (const seed of synchronousSeeds) {
+						current = seed;
+						listener(current);
+					}
+					return { unsubscribe };
+				},
+				send: () => undefined,
+				getSnapshot: () => current,
+				stop: vi.fn(),
+			};
+			const handler = vi.fn(
+				(_snapshot: Snapshot, _previous: Snapshot): void => undefined,
+			);
+			const runtime = createAgentRuntime({
+				eventTypes: [],
+				retainRuntimeAccess,
+				releaseRuntimeAccess,
+				resolveRuntime: () => ({
+					adapter,
+					additionalArgs: {},
+					host: new EventTarget(),
+				}),
+				resolveView: () => ({}),
+			});
+
+			const subscription = runtime.watchSnapshot(handler);
+			const lastSeed = current;
+			expect(handler).not.toHaveBeenCalled();
+
+			current = { value: 10 };
+			notify?.();
+			current = { value: 11 };
+			notify?.();
+
+			expect(handler).toHaveBeenNthCalledWith(1, { value: 10 }, lastSeed);
+			expect(handler).toHaveBeenNthCalledWith(2, { value: 11 }, { value: 10 });
+			expect(retainRuntimeAccess).toHaveBeenCalledOnce();
+
+			subscription.unsubscribe();
+			expect(unsubscribe).toHaveBeenCalledOnce();
+			expect(releaseRuntimeAccess).toHaveBeenCalledOnce();
+		}
+	});
+
 	it("uses one transformed inspection pair for schema and projection validation", async () => {
 		type SourceSnapshot = { sequence: number };
 		type FacadeSnapshot = InspectionSnapshot & { sequence: number };
@@ -1079,8 +1366,8 @@ describe("projection targets", () => {
 
 		const schema = core.getSchema();
 
-		expect(resolveStateSnapshot).toHaveBeenCalledTimes(4);
-		expect(adapter.getSnapshot).toHaveBeenCalledTimes(4);
+		expect(resolveStateSnapshot).toHaveBeenCalledTimes(2);
+		expect(adapter.getSnapshot).toHaveBeenCalledTimes(2);
 		expect(schema.snapshot).toMatchObject({
 			sequence: 2,
 			context: {
@@ -1093,16 +1380,23 @@ describe("projection targets", () => {
 		});
 		resolveStateSnapshot.mockClear();
 		vi.mocked(adapter.getSnapshot).mockClear();
+		expect(core.canExecute("confirm")).toBe(true);
+		expect(resolveStateSnapshot).toHaveBeenCalledOnce();
+		expect(adapter.getSnapshot).toHaveBeenCalledOnce();
+		expect(availabilitySequences).toEqual([3]);
+		resolveStateSnapshot.mockClear();
+		vi.mocked(adapter.getSnapshot).mockClear();
 
 		const commitDocument = vi.fn<(document: ProjectionDocument) => void>();
 		const session = core(createProjectionDocumentTarget({ commitDocument }));
 		await flushMicrotasks();
 		await flushMicrotasks();
 
-		expect(resolveStateSnapshot).toHaveBeenCalledTimes(3);
-		expect(adapter.getSnapshot).toHaveBeenCalledTimes(4);
+		expect(resolveStateSnapshot).toHaveBeenCalledOnce();
+		expect(adapter.getSnapshot).toHaveBeenCalledTimes(2);
 		expect(commitDocument).toHaveBeenCalledTimes(1);
 		expect(availabilitySequences).toEqual([
+			3,
 			Number(commitDocument.mock.calls[0]?.[0].revision),
 		]);
 
@@ -1452,7 +1746,7 @@ describe("projection targets", () => {
 		await flushMicrotasks();
 		await flushMicrotasks();
 
-		expect(adapter.getSnapshot).toHaveBeenCalledTimes(5);
+		expect(adapter.getSnapshot).toHaveBeenCalledTimes(3);
 		expect(commitDocument).toHaveBeenCalledTimes(1);
 		expect(availabilitySnapshots).toHaveLength(1);
 		expect(availabilitySnapshots[0]?.context.documents[0]?.revision).toBe(

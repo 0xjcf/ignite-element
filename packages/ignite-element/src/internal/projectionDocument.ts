@@ -1085,9 +1085,16 @@ export function parseProjectionDocumentCollection(
 	}
 
 	const parsedDocuments: ProjectionDocument[] = [];
+	const documentIds = new Set<string>();
 	for (let index = 0; index < copied.values.length; index += 1) {
 		const parsed = parseProjectionDocument(copied.values[index]);
 		if (parsed.ok) {
+			if (documentIds.has(parsed.document.id)) {
+				issues.push(
+					`documents[${index}].id: duplicate document id "${parsed.document.id}"`,
+				);
+			}
+			documentIds.add(parsed.document.id);
 			parsedDocuments.push(parsed.document);
 			continue;
 		}
@@ -1143,14 +1150,21 @@ function validateActionNode(
 	path: string,
 ): string[] {
 	const issues: string[] = [];
-	const command = context.schema.commands[node.commandName];
-	if (!command) {
+	const commandDescriptor = Object.getOwnPropertyDescriptor(
+		context.schema.commands,
+		node.commandName,
+	);
+	const command =
+		commandDescriptor && "value" in commandDescriptor
+			? commandDescriptor.value
+			: undefined;
+	if (!isRecord(command)) {
 		issues.push(`${path}.commandName: unknown command "${node.commandName}"`);
 		return issues;
 	}
 
 	const input = command.input;
-	if (isRecord(input)) {
+	if (isIgniteSchemaObject(input)) {
 		for (const issue of validateToolInputValue(
 			input,
 			node.payload,
@@ -1367,8 +1381,15 @@ export function upsertProjectionDocument(
 	documents: readonly ProjectionDocument[],
 	document: ProjectionDocument,
 ): ProjectionDocument[] {
-	const nextDocuments = documents.filter((entry) => entry.id !== document.id);
-	return [...nextDocuments, document];
+	const existingIndex = documents.findIndex(
+		(entry) => entry.id === document.id,
+	);
+	if (existingIndex < 0) {
+		return [...documents, document];
+	}
+	return documents.map((entry, index) =>
+		index === existingIndex ? document : entry,
+	);
 }
 
 export function applyProjectionDocumentPatch(
@@ -1405,10 +1426,15 @@ export function applyProjectionDocumentPatch(
 
 	switch (patch.type) {
 		case "set-node": {
-			const nextNodes = document.nodes.filter(
-				(node) => node.id !== patch.node.id,
+			const existingIndex = document.nodes.findIndex(
+				(node) => node.id === patch.node.id,
 			);
-			nextNodes.push(patch.node);
+			const nextNodes =
+				existingIndex < 0
+					? [...document.nodes, patch.node]
+					: document.nodes.map((node, index) =>
+							index === existingIndex ? patch.node : node,
+						);
 			return {
 				ok: true,
 				document: {
