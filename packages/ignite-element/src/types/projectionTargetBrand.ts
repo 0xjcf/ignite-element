@@ -1,3 +1,1 @@
-export const igniteProjectionTargetBrand = Symbol.for(
-	"ignite.projection.target",
-);
+export const igniteProjectionTargetBrand = Symbol("ignite.projection.target");

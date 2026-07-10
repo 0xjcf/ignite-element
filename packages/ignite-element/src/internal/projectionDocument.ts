@@ -1,6 +1,5 @@
 import { validateToolInputValue } from "../tools/core";
 import type {
-	IgniteProjectionInspection,
 	ProjectionActionNode,
 	ProjectionChartNode,
 	ProjectionChecklistNode,
@@ -65,7 +64,7 @@ function collectForbiddenKeys(
 	}
 
 	for (const [key, entry] of Object.entries(value)) {
-		if (forbiddenKeys.has(key)) {
+		if (forbiddenKeys.has(key.toLowerCase())) {
 			issues.push(`${path}.${key}: executable content is not allowed`);
 		}
 		collectForbiddenKeys(entry, `${path}.${key}`, issues);
@@ -309,16 +308,26 @@ export function upsertProjectionDocument(
 export function applyProjectionDocumentPatch(
 	document: ProjectionDocument,
 	patch: ProjectionDocumentPatch,
-): ProjectionDocument {
+):
+	| { ok: true; document: ProjectionDocument }
+	| {
+			ok: false;
+			code: "document-mismatch" | "stale-revision";
+			reason: string;
+	  } {
 	if (document.id !== patch.documentId) {
-		throw new Error(
-			`Projection patch target "${patch.documentId}" does not match document "${document.id}".`,
-		);
+		return {
+			ok: false,
+			code: "document-mismatch",
+			reason: `Projection patch target "${patch.documentId}" does not match document "${document.id}".`,
+		};
 	}
-	if (document.revision === patch.revision) {
-		throw new Error(
-			`Projection patch revision "${patch.revision}" must advance beyond the current document revision.`,
-		);
+	if (document.revision !== patch.baseRevision) {
+		return {
+			ok: false,
+			code: "stale-revision",
+			reason: `Projection patch base revision "${patch.baseRevision}" does not match current revision "${document.revision}".`,
+		};
 	}
 
 	switch (patch.type) {
@@ -328,16 +337,22 @@ export function applyProjectionDocumentPatch(
 			);
 			nextNodes.push(patch.node);
 			return {
-				...document,
-				revision: patch.revision,
-				nodes: nextNodes,
+				ok: true,
+				document: {
+					...document,
+					revision: patch.revision,
+					nodes: nextNodes,
+				},
 			};
 		}
 		case "remove-node":
 			return {
-				...document,
-				revision: patch.revision,
-				nodes: document.nodes.filter((node) => node.id !== patch.nodeId),
+				ok: true,
+				document: {
+					...document,
+					revision: patch.revision,
+					nodes: document.nodes.filter((node) => node.id !== patch.nodeId),
+				},
 			};
 	}
 }
@@ -348,19 +363,15 @@ export function isPendingSpeechRequest(
 	return speech?.status === "pending";
 }
 
-export function validateProjectionSelection<
-	Snapshot,
-	SchemaState = IgniteSchemaValue,
-	View extends Record<string, unknown> = Record<never, never>,
->(
+export function validateProjectionSelection(
 	document: ProjectionDocument,
-	inspection: IgniteProjectionInspection<Snapshot, SchemaState, View>,
+	inspection: {
+		schema: IgniteAgentSchema<IgniteSchemaValue, IgniteSchemaValue>;
+		canExecute(commandName: string): boolean;
+	},
 ): string[] {
 	return validateProjectionDocument(document, {
-		schema: inspection.schema as IgniteAgentSchema<
-			IgniteSchemaValue,
-			IgniteSchemaValue
-		>,
+		schema: inspection.schema,
 		canExecute: inspection.canExecute,
 	});
 }

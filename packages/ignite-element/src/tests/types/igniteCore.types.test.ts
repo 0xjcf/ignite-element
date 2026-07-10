@@ -233,11 +233,9 @@ describe("igniteCore type inference", () => {
 		});
 
 		const documentTarget = createProjectionDocumentTarget({
-			selectDocument: () => null,
 			commitDocument: () => undefined,
 		});
 		const speechTarget = createProjectionSpeechTarget({
-			selectSpeech: () => null,
 			commitSpeech: () => undefined,
 			acknowledgeCommandName: "acknowledgeSpeech",
 		});
@@ -253,12 +251,17 @@ describe("igniteCore type inference", () => {
 		expectTypeOf(counter(documentTarget).dispose).toEqualTypeOf<() => void>();
 
 		const plainTarget = {
-			selectDocument: () => null,
 			commitDocument: () => undefined,
 		};
 		// @ts-expect-error plain objects are not valid projection targets
 		const invalidTarget: RootIgniteProjectionTarget = plainTarget;
 		void invalidTarget;
+
+		createProjectionDocumentTarget({
+			// @ts-expect-error callback selectors are not part of the public target API
+			selectDocument: () => null,
+			commitDocument: () => undefined,
+		});
 	});
 
 	it("accepts an EventTarget host for the headless agent runtime", () => {

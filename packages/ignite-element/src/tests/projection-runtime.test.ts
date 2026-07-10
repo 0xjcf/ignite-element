@@ -54,12 +54,22 @@ function createProjectionCore() {
 					},
 					PATCH_PROJECTION: {
 						actions: assign({
-							documents: ({ context, event }) =>
-								context.documents.map((document) =>
-									document.id === event.patch.documentId
-										? applyProjectionDocumentPatch(document, event.patch)
-										: document,
-								),
+							documents: ({ context, event }) => {
+								const nextDocuments: ProjectionDocument[] = [];
+								for (const document of context.documents) {
+									if (document.id !== event.patch.documentId) {
+										nextDocuments.push(document);
+										continue;
+									}
+
+									const result = applyProjectionDocumentPatch(
+										document,
+										event.patch,
+									);
+									nextDocuments.push(result.ok ? result.document : document);
+								}
+								return nextDocuments;
+							},
 						}),
 					},
 					QUEUE_SPEECH: {
@@ -201,6 +211,26 @@ describe("projection document helpers", () => {
 				canExecute: core.canExecute,
 			}),
 		).toContain("nodes[0].jsx: executable content is not allowed");
+		expect(
+			validateProjectionDocument(
+				{
+					id: "unsafe-case",
+					revision: "1",
+					nodes: [
+						{
+							kind: "text",
+							id: "unsafe-case-text",
+							text: "Unsafe",
+							JSX: "<button />",
+						},
+					],
+				} as unknown as ProjectionDocument,
+				{
+					schema: core.getSchema(),
+					canExecute: core.canExecute,
+				},
+			),
+		).toContain("nodes[0].JSX: executable content is not allowed");
 
 		expect(
 			validateProjectionDocument(
@@ -244,6 +274,31 @@ describe("projection document helpers", () => {
 				},
 			),
 		).toContain("nodes[0].payload.value: below minimum 1");
+
+		expect(
+			validateProjectionDocument(
+				{
+					id: "missing-labels",
+					revision: "1",
+					nodes: [
+						{
+							kind: "checklist",
+							id: "list",
+							items: [{ id: "", label: "", checked: false }],
+						},
+					],
+				},
+				{
+					schema: core.getSchema(),
+					canExecute: core.canExecute,
+				},
+			),
+		).toEqual(
+			expect.arrayContaining([
+				"nodes[0].items[0].id: required",
+				"nodes[0].items[0].label: required",
+			]),
+		);
 	});
 
 	it("applies revision-aware document patches by stable node id", () => {
@@ -260,6 +315,7 @@ describe("projection document helpers", () => {
 		};
 		const patch: ProjectionDocumentPatch = {
 			documentId: "panel",
+			baseRevision: "1",
 			revision: "2",
 			type: "set-node",
 			node: {
@@ -270,33 +326,70 @@ describe("projection document helpers", () => {
 		};
 
 		expect(applyProjectionDocumentPatch(original, patch)).toEqual({
+			ok: true,
+			document: {
+				id: "panel",
+				revision: "2",
+				nodes: [
+					{
+						kind: "text",
+						id: "summary",
+						text: "After",
+					},
+				],
+			},
+		});
+	});
+
+	it("rejects stale and mismatched patch preconditions as facts instead of throwing", () => {
+		const original: ProjectionDocument = {
 			id: "panel",
 			revision: "2",
-			nodes: [
-				{
-					kind: "text",
-					id: "summary",
-					text: "After",
-				},
-			],
+			nodes: [{ kind: "text", id: "summary", text: "Current" }],
+		};
+
+		expect(
+			applyProjectionDocumentPatch(original, {
+				documentId: "panel",
+				baseRevision: "1",
+				revision: "3",
+				type: "set-node",
+				node: { kind: "text", id: "summary", text: "Stale" },
+			}),
+		).toEqual({
+			ok: false,
+			code: "stale-revision",
+			reason:
+				'Projection patch base revision "1" does not match current revision "2".',
+		});
+
+		expect(
+			applyProjectionDocumentPatch(original, {
+				documentId: "other-panel",
+				baseRevision: "2",
+				revision: "3",
+				type: "remove-node",
+				nodeId: "summary",
+			}),
+		).toEqual({
+			ok: false,
+			code: "document-mismatch",
+			reason:
+				'Projection patch target "other-panel" does not match document "panel".',
 		});
 	});
 });
 
 describe("projection targets", () => {
+	const flushMicrotasks = () =>
+		new Promise<void>((resolve) => queueMicrotask(resolve));
+
 	it("binds a branded document target, commits revision changes, and disposes cleanly", async () => {
 		const core = createProjectionCore();
-		type ProjectionSnapshot = ReturnType<typeof core.getSnapshot>;
-		type ProjectionView = ReturnType<typeof core.getView>;
 		const commits: string[] = [];
-		const target = createProjectionDocumentTarget<
-			ProjectionSnapshot,
-			ReturnType<typeof core.getSchema>["snapshot"],
-			ProjectionView
-		>({
-			selectDocument: ({ snapshot }) => snapshot.context.documents[0] ?? null,
-			commitDocument: (document, inspection) => {
-				commits.push(`${document.revision}:${inspection.view.documentCount}`);
+		const target = createProjectionDocumentTarget({
+			commitDocument: (document) => {
+				commits.push(document.revision);
 			},
 		});
 		const session = core(target);
@@ -308,36 +401,31 @@ describe("projection targets", () => {
 		});
 		await core.execute("patchProjection", {
 			documentId: "panel",
+			baseRevision: "1",
 			revision: "2",
 			type: "set-node",
 			node: { kind: "text", id: "summary", text: "Updated" },
 		});
 
-		expect(commits).toEqual(["1:1", "2:1"]);
+		expect(commits).toEqual(["1", "2"]);
 
 		session.dispose();
 
 		await core.execute("patchProjection", {
 			documentId: "panel",
+			baseRevision: "2",
 			revision: "3",
 			type: "set-node",
 			node: { kind: "text", id: "summary", text: "Disposed" },
 		});
 
-		expect(commits).toEqual(["1:1", "2:1"]);
+		expect(commits).toEqual(["1", "2"]);
 	});
 
 	it("speaks request-driven utterances once and acknowledges them through commands", async () => {
 		const core = createProjectionCore();
-		type ProjectionSnapshot = ReturnType<typeof core.getSnapshot>;
-		type ProjectionView = ReturnType<typeof core.getView>;
 		const speak = vi.fn();
-		const target = createProjectionSpeechTarget<
-			ProjectionSnapshot,
-			ReturnType<typeof core.getSchema>["snapshot"],
-			ProjectionView
-		>({
-			selectSpeech: ({ snapshot }) => snapshot.context.speech,
+		const target = createProjectionSpeechTarget({
 			commitSpeech: (speech) => {
 				speak(speech.id, speech.text);
 			},
@@ -375,5 +463,121 @@ describe("projection targets", () => {
 		expect(speak).toHaveBeenCalledTimes(2);
 		expect(speak).toHaveBeenNthCalledWith(2, "speech-2", "Updated.");
 		reboundSession.dispose();
+	});
+
+	it("does not duplicate slow document commits when overlapping snapshots arrive", async () => {
+		const core = createProjectionCore();
+		const pendingCommit: { current: (() => void) | null } = { current: null };
+		const commitDocument = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					pendingCommit.current = resolve;
+				}),
+		);
+		const session = core(
+			createProjectionDocumentTarget({
+				commitDocument,
+			}),
+		);
+
+		await core.execute("upsertProjection", {
+			id: "panel",
+			revision: "1",
+			nodes: [{ kind: "text", id: "summary", text: "Ready" }],
+		});
+		await flushMicrotasks();
+		await core.execute("queueSpeech", {
+			id: "speech-1",
+			text: "System ready.",
+			status: "pending",
+		});
+		await flushMicrotasks();
+
+		expect(commitDocument).toHaveBeenCalledTimes(1);
+
+		const releaseDocumentCommit = pendingCommit.current;
+		if (typeof releaseDocumentCommit === "function") {
+			releaseDocumentCommit();
+		}
+		await flushMicrotasks();
+		session.dispose();
+	});
+
+	it("does not duplicate slow speech commits when unrelated snapshots arrive", async () => {
+		const core = createProjectionCore();
+		const pendingCommit: { current: (() => void) | null } = { current: null };
+		const commitSpeech = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					pendingCommit.current = resolve;
+				}),
+		);
+		const session = core(
+			createProjectionSpeechTarget({
+				commitSpeech,
+				acknowledgeCommandName: "acknowledgeSpeech",
+				resolveAcknowledgePayload: (speech) => ({ speechId: speech.id }),
+			}),
+		);
+
+		await core.execute("queueSpeech", {
+			id: "speech-1",
+			text: "System ready.",
+			status: "pending",
+		});
+		await flushMicrotasks();
+		await core.execute("upsertProjection", {
+			id: "panel",
+			revision: "1",
+			nodes: [{ kind: "text", id: "summary", text: "Ready" }],
+		});
+		await flushMicrotasks();
+
+		expect(commitSpeech).toHaveBeenCalledTimes(1);
+
+		const releaseSpeechCommit = pendingCommit.current;
+		if (typeof releaseSpeechCommit === "function") {
+			releaseSpeechCommit();
+		}
+		await flushMicrotasks();
+		session.dispose();
+	});
+
+	it("does not surface invalid projection documents as unhandled rejections", async () => {
+		const core = createProjectionCore();
+		const commitDocument = vi.fn();
+		const session = core(
+			createProjectionDocumentTarget({
+				commitDocument,
+			}),
+		);
+		const unhandled: unknown[] = [];
+		const captureUnhandled = (reason: unknown) => {
+			unhandled.push(reason);
+		};
+
+		process.on("unhandledRejection", captureUnhandled);
+
+		try {
+			await core.execute("upsertProjection", {
+				id: "panel",
+				revision: "1",
+				nodes: [
+					{
+						kind: "action",
+						id: "confirm",
+						label: "Confirm",
+						commandName: "missing",
+					},
+				],
+			});
+			await flushMicrotasks();
+		} finally {
+			process.off("unhandledRejection", captureUnhandled);
+			session.dispose();
+		}
+
+		expect(commitDocument).not.toHaveBeenCalled();
+		expect(unhandled).toEqual([]);
 	});
 });

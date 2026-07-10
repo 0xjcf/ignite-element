@@ -8,12 +8,14 @@ import type { TemplateResult } from "lit-html";
 import IgniteElement, {
 	type IgniteElementLifecycleHooks,
 } from "./IgniteElement";
+import {
+	commitProjectionDocumentTarget,
+	commitProjectionSpeechTarget,
+	createProjectionBindingState,
+	type ProjectionInspection,
+} from "./internal/projectionBinding";
 import "./renderers/ignite-jsx";
 import type { IgniteComponent } from "./igniteCore/types";
-import {
-	isPendingSpeechRequest,
-	validateProjectionSelection,
-} from "./internal/projectionDocument";
 import { resolveConfiguredRenderStrategy } from "./renderers/resolveConfiguredRenderStrategy";
 import {
 	createAgentRuntime,
@@ -25,7 +27,6 @@ import { facadeCleanupSymbol } from "./runtime/effects";
 import { isProjectionTarget } from "./runtime/projectionTargets";
 import { toSchemaValue } from "./runtime/schema";
 import type {
-	IgniteProjectionInspection,
 	IgniteProjectionSession,
 	IgniteProjectionTarget,
 	IgniteStoryLifecycleEntry,
@@ -126,7 +127,7 @@ function getCommandMetadata(
 		return undefined;
 	}
 
-	return metadata as CommandMetadata;
+	return metadata;
 }
 
 function hasCanExecute(
@@ -161,6 +162,17 @@ function getCommandContract(
 	}
 
 	return commandContract;
+}
+
+function toInspectableSchemaValue(value: unknown): IgniteSchemaValue {
+	return toSchemaValue(value) ?? null;
+}
+
+function getAdditionalArg(
+	additionalArgs: object,
+	commandName: string,
+): unknown {
+	return Reflect.get(additionalArgs, commandName);
 }
 
 /**
@@ -714,15 +726,87 @@ export default function igniteElementFactory<
 		}
 	};
 
-	const resolveProjectionInspection = (): IgniteProjectionInspection<
-		State,
-		ReturnType<typeof toSchemaValue>,
-		RuntimeView
-	> => {
+	const isInspectableRecord = (
+		value: unknown,
+	): value is Record<string, unknown> =>
+		typeof value === "object" && value !== null && !Array.isArray(value);
+
+	const isProjectionDocumentLike = (
+		value: unknown,
+	): value is ProjectionInspection["documents"][number] =>
+		isInspectableRecord(value) &&
+		typeof value.id === "string" &&
+		typeof value.revision === "string" &&
+		Array.isArray(value.nodes);
+
+	const isProjectionSpeechLike = (
+		value: unknown,
+	): value is NonNullable<ProjectionInspection["speech"]> =>
+		isInspectableRecord(value) &&
+		typeof value.id === "string" &&
+		typeof value.text === "string" &&
+		(value.status === "pending" || value.status === "acknowledged");
+
+	const readProjectionDocuments = (
+		candidate: unknown,
+	): readonly ProjectionInspection["documents"][number][] => {
+		if (!isInspectableRecord(candidate)) {
+			return [];
+		}
+
+		const documents = Reflect.get(candidate, "documents");
+		return Array.isArray(documents)
+			? documents.filter(isProjectionDocumentLike)
+			: [];
+	};
+
+	const readProjectionSpeech = (
+		candidate: unknown,
+	): ProjectionInspection["speech"] => {
+		if (!isInspectableRecord(candidate)) {
+			return null;
+		}
+
+		const speech = Reflect.get(candidate, "speech");
+		return isProjectionSpeechLike(speech) ? speech : null;
+	};
+
+	const resolveProjectionState = (
+		snapshot: unknown,
+		view: unknown,
+	): Pick<ProjectionInspection, "documents" | "speech"> => {
+		const containers = [snapshot, view];
+		if (isInspectableRecord(snapshot)) {
+			containers.push(Reflect.get(snapshot, "context"));
+			containers.push(Reflect.get(snapshot, "projection"));
+		}
+		if (isInspectableRecord(view)) {
+			containers.push(Reflect.get(view, "projection"));
+		}
+
+		let documents: readonly ProjectionInspection["documents"][number][] = [];
+		let speech: ProjectionInspection["speech"] = null;
+
+		for (const container of containers) {
+			if (documents.length === 0) {
+				documents = readProjectionDocuments(container);
+			}
+			if (speech === null) {
+				speech = readProjectionSpeech(container);
+			}
+		}
+
+		return { documents, speech };
+	};
+
+	const resolveProjectionInspection = (): ProjectionInspection => {
 		const { adapter, additionalArgs } = resolveRuntimeResources();
 		const commandEntries = Object.entries(additionalArgs).filter(
 			([, value]) => typeof value === "function",
 		);
+		const snapshot = adapter.getSnapshot();
+		const view = resolveView(adapter);
+		const projectionState = resolveProjectionState(snapshot, view);
 		const schema = {
 			commands: Object.fromEntries(
 				commandEntries
@@ -732,17 +816,9 @@ export default function igniteElementFactory<
 					.sort(([left], [right]) => left.localeCompare(right)),
 			),
 			events: [...eventTypes].sort().map((type) => ({ type })),
-			snapshot: (toSchemaValue(adapter.getSnapshot()) ?? null) as Exclude<
-				ReturnType<typeof toSchemaValue>,
-				undefined
-			>,
-			view: (toSchemaValue(resolveView(adapter)) ?? null) as Exclude<
-				ReturnType<typeof toSchemaValue>,
-				undefined
-			>,
+			snapshot: toInspectableSchemaValue(snapshot),
+			view: toInspectableSchemaValue(view),
 		};
-		const snapshot = adapter.getSnapshot();
-		const view = resolveView(adapter);
 		const revision = JSON.stringify({
 			snapshot: schema.snapshot,
 			view: schema.view,
@@ -754,9 +830,7 @@ export default function igniteElementFactory<
 			view,
 			schema,
 			canExecute: (commandName: string) => {
-				const command = (additionalArgs as Record<string, unknown>)[
-					commandName
-				];
+				const command = getAdditionalArg(additionalArgs, commandName);
 				if (typeof command !== "function") {
 					return false;
 				}
@@ -766,6 +840,8 @@ export default function igniteElementFactory<
 				}
 				return metadata.canExecute({ snapshot: adapter.getSnapshot() });
 			},
+			documents: projectionState.documents,
+			speech: projectionState.speech,
 			revision,
 		};
 	};
@@ -774,13 +850,11 @@ export default function igniteElementFactory<
 		State,
 		Event,
 		RuntimeView,
-		AdditionalRenderArgs<State, Event, RenderArgs>
+		AdditionalRenderArgs<State, Event, RenderArgs>,
+		ComponentRenderer<RenderArgs, View>
 	>({
 		createDomBridge: (renderer, options) =>
-			createRuntimeDomBridge(
-				renderer as ComponentRenderer<RenderArgs, View>,
-				options,
-			),
+			createRuntimeDomBridge(renderer, options),
 		eventTypes,
 		observeLifecycle,
 		retainRuntimeAccess,
@@ -791,56 +865,77 @@ export default function igniteElementFactory<
 
 	const bindProjectionTarget = (target: unknown): IgniteProjectionSession => {
 		if (!isProjectionTarget(target)) {
-			throw new Error(
-				"[igniteElementFactory] The one-argument overload only accepts first-party projection targets.",
-			);
+			return {
+				dispose() {
+					console.error(
+						"[igniteElementFactory] The one-argument overload only accepts first-party projection targets.",
+					);
+				},
+			};
 		}
 
 		let active = true;
-		let lastDocumentRevision: string | null = null;
-		let lastSpeechId: string | null = null;
+		const bindingState = createProjectionBindingState();
+		let commitQueue = Promise.resolve();
 
-		const commitCurrent = async () => {
+		const commitCurrent = () => {
 			if (!active) {
 				return;
 			}
 
-			const inspection = resolveProjectionInspection();
-			if ("selectDocument" in target) {
-				const document = target.selectDocument(inspection);
-				if (!document || document.revision === lastDocumentRevision) {
-					return;
-				}
+			commitQueue = commitQueue
+				.then(async () => {
+					if (!active) {
+						return;
+					}
 
-				const issues = validateProjectionSelection(document, inspection);
-				if (issues.length > 0) {
-					throw new Error(
-						`[igniteElementFactory] Invalid projection document: ${issues.join("; ")}`,
+					const inspection = resolveProjectionInspection();
+					const fact =
+						target.kind === "document"
+							? await commitProjectionDocumentTarget({
+									state: bindingState,
+									inspection,
+									documentId: target.documentId,
+									commitDocument: target.commitDocument,
+								})
+							: await commitProjectionSpeechTarget({
+									state: bindingState,
+									inspection,
+									commitSpeech: target.commitSpeech,
+									acknowledge: async (speech) => {
+										const payload = target.resolveAcknowledgePayload?.(speech);
+										const { additionalArgs } = resolveRuntimeResources();
+										const command = getAdditionalArg(
+											additionalArgs,
+											target.acknowledgeCommandName,
+										);
+										if (typeof command !== "function") {
+											throw new Error(
+												`Unknown command "${target.acknowledgeCommandName}".`,
+											);
+										}
+										await command(payload);
+									},
+								});
+
+					if (fact.status === "error" || fact.status === "unsupported") {
+						console.error(
+							"[igniteElementFactory] Projection commit fact",
+							fact,
+						);
+					}
+				})
+				.catch((error) => {
+					console.error(
+						"[igniteElementFactory] Projection commit failed unexpectedly.",
+						error,
 					);
-				}
-
-				await target.commitDocument(document, inspection);
-				lastDocumentRevision = document.revision;
-				return;
-			}
-
-			const speech = target.selectSpeech(inspection);
-			if (!isPendingSpeechRequest(speech) || speech.id === lastSpeechId) {
-				return;
-			}
-
-			await target.commitSpeech(speech, inspection);
-			lastSpeechId = speech.id;
-			const payload = target.resolveAcknowledgePayload?.(speech, inspection);
-			await agentRuntime.execute(
-				target.acknowledgeCommandName,
-				payload as never,
-			);
+				});
 		};
 
-		void commitCurrent();
+		commitCurrent();
 		const subscription = agentRuntime.watchSnapshot(() => {
-			void commitCurrent();
+			commitCurrent();
 		});
 
 		return {

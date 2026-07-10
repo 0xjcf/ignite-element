@@ -9,7 +9,7 @@ import type {
 	IgniteSchemaObject,
 	IgniteSchemaValue,
 } from "./schema";
-import type { igniteProjectionTargetBrand } from "./projectionTargetBrand";
+import { igniteProjectionTargetBrand } from "./projectionTargetBrand";
 
 type RuntimeEventUnion<Events extends EventMap> = {
 	[Type in keyof Events & string]: EventMember<Events, Type>;
@@ -327,12 +327,14 @@ export type ProjectionDocumentPatch =
 	| {
 			type: "set-node";
 			documentId: string;
+			baseRevision: string;
 			revision: string;
 			node: ProjectionDocumentNode;
 	  }
 	| {
 			type: "remove-node";
 			documentId: string;
+			baseRevision: string;
 			revision: string;
 			nodeId: string;
 	  };
@@ -350,16 +352,16 @@ export type IgniteProjectionSession = {
 
 export type IgniteProjectionInspection<
 	Snapshot = unknown,
-	SchemaState = IgniteSchemaValue,
-	View extends Record<string, unknown> = Record<never, never>,
+	SchemaState extends IgniteSchemaValue = IgniteSchemaValue,
+	View extends IgniteSchemaValue = IgniteSchemaValue,
 > = {
 	snapshot: Snapshot;
 	view: View;
-	schema: IgniteAgentSchema<SchemaState, IgniteSchemaValue>;
+	schema: IgniteAgentSchema<SchemaState, View>;
 	canExecute(commandName: string): boolean;
 	revision: string;
 };
 
 export type IgniteProjectionTarget = {
-	readonly [igniteProjectionTargetBrand]: "ignite.projection.target";
+	readonly [igniteProjectionTargetBrand]: true;
 };

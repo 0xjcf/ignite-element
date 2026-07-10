@@ -156,13 +156,14 @@ type AgentRuntimeOptions<
 	Event,
 	View extends Record<string, unknown>,
 	AdditionalArgs extends Record<string, unknown>,
+	Renderer,
 > = {
 	eventTypes: readonly string[];
 	observeLifecycle?: (
 		handler: (entry: IgniteStoryLifecycleEntry) => void,
 	) => IgniteAgentSubscription;
 	createDomBridge?: (
-		renderer: unknown,
+		renderer: Renderer,
 		options?: IgniteDomBridgeOptions,
 	) => IgniteDomBridgeSession;
 	resolveRuntime: () => RuntimeResources<State, Event, AdditionalArgs>;
@@ -243,7 +244,7 @@ function getCommandMetadata(
 		return undefined;
 	}
 
-	return metadata as CommandMetadata;
+	return metadata;
 }
 
 function hasCanExecute(
@@ -288,6 +289,7 @@ export function createAgentRuntime<
 	Event,
 	View extends Record<string, unknown>,
 	AdditionalArgs extends Record<string, unknown>,
+	Renderer = unknown,
 >({
 	createDomBridge,
 	eventTypes,
@@ -296,7 +298,7 @@ export function createAgentRuntime<
 	releaseRuntimeAccess,
 	resolveRuntime,
 	resolveView,
-}: AgentRuntimeOptions<State, Event, View, AdditionalArgs>) {
+}: AgentRuntimeOptions<State, Event, View, AdditionalArgs, Renderer>) {
 	const isThenable = (value: unknown): value is PromiseLike<unknown> =>
 		(typeof value === "object" || typeof value === "function") &&
 		value !== null &&
