@@ -49,6 +49,8 @@ const requiredExports = [
 		".",
 		{
 			StateScope: "object",
+			createProjectionDocumentTarget: "function",
+			createProjectionSpeechTarget: "function",
 			event: "function",
 			igniteShell: "function",
 			test: "function",
@@ -56,11 +58,41 @@ const requiredExports = [
 	],
 	[
 		"./xstate",
-		{ igniteCore: "function", matchState: "function", test: "function" },
+		{
+			createProjectionDocumentTarget: "function",
+			createProjectionSpeechTarget: "function",
+			igniteCore: "function",
+			matchState: "function",
+			test: "function",
+		},
 	],
-	["./redux", { igniteCore: "function", test: "function" }],
-	["./mobx", { igniteCore: "function", test: "function" }],
-	["./actor-web", { igniteCore: "function", test: "function" }],
+	[
+		"./redux",
+		{
+			createProjectionDocumentTarget: "function",
+			createProjectionSpeechTarget: "function",
+			igniteCore: "function",
+			test: "function",
+		},
+	],
+	[
+		"./mobx",
+		{
+			createProjectionDocumentTarget: "function",
+			createProjectionSpeechTarget: "function",
+			igniteCore: "function",
+			test: "function",
+		},
+	],
+	[
+		"./actor-web",
+		{
+			createProjectionDocumentTarget: "function",
+			createProjectionSpeechTarget: "function",
+			igniteCore: "function",
+			test: "function",
+		},
+	],
 	[
 		"./jsx",
 		{

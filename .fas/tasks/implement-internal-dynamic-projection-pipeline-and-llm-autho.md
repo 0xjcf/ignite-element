@@ -39,6 +39,8 @@ Replace the superseded ProjectionRequest/ProjectionSpec registry and command-pre
 - docs/projection-runtime.md
 - docs/accessibility-by-default.md
 - docs/site/src/content/docs/guides/accessibility-first.mdx
+- packages/ignite-element/package.json
+- packages/ignite-element/scripts/verify-exports.mjs
 - packages/ignite-element/src/internal/projectionBinding.ts
 - packages/ignite-element/src/internal/projectionDocument.ts
 - packages/ignite-element/src/createProjectionFactory.ts

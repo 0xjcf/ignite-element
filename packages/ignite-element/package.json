@@ -145,6 +145,8 @@
 	],
 	"sideEffects": [
 		"./src/internal/setupDomPolyfill.ts",
+		"./dist/projectionTargets-*.js",
+		"./dist/projectionTargets-*.cjs",
 		"./dist/testing-*.js",
 		"./dist/testing-*.cjs"
 	],
