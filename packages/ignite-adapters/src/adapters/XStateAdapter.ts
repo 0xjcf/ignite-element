@@ -56,6 +56,14 @@ const invalidSnapshotContextMessage =
 const unsafeSnapshotInspectionMessage =
 	"[XStateAdapter] Unable to inspect snapshot descriptors safely.";
 
+function describeStopFailure(error: unknown): string {
+	return error instanceof Error
+		? error.message
+		: typeof error === "string"
+			? error
+			: "[XStateAdapter] Stop cleanup failed.";
+}
+
 function collectEnumerableDescriptors(
 	source: object,
 	descriptors: Map<PropertyKey, PropertyDescriptor>,
@@ -167,8 +175,11 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 
 	function notify(snapshot: StateFrom<Machine>) {
 		const state = toExtendedState(snapshot);
-		for (const listener of listeners) {
-			listener(state);
+		const deliveryListeners = Array.from(listeners);
+		for (const listener of deliveryListeners) {
+			if (listeners.has(listener)) {
+				listener(state);
+			}
 		}
 	}
 
@@ -400,15 +411,49 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 			}
 
 			isStopped = true;
-			cleanupSubscription();
 			listeners.clear();
-			lastKnownSnapshot = actor.getSnapshot();
+			let firstError: unknown;
+			let hasError = false;
+			const captureError = (
+				stage: "unsubscribe" | "getSnapshot" | "actor.stop",
+				error: unknown,
+			) => {
+				if (!hasError) {
+					hasError = true;
+					firstError = error;
+					return;
+				}
+				console.error(
+					"[XStateAdapter] Stop cleanup failed after an earlier error.",
+					{ stage, error },
+				);
+			};
+
+			try {
+				cleanupSubscription();
+			} catch (error) {
+				captureError("unsubscribe", error);
+			}
+
+			try {
+				lastKnownSnapshot = actor.getSnapshot();
+			} catch (error) {
+				captureError("getSnapshot", error);
+			}
 
 			// Only stop the actor when ignite created it (isolated machine source).
 			// A consumer-owned, already-started actor (shared scope) is not ours to
 			// stop — the consumer owns its lifetime.
 			if (ownsSource && typeof actor.stop === "function") {
-				actor.stop();
+				try {
+					actor.stop();
+				} catch (error) {
+					captureError("actor.stop", error);
+				}
+			}
+
+			if (hasError) {
+				failInvariant(describeStopFailure(firstError));
 			}
 		},
 		scope,

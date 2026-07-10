@@ -33,6 +33,7 @@ import {
 	parseProjectionSpeechRequest,
 } from "./internal/projectionDocument";
 import type {
+	IgniteAgentSubscription,
 	IgniteProjectionSession,
 	IgniteProjectionTarget,
 	IgniteStoryLifecycleEntry,
@@ -956,18 +957,19 @@ export default function igniteElementFactory<
 			);
 		}
 
-		let active = true;
+		let setupState: "installing" | "active" | "failed" | "disposed" =
+			"installing";
 		const bindingState = createProjectionBindingState();
 		let commitQueue = Promise.resolve();
 
 		const commitCurrent = () => {
-			if (!active) {
+			if (setupState !== "active") {
 				return;
 			}
 
 			commitQueue = commitQueue
 				.then(async () => {
-					if (!active) {
+					if (setupState !== "active") {
 						return;
 					}
 
@@ -1016,18 +1018,38 @@ export default function igniteElementFactory<
 				});
 		};
 
+		let subscription: IgniteAgentSubscription | undefined;
+		try {
+			subscription = agentRuntime.watchSnapshot(() => {
+				if (setupState === "active") {
+					commitCurrent();
+				}
+			});
+			setupState = "active";
+		} catch (error) {
+			setupState = "failed";
+			try {
+				releaseRuntimeAccess();
+			} catch (releaseError) {
+				console.error(
+					"[igniteElementFactory] Runtime access release failed after projection watcher setup error.",
+					releaseError,
+				);
+			}
+			throw error;
+		}
+
 		commitCurrent();
-		const subscription = agentRuntime.watchSnapshot(() => {
-			commitCurrent();
-		});
 
 		return {
 			dispose() {
-				if (!active) {
+				if (setupState !== "active") {
 					return;
 				}
-				active = false;
-				subscription.unsubscribe();
+				setupState = "disposed";
+				const ownedSubscription = subscription;
+				subscription = undefined;
+				ownedSubscription?.unsubscribe();
 			},
 		};
 	};

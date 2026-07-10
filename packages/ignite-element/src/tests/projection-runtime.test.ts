@@ -2,6 +2,8 @@
 import { command, type IgniteAdapter, StateScope } from "@ignite-element/core";
 import { assign, createActor, createMachine, setup } from "xstate";
 import { describe, expect, it, vi } from "vitest";
+import "../internal/setupDomPolyfill";
+import { createComponentFactory } from "../createComponentFactory";
 import { igniteCore } from "../xstate";
 import { createIgniteComponentFactory } from "../igniteCore/createIgniteComponentFactory";
 import {
@@ -975,6 +977,208 @@ describe("projection document helpers", () => {
 describe("projection targets", () => {
 	const flushMicrotasks = () =>
 		new Promise<void>((resolve) => queueMicrotask(resolve));
+
+	it("evaluates one initial projection after watcher setup succeeds", async () => {
+		const document: ProjectionDocument = {
+			id: "watcher-panel",
+			revision: "1",
+			nodes: [{ kind: "text", id: "summary", text: "Ready" }],
+		};
+
+		for (const synchronousCallbacks of [0, 1, 3]) {
+			const snapshot = { documents: [document], speech: null };
+			const unsubscribe = vi.fn();
+			const adapter: IgniteAdapter<typeof snapshot, { type: "NOOP" }> = {
+				scope: StateScope.Isolated,
+				subscribeSnapshots: (listener) => {
+					for (let index = 0; index < synchronousCallbacks; index += 1) {
+						listener(snapshot);
+					}
+					return { unsubscribe };
+				},
+				send: () => undefined,
+				getSnapshot: () => snapshot,
+				stop: vi.fn(),
+			};
+			const createAdapter = Object.assign(() => adapter, {
+				scope: StateScope.Isolated,
+				resolveStateSnapshot: (
+					current: IgniteAdapter<typeof snapshot, { type: "NOOP" }>,
+				) => current.getSnapshot(),
+			});
+			const core = createIgniteComponentFactory(createAdapter, {
+				view: () => ({}),
+				commands: () => ({}),
+			});
+			const commitDocument = vi.fn();
+			const session = core(createProjectionDocumentTarget({ commitDocument }));
+
+			expect(commitDocument).not.toHaveBeenCalled();
+			await flushMicrotasks();
+			await flushMicrotasks();
+			expect(commitDocument).toHaveBeenCalledTimes(1);
+
+			session.dispose();
+			session.dispose();
+			expect(unsubscribe).toHaveBeenCalledTimes(1);
+		}
+	});
+
+	it("cancels queued projection work when immediately disposed", async () => {
+		const document: ProjectionDocument = {
+			id: "disposed-panel",
+			revision: "1",
+			nodes: [{ kind: "text", id: "summary", text: "Never commit" }],
+		};
+		const snapshot = { documents: [document], speech: null };
+		const unsubscribeError = new Error("watcher unsubscribe failed");
+		const unsubscribe = vi.fn(() => {
+			throw unsubscribeError;
+		});
+		const adapter: IgniteAdapter<typeof snapshot, { type: "NOOP" }> = {
+			scope: StateScope.Isolated,
+			subscribeSnapshots: (listener) => {
+				listener(snapshot);
+				listener(snapshot);
+				return { unsubscribe };
+			},
+			send: () => undefined,
+			getSnapshot: () => snapshot,
+			stop: vi.fn(),
+		};
+		const createAdapter = Object.assign(() => adapter, {
+			scope: StateScope.Isolated,
+			resolveStateSnapshot: (
+				current: IgniteAdapter<typeof snapshot, { type: "NOOP" }>,
+			) => current.getSnapshot(),
+		});
+		const core = createIgniteComponentFactory(createAdapter, {
+			view: () => ({}),
+			commands: () => ({}),
+		});
+		const commitDocument = vi.fn();
+		const session = core(createProjectionDocumentTarget({ commitDocument }));
+
+		expect(() => session.dispose()).toThrow(unsubscribeError);
+		expect(() => session.dispose()).not.toThrow();
+		await flushMicrotasks();
+		await flushMicrotasks();
+
+		expect(unsubscribe).toHaveBeenCalledTimes(1);
+		expect(commitDocument).not.toHaveBeenCalled();
+	});
+
+	it("balances shared runtime access when watcher setup fails", async () => {
+		const document: ProjectionDocument = {
+			id: "shared-panel",
+			revision: "1",
+			nodes: [{ kind: "text", id: "summary", text: "Ready" }],
+		};
+		const snapshot = { documents: [document], speech: null };
+		let failWatcherSetup = true;
+		const unsubscribe = vi.fn();
+		const stop = vi.fn();
+		const adapter: IgniteAdapter<typeof snapshot, { type: "NOOP" }> = {
+			scope: StateScope.Shared,
+			subscribeSnapshots: (listener) => {
+				if (failWatcherSetup) {
+					throw new Error("watcher setup failed");
+				}
+				listener(snapshot);
+				return { unsubscribe };
+			},
+			send: () => undefined,
+			getSnapshot: () => snapshot,
+			stop,
+		};
+		const createAdapter = Object.assign(() => adapter, {
+			scope: StateScope.Shared,
+			resolveStateSnapshot: (
+				current: IgniteAdapter<typeof snapshot, { type: "NOOP" }>,
+			) => current.getSnapshot(),
+		});
+		const core = createComponentFactory(createAdapter, {
+			view: () => ({}),
+			commands: () => ({}),
+			cleanup: true,
+			createRenderStrategy: () => ({
+				attach: () => undefined,
+				render: () => undefined,
+			}),
+		});
+		const ghostCommit = vi.fn();
+		let registeredConstructor: CustomElementConstructor | undefined;
+		const defineSpy = vi
+			.spyOn(customElements, "define")
+			.mockImplementation((_name, elementConstructor) => {
+				registeredConstructor = elementConstructor;
+			});
+		const addEventListenerDescriptor = Object.getOwnPropertyDescriptor(
+			HTMLElement.prototype,
+			"addEventListener",
+		);
+		const removeEventListenerDescriptor = Object.getOwnPropertyDescriptor(
+			HTMLElement.prototype,
+			"removeEventListener",
+		);
+		Object.defineProperty(HTMLElement.prototype, "addEventListener", {
+			value: () => undefined,
+			configurable: true,
+		});
+		Object.defineProperty(HTMLElement.prototype, "removeEventListener", {
+			value: () => undefined,
+			configurable: true,
+		});
+
+		try {
+			expect(() =>
+				Reflect.apply(core, undefined, [
+					createProjectionDocumentTarget({ commitDocument: ghostCommit }),
+				]),
+			).toThrow("watcher setup failed");
+			failWatcherSetup = false;
+			core(`shared-cleanup-${crypto.randomUUID()}`, () => "ready");
+			expect(registeredConstructor).toBeDefined();
+			if (!registeredConstructor) {
+				return;
+			}
+			const element = new registeredConstructor();
+			const connect = Reflect.get(element, "connectedCallback");
+			const disconnect = Reflect.get(element, "disconnectedCallback");
+			expect(connect).toBeTypeOf("function");
+			expect(disconnect).toBeTypeOf("function");
+			if (typeof connect !== "function" || typeof disconnect !== "function") {
+				return;
+			}
+			Reflect.apply(connect, element, []);
+			Reflect.apply(disconnect, element, []);
+			await flushMicrotasks();
+			await flushMicrotasks();
+
+			expect(ghostCommit).not.toHaveBeenCalled();
+			expect(stop).toHaveBeenCalledTimes(1);
+		} finally {
+			defineSpy.mockRestore();
+			if (addEventListenerDescriptor) {
+				Object.defineProperty(
+					HTMLElement.prototype,
+					"addEventListener",
+					addEventListenerDescriptor,
+				);
+			} else {
+				Reflect.deleteProperty(HTMLElement.prototype, "addEventListener");
+			}
+			if (removeEventListenerDescriptor) {
+				Object.defineProperty(
+					HTMLElement.prototype,
+					"removeEventListener",
+					removeEventListenerDescriptor,
+				);
+			} else {
+				Reflect.deleteProperty(HTMLElement.prototype, "removeEventListener");
+			}
+		}
+	});
 
 	it("prefers actor-owned snapshot context over conflicting derived view output", async () => {
 		const actorDocument: ProjectionDocument = {
@@ -2209,10 +2413,23 @@ describe("projection targets", () => {
 			).toThrow(
 				"[XStateAdapter] Snapshot context must be an own data property.",
 			);
+			Object.defineProperty(snapshot, "context", contextDescriptor);
+			actor.send({ type: "RECOVER" });
 			await flushMicrotasks();
 			await flushMicrotasks();
 			expect(ghostDocumentCommit).not.toHaveBeenCalled();
-			Object.defineProperty(snapshot, "context", {
+
+			const repairedSnapshot = actor.getSnapshot();
+			const repairedContextDescriptor = Object.getOwnPropertyDescriptor(
+				repairedSnapshot,
+				"context",
+			);
+			expect(repairedContextDescriptor).toBeDefined();
+			if (!repairedContextDescriptor) {
+				return;
+			}
+			Reflect.deleteProperty(repairedSnapshot, "context");
+			Object.defineProperty(repairedSnapshot, "context", {
 				enumerable: true,
 				configurable: true,
 				get: contextGetter,
@@ -2227,16 +2444,16 @@ describe("projection targets", () => {
 			).toThrow(
 				"[XStateAdapter] Snapshot context must be an own data property.",
 			);
+			Object.defineProperty(
+				repairedSnapshot,
+				"context",
+				repairedContextDescriptor,
+			);
 			await flushMicrotasks();
-			await flushMicrotasks();
-			expect(ghostSpeechCommit).not.toHaveBeenCalled();
-			expect(contextGetter).not.toHaveBeenCalled();
-
-			Object.defineProperty(snapshot, "context", contextDescriptor);
-			actor.send({ type: "RECOVER" });
 			await flushMicrotasks();
 			expect(ghostDocumentCommit).not.toHaveBeenCalled();
 			expect(ghostSpeechCommit).not.toHaveBeenCalled();
+			expect(contextGetter).not.toHaveBeenCalled();
 
 			const commitDocument = vi.fn();
 			const commitSpeech = vi.fn();
@@ -2339,9 +2556,6 @@ describe("projection targets", () => {
 		expect(() =>
 			core(createProjectionDocumentTarget({ commitDocument: ghostCommit })),
 		).toThrow("[XStateAdapter] Snapshot context must be an own data property.");
-		await flushMicrotasks();
-		await flushMicrotasks();
-		expect(ghostCommit).not.toHaveBeenCalled();
 
 		if (!capturedSnapshot || !capturedContextDescriptor) {
 			return;
@@ -2352,6 +2566,7 @@ describe("projection targets", () => {
 			capturedContextDescriptor,
 		);
 		await core.execute("recover");
+		await flushMicrotasks();
 		await flushMicrotasks();
 		expect(ghostCommit).not.toHaveBeenCalled();
 
