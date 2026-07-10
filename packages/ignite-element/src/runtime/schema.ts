@@ -140,10 +140,7 @@ export function toInspectableSchemaValue(
 						if (!descriptor.enumerable || !("value" in descriptor)) {
 							return [];
 						}
-						const normalized = toInspectableSchemaValue(
-							descriptor.value,
-							seen,
-						);
+						const normalized = toInspectableSchemaValue(descriptor.value, seen);
 						return typeof normalized === "undefined"
 							? []
 							: [[key, normalized] as const];
