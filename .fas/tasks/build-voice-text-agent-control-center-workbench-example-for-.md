@@ -42,6 +42,7 @@ Build examples/agents/voice-workbench as the decisive dogfood for agent-authored
 
 ## Verification plan
 - Run focused headless, runtime, type, and rendered example tests plus visual and interaction validation.
+- Create or refresh the final review summary artifact before task completion.
 - Run the epic shared full verification and CodeRabbit review at closeout.
 
 ## Risks

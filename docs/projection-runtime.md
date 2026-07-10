@@ -109,11 +109,13 @@ Validation rejects executable or environment-coupled content, including:
 
 Projection documents are rebuilt as canonical JSON-like data before validation
 or commit. Arbitrary business data is preserved only in the documented action,
-form, and table data islands. At URI-bearing keys, strings and dense arrays use
-a deterministic, non-invoking coercion model: nested arrays are joined with
+form, and table data islands. The URI-bearing keys are `action`, `formaction`,
+`href`, `src`, and `xlink:href`. At those keys, strings and dense arrays use a
+deterministic, non-invoking coercion model: nested arrays are joined with
 commas, null contributes an empty segment, and other JSON scalar or object
-elements contribute a fixed blocker. The completed candidate is checked for
-executable schemes and executable HTML or SVG data URLs without calling
+elements contribute the fixed blocker `#`. The completed candidate rejects
+`javascript:`, `vbscript:`, `data:text/html`,
+`data:application/xhtml+xml`, and `data:image/svg+xml` without calling
 application coercion hooks.
 
 This validation begins after an adapter has acquired source state. Redux passes

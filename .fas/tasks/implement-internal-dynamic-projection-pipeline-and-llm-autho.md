@@ -112,7 +112,7 @@ Replace the superseded ProjectionRequest/ProjectionSpec registry and command-pre
 - Capture an authenticated TDD red receipt before production implementation.
 - Run focused core/runtime/type/igniteTools tests and create an incremental commit after each commit-plan step.
 - Review contextual memory and record any durable integration contract or intentional divergence before closeout.
-- Refresh QA, SRE, and final review summaries with exact-SHA evidence and linked spike/design provenance.
+- Refresh QA and SRE evidence, then create or refresh the final review summary artifact with exact-SHA evidence and linked spike/design provenance.
 - Run `fas validate-task` before the committed task is added to the batch snapshot.
 - Use the epic shared `verify.sh --full` and CodeRabbit committed review only after the final epic task.
 

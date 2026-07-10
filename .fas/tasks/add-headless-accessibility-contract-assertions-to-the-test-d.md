@@ -40,6 +40,7 @@ Add deterministic headless testing support for the replacement architecture. Tes
 
 ## Verification plan
 - Run focused testing/runtime/type tests and fas validate-task.
+- Create or refresh the final review summary artifact before task completion.
 - Use the epic shared full verification and CodeRabbit review at closeout.
 
 ## Risks

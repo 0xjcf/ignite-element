@@ -39,6 +39,7 @@ Add rendered-DOM accessibility verification after the dynamic projection workben
 
 ## Verification plan
 - Run focused rendered example tests and the example runtime lane.
+- Create or refresh the final review summary artifact before task completion.
 - Run the epic shared full verification and CodeRabbit review at closeout.
 
 ## Risks

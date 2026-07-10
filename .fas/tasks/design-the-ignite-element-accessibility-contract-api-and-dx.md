@@ -1,5 +1,11 @@
 # Design projection contracts and behavior-first interface DX
 
+> **Status: superseded historical evidence.** The problem statement,
+> acceptance criteria, and design conclusions below are non-actionable. Their
+> `ProjectionRequest`, `ProjectionSpec`, `ProjectionInstance`, registry
+> selection, and command-presentation metadata direction was replaced by
+> `task-1783650880370` and is retained only as decision history.
+
 ## Source
 Created with `fas create-task` on 2026-07-09.
 

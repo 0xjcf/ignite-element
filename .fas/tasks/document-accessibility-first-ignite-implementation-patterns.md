@@ -41,6 +41,7 @@ After replacement implementation, headless assertions, the LLM-authored workbenc
 
 ## Verification plan
 - Run focused docs/example checks and fas validate-task.
+- Create or refresh the final review summary artifact before task completion.
 - Run the epic shared full verification and CodeRabbit review before batch close.
 
 ## Risks
