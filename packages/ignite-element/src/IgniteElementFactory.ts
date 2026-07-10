@@ -879,13 +879,9 @@ export default function igniteElementFactory<
 
 	const bindProjectionTarget = (target: unknown): IgniteProjectionSession => {
 		if (!isProjectionTarget(target)) {
-			return {
-				dispose() {
-					console.error(
-						"[igniteElementFactory] The one-argument overload only accepts first-party projection targets.",
-					);
-				},
-			};
+			throw new Error(
+				"[igniteElementFactory] The one-argument overload only accepts first-party projection targets.",
+			);
 		}
 
 		let active = true;

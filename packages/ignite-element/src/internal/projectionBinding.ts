@@ -131,6 +131,24 @@ function normalizeCommitResult(
 	return result ?? { status: "committed" };
 }
 
+function releaseDocumentReservation(
+	state: ProjectionBindingState,
+	document: ProjectionDocument,
+): void {
+	if (state.documentRevisionById.get(document.id) === document.revision) {
+		state.documentRevisionById.delete(document.id);
+	}
+}
+
+function releaseSpeechReservation(
+	state: ProjectionBindingState,
+	speechId: string,
+): void {
+	if (state.activeSpeechId === speechId) {
+		state.activeSpeechId = null;
+	}
+}
+
 export async function commitProjectionDocumentTarget({
 	state,
 	inspection,
@@ -185,6 +203,7 @@ export async function commitProjectionDocumentTarget({
 			(await commitDocument(document)) ?? undefined,
 		);
 		if (result.status === "unsupported") {
+			releaseDocumentReservation(state, document);
 			return {
 				channel: "document",
 				status: "unsupported",
@@ -201,6 +220,7 @@ export async function commitProjectionDocumentTarget({
 			revision: document.revision,
 		};
 	} catch (error) {
+		releaseDocumentReservation(state, document);
 		return {
 			channel: "document",
 			status: "error",
@@ -258,6 +278,7 @@ export async function commitProjectionSpeechTarget({
 			(await commitSpeech(speech)) ?? undefined,
 		);
 		if (result.status === "unsupported") {
+			releaseSpeechReservation(state, speech.id);
 			return {
 				channel: "speech",
 				status: "unsupported",
@@ -274,6 +295,7 @@ export async function commitProjectionSpeechTarget({
 			speechId: speech.id,
 		};
 	} catch (error) {
+		releaseSpeechReservation(state, speech.id);
 		return {
 			channel: "speech",
 			status: "error",

@@ -485,6 +485,17 @@ describe("projection targets", () => {
 		expect(commits).toEqual(["1", "2"]);
 	});
 
+	it("rejects invalid one-argument overload inputs instead of returning a no-op session", () => {
+		const core = createProjectionCore();
+
+		expect(() => core("div" as never)).toThrow(
+			"[igniteElementFactory] The one-argument overload only accepts first-party projection targets.",
+		);
+		expect(() => core({ kind: "document" } as never)).toThrow(
+			"[igniteElementFactory] The one-argument overload only accepts first-party projection targets.",
+		);
+	});
+
 	it("speaks request-driven utterances once and acknowledges them through commands", async () => {
 		const core = createProjectionCore();
 		const speak = vi.fn();

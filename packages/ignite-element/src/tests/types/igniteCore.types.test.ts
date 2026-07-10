@@ -249,6 +249,13 @@ describe("igniteCore type inference", () => {
 			counter(speechTarget),
 		).toEqualTypeOf<RootIgniteProjectionSession>();
 		expectTypeOf(counter(documentTarget).dispose).toEqualTypeOf<() => void>();
+		const assertInvalidOneArgumentUsage = (
+			invalidCounter: typeof counter,
+		): void => {
+			// @ts-expect-error one-argument overload accepts only first-party targets
+			invalidCounter("div");
+		};
+		void assertInvalidOneArgumentUsage;
 
 		const plainTarget = {
 			commitDocument: () => undefined,

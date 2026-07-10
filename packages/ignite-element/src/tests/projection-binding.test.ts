@@ -79,6 +79,99 @@ describe("private projection binding", () => {
 		});
 	});
 
+	it("retries the same document revision after a transient commit error", async () => {
+		const state = createProjectionBindingState();
+		const inspection = createInspection();
+		const commitDocument = vi
+			.fn<(_: unknown) => Promise<void>>()
+			.mockRejectedValueOnce(new Error("temporary document failure"))
+			.mockResolvedValueOnce();
+
+		await expect(
+			commitProjectionDocumentTarget({
+				state,
+				inspection,
+				commitDocument,
+			}),
+		).resolves.toEqual({
+			channel: "document",
+			status: "error",
+			documentId: "panel",
+			revision: "1",
+			reason: "temporary document failure",
+		});
+		await expect(
+			commitProjectionDocumentTarget({
+				state,
+				inspection,
+				commitDocument,
+			}),
+		).resolves.toEqual({
+			channel: "document",
+			status: "committed",
+			documentId: "panel",
+			revision: "1",
+		});
+		await expect(
+			commitProjectionDocumentTarget({
+				state,
+				inspection,
+				commitDocument,
+			}),
+		).resolves.toEqual({
+			channel: "document",
+			status: "skipped",
+			reason: "duplicate-document",
+		});
+
+		expect(commitDocument).toHaveBeenCalledTimes(2);
+	});
+
+	it("retries the same document revision after an unsupported document fact", async () => {
+		const state = createProjectionBindingState();
+		const inspection = createInspection();
+		const commitDocument = vi
+			.fn<
+				(_: unknown) =>
+					| {
+							status: "unsupported";
+							reason: string;
+					  }
+					| undefined
+			>()
+			.mockReturnValueOnce({
+				status: "unsupported",
+				reason: "document sink unavailable",
+			})
+			.mockReturnValueOnce(undefined);
+
+		await expect(
+			commitProjectionDocumentTarget({
+				state,
+				inspection,
+				commitDocument,
+			}),
+		).resolves.toEqual({
+			channel: "document",
+			status: "unsupported",
+			documentId: "panel",
+			revision: "1",
+			reason: "document sink unavailable",
+		});
+		await expect(
+			commitProjectionDocumentTarget({
+				state,
+				inspection,
+				commitDocument,
+			}),
+		).resolves.toEqual({
+			channel: "document",
+			status: "committed",
+			documentId: "panel",
+			revision: "1",
+		});
+	});
+
 	it("acknowledges speech at most once even when the target is evaluated repeatedly", async () => {
 		const state = createProjectionBindingState();
 		const acknowledge = vi.fn(async () => undefined);
@@ -97,6 +190,58 @@ describe("private projection binding", () => {
 		});
 
 		expect(acknowledge).toHaveBeenCalledTimes(1);
+	});
+
+	it("retries the same speech id after an acknowledge failure", async () => {
+		const state = createProjectionBindingState();
+		const commitSpeech = vi
+			.fn<(_: unknown) => Promise<void>>()
+			.mockResolvedValue(undefined);
+		const acknowledge = vi
+			.fn<(_: unknown) => Promise<void>>()
+			.mockRejectedValueOnce(new Error("temporary speech failure"))
+			.mockResolvedValueOnce(undefined);
+
+		await expect(
+			commitProjectionSpeechTarget({
+				state,
+				inspection: createInspection(),
+				commitSpeech,
+				acknowledge,
+			}),
+		).resolves.toEqual({
+			channel: "speech",
+			status: "error",
+			speechId: "speech-1",
+			reason: "temporary speech failure",
+		});
+		await expect(
+			commitProjectionSpeechTarget({
+				state,
+				inspection: createInspection(),
+				commitSpeech,
+				acknowledge,
+			}),
+		).resolves.toEqual({
+			channel: "speech",
+			status: "committed",
+			speechId: "speech-1",
+		});
+		await expect(
+			commitProjectionSpeechTarget({
+				state,
+				inspection: createInspection(),
+				commitSpeech,
+				acknowledge,
+			}),
+		).resolves.toEqual({
+			channel: "speech",
+			status: "skipped",
+			reason: "duplicate-speech",
+		});
+
+		expect(commitSpeech).toHaveBeenCalledTimes(2);
+		expect(acknowledge).toHaveBeenCalledTimes(2);
 	});
 
 	it("keeps only the latest document revision and current speech identity in binding state", async () => {
