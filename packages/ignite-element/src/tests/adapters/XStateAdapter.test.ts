@@ -317,12 +317,12 @@ describe("XStateAdapter", () => {
 			expect(
 				Object.getOwnPropertyDescriptor(state, snapshotSymbol)?.value,
 			).toBe("snapshot symbol");
-			expect(Object.prototype.hasOwnProperty.call(state, "hiddenContext")).toBe(
-				false,
-			);
 			expect(
-				Object.prototype.hasOwnProperty.call(state, "hiddenSnapshot"),
-			).toBe(false);
+				Object.getOwnPropertyDescriptor(state, "hiddenContext"),
+			).toBeUndefined();
+			expect(
+				Object.getOwnPropertyDescriptor(state, "hiddenSnapshot"),
+			).toBeUndefined();
 		};
 
 		verifyDescriptors(current);
