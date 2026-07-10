@@ -11,7 +11,7 @@ import type {
 } from "../types/agent";
 import type { IgniteSchemaValue } from "../types/schema";
 import { commandMetadataSymbol } from "./commands";
-import { toSchemaValue } from "./schema";
+import { toInspectableSchemaValue, toSchemaValue } from "./schema";
 
 type RuntimeEventMember = {
 	type: string;
@@ -788,14 +788,8 @@ export function createAgentRuntime<
 				return {
 					commands,
 					events: [...eventTypes].sort().map((type) => ({ type })),
-					snapshot: (toSchemaValue(inspection.snapshot) ?? null) as Exclude<
-						ReturnType<typeof toSchemaValue>,
-						undefined
-					>,
-					view: (toSchemaValue(inspection.view) ?? null) as Exclude<
-						ReturnType<typeof toSchemaValue>,
-						undefined
-					>,
+					snapshot: toInspectableSchemaValue(inspection.snapshot) ?? null,
+					view: toInspectableSchemaValue(inspection.view) ?? null,
 				};
 			});
 		},

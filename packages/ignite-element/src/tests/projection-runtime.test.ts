@@ -1060,6 +1060,19 @@ describe("projection document helpers", () => {
 		});
 	});
 
+	it("rejects whitespace-only required identifiers", () => {
+		expect(
+			parseProjectionDocument({
+				id: "   ",
+				revision: "\t",
+				nodes: [{ kind: "text", id: "\n", text: "Ready" }],
+			}),
+		).toEqual({
+			ok: false,
+			issues: ["id: required", "revision: required", "nodes[0].id: required"],
+		});
+	});
+
 	it("accumulates document field and nodes shape issues", () => {
 		expect(
 			parseProjectionDocument({
@@ -1412,6 +1425,39 @@ describe("projection targets", () => {
 		expect(resolveView).not.toHaveBeenCalled();
 	});
 
+	it("serializes runtime schema inspection without invoking toJSON accessors", () => {
+		const snapshot = { visible: "snapshot" };
+		const view = { visible: "view" };
+		const toJSON = vi.fn(() => {
+			throw new Error("toJSON accessor invoked");
+		});
+		Object.defineProperty(snapshot, "toJSON", { get: toJSON });
+		Object.defineProperty(view, "toJSON", { get: toJSON });
+		const adapter: IgniteAdapter<typeof snapshot, InspectionEvent> = {
+			scope: StateScope.Isolated,
+			subscribeSnapshots: () => ({ unsubscribe: () => undefined }),
+			send: () => undefined,
+			getSnapshot: () => snapshot,
+			stop: vi.fn(),
+		};
+		const runtime = createAgentRuntime({
+			eventTypes: [],
+			resolveInspection: () => ({ snapshot, view }),
+			resolveRuntime: () => ({
+				adapter,
+				additionalArgs: {},
+				host: new EventTarget(),
+			}),
+			resolveView: () => view,
+		});
+
+		expect(runtime.getSchema()).toMatchObject({
+			snapshot: { visible: "snapshot" },
+			view: { visible: "view" },
+		});
+		expect(toJSON).not.toHaveBeenCalled();
+	});
+
 	it("skips enumerable command accessors in schema and projection inspection", async () => {
 		const document: ProjectionDocument = {
 			id: "descriptor-panel",
@@ -1482,6 +1528,53 @@ describe("projection targets", () => {
 		if (typeof dispose === "function") {
 			Reflect.apply(dispose, session, []);
 		}
+	});
+
+	it("fails closed when projection inspection hits a hostile descriptor", async () => {
+		const document: ProjectionDocument = {
+			id: "derived-panel",
+			revision: "1",
+			nodes: [{ kind: "text", id: "summary", text: "Derived" }],
+		};
+		const snapshot = new Proxy<Record<string, unknown>>(
+			{},
+			{
+				getOwnPropertyDescriptor() {
+					throw new Error("descriptor inspection failed");
+				},
+			},
+		);
+		const adapter: IgniteAdapter<typeof snapshot, InspectionEvent> = {
+			scope: StateScope.Isolated,
+			subscribeSnapshots: () => ({ unsubscribe: () => undefined }),
+			send: () => undefined,
+			getSnapshot: () => snapshot,
+			stop: vi.fn(),
+		};
+		const createAdapter = Object.assign(() => adapter, {
+			scope: StateScope.Isolated,
+			resolveStateSnapshot: (
+				current: IgniteAdapter<typeof snapshot, InspectionEvent>,
+			) => current.getSnapshot(),
+			resolveCommandActor: (
+				current: IgniteAdapter<typeof snapshot, InspectionEvent>,
+			) => ({
+				send: (event: InspectionEvent) => current.send(event),
+				getState: () => current.getSnapshot(),
+			}),
+		});
+		const core = createIgniteComponentFactory(createAdapter, {
+			view: () => ({ projection: { documents: [document] } }),
+			commands: () => ({}),
+		});
+
+		const commitDocument = vi.fn();
+		const session = core(createProjectionDocumentTarget({ commitDocument }));
+		await flushMicrotasks();
+		await flushMicrotasks();
+
+		expect(commitDocument).not.toHaveBeenCalled();
+		session.dispose();
 	});
 
 	it("delivers the first post-install watcher update after synchronous seeds", () => {

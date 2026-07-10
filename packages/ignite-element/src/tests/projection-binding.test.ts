@@ -80,6 +80,26 @@ describe("private projection binding", () => {
 		});
 	});
 
+	it("returns an error fact when document selection throws", async () => {
+		const projection = createProjectionDocument();
+		vi.spyOn(projection, "select").mockImplementation(() => {
+			throw new Error("document selection failed");
+		});
+
+		await expect(
+			commitProjectionDocumentTarget({
+				state: createProjectionBindingState(),
+				inspection: createInspection(),
+				projection,
+				commitDocument: vi.fn(),
+			}),
+		).resolves.toEqual({
+			channel: "document",
+			status: "error",
+			reason: "document selection failed",
+		});
+	});
+
 	it("retries the same document revision after a transient commit error", async () => {
 		const state = createProjectionBindingState();
 		const inspection = createInspection();
@@ -195,6 +215,71 @@ describe("private projection binding", () => {
 
 		expect(commitSpeech).toHaveBeenCalledTimes(1);
 		expect(acknowledge).toHaveBeenCalledTimes(1);
+	});
+
+	it("returns an error fact when speech selection or identity throws", async () => {
+		const selection = createProjectionSpeech();
+		vi.spyOn(selection, "select").mockImplementation(() => {
+			throw new Error("speech selection failed");
+		});
+
+		await expect(
+			commitProjectionSpeechTarget({
+				state: createProjectionBindingState(),
+				inspection: createInspection(),
+				projection: selection,
+				commitSpeech: vi.fn(),
+				acknowledge: vi.fn(async () => undefined),
+			}),
+		).resolves.toEqual({
+			channel: "speech",
+			status: "error",
+			reason: "speech selection failed",
+		});
+
+		const identity = createProjectionSpeech();
+		vi.spyOn(identity, "identity").mockImplementation(() => {
+			throw new Error("speech identity failed");
+		});
+
+		await expect(
+			commitProjectionSpeechTarget({
+				state: createProjectionBindingState(),
+				inspection: createInspection(),
+				projection: identity,
+				commitSpeech: vi.fn(),
+				acknowledge: vi.fn(async () => undefined),
+			}),
+		).resolves.toEqual({
+			channel: "speech",
+			status: "error",
+			speechId: "speech-1",
+			reason: "speech identity failed",
+		});
+	});
+
+	it("preserves another speech delivery marker when a new delivery fails", async () => {
+		const state = createProjectionBindingState();
+		state.deliveredSpeechId = "delivery:previous";
+		const projection = createProjectionSpeech();
+		vi.spyOn(projection, "identity").mockReturnValue("delivery:speech-1");
+
+		await expect(
+			commitProjectionSpeechTarget({
+				state,
+				inspection: createInspection(),
+				projection,
+				commitSpeech: vi.fn(async () => {
+					throw new Error("delivery failed");
+				}),
+				acknowledge: vi.fn(async () => undefined),
+			}),
+		).resolves.toMatchObject({
+			status: "error",
+			speechId: "speech-1",
+		});
+
+		expect(state.deliveredSpeechId).toBe("delivery:previous");
 	});
 
 	it("retries speech delivery after a transient commit failure", async () => {

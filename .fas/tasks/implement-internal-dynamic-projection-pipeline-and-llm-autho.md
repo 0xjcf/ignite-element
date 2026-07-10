@@ -128,7 +128,7 @@ full verification, CodeRabbit, and batch closeout.
 - Review contextual memory and record any durable integration contract or intentional divergence before closeout.
 - Refresh QA and SRE evidence, then create or refresh the final review summary artifact with exact-SHA evidence and linked spike/design provenance.
 - Run `fas validate-task` before the committed task is added to the batch snapshot.
-- Use the epic shared `verify.sh --full` and CodeRabbit committed review only after the final epic task.
+- Treat focused checks as supplemental. Before closing the batch containing this task, run the shared `verify.sh --full` and CodeRabbit committed review; final epic closeout requires a fresh shared pass before `fas batch close`.
 
 ## Risks
 

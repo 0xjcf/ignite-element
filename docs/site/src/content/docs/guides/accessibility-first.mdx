@@ -37,9 +37,26 @@ Those facts belong in the runtime contract before they are styled in the DOM.
 
 ```ts no-check
 import { igniteCore } from 'ignite-element/xstate';
-import { assign, createMachine } from 'xstate';
+import { assign, setup } from 'xstate';
 
-const thermostatMachine = createMachine({
+type ThermostatContext = {
+  target: number;
+  isSaving: boolean;
+  errorText: string | undefined;
+};
+
+type ThermostatEvent =
+  | { type: 'SET_TARGET_DRAFT'; target: number }
+  | { type: 'SAVE_TARGET'; target: number }
+  | { type: 'SAVE_SUCCESS' }
+  | { type: 'SAVE_FAILURE'; message: string };
+
+const thermostatMachine = setup({
+  types: {
+    context: {} as ThermostatContext,
+    events: {} as ThermostatEvent,
+  },
+}).createMachine({
   context: {
     target: 70,
     isSaving: false,

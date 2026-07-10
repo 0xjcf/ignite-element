@@ -27,7 +27,7 @@ import {
 import { commandMetadataSymbol } from "./runtime/commands";
 import { facadeCleanupSymbol } from "./runtime/effects";
 import { resolveProjectionTarget } from "./runtime/projectionTargets";
-import { toSchemaValue } from "./runtime/schema";
+import { toInspectableSchemaValue, toSchemaValue } from "./runtime/schema";
 import {
 	parseProjectionDocumentCollection,
 	parseProjectionSpeechRequest,
@@ -175,10 +175,6 @@ function getCommandContract(
 	}
 
 	return commandContract;
-}
-
-function toInspectableSchemaValue(value: unknown): IgniteSchemaValue {
-	return toSchemaValue(value) ?? null;
 }
 
 function getAdditionalArg(
@@ -779,7 +775,12 @@ export default function igniteElementFactory<
 		value: Record<string, unknown>,
 		key: string,
 	): InspectablePropertyRead => {
-		const descriptor = Object.getOwnPropertyDescriptor(value, key);
+		let descriptor: PropertyDescriptor | undefined;
+		try {
+			descriptor = Object.getOwnPropertyDescriptor(value, key);
+		} catch {
+			return { found: true, safe: false };
+		}
 		if (!descriptor) {
 			return { found: false };
 		}
@@ -915,10 +916,10 @@ export default function igniteElementFactory<
 			),
 			events: [...eventTypes].sort().map((type) => ({ type })),
 			snapshot: projectionState.inspectionDataSafe
-				? toInspectableSchemaValue(snapshot)
+				? (toInspectableSchemaValue(snapshot) ?? null)
 				: null,
 			view: projectionState.inspectionDataSafe
-				? toInspectableSchemaValue(view)
+				? (toInspectableSchemaValue(view) ?? null)
 				: null,
 		};
 		const revision = JSON.stringify({
@@ -947,7 +948,6 @@ export default function igniteElementFactory<
 			revision,
 		};
 	};
-
 	const agentRuntime = createAgentRuntime<
 		State,
 		Event,

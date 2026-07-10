@@ -74,3 +74,87 @@ export function toSchemaValue(
 			return String(value);
 	}
 }
+
+export function toInspectableSchemaValue(
+	value: unknown,
+	seen: WeakSet<object> = new WeakSet(),
+): IgniteSchemaValue | undefined {
+	if (value === null) {
+		return null;
+	}
+
+	switch (typeof value) {
+		case "boolean":
+		case "number":
+		case "string":
+			return value;
+		case "bigint":
+			return value.toString();
+		case "undefined":
+		case "function":
+		case "symbol":
+			return undefined;
+		case "object": {
+			try {
+				if (seen.has(value)) {
+					return "[Circular]";
+				}
+				seen.add(value);
+
+				if (value instanceof Date) {
+					return Date.prototype.toISOString.call(value);
+				}
+
+				if (Array.isArray(value)) {
+					const lengthDescriptor = Object.getOwnPropertyDescriptor(
+						value,
+						"length",
+					);
+					if (
+						!lengthDescriptor ||
+						!("value" in lengthDescriptor) ||
+						typeof lengthDescriptor.value !== "number"
+					) {
+						return undefined;
+					}
+
+					const normalized: IgniteSchemaValue[] = [];
+					for (let index = 0; index < lengthDescriptor.value; index += 1) {
+						const descriptor = Object.getOwnPropertyDescriptor(
+							value,
+							String(index),
+						);
+						if (!descriptor || !("value" in descriptor)) {
+							normalized.push(null);
+							continue;
+						}
+						const item = toInspectableSchemaValue(descriptor.value, seen);
+						normalized.push(item ?? null);
+					}
+					return normalized;
+				}
+
+				const descriptors = Object.getOwnPropertyDescriptors(value);
+				const entries = Object.entries(descriptors).flatMap(
+					([key, descriptor]) => {
+						if (!descriptor.enumerable || !("value" in descriptor)) {
+							return [];
+						}
+						const normalized = toInspectableSchemaValue(
+							descriptor.value,
+							seen,
+						);
+						return typeof normalized === "undefined"
+							? []
+							: [[key, normalized] as const];
+					},
+				);
+				return Object.fromEntries(entries);
+			} catch {
+				return undefined;
+			}
+		}
+		default:
+			return String(value);
+	}
+}

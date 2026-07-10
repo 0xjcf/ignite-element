@@ -59,8 +59,8 @@ export type ProjectionBindingFact =
 	| {
 			channel: "document";
 			status: "error";
-			documentId: string;
-			revision: string;
+			documentId?: string;
+			revision?: string;
 			reason: string;
 	  }
 	| {
@@ -82,9 +82,13 @@ export type ProjectionBindingFact =
 	| {
 			channel: "speech";
 			status: "error";
-			speechId: string;
+			speechId?: string;
 			reason: string;
 	  };
+
+function errorReason(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
 
 export function createProjectionBindingState(): ProjectionBindingState {
 	return {
@@ -168,7 +172,16 @@ export async function commitProjectionDocumentTarget({
 		| Promise<ProjectionCommitValue>
 		| Promise<void>;
 }): Promise<ProjectionBindingFact> {
-	const document = projection.select(inspection);
+	let document: ProjectionDocument | null;
+	try {
+		document = projection.select(inspection);
+	} catch (error) {
+		return {
+			channel: "document",
+			status: "error",
+			reason: errorReason(error),
+		};
+	}
 
 	if (!document) {
 		return {
@@ -228,7 +241,7 @@ export async function commitProjectionDocumentTarget({
 			status: "error",
 			documentId: document.id,
 			revision: document.revision,
-			reason: error instanceof Error ? error.message : String(error),
+			reason: errorReason(error),
 		};
 	}
 }
@@ -252,7 +265,16 @@ export async function commitProjectionSpeechTarget({
 		| Promise<void>;
 	acknowledge: (speech: ProjectionSpeechRequest) => Promise<void>;
 }): Promise<ProjectionBindingFact> {
-	const speech = projection.select(inspection);
+	let speech: ProjectionSpeechRequest | null;
+	try {
+		speech = projection.select(inspection);
+	} catch (error) {
+		return {
+			channel: "speech",
+			status: "error",
+			reason: errorReason(error),
+		};
+	}
 	const wasAcknowledged = speech !== null && speech.status === "acknowledged";
 	if (!isPendingSpeechRequest(speech)) {
 		return {
@@ -261,7 +283,17 @@ export async function commitProjectionSpeechTarget({
 			reason: wasAcknowledged ? "acknowledged-speech" : "missing-speech",
 		};
 	}
-	const speechId = projection.identity(speech);
+	let speechId: string;
+	try {
+		speechId = projection.identity(speech);
+	} catch (error) {
+		return {
+			channel: "speech",
+			status: "error",
+			speechId: speech.id,
+			reason: errorReason(error),
+		};
+	}
 
 	if (
 		state.activeSpeechId === speechId ||
@@ -308,14 +340,11 @@ export async function commitProjectionSpeechTarget({
 		};
 	} catch (error) {
 		releaseSpeechReservation(state, speechId);
-		if (deliveryPending && state.deliveredSpeechId !== speechId) {
-			state.deliveredSpeechId = null;
-		}
 		return {
 			channel: "speech",
 			status: "error",
 			speechId: speech.id,
-			reason: error instanceof Error ? error.message : String(error),
+			reason: errorReason(error),
 		};
 	}
 }
