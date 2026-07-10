@@ -1,7 +1,9 @@
 // @vitest-environment node
+import { command, type IgniteAdapter, StateScope } from "@ignite-element/core";
 import { assign, setup } from "xstate";
 import { describe, expect, it, vi } from "vitest";
 import { igniteCore } from "../xstate";
+import { createIgniteComponentFactory } from "../igniteCore/createIgniteComponentFactory";
 import {
 	applyProjectionDocumentPatch,
 	parseProjectionDocument,
@@ -11,10 +13,12 @@ import {
 import {
 	createProjectionDocumentTarget,
 	createProjectionSpeechTarget,
-	type ProjectionDocument,
-	type ProjectionDocumentPatch,
-	type ProjectionSpeechRequest,
 } from "../index";
+import type {
+	ProjectionDocument,
+	ProjectionDocumentPatch,
+	ProjectionSpeechRequest,
+} from "../types/agent";
 
 type ProjectionContext = {
 	documents: ProjectionDocument[];
@@ -161,6 +165,56 @@ function createProjectionCore() {
 	});
 }
 
+type InspectionSnapshot = {
+	context: {
+		documents: ProjectionDocument[];
+		speech: ProjectionSpeechRequest | null;
+		allowConfirm: boolean;
+	};
+};
+
+type InspectionEvent = { type: "NOOP" };
+
+type InspectionView = {
+	documents: ProjectionDocument[];
+	speech: ProjectionSpeechRequest | null;
+};
+
+function createInspectionCore(
+	getSnapshot: () => InspectionSnapshot,
+	resolveView: (snapshot: InspectionSnapshot) => InspectionView,
+	onCanExecute: (snapshot: InspectionSnapshot) => void = () => undefined,
+) {
+	const adapter: IgniteAdapter<InspectionSnapshot, InspectionEvent> = {
+		scope: StateScope.Isolated,
+		subscribeSnapshots: () => ({ unsubscribe: () => undefined }),
+		send: () => undefined,
+		getSnapshot: vi.fn(getSnapshot),
+		stop: vi.fn(),
+	};
+	const createAdapter = Object.assign(() => adapter, {
+		scope: StateScope.Isolated,
+		resolveStateSnapshot: (
+			current: IgniteAdapter<InspectionSnapshot, InspectionEvent>,
+		) => current.getSnapshot(),
+	});
+	const core = createIgniteComponentFactory(createAdapter, {
+		view: ({ snapshot }) => resolveView(snapshot),
+		commands: ({ command: createCommand }) => ({
+			acknowledgeSpeech: () => undefined,
+			confirm: createCommand((_payload: { value: number }) => undefined, {
+				input: command.object({ value: command.number() }),
+				canExecute: ({ snapshot }) => {
+					onCanExecute(snapshot);
+					return snapshot.context.allowConfirm;
+				},
+			}),
+		}),
+	});
+
+	return { adapter, core };
+}
+
 describe("projection document helpers", () => {
 	it("validates safe semantic documents and command-backed actions", () => {
 		const document: ProjectionDocument = {
@@ -191,48 +245,49 @@ describe("projection document helpers", () => {
 		).toEqual([]);
 	});
 
-	it("rejects executable content, missing commands, and invalid payloads", () => {
+	it("rejects unsafe keys case-insensitively after parsing unknown input", () => {
 		const core = createProjectionCore();
-		const unsafeDocument = parseProjectionDocument({
-			id: "unsafe",
-			revision: "1",
-			nodes: [
-				{
-					kind: "text",
-					id: "unsafe-text",
-					text: "Unsafe",
-					jsx: "<button />",
-				},
-			],
-		});
-		const unsafeCaseDocument = parseProjectionDocument({
-			id: "unsafe-case",
-			revision: "1",
-			nodes: [
-				{
-					kind: "text",
-					id: "unsafe-case-text",
-					text: "Unsafe",
-					JSX: "<button />",
-				},
-			],
-		});
-		if (!unsafeDocument.ok || !unsafeCaseDocument.ok) {
-			throw new Error("Expected unsafe documents to parse structurally.");
-		}
+		const unsafeKeys = [
+			"onClick",
+			"ONCLICK",
+			"onInput",
+			"ONINPUT",
+			"domRef",
+			"DOMREF",
+			"jsx",
+			"JSX",
+		];
 
-		expect(
-			validateProjectionDocument(unsafeDocument.document, {
-				schema: core.getSchema(),
-				canExecute: core.canExecute,
-			}),
-		).toContain("nodes[0].jsx: executable content is not allowed");
-		expect(
-			validateProjectionDocument(unsafeCaseDocument.document, {
-				schema: core.getSchema(),
-				canExecute: core.canExecute,
-			}),
-		).toContain("nodes[0].JSX: executable content is not allowed");
+		for (const unsafeKey of unsafeKeys) {
+			const parsed = parseProjectionDocument({
+				id: `unsafe-${unsafeKey}`,
+				revision: "1",
+				nodes: [
+					{
+						kind: "text",
+						id: "unsafe-text",
+						text: "Unsafe",
+						[unsafeKey]: "executable",
+					},
+				],
+			});
+
+			expect(parsed.ok).toBe(true);
+			if (parsed.ok) {
+				expect(
+					validateProjectionDocument(parsed.document, {
+						schema: core.getSchema(),
+						canExecute: core.canExecute,
+					}),
+				).toContain(`nodes[0].${unsafeKey}: executable content is not allowed`);
+			} else {
+				expect(parsed.issues).toEqual([]);
+			}
+		}
+	});
+
+	it("rejects missing commands and invalid payloads", () => {
+		const core = createProjectionCore();
 
 		expect(
 			validateProjectionDocument(
@@ -446,6 +501,110 @@ describe("projection document helpers", () => {
 describe("projection targets", () => {
 	const flushMicrotasks = () =>
 		new Promise<void>((resolve) => queueMicrotask(resolve));
+
+	it("prefers actor-owned snapshot context over conflicting derived view output", async () => {
+		const actorDocument: ProjectionDocument = {
+			id: "panel",
+			revision: "actor-1",
+			nodes: [{ kind: "text", id: "actor", text: "Actor owned" }],
+		};
+		const viewDocument: ProjectionDocument = {
+			id: "panel",
+			revision: "view-1",
+			nodes: [{ kind: "text", id: "view", text: "Derived view" }],
+		};
+		const actorSpeech: ProjectionSpeechRequest = {
+			id: "actor-speech",
+			text: "Actor owned speech",
+			status: "pending",
+		};
+		const viewSpeech: ProjectionSpeechRequest = {
+			id: "view-speech",
+			text: "Derived view speech",
+			status: "pending",
+		};
+		const snapshot: InspectionSnapshot = {
+			context: {
+				documents: [actorDocument],
+				speech: actorSpeech,
+				allowConfirm: true,
+			},
+		};
+		const { core } = createInspectionCore(
+			() => snapshot,
+			() => ({
+				documents: [viewDocument],
+				speech: viewSpeech,
+			}),
+		);
+		const commitDocument = vi.fn();
+		const commitSpeech = vi.fn();
+		const documentSession = core(
+			createProjectionDocumentTarget({ commitDocument }),
+		);
+		const speechSession = core(
+			createProjectionSpeechTarget({
+				commitSpeech,
+				acknowledgeCommandName: "acknowledgeSpeech",
+			}),
+		);
+
+		await flushMicrotasks();
+		await flushMicrotasks();
+
+		expect(commitDocument).toHaveBeenCalledWith(actorDocument);
+		expect(commitSpeech).toHaveBeenCalledWith(actorSpeech);
+
+		documentSession.dispose();
+		speechSession.dispose();
+	});
+
+	it("uses one captured snapshot for document validation and command availability", async () => {
+		let reads = 0;
+		const availabilitySnapshots: InspectionSnapshot[] = [];
+		const { adapter, core } = createInspectionCore(
+			() => {
+				reads += 1;
+				return {
+					context: {
+						documents: [
+							{
+								id: "panel",
+								revision: String(reads),
+								nodes: [
+									{
+										kind: "action",
+										id: "confirm",
+										label: "Confirm",
+										commandName: "confirm",
+										payload: { value: 1 },
+									},
+								],
+							},
+						],
+						speech: null,
+						allowConfirm: true,
+					},
+				};
+			},
+			() => ({ documents: [], speech: null }),
+			(snapshot) => availabilitySnapshots.push(snapshot),
+		);
+		const commitDocument = vi.fn<(document: ProjectionDocument) => void>();
+		const session = core(createProjectionDocumentTarget({ commitDocument }));
+
+		await flushMicrotasks();
+		await flushMicrotasks();
+
+		expect(adapter.getSnapshot).toHaveBeenCalledTimes(5);
+		expect(commitDocument).toHaveBeenCalledTimes(1);
+		expect(availabilitySnapshots).toHaveLength(1);
+		expect(availabilitySnapshots[0]?.context.documents[0]?.revision).toBe(
+			commitDocument.mock.calls[0]?.[0].revision,
+		);
+
+		session.dispose();
+	});
 
 	it("binds a branded document target, commits revision changes, and disposes cleanly", async () => {
 		const core = createProjectionCore();

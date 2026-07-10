@@ -31,13 +31,8 @@ export {
 export type {
 	IgniteAgentEventListener,
 	IgniteAgentExecutionResult,
-	IgniteProjectionSession,
-	IgniteProjectionTarget,
 	IgniteAgentRuntime,
 	IgniteAgentSubscription,
-	ProjectionDocument,
-	ProjectionDocumentPatch,
-	ProjectionSpeechRequest,
 	IgniteStory,
 	IgniteStoryCommandTraceEntry,
 	IgniteStoryEventTraceEntry,

@@ -35,7 +35,7 @@ type ProjectionSpeechParseResult =
 
 const forbiddenKeys = new Set([
 	"dom",
-	"domRef",
+	"domref",
 	"handler",
 	"handlers",
 	"html",
@@ -45,8 +45,8 @@ const forbiddenKeys = new Set([
 	"jsx",
 	"module",
 	"modules",
-	"onClick",
-	"onInput",
+	"onclick",
+	"oninput",
 	"script",
 	"selector",
 ]);

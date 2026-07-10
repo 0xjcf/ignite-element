@@ -42,8 +42,6 @@ import type {
 import type {
 	IgniteDomBridge as RootIgniteDomBridge,
 	IgniteDomRoleExpectation as RootIgniteDomRoleExpectation,
-	IgniteProjectionSession as RootIgniteProjectionSession,
-	IgniteProjectionTarget as RootIgniteProjectionTarget,
 	IgniteStorySnapshot as RootIgniteStorySnapshot,
 	IgniteStorySnapshotEvent as RootIgniteStorySnapshotEvent,
 	IgniteStorySummarySnapshot as RootIgniteStorySummarySnapshot,
@@ -123,6 +121,30 @@ import {
 	test as xstateTest,
 } from "../../xstate";
 import counterStore, { counterSlice } from "../fixtures/reduxCounterStore";
+
+type RemovedRootProjectionExports = [
+	// @ts-expect-error projection documents are internal and inference-only
+	import("../../index").ProjectionDocument,
+	// @ts-expect-error projection patches are internal and inference-only
+	import("../../index").ProjectionDocumentPatch,
+	// @ts-expect-error speech requests are internal and inference-only
+	import("../../index").ProjectionSpeechRequest,
+	// @ts-expect-error opaque targets are available only through inference
+	import("../../index").IgniteProjectionTarget,
+	// @ts-expect-error disposable sessions are available only through inference
+	import("../../index").IgniteProjectionSession,
+];
+
+type RemovedAdapterProjectionExports = [
+	// @ts-expect-error xstate projection data is not a named public export
+	import("../../xstate").ProjectionDocument,
+	// @ts-expect-error redux projection data is not a named public export
+	import("../../redux").ProjectionDocument,
+	// @ts-expect-error mobx projection data is not a named public export
+	import("../../mobx").ProjectionDocument,
+	// @ts-expect-error actor-web projection data is not a named public export
+	import("../../actor-web").ProjectionDocument,
+];
 
 type ActorWebShipmentContext = {
 	shipmentId: string | null;
@@ -209,6 +231,8 @@ const mobxCounterFactory = () =>
 
 describe("igniteCore type inference", () => {
 	it("accepts only first-party branded projection targets on the one-argument overload", () => {
+		expectTypeOf<RemovedRootProjectionExports>().toBeArray();
+		expectTypeOf<RemovedAdapterProjectionExports>().toBeArray();
 		const machine = setup({
 			types: {
 				context: {} as { count: number },
@@ -240,15 +264,14 @@ describe("igniteCore type inference", () => {
 			acknowledgeCommandName: "acknowledgeSpeech",
 		});
 
-		expectTypeOf(documentTarget).toEqualTypeOf<RootIgniteProjectionTarget>();
-		expectTypeOf(speechTarget).toEqualTypeOf<RootIgniteProjectionTarget>();
-		expectTypeOf(
-			counter(documentTarget),
-		).toEqualTypeOf<RootIgniteProjectionSession>();
-		expectTypeOf(
-			counter(speechTarget),
-		).toEqualTypeOf<RootIgniteProjectionSession>();
-		expectTypeOf(counter(documentTarget).dispose).toEqualTypeOf<() => void>();
+		type DocumentTarget = ReturnType<typeof createProjectionDocumentTarget>;
+		type SpeechTarget = ReturnType<typeof createProjectionSpeechTarget>;
+		expectTypeOf(documentTarget).toEqualTypeOf<DocumentTarget>();
+		expectTypeOf(speechTarget).toEqualTypeOf<SpeechTarget>();
+		const documentSession = counter(documentTarget);
+		const speechSession = counter(speechTarget);
+		expectTypeOf(documentSession.dispose).toEqualTypeOf<() => void>();
+		expectTypeOf(speechSession.dispose).toEqualTypeOf<() => void>();
 		const assertInvalidOneArgumentUsage = (
 			invalidCounter: typeof counter,
 		): void => {
@@ -260,9 +283,13 @@ describe("igniteCore type inference", () => {
 		const plainTarget = {
 			commitDocument: () => undefined,
 		};
-		// @ts-expect-error plain objects are not valid projection targets
-		const invalidTarget: RootIgniteProjectionTarget = plainTarget;
-		void invalidTarget;
+		const assertPlainTargetRejected = (
+			invalidCounter: typeof counter,
+		): void => {
+			// @ts-expect-error plain objects are not valid projection targets
+			invalidCounter(plainTarget);
+		};
+		void assertPlainTargetRejected;
 
 		createProjectionDocumentTarget({
 			// @ts-expect-error callback selectors are not part of the public target API

@@ -792,14 +792,17 @@ export default function igniteElementFactory<
 		snapshot: unknown,
 		view: unknown,
 	): Pick<ProjectionInspection, "documents" | "speech"> => {
-		const containers = [snapshot, view];
+		const actorOwnedContainers = [snapshot];
 		if (isInspectableRecord(snapshot)) {
-			containers.push(Reflect.get(snapshot, "context"));
-			containers.push(Reflect.get(snapshot, "projection"));
+			actorOwnedContainers.push(Reflect.get(snapshot, "context"));
+			actorOwnedContainers.push(Reflect.get(snapshot, "projection"));
 		}
+
+		const derivedViewContainers = [view];
 		if (isInspectableRecord(view)) {
-			containers.push(Reflect.get(view, "projection"));
+			derivedViewContainers.push(Reflect.get(view, "projection"));
 		}
+		const containers = [...actorOwnedContainers, ...derivedViewContainers];
 
 		let documents: readonly ProjectionInspection["documents"][number][] = [];
 		let speech: ProjectionInspection["speech"] = null;
@@ -852,7 +855,7 @@ export default function igniteElementFactory<
 				if (!hasCanExecute(metadata)) {
 					return true;
 				}
-				return metadata.canExecute({ snapshot: adapter.getSnapshot() });
+				return metadata.canExecute({ snapshot });
 			},
 			documents: projectionState.documents,
 			speech: projectionState.speech,
