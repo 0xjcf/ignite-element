@@ -2191,7 +2191,7 @@ No active tasks.
 ### Task: Add headless assertions for dynamic projection documents and behavior facts
 
 - Title: Add headless assertions for dynamic projection documents and behavior facts
-- Mode: 4-agent
+- Mode: 6-agent
 - Status: deferred
 - Owner: runtime
 - Brief: .fas/tasks/add-headless-accessibility-contract-assertions-to-the-test-d.md

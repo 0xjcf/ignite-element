@@ -19,7 +19,8 @@ direction; it is not implementation guidance.
 - None. See the replacement task for the accepted architecture and execution plan.
 
 ## Alternatives considered
-- None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
+- None recorded at task creation. Record any future rejected approaches in the
+  replacement task; this historical brief remains audit-only.
 
 ## Affected files
 None. No implementation was started from this superseded brief.

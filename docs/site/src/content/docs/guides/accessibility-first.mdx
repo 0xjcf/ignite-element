@@ -96,7 +96,7 @@ export const thermostat = igniteCore({
     statusLabel: snapshot.context.isSaving ? 'Saving target' : 'Ready',
     errorText: snapshot.context.errorText,
     canEditTarget: snapshot.can({ type: 'SET_TARGET_DRAFT', target: snapshot.context.target }),
-    canSave: snapshot.can({ type: 'SAVE_TARGET' }),
+    canSave: snapshot.can({ type: 'SAVE_TARGET', target: snapshot.context.target }),
   }),
 
   commands: ({ actor, command }) => ({
@@ -116,7 +116,10 @@ export const thermostat = igniteCore({
       {
         description: 'Save the target temperature.',
         input: command.number({ minimum: 58, maximum: 82 }),
-        canExecute: ({ snapshot }) => snapshot.can({ type: 'SAVE_TARGET' }),
+        canExecute: ({ snapshot }) => snapshot.can({
+          type: 'SAVE_TARGET',
+          target: snapshot.context.target,
+        }),
       },
     ),
   }),

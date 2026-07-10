@@ -21,7 +21,7 @@ Replace the superseded ProjectionRequest/ProjectionSpec registry and command-pre
 - The accepted replacement architecture is reflected in docs/projection-runtime.md, docs/accessibility-by-default.md, and the site guide before implementation closeout.
 - TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
 - TDD: every production code change in the change set is covered by an added or updated test.
-- DDD: respect domain boundaries — keep the functional core deterministic and side-effect-free (no reads, writes, network, or clock), confine coordination to the imperative shell, and have adapters return facts instead of throwing.
+- DDD: respect domain boundaries — keep the functional core deterministic and side-effect-free (no reads, writes, network, or clock), confine coordination to the imperative shell, and have adapters return facts instead of throwing for domain operations. Lifecycle teardown failures continue to propagate through `failInvariant`.
 - The work is tracked in `.fas/TASKS.md`.
 - The task has a clear implementation and verification plan before execution starts.
 - The task is queued in `.fas/queue/tasks.json` for the runtime.
@@ -104,7 +104,7 @@ Replace the superseded ProjectionRequest/ProjectionSpec registry and command-pre
 - Write failing contract/type/runtime tests for projection-document validation, the callable non-DOM projection lifecycle, coherent runtime reads, actor-owned document updates, and model-authored speech/text routing.
 - Implement the smallest private inspection, Projection<Format, Output>, binding, and committer substrate without exporting generic plumbing or threading projection types through adapter configs.
 - Implement validated ProjectionDocument create/patch semantics and command-backed actions as deterministic core logic; keep actor state authoritative.
-- Integrate the existing custom-element/JSX path without changing counter(tagName, renderer), then add the narrow non-DOM callable overload and injected/mockable speech/text committer proven by tests.
+- Integrate the existing custom-element/JSX path without changing component(tagName, renderer), then add the narrow non-DOM callable overload and injected/mockable speech/text committer proven by tests.
 - Adapt igniteTools-facing commands and scripted model fixtures so the LLM authors projection data through validated commands rather than executable code.
 - Run focused verification after each planned commit and leave the downstream workbench, broad testing DSL, rendered validation, and final docs sweep to their queued tasks.
 

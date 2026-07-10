@@ -1081,6 +1081,7 @@ export default function igniteElementFactory<
 		if (renderer === undefined) {
 			return bindProjectionTarget(elementNameOrTarget);
 		}
+		const resolvedRenderer = renderer;
 
 		if (typeof elementNameOrTarget !== "string") {
 			throw new Error(
@@ -1139,7 +1140,7 @@ export default function igniteElementFactory<
 		};
 
 		if (inferredScope === StateScope.Shared) {
-			const render = resolveRenderer(renderer);
+			const render = resolveRenderer(resolvedRenderer);
 			resolveSharedResources();
 
 			class SharedIgniteComponent extends IgniteElement<State, Event, View> {
@@ -1223,8 +1224,6 @@ export default function igniteElementFactory<
 			return handle;
 		}
 
-		const isolatedRender = resolveRenderer(renderer);
-
 		class IsolatedIgniteComponent extends IgniteElement<State, Event, View> {
 			private additionalArgs:
 				| AdditionalRenderArgs<State, Event, RenderArgs>
@@ -1241,7 +1240,7 @@ export default function igniteElementFactory<
 				);
 				super(undefined, renderStrategyFactory(), lifecycleHooks);
 				this.lifecycleHooks = lifecycleHooks;
-				this.renderImpl = isolatedRender;
+				this.renderImpl = resolveRenderer(resolvedRenderer);
 			}
 
 			connectedCallback(): void {

@@ -40,7 +40,8 @@ After replacement implementation, headless assertions, the LLM-authored workbenc
 - Run docs example checks and remove all stale registry/behavior-metadata language.
 
 ## Verification plan
-- Run focused docs/example checks and fas validate-task.
+- Run focused docs/example checks and `fas validate-task` after each of the
+  three implementation-plan steps, then create a separate incremental commit.
 - Create or refresh the final review summary artifact before task completion.
 - Run the epic shared full verification and CodeRabbit review before batch close.
 

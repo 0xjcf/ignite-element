@@ -116,6 +116,29 @@ describe("igniteElementFactory", () => {
 		expect(renderSpy).toHaveBeenCalled();
 	});
 
+	it("creates a class renderer instance for each isolated element", () => {
+		const component = igniteElementFactory(
+			() => new MinimalMockAdapter(initialState),
+		);
+		const elementName = `ignite-class-isolated-${crypto.randomUUID()}`;
+		let created = 0;
+
+		class ClassRenderer {
+			readonly instanceId = ++created;
+
+			render() {
+				return html`<span>renderer ${this.instanceId}</span>`;
+			}
+		}
+
+		component(elementName, ClassRenderer);
+		const first = document.createElement(elementName);
+		const second = document.createElement(elementName);
+		document.body.append(first, second);
+
+		expect(created).toBe(2);
+	});
+
 	it("supports object renderers", () => {
 		const adapter = new MinimalMockAdapter(initialState);
 		const component = igniteElementFactory(() => adapter);

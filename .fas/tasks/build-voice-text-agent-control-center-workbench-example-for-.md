@@ -40,8 +40,17 @@ Build examples/agents/voice-workbench as the decisive dogfood for agent-authored
 - Build accessible JSX plus separate mockable text/terminal and speech committers over the same validated document state.
 - Add optional OpenAI-compatible/MLX and actor-web-backed modes after deterministic lanes pass.
 
+## Execution workflow
+
+Use `6-agent` mode. The architect owns the interface and actor boundary, the
+staff engineer owns shared contracts and the commit plan, and one senior
+engineer is the sole code writer for the example, tests, adapters, and
+task-scoped documentation. QA, SRE, and reviewer roles are read-only; no agent
+other than the designated senior engineer may modify files. Create a separate
+incremental commit after every commit-plan step before advancing a review gate.
+
 ## Verification plan
-- Run focused headless, runtime, type, and rendered example tests plus visual and interaction validation.
+- Run focused headless, runtime, type, and rendered example tests plus visual and interaction validation after each commit-plan step.
 - Create or refresh the final review summary artifact before task completion.
 - Run the epic shared full verification and CodeRabbit review at closeout.
 

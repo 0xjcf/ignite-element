@@ -49,7 +49,8 @@ exact-SHA assessment. Require an explicit handoff after each read-only gate;
 the root session owns full verification, CodeRabbit, and closeout.
 
 ## Verification plan
-- Run focused testing/runtime/type tests and fas validate-task.
+- After each commit-plan step, run focused testing/runtime/type tests and
+  `fas validate-task`, then create a separate incremental commit.
 - Create or refresh the final review summary artifact before task completion.
 - Use the epic shared full verification and CodeRabbit review at closeout.
 

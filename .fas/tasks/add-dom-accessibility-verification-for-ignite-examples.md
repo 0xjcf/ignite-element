@@ -38,6 +38,13 @@ Add rendered-DOM accessibility verification after the dynamic projection workben
 - Add browser-capable role/name/keyboard/focus/live-region assertions using existing test infrastructure.
 - Perform visual and interactive validation of the command-center dashboard.
 
+## Execution workflow
+
+Use the configured `4-agent` mode. One senior engineer is the sole code writer
+for examples, tests, CI, and task-scoped documentation; the planner, QA, and
+reviewer remain read-only. No other agent may modify files. Keep each
+commit-plan step independently committed before the next review gate.
+
 ## Verification plan
 - After each completed implementation-plan step, run focused rendered example
   tests and the example runtime lane, then create one incremental commit.
