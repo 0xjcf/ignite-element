@@ -48,6 +48,7 @@ Replace the superseded ProjectionRequest/ProjectionSpec registry and command-pre
 - packages/ignite-element/src/igniteCore/redux.ts
 - packages/ignite-element/src/runtime/agent.ts
 - packages/ignite-element/src/runtime/projectionTargets.ts
+- packages/ignite-element/src/runtime/schema.ts
 - packages/ignite-element/src/IgniteElementFactory.ts
 - packages/ignite-element/src/index.ts
 - packages/ignite-element/src/actor-web.ts
@@ -64,6 +65,8 @@ Replace the superseded ProjectionRequest/ProjectionSpec registry and command-pre
 - packages/ignite-element/src/tests/projection-target-guard.test.ts
 - packages/ignite-element/src/tests/tools.test.ts
 - packages/ignite-element/src/tests/types/igniteCore.types.test.ts
+- packages/ignite-element/src/tests/createComponentFactory.test.ts
+- packages/ignite-element/src/tests/IgniteElementFactory.test.ts
 - packages/ignite-adapters/src/adapters/XStateAdapter.ts
 - packages/ignite-element/src/tests/adapters/XStateAdapter.test.ts
 - packages/ignite-core/src/utils/failInvariant.ts
@@ -88,6 +91,16 @@ Replace the superseded ProjectionRequest/ProjectionSpec registry and command-pre
 - Evidence: FAS QA/SRE/final reviewer | .fas/state/review-summary.md | Reviewer approved exactly two added paths and a 30-path expected envelope.
 - Accuracy signal: Public built-runtime reproductions plus descriptor-preserving prototype
 - Follow-up needed: Re-run QA, SRE, reviewer, and refresh final ChangeSet after implementation.
+
+- Type: review-driven schema-safety expansion
+- Added at: 2026-07-10
+- Trigger: Final CodeRabbit reliability review and ChangeSet closeout gate
+- Reason: Snapshot and view schema serialization must avoid user-defined accessors in both Factory projection inspection and the headless agent runtime. The existing component-factory and element-factory contract tests are required coverage for the private fail-closed boundary.
+- Added paths: packages/ignite-element/src/runtime/schema.ts, packages/ignite-element/src/tests/createComponentFactory.test.ts, packages/ignite-element/src/tests/IgniteElementFactory.test.ts
+- Evidence source: Final CodeRabbit review and .fas/state/closeout-readiness/latest.json
+- Evidence: Descriptor-only schema serialization protects hostile `toJSON` and descriptor traps without expanding the public projection API.
+- Accuracy signal: Focused runtime tests, package typecheck, docs checks, and ChangeSet gate
+- Follow-up needed: Refresh task scope, validation, QA, SRE, reviewer, and shared epic closeout evidence.
 
 - Type: architecture-boundary
 - Added at: retry-13
