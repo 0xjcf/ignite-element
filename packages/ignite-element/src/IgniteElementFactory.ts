@@ -753,17 +753,33 @@ export default function igniteElementFactory<
 		value: unknown,
 	): value is Record<string, unknown> =>
 		typeof value === "object" && value !== null && !Array.isArray(value);
+	const hasInspectableKey = (
+		value: Record<string, unknown>,
+		key: string,
+	): boolean => Object.getOwnPropertyDescriptor(value, key) !== undefined;
+	type ProjectionDocumentsRead =
+		| { found: false }
+		| {
+				found: true;
+				value: readonly ProjectionInspection["documents"][number][];
+		  };
+	type ProjectionSpeechRead =
+		| { found: false }
+		| { found: true; value: ProjectionInspection["speech"] };
 
 	const readProjectionDocuments = (
 		candidate: unknown,
-	): readonly ProjectionInspection["documents"][number][] => {
-		if (!isInspectableRecord(candidate)) {
-			return [];
+	): ProjectionDocumentsRead => {
+		if (
+			!isInspectableRecord(candidate) ||
+			!hasInspectableKey(candidate, "documents")
+		) {
+			return { found: false };
 		}
 
 		const documents = Reflect.get(candidate, "documents");
 		if (!Array.isArray(documents)) {
-			return [];
+			return { found: true, value: [] };
 		}
 
 		const parsedDocuments: ProjectionInspection["documents"][number][] = [];
@@ -773,19 +789,20 @@ export default function igniteElementFactory<
 				parsedDocuments.push(parsed.document);
 			}
 		}
-		return parsedDocuments;
+		return { found: true, value: parsedDocuments };
 	};
 
-	const readProjectionSpeech = (
-		candidate: unknown,
-	): ProjectionInspection["speech"] => {
-		if (!isInspectableRecord(candidate)) {
-			return null;
+	const readProjectionSpeech = (candidate: unknown): ProjectionSpeechRead => {
+		if (
+			!isInspectableRecord(candidate) ||
+			!hasInspectableKey(candidate, "speech")
+		) {
+			return { found: false };
 		}
 
 		const speech = Reflect.get(candidate, "speech");
 		const parsed = parseProjectionSpeechRequest(speech);
-		return parsed.ok ? parsed.speech : null;
+		return { found: true, value: parsed.ok ? parsed.speech : null };
 	};
 
 	const resolveProjectionState = (
@@ -804,19 +821,29 @@ export default function igniteElementFactory<
 		}
 		const containers = [...actorOwnedContainers, ...derivedViewContainers];
 
-		let documents: readonly ProjectionInspection["documents"][number][] = [];
+		let documents:
+			| readonly ProjectionInspection["documents"][number][]
+			| undefined;
 		let speech: ProjectionInspection["speech"] = null;
+		let speechFound = false;
 
 		for (const container of containers) {
-			if (documents.length === 0) {
-				documents = readProjectionDocuments(container);
+			if (typeof documents === "undefined") {
+				const read = readProjectionDocuments(container);
+				if (read.found) {
+					documents = read.value;
+				}
 			}
-			if (speech === null) {
-				speech = readProjectionSpeech(container);
+			if (!speechFound) {
+				const read = readProjectionSpeech(container);
+				if (read.found) {
+					speech = read.value;
+					speechFound = true;
+				}
 			}
 		}
 
-		return { documents, speech };
+		return { documents: documents ?? [], speech };
 	};
 
 	const resolveProjectionInspection = (): ProjectionInspection => {

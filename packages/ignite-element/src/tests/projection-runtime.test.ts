@@ -559,6 +559,53 @@ describe("projection targets", () => {
 		speechSession.dispose();
 	});
 
+	it("keeps actor-owned empty projection channels authoritative", async () => {
+		const viewDocument: ProjectionDocument = {
+			id: "panel",
+			revision: "view-1",
+			nodes: [{ kind: "text", id: "view", text: "Derived view" }],
+		};
+		const viewSpeech: ProjectionSpeechRequest = {
+			id: "view-speech",
+			text: "Derived view speech",
+			status: "pending",
+		};
+		const snapshot: InspectionSnapshot = {
+			context: {
+				documents: [],
+				speech: null,
+				allowConfirm: true,
+			},
+		};
+		const { core } = createInspectionCore(
+			() => snapshot,
+			() => ({
+				documents: [viewDocument],
+				speech: viewSpeech,
+			}),
+		);
+		const commitDocument = vi.fn();
+		const commitSpeech = vi.fn();
+		const documentSession = core(
+			createProjectionDocumentTarget({ commitDocument }),
+		);
+		const speechSession = core(
+			createProjectionSpeechTarget({
+				commitSpeech,
+				acknowledgeCommandName: "acknowledgeSpeech",
+			}),
+		);
+
+		await flushMicrotasks();
+		await flushMicrotasks();
+
+		expect(commitDocument).not.toHaveBeenCalled();
+		expect(commitSpeech).not.toHaveBeenCalled();
+
+		documentSession.dispose();
+		speechSession.dispose();
+	});
+
 	it("uses one captured snapshot for document validation and command availability", async () => {
 		let reads = 0;
 		const availabilitySnapshots: InspectionSnapshot[] = [];
