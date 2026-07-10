@@ -29,7 +29,7 @@ import { facadeCleanupSymbol } from "./runtime/effects";
 import { isProjectionTarget } from "./runtime/projectionTargets";
 import { toSchemaValue } from "./runtime/schema";
 import {
-	parseProjectionDocument,
+	parseProjectionDocumentCollection,
 	parseProjectionSpeechRequest,
 } from "./internal/projectionDocument";
 import type {
@@ -801,22 +801,12 @@ export default function igniteElementFactory<
 			return { found: true, safe: false, value: [] };
 		}
 
-		const documents = property.value;
-		if (!Array.isArray(documents)) {
-			return { found: true, safe: true, value: [] };
-		}
-
-		const parsedDocuments: ProjectionInspection["documents"][number][] = [];
-		let safe = true;
-		for (const document of documents) {
-			const parsed = parseProjectionDocument(document);
-			if (parsed.ok) {
-				parsedDocuments.push(parsed.document);
-			} else {
-				safe = false;
-			}
-		}
-		return { found: true, safe, value: parsedDocuments };
+		const parsed = parseProjectionDocumentCollection(property.value);
+		return {
+			found: true,
+			safe: parsed.ok,
+			value: parsed.ok ? parsed.documents : [],
+		};
 	};
 
 	const readProjectionSpeech = (candidate: unknown): ProjectionSpeechRead => {

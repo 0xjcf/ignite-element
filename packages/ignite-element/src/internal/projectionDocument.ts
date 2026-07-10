@@ -29,6 +29,10 @@ type ProjectionDocumentParseResult =
 	| { ok: true; document: ProjectionDocument }
 	| { ok: false; issues: string[] };
 
+type ProjectionDocumentCollectionParseResult =
+	| { ok: true; documents: ProjectionDocument[] }
+	| { ok: false; issues: string[] };
+
 type ProjectionSpeechParseResult =
 	| { ok: true; speech: ProjectionSpeechRequest }
 	| { ok: false; issues: string[] };
@@ -36,9 +40,11 @@ type ProjectionSpeechParseResult =
 const forbiddenKeys = new Set([
 	"dom",
 	"domref",
+	"dangerouslysetinnerhtml",
 	"handler",
 	"handlers",
 	"html",
+	"innerhtml",
 	"import",
 	"imports",
 	"javascript",
@@ -47,10 +53,61 @@ const forbiddenKeys = new Set([
 	"modules",
 	"onclick",
 	"oninput",
+	"outerhtml",
 	"script",
 	"selector",
+	"srcdoc",
 ]);
 const eventHandlerKeyPattern = /^on[a-z]/;
+const uriBearingKeys = new Set([
+	"action",
+	"formaction",
+	"href",
+	"src",
+	"xlink:href",
+]);
+const executableDataMediaTypes = new Set([
+	"application/xhtml+xml",
+	"image/svg+xml",
+	"text/html",
+]);
+
+function removeAsciiWhitespaceAndControl(value: string): string {
+	let normalized = "";
+	for (const character of value) {
+		const codePoint = character.charCodeAt(0);
+		if (codePoint <= 0x20 || codePoint === 0x7f) {
+			continue;
+		}
+		normalized += character;
+	}
+	return normalized;
+}
+
+function isExecutableUri(value: string): boolean {
+	const normalized = removeAsciiWhitespaceAndControl(value).toLowerCase();
+	if (
+		normalized.startsWith("javascript:") ||
+		normalized.startsWith("vbscript:")
+	) {
+		return true;
+	}
+	if (!normalized.startsWith("data:")) {
+		return false;
+	}
+
+	const commaIndex = normalized.indexOf(",");
+	const metadata = normalized.slice(
+		"data:".length,
+		commaIndex < 0 ? undefined : commaIndex,
+	);
+	const separatorIndex = metadata.indexOf(";");
+	const mediaType = metadata.slice(
+		0,
+		separatorIndex < 0 ? undefined : separatorIndex,
+	);
+	return executableDataMediaTypes.has(mediaType);
+}
 
 type MaterializedObject = {
 	[key: string]: MaterializedValue;
@@ -67,6 +124,8 @@ type MaterializedValue =
 type MaterializedValueResult =
 	| { ok: true; value: MaterializedValue }
 	| { ok: false };
+
+type DenseDataArrayCopyResult = { ok: true; values: unknown[] } | { ok: false };
 
 function joinDataPath(path: string, key: string): string {
 	return path.length > 0 ? `${path}.${key}` : key;
@@ -96,66 +155,110 @@ function materializeDataProperty(
 	return materializeDataValue(propertyValue, path, issues, active);
 }
 
+function copyDenseDataArray(
+	value: unknown,
+	path: string,
+	issues: string[],
+): DenseDataArrayCopyResult {
+	try {
+		if (
+			!Array.isArray(value) ||
+			Object.getPrototypeOf(value) !== Array.prototype
+		) {
+			issues.push(`${displayDataPath(path)}: expected plain data array`);
+			return { ok: false };
+		}
+
+		const lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
+		if (
+			!lengthDescriptor ||
+			!("value" in lengthDescriptor) ||
+			lengthDescriptor.enumerable !== false
+		) {
+			issues.push(`${displayDataPath(path)}: invalid array length`);
+			return { ok: false };
+		}
+		const lengthValue: unknown = lengthDescriptor.value;
+		if (
+			typeof lengthValue !== "number" ||
+			!Number.isSafeInteger(lengthValue) ||
+			lengthValue < 0
+		) {
+			issues.push(`${displayDataPath(path)}: invalid array length`);
+			return { ok: false };
+		}
+		const length = lengthValue;
+
+		for (const key of Reflect.ownKeys(value)) {
+			if (key === "length") {
+				continue;
+			}
+			if (typeof key !== "string") {
+				issues.push(
+					`${displayDataPath(path)}: symbol properties are not allowed`,
+				);
+				return { ok: false };
+			}
+			const index = Number(key);
+			if (
+				!Number.isSafeInteger(index) ||
+				index < 0 ||
+				index >= length ||
+				String(index) !== key
+			) {
+				issues.push(`${joinDataPath(path, key)}: unexpected array property`);
+				return { ok: false };
+			}
+		}
+
+		const values: unknown[] = [];
+		for (let index = 0; index < length; index += 1) {
+			const itemPath = `${path}[${index}]`;
+			const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+			if (!descriptor) {
+				issues.push(`${itemPath}: sparse array entries are not allowed`);
+				return { ok: false };
+			}
+			if (!("value" in descriptor)) {
+				issues.push(`${itemPath}: accessor properties are not allowed`);
+				return { ok: false };
+			}
+			if (descriptor.enumerable !== true) {
+				issues.push(`${itemPath}: non-enumerable properties are not allowed`);
+				return { ok: false };
+			}
+			const itemValue: unknown = descriptor.value;
+			values.push(itemValue);
+		}
+
+		return { ok: true, values };
+	} catch {
+		issues.push(`${displayDataPath(path)}: unable to inspect data safely`);
+		return { ok: false };
+	}
+}
+
 function materializeDataArray(
 	value: unknown[],
 	path: string,
 	issues: string[],
 	active: WeakSet<object>,
 ): MaterializedValueResult {
-	if (Object.getPrototypeOf(value) !== Array.prototype) {
-		issues.push(`${displayDataPath(path)}: expected plain data array`);
-		return { ok: false };
+	const copied = copyDenseDataArray(value, path, issues);
+	if (!copied.ok) {
+		return copied;
 	}
-
-	const lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
-	if (!lengthDescriptor || !("value" in lengthDescriptor)) {
-		issues.push(`${displayDataPath(path)}: invalid array length`);
-		return { ok: false };
-	}
-	const lengthValue: unknown = lengthDescriptor.value;
-	if (
-		typeof lengthValue !== "number" ||
-		!Number.isSafeInteger(lengthValue) ||
-		lengthValue < 0
-	) {
-		issues.push(`${displayDataPath(path)}: invalid array length`);
-		return { ok: false };
-	}
-	const length = lengthValue;
-
-	for (const key of Reflect.ownKeys(value)) {
-		if (key === "length") {
-			continue;
-		}
-		if (typeof key !== "string") {
-			issues.push(
-				`${displayDataPath(path)}: symbol properties are not allowed`,
-			);
-			return { ok: false };
-		}
-		const index = Number(key);
-		if (
-			!Number.isSafeInteger(index) ||
-			index < 0 ||
-			index >= length ||
-			String(index) !== key
-		) {
-			issues.push(`${joinDataPath(path, key)}: unexpected array property`);
-			return { ok: false };
-		}
-	}
-
 	if (active.has(value)) {
 		issues.push(`${displayDataPath(path)}: cyclic data is not allowed`);
 		return { ok: false };
 	}
+
 	active.add(value);
 	const output: MaterializedValue[] = [];
-	for (let index = 0; index < length; index += 1) {
+	for (let index = 0; index < copied.values.length; index += 1) {
 		const itemPath = `${path}[${index}]`;
-		const item = materializeDataProperty(
-			value,
-			String(index),
+		const item = materializeDataValue(
+			copied.values[index],
 			itemPath,
 			issues,
 			active,
@@ -937,14 +1040,44 @@ export function parseProjectionDocument(
 	};
 }
 
-function collectForbiddenKeys(
+export function parseProjectionDocumentCollection(
+	documents: unknown,
+): ProjectionDocumentCollectionParseResult {
+	const issues: string[] = [];
+	const copied = copyDenseDataArray(documents, "documents", issues);
+	if (!copied.ok) {
+		return { ok: false, issues };
+	}
+
+	const parsedDocuments: ProjectionDocument[] = [];
+	for (let index = 0; index < copied.values.length; index += 1) {
+		const parsed = parseProjectionDocument(copied.values[index]);
+		if (parsed.ok) {
+			parsedDocuments.push(parsed.document);
+			continue;
+		}
+		for (const issue of parsed.issues) {
+			issues.push(
+				issue.startsWith("document:")
+					? `documents[${index}]${issue.slice("document".length)}`
+					: `documents[${index}].${issue}`,
+			);
+		}
+	}
+
+	return issues.length > 0
+		? { ok: false, issues }
+		: { ok: true, documents: parsedDocuments };
+}
+
+function collectForbiddenContent(
 	value: unknown,
 	path: string,
 	issues: string[],
 ): void {
 	if (Array.isArray(value)) {
 		value.forEach((entry, index) => {
-			collectForbiddenKeys(entry, `${path}[${index}]`, issues);
+			collectForbiddenContent(entry, `${path}[${index}]`, issues);
 		});
 		return;
 	}
@@ -961,7 +1094,14 @@ function collectForbiddenKeys(
 		) {
 			issues.push(`${path}.${key}: executable content is not allowed`);
 		}
-		collectForbiddenKeys(entry, `${path}.${key}`, issues);
+		if (
+			uriBearingKeys.has(normalizedKey) &&
+			typeof entry === "string" &&
+			isExecutableUri(entry)
+		) {
+			issues.push(`${path}.${key}: executable URI is not allowed`);
+		}
+		collectForbiddenContent(entry, `${path}.${key}`, issues);
 	}
 }
 
@@ -1132,7 +1272,7 @@ function validateNode(
 	if (!isNonEmptyString(node.id)) {
 		issues.push(`${path}.id: required`);
 	}
-	collectForbiddenKeys(node, path, issues);
+	collectForbiddenContent(node, path, issues);
 
 	switch (node.kind) {
 		case "text":

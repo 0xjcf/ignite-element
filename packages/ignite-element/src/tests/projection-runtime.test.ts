@@ -19,6 +19,7 @@ import type {
 	ProjectionDocumentPatch,
 	ProjectionSpeechRequest,
 } from "../types/agent";
+import type { IgniteSchemaValue } from "../types/schema";
 
 type ProjectionContext = {
 	documents: ProjectionDocument[];
@@ -215,22 +216,23 @@ function createInspectionCore(
 	return { adapter, core };
 }
 
-function createRawProjectionCore() {
-	type RawProjectionSnapshot = { documents: unknown[] };
+function createRawProjectionCore(
+	resolveView: () => Record<string, unknown> = () => ({}),
+) {
 	type RawProjectionEvent = {
-		type: "SET_DOCUMENTS";
-		documents: unknown[];
+		type: "SET_SNAPSHOT";
+		snapshot: unknown;
 	};
-	let snapshot: RawProjectionSnapshot = { documents: [] };
-	const listeners = new Set<(state: RawProjectionSnapshot) => void>();
-	const adapter: IgniteAdapter<RawProjectionSnapshot, RawProjectionEvent> = {
+	let snapshot: unknown = { documents: [], speech: null };
+	const listeners = new Set<(state: unknown) => void>();
+	const adapter: IgniteAdapter<unknown, RawProjectionEvent> = {
 		scope: StateScope.Isolated,
 		subscribeSnapshots: (listener) => {
 			listeners.add(listener);
 			return { unsubscribe: () => listeners.delete(listener) };
 		},
 		send: (event) => {
-			snapshot = { documents: event.documents };
+			snapshot = event.snapshot;
 			for (const listener of listeners) {
 				listener(snapshot);
 			}
@@ -241,19 +243,135 @@ function createRawProjectionCore() {
 	const createAdapter = Object.assign(() => adapter, {
 		scope: StateScope.Isolated,
 		resolveStateSnapshot: (
-			current: IgniteAdapter<RawProjectionSnapshot, RawProjectionEvent>,
+			current: IgniteAdapter<unknown, RawProjectionEvent>,
 		) => current.getSnapshot(),
 	});
 	const core = createIgniteComponentFactory(createAdapter, {
-		view: () => ({}),
-		commands: () => ({}),
+		view: resolveView,
+		commands: () => ({ acknowledgeSpeech: () => undefined }),
 	});
 
 	return {
 		core,
-		setDocuments: (documents: unknown[]) =>
-			adapter.send({ type: "SET_DOCUMENTS", documents }),
+		setDocuments: (documents: unknown) =>
+			adapter.send({
+				type: "SET_SNAPSHOT",
+				snapshot: { documents, speech: null },
+			}),
+		setSpeech: (speech: unknown) =>
+			adapter.send({
+				type: "SET_SNAPSHOT",
+				snapshot: { documents: [], speech },
+			}),
+		setSnapshot: (nextSnapshot: unknown) =>
+			adapter.send({ type: "SET_SNAPSHOT", snapshot: nextSnapshot }),
 	};
+}
+
+type ProjectionJsonIsland =
+	| "action-payload"
+	| "submit-payload"
+	| "form-input"
+	| "form-value"
+	| "table-cell";
+
+function createJsonIslandDocument(
+	island: ProjectionJsonIsland,
+	businessValue: IgniteSchemaValue,
+	id: string,
+): ProjectionDocument {
+	const nestedValue = { business: [{ value: businessValue }] };
+	switch (island) {
+		case "action-payload":
+			return {
+				id,
+				revision: "1",
+				nodes: [
+					{
+						kind: "action",
+						id: "confirm",
+						label: "Confirm",
+						commandName: "confirm",
+						payload: { value: 2, nestedValue },
+					},
+				],
+			};
+		case "submit-payload":
+			return {
+				id,
+				revision: "1",
+				nodes: [
+					{
+						kind: "form",
+						id: "form",
+						fields: [
+							{
+								id: "name",
+								label: "Name",
+								input: { type: "string" },
+							},
+						],
+						submit: {
+							kind: "action",
+							id: "submit",
+							label: "Submit",
+							commandName: "confirm",
+							payload: { value: 2, nestedValue },
+						},
+					},
+				],
+			};
+		case "form-input":
+			return {
+				id,
+				revision: "1",
+				nodes: [
+					{
+						kind: "form",
+						id: "form",
+						fields: [
+							{
+								id: "name",
+								label: "Name",
+								input: { type: "string", nestedValue },
+							},
+						],
+					},
+				],
+			};
+		case "form-value":
+			return {
+				id,
+				revision: "1",
+				nodes: [
+					{
+						kind: "form",
+						id: "form",
+						fields: [
+							{
+								id: "name",
+								label: "Name",
+								input: { type: "string" },
+								value: nestedValue,
+							},
+						],
+					},
+				],
+			};
+		case "table-cell":
+			return {
+				id,
+				revision: "1",
+				nodes: [
+					{
+						kind: "table",
+						id: "table",
+						columns: [{ id: "value", label: "Value" }],
+						rows: [{ id: "row", cells: [nestedValue] }],
+					},
+				],
+			};
+	}
 }
 
 describe("projection document helpers", () => {
@@ -1052,6 +1170,158 @@ describe("projection targets", () => {
 		session.dispose();
 	});
 
+	it("rejects executable content in every preserved JSON island", async () => {
+		const islands: ProjectionJsonIsland[] = [
+			"action-payload",
+			"submit-payload",
+			"form-input",
+			"form-value",
+			"table-cell",
+		];
+		const dangerousValues: { name: string; value: IgniteSchemaValue }[] = [
+			{
+				name: "dangerouslySetInnerHTML",
+				value: {
+					dangerouslySetInnerHTML: { __html: "<script>unsafe()</script>" },
+				},
+			},
+			{ name: "innerHTML", value: { INNERHTML: "<script>unsafe()</script>" } },
+			{ name: "outerHTML", value: { OuTeRhTmL: "<script>unsafe()</script>" } },
+			{ name: "srcdoc", value: { SRCDOC: "<script>unsafe()</script>" } },
+			{ name: "existing forbidden key", value: { JSX: "unsafe" } },
+			{ name: "generic handler key", value: { ONPointerDown: "unsafe" } },
+			{ name: "javascript URI", value: { href: "javascript:unsafe()" } },
+			{
+				name: "obfuscated javascript URI",
+				value: { SRC: "\u0000 \tJaVa\nScRiPt\r:unsafe()\u007f " },
+			},
+			{
+				name: "obfuscated vbscript URI",
+				value: { "xlink:href": "\tvb\rscript\n:unsafe()" },
+			},
+			{
+				name: "HTML data URI",
+				value: {
+					action: "data:text/html;charset=utf-8,<script>unsafe()</script>",
+				},
+			},
+			{
+				name: "XHTML data URI",
+				value: {
+					FORMAction: " DATA:application/xhtml+xml;base64,PHhodG1sPg== ",
+				},
+			},
+			{
+				name: "SVG data URI",
+				value: { href: "data:\nimage/svg+xml;charset=utf-8,<svg></svg>" },
+			},
+		];
+		const errorSpy = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => undefined);
+		let scenarioIndex = 0;
+
+		try {
+			for (const dangerous of dangerousValues) {
+				for (const island of islands) {
+					scenarioIndex += 1;
+					const core = createProjectionCore();
+					const commitDocument = vi.fn();
+					const session = core(
+						createProjectionDocumentTarget({ commitDocument }),
+					);
+					const document = createJsonIslandDocument(
+						island,
+						dangerous.value,
+						`unsafe-${scenarioIndex}`,
+					);
+
+					await core.execute("upsertProjection", document);
+					await flushMicrotasks();
+
+					expect(
+						commitDocument,
+						`${dangerous.name} in ${island}`,
+					).not.toHaveBeenCalled();
+					session.dispose();
+				}
+			}
+		} finally {
+			errorSpy.mockRestore();
+		}
+	});
+
+	it("preserves safe business data and URLs in every JSON island", async () => {
+		const safeBusinessData: IgniteSchemaValue = {
+			customer: {
+				id: "customer-1",
+				tags: ["priority", "javascript: is a language"],
+			},
+			links: [
+				{ href: "https://example.com/profile" },
+				{ href: "../relative/profile" },
+				{ src: "data:image/png;base64,iVBORw0KGgo=" },
+				{ "xlink:href": "http://example.com/icon" },
+				{ action: "approve" },
+				{ formAction: "mailto:support@example.com" },
+			],
+			note: "javascript:alert(1) is inert business text",
+		};
+		const document: ProjectionDocument = {
+			id: "safe-business-data",
+			revision: "1",
+			nodes: [
+				{
+					kind: "text",
+					id: "text",
+					text: "javascript: appears in ordinary projection text",
+				},
+				{
+					kind: "action",
+					id: "confirm",
+					label: "Confirm",
+					commandName: "confirm",
+					payload: { value: 2, safeBusinessData },
+				},
+				{
+					kind: "form",
+					id: "form",
+					fields: [
+						{
+							id: "name",
+							label: "Name",
+							input: { type: "string", safeBusinessData },
+							value: safeBusinessData,
+						},
+					],
+					submit: {
+						kind: "action",
+						id: "submit",
+						label: "Submit",
+						commandName: "confirm",
+						payload: { value: 2, safeBusinessData },
+					},
+				},
+				{
+					kind: "table",
+					id: "table",
+					columns: [{ id: "value", label: "Value" }],
+					rows: [{ id: "row", cells: [safeBusinessData] }],
+				},
+			],
+		};
+		const core = createProjectionCore();
+		const commitDocument = vi.fn<(value: ProjectionDocument) => void>();
+		const session = core(createProjectionDocumentTarget({ commitDocument }));
+
+		await core.execute("upsertProjection", document);
+		await flushMicrotasks();
+
+		expect(commitDocument).toHaveBeenCalledTimes(1);
+		expect(commitDocument).toHaveBeenCalledWith(document);
+		session.dispose();
+	});
+
 	it("fails closed on raw accessor data without an unhandled rejection", async () => {
 		const { core, setDocuments } = createRawProjectionCore();
 		const commitDocument = vi.fn();
@@ -1092,6 +1362,384 @@ describe("projection targets", () => {
 		expect(getter).not.toHaveBeenCalled();
 		expect(commitDocument).not.toHaveBeenCalled();
 		expect(unhandled).toEqual([]);
+	});
+
+	it("rejects unsafe actor-owned document collections without invoking code", async () => {
+		const validDocument: ProjectionDocument = {
+			id: "panel",
+			revision: "1",
+			nodes: [{ kind: "text", id: "summary", text: "Ready" }],
+		};
+		const scenarios = [
+			{
+				name: "index getter",
+				create: (document: ProjectionDocument) => {
+					const invoked = vi.fn();
+					const documents: unknown[] = [];
+					Object.defineProperty(documents, "0", {
+						enumerable: true,
+						configurable: true,
+						get: () => {
+							invoked();
+							return document;
+						},
+					});
+					return { documents, invoked };
+				},
+			},
+			{
+				name: "throwing index getter",
+				create: (_document: ProjectionDocument) => {
+					const invoked = vi.fn();
+					const documents: unknown[] = [];
+					Object.defineProperty(documents, "0", {
+						enumerable: true,
+						configurable: true,
+						get: () => {
+							invoked();
+							throw new Error("index getter invoked");
+						},
+					});
+					return { documents, invoked };
+				},
+			},
+			{
+				name: "custom iterator",
+				create: (document: ProjectionDocument) => {
+					const invoked = vi.fn();
+					const documents: unknown[] = [document];
+					Object.defineProperty(documents, Symbol.iterator, {
+						value: () => {
+							invoked();
+							return [document][Symbol.iterator]();
+						},
+					});
+					return { documents, invoked };
+				},
+			},
+			{
+				name: "symbol property",
+				create: (document: ProjectionDocument) => {
+					const invoked = vi.fn();
+					const documents: unknown[] = [document];
+					Object.defineProperty(documents, Symbol("unsafe"), {
+						value: "unsafe",
+						enumerable: true,
+					});
+					return { documents, invoked };
+				},
+			},
+			{
+				name: "enumerable extra string property",
+				create: (document: ProjectionDocument) => {
+					const invoked = vi.fn();
+					const documents: unknown[] = [document];
+					Object.defineProperty(documents, "metadata", {
+						value: "unsafe",
+						enumerable: true,
+					});
+					return { documents, invoked };
+				},
+			},
+			{
+				name: "non-enumerable extra string property",
+				create: (document: ProjectionDocument) => {
+					const invoked = vi.fn();
+					const documents: unknown[] = [document];
+					Object.defineProperty(documents, "metadata", {
+						value: "unsafe",
+						enumerable: false,
+					});
+					return { documents, invoked };
+				},
+			},
+			{
+				name: "non-enumerable index",
+				create: (document: ProjectionDocument) => {
+					const invoked = vi.fn();
+					const documents: unknown[] = [];
+					Object.defineProperty(documents, "0", {
+						value: document,
+						enumerable: false,
+						configurable: true,
+					});
+					return { documents, invoked };
+				},
+			},
+			{
+				name: "sparse array",
+				create: (document: ProjectionDocument) => {
+					const invoked = vi.fn();
+					const documents: unknown[] = [];
+					Object.defineProperty(documents, "length", { value: 2 });
+					Object.defineProperty(documents, "1", {
+						value: document,
+						enumerable: true,
+						configurable: true,
+					});
+					return { documents, invoked };
+				},
+			},
+			{
+				name: "array subclass",
+				create: (document: ProjectionDocument) => {
+					const invoked = vi.fn();
+					class DocumentCollection extends Array<unknown> {
+						[Symbol.iterator]() {
+							invoked();
+							return super[Symbol.iterator]();
+						}
+					}
+					const documents = new DocumentCollection();
+					documents.push(document);
+					return { documents, invoked };
+				},
+			},
+			{
+				name: "mixed valid and invalid documents",
+				create: (document: ProjectionDocument) => ({
+					documents: [document, { id: "broken" }],
+					invoked: vi.fn(),
+				}),
+			},
+		];
+		const unhandled: unknown[] = [];
+		const captureUnhandled = (reason: unknown) => {
+			unhandled.push(reason);
+		};
+
+		process.on("unhandledRejection", captureUnhandled);
+		try {
+			for (const scenario of scenarios) {
+				const { core, setDocuments } = createRawProjectionCore();
+				const commitDocument = vi.fn();
+				const session = core(
+					createProjectionDocumentTarget({ commitDocument }),
+				);
+				const { documents, invoked } = scenario.create(validDocument);
+
+				setDocuments(documents);
+				await flushMicrotasks();
+				await flushMicrotasks();
+
+				expect(invoked, scenario.name).not.toHaveBeenCalled();
+				expect(commitDocument, scenario.name).not.toHaveBeenCalled();
+				session.dispose();
+			}
+		} finally {
+			process.off("unhandledRejection", captureUnhandled);
+		}
+
+		expect(unhandled).toEqual([]);
+	});
+
+	it("contains invalid-length and throwing proxy descriptor traps", async () => {
+		const invalidLengthTrap = vi.fn(
+			(target: unknown[], property: string | symbol) =>
+				property === "length"
+					? {
+							value: "invalid",
+							writable: true,
+							enumerable: false,
+							configurable: false,
+						}
+					: Reflect.getOwnPropertyDescriptor(target, property),
+		);
+		const throwingTrap = vi.fn(() => {
+			throw new Error("descriptor trap failed");
+		});
+		const scenarios = [
+			new Proxy<unknown[]>([], {
+				getOwnPropertyDescriptor: invalidLengthTrap,
+			}),
+			new Proxy<unknown[]>([], {
+				getOwnPropertyDescriptor: throwingTrap,
+			}),
+		];
+		const unhandled: unknown[] = [];
+		const captureUnhandled = (reason: unknown) => {
+			unhandled.push(reason);
+		};
+
+		process.on("unhandledRejection", captureUnhandled);
+		try {
+			for (const documents of scenarios) {
+				const { core, setDocuments } = createRawProjectionCore();
+				const commitDocument = vi.fn();
+				const session = core(
+					createProjectionDocumentTarget({ commitDocument }),
+				);
+
+				setDocuments(documents);
+				await flushMicrotasks();
+				await flushMicrotasks();
+
+				expect(commitDocument).not.toHaveBeenCalled();
+				session.dispose();
+			}
+		} finally {
+			process.off("unhandledRejection", captureUnhandled);
+		}
+
+		expect(invalidLengthTrap).toHaveBeenCalled();
+		expect(throwingTrap).toHaveBeenCalled();
+		expect(unhandled).toEqual([]);
+	});
+
+	it("commits only trusted dense document arrays", async () => {
+		const document: ProjectionDocument = {
+			id: "panel",
+			revision: "1",
+			nodes: [{ kind: "text", id: "summary", text: "Ready" }],
+		};
+		const { core, setDocuments } = createRawProjectionCore();
+		const commitDocument = vi.fn();
+		const session = core(createProjectionDocumentTarget({ commitDocument }));
+
+		setDocuments([document]);
+		await flushMicrotasks();
+		await flushMicrotasks();
+
+		expect(commitDocument).toHaveBeenCalledTimes(1);
+		expect(commitDocument).toHaveBeenCalledWith(document);
+		session.dispose();
+	});
+
+	it("does not fall back to derived documents after an unsafe actor collection", async () => {
+		const actorDocument: ProjectionDocument = {
+			id: "panel",
+			revision: "actor-1",
+			nodes: [{ kind: "text", id: "actor", text: "Actor" }],
+		};
+		const derivedDocument: ProjectionDocument = {
+			id: "panel",
+			revision: "derived-1",
+			nodes: [{ kind: "text", id: "derived", text: "Derived" }],
+		};
+		const iterator = vi.fn(() => [actorDocument][Symbol.iterator]());
+		const actorDocuments: unknown[] = [actorDocument];
+		Object.defineProperty(actorDocuments, Symbol.iterator, { value: iterator });
+		const { core, setDocuments } = createRawProjectionCore(() => ({
+			documents: [derivedDocument],
+		}));
+		const commitDocument = vi.fn();
+		const session = core(createProjectionDocumentTarget({ commitDocument }));
+
+		setDocuments(actorDocuments);
+		await flushMicrotasks();
+		await flushMicrotasks();
+
+		expect(iterator).not.toHaveBeenCalled();
+		expect(commitDocument).not.toHaveBeenCalled();
+		session.dispose();
+	});
+
+	it("fails speech accessors and non-data shapes closed without scanning text", async () => {
+		const outerGetter = vi.fn(() => {
+			throw new Error("outer speech getter invoked");
+		});
+		const outerAccessorSnapshot = { documents: [] };
+		Object.defineProperty(outerAccessorSnapshot, "speech", {
+			enumerable: true,
+			get: outerGetter,
+		});
+		const valueGetter = vi.fn(() => {
+			throw new Error("speech value getter invoked");
+		});
+		const accessorSpeech = {
+			id: "accessor",
+			text: "Unsafe",
+			status: "pending",
+		};
+		Object.defineProperty(accessorSpeech, "voice", {
+			enumerable: true,
+			get: valueGetter,
+		});
+		const symbolSpeech = {
+			id: "symbol",
+			text: "Unsafe",
+			status: "pending",
+		};
+		Object.defineProperty(symbolSpeech, Symbol("unsafe"), {
+			value: "unsafe",
+		});
+		class NonPlainSpeech {
+			id = "non-plain";
+			text = "Unsafe";
+			status = "pending";
+		}
+		const scenarios = [
+			{ snapshot: outerAccessorSnapshot, invoked: outerGetter },
+			{
+				snapshot: { documents: [], speech: accessorSpeech },
+				invoked: valueGetter,
+			},
+			{
+				snapshot: { documents: [], speech: symbolSpeech },
+				invoked: vi.fn(),
+			},
+			{
+				snapshot: { documents: [], speech: new NonPlainSpeech() },
+				invoked: vi.fn(),
+			},
+		];
+		const unhandled: unknown[] = [];
+		const captureUnhandled = (reason: unknown) => {
+			unhandled.push(reason);
+		};
+
+		process.on("unhandledRejection", captureUnhandled);
+		try {
+			for (const scenario of scenarios) {
+				const { core, setSnapshot } = createRawProjectionCore();
+				const commitSpeech = vi.fn();
+				const session = core(
+					createProjectionSpeechTarget({
+						commitSpeech,
+						acknowledgeCommandName: "acknowledgeSpeech",
+					}),
+				);
+
+				setSnapshot(scenario.snapshot);
+				await flushMicrotasks();
+				await flushMicrotasks();
+
+				expect(scenario.invoked).not.toHaveBeenCalled();
+				expect(commitSpeech).not.toHaveBeenCalled();
+				session.dispose();
+			}
+		} finally {
+			process.off("unhandledRejection", captureUnhandled);
+		}
+
+		expect(unhandled).toEqual([]);
+
+		const { core, setSpeech } = createRawProjectionCore();
+		const commitSpeech = vi.fn<(speech: ProjectionSpeechRequest) => void>();
+		const session = core(
+			createProjectionSpeechTarget({
+				commitSpeech,
+				acknowledgeCommandName: "acknowledgeSpeech",
+			}),
+		);
+		setSpeech({
+			id: "safe-speech",
+			text: "javascript: is ordinary speech text",
+			status: "pending",
+			voice: "vbscript: is an inert voice label",
+			href: "javascript:unknown fields are stripped",
+			innerHTML: "unknown fields are stripped",
+		});
+		await flushMicrotasks();
+		await flushMicrotasks();
+
+		expect(commitSpeech).toHaveBeenCalledWith({
+			id: "safe-speech",
+			text: "javascript: is ordinary speech text",
+			status: "pending",
+			voice: "vbscript: is an inert voice label",
+		});
+		session.dispose();
 	});
 
 	it("binds a branded document target, commits revision changes, and disposes cleanly", async () => {
