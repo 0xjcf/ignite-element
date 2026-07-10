@@ -38,6 +38,16 @@ Add deterministic headless testing support for the replacement architecture. Tes
 - Add deterministic scripted fixtures that exercise create, patch, reject, command-action, text, and speech flows.
 - Keep browser-only assertions out of the headless DSL.
 
+## Execution workflow
+
+Use `6-agent` mode for this shared-contract work. The architect owns the
+headless contract boundary, the staff engineer owns the shared test-plan
+contract, and one senior engineer is the sole code writer for testing sources,
+fixtures, and task-scoped documentation. QA validates deterministic coverage,
+SRE reviews runtime/lifecycle implications, and the reviewer performs the final
+exact-SHA assessment. Require an explicit handoff after each read-only gate;
+the root session owns full verification, CodeRabbit, and closeout.
+
 ## Verification plan
 - Run focused testing/runtime/type tests and fas validate-task.
 - Create or refresh the final review summary artifact before task completion.

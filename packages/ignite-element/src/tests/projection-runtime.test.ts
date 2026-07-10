@@ -1322,6 +1322,57 @@ describe("projection document helpers", () => {
 			nodes: [{ kind: "text", id: "summary", text: "Authoritative" }],
 		});
 	});
+
+	it("rejects malformed patches and missing removal targets without advancing revision", () => {
+		const original: ProjectionDocument = {
+			id: "panel",
+			revision: "1",
+			nodes: [
+				{ kind: "text", id: "summary", text: "Ready" },
+				{ kind: "text", id: "detail", text: "Connected" },
+			],
+		};
+
+		expect(
+			applyProjectionDocumentPatch(original, {
+				documentId: "panel",
+				baseRevision: "1",
+				revision: "2",
+				type: "replace-node",
+			}),
+		).toEqual({
+			ok: false,
+			code: "invalid-document",
+			reason: "Projection patch is invalid: patch.type: unsupported.",
+		});
+		expect(
+			applyProjectionDocumentPatch(original, {
+				documentId: "panel",
+				baseRevision: "1",
+				revision: "2",
+				type: "set-node",
+				node: { kind: "text", id: "", text: "" },
+			}),
+		).toEqual({
+			ok: false,
+			code: "invalid-document",
+			reason: "Projection patch is invalid: nodes[0].id: required.",
+		});
+		expect(
+			applyProjectionDocumentPatch(original, {
+				documentId: "panel",
+				baseRevision: "1",
+				revision: "2",
+				type: "remove-node",
+				nodeId: "missing",
+			}),
+		).toEqual({
+			ok: false,
+			code: "invalid-document",
+			reason: 'Projection node "missing" does not exist.',
+		});
+		expect(original.revision).toBe("1");
+	});
 });
 
 describe("projection targets", () => {

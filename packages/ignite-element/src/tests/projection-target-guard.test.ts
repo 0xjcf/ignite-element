@@ -92,4 +92,36 @@ describe("projection target guard", () => {
 			}),
 		).toBe(false);
 	});
+
+	it("rejects invalid target options before registering a shell", () => {
+		expect(() =>
+			Reflect.apply(createProjectionDocumentTarget, undefined, [
+				{ commitDocument: "not-a-function" },
+			]),
+		).toThrow("commitDocument must be a function");
+		expect(() =>
+			Reflect.apply(createProjectionDocumentTarget, undefined, [
+				{ commitDocument: () => undefined, documentId: 1 },
+			]),
+		).toThrow("documentId must be a string");
+		expect(() =>
+			Reflect.apply(createProjectionSpeechTarget, undefined, [
+				{ commitSpeech: () => undefined, acknowledgeCommandName: 1 },
+			]),
+		).toThrow("acknowledgeCommandName must be a string");
+		expect(() =>
+			Reflect.apply(createProjectionSpeechTarget, undefined, [
+				{ acknowledgeCommandName: "acknowledgeSpeech" },
+			]),
+		).toThrow("commitSpeech must be a function");
+		expect(() =>
+			Reflect.apply(createProjectionSpeechTarget, undefined, [
+				{
+					commitSpeech: () => undefined,
+					acknowledgeCommandName: "acknowledgeSpeech",
+					resolveAcknowledgePayload: "not-a-function",
+				},
+			]),
+		).toThrow("resolveAcknowledgePayload must be a function");
+	});
 });

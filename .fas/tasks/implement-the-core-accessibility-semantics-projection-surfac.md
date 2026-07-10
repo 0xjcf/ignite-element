@@ -38,7 +38,9 @@ None. No implementation was started from this superseded brief.
 Do not implement this brief. Follow the replacement task.
 
 ## Verification plan
-No verification is required for this historical brief.
+Record the supersession evidence: the rejected registry direction shipped no
+source changes, its uncommitted work was restored to a clean tree, and the
+review summary confirms that replacement work belongs to `task-1783650880370`.
 
 ## Risks
 - Validate generated scope, acceptance criteria, and verification evidence before closeout to avoid workflow drift.

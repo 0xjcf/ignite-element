@@ -108,6 +108,18 @@ Replace the superseded ProjectionRequest/ProjectionSpec registry and command-pre
 - Adapt igniteTools-facing commands and scripted model fixtures so the LLM authors projection data through validated commands rather than executable code.
 - Run focused verification after each planned commit and leave the downstream workbench, broad testing DSL, rendered validation, and final docs sweep to their queued tasks.
 
+## Execution workflow
+
+Use `6-agent` mode. The architect owns the accepted projection boundary and
+decision record; the staff engineer owns shared-contract and commit-plan
+alignment. The senior engineer is the sole code writer for package sources,
+tests, and task-scoped documentation. QA owns focused contract/type/runtime
+evidence, SRE owns lifecycle and operational review, and the reviewer owns the
+final exact-SHA assessment. Each read-only handoff follows the preceding gate:
+architecture and contract handoffs before code, implementation handoff before
+QA/SRE, and QA/SRE handoffs before final review. The root session owns shared
+full verification, CodeRabbit, and batch closeout.
+
 ## Verification plan
 
 - Complete the task packet, planning, architecture, and commit-plan artifacts before production edits.

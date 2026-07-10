@@ -37,6 +37,10 @@ type ProjectionSpeechParseResult =
 	| { ok: true; speech: ProjectionSpeechRequest }
 	| { ok: false; issues: string[] };
 
+type ProjectionDocumentPatchParseResult =
+	| { ok: true; patch: ProjectionDocumentPatch }
+	| { ok: false; issues: string[] };
+
 const forbiddenKeys = new Set([
 	"dom",
 	"domref",
@@ -1403,9 +1407,85 @@ export function upsertProjectionDocument(
 	);
 }
 
+function parseProjectionDocumentPatch(
+	patch: unknown,
+): ProjectionDocumentPatchParseResult {
+	const issues: string[] = [];
+	const materializedPatch = materializeRootObject(patch, "patch", issues);
+	if (!materializedPatch) {
+		return { ok: false, issues };
+	}
+
+	const documentId = readString(
+		materializedPatch.documentId,
+		"patch.documentId",
+		issues,
+	);
+	const baseRevision = readString(
+		materializedPatch.baseRevision,
+		"patch.baseRevision",
+		issues,
+	);
+	const revision = readString(
+		materializedPatch.revision,
+		"patch.revision",
+		issues,
+	);
+	if (!documentId || !baseRevision || !revision) {
+		return { ok: false, issues };
+	}
+
+	if (materializedPatch.type === "remove-node") {
+		const nodeId = readString(materializedPatch.nodeId, "patch.nodeId", issues);
+		return nodeId
+			? {
+					ok: true,
+					patch: {
+						type: "remove-node",
+						documentId,
+						baseRevision,
+						revision,
+						nodeId,
+					},
+				}
+			: { ok: false, issues };
+	}
+
+	if (materializedPatch.type === "set-node") {
+		const parsedDocument = parseProjectionDocument({
+			id: documentId,
+			revision,
+			nodes: [materializedPatch.node],
+		});
+		const node = parsedDocument.ok
+			? parsedDocument.document.nodes[0]
+			: undefined;
+		if (!node) {
+			return {
+				ok: false,
+				issues: parsedDocument.ok
+					? ["patch.node: required"]
+					: parsedDocument.issues,
+			};
+		}
+		return {
+			ok: true,
+			patch: {
+				type: "set-node",
+				documentId,
+				baseRevision,
+				revision,
+				node,
+			},
+		};
+	}
+
+	return { ok: false, issues: ["patch.type: unsupported"] };
+}
+
 export function applyProjectionDocumentPatch(
 	document: ProjectionDocument,
-	patch: ProjectionDocumentPatch,
+	patch: unknown,
 ):
 	| { ok: true; document: ProjectionDocument }
 	| {
@@ -1413,51 +1493,67 @@ export function applyProjectionDocumentPatch(
 			code: "document-mismatch" | "invalid-document" | "stale-revision";
 			reason: string;
 	  } {
-	if (document.id !== patch.documentId) {
+	const parsedPatch = parseProjectionDocumentPatch(patch);
+	if (!parsedPatch.ok) {
+		return {
+			ok: false,
+			code: "invalid-document",
+			reason: `Projection patch is invalid: ${parsedPatch.issues.join(", ")}.`,
+		};
+	}
+	const validPatch = parsedPatch.patch;
+	if (document.id !== validPatch.documentId) {
 		return {
 			ok: false,
 			code: "document-mismatch",
-			reason: `Projection patch target "${patch.documentId}" does not match document "${document.id}".`,
+			reason: `Projection patch target "${validPatch.documentId}" does not match document "${document.id}".`,
 		};
 	}
-	if (document.revision !== patch.baseRevision) {
+	if (document.revision !== validPatch.baseRevision) {
 		return {
 			ok: false,
 			code: "stale-revision",
-			reason: `Projection patch base revision "${patch.baseRevision}" does not match current revision "${document.revision}".`,
+			reason: `Projection patch base revision "${validPatch.baseRevision}" does not match current revision "${document.revision}".`,
 		};
 	}
-	if (patch.revision === patch.baseRevision) {
+	if (validPatch.revision === validPatch.baseRevision) {
 		return {
 			ok: false,
 			code: "stale-revision",
-			reason: `Projection patch revision "${patch.revision}" must advance beyond base revision "${patch.baseRevision}".`,
+			reason: `Projection patch revision "${validPatch.revision}" must advance beyond base revision "${validPatch.baseRevision}".`,
 		};
 	}
 
-	switch (patch.type) {
+	switch (validPatch.type) {
 		case "set-node": {
 			const existingIndex = document.nodes.findIndex(
-				(node) => node.id === patch.node.id,
+				(node) => node.id === validPatch.node.id,
 			);
 			const nextNodes =
 				existingIndex < 0
-					? [...document.nodes, patch.node]
+					? [...document.nodes, validPatch.node]
 					: document.nodes.map((node, index) =>
-							index === existingIndex ? patch.node : node,
+							index === existingIndex ? validPatch.node : node,
 						);
 			return {
 				ok: true,
 				document: {
 					...document,
-					revision: patch.revision,
+					revision: validPatch.revision,
 					nodes: nextNodes,
 				},
 			};
 		}
 		case "remove-node": {
+			if (!document.nodes.some((node) => node.id === validPatch.nodeId)) {
+				return {
+					ok: false,
+					code: "invalid-document",
+					reason: `Projection node "${validPatch.nodeId}" does not exist.`,
+				};
+			}
 			const nextNodes = document.nodes.filter(
-				(node) => node.id !== patch.nodeId,
+				(node) => node.id !== validPatch.nodeId,
 			);
 			if (nextNodes.length === 0) {
 				return {
@@ -1470,11 +1566,17 @@ export function applyProjectionDocumentPatch(
 				ok: true,
 				document: {
 					...document,
-					revision: patch.revision,
+					revision: validPatch.revision,
 					nodes: nextNodes,
 				},
 			};
 		}
+		default:
+			return {
+				ok: false,
+				code: "invalid-document",
+				reason: "Projection patch type is unsupported.",
+			};
 	}
 }
 

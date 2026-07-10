@@ -39,7 +39,8 @@ Add rendered-DOM accessibility verification after the dynamic projection workben
 - Perform visual and interactive validation of the command-center dashboard.
 
 ## Verification plan
-- Run focused rendered example tests and the example runtime lane.
+- After each completed implementation-plan step, run focused rendered example
+  tests and the example runtime lane, then create one incremental commit.
 - Create or refresh the final review summary artifact before task completion.
 - Run the epic shared full verification and CodeRabbit review at closeout.
 

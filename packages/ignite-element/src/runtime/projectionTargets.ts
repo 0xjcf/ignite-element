@@ -84,6 +84,19 @@ const projectionTargetConfigurations = new WeakMap<
 export function createProjectionDocumentTarget(
 	options: ProjectionDocumentTargetOptions,
 ): IgniteProjectionTarget {
+	if (
+		typeof options !== "object" ||
+		options === null ||
+		typeof options.commitDocument !== "function"
+	) {
+		throw new TypeError("commitDocument must be a function");
+	}
+	if (
+		options.documentId !== undefined &&
+		typeof options.documentId !== "string"
+	) {
+		throw new TypeError("documentId must be a string");
+	}
 	const target: ProjectionDocumentTargetShell = {
 		[igniteProjectionTargetBrand]: true,
 		kind: "document",
@@ -123,6 +136,22 @@ export function createProjectionDocumentTarget(
 export function createProjectionSpeechTarget(
 	options: ProjectionSpeechTargetOptions,
 ): IgniteProjectionTarget {
+	if (
+		typeof options !== "object" ||
+		options === null ||
+		typeof options.commitSpeech !== "function"
+	) {
+		throw new TypeError("commitSpeech must be a function");
+	}
+	if (typeof options.acknowledgeCommandName !== "string") {
+		throw new TypeError("acknowledgeCommandName must be a string");
+	}
+	if (
+		options.resolveAcknowledgePayload !== undefined &&
+		typeof options.resolveAcknowledgePayload !== "function"
+	) {
+		throw new TypeError("resolveAcknowledgePayload must be a function");
+	}
 	const target: ProjectionSpeechTargetShell = {
 		[igniteProjectionTargetBrand]: true,
 		kind: "speech",
