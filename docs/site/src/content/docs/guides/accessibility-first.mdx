@@ -37,6 +37,23 @@ Those facts belong in the runtime contract before they are styled in the DOM.
 
 ```ts no-check
 import { igniteCore } from 'ignite-element/xstate';
+import { assign, createMachine } from 'xstate';
+
+const thermostatMachine = createMachine({
+  context: {
+    target: 70,
+    isSaving: false,
+    errorText: undefined,
+  },
+  on: {
+    SET_TARGET_DRAFT: {
+      actions: assign({
+        target: ({ event }) => event.target,
+      }),
+    },
+    SAVE_TARGET: {},
+  },
+});
 
 export const thermostat = igniteCore({
   source: thermostatMachine,
@@ -51,6 +68,13 @@ export const thermostat = igniteCore({
   }),
 
   commands: ({ actor, command }) => ({
+    setTargetDraft: command(
+      (target: number) => actor.send({ type: 'SET_TARGET_DRAFT', target }),
+      {
+        description: 'Synchronize the actor-owned target draft.',
+        input: command.number({ minimum: 58, maximum: 82 }),
+      },
+    ),
     saveTarget: command(
       (target: number) => actor.send({ type: 'SAVE_TARGET', target }),
       {
@@ -75,7 +99,7 @@ Once the behavior contract is stable, render it with native controls before
 reaching for ARIA.
 
 ```tsx no-check
-thermostat('thermostat-panel', ({ target, targetLabel, targetHint, statusLabel, errorText, canSave, saveTarget }) => (
+thermostat('thermostat-panel', ({ target, targetLabel, targetHint, statusLabel, errorText, canSave, setTargetDraft, saveTarget }) => (
   <form aria-describedby="thermostat-hint thermostat-status">
     <label for="thermostat-target">{targetLabel}</label>
     <input
@@ -84,7 +108,8 @@ thermostat('thermostat-panel', ({ target, targetLabel, targetHint, statusLabel, 
       type="range"
       min={58}
       max={82}
-      defaultValue={target}
+      value={target}
+      onInput={(event) => setTargetDraft(Number(event.currentTarget.value))}
       disabled={!canSave}
       aria-invalid={errorText ? 'true' : undefined}
       aria-describedby={errorText ? 'thermostat-hint thermostat-error thermostat-status' : 'thermostat-hint thermostat-status'}
@@ -109,6 +134,18 @@ thermostat('thermostat-panel', ({ target, targetLabel, targetHint, statusLabel, 
   </form>
 ));
 ```
+
+The range value is actor-owned rather than a one-time DOM default. Active user
+edits call `setTargetDraft`, which sends `SET_TARGET_DRAFT` and re-renders the
+control from the resulting `target`. External integrations use the same command
+path, so their updates converge through the same actor state:
+
+```ts no-check
+await thermostat.execute('setTargetDraft', 72);
+```
+
+The save handler still reads the synchronized native control. It does not own a
+second local draft that can drift from an external actor update.
 
 The runtime contract already knew:
 

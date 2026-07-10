@@ -456,20 +456,27 @@ describe("private projection binding", () => {
 	it("keeps only the latest document revision and current speech identity in binding state", async () => {
 		const state = createProjectionBindingState();
 		const firstInspection = createInspection();
+		const secondDocument: ProjectionInspection["documents"][number] = {
+			id: "panel",
+			revision: "2",
+			nodes: [{ kind: "text", id: "summary", text: "Updated" }],
+		};
+		const secondSpeech: ProjectionSpeechRequest = {
+			id: "speech-2",
+			text: "Updated.",
+			status: "pending",
+		};
 		const secondInspection: ProjectionInspection = {
 			...createInspection(),
-			documents: [
-				{
-					id: "panel",
-					revision: "2",
-					nodes: [{ kind: "text", id: "summary", text: "Updated" }],
+			snapshot: {
+				context: {
+					documents: [secondDocument],
+					speech: secondSpeech,
 				},
-			],
-			speech: {
-				id: "speech-2",
-				text: "Updated.",
-				status: "pending",
 			},
+			documents: [secondDocument],
+			speech: secondSpeech,
+			revision: "revision-2",
 		};
 
 		await commitProjectionDocumentTarget({

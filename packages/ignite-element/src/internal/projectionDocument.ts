@@ -1399,7 +1399,7 @@ export function applyProjectionDocumentPatch(
 	| { ok: true; document: ProjectionDocument }
 	| {
 			ok: false;
-			code: "document-mismatch" | "stale-revision";
+			code: "document-mismatch" | "invalid-document" | "stale-revision";
 			reason: string;
 	  } {
 	if (document.id !== patch.documentId) {
@@ -1444,15 +1444,26 @@ export function applyProjectionDocumentPatch(
 				},
 			};
 		}
-		case "remove-node":
+		case "remove-node": {
+			const nextNodes = document.nodes.filter(
+				(node) => node.id !== patch.nodeId,
+			);
+			if (nextNodes.length === 0) {
+				return {
+					ok: false,
+					code: "invalid-document",
+					reason: `Projection document "${document.id}" must retain at least one node.`,
+				};
+			}
 			return {
 				ok: true,
 				document: {
 					...document,
 					revision: patch.revision,
-					nodes: document.nodes.filter((node) => node.id !== patch.nodeId),
+					nodes: nextNodes,
 				},
 			};
+		}
 	}
 }
 

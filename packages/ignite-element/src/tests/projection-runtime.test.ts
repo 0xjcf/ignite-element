@@ -1133,6 +1133,33 @@ describe("projection document helpers", () => {
 				'Projection patch revision "2" must advance beyond base revision "2".',
 		});
 	});
+
+	it("rejects a patch that would remove the final document node", () => {
+		const original: ProjectionDocument = {
+			id: "panel",
+			revision: "opaque-current",
+			nodes: [{ kind: "text", id: "summary", text: "Authoritative" }],
+		};
+
+		expect(
+			applyProjectionDocumentPatch(original, {
+				documentId: "panel",
+				baseRevision: "opaque-current",
+				revision: "opaque-next",
+				type: "remove-node",
+				nodeId: "summary",
+			}),
+		).toEqual({
+			ok: false,
+			code: "invalid-document",
+			reason: 'Projection document "panel" must retain at least one node.',
+		});
+		expect(original).toEqual({
+			id: "panel",
+			revision: "opaque-current",
+			nodes: [{ kind: "text", id: "summary", text: "Authoritative" }],
+		});
+	});
 });
 
 describe("projection targets", () => {

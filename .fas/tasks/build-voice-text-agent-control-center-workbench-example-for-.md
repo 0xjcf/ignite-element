@@ -4,17 +4,17 @@
 Created with `fas create-task` on 2026-07-09.
 
 ## Problem
-Build examples/agents/voice-workbench as the decisive dogfood for agent-authored interfaces. A user types or speaks a prompt; a conversation/command-center actor exposes domain and projection-authoring commands through igniteTools; a scripted or live OpenAI-compatible/MLX model calls upsertProjection or patchProjection with validated ProjectionDocument data and returns model-authored text or speech; actor state stores the durable documents; Ignite commits them to accessible native JSX, speech, and text/terminal outputs without raw generated code or a DOM requirement for voice. Include deterministic mock model and speech adapters in CI, optional live MLX, and actor-web-backed conversation/artifact actors where the current source integration supports them.
+Build examples/agents/voice-workbench as the decisive dogfood for agent-authored interfaces. A user types or speaks a prompt; a conversation/command-center actor exposes domain and projection-authoring commands through igniteTools; a scripted or live OpenAI-compatible/MLX model calls upsertProjection or patchProjection with validated ProjectionDocument data and returns model-authored text or speech; actor state stores the durable documents; Ignite commits them to accessible native JSX, speech, and text/terminal outputs without raw generated code or a DOM requirement for voice. Include deterministic mock model, a mockable text/terminal committer adapter, and a separate mockable speech committer adapter in CI, optional live MLX, and actor-web-backed conversation/artifact actors where the current source integration supports them.
 
 
 ## Acceptance criteria
 - Text and mock/live speech input drive one continuing conversation session.
 - The model authors and incrementally patches validated projection documents through igniteTools commands rather than creating ProjectionRequest/ProjectionSpec objects or generated JSX/JavaScript.
 - Actor state is the durable source of truth for messages, document revisions, artifacts, and command-backed actions.
-- Model-authored final text or structured speech is committed through a mockable speech adapter; voice-only operation requires no DOM.
+- Model-authored final text is committed through a mockable text/terminal adapter, while structured speech is committed through a separate mockable speech adapter; voice-only operation requires no DOM.
 - The browser maps semantic nodes to accessible native JSX and supports keyboard, focus, names, disabled/error states, and command actions.
 - The artifact vocabulary includes at least text/markdown, checklist, form, table, timeline, decision log, code diff, and command-backed action nodes where useful.
-- Deterministic CI covers the full prompt-to-tool-call-to-state-update-to-JSX/speech output loop; live OpenAI-compatible/MLX validation remains optional.
+- Deterministic CI covers the prompt-to-tool-call-to-state-update-to-JSX loop and independently verifies text/terminal commits and speech commits; live OpenAI-compatible/MLX validation remains optional.
 - The example documents security, privacy/redaction, validation, provider, voice, and actor-web boundaries.
 - The work is tracked in `.fas/TASKS.md`.
 - The task has a clear implementation and verification plan before execution starts.
@@ -37,7 +37,7 @@ Build examples/agents/voice-workbench as the decisive dogfood for agent-authored
 ## Implementation plan
 - Model the conversation and projection store as deterministic actor state with explicit create/patch/reject events.
 - Expose projection-authoring and domain commands through igniteTools with deterministic scripted provider fixtures.
-- Build accessible JSX, speech, and text committers over the same validated document state.
+- Build accessible JSX plus separate mockable text/terminal and speech committers over the same validated document state.
 - Add optional OpenAI-compatible/MLX and actor-web-backed modes after deterministic lanes pass.
 
 ## Verification plan

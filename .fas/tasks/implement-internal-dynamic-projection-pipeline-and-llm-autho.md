@@ -11,7 +11,7 @@ Replace the superseded ProjectionRequest/ProjectionSpec registry and command-pre
 ## Acceptance criteria
 
 - igniteCore keeps its existing source/view/commands/events/effects configuration with no projections option, projection registry, public bind/inspect/project method, behavior presentation metadata, or projection generics threaded through adapters.
-- The existing counter(tagName, renderer) custom-element API remains source-compatible; any non-DOM callable overload is narrow, returns a disposable handle, and does not require a tag, JSX, ShadowRoot, or DOM.
+- The igniteCore return value, named `component` in canonical docs, preserves `component(tagName, renderer)` and accepts exactly one non-DOM overload: `component(target)`, where `target` comes only from first-party opaque constructors and the result is `{ dispose(): void }`. This callable contract remains separate from any `igniteCore.project` method and does not require a tag, JSX, ShadowRoot, or DOM.
 - The internal projection contract is open and generic over format/output; behavior view remains projection input rather than a projection variant.
 - Projection documents are validated declarative data with stable ids and safe semantic nodes such as text, checklist, form, table, timeline, chart, code diff, decision log, and command-backed action; raw generated JSX, JavaScript, event handlers, imports, and DOM references are rejected.
 - An LLM can create and incrementally patch projection documents through igniteTools-exposed commands, and validated actor state remains the durable source of truth.
@@ -83,7 +83,7 @@ Replace the superseded ProjectionRequest/ProjectionSpec registry and command-pre
 - Reason: XState context spread invokes documents and speech accessors before Ignite projection validation; descriptor-preserving construction is required for the accepted public fail-closed contract.
 - Added paths: packages/ignite-adapters/src/adapters/XStateAdapter.ts, packages/ignite-element/src/tests/adapters/XStateAdapter.test.ts
 - Evidence source: FAS QA/SRE/final reviewer
-- Evidence: FAS QA/SRE/final reviewer | .fas/state/review-summary.md | Reviewer approved exactly two added paths and a 29-path expected envelope.
+- Evidence: FAS QA/SRE/final reviewer | .fas/state/review-summary.md | Reviewer approved exactly two added paths and a 30-path expected envelope.
 - Accuracy signal: Public built-runtime reproductions plus descriptor-preserving prototype
 - Follow-up needed: Re-run QA, SRE, reviewer, and refresh final ChangeSet after implementation.
 
