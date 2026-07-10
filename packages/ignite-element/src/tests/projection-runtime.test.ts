@@ -286,6 +286,48 @@ describe("projection document helpers", () => {
 		}
 	});
 
+	it("rejects arbitrary event-handler-shaped keys recursively", () => {
+		const core = createProjectionCore();
+		const unsafeKeys = ["onMouseOver", "onerror", "ONLOAD", "onPointerDown"];
+
+		for (const unsafeKey of unsafeKeys) {
+			const handler = vi.fn();
+			const parse = () =>
+				parseProjectionDocument({
+					id: `unsafe-${unsafeKey}`,
+					revision: "1",
+					nodes: [
+						{
+							kind: "text",
+							id: "unsafe-text",
+							text: "Unsafe",
+							metadata: {
+								[unsafeKey]: handler,
+							},
+						},
+					],
+				});
+
+			expect(parse).not.toThrow();
+			const parsed = parse();
+			expect(handler).not.toHaveBeenCalled();
+			expect(parsed.ok).toBe(true);
+			if (parsed.ok) {
+				expect(
+					validateProjectionDocument(parsed.document, {
+						schema: core.getSchema(),
+						canExecute: core.canExecute,
+					}),
+				).toContain(
+					`nodes[0].metadata.${unsafeKey}: executable content is not allowed`,
+				);
+			} else {
+				expect(parsed.issues).toEqual([]);
+			}
+			expect(handler).not.toHaveBeenCalled();
+		}
+	});
+
 	it("rejects missing commands and invalid payloads", () => {
 		const core = createProjectionCore();
 

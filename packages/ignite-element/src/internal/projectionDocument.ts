@@ -50,6 +50,7 @@ const forbiddenKeys = new Set([
 	"script",
 	"selector",
 ]);
+const eventHandlerKeyPattern = /^on[a-z]/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -736,7 +737,11 @@ function collectForbiddenKeys(
 	}
 
 	for (const [key, entry] of Object.entries(value)) {
-		if (forbiddenKeys.has(key.toLowerCase())) {
+		const normalizedKey = key.toLowerCase();
+		if (
+			forbiddenKeys.has(normalizedKey) ||
+			eventHandlerKeyPattern.test(normalizedKey)
+		) {
 			issues.push(`${path}.${key}: executable content is not allowed`);
 		}
 		collectForbiddenKeys(entry, `${path}.${key}`, issues);
