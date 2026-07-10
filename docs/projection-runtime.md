@@ -20,7 +20,8 @@ and runtime, and encouraged projection-specific metadata to leak into
 `igniteCore`.
 
 The replacement keeps the behavior boundary intact and adds only one narrow
-public seam: the existing callable `igniteCore(...)` value can be used either as
+public seam: the callable value returned by `igniteCore(...)`. This document
+names that callable `component`; it can be used either as
 `component(tagName, renderer)` for DOM registration or as `component(target)`
 for a first-party non-DOM projection target.
 
@@ -30,8 +31,8 @@ The public surface remains intentionally small:
 
 - `igniteCore` keeps the current source, view, commands, events, and effects
   config shape.
-- `counter(tagName, renderer)` remains source-compatible.
-- One additive overload is allowed: `counter(target)`.
+- `component(tagName, renderer)` remains source-compatible.
+- One additive overload is allowed: `component(target)`.
 - `target` is a first-party opaque branded value, not a plain object, callback,
   registry key, or model-authored document.
 - The one-argument overload returns only a disposable handle:
