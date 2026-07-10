@@ -2181,9 +2181,12 @@ No active tasks.
 
 - Title: Implement internal dynamic projection pipeline and LLM-authored artifacts
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/implement-internal-dynamic-projection-pipeline-and-llm-autho.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Add headless assertions for dynamic projection documents and behavior facts
 

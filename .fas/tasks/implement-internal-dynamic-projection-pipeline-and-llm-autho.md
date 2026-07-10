@@ -64,6 +64,7 @@ Replace the superseded ProjectionRequest/ProjectionSpec registry and command-pre
 - packages/ignite-element/src/tests/types/igniteCore.types.test.ts
 - packages/ignite-adapters/src/adapters/XStateAdapter.ts
 - packages/ignite-element/src/tests/adapters/XStateAdapter.test.ts
+- packages/ignite-core/src/utils/failInvariant.ts
 
 ## Scope Amendments
 
@@ -85,6 +86,15 @@ Replace the superseded ProjectionRequest/ProjectionSpec registry and command-pre
 - Evidence: FAS QA/SRE/final reviewer | .fas/state/review-summary.md | Reviewer approved exactly two added paths and a 29-path expected envelope.
 - Accuracy signal: Public built-runtime reproductions plus descriptor-preserving prototype
 - Follow-up needed: Re-run QA, SRE, reviewer, and refresh final ChangeSet after implementation.
+
+- Type: architecture-boundary
+- Added at: retry-13
+- Trigger: verifier-blocked
+- Reason: Preserve original teardown failures through the existing core failure helper instead of bypassing adapter error boundaries.
+- Added paths: packages/ignite-core/src/utils/failInvariant.ts
+- Evidence source: fas-validate-task
+- Evidence: fas-validate-task | .fas/state/verification/validate-task-1783680964.log | Adapter policy requires rollback and rethrow semantics to route through a narrow core failure helper.
+- Accuracy signal: verifier-found
 
 ## Implementation plan
 
