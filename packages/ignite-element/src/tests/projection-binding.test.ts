@@ -8,6 +8,7 @@ import {
 	createProjectionSpeech,
 	type ProjectionInspection,
 } from "../internal/projectionBinding";
+import type { ProjectionSpeechRequest } from "../types/agent";
 
 const createInspection = (): ProjectionInspection => ({
 	snapshot: {
@@ -284,6 +285,172 @@ describe("private projection binding", () => {
 
 		expect(commitSpeech).toHaveBeenCalledTimes(1);
 		expect(acknowledge).toHaveBeenCalledTimes(2);
+	});
+
+	it("releases a custom speech identity after unsupported and failed delivery attempts", async () => {
+		const state = createProjectionBindingState();
+		const inspection = createInspection();
+		const identity = vi.fn(
+			(speech: ProjectionSpeechRequest): string => `delivery:${speech.id}`,
+		);
+		const projection: {
+			channel: "speech";
+			select(current: ProjectionInspection): ProjectionSpeechRequest | null;
+			identity(speech: ProjectionSpeechRequest): string;
+		} = {
+			channel: "speech",
+			select: (current) => current.speech,
+			identity,
+		};
+		const commitSpeech = vi
+			.fn<
+				(_: ProjectionSpeechRequest) => Promise<
+					| {
+							status: "unsupported";
+							reason: string;
+					  }
+					| undefined
+				>
+			>()
+			.mockResolvedValueOnce({
+				status: "unsupported",
+				reason: "speech sink unavailable",
+			})
+			.mockRejectedValueOnce(new Error("temporary delivery failure"))
+			.mockResolvedValueOnce(undefined);
+		const acknowledge = vi.fn(async () => undefined);
+
+		await expect(
+			commitProjectionSpeechTarget({
+				state,
+				inspection,
+				projection,
+				commitSpeech,
+				acknowledge,
+			}),
+		).resolves.toEqual({
+			channel: "speech",
+			status: "unsupported",
+			speechId: "speech-1",
+			reason: "speech sink unavailable",
+		});
+		await expect(
+			commitProjectionSpeechTarget({
+				state,
+				inspection,
+				projection,
+				commitSpeech,
+				acknowledge,
+			}),
+		).resolves.toEqual({
+			channel: "speech",
+			status: "error",
+			speechId: "speech-1",
+			reason: "temporary delivery failure",
+		});
+		await expect(
+			commitProjectionSpeechTarget({
+				state,
+				inspection,
+				projection,
+				commitSpeech,
+				acknowledge,
+			}),
+		).resolves.toEqual({
+			channel: "speech",
+			status: "committed",
+			speechId: "speech-1",
+		});
+		await expect(
+			commitProjectionSpeechTarget({
+				state,
+				inspection,
+				projection,
+				commitSpeech,
+				acknowledge,
+			}),
+		).resolves.toEqual({
+			channel: "speech",
+			status: "skipped",
+			reason: "duplicate-speech",
+		});
+
+		expect(commitSpeech).toHaveBeenCalledTimes(3);
+		expect(acknowledge).toHaveBeenCalledTimes(1);
+		expect(identity).toHaveBeenCalledTimes(4);
+		expect(state.activeSpeechId).toBe(null);
+		expect(state.lastAcknowledgedSpeechId).toBe("delivery:speech-1");
+	});
+
+	it("retries only acknowledgement when a custom speech identity was delivered", async () => {
+		const state = createProjectionBindingState();
+		const inspection = createInspection();
+		const identity = vi.fn(
+			(speech: ProjectionSpeechRequest): string => `delivery:${speech.id}`,
+		);
+		const projection: {
+			channel: "speech";
+			select(current: ProjectionInspection): ProjectionSpeechRequest | null;
+			identity(speech: ProjectionSpeechRequest): string;
+		} = {
+			channel: "speech",
+			select: (current) => current.speech,
+			identity,
+		};
+		const commitSpeech = vi.fn(
+			async (_speech: ProjectionSpeechRequest): Promise<void> => undefined,
+		);
+		const acknowledge = vi
+			.fn<(_: ProjectionSpeechRequest) => Promise<void>>()
+			.mockRejectedValueOnce(new Error("temporary acknowledgement failure"))
+			.mockResolvedValueOnce(undefined);
+
+		await expect(
+			commitProjectionSpeechTarget({
+				state,
+				inspection,
+				projection,
+				commitSpeech,
+				acknowledge,
+			}),
+		).resolves.toMatchObject({
+			status: "error",
+			speechId: "speech-1",
+		});
+		expect(state.deliveredSpeechId).toBe("delivery:speech-1");
+
+		await expect(
+			commitProjectionSpeechTarget({
+				state,
+				inspection,
+				projection,
+				commitSpeech,
+				acknowledge,
+			}),
+		).resolves.toEqual({
+			channel: "speech",
+			status: "committed",
+			speechId: "speech-1",
+		});
+		await expect(
+			commitProjectionSpeechTarget({
+				state,
+				inspection,
+				projection,
+				commitSpeech,
+				acknowledge,
+			}),
+		).resolves.toEqual({
+			channel: "speech",
+			status: "skipped",
+			reason: "duplicate-speech",
+		});
+
+		expect(commitSpeech).toHaveBeenCalledTimes(1);
+		expect(acknowledge).toHaveBeenCalledTimes(2);
+		expect(identity).toHaveBeenCalledTimes(3);
+		expect(state.deliveredSpeechId).toBe(null);
+		expect(state.lastAcknowledgedSpeechId).toBe("delivery:speech-1");
 	});
 
 	it("keeps only the latest document revision and current speech identity in binding state", async () => {

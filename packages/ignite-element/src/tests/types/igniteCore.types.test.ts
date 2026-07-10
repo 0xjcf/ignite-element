@@ -230,6 +230,25 @@ const mobxCounterFactory = () =>
 	});
 
 describe("igniteCore type inference", () => {
+	it("uses renderer arguments for unmarked callable factories", () => {
+		type RendererArgs = {
+			customValue: string;
+		};
+		type UnmarkedFactory = (
+			elementName: string,
+			renderer: (args: RendererArgs) => string,
+		) => void;
+		type MarkedArgs = {
+			markedValue: number;
+		};
+		type MarkedFactory = UnmarkedFactory & {
+			readonly __igniteRenderArgs?: MarkedArgs | undefined;
+		};
+
+		expectTypeOf<AdapterPack<UnmarkedFactory>>().toEqualTypeOf<RendererArgs>();
+		expectTypeOf<AdapterPack<MarkedFactory>>().toEqualTypeOf<MarkedArgs>();
+	});
+
 	it("accepts only first-party branded projection targets on the one-argument overload", () => {
 		expectTypeOf<RemovedRootProjectionExports>().toBeArray();
 		expectTypeOf<RemovedAdapterProjectionExports>().toBeArray();
@@ -305,6 +324,10 @@ describe("igniteCore type inference", () => {
 		>;
 		const runtime = createAgentRuntime({
 			eventTypes: [],
+			resolveInspection: (current) => ({
+				snapshot: current.getSnapshot(),
+				view: {},
+			}),
 			resolveRuntime: () => ({
 				adapter,
 				additionalArgs: {},

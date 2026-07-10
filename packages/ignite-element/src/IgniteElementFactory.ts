@@ -87,10 +87,12 @@ export type AdapterPack<Factory> = Factory extends ComponentFactory<
 	infer _View
 >
 	? RenderArgs
-	: Factory extends {
+	: "__igniteRenderArgs" extends keyof Factory
+		? Factory extends {
 				readonly __igniteRenderArgs?: infer RenderArgs;
 			}
-		? Exclude<RenderArgs, undefined>
+			? Exclude<RenderArgs, undefined>
+			: never
 		: Factory extends (elementName: string, renderer: infer Renderer) => unknown
 			? Renderer extends ComponentRenderer<infer RenderArgs, infer _View>
 				? RenderArgs
@@ -946,6 +948,7 @@ export default function igniteElementFactory<
 		observeLifecycle,
 		retainRuntimeAccess,
 		releaseRuntimeAccess,
+		resolveInspection,
 		resolveRuntime: resolveRuntimeResources,
 		resolveView,
 	});

@@ -261,10 +261,11 @@ export async function commitProjectionSpeechTarget({
 			reason: wasAcknowledged ? "acknowledged-speech" : "missing-speech",
 		};
 	}
+	const speechId = projection.identity(speech);
 
 	if (
-		state.activeSpeechId === projection.identity(speech) ||
-		state.lastAcknowledgedSpeechId === projection.identity(speech)
+		state.activeSpeechId === speechId ||
+		state.lastAcknowledgedSpeechId === speechId
 	) {
 		return {
 			channel: "speech",
@@ -273,7 +274,6 @@ export async function commitProjectionSpeechTarget({
 		};
 	}
 
-	const speechId = projection.identity(speech);
 	const deliveryPending = state.deliveredSpeechId !== speechId;
 	state.activeSpeechId = speechId;
 
@@ -283,7 +283,7 @@ export async function commitProjectionSpeechTarget({
 				(await commitSpeech(speech)) ?? undefined,
 			);
 			if (result.status === "unsupported") {
-				releaseSpeechReservation(state, speech.id);
+				releaseSpeechReservation(state, speechId);
 				return {
 					channel: "speech",
 					status: "unsupported",
@@ -296,18 +296,18 @@ export async function commitProjectionSpeechTarget({
 		}
 
 		await acknowledge(speech);
-		releaseSpeechReservation(state, speech.id);
+		releaseSpeechReservation(state, speechId);
 		if (state.deliveredSpeechId === speechId) {
 			state.deliveredSpeechId = null;
 		}
-		state.lastAcknowledgedSpeechId = projection.identity(speech);
+		state.lastAcknowledgedSpeechId = speechId;
 		return {
 			channel: "speech",
 			status: "committed",
 			speechId: speech.id,
 		};
 	} catch (error) {
-		releaseSpeechReservation(state, speech.id);
+		releaseSpeechReservation(state, speechId);
 		if (deliveryPending && state.deliveredSpeechId !== speechId) {
 			state.deliveredSpeechId = null;
 		}

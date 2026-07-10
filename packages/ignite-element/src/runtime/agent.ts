@@ -169,6 +169,10 @@ type AgentRuntimeOptions<
 	resolveRuntime: () => RuntimeResources<State, Event, AdditionalArgs>;
 	retainRuntimeAccess?: () => void;
 	releaseRuntimeAccess?: () => void;
+	resolveInspection?: (adapter: IgniteAdapter<State, Event>) => {
+		snapshot: unknown;
+		view: View;
+	};
 	resolveView: (adapter: IgniteAdapter<State, Event>) => View;
 };
 
@@ -296,9 +300,16 @@ export function createAgentRuntime<
 	observeLifecycle,
 	retainRuntimeAccess,
 	releaseRuntimeAccess,
+	resolveInspection,
 	resolveRuntime,
 	resolveView,
 }: AgentRuntimeOptions<State, Event, View, AdditionalArgs, Renderer>) {
+	const resolveRuntimeInspection =
+		resolveInspection ??
+		((adapter: IgniteAdapter<State, Event>) => ({
+			snapshot: adapter.getSnapshot(),
+			view: resolveView(adapter),
+		}));
 	const isThenable = (value: unknown): value is PromiseLike<unknown> =>
 		(typeof value === "object" || typeof value === "function") &&
 		value !== null &&
@@ -746,6 +757,7 @@ export function createAgentRuntime<
 		getSchema() {
 			return withRuntimeAccess(() => {
 				const { adapter, additionalArgs } = resolveRuntime();
+				const inspection = resolveRuntimeInspection(adapter);
 				const commandEntries = Object.entries(additionalArgs).filter(
 					([, value]) => typeof value === "function",
 				);
@@ -761,11 +773,11 @@ export function createAgentRuntime<
 				return {
 					commands,
 					events: [...eventTypes].sort().map((type) => ({ type })),
-					snapshot: (toSchemaValue(adapter.getSnapshot()) ?? null) as Exclude<
+					snapshot: (toSchemaValue(inspection.snapshot) ?? null) as Exclude<
 						ReturnType<typeof toSchemaValue>,
 						undefined
 					>,
-					view: (toSchemaValue(resolveView(adapter)) ?? null) as Exclude<
+					view: (toSchemaValue(inspection.view) ?? null) as Exclude<
 						ReturnType<typeof toSchemaValue>,
 						undefined
 					>,

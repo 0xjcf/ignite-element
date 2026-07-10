@@ -16,6 +16,7 @@ import {
 	createProjectionDocumentTarget,
 	createProjectionSpeechTarget,
 } from "../index";
+import { createAgentRuntime } from "../runtime/agent";
 import type {
 	ProjectionDocument,
 	ProjectionDocumentPatch,
@@ -977,6 +978,136 @@ describe("projection document helpers", () => {
 describe("projection targets", () => {
 	const flushMicrotasks = () =>
 		new Promise<void>((resolve) => queueMicrotask(resolve));
+
+	it("resolves the paired schema inspection exactly once", () => {
+		const adapter: IgniteAdapter<{ sequence: number }, InspectionEvent> = {
+			scope: StateScope.Isolated,
+			subscribeSnapshots: () => ({ unsubscribe: () => undefined }),
+			send: () => undefined,
+			getSnapshot: vi.fn(() => ({ sequence: 99 })),
+			stop: vi.fn(),
+		};
+		const resolveInspection = vi.fn(() => ({
+			snapshot: { sequence: 1 },
+			view: { sequence: 1 },
+		}));
+		const resolveView = vi.fn(() => ({ sequence: 99 }));
+		const runtime = createAgentRuntime({
+			eventTypes: [],
+			resolveInspection,
+			resolveRuntime: () => ({
+				adapter,
+				additionalArgs: {},
+				host: new EventTarget(),
+			}),
+			resolveView,
+		});
+
+		expect(runtime.getSchema()).toMatchObject({
+			snapshot: { sequence: 1 },
+			view: { sequence: 1 },
+		});
+		expect(resolveInspection).toHaveBeenCalledOnce();
+		expect(adapter.getSnapshot).not.toHaveBeenCalled();
+		expect(resolveView).not.toHaveBeenCalled();
+	});
+
+	it("uses one transformed inspection pair for schema and projection validation", async () => {
+		type SourceSnapshot = { sequence: number };
+		type FacadeSnapshot = InspectionSnapshot & { sequence: number };
+
+		let sequence = 0;
+		const adapter: IgniteAdapter<SourceSnapshot, InspectionEvent> = {
+			scope: StateScope.Isolated,
+			subscribeSnapshots: () => ({ unsubscribe: () => undefined }),
+			send: () => undefined,
+			getSnapshot: vi.fn(() => {
+				sequence += 1;
+				return { sequence };
+			}),
+			stop: vi.fn(),
+		};
+		const resolveStateSnapshot = vi.fn(
+			(
+				current: IgniteAdapter<SourceSnapshot, InspectionEvent>,
+			): FacadeSnapshot => {
+				const source = current.getSnapshot();
+				return {
+					sequence: source.sequence,
+					context: {
+						documents: [
+							{
+								id: "coherent-panel",
+								revision: String(source.sequence),
+								nodes: [
+									{
+										kind: "action",
+										id: "confirm",
+										label: "Confirm",
+										commandName: "confirm",
+										payload: { value: 1 },
+									},
+								],
+							},
+						],
+						speech: null,
+						allowConfirm: true,
+					},
+				};
+			},
+		);
+		const createAdapter = Object.assign(() => adapter, {
+			scope: StateScope.Isolated,
+			resolveStateSnapshot,
+		});
+		const availabilitySequences: number[] = [];
+		const core = createIgniteComponentFactory(createAdapter, {
+			view: ({ snapshot }) => ({
+				sequence: snapshot.sequence,
+				documentRevision: snapshot.context.documents[0]?.revision ?? null,
+			}),
+			commands: ({ command: createCommand }) => ({
+				confirm: createCommand((_payload: { value: number }) => undefined, {
+					input: command.object({ value: command.number() }),
+					canExecute: ({ snapshot }) => {
+						availabilitySequences.push(snapshot.sequence);
+						return snapshot.context.allowConfirm;
+					},
+				}),
+			}),
+		});
+
+		const schema = core.getSchema();
+
+		expect(resolveStateSnapshot).toHaveBeenCalledTimes(4);
+		expect(adapter.getSnapshot).toHaveBeenCalledTimes(4);
+		expect(schema.snapshot).toMatchObject({
+			sequence: 2,
+			context: {
+				documents: [{ revision: "2" }],
+			},
+		});
+		expect(schema.view).toEqual({
+			sequence: 2,
+			documentRevision: "2",
+		});
+		resolveStateSnapshot.mockClear();
+		vi.mocked(adapter.getSnapshot).mockClear();
+
+		const commitDocument = vi.fn<(document: ProjectionDocument) => void>();
+		const session = core(createProjectionDocumentTarget({ commitDocument }));
+		await flushMicrotasks();
+		await flushMicrotasks();
+
+		expect(resolveStateSnapshot).toHaveBeenCalledTimes(3);
+		expect(adapter.getSnapshot).toHaveBeenCalledTimes(4);
+		expect(commitDocument).toHaveBeenCalledTimes(1);
+		expect(availabilitySequences).toEqual([
+			Number(commitDocument.mock.calls[0]?.[0].revision),
+		]);
+
+		session.dispose();
+	});
 
 	it("evaluates one initial projection after watcher setup succeeds", async () => {
 		const document: ProjectionDocument = {
