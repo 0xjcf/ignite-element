@@ -14,7 +14,7 @@ Build examples/agents/voice-workbench as the decisive dogfood for agent-authored
 - Model-authored final text or structured speech is committed through a mockable speech adapter; voice-only operation requires no DOM.
 - The browser maps semantic nodes to accessible native JSX and supports keyboard, focus, names, disabled/error states, and command actions.
 - The artifact vocabulary includes at least text/markdown, checklist, form, table, timeline, decision log, code diff, and command-backed action nodes where useful.
-- Deterministic CI covers the full prompt to tool call to state update to JSX/speech output loop; live OpenAI-compatible/MLX validation remains optional.
+- Deterministic CI covers the full prompt-to-tool-call-to-state-update-to-JSX/speech output loop; live OpenAI-compatible/MLX validation remains optional.
 - The example documents security, privacy/redaction, validation, provider, voice, and actor-web boundaries.
 - The work is tracked in `.fas/TASKS.md`.
 - The task has a clear implementation and verification plan before execution starts.

@@ -80,20 +80,30 @@ thermostat('thermostat-panel', ({ target, targetLabel, targetHint, statusLabel, 
     <label for="thermostat-target">{targetLabel}</label>
     <input
       id="thermostat-target"
+      name="target"
       type="range"
       min={58}
       max={82}
-      value={target}
+      defaultValue={target}
+      disabled={!canSave}
       aria-invalid={errorText ? 'true' : undefined}
       aria-describedby={errorText ? 'thermostat-hint thermostat-error thermostat-status' : 'thermostat-hint thermostat-status'}
-      onInput={(event) => saveTarget(Number(event.currentTarget.value))}
     />
 
     <p id="thermostat-hint">{targetHint}</p>
     <p id="thermostat-status" aria-live="polite">{statusLabel}</p>
     {errorText && <p id="thermostat-error">{errorText}</p>}
 
-    <button type="button" disabled={!canSave} onClick={() => saveTarget(target)}>
+    <button
+      type="button"
+      disabled={!canSave}
+      onClick={(event) => {
+        const draft = event.currentTarget.form?.elements.namedItem('target');
+        if (draft instanceof HTMLInputElement) {
+          saveTarget(Number(draft.value));
+        }
+      }}
+    >
       Save target
     </button>
   </form>
@@ -121,8 +131,13 @@ const view = thermostat.getView();
 const canSave = thermostat.canExecute('saveTarget');
 
 if (canSave) {
-  const result = await thermostat.execute('saveTarget', 70);
-  console.log(result.snapshot, result.events);
+  try {
+    const result = await thermostat.execute('saveTarget', 70);
+    console.log(result.snapshot, result.events);
+  } catch (error) {
+    // Availability can change after preflight; execute remains authoritative.
+    console.error('Saving the target was rejected or failed.', error);
+  }
 }
 
 console.log(schema.commands.saveTarget.description);

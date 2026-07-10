@@ -2181,7 +2181,7 @@ No active tasks.
 
 - Title: Implement internal dynamic projection pipeline and LLM-authored artifacts
 - Mode: 6-agent
-- Status: review
+- Status: processing
 - Owner: reviewer
 - Brief: .fas/tasks/implement-internal-dynamic-projection-pipeline-and-llm-autho.md
 - Verification lane: fast
@@ -2192,7 +2192,7 @@ No active tasks.
 
 - Title: Add headless assertions for dynamic projection documents and behavior facts
 - Mode: 4-agent
-- Status: queued
+- Status: deferred
 - Owner: runtime
 - Brief: .fas/tasks/add-headless-accessibility-contract-assertions-to-the-test-d.md
 
@@ -2200,7 +2200,7 @@ No active tasks.
 
 - Title: Build LLM-authored voice/text projection control-center workbench
 - Mode: 6-agent
-- Status: queued
+- Status: deferred
 - Owner: runtime
 - Brief: .fas/tasks/build-voice-text-agent-control-center-workbench-example-for-.md
 
@@ -2208,7 +2208,7 @@ No active tasks.
 
 - Title: Add rendered DOM accessibility verification for Ignite examples
 - Mode: 4-agent
-- Status: queued
+- Status: deferred
 - Owner: runtime
 - Brief: .fas/tasks/add-dom-accessibility-verification-for-ignite-examples.md
 
@@ -2216,7 +2216,7 @@ No active tasks.
 
 - Title: Document LLM-authored projections, accessibility-first, and non-visual patterns
 - Mode: single-agent
-- Status: queued
+- Status: deferred
 - Owner: runtime
 - Brief: .fas/tasks/document-accessibility-first-ignite-implementation-patterns.md
 
