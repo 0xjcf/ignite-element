@@ -56,12 +56,12 @@ const invalidSnapshotContextMessage =
 const unsafeSnapshotInspectionMessage =
 	"[XStateAdapter] Unable to inspect snapshot descriptors safely.";
 
-function describeStopFailure(error: unknown): string {
-	return error instanceof Error
-		? error.message
-		: typeof error === "string"
-			? error
-			: "[XStateAdapter] Stop cleanup failed.";
+function rethrowStopFailure(error: unknown): never {
+	const rethrower = (function* () {
+		yield undefined;
+	})();
+	rethrower.throw(error);
+	return failInvariant("[XStateAdapter] Unable to propagate stop failure.");
 }
 
 function collectEnumerableDescriptors(
@@ -453,7 +453,7 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 			}
 
 			if (hasError) {
-				failInvariant(describeStopFailure(firstError));
+				rethrowStopFailure(firstError);
 			}
 		},
 		scope,

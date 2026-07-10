@@ -811,8 +811,14 @@ describe("XStateAdapter", () => {
 			throw snapshotError;
 		});
 		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		let caught: unknown;
 
-		expect(() => lifecycleAdapter.stop()).toThrow(unsubscribeError);
+		try {
+			lifecycleAdapter.stop();
+		} catch (error) {
+			caught = error;
+		}
+		expect(caught).toBe(unsubscribeError);
 		expect(sourceUnsubscribe).toHaveBeenCalledTimes(1);
 		expect(getSnapshotSpy).toHaveBeenCalledTimes(1);
 		expect(errorSpy).toHaveBeenCalledWith(
@@ -828,6 +834,41 @@ describe("XStateAdapter", () => {
 
 		getSnapshotSpy.mockRestore();
 		errorSpy.mockRestore();
+		actor.stop();
+	});
+
+	it("preserves a non-Error stop failure value exactly", () => {
+		const actor = createLifecycleActor();
+		const originalSubscribe = actor.subscribe.bind(actor);
+		const sentinel = { kind: "unsubscribe-sentinel" };
+		const sourceUnsubscribe = vi.fn(() => {
+			throw sentinel;
+		});
+		vi.spyOn(actor, "subscribe").mockImplementation((observer) => {
+			const sourceSubscription = originalSubscribe(observer);
+			return {
+				unsubscribe: () => {
+					sourceSubscription.unsubscribe();
+					sourceUnsubscribe();
+				},
+			};
+		});
+		const factory = createXStateAdapter(actor);
+		const lifecycleAdapter = factory();
+		const handle = lifecycleAdapter.subscribeSnapshots(vi.fn());
+		let caught: unknown;
+
+		try {
+			lifecycleAdapter.stop();
+		} catch (error) {
+			caught = error;
+		}
+
+		expect(caught).toBe(sentinel);
+		expect(sourceUnsubscribe).toHaveBeenCalledTimes(1);
+		expect(() => lifecycleAdapter.stop()).not.toThrow();
+		expect(() => handle.unsubscribe()).not.toThrow();
+		expect(sourceUnsubscribe).toHaveBeenCalledTimes(1);
 		actor.stop();
 	});
 
@@ -965,8 +1006,14 @@ describe("XStateAdapter", () => {
 						: scenario.expectedStage === "getSnapshot"
 							? snapshotError
 							: stopError;
+				let caught: unknown;
 
-				expect(() => lifecycleAdapter.stop()).toThrow(expectedError);
+				try {
+					lifecycleAdapter.stop();
+				} catch (error) {
+					caught = error;
+				}
+				expect(caught).toBe(expectedError);
 				expect(sourceUnsubscribe).toHaveBeenCalledTimes(1);
 				expect(finalSnapshotRead).toHaveBeenCalledTimes(
 					scenario.snapshotFails ? 1 : 0,
