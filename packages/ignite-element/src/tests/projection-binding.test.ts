@@ -174,25 +174,65 @@ describe("private projection binding", () => {
 
 	it("acknowledges speech at most once even when the target is evaluated repeatedly", async () => {
 		const state = createProjectionBindingState();
+		const commitSpeech = vi.fn(async () => ({ status: "committed" as const }));
 		const acknowledge = vi.fn(async () => undefined);
 
 		await commitProjectionSpeechTarget({
 			state,
 			inspection: createInspection(),
-			commitSpeech: async () => ({ status: "committed" }),
+			commitSpeech,
 			acknowledge,
 		});
 		await commitProjectionSpeechTarget({
 			state,
 			inspection: createInspection(),
-			commitSpeech: async () => ({ status: "committed" }),
+			commitSpeech,
 			acknowledge,
 		});
 
+		expect(commitSpeech).toHaveBeenCalledTimes(1);
 		expect(acknowledge).toHaveBeenCalledTimes(1);
 	});
 
-	it("retries the same speech id after an acknowledge failure", async () => {
+	it("retries speech delivery after a transient commit failure", async () => {
+		const state = createProjectionBindingState();
+		const commitSpeech = vi
+			.fn<(_: unknown) => Promise<void>>()
+			.mockRejectedValueOnce(new Error("temporary delivery failure"))
+			.mockResolvedValue(undefined);
+		const acknowledge = vi.fn(async () => undefined);
+
+		await expect(
+			commitProjectionSpeechTarget({
+				state,
+				inspection: createInspection(),
+				commitSpeech,
+				acknowledge,
+			}),
+		).resolves.toEqual({
+			channel: "speech",
+			status: "error",
+			speechId: "speech-1",
+			reason: "temporary delivery failure",
+		});
+		await expect(
+			commitProjectionSpeechTarget({
+				state,
+				inspection: createInspection(),
+				commitSpeech,
+				acknowledge,
+			}),
+		).resolves.toEqual({
+			channel: "speech",
+			status: "committed",
+			speechId: "speech-1",
+		});
+
+		expect(commitSpeech).toHaveBeenCalledTimes(2);
+		expect(acknowledge).toHaveBeenCalledTimes(1);
+	});
+
+	it("retries only acknowledgement after delivery succeeds once", async () => {
 		const state = createProjectionBindingState();
 		const commitSpeech = vi
 			.fn<(_: unknown) => Promise<void>>()
@@ -240,7 +280,7 @@ describe("private projection binding", () => {
 			reason: "duplicate-speech",
 		});
 
-		expect(commitSpeech).toHaveBeenCalledTimes(2);
+		expect(commitSpeech).toHaveBeenCalledTimes(1);
 		expect(acknowledge).toHaveBeenCalledTimes(2);
 	});
 
@@ -284,7 +324,8 @@ describe("private projection binding", () => {
 		});
 
 		expect([...state.documentRevisionById.entries()]).toEqual([["panel", "2"]]);
-		expect(state.activeSpeechId).toBe("speech-2");
+		expect(state.activeSpeechId).toBe(null);
+		expect(state.deliveredSpeechId).toBe(null);
 		expect(state.lastAcknowledgedSpeechId).toBe("speech-2");
 	});
 });

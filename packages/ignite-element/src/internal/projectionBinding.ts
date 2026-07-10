@@ -33,6 +33,7 @@ type Projection<Format extends "document" | "speech", Output> = {
 export type ProjectionBindingState = {
 	readonly documentRevisionById: Map<string, string>;
 	activeSpeechId: string | null;
+	deliveredSpeechId: string | null;
 	lastAcknowledgedSpeechId: string | null;
 };
 
@@ -89,6 +90,7 @@ export function createProjectionBindingState(): ProjectionBindingState {
 	return {
 		documentRevisionById: new Map<string, string>(),
 		activeSpeechId: null,
+		deliveredSpeechId: null,
 		lastAcknowledgedSpeechId: null,
 	};
 }
@@ -271,23 +273,33 @@ export async function commitProjectionSpeechTarget({
 		};
 	}
 
-	state.activeSpeechId = projection.identity(speech);
+	const speechId = projection.identity(speech);
+	const deliveryPending = state.deliveredSpeechId !== speechId;
+	state.activeSpeechId = speechId;
 
 	try {
-		const result = normalizeCommitResult(
-			(await commitSpeech(speech)) ?? undefined,
-		);
-		if (result.status === "unsupported") {
-			releaseSpeechReservation(state, speech.id);
-			return {
-				channel: "speech",
-				status: "unsupported",
-				speechId: speech.id,
-				reason: result.reason,
-			};
+		if (deliveryPending) {
+			const result = normalizeCommitResult(
+				(await commitSpeech(speech)) ?? undefined,
+			);
+			if (result.status === "unsupported") {
+				releaseSpeechReservation(state, speech.id);
+				return {
+					channel: "speech",
+					status: "unsupported",
+					speechId: speech.id,
+					reason: result.reason,
+				};
+			}
+
+			state.deliveredSpeechId = speechId;
 		}
 
 		await acknowledge(speech);
+		releaseSpeechReservation(state, speech.id);
+		if (state.deliveredSpeechId === speechId) {
+			state.deliveredSpeechId = null;
+		}
 		state.lastAcknowledgedSpeechId = projection.identity(speech);
 		return {
 			channel: "speech",
@@ -296,6 +308,9 @@ export async function commitProjectionSpeechTarget({
 		};
 	} catch (error) {
 		releaseSpeechReservation(state, speech.id);
+		if (deliveryPending && state.deliveredSpeechId !== speechId) {
+			state.deliveredSpeechId = null;
+		}
 		return {
 			channel: "speech",
 			status: "error",
