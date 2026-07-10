@@ -5,11 +5,11 @@ import type {
 } from "@ignite-element/renderer";
 import type { TemplateResult } from "lit-html";
 import {
-	type BaseAdapterFactory,
+	type AdapterCreator,
+	type AdapterFactory,
 	createProjectionFactory,
 	type ProjectionFactory,
 	type ProjectionFactoryOptions,
-	type ResolvedAdapterFactory,
 	type StandardCommandActor,
 	type WithFacadeRenderArgs,
 } from "./createProjectionFactory";
@@ -66,7 +66,7 @@ export type ElementFactoryCreator<
 	Events extends EventMap = EmptyEventMap,
 	RuntimeView extends Record<string, unknown> = Record<never, never>,
 > = (
-	createAdapter: BaseAdapterFactory<State, Event, HTMLElement>,
+	createAdapter: AdapterCreator<State, Event, HTMLElement>,
 	options: ElementFactoryOptions<
 		State,
 		Event,
@@ -80,7 +80,7 @@ export type ElementFactoryCreator<
 export type ComponentFactoryOptions<
 	State,
 	Event,
-	Snapshot = State,
+	Snapshot,
 	StatesResult extends Record<string, unknown> = Record<never, never>,
 	CommandActor = StandardCommandActor<State, Event>,
 	CommandsResult extends FacadeCommandResult = Record<
@@ -103,131 +103,6 @@ export type ComponentFactoryOptions<
 > & {
 	createRenderStrategy?: RenderStrategyFactory<View>;
 };
-
-type ResolvedComponentFactoryOptions<
-	State,
-	Event,
-	Snapshot,
-	StatesResult extends Record<string, unknown>,
-	CommandActor,
-	CommandsResult extends FacadeCommandResult,
-	Additional extends Record<string, unknown>,
-	View,
-	Events extends EventMap,
-> = Omit<
-	ComponentFactoryOptions<
-		State,
-		Event,
-		Snapshot,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
-		View,
-		Events
-	>,
-	"resolveStateSnapshot" | "resolveCommandActor"
-> & {
-	resolveStateSnapshot: (adapter: IgniteAdapter<State, Event>) => Snapshot;
-	resolveCommandActor: (adapter: IgniteAdapter<State, Event>) => CommandActor;
-};
-
-type DefaultComponentFactoryOptions<
-	State,
-	Event,
-	StatesResult extends Record<string, unknown>,
-	CommandsResult extends FacadeCommandResult,
-	Additional extends Record<string, unknown>,
-	View,
-	Events extends EventMap,
-> = Omit<
-	ComponentFactoryOptions<
-		State,
-		Event,
-		State,
-		StatesResult,
-		StandardCommandActor<State, Event>,
-		CommandsResult,
-		Additional,
-		View,
-		Events
-	>,
-	"resolveStateSnapshot" | "resolveCommandActor"
-> & {
-	resolveStateSnapshot?: never;
-	resolveCommandActor?: never;
-};
-
-type IsExactly<Left, Right> = (<Value>() => Value extends Left
-	? 1
-	: 2) extends <Value>() => Value extends Right ? 1 : 2
-	? (<Value>() => Value extends Right ? 1 : 2) extends <
-			Value,
-		>() => Value extends Left ? 1 : 2
-		? true
-		: false
-	: false;
-
-type UsesDefaultResolvers<State, Event, Snapshot, CommandActor> = IsExactly<
-	State,
-	Snapshot
-> extends true
-	? IsExactly<StandardCommandActor<State, Event>, CommandActor> extends true
-		? true
-		: false
-	: false;
-
-type ComponentFactoryResult<
-	State,
-	Event,
-	StatesResult extends Record<string, unknown>,
-	CommandActor,
-	CommandsResult extends FacadeCommandResult,
-	Additional extends Record<string, unknown>,
-	View,
-	Events extends EventMap,
-> = ComponentFactory<
-	State,
-	Event,
-	WithFacadeRenderArgs<
-		State,
-		Event,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
-		Events
-	>,
-	View
->;
-
-type ComponentElementFactory<
-	State,
-	Event,
-	StatesResult extends Record<string, unknown>,
-	CommandActor,
-	CommandsResult extends FacadeCommandResult,
-	Additional extends Record<string, unknown>,
-	View,
-	Events extends EventMap,
-	Result,
-> = ElementFactoryCreator<
-	State,
-	Event,
-	WithFacadeRenderArgs<
-		State,
-		Event,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
-		Events
-	>,
-	View,
-	Result,
-	Events,
-	StatesResult
->;
 
 type BindProjectionToElementsOptions<
 	State,
@@ -330,665 +205,15 @@ export function bindProjectionToElements<
 	});
 }
 
-type MetadataComponentFactoryInvocation<
-	State,
-	Event,
-	Snapshot,
-	StatesResult extends Record<string, unknown>,
-	CommandActor,
-	CommandsResult extends FacadeCommandResult,
-	Additional extends Record<string, unknown>,
-	View,
-	Events extends EventMap,
-> = [
-	createAdapter: ResolvedAdapterFactory<
-		State,
-		Event,
-		HTMLElement,
-		Snapshot,
-		CommandActor
-	>,
-	options?: ComponentFactoryOptions<
-		State,
-		Event,
-		Snapshot,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
-		View,
-		Events
-	>,
-];
-
-type ExplicitComponentFactoryInvocation<
-	State,
-	Event,
-	Snapshot,
-	StatesResult extends Record<string, unknown>,
-	CommandActor,
-	CommandsResult extends FacadeCommandResult,
-	Additional extends Record<string, unknown>,
-	View,
-	Events extends EventMap,
-> = [
-	createAdapter: BaseAdapterFactory<State, Event, HTMLElement>,
-	options: ResolvedComponentFactoryOptions<
-		State,
-		Event,
-		Snapshot,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
-		View,
-		Events
-	>,
-];
-
-type DefaultComponentFactoryInvocation<
-	State,
-	Event,
-	StatesResult extends Record<string, unknown>,
-	CommandsResult extends FacadeCommandResult,
-	Additional extends Record<string, unknown>,
-	View,
-	Events extends EventMap,
-> = [
-	createAdapter: BaseAdapterFactory<State, Event, HTMLElement>,
-	options?: DefaultComponentFactoryOptions<
-		State,
-		Event,
-		StatesResult,
-		CommandsResult,
-		Additional,
-		View,
-		Events
-	>,
-];
-
-type ComponentFactoryInvocation<
-	State,
-	Event,
-	Snapshot,
-	StatesResult extends Record<string, unknown>,
-	CommandActor,
-	CommandsResult extends FacadeCommandResult,
-	Additional extends Record<string, unknown>,
-	View,
-	Events extends EventMap,
-> =
-	| MetadataComponentFactoryInvocation<
-			State,
-			Event,
-			Snapshot,
-			StatesResult,
-			CommandActor,
-			CommandsResult,
-			Additional,
-			View,
-			Events
-	  >
-	| ExplicitComponentFactoryInvocation<
-			State,
-			Event,
-			Snapshot,
-			StatesResult,
-			CommandActor,
-			CommandsResult,
-			Additional,
-			View,
-			Events
-	  >
-	| DefaultComponentFactoryInvocation<
-			State,
-			Event,
-			StatesResult,
-			CommandsResult,
-			Additional,
-			View,
-			Events
-	  >;
-
-type MetadataRendererFactoryInvocation<
-	State,
-	Event,
-	Snapshot,
-	StatesResult extends Record<string, unknown>,
-	CommandActor,
-	CommandsResult extends FacadeCommandResult,
-	Additional extends Record<string, unknown>,
-	View,
-	Events extends EventMap,
-	Result,
-> = [
-	createAdapter: ResolvedAdapterFactory<
-		State,
-		Event,
-		HTMLElement,
-		Snapshot,
-		CommandActor
-	>,
-	elementFactory: ComponentElementFactory<
-		State,
-		Event,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
-		View,
-		Events,
-		Result
-	>,
-	options?: ComponentFactoryOptions<
-		State,
-		Event,
-		Snapshot,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
-		View,
-		Events
-	>,
-];
-
-type ExplicitRendererFactoryInvocation<
-	State,
-	Event,
-	Snapshot,
-	StatesResult extends Record<string, unknown>,
-	CommandActor,
-	CommandsResult extends FacadeCommandResult,
-	Additional extends Record<string, unknown>,
-	View,
-	Events extends EventMap,
-	Result,
-> = [
-	createAdapter: BaseAdapterFactory<State, Event, HTMLElement>,
-	elementFactory: ComponentElementFactory<
-		State,
-		Event,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
-		View,
-		Events,
-		Result
-	>,
-	options: ResolvedComponentFactoryOptions<
-		State,
-		Event,
-		Snapshot,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
-		View,
-		Events
-	>,
-];
-
-type DefaultRendererFactoryInvocation<
-	State,
-	Event,
-	StatesResult extends Record<string, unknown>,
-	CommandsResult extends FacadeCommandResult,
-	Additional extends Record<string, unknown>,
-	View,
-	Events extends EventMap,
-	Result,
-> = [
-	createAdapter: BaseAdapterFactory<State, Event, HTMLElement>,
-	elementFactory: ComponentElementFactory<
-		State,
-		Event,
-		StatesResult,
-		StandardCommandActor<State, Event>,
-		CommandsResult,
-		Additional,
-		View,
-		Events,
-		Result
-	>,
-	options?: DefaultComponentFactoryOptions<
-		State,
-		Event,
-		StatesResult,
-		CommandsResult,
-		Additional,
-		View,
-		Events
-	>,
-];
-
-type RendererFactoryInvocation<
-	State,
-	Event,
-	Snapshot,
-	StatesResult extends Record<string, unknown>,
-	CommandActor,
-	CommandsResult extends FacadeCommandResult,
-	Additional extends Record<string, unknown>,
-	View,
-	Events extends EventMap,
-	Result,
-> =
-	| MetadataRendererFactoryInvocation<
-			State,
-			Event,
-			Snapshot,
-			StatesResult,
-			CommandActor,
-			CommandsResult,
-			Additional,
-			View,
-			Events,
-			Result
-	  >
-	| ExplicitRendererFactoryInvocation<
-			State,
-			Event,
-			Snapshot,
-			StatesResult,
-			CommandActor,
-			CommandsResult,
-			Additional,
-			View,
-			Events,
-			Result
-	  >
-	| DefaultRendererFactoryInvocation<
-			State,
-			Event,
-			StatesResult,
-			CommandsResult,
-			Additional,
-			View,
-			Events,
-			Result
-	  >;
-
-function isMetadataComponentFactoryInvocation<
-	State,
-	Event,
-	Snapshot,
-	StatesResult extends Record<string, unknown>,
-	CommandActor,
-	CommandsResult extends FacadeCommandResult,
-	Additional extends Record<string, unknown>,
-	View,
-	Events extends EventMap,
->(
-	invocation: ComponentFactoryInvocation<
-		State,
-		Event,
-		Snapshot,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
-		View,
-		Events
-	>,
-): invocation is MetadataComponentFactoryInvocation<
-	State,
-	Event,
-	Snapshot,
-	StatesResult,
-	CommandActor,
-	CommandsResult,
-	Additional,
-	View,
-	Events
-> {
-	const createAdapter = invocation[0];
-	return (
-		"resolveStateSnapshot" in createAdapter &&
-		typeof createAdapter.resolveStateSnapshot === "function" &&
-		"resolveCommandActor" in createAdapter &&
-		typeof createAdapter.resolveCommandActor === "function"
-	);
-}
-
-function isExplicitComponentFactoryInvocation<
-	State,
-	Event,
-	Snapshot,
-	StatesResult extends Record<string, unknown>,
-	CommandActor,
-	CommandsResult extends FacadeCommandResult,
-	Additional extends Record<string, unknown>,
-	View,
-	Events extends EventMap,
->(
-	invocation: ComponentFactoryInvocation<
-		State,
-		Event,
-		Snapshot,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
-		View,
-		Events
-	>,
-): invocation is ExplicitComponentFactoryInvocation<
-	State,
-	Event,
-	Snapshot,
-	StatesResult,
-	CommandActor,
-	CommandsResult,
-	Additional,
-	View,
-	Events
-> {
-	const options = invocation[1];
-	return (
-		options !== undefined &&
-		typeof options.resolveStateSnapshot === "function" &&
-		typeof options.resolveCommandActor === "function"
-	);
-}
-
-function isMetadataRendererFactoryInvocation<
-	State,
-	Event,
-	Snapshot,
-	StatesResult extends Record<string, unknown>,
-	CommandActor,
-	CommandsResult extends FacadeCommandResult,
-	Additional extends Record<string, unknown>,
-	View,
-	Events extends EventMap,
-	Result,
->(
-	invocation: RendererFactoryInvocation<
-		State,
-		Event,
-		Snapshot,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
-		View,
-		Events,
-		Result
-	>,
-): invocation is MetadataRendererFactoryInvocation<
-	State,
-	Event,
-	Snapshot,
-	StatesResult,
-	CommandActor,
-	CommandsResult,
-	Additional,
-	View,
-	Events,
-	Result
-> {
-	const createAdapter = invocation[0];
-	return (
-		"resolveStateSnapshot" in createAdapter &&
-		typeof createAdapter.resolveStateSnapshot === "function" &&
-		"resolveCommandActor" in createAdapter &&
-		typeof createAdapter.resolveCommandActor === "function"
-	);
-}
-
-function isExplicitRendererFactoryInvocation<
-	State,
-	Event,
-	Snapshot,
-	StatesResult extends Record<string, unknown>,
-	CommandActor,
-	CommandsResult extends FacadeCommandResult,
-	Additional extends Record<string, unknown>,
-	View,
-	Events extends EventMap,
-	Result,
->(
-	invocation: RendererFactoryInvocation<
-		State,
-		Event,
-		Snapshot,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
-		View,
-		Events,
-		Result
-	>,
-): invocation is ExplicitRendererFactoryInvocation<
-	State,
-	Event,
-	Snapshot,
-	StatesResult,
-	CommandActor,
-	CommandsResult,
-	Additional,
-	View,
-	Events,
-	Result
-> {
-	const options = invocation[2];
-	return (
-		options !== undefined &&
-		typeof options.resolveStateSnapshot === "function" &&
-		typeof options.resolveCommandActor === "function"
-	);
-}
-
-function bindComponentFactory<
-	State,
-	Event,
-	StatesResult extends Record<string, unknown>,
-	CommandActor,
-	CommandsResult extends FacadeCommandResult,
-	Additional extends Record<string, unknown>,
-	View,
-	Events extends EventMap,
-	Result,
->(
-	projection: ProjectionFactory<
-		State,
-		Event,
-		WithFacadeRenderArgs<
-			State,
-			Event,
-			StatesResult,
-			CommandActor,
-			CommandsResult,
-			Additional,
-			Events
-		>,
-		HTMLElement,
-		Events,
-		StatesResult
-	>,
-	createRenderStrategy: RenderStrategyFactory<View> | undefined,
-	elementFactory?: ElementFactoryCreator<
-		State,
-		Event,
-		WithFacadeRenderArgs<
-			State,
-			Event,
-			StatesResult,
-			CommandActor,
-			CommandsResult,
-			Additional,
-			Events
-		>,
-		View,
-		Result,
-		Events,
-		StatesResult
-	>,
-): Result {
-	return bindProjectionToElements(projection, {
-		elementFactory,
-		createRenderStrategy,
-		errorPrefix: "createComponentFactory",
-	});
-}
-
-function createMetadataComponentFactory<
-	State,
-	Event,
-	Snapshot,
-	StatesResult extends Record<string, unknown>,
-	CommandActor,
-	CommandsResult extends FacadeCommandResult,
-	Additional extends Record<string, unknown>,
-	View,
-	Events extends EventMap,
-	Result,
->(
-	invocation: MetadataComponentFactoryInvocation<
-		State,
-		Event,
-		Snapshot,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
-		View,
-		Events
-	>,
-	elementFactory?: ElementFactoryCreator<
-		State,
-		Event,
-		WithFacadeRenderArgs<
-			State,
-			Event,
-			StatesResult,
-			CommandActor,
-			CommandsResult,
-			Additional,
-			Events
-		>,
-		View,
-		Result,
-		Events,
-		StatesResult
-	>,
-): Result {
-	const [createAdapter, options = {}] = invocation;
-	const { createRenderStrategy, ...projectionOptions } = options;
-	const projection = createProjectionFactory(createAdapter, {
-		...projectionOptions,
-		debugName: "createComponentFactory",
-	});
-	return bindComponentFactory(projection, createRenderStrategy, elementFactory);
-}
-
-function createExplicitComponentFactory<
-	State,
-	Event,
-	Snapshot,
-	StatesResult extends Record<string, unknown>,
-	CommandActor,
-	CommandsResult extends FacadeCommandResult,
-	Additional extends Record<string, unknown>,
-	View,
-	Events extends EventMap,
-	Result,
->(
-	invocation: ExplicitComponentFactoryInvocation<
-		State,
-		Event,
-		Snapshot,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
-		View,
-		Events
-	>,
-	elementFactory?: ElementFactoryCreator<
-		State,
-		Event,
-		WithFacadeRenderArgs<
-			State,
-			Event,
-			StatesResult,
-			CommandActor,
-			CommandsResult,
-			Additional,
-			Events
-		>,
-		View,
-		Result,
-		Events,
-		StatesResult
-	>,
-): Result {
-	const [createAdapter, options] = invocation;
-	const { createRenderStrategy, ...projectionOptions } = options;
-	const projection = createProjectionFactory(createAdapter, {
-		...projectionOptions,
-		debugName: "createComponentFactory",
-	});
-	return bindComponentFactory(projection, createRenderStrategy, elementFactory);
-}
-
-function createDefaultComponentFactory<
-	State,
-	Event,
-	StatesResult extends Record<string, unknown>,
-	CommandsResult extends FacadeCommandResult,
-	Additional extends Record<string, unknown>,
-	View,
-	Events extends EventMap,
-	Result,
->(
-	invocation: DefaultComponentFactoryInvocation<
-		State,
-		Event,
-		StatesResult,
-		CommandsResult,
-		Additional,
-		View,
-		Events
-	>,
-	elementFactory?: ElementFactoryCreator<
-		State,
-		Event,
-		WithFacadeRenderArgs<
-			State,
-			Event,
-			StatesResult,
-			StandardCommandActor<State, Event>,
-			CommandsResult,
-			Additional,
-			Events
-		>,
-		View,
-		Result,
-		Events,
-		StatesResult
-	>,
-): Result {
-	const [createAdapter, options = {}] = invocation;
-	const { createRenderStrategy, ...projectionOptions } = options;
-	const projection = createProjectionFactory(createAdapter, {
-		...projectionOptions,
-		debugName: "createComponentFactory",
-	});
-	return bindComponentFactory(projection, createRenderStrategy, elementFactory);
-}
-
 /**
- * @internal Renderer-aware variant retained for internal composition. Not part
- * of the package export surface.
+ * @internal Low-level component factory used by `igniteCore`. Not part of the
+ * public `ignite-element` surface — no package entry re-exports it. Use the
+ * adapter `igniteCore` entrypoints instead.
  */
 export function createComponentFactoryWithRenderer<
 	State,
 	Event,
-	Snapshot = State,
+	Snapshot,
 	StatesResult extends Record<string, unknown> = Record<never, never>,
 	CommandActor = StandardCommandActor<State, Event>,
 	CommandsResult extends FacadeCommandResult = Record<
@@ -998,34 +223,44 @@ export function createComponentFactoryWithRenderer<
 	Additional extends Record<string, unknown> = Record<never, never>,
 	View = TemplateResult | IgniteJsxChild,
 	Events extends EventMap = EmptyEventMap,
-	FactoryResult = ComponentFactoryResult<
+	FactoryResult = ComponentFactory<
 		State,
 		Event,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
-		View,
-		Events
+		WithFacadeRenderArgs<
+			State,
+			Event,
+			StatesResult,
+			CommandActor,
+			CommandsResult,
+			Additional,
+			Events
+		>,
+		View
 	>,
 >(
-	createAdapter: ResolvedAdapterFactory<
+	createAdapter: AdapterFactory<
 		State,
 		Event,
 		HTMLElement,
 		Snapshot,
 		CommandActor
 	>,
-	elementFactory: ComponentElementFactory<
+	elementFactory: ElementFactoryCreator<
 		State,
 		Event,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
+		WithFacadeRenderArgs<
+			State,
+			Event,
+			StatesResult,
+			CommandActor,
+			CommandsResult,
+			Additional,
+			Events
+		>,
 		View,
+		FactoryResult,
 		Events,
-		FactoryResult
+		StatesResult
 	>,
 	options?: ComponentFactoryOptions<
 		State,
@@ -1038,44 +273,9 @@ export function createComponentFactoryWithRenderer<
 		View,
 		Events
 	>,
-): FactoryResult;
-export function createComponentFactoryWithRenderer<
-	State,
-	Event,
-	Snapshot = State,
-	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandActor = StandardCommandActor<State, Event>,
-	CommandsResult extends FacadeCommandResult = Record<
-		never,
-		FacadeCommandFunction
-	>,
-	Additional extends Record<string, unknown> = Record<never, never>,
-	View = TemplateResult | IgniteJsxChild,
-	Events extends EventMap = EmptyEventMap,
-	FactoryResult = ComponentFactoryResult<
-		State,
-		Event,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
-		View,
-		Events
-	>,
->(
-	createAdapter: BaseAdapterFactory<State, Event, HTMLElement>,
-	elementFactory: ComponentElementFactory<
-		State,
-		Event,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
-		View,
-		Events,
-		FactoryResult
-	>,
-	options: ResolvedComponentFactoryOptions<
+): FactoryResult {
+	const { createRenderStrategy, ...projectionOptions } = options ?? {};
+	const projection = createProjectionFactory<
 		State,
 		Event,
 		Snapshot,
@@ -1083,138 +283,34 @@ export function createComponentFactoryWithRenderer<
 		CommandActor,
 		CommandsResult,
 		Additional,
-		View,
-		Events
-	>,
-): FactoryResult;
-export function createComponentFactoryWithRenderer<
-	State,
-	Event,
-	Snapshot = State,
-	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandActor = StandardCommandActor<State, Event>,
-	CommandsResult extends FacadeCommandResult = Record<
-		never,
-		FacadeCommandFunction
-	>,
-	Additional extends Record<string, unknown> = Record<never, never>,
-	View = TemplateResult | IgniteJsxChild,
-	Events extends EventMap = EmptyEventMap,
-	FactoryResult = ComponentFactoryResult<
-		State,
-		Event,
-		StatesResult,
-		StandardCommandActor<State, Event>,
-		CommandsResult,
-		Additional,
-		View,
-		Events
-	>,
->(
-	createAdapter: UsesDefaultResolvers<
-		State,
-		Event,
-		Snapshot,
-		CommandActor
-	> extends true
-		? BaseAdapterFactory<State, Event, HTMLElement>
-		: never,
-	elementFactory: ComponentElementFactory<
-		State,
-		Event,
-		StatesResult,
-		StandardCommandActor<State, Event>,
-		CommandsResult,
-		Additional,
-		View,
 		Events,
-		FactoryResult
-	>,
-	options?: DefaultComponentFactoryOptions<
+		HTMLElement
+	>(createAdapter, {
+		...projectionOptions,
+		debugName: "createComponentFactory",
+	});
+
+	return bindProjectionToElements<
 		State,
 		Event,
-		StatesResult,
-		CommandsResult,
-		Additional,
-		View,
-		Events
-	>,
-): FactoryResult;
-export function createComponentFactoryWithRenderer<
-	State,
-	Event,
-	Snapshot = State,
-	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandActor = StandardCommandActor<State, Event>,
-	CommandsResult extends FacadeCommandResult = Record<
-		never,
-		FacadeCommandFunction
-	>,
-	Additional extends Record<string, unknown> = Record<never, never>,
-	View = TemplateResult | IgniteJsxChild,
-	Events extends EventMap = EmptyEventMap,
-	FactoryResult = ComponentFactoryResult<
-		State,
-		Event,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
-		View,
-		Events
-	>,
->(
-	...invocation: RendererFactoryInvocation<
-		State,
-		Event,
-		Snapshot,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
-		View,
-		Events,
-		FactoryResult
-	>
-): unknown {
-	if (isMetadataRendererFactoryInvocation(invocation)) {
-		const componentInvocation: MetadataComponentFactoryInvocation<
+		WithFacadeRenderArgs<
 			State,
 			Event,
-			Snapshot,
 			StatesResult,
 			CommandActor,
 			CommandsResult,
 			Additional,
-			View,
 			Events
-		> = [invocation[0], invocation[2]];
-		return createMetadataComponentFactory(componentInvocation, invocation[1]);
-	}
-	if (isExplicitRendererFactoryInvocation(invocation)) {
-		const componentInvocation: ExplicitComponentFactoryInvocation<
-			State,
-			Event,
-			Snapshot,
-			StatesResult,
-			CommandActor,
-			CommandsResult,
-			Additional,
-			View,
-			Events
-		> = [invocation[0], invocation[2]];
-		return createExplicitComponentFactory(componentInvocation, invocation[1]);
-	}
-	const componentInvocation: DefaultComponentFactoryInvocation<
-		State,
-		Event,
-		StatesResult,
-		CommandsResult,
-		Additional,
+		>,
 		View,
-		Events
-	> = [invocation[0], invocation[2]];
-	return createDefaultComponentFactory(componentInvocation, invocation[1]);
+		FactoryResult,
+		Events,
+		StatesResult
+	>(projection, {
+		elementFactory,
+		createRenderStrategy,
+		errorPrefix: "createComponentFactory",
+	});
 }
 
 /**
@@ -1225,7 +321,7 @@ export function createComponentFactoryWithRenderer<
 export function createComponentFactory<
 	State,
 	Event,
-	Snapshot = State,
+	Snapshot,
 	StatesResult extends Record<string, unknown> = Record<never, never>,
 	CommandActor = StandardCommandActor<State, Event>,
 	CommandsResult extends FacadeCommandResult = Record<
@@ -1235,7 +331,7 @@ export function createComponentFactory<
 	Additional extends Record<string, unknown> = Record<never, never>,
 	Events extends EventMap = EmptyEventMap,
 >(
-	createAdapter: ResolvedAdapterFactory<
+	createAdapter: AdapterFactory<
 		State,
 		Event,
 		HTMLElement,
@@ -1253,121 +349,28 @@ export function createComponentFactory<
 		TemplateResult | IgniteJsxChild,
 		Events
 	>,
-): ComponentFactoryResult<
+): ComponentFactory<
 	State,
 	Event,
-	StatesResult,
-	CommandActor,
-	CommandsResult,
-	Additional,
-	TemplateResult | IgniteJsxChild,
-	Events
->;
-export function createComponentFactory<
-	State,
-	Event,
-	Snapshot = State,
-	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandActor = StandardCommandActor<State, Event>,
-	CommandsResult extends FacadeCommandResult = Record<
-		never,
-		FacadeCommandFunction
-	>,
-	Additional extends Record<string, unknown> = Record<never, never>,
-	Events extends EventMap = EmptyEventMap,
->(
-	createAdapter: BaseAdapterFactory<State, Event, HTMLElement>,
-	options: ResolvedComponentFactoryOptions<
+	WithFacadeRenderArgs<
 		State,
 		Event,
-		Snapshot,
 		StatesResult,
 		CommandActor,
 		CommandsResult,
 		Additional,
-		TemplateResult | IgniteJsxChild,
-		Events
-	>,
-): ComponentFactoryResult<
-	State,
-	Event,
-	StatesResult,
-	CommandActor,
-	CommandsResult,
-	Additional,
-	TemplateResult | IgniteJsxChild,
-	Events
->;
-export function createComponentFactory<
-	State,
-	Event,
-	Snapshot = State,
-	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandActor = StandardCommandActor<State, Event>,
-	CommandsResult extends FacadeCommandResult = Record<
-		never,
-		FacadeCommandFunction
-	>,
-	Additional extends Record<string, unknown> = Record<never, never>,
-	Events extends EventMap = EmptyEventMap,
->(
-	createAdapter: UsesDefaultResolvers<
-		State,
-		Event,
-		Snapshot,
-		CommandActor
-	> extends true
-		? BaseAdapterFactory<State, Event, HTMLElement>
-		: never,
-	options?: DefaultComponentFactoryOptions<
-		State,
-		Event,
-		StatesResult,
-		CommandsResult,
-		Additional,
-		TemplateResult | IgniteJsxChild,
-		Events
-	>,
-): ComponentFactoryResult<
-	State,
-	Event,
-	StatesResult,
-	StandardCommandActor<State, Event>,
-	CommandsResult,
-	Additional,
-	TemplateResult | IgniteJsxChild,
-	Events
->;
-export function createComponentFactory<
-	State,
-	Event,
-	Snapshot = State,
-	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandActor = StandardCommandActor<State, Event>,
-	CommandsResult extends FacadeCommandResult = Record<
-		never,
-		FacadeCommandFunction
-	>,
-	Additional extends Record<string, unknown> = Record<never, never>,
-	Events extends EventMap = EmptyEventMap,
->(
-	...invocation: ComponentFactoryInvocation<
-		State,
-		Event,
-		Snapshot,
-		StatesResult,
-		CommandActor,
-		CommandsResult,
-		Additional,
-		TemplateResult | IgniteJsxChild,
 		Events
 	>
-): unknown {
-	if (isMetadataComponentFactoryInvocation(invocation)) {
-		return createMetadataComponentFactory(invocation);
-	}
-	if (isExplicitComponentFactoryInvocation(invocation)) {
-		return createExplicitComponentFactory(invocation);
-	}
-	return createDefaultComponentFactory(invocation);
+> {
+	return createComponentFactoryWithRenderer<
+		State,
+		Event,
+		Snapshot,
+		StatesResult,
+		CommandActor,
+		CommandsResult,
+		Additional,
+		TemplateResult | IgniteJsxChild,
+		Events
+	>(createAdapter, igniteElementFactory, options);
 }

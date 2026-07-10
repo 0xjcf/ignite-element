@@ -1357,6 +1357,12 @@ describe("projection targets", () => {
 			resolveStateSnapshot: (
 				current: IgniteAdapter<typeof snapshot, InspectionEvent>,
 			) => current.getSnapshot(),
+			resolveCommandActor: (
+				current: IgniteAdapter<typeof snapshot, InspectionEvent>,
+			) => ({
+				send: (event: InspectionEvent) => current.send(event),
+				getState: () => current.getSnapshot(),
+			}),
 		});
 		const getter = vi.fn(() => {
 			throw new Error("command accessor invoked");
@@ -1705,6 +1711,12 @@ describe("projection targets", () => {
 			resolveStateSnapshot: (
 				current: IgniteAdapter<typeof snapshot, { type: "NOOP" }>,
 			) => current.getSnapshot(),
+			resolveCommandActor: (
+				current: IgniteAdapter<typeof snapshot, { type: "NOOP" }>,
+			) => ({
+				send: (event: { type: "NOOP" }) => current.send(event),
+				getState: () => current.getSnapshot(),
+			}),
 		});
 		const core = createComponentFactory(createAdapter, {
 			view: () => ({}),
