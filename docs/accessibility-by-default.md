@@ -80,6 +80,11 @@ the DOM renderer should express those facts with native elements first:
 ARIA supplements native semantics when needed. It should not become the primary
 runtime contract.
 
+Asynchronous save failures need their own assertive announcement, such as a
+`role="alert"` error node, rather than relying on a polite status update. Rendered
+browser tests must cover the `SAVE_FAILURE` flow while focus remains on the
+triggering control and verify the announcement separately from headless facts.
+
 ## Example: runtime facts without a second DSL
 
 ```ts

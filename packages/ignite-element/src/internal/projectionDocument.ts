@@ -1254,6 +1254,9 @@ function validateTimelineNode(
 	path: string,
 ): string[] {
 	const issues: string[] = [];
+	if (node.events.length === 0) {
+		issues.push(`${path}.events: must include at least one event`);
+	}
 	for (const [index, entry] of node.events.entries()) {
 		if (!isNonEmptyString(entry.id)) {
 			issues.push(`${path}.events[${index}].id: required`);

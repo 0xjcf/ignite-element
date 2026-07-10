@@ -956,6 +956,29 @@ describe("projection document helpers", () => {
 		);
 	});
 
+	it("rejects empty timelines while preserving cumulative issues", () => {
+		const core = createProjectionCore();
+
+		expect(
+			validateProjectionDocument(
+				{
+					id: "",
+					revision: "",
+					nodes: [{ kind: "timeline", id: "", events: [] }],
+				},
+				{
+					schema: core.getSchema(),
+					canExecute: core.canExecute,
+				},
+			),
+		).toEqual([
+			"id: required",
+			"revision: required",
+			"nodes[0].id: required",
+			"nodes[0].events: must include at least one event",
+		]);
+	});
+
 	it("rejects inherited command names through the unknown-command path", () => {
 		const core = createProjectionCore();
 		const inheritedCommands = Object.create({

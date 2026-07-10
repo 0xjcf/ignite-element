@@ -11,6 +11,7 @@ Add rendered-DOM accessibility verification after the dynamic projection workben
 - Rendered tests cover accessible native mappings for representative projection nodes and existing examples.
 - Command-backed action nodes expose correct names, disabled states, and keyboard activation based on runtime availability.
 - Form, validation, status, dialog/focus, and live-region behavior is verified in a browser-capable environment where used.
+- The thermostat `SAVE_FAILURE` flow keeps focus on the triggering control and exposes its asynchronous error through a dedicated assertive live region such as `role="alert"`.
 - Voice-only projection remains DOM-free and is validated through the injected speech adapter rather than DOM assertions.
 - Headless contract checks are not presented as browser accessibility proof.
 - Existing example runtime-lane ownership remains intact.
