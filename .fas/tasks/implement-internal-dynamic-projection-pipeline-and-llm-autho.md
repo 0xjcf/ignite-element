@@ -35,7 +35,6 @@ Replace the superseded ProjectionRequest/ProjectionSpec registry and command-pre
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
 ## Affected files
-
 - docs/projection-runtime.md
 - docs/accessibility-by-default.md
 - docs/site/src/content/docs/guides/accessibility-first.mdx
@@ -63,6 +62,8 @@ Replace the superseded ProjectionRequest/ProjectionSpec registry and command-pre
 - packages/ignite-element/src/tests/projection-target-guard.test.ts
 - packages/ignite-element/src/tests/tools.test.ts
 - packages/ignite-element/src/tests/types/igniteCore.types.test.ts
+- packages/ignite-adapters/src/adapters/XStateAdapter.ts
+- packages/ignite-element/src/tests/adapters/XStateAdapter.test.ts
 
 ## Scope Amendments
 
@@ -74,6 +75,16 @@ Replace the superseded ProjectionRequest/ProjectionSpec registry and command-pre
 - Evidence: architecture discussion | .fas/tasks/implement-internal-dynamic-projection-pipeline-and-llm-autho.md | Old task task-1783610917796 was superseded before implementation; all provisional source changes were restored.
 - Accuracy signal: high
 - Follow-up needed: Reassess affected-file scope after planner architecture output and before TDD implementation.
+
+- Type: review-driven dependency expansion
+- Added at: 2026-07-10
+- Trigger: Public XState projection accessor probes
+- Reason: XState context spread invokes documents and speech accessors before Ignite projection validation; descriptor-preserving construction is required for the accepted public fail-closed contract.
+- Added paths: packages/ignite-adapters/src/adapters/XStateAdapter.ts, packages/ignite-element/src/tests/adapters/XStateAdapter.test.ts
+- Evidence source: FAS QA/SRE/final reviewer
+- Evidence: FAS QA/SRE/final reviewer | .fas/state/review-summary.md | Reviewer approved exactly two added paths and a 29-path expected envelope.
+- Accuracy signal: Public built-runtime reproductions plus descriptor-preserving prototype
+- Follow-up needed: Re-run QA, SRE, reviewer, and refresh final ChangeSet after implementation.
 
 ## Implementation plan
 
