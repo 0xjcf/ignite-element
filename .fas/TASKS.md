@@ -2239,8 +2239,8 @@ No active tasks.
 
 - Title: Define retained-surface ref and commit contract for complex interfaces
 - Mode: 6-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/design-retained-surface-lifecycle-and-projection-commit-cont.md
 - Verification lane: fast
 - Policy sensitivity: standard

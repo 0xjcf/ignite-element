@@ -181,29 +181,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1783719632720",
-      "task": "Define retained-surface ref and commit contract for complex interfaces",
-      "priority": "critical",
-      "source": "manual",
-      "details": "Define the Ignite-owned architecture for retained imperative presentation surfaces using the existing two-stage igniteCore API. The accepted JSX direction is component(\"name\", projection => <canvas ref={acquireResource} commit={(canvas) => draw(canvas, projection)} />): ref acquires the stable node and may return cleanup; commit is a reserved post-reconciliation renderer directive. Keep scheduling out of igniteCore until dogfood demonstrates a framework-owned need.\nSee .fas/tasks/design-retained-surface-lifecycle-and-projection-commit-cont.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [],
-      "blocks": [
-        "task-1783719649309"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-10T21:40:32.720Z",
-      "updatedAt": "2026-07-11T22:49:48.000Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
       "id": "task-1783719649309",
       "task": "Implement typed retained-node refs, commit directives, and move-safe lifecycle",
       "priority": "high",
@@ -212,7 +189,7 @@
       "taskClassification": "standard",
       "selfImprovementCategory": null,
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -225,7 +202,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-10T21:40:49.309Z",
       "updatedAt": "2026-07-11T22:49:48.000Z",
-      "deferredReason": "dependency_reopened: task-1783719632720",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -3347,6 +3324,27 @@
       "terminalOutcome": null,
       "workflowId": "direct-1783736267263",
       "branchName": "beta",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1783719632720",
+      "task": "Define retained-surface ref and commit contract for complex interfaces",
+      "priority": "critical",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [
+        "task-1783719649309"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-11T23:17:58.380Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783805968624",
+      "branchName": "fas/retained-surface-contract",
       "prStatus": "draft-only"
     }
   ],
