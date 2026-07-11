@@ -29,7 +29,7 @@ exists:
 
 - `getSchema()` returns the current JSON-serializable contract: commands,
   command metadata, declared events, raw snapshot, and projected view.
-- `execute(commandName, payload?)` runs a command and returns the post-command
+- `execute({ command, input? })` runs a command and returns the post-command
   snapshot plus emitted events from that transition.
 - `canExecute(commandName)` evaluates dynamic command availability for gated
   commands.
@@ -67,7 +67,7 @@ The reliable flow is:
    the raw state source matters.
 3. Treat `gated: true` as dynamic and call `canExecute(commandName)` immediately
    before invoking that command.
-4. Call `execute(commandName, payload?)` and inspect the returned `events` and
+4. Call `execute({ command, input? })` and inspect the returned `events` and
    `snapshot`.
 5. Keep long-lived workflows synchronized with `on(...)` for events and
    `watchView(...)` for projected state.

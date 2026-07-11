@@ -43,6 +43,7 @@ export type {
 	IgniteAgentExecutionResult,
 	IgniteAgentRuntime,
 	IgniteAgentSubscription,
+	IgniteCommandCall,
 	IgniteStory,
 	IgniteStoryCommandTraceEntry,
 	IgniteStoryEventTraceEntry,

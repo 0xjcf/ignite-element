@@ -30,7 +30,7 @@ const counter = igniteCore({
 });
 
 // Register a DOM projection later — the runtime is available immediately.
-const { snapshot, events } = await counter.execute('toggle');
+const { snapshot, events } = await counter.execute({ command: 'toggle' });
 const isToggleAvailable = counter.canExecute('toggle');
 const current = counter.getSnapshot();
 const view = counter.getView();
@@ -39,14 +39,14 @@ const schema = counter.getSchema();
 
 ## Methods
 
-### `execute(commandName, payload?)`
+### `execute({ command, input? })`
 
-Runs a command by name and resolves once the resulting transition settles. The payload type is inferred from the command function's first parameter, so commands that take no argument are called with the name alone.
+Runs a command by name and resolves once the resulting transition settles. The input type is inferred from the command function's first parameter, so commands that take no argument omit `input`.
 
 **Returns** `Promise<{ snapshot, events }>` — the snapshot **after** the transition plus the ordered events emitted by that single transition (an `IgniteAgentExecutionResult`).
 
 ```ts
-const result = await counter.execute('toggle');
+const result = await counter.execute({ command: 'toggle' });
 ```
 
 The shape:
@@ -103,19 +103,19 @@ const view = counter.getView();
 
 ### `on(eventName, handler)`
 
-Subscribes to a public emitted event. The handler receives a `CustomEvent` whose `detail` is the event payload.
+Subscribes to a public emitted event. The handler receives the flat emitted event member.
 
 **Returns** a subscription — `{ unsubscribe(): void }`. Call `unsubscribe()` to stop listening.
 
 ```ts
 const subscription = counter.on('toggled', (event) => {
-  console.log(event.detail.isOn);
+  console.log(event.isOn);
 });
 
 subscription.unsubscribe();
 ```
 
-Use `on(...)` for the public events your component emits through `effects`. When the source has a native emit stream (Actor-Web today), `on(...)` also receives the source's emitted domain events — `event.detail` is the emitted event object itself, and the names are typed from the source's `Emitted` union. (The pre-stable `subscribe(eventName, handler)` alias was removed at v3.0.0 — use `on`.)
+Use `on(...)` for the public events your component emits through `effects`. When the source has a native emit stream (Actor-Web today), `on(...)` also receives the source's emitted domain events as the same flat `{ type, ...fields }` shape, and the names are typed from the source's `Emitted` union. (The pre-stable `subscribe(eventName, handler)` alias was removed at v3.0.0 — use `on`.)
 
 ### `watchSnapshot(handler)`
 
@@ -194,7 +194,7 @@ The shape:
 How tools usually consume it:
 
 1. Read `commands` to decide which actions exist and whether any carry input schemas or descriptions.
-2. Use `input` to shape payloads before calling `execute(commandName, payload?)`.
+2. Use `input` to shape payloads before calling `execute({ command, input? })`.
 3. Treat `gated: true` as "availability is dynamic" and call `canExecute(commandName)` before offering or invoking that command.
 4. Use `snapshot` when the raw source state matters, and `view` when the projected UI-facing state is the better contract.
 5. Observe outcomes with `execute().events`, `on(...)`, or `watchView(...)` instead of assuming a command succeeded silently.
@@ -206,7 +206,7 @@ const schema = panel.getSchema();
 const armMetadata = schema.commands.armAlarm;
 
 const eventSubscription = panel.on('alarm-armed', (event) => {
-  console.log('Alarm status:', event.detail);
+  console.log('Alarm status:', event);
 });
 
 const viewSubscription = panel.watchView((view) => {
@@ -217,7 +217,7 @@ if (armMetadata.gated && !panel.canExecute('armAlarm')) {
   throw new Error('Alarm cannot be armed while a zone is open.');
 }
 
-const result = await panel.execute('armAlarm');
+const result = await panel.execute({ command: 'armAlarm' });
 console.log('Command events:', result.events);
 
 eventSubscription.unsubscribe();

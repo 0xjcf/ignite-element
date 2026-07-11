@@ -1,6 +1,7 @@
 import type { CommandMetadata, IgniteAdapter } from "@ignite-element/core";
 import type {
 	IgniteAgentSubscription,
+	IgniteCommandCall,
 	IgniteStory,
 	IgniteStoryCommandTraceEntry,
 	IgniteStoryEventTraceEntry,
@@ -585,6 +586,13 @@ export function createAgentRuntime<
 			}
 		});
 
+	const commandCallToArgs = (
+		call: IgniteCommandCall<Record<string, (arg?: unknown) => unknown>>,
+	) => ({
+		command: call.command,
+		input: "input" in call ? call.input : undefined,
+	});
+
 	const record = (name: string) => {
 		const traceEntries: IgniteStoryTraceEntry[] = [];
 		const lifecycleEntries: IgniteStoryLifecycleEntry[] = [];
@@ -620,24 +628,27 @@ export function createAgentRuntime<
 
 		const story = {
 			name,
-			async execute(commandName: string, payload?: unknown) {
+			async execute(
+				call: IgniteCommandCall<Record<string, (arg?: unknown) => unknown>>,
+			) {
 				assertActive();
 				const step = commandCount + 1;
 				const beforeState = resolveRuntime().adapter.getSnapshot();
 				const beforeView = resolveView(resolveRuntime().adapter);
-				const normalizedPayload = normalizeTraceValue(payload);
+				const { command, input } = commandCallToArgs(call);
+				const normalizedPayload = normalizeTraceValue(input);
 
-				if (typeof payload === "undefined") {
+				if (typeof input === "undefined") {
 					pushTrace({
 						kind: "command",
 						step,
-						command: commandName,
+						command,
 					});
 				} else {
 					pushTrace({
 						kind: "command",
 						step,
-						command: commandName,
+						command,
 						payload: normalizedPayload,
 					});
 				}
@@ -654,7 +665,7 @@ export function createAgentRuntime<
 					view: normalizeTraceValue(beforeView),
 				});
 
-				const result = await executeCommand(commandName, payload);
+				const result = await executeCommand(command, input);
 
 				for (const event of result.events) {
 					emittedEvents.push(cloneRuntimeEvent(event));
@@ -760,7 +771,12 @@ export function createAgentRuntime<
 
 	const runtime = {
 		canExecute: canExecuteCommand,
-		execute: executeCommand,
+		execute(
+			call: IgniteCommandCall<Record<string, (arg?: unknown) => unknown>>,
+		) {
+			const { command, input } = commandCallToArgs(call);
+			return executeCommand(command, input);
+		},
 		getSnapshot() {
 			return withSynchronousRuntimeAccess(() =>
 				resolveRuntime().adapter.getSnapshot(),

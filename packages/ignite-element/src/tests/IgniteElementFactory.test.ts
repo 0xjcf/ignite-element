@@ -294,7 +294,7 @@ describe("igniteElementFactory", () => {
 		const name = `ignite-runtime-override-base-${crypto.randomUUID()}`;
 		component(name, () => html`<div></div>`);
 		const runtime = component as typeof component & {
-			execute: (commandName: string) => Promise<unknown>;
+			execute: (call: { command: string; input?: unknown }) => Promise<unknown>;
 		};
 		const override = (
 			component as typeof component & {
@@ -303,13 +303,13 @@ describe("igniteElementFactory", () => {
 		)[igniteRuntimeHostOverrideSymbol];
 
 		await override(document.createElement("section"), () =>
-			runtime.execute("reportAdapter"),
+			runtime.execute({ command: "reportAdapter" }),
 		);
 		const element = document.createElement(name);
 		document.body.appendChild(element);
 		element.remove();
 		await flushMicrotasks();
-		await runtime.execute("reportAdapter");
+		await runtime.execute({ command: "reportAdapter" });
 
 		expect(createAdapter).toHaveBeenCalledTimes(2);
 		expect(adapters[0]?.stop).toHaveBeenCalledTimes(1);
@@ -350,12 +350,12 @@ describe("igniteElementFactory", () => {
 		const name = `ignite-direct-runtime-cleanup-${crypto.randomUUID()}`;
 		component(name, () => html`<div></div>`);
 		const runtime = component as typeof component & {
-			execute: (commandName: string) => Promise<unknown>;
+			execute: (call: { command: string; input?: unknown }) => Promise<unknown>;
 			getSnapshot: () => typeof initialState;
 		};
 
 		expect(runtime.getSnapshot()).toEqual(initialState);
-		await runtime.execute("reportAdapter");
+		await runtime.execute({ command: "reportAdapter" });
 
 		const element = document.createElement(name);
 		document.body.appendChild(element);
@@ -366,7 +366,7 @@ describe("igniteElementFactory", () => {
 		expect(adapters[0]?.stop).toHaveBeenCalledTimes(1);
 		expect(cleanupAdditionalArgs).toHaveBeenCalledTimes(2);
 
-		await runtime.execute("reportAdapter");
+		await runtime.execute({ command: "reportAdapter" });
 
 		expect(createAdapter).toHaveBeenCalledTimes(2);
 		expect(reportedAdapters).toHaveLength(2);
@@ -410,11 +410,11 @@ describe("igniteElementFactory", () => {
 		const name = `ignite-direct-runtime-cleanup-error-${crypto.randomUUID()}`;
 		component(name, () => html`<div></div>`);
 		const runtime = component as typeof component & {
-			execute: (commandName: string) => Promise<unknown>;
+			execute: (call: { command: string; input?: unknown }) => Promise<unknown>;
 		};
 		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-		await runtime.execute("reportAdapter");
+		await runtime.execute({ command: "reportAdapter" });
 		const element = document.createElement(name);
 		document.body.appendChild(element);
 		element.remove();
@@ -426,7 +426,7 @@ describe("igniteElementFactory", () => {
 			cleanupError,
 		);
 
-		await runtime.execute("reportAdapter");
+		await runtime.execute({ command: "reportAdapter" });
 
 		expect(createAdapter).toHaveBeenCalledTimes(2);
 		expect(reportedAdapters).toHaveLength(2);

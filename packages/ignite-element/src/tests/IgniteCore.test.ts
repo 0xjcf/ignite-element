@@ -450,7 +450,10 @@ describe("igniteCore", () => {
 			snapshotStatus: "idle",
 		});
 
-		register.execute("createShipment", "shipment-1001");
+		register.execute({
+			command: "createShipment",
+			input: "shipment-1001",
+		});
 		expect(source.sent).toEqual([
 			{ type: "CREATE_SHIPMENT", shipmentId: "shipment-1001" },
 		]);
@@ -496,7 +499,10 @@ describe("igniteCore", () => {
 			}),
 		});
 
-		register.execute("createShipment", "shipment-3003");
+		register.execute({
+			command: "createShipment",
+			input: "shipment-3003",
+		});
 
 		expect(register.getView()).toEqual({ status: "idle" });
 		expect(source.sent).toEqual([
@@ -527,7 +533,10 @@ describe("igniteCore", () => {
 			connected: true,
 		});
 
-		register.execute("createShipment", "shipment-1001");
+		register.execute({
+			command: "createShipment",
+			input: "shipment-1001",
+		});
 		expect(source.sent).toEqual([
 			{ type: "CREATE_SHIPMENT", shipmentId: "shipment-1001" },
 		]);
@@ -926,7 +935,7 @@ describe("igniteCore", () => {
 			},
 		});
 
-		const result = await register.execute("increment");
+		const result = await register.execute({ command: "increment" });
 
 		expect(result.snapshot.counter.count).toBe(1);
 		expect(consoleError).toHaveBeenCalledWith(
@@ -993,7 +1002,7 @@ describe("igniteCore", () => {
 		const stateSubscription = register.watchSnapshot(watchListener);
 		const viewSubscription = register.watchView(watchViewListener);
 
-		const result = await register.execute("increment", 3);
+		const result = await register.execute({ command: "increment", input: 3 });
 
 		expect(register.getSnapshot().counter.count).toBe(3);
 		expect(register.getView()).toEqual({ count: 3, isEven: false });
@@ -1011,7 +1020,7 @@ describe("igniteCore", () => {
 		eventSubscription.unsubscribe();
 		stateSubscription.unsubscribe();
 		viewSubscription.unsubscribe();
-		await register.execute("increment", 1);
+		await register.execute({ command: "increment", input: 1 });
 
 		expect(listener).toHaveBeenCalledTimes(1);
 		expect(watchListener).toHaveBeenCalledTimes(1);
@@ -1055,15 +1064,19 @@ describe("igniteCore", () => {
 			},
 		} satisfies ReduxInstanceConfig<typeof store, RuntimeEventMap>);
 
-		await expect(register.execute("failSync")).rejects.toThrow("sync failed");
-		await expect(register.execute("failAsync")).rejects.toThrow("async failed");
+		await expect(register.execute({ command: "failSync" })).rejects.toThrow(
+			"sync failed",
+		);
+		await expect(register.execute({ command: "failAsync" })).rejects.toThrow(
+			"async failed",
+		);
 
 		expect(removeListener).toHaveBeenCalledWith(
 			"counter-incremented",
 			expect.any(Function),
 		);
 
-		const result = await register.execute("increment");
+		const result = await register.execute({ command: "increment" });
 
 		expect(result.events).toEqual([
 			{
@@ -1110,11 +1123,11 @@ describe("igniteCore", () => {
 		} satisfies ReduxInstanceConfig<typeof store, RuntimeEventMap>);
 
 		const story = register.record("counter reaches five");
-		await story.execute("increment", 2);
+		await story.execute({ command: "increment", input: 2 });
 		const finalView = await story.until(
 			(view) => view.count >= 5,
 			async () => {
-				await story.execute("increment", 1);
+				await story.execute({ command: "increment", input: 1 });
 			},
 			{ maxSteps: 5 },
 		);
@@ -1168,11 +1181,14 @@ describe("igniteCore", () => {
 
 		story.stop();
 
-		await expect(() => story.execute("increment", 1)).rejects.toThrow(
+		await expect(() =>
+			story.execute({ command: "increment", input: 1 }),
+		).rejects.toThrow(
 			'[igniteCore] Story "counter reaches five" has been stopped.',
 		);
 		expect(
-			(await register.execute("increment", 1)).snapshot.counter.count,
+			(await register.execute({ command: "increment", input: 1 })).snapshot
+				.counter.count,
 		).toBe(6);
 	});
 
@@ -1204,7 +1220,7 @@ describe("igniteCore", () => {
 		register(elementName, renderFn);
 		const element = document.createElement(elementName);
 		document.body.appendChild(element);
-		await story.execute("increment");
+		await story.execute({ command: "increment" });
 		element.remove();
 		await flushMicrotasks();
 
@@ -1230,9 +1246,9 @@ describe("igniteCore", () => {
 		secondElement.remove();
 
 		expect(story.lifecycle()).toHaveLength(lifecycleCount);
-		expect((await register.execute("increment")).snapshot.counter.count).toBe(
-			2,
-		);
+		expect(
+			(await register.execute({ command: "increment" })).snapshot.counter.count,
+		).toBe(2);
 	});
 
 	it("projects runtime stories into an accessibility bridge without mixing trace entries", async () => {
@@ -1277,7 +1293,7 @@ describe("igniteCore", () => {
 			{ elementName: "story-dom-bridge" },
 		);
 
-		await story.execute("increment", 2);
+		await story.execute({ command: "increment", input: 2 });
 
 		const [statusElement, buttonElement] = igniteTest.expectControls(bridge, [
 			{
@@ -1443,7 +1459,10 @@ describe("igniteCore", () => {
 			}),
 		});
 
-		const result = await register.execute("addByAmount", 3);
+		const result = await register.execute({
+			command: "addByAmount",
+			input: 3,
+		});
 
 		expect(result.snapshot.counter.count).toBe(3);
 		expect(register.getView()).toEqual({ count: 3 });
@@ -1530,12 +1549,15 @@ describe("igniteCore", () => {
 			}),
 		});
 
-		const result = await register.execute("configureCounter", {
-			label: "shift-a",
-			enabled: true,
-			mode: "apply",
-			values: [1, 2, 3],
-			limits: { minimum: 0, maximum: 12 },
+		const result = await register.execute({
+			command: "configureCounter",
+			input: {
+				label: "shift-a",
+				enabled: true,
+				mode: "apply",
+				values: [1, 2, 3],
+				limits: { minimum: 0, maximum: 12 },
+			},
 		});
 
 		expect(result.snapshot.counter.count).toBe(6);
@@ -1620,8 +1642,8 @@ describe("igniteCore", () => {
 			}),
 		});
 
-		register.execute("addSmall", 2);
-		register.execute("addLarge", 5);
+		register.execute({ command: "addSmall", input: 2 });
+		register.execute({ command: "addLarge", input: 5 });
 
 		expect(register.getSnapshot().counter.count).toBe(7);
 		expect(register.getSchema().commands).toEqual({
@@ -1834,7 +1856,10 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 			}),
 		});
 
-		const result = await register.execute("createShipment", "shipment-1001");
+		const result = await register.execute({
+			command: "createShipment",
+			input: "shipment-1001",
+		});
 
 		expect(source.sent).toEqual([
 			{ type: "CREATE_SHIPMENT", shipmentId: "shipment-1001" },
@@ -1885,7 +1910,10 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 			}),
 		});
 
-		const result = await register.execute("createShipment", "shipment-2002");
+		const result = await register.execute({
+			command: "createShipment",
+			input: "shipment-2002",
+		});
 
 		// Stream-bridged source event.
 		expect(result.events).toContainEqual({
@@ -1911,7 +1939,10 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 		});
 
 		const story = register.record("shipment created");
-		await story.execute("createShipment", "shipment-3003");
+		await story.execute({
+			command: "createShipment",
+			input: "shipment-3003",
+		});
 
 		const emitted = {
 			type: "SHIPMENT_CREATED",
@@ -1940,7 +1971,7 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 			}),
 		});
 
-		const result = await register.execute("increment");
+		const result = await register.execute({ command: "increment" });
 
 		// No subscribeEvents() seam on redux — the bridge contributes nothing, so the command
 		// surfaces no events while the state update still applies normally.
@@ -1994,11 +2025,11 @@ describe("igniteCore xstate emitted-event bridge", () => {
 			received.push(event);
 		});
 
-		void register.execute("increment");
+		void register.execute({ command: "increment" });
 		expect(received).toEqual([{ type: "count-changed", count: 1 }]);
 
 		subscription.unsubscribe();
-		void register.execute("increment");
+		void register.execute({ command: "increment" });
 		expect(received).toHaveLength(1);
 	});
 
@@ -2011,7 +2042,7 @@ describe("igniteCore xstate emitted-event bridge", () => {
 			}),
 		});
 
-		const result = await register.execute("increment");
+		const result = await register.execute({ command: "increment" });
 
 		// Uniform shape: the emitted member itself.
 		expect(result.events).toContainEqual({
@@ -2034,7 +2065,7 @@ describe("igniteCore xstate emitted-event bridge", () => {
 		});
 
 		const story = register.record("xstate emitted events");
-		await story.execute("increment");
+		await story.execute({ command: "increment" });
 
 		const emitted = {
 			type: "count-changed",

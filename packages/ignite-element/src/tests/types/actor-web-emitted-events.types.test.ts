@@ -53,7 +53,10 @@ async function _typeAssertions() {
 	register.on("NOT_AN_EVENT", () => {});
 
 	// execute().events is typed to the emitted union (flat member shape).
-	const result = await register.execute("cancel");
+	const result = await register.execute({
+		command: "cancel",
+		input: "shipment-1",
+	});
 	expectTypeOf(result.events).toEqualTypeOf<
 		Array<
 			| { type: "OUTCOME_RESOLVED"; outcome: string }

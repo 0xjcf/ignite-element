@@ -81,14 +81,14 @@ function createFakeComponent(
 	const component: ObservableFakeComponent = {
 		calls,
 		getSchema: () => fakeSchema,
-		execute: (async (name: string, payload?: unknown) => {
-			calls.push({ name, payload });
-			if (name === "boom") {
+		execute: (async (call: { command: string; input?: unknown }) => {
+			calls.push({ name: call.command, payload: call.input });
+			if (call.command === "boom") {
 				throw new Error("kaboom");
 			}
 			view = { count: calls.length, label: "active" };
 			return {
-				snapshot: { count: 1, last: name, payload },
+				snapshot: { count: 1, last: call.command, payload: call.input },
 				events: [{ type: "item-added", id: 1 }],
 			};
 		}) as FakeComponent["execute"],
@@ -135,12 +135,15 @@ class ThisBoundFakeComponent implements FakeComponent {
 
 	execute = async function (
 		this: ThisBoundFakeComponent,
-		name: string,
-		payload?: unknown,
+		call: { command: string; input?: unknown },
 	) {
-		this.calls.push({ name, payload });
+		this.calls.push({ name: call.command, payload: call.input });
 		return {
-			snapshot: { count: this.calls.length, last: name, payload },
+			snapshot: {
+				count: this.calls.length,
+				last: call.command,
+				payload: call.input,
+			},
 			events: [{ type: "item-added", id: this.calls.length }],
 		};
 	} as FakeComponent["execute"];
@@ -536,10 +539,10 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const calls: Array<{ name: string; payload: unknown }> = [];
 		const tools = igniteTools({
 			getSchema: () => projectionSchema,
-			execute: async (name: string, payload?: unknown) => {
-				calls.push({ name, payload });
+			execute: async (call: { command: string; input?: unknown }) => {
+				calls.push({ name: call.command, payload: call.input });
 				return {
-					snapshot: { documents: [payload] },
+					snapshot: { documents: [call.input] },
 					events: [],
 				};
 			},

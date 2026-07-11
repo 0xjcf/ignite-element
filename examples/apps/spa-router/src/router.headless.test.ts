@@ -26,7 +26,7 @@ const makeRouter = () =>
 describe("SPA router — headless runtime", () => {
 	it("navigates and projects the matched route + params", async () => {
 		const router = makeRouter();
-		await router.execute("navigate", "/users/7");
+		await router.execute({ command: "navigate", input: "/users/7" });
 
 		const view = router.getView();
 		expect(view.route).toBe("user");
@@ -41,13 +41,16 @@ describe("SPA router — headless runtime", () => {
 			seen.push(event.route);
 		});
 
-		void router.execute("navigate", "/about");
+		void router.execute({ command: "navigate", input: "/about" });
 		expect(seen).toContain("about");
 	});
 
 	it("captures navigated events in execute().events", async () => {
 		const router = makeRouter();
-		const result = await router.execute("navigate", "/users/3");
+		const result = await router.execute({
+			command: "navigate",
+			input: "/users/3",
+		});
 		expect(result.events).toContainEqual({
 			type: "navigated",
 			path: "/users/3",
@@ -58,18 +61,18 @@ describe("SPA router — headless runtime", () => {
 	it("enforces the auth guard, then allows the route after login", async () => {
 		const router = makeRouter();
 
-		await router.execute("navigate", "/dashboard");
+		await router.execute({ command: "navigate", input: "/dashboard" });
 		expect(router.getView().route).toBe("login");
 
-		await router.execute("login");
-		await router.execute("navigate", "/dashboard");
+		await router.execute({ command: "login" });
+		await router.execute({ command: "navigate", input: "/dashboard" });
 		expect(router.getView().route).toBe("dashboard");
 		expect(router.getView().authed).toBe(true);
 	});
 
 	it("resolves unknown paths to the not-found route", async () => {
 		const router = makeRouter();
-		await router.execute("navigate", "/no/such/page");
+		await router.execute({ command: "navigate", input: "/no/such/page" });
 		expect(router.getView().route).toBe("not-found");
 	});
 });

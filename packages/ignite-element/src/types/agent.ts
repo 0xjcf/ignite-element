@@ -31,6 +31,17 @@ type CommandPayload<
 	? undefined
 	: Parameters<Commands[CommandName]>[0];
 
+export type IgniteCommandCall<
+	Commands extends FacadeCommandResult = FacadeCommandResult,
+	CommandName extends keyof Commands & string = keyof Commands & string,
+> = {
+	[Name in CommandName]: Parameters<Commands[Name]> extends []
+		? { command: Name }
+		: undefined extends CommandPayload<Commands, Name>
+			? { command: Name; input?: CommandPayload<Commands, Name> }
+			: { command: Name; input: CommandPayload<Commands, Name> };
+}[CommandName];
+
 export type IgniteStoryTraceKind = "command" | "snapshot" | "view" | "event";
 
 export type IgniteStoryTracePhase = "before" | "after";
@@ -144,8 +155,7 @@ export type IgniteStory<
 > = {
 	readonly name: string;
 	execute<CommandName extends keyof Commands & string>(
-		commandName: CommandName,
-		payload?: CommandPayload<Commands, CommandName>,
+		call: IgniteCommandCall<Commands, CommandName>,
 	): Promise<IgniteAgentExecutionResult<State, Events>>;
 	until(
 		viewPredicate: IgniteStoryViewPredicate<View>,
@@ -198,8 +208,7 @@ export type IgniteAgentRuntime<
 		commandName: CommandName,
 	): boolean;
 	execute<CommandName extends keyof Commands & string>(
-		commandName: CommandName,
-		payload?: CommandPayload<Commands, CommandName>,
+		call: IgniteCommandCall<Commands, CommandName>,
 	): Promise<IgniteAgentExecutionResult<State, Events>>;
 	getSnapshot(): State;
 	getView(): View;

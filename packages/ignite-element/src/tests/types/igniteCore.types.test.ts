@@ -91,6 +91,7 @@ import type {
 	IgniteTestHelpers,
 } from "../../testing";
 import type {
+	IgniteCommandCall,
 	IgniteStoryLifecycleEntry,
 	IgniteStorySnapshot,
 	IgniteStorySnapshotEvent,
@@ -1117,8 +1118,13 @@ describe("igniteCore type inference", () => {
 			},
 		});
 
-		const result = register.execute("increment", 2);
+		const result = register.execute({ command: "increment", input: 2 });
 		const schema = register.getSchema();
+		expectTypeOf<Parameters<typeof register.execute>[0]>().toEqualTypeOf<
+			IgniteCommandCall<{
+				increment: (amount: number) => unknown;
+			}>
+		>();
 		expectTypeOf(result).toEqualTypeOf<
 			Promise<{
 				snapshot: StoreState;
@@ -1151,11 +1157,16 @@ describe("igniteCore type inference", () => {
 		});
 
 		const story = register.record("typed counter");
-		const storyResult = story.execute("increment", 2);
+		const storyResult = story.execute({ command: "increment", input: 2 });
+		expectTypeOf<Parameters<typeof story.execute>[0]>().toEqualTypeOf<
+			IgniteCommandCall<{
+				increment: (amount: number) => unknown;
+			}>
+		>();
 		const storyView = story.until(
 			(view) => view.count >= 4,
 			() => {
-				story.execute("increment", 1);
+				story.execute({ command: "increment", input: 1 });
 			},
 			{ maxSteps: 3 },
 		);
@@ -1186,9 +1197,13 @@ describe("igniteCore type inference", () => {
 
 		const expectRuntimeValidation = () => {
 			// @ts-expect-error - command name should be validated
-			register.execute("incrementt", 2);
+			register.execute({ command: "incrementt", input: 2 });
 			// @ts-expect-error - story command name should be validated
-			story.execute("incrementt", 2);
+			story.execute({ command: "incrementt", input: 2 });
+			// @ts-expect-error - positional execute overloads are removed
+			register.execute("increment", 2);
+			// @ts-expect-error - positional story execute overloads are removed
+			story.execute("increment", 2);
 			// @ts-expect-error - event name should be validated
 			register.on("counter-incrementedd", () => {});
 		};
@@ -1305,7 +1320,7 @@ describe("igniteCore type inference", () => {
 			},
 		});
 
-		expectTypeOf(register.execute("increment")).toEqualTypeOf<
+		expectTypeOf(register.execute({ command: "increment" })).toEqualTypeOf<
 			Promise<{
 				snapshot: XStateSnapshot<typeof machine>;
 				events: Array<
@@ -1322,7 +1337,7 @@ describe("igniteCore type inference", () => {
 		>();
 
 		const story = register.record("typed xstate authoring");
-		expectTypeOf(story.execute("increment")).toEqualTypeOf<
+		expectTypeOf(story.execute({ command: "increment" })).toEqualTypeOf<
 			Promise<{
 				snapshot: XStateSnapshot<typeof machine>;
 				events: Array<
@@ -1358,14 +1373,14 @@ describe("igniteCore type inference", () => {
 			}),
 		});
 
-		void register.execute("addByAmount", 2);
+		void register.execute({ command: "addByAmount", input: 2 });
 		const schema = register.getSchema();
 
 		expectTypeOf(schema.commands).toEqualTypeOf<IgniteAgentCommandSchema>();
 
 		const expectPayloadValidation = () => {
 			// @ts-expect-error - wrapped command payload should remain numeric
-			register.execute("addByAmount", "2");
+			register.execute({ command: "addByAmount", input: "2" });
 		};
 
 		void expectPayloadValidation;

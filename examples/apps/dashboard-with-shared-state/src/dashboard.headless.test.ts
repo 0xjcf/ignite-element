@@ -42,8 +42,8 @@ describe("dashboard shared state — headless runtime", () => {
 		const filters = makeFiltersRuntime(actor);
 		const summary = makeSummaryRuntime(actor);
 
-		await filters.execute("selectTeam", "ops");
-		await filters.execute("selectRange", "day");
+		await filters.execute({ command: "selectTeam", input: "ops" });
+		await filters.execute({ command: "selectRange", input: "day" });
 
 		expect(summary.getView()).toMatchObject({
 			team: "ops",
@@ -58,7 +58,10 @@ describe("dashboard shared state — headless runtime", () => {
 		const actor = createSharedDashboard();
 		const summary = makeSummaryRuntime(actor);
 
-		const result = await summary.execute("dismissAlert", "latency");
+		const result = await summary.execute({
+			command: "dismissAlert",
+			input: "latency",
+		});
 
 		expect(result.events).toContainEqual({
 			type: "alertDismissed",
@@ -72,8 +75,11 @@ describe("dashboard shared state — headless runtime", () => {
 		const actor = createSharedDashboard();
 		const summary = makeSummaryRuntime(actor);
 
-		await summary.execute("dismissAlert", "latency");
-		const result = await summary.execute("dismissAlert", "latency");
+		await summary.execute({ command: "dismissAlert", input: "latency" });
+		const result = await summary.execute({
+			command: "dismissAlert",
+			input: "latency",
+		});
 
 		expect(result.events).not.toContainEqual({
 			type: "alertDismissed",

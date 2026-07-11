@@ -62,7 +62,7 @@ describe("ignite test DSL types", () => {
 		const scenario = (
 			await igniteTest(component)
 				.given({ value: "off" })
-				.when({ name: "toggle" })
+				.when({ command: "toggle" })
 		)
 			.expectSnapshot({ value: "on" })
 			.expectEvent({ type: "toggled", isOn: true });
@@ -117,10 +117,10 @@ describe("ignite test DSL types", () => {
 		const component = igniteCore(componentConfig);
 
 		const expectWhenTyping = () => {
-			igniteTest(component).when({ name: "increment", input: 2 });
-			igniteTest(component).when({ name: "decrement" });
-			igniteTest(component).when({ name: "maybeIncrement" });
-			igniteTest(component).when({ name: "maybeIncrement", input: 3 });
+			igniteTest(component).when({ command: "increment", input: 2 });
+			igniteTest(component).when({ command: "decrement" });
+			igniteTest(component).when({ command: "maybeIncrement" });
+			igniteTest(component).when({ command: "maybeIncrement", input: 3 });
 		};
 		expectTypeOf(
 			igniteTest(component).canExecute("decrement"),
@@ -128,13 +128,13 @@ describe("ignite test DSL types", () => {
 
 		const expectCommandNameValidation = () => {
 			// @ts-expect-error - required command input must be present
-			igniteTest(component).when({ name: "increment" });
+			igniteTest(component).when({ command: "increment" });
 			// @ts-expect-error - no-arg commands do not accept input
-			igniteTest(component).when({ name: "decrement", input: 1 });
+			igniteTest(component).when({ command: "decrement", input: 1 });
 			// @ts-expect-error - invalid command input type
-			igniteTest(component).when({ name: "increment", input: "2" });
+			igniteTest(component).when({ command: "increment", input: "2" });
 			// @ts-expect-error - `when` is typed to known command names
-			igniteTest(component).when({ name: "missing" });
+			igniteTest(component).when({ command: "missing" });
 			// @ts-expect-error - positional overload is removed in favor of object form
 			igniteTest(component).when("increment", 2);
 			// @ts-expect-error - canExecute is typed to known command names

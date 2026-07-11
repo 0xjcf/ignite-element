@@ -161,7 +161,7 @@ const router = igniteCore({
   }),
 });
 
-await router.execute("navigate", "/users/7");
+await router.execute({ command: "navigate", input: "/users/7" });
 expect(router.getView().id).toBe("7");
 expect(router.getView().path).toBe("/users/7");
 ```

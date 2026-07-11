@@ -24,7 +24,7 @@ describe("nested child router — headless runtime", () => {
 	it("drives a child outlet through a scoped command", async () => {
 		const router = makeRouter();
 
-		await router.execute("openDocSection", "api");
+		await router.execute({ command: "openDocSection", input: "api" });
 
 		expect(router.getView()).toMatchObject({
 			parent: "docs",
@@ -37,13 +37,13 @@ describe("nested child router — headless runtime", () => {
 	it("keeps parent and child projections in sync across route changes", async () => {
 		const router = makeRouter();
 
-		await router.execute("navigate", "/settings/billing");
+		await router.execute({ command: "navigate", input: "/settings/billing" });
 		expect(router.getView()).toMatchObject({
 			parent: "settings",
 			child: "billing",
 		});
 
-		await router.execute("openDocSection", "examples");
+		await router.execute({ command: "openDocSection", input: "examples" });
 		expect(router.getView()).toMatchObject({
 			parent: "docs",
 			child: "examples",
@@ -54,7 +54,10 @@ describe("nested child router — headless runtime", () => {
 	it("captures nested route events in execute().events", async () => {
 		const router = makeRouter();
 
-		const result = await router.execute("navigate", "/docs/api");
+		const result = await router.execute({
+			command: "navigate",
+			input: "/docs/api",
+		});
 
 		expect(result.events).toContainEqual({
 			type: "routed",

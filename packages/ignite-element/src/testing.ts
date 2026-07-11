@@ -15,6 +15,7 @@ import { toSchemaValue } from "./runtime/schema";
 import type {
 	IgniteAgentExecutionResult,
 	IgniteAgentRuntime,
+	IgniteCommandCall,
 	IgniteStory,
 	IgniteStorySnapshot,
 	IgniteStorySnapshotEvent,
@@ -197,20 +198,10 @@ type RuntimeView<Runtime> = (Runtime extends IgniteAgentRuntime<
 	// projection's own keys typed.
 	Record<string, unknown>;
 
-type CommandFirstArg<Command> = Command extends (...args: infer Args) => unknown
-	? Args[0]
-	: never;
-
 export type IgniteTestCommandStep<
 	Commands extends FacadeCommandResult,
 	CommandName extends keyof Commands & string = keyof Commands & string,
-> = {
-	[Name in CommandName]: Parameters<Commands[Name]> extends []
-		? { name: Name }
-		: undefined extends CommandFirstArg<Commands[Name]>
-			? { name: Name; input?: CommandFirstArg<Commands[Name]> }
-			: { name: Name; input: CommandFirstArg<Commands[Name]> };
-}[CommandName];
+> = IgniteCommandCall<Commands, CommandName>;
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" &&
@@ -731,13 +722,7 @@ class IgniteTestDriver<
 	async when<CommandName extends keyof Commands & string>(
 		step: IgniteTestCommandStep<Commands, CommandName>,
 	) {
-		const payload = "input" in step ? step.input : undefined;
-		this.lastResult = await this.withHost(() =>
-			this.component.execute(
-				step.name,
-				payload as Parameters<Commands[CommandName]>[0],
-			),
-		);
+		this.lastResult = await this.withHost(() => this.component.execute(step));
 		return this;
 	}
 

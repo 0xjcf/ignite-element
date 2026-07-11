@@ -47,8 +47,10 @@ type RuntimeStory = {
 
 type AgentRuntime = {
 	execute: (
-		command: "increment" | "setLimit" | "setStep",
-		payload?: number,
+		call:
+			| { command: "increment" }
+			| { command: "setLimit"; input: number }
+			| { command: "setStep"; input: number },
 	) => Promise<{
 		events: RuntimeEvent[];
 	}>;
@@ -82,16 +84,16 @@ test("agents can drive the XState example runtime without DOM locators", async (
 		const startView = runtime.getView();
 		const story = runtime.record("playwright reaches limit");
 
-		await story.execute("setStep", 2);
+		await story.execute({ command: "setStep", input: 2 });
 		const stepView = runtime.getView();
-		await story.execute("setLimit", 6);
+		await story.execute({ command: "setLimit", input: 6 });
 		const limitView = runtime.getView();
 
 		let steps = 0;
 		const finalView = await story.until(
 			(view) => view.isLimited,
 			async () => {
-				await story.execute("increment");
+				await story.execute({ command: "increment" });
 				steps += 1;
 			},
 			{ maxSteps: 20 },

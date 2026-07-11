@@ -203,7 +203,7 @@ const subscription = shipmentFeed.on('SHIPMENT_CANCELLED', (event) => {
 subscription.unsubscribe();
 
 // execute().events — emits captured during the command window as flat members.
-const result = await shipmentFeed.execute('cancel', 'shipment-1');
+const result = await shipmentFeed.execute({ command: 'cancel', input: 'shipment-1' });
 for (const entry of result.events) {
   if (entry.type === 'SHIPMENT_CANCELLED') {
     console.log(entry.reason);

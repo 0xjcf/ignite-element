@@ -331,7 +331,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 
 	it("round-trips an array command through Anthropic value wrapping", async () => {
 		const home = createHome();
-		await home.execute("runScene", "morning");
+		await home.execute({ command: "runScene", input: "morning" });
 		const tools = igniteTools(home, anthropic);
 		const [call] = tools.toolCalls({
 			content: [
@@ -373,35 +373,47 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 	it("clears the active scene when a device is manually overridden", async () => {
 		const home = createHome();
 
-		await home.execute("runScene", "morning");
+		await home.execute({ command: "runScene", input: "morning" });
 		expect(home.getView().activeScene).toBe("morning");
-		await home.execute("setThermostat", { room: "living", temp: 69 });
+		await home.execute({
+			command: "setThermostat",
+			input: { room: "living", temp: 69 },
+		});
 		expect(home.getView().activeScene).toBeNull();
 
-		await home.execute("runScene", "movie");
+		await home.execute({ command: "runScene", input: "movie" });
 		expect(home.getView().activeScene).toBe("movie");
-		await home.execute("setBlinds", { room: "living", percent: 25 });
+		await home.execute({
+			command: "setBlinds",
+			input: { room: "living", percent: 25 },
+		});
 		expect(home.getView().activeScene).toBeNull();
 
-		await home.execute("runScene", "away");
+		await home.execute({ command: "runScene", input: "away" });
 		expect(home.getView().activeScene).toBe("away");
-		await home.execute("unlockDoor", "front");
+		await home.execute({ command: "unlockDoor", input: "front" });
 		expect(home.getView().activeScene).toBeNull();
 	});
 
 	it("keeps the active scene when a manual command is a no-op", async () => {
 		const home = createHome();
 
-		await home.execute("runScene", "away");
+		await home.execute({ command: "runScene", input: "away" });
 		expect(home.getView().activeScene).toBe("away");
-		await home.execute("lockDoor", "front");
+		await home.execute({ command: "lockDoor", input: "front" });
 		expect(home.getView().activeScene).toBe("away");
 
-		await home.execute("runScene", "morning");
+		await home.execute({ command: "runScene", input: "morning" });
 		expect(home.getView().activeScene).toBe("morning");
-		await home.execute("setThermostat", { room: "living", temp: 70 });
+		await home.execute({
+			command: "setThermostat",
+			input: { room: "living", temp: 70 },
+		});
 		expect(home.getView().activeScene).toBe("morning");
-		await home.execute("toggleLight", { room: "living", on: true });
+		await home.execute({
+			command: "toggleLight",
+			input: { room: "living", on: true },
+		});
 		expect(home.getView().activeScene).toBe("morning");
 	});
 
@@ -410,14 +422,17 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 		const home = createHome();
 
 		try {
-			await home.execute("transitionScene", "movie");
+			await home.execute({ command: "transitionScene", input: "movie" });
 			expect(home.getView()).toMatchObject({
 				activeScene: null,
 				pendingScene: "movie",
 			});
 
-			await home.execute("lockDoor", "front");
-			await home.execute("setThermostat", { room: "living", temp: 68 });
+			await home.execute({ command: "lockDoor", input: "front" });
+			await home.execute({
+				command: "setThermostat",
+				input: { room: "living", temp: 68 },
+			});
 
 			expect(home.getView()).toMatchObject({
 				activeScene: null,

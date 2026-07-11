@@ -206,7 +206,7 @@ control from the resulting `target`. External integrations use the same command
 path, so their updates converge through the same actor state:
 
 ```ts no-check
-await thermostat.execute('setTargetDraft', 72);
+await thermostat.execute({ command: 'setTargetDraft', input: 72 });
 ```
 
 The save handler still reads the synchronized native control. It does not own a
@@ -234,7 +234,7 @@ const canSave = thermostat.canExecute('saveTarget');
 
 if (canSave) {
   try {
-    const result = await thermostat.execute('saveTarget', 70);
+    const result = await thermostat.execute({ command: 'saveTarget', input: 70 });
     console.log(result.snapshot, result.events);
   } catch (error) {
     // Availability can change after preflight; execute remains authoritative.

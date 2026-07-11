@@ -40,8 +40,11 @@ const waitForStatus = async (
 describe("signup form — headless runtime", () => {
 	it("projects per-field validation through getView", async () => {
 		const form = makeForm();
-		await form.execute("updateField", { field: "email", value: "nope" });
-		await form.execute("blurField", "email");
+		await form.execute({
+			command: "updateField",
+			input: { field: "email", value: "nope" },
+		});
+		await form.execute({ command: "blurField", input: "email" });
 
 		expect(form.getView().errors.email).toBe("Enter a valid email address");
 		expect(form.getView().canSubmit).toBe(false);
@@ -49,7 +52,7 @@ describe("signup form — headless runtime", () => {
 
 	it("blocks an invalid submit and stays editing", async () => {
 		const form = makeForm();
-		await form.execute("submit");
+		await form.execute({ command: "submit" });
 
 		const view = form.getView();
 		expect(view.status).toBe("editing");
@@ -62,15 +65,24 @@ describe("signup form — headless runtime", () => {
 
 	it("submits a valid form through to success", async () => {
 		const form = makeForm();
-		await form.execute("updateField", { field: "name", value: "Ada" });
-		await form.execute("updateField", {
-			field: "email",
-			value: "ada@example.com",
+		await form.execute({
+			command: "updateField",
+			input: { field: "name", value: "Ada" },
 		});
-		await form.execute("updateField", { field: "password", value: "hunter2!" });
+		await form.execute({
+			command: "updateField",
+			input: {
+				field: "email",
+				value: "ada@example.com",
+			},
+		});
+		await form.execute({
+			command: "updateField",
+			input: { field: "password", value: "hunter2!" },
+		});
 		expect(form.getView().canSubmit).toBe(true);
 
-		await form.execute("submit");
+		await form.execute({ command: "submit" });
 		await waitForStatus(form, "success");
 		expect(form.getView().status).toBe("success");
 	});

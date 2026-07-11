@@ -231,14 +231,14 @@ Events are:
 Every `igniteCore(...)` registration exposes a headless runtime API in addition to the DOM component.
 
 ```ts
-const result = toggle.execute("toggle");
-toggle.getState();
+const result = toggle.execute({ command: "toggle" });
+toggle.getSnapshot();
 toggle.getView();
 toggle.getSchema();
 toggle.on("toggled", (event) => {
-  console.log(event.detail.isOn);
+  console.log(event.isOn);
 });
-toggle.watch((state, prevState) => {
+toggle.watchSnapshot((state, prevState) => {
   console.log(prevState.value, "->", state.value);
 });
 toggle.watchView((view, prevView) => {
@@ -246,13 +246,13 @@ toggle.watchView((view, prevView) => {
 });
 ```
 
-Use `on(...)` for outward event signals, `watch(...)` for raw state changes, and `watchView(...)` for projected view changes.
+Use `on(...)` for outward event signals, `watchSnapshot(...)` for raw state changes, and `watchView(...)` for projected view changes.
 
 Use `record(...)` when a test or agent needs workflow evidence:
 
 ```ts
 const story = toggle.record("turns on");
-story.execute("toggle");
+story.execute({ command: "toggle" });
 story.trace();
 story.lifecycle();
 story.summary();
@@ -263,8 +263,8 @@ story.stop();
 
 ```ts
 {
-  state,
-  events: [{ type: "toggled", payload: { isOn: true } }]
+  snapshot,
+  events: [{ type: "toggled", isOn: true }]
 }
 ```
 
@@ -275,8 +275,8 @@ story.stop();
   commands: {
     toggle: {}
   },
-  events: ["toggled"],
-  state: { value: "off", context: {} }
+  events: [{ type: "toggled" }],
+  snapshot: { value: "off", context: {} }
 }
 ```
 
@@ -291,7 +291,7 @@ import { test as igniteTest } from "ignite-element";
 
 (await igniteTest(toggle)
   .given({ value: "off" })
-  .when({ name: "toggle" }))
+  .when({ command: "toggle" }))
   .expectSnapshot({ value: "on" })
   .expectEvent({ type: "toggled", isOn: true });
 ```
