@@ -49,10 +49,20 @@ Replace positional igniteTest.when(commandName, input?) with the self-describing
 - docs/testing.md
 - docs/site/src/content/docs/api/testing-dsl.mdx
 - examples
+- README.md
+- docs/can-execute.md
 
 ## Scope Amendments
 
-- None.
+- Type: scope-expansion
+- Added at: 2026-07-11
+- Trigger: repo-wide positional igniteTest.when search after implementation
+- Reason: Acceptance requires all documentation to migrate in the same breaking change; these two examples still used the removed positional form.
+- Added paths: README.md, docs/can-execute.md
+- Evidence source: senior engineer verification handoff
+- Evidence: senior engineer verification handoff | README.md | README.md:294 and docs/can-execute.md:136 contain positional scenario.when calls.
+- Accuracy signal: Both snippets target igniteTest scenario.when, not unrelated execute or selector APIs.
+- Follow-up needed: Migrate both snippets in a docs-only incremental commit and rerun docs/search gates.
 
 ## Implementation plan
 

@@ -361,7 +361,7 @@
       "taskClassification": "standard",
       "selfImprovementCategory": null,
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "processing",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -373,7 +373,7 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-11T01:56:45.336Z",
-      "updatedAt": "2026-07-11T01:56:45.336Z"
+      "updatedAt": "2026-07-11T02:17:47.267Z"
     },
     {
       "id": "task-1783735835707",
