@@ -133,7 +133,7 @@ So the scenario exposes `canExecute(name): boolean` (mirroring the runtime) and 
 it natively:
 
 ```ts
-await scenario.when("build");
+await scenario.when({ name: "build" });
 expect(scenario.canExecute("deploy")).toBe(true);
 expect(scenario.canExecute("promote")).toBe(false);
 ```

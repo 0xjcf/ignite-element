@@ -291,7 +291,7 @@ import { test as igniteTest } from "ignite-element";
 
 igniteTest(toggle)
   .given("off")
-  .when("toggle")
+  .when({ name: "toggle" })
   .expectState("on")
   .expectEvent("toggled", { isOn: true });
 ```
