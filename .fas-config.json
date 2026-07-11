@@ -58,7 +58,7 @@
 		"baseBranch": "main"
 	},
 	"autonomyPolicy": {
-		"mode": "independent-only",
+		"mode": "stack-allowed",
 		"runtimeMode": "active",
 		"allowedTaskClasses": ["independent", "dependent", "monitor"],
 		"maxActiveDraftPrs": 5,
