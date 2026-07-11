@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { assign, createMachine, type StateFrom, setup } from "xstate";
 import { igniteCore } from "../IgniteCore";
 import type { ReduxInstanceConfig, XStateConfig } from "../igniteCore/types";
@@ -65,7 +65,11 @@ describe("ignite test DSL", () => {
 		} satisfies XStateConfig<typeof machine, ToggleEventMap>;
 		const component = igniteCore(componentConfig);
 
-		(await igniteTest(component).given({ value: "off" }).when("toggle"))
+		(
+			await igniteTest(component)
+				.given({ value: "off" })
+				.when({ name: "toggle" })
+		)
 			.expectSnapshot({ value: "on" })
 			.expectEvent({ type: "toggled", isOn: true });
 	});
@@ -93,7 +97,7 @@ describe("ignite test DSL", () => {
 			Record<string, never>
 		>;
 
-		const scenario = await igniteTest(runtime).when("noop");
+		const scenario = await igniteTest(runtime).when({ name: "noop" });
 
 		expect(() => scenario.expectSnapshot(null)).not.toThrow();
 	});
@@ -121,7 +125,7 @@ describe("ignite test DSL", () => {
 
 		const scenario = await igniteTest(component)
 			.given({ value: "off" })
-			.when("toggle");
+			.when({ name: "toggle" });
 
 		scenario
 			// partial-object match against the projected view
@@ -200,7 +204,9 @@ describe("ignite test DSL", () => {
 			},
 		} satisfies XStateConfig<typeof machine, ModuleEventMap>);
 
-		const scenario = await igniteTest(component, { host }).when("startModule");
+		const scenario = await igniteTest(component, { host }).when({
+			name: "startModule",
+		});
 
 		scenario
 			.expectSnapshot({ context: { startedModule: "dispatch" } })
@@ -463,7 +469,10 @@ describe("ignite test DSL", () => {
 			}),
 		});
 
-		const scenario = await igniteTest(component).when("increment", 1);
+		const scenario = await igniteTest(component).when({
+			name: "increment",
+			input: 1,
+		});
 		const result = scenario
 			.expectSnapshot({ counter: { count: 1 } })
 			.getResult();
@@ -509,10 +518,74 @@ describe("ignite test DSL", () => {
 		expect(scenario.canExecute("decrement")).toBe(false);
 		expect(story.canExecute("decrement")).toBe(false);
 
-		await scenario.when("increment", 2);
+		await scenario.when({ name: "increment", input: 2 });
 		expect(scenario.canExecute("decrement")).toBe(true);
 		expect(story.canExecute("decrement")).toBe(true);
 		story.stop();
+	});
+
+	it("forwards object-form command steps and omits input for no-arg commands", async () => {
+		const execute = vi
+			.fn<
+				(commandName: string, payload?: unknown) => Promise<{
+					snapshot: { count: number };
+					events: [];
+				}>
+			>()
+			.mockResolvedValue({
+				snapshot: { count: 1 },
+				events: [],
+			});
+		const runtime = {
+			execute,
+			getSnapshot: () => ({ count: 0 }),
+			getView: () => ({ count: 0 }),
+			canExecute: () => true,
+			on: () => ({ unsubscribe() {} }),
+			watchSnapshot: () => ({ unsubscribe() {} }),
+			watchView: () => ({ unsubscribe() {} }),
+		} as unknown as IgniteAgentRuntime<
+			{ count: number },
+			{
+				increment: (amount: number) => unknown;
+				decrement: () => unknown;
+				maybeIncrement: (amount?: number) => unknown;
+			},
+			EmptyEventMap,
+			unknown,
+			{ count: number }
+		>;
+
+		await igniteTest(runtime).when({ name: "increment", input: 2 });
+		await igniteTest(runtime).when({ name: "decrement" });
+		await igniteTest(runtime).when({ name: "maybeIncrement" });
+		await igniteTest(runtime).when({ name: "maybeIncrement", input: 3 });
+
+		expect(execute.mock.calls).toEqual([
+			["increment", 2],
+			["decrement", undefined],
+			["maybeIncrement", undefined],
+			["maybeIncrement", 3],
+		]);
+	});
+
+	it("surfaces runtime unknown-command failures for object-form steps", async () => {
+		const store = counterStore();
+		const component = igniteCore({
+			adapter: "redux",
+			source: store,
+			commands: ({ actor }) => ({
+				increment: (amount: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+			}),
+		});
+		const dynamicScenario = igniteTest(component) as unknown as {
+			when(step: { name: string; input?: unknown }): Promise<unknown>;
+		};
+
+		await expect(dynamicScenario.when({ name: "missing" })).rejects.toThrow(
+			'[igniteCore] Unknown command "missing".',
+		);
 	});
 
 	it("serializes story traces and matches ordered workflow checkpoints", async () => {

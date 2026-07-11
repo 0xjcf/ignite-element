@@ -60,7 +60,9 @@ describe("ignite test DSL types", () => {
 		const component = igniteCore(componentConfig);
 
 		const scenario = (
-			await igniteTest(component).given({ value: "off" }).when("toggle")
+			await igniteTest(component)
+				.given({ value: "off" })
+				.when({ name: "toggle" })
 		)
 			.expectSnapshot({ value: "on" })
 			.expectEvent({ type: "toggled", isOn: true });
@@ -89,6 +91,8 @@ describe("ignite test DSL types", () => {
 			commands: ({ actor, command }) => ({
 				increment: (amount: number) =>
 					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+				maybeIncrement: (amount?: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount ?? 1)),
 				decrement: command(
 					() => actor.dispatch(counterSlice.actions.decrement()),
 					{
@@ -112,17 +116,33 @@ describe("ignite test DSL types", () => {
 		>;
 		const component = igniteCore(componentConfig);
 
-		igniteTest(component).when("increment", 2);
+		const expectWhenTyping = () => {
+			igniteTest(component).when({ name: "increment", input: 2 });
+			igniteTest(component).when({ name: "decrement" });
+			igniteTest(component).when({ name: "maybeIncrement" });
+			igniteTest(component).when({ name: "maybeIncrement", input: 3 });
+		};
 		expectTypeOf(
 			igniteTest(component).canExecute("decrement"),
 		).toEqualTypeOf<boolean>();
 
 		const expectCommandNameValidation = () => {
+			// @ts-expect-error - required command input must be present
+			igniteTest(component).when({ name: "increment" });
+			// @ts-expect-error - no-arg commands do not accept input
+			igniteTest(component).when({ name: "decrement", input: 1 });
+			// @ts-expect-error - invalid command input type
+			igniteTest(component).when({ name: "increment", input: "2" });
+			// @ts-expect-error - `when` is typed to known command names
+			igniteTest(component).when({ name: "missing" });
+			// @ts-expect-error - positional overload is removed in favor of object form
+			igniteTest(component).when("increment", 2);
 			// @ts-expect-error - canExecute is typed to known command names
 			igniteTest(component).canExecute("missing");
 		};
 
 		expectTypeOf(igniteTest(component).expectSnapshot).toBeFunction();
+		void expectWhenTyping;
 		void expectCommandNameValidation;
 	});
 
