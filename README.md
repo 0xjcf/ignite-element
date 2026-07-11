@@ -289,11 +289,11 @@ Ignite includes a built-in headless testing DSL for state and event assertions.
 ```ts
 import { test as igniteTest } from "ignite-element";
 
-igniteTest(toggle)
-  .given("off")
-  .when({ name: "toggle" })
-  .expectState("on")
-  .expectEvent("toggled", { isOn: true });
+(await igniteTest(toggle)
+  .given({ value: "off" })
+  .when({ name: "toggle" }))
+  .expectSnapshot({ value: "on" })
+  .expectEvent({ type: "toggled", isOn: true });
 ```
 
 Because this runs against the same deterministic runtime, state and event expectations stay aligned with real component behavior.
