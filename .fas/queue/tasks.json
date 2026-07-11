@@ -182,14 +182,14 @@
     },
     {
       "id": "task-1783719632720",
-      "task": "Design retained-surface lifecycle and projection-commit contract for complex interfaces",
+      "task": "Define retained-surface ref and commit contract for complex interfaces",
       "priority": "critical",
       "source": "manual",
-      "details": "Define the Ignite-owned architecture for retained imperative presentation surfaces such as canvas, WebGL, editors, maps, video, and high-frequency dashboards. Compare callback refs, renderer commit directives, lifecycle resources, and first-party projection-target approaches against the current igniteCore and Ignite JSX contracts. Preserve source/view/commands/events/effects semantics, keep effects consequence-oriented, keep Actor-Web authoritative for runtime and simulation, and avoid a canvas-specific core API or a generic multi-source state owner.\nSee .fas/tasks/design-retained-surface-lifecycle-and-projection-commit-cont.md",
+      "details": "Define the Ignite-owned architecture for retained imperative presentation surfaces using the existing two-stage igniteCore API. The accepted JSX direction is component(\"name\", projection => <canvas ref={acquireResource} commit={(canvas) => draw(canvas, projection)} />): ref acquires the stable node and may return cleanup; commit is a reserved post-reconciliation renderer directive. Keep scheduling out of igniteCore until dogfood demonstrates a framework-owned need.\nSee .fas/tasks/design-retained-surface-lifecycle-and-projection-commit-cont.md",
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "processing",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [],
@@ -199,16 +199,16 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-10T21:40:32.720Z",
-      "updatedAt": "2026-07-10T21:47:07.305Z",
+      "updatedAt": "2026-07-11T22:49:48.000Z",
       "deferredReason": null,
       "invalidationReason": null
     },
     {
       "id": "task-1783719649309",
-      "task": "Implement typed retained-node refs and move-safe resource lifecycle",
+      "task": "Implement typed retained-node refs, commit directives, and move-safe lifecycle",
       "priority": "high",
       "source": "manual",
-      "details": "Implement the architecture-approved generic retained-node access path for Ignite JSX and reactive Ignite components. The primitive must support imperative presentation resources without turning drawing or editor state into source truth. Cover initial commit, update, replacement, ref identity change, error containment, same-tick move preservation, true-disconnect teardown, reconnect, and isolated/shared source ownership. Keep the default renderer contract source-compatible and do not add canvas-specific APIs.\nSee .fas/tasks/implement-typed-retained-node-refs-and-move-safe-resource-li.md",
+      "details": "Implement typed callback refs and a reserved commit renderer directive for retained Ignite JSX nodes. ref acquires the stable node and may return cleanup; commit runs after reconciliation and ref acquisition. Preserve move-safe lifecycle and source ownership without DOM leakage, canvas-specific APIs, or framework scheduling.\nSee .fas/tasks/implement-typed-retained-node-refs-and-move-safe-resource-li.md",
       "taskClassification": "standard",
       "selfImprovementCategory": null,
       "signalFingerprint": null,
@@ -224,7 +224,7 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-10T21:40:49.309Z",
-      "updatedAt": "2026-07-10T21:41:05.018Z",
+      "updatedAt": "2026-07-11T22:49:48.000Z",
       "deferredReason": "dependency_reopened: task-1783719632720",
       "invalidationReason": null
     },
@@ -233,7 +233,7 @@
       "task": "Honor Ignite JSX keys and preserve retained interface nodes during reconciliation",
       "priority": "high",
       "source": "manual",
-      "details": "Implement key-aware Ignite JSX normalization and reconciliation so retained interface nodes preserve identity across insertions, removals, and reorders. Integrate the retained-node lifecycle contract from the preceding task, preserve focus, selection, canvas/WebGL context identity, and editor-style imperative state, and define deterministic duplicate-key and mixed keyed/unkeyed behavior. Keep positional reconciliation as the compatible unkeyed path and retain explicit fallback diagnostics.\nSee .fas/tasks/honor-ignite-jsx-keys-and-preserve-retained-interface-nodes-.md",
+      "details": "Implement key-aware Ignite JSX normalization and reconciliation so retained interface nodes preserve identity across insertions, removals, and reorders. Integrate the preceding ref/commit lifecycle, preserve focus, selection, canvas/WebGL context identity, and editor state, and keep positional reconciliation as the compatible unkeyed path without adding scheduling policy.\nSee .fas/tasks/honor-ignite-jsx-keys-and-preserve-retained-interface-nodes-.md",
       "taskClassification": "standard",
       "selfImprovementCategory": null,
       "signalFingerprint": null,
@@ -244,23 +244,48 @@
         "task-1783719649309"
       ],
       "blocks": [
-        "task-1783719681572"
+        "task-1783719697500"
       ],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-10T21:41:05.018Z",
-      "updatedAt": "2026-07-10T21:41:21.572Z",
+      "updatedAt": "2026-07-11T22:49:48.000Z",
       "deferredReason": "dependency_reopened: task-1783719649309",
       "invalidationReason": null
     },
     {
       "id": "task-1783719681572",
-      "task": "Add opt-in projection commit scheduling for high-frequency sources",
+      "task": "Evaluate retained-surface scheduling needs after canvas and Mesh Pong dogfood",
       "priority": "high",
       "source": "manual",
-      "details": "Add the architecture-approved opt-in scheduling policy for reactive projection commits from high-frequency sources. Preserve the current synchronous default. Coalesce only presentation commits using latest-snapshot semantics; never drop or merge source snapshots, commands, source-emitted events, telemetry facts, or authoritative actor transitions. Reconcile scheduled rendering with Ignite effects so effects that depend on committed DOM still run after the matching commit, and cancel queued work safely on replacement or true disconnect.\nSee .fas/tasks/add-opt-in-projection-commit-scheduling-for-high-frequency-s.md",
+      "details": "Evaluate whether the shipped ref/commit lifecycle plus consumer-owned requestAnimationFrame or microtask scheduling are sufficient after the local canvas stress example and read-only Actor-Web Mesh Pong validation. This is an evidence and verdict task, not a predetermined implementation. Prefer no new public surface; commitScheduling in igniteCore remains rejected.\nSee .fas/tasks/add-opt-in-projection-commit-scheduling-for-high-frequency-s.md",
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "4-agent",
+      "dependsOn": [
+        "task-1783719721452"
+      ],
+      "blocks": [
+        "task-1783719740973"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-10T21:41:21.572Z",
+      "updatedAt": "2026-07-11T22:54:20.056Z",
+      "deferredReason": "dependency_reopened: task-1783719721452",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1783719697500",
+      "task": "Build a retained real-time canvas stress example and conformance suite",
+      "priority": "high",
+      "source": "manual",
+      "details": "Build a self-contained Ignite canvas example that dogfoods the shipped ref/commit, keyed reconciliation, and move-safe lifecycle contracts. Keep authoritative snapshots separate from display interpolation and demonstrate DPR sizing, ResizeObserver cleanup, consumer-owned requestAnimationFrame drawing, scoped input, recovery, cadence telemetry, and semantic DOM companions without scheduler configuration or game-specific core behavior.\nSee .fas/tasks/build-a-retained-real-time-canvas-stress-example-and-conform.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
       "status": "deferred",
       "owner": "runtime",
@@ -269,38 +294,13 @@
         "task-1783719665018"
       ],
       "blocks": [
-        "task-1783719697500"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-10T21:41:21.572Z",
-      "updatedAt": "2026-07-10T21:41:37.500Z",
-      "deferredReason": "dependency_reopened: task-1783719665018",
-      "invalidationReason": null
-    },
-    {
-      "id": "task-1783719697500",
-      "task": "Build a retained real-time canvas stress example and conformance suite",
-      "priority": "high",
-      "source": "manual",
-      "details": "Build a self-contained Ignite example that stress-tests the retained-surface, keyed reconciliation, lifecycle, and commit-scheduling contracts using a real-time canvas backed by deterministic authoritative snapshots. Keep the simulation clock and state authority separate from display interpolation. Demonstrate high-DPI responsive sizing, ResizeObserver cleanup, requestAnimationFrame interpolation, scoped keyboard and pointer input, blur/visibility recovery, telemetry for source versus render cadence, and semantic DOM controls/status alongside the canvas. The example must exercise generic Ignite APIs rather than introduce a canvas package or game-specific core behavior.\nSee .fas/tasks/build-a-retained-real-time-canvas-stress-example-and-conform.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "deferred",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [
-        "task-1783719681572"
-      ],
-      "blocks": [
         "task-1783719721452"
       ],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-10T21:41:37.500Z",
-      "updatedAt": "2026-07-10T21:42:01.452Z",
-      "deferredReason": "dependency_reopened: task-1783719681572",
+      "updatedAt": "2026-07-11T22:49:48.000Z",
+      "deferredReason": "dependency_reopened: task-1783719665018",
       "invalidationReason": null
     },
     {
@@ -308,7 +308,7 @@
       "task": "Validate the retained-interface contract against Actor-Web Mesh Pong",
       "priority": "high",
       "source": "manual",
-      "details": "Run a bounded cross-repo consumer validation against the current Actor-Web Mesh Pong implementation after the generic Ignite capabilities and local stress example are complete. Treat Actor-Web as a read-only downstream consumer in this task. Verify that authoritative topology sources/read models can feed a headless igniteCore contract and retained canvas component without a Mesh-Pong-specific Ignite wrapper, hardcoded transport facts, DOM-owned lifecycle repair, or migration of simulation/controller/advisory authority into Ignite. Produce a decision-ready adoption brief and create any Actor-Web-owned implementation follow-ups in the Actor-Web queue separately.\nSee .fas/tasks/validate-the-retained-interface-contract-against-actor-web-m.md",
+      "details": "Run a bounded read-only validation against Actor-Web Mesh Pong using the existing igniteCore callable registration API, generic ref/commit directives, and consumer-owned drawing cadence. Verify source/read-model ownership, stable canvas lifecycle, transport truth, and measured reconciliation/draw cadence without a Mesh-Pong wrapper, scheduler configuration, or migration of simulation authority into Ignite.\nSee .fas/tasks/validate-the-retained-interface-contract-against-actor-web-m.md",
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
@@ -319,12 +319,12 @@
         "task-1783719697500"
       ],
       "blocks": [
-        "task-1783719740973"
+        "task-1783719681572"
       ],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-10T21:42:01.452Z",
-      "updatedAt": "2026-07-10T21:42:20.973Z",
+      "updatedAt": "2026-07-11T22:49:48.000Z",
       "deferredReason": "dependency_reopened: task-1783719697500",
       "invalidationReason": null
     },
@@ -333,7 +333,7 @@
       "task": "Document complex-interface authoring, performance, accessibility, and ownership boundaries",
       "priority": "high",
       "source": "manual",
-      "details": "Publish the stable authoring guidance for retained Ignite interfaces after implementation and downstream validation. Document when to use ordinary Ignite JSX, retained-node commits, keyed reconciliation, commit scheduling, igniteShell, Lit, or a separate native custom element. Cover canvas/WebGL/editor/map/video patterns, high-DPI sizing, resize and animation lifecycle, input scoping, accessibility companions, telemetry, testing, and the Actor-Web ownership split. Keep examples self-contained, use the final shipped API only, and avoid presenting Canvas or Mesh Pong as special framework modes.\nSee .fas/tasks/document-complex-interface-authoring-performance-accessibili.md",
+      "details": "Publish stable authoring guidance after implementation, dogfood, downstream validation, and the explicit scheduling verdict. Document ordinary JSX versus retained ref/commit resources, keyed reconciliation, consumer-owned scheduling, igniteShell, Lit, and native elements using only shipped APIs and preserving the Actor-Web ownership split.\nSee .fas/tasks/document-complex-interface-authoring-performance-accessibili.md",
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
@@ -341,7 +341,7 @@
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
-        "task-1783719721452"
+        "task-1783719681572"
       ],
       "blocks": [
         "task-1781292613064"
@@ -349,8 +349,8 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-10T21:42:20.973Z",
-      "updatedAt": "2026-07-10T21:48:32.394Z",
-      "deferredReason": "dependency_reopened: task-1783719721452",
+      "updatedAt": "2026-07-11T22:49:48.000Z",
+      "deferredReason": "dependency_reopened: task-1783719681572",
       "invalidationReason": null
     },
     {
@@ -398,6 +398,25 @@
       "updatedAt": "2026-07-11T17:45:38.864Z",
       "deferredReason": null,
       "invalidationReason": null
+    },
+    {
+      "id": "task-1783810065213",
+      "task": "Add named igniteTest rehearsals with trace snapshots",
+      "priority": "high",
+      "source": "manual",
+      "details": "Add a compact named-rehearsal layer to the existing igniteTest scenario API. Consumers define a rehearsal such as serve-ball with an asserted initial snapshot, one typed object-form command call, and expected final snapshot/view/events, then call await scenario.rehearse(\"serve-ball\") and receive the existing serializable IgniteStorySnapshot trace. Reuse component.record(), story execution, trace serialization, and summary machinery rather than introducing a second recorder or state authority. The initial state is asserted, never injected; consumers provide a fresh isolated runtime when they need repeatable rehearsals, and Ignite must not silently reset shared sources.\nSee .fas/tasks/add-named-ignitetest-rehearsals-with-trace-snapshots.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "queued",
+      "owner": "runtime",
+      "mode": "4-agent",
+      "dependsOn": [],
+      "blocks": [],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-11T22:47:45.213Z",
+      "updatedAt": "2026-07-11T22:47:45.213Z"
     }
   ],
   "completedTasks": [
@@ -3571,7 +3590,7 @@
         },
         {
           "taskId": "task-1783719681572",
-          "epicRole": "commit-scheduling"
+          "epicRole": "scheduling-evidence"
         },
         {
           "taskId": "task-1783719697500",
@@ -3590,14 +3609,14 @@
       "title": "Retained Surfaces and Complex Interface Runtime",
       "priority": "high",
       "consumer": "ignite-element",
-      "goal": "Make Ignite Element support canvas, WebGL, editors, maps, video, and high-frequency dashboards through stable retained-node access, keyed reconciliation, move-safe resource lifecycle, and projection-only commit scheduling while preserving source authority and the existing source/view/commands/effects model.",
+      "goal": "Make Ignite Element support canvas, WebGL, editors, maps, video, and high-frequency dashboards through typed callback refs, reserved post-reconciliation commit directives, keyed reconciliation, move-safe resource lifecycle, and evidence-driven scheduling decisions while preserving the existing igniteCore registration API and source authority.",
       "acceptance": [
         "The architecture defines a generic retained-surface contract rather than a canvas-specific core API, with source state remaining authoritative and effects remaining consequence-oriented.",
-        "Ignite JSX provides typed retained-node access with deterministic initial, update, replacement, move, and true-disconnect cleanup semantics.",
+        "Ignite JSX provides typed callback refs and a reserved commit directive with deterministic initial, update, replacement, move, and true-disconnect cleanup semantics without leaking directives to the DOM.",
         "Keyed reconciliation preserves canvas contexts, editor instances, focus, selection, and other retained node state through reorder and fallback paths.",
-        "An opt-in commit scheduler coalesces projection work without dropping Actor-Web snapshots, commands, events, or effect ordering guarantees.",
-        "A deterministic real-time canvas stress example proves device-pixel-ratio sizing, ResizeObserver handling, requestAnimationFrame interpolation, scoped input, telemetry, and accessible DOM companions.",
-        "Downstream validation documents the Actor-Web Mesh Pong adoption contract without moving Actor-Web lifecycle, simulation, transport, or advisory authority into Ignite."
+        "igniteCore gains no commitScheduling surface; retained resources own requestAnimationFrame or microtask cadence until post-dogfood evidence demonstrates a need at the component registration boundary.",
+        "A deterministic real-time canvas stress example proves device-pixel-ratio sizing, ResizeObserver handling, consumer-owned requestAnimationFrame interpolation, scoped input, telemetry, and accessible DOM companions.",
+        "Downstream validation documents the Actor-Web Mesh Pong adoption contract without moving Actor-Web lifecycle, simulation, transport, or advisory authority into Ignite, and a later evidence task records the no-API verdict or creates a separate scheduler implementation brief."
       ]
     }
   ]

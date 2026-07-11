@@ -2235,17 +2235,20 @@ No active tasks.
 - Owner: planner
 - Brief: .fas/tasks/harden-self-hosted-renovate-reproducibility.md
 
-### Task: Design retained-surface lifecycle and projection-commit contract for complex interfaces
+### Task: Define retained-surface ref and commit contract for complex interfaces
 
-- Title: Design retained-surface lifecycle and projection-commit contract for complex interfaces
+- Title: Define retained-surface ref and commit contract for complex interfaces
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/design-retained-surface-lifecycle-and-projection-commit-cont.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
-### Task: Implement typed retained-node refs and move-safe resource lifecycle
+### Task: Implement typed retained-node refs, commit directives, and move-safe lifecycle
 
-- Title: Implement typed retained-node refs and move-safe resource lifecycle
+- Title: Implement typed retained-node refs, commit directives, and move-safe lifecycle
 - Mode: 6-agent
 - Status: queued
 - Owner: runtime
@@ -2259,10 +2262,10 @@ No active tasks.
 - Owner: runtime
 - Brief: .fas/tasks/honor-ignite-jsx-keys-and-preserve-retained-interface-nodes-.md
 
-### Task: Add opt-in projection commit scheduling for high-frequency sources
+### Task: Evaluate retained-surface scheduling needs after canvas and Mesh Pong dogfood
 
-- Title: Add opt-in projection commit scheduling for high-frequency sources
-- Mode: 6-agent
+- Title: Evaluate retained-surface scheduling needs after canvas and Mesh Pong dogfood
+- Mode: 4-agent
 - Status: queued
 - Owner: runtime
 - Brief: .fas/tasks/add-opt-in-projection-commit-scheduling-for-high-frequency-s.md
@@ -2318,6 +2321,14 @@ No active tasks.
 - Status: deferred
 - Owner: runtime
 - Brief: .fas/tasks/define-getschema-blueprint-and-public-coherent-inspect-obser.md
+
+### Task: Add named igniteTest rehearsals with trace snapshots
+
+- Title: Add named igniteTest rehearsals with trace snapshots
+- Mode: 4-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/add-named-ignitetest-rehearsals-with-trace-snapshots.md
 
 ## Template
 

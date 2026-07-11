@@ -5,8 +5,8 @@
 Created with `fas create-task` on 2026-07-10.
 
 ## Problem
+Implement key-aware Ignite JSX normalization and reconciliation so retained interface nodes preserve identity across insertions, removals, and reorders. Integrate the preceding ref/commit lifecycle contract, preserve focus, selection, canvas/WebGL context identity, and editor-style imperative state, and define deterministic duplicate-key and mixed keyed/unkeyed behavior. Keep positional reconciliation as the compatible unkeyed path and do not introduce scheduling policy.
 
-Implement key-aware Ignite JSX normalization and reconciliation so retained interface nodes preserve identity across insertions, removals, and reorders. Integrate the retained-node lifecycle contract from the preceding task, preserve focus, selection, canvas/WebGL context identity, and editor-style imperative state, and define deterministic duplicate-key and mixed keyed/unkeyed behavior. Keep positional reconciliation as the compatible unkeyed path and retain explicit fallback diagnostics.
 
 ## Acceptance criteria
 
@@ -44,10 +44,9 @@ Implement key-aware Ignite JSX normalization and reconciliation so retained inte
 - None.
 
 ## Implementation plan
-
-- Write failing keyed insert, remove, reorder, duplicate-key, mixed-key, focus, selection, event-handler, and retained-context tests.
+- Write failing keyed insert, remove, reorder, duplicate-key, mixed-key, focus, selection, event-handler, ref/commit, and retained-context tests.
 - Carry keys into normalized nodes and implement deterministic keyed child matching while preserving the existing unkeyed positional path.
-- Integrate retained-node cleanup with genuine removal and replacement only, plus explicit fallback diagnostics.
+- Invoke ref cleanup only for genuine removal/replacement and commit against the correctly retained node after reorders, with explicit fallback diagnostics.
 - Benchmark representative lists and retained surfaces, document semantics, add changesets, and complete full verification.
 
 ## Verification plan
@@ -63,12 +62,10 @@ Implement key-aware Ignite JSX normalization and reconciliation so retained inte
 - Duplicate or mixed keys need deterministic handling to avoid nonlocal reconciliation bugs.
 
 ## Dependencies
-
-- Depends on retained-node lifecycle task-1783719649309.
-- Blocks commit-scheduling task-1783719681572.
+- Depends on retained-node ref/commit lifecycle task-1783719649309.
+- Blocks retained-canvas dogfood task-1783719697500; scheduling remains consumer-owned during dogfood.
 
 ## Open questions
-
 - Resolve duplicate-key and mixed keyed/unkeyed policy from the accepted architecture rather than inventing it during implementation.
 
 ## Artifact links
