@@ -2161,12 +2161,11 @@ No active tasks.
 - Title: Design projection contracts and behavior-first interface DX
 - Mode: 6-agent
 - Status: done
-- Owner: reviewer
+- Owner: implementer
 - Brief: .fas/tasks/design-the-ignite-element-accessibility-contract-api-and-dx.md
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
-- Note: Completed as historical design evidence; its registry and behavior-metadata conclusions are superseded by task-1783650880370.
 
 ### Task: Implement projection registry, behavior metadata, and native JSX guardrails
 
@@ -2181,8 +2180,8 @@ No active tasks.
 
 - Title: Implement internal dynamic projection pipeline and LLM-authored artifacts
 - Mode: 6-agent
-- Status: processing
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/implement-internal-dynamic-projection-pipeline-and-llm-autho.md
 - Verification lane: fast
 - Policy sensitivity: standard
