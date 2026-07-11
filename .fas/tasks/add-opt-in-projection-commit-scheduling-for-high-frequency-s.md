@@ -5,10 +5,11 @@
 Created with `fas create-task` on 2026-07-10.
 
 ## Problem
+
 Evaluate whether the shipped ref/commit lifecycle and consumer-owned requestAnimationFrame or microtask scheduling are sufficient for high-frequency retained surfaces after the local canvas stress example and read-only Actor-Web Mesh Pong validation. This is an evidence and decision task, not a predetermined API implementation. Measure reconciliation and commit cadence, stale-frame behavior, effect ordering, cleanup, and consumer complexity. Prefer no new Ignite public surface. Only if evidence shows that full projection reconciliation must be coalesced should this task propose a separately planned registration-level renderer policy; commitScheduling in igniteCore remains rejected.
 
-
 ## Acceptance criteria
+
 - The task evaluates the shipped synchronous ref/commit contract with consumer-owned scheduling against measured canvas stress and Mesh Pong evidence.
 - The evidence records source cadence, reconciliation cadence, commit/draw cadence, latest-snapshot correctness, effect ordering, disconnect/reconnect behavior, and consumer code complexity.
 - The default verdict is no framework API when retained-resource scheduling is sufficient; no speculative scheduler implementation or changeset is required.
@@ -22,48 +23,62 @@ Evaluate whether the shipped ref/commit lifecycle and consumer-owned requestAnim
 
 ## Proposed solution
 
-- Use the supplied problem context, acceptance criteria, and affected-file hints to draft the concrete implementation approach during planning.
+- Produce an evidence-only verdict from the already-shipped canvas and Mesh Pong
+  measurements. Prefer a documented no-API conclusion. If the evidence gate
+  fails, create a separate implementation task rather than editing production
+  runtime or renderer code in this slice.
 
 ## Alternatives considered
 
-- None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
+- Implementing scheduling while evaluating it: rejected because it would turn
+  the verdict into a predetermined API change.
+- `commitScheduling` on `igniteCore`: rejected by the architecture because it
+  expands source configuration before the need and ordering boundary are proven.
+- Treating skipped visual frames as skipped source facts: rejected because
+  commands, events, effects, telemetry, and authoritative snapshots remain real.
 
 ## Affected files
 
-- packages/ignite-element/src/IgniteElement.ts
-- packages/ignite-element/src/IgniteElementFactory.ts
-- packages/ignite-element/src/igniteCore/types.ts
-- packages/ignite-element/src/runtime/effects.ts
-- packages/ignite-renderer/src/renderers/RenderStrategy.ts
-- packages/ignite-element/src/tests/IgniteCore.test.ts
-- packages/ignite-element/src/tests/IgniteElement.test.tsx
+- docs/retained-surface-scheduling-verdict.md
+- docs/retained-complex-interfaces.md
+
+## Reference files
+
+- examples/apps/retained-canvas
+- docs/retained-complex-interfaces.md
+- /Users/joseflores/Development/actor-web/examples/mesh-pong
 
 ## Scope Amendments
 
 - None.
 
 ## Implementation plan
+
 - Collect deterministic measurements from the retained-canvas stress example and the pinned Mesh Pong consumer validation.
 - Compare synchronous reconciliation plus consumer-owned requestAnimationFrame/microtask scheduling against the observed performance and ordering requirements.
 - Record a no-API verdict when sufficient, or create a separate evidence-backed implementation brief at the component registration boundary when insufficient.
 - Feed the decision and measurements into the final retained-interface documentation task.
 
 ## Verification plan
+
 - Re-run the stress and Mesh Pong validation measurements with deterministic clocks where possible.
-- Validate latest-snapshot correctness, callback/effect ordering, cleanup, and no loss of commands/events/source facts.
+- Validate latest-snapshot correctness, callback/effect ordering, cleanup, no stale draw after disconnect/reconnect, and no loss of commands/events/source facts. Because queued microtasks cannot be canceled, require an active/generation-token proof when a consumer uses them.
 - Run fas validate-task and review the evidence-to-verdict trace; production full verification is required only if tracked production files unexpectedly change.
 
 ## Risks
+
 - Benchmarks can overfit one canvas example and create an unnecessary general API.
 - Scheduling the wrong layer can violate render-before-effects ordering or hide source facts.
 - A no-API verdict can be wrong if consumer complexity is not measured alongside frame cadence.
 
 ## Dependencies
+
 - Depends on read-only Actor-Web Mesh Pong validation task-1783719721452, which itself depends on the local canvas stress example.
 - Blocks final retained-interface documentation task-1783719740973.
 - Does not implement a scheduler; any evidence-backed public API requires a new separately planned task.
 
 ## Open questions
+
 - Does dogfood demonstrate a need to coalesce full Ignite reconciliation, or is scheduling retained drawing inside the consumer-owned resource sufficient?
 
 ## Artifact links

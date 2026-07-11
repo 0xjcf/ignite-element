@@ -5,14 +5,16 @@
 Created with `fas create-task` on 2026-07-10.
 
 ## Problem
+
 Build a self-contained Ignite example that dogfoods the retained ref/commit, keyed reconciliation, and move-safe lifecycle contracts using a real-time canvas backed by deterministic authoritative snapshots. Keep simulation clock and state authority separate from display interpolation. Demonstrate high-DPI responsive sizing, ResizeObserver cleanup, consumer-owned requestAnimationFrame drawing, scoped keyboard and pointer input, blur/visibility recovery, telemetry for source versus reconciliation versus draw cadence, and semantic DOM controls/status. Use the existing igniteCore callable registration shape and generic JSX ref/commit directives; do not introduce a scheduler config, canvas package, or game-specific core behavior.
 
-
 ## Acceptance criteria
+
 - The example uses component("name", projection => <canvas ref={...} commit={...} />) and renders a responsive DPR-aware canvas without recreating its context during state changes or keyed reorders.
 - Authoritative fixed-step snapshots remain separate from consumer-owned requestAnimationFrame interpolation; telemetry distinguishes source, reconciliation, commit, and draw cadence.
 - Input is focus-scoped, prevents unintended page interaction where appropriate, clears held state on blur/visibility loss, and exposes keyboard-accessible DOM controls and status.
 - ResizeObserver, animation-frame, input, ref cleanup, and retained-resource cleanup are proven across disconnect, reconnect, and same-tick moves.
+- Any consumer-owned microtask queue uses an active or generation token because queued microtasks are not cancelable, and tests prove that invalidated work cannot draw after disconnect or into a later reconnect generation.
 - The dogfood records whether consumer-owned scheduling is sufficient and supplies measurements to task-1783719681572 without adding a public Ignite scheduler.
 - Unit, renderer, browser, accessibility, and example runtime-test lanes are self-contained and included in test:examples/test:full coverage.
 - TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
@@ -43,6 +45,7 @@ Build a self-contained Ignite example that dogfoods the retained ref/commit, key
 - None.
 
 ## Implementation plan
+
 - Create a self-contained example package with deterministic fixed-step source snapshots and a consumer-owned requestAnimationFrame presentation resource acquired through ref.
 - Use only shipped ref/commit, keyed reconciliation, and lifecycle APIs; add DPR sizing, ResizeObserver, scoped input, recovery, telemetry, and semantic DOM companions.
 - Add unit, renderer, browser, accessibility, move/reconnect, and example-lane tests with no live provider or network dependency.
@@ -61,11 +64,13 @@ Build a self-contained Ignite example that dogfoods the retained ref/commit, key
 - Canvas-only visuals can hide accessibility and input regressions without semantic DOM companions.
 
 ## Dependencies
+
 - Depends on keyed reconciliation task-1783719665018.
 - Blocks Actor-Web Mesh Pong downstream validation task-1783719721452.
 - Provides local dogfood evidence for scheduling-verdict task-1783719681572.
 
 ## Open questions
+
 - Choose the smallest domain needed to stress the generic contract; it must not become a second Mesh Pong implementation.
 
 ## Artifact links

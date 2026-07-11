@@ -5,15 +5,17 @@
 Created with `fas create-task` on 2026-07-10.
 
 ## Problem
+
 Implement the architecture-approved generic retained-node contract for Ignite JSX using typed callback refs and a reserved commit renderer directive. ref acquires the stable DOM node and may return cleanup; commit receives the node after reconciliation and ref acquisition on initial mount and relevant projection updates. Neither directive may leak as a DOM attribute or property. Cover replacement, ref or commit identity changes, callback failures, same-tick move preservation, true-disconnect teardown, reconnect, and isolated/shared source ownership without adding canvas-specific APIs or framework scheduling.
 
-
 ## Acceptance criteria
+
 - Ignite JSX types expose generic callback ref and commit directives for compatible retained nodes, and neither directive is forwarded to the DOM.
 - ref acquisition runs after node materialization, may return cleanup, and cleanup occurs exactly once for ref replacement, node replacement, or true disconnect.
 - commit runs synchronously after reconciliation and ref acquisition on initial mount and relevant updates with the current projection; callback identity changes do not leak stale callbacks.
 - Same-tick DOM moves and keyed reorders preserve retained resources, observers, animation loops, canvas/editor contexts, and source ownership.
 - Callback and cleanup failures are contained and reported without masking adapter cleanup or corrupting lifecycle bookkeeping.
+- A throwing `host.handleError` or `host.onError` reporter cannot abort sibling cleanup, ref acquisition, commit traversal, or later error reporting.
 - No commitScheduling option, animation-frame policy, canvas helper, or second state authority is added to igniteCore.
 - Focused renderer, lifecycle, type-level, shared/isolated ownership, move/reconnect, and SSR/headless tests pass through the repo verification lane.
 - TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
@@ -46,7 +48,8 @@ Implement the architecture-approved generic retained-node contract for Ignite JS
 - None.
 
 ## Implementation plan
-- Write failing JSX type, renderer, and lifecycle tests for ref acquisition/cleanup, commit ordering, updates, callback identity, replacement, move, disconnect, reconnect, errors, and headless execution.
+
+- Write failing JSX type, renderer, and lifecycle tests for ref acquisition/cleanup, commit ordering, updates, callback identity, replacement, move, disconnect, reconnect, callback failures, a throwing host error reporter, and headless execution.
 - Implement reserved ref and commit normalization plus post-reconciliation invocation without DOM leakage.
 - Integrate cleanup with shared and isolated adapter ownership and move-safe teardown without adding scheduling or canvas-specific behavior.
 - Add type tests, focused docs, a changeset, and fast/full verification.
@@ -64,10 +67,12 @@ Implement the architecture-approved generic retained-node contract for Ignite JS
 - Callback errors can mask adapter cleanup unless lifecycle bookkeeping is exception-safe.
 
 ## Dependencies
+
 - Depends on architecture task-1783719632720.
 - Blocks keyed reconciliation task-1783719665018.
 
 ## Open questions
+
 - None; use the architecture-approved ref and commit contract and return any incompatible requirement to architecture instead of improvising.
 
 ## Artifact links
