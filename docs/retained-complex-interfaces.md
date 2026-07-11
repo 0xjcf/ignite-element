@@ -53,7 +53,7 @@ the contract in this document.
 | Canvas context, editor/map/video instance, observer, and listener implementation | Consumer presentation code | Acquired by `ref`, updated by `igniteCommit`, released by the returned cleanup. It is not source truth. |
 | Presentation-only interpolation | Consumer presentation code | May run in a retained resource loop, but must interpolate from authoritative snapshots and must stop in ref cleanup. |
 | Commands and source-emitted events | Existing Ignite/source contracts | Delivered without scheduler coalescing. A renderer policy cannot suppress or merge them. |
-| Effects | Existing Ignite effect runtime plus the private presentation coordinator | Effects remain consequence-oriented and keep exact adjacent snapshot pairs. They run only after the applicable presentation commit. |
+| Effects | Existing Ignite effect runtime plus the private presentation coordinator | Effects remain consequence-oriented and keep exact adjacent snapshot pairs within the current attached generation. They run only after the applicable presentation commit; unreleased pairs never cross a generation boundary. |
 | Advisory or agent policy | Owning behavior/runtime layer | Never becomes renderer or scheduler authority. |
 | Accessibility | Semantic DOM authored by the consumer and reconciled by Ignite | A canvas or other retained surface must have native controls, labels, status, and alternatives where required; retained pixels are not the semantic contract. |
 
@@ -92,8 +92,21 @@ paths can expose the same type identities rather than parallel wrappers.
 [ignite-element JSX index:1](../packages/ignite-element/src/jsx/index.ts#L1),
 [renderer JSX index:1-9](../packages/ignite-renderer/src/renderers/jsx/index.ts#L1-L9)
 
-`IgniteCommitScheduling` is a common `ignite-element` type. Every first-party
-`igniteCore` adapter config accepts one additive option:
+`IgniteCommitScheduling` is declared on and exported from the root
+`ignite-element` public type surface. This is the canonical import:
+
+```ts
+import type { IgniteCommitScheduling } from "ignite-element";
+```
+
+The first-party adapter entrypoints `ignite-element/xstate`,
+`ignite-element/redux`, `ignite-element/mobx`, and `ignite-element/actor-web`
+re-export that same type identity as a convenience; they do not redeclare
+adapter-specific scheduling unions. `@ignite-element/renderer` does not export
+the scheduling type because the component/effect coordinator, not the renderer,
+owns the policy.
+
+Every first-party `igniteCore` adapter config accepts one additive option:
 
 ```ts
 commitScheduling?: IgniteCommitScheduling;
@@ -193,15 +206,16 @@ async cleanup is not awaited.
 | Scenario | DOM identity | Cleanup | Ref setup | `igniteCommit` | Scheduled work | Effects |
 | --- | --- | --- | --- | --- | --- | --- |
 | Initial mount | Create one node. | None. | Once, after node creation and prop reconciliation. | Once for the presented snapshot, after all ref setup in the commit. | Current generation remains active. | Initial adapter seeding remains a baseline, not a change effect. Later pairs wait for commit. |
-| Stable update, stable ref | Preserve node. | None. | None. | Once for each presented snapshot. | A scheduled mode may supersede an older pending presentation. | Every captured pair remains queued in notification order. |
+| Stable update, stable ref | Preserve node. | None. | None. | Once for each presented snapshot. | A scheduled mode may supersede an older pending presentation. | Every captured pair in the current attached generation remains queued in notification order until its presentation commits. |
 | Same node, changed ref identity | Preserve node. | Invoke old cleanup once. | Invoke new ref once after old cleanup invocation. | Once after the new ref phase. | Pending presentation uses only the newest metadata. | Release after the resulting presentation. |
 | Node or tag replacement | Create replacement; old identity ends. | Invoke old subtree cleanups before removal, deepest child first. | Acquire the new subtree parent first, then descendants in DOM order. | Invoke for the new subtree in DOM order after setup. | Stale callbacks from the old generation are invalidated. | Pairs included in the replacement commit release afterward. |
 | Key change | Treat as replacement even when tag matches. | Once for the old keyed identity. | Once for the new keyed identity. | Once for the new presented node. | Old keyed work is invalidated. | Release after replacement commit. |
 | Compatible keyed reorder | Move and preserve the exact node. | None. | None. | Once for the presented snapshot after its move and prop patch. | Work follows identity, not the old index. | Release after the reordered DOM is committed. |
 | Same-tick host DOM move | Preserve strategy tree and nodes because deferred disconnect is canceled. | None. | None. | Run only if reconnect schedules a presentation; never because of teardown/reacquisition. | Keep the generation; do not cancel for the transient disconnect. | Already eligible effects remain ordered; no effect is invented for the move. |
-| True disconnect | End presentation identity for the attached tree. | Consume and invoke every active cleanup once, deepest child first, then detach the strategy. | None. | None after invalidation. | Increment generation; cancel rAF; stale microtasks become no-ops. | Drop unreleased pairs whose presentation never committed; never run them against detached DOM. |
-| Reconnect after true disconnect | Attach strategy before rendering; create/recover the new strategy tree. | No second call for old cleanups. | Acquire refs for the new tree once. | Once after the reconnect presentation. | Start a new generation from the latest source snapshot. | New pairs wait for the reconnect commit. |
-| Strategy replacement or explicit detach | Old strategy identity ends; new strategy attaches before render. | Clean old retained subtree before old `detach`. | Acquire only after new `attach` and DOM creation. | Invoke only on the new strategy's committed tree. | Invalidate old generation and pending handles. | Hold new pairs for the new strategy commit; discard old uncommitted eligibility. |
+| True disconnect | End presentation identity for the attached tree. | Consume and invoke every active cleanup once, deepest child first, then detach the strategy. | None. | None after invalidation. | Increment generation; cancel rAF; stale microtasks become no-ops. | Discard every unreleased pair in the ending generation whose presentation never committed. No pair survives to reconnect or runs against detached DOM. |
+| Reconnect after true disconnect | Attach strategy before rendering; create/recover the new strategy tree. | No second call for old cleanups. | Acquire refs for the new tree once. | Once after the reconnect presentation. | Start a new generation from the latest source snapshot. | Start with an empty effect-pair queue; only pairs captured in the new generation may wait for the reconnect commit. |
+| Source replacement | Presentation state is rebound to the replacement source. | Retained DOM cleanup follows whether the existing strategy tree is reused or replaced. | Reacquire only when node/ref identity changes. | Invoke only for a snapshot presented from the replacement source. | Invalidate the old generation before subscribing to the replacement source. | Discard every unreleased old-source pair whose presentation never committed; never combine pairs across sources. |
+| Strategy replacement or explicit detach | Old strategy identity ends; new strategy attaches before render. | Clean old retained subtree before old `detach`. | Acquire only after new `attach` and DOM creation. | Invoke only on the new strategy's committed tree. | Invalidate old generation and pending handles. | Discard every unreleased pair from the old strategy generation; only new-generation pairs may release after the new strategy commits. |
 
 Cleanup-before-setup is an invocation guarantee, not an await guarantee. This
 prevents a slow observer/editor shutdown from blocking DOM progress while still
@@ -250,11 +264,17 @@ resource to the wrong business identity.
 
 ## Commit scheduling
 
+Effect-pair preservation is generation-scoped, not lifetime-scoped. Within one
+attached presentation generation, every pair through a successful commit is
+preserved in notification order. True disconnect, source replacement, and
+strategy replacement end that guarantee: any unreleased pair whose presentation
+never committed is discarded before the next generation starts.
+
 | Mode | Presentation behavior | Coalescing boundary | Effect behavior |
 | --- | --- | --- | --- |
-| `sync` | Default. Commit every active source notification synchronously, preserving current DOM timing. | None. | Each exact adjacent snapshot pair becomes eligible after its synchronous commit and runs in the existing post-commit microtask phase. |
-| `microtask` | Schedule one presentation microtask and commit the latest pending snapshot. | All notifications before that microtask begins. | Preserve every exact pair through the committed sequence; release them in order only after the coalesced commit. |
-| `animation-frame` | Schedule at most one presentation for the next animation frame and commit the latest pending snapshot. | All notifications before that frame callback claims its batch. | Preserve every exact pair through the committed sequence; release them in order only after the frame commit. |
+| `sync` | Default. Commit every active source notification synchronously, preserving current DOM timing. | None. | Each exact adjacent snapshot pair in the current generation becomes eligible after its synchronous commit and runs in the existing post-commit microtask phase. |
+| `microtask` | Schedule one presentation microtask and commit the latest pending snapshot. | All current-generation notifications before that microtask begins. | Preserve every exact current-generation pair through the committed sequence; release them in order only after the coalesced commit. Discard an uncommitted batch if its generation ends first. |
+| `animation-frame` | Schedule at most one presentation for the next animation frame and commit the latest pending snapshot. | All current-generation notifications before that frame callback claims its batch. | Preserve every exact current-generation pair through the committed sequence; release them in order only after the frame commit. Discard an uncommitted batch if its generation ends first. |
 
 If `requestAnimationFrame` is unavailable in a real attached DOM environment,
 `animation-frame` falls back to the private microtask clock and retains
@@ -269,13 +289,14 @@ For every mode, the private presentation coordinator follows this order:
 2. Update source-facing current snapshot state immediately. Command handling,
    source-emitted events, and telemetry facts remain outside the presentation
    coalescer and are never dropped or merged.
-3. Capture the exact `(prevSnapshot, snapshot)` effect pair in FIFO order. The
-   adapter's initial seeded notification remains only the baseline.
+3. Capture the exact `(prevSnapshot, snapshot)` effect pair in the current
+   generation's FIFO queue. The adapter's initial seeded notification remains
+   only the baseline.
 4. Replace the pending presentation candidate with the latest snapshot and
    schedule or run the mode's presentation flush.
 5. At flush start, verify that the host is attached and the generation is
-   current. Atomically claim the latest snapshot and all effect pairs through
-   its sequence.
+   current. Atomically claim the latest snapshot and all same-generation effect
+   pairs through its sequence.
 6. Derive the view and reconcile the DOM for that claimed snapshot.
 7. Complete cleanup and ref setup generated by reconciliation, containing every
    callback failure.
@@ -287,20 +308,26 @@ For every mode, the private presentation coordinator follows this order:
    enqueue the post-commit effect microtask and release all claimed exact pairs
    in notification order with existing effect error containment.
 10. Notifications that arrive reentrantly after the claim belong to the next
-    batch. Schedule them under the same mode. A generation change cancels rAF
-    handles and makes already queued microtasks, callbacks, and effect releases
-    no-ops.
+    batch in the same generation. Schedule them under the same mode. True
+    disconnect, source replacement, and strategy replacement end the generation:
+    cancel rAF handles, make already queued microtasks and callbacks no-ops, and
+    discard every unreleased pair whose presentation did not commit. Reconnect
+    starts with an empty effect-pair queue; no pair crosses the boundary or runs
+    against detached DOM.
 
-Coalescing changes the DOM observation available to effects: every effect keeps
-its exact snapshot pair, but several pairs may observe the one latest DOM tree
-produced for their batch. The API does **not** promise snapshot-exact historical
-DOM for coalesced notifications. Consumers that require a consequence for every
-source transition must use the effect's snapshot arguments or source events,
-not scrape DOM history.
+Coalescing changes the DOM observation available to effects: every released
+effect in the committed current-generation batch keeps its exact snapshot pair,
+but several pairs may observe the one latest DOM tree produced for their batch.
+The API does **not** promise snapshot-exact historical DOM for coalesced
+notifications. Consumers that require a consequence for every source transition
+must use the effect's snapshot arguments or source events, not scrape DOM
+history.
 
 A render/view/reconciliation failure is reported and does not release that
 batch's effects against an uncommitted DOM. The latest still-current snapshot
-may be retried by a later notification or reconnect; the coordinator does not
+may be retried by a later notification in the same generation; if disconnect or
+replacement ends the generation first, its unreleased pairs are discarded.
+Reconnect starts a new queue from its new baseline. The coordinator does not
 roll source state back.
 
 ## Deterministic clocks and tests
@@ -436,8 +463,11 @@ simulation/controller/advisory authority into Ignite.
 - [x] Key behavior covers unique fully keyed lists, unkeyed positional behavior,
   incompatibility, insertion/removal, duplicate keys, mixed keys, and metadata
   privacy.
-- [x] Scheduling preserves every source notification and exact effect pair while
-  coalescing only presentation work to the latest snapshot.
+- [x] Scheduling preserves every source notification and every exact effect pair
+  through a successful commit within the current attached generation while
+  coalescing only presentation work to the latest snapshot; true disconnect and
+  source/strategy replacement discard unreleased uncommitted pairs before a new
+  generation or reconnect begins.
 - [x] Effect ordering states the coalesced-DOM limitation and preserves
   post-commit error containment.
 - [x] Deterministic clocks, generation cancellation, reentrancy, SSR, and
