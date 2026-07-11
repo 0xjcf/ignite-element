@@ -177,7 +177,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-09T16:15:28.381Z",
       "updatedAt": "2026-07-11T15:25:35.436Z",
-      "deferredReason": "dependency_reopened: task-1783735005336, task-1783783535436",
+      "deferredReason": "dependency_reopened: task-1783783535436",
       "invalidationReason": null
     },
     {
@@ -354,30 +354,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1783735005336",
-      "task": "BREAKING (v3 beta): adopt object-form igniteTest command steps and artifact intent vocabulary",
-      "priority": "critical",
-      "source": "manual",
-      "details": "Complete the v3-beta command-call cutover before the voice/text workbench. Replace positional igniteTest.when(commandName, input?), IgniteAgentRuntime.execute(commandName, input?), and IgniteStory.execute(commandName, input?) with the canonical object envelope { command, input? }. Preserve discriminated required, optional, and no-input typing. Keep events on the distinct flat { type, ...fields } fact shape and keep provider-facing tool names at the adapter boundary. Do not add getBlueprint(), public inspect(), projection registries, or a second authoring DSL.\nSee .fas/tasks/breaking-v3-beta-adopt-object-form-ignitetest-command-steps-.md",
-      "taskClassification": "standard",
-      "selfImprovementCategory": null,
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [
-        "task-1783650880370"
-      ],
-      "blocks": [
-        "task-1783613728381",
-        "task-1783783535436"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-11T01:56:45.336Z",
-      "updatedAt": "2026-07-11T15:25:35.436Z"
-    },
-    {
       "id": "task-1783735835707",
       "task": "Harden projection runtime helper ownership and benchmark inspection caching",
       "priority": "low",
@@ -407,7 +383,7 @@
       "taskClassification": "standard",
       "selfImprovementCategory": null,
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -420,7 +396,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-11T15:25:35.436Z",
       "updatedAt": "2026-07-11T17:45:38.864Z",
-      "deferredReason": "dependency_reopened: task-1783735005336",
+      "deferredReason": null,
       "invalidationReason": null
     }
   ],
@@ -3328,6 +3304,30 @@
       "terminalOutcome": null,
       "workflowId": "direct-1783651164473",
       "branchName": "fas/accessibility-contract-epic",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1783735005336",
+      "task": "BREAKING (v3 beta): adopt object-form igniteTest command steps and artifact intent vocabulary",
+      "priority": "critical",
+      "source": "manual",
+      "taskClassification": "standard",
+      "selfImprovementCategory": null,
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1783650880370"
+      ],
+      "blocks": [
+        "task-1783613728381",
+        "task-1783783535436"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-11T21:17:14.028Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783736267263",
+      "branchName": "beta",
       "prStatus": "draft-only"
     }
   ],

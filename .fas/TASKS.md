@@ -2295,8 +2295,8 @@ No active tasks.
 
 - Title: BREAKING (v3 beta): adopt object-form igniteTest command steps and artifact intent vocabulary
 - Mode: 6-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/breaking-v3-beta-adopt-object-form-ignitetest-command-steps-.md
 - Verification lane: fast
 - Policy sensitivity: standard
