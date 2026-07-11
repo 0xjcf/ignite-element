@@ -23,8 +23,9 @@ Build examples/agents/voice-workbench as the decisive dogfood for agent-authored
   public `inspect()` API.
 - Dogfood records whether the focused getters and subscriptions cause a real
   revision mismatch, repeated bootstrap-packet duplication, or inaccessible
-  projection facts. Absence of that evidence confirms coherent inspection
-  should remain private.
+  projection facts. One workbench run provides bounded evidence only; require a
+  reproducible consumer gap before proposing a public observation API. Absent
+  such evidence, coherent inspection remains private for this task.
 - Actor state is the durable source of truth for messages, document revisions, artifacts, and command-backed actions.
 - Model-authored final text is committed through a mockable text/terminal adapter, while structured speech is committed through a separate mockable speech adapter; voice-only operation requires no DOM.
 - The browser maps semantic nodes to accessible native JSX and supports keyboard, focus, names, disabled/error states, and command actions.

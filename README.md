@@ -231,19 +231,21 @@ Events are:
 Every `igniteCore(...)` registration exposes a headless runtime API in addition to the DOM component.
 
 ```ts
-const result = toggle.execute({ command: "toggle" });
-toggle.getSnapshot();
-toggle.getView();
-toggle.getSchema();
-toggle.on("toggled", (event) => {
-  console.log(event.isOn);
-});
-toggle.watchSnapshot((state, prevState) => {
-  console.log(prevState.value, "->", state.value);
-});
-toggle.watchView((view, prevView) => {
-  console.log(prevView.isOn, "->", view.isOn);
-});
+async function inspectToggle() {
+  const result = await toggle.execute({ command: "toggle" });
+  toggle.getSnapshot();
+  toggle.getView();
+  toggle.getSchema();
+  toggle.on("toggled", (event) => {
+    console.log(event.isOn);
+  });
+  toggle.watchSnapshot((state, prevState) => {
+    console.log(prevState.value, "->", state.value);
+  });
+  toggle.watchView((view, prevView) => {
+    console.log(prevView.isOn, "->", view.isOn);
+  });
+}
 ```
 
 Use `on(...)` for outward event signals, `watchSnapshot(...)` for raw state changes, and `watchView(...)` for projected view changes.
@@ -251,12 +253,14 @@ Use `on(...)` for outward event signals, `watchSnapshot(...)` for raw state chan
 Use `record(...)` when a test or agent needs workflow evidence:
 
 ```ts
-const story = toggle.record("turns on");
-story.execute({ command: "toggle" });
-story.trace();
-story.lifecycle();
-story.summary();
-story.stop();
+async function recordToggleStory() {
+  const story = toggle.record("turns on");
+  await story.execute({ command: "toggle" });
+  story.trace();
+  story.lifecycle();
+  story.summary();
+  story.stop();
+}
 ```
 
 `execute()` returns structured output:

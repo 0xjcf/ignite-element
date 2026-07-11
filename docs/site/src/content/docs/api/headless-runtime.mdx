@@ -41,7 +41,7 @@ const schema = counter.getSchema();
 
 ### `execute({ command, input? })`
 
-Runs a command by name and resolves once the resulting transition settles. The input type is inferred from the command function's first parameter, so commands that take no argument omit `input`.
+Runs a command by name and resolves at command acknowledgement, after the command window closes and the transition result is available. It does not wait for long-running or asynchronous effects. The input type is inferred from the command function's first parameter, so commands that take no argument omit `input`.
 
 **Returns** `Promise<{ snapshot, events }>` — the snapshot **after** the transition plus the ordered events emitted by that single transition (an `IgniteAgentExecutionResult`).
 
