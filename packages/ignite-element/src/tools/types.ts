@@ -66,7 +66,7 @@ export type ToolObservation<
 
 /**
  * A live observation emitted between tool acts. `event` entries mirror the
- * runtime's `{ type, payload }` event shape; `view` entries carry the derived
+ * runtime's `{ type, ...fields }` event shape; `view` entries carry the derived
  * read-model transition from `watchView`.
  */
 export type ToolStreamObservation<
@@ -101,11 +101,11 @@ export type ToolError =
 
 /**
  * The validated routing target produced by `resolveCall`: the command to run
- * and the payload to pass to `execute`.
+ * and the normalized input to pass to `execute`.
  */
-export type Route<Name extends string = string, Payload = unknown> = {
+export type Route<Name extends string = string> = {
 	command: Name;
-	payload: Payload;
+	input?: unknown;
 };
 
 /**

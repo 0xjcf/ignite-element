@@ -9,6 +9,7 @@ import type {
 	ToolStreamObservation,
 } from "../tools";
 import { buildManifest, igniteTools, isErr, isOk, resolveCall } from "../tools";
+import { openai, type OpenAIChatCompletionResponse } from "../tools/openai";
 import type { IgniteAgentSchema, IgniteSchemaObject } from "../types/schema";
 
 // --- Fakes (zero LLM, zero adapters, fully deterministic) ---------------------
@@ -264,19 +265,19 @@ describe("buildManifest", () => {
 describe("resolveCall", () => {
 	const manifest = buildManifest(fakeSchema);
 
-	it("routes a valid scalar input to { command, payload }", () => {
+	it("routes a valid scalar input to { command, input }", () => {
 		const result = resolveCall(manifest, "setLimit", 5);
 		expect(result).toEqual({
 			ok: true,
-			value: { command: "setLimit", payload: 5 },
+			value: { command: "setLimit", input: 5 },
 		});
 	});
 
-	it("routes a no-arg command with undefined payload", () => {
+	it("routes a no-arg command without an input field", () => {
 		const result = resolveCall(manifest, "increment", undefined);
 		expect(result).toEqual({
 			ok: true,
-			value: { command: "increment", payload: undefined },
+			value: { command: "increment" },
 		});
 	});
 
@@ -323,15 +324,30 @@ describe("resolveCall", () => {
 		if (isErr(result)) expect(result.error.kind).toBe("InvalidInput");
 	});
 
-	it("accepts a valid object payload", () => {
+	it("accepts a valid object input", () => {
 		const result = resolveCall(manifest, "addItem", { name: "apple", qty: 2 });
 		expect(isOk(result)).toBe(true);
 		if (isOk(result)) {
 			expect(result.value).toEqual({
 				command: "addItem",
-				payload: { name: "apple", qty: 2 },
+				input: { name: "apple", qty: 2 },
 			});
 		}
+	});
+
+	it("normalizes a schema default into the routed input", () => {
+		const manifestWithDefault: NeutralManifest = [
+			{
+				name: "setLimit",
+				inputSchema: { type: "number", default: 5 },
+				gated: false,
+			},
+		];
+
+		expect(resolveCall(manifestWithDefault, "setLimit", undefined)).toEqual({
+			ok: true,
+			value: { command: "setLimit", input: 5 },
+		});
 	});
 
 	it("returns Unavailable for a gated command when canExecute is false", () => {
@@ -663,6 +679,41 @@ describe("igniteTools (with a ToolDialect)", () => {
 			result,
 		});
 		expect(block).toMatchObject({ tool_use_id: "call_1", is_error: false });
+	});
+
+	it("translates provider { name, arguments } calls into runtime.execute({ command, input })", async () => {
+		const component = createFakeComponent();
+		const tools = igniteTools(component, openai);
+		const response: OpenAIChatCompletionResponse = {
+			choices: [
+				{
+					message: {
+						tool_calls: [
+							{
+								id: "call_provider",
+								type: "function",
+								function: {
+									name: "setLimit",
+									arguments: JSON.stringify({ value: 8 }),
+								},
+							},
+						],
+					},
+				},
+			],
+		};
+
+		const [providerCall] = tools.toolCalls(response);
+		expect(providerCall).toEqual({
+			id: "call_provider",
+			name: "setLimit",
+			input: 8,
+		});
+
+		const result = await tools.run(providerCall);
+
+		expect(component.calls).toEqual([{ name: "setLimit", payload: 8 }]);
+		expect(isOk(result)).toBe(true);
 	});
 
 	it("maps a failed command into an error tool-result block", async () => {
