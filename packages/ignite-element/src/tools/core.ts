@@ -206,6 +206,12 @@ export function validateToolInputValue(
 			const properties = isPlainObject(schema.properties)
 				? schema.properties
 				: {};
+			if (isNoArgSchema(schema)) {
+				for (const key of Object.keys(value)) {
+					issues.push(`${path}.${key}: unexpected`);
+				}
+				return issues;
+			}
 			if (Array.isArray(schema.required)) {
 				for (const key of schema.required) {
 					if (typeof key === "string" && !(key in value)) {

@@ -53,7 +53,7 @@ with no cloud and no web UI.
   (`gated && !canExecute`) are omitted (see `docs/can-execute.md`).
 - `resolveCall(name, input): Result<Route, ToolError>` — validate (input against the
   command's `inputSchema`; availability against `canExecute`) and route to
-  `{ command, payload }`. Pure; returns a `Result` (errors as values), never throws.
+  `{ command, input }`. Pure; returns a `Result` (errors as values), never throws.
 
 ### Port — `ToolDialect`
 

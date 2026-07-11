@@ -273,12 +273,60 @@ describe("resolveCall", () => {
 		});
 	});
 
-	it("routes a no-arg command without an input field", () => {
-		const result = resolveCall(manifest, "increment", undefined);
-		expect(result).toEqual({
+	it.each([undefined, {}])(
+		"routes a no-arg command without an input field for input %j",
+		(input) => {
+			const result = resolveCall(manifest, "increment", input);
+			expect(result).toEqual({
+				ok: true,
+				value: { command: "increment" },
+			});
+		},
+	);
+
+	it.each([
+		[{ garbage: true }, "input.garbage: unexpected"],
+		[1, "input: expected object"],
+		["unexpected", "input: expected object"],
+	])(
+		"returns InvalidInput for unexpected no-arg command input %j",
+		(input, issue) => {
+			const result = resolveCall(manifest, "increment", input);
+			expect(result).toEqual({
+				ok: false,
+				error: {
+					kind: "InvalidInput",
+					name: "increment",
+					issues: [issue],
+				},
+			});
+		},
+	);
+
+	it("keeps optional object input distinct from a true no-arg command", () => {
+		const optionalInputManifest: NeutralManifest = [
+			{
+				name: "maybeLabel",
+				inputSchema: {
+					type: "object",
+					properties: { label: { type: "string" } },
+				},
+				gated: false,
+			},
+		];
+
+		expect(
+			resolveCall(optionalInputManifest, "maybeLabel", { label: "later" }),
+		).toEqual({
 			ok: true,
-			value: { command: "increment" },
+			value: { command: "maybeLabel", input: { label: "later" } },
 		});
+		expect(resolveCall(optionalInputManifest, "maybeLabel", undefined)).toEqual(
+			{
+				ok: true,
+				value: { command: "maybeLabel", input: undefined },
+			},
+		);
 	});
 
 	it("returns UnknownCommand for a name not in the manifest", () => {
@@ -714,6 +762,43 @@ describe("igniteTools (with a ToolDialect)", () => {
 
 		expect(component.calls).toEqual([{ name: "setLimit", payload: 8 }]);
 		expect(isOk(result)).toBe(true);
+	});
+
+	it("accepts provider {} for no-arg commands and rejects unexpected fields as a value", async () => {
+		const component = createFakeComponent();
+		const tools = igniteTools(component, openai);
+		const response = (argumentsValue: Record<string, unknown>) =>
+			({
+				choices: [
+					{
+						message: {
+							tool_calls: [
+								{
+									id: "call_no_arg",
+									type: "function",
+									function: {
+										name: "increment",
+										arguments: JSON.stringify(argumentsValue),
+									},
+								},
+							],
+						},
+					},
+				],
+			}) satisfies OpenAIChatCompletionResponse;
+
+		const [emptyCall] = tools.toolCalls(response({}));
+		expect(await tools.run(emptyCall)).toMatchObject({ ok: true });
+		expect(component.calls).toEqual([
+			{ name: "increment", payload: undefined },
+		]);
+
+		const [invalidCall] = tools.toolCalls(response({ garbage: true }));
+		expect(await tools.run(invalidCall)).toMatchObject({
+			ok: false,
+			error: { kind: "InvalidInput", name: "increment" },
+		});
+		expect(component.calls).toHaveLength(1);
 	});
 
 	it("maps a failed command into an error tool-result block", async () => {
