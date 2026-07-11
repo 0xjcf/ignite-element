@@ -1181,7 +1181,7 @@ describe("igniteCore", () => {
 
 		story.stop();
 
-		await expect(() =>
+		await expect(
 			story.execute({ command: "increment", input: 1 }),
 		).rejects.toThrow(
 			'[igniteCore] Story "counter reaches five" has been stopped.',

@@ -149,9 +149,9 @@ const codeForCommand = (
 				"apiShowcase.getView()",
 			].join("\n");
 		case "setStep":
-			return `await story.execute({ command: "setStep", input: ${payload} })`;
+			return `await story.execute({ command: "setStep", input: ${payload ?? 1} })`;
 		case "setLimit":
-			return `await story.execute({ command: "setLimit", input: ${payload} })`;
+			return `await story.execute({ command: "setLimit", input: ${payload ?? 5} })`;
 		case "incrementToLimit":
 			return [
 				'const story = apiShowcase.record("reaches limit")',
