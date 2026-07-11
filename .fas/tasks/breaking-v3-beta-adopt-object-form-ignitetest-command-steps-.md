@@ -6,31 +6,35 @@ Created with `fas create-task` on 2026-07-10.
 
 ## Problem
 
-Replace positional igniteTest.when(commandName, input?) with the self-describing object form when({ name, input? }) before the voice/text workbench is implemented. Remove positional support during the v3 beta window rather than deprecating it. Preserve command-name and input inference with a discriminated command-step type: input is required for commands that accept one argument and omitted for no-argument commands. Align the workbench model-facing vocabulary on consumer-owned createArtifact, reviseArtifact, and completeResponse commands. Keep ProjectionDocument validation, revision application, coherent inspection, and channel committers internal to Ignite; do not add built-in projection CRUD, a public inspect method, or a second authoring DSL.
+Complete the v3-beta command-call cutover before the voice/text workbench. Replace positional igniteTest.when(commandName, input?) plus IgniteAgentRuntime.execute(commandName, input?) and IgniteStory.execute(commandName, input?) with the single canonical object envelope { command, input? }. Remove positional support rather than deprecating it. Preserve a command-discriminated mapped union: required command inputs are required and typed, optional first inputs remain optional, and no-argument commands omit input. Keep events on the distinct flat { type, ...fields } fact shape; keep canExecute(commandName), on(eventName, handler), adapter send({ type }), trace schemas, projection validation, and tool-router internals semantically unchanged. Provider adapters may translate provider { name, arguments } calls into Ignite { command, input }.
 
 ## Acceptance criteria
 
-- igniteTest uses when({ name: "commandName", input }) and supports when({ name: "noArgCommand" }) without positional overloads.
-- The object argument is inferred as a command-name discriminated union: required command inputs are required and correctly typed, while no-argument commands do not require input.
-- All package tests, examples, and documentation migrate from when(name, payload?) to object-form command steps in the same breaking change.
-- The voice/text workbench brief and fixtures use createArtifact, reviseArtifact, and completeResponse as consumer-owned commands rather than upsertProjection or patchProjection.
-- ProjectionDocument remains the internal validated representation; Ignite does not ship projection CRUD commands or expose public bind, inspect, project, or registry APIs.
-- Focused type/runtime tests, docs example checks, and full verification cover the migration.
-- TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
-- TDD: every production code change in the change set is covered by an added or updated test.
-- DDD: respect domain boundaries — keep the functional core deterministic and side-effect-free (no reads, writes, network, or clock), confine coordination to the imperative shell, and have adapters return facts instead of throwing.
+- igniteTest uses when({ command: "commandName", input }) and supports when({ command: "noArgCommand" }) without positional overloads.
+- IgniteAgentRuntime.execute and IgniteStory.execute use the same { command, input? } envelope without positional overloads.
+- One shared exported IgniteCommandCall mapped union preserves required, optional, and no-input inference and remains visible from every public adapter entrypoint.
+- Events remain flat { type, ...fields } facts; command calls do not accept a type discriminator.
+- canExecute(commandName), on(eventName, handler), adapter send({ type }), story trace schemas, ProjectionDocument validation, and tool-router internals retain their established semantics.
+- igniteTools translates its neutral/provider call into runtime.execute({ command, input }) without changing provider-facing NeutralToolCall naming.
+- All package tests, self-contained examples, generated showcase strings, and documentation migrate atomically to object-form command calls.
+- Focused type tests assert Parameters<typeof runtime.execute>[0], Parameters<typeof story.execute>[0], invalid command names/inputs, and positional-call rejection.
+- No getBlueprint, public inspect implementation, projection registry, binding, or second authoring DSL is added in this PR; the dependent getSchema contract task owns the documentation and dogfood validation.
+- Full package, node, export, example typecheck/runtime, e2e where applicable, docs, and FAS verification lanes pass.
+- TDD: failing runtime/type evidence is recorded before implementation and every production change is covered.
+- The task remains tracked and dependency-reachable in the FAS queue.
 - The work is tracked in `.fas/TASKS.md`.
 - The task has a clear implementation and verification plan before execution starts.
-- The task is queued in `.fas/queue/tasks.json` for the runtime.
 
 ## Proposed solution
 
-- Replace the positional `when(commandName, input?)` signature with a single
-  object-form command step: `when({ name, input })`.
+- Replace positional `when(commandName, input?)`, runtime
+  `execute(commandName, input?)`, and story `execute(commandName, input?)`
+  signatures with the single object-form command call
+  `{ command, input? }`.
 - Model the step as a command-name discriminated union so TypeScript requires
   `input` exactly when the selected command requires it.
-- Use `name` and `input` consistently with the existing `igniteTools` call
-  envelope and the upcoming workbench vocabulary.
+- Translate provider-neutral `{ name, arguments }` tool calls at the adapter
+  boundary into Ignite's `{ command, input }` envelope.
 
 ## Alternatives considered
 
@@ -38,8 +42,10 @@ Replace positional igniteTest.when(commandName, input?) with the self-describing
   ambiguous at call sites.
 - Support both positional and object forms: rejected because v3 is still in
   beta and compatibility overloads would preserve the ambiguity.
-- Use `{ command, payload }`: rejected in favor of the owner-selected
-  `{ name, input }` vocabulary, which aligns with model tool calls.
+- Use `{ name, input }`: rejected because `command` distinguishes Ignite's
+  executable intent from provider-facing tool names.
+- Use `{ type, ...fields }`: rejected because that shape is reserved for
+  emitted event facts, not command invocations.
 
 ## Affected files
 
@@ -51,6 +57,31 @@ Replace positional igniteTest.when(commandName, input?) with the self-describing
 - examples
 - README.md
 - docs/can-execute.md
+- packages/ignite-element/src/types/agent.ts
+- packages/ignite-element/src/runtime/agent.ts
+- packages/ignite-element/src/tests
+- packages/ignite-element/tests
+- packages/ignite-element/README.md
+- docs
+- packages/ignite-element/src/tools
+- packages/ignite-element/src/index.ts
+- packages/ignite-element/src/actor-web.ts
+- packages/ignite-element/src/mobx.ts
+- packages/ignite-element/src/redux.ts
+- packages/ignite-element/src/xstate.ts
+- docs/api/README.md
+- docs/ignite-tools.md
+- docs/site/src/content/docs/api/headless-runtime.mdx
+- docs/site/src/content/docs/guides/accessibility-first.mdx
+- docs/site/src/content/docs/guides/actor-web.mdx
+- docs/site/src/content/docs/guides/agent-runtime-v3.mdx
+- docs/site/src/content/docs/guides/routing.mdx
+- docs/site/src/content/docs/overview/ignite-for-ai-agents.mdx
+- examples/adapters/xstate/README.md
+- examples/adapters/xstate/xstateAgentRuntimeShowcase.tsx
+- examples/apps/form-with-validation/src/form.tsx
+- examples/apps/spa-router/README.md
+- .changeset/object-command-call-envelope.md
 
 ## Scope Amendments
 
@@ -64,12 +95,46 @@ Replace positional igniteTest.when(commandName, input?) with the self-describing
 - Accuracy signal: Both snippets target igniteTest scenario.when, not unrelated execute or selector APIs.
 - Follow-up needed: Migrate both snippets in a docs-only incremental commit and rerun docs/search gates.
 
+- Type: scope-expansion
+- Added at: 2026-07-11
+- Trigger: owner requested command-call consistency across when and execute before PR 93 merges
+- Reason: Ignite test scenarios, agent runtimes, and recorded stories all invoke commands and should share the canonical object call { command, input? }; event objects { type, ...fields } remain emitted facts and adapter messages, not command invocations.
+- Added paths: packages/ignite-element/src/types/agent.ts, packages/ignite-element/src/runtime/agent.ts, packages/ignite-element/src/testing.ts, packages/ignite-element/src/tests, packages/ignite-element/tests, packages/ignite-element/README.md, examples, docs, README.md
+- Evidence source: repo-wide public execute call inventory
+- Evidence: repo-wide public execute call inventory | packages/ignite-element/src/types/agent.ts | IgniteAgentRuntime.execute and IgniteStory.execute remain positional, with consumers across package tests, examples, docs, and generated showcase strings.
+- Accuracy signal: Only public Ignite runtime/story execute calls migrate; canExecute identity queries, event subscriptions, adapter send, and unrelated execute methods remain unchanged.
+- Follow-up needed: Migrate types, runtime forwarding, tests, examples, and docs atomically in PR 93; rerun all self-contained example lanes and closeout reviews.
+
+- Type: scope-expansion
+- Added at: 2026-07-11
+- Trigger: implementation inventory for canonical command envelope cutover
+- Reason: The public execute signature and igniteTools translation require public barrel exports, tool-core normalization, and atomic migration of every self-contained example and documentation consumer.
+- Added paths: packages/ignite-element/src/tools, packages/ignite-element/src/index.ts, packages/ignite-element/src/actor-web.ts, packages/ignite-element/src/mobx.ts, packages/ignite-element/src/redux.ts, packages/ignite-element/src/xstate.ts, examples, docs
+- Evidence source: commits 1a0d55f6 and 62ff15c5
+- Evidence: commits 1a0d55f6 and 62ff15c5 | packages/ignite-element/src/tools/igniteTools.ts | Provider-neutral calls are validated and normalized to { command, input? } before direct runtime execution; all public callsites migrate atomically.
+- Accuracy signal: Repo-wide stale-call searches are clean except intentional positional rejection type tests.
+- Follow-up needed: Run refreshed plan alignment, downstream QA/SRE/reviewer, full verify, and CodeRabbit before pushing PR 93.
+
+- Type: scope-refresh
+- Added at: 2026-07-11
+- Added paths: docs/api/README.md, docs/ignite-tools.md, docs/site/src/content/docs/api/headless-runtime.mdx, docs/site/src/content/docs/guides/accessibility-first.mdx, docs/site/src/content/docs/guides/actor-web.mdx, docs/site/src/content/docs/guides/agent-runtime-v3.mdx, docs/site/src/content/docs/guides/routing.mdx, docs/site/src/content/docs/overview/ignite-for-ai-agents.mdx, examples/adapters/xstate/README.md, examples/adapters/xstate/xstateAgentRuntimeShowcase.tsx, examples/apps/form-with-validation/src/form.tsx, examples/apps/spa-router/README.md
+
+- Type: scope-expansion
+- Added at: 2026-07-11
+- Trigger: final reviewer release-metadata blocker
+- Reason: The public v3-beta breaking command-envelope cutover requires a Changeset before downstream handoff.
+- Added paths: .changeset/object-command-call-envelope.md
+- Evidence source: final reviewer handoff
+- Evidence: final reviewer handoff | .changeset/object-command-call-envelope.md | Records the ignite-element major release intent for the breaking object-form command APIs.
+- Accuracy signal: Changesets status parses the file and reports the configured fixed package group at major.
+- Follow-up needed: Root owns full verification, review refresh, and PR closeout.
+
 ## Implementation plan
 
-- Add failing runtime and type tests for required-input, no-input, invalid-name,
-  and invalid-input object-form command steps.
-- Replace the public `when` signature and implementation without retaining a
-  positional overload.
+- Add failing runtime and type tests for required-input, optional-input,
+  no-input, invalid-command, and invalid-input object-form command calls.
+- Replace the public `when` and `execute` signatures and implementations
+  without retaining positional overloads.
 - Migrate package tests, examples, and documentation in one breaking sweep.
 - Re-run repository-wide search for positional `.when(...)` calls before
   closeout and confirm the voice/text workbench brief uses artifact intent.

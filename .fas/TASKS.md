@@ -2303,6 +2303,14 @@ No active tasks.
 - Brief: .fas/tasks/harden-projection-runtime-helper-ownership-and-benchmark-ins.md
 - Automation mode: advisory
 
+### Task: Define getSchema as the compiled blueprint and keep coherent inspection private
+
+- Title: Define getSchema as the compiled blueprint and keep coherent inspection private
+- Mode: 4-agent
+- Status: deferred
+- Owner: runtime
+- Brief: .fas/tasks/define-getschema-blueprint-and-public-coherent-inspect-obser.md
+
 ## Template
 
 ### Task: <short task title>
