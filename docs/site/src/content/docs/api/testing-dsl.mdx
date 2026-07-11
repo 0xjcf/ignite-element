@@ -33,10 +33,10 @@ const counter = igniteCore({
 
 ## Scenarios
 
-Call `igniteTest(component)` with a runtime to get a chainable scenario. `given(...)` asserts the starting snapshot, `when(...)` executes a command (it is async — `await` it), and the `expect*` methods assert the result of the most recent `when(...)`.
+Call `igniteTest(component)` with a runtime to get a chainable scenario. `given(...)` asserts the starting snapshot, `when({ name, input? })` executes a command (it is async — `await` it), and the `expect*` methods assert the result of the most recent `when(...)`.
 
 ```ts
-(await igniteTest(counter).given({ value: 'off' }).when('toggle'))
+(await igniteTest(counter).given({ value: 'off' }).when({ name: 'toggle' }))
   .expectSnapshot({ value: 'on' })
   .expectEvent({ type: 'toggled', isOn: true });
 ```
@@ -44,7 +44,7 @@ Call `igniteTest(component)` with a runtime to get a chainable scenario. `given(
 Scenario methods — every `given`/`expect*` **returns the scenario** so calls chain; `when(...)` returns a `Promise` of the scenario:
 
 - `given(expected)` — assert the current snapshot before acting. Accepts a deep-partial snapshot match or a predicate.
-- `when(commandName, payload?)` — execute a command; returns a `Promise` of the scenario.
+- `when({ name, input? })` — execute a command; `input` is required for one-argument commands, omitted for no-argument commands, and optional when the command's first argument is optional. Returns a `Promise` of the scenario.
 - `expectSnapshot(expected)` — assert the post-command snapshot.
 - `expectView(expected)` — assert the projected view (mirrors `getView()`). Accepts a deep-partial object or a predicate.
 - `expectEvent({ type, ...fields })` — assert an event was emitted, optionally matching its fields.

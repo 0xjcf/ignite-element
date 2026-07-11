@@ -532,7 +532,10 @@ describe("ignite test DSL", () => {
 	it("forwards object-form command steps and omits input for no-arg commands", async () => {
 		const execute = vi
 			.fn<
-				(commandName: string, payload?: unknown) => Promise<{
+				(
+					commandName: string,
+					payload?: unknown,
+				) => Promise<{
 					snapshot: { count: number };
 					events: [];
 				}>
