@@ -195,7 +195,7 @@ const result = await apiShowcase.execute({ command: "increment" });
 
 const story = apiShowcase.record("reaches limit");
 await story.execute({ command: "setLimit", input: 6 });
-await story.until((view) => view.count >= view.limit, async () => {
+await story.until((view) => view.stateLabel === "Limit reached", async () => {
   await story.execute({ command: "increment" });
 });
 story.trace();
@@ -210,7 +210,7 @@ The example also exposes the same runtime on `window.__igniteExamples.apiShowcas
 const runtime = window.__igniteExamples?.apiShowcase;
 const story = runtime?.record("browser proof");
 
-await story?.until((view) => view.count >= view.limit, async () => {
+await story?.until((view) => view.stateLabel === "Limit reached", async () => {
   await story.execute({ command: "increment" });
 });
 story?.trace();
