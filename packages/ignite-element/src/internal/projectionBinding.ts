@@ -31,7 +31,7 @@ type Projection<Format extends "document" | "speech", Output> = {
 };
 
 export type ProjectionBindingState = {
-	readonly documentRevisionById: Map<string, string>;
+	readonly documentIdentityById: Map<string, string>;
 	activeSpeechId: string | null;
 	deliveredSpeechId: string | null;
 	lastAcknowledgedSpeechId: string | null;
@@ -92,7 +92,7 @@ function errorReason(error: unknown): string {
 
 export function createProjectionBindingState(): ProjectionBindingState {
 	return {
-		documentRevisionById: new Map<string, string>(),
+		documentIdentityById: new Map<string, string>(),
 		activeSpeechId: null,
 		deliveredSpeechId: null,
 		lastAcknowledgedSpeechId: null,
@@ -139,10 +139,11 @@ function normalizeCommitResult(
 
 function releaseDocumentReservation(
 	state: ProjectionBindingState,
-	document: ProjectionDocument,
+	documentId: string,
+	documentIdentity: string,
 ): void {
-	if (state.documentRevisionById.get(document.id) === document.revision) {
-		state.documentRevisionById.delete(document.id);
+	if (state.documentIdentityById.get(documentId) === documentIdentity) {
+		state.documentIdentityById.delete(documentId);
 	}
 }
 
@@ -191,14 +192,29 @@ export async function commitProjectionDocumentTarget({
 		};
 	}
 
-	const previousRevision = state.documentRevisionById.get(document.id);
-	if (previousRevision === document.revision) {
+	let documentIdentity: string;
+	try {
+		documentIdentity = projection.identity(document);
+	} catch (error) {
+		return {
+			channel: "document",
+			status: "error",
+			documentId: document.id,
+			revision: document.revision,
+			reason: errorReason(error),
+		};
+	}
+
+	const previousIdentity = state.documentIdentityById.get(document.id);
+	if (previousIdentity === documentIdentity) {
 		return {
 			channel: "document",
 			status: "skipped",
 			reason: "duplicate-document",
 		};
 	}
+
+	state.documentIdentityById.set(document.id, documentIdentity);
 
 	const issues = validateProjectionSelection(document, inspection);
 	if (issues.length > 0) {
@@ -211,14 +227,12 @@ export async function commitProjectionDocumentTarget({
 		};
 	}
 
-	state.documentRevisionById.set(document.id, document.revision);
-
 	try {
 		const result = normalizeCommitResult(
 			(await commitDocument(document)) ?? undefined,
 		);
 		if (result.status === "unsupported") {
-			releaseDocumentReservation(state, document);
+			releaseDocumentReservation(state, document.id, documentIdentity);
 			return {
 				channel: "document",
 				status: "unsupported",
@@ -235,7 +249,7 @@ export async function commitProjectionDocumentTarget({
 			revision: document.revision,
 		};
 	} catch (error) {
-		releaseDocumentReservation(state, document);
+		releaseDocumentReservation(state, document.id, documentIdentity);
 		return {
 			channel: "document",
 			status: "error",

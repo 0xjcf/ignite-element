@@ -100,6 +100,116 @@ describe("private projection binding", () => {
 		});
 	});
 
+	it("returns an error fact when document identity throws", async () => {
+		const projection = createProjectionDocument();
+		vi.spyOn(projection, "identity").mockImplementation(() => {
+			throw new Error("document identity failed");
+		});
+
+		await expect(
+			commitProjectionDocumentTarget({
+				state: createProjectionBindingState(),
+				inspection: createInspection(),
+				projection,
+				commitDocument: vi.fn(),
+			}),
+		).resolves.toEqual({
+			channel: "document",
+			status: "error",
+			documentId: "panel",
+			revision: "1",
+			reason: "document identity failed",
+		});
+	});
+
+	it("deduplicates an invalid document until its identity changes", async () => {
+		const state = createProjectionBindingState();
+		const inspection: ProjectionInspection = {
+			...createInspection(),
+			documents: [
+				{
+					id: "panel",
+					revision: "invalid-1",
+					nodes: [
+						{
+							kind: "action",
+							id: "missing-action",
+							label: "Missing",
+							commandName: "missing",
+						},
+					],
+				},
+			],
+		};
+		const commitDocument = vi.fn();
+
+		await expect(
+			commitProjectionDocumentTarget({
+				state,
+				inspection,
+				commitDocument,
+			}),
+		).resolves.toMatchObject({
+			channel: "document",
+			status: "error",
+			documentId: "panel",
+			revision: "invalid-1",
+		});
+		await expect(
+			commitProjectionDocumentTarget({
+				state,
+				inspection,
+				commitDocument,
+			}),
+		).resolves.toEqual({
+			channel: "document",
+			status: "skipped",
+			reason: "duplicate-document",
+		});
+
+		expect(commitDocument).not.toHaveBeenCalled();
+	});
+
+	it("uses the document projection identity for deduplication", async () => {
+		const state = createProjectionBindingState();
+		const projection = createProjectionDocument();
+		const identity = vi
+			.spyOn(projection, "identity")
+			.mockReturnValue("stable-document");
+		const commitDocument = vi.fn();
+
+		await commitProjectionDocumentTarget({
+			state,
+			inspection: createInspection(),
+			projection,
+			commitDocument,
+		});
+		await expect(
+			commitProjectionDocumentTarget({
+				state,
+				inspection: {
+					...createInspection(),
+					documents: [
+						{
+							id: "panel",
+							revision: "2",
+							nodes: [{ kind: "text", id: "summary", text: "Updated" }],
+						},
+					],
+				},
+				projection,
+				commitDocument,
+			}),
+		).resolves.toEqual({
+			channel: "document",
+			status: "skipped",
+			reason: "duplicate-document",
+		});
+
+		expect(identity).toHaveBeenCalledTimes(2);
+		expect(commitDocument).toHaveBeenCalledTimes(1);
+	});
+
 	it("retries the same document revision after a transient commit error", async () => {
 		const state = createProjectionBindingState();
 		const inspection = createInspection();
@@ -584,7 +694,9 @@ describe("private projection binding", () => {
 			acknowledge: async () => undefined,
 		});
 
-		expect([...state.documentRevisionById.entries()]).toEqual([["panel", "2"]]);
+		expect([...state.documentIdentityById.entries()]).toEqual([
+			["panel", "panel:2"],
+		]);
 		expect(state.activeSpeechId).toBe(null);
 		expect(state.deliveredSpeechId).toBe(null);
 		expect(state.lastAcknowledgedSpeechId).toBe("speech-2");
