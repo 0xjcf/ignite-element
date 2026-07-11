@@ -145,7 +145,11 @@ const apiShowcase = igniteCore({
   }),
   view: ({ snapshot }) => ({
     count: snapshot.context.count,
-    stateLabel: matchState(snapshot, { active: "Active" }, "Active"),
+    stateLabel: matchState(
+      snapshot,
+      { active: "Active", limited: "Limit reached" },
+      "Active",
+    ),
   }),
   commands: ({ actor, command }) => ({
     increment: () => actor.send({ type: "ADD", amount: 1 }),

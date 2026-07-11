@@ -10,11 +10,11 @@ type AgentRuntimeView = {
 
 type RuntimeEvent = {
 	type: string;
-	payload: unknown;
+	[key: string]: unknown;
 };
 
 type StoryTraceEntry = {
-	kind: "command" | "event" | "state" | "view";
+	kind: "command" | "event" | "snapshot" | "view";
 };
 
 type StoryLifecycleEntry = {
@@ -56,18 +56,21 @@ type AgentRuntime = {
 	}>;
 	getSchema: () => {
 		commands: Record<string, unknown>;
-		events: string[];
-		state: unknown;
+		events: { type: string }[];
+		snapshot: unknown;
+		view: AgentRuntimeView;
 	};
 	getView: () => AgentRuntimeView;
 	record: (name: string) => RuntimeStory;
 };
 
-type RuntimeWindow = Window & {
-	__igniteExamples?: {
-		apiShowcase?: AgentRuntime;
-	};
-};
+declare global {
+	interface Window {
+		__igniteExamples?: {
+			apiShowcase?: AgentRuntime;
+		};
+	}
+}
 
 test("agents can drive the XState example runtime without DOM locators", async ({
 	page,
@@ -75,7 +78,7 @@ test("agents can drive the XState example runtime without DOM locators", async (
 	await page.goto("/");
 
 	const result = await page.evaluate(async () => {
-		const runtime = (window as RuntimeWindow).__igniteExamples?.apiShowcase;
+		const runtime = window.__igniteExamples?.apiShowcase;
 		if (!runtime) {
 			throw new Error("window.__igniteExamples.apiShowcase is not available.");
 		}
@@ -103,6 +106,7 @@ test("agents can drive the XState example runtime without DOM locators", async (
 		probe.setAttribute("hidden", "");
 		document.body.appendChild(probe);
 		probe.remove();
+		await new Promise<void>((resolve) => queueMicrotask(resolve));
 
 		const trace = story.trace();
 		const lifecycle = story.lifecycle();
@@ -116,6 +120,9 @@ test("agents can drive the XState example runtime without DOM locators", async (
 			limitView,
 			lifecycleCount: summary.lifecycleCount,
 			lifecycleStages: lifecycle.map((entry) => entry.stage),
+			schemaEvents: schema.events,
+			schemaSnapshot: schema.snapshot,
+			schemaView: schema.view,
 			startView,
 			stepView,
 			summaryCommandCount: summary.commandCount,
@@ -162,6 +169,16 @@ test("agents can drive the XState example runtime without DOM locators", async (
 			},
 		},
 	});
+	expect(result.schemaEvents).toEqual([
+		{ type: "api-count-changed" },
+		{ type: "api-limit-reached" },
+		{ type: "api-reset" },
+	]);
+	expect(result.schemaSnapshot).toMatchObject({
+		context: { count: 0 },
+		value: "active",
+	});
+	expect(result.schemaView).toEqual(result.startView);
 	expect(result.startView.isLimited).toBe(false);
 	expect(result.stepView.step).toBe(2);
 	expect(result.limitView.limit).toBe(6);
@@ -172,7 +189,7 @@ test("agents can drive the XState example runtime without DOM locators", async (
 	expect(result.summaryCommandCount).toBe(result.steps + 2);
 	expect(result.traceCount).toBeGreaterThan(result.summaryCommandCount);
 	expect(result.traceKinds).toEqual(
-		expect.arrayContaining(["command", "event", "state", "view"]),
+		expect.arrayContaining(["command", "event", "snapshot", "view"]),
 	);
 	expect(result.lifecycleCount).toBeGreaterThan(0);
 	expect(result.lifecycleStages).toEqual(
@@ -190,4 +207,18 @@ test("agents can drive the XState example runtime without DOM locators", async (
 	expect(result.events.map((event) => event.type)).toContain(
 		"api-count-changed",
 	);
+	expect(result.events).toEqual(
+		expect.arrayContaining([
+			expect.objectContaining({
+				type: "api-count-changed",
+				count: expect.any(Number),
+			}),
+			expect.objectContaining({
+				type: "api-limit-reached",
+				count: 6,
+				limit: 6,
+			}),
+		]),
+	);
+	expect(result.events.some((event) => "payload" in event)).toBe(false);
 });
