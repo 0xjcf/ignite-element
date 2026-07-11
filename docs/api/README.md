@@ -56,7 +56,7 @@ const subscription = component.on("toggled", (event) => {
   seen.push(event);
 });
 
-const result = await component.execute("toggle");
+const result = await component.execute({ command: "toggle" });
 
 subscription.unsubscribe();
 

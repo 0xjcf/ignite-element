@@ -28,7 +28,7 @@ const component = igniteCore({
 
 (await igniteTest(component)
   .given({ value: "off" })
-  .when("toggle"))
+  .when({ command: "toggle" }))
   .expectSnapshot({ value: "on" })
   .expectEvent({ type: "toggled", isOn: true });
 ```
@@ -36,7 +36,7 @@ const component = igniteCore({
 The helper:
 
 - asserts against the current runtime snapshot with `given(...)`
-- executes a typed command with `when(...)`
+- executes a typed command with `when({ command, input? })`
 - inspects the deterministic post-command snapshot with `expectSnapshot(...)`
 - verifies emitted effects with `expectEvent(...)` or `expectEvents(...)`
 

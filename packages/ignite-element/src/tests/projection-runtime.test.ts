@@ -2316,7 +2316,7 @@ describe("projection targets", () => {
 						`unsafe-${scenarioIndex}`,
 					);
 
-					await core.execute("upsertProjection", document);
+					await core.execute({ command: "upsertProjection", input: document });
 					await flushMicrotasks();
 
 					expect(
@@ -2451,7 +2451,7 @@ describe("projection targets", () => {
 					`uri-array-${index}`,
 				);
 
-				await core.execute("upsertProjection", document);
+				await core.execute({ command: "upsertProjection", input: document });
 				await flushMicrotasks();
 
 				if (scenario.allowed) {
@@ -2596,7 +2596,7 @@ describe("projection targets", () => {
 		const commitDocument = vi.fn<(value: ProjectionDocument) => void>();
 		const session = core(createProjectionDocumentTarget({ commitDocument }));
 
-		await core.execute("upsertProjection", document);
+		await core.execute({ command: "upsertProjection", input: document });
 		await flushMicrotasks();
 
 		expect(commitDocument).toHaveBeenCalledTimes(1);
@@ -3423,7 +3423,7 @@ describe("projection targets", () => {
 			"context",
 			capturedContextDescriptor,
 		);
-		await core.execute("recover");
+		await core.execute({ command: "recover" });
 		await flushMicrotasks();
 		await flushMicrotasks();
 		expect(ghostCommit).not.toHaveBeenCalled();
@@ -3432,13 +3432,13 @@ describe("projection targets", () => {
 		const session = core(createProjectionDocumentTarget({ commitDocument }));
 		await flushMicrotasks();
 		expect(commitDocument).toHaveBeenCalledTimes(1);
-		await core.execute("update");
+		await core.execute({ command: "update" });
 		await vi.waitFor(() => {
 			expect(commitDocument).toHaveBeenCalledTimes(2);
 		});
 
 		session.dispose();
-		await core.execute("finalize");
+		await core.execute({ command: "finalize" });
 		await flushMicrotasks();
 		expect(commitDocument).toHaveBeenCalledTimes(2);
 	});
@@ -3453,29 +3453,38 @@ describe("projection targets", () => {
 		});
 		const session = core(target);
 
-		await core.execute("upsertProjection", {
-			id: "panel",
-			revision: "1",
-			nodes: [{ kind: "text", id: "summary", text: "Ready" }],
+		await core.execute({
+			command: "upsertProjection",
+			input: {
+				id: "panel",
+				revision: "1",
+				nodes: [{ kind: "text", id: "summary", text: "Ready" }],
+			},
 		});
-		await core.execute("patchProjection", {
-			documentId: "panel",
-			baseRevision: "1",
-			revision: "2",
-			type: "set-node",
-			node: { kind: "text", id: "summary", text: "Updated" },
+		await core.execute({
+			command: "patchProjection",
+			input: {
+				documentId: "panel",
+				baseRevision: "1",
+				revision: "2",
+				type: "set-node",
+				node: { kind: "text", id: "summary", text: "Updated" },
+			},
 		});
 
 		expect(commits).toEqual(["1", "2"]);
 
 		session.dispose();
 
-		await core.execute("patchProjection", {
-			documentId: "panel",
-			baseRevision: "2",
-			revision: "3",
-			type: "set-node",
-			node: { kind: "text", id: "summary", text: "Disposed" },
+		await core.execute({
+			command: "patchProjection",
+			input: {
+				documentId: "panel",
+				baseRevision: "2",
+				revision: "3",
+				type: "set-node",
+				node: { kind: "text", id: "summary", text: "Disposed" },
+			},
 		});
 
 		expect(commits).toEqual(["1", "2"]);
@@ -3515,15 +3524,21 @@ describe("projection targets", () => {
 		});
 		const session = core(target);
 
-		await core.execute("queueSpeech", {
-			id: "speech-1",
-			text: "System ready.",
-			status: "pending",
+		await core.execute({
+			command: "queueSpeech",
+			input: {
+				id: "speech-1",
+				text: "System ready.",
+				status: "pending",
+			},
 		});
-		await core.execute("upsertProjection", {
-			id: "panel",
-			revision: "1",
-			nodes: [{ kind: "text", id: "summary", text: "Ready" }],
+		await core.execute({
+			command: "upsertProjection",
+			input: {
+				id: "panel",
+				revision: "1",
+				nodes: [{ kind: "text", id: "summary", text: "Ready" }],
+			},
 		});
 
 		expect(speak).toHaveBeenCalledTimes(1);
@@ -3535,10 +3550,13 @@ describe("projection targets", () => {
 
 		expect(speak).toHaveBeenCalledTimes(1);
 
-		await core.execute("queueSpeech", {
-			id: "speech-2",
-			text: "Updated.",
-			status: "pending",
+		await core.execute({
+			command: "queueSpeech",
+			input: {
+				id: "speech-2",
+				text: "Updated.",
+				status: "pending",
+			},
 		});
 
 		expect(speak).toHaveBeenCalledTimes(2);
@@ -3561,16 +3579,22 @@ describe("projection targets", () => {
 			}),
 		);
 
-		await core.execute("upsertProjection", {
-			id: "panel",
-			revision: "1",
-			nodes: [{ kind: "text", id: "summary", text: "Ready" }],
+		await core.execute({
+			command: "upsertProjection",
+			input: {
+				id: "panel",
+				revision: "1",
+				nodes: [{ kind: "text", id: "summary", text: "Ready" }],
+			},
 		});
 		await flushMicrotasks();
-		await core.execute("queueSpeech", {
-			id: "speech-1",
-			text: "System ready.",
-			status: "pending",
+		await core.execute({
+			command: "queueSpeech",
+			input: {
+				id: "speech-1",
+				text: "System ready.",
+				status: "pending",
+			},
 		});
 		await flushMicrotasks();
 
@@ -3601,16 +3625,22 @@ describe("projection targets", () => {
 			}),
 		);
 
-		await core.execute("queueSpeech", {
-			id: "speech-1",
-			text: "System ready.",
-			status: "pending",
+		await core.execute({
+			command: "queueSpeech",
+			input: {
+				id: "speech-1",
+				text: "System ready.",
+				status: "pending",
+			},
 		});
 		await flushMicrotasks();
-		await core.execute("upsertProjection", {
-			id: "panel",
-			revision: "1",
-			nodes: [{ kind: "text", id: "summary", text: "Ready" }],
+		await core.execute({
+			command: "upsertProjection",
+			input: {
+				id: "panel",
+				revision: "1",
+				nodes: [{ kind: "text", id: "summary", text: "Ready" }],
+			},
 		});
 		await flushMicrotasks();
 
@@ -3640,17 +3670,20 @@ describe("projection targets", () => {
 		process.on("unhandledRejection", captureUnhandled);
 
 		try {
-			await core.execute("upsertProjection", {
-				id: "panel",
-				revision: "1",
-				nodes: [
-					{
-						kind: "action",
-						id: "confirm",
-						label: "Confirm",
-						commandName: "missing",
-					},
-				],
+			await core.execute({
+				command: "upsertProjection",
+				input: {
+					id: "panel",
+					revision: "1",
+					nodes: [
+						{
+							kind: "action",
+							id: "confirm",
+							label: "Confirm",
+							commandName: "missing",
+						},
+					],
+				},
 			});
 			await flushMicrotasks();
 		} finally {
@@ -3731,8 +3764,14 @@ describe("projection targets", () => {
 
 		process.on("unhandledRejection", captureUnhandled);
 		try {
-			await core.execute("setDocuments", [null, { id: "broken" }]);
-			await core.execute("setSpeech", { id: 1, text: null, status: "pending" });
+			await core.execute({
+				command: "setDocuments",
+				input: [null, { id: "broken" }],
+			});
+			await core.execute({
+				command: "setSpeech",
+				input: { id: 1, text: null, status: "pending" },
+			});
 			await flushMicrotasks();
 		} finally {
 			process.off("unhandledRejection", captureUnhandled);

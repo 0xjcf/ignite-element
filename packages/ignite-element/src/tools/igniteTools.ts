@@ -1,9 +1,6 @@
-import type {
-	EmptyEventMap,
-	EventMap,
-	FacadeCommandResult,
-} from "../RenderArgs";
-import type { IgniteAgentExecutionResult } from "../types/agent";
+import type { EventMap, FacadeCommandResult } from "../RenderArgs";
+import type { IgniteCommandCall, RuntimeEvent } from "../types/agent";
+import type { IgniteSchemaObject } from "../types/schema";
 import { buildManifest, resolveCall } from "./core";
 import { err, ok, type Result } from "./result";
 import type {
@@ -43,6 +40,33 @@ export type IgniteToolsWithDialect<
 	toolCalls(response: Response): NeutralToolCall[];
 	toolResult(result: NeutralToolResult<State, View, Events>): ResultBlock;
 };
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNoArgSchema(schema: IgniteSchemaObject): boolean {
+	if (schema.type !== "object") {
+		return false;
+	}
+
+	const properties = isPlainObject(schema.properties) ? schema.properties : {};
+	return (
+		Object.keys(properties).length === 0 &&
+		(!Array.isArray(schema.required) || schema.required.length === 0)
+	);
+}
+
+function isIgniteCommandCall<Commands extends FacadeCommandResult>(
+	call: Route,
+	schema: IgniteSchemaObject,
+): call is IgniteCommandCall<Commands> {
+	if (!("input" in call)) {
+		return isNoArgSchema(schema);
+	}
+
+	return true;
+}
 
 export function igniteTools<
 	State,
@@ -94,16 +118,9 @@ export function igniteTools<
 	const schema = runtime.getSchema();
 	const manifest = buildManifest(schema, canExecute);
 
-	// The model supplies dynamic command names, so bind the runtime method before
-	// storing it and treat `execute` as the loose contract at this boundary.
-	const execute = runtime.execute.bind(runtime) as unknown as (
-		name: string,
-		payload?: unknown,
-	) => Promise<IgniteAgentExecutionResult<unknown, EmptyEventMap>>;
-
 	// Captured post-command (at acknowledgement) into each observation so the
 	// agent grounds on the derived view, not just the raw snapshot.
-	const getView = runtime.getView.bind(runtime) as unknown as () => unknown;
+	const getView = () => runtime.getView();
 
 	const boundResolveCall = (
 		name: string,
@@ -112,19 +129,34 @@ export function igniteTools<
 
 	const run = async (
 		call: NeutralToolCall,
-	): Promise<
-		Result<ToolObservation<unknown, unknown, EmptyEventMap>, ToolError>
-	> => {
+	): Promise<Result<ToolObservation<State, View, Events>, ToolError>> => {
 		const routed = boundResolveCall(call.name, call.input);
 		if (!routed.ok) {
 			return routed;
 		}
 
 		try {
-			const { snapshot, events } = await execute(
-				routed.value.command,
-				routed.value.payload,
+			const routedTool = manifest.find(
+				(candidate) => candidate.name === routed.value.command,
 			);
+			if (!routedTool) {
+				return err({
+					kind: "UnknownCommand",
+					name: routed.value.command,
+				});
+			}
+
+			if (
+				!isIgniteCommandCall<Commands>(routed.value, routedTool.inputSchema)
+			) {
+				return err({
+					kind: "InvalidInput",
+					name: routed.value.command,
+					issues: ["input: command route could not be typed for execution"],
+				});
+			}
+
+			const { snapshot, events } = await runtime.execute(routed.value);
 			return ok({ snapshot, view: getView(), events });
 		} catch (cause) {
 			return err({
@@ -137,14 +169,14 @@ export function igniteTools<
 	};
 
 	const observe = (
-		handler: ToolStreamHandler<unknown, EmptyEventMap>,
+		handler: ToolStreamHandler<View, Events>,
 	): ToolStreamSubscription => {
 		const on = runtime.on.bind(runtime) as unknown as (
 			eventName: string,
-			handler: (event: { type: string; [key: string]: unknown }) => void,
+			handler: (event: RuntimeEvent<Events>) => void,
 		) => ToolStreamSubscription;
 		const watchView = runtime.watchView.bind(runtime) as unknown as (
-			handler: (view: unknown, prevView: unknown) => void,
+			handler: (view: View, prevView: View) => void,
 		) => ToolStreamSubscription;
 		const subscriptions: ToolStreamSubscription[] = [];
 

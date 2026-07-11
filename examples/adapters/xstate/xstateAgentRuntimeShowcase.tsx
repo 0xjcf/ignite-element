@@ -149,15 +149,15 @@ const codeForCommand = (
 				"apiShowcase.getView()",
 			].join("\n");
 		case "setStep":
-			return `await story.execute("setStep", ${payload})`;
+			return `await story.execute({ command: "setStep", input: ${payload ?? 1} })`;
 		case "setLimit":
-			return `await story.execute("setLimit", ${payload})`;
+			return `await story.execute({ command: "setLimit", input: ${payload ?? 5} })`;
 		case "incrementToLimit":
 			return [
 				'const story = apiShowcase.record("reaches limit")',
 				"await story.until(",
 				"  (view) => view.isLimited,",
-				'  async () => await story.execute("increment"),',
+				'  async () => await story.execute({ command: "increment" }),',
 				"  { maxSteps: 20 },",
 				")",
 				"story.trace()",
@@ -165,7 +165,7 @@ const codeForCommand = (
 				"story.summary()",
 			].join("\n");
 		default:
-			return `await story.execute("${command}")`;
+			return `await story.execute({ command: "${command}" })`;
 	}
 };
 
@@ -237,12 +237,12 @@ const incrementToLimit = async (
 	let steps = 0;
 
 	while (!view.isLimited && steps < maxSteps) {
-		const result = await story.execute("increment");
+		const result = await story.execute({ command: "increment" });
 		resultEvents.push(...mapRuntimeEvents(result.events));
 		view = apiShowcase.getView();
 		steps += 1;
 		agentLog.push(
-			`execute("increment") -> count ${view.count}/${view.limit}, state ${view.stateLabel}`,
+			`execute({ command: "increment" }) -> count ${view.count}/${view.limit}, state ${view.stateLabel}`,
 		);
 	}
 
@@ -269,37 +269,41 @@ const executeRuntimeCommand = async (
 		case "increment":
 			return {
 				resultEvents: mapRuntimeEvents(
-					(await story.execute("increment")).events,
+					(await story.execute({ command: "increment" })).events,
 				),
-				agentLog: ['execute("increment")'],
+				agentLog: ['execute({ command: "increment" })'],
 			};
 		case "decrement":
 			return {
 				resultEvents: mapRuntimeEvents(
-					(await story.execute("decrement")).events,
+					(await story.execute({ command: "decrement" })).events,
 				),
-				agentLog: ['execute("decrement")'],
+				agentLog: ['execute({ command: "decrement" })'],
 			};
 		case "reset":
 			return {
-				resultEvents: mapRuntimeEvents((await story.execute("reset")).events),
-				agentLog: ['execute("reset")'],
+				resultEvents: mapRuntimeEvents(
+					(await story.execute({ command: "reset" })).events,
+				),
+				agentLog: ['execute({ command: "reset" })'],
 			};
 		case "incrementToLimit":
 			return incrementToLimit(story);
 		case "setStep":
 			return {
 				resultEvents: mapRuntimeEvents(
-					(await story.execute("setStep", payload ?? 1)).events,
+					(await story.execute({ command: "setStep", input: payload ?? 1 }))
+						.events,
 				),
-				agentLog: [`execute("setStep", ${payload ?? 1})`],
+				agentLog: [`execute({ command: "setStep", input: ${payload ?? 1} })`],
 			};
 		case "setLimit":
 			return {
 				resultEvents: mapRuntimeEvents(
-					(await story.execute("setLimit", payload ?? 5)).events,
+					(await story.execute({ command: "setLimit", input: payload ?? 5 }))
+						.events,
 				),
-				agentLog: [`execute("setLimit", ${payload ?? 5})`],
+				agentLog: [`execute({ command: "setLimit", input: ${payload ?? 5} })`],
 			};
 	}
 };

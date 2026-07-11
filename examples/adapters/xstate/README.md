@@ -145,7 +145,11 @@ const apiShowcase = igniteCore({
   }),
   view: ({ snapshot }) => ({
     count: snapshot.context.count,
-    stateLabel: matchState(snapshot, { active: "Active" }, "Active"),
+    stateLabel: matchState(
+      snapshot,
+      { active: "Active", limited: "Limit reached" },
+      "Active",
+    ),
   }),
   commands: ({ actor, command }) => ({
     increment: () => actor.send({ type: "ADD", amount: 1 }),
@@ -191,12 +195,12 @@ apiShowcase.on("api-count-changed", (event) => [
 apiShowcase.watchSnapshot((snapshot, prevSnapshot) => [prevSnapshot, snapshot]);
 apiShowcase.watchView((view, prevView) => [prevView, view]);
 
-const result = await apiShowcase.execute("increment");
+const result = await apiShowcase.execute({ command: "increment" });
 
 const story = apiShowcase.record("reaches limit");
-await story.execute("setLimit", 6);
-await story.until((view) => view.isLimited, async () => {
-  await story.execute("increment");
+await story.execute({ command: "setLimit", input: 6 });
+await story.until((view) => view.stateLabel === "Limit reached", async () => {
+  await story.execute({ command: "increment" });
 });
 story.trace();
 story.lifecycle();
@@ -210,8 +214,8 @@ The example also exposes the same runtime on `window.__igniteExamples.apiShowcas
 const runtime = window.__igniteExamples?.apiShowcase;
 const story = runtime?.record("browser proof");
 
-await story?.until((view) => view.isLimited, async () => {
-  await story.execute("increment");
+await story?.until((view) => view.stateLabel === "Limit reached", async () => {
+  await story.execute({ command: "increment" });
 });
 story?.trace();
 story?.lifecycle();

@@ -1,5 +1,13 @@
 # Task Tracker
 
+## Lifecycle Projection
+
+Tracker `Status` and `Owner` fields reflect the active pipeline stage and
+pipeline owner. Queue `.fas/queue/tasks.json` `status` and `owner` fields reflect
+scheduler state and domain ownership. These projections need not use identical
+values; do not force queue `processing`/runtime values to `review`/`reviewer`
+solely to mirror the tracker.
+
 ## Active Tasks
 
 No active tasks.
@@ -2287,9 +2295,12 @@ No active tasks.
 
 - Title: BREAKING (v3 beta): adopt object-form igniteTest command steps and artifact intent vocabulary
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/breaking-v3-beta-adopt-object-form-ignitetest-command-steps-.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Harden projection runtime helper ownership and benchmark inspection caching
 
@@ -2299,6 +2310,14 @@ No active tasks.
 - Owner: runtime
 - Brief: .fas/tasks/harden-projection-runtime-helper-ownership-and-benchmark-ins.md
 - Automation mode: advisory
+
+### Task: Define getSchema as the compiled blueprint and keep coherent inspection private
+
+- Title: Define getSchema as the compiled blueprint and keep coherent inspection private
+- Mode: 6-agent
+- Status: deferred
+- Owner: runtime
+- Brief: .fas/tasks/define-getschema-blueprint-and-public-coherent-inspect-obser.md
 
 ## Template
 

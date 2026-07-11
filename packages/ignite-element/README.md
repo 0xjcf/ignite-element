@@ -126,7 +126,7 @@ view: ({ snapshot }) => ({
 Headless runtime APIs are available on the same component contract:
 
 ```ts
-await toggle.execute("toggle");
+await toggle.execute({ command: "toggle" });
 toggle.getSnapshot();
 toggle.getView();
 toggle.getSchema();
@@ -134,7 +134,7 @@ toggle.on("toggled", handler);
 toggle.watchSnapshot((snapshot, prevSnapshot) => {});
 toggle.watchView((view, prevView) => {});
 const story = toggle.record("turns on");
-await story.execute("toggle");
+await story.execute({ command: "toggle" });
 story.trace();
 story.lifecycle();
 story.summary();

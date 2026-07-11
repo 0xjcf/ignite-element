@@ -15,8 +15,17 @@ Build examples/agents/voice-workbench as the decisive dogfood for agent-authored
   `completeResponse` commands rather than projection CRUD vocabulary, generated
   JSX/JavaScript, or public ProjectionRequest/ProjectionSpec objects.
 - Workbench tests use the object-form
-  `when({ name: "createArtifact", input })` API established by the prerequisite
+  `when({ command: "createArtifact", input })` API established by the prerequisite
   v3 testing-contract task.
+- The model/tool bootstrap uses `getSchema()` as the compiled JSON-safe
+  blueprint, then uses `getView()`/`getSnapshot()`, `canExecute(commandName)`,
+  and subscriptions for live facts; it does not require `getBlueprint()` or a
+  public `inspect()` API.
+- Dogfood records whether the focused getters and subscriptions cause a real
+  revision mismatch, repeated bootstrap-packet duplication, or inaccessible
+  projection facts. One workbench run provides bounded evidence only; require a
+  reproducible consumer gap before proposing a public observation API. Absent
+  such evidence, coherent inspection remains private for this task.
 - Actor state is the durable source of truth for messages, document revisions, artifacts, and command-backed actions.
 - Model-authored final text is committed through a mockable text/terminal adapter, while structured speech is committed through a separate mockable speech adapter; voice-only operation requires no DOM.
 - The browser maps semantic nodes to accessible native JSX and supports keyboard, focus, names, disabled/error states, and command actions.
@@ -81,6 +90,8 @@ incremental commit after every commit-plan step before advancing a review gate.
 ## Dependencies
 
 - Depends on task-1783735005336.
+- Depends on task-1783783535436, which defines `getSchema()` as the compiled
+  blueprint and keeps coherent inspection private.
 - Blocks task-1783610950265.
 
 ## Open questions

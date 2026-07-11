@@ -8,7 +8,7 @@ Shipped. **Additive**, non-breaking — ships as a `3.x` minor. Tracked in
 
 ## Context
 
-The headless runtime can `execute(name, payload)` a command, but a driver — an LLM
+The headless runtime can `execute({ command, input })` a command, but a driver — an LLM
 agent, a test, an external imperative host — has no way to ask **"is this command
 callable right now?"** before trying it. Two consumers need that:
 
@@ -47,7 +47,7 @@ runtime.canExecute("submit"); // boolean — evaluates the predicate; default tr
 
 ### One word across the three surfaces
 
-The runtime already has `execute(name, payload)`, so its guard-sibling is `canExecute`
+The runtime already has `execute({ command, input })`, so its guard-sibling is `canExecute`
 (the classic command-pattern pairing — cf. WPF `ICommand.Execute`/`CanExecute`). Per the
 epic's "same concept → same word across author / observe / assert", the *same* word is
 used on all three:
@@ -133,7 +133,7 @@ So the scenario exposes `canExecute(name): boolean` (mirroring the runtime) and 
 it natively:
 
 ```ts
-await scenario.when("build");
+await scenario.when({ command: "build" });
 expect(scenario.canExecute("deploy")).toBe(true);
 expect(scenario.canExecute("promote")).toBe(false);
 ```

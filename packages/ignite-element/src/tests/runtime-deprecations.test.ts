@@ -58,7 +58,7 @@ describe("headless runtime canonical snapshot accessors", () => {
 		const snapshotListener = vi.fn();
 		const subscription = register.watchSnapshot(snapshotListener);
 
-		await register.execute("increment", 2);
+		await register.execute({ command: "increment", input: 2 });
 
 		expect(register.getSnapshot().counter.count).toBe(2);
 		expect(snapshotListener).toHaveBeenCalledTimes(1);
@@ -84,7 +84,7 @@ describe("headless runtime canonical snapshot accessors", () => {
 		try {
 			const { register } = createRegister();
 
-			await register.execute("increment");
+			await register.execute({ command: "increment" });
 			await flushMicrotasks();
 
 			expect(warnSpy).not.toHaveBeenCalled();

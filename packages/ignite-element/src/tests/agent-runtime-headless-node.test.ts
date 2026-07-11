@@ -78,10 +78,10 @@ describe("agent runtime is DOM-free (pure Node, no jsdom)", () => {
 		expect(counter.canExecute("increment")).toBe(true);
 		expect(counter.canExecute("decrement")).toBe(false);
 
-		await counter.execute("increment");
+		await counter.execute({ command: "increment" });
 		expect(counter.canExecute("decrement")).toBe(true);
 
-		await counter.execute("decrement");
+		await counter.execute({ command: "decrement" });
 		expect(counter.canExecute("decrement")).toBe(false);
 		const dynamicCounter = counter as unknown as {
 			canExecute(commandName: string): boolean;
@@ -93,7 +93,7 @@ describe("agent runtime is DOM-free (pure Node, no jsdom)", () => {
 
 	it("execute() runs a command and returns the post-ack snapshot + events", async () => {
 		const counter = createCounter();
-		const result = await counter.execute("increment");
+		const result = await counter.execute({ command: "increment" });
 		expect(result.snapshot.context.count).toBe(1);
 		expect(result.events).toEqual([{ type: "counted", count: 1 }]);
 	});
@@ -103,7 +103,7 @@ describe("agent runtime is DOM-free (pure Node, no jsdom)", () => {
 		const handler = vi.fn();
 		const subscription = counter.on("counted", handler);
 
-		await counter.execute("increment");
+		await counter.execute({ command: "increment" });
 
 		expect(handler).toHaveBeenCalledTimes(1);
 		expect(handler.mock.calls[0][0]).toEqual({ type: "counted", count: 1 });
@@ -115,7 +115,7 @@ describe("agent runtime is DOM-free (pure Node, no jsdom)", () => {
 		const seen: Array<{ count: number }> = [];
 		const subscription = counter.watchView((view) => seen.push(view));
 
-		await counter.execute("increment");
+		await counter.execute({ command: "increment" });
 
 		expect(counter.getView()).toEqual({ count: 1 });
 		expect(seen[seen.length - 1]).toEqual({ count: 1 });

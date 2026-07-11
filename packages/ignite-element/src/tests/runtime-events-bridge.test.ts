@@ -112,7 +112,7 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 			},
 		});
 
-		const result = await h.runtime.execute("acceptFork");
+		const result = await h.runtime.execute({ command: "acceptFork" });
 
 		expect(result.events).toContainEqual({
 			type: "OUTCOME_RESOLVED",
@@ -138,7 +138,7 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 			},
 		});
 
-		const result = await h.runtime.execute("emitDate");
+		const result = await h.runtime.execute({ command: "emitDate" });
 
 		expect(result.events).toEqual([
 			{
@@ -179,7 +179,9 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 			resolveView: () => ({}),
 		});
 
-		await expect(runtime.execute("noop")).rejects.toThrow(setupError);
+		await expect(runtime.execute({ command: "noop" })).rejects.toThrow(
+			setupError,
+		);
 		expect(removeEventListener).toHaveBeenCalledWith(
 			"ui-event",
 			expect.any(Function),
@@ -263,10 +265,12 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 		});
 
 		try {
-			await expect(runtime.execute("noop")).resolves.toMatchObject({
-				snapshot: state,
-				events: [],
-			});
+			await expect(runtime.execute({ command: "noop" })).resolves.toMatchObject(
+				{
+					snapshot: state,
+					events: [],
+				},
+			);
 			expect(consoleError).toHaveBeenCalledWith(
 				"[igniteCore] Source event subscription cleanup failed after command execution.",
 				cleanupError,
@@ -334,7 +338,7 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 		});
 
 		const story = h.runtime.record("compare");
-		await story.execute("acceptFork");
+		await story.execute({ command: "acceptFork" });
 
 		expect(story.summary().events).toContainEqual({
 			type: "OUTCOME_RESOLVED",
@@ -354,7 +358,7 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 		});
 		const story = h.runtime.record("compare");
 
-		await story.execute("acceptFork");
+		await story.execute({ command: "acceptFork" });
 		const firstSummary = story.summary();
 		const firstNested = firstSummary.events[0]?.nested;
 		if (
@@ -385,7 +389,7 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 		});
 		const story = h.runtime.record("compare");
 
-		await story.execute("acceptFork");
+		await story.execute({ command: "acceptFork" });
 		const firstSummary = story.summary();
 		const firstNested = firstSummary.events[0]?.nested;
 		if (
@@ -430,7 +434,7 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 			resolveView: () => ({}),
 		});
 
-		const result = await runtime.execute("noop");
+		const result = await runtime.execute({ command: "noop" });
 		expect(result.events).toEqual([]);
 		// on() still works (host path) without throwing
 		const sub = runtime.on("whatever", () => {});

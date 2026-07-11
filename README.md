@@ -231,40 +231,51 @@ Events are:
 Every `igniteCore(...)` registration exposes a headless runtime API in addition to the DOM component.
 
 ```ts
-const result = toggle.execute("toggle");
-toggle.getState();
-toggle.getView();
-toggle.getSchema();
-toggle.on("toggled", (event) => {
-  console.log(event.detail.isOn);
-});
-toggle.watch((state, prevState) => {
-  console.log(prevState.value, "->", state.value);
-});
-toggle.watchView((view, prevView) => {
-  console.log(prevView.isOn, "->", view.isOn);
-});
+async function inspectToggle() {
+  const eventSubscription = toggle.on("toggled", (event) => {
+    console.log(event.isOn);
+  });
+  const snapshotSubscription = toggle.watchSnapshot((state, prevState) => {
+    console.log(prevState.value, "->", state.value);
+  });
+  const viewSubscription = toggle.watchView((view, prevView) => {
+    console.log(prevView.isOn, "->", view.isOn);
+  });
+
+  try {
+    const result = await toggle.execute({ command: "toggle" });
+    toggle.getSnapshot();
+    toggle.getView();
+    toggle.getSchema();
+  } finally {
+    eventSubscription.unsubscribe();
+    snapshotSubscription.unsubscribe();
+    viewSubscription.unsubscribe();
+  }
+}
 ```
 
-Use `on(...)` for outward event signals, `watch(...)` for raw state changes, and `watchView(...)` for projected view changes.
+Use `on(...)` for outward event signals, `watchSnapshot(...)` for raw state changes, and `watchView(...)` for projected view changes.
 
 Use `record(...)` when a test or agent needs workflow evidence:
 
 ```ts
-const story = toggle.record("turns on");
-story.execute("toggle");
-story.trace();
-story.lifecycle();
-story.summary();
-story.stop();
+async function recordToggleStory() {
+  const story = toggle.record("turns on");
+  await story.execute({ command: "toggle" });
+  story.trace();
+  story.lifecycle();
+  story.summary();
+  story.stop();
+}
 ```
 
 `execute()` returns structured output:
 
 ```ts
 {
-  state,
-  events: [{ type: "toggled", payload: { isOn: true } }]
+  snapshot,
+  events: [{ type: "toggled", isOn: true }]
 }
 ```
 
@@ -275,8 +286,8 @@ story.stop();
   commands: {
     toggle: {}
   },
-  events: ["toggled"],
-  state: { value: "off", context: {} }
+  events: [{ type: "toggled" }],
+  snapshot: { value: "off", context: {} }
 }
 ```
 
@@ -289,11 +300,11 @@ Ignite includes a built-in headless testing DSL for state and event assertions.
 ```ts
 import { test as igniteTest } from "ignite-element";
 
-igniteTest(toggle)
-  .given("off")
-  .when("toggle")
-  .expectState("on")
-  .expectEvent("toggled", { isOn: true });
+(await igniteTest(toggle)
+  .given({ value: "off" })
+  .when({ command: "toggle" }))
+  .expectSnapshot({ value: "on" })
+  .expectEvent({ type: "toggled", isOn: true });
 ```
 
 Because this runs against the same deterministic runtime, state and event expectations stay aligned with real component behavior.

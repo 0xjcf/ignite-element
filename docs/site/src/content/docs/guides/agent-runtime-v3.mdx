@@ -69,10 +69,10 @@ counter.getSchema(); // commands + metadata + events + state shape
 counter.getView();   // current projected view
 counter.canExecute('increment'); // current command availability
 
-await counter.execute('setLimit', 6);
+await counter.execute({ command: 'setLimit', input: 6 });
 
 while (!counter.getView().isLimited) {
-  await counter.execute('increment');
+  await counter.execute({ command: 'increment' });
 }
 
 expect(counter.getView()).toMatchObject({ count: 6, limit: 6, isLimited: true });
@@ -176,9 +176,9 @@ Stories make behavior workflows first-class: a recorder captures command, event,
 ```ts no-check
 const story = counter.record('reaches limit');
 
-await story.execute('setLimit', 6);
+await story.execute({ command: 'setLimit', input: 6 });
 await story.until((view) => view.isLimited, async () => {
-  await story.execute('increment');
+  await story.execute({ command: 'increment' });
 });
 
 igniteTest.expectTrace(igniteTest.serializeTrace(story.trace()), [

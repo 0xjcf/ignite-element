@@ -158,7 +158,7 @@
       "task": "Build LLM-authored voice/text artifact control-center workbench",
       "priority": "high",
       "source": "manual",
-      "details": "Build examples/agents/voice-workbench as the decisive dogfood for agent-authored interfaces. A user types or speaks a prompt; a conversation/command-center actor exposes consumer-owned createArtifact, reviseArtifact, and completeResponse commands through igniteTools; a scripted or live OpenAI-compatible/MLX model proposes artifact content and response text/speech through those intent-oriented commands; the actor validates and stores durable ProjectionDocument state; Ignite commits it to accessible native JSX, speech, and text/terminal outputs. Workbench tests use igniteTest.when({ name, input }).\nSee .fas/tasks/build-voice-text-agent-control-center-workbench-example-for-.md",
+      "details": "Build examples/agents/voice-workbench as the decisive dogfood for agent-authored interfaces. A user types or speaks a prompt; a conversation/command-center actor exposes consumer-owned createArtifact, reviseArtifact, and completeResponse commands through igniteTools; a scripted or live OpenAI-compatible/MLX model proposes artifact content and response text/speech through those intent-oriented commands; the actor validates and stores durable ProjectionDocument state; Ignite commits it to accessible native JSX, speech, and text/terminal outputs. Workbench tests use igniteTest.when({ command, input }). Bootstrap uses getSchema(), focused getters, canExecute(), and subscriptions without public inspect().\nSee .fas/tasks/build-voice-text-agent-control-center-workbench-example-for-.md",
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
@@ -166,7 +166,8 @@
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
-        "task-1783735005336"
+        "task-1783735005336",
+        "task-1783783535436"
       ],
       "blocks": [
         "task-1783610950265",
@@ -175,8 +176,8 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-09T16:15:28.381Z",
-      "updatedAt": "2026-07-11T01:56:45.336Z",
-      "deferredReason": "dependency_reopened: task-1783735005336",
+      "updatedAt": "2026-07-11T15:25:35.436Z",
+      "deferredReason": "dependency_reopened: task-1783735005336, task-1783783535436",
       "invalidationReason": null
     },
     {
@@ -357,23 +358,24 @@
       "task": "BREAKING (v3 beta): adopt object-form igniteTest command steps and artifact intent vocabulary",
       "priority": "critical",
       "source": "manual",
-      "details": "Replace positional igniteTest.when(commandName, input?) with the self-describing object form when({ name, input? }) before the voice/text workbench is implemented. Remove positional support during the v3 beta window rather than deprecating it. Preserve command-name and input inference with a discriminated command-step type: input is required for commands that accept one argument and omitted for no-argument commands. Align the workbench model-facing vocabulary on consumer-owned createArtifact, reviseArtifact, and completeResponse commands. Keep ProjectionDocument validation, revision application, coherent inspection, and channel committers internal to Ignite; do not add built-in projection CRUD, a public inspect method, or a second authoring DSL.\nSee .fas/tasks/breaking-v3-beta-adopt-object-form-ignitetest-command-steps-.md",
+      "details": "Complete the v3-beta command-call cutover before the voice/text workbench. Replace positional igniteTest.when(commandName, input?), IgniteAgentRuntime.execute(commandName, input?), and IgniteStory.execute(commandName, input?) with the canonical object envelope { command, input? }. Preserve discriminated required, optional, and no-input typing. Keep events on the distinct flat { type, ...fields } fact shape and keep provider-facing tool names at the adapter boundary. Do not add getBlueprint(), public inspect(), projection registries, or a second authoring DSL.\nSee .fas/tasks/breaking-v3-beta-adopt-object-form-ignitetest-command-steps-.md",
       "taskClassification": "standard",
       "selfImprovementCategory": null,
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "processing",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
         "task-1783650880370"
       ],
       "blocks": [
-        "task-1783613728381"
+        "task-1783613728381",
+        "task-1783783535436"
       ],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-11T01:56:45.336Z",
-      "updatedAt": "2026-07-11T01:56:45.336Z"
+      "updatedAt": "2026-07-11T15:25:35.436Z"
     },
     {
       "id": "task-1783735835707",
@@ -395,6 +397,31 @@
       "prDependencies": [],
       "createdAt": "2026-07-11T02:10:35.707Z",
       "updatedAt": "2026-07-11T02:10:35.707Z"
+    },
+    {
+      "id": "task-1783783535436",
+      "task": "Define getSchema as the compiled blueprint and keep coherent inspection private",
+      "priority": "critical",
+      "source": "memory-context-architecture-followup",
+      "details": "Finalize and document the restrained headless discovery contract after the object-form command-call cutover. Treat igniteCore(config) as the executable authoring source and runtime.getSchema() as its only compiled JSON-safe blueprint. Do not add getBlueprint() or public inspect(). Keep coherent inspection private for atomic projection validation and channel commits. Require the voice/text workbench to prove getSchema(), getSnapshot(), getView(), canExecute(commandName), on(...), watchSnapshot(...), and watchView(...) are insufficient before any future observation API is proposed. Projections remain private headless interface-output machinery for validated document and speech facts consumed by DOM, terminal, voice, accessibility, and agent adapters.\nSee .fas/tasks/define-getschema-blueprint-and-public-coherent-inspect-obser.md",
+      "taskClassification": "standard",
+      "selfImprovementCategory": null,
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1783735005336"
+      ],
+      "blocks": [
+        "task-1783613728381"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-11T15:25:35.436Z",
+      "updatedAt": "2026-07-11T17:45:38.864Z",
+      "deferredReason": "dependency_reopened: task-1783735005336",
+      "invalidationReason": null
     }
   ],
   "completedTasks": [

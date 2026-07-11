@@ -15,7 +15,7 @@ agent-runtime counterpart to `ignite-element/react`; the roadmap thread lives in
 
 `getSchema()` already describes a component as a machine-readable contract — `commands`
 (name + input schema + `gated`), `events`, `snapshot`, `view`. With headless
-`execute(name, payload)`, that's everything an LLM agent needs to *drive* a component.
+`execute({ command, input })`, that's everything an LLM agent needs to *drive* a component.
 `igniteTools` is the bridge from that contract to LLM tool-use.
 
 The key design decision: **this is ignite's own "no lock-in" philosophy applied one
@@ -34,7 +34,7 @@ with no cloud and no web UI.
    (LLM providers)         ┌──────────────────────────────┐
         │                  │   FUNCTIONAL CORE (pure)      │
   [Anthropic] ─┐  adapter  │   buildManifest(schema)       │        ignite component
-  [OpenAI/Codex]┼─(format  │     → NeutralManifest         │ ──────►  execute(name, payload)
+  [OpenAI/Codex]┼─(format  │     → NeutralManifest         │ ──────►  execute({ command, input })
   [Ollama]  ─┘   xlate)    │   resolveCall(name,input)     │          getView()/events ◄──
         ▲                  │     → Result<Route, ToolError>│              (actor)
         │                  │                               │               │
@@ -53,7 +53,7 @@ with no cloud and no web UI.
   (`gated && !canExecute`) are omitted (see `docs/can-execute.md`).
 - `resolveCall(name, input): Result<Route, ToolError>` — validate (input against the
   command's `inputSchema`; availability against `canExecute`) and route to
-  `{ command, payload }`. Pure; returns a `Result` (errors as values), never throws.
+  `{ command, input }`. Pure; returns a `Result` (errors as values), never throws.
 
 ### Port — `ToolDialect`
 
@@ -119,7 +119,7 @@ two helpers; the OpenAI/Ollama dialect reuses them verbatim.
 ### Imperative shell
 
 - `run(toolCall): Promise<Result<{ snapshot, view, events }, ToolError>>` — the single
-  side-effect: `runtime.execute(name, payload)` (which may reach a remote actor). The
+  side-effect: `runtime.execute({ command, input })` (which may reach a remote actor). The
   observation carries the raw `snapshot`, the derived **`view`** (the read-model the
   agent grounds on — `igniteTools` binds `getView` and captures it post-command), and
   the `events` from the command window. Returns a `Result` so a failed command is data

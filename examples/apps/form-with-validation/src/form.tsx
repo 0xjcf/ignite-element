@@ -45,7 +45,7 @@ const registerForm = igniteCore({
 	}),
 	commands: ({ actor }) => ({
 		// A single object payload (not two positional args) so the command is
-		// driveable through the headless runtime's `execute(name, payload)`. Named
+		// driveable through the headless runtime's `execute({ command, input })`. Named
 		// `updateField` rather than `setField` on purpose: a single-arg `setX`
 		// command is inferred as a string-attribute, which makes no sense for a
 		// multi-field form.

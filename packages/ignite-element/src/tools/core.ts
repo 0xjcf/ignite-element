@@ -18,6 +18,33 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isNoArgSchema(schema: IgniteSchemaObject): boolean {
+	if (schema.type !== "object") {
+		return false;
+	}
+
+	const properties = isPlainObject(schema.properties) ? schema.properties : {};
+	return (
+		Object.keys(properties).length === 0 &&
+		(!Array.isArray(schema.required) || schema.required.length === 0)
+	);
+}
+
+function normalizeRouteInput(
+	schema: IgniteSchemaObject,
+	input: unknown,
+): { input?: unknown } {
+	if (isNoArgSchema(schema)) {
+		return {};
+	}
+
+	if (input === undefined && "default" in schema) {
+		return { input: schema.default };
+	}
+
+	return { input };
+}
+
 // A command's input schema is its `input` metadata when present (scalar OR
 // object — mirrored verbatim), else the empty-object schema.
 function toInputSchema(metadata: IgniteSchemaObject): IgniteSchemaObject {
@@ -65,7 +92,7 @@ export function buildManifest(
 
 /**
  * Pure: validate a model-supplied input against a command's schema and route it
- * to `{ command, payload }`. Errors are returned as values — `UnknownCommand`
+ * to `{ command, input? }`. Errors are returned as values — `UnknownCommand`
  * (not in the manifest), `Unavailable` (gated and currently unavailable — the
  * availability may have changed since the manifest was built), or `InvalidInput`
  * (fails the input schema). Never throws.
@@ -90,7 +117,7 @@ export function resolveCall(
 		return err({ kind: "InvalidInput", name, issues });
 	}
 
-	return ok({ command: name, payload: input });
+	return ok({ command: name, ...normalizeRouteInput(tool.inputSchema, input) });
 }
 
 /**
@@ -179,6 +206,12 @@ export function validateToolInputValue(
 			const properties = isPlainObject(schema.properties)
 				? schema.properties
 				: {};
+			if (isNoArgSchema(schema)) {
+				for (const key of Object.keys(value)) {
+					issues.push(`${path}.${key}: unexpected`);
+				}
+				return issues;
+			}
 			if (Array.isArray(schema.required)) {
 				for (const key of schema.required) {
 					if (typeof key === "string" && !(key in value)) {

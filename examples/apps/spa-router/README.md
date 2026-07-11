@@ -86,7 +86,7 @@ and assert on projected route state with no DOM and no jsdom history shims:
 
 ```ts
 const router = igniteCore({ source: routerMachine, view: ({ snapshot }) => ({ ... }) });
-await router.execute("navigate", "/users/7");
+await router.execute({ command: "navigate", input: "/users/7" });
 expect(router.getView().id).toBe("7");
 ```
 

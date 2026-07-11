@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { assign, createMachine, type StateFrom, setup } from "xstate";
 import { igniteCore } from "../IgniteCore";
 import type { ReduxInstanceConfig, XStateConfig } from "../igniteCore/types";
@@ -65,7 +65,11 @@ describe("ignite test DSL", () => {
 		} satisfies XStateConfig<typeof machine, ToggleEventMap>;
 		const component = igniteCore(componentConfig);
 
-		(await igniteTest(component).given({ value: "off" }).when("toggle"))
+		(
+			await igniteTest(component)
+				.given({ value: "off" })
+				.when({ command: "toggle" })
+		)
 			.expectSnapshot({ value: "on" })
 			.expectEvent({ type: "toggled", isOn: true });
 	});
@@ -93,7 +97,7 @@ describe("ignite test DSL", () => {
 			Record<string, never>
 		>;
 
-		const scenario = await igniteTest(runtime).when("noop");
+		const scenario = await igniteTest(runtime).when({ command: "noop" });
 
 		expect(() => scenario.expectSnapshot(null)).not.toThrow();
 	});
@@ -121,7 +125,7 @@ describe("ignite test DSL", () => {
 
 		const scenario = await igniteTest(component)
 			.given({ value: "off" })
-			.when("toggle");
+			.when({ command: "toggle" });
 
 		scenario
 			// partial-object match against the projected view
@@ -200,7 +204,9 @@ describe("ignite test DSL", () => {
 			},
 		} satisfies XStateConfig<typeof machine, ModuleEventMap>);
 
-		const scenario = await igniteTest(component, { host }).when("startModule");
+		const scenario = await igniteTest(component, { host }).when({
+			command: "startModule",
+		});
 
 		scenario
 			.expectSnapshot({ context: { startedModule: "dispatch" } })
@@ -313,16 +319,16 @@ describe("ignite test DSL", () => {
 		hostB.dataset.hostId = "b";
 		hostB.dataset.delayMs = "20";
 
-		const firstCommand = igniteTest(component, { host: hostA }).when(
-			"captureHost",
-		);
-		const secondCommand = igniteTest(component, { host: hostB }).when(
-			"captureHost",
-		);
+		const firstCommand = igniteTest(component, { host: hostA }).when({
+			command: "captureHost",
+		});
+		const secondCommand = igniteTest(component, { host: hostB }).when({
+			command: "captureHost",
+		});
 
 		await Promise.all([firstCommand, secondCommand]);
 		expect([...seenHostIds].sort()).toEqual(["a", "b"]);
-		await igniteTest(component).when("captureHost");
+		await igniteTest(component).when({ command: "captureHost" });
 
 		expect(component.getSnapshot().context.hostId).toBe("none");
 	});
@@ -365,7 +371,7 @@ describe("ignite test DSL", () => {
 		const result = (
 			await igniteTest(component)
 				.given({ counter: { count: 0 } })
-				.when("increment", 2)
+				.when({ command: "increment", input: 2 })
 		)
 			.expectSnapshot({ counter: { count: 2 } })
 			.expectEvents([
@@ -413,7 +419,9 @@ describe("ignite test DSL", () => {
 			},
 		});
 
-		(await igniteTest(component).when("increment", 2)).expectEvent({
+		(
+			await igniteTest(component).when({ command: "increment", input: 2 })
+		).expectEvent({
 			type: "counter-incremented",
 			count: 2,
 		});
@@ -442,7 +450,10 @@ describe("ignite test DSL", () => {
 				});
 			},
 		});
-		const scenario = await igniteTest(component).when("increment", 2);
+		const scenario = await igniteTest(component).when({
+			command: "increment",
+			input: 2,
+		});
 
 		expect(() =>
 			scenario.expectEvents([
@@ -463,7 +474,10 @@ describe("ignite test DSL", () => {
 			}),
 		});
 
-		const scenario = await igniteTest(component).when("increment", 1);
+		const scenario = await igniteTest(component).when({
+			command: "increment",
+			input: 1,
+		});
 		const result = scenario
 			.expectSnapshot({ counter: { count: 1 } })
 			.getResult();
@@ -474,7 +488,7 @@ describe("ignite test DSL", () => {
 		});
 
 		const story = component.record("snapshot vocabulary");
-		await story.execute("increment", 2);
+		await story.execute({ command: "increment", input: 2 });
 
 		expect(story.summary().finalSnapshot.counter.count).toBe(3);
 		expect(story.trace()).toContainEqual(
@@ -509,10 +523,74 @@ describe("ignite test DSL", () => {
 		expect(scenario.canExecute("decrement")).toBe(false);
 		expect(story.canExecute("decrement")).toBe(false);
 
-		await scenario.when("increment", 2);
+		await scenario.when({ command: "increment", input: 2 });
 		expect(scenario.canExecute("decrement")).toBe(true);
 		expect(story.canExecute("decrement")).toBe(true);
 		story.stop();
+	});
+
+	it("forwards object-form command steps and omits input for no-arg commands", async () => {
+		const execute = vi
+			.fn<
+				(call: { command: string; input?: unknown }) => Promise<{
+					snapshot: { count: number };
+					events: [];
+				}>
+			>()
+			.mockResolvedValue({
+				snapshot: { count: 1 },
+				events: [],
+			});
+		const runtime = {
+			execute,
+			getSnapshot: () => ({ count: 0 }),
+			getView: () => ({ count: 0 }),
+			canExecute: () => true,
+			on: () => ({ unsubscribe() {} }),
+			watchSnapshot: () => ({ unsubscribe() {} }),
+			watchView: () => ({ unsubscribe() {} }),
+		} as unknown as IgniteAgentRuntime<
+			{ count: number },
+			{
+				increment: (amount: number) => unknown;
+				decrement: () => unknown;
+				maybeIncrement: (amount?: number) => unknown;
+			},
+			EmptyEventMap,
+			unknown,
+			{ count: number }
+		>;
+
+		await igniteTest(runtime).when({ command: "increment", input: 2 });
+		await igniteTest(runtime).when({ command: "decrement" });
+		await igniteTest(runtime).when({ command: "maybeIncrement" });
+		await igniteTest(runtime).when({ command: "maybeIncrement", input: 3 });
+
+		expect(execute.mock.calls).toEqual([
+			[{ command: "increment", input: 2 }],
+			[{ command: "decrement" }],
+			[{ command: "maybeIncrement" }],
+			[{ command: "maybeIncrement", input: 3 }],
+		]);
+	});
+
+	it("surfaces runtime unknown-command failures for object-form steps", async () => {
+		const store = counterStore();
+		const component = igniteCore({
+			adapter: "redux",
+			source: store,
+			commands: ({ actor }) => ({
+				increment: (amount: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+			}),
+		});
+		const dynamicScenario = igniteTest(component) as unknown as {
+			when(step: { command: string; input?: unknown }): Promise<unknown>;
+		};
+
+		await expect(dynamicScenario.when({ command: "missing" })).rejects.toThrow(
+			'[igniteCore] Unknown command "missing".',
+		);
 	});
 
 	it("serializes story traces and matches ordered workflow checkpoints", async () => {
@@ -556,8 +634,8 @@ describe("ignite test DSL", () => {
 		>);
 
 		const story = component.record("counter story");
-		await story.execute("increment", 2);
-		await story.execute("increment", 1);
+		await story.execute({ command: "increment", input: 2 });
+		await story.execute({ command: "increment", input: 1 });
 
 		const trace = igniteTest.serializeTrace(story.trace());
 		const snapshot = igniteTest.snapshotStory(story);
@@ -740,7 +818,7 @@ describe("ignite test DSL", () => {
 		});
 
 		const story = component.record("exact trace");
-		await story.execute("increment", 2);
+		await story.execute({ command: "increment", input: 2 });
 
 		const originalTrace = story.trace();
 		const serializedTrace = igniteTest.serializeTrace(originalTrace);
@@ -813,7 +891,7 @@ describe("ignite test DSL", () => {
 			{ elementName: "counter-accessibility-bridge" },
 		);
 
-		await story.execute("increment", 3);
+		await story.execute({ command: "increment", input: 3 });
 
 		expect(
 			igniteTest.expectControls(bridge, [
@@ -969,7 +1047,7 @@ describe("ignite test DSL", () => {
 			{ elementName: "labelled-range-bridge" },
 		);
 
-		await story.execute("setLimit", 6);
+		await story.execute({ command: "setLimit", input: 6 });
 
 		expect(
 			igniteTest.expectControls(bridge, [
@@ -1000,7 +1078,7 @@ describe("ignite test DSL", () => {
 		});
 
 		const story = component.record("missing checkpoint");
-		await story.execute("increment", 1);
+		await story.execute({ command: "increment", input: 1 });
 
 		expect(() =>
 			igniteTest.expectTrace(story.trace(), [
