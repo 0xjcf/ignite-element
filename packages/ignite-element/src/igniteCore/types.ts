@@ -106,6 +106,7 @@ export type IgniteCoreReturn<
 	>,
 	Events extends EventMap = EmptyEventMap,
 > = {
+	(target: IgniteProjectionTarget): IgniteProjectionSession;
 	// Call signature mirrors ComponentFactory's parameter typing (same
 	// elementName + projected RenderArgs renderer) but returns a typed
 	// IgniteComponent handle instead of void. The handle return is additive — a
@@ -129,7 +130,6 @@ export type IgniteCoreReturn<
 			>
 		>
 	): IgniteComponent<CommandsResult, Events>;
-	(target: IgniteProjectionTarget): IgniteProjectionSession;
 	readonly __igniteRenderArgs?: WithFacadeRenderArgs<
 		State,
 		Event,

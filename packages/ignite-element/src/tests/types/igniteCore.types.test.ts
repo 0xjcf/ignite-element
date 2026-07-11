@@ -274,6 +274,9 @@ describe("igniteCore type inference", () => {
 			source: machine,
 			view: ({ snapshot }) => ({ count: snapshot.context.count }),
 		});
+		type CounterParameters = Parameters<typeof counter>;
+		expectTypeOf<CounterParameters["length"]>().toEqualTypeOf<2>();
+		expectTypeOf<CounterParameters[0]>().toEqualTypeOf<string>();
 
 		const documentTarget = createProjectionDocumentTarget({
 			commitDocument: () => undefined,
