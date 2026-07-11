@@ -60,7 +60,10 @@ Finalize and document the restrained headless discovery contract after the objec
 
 - Run focused getSchema, headless runtime, projection runtime, and export tests.
 - Run documentation checks and the relevant example/workbench contract validation.
-- Run fas validate-task; reserve full verification for the final epic closeout.
+- Run `fas validate-task`.
+- Run `.fas/scripts/verify.sh --full` before closing tracked changes. If full
+  verification is intentionally waived, record the explicitly approved
+  exemption before closeout.
 
 ## Risks
 
