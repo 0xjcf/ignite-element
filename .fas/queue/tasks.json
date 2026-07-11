@@ -21,7 +21,7 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-11T17:06:18.529Z",
-      "updatedAt": "2026-06-12T19:30:49.702Z",
+      "updatedAt": "2026-07-10T21:40:32.720Z",
       "deferredReason": "dependency_reopened: task-1781292613064",
       "invalidationReason": null
     },
@@ -44,7 +44,8 @@
         "task-1781743752184",
         "task-1781919547313",
         "task-1783461996097",
-        "task-1783610965770"
+        "task-1783610965770",
+        "task-1783719740973"
       ],
       "blocks": [
         "task-1781197578529"
@@ -52,8 +53,8 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-12T19:30:13.064Z",
-      "updatedAt": "2026-07-07T22:06:53.000Z",
-      "deferredReason": "dependency_reopened: task-1781919547313, task-1783610965770",
+      "updatedAt": "2026-07-10T21:48:32.394Z",
+      "deferredReason": "dependency_reopened: task-1781919547313, task-1783610965770, task-1783719740973",
       "invalidationReason": null
     },
     {
@@ -81,27 +82,25 @@
     },
     {
       "id": "task-1783610933373",
-      "task": "Add headless assertions for dynamic projection documents and behavior facts",
+      "task": "Evaluate headless projection testing ergonomics from workbench dogfood",
       "priority": "high",
       "source": "manual",
-      "details": "Add deterministic headless testing support for the replacement architecture. Assert coherent behavior facts, command descriptions/input/availability, validated ProjectionDocument state, incremental upsert/patch operations, command-backed action references, model-authored text/speech data, and actor-web behavior paths where available. Do not add command label, focus, announcement, validation-copy, or error-copy metadata to igniteCore. Browser accessibility remains a rendered-DOM concern.\nSee .fas/tasks/add-headless-accessibility-contract-assertions-to-the-test-d.md",
+      "details": "After the voice/text workbench lands with deterministic tests using existing headless APIs, evaluate whether repeated consumer friction justifies additional testing ergonomics. Prefer fixtures, documentation, and internal helpers; do not assume a new public matcher, public inspect method, projection CRUD, or second authoring DSL is needed. Close with an evidence-backed no-change verdict when the existing API is sufficient.\nSee .fas/tasks/add-headless-accessibility-contract-assertions-to-the-test-d.md",
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
       "status": "deferred",
       "owner": "runtime",
-      "mode": "6-agent",
+      "mode": "4-agent",
       "dependsOn": [
-        "task-1783650880370"
-      ],
-      "blocks": [
         "task-1783613728381"
       ],
+      "blocks": [],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-09T15:28:53.373Z",
-      "updatedAt": "2026-07-10T02:34:40.370Z",
-      "deferredReason": "dependency_reopened: task-1783650880370",
+      "updatedAt": "2026-07-11T01:56:45.336Z",
+      "deferredReason": "dependency_reopened: task-1783613728381",
       "invalidationReason": null
     },
     {
@@ -156,10 +155,10 @@
     },
     {
       "id": "task-1783613728381",
-      "task": "Build LLM-authored voice/text projection control-center workbench",
+      "task": "Build LLM-authored voice/text artifact control-center workbench",
       "priority": "high",
       "source": "manual",
-      "details": "Build examples/agents/voice-workbench as the decisive dogfood for agent-authored interfaces. A user types or speaks a prompt; a conversation/command-center actor exposes domain and projection-authoring commands through igniteTools; a scripted or live OpenAI-compatible/MLX model calls upsertProjection or patchProjection with validated ProjectionDocument data and returns model-authored text or speech; actor state stores the durable documents; Ignite commits them to accessible native JSX, speech, and text/terminal outputs without raw generated code or a DOM requirement for voice. Include deterministic mock model and speech adapters in CI and actor-web-backed conversation/artifact actors where supported.\nSee .fas/tasks/build-voice-text-agent-control-center-workbench-example-for-.md",
+      "details": "Build examples/agents/voice-workbench as the decisive dogfood for agent-authored interfaces. A user types or speaks a prompt; a conversation/command-center actor exposes consumer-owned createArtifact, reviseArtifact, and completeResponse commands through igniteTools; a scripted or live OpenAI-compatible/MLX model proposes artifact content and response text/speech through those intent-oriented commands; the actor validates and stores durable ProjectionDocument state; Ignite commits it to accessible native JSX, speech, and text/terminal outputs. Workbench tests use igniteTest.when({ name, input }).\nSee .fas/tasks/build-voice-text-agent-control-center-workbench-example-for-.md",
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
@@ -167,38 +166,235 @@
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
-        "task-1783610933373"
+        "task-1783735005336"
       ],
       "blocks": [
-        "task-1783610950265"
+        "task-1783610950265",
+        "task-1783610933373"
       ],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-09T16:15:28.381Z",
-      "updatedAt": "2026-07-09T16:15:28.381Z",
-      "deferredReason": "dependency_reopened: task-1783610933373",
+      "updatedAt": "2026-07-11T01:56:45.336Z",
+      "deferredReason": "dependency_reopened: task-1783735005336",
       "invalidationReason": null
     },
     {
-      "id": "task-1783650880370",
-      "task": "Implement internal dynamic projection pipeline and LLM-authored artifacts",
-      "priority": "high",
+      "id": "task-1783719632720",
+      "task": "Design retained-surface lifecycle and projection-commit contract for complex interfaces",
+      "priority": "critical",
       "source": "manual",
-      "details": "Replace the superseded ProjectionRequest/ProjectionSpec registry and command-presentation-metadata approach with a clean behavior-first architecture. Preserve the existing igniteCore configuration, DOM registrar, and headless runtime surface. Build a private coherent inspection primitive plus internal generic Projection<Format, Output>, binding, and committer machinery. Add only the minimal callable projector overload and opaque first-party projection value contract needed to let the same igniteCore value project without a tag into non-DOM outputs. Model dynamic agent output as validated ProjectionDocument data stored in actor state; an LLM receives igniteTools command schemas and authors or patches projection documents through commands such as upsertProjection rather than generating JSX or executable code. The model's final text or structured speech field becomes speech output, while accessible JSX, terminal, and agent committers consume the same semantic document without requiring a DOM. Reconcile the committed projection/accessibility docs before source implementation and treat the discarded implementation as non-authoritative.\nSee .fas/tasks/implement-internal-dynamic-projection-pipeline-and-llm-autho.md",
+      "details": "Define the Ignite-owned architecture for retained imperative presentation surfaces such as canvas, WebGL, editors, maps, video, and high-frequency dashboards. Compare callback refs, renderer commit directives, lifecycle resources, and first-party projection-target approaches against the current igniteCore and Ignite JSX contracts. Preserve source/view/commands/events/effects semantics, keep effects consequence-oriented, keep Actor-Web authoritative for runtime and simulation, and avoid a canvas-specific core API or a generic multi-source state owner.\nSee .fas/tasks/design-retained-surface-lifecycle-and-projection-commit-cont.md",
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "processing",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [],
       "blocks": [
-        "task-1783610933373"
+        "task-1783719649309"
       ],
       "branchBase": null,
       "prDependencies": [],
-      "createdAt": "2026-07-10T02:34:40.370Z",
-      "updatedAt": "2026-07-10T02:39:24.477Z"
+      "createdAt": "2026-07-10T21:40:32.720Z",
+      "updatedAt": "2026-07-10T21:47:07.305Z",
+      "deferredReason": null,
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1783719649309",
+      "task": "Implement typed retained-node refs and move-safe resource lifecycle",
+      "priority": "high",
+      "source": "manual",
+      "details": "Implement the architecture-approved generic retained-node access path for Ignite JSX and reactive Ignite components. The primitive must support imperative presentation resources without turning drawing or editor state into source truth. Cover initial commit, update, replacement, ref identity change, error containment, same-tick move preservation, true-disconnect teardown, reconnect, and isolated/shared source ownership. Keep the default renderer contract source-compatible and do not add canvas-specific APIs.\nSee .fas/tasks/implement-typed-retained-node-refs-and-move-safe-resource-li.md",
+      "taskClassification": "standard",
+      "selfImprovementCategory": null,
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1783719632720"
+      ],
+      "blocks": [
+        "task-1783719665018"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-10T21:40:49.309Z",
+      "updatedAt": "2026-07-10T21:41:05.018Z",
+      "deferredReason": "dependency_reopened: task-1783719632720",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1783719665018",
+      "task": "Honor Ignite JSX keys and preserve retained interface nodes during reconciliation",
+      "priority": "high",
+      "source": "manual",
+      "details": "Implement key-aware Ignite JSX normalization and reconciliation so retained interface nodes preserve identity across insertions, removals, and reorders. Integrate the retained-node lifecycle contract from the preceding task, preserve focus, selection, canvas/WebGL context identity, and editor-style imperative state, and define deterministic duplicate-key and mixed keyed/unkeyed behavior. Keep positional reconciliation as the compatible unkeyed path and retain explicit fallback diagnostics.\nSee .fas/tasks/honor-ignite-jsx-keys-and-preserve-retained-interface-nodes-.md",
+      "taskClassification": "standard",
+      "selfImprovementCategory": null,
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1783719649309"
+      ],
+      "blocks": [
+        "task-1783719681572"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-10T21:41:05.018Z",
+      "updatedAt": "2026-07-10T21:41:21.572Z",
+      "deferredReason": "dependency_reopened: task-1783719649309",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1783719681572",
+      "task": "Add opt-in projection commit scheduling for high-frequency sources",
+      "priority": "high",
+      "source": "manual",
+      "details": "Add the architecture-approved opt-in scheduling policy for reactive projection commits from high-frequency sources. Preserve the current synchronous default. Coalesce only presentation commits using latest-snapshot semantics; never drop or merge source snapshots, commands, source-emitted events, telemetry facts, or authoritative actor transitions. Reconcile scheduled rendering with Ignite effects so effects that depend on committed DOM still run after the matching commit, and cancel queued work safely on replacement or true disconnect.\nSee .fas/tasks/add-opt-in-projection-commit-scheduling-for-high-frequency-s.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1783719665018"
+      ],
+      "blocks": [
+        "task-1783719697500"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-10T21:41:21.572Z",
+      "updatedAt": "2026-07-10T21:41:37.500Z",
+      "deferredReason": "dependency_reopened: task-1783719665018",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1783719697500",
+      "task": "Build a retained real-time canvas stress example and conformance suite",
+      "priority": "high",
+      "source": "manual",
+      "details": "Build a self-contained Ignite example that stress-tests the retained-surface, keyed reconciliation, lifecycle, and commit-scheduling contracts using a real-time canvas backed by deterministic authoritative snapshots. Keep the simulation clock and state authority separate from display interpolation. Demonstrate high-DPI responsive sizing, ResizeObserver cleanup, requestAnimationFrame interpolation, scoped keyboard and pointer input, blur/visibility recovery, telemetry for source versus render cadence, and semantic DOM controls/status alongside the canvas. The example must exercise generic Ignite APIs rather than introduce a canvas package or game-specific core behavior.\nSee .fas/tasks/build-a-retained-real-time-canvas-stress-example-and-conform.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1783719681572"
+      ],
+      "blocks": [
+        "task-1783719721452"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-10T21:41:37.500Z",
+      "updatedAt": "2026-07-10T21:42:01.452Z",
+      "deferredReason": "dependency_reopened: task-1783719681572",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1783719721452",
+      "task": "Validate the retained-interface contract against Actor-Web Mesh Pong",
+      "priority": "high",
+      "source": "manual",
+      "details": "Run a bounded cross-repo consumer validation against the current Actor-Web Mesh Pong implementation after the generic Ignite capabilities and local stress example are complete. Treat Actor-Web as a read-only downstream consumer in this task. Verify that authoritative topology sources/read models can feed a headless igniteCore contract and retained canvas component without a Mesh-Pong-specific Ignite wrapper, hardcoded transport facts, DOM-owned lifecycle repair, or migration of simulation/controller/advisory authority into Ignite. Produce a decision-ready adoption brief and create any Actor-Web-owned implementation follow-ups in the Actor-Web queue separately.\nSee .fas/tasks/validate-the-retained-interface-contract-against-actor-web-m.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "4-agent",
+      "dependsOn": [
+        "task-1783719697500"
+      ],
+      "blocks": [
+        "task-1783719740973"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-10T21:42:01.452Z",
+      "updatedAt": "2026-07-10T21:42:20.973Z",
+      "deferredReason": "dependency_reopened: task-1783719697500",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1783719740973",
+      "task": "Document complex-interface authoring, performance, accessibility, and ownership boundaries",
+      "priority": "high",
+      "source": "manual",
+      "details": "Publish the stable authoring guidance for retained Ignite interfaces after implementation and downstream validation. Document when to use ordinary Ignite JSX, retained-node commits, keyed reconciliation, commit scheduling, igniteShell, Lit, or a separate native custom element. Cover canvas/WebGL/editor/map/video patterns, high-DPI sizing, resize and animation lifecycle, input scoping, accessibility companions, telemetry, testing, and the Actor-Web ownership split. Keep examples self-contained, use the final shipped API only, and avoid presenting Canvas or Mesh Pong as special framework modes.\nSee .fas/tasks/document-complex-interface-authoring-performance-accessibili.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "single-agent",
+      "dependsOn": [
+        "task-1783719721452"
+      ],
+      "blocks": [
+        "task-1781292613064"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-10T21:42:20.973Z",
+      "updatedAt": "2026-07-10T21:48:32.394Z",
+      "deferredReason": "dependency_reopened: task-1783719721452",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1783735005336",
+      "task": "BREAKING (v3 beta): adopt object-form igniteTest command steps and artifact intent vocabulary",
+      "priority": "critical",
+      "source": "manual",
+      "details": "Replace positional igniteTest.when(commandName, input?) with the self-describing object form when({ name, input? }) before the voice/text workbench is implemented. Remove positional support during the v3 beta window rather than deprecating it. Preserve command-name and input inference with a discriminated command-step type: input is required for commands that accept one argument and omitted for no-argument commands. Align the workbench model-facing vocabulary on consumer-owned createArtifact, reviseArtifact, and completeResponse commands. Keep ProjectionDocument validation, revision application, coherent inspection, and channel committers internal to Ignite; do not add built-in projection CRUD, a public inspect method, or a second authoring DSL.\nSee .fas/tasks/breaking-v3-beta-adopt-object-form-ignitetest-command-steps-.md",
+      "taskClassification": "standard",
+      "selfImprovementCategory": null,
+      "signalFingerprint": null,
+      "status": "queued",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1783650880370"
+      ],
+      "blocks": [
+        "task-1783613728381"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-11T01:56:45.336Z",
+      "updatedAt": "2026-07-11T01:56:45.336Z"
+    },
+    {
+      "id": "task-1783735835707",
+      "task": "Harden projection runtime helper ownership and benchmark inspection caching",
+      "priority": "low",
+      "source": "manual",
+      "details": "Follow up on PR #92 non-blocking review feedback. Evaluate a shared projection-target shell helper that preserves hidden immutable branding, frozen target identity, and WeakMap-backed configuration; evaluate centralizing command metadata/schema helpers so registration and coherent projection inspection cannot drift; benchmark repeated projection inspection before adding any schema/revision cache, and cache only if evidence shows material hot-path cost while preserving dynamic canExecute, document, speech, snapshot, and view semantics. This task blocks no v3 roadmap work.\nSee .fas/tasks/harden-projection-runtime-helper-ownership-and-benchmark-ins.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "queued",
+      "owner": "runtime",
+      "mode": "4-agent",
+      "dependsOn": [
+        "task-1783650880370"
+      ],
+      "blocks": [],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-11T02:10:35.707Z",
+      "updatedAt": "2026-07-11T02:10:35.707Z"
     }
   ],
   "completedTasks": [
@@ -3055,11 +3251,11 @@
       "branchBase": null,
       "prDependencies": [],
       "prRef": null,
-      "completedAt": "2026-07-09T21:42:54.595Z",
+      "completedAt": "2026-07-11T00:01:17.769Z",
       "terminalOutcome": null,
       "branchName": "fas/accessibility-contract-epic",
-      "prStatus": null,
-      "workflowId": "operator:task-1783610893968",
+      "prStatus": "draft-only",
+      "workflowId": "direct-1783630531373",
       "completedBy": "root-session",
       "operatorEvidence": "Focused validation, six-agent review, three planned commits, and fas batch snapshot direct-1783630531373 completed; full verification is intentionally deferred to shared epic closeout."
     },
@@ -3085,6 +3281,27 @@
       "workflowId": "superseded:task-1783610917796",
       "supersededBy": "task-1783650880370",
       "supersededReason": "Superseded before implementation: registry and behavior-metadata design was discarded in favor of internal projection committers plus LLM-authored validated projection documents stored in actor state. No source changes shipped from the old task."
+    },
+    {
+      "id": "task-1783650880370",
+      "task": "Implement internal dynamic projection pipeline and LLM-authored artifacts",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [
+        "task-1783735005336"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-11T00:01:32.470Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783651164473",
+      "branchName": "fas/accessibility-contract-epic",
+      "prStatus": "draft-only"
     }
   ],
   "pullRequests": [],
@@ -3271,12 +3488,16 @@
           "epicRole": "design"
         },
         {
-          "taskId": "task-1783610933373",
-          "epicRole": "testing"
+          "taskId": "task-1783735005336",
+          "epicRole": "testing-api"
         },
         {
           "taskId": "task-1783613728381",
           "epicRole": "example"
+        },
+        {
+          "taskId": "task-1783610933373",
+          "epicRole": "testing-ergonomics-follow-up"
         },
         {
           "taskId": "task-1783610950265",
@@ -3305,6 +3526,51 @@
         "A voice/text control-center proves prompt or speech input through model tool calls to durable projection state, accessible native JSX, and model-authored speech/text with deterministic CI and optional MLX validation.",
         "Headless tests prove behavior and document contracts; rendered tests separately prove keyboard, focus, accessible names, relationships, and intentional live output.",
         "Final docs teach the minimal public DX, provider/privacy boundaries, actor-web behavior graph alignment, and why voice does not require JSX or DOM."
+      ]
+    },
+    {
+      "members": [
+        {
+          "taskId": "task-1783719632720",
+          "epicRole": "architecture"
+        },
+        {
+          "taskId": "task-1783719649309",
+          "epicRole": "retained-node-lifecycle"
+        },
+        {
+          "taskId": "task-1783719665018",
+          "epicRole": "keyed-reconciliation"
+        },
+        {
+          "taskId": "task-1783719681572",
+          "epicRole": "commit-scheduling"
+        },
+        {
+          "taskId": "task-1783719697500",
+          "epicRole": "canvas-stress-example"
+        },
+        {
+          "taskId": "task-1783719721452",
+          "epicRole": "downstream-validation"
+        },
+        {
+          "taskId": "task-1783719740973",
+          "epicRole": "documentation"
+        }
+      ],
+      "id": "epic-ignite-retained-complex-interfaces",
+      "title": "Retained Surfaces and Complex Interface Runtime",
+      "priority": "high",
+      "consumer": "ignite-element",
+      "goal": "Make Ignite Element support canvas, WebGL, editors, maps, video, and high-frequency dashboards through stable retained-node access, keyed reconciliation, move-safe resource lifecycle, and projection-only commit scheduling while preserving source authority and the existing source/view/commands/effects model.",
+      "acceptance": [
+        "The architecture defines a generic retained-surface contract rather than a canvas-specific core API, with source state remaining authoritative and effects remaining consequence-oriented.",
+        "Ignite JSX provides typed retained-node access with deterministic initial, update, replacement, move, and true-disconnect cleanup semantics.",
+        "Keyed reconciliation preserves canvas contexts, editor instances, focus, selection, and other retained node state through reorder and fallback paths.",
+        "An opt-in commit scheduler coalesces projection work without dropping Actor-Web snapshots, commands, events, or effect ordering guarantees.",
+        "A deterministic real-time canvas stress example proves device-pixel-ratio sizing, ResizeObserver handling, requestAnimationFrame interpolation, scoped input, telemetry, and accessible DOM companions.",
+        "Downstream validation documents the Actor-Web Mesh Pong adoption contract without moving Actor-Web lifecycle, simulation, transport, or advisory authority into Ignite."
       ]
     }
   ]

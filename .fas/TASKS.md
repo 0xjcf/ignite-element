@@ -2187,17 +2187,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
-### Task: Add headless assertions for dynamic projection documents and behavior facts
+### Task: Evaluate headless projection testing ergonomics from workbench dogfood
 
-- Title: Add headless assertions for dynamic projection documents and behavior facts
-- Mode: 6-agent
+- Title: Evaluate headless projection testing ergonomics from workbench dogfood
+- Mode: 4-agent
 - Status: deferred
 - Owner: runtime
 - Brief: .fas/tasks/add-headless-accessibility-contract-assertions-to-the-test-d.md
 
-### Task: Build LLM-authored voice/text projection control-center workbench
+### Task: Build LLM-authored voice/text artifact control-center workbench
 
-- Title: Build LLM-authored voice/text projection control-center workbench
+- Title: Build LLM-authored voice/text artifact control-center workbench
 - Mode: 6-agent
 - Status: deferred
 - Owner: runtime
@@ -2226,6 +2226,79 @@ No active tasks.
 - Status: backlog
 - Owner: planner
 - Brief: .fas/tasks/harden-self-hosted-renovate-reproducibility.md
+
+### Task: Design retained-surface lifecycle and projection-commit contract for complex interfaces
+
+- Title: Design retained-surface lifecycle and projection-commit contract for complex interfaces
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/design-retained-surface-lifecycle-and-projection-commit-cont.md
+
+### Task: Implement typed retained-node refs and move-safe resource lifecycle
+
+- Title: Implement typed retained-node refs and move-safe resource lifecycle
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/implement-typed-retained-node-refs-and-move-safe-resource-li.md
+
+### Task: Honor Ignite JSX keys and preserve retained interface nodes during reconciliation
+
+- Title: Honor Ignite JSX keys and preserve retained interface nodes during reconciliation
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/honor-ignite-jsx-keys-and-preserve-retained-interface-nodes-.md
+
+### Task: Add opt-in projection commit scheduling for high-frequency sources
+
+- Title: Add opt-in projection commit scheduling for high-frequency sources
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/add-opt-in-projection-commit-scheduling-for-high-frequency-s.md
+
+### Task: Build a retained real-time canvas stress example and conformance suite
+
+- Title: Build a retained real-time canvas stress example and conformance suite
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/build-a-retained-real-time-canvas-stress-example-and-conform.md
+
+### Task: Validate the retained-interface contract against Actor-Web Mesh Pong
+
+- Title: Validate the retained-interface contract against Actor-Web Mesh Pong
+- Mode: 4-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/validate-the-retained-interface-contract-against-actor-web-m.md
+
+### Task: Document complex-interface authoring, performance, accessibility, and ownership boundaries
+
+- Title: Document complex-interface authoring, performance, accessibility, and ownership boundaries
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/document-complex-interface-authoring-performance-accessibili.md
+
+### Task: BREAKING (v3 beta): adopt object-form igniteTest command steps and artifact intent vocabulary
+
+- Title: BREAKING (v3 beta): adopt object-form igniteTest command steps and artifact intent vocabulary
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/breaking-v3-beta-adopt-object-form-ignitetest-command-steps-.md
+
+### Task: Harden projection runtime helper ownership and benchmark inspection caching
+
+- Title: Harden projection runtime helper ownership and benchmark inspection caching
+- Mode: 4-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/harden-projection-runtime-helper-ownership-and-benchmark-ins.md
+- Automation mode: advisory
 
 ## Template
 
