@@ -5,6 +5,20 @@ import { StateScope } from "../IgniteAdapter";
 import type { ViewContext } from "../RenderArgs";
 import MockAdapter from "./MockAdapter";
 
+function createMockAdapterFactory<State, Event>(
+	adapter: MockAdapter<State, Event>,
+	scope: StateScope,
+) {
+	return Object.assign(() => adapter, {
+		scope,
+		resolveStateSnapshot: () => adapter.getSnapshot(),
+		resolveCommandActor: () => ({
+			send: (event: Event) => adapter.send(event),
+			getState: () => adapter.getSnapshot(),
+		}),
+	});
+}
+
 describe("createComponentFactory", () => {
 	afterEach(() => {
 		document.body.innerHTML = "";
@@ -13,9 +27,7 @@ describe("createComponentFactory", () => {
 
 	it("throws when view callback does not return a plain object", () => {
 		const adapter = new MockAdapter({ count: 0 }, StateScope.Shared);
-		const createAdapter = Object.assign(() => adapter, {
-			scope: StateScope.Shared,
-		});
+		const createAdapter = createMockAdapterFactory(adapter, StateScope.Shared);
 
 		const factory = createComponentFactory(createAdapter, {
 			// @ts-expect-error - view callback returns a non-object for runtime validation.
@@ -41,9 +53,7 @@ describe("createComponentFactory", () => {
 
 	it("throws when commands callback does not return a plain object", () => {
 		const adapter = new MockAdapter({ count: 0 }, StateScope.Shared);
-		const createAdapter = Object.assign(() => adapter, {
-			scope: StateScope.Shared,
-		});
+		const createAdapter = createMockAdapterFactory(adapter, StateScope.Shared);
 
 		const factory = createComponentFactory(createAdapter, {
 			view: () => ({}),
@@ -70,9 +80,7 @@ describe("createComponentFactory", () => {
 
 	it("throws when a command result is not callable", () => {
 		const adapter = new MockAdapter({ count: 0 }, StateScope.Shared);
-		const createAdapter = Object.assign(() => adapter, {
-			scope: StateScope.Shared,
-		});
+		const createAdapter = createMockAdapterFactory(adapter, StateScope.Shared);
 
 		const factory = createComponentFactory(createAdapter, {
 			view: () => ({}),
@@ -97,13 +105,14 @@ describe("createComponentFactory", () => {
 		);
 	});
 
-	it("uses fallback resolvers when none are provided", () => {
+	it("uses adapter-factory resolvers when options omit overrides", () => {
 		type CounterState = { count: number };
 		type CounterEvent = { type: "INC" };
 		const adapter = new MockAdapter<CounterState, CounterEvent>({ count: 0 });
-		const createAdapter = Object.assign(() => adapter, {
-			scope: StateScope.Isolated,
-		});
+		const createAdapter = createMockAdapterFactory(
+			adapter,
+			StateScope.Isolated,
+		);
 
 		const viewCallback = ({ snapshot }: ViewContext<CounterState>) => ({
 			count: snapshot.count,
@@ -162,9 +171,6 @@ describe("createComponentFactory", () => {
 		type CustomState = { value: number };
 		type CustomEvent = { type: "noop" };
 		const adapter = new MockAdapter<CustomState, CustomEvent>({ value: 10 });
-		const createAdapter = Object.assign(() => adapter, {
-			scope: StateScope.Isolated,
-		});
 
 		const customSnapshot = vi.fn((): CustomState => ({ value: 99 }));
 		type CustomActor = {
@@ -176,6 +182,11 @@ describe("createComponentFactory", () => {
 			getState: () => ({ value: 10 }),
 		};
 		const customActorResolver = vi.fn((): CustomActor => actor);
+		const createAdapter = Object.assign(() => adapter, {
+			scope: StateScope.Isolated,
+			resolveStateSnapshot: () => adapter.getSnapshot(),
+			resolveCommandActor: (): CustomActor => actor,
+		});
 
 		const viewCallback = ({ snapshot }: ViewContext<CustomState>) => ({
 			value: snapshot.value,
@@ -225,9 +236,10 @@ describe("createComponentFactory", () => {
 		type CounterState = { count: number };
 		type CounterEvent = { type: "INC" };
 		const adapter = new MockAdapter<CounterState, CounterEvent>({ count: 0 });
-		const createAdapter = Object.assign(() => adapter, {
-			scope: StateScope.Isolated,
-		});
+		const createAdapter = createMockAdapterFactory(
+			adapter,
+			StateScope.Isolated,
+		);
 
 		const view = ({ snapshot }: ViewContext<CounterState>) => ({
 			count: snapshot.count,
@@ -289,5 +301,35 @@ describe("createComponentFactory", () => {
 
 		expect(element.getAttribute("data-last-amount")).toBe("5");
 		expect(order).toEqual(["send"]);
+	});
+
+	it("rejects custom generics when adapter metadata has standard types", () => {
+		type CounterState = { count: number };
+		type CounterEvent = { type: "INC" };
+		type CustomSnapshot = { label: string };
+		type CustomActor = { publish: () => void };
+		const adapter = new MockAdapter<CounterState, CounterEvent>({ count: 0 });
+		const createAdapter = createMockAdapterFactory(
+			adapter,
+			StateScope.Isolated,
+		);
+
+		const assertIncompatibleMetadata = () =>
+			createComponentFactory<
+				CounterState,
+				CounterEvent,
+				CustomSnapshot,
+				Record<never, never>,
+				CustomActor
+			>(
+				// @ts-expect-error - custom generics require matching factory metadata.
+				createAdapter,
+				{
+					resolveStateSnapshot: () => ({ label: "custom" }),
+					resolveCommandActor: () => ({ publish: () => undefined }),
+				},
+			);
+
+		void assertIncompatibleMetadata;
 	});
 });

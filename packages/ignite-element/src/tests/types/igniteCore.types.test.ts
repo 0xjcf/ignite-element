@@ -49,6 +49,10 @@ import type {
 	IgniteStoryTraceSnapshotEntry as RootIgniteStoryTraceSnapshotEntry,
 	IgniteTestHelpers as RootIgniteTestHelpers,
 } from "../../index";
+import {
+	createProjectionDocumentTarget,
+	createProjectionSpeechTarget,
+} from "../../index";
 import type {
 	IgniteDomBridge as MobxIgniteDomBridge,
 	IgniteDomRoleExpectation as MobxIgniteDomRoleExpectation,
@@ -117,6 +121,30 @@ import {
 	test as xstateTest,
 } from "../../xstate";
 import counterStore, { counterSlice } from "../fixtures/reduxCounterStore";
+
+type RemovedRootProjectionExports = [
+	// @ts-expect-error projection documents are internal and inference-only
+	import("../../index").ProjectionDocument,
+	// @ts-expect-error projection patches are internal and inference-only
+	import("../../index").ProjectionDocumentPatch,
+	// @ts-expect-error speech requests are internal and inference-only
+	import("../../index").ProjectionSpeechRequest,
+	// @ts-expect-error opaque targets are available only through inference
+	import("../../index").IgniteProjectionTarget,
+	// @ts-expect-error disposable sessions are available only through inference
+	import("../../index").IgniteProjectionSession,
+];
+
+type RemovedAdapterProjectionExports = [
+	// @ts-expect-error xstate projection data is not a named public export
+	import("../../xstate").ProjectionDocument,
+	// @ts-expect-error redux projection data is not a named public export
+	import("../../redux").ProjectionDocument,
+	// @ts-expect-error mobx projection data is not a named public export
+	import("../../mobx").ProjectionDocument,
+	// @ts-expect-error actor-web projection data is not a named public export
+	import("../../actor-web").ProjectionDocument,
+];
 
 type ActorWebShipmentContext = {
 	shipmentId: string | null;
@@ -202,6 +230,117 @@ const mobxCounterFactory = () =>
 	});
 
 describe("igniteCore type inference", () => {
+	it("uses renderer arguments for unmarked callable factories", () => {
+		type RendererArgs = {
+			customValue: string;
+		};
+		type UnmarkedFactory = (
+			elementName: string,
+			renderer: (args: RendererArgs) => string,
+		) => void;
+		type MarkedArgs = {
+			markedValue: number;
+		};
+		type MarkedFactory = UnmarkedFactory & {
+			readonly __igniteRenderArgs?: MarkedArgs | undefined;
+		};
+
+		expectTypeOf<AdapterPack<UnmarkedFactory>>().toEqualTypeOf<RendererArgs>();
+		expectTypeOf<AdapterPack<MarkedFactory>>().toEqualTypeOf<MarkedArgs>();
+	});
+
+	it("accepts only first-party branded projection targets on the one-argument overload", () => {
+		expectTypeOf<RemovedRootProjectionExports>().toBeArray();
+		expectTypeOf<RemovedAdapterProjectionExports>().toBeArray();
+		const machine = setup({
+			types: {
+				context: {} as { count: number },
+				events: {} as { type: "INC" },
+			},
+		}).createMachine({
+			context: { count: 0 },
+			initial: "active",
+			states: {
+				active: {
+					on: {
+						INC: {
+							actions: () => undefined,
+						},
+					},
+				},
+			},
+		});
+		const counter = igniteCore({
+			source: machine,
+			view: ({ snapshot }) => ({ count: snapshot.context.count }),
+		});
+		type CounterParameters = Parameters<typeof counter>;
+		expectTypeOf<CounterParameters["length"]>().toEqualTypeOf<2>();
+		expectTypeOf<CounterParameters[0]>().toEqualTypeOf<string>();
+
+		const documentTarget = createProjectionDocumentTarget({
+			commitDocument: () => undefined,
+		});
+		const speechTarget = createProjectionSpeechTarget({
+			commitSpeech: () => undefined,
+			acknowledgeCommandName: "acknowledgeSpeech",
+		});
+
+		type DocumentTarget = ReturnType<typeof createProjectionDocumentTarget>;
+		type SpeechTarget = ReturnType<typeof createProjectionSpeechTarget>;
+		type DocumentTargetExposesConfiguration =
+			"commitDocument" extends keyof DocumentTarget
+				? true
+				: "documentId" extends keyof DocumentTarget
+					? true
+					: false;
+		type SpeechTargetExposesConfiguration =
+			"commitSpeech" extends keyof SpeechTarget
+				? true
+				: "acknowledgeCommandName" extends keyof SpeechTarget
+					? true
+					: "resolveAcknowledgePayload" extends keyof SpeechTarget
+						? true
+						: false;
+		expectTypeOf(documentTarget).toEqualTypeOf<DocumentTarget>();
+		expectTypeOf(speechTarget).toEqualTypeOf<SpeechTarget>();
+		expectTypeOf<DocumentTargetExposesConfiguration>().toEqualTypeOf<false>();
+		expectTypeOf<SpeechTargetExposesConfiguration>().toEqualTypeOf<false>();
+		const documentSession = counter(documentTarget);
+		const speechSession = counter(speechTarget);
+		try {
+			expectTypeOf(documentSession.dispose).toEqualTypeOf<() => void>();
+			expectTypeOf(speechSession.dispose).toEqualTypeOf<() => void>();
+		} finally {
+			documentSession.dispose();
+			speechSession.dispose();
+		}
+		const assertInvalidOneArgumentUsage = (
+			invalidCounter: typeof counter,
+		): void => {
+			// @ts-expect-error one-argument overload accepts only first-party targets
+			invalidCounter("div");
+		};
+		void assertInvalidOneArgumentUsage;
+
+		const plainTarget = {
+			commitDocument: () => undefined,
+		};
+		const assertPlainTargetRejected = (
+			invalidCounter: typeof counter,
+		): void => {
+			// @ts-expect-error plain objects are not valid projection targets
+			invalidCounter(plainTarget);
+		};
+		void assertPlainTargetRejected;
+
+		createProjectionDocumentTarget({
+			// @ts-expect-error callback selectors are not part of the public target API
+			selectDocument: () => null,
+			commitDocument: () => undefined,
+		});
+	});
+
 	it("accepts an EventTarget host for the headless agent runtime", () => {
 		const adapter = {} as IgniteAdapter<
 			{ count: number },
@@ -209,6 +348,10 @@ describe("igniteCore type inference", () => {
 		>;
 		const runtime = createAgentRuntime({
 			eventTypes: [],
+			resolveInspection: (current) => ({
+				snapshot: current.getSnapshot(),
+				view: {},
+			}),
 			resolveRuntime: () => ({
 				adapter,
 				additionalArgs: {},

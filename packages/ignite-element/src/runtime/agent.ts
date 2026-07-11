@@ -11,7 +11,7 @@ import type {
 } from "../types/agent";
 import type { IgniteSchemaValue } from "../types/schema";
 import { commandMetadataSymbol } from "./commands";
-import { toSchemaValue } from "./schema";
+import { toInspectableSchemaValue, toSchemaValue } from "./schema";
 
 type RuntimeEventMember = {
 	type: string;
@@ -156,18 +156,23 @@ type AgentRuntimeOptions<
 	Event,
 	View extends Record<string, unknown>,
 	AdditionalArgs extends Record<string, unknown>,
+	Renderer,
 > = {
 	eventTypes: readonly string[];
 	observeLifecycle?: (
 		handler: (entry: IgniteStoryLifecycleEntry) => void,
 	) => IgniteAgentSubscription;
 	createDomBridge?: (
-		renderer: unknown,
+		renderer: Renderer,
 		options?: IgniteDomBridgeOptions,
 	) => IgniteDomBridgeSession;
 	resolveRuntime: () => RuntimeResources<State, Event, AdditionalArgs>;
 	retainRuntimeAccess?: () => void;
 	releaseRuntimeAccess?: () => void;
+	resolveInspection?: (adapter: IgniteAdapter<State, Event>) => {
+		snapshot: unknown;
+		view: View;
+	};
 	resolveView: (adapter: IgniteAdapter<State, Event>) => View;
 };
 
@@ -243,7 +248,22 @@ function getCommandMetadata(
 		return undefined;
 	}
 
-	return metadata as CommandMetadata;
+	return metadata;
+}
+
+function getOwnCommandEntries(value: object): Array<[string, unknown]> {
+	const entries: Array<[string, unknown]> = [];
+	for (const name of Object.keys(value)) {
+		const descriptor = Object.getOwnPropertyDescriptor(value, name);
+		if (
+			descriptor &&
+			"value" in descriptor &&
+			typeof descriptor.value === "function"
+		) {
+			entries.push([name, descriptor.value]);
+		}
+	}
+	return entries;
 }
 
 function hasCanExecute(
@@ -288,15 +308,23 @@ export function createAgentRuntime<
 	Event,
 	View extends Record<string, unknown>,
 	AdditionalArgs extends Record<string, unknown>,
+	Renderer = unknown,
 >({
 	createDomBridge,
 	eventTypes,
 	observeLifecycle,
 	retainRuntimeAccess,
 	releaseRuntimeAccess,
+	resolveInspection,
 	resolveRuntime,
 	resolveView,
-}: AgentRuntimeOptions<State, Event, View, AdditionalArgs>) {
+}: AgentRuntimeOptions<State, Event, View, AdditionalArgs, Renderer>) {
+	const resolveRuntimeInspection =
+		resolveInspection ??
+		((adapter: IgniteAdapter<State, Event>) => ({
+			snapshot: adapter.getSnapshot(),
+			view: resolveView(adapter),
+		}));
 	const isThenable = (value: unknown): value is PromiseLike<unknown> =>
 		(typeof value === "object" || typeof value === "function") &&
 		value !== null &&
@@ -379,12 +407,11 @@ export function createAgentRuntime<
 		retainRuntimeAccess?.();
 		const { adapter } = resolveRuntime();
 		let prevValue = resolveCurrent(adapter);
-		let seeded = false;
+		let installing = true;
 
 		const subscription = adapter.subscribeSnapshots(() => {
 			const nextValue = resolveCurrent(adapter);
-			if (!seeded) {
-				seeded = true;
+			if (installing) {
 				prevValue = nextValue;
 				return;
 			}
@@ -393,6 +420,7 @@ export function createAgentRuntime<
 			prevValue = nextValue;
 			handler(nextValue, lastValue);
 		});
+		installing = false;
 
 		return {
 			unsubscribe: () => {
@@ -493,7 +521,9 @@ export function createAgentRuntime<
 				return true;
 			}
 
-			return metadata.canExecute({ snapshot: adapter.getSnapshot() });
+			return metadata.canExecute({
+				snapshot: resolveRuntimeInspection(adapter).snapshot,
+			});
 		});
 
 	const executeCommand = async (commandName: string, payload?: unknown) =>
@@ -744,9 +774,8 @@ export function createAgentRuntime<
 		getSchema() {
 			return withRuntimeAccess(() => {
 				const { adapter, additionalArgs } = resolveRuntime();
-				const commandEntries = Object.entries(additionalArgs).filter(
-					([, value]) => typeof value === "function",
-				);
+				const inspection = resolveRuntimeInspection(adapter);
+				const commandEntries = getOwnCommandEntries(additionalArgs);
 				const commands = Object.fromEntries(
 					commandEntries
 						.map(
@@ -759,14 +788,8 @@ export function createAgentRuntime<
 				return {
 					commands,
 					events: [...eventTypes].sort().map((type) => ({ type })),
-					snapshot: (toSchemaValue(adapter.getSnapshot()) ?? null) as Exclude<
-						ReturnType<typeof toSchemaValue>,
-						undefined
-					>,
-					view: (toSchemaValue(resolveView(adapter)) ?? null) as Exclude<
-						ReturnType<typeof toSchemaValue>,
-						undefined
-					>,
+					snapshot: toInspectableSchemaValue(inspection.snapshot) ?? null,
+					view: toInspectableSchemaValue(inspection.view) ?? null,
 				};
 			});
 		},

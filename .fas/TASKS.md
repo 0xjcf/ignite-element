@@ -1029,7 +1029,7 @@ No active tasks.
 - Status: deferred
 - Owner: runtime
 - Brief: .fas/tasks/stable-v3-merge-the-v3-line-to-main-and-retire-branch-dispa.md
-- Note: Stable v3 is gated on completion of the Projection Runtime epic through task-1783610965770.
+- Note: Stable v3 is gated on completion of the LLM-Authored Projections, Accessibility & Non-Visual Interfaces epic through task-1783610965770.
 
 ### Task: XStateAdapter: implement stream() over XState v5 emitted events
 
@@ -2160,31 +2160,46 @@ No active tasks.
 
 - Title: Design projection contracts and behavior-first interface DX
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/design-the-ignite-element-accessibility-contract-api-and-dx.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Implement projection registry, behavior metadata, and native JSX guardrails
 
 - Title: Implement projection registry, behavior metadata, and native JSX guardrails
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: reviewer
 - Brief: .fas/tasks/implement-the-core-accessibility-semantics-projection-surfac.md
+- Note: Superseded by task-1783650880370 before implementation; no source changes shipped.
 
-### Task: Add headless behavior-contract assertions for accessibility-relevant flows
+### Task: Implement internal dynamic projection pipeline and LLM-authored artifacts
 
-- Title: Add headless behavior-contract assertions for accessibility-relevant flows
-- Mode: 4-agent
-- Status: queued
+- Title: Implement internal dynamic projection pipeline and LLM-authored artifacts
+- Mode: 6-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/implement-internal-dynamic-projection-pipeline-and-llm-autho.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Add headless assertions for dynamic projection documents and behavior facts
+
+- Title: Add headless assertions for dynamic projection documents and behavior facts
+- Mode: 6-agent
+- Status: deferred
 - Owner: runtime
 - Brief: .fas/tasks/add-headless-accessibility-contract-assertions-to-the-test-d.md
 
-### Task: Build voice/text projection control-center workbench example
+### Task: Build LLM-authored voice/text projection control-center workbench
 
-- Title: Build voice/text projection control-center workbench example
+- Title: Build LLM-authored voice/text projection control-center workbench
 - Mode: 6-agent
-- Status: queued
+- Status: deferred
 - Owner: runtime
 - Brief: .fas/tasks/build-voice-text-agent-control-center-workbench-example-for-.md
 
@@ -2192,15 +2207,15 @@ No active tasks.
 
 - Title: Add rendered DOM accessibility verification for Ignite examples
 - Mode: 4-agent
-- Status: queued
+- Status: deferred
 - Owner: runtime
 - Brief: .fas/tasks/add-dom-accessibility-verification-for-ignite-examples.md
 
-### Task: Document projection runtime, accessibility-first, and non-visual patterns
+### Task: Document LLM-authored projections, accessibility-first, and non-visual patterns
 
-- Title: Document projection runtime, accessibility-first, and non-visual patterns
+- Title: Document LLM-authored projections, accessibility-first, and non-visual patterns
 - Mode: single-agent
-- Status: queued
+- Status: deferred
 - Owner: runtime
 - Brief: .fas/tasks/document-accessibility-first-ignite-implementation-patterns.md
 

@@ -20,12 +20,26 @@ import {
 	facadeCleanupSymbol,
 } from "./runtime/effects";
 
-export type AdapterFactory<State, Event, Host = EventTarget> = ((
+export type StandardCommandActor<State, Event> = {
+	send: (event: Event) => void;
+	getState: () => State;
+};
+
+export type AdapterCreator<State, Event, Host = EventTarget> = ((
 	host?: Host,
 ) => IgniteAdapter<State, Event>) & {
 	scope?: StateScope;
-	resolveStateSnapshot?: (adapter: IgniteAdapter<State, Event>) => unknown;
-	resolveCommandActor?: (adapter: IgniteAdapter<State, Event>) => unknown;
+};
+
+export type AdapterFactory<
+	State,
+	Event,
+	Host = EventTarget,
+	Snapshot = State,
+	CommandActor = StandardCommandActor<State, Event>,
+> = AdapterCreator<State, Event, Host> & {
+	resolveStateSnapshot: (adapter: IgniteAdapter<State, Event>) => Snapshot;
+	resolveCommandActor: (adapter: IgniteAdapter<State, Event>) => CommandActor;
 };
 
 type AdditionalRenderArgs<
@@ -39,7 +53,7 @@ export type ProjectionFactoryOptions<
 	Event,
 	Snapshot,
 	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandActor = unknown,
+	CommandActor = StandardCommandActor<State, Event>,
 	CommandsResult extends FacadeCommandResult = Record<
 		never,
 		FacadeCommandFunction
@@ -91,10 +105,14 @@ export type ProjectionFactory<
 	Events extends EventMap = EmptyEventMap,
 	ViewResult extends Record<string, unknown> = Record<never, never>,
 > = {
-	createAdapter: AdapterFactory<State, Event, Host>;
+	createAdapter: AdapterCreator<State, Event, Host>;
 	scope?: StateScope;
 	cleanup?: boolean;
 	eventTypes: readonly (keyof Events & string)[];
+	resolveInspection: (adapter: IgniteAdapter<State, Event>) => {
+		snapshot: unknown;
+		view: FacadeStateResult<ViewResult>;
+	};
 	resolveView: (
 		adapter: IgniteAdapter<State, Event>,
 	) => FacadeStateResult<ViewResult>;
@@ -165,10 +183,7 @@ export function createProjectionFactory<
 	Event,
 	Snapshot,
 	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandActor = {
-		send: (event: Event) => void;
-		getState: () => State;
-	},
+	CommandActor = StandardCommandActor<State, Event>,
 	CommandsResult extends FacadeCommandResult = Record<
 		never,
 		FacadeCommandFunction
@@ -176,24 +191,8 @@ export function createProjectionFactory<
 	Additional extends Record<string, unknown> = Record<never, never>,
 	Events extends EventMap = EmptyEventMap,
 	Host = unknown,
-	FactoryResult = ProjectionFactory<
-		State,
-		Event,
-		WithFacadeRenderArgs<
-			State,
-			Event,
-			StatesResult,
-			CommandActor,
-			CommandsResult,
-			Additional,
-			Events
-		>,
-		Host,
-		Events,
-		StatesResult
-	>,
 >(
-	createAdapter: AdapterFactory<State, Event, Host>,
+	createAdapter: AdapterFactory<State, Event, Host, Snapshot, CommandActor>,
 	options?: ProjectionFactoryOptions<
 		State,
 		Event,
@@ -205,7 +204,22 @@ export function createProjectionFactory<
 		Events,
 		Host
 	>,
-): FactoryResult {
+): ProjectionFactory<
+	State,
+	Event,
+	WithFacadeRenderArgs<
+		State,
+		Event,
+		StatesResult,
+		CommandActor,
+		CommandsResult,
+		Additional,
+		Events
+	>,
+	Host,
+	Events,
+	StatesResult
+> {
 	const {
 		scope,
 		view,
@@ -221,36 +235,38 @@ export function createProjectionFactory<
 	const errorPrefix = debugName ?? "createProjectionFactory";
 
 	const resolveSnapshot =
-		resolveStateSnapshot ??
-		(createAdapter.resolveStateSnapshot as
-			| ((adapter: IgniteAdapter<State, Event>) => Snapshot)
-			| undefined) ??
-		((adapter: IgniteAdapter<State, Event>) =>
-			adapter.getSnapshot() as unknown as Snapshot);
-
-	const resolveActor =
-		resolveCommandActor ??
-		(createAdapter.resolveCommandActor as
-			| ((adapter: IgniteAdapter<State, Event>) => CommandActor)
-			| undefined) ??
-		((adapter: IgniteAdapter<State, Event>) =>
-			({
-				send: (event: Event) => adapter.send(event),
-				getState: () => adapter.getSnapshot(),
-			}) as CommandActor);
+		resolveStateSnapshot ?? createAdapter.resolveStateSnapshot;
+	const resolveActor = resolveCommandActor ?? createAdapter.resolveCommandActor;
 
 	const userAdditionalArgs = createAdditionalArgs ?? (() => ({}) as Additional);
 	const resolvedView = view;
+	const resolveInspection: ProjectionFactory<
+		State,
+		Event,
+		FinalRenderArgs,
+		Host,
+		Events,
+		StatesResult
+	>["resolveInspection"] = (adapter: IgniteAdapter<State, Event>) => {
+		const snapshot = resolveSnapshot(adapter);
+		if (!resolvedView) {
+			return {
+				snapshot,
+				view: Object.create(null) as FacadeStateResult<StatesResult>,
+			};
+		}
+
+		const result = resolvedView(createViewContext(snapshot));
+		ensureFacadeResult(result, "view", errorPrefix);
+		return {
+			snapshot,
+			view: result,
+		};
+	};
 	const resolveView = (
 		adapter: IgniteAdapter<State, Event>,
 	): FacadeStateResult<StatesResult> => {
-		if (resolvedView) {
-			const result = resolvedView(createViewContext(resolveSnapshot(adapter)));
-			ensureFacadeResult(result, "view", errorPrefix);
-			return result;
-		}
-
-		return Object.create(null) as FacadeStateResult<StatesResult>;
+		return resolveInspection(adapter).view;
 	};
 
 	type FinalRenderArgs = WithFacadeRenderArgs<
@@ -383,14 +399,8 @@ export function createProjectionFactory<
 		scope: scope ?? createAdapter.scope,
 		cleanup,
 		eventTypes: Object.keys(eventDefinitions) as Array<keyof Events & string>,
+		resolveInspection,
 		resolveView,
-		createAdditionalArgs: createMergedArgs as ProjectionFactory<
-			State,
-			Event,
-			FinalRenderArgs,
-			Host,
-			Events,
-			StatesResult
-		>["createAdditionalArgs"],
-	} as FactoryResult;
+		createAdditionalArgs: createMergedArgs,
+	};
 }

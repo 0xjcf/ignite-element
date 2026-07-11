@@ -5,10 +5,12 @@ import type {
 } from "@ignite-element/renderer";
 import type { TemplateResult } from "lit-html";
 import {
+	type AdapterCreator,
 	type AdapterFactory,
 	createProjectionFactory,
 	type ProjectionFactory,
 	type ProjectionFactoryOptions,
+	type StandardCommandActor,
 	type WithFacadeRenderArgs,
 } from "./createProjectionFactory";
 import igniteElementFactory, {
@@ -48,6 +50,10 @@ export type ElementFactoryOptions<
 	resolveView?: (
 		adapter: IgniteAdapter<State, Event>,
 	) => RuntimeView | Record<never, never>;
+	resolveInspection?: (adapter: IgniteAdapter<State, Event>) => {
+		snapshot: unknown;
+		view: RuntimeView | Record<never, never>;
+	};
 	cleanup?: boolean;
 };
 
@@ -60,7 +66,7 @@ export type ElementFactoryCreator<
 	Events extends EventMap = EmptyEventMap,
 	RuntimeView extends Record<string, unknown> = Record<never, never>,
 > = (
-	createAdapter: AdapterFactory<State, Event, HTMLElement>,
+	createAdapter: AdapterCreator<State, Event, HTMLElement>,
 	options: ElementFactoryOptions<
 		State,
 		Event,
@@ -76,10 +82,7 @@ export type ComponentFactoryOptions<
 	Event,
 	Snapshot,
 	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandActor = {
-		send: (event: Event) => void;
-		getState: () => State;
-	},
+	CommandActor = StandardCommandActor<State, Event>,
 	CommandsResult extends FacadeCommandResult = Record<
 		never,
 		FacadeCommandFunction
@@ -148,7 +151,14 @@ export function bindProjectionToElements<
 	Events extends EventMap = EmptyEventMap,
 	RuntimeView extends Record<string, unknown> = Record<never, never>,
 >(
-	projection: ProjectionFactory<State, Event, RenderArgs, HTMLElement, Events>,
+	projection: ProjectionFactory<
+		State,
+		Event,
+		RenderArgs,
+		HTMLElement,
+		Events,
+		RuntimeView
+	>,
 	options: BindProjectionToElementsOptions<
 		State,
 		Event,
@@ -176,9 +186,8 @@ export function bindProjectionToElements<
 		scope: projection.scope,
 		cleanup: projection.cleanup,
 		eventTypes: projection.eventTypes,
-		resolveView: projection.resolveView as (
-			adapter: IgniteAdapter<State, Event>,
-		) => RuntimeView,
+		resolveInspection: projection.resolveInspection,
+		resolveView: projection.resolveView,
 		createRenderStrategy: options.createRenderStrategy,
 		createAdditionalArgs: (adapter, host) => {
 			if (!host) {
@@ -206,10 +215,7 @@ export function createComponentFactoryWithRenderer<
 	Event,
 	Snapshot,
 	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandActor = {
-		send: (event: Event) => void;
-		getState: () => State;
-	},
+	CommandActor = StandardCommandActor<State, Event>,
 	CommandsResult extends FacadeCommandResult = Record<
 		never,
 		FacadeCommandFunction
@@ -232,7 +238,13 @@ export function createComponentFactoryWithRenderer<
 		View
 	>,
 >(
-	createAdapter: AdapterFactory<State, Event, HTMLElement>,
+	createAdapter: AdapterFactory<
+		State,
+		Event,
+		HTMLElement,
+		Snapshot,
+		CommandActor
+	>,
 	elementFactory: ElementFactoryCreator<
 		State,
 		Event,
@@ -311,10 +323,7 @@ export function createComponentFactory<
 	Event,
 	Snapshot,
 	StatesResult extends Record<string, unknown> = Record<never, never>,
-	CommandActor = {
-		send: (event: Event) => void;
-		getState: () => State;
-	},
+	CommandActor = StandardCommandActor<State, Event>,
 	CommandsResult extends FacadeCommandResult = Record<
 		never,
 		FacadeCommandFunction
@@ -322,7 +331,13 @@ export function createComponentFactory<
 	Additional extends Record<string, unknown> = Record<never, never>,
 	Events extends EventMap = EmptyEventMap,
 >(
-	createAdapter: AdapterFactory<State, Event, HTMLElement>,
+	createAdapter: AdapterFactory<
+		State,
+		Event,
+		HTMLElement,
+		Snapshot,
+		CommandActor
+	>,
 	options?: ComponentFactoryOptions<
 		State,
 		Event,

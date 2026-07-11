@@ -1,5 +1,11 @@
 # Design projection contracts and behavior-first interface DX
 
+> **Status: superseded historical evidence.** The problem statement,
+> acceptance criteria, and design conclusions below are non-actionable. Their
+> `ProjectionRequest`, `ProjectionSpec`, `ProjectionInstance`, registry
+> selection, and command-presentation metadata direction was replaced by
+> `task-1783650880370` and is retained only as decision history.
+
 ## Source
 Created with `fas create-task` on 2026-07-09.
 
@@ -34,7 +40,14 @@ Produce the architecture/DX design before implementation for Ignite as a project
 - docs/site/src/content/docs/guides/accessibility-first.mdx
 
 ## Scope Amendments
-- None.
+- Type: architecture-superseded
+- Added at: 2026-07-09
+- Trigger: Implementation review showed that the accepted registry and behavior-metadata design expanded igniteCore across every adapter and mixed behavior facts with presentation policy.
+- Reason: Keep this completed task as historical decision evidence, but treat its ProjectionRequest, ProjectionSpec, ProjectionInstance, registry-selection, and command-presentation-metadata conclusions as superseded by task-1783650880370.
+- Evidence source: architecture discussion
+- Evidence path: `.fas/tasks/implement-internal-dynamic-projection-pipeline-and-llm-autho.md`
+- Accuracy signal: high
+- Follow-up: Reconcile the committed design documents before replacement source implementation.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

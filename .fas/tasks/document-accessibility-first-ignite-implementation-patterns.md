@@ -1,22 +1,22 @@
-# Document projection runtime, accessibility-first, and non-visual patterns
+# Document LLM-authored projections, accessibility-first, and non-visual patterns
 
 ## Source
 Created with `fas create-task` on 2026-07-09.
 
 ## Problem
-After the design, guardrails, headless assertions, projection workbench, and example validation are in place, publish the projection runtime/accessibility-first/non-visual interface DX docs. The guide should teach ProjectionRequest, ProjectionSpec, ProjectionInstance, projection registry/selection, native-first markup, when ARIA is appropriate, how behavior metadata powers headless tests, voice/agent/non-visual interfaces, when to run DOM checks, and how actor-web behavior graph alignment fits without implying DOM scraping or raw generated UI.
+After replacement implementation, headless assertions, the LLM-authored workbench, and rendered validation land, publish the final v3 guidance. Replace ProjectionRequest/ProjectionSpec/ProjectionInstance registry documentation with the accepted architecture: behavior view and existing headless APIs remain stable; private coherent inspection and binding machinery support format-specific projection committers; validated ProjectionDocument data lives in actor state; LLMs author or patch documents through igniteTools commands; model-authored text/speech can be committed without DOM; accessible native JSX renders semantic nodes; provider/model loops and microphone lifecycle remain adapter concerns.
+
 
 ## Acceptance criteria
-- Docs include concise projection runtime, accessibility-first, and non-visual interface guidance for Ignite Element v3.
-- Examples show native-first implementation before ARIA-heavy patterns.
-- Docs explain headless behavior-contract assertions and rendered DOM verification separately.
-- Docs connect ProjectionRequest/ProjectionSpec and behavior metadata to voice, agent, and assistive/non-visual runtime use without implying DOM scraping or raw generated UI.
-- TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
-- TDD: every production code change in the change set is covered by an added or updated test.
-- DDD: respect domain boundaries — keep the functional core deterministic and side-effect-free (no reads, writes, network, or clock), confine coordination to the imperative shell, and have adapters return facts instead of throwing.
+- Docs teach the final public igniteCore DX without exposing private bind, inspect, registry, or committer machinery.
+- Docs distinguish behavior view, validated projection documents, format-specific output, and renderer/adapter responsibilities.
+- A complete example shows prompt or speech input to LLM tool calls to actor-owned projection state to accessible JSX and model-authored speech/text.
+- Docs explain why arbitrary generated JSX/JavaScript and DOM scraping are rejected.
+- Docs cover command-backed actions, validation, privacy/redaction, provider-neutral igniteTools, OpenAI-compatible/MLX operation, actor-web behavior graphs, and deterministic CI versus optional live validation.
+- Docs clearly separate headless behavior/document assertions from rendered browser accessibility guarantees.
+- Stable v3 merge remains blocked until this documentation sweep is complete.
 - The work is tracked in `.fas/TASKS.md`.
 - The task has a clear implementation and verification plan before execution starts.
-- The task is queued in `.fas/queue/tasks.json` for the runtime.
 
 ## Proposed solution
 - Use the supplied problem context, acceptance criteria, and affected-file hints to draft the concrete implementation approach during planning.
@@ -35,20 +35,23 @@ After the design, guardrails, headless assertions, projection workbench, and exa
 - None.
 
 ## Implementation plan
-- Convert the supplied context into a scoped implementation plan before editing.
-- Refresh affected-file scope before implementation if the generated hints are incomplete.
+- Rewrite the committed provisional projection design and site guide to the replacement architecture.
+- Document the control-center example and minimal public APIs only after implementation names are final.
+- Run docs example checks and remove all stale registry/behavior-metadata language.
 
 ## Verification plan
-- Run `fas validate-task` for the inner-loop verification gate.
-- Run `.fas/scripts/verify.sh --full` at the final release-quality gate when tracked files change.
+- Run focused docs/example checks and `fas validate-task` after each of the
+  three implementation-plan steps, then create a separate incremental commit.
+- Create or refresh the final review summary artifact before task completion.
+- Run the epic shared full verification and CodeRabbit review before batch close.
 
 ## Risks
-- Validate generated scope, acceptance criteria, and verification evidence before closeout to avoid workflow drift.
+- Do not document private implementation contracts as public extension points.
+- Do not imply models can safely generate executable UI code or that voice requires DOM.
 
 ## Dependencies
-- Depends on `task-1783610950265` (rendered DOM accessibility verification).
-- Blocks `task-1781292613064` so stable v3 cannot merge to `main` until the
-  Projection Runtime epic is documented and complete.
+- Depends on task-1783610950265.
+- Blocks task-1781292613064.
 
 ## Open questions
 - None captured at task creation.

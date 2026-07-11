@@ -51,6 +51,26 @@ type AdapterEntry<Machine extends AnyStateMachine> = {
 
 const stoppedSubscribeWarning =
 	"[XStateAdapter] Cannot subscribe when adapter is stopped.";
+const invalidSnapshotContextMessage =
+	"[XStateAdapter] Snapshot context must be an own data property.";
+const unsafeSnapshotInspectionMessage =
+	"[XStateAdapter] Unable to inspect snapshot descriptors safely.";
+
+function collectEnumerableDescriptors(
+	source: object,
+	descriptors: Map<PropertyKey, PropertyDescriptor>,
+	omitContext: boolean,
+): void {
+	for (const key of Reflect.ownKeys(source)) {
+		if (omitContext && key === "context") {
+			continue;
+		}
+		const descriptor = Object.getOwnPropertyDescriptor(source, key);
+		if (descriptor?.enumerable === true) {
+			descriptors.set(key, descriptor);
+		}
+	}
+}
 
 function requireEntry<Machine extends AnyStateMachine>(
 	registry: WeakMap<
@@ -133,42 +153,164 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 	const listeners = new Set<(state: ExtendedState<Machine>) => void>();
 	let subscription: Subscription | null = null;
 	let isStopped = false;
-	let lastKnownSnapshot = actor.getSnapshot();
+	let lastKnownSnapshot: StateFrom<Machine> = actor.getSnapshot();
+	type InitialSnapshotState = {
+		snapshot: StateFrom<Machine>;
+		state: ExtendedState<Machine>;
+	};
+	type ProvisionalCallbackState = {
+		active: boolean;
+		installing: boolean;
+		hasBufferedSnapshot: boolean;
+		bufferedSnapshot: StateFrom<Machine> | undefined;
+	};
 
 	function notify(snapshot: StateFrom<Machine>) {
 		const state = toExtendedState(snapshot);
-		for (const listener of listeners) {
-			listener(state);
+		const deliveryListeners = Array.from(listeners);
+		for (const listener of deliveryListeners) {
+			if (listeners.has(listener)) {
+				listener(state);
+			}
 		}
-	}
-
-	function ensureSubscription() {
-		if (subscription) {
-			return;
-		}
-		subscription = actor.subscribe((state) => {
-			lastKnownSnapshot = state;
-			notify(state);
-		});
 	}
 
 	function cleanupSubscription() {
-		subscription?.unsubscribe();
+		const currentSubscription = subscription;
 		subscription = null;
+		currentSubscription?.unsubscribe();
 	}
 
 	function toExtendedState(
 		snapshot: StateFrom<Machine>,
 	): ExtendedState<Machine> {
-		const { context, ...rest } = snapshot as StateFrom<Machine> & {
-			context: StateFrom<Machine>["context"];
-		};
+		let contextDescriptor: PropertyDescriptor | undefined;
+		try {
+			contextDescriptor = Object.getOwnPropertyDescriptor(snapshot, "context");
+		} catch {
+			return failInvariant(unsafeSnapshotInspectionMessage);
+		}
+		if (!contextDescriptor || !("value" in contextDescriptor)) {
+			return failInvariant(invalidSnapshotContextMessage);
+		}
+		const context: unknown = contextDescriptor.value;
+		if (typeof context !== "object" || context === null) {
+			return failInvariant(invalidSnapshotContextMessage);
+		}
 
+		try {
+			const descriptors = new Map<PropertyKey, PropertyDescriptor>();
+			collectEnumerableDescriptors(snapshot, descriptors, true);
+			collectEnumerableDescriptors(context, descriptors, false);
+			descriptors.set("context", {
+				value: context,
+				enumerable: true,
+				writable: true,
+				configurable: true,
+			});
+
+			const extendedState = Object.create(Object.prototype);
+			for (const [key, descriptor] of descriptors) {
+				Object.defineProperty(extendedState, key, descriptor);
+			}
+			return extendedState;
+		} catch {
+			return failInvariant(unsafeSnapshotInspectionMessage);
+		}
+	}
+
+	function createGuardedSubscription(
+		sourceSubscription: Subscription,
+		callbackState: ProvisionalCallbackState,
+	): Subscription {
+		let unsubscribed = false;
 		return {
-			...rest,
-			...context,
-			context,
+			unsubscribe() {
+				if (unsubscribed) {
+					return;
+				}
+				unsubscribed = true;
+				callbackState.active = false;
+				sourceSubscription.unsubscribe();
+			},
 		};
+	}
+
+	function installSubscription(
+		preflightSnapshot: StateFrom<Machine>,
+		preflightState: ExtendedState<Machine>,
+	): InitialSnapshotState {
+		const callbackState: ProvisionalCallbackState = {
+			active: true,
+			installing: true,
+			hasBufferedSnapshot: false,
+			bufferedSnapshot: undefined,
+		};
+		let sourceSubscription: Subscription | null = null;
+		let subscribeReturned = false;
+		try {
+			sourceSubscription = actor.subscribe((state) => {
+				if (!callbackState.active) {
+					return;
+				}
+				if (callbackState.installing) {
+					callbackState.hasBufferedSnapshot = true;
+					callbackState.bufferedSnapshot = state;
+					return;
+				}
+
+				lastKnownSnapshot = state;
+				notify(state);
+			});
+			subscribeReturned = true;
+		} finally {
+			if (!subscribeReturned) {
+				callbackState.active = false;
+				callbackState.installing = false;
+			}
+		}
+
+		if (!sourceSubscription) {
+			callbackState.active = false;
+			callbackState.installing = false;
+			return failInvariant(
+				"[XStateAdapter] Actor subscription must return a cleanup handle.",
+			);
+		}
+
+		const guardedSubscription = createGuardedSubscription(
+			sourceSubscription,
+			callbackState,
+		);
+		subscription = guardedSubscription;
+		let installationSucceeded = false;
+		try {
+			let initialSnapshot = preflightSnapshot;
+			let initialState = preflightState;
+			if (
+				callbackState.hasBufferedSnapshot &&
+				typeof callbackState.bufferedSnapshot !== "undefined"
+			) {
+				initialSnapshot = callbackState.bufferedSnapshot;
+				initialState = toExtendedState(initialSnapshot);
+			}
+			lastKnownSnapshot = initialSnapshot;
+			callbackState.installing = false;
+			installationSucceeded = true;
+			return { snapshot: initialSnapshot, state: initialState };
+		} finally {
+			if (!installationSucceeded) {
+				callbackState.installing = false;
+				if (subscription === guardedSubscription) {
+					subscription = null;
+				}
+				try {
+					guardedSubscription.unsubscribe();
+				} catch {
+					// Preserve the setup failure; the guarded callback is already inert.
+				}
+			}
+		}
 	}
 
 	const typedAdapter: IgniteAdapter<
@@ -182,21 +324,42 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 				return { unsubscribe: () => {} };
 			}
 
+			const preflightSnapshot = actor.getSnapshot();
+			const preflightState = toExtendedState(preflightSnapshot);
+			const initial = subscription
+				? { snapshot: preflightSnapshot, state: preflightState }
+				: installSubscription(preflightSnapshot, preflightState);
+			lastKnownSnapshot = initial.snapshot;
 			listeners.add(listener);
-			ensureSubscription();
-
-			const snapshot = actor.getSnapshot();
-			lastKnownSnapshot = snapshot;
-			listener(toExtendedState(snapshot));
-
-			return {
-				unsubscribe: () => {
+			let setupSucceeded = false;
+			try {
+				listener(initial.state);
+				setupSucceeded = true;
+				let unsubscribed = false;
+				return {
+					unsubscribe: () => {
+						if (unsubscribed) {
+							return;
+						}
+						unsubscribed = true;
+						listeners.delete(listener);
+						if (!listeners.size) {
+							cleanupSubscription();
+						}
+					},
+				};
+			} finally {
+				if (!setupSucceeded) {
 					listeners.delete(listener);
 					if (!listeners.size) {
-						cleanupSubscription();
+						try {
+							cleanupSubscription();
+						} catch {
+							// Preserve the original snapshot or listener failure.
+						}
 					}
-				},
-			};
+				}
+			}
 		},
 		subscribeEvents(listener) {
 			// Bridge the actor's emitted domain events (XState v5 `emit(...)`)
@@ -240,15 +403,49 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 			}
 
 			isStopped = true;
-			cleanupSubscription();
 			listeners.clear();
-			lastKnownSnapshot = actor.getSnapshot();
+			let firstError: unknown;
+			let hasError = false;
+			const captureError = (
+				stage: "unsubscribe" | "getSnapshot" | "actor.stop",
+				error: unknown,
+			) => {
+				if (!hasError) {
+					hasError = true;
+					firstError = error;
+					return;
+				}
+				console.error(
+					"[XStateAdapter] Stop cleanup failed after an earlier error.",
+					{ stage, error },
+				);
+			};
+
+			try {
+				cleanupSubscription();
+			} catch (error) {
+				captureError("unsubscribe", error);
+			}
+
+			try {
+				lastKnownSnapshot = actor.getSnapshot();
+			} catch (error) {
+				captureError("getSnapshot", error);
+			}
 
 			// Only stop the actor when ignite created it (isolated machine source).
 			// A consumer-owned, already-started actor (shared scope) is not ours to
 			// stop — the consumer owns its lifetime.
 			if (ownsSource && typeof actor.stop === "function") {
-				actor.stop();
+				try {
+					actor.stop();
+				} catch (error) {
+					captureError("actor.stop", error);
+				}
+			}
+
+			if (hasError) {
+				failInvariant(firstError);
 			}
 		},
 		scope,

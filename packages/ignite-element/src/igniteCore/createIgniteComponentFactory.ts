@@ -19,8 +19,8 @@ export type IgniteComponentAdapterFactory<
 	CommandActor,
 > = (() => IgniteAdapter<State, Event>) & {
 	scope?: StateScope;
-	resolveStateSnapshot?: (adapter: IgniteAdapter<State, Event>) => Snapshot;
-	resolveCommandActor?: (adapter: IgniteAdapter<State, Event>) => CommandActor;
+	resolveStateSnapshot: (adapter: IgniteAdapter<State, Event>) => Snapshot;
+	resolveCommandActor: (adapter: IgniteAdapter<State, Event>) => CommandActor;
 };
 
 export type IgniteComponentFactoryOptions<

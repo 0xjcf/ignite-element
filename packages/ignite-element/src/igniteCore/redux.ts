@@ -53,10 +53,10 @@ type ReduxActor = ReduxCommandActorFor<ReduxSource>;
 
 type ReduxAdapterFactory = (() => IgniteAdapter<ReduxState, ReduxEvent>) & {
 	scope?: StateScope;
-	resolveStateSnapshot?: (
+	resolveStateSnapshot: (
 		adapter: IgniteAdapter<ReduxState, ReduxEvent>,
 	) => ReduxState;
-	resolveCommandActor?: (
+	resolveCommandActor: (
 		adapter: IgniteAdapter<ReduxState, ReduxEvent>,
 	) => ReduxActor;
 };

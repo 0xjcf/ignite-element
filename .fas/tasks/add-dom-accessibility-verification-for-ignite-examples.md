@@ -4,19 +4,19 @@
 Created with `fas create-task` on 2026-07-09.
 
 ## Problem
-Add rendered-DOM accessibility verification for representative examples after the headless behavior-contract assertions exist. Prove that native JSX/elements realize the behavior contract through keyboard operation, focus behavior, accessible names, roles, disabled/busy/error states, validation messaging, and announcements where relevant. Prefer existing example runtime lanes and Playwright/Vitest patterns; avoid making top-level examples workspace members.
+Add rendered-DOM accessibility verification after the dynamic projection workbench exists. Prove that native JSX rendering of validated semantic ProjectionDocument nodes realizes keyboard operation, focus behavior, accessible names/descriptions, roles, disabled/busy/error states, validation relationships, command-backed actions, and intentional speech/live-region behavior where relevant. Cover representative existing examples plus the voice/text control-center without making top-level examples workspace members.
+
 
 ## Acceptance criteria
-- At least one representative example validates keyboard and focus behavior in rendered DOM.
-- At least one representative example validates accessible names, roles, and native/ARIA state reflection.
-- The verification lane stays compatible with self-contained top-level examples.
-- The implementation documents behavior facts that headless tests prove and DOM facts that only browser rendering can prove.
-- TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
-- TDD: every production code change in the change set is covered by an added or updated test.
-- DDD: respect domain boundaries — keep the functional core deterministic and side-effect-free (no reads, writes, network, or clock), confine coordination to the imperative shell, and have adapters return facts instead of throwing.
+- Rendered tests cover accessible native mappings for representative projection nodes and existing examples.
+- Command-backed action nodes expose correct names, disabled states, and keyboard activation based on runtime availability.
+- Form, validation, status, dialog/focus, and live-region behavior is verified in a browser-capable environment where used.
+- The thermostat `SAVE_FAILURE` flow keeps focus on the triggering control and exposes its asynchronous error through a dedicated assertive live region such as `role="alert"`.
+- Voice-only projection remains DOM-free and is validated through the injected speech adapter rather than DOM assertions.
+- Headless contract checks are not presented as browser accessibility proof.
+- Existing example runtime-lane ownership remains intact.
 - The work is tracked in `.fas/TASKS.md`.
 - The task has a clear implementation and verification plan before execution starts.
-- The task is queued in `.fas/queue/tasks.json` for the runtime.
 
 ## Proposed solution
 - Use the supplied problem context, acceptance criteria, and affected-file hints to draft the concrete implementation approach during planning.
@@ -34,18 +34,30 @@ Add rendered-DOM accessibility verification for representative examples after th
 - None.
 
 ## Implementation plan
-- Convert the supplied context into a scoped implementation plan before editing.
-- Refresh affected-file scope before implementation if the generated hints are incomplete.
+- Select representative projection nodes and existing example flows with the highest accessibility risk.
+- Add browser-capable role/name/keyboard/focus/live-region assertions using existing test infrastructure.
+- Perform visual and interactive validation of the command-center dashboard.
+
+## Execution workflow
+
+Use the configured `4-agent` mode. One senior engineer is the sole code writer
+for examples, tests, CI, and task-scoped documentation; the planner, QA, and
+reviewer remain read-only. No other agent may modify files. Keep each
+commit-plan step independently committed before the next review gate.
 
 ## Verification plan
-- Run `fas validate-task` for the inner-loop verification gate.
-- Run `.fas/scripts/verify.sh --full` at the final release-quality gate when tracked files change.
+- After each completed implementation-plan step, run focused rendered example
+  tests and the example runtime lane, then create one incremental commit.
+- Create or refresh the final review summary artifact before task completion.
+- Run the epic shared full verification and CodeRabbit review at closeout.
 
 ## Risks
-- Validate generated scope, acceptance criteria, and verification evidence before closeout to avoid workflow drift.
+- Avoid brittle DOM snapshots and implementation-detail selectors.
+- Avoid treating model-authored copy as sufficient accessible naming without renderer validation.
 
 ## Dependencies
-- None known at task creation.
+- Depends on task-1783613728381.
+- Blocks task-1783610965770.
 
 ## Open questions
 - None captured at task creation.
