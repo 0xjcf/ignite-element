@@ -409,7 +409,7 @@
       "signalFingerprint": null,
       "status": "deferred",
       "owner": "runtime",
-      "mode": "4-agent",
+      "mode": "6-agent",
       "dependsOn": [
         "task-1783735005336"
       ],
@@ -419,7 +419,7 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-11T15:25:35.436Z",
-      "updatedAt": "2026-07-11T15:30:08.995Z",
+      "updatedAt": "2026-07-11T17:45:38.864Z",
       "deferredReason": "dependency_reopened: task-1783735005336",
       "invalidationReason": null
     }

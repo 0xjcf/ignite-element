@@ -232,19 +232,26 @@ Every `igniteCore(...)` registration exposes a headless runtime API in addition 
 
 ```ts
 async function inspectToggle() {
-  const result = await toggle.execute({ command: "toggle" });
-  toggle.getSnapshot();
-  toggle.getView();
-  toggle.getSchema();
-  toggle.on("toggled", (event) => {
+  const eventSubscription = toggle.on("toggled", (event) => {
     console.log(event.isOn);
   });
-  toggle.watchSnapshot((state, prevState) => {
+  const snapshotSubscription = toggle.watchSnapshot((state, prevState) => {
     console.log(prevState.value, "->", state.value);
   });
-  toggle.watchView((view, prevView) => {
+  const viewSubscription = toggle.watchView((view, prevView) => {
     console.log(prevView.isOn, "->", view.isOn);
   });
+
+  try {
+    const result = await toggle.execute({ command: "toggle" });
+    toggle.getSnapshot();
+    toggle.getView();
+    toggle.getSchema();
+  } finally {
+    eventSubscription.unsubscribe();
+    snapshotSubscription.unsubscribe();
+    viewSubscription.unsubscribe();
+  }
 }
 ```
 

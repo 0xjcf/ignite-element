@@ -1,5 +1,13 @@
 # Task Tracker
 
+## Lifecycle Projection
+
+Tracker `Status` and `Owner` fields reflect the active pipeline stage and
+pipeline owner. Queue `.fas/queue/tasks.json` `status` and `owner` fields reflect
+scheduler state and domain ownership. These projections need not use identical
+values; do not force queue `processing`/runtime values to `review`/`reviewer`
+solely to mirror the tracker.
+
 ## Active Tasks
 
 No active tasks.
@@ -2306,7 +2314,7 @@ No active tasks.
 ### Task: Define getSchema as the compiled blueprint and keep coherent inspection private
 
 - Title: Define getSchema as the compiled blueprint and keep coherent inspection private
-- Mode: 4-agent
+- Mode: 6-agent
 - Status: deferred
 - Owner: runtime
 - Brief: .fas/tasks/define-getschema-blueprint-and-public-coherent-inspect-obser.md
