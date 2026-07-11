@@ -101,8 +101,7 @@ export type IgniteTestScenario<
 		expected: IgniteSnapshotExpectation<State>,
 	): IgniteTestScenario<State, Commands, Events, View>;
 	when<CommandName extends keyof Commands & string>(
-		commandName: CommandName,
-		payload?: unknown,
+		step: IgniteTestCommandStep<Commands, CommandName>,
 	): Promise<IgniteTestScenario<State, Commands, Events, View>>;
 	expectSnapshot(
 		expected: IgniteSnapshotExpectation<State>,
@@ -197,6 +196,21 @@ type RuntimeView<Runtime> = (Runtime extends IgniteAgentRuntime<
 	// already does; this also clamps the deferred-generic case) while keeping the
 	// projection's own keys typed.
 	Record<string, unknown>;
+
+type CommandFirstArg<Command> = Command extends (...args: infer Args) => unknown
+	? Args[0]
+	: never;
+
+export type IgniteTestCommandStep<
+	Commands extends FacadeCommandResult,
+	CommandName extends keyof Commands & string = keyof Commands & string,
+> = {
+	[Name in CommandName]: Parameters<Commands[Name]> extends []
+		? { name: Name }
+		: undefined extends CommandFirstArg<Commands[Name]>
+			? { name: Name; input?: CommandFirstArg<Commands[Name]> }
+			: { name: Name; input: CommandFirstArg<Commands[Name]> };
+}[CommandName];
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" &&
@@ -715,12 +729,12 @@ class IgniteTestDriver<
 	}
 
 	async when<CommandName extends keyof Commands & string>(
-		commandName: CommandName,
-		payload?: unknown,
+		step: IgniteTestCommandStep<Commands, CommandName>,
 	) {
+		const payload = "input" in step ? step.input : undefined;
 		this.lastResult = await this.withHost(() =>
 			this.component.execute(
-				commandName,
+				step.name,
 				payload as Parameters<Commands[CommandName]>[0],
 			),
 		);

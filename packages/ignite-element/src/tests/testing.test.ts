@@ -319,16 +319,16 @@ describe("ignite test DSL", () => {
 		hostB.dataset.hostId = "b";
 		hostB.dataset.delayMs = "20";
 
-		const firstCommand = igniteTest(component, { host: hostA }).when(
-			"captureHost",
-		);
-		const secondCommand = igniteTest(component, { host: hostB }).when(
-			"captureHost",
-		);
+		const firstCommand = igniteTest(component, { host: hostA }).when({
+			name: "captureHost",
+		});
+		const secondCommand = igniteTest(component, { host: hostB }).when({
+			name: "captureHost",
+		});
 
 		await Promise.all([firstCommand, secondCommand]);
 		expect([...seenHostIds].sort()).toEqual(["a", "b"]);
-		await igniteTest(component).when("captureHost");
+		await igniteTest(component).when({ name: "captureHost" });
 
 		expect(component.getSnapshot().context.hostId).toBe("none");
 	});
@@ -371,7 +371,7 @@ describe("ignite test DSL", () => {
 		const result = (
 			await igniteTest(component)
 				.given({ counter: { count: 0 } })
-				.when("increment", 2)
+				.when({ name: "increment", input: 2 })
 		)
 			.expectSnapshot({ counter: { count: 2 } })
 			.expectEvents([
@@ -419,7 +419,9 @@ describe("ignite test DSL", () => {
 			},
 		});
 
-		(await igniteTest(component).when("increment", 2)).expectEvent({
+		(
+			await igniteTest(component).when({ name: "increment", input: 2 })
+		).expectEvent({
 			type: "counter-incremented",
 			count: 2,
 		});
@@ -448,7 +450,10 @@ describe("ignite test DSL", () => {
 				});
 			},
 		});
-		const scenario = await igniteTest(component).when("increment", 2);
+		const scenario = await igniteTest(component).when({
+			name: "increment",
+			input: 2,
+		});
 
 		expect(() =>
 			scenario.expectEvents([
