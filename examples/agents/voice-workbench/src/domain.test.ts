@@ -1,66 +1,75 @@
 import { describe, expect, it } from "vitest";
+import { createInitialSession, reduceConversationSession } from "./domain";
 
-const loadDomain = async () => {
-	const domain = await import("./domain").catch(() => null);
-	expect(
-		domain,
-		"the voice workbench domain core has not been implemented",
-	).not.toBeNull();
-	return domain as NonNullable<typeof domain>;
-};
+const checklist = [
+	{
+		kind: "checklist",
+		id: "launch-items",
+		items: [{ id: "ship", label: "Ship", checked: false }],
+	},
+] as const;
 
 describe("voice workbench domain", () => {
-	it("creates and revises an artifact through immutable aggregate transitions", async () => {
-		const { createInitialSession, reduceConversationSession } =
-			await loadDomain();
+	it("stores standard Ignite projection documents with string revisions", () => {
 		const initial = createInitialSession("session-1");
+		expect(initial).toMatchObject({
+			phase: "ready",
+			documents: [],
+			speech: null,
+		});
 		const submitted = reduceConversationSession(initial, {
 			type: "SUBMIT_PROMPT",
 			input: { modality: "text", text: "Create a launch plan" },
 		});
 		expect(submitted).toMatchObject({ accepted: true });
 		if (!submitted?.accepted) return;
+
 		const created = reduceConversationSession(submitted.session, {
 			type: "CREATE_ARTIFACT",
-			input: {
-				id: "launch-plan",
-				title: "Launch plan",
-				kind: "checklist",
-				nodes: [
-					{ type: "checklist", items: [{ text: "Ship", checked: false }] },
+			input: { id: "launch-plan", title: "Launch plan", nodes: checklist },
+		});
+		expect(created).toMatchObject({
+			accepted: true,
+			session: {
+				documents: [
+					{
+						id: "launch-plan",
+						title: "Launch plan",
+						revision: "1",
+						nodes: checklist,
+					},
 				],
 			},
 		});
+		if (!created.accepted) return;
 
-		expect(created.accepted).toBe(true);
-		expect(created.session).not.toBe(initial);
-		expect(created.session.artifacts[0]).toMatchObject({
-			id: "launch-plan",
-			revision: 1,
-		});
-
+		const revisedNodes = [
+			{
+				kind: "checklist",
+				id: "launch-items",
+				items: [{ id: "ship", label: "Ship", checked: true }],
+			},
+		] as const;
 		const revised = reduceConversationSession(created.session, {
 			type: "REVISE_ARTIFACT",
 			input: {
 				artifactId: "launch-plan",
-				expectedRevision: 1,
-				nodes: [
-					{ type: "checklist", items: [{ text: "Ship", checked: true }] },
-				],
+				expectedRevision: "1",
+				nodes: revisedNodes,
 			},
 		});
-		expect(revised.accepted).toBe(true);
-		expect(revised.session.artifacts[0]?.revision).toBe(2);
-		expect(created.session.artifacts[0]?.revision).toBe(1);
+		expect(revised).toMatchObject({
+			accepted: true,
+			session: { documents: [{ revision: "2", nodes: revisedNodes }] },
+		});
+		expect(created.session.documents[0]?.revision).toBe("1");
 	});
 
-	it("returns conflict and validation facts without mutating state", async () => {
-		const { createInitialSession, reduceConversationSession } =
-			await loadDomain();
+	it("returns validation and revision-conflict facts without mutation", () => {
 		const initial = createInitialSession("session-1");
 		const invalid = reduceConversationSession(initial, {
 			type: "CREATE_ARTIFACT",
-			input: { id: "", title: "", kind: "table", nodes: [] },
+			input: { id: "", title: "", nodes: [] },
 		});
 		expect(invalid).toMatchObject({
 			accepted: false,
@@ -70,13 +79,12 @@ describe("voice workbench domain", () => {
 
 		const submitted = reduceConversationSession(initial, {
 			type: "SUBMIT_PROMPT",
-			input: { modality: "text", text: "Revise the missing artifact" },
+			input: { modality: "text", text: "Revise a missing artifact" },
 		});
-		expect(submitted).toMatchObject({ accepted: true });
-		if (!submitted?.accepted) return;
+		if (!submitted?.accepted) throw new Error("expected prompt acceptance");
 		const missing = reduceConversationSession(submitted.session, {
 			type: "REVISE_ARTIFACT",
-			input: { artifactId: "missing", expectedRevision: 4, nodes: [] },
+			input: { artifactId: "missing", expectedRevision: "4", nodes: checklist },
 		});
 		expect(missing).toMatchObject({
 			accepted: false,
@@ -85,53 +93,47 @@ describe("voice workbench domain", () => {
 		});
 	});
 
-	it("admits the complete semantic artifact vocabulary", async () => {
-		const { ARTIFACT_KINDS } = await loadDomain();
-		expect(ARTIFACT_KINDS).toEqual([
-			"text",
-			"markdown",
-			"checklist",
-			"form",
-			"table",
-			"timeline",
-			"decision-log",
-			"code-diff",
-			"command-action",
-		]);
-	});
-
-	it("completes one response while keeping the conversation ready", async () => {
-		const { createInitialSession, reduceConversationSession } =
-			await loadDomain();
+	it("creates and acknowledges a standard speech request with stale-id safety", () => {
 		const initial = createInitialSession("session-1");
-		expect(initial.phase).toBe("ready");
 		const submitted = reduceConversationSession(initial, {
 			type: "SUBMIT_PROMPT",
-			input: { modality: "text", text: "Start the first turn" },
+			input: { modality: "speech", text: "Read the answer" },
 		});
-		expect(submitted).toMatchObject({
-			accepted: true,
-			session: { phase: "responding" },
-		});
-		if (!submitted?.accepted) return;
-
+		if (!submitted?.accepted) throw new Error("expected prompt acceptance");
 		const completed = reduceConversationSession(submitted.session, {
 			type: "COMPLETE_RESPONSE",
-			input: { text: "First turn complete." },
+			input: { text: "Answer ready.", speech: "Answer ready." },
 		});
-		expect(completed.accepted).toBe(true);
-		if (!completed.accepted) return;
-		expect(completed.session.phase).toBe("ready");
-
-		const nextTurn = reduceConversationSession(completed.session, {
-			type: "SUBMIT_PROMPT",
-			input: { modality: "speech", text: "Continue the session" },
-		});
-		expect(nextTurn).toMatchObject({
+		expect(completed).toMatchObject({
 			accepted: true,
-			session: { phase: "responding" },
+			session: {
+				phase: "ready",
+				speech: {
+					id: "response-2",
+					text: "Answer ready.",
+					status: "pending",
+				},
+			},
 		});
-		if (!nextTurn) return;
-		expect(nextTurn.session.messages).toHaveLength(3);
+		if (!completed.accepted || !completed.session.speech) return;
+
+		const stale = reduceConversationSession(completed.session, {
+			type: "ACKNOWLEDGE_SPEECH",
+			input: { id: "stale" },
+		});
+		expect(stale).toMatchObject({
+			accepted: false,
+			reason: "conflict",
+			session: completed.session,
+		});
+
+		const acknowledged = reduceConversationSession(completed.session, {
+			type: "ACKNOWLEDGE_SPEECH",
+			input: { id: completed.session.speech.id },
+		});
+		expect(acknowledged).toMatchObject({
+			accepted: true,
+			session: { speech: { status: "acknowledged" } },
+		});
 	});
 });

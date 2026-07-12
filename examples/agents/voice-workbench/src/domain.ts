@@ -1,84 +1,47 @@
-export const ARTIFACT_KINDS = [
-	"text",
-	"markdown",
-	"checklist",
-	"form",
-	"table",
-	"timeline",
-	"decision-log",
-	"code-diff",
-	"command-action",
-] as const;
+import type {
+	createProjectionDocumentTarget,
+	createProjectionSpeechTarget,
+} from "ignite-element/xstate";
 
-export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
-
-export type ArtifactNode =
-	| { type: "text" | "markdown"; content: string }
-	| {
-			type: "checklist";
-			items: ReadonlyArray<{ text: string; checked: boolean }>;
-	  }
-	| {
-			type: "form";
-			fields: ReadonlyArray<{
-				name: string;
-				label: string;
-				inputType: "text" | "email" | "number";
-				required?: boolean;
-			}>;
-	  }
-	| {
-			type: "table";
-			columns: readonly string[];
-			rows: ReadonlyArray<readonly string[]>;
-	  }
-	| {
-			type: "timeline";
-			items: ReadonlyArray<{ label: string; detail: string }>;
-	  }
-	| {
-			type: "decision-log";
-			entries: ReadonlyArray<{ decision: string; rationale: string }>;
-	  }
-	| { type: "code-diff"; language: string; diff: string }
-	| { type: "command-action"; command: string; label: string };
+type ProjectionDocument = Parameters<
+	Parameters<typeof createProjectionDocumentTarget>[0]["commitDocument"]
+>[0];
+type ProjectionDocumentNode = ProjectionDocument["nodes"][number];
+type ProjectionSpeechRequest = Parameters<
+	Parameters<typeof createProjectionSpeechTarget>[0]["commitSpeech"]
+>[0];
 
 export type CreateArtifactInput = {
 	id: string;
 	title: string;
-	kind: ArtifactKind;
-	nodes: readonly ArtifactNode[];
+	nodes: readonly ProjectionDocumentNode[];
 };
 
 export type ReviseArtifactInput = {
 	artifactId: string;
-	expectedRevision: number;
-	nodes: readonly ArtifactNode[];
+	expectedRevision: string;
+	nodes: readonly ProjectionDocumentNode[];
 };
 
-export type CompleteResponseInput = {
-	text: string;
-	speech?: string;
-};
-
+export type CompleteResponseInput = { text: string; speech?: string };
 export type SubmitPromptInput = {
 	modality: "text" | "speech";
 	text: string;
 };
+export type AcknowledgeSpeechInput = { id: string };
 
 export type ConversationMessage = {
 	role: "user" | "assistant";
-	channel: "text" | "speech" | "tool";
+	channel: "text" | "speech";
 	text: string;
 };
 
-export type Artifact = CreateArtifactInput & { revision: number };
-
 export type ConversationFact =
-	| { type: "artifact-created"; artifactId: string; revision: number }
-	| { type: "artifact-revised"; artifactId: string; revision: number }
+	| { type: "artifact-created"; artifactId: string; revision: string }
+	| { type: "artifact-revised"; artifactId: string; revision: string }
 	| { type: "artifact-rejected"; reason: "validation" | "conflict" }
-	| { type: "response-completed" };
+	| { type: "response-completed" }
+	| { type: "speech-acknowledged"; id: string };
 
 export type ConversationSession = {
 	sessionId: string;
@@ -86,7 +49,8 @@ export type ConversationSession = {
 	revision: number;
 	factSequence: number;
 	messages: readonly ConversationMessage[];
-	artifacts: readonly Artifact[];
+	documents: readonly ProjectionDocument[];
+	speech: ProjectionSpeechRequest | null;
 	activeArtifactId: string | null;
 	response: CompleteResponseInput | null;
 	lastFact: ConversationFact | null;
@@ -96,7 +60,8 @@ export type ConversationAction =
 	| { type: "SUBMIT_PROMPT"; input: SubmitPromptInput }
 	| { type: "CREATE_ARTIFACT"; input: CreateArtifactInput }
 	| { type: "REVISE_ARTIFACT"; input: ReviseArtifactInput }
-	| { type: "COMPLETE_RESPONSE"; input: CompleteResponseInput };
+	| { type: "COMPLETE_RESPONSE"; input: CompleteResponseInput }
+	| { type: "ACKNOWLEDGE_SPEECH"; input: AcknowledgeSpeechInput };
 
 export type TransitionResult =
 	| { accepted: true; session: ConversationSession }
@@ -113,7 +78,8 @@ export function createInitialSession(sessionId: string): ConversationSession {
 		revision: 0,
 		factSequence: 0,
 		messages: [],
-		artifacts: [],
+		documents: [],
+		speech: null,
 		activeArtifactId: null,
 		response: null,
 		lastFact: null,
@@ -134,12 +100,16 @@ const rejected = (
 ): TransitionResult => ({ accepted: false, reason, session });
 
 const isNonEmpty = (value: string): boolean => value.trim().length > 0;
+const validNodes = (nodes: readonly ProjectionDocumentNode[]): boolean =>
+	nodes.length > 0 &&
+	nodes.every((node) => isNonEmpty(node.id) && isNonEmpty(node.kind));
 
-const isArtifactKind = (value: string): value is ArtifactKind =>
-	ARTIFACT_KINDS.includes(value as ArtifactKind);
-
-const validNodes = (nodes: readonly ArtifactNode[]): boolean =>
-	nodes.length > 0 && nodes.every((node) => isArtifactKind(node.type));
+const nextDocumentRevision = (revision: string): string => {
+	const current = Number.parseInt(revision, 10);
+	return Number.isSafeInteger(current) && current >= 0
+		? String(current + 1)
+		: `${revision}.1`;
+};
 
 export function reduceConversationSession(
 	session: ConversationSession,
@@ -168,20 +138,19 @@ export function reduceConversationSession(
 				session.phase !== "responding" ||
 				!isNonEmpty(input.id) ||
 				!isNonEmpty(input.title) ||
-				!isArtifactKind(input.kind) ||
 				!validNodes(input.nodes) ||
-				session.artifacts.some((artifact) => artifact.id === input.id)
+				session.documents.some((document) => document.id === input.id)
 			) {
 				return rejected(session, "validation");
 			}
-			const artifact: Artifact = { ...input, revision: 1 };
+			const document: ProjectionDocument = { ...input, revision: "1" };
 			return accepted(session, {
-				artifacts: [...session.artifacts, artifact],
-				activeArtifactId: artifact.id,
+				documents: [...session.documents, document],
+				activeArtifactId: document.id,
 				lastFact: {
 					type: "artifact-created",
-					artifactId: artifact.id,
-					revision: artifact.revision,
+					artifactId: document.id,
+					revision: document.revision,
 				},
 				factSequence: session.factSequence + 1,
 			});
@@ -190,24 +159,24 @@ export function reduceConversationSession(
 			if (session.phase !== "responding") {
 				return rejected(session, "validation");
 			}
-			const index = session.artifacts.findIndex(
-				(artifact) => artifact.id === action.input.artifactId,
+			const index = session.documents.findIndex(
+				(document) => document.id === action.input.artifactId,
 			);
-			const current = session.artifacts[index];
+			const current = session.documents[index];
 			if (!current || current.revision !== action.input.expectedRevision) {
 				return rejected(session, "conflict");
 			}
 			if (!validNodes(action.input.nodes)) {
 				return rejected(session, "validation");
 			}
-			const revision = current.revision + 1;
-			const artifacts = session.artifacts.map((artifact, artifactIndex) =>
-				artifactIndex === index
-					? { ...artifact, nodes: action.input.nodes, revision }
-					: artifact,
+			const revision = nextDocumentRevision(current.revision);
+			const documents = session.documents.map((document, documentIndex) =>
+				documentIndex === index
+					? { ...document, nodes: action.input.nodes, revision }
+					: document,
 			);
 			return accepted(session, {
-				artifacts,
+				documents,
 				activeArtifactId: current.id,
 				lastFact: {
 					type: "artifact-revised",
@@ -217,27 +186,41 @@ export function reduceConversationSession(
 				factSequence: session.factSequence + 1,
 			});
 		}
-		case "COMPLETE_RESPONSE":
+		case "COMPLETE_RESPONSE": {
 			if (session.phase !== "responding" || !isNonEmpty(action.input.text)) {
 				return rejected(session, "validation");
 			}
+			const text = action.input.text.trim();
+			const speechText = action.input.speech?.trim();
 			return accepted(session, {
 				phase: "ready",
-				response: {
-					text: action.input.text.trim(),
-					...(action.input.speech?.trim()
-						? { speech: action.input.speech.trim() }
-						: {}),
-				},
+				response: { text, ...(speechText ? { speech: speechText } : {}) },
+				speech: speechText
+					? {
+							id: `response-${session.revision + 1}`,
+							text: speechText,
+							status: "pending",
+						}
+					: null,
 				messages: [
 					...session.messages,
-					{
-						role: "assistant",
-						channel: "text",
-						text: action.input.text.trim(),
-					},
+					{ role: "assistant", channel: "text", text },
 				],
 				lastFact: { type: "response-completed" },
+				factSequence: session.factSequence + 1,
+			});
+		}
+		case "ACKNOWLEDGE_SPEECH":
+			if (
+				!session.speech ||
+				session.speech.status !== "pending" ||
+				session.speech.id !== action.input.id
+			) {
+				return rejected(session, "conflict");
+			}
+			return accepted(session, {
+				speech: { ...session.speech, status: "acknowledged" },
+				lastFact: { type: "speech-acknowledged", id: action.input.id },
 				factSequence: session.factSequence + 1,
 			});
 	}
@@ -249,10 +232,10 @@ export function projectConversationView(session: ConversationSession) {
 		status: session.phase,
 		revision: session.revision,
 		messageCount: session.messages.length,
-		artifactCount: session.artifacts.length,
-		artifacts: session.artifacts,
+		documents: session.documents,
+		speech: session.speech,
 		activeArtifactId: session.activeArtifactId,
 		response: session.response,
-		canRevise: session.phase === "responding" && session.artifacts.length > 0,
+		canRevise: session.phase === "responding" && session.documents.length > 0,
 	};
 }

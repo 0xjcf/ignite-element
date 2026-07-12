@@ -1,8 +1,7 @@
-import type { EventBuilder } from "@ignite-element/core";
 import { igniteCore } from "ignite-element/xstate";
 import { assign, createActor, setup } from "xstate";
 import {
-	ARTIFACT_KINDS,
+	type AcknowledgeSpeechInput,
 	type CompleteResponseInput,
 	type ConversationAction,
 	type ConversationFact,
@@ -42,41 +41,38 @@ const machine = setup({
 				CREATE_ARTIFACT: { actions: "applyTransition" },
 				REVISE_ARTIFACT: { actions: "applyTransition" },
 				COMPLETE_RESPONSE: { actions: "applyTransition" },
+				ACKNOWLEDGE_SPEECH: { actions: "applyTransition" },
 			},
 		},
 	},
 });
 
-type SessionActor = ReturnType<typeof createActor<typeof machine>>;
-type WorkbenchCommands = {
-	completeResponse: (input: CompleteResponseInput) => unknown;
-	createArtifact: (input: CreateArtifactInput) => unknown;
-	reviseArtifact: (input: ReviseArtifactInput) => unknown;
-	submitPrompt: (input: SubmitPromptInput) => unknown;
-};
+export const source = createActor(machine).start();
 
-type WorkbenchView = ReturnType<typeof projectConversationView>;
-
-const eventDefinitions = (event: EventBuilder) => ({
-	"artifact-created": event<{ artifactId: string; revision: number }>(),
-	"artifact-revised": event<{ artifactId: string; revision: number }>(),
-	"artifact-rejected": event<{ reason: "validation" | "conflict" }>(),
-	"response-completed": event(),
-});
-
-export const source: SessionActor = createActor(machine).start();
-
-export const component = igniteCore<
-	typeof machine,
-	typeof eventDefinitions,
-	WorkbenchView,
-	WorkbenchCommands
->({
+export const component = igniteCore({
 	source,
 	cleanup: true,
-	events: eventDefinitions,
+	events: (event) => ({
+		"artifact-created": event<{ artifactId: string; revision: string }>(),
+		"artifact-revised": event<{ artifactId: string; revision: string }>(),
+		"artifact-rejected": event<{
+			reason: "validation" | "conflict";
+		}>(),
+		"response-completed": event(),
+		"speech-acknowledged": event<{ id: string }>(),
+	}),
 	view: ({ snapshot }) => projectConversationView(snapshot.context),
 	commands: ({ actor, command }) => ({
+		acknowledgeSpeech: command(
+			(input: AcknowledgeSpeechInput) =>
+				actor.send({ type: "ACKNOWLEDGE_SPEECH", input }),
+			{
+				description: "Acknowledge the currently pending speech request.",
+				canExecute: ({ snapshot }) =>
+					snapshot.context.speech?.status === "pending",
+				input: command.object({ id: command.string({ minLength: 1 }) }),
+			},
+		),
 		completeResponse: command(
 			(input: CompleteResponseInput) =>
 				actor.send({ type: "COMPLETE_RESPONSE", input }),
@@ -102,9 +98,11 @@ export const component = igniteCore<
 				input: command.object({
 					id: command.string({ minLength: 1 }),
 					title: command.string({ minLength: 1 }),
-					kind: command.enum(ARTIFACT_KINDS),
 					nodes: command.array(
-						command.object({ type: command.string({ minLength: 1 }) }),
+						command.object({
+							id: command.string({ minLength: 1 }),
+							kind: command.string({ minLength: 1 }),
+						}),
 						{ minItems: 1 },
 					),
 				}),
@@ -118,12 +116,15 @@ export const component = igniteCore<
 					"Revise an artifact when its expected revision still matches.",
 				canExecute: ({ snapshot }) =>
 					snapshot.context.phase === "responding" &&
-					snapshot.context.artifacts.length > 0,
+					snapshot.context.documents.length > 0,
 				input: command.object({
 					artifactId: command.string({ minLength: 1 }),
-					expectedRevision: command.number({ minimum: 1 }),
+					expectedRevision: command.string({ minLength: 1 }),
 					nodes: command.array(
-						command.object({ type: command.string({ minLength: 1 }) }),
+						command.object({
+							id: command.string({ minLength: 1 }),
+							kind: command.string({ minLength: 1 }),
+						}),
 						{ minItems: 1 },
 					),
 				}),
@@ -149,5 +150,3 @@ export const component = igniteCore<
 		emit(fact.current as ConversationFact);
 	},
 });
-
-export type VoiceWorkbenchComponent = typeof component;

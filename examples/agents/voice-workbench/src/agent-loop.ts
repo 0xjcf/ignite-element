@@ -1,5 +1,4 @@
 import { igniteTools, isOk, type NeutralTool } from "ignite-element/tools";
-import type { VoiceWorkbenchComponent } from "./session";
 
 const MODEL_COMMANDS = [
 	"createArtifact",
@@ -17,7 +16,6 @@ export type ModelRequest = {
 	view: unknown;
 };
 export type WorkbenchModel = (request: ModelRequest) => Promise<ModelResponse>;
-export type ScriptedModel = WorkbenchModel & { requests: ModelRequest[] };
 export type ModelTurnTrace = { command: string; accepted: boolean };
 export type ModelTurnResult =
 	| { accepted: true; trace: ModelTurnTrace[] }
@@ -31,19 +29,8 @@ export type ModelTurnResult =
 const isModelCommand = (name: string): name is ModelCommand =>
 	MODEL_COMMANDS.includes(name as ModelCommand);
 
-export function createScriptedModel(
-	responses: readonly ModelResponse[],
-): ScriptedModel {
-	const requests: ModelRequest[] = [];
-	const model = async (request: ModelRequest): Promise<ModelResponse> => {
-		requests.push(request);
-		return responses[requests.length - 1] ?? { calls: [] };
-	};
-	return Object.assign(model, { requests });
-}
-
 export async function runModelTurn(options: {
-	component: VoiceWorkbenchComponent;
+	component: typeof import("./session").component;
 	model: WorkbenchModel;
 	prompt: { channel: "text" | "speech"; text: string };
 }): Promise<ModelTurnResult> {
