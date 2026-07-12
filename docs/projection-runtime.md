@@ -11,8 +11,28 @@ Ignite already has the right behavior boundary:
 
 - `view` derives stable UI-facing state from the source snapshot.
 - `getView()` returns that derived state to headless consumers.
-- `getSchema()` returns JSON-serializable commands, events, snapshot, and view.
+- `getSchema()` returns the compiled JSON-safe blueprint of commands, events,
+  snapshot, and view.
 - `execute()` and `canExecute()` keep intent and availability explicit.
+
+## Authoring input and compiled blueprint
+
+`igniteCore(config)` receives executable authoring input. Its config may contain
+source factories or actors, callbacks, selectors, effects, and other values that
+are meaningful only inside the running application. That authoring input is not
+a serialization contract.
+
+`runtime.getSchema()` is the sole public compiled, JSON-safe Ignite blueprint.
+The blueprint describes the runtime's commands, declared events, current
+snapshot, and derived view. "Blueprint" is Ignite vocabulary, not a claim that
+the returned object is a formal JSON Schema document. Individual command input
+descriptions may use JSON-Schema-like fragments, but the blueprint as a whole is
+an Ignite discovery contract.
+
+The blueprint deliberately excludes source actors and factories, effects,
+callbacks, selectors, registries, projection bindings, committers, and
+executable model-authored content. Ignite does not add a second
+`getBlueprint()` method for the same contract.
 
 The rejected design added a public projection registry and selection model on top
 of those contracts. That widened the API surface, split ownership across config
@@ -37,20 +57,29 @@ The public surface remains intentionally small:
   registry key, or model-authored document.
 - The one-argument overload returns only a disposable handle:
   `{ dispose(): void }`.
+- `getSnapshot()`, `getView()`, `getSchema()`, `canExecute()`, `on(...)`,
+  `watchSnapshot(...)`, and `watchView(...)` remain the focused public reads and
+  subscriptions.
+
+Focused reads are live and intentionally independent. Two separate getter calls
+can observe different source revisions when a transition occurs between them;
+they do not promise an atomic inspection bundle. Long-lived consumers should
+use the public subscriptions and command results to remain synchronized.
 
 Everything else stays private:
 
 - no public `projections:` config,
 - no public registry,
 - no public `bind`, `inspect`, or `project` method,
+- no public inspection type or `getBlueprint()` alias,
 - no public `Projection<Format, Output>` generic,
 - no behavior-presentation metadata threaded through adapters.
 
 ## Internal runtime model
 
-Ignite's projection runtime is an internal substrate built around one coherent
-inspection read. Every DOM and non-DOM consumer must start from the same
-deterministic bundle:
+Ignite's projection runtime is an internal substrate built around one private,
+coherent inspection read. It captures a deterministic bundle for atomic
+projection validation and commit:
 
 - snapshot,
 - derived view,
@@ -59,7 +88,7 @@ deterministic bundle:
 - validated `ProjectionDocument` state,
 - stable revision identity.
 
-That read feeds private binders and committers:
+That private read feeds binders and committers:
 
 - DOM rendering,
 - accessible JSX mapping,
@@ -70,6 +99,11 @@ That read feeds private binders and committers:
 Committers are imperative-shell adapters. They consume deterministic facts and
 return facts such as success, unsupported capability, or explicit error. They
 do not become the source of truth.
+
+The coherent inspection prevents a projection document from being validated
+against one revision and committed with behavior facts from another. It remains
+an implementation primitive rather than a public bootstrap convenience: there
+is no public `inspect()` method or inspection-bundle type.
 
 ## ProjectionDocument state
 
@@ -198,6 +232,7 @@ semantics.
 
 - Public `ProjectionRequest` / `ProjectionSpec` / registry selection.
 - Public `project()` / `bind()` / `inspect()` methods.
+- A public inspection-bundle type or `getBlueprint()` alias.
 - Behavior-presentation metadata embedded into `igniteCore` commands or adapter
   config.
 - Raw model-authored JSX, HTML, or JavaScript as runtime projection output.
@@ -205,11 +240,21 @@ semantics.
 
 ## Decision
 
-Ignite's projection runtime is now defined as:
+The public boundary is:
+
+- executable authoring input through `igniteCore(config)`,
+- `getSchema()` as the sole compiled JSON-safe Ignite blueprint,
+- focused live getters, availability reads, command execution, and
+  subscriptions,
+- and exactly one narrow non-DOM overload through an opaque target.
+
+The private projection boundary is:
 
 - a private coherent inspection primitive,
 - a private `Projection<Format, Output>` substrate,
 - actor-owned validated `ProjectionDocument` state,
 - command-backed semantic actions,
-- request-driven speech with stable utterance identity,
-- and exactly one narrow public non-DOM overload through an opaque target.
+- and request-driven speech with stable utterance identity.
+
+No public `inspect()` method, inspection-bundle type, registry, or
+`getBlueprint()` alias crosses that boundary.
