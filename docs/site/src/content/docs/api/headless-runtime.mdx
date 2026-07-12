@@ -47,7 +47,7 @@ const schema = counter.getSchema();
 | Blueprint | `getSchema()` is the sole public compiled JSON-safe description of commands, declared events, snapshot, and view. |
 | Focused reads | `getSnapshot()`, `getView()`, and `canExecute(...)` answer one live question at a time. |
 | Subscriptions | `on(...)`, `watchSnapshot(...)`, and `watchView(...)` keep long-lived consumers synchronized. |
-| Private machinery | Coherent inspection atomically validates and commits projections inside Ignite; it is not a public API. |
+| Private machinery | Each projection validation and commit attempt captures one coherent inspection inside Ignite; it is not a public API. |
 
 Separate focused getter calls are non-atomic. A source transition between calls can make them observe different revisions; use subscriptions and `execute()` results for ongoing synchronization.
 
@@ -220,9 +220,8 @@ How tools usually consume it:
 Example runtime flow:
 
 ```ts no-check
-const schema = panel.getSchema();
-const armMetadata = schema.commands.armAlarm;
-
+// Install subscriptions before the initial read so a transition during the
+// bootstrap handoff is observed.
 const eventSubscription = panel.on('alarm-armed', (event) => {
   console.log('Alarm status:', event);
 });
@@ -230,6 +229,9 @@ const eventSubscription = panel.on('alarm-armed', (event) => {
 const viewSubscription = panel.watchView((view) => {
   console.log('Status label:', view.statusLabel);
 });
+
+const schema = panel.getSchema();
+const armMetadata = schema.commands.armAlarm;
 
 if (armMetadata.gated && !panel.canExecute('armAlarm')) {
   throw new Error('Alarm cannot be armed while a zone is open.');
@@ -247,9 +249,9 @@ This separation is intentional:
 - `getSchema()` tells you what the runtime exposes right now in JSON-safe form.
 - `canExecute()` answers dynamic command availability.
 - `execute()` performs the transition and returns the resulting snapshot plus emitted events.
-- `on(...)` and `watchView(...)` keep long-lived observers in sync after the initial schema read.
+- `on(...)` and `watchView(...)` keep long-lived observers in sync across bootstrap and after the initial schema read.
 
-Ignite does not expose a second `getBlueprint()` alias, a public `inspect()` method, or a public inspection-bundle type. Internally, projection validation and commit use a private coherent inspection so a document and its behavior facts come from one revision; that atomic primitive is not part of the headless API.
+Ignite does not expose a second `getBlueprint()` alias, a public `inspect()` method, or a public inspection-bundle type. Internally, each projection validation and commit attempt captures one private coherent inspection, so the document and behavior facts for that attempt come from the same captured revision. An asynchronous external commit is not transactional with source transitions that occur later; the captured inspection is not part of the headless API.
 
 :::note[Dynamic events are not listed]
 `events` enumerates only the names **declared** in the `events:` map. Events emitted by the source itself (the Actor-Web [emitted-event bridge](/ignite-element/guides/actor-web/#emitted-events)) are a compile-time union with no runtime registry, so they don't appear in the schema — observe them via `on(...)` and `execute().events` instead.

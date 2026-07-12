@@ -78,8 +78,8 @@ Everything else stays private:
 ## Internal runtime model
 
 Ignite's projection runtime is an internal substrate built around one private,
-coherent inspection read. It captures a deterministic bundle for atomic
-projection validation and commit:
+coherent inspection read. It captures one deterministic bundle for each
+projection validation and commit attempt:
 
 - snapshot,
 - derived view,
@@ -100,8 +100,9 @@ Committers are imperative-shell adapters. They consume deterministic facts and
 return facts such as success, unsupported capability, or explicit error. They
 do not become the source of truth.
 
-The coherent inspection prevents a projection document from being validated
-against one revision and committed with behavior facts from another. It remains
+For each attempt, the projection document and behavior facts come from the same
+captured revision. An asynchronous external commit is not transactional with
+source transitions that occur after that capture. Coherent inspection remains
 an implementation primitive rather than a public bootstrap convenience: there
 is no public `inspect()` method or inspection-bundle type.
 
