@@ -25,17 +25,35 @@ Finalize and document the restrained headless discovery contract after the objec
 
 ## Proposed solution
 
-- Use the supplied problem context, acceptance criteria, and affected-file hints to draft the concrete implementation approach during planning.
+- State the public boundary in the two canonical runtime documents:
+  `igniteCore(config)` is executable authoring input, while `runtime.getSchema()`
+  is the sole public compiled JSON-safe blueprint.
+- Enumerate the blueprint exclusion boundary: no source actors, effects,
+  callbacks, selectors, registries, bindings, committers, or executable
+  model-authored content.
+- Keep coherent projection inspection private and explicitly reject
+  `getBlueprint()` and a public `inspect()` surface unless later workbench
+  evidence proves the focused getters and subscriptions insufficient.
 
 ## Alternatives considered
 
-- None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
+- Add `getBlueprint()`: rejected because it duplicates `getSchema()` and creates
+  two public names for the same compiled contract.
+- Publish coherent `inspect()`: rejected because current getters and
+  subscriptions already cover public reads, while atomic projection inspection
+  is internal validation and commit machinery.
+- Change product source to encode the documentation decision: rejected because
+  focused validation confirms the existing runtime and exports already satisfy
+  the restrained contract.
 
 ## Affected files
 
 - docs/projection-runtime.md
-- docs/accessibility-by-default.md
 - docs/site/src/content/docs/api/headless-runtime.mdx
+
+## Reference files
+
+- docs/accessibility-by-default.md
 - docs/site/src/content/docs/guides/accessibility-first.mdx
 - .fas/tasks/build-voice-text-agent-control-center-workbench-example-for-.md
 
@@ -49,12 +67,26 @@ Finalize and document the restrained headless discovery contract after the objec
 - Accuracy signal: Existing public getters and subscriptions remain the target API; no product source implementation is planned.
 - Follow-up needed: Reconsider a public coherent observation only from concrete workbench evidence.
 
+### Validation-driven scope refinement
+
+- Type: scope-reduction
+- Added at: 2026-07-11
+- Trigger: read-only validation found runtime behavior correct but canonical public docs incomplete.
+- Reason: narrow the writable scope to the two canonical documents that omit the accepted blueprint boundary.
+- Evidence: read-only validator passed 5 focused files and 120 tests, docs code-block typecheck, Markdown lint, and export verification.
+- Added paths: none.
+- Removed paths: docs/accessibility-by-default.md, docs/site/src/content/docs/guides/accessibility-first.mdx, .fas/tasks/build-voice-text-agent-control-center-workbench-example-for-.md
+- Reference-only confirmations: accessibility docs contain no public inspection API claim, and the workbench brief already requires the focused-getter evidence gate.
+- Constraint: no product source or export changes.
+- Accuracy signal: exact file-and-line audit plus green focused runtime and documentation receipts.
+- Follow-up needed: none for this task; reconsider public observation only from later workbench evidence.
+
 ## Implementation plan
 
-- Audit current getSchema semantics and document it as the compiled runtime blueprint.
-- Reconcile projection-runtime and headless docs so coherent inspection is explicitly private implementation machinery.
-- Update the workbench brief to require evidence from existing getters and subscriptions before proposing any new observation method.
-- Run focused validation and close with no product source change if the existing API is sufficient.
+- Update the projection-runtime contract to distinguish executable authoring configuration from the compiled `getSchema()` blueprint and record its exact exclusion boundary.
+- Update the headless-runtime API reference to name `getSchema()` as the sole public compiled blueprint and explicitly reject `getBlueprint()` and public `inspect()`.
+- Preserve coherent projection inspection as private implementation machinery; make no product source, type, export, accessibility-doc, or workbench-brief changes.
+- Rerun the validator's focused runtime, docs, and export checks, then complete full verification and review.
 
 ## Verification plan
 

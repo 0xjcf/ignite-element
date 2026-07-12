@@ -162,7 +162,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -177,7 +177,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-09T16:15:28.381Z",
       "updatedAt": "2026-07-11T15:25:35.436Z",
-      "deferredReason": "dependency_reopened: task-1783783535436",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -350,31 +350,6 @@
       "prDependencies": [],
       "createdAt": "2026-07-11T02:10:35.707Z",
       "updatedAt": "2026-07-11T02:10:35.707Z"
-    },
-    {
-      "id": "task-1783783535436",
-      "task": "Define getSchema as the compiled blueprint and keep coherent inspection private",
-      "priority": "critical",
-      "source": "memory-context-architecture-followup",
-      "details": "Finalize and document the restrained headless discovery contract after the object-form command-call cutover. Treat igniteCore(config) as the executable authoring source and runtime.getSchema() as its only compiled JSON-safe blueprint. Do not add getBlueprint() or public inspect(). Keep coherent inspection private for atomic projection validation and channel commits. Require the voice/text workbench to prove getSchema(), getSnapshot(), getView(), canExecute(commandName), on(...), watchSnapshot(...), and watchView(...) are insufficient before any future observation API is proposed. Projections remain private headless interface-output machinery for validated document and speech facts consumed by DOM, terminal, voice, accessibility, and agent adapters.\nSee .fas/tasks/define-getschema-blueprint-and-public-coherent-inspect-obser.md",
-      "taskClassification": "standard",
-      "selfImprovementCategory": null,
-      "signalFingerprint": null,
-      "status": "queued",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [
-        "task-1783735005336"
-      ],
-      "blocks": [
-        "task-1783613728381"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-11T15:25:35.436Z",
-      "updatedAt": "2026-07-11T17:45:38.864Z",
-      "deferredReason": null,
-      "invalidationReason": null
     },
     {
       "id": "task-1783810065213",
@@ -3345,6 +3320,29 @@
       "terminalOutcome": null,
       "workflowId": "direct-1783805968624",
       "branchName": "fas/retained-surface-contract",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1783783535436",
+      "task": "Define getSchema as the compiled blueprint and keep coherent inspection private",
+      "priority": "critical",
+      "source": "memory-context-architecture-followup",
+      "taskClassification": "standard",
+      "selfImprovementCategory": null,
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1783735005336"
+      ],
+      "blocks": [
+        "task-1783613728381"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-12T02:12:31.715Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783813576313",
+      "branchName": "fas/getschema-blueprint",
       "prStatus": "draft-only"
     }
   ],

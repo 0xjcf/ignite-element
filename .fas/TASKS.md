@@ -2318,9 +2318,12 @@ No active tasks.
 
 - Title: Define getSchema as the compiled blueprint and keep coherent inspection private
 - Mode: 6-agent
-- Status: deferred
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/define-getschema-blueprint-and-public-coherent-inspect-obser.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Add named igniteTest rehearsals with trace snapshots
 
