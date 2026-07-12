@@ -61,6 +61,11 @@ export type CompleteResponseInput = {
 	speech?: string;
 };
 
+export type SubmitPromptInput = {
+	modality: "text" | "speech";
+	text: string;
+};
+
 export type ConversationMessage = {
 	role: "user" | "assistant";
 	channel: "text" | "speech" | "tool";
@@ -77,7 +82,7 @@ export type ConversationFact =
 
 export type ConversationSession = {
 	sessionId: string;
-	status: "active" | "completed";
+	phase: "ready" | "responding";
 	revision: number;
 	factSequence: number;
 	messages: readonly ConversationMessage[];
@@ -88,8 +93,7 @@ export type ConversationSession = {
 };
 
 export type ConversationAction =
-	| { type: "RECORD_PROMPT"; channel: "text" | "speech"; text: string }
-	| { type: "RECORD_PROPOSAL"; command: string }
+	| { type: "SUBMIT_PROMPT"; input: SubmitPromptInput }
 	| { type: "CREATE_ARTIFACT"; input: CreateArtifactInput }
 	| { type: "REVISE_ARTIFACT"; input: ReviseArtifactInput }
 	| { type: "COMPLETE_RESPONSE"; input: CompleteResponseInput };
@@ -105,7 +109,7 @@ export type TransitionResult =
 export function createInitialSession(sessionId: string): ConversationSession {
 	return {
 		sessionId,
-		status: "active",
+		phase: "ready",
 		revision: 0,
 		factSequence: 0,
 		messages: [],
@@ -142,28 +146,26 @@ export function reduceConversationSession(
 	action: ConversationAction,
 ): TransitionResult {
 	switch (action.type) {
-		case "RECORD_PROMPT":
-			if (!isNonEmpty(action.text)) return rejected(session, "validation");
+		case "SUBMIT_PROMPT":
+			if (session.phase !== "ready" || !isNonEmpty(action.input.text)) {
+				return rejected(session, "validation");
+			}
 			return accepted(session, {
-				messages: [
-					...session.messages,
-					{ role: "user", channel: action.channel, text: action.text.trim() },
-				],
-			});
-		case "RECORD_PROPOSAL":
-			return accepted(session, {
+				phase: "responding",
+				response: null,
 				messages: [
 					...session.messages,
 					{
-						role: "assistant",
-						channel: "tool",
-						text: `Proposed ${action.command}`,
+						role: "user",
+						channel: action.input.modality,
+						text: action.input.text.trim(),
 					},
 				],
 			});
 		case "CREATE_ARTIFACT": {
 			const input = action.input;
 			if (
+				session.phase !== "responding" ||
 				!isNonEmpty(input.id) ||
 				!isNonEmpty(input.title) ||
 				!isArtifactKind(input.kind) ||
@@ -185,6 +187,9 @@ export function reduceConversationSession(
 			});
 		}
 		case "REVISE_ARTIFACT": {
+			if (session.phase !== "responding") {
+				return rejected(session, "validation");
+			}
 			const index = session.artifacts.findIndex(
 				(artifact) => artifact.id === action.input.artifactId,
 			);
@@ -213,11 +218,11 @@ export function reduceConversationSession(
 			});
 		}
 		case "COMPLETE_RESPONSE":
-			if (!isNonEmpty(action.input.text)) {
+			if (session.phase !== "responding" || !isNonEmpty(action.input.text)) {
 				return rejected(session, "validation");
 			}
 			return accepted(session, {
-				status: "completed",
+				phase: "ready",
 				response: {
 					text: action.input.text.trim(),
 					...(action.input.speech?.trim()
@@ -241,13 +246,13 @@ export function reduceConversationSession(
 export function projectConversationView(session: ConversationSession) {
 	return {
 		sessionId: session.sessionId,
-		status: session.status,
+		status: session.phase,
 		revision: session.revision,
 		messageCount: session.messages.length,
 		artifactCount: session.artifacts.length,
 		artifacts: session.artifacts,
 		activeArtifactId: session.activeArtifactId,
 		response: session.response,
-		canRevise: session.status === "active" && session.artifacts.length > 0,
+		canRevise: session.phase === "responding" && session.artifacts.length > 0,
 	};
 }

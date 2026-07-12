@@ -10,12 +10,26 @@
 			"ignite-element": ["../../../packages/ignite-element/src/index.ts"],
 			"ignite-element/*": ["../../../packages/ignite-element/src/*"],
 			"@ignite-element/core": ["../../../packages/ignite-core/src/index.ts"],
-			"@ignite-element/adapters": ["../../../packages/ignite-adapters/src/index.ts"],
-			"@ignite-element/adapters/xstate": ["../../../packages/ignite-adapters/src/xstate.ts"],
-			"@ignite-element/renderer": ["../../../packages/ignite-renderer/src/index.ts"],
-			"@ignite-element/renderer/jsx": ["../../../packages/ignite-renderer/src/renderers/ignite-jsx.ts"],
-			"@ignite-element/renderer/jsx-runtime": ["../../../packages/ignite-renderer/src/jsx/jsx-runtime.ts"],
-			"@ignite-element/renderer/jsx-dev-runtime": ["../../../packages/ignite-renderer/src/jsx/jsx-dev-runtime.ts"]
+			"@ignite-element/adapters": [
+				"../../../packages/ignite-adapters/src/index.ts"
+			],
+			"@ignite-element/adapters/xstate": [
+				"../../../packages/ignite-adapters/src/xstate.ts"
+			],
+			"@ignite-element/renderer": [
+				"../../../packages/ignite-renderer/src/index.ts"
+			],
+			"@ignite-element/renderer/jsx": [
+				"../../../packages/ignite-renderer/src/renderers/ignite-jsx.ts"
+			],
+			"@ignite-element/renderer/jsx-runtime": [
+				"../../../packages/ignite-renderer/src/jsx/jsx-runtime.ts"
+			],
+			"@ignite-element/renderer/jsx-dev-runtime": [
+				"../../../packages/ignite-renderer/src/jsx/jsx-dev-runtime.ts"
+			],
+			"xstate": ["../../../packages/ignite-element/node_modules/xstate"],
+			"xstate/*": ["../../../packages/ignite-element/node_modules/xstate/*"]
 		}
 	},
 	"include": ["./src/**/*.ts", "./src/**/*.tsx"]

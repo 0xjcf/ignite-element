@@ -14,7 +14,13 @@ describe("voice workbench domain", () => {
 		const { createInitialSession, reduceConversationSession } =
 			await loadDomain();
 		const initial = createInitialSession("session-1");
-		const created = reduceConversationSession(initial, {
+		const submitted = reduceConversationSession(initial, {
+			type: "SUBMIT_PROMPT",
+			input: { modality: "text", text: "Create a launch plan" },
+		});
+		expect(submitted).toMatchObject({ accepted: true });
+		if (!submitted?.accepted) return;
+		const created = reduceConversationSession(submitted.session, {
 			type: "CREATE_ARTIFACT",
 			input: {
 				id: "launch-plan",
@@ -62,14 +68,20 @@ describe("voice workbench domain", () => {
 			session: initial,
 		});
 
-		const missing = reduceConversationSession(initial, {
+		const submitted = reduceConversationSession(initial, {
+			type: "SUBMIT_PROMPT",
+			input: { modality: "text", text: "Revise the missing artifact" },
+		});
+		expect(submitted).toMatchObject({ accepted: true });
+		if (!submitted?.accepted) return;
+		const missing = reduceConversationSession(submitted.session, {
 			type: "REVISE_ARTIFACT",
 			input: { artifactId: "missing", expectedRevision: 4, nodes: [] },
 		});
 		expect(missing).toMatchObject({
 			accepted: false,
 			reason: "conflict",
-			session: initial,
+			session: submitted.session,
 		});
 	});
 
@@ -86,5 +98,40 @@ describe("voice workbench domain", () => {
 			"code-diff",
 			"command-action",
 		]);
+	});
+
+	it("completes one response while keeping the conversation ready", async () => {
+		const { createInitialSession, reduceConversationSession } =
+			await loadDomain();
+		const initial = createInitialSession("session-1");
+		expect(initial.phase).toBe("ready");
+		const submitted = reduceConversationSession(initial, {
+			type: "SUBMIT_PROMPT",
+			input: { modality: "text", text: "Start the first turn" },
+		});
+		expect(submitted).toMatchObject({
+			accepted: true,
+			session: { phase: "responding" },
+		});
+		if (!submitted?.accepted) return;
+
+		const completed = reduceConversationSession(submitted.session, {
+			type: "COMPLETE_RESPONSE",
+			input: { text: "First turn complete." },
+		});
+		expect(completed.accepted).toBe(true);
+		if (!completed.accepted) return;
+		expect(completed.session.phase).toBe("ready");
+
+		const nextTurn = reduceConversationSession(completed.session, {
+			type: "SUBMIT_PROMPT",
+			input: { modality: "speech", text: "Continue the session" },
+		});
+		expect(nextTurn).toMatchObject({
+			accepted: true,
+			session: { phase: "responding" },
+		});
+		if (!nextTurn) return;
+		expect(nextTurn.session.messages).toHaveLength(3);
 	});
 });

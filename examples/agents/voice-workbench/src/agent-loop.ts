@@ -1,51 +1,35 @@
 import { igniteTools, isOk, type NeutralTool } from "ignite-element/tools";
-import { createConversationSession } from "./session";
+import type { VoiceWorkbenchComponent } from "./session";
 
-export type ModelToolCall = {
-	command: string;
-	input: unknown;
-};
+const MODEL_COMMANDS = [
+	"createArtifact",
+	"reviseArtifact",
+	"completeResponse",
+] as const;
 
+type ModelCommand = (typeof MODEL_COMMANDS)[number];
+
+export type ModelToolCall = { command: string; input: unknown };
 export type ModelResponse = { calls: readonly ModelToolCall[] };
-
 export type ModelRequest = {
 	prompt: { channel: "text" | "speech"; text: string };
 	tools: readonly NeutralTool[];
 	view: unknown;
 };
-
-export type WorkbenchModel = {
-	(request: ModelRequest): Promise<ModelResponse>;
-	requests?: readonly ModelRequest[];
-};
-
-export type ScriptedModel = WorkbenchModel & {
-	requests: ModelRequest[];
-};
-
-export type WorkbenchReceiveResult =
-	| { accepted: true }
+export type WorkbenchModel = (request: ModelRequest) => Promise<ModelResponse>;
+export type ScriptedModel = WorkbenchModel & { requests: ModelRequest[] };
+export type ModelTurnTrace = { command: string; accepted: boolean };
+export type ModelTurnResult =
+	| { accepted: true; trace: ModelTurnTrace[] }
 	| {
 			accepted: false;
 			reason: "command-not-allowed";
 			command: string;
+			trace: ModelTurnTrace[];
 	  };
 
-export type WorkbenchAgent = {
-	runtime: ReturnType<typeof createConversationSession>["runtime"];
-	trace: Array<{ command: string; accepted: boolean }>;
-	receive(prompt: {
-		channel: "text" | "speech";
-		text: string;
-	}): Promise<WorkbenchReceiveResult>;
-	close(): void;
-};
-
-const isInputSchema = (value: unknown): value is NeutralTool["inputSchema"] =>
-	typeof value === "object" &&
-	value !== null &&
-	!Array.isArray(value) &&
-	"type" in value;
+const isModelCommand = (name: string): name is ModelCommand =>
+	MODEL_COMMANDS.includes(name as ModelCommand);
 
 export function createScriptedModel(
 	responses: readonly ModelResponse[],
@@ -58,61 +42,48 @@ export function createScriptedModel(
 	return Object.assign(model, { requests });
 }
 
-export function createWorkbenchAgent(options: {
-	sessionId: string;
+export async function runModelTurn(options: {
+	component: VoiceWorkbenchComponent;
 	model: WorkbenchModel;
-}): WorkbenchAgent {
-	const session = createConversationSession(options.sessionId);
-	const trace: Array<{ command: string; accepted: boolean }> = [];
+	prompt: { channel: "text" | "speech"; text: string };
+}): Promise<ModelTurnResult> {
+	await options.component.execute({
+		command: "submitPrompt",
+		input: { modality: options.prompt.channel, text: options.prompt.text },
+	});
 
-	return {
-		runtime: session.runtime,
-		trace,
-		async receive(prompt: { channel: "text" | "speech"; text: string }) {
-			session.recordPrompt(prompt.channel, prompt.text);
-			const schema = session.runtime.getSchema();
-			const allTools = Object.keys(schema.commands)
-				.sort()
-				.map((name) => {
-					const metadata = schema.commands[name];
-					return {
-						name,
-						inputSchema: isInputSchema(metadata?.input)
-							? metadata.input
-							: {
-									type: "object" as const,
-									properties: {},
-								},
-						gated: metadata?.gated === true,
-					};
-				});
-			const response = await options.model({
-				prompt,
-				tools: allTools,
-				view: session.runtime.getView(),
-			});
-			const tools = igniteTools(session.runtime);
+	const tools = igniteTools(options.component);
+	const modelManifest = tools.manifest.filter((tool) =>
+		isModelCommand(tool.name),
+	);
+	const response = await options.model({
+		prompt: options.prompt,
+		tools: modelManifest,
+		view: options.component.getView(),
+	});
+	const trace: ModelTurnTrace[] = [];
 
-			for (const call of response.calls) {
-				if (call.command !== "completeResponse") {
-					session.recordProposal(call.command);
-				}
-				const result = await tools.run({
-					name: call.command,
-					input: call.input,
-				});
-				trace.push({ command: call.command, accepted: isOk(result) });
-				if (!isOk(result)) {
-					return {
-						accepted: false as const,
-						reason: "command-not-allowed" as const,
-						command: call.command,
-					};
-				}
-			}
+	for (const call of response.calls) {
+		if (!isModelCommand(call.command)) {
+			return {
+				accepted: false,
+				reason: "command-not-allowed",
+				command: call.command,
+				trace,
+			};
+		}
 
-			return { accepted: true as const };
-		},
-		close: session.close,
-	};
+		const result = await tools.run({ name: call.command, input: call.input });
+		trace.push({ command: call.command, accepted: isOk(result) });
+		if (!isOk(result)) {
+			return {
+				accepted: false,
+				reason: "command-not-allowed",
+				command: call.command,
+				trace,
+			};
+		}
+	}
+
+	return { accepted: true, trace };
 }

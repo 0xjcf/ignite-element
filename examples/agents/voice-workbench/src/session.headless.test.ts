@@ -1,13 +1,23 @@
 import { test as igniteTest } from "ignite-element/testing";
 import { describe, expect, it, vi } from "vitest";
+import type { VoiceWorkbenchComponent as Component } from "./session";
 
-const loadSession = async () => {
-	const session = await import("./session").catch(() => null);
+type SessionModule = {
+	component: Component;
+	source: { stop(): void };
+};
+
+const loadWorkbench = async (): Promise<SessionModule> => {
+	vi.resetModules();
+	const module = (await import("./session")) as Record<string, unknown>;
 	expect(
-		session,
-		"the headless conversation session has not been implemented",
-	).not.toBeNull();
-	return session as NonNullable<typeof session>;
+		typeof module.component,
+		"session module must export component = igniteCore({ source, ... })",
+	).toBe("function");
+	expect(typeof (module.source as { stop?: unknown } | undefined)?.stop).toBe(
+		"function",
+	);
+	return module as SessionModule;
 };
 
 const artifact = {
@@ -22,29 +32,42 @@ const artifact = {
 	],
 };
 
-describe("voice workbench headless runtime", () => {
-	it("discovers only intent commands through the compiled JSON-safe schema", async () => {
-		const { createConversationSession } = await loadSession();
-		const { runtime, close } = createConversationSession("session-1");
-		const schema = runtime.getSchema();
+describe("voice workbench headless component", () => {
+	it("exports one literal component with phase-gated commands", async () => {
+		const { component, source } = await loadWorkbench();
+		const schema = component.getSchema();
 
 		expect(Object.keys(schema.commands)).toEqual([
 			"completeResponse",
 			"createArtifact",
 			"reviseArtifact",
+			"submitPrompt",
 		]);
 		expect(() => JSON.stringify(schema)).not.toThrow();
-		expect(runtime.canExecute("createArtifact")).toBe(true);
-		expect(runtime.canExecute("reviseArtifact")).toBe(false);
-		close();
+		expect(component.getView().status).toBe("ready");
+		expect(component.canExecute("submitPrompt")).toBe(true);
+		expect(component.canExecute("createArtifact")).toBe(false);
+		expect(component.canExecute("reviseArtifact")).toBe(false);
+		expect(component.canExecute("completeResponse")).toBe(false);
+		source.stop();
 	});
 
-	it("drives creation, revision conflict, revision, and completion with igniteTest", async () => {
-		const { createConversationSession } = await loadSession();
-		const { runtime, close } = createConversationSession("session-1");
+	it("drives a continuing session through canonical Ignite commands", async () => {
+		const { component, source } = await loadWorkbench();
 
 		(
-			await igniteTest(runtime).when({
+			await igniteTest(component).when({
+				command: "submitPrompt",
+				input: { modality: "text", text: "Capture a decision" },
+			})
+		).expectView({ messageCount: 1, status: "responding" });
+		expect(component.canExecute("submitPrompt")).toBe(false);
+		expect(component.canExecute("createArtifact")).toBe(true);
+		expect(component.canExecute("reviseArtifact")).toBe(false);
+		expect(component.canExecute("completeResponse")).toBe(true);
+
+		(
+			await igniteTest(component).when({
 				command: "createArtifact",
 				input: artifact,
 			})
@@ -55,9 +78,10 @@ describe("voice workbench headless runtime", () => {
 				revision: 1,
 			})
 			.expectView({ artifactCount: 1, activeArtifactId: "decision" });
+		expect(component.canExecute("reviseArtifact")).toBe(true);
 
 		(
-			await igniteTest(runtime).when({
+			await igniteTest(component).when({
 				command: "reviseArtifact",
 				input: {
 					artifactId: "decision",
@@ -65,60 +89,49 @@ describe("voice workbench headless runtime", () => {
 					nodes: artifact.nodes,
 				},
 			})
-		)
-			.expectEvent({ type: "artifact-rejected", reason: "conflict" })
-			.expectView({ artifacts: [{ revision: 1 }] });
+		).expectEvent({ type: "artifact-rejected", reason: "conflict" });
 
 		(
-			await igniteTest(runtime).when({
-				command: "reviseArtifact",
-				input: {
-					artifactId: "decision",
-					expectedRevision: 1,
-					nodes: artifact.nodes,
-				},
-			})
-		).expectEvent({
-			type: "artifact-revised",
-			artifactId: "decision",
-			revision: 2,
-		});
-
-		(
-			await igniteTest(runtime).when({
+			await igniteTest(component).when({
 				command: "completeResponse",
 				input: { text: "Decision captured.", speech: "Decision captured." },
 			})
 		)
 			.expectEvent({ type: "response-completed" })
-			.expectSnapshot((snapshot) => snapshot.context.status === "completed")
-			.expectView({
-				response: { text: "Decision captured." },
-				canRevise: false,
-			});
-		close();
+			.expectSnapshot((snapshot) => snapshot.context.phase === "ready")
+			.expectView({ status: "ready", canRevise: false });
+		expect(component.canExecute("submitPrompt")).toBe(true);
+		expect(component.canExecute("createArtifact")).toBe(false);
+		expect(component.canExecute("reviseArtifact")).toBe(false);
+		expect(component.canExecute("completeResponse")).toBe(false);
+
+		(
+			await igniteTest(component).when({
+				command: "submitPrompt",
+				input: { modality: "speech", text: "Revise that decision" },
+			})
+		).expectView({ messageCount: 3, status: "responding" });
+		source.stop();
 	});
 
-	it("publishes coherent live facts through subscriptions", async () => {
-		const { createConversationSession } = await loadSession();
-		const { runtime, close } = createConversationSession("session-1");
+	it("publishes coherent live facts until the owner stops the source", async () => {
+		const { component, source } = await loadWorkbench();
 		const snapshots = vi.fn();
 		const views = vi.fn();
-		const snapshotSubscription = runtime.watchSnapshot(snapshots);
-		const viewSubscription = runtime.watchView(views);
+		const snapshotSubscription = component.watchSnapshot(snapshots);
+		const viewSubscription = component.watchView(views);
 
-		await igniteTest(runtime).when({
-			command: "createArtifact",
-			input: artifact,
+		await component.execute({
+			command: "submitPrompt",
+			input: { modality: "text", text: "Observe this turn" },
 		});
-
 		expect(snapshots).toHaveBeenCalledTimes(1);
 		expect(views).toHaveBeenCalledTimes(1);
-		expect(runtime.getSnapshot().context.revision).toBe(
-			runtime.getView().revision,
+		expect(component.getSnapshot().context.revision).toBe(
+			component.getView().revision,
 		);
 		snapshotSubscription.unsubscribe();
 		viewSubscription.unsubscribe();
-		close();
+		source.stop();
 	});
 });

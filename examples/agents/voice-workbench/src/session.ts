@@ -1,9 +1,8 @@
-import type { IgniteAgentRuntime } from "ignite-element";
+import type { EventBuilder } from "@ignite-element/core";
 import { igniteCore } from "ignite-element/xstate";
 import { assign, createActor, setup } from "xstate";
 import {
 	ARTIFACT_KINDS,
-	type ArtifactNode,
 	type CompleteResponseInput,
 	type ConversationAction,
 	type ConversationFact,
@@ -13,13 +12,13 @@ import {
 	projectConversationView,
 	type ReviseArtifactInput,
 	reduceConversationSession,
+	type SubmitPromptInput,
 } from "./domain";
 
 const machine = setup({
 	types: {
 		context: {} as ConversationSession,
 		events: {} as ConversationAction,
-		input: {} as { sessionId: string },
 	},
 	actions: {
 		applyTransition: assign(({ context, event }) => {
@@ -34,158 +33,121 @@ const machine = setup({
 	},
 }).createMachine({
 	id: "conversation-session",
-	initial: "active",
-	context: ({ input }) => createInitialSession(input.sessionId),
+	initial: "running",
+	context: () => createInitialSession("voice-workbench"),
 	states: {
-		active: {
+		running: {
 			on: {
-				RECORD_PROMPT: { actions: "applyTransition" },
-				RECORD_PROPOSAL: { actions: "applyTransition" },
+				SUBMIT_PROMPT: { actions: "applyTransition" },
 				CREATE_ARTIFACT: { actions: "applyTransition" },
 				REVISE_ARTIFACT: { actions: "applyTransition" },
-				COMPLETE_RESPONSE: {
-					target: "completed",
-					actions: "applyTransition",
-				},
+				COMPLETE_RESPONSE: { actions: "applyTransition" },
 			},
 		},
-		completed: {},
 	},
 });
 
 type SessionActor = ReturnType<typeof createActor<typeof machine>>;
-
-type ConversationCommands = {
+type WorkbenchCommands = {
 	completeResponse: (input: CompleteResponseInput) => unknown;
 	createArtifact: (input: CreateArtifactInput) => unknown;
 	reviseArtifact: (input: ReviseArtifactInput) => unknown;
+	submitPrompt: (input: SubmitPromptInput) => unknown;
 };
 
-type ConversationEvents = {
-	readonly "artifact-created": {
-		readonly __payload?: { artifactId: string; revision: number };
-	};
-	readonly "artifact-revised": {
-		readonly __payload?: { artifactId: string; revision: number };
-	};
-	readonly "artifact-rejected": {
-		readonly __payload?: { reason: "validation" | "conflict" };
-	};
-	readonly "response-completed": { readonly __payload?: Record<never, never> };
-};
+type WorkbenchView = ReturnType<typeof projectConversationView>;
 
-type ConversationView = ReturnType<typeof projectConversationView>;
-type ConversationSnapshot = { context: ConversationSession };
+const eventDefinitions = (event: EventBuilder) => ({
+	"artifact-created": event<{ artifactId: string; revision: number }>(),
+	"artifact-revised": event<{ artifactId: string; revision: number }>(),
+	"artifact-rejected": event<{ reason: "validation" | "conflict" }>(),
+	"response-completed": event(),
+});
 
-export type ConversationRuntime = IgniteAgentRuntime<
-	ConversationSnapshot,
-	ConversationCommands,
-	ConversationEvents,
-	ConversationSession,
-	ConversationView
->;
+export const source: SessionActor = createActor(machine).start();
 
-export type ConversationSessionHandle = {
-	runtime: ConversationRuntime;
-	recordPrompt(channel: "text" | "speech", text: string): void;
-	recordProposal(command: string): void;
-	close(): void;
-};
-
-function createRuntime(actor: SessionActor) {
-	return igniteCore({
-		source: actor,
-		events: (event) => ({
-			"artifact-created": event<{ artifactId: string; revision: number }>(),
-			"artifact-revised": event<{ artifactId: string; revision: number }>(),
-			"artifact-rejected": event<{
-				reason: "validation" | "conflict";
-			}>(),
-			"response-completed": event(),
-		}),
-		view: ({ snapshot }) => projectConversationView(snapshot.context),
-		commands: ({ actor: source, command }) => ({
-			completeResponse: command(
-				(input: CompleteResponseInput) =>
-					source.send({ type: "COMPLETE_RESPONSE", input }),
-				{
-					description:
-						"Complete the current response with text and optional speech.",
-					input: command.object(
-						{
-							text: command.string({ minLength: 1 }),
-							speech: command.string({ minLength: 1 }),
-						},
-						{ required: ["text"] },
+export const component = igniteCore<
+	typeof machine,
+	typeof eventDefinitions,
+	WorkbenchView,
+	WorkbenchCommands
+>({
+	source,
+	cleanup: true,
+	events: eventDefinitions,
+	view: ({ snapshot }) => projectConversationView(snapshot.context),
+	commands: ({ actor, command }) => ({
+		completeResponse: command(
+			(input: CompleteResponseInput) =>
+				actor.send({ type: "COMPLETE_RESPONSE", input }),
+			{
+				description: "Complete the active response turn.",
+				canExecute: ({ snapshot }) => snapshot.context.phase === "responding",
+				input: command.object(
+					{
+						text: command.string({ minLength: 1 }),
+						speech: command.string({ minLength: 1 }),
+					},
+					{ required: ["text"] },
+				),
+			},
+		),
+		createArtifact: command(
+			(input: CreateArtifactInput) =>
+				actor.send({ type: "CREATE_ARTIFACT", input }),
+			{
+				description:
+					"Create a validated semantic artifact for the active turn.",
+				canExecute: ({ snapshot }) => snapshot.context.phase === "responding",
+				input: command.object({
+					id: command.string({ minLength: 1 }),
+					title: command.string({ minLength: 1 }),
+					kind: command.enum(ARTIFACT_KINDS),
+					nodes: command.array(
+						command.object({ type: command.string({ minLength: 1 }) }),
+						{ minItems: 1 },
 					),
-				},
-			),
-			createArtifact: command(
-				(input: CreateArtifactInput) =>
-					source.send({ type: "CREATE_ARTIFACT", input }),
-				{
-					description: "Create a validated semantic artifact.",
-					input: command.object({
-						id: command.string({ minLength: 1 }),
-						title: command.string({ minLength: 1 }),
-						kind: command.enum(ARTIFACT_KINDS),
-						nodes: command.array(
-							command.object({ type: command.string({ minLength: 1 }) }),
-							{ minItems: 1 },
-						),
-					}),
-				},
-			),
-			reviseArtifact: command(
-				(input: ReviseArtifactInput) =>
-					source.send({ type: "REVISE_ARTIFACT", input }),
-				{
-					description:
-						"Revise an artifact when its expected revision still matches.",
-					canExecute: ({ snapshot }) =>
-						snapshot.context.status === "active" &&
-						snapshot.context.artifacts.length > 0,
-					input: command.object({
-						artifactId: command.string({ minLength: 1 }),
-						expectedRevision: command.number({ minimum: 1 }),
-						nodes: command.array(
-							command.object({ type: command.string({ minLength: 1 }) }),
-							{ minItems: 1 },
-						),
-					}),
-				},
-			),
-		}),
-		effects: ({ emit, select }) => {
-			const fact = select((snapshot) => snapshot.context.lastFact);
-			const sequence = select((snapshot) => snapshot.context.factSequence);
-			if (!sequence.changed || !fact.current) return;
-			emit(fact.current as ConversationFact);
-		},
-	});
-}
+				}),
+			},
+		),
+		reviseArtifact: command(
+			(input: ReviseArtifactInput) =>
+				actor.send({ type: "REVISE_ARTIFACT", input }),
+			{
+				description:
+					"Revise an artifact when its expected revision still matches.",
+				canExecute: ({ snapshot }) =>
+					snapshot.context.phase === "responding" &&
+					snapshot.context.artifacts.length > 0,
+				input: command.object({
+					artifactId: command.string({ minLength: 1 }),
+					expectedRevision: command.number({ minimum: 1 }),
+					nodes: command.array(
+						command.object({ type: command.string({ minLength: 1 }) }),
+						{ minItems: 1 },
+					),
+				}),
+			},
+		),
+		submitPrompt: command(
+			(input: SubmitPromptInput) =>
+				actor.send({ type: "SUBMIT_PROMPT", input }),
+			{
+				description: "Open the next text or speech conversation turn.",
+				canExecute: ({ snapshot }) => snapshot.context.phase === "ready",
+				input: command.object({
+					modality: command.enum(["text", "speech"]),
+					text: command.string({ minLength: 1 }),
+				}),
+			},
+		),
+	}),
+	effects: ({ emit, select }) => {
+		const fact = select((snapshot) => snapshot.context.lastFact);
+		const sequence = select((snapshot) => snapshot.context.factSequence);
+		if (!sequence.changed || !fact.current) return;
+		emit(fact.current as ConversationFact);
+	},
+});
 
-export function createConversationSession(
-	sessionId: string,
-): ConversationSessionHandle {
-	const actor = createActor(machine, { input: { sessionId } }).start();
-	const runtime = createRuntime(actor);
-	let closed = false;
-
-	return {
-		runtime: runtime as unknown as ConversationRuntime,
-		recordPrompt(channel: "text" | "speech", text: string) {
-			actor.send({ type: "RECORD_PROMPT", channel, text });
-		},
-		recordProposal(command: string) {
-			actor.send({ type: "RECORD_PROPOSAL", command });
-		},
-		close() {
-			if (closed) return;
-			closed = true;
-			actor.stop();
-		},
-	};
-}
-
-export type { ArtifactNode };
+export type VoiceWorkbenchComponent = typeof component;
