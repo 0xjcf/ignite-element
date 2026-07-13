@@ -1,0 +1,771 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="color-scheme" content="dark" />
+		<title>Ignite Element — Voice + text workbench</title>
+		<link rel="stylesheet" href="./tokens.css" />
+		<style>
+			* { box-sizing: border-box; }
+			html { min-width: 20rem; background: var(--background); }
+			body {
+				margin: 0;
+				min-height: 100vh;
+				background:
+					radial-gradient(circle at 7% -10%, var(--primary-wash), transparent 28rem),
+					radial-gradient(circle at 92% 3%, var(--speech-wash), transparent 31rem),
+					var(--background);
+				color: var(--foreground);
+				font-family: var(--font-sans);
+				font-size: 0.875rem;
+				line-height: 1.5;
+			}
+			button, textarea, input { font: inherit; }
+			button { color: inherit; }
+			button, [role="tab"] { -webkit-tap-highlight-color: transparent; }
+			button:focus-visible, textarea:focus-visible, input:focus-visible, [role="tab"]:focus-visible {
+				outline: 0.15rem solid var(--focus);
+				outline-offset: 0.15rem;
+			}
+			.sr-only {
+				position: absolute;
+				width: 1px;
+				height: 1px;
+				padding: 0;
+				margin: -1px;
+				overflow: hidden;
+				clip: rect(0, 0, 0, 0);
+				white-space: nowrap;
+				border: 0;
+			}
+			.icon { width: 1.05rem; height: 1.05rem; display: block; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+			.icon-lg { width: 1.25rem; height: 1.25rem; }
+			.shell {
+				display: grid;
+				grid-template-rows: auto minmax(0, 1fr) auto;
+				min-height: 100vh;
+				max-width: var(--content-max);
+				margin: 0 auto;
+			}
+			.topbar {
+				display: flex;
+				align-items: center;
+				gap: var(--space-4);
+				min-height: 4.25rem;
+				padding: var(--space-3) var(--space-5);
+				border-bottom: 1px solid var(--border);
+				background: color-mix(in oklab, var(--background-elevated) 84%, transparent);
+				backdrop-filter: blur(1.5rem);
+				position: sticky;
+				top: 0;
+				z-index: 20;
+			}
+			.brand { display: flex; align-items: center; gap: 0.7rem; min-width: 14rem; }
+			.brand-mark {
+				display: grid;
+				place-items: center;
+				width: 2.1rem;
+				height: 2.1rem;
+				border-radius: 0.7rem;
+				background: linear-gradient(145deg, var(--primary), color-mix(in oklab, var(--speech) 68%, var(--primary)));
+				color: var(--primary-ink);
+				box-shadow: 0 0 2rem var(--primary-wash);
+			}
+			.brand-copy { display: grid; line-height: 1.1; }
+			.brand-copy strong { font-size: 0.95rem; letter-spacing: -0.015em; }
+			.brand-copy span { color: var(--muted); font-size: 0.7rem; margin-top: 0.2rem; }
+			.topbar-center { display: flex; gap: var(--space-2); align-items: center; flex: 1; justify-content: center; }
+			.pill {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.4rem;
+				min-height: 1.8rem;
+				padding: 0.24rem 0.62rem;
+				border: 1px solid var(--border);
+				border-radius: 999px;
+				background: var(--surface-glass);
+				color: var(--foreground-soft);
+				font-size: 0.72rem;
+				font-weight: 650;
+				white-space: nowrap;
+			}
+			.pill-success { border-color: color-mix(in oklab, var(--primary) 32%, var(--border)); background: var(--primary-wash); color: var(--primary); }
+			.pill-speech { border-color: color-mix(in oklab, var(--speech) 32%, var(--border)); background: var(--speech-wash); color: var(--speech); }
+			.dot { width: 0.42rem; height: 0.42rem; border-radius: 50%; background: currentColor; box-shadow: 0 0 0.8rem currentColor; }
+			.top-actions { display: flex; align-items: center; justify-content: flex-end; min-width: 14rem; }
+			.switch { display: inline-flex; align-items: center; gap: 0.55rem; color: var(--foreground-soft); font-size: 0.76rem; cursor: pointer; }
+			.switch input { position: absolute; opacity: 0; pointer-events: none; }
+			.switch-track {
+				width: 2.45rem;
+				height: 1.42rem;
+				padding: 0.17rem;
+				border: 1px solid var(--border-strong);
+				border-radius: 999px;
+				background: var(--surface-raised);
+				transition: background 180ms ease, border-color 180ms ease;
+			}
+			.switch-track::after { content: ""; display: block; width: 0.95rem; height: 0.95rem; border-radius: 50%; background: var(--muted); transition: transform 180ms ease, background 180ms ease; }
+			.switch input:checked + .switch-track { background: var(--speech-wash); border-color: var(--speech); }
+			.switch input:checked + .switch-track::after { transform: translateX(1rem); background: var(--speech); }
+			.workspace {
+				display: grid;
+				grid-template-columns: minmax(17rem, 0.78fr) minmax(28rem, 1.65fr) minmax(17rem, 0.78fr);
+				min-height: 0;
+				height: calc(100vh - 7.5rem);
+			}
+			.panel { min-width: 0; min-height: 0; background: var(--background-elevated); }
+			.panel + .panel { border-left: 1px solid var(--border); }
+			.panel-head {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: var(--space-3);
+				min-height: 3.6rem;
+				padding: 0 var(--space-4);
+				border-bottom: 1px solid var(--border);
+			}
+			.panel-title { display: grid; gap: 0.08rem; min-width: 0; }
+			.panel-title strong { font-size: 0.82rem; }
+			.panel-title span { color: var(--muted); font-family: var(--font-mono); font-size: 0.62rem; overflow: hidden; text-overflow: ellipsis; }
+			.text-button, .icon-button, .button {
+				border: 1px solid var(--border);
+				background: var(--surface);
+				cursor: pointer;
+				transition: border-color 150ms ease, background 150ms ease, color 150ms ease, transform 150ms ease;
+			}
+			.text-button:hover, .icon-button:hover, .button:hover { border-color: var(--border-strong); background: var(--surface-hover); }
+			.text-button:active, .icon-button:active, .button:active { transform: translateY(0.05rem); }
+			.text-button { min-height: 2rem; padding: 0.35rem 0.65rem; border-radius: var(--radius-sm); color: var(--foreground-soft); font-size: 0.72rem; font-weight: 650; }
+			.icon-button { display: grid; place-items: center; width: 2.45rem; height: 2.45rem; padding: 0; border-radius: 0.7rem; color: var(--foreground-soft); flex: none; }
+			.icon-button[aria-pressed="true"] { color: var(--speech); border-color: var(--speech); background: var(--speech-wash); }
+			.conversation { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; }
+			.session-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); }
+			.session-stat { display: flex; align-items: baseline; justify-content: center; gap: 0.3rem; min-width: 0; min-height: 2.35rem; padding: 0.45rem 0.55rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--foreground-soft); white-space: nowrap; }
+			.session-stat strong { color: var(--foreground); font-size: 0.78rem; }
+			.session-stat span { color: var(--muted); font-size: 0.62rem; }
+			.session-stat-speech { border-color: color-mix(in oklab, var(--speech) 32%, var(--border)); background: var(--speech-wash); }
+			.session-stat-speech strong { color: var(--speech); }
+			.messages { overflow-y: auto; padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); scroll-behavior: smooth; }
+			.message { display: grid; gap: 0.4rem; max-width: 94%; animation: rise 240ms ease both; }
+			.message-user { align-self: flex-end; }
+			.message-meta { display: flex; align-items: center; gap: 0.4rem; color: var(--muted); font-size: 0.66rem; font-weight: 650; }
+			.message-user .message-meta { justify-content: flex-end; }
+			.message-bubble { padding: 0.72rem 0.85rem; border: 1px solid var(--border); border-radius: 0.9rem; background: var(--surface); color: var(--foreground-soft); font-size: 0.79rem; }
+			.message-user .message-bubble { border-color: color-mix(in oklab, var(--speech) 25%, var(--border)); background: var(--speech-wash); color: var(--foreground); border-bottom-right-radius: 0.25rem; }
+			.message-agent .message-bubble { border-bottom-left-radius: 0.25rem; }
+			.message-live { display: none; }
+			[data-state="responding"] .message-live { display: grid; }
+			.typing { display: flex; gap: 0.25rem; align-items: center; height: 1rem; }
+			.typing i { width: 0.35rem; height: 0.35rem; border-radius: 50%; background: var(--primary); animation: pulse 1s infinite; }
+			.typing i:nth-child(2) { animation-delay: 140ms; }
+			.typing i:nth-child(3) { animation-delay: 280ms; }
+			.composer-wrap { padding: var(--space-3); border-top: 1px solid var(--border); background: var(--background-elevated); }
+			.composer { position: relative; border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-sm); transition: border-color 180ms ease, box-shadow 180ms ease; }
+			.composer:focus-within { border-color: color-mix(in oklab, var(--primary) 55%, var(--border)); box-shadow: 0 0 0 0.18rem var(--primary-wash), var(--shadow-sm); }
+			.composer textarea { display: block; width: 100%; min-height: 5rem; max-height: 10rem; resize: vertical; padding: 0.85rem 0.9rem 0.4rem; border: 0; outline: 0; background: transparent; color: var(--foreground); font-size: 0.82rem; line-height: 1.45; }
+			.composer textarea::placeholder { color: var(--muted); }
+			.composer-actions { display: flex; align-items: center; gap: var(--space-2); padding: 0.45rem 0.5rem 0.5rem; }
+			.input-mode { display: flex; align-items: center; gap: 0.35rem; margin-right: auto; color: var(--muted); font-size: 0.68rem; }
+			.input-mode svg { color: var(--speech); }
+			.mic-button { position: relative; }
+			.mic-button[data-listening="true"] { color: var(--speech); border-color: var(--speech); background: var(--speech-wash); }
+			.mic-button[data-listening="true"]::after { content: ""; position: absolute; inset: -0.25rem; border: 1px solid var(--speech); border-radius: 0.9rem; animation: ring 1.5s infinite; }
+			.send-button { display: inline-flex; align-items: center; justify-content: center; gap: 0.42rem; min-height: 2.45rem; padding: 0.45rem 0.78rem; border: 1px solid var(--primary); border-radius: 0.72rem; background: var(--primary); color: var(--primary-ink); font-size: 0.76rem; font-weight: 780; cursor: pointer; }
+			.send-button:hover { background: var(--primary-strong); border-color: var(--primary-strong); }
+			.send-button:disabled { opacity: 0.45; cursor: not-allowed; }
+			.voice-capture { display: none; padding: var(--space-3); border: 1px solid color-mix(in oklab, var(--speech) 40%, var(--border)); border-radius: var(--radius-lg); background: var(--speech-wash); }
+			[data-state="listening"] .composer { display: none; }
+			[data-state="listening"] .voice-capture { display: grid; gap: var(--space-3); }
+			.voice-top { display: flex; align-items: center; gap: var(--space-3); }
+			.voice-orb { width: 2.65rem; height: 2.65rem; display: grid; place-items: center; border-radius: 50%; background: var(--speech); color: var(--speech-ink); box-shadow: 0 0 1.8rem var(--speech-wash); flex: none; }
+			.voice-copy { display: grid; gap: 0.08rem; min-width: 0; }
+			.voice-copy strong { font-size: 0.8rem; }
+			.voice-copy span { color: var(--foreground-soft); font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+			.wave { margin-left: auto; height: 1.6rem; display: flex; align-items: center; gap: 0.18rem; }
+			.wave i { width: 0.16rem; height: 30%; border-radius: 1rem; background: var(--speech); animation: wave 760ms ease-in-out infinite alternate; }
+			.wave i:nth-child(2), .wave i:nth-child(6) { animation-delay: 120ms; height: 70%; }
+			.wave i:nth-child(3), .wave i:nth-child(5) { animation-delay: 240ms; height: 100%; }
+			.wave i:nth-child(4) { animation-delay: 360ms; height: 55%; }
+			.voice-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: var(--space-2); }
+			.button { min-height: 2.4rem; padding: 0.45rem 0.7rem; border-radius: 0.7rem; font-size: 0.73rem; font-weight: 700; }
+			.button-primary { border-color: var(--speech); background: var(--speech); color: var(--speech-ink); }
+			.button-primary:hover { border-color: var(--speech-strong); background: var(--speech-strong); }
+			.permission-note { display: none; margin: 0 var(--space-3) var(--space-3); padding: var(--space-3); border: 1px solid color-mix(in oklab, var(--warning) 42%, var(--border)); border-radius: var(--radius-md); background: color-mix(in oklab, var(--warning) 10%, transparent); }
+			[data-state="permission"] .permission-note { display: grid; grid-template-columns: auto 1fr; gap: var(--space-2); }
+			.permission-note svg { color: var(--warning); margin-top: 0.1rem; }
+			.permission-note strong { display: block; font-size: 0.75rem; }
+			.permission-note p { margin: 0.12rem 0 0; color: var(--foreground-soft); font-size: 0.68rem; }
+			.artifact { display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--background); }
+			.artifact-toolbar { display: flex; align-items: center; gap: var(--space-3); min-height: 3.6rem; padding: 0 var(--space-4); border-bottom: 1px solid var(--border); background: var(--background-elevated); }
+			.artifact-identity { display: grid; gap: 0.05rem; min-width: 0; margin-right: auto; }
+			.artifact-identity strong { font-size: 0.84rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+			.artifact-identity span { color: var(--muted); font-family: var(--font-mono); font-size: 0.62rem; }
+			.segmented { display: flex; gap: 0.15rem; padding: 0.18rem; border: 1px solid var(--border); border-radius: 0.7rem; background: var(--surface); }
+			.segmented button { min-height: 2rem; padding: 0.28rem 0.6rem; border: 0; border-radius: 0.52rem; background: transparent; color: var(--muted); cursor: pointer; font-size: 0.68rem; font-weight: 700; }
+			.segmented button[aria-selected="true"] { background: var(--surface-raised); color: var(--foreground); box-shadow: var(--shadow-sm); }
+			.artifact-scroll { position: relative; overflow-y: auto; padding: clamp(1.1rem, 2.6vw, 2.4rem); scroll-behavior: smooth; }
+			.proof-banner { width: min(100%, 54rem); margin: 0 auto var(--space-3); padding: 0.72rem 0.85rem; display: grid; grid-template-columns: auto 1fr; gap: var(--space-3); align-items: center; border: 1px solid color-mix(in oklab, var(--primary) 36%, var(--border)); border-radius: var(--radius-md); background: var(--primary-wash); }
+			.proof-banner svg { color: var(--primary); }
+			.proof-banner strong { display: block; font-size: 0.72rem; }
+			.proof-banner span { display: block; margin-top: 0.08rem; color: var(--foreground-soft); font-size: 0.66rem; }
+			.document { width: min(100%, 54rem); min-height: 100%; margin: 0 auto; padding: clamp(1.25rem, 3vw, 3rem); border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--background-elevated); box-shadow: var(--shadow-lg); }
+			.doc-kicker { display: flex; align-items: center; gap: var(--space-2); color: var(--primary); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+			.doc-kicker::before { content: ""; width: 1.7rem; height: 0.12rem; border-radius: 1rem; background: var(--primary); }
+			.document h1 { max-width: 43rem; margin: var(--space-5) 0 var(--space-3); font-size: clamp(1.8rem, 3.4vw, 3.25rem); line-height: 1.02; letter-spacing: -0.045em; }
+			.doc-lede { max-width: 40rem; margin: 0; color: var(--foreground-soft); font-size: clamp(0.9rem, 1.5vw, 1.05rem); }
+			.doc-grid { display: grid; grid-template-columns: 1fr 0.9fr; gap: var(--space-5); margin-top: var(--space-8); }
+			.doc-card { padding: var(--space-5); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); }
+			.doc-card-revision { display: none; grid-column: 1 / -1; border-color: color-mix(in oklab, var(--primary) 42%, var(--border)); background: color-mix(in oklab, var(--primary) 7%, var(--surface)); animation: revision-in 260ms ease both; }
+			.doc-card-revision[data-visible="true"] { display: block; }
+			.revision-source { margin: calc(var(--space-2) * -1) 0 var(--space-4); color: var(--muted); font-family: var(--font-mono); font-size: 0.6rem; }
+			.revision-request { margin: 0 0 var(--space-4); padding: var(--space-3); border-left: 0.15rem solid var(--primary); background: var(--background-elevated); color: var(--foreground-soft); font-size: 0.72rem; }
+			.doc-card h2 { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-4); font-size: 0.8rem; letter-spacing: 0.01em; }
+			.doc-card h2 svg { color: var(--primary); }
+			.node-kind { margin-left: auto; padding: 0.16rem 0.38rem; border: 1px solid var(--border); border-radius: 0.38rem; color: var(--muted); font-family: var(--font-mono); font-size: 0.52rem; font-weight: 550; }
+			.checklist { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+			.checklist li { display: grid; grid-template-columns: auto 1fr auto; gap: var(--space-2); align-items: start; color: var(--foreground-soft); font-size: 0.76rem; }
+			.check { width: 1.05rem; height: 1.05rem; display: grid; place-items: center; margin-top: 0.05rem; border-radius: 0.35rem; background: var(--primary-wash); color: var(--primary); }
+			.check svg { width: 0.72rem; height: 0.72rem; }
+			.checklist time { color: var(--muted); font-family: var(--font-mono); font-size: 0.62rem; }
+			.metric-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
+			.metric { padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--background-elevated); }
+			.metric span { display: block; color: var(--muted); font-size: 0.62rem; }
+			.metric strong { display: block; margin-top: 0.28rem; font-size: 1.15rem; letter-spacing: -0.03em; }
+			.metric strong em { color: var(--primary); font-size: 0.65rem; font-style: normal; }
+			.decision { margin-top: var(--space-3); padding: var(--space-3); border-left: 0.15rem solid var(--speech); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; background: var(--speech-wash); }
+			.decision span { display: block; color: var(--speech); font-size: 0.61rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; }
+			.decision p { margin: 0.3rem 0 0; color: var(--foreground-soft); font-size: 0.72rem; }
+			.schema-view { display: none; width: min(100%, 54rem); min-height: 100%; margin: 0 auto; padding: var(--space-5); border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--background-elevated); box-shadow: var(--shadow-lg); }
+			.schema-view pre { margin: 0; overflow: auto; color: var(--foreground-soft); font-family: var(--font-mono); font-size: 0.72rem; line-height: 1.65; }
+			.schema-key { color: var(--speech); }
+			.schema-value { color: var(--primary); }
+			.artifact[data-view="schema"] .document { display: none; }
+			.artifact[data-view="schema"] .schema-view { display: block; }
+			.responding-overlay { display: none; position: absolute; inset: 0; align-items: center; justify-content: center; padding: var(--space-6); background: color-mix(in oklab, var(--background) 72%, transparent); backdrop-filter: blur(0.4rem); z-index: 5; }
+			[data-state="responding"] .responding-overlay { display: flex; }
+			.progress-card { width: min(100%, 27rem); padding: var(--space-6); border: 1px solid var(--border-strong); border-radius: var(--radius-xl); background: var(--surface-glass); box-shadow: var(--shadow-lg); }
+			.progress-top { display: flex; align-items: center; gap: var(--space-3); }
+			.progress-orb { width: 2.7rem; height: 2.7rem; display: grid; place-items: center; border-radius: 50%; background: var(--primary-wash); color: var(--primary); animation: breathe 1.6s ease-in-out infinite; }
+			.progress-copy { display: grid; gap: 0.08rem; }
+			.progress-copy strong { font-size: 0.86rem; }
+			.progress-copy span { color: var(--muted); font-size: 0.7rem; }
+			.progress-steps { display: grid; gap: 0.55rem; margin-top: var(--space-5); }
+			.progress-step { display: flex; align-items: center; gap: var(--space-2); color: var(--muted); font-size: 0.7rem; }
+			.progress-step::before { content: ""; width: 0.48rem; height: 0.48rem; border: 1px solid var(--border-strong); border-radius: 50%; }
+			.progress-step.done { color: var(--foreground-soft); }
+			.progress-step.done::before { border-color: var(--primary); background: var(--primary); }
+			.progress-step.active { color: var(--primary); }
+			.progress-step.active::before { border-color: var(--primary); box-shadow: 0 0 0 0.28rem var(--primary-wash); }
+			.runtime { display: grid; grid-template-rows: auto minmax(0, 1fr); }
+			.runtime-scroll { overflow-y: auto; padding: var(--space-3); display: grid; grid-auto-rows: max-content; align-content: start; gap: var(--space-3); }
+			.runtime-card { min-height: max-content; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); overflow: hidden; }
+			.runtime-card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-height: 2.55rem; padding: 0 var(--space-3); border-bottom: 1px solid var(--border); }
+			.runtime-card-head strong { font-size: 0.72rem; }
+			.runtime-card-head span { color: var(--muted); font-family: var(--font-mono); font-size: 0.58rem; }
+			.replay-button { display: inline-flex; align-items: center; gap: 0.32rem; min-height: 2rem; padding: 0.3rem 0.55rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--foreground-soft); cursor: pointer; font-size: 0.64rem; font-weight: 700; }
+			.replay-button:hover { border-color: var(--primary); color: var(--primary); }
+			.replay-button svg { width: 0.82rem; height: 0.82rem; }
+			.actor-state { display: grid; grid-template-columns: auto 1fr; gap: var(--space-3); padding: var(--space-3); }
+			.state-node { position: relative; width: 2rem; height: 2rem; display: grid; place-items: center; border: 1px solid color-mix(in oklab, var(--primary) 45%, var(--border)); border-radius: 0.65rem; background: var(--primary-wash); color: var(--primary); }
+			.state-node::after { content: ""; position: absolute; left: 50%; top: 100%; width: 1px; height: var(--space-4); background: var(--border); }
+			.actor-copy { display: grid; gap: 0.12rem; }
+			.actor-copy strong { font-family: var(--font-mono); font-size: 0.7rem; }
+			.actor-copy span { color: var(--muted); font-size: 0.65rem; }
+			.actor-copy code { color: var(--primary); }
+			.component-contract { padding: var(--space-3); display: grid; gap: var(--space-3); }
+			.component-line { padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--background-elevated); color: var(--foreground-soft); font-family: var(--font-mono); font-size: 0.61rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+			.component-line strong { color: var(--primary); font-weight: 700; }
+			.component-uses { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.35rem; }
+			.component-use { display: grid; place-items: center; min-height: 2rem; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--foreground-soft); font-size: 0.57rem; font-weight: 700; }
+			.latest-fact { color: var(--muted); font-family: var(--font-mono); font-size: 0.56rem; }
+			.turn-trace { position: relative; margin: 0; padding: var(--space-2); list-style: none; display: grid; }
+			.trace-step { position: relative; display: grid; grid-template-columns: auto 1fr; gap: var(--space-2); min-height: 2.55rem; padding: 0.45rem 0.5rem; border-radius: var(--radius-sm); color: var(--muted); transition: background 160ms ease, color 160ms ease; }
+			.trace-step::after { content: ""; position: absolute; left: 0.78rem; top: 1.7rem; bottom: -0.2rem; width: 1px; background: var(--border); }
+			.trace-step:last-child::after { display: none; }
+			.trace-marker { position: relative; z-index: 1; width: 0.6rem; height: 0.6rem; margin-top: 0.22rem; border: 1px solid var(--border-strong); border-radius: 50%; background: var(--surface); transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
+			.trace-copy { display: grid; gap: 0.02rem; }
+			.trace-copy strong { color: var(--foreground-soft); font-family: var(--font-mono); font-size: 0.61rem; font-weight: 650; }
+			.trace-copy span { color: var(--muted); font-size: 0.57rem; }
+			.trace-step.is-complete .trace-marker { border-color: var(--primary); background: var(--primary); }
+			.trace-step.is-complete::after { background: color-mix(in oklab, var(--primary) 40%, var(--border)); }
+			.trace-step.is-active { background: var(--primary-wash); }
+			.trace-step.is-active .trace-marker { border-color: var(--primary); box-shadow: 0 0 0 0.28rem var(--primary-wash); }
+			.trace-step.is-active .trace-copy strong { color: var(--primary); }
+			.event-list { margin: 0; padding: var(--space-2); list-style: none; display: grid; gap: 0.25rem; }
+			.event { display: grid; grid-template-columns: 2.6rem 1fr; gap: var(--space-2); align-items: start; padding: 0.5rem; border-radius: var(--radius-sm); color: var(--foreground-soft); font-family: var(--font-mono); font-size: 0.61rem; }
+			.event:hover { background: var(--surface-raised); }
+			.event time { color: var(--muted); }
+			.event strong { display: block; color: var(--foreground); font-weight: 650; overflow-wrap: anywhere; }
+			.event span { display: block; margin-top: 0.08rem; color: var(--muted); font-family: var(--font-sans); }
+			.event-latest { background: var(--primary-wash); }
+			.event-latest strong { color: var(--primary); }
+			.commit-list { padding: var(--space-2); display: grid; gap: var(--space-2); }
+			.commit { display: grid; grid-template-columns: auto 1fr auto; gap: var(--space-2); align-items: center; padding: 0.58rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--background-elevated); }
+			.commit-icon { width: 1.65rem; height: 1.65rem; display: grid; place-items: center; border-radius: 0.5rem; background: var(--primary-wash); color: var(--primary); }
+			.commit-speech .commit-icon { background: var(--speech-wash); color: var(--speech); }
+			.commit-terminal .commit-icon { background: color-mix(in oklab, var(--warning) 11%, transparent); color: var(--warning); }
+			.commit-copy { display: grid; gap: 0.05rem; min-width: 0; }
+			.commit-copy strong { font-size: 0.66rem; }
+			.commit-copy span { color: var(--muted); font-size: 0.58rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+			.commit-status { color: var(--primary); font-family: var(--font-mono); font-size: 0.56rem; }
+			.commit-speech .commit-status { color: var(--speech); }
+			.commit-terminal .commit-status { color: var(--warning); }
+			.command-list { padding: var(--space-2); display: flex; flex-wrap: wrap; gap: 0.35rem; }
+			.command { padding: 0.3rem 0.45rem; border: 1px solid var(--border); border-radius: 0.45rem; background: var(--background-elevated); color: var(--foreground-soft); font-family: var(--font-mono); font-size: 0.56rem; }
+			.policy-proof { margin: 0 var(--space-2) var(--space-2); padding: 0.55rem; display: grid; grid-template-columns: auto 1fr; gap: var(--space-2); border: 1px solid color-mix(in oklab, var(--danger) 34%, var(--border)); border-radius: var(--radius-sm); background: color-mix(in oklab, var(--danger) 8%, transparent); }
+			.policy-proof svg { color: var(--danger); }
+			.policy-proof strong { display: block; color: var(--foreground-soft); font-family: var(--font-mono); font-size: 0.59rem; }
+			.policy-proof span { display: block; margin-top: 0.08rem; color: var(--muted); font-size: 0.56rem; }
+			.statusbar { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 3.25rem; padding: 0 5rem 0 var(--space-4); border-top: 1px solid var(--border); background: var(--background-elevated); color: var(--muted); font-family: var(--font-mono); font-size: 0.6rem; }
+			.statusbar svg { color: var(--primary); }
+			.statusbar strong { color: var(--foreground-soft); font-weight: 600; }
+			.mnav { right: max(1rem, calc((100vw - var(--content-max)) / 2 + 1rem)) !important; bottom: 0.2rem !important; }
+			.mobile-tabs { display: none; }
+			@keyframes pulse { 0%, 100% { opacity: 0.25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-0.12rem); } }
+			@keyframes ring { 0% { opacity: 0.8; transform: scale(0.9); } 100% { opacity: 0; transform: scale(1.25); } }
+			@keyframes wave { from { transform: scaleY(0.45); } to { transform: scaleY(1); } }
+			@keyframes breathe { 0%, 100% { box-shadow: 0 0 0 0 var(--primary-wash); } 50% { box-shadow: 0 0 0 0.55rem var(--primary-wash); } }
+			@keyframes rise { from { opacity: 0; transform: translateY(0.35rem); } to { opacity: 1; transform: translateY(0); } }
+			@keyframes revision-in { from { opacity: 0; transform: translateY(0.5rem); } to { opacity: 1; transform: translateY(0); } }
+			@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; } }
+			@media (max-width: 72rem) {
+				.workspace { grid-template-columns: minmax(17rem, 0.72fr) minmax(27rem, 1.45fr); }
+				.runtime { display: none; }
+				.runtime.is-mobile-active { display: grid; position: absolute; inset: 4.25rem 0 2.25rem; z-index: 12; }
+				.topbar-center .pill:not(:first-child) { display: none; }
+			}
+			@media (max-width: 50rem) {
+				body { font-size: 0.9375rem; }
+				.shell { grid-template-rows: auto minmax(0, 1fr) auto; }
+				.topbar { min-height: 4rem; padding: var(--space-2) var(--space-3); }
+				.brand { min-width: 0; }
+				.brand-copy span, .topbar-center, .top-actions { display: none; }
+				.workspace { display: block; height: calc(100dvh - 7.95rem); min-height: 0; position: relative; overflow: hidden; }
+				.panel { display: none; width: 100%; height: 100%; border-left: 0 !important; }
+				.panel.is-mobile-active { display: grid; }
+				.artifact.is-mobile-active { display: grid; }
+				.runtime.is-mobile-active { position: static; inset: auto; }
+				.mobile-tabs { display: grid; grid-template-columns: repeat(3, 1fr); min-height: 3.95rem; padding: 0.35rem max(0.35rem, env(safe-area-inset-right)) max(0.35rem, env(safe-area-inset-bottom)) max(0.35rem, env(safe-area-inset-left)); border-top: 1px solid var(--border); background: var(--background-elevated); }
+				.mobile-tabs button { display: grid; place-items: center; align-content: center; gap: 0.1rem; min-height: 3.2rem; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--muted); font-size: 0.64rem; font-weight: 700; cursor: pointer; }
+				.mobile-tabs button[aria-selected="true"] { background: var(--primary-wash); color: var(--primary); }
+				.mobile-tabs svg { width: 1.15rem; height: 1.15rem; }
+				.statusbar { display: none; }
+				.mnav { top: 0.55rem !important; right: 0.75rem !important; bottom: auto !important; }
+				.mnav-panel { top: 3.3rem !important; bottom: auto !important; }
+				.conversation { grid-template-rows: auto auto minmax(0, 1fr) auto; }
+				.composer textarea { min-height: 4.3rem; font-size: 1rem; }
+				.icon-button, .send-button, .button, .text-button { min-height: 2.75rem; }
+				.icon-button { width: 2.75rem; height: 2.75rem; }
+				.segmented { flex: none; }
+				.segmented button { min-height: 2.75rem; }
+				.send-button { padding-inline: 1rem; }
+				.artifact-toolbar { padding: 0 var(--space-3); }
+				.artifact-scroll { padding: var(--space-3); }
+				.document { padding: var(--space-5); border-radius: var(--radius-lg); }
+				.doc-grid { grid-template-columns: 1fr; }
+				.document h1 { font-size: 2rem; }
+			}
+			@media (max-width: 25rem) {
+				.artifact-toolbar .pill { display: none; }
+				.segmented button { padding-inline: 0.45rem; }
+				.metric-row { grid-template-columns: 1fr; }
+				.voice-actions { grid-template-columns: 1fr; }
+			}
+		</style>
+	</head>
+	<body>
+		<div class="shell" id="workbench" data-state="ready">
+			<header class="topbar">
+				<div class="brand">
+					<div class="brand-mark" aria-hidden="true">
+						<svg class="icon icon-lg" viewBox="0 0 24 24"><path d="M13 2 5.8 13.1a5.8 5.8 0 1 0 11.6 0C17.4 9.8 15 7.6 13 2Z"/><path d="M12.4 11.2 9.8 15a2.5 2.5 0 0 0 4.8 1.1"/></svg>
+					</div>
+					<div class="brand-copy"><strong>Ignite Element</strong><span>Voice + text workbench</span></div>
+				</div>
+				<div class="topbar-center" aria-label="Runtime capabilities">
+					<span class="pill pill-success"><i class="dot"></i><span id="actor-status">Actor ready</span></span>
+					<span class="pill">one component</span>
+					<span class="pill">5 typed commands</span>
+					<span class="pill">3 commit channels</span>
+				</div>
+				<div class="top-actions">
+					<label class="switch"><span>Speak responses</span><input id="speak-toggle" type="checkbox" checked /><span class="switch-track" aria-hidden="true"></span></label>
+				</div>
+			</header>
+
+			<div class="workspace">
+				<section class="panel conversation is-mobile-active" data-panel="conversation" aria-label="Conversation">
+					<div class="panel-head">
+						<div class="panel-title"><strong>Conversation</strong><span>voice-workbench · turn 03</span></div>
+						<span class="pill">continuing session</span>
+					</div>
+					<div class="session-summary" aria-label="Session summary">
+						<span class="session-stat"><strong id="turn-count">3</strong><span>turns</span></span>
+						<span class="session-stat"><strong>1</strong><span>artifact</span></span>
+						<span class="session-stat session-stat-speech"><strong>On</strong><span>voice</span></span>
+					</div>
+					<div class="messages" id="messages" aria-live="polite">
+						<article class="message message-user">
+							<div class="message-meta"><span>Text prompt</span><time>10:42</time></div>
+							<div class="message-bubble">Create a launch brief for Ignite Element’s voice and text workbench.</div>
+						</article>
+						<article class="message message-agent">
+							<div class="message-meta"><span>Ignite agent</span><span class="pill pill-success">artifact created</span></div>
+							<div class="message-bubble">I created a semantic launch brief with outcomes, validation targets, and a decision record.</div>
+						</article>
+						<article class="message message-user">
+							<div class="message-meta"><span>Speech prompt</span><time>10:44</time></div>
+							<div class="message-bubble">Make the proof points more concrete and add a release confidence target.</div>
+						</article>
+						<article class="message message-agent">
+							<div class="message-meta"><span>Ignite agent</span><span class="pill pill-success">revision committed</span></div>
+							<div class="message-bubble">Revision 2 is committed. I also prepared a spoken summary.</div>
+						</article>
+						<article class="message message-agent message-live">
+							<div class="message-meta"><span>Ignite agent</span><span>responding</span></div>
+							<div class="message-bubble"><span class="typing" aria-label="Generating response"><i></i><i></i><i></i></span></div>
+						</article>
+					</div>
+					<div>
+						<div class="permission-note" role="alert">
+							<svg class="icon" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01"/><path d="M10.3 3.7 2.2 18a2 2 0 0 0 1.7 3h16.2a2 2 0 0 0 1.7-3L13.7 3.7a2 2 0 0 0-3.4 0Z"/></svg>
+							<div><strong>Microphone permission is needed</strong><p>Enable access to capture speech, or continue by typing. Your current draft is preserved.</p></div>
+						</div>
+						<div class="composer-wrap">
+							<form class="composer" id="prompt-form">
+								<label class="sr-only" for="prompt">Prompt</label>
+								<textarea id="prompt" name="prompt" placeholder="Ask the agent to create or revise an artifact…">Add a short adoption plan for framework teams.</textarea>
+								<div class="composer-actions">
+									<span class="input-mode" id="input-mode"><svg class="icon" viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg>Typed input</span>
+									<button class="icon-button mic-button" id="mic-button" type="button" aria-label="Start speech input" title="Start speech input" data-listening="false">
+										<svg class="icon" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg>
+									</button>
+									<button class="send-button" id="send-button" type="submit"><span>Send</span><svg class="icon" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></button>
+								</div>
+							</form>
+							<div class="voice-capture" aria-live="polite">
+								<div class="voice-top">
+									<div class="voice-orb"><svg class="icon icon-lg" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5"/></svg></div>
+									<div class="voice-copy"><strong>Listening…</strong><span id="live-transcript">“Add an adoption plan for framework teams”</span></div>
+									<div class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+								</div>
+								<div class="voice-actions"><button class="button" id="cancel-voice" type="button">Cancel</button><button class="button button-primary" id="use-transcript" type="button">Use transcript</button></div>
+							</div>
+						</div>
+					</div>
+				</section>
+
+				<main class="panel artifact" data-panel="artifact" data-view="document">
+					<div class="artifact-toolbar">
+						<div class="artifact-identity"><strong>Ignite Element launch brief</strong><span id="artifact-revision">browser-demo · revision 2</span></div>
+						<span class="pill pill-success">committed</span>
+						<div class="segmented" role="tablist" aria-label="Artifact view">
+							<button id="document-tab" role="tab" type="button" aria-selected="true">Document</button>
+							<button id="schema-tab" role="tab" type="button" aria-selected="false">Schema</button>
+						</div>
+						<button class="icon-button" id="play-summary" type="button" aria-label="Play spoken summary" title="Play spoken summary" aria-pressed="false"><svg class="icon" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
+					</div>
+					<div class="artifact-scroll">
+						<div class="proof-banner" id="proof-banner" role="status">
+							<svg class="icon" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></svg>
+							<div><strong>This document is the live proof.</strong><span id="proof-copy">Send the prepared text prompt or use speech. The accepted revision will appear here and commit to browser, terminal, and speech.</span></div>
+						</div>
+						<article class="document">
+							<div class="doc-kicker" id="document-kicker">Actor-owned artifact · revision 2</div>
+							<h1>Make complex interfaces feel inevitable.</h1>
+							<p class="doc-lede">Ignite Element turns deterministic actor state into expressive interfaces—without sacrificing the headless runtime, typed commands, or projection portability.</p>
+							<div class="doc-grid">
+								<section class="doc-card">
+									<h2><svg class="icon" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></svg>Launch outcomes <span class="node-kind">checklist</span></h2>
+									<ul class="checklist">
+										<li><span class="check"><svg class="icon" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></svg></span><span>Prove text and speech share one deterministic conversation domain.</span><time>core</time></li>
+										<li><span class="check"><svg class="icon" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></svg></span><span>Render semantic documents through direct projection targets.</span><time>view</time></li>
+										<li><span class="check"><svg class="icon" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></svg></span><span>Expose commands, facts, and commits as observable runtime evidence.</span><time>dx</time></li>
+									</ul>
+								</section>
+								<section class="doc-card">
+									<h2><svg class="icon" viewBox="0 0 24 24"><path d="M4 19V9m6 10V5m6 14v-7m4 7H2"/></svg>Proof targets <span class="node-kind">chart</span></h2>
+									<div class="metric-row"><div class="metric"><span>Runtime tests</span><strong>8 <em>green</em></strong></div><div class="metric"><span>Commit channels</span><strong>3</strong></div><div class="metric"><span>API wrappers</span><strong>0</strong></div></div>
+									<div class="decision"><span>Decision · decision-log</span><p>Actor state remains authoritative. Browser media and speech synthesis stay explicit projection adapters.</p></div>
+								</section>
+								<section class="doc-card doc-card-revision" id="revision-card" data-visible="false" aria-live="polite">
+									<h2><svg class="icon" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></svg><span id="revision-title">Adoption plan</span><span class="node-kind">plan</span></h2>
+									<div class="revision-source" id="revision-source">Awaiting an authorized revision</div>
+									<p class="revision-request" id="revision-request">The submitted prompt will be reflected here.</p>
+									<ul class="checklist" id="revision-content">
+										<li><span class="check"><svg class="icon" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></svg></span><span>Prove the domain behavior with the headless runtime first.</span><time>01</time></li>
+										<li><span class="check"><svg class="icon" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></svg></span><span>Mount the same component through the browser projection.</span><time>02</time></li>
+										<li><span class="check"><svg class="icon" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></svg></span><span>Add terminal and speech consumers without changing the actor contract.</span><time>03</time></li>
+									</ul>
+								</section>
+							</div>
+						</article>
+						<section class="schema-view" aria-label="Artifact schema"><pre>{
+  <span class="schema-key">"id"</span>: <span class="schema-value">"browser-demo"</span>,
+  <span class="schema-key">"revision"</span>: <span class="schema-value" id="schema-revision">"2"</span>,
+  <span class="schema-key">"nodes"</span>: [
+    { <span class="schema-key">"kind"</span>: <span class="schema-value">"text"</span>, <span class="schema-key">"id"</span>: <span class="schema-value">"positioning"</span> },
+    { <span class="schema-key">"kind"</span>: <span class="schema-value">"checklist"</span>, <span class="schema-key">"id"</span>: <span class="schema-value">"outcomes"</span> },
+    { <span class="schema-key">"kind"</span>: <span class="schema-value">"chart"</span>, <span class="schema-key">"id"</span>: <span class="schema-value">"proof-targets"</span> },
+    { <span class="schema-key">"kind"</span>: <span class="schema-value">"decision-log"</span>, <span class="schema-key">"id"</span>: <span class="schema-value">"architecture"</span> }<span id="schema-revision-node" hidden>,
+    { <span class="schema-key">"kind"</span>: <span class="schema-value" id="schema-new-kind">"plan"</span>, <span class="schema-key">"id"</span>: <span class="schema-value" id="schema-new-id">"adoption"</span> }</span>
+  ]
+}</pre></section>
+						<div class="responding-overlay">
+							<div class="progress-card">
+								<div class="progress-top"><div class="progress-orb"><svg class="icon icon-lg" viewBox="0 0 24 24"><path d="M13 2 5.8 13.1a5.8 5.8 0 1 0 11.6 0C17.4 9.8 15 7.6 13 2Z"/></svg></div><div class="progress-copy"><strong>Revising the artifact</strong><span>Actor state: responding</span></div></div>
+								<div class="progress-steps"><div class="progress-step done">Prompt admitted</div><div class="progress-step done">Revision command validated</div><div class="progress-step active">Committing semantic nodes</div><div class="progress-step">Preparing spoken summary</div></div>
+							</div>
+						</div>
+					</div>
+				</main>
+
+				<aside class="panel runtime" data-panel="runtime" aria-label="Ignite runtime">
+					<div class="panel-head"><div class="panel-title"><strong>Proof of the last turn</strong><span>prompt → authorized artifact revision → 3 commits</span></div><button class="replay-button" id="replay-turn" type="button"><svg class="icon" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Replay</button></div>
+					<div class="runtime-scroll">
+						<section class="runtime-card">
+							<div class="runtime-card-head"><strong>One component, four consumers</strong><span>5 commands</span></div>
+							<div class="component-contract">
+								<div class="component-line">const component = <strong>igniteCore({...})</strong></div>
+								<div class="component-uses"><span class="component-use">headless test</span><span class="component-use">browser JSX</span><span class="component-use">terminal + speech</span></div>
+								<div class="actor-state"><div class="state-node"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21h-4v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3v-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5V3h4v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1h.1v4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></div><div class="actor-copy"><strong>conversation-session</strong><span>matches(<code id="state-path">"ready"</code>)</span><output class="latest-fact" id="latest-fact">artifact-revised · revision 2</output></div></div>
+							</div>
+						</section>
+						<section class="runtime-card">
+							<div class="runtime-card-head"><strong>Prompt → artifact revision</strong><span>model proposes · actor decides</span></div>
+							<ol class="turn-trace" id="turn-trace">
+								<li class="trace-step is-complete" data-trace-step="1"><i class="trace-marker"></i><span class="trace-copy"><strong id="trace-input-label">Speech transcript</strong><span id="trace-input-detail">outer adapter → text + modality</span></span></li>
+								<li class="trace-step is-complete" data-trace-step="2"><i class="trace-marker"></i><span class="trace-copy"><strong>submitPrompt</strong><span id="trace-submit-detail">speech command admitted</span></span></li>
+								<li class="trace-step is-complete" data-trace-step="3"><i class="trace-marker"></i><span class="trace-copy"><strong>reviseArtifact proposed</strong><span>model call from getSchema() manifest</span></span></li>
+								<li class="trace-step is-complete" data-trace-step="4"><i class="trace-marker"></i><span class="trace-copy"><strong>Actor authorized</strong><span>allowlist + revision guard passed</span></span></li>
+								<li class="trace-step is-complete" data-trace-step="5"><i class="trace-marker"></i><span class="trace-copy"><strong id="trace-revision-label">Artifact revision 2 stored</strong><span>semantic nodes, not generated DOM</span></span></li>
+								<li class="trace-step is-complete" data-trace-step="6"><i class="trace-marker"></i><span class="trace-copy"><strong>Three channels committed</strong><span>browser · terminal · speech</span></span></li>
+							</ol>
+						</section>
+						<section class="runtime-card">
+							<div class="runtime-card-head"><strong>Channel commits</strong><span>same accepted response</span></div>
+							<div class="commit-list">
+								<div class="commit"><span class="commit-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg></span><span class="commit-copy"><strong>Browser · native JSX</strong><span id="browser-commit-revision">browser-demo · revision 2</span></span><span class="commit-status">current</span></div>
+								<div class="commit commit-terminal"><span class="commit-icon"><svg class="icon" viewBox="0 0 24 24"><path d="m4 17 6-5-6-5M12 19h8"/></svg></span><span class="commit-copy"><strong>Terminal · text</strong><span>no DOM required</span></span><span class="commit-status">written</span></div>
+								<div class="commit commit-speech"><span class="commit-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg></span><span class="commit-copy"><strong>Speech · audio</strong><span>no DOM required · acknowledged</span></span><span class="commit-status">played</span></div>
+							</div>
+						</section>
+						<section class="runtime-card">
+							<div class="runtime-card-head"><strong>Authorized schema</strong><span>getSchema() → igniteTools</span></div>
+							<div class="command-list"><span class="command">submitPrompt</span><span class="command">createArtifact</span><span class="command">reviseArtifact</span><span class="command">completeResponse</span><span class="command">acknowledgeSpeech</span></div>
+							<div class="policy-proof"><svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg><div><strong>renderJavascript rejected</strong><span>command-not-allowed · actor unchanged</span></div></div>
+						</section>
+					</div>
+				</aside>
+			</div>
+
+			<nav class="mobile-tabs" aria-label="Workbench views">
+				<button type="button" data-target="conversation" aria-selected="true"><svg class="icon" viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"/></svg>Chat</button>
+				<button type="button" data-target="artifact" aria-selected="false"><svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>Artifact</button>
+				<button type="button" data-target="runtime" aria-selected="false"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21h-4v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3v-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5V3h4v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1h.1v4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>Runtime</button>
+			</nav>
+
+			<footer class="statusbar"><svg class="icon" viewBox="0 0 24 24"><path d="M13 2 5.8 13.1a5.8 5.8 0 1 0 11.6 0C17.4 9.8 15 7.6 13 2Z"/></svg><strong>same component</strong><span>→</span><span>getSchema()</span><span>→</span><span>authorized command</span><span>→</span><span>actor revision</span><span>→</span><span>JSX + terminal + speech</span></footer>
+		</div>
+
+		<script>
+			const workbench = document.querySelector('#workbench');
+			const promptForm = document.querySelector('#prompt-form');
+			const prompt = document.querySelector('#prompt');
+			const actorStatus = document.querySelector('#actor-status');
+			const statePath = document.querySelector('#state-path');
+			const messages = document.querySelector('#messages');
+			const sendButton = document.querySelector('#send-button');
+			const artifactScroll = document.querySelector('.artifact-scroll');
+			let inputModality = 'text';
+			let currentRevision = 2;
+			let currentTurn = 3;
+			let responseTimer;
+			let traceTimers = [];
+
+			function setState(next, updateHash = true) {
+				const allowed = ['ready', 'listening', 'responding', 'artifact', 'permission'];
+				const state = allowed.includes(next) ? next : 'ready';
+				workbench.dataset.state = state;
+				if (state === 'artifact' && document.querySelector('#revision-card').dataset.visible !== 'true') {
+					applyArtifactRevision(prompt.value.trim() || 'Add an adoption plan for framework teams.', 'text');
+					appendEvent('artifact-revised', `browser-demo · revision ${currentRevision}`);
+				}
+				const actorState = state === 'responding' ? 'responding' : 'ready';
+				actorStatus.textContent = state === 'responding' ? 'Actor responding' : state === 'listening' ? 'Capture adapter listening' : 'Actor ready';
+				statePath.textContent = `"${actorState}"`;
+				document.querySelector('#mic-button').dataset.listening = String(state === 'listening');
+				if (updateHash && location.hash.replace('#', '') !== state) history.replaceState(null, '', `#${state}`);
+				if (window.mnavSetActive) window.mnavSetActive(state);
+				if (state === 'responding') messages.scrollTop = messages.scrollHeight;
+				if (state === 'responding') setTraceProgress(4, 5);
+				else if (state === 'listening') setTraceProgress(0, 1);
+				else setTraceProgress(6);
+				requestAnimationFrame(() => {
+					if (matchMedia('(max-width: 50rem)').matches) activatePanel(state === 'artifact' || state === 'responding' ? 'artifact' : 'conversation');
+					if (state === 'artifact') document.querySelector('#revision-card').scrollIntoView({ block: 'nearest' });
+				});
+			}
+
+			function activatePanel(target) {
+				document.querySelectorAll('[data-panel]').forEach((panel) => {
+					panel.classList.toggle('is-mobile-active', panel.dataset.panel === target);
+				});
+				document.querySelectorAll('.mobile-tabs button').forEach((item) => {
+					item.setAttribute('aria-selected', String(item.dataset.target === target));
+				});
+			}
+
+			function appendEvent(name, detail) {
+				document.querySelector('#latest-fact').textContent = `${name} · ${detail}`;
+			}
+
+			function setTraceProgress(completed, active = 0) {
+				document.querySelectorAll('[data-trace-step]').forEach((step) => {
+					const index = Number(step.dataset.traceStep);
+					step.classList.toggle('is-complete', index <= completed);
+					step.classList.toggle('is-active', index === active);
+				});
+			}
+
+			function runTrace() {
+				traceTimers.forEach(clearTimeout);
+				traceTimers = [];
+				setTraceProgress(0, 1);
+				for (let step = 1; step <= 6; step += 1) {
+					traceTimers.push(setTimeout(() => setTraceProgress(step, step < 6 ? step + 1 : 0), step * 220));
+				}
+			}
+
+			function appendConversationMessage(role, { modality = 'text', text, badge = '' }) {
+				const article = document.createElement('article');
+				article.className = `message message-${role}`;
+				const meta = document.createElement('div');
+				meta.className = 'message-meta';
+				const source = document.createElement('span');
+				source.textContent = role === 'user' ? `${modality === 'speech' ? 'Speech' : 'Text'} prompt` : 'Ignite agent';
+				meta.appendChild(source);
+				if (role === 'user') {
+					const time = document.createElement('time');
+					time.textContent = 'now';
+					meta.appendChild(time);
+				} else if (badge) {
+					const status = document.createElement('span');
+					status.className = 'pill pill-success';
+					status.textContent = badge;
+					meta.appendChild(status);
+				}
+				const bubble = document.createElement('div');
+				bubble.className = 'message-bubble';
+				bubble.textContent = text;
+				article.append(meta, bubble);
+				messages.insertBefore(article, messages.querySelector('.message-live'));
+				messages.scrollTop = messages.scrollHeight;
+			}
+
+			function setRevisionItems(items) {
+				const list = document.querySelector('#revision-content');
+				list.replaceChildren(...items.map((item, index) => {
+					const row = document.createElement('li');
+					const check = document.createElement('span');
+					check.className = 'check';
+					check.textContent = '✓';
+					const copy = document.createElement('span');
+					copy.textContent = item;
+					const order = document.createElement('time');
+					order.textContent = String(index + 1).padStart(2, '0');
+					row.append(check, copy, order);
+					return row;
+				}));
+			}
+
+			function applyArtifactRevision(value, modality) {
+				currentRevision += 1;
+				const isAdoptionPlan = /adoption|framework team/i.test(value);
+				const kind = isAdoptionPlan ? 'plan' : 'revision-note';
+				const nodeId = isAdoptionPlan ? 'adoption' : 'latest-request';
+				document.querySelector('#artifact-revision').textContent = `browser-demo · revision ${currentRevision}`;
+				document.querySelector('#document-kicker').textContent = `Actor-owned artifact · revision ${currentRevision}`;
+				document.querySelector('#revision-title').textContent = isAdoptionPlan ? 'Adoption plan' : 'Latest accepted change';
+				document.querySelector('#revision-source').textContent = `${modality} prompt · actor authorized · revision ${currentRevision}`;
+				document.querySelector('#revision-request').textContent = `Requested: “${value}”`;
+				document.querySelector('#revision-card').dataset.visible = 'true';
+				document.querySelector('#schema-revision').textContent = `"${currentRevision}"`;
+				document.querySelector('#schema-revision-node').hidden = false;
+				document.querySelector('#schema-new-kind').textContent = `"${kind}"`;
+				document.querySelector('#schema-new-id').textContent = `"${nodeId}"`;
+				document.querySelector('#trace-revision-label').textContent = `Artifact revision ${currentRevision} stored`;
+				document.querySelector('#browser-commit-revision').textContent = `browser-demo · revision ${currentRevision}`;
+				document.querySelector('#proof-copy').textContent = `Revision ${currentRevision} was accepted from ${modality}, rendered here, and committed to browser, terminal, and speech.`;
+				setRevisionItems(isAdoptionPlan ? [
+					'Prove the domain behavior with the headless runtime first.',
+					'Mount the same component through the browser projection.',
+					'Add terminal and speech consumers without changing the actor contract.'
+				] : [`Apply the accepted request as the semantic ${kind} node “${nodeId}”.`]);
+				setArtifactView('document');
+			}
+
+			function submitPrompt() {
+				const value = prompt.value.trim();
+				if (!value || workbench.dataset.state === 'responding') { prompt.focus(); return; }
+				const modality = inputModality;
+				currentTurn += 1;
+				document.querySelector('#turn-count').textContent = String(currentTurn);
+				document.querySelector('#trace-input-label').textContent = modality === 'speech' ? 'Speech transcript' : 'Text prompt';
+				document.querySelector('#trace-input-detail').textContent = modality === 'speech' ? 'outer adapter → text + modality' : 'composer → text + modality';
+				document.querySelector('#trace-submit-detail').textContent = `${modality} command admitted`;
+				appendConversationMessage('user', { modality, text: value });
+				appendEvent('prompt-submitted', `modality: ${modality}`);
+				sendButton.disabled = true;
+				setState('responding');
+				runTrace();
+				clearTimeout(responseTimer);
+				responseTimer = setTimeout(() => {
+					applyArtifactRevision(value, modality);
+					appendConversationMessage('agent', { text: `Revision ${currentRevision} is committed. The center document now includes the accepted change.`, badge: 'revision committed' });
+					appendEvent('artifact-revised', `browser-demo · revision ${currentRevision}`);
+					setState('artifact');
+					sendButton.disabled = false;
+					inputModality = 'text';
+					if (matchMedia('(max-width: 50rem)').matches) activatePanel('artifact');
+					requestAnimationFrame(() => document.querySelector('#revision-card').scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+				}, 1500);
+			}
+
+			promptForm.addEventListener('submit', (event) => { event.preventDefault(); inputModality = 'text'; submitPrompt(); });
+			document.querySelector('#mic-button').addEventListener('click', () => { inputModality = 'speech'; setState('listening'); });
+			document.querySelector('#cancel-voice').addEventListener('click', () => { inputModality = 'text'; setState('ready'); prompt.focus(); });
+			document.querySelector('#use-transcript').addEventListener('click', () => { prompt.value = 'Add an adoption plan for framework teams.'; inputModality = 'speech'; appendEvent('speech-captured', 'transcript ready'); submitPrompt(); });
+			document.querySelector('#replay-turn').addEventListener('click', runTrace);
+			document.querySelector('#play-summary').addEventListener('click', (event) => { const button = event.currentTarget; const playing = button.getAttribute('aria-pressed') !== 'true'; button.setAttribute('aria-pressed', String(playing)); button.setAttribute('aria-label', playing ? 'Pause spoken summary' : 'Play spoken summary'); appendEvent(playing ? 'speech-played' : 'speech-paused', 'spoken summary'); });
+			document.querySelector('#speak-toggle').addEventListener('change', (event) => appendEvent('speech-output-changed', event.currentTarget.checked ? 'enabled' : 'disabled'));
+			document.querySelector('#document-tab').addEventListener('click', () => setArtifactView('document'));
+			document.querySelector('#schema-tab').addEventListener('click', () => setArtifactView('schema'));
+			function setArtifactView(view) { document.querySelector('.artifact').dataset.view = view; document.querySelector('#document-tab').setAttribute('aria-selected', String(view === 'document')); document.querySelector('#schema-tab').setAttribute('aria-selected', String(view === 'schema')); }
+			document.querySelectorAll('.mobile-tabs button').forEach((button) => {
+				button.addEventListener('click', () => activatePanel(button.dataset.target));
+			});
+			window.addEventListener('hashchange', () => setState(location.hash.replace('#', ''), false));
+			window.addEventListener('keydown', (event) => { if (event.key === 'Escape' && workbench.dataset.state === 'listening') { inputModality = 'text'; setState('ready'); } });
+			setState(location.hash.replace('#', '') || 'ready', false);
+		</script>
+		<script>
+			window.MOCK_NAV = {
+				title: 'Voice workbench', subtitle: 'Round 2', current: location.hash.replace('#', '') || 'ready', open: false,
+				groups: [
+					{ label: 'Designed states', items: [
+						{ id: 'ready', label: 'Ready workbench', icon: '◫' },
+						{ id: 'listening', label: 'Speech capture', icon: '◉' },
+						{ id: 'responding', label: 'Actor responding', icon: '↻' },
+						{ id: 'artifact', label: 'Artifact committed', icon: '✓' },
+						{ id: 'permission', label: 'Mic permission', icon: '!' }
+					] },
+					{ label: 'Gallery', items: [{ label: 'All mocks', href: '../../index.html', icon: '⊞' }] }
+				],
+				onSelect: (id) => setState(id)
+			};
+		</script>
+		<script src="../../_nav/mocknav.js"></script>
+	</body>
+</html>
