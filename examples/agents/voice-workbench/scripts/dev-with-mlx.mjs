@@ -13,7 +13,6 @@ const DEFAULT_MLX_PORT = 8080;
 const DEFAULT_POLL_INTERVAL_MS = 500;
 const DEFAULT_STARTUP_TIMEOUT_MS = 20 * 60 * 1000;
 const DEFAULT_SHUTDOWN_GRACE_MS = 5_000;
-const SIGNAL_EXIT_CODES = { SIGINT: 130, SIGTERM: 143 };
 
 export class LauncherError extends Error {
 	constructor(message, options) {
@@ -423,7 +422,7 @@ export async function runLauncher(options = {}) {
 
 	for (const signal of ["SIGINT", "SIGTERM"]) {
 		const handler = () => {
-			deps.setExitCode(SIGNAL_EXIT_CODES[signal]);
+			deps.setExitCode(0);
 			void lifecycle.stop(signal);
 		};
 		signalHandlers.set(signal, handler);

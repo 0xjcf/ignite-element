@@ -340,7 +340,7 @@ describe("voice workbench MLX launcher", () => {
 		harness.signals.get("SIGINT")();
 		await running;
 
-		expect(harness.exitCodes).toEqual([130]);
+		expect(harness.exitCodes).toEqual([0]);
 		expect(
 			harness.spawns.find(({ label }) => label === "mlx").child.killSignals,
 		).toContain("SIGINT");
