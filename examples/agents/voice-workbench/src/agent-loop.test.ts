@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import {
 	type ModelRequest,
-	type ModelResponse,
+	type ModelResult,
 	runModelTurn,
 } from "./agent-loop";
 import { component, source } from "./session";
@@ -14,10 +14,13 @@ const nodes = [
 	},
 ] as const;
 
+afterAll(() => source.stop());
+
 describe("voice/text workbench model turn", () => {
 	it("uses direct component tools across allowed and rejected turns", async () => {
-		const responses: readonly ModelResponse[] = [
+		const responses: readonly ModelResult[] = [
 			{
+				ok: true,
 				calls: [
 					{
 						command: "createArtifact",
@@ -30,6 +33,7 @@ describe("voice/text workbench model turn", () => {
 				],
 			},
 			{
+				ok: true,
 				calls: [
 					{
 						command: "reviseArtifact",
@@ -52,6 +56,7 @@ describe("voice/text workbench model turn", () => {
 				],
 			},
 			{
+				ok: true,
 				calls: [
 					{
 						command: "createArtifact",
@@ -71,13 +76,14 @@ describe("voice/text workbench model turn", () => {
 				],
 			},
 			{
+				ok: true,
 				calls: [{ command: "renderJavascript", input: { source: "alert(1)" } }],
 			},
 		];
 		const requests: ModelRequest[] = [];
-		const model = async (request: ModelRequest): Promise<ModelResponse> => {
+		const model = async (request: ModelRequest): Promise<ModelResult> => {
 			requests.push(request);
-			return responses[requests.length - 1] ?? { calls: [] };
+			return responses[requests.length - 1] ?? { ok: true, calls: [] };
 		};
 
 		const first = await runModelTurn({
@@ -130,6 +136,56 @@ describe("voice/text workbench model turn", () => {
 		expect(component.getView()).toMatchObject({
 			artifacts: [{ id: "plan", revision: "2" }],
 		});
-		source.stop();
+	});
+
+	it("recovers provider failure facts to ready with a sanitized visible error", async () => {
+		const failed = await runModelTurn({
+			component,
+			model: async () => ({
+				ok: false,
+				error: {
+					kind: "network",
+					message: "secret provider address and stack",
+				},
+			}),
+			prompt: { channel: "text", text: "Create a decision log" },
+		});
+
+		expect(failed).toEqual({
+			accepted: false,
+			reason: "model-failed",
+			failure: {
+				kind: "network",
+				message:
+					"The local model could not be reached. Check its configuration and try again.",
+			},
+			trace: [{ command: "completeResponse", accepted: true }],
+		});
+		expect(component.getView()).toMatchObject({
+			status: "ready",
+			response: {
+				text: "The local model could not be reached. Check its configuration and try again.",
+			},
+		});
+	});
+
+	it("normalizes an unexpected provider throw through the same recovery path", async () => {
+		const failed = await runModelTurn({
+			component,
+			model: async () => {
+				throw new Error("secret provider failure");
+			},
+			prompt: { channel: "speech", text: "Revise the artifact" },
+		});
+
+		expect(failed).toMatchObject({
+			accepted: false,
+			reason: "model-failed",
+			failure: {
+				kind: "provider",
+				message: "The local model could not complete this turn. Try again.",
+			},
+		});
+		expect(component.getView()).toMatchObject({ status: "ready" });
 	});
 });
