@@ -1,5 +1,6 @@
 import { igniteCore } from "ignite-element/xstate";
-import { assign, createActor, setup } from "xstate";
+import { and, assign, createActor, setup, stateIn } from "xstate";
+import type { ModelFailureFact } from "./agent-loop";
 import {
 	type AcknowledgeSpeechInput,
 	type CompleteResponseInput,
@@ -89,9 +90,17 @@ export type WorkbenchPresentationEvent =
 	| { type: "PRESENTATION_REPLAYED" };
 
 type WorkbenchSession = ConversationSession & {
+	modelFailure: ModelFailureFact | null;
 	presentation: WorkbenchPresentation;
 };
-type WorkbenchEvent = ConversationAction | WorkbenchPresentationEvent;
+export type ModelReadinessEvent =
+	| { type: "MODEL_PREPARATION_STARTED" }
+	| { type: "MODEL_AVAILABLE" }
+	| { type: "MODEL_FAILED"; failure: ModelFailureFact };
+type WorkbenchEvent =
+	| ConversationAction
+	| ModelReadinessEvent
+	| WorkbenchPresentationEvent;
 
 const createInitialPresentation = (): WorkbenchPresentation => ({
 	artifactView: "document",
@@ -147,6 +156,11 @@ const machine = setup({
 				lastFact: { type: "artifact-rejected", reason: result.reason },
 			};
 		}),
+		clearModelFailure: assign({ modelFailure: () => null }),
+		recordModelFailure: assign({
+			modelFailure: ({ event }) =>
+				event.type === "MODEL_FAILED" ? event.failure : null,
+		}),
 	},
 	guards: {
 		transitionAccepted: ({ context, event }) =>
@@ -155,9 +169,10 @@ const machine = setup({
 	},
 }).createMachine({
 	id: "conversation-session",
-	initial: "ready",
+	type: "parallel",
 	context: () => ({
 		...createInitialSession("voice-workbench"),
+		modelFailure: null,
 		presentation: createInitialPresentation(),
 	}),
 	on: {
@@ -216,30 +231,82 @@ const machine = setup({
 		},
 	},
 	states: {
-		ready: {
-			on: {
-				SUBMIT_PROMPT: [
-					{
-						guard: "transitionAccepted",
-						target: "responding",
-						actions: "applyTransition",
+		provider: {
+			initial: "preparing",
+			states: {
+				preparing: {
+					on: {
+						MODEL_AVAILABLE: {
+							target: "available",
+							actions: "clearModelFailure",
+						},
+						MODEL_FAILED: {
+							target: "failed",
+							actions: "recordModelFailure",
+						},
 					},
-					{ actions: "applyTransition" },
-				],
+				},
+				available: {
+					on: {
+						MODEL_PREPARATION_STARTED: {
+							target: "preparing",
+							actions: "clearModelFailure",
+						},
+						MODEL_FAILED: {
+							target: "failed",
+							actions: "recordModelFailure",
+						},
+					},
+				},
+				failed: {
+					on: {
+						MODEL_PREPARATION_STARTED: {
+							target: "preparing",
+							actions: "clearModelFailure",
+						},
+						MODEL_AVAILABLE: {
+							target: "available",
+							actions: "clearModelFailure",
+						},
+					},
+				},
 			},
 		},
-		responding: {
-			on: {
-				CREATE_ARTIFACT: { actions: "applyTransition" },
-				REVISE_ARTIFACT: { actions: "applyTransition" },
-				COMPLETE_RESPONSE: [
-					{
-						guard: "transitionAccepted",
-						target: "ready",
-						actions: "applyTransition",
+		turn: {
+			initial: "ready",
+			states: {
+				ready: {
+					on: {
+						SUBMIT_PROMPT: [
+							{
+								guard: and([
+									stateIn({ provider: "available" }),
+									"transitionAccepted",
+								]),
+								target: "responding",
+								actions: "applyTransition",
+							},
+							{
+								guard: stateIn({ provider: "available" }),
+								actions: "applyTransition",
+							},
+						],
 					},
-					{ actions: "applyTransition" },
-				],
+				},
+				responding: {
+					on: {
+						CREATE_ARTIFACT: { actions: "applyTransition" },
+						REVISE_ARTIFACT: { actions: "applyTransition" },
+						COMPLETE_RESPONSE: [
+							{
+								guard: "transitionAccepted",
+								target: "ready",
+								actions: "applyTransition",
+							},
+							{ actions: "applyTransition" },
+						],
+					},
+				},
 			},
 		},
 	},
@@ -265,13 +332,38 @@ export const component = igniteCore({
 		"speech-acknowledged": event<{ id: string }>(),
 	}),
 	view: ({ snapshot }) => {
-		const responding = snapshot.matches("responding");
-		const status = responding ? "responding" : "ready";
+		const modelPreparing = snapshot.matches({ provider: "preparing" });
+		const modelFailed = snapshot.matches({ provider: "failed" });
+		const modelAvailable = snapshot.matches({ provider: "available" });
+		const responding = snapshot.matches({ turn: "responding" });
+		const turnReady = snapshot.matches({ turn: "ready" });
+		const status = modelPreparing
+			? "preparing"
+			: modelFailed
+				? "failed"
+				: responding
+					? "responding"
+					: "ready";
 		return {
 			sessionId: snapshot.context.sessionId,
 			status,
-			statusLabel: responding ? "Responding" : "Ready",
-			canSubmitPrompt: snapshot.matches("ready"),
+			statusLabel: modelPreparing
+				? "Preparing local model"
+				: modelFailed
+					? "Model unavailable"
+					: responding
+						? "Responding"
+						: "Ready",
+			canSubmitPrompt: modelAvailable && turnReady,
+			canRetryModel: modelFailed,
+			model: {
+				status: modelPreparing
+					? "preparing"
+					: modelFailed
+						? "failed"
+						: "available",
+				failure: snapshot.context.modelFailure,
+			},
 			revision: snapshot.context.revision,
 			messageCount: snapshot.context.messages.length,
 			messages: snapshot.context.messages,
@@ -464,7 +556,8 @@ export const component = igniteCore({
 					actor.send({ type: "COMPLETE_RESPONSE", input }),
 				{
 					description: "Complete the active response turn.",
-					canExecute: ({ snapshot }) => snapshot.matches("responding"),
+					canExecute: ({ snapshot }) =>
+						snapshot.matches({ turn: "responding" }),
 					input: command.object(
 						{
 							text: command.string({ minLength: 1 }),
@@ -480,7 +573,8 @@ export const component = igniteCore({
 				{
 					description:
 						"Create a validated semantic artifact for the active turn.",
-					canExecute: ({ snapshot }) => snapshot.matches("responding"),
+					canExecute: ({ snapshot }) =>
+						snapshot.matches({ turn: "responding" }),
 					input: command.object({
 						id: command.string({ minLength: 1 }),
 						title: command.string({ minLength: 1 }),
@@ -495,7 +589,7 @@ export const component = igniteCore({
 					description:
 						"Revise an artifact when its expected revision still matches.",
 					canExecute: ({ snapshot }) =>
-						snapshot.matches("responding") &&
+						snapshot.matches({ turn: "responding" }) &&
 						snapshot.context.documents.length > 0,
 					input: command.object({
 						artifactId: command.string({ minLength: 1 }),
@@ -509,7 +603,9 @@ export const component = igniteCore({
 					actor.send({ type: "SUBMIT_PROMPT", input }),
 				{
 					description: "Open the next text or speech conversation turn.",
-					canExecute: ({ snapshot }) => snapshot.matches("ready"),
+					canExecute: ({ snapshot }) =>
+						snapshot.matches({ provider: "available" }) &&
+						snapshot.matches({ turn: "ready" }),
 					input: command.object({
 						modality: command.enum(["text", "speech"]),
 						text: command.string({ minLength: 1 }),

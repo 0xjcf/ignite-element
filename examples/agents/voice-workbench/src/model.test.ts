@@ -1,6 +1,6 @@
 import { igniteTools } from "ignite-element/tools";
-import { afterAll, describe, expect, it, vi } from "vitest";
-import { createMlxWorkbenchModel } from "./model";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { createMlxWorkbenchModel, probeMlxWorkbenchReadiness } from "./model";
 import { component, source } from "./session";
 
 const prompt = {
@@ -14,9 +14,58 @@ const createRequest = () => ({
 	view: component.getView(),
 });
 
+beforeAll(() => source.send({ type: "MODEL_AVAILABLE" }));
 afterAll(() => source.stop());
 
 describe("consumer-configured MLX workbench model", () => {
+	it("proves inference readiness with a minimal chat completion", async () => {
+		const fetchMock = vi.fn(
+			async (_input: RequestInfo | URL, _init?: RequestInit) =>
+				new Response(
+					JSON.stringify({
+						choices: [{ message: { role: "assistant", content: "OK" } }],
+					}),
+					{ status: 200 },
+				),
+		);
+
+		await expect(
+			probeMlxWorkbenchReadiness({
+				baseUrl: "http://127.0.0.1:8080/v1/",
+				model: "mlx-community/example-model",
+				fetch: fetchMock,
+			}),
+		).resolves.toEqual({ type: "MODEL_AVAILABLE" });
+
+		const [url, init] = fetchMock.mock.calls[0] ?? [];
+		expect(url).toBe("http://127.0.0.1:8080/v1/chat/completions");
+		const body = JSON.parse(String(init?.body));
+		expect(body).toMatchObject({
+			model: "mlx-community/example-model",
+			max_tokens: 1,
+			stream: false,
+		});
+		expect(body).not.toHaveProperty("tools");
+	});
+
+	it("returns readiness failures as sanitized actor facts", async () => {
+		await expect(
+			probeMlxWorkbenchReadiness({
+				baseUrl: "http://127.0.0.1:8080/v1",
+				model: "consumer-model",
+				fetch: vi.fn(async () => {
+					throw new Error("secret connection details");
+				}),
+			}),
+		).resolves.toEqual({
+			type: "MODEL_FAILED",
+			failure: {
+				kind: "network",
+				message: "The local model could not be reached.",
+			},
+		});
+	});
+
 	it("uses Ignite's OpenAI dialect for the current command manifest", async () => {
 		await component.execute({
 			command: "submitPrompt",

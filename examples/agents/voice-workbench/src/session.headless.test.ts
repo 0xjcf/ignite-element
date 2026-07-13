@@ -75,12 +75,15 @@ describe("voice workbench headless component", () => {
 			},
 		});
 		const initialSnapshot = component.getSnapshot();
-		expect(initialSnapshot.matches("ready")).toBe(true);
+		expect(initialSnapshot.matches({ provider: "preparing" })).toBe(true);
+		expect(initialSnapshot.matches({ turn: "ready" })).toBe(true);
 		expect(initialSnapshot.context).not.toHaveProperty("phase");
 		expect(component.getView()).toMatchObject({
-			status: "ready",
-			statusLabel: "Ready",
-			canSubmitPrompt: true,
+			status: "preparing",
+			statusLabel: "Preparing local model",
+			canSubmitPrompt: false,
+			canRetryModel: false,
+			model: { status: "preparing", failure: null },
 			artifacts: [],
 			speech: null,
 			presentation: {
@@ -93,13 +96,51 @@ describe("voice workbench headless component", () => {
 			},
 		});
 		expect(component.getView()).not.toHaveProperty("documents");
-		expect(component.canExecute("submitPrompt")).toBe(true);
+		expect(component.canExecute("submitPrompt")).toBe(false);
 		expect(component.canExecute("acknowledgeSpeech")).toBe(false);
+		await expect(
+			component.execute({
+				command: "submitPrompt",
+				input: { modality: "text", text: "Too early" },
+			}),
+		).resolves.toMatchObject({ events: [] });
+		expect(component.getSnapshot().context.messages).toEqual([]);
+		source.send({
+			type: "MODEL_FAILED",
+			failure: {
+				kind: "network",
+				message: "The local model could not be reached.",
+			},
+		});
+		expect(component.getView()).toMatchObject({
+			status: "failed",
+			statusLabel: "Model unavailable",
+			canRetryModel: true,
+			canSubmitPrompt: false,
+			model: {
+				status: "failed",
+				failure: { kind: "network" },
+			},
+		});
+		source.send({ type: "MODEL_PREPARATION_STARTED" });
+		expect(component.getView()).toMatchObject({
+			status: "preparing",
+			canRetryModel: false,
+			model: { status: "preparing", failure: null },
+		});
+		source.send({ type: "MODEL_AVAILABLE" });
+		expect(component.getView()).toMatchObject({
+			status: "ready",
+			statusLabel: "Ready",
+			canSubmitPrompt: true,
+			model: { status: "available", failure: null },
+		});
+		expect(component.canExecute("submitPrompt")).toBe(true);
 		source.send({
 			type: "SUBMIT_PROMPT",
 			input: { modality: "text", text: " " },
 		});
-		expect(component.getSnapshot().matches("ready")).toBe(true);
+		expect(component.getSnapshot().matches({ turn: "ready" })).toBe(true);
 		expect(component.getSnapshot().context.lastFact).toEqual({
 			type: "artifact-rejected",
 			reason: "validation",
@@ -154,7 +195,7 @@ describe("voice workbench headless component", () => {
 				statusLabel: "Responding",
 				canSubmitPrompt: false,
 			});
-		expect(component.getSnapshot().matches("responding")).toBe(true);
+		expect(component.getSnapshot().matches({ turn: "responding" })).toBe(true);
 		expect(component.getView()).toMatchObject({
 			presentation: {
 				draft: "Preserve this draft",
@@ -207,7 +248,7 @@ describe("voice workbench headless component", () => {
 			type: "COMPLETE_RESPONSE",
 			input: { text: " " },
 		});
-		expect(component.getSnapshot().matches("responding")).toBe(true);
+		expect(component.getSnapshot().matches({ turn: "responding" })).toBe(true);
 		expect(component.getSnapshot().context.lastFact).toEqual({
 			type: "artifact-rejected",
 			reason: "validation",

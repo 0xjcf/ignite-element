@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
 	type ModelRequest,
 	type ModelResult,
@@ -14,6 +14,7 @@ const nodes = [
 	},
 ] as const;
 
+beforeAll(() => source.send({ type: "MODEL_AVAILABLE" }));
 afterAll(() => source.stop());
 
 describe("voice/text workbench model turn", () => {
