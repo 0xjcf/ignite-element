@@ -3,6 +3,8 @@ import { component, source } from "./session";
 import { renderWorkbench, type WorkbenchControls } from "./workbench";
 
 export const PARITY_STATES = [
+	"preparing",
+	"failed",
 	"ready",
 	"listening",
 	"responding",
@@ -36,6 +38,7 @@ export function createParityControls(): WorkbenchControls {
 			});
 		},
 		replayTrace: () => source.send({ type: "PRESENTATION_REPLAYED" }),
+		retryModel: () => source.send({ type: "MODEL_PREPARATION_STARTED" }),
 		setArtifactView: (view) =>
 			source.send({ type: "PRESENTATION_ARTIFACT_VIEW_CHANGED", view }),
 		setMobilePanel: (panel) =>
@@ -70,6 +73,7 @@ const setIdleVoice = () =>
 
 const ensureResponding = async () => {
 	if (component.getView().status === "responding") return;
+	source.send({ type: "MODEL_AVAILABLE" });
 	await component.execute({
 		command: "submitPrompt",
 		input: {
@@ -166,9 +170,23 @@ const seedArtifact = async () => {
 
 export async function seedParityState(state: ParityState): Promise<void> {
 	switch (state) {
+		case "preparing":
+			source.send({ type: "MODEL_PREPARATION_STARTED" });
+			return;
+		case "failed":
+			source.send({
+				type: "MODEL_FAILED",
+				failure: {
+					kind: "provider",
+					message: "Parity harness only — simulated model failure.",
+				},
+			});
+			return;
 		case "ready":
+			source.send({ type: "MODEL_AVAILABLE" });
 			return;
 		case "listening":
+			source.send({ type: "MODEL_AVAILABLE" });
 			source.send({
 				type: "PRESENTATION_VOICE_CHANGED",
 				fact: { type: "voice-listening" },
@@ -186,6 +204,7 @@ export async function seedParityState(state: ParityState): Promise<void> {
 			await seedArtifact();
 			return;
 		case "permission":
+			source.send({ type: "MODEL_AVAILABLE" });
 			source.send({
 				type: "PRESENTATION_DRAFT_CHANGED",
 				draft: "Parity harness draft stays available",

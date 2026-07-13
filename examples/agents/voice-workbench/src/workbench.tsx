@@ -19,6 +19,7 @@ export type WorkbenchControls = {
 	cancelVoice(): void;
 	playSpeech(): void;
 	replayTrace(): void;
+	retryModel(): void;
 	setArtifactView(view: WorkbenchArtifactView): void;
 	setMobilePanel(panel: WorkbenchPanel): void;
 	setSpeechPreference(enabled: boolean): void;
@@ -283,6 +284,14 @@ export const renderWorkbench = (
 			? voice
 			: null;
 	const turnMessage = describeTurn(presentation.turn);
+	const modelPreparing = context.model.status === "preparing";
+	const modelFailed = context.model.status === "failed";
+	const promptPlaceholder = modelPreparing
+		? "Waiting for the local model to finish preparing…"
+		: modelFailed
+			? "Retry the local model before sending a prompt…"
+			: "Ask the agent to create or revise an artifact…";
+	const turnState = context.status === "responding" ? "responding" : "ready";
 
 	return (
 		<>
@@ -303,7 +312,10 @@ export const renderWorkbench = (
 						</div>
 					</div>
 					<div class="topbar-center">
-						<output class="pill pill-success" aria-label="Conversation status">
+						<output
+							class={`pill ${modelPreparing ? "pill-preparing" : modelFailed ? "pill-failed" : "pill-success"}`}
+							aria-label="Conversation status"
+						>
 							<i class="dot" /> {context.statusLabel}
 						</output>
 						<span class="pill">one component</span>
@@ -415,6 +427,39 @@ export const renderWorkbench = (
 									</p>
 								</div>
 							</div>
+							{modelPreparing || modelFailed ? (
+								<section
+									class={`model-notice ${modelFailed ? "model-notice-failed" : ""}`}
+									role={modelFailed ? "alert" : "status"}
+									aria-live="polite"
+								>
+									<span class="model-notice-icon" aria-hidden="true">
+										{modelFailed ? "!" : "◌"}
+									</span>
+									<div>
+										<strong>
+											{modelFailed
+												? "The local model is unavailable"
+												: "Preparing the local MLX model"}
+										</strong>
+										<p>
+											{modelFailed
+												? (context.model.failure?.message ??
+													"The local model could not be prepared.")
+												: "The first launch may still be downloading and loading model weights. Prompt controls unlock after a real inference succeeds."}
+										</p>
+									</div>
+									{modelFailed ? (
+										<button
+											class="button model-retry"
+											type="button"
+											onClick={controls.retryModel}
+										>
+											Retry model
+										</button>
+									) : null}
+								</section>
+							) : null}
 							<form
 								class="composer"
 								onSubmit={(event: Event) => {
@@ -434,7 +479,7 @@ export const renderWorkbench = (
 								<textarea
 									id="prompt"
 									name="prompt"
-									placeholder="Ask the agent to create or revise an artifact…"
+									placeholder={promptPlaceholder}
 									value={presentation.draft}
 									disabled={!context.canSubmitPrompt}
 									onInput={(event: Event) =>
@@ -524,7 +569,37 @@ export const renderWorkbench = (
 										: "empty session · revision 0"}
 								</span>
 							</div>
-							{activeArtifact ? (
+							{!activeArtifact && (modelPreparing || modelFailed) ? (
+								<section
+									class={`model-state ${modelFailed ? "model-state-failed" : ""}`}
+									aria-live="polite"
+								>
+									<div class="model-state-mark" aria-hidden="true">
+										{modelFailed ? "!" : "◆"}
+									</div>
+									<strong>
+										{modelFailed
+											? "Local inference is not available yet"
+											: "Preparing the local MLX model"}
+									</strong>
+									<p>
+										{modelFailed
+											? "Retry from the conversation panel. The actor will keep prompts closed until inference succeeds."
+											: "The workbench is already mounted. Ignite will project Ready only after the model completes a real warm-up inference."}
+									</p>
+									{modelPreparing ? (
+										<div class="model-progress" aria-hidden="true">
+											<i />
+										</div>
+									) : null}
+									<span class="model-state-detail">
+										{modelFailed
+											? (context.model.failure?.message ??
+												"The local model could not be prepared.")
+											: "Endpoint connected · inference warm-up in progress"}
+									</span>
+								</section>
+							) : activeArtifact ? (
 								<span class="pill pill-success">committed</span>
 							) : null}
 							<div class="segmented" role="tablist" aria-label="Artifact view">
@@ -659,7 +734,9 @@ export const renderWorkbench = (
 										<div class="actor-copy">
 											<strong>{context.sessionId}</strong>
 											<span>
-												matches(<code>"{context.status}"</code>)
+												matches(
+												<code>{`{ provider: "${context.model.status}", turn: "${turnState}" }`}</code>
+												)
 											</span>
 											<output class="latest-fact">
 												{describeFact(context.lastFact)}

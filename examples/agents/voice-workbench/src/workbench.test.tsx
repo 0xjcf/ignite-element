@@ -11,6 +11,7 @@ describe("voice workbench accessible JSX", () => {
 			cancelVoice: vi.fn(),
 			playSpeech: vi.fn(),
 			replayTrace: () => source.send({ type: "PRESENTATION_REPLAYED" }),
+			retryModel: vi.fn(),
 			setArtifactView: (view) =>
 				source.send({ type: "PRESENTATION_ARTIFACT_VIEW_CHANGED", view }),
 			setMobilePanel: (panel) =>
@@ -44,6 +45,34 @@ describe("voice workbench accessible JSX", () => {
 				{ role: "tab", name: "Schema" },
 			]),
 		).toHaveLength(5);
+		expect(
+			bridge.host.shadowRoot?.querySelector(
+				'output[aria-label="Conversation status"]',
+			)?.textContent,
+		).toContain("Preparing local model");
+		expect(bridge.host.shadowRoot?.textContent).toContain(
+			"Preparing the local MLX model",
+		);
+		expect(
+			(
+				bridge.getByRole("textbox", {
+					name: "Prompt",
+				}) as HTMLTextAreaElement
+			).disabled,
+		).toBe(true);
+		source.send({
+			type: "MODEL_FAILED",
+			failure: {
+				kind: "network",
+				message: "The local model could not be reached.",
+			},
+		});
+		expect(bridge.host.shadowRoot?.textContent).toContain(
+			"The local model could not be reached.",
+		);
+		bridge.getByRole("button", { name: "Retry model" }).click();
+		expect(controls.retryModel).toHaveBeenCalledOnce();
+		source.send({ type: "MODEL_AVAILABLE" });
 		expect(
 			bridge.host.shadowRoot?.querySelector(
 				'output[aria-label="Conversation status"]',

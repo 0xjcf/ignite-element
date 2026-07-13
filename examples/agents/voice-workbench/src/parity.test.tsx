@@ -12,8 +12,10 @@ import { component, source } from "./session";
 import { renderWorkbench } from "./workbench";
 
 describe("voice workbench production parity harness", () => {
-	it("allowlists exactly the five approved states", () => {
+	it("allowlists the approved provider, turn, artifact, and voice states", () => {
 		expect(PARITY_STATES).toEqual([
+			"preparing",
+			"failed",
 			"ready",
 			"listening",
 			"responding",
@@ -27,7 +29,7 @@ describe("voice workbench production parity harness", () => {
 		expect(paritySource).not.toContain("querySelector");
 	});
 
-	it("renders accessible evidence for ready, listening, responding, artifact, and permission", async () => {
+	it("renders accessible evidence across provider, turn, artifact, and voice lifecycles", async () => {
 		const bridge = igniteTest.accessibilityBridge(
 			component,
 			(projection: Parameters<typeof renderWorkbench>[0]) =>
@@ -35,6 +37,30 @@ describe("voice workbench production parity harness", () => {
 			{ elementName: "voice-workbench-parity-accessibility" },
 		);
 		const shell = () => bridge.host.shadowRoot?.querySelector(".shell");
+
+		await seedParityState("preparing");
+		expect(shell()?.getAttribute("data-actor-state")).toBe("preparing");
+		expect(bridge.host.shadowRoot?.textContent).toContain(
+			"Preparing the local MLX model",
+		);
+		expect(
+			(
+				bridge.getByRole("textbox", {
+					name: "Prompt",
+				}) as HTMLTextAreaElement
+			).disabled,
+		).toBe(true);
+
+		await seedParityState("failed");
+		expect(shell()?.getAttribute("data-actor-state")).toBe("failed");
+		expect(bridge.host.shadowRoot?.textContent).toContain(
+			"Parity harness only — simulated model failure.",
+		);
+		expect(
+			igniteTest.expectControls(bridge, [
+				{ role: "button", name: "Retry model" },
+			]),
+		).toHaveLength(1);
 
 		await seedParityState("ready");
 		expect(shell()?.getAttribute("data-actor-state")).toBe("ready");

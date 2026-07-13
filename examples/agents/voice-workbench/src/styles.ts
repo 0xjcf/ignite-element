@@ -125,6 +125,8 @@ export const workbenchStyles = `
 		white-space: nowrap;
 	}
 	.pill-success { border-color: var(--primary); background: var(--primary-wash); color: var(--primary); }
+	.pill-preparing { border-color: var(--warning); background: color-mix(in oklab, var(--warning) 10%, transparent); color: var(--warning); }
+	.pill-failed { border-color: var(--danger); background: color-mix(in oklab, var(--danger) 10%, transparent); color: var(--danger); }
 	.pill-speech { border-color: var(--speech); background: var(--speech-wash); color: var(--speech); }
 	.dot { width: 0.42rem; height: 0.42rem; border-radius: 50%; background: currentColor; box-shadow: 0 0 0.8rem currentColor; }
 	.switch { display: inline-flex; align-items: center; gap: 0.55rem; color: var(--foreground-soft); font-size: 0.76rem; cursor: pointer; }
@@ -209,6 +211,13 @@ export const workbenchStyles = `
 	.shell[data-voice-state="permission"] .permission-note { display: grid; grid-template-columns: auto 1fr; gap: var(--space-2); }
 	.permission-note strong { display: block; font-size: 0.75rem; }
 	.permission-note p { margin: 0.12rem 0 0; color: var(--foreground-soft); font-size: 0.68rem; }
+	.model-notice { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-2); align-items: start; margin: 0 0 var(--space-3); padding: var(--space-3); border: 1px solid var(--warning); border-radius: var(--radius-md); background: color-mix(in oklab, var(--warning) 8%, transparent); }
+	.model-notice-failed { grid-template-columns: auto minmax(0, 1fr) auto; border-color: var(--danger); background: color-mix(in oklab, var(--danger) 8%, transparent); }
+	.model-notice-icon { display: grid; place-items: center; width: 1.5rem; height: 1.5rem; color: var(--warning); font-weight: 850; animation: pulse 1.6s ease-in-out infinite; }
+	.model-notice-failed .model-notice-icon { color: var(--danger); animation: none; }
+	.model-notice strong { display: block; font-size: 0.74rem; }
+	.model-notice p { margin: 0.12rem 0 0; color: var(--foreground-soft); font-size: 0.66rem; }
+	.model-retry { align-self: center; border-color: var(--danger); color: var(--foreground); }
 
 	.artifact { display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--background); }
 	.artifact-toolbar { background: var(--background-elevated); }
@@ -220,11 +229,20 @@ export const workbenchStyles = `
 	.proof-banner { width: min(100%, 54rem); margin: 0 auto var(--space-3); padding: 0.72rem 0.85rem; display: grid; grid-template-columns: auto 1fr; gap: var(--space-3); align-items: center; border: 1px solid var(--primary); border-radius: var(--radius-md); background: var(--primary-wash); }
 	.proof-banner strong { display: block; font-size: 0.72rem; }
 	.proof-banner span { display: block; margin-top: 0.08rem; color: var(--foreground-soft); font-size: 0.66rem; }
-	.document, .schema-view, .empty-artifact { width: min(100%, 54rem); min-height: 100%; margin: 0 auto; padding: clamp(1.25rem, 3vw, 3rem); border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--background-elevated); box-shadow: var(--shadow-lg); }
+	.document, .schema-view, .empty-artifact, .model-state { width: min(100%, 54rem); min-height: 100%; margin: 0 auto; padding: clamp(1.25rem, 3vw, 3rem); border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--background-elevated); box-shadow: var(--shadow-lg); }
 	.empty-artifact { display: grid; place-items: center; text-align: center; }
 	.empty-artifact div { max-width: 28rem; }
 	.empty-artifact strong { display: block; margin-bottom: var(--space-2); font-size: 1.15rem; }
 	.empty-artifact p { margin: 0; color: var(--foreground-soft); }
+	.model-state { display: grid; place-items: center; align-content: center; gap: var(--space-3); text-align: center; border-color: color-mix(in oklab, var(--warning) 42%, var(--border)); }
+	.model-state-failed { border-color: color-mix(in oklab, var(--danger) 50%, var(--border)); }
+	.model-state-mark { display: grid; place-items: center; width: 3.4rem; height: 3.4rem; border: 1px solid var(--warning); border-radius: 1rem; background: color-mix(in oklab, var(--warning) 9%, transparent); color: var(--warning); box-shadow: 0 0 2.5rem color-mix(in oklab, var(--warning) 16%, transparent); }
+	.model-state-failed .model-state-mark { border-color: var(--danger); background: color-mix(in oklab, var(--danger) 9%, transparent); color: var(--danger); }
+	.model-state > strong { font-size: 1.15rem; }
+	.model-state > p { max-width: 34rem; margin: 0; color: var(--foreground-soft); }
+	.model-state-detail { color: var(--muted); font-family: var(--font-mono); font-size: 0.64rem; }
+	.model-progress { width: min(100%, 22rem); height: 0.28rem; margin: var(--space-2) 0; overflow: hidden; border-radius: 999px; background: var(--surface-raised); }
+	.model-progress i { display: block; width: 38%; height: 100%; border-radius: inherit; background: var(--warning); animation: model-progress 1.4s ease-in-out infinite alternate; }
 	.doc-kicker { display: flex; align-items: center; gap: var(--space-2); color: var(--primary); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
 	.doc-kicker::before { content: ""; width: 1.7rem; height: 0.12rem; border-radius: 1rem; background: var(--primary); }
 	.document h1 { max-width: 43rem; margin: var(--space-5) 0 var(--space-3); font-size: clamp(1.8rem, 3.4vw, 3.25rem); line-height: 1.02; letter-spacing: -0.045em; }
@@ -247,7 +265,8 @@ export const workbenchStyles = `
 	.schema-view { display: none; }
 	.schema-view pre { margin: 0; overflow: auto; font-size: 0.72rem; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
 	.artifact[data-view="schema"] .document,
-	.artifact[data-view="schema"] .empty-artifact { display: none; }
+	.artifact[data-view="schema"] .empty-artifact,
+	.artifact[data-view="schema"] .model-state { display: none; }
 	.artifact[data-view="schema"] .schema-view { display: block; }
 	.responding-overlay { display: none; position: absolute; inset: 0; align-items: center; justify-content: center; padding: var(--space-6); background: color-mix(in oklab, var(--background) 72%, transparent); backdrop-filter: blur(0.4rem); z-index: 5; }
 	.shell[data-actor-state="responding"] .responding-overlay { display: flex; }
@@ -322,6 +341,7 @@ export const workbenchStyles = `
 	@keyframes pulse { 0%, 100% { opacity: 0.25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-0.12rem); } }
 	@keyframes wave { from { transform: scaleY(0.45); } to { transform: scaleY(1); } }
 	@keyframes rise { from { opacity: 0; transform: translateY(0.35rem); } to { opacity: 1; transform: translateY(0); } }
+	@keyframes model-progress { from { transform: translateX(-10%); } to { transform: translateX(175%); } }
 	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; } }
 	@media (max-width: 72rem) {
 		.workspace { grid-template-columns: minmax(17rem, 0.72fr) minmax(27rem, 1.45fr); }
@@ -345,7 +365,9 @@ export const workbenchStyles = `
 		.composer textarea { min-height: 4.3rem; font-size: 1rem; }
 		.artifact-toolbar, .panel-head { padding: 0 var(--space-3); }
 		.artifact-scroll { padding: var(--space-3); }
-		.document, .schema-view, .empty-artifact { padding: var(--space-5); border-radius: var(--radius-lg); }
+		.document, .schema-view, .empty-artifact, .model-state { padding: var(--space-5); border-radius: var(--radius-lg); }
+		.model-notice-failed { grid-template-columns: auto minmax(0, 1fr); }
+		.model-retry { grid-column: 1 / -1; width: 100%; }
 		.doc-grid { grid-template-columns: 1fr; }
 		.document h1 { font-size: 2rem; }
 	}

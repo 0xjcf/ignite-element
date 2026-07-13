@@ -81,6 +81,11 @@ describe("voice workbench browser entry", () => {
 	});
 
 	it("creates and revises the center document through real text and speech paths", async () => {
+		let resolveReadiness: (response: Response) => void = () => {};
+		const readiness = new Promise<Response>((resolve) => {
+			resolveReadiness = resolve;
+		});
+		let firstRequest = true;
 		const responses = [
 			completion([
 				{
@@ -146,6 +151,10 @@ describe("voice workbench browser entry", () => {
 			]),
 		];
 		const fetchMock = vi.fn(async () => {
+			if (firstRequest) {
+				firstRequest = false;
+				return readiness;
+			}
 			const response = responses.shift();
 			if (!response) throw new Error("unexpected model request");
 			return new Response(JSON.stringify(response), { status: 200 });
@@ -160,9 +169,33 @@ describe("voice workbench browser entry", () => {
 			throw new Error("voice workbench did not mount");
 		}
 		expect(component.getView()).toMatchObject({
-			status: "ready",
+			status: "preparing",
+			canSubmitPrompt: false,
+			model: { status: "preparing", failure: null },
 			artifacts: [],
 			messageCount: 0,
+		});
+		expect(host.shadowRoot.textContent).toContain(
+			"Preparing the local MLX model",
+		);
+		expect(
+			(host.shadowRoot.querySelector("textarea") as HTMLTextAreaElement | null)
+				?.disabled,
+		).toBe(true);
+		resolveReadiness(
+			new Response(
+				JSON.stringify({
+					choices: [{ message: { role: "assistant", content: "OK" } }],
+				}),
+				{ status: 200 },
+			),
+		);
+		await vi.waitFor(() => {
+			expect(component.getView()).toMatchObject({
+				status: "ready",
+				canSubmitPrompt: true,
+				model: { status: "available", failure: null },
+			});
 		});
 		expect(host.shadowRoot.textContent).toContain(
 			"Your first accepted artifact will appear here",
@@ -269,7 +302,7 @@ describe("voice workbench browser entry", () => {
 		expect(component.getView()).toMatchObject({
 			presentation: { draft: "Keep this typed draft" },
 		});
-		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(fetchMock).toHaveBeenCalledTimes(3);
 		expect(terminal).toHaveBeenCalled();
 
 		const incompletePrompt = host.shadowRoot.querySelector("textarea");
@@ -306,7 +339,7 @@ describe("voice workbench browser entry", () => {
 				"The model omitted a completed response, so the actor recovered the turn.",
 			);
 		});
-		expect(fetchMock).toHaveBeenCalledTimes(3);
+		expect(fetchMock).toHaveBeenCalledTimes(4);
 
 		const recoveryPrompt = host.shadowRoot.querySelector("textarea");
 		const recoveryForm = host.shadowRoot.querySelector("form");
@@ -337,7 +370,7 @@ describe("voice workbench browser entry", () => {
 				},
 			});
 		});
-		expect(fetchMock).toHaveBeenCalledTimes(4);
+		expect(fetchMock).toHaveBeenCalledTimes(5);
 
 		if (!FakeSpeechRecognition.current) {
 			throw new Error("speech recognition was not initialized");

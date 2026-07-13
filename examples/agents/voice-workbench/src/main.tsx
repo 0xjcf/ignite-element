@@ -4,7 +4,7 @@ import {
 	createProjectionSpeechTarget,
 } from "ignite-element/xstate";
 import { type ModelTurnResult, runModelTurn } from "./agent-loop";
-import { createMlxWorkbenchModel } from "./model";
+import { createMlxWorkbenchModel, probeMlxWorkbenchReadiness } from "./model";
 import { component, source, type WorkbenchTurnFact } from "./session";
 import { createBrowserVoiceCapture } from "./voice";
 import {
@@ -39,6 +39,23 @@ const configuration = {
 
 const model = createMlxWorkbenchModel({ component, ...configuration });
 const voice = createBrowserVoiceCapture();
+let readinessAttempt = 0;
+let readinessController: AbortController | null = null;
+
+const prepareModel = async () => {
+	const attempt = ++readinessAttempt;
+	readinessController?.abort();
+	const controller = new AbortController();
+	readinessController = controller;
+	source.send({ type: "MODEL_PREPARATION_STARTED" });
+	const fact = await probeMlxWorkbenchReadiness({
+		...configuration,
+		signal: controller.signal,
+	});
+	if (attempt !== readinessAttempt || controller.signal.aborted) return;
+	readinessController = null;
+	source.send(fact);
+};
 
 const speak = (text: string): "played" | "unavailable" => {
 	if (
@@ -99,6 +116,7 @@ const controls: WorkbenchControls = {
 		});
 	},
 	replayTrace: () => source.send({ type: "PRESENTATION_REPLAYED" }),
+	retryModel: () => void prepareModel(),
 	setArtifactView: (view) =>
 		source.send({ type: "PRESENTATION_ARTIFACT_VIEW_CHANGED", view }),
 	setMobilePanel: (panel) =>
@@ -137,6 +155,7 @@ source.send({ type: "PRESENTATION_VOICE_CHANGED", fact: voice.getFact() });
 component("voice-workbench", (projection) =>
 	renderWorkbench(projection, controls),
 );
+void prepareModel();
 
 const terminalSubscription = component.on("response-completed", () => {
 	const response = component.getView().response;
@@ -181,6 +200,9 @@ const speechProjection = component(
 
 window.addEventListener("pagehide", (event) => {
 	if (event.persisted) return;
+	readinessAttempt += 1;
+	readinessController?.abort();
+	readinessController = null;
 	voiceSubscription.unsubscribe();
 	voice.dispose();
 	terminalSubscription.unsubscribe();
