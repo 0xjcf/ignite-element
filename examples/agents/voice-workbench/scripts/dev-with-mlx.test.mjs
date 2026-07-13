@@ -388,6 +388,23 @@ describe("voice workbench MLX launcher", () => {
 		expect(resolved).toBe(true);
 	});
 
+	it("does not spawn children when shutdown begins during the first probe", async () => {
+		let rejectProbe;
+		const firstProbe = new Promise((_resolve, reject) => {
+			rejectProbe = reject;
+		});
+		const harness = createHarness({ fetchSteps: [firstProbe] });
+		const running = runLauncher(managedOptions(harness.dependencies));
+
+		harness.signals.get("SIGINT")();
+		rejectProbe(new Error("probe cancelled"));
+		await running;
+
+		expect(harness.spawns).toHaveLength(0);
+		expect(harness.exitCodes).toEqual([0]);
+		expect(harness.signals.size).toBe(0);
+	});
+
 	it("uses typed launcher errors for invalid configuration", () => {
 		expect(() =>
 			resolveLauncherConfig(

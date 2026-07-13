@@ -218,6 +218,11 @@ function createLifecycle(deps, config) {
 	let stopping = false;
 
 	function spawnOwned(label, command, args, options = {}) {
+		if (stopping) {
+			throw new LauncherError(
+				`Could not start ${label}: launcher is stopping.`,
+			);
+		}
 		let child;
 		try {
 			child = deps.spawn(command, args, {
