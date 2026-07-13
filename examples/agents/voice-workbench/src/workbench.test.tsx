@@ -2,35 +2,23 @@
 import { test as igniteTest } from "ignite-element/testing";
 import { describe, expect, it, vi } from "vitest";
 import { component, source } from "./session";
-import { renderWorkbench, type WorkbenchControls } from "./workbench";
+import { renderWorkbench, type WorkbenchEnvironment } from "./workbench";
 
 describe("voice workbench accessible JSX", () => {
 	it("renders the approved empty-to-artifact workflow from the component view", async () => {
 		const submitPrompt = vi.fn();
-		const controls: WorkbenchControls = {
+		const environment: WorkbenchEnvironment = {
 			cancelVoice: vi.fn(),
 			playSpeech: vi.fn(),
-			replayTrace: () => source.send({ type: "PRESENTATION_REPLAYED" }),
 			retryModel: vi.fn(),
-			setArtifactView: (view) =>
-				source.send({ type: "PRESENTATION_ARTIFACT_VIEW_CHANGED", view }),
-			setMobilePanel: (panel) =>
-				source.send({ type: "PRESENTATION_MOBILE_PANEL_CHANGED", panel }),
-			setSpeechPreference: (enabled) =>
-				source.send({
-					type: "PRESENTATION_SPEECH_PREFERENCE_CHANGED",
-					enabled,
-				}),
 			startVoice: vi.fn(),
 			submitPrompt,
-			updateDraft: (draft) =>
-				source.send({ type: "PRESENTATION_DRAFT_CHANGED", draft }),
 			useVoiceTranscript: vi.fn(),
 		};
 		const bridge = igniteTest.accessibilityBridge(
 			component,
 			(projection: Parameters<typeof renderWorkbench>[0]) =>
-				renderWorkbench(projection, controls),
+				renderWorkbench(projection, environment),
 			{
 				elementName: "voice-workbench-accessibility",
 			},
@@ -71,7 +59,7 @@ describe("voice workbench accessible JSX", () => {
 			"The local model could not be reached.",
 		);
 		bridge.getByRole("button", { name: "Retry model" }).click();
-		expect(controls.retryModel).toHaveBeenCalledOnce();
+		expect(environment.retryModel).toHaveBeenCalledOnce();
 		source.send({ type: "MODEL_AVAILABLE" });
 		expect(
 			bridge.host.shadowRoot?.querySelector(

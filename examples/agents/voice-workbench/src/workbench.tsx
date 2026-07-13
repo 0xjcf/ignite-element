@@ -1,11 +1,6 @@
 /** @jsxImportSource ignite-element/jsx */
 
-import type {
-	WorkbenchArtifactView,
-	WorkbenchPanel,
-	WorkbenchTurnFact,
-} from "./session";
-import { component } from "./session";
+import { component, source } from "./session";
 import { workbenchStyles } from "./styles";
 
 type WorkbenchRenderer = Extract<
@@ -15,87 +10,16 @@ type WorkbenchRenderer = Extract<
 type WorkbenchContext = Parameters<WorkbenchRenderer>[0];
 type DocumentNode = WorkbenchContext["artifacts"][number]["nodes"][number];
 export type WorkbenchPrompt = { channel: "text" | "speech"; text: string };
-export type WorkbenchControls = {
+export type WorkbenchEnvironment = {
 	cancelVoice(): void;
 	playSpeech(): void;
-	replayTrace(): void;
 	retryModel(): void;
-	setArtifactView(view: WorkbenchArtifactView): void;
-	setMobilePanel(panel: WorkbenchPanel): void;
-	setSpeechPreference(enabled: boolean): void;
 	startVoice(): void;
 	submitPrompt(prompt: WorkbenchPrompt): void;
-	updateDraft(draft: string): void;
 	useVoiceTranscript(): void;
 };
 
 const commandNames = Object.keys(component.getSchema().commands);
-
-const schemaDocument = (
-	document: WorkbenchContext["artifacts"][number] | undefined,
-) => {
-	if (!document) return { artifacts: [] };
-	return {
-		id: document.id,
-		title: document.title,
-		revision: document.revision,
-		nodes: document.nodes.map(({ action: _action, ...node }) => node),
-	};
-};
-
-const describeFact = (fact: WorkbenchContext["lastFact"]): string => {
-	if (!fact) return "no actor facts yet";
-	switch (fact.type) {
-		case "prompt-submitted":
-			return `${fact.type} · ${fact.modality}`;
-		case "artifact-created":
-		case "artifact-revised":
-			return `${fact.type} · revision ${fact.revision}`;
-		case "artifact-rejected":
-			return `${fact.type} · ${fact.reason}`;
-		case "speech-acknowledged":
-			return `${fact.type} · ${fact.id}`;
-		case "response-completed":
-			return fact.type;
-	}
-};
-
-const voiceState = (
-	fact: WorkbenchContext["presentation"]["voice"],
-): "idle" | "listening" | "transcript" | "permission" | "unsupported" => {
-	switch (fact.type) {
-		case "voice-listening":
-			return "listening";
-		case "voice-transcript":
-			return "transcript";
-		case "voice-permission-denied":
-		case "voice-error":
-			return "permission";
-		case "voice-unsupported":
-			return "unsupported";
-		case "voice-idle":
-		case "voice-cancelled":
-			return "idle";
-	}
-};
-
-const describeTurn = (turn: WorkbenchTurnFact | null): string => {
-	if (!turn) return "";
-	switch (turn.type) {
-		case "accepted":
-			return "Actor accepted the model-authored turn.";
-		case "model-failed":
-			return turn.message;
-		case "prompt-rejected":
-			return "The actor did not admit this prompt.";
-		case "response-incomplete":
-			return "The model omitted a completed response, so the actor recovered the turn.";
-		case "command-not-allowed":
-			return `${turn.command} was not allowed by the model command policy.`;
-		case "command-rejected":
-			return `${turn.command} was rejected by the actor.`;
-	}
-};
 
 const nodeHeading = (kind: DocumentNode["kind"], label: string) => (
 	<h2>
@@ -258,48 +182,15 @@ const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 
 export const renderWorkbench = (
 	context: WorkbenchContext,
-	controls: WorkbenchControls,
+	environment: WorkbenchEnvironment,
 ) => {
-	const activeArtifact =
-		context.artifacts.find(
-			(artifact) => artifact.id === context.activeArtifactId,
-		) ?? context.artifacts[context.artifacts.length - 1];
-	const turns = context.messages.filter(
-		(message) => message.role === "user",
-	).length;
-	const turnLabel = `${turns} ${turns === 1 ? "turn" : "turns"}`;
-	const speechStatus = context.speech?.status ?? "idle";
-	const documentSchema = JSON.stringify(
-		schemaDocument(activeArtifact),
-		null,
-		2,
-	);
-	const presentation = context.presentation;
-	const voice = presentation.voice;
-	const transcript = voice.type === "voice-transcript" ? voice.text : null;
-	const transcriptReady = voice.type === "voice-transcript" && voice.final;
-	const microphoneUnavailable = voice.type === "voice-unsupported";
-	const voiceFailure =
-		voice.type === "voice-permission-denied" || voice.type === "voice-error"
-			? voice
-			: null;
-	const turnMessage = describeTurn(presentation.turn);
-	const modelPreparing = context.model.status === "preparing";
-	const modelFailed = context.model.status === "failed";
-	const promptPlaceholder = modelPreparing
-		? "Waiting for the local model to finish preparing…"
-		: modelFailed
-			? "Retry the local model before sending a prompt…"
-			: "Ask the agent to create or revise an artifact…";
-	const turnState = context.status === "responding" ? "responding" : "ready";
-
 	return (
 		<>
 			<style>{workbenchStyles}</style>
 			<div
 				class="shell"
 				data-actor-state={context.status}
-				data-voice-state={voiceState(voice)}
+				data-voice-state={context.voiceState}
 			>
 				<header class="topbar">
 					<div class="brand">
@@ -313,7 +204,7 @@ export const renderWorkbench = (
 					</div>
 					<div class="topbar-center">
 						<output
-							class={`pill ${modelPreparing ? "pill-preparing" : modelFailed ? "pill-failed" : "pill-success"}`}
+							class={`pill ${context.modelPreparing ? "pill-preparing" : context.modelFailed ? "pill-failed" : "pill-success"}`}
 							aria-label="Conversation status"
 						>
 							<i class="dot" /> {context.statusLabel}
@@ -328,11 +219,12 @@ export const renderWorkbench = (
 							<input
 								id="speak-toggle"
 								type="checkbox"
-								checked={presentation.speakResponses}
+								checked={context.presentation.speakResponses}
 								onChange={(event: Event) =>
-									controls.setSpeechPreference(
-										(event.currentTarget as HTMLInputElement).checked,
-									)
+									source.send({
+										type: "PRESENTATION_SPEECH_PREFERENCE_CHANGED",
+										enabled: (event.currentTarget as HTMLInputElement).checked,
+									})
 								}
 							/>
 							<span class="switch-track" aria-hidden="true" />
@@ -342,7 +234,7 @@ export const renderWorkbench = (
 
 				<div class="workspace">
 					<section
-						class={`panel conversation${presentation.mobilePanel === "conversation" ? " is-mobile-active" : ""}`}
+						class={`panel conversation${context.presentation.mobilePanel === "conversation" ? " is-mobile-active" : ""}`}
 						data-panel="conversation"
 						aria-label="Conversation"
 					>
@@ -356,13 +248,13 @@ export const renderWorkbench = (
 						<fieldset class="session-summary">
 							<legend class="sr-only">Session summary</legend>
 							<span class="session-stat">
-								<strong>{turnLabel}</strong>
+								<strong>{context.turnLabel}</strong>
 							</span>
 							<span class="session-stat">
 								<strong>{context.artifacts.length} artifacts</strong>
 							</span>
 							<span class="session-stat session-stat-speech">
-								<strong>{speechStatus}</strong>
+								<strong>{context.speechStatus}</strong>
 								<span>voice</span>
 							</span>
 						</fieldset>
@@ -409,51 +301,53 @@ export const renderWorkbench = (
 								id="turn-result"
 								class="sr-only"
 								aria-live="assertive"
-								data-replay={presentation.replaySequence}
+								data-replay={context.presentation.replaySequence}
 							>
-								{turnMessage}
+								{context.turnMessage}
 							</output>
 							<div class="permission-note" role="alert">
 								<span aria-hidden="true">⚠</span>
 								<div>
 									<strong>
-										{voice.type === "voice-permission-denied"
+										{context.presentation.voice.type ===
+										"voice-permission-denied"
 											? "Microphone access was denied"
 											: "Speech input is unavailable"}
 									</strong>
 									<p>
-										{voiceFailure?.message ?? "Speech input is unavailable."}{" "}
+										{context.voiceFailure?.message ??
+											"Speech input is unavailable."}{" "}
 										Continue by typing; your current draft is preserved.
 									</p>
 								</div>
 							</div>
-							{modelPreparing || modelFailed ? (
+							{context.modelPreparing || context.modelFailed ? (
 								<section
-									class={`model-notice ${modelFailed ? "model-notice-failed" : ""}`}
-									role={modelFailed ? "alert" : "status"}
+									class={`model-notice ${context.modelFailed ? "model-notice-failed" : ""}`}
+									role={context.modelFailed ? "alert" : "status"}
 									aria-live="polite"
 								>
 									<span class="model-notice-icon" aria-hidden="true">
-										{modelFailed ? "!" : "◌"}
+										{context.modelFailed ? "!" : "◌"}
 									</span>
 									<div>
 										<strong>
-											{modelFailed
+											{context.modelFailed
 												? "The local model is unavailable"
 												: "Preparing the local MLX model"}
 										</strong>
 										<p>
-											{modelFailed
+											{context.modelFailed
 												? (context.model.failure?.message ??
 													"The local model could not be prepared.")
 												: "The first launch may still be downloading and loading model weights. Prompt controls unlock after a real inference succeeds."}
 										</p>
 									</div>
-									{modelFailed ? (
+									{context.modelFailed ? (
 										<button
 											class="button model-retry"
 											type="button"
-											onClick={controls.retryModel}
+											onClick={environment.retryModel}
 										>
 											Retry model
 										</button>
@@ -464,9 +358,9 @@ export const renderWorkbench = (
 								class="composer"
 								onSubmit={(event: Event) => {
 									event.preventDefault();
-									const text = presentation.draft.trim();
+									const text = context.presentation.draft.trim();
 									if (text) {
-										controls.submitPrompt({
+										environment.submitPrompt({
 											channel: "text",
 											text,
 										} satisfies WorkbenchPrompt);
@@ -479,13 +373,14 @@ export const renderWorkbench = (
 								<textarea
 									id="prompt"
 									name="prompt"
-									placeholder={promptPlaceholder}
-									value={presentation.draft}
+									placeholder={context.promptPlaceholder}
+									value={context.presentation.draft}
 									disabled={!context.canSubmitPrompt}
 									onInput={(event: Event) =>
-										controls.updateDraft(
-											(event.currentTarget as HTMLTextAreaElement).value,
-										)
+										source.send({
+											type: "PRESENTATION_DRAFT_CHANGED",
+											draft: (event.currentTarget as HTMLTextAreaElement).value,
+										})
 									}
 								/>
 								<div class="composer-actions">
@@ -496,8 +391,10 @@ export const renderWorkbench = (
 										type="button"
 										aria-label="Start speech input"
 										title="Start speech input"
-										disabled={microphoneUnavailable || !context.canSubmitPrompt}
-										onClick={controls.startVoice}
+										disabled={
+											context.microphoneUnavailable || !context.canSubmitPrompt
+										}
+										onClick={environment.startVoice}
 									>
 										<span aria-hidden="true">●</span>
 									</button>
@@ -518,10 +415,12 @@ export const renderWorkbench = (
 									</div>
 									<div class="voice-copy">
 										<strong id="voice-status">
-											{transcriptReady ? "Transcript ready" : "Listening…"}
+											{context.transcriptReady
+												? "Transcript ready"
+												: "Listening…"}
 										</strong>
 										<span id="live-transcript">
-											{transcript ?? "Waiting for speech"}
+											{context.transcript ?? "Waiting for speech"}
 										</span>
 									</div>
 									<div class="wave" aria-hidden="true">
@@ -537,7 +436,7 @@ export const renderWorkbench = (
 										class="button"
 										id="cancel-voice"
 										type="button"
-										onClick={controls.cancelVoice}
+										onClick={environment.cancelVoice}
 									>
 										Cancel
 									</button>
@@ -545,8 +444,8 @@ export const renderWorkbench = (
 										class="button button-primary"
 										id="use-transcript"
 										type="button"
-										disabled={!transcriptReady}
-										onClick={controls.useVoiceTranscript}
+										disabled={!context.transcriptReady}
+										onClick={environment.useVoiceTranscript}
 									>
 										Use transcript
 									</button>
@@ -556,50 +455,22 @@ export const renderWorkbench = (
 					</section>
 
 					<main
-						class={`panel artifact${presentation.mobilePanel === "artifact" ? " is-mobile-active" : ""}`}
+						class={`panel artifact${context.presentation.mobilePanel === "artifact" ? " is-mobile-active" : ""}`}
 						data-panel="artifact"
-						data-view={presentation.artifactView}
+						data-view={context.presentation.artifactView}
 					>
 						<div class="artifact-toolbar">
 							<div class="artifact-identity">
-								<strong>{activeArtifact?.title ?? "Artifact workspace"}</strong>
+								<strong>
+									{context.activeArtifact?.title ?? "Artifact workspace"}
+								</strong>
 								<span>
-									{activeArtifact
-										? `${activeArtifact.id} · revision ${activeArtifact.revision}`
+									{context.activeArtifact
+										? `${context.activeArtifact.id} · revision ${context.activeArtifact.revision}`
 										: "empty session · revision 0"}
 								</span>
 							</div>
-							{!activeArtifact && (modelPreparing || modelFailed) ? (
-								<section
-									class={`model-state ${modelFailed ? "model-state-failed" : ""}`}
-									aria-live="polite"
-								>
-									<div class="model-state-mark" aria-hidden="true">
-										{modelFailed ? "!" : "◆"}
-									</div>
-									<strong>
-										{modelFailed
-											? "Local inference is not available yet"
-											: "Preparing the local MLX model"}
-									</strong>
-									<p>
-										{modelFailed
-											? "Retry from the conversation panel. The actor will keep prompts closed until inference succeeds."
-											: "The workbench is already mounted. Ignite will project Ready only after the model completes a real warm-up inference."}
-									</p>
-									{modelPreparing ? (
-										<div class="model-progress" aria-hidden="true">
-											<i />
-										</div>
-									) : null}
-									<span class="model-state-detail">
-										{modelFailed
-											? (context.model.failure?.message ??
-												"The local model could not be prepared.")
-											: "Endpoint connected · inference warm-up in progress"}
-									</span>
-								</section>
-							) : activeArtifact ? (
+							{context.activeArtifact ? (
 								<span class="pill pill-success">committed</span>
 							) : null}
 							<div class="segmented" role="tablist" aria-label="Artifact view">
@@ -608,8 +479,15 @@ export const renderWorkbench = (
 									role="tab"
 									type="button"
 									data-view="document"
-									aria-selected={presentation.artifactView === "document"}
-									onClick={() => controls.setArtifactView("document")}
+									aria-selected={
+										context.presentation.artifactView === "document"
+									}
+									onClick={() =>
+										source.send({
+											type: "PRESENTATION_ARTIFACT_VIEW_CHANGED",
+											view: "document",
+										})
+									}
 								>
 									Document
 								</button>
@@ -618,8 +496,13 @@ export const renderWorkbench = (
 									role="tab"
 									type="button"
 									data-view="schema"
-									aria-selected={presentation.artifactView === "schema"}
-									onClick={() => controls.setArtifactView("schema")}
+									aria-selected={context.presentation.artifactView === "schema"}
+									onClick={() =>
+										source.send({
+											type: "PRESENTATION_ARTIFACT_VIEW_CHANGED",
+											view: "schema",
+										})
+									}
 								>
 									Schema
 								</button>
@@ -631,7 +514,7 @@ export const renderWorkbench = (
 								aria-label="Play spoken summary"
 								title="Play spoken summary"
 								disabled={!context.response?.speech}
-								onClick={controls.playSpeech}
+								onClick={environment.playSpeech}
 							>
 								<span aria-hidden="true">◖</span>
 							</button>
@@ -647,14 +530,48 @@ export const renderWorkbench = (
 									</span>
 								</div>
 							</div>
-							{activeArtifact ? (
+							{!context.activeArtifact &&
+							(context.modelPreparing || context.modelFailed) ? (
+								<section
+									class={`model-state ${context.modelFailed ? "model-state-failed" : ""}`}
+									aria-live="polite"
+								>
+									<div class="model-state-mark" aria-hidden="true">
+										{context.modelFailed ? "!" : "◆"}
+									</div>
+									<strong>
+										{context.modelFailed
+											? "Local inference is not available yet"
+											: "Preparing the local MLX model"}
+									</strong>
+									<p>
+										{context.modelFailed
+											? "Retry from the conversation panel. The actor will keep prompts closed until inference succeeds."
+											: "The workbench is already mounted. Ignite will project Ready only after the model completes a real warm-up inference."}
+									</p>
+									{context.modelPreparing ? (
+										<div class="model-progress" aria-hidden="true">
+											<i />
+										</div>
+									) : null}
+									<span class="model-state-detail">
+										{context.modelFailed
+											? (context.model.failure?.message ??
+												"The local model could not be prepared.")
+											: "Endpoint connected · inference warm-up in progress"}
+									</span>
+								</section>
+							) : context.activeArtifact ? (
 								<article class="document" data-artifact-document="">
 									<div class="doc-kicker">
-										Actor-owned artifact · revision {activeArtifact.revision}
+										Actor-owned artifact · revision{" "}
+										{context.activeArtifact.revision}
 									</div>
-									<h1>{activeArtifact.title ?? activeArtifact.id}</h1>
+									<h1>
+										{context.activeArtifact.title ?? context.activeArtifact.id}
+									</h1>
 									<div class="doc-grid">
-										{activeArtifact.nodes.map((node) =>
+										{context.activeArtifact.nodes.map((node) =>
 											renderNode(node, context),
 										)}
 									</div>
@@ -673,7 +590,7 @@ export const renderWorkbench = (
 								</section>
 							)}
 							<section class="schema-view" aria-label="Artifact schema">
-								<pre>{documentSchema}</pre>
+								<pre>{context.documentSchema}</pre>
 							</section>
 							<div class="responding-overlay" aria-live="polite">
 								<div class="progress-card">
@@ -695,7 +612,7 @@ export const renderWorkbench = (
 					</main>
 
 					<aside
-						class={`panel runtime${presentation.mobilePanel === "runtime" ? " is-mobile-active" : ""}`}
+						class={`panel runtime${context.presentation.mobilePanel === "runtime" ? " is-mobile-active" : ""}`}
 						data-panel="runtime"
 						aria-label="Ignite runtime"
 					>
@@ -707,7 +624,7 @@ export const renderWorkbench = (
 							<button
 								class="text-button"
 								type="button"
-								onClick={controls.replayTrace}
+								onClick={() => source.send({ type: "PRESENTATION_REPLAYED" })}
 							>
 								Replay
 							</button>
@@ -735,11 +652,11 @@ export const renderWorkbench = (
 											<strong>{context.sessionId}</strong>
 											<span>
 												matches(
-												<code>{`{ provider: "${context.model.status}", turn: "${turnState}" }`}</code>
+												<code>{`{ provider: "${context.model.status}", turn: "${context.turnState}" }`}</code>
 												)
 											</span>
 											<output class="latest-fact">
-												{describeFact(context.lastFact)}
+												{context.lastFactLabel}
 											</output>
 										</div>
 									</div>
@@ -761,7 +678,7 @@ export const renderWorkbench = (
 									<li class="trace-step">
 										<i class="trace-marker" />
 										<span class="trace-copy">
-											<strong>{describeFact(context.lastFact)}</strong>
+											<strong>{context.lastFactLabel}</strong>
 											<span>current public actor fact</span>
 										</span>
 									</li>
@@ -769,8 +686,8 @@ export const renderWorkbench = (
 										<i class="trace-marker" />
 										<span class="trace-copy">
 											<strong>
-												{activeArtifact
-													? `Artifact revision ${activeArtifact.revision} stored`
+												{context.activeArtifact
+													? `Artifact revision ${context.activeArtifact.revision} stored`
 													: "Awaiting accepted artifact"}
 											</strong>
 											<span>semantic nodes, never generated DOM</span>
@@ -789,13 +706,13 @@ export const renderWorkbench = (
 										<span class="commit-copy">
 											<strong>Browser · native JSX</strong>
 											<span>
-												{presentation.documentCommit
-													? `${presentation.documentCommit.id} · revision ${presentation.documentCommit.revision}`
+												{context.presentation.documentCommit
+													? `${context.presentation.documentCommit.id} · revision ${context.presentation.documentCommit.revision}`
 													: "awaiting artifact"}
 											</span>
 										</span>
 										<span class="commit-status">
-											{presentation.documentCommit ? "current" : "idle"}
+											{context.presentation.documentCommit ? "current" : "idle"}
 										</span>
 									</div>
 									<div class="commit commit-terminal">
@@ -803,11 +720,12 @@ export const renderWorkbench = (
 										<span class="commit-copy">
 											<strong>Terminal · text</strong>
 											<span>
-												{presentation.terminalCommit?.text ?? "no DOM required"}
+												{context.presentation.terminalCommit?.text ??
+													"no DOM required"}
 											</span>
 										</span>
 										<span class="commit-status">
-											{presentation.terminalCommit ? "written" : "idle"}
+											{context.presentation.terminalCommit ? "written" : "idle"}
 										</span>
 									</div>
 									<div class="commit commit-speech">
@@ -815,12 +733,12 @@ export const renderWorkbench = (
 										<span class="commit-copy">
 											<strong>Speech · audio</strong>
 											<span>
-												{presentation.speechCommit?.text ??
+												{context.presentation.speechCommit?.text ??
 													"browser adapter · actor acknowledged"}
 											</span>
 										</span>
 										<span class="commit-status">
-											{presentation.speechCommit?.status ?? "idle"}
+											{context.presentation.speechCommit?.status ?? "idle"}
 										</span>
 									</div>
 								</div>
@@ -859,24 +777,39 @@ export const renderWorkbench = (
 					<button
 						type="button"
 						data-target="conversation"
-						aria-pressed={presentation.mobilePanel === "conversation"}
-						onClick={() => controls.setMobilePanel("conversation")}
+						aria-pressed={context.presentation.mobilePanel === "conversation"}
+						onClick={() =>
+							source.send({
+								type: "PRESENTATION_MOBILE_PANEL_CHANGED",
+								panel: "conversation",
+							})
+						}
 					>
 						Chat
 					</button>
 					<button
 						type="button"
 						data-target="artifact"
-						aria-pressed={presentation.mobilePanel === "artifact"}
-						onClick={() => controls.setMobilePanel("artifact")}
+						aria-pressed={context.presentation.mobilePanel === "artifact"}
+						onClick={() =>
+							source.send({
+								type: "PRESENTATION_MOBILE_PANEL_CHANGED",
+								panel: "artifact",
+							})
+						}
 					>
 						Artifact
 					</button>
 					<button
 						type="button"
 						data-target="runtime"
-						aria-pressed={presentation.mobilePanel === "runtime"}
-						onClick={() => controls.setMobilePanel("runtime")}
+						aria-pressed={context.presentation.mobilePanel === "runtime"}
+						onClick={() =>
+							source.send({
+								type: "PRESENTATION_MOBILE_PANEL_CHANGED",
+								panel: "runtime",
+							})
+						}
 					>
 						Runtime
 					</button>

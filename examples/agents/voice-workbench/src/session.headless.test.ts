@@ -83,6 +83,22 @@ describe("voice workbench headless component", () => {
 			statusLabel: "Preparing local model",
 			canSubmitPrompt: false,
 			canRetryModel: false,
+			activeArtifact: null,
+			turnCount: 0,
+			turnLabel: "0 turns",
+			speechStatus: "idle",
+			documentSchema: JSON.stringify({ artifacts: [] }, null, 2),
+			voiceState: "idle",
+			transcript: null,
+			transcriptReady: false,
+			microphoneUnavailable: false,
+			voiceFailure: null,
+			turnMessage: "",
+			lastFactLabel: "no actor facts yet",
+			modelPreparing: true,
+			modelFailed: false,
+			promptPlaceholder: "Waiting for the local model to finish preparing…",
+			turnState: "ready",
 			model: { status: "preparing", failure: null },
 			artifacts: [],
 			speech: null,
@@ -121,6 +137,9 @@ describe("voice workbench headless component", () => {
 				status: "failed",
 				failure: { kind: "network" },
 			},
+			modelPreparing: false,
+			modelFailed: true,
+			promptPlaceholder: "Retry the local model before sending a prompt…",
 		});
 		source.send({ type: "MODEL_PREPARATION_STARTED" });
 		expect(component.getView()).toMatchObject({
@@ -163,6 +182,7 @@ describe("voice workbench headless component", () => {
 				draft: "Preserve this draft",
 				voice: { type: "voice-listening" },
 			},
+			voiceState: "listening",
 		});
 
 		(
@@ -194,6 +214,9 @@ describe("voice workbench headless component", () => {
 				status: "responding",
 				statusLabel: "Responding",
 				canSubmitPrompt: false,
+				turnCount: 1,
+				turnLabel: "1 turn",
+				turnState: "responding",
 			});
 		expect(component.getSnapshot().matches({ turn: "responding" })).toBe(true);
 		expect(component.getView()).toMatchObject({
@@ -243,6 +266,10 @@ describe("voice workbench headless component", () => {
 				]),
 			}),
 		]);
+		expect(component.getView()).toMatchObject({
+			activeArtifact: { id: "decision", revision: "1" },
+		});
+		expect(component.getView().documentSchema).toContain('"id": "decision"');
 		expect(component.canExecute("reviseArtifact")).toBe(true);
 		source.send({
 			type: "COMPLETE_RESPONSE",

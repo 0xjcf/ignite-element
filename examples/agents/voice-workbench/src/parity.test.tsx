@@ -2,7 +2,7 @@
 import { test as igniteTest } from "ignite-element/testing";
 import { describe, expect, it } from "vitest";
 import {
-	createParityControls,
+	createParityEnvironment,
 	PARITY_STATES,
 	resolveParityState,
 	seedParityState,
@@ -33,7 +33,7 @@ describe("voice workbench production parity harness", () => {
 		const bridge = igniteTest.accessibilityBridge(
 			component,
 			(projection: Parameters<typeof renderWorkbench>[0]) =>
-				renderWorkbench(projection, createParityControls()),
+				renderWorkbench(projection, createParityEnvironment()),
 			{ elementName: "voice-workbench-parity-accessibility" },
 		);
 		const shell = () => bridge.host.shadowRoot?.querySelector(".shell");

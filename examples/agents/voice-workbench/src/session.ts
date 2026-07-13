@@ -115,6 +115,60 @@ const createInitialPresentation = (): WorkbenchPresentation => ({
 	voice: { type: "voice-idle" },
 });
 
+const describeTurn = (turn: WorkbenchTurnFact | null): string => {
+	if (!turn) return "";
+	switch (turn.type) {
+		case "accepted":
+			return "Actor accepted the model-authored turn.";
+		case "model-failed":
+			return turn.message;
+		case "prompt-rejected":
+			return "The actor did not admit this prompt.";
+		case "response-incomplete":
+			return "The model omitted a completed response, so the actor recovered the turn.";
+		case "command-not-allowed":
+			return `${turn.command} was not allowed by the model command policy.`;
+		case "command-rejected":
+			return `${turn.command} was rejected by the actor.`;
+	}
+};
+
+const describeFact = (fact: ConversationFact | null): string => {
+	if (!fact) return "no actor facts yet";
+	switch (fact.type) {
+		case "prompt-submitted":
+			return `${fact.type} · ${fact.modality}`;
+		case "artifact-created":
+		case "artifact-revised":
+			return `${fact.type} · revision ${fact.revision}`;
+		case "artifact-rejected":
+			return `${fact.type} · ${fact.reason}`;
+		case "speech-acknowledged":
+			return `${fact.type} · ${fact.id}`;
+		case "response-completed":
+			return fact.type;
+	}
+};
+
+const voiceState = (
+	fact: VoiceCaptureFact,
+): "idle" | "listening" | "transcript" | "permission" | "unsupported" => {
+	switch (fact.type) {
+		case "voice-listening":
+			return "listening";
+		case "voice-transcript":
+			return "transcript";
+		case "voice-permission-denied":
+		case "voice-error":
+			return "permission";
+		case "voice-unsupported":
+			return "unsupported";
+		case "voice-idle":
+		case "voice-cancelled":
+			return "idle";
+	}
+};
+
 const isConversationAction = (
 	event: WorkbenchEvent,
 ): event is ConversationAction => {
@@ -344,6 +398,69 @@ export const component = igniteCore({
 				: responding
 					? "responding"
 					: "ready";
+		const artifacts = snapshot.context.documents.map((document) => ({
+			...document,
+			nodes: document.nodes.map((node) => {
+				const payload = node.kind === "action" ? node.payload : null;
+				const speech =
+					typeof payload === "object" &&
+					payload !== null &&
+					!Array.isArray(payload) &&
+					typeof payload.speech === "string" &&
+					payload.speech.trim().length > 0
+						? payload.speech.trim()
+						: undefined;
+				const input =
+					node.kind === "action" &&
+					node.commandName === "completeResponse" &&
+					typeof payload === "object" &&
+					payload !== null &&
+					!Array.isArray(payload) &&
+					typeof payload.text === "string" &&
+					payload.text.trim().length > 0 &&
+					(payload.speech === undefined || speech !== undefined)
+						? {
+								text: payload.text.trim(),
+								...(speech ? { speech } : {}),
+							}
+						: null;
+				return {
+					...node,
+					action: input ? { enabled: responding, input } : null,
+				};
+			}),
+		}));
+		const activeArtifact =
+			artifacts.find(
+				(artifact) => artifact.id === snapshot.context.activeArtifactId,
+			) ??
+			artifacts[artifacts.length - 1] ??
+			null;
+		const turnCount = snapshot.context.messages.filter(
+			(message) => message.role === "user",
+		).length;
+		const presentation = snapshot.context.presentation;
+		const voice = presentation.voice;
+		const transcript = voice.type === "voice-transcript" ? voice.text : null;
+		const transcriptReady = voice.type === "voice-transcript" && voice.final;
+		const voiceFailure =
+			voice.type === "voice-permission-denied" || voice.type === "voice-error"
+				? voice
+				: null;
+		const documentSchema = JSON.stringify(
+			activeArtifact
+				? {
+						id: activeArtifact.id,
+						title: activeArtifact.title,
+						revision: activeArtifact.revision,
+						nodes: activeArtifact.nodes.map(
+							({ action: _action, ...node }) => node,
+						),
+					}
+				: { artifacts: [] },
+			null,
+			2,
+		);
 		return {
 			sessionId: snapshot.context.sessionId,
 			status,
@@ -356,6 +473,26 @@ export const component = igniteCore({
 						: "Ready",
 			canSubmitPrompt: modelAvailable && turnReady,
 			canRetryModel: modelFailed,
+			activeArtifact,
+			turnCount,
+			turnLabel: `${turnCount} ${turnCount === 1 ? "turn" : "turns"}`,
+			speechStatus: snapshot.context.speech?.status ?? "idle",
+			documentSchema,
+			voiceState: voiceState(voice),
+			transcript,
+			transcriptReady,
+			microphoneUnavailable: voice.type === "voice-unsupported",
+			voiceFailure,
+			turnMessage: describeTurn(presentation.turn),
+			lastFactLabel: describeFact(snapshot.context.lastFact),
+			modelPreparing,
+			modelFailed,
+			promptPlaceholder: modelPreparing
+				? "Waiting for the local model to finish preparing…"
+				: modelFailed
+					? "Retry the local model before sending a prompt…"
+					: "Ask the agent to create or revise an artifact…",
+			turnState: responding ? "responding" : "ready",
 			model: {
 				status: modelPreparing
 					? "preparing"
@@ -368,38 +505,7 @@ export const component = igniteCore({
 			messageCount: snapshot.context.messages.length,
 			messages: snapshot.context.messages,
 			lastFact: snapshot.context.lastFact,
-			artifacts: snapshot.context.documents.map((document) => ({
-				...document,
-				nodes: document.nodes.map((node) => {
-					const payload = node.kind === "action" ? node.payload : null;
-					const speech =
-						typeof payload === "object" &&
-						payload !== null &&
-						!Array.isArray(payload) &&
-						typeof payload.speech === "string" &&
-						payload.speech.trim().length > 0
-							? payload.speech.trim()
-							: undefined;
-					const input =
-						node.kind === "action" &&
-						node.commandName === "completeResponse" &&
-						typeof payload === "object" &&
-						payload !== null &&
-						!Array.isArray(payload) &&
-						typeof payload.text === "string" &&
-						payload.text.trim().length > 0 &&
-						(payload.speech === undefined || speech !== undefined)
-							? {
-									text: payload.text.trim(),
-									...(speech ? { speech } : {}),
-								}
-							: null;
-					return {
-						...node,
-						action: input ? { enabled: responding, input } : null,
-					};
-				}),
-			})),
+			artifacts,
 			speech: snapshot.context.speech,
 			activeArtifactId: snapshot.context.activeArtifactId,
 			response: snapshot.context.response,

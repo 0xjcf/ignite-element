@@ -1,6 +1,6 @@
 /** @jsxImportSource ignite-element/jsx */
 import { component, source } from "./session";
-import { renderWorkbench, type WorkbenchControls } from "./workbench";
+import { renderWorkbench, type WorkbenchEnvironment } from "./workbench";
 
 export const PARITY_STATES = [
 	"preparing",
@@ -22,7 +22,7 @@ export function resolveParityState(search: string): ParityState | null {
 	return isParityState(requested) ? requested : null;
 }
 
-export function createParityControls(): WorkbenchControls {
+export function createParityEnvironment(): WorkbenchEnvironment {
 	return {
 		cancelVoice: () =>
 			source.send({
@@ -37,17 +37,7 @@ export function createParityControls(): WorkbenchControls {
 				speech: { id: speech.id, text: speech.text, status: "unavailable" },
 			});
 		},
-		replayTrace: () => source.send({ type: "PRESENTATION_REPLAYED" }),
 		retryModel: () => source.send({ type: "MODEL_PREPARATION_STARTED" }),
-		setArtifactView: (view) =>
-			source.send({ type: "PRESENTATION_ARTIFACT_VIEW_CHANGED", view }),
-		setMobilePanel: (panel) =>
-			source.send({ type: "PRESENTATION_MOBILE_PANEL_CHANGED", panel }),
-		setSpeechPreference: (enabled) =>
-			source.send({
-				type: "PRESENTATION_SPEECH_PREFERENCE_CHANGED",
-				enabled,
-			}),
 		startVoice: () =>
 			source.send({
 				type: "PRESENTATION_VOICE_CHANGED",
@@ -59,8 +49,6 @@ export function createParityControls(): WorkbenchControls {
 				input: { modality: prompt.channel, text: prompt.text },
 			});
 		},
-		updateDraft: (draft) =>
-			source.send({ type: "PRESENTATION_DRAFT_CHANGED", draft }),
 		useVoiceTranscript: () => {},
 	};
 }
@@ -250,7 +238,7 @@ export async function mountParityHarness(state: ParityState) {
 				}
 			`}</style>
 			<output class="parity-badge">Test-only parity harness · {state}</output>
-			{renderWorkbench(projection, createParityControls())}
+			{renderWorkbench(projection, createParityEnvironment())}
 		</>
 	));
 }

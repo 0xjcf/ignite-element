@@ -9,7 +9,7 @@ import { component, source, type WorkbenchTurnFact } from "./session";
 import { createBrowserVoiceCapture } from "./voice";
 import {
 	renderWorkbench,
-	type WorkbenchControls,
+	type WorkbenchEnvironment,
 	type WorkbenchPrompt,
 } from "./workbench";
 
@@ -97,7 +97,7 @@ const submit = async (prompt: WorkbenchPrompt) => {
 	}
 };
 
-const controls: WorkbenchControls = {
+const workbenchEnvironment: WorkbenchEnvironment = {
 	cancelVoice: () => {
 		voice.cancel();
 	},
@@ -115,23 +115,11 @@ const controls: WorkbenchControls = {
 			},
 		});
 	},
-	replayTrace: () => source.send({ type: "PRESENTATION_REPLAYED" }),
 	retryModel: () => void prepareModel(),
-	setArtifactView: (view) =>
-		source.send({ type: "PRESENTATION_ARTIFACT_VIEW_CHANGED", view }),
-	setMobilePanel: (panel) =>
-		source.send({ type: "PRESENTATION_MOBILE_PANEL_CHANGED", panel }),
-	setSpeechPreference: (enabled) =>
-		source.send({
-			type: "PRESENTATION_SPEECH_PREFERENCE_CHANGED",
-			enabled,
-		}),
 	startVoice: () => {
 		voice.start();
 	},
 	submitPrompt: (prompt) => void submit(prompt),
-	updateDraft: (draft) =>
-		source.send({ type: "PRESENTATION_DRAFT_CHANGED", draft }),
 	useVoiceTranscript: () => {
 		const transcript = voice.useTranscript();
 		if (!transcript.ok) {
@@ -153,7 +141,7 @@ const voiceSubscription = voice.subscribe((fact) =>
 source.send({ type: "PRESENTATION_VOICE_CHANGED", fact: voice.getFact() });
 
 component("voice-workbench", (projection) =>
-	renderWorkbench(projection, controls),
+	renderWorkbench(projection, workbenchEnvironment),
 );
 void prepareModel();
 
