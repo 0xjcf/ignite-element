@@ -6,7 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 export const DEFAULT_MLX_LM_VERSION = "0.31.3";
-export const DEFAULT_MODEL = "mlx-community/Mistral-7B-Instruct-v0.3-4bit";
+export const DEFAULT_MODEL = "mlx-community/gemma-4-e4b-it-4bit";
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_MLX_PORT = 8080;
@@ -466,7 +466,7 @@ export async function runLauncher(options = {}) {
 				{ cwd: exampleDirectory },
 			);
 			deps.log(
-				"[voice-workbench] Waiting for the model endpoint. The first run downloads about 4.08 GB...",
+				"[voice-workbench] Waiting for the model endpoint. The first run downloads about 5.15 GB...",
 			);
 			await waitForModelEndpoint(config, lifecycle, deps, mlxProcess);
 		}

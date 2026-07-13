@@ -1,17 +1,14 @@
 /// <reference types="vite/client" />
+import { igniteTools, isOk } from "ignite-element/tools";
 import {
 	createProjectionDocumentTarget,
 	createProjectionSpeechTarget,
 } from "ignite-element/xstate";
-import { type ModelTurnResult, runModelTurn } from "./agent-loop";
-import { createMlxWorkbenchModel, probeMlxWorkbenchReadiness } from "./model";
+import { type ModelTurnResult, modelTools, modelTurn } from "./agent-loop";
+import { probeMlxWorkbenchReadiness, requestMlxWorkbenchModel } from "./model";
 import { component, source, type WorkbenchTurnFact } from "./session";
 import { createBrowserVoiceCapture } from "./voice";
-import {
-	renderWorkbench,
-	type WorkbenchEnvironment,
-	type WorkbenchPrompt,
-} from "./workbench";
+import { renderWorkbench } from "./workbench";
 
 type RuntimeConfiguration = {
 	MLX_BASE_URL?: string;
@@ -37,7 +34,6 @@ const configuration = {
 		environment.VITE_MLX_API_KEY,
 };
 
-const model = createMlxWorkbenchModel({ component, ...configuration });
 const voice = createBrowserVoiceCapture();
 let readinessAttempt = 0;
 let readinessController: AbortController | null = null;
@@ -47,14 +43,20 @@ const prepareModel = async () => {
 	readinessController?.abort();
 	const controller = new AbortController();
 	readinessController = controller;
-	source.send({ type: "MODEL_PREPARATION_STARTED" });
 	const fact = await probeMlxWorkbenchReadiness({
 		...configuration,
 		signal: controller.signal,
 	});
 	if (attempt !== readinessAttempt || controller.signal.aborted) return;
 	readinessController = null;
-	source.send(fact);
+	if (fact.type === "MODEL_AVAILABLE") {
+		await component.execute({ command: "reportModelAvailable" });
+		return;
+	}
+	await component.execute({
+		command: "reportModelFailure",
+		input: fact.failure,
+	});
 };
 
 const speak = (text: string): "played" | "unavailable" => {
@@ -88,79 +90,143 @@ const toTurnFact = (result: ModelTurnResult): WorkbenchTurnFact => {
 	};
 };
 
-const submit = async (prompt: WorkbenchPrompt) => {
-	if (!component.getView().canSubmitPrompt) return;
-	const result = await runModelTurn({ component, model, prompt });
-	source.send({ type: "PRESENTATION_TURN_RECORDED", fact: toTurnFact(result) });
-	if (result.accepted && prompt.channel === "text") {
-		source.send({ type: "PRESENTATION_DRAFT_CHANGED", draft: "" });
-	}
-};
+const voiceSubscription = voice.subscribe((fact) => {
+	void component.execute({ command: "presentVoice", input: fact });
+});
+void component.execute({ command: "presentVoice", input: voice.getFact() });
 
-const workbenchEnvironment: WorkbenchEnvironment = {
-	cancelVoice: () => {
-		voice.cancel();
-	},
-	playSpeech: () => {
-		const view = component.getView();
-		const text = view.response?.speech;
-		if (!text) return;
-		const status = view.presentation.speakResponses ? speak(text) : "muted";
-		source.send({
-			type: "PRESENTATION_SPEECH_COMMITTED",
-			speech: {
-				id: view.speech?.id ?? `manual-${view.revision}`,
-				text,
+const browserRequestSubscription = component.watchView((view, previous) => {
+	const voiceRequest = view.presentation.voiceCaptureRequest;
+	if (
+		voiceRequest &&
+		voiceRequest.sequence !==
+			previous.presentation.voiceCaptureRequest?.sequence
+	) {
+		if (voiceRequest.action === "start") voice.start();
+		else voice.cancel();
+	}
+
+	const speechRequest = view.presentation.speechReplayRequest;
+	if (
+		speechRequest &&
+		speechRequest.sequence !==
+			previous.presentation.speechReplayRequest?.sequence
+	) {
+		const status = view.presentation.speakResponses
+			? speak(speechRequest.text)
+			: "muted";
+		void component.execute({
+			command: "commitSpeech",
+			input: {
+				id: speechRequest.id,
+				text: speechRequest.text,
 				status,
 			},
 		});
-	},
-	retryModel: () => void prepareModel(),
-	startVoice: () => {
-		voice.start();
-	},
-	submitPrompt: (prompt) => void submit(prompt),
-	useVoiceTranscript: () => {
-		const transcript = voice.useTranscript();
-		if (!transcript.ok) {
-			source.send({
-				type: "PRESENTATION_VOICE_CHANGED",
-				fact: transcript.fact,
+	}
+});
+
+const modelPreparationSubscription = component.watchView((view, previous) => {
+	if (
+		view.model.status === "preparing" &&
+		previous.model.status !== "preparing"
+	) {
+		void prepareModel();
+	}
+});
+
+const completeSubmittedPrompt = async (event: {
+	modality: "text" | "speech";
+	text: string;
+}) => {
+	const tools = igniteTools(component);
+	let response = await requestMlxWorkbenchModel(configuration, {
+		prompt: { channel: event.modality, text: event.text },
+		tools: modelTools(tools.manifest),
+		view: component.getView().modelContext,
+	});
+	let result: ModelTurnResult;
+	let priorTrace: ModelTurnResult["trace"] = [];
+	for (let round = 0; ; round += 1) {
+		const protocol = modelTurn(response);
+		let step = protocol.next();
+		while (!step.done) {
+			const call = step.value;
+			const execution = await tools.run({
+				name: call.command,
+				input: call.input,
 			});
-			return;
+			const rejectedByActor =
+				isOk(execution) &&
+				execution.value.events.some(
+					(actorEvent) => actorEvent.type === "artifact-rejected",
+				);
+			step = protocol.next(isOk(execution) && !rejectedByActor);
 		}
-		const prompt = transcript.prompt;
-		voice.cancel();
-		void submit(prompt);
-	},
+		result = { ...step.value, trace: [...priorTrace, ...step.value.trace] };
+		if (result.accepted || result.reason !== "response-incomplete") break;
+		if (round === 0) {
+			priorTrace = result.trace;
+			response = await requestMlxWorkbenchModel(configuration, {
+				prompt: {
+					channel: event.modality,
+					text: `Summarize the accepted actor state for this request: ${event.text}`,
+				},
+				tools: tools.manifest.filter(
+					(tool) => tool.name === "completeResponse",
+				),
+				view: component.getView().modelContext,
+			});
+			continue;
+		}
+		const recovery = await tools.run({
+			name: "completeResponse",
+			input: {
+				text: "The model did not complete the response. Refine the prompt and try again.",
+			},
+		});
+		result = {
+			accepted: false,
+			reason: "response-incomplete",
+			trace: [
+				...result.trace,
+				{ command: "completeResponse", accepted: isOk(recovery) },
+			],
+		};
+		break;
+	}
+	await component.execute({
+		command: "recordTurn",
+		input: toTurnFact(result),
+	});
+	if (result.accepted && event.modality === "text") {
+		await component.execute({ command: "changeDraft", input: "" });
+	}
 };
 
-const voiceSubscription = voice.subscribe((fact) =>
-	source.send({ type: "PRESENTATION_VOICE_CHANGED", fact }),
-);
-source.send({ type: "PRESENTATION_VOICE_CHANGED", fact: voice.getFact() });
+const modelTurnSubscription = component.on("prompt-submitted", (event) => {
+	void completeSubmittedPrompt(event);
+});
 
-component("voice-workbench", (projection) =>
-	renderWorkbench(projection, workbenchEnvironment),
-);
+component("voice-workbench", (projection) => renderWorkbench(projection));
 void prepareModel();
 
 const terminalSubscription = component.on("response-completed", () => {
 	const response = component.getView().response;
 	if (!response) return;
 	console.info(`[voice-workbench] ${response.text}`);
-	source.send({
-		type: "PRESENTATION_TERMINAL_COMMITTED",
-		terminal: { text: response.text },
+	void component.execute({
+		command: "commitTerminal",
+		input: { text: response.text },
 	});
 });
 
 const documentProjection = component(
 	createProjectionDocumentTarget({
 		commitDocument: (projectionDocument) => {
-			source.send({
-				type: "PRESENTATION_DOCUMENT_COMMITTED",
-				document: {
+			void component.execute({
+				command: "commitDocument",
+				input: {
 					id: projectionDocument.id,
 					title: projectionDocument.title,
 					revision: projectionDocument.revision,
@@ -178,9 +244,9 @@ const speechProjection = component(
 			const status = component.getView().presentation.speakResponses
 				? speak(speech.text)
 				: "muted";
-			source.send({
-				type: "PRESENTATION_SPEECH_COMMITTED",
-				speech: { id: speech.id, text: speech.text, status },
+			void component.execute({
+				command: "commitSpeech",
+				input: { id: speech.id, text: speech.text, status },
 			});
 		},
 	}),
@@ -192,7 +258,10 @@ window.addEventListener("pagehide", (event) => {
 	readinessController?.abort();
 	readinessController = null;
 	voiceSubscription.unsubscribe();
+	browserRequestSubscription.unsubscribe();
 	voice.dispose();
+	modelPreparationSubscription.unsubscribe();
+	modelTurnSubscription.unsubscribe();
 	terminalSubscription.unsubscribe();
 	documentProjection.dispose();
 	speechProjection.dispose();

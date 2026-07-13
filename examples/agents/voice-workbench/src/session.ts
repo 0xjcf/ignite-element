@@ -60,9 +60,14 @@ export type WorkbenchPresentation = {
 		text: string;
 		status: "played" | "muted" | "unavailable";
 	} | null;
+	speechReplayRequest: { id: string; text: string; sequence: number } | null;
 	terminalCommit: { text: string } | null;
 	turn: WorkbenchTurnFact | null;
 	voice: VoiceCaptureFact;
+	voiceCaptureRequest: {
+		action: "start" | "cancel";
+		sequence: number;
+	} | null;
 };
 
 export type WorkbenchPresentationEvent =
@@ -84,10 +89,20 @@ export type WorkbenchPresentationEvent =
 			speech: NonNullable<WorkbenchPresentation["speechCommit"]>;
 	  }
 	| {
+			type: "PRESENTATION_SPEECH_REPLAY_REQUESTED";
+			request: NonNullable<WorkbenchPresentation["speechReplayRequest"]>;
+	  }
+	| {
 			type: "PRESENTATION_TERMINAL_COMMITTED";
 			terminal: NonNullable<WorkbenchPresentation["terminalCommit"]>;
 	  }
 	| { type: "PRESENTATION_REPLAYED" };
+
+type WorkbenchVoiceCaptureEvent = {
+	type: "PRESENTATION_VOICE_CAPTURE_REQUESTED";
+	action: "start" | "cancel";
+	sequence: number;
+};
 
 type WorkbenchSession = ConversationSession & {
 	modelFailure: ModelFailureFact | null;
@@ -100,7 +115,8 @@ export type ModelReadinessEvent =
 type WorkbenchEvent =
 	| ConversationAction
 	| ModelReadinessEvent
-	| WorkbenchPresentationEvent;
+	| WorkbenchPresentationEvent
+	| WorkbenchVoiceCaptureEvent;
 
 const createInitialPresentation = (): WorkbenchPresentation => ({
 	artifactView: "document",
@@ -110,9 +126,11 @@ const createInitialPresentation = (): WorkbenchPresentation => ({
 	replaySequence: 0,
 	speakResponses: true,
 	speechCommit: null,
+	speechReplayRequest: null,
 	terminalCommit: null,
 	turn: null,
 	voice: { type: "voice-idle" },
+	voiceCaptureRequest: null,
 });
 
 const describeTurn = (turn: WorkbenchTurnFact | null): string => {
@@ -271,6 +289,11 @@ const machine = setup({
 				updatePresentation(context, { speechCommit: event.speech }),
 			),
 		},
+		PRESENTATION_SPEECH_REPLAY_REQUESTED: {
+			actions: assign(({ context, event }) =>
+				updatePresentation(context, { speechReplayRequest: event.request }),
+			),
+		},
 		PRESENTATION_TERMINAL_COMMITTED: {
 			actions: assign(({ context, event }) =>
 				updatePresentation(context, { terminalCommit: event.terminal }),
@@ -280,6 +303,16 @@ const machine = setup({
 			actions: assign(({ context }) =>
 				updatePresentation(context, {
 					replaySequence: context.presentation.replaySequence + 1,
+				}),
+			),
+		},
+		PRESENTATION_VOICE_CAPTURE_REQUESTED: {
+			actions: assign(({ context, event }) =>
+				updatePresentation(context, {
+					voiceCaptureRequest: {
+						action: event.action,
+						sequence: event.sequence,
+					},
 				}),
 			),
 		},
@@ -463,6 +496,11 @@ export const component = igniteCore({
 		);
 		return {
 			sessionId: snapshot.context.sessionId,
+			modelContext: {
+				status,
+				activeArtifactId: snapshot.context.activeArtifactId,
+				artifacts: snapshot.context.documents,
+			},
 			status,
 			statusLabel: modelPreparing
 				? "Preparing local model"
@@ -654,9 +692,44 @@ export const component = igniteCore({
 					description: "Acknowledge the currently pending speech request.",
 					canExecute: ({ snapshot }) =>
 						snapshot.context.speech?.status === "pending",
-					input: command.object({ id: command.string({ minLength: 1 }) }),
+					input: command.object(
+						{ id: command.string({ minLength: 1 }) },
+						{ required: ["id"] },
+					),
 				},
 			),
+			beginModelPreparation: () =>
+				actor.send({ type: "MODEL_PREPARATION_STARTED" }),
+			cancelVoiceCapture: () => {
+				const sequence =
+					(actor.getSnapshot().context.presentation.voiceCaptureRequest
+						?.sequence ?? 0) + 1;
+				actor.send({
+					type: "PRESENTATION_VOICE_CAPTURE_REQUESTED",
+					action: "cancel",
+					sequence,
+				});
+			},
+			changeArtifactView: (view: WorkbenchArtifactView) =>
+				actor.send({ type: "PRESENTATION_ARTIFACT_VIEW_CHANGED", view }),
+			changeDraft: (draft: string) =>
+				actor.send({ type: "PRESENTATION_DRAFT_CHANGED", draft }),
+			changeMobilePanel: (panel: WorkbenchPanel) =>
+				actor.send({ type: "PRESENTATION_MOBILE_PANEL_CHANGED", panel }),
+			changeSpeechPreference: (enabled: boolean) =>
+				actor.send({
+					type: "PRESENTATION_SPEECH_PREFERENCE_CHANGED",
+					enabled,
+				}),
+			commitDocument: (
+				document: NonNullable<WorkbenchPresentation["documentCommit"]>,
+			) => actor.send({ type: "PRESENTATION_DOCUMENT_COMMITTED", document }),
+			commitSpeech: (
+				speech: NonNullable<WorkbenchPresentation["speechCommit"]>,
+			) => actor.send({ type: "PRESENTATION_SPEECH_COMMITTED", speech }),
+			commitTerminal: (
+				terminal: NonNullable<WorkbenchPresentation["terminalCommit"]>,
+			) => actor.send({ type: "PRESENTATION_TERMINAL_COMMITTED", terminal }),
 			completeResponse: command(
 				(input: CompleteResponseInput) =>
 					actor.send({ type: "COMPLETE_RESPONSE", input }),
@@ -681,13 +754,38 @@ export const component = igniteCore({
 						"Create a validated semantic artifact for the active turn.",
 					canExecute: ({ snapshot }) =>
 						snapshot.matches({ turn: "responding" }),
-					input: command.object({
-						id: command.string({ minLength: 1 }),
-						title: command.string({ minLength: 1 }),
-						nodes: command.array(semanticNodeInput, { minItems: 1 }),
-					}),
+					input: command.object(
+						{
+							id: command.string({ minLength: 1 }),
+							title: command.string({ minLength: 1 }),
+							nodes: command.array(semanticNodeInput, { minItems: 1 }),
+						},
+						{ required: ["id", "nodes"] },
+					),
 				},
 			),
+			presentVoice: (fact: VoiceCaptureFact) =>
+				actor.send({ type: "PRESENTATION_VOICE_CHANGED", fact }),
+			playSpeech: () => {
+				const context = actor.getSnapshot().context;
+				const text = context.response?.speech;
+				if (!text) return;
+				actor.send({
+					type: "PRESENTATION_SPEECH_REPLAY_REQUESTED",
+					request: {
+						id: context.speech?.id ?? `manual-${context.revision}`,
+						text,
+						sequence:
+							(context.presentation.speechReplayRequest?.sequence ?? 0) + 1,
+					},
+				});
+			},
+			recordTurn: (fact: WorkbenchTurnFact) =>
+				actor.send({ type: "PRESENTATION_TURN_RECORDED", fact }),
+			replay: () => actor.send({ type: "PRESENTATION_REPLAYED" }),
+			reportModelAvailable: () => actor.send({ type: "MODEL_AVAILABLE" }),
+			reportModelFailure: (failure: ModelFailureFact) =>
+				actor.send({ type: "MODEL_FAILED", failure }),
 			reviseArtifact: command(
 				(input: ReviseArtifactInput) =>
 					actor.send({ type: "REVISE_ARTIFACT", input }),
@@ -697,11 +795,14 @@ export const component = igniteCore({
 					canExecute: ({ snapshot }) =>
 						snapshot.matches({ turn: "responding" }) &&
 						snapshot.context.documents.length > 0,
-					input: command.object({
-						artifactId: command.string({ minLength: 1 }),
-						expectedRevision: command.string({ minLength: 1 }),
-						nodes: command.array(semanticNodeInput, { minItems: 1 }),
-					}),
+					input: command.object(
+						{
+							artifactId: command.string({ minLength: 1 }),
+							expectedRevision: command.string({ minLength: 1 }),
+							nodes: command.array(semanticNodeInput, { minItems: 1 }),
+						},
+						{ required: ["artifactId", "expectedRevision", "nodes"] },
+					),
 				},
 			),
 			submitPrompt: command(
@@ -712,12 +813,46 @@ export const component = igniteCore({
 					canExecute: ({ snapshot }) =>
 						snapshot.matches({ provider: "available" }) &&
 						snapshot.matches({ turn: "ready" }),
-					input: command.object({
-						modality: command.enum(["text", "speech"]),
-						text: command.string({ minLength: 1 }),
-					}),
+					input: command.object(
+						{
+							modality: command.enum(["text", "speech"]),
+							text: command.string({ minLength: 1 }),
+						},
+						{ required: ["modality", "text"] },
+					),
 				},
 			),
+			startVoiceCapture: () => {
+				const sequence =
+					(actor.getSnapshot().context.presentation.voiceCaptureRequest
+						?.sequence ?? 0) + 1;
+				actor.send({
+					type: "PRESENTATION_VOICE_CAPTURE_REQUESTED",
+					action: "start",
+					sequence,
+				});
+			},
+			submitVoiceTranscript: () => {
+				const voice = actor.getSnapshot().context.presentation.voice;
+				if (
+					voice.type !== "voice-transcript" ||
+					!voice.final ||
+					voice.text.trim().length === 0
+				) {
+					return;
+				}
+				actor.send({
+					type: "PRESENTATION_VOICE_CAPTURE_REQUESTED",
+					action: "cancel",
+					sequence:
+						(actor.getSnapshot().context.presentation.voiceCaptureRequest
+							?.sequence ?? 0) + 1,
+				});
+				actor.send({
+					type: "SUBMIT_PROMPT",
+					input: { modality: "speech", text: voice.text.trim() },
+				});
+			},
 		};
 	},
 	effects: ({ emit, select }) => {
@@ -727,3 +862,7 @@ export const component = igniteCore({
 		emit(fact.current as ConversationFact);
 	},
 });
+
+export const workbenchCommandNames = Object.freeze(
+	Object.keys(component.getSchema().commands),
+);

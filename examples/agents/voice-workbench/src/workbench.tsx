@@ -1,6 +1,6 @@
 /** @jsxImportSource ignite-element/jsx */
 
-import { component, source } from "./session";
+import { type component, workbenchCommandNames } from "./session";
 import { workbenchStyles } from "./styles";
 
 type WorkbenchRenderer = Extract<
@@ -9,17 +9,6 @@ type WorkbenchRenderer = Extract<
 >;
 type WorkbenchContext = Parameters<WorkbenchRenderer>[0];
 type DocumentNode = WorkbenchContext["artifacts"][number]["nodes"][number];
-export type WorkbenchPrompt = { channel: "text" | "speech"; text: string };
-export type WorkbenchEnvironment = {
-	cancelVoice(): void;
-	playSpeech(): void;
-	retryModel(): void;
-	startVoice(): void;
-	submitPrompt(prompt: WorkbenchPrompt): void;
-	useVoiceTranscript(): void;
-};
-
-const commandNames = Object.keys(component.getSchema().commands);
 
 const nodeHeading = (kind: DocumentNode["kind"], label: string) => (
 	<h2>
@@ -180,10 +169,7 @@ const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 	}
 };
 
-export const renderWorkbench = (
-	context: WorkbenchContext,
-	environment: WorkbenchEnvironment,
-) => {
+export const renderWorkbench = (context: WorkbenchContext) => {
 	return (
 		<>
 			<style>{workbenchStyles}</style>
@@ -210,7 +196,9 @@ export const renderWorkbench = (
 							<i class="dot" /> {context.statusLabel}
 						</output>
 						<span class="pill">one component</span>
-						<span class="pill">{commandNames.length} typed commands</span>
+						<span class="pill">
+							{workbenchCommandNames.length} typed commands
+						</span>
 						<span class="pill">3 commit channels</span>
 					</div>
 					<div class="top-actions">
@@ -221,10 +209,9 @@ export const renderWorkbench = (
 								type="checkbox"
 								checked={context.presentation.speakResponses}
 								onChange={(event: Event) =>
-									source.send({
-										type: "PRESENTATION_SPEECH_PREFERENCE_CHANGED",
-										enabled: (event.currentTarget as HTMLInputElement).checked,
-									})
+									context.changeSpeechPreference(
+										(event.currentTarget as HTMLInputElement).checked,
+									)
 								}
 							/>
 							<span class="switch-track" aria-hidden="true" />
@@ -347,7 +334,7 @@ export const renderWorkbench = (
 										<button
 											class="button model-retry"
 											type="button"
-											onClick={environment.retryModel}
+											onClick={() => context.beginModelPreparation()}
 										>
 											Retry model
 										</button>
@@ -360,10 +347,10 @@ export const renderWorkbench = (
 									event.preventDefault();
 									const text = context.presentation.draft.trim();
 									if (text) {
-										environment.submitPrompt({
-											channel: "text",
+										context.submitPrompt({
+											modality: "text",
 											text,
-										} satisfies WorkbenchPrompt);
+										});
 									}
 								}}
 							>
@@ -377,10 +364,9 @@ export const renderWorkbench = (
 									value={context.presentation.draft}
 									disabled={!context.canSubmitPrompt}
 									onInput={(event: Event) =>
-										source.send({
-											type: "PRESENTATION_DRAFT_CHANGED",
-											draft: (event.currentTarget as HTMLTextAreaElement).value,
-										})
+										context.changeDraft(
+											(event.currentTarget as HTMLTextAreaElement).value,
+										)
 									}
 								/>
 								<div class="composer-actions">
@@ -394,7 +380,7 @@ export const renderWorkbench = (
 										disabled={
 											context.microphoneUnavailable || !context.canSubmitPrompt
 										}
-										onClick={environment.startVoice}
+										onClick={() => context.startVoiceCapture()}
 									>
 										<span aria-hidden="true">●</span>
 									</button>
@@ -436,7 +422,7 @@ export const renderWorkbench = (
 										class="button"
 										id="cancel-voice"
 										type="button"
-										onClick={environment.cancelVoice}
+										onClick={() => context.cancelVoiceCapture()}
 									>
 										Cancel
 									</button>
@@ -445,7 +431,7 @@ export const renderWorkbench = (
 										id="use-transcript"
 										type="button"
 										disabled={!context.transcriptReady}
-										onClick={environment.useVoiceTranscript}
+										onClick={() => context.submitVoiceTranscript()}
 									>
 										Use transcript
 									</button>
@@ -482,12 +468,7 @@ export const renderWorkbench = (
 									aria-selected={
 										context.presentation.artifactView === "document"
 									}
-									onClick={() =>
-										source.send({
-											type: "PRESENTATION_ARTIFACT_VIEW_CHANGED",
-											view: "document",
-										})
-									}
+									onClick={() => context.changeArtifactView("document")}
 								>
 									Document
 								</button>
@@ -497,12 +478,7 @@ export const renderWorkbench = (
 									type="button"
 									data-view="schema"
 									aria-selected={context.presentation.artifactView === "schema"}
-									onClick={() =>
-										source.send({
-											type: "PRESENTATION_ARTIFACT_VIEW_CHANGED",
-											view: "schema",
-										})
-									}
+									onClick={() => context.changeArtifactView("schema")}
 								>
 									Schema
 								</button>
@@ -514,7 +490,7 @@ export const renderWorkbench = (
 								aria-label="Play spoken summary"
 								title="Play spoken summary"
 								disabled={!context.response?.speech}
-								onClick={environment.playSpeech}
+								onClick={() => context.playSpeech()}
 							>
 								<span aria-hidden="true">◖</span>
 							</button>
@@ -624,7 +600,7 @@ export const renderWorkbench = (
 							<button
 								class="text-button"
 								type="button"
-								onClick={() => source.send({ type: "PRESENTATION_REPLAYED" })}
+								onClick={() => context.replay()}
 							>
 								Replay
 							</button>
@@ -633,7 +609,7 @@ export const renderWorkbench = (
 							<section class="runtime-card">
 								<div class="runtime-card-head">
 									<strong>One component, four consumers</strong>
-									<span>{commandNames.length} commands</span>
+									<span>{workbenchCommandNames.length} commands</span>
 								</div>
 								<div class="component-contract">
 									<div class="component-line">
@@ -750,7 +726,7 @@ export const renderWorkbench = (
 								</div>
 								<div class="runtime-body">
 									<div class="command-list">
-										{commandNames.map((name) => (
+										{workbenchCommandNames.map((name) => (
 											<span key={name} class="command">
 												{name}
 											</span>
@@ -761,7 +737,7 @@ export const renderWorkbench = (
 										<div>
 											<strong>renderJavascript rejected</strong>
 											<span>
-												{commandNames.includes("renderJavascript")
+												{workbenchCommandNames.includes("renderJavascript")
 													? "unexpectedly admitted"
 													: "command-not-allowed · absent from schema"}
 											</span>
@@ -778,12 +754,7 @@ export const renderWorkbench = (
 						type="button"
 						data-target="conversation"
 						aria-pressed={context.presentation.mobilePanel === "conversation"}
-						onClick={() =>
-							source.send({
-								type: "PRESENTATION_MOBILE_PANEL_CHANGED",
-								panel: "conversation",
-							})
-						}
+						onClick={() => context.changeMobilePanel("conversation")}
 					>
 						Chat
 					</button>
@@ -791,12 +762,7 @@ export const renderWorkbench = (
 						type="button"
 						data-target="artifact"
 						aria-pressed={context.presentation.mobilePanel === "artifact"}
-						onClick={() =>
-							source.send({
-								type: "PRESENTATION_MOBILE_PANEL_CHANGED",
-								panel: "artifact",
-							})
-						}
+						onClick={() => context.changeMobilePanel("artifact")}
 					>
 						Artifact
 					</button>
@@ -804,12 +770,7 @@ export const renderWorkbench = (
 						type="button"
 						data-target="runtime"
 						aria-pressed={context.presentation.mobilePanel === "runtime"}
-						onClick={() =>
-							source.send({
-								type: "PRESENTATION_MOBILE_PANEL_CHANGED",
-								panel: "runtime",
-							})
-						}
+						onClick={() => context.changeMobilePanel("runtime")}
 					>
 						Runtime
 					</button>

@@ -13,7 +13,7 @@ type ProjectionSpeechRequest = Parameters<
 
 export type CreateArtifactInput = {
 	id: string;
-	title: string;
+	title?: string;
 	nodes: readonly ProjectionDocumentNode[];
 };
 
@@ -307,13 +307,18 @@ export function reduceConversationSession(
 			const input = action.input;
 			if (
 				!isNonEmpty(input.id) ||
-				!isNonEmpty(input.title) ||
+				!isOptionalString(input.title) ||
 				!validNodes(input.nodes) ||
 				session.documents.some((document) => document.id === input.id)
 			) {
 				return rejected(session, "validation");
 			}
-			const document: ProjectionDocument = { ...input, revision: "1" };
+			const document: ProjectionDocument = {
+				id: input.id.trim(),
+				...(input.title ? { title: input.title.trim() } : {}),
+				nodes: input.nodes,
+				revision: "1",
+			};
 			return accepted(session, {
 				documents: [...session.documents, document],
 				activeArtifactId: document.id,

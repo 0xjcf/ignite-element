@@ -1,33 +1,22 @@
-import { igniteTools } from "ignite-element/tools";
 import {
 	type OpenAIChatCompletionResponse,
 	openai,
 } from "ignite-element/tools/openai";
-import type {
-	ModelFailureFact,
-	ModelRequest,
-	ModelResult,
-	WorkbenchModel,
-} from "./agent-loop";
-import type { component as workbenchComponent } from "./session";
+import type { ModelFailureFact, ModelRequest, ModelResult } from "./agent-loop";
 
 const SYSTEM_PROMPT = `You operate a consumer-owned Ignite conversation actor.
-Use only the supplied tools. Create an artifact for a fresh request, revise the active artifact when the user requests a change, and finish every successful turn with completeResponse.
+Use only the supplied tools. Create an artifact for a fresh request, revise the active artifact when the user requests a change, and return completeResponse in the same tool-call response after every createArtifact or reviseArtifact call.
+createArtifact always requires id and a nodes array; include a concise title. Every node in that array requires its own id and kind. Use these exact node shapes: text is {"id":"node-id","kind":"text","text":"content"}; checklist is {"id":"node-id","kind":"checklist","items":[{"id":"item-id","label":"item","checked":false}]}; decision-log is {"id":"node-id","kind":"decision-log","entries":[{"id":"entry-id","title":"title","decision":"decision","rationale":"optional rationale"}]}; table is {"id":"node-id","kind":"table","columns":[{"id":"column-id","label":"column"}],"rows":[{"id":"row-id","cells":["value"]}]}.
 Produce semantic projection nodes only; never emit HTML, JavaScript, or executable code.`;
 
-export type MlxWorkbenchModelOptions = {
-	component: typeof workbenchComponent;
+export type MlxWorkbenchConfiguration = {
 	baseUrl?: string;
 	model?: string;
 	apiKey?: string;
-	fetch?: typeof fetch;
 	timeoutMs?: number;
 };
 
-export type MlxWorkbenchReadinessOptions = Omit<
-	MlxWorkbenchModelOptions,
-	"component"
-> & {
+export type MlxWorkbenchReadinessOptions = MlxWorkbenchConfiguration & {
 	signal?: AbortSignal;
 };
 
@@ -62,13 +51,35 @@ const isCompletionResponse = (
 ): value is OpenAIChatCompletionResponse =>
 	isRecord(value) && Array.isArray(value.choices) && value.choices.length > 0;
 
+const hasReadinessToolCall = (value: OpenAIChatCompletionResponse): boolean => {
+	const choice = value.choices[0];
+	if (!isRecord(choice) || !isRecord(choice.message)) return false;
+	const calls = choice.message.tool_calls;
+	if (!Array.isArray(calls)) return false;
+	return calls.some((call) => {
+		if (!isRecord(call) || !isRecord(call.function)) return false;
+		if (
+			call.type !== "function" ||
+			call.function.name !== "workbenchReady" ||
+			typeof call.function.arguments !== "string"
+		) {
+			return false;
+		}
+		try {
+			return isRecord(JSON.parse(call.function.arguments));
+		} catch {
+			return false;
+		}
+	});
+};
+
 const stripTrailingSlash = (value: string): string => value.replace(/\/+$/, "");
 
 const isAbortError = (error: unknown): boolean =>
 	isRecord(error) && error.name === "AbortError";
 
 function resolveConfiguration(
-	options: Omit<MlxWorkbenchModelOptions, "component">,
+	options: MlxWorkbenchConfiguration,
 	defaultTimeoutMs: number,
 ):
 	| {
@@ -166,8 +177,7 @@ export async function probeMlxWorkbenchReadiness(
 		return { type: "MODEL_FAILED", failure: configuration.failure };
 	}
 
-	const fetchImpl = options.fetch ?? globalThis.fetch;
-	if (typeof fetchImpl !== "function") {
+	if (typeof globalThis.fetch !== "function") {
 		return {
 			type: "MODEL_FAILED",
 			failure: failureFact(
@@ -179,16 +189,38 @@ export async function probeMlxWorkbenchReadiness(
 
 	const request = requestSignal(configuration.timeoutMs, options.signal);
 	try {
-		const response = await fetchImpl(
+		const response = await globalThis.fetch(
 			`${configuration.baseUrl}/chat/completions`,
 			{
 				method: "POST",
 				headers: requestHeaders(options.apiKey),
 				body: JSON.stringify({
 					model: configuration.model,
-					messages: [{ role: "user", content: "Reply with OK." }],
-					max_tokens: 1,
+					messages: [
+						{
+							role: "user",
+							content:
+								"Call workbenchReady with an empty object. Do not answer with prose.",
+						},
+					],
+					tools: [
+						{
+							type: "function",
+							function: {
+								name: "workbenchReady",
+								description:
+									"Confirm that the model can return OpenAI-compatible tool calls.",
+								parameters: {
+									type: "object",
+									properties: {},
+									additionalProperties: false,
+								},
+							},
+						},
+					],
+					max_tokens: 256,
 					stream: false,
+					temperature: 0,
 				}),
 				signal: request.signal,
 			},
@@ -234,6 +266,15 @@ export async function probeMlxWorkbenchReadiness(
 				),
 			};
 		}
+		if (!hasReadinessToolCall(payload)) {
+			return {
+				type: "MODEL_FAILED",
+				failure: failureFact(
+					"invalid-response",
+					"The local model did not return an OpenAI-compatible tool call.",
+				),
+			};
+		}
 		return { type: "MODEL_AVAILABLE" };
 	} catch (error) {
 		if (request.timedOut() || request.signal.aborted || isAbortError(error)) {
@@ -272,99 +313,93 @@ function requestBody(
 			},
 		],
 		tools,
+		max_tokens: 2048,
+		temperature: 0,
 	});
 }
 
 /**
- * Create an SDK-free model seam for an OpenAI-compatible MLX server. Provider
- * lifecycle and configuration stay consumer-owned; expected failures cross the
- * adapter boundary as typed facts.
+ * Request one model turn from an OpenAI-compatible MLX server. The request and
+ * configuration are plain data; browser I/O stays at this provider boundary.
  */
-export function createMlxWorkbenchModel(
-	options: MlxWorkbenchModelOptions,
-): WorkbenchModel {
-	return async (request) => {
-		const configuration = resolveConfiguration(options, 30_000);
-		if (!configuration.ok) return { ok: false, error: configuration.failure };
+export async function requestMlxWorkbenchModel(
+	options: MlxWorkbenchConfiguration,
+	request: ModelRequest,
+): Promise<ModelResult> {
+	const configuration = resolveConfiguration(options, 30_000);
+	if (!configuration.ok) return { ok: false, error: configuration.failure };
 
-		const fetchImpl = options.fetch ?? globalThis.fetch;
-		if (typeof fetchImpl !== "function") {
-			return failure(
-				"configuration",
-				"This environment does not provide fetch for the local model request.",
-			);
-		}
-
-		const dialect = igniteTools(options.component, openai);
-		const requestedNames = new Set(request.tools.map((tool) => tool.name));
-		const currentTools = dialect.tools.filter((tool) =>
-			requestedNames.has(tool.function.name),
+	if (typeof globalThis.fetch !== "function") {
+		return failure(
+			"configuration",
+			"This environment does not provide fetch for the local model request.",
 		);
-		const headers = requestHeaders(options.apiKey);
+	}
 
-		const controller = new AbortController();
-		const timeout = setTimeout(
-			() => controller.abort(),
-			configuration.timeoutMs,
-		);
-		let response: Response;
-		try {
-			response = await fetchImpl(`${configuration.baseUrl}/chat/completions`, {
+	const currentTools = openai.tools(request.tools);
+	const headers = requestHeaders(options.apiKey);
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), configuration.timeoutMs);
+	let response: Response;
+	try {
+		response = await globalThis.fetch(
+			`${configuration.baseUrl}/chat/completions`,
+			{
 				method: "POST",
 				headers,
 				body: requestBody(request, configuration.model, currentTools),
 				signal: controller.signal,
-			});
+			},
+		);
+	} catch (error) {
+		clearTimeout(timeout);
+		if (controller.signal.aborted || isAbortError(error)) {
+			return failure("timeout", "The local model request timed out.");
+		}
+		return failure("network", "The local model could not be reached.");
+	}
+
+	try {
+		if (!response.ok) {
+			return failure(
+				"provider",
+				"The local model rejected the request.",
+				response.status,
+			);
+		}
+		let payload: unknown;
+		try {
+			payload = await response.json();
 		} catch (error) {
-			clearTimeout(timeout);
 			if (controller.signal.aborted || isAbortError(error)) {
 				return failure("timeout", "The local model request timed out.");
 			}
-			return failure("network", "The local model could not be reached.");
+			return failure(
+				"invalid-response",
+				"The local model returned an invalid response.",
+			);
 		}
-
-		try {
-			if (!response.ok) {
-				return failure(
-					"provider",
-					"The local model rejected the request.",
-					response.status,
-				);
-			}
-			let payload: unknown;
-			try {
-				payload = await response.json();
-			} catch (error) {
-				if (controller.signal.aborted || isAbortError(error)) {
-					return failure("timeout", "The local model request timed out.");
-				}
-				return failure(
-					"invalid-response",
-					"The local model returned an invalid response.",
-				);
-			}
-			if (!isCompletionResponse(payload)) {
-				return failure(
-					"invalid-response",
-					"The local model returned an invalid response.",
-				);
-			}
-			const calls = dialect.toolCalls(payload);
-			if (calls.length === 0) {
-				return failure(
-					"invalid-response",
-					"The local model returned an invalid response.",
-				);
-			}
-			return {
-				ok: true,
-				calls: calls.map((call) => ({
-					command: call.name,
-					input: call.input,
-				})),
-			};
-		} finally {
-			clearTimeout(timeout);
+		if (!isCompletionResponse(payload)) {
+			return failure(
+				"invalid-response",
+				"The local model returned an invalid response.",
+			);
 		}
-	};
+		const calls = openai.toolCalls(payload, request.tools);
+		if (calls.length === 0) {
+			return failure(
+				"invalid-response",
+				"The local model returned an invalid response.",
+			);
+		}
+		return {
+			ok: true,
+			calls: calls.map((call) => ({
+				command: call.name,
+				input: call.input,
+			})),
+		};
+	} finally {
+		clearTimeout(timeout);
+	}
 }

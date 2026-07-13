@@ -69,16 +69,11 @@ const isPermissionDenial = (error: unknown): boolean =>
  * Capability-gated browser transcription. It only produces speech-modality
  * prompts; the Ignite actor remains the authority that admits the prompt.
  */
-export function createBrowserVoiceCapture(
-	options: {
-		createRecognition?: () => SpeechRecognitionLike | null;
-		language?: string;
-	} = {},
-): VoiceCapture {
+export function createBrowserVoiceCapture(): VoiceCapture {
 	let recognition: SpeechRecognitionLike | null = null;
 	let fact: VoiceCaptureFact;
 	try {
-		recognition = (options.createRecognition ?? defaultRecognition)();
+		recognition = defaultRecognition();
 		fact = recognition ? { type: "voice-idle" } : { type: "voice-unsupported" };
 	} catch {
 		fact = {
@@ -98,7 +93,7 @@ export function createBrowserVoiceCapture(
 	if (recognition) {
 		recognition.continuous = false;
 		recognition.interimResults = true;
-		recognition.lang = options.language?.trim() || "en-US";
+		recognition.lang = "en-US";
 		recognition.onresult = (event) => {
 			if (disposed) return;
 			const transcripts: string[] = [];

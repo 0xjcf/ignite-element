@@ -1,6 +1,6 @@
 /** @jsxImportSource ignite-element/jsx */
 import { component, source } from "./session";
-import { renderWorkbench, type WorkbenchEnvironment } from "./workbench";
+import { renderWorkbench } from "./workbench";
 
 export const PARITY_STATES = [
 	"preparing",
@@ -22,44 +22,15 @@ export function resolveParityState(search: string): ParityState | null {
 	return isParityState(requested) ? requested : null;
 }
 
-export const parityEnvironment = {
-	cancelVoice: () =>
-		source.send({
-			type: "PRESENTATION_VOICE_CHANGED",
-			fact: { type: "voice-cancelled" },
-		}),
-	playSpeech: () => {
-		const speech = component.getView().speech;
-		if (!speech) return;
-		source.send({
-			type: "PRESENTATION_SPEECH_COMMITTED",
-			speech: { id: speech.id, text: speech.text, status: "unavailable" },
-		});
-	},
-	retryModel: () => source.send({ type: "MODEL_PREPARATION_STARTED" }),
-	startVoice: () =>
-		source.send({
-			type: "PRESENTATION_VOICE_CHANGED",
-			fact: { type: "voice-listening" },
-		}),
-	submitPrompt: (prompt) => {
-		void component.execute({
-			command: "submitPrompt",
-			input: { modality: prompt.channel, text: prompt.text },
-		});
-	},
-	useVoiceTranscript: () => {},
-} satisfies WorkbenchEnvironment;
-
-const setIdleVoice = () =>
-	source.send({
-		type: "PRESENTATION_VOICE_CHANGED",
-		fact: { type: "voice-idle" },
+const setIdleVoice = async () =>
+	component.execute({
+		command: "presentVoice",
+		input: { type: "voice-idle" },
 	});
 
 const ensureResponding = async () => {
 	if (component.getView().status === "responding") return;
-	source.send({ type: "MODEL_AVAILABLE" });
+	await component.execute({ command: "reportModelAvailable" });
 	await component.execute({
 		command: "submitPrompt",
 		input: {
@@ -70,7 +41,7 @@ const ensureResponding = async () => {
 };
 
 const seedArtifact = async () => {
-	setIdleVoice();
+	await setIdleVoice();
 	await ensureResponding();
 	if (component.getView().artifacts.length === 0) {
 		await component.execute({
@@ -111,23 +82,23 @@ const seedArtifact = async () => {
 	const view = component.getView();
 	const artifact = view.artifacts[0];
 	if (artifact) {
-		source.send({
-			type: "PRESENTATION_DOCUMENT_COMMITTED",
-			document: {
+		await component.execute({
+			command: "commitDocument",
+			input: {
 				id: artifact.id,
 				title: artifact.title,
 				revision: artifact.revision,
 			},
 		});
 	}
-	source.send({
-		type: "PRESENTATION_TERMINAL_COMMITTED",
-		terminal: { text: "Parity harness only — terminal receipt." },
+	await component.execute({
+		command: "commitTerminal",
+		input: { text: "Parity harness only — terminal receipt." },
 	});
 	if (view.speech) {
-		source.send({
-			type: "PRESENTATION_SPEECH_COMMITTED",
-			speech: {
+		await component.execute({
+			command: "commitSpeech",
+			input: {
 				id: view.speech.id,
 				text: view.speech.text,
 				status: "unavailable",
@@ -138,9 +109,9 @@ const seedArtifact = async () => {
 			input: { id: view.speech.id },
 		});
 	}
-	source.send({
-		type: "PRESENTATION_TURN_RECORDED",
-		fact: {
+	await component.execute({
+		command: "recordTurn",
+		input: {
 			type: "accepted",
 			trace: [
 				{ command: "createArtifact", accepted: true },
@@ -148,56 +119,56 @@ const seedArtifact = async () => {
 			],
 		},
 	});
-	source.send({
-		type: "PRESENTATION_MOBILE_PANEL_CHANGED",
-		panel: "artifact",
+	await component.execute({
+		command: "changeMobilePanel",
+		input: "artifact",
 	});
 };
 
 export async function seedParityState(state: ParityState): Promise<void> {
 	switch (state) {
 		case "preparing":
-			source.send({ type: "MODEL_PREPARATION_STARTED" });
+			await component.execute({ command: "beginModelPreparation" });
 			return;
 		case "failed":
-			source.send({
-				type: "MODEL_FAILED",
-				failure: {
+			await component.execute({
+				command: "reportModelFailure",
+				input: {
 					kind: "provider",
 					message: "Parity harness only — simulated model failure.",
 				},
 			});
 			return;
 		case "ready":
-			source.send({ type: "MODEL_AVAILABLE" });
+			await component.execute({ command: "reportModelAvailable" });
 			return;
 		case "listening":
-			source.send({ type: "MODEL_AVAILABLE" });
-			source.send({
-				type: "PRESENTATION_VOICE_CHANGED",
-				fact: { type: "voice-listening" },
+			await component.execute({ command: "reportModelAvailable" });
+			await component.execute({
+				command: "presentVoice",
+				input: { type: "voice-listening" },
 			});
 			return;
 		case "responding":
-			setIdleVoice();
+			await setIdleVoice();
 			await ensureResponding();
-			source.send({
-				type: "PRESENTATION_MOBILE_PANEL_CHANGED",
-				panel: "artifact",
+			await component.execute({
+				command: "changeMobilePanel",
+				input: "artifact",
 			});
 			return;
 		case "artifact":
 			await seedArtifact();
 			return;
 		case "permission":
-			source.send({ type: "MODEL_AVAILABLE" });
-			source.send({
-				type: "PRESENTATION_DRAFT_CHANGED",
-				draft: "Parity harness draft stays available",
+			await component.execute({ command: "reportModelAvailable" });
+			await component.execute({
+				command: "changeDraft",
+				input: "Parity harness draft stays available",
 			});
-			source.send({
-				type: "PRESENTATION_VOICE_CHANGED",
-				fact: {
+			await component.execute({
+				command: "presentVoice",
+				input: {
 					type: "voice-permission-denied",
 					message: "Parity harness only — simulated microphone denial.",
 				},
@@ -236,7 +207,7 @@ export async function mountParityHarness(state: ParityState) {
 				}
 			`}</style>
 			<output class="parity-badge">Test-only parity harness · {state}</output>
-			{renderWorkbench(projection, parityEnvironment)}
+			{renderWorkbench(projection)}
 		</>
 	));
 }

@@ -1,9 +1,4 @@
-import {
-	igniteTools,
-	isOk,
-	type NeutralTool,
-	type NeutralToolCall,
-} from "ignite-element/tools";
+import type { NeutralManifest } from "ignite-element/tools";
 
 const MODEL_COMMANDS = [
 	"createArtifact",
@@ -30,10 +25,9 @@ export type ModelResult =
 	| { ok: false; error: ModelFailureFact };
 export type ModelRequest = {
 	prompt: { channel: "text" | "speech"; text: string };
-	tools: readonly NeutralTool[];
+	tools: NeutralManifest;
 	view: unknown;
 };
-export type WorkbenchModel = (request: ModelRequest) => Promise<ModelResult>;
 export type ModelTurnTrace = { command: string; accepted: boolean };
 export type ModelTurnResult =
 	| { accepted: true; trace: ModelTurnTrace[] }
@@ -58,6 +52,9 @@ export type ModelTurnResult =
 const isModelCommand = (name: string): name is ModelCommand =>
 	MODEL_COMMANDS.includes(name as ModelCommand);
 
+export const modelTools = (manifest: NeutralManifest): NeutralManifest =>
+	manifest.filter((tool) => isModelCommand(tool.name));
+
 const failureMessage = (kind: ModelFailureKind): string => {
 	switch (kind) {
 		case "configuration":
@@ -81,108 +78,66 @@ const sanitizedFailure = (
 	...(failure.status === undefined ? {} : { status: failure.status }),
 });
 
-async function recoverModelFailure(
-	run: (call: NeutralToolCall) => Promise<{ ok: boolean }>,
-	failure: ModelFailureFact,
-): Promise<ModelTurnResult> {
-	const safeFailure = sanitizedFailure(failure);
-	return {
-		accepted: false,
-		reason: "model-failed",
-		failure: safeFailure,
-		trace: await completeFailedTurn(run, safeFailure.message),
-	};
-}
+const recoveryCall = (message: string): ModelToolCall => ({
+	command: "completeResponse",
+	input: { text: message },
+});
 
-const INCOMPLETE_RESPONSE_MESSAGE =
-	"The model did not complete the response. Refine the prompt and try again.";
-
-async function completeFailedTurn(
-	run: (call: NeutralToolCall) => Promise<{ ok: boolean }>,
-	message: string,
-	trace: ModelTurnTrace[] = [],
-): Promise<ModelTurnTrace[]> {
-	const recovery = await run({
-		name: "completeResponse",
-		input: { text: message },
-	});
-	return [...trace, { command: "completeResponse", accepted: recovery.ok }];
-}
-
-export async function runModelTurn(options: {
-	component: typeof import("./session").component;
-	model: WorkbenchModel;
-	prompt: { channel: "text" | "speech"; text: string };
-}): Promise<ModelTurnResult> {
-	let admission: Awaited<ReturnType<typeof options.component.execute>>;
-	try {
-		admission = await options.component.execute({
-			command: "submitPrompt",
-			input: { modality: options.prompt.channel, text: options.prompt.text },
-		});
-	} catch {
-		return { accepted: false, reason: "prompt-rejected", trace: [] };
-	}
-	const promptAdmitted = admission.events.some(
-		(event) => event.type === "prompt-submitted",
-	);
-	if (!promptAdmitted) {
-		return { accepted: false, reason: "prompt-rejected", trace: [] };
-	}
-
-	const tools = igniteTools(options.component);
-	const modelManifest = tools.manifest.filter((tool) =>
-		isModelCommand(tool.name),
-	);
-	let response: ModelResult;
-	try {
-		response = await options.model({
-			prompt: options.prompt,
-			tools: modelManifest,
-			view: options.component.getView(),
-		});
-	} catch {
-		return recoverModelFailure(tools.run, {
-			kind: "provider",
-			message: failureMessage("provider"),
-		});
-	}
-	if (!response.ok) {
-		return recoverModelFailure(tools.run, response.error);
-	}
+/**
+ * A pure protocol for one admitted model turn. The browser composition root
+ * executes each yielded call through Ignite and returns only its acceptance.
+ */
+export function* modelTurn(
+	response: ModelResult,
+): Generator<ModelToolCall, ModelTurnResult, boolean> {
 	const trace: ModelTurnTrace[] = [];
+	if (!response.ok) {
+		const failure = sanitizedFailure(response.error);
+		const accepted = yield recoveryCall(failure.message);
+		trace.push({ command: "completeResponse", accepted });
+		return {
+			accepted: false,
+			reason: "model-failed",
+			failure,
+			trace,
+		};
+	}
 	let responseCompleted = false;
+	let artifactMutationSeen = false;
 
 	for (const call of response.calls) {
 		if (!isModelCommand(call.command)) {
+			const accepted = yield recoveryCall(
+				"The model proposed a command that is not allowed. Refine the prompt and try again.",
+			);
+			trace.push({ command: "completeResponse", accepted });
 			return {
 				accepted: false,
 				reason: "command-not-allowed",
 				command: call.command,
-				trace: await completeFailedTurn(
-					tools.run,
-					"The model proposed a command that is not allowed. Refine the prompt and try again.",
-					trace,
-				),
+				trace,
 			};
 		}
+		const artifactMutation =
+			call.command === "createArtifact" || call.command === "reviseArtifact";
+		if (artifactMutation && artifactMutationSeen) continue;
+		if (artifactMutation) artifactMutationSeen = true;
 
-		const result = await tools.run({ name: call.command, input: call.input });
-		const rejectedByActor =
-			isOk(result) &&
-			result.value.events.some((event) => event.type === "artifact-rejected");
-		const callAccepted = isOk(result) && !rejectedByActor;
+		const callAccepted = yield call;
 		trace.push({ command: call.command, accepted: callAccepted });
 		if (!callAccepted) {
+			const recoveryAccepted = yield recoveryCall(
+				"The actor rejected the proposed command. Refine the prompt and try again.",
+			);
+			trace.push({
+				command: "completeResponse",
+				accepted: recoveryAccepted,
+			});
 			return {
 				accepted: false,
 				reason: "command-rejected",
 				command: call.command,
-				trace: await completeFailedTurn(
-					tools.run,
-					"The actor rejected the proposed command. Refine the prompt and try again.",
-					trace,
-				),
+				trace,
 			};
 		}
 		if (call.command === "completeResponse") {
@@ -194,11 +149,7 @@ export async function runModelTurn(options: {
 		return {
 			accepted: false,
 			reason: "response-incomplete",
-			trace: await completeFailedTurn(
-				tools.run,
-				INCOMPLETE_RESPONSE_MESSAGE,
-				trace,
-			),
+			trace,
 		};
 	}
 
