@@ -116,6 +116,18 @@ describe("voice workbench headless component", () => {
 			})
 			.expectView({
 				messageCount: 1,
+				messages: [
+					{
+						role: "user",
+						channel: "text",
+						text: "Capture a decision",
+					},
+				],
+				lastFact: {
+					type: "prompt-submitted",
+					modality: "text",
+					text: "Capture a decision",
+				},
 				status: "responding",
 				statusLabel: "Responding",
 				canSubmitPrompt: false,

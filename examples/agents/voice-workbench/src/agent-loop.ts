@@ -81,16 +81,24 @@ async function recoverModelFailure(
 	failure: ModelFailureFact,
 ): Promise<ModelTurnResult> {
 	const safeFailure = sanitizedFailure(failure);
-	const recovery = await run({
-		name: "completeResponse",
-		input: { text: safeFailure.message },
-	});
 	return {
 		accepted: false,
 		reason: "model-failed",
 		failure: safeFailure,
-		trace: [{ command: "completeResponse", accepted: recovery.ok }],
+		trace: await completeFailedTurn(run, safeFailure.message),
 	};
+}
+
+async function completeFailedTurn(
+	run: (call: NeutralToolCall) => Promise<{ ok: boolean }>,
+	message: string,
+	trace: ModelTurnTrace[] = [],
+): Promise<ModelTurnTrace[]> {
+	const recovery = await run({
+		name: "completeResponse",
+		input: { text: message },
+	});
+	return [...trace, { command: "completeResponse", accepted: recovery.ok }];
 }
 
 export async function runModelTurn(options: {
@@ -131,7 +139,11 @@ export async function runModelTurn(options: {
 				accepted: false,
 				reason: "command-not-allowed",
 				command: call.command,
-				trace,
+				trace: await completeFailedTurn(
+					tools.run,
+					"The model proposed a command that is not allowed. Refine the prompt and try again.",
+					trace,
+				),
 			};
 		}
 
@@ -146,7 +158,11 @@ export async function runModelTurn(options: {
 				accepted: false,
 				reason: "command-rejected",
 				command: call.command,
-				trace,
+				trace: await completeFailedTurn(
+					tools.run,
+					"The actor rejected the proposed command. Refine the prompt and try again.",
+					trace,
+				),
 			};
 		}
 	}

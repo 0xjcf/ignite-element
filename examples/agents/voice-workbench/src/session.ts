@@ -99,6 +99,8 @@ export const component = igniteCore({
 			canSubmitPrompt: snapshot.matches("ready"),
 			revision: snapshot.context.revision,
 			messageCount: snapshot.context.messages.length,
+			messages: snapshot.context.messages,
+			lastFact: snapshot.context.lastFact,
 			artifacts: snapshot.context.documents.map((document) => ({
 				...document,
 				nodes: document.nodes.map((node) => {

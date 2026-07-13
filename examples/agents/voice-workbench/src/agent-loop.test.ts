@@ -113,7 +113,10 @@ describe("voice/text workbench model turn", () => {
 			accepted: false,
 			reason: "command-rejected",
 			command: "createArtifact",
-			trace: [{ command: "createArtifact", accepted: false }],
+			trace: [
+				{ command: "createArtifact", accepted: false },
+				{ command: "completeResponse", accepted: true },
+			],
 		});
 		expect(requests[0]?.tools.map((tool) => tool.name)).toEqual([
 			"completeResponse",
@@ -131,9 +134,10 @@ describe("voice/text workbench model turn", () => {
 			accepted: false,
 			reason: "command-not-allowed",
 			command: "renderJavascript",
-			trace: [],
+			trace: [{ command: "completeResponse", accepted: true }],
 		});
 		expect(component.getView()).toMatchObject({
+			status: "ready",
 			artifacts: [{ id: "plan", revision: "2" }],
 		});
 	});

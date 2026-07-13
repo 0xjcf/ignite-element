@@ -1,5 +1,6 @@
 /** @jsxImportSource ignite-element/jsx */
-import type { component } from "./session";
+import { component } from "./session";
+import { workbenchStyles } from "./styles";
 
 type WorkbenchRenderer = Extract<
 	Parameters<typeof component>[1],
@@ -7,46 +8,128 @@ type WorkbenchRenderer = Extract<
 >;
 type WorkbenchContext = Parameters<WorkbenchRenderer>[0];
 type DocumentNode = WorkbenchContext["artifacts"][number]["nodes"][number];
+type WorkbenchPrompt = { channel: "text" | "speech"; text: string };
+
+const commandNames = Object.keys(component.getSchema().commands);
+
+const emit = (event: Event, name: string, detail?: unknown) => {
+	(event.currentTarget as HTMLElement).dispatchEvent(
+		new CustomEvent(name, { bubbles: true, composed: true, detail }),
+	);
+};
+
+const setArtifactView = (event: Event, view: "document" | "schema") => {
+	const artifact = (event.currentTarget as HTMLElement).closest(".artifact");
+	if (!(artifact instanceof HTMLElement)) return;
+	artifact.dataset.view = view;
+	for (const tab of artifact.querySelectorAll('[role="tab"]')) {
+		tab.setAttribute(
+			"aria-selected",
+			String(tab.getAttribute("data-view") === view),
+		);
+	}
+};
+
+const setMobilePanel = (
+	event: Event,
+	panelName: "conversation" | "artifact" | "runtime",
+) => {
+	const shell = (event.currentTarget as HTMLElement).closest(".shell");
+	if (!(shell instanceof HTMLElement)) return;
+	for (const panel of shell.querySelectorAll<HTMLElement>("[data-panel]")) {
+		panel.classList.toggle(
+			"is-mobile-active",
+			panel.dataset.panel === panelName,
+		);
+	}
+	for (const tab of shell.querySelectorAll<HTMLElement>("[data-target]")) {
+		tab.setAttribute("aria-pressed", String(tab.dataset.target === panelName));
+	}
+};
+
+const schemaDocument = (
+	document: WorkbenchContext["artifacts"][number] | undefined,
+) => {
+	if (!document) return { artifacts: [] };
+	return {
+		id: document.id,
+		title: document.title,
+		revision: document.revision,
+		nodes: document.nodes.map(({ action: _action, ...node }) => node),
+	};
+};
+
+const describeFact = (fact: WorkbenchContext["lastFact"]): string => {
+	if (!fact) return "no actor facts yet";
+	switch (fact.type) {
+		case "prompt-submitted":
+			return `${fact.type} · ${fact.modality}`;
+		case "artifact-created":
+		case "artifact-revised":
+			return `${fact.type} · revision ${fact.revision}`;
+		case "artifact-rejected":
+			return `${fact.type} · ${fact.reason}`;
+		case "speech-acknowledged":
+			return `${fact.type} · ${fact.id}`;
+		case "response-completed":
+			return fact.type;
+	}
+};
+
+const nodeHeading = (kind: DocumentNode["kind"], label: string) => (
+	<h2>
+		{label}
+		<span class="node-kind">{kind}</span>
+	</h2>
+);
 
 const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 	switch (node.kind) {
 		case "text":
-			return <p key={node.id}>{node.text}</p>;
+			return (
+				<section key={node.id} class="doc-card">
+					{nodeHeading(node.kind, "Text")}
+					<p>{node.text}</p>
+				</section>
+			);
 		case "checklist":
 			return (
-				<ul key={node.id} aria-label="Checklist">
-					{node.items.map((item) => (
-						<li key={item.id}>
-							<label>
+				<section key={node.id} class="doc-card">
+					{nodeHeading(node.kind, "Checklist")}
+					<ul class="checklist" aria-label="Checklist">
+						{node.items.map((item) => (
+							<li key={item.id}>
 								<input type="checkbox" checked={item.checked} disabled />
-								{item.label}
-							</label>
-						</li>
-					))}
-				</ul>
+								<span>{item.label}</span>
+							</li>
+						))}
+					</ul>
+				</section>
 			);
 		case "action": {
 			const action = node.action;
 			return (
-				<button
-					key={node.id}
-					type="button"
-					disabled={!action?.enabled}
-					title={node.description}
-					onClick={() => {
-						if (action?.enabled) {
-							context.completeResponse(action.input);
-						}
-					}}
-				>
-					{node.label}
-				</button>
+				<section key={node.id} class="doc-card">
+					{nodeHeading(node.kind, "Authorized action")}
+					{node.description ? <p>{node.description}</p> : null}
+					<button
+						class="node-action"
+						type="button"
+						disabled={!action?.enabled}
+						onClick={() => {
+							if (action?.enabled) context.completeResponse(action.input);
+						}}
+					>
+						{node.label}
+					</button>
+				</section>
 			);
 		}
 		case "form":
 			return (
-				<fieldset key={node.id}>
+				<fieldset key={node.id} class="doc-card">
 					<legend>{node.title ?? "Form"}</legend>
+					<span class="node-kind">{node.kind}</span>
 					{node.fields.map((field) => (
 						<label key={field.id}>
 							{field.label}
@@ -58,68 +141,79 @@ const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 										? String(field.value)
 										: ""
 								}
-								aria-describedby={
-									field.description ? `${field.id}-help` : undefined
-								}
+								readOnly
 							/>
-							{field.description ? (
-								<small id={`${field.id}-help`}>{field.description}</small>
-							) : null}
+							{field.description ? <small>{field.description}</small> : null}
 						</label>
 					))}
 				</fieldset>
 			);
 		case "table":
 			return (
-				<table key={node.id}>
-					<thead>
-						<tr>
-							{node.columns.map((column) => (
-								<th key={column.id} scope="col">
-									{column.label}
-								</th>
-							))}
-						</tr>
-					</thead>
-					<tbody>
-						{node.rows.map((row) => (
-							<tr key={row.id}>
-								{row.cells.map((cell, index) => (
-									<td key={`${row.id}-${node.columns[index]?.id ?? index}`}>
-										{String(cell ?? "")}
-									</td>
+				<section key={node.id} class="doc-card">
+					{nodeHeading(node.kind, "Table")}
+					<table>
+						<thead>
+							<tr>
+								{node.columns.map((column) => (
+									<th key={column.id} scope="col">
+										{column.label}
+									</th>
 								))}
 							</tr>
-						))}
-					</tbody>
-				</table>
+						</thead>
+						<tbody>
+							{node.rows.map((row) => (
+								<tr key={row.id}>
+									{row.cells.map((cell, index) => (
+										<td key={`${row.id}-${node.columns[index]?.id ?? index}`}>
+											{String(cell ?? "")}
+										</td>
+									))}
+								</tr>
+							))}
+						</tbody>
+					</table>
+				</section>
 			);
 		case "timeline":
 			return (
-				<ol key={node.id} aria-label="Timeline">
-					{node.events.map((event) => (
-						<li key={event.id}>
-							<time datetime={event.timestamp}>{event.timestamp}</time>{" "}
-							<strong>{event.label}</strong>
-							{event.detail ? <p>{event.detail}</p> : null}
-						</li>
-					))}
-				</ol>
+				<section key={node.id} class="doc-card">
+					{nodeHeading(node.kind, "Timeline")}
+					<ol class="timeline" aria-label="Timeline">
+						{node.events.map((timelineEvent) => (
+							<li key={timelineEvent.id}>
+								<time datetime={timelineEvent.timestamp}>
+									{timelineEvent.timestamp}
+								</time>{" "}
+								<strong>{timelineEvent.label}</strong>
+								{timelineEvent.detail ? <p>{timelineEvent.detail}</p> : null}
+							</li>
+						))}
+					</ol>
+				</section>
 			);
 		case "chart":
 			return (
-				<ul key={node.id} aria-label={`${node.chartType} chart data`}>
+				<section key={node.id} class="doc-card">
+					{nodeHeading(node.kind, `${node.chartType} chart`)}
 					{node.series.map((series) => (
-						<li key={series.id}>
-							{series.label}: {series.value}
-						</li>
+						<label key={series.id}>
+							<span>
+								{series.label}: {series.value}
+							</span>
+							<progress max="100" value={series.value} />
+						</label>
 					))}
-				</ul>
+				</section>
 			);
 		case "code-diff":
 			return (
-				<figure key={node.id}>
-					<figcaption>{node.language ?? "Code"} diff</figcaption>
+				<figure key={node.id} class="doc-card">
+					<figcaption>
+						{node.language ?? "Code"} diff
+						<span class="node-kind">{node.kind}</span>
+					</figcaption>
 					<pre>
 						<code>{`Before:\n${node.before ?? ""}\nAfter:\n${node.after ?? ""}`}</code>
 					</pre>
@@ -127,7 +221,8 @@ const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 			);
 		case "decision-log":
 			return (
-				<section key={node.id} aria-label="Decision log">
+				<section key={node.id} class="doc-card" aria-label="Decision log">
+					{nodeHeading(node.kind, "Decision log")}
 					{node.entries.map((entry) => (
 						<article key={entry.id}>
 							<h3>{entry.title}</h3>
@@ -140,51 +235,529 @@ const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 	}
 };
 
-export const renderWorkbench: WorkbenchRenderer = (context) => (
-	<main>
-		<header>
-			<h1>Voice and text artifact workbench</h1>
-			{/* biome-ignore lint/a11y/noRedundantRoles lint/a11y/useSemanticElements: igniteTest's DOM bridge currently requires the explicit status role. */}
-			<output role="status" aria-label="Conversation status">
-				{context.statusLabel}
-			</output>
-		</header>
-		<form
-			onSubmit={(event: Event) => {
-				event.preventDefault();
-				const form = event.currentTarget as HTMLFormElement;
-				const text = String(new FormData(form).get("prompt") ?? "").trim();
-				if (text) context.submitPrompt({ modality: "text", text });
-			}}
-		>
-			<label>
-				Prompt
-				<textarea name="prompt" disabled={!context.canSubmitPrompt} />
-			</label>
-			<button type="submit" disabled={!context.canSubmitPrompt}>
-				Send text prompt
-			</button>
-			<button
-				type="button"
-				disabled={!context.canSubmitPrompt}
-				onClick={(event: Event) => {
-					const form = (event.currentTarget as HTMLElement).closest("form");
-					const text = String(
-						form ? (new FormData(form).get("prompt") ?? "") : "",
-					).trim();
-					if (text) context.submitPrompt({ modality: "speech", text });
-				}}
+export const renderWorkbench: WorkbenchRenderer = (context) => {
+	const activeArtifact =
+		context.artifacts.find(
+			(artifact) => artifact.id === context.activeArtifactId,
+		) ?? context.artifacts[context.artifacts.length - 1];
+	const turns = context.messages.filter(
+		(message) => message.role === "user",
+	).length;
+	const speechStatus = context.speech?.status ?? "idle";
+	const documentSchema = JSON.stringify(
+		schemaDocument(activeArtifact),
+		null,
+		2,
+	);
+
+	return (
+		<>
+			<style>{workbenchStyles}</style>
+			<div
+				class="shell"
+				data-actor-state={context.status}
+				data-voice-state="idle"
 			>
-				Send speech prompt
-			</button>
-		</form>
-		<section aria-label="Artifacts">
-			{context.artifacts.map((document) => (
-				<article key={document.id}>
-					<h2>{document.title ?? document.id}</h2>
-					{document.nodes.map((node) => renderNode(node, context))}
-				</article>
-			))}
-		</section>
-	</main>
-);
+				<header class="topbar">
+					<div class="brand">
+						<div class="brand-mark" aria-hidden="true">
+							◆
+						</div>
+						<div class="brand-copy">
+							<strong>Ignite Element</strong>
+							<span>Voice + text workbench</span>
+						</div>
+					</div>
+					<div class="topbar-center">
+						<output class="pill pill-success" aria-label="Conversation status">
+							<i class="dot" /> {context.statusLabel}
+						</output>
+						<span class="pill">one component</span>
+						<span class="pill">{commandNames.length} typed commands</span>
+						<span class="pill">3 commit channels</span>
+					</div>
+					<div class="top-actions">
+						<label class="switch">
+							<span>Speak responses</span>
+							<input
+								id="speak-toggle"
+								type="checkbox"
+								checked
+								onChange={(event: Event) =>
+									emit(event, "workbench-speech-preference", {
+										enabled: (event.currentTarget as HTMLInputElement).checked,
+									})
+								}
+							/>
+							<span class="switch-track" aria-hidden="true" />
+						</label>
+					</div>
+				</header>
+
+				<div class="workspace">
+					<section
+						class="panel conversation is-mobile-active"
+						data-panel="conversation"
+						aria-label="Conversation"
+					>
+						<div class="panel-head">
+							<div class="panel-title">
+								<strong>Conversation</strong>
+								<span>{context.sessionId}</span>
+							</div>
+							<span class="pill">continuing session</span>
+						</div>
+						<fieldset class="session-summary">
+							<legend class="sr-only">Session summary</legend>
+							<span class="session-stat">
+								<strong>{turns} turns</strong>
+							</span>
+							<span class="session-stat">
+								<strong>{context.artifacts.length} artifacts</strong>
+							</span>
+							<span class="session-stat session-stat-speech">
+								<strong>{speechStatus}</strong>
+								<span>voice</span>
+							</span>
+						</fieldset>
+						<div class="messages" aria-live="polite">
+							{context.messages.length === 0 ? (
+								<div class="empty-chat">
+									<strong>Start with an outcome, not markup.</strong>
+									<span>
+										Ask the local model to create a plan, decision log, table,
+										or another semantic artifact.
+									</span>
+								</div>
+							) : null}
+							{context.messages.map((message, index) => (
+								<article
+									key={`${message.role}-${index}`}
+									class={`message ${message.role === "user" ? "message-user" : "message-agent"}`}
+								>
+									<div class="message-meta">
+										<span>
+											{message.role === "assistant"
+												? "Ignite agent"
+												: `${message.channel === "speech" ? "Speech" : "Text"} prompt`}
+										</span>
+									</div>
+									<div class="message-bubble">{message.text}</div>
+								</article>
+							))}
+							{context.status === "responding" ? (
+								<article class="message message-agent">
+									<div class="message-meta">Ignite agent · responding</div>
+									<div class="message-bubble">
+										<output class="typing" aria-label="Generating response">
+											<i />
+											<i />
+											<i />
+										</output>
+									</div>
+								</article>
+							) : null}
+						</div>
+						<div class="composer-wrap">
+							<output id="turn-result" class="sr-only" aria-live="assertive" />
+							<div class="permission-note" role="alert">
+								<span aria-hidden="true">⚠</span>
+								<div>
+									<strong>Microphone access was denied</strong>
+									<p>
+										Enable access to capture speech, or continue by typing. Your
+										current draft is preserved.
+									</p>
+								</div>
+							</div>
+							<form
+								class="composer"
+								onSubmit={(event: Event) => {
+									event.preventDefault();
+									const form = event.currentTarget as HTMLFormElement;
+									const text = String(
+										new FormData(form).get("prompt") ?? "",
+									).trim();
+									if (text) {
+										emit(event, "workbench-prompt", {
+											channel: "text",
+											text,
+										} satisfies WorkbenchPrompt);
+									}
+								}}
+							>
+								<label class="sr-only" for="prompt">
+									Prompt
+								</label>
+								<textarea
+									id="prompt"
+									name="prompt"
+									placeholder="Ask the agent to create or revise an artifact…"
+									disabled={!context.canSubmitPrompt}
+								/>
+								<div class="composer-actions">
+									<span class="input-mode">Typed input</span>
+									<button
+										class="icon-button"
+										id="mic-button"
+										type="button"
+										aria-label="Start speech input"
+										title="Start speech input"
+										disabled={!context.canSubmitPrompt}
+										onClick={(event: Event) =>
+											emit(event, "workbench-voice-start")
+										}
+									>
+										<span aria-hidden="true">●</span>
+									</button>
+									<button
+										class="send-button"
+										type="submit"
+										aria-label="Send"
+										disabled={!context.canSubmitPrompt}
+									>
+										Send <span aria-hidden="true">→</span>
+									</button>
+								</div>
+							</form>
+							<div class="voice-capture" aria-live="polite">
+								<div class="voice-top">
+									<div class="voice-orb" aria-hidden="true">
+										●
+									</div>
+									<div class="voice-copy">
+										<strong id="voice-status">Listening…</strong>
+										<span id="live-transcript">Waiting for speech</span>
+									</div>
+									<div class="wave" aria-hidden="true">
+										<i />
+										<i />
+										<i />
+										<i />
+										<i />
+									</div>
+								</div>
+								<div class="voice-actions">
+									<button
+										class="button"
+										id="cancel-voice"
+										type="button"
+										onClick={(event: Event) =>
+											emit(event, "workbench-voice-cancel")
+										}
+									>
+										Cancel
+									</button>
+									<button
+										class="button button-primary"
+										id="use-transcript"
+										type="button"
+										onClick={(event: Event) =>
+											emit(event, "workbench-voice-use")
+										}
+									>
+										Use transcript
+									</button>
+								</div>
+							</div>
+						</div>
+					</section>
+
+					<main
+						class="panel artifact"
+						data-panel="artifact"
+						data-view="document"
+					>
+						<div class="artifact-toolbar">
+							<div class="artifact-identity">
+								<strong>{activeArtifact?.title ?? "Artifact workspace"}</strong>
+								<span>
+									{activeArtifact
+										? `${activeArtifact.id} · revision ${activeArtifact.revision}`
+										: "empty session · revision 0"}
+								</span>
+							</div>
+							{activeArtifact ? (
+								<span class="pill pill-success">committed</span>
+							) : null}
+							<div class="segmented" role="tablist" aria-label="Artifact view">
+								<button
+									id="document-tab"
+									role="tab"
+									type="button"
+									data-view="document"
+									aria-selected="true"
+									onClick={(event: Event) => setArtifactView(event, "document")}
+								>
+									Document
+								</button>
+								<button
+									id="schema-tab"
+									role="tab"
+									type="button"
+									data-view="schema"
+									aria-selected="false"
+									onClick={(event: Event) => setArtifactView(event, "schema")}
+								>
+									Schema
+								</button>
+							</div>
+							<button
+								class="icon-button"
+								id="play-summary"
+								type="button"
+								aria-label="Play spoken summary"
+								title="Play spoken summary"
+								disabled={!context.response?.speech}
+								onClick={(event: Event) => emit(event, "workbench-speech-play")}
+							>
+								<span aria-hidden="true">◖</span>
+							</button>
+						</div>
+						<div class="artifact-scroll">
+							<div class="proof-banner">
+								<span aria-hidden="true">✓</span>
+								<div>
+									<strong>This document is the live proof.</strong>
+									<span>
+										Accepted text or speech commands update this center
+										artifact, its schema, and every commit receipt.
+									</span>
+								</div>
+							</div>
+							{activeArtifact ? (
+								<article class="document" data-artifact-document="">
+									<div class="doc-kicker">
+										Actor-owned artifact · revision {activeArtifact.revision}
+									</div>
+									<h1>{activeArtifact.title ?? activeArtifact.id}</h1>
+									<div class="doc-grid">
+										{activeArtifact.nodes.map((node) =>
+											renderNode(node, context),
+										)}
+									</div>
+								</article>
+							) : (
+								<section class="empty-artifact">
+									<div>
+										<strong>
+											Your first accepted artifact will appear here
+										</strong>
+										<p>
+											The model proposes semantic nodes. The actor validates and
+											stores them before Ignite renders anything.
+										</p>
+									</div>
+								</section>
+							)}
+							<section class="schema-view" aria-label="Artifact schema">
+								<pre>{documentSchema}</pre>
+							</section>
+							<div class="responding-overlay" aria-live="polite">
+								<div class="progress-card">
+									<strong>Authoring the semantic artifact</strong>
+									<span>Actor state: responding</span>
+									<div class="progress-steps">
+										<div class="progress-step done">Prompt admitted</div>
+										<div class="progress-step done">Current tools derived</div>
+										<div class="progress-step active">
+											Model proposing commands
+										</div>
+										<div class="progress-step">
+											Actor validating semantic nodes
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</main>
+
+					<aside
+						class="panel runtime"
+						data-panel="runtime"
+						aria-label="Ignite runtime"
+					>
+						<div class="panel-head">
+							<div class="panel-title">
+								<strong>Proof of the current session</strong>
+								<span>prompt → actor → commits</span>
+							</div>
+							<button
+								class="text-button"
+								type="button"
+								onClick={(event: Event) => emit(event, "workbench-replay")}
+							>
+								Replay
+							</button>
+						</div>
+						<div class="runtime-scroll">
+							<section class="runtime-card">
+								<div class="runtime-card-head">
+									<strong>One component, four consumers</strong>
+									<span>{commandNames.length} commands</span>
+								</div>
+								<div class="component-contract">
+									<div class="component-line">
+										const component = <strong>igniteCore({`{...}`})</strong>
+									</div>
+									<div class="component-uses">
+										<span class="component-use">headless test</span>
+										<span class="component-use">browser JSX</span>
+										<span class="component-use">terminal + speech</span>
+									</div>
+									<div class="actor-state">
+										<div class="state-node" aria-hidden="true">
+											◆
+										</div>
+										<div class="actor-copy">
+											<strong>{context.sessionId}</strong>
+											<span>
+												matches(<code>"{context.status}"</code>)
+											</span>
+											<output class="latest-fact">
+												{describeFact(context.lastFact)}
+											</output>
+										</div>
+									</div>
+								</div>
+							</section>
+							<section class="runtime-card">
+								<div class="runtime-card-head">
+									<strong>Authorized turn trace</strong>
+									<span>model proposes · actor decides</span>
+								</div>
+								<ol class="turn-trace">
+									<li class="trace-step">
+										<i class="trace-marker" />
+										<span class="trace-copy">
+											<strong>Text or speech transcript</strong>
+											<span>outer adapter → text + modality</span>
+										</span>
+									</li>
+									<li class="trace-step">
+										<i class="trace-marker" />
+										<span class="trace-copy">
+											<strong>{describeFact(context.lastFact)}</strong>
+											<span>current public actor fact</span>
+										</span>
+									</li>
+									<li class="trace-step">
+										<i class="trace-marker" />
+										<span class="trace-copy">
+											<strong>
+												{activeArtifact
+													? `Artifact revision ${activeArtifact.revision} stored`
+													: "Awaiting accepted artifact"}
+											</strong>
+											<span>semantic nodes, never generated DOM</span>
+										</span>
+									</li>
+								</ol>
+							</section>
+							<section class="runtime-card">
+								<div class="runtime-card-head">
+									<strong>Channel commits</strong>
+									<span>same accepted actor state</span>
+								</div>
+								<div class="commit-list">
+									<div class="commit">
+										<span class="commit-icon">▤</span>
+										<span class="commit-copy">
+											<strong>Browser · native JSX</strong>
+											<span>
+												{activeArtifact
+													? `${activeArtifact.id} · revision ${activeArtifact.revision}`
+													: "awaiting artifact"}
+											</span>
+										</span>
+										<span class="commit-status">
+											{activeArtifact ? "current" : "idle"}
+										</span>
+									</div>
+									<div class="commit commit-terminal">
+										<span class="commit-icon">›_</span>
+										<span class="commit-copy">
+											<strong>Terminal · text</strong>
+											<span>{context.response?.text ?? "no DOM required"}</span>
+										</span>
+										<span class="commit-status">
+											{context.response ? "written" : "idle"}
+										</span>
+									</div>
+									<div class="commit commit-speech">
+										<span class="commit-icon">◖</span>
+										<span class="commit-copy">
+											<strong>Speech · audio</strong>
+											<span>browser adapter · actor acknowledged</span>
+										</span>
+										<span class="commit-status">{speechStatus}</span>
+									</div>
+								</div>
+							</section>
+							<section class="runtime-card">
+								<div class="runtime-card-head">
+									<strong>Authorized schema</strong>
+									<span>getSchema() → igniteTools</span>
+								</div>
+								<div class="runtime-body">
+									<div class="command-list">
+										{commandNames.map((name) => (
+											<span key={name} class="command">
+												{name}
+											</span>
+										))}
+									</div>
+									<div class="policy-proof">
+										<span aria-hidden="true">◇</span>
+										<div>
+											<strong>renderJavascript rejected</strong>
+											<span>
+												{commandNames.includes("renderJavascript")
+													? "unexpectedly admitted"
+													: "command-not-allowed · absent from schema"}
+											</span>
+										</div>
+									</div>
+								</div>
+							</section>
+						</div>
+					</aside>
+				</div>
+
+				<nav class="mobile-tabs" aria-label="Workbench views">
+					<button
+						type="button"
+						data-target="conversation"
+						aria-pressed="true"
+						onClick={(event: Event) => setMobilePanel(event, "conversation")}
+					>
+						Chat
+					</button>
+					<button
+						type="button"
+						data-target="artifact"
+						aria-pressed="false"
+						onClick={(event: Event) => setMobilePanel(event, "artifact")}
+					>
+						Artifact
+					</button>
+					<button
+						type="button"
+						data-target="runtime"
+						aria-pressed="false"
+						onClick={(event: Event) => setMobilePanel(event, "runtime")}
+					>
+						Runtime
+					</button>
+				</nav>
+				<footer class="statusbar">
+					<strong>same component</strong>
+					<span>
+						→ getSchema() → authorized command → actor revision → JSX + terminal
+						+ speech
+					</span>
+				</footer>
+			</div>
+		</>
+	);
+};

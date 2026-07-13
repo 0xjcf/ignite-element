@@ -8,6 +8,7 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"test": "vitest run",
+		"test:browser": "vitest run src/workbench.test.tsx src/main.test.tsx",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
