@@ -22,36 +22,34 @@ export function resolveParityState(search: string): ParityState | null {
 	return isParityState(requested) ? requested : null;
 }
 
-export function createParityEnvironment(): WorkbenchEnvironment {
-	return {
-		cancelVoice: () =>
-			source.send({
-				type: "PRESENTATION_VOICE_CHANGED",
-				fact: { type: "voice-cancelled" },
-			}),
-		playSpeech: () => {
-			const speech = component.getView().speech;
-			if (!speech) return;
-			source.send({
-				type: "PRESENTATION_SPEECH_COMMITTED",
-				speech: { id: speech.id, text: speech.text, status: "unavailable" },
-			});
-		},
-		retryModel: () => source.send({ type: "MODEL_PREPARATION_STARTED" }),
-		startVoice: () =>
-			source.send({
-				type: "PRESENTATION_VOICE_CHANGED",
-				fact: { type: "voice-listening" },
-			}),
-		submitPrompt: (prompt) => {
-			void component.execute({
-				command: "submitPrompt",
-				input: { modality: prompt.channel, text: prompt.text },
-			});
-		},
-		useVoiceTranscript: () => {},
-	};
-}
+export const parityEnvironment = {
+	cancelVoice: () =>
+		source.send({
+			type: "PRESENTATION_VOICE_CHANGED",
+			fact: { type: "voice-cancelled" },
+		}),
+	playSpeech: () => {
+		const speech = component.getView().speech;
+		if (!speech) return;
+		source.send({
+			type: "PRESENTATION_SPEECH_COMMITTED",
+			speech: { id: speech.id, text: speech.text, status: "unavailable" },
+		});
+	},
+	retryModel: () => source.send({ type: "MODEL_PREPARATION_STARTED" }),
+	startVoice: () =>
+		source.send({
+			type: "PRESENTATION_VOICE_CHANGED",
+			fact: { type: "voice-listening" },
+		}),
+	submitPrompt: (prompt) => {
+		void component.execute({
+			command: "submitPrompt",
+			input: { modality: prompt.channel, text: prompt.text },
+		});
+	},
+	useVoiceTranscript: () => {},
+} satisfies WorkbenchEnvironment;
 
 const setIdleVoice = () =>
 	source.send({
@@ -238,7 +236,7 @@ export async function mountParityHarness(state: ParityState) {
 				}
 			`}</style>
 			<output class="parity-badge">Test-only parity harness · {state}</output>
-			{renderWorkbench(projection, createParityEnvironment())}
+			{renderWorkbench(projection, parityEnvironment)}
 		</>
 	));
 }
