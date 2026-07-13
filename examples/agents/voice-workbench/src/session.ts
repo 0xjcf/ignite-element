@@ -76,6 +76,11 @@ export const component = igniteCore({
 	source,
 	cleanup: true,
 	events: (event) => ({
+		"prompt-submitted": event<{
+			turnId: string;
+			modality: "text" | "speech";
+			text: string;
+		}>(),
 		"artifact-created": event<{ artifactId: string; revision: string }>(),
 		"artifact-revised": event<{ artifactId: string; revision: string }>(),
 		"artifact-rejected": event<{

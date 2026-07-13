@@ -37,6 +37,12 @@ export type ConversationMessage = {
 };
 
 export type ConversationFact =
+	| {
+			type: "prompt-submitted";
+			turnId: string;
+			modality: "text" | "speech";
+			text: string;
+	  }
 	| { type: "artifact-created"; artifactId: string; revision: string }
 	| { type: "artifact-revised"; artifactId: string; revision: string }
 	| { type: "artifact-rejected"; reason: "validation" | "conflict" }
@@ -114,10 +120,12 @@ export function reduceConversationSession(
 	action: ConversationAction,
 ): TransitionResult {
 	switch (action.type) {
-		case "SUBMIT_PROMPT":
+		case "SUBMIT_PROMPT": {
 			if (!isNonEmpty(action.input.text)) {
 				return rejected(session, "validation");
 			}
+			const text = action.input.text.trim();
+			const turnId = `${session.sessionId}:${session.revision + 1}`;
 			return accepted(session, {
 				response: null,
 				messages: [
@@ -125,10 +133,18 @@ export function reduceConversationSession(
 					{
 						role: "user",
 						channel: action.input.modality,
-						text: action.input.text.trim(),
+						text,
 					},
 				],
+				lastFact: {
+					type: "prompt-submitted",
+					turnId,
+					modality: action.input.modality,
+					text,
+				},
+				factSequence: session.factSequence + 1,
 			});
+		}
 		case "CREATE_ARTIFACT": {
 			const input = action.input;
 			if (

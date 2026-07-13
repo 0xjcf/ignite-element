@@ -68,12 +68,19 @@ describe("voice workbench headless component", () => {
 				command: "submitPrompt",
 				input: { modality: "text", text: "Capture a decision" },
 			})
-		).expectView({
-			messageCount: 1,
-			status: "responding",
-			statusLabel: "Responding",
-			canSubmitPrompt: false,
-		});
+		)
+			.expectEvent({
+				type: "prompt-submitted",
+				turnId: "voice-workbench:1",
+				modality: "text",
+				text: "Capture a decision",
+			})
+			.expectView({
+				messageCount: 1,
+				status: "responding",
+				statusLabel: "Responding",
+				canSubmitPrompt: false,
+			});
 		expect(component.getSnapshot().matches("responding")).toBe(true);
 
 		(
