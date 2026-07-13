@@ -103,10 +103,168 @@ const rejected = (
 	reason: "validation" | "conflict",
 ): TransitionResult => ({ accepted: false, reason, session });
 
-const isNonEmpty = (value: string): boolean => value.trim().length > 0;
-const validNodes = (nodes: readonly ProjectionDocumentNode[]): boolean =>
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+	typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isNonEmpty = (value: unknown): value is string =>
+	typeof value === "string" && value.trim().length > 0;
+
+const isOptionalString = (value: unknown): value is string | undefined =>
+	value === undefined || isNonEmpty(value);
+
+const isSchemaValue = (value: unknown, depth = 0): boolean => {
+	if (depth > 12) return false;
+	if (
+		value === null ||
+		typeof value === "string" ||
+		typeof value === "boolean"
+	) {
+		return true;
+	}
+	if (typeof value === "number") return Number.isFinite(value);
+	if (Array.isArray(value)) {
+		return value.every((entry) => isSchemaValue(entry, depth + 1));
+	}
+	if (!isRecord(value)) return false;
+	return Object.values(value).every((entry) => isSchemaValue(entry, depth + 1));
+};
+
+const hasUniqueIds = (values: readonly unknown[]): boolean => {
+	const ids = new Set<string>();
+	for (const value of values) {
+		if (!isRecord(value) || !isNonEmpty(value.id) || ids.has(value.id)) {
+			return false;
+		}
+		ids.add(value.id);
+	}
+	return true;
+};
+
+const validActionNode = (value: unknown): boolean => {
+	if (
+		!isRecord(value) ||
+		value.kind !== "action" ||
+		!isNonEmpty(value.id) ||
+		!isNonEmpty(value.label) ||
+		value.commandName !== "completeResponse" ||
+		!isOptionalString(value.description) ||
+		!isRecord(value.payload) ||
+		!isNonEmpty(value.payload.text) ||
+		!isOptionalString(value.payload.speech)
+	) {
+		return false;
+	}
+	return true;
+};
+
+const validNode = (value: unknown): value is ProjectionDocumentNode => {
+	if (!isRecord(value) || !isNonEmpty(value.id)) return false;
+
+	switch (value.kind) {
+		case "text":
+			return isNonEmpty(value.text);
+		case "checklist":
+			return (
+				Array.isArray(value.items) &&
+				hasUniqueIds(value.items) &&
+				value.items.every(
+					(item) =>
+						isRecord(item) &&
+						isNonEmpty(item.label) &&
+						typeof item.checked === "boolean",
+				)
+			);
+		case "action":
+			return validActionNode(value);
+		case "form":
+			return (
+				isOptionalString(value.title) &&
+				Array.isArray(value.fields) &&
+				hasUniqueIds(value.fields) &&
+				value.fields.every(
+					(field) =>
+						isRecord(field) &&
+						isNonEmpty(field.label) &&
+						isRecord(field.input) &&
+						isSchemaValue(field.input) &&
+						(field.value === undefined || isSchemaValue(field.value)) &&
+						isOptionalString(field.description),
+				) &&
+				(value.submit === undefined || validActionNode(value.submit))
+			);
+		case "table":
+			return (
+				Array.isArray(value.columns) &&
+				hasUniqueIds(value.columns) &&
+				value.columns.every(
+					(column) => isRecord(column) && isNonEmpty(column.label),
+				) &&
+				Array.isArray(value.rows) &&
+				hasUniqueIds(value.rows) &&
+				value.rows.every(
+					(row) =>
+						isRecord(row) &&
+						Array.isArray(row.cells) &&
+						row.cells.every((cell) => isSchemaValue(cell)),
+				)
+			);
+		case "timeline":
+			return (
+				Array.isArray(value.events) &&
+				hasUniqueIds(value.events) &&
+				value.events.every(
+					(event) =>
+						isRecord(event) &&
+						isNonEmpty(event.label) &&
+						isNonEmpty(event.timestamp) &&
+						isOptionalString(event.detail),
+				)
+			);
+		case "chart":
+			return (
+				(value.chartType === "bar" ||
+					value.chartType === "line" ||
+					value.chartType === "pie") &&
+				Array.isArray(value.series) &&
+				hasUniqueIds(value.series) &&
+				value.series.every(
+					(series) =>
+						isRecord(series) &&
+						isNonEmpty(series.label) &&
+						typeof series.value === "number" &&
+						Number.isFinite(series.value),
+				)
+			);
+		case "code-diff":
+			return (
+				isOptionalString(value.language) &&
+				isOptionalString(value.before) &&
+				isOptionalString(value.after)
+			);
+		case "decision-log":
+			return (
+				Array.isArray(value.entries) &&
+				hasUniqueIds(value.entries) &&
+				value.entries.every(
+					(entry) =>
+						isRecord(entry) &&
+						isNonEmpty(entry.title) &&
+						isNonEmpty(entry.decision) &&
+						isOptionalString(entry.rationale),
+				)
+			);
+		default:
+			return false;
+	}
+};
+
+const validNodes = (
+	nodes: unknown,
+): nodes is readonly ProjectionDocumentNode[] =>
+	Array.isArray(nodes) &&
 	nodes.length > 0 &&
-	nodes.every((node) => isNonEmpty(node.id) && isNonEmpty(node.kind));
+	hasUniqueIds(nodes) &&
+	nodes.every(validNode);
 
 const nextDocumentRevision = (revision: string): string => {
 	const current = Number.parseInt(revision, 10);

@@ -35,6 +35,45 @@ describe("voice workbench headless component", () => {
 			"submitPrompt",
 		]);
 		expect(() => JSON.stringify(schema)).not.toThrow();
+		expect(schema.commands.createArtifact).toMatchObject({
+			input: {
+				properties: {
+					nodes: {
+						items: {
+							properties: {
+								kind: {
+									enum: [
+										"text",
+										"checklist",
+										"action",
+										"form",
+										"table",
+										"timeline",
+										"chart",
+										"code-diff",
+										"decision-log",
+									],
+								},
+								text: { type: "string" },
+								items: { type: "array" },
+								commandName: {
+									enum: ["completeResponse"],
+								},
+								fields: { type: "array" },
+								columns: { type: "array" },
+								rows: { type: "array" },
+								events: { type: "array" },
+								chartType: { enum: ["bar", "line", "pie"] },
+								series: { type: "array" },
+								before: { type: "string" },
+								after: { type: "string" },
+								entries: { type: "array" },
+							},
+						},
+					},
+				},
+			},
+		});
 		const initialSnapshot = component.getSnapshot();
 		expect(initialSnapshot.matches("ready")).toBe(true);
 		expect(initialSnapshot.context).not.toHaveProperty("phase");

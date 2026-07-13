@@ -52,6 +52,25 @@ describe("voice/text workbench model turn", () => {
 				],
 			},
 			{
+				calls: [
+					{
+						command: "createArtifact",
+						input: {
+							id: "unsafe-chart",
+							title: "Unsafe chart",
+							nodes: [
+								{
+									kind: "chart",
+									id: "progress",
+									chartType: "radar",
+									series: [{ id: "ready", label: "Ready" }],
+								},
+							],
+						},
+					},
+				],
+			},
+			{
 				calls: [{ command: "renderJavascript", input: { source: "alert(1)" } }],
 			},
 		];
@@ -71,6 +90,11 @@ describe("voice/text workbench model turn", () => {
 			model,
 			prompt: { channel: "speech", text: "Revise it" },
 		});
+		const malformed = await runModelTurn({
+			component,
+			model,
+			prompt: { channel: "text", text: "Render an invalid chart" },
+		});
 		const rejected = await runModelTurn({
 			component,
 			model,
@@ -79,6 +103,12 @@ describe("voice/text workbench model turn", () => {
 
 		expect(first.accepted).toBe(true);
 		expect(second.accepted).toBe(true);
+		expect(malformed).toEqual({
+			accepted: false,
+			reason: "command-rejected",
+			command: "createArtifact",
+			trace: [{ command: "createArtifact", accepted: false }],
+		});
 		expect(requests[0]?.tools.map((tool) => tool.name)).toEqual([
 			"completeResponse",
 			"createArtifact",

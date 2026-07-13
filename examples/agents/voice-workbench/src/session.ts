@@ -137,87 +137,209 @@ export const component = igniteCore({
 			canRevise: responding && snapshot.context.documents.length > 0,
 		};
 	},
-	commands: ({ actor, command }) => ({
-		acknowledgeSpeech: command(
-			(input: AcknowledgeSpeechInput) =>
-				actor.send({ type: "ACKNOWLEDGE_SPEECH", input }),
+	commands: ({ actor, command }) => {
+		const responsePayloadInput = command.object(
 			{
-				description: "Acknowledge the currently pending speech request.",
-				canExecute: ({ snapshot }) =>
-					snapshot.context.speech?.status === "pending",
-				input: command.object({ id: command.string({ minLength: 1 }) }),
+				text: command.string({ minLength: 1 }),
+				speech: command.string({ minLength: 1 }),
 			},
-		),
-		completeResponse: command(
-			(input: CompleteResponseInput) =>
-				actor.send({ type: "COMPLETE_RESPONSE", input }),
+			{ required: ["text"] },
+		);
+		const actionNodeInput = command.object(
 			{
-				description: "Complete the active response turn.",
-				canExecute: ({ snapshot }) => snapshot.matches("responding"),
-				input: command.object(
-					{
-						text: command.string({ minLength: 1 }),
-						speech: command.string({ minLength: 1 }),
-					},
-					{ required: ["text"] },
+				kind: command.enum(["action"]),
+				id: command.string({ minLength: 1 }),
+				label: command.string({ minLength: 1 }),
+				commandName: command.enum(["completeResponse"]),
+				payload: responsePayloadInput,
+				description: command.string({ minLength: 1 }),
+			},
+			{
+				required: ["kind", "id", "label", "commandName", "payload"],
+			},
+		);
+		const semanticNodeInput = command.object(
+			{
+				id: command.string({ minLength: 1 }),
+				kind: command.enum([
+					"text",
+					"checklist",
+					"action",
+					"form",
+					"table",
+					"timeline",
+					"chart",
+					"code-diff",
+					"decision-log",
+				]),
+				text: command.string({ minLength: 1 }),
+				items: command.array(
+					command.object(
+						{
+							id: command.string({ minLength: 1 }),
+							label: command.string({ minLength: 1 }),
+							checked: command.boolean(),
+						},
+						{ required: ["id", "label", "checked"] },
+					),
+				),
+				label: command.string({ minLength: 1 }),
+				commandName: command.enum(["completeResponse"]),
+				payload: responsePayloadInput,
+				description: command.string({ minLength: 1 }),
+				title: command.string({ minLength: 1 }),
+				fields: command.array(
+					command.object(
+						{
+							id: command.string({ minLength: 1 }),
+							label: command.string({ minLength: 1 }),
+							input: command.object(
+								{
+									type: command.enum(["string", "number", "boolean"]),
+									title: command.string({ minLength: 1 }),
+									description: command.string({ minLength: 1 }),
+									minimum: command.number(),
+									maximum: command.number(),
+									minLength: command.number({ minimum: 0 }),
+									maxLength: command.number({ minimum: 0 }),
+								},
+								{ required: ["type"] },
+							),
+							value: command.string(),
+							description: command.string({ minLength: 1 }),
+						},
+						{ required: ["id", "label", "input"] },
+					),
+				),
+				submit: actionNodeInput,
+				columns: command.array(
+					command.object(
+						{
+							id: command.string({ minLength: 1 }),
+							label: command.string({ minLength: 1 }),
+						},
+						{ required: ["id", "label"] },
+					),
+				),
+				rows: command.array(
+					command.object(
+						{
+							id: command.string({ minLength: 1 }),
+							cells: command.array(),
+						},
+						{ required: ["id", "cells"] },
+					),
+				),
+				events: command.array(
+					command.object(
+						{
+							id: command.string({ minLength: 1 }),
+							label: command.string({ minLength: 1 }),
+							timestamp: command.string({ minLength: 1 }),
+							detail: command.string({ minLength: 1 }),
+						},
+						{ required: ["id", "label", "timestamp"] },
+					),
+				),
+				chartType: command.enum(["bar", "line", "pie"]),
+				series: command.array(
+					command.object(
+						{
+							id: command.string({ minLength: 1 }),
+							label: command.string({ minLength: 1 }),
+							value: command.number(),
+						},
+						{ required: ["id", "label", "value"] },
+					),
+				),
+				language: command.string({ minLength: 1 }),
+				before: command.string({ minLength: 1 }),
+				after: command.string({ minLength: 1 }),
+				entries: command.array(
+					command.object(
+						{
+							id: command.string({ minLength: 1 }),
+							title: command.string({ minLength: 1 }),
+							decision: command.string({ minLength: 1 }),
+							rationale: command.string({ minLength: 1 }),
+						},
+						{ required: ["id", "title", "decision"] },
+					),
 				),
 			},
-		),
-		createArtifact: command(
-			(input: CreateArtifactInput) =>
-				actor.send({ type: "CREATE_ARTIFACT", input }),
-			{
-				description:
-					"Create a validated semantic artifact for the active turn.",
-				canExecute: ({ snapshot }) => snapshot.matches("responding"),
-				input: command.object({
-					id: command.string({ minLength: 1 }),
-					title: command.string({ minLength: 1 }),
-					nodes: command.array(
-						command.object({
-							id: command.string({ minLength: 1 }),
-							kind: command.string({ minLength: 1 }),
-						}),
-						{ minItems: 1 },
+			{ required: ["id", "kind"] },
+		);
+
+		return {
+			acknowledgeSpeech: command(
+				(input: AcknowledgeSpeechInput) =>
+					actor.send({ type: "ACKNOWLEDGE_SPEECH", input }),
+				{
+					description: "Acknowledge the currently pending speech request.",
+					canExecute: ({ snapshot }) =>
+						snapshot.context.speech?.status === "pending",
+					input: command.object({ id: command.string({ minLength: 1 }) }),
+				},
+			),
+			completeResponse: command(
+				(input: CompleteResponseInput) =>
+					actor.send({ type: "COMPLETE_RESPONSE", input }),
+				{
+					description: "Complete the active response turn.",
+					canExecute: ({ snapshot }) => snapshot.matches("responding"),
+					input: command.object(
+						{
+							text: command.string({ minLength: 1 }),
+							speech: command.string({ minLength: 1 }),
+						},
+						{ required: ["text"] },
 					),
-				}),
-			},
-		),
-		reviseArtifact: command(
-			(input: ReviseArtifactInput) =>
-				actor.send({ type: "REVISE_ARTIFACT", input }),
-			{
-				description:
-					"Revise an artifact when its expected revision still matches.",
-				canExecute: ({ snapshot }) =>
-					snapshot.matches("responding") &&
-					snapshot.context.documents.length > 0,
-				input: command.object({
-					artifactId: command.string({ minLength: 1 }),
-					expectedRevision: command.string({ minLength: 1 }),
-					nodes: command.array(
-						command.object({
-							id: command.string({ minLength: 1 }),
-							kind: command.string({ minLength: 1 }),
-						}),
-						{ minItems: 1 },
-					),
-				}),
-			},
-		),
-		submitPrompt: command(
-			(input: SubmitPromptInput) =>
-				actor.send({ type: "SUBMIT_PROMPT", input }),
-			{
-				description: "Open the next text or speech conversation turn.",
-				canExecute: ({ snapshot }) => snapshot.matches("ready"),
-				input: command.object({
-					modality: command.enum(["text", "speech"]),
-					text: command.string({ minLength: 1 }),
-				}),
-			},
-		),
-	}),
+				},
+			),
+			createArtifact: command(
+				(input: CreateArtifactInput) =>
+					actor.send({ type: "CREATE_ARTIFACT", input }),
+				{
+					description:
+						"Create a validated semantic artifact for the active turn.",
+					canExecute: ({ snapshot }) => snapshot.matches("responding"),
+					input: command.object({
+						id: command.string({ minLength: 1 }),
+						title: command.string({ minLength: 1 }),
+						nodes: command.array(semanticNodeInput, { minItems: 1 }),
+					}),
+				},
+			),
+			reviseArtifact: command(
+				(input: ReviseArtifactInput) =>
+					actor.send({ type: "REVISE_ARTIFACT", input }),
+				{
+					description:
+						"Revise an artifact when its expected revision still matches.",
+					canExecute: ({ snapshot }) =>
+						snapshot.matches("responding") &&
+						snapshot.context.documents.length > 0,
+					input: command.object({
+						artifactId: command.string({ minLength: 1 }),
+						expectedRevision: command.string({ minLength: 1 }),
+						nodes: command.array(semanticNodeInput, { minItems: 1 }),
+					}),
+				},
+			),
+			submitPrompt: command(
+				(input: SubmitPromptInput) =>
+					actor.send({ type: "SUBMIT_PROMPT", input }),
+				{
+					description: "Open the next text or speech conversation turn.",
+					canExecute: ({ snapshot }) => snapshot.matches("ready"),
+					input: command.object({
+						modality: command.enum(["text", "speech"]),
+						text: command.string({ minLength: 1 }),
+					}),
+				},
+			),
+		};
+	},
 	effects: ({ emit, select }) => {
 		const fact = select((snapshot) => snapshot.context.lastFact);
 		const sequence = select((snapshot) => snapshot.context.factSequence);

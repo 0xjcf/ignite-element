@@ -21,7 +21,7 @@ export type ModelTurnResult =
 	| { accepted: true; trace: ModelTurnTrace[] }
 	| {
 			accepted: false;
-			reason: "command-not-allowed";
+			reason: "command-not-allowed" | "command-rejected";
 			command: string;
 			trace: ModelTurnTrace[];
 	  };
@@ -61,11 +61,15 @@ export async function runModelTurn(options: {
 		}
 
 		const result = await tools.run({ name: call.command, input: call.input });
-		trace.push({ command: call.command, accepted: isOk(result) });
-		if (!isOk(result)) {
+		const rejectedByActor =
+			isOk(result) &&
+			result.value.events.some((event) => event.type === "artifact-rejected");
+		const callAccepted = isOk(result) && !rejectedByActor;
+		trace.push({ command: call.command, accepted: callAccepted });
+		if (!callAccepted) {
 			return {
 				accepted: false,
-				reason: "command-not-allowed",
+				reason: "command-rejected",
 				command: call.command,
 				trace,
 			};
