@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SpeechRecognitionLike } from "./voice";
 
@@ -67,11 +68,16 @@ describe("voice workbench browser entry", () => {
 			configurable: true,
 			value: { speak },
 		});
-		document.body.innerHTML = `
-			<voice-workbench></voice-workbench>
-			<output id="document-commit"></output>
-			<output id="speech-commit"></output>
-		`;
+		document.body.innerHTML = `<voice-workbench></voice-workbench>`;
+	});
+
+	it("keeps Ignite JSX as the only production UI writer", () => {
+		for (const file of ["./main.tsx", "./workbench.tsx"]) {
+			const source = readFileSync(new URL(file, import.meta.url), "utf8");
+			expect(source).not.toMatch(
+				/(?:document\.)?querySelector|shadowRoot|\.textContent|\.dataset|\.classList|\.setAttribute|\.closest/,
+			);
+		}
 	});
 
 	it("creates and revises the center document through real text and speech paths", async () => {
@@ -156,6 +162,7 @@ describe("voice workbench browser entry", () => {
 			throw new Error("voice workbench form is unavailable");
 		}
 		prompt.value = "Create a release plan";
+		prompt.dispatchEvent(new Event("input", { bubbles: true }));
 		form.dispatchEvent(
 			new Event("submit", { bubbles: true, cancelable: true }),
 		);
@@ -174,9 +181,19 @@ describe("voice workbench browser entry", () => {
 			expect(host.shadowRoot?.textContent).toContain(
 				"Start with a deterministic proof.",
 			);
-			expect(document.querySelector("#document-commit")?.textContent).toBe(
-				"Committed Release plan revision 1",
-			);
+			expect(component.getView()).toMatchObject({
+				presentation: {
+					documentCommit: {
+						id: "release-plan",
+						revision: "1",
+						title: "Release plan",
+					},
+					speechCommit: {
+						text: "The release plan is ready.",
+						status: "played",
+					},
+				},
+			});
 			expect(speak).toHaveBeenCalledWith(
 				expect.objectContaining({ text: "The release plan is ready." }),
 			);
@@ -192,7 +209,12 @@ describe("voice workbench browser entry", () => {
 			host.shadowRoot.querySelector(".schema-view")?.textContent,
 		).toContain('"revision": "1"');
 
-		prompt.value = "Keep this typed draft";
+		const currentPrompt = host.shadowRoot.querySelector("textarea");
+		if (!(currentPrompt instanceof HTMLTextAreaElement)) {
+			throw new Error("voice workbench prompt is unavailable");
+		}
+		currentPrompt.value = "Keep this typed draft";
+		currentPrompt.dispatchEvent(new Event("input", { bubbles: true }));
 		const microphone = host.shadowRoot.querySelector("#mic-button");
 		if (!(microphone instanceof HTMLButtonElement)) {
 			throw new Error("microphone button is unavailable");
@@ -217,23 +239,35 @@ describe("voice workbench browser entry", () => {
 			expect(host.shadowRoot?.textContent).toContain(
 				"Add a speech-authored rollout checkpoint.",
 			);
-			expect(document.querySelector("#document-commit")?.textContent).toBe(
-				"Committed Release plan revision 2",
-			);
+			expect(component.getView()).toMatchObject({
+				presentation: {
+					documentCommit: { id: "release-plan", revision: "2" },
+				},
+			});
 		});
 		expect(component.getView().messages).toContainEqual({
 			role: "user",
 			channel: "speech",
 			text: "Revise the plan through speech",
 		});
-		expect(prompt.value).toBe("Keep this typed draft");
+		expect(component.getView()).toMatchObject({
+			presentation: { draft: "Keep this typed draft" },
+		});
 		expect(fetchMock).toHaveBeenCalledTimes(2);
 		expect(terminal).toHaveBeenCalled();
 
-		host.dispatchEvent(
-			new CustomEvent("workbench-prompt", {
-				detail: { channel: "text", text: "Show provider recovery" },
-			}),
+		const recoveryPrompt = host.shadowRoot.querySelector("textarea");
+		const recoveryForm = host.shadowRoot.querySelector("form");
+		if (
+			!(recoveryPrompt instanceof HTMLTextAreaElement) ||
+			!(recoveryForm instanceof HTMLFormElement)
+		) {
+			throw new Error("voice workbench recovery form is unavailable");
+		}
+		recoveryPrompt.value = "Show provider recovery";
+		recoveryPrompt.dispatchEvent(new Event("input", { bubbles: true }));
+		recoveryForm.dispatchEvent(
+			new Event("submit", { bubbles: true, cancelable: true }),
 		);
 		await vi.waitFor(() => {
 			expect(component.getView()).toMatchObject({
@@ -241,10 +275,15 @@ describe("voice workbench browser entry", () => {
 				response: {
 					text: "The local model could not be reached. Check its configuration and try again.",
 				},
+				presentation: {
+					turn: {
+						type: "model-failed",
+						failureKind: "network",
+						message:
+							"The local model could not be reached. Check its configuration and try again.",
+					},
+				},
 			});
-			expect(host.shadowRoot?.querySelector("#turn-result")?.textContent).toBe(
-				"The local model could not be reached. Check its configuration and try again.",
-			);
 		});
 		expect(fetchMock).toHaveBeenCalledTimes(3);
 
@@ -257,7 +296,9 @@ describe("voice workbench browser entry", () => {
 			throw new Error("microphone button is unavailable after recovery");
 		}
 		currentMicrophone.click();
-		expect(prompt.value).toBe("Keep this typed draft");
+		expect(component.getView()).toMatchObject({
+			presentation: { draft: "Show provider recovery" },
+		});
 		expect(
 			host.shadowRoot.querySelector('[role="alert"]')?.textContent,
 		).toContain("Microphone access was denied");

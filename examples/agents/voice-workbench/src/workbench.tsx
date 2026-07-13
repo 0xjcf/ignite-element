@@ -1,4 +1,10 @@
 /** @jsxImportSource ignite-element/jsx */
+
+import type {
+	WorkbenchArtifactView,
+	WorkbenchPanel,
+	WorkbenchTurnFact,
+} from "./session";
 import { component } from "./session";
 import { workbenchStyles } from "./styles";
 
@@ -8,44 +14,21 @@ type WorkbenchRenderer = Extract<
 >;
 type WorkbenchContext = Parameters<WorkbenchRenderer>[0];
 type DocumentNode = WorkbenchContext["artifacts"][number]["nodes"][number];
-type WorkbenchPrompt = { channel: "text" | "speech"; text: string };
+export type WorkbenchPrompt = { channel: "text" | "speech"; text: string };
+export type WorkbenchControls = {
+	cancelVoice(): void;
+	playSpeech(): void;
+	replayTrace(): void;
+	setArtifactView(view: WorkbenchArtifactView): void;
+	setMobilePanel(panel: WorkbenchPanel): void;
+	setSpeechPreference(enabled: boolean): void;
+	startVoice(): void;
+	submitPrompt(prompt: WorkbenchPrompt): void;
+	updateDraft(draft: string): void;
+	useVoiceTranscript(): void;
+};
 
 const commandNames = Object.keys(component.getSchema().commands);
-
-const emit = (event: Event, name: string, detail?: unknown) => {
-	(event.currentTarget as HTMLElement).dispatchEvent(
-		new CustomEvent(name, { bubbles: true, composed: true, detail }),
-	);
-};
-
-const setArtifactView = (event: Event, view: "document" | "schema") => {
-	const artifact = (event.currentTarget as HTMLElement).closest(".artifact");
-	if (!(artifact instanceof HTMLElement)) return;
-	artifact.dataset.view = view;
-	for (const tab of artifact.querySelectorAll('[role="tab"]')) {
-		tab.setAttribute(
-			"aria-selected",
-			String(tab.getAttribute("data-view") === view),
-		);
-	}
-};
-
-const setMobilePanel = (
-	event: Event,
-	panelName: "conversation" | "artifact" | "runtime",
-) => {
-	const shell = (event.currentTarget as HTMLElement).closest(".shell");
-	if (!(shell instanceof HTMLElement)) return;
-	for (const panel of shell.querySelectorAll<HTMLElement>("[data-panel]")) {
-		panel.classList.toggle(
-			"is-mobile-active",
-			panel.dataset.panel === panelName,
-		);
-	}
-	for (const tab of shell.querySelectorAll<HTMLElement>("[data-target]")) {
-		tab.setAttribute("aria-pressed", String(tab.dataset.target === panelName));
-	}
-};
 
 const schemaDocument = (
 	document: WorkbenchContext["artifacts"][number] | undefined,
@@ -73,6 +56,39 @@ const describeFact = (fact: WorkbenchContext["lastFact"]): string => {
 			return `${fact.type} · ${fact.id}`;
 		case "response-completed":
 			return fact.type;
+	}
+};
+
+const voiceState = (
+	fact: WorkbenchContext["presentation"]["voice"],
+): "idle" | "listening" | "transcript" | "permission" | "unsupported" => {
+	switch (fact.type) {
+		case "voice-listening":
+			return "listening";
+		case "voice-transcript":
+			return "transcript";
+		case "voice-permission-denied":
+		case "voice-error":
+			return "permission";
+		case "voice-unsupported":
+			return "unsupported";
+		case "voice-idle":
+		case "voice-cancelled":
+			return "idle";
+	}
+};
+
+const describeTurn = (turn: WorkbenchTurnFact | null): string => {
+	if (!turn) return "";
+	switch (turn.type) {
+		case "accepted":
+			return "Actor accepted the model-authored turn.";
+		case "model-failed":
+			return turn.message;
+		case "command-not-allowed":
+			return `${turn.command} was not allowed by the model command policy.`;
+		case "command-rejected":
+			return `${turn.command} was rejected by the actor.`;
 	}
 };
 
@@ -235,7 +251,10 @@ const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 	}
 };
 
-export const renderWorkbench: WorkbenchRenderer = (context) => {
+export const renderWorkbench = (
+	context: WorkbenchContext,
+	controls: WorkbenchControls,
+) => {
 	const activeArtifact =
 		context.artifacts.find(
 			(artifact) => artifact.id === context.activeArtifactId,
@@ -249,6 +268,16 @@ export const renderWorkbench: WorkbenchRenderer = (context) => {
 		null,
 		2,
 	);
+	const presentation = context.presentation;
+	const voice = presentation.voice;
+	const transcript = voice.type === "voice-transcript" ? voice.text : null;
+	const transcriptReady = voice.type === "voice-transcript" && voice.final;
+	const microphoneUnavailable = voice.type === "voice-unsupported";
+	const voiceFailure =
+		voice.type === "voice-permission-denied" || voice.type === "voice-error"
+			? voice
+			: null;
+	const turnMessage = describeTurn(presentation.turn);
 
 	return (
 		<>
@@ -256,7 +285,7 @@ export const renderWorkbench: WorkbenchRenderer = (context) => {
 			<div
 				class="shell"
 				data-actor-state={context.status}
-				data-voice-state="idle"
+				data-voice-state={voiceState(voice)}
 			>
 				<header class="topbar">
 					<div class="brand">
@@ -282,11 +311,11 @@ export const renderWorkbench: WorkbenchRenderer = (context) => {
 							<input
 								id="speak-toggle"
 								type="checkbox"
-								checked
+								checked={presentation.speakResponses}
 								onChange={(event: Event) =>
-									emit(event, "workbench-speech-preference", {
-										enabled: (event.currentTarget as HTMLInputElement).checked,
-									})
+									controls.setSpeechPreference(
+										(event.currentTarget as HTMLInputElement).checked,
+									)
 								}
 							/>
 							<span class="switch-track" aria-hidden="true" />
@@ -296,7 +325,7 @@ export const renderWorkbench: WorkbenchRenderer = (context) => {
 
 				<div class="workspace">
 					<section
-						class="panel conversation is-mobile-active"
+						class={`panel conversation${presentation.mobilePanel === "conversation" ? " is-mobile-active" : ""}`}
 						data-panel="conversation"
 						aria-label="Conversation"
 					>
@@ -359,14 +388,25 @@ export const renderWorkbench: WorkbenchRenderer = (context) => {
 							) : null}
 						</div>
 						<div class="composer-wrap">
-							<output id="turn-result" class="sr-only" aria-live="assertive" />
+							<output
+								id="turn-result"
+								class="sr-only"
+								aria-live="assertive"
+								data-replay={presentation.replaySequence}
+							>
+								{turnMessage}
+							</output>
 							<div class="permission-note" role="alert">
 								<span aria-hidden="true">⚠</span>
 								<div>
-									<strong>Microphone access was denied</strong>
+									<strong>
+										{voice.type === "voice-permission-denied"
+											? "Microphone access was denied"
+											: "Speech input is unavailable"}
+									</strong>
 									<p>
-										Enable access to capture speech, or continue by typing. Your
-										current draft is preserved.
+										{voiceFailure?.message ?? "Speech input is unavailable."}{" "}
+										Continue by typing; your current draft is preserved.
 									</p>
 								</div>
 							</div>
@@ -374,12 +414,9 @@ export const renderWorkbench: WorkbenchRenderer = (context) => {
 								class="composer"
 								onSubmit={(event: Event) => {
 									event.preventDefault();
-									const form = event.currentTarget as HTMLFormElement;
-									const text = String(
-										new FormData(form).get("prompt") ?? "",
-									).trim();
+									const text = presentation.draft.trim();
 									if (text) {
-										emit(event, "workbench-prompt", {
+										controls.submitPrompt({
 											channel: "text",
 											text,
 										} satisfies WorkbenchPrompt);
@@ -393,7 +430,13 @@ export const renderWorkbench: WorkbenchRenderer = (context) => {
 									id="prompt"
 									name="prompt"
 									placeholder="Ask the agent to create or revise an artifact…"
+									value={presentation.draft}
 									disabled={!context.canSubmitPrompt}
+									onInput={(event: Event) =>
+										controls.updateDraft(
+											(event.currentTarget as HTMLTextAreaElement).value,
+										)
+									}
 								/>
 								<div class="composer-actions">
 									<span class="input-mode">Typed input</span>
@@ -403,10 +446,8 @@ export const renderWorkbench: WorkbenchRenderer = (context) => {
 										type="button"
 										aria-label="Start speech input"
 										title="Start speech input"
-										disabled={!context.canSubmitPrompt}
-										onClick={(event: Event) =>
-											emit(event, "workbench-voice-start")
-										}
+										disabled={microphoneUnavailable || !context.canSubmitPrompt}
+										onClick={controls.startVoice}
 									>
 										<span aria-hidden="true">●</span>
 									</button>
@@ -426,8 +467,12 @@ export const renderWorkbench: WorkbenchRenderer = (context) => {
 										●
 									</div>
 									<div class="voice-copy">
-										<strong id="voice-status">Listening…</strong>
-										<span id="live-transcript">Waiting for speech</span>
+										<strong id="voice-status">
+											{transcriptReady ? "Transcript ready" : "Listening…"}
+										</strong>
+										<span id="live-transcript">
+											{transcript ?? "Waiting for speech"}
+										</span>
 									</div>
 									<div class="wave" aria-hidden="true">
 										<i />
@@ -442,9 +487,7 @@ export const renderWorkbench: WorkbenchRenderer = (context) => {
 										class="button"
 										id="cancel-voice"
 										type="button"
-										onClick={(event: Event) =>
-											emit(event, "workbench-voice-cancel")
-										}
+										onClick={controls.cancelVoice}
 									>
 										Cancel
 									</button>
@@ -452,9 +495,8 @@ export const renderWorkbench: WorkbenchRenderer = (context) => {
 										class="button button-primary"
 										id="use-transcript"
 										type="button"
-										onClick={(event: Event) =>
-											emit(event, "workbench-voice-use")
-										}
+										disabled={!transcriptReady}
+										onClick={controls.useVoiceTranscript}
 									>
 										Use transcript
 									</button>
@@ -464,9 +506,9 @@ export const renderWorkbench: WorkbenchRenderer = (context) => {
 					</section>
 
 					<main
-						class="panel artifact"
+						class={`panel artifact${presentation.mobilePanel === "artifact" ? " is-mobile-active" : ""}`}
 						data-panel="artifact"
-						data-view="document"
+						data-view={presentation.artifactView}
 					>
 						<div class="artifact-toolbar">
 							<div class="artifact-identity">
@@ -486,8 +528,8 @@ export const renderWorkbench: WorkbenchRenderer = (context) => {
 									role="tab"
 									type="button"
 									data-view="document"
-									aria-selected="true"
-									onClick={(event: Event) => setArtifactView(event, "document")}
+									aria-selected={presentation.artifactView === "document"}
+									onClick={() => controls.setArtifactView("document")}
 								>
 									Document
 								</button>
@@ -496,8 +538,8 @@ export const renderWorkbench: WorkbenchRenderer = (context) => {
 									role="tab"
 									type="button"
 									data-view="schema"
-									aria-selected="false"
-									onClick={(event: Event) => setArtifactView(event, "schema")}
+									aria-selected={presentation.artifactView === "schema"}
+									onClick={() => controls.setArtifactView("schema")}
 								>
 									Schema
 								</button>
@@ -509,7 +551,7 @@ export const renderWorkbench: WorkbenchRenderer = (context) => {
 								aria-label="Play spoken summary"
 								title="Play spoken summary"
 								disabled={!context.response?.speech}
-								onClick={(event: Event) => emit(event, "workbench-speech-play")}
+								onClick={controls.playSpeech}
 							>
 								<span aria-hidden="true">◖</span>
 							</button>
@@ -573,7 +615,7 @@ export const renderWorkbench: WorkbenchRenderer = (context) => {
 					</main>
 
 					<aside
-						class="panel runtime"
+						class={`panel runtime${presentation.mobilePanel === "runtime" ? " is-mobile-active" : ""}`}
 						data-panel="runtime"
 						aria-label="Ignite runtime"
 					>
@@ -585,7 +627,7 @@ export const renderWorkbench: WorkbenchRenderer = (context) => {
 							<button
 								class="text-button"
 								type="button"
-								onClick={(event: Event) => emit(event, "workbench-replay")}
+								onClick={controls.replayTrace}
 							>
 								Replay
 							</button>
@@ -665,32 +707,39 @@ export const renderWorkbench: WorkbenchRenderer = (context) => {
 										<span class="commit-copy">
 											<strong>Browser · native JSX</strong>
 											<span>
-												{activeArtifact
-													? `${activeArtifact.id} · revision ${activeArtifact.revision}`
+												{presentation.documentCommit
+													? `${presentation.documentCommit.id} · revision ${presentation.documentCommit.revision}`
 													: "awaiting artifact"}
 											</span>
 										</span>
 										<span class="commit-status">
-											{activeArtifact ? "current" : "idle"}
+											{presentation.documentCommit ? "current" : "idle"}
 										</span>
 									</div>
 									<div class="commit commit-terminal">
 										<span class="commit-icon">›_</span>
 										<span class="commit-copy">
 											<strong>Terminal · text</strong>
-											<span>{context.response?.text ?? "no DOM required"}</span>
+											<span>
+												{presentation.terminalCommit?.text ?? "no DOM required"}
+											</span>
 										</span>
 										<span class="commit-status">
-											{context.response ? "written" : "idle"}
+											{presentation.terminalCommit ? "written" : "idle"}
 										</span>
 									</div>
 									<div class="commit commit-speech">
 										<span class="commit-icon">◖</span>
 										<span class="commit-copy">
 											<strong>Speech · audio</strong>
-											<span>browser adapter · actor acknowledged</span>
+											<span>
+												{presentation.speechCommit?.text ??
+													"browser adapter · actor acknowledged"}
+											</span>
 										</span>
-										<span class="commit-status">{speechStatus}</span>
+										<span class="commit-status">
+											{presentation.speechCommit?.status ?? "idle"}
+										</span>
 									</div>
 								</div>
 							</section>
@@ -728,24 +777,24 @@ export const renderWorkbench: WorkbenchRenderer = (context) => {
 					<button
 						type="button"
 						data-target="conversation"
-						aria-pressed="true"
-						onClick={(event: Event) => setMobilePanel(event, "conversation")}
+						aria-pressed={presentation.mobilePanel === "conversation"}
+						onClick={() => controls.setMobilePanel("conversation")}
 					>
 						Chat
 					</button>
 					<button
 						type="button"
 						data-target="artifact"
-						aria-pressed="false"
-						onClick={(event: Event) => setMobilePanel(event, "artifact")}
+						aria-pressed={presentation.mobilePanel === "artifact"}
+						onClick={() => controls.setMobilePanel("artifact")}
 					>
 						Artifact
 					</button>
 					<button
 						type="button"
 						data-target="runtime"
-						aria-pressed="false"
-						onClick={(event: Event) => setMobilePanel(event, "runtime")}
+						aria-pressed={presentation.mobilePanel === "runtime"}
+						onClick={() => controls.setMobilePanel("runtime")}
 					>
 						Runtime
 					</button>

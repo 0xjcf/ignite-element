@@ -12,16 +12,131 @@ import {
 	reduceConversationSession,
 	type SubmitPromptInput,
 } from "./domain";
+import type { VoiceCaptureFact } from "./voice";
+
+export type WorkbenchArtifactView = "document" | "schema";
+export type WorkbenchPanel = "conversation" | "artifact" | "runtime";
+export type WorkbenchTurnTrace = readonly {
+	command: string;
+	accepted: boolean;
+}[];
+export type WorkbenchTurnFact =
+	| { type: "accepted"; trace: WorkbenchTurnTrace }
+	| {
+			type: "model-failed";
+			failureKind:
+				| "configuration"
+				| "network"
+				| "timeout"
+				| "provider"
+				| "invalid-response";
+			message: string;
+			trace: WorkbenchTurnTrace;
+	  }
+	| {
+			type: "command-not-allowed" | "command-rejected";
+			command: string;
+			trace: WorkbenchTurnTrace;
+	  };
+
+export type WorkbenchPresentation = {
+	artifactView: WorkbenchArtifactView;
+	documentCommit: {
+		id: string;
+		title?: string;
+		revision: string;
+	} | null;
+	draft: string;
+	mobilePanel: WorkbenchPanel;
+	replaySequence: number;
+	speakResponses: boolean;
+	speechCommit: {
+		id: string;
+		text: string;
+		status: "played" | "muted" | "unavailable";
+	} | null;
+	terminalCommit: { text: string } | null;
+	turn: WorkbenchTurnFact | null;
+	voice: VoiceCaptureFact;
+};
+
+export type WorkbenchPresentationEvent =
+	| { type: "PRESENTATION_DRAFT_CHANGED"; draft: string }
+	| { type: "PRESENTATION_VOICE_CHANGED"; fact: VoiceCaptureFact }
+	| {
+			type: "PRESENTATION_ARTIFACT_VIEW_CHANGED";
+			view: WorkbenchArtifactView;
+	  }
+	| { type: "PRESENTATION_MOBILE_PANEL_CHANGED"; panel: WorkbenchPanel }
+	| { type: "PRESENTATION_SPEECH_PREFERENCE_CHANGED"; enabled: boolean }
+	| { type: "PRESENTATION_TURN_RECORDED"; fact: WorkbenchTurnFact }
+	| {
+			type: "PRESENTATION_DOCUMENT_COMMITTED";
+			document: NonNullable<WorkbenchPresentation["documentCommit"]>;
+	  }
+	| {
+			type: "PRESENTATION_SPEECH_COMMITTED";
+			speech: NonNullable<WorkbenchPresentation["speechCommit"]>;
+	  }
+	| {
+			type: "PRESENTATION_TERMINAL_COMMITTED";
+			terminal: NonNullable<WorkbenchPresentation["terminalCommit"]>;
+	  }
+	| { type: "PRESENTATION_REPLAYED" };
+
+type WorkbenchSession = ConversationSession & {
+	presentation: WorkbenchPresentation;
+};
+type WorkbenchEvent = ConversationAction | WorkbenchPresentationEvent;
+
+const createInitialPresentation = (): WorkbenchPresentation => ({
+	artifactView: "document",
+	documentCommit: null,
+	draft: "",
+	mobilePanel: "conversation",
+	replaySequence: 0,
+	speakResponses: true,
+	speechCommit: null,
+	terminalCommit: null,
+	turn: null,
+	voice: { type: "voice-idle" },
+});
+
+const isConversationAction = (
+	event: WorkbenchEvent,
+): event is ConversationAction => {
+	switch (event.type) {
+		case "SUBMIT_PROMPT":
+		case "CREATE_ARTIFACT":
+		case "REVISE_ARTIFACT":
+		case "COMPLETE_RESPONSE":
+		case "ACKNOWLEDGE_SPEECH":
+			return true;
+		default:
+			return false;
+	}
+};
+
+const updatePresentation = (
+	context: WorkbenchSession,
+	patch: Partial<WorkbenchPresentation>,
+): WorkbenchSession => ({
+	...context,
+	presentation: { ...context.presentation, ...patch },
+});
 
 const machine = setup({
 	types: {
-		context: {} as ConversationSession,
-		events: {} as ConversationAction,
+		context: {} as WorkbenchSession,
+		events: {} as WorkbenchEvent,
 	},
 	actions: {
 		applyTransition: assign(({ context, event }) => {
+			if (!isConversationAction(event)) return context;
 			const result = reduceConversationSession(context, event);
-			if (result.accepted) return result.session;
+			if (result.accepted) {
+				return { ...result.session, presentation: context.presentation };
+			}
 			return {
 				...context,
 				factSequence: context.factSequence + 1,
@@ -31,14 +146,70 @@ const machine = setup({
 	},
 	guards: {
 		transitionAccepted: ({ context, event }) =>
+			isConversationAction(event) &&
 			reduceConversationSession(context, event).accepted,
 	},
 }).createMachine({
 	id: "conversation-session",
 	initial: "ready",
-	context: () => createInitialSession("voice-workbench"),
+	context: () => ({
+		...createInitialSession("voice-workbench"),
+		presentation: createInitialPresentation(),
+	}),
 	on: {
 		ACKNOWLEDGE_SPEECH: { actions: "applyTransition" },
+		PRESENTATION_DRAFT_CHANGED: {
+			actions: assign(({ context, event }) =>
+				updatePresentation(context, { draft: event.draft }),
+			),
+		},
+		PRESENTATION_VOICE_CHANGED: {
+			actions: assign(({ context, event }) =>
+				updatePresentation(context, { voice: event.fact }),
+			),
+		},
+		PRESENTATION_ARTIFACT_VIEW_CHANGED: {
+			actions: assign(({ context, event }) =>
+				updatePresentation(context, { artifactView: event.view }),
+			),
+		},
+		PRESENTATION_MOBILE_PANEL_CHANGED: {
+			actions: assign(({ context, event }) =>
+				updatePresentation(context, { mobilePanel: event.panel }),
+			),
+		},
+		PRESENTATION_SPEECH_PREFERENCE_CHANGED: {
+			actions: assign(({ context, event }) =>
+				updatePresentation(context, { speakResponses: event.enabled }),
+			),
+		},
+		PRESENTATION_TURN_RECORDED: {
+			actions: assign(({ context, event }) =>
+				updatePresentation(context, { turn: event.fact }),
+			),
+		},
+		PRESENTATION_DOCUMENT_COMMITTED: {
+			actions: assign(({ context, event }) =>
+				updatePresentation(context, { documentCommit: event.document }),
+			),
+		},
+		PRESENTATION_SPEECH_COMMITTED: {
+			actions: assign(({ context, event }) =>
+				updatePresentation(context, { speechCommit: event.speech }),
+			),
+		},
+		PRESENTATION_TERMINAL_COMMITTED: {
+			actions: assign(({ context, event }) =>
+				updatePresentation(context, { terminalCommit: event.terminal }),
+			),
+		},
+		PRESENTATION_REPLAYED: {
+			actions: assign(({ context }) =>
+				updatePresentation(context, {
+					replaySequence: context.presentation.replaySequence + 1,
+				}),
+			),
+		},
 	},
 	states: {
 		ready: {
@@ -137,6 +308,7 @@ export const component = igniteCore({
 			activeArtifactId: snapshot.context.activeArtifactId,
 			response: snapshot.context.response,
 			canRevise: responding && snapshot.context.documents.length > 0,
+			presentation: snapshot.context.presentation,
 		};
 	},
 	commands: ({ actor, command }) => {

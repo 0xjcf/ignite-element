@@ -11,23 +11,10 @@
 				min-width: 20rem;
 				margin: 0;
 			}
-			.projection-receipts {
-				position: absolute;
-				width: 1px;
-				height: 1px;
-				margin: -1px;
-				overflow: hidden;
-				clip: rect(0, 0, 0, 0);
-				white-space: nowrap;
-			}
 		</style>
 	</head>
 	<body>
 		<voice-workbench></voice-workbench>
-		<section class="projection-receipts" aria-label="Projection commits">
-			<output id="document-commit" aria-live="polite"></output>
-			<output id="speech-commit" aria-live="polite"></output>
-		</section>
 		<script type="module" src="/src/main.tsx"></script>
 	</body>
 </html>

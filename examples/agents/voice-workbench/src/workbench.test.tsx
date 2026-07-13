@@ -2,13 +2,38 @@
 import { test as igniteTest } from "ignite-element/testing";
 import { describe, expect, it, vi } from "vitest";
 import { component, source } from "./session";
-import { renderWorkbench } from "./workbench";
+import { renderWorkbench, type WorkbenchControls } from "./workbench";
 
 describe("voice workbench accessible JSX", () => {
 	it("renders the approved empty-to-artifact workflow from the component view", async () => {
-		const bridge = igniteTest.accessibilityBridge(component, renderWorkbench, {
-			elementName: "voice-workbench-accessibility",
-		});
+		const submitPrompt = vi.fn();
+		const controls: WorkbenchControls = {
+			cancelVoice: vi.fn(),
+			playSpeech: vi.fn(),
+			replayTrace: () => source.send({ type: "PRESENTATION_REPLAYED" }),
+			setArtifactView: (view) =>
+				source.send({ type: "PRESENTATION_ARTIFACT_VIEW_CHANGED", view }),
+			setMobilePanel: (panel) =>
+				source.send({ type: "PRESENTATION_MOBILE_PANEL_CHANGED", panel }),
+			setSpeechPreference: (enabled) =>
+				source.send({
+					type: "PRESENTATION_SPEECH_PREFERENCE_CHANGED",
+					enabled,
+				}),
+			startVoice: vi.fn(),
+			submitPrompt,
+			updateDraft: (draft) =>
+				source.send({ type: "PRESENTATION_DRAFT_CHANGED", draft }),
+			useVoiceTranscript: vi.fn(),
+		};
+		const bridge = igniteTest.accessibilityBridge(
+			component,
+			(projection: Parameters<typeof renderWorkbench>[0]) =>
+				renderWorkbench(projection, controls),
+			{
+				elementName: "voice-workbench-accessibility",
+			},
+		);
 
 		expect(
 			igniteTest.expectControls(bridge, [
@@ -31,25 +56,25 @@ describe("voice workbench accessible JSX", () => {
 		expect(bridge.host.shadowRoot?.textContent).toContain("0 artifacts");
 		expect(bridge.host.shadowRoot?.textContent).not.toContain("browser-demo");
 
-		const promptEvent = vi.fn();
-		bridge.host.addEventListener("workbench-prompt", promptEvent);
 		const prompt = bridge.getByRole("textbox", { name: "Prompt" });
-		const form = prompt.closest("form");
-		if (
-			!(prompt instanceof HTMLTextAreaElement) ||
-			!(form instanceof HTMLFormElement)
-		) {
+		if (!(prompt instanceof HTMLTextAreaElement)) {
 			throw new Error("workbench prompt form is unavailable");
 		}
 		prompt.value = "Show the decision";
+		prompt.dispatchEvent(new Event("input", { bubbles: true }));
+		const form = bridge
+			.getByRole("textbox", { name: "Prompt" })
+			.closest("form");
+		if (!(form instanceof HTMLFormElement)) {
+			throw new Error("workbench prompt form is unavailable");
+		}
 		form.dispatchEvent(
 			new Event("submit", { bubbles: true, cancelable: true }),
 		);
-		expect(promptEvent).toHaveBeenCalledWith(
-			expect.objectContaining({
-				detail: { channel: "text", text: "Show the decision" },
-			}),
-		);
+		expect(submitPrompt).toHaveBeenCalledWith({
+			channel: "text",
+			text: "Show the decision",
+		});
 		expect(component.getView().status).toBe("ready");
 
 		await component.execute({
@@ -89,7 +114,12 @@ describe("voice workbench accessible JSX", () => {
 
 		const schemaTab = bridge.getByRole("tab", { name: "Schema" });
 		schemaTab.click();
-		expect(schemaTab.getAttribute("aria-selected")).toBe("true");
+		expect(component.getView()).toMatchObject({
+			presentation: { artifactView: "schema" },
+		});
+		expect(
+			bridge.getByRole("tab", { name: "Schema" }).getAttribute("aria-selected"),
+		).toBe("true");
 		expect(
 			bridge.host.shadowRoot?.querySelector(".schema-view")?.textContent,
 		).toContain('"revision": "1"');

@@ -83,6 +83,14 @@ describe("voice workbench headless component", () => {
 			canSubmitPrompt: true,
 			artifacts: [],
 			speech: null,
+			presentation: {
+				artifactView: "document",
+				draft: "",
+				mobilePanel: "conversation",
+				speakResponses: true,
+				turn: null,
+				voice: { type: "voice-idle" },
+			},
 		});
 		expect(component.getView()).not.toHaveProperty("documents");
 		expect(component.canExecute("submitPrompt")).toBe(true);
@@ -101,6 +109,20 @@ describe("voice workbench headless component", () => {
 		const views = vi.fn();
 		const snapshotSubscription = component.watchSnapshot(snapshots);
 		const viewSubscription = component.watchView(views);
+		source.send({
+			type: "PRESENTATION_DRAFT_CHANGED",
+			draft: "Preserve this draft",
+		});
+		source.send({
+			type: "PRESENTATION_VOICE_CHANGED",
+			fact: { type: "voice-listening" },
+		});
+		expect(component.getView()).toMatchObject({
+			presentation: {
+				draft: "Preserve this draft",
+				voice: { type: "voice-listening" },
+			},
+		});
 
 		(
 			await igniteTest(component).when({
@@ -133,6 +155,12 @@ describe("voice workbench headless component", () => {
 				canSubmitPrompt: false,
 			});
 		expect(component.getSnapshot().matches("responding")).toBe(true);
+		expect(component.getView()).toMatchObject({
+			presentation: {
+				draft: "Preserve this draft",
+				voice: { type: "voice-listening" },
+			},
+		});
 
 		(
 			await igniteTest(component).when({
