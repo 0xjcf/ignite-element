@@ -28,11 +28,9 @@ describe("voice workbench production parity harness", () => {
 	});
 
 	it("renders accessible evidence across provider, turn, artifact, and voice lifecycles", async () => {
-		const bridge = igniteTest.accessibilityBridge(
-			component,
-			renderWorkbench,
-			{ elementName: "voice-workbench-parity-accessibility" },
-		);
+		const bridge = igniteTest.accessibilityBridge(component, renderWorkbench, {
+			elementName: "voice-workbench-parity-accessibility",
+		});
 		const shell = () => bridge.host.shadowRoot?.querySelector(".shell");
 
 		await seedParityState("preparing");

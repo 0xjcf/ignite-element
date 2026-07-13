@@ -6,13 +6,9 @@ import { renderWorkbench } from "./workbench";
 
 describe("voice workbench accessible JSX", () => {
 	it("renders the approved empty-to-artifact workflow from the component view", async () => {
-		const bridge = igniteTest.accessibilityBridge(
-			component,
-			renderWorkbench,
-			{
-				elementName: "voice-workbench-accessibility",
-			},
-		);
+		const bridge = igniteTest.accessibilityBridge(component, renderWorkbench, {
+			elementName: "voice-workbench-accessibility",
+		});
 
 		expect(
 			igniteTest.expectControls(bridge, [
