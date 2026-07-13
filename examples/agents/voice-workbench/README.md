@@ -62,9 +62,17 @@ pnpm --dir examples/agents/voice-workbench dev
 
 `VITE_MLX_API_KEY` is optional for a compatible endpoint that requires a bearer
 token. Vite exposes `VITE_*` values to browser code, so use only a development
-credential intended for that environment. An embedding host may instead set
-`globalThis.MLX_BASE_URL`, `globalThis.MLX_MODEL`, and
-`globalThis.MLX_API_KEY` before loading the entrypoint.
+credential intended for that environment—never a production secret. An
+embedding host may instead set `globalThis.MLX_BASE_URL`,
+`globalThis.MLX_MODEL`, and `globalThis.MLX_API_KEY` before loading the
+entrypoint. Those values are also available to browser code; this example's
+configuration paths are development-only.
+
+Each model invocation serializes the submitted prompt and the complete current
+actor view, including conversation, artifact, and private presentation state,
+to the configured model endpoint. Consumers own that disclosure boundary and
+must redact or remove sensitive data before invoking the model. This example
+does not apply application-specific redaction automatically.
 
 No model URL, model name, credentials, prompts, artifacts, or responses are
 hard-coded. Without model configuration, a submitted prompt becomes an actor
