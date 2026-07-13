@@ -4,7 +4,7 @@ import {
 	DEFAULT_MLX_LM_VERSION,
 	DEFAULT_MODEL,
 	LauncherError,
-	probeModelServer,
+	probeModelEndpoint,
 	resolveLauncherConfig,
 	runLauncher,
 } from "./dev-with-mlx.mjs";
@@ -35,7 +35,7 @@ class FakeChild extends EventEmitter {
 	static nextPid = 1_000;
 }
 
-function readyResponse(models = [DEFAULT_MODEL]) {
+function compatibleResponse(models = [DEFAULT_MODEL]) {
 	return {
 		json: async () => ({ data: models.map((id) => ({ id })) }),
 		ok: true,
@@ -52,7 +52,7 @@ function incompatibleResponse(status = 404) {
 }
 
 function createHarness({
-	fetchSteps = [readyResponse()],
+	fetchSteps = [compatibleResponse()],
 	onSpawn,
 	pathExists = true,
 	sleep,
@@ -71,7 +71,7 @@ function createHarness({
 		fetch: vi.fn(async () => {
 			const step =
 				fetchSteps[Math.min(fetchIndex, fetchSteps.length - 1)] ??
-				readyResponse();
+				compatibleResponse();
 			fetchIndex += 1;
 			if (step instanceof Error) throw step;
 			return step;
@@ -176,19 +176,19 @@ describe("voice workbench MLX launcher", () => {
 		).toThrow("VOICE_WORKBENCH_MLX_PORT must be at most 65535");
 	});
 
-	it("classifies ready, incompatible, and unreachable endpoints", async () => {
+	it("classifies compatible, incompatible, and unreachable endpoints", async () => {
 		const config = resolveLauncherConfig(
 			{},
 			{ arch: "arm64", homeDirectory: "/Users/test", platform: "darwin" },
 		);
 		await expect(
-			probeModelServer(config, async () => readyResponse()),
-		).resolves.toEqual({ status: "ready" });
+			probeModelEndpoint(config, async () => compatibleResponse()),
+		).resolves.toEqual({ status: "compatible" });
 		await expect(
-			probeModelServer(config, async () => incompatibleResponse(401)),
+			probeModelEndpoint(config, async () => incompatibleResponse(401)),
 		).resolves.toEqual({ detail: "HTTP 401", status: "incompatible" });
 		await expect(
-			probeModelServer(config, async () => {
+			probeModelEndpoint(config, async () => {
 				throw new Error("connection refused");
 			}),
 		).resolves.toEqual({
@@ -197,11 +197,11 @@ describe("voice workbench MLX launcher", () => {
 		});
 	});
 
-	it("bootstraps the isolated environment before MLX and gates Vite on readiness", async () => {
+	it("bootstraps MLX and starts Vite once the endpoint is compatible", async () => {
 		const fetchSteps = [
 			new Error("not running"),
 			new Error("model loading"),
-			readyResponse(),
+			compatibleResponse(),
 		];
 		let versionChecks = 0;
 		const harness = createHarness({
@@ -233,6 +233,9 @@ describe("voice workbench MLX launcher", () => {
 			VITE_MLX_MODEL: DEFAULT_MODEL,
 		});
 		expect(harness.dependencies.fetch).toHaveBeenCalledTimes(3);
+		expect(harness.logs).toContain(
+			"[voice-workbench] Model endpoint compatible at http://127.0.0.1:8080/v1. The workbench will prove inference readiness.",
+		);
 		expect(
 			harness.spawns.find(({ label }) => label === "mlx").child.killSignals,
 		).toContain("SIGTERM");
@@ -293,14 +296,14 @@ describe("voice workbench MLX launcher", () => {
 					VOICE_WORKBENCH_MLX_STARTUP_TIMEOUT_MS: "1",
 				}),
 			),
-		).rejects.toThrow("did not become ready within 1ms");
+		).rejects.toThrow("did not expose a compatible endpoint within 1ms");
 		expect(harness.spawns.some(({ label }) => label === "web")).toBe(false);
 		expect(
 			harness.spawns.find(({ label }) => label === "mlx").child.killSignals,
 		).toContain("SIGTERM");
 	});
 
-	it("reports a model process that exits before readiness", async () => {
+	it("reports a model process that exits before endpoint compatibility", async () => {
 		const harness = createHarness({
 			fetchSteps: [new Error("not running")],
 			onSpawn: ({ child, label }) => {
@@ -315,7 +318,9 @@ describe("voice workbench MLX launcher", () => {
 
 		await expect(
 			runLauncher(managedOptions(harness.dependencies)),
-		).rejects.toThrow("MLX server stopped before becoming ready: exit code 2");
+		).rejects.toThrow(
+			"MLX server stopped before exposing a compatible endpoint: exit code 2",
+		);
 		expect(harness.spawns.some(({ label }) => label === "web")).toBe(false);
 	});
 
@@ -325,7 +330,7 @@ describe("voice workbench MLX launcher", () => {
 			resolveWebSpawned = resolveSpawned;
 		});
 		const harness = createHarness({
-			fetchSteps: [new Error("not running"), readyResponse()],
+			fetchSteps: [new Error("not running"), compatibleResponse()],
 			onSpawn: ({ child, label }) => {
 				if (label === "web") {
 					resolveWebSpawned(child);
@@ -356,7 +361,7 @@ describe("voice workbench MLX launcher", () => {
 			resolveWebSpawned = resolveSpawned;
 		});
 		const harness = createHarness({
-			fetchSteps: [new Error("not running"), readyResponse()],
+			fetchSteps: [new Error("not running"), compatibleResponse()],
 			onSpawn: ({ child, label }) => {
 				if (label === "web") {
 					resolveWebSpawned(child);

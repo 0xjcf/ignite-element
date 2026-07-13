@@ -333,7 +333,7 @@ async function ensureMlxEnvironment(config, lifecycle, deps) {
 	return python;
 }
 
-export async function probeModelServer(config, fetchImpl = globalThis.fetch) {
+export async function probeModelEndpoint(config, fetchImpl = globalThis.fetch) {
 	const headers = { accept: "application/json" };
 	if (config.apiKey) headers.authorization = `Bearer ${config.apiKey}`;
 	try {
@@ -351,7 +351,7 @@ export async function probeModelServer(config, fetchImpl = globalThis.fetch) {
 				status: "incompatible",
 			};
 		}
-		return { status: "ready" };
+		return { status: "compatible" };
 	} catch (error) {
 		return {
 			detail: error instanceof Error ? error.message : String(error),
@@ -360,11 +360,11 @@ export async function probeModelServer(config, fetchImpl = globalThis.fetch) {
 	}
 }
 
-async function waitForModelServer(config, lifecycle, deps, mlxProcess) {
+async function waitForModelEndpoint(config, lifecycle, deps, mlxProcess) {
 	const deadline = deps.now() + config.startupTimeoutMs;
 	while (!lifecycle.abortController.signal.aborted) {
-		const probe = await probeModelServer(config, deps.fetch);
-		if (probe.status === "ready") return;
+		const probe = await probeModelEndpoint(config, deps.fetch);
+		if (probe.status === "compatible") return;
 		if (probe.status === "incompatible") {
 			throw new LauncherError(
 				`The endpoint at ${config.baseUrl} is not an MLX/OpenAI-compatible server: ${probe.detail}.`,
@@ -372,7 +372,7 @@ async function waitForModelServer(config, lifecycle, deps, mlxProcess) {
 		}
 		if (deps.now() >= deadline) {
 			throw new LauncherError(
-				`The MLX server did not become ready within ${config.startupTimeoutMs}ms. The first model download is about 4.08 GB; increase VOICE_WORKBENCH_MLX_STARTUP_TIMEOUT_MS if it is still progressing.`,
+				`The MLX server did not expose a compatible endpoint within ${config.startupTimeoutMs}ms. Check the terminal output or increase VOICE_WORKBENCH_MLX_STARTUP_TIMEOUT_MS.`,
 			);
 		}
 
@@ -384,7 +384,7 @@ async function waitForModelServer(config, lifecycle, deps, mlxProcess) {
 			: await deps.sleep(config.pollIntervalMs).then(() => ({ type: "poll" }));
 		if (next.type === "exit") {
 			throw new LauncherError(
-				`The MLX server stopped before becoming ready: ${describeExit(next.result)}.`,
+				`The MLX server stopped before exposing a compatible endpoint: ${describeExit(next.result)}.`,
 			);
 		}
 	}
@@ -434,18 +434,18 @@ export async function runLauncher(options = {}) {
 	}
 
 	try {
-		const initialProbe = await probeModelServer(config, deps.fetch);
+		const initialProbe = await probeModelEndpoint(config, deps.fetch);
 		if (config.externalEndpoint) {
-			if (initialProbe.status !== "ready") {
+			if (initialProbe.status !== "compatible") {
 				deps.log(
 					`[voice-workbench] Waiting for configured model endpoint ${config.baseUrl}...`,
 				);
-				await waitForModelServer(config, lifecycle, deps);
+				await waitForModelEndpoint(config, lifecycle, deps);
 			}
 			deps.log(
 				`[voice-workbench] Reusing configured model endpoint ${config.baseUrl}.`,
 			);
-		} else if (initialProbe.status === "ready") {
+		} else if (initialProbe.status === "compatible") {
 			deps.log(
 				`[voice-workbench] Reusing the MLX server already running at ${config.baseUrl}.`,
 			);
@@ -468,11 +468,13 @@ export async function runLauncher(options = {}) {
 			deps.log(
 				"[voice-workbench] Waiting for the model endpoint. The first run downloads about 4.08 GB...",
 			);
-			await waitForModelServer(config, lifecycle, deps, mlxProcess);
+			await waitForModelEndpoint(config, lifecycle, deps, mlxProcess);
 		}
 
 		if (lifecycle.stopping) return;
-		deps.log(`[voice-workbench] Model endpoint ready at ${config.baseUrl}.`);
+		deps.log(
+			`[voice-workbench] Model endpoint compatible at ${config.baseUrl}. The workbench will prove inference readiness.`,
+		);
 		const webProcess = lifecycle.spawnOwned(
 			"Vite web server",
 			"pnpm",

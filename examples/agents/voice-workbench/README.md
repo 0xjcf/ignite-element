@@ -38,6 +38,13 @@ terminal    <─ response-completed
 speech      <─ ProjectionSpeechRequest ─> acknowledgeSpeech
 ```
 
+Provider lifecycle is part of that same behavior contract. The workbench mounts
+while MLX is preparing, but `submitPrompt` remains unavailable at both the
+command and actor-transition boundaries. A minimal chat completion—not the
+`/models` metadata response—produces the `MODEL_AVAILABLE` fact that unlocks
+text and speech. Expected failures become sanitized `MODEL_FAILED` facts and a
+retryable projection.
+
 The browser projection is declarative Ignite JSX. Browser-only draft, mobile
 panel, microphone, trace, and commit-receipt facts live in a private typed
 presentation slice of the same source actor; event handlers send facts and do
@@ -63,13 +70,18 @@ The launcher requires macOS on Apple Silicon and `python3`. On its first run it:
    Its upstream
    [Mistral model card](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3)
    documents function calling.
-4. Waits for the OpenAI-compatible `/v1/models` endpoint before starting Vite.
-5. Opens the browser and keeps both processes attached to the same terminal.
+4. Waits only until `/v1/models` proves the endpoint is OpenAI-compatible, then
+   starts Vite even if the model is still downloading or loading.
+5. Opens the browser in a projected **Preparing local model** state. A one-token
+   inference warm-up moves the actor to **Ready** when MLX can actually respond.
+6. Keeps both processes attached to the same terminal.
 
 The first run can take several minutes because it installs Python packages and
-downloads the model. Later runs reuse both caches. Press **Control-C** once to
-stop every process the launcher owns. If a compatible server is already running
-on port 8080, the launcher reuses it and does not stop it on exit.
+downloads the model. The UI intentionally loads before that work finishes and
+keeps prompt controls disabled; download progress remains visible in the
+terminal. Later runs reuse both caches. Press **Control-C** once to stop every
+process the launcher owns. If a compatible server is already running on port
+8080, the launcher reuses it and does not stop it on exit.
 
 ### Configuration
 
@@ -84,7 +96,7 @@ model requires:
 | `VOICE_WORKBENCH_CACHE_DIR` | Isolated environment cache | macOS user cache |
 | `VOICE_WORKBENCH_MLX_PORT` | Managed loopback model-server port | `8080` |
 | `VOICE_WORKBENCH_WEB_PORT` | Strict Vite port | Vite chooses `5173` or the next free port |
-| `VOICE_WORKBENCH_MLX_STARTUP_TIMEOUT_MS` | Model readiness deadline | `1200000` |
+| `VOICE_WORKBENCH_MLX_STARTUP_TIMEOUT_MS` | Endpoint compatibility deadline | `1200000` |
 | `VOICE_WORKBENCH_NO_OPEN` | Set to `1` to avoid opening a browser | unset |
 | `VITE_MLX_BASE_URL` | Reuse an external OpenAI-compatible endpoint | managed local MLX endpoint |
 | `VITE_MLX_API_KEY` | Development bearer token for an external endpoint | unset |
@@ -140,8 +152,9 @@ does not apply application-specific redaction automatically.
 The launcher provides overridable local URL and model defaults; credentials,
 prompts, artifacts, and responses are never hard-coded. When the web-only
 `pnpm --dir examples/agents/voice-workbench dev` command is used without model
-configuration, a submitted prompt becomes an actor fact, the UI explains the
-missing configuration, and the actor returns to `ready` so the user can recover.
+configuration, the readiness adapter produces a configuration failure, the UI
+projects **Model unavailable**, and prompt controls stay closed until a valid
+provider can be prepared.
 
 ## Use text and speech
 
@@ -158,12 +171,12 @@ stable speech request so it does not replay after a re-render.
 
 ## Production parity harness
 
-`parity.html?state=<state>` renders the production projection in one of five
-allowlisted states: `ready`, `listening`, `responding`, `artifact`, or
-`permission`. The harness uses the real component, source, commands, and
-projection. Private presentation facts seed adapter-only state. Its
-deterministic artifact is labeled **Parity harness only** and is never loaded by
-the production entrypoint.
+`parity.html?state=<state>` renders the production projection in one of seven
+allowlisted states: `preparing`, `failed`, `ready`, `listening`, `responding`,
+`artifact`, or `permission`. The harness uses the real component, source,
+commands, and projection. Private presentation facts seed adapter-only state.
+Its deterministic artifact is labeled **Parity harness only** and is never
+loaded by the production entrypoint.
 
 For example, after starting Vite, open:
 
@@ -185,19 +198,10 @@ pnpm --dir examples/agents/voice-workbench build
 The deterministic suite uses `igniteTest` and the headless runtime before it
 tests the browser projection. It covers both prompt modalities, semantic-node
 validation, stale revision rejection, schema-limited model commands, provider
-failures, speech lifecycle, projection commits, and the no-imperative-DOM-writer
-guard. The parity suite checks all five states through the `igniteTest`
-accessibility bridge, ten opaque or translucent WCAG AA token pairs, and the
-global 44px target contract.
-
-The final production-parity matrix was manually verified on 2026-07-13 across
-25 state/viewport combinations: all five states at 1920×1080, 1440×900,
-1280×800, 768×900, and 390×844. Every combination had zero horizontal overflow,
-no browser warnings or errors, visible state-proof selectors, and visible
-interaction targets of at least 44px. Actor and voice states matched each
-fixture. Conversation, listening, and permission opened the conversation panel;
-responding and artifact opened the artifact panel. The artifact title visibly
-identified test-only data, and microphone denial preserved the typed draft.
+failures, speech lifecycle, projection commits, and the
+no-imperative-DOM-writer guard. The parity suite checks all seven states through
+the `igniteTest` accessibility bridge, ten opaque or translucent WCAG AA token
+pairs, and the global 44px target contract.
 
 ## Deliberate boundaries
 
