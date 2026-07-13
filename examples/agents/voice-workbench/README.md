@@ -11,7 +11,7 @@ semantic document.
 
 ## What the example proves
 
-The component exposes exactly five public commands:
+The component's domain contract centers on five commands:
 
 - `submitPrompt`
 - `createArtifact`
@@ -19,10 +19,14 @@ The component exposes exactly five public commands:
 - `completeResponse`
 - `acknowledgeSpeech`
 
-Text and speech are two input adapters for the same `submitPrompt` command. The
-model receives only the currently authorized artifact commands from
-`getSchema()` through `igniteTools`. It may propose a semantic artifact and a
-response, but it cannot write DOM, JSX, JavaScript, or actor state directly.
+Text and speech are two input adapters for the same `submitPrompt` command.
+Additional presentation commands keep browser intent actor-owned without
+exposing the source. The model receives only the currently authorized artifact
+commands from `getSchema()` through `igniteTools`. It may propose a semantic
+artifact and a response, but it cannot write DOM, JSX, JavaScript, or actor
+state directly. When a model emits one tool call per response, the pure turn
+protocol accepts the artifact first and requests `completeResponse` in a second
+round against the updated actor view.
 
 The actor validates semantic nodes, revision conflicts, action payloads, and
 command availability before accepting a proposal. Ignite then derives the view
@@ -47,8 +51,9 @@ retryable projection.
 
 The browser projection is declarative Ignite JSX. Browser-only draft, mobile
 panel, microphone, trace, and commit-receipt facts live in a private typed
-presentation slice of the same source actor; event handlers send facts and do
-not mutate the rendered DOM.
+presentation slice of the same source actor. UI handlers invoke projected
+component commands and never mutate the rendered DOM; the `actor` supplied to
+`igniteCore.commands` owns every source write.
 
 ## Run with a local MLX model
 
@@ -64,16 +69,14 @@ The launcher requires macOS on Apple Silicon and `python3`. On its first run it:
    `~/Library/Caches/ignite-element/voice-workbench/`.
 2. Installs the pinned `mlx-lm` package there without changing system Python.
 3. Downloads and starts
-   [`mlx-community/Mistral-7B-Instruct-v0.3-4bit`](https://huggingface.co/mlx-community/Mistral-7B-Instruct-v0.3-4bit),
-   the 4.08 GB quantization used by the
-   [official MLX server example](https://github.com/ml-explore/mlx-lm/blob/main/mlx_lm/SERVER.md).
-   Its upstream
-   [Mistral model card](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3)
-   documents function calling.
+   [`mlx-community/gemma-4-e4b-it-4bit`](https://huggingface.co/mlx-community/gemma-4-e4b-it-4bit),
+   a 5.15 GB quantization whose native tool-call format is parsed by the pinned
+   MLX server.
 4. Waits only until `/v1/models` proves the endpoint is OpenAI-compatible, then
    starts Vite even if the model is still downloading or loading.
-5. Opens the browser in a projected **Preparing local model** state. A one-token
-   inference warm-up moves the actor to **Ready** when MLX can actually respond.
+5. Opens the browser in a projected **Preparing local model** state. A minimal
+   tool-call probe moves the actor to **Ready** only when MLX can return the
+   OpenAI-compatible tool calls this example requires.
 6. Keeps both processes attached to the same terminal.
 
 The first run can take several minutes because it installs Python packages and
@@ -90,7 +93,7 @@ model requires:
 
 | Variable | Purpose | Default |
 | --- | --- | --- |
-| `VOICE_WORKBENCH_MLX_MODEL` | Hugging Face model or local model path | `mlx-community/Mistral-7B-Instruct-v0.3-4bit` |
+| `VOICE_WORKBENCH_MLX_MODEL` | Hugging Face model or local model path | `mlx-community/gemma-4-e4b-it-4bit` |
 | `VOICE_WORKBENCH_MLX_LM_VERSION` | Isolated `mlx-lm` version | `0.31.3` |
 | `VOICE_WORKBENCH_PYTHON` | Python used to create the environment | `python3` |
 | `VOICE_WORKBENCH_CACHE_DIR` | Isolated environment cache | macOS user cache |
@@ -122,7 +125,7 @@ The processes can still be managed independently when debugging the provider:
 python3 -m venv .venv-mlx
 .venv-mlx/bin/python -m pip install mlx-lm==0.31.3
 .venv-mlx/bin/python -m mlx_lm.server \
-  --model mlx-community/Mistral-7B-Instruct-v0.3-4bit \
+  --model mlx-community/gemma-4-e4b-it-4bit \
   --host 127.0.0.1 \
   --port 8080
 ```
@@ -131,7 +134,7 @@ In another terminal:
 
 ```bash
 VITE_MLX_BASE_URL=http://127.0.0.1:8080/v1 \
-VITE_MLX_MODEL=mlx-community/Mistral-7B-Instruct-v0.3-4bit \
+VITE_MLX_MODEL=mlx-community/gemma-4-e4b-it-4bit \
 pnpm --dir examples/agents/voice-workbench dev
 ```
 
@@ -143,11 +146,12 @@ embedding host may instead set `globalThis.MLX_BASE_URL`,
 entrypoint. Those values are also available to browser code; this example's
 configuration paths are development-only.
 
-Each model invocation serializes the submitted prompt and the complete current
-actor view, including conversation, artifact, and private presentation state,
-to the configured model endpoint. Consumers own that disclosure boundary and
-must redact or remove sensitive data before invoking the model. This example
-does not apply application-specific redaction automatically.
+Each model invocation serializes the submitted prompt and a compact
+`modelContext` derived by `igniteCore.view`. It includes artifact state needed
+for creation and revision but excludes browser draft, microphone, trace, and
+commit-receipt presentation state. Consumers still own that disclosure boundary
+and must redact or remove sensitive artifact data before invoking the model.
+This example does not apply application-specific redaction automatically.
 
 The launcher provides overridable local URL and model defaults; credentials,
 prompts, artifacts, and responses are never hard-coded. When the web-only

@@ -208,7 +208,7 @@ const modelTurnSubscription = component.on("prompt-submitted", (event) => {
 	void completeSubmittedPrompt(event);
 });
 
-component("voice-workbench", (projection) => renderWorkbench(projection));
+component("voice-workbench", renderWorkbench);
 void prepareModel();
 
 const terminalSubscription = component.on("response-completed", () => {
