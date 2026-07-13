@@ -84,6 +84,24 @@ conversation actor. Response playback uses browser `speechSynthesis`; the
 speech projection records played, muted, or unavailable and acknowledges each
 stable speech request so it does not replay after a re-render.
 
+## Production parity harness
+
+`parity.html?state=<state>` renders the production projection in one of five
+allowlisted states: `ready`, `listening`, `responding`, `artifact`, or
+`permission`. The harness uses the real component, source, commands, and
+projection. Private presentation facts seed adapter-only state. Its
+deterministic artifact is labeled **Parity harness only** and is never loaded by
+the production entrypoint.
+
+For example, after starting Vite, open:
+
+```text
+http://127.0.0.1:5173/parity.html?state=artifact
+```
+
+Unknown state names fail closed. The harness exists for repeatable rendered-
+browser and accessibility checks; it is not a demo-data mode.
+
 ## Verify
 
 ```bash
@@ -96,14 +114,18 @@ The deterministic suite uses `igniteTest` and the headless runtime before it
 tests the browser projection. It covers both prompt modalities, semantic-node
 validation, stale revision rejection, schema-limited model commands, provider
 failures, speech lifecycle, projection commits, and the no-imperative-DOM-writer
-guard.
+guard. The parity suite checks all five states through the `igniteTest`
+accessibility bridge, ten opaque or translucent WCAG AA token pairs, and the
+global 44px target contract.
 
-Production parity was manually verified on 2026-07-13 at 1920×1080,
-1440×1000, 1280×900, 768×900, and 390×844. Every viewport had zero page-width
-overflow and no browser warnings or errors. The mobile Chat, Artifact, and
-Runtime panels switched declaratively; the Schema view rendered the empty
-`{ artifacts: [] }` state; visible 390px interaction targets measured at least
-44px; and an unconfigured MLX submission visibly recovered to actor `ready`.
+The final production-parity matrix was manually verified on 2026-07-13 across
+25 state/viewport combinations: all five states at 1920×1080, 1440×900,
+1280×800, 768×900, and 390×844. Every combination had zero horizontal overflow,
+no browser warnings or errors, visible state-proof selectors, and visible
+interaction targets of at least 44px. Actor and voice states matched each
+fixture. Conversation, listening, and permission opened the conversation panel;
+responding and artifact opened the artifact panel. The artifact title visibly
+identified test-only data, and microphone denial preserved the typed draft.
 
 ## Deliberate boundaries
 

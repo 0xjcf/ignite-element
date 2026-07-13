@@ -101,3 +101,29 @@ The corrected prototype makes a narrower and more defensible claim: Ignite Eleme
 ### Human approval and implementation handoff
 
 Approved on 2026-07-13: Round 2 plus the artifact-proof correction may move from Mock Studio into the production POC/MVP. The implementation starts empty, uses consumer-configured real MLX for the optional live path, keeps microphone transcription outside `igniteCore`, validates the full semantic-node contract, derives evidence from runtime facts, and treats the static adoption-plan content as prototype-only.
+
+## Production POC/MVP implementation receipt — 2026-07-13
+
+The implementation now includes a test-only production parity entrypoint. It
+uses the real Ignite component and projection while allowing only `ready`,
+`listening`, `responding`, `artifact`, and `permission` fixtures. Its
+deterministic semantic artifact is explicitly labeled as parity-only and is not
+production seed data.
+
+Implementation verification passed:
+
+- 10 Vitest files and 36 tests, including all five states through the
+  `igniteTest` accessibility bridge.
+- TypeScript typechecking and a Vite build containing both `index.html` and
+  `parity.html`.
+- Ten WCAG AA token-pair assertions and a non-shrinking 44px target contract
+  for visible controls.
+- No imperative `querySelector` guard in the parity entrypoint.
+
+Final rendered-browser evidence lives at
+`/private/tmp/ignite-voice-workbench-parity-20260713-final` with 25 PNGs and
+`measurements.json`. All five states passed at 1920×1080, 1440×900, 1280×800,
+768×900, and 390×844: no failures or browser logs, zero maximum horizontal
+overflow, every visible target at least 44px, every proof selector visible, and
+correct actor, voice, and active-panel state. The permission draft was preserved
+exactly. This final directory supersedes all pre-fix captures.

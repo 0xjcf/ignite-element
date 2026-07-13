@@ -11,6 +11,14 @@ const adaptersSourceRoot = resolvePath("../../../packages/ignite-adapters/src");
 const rendererSourceRoot = resolvePath("../../../packages/ignite-renderer/src");
 
 export default defineConfig({
+	build: {
+		rollupOptions: {
+			input: {
+				main: resolvePath("./index.html"),
+				parity: resolvePath("./parity.html"),
+			},
+		},
+	},
 	test: { environment: "node" },
 	resolve: {
 		alias: [

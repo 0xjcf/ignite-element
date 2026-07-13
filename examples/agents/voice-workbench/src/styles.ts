@@ -39,6 +39,7 @@ export const workbenchStyles = `
 		--space-5: 1.25rem;
 		--space-6: 1.5rem;
 		--space-8: 2rem;
+		--target-min: 2.75rem;
 		display: block;
 		min-width: 20rem;
 		min-height: 100vh;
@@ -299,6 +300,20 @@ export const workbenchStyles = `
 	.policy-proof strong { display: block; color: var(--foreground-soft); font-family: var(--font-mono); font-size: 0.59rem; }
 	.policy-proof span { display: block; margin-top: 0.08rem; color: var(--muted); font-size: 0.56rem; }
 	.text-button { min-height: 2rem; padding: 0.35rem 0.65rem; border-radius: var(--radius-sm); background: var(--surface); color: var(--foreground-soft); font-size: 0.72rem; font-weight: 650; }
+	.switch,
+	.icon-button,
+	.button,
+	.send-button,
+	.text-button,
+	.segmented button,
+	.node-action,
+	.doc-card input,
+	.mobile-tabs button { min-height: var(--target-min); }
+	.icon-button {
+		width: var(--target-min);
+		min-width: var(--target-min);
+		flex-shrink: 0;
+	}
 
 	.mobile-tabs { display: none; }
 	.statusbar { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 3.25rem; padding: 0 var(--space-4); border-top: 1px solid var(--border); background: var(--background-elevated); color: var(--muted); font-family: var(--font-mono); font-size: 0.6rem; }
@@ -328,8 +343,6 @@ export const workbenchStyles = `
 		.mobile-tabs button[aria-pressed="true"] { background: var(--primary-wash); color: var(--primary); }
 		.statusbar { display: none; }
 		.composer textarea { min-height: 4.3rem; font-size: 1rem; }
-		.icon-button, .send-button, .button, .text-button, .segmented button { min-height: 2.75rem; }
-		.icon-button { width: 2.75rem; }
 		.artifact-toolbar, .panel-head { padding: 0 var(--space-3); }
 		.artifact-scroll { padding: var(--space-3); }
 		.document, .schema-view, .empty-artifact { padding: var(--space-5); border-radius: var(--radius-lg); }

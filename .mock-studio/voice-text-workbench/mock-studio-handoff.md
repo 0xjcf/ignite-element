@@ -146,3 +146,31 @@ Presence and alignment failures are blockers. Small cosmetic variance may be log
 - Approved transition: Mock Studio specification to production POC/MVP implementation.
 - Approval scope: visual hierarchy, interaction states, responsive behavior, token system, runtime teaching rail, and the implementation contract above.
 - Approval does not certify: a live MLX connection, live speech recognition, production Ignite integration, or accessibility parity. Those require implementation receipts.
+
+## Production implementation receipt — 2026-07-13
+
+The approved Mock Studio design is now represented by a test-only production
+parity harness that imports the real component, source, commands, and
+`renderWorkbench` projection. It allowlists `ready`, `listening`, `responding`,
+`artifact`, and `permission`; unknown fixtures fail closed. Deterministic content
+is visibly labeled **Parity harness only** and never enters the live entrypoint.
+
+Automated verification passed with 10 test files and 36 tests, TypeScript
+typechecking, and a two-page Vite build. The suite exercises all five fixtures
+through the `igniteTest` accessibility bridge, checks ten opaque or translucent
+WCAG AA token pairs, enforces a 44px global target contract, and guards the
+parity entrypoint against imperative DOM lookup.
+
+The final rendered-browser receipt is
+`/private/tmp/ignite-voice-workbench-parity-20260713-final`: 25 PNGs plus
+`measurements.json`, covering all five states at 1920×1080, 1440×900, 1280×800,
+768×900, and 390×844. It reports no failures or browser logs, zero maximum
+horizontal overflow, all visible targets at least 44px, every state proof
+visible, correct actor and voice state, and the approved active panel in every
+cell. The test-only artifact title was visible and the permission fixture
+preserved its draft exactly. Earlier pre-fix browser captures are superseded by
+this receipt.
+
+This receipt certifies production projection parity for the deterministic
+fixtures. It does not certify a live MLX process, live microphone permission,
+speech-recognition quality, or assistive-technology behavior.
