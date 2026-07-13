@@ -19,6 +19,7 @@ const expectedExampleRoots = [
 	"examples/adapters/redux",
 	"examples/adapters/xstate",
 	"examples/agents/smart-home",
+	"examples/agents/voice-workbench",
 	"examples/apps/dashboard-with-shared-state",
 	"examples/apps/form-with-validation",
 	"examples/apps/nested-child-router",
