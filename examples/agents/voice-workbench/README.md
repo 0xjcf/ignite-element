@@ -45,18 +45,81 @@ not mutate the rendered DOM.
 
 ## Run with a local MLX model
 
-Start an OpenAI-compatible MLX server with a tool-capable model:
+From the repository root, run one command:
 
 ```bash
-python -m pip install mlx-lm
-python -m mlx_lm.server --model <model> --port 8080
+pnpm example:voice-workbench
 ```
 
-Then start the example from the repository root:
+The launcher requires macOS on Apple Silicon and `python3`. On its first run it:
+
+1. Creates an isolated environment under
+   `~/Library/Caches/ignite-element/voice-workbench/`.
+2. Installs the pinned `mlx-lm` package there without changing system Python.
+3. Downloads and starts
+   [`mlx-community/Mistral-7B-Instruct-v0.3-4bit`](https://huggingface.co/mlx-community/Mistral-7B-Instruct-v0.3-4bit),
+   the 4.08 GB quantization used by the
+   [official MLX server example](https://github.com/ml-explore/mlx-lm/blob/main/mlx_lm/SERVER.md).
+   Its upstream
+   [Mistral model card](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3)
+   documents function calling.
+4. Waits for the OpenAI-compatible `/v1/models` endpoint before starting Vite.
+5. Opens the browser and keeps both processes attached to the same terminal.
+
+The first run can take several minutes because it installs Python packages and
+downloads the model. Later runs reuse both caches. Press **Control-C** once to
+stop every process the launcher owns. If a compatible server is already running
+on port 8080, the launcher reuses it and does not stop it on exit.
+
+### Configuration
+
+The defaults target the smooth local path. Override only what your machine or
+model requires:
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `VOICE_WORKBENCH_MLX_MODEL` | Hugging Face model or local model path | `mlx-community/Mistral-7B-Instruct-v0.3-4bit` |
+| `VOICE_WORKBENCH_MLX_LM_VERSION` | Isolated `mlx-lm` version | `0.31.3` |
+| `VOICE_WORKBENCH_PYTHON` | Python used to create the environment | `python3` |
+| `VOICE_WORKBENCH_CACHE_DIR` | Isolated environment cache | macOS user cache |
+| `VOICE_WORKBENCH_MLX_PORT` | Managed loopback model-server port | `8080` |
+| `VOICE_WORKBENCH_WEB_PORT` | Strict Vite port | Vite chooses `5173` or the next free port |
+| `VOICE_WORKBENCH_MLX_STARTUP_TIMEOUT_MS` | Model readiness deadline | `1200000` |
+| `VOICE_WORKBENCH_NO_OPEN` | Set to `1` to avoid opening a browser | unset |
+| `VITE_MLX_BASE_URL` | Reuse an external OpenAI-compatible endpoint | managed local MLX endpoint |
+| `VITE_MLX_API_KEY` | Development bearer token for an external endpoint | unset |
+
+For example, a smaller timeout and a different model can be selected without
+editing the example:
+
+```bash
+VOICE_WORKBENCH_MLX_MODEL=<model> \
+VOICE_WORKBENCH_MLX_STARTUP_TIMEOUT_MS=1800000 \
+pnpm example:voice-workbench
+```
+
+Setting `VITE_MLX_BASE_URL` makes the endpoint externally owned. The launcher
+waits for it but never installs, starts, or stops its model process. This also
+allows non-Apple systems to use an OpenAI-compatible server running elsewhere.
+
+### Manual two-server workflow
+
+The processes can still be managed independently when debugging the provider:
+
+```bash
+python3 -m venv .venv-mlx
+.venv-mlx/bin/python -m pip install mlx-lm==0.31.3
+.venv-mlx/bin/python -m mlx_lm.server \
+  --model mlx-community/Mistral-7B-Instruct-v0.3-4bit \
+  --host 127.0.0.1 \
+  --port 8080
+```
+
+In another terminal:
 
 ```bash
 VITE_MLX_BASE_URL=http://127.0.0.1:8080/v1 \
-VITE_MLX_MODEL=<model> \
+VITE_MLX_MODEL=mlx-community/Mistral-7B-Instruct-v0.3-4bit \
 pnpm --dir examples/agents/voice-workbench dev
 ```
 
@@ -74,10 +137,11 @@ to the configured model endpoint. Consumers own that disclosure boundary and
 must redact or remove sensitive data before invoking the model. This example
 does not apply application-specific redaction automatically.
 
-No model URL, model name, credentials, prompts, artifacts, or responses are
-hard-coded. Without model configuration, a submitted prompt becomes an actor
-fact, the UI explains the missing configuration, and the actor returns to
-`ready` so the user can recover.
+The launcher provides overridable local URL and model defaults; credentials,
+prompts, artifacts, and responses are never hard-coded. When the web-only
+`pnpm --dir examples/agents/voice-workbench dev` command is used without model
+configuration, a submitted prompt becomes an actor fact, the UI explains the
+missing configuration, and the actor returns to `ready` so the user can recover.
 
 ## Use text and speech
 
@@ -143,3 +207,10 @@ transport, model-process supervision, or equivalent speech recognition across
 all browsers and assistive technologies. Those remain outer-runtime or rendered
 browser concerns rather than hidden responsibilities of `igniteCore` or
 `igniteTools`.
+
+The bundled `mlx-lm.server` is a loopback development server with basic security
+checks, not a production deployment. Do not expose it to an untrusted network.
+A hosted version must configure CORS and CSP `connect-src` for its model endpoint
+and should send an explicitly redacted model-context projection rather than the
+complete component view. Browser `SpeechRecognition` availability, audio
+handling, and provider behavior remain browser- and vendor-dependent.
