@@ -287,6 +287,35 @@ updates:
 
 This keeps announcement behavior explicit and testable.
 
+## Voice and text share behavior, not browser machinery
+
+The [voice and text workbench example](https://github.com/0xjcf/ignite-element/tree/main/examples/agents/voice-workbench)
+demonstrates the split in a complete agent-authored interface:
+
+1. Typed input and a final browser speech transcript both become the same
+   `submitPrompt` command with an explicit modality.
+2. The actor owns the conversation state and command availability.
+3. `getSchema()` and `igniteTools` expose only semantic artifact commands to the
+   model turn.
+4. The actor validates the proposed semantic document before Ignite renders
+   native JSX or commits terminal and speech output.
+5. Each speech request has stable identity and is acknowledged after the speech
+   projection commits it.
+
+Microphone capture remains a capability-gated browser adapter. Permission
+denial, cancellation, unsupported recognition, and transcription errors are
+typed facts; they do not mutate the DOM or bypass the actor. The headless suite
+can therefore prove that speech and text converge on the behavior contract, but
+it cannot claim that a particular browser exposed the right permission prompt,
+accessible name, or assistive-technology announcement.
+
+The production projection was manually checked at 1920×1080, 1440×1000,
+1280×900, 768×900, and 390×844. It had zero page-width overflow and no browser
+warnings or errors; the mobile panels changed declaratively; and visible controls
+at 390px measured at least 44px. These receipts prove responsive interaction
+geometry and runtime behavior. Browser accessibility-tree and assistive-
+technology checks remain separate rendered-DOM evidence.
+
 ## Actor-Web boundary
 
 Projection design does not move Actor-Web ownership into Ignite.
