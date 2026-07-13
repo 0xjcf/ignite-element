@@ -214,6 +214,7 @@ function runtimeDependencies(overrides = {}) {
 function createLifecycle(deps, config) {
 	const abortController = new AbortController();
 	const owned = new Map();
+	let stopPromise;
 	let stopping = false;
 
 	function spawnOwned(label, command, args, options = {}) {
@@ -246,22 +247,20 @@ function createLifecycle(deps, config) {
 	}
 
 	async function stop(signal = "SIGTERM") {
-		if (stopping) return;
+		if (stopPromise) return stopPromise;
 		stopping = true;
 		abortController.abort();
-		const active = [...owned.entries()];
-		await Promise.all(
-			active.map(async ([child, exit]) => {
+		stopPromise = Promise.all(
+			[...owned.entries()].map(async ([child, exit]) => {
 				deps.killChild(child, signal);
 				const result = await Promise.race([
 					exit.then(() => "exited"),
 					deps.sleep(config.shutdownGraceMs).then(() => "timed-out"),
 				]);
-				if (result === "timed-out") {
-					deps.killChild(child, "SIGKILL");
-				}
+				if (result === "timed-out") deps.killChild(child, "SIGKILL");
 			}),
 		);
+		await stopPromise;
 	}
 
 	return {

@@ -350,6 +350,44 @@ describe("voice workbench MLX launcher", () => {
 		expect(harness.signals.size).toBe(0);
 	});
 
+	it("awaits an in-flight shutdown before the launcher returns", async () => {
+		let resolveWebSpawned;
+		const webSpawned = new Promise((resolveSpawned) => {
+			resolveWebSpawned = resolveSpawned;
+		});
+		const harness = createHarness({
+			fetchSteps: [new Error("not running"), readyResponse()],
+			onSpawn: ({ child, label }) => {
+				if (label === "web") {
+					resolveWebSpawned(child);
+					return true;
+				}
+				return false;
+			},
+		});
+		const running = runLauncher(managedOptions(harness.dependencies));
+		const web = await webSpawned;
+		const mlx = harness.spawns.find(({ label }) => label === "mlx").child;
+		harness.dependencies.killChild.mockImplementation((child, signal) => {
+			child.killSignals.push(signal);
+		});
+		harness.dependencies.sleep.mockImplementation(() => new Promise(() => {}));
+		let resolved = false;
+		void running.then(() => {
+			resolved = true;
+		});
+
+		harness.signals.get("SIGTERM")();
+		web.finish(null, "SIGTERM");
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(resolved).toBe(false);
+
+		mlx.finish(null, "SIGTERM");
+		await running;
+		expect(resolved).toBe(true);
+	});
+
 	it("uses typed launcher errors for invalid configuration", () => {
 		expect(() =>
 			resolveLauncherConfig(
