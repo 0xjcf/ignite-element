@@ -1,24 +1,14 @@
 // @vitest-environment jsdom
 import { test as igniteTest } from "ignite-element/testing";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { component, source } from "./session";
-import { renderWorkbench, type WorkbenchEnvironment } from "./workbench";
+import { renderWorkbench } from "./workbench";
 
 describe("voice workbench accessible JSX", () => {
 	it("renders the approved empty-to-artifact workflow from the component view", async () => {
-		const submitPrompt = vi.fn();
-		const environment: WorkbenchEnvironment = {
-			cancelVoice: vi.fn(),
-			playSpeech: vi.fn(),
-			retryModel: vi.fn(),
-			startVoice: vi.fn(),
-			submitPrompt,
-			useVoiceTranscript: vi.fn(),
-		};
 		const bridge = igniteTest.accessibilityBridge(
 			component,
-			(projection: Parameters<typeof renderWorkbench>[0]) =>
-				renderWorkbench(projection, environment),
+			renderWorkbench,
 			{
 				elementName: "voice-workbench-accessibility",
 			},
@@ -48,9 +38,9 @@ describe("voice workbench accessible JSX", () => {
 				}) as HTMLTextAreaElement
 			).disabled,
 		).toBe(true);
-		source.send({
-			type: "MODEL_FAILED",
-			failure: {
+		await component.execute({
+			command: "reportModelFailure",
+			input: {
 				kind: "network",
 				message: "The local model could not be reached.",
 			},
@@ -59,8 +49,8 @@ describe("voice workbench accessible JSX", () => {
 			"The local model could not be reached.",
 		);
 		bridge.getByRole("button", { name: "Retry model" }).click();
-		expect(environment.retryModel).toHaveBeenCalledOnce();
-		source.send({ type: "MODEL_AVAILABLE" });
+		expect(component.getView().status).toBe("preparing");
+		await component.execute({ command: "reportModelAvailable" });
 		expect(
 			bridge.host.shadowRoot?.querySelector(
 				'output[aria-label="Conversation status"]',
@@ -88,16 +78,7 @@ describe("voice workbench accessible JSX", () => {
 		form.dispatchEvent(
 			new Event("submit", { bubbles: true, cancelable: true }),
 		);
-		expect(submitPrompt).toHaveBeenCalledWith({
-			channel: "text",
-			text: "Show the decision",
-		});
-		expect(component.getView().status).toBe("ready");
-
-		await component.execute({
-			command: "submitPrompt",
-			input: { modality: "text", text: "Show the decision" },
-		});
+		expect(component.getView().status).toBe("responding");
 		expect(bridge.host.shadowRoot?.textContent).toContain("1 turn");
 		expect(bridge.host.shadowRoot?.textContent).not.toContain("1 turns");
 		await component.execute({

@@ -29,10 +29,27 @@ describe("voice workbench headless component", () => {
 		const schema = component.getSchema();
 		expect(Object.keys(schema.commands)).toEqual([
 			"acknowledgeSpeech",
+			"beginModelPreparation",
+			"cancelVoiceCapture",
+			"changeArtifactView",
+			"changeDraft",
+			"changeMobilePanel",
+			"changeSpeechPreference",
+			"commitDocument",
+			"commitSpeech",
+			"commitTerminal",
 			"completeResponse",
 			"createArtifact",
+			"playSpeech",
+			"presentVoice",
+			"recordTurn",
+			"replay",
+			"reportModelAvailable",
+			"reportModelFailure",
 			"reviseArtifact",
+			"startVoiceCapture",
 			"submitPrompt",
+			"submitVoiceTranscript",
 		]);
 		expect(() => JSON.stringify(schema)).not.toThrow();
 		expect(schema.commands.createArtifact).toMatchObject({
@@ -121,9 +138,9 @@ describe("voice workbench headless component", () => {
 			}),
 		).resolves.toMatchObject({ events: [] });
 		expect(component.getSnapshot().context.messages).toEqual([]);
-		source.send({
-			type: "MODEL_FAILED",
-			failure: {
+		await component.execute({
+			command: "reportModelFailure",
+			input: {
 				kind: "network",
 				message: "The local model could not be reached.",
 			},
@@ -141,13 +158,13 @@ describe("voice workbench headless component", () => {
 			modelFailed: true,
 			promptPlaceholder: "Retry the local model before sending a prompt…",
 		});
-		source.send({ type: "MODEL_PREPARATION_STARTED" });
+		await component.execute({ command: "beginModelPreparation" });
 		expect(component.getView()).toMatchObject({
 			status: "preparing",
 			canRetryModel: false,
 			model: { status: "preparing", failure: null },
 		});
-		source.send({ type: "MODEL_AVAILABLE" });
+		await component.execute({ command: "reportModelAvailable" });
 		expect(component.getView()).toMatchObject({
 			status: "ready",
 			statusLabel: "Ready",
@@ -169,13 +186,13 @@ describe("voice workbench headless component", () => {
 		const views = vi.fn();
 		const snapshotSubscription = component.watchSnapshot(snapshots);
 		const viewSubscription = component.watchView(views);
-		source.send({
-			type: "PRESENTATION_DRAFT_CHANGED",
-			draft: "Preserve this draft",
+		await component.execute({
+			command: "changeDraft",
+			input: "Preserve this draft",
 		});
-		source.send({
-			type: "PRESENTATION_VOICE_CHANGED",
-			fact: { type: "voice-listening" },
+		await component.execute({
+			command: "presentVoice",
+			input: { type: "voice-listening" },
 		});
 		expect(component.getView()).toMatchObject({
 			presentation: {

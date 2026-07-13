@@ -7,7 +7,7 @@ import { component, source } from "./session";
 
 describe("voice workbench projection targets", () => {
 	it("commits documents and acknowledged speech through direct component targets", async () => {
-		source.send({ type: "MODEL_AVAILABLE" });
+		await component.execute({ command: "reportModelAvailable" });
 		const commitDocument = vi.fn();
 		const commitSpeech = vi.fn();
 		const documentSession = component(

@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
-import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import agentLoopSource from "./agent-loop.ts?raw";
+import mainSource from "./main.tsx?raw";
+import modelSource from "./model.ts?raw";
 import type { SpeechRecognitionLike } from "./voice";
+import voiceSource from "./voice.ts?raw";
+import workbenchSource from "./workbench.tsx?raw";
 
 const completion = (calls: Array<{ name: string; input: unknown }>) => ({
 	choices: [
@@ -72,12 +76,20 @@ describe("voice workbench browser entry", () => {
 	});
 
 	it("keeps Ignite JSX as the only production UI writer", () => {
-		for (const file of ["./main.tsx", "./workbench.tsx"]) {
-			const source = readFileSync(new URL(file, import.meta.url), "utf8");
+		for (const source of [mainSource, workbenchSource]) {
 			expect(source).not.toMatch(
 				/(?:document\.)?querySelector|shadowRoot|\.textContent|\.dataset|\.classList|\.setAttribute|\.closest/,
 			);
+			expect(source).not.toContain("source.send");
 		}
+
+		expect(agentLoopSource).not.toMatch(/\bcomponent\s*:/);
+		expect(agentLoopSource).not.toContain("runModelTurn");
+		expect(agentLoopSource).not.toContain('from "./session"');
+		expect(modelSource).not.toContain("createMlxWorkbenchModel");
+		expect(modelSource).not.toMatch(/\bcomponent\b/);
+		expect(modelSource).not.toMatch(/\bfetch\?:/);
+		expect(voiceSource).not.toContain("createRecognition");
 	});
 
 	it("creates and revises the center document through real text and speech paths", async () => {
@@ -149,6 +161,15 @@ describe("voice workbench browser entry", () => {
 					},
 				},
 			]),
+			completion([
+				{
+					name: "completeResponse",
+					input: {
+						text: "The accepted revision is complete.",
+						speech: "The accepted revision is complete.",
+					},
+				},
+			]),
 		];
 		const fetchMock = vi.fn(async () => {
 			if (firstRequest) {
@@ -184,9 +205,7 @@ describe("voice workbench browser entry", () => {
 		).toBe(true);
 		resolveReadiness(
 			new Response(
-				JSON.stringify({
-					choices: [{ message: { role: "assistant", content: "OK" } }],
-				}),
+				JSON.stringify(completion([{ name: "workbenchReady", input: {} }])),
 				{ status: 200 },
 			),
 		);
@@ -323,11 +342,11 @@ describe("voice workbench browser entry", () => {
 				status: "ready",
 				artifacts: [{ id: "release-plan", revision: "3" }],
 				response: {
-					text: "The model did not complete the response. Refine the prompt and try again.",
+					text: "The accepted revision is complete.",
 				},
 				presentation: {
 					turn: {
-						type: "response-incomplete",
+						type: "accepted",
 						trace: [
 							{ command: "reviseArtifact", accepted: true },
 							{ command: "completeResponse", accepted: true },
@@ -336,10 +355,10 @@ describe("voice workbench browser entry", () => {
 				},
 			});
 			expect(host.shadowRoot?.textContent).toContain(
-				"The model omitted a completed response, so the actor recovered the turn.",
+				"Actor accepted the model-authored turn.",
 			);
 		});
-		expect(fetchMock).toHaveBeenCalledTimes(4);
+		expect(fetchMock).toHaveBeenCalledTimes(5);
 
 		const recoveryPrompt = host.shadowRoot.querySelector("textarea");
 		const recoveryForm = host.shadowRoot.querySelector("form");
@@ -370,7 +389,7 @@ describe("voice workbench browser entry", () => {
 				},
 			});
 		});
-		expect(fetchMock).toHaveBeenCalledTimes(5);
+		expect(fetchMock).toHaveBeenCalledTimes(6);
 
 		if (!FakeSpeechRecognition.current) {
 			throw new Error("speech recognition was not initialized");

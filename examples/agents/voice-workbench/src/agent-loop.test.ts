@@ -1,8 +1,10 @@
+import { igniteTools, isOk } from "ignite-element/tools";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
 	type ModelRequest,
 	type ModelResult,
-	runModelTurn,
+	modelTools,
+	modelTurn,
 } from "./agent-loop";
 import { component, source } from "./session";
 
@@ -14,10 +16,54 @@ const nodes = [
 	},
 ] as const;
 
-beforeAll(() => source.send({ type: "MODEL_AVAILABLE" }));
+beforeAll(() => component.execute({ command: "reportModelAvailable" }));
 afterAll(() => source.stop());
 
+const executeModelTurn = async (response: ModelResult) => {
+	const tools = igniteTools(component);
+	const protocol = modelTurn(response);
+	let step = protocol.next();
+	while (!step.done) {
+		const call = step.value;
+		const execution = await tools.run({
+			name: call.command,
+			input: call.input,
+		});
+		const rejectedByActor =
+			isOk(execution) &&
+			execution.value.events.some(
+				(actorEvent) => actorEvent.type === "artifact-rejected",
+			);
+		step = protocol.next(isOk(execution) && !rejectedByActor);
+	}
+	return step.value;
+};
+
 describe("voice/text workbench model turn", () => {
+	it("admits at most one artifact mutation per model response", () => {
+		const input = { id: "plan", nodes };
+		const protocol = modelTurn({
+			ok: true,
+			calls: [
+				{ command: "createArtifact", input },
+				{ command: "createArtifact", input },
+			],
+		});
+
+		expect(protocol.next()).toMatchObject({
+			done: false,
+			value: { command: "createArtifact" },
+		});
+		expect(protocol.next(true)).toEqual({
+			done: true,
+			value: {
+				accepted: false,
+				reason: "response-incomplete",
+				trace: [{ command: "createArtifact", accepted: true }],
+			},
+		});
+	});
+
 	it("uses direct component tools across allowed and rejected turns", async () => {
 		const responses: readonly ModelResult[] = [
 			{
@@ -82,31 +128,33 @@ describe("voice/text workbench model turn", () => {
 			},
 		];
 		const requests: ModelRequest[] = [];
-		const model = async (request: ModelRequest): Promise<ModelResult> => {
-			requests.push(request);
+		const request = (prompt: ModelRequest["prompt"]): ModelResult => {
+			const tools = igniteTools(component);
+			const modelRequest = {
+				prompt,
+				tools: modelTools(tools.manifest),
+				view: component.getView().modelContext,
+			};
+			requests.push(modelRequest);
 			return responses[requests.length - 1] ?? { ok: true, calls: [] };
 		};
+		const turn = async (
+			prompt: ModelRequest["prompt"],
+		): ReturnType<typeof executeModelTurn> => {
+			await component.execute({
+				command: "submitPrompt",
+				input: { modality: prompt.channel, text: prompt.text },
+			});
+			return executeModelTurn(request(prompt));
+		};
 
-		const first = await runModelTurn({
-			component,
-			model,
-			prompt: { channel: "text", text: "Make a plan" },
+		const first = await turn({ channel: "text", text: "Make a plan" });
+		const second = await turn({ channel: "speech", text: "Revise it" });
+		const malformed = await turn({
+			channel: "text",
+			text: "Render an invalid chart",
 		});
-		const second = await runModelTurn({
-			component,
-			model,
-			prompt: { channel: "speech", text: "Revise it" },
-		});
-		const malformed = await runModelTurn({
-			component,
-			model,
-			prompt: { channel: "text", text: "Render an invalid chart" },
-		});
-		const rejected = await runModelTurn({
-			component,
-			model,
-			prompt: { channel: "text", text: "Run code" },
-		});
+		const rejected = await turn({ channel: "text", text: "Run code" });
 
 		expect(first.accepted).toBe(true);
 		expect(second.accepted).toBe(true);
@@ -144,16 +192,16 @@ describe("voice/text workbench model turn", () => {
 	});
 
 	it("recovers provider failure facts to ready with a sanitized visible error", async () => {
-		const failed = await runModelTurn({
-			component,
-			model: async () => ({
-				ok: false,
-				error: {
-					kind: "network",
-					message: "secret provider address and stack",
-				},
-			}),
-			prompt: { channel: "text", text: "Create a decision log" },
+		await component.execute({
+			command: "submitPrompt",
+			input: { modality: "text", text: "Create a decision log" },
+		});
+		const failed = await executeModelTurn({
+			ok: false,
+			error: {
+				kind: "network",
+				message: "secret provider address and stack",
+			},
 		});
 
 		expect(failed).toEqual({
@@ -174,13 +222,14 @@ describe("voice/text workbench model turn", () => {
 		});
 	});
 
-	it("normalizes an unexpected provider throw through the same recovery path", async () => {
-		const failed = await runModelTurn({
-			component,
-			model: async () => {
-				throw new Error("secret provider failure");
-			},
-			prompt: { channel: "speech", text: "Revise the artifact" },
+	it("normalizes provider failure facts through the same recovery path", async () => {
+		await component.execute({
+			command: "submitPrompt",
+			input: { modality: "speech", text: "Revise the artifact" },
+		});
+		const failed = await executeModelTurn({
+			ok: false,
+			error: { kind: "provider", message: "secret provider failure" },
 		});
 
 		expect(failed).toMatchObject({
@@ -194,67 +243,57 @@ describe("voice/text workbench model turn", () => {
 		expect(component.getView()).toMatchObject({ status: "ready" });
 	});
 
-	it("recovers an admitted model turn that omits completeResponse", async () => {
-		const incomplete = await runModelTurn({
-			component,
-			model: async () => ({
-				ok: true,
-				calls: [
-					{
-						command: "createArtifact",
-						input: {
-							id: "incomplete-turn",
-							title: "Incomplete turn",
-							nodes,
-						},
+	it("leaves an incomplete admitted turn open for a completion round", async () => {
+		await component.execute({
+			command: "submitPrompt",
+			input: { modality: "text", text: "Create without completing" },
+		});
+		const incomplete = await executeModelTurn({
+			ok: true,
+			calls: [
+				{
+					command: "createArtifact",
+					input: {
+						id: "incomplete-turn",
+						title: "Incomplete turn",
+						nodes,
 					},
-				],
-			}),
-			prompt: { channel: "text", text: "Create without completing" },
+				},
+			],
 		});
 
 		expect(incomplete).toEqual({
 			accepted: false,
 			reason: "response-incomplete",
-			trace: [
-				{ command: "createArtifact", accepted: true },
-				{ command: "completeResponse", accepted: true },
-			],
+			trace: [{ command: "createArtifact", accepted: true }],
 		});
 		expect(component.getView()).toMatchObject({
-			status: "ready",
-			response: {
-				text: "The model did not complete the response. Refine the prompt and try again.",
-			},
+			status: "responding",
+			response: null,
+		});
+		await component.execute({
+			command: "completeResponse",
+			input: { text: "Follow-up round complete." },
 		});
 	});
 
-	it("does not invoke the model when submitPrompt is not admitted", async () => {
+	it("does not publish a prompt event when submitPrompt is not admitted", async () => {
 		await component.execute({
 			command: "submitPrompt",
 			input: { modality: "text", text: "Keep this turn active" },
 		});
 		const beforeRejectedPrompt = component.getView();
-		const model = vi.fn(
-			async (): Promise<ModelResult> => ({
-				ok: true,
-				calls: [],
-			}),
-		);
+		const promptSubmitted = vi.fn();
+		const subscription = component.on("prompt-submitted", promptSubmitted);
 
-		const rejected = await runModelTurn({
-			component,
-			model,
-			prompt: { channel: "speech", text: "Do not admit this prompt" },
+		await component.execute({
+			command: "submitPrompt",
+			input: { modality: "speech", text: "Do not admit this prompt" },
 		});
 
-		expect(rejected).toEqual({
-			accepted: false,
-			reason: "prompt-rejected",
-			trace: [],
-		});
-		expect(model).not.toHaveBeenCalled();
+		expect(promptSubmitted).not.toHaveBeenCalled();
 		expect(component.getView()).toEqual(beforeRejectedPrompt);
+		subscription.unsubscribe();
 
 		await component.execute({
 			command: "completeResponse",

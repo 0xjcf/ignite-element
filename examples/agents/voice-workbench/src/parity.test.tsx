@@ -1,12 +1,7 @@
 // @vitest-environment jsdom
 import { test as igniteTest } from "ignite-element/testing";
 import { describe, expect, it } from "vitest";
-import {
-	PARITY_STATES,
-	parityEnvironment,
-	resolveParityState,
-	seedParityState,
-} from "./parity";
+import { PARITY_STATES, resolveParityState, seedParityState } from "./parity";
 import paritySource from "./parity.tsx?raw";
 import { component, source } from "./session";
 import { renderWorkbench } from "./workbench";
@@ -28,13 +23,14 @@ describe("voice workbench production parity harness", () => {
 		expect(resolveParityState("?state=../../main")).toBeNull();
 		expect(paritySource).not.toContain("querySelector");
 		expect(paritySource).not.toContain("createParityEnvironment");
+		expect(paritySource).not.toContain("parityEnvironment");
+		expect(paritySource).not.toContain("source.send");
 	});
 
 	it("renders accessible evidence across provider, turn, artifact, and voice lifecycles", async () => {
 		const bridge = igniteTest.accessibilityBridge(
 			component,
-			(projection: Parameters<typeof renderWorkbench>[0]) =>
-				renderWorkbench(projection, parityEnvironment),
+			renderWorkbench,
 			{ elementName: "voice-workbench-parity-accessibility" },
 		);
 		const shell = () => bridge.host.shadowRoot?.querySelector(".shell");

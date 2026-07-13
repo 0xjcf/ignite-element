@@ -118,6 +118,26 @@ describe("voice workbench domain", () => {
 		});
 	});
 
+	it("accepts the projection contract's optional artifact title", () => {
+		const created = reduceConversationSession(
+			createInitialSession("untitled"),
+			{
+				type: "CREATE_ARTIFACT",
+				input: {
+					id: "decision-log",
+					nodes: [allSemanticNodes[8]],
+				},
+			},
+		);
+
+		expect(created).toMatchObject({
+			accepted: true,
+			session: {
+				documents: [{ id: "decision-log", revision: "1" }],
+			},
+		});
+	});
+
 	it.each(
 		[
 			[{ kind: "text", id: "text" }],

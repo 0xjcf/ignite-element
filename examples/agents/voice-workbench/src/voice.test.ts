@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createBrowserVoiceCapture, type SpeechRecognitionLike } from "./voice";
 
 function createRecognition() {
@@ -16,11 +16,23 @@ function createRecognition() {
 	return recognition;
 }
 
+const installRecognition = (recognition: SpeechRecognitionLike) => {
+	vi.stubGlobal(
+		"SpeechRecognition",
+		// biome-ignore lint/complexity/useArrowFunction: constructor mocks must be constructable.
+		vi.fn(function () {
+			return recognition;
+		}),
+	);
+};
+
+afterEach(() => vi.unstubAllGlobals());
+
 describe("browser voice capture", () => {
 	it("reports unsupported browsers as a capability fact", () => {
-		const voice = createBrowserVoiceCapture({
-			createRecognition: () => null,
-		});
+		vi.stubGlobal("SpeechRecognition", undefined);
+		vi.stubGlobal("webkitSpeechRecognition", undefined);
+		const voice = createBrowserVoiceCapture();
 
 		expect(voice.getFact()).toEqual({ type: "voice-unsupported" });
 		expect(voice.start()).toEqual({ type: "voice-unsupported" });
@@ -33,10 +45,8 @@ describe("browser voice capture", () => {
 	it("turns a final transcript into the same semantic prompt with speech modality", () => {
 		const recognition = createRecognition();
 		const facts: unknown[] = [];
-		const voice = createBrowserVoiceCapture({
-			createRecognition: () => recognition,
-			language: "en-US",
-		});
+		installRecognition(recognition);
+		const voice = createBrowserVoiceCapture();
 		voice.subscribe((fact) => facts.push(fact));
 
 		expect(voice.start()).toEqual({ type: "voice-listening" });
@@ -69,9 +79,8 @@ describe("browser voice capture", () => {
 
 	it("cancels capture without submitting the partial transcript", () => {
 		const recognition = createRecognition();
-		const voice = createBrowserVoiceCapture({
-			createRecognition: () => recognition,
-		});
+		installRecognition(recognition);
+		const voice = createBrowserVoiceCapture();
 
 		voice.start();
 		recognition.onresult?.({
@@ -91,9 +100,8 @@ describe("browser voice capture", () => {
 		deniedRecognition.start = vi.fn(() => {
 			throw new DOMException("Microphone denied", "NotAllowedError");
 		});
-		const denied = createBrowserVoiceCapture({
-			createRecognition: () => deniedRecognition,
-		});
+		installRecognition(deniedRecognition);
+		const denied = createBrowserVoiceCapture();
 
 		expect(() => denied.start()).not.toThrow();
 		expect(denied.getFact()).toEqual({
@@ -102,9 +110,8 @@ describe("browser voice capture", () => {
 		});
 
 		const failedRecognition = createRecognition();
-		const failed = createBrowserVoiceCapture({
-			createRecognition: () => failedRecognition,
-		});
+		installRecognition(failedRecognition);
+		const failed = createBrowserVoiceCapture();
 		failed.start();
 		failedRecognition.onerror?.({ error: "network", message: "Offline" });
 

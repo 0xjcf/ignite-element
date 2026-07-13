@@ -133,6 +133,7 @@ function managedOptions(dependencies, env = {}) {
 
 describe("voice workbench MLX launcher", () => {
 	it("resolves a documented default and validates overrides", () => {
+		expect(DEFAULT_MODEL).toBe("mlx-community/gemma-4-e4b-it-4bit");
 		const defaults = resolveLauncherConfig(
 			{},
 			{ arch: "arm64", homeDirectory: "/Users/test", platform: "darwin" },
