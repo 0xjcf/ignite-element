@@ -863,6 +863,12 @@ export const component = igniteCore({
 	},
 });
 
+type WorkbenchRenderer = Extract<
+	Parameters<typeof component>[1],
+	(...args: never[]) => unknown
+>;
+export type WorkbenchProjection = Parameters<WorkbenchRenderer>[0];
+
 export const workbenchCommandNames = Object.freeze(
 	Object.keys(component.getSchema().commands),
 );

@@ -1,13 +1,9 @@
 /** @jsxImportSource ignite-element/jsx */
 
-import { type component, workbenchCommandNames } from "./session";
+import { type WorkbenchProjection, workbenchCommandNames } from "./session";
 import { workbenchStyles } from "./styles";
 
-type WorkbenchRenderer = Extract<
-	Parameters<typeof component>[1],
-	(...args: never[]) => unknown
->;
-type WorkbenchContext = Parameters<WorkbenchRenderer>[0];
+type WorkbenchContext = WorkbenchProjection;
 type DocumentNode = WorkbenchContext["artifacts"][number]["nodes"][number];
 
 const nodeHeading = (kind: DocumentNode["kind"], label: string) => (
