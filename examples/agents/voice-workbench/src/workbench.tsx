@@ -262,6 +262,7 @@ export const renderWorkbench = (
 	const turns = context.messages.filter(
 		(message) => message.role === "user",
 	).length;
+	const turnLabel = `${turns} ${turns === 1 ? "turn" : "turns"}`;
 	const speechStatus = context.speech?.status ?? "idle";
 	const documentSchema = JSON.stringify(
 		schemaDocument(activeArtifact),
@@ -339,7 +340,7 @@ export const renderWorkbench = (
 						<fieldset class="session-summary">
 							<legend class="sr-only">Session summary</legend>
 							<span class="session-stat">
-								<strong>{turns} turns</strong>
+								<strong>{turnLabel}</strong>
 							</span>
 							<span class="session-stat">
 								<strong>{context.artifacts.length} artifacts</strong>

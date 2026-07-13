@@ -81,6 +81,8 @@ describe("voice workbench accessible JSX", () => {
 			command: "submitPrompt",
 			input: { modality: "text", text: "Show the decision" },
 		});
+		expect(bridge.host.shadowRoot?.textContent).toContain("1 turn");
+		expect(bridge.host.shadowRoot?.textContent).not.toContain("1 turns");
 		await component.execute({
 			command: "createArtifact",
 			input: {
