@@ -85,6 +85,10 @@ const describeTurn = (turn: WorkbenchTurnFact | null): string => {
 			return "Actor accepted the model-authored turn.";
 		case "model-failed":
 			return turn.message;
+		case "prompt-rejected":
+			return "The actor did not admit this prompt.";
+		case "response-incomplete":
+			return "The model omitted a completed response, so the actor recovered the turn.";
 		case "command-not-allowed":
 			return `${turn.command} was not allowed by the model command policy.`;
 		case "command-rejected":

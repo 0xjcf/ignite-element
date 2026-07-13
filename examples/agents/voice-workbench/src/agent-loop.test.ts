@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import {
 	type ModelRequest,
 	type ModelResult,
@@ -191,5 +191,73 @@ describe("voice/text workbench model turn", () => {
 			},
 		});
 		expect(component.getView()).toMatchObject({ status: "ready" });
+	});
+
+	it("recovers an admitted model turn that omits completeResponse", async () => {
+		const incomplete = await runModelTurn({
+			component,
+			model: async () => ({
+				ok: true,
+				calls: [
+					{
+						command: "createArtifact",
+						input: {
+							id: "incomplete-turn",
+							title: "Incomplete turn",
+							nodes,
+						},
+					},
+				],
+			}),
+			prompt: { channel: "text", text: "Create without completing" },
+		});
+
+		expect(incomplete).toEqual({
+			accepted: false,
+			reason: "response-incomplete",
+			trace: [
+				{ command: "createArtifact", accepted: true },
+				{ command: "completeResponse", accepted: true },
+			],
+		});
+		expect(component.getView()).toMatchObject({
+			status: "ready",
+			response: {
+				text: "The model did not complete the response. Refine the prompt and try again.",
+			},
+		});
+	});
+
+	it("does not invoke the model when submitPrompt is not admitted", async () => {
+		await component.execute({
+			command: "submitPrompt",
+			input: { modality: "text", text: "Keep this turn active" },
+		});
+		const beforeRejectedPrompt = component.getView();
+		const model = vi.fn(
+			async (): Promise<ModelResult> => ({
+				ok: true,
+				calls: [],
+			}),
+		);
+
+		const rejected = await runModelTurn({
+			component,
+			model,
+			prompt: { channel: "speech", text: "Do not admit this prompt" },
+		});
+
+		expect(rejected).toEqual({
+			accepted: false,
+			reason: "prompt-rejected",
+			trace: [],
+		});
+		expect(model).not.toHaveBeenCalled();
+		expect(component.getView()).toEqual(beforeRejectedPrompt);
+
+		await component.execute({
+			command: "completeResponse",
+			input: { text: "Active turn completed after rejection proof." },
+		});
 	});
 });

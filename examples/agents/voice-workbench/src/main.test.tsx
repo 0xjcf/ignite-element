@@ -128,6 +128,22 @@ describe("voice workbench browser entry", () => {
 					},
 				},
 			]),
+			completion([
+				{
+					name: "reviseArtifact",
+					input: {
+						artifactId: "release-plan",
+						expectedRevision: "2",
+						nodes: [
+							{
+								kind: "text",
+								id: "summary",
+								text: "Keep the accepted revision and recover the missing response.",
+							},
+						],
+					},
+				},
+			]),
 		];
 		const fetchMock = vi.fn(async () => {
 			const response = responses.shift();
@@ -256,6 +272,42 @@ describe("voice workbench browser entry", () => {
 		expect(fetchMock).toHaveBeenCalledTimes(2);
 		expect(terminal).toHaveBeenCalled();
 
+		const incompletePrompt = host.shadowRoot.querySelector("textarea");
+		const incompleteForm = host.shadowRoot.querySelector("form");
+		if (
+			!(incompletePrompt instanceof HTMLTextAreaElement) ||
+			!(incompleteForm instanceof HTMLFormElement)
+		) {
+			throw new Error("voice workbench incomplete-turn form is unavailable");
+		}
+		incompletePrompt.value = "Revise but omit the response";
+		incompletePrompt.dispatchEvent(new Event("input", { bubbles: true }));
+		incompleteForm.dispatchEvent(
+			new Event("submit", { bubbles: true, cancelable: true }),
+		);
+		await vi.waitFor(() => {
+			expect(component.getView()).toMatchObject({
+				status: "ready",
+				artifacts: [{ id: "release-plan", revision: "3" }],
+				response: {
+					text: "The model did not complete the response. Refine the prompt and try again.",
+				},
+				presentation: {
+					turn: {
+						type: "response-incomplete",
+						trace: [
+							{ command: "reviseArtifact", accepted: true },
+							{ command: "completeResponse", accepted: true },
+						],
+					},
+				},
+			});
+			expect(host.shadowRoot?.textContent).toContain(
+				"The model omitted a completed response, so the actor recovered the turn.",
+			);
+		});
+		expect(fetchMock).toHaveBeenCalledTimes(3);
+
 		const recoveryPrompt = host.shadowRoot.querySelector("textarea");
 		const recoveryForm = host.shadowRoot.querySelector("form");
 		if (
@@ -285,7 +337,7 @@ describe("voice workbench browser entry", () => {
 				},
 			});
 		});
-		expect(fetchMock).toHaveBeenCalledTimes(3);
+		expect(fetchMock).toHaveBeenCalledTimes(4);
 
 		if (!FakeSpeechRecognition.current) {
 			throw new Error("speech recognition was not initialized");

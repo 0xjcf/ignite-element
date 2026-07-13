@@ -39,6 +39,11 @@ export type ModelTurnResult =
 	| { accepted: true; trace: ModelTurnTrace[] }
 	| {
 			accepted: false;
+			reason: "prompt-rejected" | "response-incomplete";
+			trace: ModelTurnTrace[];
+	  }
+	| {
+			accepted: false;
 			reason: "model-failed";
 			failure: ModelFailureFact;
 			trace: ModelTurnTrace[];
@@ -89,6 +94,9 @@ async function recoverModelFailure(
 	};
 }
 
+const INCOMPLETE_RESPONSE_MESSAGE =
+	"The model did not complete the response. Refine the prompt and try again.";
+
 async function completeFailedTurn(
 	run: (call: NeutralToolCall) => Promise<{ ok: boolean }>,
 	message: string,
@@ -106,10 +114,21 @@ export async function runModelTurn(options: {
 	model: WorkbenchModel;
 	prompt: { channel: "text" | "speech"; text: string };
 }): Promise<ModelTurnResult> {
-	await options.component.execute({
-		command: "submitPrompt",
-		input: { modality: options.prompt.channel, text: options.prompt.text },
-	});
+	let admission: Awaited<ReturnType<typeof options.component.execute>>;
+	try {
+		admission = await options.component.execute({
+			command: "submitPrompt",
+			input: { modality: options.prompt.channel, text: options.prompt.text },
+		});
+	} catch {
+		return { accepted: false, reason: "prompt-rejected", trace: [] };
+	}
+	const promptAdmitted = admission.events.some(
+		(event) => event.type === "prompt-submitted",
+	);
+	if (!promptAdmitted) {
+		return { accepted: false, reason: "prompt-rejected", trace: [] };
+	}
 
 	const tools = igniteTools(options.component);
 	const modelManifest = tools.manifest.filter((tool) =>
@@ -132,6 +151,7 @@ export async function runModelTurn(options: {
 		return recoverModelFailure(tools.run, response.error);
 	}
 	const trace: ModelTurnTrace[] = [];
+	let responseCompleted = false;
 
 	for (const call of response.calls) {
 		if (!isModelCommand(call.command)) {
@@ -165,6 +185,21 @@ export async function runModelTurn(options: {
 				),
 			};
 		}
+		if (call.command === "completeResponse") {
+			responseCompleted = true;
+		}
+	}
+
+	if (!responseCompleted) {
+		return {
+			accepted: false,
+			reason: "response-incomplete",
+			trace: await completeFailedTurn(
+				tools.run,
+				INCOMPLETE_RESPONSE_MESSAGE,
+				trace,
+			),
+		};
 	}
 
 	return { accepted: true, trace };

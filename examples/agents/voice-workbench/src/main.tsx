@@ -61,6 +61,9 @@ const toTurnFact = (result: ModelTurnResult): WorkbenchTurnFact => {
 			trace: result.trace,
 		};
 	}
+	if (!("command" in result)) {
+		return { type: result.reason, trace: result.trace };
+	}
 	return {
 		type: result.reason,
 		command: result.command,

@@ -23,6 +23,10 @@ export type WorkbenchTurnTrace = readonly {
 export type WorkbenchTurnFact =
 	| { type: "accepted"; trace: WorkbenchTurnTrace }
 	| {
+			type: "prompt-rejected" | "response-incomplete";
+			trace: WorkbenchTurnTrace;
+	  }
+	| {
 			type: "model-failed";
 			failureKind:
 				| "configuration"
