@@ -8,7 +8,6 @@ import {
 	type ConversationSession,
 	type CreateArtifactInput,
 	createInitialSession,
-	projectConversationView,
 	type ReviseArtifactInput,
 	reduceConversationSession,
 	type SubmitPromptInput,
@@ -30,18 +29,42 @@ const machine = setup({
 			};
 		}),
 	},
+	guards: {
+		transitionAccepted: ({ context, event }) =>
+			reduceConversationSession(context, event).accepted,
+	},
 }).createMachine({
 	id: "conversation-session",
-	initial: "running",
+	initial: "ready",
 	context: () => createInitialSession("voice-workbench"),
+	on: {
+		ACKNOWLEDGE_SPEECH: { actions: "applyTransition" },
+	},
 	states: {
-		running: {
+		ready: {
 			on: {
-				SUBMIT_PROMPT: { actions: "applyTransition" },
+				SUBMIT_PROMPT: [
+					{
+						guard: "transitionAccepted",
+						target: "responding",
+						actions: "applyTransition",
+					},
+					{ actions: "applyTransition" },
+				],
+			},
+		},
+		responding: {
+			on: {
 				CREATE_ARTIFACT: { actions: "applyTransition" },
 				REVISE_ARTIFACT: { actions: "applyTransition" },
-				COMPLETE_RESPONSE: { actions: "applyTransition" },
-				ACKNOWLEDGE_SPEECH: { actions: "applyTransition" },
+				COMPLETE_RESPONSE: [
+					{
+						guard: "transitionAccepted",
+						target: "ready",
+						actions: "applyTransition",
+					},
+					{ actions: "applyTransition" },
+				],
 			},
 		},
 	},
@@ -61,7 +84,54 @@ export const component = igniteCore({
 		"response-completed": event(),
 		"speech-acknowledged": event<{ id: string }>(),
 	}),
-	view: ({ snapshot }) => projectConversationView(snapshot.context),
+	view: ({ snapshot }) => {
+		const responding = snapshot.matches("responding");
+		const status = responding ? "responding" : "ready";
+		return {
+			sessionId: snapshot.context.sessionId,
+			status,
+			statusLabel: responding ? "Responding" : "Ready",
+			canSubmitPrompt: snapshot.matches("ready"),
+			revision: snapshot.context.revision,
+			messageCount: snapshot.context.messages.length,
+			artifacts: snapshot.context.documents.map((document) => ({
+				...document,
+				nodes: document.nodes.map((node) => {
+					const payload = node.kind === "action" ? node.payload : null;
+					const speech =
+						typeof payload === "object" &&
+						payload !== null &&
+						!Array.isArray(payload) &&
+						typeof payload.speech === "string" &&
+						payload.speech.trim().length > 0
+							? payload.speech.trim()
+							: undefined;
+					const input =
+						node.kind === "action" &&
+						node.commandName === "completeResponse" &&
+						typeof payload === "object" &&
+						payload !== null &&
+						!Array.isArray(payload) &&
+						typeof payload.text === "string" &&
+						payload.text.trim().length > 0 &&
+						(payload.speech === undefined || speech !== undefined)
+							? {
+									text: payload.text.trim(),
+									...(speech ? { speech } : {}),
+								}
+							: null;
+					return {
+						...node,
+						action: input ? { enabled: responding, input } : null,
+					};
+				}),
+			})),
+			speech: snapshot.context.speech,
+			activeArtifactId: snapshot.context.activeArtifactId,
+			response: snapshot.context.response,
+			canRevise: responding && snapshot.context.documents.length > 0,
+		};
+	},
 	commands: ({ actor, command }) => ({
 		acknowledgeSpeech: command(
 			(input: AcknowledgeSpeechInput) =>
@@ -78,7 +148,7 @@ export const component = igniteCore({
 				actor.send({ type: "COMPLETE_RESPONSE", input }),
 			{
 				description: "Complete the active response turn.",
-				canExecute: ({ snapshot }) => snapshot.context.phase === "responding",
+				canExecute: ({ snapshot }) => snapshot.matches("responding"),
 				input: command.object(
 					{
 						text: command.string({ minLength: 1 }),
@@ -94,7 +164,7 @@ export const component = igniteCore({
 			{
 				description:
 					"Create a validated semantic artifact for the active turn.",
-				canExecute: ({ snapshot }) => snapshot.context.phase === "responding",
+				canExecute: ({ snapshot }) => snapshot.matches("responding"),
 				input: command.object({
 					id: command.string({ minLength: 1 }),
 					title: command.string({ minLength: 1 }),
@@ -115,7 +185,7 @@ export const component = igniteCore({
 				description:
 					"Revise an artifact when its expected revision still matches.",
 				canExecute: ({ snapshot }) =>
-					snapshot.context.phase === "responding" &&
+					snapshot.matches("responding") &&
 					snapshot.context.documents.length > 0,
 				input: command.object({
 					artifactId: command.string({ minLength: 1 }),
@@ -135,7 +205,7 @@ export const component = igniteCore({
 				actor.send({ type: "SUBMIT_PROMPT", input }),
 			{
 				description: "Open the next text or speech conversation turn.",
-				canExecute: ({ snapshot }) => snapshot.context.phase === "ready",
+				canExecute: ({ snapshot }) => snapshot.matches("ready"),
 				input: command.object({
 					modality: command.enum(["text", "speech"]),
 					text: command.string({ minLength: 1 }),

@@ -13,7 +13,6 @@ describe("voice workbench domain", () => {
 	it("stores standard Ignite projection documents with string revisions", () => {
 		const initial = createInitialSession("session-1");
 		expect(initial).toMatchObject({
-			phase: "ready",
 			documents: [],
 			speech: null,
 		});
@@ -107,7 +106,6 @@ describe("voice workbench domain", () => {
 		expect(completed).toMatchObject({
 			accepted: true,
 			session: {
-				phase: "ready",
 				speech: {
 					id: "response-2",
 					text: "Answer ready.",

@@ -45,7 +45,6 @@ export type ConversationFact =
 
 export type ConversationSession = {
 	sessionId: string;
-	phase: "ready" | "responding";
 	revision: number;
 	factSequence: number;
 	messages: readonly ConversationMessage[];
@@ -74,7 +73,6 @@ export type TransitionResult =
 export function createInitialSession(sessionId: string): ConversationSession {
 	return {
 		sessionId,
-		phase: "ready",
 		revision: 0,
 		factSequence: 0,
 		messages: [],
@@ -117,11 +115,10 @@ export function reduceConversationSession(
 ): TransitionResult {
 	switch (action.type) {
 		case "SUBMIT_PROMPT":
-			if (session.phase !== "ready" || !isNonEmpty(action.input.text)) {
+			if (!isNonEmpty(action.input.text)) {
 				return rejected(session, "validation");
 			}
 			return accepted(session, {
-				phase: "responding",
 				response: null,
 				messages: [
 					...session.messages,
@@ -135,7 +132,6 @@ export function reduceConversationSession(
 		case "CREATE_ARTIFACT": {
 			const input = action.input;
 			if (
-				session.phase !== "responding" ||
 				!isNonEmpty(input.id) ||
 				!isNonEmpty(input.title) ||
 				!validNodes(input.nodes) ||
@@ -156,9 +152,6 @@ export function reduceConversationSession(
 			});
 		}
 		case "REVISE_ARTIFACT": {
-			if (session.phase !== "responding") {
-				return rejected(session, "validation");
-			}
 			const index = session.documents.findIndex(
 				(document) => document.id === action.input.artifactId,
 			);
@@ -187,13 +180,12 @@ export function reduceConversationSession(
 			});
 		}
 		case "COMPLETE_RESPONSE": {
-			if (session.phase !== "responding" || !isNonEmpty(action.input.text)) {
+			if (!isNonEmpty(action.input.text)) {
 				return rejected(session, "validation");
 			}
 			const text = action.input.text.trim();
 			const speechText = action.input.speech?.trim();
 			return accepted(session, {
-				phase: "ready",
 				response: { text, ...(speechText ? { speech: speechText } : {}) },
 				speech: speechText
 					? {
@@ -224,18 +216,4 @@ export function reduceConversationSession(
 				factSequence: session.factSequence + 1,
 			});
 	}
-}
-
-export function projectConversationView(session: ConversationSession) {
-	return {
-		sessionId: session.sessionId,
-		status: session.phase,
-		revision: session.revision,
-		messageCount: session.messages.length,
-		documents: session.documents,
-		speech: session.speech,
-		activeArtifactId: session.activeArtifactId,
-		response: session.response,
-		canRevise: session.phase === "responding" && session.documents.length > 0,
-	};
 }

@@ -1,5 +1,4 @@
 /** @jsxImportSource ignite-element/jsx */
-import type { CompleteResponseInput } from "./domain";
 import type { component } from "./session";
 
 type WorkbenchRenderer = Extract<
@@ -7,7 +6,7 @@ type WorkbenchRenderer = Extract<
 	(...args: never[]) => unknown
 >;
 type WorkbenchContext = Parameters<WorkbenchRenderer>[0];
-type DocumentNode = WorkbenchContext["documents"][number]["nodes"][number];
+type DocumentNode = WorkbenchContext["artifacts"][number]["nodes"][number];
 
 const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 	switch (node.kind) {
@@ -27,21 +26,16 @@ const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 				</ul>
 			);
 		case "action": {
-			const canComplete =
-				node.commandName === "completeResponse" &&
-				context.status === "responding" &&
-				typeof node.payload === "object" &&
-				node.payload !== null &&
-				!Array.isArray(node.payload);
+			const action = node.action;
 			return (
 				<button
 					key={node.id}
 					type="button"
-					disabled={!canComplete}
+					disabled={!action?.enabled}
 					title={node.description}
 					onClick={() => {
-						if (canComplete) {
-							context.completeResponse(node.payload as CompleteResponseInput);
+						if (action?.enabled) {
+							context.completeResponse(action.input);
 						}
 					}}
 				>
@@ -152,7 +146,7 @@ export const renderWorkbench: WorkbenchRenderer = (context) => (
 			<h1>Voice and text artifact workbench</h1>
 			{/* biome-ignore lint/a11y/noRedundantRoles lint/a11y/useSemanticElements: igniteTest's DOM bridge currently requires the explicit status role. */}
 			<output role="status" aria-label="Conversation status">
-				{context.status === "ready" ? "Ready" : "Responding"}
+				{context.statusLabel}
 			</output>
 		</header>
 		<form
@@ -165,14 +159,14 @@ export const renderWorkbench: WorkbenchRenderer = (context) => (
 		>
 			<label>
 				Prompt
-				<textarea name="prompt" disabled={context.status !== "ready"} />
+				<textarea name="prompt" disabled={!context.canSubmitPrompt} />
 			</label>
-			<button type="submit" disabled={context.status !== "ready"}>
+			<button type="submit" disabled={!context.canSubmitPrompt}>
 				Send text prompt
 			</button>
 			<button
 				type="button"
-				disabled={context.status !== "ready"}
+				disabled={!context.canSubmitPrompt}
 				onClick={(event: Event) => {
 					const form = (event.currentTarget as HTMLElement).closest("form");
 					const text = String(
@@ -185,7 +179,7 @@ export const renderWorkbench: WorkbenchRenderer = (context) => (
 			</button>
 		</form>
 		<section aria-label="Artifacts">
-			{context.documents.map((document) => (
+			{context.artifacts.map((document) => (
 				<article key={document.id}>
 					<h2>{document.title ?? document.id}</h2>
 					{document.nodes.map((node) => renderNode(node, context))}

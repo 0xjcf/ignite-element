@@ -15,6 +15,13 @@ const nodes = [
 			},
 		],
 	},
+	{
+		kind: "action",
+		id: "complete-response",
+		label: "Complete response",
+		commandName: "completeResponse",
+		payload: { text: "Decision captured." },
+	},
 ] as const;
 
 describe("voice workbench headless component", () => {
@@ -28,13 +35,28 @@ describe("voice workbench headless component", () => {
 			"submitPrompt",
 		]);
 		expect(() => JSON.stringify(schema)).not.toThrow();
+		const initialSnapshot = component.getSnapshot();
+		expect(initialSnapshot.matches("ready")).toBe(true);
+		expect(initialSnapshot.context).not.toHaveProperty("phase");
 		expect(component.getView()).toMatchObject({
 			status: "ready",
-			documents: [],
+			statusLabel: "Ready",
+			canSubmitPrompt: true,
+			artifacts: [],
 			speech: null,
 		});
+		expect(component.getView()).not.toHaveProperty("documents");
 		expect(component.canExecute("submitPrompt")).toBe(true);
 		expect(component.canExecute("acknowledgeSpeech")).toBe(false);
+		source.send({
+			type: "SUBMIT_PROMPT",
+			input: { modality: "text", text: " " },
+		});
+		expect(component.getSnapshot().matches("ready")).toBe(true);
+		expect(component.getSnapshot().context.lastFact).toEqual({
+			type: "artifact-rejected",
+			reason: "validation",
+		});
 
 		const snapshots = vi.fn();
 		const views = vi.fn();
@@ -46,7 +68,13 @@ describe("voice workbench headless component", () => {
 				command: "submitPrompt",
 				input: { modality: "text", text: "Capture a decision" },
 			})
-		).expectView({ messageCount: 1, status: "responding" });
+		).expectView({
+			messageCount: 1,
+			status: "responding",
+			statusLabel: "Responding",
+			canSubmitPrompt: false,
+		});
+		expect(component.getSnapshot().matches("responding")).toBe(true);
 
 		(
 			await igniteTest(component).when({
@@ -60,9 +88,44 @@ describe("voice workbench headless component", () => {
 				revision: "1",
 			})
 			.expectView({
-				documents: [{ id: "decision", revision: "1", nodes }],
+				artifacts: [
+					{
+						id: "decision",
+						revision: "1",
+						nodes: [
+							{ id: "decision-entries", action: null },
+							{
+								id: "complete-response",
+								action: {
+									enabled: true,
+									input: { text: "Decision captured." },
+								},
+							},
+						],
+					},
+				],
 			});
+		expect(component.getSnapshot().context.documents).toEqual([
+			expect.objectContaining({
+				id: "decision",
+				nodes: expect.arrayContaining([
+					expect.objectContaining({
+						commandName: "completeResponse",
+						payload: { text: "Decision captured." },
+					}),
+				]),
+			}),
+		]);
 		expect(component.canExecute("reviseArtifact")).toBe(true);
+		source.send({
+			type: "COMPLETE_RESPONSE",
+			input: { text: " " },
+		});
+		expect(component.getSnapshot().matches("responding")).toBe(true);
+		expect(component.getSnapshot().context.lastFact).toEqual({
+			type: "artifact-rejected",
+			reason: "validation",
+		});
 
 		(
 			await igniteTest(component).when({

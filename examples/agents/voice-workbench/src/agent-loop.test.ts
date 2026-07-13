@@ -98,7 +98,7 @@ describe("voice/text workbench model turn", () => {
 			trace: [],
 		});
 		expect(component.getView()).toMatchObject({
-			documents: [{ id: "plan", revision: "2" }],
+			artifacts: [{ id: "plan", revision: "2" }],
 		});
 		source.stop();
 	});
