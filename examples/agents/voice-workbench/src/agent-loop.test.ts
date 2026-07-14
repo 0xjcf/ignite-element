@@ -1,8 +1,4 @@
-import {
-	igniteTools,
-	isOk,
-	type NeutralManifest,
-} from "ignite-element/tools";
+import { igniteTools, isOk, type NeutralManifest } from "ignite-element/tools";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
 	type ModelRequest,
@@ -90,9 +86,57 @@ describe("voice/text workbench model turn", () => {
 			},
 		];
 
-		expect(modelTools(manifest, ["searchWeb"]).map((tool) => tool.name)).toEqual(
-			["createArtifact", "searchWeb"],
-		);
+		expect(
+			modelTools(manifest, ["searchWeb"]).map((tool) => tool.name),
+		).toEqual(["createArtifact", "searchWeb"]);
+	});
+
+	it("returns an external capability fact to the next model round without mutating the actor", () => {
+		const protocol = modelTurn({
+			ok: true,
+			calls: [
+				{
+					id: "search-prices",
+					command: "searchWeb",
+					input: { query: "typical grocery prices" },
+				},
+			],
+		});
+
+		expect(protocol.next()).toMatchObject({
+			done: false,
+			value: { command: "searchWeb" },
+		});
+		expect(
+			protocol.next({
+				id: "search-prices",
+				command: "searchWeb",
+				ownerId: "web-search",
+				status: "capability-success",
+				fact: {
+					query: "typical grocery prices",
+					results: [{ title: "Grocer", url: "https://example.com" }],
+				},
+				receipt: { provider: "brave-web-search", sourceCount: 1 },
+				view: { artifacts: [] },
+				events: [],
+			}),
+		).toMatchObject({
+			done: true,
+			value: {
+				accepted: false,
+				reason: "response-incomplete",
+				trace: [{ command: "searchWeb", accepted: true }],
+				exchange: {
+					results: [
+						expect.objectContaining({
+							status: "capability-success",
+							ownerId: "web-search",
+						}),
+					],
+				},
+			},
+		});
 	});
 
 	it("returns every model call to the next round and defers completion until a mutation is observed", () => {
@@ -255,6 +299,7 @@ describe("voice/text workbench model turn", () => {
 				tools: modelTools(tools.manifest),
 				view: component.getView().modelContext,
 				history: [],
+				capabilities: { internetAccess: "unavailable" as const },
 			};
 			requests.push(modelRequest);
 			return modelRequest;

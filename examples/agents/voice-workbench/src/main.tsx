@@ -6,8 +6,11 @@ import {
 import { probeMlxWorkbenchReadiness } from "./model";
 import { component, source } from "./session";
 import { createBrowserVoiceCapture } from "./voice";
+import { createWebSearchCapability } from "./web-search-capability";
 import { renderWorkbench } from "./workbench";
 import { completeSubmittedPrompt } from "./workbench-agent";
+
+declare const __VOICE_WORKBENCH_WEB_SEARCH_AVAILABLE__: boolean;
 
 type RuntimeConfiguration = {
 	MLX_BASE_URL?: string;
@@ -34,6 +37,9 @@ const configuration = {
 };
 
 const voice = createBrowserVoiceCapture();
+const externalCapabilities = __VOICE_WORKBENCH_WEB_SEARCH_AVAILABLE__
+	? [createWebSearchCapability()]
+	: [];
 let readinessAttempt = 0;
 let readinessController: AbortController | null = null;
 
@@ -115,7 +121,7 @@ const modelPreparationSubscription = component.watchView((view, previous) => {
 });
 
 const modelTurnSubscription = component.on("prompt-submitted", (event) => {
-	void completeSubmittedPrompt(configuration, event);
+	void completeSubmittedPrompt(configuration, event, externalCapabilities);
 });
 
 component("voice-workbench", renderWorkbench);

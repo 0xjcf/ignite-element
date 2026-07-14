@@ -96,6 +96,9 @@ describe("voice workbench browser entry", () => {
 		expect(modelSource).not.toMatch(/\bcomponent\b/);
 		expect(modelSource).not.toMatch(/\bfetch\?:/);
 		expect(voiceSource).not.toContain("createRecognition");
+		expect(mainSource).not.toContain("BRAVE_SEARCH_API_KEY");
+		expect(mainSource).toContain("__VOICE_WORKBENCH_WEB_SEARCH_AVAILABLE__");
+		expect(mainSource).toContain("createWebSearchCapability()");
 	});
 
 	it("creates and revises the center document through real text and speech paths", async () => {

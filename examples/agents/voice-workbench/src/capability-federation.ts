@@ -1,7 +1,4 @@
-import type {
-	NeutralManifest,
-	NeutralToolCall,
-} from "ignite-element/tools";
+import type { NeutralManifest, NeutralToolCall } from "ignite-element/tools";
 
 export type CapabilityReceipt = {
 	provider: string;
@@ -17,16 +14,14 @@ export type CapabilityExecutionFact =
 			receipt: CapabilityReceipt;
 	  }
 	| {
-			type:
-				| "unavailable"
-				| "validation"
-				| "timeout"
-				| "provider-failure";
+			type: "unavailable" | "validation" | "timeout" | "provider-failure";
 			ownerId: string;
 			toolName: string;
 			message: string;
 			issues?: readonly string[];
 			status?: number;
+			reason?: string;
+			actorRejected?: boolean;
 	  };
 
 export type CapabilityOwner = {

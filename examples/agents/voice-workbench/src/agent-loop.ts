@@ -13,9 +13,21 @@ export type ModelToolCall = { id?: string; command: string; input: unknown };
 export type ModelToolFeedback = {
 	id: string;
 	command: string;
-	status: "accepted" | "actor-rejected" | "tool-error" | "deferred";
+	status:
+		| "accepted"
+		| "actor-rejected"
+		| "tool-error"
+		| "deferred"
+		| "capability-success"
+		| "capability-unavailable"
+		| "capability-validation"
+		| "capability-timeout"
+		| "capability-failure";
+	ownerId?: string;
 	reason?: string;
 	issues?: readonly string[];
+	fact?: unknown;
+	receipt?: { provider: string; sourceCount?: number };
 	view: unknown;
 	events: readonly { type: string; reason?: string }[];
 };
@@ -42,6 +54,7 @@ export type ModelRequest = {
 	tools: NeutralManifest;
 	view: unknown;
 	history: readonly ModelExchange[];
+	capabilities: { internetAccess: "available" | "unavailable" };
 };
 export type ModelTurnTrace = { command: string; accepted: boolean };
 export type ModelTurnResult =
@@ -74,8 +87,7 @@ export const modelTools = (
 	externalCommands: readonly string[] = [],
 ): NeutralManifest =>
 	manifest.filter(
-		(tool) =>
-			isModelCommand(tool.name) || externalCommands.includes(tool.name),
+		(tool) => isModelCommand(tool.name) || externalCommands.includes(tool.name),
 	);
 
 const failureMessage = (kind: ModelFailureKind): string => {
@@ -150,7 +162,9 @@ export function* modelTurn(
 	}
 
 	const feedback = yield primary;
-	const callAccepted = feedback.status === "accepted";
+	const capabilityFeedback = feedback.status.startsWith("capability-");
+	const callAccepted =
+		feedback.status === "accepted" || feedback.status === "capability-success";
 	trace.push({ command: primary.command, accepted: callAccepted });
 	const results = calls.map((call): ModelToolFeedback => {
 		if (call.id === primary.id) {
@@ -173,11 +187,19 @@ export function* modelTurn(
 	});
 	const exchange = { calls, results };
 
-	if (!isModelCommand(primary.command)) {
+	if (!isModelCommand(primary.command) && !capabilityFeedback) {
 		return {
 			accepted: false,
 			reason: "command-not-allowed",
 			command: primary.command,
+			trace,
+			exchange,
+		};
+	}
+	if (capabilityFeedback) {
+		return {
+			accepted: false,
+			reason: "response-incomplete",
 			trace,
 			exchange,
 		};

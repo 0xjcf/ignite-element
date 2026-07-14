@@ -22,6 +22,7 @@ const createRequest = (): ModelRequest => ({
 	tools: modelTools(igniteTools(component).manifest),
 	view: component.getView().modelContext,
 	history: [],
+	capabilities: { internetAccess: "unavailable" },
 });
 
 beforeAll(() => component.execute({ command: "reportModelAvailable" }));
@@ -226,6 +227,12 @@ describe("consumer-configured MLX workbench model", () => {
 		expect(body.messages.at(-1)).toMatchObject({
 			role: "user",
 		});
+		expect(JSON.parse(body.messages[1].content)).toMatchObject({
+			capabilities: { internetAccess: "unavailable" },
+		});
+		expect(body.messages[0].content).toContain(
+			"never claim or promise future research",
+		);
 	});
 
 	it("continues from correlated tool results before the model audits and completes", async () => {
@@ -281,6 +288,11 @@ describe("consumer-configured MLX workbench model", () => {
 							command: "completeResponse",
 							input: { text: "Done." },
 						},
+						{
+							id: "search",
+							command: "searchWeb",
+							input: { query: "release checklist sources" },
+						},
 					],
 					results: [
 						{
@@ -297,6 +309,29 @@ describe("consumer-configured MLX workbench model", () => {
 							command: "completeResponse",
 							status: "deferred",
 							reason: "observe-artifact-mutation-before-continuing",
+							view: {
+								artifacts: [{ id: "release-checklist", revision: "1" }],
+							},
+							events: [],
+						},
+						{
+							id: "search",
+							command: "searchWeb",
+							status: "capability-success",
+							ownerId: "web-search",
+							fact: {
+								query: "release checklist sources",
+								results: [
+									{
+										title: "Release guide",
+										url: "https://example.com/release",
+									},
+								],
+							},
+							receipt: {
+								provider: "brave-web-search",
+								sourceCount: 1,
+							},
 							view: {
 								artifacts: [{ id: "release-checklist", revision: "1" }],
 							},
@@ -330,16 +365,26 @@ describe("consumer-configured MLX workbench model", () => {
 		const body = JSON.parse(String(init?.body));
 		expect(
 			body.messages.map((message: { role: string }) => message.role),
-		).toEqual(["system", "user", "assistant", "tool", "tool", "user"]);
+		).toEqual(["system", "user", "assistant", "tool", "tool", "tool", "user"]);
 		expect(
 			body.messages[2].tool_calls.map((call: { id: string }) => call.id),
-		).toEqual(["create", "early-complete"]);
+		).toEqual(["create", "early-complete", "search"]);
 		expect(JSON.parse(body.messages[3].content)).toMatchObject({
 			snapshot: { outcome: "accepted" },
 			view: { artifacts: [{ id: "release-checklist", revision: "1" }] },
 		});
 		expect(JSON.parse(body.messages[4].content)).toMatchObject({
 			snapshot: { outcome: "deferred" },
+		});
+		expect(JSON.parse(body.messages[5].content)).toMatchObject({
+			snapshot: {
+				outcome: "capability-success",
+				ownerId: "web-search",
+				fact: {
+					results: [{ url: "https://example.com/release" }],
+				},
+				receipt: { provider: "brave-web-search", sourceCount: 1 },
+			},
 		});
 		expect(body.messages[0].content).toContain(
 			"wait for its tool result before choosing the next command",
