@@ -58,6 +58,12 @@ describe("voice workbench accessible JSX", () => {
 		expect(bridge.host.shadowRoot?.textContent).toContain("0 turns");
 		expect(bridge.host.shadowRoot?.textContent).toContain("0 artifacts");
 		expect(bridge.host.shadowRoot?.textContent).not.toContain("browser-demo");
+		expect(
+			bridge.host.shadowRoot?.querySelector(".actor-match")?.textContent,
+		).toBe(`matches({
+  provider: "available",
+  turn: "ready",
+})`);
 
 		const prompt = bridge.getByRole("textbox", { name: "Prompt" });
 		if (!(prompt instanceof HTMLTextAreaElement)) {
