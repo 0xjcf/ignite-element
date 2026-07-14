@@ -344,6 +344,10 @@ describe("consumer-configured MLX workbench model", () => {
 		expect(body.messages[0].content).toContain(
 			"wait for its tool result before choosing the next command",
 		);
+		expect(body.messages[0].content).toContain("setChecklistItem");
+		for (const kind of ["form", "timeline", "chart", "code-diff", "action"]) {
+			expect(body.messages[0].content).toContain(kind);
+		}
 	});
 
 	it("returns missing consumer configuration as a fact without fetching", async () => {

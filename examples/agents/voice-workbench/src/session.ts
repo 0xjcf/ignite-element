@@ -9,8 +9,8 @@ import {
 	type ConversationSession,
 	type CreateArtifactInput,
 	createInitialSession,
-	type ReviseArtifactInput,
 	type RestoreArtifactRevisionInput,
+	type ReviseArtifactInput,
 	reduceConversationSession,
 	type SelectArtifactInput,
 	type SetChecklistItemInput,
@@ -64,7 +64,6 @@ export type WorkbenchPresentation = {
 		status: "played" | "muted" | "unavailable";
 	} | null;
 	speechReplayRequest: { id: string; text: string; sequence: number } | null;
-	terminalCommit: { text: string } | null;
 	turn: WorkbenchTurnFact | null;
 	voice: VoiceCaptureFact;
 	voiceCaptureRequest: {
@@ -94,10 +93,6 @@ export type WorkbenchPresentationEvent =
 	| {
 			type: "PRESENTATION_SPEECH_REPLAY_REQUESTED";
 			request: NonNullable<WorkbenchPresentation["speechReplayRequest"]>;
-	  }
-	| {
-			type: "PRESENTATION_TERMINAL_COMMITTED";
-			terminal: NonNullable<WorkbenchPresentation["terminalCommit"]>;
 	  }
 	| { type: "PRESENTATION_REPLAYED" };
 
@@ -130,7 +125,6 @@ const createInitialPresentation = (): WorkbenchPresentation => ({
 	speakResponses: true,
 	speechCommit: null,
 	speechReplayRequest: null,
-	terminalCommit: null,
 	turn: null,
 	voice: { type: "voice-idle" },
 	voiceCaptureRequest: null,
@@ -306,11 +300,6 @@ const machine = setup({
 		PRESENTATION_SPEECH_REPLAY_REQUESTED: {
 			actions: assign(({ context, event }) =>
 				updatePresentation(context, { speechReplayRequest: event.request }),
-			),
-		},
-		PRESENTATION_TERMINAL_COMMITTED: {
-			actions: assign(({ context, event }) =>
-				updatePresentation(context, { terminalCommit: event.terminal }),
 			),
 		},
 		PRESENTATION_REPLAYED: {
@@ -559,7 +548,8 @@ export const component = igniteCore({
 			canSubmitPrompt: modelAvailable && turnReady,
 			canSetChecklistItem,
 			canRestoreArtifactRevision:
-				turnReady && activeArtifactRevisions.some((revision) => !revision.current),
+				turnReady &&
+				activeArtifactRevisions.some((revision) => !revision.current),
 			canRetryModel: modelFailed,
 			activeArtifact,
 			artifactSummaries,
@@ -780,9 +770,6 @@ export const component = igniteCore({
 			commitSpeech: (
 				speech: NonNullable<WorkbenchPresentation["speechCommit"]>,
 			) => actor.send({ type: "PRESENTATION_SPEECH_COMMITTED", speech }),
-			commitTerminal: (
-				terminal: NonNullable<WorkbenchPresentation["terminalCommit"]>,
-			) => actor.send({ type: "PRESENTATION_TERMINAL_COMMITTED", terminal }),
 			completeResponse: command(
 				(input: CompleteResponseInput) =>
 					actor.send({ type: "COMPLETE_RESPONSE", input }),

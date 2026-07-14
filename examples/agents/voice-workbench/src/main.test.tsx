@@ -91,6 +91,7 @@ describe("voice workbench browser entry", () => {
 		expect(agentLoopSource).not.toMatch(/\bcomponent\s*:/);
 		expect(agentLoopSource).not.toContain("runModelTurn");
 		expect(agentLoopSource).not.toContain('from "./session"');
+		expect(mainSource).not.toContain("console.info");
 		expect(modelSource).not.toContain("createMlxWorkbenchModel");
 		expect(modelSource).not.toMatch(/\bcomponent\b/);
 		expect(modelSource).not.toMatch(/\bfetch\?:/);
@@ -220,8 +221,6 @@ describe("voice workbench browser entry", () => {
 			},
 		);
 		vi.stubGlobal("fetch", fetchMock);
-		const terminal = vi.spyOn(console, "info").mockImplementation(() => {});
-
 		await import("./main");
 		const { component, source } = await import("./session");
 		const host = document.querySelector("voice-workbench");
@@ -387,7 +386,6 @@ describe("voice workbench browser entry", () => {
 			presentation: { draft: "Keep this typed draft" },
 		});
 		expect(fetchMock).toHaveBeenCalledTimes(6);
-		expect(terminal).toHaveBeenCalled();
 
 		const incompletePrompt = host.shadowRoot.querySelector("textarea");
 		const incompleteForm = host.shadowRoot.querySelector("form");
@@ -478,6 +476,5 @@ describe("voice workbench browser entry", () => {
 		expect(source.getSnapshot().status).toBe("active");
 		window.dispatchEvent(new Event("pagehide"));
 		expect(source.getSnapshot().status).toBe("stopped");
-		terminal.mockRestore();
 	});
 });

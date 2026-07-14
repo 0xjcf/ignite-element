@@ -91,10 +91,6 @@ const seedArtifact = async () => {
 			},
 		});
 	}
-	await component.execute({
-		command: "commitTerminal",
-		input: { text: "Parity harness only — terminal receipt." },
-	});
 	if (view.speech) {
 		await component.execute({
 			command: "commitSpeech",

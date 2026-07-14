@@ -231,7 +231,7 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 						<span class="pill">
 							{workbenchCommandNames.length} typed commands
 						</span>
-						<span class="pill">3 commit channels</span>
+						<span class="pill">3 projection channels</span>
 					</div>
 					<div class="top-actions">
 						<label class="switch">
@@ -784,8 +784,8 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 							</section>
 							<section class="runtime-card">
 								<div class="runtime-card-head">
-									<strong>Channel commits</strong>
-									<span>same accepted actor state</span>
+									<strong>Channel projections</strong>
+									<span>same component contract</span>
 								</div>
 								<div class="commit-list">
 									<div class="commit">
@@ -805,15 +805,10 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 									<div class="commit commit-terminal">
 										<span class="commit-icon">›_</span>
 										<span class="commit-copy">
-											<strong>Terminal · text</strong>
-											<span>
-												{context.presentation.terminalCommit?.text ??
-													"no DOM required"}
-											</span>
+											<strong>Terminal · Node</strong>
+											<span>pnpm demo:terminal · no DOM required</span>
 										</span>
-										<span class="commit-status">
-											{context.presentation.terminalCommit ? "written" : "idle"}
-										</span>
+										<span class="commit-status">headless</span>
 									</div>
 									<div class="commit commit-speech">
 										<span class="commit-icon">◖</span>

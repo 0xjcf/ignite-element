@@ -5,69 +5,81 @@ can accept typed or spoken prompts, authorize model-proposed semantic changes,
 and project the accepted result to browser, terminal, and speech consumers.
 
 It is a POC/MVP for agent-authored interfaces, not a scripted product tour. The
-center artifact is actor-owned state. It changes only after the configured model
-proposes `createArtifact` or `reviseArtifact`, or a projected control invokes
-`setChecklistItem`, and the actor validates the semantic change.
+artifact workspace is actor-owned state. It changes only after the configured
+model or a projected control invokes an authorized artifact command and the
+actor validates the semantic change.
 
 ## What the example proves
 
-The component's domain contract centers on six commands:
+The component's domain contract centers on eight behavior commands:
 
 - `submitPrompt`
 - `createArtifact`
 - `reviseArtifact`
+- `restoreArtifactRevision`
+- `selectArtifact`
 - `setChecklistItem`
 - `completeResponse`
 - `acknowledgeSpeech`
 
 Text and speech are two input adapters for the same `submitPrompt` command.
 Additional presentation commands keep browser intent actor-owned without
-exposing the source. The model receives only the currently authorized artifact
-commands from `getSchema()` through a fresh `igniteTools(component)` manifest
-on every model round. It may propose a semantic artifact and a response, but it
-cannot write DOM, JSX, JavaScript, or actor state directly. The bounded pure
-turn protocol executes one proposed tool call, returns its correlated Ignite
-observation to the model, and then derives the next manifest from the updated
-actor state. An artifact mutation and `completeResponse` therefore cannot be
-accepted in the same unobserved round.
+exposing the source. The model receives a narrower allowlist from `getSchema()`
+through a fresh `igniteTools(component)` manifest on every model round:
+`createArtifact`, `reviseArtifact`, `setChecklistItem`, and
+`completeResponse`. It may propose semantic artifacts and responses, but it
+cannot write DOM, JSX, JavaScript, or actor state directly.
 
-Projected checklist controls call `setChecklistItem` with stable artifact,
-node, and item identities plus the expected artifact revision. The functional
-core rejects stale or unknown identities and records an accepted change as the
-next immutable artifact revision. This command is currently a direct component
-interaction; the bounded MLX command allowlist does not expose it to voice or
-text prompts yet.
+The bounded pure turn protocol executes one proposed tool call, returns its
+correlated Ignite observation to the model, and derives the next manifest from
+the updated actor state. An artifact mutation and `completeResponse` therefore
+cannot be accepted in the same unobserved round. Invalid or stale input returns
+structured actor feedback that the model can repair on its next round.
+
+Projected checklist controls and MLX turns both call `setChecklistItem` with
+stable artifact, node, and item identities plus the expected revision. The
+functional core rejects stale or unknown identities and records an accepted
+change as the next immutable artifact revision.
 
 On a fresh turn with no accepted artifact, the live manifest exposes
 `createArtifact` but withholds `completeResponse`. Once the actor accepts an
-artifact, the next manifest can expose `reviseArtifact` and
-`completeResponse`. Checklist command schemas require at least one valid item,
-and model requests set OpenAI-compatible `tool_choice` to `required`, so MLX
-must repair invalid semantic input through the correlated tool-result loop
+artifact, the next manifest can expose `reviseArtifact`, `setChecklistItem`,
+and `completeResponse`. Checklist command schemas require at least one valid
+item, and model requests set OpenAI-compatible `tool_choice` to `required`, so
+MLX must repair invalid semantic input through the correlated tool-result loop
 instead of answering outside the command contract.
 
-This feedback loop also distinguishes actor acceptance from prompt
-satisfaction. If the actor accepts a valid text node for a request that asked
-for a checklist, the next model round sees the accepted document, can revise it
-to checklist nodes, and only then completes. There are no prompt-specific node
-mappings in the example; the local model chooses from the semantic shapes in
-the current command schema and the actor remains the authority.
+The model can combine any of the nine supported semantic projection kinds in a
+single artifact: `text`, `checklist`, `action`, `form`, `table`, `timeline`,
+`chart`, `code-diff`, and `decision-log`. It can also create multiple distinct
+artifacts in one continuing session. The workspace keeps them in an artifact
+rail rather than replacing the previous document when a new deliverable is
+created.
+
+This feedback loop distinguishes actor acceptance from prompt satisfaction. If
+the actor accepts a valid text node for a request that asked for a checklist,
+the next model round sees the accepted document, can revise it to checklist
+nodes, and only then completes. There are no prompt-specific node mappings in
+the example; the local model chooses from the semantic shapes in the current
+command schema and the actor remains the authority.
 
 The actor validates semantic nodes, revision conflicts, action payloads, and
-command availability before accepting a proposal. Ignite then derives the view
-and commits the same accepted response through independent consumers:
+command availability before accepting a proposal. The same component module is
+then consumed in three environments:
 
 ```text
-text input ─┐
-            ├─> submitPrompt ─> actor ─> getSchema() ─> igniteTools ─> MLX
-speech ─────┘                                      model proposes commands
-                                                           │
-browser JSX <─ ProjectionDocument <─ actor validates <─────┘
-terminal    <─ response-completed
-speech      <─ ProjectionSpeechRequest ─> acknowledgeSpeech
+same component = igniteCore({...})
+├─ browser: text or speech → actor → MLX tools → JSX + speech
+├─ terminal: text → actor → MLX tools → formatted text
+└─ headless proof: igniteTest commands → actor → inspectable trace
 ```
 
-Provider lifecycle is part of that same behavior contract. The workbench mounts
+Each process imports that component contract directly. The terminal
+intentionally owns an independent actor instance; sharing one live actor
+between browser and terminal would require an explicit transport such as
+Actor-Web, which this example does not hide behind a wrapper.
+
+Provider lifecycle is part of the same behavior contract. The workbench mounts
 while MLX is preparing, but `submitPrompt` remains unavailable at both the
 command and actor-transition boundaries. A minimal chat completion—not the
 `/models` metadata response—produces the `MODEL_AVAILABLE` fact that unlocks
@@ -77,12 +89,13 @@ retryable projection.
 Artifact revisions are append-only inside the pure actor session. `documents`
 remains the latest-only read model used by the browser and model context, while
 the private `artifactRevisions` collection retains every accepted snapshot.
-That preserves the audit data needed for future undo and redo without adding
-undo/redo commands or branching policy to this example yet.
+Choosing **Restore** copies the selected historical snapshot into a new forward
+revision. Earlier and later snapshots remain available, which supports
+undo-like and redo-like restoration without rewriting history.
 
 The browser projection is declarative Ignite JSX. Browser-only draft, mobile
-panel, microphone, trace, and commit-receipt facts live in a private typed
-presentation slice of the same source actor. UI handlers invoke projected
+panel, microphone, trace, and browser/speech receipt facts live in a private
+typed presentation slice of the same source actor. UI handlers invoke projected
 component commands and never mutate the rendered DOM; the `actor` supplied to
 `igniteCore.commands` owns every source write.
 
@@ -194,6 +207,31 @@ configuration, the readiness adapter produces a configuration failure, the UI
 projects **Model unavailable**, and prompt controls stay closed until a valid
 provider can be prepared.
 
+## Run the terminal and headless consumers
+
+With the local MLX server running, open another terminal and send a prompt
+through the same component and tool loop without a browser:
+
+```bash
+pnpm --dir examples/agents/voice-workbench demo:terminal -- \
+  "Create a shopping checklist and a two-column budget table"
+```
+
+The output includes projected actor state, semantic node inventory, the final
+response, and the accepted/rejected command trace. The default endpoint and
+model match the browser launcher and can be overridden with `MLX_BASE_URL`,
+`MLX_MODEL`, and `MLX_API_KEY` or their `VOICE_WORKBENCH_*` counterparts.
+
+The deterministic proof needs no model server or browser:
+
+```bash
+pnpm --dir examples/agents/voice-workbench proof:headless
+```
+
+It uses `component.record(...)` and `igniteTest.snapshotStory(...)` to print the
+five-command trace, emitted actor events, final nested state value, retained
+revisions, and checked checklist state.
+
 ## Use text and speech
 
 Type a request and choose **Send** to run the text path. Choose the microphone
@@ -231,25 +269,29 @@ browser and accessibility checks; it is not a demo-data mode.
 pnpm --dir examples/agents/voice-workbench test
 pnpm --dir examples/agents/voice-workbench typecheck
 pnpm --dir examples/agents/voice-workbench build
+pnpm --dir examples/agents/voice-workbench proof:headless
 ```
 
 The deterministic suite uses `igniteTest` and the headless runtime before it
 tests the browser projection. It covers both prompt modalities, semantic-node
 validation, stale revision rejection, schema-limited model commands, provider
 failures, correlated multi-round tool feedback, accepted-artifact correction,
-append-only revision history, speech lifecycle, projection commits, and the
-no-imperative-DOM-writer guard. The parity suite checks all seven states through
-the `igniteTest` accessibility bridge, ten opaque or translucent WCAG AA token
-pairs, and the global 44px target contract.
+model-driven checklist interaction, all nine browser node projections,
+multi-artifact selection, append-only restore history, real terminal formatting,
+speech lifecycle, projection commits, and the no-imperative-DOM-writer guard.
+The parity suite checks all seven states through the `igniteTest` accessibility
+bridge, ten opaque or translucent WCAG AA token pairs, and the global 44px
+target contract.
 
 ## Deliberate boundaries
 
-This example proves actor authority within one live browser session. It does not
-yet prove persistence across reloads, multi-client synchronization, Actor-Web
-transport, undo/redo policy, model-process supervision, or equivalent speech
-recognition across all browsers and assistive technologies. Those remain
-outer-runtime or rendered browser concerns rather than hidden responsibilities
-of `igniteCore` or `igniteTools`.
+This example proves actor authority within one browser or terminal process. It
+does not yet prove persistence across reloads, synchronization between the
+independent browser and terminal actors, Actor-Web transport, durable revision
+storage, model-process supervision, or equivalent speech recognition across all
+browsers and assistive technologies. Those remain outer-runtime or rendered
+browser concerns rather than hidden responsibilities of `igniteCore` or
+`igniteTools`.
 
 The bundled `mlx-lm.server` is a loopback development server with basic security
 checks, not a production deployment. Do not expose it to an untrusted network.

@@ -42,7 +42,6 @@ describe("voice workbench headless component", () => {
 			"changeSpeechPreference",
 			"commitDocument",
 			"commitSpeech",
-			"commitTerminal",
 			"completeResponse",
 			"createArtifact",
 			"playSpeech",
