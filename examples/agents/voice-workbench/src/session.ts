@@ -11,6 +11,7 @@ import {
 	createInitialSession,
 	type ReviseArtifactInput,
 	reduceConversationSession,
+	type SetChecklistItemInput,
 	type SubmitPromptInput,
 } from "./domain";
 import type { VoiceCaptureFact } from "./voice";
@@ -194,6 +195,7 @@ const isConversationAction = (
 		case "SUBMIT_PROMPT":
 		case "CREATE_ARTIFACT":
 		case "REVISE_ARTIFACT":
+		case "SET_CHECKLIST_ITEM":
 		case "COMPLETE_RESPONSE":
 		case "ACKNOWLEDGE_SPEECH":
 			return true;
@@ -368,6 +370,7 @@ const machine = setup({
 			states: {
 				ready: {
 					on: {
+						SET_CHECKLIST_ITEM: { actions: "applyTransition" },
 						SUBMIT_PROMPT: [
 							{
 								guard: and([
@@ -474,6 +477,11 @@ export const component = igniteCore({
 			) ??
 			artifacts[artifacts.length - 1] ??
 			null;
+		const canSetChecklistItem =
+			turnReady &&
+			artifacts.some((artifact) =>
+				artifact.nodes.some((node) => node.kind === "checklist"),
+			);
 		const turnCount = snapshot.context.messages.filter(
 			(message) => message.role === "user",
 		).length;
@@ -515,6 +523,7 @@ export const component = igniteCore({
 						? "Responding"
 						: "Ready",
 			canSubmitPrompt: modelAvailable && turnReady,
+			canSetChecklistItem,
 			canRetryModel: modelFailed,
 			activeArtifact,
 			turnCount,
@@ -820,6 +829,37 @@ export const component = igniteCore({
 							nodes: command.array(semanticNodeInput, { minItems: 1 }),
 						},
 						{ required: ["artifactId", "expectedRevision", "nodes"] },
+					),
+				},
+			),
+			setChecklistItem: command(
+				(input: SetChecklistItemInput) =>
+					actor.send({ type: "SET_CHECKLIST_ITEM", input }),
+				{
+					description:
+						"Set one checklist item when its artifact revision still matches.",
+					canExecute: ({ snapshot }) =>
+						snapshot.matches({ turn: "ready" }) &&
+						snapshot.context.documents.some((document) =>
+							document.nodes.some((node) => node.kind === "checklist"),
+						),
+					input: command.object(
+						{
+							artifactId: command.string({ minLength: 1 }),
+							expectedRevision: command.string({ minLength: 1 }),
+							nodeId: command.string({ minLength: 1 }),
+							itemId: command.string({ minLength: 1 }),
+							checked: command.boolean(),
+						},
+						{
+							required: [
+								"artifactId",
+								"expectedRevision",
+								"nodeId",
+								"itemId",
+								"checked",
+							],
+						},
 					),
 				},
 			),

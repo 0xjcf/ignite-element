@@ -23,6 +23,14 @@ export type ReviseArtifactInput = {
 	nodes: readonly ProjectionDocumentNode[];
 };
 
+export type SetChecklistItemInput = {
+	artifactId: string;
+	expectedRevision: string;
+	nodeId: string;
+	itemId: string;
+	checked: boolean;
+};
+
 export type CompleteResponseInput = { text: string; speech?: string };
 export type SubmitPromptInput = {
 	modality: "text" | "speech";
@@ -70,6 +78,7 @@ export type ConversationAction =
 	| { type: "SUBMIT_PROMPT"; input: SubmitPromptInput }
 	| { type: "CREATE_ARTIFACT"; input: CreateArtifactInput }
 	| { type: "REVISE_ARTIFACT"; input: ReviseArtifactInput }
+	| { type: "SET_CHECKLIST_ITEM"; input: SetChecklistItemInput }
 	| { type: "COMPLETE_RESPONSE"; input: CompleteResponseInput }
 	| { type: "ACKNOWLEDGE_SPEECH"; input: AcknowledgeSpeechInput };
 
@@ -397,6 +406,44 @@ export function reduceConversationSession(
 					revision,
 				},
 				factSequence: session.factSequence + 1,
+			});
+		}
+		case "SET_CHECKLIST_ITEM": {
+			const current = session.documents.find(
+				(document) => document.id === action.input.artifactId,
+			);
+			if (!current || current.revision !== action.input.expectedRevision) {
+				return rejected(session, "conflict");
+			}
+			const checklist = current.nodes.find(
+				(node) => node.id === action.input.nodeId,
+			);
+			if (
+				!checklist ||
+				checklist.kind !== "checklist" ||
+				!checklist.items.some((item) => item.id === action.input.itemId)
+			) {
+				return rejected(session, "validation");
+			}
+			const nodes = current.nodes.map((node) =>
+				node.id === checklist.id && node.kind === "checklist"
+					? {
+							...node,
+							items: node.items.map((item) =>
+								item.id === action.input.itemId
+									? { ...item, checked: action.input.checked }
+									: item,
+							),
+						}
+					: node,
+			);
+			return reduceConversationSession(session, {
+				type: "REVISE_ARTIFACT",
+				input: {
+					artifactId: current.id,
+					expectedRevision: current.revision,
+					nodes,
+				},
 			});
 		}
 		case "COMPLETE_RESPONSE": {

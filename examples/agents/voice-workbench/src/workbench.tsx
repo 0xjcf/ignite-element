@@ -29,8 +29,28 @@ const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 					<ul class="checklist" aria-label="Checklist">
 						{node.items.map((item) => (
 							<li key={item.id}>
-								<input type="checkbox" checked={item.checked} disabled />
-								<span>{item.label}</span>
+								<label>
+									<input
+										type="checkbox"
+										checked={item.checked}
+										disabled={
+											!context.canSetChecklistItem || !context.activeArtifact
+										}
+										onChange={(event: Event) => {
+											const artifact = context.activeArtifact;
+											if (!artifact) return;
+											context.setChecklistItem({
+												artifactId: artifact.id,
+												expectedRevision: artifact.revision,
+												nodeId: node.id,
+												itemId: item.id,
+												checked: (event.currentTarget as HTMLInputElement)
+													.checked,
+											});
+										}}
+									/>
+									<span>{item.label}</span>
+								</label>
 							</li>
 						))}
 					</ul>

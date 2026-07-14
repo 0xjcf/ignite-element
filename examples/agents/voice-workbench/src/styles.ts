@@ -252,10 +252,13 @@ export const workbenchStyles = `
 	.doc-card p { color: var(--foreground-soft); }
 	.node-kind { float: right; margin-left: var(--space-2); padding: 0.16rem 0.38rem; border: 1px solid var(--border); border-radius: 0.38rem; color: var(--muted); font-family: var(--font-mono); font-size: 0.52rem; font-weight: 550; }
 	.checklist, .timeline { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
-	.checklist li { display: grid; grid-template-columns: auto 1fr; gap: var(--space-2); color: var(--foreground-soft); font-size: 0.76rem; }
-	.checklist input { accent-color: var(--primary); }
+	.checklist li { color: var(--foreground-soft); font-size: 0.76rem; }
 	.doc-card label { display: grid; gap: var(--space-1); margin-top: var(--space-3); color: var(--foreground-soft); }
-	.doc-card input { width: 100%; min-height: 2.4rem; padding: 0 var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--background-elevated); color: var(--foreground); }
+	.doc-card .checklist label { display: flex; align-items: center; gap: var(--space-2); min-height: var(--target-min); margin: 0; cursor: pointer; }
+	.doc-card .checklist input[type="checkbox"] { flex: none; width: 1.15rem; min-height: 1.15rem; margin: 0; padding: 0; accent-color: var(--primary); }
+	.checklist input:disabled { cursor: not-allowed; opacity: 0.48; }
+	.checklist span { line-height: 1.35; }
+	.doc-card input:not([type="checkbox"]) { width: 100%; min-height: 2.4rem; padding: 0 var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--background-elevated); color: var(--foreground); }
 	.doc-card table { width: 100%; border-collapse: collapse; }
 	.doc-card th, .doc-card td { padding: var(--space-2); border-bottom: 1px solid var(--border); text-align: left; }
 	.doc-card time, .doc-card code, .schema-view pre { color: var(--muted); font-family: var(--font-mono); }
@@ -328,7 +331,7 @@ export const workbenchStyles = `
 	.text-button,
 	.segmented button,
 	.node-action,
-	.doc-card input,
+	.doc-card input:not([type="checkbox"]),
 	.mobile-tabs button { min-height: var(--target-min); }
 	.icon-button {
 		width: var(--target-min);
