@@ -6,16 +6,17 @@ and project the accepted result to browser, terminal, and speech consumers.
 
 It is a POC/MVP for agent-authored interfaces, not a scripted product tour. The
 center artifact is actor-owned state. It changes only after the configured model
-proposes `createArtifact` or `reviseArtifact` and the actor validates the
-semantic document.
+proposes `createArtifact` or `reviseArtifact`, or a projected control invokes
+`setChecklistItem`, and the actor validates the semantic change.
 
 ## What the example proves
 
-The component's domain contract centers on five commands:
+The component's domain contract centers on six commands:
 
 - `submitPrompt`
 - `createArtifact`
 - `reviseArtifact`
+- `setChecklistItem`
 - `completeResponse`
 - `acknowledgeSpeech`
 
@@ -29,6 +30,13 @@ turn protocol executes one proposed tool call, returns its correlated Ignite
 observation to the model, and then derives the next manifest from the updated
 actor state. An artifact mutation and `completeResponse` therefore cannot be
 accepted in the same unobserved round.
+
+Projected checklist controls call `setChecklistItem` with stable artifact,
+node, and item identities plus the expected artifact revision. The functional
+core rejects stale or unknown identities and records an accepted change as the
+next immutable artifact revision. This command is currently a direct component
+interaction; the bounded MLX command allowlist does not expose it to voice or
+text prompts yet.
 
 On a fresh turn with no accepted artifact, the live manifest exposes
 `createArtifact` but withholds `completeResponse`. Once the actor accepts an
