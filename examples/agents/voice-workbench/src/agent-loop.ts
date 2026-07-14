@@ -332,15 +332,23 @@ export const auditCompletionEvidence = (
 	}
 
 	const charts = nodes.filter((node) => node.kind === "chart");
-	const chartSeries: Record<string, unknown>[] = charts.flatMap((node) =>
-		Array.isArray(node.series) ? node.series.filter(isRecord) : [],
-	);
-	if (charts.length > 0) {
-		if (chartSeries.length === 0) {
+	const chartSeries: Record<string, unknown>[] = [];
+	for (const chart of charts) {
+		const series = Array.isArray(chart.series)
+			? chart.series.filter(isRecord)
+			: [];
+		if (series.length === 0) {
+			const chartId =
+				typeof chart.id === "string" && chart.id.trim()
+					? chart.id.trim().slice(0, 60)
+					: "Chart";
 			issues.push(
-				"Remove the empty chart or chart exact sourced numeric evidence.",
+				`${chartId}: remove the empty chart or chart exact sourced numeric evidence.`,
 			);
 		}
+		chartSeries.push(...series);
+	}
+	if (charts.length > 0) {
 		for (const series of chartSeries) {
 			const fact = evidence.find(
 				(candidate) => candidate.key === normalizedKey(series.label),

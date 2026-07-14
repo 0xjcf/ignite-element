@@ -192,62 +192,87 @@ describe("voice/text workbench model turn", () => {
 	});
 
 	it("accepts exact sourced table facts and excludes unverified chart values", () => {
+		const validView = {
+			activeArtifactId: "shopping",
+			artifacts: [
+				{
+					id: "shopping",
+					nodes: [
+						{
+							id: "items",
+							kind: "checklist",
+							items: [
+								{ id: "bread", label: "Bread", checked: false },
+								{ id: "butter", label: "Butter", checked: false },
+							],
+						},
+						{
+							id: "prices",
+							kind: "table",
+							columns: [
+								{ id: "subject", label: "Subject" },
+								{ id: "price", label: "Price" },
+								{ id: "status", label: "Status" },
+								{ id: "source", label: "Source" },
+							],
+							rows: [
+								{
+									id: "bread",
+									cells: [
+										"Bread",
+										4.49,
+										"sourced",
+										"https://example.com/bread",
+									],
+								},
+								{
+									id: "butter",
+									cells: [
+										"Butter",
+										null,
+										"unverified",
+										"https://example.com/butter",
+									],
+								},
+							],
+						},
+						{
+							id: "spending",
+							kind: "chart",
+							chartType: "bar",
+							series: [{ id: "bread", label: "Bread", value: 4.49 }],
+						},
+					],
+				},
+			],
+		};
+		expect(auditCompletionEvidence(priceEvidenceHistory, validView)).toEqual({
+			ok: true,
+		});
+
+		const artifact = validView.artifacts[0];
 		expect(
 			auditCompletionEvidence(priceEvidenceHistory, {
-				activeArtifactId: "shopping",
+				...validView,
 				artifacts: [
 					{
-						id: "shopping",
+						...artifact,
 						nodes: [
+							...artifact.nodes,
 							{
-								id: "items",
-								kind: "checklist",
-								items: [
-									{ id: "bread", label: "Bread", checked: false },
-									{ id: "butter", label: "Butter", checked: false },
-								],
-							},
-							{
-								id: "prices",
-								kind: "table",
-								columns: [
-									{ id: "subject", label: "Subject" },
-									{ id: "price", label: "Price" },
-									{ id: "status", label: "Status" },
-									{ id: "source", label: "Source" },
-								],
-								rows: [
-									{
-										id: "bread",
-										cells: [
-											"Bread",
-											4.49,
-											"sourced",
-											"https://example.com/bread",
-										],
-									},
-									{
-										id: "butter",
-										cells: [
-											"Butter",
-											null,
-											"unverified",
-											"https://example.com/butter",
-										],
-									},
-								],
-							},
-							{
-								id: "spending",
+								id: "empty-chart",
 								kind: "chart",
 								chartType: "bar",
-								series: [{ id: "bread", label: "Bread", value: 4.49 }],
+								series: [],
 							},
 						],
 					},
 				],
 			}),
-		).toEqual({ ok: true });
+		).toMatchObject({
+			ok: false,
+			issues: expect.arrayContaining([expect.stringContaining("empty chart")]),
+		});
 	});
 
 	it("returns an external capability fact to the next model round without mutating the actor", () => {
