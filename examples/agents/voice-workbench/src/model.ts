@@ -1,8 +1,8 @@
+import { ok } from "ignite-element/tools";
 import {
 	type OpenAIChatCompletionResponse,
 	openai,
 } from "ignite-element/tools/openai";
-import { ok } from "ignite-element/tools";
 import type { ModelFailureFact, ModelRequest, ModelResult } from "./agent-loop";
 
 const SYSTEM_PROMPT = `You operate a consumer-owned Ignite conversation actor.
