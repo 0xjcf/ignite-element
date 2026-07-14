@@ -30,6 +30,14 @@ observation to the model, and then derives the next manifest from the updated
 actor state. An artifact mutation and `completeResponse` therefore cannot be
 accepted in the same unobserved round.
 
+On a fresh turn with no accepted artifact, the live manifest exposes
+`createArtifact` but withholds `completeResponse`. Once the actor accepts an
+artifact, the next manifest can expose `reviseArtifact` and
+`completeResponse`. Checklist command schemas require at least one valid item,
+and model requests set OpenAI-compatible `tool_choice` to `required`, so MLX
+must repair invalid semantic input through the correlated tool-result loop
+instead of answering outside the command contract.
+
 This feedback loop also distinguishes actor acceptance from prompt
 satisfaction. If the actor accepts a valid text node for a request that asked
 for a checklist, the next model round sees the accepted document, can revise it

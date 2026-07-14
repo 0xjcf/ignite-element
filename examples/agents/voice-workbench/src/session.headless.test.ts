@@ -72,7 +72,7 @@ describe("voice workbench headless component", () => {
 									],
 								},
 								text: { type: "string" },
-								items: { type: "array" },
+								items: { type: "array", minItems: 1 },
 								commandName: {
 									enum: ["completeResponse"],
 								},
@@ -236,6 +236,7 @@ describe("voice workbench headless component", () => {
 				turnState: "responding",
 			});
 		expect(component.getSnapshot().matches({ turn: "responding" })).toBe(true);
+		expect(component.canExecute("completeResponse")).toBe(false);
 		expect(component.getView()).toMatchObject({
 			presentation: {
 				draft: "Preserve this draft",
@@ -272,6 +273,7 @@ describe("voice workbench headless component", () => {
 					},
 				],
 			});
+		expect(component.canExecute("completeResponse")).toBe(true);
 		expect(component.getSnapshot().context.documents).toEqual([
 			expect.objectContaining({
 				id: "decision",

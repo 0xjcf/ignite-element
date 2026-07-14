@@ -358,6 +358,7 @@ function requestBody(
 		model,
 		messages,
 		tools,
+		tool_choice: "required",
 		max_tokens: 2048,
 		temperature: 0,
 	});

@@ -141,7 +141,6 @@ describe("voice workbench domain", () => {
 	it.each(
 		[
 			[{ kind: "text", id: "text" }],
-			[{ kind: "checklist", id: "checks", items: [] }],
 			[{ kind: "checklist", id: "checks", items: [{ id: "x" }] }],
 			[{ kind: "action", id: "action", label: "Run", commandName: "eval" }],
 			[{ kind: "form", id: "form", fields: [{ id: "field", label: "X" }] }],
@@ -199,6 +198,27 @@ describe("voice workbench domain", () => {
 			expect(initial.documents).toEqual([]);
 		},
 	);
+
+	it("returns an actionable issue for an empty checklist", () => {
+		const initial = createInitialSession("session-empty-checklist");
+
+		expect(
+			reduceConversationSession(initial, {
+				type: "CREATE_ARTIFACT",
+				input: {
+					id: "checklist",
+					nodes: [{ kind: "checklist", id: "checks", items: [] }],
+				},
+			}),
+		).toEqual({
+			accepted: false,
+			reason: "validation",
+			issues: [
+				"Checklist nodes require at least one item with a unique id, non-empty label, and boolean checked value.",
+			],
+			session: initial,
+		});
+	});
 
 	it("stores standard Ignite projection documents with string revisions", () => {
 		const initial = createInitialSession("session-1");

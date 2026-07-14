@@ -225,7 +225,11 @@ const machine = setup({
 			return {
 				...context,
 				factSequence: context.factSequence + 1,
-				lastFact: { type: "artifact-rejected", reason: result.reason },
+				lastFact: {
+					type: "artifact-rejected",
+					reason: result.reason,
+					...(result.issues ? { issues: result.issues } : {}),
+				},
 			};
 		}),
 		clearModelFailure: assign({ modelFailure: () => null }),
@@ -414,6 +418,7 @@ export const component = igniteCore({
 		"artifact-revised": event<{ artifactId: string; revision: string }>(),
 		"artifact-rejected": event<{
 			reason: "validation" | "conflict";
+			issues?: readonly string[];
 		}>(),
 		"response-completed": event(),
 		"speech-acknowledged": event<{ id: string }>(),
@@ -596,6 +601,7 @@ export const component = igniteCore({
 						},
 						{ required: ["id", "label", "checked"] },
 					),
+					{ minItems: 1 },
 				),
 				label: command.string({ minLength: 1 }),
 				commandName: command.enum(["completeResponse"]),
@@ -736,7 +742,8 @@ export const component = igniteCore({
 				{
 					description: "Complete the active response turn.",
 					canExecute: ({ snapshot }) =>
-						snapshot.matches({ turn: "responding" }),
+						snapshot.matches({ turn: "responding" }) &&
+						snapshot.context.documents.length > 0,
 					input: command.object(
 						{
 							text: command.string({ minLength: 1 }),
@@ -780,8 +787,19 @@ export const component = igniteCore({
 					},
 				});
 			},
-			recordTurn: (fact: WorkbenchTurnFact) =>
-				actor.send({ type: "PRESENTATION_TURN_RECORDED", fact }),
+			recordTurn: (fact: WorkbenchTurnFact) => {
+				actor.send({ type: "PRESENTATION_TURN_RECORDED", fact });
+				if (!actor.getSnapshot().matches({ turn: "responding" })) return;
+				actor.send({
+					type: "COMPLETE_RESPONSE",
+					input: {
+						text:
+							fact.type === "model-failed"
+								? fact.message
+								: "The model could not finish an accepted artifact within this turn. Refine the prompt and try again.",
+					},
+				});
+			},
 			replay: () => actor.send({ type: "PRESENTATION_REPLAYED" }),
 			reportModelAvailable: () => actor.send({ type: "MODEL_AVAILABLE" }),
 			reportModelFailure: (failure: ModelFailureFact) =>

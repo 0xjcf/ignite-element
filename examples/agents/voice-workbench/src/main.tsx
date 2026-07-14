@@ -186,7 +186,12 @@ const completeSubmittedPrompt = async (event: {
 								: {}),
 						}
 					: rejectedByActor && "reason" in rejectedByActor
-						? { reason: String(rejectedByActor.reason) }
+						? {
+								reason: String(rejectedByActor.reason),
+								...(rejectedByActor.issues
+									? { issues: rejectedByActor.issues }
+									: {}),
+							}
 						: {}),
 				view: component.getView().modelContext,
 				events: isOk(execution)
@@ -209,22 +214,6 @@ const completeSubmittedPrompt = async (event: {
 		if (result.accepted || result.reason === "model-failed") break;
 	}
 	if (!result) return;
-	if (!result.accepted && result.reason !== "model-failed") {
-		const tools = igniteTools(component);
-		const recovery = await tools.run({
-			name: "completeResponse",
-			input: {
-				text: "The model could not finish an accepted artifact within this turn. Refine the prompt and try again.",
-			},
-		});
-		result = {
-			...result,
-			trace: [
-				...result.trace,
-				{ command: "completeResponse", accepted: isOk(recovery) },
-			],
-		};
-	}
 	await component.execute({
 		command: "recordTurn",
 		input: toTurnFact(result),

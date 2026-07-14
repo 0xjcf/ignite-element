@@ -205,11 +205,12 @@ describe("consumer-configured MLX workbench model", () => {
 		expect(url).toBe("http://127.0.0.1:8080/v1/chat/completions");
 		const body = JSON.parse(String(init?.body));
 		expect(body.model).toBe("mlx-community/example-model");
+		expect(body.tool_choice).toBe("required");
 		expect(
 			body.tools.map(
 				(tool: { function: { name: string } }) => tool.function.name,
 			),
-		).toEqual(["completeResponse", "createArtifact"]);
+		).toEqual(["createArtifact"]);
 		const createArtifact = body.tools.find(
 			(tool: { function: { name: string } }) =>
 				tool.function.name === "createArtifact",

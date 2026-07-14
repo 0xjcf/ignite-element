@@ -50,7 +50,12 @@ const executeModelTurn = async (response: ModelResult) => {
 							: {}),
 					}
 				: rejectedByActor && "reason" in rejectedByActor
-					? { reason: String(rejectedByActor.reason) }
+					? {
+							reason: String(rejectedByActor.reason),
+							...(rejectedByActor.issues
+								? { issues: rejectedByActor.issues }
+								: {}),
+						}
 					: {}),
 			view: component.getView().modelContext,
 			events: isOk(execution)
@@ -247,7 +252,6 @@ describe("voice/text workbench model turn", () => {
 		).resolves.toMatchObject({ accepted: true });
 
 		expect(requests[0]?.tools.map((tool) => tool.name)).toEqual([
-			"completeResponse",
 			"createArtifact",
 		]);
 		expect(requests[1]?.tools.map((tool) => tool.name)).toEqual([
@@ -264,7 +268,7 @@ describe("voice/text workbench model turn", () => {
 		});
 	});
 
-	it("returns domain validation rejections to the model as structured feedback", async () => {
+	it("returns command validation issues to the model as structured feedback", async () => {
 		await component.execute({
 			command: "submitPrompt",
 			input: { modality: "text", text: "Create a checklist" },
@@ -277,7 +281,7 @@ describe("voice/text workbench model turn", () => {
 					command: "createArtifact",
 					input: {
 						id: "checklist",
-						nodes: [{ id: "items", kind: "checklist" }],
+						nodes: [{ id: "items", kind: "checklist", items: [] }],
 					},
 				},
 			],
@@ -292,9 +296,10 @@ describe("voice/text workbench model turn", () => {
 					{
 						id: "invalid-checklist",
 						command: "createArtifact",
-						status: "actor-rejected",
-						reason: "validation",
-						events: [{ type: "artifact-rejected", reason: "validation" }],
+						status: "tool-error",
+						reason: "InvalidInput",
+						issues: ["input.nodes[0].items: fewer than minItems 1"],
+						events: [],
 					},
 				],
 			},

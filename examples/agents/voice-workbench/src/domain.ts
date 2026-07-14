@@ -45,7 +45,11 @@ export type ConversationFact =
 	  }
 	| { type: "artifact-created"; artifactId: string; revision: string }
 	| { type: "artifact-revised"; artifactId: string; revision: string }
-	| { type: "artifact-rejected"; reason: "validation" | "conflict" }
+	| {
+			type: "artifact-rejected";
+			reason: "validation" | "conflict";
+			issues?: readonly string[];
+	  }
 	| { type: "response-completed" }
 	| { type: "speech-acknowledged"; id: string };
 
@@ -74,6 +78,7 @@ export type TransitionResult =
 	| {
 			accepted: false;
 			reason: "validation" | "conflict";
+			issues?: readonly string[];
 			session: ConversationSession;
 	  };
 
@@ -103,7 +108,13 @@ const accepted = (
 const rejected = (
 	session: ConversationSession,
 	reason: "validation" | "conflict",
-): TransitionResult => ({ accepted: false, reason, session });
+	issues?: readonly string[],
+): TransitionResult => ({
+	accepted: false,
+	reason,
+	...(issues?.length ? { issues } : {}),
+	session,
+});
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
@@ -141,6 +152,20 @@ const hasUniqueIds = (values: readonly unknown[]): boolean => {
 	}
 	return true;
 };
+
+const emptyChecklistIssues = (nodes: unknown): readonly string[] | undefined =>
+	Array.isArray(nodes) &&
+	nodes.some(
+		(node) =>
+			isRecord(node) &&
+			node.kind === "checklist" &&
+			Array.isArray(node.items) &&
+			node.items.length === 0,
+	)
+		? [
+				"Checklist nodes require at least one item with a unique id, non-empty label, and boolean checked value.",
+			]
+		: undefined;
 
 const validActionNode = (value: unknown): boolean => {
 	if (
@@ -314,7 +339,11 @@ export function reduceConversationSession(
 				!validNodes(input.nodes) ||
 				session.documents.some((document) => document.id === input.id)
 			) {
-				return rejected(session, "validation");
+				return rejected(
+					session,
+					"validation",
+					emptyChecklistIssues(action.input.nodes),
+				);
 			}
 			const document: ProjectionDocument = {
 				id: input.id.trim(),
@@ -343,7 +372,11 @@ export function reduceConversationSession(
 				return rejected(session, "conflict");
 			}
 			if (!validNodes(action.input.nodes)) {
-				return rejected(session, "validation");
+				return rejected(
+					session,
+					"validation",
+					emptyChecklistIssues(action.input.nodes),
+				);
 			}
 			const revision = nextDocumentRevision(current.revision);
 			const revisedDocument: ProjectionDocument = {
