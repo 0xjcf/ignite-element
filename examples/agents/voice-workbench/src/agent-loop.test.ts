@@ -1,6 +1,8 @@
 import { igniteTools, isOk, type NeutralManifest } from "ignite-element/tools";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
+	auditCompletionEvidence,
+	type ModelExchange,
 	type ModelRequest,
 	type ModelResult,
 	modelTools,
@@ -15,6 +17,59 @@ const nodes = [
 		items: [{ id: "draft", label: "Draft", checked: false }],
 	},
 ] as const;
+
+const priceEvidenceHistory: ModelExchange[] = [
+	{
+		calls: [
+			{
+				id: "search-prices",
+				command: "searchWeb",
+				input: {
+					queries: [
+						{ subject: "Bread", query: "bread price" },
+						{ subject: "Butter", query: "butter price" },
+					],
+				},
+			},
+		],
+		results: [
+			{
+				id: "search-prices",
+				command: "searchWeb",
+				status: "capability-success",
+				fact: {
+					searches: [
+						{
+							subject: "Bread",
+							query: "bread price",
+							price: {
+								status: "sourced",
+								amount: 4.49,
+								display: "$4.49",
+								sourceUrl: "https://example.com/bread",
+							},
+							results: [],
+						},
+						{
+							subject: "Butter",
+							query: "butter price",
+							price: {
+								status: "unverified",
+								amount: null,
+								sourceUrl: "https://example.com/butter",
+								reason:
+									"No single explicit price was found in the returned sources.",
+							},
+							results: [],
+						},
+					],
+				},
+				view: { artifacts: [] },
+				events: [],
+			},
+		],
+	},
+];
 
 beforeAll(() => component.execute({ command: "reportModelAvailable" }));
 afterAll(() => source.stop());
@@ -89,6 +144,103 @@ describe("voice/text workbench model turn", () => {
 		expect(
 			modelTools(manifest, ["searchWeb"]).map((tool) => tool.name),
 		).toEqual(["createArtifact", "searchWeb"]);
+	});
+
+	it("audits accepted semantic evidence without treating checklist labels as data", () => {
+		const audit = auditCompletionEvidence(priceEvidenceHistory, {
+			activeArtifactId: "shopping",
+			artifacts: [
+				{
+					id: "shopping",
+					nodes: [
+						{
+							id: "items",
+							kind: "checklist",
+							items: [
+								{ id: "bread", label: "Bread · $4.49", checked: false },
+								{ id: "butter", label: "Butter", checked: false },
+							],
+						},
+						{
+							id: "prices",
+							kind: "table",
+							columns: [
+								{ id: "subject", label: "Subject" },
+								{ id: "price", label: "Price" },
+							],
+							rows: [{ id: "bread", cells: ["Bread", 4.99] }],
+						},
+					],
+				},
+			],
+		});
+
+		expect(audit).toMatchObject({
+			ok: false,
+			issues: expect.arrayContaining([
+				expect.stringContaining("checklist labels"),
+				expect.stringContaining("Subject, Price, Status, and Source"),
+			]),
+		});
+	});
+
+	it("accepts exact sourced table facts and excludes unverified chart values", () => {
+		expect(
+			auditCompletionEvidence(priceEvidenceHistory, {
+				activeArtifactId: "shopping",
+				artifacts: [
+					{
+						id: "shopping",
+						nodes: [
+							{
+								id: "items",
+								kind: "checklist",
+								items: [
+									{ id: "bread", label: "Bread", checked: false },
+									{ id: "butter", label: "Butter", checked: false },
+								],
+							},
+							{
+								id: "prices",
+								kind: "table",
+								columns: [
+									{ id: "subject", label: "Subject" },
+									{ id: "price", label: "Price" },
+									{ id: "status", label: "Status" },
+									{ id: "source", label: "Source" },
+								],
+								rows: [
+									{
+										id: "bread",
+										cells: [
+											"Bread",
+											4.49,
+											"sourced",
+											"https://example.com/bread",
+										],
+									},
+									{
+										id: "butter",
+										cells: [
+											"Butter",
+											null,
+											"unverified",
+											"https://example.com/butter",
+										],
+									},
+								],
+							},
+							{
+								id: "spending",
+								kind: "chart",
+								chartType: "bar",
+								series: [{ id: "bread", label: "Bread", value: 4.49 }],
+							},
+						],
+					},
+				],
+			}),
+		).toEqual({ ok: true });
 	});
 
 	it("returns an external capability fact to the next model round without mutating the actor", () => {

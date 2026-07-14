@@ -45,11 +45,21 @@ recorded owner. External success, unavailable, validation, timeout, and provider
 failure outcomes return as bounded facts with receipts; they never mutate the
 conversation actor directly.
 
-One `searchWeb` call accepts 1–8 focused queries, an optional two-letter country
-code, and 1–5 results per query. This keeps a multi-item research turn inside
-the five-round model budget: one bounded batch gathers evidence, one actor
-command authors or revises the artifact, and one command completes the response.
-Its receipt records both query and source counts.
+One `searchWeb` call accepts 1–8 focused `{ subject, query }` requests, an
+optional two-letter country code, and 1–5 results per request. Each returned
+search preserves its subject identity. A price becomes `sourced` only when one
+unambiguous currency-marked decimal is present in a returned source; otherwise
+the subject remains `unverified` with no invented numeric value. This keeps a
+multi-item research turn inside the five-round model budget, and its receipt
+records both query and source counts.
+
+Before `completeResponse` can close a researched turn, a pure evidence audit
+compares those accepted search facts with the current actor view. Checklist
+labels remain action state, while a semantic table must preserve each subject's
+exact Price, Status, and Source. Evidence charts may contain exact sourced
+numeric values but must exclude unverified values. Incomplete evidence returns
+bounded structured feedback to the next model round so it can revise the
+artifact instead of completing with an unsupported projection.
 
 The same-origin route rejects request bodies larger than 16 KiB before buffering
 additional chunks. Search titles, URLs, descriptions, per-query results, and the
@@ -108,7 +118,8 @@ changing the component contract:
 
 ```text
 prompt → combined owner index → searchWeb → source facts + receipt
-       → createArtifact/reviseArtifact → actor validation → table + chart + links
+       → createArtifact/reviseArtifact → actor validation → evidence audit
+       → repair when incomplete → table + chart + links → completeResponse
 ```
 
 Each process imports that component contract directly. The terminal

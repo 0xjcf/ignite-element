@@ -62,7 +62,7 @@ describe("voice workbench Vite capability boundary", () => {
 				{
 					method: "POST",
 					body: JSON.stringify({
-						queries: ["coffee"],
+						queries: [{ subject: "Coffee", query: "coffee" }],
 						countPerQuery: 3,
 					}),
 				},
@@ -88,7 +88,12 @@ describe("voice workbench Vite capability boundary", () => {
 		});
 		await expect(
 			handleWebSearchCapabilityRequest(
-				{ method: "POST", body: JSON.stringify({ queries: ["coffee"] }) },
+				{
+					method: "POST",
+					body: JSON.stringify({
+						queries: [{ subject: "Coffee", query: "coffee" }],
+					}),
+				},
 				{ apiKey: "", fetch: fetchMock },
 			),
 		).resolves.toMatchObject({

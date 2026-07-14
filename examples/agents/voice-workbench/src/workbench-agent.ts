@@ -1,5 +1,6 @@
 import { igniteTools, isOk } from "ignite-element/tools";
 import {
+	auditCompletionEvidence,
 	type ModelExchange,
 	type ModelResult,
 	type ModelToolFeedback,
@@ -224,6 +225,24 @@ export async function completeSubmittedPrompt(
 			id: "workbench-component",
 			manifest: modelTools(tools.manifest),
 			run: async (call): Promise<CapabilityExecutionFact> => {
+				if (call.name === "completeResponse") {
+					const audit = auditCompletionEvidence(
+						history,
+						component.getView().modelContext,
+					);
+					if (!audit.ok) {
+						return {
+							type: "validation",
+							ownerId: "workbench-component",
+							toolName: call.name,
+							message:
+								"The accepted artifact does not yet materialize the researched evidence.",
+							reason: "evidence-incomplete",
+							issues: audit.issues,
+							actorRejected: true,
+						};
+					}
+				}
 				const execution = await tools.run(call);
 				if (!isOk(execution)) {
 					switch (execution.error.kind) {

@@ -81,10 +81,10 @@ describe("shared voice workbench agent", () => {
 						command: "searchWeb",
 						input: {
 							queries: [
-								"bread price Sarasota",
-								"eggs price Sarasota",
-								"milk price Sarasota",
-								"coffee price Sarasota",
+								{ subject: "Bread", query: "bread price Sarasota" },
+								{ subject: "Eggs", query: "eggs price Sarasota" },
+								{ subject: "Milk", query: "milk price Sarasota" },
+								{ subject: "Coffee", query: "coffee price Sarasota" },
 							],
 							country: "us",
 							countPerQuery: 1,
@@ -105,26 +105,47 @@ describe("shared voice workbench agent", () => {
 									id: "prices",
 									kind: "table",
 									columns: [
-										{ id: "item", label: "Item" },
+										{ id: "subject", label: "Subject" },
 										{ id: "price", label: "Price" },
+										{ id: "status", label: "Status" },
 										{ id: "source", label: "Source" },
 									],
 									rows: [
 										{
 											id: "bread",
-											cells: ["Bread", 4.49, "https://example.com/bread"],
+											cells: [
+												"Bread",
+												4.49,
+												"sourced",
+												"https://example.com/bread",
+											],
 										},
 										{
 											id: "eggs",
-											cells: ["Eggs", 5.29, "https://example.com/eggs"],
+											cells: [
+												"Eggs",
+												5.29,
+												"sourced",
+												"https://example.com/eggs",
+											],
 										},
 										{
 											id: "milk",
-											cells: ["Milk", 4.19, "https://example.com/milk"],
+											cells: [
+												"Milk",
+												4.19,
+												"sourced",
+												"https://example.com/milk",
+											],
 										},
 										{
 											id: "coffee",
-											cells: ["Coffee", 8.99, "https://example.com/coffee"],
+											cells: [
+												"Coffee",
+												8.99,
+												"sourced",
+												"https://example.com/coffee",
+											],
 										},
 									],
 								},
@@ -174,7 +195,17 @@ describe("shared voice workbench agent", () => {
 					inputSchema: {
 						type: "object",
 						properties: {
-							queries: { type: "array", items: { type: "string" } },
+							queries: {
+								type: "array",
+								items: {
+									type: "object",
+									properties: {
+										subject: { type: "string" },
+										query: { type: "string" },
+									},
+									required: ["subject", "query"],
+								},
+							},
 						},
 						required: ["queries"],
 					},
@@ -188,7 +219,14 @@ describe("shared voice workbench agent", () => {
 				data: {
 					searches: [
 						{
+							subject: "Bread",
 							query: "bread price Sarasota",
+							price: {
+								status: "sourced",
+								amount: 4.49,
+								display: "$4.49",
+								sourceUrl: "https://example.com/bread",
+							},
 							results: [
 								{
 									title: "Bread",
@@ -198,7 +236,14 @@ describe("shared voice workbench agent", () => {
 							],
 						},
 						{
+							subject: "Eggs",
 							query: "eggs price Sarasota",
+							price: {
+								status: "sourced",
+								amount: 5.29,
+								display: "$5.29",
+								sourceUrl: "https://example.com/eggs",
+							},
 							results: [
 								{
 									title: "Eggs",
@@ -208,7 +253,14 @@ describe("shared voice workbench agent", () => {
 							],
 						},
 						{
+							subject: "Milk",
 							query: "milk price Sarasota",
+							price: {
+								status: "sourced",
+								amount: 4.19,
+								display: "$4.19",
+								sourceUrl: "https://example.com/milk",
+							},
 							results: [
 								{
 									title: "Milk",
@@ -218,7 +270,14 @@ describe("shared voice workbench agent", () => {
 							],
 						},
 						{
+							subject: "Coffee",
 							query: "coffee price Sarasota",
+							price: {
+								status: "sourced",
+								amount: 8.99,
+								display: "$8.99",
+								sourceUrl: "https://example.com/coffee",
+							},
 							results: [
 								{
 									title: "Coffee",
@@ -276,10 +335,26 @@ describe("shared voice workbench agent", () => {
 			ownerId: "web-search",
 			fact: {
 				searches: [
-					{ results: [{ url: "https://example.com/bread" }] },
-					{ results: [{ url: "https://example.com/eggs" }] },
-					{ results: [{ url: "https://example.com/milk" }] },
-					{ results: [{ url: "https://example.com/coffee" }] },
+					{
+						subject: "Bread",
+						price: { status: "sourced", amount: 4.49 },
+						results: [{ url: "https://example.com/bread" }],
+					},
+					{
+						subject: "Eggs",
+						price: { status: "sourced", amount: 5.29 },
+						results: [{ url: "https://example.com/eggs" }],
+					},
+					{
+						subject: "Milk",
+						price: { status: "sourced", amount: 4.19 },
+						results: [{ url: "https://example.com/milk" }],
+					},
+					{
+						subject: "Coffee",
+						price: { status: "sourced", amount: 8.99 },
+						results: [{ url: "https://example.com/coffee" }],
+					},
 				],
 			},
 			receipt: { provider: "fake-search", queryCount: 4, sourceCount: 4 },
@@ -293,13 +368,19 @@ describe("shared voice workbench agent", () => {
 					rows: [
 						{
 							id: "bread",
-							cells: ["Bread", 4.49, "https://example.com/bread"],
+							cells: ["Bread", 4.49, "sourced", "https://example.com/bread"],
 						},
-						{ id: "eggs", cells: ["Eggs", 5.29, "https://example.com/eggs"] },
-						{ id: "milk", cells: ["Milk", 4.19, "https://example.com/milk"] },
+						{
+							id: "eggs",
+							cells: ["Eggs", 5.29, "sourced", "https://example.com/eggs"],
+						},
+						{
+							id: "milk",
+							cells: ["Milk", 4.19, "sourced", "https://example.com/milk"],
+						},
 						{
 							id: "coffee",
-							cells: ["Coffee", 8.99, "https://example.com/coffee"],
+							cells: ["Coffee", 8.99, "sourced", "https://example.com/coffee"],
 						},
 					],
 				},
@@ -333,6 +414,236 @@ describe("shared voice workbench agent", () => {
 				queryCount: 4,
 				sourceCount: 4,
 			},
+		});
+	});
+
+	it("returns incomplete evidence to the model before accepting completion", async () => {
+		requestModel.mockReset();
+		requestModel
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						id: "repair-search",
+						command: "searchWeb",
+						input: {
+							queries: [
+								{ subject: "Bread", query: "bread price" },
+								{ subject: "Butter", query: "butter price" },
+							],
+						},
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						command: "createArtifact",
+						input: {
+							id: "completion-evidence-repair",
+							title: "Completion evidence repair",
+							nodes: [
+								{
+									id: "items",
+									kind: "checklist",
+									items: [
+										{ id: "bread", label: "Bread", checked: false },
+										{ id: "butter", label: "Butter", checked: false },
+									],
+								},
+							],
+						},
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						command: "completeResponse",
+						input: { text: "The researched list is ready." },
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						command: "reviseArtifact",
+						input: {
+							artifactId: "completion-evidence-repair",
+							expectedRevision: "1",
+							nodes: [
+								{
+									id: "items",
+									kind: "checklist",
+									items: [
+										{ id: "bread", label: "Bread", checked: false },
+										{ id: "butter", label: "Butter", checked: false },
+									],
+								},
+								{
+									id: "prices",
+									kind: "table",
+									columns: [
+										{ id: "subject", label: "Subject" },
+										{ id: "price", label: "Price" },
+										{ id: "status", label: "Status" },
+										{ id: "source", label: "Source" },
+									],
+									rows: [
+										{
+											id: "bread",
+											cells: [
+												"Bread",
+												4.49,
+												"sourced",
+												"https://example.com/bread",
+											],
+										},
+										{
+											id: "butter",
+											cells: [
+												"Butter",
+												null,
+												"unverified",
+												"https://example.com/butter",
+											],
+										},
+									],
+								},
+								{
+									id: "spending",
+									kind: "chart",
+									chartType: "bar",
+									series: [{ id: "bread", label: "Bread", value: 4.49 }],
+								},
+							],
+						},
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						command: "completeResponse",
+						input: { text: "The sourced evidence is ready." },
+					},
+				],
+			});
+		const search: CapabilityOwner = {
+			id: "web-search",
+			manifest: [
+				{
+					name: "searchWeb",
+					inputSchema: { type: "object", properties: {} },
+					gated: false,
+				},
+			],
+			run: async () => ({
+				type: "success",
+				ownerId: "web-search",
+				toolName: "searchWeb",
+				data: {
+					searches: [
+						{
+							subject: "Bread",
+							query: "bread price",
+							price: {
+								status: "sourced",
+								amount: 4.49,
+								display: "$4.49",
+								sourceUrl: "https://example.com/bread",
+							},
+							results: [],
+						},
+						{
+							subject: "Butter",
+							query: "butter price",
+							price: {
+								status: "unverified",
+								amount: null,
+								sourceUrl: "https://example.com/butter",
+								reason:
+									"No single explicit price was found in the returned sources.",
+							},
+							results: [],
+						},
+					],
+				},
+				receipt: {
+					provider: "fake-search",
+					queryCount: 2,
+					sourceCount: 2,
+				},
+			}),
+		};
+
+		await component.execute({
+			command: "submitPrompt",
+			input: { modality: "text", text: "Research bread and butter prices" },
+		});
+		await expect(
+			completeSubmittedPrompt(
+				{ baseUrl: "http://127.0.0.1:8080/v1", model: "local-model" },
+				{ modality: "text", text: "Research bread and butter prices" },
+				[search],
+			),
+		).resolves.toMatchObject({
+			accepted: true,
+			trace: [
+				{ command: "searchWeb", accepted: true },
+				{ command: "createArtifact", accepted: true },
+				{ command: "completeResponse", accepted: false },
+				{ command: "reviseArtifact", accepted: true },
+				{ command: "completeResponse", accepted: true },
+			],
+		});
+
+		expect(
+			requestModel.mock.calls[3]?.[1].history[2]?.results[0],
+		).toMatchObject({
+			command: "completeResponse",
+			status: "actor-rejected",
+			reason: "evidence-incomplete",
+			issues: expect.arrayContaining([
+				expect.stringContaining("Subject, Price, Status, and Source"),
+			]),
+		});
+		expect(component.getView().activeArtifact).toMatchObject({
+			id: "completion-evidence-repair",
+			revision: "2",
+			nodes: [
+				{
+					kind: "checklist",
+					items: [
+						{ label: "Bread", checked: false },
+						{ label: "Butter", checked: false },
+					],
+				},
+				{
+					kind: "table",
+					rows: [
+						{
+							cells: ["Bread", 4.49, "sourced", "https://example.com/bread"],
+						},
+						{
+							cells: [
+								"Butter",
+								null,
+								"unverified",
+								"https://example.com/butter",
+							],
+						},
+					],
+				},
+				{
+					kind: "chart",
+					series: [{ label: "Bread", value: 4.49 }],
+				},
+			],
 		});
 	});
 
