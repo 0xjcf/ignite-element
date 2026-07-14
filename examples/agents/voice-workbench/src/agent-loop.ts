@@ -27,7 +27,7 @@ export type ModelToolFeedback = {
 	reason?: string;
 	issues?: readonly string[];
 	fact?: unknown;
-	receipt?: { provider: string; sourceCount?: number };
+	receipt?: { provider: string; queryCount?: number; sourceCount?: number };
 	view: unknown;
 	events: readonly { type: string; reason?: string }[];
 };
@@ -151,7 +151,8 @@ export function* modelTurn(
 			call.command === "reviseArtifact" ||
 			call.command === "setChecklistItem",
 	);
-	const primary = mutation ?? calls[0];
+	const externalEvidence = calls.find((call) => !isModelCommand(call.command));
+	const primary = externalEvidence ?? mutation ?? calls[0];
 	if (!primary) {
 		return {
 			accepted: false,
@@ -161,6 +162,10 @@ export function* modelTurn(
 		};
 	}
 
+	const primaryIsMutation =
+		primary.command === "createArtifact" ||
+		primary.command === "reviseArtifact" ||
+		primary.command === "setChecklistItem";
 	const feedback = yield primary;
 	const capabilityFeedback = feedback.status.startsWith("capability-");
 	const callAccepted =
@@ -178,7 +183,7 @@ export function* modelTurn(
 			id: call.id,
 			command: call.command,
 			status: "deferred",
-			reason: mutation
+			reason: primaryIsMutation
 				? "observe-artifact-mutation-before-continuing"
 				: "observe-tool-result-before-continuing",
 			view: feedback.view,
@@ -215,7 +220,11 @@ export function* modelTurn(
 		};
 	}
 
-	if (mutation || calls.length > 1 || primary.command !== "completeResponse") {
+	if (
+		primaryIsMutation ||
+		calls.length > 1 ||
+		primary.command !== "completeResponse"
+	) {
 		return {
 			accepted: false,
 			reason: "response-incomplete",

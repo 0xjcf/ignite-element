@@ -45,6 +45,12 @@ recorded owner. External success, unavailable, validation, timeout, and provider
 failure outcomes return as bounded facts with receipts; they never mutate the
 conversation actor directly.
 
+One `searchWeb` call accepts 1–8 focused queries, an optional two-letter country
+code, and 1–5 results per query. This keeps a multi-item research turn inside
+the five-round model budget: one bounded batch gathers evidence, one actor
+command authors or revises the artifact, and one command completes the response.
+Its receipt records both query and source counts.
+
 This keeps the workbench generic. Shopping research is the golden-path scenario,
 not a shopping-specific actor or renderer: the model can search for source facts,
 then use the existing `createArtifact` or `reviseArtifact` commands to compose

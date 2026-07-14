@@ -2,6 +2,7 @@ import type { NeutralManifest, NeutralToolCall } from "ignite-element/tools";
 
 export type CapabilityReceipt = {
 	provider: string;
+	queryCount?: number;
 	sourceCount?: number;
 };
 

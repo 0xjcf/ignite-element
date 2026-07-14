@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import type { CapabilityOwner } from "./capability-federation";
 import { requestMlxWorkbenchModel } from "./model";
 import { component, source } from "./session";
 import { completeSubmittedPrompt } from "./workbench-agent";
-import type { CapabilityOwner } from "./capability-federation";
 
 vi.mock("./model", () => ({
 	requestMlxWorkbenchModel: vi.fn(),
@@ -79,7 +79,16 @@ describe("shared voice workbench agent", () => {
 					{
 						id: "search-prices",
 						command: "searchWeb",
-						input: { query: "bread eggs milk coffee prices Sarasota" },
+						input: {
+							queries: [
+								"bread price Sarasota",
+								"eggs price Sarasota",
+								"milk price Sarasota",
+								"coffee price Sarasota",
+							],
+							country: "us",
+							countPerQuery: 1,
+						},
 					},
 				],
 			})
@@ -102,16 +111,46 @@ describe("shared voice workbench agent", () => {
 									],
 									rows: [
 										{
-											id: "coffee",
-											cells: ["Coffee", "$8.99", "https://example.com/coffee"],
+											id: "bread",
+											cells: ["Bread", 4.49, "https://example.com/bread"],
 										},
+										{
+											id: "eggs",
+											cells: ["Eggs", 5.29, "https://example.com/eggs"],
+										},
+										{
+											id: "milk",
+											cells: ["Milk", 4.19, "https://example.com/milk"],
+										},
+										{
+											id: "coffee",
+											cells: ["Coffee", 8.99, "https://example.com/coffee"],
+										},
+									],
+								},
+								{
+									id: "budget",
+									kind: "table",
+									columns: [
+										{ id: "measure", label: "Budget measure" },
+										{ id: "amount", label: "Amount" },
+									],
+									rows: [
+										{ id: "limit", cells: ["Budget", 100] },
+										{ id: "spent", cells: ["Estimated spend", 22.96] },
+										{ id: "remaining", cells: ["Remaining", 77.04] },
 									],
 								},
 								{
 									id: "spending",
 									kind: "chart",
 									chartType: "bar",
-									series: [{ id: "coffee", label: "Coffee", value: 8.99 }],
+									series: [
+										{ id: "bread", label: "Bread", value: 4.49 },
+										{ id: "eggs", label: "Eggs", value: 5.29 },
+										{ id: "milk", label: "Milk", value: 4.19 },
+										{ id: "coffee", label: "Coffee", value: 8.99 },
+									],
 								},
 							],
 						},
@@ -134,8 +173,10 @@ describe("shared voice workbench agent", () => {
 					name: "searchWeb",
 					inputSchema: {
 						type: "object",
-						properties: { query: { type: "string" } },
-						required: ["query"],
+						properties: {
+							queries: { type: "array", items: { type: "string" } },
+						},
+						required: ["queries"],
 					},
 					gated: false,
 				},
@@ -145,16 +186,54 @@ describe("shared voice workbench agent", () => {
 				ownerId: "web-search",
 				toolName: "searchWeb",
 				data: {
-					query: "bread eggs milk coffee prices Sarasota",
-					results: [
+					searches: [
 						{
-							title: "Coffee",
-							url: "https://example.com/coffee",
-							description: "$8.99",
+							query: "bread price Sarasota",
+							results: [
+								{
+									title: "Bread",
+									url: "https://example.com/bread",
+									description: "$4.49",
+								},
+							],
+						},
+						{
+							query: "eggs price Sarasota",
+							results: [
+								{
+									title: "Eggs",
+									url: "https://example.com/eggs",
+									description: "$5.29",
+								},
+							],
+						},
+						{
+							query: "milk price Sarasota",
+							results: [
+								{
+									title: "Milk",
+									url: "https://example.com/milk",
+									description: "$4.19",
+								},
+							],
+						},
+						{
+							query: "coffee price Sarasota",
+							results: [
+								{
+									title: "Coffee",
+									url: "https://example.com/coffee",
+									description: "$8.99",
+								},
+							],
 						},
 					],
 				},
-				receipt: { provider: "fake-search", sourceCount: 1 },
+				receipt: {
+					provider: "fake-search",
+					queryCount: 4,
+					sourceCount: 4,
+				},
 			}),
 		};
 
@@ -195,12 +274,94 @@ describe("shared voice workbench agent", () => {
 			command: "searchWeb",
 			status: "capability-success",
 			ownerId: "web-search",
-			fact: { results: [{ url: "https://example.com/coffee" }] },
-			receipt: { provider: "fake-search", sourceCount: 1 },
+			fact: {
+				searches: [
+					{ results: [{ url: "https://example.com/bread" }] },
+					{ results: [{ url: "https://example.com/eggs" }] },
+					{ results: [{ url: "https://example.com/milk" }] },
+					{ results: [{ url: "https://example.com/coffee" }] },
+				],
+			},
+			receipt: { provider: "fake-search", queryCount: 4, sourceCount: 4 },
 		});
 		expect(component.getView().activeArtifact).toMatchObject({
 			id: "sourced-budget",
-			nodes: [{ kind: "table" }, { kind: "chart" }],
+			nodes: [
+				{
+					id: "prices",
+					kind: "table",
+					rows: [
+						{
+							id: "bread",
+							cells: ["Bread", 4.49, "https://example.com/bread"],
+						},
+						{ id: "eggs", cells: ["Eggs", 5.29, "https://example.com/eggs"] },
+						{ id: "milk", cells: ["Milk", 4.19, "https://example.com/milk"] },
+						{
+							id: "coffee",
+							cells: ["Coffee", 8.99, "https://example.com/coffee"],
+						},
+					],
+				},
+				{
+					id: "budget",
+					kind: "table",
+					rows: [
+						{ id: "limit", cells: ["Budget", 100] },
+						{ id: "spent", cells: ["Estimated spend", 22.96] },
+						{ id: "remaining", cells: ["Remaining", 77.04] },
+					],
+				},
+				{
+					id: "spending",
+					kind: "chart",
+					series: [
+						{ id: "bread", value: 4.49 },
+						{ id: "eggs", value: 5.29 },
+						{ id: "milk", value: 4.19 },
+						{ id: "coffee", value: 8.99 },
+					],
+				},
+			],
 		});
+	});
+
+	it("rejects a manifest collision before invoking the model", async () => {
+		requestModel.mockReset();
+		const collidingProvider: CapabilityOwner = {
+			id: "bad-provider",
+			manifest: [
+				{
+					name: "createArtifact",
+					inputSchema: { type: "object", properties: {} },
+					gated: false,
+				},
+			],
+			run: vi.fn(async () => ({
+				type: "unavailable" as const,
+				ownerId: "bad-provider",
+				toolName: "createArtifact",
+				message: "not expected",
+			})),
+		};
+
+		await component.execute({
+			command: "submitPrompt",
+			input: { modality: "text", text: "Create a plan" },
+		});
+		await expect(
+			completeSubmittedPrompt(
+				{ baseUrl: "http://127.0.0.1:8080/v1", model: "local-model" },
+				{ modality: "text", text: "Create a plan" },
+				[collidingProvider],
+			),
+		).resolves.toMatchObject({
+			accepted: false,
+			reason: "model-failed",
+			failure: { kind: "configuration" },
+		});
+
+		expect(requestModel).not.toHaveBeenCalled();
+		expect(collidingProvider.run).not.toHaveBeenCalled();
 	});
 });

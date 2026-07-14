@@ -4,15 +4,21 @@ import type {
 	CapabilityOwner,
 } from "./capability-federation";
 
-export type WebSearchInput = { query: string; count: number };
+export type WebSearchInput = {
+	queries: string[];
+	countPerQuery: number;
+	country?: string;
+};
 export type WebSearchResult = {
 	title: string;
 	url: string;
 	description: string;
 };
 export type WebSearchFact = {
-	query: string;
-	results: WebSearchResult[];
+	searches: Array<{
+		query: string;
+		results: WebSearchResult[];
+	}>;
 };
 
 type FetchLike = (
@@ -32,24 +38,35 @@ const webSearchManifest: NeutralManifest = [
 	{
 		name: SEARCH_TOOL_NAME,
 		description:
-			"Search the public web for current source-backed facts. Use the returned URLs as citations in semantic artifacts.",
+			"Search the public web for current source-backed facts using 1 to 8 focused queries. Put returned URLs in semantic table cells as citations.",
 		inputSchema: {
 			type: "object",
 			properties: {
-				query: {
-					type: "string",
-					minLength: 1,
-					maxLength: 400,
-					description: "A focused public-web search query.",
+				queries: {
+					type: "array",
+					minItems: 1,
+					maxItems: 8,
+					items: {
+						type: "string",
+						minLength: 1,
+						maxLength: 400,
+					},
+					description: "One focused query for each fact to research.",
 				},
-				count: {
+				country: {
+					type: "string",
+					minLength: 2,
+					maxLength: 2,
+					description: "Optional two-letter search country code.",
+				},
+				countPerQuery: {
 					type: "number",
 					minimum: 1,
-					maximum: 20,
-					description: "Maximum source results to return.",
+					maximum: 5,
+					description: "Maximum source results per query.",
 				},
 			},
-			required: ["query"],
+			required: ["queries"],
 			additionalProperties: false,
 		},
 		gated: false,
@@ -65,22 +82,57 @@ export const readWebSearchInput = (
 	if (!isRecord(value)) {
 		return { ok: false, issues: ["input: expected an object"] };
 	}
-	const query = typeof value.query === "string" ? value.query.trim() : "";
 	const issues: string[] = [];
-	if (!query) issues.push("query: expected a non-empty string");
-	else if (query.length > 400) issues.push("query: expected at most 400 characters");
+	const queries = Array.isArray(value.queries)
+		? value.queries.map((query, index) => {
+				if (typeof query !== "string" || !query.trim()) {
+					issues.push(`queries.${index}: expected a non-empty string`);
+					return "";
+				}
+				const normalized = query.trim();
+				if (normalized.length > 400) {
+					issues.push(`queries.${index}: expected at most 400 characters`);
+				}
+				return normalized;
+			})
+		: [];
+	if (
+		!Array.isArray(value.queries) ||
+		queries.length < 1 ||
+		queries.length > 8
+	) {
+		issues.unshift("queries: expected between 1 and 8 queries");
+	}
 
-	const requestedCount = value.count ?? 5;
-	const count =
+	const requestedCount = value.countPerQuery ?? 3;
+	const countPerQuery =
 		typeof requestedCount === "number" && Number.isInteger(requestedCount)
 			? requestedCount
 			: Number.NaN;
-	if (!Number.isFinite(count) || count < 1 || count > 20) {
-		issues.push("count: expected an integer from 1 to 20");
+	if (
+		!Number.isFinite(countPerQuery) ||
+		countPerQuery < 1 ||
+		countPerQuery > 5
+	) {
+		issues.push("countPerQuery: expected an integer from 1 to 5");
 	}
+
+	const country =
+		typeof value.country === "string" ? value.country.trim().toLowerCase() : "";
+	if (value.country !== undefined && !/^[a-z]{2}$/.test(country)) {
+		issues.push("country: expected a two-letter country code");
+	}
+
 	return issues.length > 0
 		? { ok: false, issues }
-		: { ok: true, value: { query, count } };
+		: {
+				ok: true,
+				value: {
+					queries,
+					countPerQuery,
+					...(country ? { country } : {}),
+				},
+			};
 };
 
 const isSearchResult = (value: unknown): value is WebSearchResult =>
@@ -88,6 +140,14 @@ const isSearchResult = (value: unknown): value is WebSearchResult =>
 	typeof value.title === "string" &&
 	typeof value.url === "string" &&
 	typeof value.description === "string";
+
+const isSearchFact = (
+	value: unknown,
+): value is WebSearchFact["searches"][number] =>
+	isRecord(value) &&
+	typeof value.query === "string" &&
+	Array.isArray(value.results) &&
+	value.results.every(isSearchResult);
 
 const readCapabilityFact = (value: unknown): CapabilityExecutionFact | null => {
 	if (!isRecord(value) || typeof value.type !== "string") return null;
@@ -98,9 +158,8 @@ const readCapabilityFact = (value: unknown): CapabilityExecutionFact | null => {
 	if (value.type === "success") {
 		if (
 			!isRecord(value.data) ||
-			typeof value.data.query !== "string" ||
-			!Array.isArray(value.data.results) ||
-			!value.data.results.every(isSearchResult) ||
+			!Array.isArray(value.data.searches) ||
+			!value.data.searches.every(isSearchFact) ||
 			!isRecord(value.receipt) ||
 			typeof value.receipt.provider !== "string"
 		) {
@@ -111,11 +170,13 @@ const readCapabilityFact = (value: unknown): CapabilityExecutionFact | null => {
 			ownerId,
 			toolName,
 			data: {
-				query: value.data.query,
-				results: value.data.results,
+				searches: value.data.searches,
 			},
 			receipt: {
 				provider: value.receipt.provider,
+				...(typeof value.receipt.queryCount === "number"
+					? { queryCount: value.receipt.queryCount }
+					: {}),
 				...(typeof value.receipt.sourceCount === "number"
 					? { sourceCount: value.receipt.sourceCount }
 					: {}),

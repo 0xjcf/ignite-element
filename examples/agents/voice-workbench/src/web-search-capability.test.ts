@@ -8,22 +8,30 @@ describe("same-origin web search capability", () => {
 		const fetchMock = vi.fn(
 			async (_input: RequestInfo | URL, _init?: RequestInit) =>
 				new Response(
-				JSON.stringify({
-					type: "success",
-					ownerId: "brave-web-search",
-					toolName: "searchWeb",
-					data: {
-						query: "coffee price Sarasota",
-						results: [
-							{
-								title: "Coffee listing",
-								url: "https://example.com/coffee",
-								description: "$8.99",
-							},
-						],
-					},
-					receipt: { provider: "brave-web-search", sourceCount: 1 },
-				}),
+					JSON.stringify({
+						type: "success",
+						ownerId: "brave-web-search",
+						toolName: "searchWeb",
+						data: {
+							searches: [
+								{
+									query: "coffee price Sarasota",
+									results: [
+										{
+											title: "Coffee listing",
+											url: "https://example.com/coffee",
+											description: "$8.99",
+										},
+									],
+								},
+							],
+						},
+						receipt: {
+							provider: "brave-web-search",
+							queryCount: 1,
+							sourceCount: 1,
+						},
+					}),
 					{ status: 200 },
 				),
 		);
@@ -33,7 +41,7 @@ describe("same-origin web search capability", () => {
 			expect.objectContaining({
 				name: "searchWeb",
 				inputSchema: expect.objectContaining({
-					required: ["query"],
+					required: ["queries"],
 				}),
 			}),
 		]);
@@ -41,14 +49,18 @@ describe("same-origin web search capability", () => {
 			provider.run({
 				id: "search-1",
 				name: "searchWeb",
-				input: { query: "coffee price Sarasota", count: 5 },
+				input: {
+					queries: ["coffee price Sarasota"],
+					country: "US",
+					countPerQuery: 4,
+				},
 			}),
 		).resolves.toMatchObject({
 			type: "success",
 			data: {
-				results: [{ url: "https://example.com/coffee" }],
+				searches: [{ results: [{ url: "https://example.com/coffee" }] }],
 			},
-			receipt: { sourceCount: 1 },
+			receipt: { queryCount: 1, sourceCount: 1 },
 		});
 		expect(fetchMock).toHaveBeenCalledWith(
 			"/api/capabilities/web-search",
@@ -59,8 +71,9 @@ describe("same-origin web search capability", () => {
 		);
 		const [, init] = fetchMock.mock.calls[0] ?? [];
 		expect(JSON.parse(String(init?.body))).toEqual({
-			query: "coffee price Sarasota",
-			count: 5,
+			queries: ["coffee price Sarasota"],
+			country: "us",
+			countPerQuery: 4,
 		});
 		expect(JSON.stringify(init)).not.toContain("Subscription");
 	});
@@ -72,23 +85,72 @@ describe("same-origin web search capability", () => {
 		const provider = createWebSearchCapability({ fetch: fetchMock });
 
 		await expect(
-			provider.run({ name: "searchWeb", input: { query: "" } }),
+			provider.run({ name: "searchWeb", input: { queries: [] } }),
 		).resolves.toEqual({
 			type: "validation",
 			ownerId: "web-search",
 			toolName: "searchWeb",
 			message: "The web search input is invalid.",
-			issues: ["query: expected a non-empty string"],
+			issues: ["queries: expected between 1 and 8 queries"],
+		});
+		expect(fetchMock).not.toHaveBeenCalled();
+		await expect(
+			provider.run({
+				name: "searchWeb",
+				input: {
+					queries: Array.from({ length: 9 }, (_, index) => `item ${index}`),
+					country: "USA",
+					countPerQuery: 6,
+				},
+			}),
+		).resolves.toMatchObject({
+			type: "validation",
+			issues: [
+				"queries: expected between 1 and 8 queries",
+				"countPerQuery: expected an integer from 1 to 5",
+				"country: expected a two-letter country code",
+			],
 		});
 		expect(fetchMock).not.toHaveBeenCalled();
 
 		await expect(
-			provider.run({ name: "searchWeb", input: { query: "coffee" } }),
+			provider.run({ name: "searchWeb", input: { queries: ["coffee"] } }),
 		).resolves.toEqual({
 			type: "provider-failure",
 			ownerId: "web-search",
 			toolName: "searchWeb",
 			message: "The web search capability could not be reached.",
+		});
+	});
+
+	it("returns a deterministic timeout fact", async () => {
+		vi.useFakeTimers();
+		const fetchMock = vi.fn(
+			async (_input: RequestInfo | URL, init?: RequestInit) =>
+				new Promise<Response>((_resolve, reject) => {
+					init?.signal?.addEventListener(
+						"abort",
+						() => reject(new DOMException("aborted", "AbortError")),
+						{ once: true },
+					);
+				}),
+		);
+		const provider = createWebSearchCapability({
+			fetch: fetchMock,
+			timeoutMs: 25,
+		});
+
+		const result = provider.run({
+			name: "searchWeb",
+			input: { queries: ["coffee price"] },
+		});
+		await vi.advanceTimersByTimeAsync(25);
+
+		await expect(result).resolves.toEqual({
+			type: "timeout",
+			ownerId: "web-search",
+			toolName: "searchWeb",
+			message: "The web search capability timed out.",
 		});
 	});
 });

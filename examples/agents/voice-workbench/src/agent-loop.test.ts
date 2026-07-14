@@ -98,7 +98,7 @@ describe("voice/text workbench model turn", () => {
 				{
 					id: "search-prices",
 					command: "searchWeb",
-					input: { query: "typical grocery prices" },
+					input: { queries: ["typical grocery prices"] },
 				},
 			],
 		});
@@ -114,10 +114,18 @@ describe("voice/text workbench model turn", () => {
 				ownerId: "web-search",
 				status: "capability-success",
 				fact: {
-					query: "typical grocery prices",
-					results: [{ title: "Grocer", url: "https://example.com" }],
+					searches: [
+						{
+							query: "typical grocery prices",
+							results: [{ title: "Grocer", url: "https://example.com" }],
+						},
+					],
 				},
-				receipt: { provider: "brave-web-search", sourceCount: 1 },
+				receipt: {
+					provider: "brave-web-search",
+					queryCount: 1,
+					sourceCount: 1,
+				},
 				view: { artifacts: [] },
 				events: [],
 			}),
@@ -132,6 +140,72 @@ describe("voice/text workbench model turn", () => {
 						expect.objectContaining({
 							status: "capability-success",
 							ownerId: "web-search",
+						}),
+					],
+				},
+			},
+		});
+	});
+
+	it("observes external evidence before a sibling artifact mutation", () => {
+		const protocol = modelTurn({
+			ok: true,
+			calls: [
+				{
+					id: "search-prices",
+					command: "searchWeb",
+					input: { queries: ["bread price"] },
+				},
+				{
+					id: "create-budget",
+					command: "createArtifact",
+					input: { id: "budget", nodes },
+				},
+			],
+		});
+
+		expect(protocol.next()).toMatchObject({
+			done: false,
+			value: { id: "search-prices", command: "searchWeb" },
+		});
+		expect(
+			protocol.next({
+				id: "search-prices",
+				command: "searchWeb",
+				ownerId: "web-search",
+				status: "capability-success",
+				fact: {
+					searches: [
+						{
+							query: "bread price",
+							results: [{ url: "https://example.com/bread" }],
+						},
+					],
+				},
+				receipt: {
+					provider: "brave-web-search",
+					queryCount: 1,
+					sourceCount: 1,
+				},
+				view: { artifacts: [] },
+				events: [],
+			}),
+		).toMatchObject({
+			done: true,
+			value: {
+				accepted: false,
+				reason: "response-incomplete",
+				trace: [{ command: "searchWeb", accepted: true }],
+				exchange: {
+					results: [
+						expect.objectContaining({
+							id: "search-prices",
+							status: "capability-success",
+						}),
+						expect.objectContaining({
+							id: "create-budget",
+							status: "deferred",
+							reason: "observe-tool-result-before-continuing",
 						}),
 					],
 				},

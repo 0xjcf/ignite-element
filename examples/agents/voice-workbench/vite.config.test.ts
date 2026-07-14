@@ -6,8 +6,9 @@ import {
 
 describe("voice workbench Vite capability boundary", () => {
 	it("publishes only availability while the route keeps the Brave key server-side", async () => {
-		const fetchMock = vi.fn(async () =>
-			new Response(JSON.stringify({ web: { results: [] } }), { status: 200 }),
+		const fetchMock = vi.fn(
+			async () =>
+				new Response(JSON.stringify({ web: { results: [] } }), { status: 200 }),
 		);
 		const config = createVoiceWorkbenchViteConfig({
 			braveSearchApiKey: "server-secret",
@@ -26,7 +27,10 @@ describe("voice workbench Vite capability boundary", () => {
 			handleWebSearchCapabilityRequest(
 				{
 					method: "POST",
-					body: JSON.stringify({ query: "coffee", count: 3 }),
+					body: JSON.stringify({
+						queries: ["coffee"],
+						countPerQuery: 3,
+					}),
 				},
 				{ apiKey: "server-secret", fetch: fetchMock },
 			),
@@ -50,7 +54,7 @@ describe("voice workbench Vite capability boundary", () => {
 		});
 		await expect(
 			handleWebSearchCapabilityRequest(
-				{ method: "POST", body: JSON.stringify({ query: "coffee" }) },
+				{ method: "POST", body: JSON.stringify({ queries: ["coffee"] }) },
 				{ apiKey: "", fetch: fetchMock },
 			),
 		).resolves.toMatchObject({

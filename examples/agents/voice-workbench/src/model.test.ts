@@ -233,6 +233,12 @@ describe("consumer-configured MLX workbench model", () => {
 		expect(body.messages[0].content).toContain(
 			"never claim or promise future research",
 		);
+		expect(body.messages[0].content).toContain(
+			"source URLs in semantic table cells",
+		);
+		expect(body.messages[0].content).not.toContain(
+			"table cells or text so the browser can render citations",
+		);
 	});
 
 	it("continues from correlated tool results before the model audits and completes", async () => {
@@ -291,7 +297,7 @@ describe("consumer-configured MLX workbench model", () => {
 						{
 							id: "search",
 							command: "searchWeb",
-							input: { query: "release checklist sources" },
+							input: { queries: ["release checklist sources"] },
 						},
 					],
 					results: [
@@ -320,16 +326,21 @@ describe("consumer-configured MLX workbench model", () => {
 							status: "capability-success",
 							ownerId: "web-search",
 							fact: {
-								query: "release checklist sources",
-								results: [
+								searches: [
 									{
-										title: "Release guide",
-										url: "https://example.com/release",
+										query: "release checklist sources",
+										results: [
+											{
+												title: "Release guide",
+												url: "https://example.com/release",
+											},
+										],
 									},
 								],
 							},
 							receipt: {
 								provider: "brave-web-search",
+								queryCount: 1,
 								sourceCount: 1,
 							},
 							view: {
@@ -381,9 +392,13 @@ describe("consumer-configured MLX workbench model", () => {
 				outcome: "capability-success",
 				ownerId: "web-search",
 				fact: {
-					results: [{ url: "https://example.com/release" }],
+					searches: [{ results: [{ url: "https://example.com/release" }] }],
 				},
-				receipt: { provider: "brave-web-search", sourceCount: 1 },
+				receipt: {
+					provider: "brave-web-search",
+					queryCount: 1,
+					sourceCount: 1,
+				},
 			},
 		});
 		expect(body.messages[0].content).toContain(
