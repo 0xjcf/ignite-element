@@ -203,6 +203,7 @@ describe("voice workbench domain", () => {
 		const initial = createInitialSession("session-1");
 		expect(initial).toMatchObject({
 			documents: [],
+			artifactRevisions: [],
 			speech: null,
 		});
 		const submitted = reduceConversationSession(initial, {
@@ -220,6 +221,14 @@ describe("voice workbench domain", () => {
 			accepted: true,
 			session: {
 				documents: [
+					{
+						id: "launch-plan",
+						title: "Launch plan",
+						revision: "1",
+						nodes: checklist,
+					},
+				],
+				artifactRevisions: [
 					{
 						id: "launch-plan",
 						title: "Launch plan",
@@ -248,9 +257,19 @@ describe("voice workbench domain", () => {
 		});
 		expect(revised).toMatchObject({
 			accepted: true,
-			session: { documents: [{ revision: "2", nodes: revisedNodes }] },
+			session: {
+				documents: [{ revision: "2", nodes: revisedNodes }],
+				artifactRevisions: [
+					{ id: "launch-plan", revision: "1", nodes: checklist },
+					{ id: "launch-plan", revision: "2", nodes: revisedNodes },
+				],
+			},
 		});
 		expect(created.session.documents[0]?.revision).toBe("1");
+		expect(created.session.artifactRevisions).toHaveLength(1);
+		expect(revised.accepted && revised.session.artifactRevisions[0]).toBe(
+			created.session.documents[0],
+		);
 	});
 
 	it("returns validation and revision-conflict facts without mutation", () => {

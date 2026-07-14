@@ -55,6 +55,7 @@ export type ConversationSession = {
 	factSequence: number;
 	messages: readonly ConversationMessage[];
 	documents: readonly ProjectionDocument[];
+	artifactRevisions: readonly ProjectionDocument[];
 	speech: ProjectionSpeechRequest | null;
 	activeArtifactId: string | null;
 	response: CompleteResponseInput | null;
@@ -83,6 +84,7 @@ export function createInitialSession(sessionId: string): ConversationSession {
 		factSequence: 0,
 		messages: [],
 		documents: [],
+		artifactRevisions: [],
 		speech: null,
 		activeArtifactId: null,
 		response: null,
@@ -321,6 +323,7 @@ export function reduceConversationSession(
 			};
 			return accepted(session, {
 				documents: [...session.documents, document],
+				artifactRevisions: [...session.artifactRevisions, document],
 				activeArtifactId: document.id,
 				lastFact: {
 					type: "artifact-created",
@@ -342,13 +345,20 @@ export function reduceConversationSession(
 				return rejected(session, "validation");
 			}
 			const revision = nextDocumentRevision(current.revision);
+			const revisedDocument: ProjectionDocument = {
+				...current,
+				nodes: action.input.nodes,
+				revision,
+			};
 			const documents = session.documents.map((document, documentIndex) =>
-				documentIndex === index
-					? { ...document, nodes: action.input.nodes, revision }
-					: document,
+				documentIndex === index ? revisedDocument : document,
 			);
 			return accepted(session, {
 				documents,
+				artifactRevisions: [
+					...session.artifactRevisions,
+					revisedDocument,
+				],
 				activeArtifactId: current.id,
 				lastFact: {
 					type: "artifact-revised",

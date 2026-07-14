@@ -283,6 +283,12 @@ describe("voice workbench headless component", () => {
 				]),
 			}),
 		]);
+		expect(component.getSnapshot().context.artifactRevisions).toEqual([
+			expect.objectContaining({ id: "decision", revision: "1" }),
+		]);
+		expect(component.getView().modelContext).not.toHaveProperty(
+			"artifactRevisions",
+		);
 		expect(component.getView()).toMatchObject({
 			activeArtifact: { id: "decision", revision: "1" },
 		});
@@ -308,6 +314,7 @@ describe("voice workbench headless component", () => {
 				},
 			})
 		).expectEvent({ type: "artifact-rejected", reason: "conflict" });
+		expect(component.getSnapshot().context.artifactRevisions).toHaveLength(1);
 
 		(
 			await igniteTest(component).when({
