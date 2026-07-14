@@ -454,10 +454,7 @@ export function reduceConversationSession(
 				documents: session.documents.map((document, documentIndex) =>
 					documentIndex === currentIndex ? restoredDocument : document,
 				),
-				artifactRevisions: [
-					...session.artifactRevisions,
-					restoredDocument,
-				],
+				artifactRevisions: [...session.artifactRevisions, restoredDocument],
 				activeArtifactId: current.id,
 				lastFact: {
 					type: "artifact-restored",
