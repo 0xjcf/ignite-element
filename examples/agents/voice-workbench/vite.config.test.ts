@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
 	createVoiceWorkbenchViteConfig,
 	handleWebSearchCapabilityRequest,
+	MAX_CAPABILITY_REQUEST_BYTES,
+	readCapabilityRequestBody,
 } from "./vite.config";
 
 describe("voice workbench Vite capability boundary", () => {
@@ -82,6 +84,39 @@ describe("voice workbench Vite capability boundary", () => {
 		).resolves.toMatchObject({
 			status: 400,
 			body: { type: "validation" },
+		});
+	});
+
+	it("rejects oversized capability bodies before buffering later chunks", async () => {
+		const observed: string[] = [];
+		async function* chunks() {
+			observed.push("bounded");
+			yield new Uint8Array(MAX_CAPABILITY_REQUEST_BYTES);
+			observed.push("overflow");
+			yield new Uint8Array(1);
+			observed.push("unread");
+			yield new Uint8Array(1);
+		}
+
+		await expect(readCapabilityRequestBody(chunks())).resolves.toEqual({
+			ok: false,
+			reason: "too-large",
+		});
+		expect(observed).toEqual(["bounded", "overflow"]);
+		await expect(
+			handleWebSearchCapabilityRequest(
+				{
+					method: "POST",
+					body: "x".repeat(MAX_CAPABILITY_REQUEST_BYTES + 1),
+				},
+				{ apiKey: "key" },
+			),
+		).resolves.toMatchObject({
+			status: 413,
+			body: {
+				type: "validation",
+				message: "The web search request is too large.",
+			},
 		});
 	});
 });

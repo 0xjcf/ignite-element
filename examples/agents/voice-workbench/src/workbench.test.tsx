@@ -345,6 +345,49 @@ describe("voice workbench accessible JSX", () => {
 			revision: "3",
 		});
 
+		await component.execute({
+			command: "recordTurn",
+			input: {
+				type: "accepted",
+				trace: [{ command: "searchWeb", accepted: true }],
+				capability: {
+					provider: "brave-web-search",
+					tool: "searchWeb",
+					outcome: "success",
+					queryCount: 4,
+					sourceCount: 4,
+				},
+			},
+		});
+		expect(
+			bridge.host.shadowRoot?.querySelector(".capability-proof")?.textContent,
+		).toContain("brave-web-search · searchWeb");
+		expect(
+			bridge.host.shadowRoot?.querySelector(".capability-proof")?.textContent,
+		).toContain("success · 4 queries · 4 sources");
+
+		await component.execute({
+			command: "recordTurn",
+			input: {
+				type: "model-failed",
+				failureKind: "configuration",
+				message:
+					"Capability configuration rejected duplicate tool names: searchWeb.",
+				trace: [],
+				collision: {
+					outcome: "collision",
+					toolNames: ["searchWeb"],
+					owners: ["workbench-component", "duplicate-provider"],
+				},
+			},
+		});
+		expect(
+			bridge.host.shadowRoot?.querySelector(".collision-proof")?.textContent,
+		).toContain("Capability manifest collision");
+		expect(
+			bridge.host.shadowRoot?.querySelector(".collision-proof")?.textContent,
+		).toContain("searchWeb · workbench-component + duplicate-provider");
+
 		bridge.stop();
 		source.stop();
 	});

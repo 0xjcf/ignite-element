@@ -26,6 +26,7 @@ export type ModelToolFeedback = {
 	ownerId?: string;
 	reason?: string;
 	issues?: readonly string[];
+	providerStatus?: number;
 	fact?: unknown;
 	receipt?: { provider: string; queryCount?: number; sourceCount?: number };
 	view: unknown;

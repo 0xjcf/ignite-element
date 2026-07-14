@@ -324,6 +324,111 @@ describe("shared voice workbench agent", () => {
 				},
 			],
 		});
+		expect(component.getView().presentation.turn).toMatchObject({
+			type: "accepted",
+			capability: {
+				provider: "fake-search",
+				tool: "searchWeb",
+				outcome: "success",
+				queryCount: 4,
+				sourceCount: 4,
+			},
+		});
+	});
+
+	it("preserves a sanitized provider failure status after completion", async () => {
+		requestModel.mockReset();
+		requestModel
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						command: "createArtifact",
+						input: {
+							id: "provider-status-proof",
+							nodes: [
+								{
+									id: "summary",
+									kind: "text",
+									text: "Provider status proof",
+								},
+							],
+						},
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						id: "failed-search",
+						command: "searchWeb",
+						input: { queries: ["current price"] },
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						command: "completeResponse",
+						input: { text: "The provider status was recorded." },
+					},
+				],
+			});
+		const failedSearch: CapabilityOwner = {
+			id: "catalog-search",
+			manifest: [
+				{
+					name: "searchWeb",
+					inputSchema: { type: "object", properties: {} },
+					gated: false,
+				},
+			],
+			run: async () => ({
+				type: "provider-failure",
+				ownerId: "catalog-search",
+				toolName: "searchWeb",
+				message: "Sanitized provider rejection.",
+				status: 429,
+			}),
+		};
+
+		await component.execute({
+			command: "submitPrompt",
+			input: { modality: "text", text: "Record a provider status" },
+		});
+		await expect(
+			completeSubmittedPrompt(
+				{ baseUrl: "http://127.0.0.1:8080/v1", model: "local-model" },
+				{ modality: "text", text: "Record a provider status" },
+				[failedSearch],
+			),
+		).resolves.toMatchObject({ accepted: true });
+
+		expect(
+			requestModel.mock.calls[2]?.[1].history[1]?.results[0],
+		).toMatchObject({
+			status: "capability-failure",
+			providerStatus: 429,
+			fact: {
+				type: "provider-failure",
+				message: "Sanitized provider rejection.",
+				status: 429,
+			},
+		});
+		expect(component.getView().presentation.turn).toMatchObject({
+			type: "accepted",
+			capability: {
+				provider: "catalog-search",
+				tool: "searchWeb",
+				outcome: "provider-failure",
+				status: 429,
+			},
+		});
+		expect(JSON.stringify(component.getView().presentation.turn)).not.toContain(
+			"secret",
+		);
 	});
 
 	it("rejects a manifest collision before invoking the model", async () => {
@@ -358,10 +463,24 @@ describe("shared voice workbench agent", () => {
 		).resolves.toMatchObject({
 			accepted: false,
 			reason: "model-failed",
-			failure: { kind: "configuration" },
+			failure: {
+				kind: "configuration",
+				message:
+					"Capability configuration rejected duplicate tool names: createArtifact.",
+			},
 		});
 
 		expect(requestModel).not.toHaveBeenCalled();
 		expect(collidingProvider.run).not.toHaveBeenCalled();
+		expect(component.getView().presentation.turn).toMatchObject({
+			type: "model-failed",
+			message:
+				"Capability configuration rejected duplicate tool names: createArtifact.",
+			collision: {
+				outcome: "collision",
+				toolNames: ["createArtifact"],
+				owners: ["workbench-component", "bad-provider"],
+			},
+		});
 	});
 });

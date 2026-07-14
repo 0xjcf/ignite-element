@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createWebSearchCapability } from "./web-search-capability";
+import {
+	createWebSearchCapability,
+	WEB_SEARCH_LIMITS,
+} from "./web-search-capability";
 
 afterEach(() => vi.useRealTimers());
 
@@ -121,6 +124,69 @@ describe("same-origin web search capability", () => {
 			toolName: "searchWeb",
 			message: "The web search capability could not be reached.",
 		});
+	});
+
+	it("sanitizes oversized same-origin evidence before returning it", async () => {
+		const fetchMock = vi.fn(
+			async () =>
+				new Response(
+					JSON.stringify({
+						type: "success",
+						ownerId: "brave-web-search",
+						toolName: "searchWeb",
+						data: {
+							searches: Array.from({ length: 9 }, (_, queryIndex) => ({
+								query: `query ${queryIndex}`,
+								results: Array.from({ length: 5 }, (_, resultIndex) => ({
+									title: "T".repeat(WEB_SEARCH_LIMITS.titleLength + 20),
+									url: `https://example.com/${queryIndex}/${resultIndex}`,
+									description: "D".repeat(
+										WEB_SEARCH_LIMITS.descriptionLength + 20,
+									),
+								})),
+							})),
+						},
+						receipt: {
+							provider: "P".repeat(200),
+							queryCount: 999,
+							sourceCount: 999,
+						},
+					}),
+					{ status: 200 },
+				),
+		);
+		const provider = createWebSearchCapability({ fetch: fetchMock });
+		const result = await provider.run({
+			name: "searchWeb",
+			input: { queries: ["bounded evidence"] },
+		});
+
+		expect(result).toMatchObject({
+			type: "success",
+			receipt: {
+				queryCount: 8,
+				sourceCount: WEB_SEARCH_LIMITS.totalSources,
+			},
+		});
+		if (result.type !== "success") return;
+		const fact = result.data as {
+			searches: Array<{
+				results: Array<{ title: string; description: string }>;
+			}>;
+		};
+		expect(fact.searches).toHaveLength(8);
+		expect(
+			fact.searches.reduce((total, search) => total + search.results.length, 0),
+		).toBe(WEB_SEARCH_LIMITS.totalSources);
+		expect(fact.searches[0]?.results[0]?.title).toHaveLength(
+			WEB_SEARCH_LIMITS.titleLength,
+		);
+		expect(fact.searches[0]?.results[0]?.description).toHaveLength(
+			WEB_SEARCH_LIMITS.descriptionLength,
+		);
+		expect(result.receipt.provider).toHaveLength(
+			WEB_SEARCH_LIMITS.providerLength,
+		);
 	});
 
 	it("returns a deterministic timeout fact", async () => {

@@ -51,6 +51,13 @@ the five-round model budget: one bounded batch gathers evidence, one actor
 command authors or revises the artifact, and one command completes the response.
 Its receipt records both query and source counts.
 
+The same-origin route rejects request bodies larger than 16 KiB before buffering
+additional chunks. Search titles, URLs, descriptions, per-query results, and the
+total source set are bounded before evidence enters model context. The latest
+sanitized provider receipt or manifest collision is retained in presentation
+state and shown in the **Authorized turn trace** panel; raw responses and server
+credentials are never retained there.
+
 This keeps the workbench generic. Shopping research is the golden-path scenario,
 not a shopping-specific actor or renderer: the model can search for source facts,
 then use the existing `createArtifact` or `reviseArtifact` commands to compose

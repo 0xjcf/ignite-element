@@ -1,8 +1,8 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin, type UserConfig } from "vite";
 import {
-	runBraveWebSearch,
 	type BraveWebSearchOptions,
+	runBraveWebSearch,
 } from "./server/brave-web-search";
 
 const resolvePath = (path: string) =>
@@ -29,6 +29,8 @@ type VoiceWorkbenchViteOptions = {
 	fetch?: BraveWebSearchOptions["fetch"];
 };
 
+export const MAX_CAPABILITY_REQUEST_BYTES = 16_384;
+
 const routeFailure = (
 	type: "validation" | "provider-failure",
 	message: string,
@@ -52,6 +54,12 @@ export async function handleWebSearchCapabilityRequest(
 			),
 		};
 	}
+	if (Buffer.byteLength(request.body, "utf8") > MAX_CAPABILITY_REQUEST_BYTES) {
+		return {
+			status: 413,
+			body: routeFailure("validation", "The web search request is too large."),
+		};
+	}
 	let input: unknown;
 	try {
 		input = JSON.parse(request.body);
@@ -66,26 +74,35 @@ export async function handleWebSearchCapabilityRequest(
 	}
 	return {
 		status: 200,
-		body: await runBraveWebSearch(
-			{ name: "searchWeb", input },
-			options,
-		),
+		body: await runBraveWebSearch({ name: "searchWeb", input }, options),
 	};
 }
 
-const readBody = async (
+export const readCapabilityRequestBody = async (
 	request: AsyncIterable<unknown>,
-): Promise<string | null> => {
+): Promise<
+	{ ok: true; body: string } | { ok: false; reason: "invalid" | "too-large" }
+> => {
 	try {
 		const chunks: Uint8Array[] = [];
+		let totalBytes = 0;
 		for await (const chunk of request) {
-			if (typeof chunk === "string") chunks.push(Buffer.from(chunk));
-			else if (chunk instanceof Uint8Array) chunks.push(chunk);
-			else return null;
+			const byteLength =
+				typeof chunk === "string"
+					? Buffer.byteLength(chunk, "utf8")
+					: chunk instanceof Uint8Array
+						? chunk.byteLength
+						: null;
+			if (byteLength === null) return { ok: false, reason: "invalid" };
+			totalBytes += byteLength;
+			if (totalBytes > MAX_CAPABILITY_REQUEST_BYTES) {
+				return { ok: false, reason: "too-large" };
+			}
+			chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
 		}
-		return Buffer.concat(chunks).toString("utf8");
+		return { ok: true, body: Buffer.concat(chunks).toString("utf8") };
 	} catch {
-		return null;
+		return { ok: false, reason: "invalid" };
 	}
 };
 
@@ -95,23 +112,24 @@ const capabilityPlugin = (options: VoiceWorkbenchViteOptions): Plugin => ({
 		server.middlewares.use(
 			"/api/capabilities/web-search",
 			async (request, response) => {
-				const body = await readBody(request);
-				const result =
-					body === null
-						? {
-								status: 400,
-								body: routeFailure(
-									"validation",
-									"The web search request could not be read.",
-								),
-							}
-						: await handleWebSearchCapabilityRequest(
-								{ method: request.method, body },
-								{
-									apiKey: options.braveSearchApiKey,
-									fetch: options.fetch,
-								},
-							);
+				const body = await readCapabilityRequestBody(request);
+				const result = !body.ok
+					? {
+							status: body.reason === "too-large" ? 413 : 400,
+							body: routeFailure(
+								"validation",
+								body.reason === "too-large"
+									? "The web search request is too large."
+									: "The web search request could not be read.",
+							),
+						}
+					: await handleWebSearchCapabilityRequest(
+							{ method: request.method, body: body.body },
+							{
+								apiKey: options.braveSearchApiKey,
+								fetch: options.fetch,
+							},
+						);
 				response.statusCode = result.status;
 				response.setHeader("content-type", "application/json; charset=utf-8");
 				response.end(JSON.stringify(result.body));

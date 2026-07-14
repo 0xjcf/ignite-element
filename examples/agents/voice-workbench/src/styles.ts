@@ -323,6 +323,7 @@ export const workbenchStyles = `
 	.trace-copy { display: grid; gap: 0.02rem; }
 	.trace-copy strong { color: var(--foreground-soft); font-family: var(--font-mono); font-size: 0.61rem; }
 	.trace-copy span { color: var(--muted); font-size: 0.57rem; }
+	.collision-proof .trace-marker { border-color: var(--danger); background: var(--danger); }
 	.commit-list { padding: var(--space-2); display: grid; gap: var(--space-2); }
 	.commit { display: grid; grid-template-columns: auto 1fr auto; gap: var(--space-2); align-items: center; padding: 0.58rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--background-elevated); }
 	.commit-icon { width: 1.65rem; height: 1.65rem; display: grid; place-items: center; border-radius: 0.5rem; background: var(--primary-wash); color: var(--primary); }

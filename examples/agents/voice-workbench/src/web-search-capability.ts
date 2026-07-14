@@ -21,6 +21,18 @@ export type WebSearchFact = {
 	}>;
 };
 
+export const WEB_SEARCH_LIMITS = Object.freeze({
+	queryCount: 8,
+	queryLength: 400,
+	resultsPerQuery: 5,
+	totalSources: 24,
+	titleLength: 160,
+	urlLength: 2_048,
+	descriptionLength: 500,
+	providerLength: 80,
+	candidateResultsPerQuery: 20,
+});
+
 type FetchLike = (
 	input: RequestInfo | URL,
 	init?: RequestInit,
@@ -45,11 +57,11 @@ const webSearchManifest: NeutralManifest = [
 				queries: {
 					type: "array",
 					minItems: 1,
-					maxItems: 8,
+					maxItems: WEB_SEARCH_LIMITS.queryCount,
 					items: {
 						type: "string",
 						minLength: 1,
-						maxLength: 400,
+						maxLength: WEB_SEARCH_LIMITS.queryLength,
 					},
 					description: "One focused query for each fact to research.",
 				},
@@ -62,7 +74,7 @@ const webSearchManifest: NeutralManifest = [
 				countPerQuery: {
 					type: "number",
 					minimum: 1,
-					maximum: 5,
+					maximum: WEB_SEARCH_LIMITS.resultsPerQuery,
 					description: "Maximum source results per query.",
 				},
 			},
@@ -90,8 +102,10 @@ export const readWebSearchInput = (
 					return "";
 				}
 				const normalized = query.trim();
-				if (normalized.length > 400) {
-					issues.push(`queries.${index}: expected at most 400 characters`);
+				if (normalized.length > WEB_SEARCH_LIMITS.queryLength) {
+					issues.push(
+						`queries.${index}: expected at most ${WEB_SEARCH_LIMITS.queryLength} characters`,
+					);
 				}
 				return normalized;
 			})
@@ -99,7 +113,7 @@ export const readWebSearchInput = (
 	if (
 		!Array.isArray(value.queries) ||
 		queries.length < 1 ||
-		queries.length > 8
+		queries.length > WEB_SEARCH_LIMITS.queryCount
 	) {
 		issues.unshift("queries: expected between 1 and 8 queries");
 	}
@@ -112,7 +126,7 @@ export const readWebSearchInput = (
 	if (
 		!Number.isFinite(countPerQuery) ||
 		countPerQuery < 1 ||
-		countPerQuery > 5
+		countPerQuery > WEB_SEARCH_LIMITS.resultsPerQuery
 	) {
 		issues.push("countPerQuery: expected an integer from 1 to 5");
 	}
@@ -135,19 +149,72 @@ export const readWebSearchInput = (
 			};
 };
 
-const isSearchResult = (value: unknown): value is WebSearchResult =>
-	isRecord(value) &&
-	typeof value.title === "string" &&
-	typeof value.url === "string" &&
-	typeof value.description === "string";
+const boundedText = (value: string, maximum: number): string =>
+	value.trim().slice(0, maximum);
 
-const isSearchFact = (
+export const sanitizeWebSearchResult = (
 	value: unknown,
-): value is WebSearchFact["searches"][number] =>
-	isRecord(value) &&
-	typeof value.query === "string" &&
-	Array.isArray(value.results) &&
-	value.results.every(isSearchResult);
+): WebSearchResult | null => {
+	if (
+		!isRecord(value) ||
+		typeof value.title !== "string" ||
+		typeof value.url !== "string"
+	) {
+		return null;
+	}
+	const urlValue = value.url.trim();
+	if (!urlValue || urlValue.length > WEB_SEARCH_LIMITS.urlLength) return null;
+	try {
+		const url = new URL(urlValue);
+		if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+	} catch {
+		return null;
+	}
+	return {
+		title: boundedText(value.title, WEB_SEARCH_LIMITS.titleLength),
+		url: urlValue,
+		description:
+			typeof value.description === "string"
+				? boundedText(value.description, WEB_SEARCH_LIMITS.descriptionLength)
+				: "",
+	};
+};
+
+const sanitizeSearches = (value: unknown): WebSearchFact["searches"] | null => {
+	if (!Array.isArray(value)) return null;
+	let remainingSources = WEB_SEARCH_LIMITS.totalSources;
+	const searches: WebSearchFact["searches"] = [];
+	for (const candidate of value.slice(0, WEB_SEARCH_LIMITS.queryCount)) {
+		if (
+			!isRecord(candidate) ||
+			typeof candidate.query !== "string" ||
+			!Array.isArray(candidate.results)
+		) {
+			return null;
+		}
+		const results: WebSearchResult[] = [];
+		for (const source of candidate.results.slice(
+			0,
+			WEB_SEARCH_LIMITS.candidateResultsPerQuery,
+		)) {
+			if (
+				results.length >= WEB_SEARCH_LIMITS.resultsPerQuery ||
+				remainingSources <= 0
+			) {
+				break;
+			}
+			const sanitized = sanitizeWebSearchResult(source);
+			if (!sanitized) continue;
+			results.push(sanitized);
+			remainingSources -= 1;
+		}
+		searches.push({
+			query: boundedText(candidate.query, WEB_SEARCH_LIMITS.queryLength),
+			results,
+		});
+	}
+	return searches;
+};
 
 const readCapabilityFact = (value: unknown): CapabilityExecutionFact | null => {
 	if (!isRecord(value) || typeof value.type !== "string") return null;
@@ -156,10 +223,11 @@ const readCapabilityFact = (value: unknown): CapabilityExecutionFact | null => {
 	const toolName =
 		typeof value.toolName === "string" ? value.toolName : SEARCH_TOOL_NAME;
 	if (value.type === "success") {
+		const searches = isRecord(value.data)
+			? sanitizeSearches(value.data.searches)
+			: null;
 		if (
-			!isRecord(value.data) ||
-			!Array.isArray(value.data.searches) ||
-			!value.data.searches.every(isSearchFact) ||
+			!searches ||
 			!isRecord(value.receipt) ||
 			typeof value.receipt.provider !== "string"
 		) {
@@ -169,17 +237,17 @@ const readCapabilityFact = (value: unknown): CapabilityExecutionFact | null => {
 			type: "success",
 			ownerId,
 			toolName,
-			data: {
-				searches: value.data.searches,
-			},
+			data: { searches },
 			receipt: {
-				provider: value.receipt.provider,
-				...(typeof value.receipt.queryCount === "number"
-					? { queryCount: value.receipt.queryCount }
-					: {}),
-				...(typeof value.receipt.sourceCount === "number"
-					? { sourceCount: value.receipt.sourceCount }
-					: {}),
+				provider: boundedText(
+					value.receipt.provider,
+					WEB_SEARCH_LIMITS.providerLength,
+				),
+				queryCount: searches.length,
+				sourceCount: searches.reduce(
+					(total, search) => total + search.results.length,
+					0,
+				),
 			},
 		};
 	}

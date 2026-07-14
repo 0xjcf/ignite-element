@@ -346,6 +346,9 @@ function requestBody(
 							...(result.ownerId ? { ownerId: result.ownerId } : {}),
 							...(result.reason ? { reason: result.reason } : {}),
 							...(result.issues ? { issues: result.issues } : {}),
+							...(result.providerStatus === undefined
+								? {}
+								: { providerStatus: result.providerStatus }),
 							...(result.fact === undefined ? {} : { fact: result.fact }),
 							...(result.receipt ? { receipt: result.receipt } : {}),
 							events: result.events,

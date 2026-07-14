@@ -2,6 +2,8 @@ import type { NeutralToolCall } from "ignite-element/tools";
 import type { CapabilityExecutionFact } from "../src/capability-federation";
 import {
 	readWebSearchInput,
+	sanitizeWebSearchResult,
+	WEB_SEARCH_LIMITS,
 	type WebSearchFact,
 	type WebSearchInput,
 	type WebSearchResult,
@@ -36,28 +38,6 @@ const failure = (
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
-const safeSource = (value: unknown): WebSearchResult | null => {
-	if (
-		!isRecord(value) ||
-		typeof value.title !== "string" ||
-		typeof value.url !== "string"
-	) {
-		return null;
-	}
-	try {
-		const url = new URL(value.url);
-		if (url.protocol !== "https:" && url.protocol !== "http:") return null;
-	} catch {
-		return null;
-	}
-	return {
-		title: value.title.trim(),
-		url: value.url,
-		description:
-			typeof value.description === "string" ? value.description.trim() : "",
-	};
-};
-
 type SearchOutcome =
 	| { ok: true; search: WebSearchFact["searches"][number] }
 	| { ok: false; fact: CapabilityExecutionFact };
@@ -75,41 +55,51 @@ const requestBraveQuery = async (
 	endpoint.searchParams.set("safesearch", "moderate");
 	if (input.country) endpoint.searchParams.set("country", input.country);
 
-	const response = await fetcher(endpoint, {
-		headers: {
-			accept: "application/json",
-			"X-Subscription-Token": apiKey,
-		},
-		signal,
-	});
-	if (!response.ok) {
+	try {
+		const response = await fetcher(endpoint, {
+			headers: {
+				accept: "application/json",
+				"X-Subscription-Token": apiKey,
+			},
+			signal,
+		});
+		if (!response.ok) {
+			return {
+				ok: false,
+				fact: failure(
+					"provider-failure",
+					"Brave Web Search rejected the request.",
+					{ status: response.status },
+				),
+			};
+		}
+		const payload: unknown = await response.json().catch(() => null);
+		if (!isRecord(payload) || !isRecord(payload.web)) {
+			return {
+				ok: false,
+				fact: failure(
+					"provider-failure",
+					"Brave Web Search returned an invalid response.",
+				),
+			};
+		}
+		const candidates = Array.isArray(payload.web.results)
+			? payload.web.results
+			: [];
+		const results = candidates
+			.slice(0, WEB_SEARCH_LIMITS.candidateResultsPerQuery)
+			.map(sanitizeWebSearchResult)
+			.filter((result): result is WebSearchResult => result !== null)
+			.slice(0, input.countPerQuery);
+		return { ok: true, search: { query, results } };
+	} catch {
 		return {
 			ok: false,
-			fact: failure(
-				"provider-failure",
-				"Brave Web Search rejected the request.",
-				{ status: response.status },
-			),
+			fact: signal.aborted
+				? failure("timeout", "Brave Web Search timed out.")
+				: failure("provider-failure", "Brave Web Search could not be reached."),
 		};
 	}
-	const payload: unknown = await response.json().catch(() => null);
-	if (!isRecord(payload) || !isRecord(payload.web)) {
-		return {
-			ok: false,
-			fact: failure(
-				"provider-failure",
-				"Brave Web Search returned an invalid response.",
-			),
-		};
-	}
-	const candidates = Array.isArray(payload.web.results)
-		? payload.web.results
-		: [];
-	const results = candidates
-		.map(safeSource)
-		.filter((result): result is WebSearchResult => result !== null)
-		.slice(0, input.countPerQuery);
-	return { ok: true, search: { query, results } };
 };
 
 export async function runBraveWebSearch(
@@ -144,27 +134,41 @@ export async function runBraveWebSearch(
 	}
 
 	const controller = new AbortController();
-	const timeout = setTimeout(
-		() => controller.abort(),
-		options.timeoutMs ?? 8_000,
-	);
+	let timedOut = false;
+	const timeout = setTimeout(() => {
+		timedOut = true;
+		controller.abort();
+	}, options.timeoutMs ?? 8_000);
 	try {
+		let firstFailure: CapabilityExecutionFact | null = null;
 		const outcomes = await Promise.all(
-			input.value.queries.map((query) =>
-				requestBraveQuery(
+			input.value.queries.map(async (query) => {
+				const outcome = await requestBraveQuery(
 					query,
 					input.value,
 					apiKey,
 					fetcher,
 					controller.signal,
-				),
-			),
+				);
+				if (!outcome.ok && firstFailure === null) {
+					firstFailure = outcome.fact;
+					controller.abort();
+				}
+				return outcome;
+			}),
 		);
-		const unsuccessful = outcomes.find((outcome) => !outcome.ok);
-		if (unsuccessful && !unsuccessful.ok) return unsuccessful.fact;
-		const searches = outcomes.flatMap((outcome) =>
-			outcome.ok ? [outcome.search] : [],
-		);
+		if (firstFailure) {
+			if (timedOut) return failure("timeout", "Brave Web Search timed out.");
+			return firstFailure;
+		}
+		let remainingSources = WEB_SEARCH_LIMITS.totalSources;
+		const searches = outcomes
+			.flatMap((outcome) => (outcome.ok ? [outcome.search] : []))
+			.map((search) => {
+				const results = search.results.slice(0, remainingSources);
+				remainingSources -= results.length;
+				return { ...search, results };
+			});
 		return {
 			type: "success",
 			ownerId: OWNER_ID,
@@ -180,10 +184,11 @@ export async function runBraveWebSearch(
 			},
 		};
 	} catch {
-		return controller.signal.aborted
+		return timedOut
 			? failure("timeout", "Brave Web Search timed out.")
 			: failure("provider-failure", "Brave Web Search could not be reached.");
 	} finally {
 		clearTimeout(timeout);
+		controller.abort();
 	}
 }

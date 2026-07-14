@@ -1,6 +1,10 @@
 /** @jsxImportSource ignite-element/jsx */
 
-import { type WorkbenchProjection, workbenchCommandNames } from "./session";
+import {
+	type WorkbenchCapabilityProof,
+	type WorkbenchProjection,
+	workbenchCommandNames,
+} from "./session";
 import { workbenchStyles } from "./styles";
 
 type WorkbenchContext = WorkbenchProjection;
@@ -36,6 +40,20 @@ const sourceLink = (value: unknown) => {
 };
 
 const renderCell = (value: unknown) => sourceLink(value) ?? String(value ?? "");
+
+const capabilityProofSummary = (proof: WorkbenchCapabilityProof): string =>
+	[
+		proof.outcome,
+		proof.status === undefined ? null : `HTTP ${proof.status}`,
+		proof.queryCount === undefined
+			? null
+			: `${proof.queryCount} ${proof.queryCount === 1 ? "query" : "queries"}`,
+		proof.sourceCount === undefined
+			? null
+			: `${proof.sourceCount} ${proof.sourceCount === 1 ? "source" : "sources"}`,
+	]
+		.filter((value): value is string => value !== null)
+		.join(" · ");
 
 const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 	switch (node.kind) {
@@ -113,7 +131,7 @@ const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 								aria-label={field.label}
 								value={
 									typeof field.value === "string" ||
-										typeof field.value === "number"
+									typeof field.value === "number"
 										? String(field.value)
 										: ""
 								}
@@ -361,7 +379,7 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 								<div>
 									<strong>
 										{context.presentation.voice.type ===
-											"voice-permission-denied"
+										"voice-permission-denied"
 											? "Microphone access was denied"
 											: "Speech input is unavailable"}
 									</strong>
@@ -604,7 +622,7 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 								</div>
 							</div>
 							{!context.activeArtifact &&
-								(context.modelPreparing || context.modelFailed) ? (
+							(context.modelPreparing || context.modelFailed) ? (
 								<section
 									class={`model-state ${context.modelFailed ? "model-state-failed" : ""}`}
 									aria-live="polite"
@@ -812,6 +830,28 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 											<span>semantic nodes, never generated DOM</span>
 										</span>
 									</li>
+									{context.presentation.turn?.capability ? (
+										<li class="trace-step capability-proof">
+											<i class="trace-marker" />
+											<span class="trace-copy">
+												<strong>{`${context.presentation.turn.capability.provider} · ${context.presentation.turn.capability.tool}`}</strong>
+												<span>
+													{capabilityProofSummary(
+														context.presentation.turn.capability,
+													)}
+												</span>
+											</span>
+										</li>
+									) : null}
+									{context.presentation.turn?.collision ? (
+										<li class="trace-step collision-proof">
+											<i class="trace-marker" />
+											<span class="trace-copy">
+												<strong>Capability manifest collision</strong>
+												<span>{`${context.presentation.turn.collision.toolNames.join(", ")} · ${context.presentation.turn.collision.owners.join(" + ")}`}</span>
+											</span>
+										</li>
+									) : null}
 								</ol>
 							</section>
 							<section class="runtime-card">

@@ -325,6 +325,7 @@ describe("consumer-configured MLX workbench model", () => {
 							command: "searchWeb",
 							status: "capability-success",
 							ownerId: "web-search",
+							providerStatus: 200,
 							fact: {
 								searches: [
 									{
@@ -391,6 +392,7 @@ describe("consumer-configured MLX workbench model", () => {
 			snapshot: {
 				outcome: "capability-success",
 				ownerId: "web-search",
+				providerStatus: 200,
 				fact: {
 					searches: [{ results: [{ url: "https://example.com/release" }] }],
 				},

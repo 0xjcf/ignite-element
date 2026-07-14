@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { WEB_SEARCH_LIMITS } from "../src/web-search-capability";
 import { runBraveWebSearch } from "./brave-web-search";
 
 afterEach(() => {
@@ -90,7 +91,113 @@ describe("Brave Web Search server adapter", () => {
 				"X-Subscription-Token": "server-secret",
 			});
 			expect(JSON.stringify(url)).not.toContain("server-secret");
+			expect(init?.signal?.aborted).toBe(true);
 		}
+	});
+
+	it("bounds source fields and total evidence returned to the model", async () => {
+		const longTitle = "T".repeat(WEB_SEARCH_LIMITS.titleLength + 20);
+		const longDescription = "D".repeat(
+			WEB_SEARCH_LIMITS.descriptionLength + 20,
+		);
+		const overlongUrl = `https://example.com/${"u".repeat(WEB_SEARCH_LIMITS.urlLength)}`;
+		const fieldFetch = vi.fn(
+			async () =>
+				new Response(
+					JSON.stringify({
+						web: {
+							results: [
+								{
+									title: longTitle,
+									url: "https://example.com/bounded",
+									description: longDescription,
+								},
+								{
+									title: "Too long URL",
+									url: overlongUrl,
+									description: "discarded",
+								},
+							],
+						},
+					}),
+					{ status: 200 },
+				),
+		);
+		const boundedFields = await runBraveWebSearch(
+			{
+				name: "searchWeb",
+				input: { queries: ["bounded source"], countPerQuery: 5 },
+			},
+			{ apiKey: "key", fetch: fieldFetch },
+		);
+		expect(boundedFields).toMatchObject({
+			type: "success",
+			data: {
+				searches: [
+					{
+						results: [
+							{
+								url: "https://example.com/bounded",
+							},
+						],
+					},
+				],
+			},
+			receipt: { queryCount: 1, sourceCount: 1 },
+		});
+		if (boundedFields.type !== "success") return;
+		const boundedSource = (
+			boundedFields.data as {
+				searches: Array<{
+					results: Array<{ title: string; description: string }>;
+				}>;
+			}
+		).searches[0]?.results[0];
+		expect(boundedSource?.title).toHaveLength(WEB_SEARCH_LIMITS.titleLength);
+		expect(boundedSource?.description).toHaveLength(
+			WEB_SEARCH_LIMITS.descriptionLength,
+		);
+
+		const batchFetch = vi.fn(async (input: RequestInfo | URL) => {
+			const query = new URL(String(input)).searchParams.get("q") ?? "item";
+			return new Response(
+				JSON.stringify({
+					web: {
+						results: Array.from({ length: 5 }, (_, index) => ({
+							title: `${query} ${index}`,
+							url: `https://example.com/${encodeURIComponent(query)}/${index}`,
+							description: "price",
+						})),
+					},
+				}),
+				{ status: 200 },
+			);
+		});
+		const boundedBatch = await runBraveWebSearch(
+			{
+				name: "searchWeb",
+				input: {
+					queries: Array.from({ length: 8 }, (_, index) => `item ${index}`),
+					countPerQuery: 5,
+				},
+			},
+			{ apiKey: "key", fetch: batchFetch },
+		);
+		expect(boundedBatch).toMatchObject({
+			type: "success",
+			receipt: {
+				queryCount: 8,
+				sourceCount: WEB_SEARCH_LIMITS.totalSources,
+			},
+		});
+		if (boundedBatch.type !== "success") return;
+		expect(
+			(
+				boundedBatch.data as {
+					searches: Array<{ results: unknown[] }>;
+				}
+			).searches.map((search) => search.results.length),
+		).toEqual([5, 5, 5, 5, 4, 0, 0, 0]);
 	});
 
 	it("omits the capability cleanly when no server credential is configured", async () => {
@@ -166,5 +273,46 @@ describe("Brave Web Search server adapter", () => {
 			toolName: "searchWeb",
 			message: "Brave Web Search timed out.",
 		});
+	});
+
+	it("aborts a pending sibling when one batch request rejects early", async () => {
+		vi.useFakeTimers();
+		let siblingAborted = false;
+		const fetchMock = vi.fn(
+			async (input: RequestInfo | URL, init?: RequestInit) => {
+				const query = new URL(String(input)).searchParams.get("q");
+				if (query === "reject") {
+					return new Response("rate limited", { status: 429 });
+				}
+				return new Promise<Response>((_resolve, reject) => {
+					init?.signal?.addEventListener(
+						"abort",
+						() => {
+							siblingAborted = true;
+							reject(new DOMException("aborted", "AbortError"));
+						},
+						{ once: true },
+					);
+				});
+			},
+		);
+
+		const result = runBraveWebSearch(
+			{
+				name: "searchWeb",
+				input: { queries: ["reject", "pending"] },
+			},
+			{ apiKey: "key", fetch: fetchMock, timeoutMs: 25 },
+		);
+		await vi.advanceTimersByTimeAsync(24);
+		const abortedBeforeTimeout = siblingAborted;
+		await vi.advanceTimersByTimeAsync(1);
+
+		await expect(result).resolves.toMatchObject({
+			type: "provider-failure",
+			status: 429,
+		});
+		expect(abortedBeforeTimeout).toBe(true);
+		expect(siblingAborted).toBe(true);
 	});
 });

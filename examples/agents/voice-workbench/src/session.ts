@@ -24,7 +24,25 @@ export type WorkbenchTurnTrace = readonly {
 	command: string;
 	accepted: boolean;
 }[];
-export type WorkbenchTurnFact =
+export type WorkbenchCapabilityProof = {
+	provider: string;
+	tool: string;
+	outcome:
+		| "success"
+		| "unavailable"
+		| "validation"
+		| "timeout"
+		| "provider-failure";
+	queryCount?: number;
+	sourceCount?: number;
+	status?: number;
+};
+export type WorkbenchCollisionProof = {
+	outcome: "collision";
+	toolNames: readonly string[];
+	owners: readonly string[];
+};
+type WorkbenchTurnOutcome =
 	| { type: "accepted"; trace: WorkbenchTurnTrace }
 	| {
 			type: "prompt-rejected" | "response-incomplete";
@@ -46,6 +64,10 @@ export type WorkbenchTurnFact =
 			command: string;
 			trace: WorkbenchTurnTrace;
 	  };
+export type WorkbenchTurnFact = WorkbenchTurnOutcome & {
+	capability?: WorkbenchCapabilityProof;
+	collision?: WorkbenchCollisionProof;
+};
 
 export type WorkbenchPresentation = {
 	artifactView: WorkbenchArtifactView;
