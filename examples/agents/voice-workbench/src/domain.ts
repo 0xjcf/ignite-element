@@ -31,6 +31,14 @@ export type SetChecklistItemInput = {
 	checked: boolean;
 };
 
+export type SelectArtifactInput = { artifactId: string };
+
+export type RestoreArtifactRevisionInput = {
+	artifactId: string;
+	expectedRevision: string;
+	revision: string;
+};
+
 export type CompleteResponseInput = { text: string; speech?: string };
 export type SubmitPromptInput = {
 	modality: "text" | "speech";
@@ -53,6 +61,13 @@ export type ConversationFact =
 	  }
 	| { type: "artifact-created"; artifactId: string; revision: string }
 	| { type: "artifact-revised"; artifactId: string; revision: string }
+	| { type: "artifact-selected"; artifactId: string }
+	| {
+			type: "artifact-restored";
+			artifactId: string;
+			fromRevision: string;
+			revision: string;
+	  }
 	| {
 			type: "artifact-rejected";
 			reason: "validation" | "conflict";
@@ -78,6 +93,11 @@ export type ConversationAction =
 	| { type: "SUBMIT_PROMPT"; input: SubmitPromptInput }
 	| { type: "CREATE_ARTIFACT"; input: CreateArtifactInput }
 	| { type: "REVISE_ARTIFACT"; input: ReviseArtifactInput }
+	| {
+			type: "RESTORE_ARTIFACT_REVISION";
+			input: RestoreArtifactRevisionInput;
+	  }
+	| { type: "SELECT_ARTIFACT"; input: SelectArtifactInput }
 	| { type: "SET_CHECKLIST_ITEM"; input: SetChecklistItemInput }
 	| { type: "COMPLETE_RESPONSE"; input: CompleteResponseInput }
 	| { type: "ACKNOWLEDGE_SPEECH"; input: AcknowledgeSpeechInput };
@@ -405,6 +425,57 @@ export function reduceConversationSession(
 					artifactId: current.id,
 					revision,
 				},
+				factSequence: session.factSequence + 1,
+			});
+		}
+		case "RESTORE_ARTIFACT_REVISION": {
+			const currentIndex = session.documents.findIndex(
+				(document) => document.id === action.input.artifactId,
+			);
+			const current = session.documents[currentIndex];
+			if (!current || current.revision !== action.input.expectedRevision) {
+				return rejected(session, "conflict");
+			}
+			const historical = session.artifactRevisions.find(
+				(document) =>
+					document.id === current.id &&
+					document.revision === action.input.revision,
+			);
+			if (!historical) return rejected(session, "validation");
+
+			const revision = nextDocumentRevision(current.revision);
+			const restoredDocument: ProjectionDocument = {
+				id: current.id,
+				...(historical.title ? { title: historical.title } : {}),
+				nodes: historical.nodes,
+				revision,
+			};
+			return accepted(session, {
+				documents: session.documents.map((document, documentIndex) =>
+					documentIndex === currentIndex ? restoredDocument : document,
+				),
+				artifactRevisions: [
+					...session.artifactRevisions,
+					restoredDocument,
+				],
+				activeArtifactId: current.id,
+				lastFact: {
+					type: "artifact-restored",
+					artifactId: current.id,
+					fromRevision: historical.revision,
+					revision,
+				},
+				factSequence: session.factSequence + 1,
+			});
+		}
+		case "SELECT_ARTIFACT": {
+			const artifact = session.documents.find(
+				(document) => document.id === action.input.artifactId,
+			);
+			if (!artifact) return rejected(session, "validation");
+			return accepted(session, {
+				activeArtifactId: artifact.id,
+				lastFact: { type: "artifact-selected", artifactId: artifact.id },
 				factSequence: session.factSequence + 1,
 			});
 		}

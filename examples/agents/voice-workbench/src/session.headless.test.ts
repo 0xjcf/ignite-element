@@ -51,7 +51,9 @@ describe("voice workbench headless component", () => {
 			"replay",
 			"reportModelAvailable",
 			"reportModelFailure",
+			"restoreArtifactRevision",
 			"reviseArtifact",
+			"selectArtifact",
 			"setChecklistItem",
 			"startVoiceCapture",
 			"submitPrompt",
@@ -114,6 +116,18 @@ describe("voice workbench headless component", () => {
 					itemId: { type: "string", minLength: 1 },
 					checked: { type: "boolean" },
 				},
+			},
+		});
+		expect(schema.commands.restoreArtifactRevision).toMatchObject({
+			input: {
+				type: "object",
+				required: ["artifactId", "expectedRevision", "revision"],
+			},
+		});
+		expect(schema.commands.selectArtifact).toMatchObject({
+			input: {
+				type: "object",
+				required: ["artifactId"],
 			},
 		});
 		const initialSnapshot = component.getSnapshot();
@@ -300,6 +314,7 @@ describe("voice workbench headless component", () => {
 				],
 			});
 		expect(component.canExecute("completeResponse")).toBe(true);
+		expect(component.canExecute("setChecklistItem")).toBe(true);
 		expect(component.getSnapshot().context.documents).toEqual([
 			expect.objectContaining({
 				id: "decision",
@@ -322,6 +337,23 @@ describe("voice workbench headless component", () => {
 		});
 		expect(component.getView().documentSchema).toContain('"id": "decision"');
 		expect(component.canExecute("reviseArtifact")).toBe(true);
+		(
+			await igniteTest(component).when({
+				command: "setChecklistItem",
+				input: {
+					artifactId: "decision",
+					expectedRevision: "1",
+					nodeId: "decision-checklist",
+					itemId: "verify",
+					checked: true,
+				},
+			})
+		).expectEvent({
+			type: "artifact-revised",
+			artifactId: "decision",
+			revision: "2",
+		});
+		expect(component.getSnapshot().matches({ turn: "responding" })).toBe(true);
 		source.send({
 			type: "COMPLETE_RESPONSE",
 			input: { text: " " },
@@ -342,7 +374,7 @@ describe("voice workbench headless component", () => {
 				},
 			})
 		).expectEvent({ type: "artifact-rejected", reason: "conflict" });
-		expect(component.getSnapshot().context.artifactRevisions).toHaveLength(1);
+		expect(component.getSnapshot().context.artifactRevisions).toHaveLength(2);
 
 		(
 			await igniteTest(component).when({
@@ -361,26 +393,63 @@ describe("voice workbench headless component", () => {
 				command: "setChecklistItem",
 				input: {
 					artifactId: "decision",
-					expectedRevision: "1",
+					expectedRevision: "2",
 					nodeId: "decision-checklist",
 					itemId: "verify",
-					checked: true,
+					checked: false,
 				},
 			})
 		).expectEvent({
 			type: "artifact-revised",
 			artifactId: "decision",
-			revision: "2",
+			revision: "3",
 		});
 		expect(component.getView().activeArtifact).toMatchObject({
 			id: "decision",
-			revision: "2",
+			revision: "3",
 		});
 		expect(component.getView().activeArtifact?.nodes[0]).toMatchObject({
 			id: "decision-checklist",
-			items: [{ id: "verify", checked: true }],
+			items: [{ id: "verify", checked: false }],
 		});
-		expect(component.getSnapshot().context.artifactRevisions).toHaveLength(2);
+		expect(component.getSnapshot().context.artifactRevisions).toHaveLength(3);
+		expect(component.getView()).toMatchObject({
+			artifactSummaries: [
+				{
+					id: "decision",
+					revision: "3",
+					nodeCount: 3,
+					active: true,
+				},
+			],
+			activeArtifactRevisions: [
+				{ revision: "1", current: false },
+				{ revision: "2", current: false },
+				{ revision: "3", current: true },
+			],
+			canRestoreArtifactRevision: true,
+		});
+		(
+			await igniteTest(component).when({
+				command: "restoreArtifactRevision",
+				input: {
+					artifactId: "decision",
+					expectedRevision: "3",
+					revision: "1",
+				},
+			})
+		).expectEvent({
+			type: "artifact-restored",
+			artifactId: "decision",
+			fromRevision: "1",
+			revision: "4",
+		});
+		(
+			await igniteTest(component).when({
+				command: "selectArtifact",
+				input: { artifactId: "decision" },
+			})
+		).expectEvent({ type: "artifact-selected", artifactId: "decision" });
 		expect(component.canExecute("acknowledgeSpeech")).toBe(true);
 
 		const speech = component.getView().speech;

@@ -3,6 +3,7 @@ import type { NeutralManifest } from "ignite-element/tools";
 const MODEL_COMMANDS = [
 	"createArtifact",
 	"reviseArtifact",
+	"setChecklistItem",
 	"completeResponse",
 ] as const;
 
@@ -128,7 +129,9 @@ export function* modelTurn(
 	}));
 	const mutation = calls.find(
 		(call) =>
-			call.command === "createArtifact" || call.command === "reviseArtifact",
+			call.command === "createArtifact" ||
+			call.command === "reviseArtifact" ||
+			call.command === "setChecklistItem",
 	);
 	const primary = mutation ?? calls[0];
 	if (!primary) {

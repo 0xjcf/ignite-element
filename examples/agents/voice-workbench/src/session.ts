@@ -10,7 +10,9 @@ import {
 	type CreateArtifactInput,
 	createInitialSession,
 	type ReviseArtifactInput,
+	type RestoreArtifactRevisionInput,
 	reduceConversationSession,
+	type SelectArtifactInput,
 	type SetChecklistItemInput,
 	type SubmitPromptInput,
 } from "./domain";
@@ -160,6 +162,10 @@ const describeFact = (fact: ConversationFact | null): string => {
 		case "artifact-created":
 		case "artifact-revised":
 			return `${fact.type} · revision ${fact.revision}`;
+		case "artifact-restored":
+			return `${fact.type} · ${fact.fromRevision} → ${fact.revision}`;
+		case "artifact-selected":
+			return `${fact.type} · ${fact.artifactId}`;
 		case "artifact-rejected":
 			return `${fact.type} · ${fact.reason}`;
 		case "speech-acknowledged":
@@ -195,6 +201,8 @@ const isConversationAction = (
 		case "SUBMIT_PROMPT":
 		case "CREATE_ARTIFACT":
 		case "REVISE_ARTIFACT":
+		case "RESTORE_ARTIFACT_REVISION":
+		case "SELECT_ARTIFACT":
 		case "SET_CHECKLIST_ITEM":
 		case "COMPLETE_RESPONSE":
 		case "ACKNOWLEDGE_SPEECH":
@@ -370,6 +378,8 @@ const machine = setup({
 			states: {
 				ready: {
 					on: {
+						RESTORE_ARTIFACT_REVISION: { actions: "applyTransition" },
+						SELECT_ARTIFACT: { actions: "applyTransition" },
 						SET_CHECKLIST_ITEM: { actions: "applyTransition" },
 						SUBMIT_PROMPT: [
 							{
@@ -391,6 +401,7 @@ const machine = setup({
 					on: {
 						CREATE_ARTIFACT: { actions: "applyTransition" },
 						REVISE_ARTIFACT: { actions: "applyTransition" },
+						SET_CHECKLIST_ITEM: { actions: "applyTransition" },
 						COMPLETE_RESPONSE: [
 							{
 								guard: "transitionAccepted",
@@ -419,6 +430,12 @@ export const component = igniteCore({
 		}>(),
 		"artifact-created": event<{ artifactId: string; revision: string }>(),
 		"artifact-revised": event<{ artifactId: string; revision: string }>(),
+		"artifact-restored": event<{
+			artifactId: string;
+			fromRevision: string;
+			revision: string;
+		}>(),
+		"artifact-selected": event<{ artifactId: string }>(),
 		"artifact-rejected": event<{
 			reason: "validation" | "conflict";
 			issues?: readonly string[];
@@ -477,6 +494,23 @@ export const component = igniteCore({
 			) ??
 			artifacts[artifacts.length - 1] ??
 			null;
+		const artifactSummaries = artifacts.map((artifact) => ({
+			id: artifact.id,
+			title: artifact.title ?? artifact.id,
+			revision: artifact.revision,
+			nodeCount: artifact.nodes.length,
+			active: artifact.id === activeArtifact?.id,
+		}));
+		const activeArtifactRevisions = activeArtifact
+			? snapshot.context.artifactRevisions
+					.filter((document) => document.id === activeArtifact.id)
+					.map((document) => ({
+						revision: document.revision,
+						title: document.title ?? document.id,
+						nodeCount: document.nodes.length,
+						current: document.revision === activeArtifact.revision,
+					}))
+			: [];
 		const canSetChecklistItem =
 			turnReady &&
 			artifacts.some((artifact) =>
@@ -524,8 +558,12 @@ export const component = igniteCore({
 						: "Ready",
 			canSubmitPrompt: modelAvailable && turnReady,
 			canSetChecklistItem,
+			canRestoreArtifactRevision:
+				turnReady && activeArtifactRevisions.some((revision) => !revision.current),
 			canRetryModel: modelFailed,
 			activeArtifact,
+			artifactSummaries,
+			activeArtifactRevisions,
 			turnCount,
 			turnLabel: `${turnCount} ${turnCount === 1 ? "turn" : "turns"}`,
 			speechStatus: snapshot.context.speech?.status ?? "idle",
@@ -832,6 +870,53 @@ export const component = igniteCore({
 					),
 				},
 			),
+			restoreArtifactRevision: command(
+				(input: RestoreArtifactRevisionInput) =>
+					actor.send({ type: "RESTORE_ARTIFACT_REVISION", input }),
+				{
+					description:
+						"Restore a historical snapshot as a new forward artifact revision.",
+					canExecute: ({ snapshot }) => {
+						if (!snapshot.matches({ turn: "ready" })) return false;
+						const activeId = snapshot.context.activeArtifactId;
+						const current = snapshot.context.documents.find(
+							(document) => document.id === activeId,
+						);
+						return Boolean(
+							current &&
+								snapshot.context.artifactRevisions.some(
+									(document) =>
+										document.id === current.id &&
+										document.revision !== current.revision,
+								),
+						);
+					},
+					input: command.object(
+						{
+							artifactId: command.string({ minLength: 1 }),
+							expectedRevision: command.string({ minLength: 1 }),
+							revision: command.string({ minLength: 1 }),
+						},
+						{
+							required: ["artifactId", "expectedRevision", "revision"],
+						},
+					),
+				},
+			),
+			selectArtifact: command(
+				(input: SelectArtifactInput) =>
+					actor.send({ type: "SELECT_ARTIFACT", input }),
+				{
+					description: "Select the active artifact in this session.",
+					canExecute: ({ snapshot }) =>
+						snapshot.matches({ turn: "ready" }) &&
+						snapshot.context.documents.length > 0,
+					input: command.object(
+						{ artifactId: command.string({ minLength: 1 }) },
+						{ required: ["artifactId"] },
+					),
+				},
+			),
 			setChecklistItem: command(
 				(input: SetChecklistItemInput) =>
 					actor.send({ type: "SET_CHECKLIST_ITEM", input }),
@@ -839,7 +924,6 @@ export const component = igniteCore({
 					description:
 						"Set one checklist item when its artifact revision still matches.",
 					canExecute: ({ snapshot }) =>
-						snapshot.matches({ turn: "ready" }) &&
 						snapshot.context.documents.some((document) =>
 							document.nodes.some((node) => node.kind === "checklist"),
 						),

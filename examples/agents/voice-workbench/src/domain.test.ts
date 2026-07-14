@@ -369,6 +369,120 @@ describe("voice workbench domain", () => {
 		});
 	});
 
+	it("keeps multiple artifacts and changes the active artifact explicitly", () => {
+		const first = reduceConversationSession(createInitialSession("workspace"), {
+			type: "CREATE_ARTIFACT",
+			input: { id: "shopping-list", title: "Shopping list", nodes: checklist },
+		});
+		if (!first.accepted) throw new Error("expected first artifact creation");
+		const second = reduceConversationSession(first.session, {
+			type: "CREATE_ARTIFACT",
+			input: {
+				id: "budget",
+				title: "Budget",
+				nodes: [allSemanticNodes[4], allSemanticNodes[6]],
+			},
+		});
+		if (!second.accepted) throw new Error("expected second artifact creation");
+
+		expect(second.session).toMatchObject({
+			activeArtifactId: "budget",
+			documents: [
+				{ id: "shopping-list", revision: "1" },
+				{ id: "budget", revision: "1" },
+			],
+		});
+
+		const selected = reduceConversationSession(second.session, {
+			type: "SELECT_ARTIFACT",
+			input: { artifactId: "shopping-list" },
+		});
+		expect(selected).toMatchObject({
+			accepted: true,
+			session: {
+				activeArtifactId: "shopping-list",
+				lastFact: {
+					type: "artifact-selected",
+					artifactId: "shopping-list",
+				},
+			},
+		});
+		expect(
+			reduceConversationSession(second.session, {
+				type: "SELECT_ARTIFACT",
+				input: { artifactId: "missing" },
+			}),
+		).toMatchObject({ accepted: false, reason: "validation" });
+	});
+
+	it("restores a historical snapshot by appending a new forward revision", () => {
+		const created = reduceConversationSession(createInitialSession("history"), {
+			type: "CREATE_ARTIFACT",
+			input: { id: "launch-plan", title: "Launch plan", nodes: checklist },
+		});
+		if (!created.accepted) throw new Error("expected artifact creation");
+		const revised = reduceConversationSession(created.session, {
+			type: "SET_CHECKLIST_ITEM",
+			input: {
+				artifactId: "launch-plan",
+				expectedRevision: "1",
+				nodeId: "launch-items",
+				itemId: "ship",
+				checked: true,
+			},
+		});
+		if (!revised.accepted) throw new Error("expected artifact revision");
+
+		const restored = reduceConversationSession(revised.session, {
+			type: "RESTORE_ARTIFACT_REVISION",
+			input: {
+				artifactId: "launch-plan",
+				expectedRevision: "2",
+				revision: "1",
+			},
+		});
+
+		expect(restored).toMatchObject({
+			accepted: true,
+			session: {
+				documents: [{ id: "launch-plan", revision: "3", nodes: checklist }],
+				artifactRevisions: [
+					{ revision: "1", nodes: checklist },
+					{ revision: "2" },
+					{ revision: "3", nodes: checklist },
+				],
+				lastFact: {
+					type: "artifact-restored",
+					artifactId: "launch-plan",
+					fromRevision: "1",
+					revision: "3",
+				},
+			},
+		});
+		if (!restored.accepted) throw new Error("expected revision restore");
+		expect(revised.session.artifactRevisions).toHaveLength(2);
+		expect(
+			reduceConversationSession(restored.session, {
+				type: "RESTORE_ARTIFACT_REVISION",
+				input: {
+					artifactId: "launch-plan",
+					expectedRevision: "2",
+					revision: "1",
+				},
+			}),
+		).toMatchObject({ accepted: false, reason: "conflict" });
+		expect(
+			reduceConversationSession(restored.session, {
+				type: "RESTORE_ARTIFACT_REVISION",
+				input: {
+					artifactId: "launch-plan",
+					expectedRevision: "3",
+					revision: "99",
+				},
+			}),
+		).toMatchObject({ accepted: false, reason: "validation" });
+	});
+
 	it("returns validation and revision-conflict facts without mutation", () => {
 		const initial = createInitialSession("session-1");
 		const invalid = reduceConversationSession(initial, {

@@ -165,6 +165,64 @@ describe("voice/text workbench model turn", () => {
 		});
 	});
 
+	it("treats an authorized checklist item update as an observable mutation", () => {
+		const protocol = modelTurn({
+			ok: true,
+			calls: [
+				{
+					id: "check-item",
+					command: "setChecklistItem",
+					input: {
+						artifactId: "plan",
+						expectedRevision: "1",
+						nodeId: "plan-items",
+						itemId: "draft",
+						checked: true,
+					},
+				},
+				{
+					id: "complete-item",
+					command: "completeResponse",
+					input: { text: "Draft checked." },
+				},
+			],
+		});
+
+		expect(protocol.next()).toMatchObject({
+			done: false,
+			value: { id: "check-item", command: "setChecklistItem" },
+		});
+		expect(
+			protocol.next({
+				id: "check-item",
+				command: "setChecklistItem",
+				status: "accepted",
+				view: { artifacts: [{ id: "plan", revision: "2" }] },
+				events: [{ type: "artifact-revised" }],
+			}),
+		).toMatchObject({
+			done: true,
+			value: {
+				accepted: false,
+				reason: "response-incomplete",
+				trace: [{ command: "setChecklistItem", accepted: true }],
+				exchange: {
+					results: [
+						expect.objectContaining({
+							id: "check-item",
+							status: "accepted",
+						}),
+						expect.objectContaining({
+							id: "complete-item",
+							status: "deferred",
+							reason: "observe-artifact-mutation-before-continuing",
+						}),
+					],
+				},
+			},
+		});
+	});
+
 	it("uses direct component tools across allowed and rejected turns", async () => {
 		const requests: ModelRequest[] = [];
 		const request = (prompt: ModelRequest["prompt"]): ModelRequest => {
@@ -258,6 +316,7 @@ describe("voice/text workbench model turn", () => {
 			"completeResponse",
 			"createArtifact",
 			"reviseArtifact",
+			"setChecklistItem",
 		]);
 		expect(
 			requests.flatMap((request) => request.tools.map((tool) => tool.name)),
