@@ -40,10 +40,7 @@ describe("voice workbench capability federation", () => {
 
 		expect(federation).toMatchObject({
 			ok: true,
-			manifest: [
-				{ name: "createArtifact" },
-				{ name: "searchWeb" },
-			],
+			manifest: [{ name: "createArtifact" }, { name: "searchWeb" }],
 		});
 		if (!federation.ok) throw new Error("expected a ready federation");
 
