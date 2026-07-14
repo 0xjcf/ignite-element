@@ -158,7 +158,7 @@ export const workbenchStyles = `
 	.panel-title span, .artifact-identity span { color: var(--muted); font-family: var(--font-mono); font-size: 0.62rem; overflow: hidden; text-overflow: ellipsis; }
 
 	.conversation { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; }
-	.session-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); }
+	.session-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); padding: var(--space-3) var(--space-4); border: 0; }
 	.session-stat { display: flex; align-items: baseline; justify-content: center; gap: 0.3rem; min-width: 0; min-height: 2.35rem; padding: 0.45rem 0.55rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--foreground-soft); white-space: nowrap; }
 	.session-stat strong { color: var(--foreground); font-size: 0.78rem; }
 	.session-stat span { color: var(--muted); font-size: 0.62rem; }
