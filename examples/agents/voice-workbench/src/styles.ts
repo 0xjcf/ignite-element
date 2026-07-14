@@ -226,10 +226,20 @@ export const workbenchStyles = `
 	.segmented button { min-height: 2rem; padding: 0.28rem 0.6rem; border: 0; border-radius: 0.52rem; background: transparent; color: var(--muted); cursor: pointer; font-size: 0.68rem; font-weight: 700; }
 	.segmented button[aria-selected="true"] { background: var(--surface-raised); color: var(--foreground); box-shadow: var(--shadow-sm); }
 	.artifact-scroll { position: relative; overflow-y: auto; padding: clamp(1.1rem, 2.6vw, 2.4rem); scroll-behavior: smooth; }
-	.proof-banner { width: min(100%, 54rem); margin: 0 auto var(--space-3); padding: 0.72rem 0.85rem; display: grid; grid-template-columns: auto 1fr; gap: var(--space-3); align-items: center; border: 1px solid var(--primary); border-radius: var(--radius-md); background: var(--primary-wash); }
+	.artifact-switcher { width: min(100%, 70rem); margin: 0 auto var(--space-3); display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3); align-items: center; padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-glass); }
+	.artifact-switcher-label, .revision-history-label { display: grid; gap: 0.08rem; min-width: 7rem; }
+	.artifact-switcher-label strong, .revision-history-label strong { font-size: 0.7rem; }
+	.artifact-switcher-label span, .revision-history-label span { color: var(--muted); font-size: 0.58rem; }
+	.artifact-switcher-list, .revision-history-list { min-width: 0; display: flex; gap: var(--space-2); overflow-x: auto; padding: 0.1rem; scrollbar-width: thin; }
+	.artifact-switcher-item, .revision-history-list button { flex: 0 0 auto; min-width: 8.5rem; min-height: var(--target-min); display: grid; gap: 0.08rem; align-content: center; padding: 0.5rem 0.7rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--background-elevated); text-align: left; }
+	.artifact-switcher-item strong, .revision-history-list strong { overflow: hidden; color: var(--foreground-soft); font-size: 0.66rem; text-overflow: ellipsis; white-space: nowrap; }
+	.artifact-switcher-item span, .revision-history-list span { color: var(--muted); font-family: var(--font-mono); font-size: 0.56rem; }
+	.artifact-switcher-item:hover:not(:disabled), .revision-history-list button:hover:not(:disabled) { border-color: var(--border-strong); background: var(--surface-hover); }
+	.artifact-switcher-item.is-active, .revision-history-list button.is-current { border-color: var(--primary); background: var(--primary-wash); }
+	.proof-banner { width: min(100%, 70rem); margin: 0 auto var(--space-3); padding: 0.72rem 0.85rem; display: grid; grid-template-columns: auto 1fr; gap: var(--space-3); align-items: center; border: 1px solid var(--primary); border-radius: var(--radius-md); background: var(--primary-wash); }
 	.proof-banner strong { display: block; font-size: 0.72rem; }
 	.proof-banner span { display: block; margin-top: 0.08rem; color: var(--foreground-soft); font-size: 0.66rem; }
-	.document, .schema-view, .empty-artifact, .model-state { width: min(100%, 54rem); min-height: 100%; margin: 0 auto; padding: clamp(1.25rem, 3vw, 3rem); border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--background-elevated); box-shadow: var(--shadow-lg); }
+	.document, .schema-view, .empty-artifact, .model-state { width: min(100%, 70rem); min-height: 100%; margin: 0 auto; padding: clamp(1.25rem, 3vw, 3rem); border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--background-elevated); box-shadow: var(--shadow-lg); }
 	.empty-artifact { display: grid; place-items: center; text-align: center; }
 	.empty-artifact div { max-width: 28rem; }
 	.empty-artifact strong { display: block; margin-bottom: var(--space-2); font-size: 1.15rem; }
@@ -246,8 +256,10 @@ export const workbenchStyles = `
 	.doc-kicker { display: flex; align-items: center; gap: var(--space-2); color: var(--primary); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
 	.doc-kicker::before { content: ""; width: 1.7rem; height: 0.12rem; border-radius: 1rem; background: var(--primary); }
 	.document h1 { max-width: 43rem; margin: var(--space-5) 0 var(--space-3); font-size: clamp(1.8rem, 3.4vw, 3.25rem); line-height: 1.02; letter-spacing: -0.045em; }
+	.revision-history { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3); align-items: center; margin-top: var(--space-5); padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--background); }
 	.doc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-5); margin-top: var(--space-8); }
 	.doc-card { min-width: 0; padding: var(--space-5); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); overflow: auto; }
+	.doc-card[data-node-kind="table"], .doc-card[data-node-kind="code-diff"], .doc-card[data-node-kind="chart"] { grid-column: 1 / -1; }
 	.doc-card h2, .doc-card h3 { margin: 0 0 var(--space-3); font-size: 0.8rem; }
 	.doc-card p { color: var(--foreground-soft); }
 	.node-kind { float: right; margin-left: var(--space-2); padding: 0.16rem 0.38rem; border: 1px solid var(--border); border-radius: 0.38rem; color: var(--muted); font-family: var(--font-mono); font-size: 0.52rem; font-weight: 550; }
@@ -370,10 +382,12 @@ export const workbenchStyles = `
 		.composer textarea { min-height: 4.3rem; font-size: 1rem; }
 		.artifact-toolbar, .panel-head { padding: 0 var(--space-3); }
 		.artifact-scroll { padding: var(--space-3); }
+		.artifact-switcher, .revision-history { grid-template-columns: 1fr; }
 		.document, .schema-view, .empty-artifact, .model-state { padding: var(--space-5); border-radius: var(--radius-lg); }
 		.model-notice-failed { grid-template-columns: auto minmax(0, 1fr); }
 		.model-retry { grid-column: 1 / -1; width: 100%; }
 		.doc-grid { grid-template-columns: 1fr; }
+		.doc-card[data-node-kind] { grid-column: auto; }
 		.document h1 { font-size: 2rem; }
 	}
 	@media (max-width: 25rem) {

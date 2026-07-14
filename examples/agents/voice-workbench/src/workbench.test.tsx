@@ -106,6 +106,66 @@ describe("voice workbench accessible JSX", () => {
 						text: "Ignite owns the projection.",
 					},
 					{
+						kind: "form",
+						id: "owner-form",
+						title: "Owner",
+						fields: [
+							{
+								id: "owner",
+								label: "Owner team",
+								input: { type: "string", minLength: 1 },
+								value: "Runtime",
+								description: "Accountable team",
+							},
+						],
+					},
+					{
+						kind: "table",
+						id: "budget",
+						columns: [
+							{ id: "item", label: "Item" },
+							{ id: "cost", label: "Cost" },
+						],
+						rows: [{ id: "hosting", cells: ["Hosting", "$40"] }],
+					},
+					{
+						kind: "timeline",
+						id: "milestones",
+						events: [
+							{
+								id: "launch",
+								label: "Launch",
+								timestamp: "2026-07-20",
+								detail: "Ship the example",
+							},
+						],
+					},
+					{
+						kind: "chart",
+						id: "spend",
+						chartType: "bar",
+						series: [{ id: "used", label: "Budget used", value: 40 }],
+					},
+					{
+						kind: "code-diff",
+						id: "contract-diff",
+						language: "ts",
+						before: "render(document)",
+						after: 'component("voice-workbench", view)',
+					},
+					{
+						kind: "decision-log",
+						id: "decisions",
+						entries: [
+							{
+								id: "runtime",
+								title: "Runtime",
+								decision: "Keep the actor authoritative",
+								rationale: "Every projection consumes accepted state",
+							},
+						],
+					},
+					{
 						kind: "action",
 						id: "complete",
 						label: "Complete response",
@@ -124,6 +184,48 @@ describe("voice workbench accessible JSX", () => {
 		expect(bridge.host.shadowRoot?.textContent).toContain(
 			"decision · revision 1",
 		);
+		expect(
+			bridge.host.shadowRoot?.querySelectorAll("[data-node-kind]").length,
+		).toBe(9);
+		expect(
+			Array.from(
+				bridge.host.shadowRoot?.querySelectorAll("[data-node-kind]") ?? [],
+			).map((node) => node.getAttribute("data-node-kind")),
+		).toEqual([
+			"checklist",
+			"text",
+			"form",
+			"table",
+			"timeline",
+			"chart",
+			"code-diff",
+			"decision-log",
+			"action",
+		]);
+		expect(bridge.getByRole("textbox", { name: "Owner team" })).toHaveProperty(
+			"readOnly",
+			true,
+		);
+		expect(
+			bridge.host.shadowRoot?.querySelector("table")?.textContent,
+		).toContain("Hosting");
+		expect(
+			bridge.host.shadowRoot?.querySelector('[aria-label="Timeline"]')
+				?.textContent,
+		).toContain("Launch");
+		expect(
+			bridge.host.shadowRoot
+				?.querySelector("progress")
+				?.getAttribute("aria-label"),
+		).toBe("Budget used: 40");
+		expect(
+			bridge.host.shadowRoot?.querySelector('[aria-label="Decision log"]')
+				?.textContent,
+		).toContain("Keep the actor authoritative");
+		expect(
+			bridge.host.shadowRoot?.querySelector('[aria-label="Artifacts"]')
+				?.textContent,
+		).toContain("Decision");
 
 		const schemaTab = bridge.getByRole("tab", { name: "Schema" });
 		schemaTab.click();
@@ -168,6 +270,63 @@ describe("voice workbench accessible JSX", () => {
 				}) as HTMLInputElement
 			).checked,
 		).toBe(true);
+		expect(
+			bridge.host.shadowRoot?.querySelector('[aria-label="Revision history"]')
+				?.textContent,
+		).toContain("Revision 2");
+		bridge.getByRole("button", { name: "Restore revision 1" }).click();
+		expect(component.getView().activeArtifact).toMatchObject({
+			id: "decision",
+			revision: "3",
+		});
+		expect(
+			(
+				bridge.getByRole("checkbox", {
+					name: "Ship Ignite",
+				}) as HTMLInputElement
+			).checked,
+		).toBe(false);
+
+		const secondPrompt = bridge.getByRole("textbox", { name: "Prompt" });
+		if (!(secondPrompt instanceof HTMLTextAreaElement)) {
+			throw new Error("workbench prompt form is unavailable");
+		}
+		secondPrompt.value = "Add a separate receipt";
+		secondPrompt.dispatchEvent(new Event("input", { bubbles: true }));
+		secondPrompt
+			.closest("form")
+			?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+		await component.execute({
+			command: "createArtifact",
+			input: {
+				id: "receipt",
+				title: "Receipt",
+				nodes: [
+					{
+						kind: "table",
+						id: "receipt-lines",
+						columns: [{ id: "item", label: "Item" }],
+						rows: [{ id: "coffee", cells: ["Coffee"] }],
+					},
+				],
+			},
+		});
+		await component.execute({
+			command: "completeResponse",
+			input: { text: "Receipt added." },
+		});
+		expect(component.getView()).toMatchObject({
+			activeArtifact: { id: "receipt", revision: "1" },
+			artifactSummaries: [
+				{ id: "decision", active: false },
+				{ id: "receipt", active: true },
+			],
+		});
+		bridge.getByRole("button", { name: "Decision, revision 3" }).click();
+		expect(component.getView().activeArtifact).toMatchObject({
+			id: "decision",
+			revision: "3",
+		});
 
 		bridge.stop();
 		source.stop();

@@ -17,14 +17,14 @@ const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 	switch (node.kind) {
 		case "text":
 			return (
-				<section key={node.id} class="doc-card">
+				<section key={node.id} class="doc-card" data-node-kind={node.kind}>
 					{nodeHeading(node.kind, "Text")}
 					<p>{node.text}</p>
 				</section>
 			);
 		case "checklist":
 			return (
-				<section key={node.id} class="doc-card">
+				<section key={node.id} class="doc-card" data-node-kind={node.kind}>
 					{nodeHeading(node.kind, "Checklist")}
 					<ul class="checklist" aria-label="Checklist">
 						{node.items.map((item) => (
@@ -59,7 +59,7 @@ const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 		case "action": {
 			const action = node.action;
 			return (
-				<section key={node.id} class="doc-card">
+				<section key={node.id} class="doc-card" data-node-kind={node.kind}>
 					{nodeHeading(node.kind, "Authorized action")}
 					{node.description ? <p>{node.description}</p> : null}
 					<button
@@ -77,14 +77,16 @@ const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 		}
 		case "form":
 			return (
-				<fieldset key={node.id} class="doc-card">
+				<fieldset key={node.id} class="doc-card" data-node-kind={node.kind}>
 					<legend>{node.title ?? "Form"}</legend>
 					<span class="node-kind">{node.kind}</span>
 					{node.fields.map((field) => (
-						<label key={field.id}>
+						<label key={field.id} for={`${node.id}-${field.id}`}>
 							{field.label}
 							<input
+								id={`${node.id}-${field.id}`}
 								name={field.id}
+								aria-label={field.label}
 								value={
 									typeof field.value === "string" ||
 									typeof field.value === "number"
@@ -100,7 +102,7 @@ const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 			);
 		case "table":
 			return (
-				<section key={node.id} class="doc-card">
+				<section key={node.id} class="doc-card" data-node-kind={node.kind}>
 					{nodeHeading(node.kind, "Table")}
 					<table>
 						<thead>
@@ -128,7 +130,7 @@ const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 			);
 		case "timeline":
 			return (
-				<section key={node.id} class="doc-card">
+				<section key={node.id} class="doc-card" data-node-kind={node.kind}>
 					{nodeHeading(node.kind, "Timeline")}
 					<ol class="timeline" aria-label="Timeline">
 						{node.events.map((timelineEvent) => (
@@ -143,23 +145,32 @@ const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 					</ol>
 				</section>
 			);
-		case "chart":
+		case "chart": {
+			const maximum = Math.max(
+				1,
+				...node.series.map((series) => Math.abs(series.value)),
+			);
 			return (
-				<section key={node.id} class="doc-card">
+				<section key={node.id} class="doc-card" data-node-kind={node.kind}>
 					{nodeHeading(node.kind, `${node.chartType} chart`)}
 					{node.series.map((series) => (
 						<label key={series.id}>
 							<span>
 								{series.label}: {series.value}
 							</span>
-							<progress max="100" value={series.value} />
+							<progress
+								max={maximum}
+								value={Math.max(0, series.value)}
+								aria-label={`${series.label}: ${series.value}`}
+							/>
 						</label>
 					))}
 				</section>
 			);
+		}
 		case "code-diff":
 			return (
-				<figure key={node.id} class="doc-card">
+				<figure key={node.id} class="doc-card" data-node-kind={node.kind}>
 					<figcaption>
 						{node.language ?? "Code"} diff
 						<span class="node-kind">{node.kind}</span>
@@ -171,7 +182,12 @@ const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 			);
 		case "decision-log":
 			return (
-				<section key={node.id} class="doc-card" aria-label="Decision log">
+				<section
+					key={node.id}
+					class="doc-card"
+					data-node-kind={node.kind}
+					aria-label="Decision log"
+				>
 					{nodeHeading(node.kind, "Decision log")}
 					{node.entries.map((entry) => (
 						<article key={entry.id}>
@@ -512,6 +528,39 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 							</button>
 						</div>
 						<div class="artifact-scroll">
+							{context.artifactSummaries.length > 0 ? (
+								<nav class="artifact-switcher" aria-label="Artifacts">
+									<div class="artifact-switcher-label">
+										<strong>Workspace</strong>
+										<span>
+											{context.artifactSummaries.length} accepted{" "}
+											{context.artifactSummaries.length === 1
+												? "artifact"
+												: "artifacts"}
+										</span>
+									</div>
+									<div class="artifact-switcher-list">
+										{context.artifactSummaries.map((artifact) => (
+											<button
+												key={artifact.id}
+												class={`artifact-switcher-item${artifact.active ? " is-active" : ""}`}
+												type="button"
+												aria-label={`${artifact.title}, revision ${artifact.revision}`}
+												aria-current={artifact.active ? "page" : undefined}
+												onClick={() =>
+													context.selectArtifact({ artifactId: artifact.id })
+												}
+											>
+												<strong>{artifact.title}</strong>
+												<span>
+													r{artifact.revision} · {artifact.nodeCount}{" "}
+													{artifact.nodeCount === 1 ? "node" : "nodes"}
+												</span>
+											</button>
+										))}
+									</div>
+								</nav>
+							) : null}
 							<div class="proof-banner">
 								<span aria-hidden="true">✓</span>
 								<div>
@@ -562,6 +611,49 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 									<h1>
 										{context.activeArtifact.title ?? context.activeArtifact.id}
 									</h1>
+									{context.activeArtifactRevisions.length > 1 ? (
+										<section
+											class="revision-history"
+											aria-label="Revision history"
+										>
+											<div class="revision-history-label">
+												<strong>Revision history</strong>
+												<span>Restore appends a new revision</span>
+											</div>
+											<div class="revision-history-list">
+												{context.activeArtifactRevisions.map((revision) => (
+													<button
+														key={revision.revision}
+														class={revision.current ? "is-current" : ""}
+														type="button"
+														disabled={
+															revision.current ||
+															!context.canRestoreArtifactRevision
+														}
+														aria-label={
+															revision.current
+																? `Current revision ${revision.revision}`
+																: `Restore revision ${revision.revision}`
+														}
+														onClick={() =>
+															context.restoreArtifactRevision({
+																artifactId: context.activeArtifact.id,
+																expectedRevision:
+																	context.activeArtifact.revision,
+																revision: revision.revision,
+															})
+														}
+													>
+														<strong>Revision {revision.revision}</strong>
+														<span>
+															{revision.nodeCount}{" "}
+															{revision.nodeCount === 1 ? "node" : "nodes"}
+														</span>
+													</button>
+												))}
+											</div>
+										</section>
+									) : null}
 									<div class="doc-grid">
 										{context.activeArtifact.nodes.map((node) =>
 											renderNode(node, context),
