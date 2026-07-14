@@ -29,17 +29,99 @@ const executeModelTurn = async (response: ModelResult) => {
 			name: call.command,
 			input: call.input,
 		});
-		const rejectedByActor =
-			isOk(execution) &&
-			execution.value.events.some(
-				(actorEvent) => actorEvent.type === "artifact-rejected",
-			);
-		step = protocol.next(isOk(execution) && !rejectedByActor);
+		const rejectedByActor = isOk(execution)
+			? execution.value.events.find(
+					(actorEvent) => actorEvent.type === "artifact-rejected",
+				)
+			: undefined;
+		step = protocol.next({
+			id: call.id ?? "test-call",
+			command: call.command,
+			status: !isOk(execution)
+				? "tool-error"
+				: rejectedByActor
+					? "actor-rejected"
+					: "accepted",
+			...(!isOk(execution)
+				? {
+						reason: execution.error.kind,
+						...(execution.error.kind === "InvalidInput"
+							? { issues: execution.error.issues }
+							: {}),
+					}
+				: rejectedByActor && "reason" in rejectedByActor
+					? { reason: String(rejectedByActor.reason) }
+					: {}),
+			view: component.getView().modelContext,
+			events: isOk(execution)
+				? execution.value.events.map((actorEvent) => ({
+						type: actorEvent.type,
+						...("reason" in actorEvent
+							? { reason: String(actorEvent.reason) }
+							: {}),
+					}))
+				: [],
+		});
 	}
 	return step.value;
 };
 
 describe("voice/text workbench model turn", () => {
+	it("returns every model call to the next round and defers completion until a mutation is observed", () => {
+		const protocol = modelTurn({
+			ok: true,
+			calls: [
+				{
+					id: "create-plan",
+					command: "createArtifact",
+					input: { id: "plan", nodes },
+				},
+				{
+					id: "complete-plan",
+					command: "completeResponse",
+					input: { text: "Plan ready." },
+				},
+			],
+		});
+
+		expect(protocol.next()).toMatchObject({
+			done: false,
+			value: { id: "create-plan", command: "createArtifact" },
+		});
+		expect(
+			protocol.next({
+				id: "create-plan",
+				command: "createArtifact",
+				status: "accepted",
+				view: { artifacts: [{ id: "plan", revision: "1" }] },
+				events: [{ type: "artifact-created" }],
+			}),
+		).toEqual({
+			done: true,
+			value: {
+				accepted: false,
+				reason: "response-incomplete",
+				trace: [{ command: "createArtifact", accepted: true }],
+				exchange: {
+					calls: [
+						expect.objectContaining({ id: "create-plan" }),
+						expect.objectContaining({ id: "complete-plan" }),
+					],
+					results: [
+						expect.objectContaining({
+							id: "create-plan",
+							status: "accepted",
+						}),
+						expect.objectContaining({
+							id: "complete-plan",
+							status: "deferred",
+						}),
+					],
+				},
+			},
+		});
+	});
+
 	it("admits at most one artifact mutation per model response", () => {
 		const input = { id: "plan", nodes };
 		const protocol = modelTurn({
@@ -54,119 +136,116 @@ describe("voice/text workbench model turn", () => {
 			done: false,
 			value: { command: "createArtifact" },
 		});
-		expect(protocol.next(true)).toEqual({
+		expect(
+			protocol.next({
+				id: "model-call-0",
+				command: "createArtifact",
+				status: "accepted",
+				view: { artifacts: [{ id: "plan", revision: "1" }] },
+				events: [{ type: "artifact-created" }],
+			}),
+		).toMatchObject({
 			done: true,
 			value: {
 				accepted: false,
 				reason: "response-incomplete",
 				trace: [{ command: "createArtifact", accepted: true }],
+				exchange: {
+					results: [
+						expect.objectContaining({ status: "accepted" }),
+						expect.objectContaining({ status: "deferred" }),
+					],
+				},
 			},
 		});
 	});
 
 	it("uses direct component tools across allowed and rejected turns", async () => {
-		const responses: readonly ModelResult[] = [
-			{
-				ok: true,
-				calls: [
-					{
-						command: "createArtifact",
-						input: { id: "plan", title: "Plan", nodes },
-					},
-					{
-						command: "completeResponse",
-						input: { text: "Plan ready.", speech: "Plan ready." },
-					},
-				],
-			},
-			{
-				ok: true,
-				calls: [
-					{
-						command: "reviseArtifact",
-						input: {
-							artifactId: "plan",
-							expectedRevision: "1",
-							nodes: [
-								{
-									kind: "checklist",
-									id: "plan-items",
-									items: [{ id: "draft", label: "Draft", checked: true }],
-								},
-							],
-						},
-					},
-					{
-						command: "completeResponse",
-						input: { text: "Plan revised.", speech: "Plan revised." },
-					},
-				],
-			},
-			{
-				ok: true,
-				calls: [
-					{
-						command: "createArtifact",
-						input: {
-							id: "unsafe-chart",
-							title: "Unsafe chart",
-							nodes: [
-								{
-									kind: "chart",
-									id: "progress",
-									chartType: "radar",
-									series: [{ id: "ready", label: "Ready" }],
-								},
-							],
-						},
-					},
-				],
-			},
-			{
-				ok: true,
-				calls: [{ command: "renderJavascript", input: { source: "alert(1)" } }],
-			},
-		];
 		const requests: ModelRequest[] = [];
-		const request = (prompt: ModelRequest["prompt"]): ModelResult => {
+		const request = (prompt: ModelRequest["prompt"]): ModelRequest => {
 			const tools = igniteTools(component);
 			const modelRequest = {
 				prompt,
 				tools: modelTools(tools.manifest),
 				view: component.getView().modelContext,
+				history: [],
 			};
 			requests.push(modelRequest);
-			return responses[requests.length - 1] ?? { ok: true, calls: [] };
+			return modelRequest;
 		};
-		const turn = async (
-			prompt: ModelRequest["prompt"],
-		): ReturnType<typeof executeModelTurn> => {
-			await component.execute({
-				command: "submitPrompt",
-				input: { modality: prompt.channel, text: prompt.text },
-			});
-			return executeModelTurn(request(prompt));
-		};
-
-		const first = await turn({ channel: "text", text: "Make a plan" });
-		const second = await turn({ channel: "speech", text: "Revise it" });
-		const malformed = await turn({
-			channel: "text",
-			text: "Render an invalid chart",
+		const firstPrompt = { channel: "text" as const, text: "Make a plan" };
+		await component.execute({
+			command: "submitPrompt",
+			input: { modality: firstPrompt.channel, text: firstPrompt.text },
 		});
-		const rejected = await turn({ channel: "text", text: "Run code" });
-
-		expect(first.accepted).toBe(true);
-		expect(second.accepted).toBe(true);
-		expect(malformed).toEqual({
-			accepted: false,
-			reason: "command-rejected",
-			command: "createArtifact",
-			trace: [
-				{ command: "createArtifact", accepted: false },
-				{ command: "completeResponse", accepted: true },
+		request(firstPrompt);
+		const created = await executeModelTurn({
+			ok: true,
+			calls: [
+				{
+					command: "createArtifact",
+					input: { id: "plan", title: "Plan", nodes },
+				},
 			],
 		});
+		expect(created).toMatchObject({
+			accepted: false,
+			reason: "response-incomplete",
+		});
+		request(firstPrompt);
+		const completed = await executeModelTurn({
+			ok: true,
+			calls: [
+				{
+					command: "completeResponse",
+					input: { text: "Plan ready.", speech: "Plan ready." },
+				},
+			],
+		});
+		expect(completed.accepted).toBe(true);
+
+		const secondPrompt = { channel: "speech" as const, text: "Revise it" };
+		await component.execute({
+			command: "submitPrompt",
+			input: { modality: secondPrompt.channel, text: secondPrompt.text },
+		});
+		request(secondPrompt);
+		const revised = await executeModelTurn({
+			ok: true,
+			calls: [
+				{
+					command: "reviseArtifact",
+					input: {
+						artifactId: "plan",
+						expectedRevision: "1",
+						nodes: [
+							{
+								kind: "checklist",
+								id: "plan-items",
+								items: [{ id: "draft", label: "Draft", checked: true }],
+							},
+						],
+					},
+				},
+			],
+		});
+		expect(revised).toMatchObject({
+			accepted: false,
+			reason: "response-incomplete",
+		});
+		request(secondPrompt);
+		await expect(
+			executeModelTurn({
+				ok: true,
+				calls: [
+					{
+						command: "completeResponse",
+						input: { text: "Plan revised." },
+					},
+				],
+			}),
+		).resolves.toMatchObject({ accepted: true });
+
 		expect(requests[0]?.tools.map((tool) => tool.name)).toEqual([
 			"completeResponse",
 			"createArtifact",
@@ -179,15 +258,50 @@ describe("voice/text workbench model turn", () => {
 		expect(
 			requests.flatMap((request) => request.tools.map((tool) => tool.name)),
 		).not.toContain("acknowledgeSpeech");
-		expect(rejected).toEqual({
-			accepted: false,
-			reason: "command-not-allowed",
-			command: "renderJavascript",
-			trace: [{ command: "completeResponse", accepted: true }],
-		});
 		expect(component.getView()).toMatchObject({
 			status: "ready",
 			artifacts: [{ id: "plan", revision: "2" }],
+		});
+	});
+
+	it("returns domain validation rejections to the model as structured feedback", async () => {
+		await component.execute({
+			command: "submitPrompt",
+			input: { modality: "text", text: "Create a checklist" },
+		});
+		const rejected = await executeModelTurn({
+			ok: true,
+			calls: [
+				{
+					id: "invalid-checklist",
+					command: "createArtifact",
+					input: {
+						id: "checklist",
+						nodes: [{ id: "items", kind: "checklist" }],
+					},
+				},
+			],
+		});
+
+		expect(rejected).toMatchObject({
+			accepted: false,
+			reason: "command-rejected",
+			command: "createArtifact",
+			exchange: {
+				results: [
+					{
+						id: "invalid-checklist",
+						command: "createArtifact",
+						status: "actor-rejected",
+						reason: "validation",
+						events: [{ type: "artifact-rejected", reason: "validation" }],
+					},
+				],
+			},
+		});
+		await component.execute({
+			command: "completeResponse",
+			input: { text: "Validation feedback captured." },
 		});
 	});
 
@@ -262,7 +376,7 @@ describe("voice/text workbench model turn", () => {
 			],
 		});
 
-		expect(incomplete).toEqual({
+		expect(incomplete).toMatchObject({
 			accepted: false,
 			reason: "response-incomplete",
 			trace: [{ command: "createArtifact", accepted: true }],

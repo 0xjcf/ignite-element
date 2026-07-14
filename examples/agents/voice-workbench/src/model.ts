@@ -2,10 +2,11 @@ import {
 	type OpenAIChatCompletionResponse,
 	openai,
 } from "ignite-element/tools/openai";
+import { ok } from "ignite-element/tools";
 import type { ModelFailureFact, ModelRequest, ModelResult } from "./agent-loop";
 
 const SYSTEM_PROMPT = `You operate a consumer-owned Ignite conversation actor.
-Use only the supplied tools. Create an artifact for a fresh request, revise the active artifact when the user requests a change, and return completeResponse in the same tool-call response after every createArtifact or reviseArtifact call.
+Use only the currently supplied tools. Call exactly one tool per response and wait for its tool result before choosing the next command. Create an artifact for a fresh request and revise the active artifact when the user requests a change or when the accepted artifact does not satisfy the original prompt. After every tool result, compare the original prompt with the current accepted actor view. Call completeResponse only after that audit confirms the accepted artifact satisfies the request. If a tool result reports invalid input, actor rejection, conflict, or deferral, correct the proposal in the next response.
 createArtifact always requires id and a nodes array; include a concise title. Every node in that array requires its own id and kind. Use these exact node shapes: text is {"id":"node-id","kind":"text","text":"content"}; checklist is {"id":"node-id","kind":"checklist","items":[{"id":"item-id","label":"item","checked":false}]}; decision-log is {"id":"node-id","kind":"decision-log","entries":[{"id":"entry-id","title":"title","decision":"decision","rationale":"optional rationale"}]}; table is {"id":"node-id","kind":"table","columns":[{"id":"column-id","label":"column"}],"rows":[{"id":"row-id","cells":["value"]}]}.
 Produce semantic projection nodes only; never emit HTML, JavaScript, or executable code.`;
 
@@ -300,18 +301,62 @@ function requestBody(
 	model: string,
 	tools: ReturnType<typeof openai.tools>,
 ): string {
+	const messages: unknown[] = [
+		{ role: "system", content: SYSTEM_PROMPT },
+		{
+			role: "user",
+			content: JSON.stringify({
+				prompt: request.prompt,
+				currentAcceptedView: request.view,
+			}),
+		},
+	];
+	for (const exchange of request.history) {
+		messages.push({
+			role: "assistant",
+			content: null,
+			tool_calls: exchange.calls.map((call) => ({
+				id: call.id,
+				type: "function",
+				function: {
+					name: call.command,
+					arguments: JSON.stringify(call.input ?? {}),
+				},
+			})),
+		});
+		for (const result of exchange.results) {
+			messages.push(
+				openai.toolResult({
+					id: result.id,
+					name: result.command,
+					result: ok({
+						snapshot: {
+							outcome: result.status,
+							...(result.reason ? { reason: result.reason } : {}),
+							...(result.issues ? { issues: result.issues } : {}),
+							events: result.events,
+						},
+						view: result.view,
+						events: [],
+					}),
+				}),
+			);
+		}
+	}
+	if (request.history.length > 0) {
+		messages.push({
+			role: "user",
+			content: JSON.stringify({
+				instruction:
+					"Continue the original request from the latest accepted actor view. Correct it if needed; otherwise complete the response.",
+				currentAcceptedView: request.view,
+				currentlyAuthorizedCommands: request.tools.map((tool) => tool.name),
+			}),
+		});
+	}
 	return JSON.stringify({
 		model,
-		messages: [
-			{ role: "system", content: SYSTEM_PROMPT },
-			{
-				role: "user",
-				content: JSON.stringify({
-					prompt: request.prompt,
-					currentView: request.view,
-				}),
-			},
-		],
+		messages,
 		tools,
 		max_tokens: 2048,
 		temperature: 0,
@@ -395,6 +440,7 @@ export async function requestMlxWorkbenchModel(
 		return {
 			ok: true,
 			calls: calls.map((call) => ({
+				id: call.id,
 				command: call.name,
 				input: call.input,
 			})),

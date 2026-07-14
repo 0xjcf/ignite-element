@@ -8,7 +8,20 @@ const MODEL_COMMANDS = [
 
 type ModelCommand = (typeof MODEL_COMMANDS)[number];
 
-export type ModelToolCall = { command: string; input: unknown };
+export type ModelToolCall = { id?: string; command: string; input: unknown };
+export type ModelToolFeedback = {
+	id: string;
+	command: string;
+	status: "accepted" | "actor-rejected" | "tool-error" | "deferred";
+	reason?: string;
+	issues?: readonly string[];
+	view: unknown;
+	events: readonly { type: string; reason?: string }[];
+};
+export type ModelExchange = {
+	calls: readonly (ModelToolCall & { id: string })[];
+	results: readonly ModelToolFeedback[];
+};
 export type ModelFailureKind =
 	| "configuration"
 	| "network"
@@ -27,14 +40,16 @@ export type ModelRequest = {
 	prompt: { channel: "text" | "speech"; text: string };
 	tools: NeutralManifest;
 	view: unknown;
+	history: readonly ModelExchange[];
 };
 export type ModelTurnTrace = { command: string; accepted: boolean };
 export type ModelTurnResult =
-	| { accepted: true; trace: ModelTurnTrace[] }
+	| { accepted: true; trace: ModelTurnTrace[]; exchange: ModelExchange }
 	| {
 			accepted: false;
 			reason: "prompt-rejected" | "response-incomplete";
 			trace: ModelTurnTrace[];
+			exchange: ModelExchange;
 	  }
 	| {
 			accepted: false;
@@ -47,6 +62,7 @@ export type ModelTurnResult =
 			reason: "command-not-allowed" | "command-rejected";
 			command: string;
 			trace: ModelTurnTrace[];
+			exchange: ModelExchange;
 	  };
 
 const isModelCommand = (name: string): name is ModelCommand =>
@@ -79,21 +95,25 @@ const sanitizedFailure = (
 });
 
 const recoveryCall = (message: string): ModelToolCall => ({
+	id: "workbench-recovery",
 	command: "completeResponse",
 	input: { text: message },
 });
 
 /**
- * A pure protocol for one admitted model turn. The browser composition root
- * executes each yielded call through Ignite and returns only its acceptance.
+ * A pure protocol for one model round. Exactly one proposed tool call executes
+ * before the model observes its result. Sibling calls receive deferred results,
+ * which keeps the provider transcript valid while preventing an artifact
+ * mutation and completion from being accepted in the same unobserved round.
  */
 export function* modelTurn(
 	response: ModelResult,
-): Generator<ModelToolCall, ModelTurnResult, boolean> {
+): Generator<ModelToolCall, ModelTurnResult, ModelToolFeedback> {
 	const trace: ModelTurnTrace[] = [];
 	if (!response.ok) {
 		const failure = sanitizedFailure(response.error);
-		const accepted = yield recoveryCall(failure.message);
+		const feedback = yield recoveryCall(failure.message);
+		const accepted = feedback.status === "accepted";
 		trace.push({ command: "completeResponse", accepted });
 		return {
 			accepted: false,
@@ -102,56 +122,76 @@ export function* modelTurn(
 			trace,
 		};
 	}
-	let responseCompleted = false;
-	let artifactMutationSeen = false;
-
-	for (const call of response.calls) {
-		if (!isModelCommand(call.command)) {
-			const accepted = yield recoveryCall(
-				"The model proposed a command that is not allowed. Refine the prompt and try again.",
-			);
-			trace.push({ command: "completeResponse", accepted });
-			return {
-				accepted: false,
-				reason: "command-not-allowed",
-				command: call.command,
-				trace,
-			};
-		}
-		const artifactMutation =
-			call.command === "createArtifact" || call.command === "reviseArtifact";
-		if (artifactMutation && artifactMutationSeen) continue;
-		if (artifactMutation) artifactMutationSeen = true;
-
-		const callAccepted = yield call;
-		trace.push({ command: call.command, accepted: callAccepted });
-		if (!callAccepted) {
-			const recoveryAccepted = yield recoveryCall(
-				"The actor rejected the proposed command. Refine the prompt and try again.",
-			);
-			trace.push({
-				command: "completeResponse",
-				accepted: recoveryAccepted,
-			});
-			return {
-				accepted: false,
-				reason: "command-rejected",
-				command: call.command,
-				trace,
-			};
-		}
-		if (call.command === "completeResponse") {
-			responseCompleted = true;
-		}
-	}
-
-	if (!responseCompleted) {
+	const calls = response.calls.map((call, index) => ({
+		...call,
+		id: call.id?.trim() || `model-call-${index}`,
+	}));
+	const mutation = calls.find(
+		(call) =>
+			call.command === "createArtifact" || call.command === "reviseArtifact",
+	);
+	const primary = mutation ?? calls[0];
+	if (!primary) {
 		return {
 			accepted: false,
 			reason: "response-incomplete",
 			trace,
+			exchange: { calls, results: [] },
 		};
 	}
 
-	return { accepted: true, trace };
+	const feedback = yield primary;
+	const callAccepted = feedback.status === "accepted";
+	trace.push({ command: primary.command, accepted: callAccepted });
+	const results = calls.map((call): ModelToolFeedback => {
+		if (call.id === primary.id) {
+			return {
+				...feedback,
+				id: call.id,
+				command: call.command,
+			};
+		}
+		return {
+			id: call.id,
+			command: call.command,
+			status: "deferred",
+			reason: mutation
+				? "observe-artifact-mutation-before-continuing"
+				: "observe-tool-result-before-continuing",
+			view: feedback.view,
+			events: [],
+		};
+	});
+	const exchange = { calls, results };
+
+	if (!isModelCommand(primary.command)) {
+		return {
+			accepted: false,
+			reason: "command-not-allowed",
+			command: primary.command,
+			trace,
+			exchange,
+		};
+	}
+
+	if (!callAccepted) {
+		return {
+			accepted: false,
+			reason: "command-rejected",
+			command: primary.command,
+			trace,
+			exchange,
+		};
+	}
+
+	if (mutation || calls.length > 1 || primary.command !== "completeResponse") {
+		return {
+			accepted: false,
+			reason: "response-incomplete",
+			trace,
+			exchange,
+		};
+	}
+
+	return { accepted: true, trace, exchange };
 }

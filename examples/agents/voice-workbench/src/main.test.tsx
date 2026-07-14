@@ -7,23 +7,27 @@ import type { SpeechRecognitionLike } from "./voice";
 import voiceSource from "./voice.ts?raw";
 import workbenchSource from "./workbench.tsx?raw";
 
-const completion = (calls: Array<{ name: string; input: unknown }>) => ({
-	choices: [
-		{
-			message: {
-				role: "assistant",
-				tool_calls: calls.map((call, index) => ({
-					id: `call-${index}`,
-					type: "function",
-					function: {
-						name: call.name,
-						arguments: JSON.stringify(call.input),
-					},
-				})),
+let completionSequence = 0;
+const completion = (calls: Array<{ name: string; input: unknown }>) => {
+	const responseId = completionSequence++;
+	return {
+		choices: [
+			{
+				message: {
+					role: "assistant",
+					tool_calls: calls.map((call, index) => ({
+						id: `response-${responseId}-call-${index}`,
+						type: "function",
+						function: {
+							name: call.name,
+							arguments: JSON.stringify(call.input),
+						},
+					})),
+				},
 			},
-		},
-	],
-});
+		],
+	};
+};
 
 class FakeSpeechRecognition implements SpeechRecognitionLike {
 	static current: FakeSpeechRecognition | null = null;
@@ -58,6 +62,7 @@ describe("voice workbench browser entry", () => {
 
 	beforeEach(() => {
 		speak.mockReset();
+		completionSequence = 0;
 		FakeSpeechRecognition.current = null;
 		vi.stubEnv("MLX_BASE_URL", "http://127.0.0.1:8080/v1");
 		vi.stubEnv("MLX_MODEL", "consumer-selected-model");
@@ -104,12 +109,12 @@ describe("voice workbench browser entry", () => {
 					name: "createArtifact",
 					input: {
 						id: "release-plan",
-						title: "Release plan",
+						title: "Release checklist",
 						nodes: [
 							{
 								kind: "text",
 								id: "summary",
-								text: "Start with a deterministic proof.",
+								text: "This is not yet the requested checklist.",
 							},
 						],
 					},
@@ -117,8 +122,7 @@ describe("voice workbench browser entry", () => {
 				{
 					name: "completeResponse",
 					input: {
-						text: "The release plan is ready.",
-						speech: "The release plan is ready.",
+						text: "The release checklist is ready.",
 					},
 				},
 			]),
@@ -130,6 +134,37 @@ describe("voice workbench browser entry", () => {
 						expectedRevision: "1",
 						nodes: [
 							{
+								kind: "checklist",
+								id: "release-items",
+								items: [
+									{
+										id: "verify-tools",
+										label: "Verify dynamic Ignite tools",
+										checked: false,
+									},
+								],
+							},
+						],
+					},
+				},
+			]),
+			completion([
+				{
+					name: "completeResponse",
+					input: {
+						text: "The release checklist is ready.",
+						speech: "The release checklist is ready.",
+					},
+				},
+			]),
+			completion([
+				{
+					name: "reviseArtifact",
+					input: {
+						artifactId: "release-plan",
+						expectedRevision: "2",
+						nodes: [
+							{
 								kind: "text",
 								id: "summary",
 								text: "Add a speech-authored rollout checkpoint.",
@@ -137,6 +172,8 @@ describe("voice workbench browser entry", () => {
 						],
 					},
 				},
+			]),
+			completion([
 				{
 					name: "completeResponse",
 					input: {
@@ -150,7 +187,7 @@ describe("voice workbench browser entry", () => {
 					name: "reviseArtifact",
 					input: {
 						artifactId: "release-plan",
-						expectedRevision: "2",
+						expectedRevision: "3",
 						nodes: [
 							{
 								kind: "text",
@@ -171,15 +208,17 @@ describe("voice workbench browser entry", () => {
 				},
 			]),
 		];
-		const fetchMock = vi.fn(async () => {
-			if (firstRequest) {
-				firstRequest = false;
-				return readiness;
-			}
-			const response = responses.shift();
-			if (!response) throw new Error("unexpected model request");
-			return new Response(JSON.stringify(response), { status: 200 });
-		});
+		const fetchMock = vi.fn(
+			async (_input: RequestInfo | URL, _init?: RequestInit) => {
+				if (firstRequest) {
+					firstRequest = false;
+					return readiness;
+				}
+				const response = responses.shift();
+				if (!response) throw new Error("unexpected model request");
+				return new Response(JSON.stringify(response), { status: 200 });
+			},
+		);
 		vi.stubGlobal("fetch", fetchMock);
 		const terminal = vi.spyOn(console, "info").mockImplementation(() => {});
 
@@ -229,7 +268,7 @@ describe("voice workbench browser entry", () => {
 		) {
 			throw new Error("voice workbench form is unavailable");
 		}
-		prompt.value = "Create a release plan";
+		prompt.value = "Create a release checklist";
 		prompt.dispatchEvent(new Event("input", { bubbles: true }));
 		form.dispatchEvent(
 			new Event("submit", { bubbles: true, cancelable: true }),
@@ -241,31 +280,57 @@ describe("voice workbench browser entry", () => {
 				artifacts: [
 					{
 						id: "release-plan",
-						title: "Release plan",
-						revision: "1",
+						title: "Release checklist",
+						revision: "2",
 					},
 				],
 			});
 			expect(host.shadowRoot?.textContent).toContain(
-				"Start with a deterministic proof.",
+				"Verify dynamic Ignite tools",
 			);
 			expect(component.getView()).toMatchObject({
 				presentation: {
 					documentCommit: {
 						id: "release-plan",
-						revision: "1",
-						title: "Release plan",
+						revision: "2",
+						title: "Release checklist",
 					},
 					speechCommit: {
-						text: "The release plan is ready.",
+						text: "The release checklist is ready.",
 						status: "played",
 					},
 				},
 			});
 			expect(speak).toHaveBeenCalledWith(
-				expect.objectContaining({ text: "The release plan is ready." }),
+				expect.objectContaining({ text: "The release checklist is ready." }),
 			);
 		});
+		expect(component.getSnapshot().context.artifactRevisions).toMatchObject([
+			{ id: "release-plan", revision: "1", nodes: [{ kind: "text" }] },
+			{
+				id: "release-plan",
+				revision: "2",
+				nodes: [{ kind: "checklist" }],
+			},
+		]);
+		const [, auditInit] = fetchMock.mock.calls[2] ?? [];
+		const auditRequest = JSON.parse(String(auditInit?.body));
+		expect(
+			auditRequest.tools.map(
+				(tool: { function: { name: string } }) => tool.function.name,
+			),
+		).toContain("reviseArtifact");
+		expect(
+			auditRequest.messages.map((message: { role: string }) => message.role),
+		).toContain("tool");
+		expect(
+			auditRequest.messages
+				.filter((message: { role: string }) => message.role === "tool")
+				.map(
+					(message: { content: string }) =>
+						JSON.parse(message.content).snapshot.outcome,
+				),
+		).toEqual(["accepted", "deferred"]);
 
 		const schemaTab = host.shadowRoot.querySelector("#schema-tab");
 		if (!(schemaTab instanceof HTMLButtonElement)) {
@@ -275,7 +340,7 @@ describe("voice workbench browser entry", () => {
 		expect(schemaTab.getAttribute("aria-selected")).toBe("true");
 		expect(
 			host.shadowRoot.querySelector(".schema-view")?.textContent,
-		).toContain('"revision": "1"');
+		).toContain('"revision": "2"');
 
 		const currentPrompt = host.shadowRoot.querySelector("textarea");
 		if (!(currentPrompt instanceof HTMLTextAreaElement)) {
@@ -302,14 +367,14 @@ describe("voice workbench browser entry", () => {
 		await vi.waitFor(() => {
 			expect(component.getView()).toMatchObject({
 				status: "ready",
-				artifacts: [{ id: "release-plan", revision: "2" }],
+				artifacts: [{ id: "release-plan", revision: "3" }],
 			});
 			expect(host.shadowRoot?.textContent).toContain(
 				"Add a speech-authored rollout checkpoint.",
 			);
 			expect(component.getView()).toMatchObject({
 				presentation: {
-					documentCommit: { id: "release-plan", revision: "2" },
+					documentCommit: { id: "release-plan", revision: "3" },
 				},
 			});
 		});
@@ -321,7 +386,7 @@ describe("voice workbench browser entry", () => {
 		expect(component.getView()).toMatchObject({
 			presentation: { draft: "Keep this typed draft" },
 		});
-		expect(fetchMock).toHaveBeenCalledTimes(3);
+		expect(fetchMock).toHaveBeenCalledTimes(6);
 		expect(terminal).toHaveBeenCalled();
 
 		const incompletePrompt = host.shadowRoot.querySelector("textarea");
@@ -340,7 +405,7 @@ describe("voice workbench browser entry", () => {
 		await vi.waitFor(() => {
 			expect(component.getView()).toMatchObject({
 				status: "ready",
-				artifacts: [{ id: "release-plan", revision: "3" }],
+				artifacts: [{ id: "release-plan", revision: "4" }],
 				response: {
 					text: "The accepted revision is complete.",
 				},
@@ -358,7 +423,7 @@ describe("voice workbench browser entry", () => {
 				"Actor accepted the model-authored turn.",
 			);
 		});
-		expect(fetchMock).toHaveBeenCalledTimes(5);
+		expect(fetchMock).toHaveBeenCalledTimes(8);
 
 		const recoveryPrompt = host.shadowRoot.querySelector("textarea");
 		const recoveryForm = host.shadowRoot.querySelector("form");
@@ -389,7 +454,7 @@ describe("voice workbench browser entry", () => {
 				},
 			});
 		});
-		expect(fetchMock).toHaveBeenCalledTimes(6);
+		expect(fetchMock).toHaveBeenCalledTimes(9);
 
 		if (!FakeSpeechRecognition.current) {
 			throw new Error("speech recognition was not initialized");

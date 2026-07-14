@@ -355,10 +355,7 @@ export function reduceConversationSession(
 			);
 			return accepted(session, {
 				documents,
-				artifactRevisions: [
-					...session.artifactRevisions,
-					revisedDocument,
-				],
+				artifactRevisions: [...session.artifactRevisions, revisedDocument],
 				activeArtifactId: current.id,
 				lastFact: {
 					type: "artifact-revised",

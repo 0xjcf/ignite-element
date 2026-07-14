@@ -4,7 +4,13 @@ import {
 	createProjectionDocumentTarget,
 	createProjectionSpeechTarget,
 } from "ignite-element/xstate";
-import { type ModelTurnResult, modelTools, modelTurn } from "./agent-loop";
+import {
+	type ModelExchange,
+	type ModelToolFeedback,
+	type ModelTurnResult,
+	modelTools,
+	modelTurn,
+} from "./agent-loop";
 import { probeMlxWorkbenchReadiness, requestMlxWorkbenchModel } from "./model";
 import { component, source, type WorkbenchTurnFact } from "./session";
 import { createBrowserVoiceCapture } from "./voice";
@@ -139,15 +145,18 @@ const completeSubmittedPrompt = async (event: {
 	modality: "text" | "speech";
 	text: string;
 }) => {
-	const tools = igniteTools(component);
-	let response = await requestMlxWorkbenchModel(configuration, {
-		prompt: { channel: event.modality, text: event.text },
-		tools: modelTools(tools.manifest),
-		view: component.getView().modelContext,
-	});
-	let result: ModelTurnResult;
+	const prompt = { channel: event.modality, text: event.text };
+	const history: ModelExchange[] = [];
+	let result: ModelTurnResult | null = null;
 	let priorTrace: ModelTurnResult["trace"] = [];
-	for (let round = 0; ; round += 1) {
+	for (let round = 0; round < 5; round += 1) {
+		const tools = igniteTools(component);
+		const response = await requestMlxWorkbenchModel(configuration, {
+			prompt,
+			tools: modelTools(tools.manifest),
+			view: component.getView().modelContext,
+			history,
+		});
 		const protocol = modelTurn(response);
 		let step = protocol.next();
 		while (!step.done) {
@@ -156,44 +165,65 @@ const completeSubmittedPrompt = async (event: {
 				name: call.command,
 				input: call.input,
 			});
-			const rejectedByActor =
-				isOk(execution) &&
-				execution.value.events.some(
-					(actorEvent) => actorEvent.type === "artifact-rejected",
-				);
-			step = protocol.next(isOk(execution) && !rejectedByActor);
-		}
-		result = { ...step.value, trace: [...priorTrace, ...step.value.trace] };
-		if (result.accepted || result.reason !== "response-incomplete") break;
-		if (round === 0) {
-			priorTrace = result.trace;
-			response = await requestMlxWorkbenchModel(configuration, {
-				prompt: {
-					channel: event.modality,
-					text: `Summarize the accepted actor state for this request: ${event.text}`,
-				},
-				tools: tools.manifest.filter(
-					(tool) => tool.name === "completeResponse",
-				),
+			const rejectedByActor = isOk(execution)
+				? execution.value.events.find(
+						(actorEvent) => actorEvent.type === "artifact-rejected",
+					)
+				: undefined;
+			const feedback: ModelToolFeedback = {
+				id: call.id ?? `model-round-${round}`,
+				command: call.command,
+				status: !isOk(execution)
+					? "tool-error"
+					: rejectedByActor
+						? "actor-rejected"
+						: "accepted",
+				...(!isOk(execution)
+					? {
+							reason: execution.error.kind,
+							...(execution.error.kind === "InvalidInput"
+								? { issues: execution.error.issues }
+								: {}),
+						}
+					: rejectedByActor && "reason" in rejectedByActor
+						? { reason: String(rejectedByActor.reason) }
+						: {}),
 				view: component.getView().modelContext,
-			});
-			continue;
+				events: isOk(execution)
+					? execution.value.events.map((actorEvent) => ({
+							type: actorEvent.type,
+							...("reason" in actorEvent
+								? { reason: String(actorEvent.reason) }
+								: {}),
+						}))
+					: [],
+			};
+			step = protocol.next(feedback);
 		}
+		result = {
+			...step.value,
+			trace: [...priorTrace, ...step.value.trace],
+		};
+		if ("exchange" in step.value) history.push(step.value.exchange);
+		priorTrace = result.trace;
+		if (result.accepted || result.reason === "model-failed") break;
+	}
+	if (!result) return;
+	if (!result.accepted && result.reason !== "model-failed") {
+		const tools = igniteTools(component);
 		const recovery = await tools.run({
 			name: "completeResponse",
 			input: {
-				text: "The model did not complete the response. Refine the prompt and try again.",
+				text: "The model could not finish an accepted artifact within this turn. Refine the prompt and try again.",
 			},
 		});
 		result = {
-			accepted: false,
-			reason: "response-incomplete",
+			...result,
 			trace: [
 				...result.trace,
 				{ command: "completeResponse", accepted: isOk(recovery) },
 			],
 		};
-		break;
 	}
 	await component.execute({
 		command: "recordTurn",

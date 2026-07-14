@@ -8,7 +8,7 @@ import {
 	it,
 	vi,
 } from "vitest";
-import { modelTools } from "./agent-loop";
+import { type ModelRequest, modelTools } from "./agent-loop";
 import { probeMlxWorkbenchReadiness, requestMlxWorkbenchModel } from "./model";
 import { component, source } from "./session";
 
@@ -17,10 +17,11 @@ const prompt = {
 	text: "Create a release checklist",
 };
 
-const createRequest = () => ({
+const createRequest = (): ModelRequest => ({
 	prompt,
 	tools: modelTools(igniteTools(component).manifest),
 	view: component.getView().modelContext,
+	history: [],
 });
 
 beforeAll(() => component.execute({ command: "reportModelAvailable" }));
@@ -183,6 +184,7 @@ describe("consumer-configured MLX workbench model", () => {
 			ok: true,
 			calls: [
 				{
+					id: "create",
 					command: "createArtifact",
 					input: {
 						id: "release-checklist",
@@ -223,6 +225,124 @@ describe("consumer-configured MLX workbench model", () => {
 		expect(body.messages.at(-1)).toMatchObject({
 			role: "user",
 		});
+	});
+
+	it("continues from correlated tool results before the model audits and completes", async () => {
+		const fetchMock = vi.fn(
+			async (_input: RequestInfo | URL, _init?: RequestInit) =>
+				new Response(
+					JSON.stringify({
+						choices: [
+							{
+								message: {
+									role: "assistant",
+									tool_calls: [
+										{
+											id: "complete",
+											type: "function",
+											function: {
+												name: "completeResponse",
+												arguments: JSON.stringify({
+													text: "Checklist ready.",
+												}),
+											},
+										},
+									],
+								},
+							},
+						],
+					}),
+					{ status: 200, headers: { "content-type": "application/json" } },
+				),
+		);
+		vi.stubGlobal("fetch", fetchMock);
+		const request: ModelRequest = {
+			...createRequest(),
+			history: [
+				{
+					calls: [
+						{
+							id: "create",
+							command: "createArtifact",
+							input: {
+								id: "release-checklist",
+								nodes: [
+									{
+										id: "items",
+										kind: "checklist",
+										items: [],
+									},
+								],
+							},
+						},
+						{
+							id: "early-complete",
+							command: "completeResponse",
+							input: { text: "Done." },
+						},
+					],
+					results: [
+						{
+							id: "create",
+							command: "createArtifact",
+							status: "accepted",
+							view: {
+								artifacts: [{ id: "release-checklist", revision: "1" }],
+							},
+							events: [{ type: "artifact-created" }],
+						},
+						{
+							id: "early-complete",
+							command: "completeResponse",
+							status: "deferred",
+							reason: "observe-artifact-mutation-before-continuing",
+							view: {
+								artifacts: [{ id: "release-checklist", revision: "1" }],
+							},
+							events: [],
+						},
+					],
+				},
+			],
+		};
+
+		await expect(
+			requestMlxWorkbenchModel(
+				{
+					baseUrl: "http://127.0.0.1:8080/v1",
+					model: "mlx-community/example-model",
+				},
+				request,
+			),
+		).resolves.toEqual({
+			ok: true,
+			calls: [
+				{
+					id: "complete",
+					command: "completeResponse",
+					input: { text: "Checklist ready." },
+				},
+			],
+		});
+
+		const [, init] = fetchMock.mock.calls[0] ?? [];
+		const body = JSON.parse(String(init?.body));
+		expect(
+			body.messages.map((message: { role: string }) => message.role),
+		).toEqual(["system", "user", "assistant", "tool", "tool", "user"]);
+		expect(
+			body.messages[2].tool_calls.map((call: { id: string }) => call.id),
+		).toEqual(["create", "early-complete"]);
+		expect(JSON.parse(body.messages[3].content)).toMatchObject({
+			snapshot: { outcome: "accepted" },
+			view: { artifacts: [{ id: "release-checklist", revision: "1" }] },
+		});
+		expect(JSON.parse(body.messages[4].content)).toMatchObject({
+			snapshot: { outcome: "deferred" },
+		});
+		expect(body.messages[0].content).toContain(
+			"wait for its tool result before choosing the next command",
+		);
 	});
 
 	it("returns missing consumer configuration as a fact without fetching", async () => {
