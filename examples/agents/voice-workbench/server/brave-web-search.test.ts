@@ -19,7 +19,8 @@ describe("Brave Web Search server adapter", () => {
 							{
 								title: `${query} listing`,
 								url: `https://example.com/${slug}`,
-								description: slug === "coffee" ? "$8.99" : "Typical price",
+								description:
+									slug === "coffee" ? "Price: $8.99" : "Typical price",
 							},
 							{
 								title: "Unsafe",
@@ -67,7 +68,7 @@ describe("Brave Web Search server adapter", () => {
 							{
 								title: "coffee Sarasota listing",
 								url: "https://example.com/coffee",
-								description: "$8.99",
+								description: "Price: $8.99",
 							},
 						],
 					},

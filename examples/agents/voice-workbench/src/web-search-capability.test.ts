@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	createWebSearchCapability,
+	deriveWebSearchPriceFact,
 	WEB_SEARCH_LIMITS,
 } from "./web-search-capability";
 
@@ -24,7 +25,7 @@ describe("same-origin web search capability", () => {
 										{
 											title: "Coffee listing",
 											url: "https://example.com/coffee",
-											description: "$8.99",
+											description: "Price: $8.99",
 										},
 									],
 								},
@@ -99,6 +100,24 @@ describe("same-origin web search capability", () => {
 			countPerQuery: 4,
 		});
 		expect(JSON.stringify(init)).not.toContain("Subscription");
+	});
+
+	it("does not classify coupon, discount, or savings amounts as item prices", () => {
+		for (const description of [
+			"Save $5.00 with this coupon",
+			"Get $5.00 off with a member discount",
+			"Coupon value: $5.00",
+		]) {
+			expect(
+				deriveWebSearchPriceFact([
+					{
+						title: "Coffee offer",
+						url: "https://example.com/coffee-offer",
+						description,
+					},
+				]),
+			).toMatchObject({ status: "unverified", amount: null });
+		}
 	});
 
 	it("returns validation and network failures as values", async () => {

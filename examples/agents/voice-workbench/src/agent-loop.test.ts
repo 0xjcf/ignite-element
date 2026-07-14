@@ -170,6 +170,12 @@ describe("voice/text workbench model turn", () => {
 							],
 							rows: [{ id: "bread", cells: ["Bread", 4.99] }],
 						},
+						{
+							id: "fabricated-savings",
+							kind: "chart",
+							chartType: "bar",
+							series: [{ id: "savings", label: "Projected savings", value: 5 }],
+						},
 					],
 				},
 			],
@@ -180,6 +186,7 @@ describe("voice/text workbench model turn", () => {
 			issues: expect.arrayContaining([
 				expect.stringContaining("checklist labels"),
 				expect.stringContaining("Subject, Price, Status, and Source"),
+				expect.stringContaining("Projected savings"),
 			]),
 		});
 	});

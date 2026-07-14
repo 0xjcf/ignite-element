@@ -139,7 +139,7 @@ const normalizedKey = (value: unknown): string =>
 	typeof value === "string"
 		? value
 				.trim()
-				.toLocaleLowerCase()
+				.toLowerCase()
 				.replace(/[^a-z0-9]+/g, "")
 		: "";
 
@@ -331,29 +331,45 @@ export const auditCompletionEvidence = (
 		}
 	}
 
-	const chartSeries: Record<string, unknown>[] = nodes.flatMap((node) =>
-		node.kind === "chart" && Array.isArray(node.series)
-			? node.series.filter(isRecord)
-			: [],
+	const charts = nodes.filter((node) => node.kind === "chart");
+	const chartSeries: Record<string, unknown>[] = charts.flatMap((node) =>
+		Array.isArray(node.series) ? node.series.filter(isRecord) : [],
 	);
-	const chartUsesEvidence = chartSeries.some((series) =>
-		evidence.some((fact) => normalizedKey(series.label) === fact.key),
-	);
-	if (chartUsesEvidence) {
-		for (const fact of evidence) {
-			const series = chartSeries.find(
-				(candidate) => normalizedKey(candidate.label) === fact.key,
+	if (charts.length > 0) {
+		if (chartSeries.length === 0) {
+			issues.push(
+				"Remove the empty chart or chart exact sourced numeric evidence.",
 			);
-			if (fact.status === "unverified" && series) {
+		}
+		for (const series of chartSeries) {
+			const fact = evidence.find(
+				(candidate) => candidate.key === normalizedKey(series.label),
+			);
+			const label =
+				typeof series.label === "string" && series.label.trim()
+					? series.label.trim().slice(0, 60)
+					: "Unnamed chart series";
+			if (!fact) {
+				issues.push(
+					`${label}: chart series is not accepted sourced search evidence.`,
+				);
+			} else if (fact.status === "unverified") {
 				issues.push(
 					`${fact.subject}: exclude unverified price evidence from numeric charts.`,
 				);
-			} else if (
-				fact.status === "sourced" &&
-				(!series || series.value !== fact.amount)
-			) {
+			} else if (series.value !== fact.amount) {
 				issues.push(
 					`${fact.subject}: chart the exact sourced numeric price or remove the evidence chart.`,
+				);
+			}
+		}
+		for (const fact of evidence) {
+			if (
+				fact.status === "sourced" &&
+				!chartSeries.some((series) => normalizedKey(series.label) === fact.key)
+			) {
+				issues.push(
+					`${fact.subject}: include the exact sourced numeric price in the evidence chart.`,
 				);
 			}
 		}

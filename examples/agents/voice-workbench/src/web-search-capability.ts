@@ -228,15 +228,33 @@ export const sanitizeWebSearchResult = (
 const UNVERIFIED_PRICE_REASON =
 	"No single explicit price was found in the returned sources." as const;
 const EXPLICIT_PRICE = /(?:US\s*)?\$\s*(\d{1,6}(?:,\d{3})*\.\d{2})(?!\d)/gi;
+const DISCOUNT_CONTEXT =
+	/\b(?:coupon|discount|promo(?:tion)?|save|savings)\b|\b(?:off)\b/i;
+const ITEM_PRICE_PREFIX =
+	/\b(?:price|priced|cost|costs|now|only|for|from|at)\b[^$]{0,16}$/i;
+const ITEM_PRICE_SUFFIX =
+	/^\s*(?:each\b|ea\.?\b|per\b|\/\s*(?:lb|oz|kg|item|unit)\b|at\b|from\b)/i;
+
+const hasConservativeItemPriceContext = (
+	text: string,
+	match: RegExpMatchArray,
+): boolean => {
+	const start = match.index ?? 0;
+	const end = start + match[0].length;
+	const before = text.slice(Math.max(0, start - 48), start);
+	const after = text.slice(end, end + 32);
+	if (DISCOUNT_CONTEXT.test(`${before} ${after}`)) return false;
+	return ITEM_PRICE_PREFIX.test(before) || ITEM_PRICE_SUFFIX.test(after);
+};
 
 export const deriveWebSearchPriceFact = (
 	results: readonly WebSearchResult[],
 ): WebSearchPriceFact => {
 	for (const result of results) {
 		const prices = new Map<number, string>();
-		for (const match of `${result.title} ${result.description}`.matchAll(
-			EXPLICIT_PRICE,
-		)) {
+		const text = `${result.title} ${result.description}`;
+		for (const match of text.matchAll(EXPLICIT_PRICE)) {
+			if (!hasConservativeItemPriceContext(text, match)) continue;
 			const numeric = match[1]?.replace(/,/g, "");
 			const amount = numeric ? Number(numeric) : Number.NaN;
 			if (Number.isFinite(amount) && amount >= 0) {
