@@ -2207,9 +2207,12 @@ No active tasks.
 
 - Title: Build LLM-authored voice/text artifact control-center workbench
 - Mode: 6-agent
-- Status: deferred
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/build-voice-text-agent-control-center-workbench-example-for-.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Add rendered DOM accessibility verification for Ignite examples
 
@@ -2332,6 +2335,48 @@ No active tasks.
 - Status: queued
 - Owner: runtime
 - Brief: .fas/tasks/add-named-ignitetest-rehearsals-with-trace-snapshots.md
+
+### Task: Simplify the voice workbench to one command that starts a recommended MLX model server and the web example with safe lifecycle, configuration, documentation, and verification
+
+- Title: Simplify the voice workbench to one command that starts a recommended MLX model server and the web example with safe lifecycle, configuration, documentation, and verification
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/simplify-the-voice-workbench-to-one-command-that-starts-a-re.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Complete the dynamic MLX tool-feedback loop and retain artifact revision history in the voice workbench
+
+- Title: Complete the dynamic MLX tool-feedback loop and retain artifact revision history in the voice workbench
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/complete-the-dynamic-mlx-tool-feedback-loop-and-retain-artif.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Dogfood provider-neutral external capability federation in the generic voice and text workbench
+
+- Title: Dogfood provider-neutral external capability federation in the generic voice and text workbench
+- Mode: 6-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/dogfood-provider-neutral-external-capability-federation-in-t.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Turn the voice workbench right rail into a live runtime inspector and harden capability reliability
+
+- Title: Turn the voice workbench right rail into a live runtime inspector and harden capability reliability
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/turn-the-voice-workbench-right-rail-into-a-live-runtime-insp.md
+- Automation mode: advisory
 
 ## Template
 

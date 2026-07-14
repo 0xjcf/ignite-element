@@ -89,7 +89,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "4-agent",
       "dependsOn": [
@@ -100,7 +100,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-09T15:28:53.373Z",
       "updatedAt": "2026-07-11T01:56:45.336Z",
-      "deferredReason": "dependency_reopened: task-1783613728381",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -112,7 +112,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "4-agent",
       "dependsOn": [
@@ -125,7 +125,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-09T15:29:10.265Z",
       "updatedAt": "2026-07-09T16:15:28.381Z",
-      "deferredReason": "dependency_reopened: task-1783613728381",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -151,33 +151,6 @@
       "createdAt": "2026-07-09T15:29:25.770Z",
       "updatedAt": "2026-07-09T15:29:25.770Z",
       "deferredReason": "dependency_reopened: task-1783610950265",
-      "invalidationReason": null
-    },
-    {
-      "id": "task-1783613728381",
-      "task": "Build LLM-authored voice/text artifact control-center workbench",
-      "priority": "high",
-      "source": "manual",
-      "details": "Build examples/agents/voice-workbench as the decisive dogfood for agent-authored interfaces. A user types or speaks a prompt; a conversation/command-center actor exposes consumer-owned createArtifact, reviseArtifact, and completeResponse commands through igniteTools; a scripted or live OpenAI-compatible/MLX model proposes artifact content and response text/speech through those intent-oriented commands; the actor validates and stores durable ProjectionDocument state; Ignite commits it to accessible native JSX, speech, and text/terminal outputs. Workbench tests use igniteTest.when({ command, input }). Bootstrap uses getSchema(), focused getters, canExecute(), and subscriptions without public inspect().\nSee .fas/tasks/build-voice-text-agent-control-center-workbench-example-for-.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "queued",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [
-        "task-1783735005336",
-        "task-1783783535436"
-      ],
-      "blocks": [
-        "task-1783610950265",
-        "task-1783610933373"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-09T16:15:28.381Z",
-      "updatedAt": "2026-07-11T15:25:35.436Z",
-      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -369,6 +342,52 @@
       "prDependencies": [],
       "createdAt": "2026-07-11T22:47:45.213Z",
       "updatedAt": "2026-07-11T22:47:45.213Z"
+    },
+    {
+      "id": "task-1784038488251",
+      "task": "Dogfood provider-neutral external capability federation in the generic voice and text workbench",
+      "priority": "critical",
+      "source": "sre-followup",
+      "details": "Follow up the completed LLM-authored voice/text workbench with a provider-neutral capability layer. Keep the workbench generic across every supported semantic ProjectionDocument node; use source-backed shopping-price research and budget/chart composition as the golden-path acceptance scenario. Compose availability-scoped igniteTools(component) commands with reusable configured external capability providers, route every call to its owning runtime, preserve actor authorization and execution receipts, and do not add new igniteCore configuration, public inspect APIs, or self-authorizing model code. Dogfood the contract inside the example before recommending any public federation API.\nSee .fas/tasks/dogfood-provider-neutral-external-capability-federation-in-t.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "processing",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1783613728381"
+      ],
+      "blocks": [
+        "task-1784061144784"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-14T14:14:48.251Z",
+      "updatedAt": "2026-07-14T20:32:24.784Z"
+    },
+    {
+      "id": "task-1784061144784",
+      "task": "Turn the voice workbench right rail into a live runtime inspector and harden capability reliability",
+      "priority": "critical",
+      "source": "operator-followup",
+      "details": "Replace the static proof rail with an interactive runtime inspector. Keep active parallel machine state, actor facts, and external capability outcomes visually distinct. Turn Browser, Terminal, Speech, and Headless channel cards into honest previews of the same authoritative component view without implying cross-process transport. Replace the flat all-command list with a clickable explorer driven by the exact current model manifest plus a clearly separated all-component blueprint; show description, owner, live availability, gated status, nested input schema, constraints, and recent receipts. Strengthen generic command and semantic-node field descriptions and deterministic completion repair without adding shopping-specific actor behavior. Make HTTP 429 and other capability failures bounded and actionable through structured retry metadata, cache/backoff policy, and optional configured provider fallback while never fabricating evidence. Do not add a public Ignite API or wrapper controller.\nSee .fas/tasks/turn-the-voice-workbench-right-rail-into-a-live-runtime-insp.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784038488251"
+      ],
+      "blocks": [],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-14T20:32:24.784Z",
+      "updatedAt": "2026-07-14T20:32:24.784Z",
+      "deferredReason": "dependency_reopened: task-1784038488251",
+      "invalidationReason": null
     }
   ],
   "completedTasks": [
@@ -3344,6 +3363,53 @@
       "workflowId": "direct-1783813576313",
       "branchName": "fas/getschema-blueprint",
       "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1783613728381",
+      "task": "Build LLM-authored voice/text artifact control-center workbench",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1783735005336",
+        "task-1783783535436"
+      ],
+      "blocks": [
+        "task-1783610950265",
+        "task-1783610933373"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-13T20:02:06.081Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783823059078",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784038468448",
+      "task": "Dogfood provider-neutral external capability federation in the generic voice and text workbench",
+      "priority": "critical",
+      "source": "voice-workbench-followup",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1783613728381"
+      ],
+      "blocks": [],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-14T14:15:20.432Z",
+      "terminalOutcome": null,
+      "branchName": null,
+      "prStatus": null,
+      "workflowId": "cancelled:task-1784038468448",
+      "cancelledReason": "Duplicate queue row created while correcting follow-up source trust; superseded by task-1784038488251."
     }
   ],
   "pullRequests": [],
