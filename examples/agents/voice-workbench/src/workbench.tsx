@@ -622,11 +622,14 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 										</div>
 										<div class="actor-copy">
 											<strong>{context.sessionId}</strong>
-											<span>
-												matches(
-												<code>{`{ provider: "${context.model.status}", turn: "${context.turnState}" }`}</code>
-												)
-											</span>
+											<pre class="actor-match">
+												<span>{"matches("}</span>
+												<code>{`{
+  provider: "${context.model.status}",
+  turn: "${context.turnState}",
+}`}</code>
+												<span>{")"}</span>
+											</pre>
 											<output class="latest-fact">
 												{context.lastFactLabel}
 											</output>

@@ -297,6 +297,8 @@ export const workbenchStyles = `
 	.actor-copy { display: grid; gap: 0.12rem; min-width: 0; }
 	.actor-copy strong, .latest-fact { font-family: var(--font-mono); font-size: 0.62rem; overflow-wrap: anywhere; }
 	.actor-copy span, .latest-fact { color: var(--muted); }
+	.actor-match { margin: 0; min-width: 0; color: var(--muted); font-family: var(--font-mono); font-size: 0.62rem; line-height: 1.55; white-space: pre-wrap; }
+	.actor-match code { font: inherit; white-space: inherit; }
 	.actor-copy code { color: var(--primary); }
 	.turn-trace { margin: 0; padding: var(--space-2); list-style: none; display: grid; }
 	.trace-step { position: relative; display: grid; grid-template-columns: auto 1fr; gap: var(--space-2); min-height: 2.55rem; padding: 0.45rem 0.5rem; color: var(--muted); }
