@@ -168,6 +168,7 @@ const validNode = (value: unknown): value is ProjectionDocumentNode => {
 		case "checklist":
 			return (
 				Array.isArray(value.items) &&
+				value.items.length > 0 &&
 				hasUniqueIds(value.items) &&
 				value.items.every(
 					(item) =>

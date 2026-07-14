@@ -141,6 +141,7 @@ describe("voice workbench domain", () => {
 	it.each(
 		[
 			[{ kind: "text", id: "text" }],
+			[{ kind: "checklist", id: "checks", items: [] }],
 			[{ kind: "checklist", id: "checks", items: [{ id: "x" }] }],
 			[{ kind: "action", id: "action", label: "Run", commandName: "eval" }],
 			[{ kind: "form", id: "form", fields: [{ id: "field", label: "X" }] }],
