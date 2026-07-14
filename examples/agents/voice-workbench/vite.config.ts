@@ -1,5 +1,9 @@
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin, type UserConfig } from "vite";
+import {
+	runBraveWebSearch,
+	type BraveWebSearchOptions,
+} from "./server/brave-web-search";
 
 const resolvePath = (path: string) =>
 	fileURLToPath(new URL(path, import.meta.url));
@@ -10,7 +14,121 @@ const igniteElementSourceRoot = resolvePath(
 const adaptersSourceRoot = resolvePath("../../../packages/ignite-adapters/src");
 const rendererSourceRoot = resolvePath("../../../packages/ignite-renderer/src");
 
-export default defineConfig({
+type CapabilityRouteRequest = {
+	method?: string;
+	body: string;
+};
+
+type CapabilityRouteResponse = {
+	status: number;
+	body: unknown;
+};
+
+type VoiceWorkbenchViteOptions = {
+	braveSearchApiKey?: string;
+	fetch?: BraveWebSearchOptions["fetch"];
+};
+
+const routeFailure = (
+	type: "validation" | "provider-failure",
+	message: string,
+) => ({
+	type,
+	ownerId: "voice-workbench-server",
+	toolName: "searchWeb",
+	message,
+});
+
+export async function handleWebSearchCapabilityRequest(
+	request: CapabilityRouteRequest,
+	options: BraveWebSearchOptions,
+): Promise<CapabilityRouteResponse> {
+	if (request.method !== "POST") {
+		return {
+			status: 405,
+			body: routeFailure(
+				"provider-failure",
+				"The web search route accepts POST requests only.",
+			),
+		};
+	}
+	let input: unknown;
+	try {
+		input = JSON.parse(request.body);
+	} catch {
+		return {
+			status: 400,
+			body: {
+				...routeFailure("validation", "The web search request is invalid."),
+				issues: ["body: expected JSON"],
+			},
+		};
+	}
+	return {
+		status: 200,
+		body: await runBraveWebSearch(
+			{ name: "searchWeb", input },
+			options,
+		),
+	};
+}
+
+const readBody = async (
+	request: AsyncIterable<unknown>,
+): Promise<string | null> => {
+	try {
+		const chunks: Uint8Array[] = [];
+		for await (const chunk of request) {
+			if (typeof chunk === "string") chunks.push(Buffer.from(chunk));
+			else if (chunk instanceof Uint8Array) chunks.push(chunk);
+			else return null;
+		}
+		return Buffer.concat(chunks).toString("utf8");
+	} catch {
+		return null;
+	}
+};
+
+const capabilityPlugin = (options: VoiceWorkbenchViteOptions): Plugin => ({
+	name: "voice-workbench-capabilities",
+	configureServer(server) {
+		server.middlewares.use(
+			"/api/capabilities/web-search",
+			async (request, response) => {
+				const body = await readBody(request);
+				const result =
+					body === null
+						? {
+								status: 400,
+								body: routeFailure(
+									"validation",
+									"The web search request could not be read.",
+								),
+							}
+						: await handleWebSearchCapabilityRequest(
+								{ method: request.method, body },
+								{
+									apiKey: options.braveSearchApiKey,
+									fetch: options.fetch,
+								},
+							);
+				response.statusCode = result.status;
+				response.setHeader("content-type", "application/json; charset=utf-8");
+				response.end(JSON.stringify(result.body));
+			},
+		);
+	},
+});
+
+export const createVoiceWorkbenchViteConfig = (
+	options: VoiceWorkbenchViteOptions = {},
+): UserConfig => ({
+	define: {
+		__VOICE_WORKBENCH_WEB_SEARCH_AVAILABLE__: JSON.stringify(
+			Boolean(options.braveSearchApiKey?.trim()),
+		),
+	},
+	plugins: [capabilityPlugin(options)],
 	build: {
 		rollupOptions: {
 			input: {
@@ -63,3 +181,9 @@ export default defineConfig({
 		],
 	},
 });
+
+export default defineConfig(
+	createVoiceWorkbenchViteConfig({
+		braveSearchApiKey: process.env.BRAVE_SEARCH_API_KEY,
+	}),
+);
