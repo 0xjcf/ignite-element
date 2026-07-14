@@ -186,6 +186,19 @@ model requires:
 | `VITE_MLX_API_KEY` | Development bearer token for an external endpoint | unset |
 | `BRAVE_SEARCH_API_KEY` | Enable the server-owned `searchWeb` capability | unset |
 
+For repeatable local search configuration, copy the committed placeholder and
+add your Brave Search subscription token to the ignored local file:
+
+```bash
+cp examples/agents/voice-workbench/.env.example \
+  examples/agents/voice-workbench/.env.local
+```
+
+Vite loads that example-local `.env.local` automatically when the one-command
+launcher starts the web server. A `BRAVE_SEARCH_API_KEY` supplied directly in
+the shell takes precedence over the local file. Keep this variable server-only:
+never rename it with a `VITE_` prefix, and never commit `.env.local`.
+
 For example, a smaller timeout and a different model can be selected without
 editing the example:
 
@@ -205,9 +218,10 @@ BRAVE_SEARCH_API_KEY=<server-only-token> pnpm example:voice-workbench
 Vite reads the token only in its server process and exposes a boolean capability
 availability flag to the browser. The browser calls the same-origin
 `/api/capabilities/web-search` route and never receives the token. Without the
-variable, `searchWeb` is omitted from the model manifest and the model receives
-`internetAccess: "unavailable"`; it is instructed to say that current lookup is
-unavailable instead of claiming or promising future research.
+variable in either the shell or example-local `.env.local`, `searchWeb` is
+omitted from the model manifest and the model receives
+`internetAccess: "unavailable"`; it is instructed to say that current lookup
+is unavailable instead of claiming or promising future research.
 
 Brave Web Search returns public search results and snippets, not guaranteed
 store-inventory or checkout prices. The model must preserve returned URLs in the

@@ -1,12 +1,44 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
 	createVoiceWorkbenchViteConfig,
 	handleWebSearchCapabilityRequest,
 	MAX_CAPABILITY_REQUEST_BYTES,
 	readCapabilityRequestBody,
+	resolveVoiceWorkbenchServerEnvironment,
 } from "./vite.config";
 
 describe("voice workbench Vite capability boundary", () => {
+	it("loads the ignored example-local env while preserving shell overrides", async () => {
+		const envDir = await mkdtemp(join(tmpdir(), "voice-workbench-env-"));
+		try {
+			await writeFile(
+				join(envDir, ".env.local"),
+				"BRAVE_SEARCH_API_KEY=local-secret\n",
+			);
+
+			expect(
+				resolveVoiceWorkbenchServerEnvironment(
+					{ mode: "development" },
+					{ envDir, processEnv: {} },
+				),
+			).toEqual({ braveSearchApiKey: "local-secret" });
+			expect(
+				resolveVoiceWorkbenchServerEnvironment(
+					{ mode: "development" },
+					{
+						envDir,
+						processEnv: { BRAVE_SEARCH_API_KEY: "shell-secret" },
+					},
+				),
+			).toEqual({ braveSearchApiKey: "shell-secret" });
+		} finally {
+			await rm(envDir, { recursive: true, force: true });
+		}
+	});
+
 	it("publishes only availability while the route keeps the Brave key server-side", async () => {
 		const fetchMock = vi.fn(
 			async () =>

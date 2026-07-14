@@ -1,5 +1,11 @@
 import { fileURLToPath } from "node:url";
-import { defineConfig, type Plugin, type UserConfig } from "vite";
+import {
+	type ConfigEnv,
+	defineConfig,
+	loadEnv,
+	type Plugin,
+	type UserConfig,
+} from "vite";
 import {
 	type BraveWebSearchOptions,
 	runBraveWebSearch,
@@ -27,6 +33,27 @@ type CapabilityRouteResponse = {
 type VoiceWorkbenchViteOptions = {
 	braveSearchApiKey?: string;
 	fetch?: BraveWebSearchOptions["fetch"];
+};
+
+type VoiceWorkbenchServerEnvironmentOptions = {
+	envDir?: string;
+	processEnv?: Readonly<Record<string, string | undefined>>;
+};
+
+export const resolveVoiceWorkbenchServerEnvironment = (
+	environment: Pick<ConfigEnv, "mode">,
+	options: VoiceWorkbenchServerEnvironmentOptions = {},
+): Pick<VoiceWorkbenchViteOptions, "braveSearchApiKey"> => {
+	const loadedEnv = loadEnv(
+		environment.mode,
+		options.envDir ?? resolvePath("./"),
+		"BRAVE_SEARCH_",
+	);
+	const processEnv = options.processEnv ?? process.env;
+	return {
+		braveSearchApiKey:
+			processEnv.BRAVE_SEARCH_API_KEY ?? loadedEnv.BRAVE_SEARCH_API_KEY,
+	};
 };
 
 export const MAX_CAPABILITY_REQUEST_BYTES = 16_384;
@@ -200,8 +227,8 @@ export const createVoiceWorkbenchViteConfig = (
 	},
 });
 
-export default defineConfig(
-	createVoiceWorkbenchViteConfig({
-		braveSearchApiKey: process.env.BRAVE_SEARCH_API_KEY,
-	}),
+export default defineConfig((environment) =>
+	createVoiceWorkbenchViteConfig(
+		resolveVoiceWorkbenchServerEnvironment(environment),
+	),
 );
