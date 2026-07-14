@@ -13,6 +13,30 @@ const nodeHeading = (kind: DocumentNode["kind"], label: string) => (
 	</h2>
 );
 
+const sourceLink = (value: unknown) => {
+	if (typeof value !== "string") return null;
+	try {
+		const url = new URL(value);
+		if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+		return (
+			<a
+				class="source-link"
+				href={url.href}
+				target="_blank"
+				rel="noopener noreferrer"
+				aria-label={`Source: ${url.hostname}`}
+			>
+				<span>{url.hostname}</span>
+				<span aria-hidden="true">↗</span>
+			</a>
+		);
+	} catch {
+		return null;
+	}
+};
+
+const renderCell = (value: unknown) => sourceLink(value) ?? String(value ?? "");
+
 const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 	switch (node.kind) {
 		case "text":
@@ -89,7 +113,7 @@ const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 								aria-label={field.label}
 								value={
 									typeof field.value === "string" ||
-									typeof field.value === "number"
+										typeof field.value === "number"
 										? String(field.value)
 										: ""
 								}
@@ -119,7 +143,7 @@ const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 								<tr key={row.id}>
 									{row.cells.map((cell, index) => (
 										<td key={`${row.id}-${node.columns[index]?.id ?? index}`}>
-											{String(cell ?? "")}
+											{renderCell(cell)}
 										</td>
 									))}
 								</tr>
@@ -150,8 +174,16 @@ const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 				1,
 				...node.series.map((series) => Math.abs(series.value)),
 			);
+			const accessibleSummary = node.series
+				.map((series) => `${series.label} ${series.value}`)
+				.join(", ");
 			return (
-				<section key={node.id} class="doc-card" data-node-kind={node.kind}>
+				<figure
+					key={node.id}
+					class="doc-card"
+					data-node-kind={node.kind}
+					aria-label={`${node.chartType} chart: ${accessibleSummary}`}
+				>
 					{nodeHeading(node.kind, `${node.chartType} chart`)}
 					{node.series.map((series) => (
 						<label key={series.id}>
@@ -165,7 +197,7 @@ const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 							/>
 						</label>
 					))}
-				</section>
+				</figure>
 			);
 		}
 		case "code-diff":
@@ -329,7 +361,7 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 								<div>
 									<strong>
 										{context.presentation.voice.type ===
-										"voice-permission-denied"
+											"voice-permission-denied"
 											? "Microphone access was denied"
 											: "Speech input is unavailable"}
 									</strong>
@@ -572,7 +604,7 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 								</div>
 							</div>
 							{!context.activeArtifact &&
-							(context.modelPreparing || context.modelFailed) ? (
+								(context.modelPreparing || context.modelFailed) ? (
 								<section
 									class={`model-state ${context.modelFailed ? "model-state-failed" : ""}`}
 									aria-live="polite"

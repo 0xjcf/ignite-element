@@ -125,8 +125,14 @@ describe("voice workbench accessible JSX", () => {
 						columns: [
 							{ id: "item", label: "Item" },
 							{ id: "cost", label: "Cost" },
+							{ id: "source", label: "Source" },
 						],
-						rows: [{ id: "hosting", cells: ["Hosting", "$40"] }],
+						rows: [
+							{
+								id: "hosting",
+								cells: ["Hosting", "$40", "https://example.com/hosting"],
+							},
+						],
 					},
 					{
 						kind: "timeline",
@@ -209,6 +215,12 @@ describe("voice workbench accessible JSX", () => {
 		expect(
 			bridge.host.shadowRoot?.querySelector("table")?.textContent,
 		).toContain("Hosting");
+		const sourceLink = bridge.getByRole("link", {
+			name: "Source: example.com",
+		});
+		expect(sourceLink).toHaveProperty("href", "https://example.com/hosting");
+		expect(sourceLink.getAttribute("target")).toBe("_blank");
+		expect(sourceLink.getAttribute("rel")).toBe("noopener noreferrer");
 		expect(
 			bridge.host.shadowRoot?.querySelector('[aria-label="Timeline"]')
 				?.textContent,
@@ -218,6 +230,11 @@ describe("voice workbench accessible JSX", () => {
 				?.querySelector("progress")
 				?.getAttribute("aria-label"),
 		).toBe("Budget used: 40");
+		expect(
+			bridge.host.shadowRoot
+				?.querySelector('[data-node-kind="chart"]')
+				?.getAttribute("aria-label"),
+		).toBe("bar chart: Budget used 40");
 		expect(
 			bridge.host.shadowRoot?.querySelector('[aria-label="Decision log"]')
 				?.textContent,

@@ -258,7 +258,7 @@ export const workbenchStyles = `
 	.document h1 { max-width: 43rem; margin: var(--space-5) 0 var(--space-3); font-size: clamp(1.8rem, 3.4vw, 3.25rem); line-height: 1.02; letter-spacing: -0.045em; }
 	.revision-history { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3); align-items: center; margin-top: var(--space-5); padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--background); }
 	.doc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-5); margin-top: var(--space-8); }
-	.doc-card { min-width: 0; padding: var(--space-5); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); overflow: auto; }
+	.doc-card { min-width: 0; margin: 0; padding: var(--space-5); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); overflow: auto; }
 	.doc-card[data-node-kind="table"], .doc-card[data-node-kind="code-diff"], .doc-card[data-node-kind="chart"] { grid-column: 1 / -1; }
 	.doc-card h2, .doc-card h3 { margin: 0 0 var(--space-3); font-size: 0.8rem; }
 	.doc-card p { color: var(--foreground-soft); }
@@ -273,6 +273,8 @@ export const workbenchStyles = `
 	.doc-card input:not([type="checkbox"]) { width: 100%; min-height: 2.4rem; padding: 0 var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--background-elevated); color: var(--foreground); }
 	.doc-card table { width: 100%; border-collapse: collapse; }
 	.doc-card th, .doc-card td { padding: var(--space-2); border-bottom: 1px solid var(--border); text-align: left; }
+	.source-link { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--speech); font-family: var(--font-mono); font-size: 0.68rem; font-weight: 700; text-decoration-thickness: 0.08rem; text-underline-offset: 0.16rem; overflow-wrap: anywhere; }
+	.source-link:hover { color: var(--foreground); }
 	.doc-card time, .doc-card code, .schema-view pre { color: var(--muted); font-family: var(--font-mono); }
 	.doc-card pre { overflow: auto; padding: var(--space-3); background: var(--background); border-radius: var(--radius-sm); }
 	.doc-card progress { width: 100%; accent-color: var(--primary); }
@@ -343,6 +345,7 @@ export const workbenchStyles = `
 	.text-button,
 	.segmented button,
 	.node-action,
+	.source-link,
 	.doc-card input:not([type="checkbox"]),
 	.mobile-tabs button { min-height: var(--target-min); }
 	.icon-button {

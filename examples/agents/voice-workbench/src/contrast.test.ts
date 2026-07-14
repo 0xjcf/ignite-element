@@ -71,6 +71,7 @@ describe("voice workbench contrast tokens", () => {
 			".text-button",
 			".segmented button",
 			".node-action",
+			".source-link",
 			".doc-card input",
 			".mobile-tabs button",
 		]) {

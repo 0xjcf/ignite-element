@@ -36,6 +36,22 @@ the updated actor state. An artifact mutation and `completeResponse` therefore
 cannot be accepted in the same unobserved round. Invalid or stale input returns
 structured actor feedback that the model can repair on its next round.
 
+The browser can optionally federate that component manifest with reusable
+external capability providers. The example includes one provider-neutral
+`searchWeb` contract backed by a same-origin server route and Brave Web Search.
+Every manifest entry has exactly one owner. Duplicate tool names reject the
+combined manifest before model inference, and each call routes only to its
+recorded owner. External success, unavailable, validation, timeout, and provider
+failure outcomes return as bounded facts with receipts; they never mutate the
+conversation actor directly.
+
+This keeps the workbench generic. Shopping research is the golden-path scenario,
+not a shopping-specific actor or renderer: the model can search for source facts,
+then use the existing `createArtifact` or `reviseArtifact` commands to compose
+any supported list, table, chart, timeline, decision log, or mixed-node document.
+HTTP and HTTPS values in table cells become safe source links, while chart nodes
+retain a textual accessible name and per-series values.
+
 Projected checklist controls and MLX turns both call `setChecklistItem` with
 stable artifact, node, and item identities plus the expected revision. The
 functional core rejects stale or unknown identities and records an accepted
@@ -72,6 +88,14 @@ same component = igniteCore({...})
 ├─ browser: text or speech → actor → MLX tools → JSX + speech
 ├─ terminal: text → actor → MLX tools → formatted text
 └─ headless proof: igniteTest commands → actor → inspectable trace
+```
+
+With optional research configured, one browser turn adds a provider without
+changing the component contract:
+
+```text
+prompt → combined owner index → searchWeb → source facts + receipt
+       → createArtifact/reviseArtifact → actor validation → table + chart + links
 ```
 
 Each process imports that component contract directly. The terminal
@@ -147,6 +171,7 @@ model requires:
 | `VOICE_WORKBENCH_NO_OPEN` | Set to `1` to avoid opening a browser | unset |
 | `VITE_MLX_BASE_URL` | Reuse an external OpenAI-compatible endpoint | managed local MLX endpoint |
 | `VITE_MLX_API_KEY` | Development bearer token for an external endpoint | unset |
+| `BRAVE_SEARCH_API_KEY` | Enable the server-owned `searchWeb` capability | unset |
 
 For example, a smaller timeout and a different model can be selected without
 editing the example:
@@ -156,6 +181,26 @@ VOICE_WORKBENCH_MLX_MODEL=<model> \
 VOICE_WORKBENCH_MLX_STARTUP_TIMEOUT_MS=1800000 \
 pnpm example:voice-workbench
 ```
+
+To enable source-backed public-web research for the browser workbench, provide a
+Brave Search subscription token to the same one-command launcher:
+
+```bash
+BRAVE_SEARCH_API_KEY=<server-only-token> pnpm example:voice-workbench
+```
+
+Vite reads the token only in its server process and exposes a boolean capability
+availability flag to the browser. The browser calls the same-origin
+`/api/capabilities/web-search` route and never receives the token. Without the
+variable, `searchWeb` is omitted from the model manifest and the model receives
+`internetAccess: "unavailable"`; it is instructed to say that current lookup is
+unavailable instead of claiming or promising future research.
+
+Brave Web Search returns public search results and snippets, not guaranteed
+store-inventory or checkout prices. The model must preserve returned URLs in the
+artifact so people can inspect the evidence. A production commerce application
+would plug a retailer or product-data provider into the same owner contract when
+exact local price and availability guarantees are required.
 
 Setting `VITE_MLX_BASE_URL` makes the endpoint externally owned. The launcher
 waits for it but never installs, starts, or stops its model process. This also
