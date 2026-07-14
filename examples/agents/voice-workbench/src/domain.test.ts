@@ -293,6 +293,82 @@ describe("voice workbench domain", () => {
 		);
 	});
 
+	it("sets a checklist item through a revision-checked artifact command", () => {
+		const created = reduceConversationSession(
+			createInitialSession("checklist"),
+			{
+				type: "CREATE_ARTIFACT",
+				input: { id: "launch-plan", nodes: checklist },
+			},
+		);
+		if (!created.accepted) throw new Error("expected artifact creation");
+
+		const checked = reduceConversationSession(created.session, {
+			type: "SET_CHECKLIST_ITEM",
+			input: {
+				artifactId: "launch-plan",
+				expectedRevision: "1",
+				nodeId: "launch-items",
+				itemId: "ship",
+				checked: true,
+			},
+		});
+
+		expect(checked).toMatchObject({
+			accepted: true,
+			session: {
+				documents: [
+					{
+						id: "launch-plan",
+						revision: "2",
+						nodes: [
+							{
+								id: "launch-items",
+								items: [{ id: "ship", checked: true }],
+							},
+						],
+					},
+				],
+				artifactRevisions: [{ revision: "1" }, { revision: "2" }],
+			},
+		});
+		if (!checked.accepted) throw new Error("expected checklist update");
+
+		expect(
+			reduceConversationSession(checked.session, {
+				type: "SET_CHECKLIST_ITEM",
+				input: {
+					artifactId: "launch-plan",
+					expectedRevision: "1",
+					nodeId: "launch-items",
+					itemId: "ship",
+					checked: false,
+				},
+			}),
+		).toMatchObject({
+			accepted: false,
+			reason: "conflict",
+			session: checked.session,
+		});
+
+		expect(
+			reduceConversationSession(checked.session, {
+				type: "SET_CHECKLIST_ITEM",
+				input: {
+					artifactId: "launch-plan",
+					expectedRevision: "2",
+					nodeId: "missing",
+					itemId: "ship",
+					checked: false,
+				},
+			}),
+		).toMatchObject({
+			accepted: false,
+			reason: "validation",
+			session: checked.session,
+		});
+	});
+
 	it("returns validation and revision-conflict facts without mutation", () => {
 		const initial = createInitialSession("session-1");
 		const invalid = reduceConversationSession(initial, {

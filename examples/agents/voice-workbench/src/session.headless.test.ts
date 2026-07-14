@@ -4,6 +4,11 @@ import { component, source } from "./session";
 
 const nodes = [
 	{
+		kind: "checklist",
+		id: "decision-checklist",
+		items: [{ id: "verify", label: "Verify decision", checked: false }],
+	},
+	{
 		kind: "decision-log",
 		id: "decision-entries",
 		entries: [
@@ -47,6 +52,7 @@ describe("voice workbench headless component", () => {
 			"reportModelAvailable",
 			"reportModelFailure",
 			"reviseArtifact",
+			"setChecklistItem",
 			"startVoiceCapture",
 			"submitPrompt",
 			"submitVoiceTranscript",
@@ -88,6 +94,25 @@ describe("voice workbench headless component", () => {
 							},
 						},
 					},
+				},
+			},
+		});
+		expect(schema.commands.setChecklistItem).toMatchObject({
+			input: {
+				type: "object",
+				required: [
+					"artifactId",
+					"expectedRevision",
+					"nodeId",
+					"itemId",
+					"checked",
+				],
+				properties: {
+					artifactId: { type: "string", minLength: 1 },
+					expectedRevision: { type: "string", minLength: 1 },
+					nodeId: { type: "string", minLength: 1 },
+					itemId: { type: "string", minLength: 1 },
+					checked: { type: "boolean" },
 				},
 			},
 		});
@@ -261,6 +286,7 @@ describe("voice workbench headless component", () => {
 						id: "decision",
 						revision: "1",
 						nodes: [
+							{ id: "decision-checklist", action: null },
 							{ id: "decision-entries", action: null },
 							{
 								id: "complete-response",
@@ -329,6 +355,32 @@ describe("voice workbench headless component", () => {
 				status: "ready",
 				speech: { text: "Decision captured.", status: "pending" },
 			});
+		expect(component.canExecute("setChecklistItem")).toBe(true);
+		(
+			await igniteTest(component).when({
+				command: "setChecklistItem",
+				input: {
+					artifactId: "decision",
+					expectedRevision: "1",
+					nodeId: "decision-checklist",
+					itemId: "verify",
+					checked: true,
+				},
+			})
+		).expectEvent({
+			type: "artifact-revised",
+			artifactId: "decision",
+			revision: "2",
+		});
+		expect(component.getView().activeArtifact).toMatchObject({
+			id: "decision",
+			revision: "2",
+		});
+		expect(component.getView().activeArtifact?.nodes[0]).toMatchObject({
+			id: "decision-checklist",
+			items: [{ id: "verify", checked: true }],
+		});
+		expect(component.getSnapshot().context.artifactRevisions).toHaveLength(2);
 		expect(component.canExecute("acknowledgeSpeech")).toBe(true);
 
 		const speech = component.getView().speech;

@@ -90,6 +90,17 @@ describe("voice workbench accessible JSX", () => {
 				title: "Decision",
 				nodes: [
 					{
+						kind: "checklist",
+						id: "decision-checklist",
+						items: [
+							{
+								id: "ship",
+								label: "Ship Ignite",
+								checked: false,
+							},
+						],
+					},
+					{
 						kind: "text",
 						id: "summary",
 						text: "Ignite owns the projection.",
@@ -127,10 +138,36 @@ describe("voice workbench accessible JSX", () => {
 		).toContain('"revision": "1"');
 
 		const action = bridge.getByRole("button", { name: "Complete response" });
+		const pendingChecklistItem = bridge.getByRole("checkbox", {
+			name: "Ship Ignite",
+		}) as HTMLInputElement;
+		expect(pendingChecklistItem.disabled).toBe(true);
 		action.focus();
 		expect(bridge.root.activeElement).toBe(action);
 		action.click();
 		expect(component.getView().status).toBe("ready");
+		bridge.getByRole("tab", { name: "Document" }).click();
+		const checklistItem = bridge.getByRole("checkbox", {
+			name: "Ship Ignite",
+		}) as HTMLInputElement;
+		expect(checklistItem.disabled).toBe(false);
+		expect(checklistItem.checked).toBe(false);
+		checklistItem.click();
+		expect(component.getView().activeArtifact).toMatchObject({
+			id: "decision",
+			revision: "2",
+		});
+		expect(component.getView().activeArtifact?.nodes[0]).toMatchObject({
+			id: "decision-checklist",
+			items: [{ id: "ship", checked: true }],
+		});
+		expect(
+			(
+				bridge.getByRole("checkbox", {
+					name: "Ship Ignite",
+				}) as HTMLInputElement
+			).checked,
+		).toBe(true);
 
 		bridge.stop();
 		source.stop();
