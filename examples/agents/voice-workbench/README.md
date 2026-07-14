@@ -22,11 +22,20 @@ The component's domain contract centers on five commands:
 Text and speech are two input adapters for the same `submitPrompt` command.
 Additional presentation commands keep browser intent actor-owned without
 exposing the source. The model receives only the currently authorized artifact
-commands from `getSchema()` through `igniteTools`. It may propose a semantic
-artifact and a response, but it cannot write DOM, JSX, JavaScript, or actor
-state directly. When a model emits one tool call per response, the pure turn
-protocol accepts the artifact first and requests `completeResponse` in a second
-round against the updated actor view.
+commands from `getSchema()` through a fresh `igniteTools(component)` manifest
+on every model round. It may propose a semantic artifact and a response, but it
+cannot write DOM, JSX, JavaScript, or actor state directly. The bounded pure
+turn protocol executes one proposed tool call, returns its correlated Ignite
+observation to the model, and then derives the next manifest from the updated
+actor state. An artifact mutation and `completeResponse` therefore cannot be
+accepted in the same unobserved round.
+
+This feedback loop also distinguishes actor acceptance from prompt
+satisfaction. If the actor accepts a valid text node for a request that asked
+for a checklist, the next model round sees the accepted document, can revise it
+to checklist nodes, and only then completes. There are no prompt-specific node
+mappings in the example; the local model chooses from the semantic shapes in
+the current command schema and the actor remains the authority.
 
 The actor validates semantic nodes, revision conflicts, action payloads, and
 command availability before accepting a proposal. Ignite then derives the view
@@ -48,6 +57,12 @@ command and actor-transition boundaries. A minimal chat completion—not the
 `/models` metadata response—produces the `MODEL_AVAILABLE` fact that unlocks
 text and speech. Expected failures become sanitized `MODEL_FAILED` facts and a
 retryable projection.
+
+Artifact revisions are append-only inside the pure actor session. `documents`
+remains the latest-only read model used by the browser and model context, while
+the private `artifactRevisions` collection retains every accepted snapshot.
+That preserves the audit data needed for future undo and redo without adding
+undo/redo commands or branching policy to this example yet.
 
 The browser projection is declarative Ignite JSX. Browser-only draft, mobile
 panel, microphone, trace, and commit-receipt facts live in a private typed
@@ -149,9 +164,12 @@ configuration paths are development-only.
 Each model invocation serializes the submitted prompt and a compact
 `modelContext` derived by `igniteCore.view`. It includes artifact state needed
 for creation and revision but excludes browser draft, microphone, trace, and
-commit-receipt presentation state. Consumers still own that disclosure boundary
-and must redact or remove sensitive artifact data before invoking the model.
-This example does not apply application-specific redaction automatically.
+commit-receipt presentation state. It also excludes the private artifact
+revision history. Correlated tool-result messages contain a bounded outcome,
+the current model context, and public actor-event facts rather than the raw
+XState snapshot. Consumers still own that disclosure boundary and must redact
+or remove sensitive artifact data before invoking the model. This example does
+not apply application-specific redaction automatically.
 
 The launcher provides overridable local URL and model defaults; credentials,
 prompts, artifacts, and responses are never hard-coded. When the web-only
@@ -202,7 +220,8 @@ pnpm --dir examples/agents/voice-workbench build
 The deterministic suite uses `igniteTest` and the headless runtime before it
 tests the browser projection. It covers both prompt modalities, semantic-node
 validation, stale revision rejection, schema-limited model commands, provider
-failures, speech lifecycle, projection commits, and the
+failures, correlated multi-round tool feedback, accepted-artifact correction,
+append-only revision history, speech lifecycle, projection commits, and the
 no-imperative-DOM-writer guard. The parity suite checks all seven states through
 the `igniteTest` accessibility bridge, ten opaque or translucent WCAG AA token
 pairs, and the global 44px target contract.
@@ -211,10 +230,10 @@ pairs, and the global 44px target contract.
 
 This example proves actor authority within one live browser session. It does not
 yet prove persistence across reloads, multi-client synchronization, Actor-Web
-transport, model-process supervision, or equivalent speech recognition across
-all browsers and assistive technologies. Those remain outer-runtime or rendered
-browser concerns rather than hidden responsibilities of `igniteCore` or
-`igniteTools`.
+transport, undo/redo policy, model-process supervision, or equivalent speech
+recognition across all browsers and assistive technologies. Those remain
+outer-runtime or rendered browser concerns rather than hidden responsibilities
+of `igniteCore` or `igniteTools`.
 
 The bundled `mlx-lm.server` is a loopback development server with basic security
 checks, not a production deployment. Do not expose it to an untrusted network.
