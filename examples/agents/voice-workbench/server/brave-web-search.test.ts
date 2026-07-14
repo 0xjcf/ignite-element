@@ -19,7 +19,7 @@ describe("Brave Web Search server adapter", () => {
 							{
 								title: `${query} listing`,
 								url: `https://example.com/${slug}`,
-								description: "Typical price",
+								description: slug === "coffee" ? "$8.99" : "Typical price",
 							},
 							{
 								title: "Unsafe",
@@ -38,7 +38,10 @@ describe("Brave Web Search server adapter", () => {
 				{
 					name: "searchWeb",
 					input: {
-						queries: ["coffee Sarasota", "bread Sarasota"],
+						queries: [
+							{ subject: "Coffee", query: "coffee Sarasota" },
+							{ subject: "Bread", query: "bread Sarasota" },
+						],
 						country: "US",
 						countPerQuery: 4,
 					},
@@ -52,17 +55,32 @@ describe("Brave Web Search server adapter", () => {
 			data: {
 				searches: [
 					{
+						subject: "Coffee",
 						query: "coffee Sarasota",
+						price: {
+							status: "sourced",
+							amount: 8.99,
+							display: "$8.99",
+							sourceUrl: "https://example.com/coffee",
+						},
 						results: [
 							{
 								title: "coffee Sarasota listing",
 								url: "https://example.com/coffee",
-								description: "Typical price",
+								description: "$8.99",
 							},
 						],
 					},
 					{
+						subject: "Bread",
 						query: "bread Sarasota",
+						price: {
+							status: "unverified",
+							amount: null,
+							sourceUrl: "https://example.com/bread",
+							reason:
+								"No single explicit price was found in the returned sources.",
+						},
 						results: [
 							{
 								title: "bread Sarasota listing",
@@ -126,7 +144,10 @@ describe("Brave Web Search server adapter", () => {
 		const boundedFields = await runBraveWebSearch(
 			{
 				name: "searchWeb",
-				input: { queries: ["bounded source"], countPerQuery: 5 },
+				input: {
+					queries: [{ subject: "Bounded", query: "bounded source" }],
+					countPerQuery: 5,
+				},
 			},
 			{ apiKey: "key", fetch: fieldFetch },
 		);
@@ -177,7 +198,10 @@ describe("Brave Web Search server adapter", () => {
 			{
 				name: "searchWeb",
 				input: {
-					queries: Array.from({ length: 8 }, (_, index) => `item ${index}`),
+					queries: Array.from({ length: 8 }, (_, index) => ({
+						subject: `Item ${index}`,
+						query: `item ${index}`,
+					})),
 					countPerQuery: 5,
 				},
 			},
@@ -204,7 +228,10 @@ describe("Brave Web Search server adapter", () => {
 		const fetchMock = vi.fn();
 		await expect(
 			runBraveWebSearch(
-				{ name: "searchWeb", input: { queries: ["coffee"] } },
+				{
+					name: "searchWeb",
+					input: { queries: [{ subject: "Coffee", query: "coffee" }] },
+				},
 				{ apiKey: "", fetch: fetchMock },
 			),
 		).resolves.toEqual({
@@ -233,13 +260,19 @@ describe("Brave Web Search server adapter", () => {
 		});
 		await expect(
 			runBraveWebSearch(
-				{ name: "searchWeb", input: { queries: ["coffee"] } },
+				{
+					name: "searchWeb",
+					input: { queries: [{ subject: "Coffee", query: "coffee" }] },
+				},
 				{ apiKey: "key", fetch: fetchMock },
 			),
 		).resolves.toMatchObject({ type: "provider-failure", status: 429 });
 		await expect(
 			runBraveWebSearch(
-				{ name: "searchWeb", input: { queries: ["coffee"] } },
+				{
+					name: "searchWeb",
+					input: { queries: [{ subject: "Coffee", query: "coffee" }] },
+				},
 				{ apiKey: "key", fetch: fetchMock },
 			),
 		).resolves.toMatchObject({ type: "provider-failure" });
@@ -261,7 +294,12 @@ describe("Brave Web Search server adapter", () => {
 		const result = runBraveWebSearch(
 			{
 				name: "searchWeb",
-				input: { queries: ["bread price", "eggs price"] },
+				input: {
+					queries: [
+						{ subject: "Bread", query: "bread price" },
+						{ subject: "Eggs", query: "eggs price" },
+					],
+				},
 			},
 			{ apiKey: "key", fetch: fetchMock, timeoutMs: 25 },
 		);
@@ -300,7 +338,12 @@ describe("Brave Web Search server adapter", () => {
 		const result = runBraveWebSearch(
 			{
 				name: "searchWeb",
-				input: { queries: ["reject", "pending"] },
+				input: {
+					queries: [
+						{ subject: "Reject", query: "reject" },
+						{ subject: "Pending", query: "pending" },
+					],
+				},
 			},
 			{ apiKey: "key", fetch: fetchMock, timeoutMs: 25 },
 		);

@@ -1,11 +1,13 @@
 import type { NeutralToolCall } from "ignite-element/tools";
 import type { CapabilityExecutionFact } from "../src/capability-federation";
 import {
+	deriveWebSearchPriceFact,
 	readWebSearchInput,
 	sanitizeWebSearchResult,
 	WEB_SEARCH_LIMITS,
 	type WebSearchFact,
 	type WebSearchInput,
+	type WebSearchQuery,
 	type WebSearchResult,
 } from "../src/web-search-capability";
 
@@ -43,14 +45,14 @@ type SearchOutcome =
 	| { ok: false; fact: CapabilityExecutionFact };
 
 const requestBraveQuery = async (
-	query: string,
+	request: WebSearchQuery,
 	input: WebSearchInput,
 	apiKey: string,
 	fetcher: FetchLike,
 	signal: AbortSignal,
 ): Promise<SearchOutcome> => {
 	const endpoint = new URL("https://api.search.brave.com/res/v1/web/search");
-	endpoint.searchParams.set("q", query);
+	endpoint.searchParams.set("q", request.query);
 	endpoint.searchParams.set("count", String(input.countPerQuery));
 	endpoint.searchParams.set("safesearch", "moderate");
 	if (input.country) endpoint.searchParams.set("country", input.country);
@@ -91,7 +93,14 @@ const requestBraveQuery = async (
 			.map(sanitizeWebSearchResult)
 			.filter((result): result is WebSearchResult => result !== null)
 			.slice(0, input.countPerQuery);
-		return { ok: true, search: { query, results } };
+		return {
+			ok: true,
+			search: {
+				...request,
+				price: deriveWebSearchPriceFact(results),
+				results,
+			},
+		};
 	} catch {
 		return {
 			ok: false,

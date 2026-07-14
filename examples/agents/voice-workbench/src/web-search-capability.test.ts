@@ -18,6 +18,7 @@ describe("same-origin web search capability", () => {
 						data: {
 							searches: [
 								{
+									subject: "Coffee",
 									query: "coffee price Sarasota",
 									results: [
 										{
@@ -45,6 +46,14 @@ describe("same-origin web search capability", () => {
 				name: "searchWeb",
 				inputSchema: expect.objectContaining({
 					required: ["queries"],
+					properties: expect.objectContaining({
+						queries: expect.objectContaining({
+							items: expect.objectContaining({
+								type: "object",
+								required: ["subject", "query"],
+							}),
+						}),
+					}),
 				}),
 			}),
 		]);
@@ -53,7 +62,7 @@ describe("same-origin web search capability", () => {
 				id: "search-1",
 				name: "searchWeb",
 				input: {
-					queries: ["coffee price Sarasota"],
+					queries: [{ subject: " Coffee ", query: "coffee price Sarasota" }],
 					country: "US",
 					countPerQuery: 4,
 				},
@@ -61,7 +70,18 @@ describe("same-origin web search capability", () => {
 		).resolves.toMatchObject({
 			type: "success",
 			data: {
-				searches: [{ results: [{ url: "https://example.com/coffee" }] }],
+				searches: [
+					{
+						subject: "Coffee",
+						price: {
+							status: "sourced",
+							amount: 8.99,
+							display: "$8.99",
+							sourceUrl: "https://example.com/coffee",
+						},
+						results: [{ url: "https://example.com/coffee" }],
+					},
+				],
 			},
 			receipt: { queryCount: 1, sourceCount: 1 },
 		});
@@ -74,7 +94,7 @@ describe("same-origin web search capability", () => {
 		);
 		const [, init] = fetchMock.mock.calls[0] ?? [];
 		expect(JSON.parse(String(init?.body))).toEqual({
-			queries: ["coffee price Sarasota"],
+			queries: [{ subject: "Coffee", query: "coffee price Sarasota" }],
 			country: "us",
 			countPerQuery: 4,
 		});
@@ -101,7 +121,10 @@ describe("same-origin web search capability", () => {
 			provider.run({
 				name: "searchWeb",
 				input: {
-					queries: Array.from({ length: 9 }, (_, index) => `item ${index}`),
+					queries: Array.from({ length: 9 }, (_, index) => ({
+						subject: `Item ${index}`,
+						query: `item ${index}`,
+					})),
 					country: "USA",
 					countPerQuery: 6,
 				},
@@ -115,9 +138,21 @@ describe("same-origin web search capability", () => {
 			],
 		});
 		expect(fetchMock).not.toHaveBeenCalled();
+		await expect(
+			provider.run({
+				name: "searchWeb",
+				input: { queries: [{ subject: "", query: "coffee" }] },
+			}),
+		).resolves.toMatchObject({
+			type: "validation",
+			issues: ["queries.0.subject: expected a non-empty string"],
+		});
 
 		await expect(
-			provider.run({ name: "searchWeb", input: { queries: ["coffee"] } }),
+			provider.run({
+				name: "searchWeb",
+				input: { queries: [{ subject: "Coffee", query: "coffee" }] },
+			}),
 		).resolves.toEqual({
 			type: "provider-failure",
 			ownerId: "web-search",
@@ -136,6 +171,7 @@ describe("same-origin web search capability", () => {
 						toolName: "searchWeb",
 						data: {
 							searches: Array.from({ length: 9 }, (_, queryIndex) => ({
+								subject: `subject ${queryIndex}`,
 								query: `query ${queryIndex}`,
 								results: Array.from({ length: 5 }, (_, resultIndex) => ({
 									title: "T".repeat(WEB_SEARCH_LIMITS.titleLength + 20),
@@ -158,7 +194,9 @@ describe("same-origin web search capability", () => {
 		const provider = createWebSearchCapability({ fetch: fetchMock });
 		const result = await provider.run({
 			name: "searchWeb",
-			input: { queries: ["bounded evidence"] },
+			input: {
+				queries: [{ subject: "Bounded evidence", query: "bounded evidence" }],
+			},
 		});
 
 		expect(result).toMatchObject({
@@ -208,7 +246,9 @@ describe("same-origin web search capability", () => {
 
 		const result = provider.run({
 			name: "searchWeb",
-			input: { queries: ["coffee price"] },
+			input: {
+				queries: [{ subject: "Coffee", query: "coffee price" }],
+			},
 		});
 		await vi.advanceTimersByTimeAsync(25);
 

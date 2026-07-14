@@ -5,24 +5,44 @@ import type {
 } from "./capability-federation";
 
 export type WebSearchInput = {
-	queries: string[];
+	queries: WebSearchQuery[];
 	countPerQuery: number;
 	country?: string;
+};
+export type WebSearchQuery = {
+	subject: string;
+	query: string;
 };
 export type WebSearchResult = {
 	title: string;
 	url: string;
 	description: string;
 };
+export type WebSearchPriceFact =
+	| {
+			status: "sourced";
+			amount: number;
+			display: string;
+			sourceUrl: string;
+	  }
+	| {
+			status: "unverified";
+			amount: null;
+			sourceUrl: string | null;
+			reason: "No single explicit price was found in the returned sources.";
+	  };
 export type WebSearchFact = {
 	searches: Array<{
+		subject: string;
 		query: string;
+		price: WebSearchPriceFact;
 		results: WebSearchResult[];
 	}>;
 };
 
 export const WEB_SEARCH_LIMITS = Object.freeze({
 	queryCount: 8,
+	subjectLength: 120,
 	queryLength: 400,
 	resultsPerQuery: 5,
 	totalSources: 24,
@@ -50,7 +70,7 @@ const webSearchManifest: NeutralManifest = [
 	{
 		name: SEARCH_TOOL_NAME,
 		description:
-			"Search the public web for current source-backed facts using 1 to 8 focused queries. Put returned URLs in semantic table cells as citations.",
+			"Search the public web for current source-backed facts using 1 to 8 subject/query pairs. Each subject returns either one unambiguous sourced price or an explicit unverified fact. Materialize subject, price, status, and source in semantic table cells.",
 		inputSchema: {
 			type: "object",
 			properties: {
@@ -59,11 +79,24 @@ const webSearchManifest: NeutralManifest = [
 					minItems: 1,
 					maxItems: WEB_SEARCH_LIMITS.queryCount,
 					items: {
-						type: "string",
-						minLength: 1,
-						maxLength: WEB_SEARCH_LIMITS.queryLength,
+						type: "object",
+						properties: {
+							subject: {
+								type: "string",
+								minLength: 1,
+								maxLength: WEB_SEARCH_LIMITS.subjectLength,
+							},
+							query: {
+								type: "string",
+								minLength: 1,
+								maxLength: WEB_SEARCH_LIMITS.queryLength,
+							},
+						},
+						required: ["subject", "query"],
+						additionalProperties: false,
 					},
-					description: "One focused query for each fact to research.",
+					description:
+						"One stable subject identity and one focused query for each fact to research.",
 				},
 				country: {
 					type: "string",
@@ -95,19 +128,31 @@ export const readWebSearchInput = (
 		return { ok: false, issues: ["input: expected an object"] };
 	}
 	const issues: string[] = [];
-	const queries = Array.isArray(value.queries)
-		? value.queries.map((query, index) => {
-				if (typeof query !== "string" || !query.trim()) {
-					issues.push(`queries.${index}: expected a non-empty string`);
-					return "";
+	const queries: WebSearchQuery[] = Array.isArray(value.queries)
+		? value.queries.map((candidate, index) => {
+				if (!isRecord(candidate)) {
+					issues.push(`queries.${index}: expected an object`);
+					return { subject: "", query: "" };
 				}
-				const normalized = query.trim();
-				if (normalized.length > WEB_SEARCH_LIMITS.queryLength) {
+				const subject =
+					typeof candidate.subject === "string" ? candidate.subject.trim() : "";
+				const query =
+					typeof candidate.query === "string" ? candidate.query.trim() : "";
+				if (!subject) {
+					issues.push(`queries.${index}.subject: expected a non-empty string`);
+				} else if (subject.length > WEB_SEARCH_LIMITS.subjectLength) {
 					issues.push(
-						`queries.${index}: expected at most ${WEB_SEARCH_LIMITS.queryLength} characters`,
+						`queries.${index}.subject: expected at most ${WEB_SEARCH_LIMITS.subjectLength} characters`,
 					);
 				}
-				return normalized;
+				if (!query) {
+					issues.push(`queries.${index}.query: expected a non-empty string`);
+				} else if (query.length > WEB_SEARCH_LIMITS.queryLength) {
+					issues.push(
+						`queries.${index}.query: expected at most ${WEB_SEARCH_LIMITS.queryLength} characters`,
+					);
+				}
+				return { subject, query };
 			})
 		: [];
 	if (
@@ -180,6 +225,44 @@ export const sanitizeWebSearchResult = (
 	};
 };
 
+const UNVERIFIED_PRICE_REASON =
+	"No single explicit price was found in the returned sources." as const;
+const EXPLICIT_PRICE = /(?:US\s*)?\$\s*(\d{1,6}(?:,\d{3})*\.\d{2})(?!\d)/gi;
+
+export const deriveWebSearchPriceFact = (
+	results: readonly WebSearchResult[],
+): WebSearchPriceFact => {
+	for (const result of results) {
+		const prices = new Map<number, string>();
+		for (const match of `${result.title} ${result.description}`.matchAll(
+			EXPLICIT_PRICE,
+		)) {
+			const numeric = match[1]?.replace(/,/g, "");
+			const amount = numeric ? Number(numeric) : Number.NaN;
+			if (Number.isFinite(amount) && amount >= 0) {
+				prices.set(amount, `$${numeric}`);
+			}
+		}
+		if (prices.size === 1) {
+			const [amount, display] = prices.entries().next().value ?? [];
+			if (amount !== undefined && display !== undefined) {
+				return {
+					status: "sourced",
+					amount,
+					display,
+					sourceUrl: result.url,
+				};
+			}
+		}
+	}
+	return {
+		status: "unverified",
+		amount: null,
+		sourceUrl: results[0]?.url ?? null,
+		reason: UNVERIFIED_PRICE_REASON,
+	};
+};
+
 const sanitizeSearches = (value: unknown): WebSearchFact["searches"] | null => {
 	if (!Array.isArray(value)) return null;
 	let remainingSources = WEB_SEARCH_LIMITS.totalSources;
@@ -187,6 +270,7 @@ const sanitizeSearches = (value: unknown): WebSearchFact["searches"] | null => {
 	for (const candidate of value.slice(0, WEB_SEARCH_LIMITS.queryCount)) {
 		if (
 			!isRecord(candidate) ||
+			typeof candidate.subject !== "string" ||
 			typeof candidate.query !== "string" ||
 			!Array.isArray(candidate.results)
 		) {
@@ -209,7 +293,9 @@ const sanitizeSearches = (value: unknown): WebSearchFact["searches"] | null => {
 			remainingSources -= 1;
 		}
 		searches.push({
+			subject: boundedText(candidate.subject, WEB_SEARCH_LIMITS.subjectLength),
 			query: boundedText(candidate.query, WEB_SEARCH_LIMITS.queryLength),
+			price: deriveWebSearchPriceFact(results),
 			results,
 		});
 	}
