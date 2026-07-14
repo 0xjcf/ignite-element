@@ -1,4 +1,8 @@
-import { igniteTools, isOk } from "ignite-element/tools";
+import {
+	igniteTools,
+	isOk,
+	type NeutralManifest,
+} from "ignite-element/tools";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
 	type ModelRequest,
@@ -72,6 +76,25 @@ const executeModelTurn = async (response: ModelResult) => {
 };
 
 describe("voice/text workbench model turn", () => {
+	it("keeps an explicitly admitted external capability in the model manifest", () => {
+		const manifest: NeutralManifest = [
+			{
+				name: "createArtifact",
+				inputSchema: { type: "object", properties: {} },
+				gated: false,
+			},
+			{
+				name: "searchWeb",
+				inputSchema: { type: "object", properties: {} },
+				gated: false,
+			},
+		];
+
+		expect(modelTools(manifest, ["searchWeb"]).map((tool) => tool.name)).toEqual(
+			["createArtifact", "searchWeb"],
+		);
+	});
+
 	it("returns every model call to the next round and defers completion until a mutation is observed", () => {
 		const protocol = modelTurn({
 			ok: true,

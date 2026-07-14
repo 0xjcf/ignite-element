@@ -69,8 +69,14 @@ export type ModelTurnResult =
 const isModelCommand = (name: string): name is ModelCommand =>
 	MODEL_COMMANDS.includes(name as ModelCommand);
 
-export const modelTools = (manifest: NeutralManifest): NeutralManifest =>
-	manifest.filter((tool) => isModelCommand(tool.name));
+export const modelTools = (
+	manifest: NeutralManifest,
+	externalCommands: readonly string[] = [],
+): NeutralManifest =>
+	manifest.filter(
+		(tool) =>
+			isModelCommand(tool.name) || externalCommands.includes(tool.name),
+	);
 
 const failureMessage = (kind: ModelFailureKind): string => {
 	switch (kind) {
