@@ -53,6 +53,32 @@ const authorize = (input: unknown, callName = "priceProducts") =>
 		call: { name: callName, input },
 	});
 
+const historyWithPricingResult = (
+	status: "capability-validation" | "capability-timeout" | "capability-failure",
+	ownerId: "product-pricing" | "product-pricing-price",
+): ModelExchange[] => [
+	...history,
+	{
+		calls: [
+			{
+				id: "pricing",
+				command: "priceProducts",
+				input: admittedInput,
+			},
+		],
+		results: [
+			{
+				id: "pricing",
+				command: "priceProducts",
+				ownerId,
+				status,
+				view: { artifacts: [] },
+				events: [],
+			},
+		],
+	},
+];
+
 describe("product-pricing execution authorization", () => {
 	it("requires the complete exact admitted request", () => {
 		expect(
@@ -60,7 +86,9 @@ describe("product-pricing execution authorization", () => {
 		).toMatchObject({
 			authorized: false,
 			issues: expect.arrayContaining([
-				expect.stringContaining("exact retailer, location, and ordered subjects"),
+				expect.stringContaining(
+					"exact retailer, location, and ordered subjects",
+				),
 			]),
 		});
 	});
@@ -100,6 +128,54 @@ describe("product-pricing execution authorization", () => {
 		).toBe(true);
 	});
 
+	it.each(["capability-timeout", "capability-failure"] as const)(
+		"consumes the single provider budget after a %s result",
+		(status) => {
+			const attemptedHistory = historyWithPricingResult(
+				status,
+				"product-pricing-price",
+			);
+			expect(
+				authorizeProductPricingExecution({
+					prompt: { channel: "text", text: "prices for bread" },
+					history: attemptedHistory,
+					call: { name: "priceProducts", input: admittedInput },
+				}),
+			).toMatchObject({
+				authorized: false,
+				message: expect.stringContaining("already been attempted"),
+			});
+			expect(
+				isProductPricingToolAvailable({
+					prompt: { channel: "text", text: "prices for bread" },
+					history: attemptedHistory,
+					toolName: "priceProducts",
+				}),
+			).toBe(false);
+		},
+	);
+
+	it("keeps pre-provider authorization denials repairable", () => {
+		const deniedHistory = historyWithPricingResult(
+			"capability-validation",
+			"product-pricing",
+		);
+		expect(
+			authorizeProductPricingExecution({
+				prompt: { channel: "text", text: "prices for bread" },
+				history: deniedHistory,
+				call: { name: "priceProducts", input: admittedInput },
+			}),
+		).toEqual({ authorized: true });
+		expect(
+			isProductPricingToolAvailable({
+				prompt: { channel: "text", text: "prices for bread" },
+				history: deniedHistory,
+				toolName: "priceProducts",
+			}),
+		).toBe(true);
+	});
+
 	it.each(["needs-input", "rejected"] as const)(
 		"offers exactly one repair after a %s decision and lets the repair supersede it",
 		(firstOutcome) => {
@@ -129,9 +205,7 @@ describe("product-pricing execution authorization", () => {
 
 			repairedHistory.push({
 				...history[0]!,
-				results: [
-					{ ...history[0]!.results[0]!, fact: { decision: repaired } },
-				],
+				results: [{ ...history[0]!.results[0]!, fact: { decision: repaired } }],
 			});
 			expect(
 				isProductPricingToolAvailable({

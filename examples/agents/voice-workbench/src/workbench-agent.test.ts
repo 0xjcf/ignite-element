@@ -824,6 +824,7 @@ describe("shared voice workbench agent", () => {
 		policyInput: unknown,
 		priceInput: unknown,
 		eventText = "Create a shopping list with prices from Whole Foods Sarasota for bread",
+		providerOutcome: "success" | "provider-failure" = "success",
 	) => {
 		requestModel.mockReset();
 		requestModel.mockResolvedValueOnce({
@@ -849,13 +850,22 @@ describe("shared voice workbench agent", () => {
 			});
 		}
 
-		const runPriceProducts = vi.fn(async () => ({
-			type: "success" as const,
-			ownerId: "product-pricing-price",
-			toolName: "priceProducts",
-			data: { searches: [] },
-			receipt: { provider: "fixture-product-pricing" },
-		}));
+		const runPriceProducts = vi.fn(async () =>
+			providerOutcome === "success"
+				? {
+						type: "success" as const,
+						ownerId: "product-pricing-price",
+						toolName: "priceProducts",
+						data: { searches: [] },
+						receipt: { provider: "fixture-product-pricing" },
+					}
+				: {
+						type: "provider-failure" as const,
+						ownerId: "product-pricing-price",
+						toolName: "priceProducts",
+						message: "The fixture provider failed.",
+					},
+		);
 		const priceProducts: CapabilityOwner = {
 			id: "product-pricing-price",
 			manifest: [
@@ -967,6 +977,31 @@ describe("shared voice workbench agent", () => {
 		expect(
 			requestModel.mock.calls[2]?.[1].tools.map((tool) => tool.name),
 		).not.toContain("priceProducts");
+	});
+
+	it("does not redispatch price lookup after a provider failure", async () => {
+		const { runPriceProducts } = await exerciseProductPricingAuthorization(
+			{
+				retailer: "Whole Foods",
+				location: "Sarasota",
+				items: [{ subject: "Bread" }],
+			},
+			breadPriceInput,
+			undefined,
+			"provider-failure",
+		);
+
+		expect(runPriceProducts).toHaveBeenCalledTimes(1);
+		expect(
+			requestModel.mock.calls[2]?.[1].tools.map((tool) => tool.name),
+		).not.toContain("priceProducts");
+		expect(
+			requestModel.mock.calls[2]?.[1].history[1]?.results[0],
+		).toMatchObject({
+			command: "priceProducts",
+			ownerId: "product-pricing-price",
+			status: "capability-failure",
+		});
 	});
 
 	it("denies a strict subset of the admitted request before the provider", async () => {

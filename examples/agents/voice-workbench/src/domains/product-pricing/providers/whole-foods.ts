@@ -49,12 +49,19 @@ export const WHOLE_FOODS_SARASOTA: WholeFoodsStorePolicy = Object.freeze({
 	country: "us",
 });
 
-export const WHOLE_FOODS_CANDIDATE_POLICY_VERSION =
-	"whole-foods-candidate-v1" as const;
+export const WHOLE_FOODS_CANDIDATE_POLICY = Object.freeze({
+	version: "whole-foods-candidate-v1",
+	maxCandidates: 12,
+	minimumScore: 0.8,
+	minimumMargin: 0.1,
+} as const);
 
-const MAX_NATIVE_SEARCH_RESULTS = 8;
-const MIN_CANDIDATE_SCORE = 140;
-const MIN_CANDIDATE_MARGIN = 15;
+export const WHOLE_FOODS_CANDIDATE_POLICY_VERSION =
+	WHOLE_FOODS_CANDIDATE_POLICY.version;
+
+export const WHOLE_FOODS_CANDIDATE_POLICY_CACHE_KEY = JSON.stringify(
+	WHOLE_FOODS_CANDIDATE_POLICY,
+);
 const ASIN = /^[A-Z0-9]{10}$/;
 const ASIN_IN_PATH = /(?:^|[-/])([a-z0-9]{10})(?:$|[/?#])/i;
 
@@ -127,7 +134,10 @@ export const parseWholeFoodsNativeSearch = (
 		return { ok: false, reason: "schema-drift" };
 	}
 	const results = value.mainResultSet.searchResults;
-	if (!Array.isArray(results) || results.length > MAX_NATIVE_SEARCH_RESULTS) {
+	if (
+		!Array.isArray(results) ||
+		results.length > WHOLE_FOODS_CANDIDATE_POLICY.maxCandidates
+	) {
 		return { ok: false, reason: "schema-drift" };
 	}
 	const candidates: WholeFoodsNativeSearchCandidate[] = [];
@@ -152,12 +162,7 @@ const scoreCandidate = (subject: string, candidate: WholeFoodsCandidate) => {
 	const matched = subjectWords.filter((word) => candidateSet.has(word)).length;
 	const coverage =
 		subjectWords.length === 0 ? 0 : matched / subjectWords.length;
-	const phrase = subjectWords.join(" ");
-	const phraseMatch = candidateWords.join(" ").includes(phrase);
-	const score =
-		Math.round(coverage * 100) +
-		(phraseMatch ? 40 : 0) +
-		Math.max(0, MAX_NATIVE_SEARCH_RESULTS - candidate.searchRank) * 12;
+	const score = 0.75 * coverage + 0.25 * (1 / (candidate.searchRank + 1));
 	return { candidate, score };
 };
 
@@ -170,14 +175,16 @@ export const rankWholeFoodsCandidates = (
 			(candidate) =>
 				ASIN.test(candidate.asin) &&
 				candidate.searchRank >= 0 &&
-				candidate.searchRank < MAX_NATIVE_SEARCH_RESULTS &&
+				candidate.searchRank < WHOLE_FOODS_CANDIDATE_POLICY.maxCandidates &&
 				productIdentity(candidate.name) !== null,
 		)
 		.map((candidate) => scoreCandidate(subject, candidate))
 		.sort(
 			(left, right) =>
 				right.score - left.score ||
-				left.candidate.searchRank - right.candidate.searchRank ||
+				normalizedWords(left.candidate.name)
+					.join(" ")
+					.localeCompare(normalizedWords(right.candidate.name).join(" ")) ||
 				left.candidate.asin.localeCompare(right.candidate.asin),
 		);
 	const top = ranked[0];
@@ -188,7 +195,7 @@ export const rankWholeFoodsCandidates = (
 			reason: "no-candidates",
 		};
 	}
-	if (top.score < MIN_CANDIDATE_SCORE) {
+	if (top.score < WHOLE_FOODS_CANDIDATE_POLICY.minimumScore) {
 		return {
 			outcome: "miss",
 			policyVersion: WHOLE_FOODS_CANDIDATE_POLICY_VERSION,
@@ -197,12 +204,16 @@ export const rankWholeFoodsCandidates = (
 	}
 	const runnerUp = ranked[1];
 	const margin = runnerUp ? top.score - runnerUp.score : null;
-	if (margin !== null && margin < MIN_CANDIDATE_MARGIN) {
+	if (margin !== null && margin < WHOLE_FOODS_CANDIDATE_POLICY.minimumMargin) {
 		return {
 			outcome: "ambiguous",
 			policyVersion: WHOLE_FOODS_CANDIDATE_POLICY_VERSION,
 			candidateAsins: ranked
-				.filter((entry) => top.score - entry.score < MIN_CANDIDATE_MARGIN)
+				.filter(
+					(entry) =>
+						top.score - entry.score <
+						WHOLE_FOODS_CANDIDATE_POLICY.minimumMargin,
+				)
 				.map((entry) => entry.candidate.asin),
 			margin,
 		};

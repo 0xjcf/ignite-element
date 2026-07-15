@@ -13,14 +13,16 @@ import {
 	rankWholeFoodsCandidates,
 	resolveWholeFoodsStorePolicy,
 	scopeWholeFoodsProductUrl,
+	WHOLE_FOODS_CANDIDATE_POLICY,
+	WHOLE_FOODS_CANDIDATE_POLICY_CACHE_KEY,
 	WHOLE_FOODS_CANDIDATE_POLICY_VERSION,
 	type WholeFoodsNativeSearchCandidate,
 	type WholeFoodsSelectedCandidate,
 	type WholeFoodsStorePolicy,
 } from "../../src/domains/product-pricing/providers/whole-foods";
 import {
-	runBraveWebSearch,
 	type BraveWebSearchOptions,
+	runBraveWebSearch,
 } from "../brave-web-search";
 
 type FetchLike = (
@@ -175,7 +177,7 @@ const discoveryKey = (
 		store.storeId,
 		normalizedIdentity(subject),
 		normalizedIdentity(query),
-		WHOLE_FOODS_CANDIDATE_POLICY_VERSION,
+		WHOLE_FOODS_CANDIDATE_POLICY_CACHE_KEY,
 	]);
 
 const pruneExpired = (state: WholeFoodsProductPricingState): void => {
@@ -236,7 +238,10 @@ const nativeSearchEndpoint = (
 	endpoint.searchParams.set("text", query);
 	endpoint.searchParams.set("old", store.offerListingDiscriminator);
 	endpoint.searchParams.set("offset", "0");
-	endpoint.searchParams.set("size", "8");
+	endpoint.searchParams.set(
+		"size",
+		String(WHOLE_FOODS_CANDIDATE_POLICY.maxCandidates),
+	);
 	endpoint.searchParams.set("sort", "relevanceblender");
 	endpoint.searchParams.set("programType", "GROCERY");
 	endpoint.searchParams.set("filters", "");
@@ -761,10 +766,10 @@ export async function runWholeFoodsProductPricing(
 	const productMap = products ?? new Map<string, ProductRecord>();
 	const searches = plans.map((plan) => resultForPlan(plan, productMap, store));
 	const cacheStatuses = searches.map((search) => search.receipt.cache);
-	const cacheStatus = cacheStatuses.includes("coalesced")
-		? "coalesced"
-		: cacheStatuses.includes("miss")
-			? "miss"
+	const cacheStatus = cacheStatuses.includes("miss")
+		? "miss"
+		: cacheStatuses.includes("coalesced")
+			? "coalesced"
 			: "hit";
 	return {
 		type: "success",

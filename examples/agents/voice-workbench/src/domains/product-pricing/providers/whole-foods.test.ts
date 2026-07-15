@@ -7,8 +7,16 @@ import {
 	rankWholeFoodsCandidates,
 	resolveWholeFoodsStorePolicy,
 	scopeWholeFoodsProductUrl,
+	WHOLE_FOODS_CANDIDATE_POLICY,
+	WHOLE_FOODS_CANDIDATE_POLICY_CACHE_KEY,
 	WHOLE_FOODS_CANDIDATE_POLICY_VERSION,
 } from "./whole-foods";
+
+const nativeEnvelopeWithAsins = (...asins: string[]) => ({
+	mainResultSet: {
+		searchResults: asins.map((asin) => ({ asin })),
+	},
+});
 
 describe("Whole Foods product-pricing policy", () => {
 	it("decodes only the bounded retailer-native search envelope", () => {
@@ -30,6 +38,28 @@ describe("Whole Foods product-pricing policy", () => {
 				mainResultSet: { searchResults: [{ product: { asin: "B074H5SR5S" } }] },
 			}),
 		).toEqual({ ok: false, reason: "schema-drift" });
+		expect(
+			parseWholeFoodsNativeSearch(
+				nativeEnvelopeWithAsins(
+					...Array.from(
+						{ length: 13 },
+						(_, index) => `B${String(index).padStart(9, "0")}`,
+					),
+				),
+			),
+		).toEqual({ ok: false, reason: "schema-drift" });
+	});
+
+	it("publishes the exact versioned ranking policy", () => {
+		expect(WHOLE_FOODS_CANDIDATE_POLICY).toEqual({
+			version: "whole-foods-candidate-v1",
+			maxCandidates: 12,
+			minimumScore: 0.8,
+			minimumMargin: 0.1,
+		});
+		expect(WHOLE_FOODS_CANDIDATE_POLICY_CACHE_KEY).toBe(
+			JSON.stringify(WHOLE_FOODS_CANDIDATE_POLICY),
+		);
 	});
 
 	it("ranks candidates deterministically with versioned score, tie, and margin rules", () => {
@@ -56,8 +86,21 @@ describe("Whole Foods product-pricing policy", () => {
 			},
 		});
 		if (selection.outcome === "selected") {
-			expect(selection.margin).toBeGreaterThanOrEqual(15);
+			expect(selection.score).toBe(1);
+			expect(selection.margin).toBeCloseTo(0.875);
 		}
+	});
+
+	it("weights requested-subject coverage and inverse native position exactly", () => {
+		const selection = rankWholeFoodsCandidates("Organic Whole Milk Gallon", [
+			{
+				asin: "B000000001",
+				name: "Organic Milk, 1 gallon",
+				searchRank: 0,
+			},
+		]);
+
+		expect(selection).toMatchObject({ outcome: "selected", score: 0.8125 });
 	});
 
 	it("distinguishes ambiguity from a deterministic miss", () => {

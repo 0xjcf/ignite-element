@@ -25,8 +25,10 @@ const decisionFromHistory = (
 	exchangeIndex: number;
 	decisionCount: number;
 } | null => {
-	let latest: { decision: ProductPricingDecision; exchangeIndex: number } | null =
-		null;
+	let latest: {
+		decision: ProductPricingDecision;
+		exchangeIndex: number;
+	} | null = null;
 	let decisionCount = 0;
 	for (
 		let exchangeIndex = history.length - 1;
@@ -59,18 +61,19 @@ const decisionFromHistory = (
 	return latest ? { ...latest, decisionCount } : null;
 };
 
-const hasCompletedPricing = (
+const hasAttemptedPricing = (
 	history: readonly ModelExchange[],
 	exchangeIndex: number,
 ): boolean =>
-	history.slice(exchangeIndex + 1).some((exchange) =>
-		exchange.results.some(
-			(result) =>
-				result.command === PRODUCT_PRICE_TOOL_NAME &&
-				result.ownerId === PRODUCT_PRICE_OWNER_ID &&
-				result.status === "capability-success",
-		),
-	);
+	history
+		.slice(exchangeIndex + 1)
+		.some((exchange) =>
+			exchange.results.some(
+				(result) =>
+					result.command === PRODUCT_PRICE_TOOL_NAME &&
+					result.ownerId === PRODUCT_PRICE_OWNER_ID,
+			),
+		);
 
 const requestIdentity = (value: {
 	retailer: string;
@@ -137,12 +140,13 @@ export const authorizeProductPricingExecution = ({
 			issues: decision.issues,
 		};
 	}
-	if (hasCompletedPricing(history, exchangeIndex)) {
+	if (hasAttemptedPricing(history, exchangeIndex)) {
 		return {
 			authorized: false,
-			message: "The admitted product-pricing request has already completed.",
+			message:
+				"The admitted product-pricing request has already been attempted.",
 			issues: [
-				"Use the accepted priceProducts facts instead of repeating lookup.",
+				"Use the recorded priceProducts result instead of repeating lookup.",
 			],
 		};
 	}
@@ -174,14 +178,13 @@ export const isProductPricingToolAvailable = ({
 	if (toolName === "prepareProductPricing") {
 		return (
 			observed === null ||
-			(observed.decisionCount === 1 &&
-				observed.decision.outcome !== "admitted")
+			(observed.decisionCount === 1 && observed.decision.outcome !== "admitted")
 		);
 	}
 	if (toolName === "searchWeb") return false;
 	if (toolName !== PRODUCT_PRICE_TOOL_NAME) return null;
 	return (
 		observed?.decision.outcome === "admitted" &&
-		!hasCompletedPricing(history, observed.exchangeIndex)
+		!hasAttemptedPricing(history, observed.exchangeIndex)
 	);
 };
