@@ -87,11 +87,15 @@ evidence.
 
 This keeps the workbench shell generic. Shopping research is the first optional
 domain pack, not a shopping-specific Ignite component or renderer. The pack
-constrains product selection and evidence quality, while the model still uses
-the existing `createArtifact` or `reviseArtifact` commands to compose any
-supported list, table, chart, timeline, decision log, or mixed-node document.
-HTTP and HTTPS values in table cells become safe source links, while chart nodes
-retain a textual accessible name and per-series values.
+constrains product selection and evidence quality. The generic path remains
+model-owned: the model uses the existing `createArtifact` or `reviseArtifact`
+commands to compose any supported list, table, chart, timeline, decision log,
+or mixed-node document. An applicable domain pack may optionally materialize a
+canonical artifact from accepted domain facts before the actor executes that
+command. Packs without that hook, hooks that return `null`, and unrelated
+prompts preserve the model proposal unchanged. HTTP and HTTPS values in table
+cells become safe source links, while chart nodes retain a textual accessible
+name and per-series values.
 
 For the supported Whole Foods Sarasota scope, the model never authors a search
 query or product identity. It first calls `prepareProductPricing` with retailer,
@@ -127,7 +131,7 @@ The example makes application-specific behavior visible under `src/domains/`:
 ```text
 src/domains/
 ├─ contracts.ts                 generic example-private domain contracts
-├─ registry.ts                  ordered capability, instruction, and audit routing
+├─ registry.ts                  capability, authorization, materialization, and audit routing
 └─ product-pricing/
    ├─ policy.ts                 pure subject-scope decision
    ├─ capability.ts             local policy capability boundary
@@ -135,6 +139,7 @@ src/domains/
    ├─ providers/
    │  └─ whole-foods.ts         store, native decoder, ranking, and URL policy
    ├─ authorization.ts          exact admitted-request authorization
+   ├─ artifact-materializer.ts  canonical artifact from policy + price facts
    ├─ projection.ts             bounded policy fact projection
    ├─ completion-audit.ts       domain artifact conformance
    └─ *.test.ts                 deterministic policy and audit proofs
@@ -154,8 +159,9 @@ The source-of-truth boundary is:
 | --- | --- |
 | Product-pricing policy | Required subject scope, one-repair lifecycle, clarification questions, and evidence requirements |
 | Local domain capability | Validating model input and returning the deterministic decision as a fact |
-| Domain registry | Asking applicable packs for authorization before capability dispatch and returning bounded validation facts when denied |
-| Model | Proposing the policy call, exact admitted price call, and semantic artifact commands |
+| Domain registry | Asking applicable packs for authorization before capability dispatch and selecting the first applicable non-null artifact materialization |
+| Product-pricing artifact materializer | Deriving canonical checklist, selection-disclosure, and evidence-table nodes from the latest admitted decision plus one ordered provider fact |
+| Model | Proposing policy and price calls; owning generic semantic composition and the product-pricing artifact command envelope |
 | XState workbench source | Retaining the bounded policy fact and accepting or rejecting artifact transitions |
 | `igniteCore.view` | Deriving domain, policy, status, assumption, question, and evidence rows |
 | Ignite JSX | Mapping only the prepared rows; it contains no product defaults or outcome rules |
@@ -184,6 +190,24 @@ subject set. A strict subset, reordering, or changed location is denied. After
 success, `priceProducts` also leaves the next manifest. Denials become bounded
 capability-validation facts for model repair; the provider is not called.
 
+After the latest admitted decision and exactly one successful, ordered
+`priceProducts` fact, the product-pricing pack can materialize a canonical
+artifact when the model proposes `createArtifact` or `reviseArtifact`. It keeps
+the proposed command identity and artifact envelope, but replaces its semantic
+nodes with the requested-subject checklist, one provider-selection disclosure
+per subject, and an exact Subject/Price/Status/Source table with no chart.
+Missing, malformed, reordered, or repeated evidence makes the hook decline
+rather than fabricate a document. The registry then preserves the original
+model call, and the existing completion audit still prevents unsupported
+completion.
+
+`DomainPack.materializeArtifact` is application-owned domain policy in this
+example. It is not Ignite runtime behavior, renderer behavior, or a generic
+requirement that artifacts be deterministic. Ignite tools still execute the
+resulting command against the XState source, the actor still validates the
+transition, `igniteCore.view` derives presentation values, and JSX only maps
+the accepted projection.
+
 To add a second domain:
 
 1. Create a sibling directory with a pure policy, capability adapter,
@@ -193,11 +217,15 @@ To add a second domain:
    workbench source actor.
 3. Give `appliesTo` a narrow prompt signal so unrelated requests retain the
    generic fallback behavior.
-4. Register the pack in `main.tsx`. The registry supplies capabilities and
+4. Optionally implement `materializeArtifact` when the domain—not the model—owns
+   a canonical semantic document derived from accepted facts. Preserve the
+   command envelope, return `null` when prerequisites are incomplete, and omit
+   the hook when free-form model composition is desired.
+5. Register the pack in `main.tsx`. The registry supplies capabilities and
    instructions in order, retains the first recognized policy fact, applies
-   authorization before provider dispatch, and runs only applicable completion
-   audits.
-5. Project any new generic rows in the `igniteCore.view` callback. Do not derive
+   authorization before provider dispatch, selects the first non-null artifact
+   materialization, and runs only applicable completion audits.
+6. Project any new generic rows in the `igniteCore.view` callback. Do not derive
    domain defaults, questions, or conditional labels in `workbench.tsx`.
 
 The right rail makes this boundary observable. It shows the active domain and
@@ -226,12 +254,14 @@ artifacts in one continuing session. The workspace keeps them in an artifact
 rail rather than replacing the previous document when a new deliverable is
 created.
 
-This feedback loop distinguishes actor acceptance from prompt satisfaction. If
-the actor accepts a valid text node for a request that asked for a checklist,
-the next model round sees the accepted document, can revise it to checklist
-nodes, and only then completes. There are no prompt-specific node mappings in
-the example; the local model chooses from the semantic shapes in the current
-command schema and the actor remains the authority.
+This feedback loop distinguishes actor acceptance from prompt satisfaction. On
+the generic path, if the actor accepts a valid text node for a request that
+asked for a checklist, the next model round sees the accepted document, can
+revise it to checklist nodes, and only then completes. The local model chooses
+from the semantic shapes in the current command schema. The optional
+product-pricing materializer is the explicit exception: that domain owns its
+canonical evidence nodes, while the actor remains the authority that accepts or
+rejects the resulting command.
 
 The actor validates semantic nodes, revision conflicts, action payloads, and
 command availability before accepting a proposal. The same component module is
@@ -251,10 +281,15 @@ without changing the component contract:
 prompt → prepareProductPricing → admitted exact request → priceProducts
        → native store search → versioned product/size selection
        → clean native miss only: one no-retry Brave discovery
-       → one deduplicated Whole Foods offer batch → validated facts + receipt
-       → createArtifact/reviseArtifact → actor validation → evidence audit
-       → repair when incomplete → table + chart + links → completeResponse
+       → one deduplicated Whole Foods offer batch → ordered facts + receipt
+       → model proposes createArtifact/reviseArtifact envelope
+       → product-pricing materializes canonical nodes → actor validation
+       → evidence audit → completeResponse
 ```
+
+For generic prompts, the corresponding artifact step remains
+`model nodes → unchanged registry pass-through → actor validation`. Neither
+path moves artifact or policy decisions into Ignite JSX.
 
 Each process imports that component contract directly. The terminal
 intentionally owns an independent actor instance; sharing one live actor
