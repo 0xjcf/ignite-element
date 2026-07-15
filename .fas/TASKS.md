@@ -2381,6 +2381,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: Pace batched Brave web-search queries against provider rate limits without adding LLM rounds
+
+- Title: Pace batched Brave web-search queries against provider rate limits without adding LLM rounds
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/pace-batched-brave-web-search-queries-against-provider-rate-.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
