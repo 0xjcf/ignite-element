@@ -117,10 +117,7 @@ export const resolveWholeFoodsStorePolicy = (
 	return retailerMatches && locationMatches ? WHOLE_FOODS_SARASOTA : null;
 };
 
-/**
- * Transitional compatibility for the server shell while it moves to native
- * discovery in the next implementation slice. No catalog data is retained.
- */
+/** Decode only the bounded live Whole Foods native-search envelope. */
 export const parseWholeFoodsNativeSearch = (
 	value: unknown,
 ):

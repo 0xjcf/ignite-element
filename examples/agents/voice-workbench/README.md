@@ -94,22 +94,31 @@ HTTP and HTTPS values in table cells become safe source links, while chart nodes
 retain a textual accessible name and per-series values.
 
 For the supported Whole Foods Sarasota scope, the model never authors a search
-query. It first calls `prepareProductPricing`, then sends the exact admitted
-retailer, location, subject, product, and size values to `priceProducts` once.
-The provider maps the representative Bread, Eggs, and Milk selections to stable
-ASIN references and resolves all three in one store-scoped Whole Foods product
-request. The response must match the configured Sarasota offer discriminator,
-requested ASIN, product identity, `GROCERY` program, `IN_STOCK` availability,
-normalized package size, and USD price fields. A mismatch remains `unverified`;
-unrelated numeric values never become evidence. The catalog stores no prices.
+query or product identity. It first calls `prepareProductPricing` with retailer,
+location, and ordered subject-only items. If the first decision is rejected or
+needs input, the model may repair that policy request once; the latest decision
+supersedes the first. An admitted decision exposes `priceProducts` for one call
+with the exact retailer, location, and ordered subjects. The provider owns
+product and package-size selection.
 
-Catalog hits spend zero Brave requests. An uncatalogued admitted selection may
-use one paced, no-retry Brave request to discover an official Whole Foods
-product URL, extract its ASIN, and then use the same structured retailer request
-for the price. The model still sees one `priceProducts` tool result after the
-provider completes its internal work. Its receipt counts only actual Brave
-discovery requests, so the representative three-item prompt reports
-`queryCount: 0` rather than implying three searches.
+For every subject, the provider first calls Whole Foods' store-scoped native
+search and accepts only the bounded
+`mainResultSet.searchResults[].asin` envelope. It fetches offer details for the
+deduplicated candidate ASINs in one batch, then applies the versioned
+`whole-foods-candidate-v1` ranking policy. Low-confidence or closely ranked
+candidates remain explicitly `unverified`; there are no catalog aliases or
+model-supplied product defaults. The offer response must match the selected
+ASIN, parse a product and package size, report `GROCERY` and `IN_STOCK`, and
+contain a positive USD price. Unrelated numeric values never become evidence.
+
+Selected identities—not prices—enter an injected 300-second, 64-entry LRU keyed
+by store, normalized subject/query, and ranking-policy version. Concurrent
+identical discovery calls coalesce, while every request still performs a fresh
+offer batch. Brave runs with zero retries only after a decoded HTTP 200 native
+search returns no candidates. Native transport errors, schema drift, and
+ambiguous rankings never spend Brave. The aggregate fact preserves every
+subject, provider selection, sourced or unverified price, and native/cache/Brave
+receipt; `queryCount` counts only discovery requests actually made.
 
 ## Domain packs and policy ownership
 
@@ -120,11 +129,11 @@ src/domains/
 ├─ contracts.ts                 generic example-private domain contracts
 ├─ registry.ts                  ordered capability, instruction, and audit routing
 └─ product-pricing/
-   ├─ policy.ts                 pure representative-product decision
+   ├─ policy.ts                 pure subject-scope decision
    ├─ capability.ts             local policy capability boundary
    ├─ price-capability.ts       same-origin domain price boundary
    ├─ providers/
-   │  └─ whole-foods.ts         store, catalog, URL, and query policy
+   │  └─ whole-foods.ts         store, native decoder, ranking, and URL policy
    ├─ authorization.ts          exact admitted-request authorization
    ├─ projection.ts             bounded policy fact projection
    ├─ completion-audit.ts       domain artifact conformance
@@ -143,14 +152,14 @@ The source-of-truth boundary is:
 
 | Layer | Owns |
 | --- | --- |
-| Product-pricing policy | Required scope, representative defaults, clarification questions, and evidence requirements |
+| Product-pricing policy | Required subject scope, one-repair lifecycle, clarification questions, and evidence requirements |
 | Local domain capability | Validating model input and returning the deterministic decision as a fact |
 | Domain registry | Asking applicable packs for authorization before capability dispatch and returning bounded validation facts when denied |
 | Model | Proposing the policy call, exact admitted price call, and semantic artifact commands |
 | XState workbench source | Retaining the bounded policy fact and accepting or rejecting artifact transitions |
 | `igniteCore.view` | Deriving domain, policy, status, assumption, question, and evidence rows |
 | Ignite JSX | Mapping only the prepared rows; it contains no product defaults or outcome rules |
-| Product-price provider | Owning store/catalog mapping, discovery queries, structured retailer reads, validation, and receipts |
+| Product-price provider | Owning store mapping, native discovery, product/size ranking, identity caching, offer reads, validation, and receipts |
 | Generic search provider | Returning public-web facts for non-product research; it does not authorize actor transitions |
 
 The model tool manifest uses JSON Schema, while small explicit runtime readers
@@ -161,20 +170,19 @@ application with many shared or nested domain schemas could adopt Zod (or
 another schema library) behind the same domain/provider boundaries without
 moving business policy into Ignite or the renderer.
 
-For the product-pricing pack, Bread, Eggs, and Milk have explicit representative
-defaults. The policy exposes those defaults as assumptions. Missing retailer or
-location scope, and unknown products without a product or size, produce
-`needs-input`; malformed, duplicate, empty, or oversized requests produce
-`rejected`. A successful policy call is neither price evidence nor permission
-by itself to execute an external effect. Before `runCapability` can invoke the
-price owner, the generic workbench asks the registry to authorize the proposed
-call. The pack always hides and denies generic `searchWeb` for applicable
-product-pricing turns. An `admitted` decision permits `priceProducts` once with
-the complete exact retailer, location, subject, product, and size set. A strict
-subset or changed location is denied, so the model cannot turn one decision into
-repeated provider calls. After success, `priceProducts` also leaves the next
-manifest. Denials become bounded capability-validation facts for model repair;
-the provider is not called.
+For the product-pricing pack, the policy admits category subjects without
+inventing representative products. Missing retailer or location scope produces
+`needs-input`; malformed, duplicate, empty, or oversized subject lists produce
+`rejected`. The model gets at most one repair after either outcome, and the
+second decision becomes authoritative. A successful policy call is neither
+price evidence nor permission by itself to execute an external effect. Before
+`runCapability` can invoke the price owner, the generic workbench asks the
+registry to authorize the proposed call. The pack always hides and denies
+generic `searchWeb` for applicable product-pricing turns. An `admitted` decision
+permits `priceProducts` once with the exact retailer, location, and ordered
+subject set. A strict subset, reordering, or changed location is denied. After
+success, `priceProducts` also leaves the next manifest. Denials become bounded
+capability-validation facts for model repair; the provider is not called.
 
 To add a second domain:
 
@@ -241,8 +249,9 @@ without changing the component contract:
 
 ```text
 prompt → prepareProductPricing → admitted exact request → priceProducts
-       → catalog ASINs (or one no-retry Brave discovery for each miss)
-       → one store-scoped Whole Foods batch → validated price facts + receipt
+       → native store search → versioned product/size selection
+       → clean native miss only: one no-retry Brave discovery
+       → one deduplicated Whole Foods offer batch → validated facts + receipt
        → createArtifact/reviseArtifact → actor validation → evidence audit
        → repair when incomplete → table + chart + links → completeResponse
 ```
@@ -283,7 +292,9 @@ while MLX is preparing, but `submitPrompt` remains unavailable at both the
 command and actor-transition boundaries. A minimal chat completion—not the
 `/models` metadata response—produces the `MODEL_AVAILABLE` fact that unlocks
 text and speech. Expected failures become sanitized `MODEL_FAILED` facts and a
-retryable projection.
+retryable projection. Model-response diagnostics identify the failed stage as
+invalid JSON, an invalid completion envelope, or no authorized compatible tool
+call; raw response bodies and model prose are never copied into those facts.
 
 Artifact revisions are append-only inside the pure actor session. `documents`
 remains the latest-only read model used by the browser and model context, while
@@ -346,7 +357,7 @@ model requires:
 | `VOICE_WORKBENCH_NO_OPEN` | Set to `1` to avoid opening a browser | unset |
 | `VITE_MLX_BASE_URL` | Reuse an external OpenAI-compatible endpoint | managed local MLX endpoint |
 | `VITE_MLX_API_KEY` | Development bearer token for an external endpoint | unset |
-| `BRAVE_SEARCH_API_KEY` | Enable generic `searchWeb` and uncatalogued product discovery | unset |
+| `BRAVE_SEARCH_API_KEY` | Enable generic `searchWeb` and clean-native-miss product discovery | unset |
 
 For repeatable local search configuration, copy the committed placeholder and
 add your Brave Search subscription token to the ignored local file:
@@ -382,11 +393,11 @@ availability flag to the browser. The browser calls the same-origin
 `/api/capabilities/web-search` route and never receives the token. Without the
 variable in either the shell or example-local `.env.local`, generic requests
 omit `searchWeb` from the model manifest and receive
-`internetAccess: "unavailable"`. A supported Whole Foods Sarasota catalog
-request instead receives `internetAccess: "available"` because its domain price
+`internetAccess: "unavailable"`. A supported Whole Foods Sarasota request
+instead receives `internetAccess: "available"` because its domain price
 provider is configured, even while `priceProducts` remains hidden until policy
-admission. Catalog pricing therefore works without Brave; only an uncatalogued
-selection needs the search token for discovery.
+admission. Retailer-native discovery works without Brave; only a clean decoded
+native miss may use the search token for official-product discovery.
 
 Brave Web Search returns public search results and snippets, not guaranteed
 store-inventory or checkout prices. The product-pricing adapter therefore uses
