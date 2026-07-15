@@ -3,6 +3,8 @@ import {
 	createProjectionDocumentTarget,
 	createProjectionSpeechTarget,
 } from "ignite-element/xstate";
+import { createProductPricingDomainPack } from "./domains/product-pricing";
+import { createDomainRegistry } from "./domains/registry";
 import { probeMlxWorkbenchReadiness } from "./model";
 import { component, source } from "./session";
 import { createBrowserVoiceCapture } from "./voice";
@@ -40,6 +42,7 @@ const voice = createBrowserVoiceCapture();
 const externalCapabilities = __VOICE_WORKBENCH_WEB_SEARCH_AVAILABLE__
 	? [createWebSearchCapability()]
 	: [];
+const domains = createDomainRegistry([createProductPricingDomainPack()]);
 let readinessAttempt = 0;
 let readinessController: AbortController | null = null;
 
@@ -121,7 +124,12 @@ const modelPreparationSubscription = component.watchView((view, previous) => {
 });
 
 const modelTurnSubscription = component.on("prompt-submitted", (event) => {
-	void completeSubmittedPrompt(configuration, event, externalCapabilities);
+	void completeSubmittedPrompt(
+		configuration,
+		event,
+		externalCapabilities,
+		domains,
+	);
 });
 
 component("voice-workbench", renderWorkbench);

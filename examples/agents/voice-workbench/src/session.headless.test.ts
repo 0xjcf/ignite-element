@@ -47,6 +47,7 @@ describe("voice workbench headless component", () => {
 			"playSpeech",
 			"presentVoice",
 			"recordCapabilityOutcome",
+			"recordDomainPolicyDecision",
 			"recordRuntimeManifest",
 			"recordTurn",
 			"replay",
@@ -162,6 +163,7 @@ describe("voice workbench headless component", () => {
 			speech: null,
 			presentation: {
 				artifactView: "document",
+				domainPolicy: null,
 				runtimePreview: "browser",
 				runtimeManifest: [],
 				capabilityOutcomes: [],
@@ -204,6 +206,7 @@ describe("voice workbench headless component", () => {
 						statusLabel: "waiting",
 					},
 				],
+				domainPolicy: null,
 				trace: {
 					acceptedArtifactLabel: "Awaiting accepted artifact",
 					rows: [
@@ -240,7 +243,7 @@ describe("voice workbench headless component", () => {
 					},
 					blueprint: {
 						heading: "All-component blueprint",
-						countLabel: "27 commands from getSchema()",
+						countLabel: "28 commands from getSchema()",
 					},
 				},
 			},
@@ -376,6 +379,43 @@ describe("voice workbench headless component", () => {
 			type: "artifact-rejected",
 			reason: "validation",
 		});
+		await component.execute({
+			command: "recordDomainPolicyDecision",
+			input: {
+				type: "domain-policy-decision",
+				domainId: "product-pricing",
+				domainLabel: "Product pricing",
+				policyId: "representative-product-selection",
+				policyLabel: "Representative product selection",
+				outcome: "needs-input",
+				summary: "Pricing scope needs clarification.",
+				assumptions: [{ id: "bread", label: "Bread uses a 20 oz loaf." }],
+				questions: [
+					{ id: "location", prompt: "Which retailer location should be used?" },
+				],
+				evidenceRequirements: [
+					{ id: "source", label: "Show the exact source." },
+				],
+			},
+		});
+		expect(component.getView().runtimeInspector.domainPolicy).toEqual({
+			heading: "Domain policy proof",
+			statusLabel: "needs input",
+			summary: "Pricing scope needs clarification.",
+			identityRows: [
+				{ key: "domain", label: "Domain", value: "Product pricing" },
+				{
+					key: "policy",
+					label: "Policy",
+					value: "Representative product selection",
+				},
+			],
+			assumptionRows: [{ key: "bread", text: "Bread uses a 20 oz loaf." }],
+			questionRows: [
+				{ key: "location", text: "Which retailer location should be used?" },
+			],
+			evidenceRows: [{ key: "source", text: "Show the exact source." }],
+		});
 
 		const snapshots = vi.fn();
 		const views = vi.fn();
@@ -435,6 +475,7 @@ describe("voice workbench headless component", () => {
 					pendingResult: "Awaiting the first model or capability result",
 				},
 			});
+		expect(component.getView().presentation.domainPolicy).toBeNull();
 		expect(component.getSnapshot().matches({ turn: "responding" })).toBe(true);
 		expect(component.canExecute("completeResponse")).toBe(false);
 		expect(component.getView()).toMatchObject({

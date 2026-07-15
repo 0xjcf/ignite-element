@@ -23,6 +23,7 @@ const createRequest = (): ModelRequest => ({
 	view: component.getView().modelContext,
 	history: [],
 	capabilities: { internetAccess: "unavailable" },
+	domainPolicyInstructions: "",
 });
 
 beforeAll(() => component.execute({ command: "reportModelAvailable" }));
@@ -236,8 +237,59 @@ describe("consumer-configured MLX workbench model", () => {
 		expect(body.messages[0].content).toContain(
 			"source URLs in semantic table cells",
 		);
+		expect(body.messages[0].content).toContain(
+			"matching domain policy tool before external research",
+		);
 		expect(body.messages[0].content).not.toContain(
 			"table cells or text so the browser can render citations",
+		);
+	});
+
+	it("adds configured domain instructions without making policy success evidence", async () => {
+		const fetchMock = vi.fn(
+			async (_input: RequestInfo | URL, _init?: RequestInit) =>
+				new Response(
+					JSON.stringify({
+						choices: [
+							{
+								message: {
+									tool_calls: [
+										{
+											id: "policy",
+											type: "function",
+											function: {
+												name: "prepareProductPricing",
+												arguments: JSON.stringify({ items: [] }),
+											},
+										},
+									],
+								},
+							},
+						],
+					}),
+					{ status: 200 },
+				),
+		);
+		vi.stubGlobal("fetch", fetchMock);
+		await requestMlxWorkbenchModel(
+			{ baseUrl: "http://127.0.0.1:8080/v1", model: "local" },
+			{
+				...createRequest(),
+				tools: [
+					{
+						name: "prepareProductPricing",
+						inputSchema: { type: "object", properties: {} },
+						gated: false,
+					},
+				],
+				domainPolicyInstructions:
+					"Call prepareProductPricing first. Policy success is not price evidence.",
+			},
+		);
+
+		const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+		expect(body.messages[0].content).toContain(
+			"Call prepareProductPricing first. Policy success is not price evidence.",
 		);
 	});
 

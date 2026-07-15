@@ -17,6 +17,7 @@ import {
 	createCapabilityFederation,
 	runCapability,
 } from "./capability-federation";
+import { type DomainRegistry, emptyDomainRegistry } from "./domains/registry";
 import {
 	type MlxWorkbenchConfiguration,
 	requestMlxWorkbenchModel,
@@ -560,6 +561,7 @@ export async function completeSubmittedPrompt(
 	configuration: MlxWorkbenchConfiguration,
 	event: { modality: "text" | "speech"; text: string },
 	externalCapabilities: readonly CapabilityOwner[] = [],
+	domains: DomainRegistry = emptyDomainRegistry,
 ): Promise<ModelTurnResult | null> {
 	const prompt = { channel: event.modality, text: event.text };
 	const history: ModelExchange[] = [];
@@ -575,11 +577,15 @@ export async function completeSubmittedPrompt(
 			manifest: modelTools(tools.manifest),
 			run: async (call): Promise<CapabilityExecutionFact> => {
 				if (call.name === "completeResponse") {
-					const audit = auditCompletionEvidence(
-						history,
-						component.getView().modelContext,
+					const view = component.getView().modelContext;
+					const audits = [
+						domains.auditCompletion({ prompt, history, view }),
+						auditCompletionEvidence(history, view),
+					];
+					const issues = normalizeModelIssues(
+						audits.flatMap((audit) => (audit.ok ? [] : audit.issues)),
 					);
-					if (!audit.ok) {
+					if (issues.length > 0) {
 						return {
 							type: "validation",
 							ownerId: "workbench-component",
@@ -587,7 +593,7 @@ export async function completeSubmittedPrompt(
 							message:
 								"The accepted artifact does not yet materialize the researched evidence.",
 							reason: "evidence-incomplete",
-							issues: audit.issues,
+							issues,
 							actorRejected: true,
 						};
 					}
@@ -663,6 +669,7 @@ export async function completeSubmittedPrompt(
 		};
 		const federation = createCapabilityFederation([
 			componentOwner,
+			...domains.capabilities,
 			...externalCapabilities,
 		]);
 		if (!federation.ok) {
@@ -697,6 +704,7 @@ export async function completeSubmittedPrompt(
 				tools: federation.manifest,
 				view: component.getView().modelContext,
 				history,
+				domainPolicyInstructions: domains.modelInstructions,
 				capabilities: {
 					internetAccess: federation.manifest.some(
 						(tool) => tool.name === "searchWeb",
@@ -717,6 +725,13 @@ export async function completeSubmittedPrompt(
 			});
 			const proof = capabilityProof(execution);
 			if (proof) currentCapability = proof;
+			const domainDecision = domains.projectExecution(execution);
+			if (domainDecision) {
+				await component.execute({
+					command: "recordDomainPolicyDecision",
+					input: domainDecision,
+				});
+			}
 			if (execution.ownerId !== "workbench-component") {
 				await component.execute({
 					command: "recordCapabilityOutcome",

@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { ModelExchange } from "./agent-loop";
 import type { CapabilityOwner } from "./capability-federation";
+import { createProductPricingDomainPack } from "./domains/product-pricing";
+import { createDomainRegistry } from "./domains/registry";
 import { requestMlxWorkbenchModel } from "./model";
 import { component, source } from "./session";
 import {
@@ -635,6 +637,174 @@ describe("shared voice workbench agent", () => {
 			message: expect.stringContaining(
 				"fallback brave-web-search → fake-search · trigger HTTP 503 · success",
 			),
+		});
+	});
+
+	it("runs the configured product policy before research and records its bounded decision", async () => {
+		requestModel.mockReset();
+		requestModel
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						id: "policy",
+						command: "prepareProductPricing",
+						input: {
+							retailer: "Whole Foods",
+							location: "Sarasota",
+							items: [{ subject: "Bread" }],
+						},
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						id: "search",
+						command: "searchWeb",
+						input: {
+							queries: [
+								{
+									subject: "Bread",
+									query:
+										"Whole Foods Sarasota standard sandwich bread 20 oz loaf price",
+								},
+							],
+						},
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						command: "createArtifact",
+						input: {
+							id: "policy-shopping-list",
+							title: "Whole Foods Sarasota shopping list",
+							nodes: [
+								{
+									id: "assumption",
+									kind: "text",
+									text: "Bread uses representative default: standard sandwich bread · 20 oz loaf.",
+								},
+								{
+									id: "items",
+									kind: "checklist",
+									items: [{ id: "bread", label: "Bread", checked: false }],
+								},
+								{
+									id: "prices",
+									kind: "table",
+									columns: [
+										{ id: "subject", label: "Subject" },
+										{ id: "price", label: "Price" },
+										{ id: "status", label: "Status" },
+										{ id: "source", label: "Source" },
+									],
+									rows: [
+										{
+											id: "bread-price",
+											cells: [
+												"Bread",
+												4.49,
+												"sourced",
+												"https://example.com/bread",
+											],
+										},
+									],
+								},
+							],
+						},
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						command: "completeResponse",
+						input: { text: "The policy-backed shopping list is ready." },
+					},
+				],
+			});
+		const search: CapabilityOwner = {
+			id: "web-search",
+			manifest: [
+				{
+					name: "searchWeb",
+					inputSchema: { type: "object", properties: {} },
+					gated: false,
+				},
+			],
+			run: async () => ({
+				type: "success",
+				ownerId: "web-search",
+				toolName: "searchWeb",
+				data: {
+					searches: [
+						{
+							subject: "Bread",
+							price: {
+								status: "sourced",
+								amount: 4.49,
+								sourceUrl: "https://example.com/bread",
+							},
+						},
+					],
+				},
+				receipt: {
+					provider: "fixture-search",
+					queryCount: 1,
+					sourceCount: 1,
+				},
+			}),
+		};
+		const domains = createDomainRegistry([createProductPricingDomainPack()]);
+		const event = {
+			modality: "text" as const,
+			text: "Create a shopping list with prices from Whole Foods Sarasota for bread",
+		};
+		await component.execute({ command: "submitPrompt", input: event });
+
+		await expect(
+			completeSubmittedPrompt(
+				{ baseUrl: "http://127.0.0.1:8080/v1", model: "local-model" },
+				event,
+				[search],
+				domains,
+			),
+		).resolves.toMatchObject({
+			accepted: true,
+			trace: [
+				{ command: "prepareProductPricing", accepted: true },
+				{ command: "searchWeb", accepted: true },
+				{ command: "createArtifact", accepted: true },
+				{ command: "completeResponse", accepted: true },
+			],
+		});
+		expect(requestModel.mock.calls[0]?.[1]).toMatchObject({
+			domainPolicyInstructions: expect.stringContaining(
+				"call prepareProductPricing",
+			),
+		});
+		expect(
+			requestModel.mock.calls[0]?.[1].tools.map((tool) => tool.name),
+		).toEqual(expect.arrayContaining(["prepareProductPricing", "searchWeb"]));
+		expect(
+			requestModel.mock.calls[1]?.[1].history[0]?.results[0],
+		).toMatchObject({
+			command: "prepareProductPricing",
+			status: "capability-success",
+			fact: { decision: { outcome: "admitted" } },
+		});
+		expect(component.getView().presentation.domainPolicy).toMatchObject({
+			domainId: "product-pricing",
+			outcome: "admitted",
+			assumptions: [
+				{ label: expect.stringContaining("standard sandwich bread") },
+			],
 		});
 	});
 

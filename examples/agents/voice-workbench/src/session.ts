@@ -21,6 +21,7 @@ import {
 	type SetChecklistItemInput,
 	type SubmitPromptInput,
 } from "./domain";
+import type { DomainPolicyDecision } from "./domains/contracts";
 import type { VoiceCaptureFact } from "./voice";
 
 export type WorkbenchArtifactView = "document" | "schema";
@@ -113,6 +114,7 @@ export type WorkbenchPresentation = {
 	runtimeManifest: readonly WorkbenchRuntimeManifestEntry[];
 	runtimePreview: WorkbenchRuntimePreview;
 	capabilityOutcomes: readonly WorkbenchCapabilityOutcome[];
+	domainPolicy: DomainPolicyDecision | null;
 	speakResponses: boolean;
 	speechCommit: {
 		id: string;
@@ -162,6 +164,10 @@ export type WorkbenchPresentationEvent =
 	| {
 			type: "PRESENTATION_CAPABILITY_OUTCOME_RECORDED";
 			outcome: WorkbenchCapabilityOutcome;
+	  }
+	| {
+			type: "PRESENTATION_DOMAIN_POLICY_RECORDED";
+			decision: DomainPolicyDecision;
 	  };
 
 type WorkbenchVoiceCaptureEvent = {
@@ -193,6 +199,7 @@ const createInitialPresentation = (): WorkbenchPresentation => ({
 	runtimeManifest: [],
 	runtimePreview: "browser",
 	capabilityOutcomes: [],
+	domainPolicy: null,
 	speakResponses: true,
 	speechCommit: null,
 	speechReplayRequest: null,
@@ -448,7 +455,13 @@ const machine = setup({
 			if (!isConversationAction(event)) return context;
 			const result = reduceConversationSession(context, event);
 			if (result.accepted) {
-				return { ...result.session, presentation: context.presentation };
+				return {
+					...result.session,
+					presentation:
+						event.type === "SUBMIT_PROMPT"
+							? { ...context.presentation, domainPolicy: null }
+							: context.presentation,
+				};
 			}
 			return {
 				...context,
@@ -551,6 +564,11 @@ const machine = setup({
 						event.outcome,
 					].slice(-12),
 				}),
+			),
+		},
+		PRESENTATION_DOMAIN_POLICY_RECORDED: {
+			actions: assign(({ context, event }) =>
+				updatePresentation(context, { domainPolicy: event.decision }),
 			),
 		},
 		PRESENTATION_VOICE_CAPTURE_REQUESTED: {
@@ -837,6 +855,41 @@ export const component = igniteCore({
 							.filter((value): value is string => value !== null)
 							.join(" · "),
 					}));
+		const domainPolicy = presentation.domainPolicy
+			? {
+					heading: "Domain policy proof",
+					statusLabel: presentation.domainPolicy.outcome.replace("-", " "),
+					summary: presentation.domainPolicy.summary,
+					identityRows: [
+						{
+							key: "domain",
+							label: "Domain",
+							value: presentation.domainPolicy.domainLabel,
+						},
+						{
+							key: "policy",
+							label: "Policy",
+							value: presentation.domainPolicy.policyLabel,
+						},
+					],
+					assumptionRows: presentation.domainPolicy.assumptions.map(
+						(assumption) => ({
+							key: assumption.id,
+							text: assumption.label,
+						}),
+					),
+					questionRows: presentation.domainPolicy.questions.map((question) => ({
+						key: question.id,
+						text: question.prompt,
+					})),
+					evidenceRows: presentation.domainPolicy.evidenceRequirements.map(
+						(requirement) => ({
+							key: requirement.id,
+							text: requirement.label,
+						}),
+					),
+				}
+			: null;
 		const manifestRows =
 			presentation.runtimeManifest.length === 0
 				? [
@@ -1002,6 +1055,7 @@ export const component = igniteCore({
 					})),
 				},
 				capabilityRows,
+				domainPolicy,
 				trace: {
 					acceptedArtifactLabel: activeArtifact
 						? `Artifact revision ${activeArtifact.revision} stored`
@@ -1291,6 +1345,11 @@ export const component = igniteCore({
 				actor.send({
 					type: "PRESENTATION_CAPABILITY_OUTCOME_RECORDED",
 					outcome,
+				}),
+			recordDomainPolicyDecision: (decision: DomainPolicyDecision) =>
+				actor.send({
+					type: "PRESENTATION_DOMAIN_POLICY_RECORDED",
+					decision,
 				}),
 			recordRuntimeManifest: (
 				manifest: readonly WorkbenchRuntimeManifestEntry[],

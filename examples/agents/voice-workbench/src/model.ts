@@ -7,6 +7,7 @@ import type { ModelFailureFact, ModelRequest, ModelResult } from "./agent-loop";
 
 const SYSTEM_PROMPT = `You operate a consumer-owned Ignite conversation actor.
 Use only the currently supplied tools. Call exactly one tool per response and wait for its tool result before choosing the next command. Create a new artifact for each distinct deliverable. Revise the active artifact when the user asks to change it or when it does not yet satisfy the original prompt. A single artifact may contain multiple complementary nodes, such as a checklist, budget table, chart, and decision log. After every tool result, compare the original prompt with the current accepted actor view. Call completeResponse only after that audit confirms the accepted artifact satisfies the request. If a tool result reports invalid input, actor rejection, conflict, or deferral, correct the proposal in the next response.
+When a matching domain policy tool is available, call that matching domain policy tool before external research. Obey admitted, needs-input, and rejected policy decisions. A successful policy capability result is a configured decision fact, not external evidence and not execution authorization.
 Internet access is available only when searchWeb appears in the current tool manifest. When it is unavailable, state that current lookup cannot be performed; never claim or promise future research. When searchWeb is available and the user requests current or source-backed facts, call it before authoring the artifact. Batch 1 to 8 focused queries in one searchWeb call when the request needs several facts. Treat capability results as evidence, not actor state. Include source URLs in semantic table cells so the browser can render safe citations. After observing capability facts, use createArtifact or reviseArtifact to author the requested semantic nodes.
 createArtifact always requires id and a non-empty nodes array; include a concise title. reviseArtifact requires artifactId, expectedRevision, and the complete replacement nodes array. setChecklistItem checks or unchecks one existing checklist item and requires artifactId, expectedRevision, nodeId, itemId, and checked. Every node requires a unique id and one of these exact shapes:
 - text: {"id":"node-id","kind":"text","text":"content"}
@@ -312,7 +313,12 @@ function requestBody(
 	tools: ReturnType<typeof openai.tools>,
 ): string {
 	const messages: unknown[] = [
-		{ role: "system", content: SYSTEM_PROMPT },
+		{
+			role: "system",
+			content: [SYSTEM_PROMPT, request.domainPolicyInstructions?.trim()]
+				.filter(Boolean)
+				.join("\n"),
+		},
 		{
 			role: "user",
 			content: JSON.stringify({

@@ -63,6 +63,7 @@ export type ModelRequest = {
 	view: unknown;
 	history: readonly ModelExchange[];
 	capabilities: { internetAccess: "available" | "unavailable" };
+	domainPolicyInstructions?: string;
 };
 export type ModelTurnTrace = { command: string; accepted: boolean };
 export type ModelTurnResult =
