@@ -70,3 +70,39 @@ only in the workbench presentation turn and are rendered in the authorized-turn
 proof panel; they never mutate `ConversationSession` artifacts. Brave result
 quality and exact retailer-price precision remain provider limitations. Public
 API promotion requires separate dogfood evidence and planning.
+
+## Voice workbench native product-pricing integration
+
+- Recorded: 2026-07-15
+- Task: `direct-1784141422843`
+- Accepted semantic implementation: `041e20099773473c36bb40327b5581fcb3c35ab3`
+
+Product pricing is an example-private domain integration, not a generic Ignite
+runtime capability. The domain policy admits a retailer, location, and ordered
+subject list. The server then performs bounded, store-scoped Whole Foods native
+discovery and applies the versioned `whole-foods-candidate-v1` deterministic
+ranking policy. Generic `searchWeb` remains unavailable for applicable pricing
+turns; zero-retry Brave discovery is eligible only after a decoded HTTP-200
+native miss.
+
+The provider caches selected product identities only, with a 300-second TTL,
+64-entry LRU, and in-flight coalescing. Prices are never cached: every request
+uses one fresh, deduplicated, store-scoped offer batch. Native and offer payloads
+are size-bounded and decoded fail-closed. Fetch and body consumption share one
+deadline, and every owned in-flight entry is settled and removed on failure.
+
+The browser persists only bounded presentation proof: at most eight subject rows
+with allowlisted cache, native, Brave, selection, and sourced-or-unverified price
+status. Display conditions and labels are derived in the Ignite view callback;
+the generic renderer remains unchanged. Promotion beyond this local example
+requires a provider disable or circuit breaker plus latency and error telemetry.
+
+The domain registry also exposes an optional, example-private artifact
+materialization hook. For an applicable product-pricing turn, the pack derives a
+canonical checklist, selection disclosure, and price table only from the latest
+admitted policy decision followed by exactly one successful, ordered
+`priceProducts` fact. Missing, duplicated, reordered, or mismatched evidence fails
+closed and leaves the model proposal unchanged. Generic domains therefore retain
+model-owned semantic selection, while product pricing demonstrates where a domain
+can deterministically enforce artifact UX without moving policy into Ignite or its
+renderer.
