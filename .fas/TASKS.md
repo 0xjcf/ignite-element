@@ -2362,8 +2362,8 @@ No active tasks.
 
 - Title: Dogfood provider-neutral external capability federation in the generic voice and text workbench
 - Mode: 6-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/dogfood-provider-neutral-external-capability-federation-in-t.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -2373,10 +2373,13 @@ No active tasks.
 
 - Title: Turn the voice workbench right rail into a live runtime inspector and harden capability reliability
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/turn-the-voice-workbench-right-rail-into-a-live-runtime-insp.md
 - Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ## Template
 
