@@ -2406,9 +2406,9 @@ No active tasks.
 ### Task: Derive and implement deterministic Brave pricing query enrichment for voice-workbench
 
 - Title: Derive and implement deterministic Brave pricing query enrichment for voice-workbench
-- Mode: single-agent
-- Status: implementing
-- Owner: implementer
+- Mode: 6-agent
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/derive-and-implement-deterministic-brave-pricing-query-enric.md
 - Verification lane: fast
 - Policy sensitivity: standard
