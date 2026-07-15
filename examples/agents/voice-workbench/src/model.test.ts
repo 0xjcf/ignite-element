@@ -292,7 +292,7 @@ describe("consumer-configured MLX workbench model", () => {
 			"Call prepareProductPricing first. Policy success is not price evidence.",
 		);
 		expect(body.messages[0].content).toContain(
-			"the provider owns store lookup and deterministic query enrichment",
+			"the provider owns store lookup, product and size selection, and deterministic discovery",
 		);
 		expect(body.messages[0].content).toContain(
 			"Never call searchWeb for an applicable product-pricing request",
@@ -492,7 +492,7 @@ describe("consumer-configured MLX workbench model", () => {
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
-	it("returns network and malformed provider responses as sanitized facts", async () => {
+	it("returns network and staged malformed provider responses as sanitized facts", async () => {
 		vi.stubGlobal(
 			"fetch",
 			vi.fn(async () => {
@@ -515,27 +515,51 @@ describe("consumer-configured MLX workbench model", () => {
 			},
 		});
 
-		vi.stubGlobal(
-			"fetch",
-			vi.fn(
-				async () =>
-					new Response(JSON.stringify({ choices: [] }), { status: 200 }),
-			),
-		);
-		await expect(
-			requestMlxWorkbenchModel(
+		const malformed = [
+			{
+				response: new Response("secret raw model payload {", { status: 200 }),
+				message: "The local model returned invalid JSON.",
+			},
+			{
+				response: new Response(JSON.stringify({ choices: [] }), {
+					status: 200,
+				}),
+				message: "The local model returned an invalid completion envelope.",
+			},
+			{
+				response: new Response(
+					JSON.stringify({
+						choices: [
+							{
+								message: {
+									content: "secret model prose",
+									tool_calls: [],
+								},
+							},
+						],
+					}),
+					{ status: 200 },
+				),
+				message: "The local model returned no authorized compatible tool call.",
+			},
+		];
+		for (const scenario of malformed) {
+			vi.stubGlobal(
+				"fetch",
+				vi.fn(async () => scenario.response),
+			);
+			const result = await requestMlxWorkbenchModel(
 				{
 					baseUrl: "http://127.0.0.1:8080/v1",
 					model: "consumer-model",
 				},
 				createRequest(),
-			),
-		).resolves.toEqual({
-			ok: false,
-			error: {
-				kind: "invalid-response",
-				message: "The local model returned an invalid response.",
-			},
-		});
+			);
+			expect(result).toEqual({
+				ok: false,
+				error: { kind: "invalid-response", message: scenario.message },
+			});
+			expect(JSON.stringify(result)).not.toContain("secret");
+		}
 	});
 });

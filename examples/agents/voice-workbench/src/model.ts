@@ -8,7 +8,7 @@ import type { ModelFailureFact, ModelRequest, ModelResult } from "./agent-loop";
 const SYSTEM_PROMPT = `You operate a consumer-owned Ignite conversation actor.
 Use only the currently supplied tools. Call exactly one tool per response and wait for its tool result before choosing the next command. Create a new artifact for each distinct deliverable. Revise the active artifact when the user asks to change it or when it does not yet satisfy the original prompt. A single artifact may contain multiple complementary nodes, such as a checklist, budget table, chart, and decision log. After every tool result, compare the original prompt with the current accepted actor view. Call completeResponse only after that audit confirms the accepted artifact satisfies the request. If a tool result reports invalid input, actor rejection, conflict, or deferral, correct the proposal in the next response.
 When a matching domain policy tool is available, call that matching domain policy tool before external research. Obey admitted, needs-input, and rejected policy decisions. A successful policy capability result is a configured decision fact, not external evidence and not execution authorization.
-External evidence may come from a matching domain capability or from generic searchWeb. The capabilities.internetAccess value reports whether the current request has a configured evidence path, even when a domain tool remains hidden until its policy decision is admitted. For product-pricing requests, call the matching policy tool first. When priceProducts becomes available, call it exactly once with the admitted retailer, location, subject, product, and size values; the provider owns store lookup and deterministic query enrichment. Never call searchWeb for an applicable product-pricing request and never interpret search snippets as prices. For generic current or source-backed research, call searchWeb before authoring the artifact and batch 1 to 8 focused queries in one call when several facts are needed. When no applicable domain provider or searchWeb capability is configured, state that current lookup cannot be performed; never claim or promise future research. Treat capability results as evidence, not actor state. Include source URLs in semantic table cells so the browser can render safe citations. After observing capability facts, use createArtifact or reviseArtifact to author the requested semantic nodes.
+External evidence may come from a matching domain capability or from generic searchWeb. The capabilities.internetAccess value reports whether the current request has a configured evidence path, even when a domain tool remains hidden until its policy decision is admitted. For product-pricing requests, call the matching policy tool first with retailer, location, and subject-only items. If the first decision is rejected or needs input, repair that policy request at most once. The latest policy decision supersedes the earlier decision. When priceProducts becomes available, call it exactly once with the admitted retailer, location, and ordered subject-only items; the provider owns store lookup, product and size selection, and deterministic discovery. Never call searchWeb for an applicable product-pricing request and never interpret search snippets as prices. Disclose the provider-selected product and size beside every sourced or explicitly unverified price. Include numeric totals and charts only for sourced prices. For generic current or source-backed research, call searchWeb before authoring the artifact and batch 1 to 8 focused queries in one call when several facts are needed. When no applicable domain provider or searchWeb capability is configured, state that current lookup cannot be performed; never claim or promise future research. Treat capability results as evidence, not actor state. Include source URLs in semantic table cells so the browser can render safe citations. After observing capability facts, use createArtifact or reviseArtifact to author the requested semantic nodes.
 createArtifact always requires id and a non-empty nodes array; include a concise title. reviseArtifact requires artifactId, expectedRevision, and the complete replacement nodes array. setChecklistItem checks or unchecks one existing checklist item and requires artifactId, expectedRevision, nodeId, itemId, and checked. Every node requires a unique id and one of these exact shapes:
 - text: {"id":"node-id","kind":"text","text":"content"}
 - checklist: {"id":"node-id","kind":"checklist","items":[{"id":"item-id","label":"item","checked":false}]}
@@ -446,20 +446,20 @@ export async function requestMlxWorkbenchModel(
 			}
 			return failure(
 				"invalid-response",
-				"The local model returned an invalid response.",
+				"The local model returned invalid JSON.",
 			);
 		}
 		if (!isCompletionResponse(payload)) {
 			return failure(
 				"invalid-response",
-				"The local model returned an invalid response.",
+				"The local model returned an invalid completion envelope.",
 			);
 		}
 		const calls = openai.toolCalls(payload, request.tools);
 		if (calls.length === 0) {
 			return failure(
 				"invalid-response",
-				"The local model returned an invalid response.",
+				"The local model returned no authorized compatible tool call.",
 			);
 		}
 		return {

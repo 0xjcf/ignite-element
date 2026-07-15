@@ -666,13 +666,7 @@ describe("shared voice workbench agent", () => {
 						input: {
 							retailer: "Whole Foods",
 							location: "Sarasota",
-							items: [
-								{
-									subject: "Bread",
-									product: "365 Organic Sourdough Bread",
-									size: "24 oz loaf",
-								},
-							],
+							items: [{ subject: "Bread" }],
 						},
 					},
 				],
@@ -689,7 +683,7 @@ describe("shared voice workbench agent", () => {
 								{
 									id: "assumption",
 									kind: "text",
-									text: "Bread uses representative default: 365 Organic Sourdough Bread · 24 oz loaf.",
+									text: "Provider selection: 365 Organic Sourdough Bread · 24 oz.",
 								},
 								{
 									id: "items",
@@ -701,6 +695,8 @@ describe("shared voice workbench agent", () => {
 									kind: "table",
 									columns: [
 										{ id: "subject", label: "Subject" },
+										{ id: "product", label: "Product" },
+										{ id: "size", label: "Size" },
 										{ id: "price", label: "Price" },
 										{ id: "status", label: "Status" },
 										{ id: "source", label: "Source" },
@@ -710,6 +706,8 @@ describe("shared voice workbench agent", () => {
 											id: "bread-price",
 											cells: [
 												"Bread",
+												"365 Organic Sourdough Bread",
+												"24 oz",
 												4.49,
 												"sourced",
 												"https://example.com/bread",
@@ -748,6 +746,12 @@ describe("shared voice workbench agent", () => {
 					searches: [
 						{
 							subject: "Bread",
+							selection: {
+								asin: "B0DPXKXV31",
+								product: "365 Organic Sourdough Bread",
+								size: "24 oz",
+								rankingPolicy: "whole-foods-candidate-v1",
+							},
 							price: {
 								status: "sourced",
 								amount: 4.49,
@@ -772,14 +776,13 @@ describe("shared voice workbench agent", () => {
 		};
 		await component.execute({ command: "submitPrompt", input: event });
 
-		await expect(
-			completeSubmittedPrompt(
-				{ baseUrl: "http://127.0.0.1:8080/v1", model: "local-model" },
-				event,
-				[],
-				domains,
-			),
-		).resolves.toMatchObject({
+		const result = await completeSubmittedPrompt(
+			{ baseUrl: "http://127.0.0.1:8080/v1", model: "local-model" },
+			event,
+			[],
+			domains,
+		);
+		expect(result).toMatchObject({
 			accepted: true,
 			trace: [
 				{ command: "prepareProductPricing", accepted: true },
@@ -813,9 +816,7 @@ describe("shared voice workbench agent", () => {
 		expect(component.getView().presentation.domainPolicy).toMatchObject({
 			domainId: "product-pricing",
 			outcome: "admitted",
-			assumptions: [
-				{ label: expect.stringContaining("365 Organic Sourdough Bread") },
-			],
+			assumptions: [],
 		});
 	});
 
@@ -888,13 +889,7 @@ describe("shared voice workbench agent", () => {
 	const breadPriceInput = {
 		retailer: "Whole Foods",
 		location: "Sarasota",
-		items: [
-			{
-				subject: "Bread",
-				product: "365 Organic Sourdough Bread",
-				size: "24 oz loaf",
-			},
-		],
+		items: [{ subject: "Bread" }],
 	};
 
 	it("denies price lookup before the provider after product pricing needs input", async () => {
@@ -988,13 +983,18 @@ describe("shared voice workbench agent", () => {
 		expect(runPriceProducts).not.toHaveBeenCalled();
 	});
 
-	it("batches the exact Bread, Eggs, and Milk prompt into one zero-search provider call", async () => {
+	it("repairs the Sarasota category scope once, then makes one aggregated provider call", async () => {
 		requestModel.mockReset();
-		const admittedItems = [
+		const subjectItems = [
+			{ subject: "Bread" },
+			{ subject: "Eggs" },
+			{ subject: "Milk" },
+		] as const;
+		const selectedItems = [
 			{
 				subject: "Bread",
 				product: "365 Organic Sourdough Bread",
-				size: "24 oz loaf",
+				size: "24 oz",
 			},
 			{
 				subject: "Eggs",
@@ -1010,23 +1010,33 @@ describe("shared voice workbench agent", () => {
 		const priceInput = {
 			retailer: "Whole Foods",
 			location: "Sarasota",
-			items: admittedItems,
+			items: subjectItems,
 		};
 		requestModel
 			.mockResolvedValueOnce({
 				ok: true,
 				calls: [
 					{
-						id: "policy",
+						id: "policy-rejected",
 						command: "prepareProductPricing",
 						input: {
 							retailer: "Whole Foods",
 							location: "Sarasota",
-							items: [
-								{ subject: "Bread" },
-								{ subject: "Eggs" },
-								{ subject: "Milk" },
-							],
+							items: [{ subject: "Groceries" }, { subject: "Grocery" }],
+						},
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						id: "policy-repaired",
+						command: "prepareProductPricing",
+						input: {
+							retailer: "Whole Foods",
+							location: "Sarasota",
+							items: subjectItems,
 						},
 					},
 				],
@@ -1053,7 +1063,7 @@ describe("shared voice workbench agent", () => {
 								{
 									id: "assumptions",
 									kind: "text",
-									text: "Bread uses representative default: 365 Organic Sourdough Bread · 24 oz loaf. Eggs uses representative default: 365 Large White Grade A Eggs · 12 count. Milk uses representative default: 365 Whole Milk · 1 gallon.",
+									text: "Provider selections: 365 Organic Sourdough Bread · 24 oz. 365 Large White Grade A Eggs · 12 count. 365 Whole Milk · 1 gallon.",
 								},
 								{
 									id: "items",
@@ -1069,14 +1079,46 @@ describe("shared voice workbench agent", () => {
 									kind: "table",
 									columns: [
 										{ id: "subject", label: "Subject" },
+										{ id: "product", label: "Product" },
+										{ id: "size", label: "Size" },
 										{ id: "price", label: "Price" },
 										{ id: "status", label: "Status" },
 										{ id: "source", label: "Source" },
 									],
 									rows: [
-										{ id: "bread", cells: ["Bread", null, "unverified", null] },
-										{ id: "eggs", cells: ["Eggs", null, "unverified", null] },
-										{ id: "milk", cells: ["Milk", null, "unverified", null] },
+										{
+											id: "bread",
+											cells: [
+												"Bread",
+												"365 Organic Sourdough Bread",
+												"24 oz",
+												null,
+												"unverified",
+												null,
+											],
+										},
+										{
+											id: "eggs",
+											cells: [
+												"Eggs",
+												"365 Large White Grade A Eggs",
+												"12 count",
+												null,
+												"unverified",
+												null,
+											],
+										},
+										{
+											id: "milk",
+											cells: [
+												"Milk",
+												"365 Whole Milk",
+												"1 gallon",
+												null,
+												"unverified",
+												null,
+											],
+										},
 									],
 								},
 							],
@@ -1098,9 +1140,20 @@ describe("shared voice workbench agent", () => {
 			ownerId: "product-pricing-price",
 			toolName: "priceProducts",
 			data: {
-				searches: admittedItems.map((item) => ({
+				searches: selectedItems.map((item) => ({
 					subject: item.subject,
 					query: `provider-owned ${item.subject} query`,
+					selection: {
+						asin:
+							item.subject === "Bread"
+								? "B0DPXKXV31"
+								: item.subject === "Eggs"
+									? "B07FWB8QK4"
+									: "B074H5SR5S",
+						product: item.product,
+						size: item.size,
+						rankingPolicy: "whole-foods-candidate-v1",
+					},
 					price: {
 						status: "unverified",
 						amount: null,
@@ -1135,22 +1188,24 @@ describe("shared voice workbench agent", () => {
 		};
 		await component.execute({ command: "submitPrompt", input: event });
 
-		await expect(
-			completeSubmittedPrompt(
-				{ baseUrl: "http://127.0.0.1:8080/v1", model: "local-model" },
-				event,
-				[],
-				domains,
-			),
-		).resolves.toMatchObject({
+		const result = await completeSubmittedPrompt(
+			{ baseUrl: "http://127.0.0.1:8080/v1", model: "local-model" },
+			event,
+			[],
+			domains,
+		);
+		expect(result).toMatchObject({
 			accepted: true,
 			trace: [
+				{ command: "prepareProductPricing", accepted: true },
 				{ command: "prepareProductPricing", accepted: true },
 				{ command: "priceProducts", accepted: true },
 				{ command: "createArtifact", accepted: true },
 				{ command: "completeResponse", accepted: true },
 			],
 		});
+		if (!result)
+			throw new Error("Expected a completed product-pricing result.");
 		expect(runPriceProducts).toHaveBeenCalledTimes(1);
 		expect(runPriceProducts).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -1159,10 +1214,26 @@ describe("shared voice workbench agent", () => {
 			}),
 		);
 		expect(
-			requestModel.mock.calls[1]?.[1].history[0]?.results[0],
+			result.trace.filter((entry) => entry.command === "prepareProductPricing"),
+		).toHaveLength(2);
+		expect(
+			result.trace.filter((entry) => entry.command === "priceProducts"),
+		).toHaveLength(1);
+		expect(JSON.stringify(result)).not.toContain(
+			"The local model returned an invalid response.",
+		);
+		expect(
+			requestModel.mock.calls[2]?.[1].history[1]?.results[0],
 		).toMatchObject({
-			fact: { decision: { request: { items: admittedItems } } },
+			fact: {
+				decision: { outcome: "admitted", request: { items: subjectItems } },
+			},
 		});
+		expect(
+			requestModel.mock.calls.flatMap(([, request]) =>
+				request.tools.map((tool) => tool.name),
+			),
+		).not.toContain("searchWeb");
 	});
 
 	it("denies a mismatched admitted request before the provider", async () => {
@@ -1185,7 +1256,7 @@ describe("shared voice workbench agent", () => {
 			reason: "The proposed price lookup is outside the admitted scope.",
 			issues: expect.arrayContaining([
 				expect.stringContaining(
-					"exact retailer, location, subject, product, and size",
+					"exact retailer, location, and ordered subjects",
 				),
 			]),
 		});

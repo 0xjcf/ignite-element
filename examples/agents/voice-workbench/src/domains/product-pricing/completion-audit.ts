@@ -20,8 +20,20 @@ const key = (value: unknown): string =>
 const decisionFromHistory = (
 	history: readonly ModelExchange[],
 ): { decision: ProductPricingDecision; exchangeIndex: number } | null => {
-	for (const [exchangeIndex, exchange] of history.entries()) {
-		for (const result of exchange.results) {
+	for (
+		let exchangeIndex = history.length - 1;
+		exchangeIndex >= 0;
+		exchangeIndex -= 1
+	) {
+		const exchange = history[exchangeIndex];
+		if (!exchange) continue;
+		for (
+			let resultIndex = exchange.results.length - 1;
+			resultIndex >= 0;
+			resultIndex -= 1
+		) {
+			const result = exchange.results[resultIndex];
+			if (!result) continue;
 			if (
 				result.command !== "prepareProductPricing" ||
 				result.ownerId !== "product-pricing" ||
@@ -66,10 +78,16 @@ const checklistSubjects = (
 			: [],
 	);
 
-const priceSubjectsAfter = (
+type ProductPriceEvidence = {
+	subject: string;
+	product: string | null;
+	size: string | null;
+};
+
+const priceEvidenceAfter = (
 	history: readonly ModelExchange[],
 	exchangeIndex: number,
-): string[] =>
+): ProductPriceEvidence[] =>
 	history.slice(exchangeIndex + 1).flatMap((exchange) =>
 		exchange.results.flatMap((result) => {
 			if (
@@ -80,11 +98,23 @@ const priceSubjectsAfter = (
 			) {
 				return [];
 			}
-			return result.fact.searches
-				.filter(isRecord)
-				.flatMap((search) =>
-					typeof search.subject === "string" ? [key(search.subject)] : [],
-				);
+			return result.fact.searches.filter(isRecord).flatMap((search) => {
+				if (typeof search.subject !== "string") return [];
+				const selection = isRecord(search.selection) ? search.selection : null;
+				return [
+					{
+						subject: key(search.subject),
+						product:
+							selection && typeof selection.product === "string"
+								? selection.product.trim()
+								: null,
+						size:
+							selection && typeof selection.size === "string"
+								? selection.size.trim()
+								: null,
+					},
+				];
+			});
 		}),
 	);
 
@@ -148,7 +178,8 @@ export const auditProductPricingCompletion = (
 		}
 	}
 	const requestedKeys = decision.request.items.map((item) => key(item.subject));
-	const searchedKeys = priceSubjectsAfter(input.history, exchangeIndex);
+	const priceEvidence = priceEvidenceAfter(input.history, exchangeIndex);
+	const searchedKeys = priceEvidence.map((evidence) => evidence.subject);
 	if (
 		requestedKeys.length !== searchedKeys.length ||
 		requestedKeys.some((subject) => !searchedKeys.includes(subject))
@@ -156,6 +187,18 @@ export const auditProductPricingCompletion = (
 		issues.push(
 			"Resolve matching provider evidence for every admitted product-pricing subject.",
 		);
+	}
+	for (const evidence of priceEvidence) {
+		if (
+			!evidence.product ||
+			!evidence.size ||
+			!visible.includes(evidence.product.toLowerCase()) ||
+			!visible.includes(evidence.size.toLowerCase())
+		) {
+			issues.push(
+				`${evidence.subject}: disclose the provider-selected product and size evidence.`,
+			);
+		}
 	}
 	const listedKeys = checklistSubjects(nodes);
 	for (const item of decision.request.items) {

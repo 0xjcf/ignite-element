@@ -39,13 +39,7 @@ const priceExchange: ModelExchange = {
 			input: {
 				retailer: "Whole Foods",
 				location: "Sarasota",
-				items: [
-					{
-						subject: "Bread",
-						product: "365 Organic Sourdough Bread",
-						size: "24 oz loaf",
-					},
-				],
+				items: [{ subject: "Bread" }],
 			},
 		},
 	],
@@ -59,6 +53,12 @@ const priceExchange: ModelExchange = {
 				searches: [
 					{
 						subject: "Bread",
+						selection: {
+							asin: "B0DPXKXV31",
+							product: "365 Organic Sourdough Bread",
+							size: "24 oz",
+							rankingPolicy: "whole-foods-candidate-v1",
+						},
 						price: {
 							status: "sourced",
 							amount: 4.49,
@@ -100,6 +100,8 @@ const validView = {
 					kind: "table",
 					columns: [
 						{ id: "subject", label: "Subject" },
+						{ id: "product", label: "Product" },
+						{ id: "size", label: "Size" },
 						{ id: "price", label: "Price" },
 						{ id: "status", label: "Status" },
 						{ id: "source", label: "Source" },
@@ -107,7 +109,14 @@ const validView = {
 					rows: [
 						{
 							id: "bread-price",
-							cells: ["Bread", 4.49, "sourced", "https://example.com/bread"],
+							cells: [
+								"Bread",
+								"365 Organic Sourdough Bread",
+								"24 oz",
+								4.49,
+								"sourced",
+								"https://example.com/bread",
+							],
 						},
 					],
 				},
@@ -200,6 +209,68 @@ describe("product-pricing completion audit", () => {
 				view: validView,
 			}),
 		).toEqual({ ok: true });
+	});
+
+	it("uses the latest repaired policy decision and provider-selected identity evidence", () => {
+		const rejected = evaluateProductPricingPolicy({
+			retailer: "Whole Foods",
+			location: "Sarasota",
+			items: [{ subject: "Groceries" }, { subject: "Groceries" }],
+		});
+		expect(
+			auditProductPricingCompletion({
+				prompt,
+				history: [
+					decisionExchange(rejected),
+					decisionExchange(admitted),
+					priceExchange,
+				],
+				view: validView,
+			}),
+		).toEqual({ ok: true });
+	});
+
+	it("requires visible provider-selected product and size evidence", () => {
+		const viewWithoutSelection = {
+			...validView,
+			artifacts: [
+				{
+					...validView.artifacts[0],
+					nodes: validView.artifacts[0]?.nodes.map((node) =>
+						node.id === "prices"
+							? {
+									...node,
+									rows: [
+										{
+											id: "bread-price",
+											cells: [
+												"Bread",
+												"Unknown product",
+												"Unknown size",
+												4.49,
+												"sourced",
+												"https://example.com/bread",
+											],
+										},
+									],
+								}
+							: node,
+					),
+				},
+			],
+		};
+		expect(
+			auditProductPricingCompletion({
+				prompt,
+				history: [decisionExchange(admitted), priceExchange],
+				view: viewWithoutSelection,
+			}),
+		).toMatchObject({
+			ok: false,
+			issues: expect.arrayContaining([
+				expect.stringContaining("provider-selected product and size"),
+			]),
+		});
 	});
 
 	it("rejects mismatched provider-evidence subjects", () => {
