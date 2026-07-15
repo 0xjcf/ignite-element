@@ -137,9 +137,11 @@ policy call is therefore neither price evidence nor permission by itself to
 execute an external effect. Before `runCapability` can invoke the search owner,
 the generic workbench asks the registry to authorize the proposed call. The
 product-pricing pack denies searches after `needs-input` or `rejected`, and an
-`admitted` decision permits only its exact subject/query pairs. Denials become
-bounded capability-validation facts for model repair; the external provider is
-not called. The next model manifest also hides `searchWeb` after a paused or
+`admitted` decision permits one batch containing its complete exact
+subject/query set. A strict subset is denied so the model cannot turn one
+policy decision into repeated provider calls. Denials become bounded
+capability-validation facts for model repair; the external provider is not
+called. The next model manifest also hides `searchWeb` after a paused or
 rejected decision, but the pre-execution check remains the authoritative guard.
 
 To add a second domain:

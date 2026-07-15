@@ -105,6 +105,7 @@ export const authorizeProductPricingExecution = ({
 	if (
 		!proposed ||
 		new Set(proposedKeys).size !== proposedKeys.length ||
+		proposedKeys.length !== admittedKeys.size ||
 		proposedKeys.some((key) => !admittedKeys.has(key))
 	) {
 		return {
@@ -112,7 +113,7 @@ export const authorizeProductPricingExecution = ({
 			message:
 				"The proposed web research is outside the admitted product-pricing scope.",
 			issues: [
-				"Call searchWeb with only exact admitted subject and query pairs from prepareProductPricing.",
+				"Call searchWeb once with the complete exact admitted subject and query set from prepareProductPricing.",
 			],
 		};
 	}

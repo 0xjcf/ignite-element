@@ -811,6 +811,7 @@ describe("shared voice workbench agent", () => {
 	const exerciseProductPricingSearchAuthorization = async (
 		policyInput: unknown,
 		searchInput: unknown,
+		eventText = "Create a shopping list with prices from Whole Foods Sarasota for bread",
 	) => {
 		requestModel.mockReset();
 		requestModel.mockResolvedValueOnce({
@@ -857,7 +858,7 @@ describe("shared voice workbench agent", () => {
 		const domains = createDomainRegistry([createProductPricingDomainPack()]);
 		const event = {
 			modality: "text" as const,
-			text: "Create a shopping list with prices from Whole Foods Sarasota for bread",
+			text: eventText,
 		};
 		await component.execute({ command: "submitPrompt", input: event });
 
@@ -964,6 +965,195 @@ describe("shared voice workbench agent", () => {
 		).toContain("searchWeb");
 	});
 
+	it("denies a strict subset of admitted search pairs before the provider", async () => {
+		const { runSearch } = await exerciseProductPricingSearchAuthorization(
+			{
+				retailer: "Whole Foods",
+				location: "Sarasota",
+				items: [{ subject: "Bread" }, { subject: "Eggs" }, { subject: "Milk" }],
+			},
+			{
+				queries: [
+					{
+						subject: "Bread",
+						query:
+							"Whole Foods Sarasota standard sandwich bread 20 oz loaf price",
+					},
+				],
+			},
+			"create a shopping list with prices from wholefoods sarasota for breads, eggs, and milk",
+		);
+
+		expect(runSearch).not.toHaveBeenCalled();
+	});
+
+	it("batches the exact Bread, Eggs, and Milk prompt into one provider call", async () => {
+		requestModel.mockReset();
+		const searches = [
+			{
+				subject: "Bread",
+				query: "Whole Foods Sarasota standard sandwich bread 20 oz loaf price",
+			},
+			{
+				subject: "Eggs",
+				query: "Whole Foods Sarasota large Grade A eggs 12 count price",
+			},
+			{
+				subject: "Milk",
+				query: "Whole Foods Sarasota whole milk 1 gallon price",
+			},
+		] as const;
+		requestModel
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						id: "policy",
+						command: "prepareProductPricing",
+						input: {
+							retailer: "Whole Foods",
+							location: "Sarasota",
+							items: [
+								{ subject: "Bread" },
+								{ subject: "Eggs" },
+								{ subject: "Milk" },
+							],
+						},
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						id: "search",
+						command: "searchWeb",
+						input: { queries: searches },
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						command: "createArtifact",
+						input: {
+							id: "whole-foods-list",
+							title: "Whole Foods Sarasota shopping list",
+							nodes: [
+								{
+									id: "assumptions",
+									kind: "text",
+									text: "Bread uses representative default: standard sandwich bread · 20 oz loaf. Eggs uses representative default: large Grade A eggs · 12 count. Milk uses representative default: whole milk · 1 gallon.",
+								},
+								{
+									id: "items",
+									kind: "checklist",
+									items: [
+										{ id: "bread", label: "Bread", checked: false },
+										{ id: "eggs", label: "Eggs", checked: false },
+										{ id: "milk", label: "Milk", checked: false },
+									],
+								},
+								{
+									id: "prices",
+									kind: "table",
+									columns: [
+										{ id: "subject", label: "Subject" },
+										{ id: "price", label: "Price" },
+										{ id: "status", label: "Status" },
+										{ id: "source", label: "Source" },
+									],
+									rows: [
+										{ id: "bread", cells: ["Bread", null, "unverified", null] },
+										{ id: "eggs", cells: ["Eggs", null, "unverified", null] },
+										{ id: "milk", cells: ["Milk", null, "unverified", null] },
+									],
+								},
+							],
+						},
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						command: "completeResponse",
+						input: { text: "The shopping list is ready." },
+					},
+				],
+			});
+		const runSearch = vi.fn(async () => ({
+			type: "success" as const,
+			ownerId: "web-search",
+			toolName: "searchWeb",
+			data: {
+				searches: searches.map((search) => ({
+					...search,
+					price: {
+						status: "unverified",
+						amount: null,
+						sourceUrl: null,
+						reason: "No explicit current price was found.",
+					},
+				})),
+			},
+			receipt: {
+				provider: "fixture-search",
+				queryCount: 3,
+				sourceCount: 0,
+			},
+		}));
+		const domains = createDomainRegistry([createProductPricingDomainPack()]);
+		const event = {
+			modality: "text" as const,
+			text: "create a shopping list with prices from wholefoods sarasota for breads, eggs, and milk",
+		};
+		await component.execute({ command: "submitPrompt", input: event });
+
+		await expect(
+			completeSubmittedPrompt(
+				{ baseUrl: "http://127.0.0.1:8080/v1", model: "local-model" },
+				event,
+				[
+					{
+						id: "web-search",
+						manifest: [
+							{
+								name: "searchWeb",
+								inputSchema: { type: "object", properties: {} },
+								gated: false,
+							},
+						],
+						run: runSearch,
+					},
+				],
+				domains,
+			),
+		).resolves.toMatchObject({
+			accepted: true,
+			trace: [
+				{ command: "prepareProductPricing", accepted: true },
+				{ command: "searchWeb", accepted: true },
+				{ command: "createArtifact", accepted: true },
+				{ command: "completeResponse", accepted: true },
+			],
+		});
+		expect(runSearch).toHaveBeenCalledTimes(1);
+		expect(runSearch).toHaveBeenCalledWith(
+			expect.objectContaining({
+				name: "searchWeb",
+				input: { queries: searches },
+			}),
+		);
+		expect(
+			requestModel.mock.calls[1]?.[1].history[0]?.results[0],
+		).toMatchObject({
+			fact: { decision: { searchQueries: searches } },
+		});
+	});
+
 	it("denies mismatched admitted search pairs before the provider", async () => {
 		const { runSearch } = await exerciseProductPricingSearchAuthorization(
 			{
@@ -991,7 +1181,9 @@ describe("shared voice workbench agent", () => {
 			reason:
 				"The proposed web research is outside the admitted product-pricing scope.",
 			issues: expect.arrayContaining([
-				expect.stringContaining("exact admitted subject and query pairs"),
+				expect.stringContaining(
+					"complete exact admitted subject and query set",
+				),
 			]),
 		});
 	});
