@@ -10,6 +10,7 @@ import {
 } from "./agent-loop";
 import {
 	type CapabilityExecutionFact,
+	type CapabilityFallbackAttempt,
 	type CapabilityFederation,
 	type CapabilityOwner,
 	type CapabilityRetryFact,
@@ -361,6 +362,30 @@ const boundedRetry = (
 			}
 		: undefined;
 
+const boundedFallback = (
+	fallback: CapabilityFallbackAttempt | undefined,
+): CapabilityFallbackAttempt | undefined => {
+	if (
+		!fallback ||
+		typeof fallback.from !== "string" ||
+		typeof fallback.provider !== "string" ||
+		(fallback.outcome !== "success" &&
+			fallback.outcome !== "failure" &&
+			fallback.outcome !== "timeout" &&
+			fallback.outcome !== "threw")
+	) {
+		return undefined;
+	}
+	const status = boundedStatus(fallback.status);
+	if (status === undefined) return undefined;
+	return {
+		from: boundedText(fallback.from, 80),
+		provider: boundedText(fallback.provider, 80),
+		status,
+		outcome: fallback.outcome,
+	};
+};
+
 const capabilityProof = (
 	execution: CapabilityExecutionFact,
 ): WorkbenchCapabilityProof | null => {
@@ -369,6 +394,11 @@ const capabilityProof = (
 		execution.type === "success"
 			? execution.receipt.provider
 			: execution.ownerId;
+	const fallback = boundedFallback(
+		execution.type === "success"
+			? execution.receipt.fallback
+			: execution.fallback,
+	);
 	return {
 		provider: boundedText(provider, 80),
 		tool: boundedText(execution.toolName, 80),
@@ -390,9 +420,6 @@ const capabilityProof = (
 								),
 							}
 						: {}),
-					...(execution.receipt.fallback
-						? { fallbackFrom: boundedText(execution.receipt.fallback.from, 80) }
-						: {}),
 				}
 			: {
 					...(boundedStatus(execution.status) === undefined
@@ -402,6 +429,7 @@ const capabilityProof = (
 						? { retry: boundedRetry(execution.retry) }
 						: {}),
 				}),
+		...(fallback ? { fallback } : {}),
 	};
 };
 
@@ -466,12 +494,9 @@ const capabilityFeedback = (
 							},
 						}
 					: {}),
-				...(execution.receipt.fallback && proof?.fallbackFrom
+				...(proof?.fallback
 					? {
-							fallback: {
-								from: proof.fallbackFrom,
-								status: boundedStatus(execution.receipt.fallback.status) ?? 500,
-							},
+							fallback: proof.fallback,
 						}
 					: {}),
 			},
@@ -508,6 +533,7 @@ const capabilityFeedback = (
 		? normalizeModelIssues(execution.issues)
 		: undefined;
 	const providerStatus = boundedStatus(execution.status);
+	const proof = capabilityProof(execution);
 	return {
 		id,
 		command: execution.toolName,
@@ -523,6 +549,7 @@ const capabilityFeedback = (
 			...(boundedRetry(execution.retry)
 				? { retry: boundedRetry(execution.retry) }
 				: {}),
+			...(proof?.fallback ? { fallback: proof.fallback } : {}),
 		},
 		view: component.getView().modelContext,
 		events: [],
@@ -711,9 +738,7 @@ export async function completeSubmittedPrompt(
 									cacheTtlMs: proof.cacheTtlMs,
 								}
 							: {}),
-						...(proof?.fallbackFrom
-							? { fallbackFrom: proof.fallbackFrom }
-							: {}),
+						...(proof?.fallback ? { fallback: proof.fallback } : {}),
 					},
 				});
 			}

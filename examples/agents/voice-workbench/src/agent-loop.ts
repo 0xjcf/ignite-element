@@ -1,4 +1,5 @@
 import type { NeutralManifest } from "ignite-element/tools";
+import type { CapabilityFallbackAttempt } from "./capability-federation";
 
 const MODEL_COMMANDS = [
 	"createArtifact",
@@ -33,7 +34,7 @@ export type ModelToolFeedback = {
 		queryCount?: number;
 		sourceCount?: number;
 		cache?: { status: "miss" | "hit" | "coalesced"; ttlMs: number };
-		fallback?: { from: string; status: number };
+		fallback?: CapabilityFallbackAttempt;
 	};
 	view: unknown;
 	events: readonly { type: string; reason?: string }[];

@@ -484,6 +484,12 @@ describe("shared voice workbench agent", () => {
 					provider: "fake-search",
 					queryCount: 4,
 					sourceCount: 4,
+					fallback: {
+						from: "brave-web-search",
+						provider: "fake-search",
+						status: 503,
+						outcome: "success",
+					},
 				},
 			}),
 		};
@@ -549,7 +555,17 @@ describe("shared voice workbench agent", () => {
 					},
 				],
 			},
-			receipt: { provider: "fake-search", queryCount: 4, sourceCount: 4 },
+			receipt: {
+				provider: "fake-search",
+				queryCount: 4,
+				sourceCount: 4,
+				fallback: {
+					from: "brave-web-search",
+					provider: "fake-search",
+					status: 503,
+					outcome: "success",
+				},
+			},
 		});
 		expect(component.getView().activeArtifact).toMatchObject({
 			id: "sourced-budget",
@@ -605,7 +621,20 @@ describe("shared voice workbench agent", () => {
 				outcome: "success",
 				queryCount: 4,
 				sourceCount: 4,
+				fallback: {
+					from: "brave-web-search",
+					provider: "fake-search",
+					status: 503,
+					outcome: "success",
+				},
 			},
+		});
+		expect(
+			component.getView().runtimeInspector.capabilityRows.slice(-1)[0],
+		).toMatchObject({
+			message: expect.stringContaining(
+				"fallback brave-web-search → fake-search · trigger HTTP 503 · success",
+			),
 		});
 	});
 
@@ -900,6 +929,12 @@ describe("shared voice workbench agent", () => {
 					retryAfterMs: 1_000,
 					exhausted: true,
 				},
+				fallback: {
+					from: "brave-web-search",
+					provider: "fixture-search",
+					status: 503,
+					outcome: "timeout",
+				},
 			}),
 		};
 
@@ -930,6 +965,12 @@ describe("shared voice workbench agent", () => {
 					retryAfterMs: 1_000,
 					exhausted: true,
 				},
+				fallback: {
+					from: "brave-web-search",
+					provider: "fixture-search",
+					status: 503,
+					outcome: "timeout",
+				},
 			},
 		});
 		expect(component.getView().presentation.turn).toMatchObject({
@@ -945,7 +986,20 @@ describe("shared voice workbench agent", () => {
 					retryAfterMs: 1_000,
 					exhausted: true,
 				},
+				fallback: {
+					from: "brave-web-search",
+					provider: "fixture-search",
+					status: 503,
+					outcome: "timeout",
+				},
 			},
+		});
+		expect(
+			component.getView().runtimeInspector.capabilityRows.slice(-1)[0],
+		).toMatchObject({
+			message: expect.stringContaining(
+				"fallback brave-web-search → fixture-search · trigger HTTP 503 · timeout",
+			),
 		});
 		expect(JSON.stringify(component.getView().presentation.turn)).not.toContain(
 			"secret",

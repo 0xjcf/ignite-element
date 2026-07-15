@@ -308,6 +308,28 @@ describe("voice workbench headless component", () => {
 			component.getView().runtimeInspector.capabilityRows[0];
 		expect(firstCapabilityRow?.heading).toBe("web-search · search-2");
 		await component.execute({
+			command: "recordCapabilityOutcome",
+			input: {
+				type: "timeout",
+				ownerId: "web-search",
+				toolName: "searchWeb",
+				message: "Configured fallback timed out.",
+				fallback: {
+					from: "brave-web-search",
+					provider: "fixture-search",
+					status: 503,
+					outcome: "timeout",
+				},
+			},
+		});
+		expect(
+			component.getView().runtimeInspector.capabilityRows.slice(-1)[0],
+		).toMatchObject({
+			statusLabel: "timeout",
+			message:
+				"Configured fallback timed out. · fallback brave-web-search → fixture-search · trigger HTTP 503 · timeout",
+		});
+		await component.execute({
 			command: "reportModelFailure",
 			input: {
 				kind: "network",

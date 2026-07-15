@@ -5,6 +5,7 @@ import {
 } from "ignite-element/xstate";
 import { and, assign, createActor, setup, stateIn } from "xstate";
 import type { ModelFailureFact } from "./agent-loop";
+import type { CapabilityFallbackAttempt } from "./capability-federation";
 import {
 	type AcknowledgeSpeechInput,
 	type CompleteResponseInput,
@@ -39,7 +40,7 @@ export type WorkbenchCapabilityOutcome = {
 	retry?: WorkbenchCapabilityProof["retry"];
 	cacheStatus?: WorkbenchCapabilityProof["cacheStatus"];
 	cacheTtlMs?: number;
-	fallbackFrom?: string;
+	fallback?: CapabilityFallbackAttempt;
 };
 export type WorkbenchTurnTrace = readonly {
 	command: string;
@@ -65,7 +66,7 @@ export type WorkbenchCapabilityProof = {
 	};
 	cacheStatus?: "miss" | "hit" | "coalesced";
 	cacheTtlMs?: number;
-	fallbackFrom?: string;
+	fallback?: CapabilityFallbackAttempt;
 };
 export type WorkbenchCollisionProof = {
 	outcome: "collision";
@@ -239,6 +240,9 @@ const describeFact = (fact: ConversationFact | null): string => {
 	}
 };
 
+const fallbackAttemptSummary = (fallback: CapabilityFallbackAttempt): string =>
+	`fallback ${fallback.from} → ${fallback.provider} · trigger HTTP ${fallback.status} · ${fallback.outcome}`;
+
 const capabilityProofSummary = (proof: WorkbenchCapabilityProof): string =>
 	[
 		proof.outcome,
@@ -255,9 +259,9 @@ const capabilityProofSummary = (proof: WorkbenchCapabilityProof): string =>
 		proof.cacheStatus === undefined
 			? null
 			: `cache ${proof.cacheStatus}${proof.cacheTtlMs === undefined ? "" : ` · TTL ${proof.cacheTtlMs}ms`}`,
-		proof.fallbackFrom === undefined
+		proof.fallback === undefined
 			? null
-			: `fallback from ${proof.fallbackFrom}`,
+			: fallbackAttemptSummary(proof.fallback),
 	]
 		.filter((value): value is string => value !== null)
 		.join(" · ");
@@ -826,8 +830,8 @@ export const component = igniteCore({
 							outcome.retry
 								? `${outcome.retry.attempts}/${outcome.retry.maxAttempts} attempts${outcome.retry.exhausted ? " · exhausted" : ""}`
 								: null,
-							outcome.fallbackFrom
-								? `fallback from ${outcome.fallbackFrom}`
+							outcome.fallback
+								? fallbackAttemptSummary(outcome.fallback)
 								: null,
 						]
 							.filter((value): value is string => value !== null)
