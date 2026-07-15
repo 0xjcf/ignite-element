@@ -324,6 +324,20 @@ export const workbenchStyles = `
 	.capability-outcomes { display: grid; gap: 0.35rem; }
 	.capability-outcomes > strong { font-size: 0.62rem; }
 	.capability-outcomes > span { color: var(--muted); font-size: 0.57rem; }
+	.domain-policy-proof { display: grid; gap: 0.55rem; padding: 0.65rem; border: 1px solid var(--accent); border-radius: var(--radius-sm); background: color-mix(in oklab, var(--accent) 7%, transparent); }
+	.domain-policy-proof > header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+	.domain-policy-proof > header strong { color: var(--foreground); font-size: 0.64rem; }
+	.domain-policy-proof > header span { color: var(--accent); font-family: var(--font-mono); font-size: 0.56rem; font-weight: 700; }
+	.domain-policy-proof > p { margin: 0; color: var(--foreground-soft); font-size: 0.58rem; line-height: 1.45; }
+	.domain-policy-identity { display: grid; gap: 0.3rem; margin: 0; }
+	.domain-policy-identity > div { display: grid; grid-template-columns: minmax(4rem, 0.42fr) minmax(0, 1fr); gap: var(--space-2); }
+	.domain-policy-identity dt, .domain-policy-identity dd { margin: 0; font-size: 0.56rem; }
+	.domain-policy-identity dt { color: var(--muted); }
+	.domain-policy-identity dd { color: var(--foreground); }
+	.domain-policy-list { display: grid; gap: 0.24rem; }
+	.domain-policy-list > strong { color: var(--foreground-soft); font-size: 0.57rem; }
+	.domain-policy-list ul { display: grid; gap: 0.18rem; margin: 0; padding-left: 1rem; }
+	.domain-policy-list li { color: var(--muted); font-size: 0.55rem; line-height: 1.4; }
 	.capability-outcome { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.05rem var(--space-2); padding: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--background-elevated); }
 	.capability-outcome strong { color: var(--foreground-soft); font-family: var(--font-mono); font-size: 0.56rem; }
 	.capability-outcome span { color: var(--warning); font-family: var(--font-mono); font-size: 0.54rem; }

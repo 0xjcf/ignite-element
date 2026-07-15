@@ -783,6 +783,53 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 											</output>
 										))}
 									</div>
+									{context.runtimeInspector.domainPolicyCards.map(
+										(domainPolicy) => (
+											<section
+												key="domain-policy"
+												class="domain-policy-proof"
+												aria-label="Domain policy proof"
+											>
+												<header>
+													<strong>{domainPolicy.heading}</strong>
+													<span>{domainPolicy.statusLabel}</span>
+												</header>
+												<p>{domainPolicy.summary}</p>
+												<dl class="domain-policy-identity">
+													{domainPolicy.identityRows.map((row) => (
+														<div key={row.key}>
+															<dt>{row.label}</dt>
+															<dd>{row.value}</dd>
+														</div>
+													))}
+												</dl>
+												<section class="domain-policy-list">
+													<strong>Assumptions</strong>
+													<ul>
+														{domainPolicy.assumptionRows.map((row) => (
+															<li key={row.key}>{row.text}</li>
+														))}
+													</ul>
+												</section>
+												<section class="domain-policy-list">
+													<strong>Clarification questions</strong>
+													<ul>
+														{domainPolicy.questionRows.map((row) => (
+															<li key={row.key}>{row.text}</li>
+														))}
+													</ul>
+												</section>
+												<section class="domain-policy-list">
+													<strong>Evidence requirements</strong>
+													<ul>
+														{domainPolicy.evidenceRows.map((row) => (
+															<li key={row.key}>{row.text}</li>
+														))}
+													</ul>
+												</section>
+											</section>
+										),
+									)}
 								</div>
 							</section>
 							<section class="runtime-card">

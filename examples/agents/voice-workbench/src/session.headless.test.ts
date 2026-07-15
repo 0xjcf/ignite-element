@@ -416,6 +416,9 @@ describe("voice workbench headless component", () => {
 			],
 			evidenceRows: [{ key: "source", text: "Show the exact source." }],
 		});
+		expect(component.getView().runtimeInspector.domainPolicyCards).toEqual([
+			component.getView().runtimeInspector.domainPolicy,
+		]);
 
 		const snapshots = vi.fn();
 		const views = vi.fn();

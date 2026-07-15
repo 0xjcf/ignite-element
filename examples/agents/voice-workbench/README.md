@@ -85,12 +85,74 @@ sanitized receipt. An alternate provider runs only when explicitly injected and
 configured for the exhausted status; the adapter never invents fallback
 evidence.
 
-This keeps the workbench generic. Shopping research is the golden-path scenario,
-not a shopping-specific actor or renderer: the model can search for source facts,
-then use the existing `createArtifact` or `reviseArtifact` commands to compose
-any supported list, table, chart, timeline, decision log, or mixed-node document.
+This keeps the workbench shell generic. Shopping research is the first optional
+domain pack, not a shopping-specific Ignite component or renderer. The pack
+constrains product selection and evidence quality, while the model still uses
+the existing `createArtifact` or `reviseArtifact` commands to compose any
+supported list, table, chart, timeline, decision log, or mixed-node document.
 HTTP and HTTPS values in table cells become safe source links, while chart nodes
 retain a textual accessible name and per-series values.
+
+## Domain packs and policy ownership
+
+The example makes application-specific behavior visible under `src/domains/`:
+
+```text
+src/domains/
+├─ contracts.ts                 generic example-private domain contracts
+├─ registry.ts                  ordered capability, instruction, and audit routing
+└─ product-pricing/
+   ├─ policy.ts                 pure representative-product decision
+   ├─ capability.ts             local policy capability boundary
+   ├─ projection.ts             bounded policy fact projection
+   ├─ completion-audit.ts       domain artifact conformance
+   └─ *.test.ts                 deterministic policy and audit proofs
+```
+
+This structure is intentionally example-private. It does not add a policy
+engine to Ignite and it does not depend on Actor-Web. The pure policy can later
+be invoked by XState guards/actions, Redux or MobX domain services, a backend
+actor, or an Actor-Web policy-composition API without changing its decisions.
+
+The source-of-truth boundary is:
+
+| Layer | Owns |
+| --- | --- |
+| Product-pricing policy | Required scope, representative defaults, clarification questions, and evidence requirements |
+| Local domain capability | Validating model input and returning the deterministic decision as a fact |
+| Model | Proposing the policy call, research call, and semantic artifact commands |
+| XState workbench source | Retaining the bounded policy fact and accepting or rejecting artifact transitions |
+| `igniteCore.view` | Deriving domain, policy, status, assumption, question, and evidence rows |
+| Ignite JSX | Mapping only the prepared rows; it contains no product defaults or outcome rules |
+| Search provider | Returning external facts and receipts; it does not authorize actor transitions |
+
+For the product-pricing pack, Bread, Eggs, and Milk have explicit representative
+defaults. The policy exposes those defaults as assumptions. Missing retailer or
+location scope, and unknown products without a product or size, produce
+`needs-input`; malformed, duplicate, empty, or oversized requests produce
+`rejected`. Only `admitted` decisions contain search queries. A successful
+policy call is therefore neither price evidence nor permission to execute an
+external effect.
+
+To add a second domain:
+
+1. Create a sibling directory with a pure policy, capability adapter, bounded
+   projection, completion audit, and focused tests.
+2. Implement the generic `DomainPack` contract without importing JSX or the
+   workbench source actor.
+3. Give `appliesTo` a narrow prompt signal so unrelated requests retain the
+   generic fallback behavior.
+4. Register the pack in `main.tsx`. The registry supplies capabilities and
+   instructions in order, retains the first recognized policy fact, and runs
+   only applicable completion audits.
+5. Project any new generic rows in the `igniteCore.view` callback. Do not derive
+   domain defaults, questions, or conditional labels in `workbench.tsx`.
+
+The right rail makes this boundary observable. It shows the active domain and
+policy, decision status, assumptions, clarification questions, and evidence
+requirements from the current actor view. Starting another accepted prompt
+clears the prior policy proof so the rail cannot imply that a previous domain
+decision governs the new turn.
 
 Projected checklist controls and MLX turns both call `setChecklistItem` with
 stable artifact, node, and item identities plus the expected revision. The

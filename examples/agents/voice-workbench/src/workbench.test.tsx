@@ -14,6 +14,10 @@ describe("voice workbench accessible JSX", () => {
 		expect(runtimeRail).not.toContain('row.kind === "empty"');
 		expect(runtimeRail).not.toMatch(/row\.ownerLabel/);
 		expect(runtimeRail).not.toMatch(/commit-\$\{receipt\.id\}/);
+		expect(runtimeRail).not.toContain('domainId === "product-pricing"');
+		expect(runtimeRail).not.toContain('outcome === "needs-input"');
+		expect(runtimeRail).not.toContain("standard sandwich bread");
+		expect(runtimeRail).toContain("domainPolicyCards.map");
 	});
 
 	it("renders the approved empty-to-artifact workflow from the component view", async () => {
@@ -97,6 +101,36 @@ describe("voice workbench accessible JSX", () => {
 				status: 429,
 			},
 		});
+		await component.execute({
+			command: "recordDomainPolicyDecision",
+			input: {
+				type: "domain-policy-decision",
+				domainId: "product-pricing",
+				domainLabel: "Product pricing",
+				policyId: "representative-product-selection",
+				policyLabel: "Representative product selection",
+				outcome: "needs-input",
+				summary: "Pricing research is paused for clarification.",
+				assumptions: [
+					{
+						id: "bread-default",
+						label: "Bread uses a representative 20 oz loaf.",
+					},
+				],
+				questions: [
+					{
+						id: "location",
+						prompt: "Which retailer location should be used for pricing?",
+					},
+				],
+				evidenceRequirements: [
+					{
+						id: "source",
+						label: "Materialize exact Price, Status, and Source facts.",
+					},
+				],
+			},
+		});
 		expect(component.getView().runtimeInspector).toMatchObject({
 			mlx: {
 				heading: "MLX model readiness",
@@ -146,6 +180,23 @@ describe("voice workbench accessible JSX", () => {
 		);
 		expect(bridge.host.shadowRoot?.textContent).toContain(
 			"Retry budget exhausted.",
+		);
+		const policyProof = bridge.host.shadowRoot?.querySelector(
+			'[aria-label="Domain policy proof"]',
+		);
+		expect(policyProof?.textContent).toContain("Product pricing");
+		expect(policyProof?.textContent).toContain(
+			"Representative product selection",
+		);
+		expect(policyProof?.textContent).toContain("needs input");
+		expect(policyProof?.textContent).toContain(
+			"Bread uses a representative 20 oz loaf.",
+		);
+		expect(policyProof?.textContent).toContain(
+			"Which retailer location should be used for pricing?",
+		);
+		expect(policyProof?.textContent).toContain(
+			"Materialize exact Price, Status, and Source facts.",
 		);
 		expect(
 			bridge.getByRole("button", { name: "Browser preview" }),

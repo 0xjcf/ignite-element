@@ -1056,6 +1056,7 @@ export const component = igniteCore({
 				},
 				capabilityRows,
 				domainPolicy,
+				domainPolicyCards: domainPolicy ? [domainPolicy] : [],
 				trace: {
 					acceptedArtifactLabel: activeArtifact
 						? `Artifact revision ${activeArtifact.revision} stored`
