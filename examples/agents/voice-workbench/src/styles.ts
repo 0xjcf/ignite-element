@@ -309,6 +309,10 @@ export const workbenchStyles = `
 	.component-line strong { color: var(--primary); }
 	.component-uses { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.35rem; }
 	.component-use { display: grid; place-items: center; min-height: 2rem; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--foreground-soft); font-size: 0.57rem; font-weight: 700; text-align: center; }
+	.runtime-fact { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.1rem var(--space-2); padding: 0.6rem; border: 1px solid var(--warning); border-radius: var(--radius-sm); background: color-mix(in oklab, var(--warning) 8%, transparent); }
+	.runtime-fact > span { color: var(--foreground-soft); font-size: 0.61rem; font-weight: 700; }
+	.runtime-fact > strong { color: var(--warning); font-family: var(--font-mono); font-size: 0.61rem; }
+	.runtime-fact > small { grid-column: 1 / -1; color: var(--muted); font-size: 0.56rem; }
 	.actor-state { display: grid; grid-template-columns: auto 1fr; gap: var(--space-3); align-items: center; }
 	.state-node { width: 2rem; height: 2rem; display: grid; place-items: center; border: 1px solid var(--primary); border-radius: 0.65rem; background: var(--primary-wash); color: var(--primary); }
 	.actor-copy { display: grid; gap: 0.12rem; min-width: 0; }
@@ -317,6 +321,13 @@ export const workbenchStyles = `
 	.actor-match { margin: 0; min-width: 0; color: var(--muted); font-family: var(--font-mono); font-size: 0.62rem; line-height: 1.55; white-space: pre-wrap; }
 	.actor-match code { font: inherit; white-space: inherit; }
 	.actor-copy code { color: var(--primary); }
+	.capability-outcomes { display: grid; gap: 0.35rem; }
+	.capability-outcomes > strong { font-size: 0.62rem; }
+	.capability-outcomes > span { color: var(--muted); font-size: 0.57rem; }
+	.capability-outcome { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.05rem var(--space-2); padding: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--background-elevated); }
+	.capability-outcome strong { color: var(--foreground-soft); font-family: var(--font-mono); font-size: 0.56rem; }
+	.capability-outcome span { color: var(--warning); font-family: var(--font-mono); font-size: 0.54rem; }
+	.capability-outcome small { grid-column: 1 / -1; color: var(--muted); font-size: 0.54rem; }
 	.turn-trace { margin: 0; padding: var(--space-2); list-style: none; display: grid; }
 	.trace-step { position: relative; display: grid; grid-template-columns: auto 1fr; gap: var(--space-2); min-height: 2.55rem; padding: 0.45rem 0.5rem; color: var(--muted); }
 	.trace-marker { width: 0.6rem; height: 0.6rem; margin-top: 0.22rem; border: 1px solid var(--primary); border-radius: 50%; background: var(--primary); }
@@ -324,6 +335,11 @@ export const workbenchStyles = `
 	.trace-copy strong { color: var(--foreground-soft); font-family: var(--font-mono); font-size: 0.61rem; }
 	.trace-copy span { color: var(--muted); font-size: 0.57rem; }
 	.collision-proof .trace-marker { border-color: var(--danger); background: var(--danger); }
+	.preview-selectors { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.25rem; margin: 0; padding: var(--space-2); border: 0; }
+	.preview-selectors button { min-width: 0; min-height: 2rem; padding: 0.25rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--background-elevated); color: var(--muted); font-size: 0.54rem; text-transform: capitalize; cursor: pointer; }
+	.preview-selectors button[aria-pressed="true"] { border-color: var(--primary); background: var(--primary-wash); color: var(--primary); }
+	.projection-preview { min-height: 7rem; margin: 0 var(--space-2) var(--space-2); padding: 0.65rem; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--background); color: var(--foreground-soft); font-family: var(--font-mono); font-size: 0.56rem; line-height: 1.55; white-space: pre-wrap; }
+	.receipt-head { border-top: 1px solid var(--border); }
 	.commit-list { padding: var(--space-2); display: grid; gap: var(--space-2); }
 	.commit { display: grid; grid-template-columns: auto 1fr auto; gap: var(--space-2); align-items: center; padding: 0.58rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--background-elevated); }
 	.commit-icon { width: 1.65rem; height: 1.65rem; display: grid; place-items: center; border-radius: 0.5rem; background: var(--primary-wash); color: var(--primary); }
@@ -333,8 +349,19 @@ export const workbenchStyles = `
 	.commit-copy strong { font-size: 0.66rem; }
 	.commit-copy span { color: var(--muted); font-size: 0.58rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.commit-status { color: var(--primary); font-family: var(--font-mono); font-size: 0.56rem; }
-	.command-list { display: flex; flex-wrap: wrap; gap: 0.35rem; }
-	.command { padding: 0.3rem 0.45rem; border: 1px solid var(--border); border-radius: 0.45rem; background: var(--background-elevated); color: var(--foreground-soft); font-family: var(--font-mono); font-size: 0.56rem; }
+	.schema-section { display: grid; gap: 0.4rem; }
+	.schema-section + .schema-section { padding-top: var(--space-3); border-top: 1px solid var(--border); }
+	.schema-section > header { display: grid; gap: 0.05rem; }
+	.schema-section > header strong { font-size: 0.64rem; }
+	.schema-section > header span, .schema-section > p { margin: 0; color: var(--muted); font-size: 0.54rem; }
+	.schema-section details { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--background-elevated); }
+	.schema-section summary { display: grid; gap: 0.05rem; padding: 0.48rem; color: var(--foreground-soft); cursor: pointer; }
+	.schema-section summary strong, .schema-section summary { font-family: var(--font-mono); font-size: 0.56rem; }
+	.schema-section summary span { color: var(--primary); font-size: 0.52rem; }
+	.schema-section details > p { margin: 0; padding: 0 0.48rem 0.35rem; color: var(--foreground-soft); font-size: 0.54rem; }
+	.schema-section details > pre { max-height: 16rem; margin: 0; padding: 0.5rem; overflow: auto; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--font-mono); font-size: 0.52rem; line-height: 1.55; white-space: pre-wrap; }
+	.command-list { display: grid; gap: 0.35rem; }
+	.command { color: var(--foreground-soft); font-family: var(--font-mono); font-size: 0.56rem; }
 	.policy-proof { padding: 0.55rem; display: grid; grid-template-columns: auto 1fr; gap: var(--space-2); border: 1px solid var(--danger); border-radius: var(--radius-sm); background: color-mix(in oklab, var(--danger) 8%, transparent); }
 	.policy-proof strong { display: block; color: var(--foreground-soft); font-family: var(--font-mono); font-size: 0.59rem; }
 	.policy-proof span { display: block; margin-top: 0.08rem; color: var(--muted); font-size: 0.56rem; }

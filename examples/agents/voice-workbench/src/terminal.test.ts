@@ -32,6 +32,7 @@ describe("voice workbench terminal projection", () => {
 		});
 
 		const output = formatTerminalProjection(component.getView());
+		expect(output).toContain("Projection source: current actor view");
 		expect(output).toContain('provider: "available"');
 		expect(output).toContain('turn: "ready"');
 		expect(output).toContain(

@@ -55,6 +55,7 @@ Replace the static proof rail with an interactive runtime inspector. Keep active
 - examples/agents/voice-workbench/README.md
 - examples/agents/voice-workbench/src/workbench-agent.ts
 - examples/agents/voice-workbench/src/workbench-agent.test.ts
+- examples/agents/voice-workbench/src/terminal.test.ts
 
 ## Scope Amendments
 - Type: staff-engineer contract discovery
@@ -66,6 +67,16 @@ Replace the static proof rail with an interactive runtime inspector. Keep active
 - Evidence: fas_staff_engineer architecture-to-implementation handoff | examples/agents/voice-workbench/src/workbench-agent.ts | Add the existing focused test surface so per-round manifest capture is covered before implementation.
 - Accuracy signal: Current code inspection confirms federation.manifest is constructed with component and external owners at the actual model boundary.
 - Follow-up needed: Keep package and Vite files reference-only; amend again before any expansion.
+
+- Type: TDD coverage surface
+- Added at: 2026-07-15
+- Trigger: The approved terminal.ts preview-label change requires its existing focused terminal.test.ts contract coverage.
+- Reason: Keep every production behavior change covered directly while preserving the example-local boundary.
+- Added paths: examples/agents/voice-workbench/src/terminal.test.ts
+- Evidence source: fas_senior_engineer slice 2 implementation checkpoint
+- Evidence: fas_senior_engineer slice 2 implementation checkpoint | examples/agents/voice-workbench/src/terminal.test.ts | Existing test file verifies terminal projection formatting independently from the browser rail.
+- Accuracy signal: Live ChangeSet shows terminal.ts and its focused existing test changed together before commit.
+- Follow-up needed: No package, Vite, or public API expansion.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

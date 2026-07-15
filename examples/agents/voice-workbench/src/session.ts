@@ -1166,6 +1166,7 @@ type WorkbenchRenderer = Extract<
 >;
 export type WorkbenchProjection = Parameters<WorkbenchRenderer>[0];
 
+export const workbenchSchema = component.getSchema();
 export const workbenchCommandNames = Object.freeze(
-	Object.keys(component.getSchema().commands),
+	Object.keys(workbenchSchema.commands),
 );

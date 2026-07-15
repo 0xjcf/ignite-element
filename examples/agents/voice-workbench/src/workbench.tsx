@@ -4,6 +4,7 @@ import {
 	type WorkbenchCapabilityProof,
 	type WorkbenchProjection,
 	workbenchCommandNames,
+	workbenchSchema,
 } from "./session";
 import { workbenchStyles } from "./styles";
 
@@ -54,6 +55,94 @@ const capabilityProofSummary = (proof: WorkbenchCapabilityProof): string =>
 	]
 		.filter((value): value is string => value !== null)
 		.join(" · ");
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+	typeof value === "object" && value !== null && !Array.isArray(value);
+
+const schemaType = (schema: Record<string, unknown>): string => {
+	if (typeof schema.type === "string") return schema.type;
+	if (Array.isArray(schema.enum)) return "enum";
+	return "value";
+};
+
+const formatSchema = (schema: unknown, rootName = "input"): string => {
+	const lines: string[] = [];
+	const visit = (
+		value: unknown,
+		name: string,
+		required: boolean,
+		depth: number,
+	) => {
+		if (!isRecord(value)) return;
+		const indent = "  ".repeat(depth);
+		lines.push(
+			`${indent}${name} · ${schemaType(value)}${required ? " · required" : ""}`,
+		);
+		for (const constraint of [
+			"minLength",
+			"maxLength",
+			"minimum",
+			"maximum",
+			"minItems",
+			"maxItems",
+		] as const) {
+			if (typeof value[constraint] === "number") {
+				lines.push(`${indent}  ${constraint}: ${value[constraint]}`);
+			}
+		}
+		if (Array.isArray(value.enum)) {
+			lines.push(`${indent}  allowed: ${value.enum.join(" | ")}`);
+		}
+		const requiredNames = new Set(
+			Array.isArray(value.required)
+				? value.required.filter(
+						(entry): entry is string => typeof entry === "string",
+					)
+				: [],
+		);
+		if (isRecord(value.properties)) {
+			for (const [propertyName, propertySchema] of Object.entries(
+				value.properties,
+			)) {
+				visit(
+					propertySchema,
+					propertyName,
+					requiredNames.has(propertyName),
+					depth + 1,
+				);
+			}
+		}
+		if (value.items !== undefined) visit(value.items, "items", true, depth + 1);
+	};
+	visit(schema, rootName, false, 0);
+	return lines.join("\n");
+};
+
+const formatProjectionPreview = (context: WorkbenchContext): string => {
+	const inspector = context.runtimeInspector;
+	const artifact = context.activeArtifact;
+	const artifactLine = artifact
+		? `${artifact.title ?? artifact.id} · revision ${artifact.revision}`
+		: "No accepted artifact yet";
+	switch (inspector.selectedPreview) {
+		case "browser":
+			return `Browser JSX preview\n${artifactLine}\n${context.lastFactLabel}`;
+		case "terminal":
+			return `Terminal projection\nPreview only · no remote terminal sync\nprovider: ${inspector.activeStates.provider}\nturn: ${inspector.activeStates.turn}\n${artifactLine}`;
+		case "speech":
+			return `Speech projection\n${context.response?.speech ?? context.response?.text ?? "No response available for speech"}\nstatus: ${context.speechStatus}`;
+		case "headless":
+			return `Headless projection\n${JSON.stringify(
+				{
+					states: inspector.activeStates,
+					actorRevision: inspector.actor.revision,
+					activeArtifactId: context.activeArtifactId,
+				},
+				null,
+				2,
+			)}`;
+	}
+};
 
 const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 	switch (node.kind) {
@@ -768,24 +857,25 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 						<div class="runtime-scroll">
 							<section class="runtime-card">
 								<div class="runtime-card-head">
-									<strong>One component, four consumers</strong>
-									<span>{workbenchCommandNames.length} commands</span>
+									<strong>Live runtime inspector</strong>
+									<span>current component view</span>
 								</div>
 								<div class="component-contract">
-									<div class="component-line">
-										const component = <strong>igniteCore({`{...}`})</strong>
-									</div>
-									<div class="component-uses">
-										<span class="component-use">headless test</span>
-										<span class="component-use">browser JSX</span>
-										<span class="component-use">terminal + speech</span>
+									<div class="runtime-fact">
+										<span>MLX model readiness</span>
+										<strong>{context.runtimeInspector.mlx.status}</strong>
+										<small>
+											{context.runtimeInspector.mlx.ready
+												? "Inference admitted for prompts"
+												: "Prompts remain gated"}
+										</small>
 									</div>
 									<div class="actor-state">
 										<div class="state-node" aria-hidden="true">
 											◆
 										</div>
 										<div class="actor-copy">
-											<strong>{context.sessionId}</strong>
+											<strong>Parallel actor state</strong>
 											<pre class="actor-match">
 												<span>{"matches("}</span>
 												<code>{`{
@@ -795,9 +885,29 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 												<span>{")"}</span>
 											</pre>
 											<output class="latest-fact">
-												{context.lastFactLabel}
+												Current actor fact · {context.lastFactLabel}
 											</output>
 										</div>
+									</div>
+									<div class="capability-outcomes">
+										<strong>Capability outcomes</strong>
+										{context.runtimeInspector.capabilityOutcomes.length ===
+										0 ? (
+											<span>No external capability facts yet</span>
+										) : (
+											context.runtimeInspector.capabilityOutcomes.map(
+												(outcome, index) => (
+													<output
+														key={`${outcome.ownerId}-${outcome.toolName}-${index}`}
+														class="capability-outcome"
+													>
+														<strong>{`${outcome.ownerId} · ${outcome.toolName}`}</strong>
+														<span>{`${outcome.type}${outcome.status ? ` · HTTP ${outcome.status}` : ""}`}</span>
+														<small>{outcome.message}</small>
+													</output>
+												),
+											)
+										)}
 									</div>
 								</div>
 							</section>
@@ -858,8 +968,33 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 							</section>
 							<section class="runtime-card">
 								<div class="runtime-card-head">
-									<strong>Channel projections</strong>
-									<span>same component contract</span>
+									<strong>Projection previews</strong>
+									<span>same current actor view</span>
+								</div>
+								<fieldset class="preview-selectors">
+									<legend class="sr-only">Projection previews</legend>
+									{(["browser", "terminal", "speech", "headless"] as const).map(
+										(preview) => (
+											<button
+												key={preview}
+												type="button"
+												aria-label={`${preview[0]?.toUpperCase()}${preview.slice(1)} preview`}
+												aria-pressed={
+													context.runtimeInspector.selectedPreview === preview
+												}
+												onClick={() => context.selectRuntimePreview(preview)}
+											>
+												{preview}
+											</button>
+										),
+									)}
+								</fieldset>
+								<pre class="projection-preview">
+									{formatProjectionPreview(context)}
+								</pre>
+								<div class="runtime-card-head receipt-head">
+									<strong>Commit receipts</strong>
+									<span>distinct from previews</span>
 								</div>
 								<div class="commit-list">
 									<div class="commit">
@@ -880,7 +1015,7 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 										<span class="commit-icon">›_</span>
 										<span class="commit-copy">
 											<strong>Terminal · Node</strong>
-											<span>pnpm demo:terminal · no DOM required</span>
+											<span>preview only · no remote terminal sync</span>
 										</span>
 										<span class="commit-status">headless</span>
 									</div>
@@ -901,17 +1036,54 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 							</section>
 							<section class="runtime-card">
 								<div class="runtime-card-head">
-									<strong>Authorized schema</strong>
-									<span>getSchema() → igniteTools</span>
+									<strong>Schema explorer</strong>
+									<span>manifest ≠ blueprint</span>
 								</div>
 								<div class="runtime-body">
-									<div class="command-list">
-										{workbenchCommandNames.map((name) => (
-											<span key={name} class="command">
-												{name}
-											</span>
-										))}
-									</div>
+									<section class="schema-section">
+										<header>
+											<strong>Availability-scoped model manifest</strong>
+											<span>{`${context.runtimeInspector.modelManifest.length} live commands`}</span>
+										</header>
+										{context.runtimeInspector.modelManifest.length === 0 ? (
+											<p>Awaiting the next model request.</p>
+										) : (
+											context.runtimeInspector.modelManifest.map((tool) => (
+												<details
+													key={tool.name}
+													data-command-name={tool.name}
+													open
+												>
+													<summary>
+														<strong>{tool.name}</strong>
+														<span>{`${tool.ownerId} · live · ${tool.gated ? "gated" : "available"}`}</span>
+													</summary>
+													{tool.description ? <p>{tool.description}</p> : null}
+													<pre>{formatSchema(tool.inputSchema)}</pre>
+												</details>
+											))
+										)}
+									</section>
+									<section class="schema-section blueprint">
+										<header>
+											<strong>All-component blueprint</strong>
+											<span>{`${workbenchCommandNames.length} commands from getSchema()`}</span>
+										</header>
+										<div class="command-list">
+											{Object.entries(workbenchSchema.commands).map(
+												([name, commandSchema]) => (
+													<details key={name} class="command">
+														<summary>{name}</summary>
+														{"description" in commandSchema &&
+														typeof commandSchema.description === "string" ? (
+															<p>{commandSchema.description}</p>
+														) : null}
+														<pre>{formatSchema(commandSchema.input)}</pre>
+													</details>
+												),
+											)}
+										</div>
+									</section>
 									<div class="policy-proof">
 										<span aria-hidden="true">◇</span>
 										<div>

@@ -47,6 +47,45 @@ describe("voice workbench accessible JSX", () => {
 		bridge.getByRole("button", { name: "Retry model" }).click();
 		expect(component.getView().status).toBe("preparing");
 		await component.execute({ command: "reportModelAvailable" });
+		await component.execute({
+			command: "recordRuntimeManifest",
+			input: [
+				{
+					name: "searchWeb",
+					description: "Search the web with a bounded query batch.",
+					ownerId: "web-search",
+					gated: false,
+					inputSchema: {
+						type: "object",
+						required: ["queries"],
+						properties: {
+							queries: {
+								type: "array",
+								minItems: 1,
+								maxItems: 8,
+								items: {
+									type: "object",
+									required: ["query"],
+									properties: {
+										query: { type: "string", minLength: 1 },
+									},
+								},
+							},
+						},
+					},
+				},
+			],
+		});
+		await component.execute({
+			command: "recordCapabilityOutcome",
+			input: {
+				type: "timeout",
+				ownerId: "web-search",
+				toolName: "searchWeb",
+				message: "Retry budget exhausted.",
+				status: 429,
+			},
+		});
 		expect(
 			bridge.host.shadowRoot?.querySelector(
 				'output[aria-label="Conversation status"]',
@@ -58,6 +97,50 @@ describe("voice workbench accessible JSX", () => {
 		expect(bridge.host.shadowRoot?.textContent).toContain("0 turns");
 		expect(bridge.host.shadowRoot?.textContent).toContain("0 artifacts");
 		expect(bridge.host.shadowRoot?.textContent).not.toContain("browser-demo");
+		expect(bridge.host.shadowRoot?.textContent).toContain(
+			"MLX model readiness",
+		);
+		expect(bridge.host.shadowRoot?.textContent).toContain(
+			"Parallel actor state",
+		);
+		expect(bridge.host.shadowRoot?.textContent).toContain(
+			"Capability outcomes",
+		);
+		expect(bridge.host.shadowRoot?.textContent).toContain(
+			"Retry budget exhausted.",
+		);
+		expect(
+			bridge.getByRole("button", { name: "Browser preview" }),
+		).toBeTruthy();
+		expect(
+			bridge.getByRole("button", { name: "Terminal preview" }),
+		).toBeTruthy();
+		expect(bridge.getByRole("button", { name: "Speech preview" })).toBeTruthy();
+		expect(
+			bridge.getByRole("button", { name: "Headless preview" }),
+		).toBeTruthy();
+		bridge.getByRole("button", { name: "Terminal preview" }).click();
+		expect(component.getView().runtimeInspector.selectedPreview).toBe(
+			"terminal",
+		);
+		expect(
+			bridge.host.shadowRoot?.querySelector(".projection-preview")?.textContent,
+		).toContain("Preview only · no remote terminal sync");
+		expect(bridge.host.shadowRoot?.textContent).toContain(
+			"Availability-scoped model manifest",
+		);
+		expect(bridge.host.shadowRoot?.textContent).toContain(
+			"All-component blueprint",
+		);
+		const searchSchema = bridge.host.shadowRoot?.querySelector(
+			'[data-command-name="searchWeb"]',
+		)?.textContent;
+		expect(searchSchema).toContain("web-search");
+		expect(searchSchema).toContain("live");
+		expect(searchSchema).toContain("queries · array · required");
+		expect(searchSchema).toContain("minItems: 1");
+		expect(searchSchema).toContain("maxItems: 8");
+		expect(searchSchema).toContain("query · string · required");
 		expect(
 			bridge.host.shadowRoot?.querySelector(".actor-match")?.textContent,
 		).toBe(`matches({
