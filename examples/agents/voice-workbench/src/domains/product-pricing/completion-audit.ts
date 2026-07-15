@@ -108,7 +108,11 @@ export const auditProductPricingCompletion = (
 	const laterSearch = input.history
 		.slice(exchangeIndex + 1)
 		.some((exchange) =>
-			exchange.results.some((result) => result.command === "searchWeb"),
+			exchange.results.some(
+				(result) =>
+					result.command === "searchWeb" &&
+					result.status === "capability-success",
+			),
 		);
 
 	if (decision.outcome !== "admitted") {

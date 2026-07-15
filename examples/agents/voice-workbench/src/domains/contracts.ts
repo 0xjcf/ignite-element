@@ -1,3 +1,4 @@
+import type { NeutralToolCall } from "ignite-element/tools";
 import type { ModelExchange } from "../agent-loop";
 import type {
 	CapabilityExecutionFact,
@@ -44,6 +45,26 @@ export type DomainCompletionAuditInput = {
 	view: unknown;
 };
 
+export type DomainExecutionAuthorization =
+	| { authorized: true }
+	| {
+			authorized: false;
+			message: string;
+			issues: readonly string[];
+	  };
+
+export type DomainExecutionAuthorizationInput = {
+	prompt: DomainCompletionAuditInput["prompt"];
+	history: readonly ModelExchange[];
+	call: NeutralToolCall;
+};
+
+export type DomainToolAvailabilityInput = {
+	prompt: DomainCompletionAuditInput["prompt"];
+	history: readonly ModelExchange[];
+	toolName: string;
+};
+
 export type DomainPack = {
 	id: string;
 	label: string;
@@ -53,5 +74,9 @@ export type DomainPack = {
 	projectExecution(
 		execution: CapabilityExecutionFact,
 	): DomainPolicyDecision | null;
+	authorizeExecution?(
+		input: DomainExecutionAuthorizationInput,
+	): DomainExecutionAuthorization | null;
+	isToolAvailable?(input: DomainToolAvailabilityInput): boolean | null;
 	auditCompletion(input: DomainCompletionAuditInput): DomainCompletionAudit;
 };

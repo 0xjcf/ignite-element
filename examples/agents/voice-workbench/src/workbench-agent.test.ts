@@ -808,6 +808,194 @@ describe("shared voice workbench agent", () => {
 		});
 	});
 
+	const exerciseProductPricingSearchAuthorization = async (
+		policyInput: unknown,
+		searchInput: unknown,
+	) => {
+		requestModel.mockReset();
+		requestModel.mockResolvedValueOnce({
+			ok: true,
+			calls: [
+				{
+					id: "policy",
+					command: "prepareProductPricing",
+					input: policyInput,
+				},
+			],
+		});
+		for (let round = 0; round < 4; round += 1) {
+			requestModel.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						id: `search-${round}`,
+						command: "searchWeb",
+						input: searchInput,
+					},
+				],
+			});
+		}
+
+		const runSearch = vi.fn(async () => ({
+			type: "success" as const,
+			ownerId: "web-search",
+			toolName: "searchWeb",
+			data: { searches: [] },
+			receipt: { provider: "fixture-search" },
+		}));
+		const search: CapabilityOwner = {
+			id: "web-search",
+			manifest: [
+				{
+					name: "searchWeb",
+					inputSchema: { type: "object", properties: {} },
+					gated: false,
+				},
+			],
+			run: runSearch,
+		};
+		const domains = createDomainRegistry([createProductPricingDomainPack()]);
+		const event = {
+			modality: "text" as const,
+			text: "Create a shopping list with prices from Whole Foods Sarasota for bread",
+		};
+		await component.execute({ command: "submitPrompt", input: event });
+
+		const result = await completeSubmittedPrompt(
+			{ baseUrl: "http://127.0.0.1:8080/v1", model: "local-model" },
+			event,
+			[search],
+			domains,
+		);
+
+		return { result, runSearch };
+	};
+
+	it("denies search before the provider after product pricing needs input", async () => {
+		const { runSearch } = await exerciseProductPricingSearchAuthorization(
+			{
+				retailer: "Whole Foods",
+				items: [{ subject: "Bread" }],
+			},
+			{
+				queries: [
+					{
+						subject: "Bread",
+						query:
+							"Whole Foods Sarasota standard sandwich bread 20 oz loaf price",
+					},
+				],
+			},
+		);
+
+		expect(runSearch).not.toHaveBeenCalled();
+		expect(
+			requestModel.mock.calls[2]?.[1].history[1]?.results[0],
+		).toMatchObject({
+			command: "searchWeb",
+			ownerId: "product-pricing",
+			status: "capability-validation",
+			reason:
+				"The product-pricing policy requires clarification before web research.",
+			issues: expect.arrayContaining([
+				expect.stringContaining("Which retailer location"),
+			]),
+		});
+		expect(
+			requestModel.mock.calls[2]?.[1].tools.map((tool) => tool.name),
+		).not.toContain("searchWeb");
+	});
+
+	it("denies search before the provider after product pricing rejects input", async () => {
+		const { runSearch } = await exerciseProductPricingSearchAuthorization(
+			{
+				retailer: "Whole Foods",
+				location: "Sarasota",
+				items: [],
+			},
+			{
+				queries: [{ subject: "Bread", query: "bread price" }],
+			},
+		);
+
+		expect(runSearch).not.toHaveBeenCalled();
+		expect(
+			requestModel.mock.calls[2]?.[1].history[1]?.results[0],
+		).toMatchObject({
+			command: "searchWeb",
+			ownerId: "product-pricing",
+			status: "capability-validation",
+			reason: "The product-pricing policy rejected web research.",
+			issues: expect.arrayContaining([
+				expect.stringContaining("at least one item"),
+			]),
+		});
+		expect(
+			requestModel.mock.calls[2]?.[1].tools.map((tool) => tool.name),
+		).not.toContain("searchWeb");
+	});
+
+	it("executes exact product-pricing search pairs", async () => {
+		const exactSearch = {
+			queries: [
+				{
+					subject: "Bread",
+					query:
+						"Whole Foods Sarasota standard sandwich bread 20 oz loaf price",
+				},
+			],
+		};
+		const { runSearch } = await exerciseProductPricingSearchAuthorization(
+			{
+				retailer: "Whole Foods",
+				location: "Sarasota",
+				items: [{ subject: "Bread" }],
+			},
+			exactSearch,
+		);
+
+		expect(runSearch).toHaveBeenCalled();
+		expect(runSearch).toHaveBeenNthCalledWith(
+			1,
+			expect.objectContaining({ name: "searchWeb", input: exactSearch }),
+		);
+		expect(
+			requestModel.mock.calls[2]?.[1].tools.map((tool) => tool.name),
+		).toContain("searchWeb");
+	});
+
+	it("denies mismatched admitted search pairs before the provider", async () => {
+		const { runSearch } = await exerciseProductPricingSearchAuthorization(
+			{
+				retailer: "Whole Foods",
+				location: "Sarasota",
+				items: [{ subject: "Bread" }],
+			},
+			{
+				queries: [
+					{
+						subject: "Bread",
+						query: "Whole Foods Tampa standard sandwich bread 20 oz loaf price",
+					},
+				],
+			},
+		);
+
+		expect(runSearch).not.toHaveBeenCalled();
+		expect(
+			requestModel.mock.calls[2]?.[1].history[1]?.results[0],
+		).toMatchObject({
+			command: "searchWeb",
+			ownerId: "product-pricing",
+			status: "capability-validation",
+			reason:
+				"The proposed web research is outside the admitted product-pricing scope.",
+			issues: expect.arrayContaining([
+				expect.stringContaining("exact admitted subject and query pairs"),
+			]),
+		});
+	});
+
 	it("returns incomplete evidence to the model before accepting completion", async () => {
 		requestModel.mockReset();
 		requestModel

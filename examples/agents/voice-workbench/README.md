@@ -104,6 +104,7 @@ src/domains/
 └─ product-pricing/
    ├─ policy.ts                 pure representative-product decision
    ├─ capability.ts             local policy capability boundary
+   ├─ authorization.ts          pre-execution search authorization
    ├─ projection.ts             bounded policy fact projection
    ├─ completion-audit.ts       domain artifact conformance
    └─ *.test.ts                 deterministic policy and audit proofs
@@ -120,6 +121,7 @@ The source-of-truth boundary is:
 | --- | --- |
 | Product-pricing policy | Required scope, representative defaults, clarification questions, and evidence requirements |
 | Local domain capability | Validating model input and returning the deterministic decision as a fact |
+| Domain registry | Asking applicable packs for authorization before capability dispatch and returning bounded validation facts when denied |
 | Model | Proposing the policy call, research call, and semantic artifact commands |
 | XState workbench source | Retaining the bounded policy fact and accepting or rejecting artifact transitions |
 | `igniteCore.view` | Deriving domain, policy, status, assumption, question, and evidence rows |
@@ -131,20 +133,28 @@ defaults. The policy exposes those defaults as assumptions. Missing retailer or
 location scope, and unknown products without a product or size, produce
 `needs-input`; malformed, duplicate, empty, or oversized requests produce
 `rejected`. Only `admitted` decisions contain search queries. A successful
-policy call is therefore neither price evidence nor permission to execute an
-external effect.
+policy call is therefore neither price evidence nor permission by itself to
+execute an external effect. Before `runCapability` can invoke the search owner,
+the generic workbench asks the registry to authorize the proposed call. The
+product-pricing pack denies searches after `needs-input` or `rejected`, and an
+`admitted` decision permits only its exact subject/query pairs. Denials become
+bounded capability-validation facts for model repair; the external provider is
+not called. The next model manifest also hides `searchWeb` after a paused or
+rejected decision, but the pre-execution check remains the authoritative guard.
 
 To add a second domain:
 
-1. Create a sibling directory with a pure policy, capability adapter, bounded
-   projection, completion audit, and focused tests.
+1. Create a sibling directory with a pure policy, capability adapter,
+   pre-execution authorization, bounded projection, completion audit, and
+   focused tests.
 2. Implement the generic `DomainPack` contract without importing JSX or the
    workbench source actor.
 3. Give `appliesTo` a narrow prompt signal so unrelated requests retain the
    generic fallback behavior.
 4. Register the pack in `main.tsx`. The registry supplies capabilities and
-   instructions in order, retains the first recognized policy fact, and runs
-   only applicable completion audits.
+   instructions in order, retains the first recognized policy fact, applies
+   authorization before provider dispatch, and runs only applicable completion
+   audits.
 5. Project any new generic rows in the `igniteCore.view` callback. Do not derive
    domain defaults, questions, or conditional labels in `workbench.tsx`.
 

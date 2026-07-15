@@ -145,6 +145,51 @@ describe("product-pricing completion audit", () => {
 		});
 	});
 
+	it("allows clarification recovery after a denied search attempt", () => {
+		const decision = evaluateProductPricingPolicy({
+			retailer: "Whole Foods",
+			items: [{ subject: "Bread" }],
+		});
+		const deniedSearch: ModelExchange = {
+			...searchExchange,
+			results: [
+				{
+					...searchExchange.results[0],
+					ownerId: "product-pricing",
+					status: "capability-validation",
+					reason:
+						"The product-pricing policy requires clarification before web research.",
+				},
+			],
+		};
+		const visiblePolicy = {
+			activeArtifactId: "clarification",
+			artifacts: [
+				{
+					id: "clarification",
+					nodes: [
+						{
+							id: "policy",
+							kind: "text",
+							text: [
+								...decision.questions.map((question) => question.prompt),
+								...decision.assumptions.map((assumption) => assumption.label),
+							].join(" "),
+						},
+					],
+				},
+			],
+		};
+
+		expect(
+			auditProductPricingCompletion({
+				prompt,
+				history: [decisionExchange(decision), deniedSearch],
+				view: visiblePolicy,
+			}),
+		).toEqual({ ok: true });
+	});
+
 	it("accepts an admitted decision, matching research, disclosed assumptions, and exact subjects", () => {
 		expect(
 			auditProductPricingCompletion({

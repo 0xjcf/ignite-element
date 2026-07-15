@@ -690,9 +690,14 @@ export async function completeSubmittedPrompt(
 			break;
 		}
 		const routing: CapabilityFederation = federation;
+		const modelManifest = domains.manifestForExecution({
+			prompt,
+			history,
+			manifest: federation.manifest,
+		});
 		await component.execute({
 			command: "recordRuntimeManifest",
-			input: federation.manifest.map((tool) => ({
+			input: modelManifest.map((tool) => ({
 				...tool,
 				ownerId: federation.ownerByTool.get(tool.name)?.id ?? "federation",
 			})),
@@ -701,12 +706,12 @@ export async function completeSubmittedPrompt(
 			configuration,
 			{
 				prompt,
-				tools: federation.manifest,
+				tools: modelManifest,
 				view: component.getView().modelContext,
 				history,
 				domainPolicyInstructions: domains.modelInstructions,
 				capabilities: {
-					internetAccess: federation.manifest.some(
+					internetAccess: modelManifest.some(
 						(tool) => tool.name === "searchWeb",
 					)
 						? "available"
@@ -718,11 +723,17 @@ export async function completeSubmittedPrompt(
 		let step = protocol.next();
 		while (!step.done) {
 			const call = step.value;
-			const execution = await runCapability(routing, {
+			const capabilityCall = {
 				id: call.id,
 				name: call.command,
 				input: call.input,
-			});
+			};
+			const execution =
+				domains.authorizeExecution({
+					prompt,
+					history,
+					call: capabilityCall,
+				}) ?? (await runCapability(routing, capabilityCall));
 			const proof = capabilityProof(execution);
 			if (proof) currentCapability = proof;
 			const domainDecision = domains.projectExecution(execution);
