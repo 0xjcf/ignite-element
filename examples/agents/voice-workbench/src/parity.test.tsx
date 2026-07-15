@@ -85,7 +85,10 @@ describe("voice workbench production parity harness", () => {
 		expect(shell()?.getAttribute("data-actor-state")).toBe("responding");
 		expect(
 			bridge.host.shadowRoot?.querySelector(".responding-overlay")?.textContent,
-		).toContain("Authoring the semantic artifact");
+		).toContain("Completing the authorized turn");
+		expect(
+			bridge.host.shadowRoot?.querySelector(".responding-overlay")?.textContent,
+		).toContain("Awaiting the first model or capability result");
 		expect(component.getView().lastFact).toMatchObject({
 			type: "prompt-submitted",
 		});

@@ -56,6 +56,7 @@ Follow up the completed LLM-authored voice/text workbench with a provider-neutra
 - .fas/memory/incidents.md
 - .fas/memory/patterns.md
 - .fas/memory/pr-feedback.md
+- examples/agents/voice-workbench/src/parity.test.tsx
 
 ## Scope Amendments
 - Type: execution-scope-refinement
@@ -117,6 +118,16 @@ Follow up the completed LLM-authored voice/text workbench with a provider-neutra
 - Evidence: fas validate-task closeout readiness | .fas/state/closeout-readiness/latest.json | Implementation scope remained 23 planned and 23 implemented with zero unexpected or missing files; only ignored .fas/memory references held closeout.
 - Accuracy signal: high: confirmed by git status --ignored and closeout planAlignmentSummary
 - Follow-up needed: FAS should classify ignored memory projections as generated context without requiring explicit product scope.
+
+- Type: verification-discovered-test-dependency
+- Added at: 2026-07-14T22:10:00-04:00
+- Trigger: Full verification reproduced a stale production-parity assertion for the corrected responding-modal title.
+- Reason: Update the existing parity contract to assert the truthful iterative-turn status instead of the removed one-pass authoring label.
+- Added paths: examples/agents/voice-workbench/src/parity.test.tsx
+- Evidence source: fas verify --full
+- Evidence: fas verify --full | .fas/state/verification/latest.log | src/parity.test.tsx expected Authoring the semantic artifact after the projection changed to Completing the authorized turn.
+- Accuracy signal: high: reproduced with the isolated parity test
+- Follow-up needed: none
 
 ## Implementation plan
 - Add a pure, collision-safe provider federation core and deterministic fake-provider tests.
