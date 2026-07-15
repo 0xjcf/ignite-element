@@ -1,14 +1,13 @@
 import { igniteTools, isOk, type NeutralManifest } from "ignite-element/tools";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
-	auditCompletionEvidence,
-	type ModelExchange,
 	type ModelRequest,
 	type ModelResult,
 	modelTools,
 	modelTurn,
 	normalizeModelIssues,
 } from "./agent-loop";
+import agentLoopSource from "./agent-loop.ts?raw";
 import { component, source } from "./session";
 
 const nodes = [
@@ -18,59 +17,6 @@ const nodes = [
 		items: [{ id: "draft", label: "Draft", checked: false }],
 	},
 ] as const;
-
-const priceEvidenceHistory: ModelExchange[] = [
-	{
-		calls: [
-			{
-				id: "search-prices",
-				command: "searchWeb",
-				input: {
-					queries: [
-						{ subject: "Bread", query: "bread price" },
-						{ subject: "Butter", query: "butter price" },
-					],
-				},
-			},
-		],
-		results: [
-			{
-				id: "search-prices",
-				command: "searchWeb",
-				status: "capability-success",
-				fact: {
-					searches: [
-						{
-							subject: "Bread",
-							query: "bread price",
-							price: {
-								status: "sourced",
-								amount: 4.49,
-								display: "$4.49",
-								sourceUrl: "https://example.com/bread",
-							},
-							results: [],
-						},
-						{
-							subject: "Butter",
-							query: "butter price",
-							price: {
-								status: "unverified",
-								amount: null,
-								sourceUrl: "https://example.com/butter",
-								reason:
-									"No single explicit price was found in the returned sources.",
-							},
-							results: [],
-						},
-					],
-				},
-				view: { artifacts: [] },
-				events: [],
-			},
-		],
-	},
-];
 
 beforeAll(() => component.execute({ command: "reportModelAvailable" }));
 afterAll(() => source.stop());
@@ -128,6 +74,12 @@ const executeModelTurn = async (response: ModelResult) => {
 };
 
 describe("voice/text workbench model turn", () => {
+	it("keeps provider-specific completion evidence out of the generic turn protocol", () => {
+		expect(agentLoopSource).not.toMatch(
+			/searchWeb|CompletionEvidence|researched prices|evidence chart/,
+		);
+	});
+
 	it("normalizes nested validation paths generically without domain branches", () => {
 		expect(
 			normalizeModelIssues([
@@ -168,135 +120,6 @@ describe("voice/text workbench model turn", () => {
 		expect(
 			modelTools(manifest, ["searchWeb"]).map((tool) => tool.name),
 		).toEqual(["createArtifact", "searchWeb"]);
-	});
-
-	it("audits accepted semantic evidence without treating checklist labels as data", () => {
-		const audit = auditCompletionEvidence(priceEvidenceHistory, {
-			activeArtifactId: "shopping",
-			artifacts: [
-				{
-					id: "shopping",
-					nodes: [
-						{
-							id: "items",
-							kind: "checklist",
-							items: [
-								{ id: "bread", label: "Bread · $4.49", checked: false },
-								{ id: "butter", label: "Butter", checked: false },
-							],
-						},
-						{
-							id: "prices",
-							kind: "table",
-							columns: [
-								{ id: "subject", label: "Subject" },
-								{ id: "price", label: "Price" },
-							],
-							rows: [{ id: "bread", cells: ["Bread", 4.99] }],
-						},
-						{
-							id: "fabricated-savings",
-							kind: "chart",
-							chartType: "bar",
-							series: [{ id: "savings", label: "Projected savings", value: 5 }],
-						},
-					],
-				},
-			],
-		});
-
-		expect(audit).toMatchObject({
-			ok: false,
-			issues: expect.arrayContaining([
-				expect.stringContaining("checklist labels"),
-				expect.stringContaining("Subject, Price, Status, and Source"),
-				expect.stringContaining("Projected savings"),
-			]),
-		});
-	});
-
-	it("accepts exact sourced table facts and excludes unverified chart values", () => {
-		const validView = {
-			activeArtifactId: "shopping",
-			artifacts: [
-				{
-					id: "shopping",
-					nodes: [
-						{
-							id: "items",
-							kind: "checklist",
-							items: [
-								{ id: "bread", label: "Bread", checked: false },
-								{ id: "butter", label: "Butter", checked: false },
-							],
-						},
-						{
-							id: "prices",
-							kind: "table",
-							columns: [
-								{ id: "subject", label: "Subject" },
-								{ id: "price", label: "Price" },
-								{ id: "status", label: "Status" },
-								{ id: "source", label: "Source" },
-							],
-							rows: [
-								{
-									id: "bread",
-									cells: [
-										"Bread",
-										4.49,
-										"sourced",
-										"https://example.com/bread",
-									],
-								},
-								{
-									id: "butter",
-									cells: [
-										"Butter",
-										null,
-										"unverified",
-										"https://example.com/butter",
-									],
-								},
-							],
-						},
-						{
-							id: "spending",
-							kind: "chart",
-							chartType: "bar",
-							series: [{ id: "bread", label: "Bread", value: 4.49 }],
-						},
-					],
-				},
-			],
-		};
-		expect(auditCompletionEvidence(priceEvidenceHistory, validView)).toEqual({
-			ok: true,
-		});
-
-		const artifact = validView.artifacts[0];
-		expect(
-			auditCompletionEvidence(priceEvidenceHistory, {
-				...validView,
-				artifacts: [
-					{
-						...artifact,
-						nodes: [
-							...artifact.nodes,
-							{
-								id: "empty-chart",
-								kind: "chart",
-								chartType: "bar",
-								series: [],
-							},
-						],
-					},
-				],
-			}),
-		).toMatchObject({
-			ok: false,
-			issues: expect.arrayContaining([expect.stringContaining("empty chart")]),
-		});
 	});
 
 	it("returns an external capability fact to the next model round without mutating the actor", () => {

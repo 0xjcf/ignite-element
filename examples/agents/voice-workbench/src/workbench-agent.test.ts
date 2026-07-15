@@ -1,8 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import type { ModelExchange } from "./agent-loop";
 import type { CapabilityOwner } from "./capability-federation";
 import { requestMlxWorkbenchModel } from "./model";
 import { component, source } from "./session";
-import { completeSubmittedPrompt } from "./workbench-agent";
+import {
+	auditCompletionEvidence,
+	completeSubmittedPrompt,
+} from "./workbench-agent";
 
 vi.mock("./model", () => ({
 	requestMlxWorkbenchModel: vi.fn(),
@@ -10,10 +14,192 @@ vi.mock("./model", () => ({
 
 const requestModel = vi.mocked(requestMlxWorkbenchModel);
 
+const priceEvidenceHistory: ModelExchange[] = [
+	{
+		calls: [
+			{
+				id: "search-prices",
+				command: "searchWeb",
+				input: {
+					queries: [
+						{ subject: "Bread", query: "bread price" },
+						{ subject: "Butter", query: "butter price" },
+					],
+				},
+			},
+		],
+		results: [
+			{
+				id: "search-prices",
+				command: "searchWeb",
+				status: "capability-success",
+				fact: {
+					searches: [
+						{
+							subject: "Bread",
+							query: "bread price",
+							price: {
+								status: "sourced",
+								amount: 4.49,
+								display: "$4.49",
+								sourceUrl: "https://example.com/bread",
+							},
+							results: [],
+						},
+						{
+							subject: "Butter",
+							query: "butter price",
+							price: {
+								status: "unverified",
+								amount: null,
+								sourceUrl: "https://example.com/butter",
+								reason:
+									"No single explicit price was found in the returned sources.",
+							},
+							results: [],
+						},
+					],
+				},
+				view: { artifacts: [] },
+				events: [],
+			},
+		],
+	},
+];
+
 beforeAll(() => component.execute({ command: "reportModelAvailable" }));
 afterAll(() => source.stop());
 
 describe("shared voice workbench agent", () => {
+	it("audits accepted semantic evidence without treating checklist labels as data", () => {
+		const audit = auditCompletionEvidence(priceEvidenceHistory, {
+			activeArtifactId: "shopping",
+			artifacts: [
+				{
+					id: "shopping",
+					nodes: [
+						{
+							id: "items",
+							kind: "checklist",
+							items: [
+								{ id: "bread", label: "Bread · $4.49", checked: false },
+								{ id: "butter", label: "Butter", checked: false },
+							],
+						},
+						{
+							id: "prices",
+							kind: "table",
+							columns: [
+								{ id: "subject", label: "Subject" },
+								{ id: "price", label: "Price" },
+							],
+							rows: [{ id: "bread", cells: ["Bread", 4.99] }],
+						},
+						{
+							id: "fabricated-savings",
+							kind: "chart",
+							chartType: "bar",
+							series: [{ id: "savings", label: "Projected savings", value: 5 }],
+						},
+					],
+				},
+			],
+		});
+
+		expect(audit).toMatchObject({
+			ok: false,
+			issues: expect.arrayContaining([
+				expect.stringContaining("checklist labels"),
+				expect.stringContaining("Subject, Price, Status, and Source"),
+				expect.stringContaining("Projected savings"),
+			]),
+		});
+	});
+
+	it("accepts exact sourced table facts and excludes unverified chart values", () => {
+		const validView = {
+			activeArtifactId: "shopping",
+			artifacts: [
+				{
+					id: "shopping",
+					nodes: [
+						{
+							id: "items",
+							kind: "checklist",
+							items: [
+								{ id: "bread", label: "Bread", checked: false },
+								{ id: "butter", label: "Butter", checked: false },
+							],
+						},
+						{
+							id: "prices",
+							kind: "table",
+							columns: [
+								{ id: "subject", label: "Subject" },
+								{ id: "price", label: "Price" },
+								{ id: "status", label: "Status" },
+								{ id: "source", label: "Source" },
+							],
+							rows: [
+								{
+									id: "bread",
+									cells: [
+										"Bread",
+										4.49,
+										"sourced",
+										"https://example.com/bread",
+									],
+								},
+								{
+									id: "butter",
+									cells: [
+										"Butter",
+										null,
+										"unverified",
+										"https://example.com/butter",
+									],
+								},
+							],
+						},
+						{
+							id: "spending",
+							kind: "chart",
+							chartType: "bar",
+							series: [{ id: "bread", label: "Bread", value: 4.49 }],
+						},
+					],
+				},
+			],
+		};
+		expect(auditCompletionEvidence(priceEvidenceHistory, validView)).toEqual({
+			ok: true,
+		});
+
+		const artifact = validView.artifacts[0];
+		expect(
+			auditCompletionEvidence(priceEvidenceHistory, {
+				...validView,
+				artifacts: [
+					{
+						...artifact,
+						nodes: [
+							...artifact.nodes,
+							{
+								id: "empty-chart",
+								kind: "chart",
+								chartType: "bar",
+								series: [],
+							},
+						],
+					},
+				],
+			}),
+		).toMatchObject({
+			ok: false,
+			issues: expect.arrayContaining([expect.stringContaining("empty chart")]),
+		});
+	});
+
 	it("runs the real component contract without receiving an injected component", async () => {
 		requestModel
 			.mockResolvedValueOnce({
