@@ -342,25 +342,6 @@
       "prDependencies": [],
       "createdAt": "2026-07-11T22:47:45.213Z",
       "updatedAt": "2026-07-11T22:47:45.213Z"
-    },
-    {
-      "id": "task-1784081707323",
-      "task": "Turn the voice workbench right rail into a live runtime inspector and harden capability reliability",
-      "priority": "critical",
-      "source": "operator",
-      "details": "Replace the static proof rail with an interactive runtime inspector. Keep active parallel machine state, actor facts, and external capability outcomes visually distinct. Turn Browser, Terminal, Speech, and Headless channel cards into honest previews of the same authoritative component view without implying cross-process transport. Replace the flat all-command list with a clickable explorer driven by the exact current model manifest plus a clearly separated all-component blueprint; show description, owner, live availability, gated status, nested input schema, constraints, and recent receipts. Strengthen generic command and semantic-node field descriptions and deterministic completion repair without adding shopping-specific actor behavior. Make HTTP 429 and other capability failures bounded and actionable through structured retry metadata, cache/backoff policy, and optional configured provider fallback while never fabricating evidence. Do not add a public Ignite API or wrapper controller. See .fas/tasks/turn-the-voice-workbench-right-rail-into-a-live-runtime-insp.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "policy-surfacing",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [],
-      "blocks": [],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-15T02:15:07.323Z",
-      "updatedAt": "2026-07-15T02:15:14.247Z"
     }
   ],
   "completedTasks": [
@@ -3428,6 +3409,25 @@
       "prStatus": null,
       "workflowId": "cancelled:task-1784061144784",
       "cancelledReason": "Re-authorized directly by the operator for immediate continuation in the same PR; replacing the untrusted operator-followup row with a trusted operator row."
+    },
+    {
+      "id": "task-1784081707323",
+      "task": "Turn the voice workbench right rail into a live runtime inspector and harden capability reliability",
+      "priority": "critical",
+      "source": "operator",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-15T04:16:49.678Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784081714243",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
     }
   ],
   "pullRequests": [],
