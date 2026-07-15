@@ -2373,8 +2373,8 @@ No active tasks.
 
 - Title: Turn the voice workbench right rail into a live runtime inspector and harden capability reliability
 - Mode: 6-agent
-- Status: implementing
-- Owner: implementer
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/turn-the-voice-workbench-right-rail-into-a-live-runtime-insp.md
 - Automation mode: advisory
 - Verification lane: fast

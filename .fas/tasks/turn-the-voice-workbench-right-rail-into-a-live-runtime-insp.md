@@ -50,12 +50,16 @@ Replace the static proof rail with an interactive runtime inspector. Keep active
 - examples/agents/voice-workbench/src/web-search-capability.test.ts
 - examples/agents/voice-workbench/server/brave-web-search.ts
 - examples/agents/voice-workbench/server/brave-web-search.test.ts
-- examples/agents/voice-workbench/src/main.tsx
 - examples/agents/voice-workbench/src/main.test.tsx
 - examples/agents/voice-workbench/README.md
 - examples/agents/voice-workbench/src/workbench-agent.ts
 - examples/agents/voice-workbench/src/workbench-agent.test.ts
 - examples/agents/voice-workbench/src/terminal.test.ts
+- .fas/memory/architecture.md
+- .fas/memory/decisions.md
+- .fas/memory/incidents.md
+- .fas/memory/patterns.md
+- .fas/memory/pr-feedback.md
 
 ## Scope Amendments
 - Type: staff-engineer contract discovery
@@ -77,6 +81,16 @@ Replace the static proof rail with an interactive runtime inspector. Keep active
 - Evidence: fas_senior_engineer slice 2 implementation checkpoint | examples/agents/voice-workbench/src/terminal.test.ts | Existing test file verifies terminal projection formatting independently from the browser rail.
 - Accuracy signal: Live ChangeSet shows terminal.ts and its focused existing test changed together before commit.
 - Follow-up needed: No package, Vite, or public API expansion.
+
+- Type: closeout provenance reconciliation
+- Added at: 2026-07-15
+- Trigger: Closeout ChangeSet reports five ignored generated memory projections as unexpected and reports main.tsx as missing even though existing entrypoint wiring required no change.
+- Reason: Classify ignored FAS memory projections as reference-only workflow evidence and remove the unchanged main.tsx implementation hint instead of introducing scope-only churn.
+- Added paths: .fas/memory/architecture.md, .fas/memory/decisions.md, .fas/memory/incidents.md, .fas/memory/patterns.md, .fas/memory/pr-feedback.md
+- Evidence source: final QA, SRE, reviewer, and current-head full verification
+- Evidence: final QA, SRE, reviewer, and current-head full verification | .fas/state/closeout-readiness/latest.json | main.test.tsx proves entrypoint integration; git tree is clean; memory projections are generated/ignored and must not be committed.
+- Accuracy signal: Final head passes 7/7 full verification, 104 example tests, QA, SRE, and reviewer with no code findings.
+- Follow-up needed: Keep the five memory paths reference-only and uncommitted; do not edit main.tsx solely for plan alignment.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
