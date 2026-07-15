@@ -17,11 +17,7 @@ describe("product-pricing policy", () => {
 			request: {
 				retailer: "Whole Foods",
 				location: "Sarasota",
-				items: [
-					{ subject: "Bread" },
-					{ subject: "Eggs" },
-					{ subject: "Milk" },
-				],
+				items: [{ subject: "Bread" }, { subject: "Eggs" }, { subject: "Milk" }],
 			},
 		});
 		expect(decision.assumptions).toEqual([]);
