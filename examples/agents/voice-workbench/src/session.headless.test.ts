@@ -173,11 +173,73 @@ describe("voice workbench headless component", () => {
 			},
 			runtimeInspector: {
 				activeStates: { provider: "preparing", turn: "ready" },
-				mlx: { status: "preparing", ready: false },
-				actor: { lastFact: null, revision: 0 },
+				mlx: {
+					status: "preparing",
+					ready: false,
+					heading: "MLX model readiness",
+					statusLabel: "preparing",
+					detail: "Prompts remain gated",
+				},
+				actor: {
+					lastFact: null,
+					revision: 0,
+					heading: "Parallel actor state",
+					matchText:
+						'matches({\n  provider: "preparing",\n  turn: "ready",\n})',
+					factLabel: "Current actor fact · no actor facts yet",
+				},
 				selectedPreview: "browser",
-				modelManifest: [],
-				capabilityOutcomes: [],
+				preview: {
+					text: "Browser JSX preview\nNo accepted artifact yet\nno actor facts yet",
+					selectors: [
+						{ id: "browser", label: "Browser preview", selected: true },
+						{ id: "terminal", label: "Terminal preview", selected: false },
+						{ id: "speech", label: "Speech preview", selected: false },
+						{ id: "headless", label: "Headless preview", selected: false },
+					],
+				},
+				capabilityRows: [
+					{
+						kind: "empty",
+						message: "No external capability facts yet",
+					},
+				],
+				trace: {
+					acceptedArtifactLabel: "Awaiting accepted artifact",
+					rows: [
+						{
+							key: "transcript",
+							heading: "Text or speech transcript",
+						},
+						{
+							key: "actor-fact",
+							heading: "no actor facts yet",
+						},
+						{
+							key: "artifact",
+							heading: "Awaiting accepted artifact",
+						},
+					],
+				},
+				receipts: expect.arrayContaining([
+					expect.objectContaining({
+						id: "terminal",
+						detail: "preview only · no remote terminal sync",
+					}),
+				]),
+				schemaExplorer: {
+					manifest: {
+						heading: "Availability-scoped model manifest",
+						countLabel: "0 live commands",
+						rows: [
+							{ kind: "empty", message: "Awaiting the next model request." },
+						],
+					},
+					blueprint: {
+						heading: "All-component blueprint",
+						countLabel: "27 commands from getSchema()",
+					},
+				},
 			},
 		});
 		expect(component.getView()).not.toHaveProperty("documents");
@@ -221,20 +283,33 @@ describe("voice workbench headless component", () => {
 			activeStates: { provider: "preparing", turn: "ready" },
 			mlx: { status: "preparing", ready: false },
 			selectedPreview: "terminal",
-			modelManifest: [
-				{
-					name: "createArtifact",
-					ownerId: "workbench-component",
-					gated: true,
+			preview: {
+				text: expect.stringContaining("Preview only · no remote terminal sync"),
+			},
+			schemaExplorer: {
+				manifest: {
+					countLabel: "1 live command",
+					rows: [
+						{
+							kind: "command",
+							name: "createArtifact",
+							ownerLabel: "workbench-component",
+							availabilityLabel: "live · gated",
+						},
+					],
 				},
-			],
+			},
 		});
+		expect(component.getView().runtimeInspector.capabilityRows).toHaveLength(
+			12,
+		);
+		const firstCapabilityRow =
+			component.getView().runtimeInspector.capabilityRows[0];
 		expect(
-			component.getView().runtimeInspector.capabilityOutcomes,
-		).toHaveLength(12);
-		expect(
-			component.getView().runtimeInspector.capabilityOutcomes[0]?.toolName,
-		).toBe("search-2");
+			firstCapabilityRow?.kind === "outcome"
+				? firstCapabilityRow.heading
+				: null,
+		).toBe("web-search · search-2");
 		await component.execute({
 			command: "reportModelFailure",
 			input: {

@@ -86,6 +86,35 @@ describe("voice workbench accessible JSX", () => {
 				status: 429,
 			},
 		});
+		expect(component.getView().runtimeInspector).toMatchObject({
+			mlx: {
+				heading: "MLX model readiness",
+				statusLabel: "available",
+				detail: "Inference admitted for prompts",
+			},
+			capabilityRows: [
+				{
+					kind: "outcome",
+					heading: "web-search · searchWeb",
+					statusLabel: "timeout · HTTP 429",
+					message: "Retry budget exhausted.",
+				},
+			],
+			schemaExplorer: {
+				manifest: {
+					countLabel: "1 live command",
+					rows: [
+						{
+							kind: "command",
+							name: "searchWeb",
+							ownerLabel: "web-search",
+							availabilityLabel: "live · available",
+							schemaText: expect.stringContaining("queries · array · required"),
+						},
+					],
+				},
+			},
+		});
 		expect(
 			bridge.host.shadowRoot?.querySelector(
 				'output[aria-label="Conversation status"]',

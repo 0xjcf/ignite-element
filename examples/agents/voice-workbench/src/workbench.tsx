@@ -1,11 +1,6 @@
 /** @jsxImportSource ignite-element/jsx */
 
-import {
-	type WorkbenchCapabilityProof,
-	type WorkbenchProjection,
-	workbenchCommandNames,
-	workbenchSchema,
-} from "./session";
+import { type WorkbenchProjection, workbenchCommandNames } from "./session";
 import { workbenchStyles } from "./styles";
 
 type WorkbenchContext = WorkbenchProjection;
@@ -41,108 +36,6 @@ const sourceLink = (value: unknown) => {
 };
 
 const renderCell = (value: unknown) => sourceLink(value) ?? String(value ?? "");
-
-const capabilityProofSummary = (proof: WorkbenchCapabilityProof): string =>
-	[
-		proof.outcome,
-		proof.status === undefined ? null : `HTTP ${proof.status}`,
-		proof.queryCount === undefined
-			? null
-			: `${proof.queryCount} ${proof.queryCount === 1 ? "query" : "queries"}`,
-		proof.sourceCount === undefined
-			? null
-			: `${proof.sourceCount} ${proof.sourceCount === 1 ? "source" : "sources"}`,
-	]
-		.filter((value): value is string => value !== null)
-		.join(" · ");
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
-
-const schemaType = (schema: Record<string, unknown>): string => {
-	if (typeof schema.type === "string") return schema.type;
-	if (Array.isArray(schema.enum)) return "enum";
-	return "value";
-};
-
-const formatSchema = (schema: unknown, rootName = "input"): string => {
-	const lines: string[] = [];
-	const visit = (
-		value: unknown,
-		name: string,
-		required: boolean,
-		depth: number,
-	) => {
-		if (!isRecord(value)) return;
-		const indent = "  ".repeat(depth);
-		lines.push(
-			`${indent}${name} · ${schemaType(value)}${required ? " · required" : ""}`,
-		);
-		for (const constraint of [
-			"minLength",
-			"maxLength",
-			"minimum",
-			"maximum",
-			"minItems",
-			"maxItems",
-		] as const) {
-			if (typeof value[constraint] === "number") {
-				lines.push(`${indent}  ${constraint}: ${value[constraint]}`);
-			}
-		}
-		if (Array.isArray(value.enum)) {
-			lines.push(`${indent}  allowed: ${value.enum.join(" | ")}`);
-		}
-		const requiredNames = new Set(
-			Array.isArray(value.required)
-				? value.required.filter(
-						(entry): entry is string => typeof entry === "string",
-					)
-				: [],
-		);
-		if (isRecord(value.properties)) {
-			for (const [propertyName, propertySchema] of Object.entries(
-				value.properties,
-			)) {
-				visit(
-					propertySchema,
-					propertyName,
-					requiredNames.has(propertyName),
-					depth + 1,
-				);
-			}
-		}
-		if (value.items !== undefined) visit(value.items, "items", true, depth + 1);
-	};
-	visit(schema, rootName, false, 0);
-	return lines.join("\n");
-};
-
-const formatProjectionPreview = (context: WorkbenchContext): string => {
-	const inspector = context.runtimeInspector;
-	const artifact = context.activeArtifact;
-	const artifactLine = artifact
-		? `${artifact.title ?? artifact.id} · revision ${artifact.revision}`
-		: "No accepted artifact yet";
-	switch (inspector.selectedPreview) {
-		case "browser":
-			return `Browser JSX preview\n${artifactLine}\n${context.lastFactLabel}`;
-		case "terminal":
-			return `Terminal projection\nPreview only · no remote terminal sync\nprovider: ${inspector.activeStates.provider}\nturn: ${inspector.activeStates.turn}\n${artifactLine}`;
-		case "speech":
-			return `Speech projection\n${context.response?.speech ?? context.response?.text ?? "No response available for speech"}\nstatus: ${context.speechStatus}`;
-		case "headless":
-			return `Headless projection\n${JSON.stringify(
-				{
-					states: inspector.activeStates,
-					actorRevision: inspector.actor.revision,
-					activeArtifactId: context.activeArtifactId,
-				},
-				null,
-				2,
-			)}`;
-	}
-};
 
 const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 	switch (node.kind) {
@@ -862,51 +755,36 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 								</div>
 								<div class="component-contract">
 									<div class="runtime-fact">
-										<span>MLX model readiness</span>
-										<strong>{context.runtimeInspector.mlx.status}</strong>
-										<small>
-											{context.runtimeInspector.mlx.ready
-												? "Inference admitted for prompts"
-												: "Prompts remain gated"}
-										</small>
+										<span>{context.runtimeInspector.mlx.heading}</span>
+										<strong>{context.runtimeInspector.mlx.statusLabel}</strong>
+										<small>{context.runtimeInspector.mlx.detail}</small>
 									</div>
 									<div class="actor-state">
 										<div class="state-node" aria-hidden="true">
 											◆
 										</div>
 										<div class="actor-copy">
-											<strong>Parallel actor state</strong>
+											<strong>{context.runtimeInspector.actor.heading}</strong>
 											<pre class="actor-match">
-												<span>{"matches("}</span>
-												<code>{`{
-  provider: "${context.model.status}",
-  turn: "${context.turnState}",
-}`}</code>
-												<span>{")"}</span>
+												<code>{context.runtimeInspector.actor.matchText}</code>
 											</pre>
 											<output class="latest-fact">
-												Current actor fact · {context.lastFactLabel}
+												{context.runtimeInspector.actor.factLabel}
 											</output>
 										</div>
 									</div>
 									<div class="capability-outcomes">
 										<strong>Capability outcomes</strong>
-										{context.runtimeInspector.capabilityOutcomes.length ===
-										0 ? (
-											<span>No external capability facts yet</span>
-										) : (
-											context.runtimeInspector.capabilityOutcomes.map(
-												(outcome, index) => (
-													<output
-														key={`${outcome.ownerId}-${outcome.toolName}-${index}`}
-														class="capability-outcome"
-													>
-														<strong>{`${outcome.ownerId} · ${outcome.toolName}`}</strong>
-														<span>{`${outcome.type}${outcome.status ? ` · HTTP ${outcome.status}` : ""}`}</span>
-														<small>{outcome.message}</small>
-													</output>
-												),
-											)
+										{context.runtimeInspector.capabilityRows.map((row) =>
+											row.kind === "empty" ? (
+												<span key="empty-capability-row">{row.message}</span>
+											) : (
+												<output key={row.key} class="capability-outcome">
+													<strong>{row.heading}</strong>
+													<span>{row.statusLabel}</span>
+													<small>{row.message}</small>
+												</output>
+											),
 										)}
 									</div>
 								</div>
@@ -917,53 +795,15 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 									<span>model proposes · actor decides</span>
 								</div>
 								<ol class="turn-trace">
-									<li class="trace-step">
-										<i class="trace-marker" />
-										<span class="trace-copy">
-											<strong>Text or speech transcript</strong>
-											<span>outer adapter → text + modality</span>
-										</span>
-									</li>
-									<li class="trace-step">
-										<i class="trace-marker" />
-										<span class="trace-copy">
-											<strong>{context.lastFactLabel}</strong>
-											<span>current public actor fact</span>
-										</span>
-									</li>
-									<li class="trace-step">
-										<i class="trace-marker" />
-										<span class="trace-copy">
-											<strong>
-												{context.activeArtifact
-													? `Artifact revision ${context.activeArtifact.revision} stored`
-													: "Awaiting accepted artifact"}
-											</strong>
-											<span>semantic nodes, never generated DOM</span>
-										</span>
-									</li>
-									{context.presentation.turn?.capability ? (
-										<li class="trace-step capability-proof">
+									{context.runtimeInspector.trace.rows.map((row) => (
+										<li key={row.key} class={row.className}>
 											<i class="trace-marker" />
 											<span class="trace-copy">
-												<strong>{`${context.presentation.turn.capability.provider} · ${context.presentation.turn.capability.tool}`}</strong>
-												<span>
-													{capabilityProofSummary(
-														context.presentation.turn.capability,
-													)}
-												</span>
+												<strong>{row.heading}</strong>
+												<span>{row.detail}</span>
 											</span>
 										</li>
-									) : null}
-									{context.presentation.turn?.collision ? (
-										<li class="trace-step collision-proof">
-											<i class="trace-marker" />
-											<span class="trace-copy">
-												<strong>Capability manifest collision</strong>
-												<span>{`${context.presentation.turn.collision.toolNames.join(", ")} · ${context.presentation.turn.collision.owners.join(" + ")}`}</span>
-											</span>
-										</li>
-									) : null}
+									))}
 								</ol>
 							</section>
 							<section class="runtime-card">
@@ -973,65 +813,36 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 								</div>
 								<fieldset class="preview-selectors">
 									<legend class="sr-only">Projection previews</legend>
-									{(["browser", "terminal", "speech", "headless"] as const).map(
-										(preview) => (
-											<button
-												key={preview}
-												type="button"
-												aria-label={`${preview[0]?.toUpperCase()}${preview.slice(1)} preview`}
-												aria-pressed={
-													context.runtimeInspector.selectedPreview === preview
-												}
-												onClick={() => context.selectRuntimePreview(preview)}
-											>
-												{preview}
-											</button>
-										),
-									)}
+									{context.runtimeInspector.preview.selectors.map((preview) => (
+										<button
+											key={preview.id}
+											type="button"
+											aria-label={preview.label}
+											aria-pressed={preview.selected}
+											onClick={() => context.selectRuntimePreview(preview.id)}
+										>
+											{preview.label}
+										</button>
+									))}
 								</fieldset>
 								<pre class="projection-preview">
-									{formatProjectionPreview(context)}
+									{context.runtimeInspector.preview.text}
 								</pre>
 								<div class="runtime-card-head receipt-head">
 									<strong>Commit receipts</strong>
 									<span>distinct from previews</span>
 								</div>
 								<div class="commit-list">
-									<div class="commit">
-										<span class="commit-icon">▤</span>
-										<span class="commit-copy">
-											<strong>Browser · native JSX</strong>
-											<span>
-												{context.presentation.documentCommit
-													? `${context.presentation.documentCommit.id} · revision ${context.presentation.documentCommit.revision}`
-													: "awaiting artifact"}
+									{context.runtimeInspector.receipts.map((receipt) => (
+										<div key={receipt.id} class={`commit commit-${receipt.id}`}>
+											<span class="commit-icon">{receipt.icon}</span>
+											<span class="commit-copy">
+												<strong>{receipt.title}</strong>
+												<span>{receipt.detail}</span>
 											</span>
-										</span>
-										<span class="commit-status">
-											{context.presentation.documentCommit ? "current" : "idle"}
-										</span>
-									</div>
-									<div class="commit commit-terminal">
-										<span class="commit-icon">›_</span>
-										<span class="commit-copy">
-											<strong>Terminal · Node</strong>
-											<span>preview only · no remote terminal sync</span>
-										</span>
-										<span class="commit-status">headless</span>
-									</div>
-									<div class="commit commit-speech">
-										<span class="commit-icon">◖</span>
-										<span class="commit-copy">
-											<strong>Speech · audio</strong>
-											<span>
-												{context.presentation.speechCommit?.text ??
-													"browser adapter · actor acknowledged"}
-											</span>
-										</span>
-										<span class="commit-status">
-											{context.presentation.speechCommit?.status ?? "idle"}
-										</span>
-									</div>
+											<span class="commit-status">{receipt.statusLabel}</span>
+										</div>
+									))}
 								</div>
 							</section>
 							<section class="runtime-card">
@@ -1042,43 +853,65 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 								<div class="runtime-body">
 									<section class="schema-section">
 										<header>
-											<strong>Availability-scoped model manifest</strong>
-											<span>{`${context.runtimeInspector.modelManifest.length} live commands`}</span>
+											<strong>
+												{
+													context.runtimeInspector.schemaExplorer.manifest
+														.heading
+												}
+											</strong>
+											<span>
+												{
+													context.runtimeInspector.schemaExplorer.manifest
+														.countLabel
+												}
+											</span>
 										</header>
-										{context.runtimeInspector.modelManifest.length === 0 ? (
-											<p>Awaiting the next model request.</p>
-										) : (
-											context.runtimeInspector.modelManifest.map((tool) => (
-												<details
-													key={tool.name}
-													data-command-name={tool.name}
-													open
-												>
-													<summary>
-														<strong>{tool.name}</strong>
-														<span>{`${tool.ownerId} · live · ${tool.gated ? "gated" : "available"}`}</span>
-													</summary>
-													{tool.description ? <p>{tool.description}</p> : null}
-													<pre>{formatSchema(tool.inputSchema)}</pre>
-												</details>
-											))
+										{context.runtimeInspector.schemaExplorer.manifest.rows.map(
+											(row) =>
+												row.kind === "empty" ? (
+													<p key="empty-manifest-row">{row.message}</p>
+												) : (
+													<details
+														key={row.name}
+														data-command-name={row.name}
+														open
+													>
+														<summary>
+															<strong>{row.name}</strong>
+															<span>{`${row.ownerLabel} · ${row.availabilityLabel}`}</span>
+														</summary>
+														{row.descriptions.map((description) => (
+															<p key={description}>{description}</p>
+														))}
+														<pre>{row.schemaText}</pre>
+													</details>
+												),
 										)}
 									</section>
 									<section class="schema-section blueprint">
 										<header>
-											<strong>All-component blueprint</strong>
-											<span>{`${workbenchCommandNames.length} commands from getSchema()`}</span>
+											<strong>
+												{
+													context.runtimeInspector.schemaExplorer.blueprint
+														.heading
+												}
+											</strong>
+											<span>
+												{
+													context.runtimeInspector.schemaExplorer.blueprint
+														.countLabel
+												}
+											</span>
 										</header>
 										<div class="command-list">
-											{Object.entries(workbenchSchema.commands).map(
-												([name, commandSchema]) => (
-													<details key={name} class="command">
-														<summary>{name}</summary>
-														{"description" in commandSchema &&
-														typeof commandSchema.description === "string" ? (
-															<p>{commandSchema.description}</p>
-														) : null}
-														<pre>{formatSchema(commandSchema.input)}</pre>
+											{context.runtimeInspector.schemaExplorer.blueprint.rows.map(
+												(row) => (
+													<details key={row.name} class="command">
+														<summary>{row.name}</summary>
+														{row.descriptions.map((description) => (
+															<p key={description}>{description}</p>
+														))}
+														<pre>{row.schemaText}</pre>
 													</details>
 												),
 											)}
@@ -1087,11 +920,11 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 									<div class="policy-proof">
 										<span aria-hidden="true">◇</span>
 										<div>
-											<strong>renderJavascript rejected</strong>
+											<strong>
+												{context.runtimeInspector.schemaExplorer.policy.heading}
+											</strong>
 											<span>
-												{workbenchCommandNames.includes("renderJavascript")
-													? "unexpectedly admitted"
-													: "command-not-allowed · absent from schema"}
+												{context.runtimeInspector.schemaExplorer.policy.result}
 											</span>
 										</div>
 									</div>

@@ -1,5 +1,8 @@
 import type { NeutralTool } from "ignite-element/tools";
-import { igniteCore } from "ignite-element/xstate";
+import {
+	igniteCore,
+	type IgniteAgentCommandSchema,
+} from "ignite-element/xstate";
 import { and, assign, createActor, setup, stateIn } from "xstate";
 import type { ModelFailureFact } from "./agent-loop";
 import {
@@ -223,6 +226,20 @@ const describeFact = (fact: ConversationFact | null): string => {
 	}
 };
 
+const capabilityProofSummary = (proof: WorkbenchCapabilityProof): string =>
+	[
+		proof.outcome,
+		proof.status === undefined ? null : `HTTP ${proof.status}`,
+		proof.queryCount === undefined
+			? null
+			: `${proof.queryCount} ${proof.queryCount === 1 ? "query" : "queries"}`,
+		proof.sourceCount === undefined
+			? null
+			: `${proof.sourceCount} ${proof.sourceCount === 1 ? "source" : "sources"}`,
+	]
+		.filter((value): value is string => value !== null)
+		.join(" · ");
+
 const describeRespondingProgress = (
 	fact: ConversationFact | null,
 ): {
@@ -297,6 +314,77 @@ const voiceState = (
 			return "idle";
 	}
 };
+
+const runtimePreviewDefinitions = [
+	{ id: "browser", label: "Browser preview" },
+	{ id: "terminal", label: "Terminal preview" },
+	{ id: "speech", label: "Speech preview" },
+	{ id: "headless", label: "Headless preview" },
+] as const;
+
+const isSchemaRecord = (value: unknown): value is Record<string, unknown> =>
+	typeof value === "object" && value !== null && !Array.isArray(value);
+
+const schemaType = (schema: Record<string, unknown>): string => {
+	if (typeof schema.type === "string") return schema.type;
+	if (Array.isArray(schema.enum)) return "enum";
+	return "value";
+};
+
+const formatSchema = (schema: unknown, rootName = "input"): string => {
+	const lines: string[] = [];
+	const visit = (
+		value: unknown,
+		name: string,
+		required: boolean,
+		depth: number,
+	) => {
+		if (!isSchemaRecord(value)) return;
+		const indent = "  ".repeat(depth);
+		lines.push(
+			`${indent}${name} · ${schemaType(value)}${required ? " · required" : ""}`,
+		);
+		for (const constraint of [
+			"minLength",
+			"maxLength",
+			"minimum",
+			"maximum",
+			"minItems",
+			"maxItems",
+		] as const) {
+			if (typeof value[constraint] === "number") {
+				lines.push(`${indent}  ${constraint}: ${value[constraint]}`);
+			}
+		}
+		if (Array.isArray(value.enum)) {
+			lines.push(`${indent}  allowed: ${value.enum.join(" | ")}`);
+		}
+		const requiredNames = new Set(
+			Array.isArray(value.required)
+				? value.required.filter(
+						(entry): entry is string => typeof entry === "string",
+					)
+				: [],
+		);
+		if (isSchemaRecord(value.properties)) {
+			for (const [propertyName, propertySchema] of Object.entries(
+				value.properties,
+			)) {
+				visit(
+					propertySchema,
+					propertyName,
+					requiredNames.has(propertyName),
+					depth + 1,
+				);
+			}
+		}
+		if (value.items !== undefined) visit(value.items, "items", true, depth + 1);
+	};
+	visit(schema, rootName, false, 0);
+	return lines.join("\n");
+};
+
+let componentBlueprintCommands: IgniteAgentCommandSchema = {};
 
 const isConversationAction = (
 	event: WorkbenchEvent,
@@ -669,6 +757,115 @@ export const component = igniteCore({
 				? "failed"
 				: "available";
 		const turnState = responding ? "responding" : "ready";
+		const artifactLine = activeArtifact
+			? `${activeArtifact.title ?? activeArtifact.id} · revision ${activeArtifact.revision}`
+			: "No accepted artifact yet";
+		let previewText: string;
+		switch (presentation.runtimePreview) {
+			case "browser":
+				previewText = `Browser JSX preview\n${artifactLine}\n${describeFact(snapshot.context.lastFact)}`;
+				break;
+			case "terminal":
+				previewText = `Terminal projection\nPreview only · no remote terminal sync\nprovider: ${providerState}\nturn: ${turnState}\n${artifactLine}`;
+				break;
+			case "speech":
+				previewText = `Speech projection\n${snapshot.context.response?.speech ?? snapshot.context.response?.text ?? "No response available for speech"}\nstatus: ${snapshot.context.speech?.status ?? "idle"}`;
+				break;
+			case "headless":
+				previewText = `Headless projection\n${JSON.stringify(
+					{
+						states: { provider: providerState, turn: turnState },
+						actorRevision: snapshot.context.revision,
+						activeArtifactId: snapshot.context.activeArtifactId,
+					},
+					null,
+					2,
+				)}`;
+				break;
+		}
+		const capabilityRows =
+			presentation.capabilityOutcomes.length === 0
+				? ([
+						{
+							kind: "empty" as const,
+							message: "No external capability facts yet",
+						},
+					] as const)
+				: presentation.capabilityOutcomes.map((outcome, index) => ({
+						kind: "outcome" as const,
+						key: `${outcome.ownerId}-${outcome.toolName}-${index}`,
+						heading: `${outcome.ownerId} · ${outcome.toolName}`,
+						statusLabel: `${outcome.type}${outcome.status ? ` · HTTP ${outcome.status}` : ""}`,
+						message: outcome.message,
+					}));
+		const manifestRows =
+			presentation.runtimeManifest.length === 0
+				? ([
+						{
+							kind: "empty" as const,
+							message: "Awaiting the next model request.",
+						},
+					] as const)
+				: presentation.runtimeManifest.map((tool) => ({
+						kind: "command" as const,
+						name: tool.name,
+						ownerLabel: tool.ownerId,
+						availabilityLabel: `live · ${tool.gated ? "gated" : "available"}`,
+						descriptions: tool.description ? [tool.description] : [],
+						schemaText: formatSchema(tool.inputSchema),
+					}));
+		const blueprintRows = Object.entries(componentBlueprintCommands).map(
+			([name, commandSchema]) => ({
+				name,
+				descriptions:
+					typeof commandSchema.description === "string"
+						? [commandSchema.description]
+						: [],
+				schemaText: formatSchema(commandSchema.input),
+			}),
+		);
+		const traceRows = [
+			{
+				key: "transcript",
+				className: "trace-step",
+				heading: "Text or speech transcript",
+				detail: "outer adapter → text + modality",
+			},
+			{
+				key: "actor-fact",
+				className: "trace-step",
+				heading: describeFact(snapshot.context.lastFact),
+				detail: "current public actor fact",
+			},
+			{
+				key: "artifact",
+				className: "trace-step",
+				heading: activeArtifact
+					? `Artifact revision ${activeArtifact.revision} stored`
+					: "Awaiting accepted artifact",
+				detail: "semantic nodes, never generated DOM",
+			},
+			...(presentation.turn?.capability
+				? [
+						{
+							key: "capability",
+							className: "trace-step capability-proof",
+							heading: `${presentation.turn.capability.provider} · ${presentation.turn.capability.tool}`,
+							detail: capabilityProofSummary(presentation.turn.capability),
+						},
+					]
+				: []),
+			...(presentation.turn?.collision
+				? [
+						{
+							key: "collision",
+							className: "trace-step collision-proof",
+							heading: "Capability manifest collision",
+							detail: `${presentation.turn.collision.toolNames.join(", ")} · ${presentation.turn.collision.owners.join(" + ")}`,
+						},
+					]
+				: []),
+		];
 		return {
 			sessionId: snapshot.context.sessionId,
 			modelContext: {
@@ -733,14 +930,82 @@ export const component = igniteCore({
 			presentation: snapshot.context.presentation,
 			runtimeInspector: {
 				activeStates: { provider: providerState, turn: turnState },
-				mlx: { status: providerState, ready: modelAvailable },
+				mlx: {
+					status: providerState,
+					ready: modelAvailable,
+					heading: "MLX model readiness",
+					statusLabel: providerState,
+					detail: modelAvailable
+						? "Inference admitted for prompts"
+						: "Prompts remain gated",
+				},
 				actor: {
 					lastFact: snapshot.context.lastFact,
 					revision: snapshot.context.revision,
+					heading: "Parallel actor state",
+					matchText: `matches({\n  provider: "${providerState}",\n  turn: "${turnState}",\n})`,
+					factLabel: `Current actor fact · ${describeFact(snapshot.context.lastFact)}`,
 				},
 				selectedPreview: presentation.runtimePreview,
-				modelManifest: presentation.runtimeManifest,
-				capabilityOutcomes: presentation.capabilityOutcomes,
+				preview: {
+					text: previewText,
+					selectors: runtimePreviewDefinitions.map((preview) => ({
+						...preview,
+						selected: preview.id === presentation.runtimePreview,
+					})),
+				},
+				capabilityRows,
+				trace: {
+					acceptedArtifactLabel: activeArtifact
+						? `Artifact revision ${activeArtifact.revision} stored`
+						: "Awaiting accepted artifact",
+					rows: traceRows,
+				},
+				receipts: [
+					{
+						id: "browser" as const,
+						icon: "▤",
+						title: "Browser · native JSX",
+						detail: presentation.documentCommit
+							? `${presentation.documentCommit.id} · revision ${presentation.documentCommit.revision}`
+							: "awaiting artifact",
+						statusLabel: presentation.documentCommit ? "current" : "idle",
+					},
+					{
+						id: "terminal" as const,
+						icon: ">_",
+						title: "Terminal · Node",
+						detail: "preview only · no remote terminal sync",
+						statusLabel: "headless",
+					},
+					{
+						id: "speech" as const,
+						icon: "◖",
+						title: "Speech · audio",
+						detail:
+							presentation.speechCommit?.text ??
+							"browser adapter · actor acknowledged",
+						statusLabel: presentation.speechCommit?.status ?? "idle",
+					},
+				],
+				schemaExplorer: {
+					manifest: {
+						heading: "Availability-scoped model manifest",
+						countLabel: `${presentation.runtimeManifest.length} live ${presentation.runtimeManifest.length === 1 ? "command" : "commands"}`,
+						rows: manifestRows,
+					},
+					blueprint: {
+						heading: "All-component blueprint",
+						countLabel: `${blueprintRows.length} commands from getSchema()`,
+						rows: blueprintRows,
+					},
+					policy: {
+						heading: "renderJavascript rejected",
+						result: blueprintRows.some((row) => row.name === "renderJavascript")
+							? "unexpectedly admitted"
+							: "command-not-allowed · absent from schema",
+					},
+				},
 			},
 		};
 	},
@@ -1167,6 +1432,7 @@ type WorkbenchRenderer = Extract<
 export type WorkbenchProjection = Parameters<WorkbenchRenderer>[0];
 
 export const workbenchSchema = component.getSchema();
+componentBlueprintCommands = workbenchSchema.commands;
 export const workbenchCommandNames = Object.freeze(
 	Object.keys(workbenchSchema.commands),
 );
