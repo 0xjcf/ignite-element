@@ -3,6 +3,7 @@ import type {
 	DomainCompletionAudit,
 	DomainCompletionAuditInput,
 } from "../contracts";
+import { productSelectionDisclosure } from "./artifact-materializer";
 import type { ProductPricingDecision } from "./policy";
 import { projectProductPricingDecision } from "./projection";
 
@@ -80,6 +81,7 @@ const checklistSubjects = (
 
 type ProductPriceEvidence = {
 	subject: string;
+	key: string;
 	product: string | null;
 	size: string | null;
 };
@@ -100,10 +102,12 @@ const priceEvidenceAfter = (
 			}
 			return result.fact.searches.filter(isRecord).flatMap((search) => {
 				if (typeof search.subject !== "string") return [];
+				const subject = search.subject.trim();
 				const selection = isRecord(search.selection) ? search.selection : null;
 				return [
 					{
-						subject: key(search.subject),
+						subject,
+						key: key(subject),
 						product:
 							selection && typeof selection.product === "string"
 								? selection.product.trim()
@@ -179,7 +183,7 @@ export const auditProductPricingCompletion = (
 	}
 	const requestedKeys = decision.request.items.map((item) => key(item.subject));
 	const priceEvidence = priceEvidenceAfter(input.history, exchangeIndex);
-	const searchedKeys = priceEvidence.map((evidence) => evidence.subject);
+	const searchedKeys = priceEvidence.map((evidence) => evidence.key);
 	if (
 		requestedKeys.length !== searchedKeys.length ||
 		requestedKeys.some((subject) => !searchedKeys.includes(subject))
@@ -189,6 +193,18 @@ export const auditProductPricingCompletion = (
 		);
 	}
 	for (const evidence of priceEvidence) {
+		if (!evidence.product && !evidence.size) {
+			if (
+				!visible.includes(
+					productSelectionDisclosure(evidence.subject, null).toLowerCase(),
+				)
+			) {
+				issues.push(
+					`${evidence.subject}: disclose that the provider selected no product.`,
+				);
+			}
+			continue;
+		}
 		if (
 			!evidence.product ||
 			!evidence.size ||

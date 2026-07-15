@@ -65,6 +65,13 @@ export type DomainToolAvailabilityInput = {
 	toolName: string;
 };
 
+export type DomainArtifactMaterializationInput = {
+	prompt: DomainCompletionAuditInput["prompt"];
+	history: readonly ModelExchange[];
+	view?: unknown;
+	call: NeutralToolCall;
+};
+
 export type DomainPack = {
 	id: string;
 	label: string;
@@ -78,5 +85,8 @@ export type DomainPack = {
 		input: DomainExecutionAuthorizationInput,
 	): DomainExecutionAuthorization | null;
 	isToolAvailable?(input: DomainToolAvailabilityInput): boolean | null;
+	materializeArtifact?(
+		input: DomainArtifactMaterializationInput,
+	): NeutralToolCall | null;
 	auditCompletion(input: DomainCompletionAuditInput): DomainCompletionAudit;
 };

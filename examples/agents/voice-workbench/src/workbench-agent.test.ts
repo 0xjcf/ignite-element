@@ -1534,51 +1534,55 @@ describe("shared voice workbench agent", () => {
 		});
 	});
 
-	it("repairs the exact Sarasota artifact within six rounds without rerunning pricing", async () => {
+	it("deterministically materializes the exact Sarasota artifact before the repeated completion", async () => {
 		requestModel.mockReset();
-		const subjects = ["Bread", "Eggs", "Milk"] as const;
-		const selections = [
+		const subjects = ["Breads", "Eggs", "Milk"] as const;
+		const providerFacts = [
 			{
-				subject: "Bread",
-				asin: "B0DPXKXV31",
-				product: "365 Organic Sourdough Bread",
-				size: "24 oz",
+				subject: "Breads",
+				price: {
+					status: "unverified" as const,
+					amount: null,
+					sourceUrl: null,
+					reason: "No provider-selected product was available.",
+				},
 			},
 			{
 				subject: "Eggs",
-				asin: "B07FWB8QK4",
-				product: "365 Large White Grade A Eggs",
-				size: "12 count",
+				selection: {
+					asin: "B07FWB8QK4",
+					product: "365 Large White Grade A Eggs",
+					size: "12 count",
+					rankingPolicy: "whole-foods-candidate-v1",
+				},
+				price: {
+					status: "unverified" as const,
+					amount: null,
+					sourceUrl:
+						"https://www.wholefoodsmarket.com/product/365-large-white-grade-a-eggs",
+					reason: "The official product page exposed no current price.",
+				},
 			},
 			{
 				subject: "Milk",
-				asin: "B074H5SR5S",
-				product: "365 Whole Milk",
-				size: "1 gallon",
+				selection: {
+					asin: "B074H5SR5S",
+					product: "365 Whole Milk",
+					size: "1 gallon",
+					rankingPolicy: "whole-foods-candidate-v1",
+				},
+				price: {
+					status: "unverified" as const,
+					amount: null,
+					sourceUrl: "https://www.wholefoodsmarket.com/product/365-whole-milk",
+					reason: "The official product page exposed no current price.",
+				},
 			},
 		] as const;
 		const priceInput = {
 			retailer: "Whole Foods",
 			location: "Sarasota",
 			items: subjects.map((subject) => ({ subject })),
-		};
-		const selectionDisclosure = selections
-			.map(
-				(selection) =>
-					`${selection.subject}: ${selection.product} · ${selection.size}`,
-			)
-			.join(". ");
-		const table = {
-			kind: "table",
-			columns: [
-				{ id: "col-subject", label: "Subject" },
-				{ id: "col-price", label: "Price" },
-				{ id: "col-status", label: "Status" },
-				{ id: "col-source", label: "Source" },
-			],
-			rows: subjects.map((subject) => ({
-				cells: [subject, null, "unverified", null],
-			})),
 		};
 		requestModel
 			.mockResolvedValueOnce({
@@ -1607,7 +1611,23 @@ describe("shared voice workbench agent", () => {
 						input: {
 							id: "live-sarasota-list",
 							title: "Whole Foods Sarasota shopping list",
-							nodes: [{ kind: "text", text: selectionDisclosure }, table],
+							nodes: [
+								{
+									kind: "text",
+									text: "Eggs: 365 Large White Grade A Eggs. Milk: 365 Whole Milk.",
+								},
+								{
+									kind: "table",
+									columns: [
+										{ label: "Item" },
+										{ label: "Price" },
+										{ label: "Source" },
+									],
+									rows: subjects.map((subject) => ({
+										cells: [subject, "N/A", "N/A"],
+									})),
+								},
+							],
 						},
 					},
 				],
@@ -1621,35 +1641,14 @@ describe("shared voice workbench agent", () => {
 					},
 				],
 			})
-			.mockResolvedValueOnce({
-				ok: true,
-				calls: [
-					{
-						command: "reviseArtifact",
-						input: {
-							artifactId: "live-sarasota-list",
-							expectedRevision: "1",
-							nodes: [
-								{
-									kind: "checklist",
-									items: subjects.map((subject) => ({
-										label: subject,
-										checked: false,
-									})),
-								},
-								{ kind: "text", text: selectionDisclosure },
-								table,
-							],
-						},
-					},
-				],
-			})
+			// Mirrors the live model's repeated completion proposal. Deterministic
+			// materialization makes the first completion succeed, so this stays unused.
 			.mockResolvedValueOnce({
 				ok: true,
 				calls: [
 					{
 						command: "completeResponse",
-						input: { text: "The repaired shopping list is ready." },
+						input: { text: "The shopping list is ready." },
 					},
 				],
 			});
@@ -1658,21 +1657,9 @@ describe("shared voice workbench agent", () => {
 			ownerId: "product-pricing-price",
 			toolName: "priceProducts",
 			data: {
-				searches: selections.map((selection) => ({
-					subject: selection.subject,
-					query: `provider-owned ${selection.subject} query`,
-					selection: {
-						asin: selection.asin,
-						product: selection.product,
-						size: selection.size,
-						rankingPolicy: "whole-foods-candidate-v1",
-					},
-					price: {
-						status: "unverified" as const,
-						amount: null,
-						sourceUrl: null,
-						reason: "No explicit current price was found.",
-					},
+				searches: providerFacts.map((fact) => ({
+					...fact,
+					query: `provider-owned ${fact.subject} query`,
 					receipt: {
 						cache: "miss" as const,
 						native: "hit" as const,
@@ -1720,12 +1707,10 @@ describe("shared voice workbench agent", () => {
 				{ command: "prepareProductPricing", accepted: true },
 				{ command: "priceProducts", accepted: true },
 				{ command: "createArtifact", accepted: true },
-				{ command: "completeResponse", accepted: false },
-				{ command: "reviseArtifact", accepted: true },
 				{ command: "completeResponse", accepted: true },
 			],
 		});
-		expect(requestModel).toHaveBeenCalledTimes(6);
+		expect(requestModel).toHaveBeenCalledTimes(4);
 		expect(runPriceProducts).toHaveBeenCalledTimes(1);
 		expect(
 			result?.trace.filter((entry) => entry.command === "priceProducts"),
@@ -1740,37 +1725,56 @@ describe("shared voice workbench agent", () => {
 				request.tools.map((tool) => tool.name),
 			),
 		).not.toContain("searchWeb");
+		expect(requestModel.mock.calls[0]?.[1].domainPolicyInstructions).toContain(
+			"using null only for unverified Price; copy Source exactly, including an official URL when provided",
+		);
 		expect(
-			requestModel.mock.calls[4]?.[1].history[3]?.results[0],
-		).toMatchObject({
-			command: "completeResponse",
-			status: "actor-rejected",
-			reason: "evidence-incomplete",
-			issues: expect.arrayContaining([
-				expect.stringContaining("shopping checklist"),
-			]),
-		});
+			result?.trace.some((entry) => entry.command === "reviseArtifact"),
+		).toBe(false);
 		expect(component.getView().activeArtifact).toMatchObject({
 			id: "live-sarasota-list",
-			revision: "2",
+			revision: "1",
 			nodes: [
 				{
 					id: "model-node-1",
 					kind: "checklist",
 					items: [
-						{ id: "model-node-1-item-1", label: "Bread" },
+						{ id: "model-node-1-item-1", label: "Breads" },
 						{ id: "model-node-1-item-2", label: "Eggs" },
 						{ id: "model-node-1-item-3", label: "Milk" },
 					],
 				},
-				{ id: "model-node-2", kind: "text", text: selectionDisclosure },
+				{
+					id: "model-node-2",
+					kind: "text",
+					text: "Breads: no provider-selected product.\nEggs: provider-selected product 365 Large White Grade A Eggs; size 12 count.\nMilk: provider-selected product 365 Whole Milk; size 1 gallon.",
+				},
 				{
 					id: "model-node-3",
 					kind: "table",
 					rows: [
-						{ id: "model-node-3-row-1" },
-						{ id: "model-node-3-row-2" },
-						{ id: "model-node-3-row-3" },
+						{
+							id: "model-node-3-row-1",
+							cells: ["Breads", null, "unverified", null],
+						},
+						{
+							id: "model-node-3-row-2",
+							cells: [
+								"Eggs",
+								null,
+								"unverified",
+								"https://www.wholefoodsmarket.com/product/365-large-white-grade-a-eggs",
+							],
+						},
+						{
+							id: "model-node-3-row-3",
+							cells: [
+								"Milk",
+								null,
+								"unverified",
+								"https://www.wholefoodsmarket.com/product/365-whole-milk",
+							],
+						},
 					],
 				},
 			],

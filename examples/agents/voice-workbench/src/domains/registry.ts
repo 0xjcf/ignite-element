@@ -2,6 +2,7 @@ import type { NeutralManifest } from "ignite-element/tools";
 import { normalizeModelIssues } from "../agent-loop";
 import type { CapabilityExecutionFact } from "../capability-federation";
 import type {
+	DomainArtifactMaterializationInput,
 	DomainCompletionAudit,
 	DomainCompletionAuditInput,
 	DomainExecutionAuthorizationInput,
@@ -25,6 +26,9 @@ export type DomainRegistry = {
 			manifest: NeutralManifest;
 		},
 	): NeutralManifest;
+	materializeArtifact(
+		input: DomainArtifactMaterializationInput,
+	): DomainArtifactMaterializationInput["call"];
 	auditCompletion(input: DomainCompletionAuditInput): DomainCompletionAudit;
 };
 
@@ -78,6 +82,20 @@ export const createDomainRegistry = (
 				);
 			}),
 		),
+	materializeArtifact: (input) => {
+		if (
+			input.call.name !== "createArtifact" &&
+			input.call.name !== "reviseArtifact"
+		) {
+			return input.call;
+		}
+		for (const pack of packs) {
+			if (!pack.appliesTo(input.prompt.text)) continue;
+			const materialized = pack.materializeArtifact?.(input);
+			if (materialized) return materialized;
+		}
+		return input.call;
+	},
 	auditCompletion: (input) => {
 		const issues = packs.flatMap((pack) => {
 			if (!pack.appliesTo(input.prompt.text)) return [];

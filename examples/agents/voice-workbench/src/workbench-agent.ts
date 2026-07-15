@@ -858,9 +858,18 @@ export async function completeSubmittedPrompt(
 						};
 					}
 				}
+				const materializedCall = domains.materializeArtifact({
+					prompt,
+					history,
+					view: component.getView().modelContext,
+					call,
+				});
 				const execution = await tools.run({
-					...call,
-					input: normalizeSemanticArtifactIdentity(call.name, call.input),
+					...materializedCall,
+					input: normalizeSemanticArtifactIdentity(
+						materializedCall.name,
+						materializedCall.input,
+					),
 				});
 				if (!isOk(execution)) {
 					switch (execution.error.kind) {

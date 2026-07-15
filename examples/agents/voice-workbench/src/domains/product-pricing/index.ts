@@ -1,5 +1,6 @@
 import type { CapabilityOwner } from "../../capability-federation";
 import type { DomainPack } from "../contracts";
+import { materializeProductPricingArtifact } from "./artifact-materializer";
 import {
 	authorizeProductPricingExecution,
 	isProductPricingToolAvailable,
@@ -30,11 +31,12 @@ export const createProductPricingDomainPack = (
 		options.priceCapability ?? createProductPriceCapability(),
 	],
 	modelInstructions:
-		"For product-pricing requests, call prepareProductPricing first with retailer, location, and subject-only items. Treat admitted, needs-input, and rejected as configured policy facts. A policy success is not price evidence or execution authorization. After an admitted decision, call priceProducts exactly once with the complete retailer, location, and ordered subject-only items from the latest decision; the provider owns product and size selection. Never invent a web-search query or interpret snippets as prices. Materialize a shopping checklist with each requested subject exactly once and no prices in labels, plus a table with Subject, Price, Status, and Source columns. Copy exact evidence values into the table, using null for unverified Price and Source. Disclose each provider-selected product and size. Include no numeric chart or total for unverified facts. For needs-input, materialize the questions and assumptions without price lookup; after one rejected or needs-input decision, repair prepareProductPricing at most once.",
+		"For product-pricing requests, call prepareProductPricing first with retailer, location, and subject-only items. Treat admitted, needs-input, and rejected as configured policy facts. A policy success is not price evidence or execution authorization. After an admitted decision, call priceProducts exactly once with the complete retailer, location, and ordered subject-only items from the latest decision; the provider owns product and size selection. Never invent a web-search query or interpret snippets as prices. Materialize a shopping checklist with each requested subject exactly once and no prices in labels, plus a table with Subject, Price, Status, and Source columns. Copy exact evidence values into the table, using null only for unverified Price; copy Source exactly, including an official URL when provided and null only when provider Source is null. Disclose each provider-selected product and size, or explicitly disclose when the provider selected no product for a subject. Include no numeric chart or total for unverified facts. For needs-input, materialize the questions and assumptions without price lookup; after one rejected or needs-input decision, repair prepareProductPricing at most once.",
 	appliesTo: productPricingAppliesTo,
 	projectExecution: projectProductPricingExecution,
 	authorizeExecution: authorizeProductPricingExecution,
 	isToolAvailable: isProductPricingToolAvailable,
+	materializeArtifact: materializeProductPricingArtifact,
 	auditCompletion: auditProductPricingCompletion,
 });
 
@@ -44,6 +46,7 @@ export {
 	createProductPriceCapability,
 	createProductPricingCapability,
 	isProductPricingToolAvailable,
+	materializeProductPricingArtifact,
 	projectProductPricingExecution,
 };
 export type {

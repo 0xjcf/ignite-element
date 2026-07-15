@@ -273,6 +273,57 @@ describe("product-pricing completion audit", () => {
 		});
 	});
 
+	it("accepts explicit no-selection disclosure when the provider selected no product", () => {
+		const priceWithoutSelection: ModelExchange = {
+			...priceExchange,
+			results: [
+				{
+					...priceExchange.results[0],
+					fact: {
+						searches: [
+							{
+								subject: "Bread",
+								price: {
+									status: "unverified",
+									amount: null,
+									sourceUrl: null,
+								},
+							},
+						],
+					},
+				},
+			],
+		};
+		const view = {
+			activeArtifactId: "shopping",
+			artifacts: [
+				{
+					id: "shopping",
+					nodes: [
+						{
+							id: "items",
+							kind: "checklist",
+							items: [{ id: "bread", label: "Bread", checked: false }],
+						},
+						{
+							id: "selection",
+							kind: "text",
+							text: "Bread: no provider-selected product.",
+						},
+					],
+				},
+			],
+		};
+
+		expect(
+			auditProductPricingCompletion({
+				prompt,
+				history: [decisionExchange(admitted), priceWithoutSelection],
+				view,
+			}),
+		).toEqual({ ok: true });
+	});
+
 	it("rejects mismatched provider-evidence subjects", () => {
 		const invalidSearch: ModelExchange = {
 			...priceExchange,
