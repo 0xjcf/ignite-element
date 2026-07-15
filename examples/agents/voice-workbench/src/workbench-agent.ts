@@ -31,6 +31,7 @@ import {
 } from "./session";
 
 const EXTERNAL_EVIDENCE_TOOL_NAMES = new Set(["searchWeb", "priceProducts"]);
+const MODEL_TURN_ROUND_LIMIT = 6;
 
 type TurnProof = {
 	capability?: WorkbenchCapabilityProof;
@@ -66,6 +67,159 @@ const toTurnFact = (
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
+
+const hasValidIdentity = (value: unknown): value is string =>
+	typeof value === "string" && value.trim().length > 0;
+
+const synthesizeIdentity = (
+	prefix: string,
+	index: number,
+	reserved: Set<string>,
+): string => {
+	const base = `${prefix}-${index + 1}`;
+	let candidate = base;
+	let suffix = 2;
+	while (reserved.has(candidate)) {
+		candidate = `${base}-${suffix}`;
+		suffix += 1;
+	}
+	reserved.add(candidate);
+	return candidate;
+};
+
+const normalizeIdentityCollection = (
+	values: readonly unknown[],
+	prefix: string,
+	normalizeEntry?: (
+		entry: Record<string, unknown>,
+		index: number,
+	) => Record<string, unknown>,
+): unknown[] => {
+	const reserved = new Set(
+		values.flatMap((value) =>
+			isRecord(value) && hasValidIdentity(value.id) ? [value.id] : [],
+		),
+	);
+	return values.map((value, index) => {
+		if (!isRecord(value)) return value;
+		const identity = hasValidIdentity(value.id)
+			? value.id
+			: synthesizeIdentity(prefix, index, reserved);
+		const entry = { ...value, id: identity };
+		return normalizeEntry ? normalizeEntry(entry, index) : entry;
+	});
+};
+
+const normalizeOptionalIdentity = (
+	value: unknown,
+	identity: string,
+): unknown =>
+	isRecord(value) && !hasValidIdentity(value.id)
+		? { ...value, id: identity }
+		: value;
+
+const normalizeNodeIdentity = (
+	node: Record<string, unknown>,
+	index: number,
+): Record<string, unknown> => {
+	const prefix = `model-node-${index + 1}`;
+	switch (node.kind) {
+		case "checklist":
+			return Array.isArray(node.items)
+				? {
+						...node,
+						items: normalizeIdentityCollection(node.items, `${prefix}-item`),
+					}
+				: node;
+		case "form":
+			return {
+				...node,
+				...(Array.isArray(node.fields)
+					? {
+							fields: normalizeIdentityCollection(
+								node.fields,
+								`${prefix}-field`,
+							),
+						}
+					: {}),
+				...(node.submit === undefined
+					? {}
+					: {
+							submit: normalizeOptionalIdentity(
+								node.submit,
+								`${prefix}-submit`,
+							),
+						}),
+			};
+		case "table":
+			return {
+				...node,
+				...(Array.isArray(node.columns)
+					? {
+							columns: normalizeIdentityCollection(
+								node.columns,
+								`${prefix}-column`,
+							),
+						}
+					: {}),
+				...(Array.isArray(node.rows)
+					? {
+							rows: normalizeIdentityCollection(node.rows, `${prefix}-row`),
+						}
+					: {}),
+			};
+		case "timeline":
+			return Array.isArray(node.events)
+				? {
+						...node,
+						events: normalizeIdentityCollection(node.events, `${prefix}-event`),
+					}
+				: node;
+		case "chart":
+			return Array.isArray(node.series)
+				? {
+						...node,
+						series: normalizeIdentityCollection(
+							node.series,
+							`${prefix}-series`,
+						),
+					}
+				: node;
+		case "decision-log":
+			return Array.isArray(node.entries)
+				? {
+						...node,
+						entries: normalizeIdentityCollection(
+							node.entries,
+							`${prefix}-entry`,
+						),
+					}
+				: node;
+		default:
+			return node;
+	}
+};
+
+export const normalizeSemanticArtifactIdentity = (
+	command: string,
+	input: unknown,
+): unknown => {
+	if (
+		(command !== "createArtifact" && command !== "reviseArtifact") ||
+		!isRecord(input) ||
+		!Array.isArray(input.nodes)
+	) {
+		return input;
+	}
+	return {
+		...input,
+		nodes: normalizeIdentityCollection(
+			input.nodes,
+			"model-node",
+			normalizeNodeIdentity,
+		),
+	};
+};
 
 type CompletionEvidence = {
 	subject: string;
@@ -676,7 +830,7 @@ export async function completeSubmittedPrompt(
 	let currentCapability: WorkbenchCapabilityProof | undefined;
 	let currentCollision: WorkbenchCollisionProof | undefined;
 
-	for (let round = 0; round < 5; round += 1) {
+	for (let round = 0; round < MODEL_TURN_ROUND_LIMIT; round += 1) {
 		const tools = igniteTools(component);
 		const componentOwner: CapabilityOwner = {
 			id: "workbench-component",
@@ -704,7 +858,10 @@ export async function completeSubmittedPrompt(
 						};
 					}
 				}
-				const execution = await tools.run(call);
+				const execution = await tools.run({
+					...call,
+					input: normalizeSemanticArtifactIdentity(call.name, call.input),
+				});
 				if (!isOk(execution)) {
 					switch (execution.error.kind) {
 						case "InvalidInput":

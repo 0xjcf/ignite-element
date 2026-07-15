@@ -8,6 +8,7 @@ import { component, source } from "./session";
 import {
 	auditCompletionEvidence,
 	completeSubmittedPrompt,
+	normalizeSemanticArtifactIdentity,
 } from "./workbench-agent";
 
 vi.mock("./model", () => ({
@@ -73,6 +74,135 @@ beforeAll(() => component.execute({ command: "reportModelAvailable" }));
 afterAll(() => source.stop());
 
 describe("shared voice workbench agent", () => {
+	it("synthesizes only missing semantic artifact identities deterministically", () => {
+		const input = {
+			id: "artifact",
+			nodes: [
+				{
+					id: "kept-node",
+					kind: "checklist",
+					items: [
+						{ label: "Missing checked" },
+						{ id: "kept-item", label: "Ready", checked: false },
+					],
+				},
+				{
+					kind: "form",
+					fields: [{ label: "Name", input: { type: "string" } }],
+					submit: {
+						kind: "action",
+						label: "Submit",
+						commandName: "completeResponse",
+						payload: { text: "Done" },
+					},
+				},
+				{
+					kind: "table",
+					columns: [{ label: "Subject" }],
+					rows: [{ cells: ["Bread"] }],
+				},
+				{
+					kind: "timeline",
+					events: [{ label: "Start", timestamp: "now" }],
+				},
+				{
+					kind: "chart",
+					chartType: "bar",
+					series: [{ label: "Bread", value: 4.49 }],
+				},
+				{
+					kind: "decision-log",
+					entries: [{ title: "Store", decision: "Whole Foods" }],
+				},
+			],
+		};
+
+		const normalized = normalizeSemanticArtifactIdentity(
+			"createArtifact",
+			input,
+		);
+		expect(normalized).toEqual(
+			normalizeSemanticArtifactIdentity("createArtifact", input),
+		);
+		expect(normalized).toEqual({
+			id: "artifact",
+			nodes: [
+				{
+					id: "kept-node",
+					kind: "checklist",
+					items: [
+						{
+							id: "model-node-1-item-1",
+							label: "Missing checked",
+						},
+						{ id: "kept-item", label: "Ready", checked: false },
+					],
+				},
+				{
+					id: "model-node-2",
+					kind: "form",
+					fields: [
+						{
+							id: "model-node-2-field-1",
+							label: "Name",
+							input: { type: "string" },
+						},
+					],
+					submit: {
+						id: "model-node-2-submit",
+						kind: "action",
+						label: "Submit",
+						commandName: "completeResponse",
+						payload: { text: "Done" },
+					},
+				},
+				{
+					id: "model-node-3",
+					kind: "table",
+					columns: [{ id: "model-node-3-column-1", label: "Subject" }],
+					rows: [{ id: "model-node-3-row-1", cells: ["Bread"] }],
+				},
+				{
+					id: "model-node-4",
+					kind: "timeline",
+					events: [
+						{
+							id: "model-node-4-event-1",
+							label: "Start",
+							timestamp: "now",
+						},
+					],
+				},
+				{
+					id: "model-node-5",
+					kind: "chart",
+					chartType: "bar",
+					series: [
+						{
+							id: "model-node-5-series-1",
+							label: "Bread",
+							value: 4.49,
+						},
+					],
+				},
+				{
+					id: "model-node-6",
+					kind: "decision-log",
+					entries: [
+						{
+							id: "model-node-6-entry-1",
+							title: "Store",
+							decision: "Whole Foods",
+						},
+					],
+				},
+			],
+		});
+		expect(normalizeSemanticArtifactIdentity("completeResponse", input)).toBe(
+			input,
+		);
+	});
+
 	it("audits accepted semantic evidence without treating checklist labels as data", () => {
 		const audit = auditCompletionEvidence(priceEvidenceHistory, {
 			activeArtifactId: "shopping",
@@ -795,8 +925,8 @@ describe("shared voice workbench agent", () => {
 			],
 		});
 		expect(requestModel.mock.calls[0]?.[1]).toMatchObject({
-			domainPolicyInstructions: expect.stringContaining(
-				"call prepareProductPricing",
+			domainPolicyInstructions: expect.stringMatching(
+				/shopping checklist with each requested subject exactly once.*Subject, Price, Status, and Source.*null.*provider-selected product and size.*no numeric chart or total/is,
 			),
 			capabilities: { internetAccess: "available" },
 		});
@@ -841,7 +971,7 @@ describe("shared voice workbench agent", () => {
 				},
 			],
 		});
-		for (let round = 0; round < 4; round += 1) {
+		for (let round = 0; round < 5; round += 1) {
 			requestModel.mockResolvedValueOnce({
 				ok: true,
 				calls: [
@@ -1400,6 +1530,249 @@ describe("shared voice workbench agent", () => {
 				{ subject: "Bread" },
 				{ subject: "Eggs" },
 				{ subject: "Milk" },
+			],
+		});
+	});
+
+	it("repairs the exact Sarasota artifact within six rounds without rerunning pricing", async () => {
+		requestModel.mockReset();
+		const subjects = ["Bread", "Eggs", "Milk"] as const;
+		const selections = [
+			{
+				subject: "Bread",
+				asin: "B0DPXKXV31",
+				product: "365 Organic Sourdough Bread",
+				size: "24 oz",
+			},
+			{
+				subject: "Eggs",
+				asin: "B07FWB8QK4",
+				product: "365 Large White Grade A Eggs",
+				size: "12 count",
+			},
+			{
+				subject: "Milk",
+				asin: "B074H5SR5S",
+				product: "365 Whole Milk",
+				size: "1 gallon",
+			},
+		] as const;
+		const priceInput = {
+			retailer: "Whole Foods",
+			location: "Sarasota",
+			items: subjects.map((subject) => ({ subject })),
+		};
+		const selectionDisclosure = selections
+			.map(
+				(selection) =>
+					`${selection.subject}: ${selection.product} · ${selection.size}`,
+			)
+			.join(". ");
+		const table = {
+			kind: "table",
+			columns: [
+				{ id: "col-subject", label: "Subject" },
+				{ id: "col-price", label: "Price" },
+				{ id: "col-status", label: "Status" },
+				{ id: "col-source", label: "Source" },
+			],
+			rows: subjects.map((subject) => ({
+				cells: [subject, null, "unverified", null],
+			})),
+		};
+		requestModel
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						command: "prepareProductPricing",
+						input: priceInput,
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						command: "priceProducts",
+						input: priceInput,
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						command: "createArtifact",
+						input: {
+							id: "live-sarasota-list",
+							title: "Whole Foods Sarasota shopping list",
+							nodes: [{ kind: "text", text: selectionDisclosure }, table],
+						},
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						command: "completeResponse",
+						input: { text: "The shopping list is ready." },
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						command: "reviseArtifact",
+						input: {
+							artifactId: "live-sarasota-list",
+							expectedRevision: "1",
+							nodes: [
+								{
+									kind: "checklist",
+									items: subjects.map((subject) => ({
+										label: subject,
+										checked: false,
+									})),
+								},
+								{ kind: "text", text: selectionDisclosure },
+								table,
+							],
+						},
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				calls: [
+					{
+						command: "completeResponse",
+						input: { text: "The repaired shopping list is ready." },
+					},
+				],
+			});
+		const runPriceProducts = vi.fn(async () => ({
+			type: "success" as const,
+			ownerId: "product-pricing-price",
+			toolName: "priceProducts",
+			data: {
+				searches: selections.map((selection) => ({
+					subject: selection.subject,
+					query: `provider-owned ${selection.subject} query`,
+					selection: {
+						asin: selection.asin,
+						product: selection.product,
+						size: selection.size,
+						rankingPolicy: "whole-foods-candidate-v1",
+					},
+					price: {
+						status: "unverified" as const,
+						amount: null,
+						sourceUrl: null,
+						reason: "No explicit current price was found.",
+					},
+					receipt: {
+						cache: "miss" as const,
+						native: "hit" as const,
+						brave: "not-needed" as const,
+					},
+				})),
+			},
+			receipt: {
+				provider: "fixture-product-pricing",
+				queryCount: 0,
+				sourceCount: 0,
+			},
+		}));
+		const domains = createDomainRegistry([
+			createProductPricingDomainPack({
+				priceCapability: {
+					id: "product-pricing-price",
+					manifest: [
+						{
+							name: "priceProducts",
+							inputSchema: { type: "object", properties: {} },
+							gated: false,
+						},
+					],
+					run: runPriceProducts,
+				},
+			}),
+		]);
+		const event = {
+			modality: "text" as const,
+			text: "create a shopping list with prices from wholefoods sarasota for breads, eggs, and milk",
+		};
+		await component.execute({ command: "submitPrompt", input: event });
+
+		const result = await completeSubmittedPrompt(
+			{ baseUrl: "http://127.0.0.1:8080/v1", model: "local-model" },
+			event,
+			[],
+			domains,
+		);
+
+		expect(result).toMatchObject({
+			accepted: true,
+			trace: [
+				{ command: "prepareProductPricing", accepted: true },
+				{ command: "priceProducts", accepted: true },
+				{ command: "createArtifact", accepted: true },
+				{ command: "completeResponse", accepted: false },
+				{ command: "reviseArtifact", accepted: true },
+				{ command: "completeResponse", accepted: true },
+			],
+		});
+		expect(requestModel).toHaveBeenCalledTimes(6);
+		expect(runPriceProducts).toHaveBeenCalledTimes(1);
+		expect(
+			result?.trace.filter((entry) => entry.command === "priceProducts"),
+		).toHaveLength(1);
+		expect(
+			requestModel.mock.calls.filter(([, request]) =>
+				request.tools.some((tool) => tool.name === "priceProducts"),
+			),
+		).toHaveLength(1);
+		expect(
+			requestModel.mock.calls.flatMap(([, request]) =>
+				request.tools.map((tool) => tool.name),
+			),
+		).not.toContain("searchWeb");
+		expect(
+			requestModel.mock.calls[4]?.[1].history[3]?.results[0],
+		).toMatchObject({
+			command: "completeResponse",
+			status: "actor-rejected",
+			reason: "evidence-incomplete",
+			issues: expect.arrayContaining([
+				expect.stringContaining("shopping checklist"),
+			]),
+		});
+		expect(component.getView().activeArtifact).toMatchObject({
+			id: "live-sarasota-list",
+			revision: "2",
+			nodes: [
+				{
+					id: "model-node-1",
+					kind: "checklist",
+					items: [
+						{ id: "model-node-1-item-1", label: "Bread" },
+						{ id: "model-node-1-item-2", label: "Eggs" },
+						{ id: "model-node-1-item-3", label: "Milk" },
+					],
+				},
+				{ id: "model-node-2", kind: "text", text: selectionDisclosure },
+				{
+					id: "model-node-3",
+					kind: "table",
+					rows: [
+						{ id: "model-node-3-row-1" },
+						{ id: "model-node-3-row-2" },
+						{ id: "model-node-3-row-3" },
+					],
+				},
 			],
 		});
 	});
