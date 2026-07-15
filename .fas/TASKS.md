@@ -2392,6 +2392,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: Structure voice-workbench domains and add a product-pricing policy with explicit UI projections
+
+- Title: Structure voice-workbench domains and add a product-pricing policy with explicit UI projections
+- Mode: 6-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/structure-voice-workbench-domains-and-add-a-product-pricing-.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
