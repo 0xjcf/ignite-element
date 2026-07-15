@@ -3,7 +3,10 @@ import type {
 	CapabilityExecutionFact,
 	CapabilityOwner,
 } from "../../capability-federation";
-import { readSourcedSearchCapabilityFact } from "../../web-search-capability";
+import {
+	readSourcedSearchCapabilityFact,
+	type WebSearchFact,
+} from "../../web-search-capability";
 export type ProductPriceInput = {
 	retailer: string;
 	location: string;
@@ -64,27 +67,136 @@ const subjectKey = (value: string): string =>
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, "");
 
-const hasExplicitProductPrices = (
+const bounded = (value: unknown, maximum: number): string | null => {
+	const text = typeof value === "string" ? value.trim() : "";
+	return text && text.length <= maximum ? text : null;
+};
+
+const safeUrl = (value: unknown): string | null => {
+	const text = bounded(value, 2_048);
+	if (!text) return null;
+	try {
+		const url = new URL(text);
+		return url.protocol === "https:" || url.protocol === "http:" ? text : null;
+	} catch {
+		return null;
+	}
+};
+
+const readPrice = (value: unknown): Record<string, unknown> | null => {
+	if (!isRecord(value)) return null;
+	if (value.status === "sourced") {
+		const display = bounded(value.display, 40);
+		const sourceUrl = safeUrl(value.sourceUrl);
+		return typeof value.amount === "number" &&
+			Number.isFinite(value.amount) &&
+			value.amount > 0 &&
+			display &&
+			sourceUrl
+			? { status: "sourced", amount: value.amount, display, sourceUrl }
+			: null;
+	}
+	if (value.status !== "unverified" || value.amount !== null) return null;
+	const reason = bounded(value.reason, 240);
+	const sourceUrl = value.sourceUrl === null ? null : safeUrl(value.sourceUrl);
+	return reason && (value.sourceUrl === null || sourceUrl)
+		? { status: "unverified", amount: null, sourceUrl, reason }
+		: null;
+};
+
+const readSelection = (value: unknown): Record<string, string> | null => {
+	if (!isRecord(value)) return null;
+	const asin = bounded(value.asin, 10);
+	const product = bounded(value.product, 160);
+	const size = bounded(value.size, 80);
+	const rankingPolicy = bounded(value.rankingPolicy, 80);
+	return asin && /^B[A-Z0-9]{9}$/.test(asin) && product && size && rankingPolicy
+		? { asin, product, size, rankingPolicy }
+		: null;
+};
+
+const readDiscoveryReceipt = (
+	value: unknown,
+): Record<string, string> | null => {
+	if (!isRecord(value)) return null;
+	const cache = ["hit", "miss", "coalesced"].includes(String(value.cache))
+		? String(value.cache)
+		: null;
+	const native = [
+		"hit",
+		"miss",
+		"schema-drift",
+		"transport-error",
+		"coalesced",
+		"not-needed",
+	].includes(String(value.native))
+		? String(value.native)
+		: null;
+	const brave = [
+		"not-needed",
+		"not-configured",
+		"not-eligible",
+		"attempted-success",
+		"attempted-miss",
+		"attempted-failure",
+		"coalesced",
+	].includes(String(value.brave))
+		? String(value.brave)
+		: null;
+	return cache && native && brave ? { cache, native, brave } : null;
+};
+
+const readProductPricingCapabilityFact = (
 	value: unknown,
 	expectedSubjects: readonly string[],
-): boolean => {
-	if (!isRecord(value)) return false;
-	if (value.type !== "success") return true;
-	if (!isRecord(value.data) || !Array.isArray(value.data.searches))
-		return false;
-	const subjects = value.data.searches.flatMap((search) =>
-		isRecord(search) &&
-		typeof search.subject === "string" &&
-		isRecord(search.price)
-			? [subjectKey(search.subject)]
-			: [],
-	);
+): CapabilityExecutionFact | null => {
+	const generic = readSourcedSearchCapabilityFact(value);
+	if (!generic || generic.type !== "success") return generic;
+	if (
+		!isRecord(value) ||
+		!isRecord(value.data) ||
+		!Array.isArray(value.data.searches)
+	) {
+		return null;
+	}
+	if (!isRecord(generic.data) || !Array.isArray(generic.data.searches))
+		return null;
+	const sanitized = generic.data.searches as WebSearchFact["searches"];
+	if (
+		value.data.searches.length !== expectedSubjects.length ||
+		sanitized.length !== expectedSubjects.length
+	) {
+		return null;
+	}
+	const searches = value.data.searches.flatMap((candidate, index) => {
+		if (!isRecord(candidate)) return [];
+		const price = readPrice(candidate.price);
+		const receipt = readDiscoveryReceipt(candidate.receipt);
+		const selection =
+			candidate.selection === undefined
+				? undefined
+				: readSelection(candidate.selection);
+		const base = sanitized[index];
+		if (
+			!price ||
+			!receipt ||
+			!base ||
+			(candidate.selection !== undefined && !selection)
+		) {
+			return [];
+		}
+		return [{ ...base, price, ...(selection ? { selection } : {}), receipt }];
+	});
+	const subjects = searches.map((search) => subjectKey(search.subject));
 	const expected = expectedSubjects.map(subjectKey);
-	return (
-		subjects.length === expected.length &&
-		new Set(subjects).size === subjects.length &&
-		expected.every((subject) => subjects.includes(subject))
-	);
+	if (
+		searches.length !== expected.length ||
+		new Set(subjects).size !== subjects.length ||
+		expected.some((subject, index) => subjects[index] !== subject)
+	) {
+		return null;
+	}
+	return { ...generic, data: { searches } };
 };
 
 const requiredText = (
@@ -211,12 +323,11 @@ export const createProductPriceCapability = (
 				);
 			}
 			const payload: unknown = await response.json().catch(() => null);
-			const fact = readSourcedSearchCapabilityFact(payload);
+			const fact = readProductPricingCapabilityFact(
+				payload,
+				input.value.items.map((item) => item.subject),
+			);
 			if (
-				!hasExplicitProductPrices(
-					payload,
-					input.value.items.map((item) => item.subject),
-				) ||
 				!fact ||
 				fact.ownerId !== PRODUCT_PRICE_OWNER_ID ||
 				fact.toolName !== PRODUCT_PRICE_TOOL_NAME

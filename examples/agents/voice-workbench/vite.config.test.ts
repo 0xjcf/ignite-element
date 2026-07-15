@@ -125,9 +125,18 @@ describe("voice workbench Vite capability boundary", () => {
 		});
 	});
 
-	it("routes representative product pricing without exposing or spending the Brave key", async () => {
+	it("routes provider-selected product pricing without exposing or spending the Brave key", async () => {
 		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-			expect(String(input)).not.toContain("api.search.brave.com");
+			const url = String(input);
+			expect(url).not.toContain("api.search.brave.com");
+			if (url.includes("/api/wwos/rsi/search")) {
+				return new Response(
+					JSON.stringify({
+						mainResultSet: { searchResults: [{ asin: "B0DPXKXV31" }] },
+					}),
+					{ status: 200 },
+				);
+			}
 			return new Response(
 				JSON.stringify([
 					{
@@ -151,13 +160,7 @@ describe("voice workbench Vite capability boundary", () => {
 					body: JSON.stringify({
 						retailer: "Whole Foods",
 						location: "Sarasota",
-						items: [
-							{
-								subject: "Bread",
-								product: "365 Organic Sourdough Bread",
-								size: "24 oz loaf",
-							},
-						],
+						items: [{ subject: "Bread" }],
 					}),
 				},
 				{ braveSearchApiKey: "free-plan-key", fetch: fetchMock },
@@ -167,10 +170,10 @@ describe("voice workbench Vite capability boundary", () => {
 			body: {
 				type: "success",
 				toolName: "priceProducts",
-				receipt: { provider: "whole-foods-product-pricing", queryCount: 0 },
+				receipt: { provider: "whole-foods-product-pricing", queryCount: 1 },
 			},
 		});
-		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
 
 	it("rejects oversized capability bodies before buffering later chunks", async () => {

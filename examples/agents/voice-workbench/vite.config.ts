@@ -10,7 +10,11 @@ import {
 	type BraveWebSearchOptions,
 	runBraveWebSearch,
 } from "./server/brave-web-search";
-import { runWholeFoodsProductPricing } from "./server/product-pricing/whole-foods";
+import {
+	createWholeFoodsProductPricingState,
+	runWholeFoodsProductPricing,
+	type WholeFoodsProductPricingState,
+} from "./server/product-pricing/whole-foods";
 
 const resolvePath = (path: string) =>
 	fileURLToPath(new URL(path, import.meta.url));
@@ -31,9 +35,10 @@ type CapabilityRouteResponse = {
 	body: unknown;
 };
 
-type VoiceWorkbenchViteOptions = {
+export type VoiceWorkbenchViteOptions = {
 	braveSearchApiKey?: string;
 	fetch?: BraveWebSearchOptions["fetch"];
+	productPricingState?: WholeFoodsProductPricingState;
 };
 
 type VoiceWorkbenchServerEnvironmentOptions = {
@@ -163,6 +168,7 @@ export async function handleProductPricingCapabilityRequest(
 			{
 				apiKey: options.braveSearchApiKey,
 				fetch: options.fetch,
+				state: options.productPricingState,
 			},
 		),
 	};
@@ -196,62 +202,67 @@ export const readCapabilityRequestBody = async (
 	}
 };
 
-const capabilityPlugin = (options: VoiceWorkbenchViteOptions): Plugin => ({
-	name: "voice-workbench-capabilities",
-	configureServer(server) {
-		server.middlewares.use(
-			"/api/capabilities/web-search",
-			async (request, response) => {
-				const body = await readCapabilityRequestBody(request);
-				const result = !body.ok
-					? {
-							status: body.reason === "too-large" ? 413 : 400,
-							body: routeFailure(
-								"searchWeb",
-								"validation",
-								body.reason === "too-large"
-									? "The web search request is too large."
-									: "The web search request could not be read.",
-							),
-						}
-					: await handleWebSearchCapabilityRequest(
-							{ method: request.method, body: body.body },
-							{
-								apiKey: options.braveSearchApiKey,
-								fetch: options.fetch,
-							},
-						);
-				response.statusCode = result.status;
-				response.setHeader("content-type", "application/json; charset=utf-8");
-				response.end(JSON.stringify(result.body));
-			},
-		);
-		server.middlewares.use(
-			"/api/capabilities/product-pricing",
-			async (request, response) => {
-				const body = await readCapabilityRequestBody(request);
-				const result = !body.ok
-					? {
-							status: body.reason === "too-large" ? 413 : 400,
-							body: routeFailure(
-								"priceProducts",
-								"validation",
-								body.reason === "too-large"
-									? "The product-pricing request is too large."
-									: "The product-pricing request could not be read.",
-							),
-						}
-					: await handleProductPricingCapabilityRequest(
-							{ method: request.method, body: body.body },
-							options,
-						);
-				response.statusCode = result.status;
-				response.setHeader("content-type", "application/json; charset=utf-8");
-				response.end(JSON.stringify(result.body));
-			},
-		);
-	},
-});
+const capabilityPlugin = (options: VoiceWorkbenchViteOptions): Plugin => {
+	const productPricingState =
+		options.productPricingState ?? createWholeFoodsProductPricingState();
+	const effectiveOptions = { ...options, productPricingState };
+	return {
+		name: "voice-workbench-capabilities",
+		configureServer(server) {
+			server.middlewares.use(
+				"/api/capabilities/web-search",
+				async (request, response) => {
+					const body = await readCapabilityRequestBody(request);
+					const result = !body.ok
+						? {
+								status: body.reason === "too-large" ? 413 : 400,
+								body: routeFailure(
+									"searchWeb",
+									"validation",
+									body.reason === "too-large"
+										? "The web search request is too large."
+										: "The web search request could not be read.",
+								),
+							}
+						: await handleWebSearchCapabilityRequest(
+								{ method: request.method, body: body.body },
+								{
+									apiKey: options.braveSearchApiKey,
+									fetch: options.fetch,
+								},
+							);
+					response.statusCode = result.status;
+					response.setHeader("content-type", "application/json; charset=utf-8");
+					response.end(JSON.stringify(result.body));
+				},
+			);
+			server.middlewares.use(
+				"/api/capabilities/product-pricing",
+				async (request, response) => {
+					const body = await readCapabilityRequestBody(request);
+					const result = !body.ok
+						? {
+								status: body.reason === "too-large" ? 413 : 400,
+								body: routeFailure(
+									"priceProducts",
+									"validation",
+									body.reason === "too-large"
+										? "The product-pricing request is too large."
+										: "The product-pricing request could not be read.",
+								),
+							}
+						: await handleProductPricingCapabilityRequest(
+								{ method: request.method, body: body.body },
+								effectiveOptions,
+							);
+					response.statusCode = result.status;
+					response.setHeader("content-type", "application/json; charset=utf-8");
+					response.end(JSON.stringify(result.body));
+				},
+			);
+		},
+	};
+};
 
 export const createVoiceWorkbenchViteConfig = (
 	options: VoiceWorkbenchViteOptions = {},

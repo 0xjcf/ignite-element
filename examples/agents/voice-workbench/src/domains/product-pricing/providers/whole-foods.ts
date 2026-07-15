@@ -54,7 +54,7 @@ export const WHOLE_FOODS_CANDIDATE_POLICY_VERSION =
 
 const MAX_NATIVE_SEARCH_RESULTS = 8;
 const MIN_CANDIDATE_SCORE = 140;
-const MIN_CANDIDATE_MARGIN = 10;
+const MIN_CANDIDATE_MARGIN = 15;
 const ASIN = /^[A-Z0-9]{10}$/;
 const ASIN_IN_PATH = /(?:^|[-/])([a-z0-9]{10})(?:$|[/?#])/i;
 
@@ -121,8 +121,6 @@ export const resolveWholeFoodsStorePolicy = (
  * Transitional compatibility for the server shell while it moves to native
  * discovery in the next implementation slice. No catalog data is retained.
  */
-export const resolveWholeFoodsCatalogProduct = (_item: unknown): null => null;
-
 export const parseWholeFoodsNativeSearch = (
 	value: unknown,
 ):
@@ -155,7 +153,8 @@ const scoreCandidate = (subject: string, candidate: WholeFoodsCandidate) => {
 	const candidateWords = normalizedWords(candidate.name);
 	const candidateSet = new Set(candidateWords);
 	const matched = subjectWords.filter((word) => candidateSet.has(word)).length;
-	const coverage = subjectWords.length === 0 ? 0 : matched / subjectWords.length;
+	const coverage =
+		subjectWords.length === 0 ? 0 : matched / subjectWords.length;
 	const phrase = subjectWords.join(" ");
 	const phraseMatch = candidateWords.join(" ").includes(phrase);
 	const score =

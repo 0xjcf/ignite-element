@@ -1,9 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-	asinFromWholeFoodsProductUrl,
-	parseWholeFoodsProductOffers,
+	createWholeFoodsProductPricingState,
 	runWholeFoodsProductPricing,
+	WHOLE_FOODS_DISCOVERY_CACHE_MAX_ENTRIES,
+	WHOLE_FOODS_DISCOVERY_CACHE_TTL_MS,
 } from "./whole-foods";
+
+const nativeEnvelope = (...asins: string[]) => ({
+	mainResultSet: {
+		searchResults: asins.map((asin) => ({
+			asin,
+			injectionSource: "keywords,phrasedoc,knn,behavioral",
+			productGroup: "grocery_display_on_website",
+		})),
+	},
+});
 
 const product = ({
 	asin,
@@ -20,65 +31,78 @@ const product = ({
 }) => ({
 	asin,
 	name,
-	brandName: "365 by Whole Foods Market",
 	programType: "GROCERY",
 	availability,
 	offerDetails: { price: { priceAmount: price, currencyCode } },
 });
 
-const representativeInput = {
+const input = (...subjects: string[]) => ({
 	retailer: "Whole Foods",
 	location: "Sarasota",
-	items: [
-		{
-			subject: "Bread",
-			product: "365 Organic Sourdough Bread",
-			size: "24 oz loaf",
-		},
-		{
-			subject: "Eggs",
-			product: "365 Large White Grade A Eggs",
-			size: "12 count",
-		},
-		{
-			subject: "Milk",
-			product: "365 Whole Milk",
-			size: "1 gallon",
-		},
-	],
-};
+	items: subjects.map((subject) => ({ subject })),
+});
 
-const representativeProducts = [
-	product({
-		asin: "B0DPXKXV31",
-		name: "365 by Whole Foods Market Organic Sourdough Bread, 24 OZ",
-		price: 4.99,
-	}),
-	product({
-		asin: "B074H73HVJ",
-		name: "Large White Grade A Eggs, 12 ct",
-		price: 4.39,
-	}),
-	product({
-		asin: "B074VDFX51",
-		name: "365 by Whole Foods Market Whole Milk, 128 fl oz",
-		price: 6.29,
-	}),
-];
+const nativeUrl = (value: RequestInfo | URL): URL => new URL(String(value));
 
 describe("Whole Foods server price adapter", () => {
-	it("resolves the representative Sarasota list with zero Brave requests and one retailer batch", async () => {
-		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-			const url = new URL(String(input));
-			expect(url.hostname).toBe("www.wholefoodsmarket.com");
+	it("discovers categories natively and makes one deduplicated offer batch", async () => {
+		const asinsBySubject = new Map([
+			["Bread", "B000000001"],
+			["Eggs", "B000000002"],
+			["Milk", "B000000003"],
+		]);
+		const records = new Map([
+			[
+				"B000000001",
+				product({
+					asin: "B000000001",
+					name: "Organic Sourdough Bread, 24 oz",
+					price: 4.99,
+				}),
+			],
+			[
+				"B000000002",
+				product({
+					asin: "B000000002",
+					name: "Large Grade A Eggs, 12 ct",
+					price: 4.39,
+				}),
+			],
+			[
+				"B000000003",
+				product({
+					asin: "B000000003",
+					name: "Organic Whole Milk, 1 gallon",
+					price: 6.29,
+				}),
+			],
+		]);
+		const fetchMock = vi.fn(async (request: RequestInfo | URL) => {
+			const url = nativeUrl(request);
+			if (url.pathname === "/api/wwos/rsi/search") {
+				return new Response(
+					JSON.stringify(
+						nativeEnvelope(
+							asinsBySubject.get(url.searchParams.get("text") ?? "") ?? "",
+						),
+					),
+					{ status: 200 },
+				);
+			}
 			expect(url.pathname).toBe("/api/wwos/products");
-			return new Response(JSON.stringify(representativeProducts), {
-				status: 200,
-			});
+			const asins = (url.searchParams.get("asins") ?? "").split(",");
+			return new Response(
+				JSON.stringify(
+					asins.flatMap((asin) =>
+						records.has(asin) ? [records.get(asin)] : [],
+					),
+				),
+				{ status: 200 },
+			);
 		});
 
 		const fact = await runWholeFoodsProductPricing(
-			{ name: "priceProducts", input: representativeInput },
+			{ name: "priceProducts", input: input("Bread", "Eggs", "Milk") },
 			{ apiKey: "unused-free-plan-key", fetch: fetchMock },
 		);
 
@@ -86,26 +110,142 @@ describe("Whole Foods server price adapter", () => {
 			type: "success",
 			data: {
 				searches: [
-					{ subject: "Bread", price: { status: "sourced", amount: 4.99 } },
+					{
+						subject: "Bread",
+						selection: { product: "Organic Sourdough Bread", size: "24 oz" },
+						price: { status: "sourced", amount: 4.99 },
+						receipt: { cache: "miss", native: "hit", brave: "not-needed" },
+					},
 					{ subject: "Eggs", price: { status: "sourced", amount: 4.39 } },
 					{ subject: "Milk", price: { status: "sourced", amount: 6.29 } },
 				],
 			},
-			receipt: { queryCount: 0, sourceCount: 3 },
+			receipt: { queryCount: 3, sourceCount: 3, cache: { status: "miss" } },
 		});
-		expect(fetchMock).toHaveBeenCalledTimes(1);
-		const endpoint = new URL(String(fetchMock.mock.calls[0]?.[0]));
-		expect(endpoint.searchParams.get("offerListingDiscriminator")).toBe("A0H6");
-		expect(endpoint.searchParams.get("asins")?.split(",")).toEqual([
-			"B0DPXKXV31",
-			"B074H73HVJ",
-			"B074VDFX51",
-		]);
+		expect(
+			fetchMock.mock.calls.filter(
+				([request]) => nativeUrl(request).pathname === "/api/wwos/products",
+			),
+		).toHaveLength(1);
+		expect(
+			fetchMock.mock.calls.some(([request]) =>
+				String(request).includes("api.search.brave.com"),
+			),
+		).toBe(false);
 	});
 
-	it("uses one provider-owned Brave discovery request for an uncatalogued item", async () => {
-		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-			const url = new URL(String(input));
+	it("caches only selected identities with the default TTL and LRU bounds", async () => {
+		expect(WHOLE_FOODS_DISCOVERY_CACHE_TTL_MS).toBe(300_000);
+		expect(WHOLE_FOODS_DISCOVERY_CACHE_MAX_ENTRIES).toBe(64);
+		let now = 1_000;
+		const state = createWholeFoodsProductPricingState({ now: () => now });
+		const fetchMock = vi.fn(async (request: RequestInfo | URL) => {
+			const url = nativeUrl(request);
+			return url.pathname === "/api/wwos/rsi/search"
+				? new Response(JSON.stringify(nativeEnvelope("B000000001")), {
+						status: 200,
+					})
+				: new Response(
+						JSON.stringify([
+							product({
+								asin: "B000000001",
+								name: "Organic Sourdough Bread, 24 oz",
+								price: 4.99,
+							}),
+						]),
+						{ status: 200 },
+					);
+		});
+		const call = { name: "priceProducts", input: input("Bread") };
+
+		await runWholeFoodsProductPricing(call, { fetch: fetchMock, state });
+		const cached = await runWholeFoodsProductPricing(call, {
+			fetch: fetchMock,
+			state,
+		});
+		expect(cached).toMatchObject({
+			type: "success",
+			receipt: { cache: { status: "hit", ttlMs: 300_000 } },
+		});
+		now += WHOLE_FOODS_DISCOVERY_CACHE_TTL_MS + 1;
+		await runWholeFoodsProductPricing(call, { fetch: fetchMock, state });
+
+		expect(
+			fetchMock.mock.calls.filter(
+				([request]) => nativeUrl(request).pathname === "/api/wwos/rsi/search",
+			),
+		).toHaveLength(2);
+		expect(
+			fetchMock.mock.calls.filter(
+				([request]) => nativeUrl(request).pathname === "/api/wwos/products",
+			),
+		).toHaveLength(3);
+	});
+
+	it("coalesces concurrent identity discovery without caching prices", async () => {
+		let releaseSearch: (() => void) | undefined;
+		const searchGate = new Promise<void>((resolve) => {
+			releaseSearch = resolve;
+		});
+		const state = createWholeFoodsProductPricingState();
+		const fetchMock = vi.fn(async (request: RequestInfo | URL) => {
+			const url = nativeUrl(request);
+			if (url.pathname === "/api/wwos/rsi/search") {
+				await searchGate;
+				return new Response(JSON.stringify(nativeEnvelope("B000000001")), {
+					status: 200,
+				});
+			}
+			return new Response(
+				JSON.stringify([
+					product({
+						asin: "B000000001",
+						name: "Organic Sourdough Bread, 24 oz",
+						price: 4.99,
+					}),
+				]),
+				{ status: 200 },
+			);
+		});
+		const options = { fetch: fetchMock, state };
+		const first = runWholeFoodsProductPricing(
+			{ name: "priceProducts", input: input("Bread") },
+			options,
+		);
+		const second = runWholeFoodsProductPricing(
+			{ name: "priceProducts", input: input("Bread") },
+			options,
+		);
+		releaseSearch?.();
+		const facts = await Promise.all([first, second]);
+
+		expect(facts).toEqual([
+			expect.objectContaining({ type: "success" }),
+			expect.objectContaining({
+				type: "success",
+				receipt: expect.objectContaining({
+					cache: { status: "coalesced", ttlMs: 300_000 },
+				}),
+			}),
+		]);
+		expect(
+			fetchMock.mock.calls.filter(
+				([request]) => nativeUrl(request).pathname === "/api/wwos/rsi/search",
+			),
+		).toHaveLength(1);
+		expect(
+			fetchMock.mock.calls.filter(
+				([request]) => nativeUrl(request).pathname === "/api/wwos/products",
+			),
+		).toHaveLength(2);
+	});
+
+	it("uses zero-retry Brave only after a decoded HTTP-200 native miss", async () => {
+		const fetchMock = vi.fn(async (request: RequestInfo | URL) => {
+			const url = nativeUrl(request);
+			if (url.pathname === "/api/wwos/rsi/search") {
+				return new Response(JSON.stringify(nativeEnvelope()), { status: 200 });
+			}
 			if (url.hostname === "api.search.brave.com") {
 				return new Response(
 					JSON.stringify({
@@ -133,157 +273,123 @@ describe("Whole Foods server price adapter", () => {
 				{ status: 200 },
 			);
 		});
+
 		const fact = await runWholeFoodsProductPricing(
-			{
-				name: "priceProducts",
-				input: {
-					retailer: "Whole Foods",
-					location: "Sarasota, FL",
-					items: [
-						{
-							subject: "Coffee",
-							product: "Organic Ground Coffee",
-							size: "12 oz",
-						},
-					],
-				},
-			},
+			{ name: "priceProducts", input: input("Coffee") },
 			{ apiKey: "free-plan-key", fetch: fetchMock },
 		);
-
 		expect(fact).toMatchObject({
 			type: "success",
 			data: {
 				searches: [
-					{ subject: "Coffee", price: { status: "sourced", amount: 12.49 } },
+					{
+						receipt: {
+							cache: "miss",
+							native: "miss",
+							brave: "attempted-success",
+						},
+					},
 				],
 			},
-			receipt: { queryCount: 1, sourceCount: 1 },
+			receipt: { queryCount: 2 },
 		});
-		const braveRequests = fetchMock.mock.calls.filter(([input]) =>
-			String(input).includes("api.search.brave.com"),
-		);
-		expect(braveRequests).toHaveLength(1);
-		expect(new URL(String(braveRequests[0]?.[0])).searchParams.get("q")).toBe(
-			'site:wholefoodsmarket.com "Organic Ground Coffee" "12 oz" Whole Foods Market product',
-		);
-	});
-
-	it("extracts ASINs only from official product URLs", () => {
 		expect(
-			asinFromWholeFoodsProductUrl(
-				"https://www.wholefoodsmarket.com/grocery/product/organic-ground-coffee-b012345678",
+			fetchMock.mock.calls.filter(([request]) =>
+				String(request).includes("api.search.brave.com"),
 			),
-		).toBe("B012345678");
-		expect(
-			asinFromWholeFoodsProductUrl(
-				"https://example.com/grocery/product/organic-ground-coffee-b012345678",
-			),
-		).toBeNull();
+		).toHaveLength(1);
 	});
 
-	it("fails closed for wrong currency, availability, identity, or malformed payloads", () => {
-		const item = representativeInput.items[0];
-		const items = new Map([["B0DPXKXV31", item]]);
-		const offers = parseWholeFoodsProductOffers(
-			[
-				product({
-					asin: "B0DPXKXV31",
-					name: "365 Organic Sourdough Bread",
-					price: 4.99,
-					currencyCode: "CAD",
-				}),
-				product({
-					asin: "B0DPXKXV31",
-					name: "365 Organic Sourdough Bread",
-					price: 4.99,
-					availability: "OUT_OF_STOCK",
-				}),
-				product({
-					asin: "B0DPXKXV31",
-					name: "Chocolate Cake",
-					price: 2.79,
-				}),
-				product({
-					asin: "B0DPXKXV31",
-					name: "365 Organic Sourdough Bread, 48 oz",
-					price: 6.99,
-				}),
-			],
-			items,
+	it.each([
+		{
+			name: "schema drift",
+			response: () =>
+				new Response(JSON.stringify({ results: [] }), { status: 200 }),
+			native: "schema-drift",
+		},
+		{
+			name: "transport error",
+			response: () => new Response("unavailable", { status: 503 }),
+			native: "transport-error",
+		},
+	])("does not use Brave after $name", async ({ response, native }) => {
+		const fetchMock = vi.fn(async () => response());
+		const fact = await runWholeFoodsProductPricing(
+			{ name: "priceProducts", input: input("Coffee") },
+			{ apiKey: "free-plan-key", fetch: fetchMock },
 		);
-		expect(offers).toEqual(new Map());
-		expect(parseWholeFoodsProductOffers({ products: [] }, items)).toBeNull();
-	});
 
-	it("returns unverified evidence instead of admitting an unrelated numeric offer", async () => {
-		const fetchMock = vi.fn(
-			async () =>
-				new Response(
-					JSON.stringify([
-						product({
-							asin: "B0DPXKXV31",
-							name: "Chocolate Cake",
-							price: 2.79,
-						}),
-					]),
-					{ status: 200 },
-				),
-		);
-		await expect(
-			runWholeFoodsProductPricing(
-				{
-					name: "priceProducts",
-					input: {
-						...representativeInput,
-						items: representativeInput.items.slice(0, 1),
-					},
-				},
-				{ fetch: fetchMock },
-			),
-		).resolves.toMatchObject({
+		expect(fact).toMatchObject({
 			type: "success",
 			data: {
 				searches: [
 					{
 						price: { status: "unverified", amount: null },
-						results: [{ description: expect.not.stringMatching(/\$\s*2\.79/) }],
+						receipt: { native, brave: "not-eligible" },
 					},
 				],
 			},
 		});
+		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 
-	it("spends at most one Brave request for an uncatalogued item", async () => {
-		const fetchMock = vi.fn(
-			async () =>
-				new Response(JSON.stringify({ message: "rate limited" }), {
-					status: 429,
-				}),
-		);
-		const fact = await runWholeFoodsProductPricing(
-			{
-				name: "priceProducts",
-				input: {
-					retailer: "Whole Foods",
-					location: "Sarasota",
-					items: [
-						{
-							subject: "Coffee",
-							product: "Organic Ground Coffee",
-							size: "12 oz",
-						},
-					],
-				},
-			},
-			{ apiKey: "free-plan-key", fetch: fetchMock },
-		);
-
-		expect(fact).toMatchObject({
-			type: "provider-failure",
-			status: 429,
-			retry: { attempts: 1, maxAttempts: 1, exhausted: true },
+	it("returns ambiguity and invalid prices as explicit unverified facts without caching them", async () => {
+		const state = createWholeFoodsProductPricingState();
+		const fetchMock = vi.fn(async (request: RequestInfo | URL) => {
+			const url = nativeUrl(request);
+			if (url.pathname === "/api/wwos/rsi/search") {
+				return new Response(
+					JSON.stringify(nativeEnvelope("B000000001", "B000000002")),
+					{ status: 200 },
+				);
+			}
+			return new Response(
+				JSON.stringify([
+					product({
+						asin: "B000000001",
+						name: "Whole Milk, 64 fl oz",
+						price: 5.99,
+					}),
+					product({
+						asin: "B000000002",
+						name: "Whole Milk, 1 gallon",
+						price: 6.29,
+					}),
+				]),
+				{ status: 200 },
+			);
 		});
-		expect(fetchMock).toHaveBeenCalledTimes(1);
+		const call = { name: "priceProducts", input: input("Milk") };
+		const first = await runWholeFoodsProductPricing(call, {
+			apiKey: "free-plan-key",
+			fetch: fetchMock,
+			state,
+		});
+		await runWholeFoodsProductPricing(call, {
+			apiKey: "free-plan-key",
+			fetch: fetchMock,
+			state,
+		});
+
+		expect(first).toMatchObject({
+			type: "success",
+			data: {
+				searches: [
+					{
+						price: {
+							status: "unverified",
+							amount: null,
+							reason: expect.stringContaining("ambiguous"),
+						},
+						receipt: { native: "hit", brave: "not-needed" },
+					},
+				],
+			},
+		});
+		expect(
+			fetchMock.mock.calls.filter(
+				([request]) => nativeUrl(request).pathname === "/api/wwos/rsi/search",
+			),
+		).toHaveLength(2);
 	});
 });

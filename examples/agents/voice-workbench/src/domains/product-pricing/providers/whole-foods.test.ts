@@ -56,7 +56,7 @@ describe("Whole Foods product-pricing policy", () => {
 			},
 		});
 		if (selection.outcome === "selected") {
-			expect(selection.margin).toBeGreaterThanOrEqual(10);
+			expect(selection.margin).toBeGreaterThanOrEqual(15);
 		}
 	});
 

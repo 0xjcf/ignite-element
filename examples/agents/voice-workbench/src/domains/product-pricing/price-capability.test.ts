@@ -15,6 +15,12 @@ describe("same-origin product-price capability", () => {
 								{
 									subject: "Bread",
 									query: "provider-owned query",
+									selection: {
+										asin: "B0DPXKXV31",
+										product: "365 Organic Sourdough Bread",
+										size: "24 oz",
+										rankingPolicy: "whole-foods-candidate-v1",
+									},
 									price: {
 										status: "sourced",
 										amount: 2.79,
@@ -29,6 +35,11 @@ describe("same-origin product-price capability", () => {
 											description: "Official Sarasota price: $2.79 each.",
 										},
 									],
+									receipt: {
+										cache: "miss",
+										native: "hit",
+										brave: "not-needed",
+									},
 								},
 							],
 						},
@@ -57,6 +68,17 @@ describe("same-origin product-price capability", () => {
 					{
 						subject: "Bread",
 						price: { status: "sourced", amount: 2.79 },
+						selection: {
+							asin: "B0DPXKXV31",
+							product: "365 Organic Sourdough Bread",
+							size: "24 oz",
+							rankingPolicy: "whole-foods-candidate-v1",
+						},
+						receipt: {
+							cache: "miss",
+							native: "hit",
+							brave: "not-needed",
+						},
 					},
 				],
 			},
@@ -80,9 +102,7 @@ describe("same-origin product-price capability", () => {
 				input: {
 					retailer: "Whole Foods",
 					location: "Sarasota",
-					items: [
-						{ subject: "Bread", product: "Model loaf", size: "24 oz" },
-					],
+					items: [{ subject: "Bread", product: "Model loaf", size: "24 oz" }],
 				},
 			}),
 		).resolves.toMatchObject({
@@ -134,9 +154,7 @@ describe("same-origin product-price capability", () => {
 				input: {
 					retailer: "Whole Foods",
 					location: "Sarasota",
-					items: [
-						{ subject: "Bread" },
-					],
+					items: [{ subject: "Bread" }],
 				},
 			}),
 		).resolves.toMatchObject({
