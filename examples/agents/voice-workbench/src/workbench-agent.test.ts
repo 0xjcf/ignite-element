@@ -632,6 +632,9 @@ describe("shared voice workbench agent", () => {
 			},
 		});
 		expect(
+			component.getView().presentation.turn?.capability,
+		).not.toHaveProperty("pricingRows");
+		expect(
 			component.getView().runtimeInspector.capabilityRows.slice(-1)[0],
 		).toMatchObject({
 			message: expect.stringContaining(
@@ -825,6 +828,7 @@ describe("shared voice workbench agent", () => {
 		priceInput: unknown,
 		eventText = "Create a shopping list with prices from Whole Foods Sarasota for bread",
 		providerOutcome: "success" | "provider-failure" = "success",
+		providerData: unknown = { searches: [] },
 	) => {
 		requestModel.mockReset();
 		requestModel.mockResolvedValueOnce({
@@ -856,7 +860,7 @@ describe("shared voice workbench agent", () => {
 						type: "success" as const,
 						ownerId: "product-pricing-price",
 						toolName: "priceProducts",
-						data: { searches: [] },
+						data: providerData,
 						receipt: { provider: "fixture-product-pricing" },
 					}
 				: {
@@ -1002,6 +1006,79 @@ describe("shared voice workbench agent", () => {
 			ownerId: "product-pricing-price",
 			status: "capability-failure",
 		});
+	});
+
+	it("bounds and sanitizes per-subject pricing proof rows", async () => {
+		const oversizedSubject = "S".repeat(200);
+		const oversizedProduct = "P".repeat(240);
+		const oversizedSize = "Z".repeat(120);
+		const validReceipt = {
+			cache: "miss",
+			native: "hit",
+			brave: "not-needed",
+		};
+		const searches = Array.from({ length: 10 }, (_, index) => ({
+			subject: index === 0 ? oversizedSubject : `Item ${index}`,
+			query: `raw provider query ${index}`,
+			selection: {
+				product: index === 0 ? oversizedProduct : `Product ${index}`,
+				size: index === 0 ? oversizedSize : `${index} oz`,
+				rawProviderPayload: `secret selection ${index}`,
+			},
+			price: { status: "unverified", rawAmount: `secret price ${index}` },
+			receipt: validReceipt,
+			results: [{ raw: `secret result ${index}` }],
+		}));
+		searches[1] = { ...searches[1], subject: "   " };
+		searches[2] = {
+			...searches[2],
+			price: { status: "estimated", rawAmount: "secret price 2" },
+		};
+		searches[3] = {
+			...searches[3],
+			receipt: { ...validReceipt, native: "raw-native-state" },
+		};
+
+		await exerciseProductPricingAuthorization(
+			{
+				retailer: "Whole Foods",
+				location: "Sarasota",
+				items: [{ subject: "Bread" }],
+			},
+			breadPriceInput,
+			undefined,
+			"success",
+			{ searches },
+		);
+
+		const recorded = component
+			.getView()
+			.presentation.capabilityOutcomes.filter(
+				(outcome) => outcome.ownerId === "product-pricing-price",
+			)
+			.slice(-1)[0];
+		expect(recorded?.pricingRows).toHaveLength(5);
+		expect(recorded?.pricingRows?.[0]).toEqual({
+			subject: "S".repeat(120),
+			priceStatus: "unverified",
+			product: "P".repeat(160),
+			size: "Z".repeat(80),
+			cacheStatus: "miss",
+			nativeStatus: "hit",
+			braveStatus: "not-needed",
+		});
+		expect(recorded?.pricingRows?.map((row) => row.subject)).toEqual([
+			"S".repeat(120),
+			"Item 4",
+			"Item 5",
+			"Item 6",
+			"Item 7",
+		]);
+		expect(JSON.stringify(recorded?.pricingRows)).not.toContain(
+			"raw provider query",
+		);
+		expect(JSON.stringify(recorded?.pricingRows)).not.toContain("secret");
+		expect(JSON.stringify(recorded?.pricingRows)).not.toContain("Item 8");
 	});
 
 	it("denies a strict subset of the admitted request before the provider", async () => {
@@ -1195,6 +1272,24 @@ describe("shared voice workbench agent", () => {
 						sourceUrl: null,
 						reason: "No explicit current price was found.",
 					},
+					receipt:
+						item.subject === "Bread"
+							? {
+									cache: "miss" as const,
+									native: "hit" as const,
+									brave: "not-needed" as const,
+								}
+							: item.subject === "Eggs"
+								? {
+										cache: "miss" as const,
+										native: "miss" as const,
+										brave: "attempted-success" as const,
+									}
+								: {
+										cache: "hit" as const,
+										native: "not-needed" as const,
+										brave: "not-needed" as const,
+									},
 				})),
 			},
 			receipt: {
@@ -1269,6 +1364,44 @@ describe("shared voice workbench agent", () => {
 				request.tools.map((tool) => tool.name),
 			),
 		).not.toContain("searchWeb");
+		expect(
+			component.getView().presentation.capabilityOutcomes.slice(-1)[0],
+		).toMatchObject({
+			ownerId: "product-pricing-price",
+			toolName: "priceProducts",
+			pricingRows: [
+				{
+					subject: "Bread",
+					priceStatus: "unverified",
+					product: "365 Organic Sourdough Bread",
+					size: "24 oz",
+					cacheStatus: "miss",
+					nativeStatus: "hit",
+					braveStatus: "not-needed",
+				},
+				{
+					subject: "Eggs",
+					priceStatus: "unverified",
+					cacheStatus: "miss",
+					nativeStatus: "miss",
+					braveStatus: "attempted-success",
+				},
+				{
+					subject: "Milk",
+					priceStatus: "unverified",
+					cacheStatus: "hit",
+					nativeStatus: "not-needed",
+					braveStatus: "not-needed",
+				},
+			],
+		});
+		expect(component.getView().presentation.turn?.capability).toMatchObject({
+			pricingRows: [
+				{ subject: "Bread" },
+				{ subject: "Eggs" },
+				{ subject: "Milk" },
+			],
+		});
 	});
 
 	it("denies a mismatched admitted request before the provider", async () => {

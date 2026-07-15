@@ -333,6 +333,90 @@ describe("voice workbench headless component", () => {
 				"Configured fallback timed out. · fallback brave-web-search → fixture-search · trigger HTTP 503 · timeout",
 		});
 		await component.execute({
+			command: "recordCapabilityOutcome",
+			input: {
+				type: "success",
+				ownerId: "product-pricing-price",
+				toolName: "priceProducts",
+				message: "Whole Foods pricing completed.",
+				pricingRows: [
+					{
+						subject: "Bread",
+						priceStatus: "sourced",
+						product: "365 Organic Sourdough Bread",
+						size: "24 oz",
+						cacheStatus: "miss",
+						nativeStatus: "hit",
+						braveStatus: "not-needed",
+					},
+					{
+						subject: "Eggs",
+						priceStatus: "unverified",
+						product: "365 Large Grade A Eggs",
+						size: "12 count",
+						cacheStatus: "coalesced",
+						nativeStatus: "coalesced",
+						braveStatus: "coalesced",
+					},
+					{
+						subject: "Milk",
+						priceStatus: "unverified",
+						cacheStatus: "hit",
+						nativeStatus: "not-needed",
+						braveStatus: "not-needed",
+					},
+				],
+			},
+		});
+		const pricingRows = component
+			.getView()
+			.runtimeInspector.capabilityRows.filter((row) => "subject" in row)
+			.slice(-3);
+		expect(pricingRows).toEqual([
+			{
+				key: expect.any(String),
+				className: "capability-outcome",
+				heading: "Bread · product pricing",
+				statusLabel: "sourced · cache miss",
+				message:
+					"365 Organic Sourdough Bread · 24 oz · native hit · Brave not-needed",
+				subject: "Bread",
+				priceStatus: "sourced",
+				product: "365 Organic Sourdough Bread",
+				size: "24 oz",
+				cacheStatus: "miss",
+				nativeStatus: "hit",
+				braveStatus: "not-needed",
+			},
+			{
+				key: expect.any(String),
+				className: "capability-outcome",
+				heading: "Eggs · product pricing",
+				statusLabel: "unverified · cache coalesced",
+				message:
+					"365 Large Grade A Eggs · 12 count · native coalesced · Brave coalesced",
+				subject: "Eggs",
+				priceStatus: "unverified",
+				product: "365 Large Grade A Eggs",
+				size: "12 count",
+				cacheStatus: "coalesced",
+				nativeStatus: "coalesced",
+				braveStatus: "coalesced",
+			},
+			{
+				key: expect.any(String),
+				className: "capability-outcome",
+				heading: "Milk · product pricing",
+				statusLabel: "unverified · cache hit",
+				message: "No selected product · native not-needed · Brave not-needed",
+				subject: "Milk",
+				priceStatus: "unverified",
+				cacheStatus: "hit",
+				nativeStatus: "not-needed",
+				braveStatus: "not-needed",
+			},
+		]);
+		await component.execute({
 			command: "reportModelFailure",
 			input: {
 				kind: "network",

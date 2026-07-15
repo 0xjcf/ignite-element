@@ -26,6 +26,7 @@ import {
 	component,
 	type WorkbenchCapabilityProof,
 	type WorkbenchCollisionProof,
+	type WorkbenchPricingProofRow,
 	type WorkbenchTurnFact,
 } from "./session";
 
@@ -333,6 +334,106 @@ export const auditCompletionEvidence = (
 const boundedText = (value: string, maximum = 160): string =>
 	value.trim().slice(0, maximum);
 
+const boundedProofText = (
+	value: unknown,
+	maximum: number,
+): string | undefined => {
+	if (typeof value !== "string") return undefined;
+	const text = boundedText(value, maximum);
+	return text || undefined;
+};
+
+const PRICING_STATUSES = ["sourced", "unverified"] as const;
+const PRICING_CACHE_STATUSES = ["miss", "hit", "coalesced"] as const;
+const PRICING_NATIVE_STATUSES = [
+	"hit",
+	"miss",
+	"schema-drift",
+	"transport-error",
+	"coalesced",
+	"not-needed",
+] as const;
+const PRICING_BRAVE_STATUSES = [
+	"not-needed",
+	"not-configured",
+	"not-eligible",
+	"attempted-success",
+	"attempted-miss",
+	"attempted-failure",
+	"coalesced",
+] as const;
+
+const boundedEnum = <Values extends readonly string[]>(
+	value: unknown,
+	allowed: Values,
+): Values[number] | undefined =>
+	typeof value === "string" && allowed.includes(value)
+		? (value as Values[number])
+		: undefined;
+
+const pricingProofRows = (
+	execution: CapabilityExecutionFact,
+): readonly WorkbenchPricingProofRow[] | undefined => {
+	if (
+		execution.type !== "success" ||
+		execution.toolName !== "priceProducts" ||
+		!isRecord(execution.data) ||
+		!Array.isArray(execution.data.searches)
+	) {
+		return undefined;
+	}
+
+	const rows = execution.data.searches.slice(0, 8).flatMap((candidate) => {
+		if (
+			!isRecord(candidate) ||
+			!isRecord(candidate.price) ||
+			!isRecord(candidate.receipt)
+		) {
+			return [];
+		}
+		const subject = boundedProofText(candidate.subject, 120);
+		const priceStatus = boundedEnum(candidate.price.status, PRICING_STATUSES);
+		const cacheStatus = boundedEnum(
+			candidate.receipt.cache,
+			PRICING_CACHE_STATUSES,
+		);
+		const nativeStatus = boundedEnum(
+			candidate.receipt.native,
+			PRICING_NATIVE_STATUSES,
+		);
+		const braveStatus = boundedEnum(
+			candidate.receipt.brave,
+			PRICING_BRAVE_STATUSES,
+		);
+		if (
+			!subject ||
+			!priceStatus ||
+			!cacheStatus ||
+			!nativeStatus ||
+			!braveStatus
+		) {
+			return [];
+		}
+		const product = isRecord(candidate.selection)
+			? boundedProofText(candidate.selection.product, 160)
+			: undefined;
+		const size = isRecord(candidate.selection)
+			? boundedProofText(candidate.selection.size, 80)
+			: undefined;
+		return [
+			{
+				subject,
+				priceStatus,
+				...(product && size ? { product, size } : {}),
+				cacheStatus,
+				nativeStatus,
+				braveStatus,
+			},
+		];
+	});
+	return rows.length > 0 ? rows : undefined;
+};
+
 const boundedCount = (value: number | undefined): number | undefined =>
 	typeof value === "number" && Number.isFinite(value) && value >= 0
 		? Math.min(Math.floor(value), 999)
@@ -403,6 +504,7 @@ const capabilityProof = (
 			? execution.receipt.fallback
 			: execution.fallback,
 	);
+	const pricingRows = pricingProofRows(execution);
 	return {
 		provider: boundedText(provider, 80),
 		tool: boundedText(execution.toolName, 80),
@@ -434,6 +536,7 @@ const capabilityProof = (
 						: {}),
 				}),
 		...(fallback ? { fallback } : {}),
+		...(pricingRows ? { pricingRows } : {}),
 	};
 };
 
@@ -778,6 +881,7 @@ export async function completeSubmittedPrompt(
 								}
 							: {}),
 						...(proof?.fallback ? { fallback: proof.fallback } : {}),
+						...(proof?.pricingRows ? { pricingRows: proof.pricingRows } : {}),
 					},
 				});
 			}

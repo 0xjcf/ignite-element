@@ -32,6 +32,28 @@ export type WorkbenchRuntimePreview =
 	| "speech"
 	| "headless";
 export type WorkbenchRuntimeManifestEntry = NeutralTool & { ownerId: string };
+export type WorkbenchPricingProofRow = {
+	subject: string;
+	priceStatus: "sourced" | "unverified";
+	product?: string;
+	size?: string;
+	cacheStatus: "miss" | "hit" | "coalesced";
+	nativeStatus:
+		| "hit"
+		| "miss"
+		| "schema-drift"
+		| "transport-error"
+		| "coalesced"
+		| "not-needed";
+	braveStatus:
+		| "not-needed"
+		| "not-configured"
+		| "not-eligible"
+		| "attempted-success"
+		| "attempted-miss"
+		| "attempted-failure"
+		| "coalesced";
+};
 export type WorkbenchCapabilityOutcome = {
 	type: WorkbenchCapabilityProof["outcome"];
 	ownerId: string;
@@ -42,6 +64,7 @@ export type WorkbenchCapabilityOutcome = {
 	cacheStatus?: WorkbenchCapabilityProof["cacheStatus"];
 	cacheTtlMs?: number;
 	fallback?: CapabilityFallbackAttempt;
+	pricingRows?: readonly WorkbenchPricingProofRow[];
 };
 export type WorkbenchTurnTrace = readonly {
 	command: string;
@@ -68,6 +91,7 @@ export type WorkbenchCapabilityProof = {
 	cacheStatus?: "miss" | "hit" | "coalesced";
 	cacheTtlMs?: number;
 	fallback?: CapabilityFallbackAttempt;
+	pricingRows?: readonly WorkbenchPricingProofRow[];
 };
 export type WorkbenchCollisionProof = {
 	outcome: "collision";
@@ -838,23 +862,43 @@ export const component = igniteCore({
 							message: "Capability adapter outcomes appear after execution.",
 						},
 					]
-				: presentation.capabilityOutcomes.map((outcome, index) => ({
-						key: `${outcome.ownerId}-${outcome.toolName}-${index}`,
-						className: "capability-outcome",
-						heading: `${outcome.ownerId} · ${outcome.toolName}`,
-						statusLabel: `${outcome.type}${outcome.status ? ` · HTTP ${outcome.status}` : ""}${outcome.cacheStatus ? ` · cache ${outcome.cacheStatus}` : ""}`,
-						message: [
-							outcome.message,
-							outcome.retry
-								? `${outcome.retry.attempts}/${outcome.retry.maxAttempts} attempts${outcome.retry.exhausted ? " · exhausted" : ""}`
-								: null,
-							outcome.fallback
-								? fallbackAttemptSummary(outcome.fallback)
-								: null,
-						]
-							.filter((value): value is string => value !== null)
-							.join(" · "),
-					}));
+				: presentation.capabilityOutcomes.flatMap((outcome, index) => {
+						const key = `${outcome.ownerId}-${outcome.toolName}-${index}`;
+						const capabilityRow = {
+							key,
+							className: "capability-outcome",
+							heading: `${outcome.ownerId} · ${outcome.toolName}`,
+							statusLabel: `${outcome.type}${outcome.status ? ` · HTTP ${outcome.status}` : ""}${outcome.cacheStatus ? ` · cache ${outcome.cacheStatus}` : ""}`,
+							message: [
+								outcome.message,
+								outcome.retry
+									? `${outcome.retry.attempts}/${outcome.retry.maxAttempts} attempts${outcome.retry.exhausted ? " · exhausted" : ""}`
+									: null,
+								outcome.fallback
+									? fallbackAttemptSummary(outcome.fallback)
+									: null,
+							]
+								.filter((value): value is string => value !== null)
+								.join(" · "),
+						};
+						const pricingRows = (outcome.pricingRows ?? []).map(
+							(pricing, pricingIndex) => ({
+								key: `${key}-pricing-${pricingIndex}`,
+								className: "capability-outcome",
+								heading: `${pricing.subject} · product pricing`,
+								statusLabel: `${pricing.priceStatus} · cache ${pricing.cacheStatus}`,
+								message: [
+									pricing.product && pricing.size
+										? `${pricing.product} · ${pricing.size}`
+										: "No selected product",
+									`native ${pricing.nativeStatus}`,
+									`Brave ${pricing.braveStatus}`,
+								].join(" · "),
+								...pricing,
+							}),
+						);
+						return [capabilityRow, ...pricingRows];
+					});
 		const domainPolicy = presentation.domainPolicy
 			? {
 					heading: "Domain policy proof",
