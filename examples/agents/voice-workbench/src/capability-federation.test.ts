@@ -1,9 +1,9 @@
 import type { NeutralManifest } from "ignite-element/tools";
 import { describe, expect, it, vi } from "vitest";
 import {
+	type CapabilityOwner,
 	createCapabilityFederation,
 	runCapability,
-	type CapabilityOwner,
 } from "./capability-federation";
 
 const manifest = (name: string): NeutralManifest => [
@@ -130,6 +130,47 @@ describe("voice workbench capability federation", () => {
 			ownerId: "throwing-provider",
 			toolName: "searchWeb",
 			message: "The capability provider failed unexpectedly.",
+		});
+	});
+
+	it("preserves structured retry and cache provenance while enforcing owner identity", async () => {
+		const retrying: CapabilityOwner = {
+			id: "trusted-owner",
+			manifest: manifest("searchWeb"),
+			run: async () => ({
+				type: "provider-failure",
+				ownerId: "spoofed-owner",
+				toolName: "spoofed-tool",
+				message: "Rate limited.",
+				status: 429,
+				retry: {
+					attempts: 2,
+					maxAttempts: 2,
+					retryAfterMs: 500,
+					exhausted: true,
+				},
+			}),
+		};
+		const federation = createCapabilityFederation([retrying]);
+		if (!federation.ok) throw new Error("expected a ready federation");
+
+		await expect(
+			runCapability(federation, {
+				name: "searchWeb",
+				input: { query: "coffee" },
+			}),
+		).resolves.toEqual({
+			type: "provider-failure",
+			ownerId: "trusted-owner",
+			toolName: "searchWeb",
+			message: "Rate limited.",
+			status: 429,
+			retry: {
+				attempts: 2,
+				maxAttempts: 2,
+				retryAfterMs: 500,
+				exhausted: true,
+			},
 		});
 	});
 });

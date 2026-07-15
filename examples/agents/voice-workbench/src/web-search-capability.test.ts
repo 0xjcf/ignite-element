@@ -180,6 +180,72 @@ describe("same-origin web search capability", () => {
 		});
 	});
 
+	it("preserves bounded retry and cache provenance from the server fact", async () => {
+		const fetchMock = vi.fn(
+			async () =>
+				new Response(
+					JSON.stringify({
+						type: "provider-failure",
+						ownerId: "brave-web-search",
+						toolName: "searchWeb",
+						message: "Brave Web Search rejected the request.",
+						status: 429,
+						retry: {
+							attempts: 2,
+							maxAttempts: 2,
+							retryAfterMs: 750,
+							exhausted: true,
+						},
+					}),
+					{ status: 200 },
+				),
+		);
+		const provider = createWebSearchCapability({ fetch: fetchMock });
+
+		await expect(
+			provider.run({
+				name: "searchWeb",
+				input: { queries: [{ subject: "Coffee", query: "coffee" }] },
+			}),
+		).resolves.toMatchObject({
+			type: "provider-failure",
+			status: 429,
+			retry: {
+				attempts: 2,
+				maxAttempts: 2,
+				retryAfterMs: 750,
+				exhausted: true,
+			},
+		});
+
+		fetchMock.mockResolvedValueOnce(
+			new Response(
+				JSON.stringify({
+					type: "success",
+					ownerId: "brave-web-search",
+					toolName: "searchWeb",
+					data: { searches: [] },
+					receipt: {
+						provider: "brave-web-search",
+						queryCount: 0,
+						sourceCount: 0,
+						cache: { status: "hit", ttlMs: 15_000 },
+					},
+				}),
+				{ status: 200 },
+			),
+		);
+		await expect(
+			provider.run({
+				name: "searchWeb",
+				input: { queries: [{ subject: "Coffee", query: "coffee" }] },
+			}),
+		).resolves.toMatchObject({
+			type: "success",
+			receipt: { cache: { status: "hit", ttlMs: 15_000 } },
+		});
+	});
+
 	it("sanitizes oversized same-origin evidence before returning it", async () => {
 		const fetchMock = vi.fn(
 			async () =>

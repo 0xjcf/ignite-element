@@ -28,7 +28,13 @@ export type ModelToolFeedback = {
 	issues?: readonly string[];
 	providerStatus?: number;
 	fact?: unknown;
-	receipt?: { provider: string; queryCount?: number; sourceCount?: number };
+	receipt?: {
+		provider: string;
+		queryCount?: number;
+		sourceCount?: number;
+		cache?: { status: "miss" | "hit" | "coalesced"; ttlMs: number };
+		fallback?: { from: string; status: number };
+	};
 	view: unknown;
 	events: readonly { type: string; reason?: string }[];
 };
@@ -217,8 +223,14 @@ const columnIndex = (
 		);
 	});
 
-const boundedIssues = (issues: readonly string[]): string[] =>
-	issues.slice(0, 8).map((issue) => issue.slice(0, 160));
+export const normalizeModelIssues = (issues: readonly string[]): string[] =>
+	[
+		...new Set(
+			issues
+				.map((issue) => issue.trim().slice(0, 160))
+				.filter((issue) => issue.length > 0),
+		),
+	].slice(0, 8);
 
 /**
  * Audits whether accepted semantic nodes faithfully materialize the latest
@@ -385,7 +397,7 @@ export const auditCompletionEvidence = (
 
 	return issues.length === 0
 		? { ok: true }
-		: { ok: false, issues: boundedIssues(issues) };
+		: { ok: false, issues: normalizeModelIssues(issues) };
 };
 
 /**

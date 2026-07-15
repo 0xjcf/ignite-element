@@ -7,6 +7,7 @@ import {
 	type ModelResult,
 	modelTools,
 	modelTurn,
+	normalizeModelIssues,
 } from "./agent-loop";
 import { component, source } from "./session";
 
@@ -127,6 +128,29 @@ const executeModelTurn = async (response: ModelResult) => {
 };
 
 describe("voice/text workbench model turn", () => {
+	it("normalizes nested validation paths generically without domain branches", () => {
+		expect(
+			normalizeModelIssues([
+				" input.sections[0].nodes[2].items[0].label: expected text ",
+				"input.sections[0].nodes[2].items[0].label: expected text",
+				"input.metadata.owner.contact.email: invalid format",
+				...Array.from(
+					{ length: 10 },
+					(_, index) => `input.extra.${index}: bad`,
+				),
+			]),
+		).toEqual([
+			"input.sections[0].nodes[2].items[0].label: expected text",
+			"input.metadata.owner.contact.email: invalid format",
+			"input.extra.0: bad",
+			"input.extra.1: bad",
+			"input.extra.2: bad",
+			"input.extra.3: bad",
+			"input.extra.4: bad",
+			"input.extra.5: bad",
+		]);
+	});
+
 	it("keeps an explicitly admitted external capability in the model manifest", () => {
 		const manifest: NeutralManifest = [
 			{

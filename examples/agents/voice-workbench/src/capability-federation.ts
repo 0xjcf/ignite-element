@@ -4,6 +4,21 @@ export type CapabilityReceipt = {
 	provider: string;
 	queryCount?: number;
 	sourceCount?: number;
+	cache?: {
+		status: "miss" | "hit" | "coalesced";
+		ttlMs: number;
+	};
+	fallback?: {
+		from: string;
+		status: number;
+	};
+};
+
+export type CapabilityRetryFact = {
+	attempts: number;
+	maxAttempts: number;
+	retryAfterMs?: number;
+	exhausted: boolean;
 };
 
 export type CapabilityExecutionFact =
@@ -21,6 +36,7 @@ export type CapabilityExecutionFact =
 			message: string;
 			issues?: readonly string[];
 			status?: number;
+			retry?: CapabilityRetryFact;
 			reason?: string;
 			actorRejected?: boolean;
 	  };

@@ -708,6 +708,12 @@ describe("shared voice workbench agent", () => {
 				toolName: "searchWeb",
 				message: "Sanitized provider rejection.",
 				status: 429,
+				retry: {
+					attempts: 2,
+					maxAttempts: 2,
+					retryAfterMs: 1_000,
+					exhausted: true,
+				},
 			}),
 		};
 
@@ -732,6 +738,12 @@ describe("shared voice workbench agent", () => {
 				type: "provider-failure",
 				message: "Sanitized provider rejection.",
 				status: 429,
+				retry: {
+					attempts: 2,
+					maxAttempts: 2,
+					retryAfterMs: 1_000,
+					exhausted: true,
+				},
 			},
 		});
 		expect(component.getView().presentation.turn).toMatchObject({
@@ -741,6 +753,12 @@ describe("shared voice workbench agent", () => {
 				tool: "searchWeb",
 				outcome: "provider-failure",
 				status: 429,
+				retry: {
+					attempts: 2,
+					maxAttempts: 2,
+					retryAfterMs: 1_000,
+					exhausted: true,
+				},
 			},
 		});
 		expect(JSON.stringify(component.getView().presentation.turn)).not.toContain(

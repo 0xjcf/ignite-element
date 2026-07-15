@@ -1,7 +1,7 @@
 import type { NeutralTool } from "ignite-element/tools";
 import {
-	igniteCore,
 	type IgniteAgentCommandSchema,
+	igniteCore,
 } from "ignite-element/xstate";
 import { and, assign, createActor, setup, stateIn } from "xstate";
 import type { ModelFailureFact } from "./agent-loop";
@@ -36,6 +36,10 @@ export type WorkbenchCapabilityOutcome = {
 	toolName: string;
 	message: string;
 	status?: number;
+	retry?: WorkbenchCapabilityProof["retry"];
+	cacheStatus?: WorkbenchCapabilityProof["cacheStatus"];
+	cacheTtlMs?: number;
+	fallbackFrom?: string;
 };
 export type WorkbenchTurnTrace = readonly {
 	command: string;
@@ -53,6 +57,15 @@ export type WorkbenchCapabilityProof = {
 	queryCount?: number;
 	sourceCount?: number;
 	status?: number;
+	retry?: {
+		attempts: number;
+		maxAttempts: number;
+		retryAfterMs?: number;
+		exhausted: boolean;
+	};
+	cacheStatus?: "miss" | "hit" | "coalesced";
+	cacheTtlMs?: number;
+	fallbackFrom?: string;
 };
 export type WorkbenchCollisionProof = {
 	outcome: "collision";
@@ -236,6 +249,15 @@ const capabilityProofSummary = (proof: WorkbenchCapabilityProof): string =>
 		proof.sourceCount === undefined
 			? null
 			: `${proof.sourceCount} ${proof.sourceCount === 1 ? "source" : "sources"}`,
+		proof.retry === undefined
+			? null
+			: `${proof.retry.attempts}/${proof.retry.maxAttempts} attempts${proof.retry.retryAfterMs === undefined ? "" : ` · waited ${proof.retry.retryAfterMs}ms`}`,
+		proof.cacheStatus === undefined
+			? null
+			: `cache ${proof.cacheStatus}${proof.cacheTtlMs === undefined ? "" : ` · TTL ${proof.cacheTtlMs}ms`}`,
+		proof.fallbackFrom === undefined
+			? null
+			: `fallback from ${proof.fallbackFrom}`,
 	]
 		.filter((value): value is string => value !== null)
 		.join(" · ");
@@ -795,8 +817,18 @@ export const component = igniteCore({
 						kind: "outcome" as const,
 						key: `${outcome.ownerId}-${outcome.toolName}-${index}`,
 						heading: `${outcome.ownerId} · ${outcome.toolName}`,
-						statusLabel: `${outcome.type}${outcome.status ? ` · HTTP ${outcome.status}` : ""}`,
-						message: outcome.message,
+						statusLabel: `${outcome.type}${outcome.status ? ` · HTTP ${outcome.status}` : ""}${outcome.cacheStatus ? ` · cache ${outcome.cacheStatus}` : ""}`,
+						message: [
+							outcome.message,
+							outcome.retry
+								? `${outcome.retry.attempts}/${outcome.retry.maxAttempts} attempts${outcome.retry.exhausted ? " · exhausted" : ""}`
+								: null,
+							outcome.fallbackFrom
+								? `fallback from ${outcome.fallbackFrom}`
+								: null,
+						]
+							.filter((value): value is string => value !== null)
+							.join(" · "),
 					}));
 		const manifestRows =
 			presentation.runtimeManifest.length === 0

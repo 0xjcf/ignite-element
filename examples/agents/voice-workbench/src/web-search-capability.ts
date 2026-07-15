@@ -352,6 +352,35 @@ const readCapabilityFact = (value: unknown): CapabilityExecutionFact | null => {
 					(total, search) => total + search.results.length,
 					0,
 				),
+				...(isRecord(value.receipt.cache) &&
+				(value.receipt.cache.status === "miss" ||
+					value.receipt.cache.status === "hit" ||
+					value.receipt.cache.status === "coalesced") &&
+				typeof value.receipt.cache.ttlMs === "number" &&
+				Number.isFinite(value.receipt.cache.ttlMs)
+					? {
+							cache: {
+								status: value.receipt.cache.status,
+								ttlMs: Math.min(
+									Math.max(Math.floor(value.receipt.cache.ttlMs), 0),
+									300_000,
+								),
+							},
+						}
+					: {}),
+				...(isRecord(value.receipt.fallback) &&
+				typeof value.receipt.fallback.from === "string" &&
+				typeof value.receipt.fallback.status === "number"
+					? {
+							fallback: {
+								from: boundedText(value.receipt.fallback.from, 80),
+								status: Math.min(
+									Math.max(Math.floor(value.receipt.fallback.status), 100),
+									599,
+								),
+							},
+						}
+					: {}),
 			},
 		};
 	}
@@ -372,6 +401,33 @@ const readCapabilityFact = (value: unknown): CapabilityExecutionFact | null => {
 				? { issues: value.issues }
 				: {}),
 			...(typeof value.status === "number" ? { status: value.status } : {}),
+			...(isRecord(value.retry) &&
+			typeof value.retry.attempts === "number" &&
+			typeof value.retry.maxAttempts === "number" &&
+			typeof value.retry.exhausted === "boolean"
+				? {
+						retry: {
+							attempts: Math.min(
+								Math.max(Math.floor(value.retry.attempts), 1),
+								4,
+							),
+							maxAttempts: Math.min(
+								Math.max(Math.floor(value.retry.maxAttempts), 1),
+								4,
+							),
+							...(typeof value.retry.retryAfterMs === "number" &&
+							Number.isFinite(value.retry.retryAfterMs)
+								? {
+										retryAfterMs: Math.min(
+											Math.max(Math.floor(value.retry.retryAfterMs), 0),
+											10_000,
+										),
+									}
+								: {}),
+							exhausted: value.retry.exhausted,
+						},
+					}
+				: {}),
 		};
 	}
 	return null;

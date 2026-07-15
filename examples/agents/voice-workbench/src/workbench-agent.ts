@@ -7,11 +7,13 @@ import {
 	type ModelTurnResult,
 	modelTools,
 	modelTurn,
+	normalizeModelIssues,
 } from "./agent-loop";
 import {
 	type CapabilityExecutionFact,
 	type CapabilityFederation,
 	type CapabilityOwner,
+	type CapabilityRetryFact,
 	createCapabilityFederation,
 	runCapability,
 } from "./capability-federation";
@@ -77,6 +79,26 @@ const boundedStatus = (value: number | undefined): number | undefined =>
 		? value
 		: undefined;
 
+const boundedRetry = (
+	retry: CapabilityRetryFact | undefined,
+): WorkbenchCapabilityProof["retry"] =>
+	retry
+		? {
+				attempts: Math.min(Math.max(Math.floor(retry.attempts), 1), 4),
+				maxAttempts: Math.min(Math.max(Math.floor(retry.maxAttempts), 1), 4),
+				...(typeof retry.retryAfterMs === "number" &&
+				Number.isFinite(retry.retryAfterMs)
+					? {
+							retryAfterMs: Math.min(
+								Math.max(Math.floor(retry.retryAfterMs), 0),
+								10_000,
+							),
+						}
+					: {}),
+				exhausted: retry.exhausted,
+			}
+		: undefined;
+
 const capabilityProof = (
 	execution: CapabilityExecutionFact,
 ): WorkbenchCapabilityProof | null => {
@@ -97,10 +119,27 @@ const capabilityProof = (
 					...(boundedCount(execution.receipt.sourceCount) === undefined
 						? {}
 						: { sourceCount: boundedCount(execution.receipt.sourceCount) }),
+					...(execution.receipt.cache
+						? {
+								cacheStatus: execution.receipt.cache.status,
+								cacheTtlMs: Math.min(
+									Math.max(Math.floor(execution.receipt.cache.ttlMs), 0),
+									300_000,
+								),
+							}
+						: {}),
+					...(execution.receipt.fallback
+						? { fallbackFrom: boundedText(execution.receipt.fallback.from, 80) }
+						: {}),
 				}
-			: boundedStatus(execution.status) === undefined
-				? {}
-				: { status: boundedStatus(execution.status) }),
+			: {
+					...(boundedStatus(execution.status) === undefined
+						? {}
+						: { status: boundedStatus(execution.status) }),
+					...(boundedRetry(execution.retry)
+						? { retry: boundedRetry(execution.retry) }
+						: {}),
+				}),
 	};
 };
 
@@ -157,6 +196,22 @@ const capabilityFeedback = (
 				...(proof?.sourceCount === undefined
 					? {}
 					: { sourceCount: proof.sourceCount }),
+				...(proof?.cacheStatus && proof.cacheTtlMs !== undefined
+					? {
+							cache: {
+								status: proof.cacheStatus,
+								ttlMs: proof.cacheTtlMs,
+							},
+						}
+					: {}),
+				...(execution.receipt.fallback && proof?.fallbackFrom
+					? {
+							fallback: {
+								from: proof.fallbackFrom,
+								status: boundedStatus(execution.receipt.fallback.status) ?? 500,
+							},
+						}
+					: {}),
 			},
 			view: component.getView().modelContext,
 			events: [],
@@ -170,7 +225,9 @@ const capabilityFeedback = (
 			ownerId: execution.ownerId,
 			status: execution.actorRejected ? "actor-rejected" : "tool-error",
 			reason: execution.reason ?? execution.type,
-			...(execution.issues ? { issues: execution.issues } : {}),
+			...(execution.issues
+				? { issues: normalizeModelIssues(execution.issues) }
+				: {}),
 			view: component.getView().modelContext,
 			events: [],
 		};
@@ -186,8 +243,8 @@ const capabilityFeedback = (
 					: "capability-failure";
 	const reason = boundedText(execution.message, 300);
 	const issues = execution.issues
-		?.slice(0, 8)
-		.map((issue) => boundedText(issue, 160));
+		? normalizeModelIssues(execution.issues)
+		: undefined;
 	const providerStatus = boundedStatus(execution.status);
 	return {
 		id,
@@ -201,6 +258,9 @@ const capabilityFeedback = (
 			type: execution.type,
 			message: reason,
 			...(providerStatus === undefined ? {} : { status: providerStatus }),
+			...(boundedRetry(execution.retry)
+				? { retry: boundedRetry(execution.retry) }
+				: {}),
 		},
 		view: component.getView().modelContext,
 		events: [],
@@ -253,7 +313,7 @@ export async function completeSubmittedPrompt(
 								toolName: call.name,
 								message: "The component command input is invalid.",
 								reason: execution.error.kind,
-								issues: execution.error.issues,
+								issues: normalizeModelIssues(execution.error.issues),
 							};
 						case "Unavailable":
 							return {
@@ -289,7 +349,7 @@ export async function completeSubmittedPrompt(
 								? String(rejectedByActor.reason)
 								: "actor-rejected",
 						...("issues" in rejectedByActor && rejectedByActor.issues
-							? { issues: rejectedByActor.issues }
+							? { issues: normalizeModelIssues(rejectedByActor.issues) }
 							: {}),
 						actorRejected: true,
 					};
@@ -381,6 +441,16 @@ export async function completeSubmittedPrompt(
 								: execution.message,
 						...(execution.type !== "success" && execution.status !== undefined
 							? { status: execution.status }
+							: {}),
+						...(proof?.retry ? { retry: proof.retry } : {}),
+						...(proof?.cacheStatus
+							? {
+									cacheStatus: proof.cacheStatus,
+									cacheTtlMs: proof.cacheTtlMs,
+								}
+							: {}),
+						...(proof?.fallbackFrom
+							? { fallbackFrom: proof.fallbackFrom }
 							: {}),
 					},
 				});

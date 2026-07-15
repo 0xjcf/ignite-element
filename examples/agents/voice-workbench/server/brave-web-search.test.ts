@@ -8,6 +8,22 @@ afterEach(() => {
 });
 
 describe("Brave Web Search server adapter", () => {
+	const successfulResponse = (query = "coffee") =>
+		new Response(
+			JSON.stringify({
+				web: {
+					results: [
+						{
+							title: `${query} listing`,
+							url: `https://example.com/${query}`,
+							description: "Price: $8.99",
+						},
+					],
+				},
+			}),
+			{ status: 200 },
+		);
+
 	it("keeps credentials server-side and returns bounded source facts", async () => {
 		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
 			const query = new URL(String(input)).searchParams.get("q") ?? "item";
@@ -96,6 +112,7 @@ describe("Brave Web Search server adapter", () => {
 				provider: "brave-web-search",
 				queryCount: 2,
 				sourceCount: 2,
+				cache: { status: "miss", ttlMs: 15_000 },
 			},
 		});
 		expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -248,6 +265,7 @@ describe("Brave Web Search server adapter", () => {
 		const fetchMock = vi
 			.fn()
 			.mockResolvedValueOnce(new Response("rate limited", { status: 429 }))
+			.mockResolvedValueOnce(new Response("rate limited", { status: 429 }))
 			.mockResolvedValueOnce(new Response("not json", { status: 200 }));
 
 		await expect(
@@ -358,5 +376,192 @@ describe("Brave Web Search server adapter", () => {
 		});
 		expect(abortedBeforeTimeout).toBe(true);
 		expect(siblingAborted).toBe(true);
+	});
+
+	it("bounds Retry-After delays and exhausts after one retry by default", async () => {
+		const sleep = vi.fn(async () => undefined);
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(
+				new Response("rate limited", {
+					status: 429,
+					headers: { "Retry-After": "30" },
+				}),
+			)
+			.mockResolvedValueOnce(new Response("rate limited", { status: 429 }));
+
+		await expect(
+			runBraveWebSearch(
+				{
+					name: "searchWeb",
+					input: { queries: [{ subject: "Coffee", query: "coffee" }] },
+				},
+				{
+					apiKey: "key",
+					fetch: fetchMock,
+					sleep,
+					maxRetryAfterMs: 1_500,
+				},
+			),
+		).resolves.toMatchObject({
+			type: "provider-failure",
+			status: 429,
+			retry: {
+				attempts: 2,
+				maxAttempts: 2,
+				retryAfterMs: 1_500,
+				exhausted: true,
+			},
+		});
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(sleep).toHaveBeenCalledOnce();
+		expect(sleep).toHaveBeenCalledWith(1_500);
+	});
+
+	it("parses HTTP-date Retry-After and returns the eventual provider success", async () => {
+		const now = Date.parse("2026-07-14T20:00:00.000Z");
+		const sleep = vi.fn(async () => undefined);
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(
+				new Response("busy", {
+					status: 503,
+					headers: {
+						"Retry-After": new Date(now + 1_000).toUTCString(),
+					},
+				}),
+			)
+			.mockResolvedValueOnce(successfulResponse());
+
+		await expect(
+			runBraveWebSearch(
+				{
+					name: "searchWeb",
+					input: { queries: [{ subject: "Coffee", query: "coffee" }] },
+				},
+				{ apiKey: "key", fetch: fetchMock, sleep, now: () => now },
+			),
+		).resolves.toMatchObject({ type: "success" });
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(sleep).toHaveBeenCalledWith(1_000);
+	});
+
+	it("coalesces same-key storms and caches only exact successful requests", async () => {
+		let now = 100;
+		let release: ((response: Response) => void) | undefined;
+		const fetchMock = vi.fn(
+			async () =>
+				new Promise<Response>((resolve) => {
+					release = resolve;
+				}),
+		);
+		const call = {
+			name: "searchWeb",
+			input: { queries: [{ subject: " Coffee ", query: " coffee " }] },
+		};
+		const options = {
+			apiKey: "key",
+			fetch: fetchMock,
+			now: () => now,
+			cacheTtlMs: 1_000,
+		};
+
+		const first = runBraveWebSearch(call, options);
+		const coalesced = runBraveWebSearch(call, options);
+		await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+		release?.(successfulResponse());
+
+		await expect(first).resolves.toMatchObject({
+			type: "success",
+			receipt: { cache: { status: "miss", ttlMs: 1_000 } },
+		});
+		await expect(coalesced).resolves.toMatchObject({
+			type: "success",
+			receipt: { cache: { status: "coalesced", ttlMs: 1_000 } },
+		});
+		await expect(runBraveWebSearch(call, options)).resolves.toMatchObject({
+			type: "success",
+			receipt: { cache: { status: "hit", ttlMs: 1_000 } },
+		});
+		expect(fetchMock).toHaveBeenCalledOnce();
+
+		now += 1_001;
+		fetchMock.mockImplementationOnce(async () => successfulResponse("tea"));
+		await runBraveWebSearch(call, options);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+
+	it("does not cache provider failures for an exact normalized request", async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(new Response("failed", { status: 500 }))
+			.mockResolvedValueOnce(successfulResponse());
+		const call = {
+			name: "searchWeb",
+			input: { queries: [{ subject: "Coffee", query: "coffee" }] },
+		};
+		const options = { apiKey: "key", fetch: fetchMock };
+
+		await expect(runBraveWebSearch(call, options)).resolves.toMatchObject({
+			type: "provider-failure",
+			status: 500,
+		});
+		await expect(runBraveWebSearch(call, options)).resolves.toMatchObject({
+			type: "success",
+			receipt: { cache: { status: "miss" } },
+		});
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+
+	it("uses only an explicitly injected eligible fallback after exhaustion", async () => {
+		const fetchMock = vi.fn(async () => new Response("busy", { status: 503 }));
+		const fallbackRun = vi.fn(async () => ({
+			type: "success" as const,
+			ownerId: "fixture-search",
+			toolName: "searchWeb",
+			data: { searches: [] },
+			receipt: { provider: "fixture-search", queryCount: 1, sourceCount: 0 },
+		}));
+		const call = {
+			name: "searchWeb",
+			input: { queries: [{ subject: "Coffee", query: "coffee" }] },
+		};
+
+		await expect(
+			runBraveWebSearch(call, {
+				apiKey: "key",
+				fetch: fetchMock,
+				sleep: async () => undefined,
+				fallback: {
+					provider: "fixture-search",
+					statuses: [503],
+					run: fallbackRun,
+				},
+			}),
+		).resolves.toMatchObject({
+			type: "success",
+			receipt: {
+				provider: "fixture-search",
+				fallback: { from: "brave-web-search", status: 503 },
+			},
+		});
+		expect(fallbackRun).toHaveBeenCalledOnce();
+
+		const ineligibleFetch = vi.fn(
+			async () => new Response("busy", { status: 503 }),
+		);
+		await expect(
+			runBraveWebSearch(call, {
+				apiKey: "key",
+				fetch: ineligibleFetch,
+				sleep: async () => undefined,
+				fallback: {
+					provider: "fixture-search",
+					statuses: [429],
+					run: fallbackRun,
+				},
+			}),
+		).resolves.toMatchObject({ type: "provider-failure", status: 503 });
+		expect(fallbackRun).toHaveBeenCalledOnce();
 	});
 });
