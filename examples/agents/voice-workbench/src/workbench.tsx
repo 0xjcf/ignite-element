@@ -728,16 +728,18 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 							</section>
 							<div class="responding-overlay" aria-live="polite">
 								<div class="progress-card">
-									<strong>Authoring the semantic artifact</strong>
-									<span>Actor state: responding</span>
+									<strong>Completing the authorized turn</strong>
+									<span>Actor state: {context.turnState}</span>
 									<div class="progress-steps">
 										<div class="progress-step done">Prompt admitted</div>
 										<div class="progress-step done">Current tools derived</div>
-										<div class="progress-step active">
-											Model proposing commands
+										<div
+											class={`progress-step${context.respondingProgress.actorOutcomeRecorded ? " done" : ""}`}
+										>
+											{context.respondingProgress.actorOutcome}
 										</div>
-										<div class="progress-step">
-											Actor validating semantic nodes
+										<div class="progress-step active" aria-current="step">
+											{context.respondingProgress.pendingResult}
 										</div>
 									</div>
 								</div>

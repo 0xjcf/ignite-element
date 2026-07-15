@@ -2362,8 +2362,8 @@ No active tasks.
 
 - Title: Dogfood provider-neutral external capability federation in the generic voice and text workbench
 - Mode: 6-agent
-- Status: review
-- Owner: reviewer
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/dogfood-provider-neutral-external-capability-federation-in-t.md
 - Verification lane: fast
 - Policy sensitivity: standard

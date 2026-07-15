@@ -93,6 +93,16 @@ Follow up the completed LLM-authored voice/text workbench with a provider-neutra
 - Accuracy signal: high: directly reproduced in the live configured workbench
 - Follow-up needed: TDD the generic evidence-to-artifact completion contract; prefer existing semantic node composition and only expand checklist item shape if current schema already supports generic secondary text or architecture review justifies it.
 
+- Type: operator-review-correction
+- Added at: 2026-07-14T22:03:00-04:00
+- Trigger: The live responding modal still displayed a one-pass "Model proposing commands" pipeline after the actor had already accepted artifact revision 1 and the next completion request was pending.
+- Reason: The MLX loop is iterative; the modal must project the latest authoritative actor outcome and the pending model or capability round instead of implying that actor validation has not occurred.
+- Added paths: examples/agents/voice-workbench/src/session.ts, examples/agents/voice-workbench/src/session.headless.test.ts, examples/agents/voice-workbench/src/workbench.tsx, examples/agents/voice-workbench/src/workbench.test.tsx
+- Evidence source: operator live browser acceptance
+- Evidence: operator live browser acceptance | /Users/joseflores/Library/Application Support/CleanShot/media/media_qguyteeJXI/CleanShot 2026-07-14 at 21.58.24@2x.png | The current actor fact was artifact-created revision 1 while the modal still showed model proposal active and actor validation pending.
+- Accuracy signal: high: directly visible in the configured workbench and reproduced by the JSX projection test
+- Follow-up needed: The next right-rail task should expose finer-grained live model, capability, and actor phases without adding imperative view state.
+
 ## Implementation plan
 - Add a pure, collision-safe provider federation core and deterministic fake-provider tests.
 - Add a server-owned Brave Web Search adapter and same-origin Vite capability route without exposing credentials.

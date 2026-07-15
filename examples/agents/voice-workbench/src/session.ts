@@ -191,6 +191,62 @@ const describeFact = (fact: ConversationFact | null): string => {
 	}
 };
 
+const describeRespondingProgress = (
+	fact: ConversationFact | null,
+): {
+	actorOutcome: string;
+	actorOutcomeRecorded: boolean;
+	pendingResult: string;
+} => {
+	if (!fact || fact.type === "prompt-submitted") {
+		return {
+			actorOutcome: "No actor command accepted yet",
+			actorOutcomeRecorded: false,
+			pendingResult: "Awaiting the first model or capability result",
+		};
+	}
+
+	switch (fact.type) {
+		case "artifact-created":
+		case "artifact-revised":
+			return {
+				actorOutcome: `Actor accepted artifact revision ${fact.revision}`,
+				actorOutcomeRecorded: true,
+				pendingResult: "Awaiting the next model or capability result",
+			};
+		case "artifact-restored":
+			return {
+				actorOutcome: `Actor restored artifact as revision ${fact.revision}`,
+				actorOutcomeRecorded: true,
+				pendingResult: "Awaiting the next model or capability result",
+			};
+		case "artifact-rejected":
+			return {
+				actorOutcome: `Actor rejected the previous command: ${fact.reason}`,
+				actorOutcomeRecorded: true,
+				pendingResult: "Awaiting a repaired model command",
+			};
+		case "artifact-selected":
+			return {
+				actorOutcome: `Actor selected artifact ${fact.artifactId}`,
+				actorOutcomeRecorded: true,
+				pendingResult: "Awaiting the next model or capability result",
+			};
+		case "speech-acknowledged":
+			return {
+				actorOutcome: "Actor acknowledged projected speech",
+				actorOutcomeRecorded: true,
+				pendingResult: "Awaiting the next model or capability result",
+			};
+		case "response-completed":
+			return {
+				actorOutcome: "Actor completed the response",
+				actorOutcomeRecorded: true,
+				pendingResult: "Completing the authorized turn",
+			};
+	}
+};
+
 const voiceState = (
 	fact: VoiceCaptureFact,
 ): "idle" | "listening" | "transcript" | "permission" | "unsupported" => {
@@ -531,6 +587,9 @@ export const component = igniteCore({
 			(message) => message.role === "user",
 		).length;
 		const presentation = snapshot.context.presentation;
+		const respondingProgress = describeRespondingProgress(
+			snapshot.context.lastFact,
+		);
 		const voice = presentation.voice;
 		const transcript = voice.type === "voice-transcript" ? voice.text : null;
 		const transcriptReady = voice.type === "voice-transcript" && voice.final;
@@ -587,6 +646,7 @@ export const component = igniteCore({
 			voiceFailure,
 			turnMessage: describeTurn(presentation.turn),
 			lastFactLabel: describeFact(snapshot.context.lastFact),
+			respondingProgress,
 			modelPreparing,
 			modelFailed,
 			promptPlaceholder: modelPreparing

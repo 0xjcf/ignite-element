@@ -81,6 +81,12 @@ describe("voice workbench accessible JSX", () => {
 			new Event("submit", { bubbles: true, cancelable: true }),
 		);
 		expect(component.getView().status).toBe("responding");
+		expect(
+			bridge.host.shadowRoot?.querySelector(".progress-card")?.textContent,
+		).toContain("Awaiting the first model or capability result");
+		expect(
+			bridge.host.shadowRoot?.querySelector(".progress-card")?.textContent,
+		).toContain("No actor command accepted yet");
 		expect(bridge.host.shadowRoot?.textContent).toContain("1 turn");
 		expect(bridge.host.shadowRoot?.textContent).not.toContain("1 turns");
 		await component.execute({
@@ -181,6 +187,18 @@ describe("voice workbench accessible JSX", () => {
 				],
 			},
 		});
+		expect(
+			bridge.host.shadowRoot?.querySelector(".progress-card")?.textContent,
+		).toContain("Actor accepted artifact revision 1");
+		expect(
+			bridge.host.shadowRoot?.querySelector(".progress-card")?.textContent,
+		).toContain("Awaiting the next model or capability result");
+		expect(
+			bridge.host.shadowRoot?.querySelector(".progress-card")?.textContent,
+		).not.toContain("Model proposing commands");
+		expect(
+			bridge.host.shadowRoot?.querySelector(".progress-card")?.textContent,
+		).not.toContain("Actor validating semantic nodes");
 
 		expect(bridge.host.shadowRoot?.textContent).toContain("Text prompt");
 		expect(bridge.host.shadowRoot?.textContent).toContain("Show the decision");

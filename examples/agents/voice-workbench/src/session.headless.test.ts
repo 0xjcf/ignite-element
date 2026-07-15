@@ -272,6 +272,11 @@ describe("voice workbench headless component", () => {
 				turnCount: 1,
 				turnLabel: "1 turn",
 				turnState: "responding",
+				respondingProgress: {
+					actorOutcome: "No actor command accepted yet",
+					actorOutcomeRecorded: false,
+					pendingResult: "Awaiting the first model or capability result",
+				},
 			});
 		expect(component.getSnapshot().matches({ turn: "responding" })).toBe(true);
 		expect(component.canExecute("completeResponse")).toBe(false);
@@ -294,6 +299,11 @@ describe("voice workbench headless component", () => {
 				revision: "1",
 			})
 			.expectView({
+				respondingProgress: {
+					actorOutcome: "Actor accepted artifact revision 1",
+					actorOutcomeRecorded: true,
+					pendingResult: "Awaiting the next model or capability result",
+				},
 				artifacts: [
 					{
 						id: "decision",
