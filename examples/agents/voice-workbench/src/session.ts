@@ -807,15 +807,18 @@ export const component = igniteCore({
 		}
 		const capabilityRows =
 			presentation.capabilityOutcomes.length === 0
-				? ([
+				? [
 						{
-							kind: "empty" as const,
-							message: "No external capability facts yet",
+							key: "empty-capability-row",
+							className: "capability-outcome capability-outcome-empty",
+							heading: "No external capability facts yet",
+							statusLabel: "waiting",
+							message: "Capability adapter outcomes appear after execution.",
 						},
-					] as const)
+					]
 				: presentation.capabilityOutcomes.map((outcome, index) => ({
-						kind: "outcome" as const,
 						key: `${outcome.ownerId}-${outcome.toolName}-${index}`,
+						className: "capability-outcome",
 						heading: `${outcome.ownerId} · ${outcome.toolName}`,
 						statusLabel: `${outcome.type}${outcome.status ? ` · HTTP ${outcome.status}` : ""}${outcome.cacheStatus ? ` · cache ${outcome.cacheStatus}` : ""}`,
 						message: [
@@ -832,22 +835,30 @@ export const component = igniteCore({
 					}));
 		const manifestRows =
 			presentation.runtimeManifest.length === 0
-				? ([
+				? [
 						{
-							kind: "empty" as const,
-							message: "Awaiting the next model request.",
+							key: "empty-manifest-row",
+							name: "Awaiting the next model request",
+							dataCommandName: "pending-model-request",
+							summaryLabel: "no live commands captured",
+							descriptions: [
+								"The exact availability-scoped manifest appears at the next model boundary.",
+							],
+							schemaText: "input · unavailable until request",
 						},
-					] as const)
+					]
 				: presentation.runtimeManifest.map((tool) => ({
-						kind: "command" as const,
+						key: tool.name,
 						name: tool.name,
-						ownerLabel: tool.ownerId,
-						availabilityLabel: `live · ${tool.gated ? "gated" : "available"}`,
+						dataCommandName: tool.name,
+						summaryLabel: `${tool.ownerId} · live · ${tool.gated ? "gated" : "available"}`,
 						descriptions: tool.description ? [tool.description] : [],
 						schemaText: formatSchema(tool.inputSchema),
 					}));
 		const blueprintRows = Object.entries(componentBlueprintCommands).map(
 			([name, commandSchema]) => ({
+				key: name,
+				className: "command",
 				name,
 				descriptions:
 					typeof commandSchema.description === "string"
@@ -996,6 +1007,7 @@ export const component = igniteCore({
 				receipts: [
 					{
 						id: "browser" as const,
+						className: "commit commit-browser",
 						icon: "▤",
 						title: "Browser · native JSX",
 						detail: presentation.documentCommit
@@ -1005,6 +1017,7 @@ export const component = igniteCore({
 					},
 					{
 						id: "terminal" as const,
+						className: "commit commit-terminal",
 						icon: ">_",
 						title: "Terminal · Node",
 						detail: "preview only · no remote terminal sync",
@@ -1012,6 +1025,7 @@ export const component = igniteCore({
 					},
 					{
 						id: "speech" as const,
+						className: "commit commit-speech",
 						icon: "◖",
 						title: "Speech · audio",
 						detail:

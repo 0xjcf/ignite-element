@@ -200,8 +200,8 @@ describe("voice workbench headless component", () => {
 				},
 				capabilityRows: [
 					{
-						kind: "empty",
-						message: "No external capability facts yet",
+						heading: "No external capability facts yet",
+						statusLabel: "waiting",
 					},
 				],
 				trace: {
@@ -232,7 +232,10 @@ describe("voice workbench headless component", () => {
 						heading: "Availability-scoped model manifest",
 						countLabel: "0 live commands",
 						rows: [
-							{ kind: "empty", message: "Awaiting the next model request." },
+							{
+								name: "Awaiting the next model request",
+								summaryLabel: "no live commands captured",
+							},
 						],
 					},
 					blueprint: {
@@ -291,10 +294,8 @@ describe("voice workbench headless component", () => {
 					countLabel: "1 live command",
 					rows: [
 						{
-							kind: "command",
 							name: "createArtifact",
-							ownerLabel: "workbench-component",
-							availabilityLabel: "live · gated",
+							summaryLabel: "workbench-component · live · gated",
 						},
 					],
 				},
@@ -305,11 +306,7 @@ describe("voice workbench headless component", () => {
 		);
 		const firstCapabilityRow =
 			component.getView().runtimeInspector.capabilityRows[0];
-		expect(
-			firstCapabilityRow?.kind === "outcome"
-				? firstCapabilityRow.heading
-				: null,
-		).toBe("web-search · search-2");
+		expect(firstCapabilityRow?.heading).toBe("web-search · search-2");
 		await component.execute({
 			command: "reportModelFailure",
 			input: {

@@ -3,8 +3,19 @@ import { test as igniteTest } from "ignite-element/testing";
 import { describe, expect, it } from "vitest";
 import { component, source } from "./session";
 import { renderWorkbench } from "./workbench";
+import workbenchSource from "./workbench.tsx?raw";
 
 describe("voice workbench accessible JSX", () => {
+	it("maps view-ready inspector rows without presentation derivation in JSX", () => {
+		const runtimeRail = workbenchSource.slice(
+			workbenchSource.indexOf("<aside\n\t\t\t\t\t\tclass={`panel runtime"),
+		);
+
+		expect(runtimeRail).not.toContain('row.kind === "empty"');
+		expect(runtimeRail).not.toMatch(/row\.ownerLabel/);
+		expect(runtimeRail).not.toMatch(/commit-\$\{receipt\.id\}/);
+	});
+
 	it("renders the approved empty-to-artifact workflow from the component view", async () => {
 		const bridge = igniteTest.accessibilityBridge(component, renderWorkbench, {
 			elementName: "voice-workbench-accessibility",
@@ -94,7 +105,7 @@ describe("voice workbench accessible JSX", () => {
 			},
 			capabilityRows: [
 				{
-					kind: "outcome",
+					className: "capability-outcome",
 					heading: "web-search · searchWeb",
 					statusLabel: "timeout · HTTP 429",
 					message: "Retry budget exhausted.",
@@ -105,10 +116,8 @@ describe("voice workbench accessible JSX", () => {
 					countLabel: "1 live command",
 					rows: [
 						{
-							kind: "command",
 							name: "searchWeb",
-							ownerLabel: "web-search",
-							availabilityLabel: "live · available",
+							summaryLabel: "web-search · live · available",
 							schemaText: expect.stringContaining("queries · array · required"),
 						},
 					],

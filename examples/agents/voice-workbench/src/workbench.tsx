@@ -775,17 +775,13 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 									</div>
 									<div class="capability-outcomes">
 										<strong>Capability outcomes</strong>
-										{context.runtimeInspector.capabilityRows.map((row) =>
-											row.kind === "empty" ? (
-												<span key="empty-capability-row">{row.message}</span>
-											) : (
-												<output key={row.key} class="capability-outcome">
-													<strong>{row.heading}</strong>
-													<span>{row.statusLabel}</span>
-													<small>{row.message}</small>
-												</output>
-											),
-										)}
+										{context.runtimeInspector.capabilityRows.map((row) => (
+											<output key={row.key} class={row.className}>
+												<strong>{row.heading}</strong>
+												<span>{row.statusLabel}</span>
+												<small>{row.message}</small>
+											</output>
+										))}
 									</div>
 								</div>
 							</section>
@@ -834,7 +830,7 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 								</div>
 								<div class="commit-list">
 									{context.runtimeInspector.receipts.map((receipt) => (
-										<div key={receipt.id} class={`commit commit-${receipt.id}`}>
+										<div key={receipt.id} class={receipt.className}>
 											<span class="commit-icon">{receipt.icon}</span>
 											<span class="commit-copy">
 												<strong>{receipt.title}</strong>
@@ -867,25 +863,22 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 											</span>
 										</header>
 										{context.runtimeInspector.schemaExplorer.manifest.rows.map(
-											(row) =>
-												row.kind === "empty" ? (
-													<p key="empty-manifest-row">{row.message}</p>
-												) : (
-													<details
-														key={row.name}
-														data-command-name={row.name}
-														open
-													>
-														<summary>
-															<strong>{row.name}</strong>
-															<span>{`${row.ownerLabel} · ${row.availabilityLabel}`}</span>
-														</summary>
-														{row.descriptions.map((description) => (
-															<p key={description}>{description}</p>
-														))}
-														<pre>{row.schemaText}</pre>
-													</details>
-												),
+											(row) => (
+												<details
+													key={row.key}
+													data-command-name={row.dataCommandName}
+													open
+												>
+													<summary>
+														<strong>{row.name}</strong>
+														<span>{row.summaryLabel}</span>
+													</summary>
+													{row.descriptions.map((description) => (
+														<p key={description}>{description}</p>
+													))}
+													<pre>{row.schemaText}</pre>
+												</details>
+											),
 										)}
 									</section>
 									<section class="schema-section blueprint">
@@ -906,7 +899,7 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 										<div class="command-list">
 											{context.runtimeInspector.schemaExplorer.blueprint.rows.map(
 												(row) => (
-													<details key={row.name} class="command">
+													<details key={row.key} class={row.className}>
 														<summary>{row.name}</summary>
 														{row.descriptions.map((description) => (
 															<p key={description}>{description}</p>
