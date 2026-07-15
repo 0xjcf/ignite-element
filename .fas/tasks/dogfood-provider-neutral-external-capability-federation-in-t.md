@@ -51,6 +51,11 @@ Follow up the completed LLM-authored voice/text workbench with a provider-neutra
 - examples/agents/voice-workbench/vite.config.ts
 - .fas/memory/integrations.md
 - examples/agents/voice-workbench/.env.example
+- .fas/memory/architecture.md
+- .fas/memory/decisions.md
+- .fas/memory/incidents.md
+- .fas/memory/patterns.md
+- .fas/memory/pr-feedback.md
 
 ## Scope Amendments
 - Type: execution-scope-refinement
@@ -102,6 +107,16 @@ Follow up the completed LLM-authored voice/text workbench with a provider-neutra
 - Evidence: operator live browser acceptance | /Users/joseflores/Library/Application Support/CleanShot/media/media_qguyteeJXI/CleanShot 2026-07-14 at 21.58.24@2x.png | The current actor fact was artifact-created revision 1 while the modal still showed model proposal active and actor validation pending.
 - Accuracy signal: high: directly visible in the configured workbench and reproduced by the JSX projection test
 - Follow-up needed: The next right-rail task should expose finer-grained live model, capability, and actor phases without adding imperative view state.
+
+- Type: generated-context-projection-alignment
+- Added at: 2026-07-14T22:08:00-04:00
+- Trigger: FAS closeout classified five ignored project memory projections as task-reference changes after implementation scope was already fully aligned.
+- Reason: Treat the ignored FAS memory projections as explicit reference context for closeout provenance; they are not product source changes and must not be committed.
+- Added paths: .fas/memory/architecture.md, .fas/memory/decisions.md, .fas/memory/incidents.md, .fas/memory/patterns.md, .fas/memory/pr-feedback.md
+- Evidence source: fas validate-task closeout readiness
+- Evidence: fas validate-task closeout readiness | .fas/state/closeout-readiness/latest.json | Implementation scope remained 23 planned and 23 implemented with zero unexpected or missing files; only ignored .fas/memory references held closeout.
+- Accuracy signal: high: confirmed by git status --ignored and closeout planAlignmentSummary
+- Follow-up needed: FAS should classify ignored memory projections as generated context without requiring explicit product scope.
 
 ## Implementation plan
 - Add a pure, collision-safe provider federation core and deterministic fake-provider tests.
