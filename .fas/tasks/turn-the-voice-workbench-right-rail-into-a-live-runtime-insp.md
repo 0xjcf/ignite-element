@@ -53,9 +53,19 @@ Replace the static proof rail with an interactive runtime inspector. Keep active
 - examples/agents/voice-workbench/src/main.tsx
 - examples/agents/voice-workbench/src/main.test.tsx
 - examples/agents/voice-workbench/README.md
+- examples/agents/voice-workbench/src/workbench-agent.ts
+- examples/agents/voice-workbench/src/workbench-agent.test.ts
 
 ## Scope Amendments
-- None.
+- Type: staff-engineer contract discovery
+- Added at: 2026-07-15
+- Trigger: The exact availability-scoped owner-enriched manifest is assembled per model round in workbench-agent.ts, which was omitted from generated scope.
+- Reason: The live inspector must consume the same manifest sent to the model instead of reconstructing static command availability elsewhere.
+- Added paths: examples/agents/voice-workbench/src/workbench-agent.ts, examples/agents/voice-workbench/src/workbench-agent.test.ts
+- Evidence source: fas_staff_engineer architecture-to-implementation handoff
+- Evidence: fas_staff_engineer architecture-to-implementation handoff | examples/agents/voice-workbench/src/workbench-agent.ts | Add the existing focused test surface so per-round manifest capture is covered before implementation.
+- Accuracy signal: Current code inspection confirms federation.manifest is constructed with component and external owners at the actual model boundary.
+- Follow-up needed: Keep package and Vite files reference-only; amend again before any expansion.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
