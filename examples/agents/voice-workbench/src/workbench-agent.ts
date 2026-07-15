@@ -334,6 +334,13 @@ export async function completeSubmittedPrompt(
 			break;
 		}
 		const routing: CapabilityFederation = federation;
+		await component.execute({
+			command: "recordRuntimeManifest",
+			input: federation.manifest.map((tool) => ({
+				...tool,
+				ownerId: federation.ownerByTool.get(tool.name)?.id ?? "federation",
+			})),
+		});
 		const response: ModelResult = await requestMlxWorkbenchModel(
 			configuration,
 			{
@@ -361,6 +368,23 @@ export async function completeSubmittedPrompt(
 			});
 			const proof = capabilityProof(execution);
 			if (proof) currentCapability = proof;
+			if (execution.ownerId !== "workbench-component") {
+				await component.execute({
+					command: "recordCapabilityOutcome",
+					input: {
+						type: execution.type,
+						ownerId: execution.ownerId,
+						toolName: execution.toolName,
+						message:
+							execution.type === "success"
+								? `${execution.receipt.provider} completed the capability.`
+								: execution.message,
+						...(execution.type !== "success" && execution.status !== undefined
+							? { status: execution.status }
+							: {}),
+					},
+				});
+			}
 			step = protocol.next(
 				capabilityFeedback(execution, call.id ?? `model-round-${round}`),
 			);

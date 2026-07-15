@@ -46,6 +46,8 @@ describe("voice workbench headless component", () => {
 			"createArtifact",
 			"playSpeech",
 			"presentVoice",
+			"recordCapabilityOutcome",
+			"recordRuntimeManifest",
 			"recordTurn",
 			"replay",
 			"reportModelAvailable",
@@ -53,6 +55,7 @@ describe("voice workbench headless component", () => {
 			"restoreArtifactRevision",
 			"reviseArtifact",
 			"selectArtifact",
+			"selectRuntimePreview",
 			"setChecklistItem",
 			"startVoiceCapture",
 			"submitPrompt",
@@ -159,11 +162,22 @@ describe("voice workbench headless component", () => {
 			speech: null,
 			presentation: {
 				artifactView: "document",
+				runtimePreview: "browser",
+				runtimeManifest: [],
+				capabilityOutcomes: [],
 				draft: "",
 				mobilePanel: "conversation",
 				speakResponses: true,
 				turn: null,
 				voice: { type: "voice-idle" },
+			},
+			runtimeInspector: {
+				activeStates: { provider: "preparing", turn: "ready" },
+				mlx: { status: "preparing", ready: false },
+				actor: { lastFact: null, revision: 0 },
+				selectedPreview: "browser",
+				modelManifest: [],
+				capabilityOutcomes: [],
 			},
 		});
 		expect(component.getView()).not.toHaveProperty("documents");
@@ -176,6 +190,51 @@ describe("voice workbench headless component", () => {
 			}),
 		).resolves.toMatchObject({ events: [] });
 		expect(component.getSnapshot().context.messages).toEqual([]);
+		await component.execute({
+			command: "recordRuntimeManifest",
+			input: [
+				{
+					name: "createArtifact",
+					description: "Create an artifact",
+					inputSchema: { type: "object", properties: {} },
+					gated: true,
+					ownerId: "workbench-component",
+				},
+			],
+		});
+		await component.execute({
+			command: "selectRuntimePreview",
+			input: "terminal",
+		});
+		for (let index = 0; index < 14; index += 1) {
+			await component.execute({
+				command: "recordCapabilityOutcome",
+				input: {
+					type: "success",
+					ownerId: "web-search",
+					toolName: `search-${index}`,
+					message: `Search ${index} completed`,
+				},
+			});
+		}
+		expect(component.getView().runtimeInspector).toMatchObject({
+			activeStates: { provider: "preparing", turn: "ready" },
+			mlx: { status: "preparing", ready: false },
+			selectedPreview: "terminal",
+			modelManifest: [
+				{
+					name: "createArtifact",
+					ownerId: "workbench-component",
+					gated: true,
+				},
+			],
+		});
+		expect(
+			component.getView().runtimeInspector.capabilityOutcomes,
+		).toHaveLength(12);
+		expect(
+			component.getView().runtimeInspector.capabilityOutcomes[0]?.toolName,
+		).toBe("search-2");
 		await component.execute({
 			command: "reportModelFailure",
 			input: {
@@ -208,6 +267,10 @@ describe("voice workbench headless component", () => {
 			statusLabel: "Ready",
 			canSubmitPrompt: true,
 			model: { status: "available", failure: null },
+			runtimeInspector: {
+				activeStates: { provider: "available", turn: "ready" },
+				mlx: { status: "available", ready: true },
+			},
 		});
 		expect(component.canExecute("submitPrompt")).toBe(true);
 		source.send({

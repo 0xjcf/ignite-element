@@ -1,3 +1,4 @@
+import type { NeutralTool } from "ignite-element/tools";
 import { igniteCore } from "ignite-element/xstate";
 import { and, assign, createActor, setup, stateIn } from "xstate";
 import type { ModelFailureFact } from "./agent-loop";
@@ -20,6 +21,19 @@ import type { VoiceCaptureFact } from "./voice";
 
 export type WorkbenchArtifactView = "document" | "schema";
 export type WorkbenchPanel = "conversation" | "artifact" | "runtime";
+export type WorkbenchRuntimePreview =
+	| "browser"
+	| "terminal"
+	| "speech"
+	| "headless";
+export type WorkbenchRuntimeManifestEntry = NeutralTool & { ownerId: string };
+export type WorkbenchCapabilityOutcome = {
+	type: WorkbenchCapabilityProof["outcome"];
+	ownerId: string;
+	toolName: string;
+	message: string;
+	status?: number;
+};
 export type WorkbenchTurnTrace = readonly {
 	command: string;
 	accepted: boolean;
@@ -79,6 +93,9 @@ export type WorkbenchPresentation = {
 	draft: string;
 	mobilePanel: WorkbenchPanel;
 	replaySequence: number;
+	runtimeManifest: readonly WorkbenchRuntimeManifestEntry[];
+	runtimePreview: WorkbenchRuntimePreview;
+	capabilityOutcomes: readonly WorkbenchCapabilityOutcome[];
 	speakResponses: boolean;
 	speechCommit: {
 		id: string;
@@ -116,7 +133,19 @@ export type WorkbenchPresentationEvent =
 			type: "PRESENTATION_SPEECH_REPLAY_REQUESTED";
 			request: NonNullable<WorkbenchPresentation["speechReplayRequest"]>;
 	  }
-	| { type: "PRESENTATION_REPLAYED" };
+	| { type: "PRESENTATION_REPLAYED" }
+	| {
+			type: "PRESENTATION_RUNTIME_MANIFEST_RECORDED";
+			manifest: readonly WorkbenchRuntimeManifestEntry[];
+	  }
+	| {
+			type: "PRESENTATION_RUNTIME_PREVIEW_SELECTED";
+			preview: WorkbenchRuntimePreview;
+	  }
+	| {
+			type: "PRESENTATION_CAPABILITY_OUTCOME_RECORDED";
+			outcome: WorkbenchCapabilityOutcome;
+	  };
 
 type WorkbenchVoiceCaptureEvent = {
 	type: "PRESENTATION_VOICE_CAPTURE_REQUESTED";
@@ -144,6 +173,9 @@ const createInitialPresentation = (): WorkbenchPresentation => ({
 	draft: "",
 	mobilePanel: "conversation",
 	replaySequence: 0,
+	runtimeManifest: [],
+	runtimePreview: "browser",
+	capabilityOutcomes: [],
 	speakResponses: true,
 	speechCommit: null,
 	speechReplayRequest: null,
@@ -387,6 +419,26 @@ const machine = setup({
 				}),
 			),
 		},
+		PRESENTATION_RUNTIME_MANIFEST_RECORDED: {
+			actions: assign(({ context, event }) =>
+				updatePresentation(context, { runtimeManifest: event.manifest }),
+			),
+		},
+		PRESENTATION_RUNTIME_PREVIEW_SELECTED: {
+			actions: assign(({ context, event }) =>
+				updatePresentation(context, { runtimePreview: event.preview }),
+			),
+		},
+		PRESENTATION_CAPABILITY_OUTCOME_RECORDED: {
+			actions: assign(({ context, event }) =>
+				updatePresentation(context, {
+					capabilityOutcomes: [
+						...context.presentation.capabilityOutcomes,
+						event.outcome,
+					].slice(-12),
+				}),
+			),
+		},
 		PRESENTATION_VOICE_CAPTURE_REQUESTED: {
 			actions: assign(({ context, event }) =>
 				updatePresentation(context, {
@@ -611,6 +663,12 @@ export const component = igniteCore({
 			null,
 			2,
 		);
+		const providerState = modelPreparing
+			? "preparing"
+			: modelFailed
+				? "failed"
+				: "available";
+		const turnState = responding ? "responding" : "ready";
 		return {
 			sessionId: snapshot.context.sessionId,
 			modelContext: {
@@ -654,7 +712,7 @@ export const component = igniteCore({
 				: modelFailed
 					? "Retry the local model before sending a prompt…"
 					: "Ask the agent to create or revise an artifact…",
-			turnState: responding ? "responding" : "ready",
+			turnState,
 			model: {
 				status: modelPreparing
 					? "preparing"
@@ -673,6 +731,17 @@ export const component = igniteCore({
 			response: snapshot.context.response,
 			canRevise: responding && snapshot.context.documents.length > 0,
 			presentation: snapshot.context.presentation,
+			runtimeInspector: {
+				activeStates: { provider: providerState, turn: turnState },
+				mlx: { status: providerState, ready: modelAvailable },
+				actor: {
+					lastFact: snapshot.context.lastFact,
+					revision: snapshot.context.revision,
+				},
+				selectedPreview: presentation.runtimePreview,
+				modelManifest: presentation.runtimeManifest,
+				capabilityOutcomes: presentation.capabilityOutcomes,
+			},
 		};
 	},
 	commands: ({ actor, command }) => {
@@ -903,6 +972,18 @@ export const component = igniteCore({
 					},
 				});
 			},
+			recordCapabilityOutcome: (outcome: WorkbenchCapabilityOutcome) =>
+				actor.send({
+					type: "PRESENTATION_CAPABILITY_OUTCOME_RECORDED",
+					outcome,
+				}),
+			recordRuntimeManifest: (
+				manifest: readonly WorkbenchRuntimeManifestEntry[],
+			) =>
+				actor.send({
+					type: "PRESENTATION_RUNTIME_MANIFEST_RECORDED",
+					manifest,
+				}),
 			recordTurn: (fact: WorkbenchTurnFact) => {
 				actor.send({ type: "PRESENTATION_TURN_RECORDED", fact });
 				if (!actor.getSnapshot().matches({ turn: "responding" })) return;
@@ -920,6 +1001,11 @@ export const component = igniteCore({
 			reportModelAvailable: () => actor.send({ type: "MODEL_AVAILABLE" }),
 			reportModelFailure: (failure: ModelFailureFact) =>
 				actor.send({ type: "MODEL_FAILED", failure }),
+			selectRuntimePreview: (preview: WorkbenchRuntimePreview) =>
+				actor.send({
+					type: "PRESENTATION_RUNTIME_PREVIEW_SELECTED",
+					preview,
+				}),
 			reviseArtifact: command(
 				(input: ReviseArtifactInput) =>
 					actor.send({ type: "REVISE_ARTIFACT", input }),

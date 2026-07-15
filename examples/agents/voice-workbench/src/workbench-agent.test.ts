@@ -68,6 +68,12 @@ describe("shared voice workbench agent", () => {
 		});
 		expect(requestModel).toHaveBeenCalledTimes(2);
 		expect(requestModel.mock.calls[0]?.[1]).not.toHaveProperty("component");
+		expect(component.getView().runtimeInspector.modelManifest).toEqual(
+			requestModel.mock.calls[1]?.[1].tools.map((tool) => ({
+				...tool,
+				ownerId: "workbench-component",
+			})),
+		);
 	});
 
 	it("observes an external fact before authoring a generic sourced budget artifact", async () => {
