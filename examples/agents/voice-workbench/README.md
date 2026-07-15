@@ -65,8 +65,19 @@ The same-origin route rejects request bodies larger than 16 KiB before buffering
 additional chunks. Search titles, URLs, descriptions, per-query results, and the
 total source set are bounded before evidence enters model context. The latest
 sanitized provider receipt or manifest collision is retained in presentation
-state and shown in the **Authorized turn trace** panel; raw responses and server
+state and shown in the live runtime inspector; raw responses and server
 credentials are never retained there.
+
+Rate limiting stays inside the server adapter. Brave `429` and `503` responses
+receive at most one retry after the initial request by default. Numeric and
+HTTP-date `Retry-After` guidance is honored within a bounded delay, and the final
+failure returns attempt counts, provider status, and exhaustion as structured
+facts instead of throwing. Concurrent identical normalized requests share one
+in-flight execution, while only successful exact requests enter the bounded
+15-second cache. Cache hits, misses, coalesced calls, and TTL remain visible in
+the sanitized receipt. An alternate provider runs only when explicitly injected
+and configured for the exhausted status; the adapter never invents fallback
+evidence.
 
 This keeps the workbench generic. Shopping research is the golden-path scenario,
 not a shopping-specific actor or renderer: the model can search for source facts,
@@ -126,6 +137,32 @@ Each process imports that component contract directly. The terminal
 intentionally owns an independent actor instance; sharing one live actor
 between browser and terminal would require an explicit transport such as
 Actor-Web, which this example does not hide behind a wrapper.
+
+## Reading the live runtime inspector
+
+The browser right rail is a projection of the current Ignite view, not a static
+architecture diagram. Its top card keeps three kinds of evidence separate:
+
+- **MLX readiness** comes from the provider branch of the current parallel actor
+  state.
+- **Actor state and facts** come from `snapshot.matches(...)` and the accepted
+  conversation facts.
+- **Capability outcomes** are bounded adapter facts, including HTTP, retry,
+  cache, and configured-fallback provenance when present.
+
+The Browser, Terminal, Speech, and Headless selectors format the same current
+actor projection. They are previews, while document and speech receipts report
+effects that actually committed. In particular, the Terminal card explicitly
+says it does not represent remote terminal synchronization; the CLI owns an
+independent actor unless an explicit transport is added.
+
+The schema explorer has two deliberately separate sections. **Current model
+manifest** is the exact owner-enriched, availability-scoped manifest captured at
+the model request boundary for the latest round. **All component commands** is
+the private `getSchema()` blueprint used for explanation. Expanding a command
+shows its description, owner, live availability, gated state, nested input
+schema, required fields, and constraints. The explorer does not introduce a
+public inspection API or allow the model to authorize its own commands.
 
 Provider lifecycle is part of the same behavior contract. The workbench mounts
 while MLX is preparing, but `submitPrompt` remains unavailable at both the

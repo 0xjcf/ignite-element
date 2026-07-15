@@ -315,6 +315,22 @@ describe("voice workbench browser entry", () => {
 				nodes: [{ kind: "checklist" }],
 			},
 		]);
+		expect(
+			host.shadowRoot.querySelector(
+				'details[data-command-name="completeResponse"]',
+			)?.textContent,
+		).toContain("workbench-component · live · gated");
+		const terminalPreview = host.shadowRoot.querySelector(
+			'button[aria-label="Terminal preview"]',
+		);
+		if (!(terminalPreview instanceof HTMLButtonElement)) {
+			throw new Error("terminal runtime preview is unavailable");
+		}
+		terminalPreview.click();
+		expect(terminalPreview.getAttribute("aria-pressed")).toBe("true");
+		expect(
+			host.shadowRoot.querySelector(".projection-preview")?.textContent,
+		).toContain("Preview only · no remote terminal sync");
 		const [, auditInit] = fetchMock.mock.calls[2] ?? [];
 		const auditRequest = JSON.parse(String(auditInit?.body));
 		expect(
