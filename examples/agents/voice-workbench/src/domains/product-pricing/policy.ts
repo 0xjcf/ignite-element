@@ -36,15 +36,14 @@ export type ProductPricingDecision = DomainPolicyDecision & {
 		items: readonly ProductPricingRequestItem[];
 	};
 	issues: readonly string[];
-	searchQueries: readonly { subject: string; query: string }[];
 };
 
 const REPRESENTATIVE_DEFAULTS: Readonly<
 	Record<string, Omit<ProductPricingSelectedItem, "subject">>
 > = {
-	bread: { product: "standard sandwich bread", size: "20 oz loaf" },
-	egg: { product: "large Grade A eggs", size: "12 count" },
-	milk: { product: "whole milk", size: "1 gallon" },
+	bread: { product: "365 Organic Sourdough Bread", size: "24 oz loaf" },
+	egg: { product: "365 Large White Grade A Eggs", size: "12 count" },
+	milk: { product: "365 Whole Milk", size: "1 gallon" },
 };
 
 const EVIDENCE_REQUIREMENTS: readonly DomainEvidenceRequirement[] = [
@@ -162,14 +161,6 @@ export const evaluateProductPricingPolicy = (
 			: questions.length > 0
 				? "needs-input"
 				: "admitted";
-	const searchQueries =
-		outcome === "admitted" && retailer && location
-			? requestItems.map((item) => ({
-					subject: item.subject,
-					query: `${retailer} ${location} ${item.product} ${item.size} price`,
-				}))
-			: [];
-
 	return {
 		type: "domain-policy-decision",
 		domainId: "product-pricing",
@@ -188,6 +179,5 @@ export const evaluateProductPricingPolicy = (
 		evidenceRequirements: EVIDENCE_REQUIREMENTS,
 		request: { retailer, location, items: requestItems },
 		issues,
-		searchQueries,
 	};
 };

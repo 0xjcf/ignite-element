@@ -345,7 +345,9 @@ const readFallbackAttempt = (
 	};
 };
 
-const readCapabilityFact = (value: unknown): CapabilityExecutionFact | null => {
+export const readSourcedSearchCapabilityFact = (
+	value: unknown,
+): CapabilityExecutionFact | null => {
 	if (!isRecord(value) || typeof value.type !== "string") return null;
 	const ownerId =
 		typeof value.ownerId === "string" ? value.ownerId : "web-search";
@@ -363,6 +365,18 @@ const readCapabilityFact = (value: unknown): CapabilityExecutionFact | null => {
 			return null;
 		}
 		const fallback = readFallbackAttempt(value.receipt.fallback);
+		const queryCount =
+			typeof value.receipt.queryCount === "number" &&
+			Number.isInteger(value.receipt.queryCount) &&
+			value.receipt.queryCount >= 0
+				? Math.min(value.receipt.queryCount, WEB_SEARCH_LIMITS.queryCount)
+				: searches.length;
+		const sourceCount =
+			typeof value.receipt.sourceCount === "number" &&
+			Number.isInteger(value.receipt.sourceCount) &&
+			value.receipt.sourceCount >= 0
+				? Math.min(value.receipt.sourceCount, WEB_SEARCH_LIMITS.totalSources)
+				: searches.reduce((total, search) => total + search.results.length, 0);
 		return {
 			type: "success",
 			ownerId,
@@ -373,11 +387,8 @@ const readCapabilityFact = (value: unknown): CapabilityExecutionFact | null => {
 					value.receipt.provider,
 					WEB_SEARCH_LIMITS.providerLength,
 				),
-				queryCount: searches.length,
-				sourceCount: searches.reduce(
-					(total, search) => total + search.results.length,
-					0,
-				),
+				queryCount,
+				sourceCount,
 				...(isRecord(value.receipt.cache) &&
 				(value.receipt.cache.status === "miss" ||
 					value.receipt.cache.status === "hit" ||
@@ -518,7 +529,7 @@ export const createWebSearchCapability = (
 					"The web search capability returned an invalid response.",
 				);
 			}
-			const fact = readCapabilityFact(payload);
+			const fact = readSourcedSearchCapabilityFact(payload);
 			if (!fact) {
 				return failed(
 					"provider-failure",

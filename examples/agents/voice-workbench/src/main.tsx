@@ -3,7 +3,10 @@ import {
 	createProjectionDocumentTarget,
 	createProjectionSpeechTarget,
 } from "ignite-element/xstate";
-import { createProductPricingDomainPack } from "./domains/product-pricing";
+import {
+	createProductPriceCapability,
+	createProductPricingDomainPack,
+} from "./domains/product-pricing";
 import { createDomainRegistry } from "./domains/registry";
 import { probeMlxWorkbenchReadiness } from "./model";
 import { component, source } from "./session";
@@ -42,7 +45,11 @@ const voice = createBrowserVoiceCapture();
 const externalCapabilities = __VOICE_WORKBENCH_WEB_SEARCH_AVAILABLE__
 	? [createWebSearchCapability()]
 	: [];
-const domains = createDomainRegistry([createProductPricingDomainPack()]);
+const domains = createDomainRegistry([
+	createProductPricingDomainPack({
+		priceCapability: createProductPriceCapability(),
+	}),
+]);
 let readinessAttempt = 0;
 let readinessController: AbortController | null = null;
 

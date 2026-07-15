@@ -10,6 +10,7 @@ import {
 	type BraveWebSearchOptions,
 	runBraveWebSearch,
 } from "./server/brave-web-search";
+import { runWholeFoodsProductPricing } from "./server/product-pricing/whole-foods";
 
 const resolvePath = (path: string) =>
 	fileURLToPath(new URL(path, import.meta.url));
@@ -59,12 +60,13 @@ export const resolveVoiceWorkbenchServerEnvironment = (
 export const MAX_CAPABILITY_REQUEST_BYTES = 16_384;
 
 const routeFailure = (
+	toolName: "searchWeb" | "priceProducts",
 	type: "validation" | "provider-failure",
 	message: string,
 ) => ({
 	type,
 	ownerId: "voice-workbench-server",
-	toolName: "searchWeb",
+	toolName,
 	message,
 });
 
@@ -76,6 +78,7 @@ export async function handleWebSearchCapabilityRequest(
 		return {
 			status: 405,
 			body: routeFailure(
+				"searchWeb",
 				"provider-failure",
 				"The web search route accepts POST requests only.",
 			),
@@ -84,7 +87,11 @@ export async function handleWebSearchCapabilityRequest(
 	if (Buffer.byteLength(request.body, "utf8") > MAX_CAPABILITY_REQUEST_BYTES) {
 		return {
 			status: 413,
-			body: routeFailure("validation", "The web search request is too large."),
+			body: routeFailure(
+				"searchWeb",
+				"validation",
+				"The web search request is too large.",
+			),
 		};
 	}
 	let input: unknown;
@@ -94,7 +101,11 @@ export async function handleWebSearchCapabilityRequest(
 		return {
 			status: 400,
 			body: {
-				...routeFailure("validation", "The web search request is invalid."),
+				...routeFailure(
+					"searchWeb",
+					"validation",
+					"The web search request is invalid.",
+				),
 				issues: ["body: expected JSON"],
 			},
 		};
@@ -102,6 +113,58 @@ export async function handleWebSearchCapabilityRequest(
 	return {
 		status: 200,
 		body: await runBraveWebSearch({ name: "searchWeb", input }, options),
+	};
+}
+
+export async function handleProductPricingCapabilityRequest(
+	request: CapabilityRouteRequest,
+	options: VoiceWorkbenchViteOptions,
+): Promise<CapabilityRouteResponse> {
+	if (request.method !== "POST") {
+		return {
+			status: 405,
+			body: routeFailure(
+				"priceProducts",
+				"provider-failure",
+				"The product-pricing route accepts POST requests only.",
+			),
+		};
+	}
+	if (Buffer.byteLength(request.body, "utf8") > MAX_CAPABILITY_REQUEST_BYTES) {
+		return {
+			status: 413,
+			body: routeFailure(
+				"priceProducts",
+				"validation",
+				"The product-pricing request is too large.",
+			),
+		};
+	}
+	let input: unknown;
+	try {
+		input = JSON.parse(request.body);
+	} catch {
+		return {
+			status: 400,
+			body: {
+				...routeFailure(
+					"priceProducts",
+					"validation",
+					"The product-pricing request is invalid.",
+				),
+				issues: ["body: expected JSON"],
+			},
+		};
+	}
+	return {
+		status: 200,
+		body: await runWholeFoodsProductPricing(
+			{ name: "priceProducts", input },
+			{
+				apiKey: options.braveSearchApiKey,
+				fetch: options.fetch,
+			},
+		),
 	};
 }
 
@@ -144,6 +207,7 @@ const capabilityPlugin = (options: VoiceWorkbenchViteOptions): Plugin => ({
 					? {
 							status: body.reason === "too-large" ? 413 : 400,
 							body: routeFailure(
+								"searchWeb",
 								"validation",
 								body.reason === "too-large"
 									? "The web search request is too large."
@@ -156,6 +220,30 @@ const capabilityPlugin = (options: VoiceWorkbenchViteOptions): Plugin => ({
 								apiKey: options.braveSearchApiKey,
 								fetch: options.fetch,
 							},
+						);
+				response.statusCode = result.status;
+				response.setHeader("content-type", "application/json; charset=utf-8");
+				response.end(JSON.stringify(result.body));
+			},
+		);
+		server.middlewares.use(
+			"/api/capabilities/product-pricing",
+			async (request, response) => {
+				const body = await readCapabilityRequestBody(request);
+				const result = !body.ok
+					? {
+							status: body.reason === "too-large" ? 413 : 400,
+							body: routeFailure(
+								"priceProducts",
+								"validation",
+								body.reason === "too-large"
+									? "The product-pricing request is too large."
+									: "The product-pricing request could not be read.",
+							),
+						}
+					: await handleProductPricingCapabilityRequest(
+							{ method: request.method, body: body.body },
+							options,
 						);
 				response.statusCode = result.status;
 				response.setHeader("content-type", "application/json; charset=utf-8");

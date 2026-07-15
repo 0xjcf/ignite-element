@@ -5,15 +5,18 @@ import type {
 	DomainToolAvailabilityInput,
 } from "../contracts";
 import type { ProductPricingDecision } from "./policy";
+import {
+	PRODUCT_PRICE_OWNER_ID,
+	PRODUCT_PRICE_TOOL_NAME,
+	readProductPriceInput,
+} from "./price-capability";
 import { projectProductPricingDecision } from "./projection";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
-const stableTextIdentity = (value: unknown): string | null =>
-	typeof value === "string" && value.trim()
-		? value.trim().replace(/\s+/g, " ")
-		: null;
+const stableTextIdentity = (value: string): string =>
+	value.trim().replace(/\s+/g, " ");
 
 const decisionFromHistory = (
 	history: readonly ModelExchange[],
@@ -47,39 +50,70 @@ const decisionFromHistory = (
 	return null;
 };
 
-const searchPairs = (
-	input: unknown,
-): readonly { subject: string; query: string }[] | null => {
-	if (!isRecord(input) || !Array.isArray(input.queries)) return null;
-	const pairs: { subject: string; query: string }[] = [];
-	for (const query of input.queries) {
-		if (!isRecord(query)) return null;
-		const subject = stableTextIdentity(query.subject);
-		const queryText = stableTextIdentity(query.query);
-		if (!subject || !queryText) return null;
-		pairs.push({ subject, query: queryText });
-	}
-	return pairs.length > 0 ? pairs : null;
-};
+const hasCompletedPricing = (history: readonly ModelExchange[]): boolean =>
+	history.some((exchange) =>
+		exchange.results.some(
+			(result) =>
+				result.command === PRODUCT_PRICE_TOOL_NAME &&
+				result.ownerId === PRODUCT_PRICE_OWNER_ID &&
+				result.status === "capability-success",
+		),
+	);
 
-const pairKey = (pair: { subject: string; query: string }): string =>
-	JSON.stringify([
-		stableTextIdentity(pair.subject),
-		stableTextIdentity(pair.query),
-	]);
+const requestIdentity = (value: {
+	retailer: string;
+	location: string;
+	items: readonly { subject: string; product: string; size: string }[];
+}): string =>
+	JSON.stringify({
+		retailer: stableTextIdentity(value.retailer),
+		location: stableTextIdentity(value.location),
+		items: value.items.map((item) => ({
+			subject: stableTextIdentity(item.subject),
+			product: stableTextIdentity(item.product),
+			size: stableTextIdentity(item.size),
+		})),
+	});
+
+const admittedRequestIdentity = (
+	decision: ProductPricingDecision,
+): string | null => {
+	if (!decision.request.retailer || !decision.request.location) return null;
+	const items = decision.request.items.flatMap((item) =>
+		item.product && item.size
+			? [{ subject: item.subject, product: item.product, size: item.size }]
+			: [],
+	);
+	if (items.length !== decision.request.items.length) return null;
+	return requestIdentity({
+		retailer: decision.request.retailer,
+		location: decision.request.location,
+		items,
+	});
+};
 
 export const authorizeProductPricingExecution = ({
 	history,
 	call,
 }: DomainExecutionAuthorizationInput): DomainExecutionAuthorization | null => {
-	if (call.name !== "searchWeb") return null;
+	if (call.name === "searchWeb") {
+		return {
+			authorized: false,
+			message:
+				"Product-pricing research must use the configured price provider.",
+			issues: [
+				"Call prepareProductPricing, then priceProducts with the complete admitted request. The provider derives discovery queries.",
+			],
+		};
+	}
+	if (call.name !== PRODUCT_PRICE_TOOL_NAME) return null;
 	const decision = decisionFromHistory(history);
 	if (!decision) {
 		return {
 			authorized: false,
-			message: "The product-pricing policy must run before web research.",
+			message: "The product-pricing policy must run before price lookup.",
 			issues: [
-				"Call prepareProductPricing and observe its decision before calling searchWeb.",
+				"Call prepareProductPricing and observe its decision before calling priceProducts.",
 			],
 		};
 	}
@@ -87,33 +121,39 @@ export const authorizeProductPricingExecution = ({
 		return {
 			authorized: false,
 			message:
-				"The product-pricing policy requires clarification before web research.",
+				"The product-pricing policy requires clarification before price lookup.",
 			issues: decision.questions.map((question) => question.prompt),
 		};
 	}
 	if (decision.outcome === "rejected") {
 		return {
 			authorized: false,
-			message: "The product-pricing policy rejected web research.",
+			message: "The product-pricing policy rejected price lookup.",
 			issues: decision.issues,
 		};
 	}
+	if (hasCompletedPricing(history)) {
+		return {
+			authorized: false,
+			message: "The admitted product-pricing request has already completed.",
+			issues: [
+				"Use the accepted priceProducts facts instead of repeating lookup.",
+			],
+		};
+	}
 
-	const proposed = searchPairs(call.input);
-	const admittedKeys = new Set(decision.searchQueries.map(pairKey));
-	const proposedKeys = proposed?.map(pairKey) ?? [];
+	const proposed = readProductPriceInput(call.input);
+	const admitted = admittedRequestIdentity(decision);
 	if (
-		!proposed ||
-		new Set(proposedKeys).size !== proposedKeys.length ||
-		proposedKeys.length !== admittedKeys.size ||
-		proposedKeys.some((key) => !admittedKeys.has(key))
+		!proposed.ok ||
+		!admitted ||
+		requestIdentity(proposed.value) !== admitted
 	) {
 		return {
 			authorized: false,
-			message:
-				"The proposed web research is outside the admitted product-pricing scope.",
+			message: "The proposed price lookup is outside the admitted scope.",
 			issues: [
-				"Call searchWeb once with the complete exact admitted subject and query set from prepareProductPricing.",
+				"Call priceProducts once with the exact retailer, location, subject, product, and size values from prepareProductPricing.",
 			],
 		};
 	}
@@ -125,9 +165,9 @@ export const isProductPricingToolAvailable = ({
 	history,
 	toolName,
 }: DomainToolAvailabilityInput): boolean | null => {
-	if (toolName !== "searchWeb") return null;
 	const decision = decisionFromHistory(history);
-	return !(
-		decision?.outcome === "needs-input" || decision?.outcome === "rejected"
-	);
+	if (toolName === "prepareProductPricing") return decision === null;
+	if (toolName === "searchWeb") return false;
+	if (toolName !== PRODUCT_PRICE_TOOL_NAME) return null;
+	return decision?.outcome === "admitted" && !hasCompletedPricing(history);
 };

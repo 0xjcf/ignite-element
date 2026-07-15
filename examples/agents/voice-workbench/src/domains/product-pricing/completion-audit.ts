@@ -66,14 +66,14 @@ const checklistSubjects = (
 			: [],
 	);
 
-const searchSubjectsAfter = (
+const priceSubjectsAfter = (
 	history: readonly ModelExchange[],
 	exchangeIndex: number,
 ): string[] =>
 	history.slice(exchangeIndex + 1).flatMap((exchange) =>
 		exchange.results.flatMap((result) => {
 			if (
-				result.command !== "searchWeb" ||
+				result.command !== "priceProducts" ||
 				result.status !== "capability-success" ||
 				!isRecord(result.fact) ||
 				!Array.isArray(result.fact.searches)
@@ -105,20 +105,21 @@ export const auditProductPricingCompletion = (
 	const nodes = activeNodes(input.view);
 	const visible = visibleArtifactText(nodes);
 	const issues: string[] = [];
-	const laterSearch = input.history
+	const laterPriceLookup = input.history
 		.slice(exchangeIndex + 1)
 		.some((exchange) =>
 			exchange.results.some(
 				(result) =>
-					result.command === "searchWeb" &&
+					(result.command === "searchWeb" ||
+						result.command === "priceProducts") &&
 					result.status === "capability-success",
 			),
 		);
 
 	if (decision.outcome !== "admitted") {
-		if (laterSearch) {
+		if (laterPriceLookup) {
 			issues.push(
-				"Do not search for prices after a needs-input or rejected policy decision.",
+				"Do not resolve prices after a needs-input or rejected policy decision.",
 			);
 		}
 		for (const question of decision.questions) {
@@ -147,13 +148,13 @@ export const auditProductPricingCompletion = (
 		}
 	}
 	const requestedKeys = decision.request.items.map((item) => key(item.subject));
-	const searchedKeys = searchSubjectsAfter(input.history, exchangeIndex);
+	const searchedKeys = priceSubjectsAfter(input.history, exchangeIndex);
 	if (
 		requestedKeys.length !== searchedKeys.length ||
 		requestedKeys.some((subject) => !searchedKeys.includes(subject))
 	) {
 		issues.push(
-			"Research matching search evidence for every admitted product-pricing subject.",
+			"Resolve matching provider evidence for every admitted product-pricing subject.",
 		);
 	}
 	const listedKeys = checklistSubjects(nodes);

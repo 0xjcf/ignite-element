@@ -20,17 +20,17 @@ describe("product-pricing policy", () => {
 				items: [
 					{
 						subject: "Bread",
-						product: "standard sandwich bread",
-						size: "20 oz loaf",
+						product: "365 Organic Sourdough Bread",
+						size: "24 oz loaf",
 					},
 					{
 						subject: "Eggs",
-						product: "large Grade A eggs",
+						product: "365 Large White Grade A Eggs",
 						size: "12 count",
 					},
 					{
 						subject: "Milk",
-						product: "whole milk",
+						product: "365 Whole Milk",
 						size: "1 gallon",
 					},
 				],
@@ -38,22 +38,8 @@ describe("product-pricing policy", () => {
 		});
 		expect(decision.assumptions).toHaveLength(3);
 		expect(decision.assumptions[0]?.label).toContain(
-			"standard sandwich bread · 20 oz loaf",
+			"365 Organic Sourdough Bread · 24 oz loaf",
 		);
-		expect(decision.searchQueries).toEqual([
-			{
-				subject: "Bread",
-				query: "Whole Foods Sarasota standard sandwich bread 20 oz loaf price",
-			},
-			{
-				subject: "Eggs",
-				query: "Whole Foods Sarasota large Grade A eggs 12 count price",
-			},
-			{
-				subject: "Milk",
-				query: "Whole Foods Sarasota whole milk 1 gallon price",
-			},
-		]);
 	});
 
 	it("asks deterministic questions when scope or an unknown product is underspecified", () => {
@@ -80,7 +66,6 @@ describe("product-pricing policy", () => {
 				prompt: "Which size should be used for Coffee?",
 			},
 		]);
-		expect(decision.searchQueries).toEqual([]);
 	});
 
 	it.each([
@@ -125,6 +110,5 @@ describe("product-pricing policy", () => {
 
 		expect(decision.outcome).toBe("rejected");
 		expect(decision.issues.join(" ")).toContain(issue);
-		expect(decision.searchQueries).toEqual([]);
 	});
 });

@@ -99,7 +99,8 @@ describe("voice workbench browser entry", () => {
 		expect(mainSource).not.toContain("BRAVE_SEARCH_API_KEY");
 		expect(mainSource).toContain("__VOICE_WORKBENCH_WEB_SEARCH_AVAILABLE__");
 		expect(mainSource).toContain("createWebSearchCapability()");
-		expect(mainSource).toContain("createProductPricingDomainPack()");
+		expect(mainSource).toContain("createProductPriceCapability()");
+		expect(mainSource).toContain("createProductPricingDomainPack({");
 		expect(mainSource).toContain("createDomainRegistry(");
 	});
 

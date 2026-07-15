@@ -291,6 +291,12 @@ describe("consumer-configured MLX workbench model", () => {
 		expect(body.messages[0].content).toContain(
 			"Call prepareProductPricing first. Policy success is not price evidence.",
 		);
+		expect(body.messages[0].content).toContain(
+			"the provider owns store lookup and deterministic query enrichment",
+		);
+		expect(body.messages[0].content).toContain(
+			"Never call searchWeb for an applicable product-pricing request",
+		);
 	});
 
 	it("continues from correlated tool results before the model audits and completes", async () => {

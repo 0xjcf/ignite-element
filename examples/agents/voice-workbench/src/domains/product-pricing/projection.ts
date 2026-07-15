@@ -94,11 +94,6 @@ export const projectProductPricingDecision = (
 					.filter((issue): issue is string => issue !== null)
 					.slice(0, 8)
 			: [],
-		searchQueries: boundedEntries(value.searchQueries, (entry) => {
-			const subject = boundedText(entry.subject);
-			const query = boundedText(entry.query);
-			return subject && query ? { subject, query } : null;
-		}),
 	};
 };
 

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
 	createVoiceWorkbenchViteConfig,
+	handleProductPricingCapabilityRequest,
 	handleWebSearchCapabilityRequest,
 	MAX_CAPABILITY_REQUEST_BYTES,
 	readCapabilityRequestBody,
@@ -122,6 +123,54 @@ describe("voice workbench Vite capability boundary", () => {
 			status: 400,
 			body: { type: "validation" },
 		});
+	});
+
+	it("routes representative product pricing without exposing or spending the Brave key", async () => {
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			expect(String(input)).not.toContain("api.search.brave.com");
+			return new Response(
+				JSON.stringify([
+					{
+						asin: "B0DPXKXV31",
+						name: "365 by Whole Foods Market Organic Sourdough Bread, 24 OZ",
+						programType: "GROCERY",
+						availability: "IN_STOCK",
+						offerDetails: {
+							price: { priceAmount: 4.99, currencyCode: "USD" },
+						},
+					},
+				]),
+				{ status: 200 },
+			);
+		});
+
+		await expect(
+			handleProductPricingCapabilityRequest(
+				{
+					method: "POST",
+					body: JSON.stringify({
+						retailer: "Whole Foods",
+						location: "Sarasota",
+						items: [
+							{
+								subject: "Bread",
+								product: "365 Organic Sourdough Bread",
+								size: "24 oz loaf",
+							},
+						],
+					}),
+				},
+				{ braveSearchApiKey: "free-plan-key", fetch: fetchMock },
+			),
+		).resolves.toMatchObject({
+			status: 200,
+			body: {
+				type: "success",
+				toolName: "priceProducts",
+				receipt: { provider: "whole-foods-product-pricing", queryCount: 0 },
+			},
+		});
+		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 
 	it("rejects oversized capability bodies before buffering later chunks", async () => {

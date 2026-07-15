@@ -31,17 +31,19 @@ const decisionExchange = (
 	],
 });
 
-const searchExchange: ModelExchange = {
+const priceExchange: ModelExchange = {
 	calls: [
 		{
 			id: "search",
-			command: "searchWeb",
+			command: "priceProducts",
 			input: {
-				queries: [
+				retailer: "Whole Foods",
+				location: "Sarasota",
+				items: [
 					{
 						subject: "Bread",
-						query:
-							"Whole Foods Sarasota standard sandwich bread 20 oz loaf price",
+						product: "365 Organic Sourdough Bread",
+						size: "24 oz loaf",
 					},
 				],
 			},
@@ -50,8 +52,8 @@ const searchExchange: ModelExchange = {
 	results: [
 		{
 			id: "search",
-			command: "searchWeb",
-			ownerId: "web-search",
+			command: "priceProducts",
+			ownerId: "product-pricing-price",
 			status: "capability-success",
 			fact: {
 				searches: [
@@ -132,14 +134,14 @@ describe("product-pricing completion audit", () => {
 		});
 		const audit = auditProductPricingCompletion({
 			prompt,
-			history: [decisionExchange(decision), searchExchange],
+			history: [decisionExchange(decision), priceExchange],
 			view: { artifacts: [] },
 		});
 
 		expect(audit).toMatchObject({
 			ok: false,
 			issues: expect.arrayContaining([
-				expect.stringContaining("Do not search"),
+				expect.stringContaining("Do not resolve"),
 				expect.stringContaining("Which retailer"),
 			]),
 		});
@@ -151,10 +153,10 @@ describe("product-pricing completion audit", () => {
 			items: [{ subject: "Bread" }],
 		});
 		const deniedSearch: ModelExchange = {
-			...searchExchange,
+			...priceExchange,
 			results: [
 				{
-					...searchExchange.results[0],
+					...priceExchange.results[0],
 					ownerId: "product-pricing",
 					status: "capability-validation",
 					reason:
@@ -194,7 +196,7 @@ describe("product-pricing completion audit", () => {
 		expect(
 			auditProductPricingCompletion({
 				prompt,
-				history: [decisionExchange(admitted), searchExchange],
+				history: [decisionExchange(admitted), priceExchange],
 				view: validView,
 			}),
 		).toEqual({ ok: true });
@@ -202,10 +204,10 @@ describe("product-pricing completion audit", () => {
 
 	it("rejects mismatched research subjects and hidden assumptions", () => {
 		const invalidSearch: ModelExchange = {
-			...searchExchange,
+			...priceExchange,
 			results: [
 				{
-					...searchExchange.results[0],
+					...priceExchange.results[0],
 					fact: {
 						searches: [
 							{
@@ -238,7 +240,7 @@ describe("product-pricing completion audit", () => {
 		expect(audit).toMatchObject({
 			ok: false,
 			issues: expect.arrayContaining([
-				expect.stringContaining("matching search evidence"),
+				expect.stringContaining("matching provider evidence"),
 				expect.stringContaining("Disclose this policy assumption"),
 			]),
 		});

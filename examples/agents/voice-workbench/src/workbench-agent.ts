@@ -29,6 +29,8 @@ import {
 	type WorkbenchTurnFact,
 } from "./session";
 
+const EXTERNAL_EVIDENCE_TOOL_NAMES = new Set(["searchWeb", "priceProducts"]);
+
 type TurnProof = {
 	capability?: WorkbenchCapabilityProof;
 	collision?: WorkbenchCollisionProof;
@@ -91,7 +93,8 @@ const completionEvidence = (
 	for (const exchange of history) {
 		for (const result of exchange.results) {
 			if (
-				result.command !== "searchWeb" ||
+				(result.command !== "searchWeb" &&
+					result.command !== "priceProducts") ||
 				result.status !== "capability-success" ||
 				!isRecord(result.fact) ||
 				!Array.isArray(result.fact.searches)
@@ -695,6 +698,15 @@ export async function completeSubmittedPrompt(
 			history,
 			manifest: federation.manifest,
 		});
+		const applicableDomainEvidenceAvailable = domains.packs.some(
+			(pack) =>
+				pack.appliesTo(prompt.text) &&
+				pack.capabilities.some((capability) =>
+					capability.manifest.some((tool) =>
+						EXTERNAL_EVIDENCE_TOOL_NAMES.has(tool.name),
+					),
+				),
+		);
 		await component.execute({
 			command: "recordRuntimeManifest",
 			input: modelManifest.map((tool) => ({
@@ -711,11 +723,12 @@ export async function completeSubmittedPrompt(
 				history,
 				domainPolicyInstructions: domains.modelInstructions,
 				capabilities: {
-					internetAccess: modelManifest.some(
-						(tool) => tool.name === "searchWeb",
-					)
-						? "available"
-						: "unavailable",
+					internetAccess:
+						modelManifest.some((tool) =>
+							EXTERNAL_EVIDENCE_TOOL_NAMES.has(tool.name),
+						) || applicableDomainEvidenceAvailable
+							? "available"
+							: "unavailable",
 				},
 			},
 		);

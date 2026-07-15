@@ -1,3 +1,4 @@
+import type { CapabilityOwner } from "../../capability-federation";
 import type { DomainPack } from "../contracts";
 import {
 	authorizeProductPricingExecution,
@@ -5,6 +6,7 @@ import {
 } from "./authorization";
 import { createProductPricingCapability } from "./capability";
 import { auditProductPricingCompletion } from "./completion-audit";
+import { createProductPriceCapability } from "./price-capability";
 import { projectProductPricingExecution } from "./projection";
 
 const PRICE_SIGNAL = /\b(?:price|prices|pricing|cost|costs)\b/i;
@@ -14,12 +16,21 @@ const PRODUCT_SIGNAL =
 export const productPricingAppliesTo = (prompt: string): boolean =>
 	PRICE_SIGNAL.test(prompt) && PRODUCT_SIGNAL.test(prompt);
 
-export const createProductPricingDomainPack = (): DomainPack => ({
+export type ProductPricingDomainPackOptions = {
+	priceCapability?: CapabilityOwner;
+};
+
+export const createProductPricingDomainPack = (
+	options: ProductPricingDomainPackOptions = {},
+): DomainPack => ({
 	id: "product-pricing",
 	label: "Product pricing",
-	capabilities: [createProductPricingCapability()],
+	capabilities: [
+		createProductPricingCapability(),
+		options.priceCapability ?? createProductPriceCapability(),
+	],
 	modelInstructions:
-		"For product-pricing requests, call prepareProductPricing before any web research. Treat admitted, needs-input, and rejected as configured policy facts. A policy success is not price evidence or execution authorization. Search only the exact admitted searchQueries; for needs-input, materialize the questions and assumptions without searching; for rejected, explain the bounded issues without searching.",
+		"For product-pricing requests, call prepareProductPricing first. Treat admitted, needs-input, and rejected as configured policy facts. A policy success is not price evidence or execution authorization. After an admitted decision, call priceProducts exactly once with the complete retailer, location, subject, product, and size values from the decision; never invent a web-search query or interpret snippets as prices. For needs-input, materialize the questions and assumptions without price lookup; for rejected, explain the bounded issues without price lookup.",
 	appliesTo: productPricingAppliesTo,
 	projectExecution: projectProductPricingExecution,
 	authorizeExecution: authorizeProductPricingExecution,
@@ -30,6 +41,7 @@ export const createProductPricingDomainPack = (): DomainPack => ({
 export {
 	auditProductPricingCompletion,
 	authorizeProductPricingExecution,
+	createProductPriceCapability,
 	createProductPricingCapability,
 	isProductPricingToolAvailable,
 	projectProductPricingExecution,
