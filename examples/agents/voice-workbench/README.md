@@ -46,12 +46,14 @@ failure outcomes return as bounded facts with receipts; they never mutate the
 conversation actor directly.
 
 One `searchWeb` call accepts 1–8 focused `{ subject, query }` requests, an
-optional two-letter country code, and 1–5 results per request. Each returned
-search preserves its subject identity. A price becomes `sourced` only when one
-unambiguous currency-marked decimal is present in a returned source; otherwise
-the subject remains `unverified` with no invented numeric value. This keeps a
-multi-item research turn inside the five-round model budget, and its receipt
-records both query and source counts.
+optional two-letter country code, and 1–5 results per request. The model still
+makes one tool call and receives one aggregated result; the server schedules the
+individual Brave requests internally. Each returned search preserves its
+subject identity. A price becomes `sourced` only when one unambiguous
+currency-marked decimal is present in a returned source; otherwise the subject
+remains `unverified` with no invented numeric value. This keeps a multi-item
+research turn inside the five-round model budget, and its receipt records both
+query and source counts.
 
 Before `completeResponse` can close a researched turn, a pure evidence audit
 compares those accepted search facts with the current actor view. Checklist
@@ -68,15 +70,19 @@ sanitized provider receipt or manifest collision is retained in presentation
 state and shown in the live runtime inspector; raw responses and server
 credentials are never retained there.
 
-Rate limiting stays inside the server adapter. Brave `429` and `503` responses
-receive at most one retry after the initial request by default. Numeric and
-HTTP-date `Retry-After` guidance is honored within a bounded delay, and the final
-failure returns attempt counts, provider status, and exhaustion as structured
-facts instead of throwing. Concurrent identical normalized requests share one
-in-flight execution, while only successful exact requests enter the bounded
-15-second cache. Cache hits, misses, coalesced calls, and TTL remain visible in
-the sanitized receipt. An alternate provider runs only when explicitly injected
-and configured for the exhausted status; the adapter never invents fallback
+Rate limiting stays inside the server adapter. A shared server-side gate paces
+Brave requests within and across batches from the provider's short-window
+remaining/reset headers, so a multi-subject call does not burst over a
+one-request-per-second plan. Brave `429` and `503` responses receive at most one
+retry after the initial request by default. Numeric and HTTP-date `Retry-After`
+guidance is honored within a bounded delay; when it is absent, Brave's
+`X-RateLimit-Reset` guidance supplies the retry delay. The final failure returns
+attempt counts, provider status, and exhaustion as structured facts instead of
+throwing. Concurrent identical normalized requests share one in-flight
+execution, while only successful exact requests enter the bounded 15-second
+cache. Cache hits, misses, coalesced calls, and TTL remain visible in the
+sanitized receipt. An alternate provider runs only when explicitly injected and
+configured for the exhausted status; the adapter never invents fallback
 evidence.
 
 This keeps the workbench generic. Shopping research is the golden-path scenario,

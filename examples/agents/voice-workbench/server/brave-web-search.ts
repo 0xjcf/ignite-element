@@ -39,6 +39,7 @@ export type BraveWebSearchOptions = {
 const OWNER_ID = "brave-web-search";
 const TOOL_NAME = "searchWeb";
 const DEFAULT_CACHE_TTL_MS = 15_000;
+const DEFAULT_TIMEOUT_MS = 8_000;
 const DEFAULT_MAX_RETRY_AFTER_MS = 2_000;
 const DEFAULT_MAX_RETRIES = 1;
 const DEFAULT_FALLBACK_TIMEOUT_MS = 2_000;
@@ -49,9 +50,11 @@ type SuccessfulCapabilityFact = Extract<
 	CapabilityExecutionFact,
 	{ type: "success" }
 >;
+type BraveRateLimitGate = { tail: Promise<void> };
 type RequestState = {
 	cache: Map<string, { expiresAt: number; fact: SuccessfulCapabilityFact }>;
 	inflight: Map<string, Promise<CapabilityExecutionFact>>;
+	gates: Map<string, BraveRateLimitGate>;
 };
 const requestStateByFetcher = new WeakMap<FetchLike, RequestState>();
 
@@ -64,6 +67,7 @@ const requestState = (fetcher: FetchLike): RequestState => {
 			{ expiresAt: number; fact: SuccessfulCapabilityFact }
 		>(),
 		inflight: new Map<string, Promise<CapabilityExecutionFact>>(),
+		gates: new Map<string, BraveRateLimitGate>(),
 	};
 	requestStateByFetcher.set(fetcher, created);
 	return created;
@@ -95,22 +99,107 @@ const retryAfterMilliseconds = (
 	return Math.min(Math.max(Math.ceil(requested), 0), maximum);
 };
 
-const waitForRetry = async (
-	milliseconds: number,
-	sleep: (milliseconds: number) => Promise<void>,
-	signal: AbortSignal,
-): Promise<void> => {
-	if (milliseconds <= 0 || signal.aborted) return;
-	let abort: (() => void) | undefined;
-	const aborted = new Promise<void>((resolve) => {
-		abort = resolve;
-		signal.addEventListener("abort", resolve, { once: true });
-	});
-	try {
-		await Promise.race([sleep(milliseconds), aborted]);
-	} finally {
-		if (abort) signal.removeEventListener("abort", abort);
+const numericHeaderValues = (header: string | null): number[] =>
+	(header ?? "")
+		.split(",")
+		.map((value) => Number(value.trim()))
+		.filter((value) => Number.isFinite(value));
+
+const braveResetMilliseconds = (
+	headers: Headers,
+	maximum: number,
+	requireExhaustedWindow: boolean,
+): number => {
+	const resets = numericHeaderValues(headers.get("X-RateLimit-Reset"));
+	if (resets.length === 0) return 0;
+	let resetIndex = 0;
+	if (requireExhaustedWindow) {
+		resetIndex = numericHeaderValues(
+			headers.get("X-RateLimit-Remaining"),
+		).findIndex((remaining) => remaining <= 0);
+		if (resetIndex < 0) return 0;
 	}
+	const seconds = resets[resetIndex] ?? resets[0];
+	return Math.min(Math.max(Math.ceil((seconds ?? 0) * 1_000), 0), maximum);
+};
+
+const responsePacingMilliseconds = (
+	response: Response,
+	now: number,
+	maximum: number,
+): number => {
+	if (response.ok) {
+		return braveResetMilliseconds(response.headers, maximum, true);
+	}
+	if (!RETRYABLE_STATUSES.has(response.status)) return 0;
+	const retryAfter = response.headers.get("Retry-After");
+	return retryAfter === null
+		? braveResetMilliseconds(response.headers, maximum, false)
+		: retryAfterMilliseconds(retryAfter, now, maximum);
+};
+
+const requestThroughGate = (
+	gate: BraveRateLimitGate,
+	fetcher: FetchLike,
+	endpoint: URL,
+	init: RequestInit,
+	pacing: {
+		maxDelayMs: number;
+		now: () => number;
+		sleep: (milliseconds: number) => Promise<void>;
+	},
+): Promise<Response> => {
+	const signal = init.signal;
+	let resolveResponse: (response: Response) => void = () => undefined;
+	let rejectResponse: (error: unknown) => void = () => undefined;
+	let settled = false;
+	const response = new Promise<Response>((resolve, reject) => {
+		resolveResponse = resolve;
+		rejectResponse = reject;
+	});
+	const abortError = () => new DOMException("aborted", "AbortError");
+	const cleanup = () => signal?.removeEventListener("abort", onAbort);
+	const fulfill = (result: Response) => {
+		if (settled) return;
+		settled = true;
+		cleanup();
+		resolveResponse(result);
+	};
+	const reject = (error: unknown) => {
+		if (settled) return;
+		settled = true;
+		cleanup();
+		rejectResponse(error);
+	};
+	const onAbort = () => reject(abortError());
+	if (signal?.aborted) onAbort();
+	else signal?.addEventListener("abort", onAbort, { once: true });
+
+	const scheduled = gate.tail
+		.catch(() => undefined)
+		.then(async () => {
+			if (signal?.aborted) {
+				reject(abortError());
+				return;
+			}
+			try {
+				const result = await fetcher(endpoint, init);
+				fulfill(result);
+				const delayMs = responsePacingMilliseconds(
+					result,
+					pacing.now(),
+					pacing.maxDelayMs,
+				);
+				if (delayMs > 0) await pacing.sleep(delayMs);
+			} catch (error) {
+				reject(error);
+			}
+		});
+	gate.tail = scheduled.then(
+		() => undefined,
+		() => undefined,
+	);
+	return response;
 };
 
 const withCacheStatus = (
@@ -227,6 +316,7 @@ const requestBraveQuery = async (
 	input: WebSearchInput,
 	apiKey: string,
 	fetcher: FetchLike,
+	gate: BraveRateLimitGate,
 	signal: AbortSignal,
 	retry: {
 		maxRetries: number;
@@ -244,26 +334,35 @@ const requestBraveQuery = async (
 	let latestRetryAfterMs: number | undefined;
 	for (let attempt = 0; attempt <= retry.maxRetries; attempt += 1) {
 		try {
-			const response = await fetcher(endpoint, {
-				headers: {
-					accept: "application/json",
-					"X-Subscription-Token": apiKey,
+			const response = await requestThroughGate(
+				gate,
+				fetcher,
+				endpoint,
+				{
+					headers: {
+						accept: "application/json",
+						"X-Subscription-Token": apiKey,
+					},
+					signal,
 				},
-				signal,
-			});
+				{
+					maxDelayMs: retry.maxRetryAfterMs,
+					now: retry.now,
+					sleep: retry.sleep,
+				},
+			);
 			if (!response.ok) {
 				const retryable = RETRYABLE_STATUSES.has(response.status);
-				const retryAfterMs = retryAfterMilliseconds(
-					response.headers.get("Retry-After"),
+				const retryAfterMs = responsePacingMilliseconds(
+					response,
 					retry.now(),
 					retry.maxRetryAfterMs,
 				);
-				if (response.headers.has("Retry-After")) {
+				if (retryAfterMs > 0) {
 					latestRetryAfterMs = retryAfterMs;
 				}
 				if (retryable && attempt < retry.maxRetries && !signal.aborted) {
-					await waitForRetry(retryAfterMs, retry.sleep, signal);
-					if (!signal.aborted) continue;
+					continue;
 				}
 				return {
 					ok: false,
@@ -337,46 +436,49 @@ const executeBraveWebSearch = async (
 	input: WebSearchInput,
 	apiKey: string,
 	fetcher: FetchLike,
+	gate: BraveRateLimitGate,
 	options: BraveWebSearchOptions,
 ): Promise<CapabilityExecutionFact> => {
 	const controller = new AbortController();
 	let timedOut = false;
-	const timeout = setTimeout(() => {
-		timedOut = true;
-		controller.abort();
-	}, options.timeoutMs ?? 8_000);
+	const retry = {
+		maxRetries: boundedInteger(options.maxRetries, DEFAULT_MAX_RETRIES, 3),
+		maxRetryAfterMs: boundedInteger(
+			options.maxRetryAfterMs,
+			DEFAULT_MAX_RETRY_AFTER_MS,
+			10_000,
+		),
+		now: options.now ?? Date.now,
+		sleep: options.sleep ?? defaultSleep,
+	};
+	const timeout = setTimeout(
+		() => {
+			timedOut = true;
+			controller.abort();
+		},
+		options.timeoutMs ??
+			DEFAULT_TIMEOUT_MS +
+				Math.max(input.queries.length - 1, 0) * retry.maxRetryAfterMs,
+	);
 	try {
 		let firstFailure: CapabilityExecutionFact | null = null;
-		const outcomes = await Promise.all(
-			input.queries.map(async (query) => {
-				const outcome = await requestBraveQuery(
-					query,
-					input,
-					apiKey,
-					fetcher,
-					controller.signal,
-					{
-						maxRetries: boundedInteger(
-							options.maxRetries,
-							DEFAULT_MAX_RETRIES,
-							3,
-						),
-						maxRetryAfterMs: boundedInteger(
-							options.maxRetryAfterMs,
-							DEFAULT_MAX_RETRY_AFTER_MS,
-							10_000,
-						),
-						now: options.now ?? Date.now,
-						sleep: options.sleep ?? defaultSleep,
-					},
-				);
-				if (!outcome.ok && firstFailure === null) {
-					firstFailure = outcome.fact;
-					controller.abort();
-				}
-				return outcome;
-			}),
-		);
+		const outcomes: SearchOutcome[] = [];
+		for (const query of input.queries) {
+			const outcome = await requestBraveQuery(
+				query,
+				input,
+				apiKey,
+				fetcher,
+				gate,
+				controller.signal,
+				retry,
+			);
+			outcomes.push(outcome);
+			if (!outcome.ok) {
+				firstFailure = outcome.fact;
+				break;
+			}
+		}
 		if (firstFailure) {
 			if (timedOut) return failure("timeout", "Brave Web Search timed out.");
 			const status = firstFailure.status;
@@ -461,6 +563,11 @@ export async function runBraveWebSearch(
 		300_000,
 	);
 	const state = requestState(fetcher);
+	let gate = state.gates.get(apiKey);
+	if (!gate) {
+		gate = { tail: Promise.resolve() };
+		state.gates.set(apiKey, gate);
+	}
 	const key = JSON.stringify([apiKey, input.value]);
 	for (const [cacheKey, entry] of state.cache) {
 		if (entry.expiresAt <= now()) state.cache.delete(cacheKey);
@@ -483,6 +590,7 @@ export async function runBraveWebSearch(
 		input.value,
 		apiKey,
 		fetcher,
+		gate,
 		options,
 	);
 	state.inflight.set(key, execution);

@@ -131,6 +131,114 @@ describe("Brave Web Search server adapter", () => {
 		}
 	});
 
+	it("paces one multi-query tool call from Brave rate-limit headers and aggregates every subject", async () => {
+		vi.useFakeTimers();
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			const query = new URL(String(input)).searchParams.get("q") ?? "item";
+			return new Response(
+				JSON.stringify({
+					web: {
+						results: [
+							{
+								title: `${query} listing`,
+								url: `https://example.com/${query}`,
+								description: "Price: $4.99",
+							},
+						],
+					},
+				}),
+				{
+					status: 200,
+					headers: {
+						"X-RateLimit-Remaining": "0, 1993",
+						"X-RateLimit-Reset": "1, 1423102",
+					},
+				},
+			);
+		});
+
+		const result = runBraveWebSearch(
+			{
+				name: "searchWeb",
+				input: {
+					queries: [
+						{ subject: "Eggs", query: "eggs" },
+						{ subject: "Bread", query: "bread" },
+						{ subject: "Milk", query: "milk" },
+					],
+				},
+			},
+			{ apiKey: "key", fetch: fetchMock },
+		);
+
+		await vi.advanceTimersByTimeAsync(0);
+		expect(fetchMock).toHaveBeenCalledOnce();
+		await vi.advanceTimersByTimeAsync(999);
+		expect(fetchMock).toHaveBeenCalledOnce();
+		await vi.advanceTimersByTimeAsync(1);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		await vi.advanceTimersByTimeAsync(1_000);
+
+		await expect(result).resolves.toMatchObject({
+			type: "success",
+			data: {
+				searches: [
+					{ subject: "Eggs", query: "eggs" },
+					{ subject: "Bread", query: "bread" },
+					{ subject: "Milk", query: "milk" },
+				],
+			},
+			receipt: { queryCount: 3, sourceCount: 3 },
+		});
+		expect(fetchMock).toHaveBeenCalledTimes(3);
+	});
+
+	it("shares Brave pacing across overlapping non-identical tool calls", async () => {
+		vi.useFakeTimers();
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			const query = new URL(String(input)).searchParams.get("q") ?? "item";
+			return new Response(
+				JSON.stringify({ web: { results: [] } }),
+				query === "eggs"
+					? {
+							status: 200,
+							headers: {
+								"X-RateLimit-Remaining": "0, 1993",
+								"X-RateLimit-Reset": "1, 1423102",
+							},
+						}
+					: { status: 200 },
+			);
+		});
+		const options = { apiKey: "key", fetch: fetchMock };
+		const first = runBraveWebSearch(
+			{
+				name: "searchWeb",
+				input: { queries: [{ subject: "Eggs", query: "eggs" }] },
+			},
+			options,
+		);
+		const second = runBraveWebSearch(
+			{
+				name: "searchWeb",
+				input: { queries: [{ subject: "Bread", query: "bread" }] },
+			},
+			options,
+		);
+
+		await vi.advanceTimersByTimeAsync(0);
+		expect(fetchMock).toHaveBeenCalledOnce();
+		await vi.advanceTimersByTimeAsync(999);
+		expect(fetchMock).toHaveBeenCalledOnce();
+		await vi.advanceTimersByTimeAsync(1);
+
+		await expect(Promise.all([first, second])).resolves.toEqual([
+			expect.objectContaining({ type: "success" }),
+			expect.objectContaining({ type: "success" }),
+		]);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+
 	it("bounds source fields and total evidence returned to the model", async () => {
 		const longTitle = "T".repeat(WEB_SEARCH_LIMITS.titleLength + 20);
 		const longDescription = "D".repeat(
@@ -332,50 +440,32 @@ describe("Brave Web Search server adapter", () => {
 		});
 	});
 
-	it("aborts a pending sibling when one batch request rejects early", async () => {
-		vi.useFakeTimers();
-		let siblingAborted = false;
+	it("does not start later batch queries after an earlier query exhausts", async () => {
 		const fetchMock = vi.fn(
-			async (input: RequestInfo | URL, init?: RequestInit) => {
-				const query = new URL(String(input)).searchParams.get("q");
-				if (query === "reject") {
-					return new Response("rate limited", { status: 429 });
-				}
-				return new Promise<Response>((_resolve, reject) => {
-					init?.signal?.addEventListener(
-						"abort",
-						() => {
-							siblingAborted = true;
-							reject(new DOMException("aborted", "AbortError"));
-						},
-						{ once: true },
-					);
-				});
-			},
+			async () => new Response("rate limited", { status: 429 }),
 		);
 
-		const result = runBraveWebSearch(
-			{
-				name: "searchWeb",
-				input: {
-					queries: [
-						{ subject: "Reject", query: "reject" },
-						{ subject: "Pending", query: "pending" },
-					],
+		await expect(
+			runBraveWebSearch(
+				{
+					name: "searchWeb",
+					input: {
+						queries: [
+							{ subject: "Reject", query: "reject" },
+							{ subject: "Pending", query: "pending" },
+						],
+					},
 				},
-			},
-			{ apiKey: "key", fetch: fetchMock, timeoutMs: 25 },
-		);
-		await vi.advanceTimersByTimeAsync(24);
-		const abortedBeforeTimeout = siblingAborted;
-		await vi.advanceTimersByTimeAsync(1);
-
-		await expect(result).resolves.toMatchObject({
+				{ apiKey: "key", fetch: fetchMock },
+			),
+		).resolves.toMatchObject({
 			type: "provider-failure",
 			status: 429,
 		});
-		expect(abortedBeforeTimeout).toBe(true);
-		expect(siblingAborted).toBe(true);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(
+			fetchMock.mock.calls.every(([url]) => String(url).includes("q=reject")),
+		).toBe(true);
 	});
 
 	it("bounds Retry-After delays and exhausts after one retry by default", async () => {
@@ -440,6 +530,31 @@ describe("Brave Web Search server adapter", () => {
 					input: { queries: [{ subject: "Coffee", query: "coffee" }] },
 				},
 				{ apiKey: "key", fetch: fetchMock, sleep, now: () => now },
+			),
+		).resolves.toMatchObject({ type: "success" });
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(sleep).toHaveBeenCalledWith(1_000);
+	});
+
+	it("falls back to Brave reset guidance when Retry-After is absent", async () => {
+		const sleep = vi.fn(async () => undefined);
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(
+				new Response("rate limited", {
+					status: 429,
+					headers: { "X-RateLimit-Reset": "1, 1423102" },
+				}),
+			)
+			.mockResolvedValueOnce(successfulResponse());
+
+		await expect(
+			runBraveWebSearch(
+				{
+					name: "searchWeb",
+					input: { queries: [{ subject: "Coffee", query: "coffee" }] },
+				},
+				{ apiKey: "key", fetch: fetchMock, sleep },
 			),
 		).resolves.toMatchObject({ type: "success" });
 		expect(fetchMock).toHaveBeenCalledTimes(2);
