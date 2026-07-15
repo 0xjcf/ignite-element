@@ -45,13 +45,7 @@ describe("same-origin product-price capability", () => {
 		const input = {
 			retailer: "Whole Foods",
 			location: "Sarasota",
-			items: [
-				{
-					subject: "Bread",
-					product: "365 Organic Sourdough Bread",
-					size: "24 oz loaf",
-				},
-			],
+			items: [{ subject: "Bread" }],
 		};
 
 		await expect(
@@ -77,7 +71,7 @@ describe("same-origin product-price capability", () => {
 		);
 	});
 
-	it("rejects incomplete selections before transport", async () => {
+	it("rejects provider-selection fields before transport", async () => {
 		const fetchMock = vi.fn();
 		const capability = createProductPriceCapability({ fetch: fetchMock });
 		await expect(
@@ -86,13 +80,16 @@ describe("same-origin product-price capability", () => {
 				input: {
 					retailer: "Whole Foods",
 					location: "Sarasota",
-					items: [{ subject: "Bread" }],
+					items: [
+						{ subject: "Bread", product: "Model loaf", size: "24 oz" },
+					],
 				},
 			}),
 		).resolves.toMatchObject({
 			type: "validation",
 			issues: expect.arrayContaining([
-				"items.0.product: expected a non-empty string",
+				"items.0.product: field is not accepted",
+				"items.0.size: field is not accepted",
 			]),
 		});
 		expect(fetchMock).not.toHaveBeenCalled();
@@ -138,11 +135,7 @@ describe("same-origin product-price capability", () => {
 					retailer: "Whole Foods",
 					location: "Sarasota",
 					items: [
-						{
-							subject: "Bread",
-							product: "365 Organic Sourdough Bread",
-							size: "24 oz loaf",
-						},
+						{ subject: "Bread" },
 					],
 				},
 			}),

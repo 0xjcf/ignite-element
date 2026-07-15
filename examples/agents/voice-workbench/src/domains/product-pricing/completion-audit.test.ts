@@ -202,7 +202,7 @@ describe("product-pricing completion audit", () => {
 		).toEqual({ ok: true });
 	});
 
-	it("rejects mismatched research subjects and hidden assumptions", () => {
+	it("rejects mismatched provider-evidence subjects", () => {
 		const invalidSearch: ModelExchange = {
 			...priceExchange,
 			results: [
@@ -241,7 +241,6 @@ describe("product-pricing completion audit", () => {
 			ok: false,
 			issues: expect.arrayContaining([
 				expect.stringContaining("matching provider evidence"),
-				expect.stringContaining("Disclose this policy assumption"),
 			]),
 		});
 	});

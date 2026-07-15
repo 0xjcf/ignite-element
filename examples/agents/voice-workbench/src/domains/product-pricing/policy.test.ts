@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { evaluateProductPricingPolicy } from "./policy";
 
 describe("product-pricing policy", () => {
-	it("admits known grocery subjects with explicit representative assumptions", () => {
+	it("admits ordered subject-only grocery categories without representative defaults", () => {
 		const decision = evaluateProductPricingPolicy({
 			retailer: "Whole Foods",
 			location: "Sarasota",
@@ -12,37 +12,22 @@ describe("product-pricing policy", () => {
 		expect(decision).toMatchObject({
 			type: "domain-policy-decision",
 			domainId: "product-pricing",
-			policyId: "representative-product-selection",
+			policyId: "category-pricing-scope",
 			outcome: "admitted",
 			request: {
 				retailer: "Whole Foods",
 				location: "Sarasota",
 				items: [
-					{
-						subject: "Bread",
-						product: "365 Organic Sourdough Bread",
-						size: "24 oz loaf",
-					},
-					{
-						subject: "Eggs",
-						product: "365 Large White Grade A Eggs",
-						size: "12 count",
-					},
-					{
-						subject: "Milk",
-						product: "365 Whole Milk",
-						size: "1 gallon",
-					},
+					{ subject: "Bread" },
+					{ subject: "Eggs" },
+					{ subject: "Milk" },
 				],
 			},
 		});
-		expect(decision.assumptions).toHaveLength(3);
-		expect(decision.assumptions[0]?.label).toContain(
-			"365 Organic Sourdough Bread · 24 oz loaf",
-		);
+		expect(decision.assumptions).toEqual([]);
 	});
 
-	it("asks deterministic questions when scope or an unknown product is underspecified", () => {
+	it("asks deterministic questions only when retailer scope is underspecified", () => {
 		const decision = evaluateProductPricingPolicy({
 			items: [{ subject: "Coffee" }],
 		});
@@ -56,14 +41,6 @@ describe("product-pricing policy", () => {
 			{
 				id: "location",
 				prompt: "Which retailer location should be used for pricing?",
-			},
-			{
-				id: "coffee-product",
-				prompt: "Which product should be used for Coffee?",
-			},
-			{
-				id: "coffee-size",
-				prompt: "Which size should be used for Coffee?",
 			},
 		]);
 	});
@@ -99,8 +76,6 @@ describe("product-pricing policy", () => {
 				location: "Sarasota",
 				items: Array.from({ length: 9 }, (_, index) => ({
 					subject: `Item ${index}`,
-					product: `Product ${index}`,
-					size: "1 each",
 				})),
 			},
 			issue: "at most 8",

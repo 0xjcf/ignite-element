@@ -33,7 +33,7 @@ export const projectProductPricingDecision = (
 	if (
 		value.type !== "domain-policy-decision" ||
 		value.domainId !== "product-pricing" ||
-		value.policyId !== "representative-product-selection" ||
+		value.policyId !== "category-pricing-scope" ||
 		(value.outcome !== "admitted" &&
 			value.outcome !== "needs-input" &&
 			value.outcome !== "rejected") ||
@@ -50,18 +50,14 @@ export const projectProductPricingDecision = (
 		(entry) => {
 			const subject = boundedText(entry.subject);
 			if (!subject) return null;
-			return {
-				subject,
-				product: boundedText(entry.product),
-				size: boundedText(entry.size),
-			};
+			return { subject };
 		},
 	);
 	return {
 		type: "domain-policy-decision",
 		domainId: "product-pricing",
 		domainLabel,
-		policyId: "representative-product-selection",
+		policyId: "category-pricing-scope",
 		policyLabel,
 		outcome: value.outcome,
 		summary,

@@ -36,19 +36,13 @@ const parseInput = (
 				return [];
 			}
 			for (const field of ["product", "size"] as const) {
-				if (item[field] !== undefined && typeof item[field] !== "string") {
-					issues.push(`items[${index}].${field} must be a string.`);
+				if (field in item) {
+					issues.push(
+						`items[${index}].${field} is not accepted; the provider selects product identity.`,
+					);
 				}
 			}
-			return [
-				{
-					subject: item.subject,
-					...(typeof item.product === "string"
-						? { product: item.product }
-						: {}),
-					...(typeof item.size === "string" ? { size: item.size } : {}),
-				},
-			];
+			return [{ subject: item.subject }];
 		},
 	);
 	return issues.length > 0
@@ -85,10 +79,9 @@ export const createProductPricingCapability = (): CapabilityOwner => ({
 							type: "object",
 							properties: {
 								subject: { type: "string" },
-								product: { type: "string" },
-								size: { type: "string" },
 							},
 							required: ["subject"],
+							additionalProperties: false,
 						},
 					},
 				},

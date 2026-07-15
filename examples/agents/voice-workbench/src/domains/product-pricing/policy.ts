@@ -10,8 +10,6 @@ export type ProductPricingInput = {
 	location?: string;
 	items: readonly {
 		subject: string;
-		product?: string;
-		size?: string;
 	}[];
 };
 
@@ -23,27 +21,17 @@ export type ProductPricingSelectedItem = {
 
 export type ProductPricingRequestItem = {
 	subject: string;
-	product: string | null;
-	size: string | null;
 };
 
 export type ProductPricingDecision = DomainPolicyDecision & {
 	domainId: "product-pricing";
-	policyId: "representative-product-selection";
+	policyId: "category-pricing-scope";
 	request: {
 		retailer: string | null;
 		location: string | null;
 		items: readonly ProductPricingRequestItem[];
 	};
 	issues: readonly string[];
-};
-
-const REPRESENTATIVE_DEFAULTS: Readonly<
-	Record<string, Omit<ProductPricingSelectedItem, "subject">>
-> = {
-	bread: { product: "365 Organic Sourdough Bread", size: "24 oz loaf" },
-	egg: { product: "365 Large White Grade A Eggs", size: "12 count" },
-	milk: { product: "365 Whole Milk", size: "1 gallon" },
 };
 
 const EVIDENCE_REQUIREMENTS: readonly DomainEvidenceRequirement[] = [
@@ -53,7 +41,8 @@ const EVIDENCE_REQUIREMENTS: readonly DomainEvidenceRequirement[] = [
 	},
 	{
 		id: "selection-disclosure",
-		label: "Disclose the selected product and size for every subject.",
+		label:
+			"Disclose the provider-selected product and size evidence for every subject.",
 	},
 	{
 		id: "price-status-source",
@@ -81,9 +70,6 @@ const subjectKey = (value: string): string => {
 		.replace(/[^a-z0-9]+/g, "");
 	return normalized.endsWith("s") ? normalized.slice(0, -1) : normalized;
 };
-
-const questionId = (subject: string, field: "product" | "size"): string =>
-	`${subjectKey(subject) || "item"}-${field}`;
 
 export const evaluateProductPricingPolicy = (
 	input: ProductPricingInput,
@@ -120,40 +106,9 @@ export const evaluateProductPricingPolicy = (
 		});
 	}
 
-	const requestItems = input.items.map((item): ProductPricingRequestItem => {
-		const subject = text(item.subject) ?? "";
-		const defaults = REPRESENTATIVE_DEFAULTS[subjectKey(subject)];
-		let product = text(item.product);
-		let size = text(item.size);
-		const defaulted: string[] = [];
-		if (!product && defaults) {
-			product = defaults.product;
-			defaulted.push(defaults.product);
-		}
-		if (!size && defaults) {
-			size = defaults.size;
-			defaulted.push(defaults.size);
-		}
-		if (defaulted.length > 0 && subject) {
-			assumptions.push({
-				id: `${subjectKey(subject)}-representative-selection`,
-				label: `${subject} uses representative default: ${defaulted.join(" · ")}.`,
-			});
-		}
-		if (!product && subject) {
-			questions.push({
-				id: questionId(subject, "product"),
-				prompt: `Which product should be used for ${subject}?`,
-			});
-		}
-		if (!size && subject) {
-			questions.push({
-				id: questionId(subject, "size"),
-				prompt: `Which size should be used for ${subject}?`,
-			});
-		}
-		return { subject, product, size };
-	});
+	const requestItems = input.items.map(
+		(item): ProductPricingRequestItem => ({ subject: text(item.subject) ?? "" }),
+	);
 
 	const outcome =
 		issues.length > 0
@@ -165,8 +120,8 @@ export const evaluateProductPricingPolicy = (
 		type: "domain-policy-decision",
 		domainId: "product-pricing",
 		domainLabel: "Product pricing",
-		policyId: "representative-product-selection",
-		policyLabel: "Representative product selection",
+		policyId: "category-pricing-scope",
+		policyLabel: "Category pricing scope",
 		outcome,
 		summary:
 			outcome === "admitted"

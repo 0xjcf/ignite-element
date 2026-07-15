@@ -40,8 +40,6 @@ const admittedInput = {
 	location: "Sarasota",
 	items: decision.request.items.map((item) => ({
 		subject: item.subject,
-		product: item.product ?? "",
-		size: item.size ?? "",
 	})),
 };
 
@@ -62,9 +60,7 @@ describe("product-pricing execution authorization", () => {
 		).toMatchObject({
 			authorized: false,
 			issues: expect.arrayContaining([
-				expect.stringContaining(
-					"exact retailer, location, subject, product, and size",
-				),
+				expect.stringContaining("exact retailer, location, and ordered subjects"),
 			]),
 		});
 	});
@@ -76,8 +72,6 @@ describe("product-pricing execution authorization", () => {
 				location: " Sarasota ",
 				items: admittedInput.items.map((item) => ({
 					subject: ` ${item.subject} `,
-					product: ` ${item.product.replace(/ /g, "  ")} `,
-					size: ` ${item.size} `,
 				})),
 			}),
 		).toEqual({ authorized: true });
@@ -105,4 +99,61 @@ describe("product-pricing execution authorization", () => {
 			}),
 		).toBe(true);
 	});
+
+	it.each(["needs-input", "rejected"] as const)(
+		"offers exactly one repair after a %s decision and lets the repair supersede it",
+		(firstOutcome) => {
+			const first = evaluateProductPricingPolicy(
+				firstOutcome === "needs-input"
+					? { retailer: "Whole Foods", items: [{ subject: "Bread" }] }
+					: { retailer: "Whole Foods", location: "Sarasota", items: [] },
+			);
+			const repaired = evaluateProductPricingPolicy({
+				retailer: "Whole Foods",
+				location: "Sarasota",
+				items: [{ subject: "Bread" }],
+			});
+			const repairedHistory: ModelExchange[] = [
+				{
+					...history[0]!,
+					results: [{ ...history[0]!.results[0]!, fact: { decision: first } }],
+				},
+			];
+			expect(
+				isProductPricingToolAvailable({
+					prompt: { channel: "text", text: "prices for bread" },
+					history: repairedHistory,
+					toolName: "prepareProductPricing",
+				}),
+			).toBe(true);
+
+			repairedHistory.push({
+				...history[0]!,
+				results: [
+					{ ...history[0]!.results[0]!, fact: { decision: repaired } },
+				],
+			});
+			expect(
+				isProductPricingToolAvailable({
+					prompt: { channel: "text", text: "prices for bread" },
+					history: repairedHistory,
+					toolName: "prepareProductPricing",
+				}),
+			).toBe(false);
+			expect(
+				authorizeProductPricingExecution({
+					prompt: { channel: "text", text: "prices for bread" },
+					history: repairedHistory,
+					call: {
+						name: "priceProducts",
+						input: {
+							retailer: "Whole Foods",
+							location: "Sarasota",
+							items: [{ subject: "Bread" }],
+						},
+					},
+				}),
+			).toEqual({ authorized: true });
+		},
+	);
 });

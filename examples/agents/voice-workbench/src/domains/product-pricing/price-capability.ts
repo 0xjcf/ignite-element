@@ -4,12 +4,10 @@ import type {
 	CapabilityOwner,
 } from "../../capability-federation";
 import { readSourcedSearchCapabilityFact } from "../../web-search-capability";
-import type { ProductPricingSelectedItem } from "./policy";
-
 export type ProductPriceInput = {
 	retailer: string;
 	location: string;
-	items: ProductPricingSelectedItem[];
+	items: { subject: string }[];
 };
 
 type FetchLike = (
@@ -30,7 +28,7 @@ const manifest: NeutralManifest = [
 	{
 		name: PRODUCT_PRICE_TOOL_NAME,
 		description:
-			"Resolve the complete product-pricing scope admitted by prepareProductPricing. Pass the exact retailer, location, subject, product, and size values from that decision. The provider owns discovery queries and returns sourced or explicitly unverified prices.",
+			"Resolve the complete product-pricing scope admitted by prepareProductPricing. Pass the exact retailer, location, and ordered subjects from that decision. The provider owns product selection and discovery and returns sourced or explicitly unverified prices.",
 		inputSchema: {
 			type: "object",
 			properties: {
@@ -44,10 +42,8 @@ const manifest: NeutralManifest = [
 						type: "object",
 						properties: {
 							subject: { type: "string", minLength: 1, maxLength: 120 },
-							product: { type: "string", minLength: 1, maxLength: 160 },
-							size: { type: "string", minLength: 1, maxLength: 80 },
 						},
-						required: ["subject", "product", "size"],
+						required: ["subject"],
 						additionalProperties: false,
 					},
 				},
@@ -118,7 +114,12 @@ export const readProductPriceInput = (
 		? value.items.slice(0, 8).map((candidate, index) => {
 				if (!isRecord(candidate)) {
 					issues.push(`items.${index}: expected an object`);
-					return { subject: "", product: "", size: "" };
+					return { subject: "" };
+				}
+				for (const field of ["product", "size"] as const) {
+					if (field in candidate) {
+						issues.push(`items.${index}.${field}: field is not accepted`);
+					}
 				}
 				return {
 					subject: requiredText(
@@ -127,13 +128,6 @@ export const readProductPriceInput = (
 						120,
 						issues,
 					),
-					product: requiredText(
-						candidate.product,
-						`items.${index}.product`,
-						160,
-						issues,
-					),
-					size: requiredText(candidate.size, `items.${index}.size`, 80, issues),
 				};
 			})
 		: [];
