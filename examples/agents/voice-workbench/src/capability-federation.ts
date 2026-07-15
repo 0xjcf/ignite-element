@@ -8,10 +8,14 @@ export type CapabilityReceipt = {
 		status: "miss" | "hit" | "coalesced";
 		ttlMs: number;
 	};
-	fallback?: {
-		from: string;
-		status: number;
-	};
+	fallback?: CapabilityFallbackAttempt;
+};
+
+export type CapabilityFallbackAttempt = {
+	from: string;
+	provider: string;
+	status: number;
+	outcome: "success" | "failure" | "timeout" | "threw";
 };
 
 export type CapabilityRetryFact = {
@@ -37,6 +41,7 @@ export type CapabilityExecutionFact =
 			issues?: readonly string[];
 			status?: number;
 			retry?: CapabilityRetryFact;
+			fallback?: CapabilityFallbackAttempt;
 			reason?: string;
 			actorRejected?: boolean;
 	  };

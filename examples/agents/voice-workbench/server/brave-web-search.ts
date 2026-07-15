@@ -28,7 +28,11 @@ export type BraveWebSearchOptions = {
 	fallback?: {
 		provider: string;
 		statuses?: readonly number[];
-		run(call: NeutralToolCall): Promise<CapabilityExecutionFact>;
+		timeoutMs?: number;
+		run(
+			call: NeutralToolCall,
+			context: { signal: AbortSignal },
+		): Promise<CapabilityExecutionFact>;
 	};
 };
 
@@ -37,6 +41,7 @@ const TOOL_NAME = "searchWeb";
 const DEFAULT_CACHE_TTL_MS = 15_000;
 const DEFAULT_MAX_RETRY_AFTER_MS = 2_000;
 const DEFAULT_MAX_RETRIES = 1;
+const DEFAULT_FALLBACK_TIMEOUT_MS = 2_000;
 const MAX_CACHE_ENTRIES = 32;
 const RETRYABLE_STATUSES = new Set([429, 503]);
 
@@ -129,6 +134,12 @@ const failure = (
 			retryAfterMs?: number;
 			exhausted: boolean;
 		};
+		fallback?: {
+			from: string;
+			provider: string;
+			status: number;
+			outcome: "success" | "failure" | "timeout" | "threw";
+		};
 	} = {},
 ): CapabilityExecutionFact => ({
 	type,
@@ -144,6 +155,72 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 type SearchOutcome =
 	| { ok: true; search: WebSearchFact["searches"][number] }
 	| { ok: false; fact: CapabilityExecutionFact };
+
+const runConfiguredFallback = async (
+	call: NeutralToolCall,
+	fallback: NonNullable<BraveWebSearchOptions["fallback"]>,
+	status: number,
+): Promise<CapabilityExecutionFact> => {
+	const controller = new AbortController();
+	const timeoutMs = Math.max(
+		1,
+		boundedInteger(fallback.timeoutMs, DEFAULT_FALLBACK_TIMEOUT_MS, 10_000),
+	);
+	type Outcome =
+		| { type: "fact"; fact: CapabilityExecutionFact }
+		| { type: "timeout" }
+		| { type: "threw" };
+	let timeout: ReturnType<typeof setTimeout> | undefined;
+	const deadline = new Promise<Outcome>((resolve) => {
+		timeout = setTimeout(() => {
+			controller.abort();
+			resolve({ type: "timeout" });
+		}, timeoutMs);
+	});
+	const execution = Promise.resolve()
+		.then(() => fallback.run(call, { signal: controller.signal }))
+		.then(
+			(fact): Outcome => ({ type: "fact", fact }),
+			(): Outcome => ({ type: "threw" }),
+		);
+	const provenance = {
+		from: OWNER_ID,
+		provider: fallback.provider,
+		status,
+	} as const;
+	try {
+		const outcome = await Promise.race([execution, deadline]);
+		if (outcome.type === "timeout") {
+			return failure("timeout", "Configured fallback timed out.", {
+				fallback: { ...provenance, outcome: "timeout" },
+			});
+		}
+		if (outcome.type === "threw") {
+			return failure(
+				"provider-failure",
+				"Configured fallback failed unexpectedly.",
+				{ fallback: { ...provenance, outcome: "threw" } },
+			);
+		}
+		if (outcome.fact.type === "success") {
+			return {
+				...outcome.fact,
+				receipt: {
+					...outcome.fact.receipt,
+					provider: fallback.provider,
+					fallback: { ...provenance, outcome: "success" },
+				},
+			};
+		}
+		return {
+			...outcome.fact,
+			fallback: { ...provenance, outcome: "failure" },
+		};
+	} finally {
+		if (timeout) clearTimeout(timeout);
+		controller.abort();
+	}
+};
 
 const requestBraveQuery = async (
 	request: WebSearchQuery,
@@ -310,21 +387,7 @@ const executeBraveWebSearch = async (
 				options.fallback &&
 				(options.fallback.statuses ?? [429, 503]).includes(status);
 			if (eligible && options.fallback) {
-				try {
-					const fallback = await options.fallback.run(call);
-					if (fallback.type === "success") {
-						return {
-							...fallback,
-							receipt: {
-								...fallback.receipt,
-								provider: options.fallback.provider,
-								fallback: { from: OWNER_ID, status },
-							},
-						};
-					}
-				} catch {
-					return firstFailure;
-				}
+				return runConfiguredFallback(call, options.fallback, status);
 			}
 			return firstFailure;
 		}

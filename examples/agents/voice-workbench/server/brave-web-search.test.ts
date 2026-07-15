@@ -542,7 +542,12 @@ describe("Brave Web Search server adapter", () => {
 			type: "success",
 			receipt: {
 				provider: "fixture-search",
-				fallback: { from: "brave-web-search", status: 503 },
+				fallback: {
+					from: "brave-web-search",
+					provider: "fixture-search",
+					status: 503,
+					outcome: "success",
+				},
 			},
 		});
 		expect(fallbackRun).toHaveBeenCalledOnce();
@@ -563,5 +568,115 @@ describe("Brave Web Search server adapter", () => {
 			}),
 		).resolves.toMatchObject({ type: "provider-failure", status: 503 });
 		expect(fallbackRun).toHaveBeenCalledOnce();
+	});
+
+	it("aborts a hanging configured fallback at its deterministic deadline", async () => {
+		vi.useFakeTimers();
+		const fetchMock = vi.fn(async () => new Response("busy", { status: 503 }));
+		let fallbackSignal: AbortSignal | undefined;
+		const fallbackRun = vi.fn(
+			async (_call: unknown, context: { signal: AbortSignal }) => {
+				fallbackSignal = context.signal;
+				return new Promise<never>(() => undefined);
+			},
+		);
+		const result = runBraveWebSearch(
+			{
+				name: "searchWeb",
+				input: { queries: [{ subject: "Coffee", query: "coffee" }] },
+			},
+			{
+				apiKey: "key",
+				fetch: fetchMock,
+				sleep: async () => undefined,
+				fallback: {
+					provider: "fixture-search",
+					statuses: [503],
+					timeoutMs: 25,
+					run: fallbackRun,
+				},
+			},
+		);
+
+		await vi.advanceTimersByTimeAsync(0);
+		expect(fallbackRun).toHaveBeenCalledOnce();
+		expect(fallbackSignal?.aborted).toBe(false);
+		await vi.advanceTimersByTimeAsync(25);
+		await expect(result).resolves.toMatchObject({
+			type: "timeout",
+			message: "Configured fallback timed out.",
+			fallback: {
+				from: "brave-web-search",
+				provider: "fixture-search",
+				status: 503,
+				outcome: "timeout",
+			},
+		});
+		expect(fallbackSignal?.aborted).toBe(true);
+	});
+
+	it("returns structured provenance for failed and thrown fallback attempts", async () => {
+		const call = {
+			name: "searchWeb",
+			input: { queries: [{ subject: "Coffee", query: "coffee" }] },
+		};
+		const failedFetch = vi.fn(
+			async () => new Response("busy", { status: 503 }),
+		);
+		await expect(
+			runBraveWebSearch(call, {
+				apiKey: "key",
+				fetch: failedFetch,
+				sleep: async () => undefined,
+				fallback: {
+					provider: "fixture-search",
+					statuses: [503],
+					run: async () => ({
+						type: "provider-failure",
+						ownerId: "fixture-search",
+						toolName: "searchWeb",
+						message: "Fixture provider rejected the request.",
+						status: 502,
+					}),
+				},
+			}),
+		).resolves.toMatchObject({
+			type: "provider-failure",
+			message: "Fixture provider rejected the request.",
+			status: 502,
+			fallback: {
+				from: "brave-web-search",
+				provider: "fixture-search",
+				status: 503,
+				outcome: "failure",
+			},
+		});
+
+		const throwingFetch = vi.fn(
+			async () => new Response("busy", { status: 503 }),
+		);
+		await expect(
+			runBraveWebSearch(call, {
+				apiKey: "key",
+				fetch: throwingFetch,
+				sleep: async () => undefined,
+				fallback: {
+					provider: "fixture-search",
+					statuses: [503],
+					run: async () => {
+						throw new Error("secret fixture failure");
+					},
+				},
+			}),
+		).resolves.toMatchObject({
+			type: "provider-failure",
+			message: "Configured fallback failed unexpectedly.",
+			fallback: {
+				from: "brave-web-search",
+				provider: "fixture-search",
+				status: 503,
+				outcome: "threw",
+			},
+		});
 	});
 });

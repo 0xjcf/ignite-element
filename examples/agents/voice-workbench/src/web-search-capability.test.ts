@@ -246,6 +246,76 @@ describe("same-origin web search capability", () => {
 		});
 	});
 
+	it("preserves bounded configured fallback provenance from server facts", async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(
+				new Response(
+					JSON.stringify({
+						type: "success",
+						ownerId: "fixture-search",
+						toolName: "searchWeb",
+						data: { searches: [] },
+						receipt: {
+							provider: "fixture-search",
+							queryCount: 0,
+							sourceCount: 0,
+							fallback: {
+								from: "brave-web-search",
+								provider: "fixture-search",
+								status: 503,
+								outcome: "success",
+							},
+						},
+					}),
+					{ status: 200 },
+				),
+			)
+			.mockResolvedValueOnce(
+				new Response(
+					JSON.stringify({
+						type: "timeout",
+						ownerId: "fixture-search",
+						toolName: "searchWeb",
+						message: "Configured fallback timed out.",
+						fallback: {
+							from: "brave-web-search",
+							provider: "fixture-search",
+							status: 503,
+							outcome: "timeout",
+						},
+					}),
+					{ status: 200 },
+				),
+			);
+		const provider = createWebSearchCapability({ fetch: fetchMock });
+		const call = {
+			name: "searchWeb",
+			input: { queries: [{ subject: "Coffee", query: "coffee" }] },
+		};
+
+		await expect(provider.run(call)).resolves.toMatchObject({
+			type: "success",
+			receipt: {
+				fallback: {
+					from: "brave-web-search",
+					provider: "fixture-search",
+					status: 503,
+					outcome: "success",
+				},
+			},
+		});
+		await expect(provider.run(call)).resolves.toMatchObject({
+			type: "timeout",
+			fallback: {
+				from: "brave-web-search",
+				provider: "fixture-search",
+				status: 503,
+				outcome: "timeout",
+			},
+		});
+	});
+
 	it("sanitizes oversized same-origin evidence before returning it", async () => {
 		const fetchMock = vi.fn(
 			async () =>

@@ -1,6 +1,7 @@
 import type { NeutralManifest, NeutralToolCall } from "ignite-element/tools";
 import type {
 	CapabilityExecutionFact,
+	CapabilityFallbackAttempt,
 	CapabilityOwner,
 } from "./capability-federation";
 
@@ -320,6 +321,30 @@ const sanitizeSearches = (value: unknown): WebSearchFact["searches"] | null => {
 	return searches;
 };
 
+const readFallbackAttempt = (
+	value: unknown,
+): CapabilityFallbackAttempt | undefined => {
+	if (
+		!isRecord(value) ||
+		typeof value.from !== "string" ||
+		typeof value.provider !== "string" ||
+		typeof value.status !== "number" ||
+		!Number.isFinite(value.status) ||
+		(value.outcome !== "success" &&
+			value.outcome !== "failure" &&
+			value.outcome !== "timeout" &&
+			value.outcome !== "threw")
+	) {
+		return undefined;
+	}
+	return {
+		from: boundedText(value.from, 80),
+		provider: boundedText(value.provider, WEB_SEARCH_LIMITS.providerLength),
+		status: Math.min(Math.max(Math.floor(value.status), 100), 599),
+		outcome: value.outcome,
+	};
+};
+
 const readCapabilityFact = (value: unknown): CapabilityExecutionFact | null => {
 	if (!isRecord(value) || typeof value.type !== "string") return null;
 	const ownerId =
@@ -337,6 +362,7 @@ const readCapabilityFact = (value: unknown): CapabilityExecutionFact | null => {
 		) {
 			return null;
 		}
+		const fallback = readFallbackAttempt(value.receipt.fallback);
 		return {
 			type: "success",
 			ownerId,
@@ -368,19 +394,7 @@ const readCapabilityFact = (value: unknown): CapabilityExecutionFact | null => {
 							},
 						}
 					: {}),
-				...(isRecord(value.receipt.fallback) &&
-				typeof value.receipt.fallback.from === "string" &&
-				typeof value.receipt.fallback.status === "number"
-					? {
-							fallback: {
-								from: boundedText(value.receipt.fallback.from, 80),
-								status: Math.min(
-									Math.max(Math.floor(value.receipt.fallback.status), 100),
-									599,
-								),
-							},
-						}
-					: {}),
+				...(fallback ? { fallback } : {}),
 			},
 		};
 	}
@@ -391,6 +405,7 @@ const readCapabilityFact = (value: unknown): CapabilityExecutionFact | null => {
 		value.type === "provider-failure"
 	) {
 		if (typeof value.message !== "string") return null;
+		const fallback = readFallbackAttempt(value.fallback);
 		return {
 			type: value.type,
 			ownerId,
@@ -428,6 +443,7 @@ const readCapabilityFact = (value: unknown): CapabilityExecutionFact | null => {
 						},
 					}
 				: {}),
+			...(fallback ? { fallback } : {}),
 		};
 	}
 	return null;
