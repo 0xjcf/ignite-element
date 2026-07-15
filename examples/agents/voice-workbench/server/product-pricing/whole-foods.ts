@@ -1,5 +1,6 @@
 import type { NeutralToolCall } from "ignite-element/tools";
 import type { CapabilityExecutionFact } from "../../src/capability-federation";
+import { PRODUCT_PRICING_MAX_ITEMS } from "../../src/domains/product-pricing/policy";
 import {
 	PRODUCT_PRICE_OWNER_ID,
 	PRODUCT_PRICE_TOOL_NAME,
@@ -132,10 +133,11 @@ type PricingPlan =
 
 export const WHOLE_FOODS_DISCOVERY_CACHE_TTL_MS = 300_000;
 export const WHOLE_FOODS_DISCOVERY_CACHE_MAX_ENTRIES = 64;
+export const WHOLE_FOODS_MAX_OFFER_RECORDS =
+	PRODUCT_PRICING_MAX_ITEMS * WHOLE_FOODS_CANDIDATE_POLICY.maxCandidates;
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const MAX_RESPONSE_BYTES = 1_000_000;
-const MAX_OFFER_RECORDS = 64;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
@@ -264,47 +266,66 @@ const productDetailsEndpoint = (
 	return endpoint;
 };
 
-const readResponsePayload = async (
-	response: Response,
-): Promise<{ ok: true; value: unknown } | { ok: false }> => {
-	const contentLength = Number(response.headers.get("content-length"));
-	if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) {
-		return { ok: false };
-	}
-	const body = await response.text();
-	if (Buffer.byteLength(body, "utf8") > MAX_RESPONSE_BYTES) {
-		return { ok: false };
-	}
-	try {
-		return { ok: true, value: JSON.parse(body) };
-	} catch {
-		return { ok: false };
-	}
-};
+type BoundedJsonResponse =
+	| { ok: true; value: unknown }
+	| { ok: false; reason: "transport-error" | "schema-drift" };
 
-const withTimeout = async (
+const fetchBoundedJson = async (
 	url: URL,
 	options: WholeFoodsProductPricingOptions,
-): Promise<
-	{ ok: true; response: Response } | { ok: false; reason: "transport-error" }
-> => {
+): Promise<BoundedJsonResponse> => {
 	const fetcher = options.fetch ?? globalThis.fetch;
 	if (typeof fetcher !== "function")
 		return { ok: false, reason: "transport-error" };
 	const controller = new AbortController();
-	const timeout = setTimeout(
-		() => controller.abort(),
-		options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-	);
+	let timeout: ReturnType<typeof setTimeout> | undefined;
+	const deadline = new Promise<{ kind: "deadline" }>((resolve) => {
+		timeout = setTimeout(() => {
+			controller.abort();
+			resolve({ kind: "deadline" });
+		}, options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+	});
 	try {
-		return {
-			ok: true,
-			response: await fetcher(url, { signal: controller.signal }),
-		};
-	} catch {
-		return { ok: false, reason: "transport-error" };
+		const fetched = await Promise.race([
+			Promise.resolve()
+				.then(() => fetcher(url, { signal: controller.signal }))
+				.then(
+					(response) => ({ kind: "response" as const, response }),
+					() => ({ kind: "transport-error" as const }),
+				),
+			deadline,
+		]);
+		if (fetched.kind !== "response" || !fetched.response.ok) {
+			return { ok: false, reason: "transport-error" };
+		}
+		const contentLength = Number(
+			fetched.response.headers.get("content-length"),
+		);
+		if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) {
+			return { ok: false, reason: "schema-drift" };
+		}
+		const consumed = await Promise.race([
+			Promise.resolve()
+				.then(() => fetched.response.text())
+				.then(
+					(body) => ({ kind: "body" as const, body }),
+					() => ({ kind: "transport-error" as const }),
+				),
+			deadline,
+		]);
+		if (consumed.kind !== "body") {
+			return { ok: false, reason: "transport-error" };
+		}
+		if (Buffer.byteLength(consumed.body, "utf8") > MAX_RESPONSE_BYTES) {
+			return { ok: false, reason: "schema-drift" };
+		}
+		try {
+			return { ok: true, value: JSON.parse(consumed.body) };
+		} catch {
+			return { ok: false, reason: "schema-drift" };
+		}
 	} finally {
-		clearTimeout(timeout);
+		if (timeout !== undefined) clearTimeout(timeout);
 		controller.abort();
 	}
 };
@@ -333,24 +354,27 @@ const discoverNatively = async (
 	store: WholeFoodsStorePolicy,
 	options: WholeFoodsProductPricingOptions,
 ): Promise<NativeDiscovery> => {
-	const native = await withTimeout(nativeSearchEndpoint(store, query), options);
-	if (!native.ok || !native.response.ok) {
+	const native = await fetchBoundedJson(
+		nativeSearchEndpoint(store, query),
+		options,
+	);
+	if (!native.ok) {
 		return {
 			kind: "unverified",
-			reason: "Retailer-native discovery could not be reached.",
+			reason:
+				native.reason === "transport-error"
+					? "Retailer-native discovery could not be reached."
+					: "Retailer-native discovery returned an unsupported response shape.",
 			receipt: {
 				cache: "miss",
-				native: "transport-error",
+				native: native.reason,
 				brave: "not-eligible",
 			},
 			queryCount: 1,
 		};
 	}
-	const payload = await readResponsePayload(native.response);
-	const decoded = payload.ok
-		? parseWholeFoodsNativeSearch(payload.value)
-		: null;
-	if (!decoded || !decoded.ok) {
+	const decoded = parseWholeFoodsNativeSearch(native.value);
+	if (!decoded.ok) {
 		return {
 			kind: "unverified",
 			reason:
@@ -422,7 +446,8 @@ export const parseWholeFoodsProductOffers = (
 	value: unknown,
 	allowedAsins: ReadonlySet<string>,
 ): ReadonlyMap<string, ProductRecord> | null => {
-	if (!Array.isArray(value) || value.length > MAX_OFFER_RECORDS) return null;
+	if (!Array.isArray(value) || value.length > WHOLE_FOODS_MAX_OFFER_RECORDS)
+		return null;
 	const products = new Map<string, ProductRecord>();
 	for (const candidate of value) {
 		if (
@@ -467,14 +492,13 @@ const fetchProductRecords = async (
 	options: WholeFoodsProductPricingOptions,
 ): Promise<ReadonlyMap<string, ProductRecord> | null> => {
 	if (asins.length === 0) return new Map();
-	const response = await withTimeout(
+	if (asins.length > WHOLE_FOODS_MAX_OFFER_RECORDS) return null;
+	const response = await fetchBoundedJson(
 		productDetailsEndpoint(store, asins),
 		options,
 	);
-	if (!response.ok || !response.response.ok) return null;
-	const payload = await readResponsePayload(response.response);
-	return payload.ok
-		? parseWholeFoodsProductOffers(payload.value, new Set(asins))
+	return response.ok
+		? parseWholeFoodsProductOffers(response.value, new Set(asins))
 		: null;
 };
 
@@ -491,6 +515,29 @@ const settleOwned = (
 	if (state.inFlight.get(plan.key) === plan.promise) {
 		state.inFlight.delete(plan.key);
 	}
+};
+
+const unresolvedOwnedOutcome = (plan: OwnedPlan): IdentityOutcome => {
+	const discovery = plan.discovery;
+	if (discovery?.kind === "unverified") return discovery;
+	if (discovery?.kind === "candidates") {
+		return {
+			kind: "unverified",
+			reason: "Whole Foods offer details could not be decoded.",
+			receipt: discovery.receipt,
+			queryCount: discovery.queryCount,
+		};
+	}
+	return {
+		kind: "unverified",
+		reason: "Retailer-native discovery did not complete.",
+		receipt: {
+			cache: "miss",
+			native: "transport-error",
+			brave: "not-eligible",
+		},
+		queryCount: 0,
+	};
 };
 
 const unverifiedPrice = (reason: string, sourceUrl: string | null) => ({
@@ -642,124 +689,96 @@ export async function runWholeFoodsProductPricing(
 			resolve: deferred.resolve,
 		};
 	});
-
-	await Promise.all(
-		plans.map(async (plan) => {
-			if (plan.kind !== "coalesced") return;
-			const outcome = await plan.promise;
-			plan.outcome =
-				outcome.kind === "selected"
-					? {
-							...outcome,
-							receipt: {
-								cache: "coalesced",
-								native: "coalesced",
-								brave: "coalesced",
-							},
-							queryCount: 0,
-						}
-					: {
-							...outcome,
-							receipt: {
-								cache: "coalesced",
-								native: "coalesced",
-								brave: "coalesced",
-							},
-							queryCount: 0,
-						};
-		}),
-	);
-
 	const owned = plans.filter(
 		(plan): plan is OwnedPlan => plan.kind === "owned",
 	);
-	await Promise.all(
-		owned.map(async (plan) => {
-			plan.discovery = await discoverNatively(
-				plan.subject,
-				plan.query,
-				store,
-				options,
-			);
-		}),
-	);
+	let products: ReadonlyMap<string, ProductRecord> | null = null;
 
-	const asins = new Set<string>();
-	for (const plan of plans) {
-		if (plan.kind !== "owned" && plan.outcome?.kind === "selected") {
-			asins.add(plan.outcome.identity.asin);
-		}
-		if (plan.kind === "owned" && plan.discovery?.kind === "candidates") {
-			for (const candidate of plan.discovery.candidates)
-				asins.add(candidate.asin);
-		}
-	}
-	const products = await fetchProductRecords([...asins], store, options);
-
-	for (const plan of owned) {
-		const discovery = plan.discovery;
-		if (!discovery || discovery.kind === "unverified") {
-			settleOwned(
-				plan,
-				discovery ?? {
-					kind: "unverified",
-					reason: "Retailer-native discovery did not complete.",
+	try {
+		await Promise.all(
+			plans.map(async (plan) => {
+				if (plan.kind !== "coalesced") return;
+				const outcome = await plan.promise;
+				plan.outcome = {
+					...outcome,
 					receipt: {
-						cache: "miss",
-						native: "transport-error",
-						brave: "not-eligible",
+						cache: "coalesced",
+						native: "coalesced",
+						brave: "coalesced",
 					},
 					queryCount: 0,
-				},
-				state,
-			);
-			continue;
-		}
-		if (!products) {
-			settleOwned(
-				plan,
-				{
-					kind: "unverified",
-					reason: "Whole Foods offer details could not be decoded.",
-					receipt: discovery.receipt,
-					queryCount: discovery.queryCount,
-				},
-				state,
-			);
-			continue;
-		}
-		const selection = rankWholeFoodsCandidates(
-			plan.subject,
-			discovery.candidates.flatMap((candidate) => {
-				const product = products.get(candidate.asin);
-				return product ? [{ ...candidate, name: product.name }] : [];
+				};
 			}),
 		);
-		if (selection.outcome === "selected") {
-			settleOwned(
-				plan,
-				{
-					kind: "selected",
-					identity: selection.candidate,
-					receipt: discovery.receipt,
-					queryCount: discovery.queryCount,
-				},
-				state,
+
+		await Promise.all(
+			owned.map(async (plan) => {
+				plan.discovery = await discoverNatively(
+					plan.subject,
+					plan.query,
+					store,
+					options,
+				);
+			}),
+		);
+
+		const asins = new Set<string>();
+		for (const plan of plans) {
+			if (plan.kind !== "owned" && plan.outcome?.kind === "selected") {
+				asins.add(plan.outcome.identity.asin);
+			}
+			if (plan.kind === "owned" && plan.discovery?.kind === "candidates") {
+				for (const candidate of plan.discovery.candidates)
+					asins.add(candidate.asin);
+			}
+		}
+		products = await fetchProductRecords([...asins], store, options);
+
+		for (const plan of owned) {
+			const discovery = plan.discovery;
+			if (!discovery || discovery.kind === "unverified" || !products) {
+				settleOwned(plan, unresolvedOwnedOutcome(plan), state);
+				continue;
+			}
+			const selection = rankWholeFoodsCandidates(
+				plan.subject,
+				discovery.candidates.flatMap((candidate) => {
+					const product = products?.get(candidate.asin);
+					return product ? [{ ...candidate, name: product.name }] : [];
+				}),
 			);
-		} else {
-			settleOwned(
-				plan,
-				{
-					kind: "unverified",
-					reason:
-						selection.outcome === "ambiguous"
-							? "Retailer-native candidate selection is ambiguous."
-							: "Retailer-native discovery returned no compatible product identity.",
-					receipt: discovery.receipt,
-					queryCount: discovery.queryCount,
-				},
-				state,
-			);
+			if (selection.outcome === "selected") {
+				settleOwned(
+					plan,
+					{
+						kind: "selected",
+						identity: selection.candidate,
+						receipt: discovery.receipt,
+						queryCount: discovery.queryCount,
+					},
+					state,
+				);
+			} else {
+				settleOwned(
+					plan,
+					{
+						kind: "unverified",
+						reason:
+							selection.outcome === "ambiguous"
+								? "Retailer-native candidate selection is ambiguous."
+								: "Retailer-native discovery returned no compatible product identity.",
+						receipt: discovery.receipt,
+						queryCount: discovery.queryCount,
+					},
+					state,
+				);
+			}
+		}
+	} catch {
+		products = null;
+	} finally {
+		for (const plan of owned) {
+			if (!plan.outcome) settleOwned(plan, unresolvedOwnedOutcome(plan), state);
 		}
 	}
 

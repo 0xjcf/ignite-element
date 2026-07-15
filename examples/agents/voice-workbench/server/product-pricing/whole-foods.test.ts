@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import {
 	createWholeFoodsProductPricingState,
+	parseWholeFoodsProductOffers,
 	runWholeFoodsProductPricing,
 	WHOLE_FOODS_DISCOVERY_CACHE_MAX_ENTRIES,
 	WHOLE_FOODS_DISCOVERY_CACHE_TTL_MS,
+	WHOLE_FOODS_MAX_OFFER_RECORDS,
 } from "./whole-foods";
 
 const nativeEnvelope = (...asins: string[]) => ({
@@ -141,6 +143,89 @@ describe("Whole Foods server price adapter", () => {
 					([request]) => nativeUrl(request).searchParams.get("size") === "12",
 				),
 		).toBe(true);
+	});
+
+	it("keeps the eight-subject, twelve-candidate offer batch within one bounded request", async () => {
+		const subjects = Array.from({ length: 8 }, (_, index) => `Item ${index}`);
+		const asin = (index: number) => `B${String(index).padStart(9, "0")}`;
+		const candidatesBySubject = new Map(
+			subjects.map((subject, subjectIndex) => [
+				subject,
+				Array.from({ length: 12 }, (_, rank) => asin(subjectIndex * 12 + rank)),
+			]),
+		);
+		const records = subjects.flatMap((subject, subjectIndex) =>
+			Array.from({ length: 12 }, (_, rank) => {
+				const recordAsin = asin(subjectIndex * 12 + rank);
+				return product({
+					asin: recordAsin,
+					name:
+						rank === 0
+							? `${subject}, 1 oz`
+							: `Unrelated Product ${subjectIndex}-${rank}, 1 oz`,
+					price: subjectIndex + 1,
+				});
+			}),
+		);
+		const offerUrls: URL[] = [];
+		const fetchMock = vi.fn(async (request: RequestInfo | URL) => {
+			const url = nativeUrl(request);
+			if (url.pathname === "/api/wwos/rsi/search") {
+				return new Response(
+					JSON.stringify(
+						nativeEnvelope(
+							...(candidatesBySubject.get(url.searchParams.get("text") ?? "") ??
+								[]),
+						),
+					),
+					{ status: 200 },
+				);
+			}
+			offerUrls.push(url);
+			return new Response(JSON.stringify(records), { status: 200 });
+		});
+
+		const fact = await runWholeFoodsProductPricing(
+			{ name: "priceProducts", input: input(...subjects) },
+			{ fetch: fetchMock },
+		);
+		const offerUrl = offerUrls[0];
+		if (!offerUrl) throw new Error("Expected one offer request.");
+		const requestedAsins = (offerUrl.searchParams.get("asins") ?? "").split(
+			",",
+		);
+
+		expect(WHOLE_FOODS_MAX_OFFER_RECORDS).toBe(96);
+		expect(offerUrls).toHaveLength(1);
+		expect(requestedAsins).toHaveLength(WHOLE_FOODS_MAX_OFFER_RECORDS);
+		expect(new Set(requestedAsins).size).toBe(WHOLE_FOODS_MAX_OFFER_RECORDS);
+		expect(offerUrl.toString().length).toBeLessThan(2_048);
+		expect(
+			parseWholeFoodsProductOffers(records, new Set(requestedAsins)),
+		).toHaveProperty("size", WHOLE_FOODS_MAX_OFFER_RECORDS);
+		expect(
+			parseWholeFoodsProductOffers(
+				[
+					...records,
+					product({
+						asin: "B999999999",
+						name: "Overflow Product, 1 oz",
+						price: 1,
+					}),
+				],
+				new Set([...requestedAsins, "B999999999"]),
+			),
+		).toBeNull();
+		expect(fact).toMatchObject({
+			type: "success",
+			data: {
+				searches: subjects.map((subject) => ({
+					subject,
+					price: { status: "sourced" },
+				})),
+			},
+			receipt: { sourceCount: 8 },
+		});
 	});
 
 	it("caches only selected identities with the default TTL and LRU bounds", async () => {
@@ -295,6 +380,118 @@ describe("Whole Foods server price adapter", () => {
 		).toHaveLength(2);
 	});
 
+	it("clears in-flight ownership after offer-body rejection and retries successfully", async () => {
+		const state = createWholeFoodsProductPricingState();
+		let rejectOfferBody = true;
+		const fetchMock = vi.fn(async (request: RequestInfo | URL) => {
+			const url = nativeUrl(request);
+			if (url.pathname === "/api/wwos/rsi/search") {
+				return new Response(JSON.stringify(nativeEnvelope("B000000001")), {
+					status: 200,
+				});
+			}
+			if (rejectOfferBody) {
+				rejectOfferBody = false;
+				const response = new Response("unreadable", { status: 200 });
+				vi.spyOn(response, "text").mockRejectedValue(
+					new Error("fixture body stream rejected"),
+				);
+				return response;
+			}
+			return new Response(
+				JSON.stringify([
+					product({
+						asin: "B000000001",
+						name: "Organic Sourdough Bread, 24 oz",
+						price: 4.99,
+					}),
+				]),
+				{ status: 200 },
+			);
+		});
+		const call = { name: "priceProducts", input: input("Bread") };
+
+		const first = await runWholeFoodsProductPricing(call, {
+			fetch: fetchMock,
+			state,
+		});
+		expect(first).toMatchObject({
+			type: "success",
+			data: {
+				searches: [
+					{
+						price: {
+							status: "unverified",
+							reason: expect.stringContaining("could not be decoded"),
+						},
+					},
+				],
+			},
+		});
+		expect(JSON.stringify(first)).not.toContain("fixture body stream rejected");
+		expect(state.inFlight.size).toBe(0);
+
+		await expect(
+			runWholeFoodsProductPricing(call, { fetch: fetchMock, state }),
+		).resolves.toMatchObject({
+			type: "success",
+			data: {
+				searches: [{ price: { status: "sourced", amount: 4.99 } }],
+			},
+		});
+		expect(state.inFlight.size).toBe(0);
+		expect(
+			fetchMock.mock.calls.filter(
+				([request]) => nativeUrl(request).pathname === "/api/wwos/rsi/search",
+			),
+		).toHaveLength(2);
+	});
+
+	it("keeps response-body consumption under the native request deadline", async () => {
+		let activeSignal: AbortSignal | undefined;
+		const state = createWholeFoodsProductPricingState();
+		const fetchMock = vi.fn(
+			async (_request: RequestInfo | URL, init?: RequestInit) => {
+				activeSignal = init?.signal ?? undefined;
+				const response = new Response("pending", { status: 200 });
+				vi.spyOn(response, "text").mockImplementation(
+					() =>
+						new Promise<string>((_resolve, reject) => {
+							if (activeSignal?.aborted) {
+								reject(new Error("fixture body aborted"));
+								return;
+							}
+							activeSignal?.addEventListener(
+								"abort",
+								() => reject(new Error("fixture body aborted")),
+								{ once: true },
+							);
+						}),
+				);
+				return response;
+			},
+		);
+
+		const fact = await runWholeFoodsProductPricing(
+			{ name: "priceProducts", input: input("Bread") },
+			{ fetch: fetchMock, state, timeoutMs: 5 },
+		);
+		expect(fact).toMatchObject({
+			type: "success",
+			data: {
+				searches: [
+					{
+						price: { status: "unverified" },
+						receipt: { native: "transport-error", brave: "not-eligible" },
+					},
+				],
+			},
+		});
+		expect(JSON.stringify(fact)).not.toContain("fixture body aborted");
+		expect(activeSignal?.aborted).toBe(true);
+		expect(state.inFlight.size).toBe(0);
+	});
+
 	it("reports miss when one aggregate contains hit, coalesced, and miss subjects", async () => {
 		let releaseMilkSearch: (() => void) | undefined;
 		const milkSearchGate = new Promise<void>((resolve) => {
@@ -445,6 +642,11 @@ describe("Whole Foods server price adapter", () => {
 
 	it.each([
 		{
+			name: "malformed JSON",
+			response: () => new Response("{", { status: 200 }),
+			native: "schema-drift",
+		},
+		{
 			name: "schema drift",
 			response: () =>
 				new Response(JSON.stringify({ results: [] }), { status: 200 }),
@@ -453,6 +655,11 @@ describe("Whole Foods server price adapter", () => {
 		{
 			name: "transport error",
 			response: () => new Response("unavailable", { status: 503 }),
+			native: "transport-error",
+		},
+		{
+			name: "fetch rejection",
+			response: () => Promise.reject(new Error("fixture fetch rejected")),
 			native: "transport-error",
 		},
 	])("does not use Brave after $name", async ({ response, native }) => {
@@ -473,6 +680,7 @@ describe("Whole Foods server price adapter", () => {
 				],
 			},
 		});
+		expect(JSON.stringify(fact)).not.toContain("fixture fetch rejected");
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 

@@ -34,6 +34,8 @@ export type ProductPricingDecision = DomainPolicyDecision & {
 	issues: readonly string[];
 };
 
+export const PRODUCT_PRICING_MAX_ITEMS = 8;
+
 const EVIDENCE_REQUIREMENTS: readonly DomainEvidenceRequirement[] = [
 	{
 		id: "subject-identity",
@@ -80,8 +82,10 @@ export const evaluateProductPricingPolicy = (
 	if (input.items.length === 0) {
 		issues.push("Product pricing requires at least one item.");
 	}
-	if (input.items.length > 8) {
-		issues.push("Product pricing accepts at most 8 items per decision.");
+	if (input.items.length > PRODUCT_PRICING_MAX_ITEMS) {
+		issues.push(
+			`Product pricing accepts at most ${PRODUCT_PRICING_MAX_ITEMS} items per decision.`,
+		);
 	}
 	if (input.items.some((item) => !text(item.subject))) {
 		issues.push("Every product-pricing item requires a non-empty subject.");
@@ -107,7 +111,9 @@ export const evaluateProductPricingPolicy = (
 	}
 
 	const requestItems = input.items.map(
-		(item): ProductPricingRequestItem => ({ subject: text(item.subject) ?? "" }),
+		(item): ProductPricingRequestItem => ({
+			subject: text(item.subject) ?? "",
+		}),
 	);
 
 	const outcome =
