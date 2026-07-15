@@ -182,6 +182,52 @@ describe("Whole Foods server price adapter", () => {
 		).toHaveLength(3);
 	});
 
+	it("evicts the least-recently-used selected identity at the 64-entry bound", async () => {
+		const state = createWholeFoodsProductPricingState();
+		const fetchMock = vi.fn(async (request: RequestInfo | URL) => {
+			const url = nativeUrl(request);
+			if (url.pathname === "/api/wwos/rsi/search") {
+				const index = Number(
+					(url.searchParams.get("text") ?? "").split(" ")[1],
+				);
+				return new Response(
+					JSON.stringify(nativeEnvelope(`B${String(index).padStart(9, "0")}`)),
+					{ status: 200 },
+				);
+			}
+			const asin = (url.searchParams.get("asins") ?? "").split(",")[0] ?? "";
+			const index = Number(asin.slice(1));
+			return new Response(
+				JSON.stringify([
+					product({
+						asin,
+						name: `Item ${index}, 1 oz`,
+						price: 1,
+					}),
+				]),
+				{ status: 200 },
+			);
+		});
+		const run = (index: number) =>
+			runWholeFoodsProductPricing(
+				{ name: "priceProducts", input: input(`Item ${index}`) },
+				{ fetch: fetchMock, state },
+			);
+
+		for (let index = 0; index < 64; index += 1) await run(index);
+		await run(0);
+		await run(64);
+		await run(0);
+		await run(1);
+
+		expect(state.selectedIdentities.size).toBe(64);
+		expect(
+			fetchMock.mock.calls.filter(
+				([request]) => nativeUrl(request).pathname === "/api/wwos/rsi/search",
+			),
+		).toHaveLength(66);
+	});
+
 	it("coalesces concurrent identity discovery without caching prices", async () => {
 		let releaseSearch: (() => void) | undefined;
 		const searchGate = new Promise<void>((resolve) => {
