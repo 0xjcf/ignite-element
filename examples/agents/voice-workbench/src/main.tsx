@@ -14,6 +14,7 @@ import {
 	component,
 	recordSpeechDeliveryLifecycle,
 	recordVoiceCaptureLifecycle,
+	recordVoiceTranscriptConsumed,
 	reportModelAvailable,
 	reportModelFailure,
 	source,
@@ -195,7 +196,16 @@ const browserRequestSubscription = component.watchView((view, previous) => {
 		voiceRequest.sequence !== previous.portRequests.voiceCapture?.sequence
 	) {
 		if (voiceRequest.action === "start") voice.start();
-		else voice.cancel();
+		else if (voiceRequest.action === "cancel") voice.cancel();
+		else {
+			const result = voice.useTranscript(voiceRequest.attemptId);
+			if (result.ok) {
+				recordVoiceTranscriptConsumed({
+					attemptId: result.attemptId,
+					text: result.prompt.text,
+				});
+			}
+		}
 	}
 
 	const speechRequest = view.portRequests.speechDelivery;

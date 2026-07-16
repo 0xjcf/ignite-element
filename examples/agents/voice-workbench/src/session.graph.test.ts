@@ -114,6 +114,7 @@ const graphEventPolicy = {
 	DOCUMENT_COMMITTED: "excluded-private-event",
 	SPEECH_COMMITTED: "excluded-private-event",
 	VOICE_RECORDED: "excluded-private-event",
+	VOICE_TRANSCRIPT_CONSUMED: "excluded-private-event",
 	CAPABILITY_OUTCOME_RECORDED: "excluded-private-event",
 	DOMAIN_POLICY_RECORDED: "excluded-private-event",
 	RUNTIME_MANIFEST_RECORDED: "excluded-private-event",
@@ -337,7 +338,7 @@ describe("voice workbench XState graph characterization", () => {
 			Object.values(graphEventPolicy).filter((value) =>
 				value.startsWith("excluded-"),
 			),
-		).toHaveLength(16);
+		).toHaveLength(17);
 	});
 
 	it("characterizes exactly four compound lifecycle values", () => {

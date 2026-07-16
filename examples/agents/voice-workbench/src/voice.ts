@@ -31,6 +31,7 @@ export type VoiceCaptureFact =
 export type VoicePromptResult =
 	| {
 			ok: true;
+			attemptId: string;
 			prompt: { channel: "speech"; text: string };
 	  }
 	| { ok: false; fact: VoiceCaptureFact };
@@ -42,7 +43,7 @@ export type VoiceCapture = {
 	cancel(): VoiceCaptureFact;
 	reset(): VoiceCaptureFact;
 	retry(): VoiceCaptureFact;
-	useTranscript(): VoicePromptResult;
+	useTranscript(attemptId: string): VoicePromptResult;
 	subscribe(listener: (fact: VoiceCaptureFact) => void): {
 		unsubscribe(): void;
 	};
@@ -81,7 +82,7 @@ export type VoiceCaptureEvent =
 	| { type: "PERMISSION_DENIED"; attemptId: string; message: string }
 	| { type: "FAIL"; attemptId: string; message: string }
 	| { type: "CANCEL" }
-	| { type: "CONSUME" }
+	| { type: "CONSUME"; attemptId: string }
 	| { type: "DISPOSE" };
 
 const nextAttempt = (context: VoiceCaptureContext) => {
@@ -228,8 +229,10 @@ export const voiceCaptureMachine = setup({
 					},
 				],
 				CONSUME: {
-					guard: ({ context }) =>
-						context.final && context.transcript.trim().length > 0,
+					guard: ({ context, event }) =>
+						correlated(context, event) &&
+						context.final &&
+						context.transcript.trim().length > 0,
 					target: "consumed",
 				},
 				CANCEL: {
@@ -502,19 +505,22 @@ export function createBrowserVoiceCapture(): VoiceCapture {
 			actor.send({ type: "RETRY" });
 			return fact;
 		},
-		useTranscript: () => {
-			const captured = projectVoiceCaptureFact(actor.getSnapshot());
+		useTranscript: (attemptId) => {
+			actor.send({ type: "CONSUME", attemptId });
+			const snapshot = actor.getSnapshot();
 			if (
-				captured.type !== "voice-transcript" ||
-				!captured.final ||
-				captured.text.trim().length === 0
+				snapshot.value !== "consumed" ||
+				snapshot.context.attemptId !== attemptId
 			) {
-				return { ok: false, fact: captured };
+				return { ok: false, fact: projectVoiceCaptureFact(snapshot) };
 			}
-			actor.send({ type: "CONSUME" });
 			return {
 				ok: true,
-				prompt: { channel: "speech", text: captured.text.trim() },
+				attemptId,
+				prompt: {
+					channel: "speech",
+					text: snapshot.context.transcript.trim(),
+				},
 			};
 		},
 		subscribe: (listener) => {

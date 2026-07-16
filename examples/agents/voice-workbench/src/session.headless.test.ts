@@ -441,7 +441,7 @@ describe("voice workbench session machine contract", () => {
 					sequence: 1,
 				},
 			},
-		} as never);
+		});
 		expect(
 			projectVoiceWorkbenchView({ snapshot: actor.getSnapshot() }).portRequests
 				.voiceCapture,
@@ -460,19 +460,15 @@ describe("voice workbench session machine contract", () => {
 				fact: { type: "voice-idle" },
 			},
 		});
-		for (const fact of [
-			{
-				type: "VOICE_TRANSCRIPT_CONSUMED",
-				attemptId: "voice:stale",
-				text: "Ignore stale transcript",
-			},
-			{
-				type: "VOICE_TRANSCRIPT_CONSUMED",
-				text: "Ignore missing correlation",
-			},
-		] as const) {
-			actor.send(fact as never);
-		}
+		actor.send({
+			type: "VOICE_TRANSCRIPT_CONSUMED",
+			attemptId: "voice:stale",
+			text: "Ignore stale transcript",
+		});
+		actor.send({
+			type: "VOICE_TRANSCRIPT_CONSUMED",
+			text: "Ignore missing correlation",
+		} as never);
 		expect(actor.getSnapshot().value).toEqual({ available: "idle" });
 		expect(actor.getSnapshot().context.messages).toEqual([]);
 
@@ -481,7 +477,7 @@ describe("voice workbench session machine contract", () => {
 			attemptId: "voice:1",
 			text: "Create a correlated checklist",
 		} as const;
-		actor.send(accepted as never);
+		actor.send(accepted);
 		expect(actor.getSnapshot().value).toEqual({ available: "responding" });
 		expect(actor.getSnapshot().context.messages).toEqual([
 			{
@@ -490,9 +486,11 @@ describe("voice workbench session machine contract", () => {
 				text: "Create a correlated checklist",
 			},
 		]);
-		expect(actor.getSnapshot().context.presentation.voiceCaptureRequest).toBeNull();
+		expect(
+			actor.getSnapshot().context.presentation.voiceCaptureRequest,
+		).toBeNull();
 
-		actor.send(accepted as never);
+		actor.send(accepted);
 		expect(actor.getSnapshot().context.messages).toHaveLength(1);
 		actor.stop();
 	});
