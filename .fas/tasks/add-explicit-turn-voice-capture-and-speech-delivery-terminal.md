@@ -87,7 +87,7 @@ Complete the lifecycle architecture after provider/turn restructuring. Make the 
 - Add backward-compatible optional AbortSignal propagation through model and capability ports, remove synthetic completeResponse recovery, and reduce workbench-agent orchestration to typed shell port drivers.
 - Make the voice-capture machine authoritative for support, idle, listening, interim/final transcript, consume, cancellation, permission denial, failure, reset/retry, and idempotent disposal with attempt correlation.
 - Add a speech-delivery machine that distinguishes pending, muted, queued, delivered, unavailable, failed, cancelled, and disposed; treat speak() acceptance as queued and only utterance completion as delivered.
-- Integrate all three child machines with the parent session while preserving the four parent raw values, existing aggregate reducer authority, serializable contexts, and view field compatibility; COMPLETE_RESPONSE mutates aggregate state but only a matching terminal child event ends the turn.
+- Integrate all three child machines with the parent session while preserving the four parent raw values, existing aggregate reducer authority, serializable contexts, and view field compatibility; COMPLETE_RESPONSE stages a serializable pending completion, and only a matching TURN_COMPLETED atomically commits aggregate state and ends the turn.
 - Move adapter and read-model receipts off the public Ignite command schema onto typed private events, then thin main, parity, terminal, headless-proof, and projection consumers without changing shared Ignite APIs.
 - Update focused and compatibility tests, document the executable ownership/source-of-truth matrix and 19-command public schema, and preserve task 5 as an optional later evaluation.
 
