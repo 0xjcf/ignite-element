@@ -124,6 +124,294 @@ ambiguous rankings never spend Brave. The aggregate fact preserves every
 subject, provider selection, sourced or unverified price, and native/cache/Brave
 receipt; `queryCount` counts only discovery requests actually made.
 
+## Lifecycle machine contract and maturity
+
+The workbench exports `voiceWorkbenchSessionMachine` as reusable unstarted
+XState logic and `createVoiceWorkbenchSessionActor()` as the fresh actor
+boundary for tests and independent runtimes. Every call creates new top-level
+and nested context. The existing `source` export still starts one actor for the
+browser, terminal, and compatibility tests that intentionally use the example
+singleton.
+
+This is a contract-first slice, not the lifecycle rewrite. The current
+executable session still has parallel `provider` and `turn` regions. The target
+compound session and the model-turn, voice-capture, and speech-delivery child
+machines below are **planned**. Their queued implementation tasks must replace
+the known violation baseline before the documentation can call those shapes
+executable.
+
+### One owner per lifecycle or fact
+
+The exported `voiceWorkbenchLifecycleOwnership` data mirrors this table so
+tests and later graph tooling can detect contract drift:
+
+| Surface | Single owner | Disposition | Implementation | Maturity |
+| --- | --- | --- | --- | --- |
+| Session/provider/turn | `voiceWorkbenchSessionMachine` | Statechart | Executable | Transitional parallel topology |
+| Model-turn orchestration | Model-turn child actor | Statechart | Planned | Target |
+| Voice capture | Voice-capture child actor | Statechart | Planned | Target |
+| Speech delivery | Speech-delivery child actor | Statechart | Planned | Target |
+| Conversation and artifact aggregate | `reduceConversationSession` | Pure reducer | Executable | Target |
+| Domain admission and authorization | Domain-pack policies | Typed facts | Executable | Target |
+| Capability execution | Capability ports | Typed facts | Executable | Target |
+| Draft, selection, preview, and receipt UI | Browser presentation slice | Presentation state | Executable | Transitional separation |
+
+Reducers and typed result unions stay authoritative for data and decisions; a
+statechart consumes those facts only when it owns a real lifecycle. Ignite
+projects snapshots and binds commands. It is not another writer of provider,
+turn, voice, speech, policy, capability, conversation, or artifact truth.
+
+### Current executable session contract
+
+The exported machine currently defines:
+
+- provider states `preparing`, `available`, and `failed`;
+- turn states `ready` and `responding`;
+- initial value `{ provider: "preparing", turn: "ready" }`;
+- provider recovery through `MODEL_PREPARATION_STARTED`, followed by the
+  private adapter result `MODEL_AVAILABLE` or `MODEL_FAILED`;
+- prompt admission only from `turn.ready` while the provider is available and
+  the pure conversation reducer accepts the prompt;
+- successful turn closure only when an accepted `COMPLETE_RESPONSE` moves
+  `turn.responding` back to `turn.ready`.
+
+The command and event vocabulary is intentionally classified by authority:
+
+| Category | Current commands/events | Contract direction |
+| --- | --- | --- |
+| Public user intent | `submitPrompt`, `beginModelPreparation`, `restoreArtifactRevision`, `selectArtifact`, `acknowledgeSpeech`, voice start/cancel/transcript, presentation choices, replay, and play-speech intent | Remain schema-admitted only where a user or consumer can intentionally request the behavior |
+| Model-authorized domain commands | `createArtifact`, `reviseArtifact`, `setChecklistItem`, `completeResponse` | Continue through reducer validation; the model never writes context directly |
+| Private adapter results | `MODEL_AVAILABLE`, `MODEL_FAILED`, voice facts, document commit receipts, and speech delivery receipts | Transitional command wrappers such as `reportModelAvailable`, `reportModelFailure`, `presentVoice`, `commitDocument`, and `commitSpeech` move to private actor events/ports in later tasks |
+| Internal read-model facts | turn, runtime-manifest, capability-outcome, and domain-policy records | Transitional `record*` commands do not become lifecycle authorities and are removed from the public model surface when ownership is restructured |
+
+The exact current `getSchema()` command inventory assigns every name to one
+category:
+
+```text
+Public user intent:
+  submitPrompt, beginModelPreparation, restoreArtifactRevision,
+  selectArtifact, acknowledgeSpeech, startVoiceCapture,
+  cancelVoiceCapture, submitVoiceTranscript, changeArtifactView,
+  changeDraft, changeMobilePanel, changeSpeechPreference,
+  selectRuntimePreview, playSpeech, replay
+
+Model-authorized domain commands:
+  createArtifact, reviseArtifact, setChecklistItem, completeResponse
+
+Private adapter results exposed through transitional wrappers:
+  reportModelAvailable, reportModelFailure, presentVoice,
+  commitDocument, commitSpeech
+
+Internal read-model recording exposed through transitional wrappers:
+  recordTurn, recordRuntimeManifest, recordCapabilityOutcome,
+  recordDomainPolicyDecision
+```
+
+The exact underlying machine event inventory is:
+
+```text
+Conversation intent and domain actions:
+  SUBMIT_PROMPT, CREATE_ARTIFACT, REVISE_ARTIFACT,
+  RESTORE_ARTIFACT_REVISION, SELECT_ARTIFACT, SET_CHECKLIST_ITEM,
+  COMPLETE_RESPONSE, ACKNOWLEDGE_SPEECH
+
+Provider lifecycle intent/results:
+  MODEL_PREPARATION_STARTED, MODEL_AVAILABLE, MODEL_FAILED
+
+Transitional presentation and receipt events:
+  PRESENTATION_DRAFT_CHANGED, PRESENTATION_VOICE_CHANGED,
+  PRESENTATION_ARTIFACT_VIEW_CHANGED, PRESENTATION_MOBILE_PANEL_CHANGED,
+  PRESENTATION_SPEECH_PREFERENCE_CHANGED, PRESENTATION_TURN_RECORDED,
+  PRESENTATION_DOCUMENT_COMMITTED, PRESENTATION_SPEECH_COMMITTED,
+  PRESENTATION_SPEECH_REPLAY_REQUESTED, PRESENTATION_REPLAYED,
+  PRESENTATION_RUNTIME_MANIFEST_RECORDED,
+  PRESENTATION_RUNTIME_PREVIEW_SELECTED,
+  PRESENTATION_CAPABILITY_OUTCOME_RECORDED,
+  PRESENTATION_DOMAIN_POLICY_RECORDED,
+  PRESENTATION_VOICE_CAPTURE_REQUESTED
+```
+
+The current guards are `stateIn({ provider: "available" })` and the pure
+`transitionAccepted` reducer check. The session machine invokes no async model,
+voice, or speech effects yet; those effects still live in the imperative shell
+and are the reason the three child lifecycles remain planned. Conversation facts
+such as `prompt-submitted`, artifact changes, `response-completed`, and the
+transport-neutral `speech-acknowledged` fact come from the reducer. Presentation
+receipts remain a separate transitional slice.
+
+Every imported snapshot exposes the XState-native snapshot, but portable
+consumers should treat these fields separately:
+
+- authoritative raw state: `snapshot.value` plus serializable
+  `snapshot.context`;
+- relevant native lifecycle metadata: `status`, `output`, `error`, tags, and
+  child identity/status when child actors exist;
+- non-portable implementation details: machine nodes, methods, and internal
+  XState objects;
+- derived Ignite view: labels, prepared rows, status priority, and `can*`
+  fields. The view is convenient read data, never a replacement for the raw
+  value and context.
+
+Current serializable context owns the conversation messages, documents,
+artifact history, response, speech request, model failure, and the transitional
+presentation slice. Command availability must come from the same machine guard
+and reducer admission used by `canExecute()`; any `can*` view field is only a
+projection of that rule.
+
+The raw serializable context keys are:
+
+```text
+activeArtifactId, artifactRevisions, documents, factSequence, lastFact,
+messages, modelFailure, presentation, response, revision, sessionId, speech
+```
+
+The derived view currently exposes these prepared top-level keys:
+
+```text
+activeArtifact, activeArtifactId, activeArtifactRevisions, artifactSummaries,
+artifacts, canRestoreArtifactRevision, canRetryModel, canRevise,
+canSetChecklistItem, canSubmitPrompt, documentSchema, lastFact, lastFactLabel,
+messageCount, messages, microphoneUnavailable, model, modelContext,
+modelFailed, modelPreparing, presentation, promptPlaceholder,
+respondingProgress, response, resultQuality, revision, runtimeInspector,
+sessionId, speech, speechStatus, status, statusLabel, transcript,
+transcriptReady, turnCount, turnLabel, turnMessage, turnState, voiceFailure,
+voiceState
+```
+
+### Known violation baseline
+
+The current parallel topology admits these two forbidden raw values:
+
+```ts
+{ provider: "preparing", turn: "responding" }
+{ provider: "failed", turn: "responding" }
+```
+
+`voiceWorkbenchKnownForbiddenStateValues`,
+`isVoiceWorkbenchKnownForbiddenStateValue()`, and
+`voiceWorkbenchSessionInvariants` make that gap executable and visible to the
+next direct `xstate/graph` task. A provider-first derived status can say
+`failed` while the raw turn remains `responding`; tests therefore inspect the
+raw snapshot before trusting the view. The structural task must drive this
+known set to zero rather than updating the baseline to tolerate new invalid
+states.
+
+### Planned target: session, provider, and turn
+
+```mermaid
+stateDiagram-v2
+    [*] --> Preparing
+    Preparing --> Available: MODEL_AVAILABLE
+    Preparing --> Unavailable: MODEL_FAILED
+    Unavailable --> Preparing: RETRY
+
+    state Available {
+        [*] --> Idle
+        Idle --> Responding: SUBMIT_PROMPT [accepted]
+        Responding --> Idle: TURN_COMPLETED
+        Responding --> Idle: TURN_FAILED
+        Responding --> Idle: CANCELLED
+        Responding --> Idle: TIMEOUT
+    }
+
+    Available --> Unavailable: MODEL_FAILED
+```
+
+This planned compound shape makes `Responding` impossible outside
+`Available`. Leaving availability must terminate or cancel the invoked turn
+before entering `Unavailable`.
+
+### Planned target: model-turn orchestration
+
+```mermaid
+stateDiagram-v2
+    [*] --> RequestingModel
+    RequestingModel --> Evaluating: MODEL_RESULT
+    RequestingModel --> Failed: MODEL_FAILED
+    RequestingModel --> TimedOut: TIMEOUT
+
+    Evaluating --> ExecutingCapability: COMMAND_AUTHORIZED
+    Evaluating --> Completed: RESPONSE_ACCEPTED
+    Evaluating --> Failed: COMMAND_REJECTED
+    Evaluating --> Exhausted: ROUND_LIMIT_REACHED
+
+    ExecutingCapability --> RequestingModel: CAPABILITY_RECORDED [incomplete and rounds remain]
+    ExecutingCapability --> Completed: RESPONSE_ACCEPTED
+    ExecutingCapability --> Failed: TURN_FAILED
+    ExecutingCapability --> TimedOut: TIMEOUT
+
+    RequestingModel --> Cancelled: CANCEL
+    Evaluating --> Cancelled: CANCEL
+    ExecutingCapability --> Cancelled: CANCEL
+
+    Completed --> [*]
+    Failed --> [*]
+    TimedOut --> [*]
+    Cancelled --> [*]
+    Exhausted --> [*]
+```
+
+The pure one-round model protocol remains policy. This planned child actor owns
+request invocation, round count, cancellation, timeout, and exactly one
+terminal outcome.
+
+### Planned target: voice capture
+
+```mermaid
+stateDiagram-v2
+    [*] --> CheckingSupport
+    CheckingSupport --> Unsupported: UNSUPPORTED
+    CheckingSupport --> Idle: SUPPORTED
+
+    Idle --> Listening: START
+    Listening --> Listening: INTERIM_TRANSCRIPT
+    Listening --> TranscriptReady: FINAL_TRANSCRIPT
+    Listening --> Idle: ENDED [no final transcript]
+    Listening --> Cancelled: CANCEL
+    Listening --> PermissionDenied: PERMISSION_DENIED
+    Listening --> Failed: CAPTURE_FAILED
+
+    TranscriptReady --> Idle: CONSUME
+    TranscriptReady --> Listening: START
+    Cancelled --> Idle: RESET
+    PermissionDenied --> Idle: RETRY
+    Failed --> Idle: RETRY
+```
+
+The browser recognition object remains an imperative port. The planned child
+actor owns the serializable lifecycle and emits voice facts.
+
+### Planned target: speech delivery
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Pending: SPEECH_REQUESTED
+    Pending --> Muted: DELIVERY_SKIPPED
+    Pending --> Queued: DELIVERY_ACCEPTED
+    Pending --> Unavailable: DELIVERY_UNAVAILABLE
+    Pending --> Failed: DELIVERY_FAILED
+    Queued --> Delivered: PLAYBACK_ENDED
+    Queued --> Failed: PLAYBACK_FAILED
+    Queued --> Cancelled: CANCEL
+    Delivered --> Idle: CLEAR
+    Muted --> Idle: CLEAR
+    Unavailable --> Idle: CLEAR
+    Failed --> Idle: CLEAR
+    Cancelled --> Idle: CLEAR
+```
+
+Projection acknowledgement is transport-neutral and is not a delivery fact.
+`WorkbenchSpeechAcknowledgementFact` names that receipt separately.
+`WorkbenchSpeechDeliveryFact` distinguishes queued, completed, muted,
+unavailable, failed, and cancelled adapter outcomes; the broader
+`WorkbenchSpeechLifecycleFact` is only their explicit union. Calling
+`speechSynthesis.speak()` may produce `queued`, never `completed`; playback
+callbacks must produce the terminal delivery fact. `ACKNOWLEDGE_SPEECH` remains
+a separate aggregate/projection-consumption fact and never transitions the
+speech-delivery machine.
+
 ## Domain packs and policy ownership
 
 The example makes application-specific behavior visible under `src/domains/`:
