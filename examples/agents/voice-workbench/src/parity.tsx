@@ -1,8 +1,8 @@
 /** @jsxImportSource ignite-element/jsx */
 import {
 	commitDocument,
-	commitSpeech,
 	component,
+	recordSpeechDeliveryLifecycle,
 	recordTurn,
 	recordTurnTerminal,
 	recordVoiceCaptureLifecycle,
@@ -111,17 +111,6 @@ const seedArtifact = async () => {
 			revision: artifact.revision,
 		});
 	}
-	if (view.speech) {
-		commitSpeech({
-			id: view.speech.id,
-			text: view.speech.text,
-			status: "unavailable",
-		});
-		await component.execute({
-			command: "acknowledgeSpeech",
-			input: { id: view.speech.id },
-		});
-	}
 	recordTurn({
 		type: "accepted",
 		trace: [
@@ -130,6 +119,38 @@ const seedArtifact = async () => {
 		],
 	});
 	if (turnId) recordTurnTerminal({ type: "TURN_COMPLETED", turnId });
+	const speechRequest = component.getView().portRequests.speechDelivery;
+	if (speechRequest) {
+		recordSpeechDeliveryLifecycle({
+			state: "pending",
+			id: speechRequest.id,
+			text: speechRequest.text,
+			attemptId: speechRequest.attemptId,
+			requestSequence: speechRequest.sequence,
+			fact: null,
+			terminal: null,
+		});
+		const unavailable = {
+			type: "speech-delivery-unavailable" as const,
+			id: speechRequest.id,
+		};
+		recordSpeechDeliveryLifecycle({
+			state: "unavailable",
+			id: speechRequest.id,
+			text: speechRequest.text,
+			attemptId: speechRequest.attemptId,
+			requestSequence: speechRequest.sequence,
+			fact: unavailable,
+			terminal: unavailable,
+		});
+		const speech = component.getView().speech;
+		if (speech?.id === speechRequest.id && speech.status === "pending") {
+			await component.execute({
+				command: "acknowledgeSpeech",
+				input: { id: speech.id },
+			});
+		}
+	}
 	await component.execute({
 		command: "changeMobilePanel",
 		input: "artifact",

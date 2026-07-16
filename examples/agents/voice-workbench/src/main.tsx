@@ -1,8 +1,5 @@
 /// <reference types="vite/client" />
-import {
-	createProjectionDocumentTarget,
-	createProjectionSpeechTarget,
-} from "ignite-element/xstate";
+import { createProjectionDocumentTarget } from "ignite-element/xstate";
 import {
 	createProductPriceCapability,
 	createProductPricingDomainPack,
@@ -18,6 +15,7 @@ import {
 	reportModelAvailable,
 	reportModelFailure,
 	source,
+	type SpeechDeliveryControlRequest,
 } from "./session";
 import {
 	createSpeechDeliveryActor,
@@ -67,7 +65,6 @@ const domains = createDomainRegistry([
 ]);
 let readinessAttempt = 0;
 let readinessController: AbortController | null = null;
-let speechAttempt = 0;
 const activeSpeechDeliveries = new Set<{
 	dispose(): void;
 }>();
@@ -91,16 +88,19 @@ const prepareModel = async () => {
 };
 
 const deliverSpeech = (
-	speech: { id: string; text: string },
+	speech: SpeechDeliveryControlRequest,
 	enabled: boolean,
 ) => {
-	const attemptId = `${speech.id}:${++speechAttempt}`;
+	for (const delivery of [...activeSpeechDeliveries]) delivery.dispose();
+	const attemptId = speech.attemptId;
 	const supported =
 		typeof window.speechSynthesis?.speak === "function" &&
 		typeof SpeechSynthesisUtterance !== "undefined";
 	const actor = createSpeechDeliveryActor({
-		...speech,
+		id: speech.id,
+		text: speech.text,
 		attemptId,
+		requestSequence: speech.sequence,
 		supported,
 		muted: !enabled,
 	});
@@ -215,6 +215,15 @@ const browserRequestSubscription = component.watchView((view, previous) => {
 		speechRequest.sequence !== previous.portRequests.speechDelivery?.sequence
 	) {
 		deliverSpeech(speechRequest, view.presentation.speakResponses);
+		if (
+			view.speech?.id === speechRequest.id &&
+			view.speech.status === "pending"
+		) {
+			void component.execute({
+				command: "acknowledgeSpeech",
+				input: { id: speechRequest.id },
+			});
+		}
 	}
 });
 
@@ -257,16 +266,6 @@ const documentProjection = component(
 	}),
 );
 
-const speechProjection = component(
-	createProjectionSpeechTarget({
-		acknowledgeCommandName: "acknowledgeSpeech",
-		resolveAcknowledgePayload: ({ id }) => ({ id }),
-		commitSpeech: (speech) => {
-			deliverSpeech(speech, component.getView().presentation.speakResponses);
-		},
-	}),
-);
-
 window.addEventListener("pagehide", (event) => {
 	if (event.persisted) return;
 	readinessAttempt += 1;
@@ -281,6 +280,5 @@ window.addEventListener("pagehide", (event) => {
 	modelPreparationSubscription.unsubscribe();
 	modelTurnSubscription.unsubscribe();
 	documentProjection.dispose();
-	speechProjection.dispose();
 	source.stop();
 });

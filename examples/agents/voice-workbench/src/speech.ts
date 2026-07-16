@@ -13,10 +13,21 @@ export type SpeechDeliveryTerminalFact = Exclude<
 	{ type: "speech-delivery-queued" }
 >;
 
+export type SpeechDeliveryState =
+	| "pending"
+	| "queued"
+	| "delivered"
+	| "muted"
+	| "unavailable"
+	| "failed"
+	| "cancelled"
+	| "disposed";
+
 export type SpeechDeliveryInput = {
 	id: string;
 	text: string;
 	attemptId: string;
+	requestSequence: number;
 	supported?: boolean;
 	muted?: boolean;
 };
@@ -25,6 +36,7 @@ export type SpeechDeliveryContext = {
 	id: string;
 	text: string;
 	attemptId: string;
+	requestSequence: number;
 	supported: boolean;
 	muted: boolean;
 	fact: SpeechDeliveryFact | null;
@@ -114,6 +126,7 @@ export const speechDeliveryMachine = setup({
 		id: input.id,
 		text: input.text,
 		attemptId: input.attemptId,
+		requestSequence: input.requestSequence,
 		supported: input.supported ?? true,
 		muted: input.muted ?? false,
 		fact: null,
@@ -202,6 +215,7 @@ export type SpeechDeliveryPortRequest = {
 	id: string;
 	text: string;
 	attemptId: string;
+	requestSequence: number;
 	sequence: number;
 };
 
@@ -214,6 +228,7 @@ export const projectSpeechDeliveryPortRequest = (
 				id: snapshot.context.id,
 				text: snapshot.context.text,
 				attemptId: snapshot.context.attemptId,
+				requestSequence: snapshot.context.requestSequence,
 				sequence: snapshot.context.portSequence,
 			}
 		: null;
@@ -227,10 +242,11 @@ export const projectSpeechDeliveryTerminalFact = (
 ): SpeechDeliveryTerminalFact | null => snapshot.context.terminal;
 
 export type SpeechDeliveryLifecycleProjection = {
-	state: string;
+	state: SpeechDeliveryState;
 	id: string;
 	text: string;
 	attemptId: string;
+	requestSequence: number;
 	fact: SpeechDeliveryFact | null;
 	terminal: SpeechDeliveryTerminalFact | null;
 };
@@ -238,10 +254,11 @@ export type SpeechDeliveryLifecycleProjection = {
 export const projectSpeechDeliveryLifecycle = (
 	snapshot: SpeechDeliverySnapshot,
 ): SpeechDeliveryLifecycleProjection => ({
-	state: String(snapshot.value),
+	state: snapshot.value as SpeechDeliveryState,
 	id: snapshot.context.id,
 	text: snapshot.context.text,
 	attemptId: snapshot.context.attemptId,
+	requestSequence: snapshot.context.requestSequence,
 	fact: projectSpeechDeliveryFact(snapshot),
 	terminal: projectSpeechDeliveryTerminalFact(snapshot),
 });

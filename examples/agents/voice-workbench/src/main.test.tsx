@@ -59,9 +59,11 @@ class FakeSpeechRecognition implements SpeechRecognitionLike {
 
 describe("voice workbench browser entry", () => {
 	const speak = vi.fn();
+	const cancelSpeech = vi.fn();
 
 	beforeEach(() => {
 		speak.mockReset();
+		cancelSpeech.mockReset();
 		completionSequence = 0;
 		FakeSpeechRecognition.current = null;
 		vi.stubEnv("MLX_BASE_URL", "http://127.0.0.1:8080/v1");
@@ -82,7 +84,7 @@ describe("voice workbench browser entry", () => {
 		});
 		Object.defineProperty(window, "speechSynthesis", {
 			configurable: true,
-			value: { speak },
+			value: { speak, cancel: cancelSpeech },
 		});
 		document.body.innerHTML = `<voice-workbench></voice-workbench>`;
 	});
@@ -368,6 +370,7 @@ describe("voice workbench browser entry", () => {
 			attemptId: `${initialSpeech.id}:1`,
 			requestSequence: 1,
 		});
+		speak.mockImplementationOnce(() => {});
 		await component.execute({ command: "playSpeech" });
 		await vi.waitFor(() => expect(createdSpeechInputs).toHaveLength(2));
 		await component.execute({ command: "playSpeech" });
@@ -380,6 +383,7 @@ describe("voice workbench browser entry", () => {
 			`${initialSpeech.id}:2`,
 			`${initialSpeech.id}:3`,
 		]);
+		expect(cancelSpeech).toHaveBeenCalledOnce();
 		expect(
 			(
 				component.getSnapshot().context as unknown as {

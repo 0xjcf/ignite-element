@@ -172,6 +172,13 @@ export type VoiceCaptureControlRequest =
 			sequence: number;
 	  };
 
+export type SpeechDeliveryControlRequest = {
+	id: string;
+	text: string;
+	attemptId: string;
+	sequence: number;
+};
+
 type VoiceCapturePendingControlRequest =
 	| Exclude<VoiceCaptureControlRequest, { action: "consume" }>
 	| (Extract<VoiceCaptureControlRequest, { action: "consume" }> & {
@@ -193,13 +200,6 @@ export type WorkbenchPresentation = {
 	capabilityOutcomes: readonly WorkbenchCapabilityOutcome[];
 	domainPolicy: DomainPolicyDecision | null;
 	speakResponses: boolean;
-	speechCommit: {
-		id: string;
-		text: string;
-		status: "played" | "muted" | "unavailable";
-	} | null;
-	speechDelivery: SpeechDeliveryFact | null;
-	speechReplayRequest: { id: string; text: string; sequence: number } | null;
 	turn: WorkbenchTurnFact | null;
 };
 
@@ -211,10 +211,6 @@ export type WorkbenchPresentationIntent =
 	  }
 	| { type: "mobile-panel-changed"; panel: WorkbenchPanel }
 	| { type: "speech-preference-changed"; enabled: boolean }
-	| {
-			type: "speech-replay-requested";
-			request: NonNullable<WorkbenchPresentation["speechReplayRequest"]>;
-	  }
 	| { type: "replayed" }
 	| {
 			type: "runtime-preview-selected";
@@ -222,20 +218,10 @@ export type WorkbenchPresentationIntent =
 	  }
 	| { type: "turn-started" };
 
-export type WorkbenchAdapterFact =
-	| {
-			type: "document-committed";
-			document: NonNullable<WorkbenchPresentation["documentCommit"]>;
-	  }
-	| {
-			type: "speech-committed";
-			speech: NonNullable<WorkbenchPresentation["speechCommit"]>;
-	  }
-	| {
-			type: "speech-delivery-recorded";
-			fact: SpeechDeliveryFact;
-			text: string;
-	  };
+export type WorkbenchAdapterFact = {
+	type: "document-committed";
+	document: NonNullable<WorkbenchPresentation["documentCommit"]>;
+};
 
 export type WorkbenchReadModelFact =
 	| { type: "turn-recorded"; fact: WorkbenchTurnFact }
@@ -269,6 +255,8 @@ export type VoiceWorkbenchSession = ConversationSession & {
 	modelTurnControlRequest: ModelTurnControlRequest | null;
 	voiceCaptureControlSequence: number;
 	voiceCaptureControlRequest: VoiceCapturePendingControlRequest | null;
+	speechDeliveryControlSequence: number;
+	speechDeliveryControlRequest: SpeechDeliveryControlRequest | null;
 	pendingCompletion: CompleteResponseInput | null;
 	lastTurnTerminal: VoiceWorkbenchTurnTerminalEvent | null;
 	childLifecycles: {
@@ -285,6 +273,9 @@ export type VoiceCaptureIntentEvent =
 	| { type: "VOICE_CAPTURE_START_REQUESTED" }
 	| { type: "VOICE_CAPTURE_CANCEL_REQUESTED" }
 	| { type: "VOICE_TRANSCRIPT_SUBMIT_REQUESTED" };
+export type SpeechDeliveryIntentEvent = {
+	type: "SPEECH_DELIVERY_REPLAY_REQUESTED";
+};
 export type VoiceWorkbenchTurnTerminalEvent =
 	| { type: "TURN_COMPLETED"; turnId: string }
 	| { type: "TURN_FAILED"; turnId: string; failure: ModelFailureFact }
@@ -300,10 +291,6 @@ export type VoiceWorkbenchPrivateEvent =
 	| {
 			type: "DOCUMENT_COMMITTED";
 			document: NonNullable<WorkbenchPresentation["documentCommit"]>;
-	  }
-	| {
-			type: "SPEECH_COMMITTED";
-			speech: NonNullable<WorkbenchPresentation["speechCommit"]>;
 	  }
 	| ({ type: "VOICE_TRANSCRIPT_CONSUMED" } & VoiceTranscriptConsumedFact)
 	| {
@@ -346,6 +333,7 @@ export type VoiceWorkbenchSessionEvent =
 	| ConversationAction
 	| ModelReadinessEvent
 	| VoiceCaptureIntentEvent
+	| SpeechDeliveryIntentEvent
 	| VoiceWorkbenchTurnTerminalEvent
 	| PresentationUpdateEvent
 	| VoiceWorkbenchPrivateEvent;
@@ -459,9 +447,6 @@ const createInitialPresentation = (): WorkbenchPresentation => ({
 	capabilityOutcomes: [],
 	domainPolicy: null,
 	speakResponses: true,
-	speechCommit: null,
-	speechDelivery: null,
-	speechReplayRequest: null,
 	turn: null,
 });
 
@@ -479,8 +464,6 @@ export const reduceWorkbenchPresentation = (
 			return { ...presentation, mobilePanel: update.panel };
 		case "speech-preference-changed":
 			return { ...presentation, speakResponses: update.enabled };
-		case "speech-replay-requested":
-			return { ...presentation, speechReplayRequest: update.request };
 		case "replayed":
 			return {
 				...presentation,
@@ -494,37 +477,10 @@ export const reduceWorkbenchPresentation = (
 				capabilityOutcomes: [],
 				domainPolicy: null,
 				runtimeManifest: [],
-				speechDelivery: null,
 				turn: null,
 			};
 		case "document-committed":
 			return { ...presentation, documentCommit: update.document };
-		case "speech-committed":
-			return { ...presentation, speechCommit: update.speech };
-		case "speech-delivery-recorded": {
-			const status =
-				update.fact.type === "speech-delivery-completed"
-					? "played"
-					: update.fact.type === "speech-delivery-muted"
-						? "muted"
-						: update.fact.type === "speech-delivery-unavailable" ||
-								update.fact.type === "speech-delivery-failed"
-							? "unavailable"
-							: null;
-			return {
-				...presentation,
-				speechDelivery: update.fact,
-				...(status
-					? {
-							speechCommit: {
-								id: update.fact.id,
-								text: update.text,
-								status,
-							},
-						}
-					: {}),
-			};
-		}
 		case "turn-recorded":
 			return { ...presentation, turn: update.fact };
 		case "runtime-manifest-recorded":
@@ -539,6 +495,8 @@ export const reduceWorkbenchPresentation = (
 			};
 		case "domain-policy-recorded":
 			return { ...presentation, domainPolicy: update.decision };
+		default:
+			return presentation;
 	}
 };
 
@@ -850,13 +808,127 @@ const acceptsTurnReadModelEvent = (
 	);
 };
 
-const acceptsSpeechDeliveryLifecycle = (
+const sameSpeechDeliveryFact = (
+	left: SpeechDeliveryFact | null,
+	right: SpeechDeliveryFact | null,
+): boolean => {
+	if (left === right) return true;
+	if (!left || !right || left.type !== right.type || left.id !== right.id) {
+		return false;
+	}
+	return (
+		left.type !== "speech-delivery-failed" ||
+		(right.type === "speech-delivery-failed" && left.message === right.message)
+	);
+};
+
+const speechLifecycleIsSelfConsistent = (
+	lifecycle: SpeechDeliveryLifecycleProjection,
+): boolean => {
+	const factMatches = (type: SpeechDeliveryFact["type"]) =>
+		lifecycle.fact?.type === type && lifecycle.fact.id === lifecycle.id;
+	const terminalMatches = (type: SpeechDeliveryFact["type"]) =>
+		lifecycle.terminal?.type === type &&
+		lifecycle.terminal.id === lifecycle.id &&
+		sameSpeechDeliveryFact(lifecycle.fact, lifecycle.terminal);
+	switch (lifecycle.state) {
+		case "pending":
+			return lifecycle.fact === null && lifecycle.terminal === null;
+		case "queued":
+			return (
+				factMatches("speech-delivery-queued") && lifecycle.terminal === null
+			);
+		case "delivered":
+			return terminalMatches("speech-delivery-completed");
+		case "muted":
+			return terminalMatches("speech-delivery-muted");
+		case "unavailable":
+			return terminalMatches("speech-delivery-unavailable");
+		case "failed":
+			return terminalMatches("speech-delivery-failed");
+		case "cancelled":
+			return terminalMatches("speech-delivery-cancelled");
+		case "disposed":
+			return (
+				lifecycle.terminal === null &&
+				(lifecycle.fact === null || factMatches("speech-delivery-queued"))
+			);
+	}
+};
+
+const sameSpeechDeliveryLifecycle = (
+	left: SpeechDeliveryLifecycleProjection,
+	right: SpeechDeliveryLifecycleProjection,
+): boolean =>
+	left.state === right.state &&
+	left.id === right.id &&
+	left.text === right.text &&
+	left.attemptId === right.attemptId &&
+	left.requestSequence === right.requestSequence &&
+	sameSpeechDeliveryFact(left.fact, right.fact) &&
+	sameSpeechDeliveryFact(left.terminal, right.terminal);
+
+const speechLifecycleProgressions = {
+	pending: [
+		"queued",
+		"delivered",
+		"muted",
+		"unavailable",
+		"failed",
+		"cancelled",
+		"disposed",
+	],
+	queued: ["delivered", "failed", "cancelled", "disposed"],
+	delivered: [],
+	muted: [],
+	unavailable: [],
+	failed: [],
+	cancelled: [],
+	disposed: [],
+} as const satisfies Record<
+	SpeechDeliveryLifecycleProjection["state"],
+	readonly SpeechDeliveryLifecycleProjection["state"][]
+>;
+
+type SpeechLifecycleDisposition = "advance" | "duplicate" | "reject";
+
+const speechDeliveryLifecycleDisposition = (
+	request: SpeechDeliveryControlRequest | null,
 	current: SpeechDeliveryLifecycleProjection | null,
 	lifecycle: SpeechDeliveryLifecycleProjection,
-): boolean =>
-	current === null ||
-	current.attemptId === lifecycle.attemptId ||
-	lifecycle.state === "pending";
+): SpeechLifecycleDisposition => {
+	if (
+		!request ||
+		request.sequence !== lifecycle.requestSequence ||
+		request.id !== lifecycle.id ||
+		request.text !== lifecycle.text ||
+		request.attemptId !== lifecycle.attemptId ||
+		!speechLifecycleIsSelfConsistent(lifecycle)
+	) {
+		return "reject";
+	}
+	if (!current) return lifecycle.state === "pending" ? "advance" : "reject";
+	if (
+		current.requestSequence !== request.sequence ||
+		current.id !== request.id ||
+		current.text !== request.text ||
+		current.attemptId !== request.attemptId
+	) {
+		return "reject";
+	}
+	if (current.state === lifecycle.state) {
+		return sameSpeechDeliveryLifecycle(current, lifecycle)
+			? "duplicate"
+			: "reject";
+	}
+	return (
+		speechLifecycleProgressions[
+			current.state
+		] as readonly SpeechDeliveryLifecycleProjection["state"][]
+	).includes(lifecycle.state)
+		? "advance"
+		: "reject";
+};
 
 const acceptsVoiceCaptureLifecycle = (
 	current: VoiceCaptureLifecycleProjection | null,
@@ -891,11 +963,6 @@ const privatePresentationEnvelope = (
 				channel: "private-adapter",
 				update: { type: "document-committed", document: event.document },
 			};
-		case "SPEECH_COMMITTED":
-			return {
-				channel: "private-adapter",
-				update: { type: "speech-committed", speech: event.speech },
-			};
 		case "VOICE_TRANSCRIPT_CONSUMED":
 			return null;
 		case "CAPABILITY_OUTCOME_RECORDED":
@@ -921,16 +988,7 @@ const privatePresentationEnvelope = (
 		case "VOICE_CAPTURE_LIFECYCLE_UPDATED":
 			return null;
 		case "SPEECH_DELIVERY_LIFECYCLE_UPDATED":
-			return event.lifecycle.fact
-				? {
-						channel: "private-adapter",
-						update: {
-							type: "speech-delivery-recorded",
-							fact: event.lifecycle.fact,
-							text: event.lifecycle.text,
-						},
-					}
-				: null;
+			return null;
 		case "MODEL_TURN_LIFECYCLE_UPDATED":
 			return null;
 	}
@@ -954,6 +1012,8 @@ const applyConversationTransition = (
 			modelTurnControlRequest: context.modelTurnControlRequest,
 			voiceCaptureControlSequence: context.voiceCaptureControlSequence,
 			voiceCaptureControlRequest: context.voiceCaptureControlRequest,
+			speechDeliveryControlSequence: context.speechDeliveryControlSequence,
+			speechDeliveryControlRequest: context.speechDeliveryControlRequest,
 			pendingCompletion:
 				event.type === "SUBMIT_PROMPT" ? null : context.pendingCompletion,
 			lastTurnTerminal:
@@ -1043,6 +1103,16 @@ const voiceTranscriptConsumptionAction = (
 	};
 };
 
+const createSpeechDeliveryControlRequest = (
+	speech: { id: string; text: string },
+	sequence: number,
+): SpeechDeliveryControlRequest => ({
+	id: speech.id,
+	text: speech.text,
+	attemptId: `${speech.id}:${sequence}`,
+	sequence,
+});
+
 export const voiceWorkbenchSessionMachine = setup({
 	types: {
 		context: {} as VoiceWorkbenchSession,
@@ -1101,6 +1171,24 @@ export const voiceWorkbenchSessionMachine = setup({
 					? null
 					: context.voiceCaptureControlRequest,
 		}),
+		requestSpeechDeliveryReplay: assign(({ context, event }) => {
+			if (event.type !== "SPEECH_DELIVERY_REPLAY_REQUESTED") return context;
+			const speech = context.speech;
+			if (!speech) return context;
+			const sequence = context.speechDeliveryControlSequence + 1;
+			return {
+				...context,
+				speechDeliveryControlSequence: sequence,
+				speechDeliveryControlRequest: createSpeechDeliveryControlRequest(
+					speech,
+					sequence,
+				),
+				childLifecycles: {
+					...context.childLifecycles,
+					speechDelivery: null,
+				},
+			};
+		}),
 		stageCompletion: assign(({ context, event }) => {
 			if (event.type !== "COMPLETE_RESPONSE") return context;
 			const result = reduceConversationSession(context, event);
@@ -1136,6 +1224,10 @@ export const voiceWorkbenchSessionMachine = setup({
 			if (!result.accepted) {
 				return { ...context, pendingCompletion: null };
 			}
+			const speech = result.session.speech;
+			const speechDeliveryControlSequence = speech
+				? context.speechDeliveryControlSequence + 1
+				: context.speechDeliveryControlSequence;
 			return {
 				...result.session,
 				modelFailure: context.modelFailure,
@@ -1144,9 +1236,18 @@ export const voiceWorkbenchSessionMachine = setup({
 				modelTurnControlRequest: context.modelTurnControlRequest,
 				voiceCaptureControlSequence: context.voiceCaptureControlSequence,
 				voiceCaptureControlRequest: context.voiceCaptureControlRequest,
+				speechDeliveryControlSequence,
+				speechDeliveryControlRequest: speech
+					? createSpeechDeliveryControlRequest(
+							speech,
+							speechDeliveryControlSequence,
+						)
+					: context.speechDeliveryControlRequest,
 				pendingCompletion: null,
 				lastTurnTerminal: event,
-				childLifecycles: context.childLifecycles,
+				childLifecycles: speech
+					? { ...context.childLifecycles, speechDelivery: null }
+					: context.childLifecycles,
 			};
 		}),
 		discardPendingCompletion: assign({ pendingCompletion: () => null }),
@@ -1165,6 +1266,7 @@ export const voiceWorkbenchSessionMachine = setup({
 				isConversationAction(event) ||
 				isTurnTerminalEvent(event) ||
 				isVoiceCaptureIntentEvent(event) ||
+				event.type === "SPEECH_DELIVERY_REPLAY_REQUESTED" ||
 				event.type === "MODEL_PREPARATION_STARTED" ||
 				event.type === "MODEL_AVAILABLE" ||
 				event.type === "MODEL_FAILED" ||
@@ -1205,20 +1307,20 @@ export const voiceWorkbenchSessionMachine = setup({
 					};
 				}
 				case "SPEECH_DELIVERY_LIFECYCLE_UPDATED": {
-					if (
-						!acceptsSpeechDeliveryLifecycle(
-							context.childLifecycles.speechDelivery,
-							event.lifecycle,
-						)
-					) {
+					const disposition = speechDeliveryLifecycleDisposition(
+						context.speechDeliveryControlRequest,
+						context.childLifecycles.speechDelivery,
+						event.lifecycle,
+					);
+					if (disposition !== "advance") {
 						return context;
 					}
-					const envelope = privatePresentationEnvelope(event);
 					return {
 						...context,
-						presentation: envelope
-							? reduceWorkbenchPresentation(context.presentation, envelope)
-							: context.presentation,
+						speechDeliveryControlRequest:
+							event.lifecycle.terminal || event.lifecycle.state === "disposed"
+								? null
+								: context.speechDeliveryControlRequest,
 						childLifecycles: {
 							...context.childLifecycles,
 							speechDelivery: event.lifecycle,
@@ -1329,6 +1431,8 @@ export const voiceWorkbenchSessionMachine = setup({
 		modelTurnControlRequest: null,
 		voiceCaptureControlSequence: 0,
 		voiceCaptureControlRequest: null,
+		speechDeliveryControlSequence: 0,
+		speechDeliveryControlRequest: null,
 		pendingCompletion: null,
 		lastTurnTerminal: null,
 		childLifecycles: {
@@ -1339,9 +1443,11 @@ export const voiceWorkbenchSessionMachine = setup({
 	}),
 	on: {
 		ACKNOWLEDGE_SPEECH: { actions: "applyTransition" },
+		SPEECH_DELIVERY_REPLAY_REQUESTED: {
+			actions: "requestSpeechDeliveryReplay",
+		},
 		PRESENTATION_UPDATED: { actions: "applyPresentationUpdate" },
 		DOCUMENT_COMMITTED: { actions: "applyPrivateEvent" },
-		SPEECH_COMMITTED: { actions: "applyPrivateEvent" },
 		CAPABILITY_OUTCOME_RECORDED: { actions: "applyPrivateEvent" },
 		DOMAIN_POLICY_RECORDED: { actions: "applyPrivateEvent" },
 		RUNTIME_MANIFEST_RECORDED: { actions: "applyPrivateEvent" },
@@ -1505,10 +1611,6 @@ export const reportModelFailure = (failure: ModelFailureFact): void =>
 export const commitDocument = (
 	document: NonNullable<WorkbenchPresentation["documentCommit"]>,
 ): void => source.send({ type: "DOCUMENT_COMMITTED", document });
-
-export const commitSpeech = (
-	speech: NonNullable<WorkbenchPresentation["speechCommit"]>,
-): void => source.send({ type: "SPEECH_COMMITTED", speech });
 
 export const recordCapabilityOutcome = (
 	outcome: WorkbenchCapabilityOutcome,
@@ -1852,6 +1954,34 @@ export const projectVoiceWorkbenchView = ({
 	const voice =
 		snapshot.context.childLifecycles.voiceCapture?.fact ??
 		({ type: "voice-idle" } as const);
+	const speechLifecycle = snapshot.context.childLifecycles.speechDelivery;
+	const speechDelivery = speechLifecycle?.fact ?? null;
+	const speechCommit: {
+		id: string;
+		text: string;
+		status: "played" | "muted" | "unavailable";
+	} | null = speechLifecycle
+		? speechLifecycle.fact?.type === "speech-delivery-completed"
+			? {
+					id: speechLifecycle.id,
+					text: speechLifecycle.text,
+					status: "played",
+				}
+			: speechLifecycle.fact?.type === "speech-delivery-muted"
+				? {
+						id: speechLifecycle.id,
+						text: speechLifecycle.text,
+						status: "muted",
+					}
+				: speechLifecycle.fact?.type === "speech-delivery-unavailable" ||
+						speechLifecycle.fact?.type === "speech-delivery-failed"
+					? {
+							id: speechLifecycle.id,
+							text: speechLifecycle.text,
+							status: "unavailable",
+						}
+					: null
+		: null;
 	const transcript = voice.type === "voice-transcript" ? voice.text : null;
 	const transcriptReady =
 		selectVoiceTranscriptCandidate(snapshot.context) !== null;
@@ -2120,7 +2250,7 @@ export const projectVoiceWorkbenchView = ({
 			voiceCapture: projectVoiceCaptureControlRequest(
 				snapshot.context.voiceCaptureControlRequest,
 			),
-			speechDelivery: presentation.speechReplayRequest,
+			speechDelivery: snapshot.context.speechDeliveryControlRequest,
 		},
 		modelContext: {
 			status,
@@ -2182,7 +2312,12 @@ export const projectVoiceWorkbenchView = ({
 		activeArtifactId: snapshot.context.activeArtifactId,
 		response: snapshot.context.response,
 		canRevise: responding && snapshot.context.documents.length > 0,
-		presentation: { ...snapshot.context.presentation, voice },
+		presentation: {
+			...snapshot.context.presentation,
+			voice,
+			speechDelivery,
+			speechCommit,
+		},
 		runtimeInspector: {
 			activeStates: snapshot.value,
 			mlx: {
@@ -2242,10 +2377,8 @@ export const projectVoiceWorkbenchView = ({
 					className: "commit commit-speech",
 					icon: "◖",
 					title: "Speech · audio",
-					detail:
-						presentation.speechCommit?.text ??
-						"browser adapter · actor acknowledged",
-					statusLabel: presentation.speechCommit?.status ?? "idle",
+					detail: speechCommit?.text ?? "browser adapter · actor acknowledged",
+					statusLabel: speechCommit?.status ?? "idle",
 				},
 			],
 			schemaExplorer: {
@@ -2527,23 +2660,7 @@ export const component = igniteCore({
 				},
 			),
 			playSpeech: command(
-				() => {
-					const context = actor.getSnapshot().context;
-					const text = context.response?.speech;
-					if (!text) return;
-					sendPresentationUpdate({
-						channel: "user-intent",
-						update: {
-							type: "speech-replay-requested",
-							request: {
-								id: context.speech?.id ?? `manual-${context.revision}`,
-								text,
-								sequence:
-									(context.presentation.speechReplayRequest?.sequence ?? 0) + 1,
-							},
-						},
-					});
-				},
+				() => actor.send({ type: "SPEECH_DELIVERY_REPLAY_REQUESTED" }),
 				{ channel: "user-intent" },
 			),
 			replay: command(

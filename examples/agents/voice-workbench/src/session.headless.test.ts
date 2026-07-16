@@ -527,6 +527,43 @@ describe("voice workbench session machine contract", () => {
 			},
 			speechCommit: null,
 		});
+		const rawPresentation = actor.getSnapshot().context.presentation;
+		sendSessionEvent(actor, {
+			type: "PRESENTATION_UPDATED",
+			envelope: {
+				channel: "private-adapter",
+				update: {
+					type: "speech-delivery-recorded",
+					fact: {
+						type: "speech-delivery-failed",
+						id: firstRequest.id,
+						message: "Forged presentation failure.",
+					},
+					text: "Forged presentation speech.",
+				},
+			},
+		});
+		sendSessionEvent(actor, {
+			type: "SPEECH_COMMITTED",
+			speech: {
+				id: firstRequest.id,
+				text: "Forged committed speech.",
+				status: "unavailable",
+			},
+		});
+		expect(actor.getSnapshot().context.presentation).toBe(rawPresentation);
+		expect(actor.getSnapshot().context.childLifecycles.speechDelivery).toBe(
+			acceptedQueued,
+		);
+		expect(
+			projectVoiceWorkbenchView({ snapshot: actor.getSnapshot() }).presentation,
+		).toMatchObject({
+			speechDelivery: {
+				type: "speech-delivery-queued",
+				id: firstRequest.id,
+			},
+			speechCommit: null,
+		});
 
 		// Exact duplicates are idempotent; same-request regressions are rejected.
 		sendSessionEvent(actor, {
@@ -2312,7 +2349,9 @@ describe("voice workbench headless component", () => {
 		).speechDeliveryControlSequence;
 		const speechIntentSend = vi.spyOn(source, "send");
 		await component.execute({ command: "playSpeech" });
-		expect(speechIntentSend.mock.calls.at(-1)?.[0]).toEqual({
+		expect(
+			speechIntentSend.mock.calls[speechIntentSend.mock.calls.length - 1]?.[0],
+		).toEqual({
 			type: "SPEECH_DELIVERY_REPLAY_REQUESTED",
 		});
 		speechIntentSend.mockRestore();
