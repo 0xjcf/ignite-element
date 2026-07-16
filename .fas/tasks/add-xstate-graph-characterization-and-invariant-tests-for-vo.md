@@ -30,7 +30,11 @@ Use the canonical contracts and fresh actor factory from task-1784171303126. Add
 
 ## Affected files
 - examples/agents/voice-workbench/src/session.graph.test.ts
-- examples/agents/voice-workbench/src/session.ts
+- .fas/memory/architecture.md
+- .fas/memory/decisions.md
+- .fas/memory/incidents.md
+- .fas/memory/patterns.md
+- .fas/memory/pr-feedback.md
 
 ## Scope Amendments
 - Type: reference-only
@@ -41,6 +45,16 @@ Use the canonical contracts and fresh actor factory from task-1784171303126. Add
 - Evidence: commit 99713998 and focused graph verification | examples/agents/voice-workbench/src/session.ts | Keep session.ts as reviewed reference input; implementation is the single planned session.graph.test.ts file.
 - Accuracy signal: existing exported contracts sufficient
 - Follow-up needed: No follow-up; task-1784171435029 owns the topology change.
+
+- Type: reference-only
+- Added at: 2026-07-16
+- Trigger: Implementation and FAS ChangeSet evidence
+- Reason: session.ts supplied the already-exported canonical machine contracts without requiring an edit; five pre-existing Git-ignored .fas/memory projections are scanner-only references and are not implementation artifacts.
+- Added paths: .fas/memory/architecture.md, .fas/memory/decisions.md, .fas/memory/incidents.md, .fas/memory/patterns.md, .fas/memory/pr-feedback.md
+- Evidence source: commit 99713998; git status --short --ignored .fas/memory
+- Evidence: commit 99713998; git status --short --ignored .fas/memory | examples/agents/voice-workbench/src/session.ts | Implementation is only session.graph.test.ts. Keep session.ts and the five .fas/memory projections unmodified and out of the implementation review.
+- Accuracy signal: existing exports sufficient; memory paths Git-ignored
+- Follow-up needed: No implementation follow-up; task-1784171435029 owns the topology change.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
