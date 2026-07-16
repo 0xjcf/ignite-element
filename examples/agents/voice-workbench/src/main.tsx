@@ -27,7 +27,7 @@ import {
 import { createBrowserVoiceCapture } from "./voice";
 import { createWebSearchCapability } from "./web-search-capability";
 import { renderWorkbench } from "./workbench";
-import { completeSubmittedPrompt } from "./workbench-agent";
+import { type ModelTurnHandle, startSubmittedPrompt } from "./workbench-agent";
 
 declare const __VOICE_WORKBENCH_WEB_SEARCH_AVAILABLE__: boolean;
 
@@ -176,7 +176,19 @@ const voiceSubscription = voice.subscribeLifecycle((lifecycle) => {
 });
 recordVoiceCaptureLifecycle(voice.getLifecycle());
 
+let activeModelTurn: ModelTurnHandle | null = null;
+
 const browserRequestSubscription = component.watchView((view, previous) => {
+	const modelTurnControl = view.portRequests.modelTurnControl;
+	if (
+		modelTurnControl &&
+		modelTurnControl.sequence !==
+			previous.portRequests.modelTurnControl?.sequence &&
+		activeModelTurn?.turnId === modelTurnControl.turnId
+	) {
+		activeModelTurn.cancel();
+	}
+
 	const voiceRequest = view.portRequests.voiceCapture;
 	if (
 		voiceRequest &&
@@ -205,12 +217,18 @@ const modelPreparationSubscription = component.watchView((view, previous) => {
 });
 
 const modelTurnSubscription = component.on("prompt-submitted", (event) => {
-	void completeSubmittedPrompt(
+	activeModelTurn?.dispose();
+	const handle = startSubmittedPrompt(
 		configuration,
 		event,
 		externalCapabilities,
 		domains,
 	);
+	activeModelTurn = handle;
+	const clearActiveHandle = () => {
+		if (activeModelTurn === handle) activeModelTurn = null;
+	};
+	void handle.done.then(clearActiveHandle, clearActiveHandle);
 });
 
 component("voice-workbench", renderWorkbench);
@@ -243,6 +261,8 @@ window.addEventListener("pagehide", (event) => {
 	readinessAttempt += 1;
 	readinessController?.abort();
 	readinessController = null;
+	activeModelTurn?.dispose();
+	activeModelTurn = null;
 	voiceSubscription.unsubscribe();
 	browserRequestSubscription.unsubscribe();
 	voice.dispose();

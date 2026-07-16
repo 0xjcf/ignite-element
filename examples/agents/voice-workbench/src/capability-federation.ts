@@ -133,6 +133,14 @@ export const runCapability = async (
 
 	try {
 		const fact = signal ? await owner.run(call, signal) : await owner.run(call);
+		if (signal?.aborted) {
+			return {
+				type: "timeout",
+				ownerId: owner.id,
+				toolName: call.name,
+				message: "The capability execution was cancelled.",
+			};
+		}
 		return { ...fact, ownerId: owner.id, toolName: call.name };
 	} catch {
 		if (signal?.aborted) {

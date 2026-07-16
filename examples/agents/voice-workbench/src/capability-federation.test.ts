@@ -142,6 +142,7 @@ describe("voice workbench capability federation", () => {
 			id: "deferred-provider",
 			manifest: manifest("searchWeb"),
 			run: (_call, signal) => {
+				if (!signal) throw new Error("expected a provider abort signal");
 				providerSignal(signal);
 				return new Promise((resolve) => {
 					resolveProvider = resolve;

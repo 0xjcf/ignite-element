@@ -843,40 +843,96 @@ const capabilityFeedback = (
 	};
 };
 
-export async function completeSubmittedPrompt(
-	configuration: MlxWorkbenchConfiguration,
-	event: { turnId?: string; modality: "text" | "speech"; text: string },
-	externalCapabilities: readonly CapabilityOwner[] = [],
-	domains: DomainRegistry = emptyDomainRegistry,
-	signal?: AbortSignal,
-): Promise<ModelTurnResult | null> {
-	const prompt = { channel: event.modality, text: event.text };
+export const MODEL_TURN_TIMEOUT_MS = 45_000;
+
+export type ModelTurnHandle = {
+	turnId: string;
+	done: Promise<ModelTurnResult | null>;
+	cancel: () => void;
+	timeout: () => void;
+	dispose: () => void;
+};
+
+export type ModelTurnStartOptions = {
+	timeoutMs?: number;
+	signal?: AbortSignal;
+};
+
+type ModelTurnActorControl = {
+	cancel: () => void;
+	timeout: () => void;
+};
+
+const resolveSubmittedTurnId = (event: {
+	turnId?: string;
+	modality: "text" | "speech";
+	text: string;
+}): string => {
 	const currentFact = component.getSnapshot().context.lastFact;
-	const turnId =
+	return (
 		event.turnId ??
 		(currentFact?.type === "prompt-submitted" ? currentFact.turnId : null) ??
-		`${component.getSnapshot().context.sessionId}:${component.getSnapshot().context.revision}`;
+		`${component.getSnapshot().context.sessionId}:${component.getSnapshot().context.revision}`
+	);
+};
+
+const cancelledComponentExecution = (
+	toolName: string,
+): CapabilityExecutionFact => ({
+	type: "timeout",
+	ownerId: "workbench-component",
+	toolName,
+	message: "The component command was cancelled.",
+});
+
+const runSubmittedPrompt = async (
+	configuration: MlxWorkbenchConfiguration,
+	event: { turnId?: string; modality: "text" | "speech"; text: string },
+	externalCapabilities: readonly CapabilityOwner[],
+	domains: DomainRegistry,
+	signal: AbortSignal,
+	bindControl: (control: ModelTurnActorControl) => void,
+): Promise<ModelTurnResult | null> => {
+	const prompt = { channel: event.modality, text: event.text };
+	const turnId = resolveSubmittedTurnId(event);
 	let currentCapability: WorkbenchCapabilityProof | undefined;
 	let currentCollision: WorkbenchCollisionProof | undefined;
 	let routing: CapabilityFederation | null = null;
 	const actor = createModelTurnActor({ turnId, prompt });
 	const scheduledRequests = new Set<string>();
+	const isLive = (
+		correlation: { turnId: string; attemptId: string },
+		allowTerminal = false,
+	): boolean => {
+		if (signal.aborted) return false;
+		const childSnapshot = actor.getSnapshot();
+		if (
+			childSnapshot.context.turnId !== correlation.turnId ||
+			childSnapshot.context.attemptId !== correlation.attemptId ||
+			(!allowTerminal && projectModelTurnTerminalFact(childSnapshot))
+		) {
+			return false;
+		}
+		const parentSnapshot = component.getSnapshot();
+		const projectedChild = parentSnapshot.context.childLifecycles.modelTurn;
+		return (
+			parentSnapshot.context.activeTurnId === correlation.turnId &&
+			projectedChild?.turnId === correlation.turnId &&
+			projectedChild.attemptId === correlation.attemptId
+		);
+	};
 
 	const executeComponentCall = (
 		history: readonly ModelExchange[],
+		correlation: { turnId: string; attemptId: string },
 	): CapabilityOwner => {
 		const tools = igniteTools(component);
 		return {
 			id: "workbench-component",
 			manifest: modelTools(tools.manifest),
 			run: async (call, callSignal): Promise<CapabilityExecutionFact> => {
-				if (callSignal?.aborted) {
-					return {
-						type: "timeout",
-						ownerId: "workbench-component",
-						toolName: call.name,
-						message: "The component command was cancelled.",
-					};
+				if (callSignal?.aborted || !isLive(correlation)) {
+					return cancelledComponentExecution(call.name);
 				}
 				if (call.name === "completeResponse") {
 					const view = component.getView().modelContext;
@@ -900,12 +956,18 @@ export async function completeSubmittedPrompt(
 						};
 					}
 				}
+				if (callSignal?.aborted || !isLive(correlation)) {
+					return cancelledComponentExecution(call.name);
+				}
 				const materializedCall = domains.materializeArtifact({
 					prompt,
 					history,
 					view: component.getView().modelContext,
 					call,
 				});
+				if (callSignal?.aborted || !isLive(correlation)) {
+					return cancelledComponentExecution(call.name);
+				}
 				const execution = await tools.run({
 					...materializedCall,
 					input: normalizeSemanticArtifactIdentity(
@@ -913,6 +975,9 @@ export async function completeSubmittedPrompt(
 						materializedCall.input,
 					),
 				});
+				if (callSignal?.aborted || !isLive(correlation)) {
+					return cancelledComponentExecution(call.name);
+				}
 				if (!isOk(execution)) {
 					switch (execution.error.kind) {
 						case "InvalidInput":
@@ -981,50 +1046,61 @@ export async function completeSubmittedPrompt(
 		};
 	};
 
-	const recordExecution = async (
+	const recordExecution = (
 		execution: CapabilityExecutionFact,
-		attemptId: string,
-	): Promise<ModelToolFeedback> => {
+		correlation: { turnId: string; attemptId: string },
+	): ModelToolFeedback | null => {
+		if (!isLive(correlation)) return null;
 		const proof = capabilityProof(execution);
 		if (proof) currentCapability = proof;
 		const domainDecision = domains.projectExecution(execution);
 		if (domainDecision) {
-			recordDomainPolicyDecision(domainDecision);
+			if (!isLive(correlation)) return null;
+			recordDomainPolicyDecision(domainDecision, correlation);
 		}
 		if (execution.ownerId !== "workbench-component") {
-			recordCapabilityOutcome({
-				type: execution.type,
-				ownerId: execution.ownerId,
-				toolName: execution.toolName,
-				message:
-					execution.type === "success"
-						? `${execution.receipt.provider} completed the capability.`
-						: execution.message,
-				...(execution.type !== "success" && execution.status !== undefined
-					? { status: execution.status }
-					: {}),
-				...(proof?.retry ? { retry: proof.retry } : {}),
-				...(proof?.cacheStatus
-					? {
-							cacheStatus: proof.cacheStatus,
-							cacheTtlMs: proof.cacheTtlMs,
-						}
-					: {}),
-				...(proof?.fallback ? { fallback: proof.fallback } : {}),
-				...(proof?.pricingRows ? { pricingRows: proof.pricingRows } : {}),
-			});
+			if (!isLive(correlation)) return null;
+			recordCapabilityOutcome(
+				{
+					type: execution.type,
+					ownerId: execution.ownerId,
+					toolName: execution.toolName,
+					message:
+						execution.type === "success"
+							? `${execution.receipt.provider} completed the capability.`
+							: execution.message,
+					...(execution.type !== "success" && execution.status !== undefined
+						? { status: execution.status }
+						: {}),
+					...(proof?.retry ? { retry: proof.retry } : {}),
+					...(proof?.cacheStatus
+						? {
+								cacheStatus: proof.cacheStatus,
+								cacheTtlMs: proof.cacheTtlMs,
+							}
+						: {}),
+					...(proof?.fallback ? { fallback: proof.fallback } : {}),
+					...(proof?.pricingRows ? { pricingRows: proof.pricingRows } : {}),
+				},
+				correlation,
+			);
 		}
 		return {
 			...capabilityFeedback(execution, execution.toolName),
-			attemptId,
+			attemptId: correlation.attemptId,
 		};
 	};
 
 	const drivePortRequest = async (request: ModelTurnPortRequest) => {
+		const correlation = {
+			turnId: request.turnId,
+			attemptId: request.attemptId,
+		};
+		if (!isLive(correlation)) return;
 		switch (request.type) {
 			case "request-model": {
 				const federation = createCapabilityFederation([
-					executeComponentCall(request.history),
+					executeComponentCall(request.history, correlation),
 					...domains.capabilities,
 					...externalCapabilities,
 				]);
@@ -1035,6 +1111,7 @@ export async function completeSubmittedPrompt(
 					);
 					const names =
 						currentCollision.toolNames.join(", ") || "unknown tools";
+					if (!isLive(correlation)) return;
 					actor.send({
 						type: "PORT_FAILED",
 						turnId: request.turnId,
@@ -1061,12 +1138,15 @@ export async function completeSubmittedPrompt(
 							),
 						),
 				);
+				if (!isLive(correlation)) return;
 				recordRuntimeManifest(
 					modelManifest.map((tool) => ({
 						...tool,
 						ownerId: federation.ownerByTool.get(tool.name)?.id ?? "federation",
 					})),
+					correlation,
 				);
+				if (!isLive(correlation)) return;
 				const response = await requestMlxWorkbenchModel(
 					configuration,
 					{
@@ -1086,7 +1166,7 @@ export async function completeSubmittedPrompt(
 					},
 					signal,
 				);
-				if (projectModelTurnTerminalFact(actor.getSnapshot())) return;
+				if (!isLive(correlation)) return;
 				actor.send({
 					type: "MODEL_RESOLVED",
 					turnId: request.turnId,
@@ -1096,6 +1176,7 @@ export async function completeSubmittedPrompt(
 				return;
 			}
 			case "authorize-call": {
+				if (!isLive(correlation)) return;
 				const call = {
 					id: request.call.id,
 					name: request.call.command,
@@ -1107,6 +1188,7 @@ export async function completeSubmittedPrompt(
 					call,
 				});
 				if (!execution) {
+					if (!isLive(correlation)) return;
 					actor.send({
 						type: "AUTHORIZATION_RESOLVED",
 						turnId: request.turnId,
@@ -1115,8 +1197,8 @@ export async function completeSubmittedPrompt(
 					});
 					return;
 				}
-				const feedback = await recordExecution(execution, request.attemptId);
-				if (projectModelTurnTerminalFact(actor.getSnapshot())) return;
+				const feedback = recordExecution(execution, correlation);
+				if (!feedback || !isLive(correlation)) return;
 				actor.send({
 					type: "AUTHORIZATION_RESOLVED",
 					turnId: request.turnId,
@@ -1127,6 +1209,7 @@ export async function completeSubmittedPrompt(
 				return;
 			}
 			case "execute-call": {
+				if (!isLive(correlation)) return;
 				if (!routing) {
 					actor.send({
 						type: "PORT_FAILED",
@@ -1148,8 +1231,9 @@ export async function completeSubmittedPrompt(
 					},
 					signal,
 				);
-				const feedback = await recordExecution(execution, request.attemptId);
-				if (projectModelTurnTerminalFact(actor.getSnapshot())) return;
+				if (!isLive(correlation)) return;
+				const feedback = recordExecution(execution, correlation);
+				if (!feedback || !isLive(correlation)) return;
 				actor.send({
 					type: "CAPABILITY_RESOLVED",
 					turnId: request.turnId,
@@ -1172,11 +1256,16 @@ export async function completeSubmittedPrompt(
 		}
 		const request = projectModelTurnPortRequest(snapshot);
 		if (!request) return;
+		if (!isLive({ turnId: request.turnId, attemptId: request.attemptId })) {
+			return;
+		}
 		const requestKey = `${request.type}:${request.attemptId}`;
 		if (scheduledRequests.has(requestKey)) return;
 		scheduledRequests.add(requestKey);
 		void drivePortRequest(request).catch(() => {
-			if (projectModelTurnTerminalFact(actor.getSnapshot())) return;
+			if (!isLive({ turnId: request.turnId, attemptId: request.attemptId })) {
+				return;
+			}
 			actor.send({
 				type: "PORT_FAILED",
 				turnId: request.turnId,
@@ -1188,29 +1277,112 @@ export async function completeSubmittedPrompt(
 			});
 		});
 	});
-	const cancel = () => actor.send({ type: "CANCEL", turnId });
-	signal?.addEventListener("abort", cancel, { once: true });
+	bindControl({
+		cancel: () => actor.send({ type: "CANCEL", turnId }),
+		timeout: () => actor.send({ type: "TIMEOUT", turnId }),
+	});
 	actor.start();
-	if (signal?.aborted) cancel();
 	await terminalReached;
-	const terminal = projectModelTurnTerminalFact(actor.getSnapshot());
-	const result = actor.getSnapshot().context.lastResult;
-	signal?.removeEventListener("abort", cancel);
+	const finalSnapshot = actor.getSnapshot();
+	const terminal = projectModelTurnTerminalFact(finalSnapshot);
+	const result = finalSnapshot.context.lastResult;
+	const correlation = {
+		turnId,
+		attemptId: finalSnapshot.context.attemptId,
+	};
 	subscription.unsubscribe();
 	actor.stop();
 
-	if (result) {
+	if (result && isLive(correlation, true)) {
 		recordTurn(
 			toTurnFact(result, {
 				...(currentCapability ? { capability: currentCapability } : {}),
 				...(currentCollision ? { collision: currentCollision } : {}),
 			}),
+			correlation,
 		);
 	}
-	if (terminal) recordTurnTerminal(terminal);
-	if (!result) return null;
-	if (result.accepted && event.modality === "text") {
+	if (
+		result?.accepted &&
+		event.modality === "text" &&
+		isLive(correlation, true)
+	) {
 		await component.execute({ command: "changeDraft", input: "" });
 	}
+	const parentStillOwnsTurn =
+		component.getSnapshot().context.activeTurnId === turnId &&
+		component.getSnapshot().context.childLifecycles.modelTurn?.attemptId ===
+			correlation.attemptId;
+	if (terminal && parentStillOwnsTurn) recordTurnTerminal(terminal);
+	if (!result || signal.aborted || !parentStillOwnsTurn) return null;
 	return result;
-}
+};
+
+export const startSubmittedPrompt = (
+	configuration: MlxWorkbenchConfiguration,
+	event: { turnId?: string; modality: "text" | "speech"; text: string },
+	externalCapabilities: readonly CapabilityOwner[] = [],
+	domains: DomainRegistry = emptyDomainRegistry,
+	options: ModelTurnStartOptions = {},
+): ModelTurnHandle => {
+	const turnId = resolveSubmittedTurnId(event);
+	const controller = new AbortController();
+	let actorControl: ModelTurnActorControl | null = null;
+	let terminalIntent: "cancel" | "timeout" | null = null;
+	let settled = false;
+	const requestTerminal = (intent: "cancel" | "timeout") => {
+		if (settled || terminalIntent) return;
+		terminalIntent = intent;
+		actorControl?.[intent]();
+		controller.abort(intent);
+	};
+	const onExternalAbort = () => {
+		const reason = options.signal?.reason;
+		requestTerminal(
+			reason === "timeout" ||
+				(reason instanceof DOMException && reason.name === "TimeoutError")
+				? "timeout"
+				: "cancel",
+		);
+	};
+	const run = runSubmittedPrompt(
+		configuration,
+		{ ...event, turnId },
+		externalCapabilities,
+		domains,
+		controller.signal,
+		(control) => {
+			actorControl = control;
+			if (terminalIntent) control[terminalIntent]();
+		},
+	);
+	const timeoutMs = options.timeoutMs ?? MODEL_TURN_TIMEOUT_MS;
+	const timeout = Number.isFinite(timeoutMs)
+		? setTimeout(() => requestTerminal("timeout"), Math.max(0, timeoutMs))
+		: null;
+	options.signal?.addEventListener("abort", onExternalAbort, { once: true });
+	if (options.signal?.aborted) onExternalAbort();
+	const done = run.finally(() => {
+		settled = true;
+		if (timeout !== null) clearTimeout(timeout);
+		options.signal?.removeEventListener("abort", onExternalAbort);
+	});
+	return {
+		turnId,
+		done,
+		cancel: () => requestTerminal("cancel"),
+		timeout: () => requestTerminal("timeout"),
+		dispose: () => requestTerminal("cancel"),
+	};
+};
+
+export const completeSubmittedPrompt = (
+	configuration: MlxWorkbenchConfiguration,
+	event: { turnId?: string; modality: "text" | "speech"; text: string },
+	externalCapabilities: readonly CapabilityOwner[] = [],
+	domains: DomainRegistry = emptyDomainRegistry,
+	signal?: AbortSignal,
+): Promise<ModelTurnResult | null> =>
+	startSubmittedPrompt(configuration, event, externalCapabilities, domains, {
+		signal,
+	}).done;

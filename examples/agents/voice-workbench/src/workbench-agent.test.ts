@@ -1136,6 +1136,7 @@ describe("shared voice workbench agent", () => {
 				name: "priceProducts",
 				input: breadPriceInput,
 			}),
+			expect.any(AbortSignal),
 		);
 		expect(
 			requestModel.mock.calls[2]?.[1].tools.map((tool) => tool.name),
@@ -1517,6 +1518,7 @@ describe("shared voice workbench agent", () => {
 				name: "priceProducts",
 				input: priceInput,
 			}),
+			expect.any(AbortSignal),
 		);
 		expect(
 			result.trace.filter((entry) => entry.command === "prepareProductPricing"),
