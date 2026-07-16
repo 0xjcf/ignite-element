@@ -175,8 +175,11 @@ The initial value is `"preparing"`. `MODEL_AVAILABLE` enters
 `MODEL_PREPARATION_STARTED` retries from `unavailable` or leaves either
 available child for `preparing`. An accepted `SUBMIT_PROMPT` moves only
 `available.idle` to `available.responding`; an accepted `COMPLETE_RESPONSE`
-moves it back to idle. Artifact mutation commands are structurally admitted
-only while responding, and restore or selection commands only while idle.
+moves it back to idle. Artifact creation, revision, and response completion are
+structurally admitted only while responding. `SET_CHECKLIST_ITEM` is accepted
+in both available children: model orchestration can invoke it while responding,
+while the projected checkbox invokes the same revision-guarded command only
+when exposed during idle. Restore and selection commands remain idle-only.
 
 If `MODEL_FAILED` arrives while responding, the transition atomically records
 the sanitized failure and a non-success turn receipt, clears no prior aggregate
@@ -194,9 +197,9 @@ The command and event vocabulary is intentionally classified by authority:
 
 Every one of the 28 commands carries one of these serializable channel labels
 in `getSchema()`. The channel declares the primary orchestration authority for
-the command; statechart admission, reducer validation, and the narrower
-per-round model allowlist still decide whether a particular invocation is
-accepted.
+the command, not an exclusive set of physical callers. Statechart admission,
+reducer validation, and the narrower per-round model allowlist still decide
+whether a particular invocation is accepted.
 
 The exact current `getSchema()` command inventory assigns every name to one
 category:
