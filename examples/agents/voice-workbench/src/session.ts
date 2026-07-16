@@ -146,6 +146,17 @@ export type WorkbenchTurnFact = WorkbenchTurnOutcome & {
 	collision?: WorkbenchCollisionProof;
 };
 
+export type ModelTurnCorrelation = {
+	turnId: string;
+	attemptId: string;
+};
+
+export type ModelTurnControlRequest = {
+	action: "cancel";
+	turnId: string;
+	sequence: number;
+};
+
 export type WorkbenchPresentation = {
 	artifactView: WorkbenchArtifactView;
 	documentCommit: {
@@ -245,6 +256,7 @@ export type VoiceWorkbenchSession = ConversationSession & {
 	modelFailure: ModelFailureFact | null;
 	presentation: WorkbenchPresentation;
 	activeTurnId: string | null;
+	modelTurnControlRequest: ModelTurnControlRequest | null;
 	pendingCompletion: CompleteResponseInput | null;
 	lastTurnTerminal: VoiceWorkbenchTurnTerminalEvent | null;
 	childLifecycles: {
@@ -276,13 +288,27 @@ export type VoiceWorkbenchPrivateEvent =
 	| {
 			type: "CAPABILITY_OUTCOME_RECORDED";
 			outcome: WorkbenchCapabilityOutcome;
+			turnId?: string;
+			attemptId?: string;
 	  }
-	| { type: "DOMAIN_POLICY_RECORDED"; decision: DomainPolicyDecision }
+	| {
+			type: "DOMAIN_POLICY_RECORDED";
+			decision: DomainPolicyDecision;
+			turnId?: string;
+			attemptId?: string;
+	  }
 	| {
 			type: "RUNTIME_MANIFEST_RECORDED";
 			manifest: readonly WorkbenchRuntimeManifestEntry[];
+			turnId?: string;
+			attemptId?: string;
 	  }
-	| { type: "TURN_RECORDED"; fact: WorkbenchTurnFact }
+	| {
+			type: "TURN_RECORDED";
+			fact: WorkbenchTurnFact;
+			turnId?: string;
+			attemptId?: string;
+	  }
 	| {
 			type: "MODEL_TURN_LIFECYCLE_UPDATED";
 			lifecycle: ModelTurnLifecycleProjection;
@@ -765,6 +791,48 @@ const acceptsModelTurnLifecycle = (
 	);
 };
 
+const isTurnReadModelEvent = (
+	event: VoiceWorkbenchPrivateEvent,
+): event is Extract<
+	VoiceWorkbenchPrivateEvent,
+	{
+		type:
+			| "CAPABILITY_OUTCOME_RECORDED"
+			| "DOMAIN_POLICY_RECORDED"
+			| "RUNTIME_MANIFEST_RECORDED"
+			| "TURN_RECORDED";
+	}
+> =>
+	event.type === "CAPABILITY_OUTCOME_RECORDED" ||
+	event.type === "DOMAIN_POLICY_RECORDED" ||
+	event.type === "RUNTIME_MANIFEST_RECORDED" ||
+	event.type === "TURN_RECORDED";
+
+const acceptsTurnReadModelEvent = (
+	context: VoiceWorkbenchSession,
+	event: VoiceWorkbenchPrivateEvent,
+): boolean => {
+	if (!isTurnReadModelEvent(event)) return true;
+	if (!event.turnId || !event.attemptId) {
+		return context.childLifecycles.modelTurn === null;
+	}
+	if (event.turnId !== context.activeTurnId) return false;
+	const current = context.childLifecycles.modelTurn;
+	if (
+		current === null ||
+		current.turnId !== event.turnId ||
+		current.attemptId !== event.attemptId
+	) {
+		return false;
+	}
+	if (current.terminal === null) return true;
+	return (
+		event.type === "TURN_RECORDED" &&
+		current.terminal.type !== "CANCELLED" &&
+		current.terminal.type !== "TIMEOUT"
+	);
+};
+
 const acceptsSpeechDeliveryLifecycle = (
 	current: SpeechDeliveryLifecycleProjection | null,
 	lifecycle: SpeechDeliveryLifecycleProjection,
@@ -959,6 +1027,7 @@ export const voiceWorkbenchSessionMachine = setup({
 			) {
 				return context;
 			}
+			if (!acceptsTurnReadModelEvent(context, event)) return context;
 			switch (event.type) {
 				case "MODEL_TURN_LIFECYCLE_UPDATED": {
 					if (!acceptsModelTurnLifecycle(context, event.lifecycle)) {
@@ -1025,6 +1094,23 @@ export const voiceWorkbenchSessionMachine = setup({
 				}
 			}
 		}),
+		requestModelTurnInterruption: assign(({ context, event }) => {
+			if (
+				!context.activeTurnId ||
+				(event.type !== "MODEL_PREPARATION_STARTED" &&
+					event.type !== "MODEL_FAILED")
+			) {
+				return context;
+			}
+			return {
+				...context,
+				modelTurnControlRequest: {
+					action: "cancel",
+					turnId: context.activeTurnId,
+					sequence: (context.modelTurnControlRequest?.sequence ?? 0) + 1,
+				},
+			};
+		}),
 		clearActiveTurn: assign({ activeTurnId: () => null }),
 		recordTurnTerminal: assign(({ context, event }) =>
 			isTurnTerminalEvent(event)
@@ -1081,6 +1167,7 @@ export const voiceWorkbenchSessionMachine = setup({
 		modelFailure: null,
 		presentation: createInitialPresentation(),
 		activeTurnId: null,
+		modelTurnControlRequest: null,
 		pendingCompletion: null,
 		lastTurnTerminal: null,
 		childLifecycles: {
@@ -1157,7 +1244,7 @@ export const voiceWorkbenchSessionMachine = setup({
 					},
 				},
 				responding: {
-					exit: "clearActiveTurn",
+					exit: ["requestModelTurnInterruption", "clearActiveTurn"],
 					on: {
 						MODEL_FAILED: {
 							target: "#conversation-session.unavailable",
@@ -1248,18 +1335,30 @@ export const presentVoice = (fact: VoiceCaptureFact): void =>
 
 export const recordCapabilityOutcome = (
 	outcome: WorkbenchCapabilityOutcome,
-): void => source.send({ type: "CAPABILITY_OUTCOME_RECORDED", outcome });
+	correlation?: ModelTurnCorrelation,
+): void =>
+	source.send({
+		type: "CAPABILITY_OUTCOME_RECORDED",
+		outcome,
+		...correlation,
+	});
 
 export const recordDomainPolicyDecision = (
 	decision: DomainPolicyDecision,
-): void => source.send({ type: "DOMAIN_POLICY_RECORDED", decision });
+	correlation?: ModelTurnCorrelation,
+): void =>
+	source.send({ type: "DOMAIN_POLICY_RECORDED", decision, ...correlation });
 
 export const recordRuntimeManifest = (
 	manifest: readonly WorkbenchRuntimeManifestEntry[],
-): void => source.send({ type: "RUNTIME_MANIFEST_RECORDED", manifest });
+	correlation?: ModelTurnCorrelation,
+): void =>
+	source.send({ type: "RUNTIME_MANIFEST_RECORDED", manifest, ...correlation });
 
-export const recordTurn = (fact: WorkbenchTurnFact): void =>
-	source.send({ type: "TURN_RECORDED", fact });
+export const recordTurn = (
+	fact: WorkbenchTurnFact,
+	correlation?: ModelTurnCorrelation,
+): void => source.send({ type: "TURN_RECORDED", fact, ...correlation });
 
 export const recordModelTurnLifecycle = (
 	lifecycle: ModelTurnLifecycleProjection,
@@ -1833,6 +1932,7 @@ export const projectVoiceWorkbenchView = ({
 			modelPreparation: modelPreparing
 				? { type: "prepare-model" as const }
 				: null,
+			modelTurnControl: snapshot.context.modelTurnControlRequest,
 			voiceCapture: presentation.voiceCaptureRequest,
 			speechDelivery: presentation.speechReplayRequest,
 		},
