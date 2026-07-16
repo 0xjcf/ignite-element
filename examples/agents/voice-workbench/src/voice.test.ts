@@ -95,6 +95,155 @@ describe("browser voice capture", () => {
 		actor.stop();
 	});
 
+	it.each([
+		[false, "idle", { type: "voice-idle" }],
+		[
+			true,
+			"transcript",
+			{ type: "voice-transcript", text: "Final transcript", final: true },
+		],
+	] as const)(
+		"projects END from a %s transcript without inventing a host-side state",
+		(final, expectedState, expectedFact) => {
+			const actor = createVoiceCaptureActor({ supported: true }).start();
+			actor.send({ type: "START" });
+			actor.send({
+				type: "RESULT",
+				attemptId: "voice:1",
+				text: final ? "Final transcript" : "Interim transcript",
+				final,
+			});
+			actor.send({ type: "END", attemptId: "voice:stale" });
+			expect(actor.getSnapshot().value).toBe("transcript");
+
+			actor.send({ type: "END", attemptId: "voice:1" });
+			expect(actor.getSnapshot().value).toBe(expectedState);
+			expect(projectVoiceCaptureLifecycle(actor.getSnapshot())).toMatchObject({
+				state: expectedState,
+				sequence: 1,
+				fact: expectedFact,
+			});
+			expect(projectVoiceCapturePortRequest(actor.getSnapshot())).toBeNull();
+			expect(() => JSON.stringify(actor.getSnapshot().context)).not.toThrow();
+			actor.stop();
+		},
+	);
+
+	it("projects correlated END from listening to a cleared idle snapshot", () => {
+		const actor = createVoiceCaptureActor({ supported: true }).start();
+		actor.send({ type: "START" });
+		actor.send({ type: "END", attemptId: "voice:stale" });
+		expect(actor.getSnapshot().value).toBe("listening");
+		actor.send({ type: "END", attemptId: "voice:1" });
+
+		expect(actor.getSnapshot()).toMatchObject({
+			value: "idle",
+			context: { attemptId: null, transcript: "", final: false },
+		});
+		expect(projectVoiceCaptureLifecycle(actor.getSnapshot())).toEqual({
+			state: "idle",
+			attemptId: null,
+			sequence: 1,
+			fact: { type: "voice-idle" },
+		});
+		expect(projectVoiceCapturePortRequest(actor.getSnapshot())).toBeNull();
+		actor.stop();
+	});
+
+	it.each(["consumed", "cancelled", "permission-denied", "failed"] as const)(
+		"projects RESET from %s to idle and clears every port request",
+		(state) => {
+			const actor = createVoiceCaptureActor({ supported: true }).start();
+			actor.send({ type: "START" });
+			if (state === "consumed") {
+				actor.send({
+					type: "RESULT",
+					attemptId: "voice:1",
+					text: "Consumed transcript",
+					final: true,
+				});
+				actor.send({ type: "CONSUME", attemptId: "voice:1" });
+			} else if (state === "cancelled") {
+				actor.send({ type: "CANCEL" });
+			} else if (state === "permission-denied") {
+				actor.send({
+					type: "PERMISSION_DENIED",
+					attemptId: "voice:1",
+					message: "Permission denied.",
+				});
+			} else {
+				actor.send({
+					type: "FAIL",
+					attemptId: "voice:1",
+					message: "Recognition failed.",
+				});
+			}
+			expect(actor.getSnapshot().value).toBe(state);
+
+			actor.send({ type: "RESET" });
+			expect(actor.getSnapshot()).toMatchObject({
+				value: "idle",
+				context: {
+					attemptId: null,
+					transcript: "",
+					final: false,
+					message: null,
+				},
+			});
+			expect(projectVoiceCaptureLifecycle(actor.getSnapshot())).toEqual({
+				state: "idle",
+				attemptId: null,
+				sequence: 1,
+				fact: { type: "voice-idle" },
+			});
+			expect(projectVoiceCapturePortRequest(actor.getSnapshot())).toBeNull();
+			actor.stop();
+		},
+	);
+
+	it.each(["cancelled", "permission-denied", "failed"] as const)(
+		"projects RETRY from %s as a fresh correlated start port",
+		(state) => {
+			const actor = createVoiceCaptureActor({ supported: true }).start();
+			actor.send({ type: "START" });
+			if (state === "cancelled") {
+				actor.send({ type: "CANCEL" });
+			} else if (state === "permission-denied") {
+				actor.send({
+					type: "PERMISSION_DENIED",
+					attemptId: "voice:1",
+					message: "Permission denied.",
+				});
+			} else {
+				actor.send({
+					type: "FAIL",
+					attemptId: "voice:1",
+					message: "Recognition failed.",
+				});
+			}
+			const previousPortSequence =
+				projectVoiceCapturePortRequest(actor.getSnapshot())?.sequence ?? 1;
+
+			actor.send({ type: "RETRY" });
+			expect(actor.getSnapshot()).toMatchObject({
+				value: "listening",
+				context: { attemptId: "voice:2", sequence: 2 },
+			});
+			expect(projectVoiceCaptureLifecycle(actor.getSnapshot())).toEqual({
+				state: "listening",
+				attemptId: "voice:2",
+				sequence: 2,
+				fact: { type: "voice-listening" },
+			});
+			expect(projectVoiceCapturePortRequest(actor.getSnapshot())).toEqual({
+				type: "start",
+				attemptId: "voice:2",
+				sequence: previousPortSequence + 1,
+			});
+			actor.stop();
+		},
+	);
+
 	it("reports unsupported browsers as a capability fact", () => {
 		vi.stubGlobal("SpeechRecognition", undefined);
 		vi.stubGlobal("webkitSpeechRecognition", undefined);

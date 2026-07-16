@@ -100,6 +100,7 @@ const graphEventPolicy = {
 	VOICE_CAPTURE_START_REQUESTED: "excluded-context-cycle",
 	VOICE_CAPTURE_CANCEL_REQUESTED: "excluded-context-cycle",
 	VOICE_TRANSCRIPT_SUBMIT_REQUESTED: "excluded-context-cycle",
+	SPEECH_DELIVERY_REPLAY_REQUESTED: "excluded-context-cycle",
 	SUBMIT_PROMPT: "included-canonical-payload",
 	CREATE_ARTIFACT: "included-canonical-payload",
 	REVISE_ARTIFACT: "excluded-context-cycle",
@@ -115,7 +116,6 @@ const graphEventPolicy = {
 	ACKNOWLEDGE_SPEECH: "excluded-context-cycle",
 	PRESENTATION_UPDATED: "excluded-presentation-envelope",
 	DOCUMENT_COMMITTED: "excluded-private-event",
-	SPEECH_COMMITTED: "excluded-private-event",
 	VOICE_TRANSCRIPT_CONSUMED: "excluded-private-event",
 	CAPABILITY_OUTCOME_RECORDED: "excluded-private-event",
 	DOMAIN_POLICY_RECORDED: "excluded-private-event",
@@ -128,6 +128,28 @@ const graphEventPolicy = {
 	VoiceWorkbenchSessionEvent["type"],
 	GraphEventDisposition
 >;
+
+const expectedExcludedGraphEventPolicy = {
+	VOICE_CAPTURE_START_REQUESTED: "excluded-context-cycle",
+	VOICE_CAPTURE_CANCEL_REQUESTED: "excluded-context-cycle",
+	VOICE_TRANSCRIPT_SUBMIT_REQUESTED: "excluded-context-cycle",
+	SPEECH_DELIVERY_REPLAY_REQUESTED: "excluded-context-cycle",
+	REVISE_ARTIFACT: "excluded-context-cycle",
+	RESTORE_ARTIFACT_REVISION: "excluded-context-cycle",
+	SELECT_ARTIFACT: "excluded-context-cycle",
+	SET_CHECKLIST_ITEM: "excluded-context-cycle",
+	ACKNOWLEDGE_SPEECH: "excluded-context-cycle",
+	PRESENTATION_UPDATED: "excluded-presentation-envelope",
+	DOCUMENT_COMMITTED: "excluded-private-event",
+	VOICE_TRANSCRIPT_CONSUMED: "excluded-private-event",
+	CAPABILITY_OUTCOME_RECORDED: "excluded-private-event",
+	DOMAIN_POLICY_RECORDED: "excluded-private-event",
+	RUNTIME_MANIFEST_RECORDED: "excluded-private-event",
+	TURN_RECORDED: "excluded-private-event",
+	MODEL_TURN_LIFECYCLE_UPDATED: "excluded-private-event",
+	VOICE_CAPTURE_LIFECYCLE_UPDATED: "excluded-private-event",
+	SPEECH_DELIVERY_LIFECYCLE_UPDATED: "excluded-private-event",
+} as const satisfies Record<string, GraphEventDisposition>;
 
 const readRawStateValue = (
 	snapshot: VoiceWorkbenchSessionSnapshot,
@@ -337,10 +359,68 @@ describe("voice workbench XState graph characterization", () => {
 			graphEventCases.length,
 		);
 		expect(
-			Object.values(graphEventPolicy).filter((value) =>
-				value.startsWith("excluded-"),
+			Object.fromEntries(
+				Object.entries(graphEventPolicy).filter(([, disposition]) =>
+					disposition.startsWith("excluded-"),
+				),
 			),
-		).toHaveLength(19);
+		).toEqual(expectedExcludedGraphEventPolicy);
+	});
+
+	it("characterizes excluded voice and speech context cycles directly", () => {
+		const actor = createActor(voiceWorkbenchSessionMachine).start();
+		const send = (event: Record<string, unknown>) =>
+			(actor.send as (value: unknown) => void)(event);
+		actor.send(eventCases.modelAvailable);
+		expect(readRawStateValue(actor.getSnapshot())).toEqual({
+			available: "idle",
+		});
+
+		send({ type: "VOICE_CAPTURE_START_REQUESTED" });
+		send({ type: "VOICE_CAPTURE_CANCEL_REQUESTED" });
+		expect(readRawStateValue(actor.getSnapshot())).toEqual({
+			available: "idle",
+		});
+		expect(actor.getSnapshot().context).toMatchObject({
+			voiceCaptureControlSequence: 2,
+			voiceCaptureControlRequest: { action: "cancel", sequence: 2 },
+		});
+		send({ type: "SPEECH_DELIVERY_REPLAY_REQUESTED" });
+		expect(actor.getSnapshot().context).toMatchObject({
+			speechDeliveryControlSequence: 0,
+			speechDeliveryControlRequest: null,
+		});
+
+		actor.send(eventCases.submitPrompt);
+		send({
+			type: "COMPLETE_RESPONSE",
+			input: {
+				text: "Graph speech response.",
+				speech: "Graph speech response.",
+			},
+		});
+		actor.send(eventCases.turnCompleted);
+		expect(readRawStateValue(actor.getSnapshot())).toEqual({
+			available: "idle",
+		});
+		expect(actor.getSnapshot().context).toMatchObject({
+			speechDeliveryControlSequence: 1,
+			speechDeliveryControlRequest: { sequence: 1 },
+		});
+		send({ type: "SPEECH_DELIVERY_REPLAY_REQUESTED" });
+		expect(readRawStateValue(actor.getSnapshot())).toEqual({
+			available: "idle",
+		});
+		expect(actor.getSnapshot().context).toMatchObject({
+			speechDeliveryControlSequence: 2,
+			speechDeliveryControlRequest: { sequence: 2 },
+		});
+		expect(
+			voiceWorkbenchSessionInvariants.hasNoKnownForbiddenState(
+				actor.getSnapshot(),
+			),
+		).toBe(true);
+		actor.stop();
 	});
 
 	it("characterizes exactly four compound lifecycle values", () => {

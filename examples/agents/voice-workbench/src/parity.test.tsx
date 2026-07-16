@@ -124,8 +124,26 @@ describe("voice workbench production parity harness", () => {
 			presentation: {
 				documentCommit: { id: "parity-artifact", revision: "1" },
 				mobilePanel: "artifact",
+				speechDelivery: {
+					type: "speech-delivery-unavailable",
+				},
+				speechCommit: { status: "unavailable" },
 			},
 		});
+		expect(
+			source.getSnapshot().context.childLifecycles.speechDelivery,
+		).toMatchObject({
+			state: "unavailable",
+			requestSequence: expect.any(Number),
+			fact: { type: "speech-delivery-unavailable" },
+			terminal: { type: "speech-delivery-unavailable" },
+		});
+		expect(source.getSnapshot().context.presentation).not.toHaveProperty(
+			"speechDelivery",
+		);
+		expect(source.getSnapshot().context.presentation).not.toHaveProperty(
+			"speechCommit",
+		);
 
 		await seedParityState("permission");
 		expect(shell()?.getAttribute("data-voice-state")).toBe("permission");

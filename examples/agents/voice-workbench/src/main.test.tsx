@@ -116,12 +116,16 @@ describe("voice workbench browser entry", () => {
 		const speechModule = await import("./speech");
 		const createSpeechDeliveryActor = speechModule.createSpeechDeliveryActor;
 		const createdSpeechActors: object[] = [];
+		const createdSpeechInputs: Parameters<
+			typeof createSpeechDeliveryActor
+		>[0][] = [];
 		const stopSpeechActor = vi.fn();
 		vi.spyOn(speechModule, "createSpeechDeliveryActor").mockImplementation(
 			(input) => {
 				const actor = createSpeechDeliveryActor(input);
 				const stop = actor.stop.bind(actor);
 				createdSpeechActors.push(actor);
+				createdSpeechInputs.push(input);
 				vi.spyOn(actor, "stop").mockImplementation(() => {
 					stopSpeechActor(actor);
 					return stop();
@@ -354,6 +358,35 @@ describe("voice workbench browser entry", () => {
 			expect(createdSpeechActors.length).toBeGreaterThan(0);
 			expect(stopSpeechActor).toHaveBeenCalledTimes(createdSpeechActors.length);
 		});
+		const initialSpeech = component.getView().speech;
+		if (!initialSpeech)
+			throw new Error("initial speech request was not retained");
+		expect(createdSpeechInputs).toHaveLength(1);
+		expect(createdSpeechInputs[0]).toMatchObject({
+			id: initialSpeech.id,
+			text: initialSpeech.text,
+			attemptId: `${initialSpeech.id}:1`,
+			requestSequence: 1,
+		});
+		await component.execute({ command: "playSpeech" });
+		await vi.waitFor(() => expect(createdSpeechInputs).toHaveLength(2));
+		await component.execute({ command: "playSpeech" });
+		await vi.waitFor(() => expect(createdSpeechInputs).toHaveLength(3));
+		expect(
+			createdSpeechInputs.map(({ requestSequence }) => requestSequence),
+		).toEqual([1, 2, 3]);
+		expect(createdSpeechInputs.map(({ attemptId }) => attemptId)).toEqual([
+			`${initialSpeech.id}:1`,
+			`${initialSpeech.id}:2`,
+			`${initialSpeech.id}:3`,
+		]);
+		expect(
+			(
+				component.getSnapshot().context as unknown as {
+					speechDeliveryControlSequence: number;
+				}
+			).speechDeliveryControlSequence,
+		).toBe(3);
 		expect(component.getSnapshot().context.artifactRevisions).toMatchObject([
 			{ id: "release-plan", revision: "1", nodes: [{ kind: "text" }] },
 			{

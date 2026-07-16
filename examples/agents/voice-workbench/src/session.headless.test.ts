@@ -2307,6 +2307,23 @@ describe("voice workbench headless component", () => {
 			text: "Decision captured.",
 			status: "pending",
 		});
+		const speechSequenceBeforeReplay = speechControlContext(
+			component.getSnapshot(),
+		).speechDeliveryControlSequence;
+		const speechIntentSend = vi.spyOn(source, "send");
+		await component.execute({ command: "playSpeech" });
+		expect(speechIntentSend.mock.calls.at(-1)?.[0]).toEqual({
+			type: "SPEECH_DELIVERY_REPLAY_REQUESTED",
+		});
+		speechIntentSend.mockRestore();
+		expect(speechControlContext(component.getSnapshot())).toMatchObject({
+			speechDeliveryControlSequence: speechSequenceBeforeReplay + 1,
+			speechDeliveryControlRequest: {
+				id: component.getView().speech?.id,
+				text: "Decision captured.",
+				sequence: speechSequenceBeforeReplay + 1,
+			},
+		});
 		expect(component.getView().status).toBe("ready");
 		expect(component.canExecute("setChecklistItem")).toBe(true);
 		await component.execute({
