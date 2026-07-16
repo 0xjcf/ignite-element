@@ -202,6 +202,7 @@ const browserRequestSubscription = component.watchView((view, previous) => {
 			if (result.ok) {
 				recordVoiceTranscriptConsumed({
 					attemptId: result.attemptId,
+					requestSequence: voiceRequest.sequence,
 					text: result.prompt.text,
 				});
 			}
