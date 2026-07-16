@@ -95,6 +95,18 @@ type ProductRecord = {
 	currency: string | null;
 };
 
+type ProductRecordsFailure = {
+	reasonCode: Extract<
+		ProductPriceReasonCode,
+		"provider-response-invalid" | "provider-unavailable"
+	>;
+	reason: string;
+};
+
+type ProductRecordsResult =
+	| { ok: true; products: ReadonlyMap<string, ProductRecord> }
+	| ({ ok: false } & ProductRecordsFailure);
+
 type NativeDiscovery =
 	| {
 			kind: "candidates";
@@ -500,16 +512,40 @@ const fetchProductRecords = async (
 	asins: readonly string[],
 	store: WholeFoodsStorePolicy,
 	options: WholeFoodsProductPricingOptions,
-): Promise<ReadonlyMap<string, ProductRecord> | null> => {
-	if (asins.length === 0) return new Map();
-	if (asins.length > WHOLE_FOODS_MAX_OFFER_RECORDS) return null;
+): Promise<ProductRecordsResult> => {
+	if (asins.length === 0) return { ok: true, products: new Map() };
+	if (asins.length > WHOLE_FOODS_MAX_OFFER_RECORDS) {
+		return {
+			ok: false,
+			reasonCode: "provider-response-invalid",
+			reason: "Whole Foods offer details exceeded the accepted response scope.",
+		};
+	}
 	const response = await fetchBoundedJson(
 		productDetailsEndpoint(store, asins),
 		options,
 	);
-	return response.ok
-		? parseWholeFoodsProductOffers(response.value, new Set(asins))
-		: null;
+	if (!response.ok) {
+		return response.reason === "transport-error"
+			? {
+					ok: false,
+					reasonCode: "provider-unavailable",
+					reason: "Whole Foods offer details could not be reached.",
+				}
+			: {
+					ok: false,
+					reasonCode: "provider-response-invalid",
+					reason: "Whole Foods offer details could not be decoded.",
+				};
+	}
+	const products = parseWholeFoodsProductOffers(response.value, new Set(asins));
+	return products
+		? { ok: true, products }
+		: {
+				ok: false,
+				reasonCode: "provider-response-invalid",
+				reason: "Whole Foods offer details could not be decoded.",
+			};
 };
 
 const settleOwned = (
@@ -527,14 +563,19 @@ const settleOwned = (
 	}
 };
 
-const unresolvedOwnedOutcome = (plan: OwnedPlan): IdentityOutcome => {
+const unresolvedOwnedOutcome = (
+	plan: OwnedPlan,
+	productFailure: ProductRecordsFailure | null = null,
+): IdentityOutcome => {
 	const discovery = plan.discovery;
 	if (discovery?.kind === "unverified") return discovery;
 	if (discovery?.kind === "candidates") {
 		return {
 			kind: "unverified",
-			reasonCode: "provider-response-invalid",
-			reason: "Whole Foods offer details could not be decoded.",
+			reasonCode: productFailure?.reasonCode ?? "provider-response-invalid",
+			reason:
+				productFailure?.reason ??
+				"Whole Foods offer details could not be decoded.",
 			receipt: discovery.receipt,
 			queryCount: discovery.queryCount,
 		};
@@ -568,6 +609,7 @@ const resultForPlan = (
 	plan: PricingPlan,
 	products: ReadonlyMap<string, ProductRecord>,
 	store: WholeFoodsStorePolicy,
+	productFailure: ProductRecordsFailure | null,
 ) => {
 	const outcome = plan.outcome;
 	if (!outcome || outcome.kind === "unverified") {
@@ -600,6 +642,7 @@ const resultForPlan = (
 		store.storeId,
 	);
 	const sourced =
+		productFailure === null &&
 		product?.availability === "IN_STOCK" &&
 		product.currency === "USD" &&
 		product.price !== null &&
@@ -613,18 +656,24 @@ const resultForPlan = (
 			size: identity.size,
 			rankingPolicy: WHOLE_FOODS_CANDIDATE_POLICY_VERSION,
 		},
-		price: sourced
-			? {
-					status: "sourced" as const,
-					amount: product.price,
-					display: `$${product.price?.toFixed(2)}`,
+		price: productFailure
+			? unverifiedPrice(
+					productFailure.reasonCode,
+					productFailure.reason,
 					sourceUrl,
-				}
-			: unverifiedPrice(
-					"offer-unavailable",
-					"The selected product has no matching current in-stock USD offer.",
-					sourceUrl,
-				),
+				)
+			: sourced
+				? {
+						status: "sourced" as const,
+						amount: product.price,
+						display: `$${product.price?.toFixed(2)}`,
+						sourceUrl,
+					}
+				: unverifiedPrice(
+						"offer-unavailable",
+						"The selected product has no matching current in-stock USD offer.",
+						sourceUrl,
+					),
 		results: sourceUrl
 			? [
 					{
@@ -715,6 +764,7 @@ export async function runWholeFoodsProductPricing(
 		(plan): plan is OwnedPlan => plan.kind === "owned",
 	);
 	let products: ReadonlyMap<string, ProductRecord> | null = null;
+	let productFailure: ProductRecordsFailure | null = null;
 
 	try {
 		await Promise.all(
@@ -754,12 +804,18 @@ export async function runWholeFoodsProductPricing(
 					asins.add(candidate.asin);
 			}
 		}
-		products = await fetchProductRecords([...asins], store, options);
+		const productRecords = await fetchProductRecords(
+			[...asins],
+			store,
+			options,
+		);
+		if (productRecords.ok) products = productRecords.products;
+		else productFailure = productRecords;
 
 		for (const plan of owned) {
 			const discovery = plan.discovery;
 			if (!discovery || discovery.kind === "unverified" || !products) {
-				settleOwned(plan, unresolvedOwnedOutcome(plan), state);
+				settleOwned(plan, unresolvedOwnedOutcome(plan, productFailure), state);
 				continue;
 			}
 			const selection = rankWholeFoodsCandidates(
@@ -802,14 +858,22 @@ export async function runWholeFoodsProductPricing(
 		}
 	} catch {
 		products = null;
+		productFailure = {
+			reasonCode: "provider-unavailable",
+			reason: "Whole Foods product pricing did not complete.",
+		};
 	} finally {
 		for (const plan of owned) {
-			if (!plan.outcome) settleOwned(plan, unresolvedOwnedOutcome(plan), state);
+			if (!plan.outcome) {
+				settleOwned(plan, unresolvedOwnedOutcome(plan, productFailure), state);
+			}
 		}
 	}
 
 	const productMap = products ?? new Map<string, ProductRecord>();
-	const searches = plans.map((plan) => resultForPlan(plan, productMap, store));
+	const searches = plans.map((plan) =>
+		resultForPlan(plan, productMap, store, productFailure),
+	);
 	const cacheStatuses = searches.map((search) => search.receipt.cache);
 	const cacheStatus = cacheStatuses.includes("miss")
 		? "miss"

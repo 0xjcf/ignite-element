@@ -422,7 +422,8 @@ describe("Whole Foods server price adapter", () => {
 					{
 						price: {
 							status: "unverified",
-							reason: expect.stringContaining("could not be decoded"),
+							reasonCode: "provider-unavailable",
+							reason: expect.stringContaining("could not be reached"),
 						},
 					},
 				],
@@ -848,14 +849,18 @@ describe("Whole Foods server price adapter", () => {
 		{
 			name: "malformed",
 			offerResponse: () => new Response("{", { status: 200 }),
+			reasonCode: "provider-response-invalid",
+			reason: "could not be decoded",
 		},
 		{
 			name: "failed",
 			offerResponse: () => new Response("unavailable", { status: 503 }),
+			reasonCode: "provider-unavailable",
+			reason: "could not be reached",
 		},
 	])(
 		"returns unverified and does not cache after a $name offer response",
-		async ({ offerResponse }) => {
+		async ({ offerResponse, reasonCode, reason }) => {
 			const state = createWholeFoodsProductPricingState();
 			const fetchMock = vi.fn(async (request: RequestInfo | URL) => {
 				const url = nativeUrl(request);
@@ -881,8 +886,8 @@ describe("Whole Foods server price adapter", () => {
 							price: {
 								status: "unverified",
 								amount: null,
-								reasonCode: "provider-response-invalid",
-								reason: expect.stringContaining("could not be decoded"),
+								reasonCode,
+								reason: expect.stringContaining(reason),
 							},
 						},
 					],

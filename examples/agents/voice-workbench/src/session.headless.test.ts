@@ -800,6 +800,14 @@ describe("voice workbench headless component", () => {
 				text: "Create a Whole Foods Sarasota shopping list with prices.",
 			},
 		});
+		expect(component.getView()).toMatchObject({
+			presentation: {
+				capabilityOutcomes: [],
+				runtimeManifest: [],
+				turn: null,
+			},
+			resultQuality: null,
+		});
 		await component.execute({
 			command: "recordDomainPolicyDecision",
 			input: {
@@ -817,6 +825,7 @@ describe("voice workbench headless component", () => {
 				],
 			},
 		});
+		expect(component.getView().resultQuality).toBeNull();
 		await component.execute({
 			command: "recordCapabilityOutcome",
 			input: {

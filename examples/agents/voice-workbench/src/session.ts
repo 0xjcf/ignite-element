@@ -496,7 +496,13 @@ const machine = setup({
 					...result.session,
 					presentation:
 						event.type === "SUBMIT_PROMPT"
-							? { ...context.presentation, domainPolicy: null }
+							? {
+									...context.presentation,
+									capabilityOutcomes: [],
+									domainPolicy: null,
+									runtimeManifest: [],
+									turn: null,
+								}
 							: context.presentation,
 				};
 			}
@@ -819,10 +825,10 @@ const productPricingResultQuality = (
 		.find(
 			(candidate) =>
 				candidate.ownerId === "product-pricing-price" &&
-				candidate.toolName === "priceProducts" &&
-				candidate.pricingRows !== undefined,
+				candidate.toolName === "priceProducts",
 		);
-	const rows = outcome?.pricingRows ?? [];
+	if (!outcome) return null;
+	const rows = outcome.pricingRows ?? [];
 	if (rows.length === 0) {
 		return {
 			tone: "warning",
