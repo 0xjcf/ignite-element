@@ -136,9 +136,11 @@ singleton.
 The executable session is a compound statechart: provider readiness owns the
 outer lifecycle, and turn activity exists only inside `available`. Executable
 model-turn, voice-capture, and speech-delivery machines own their respective
-lifecycles. Browser/model drivers subscribe only to their pure port-request,
-fact, terminal, and lifecycle projectors; actors and browser objects never
-enter serializable machine context.
+lifecycles. Browser/model drivers receive port requests, facts, terminals, and
+lifecycle state through pure projectors and do not branch on raw workflow state
+values. The model driver also reads the authoritative parent/child turn and
+attempt identities solely to fence stale asynchronous results. Actors and
+browser objects never enter serializable machine context.
 
 ### One owner per lifecycle or fact
 
@@ -400,10 +402,11 @@ The pure one-round model protocol remains policy. The child actor owns request
 invocation, authorization, capability execution, bounded history, the six-round
 limit, cancellation, timeout, stale-result rejection, and exactly one terminal
 outcome. `projectModelTurnPortRequest`, `projectModelTurnLifecycle`, and
-`projectModelTurnTerminalFact` are the shell boundary. Each asynchronous
-runtime-manifest, domain-policy, capability-outcome, and turn envelope carries
-the originating `turnId` and `attemptId`. The parent accepts it only while that
-same child attempt is current. The driver repeats the same liveness check after
+`projectModelTurnTerminalFact` carry lifecycle state, port requests, and
+terminal facts across the shell boundary. Each asynchronous runtime-manifest,
+domain-policy, capability-outcome, and turn envelope carries the originating
+`turnId` and `attemptId`. The parent accepts it only while that same child
+attempt is current. The driver compares those authoritative identities after
 every `await` and immediately before component commands or read-model writes,
 so a provider that ignores abort can settle its own promise but cannot execute
 a late command, append a receipt, schedule another model request, or report a
