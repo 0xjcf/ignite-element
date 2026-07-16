@@ -348,31 +348,6 @@
       "updatedAt": "2026-07-16T03:11:42.136Z"
     },
     {
-      "id": "task-1784171355639",
-      "task": "Add XState graph characterization and invariant tests for voice-workbench",
-      "priority": "high",
-      "source": "fas-project-audit",
-      "details": "Use the canonical contracts and fresh actor factory from task-1784171303126. Add direct tests with the XState 5 xstate/graph entrypoint before production restructuring. Characterize the current six reachable provider/turn values and the two known forbidden responding combinations, encode reusable invariant predicates and named event paths, and keep the task green with an explicit reviewed known-violation baseline that the next structural task must reduce to zero. Bound traversal so growing context cannot create an unbounded graph.\nSee .fas/tasks/add-xstate-graph-characterization-and-invariant-tests-for-vo.md",
-      "taskClassification": "standard",
-      "selfImprovementCategory": null,
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "4-agent",
-      "dependsOn": [
-        "task-1784171303126"
-      ],
-      "blocks": [
-        "task-1784171435029"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-16T03:09:15.639Z",
-      "updatedAt": "2026-07-16T16:26:48.211Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
       "id": "task-1784171435029",
       "task": "Restructure voice-workbench lifecycle ownership and separate presentation state",
       "priority": "high",
@@ -381,7 +356,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "policy-surfacing",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -394,7 +369,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-16T03:10:35.029Z",
       "updatedAt": "2026-07-16T03:11:07.799Z",
-      "deferredReason": "dependency_reopened: task-1784171355639",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -3551,6 +3526,29 @@
       "completedAt": "2026-07-16T16:26:18.060Z",
       "terminalOutcome": null,
       "workflowId": "direct-1784215143713",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784171355639",
+      "task": "Add XState graph characterization and invariant tests for voice-workbench",
+      "priority": "high",
+      "source": "fas-project-audit",
+      "taskClassification": "standard",
+      "selfImprovementCategory": null,
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1784171303126"
+      ],
+      "blocks": [
+        "task-1784171435029"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-16T17:00:49.202Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784219208207",
       "branchName": "fas/voice-text-workbench",
       "prStatus": "draft-only"
     }
