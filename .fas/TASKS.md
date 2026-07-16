@@ -2440,9 +2440,12 @@ No active tasks.
 
 - Title: Add XState graph characterization and invariant tests for voice-workbench
 - Mode: 4-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/add-xstate-graph-characterization-and-invariant-tests-for-vo.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Restructure voice-workbench lifecycle ownership and separate presentation state
 

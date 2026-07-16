@@ -33,7 +33,14 @@ Use the canonical contracts and fresh actor factory from task-1784171303126. Add
 - examples/agents/voice-workbench/src/session.ts
 
 ## Scope Amendments
-- None.
+- Type: reference-only
+- Added at: 2026-07-16
+- Trigger: Implementation evidence
+- Reason: The canonical session machine, raw snapshot types, known forbidden values, and invariant predicates were already exported by task-1784171303126, so graph characterization required no production edit.
+- Evidence source: commit 99713998 and focused graph verification
+- Evidence: commit 99713998 and focused graph verification | examples/agents/voice-workbench/src/session.ts | Keep session.ts as reviewed reference input; implementation is the single planned session.graph.test.ts file.
+- Accuracy signal: existing exported contracts sufficient
+- Follow-up needed: No follow-up; task-1784171435029 owns the topology change.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
