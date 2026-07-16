@@ -134,11 +134,11 @@ browser, terminal, and compatibility tests that intentionally use the example
 singleton.
 
 The executable session is a compound statechart: provider readiness owns the
-outer lifecycle, and turn activity exists only inside `available`. The
-model-turn, voice-capture, and speech-delivery child machines below remain
-**planned** follow-up work. Those child protocols add explicit terminal,
-cancellation, and timeout behavior without weakening the compound ownership
-already enforced by the session machine.
+outer lifecycle, and turn activity exists only inside `available`. Executable
+model-turn, voice-capture, and speech-delivery machines own their respective
+lifecycles. Browser/model drivers subscribe only to their pure port-request,
+fact, terminal, and lifecycle projectors; actors and browser objects never
+enter serializable machine context.
 
 ### One owner per lifecycle or fact
 
@@ -148,9 +148,9 @@ tests and later graph tooling can detect contract drift:
 | Surface | Single owner | Disposition | Implementation | Maturity |
 | --- | --- | --- | --- | --- |
 | Session/provider/turn | `voiceWorkbenchSessionMachine` | Statechart | Executable | Target compound topology |
-| Model-turn orchestration | Model-turn child actor | Statechart | Planned | Target |
-| Voice capture | Voice-capture child actor | Statechart | Planned | Target |
-| Speech delivery | Speech-delivery child actor | Statechart | Planned | Target |
+| Model-turn orchestration | Model-turn child actor | Statechart | Executable | Target |
+| Voice capture | Voice-capture child actor | Statechart | Executable | Target |
+| Speech delivery | Speech-delivery child actor | Statechart | Executable | Target |
 | Conversation and artifact aggregate | `reduceConversationSession` | Pure reducer | Executable | Target |
 | Domain admission and authorization | Domain-pack policies | Typed facts | Executable | Target |
 | Capability execution | Capability ports | Typed facts | Executable | Target |
@@ -174,9 +174,13 @@ The initial value is `"preparing"`. `MODEL_AVAILABLE` enters
 `available.idle`, while `MODEL_FAILED` enters `unavailable`.
 `MODEL_PREPARATION_STARTED` retries from `unavailable` or leaves either
 available child for `preparing`. An accepted `SUBMIT_PROMPT` moves only
-`available.idle` to `available.responding`; an accepted `COMPLETE_RESPONSE`
-moves it back to idle. Artifact creation, revision, and response completion are
-structurally admitted only while responding. `SET_CHECKLIST_ITEM` is accepted
+`available.idle` to `available.responding`. `COMPLETE_RESPONSE` mutates the
+conversation aggregate but deliberately remains responding; only a matching
+`TURN_COMPLETED` with an accepted aggregate response returns to idle. Matching
+`TURN_FAILED`, `CANCELLED`, `TIMEOUT`, and `ROUND_LIMIT_REACHED` outcomes also
+return to idle without fabricating `response-completed`. Artifact creation,
+revision, and response completion are structurally admitted only while
+responding. `SET_CHECKLIST_ITEM` is accepted
 in both available children: model orchestration can invoke it while responding,
 while the projected checkbox invokes the same revision-guarded command only
 when exposed during idle. Restore and selection commands remain idle-only.
@@ -192,14 +196,14 @@ The command and event vocabulary is intentionally classified by authority:
 | --- | --- | --- |
 | `user-intent` | `submitPrompt`, `beginModelPreparation`, `restoreArtifactRevision`, `selectArtifact`, `acknowledgeSpeech`, voice start/cancel/transcript, presentation choices, replay, and play-speech intent | Schema-admitted only where a user or consumer can intentionally request behavior |
 | `model-intent` | `createArtifact`, `reviseArtifact`, `setChecklistItem`, `completeResponse` | Continue through statechart guards and reducer validation; the model never writes context directly |
-| `private-adapter` | `reportModelAvailable`, `reportModelFailure`, `presentVoice`, `commitDocument`, `commitSpeech` | Translate bounded adapter outcomes into private lifecycle or presentation facts |
-| `read-model` | `recordTurn`, `recordRuntimeManifest`, `recordCapabilityOutcome`, `recordDomainPolicyDecision` | Project bounded orchestration facts without becoming lifecycle authorities |
+| Example-private adapter ports | `reportModelAvailable`, `reportModelFailure`, `presentVoice`, `commitDocument`, `commitSpeech` and child lifecycle recorders | Translate bounded adapter outcomes into typed actor events; absent from `getSchema()` |
+| Example-private read-model ports | `recordTurn`, `recordRuntimeManifest`, `recordCapabilityOutcome`, `recordDomainPolicyDecision` | Project bounded orchestration facts without becoming lifecycle authorities; absent from `getSchema()` |
 
-Every one of the 28 commands carries one of these serializable channel labels
-in `getSchema()`. The channel declares the primary orchestration authority for
-the command, not an exclusive set of physical callers. Statechart admission,
-reducer validation, and the narrower per-round model allowlist still decide
-whether a particular invocation is accepted.
+Exactly 19 public commands carry a serializable `user-intent` or `model-intent`
+channel in `getSchema()`. Adapter completions and read-model receipts use typed
+private actor ports instead. Statechart admission, reducer validation, and the
+narrower per-round model allowlist still decide whether a public invocation is
+accepted.
 
 The exact current `getSchema()` command inventory assigns every name to one
 category:
@@ -214,14 +218,6 @@ user-intent:
 
 model-intent:
   createArtifact, reviseArtifact, setChecklistItem, completeResponse
-
-private-adapter:
-  reportModelAvailable, reportModelFailure, presentVoice,
-  commitDocument, commitSpeech
-
-read-model:
-  recordTurn, recordRuntimeManifest, recordCapabilityOutcome,
-  recordDomainPolicyDecision
 ```
 
 The exact underlying machine event inventory is:
@@ -235,17 +231,27 @@ Conversation intent and domain actions:
 Provider lifecycle intent/results:
   MODEL_PREPARATION_STARTED, MODEL_AVAILABLE, MODEL_FAILED
 
-Private presentation envelope:
+Correlated turn terminal outcomes:
+  TURN_COMPLETED, TURN_FAILED, CANCELLED, TIMEOUT, ROUND_LIMIT_REACHED
+
+Presentation intent envelope:
   PRESENTATION_UPDATED
+
+Example-private adapter/read-model events:
+  DOCUMENT_COMMITTED, SPEECH_COMMITTED, VOICE_RECORDED,
+  CAPABILITY_OUTCOME_RECORDED, DOMAIN_POLICY_RECORDED,
+  RUNTIME_MANIFEST_RECORDED, TURN_RECORDED,
+  MODEL_TURN_LIFECYCLE_UPDATED, VOICE_CAPTURE_LIFECYCLE_UPDATED,
+  SPEECH_DELIVERY_LIFECYCLE_UPDATED
 ```
 
-`PRESENTATION_UPDATED` carries a typed `user-intent`, `private-adapter`, or
-`read-model` envelope. The pure `reduceWorkbenchPresentation` reducer is its
-single writer and returns fresh presentation state. The state hierarchy itself
-gates lifecycle-sensitive events, and the pure `transitionAccepted` guard adds
-domain admission. The session machine invokes no async model, voice, or speech
-effects yet; those effects still live in the imperative shell and are the
-reason the three child lifecycles remain planned. Conversation facts such as
+The pure `reduceWorkbenchPresentation` reducer is the single presentation
+writer and returns fresh state for public presentation intent and typed private
+facts. The state hierarchy gates lifecycle-sensitive events, and the pure
+`transitionAccepted` guard adds domain admission. Async model, voice, and
+speech effects stay in the imperative shell, which consumes projected port
+requests and returns attempt-correlated facts to the executable child machines.
+Conversation facts such as
 `prompt-submitted`, artifact changes, `response-completed`, and the
 transport-neutral `speech-acknowledged` fact come from the conversation
 reducer.
@@ -264,16 +270,18 @@ consumers should treat these fields separately:
   value and context.
 
 Current serializable context owns the conversation messages, documents,
-artifact history, response, speech request, model failure, and the private
-reducer-owned presentation slice. Command availability must come from the same
-machine guard and reducer admission used by `canExecute()`; any `can*` view
-field is only a projection of that rule.
+artifact history, response, speech request, model failure, active turn
+identity, last terminal outcome, projected child lifecycle detail, and the
+private reducer-owned presentation slice. Command availability must come from
+the same machine guard and reducer admission used by `canExecute()`; any `can*`
+view field is only a projection of that rule.
 
 The raw serializable context keys are:
 
 ```text
-activeArtifactId, artifactRevisions, documents, factSequence, lastFact,
-messages, modelFailure, presentation, response, revision, sessionId, speech
+activeArtifactId, activeTurnId, artifactRevisions, childLifecycles, documents,
+factSequence, lastFact, lastTurnTerminal, messages, modelFailure, presentation,
+response, revision, sessionId, speech
 ```
 
 The derived view currently exposes these prepared top-level keys:
@@ -284,8 +292,9 @@ artifacts, canRestoreArtifactRevision, canRetryModel, canRevise,
 canSetChecklistItem, canSubmitPrompt, documentSchema, lastFact, lastFactLabel,
 messageCount, messages, microphoneUnavailable, model, modelContext,
 modelFailed, modelPreparing, presentation, promptPlaceholder,
-respondingProgress, response, resultQuality, revision, runtimeInspector,
-sessionId, speech, speechStatus, status, statusLabel, transcript,
+portRequests, respondingProgress, response, resultQuality, revision,
+runtimeInspector, lifecycle, sessionId, speech, speechStatus, status,
+statusLabel, transcript,
 transcriptReady, turnCount, turnLabel, turnMessage, turnState, voiceFailure,
 voiceState
 ```
@@ -293,12 +302,14 @@ voiceState
 ### Executable graph invariant
 
 Direct `xstate/graph` characterization proves the four exact raw vertices and
-their event-labelled adjacency. The suite includes all 24 combinations of the
-four vertices and six lifecycle/domain events, including unchanged snapshots
-for rejected events. `voiceWorkbenchKnownForbiddenStateValues` is intentionally
-empty, and `voiceWorkbenchSessionInvariants` requires responding to be nested
-inside available. Tests inspect the authoritative raw snapshot independently
-from the derived view.
+their event-labelled adjacency. The suite locks all 44 combinations of the four
+vertices and 11 included lifecycle/canonical-payload events, including unchanged
+snapshots for rejected events. Sixteen context-cycle, presentation-envelope,
+and private-event cases are explicitly excluded from exhaustive enumeration.
+`voiceWorkbenchKnownForbiddenStateValues` is intentionally empty, and
+`voiceWorkbenchSessionInvariants` requires responding to be nested inside
+available. Named traces cover each correlated terminal, while projector tests
+compare the authoritative raw snapshot with the derived view.
 
 ### Executable session, provider, and turn shape
 
@@ -313,7 +324,9 @@ stateDiagram-v2
     state Available {
         [*] --> Idle
         Idle --> Responding: SUBMIT_PROMPT [accepted]
-        Responding --> Idle: COMPLETE_RESPONSE [accepted]
+        Responding --> Responding: COMPLETE_RESPONSE [accepted]
+        Responding --> Idle: TURN_COMPLETED [matching + response accepted]
+        Responding --> Idle: TURN_FAILED / CANCELLED / TIMEOUT / ROUND_LIMIT_REACHED [matching]
     }
 
     Available --> Preparing: MODEL_PREPARATION_STARTED
@@ -321,32 +334,36 @@ stateDiagram-v2
 ```
 
 This compound shape makes `Responding` impossible outside `Available`. A direct
-model failure while responding records a non-success receipt and leaves no
-fabricated response completion. The planned model-turn child protocol owns the
-later addition of explicit failure, cancellation, and timeout terminal events.
+provider-health `MODEL_FAILED` while responding enters `Unavailable`; a
+per-turn terminal failure returns to `Available.Idle`. Neither path fabricates
+response completion.
 
-### Planned target: model-turn orchestration
+### Executable model-turn orchestration
 
 ```mermaid
 stateDiagram-v2
-    [*] --> RequestingModel
-    RequestingModel --> Evaluating: MODEL_RESULT
-    RequestingModel --> Failed: MODEL_FAILED
-    RequestingModel --> TimedOut: TIMEOUT
+    [*] --> Requesting
+    Requesting --> Authorizing: MODEL_RESOLVED [call]
+    Requesting --> Requesting: MODEL_RESOLVED [no call + rounds remain]
+    Requesting --> Failed: MODEL_RESOLVED / PORT_FAILED
+    Requesting --> TimedOut: MODEL_RESOLVED [timeout]
+    Requesting --> Exhausted: MODEL_RESOLVED [round 6]
 
-    Evaluating --> ExecutingCapability: COMMAND_AUTHORIZED
-    Evaluating --> Completed: RESPONSE_ACCEPTED
-    Evaluating --> Failed: COMMAND_REJECTED
-    Evaluating --> Exhausted: ROUND_LIMIT_REACHED
+    Authorizing --> Executing: AUTHORIZATION_RESOLVED [allowed]
+    Authorizing --> Completed: AUTHORIZATION_RESOLVED [accepted]
+    Authorizing --> Requesting: AUTHORIZATION_RESOLVED [feedback + rounds remain]
+    Authorizing --> Exhausted: AUTHORIZATION_RESOLVED [round 6]
 
-    ExecutingCapability --> RequestingModel: CAPABILITY_RECORDED [incomplete and rounds remain]
-    ExecutingCapability --> Completed: RESPONSE_ACCEPTED
-    ExecutingCapability --> Failed: TURN_FAILED
-    ExecutingCapability --> TimedOut: TIMEOUT
+    Executing --> Completed: CAPABILITY_RESOLVED [accepted]
+    Executing --> Requesting: CAPABILITY_RESOLVED [feedback + rounds remain]
+    Executing --> Exhausted: CAPABILITY_RESOLVED [round 6]
 
-    RequestingModel --> Cancelled: CANCEL
-    Evaluating --> Cancelled: CANCEL
-    ExecutingCapability --> Cancelled: CANCEL
+    Requesting --> Cancelled: CANCEL
+    Authorizing --> Cancelled: CANCEL
+    Executing --> Cancelled: CANCEL
+    Requesting --> TimedOut: TIMEOUT
+    Authorizing --> TimedOut: TIMEOUT
+    Executing --> TimedOut: TIMEOUT
 
     Completed --> [*]
     Failed --> [*]
@@ -355,54 +372,63 @@ stateDiagram-v2
     Exhausted --> [*]
 ```
 
-The pure one-round model protocol remains policy. This planned child actor owns
-request invocation, round count, cancellation, timeout, and exactly one
-terminal outcome.
+The pure one-round model protocol remains policy. The child actor owns request
+invocation, authorization, capability execution, bounded history, the six-round
+limit, cancellation, timeout, stale-result rejection, and exactly one terminal
+outcome. `projectModelTurnPortRequest`, `projectModelTurnLifecycle`, and
+`projectModelTurnTerminalFact` are the shell boundary.
 
-### Planned target: voice capture
+### Executable voice capture
 
 ```mermaid
 stateDiagram-v2
     [*] --> CheckingSupport
-    CheckingSupport --> Unsupported: UNSUPPORTED
-    CheckingSupport --> Idle: SUPPORTED
+    CheckingSupport --> Unsupported: [unsupported]
+    CheckingSupport --> Idle: [supported]
+    CheckingSupport --> Failed: [initialization error]
 
     Idle --> Listening: START
-    Listening --> Listening: INTERIM_TRANSCRIPT
-    Listening --> TranscriptReady: FINAL_TRANSCRIPT
-    Listening --> Idle: ENDED [no final transcript]
+    Listening --> Transcript: RESULT [matching attempt]
+    Listening --> Idle: END [matching attempt]
     Listening --> Cancelled: CANCEL
     Listening --> PermissionDenied: PERMISSION_DENIED
-    Listening --> Failed: CAPTURE_FAILED
+    Listening --> Failed: FAIL
 
-    TranscriptReady --> Idle: CONSUME
-    TranscriptReady --> Listening: START
+    Transcript --> Transcript: RESULT [matching attempt]
+    Transcript --> Idle: END [not final]
+    Transcript --> Consumed: CONSUME [final + non-empty]
+    Transcript --> Cancelled: CANCEL
+    Consumed --> Idle: RESET
+    Consumed --> Listening: START
     Cancelled --> Idle: RESET
-    PermissionDenied --> Idle: RETRY
-    Failed --> Idle: RETRY
+    Cancelled --> Listening: RETRY
+    PermissionDenied --> Listening: RETRY
+    Failed --> Listening: RETRY
+    Idle --> Disposed: DISPOSE
+    Listening --> Disposed: DISPOSE
+    Transcript --> Disposed: DISPOSE
 ```
 
-The browser recognition object remains an imperative port. The planned child
-actor owns the serializable lifecycle and emits voice facts.
+The browser recognition object remains an imperative port. The child actor owns
+the serializable lifecycle, attempt identity, transcript consume rule, retry,
+cancellation, and idempotent disposal. The browser driver consumes only the
+voice port-request projector and returns correlated facts.
 
-### Planned target: speech delivery
+### Executable speech delivery
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Idle
-    Idle --> Pending: SPEECH_REQUESTED
-    Pending --> Muted: DELIVERY_SKIPPED
-    Pending --> Queued: DELIVERY_ACCEPTED
-    Pending --> Unavailable: DELIVERY_UNAVAILABLE
-    Pending --> Failed: DELIVERY_FAILED
-    Queued --> Delivered: PLAYBACK_ENDED
-    Queued --> Failed: PLAYBACK_FAILED
+    [*] --> Pending
+    Pending --> Muted: MUTED
+    Pending --> Queued: QUEUED
+    Pending --> Unavailable: UNAVAILABLE
+    Pending --> Failed: FAIL
+    Pending --> Cancelled: CANCEL
+    Queued --> Delivered: DELIVERED
+    Queued --> Failed: FAIL
     Queued --> Cancelled: CANCEL
-    Delivered --> Idle: CLEAR
-    Muted --> Idle: CLEAR
-    Unavailable --> Idle: CLEAR
-    Failed --> Idle: CLEAR
-    Cancelled --> Idle: CLEAR
+    Pending --> Disposed: DISPOSE
+    Queued --> Disposed: DISPOSE
 ```
 
 Projection acknowledgement is transport-neutral and is not a delivery fact.
@@ -413,7 +439,9 @@ unavailable, failed, and cancelled adapter outcomes; the broader
 `speechSynthesis.speak()` may produce `queued`, never `completed`; playback
 callbacks must produce the terminal delivery fact. `ACKNOWLEDGE_SPEECH` remains
 a separate aggregate/projection-consumption fact and never transitions the
-speech-delivery machine.
+speech-delivery machine. `projectSpeechDeliveryPortRequest`,
+`projectSpeechDeliveryLifecycle`, and `projectSpeechDeliveryTerminalFact`
+separate shell effects from statechart truth.
 
 ## Domain packs and policy ownership
 
