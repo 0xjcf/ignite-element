@@ -2425,6 +2425,46 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: Define canonical voice-workbench machine contracts and a fresh actor factory
+
+- Title: Define canonical voice-workbench machine contracts and a fresh actor factory
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/define-canonical-voice-workbench-machine-contracts-and-a-fre.md
+
+### Task: Add XState graph characterization and invariant tests for voice-workbench
+
+- Title: Add XState graph characterization and invariant tests for voice-workbench
+- Mode: 4-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/add-xstate-graph-characterization-and-invariant-tests-for-vo.md
+
+### Task: Restructure voice-workbench lifecycle ownership and separate presentation state
+
+- Title: Restructure voice-workbench lifecycle ownership and separate presentation state
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/restructure-voice-workbench-lifecycle-ownership-and-separate.md
+
+### Task: Add explicit turn, voice-capture, and speech-delivery terminal lifecycles
+
+- Title: Add explicit turn, voice-capture, and speech-delivery terminal lifecycles
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/add-explicit-turn-voice-capture-and-speech-delivery-terminal.md
+
+### Task: Evaluate an optional Ignite XState graph-testing bridge from dogfood
+
+- Title: Evaluate an optional Ignite XState graph-testing bridge from dogfood
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/evaluate-an-optional-ignite-xstate-graph-testing-bridge-from.md
+
 ## Template
 
 ### Task: <short task title>

@@ -95,11 +95,13 @@
       "dependsOn": [
         "task-1783613728381"
       ],
-      "blocks": [],
+      "blocks": [
+        "task-1784171502136"
+      ],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-09T15:28:53.373Z",
-      "updatedAt": "2026-07-11T01:56:45.336Z",
+      "updatedAt": "2026-07-16T03:11:42.136Z",
       "deferredReason": null,
       "invalidationReason": null
     },
@@ -337,11 +339,134 @@
       "owner": "runtime",
       "mode": "4-agent",
       "dependsOn": [],
-      "blocks": [],
+      "blocks": [
+        "task-1784171502136"
+      ],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-11T22:47:45.213Z",
-      "updatedAt": "2026-07-11T22:47:45.213Z"
+      "updatedAt": "2026-07-16T03:11:42.136Z"
+    },
+    {
+      "id": "task-1784171303126",
+      "task": "Define canonical voice-workbench machine contracts and a fresh actor factory",
+      "priority": "high",
+      "source": "fas-project-audit",
+      "details": "Start from .fas/artifacts/audits/voice-workbench-state-machine-audit.md. Make machine shapes the reviewed design input, then make executable XState logic the only runtime lifecycle authority. Inventory every provider, turn, voice-capture, speech-delivery, aggregate, policy/fact, and presentation surface; resolve the speech receipt-versus-delivery ambiguity; classify all commands/events as public intent, model-authorized domain command, private adapter result, or internal read-model fact. Export reusable unstarted machine logic and/or a createVoiceWorkbenchSessionActor factory that creates fresh context per runtime/test while preserving getSchema() as the only public Ignite blueprint.\nSee .fas/tasks/define-canonical-voice-workbench-machine-contracts-and-a-fre.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "queued",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [],
+      "blocks": [
+        "task-1784171355639"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-16T03:08:23.126Z",
+      "updatedAt": "2026-07-16T03:09:15.639Z"
+    },
+    {
+      "id": "task-1784171355639",
+      "task": "Add XState graph characterization and invariant tests for voice-workbench",
+      "priority": "high",
+      "source": "fas-project-audit",
+      "details": "Use the canonical contracts and fresh actor factory from task-1784171303126. Add direct tests with the XState 5 xstate/graph entrypoint before production restructuring. Characterize the current six reachable provider/turn values and the two known forbidden responding combinations, encode reusable invariant predicates and named event paths, and keep the task green with an explicit reviewed known-violation baseline that the next structural task must reduce to zero. Bound traversal so growing context cannot create an unbounded graph.\nSee .fas/tasks/add-xstate-graph-characterization-and-invariant-tests-for-vo.md",
+      "taskClassification": "standard",
+      "selfImprovementCategory": null,
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "4-agent",
+      "dependsOn": [
+        "task-1784171303126"
+      ],
+      "blocks": [
+        "task-1784171435029"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-16T03:09:15.639Z",
+      "updatedAt": "2026-07-16T03:10:35.029Z",
+      "deferredReason": "dependency_reopened: task-1784171303126",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784171435029",
+      "task": "Restructure voice-workbench lifecycle ownership and separate presentation state",
+      "priority": "high",
+      "source": "fas-project-audit",
+      "details": "Replace the provider/turn parallel cross-product with the approved compound machine: Preparing and Unavailable are top-level lifecycle states, while Idle and Responding exist only inside Available. Preserve the pure conversation reducer as aggregate authority. Move draft, mobile-panel, artifact-view, runtime-preview, speech-preference and read-model receipt recording out of the authoritative session lifecycle graph through the smallest compatible presentation boundary. Keep this slice behavior-compatible apart from eliminating forbidden raw snapshots; the next task owns full async terminal/cancellation/timeout protocols.\nSee .fas/tasks/restructure-voice-workbench-lifecycle-ownership-and-separate.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784171355639"
+      ],
+      "blocks": [
+        "task-1784171467799"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-16T03:10:35.029Z",
+      "updatedAt": "2026-07-16T03:11:07.799Z",
+      "deferredReason": "dependency_reopened: task-1784171355639",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784171467799",
+      "task": "Add explicit turn, voice-capture, and speech-delivery terminal lifecycles",
+      "priority": "high",
+      "source": "fas-project-audit",
+      "details": "Complete the lifecycle architecture after provider/turn restructuring. Make the outer model/capability round loop an invoked child actor or machine that owns request, evaluation, authorization, capability execution, round count, cancellation, timeout, exhaustion, and exactly one terminal result while retaining modelTurn() as pure one-round policy. Formalize browser voice capture and speech delivery as child lifecycles with imperative ports and serializable facts. Replace shell-owned watcher orchestration and synthetic COMPLETE_RESPONSE failure recovery with explicit typed events.\nSee .fas/tasks/add-explicit-turn-voice-capture-and-speech-delivery-terminal.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784171435029"
+      ],
+      "blocks": [
+        "task-1784171502136"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-16T03:11:07.799Z",
+      "updatedAt": "2026-07-16T03:11:42.136Z",
+      "deferredReason": "dependency_reopened: task-1784171435029",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784171502136",
+      "task": "Evaluate an optional Ignite XState graph-testing bridge from dogfood",
+      "priority": "high",
+      "source": "fas-project-audit",
+      "details": "After the statechart epic's example work, the existing headless-ergonomics audit, and named igniteTest rehearsals complete, evaluate whether repeated consumer friction remains when using XState 5 graph utilities directly from xstate/graph. Prefer documented composition and example-local helpers. A no-change verdict is successful. Only if concrete repeated friction remains, add the smallest XState-specific optional bridge that feeds generated paths into the existing igniteTest/story/rehearsal machinery without owning graph traversal or runtime state.\nSee .fas/tasks/evaluate-an-optional-ignite-xstate-graph-testing-bridge-from.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784171467799",
+        "task-1783610933373",
+        "task-1783810065213"
+      ],
+      "blocks": [],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-16T03:11:42.136Z",
+      "updatedAt": "2026-07-16T03:11:42.136Z",
+      "deferredReason": "dependency_reopened: task-1784171467799, task-1783610933373, task-1783810065213",
+      "invalidationReason": null
     }
   ],
   "completedTasks": [
@@ -3697,6 +3822,42 @@
         "igniteCore gains no commitScheduling surface; retained resources own requestAnimationFrame or microtask cadence until post-dogfood evidence demonstrates a need at the component registration boundary.",
         "A deterministic real-time canvas stress example proves device-pixel-ratio sizing, ResizeObserver handling, consumer-owned requestAnimationFrame interpolation, scoped input, telemetry, and accessible DOM companions.",
         "Downstream validation documents the Actor-Web Mesh Pong adoption contract without moving Actor-Web lifecycle, simulation, transport, or advisory authority into Ignite, and a later evidence task records the no-API verdict or creates a separate scheduler implementation brief."
+      ]
+    },
+    {
+      "members": [
+        {
+          "taskId": "task-1784171303126",
+          "epicRole": "machine-contracts"
+        },
+        {
+          "taskId": "task-1784171355639",
+          "epicRole": "graph-characterization"
+        },
+        {
+          "taskId": "task-1784171435029",
+          "epicRole": "lifecycle-ownership"
+        },
+        {
+          "taskId": "task-1784171467799",
+          "epicRole": "terminal-lifecycles"
+        },
+        {
+          "taskId": "task-1784171502136",
+          "epicRole": "optional-ignite-bridge"
+        }
+      ],
+      "id": "epic-voice-workbench-statechart-conformance",
+      "title": "Voice Workbench Statechart Conformance",
+      "priority": "high",
+      "consumer": "ignite-element/examples/agents/voice-workbench",
+      "goal": "Make executable statecharts the single lifecycle authority for voice-workbench provider, turn, voice-capture, and speech-delivery workflows while keeping reducers, policies, adapter facts, and Ignite projections in their proper roles.",
+      "acceptance": [
+        "Every lifecycle has an approved machine shape or an explicit reducer, policy/fact, or presentation-only disposition.",
+        "The executable session logic prevents responding while the model is preparing or unavailable and exposes fresh isolated actor construction.",
+        "Direct xstate/graph tests prove reachability, forbidden combinations, terminal outcomes, recovery, cancellation, timeout, and path coverage.",
+        "The model-turn, voice-capture, and speech-delivery workflows have one authoritative owner with typed events, effects, facts, raw snapshots, and derived views.",
+        "Any Ignite graph-testing bridge is optional, XState-specific, dogfood-justified, additive to igniteTest, and does not create a second graph engine, recorder, schema, or state authority."
       ]
     }
   ]
