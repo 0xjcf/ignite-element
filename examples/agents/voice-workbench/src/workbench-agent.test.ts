@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import type { ModelExchange } from "./agent-loop";
+import type { ModelExchange, ModelResult } from "./agent-loop";
 import type { CapabilityOwner } from "./capability-federation";
 import { createProductPricingDomainPack } from "./domains/product-pricing";
 import { createDomainRegistry } from "./domains/registry";
@@ -16,6 +16,35 @@ vi.mock("./model", () => ({
 }));
 
 const requestModel = vi.mocked(requestMlxWorkbenchModel);
+
+type ModelTurnHandle = {
+	turnId: string;
+	done: Promise<import("./agent-loop").ModelTurnResult | null>;
+	cancel: () => void;
+	timeout: () => void;
+	dispose: () => void;
+};
+
+type StartSubmittedPrompt = (
+	configuration: Parameters<typeof completeSubmittedPrompt>[0],
+	event: Parameters<typeof completeSubmittedPrompt>[1],
+	externalCapabilities?: Parameters<typeof completeSubmittedPrompt>[2],
+	domains?: Parameters<typeof completeSubmittedPrompt>[3],
+	options?: { timeoutMs?: number },
+) => ModelTurnHandle;
+
+const loadStartSubmittedPrompt = async (): Promise<StartSubmittedPrompt> => {
+	const agent = (await import("./workbench-agent")) as unknown as {
+		startSubmittedPrompt?: StartSubmittedPrompt;
+	};
+	expect(agent.startSubmittedPrompt).toBeTypeOf("function");
+	if (!agent.startSubmittedPrompt) {
+		throw new Error(
+			"startSubmittedPrompt must expose the supervised turn handle",
+		);
+	}
+	return agent.startSubmittedPrompt;
+};
 
 const priceEvidenceHistory: ModelExchange[] = [
 	{
@@ -1111,6 +1140,9 @@ describe("shared voice workbench agent", () => {
 		expect(
 			requestModel.mock.calls[2]?.[1].tools.map((tool) => tool.name),
 		).not.toContain("priceProducts");
+		expect(requestModel).toHaveBeenCalledTimes(6);
+		await Promise.resolve();
+		expect(requestModel).toHaveBeenCalledTimes(6);
 	});
 
 	it("does not redispatch price lookup after a provider failure", async () => {
@@ -2192,6 +2224,219 @@ describe("shared voice workbench agent", () => {
 		expect(JSON.stringify(component.getView().presentation.turn)).not.toContain(
 			"secret",
 		);
+	});
+
+	it.each(["preparation", "provider failure"] as const)(
+		"prevents a deferred turn A response from mutating turn B after %s",
+		async (interruption) => {
+			const startSubmittedPrompt = await loadStartSubmittedPrompt();
+			requestModel.mockReset();
+			let resolveTurnA!: (result: ModelResult) => void;
+			let resolveTurnB!: (result: ModelResult) => void;
+			requestModel
+				.mockImplementationOnce(
+					() =>
+						new Promise<ModelResult>((resolve) => {
+							resolveTurnA = resolve;
+						}),
+				)
+				.mockImplementationOnce(
+					() =>
+						new Promise<ModelResult>((resolve) => {
+							resolveTurnB = resolve;
+						}),
+				)
+				.mockResolvedValueOnce({
+					ok: false,
+					error: { kind: "provider", message: "Turn A stopped." },
+				});
+			const artifactId = `old-turn-artifact-${interruption.replace(" ", "-")}`;
+			const configuration = {
+				baseUrl: "http://127.0.0.1:8080/v1",
+				model: "local-model",
+			};
+
+			await component.execute({
+				command: "submitPrompt",
+				input: { modality: "text", text: `Start turn A for ${interruption}.` },
+			});
+			const turnA = component.getView().lifecycle.activeTurnId;
+			if (!turnA) throw new Error("turn A was not admitted");
+			const handleA = startSubmittedPrompt(configuration, {
+				turnId: turnA,
+				modality: "text",
+				text: `Start turn A for ${interruption}.`,
+			});
+			await vi.waitFor(() => expect(requestModel).toHaveBeenCalledTimes(1));
+
+			if (interruption === "preparation") {
+				await component.execute({ command: "beginModelPreparation" });
+			} else {
+				source.send({
+					type: "MODEL_FAILED",
+					failure: {
+						kind: "provider",
+						message: "Provider interrupted turn A.",
+					},
+				});
+			}
+			handleA.cancel();
+			reportModelAvailable();
+			await component.execute({
+				command: "submitPrompt",
+				input: {
+					modality: "text",
+					text: `Start turn B after ${interruption}.`,
+				},
+			});
+			const turnB = component.getView().lifecycle.activeTurnId;
+			if (!turnB) throw new Error("turn B was not admitted");
+			const handleB = startSubmittedPrompt(configuration, {
+				turnId: turnB,
+				modality: "text",
+				text: `Start turn B after ${interruption}.`,
+			});
+			await vi.waitFor(() => expect(requestModel).toHaveBeenCalledTimes(2));
+
+			resolveTurnA({
+				ok: true,
+				calls: [
+					{
+						command: "createArtifact",
+						input: {
+							id: artifactId,
+							nodes: [
+								{
+									id: "old-copy",
+									kind: "text",
+									text: "This stale artifact must never be committed.",
+								},
+							],
+						},
+					},
+				],
+			});
+			await expect(handleA.done).resolves.toBeNull();
+			await Promise.resolve();
+			expect(
+				component
+					.getSnapshot()
+					.context.documents.some((document) => document.id === artifactId),
+			).toBe(false);
+			expect(component.getView().lifecycle.activeTurnId).toBe(turnB);
+
+			handleB.dispose();
+			handleB.dispose();
+			await expect(handleB.done).resolves.toBeNull();
+			resolveTurnB({
+				ok: false,
+				error: { kind: "provider", message: "Late turn B settlement." },
+			});
+			await Promise.resolve();
+			reportModelAvailable();
+		},
+	);
+
+	it("times out the whole turn once and fences a provider that ignores abort", async () => {
+		const startSubmittedPrompt = await loadStartSubmittedPrompt();
+		vi.useFakeTimers();
+		requestModel.mockReset();
+		requestModel.mockResolvedValueOnce({
+			ok: true,
+			calls: [
+				{
+					id: "late-search",
+					command: "searchWeb",
+					input: { query: "late provider" },
+				},
+			],
+		});
+		let resolveProvider!: (
+			result: Awaited<ReturnType<CapabilityOwner["run"]>>,
+		) => void;
+		let providerSignal: AbortSignal | undefined;
+		const ignoredAbortProvider: CapabilityOwner = {
+			id: "ignored-abort-provider",
+			manifest: [
+				{
+					name: "searchWeb",
+					inputSchema: { type: "object", properties: {} },
+					gated: false,
+				},
+			],
+			run: (_call, signal) => {
+				providerSignal = signal;
+				return new Promise((resolve) => {
+					resolveProvider = resolve;
+				});
+			},
+		};
+		const terminalFacts: string[] = [];
+		let previousTerminal = source.getSnapshot().context.lastTurnTerminal;
+		const terminalSubscription = source.subscribe((snapshot) => {
+			if (
+				snapshot.context.lastTurnTerminal &&
+				snapshot.context.lastTurnTerminal !== previousTerminal
+			) {
+				terminalFacts.push(snapshot.context.lastTurnTerminal.type);
+				previousTerminal = snapshot.context.lastTurnTerminal;
+			}
+		});
+
+		try {
+			await component.execute({
+				command: "submitPrompt",
+				input: { modality: "text", text: "Wait for the slow capability." },
+			});
+			const turnId = component.getView().lifecycle.activeTurnId;
+			if (!turnId) throw new Error("timeout turn was not admitted");
+			const capabilityCount =
+				component.getView().presentation.capabilityOutcomes.length;
+			const handle = startSubmittedPrompt(
+				{ baseUrl: "http://127.0.0.1:8080/v1", model: "local-model" },
+				{
+					turnId,
+					modality: "text",
+					text: "Wait for the slow capability.",
+				},
+				[ignoredAbortProvider],
+				undefined,
+				{ timeoutMs: 100 },
+			);
+			await vi.advanceTimersByTimeAsync(0);
+			expect(providerSignal).toBeDefined();
+
+			await vi.advanceTimersByTimeAsync(100);
+			await expect(handle.done).resolves.toBeNull();
+			expect(providerSignal?.aborted).toBe(true);
+			expect(source.getSnapshot().context.lastTurnTerminal).toEqual({
+				type: "TIMEOUT",
+				turnId,
+			});
+			expect(terminalFacts.filter((type) => type === "TIMEOUT")).toHaveLength(
+				1,
+			);
+
+			resolveProvider({
+				type: "success",
+				ownerId: "ignored-abort-provider",
+				toolName: "searchWeb",
+				data: { results: [{ title: "late" }] },
+				receipt: { provider: "ignored-abort-provider" },
+			});
+			await vi.advanceTimersByTimeAsync(0);
+			expect(requestModel).toHaveBeenCalledTimes(1);
+			expect(component.getView().presentation.capabilityOutcomes).toHaveLength(
+				capabilityCount,
+			);
+			expect(terminalFacts.filter((type) => type === "TIMEOUT")).toHaveLength(
+				1,
+			);
+		} finally {
+			terminalSubscription.unsubscribe();
+			vi.useRealTimers();
+			reportModelAvailable();
+		}
 	});
 
 	it("rejects a manifest collision before invoking the model", async () => {

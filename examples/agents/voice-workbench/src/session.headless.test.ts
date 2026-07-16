@@ -414,6 +414,148 @@ describe("voice workbench session machine contract", () => {
 		actor.stop();
 	});
 
+	it("projects turn interruption and rejects stale asynchronous read-model facts", () => {
+		const actor = createVoiceWorkbenchSessionActor().start();
+		actor.send({ type: "MODEL_AVAILABLE" });
+		actor.send({
+			type: "SUBMIT_PROMPT",
+			input: { modality: "text", text: "Start turn A." },
+		});
+		actor.send({
+			type: "MODEL_TURN_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "requesting",
+				turnId: "voice-workbench:1",
+				attemptId: "voice-workbench:1:1",
+				round: 1,
+				terminal: null,
+			},
+		});
+
+		expect(
+			projectVoiceWorkbenchView({ snapshot: actor.getSnapshot() }).portRequests
+				.modelTurnControl,
+		).toBeNull();
+		actor.send({ type: "MODEL_PREPARATION_STARTED" });
+		expect(
+			projectVoiceWorkbenchView({ snapshot: actor.getSnapshot() }).portRequests
+				.modelTurnControl,
+		).toEqual({
+			action: "cancel",
+			turnId: "voice-workbench:1",
+			sequence: 1,
+		});
+		expect(() => JSON.stringify(actor.getSnapshot().context)).not.toThrow();
+
+		actor.send({ type: "MODEL_AVAILABLE" });
+		actor.send({
+			type: "SUBMIT_PROMPT",
+			input: { modality: "text", text: "Start turn B." },
+		});
+		actor.send({
+			type: "MODEL_TURN_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "requesting",
+				turnId: "voice-workbench:2",
+				attemptId: "voice-workbench:2:1",
+				round: 1,
+				terminal: null,
+			},
+		});
+		const sendPrivateEvent = actor.send as (event: unknown) => void;
+		sendPrivateEvent({
+			type: "RUNTIME_MANIFEST_RECORDED",
+			turnId: "voice-workbench:1",
+			attemptId: "voice-workbench:1:1",
+			manifest: [
+				{
+					name: "staleRuntimeTool",
+					inputSchema: { type: "object", properties: {} },
+					gated: false,
+					ownerId: "stale-owner",
+				},
+			],
+		});
+		sendPrivateEvent({
+			type: "CAPABILITY_OUTCOME_RECORDED",
+			turnId: "voice-workbench:1",
+			attemptId: "voice-workbench:1:1",
+			outcome: {
+				type: "success",
+				ownerId: "stale-owner",
+				toolName: "staleCapability",
+				message: "This fact belongs to turn A.",
+			},
+		});
+		sendPrivateEvent({
+			type: "DOMAIN_POLICY_RECORDED",
+			turnId: "voice-workbench:1",
+			attemptId: "voice-workbench:1:1",
+			decision: {
+				type: "domain-policy-decision",
+				domainId: "stale-domain",
+				domainLabel: "Stale domain",
+				policyId: "stale-policy",
+				policyLabel: "Stale policy",
+				outcome: "admitted",
+				summary: "This decision belongs to turn A.",
+				assumptions: [],
+				questions: [],
+				evidenceRequirements: [],
+			},
+		});
+		sendPrivateEvent({
+			type: "TURN_RECORDED",
+			turnId: "voice-workbench:1",
+			attemptId: "voice-workbench:1:1",
+			fact: { type: "accepted", trace: [] },
+		});
+
+		expect(actor.getSnapshot().context.activeTurnId).toBe("voice-workbench:2");
+		expect(actor.getSnapshot().context.presentation).toMatchObject({
+			runtimeManifest: [],
+			capabilityOutcomes: [],
+			domainPolicy: null,
+			turn: null,
+		});
+
+		sendPrivateEvent({
+			type: "CAPABILITY_OUTCOME_RECORDED",
+			turnId: "voice-workbench:2",
+			attemptId: "voice-workbench:2:1",
+			outcome: {
+				type: "success",
+				ownerId: "current-owner",
+				toolName: "currentCapability",
+				message: "This fact belongs to turn B.",
+			},
+		});
+		expect(actor.getSnapshot().context.presentation.capabilityOutcomes).toEqual(
+			[expect.objectContaining({ toolName: "currentCapability" })],
+		);
+		actor.stop();
+
+		const failedActor = createVoiceWorkbenchSessionActor().start();
+		failedActor.send({ type: "MODEL_AVAILABLE" });
+		failedActor.send({
+			type: "SUBMIT_PROMPT",
+			input: { modality: "text", text: "Interrupt this turn by failure." },
+		});
+		failedActor.send({
+			type: "MODEL_FAILED",
+			failure: { kind: "provider", message: "Provider failed." },
+		});
+		expect(
+			projectVoiceWorkbenchView({ snapshot: failedActor.getSnapshot() })
+				.portRequests.modelTurnControl,
+		).toEqual({
+			action: "cancel",
+			turnId: "voice-workbench:1",
+			sequence: 1,
+		});
+		failedActor.stop();
+	});
+
 	it("projects raw lifecycle snapshots without inventing a second state model", () => {
 		const actor = createVoiceWorkbenchSessionActor().start();
 		const assertProjection = () => {

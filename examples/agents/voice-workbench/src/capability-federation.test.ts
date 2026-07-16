@@ -133,6 +133,49 @@ describe("voice workbench capability federation", () => {
 		});
 	});
 
+	it("normalizes a provider result that settles after cancellation to timeout", async () => {
+		let resolveProvider!: (
+			value: Awaited<ReturnType<CapabilityOwner["run"]>>,
+		) => void;
+		const providerSignal = vi.fn<(signal: AbortSignal) => void>();
+		const deferred: CapabilityOwner = {
+			id: "deferred-provider",
+			manifest: manifest("searchWeb"),
+			run: (_call, signal) => {
+				providerSignal(signal);
+				return new Promise((resolve) => {
+					resolveProvider = resolve;
+				});
+			},
+		};
+		const federation = createCapabilityFederation([deferred]);
+		if (!federation.ok) throw new Error("expected a ready federation");
+		const controller = new AbortController();
+
+		const execution = runCapability(
+			federation,
+			{ name: "searchWeb", input: { query: "coffee" } },
+			controller.signal,
+		);
+		controller.abort();
+		resolveProvider({
+			type: "success",
+			ownerId: "deferred-provider",
+			toolName: "searchWeb",
+			data: { results: [] },
+			receipt: { provider: "deferred-provider" },
+		});
+
+		await expect(execution).resolves.toEqual({
+			type: "timeout",
+			ownerId: "deferred-provider",
+			toolName: "searchWeb",
+			message: "The capability execution was cancelled.",
+		});
+		expect(providerSignal).toHaveBeenCalledWith(controller.signal);
+		expect(providerSignal.mock.calls[0]?.[0].aborted).toBe(true);
+	});
+
 	it("preserves structured retry and cache provenance while enforcing owner identity", async () => {
 		const retrying: CapabilityOwner = {
 			id: "trusted-owner",

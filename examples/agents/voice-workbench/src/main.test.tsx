@@ -132,6 +132,11 @@ describe("voice workbench browser entry", () => {
 		const readiness = new Promise<Response>((resolve) => {
 			resolveReadiness = resolve;
 		});
+		let deferNextModelRequest = false;
+		let resolveDeferredModelRequest: (response: Response) => void = () => {};
+		const deferredModelRequest = new Promise<Response>((resolve) => {
+			resolveDeferredModelRequest = resolve;
+		});
 		let firstRequest = true;
 		const responses = [
 			completion([
@@ -244,6 +249,7 @@ describe("voice workbench browser entry", () => {
 					firstRequest = false;
 					return readiness;
 				}
+				if (deferNextModelRequest) return deferredModelRequest;
 				const response = responses.shift();
 				if (!response) throw new Error("unexpected model request");
 				return new Response(JSON.stringify(response), { status: 200 });
@@ -527,13 +533,72 @@ describe("voice workbench browser entry", () => {
 			host.shadowRoot.querySelector('[role="alert"]')?.textContent,
 		).toContain("Microphone access was denied");
 
+		deferNextModelRequest = true;
+		const pagehidePrompt = host.shadowRoot.querySelector("textarea");
+		const pagehideForm = host.shadowRoot.querySelector("form");
+		if (
+			!(pagehidePrompt instanceof HTMLTextAreaElement) ||
+			!(pagehideForm instanceof HTMLFormElement)
+		) {
+			throw new Error("voice workbench pagehide form is unavailable");
+		}
+		pagehidePrompt.value = "Keep this turn pending through pagehide";
+		pagehidePrompt.dispatchEvent(new Event("input", { bubbles: true }));
+		pagehideForm.dispatchEvent(
+			new Event("submit", { bubbles: true, cancelable: true }),
+		);
+		await vi.waitFor(() => {
+			expect(fetchMock).toHaveBeenCalledTimes(10);
+			expect(component.getView().status).toBe("responding");
+		});
+		const pendingTurnSignal = fetchMock.mock.calls[9]?.[1]?.signal;
+		expect(pendingTurnSignal).toBeInstanceOf(AbortSignal);
+		const pendingTurnAbort = vi.fn();
+		pendingTurnSignal?.addEventListener("abort", pendingTurnAbort);
+
 		const persistedPagehide = new Event("pagehide");
 		Object.defineProperty(persistedPagehide, "persisted", { value: true });
 		window.dispatchEvent(persistedPagehide);
 		expect(source.getSnapshot().status).toBe("active");
+		expect(pendingTurnSignal?.aborted).toBe(false);
 		const terminalDisposalCount = stopSpeechActor.mock.calls.length;
 		window.dispatchEvent(new Event("pagehide"));
 		expect(source.getSnapshot().status).toBe("stopped");
+		expect(pendingTurnSignal?.aborted).toBe(true);
+		expect(pendingTurnAbort).toHaveBeenCalledOnce();
+		window.dispatchEvent(new Event("pagehide"));
+		expect(pendingTurnAbort).toHaveBeenCalledOnce();
 		expect(stopSpeechActor).toHaveBeenCalledTimes(terminalDisposalCount);
+
+		resolveDeferredModelRequest(
+			new Response(
+				JSON.stringify(
+					completion([
+						{
+							name: "createArtifact",
+							input: {
+								id: "pagehide-stale-artifact",
+								nodes: [
+									{
+										id: "copy",
+										kind: "text",
+										text: "Must not be committed after disposal.",
+									},
+								],
+							},
+						},
+					]),
+				),
+				{ status: 200 },
+			),
+		);
+		await Promise.resolve();
+		expect(
+			component
+				.getSnapshot()
+				.context.documents.some(
+					(document) => document.id === "pagehide-stale-artifact",
+				),
+		).toBe(false);
 	});
 });
