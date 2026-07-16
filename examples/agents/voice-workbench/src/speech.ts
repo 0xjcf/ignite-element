@@ -140,7 +140,8 @@ export const speechDeliveryMachine = setup({
 	}),
 	on: {
 		DISPOSE: {
-			guard: ({ context }) => context.terminal === null,
+			guard: ({ context }) =>
+				context.terminal === null && context.portAction !== "dispose",
 			target: ".disposed",
 			actions: "requestDisposal",
 		},

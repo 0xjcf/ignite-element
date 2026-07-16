@@ -485,12 +485,21 @@ stateDiagram-v2
     Consumed --> Idle: RESET
     Consumed --> Listening: START
     Cancelled --> Idle: RESET
+    Cancelled --> Listening: START
     Cancelled --> Listening: RETRY
+    PermissionDenied --> Idle: RESET
     PermissionDenied --> Listening: RETRY
+    Failed --> Idle: RESET
     Failed --> Listening: RETRY
+    CheckingSupport --> Disposed: DISPOSE
+    Unsupported --> Disposed: DISPOSE
     Idle --> Disposed: DISPOSE
     Listening --> Disposed: DISPOSE
     Transcript --> Disposed: DISPOSE
+    Consumed --> Disposed: DISPOSE
+    Cancelled --> Disposed: DISPOSE
+    PermissionDenied --> Disposed: DISPOSE
+    Failed --> Disposed: DISPOSE
 ```
 
 The browser recognition object remains an imperative port. The child actor owns
@@ -517,6 +526,7 @@ stateDiagram-v2
     [*] --> Pending
     Pending --> Muted: MUTED
     Pending --> Queued: QUEUED
+    Pending --> Delivered: DELIVERED
     Pending --> Unavailable: UNAVAILABLE
     Pending --> Failed: FAIL
     Pending --> Cancelled: CANCEL
