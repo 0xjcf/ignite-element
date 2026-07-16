@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+	adjacencyMapToArray,
+	getAdjacencyMap,
 	getPathsFromEvents,
 	getShortestPaths,
 	getSimplePaths,
@@ -166,6 +168,88 @@ const currentStateValueBaseline = [
 	{ provider: "preparing", turn: "responding" },
 ] as const satisfies readonly VoiceWorkbenchSessionStateValue[];
 
+type RawStateLabel =
+	`${VoiceWorkbenchSessionStateValue["provider"]}/${VoiceWorkbenchSessionStateValue["turn"]}`;
+type IncludedGraphEventType = (typeof graphEventCases)[number]["type"];
+
+const labelRawState = (
+	snapshot: VoiceWorkbenchSessionSnapshot,
+): RawStateLabel => {
+	const value = readRawStateValue(snapshot);
+	return `${value.provider}/${value.turn}`;
+};
+
+// Every included event is asserted from every serialized raw vertex. This is
+// deliberately an expected edge matrix, not another traversal implementation;
+// XState's adjacency map remains the source of the actual transition graph.
+const transitionTargetBaseline = {
+	"preparing/ready": {
+		MODEL_AVAILABLE: "available/ready",
+		MODEL_FAILED: "failed/ready",
+		MODEL_PREPARATION_STARTED: "preparing/ready",
+		SUBMIT_PROMPT: "preparing/ready",
+		CREATE_ARTIFACT: "preparing/ready",
+		COMPLETE_RESPONSE: "preparing/ready",
+	},
+	"available/ready": {
+		MODEL_AVAILABLE: "available/ready",
+		MODEL_FAILED: "failed/ready",
+		MODEL_PREPARATION_STARTED: "preparing/ready",
+		SUBMIT_PROMPT: "available/responding",
+		CREATE_ARTIFACT: "available/ready",
+		COMPLETE_RESPONSE: "available/ready",
+	},
+	"failed/ready": {
+		MODEL_AVAILABLE: "available/ready",
+		MODEL_FAILED: "failed/ready",
+		MODEL_PREPARATION_STARTED: "preparing/ready",
+		SUBMIT_PROMPT: "failed/ready",
+		CREATE_ARTIFACT: "failed/ready",
+		COMPLETE_RESPONSE: "failed/ready",
+	},
+	"available/responding": {
+		MODEL_AVAILABLE: "available/responding",
+		MODEL_FAILED: "failed/responding",
+		MODEL_PREPARATION_STARTED: "preparing/responding",
+		SUBMIT_PROMPT: "available/responding",
+		CREATE_ARTIFACT: "available/responding",
+		COMPLETE_RESPONSE: "available/ready",
+	},
+	"failed/responding": {
+		MODEL_AVAILABLE: "available/responding",
+		MODEL_FAILED: "failed/responding",
+		MODEL_PREPARATION_STARTED: "preparing/responding",
+		SUBMIT_PROMPT: "failed/responding",
+		CREATE_ARTIFACT: "failed/responding",
+		COMPLETE_RESPONSE: "failed/ready",
+	},
+	"preparing/responding": {
+		MODEL_AVAILABLE: "available/responding",
+		MODEL_FAILED: "failed/responding",
+		MODEL_PREPARATION_STARTED: "preparing/responding",
+		SUBMIT_PROMPT: "preparing/responding",
+		CREATE_ARTIFACT: "preparing/responding",
+		COMPLETE_RESPONSE: "preparing/ready",
+	},
+} as const satisfies Record<
+	RawStateLabel,
+	Record<IncludedGraphEventType, RawStateLabel>
+>;
+
+const transitionSignature = (
+	source: string,
+	eventType: string,
+	target: string,
+): string => `${source} --${eventType}--> ${target}`;
+
+const expectedTransitionSignatures = Object.entries(transitionTargetBaseline)
+	.flatMap(([source, targets]) =>
+		Object.entries(targets).map(([eventType, target]) =>
+			transitionSignature(source, eventType, target),
+		),
+	)
+	.sort();
+
 // Temporary reviewed debt. task-1784171435029 owns restructuring the topology
 // so this baseline becomes an empty list and the forbidden count becomes zero.
 const temporaryForbiddenStateBaseline = {
@@ -256,6 +340,33 @@ describe("voice workbench XState graph characterization", () => {
 			new Set(simplePaths.map((path) => serializeRawState(path.state))),
 		).toEqual(
 			new Set(currentStateValueBaseline.map((value) => JSON.stringify(value))),
+		);
+	});
+
+	it("locks every included event-labelled edge across all six raw vertices", () => {
+		const adjacencyMap = getAdjacencyMap(
+			voiceWorkbenchSessionMachine,
+			graphTraversalOptions,
+		);
+		const actualTransitionSignatures = adjacencyMapToArray(adjacencyMap)
+			.map(({ state, event, nextState }) =>
+				transitionSignature(
+					labelRawState(state),
+					event.type,
+					labelRawState(nextState),
+				),
+			)
+			.sort();
+
+		expect(Object.keys(adjacencyMap)).toEqual(
+			currentStateValueBaseline.map((value) => JSON.stringify(value)),
+		);
+		expect(actualTransitionSignatures).toHaveLength(
+			currentStateValueBaseline.length * graphEventCases.length,
+		);
+		expect(actualTransitionSignatures).toEqual(expectedTransitionSignatures);
+		expect(actualTransitionSignatures).toContain(
+			"failed/responding --MODEL_AVAILABLE--> available/responding",
 		);
 	});
 
