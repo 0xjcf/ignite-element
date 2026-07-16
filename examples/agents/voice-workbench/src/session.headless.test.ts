@@ -5,7 +5,6 @@ import {
 	component,
 	createVoiceWorkbenchSessionActor,
 	isVoiceWorkbenchKnownForbiddenStateValue,
-	presentVoice,
 	projectVoiceWorkbenchView,
 	recordCapabilityOutcome,
 	recordDomainPolicyDecision,
@@ -76,8 +75,7 @@ type PrivatePortRequest =
 			command: "reportModelFailure";
 			input: Parameters<typeof reportModelFailure>[0];
 	  }
-	| { command: "reportModelAvailable" }
-	| { command: "presentVoice"; input: Parameters<typeof presentVoice>[0] };
+	| { command: "reportModelAvailable" };
 
 const executePrivatePort = (request: PrivatePortRequest): void => {
 	switch (request.command) {
@@ -96,8 +94,6 @@ const executePrivatePort = (request: PrivatePortRequest): void => {
 		case "reportModelAvailable":
 			reportModelAvailable();
 			return;
-		case "presentVoice":
-			presentVoice(request.input);
 	}
 };
 
@@ -443,9 +439,13 @@ describe("voice workbench session machine contract", () => {
 			attemptId: "voice:2",
 			sequence: 2,
 		});
-		expect(actor.getSnapshot().context.presentation.voice).toEqual({
-			type: "voice-listening",
-		});
+		expect(
+			projectVoiceWorkbenchView({ snapshot: actor.getSnapshot() }).presentation
+				.voice,
+		).toEqual({ type: "voice-listening" });
+		expect(actor.getSnapshot().context.presentation).not.toHaveProperty(
+			"voice",
+		);
 		actor.stop();
 	});
 
@@ -775,14 +775,7 @@ describe("voice workbench session machine contract", () => {
 			},
 		);
 
-		sendSessionEvent(actor, {
-			type: "VOICE_RECORDED",
-			fact: {
-				type: "voice-transcript",
-				text: "Displayed other text",
-				final: true,
-			},
-		});
+		expect(sessionModule).not.toHaveProperty("presentVoice");
 		expectVisibleVoice(lifecycleCandidate);
 		expect(selectVoiceTranscriptCandidate(actor.getSnapshot().context)).toEqual(
 			{
@@ -1866,9 +1859,11 @@ describe("voice workbench headless component", () => {
 			command: "changeDraft",
 			input: "Preserve this draft",
 		});
-		executePrivatePort({
-			command: "presentVoice",
-			input: { type: "voice-listening" },
+		recordVoiceCaptureLifecycle({
+			state: "listening",
+			attemptId: "voice:listener-proof",
+			sequence: 3,
+			fact: { type: "voice-listening" },
 		});
 		expect(component.getView()).toMatchObject({
 			presentation: {

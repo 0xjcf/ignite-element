@@ -201,7 +201,6 @@ export type WorkbenchPresentation = {
 	speechDelivery: SpeechDeliveryFact | null;
 	speechReplayRequest: { id: string; text: string; sequence: number } | null;
 	turn: WorkbenchTurnFact | null;
-	voice: VoiceCaptureFact;
 };
 
 export type WorkbenchPresentationIntent =
@@ -224,7 +223,6 @@ export type WorkbenchPresentationIntent =
 	| { type: "turn-started" };
 
 export type WorkbenchAdapterFact =
-	| { type: "voice-recorded"; fact: VoiceCaptureFact }
 	| {
 			type: "document-committed";
 			document: NonNullable<WorkbenchPresentation["documentCommit"]>;
@@ -307,7 +305,6 @@ export type VoiceWorkbenchPrivateEvent =
 			type: "SPEECH_COMMITTED";
 			speech: NonNullable<WorkbenchPresentation["speechCommit"]>;
 	  }
-	| { type: "VOICE_RECORDED"; fact: VoiceCaptureFact }
 	| ({ type: "VOICE_TRANSCRIPT_CONSUMED" } & VoiceTranscriptConsumedFact)
 	| {
 			type: "CAPABILITY_OUTCOME_RECORDED";
@@ -466,7 +463,6 @@ const createInitialPresentation = (): WorkbenchPresentation => ({
 	speechDelivery: null,
 	speechReplayRequest: null,
 	turn: null,
-	voice: { type: "voice-idle" },
 });
 
 export const reduceWorkbenchPresentation = (
@@ -501,8 +497,6 @@ export const reduceWorkbenchPresentation = (
 				speechDelivery: null,
 				turn: null,
 			};
-		case "voice-recorded":
-			return { ...presentation, voice: update.fact };
 		case "document-committed":
 			return { ...presentation, documentCommit: update.document };
 		case "speech-committed":
@@ -891,11 +885,6 @@ const privatePresentationEnvelope = (
 				channel: "private-adapter",
 				update: { type: "speech-committed", speech: event.speech },
 			};
-		case "VOICE_RECORDED":
-			return {
-				channel: "private-adapter",
-				update: { type: "voice-recorded", fact: event.fact },
-			};
 		case "VOICE_TRANSCRIPT_CONSUMED":
 			return null;
 		case "CAPABILITY_OUTCOME_RECORDED":
@@ -919,10 +908,7 @@ const privatePresentationEnvelope = (
 				update: { type: "turn-recorded", fact: event.fact },
 			};
 		case "VOICE_CAPTURE_LIFECYCLE_UPDATED":
-			return {
-				channel: "private-adapter",
-				update: { type: "voice-recorded", fact: event.lifecycle.fact },
-			};
+			return null;
 		case "SPEECH_DELIVERY_LIFECYCLE_UPDATED":
 			return event.lifecycle.fact
 				? {
@@ -1198,12 +1184,8 @@ export const voiceWorkbenchSessionMachine = setup({
 					) {
 						return context;
 					}
-					const envelope = privatePresentationEnvelope(event);
 					return {
 						...context,
-						presentation: envelope
-							? reduceWorkbenchPresentation(context.presentation, envelope)
-							: context.presentation,
 						childLifecycles: {
 							...context.childLifecycles,
 							voiceCapture: event.lifecycle,
@@ -1348,7 +1330,6 @@ export const voiceWorkbenchSessionMachine = setup({
 		PRESENTATION_UPDATED: { actions: "applyPresentationUpdate" },
 		DOCUMENT_COMMITTED: { actions: "applyPrivateEvent" },
 		SPEECH_COMMITTED: { actions: "applyPrivateEvent" },
-		VOICE_RECORDED: { actions: "applyPrivateEvent" },
 		CAPABILITY_OUTCOME_RECORDED: { actions: "applyPrivateEvent" },
 		DOMAIN_POLICY_RECORDED: { actions: "applyPrivateEvent" },
 		RUNTIME_MANIFEST_RECORDED: { actions: "applyPrivateEvent" },
@@ -1516,9 +1497,6 @@ export const commitDocument = (
 export const commitSpeech = (
 	speech: NonNullable<WorkbenchPresentation["speechCommit"]>,
 ): void => source.send({ type: "SPEECH_COMMITTED", speech });
-
-export const presentVoice = (fact: VoiceCaptureFact): void =>
-	source.send({ type: "VOICE_RECORDED", fact });
 
 export const recordCapabilityOutcome = (
 	outcome: WorkbenchCapabilityOutcome,
@@ -1859,7 +1837,9 @@ export const projectVoiceWorkbenchView = ({
 	const respondingProgress = describeRespondingProgress(
 		snapshot.context.lastFact,
 	);
-	const voice = presentation.voice;
+	const voice =
+		snapshot.context.childLifecycles.voiceCapture?.fact ??
+		({ type: "voice-idle" } as const);
 	const transcript = voice.type === "voice-transcript" ? voice.text : null;
 	const transcriptReady =
 		selectVoiceTranscriptCandidate(snapshot.context) !== null;
@@ -2190,7 +2170,7 @@ export const projectVoiceWorkbenchView = ({
 		activeArtifactId: snapshot.context.activeArtifactId,
 		response: snapshot.context.response,
 		canRevise: responding && snapshot.context.documents.length > 0,
-		presentation: snapshot.context.presentation,
+		presentation: { ...snapshot.context.presentation, voice },
 		runtimeInspector: {
 			activeStates: snapshot.value,
 			mlx: {
