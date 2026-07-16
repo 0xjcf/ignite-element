@@ -18,6 +18,11 @@ describe("voice workbench accessible JSX", () => {
 		expect(runtimeRail).not.toContain('outcome === "needs-input"');
 		expect(runtimeRail).not.toContain("standard sandwich bread");
 		expect(runtimeRail).toContain("domainPolicyCards.map");
+		expect(workbenchSource).not.toContain("const sourceLink");
+		expect(workbenchSource).not.toContain("new URL(");
+		expect(workbenchSource).not.toContain("String(value ??");
+		expect(workbenchSource).toContain("node.displayRows.map");
+		expect(workbenchSource).toContain("context.resultQuality");
 	});
 
 	it("renders the approved empty-to-artifact workflow from the component view", async () => {
@@ -197,6 +202,16 @@ describe("voice workbench accessible JSX", () => {
 		);
 		expect(policyProof?.textContent).toContain(
 			"Materialize exact Price, Status, and Source facts.",
+		);
+		const clarificationQuality = bridge.host.shadowRoot?.querySelector(
+			'[aria-label="Shopper result quality"]',
+		);
+		expect(clarificationQuality?.textContent).toContain("Needs input");
+		expect(clarificationQuality?.textContent).toContain(
+			"Pricing needs clarification",
+		);
+		expect(clarificationQuality?.textContent).toContain(
+			"Answer the clarification questions to continue pricing.",
 		);
 		expect(
 			bridge.getByRole("button", { name: "Browser preview" }),
@@ -577,6 +592,164 @@ describe("voice workbench accessible JSX", () => {
 		expect(
 			bridge.host.shadowRoot?.querySelector(".collision-proof")?.textContent,
 		).toContain("searchWeb · workbench-component + duplicate-provider");
+
+		await component.execute({
+			command: "submitPrompt",
+			input: {
+				modality: "text",
+				text: "Create a Whole Foods Sarasota shopping list with prices.",
+			},
+		});
+		await component.execute({
+			command: "recordDomainPolicyDecision",
+			input: {
+				type: "domain-policy-decision",
+				domainId: "product-pricing",
+				domainLabel: "Product pricing",
+				policyId: "category-pricing-scope",
+				policyLabel: "Category pricing scope",
+				outcome: "admitted",
+				summary: "Pricing scope admitted for 3 items.",
+				assumptions: [],
+				questions: [],
+				evidenceRequirements: [
+					{ id: "source", label: "Show exact source facts." },
+				],
+			},
+		});
+		await component.execute({
+			command: "recordCapabilityOutcome",
+			input: {
+				type: "success",
+				ownerId: "product-pricing-price",
+				toolName: "priceProducts",
+				message: "Whole Foods pricing completed.",
+				pricingRows: [
+					{
+						subject: "Breads",
+						priceStatus: "unverified",
+						reasonCode: "product-not-found",
+						reason: "No compatible product was found.",
+						cacheStatus: "miss",
+						nativeStatus: "miss",
+						braveStatus: "attempted-miss",
+					},
+					{
+						subject: "Eggs",
+						priceStatus: "unverified",
+						reasonCode: "offer-unavailable",
+						reason: "The current offer is unavailable.",
+						product: "365 Large White Grade A Eggs",
+						size: "12 count",
+						cacheStatus: "miss",
+						nativeStatus: "hit",
+						braveStatus: "not-needed",
+					},
+					{
+						subject: "Milk",
+						priceStatus: "unverified",
+						reasonCode: "provider-response-invalid",
+						reason: "The provider response could not be decoded.",
+						product: "365 Whole Milk",
+						size: "1 gallon",
+						cacheStatus: "miss",
+						nativeStatus: "hit",
+						braveStatus: "not-needed",
+					},
+				],
+			},
+		});
+		await component.execute({
+			command: "createArtifact",
+			input: {
+				id: "shopping-list-wholefoods",
+				title: "shopping-list-wholefoods",
+				nodes: [
+					{
+						kind: "table",
+						id: "prices",
+						columns: [
+							{ id: "subject", label: "Subject" },
+							{ id: "price", label: "Price" },
+							{ id: "status", label: "Status" },
+							{ id: "source", label: "Source" },
+						],
+						rows: [
+							{
+								id: "breads",
+								cells: ["Breads", null, "unverified", null],
+							},
+							{
+								id: "eggs",
+								cells: [
+									"Eggs",
+									null,
+									"unverified",
+									"https://www.wholefoodsmarket.com/product/eggs",
+								],
+							},
+							{
+								id: "milk",
+								cells: [
+									"Milk",
+									null,
+									"unverified",
+									"https://www.wholefoodsmarket.com/product/milk",
+								],
+							},
+						],
+					},
+				],
+			},
+		});
+		await component.execute({
+			command: "completeResponse",
+			input: { text: "The shopping list is ready with partial pricing." },
+		});
+		const shopperQuality = bridge.host.shadowRoot?.querySelector(
+			'[aria-label="Shopper result quality"]',
+		);
+		expect(shopperQuality?.textContent).toContain("Partial result");
+		expect(shopperQuality?.textContent).toContain(
+			"Shopping list created; prices unavailable",
+		);
+		expect(shopperQuality?.textContent).toContain(
+			"3 requested · 2 products matched · 0 prices verified",
+		);
+		expect(shopperQuality?.textContent).toContain("BreadsProduct not found");
+		expect(shopperQuality?.textContent).toContain(
+			"EggsCurrent offer unavailable",
+		);
+		expect(shopperQuality?.textContent).toContain(
+			"Retry pricing when the provider is available.",
+		);
+		expect(
+			bridge.host.shadowRoot?.querySelector(".document h1")?.textContent,
+		).toContain("Shopping List Whole Foods");
+		expect(
+			bridge.host.shadowRoot?.querySelector('[data-node-kind="table"]')
+				?.textContent,
+		).toContain("Price unavailable");
+		expect(
+			bridge.host.shadowRoot?.querySelector('[data-node-kind="table"]')
+				?.textContent,
+		).toContain("No source");
+		expect(
+			bridge.getByRole("link", { name: "Source: wholefoodsmarket.com" }),
+		).toHaveProperty("href", "https://www.wholefoodsmarket.com/product/eggs");
+		const admittedPolicyProof = bridge.host.shadowRoot?.querySelector(
+			'[aria-label="Domain policy proof"]',
+		);
+		expect(admittedPolicyProof?.textContent).not.toContain("Assumptions");
+		expect(admittedPolicyProof?.textContent).not.toContain(
+			"Clarification questions",
+		);
+		expect(admittedPolicyProof?.textContent).toContain("Evidence requirements");
+		expect(
+			bridge.host.shadowRoot?.querySelector(
+				'output[aria-label="Conversation status"]',
+			)?.textContent,
+		).toContain("Ready");
 
 		bridge.stop();
 		source.stop();

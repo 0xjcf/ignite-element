@@ -971,16 +971,15 @@ export const component = igniteCore({
 				return {
 					...node,
 					action: input ? { enabled: responding, input } : null,
-					...(node.kind === "table"
-						? {
-								displayRows: node.rows.map((row) => ({
+					displayRows:
+						node.kind === "table"
+							? node.rows.map((row) => ({
 									id: row.id,
 									cells: row.cells.map((cell, index) =>
 										tableCellView(cell, node.columns[index]?.label ?? ""),
 									),
-								})),
-							}
-						: {}),
+								}))
+							: [],
 				};
 			}),
 		}));

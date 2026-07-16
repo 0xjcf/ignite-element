@@ -239,6 +239,27 @@ export const workbenchStyles = `
 	.proof-banner { width: min(100%, 70rem); margin: 0 auto var(--space-3); padding: 0.72rem 0.85rem; display: grid; grid-template-columns: auto 1fr; gap: var(--space-3); align-items: center; border: 1px solid var(--primary); border-radius: var(--radius-md); background: var(--primary-wash); }
 	.proof-banner strong { display: block; font-size: 0.72rem; }
 	.proof-banner span { display: block; margin-top: 0.08rem; color: var(--foreground-soft); font-size: 0.66rem; }
+	.result-quality { width: min(100%, 70rem); margin: 0 auto var(--space-3); display: grid; gap: var(--space-4); padding: clamp(1rem, 2vw, 1.5rem); border: 1px solid var(--warning); border-radius: var(--radius-lg); background: color-mix(in oklab, var(--warning) 8%, var(--background-elevated)); box-shadow: var(--shadow-sm); }
+	.result-quality-success { border-color: var(--primary); background: var(--primary-wash); }
+	.result-quality-needs-input { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 8%, var(--background-elevated)); }
+	.result-quality > header { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+	.result-quality-status { padding: 0.28rem 0.55rem; border: 1px solid currentColor; border-radius: 999px; color: var(--warning); font-family: var(--font-mono); font-size: 0.58rem; font-weight: 800; white-space: nowrap; }
+	.result-quality-success .result-quality-status { color: var(--primary); }
+	.result-quality-needs-input .result-quality-status { color: var(--accent); }
+	.result-quality h2 { margin: 0; font-size: clamp(1rem, 2vw, 1.35rem); }
+	.result-quality header p { margin: 0.24rem 0 0; color: var(--foreground-soft); font-size: 0.72rem; }
+	.result-quality-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+	.result-quality-metrics output { display: grid; gap: 0.08rem; padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--background); }
+	.result-quality-metrics strong { font-size: 1.1rem; }
+	.result-quality-metrics span { color: var(--muted); font-size: 0.6rem; text-transform: uppercase; }
+	.result-quality-issues { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+	.result-quality-issues:empty { display: none; }
+	.result-quality-issues li { display: grid; gap: 0.12rem; padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+	.result-quality-issues strong { font-size: 0.68rem; }
+	.result-quality-issues span { color: var(--warning); font-size: 0.62rem; }
+	.result-quality-next { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-4); align-items: start; padding-top: var(--space-3); border-top: 1px solid var(--border); }
+	.result-quality-next > strong { font-size: 0.68rem; }
+	.result-quality-next ul { display: grid; gap: 0.3rem; margin: 0; padding-left: 1rem; color: var(--foreground-soft); font-size: 0.66rem; }
 	.document, .schema-view, .empty-artifact, .model-state { width: min(100%, 70rem); min-height: 100%; margin: 0 auto; padding: clamp(1.25rem, 3vw, 3rem); border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--background-elevated); box-shadow: var(--shadow-lg); }
 	.empty-artifact { display: grid; place-items: center; text-align: center; }
 	.empty-artifact div { max-width: 28rem; }
@@ -273,6 +294,9 @@ export const workbenchStyles = `
 	.doc-card input:not([type="checkbox"]) { width: 100%; min-height: 2.4rem; padding: 0 var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--background-elevated); color: var(--foreground); }
 	.doc-card table { width: 100%; border-collapse: collapse; }
 	.doc-card th, .doc-card td { padding: var(--space-2); border-bottom: 1px solid var(--border); text-align: left; }
+	.table-cell-muted { color: var(--muted); }
+	.table-cell-warning { color: var(--warning); font-weight: 650; }
+	.table-cell-success { color: var(--primary); font-weight: 650; }
 	.source-link { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--speech); font-family: var(--font-mono); font-size: 0.68rem; font-weight: 700; text-decoration-thickness: 0.08rem; text-underline-offset: 0.16rem; overflow-wrap: anywhere; }
 	.source-link:hover { color: var(--foreground); }
 	.doc-card time, .doc-card code, .schema-view pre { color: var(--muted); font-family: var(--font-mono); }
@@ -283,7 +307,8 @@ export const workbenchStyles = `
 	.schema-view pre { margin: 0; overflow: auto; font-size: 0.72rem; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
 	.artifact[data-view="schema"] .document,
 	.artifact[data-view="schema"] .empty-artifact,
-	.artifact[data-view="schema"] .model-state { display: none; }
+	.artifact[data-view="schema"] .model-state,
+	.artifact[data-view="schema"] .result-quality { display: none; }
 	.artifact[data-view="schema"] .schema-view { display: block; }
 	.responding-overlay { display: none; position: absolute; inset: 0; align-items: center; justify-content: center; padding: var(--space-6); background: color-mix(in oklab, var(--background) 72%, transparent); backdrop-filter: blur(0.4rem); z-index: 5; }
 	.shell[data-actor-state="responding"] .responding-overlay { display: flex; }

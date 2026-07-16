@@ -13,30 +13,6 @@ const nodeHeading = (kind: DocumentNode["kind"], label: string) => (
 	</h2>
 );
 
-const sourceLink = (value: unknown) => {
-	if (typeof value !== "string") return null;
-	try {
-		const url = new URL(value);
-		if (url.protocol !== "https:" && url.protocol !== "http:") return null;
-		return (
-			<a
-				class="source-link"
-				href={url.href}
-				target="_blank"
-				rel="noopener noreferrer"
-				aria-label={`Source: ${url.hostname}`}
-			>
-				<span>{url.hostname}</span>
-				<span aria-hidden="true">↗</span>
-			</a>
-		);
-	} catch {
-		return null;
-	}
-};
-
-const renderCell = (value: unknown) => sourceLink(value) ?? String(value ?? "");
-
 const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 	switch (node.kind) {
 		case "text":
@@ -139,11 +115,27 @@ const renderNode = (node: DocumentNode, context: WorkbenchContext) => {
 							</tr>
 						</thead>
 						<tbody>
-							{node.rows.map((row) => (
+							{node.displayRows.map((row, rowIndex) => (
 								<tr key={row.id}>
 									{row.cells.map((cell, index) => (
-										<td key={`${row.id}-${node.columns[index]?.id ?? index}`}>
-											{renderCell(cell)}
+										<td
+											key={`${row.id}-${node.columns[index]?.id ?? rowIndex}-${index}`}
+											class={cell.tone ? `table-cell-${cell.tone}` : undefined}
+										>
+											{cell.link ? (
+												<a
+													class="source-link"
+													href={cell.link.href}
+													target="_blank"
+													rel="noopener noreferrer"
+													aria-label={cell.link.ariaLabel}
+												>
+													<span>{cell.text}</span>
+													<span aria-hidden="true">↗</span>
+												</a>
+											) : (
+												cell.text
+											)}
 										</td>
 									))}
 								</tr>
@@ -593,6 +585,47 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 									</div>
 								</nav>
 							) : null}
+							{context.resultQuality ? (
+								<section
+									class={`result-quality result-quality-${context.resultQuality.tone}`}
+									aria-label="Shopper result quality"
+									aria-live="polite"
+								>
+									<header>
+										<span class="result-quality-status">
+											{context.resultQuality.statusLabel}
+										</span>
+										<div>
+											<h2>{context.resultQuality.heading}</h2>
+											<p>{context.resultQuality.summary}</p>
+										</div>
+									</header>
+									<div class="result-quality-metrics">
+										{context.resultQuality.metrics.map((metric) => (
+											<output key={metric.key}>
+												<strong>{metric.value}</strong>
+												<span>{metric.label}</span>
+											</output>
+										))}
+									</div>
+									<ul class="result-quality-issues">
+										{context.resultQuality.issueRows.map((row) => (
+											<li key={row.key}>
+												<strong>{row.subject}</strong>
+												<span>{row.label}</span>
+											</li>
+										))}
+									</ul>
+									<div class="result-quality-next">
+										<strong>Next steps</strong>
+										<ul>
+											{context.resultQuality.nextActions.map((action) => (
+												<li key={action}>{action}</li>
+											))}
+										</ul>
+									</div>
+								</section>
+							) : null}
 							<div class="proof-banner">
 								<span aria-hidden="true">✓</span>
 								<div>
@@ -640,9 +673,7 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 										Actor-owned artifact · revision{" "}
 										{context.activeArtifact.revision}
 									</div>
-									<h1>
-										{context.activeArtifact.title ?? context.activeArtifact.id}
-									</h1>
+									<h1>{context.activeArtifact.displayTitle}</h1>
 									{context.activeArtifactRevisions.length > 1 ? (
 										<section
 											class="revision-history"
