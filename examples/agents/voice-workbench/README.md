@@ -174,21 +174,26 @@ The initial value is `"preparing"`. `MODEL_AVAILABLE` enters
 `available.idle`, while `MODEL_FAILED` enters `unavailable`.
 `MODEL_PREPARATION_STARTED` retries from `unavailable` or leaves either
 available child for `preparing`. An accepted `SUBMIT_PROMPT` moves only
-`available.idle` to `available.responding`. `COMPLETE_RESPONSE` mutates the
-conversation aggregate but deliberately remains responding; only a matching
-`TURN_COMPLETED` with an accepted aggregate response returns to idle. Matching
-`TURN_FAILED`, `CANCELLED`, `TIMEOUT`, and `ROUND_LIMIT_REACHED` outcomes also
-return to idle without fabricating `response-completed`. Artifact creation,
-revision, and response completion are structurally admitted only while
-responding. `SET_CHECKLIST_ITEM` is accepted
+`available.idle` to `available.responding`. An accepted `COMPLETE_RESPONSE`
+validates and stages a serializable `pendingCompletion` while deliberately
+remaining in `available.responding`; it does not yet commit a response,
+assistant message, speech request, or `response-completed` fact. Only a matching
+`TURN_COMPLETED` atomically consumes that intent, commits those aggregate facts,
+records the successful terminal, and returns to idle exactly once. Matching
+`TURN_FAILED`, `CANCELLED`, `TIMEOUT`, and `ROUND_LIMIT_REACHED` outcomes return
+to idle after discarding the staged intent. Provider failure and preparation
+interruption also discard it, so no non-success path can fabricate
+`response-completed`. Artifact creation, revision, and response completion are
+structurally admitted only while responding. `SET_CHECKLIST_ITEM` is accepted
 in both available children: model orchestration can invoke it while responding,
 while the projected checkbox invokes the same revision-guarded command only
 when exposed during idle. Restore and selection commands remain idle-only.
 
 If `MODEL_FAILED` arrives while responding, the transition atomically records
-the sanitized failure and a non-success turn receipt, clears no prior aggregate
-fact, leaves `response` null, and enters `unavailable`. Artifact mutation and
-completion are then unavailable until a later preparation succeeds.
+the sanitized failure and a non-success turn receipt, discards
+`pendingCompletion`, leaves `response` null, and enters `unavailable`. Artifact
+mutation and completion are then unavailable until a later preparation
+succeeds.
 
 The command and event vocabulary is intentionally classified by authority:
 
@@ -271,17 +276,21 @@ consumers should treat these fields separately:
 
 Current serializable context owns the conversation messages, documents,
 artifact history, response, speech request, model failure, active turn
-identity, last terminal outcome, projected child lifecycle detail, and the
-private reducer-owned presentation slice. Command availability must come from
-the same machine guard and reducer admission used by `canExecute()`; any `can*`
-view field is only a projection of that rule.
+identity, staged `pendingCompletion`, last terminal outcome, projected child
+lifecycle detail, and the private reducer-owned presentation slice.
+`pendingCompletion` may be non-null only for the active responding turn: a
+matching `TURN_COMPLETED` consumes it, while every non-success terminal or
+provider/preparation exit clears it. This correlation invariant prevents a
+stale terminal from committing another turn's response. Command availability
+must come from the same machine guard and reducer admission used by
+`canExecute()`; any `can*` view field is only a projection of that rule.
 
 The raw serializable context keys are:
 
 ```text
 activeArtifactId, activeTurnId, artifactRevisions, childLifecycles, documents,
 factSequence, lastFact, lastTurnTerminal, messages, modelFailure, presentation,
-response, revision, sessionId, speech
+pendingCompletion, response, revision, sessionId, speech
 ```
 
 The derived view currently exposes these prepared top-level keys:
@@ -324,8 +333,8 @@ stateDiagram-v2
     state Available {
         [*] --> Idle
         Idle --> Responding: SUBMIT_PROMPT [accepted]
-        Responding --> Responding: COMPLETE_RESPONSE [accepted]
-        Responding --> Idle: TURN_COMPLETED [matching + response accepted]
+        Responding --> Responding: COMPLETE_RESPONSE [accepted] / stage pendingCompletion
+        Responding --> Idle: TURN_COMPLETED [matching + pendingCompletion] / commit aggregate
         Responding --> Idle: TURN_FAILED / CANCELLED / TIMEOUT / ROUND_LIMIT_REACHED [matching]
     }
 
