@@ -104,6 +104,11 @@ describe("speech-delivery lifecycle machine", () => {
 			attemptId: "speech-failed:1",
 			message: "Audio device failed.",
 		});
+		failed.send({
+			type: "FAIL",
+			attemptId: "speech-failed:1",
+			message: "A duplicate failure must be inert.",
+		});
 		expect(failed.getSnapshot()).toMatchObject({
 			value: "failed",
 			context: {
@@ -123,8 +128,16 @@ describe("speech-delivery lifecycle machine", () => {
 		});
 		disposed.start();
 		disposed.send({ type: "DISPOSE" });
+		const firstDisposal = disposed.getSnapshot();
 		disposed.send({ type: "DISPOSE" });
-		expect(disposed.getSnapshot().value).toBe("disposed");
+		expect(disposed.getSnapshot()).toMatchObject({
+			value: "disposed",
+			context: {
+				portAction: "dispose",
+				portSequence: 2,
+			},
+		});
+		expect(disposed.getSnapshot().context).toEqual(firstDisposal.context);
 		disposed.stop();
 	});
 });
