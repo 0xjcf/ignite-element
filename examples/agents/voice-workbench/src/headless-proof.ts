@@ -2,11 +2,16 @@
 
 import "@ignite-element/renderer/jsx";
 import { test as igniteTest } from "ignite-element/testing";
-import { component, source } from "./session";
+import {
+	component,
+	recordTurnTerminal,
+	reportModelAvailable,
+	source,
+} from "./session";
 
 const story = component.record("voice-workbench-headless-proof");
 
-await story.execute({ command: "reportModelAvailable" });
+reportModelAvailable();
 await story.execute({
 	command: "submitPrompt",
 	input: { modality: "text", text: "Prove the headless artifact contract" },
@@ -50,6 +55,8 @@ await story.execute({
 	command: "completeResponse",
 	input: { text: "Headless proof complete." },
 });
+const turnId = source.getSnapshot().context.activeTurnId;
+if (turnId) recordTurnTerminal({ type: "TURN_COMPLETED", turnId });
 
 const proof = igniteTest.snapshotStory(story);
 const view = component.getView();

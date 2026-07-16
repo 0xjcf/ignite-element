@@ -229,6 +229,7 @@ export const projectSpeechDeliveryTerminalFact = (
 export type SpeechDeliveryLifecycleProjection = {
 	state: string;
 	id: string;
+	text: string;
 	attemptId: string;
 	fact: SpeechDeliveryFact | null;
 	terminal: SpeechDeliveryTerminalFact | null;
@@ -239,6 +240,7 @@ export const projectSpeechDeliveryLifecycle = (
 ): SpeechDeliveryLifecycleProjection => ({
 	state: String(snapshot.value),
 	id: snapshot.context.id,
+	text: snapshot.context.text,
 	attemptId: snapshot.context.attemptId,
 	fact: projectSpeechDeliveryFact(snapshot),
 	terminal: projectSpeechDeliveryTerminalFact(snapshot),

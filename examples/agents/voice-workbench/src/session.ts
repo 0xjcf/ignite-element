@@ -23,7 +23,15 @@ import {
 } from "./domain";
 import type { DomainPolicyDecision } from "./domains/contracts";
 import type { ProductPriceReasonCode } from "./domains/product-pricing/price-capability";
-import type { VoiceCaptureFact } from "./voice";
+import type { ModelTurnLifecycleProjection } from "./model-turn";
+import type {
+	SpeechDeliveryFact,
+	SpeechDeliveryLifecycleProjection,
+} from "./speech";
+import type {
+	VoiceCaptureFact,
+	VoiceCaptureLifecycleProjection,
+} from "./voice";
 
 export type WorkbenchArtifactView = "document" | "schema";
 export type WorkbenchPanel = "conversation" | "artifact" | "runtime";
@@ -158,6 +166,7 @@ export type WorkbenchPresentation = {
 		text: string;
 		status: "played" | "muted" | "unavailable";
 	} | null;
+	speechDelivery: SpeechDeliveryFact | null;
 	speechReplayRequest: { id: string; text: string; sequence: number } | null;
 	turn: WorkbenchTurnFact | null;
 	voice: VoiceCaptureFact;
@@ -200,6 +209,11 @@ export type WorkbenchAdapterFact =
 	| {
 			type: "speech-committed";
 			speech: NonNullable<WorkbenchPresentation["speechCommit"]>;
+	  }
+	| {
+			type: "speech-delivery-recorded";
+			fact: SpeechDeliveryFact;
+			text: string;
 	  };
 
 export type WorkbenchReadModelFact =
@@ -230,28 +244,69 @@ export type PresentationUpdateEvent = {
 export type VoiceWorkbenchSession = ConversationSession & {
 	modelFailure: ModelFailureFact | null;
 	presentation: WorkbenchPresentation;
+	activeTurnId: string | null;
+	lastTurnTerminal: VoiceWorkbenchTurnTerminalEvent | null;
+	childLifecycles: {
+		modelTurn: ModelTurnLifecycleProjection | null;
+		voiceCapture: VoiceCaptureLifecycleProjection | null;
+		speechDelivery: SpeechDeliveryLifecycleProjection | null;
+	};
 };
 export type ModelReadinessEvent =
 	| { type: "MODEL_PREPARATION_STARTED" }
 	| { type: "MODEL_AVAILABLE" }
 	| { type: "MODEL_FAILED"; failure: ModelFailureFact };
+export type VoiceWorkbenchTurnTerminalEvent =
+	| { type: "TURN_COMPLETED"; turnId: string }
+	| { type: "TURN_FAILED"; turnId: string; failure: ModelFailureFact }
+	| { type: "CANCELLED"; turnId: string }
+	| { type: "TIMEOUT"; turnId: string }
+	| { type: "ROUND_LIMIT_REACHED"; turnId: string };
+export type VoiceWorkbenchPrivateEvent =
+	| {
+			type: "DOCUMENT_COMMITTED";
+			document: NonNullable<WorkbenchPresentation["documentCommit"]>;
+	  }
+	| {
+			type: "SPEECH_COMMITTED";
+			speech: NonNullable<WorkbenchPresentation["speechCommit"]>;
+	  }
+	| { type: "VOICE_RECORDED"; fact: VoiceCaptureFact }
+	| {
+			type: "CAPABILITY_OUTCOME_RECORDED";
+			outcome: WorkbenchCapabilityOutcome;
+	  }
+	| { type: "DOMAIN_POLICY_RECORDED"; decision: DomainPolicyDecision }
+	| {
+			type: "RUNTIME_MANIFEST_RECORDED";
+			manifest: readonly WorkbenchRuntimeManifestEntry[];
+	  }
+	| { type: "TURN_RECORDED"; fact: WorkbenchTurnFact }
+	| {
+			type: "MODEL_TURN_LIFECYCLE_UPDATED";
+			lifecycle: ModelTurnLifecycleProjection;
+	  }
+	| {
+			type: "VOICE_CAPTURE_LIFECYCLE_UPDATED";
+			lifecycle: VoiceCaptureLifecycleProjection;
+	  }
+	| {
+			type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED";
+			lifecycle: SpeechDeliveryLifecycleProjection;
+	  };
 export type VoiceWorkbenchSessionEvent =
 	| ConversationAction
 	| ModelReadinessEvent
-	| PresentationUpdateEvent;
+	| VoiceWorkbenchTurnTerminalEvent
+	| PresentationUpdateEvent
+	| VoiceWorkbenchPrivateEvent;
 
 export type WorkbenchSpeechAcknowledgementFact = Extract<
 	ConversationFact,
 	{ type: "speech-acknowledged" }
 >;
 
-export type WorkbenchSpeechDeliveryFact =
-	| { type: "speech-delivery-queued"; id: string }
-	| { type: "speech-delivery-completed"; id: string }
-	| { type: "speech-delivery-muted"; id: string }
-	| { type: "speech-delivery-unavailable"; id: string }
-	| { type: "speech-delivery-failed"; id: string; message: string }
-	| { type: "speech-delivery-cancelled"; id: string };
+export type WorkbenchSpeechDeliveryFact = SpeechDeliveryFact;
 
 export type WorkbenchSpeechLifecycleFact =
 	| WorkbenchSpeechAcknowledgementFact
@@ -285,21 +340,21 @@ export const voiceWorkbenchLifecycleOwnership = [
 		surface: "model-turn",
 		owner: "model-turn child actor",
 		disposition: "statechart",
-		implementation: "planned",
+		implementation: "executable",
 		maturity: "target",
 	},
 	{
 		surface: "voice-capture",
 		owner: "voice-capture child actor",
 		disposition: "statechart",
-		implementation: "planned",
+		implementation: "executable",
 		maturity: "target",
 	},
 	{
 		surface: "speech-delivery",
 		owner: "speech-delivery child actor",
 		disposition: "statechart",
-		implementation: "planned",
+		implementation: "executable",
 		maturity: "target",
 	},
 	{
@@ -356,6 +411,7 @@ const createInitialPresentation = (): WorkbenchPresentation => ({
 	domainPolicy: null,
 	speakResponses: true,
 	speechCommit: null,
+	speechDelivery: null,
 	speechReplayRequest: null,
 	turn: null,
 	voice: { type: "voice-idle" },
@@ -399,6 +455,7 @@ export const reduceWorkbenchPresentation = (
 				capabilityOutcomes: [],
 				domainPolicy: null,
 				runtimeManifest: [],
+				speechDelivery: null,
 				turn: null,
 			};
 		case "voice-recorded":
@@ -407,6 +464,30 @@ export const reduceWorkbenchPresentation = (
 			return { ...presentation, documentCommit: update.document };
 		case "speech-committed":
 			return { ...presentation, speechCommit: update.speech };
+		case "speech-delivery-recorded": {
+			const status =
+				update.fact.type === "speech-delivery-completed"
+					? "played"
+					: update.fact.type === "speech-delivery-muted"
+						? "muted"
+						: update.fact.type === "speech-delivery-unavailable" ||
+								update.fact.type === "speech-delivery-failed"
+							? "unavailable"
+							: null;
+			return {
+				...presentation,
+				speechDelivery: update.fact,
+				...(status
+					? {
+							speechCommit: {
+								id: update.fact.id,
+								text: update.text,
+								status,
+							},
+						}
+					: {}),
+			};
+		}
 		case "turn-recorded":
 			return { ...presentation, turn: update.fact };
 		case "runtime-manifest-recorded":
@@ -653,6 +734,81 @@ const isConversationAction = (
 	}
 };
 
+const isTurnTerminalEvent = (
+	event: VoiceWorkbenchSessionEvent,
+): event is VoiceWorkbenchTurnTerminalEvent => {
+	switch (event.type) {
+		case "TURN_COMPLETED":
+		case "TURN_FAILED":
+		case "CANCELLED":
+		case "TIMEOUT":
+		case "ROUND_LIMIT_REACHED":
+			return true;
+		default:
+			return false;
+	}
+};
+
+const privatePresentationEnvelope = (
+	event: VoiceWorkbenchPrivateEvent,
+): WorkbenchPresentationEnvelope | null => {
+	switch (event.type) {
+		case "DOCUMENT_COMMITTED":
+			return {
+				channel: "private-adapter",
+				update: { type: "document-committed", document: event.document },
+			};
+		case "SPEECH_COMMITTED":
+			return {
+				channel: "private-adapter",
+				update: { type: "speech-committed", speech: event.speech },
+			};
+		case "VOICE_RECORDED":
+			return {
+				channel: "private-adapter",
+				update: { type: "voice-recorded", fact: event.fact },
+			};
+		case "CAPABILITY_OUTCOME_RECORDED":
+			return {
+				channel: "read-model",
+				update: { type: "capability-outcome-recorded", outcome: event.outcome },
+			};
+		case "DOMAIN_POLICY_RECORDED":
+			return {
+				channel: "read-model",
+				update: { type: "domain-policy-recorded", decision: event.decision },
+			};
+		case "RUNTIME_MANIFEST_RECORDED":
+			return {
+				channel: "read-model",
+				update: { type: "runtime-manifest-recorded", manifest: event.manifest },
+			};
+		case "TURN_RECORDED":
+			return {
+				channel: "read-model",
+				update: { type: "turn-recorded", fact: event.fact },
+			};
+		case "VOICE_CAPTURE_LIFECYCLE_UPDATED":
+			return {
+				channel: "private-adapter",
+				update: { type: "voice-recorded", fact: event.lifecycle.fact },
+			};
+		case "SPEECH_DELIVERY_LIFECYCLE_UPDATED":
+			return event.lifecycle.fact
+				? {
+						channel: "private-adapter",
+						update: {
+							type: "speech-delivery-recorded",
+							fact: event.lifecycle.fact,
+							text: event.lifecycle.text,
+						},
+					}
+				: null;
+		case "MODEL_TURN_LIFECYCLE_UPDATED":
+			return null;
+	}
+};
+
 export const voiceWorkbenchSessionMachine = setup({
 	types: {
 		context: {} as VoiceWorkbenchSession,
@@ -663,9 +819,21 @@ export const voiceWorkbenchSessionMachine = setup({
 			if (!isConversationAction(event)) return context;
 			const result = reduceConversationSession(context, event);
 			if (result.accepted) {
+				const activeTurnId =
+					event.type === "SUBMIT_PROMPT" &&
+					result.session.lastFact?.type === "prompt-submitted"
+						? result.session.lastFact.turnId
+						: context.activeTurnId;
 				return {
 					...result.session,
 					modelFailure: context.modelFailure,
+					activeTurnId,
+					lastTurnTerminal:
+						event.type === "SUBMIT_PROMPT" ? null : context.lastTurnTerminal,
+					childLifecycles: {
+						...context.childLifecycles,
+						...(event.type === "SUBMIT_PROMPT" ? { modelTurn: null } : {}),
+					},
 					presentation:
 						event.type === "SUBMIT_PROMPT"
 							? reduceWorkbenchPresentation(context.presentation, {
@@ -695,6 +863,59 @@ export const voiceWorkbenchSessionMachine = setup({
 				),
 			};
 		}),
+		applyPrivateEvent: assign(({ context, event }) => {
+			if (
+				isConversationAction(event) ||
+				isTurnTerminalEvent(event) ||
+				event.type === "MODEL_PREPARATION_STARTED" ||
+				event.type === "MODEL_AVAILABLE" ||
+				event.type === "MODEL_FAILED" ||
+				event.type === "PRESENTATION_UPDATED"
+			) {
+				return context;
+			}
+			const envelope = privatePresentationEnvelope(event);
+			const presentation = envelope
+				? reduceWorkbenchPresentation(context.presentation, envelope)
+				: context.presentation;
+			switch (event.type) {
+				case "MODEL_TURN_LIFECYCLE_UPDATED":
+					return {
+						...context,
+						presentation,
+						childLifecycles: {
+							...context.childLifecycles,
+							modelTurn: event.lifecycle,
+						},
+					};
+				case "VOICE_CAPTURE_LIFECYCLE_UPDATED":
+					return {
+						...context,
+						presentation,
+						childLifecycles: {
+							...context.childLifecycles,
+							voiceCapture: event.lifecycle,
+						},
+					};
+				case "SPEECH_DELIVERY_LIFECYCLE_UPDATED":
+					return {
+						...context,
+						presentation,
+						childLifecycles: {
+							...context.childLifecycles,
+							speechDelivery: event.lifecycle,
+						},
+					};
+				default:
+					return { ...context, presentation };
+			}
+		}),
+		clearActiveTurn: assign({ activeTurnId: () => null }),
+		recordTurnTerminal: assign(({ context, event }) =>
+			isTurnTerminalEvent(event)
+				? { ...context, lastTurnTerminal: event }
+				: context,
+		),
 		clearModelFailure: assign({ modelFailure: () => null }),
 		recordModelFailure: assign({
 			modelFailure: ({ event }) =>
@@ -726,6 +947,12 @@ export const voiceWorkbenchSessionMachine = setup({
 		transitionAccepted: ({ context, event }) =>
 			isConversationAction(event) &&
 			reduceConversationSession(context, event).accepted,
+		terminalMatchesActiveTurn: ({ context, event }) =>
+			isTurnTerminalEvent(event) && event.turnId === context.activeTurnId,
+		completedTurnIsReady: ({ context, event }) =>
+			event.type === "TURN_COMPLETED" &&
+			event.turnId === context.activeTurnId &&
+			context.response !== null,
 	},
 }).createMachine({
 	id: "conversation-session",
@@ -734,10 +961,27 @@ export const voiceWorkbenchSessionMachine = setup({
 		...createInitialSession("voice-workbench"),
 		modelFailure: null,
 		presentation: createInitialPresentation(),
+		activeTurnId: null,
+		lastTurnTerminal: null,
+		childLifecycles: {
+			modelTurn: null,
+			voiceCapture: null,
+			speechDelivery: null,
+		},
 	}),
 	on: {
 		ACKNOWLEDGE_SPEECH: { actions: "applyTransition" },
 		PRESENTATION_UPDATED: { actions: "applyPresentationUpdate" },
+		DOCUMENT_COMMITTED: { actions: "applyPrivateEvent" },
+		SPEECH_COMMITTED: { actions: "applyPrivateEvent" },
+		VOICE_RECORDED: { actions: "applyPrivateEvent" },
+		CAPABILITY_OUTCOME_RECORDED: { actions: "applyPrivateEvent" },
+		DOMAIN_POLICY_RECORDED: { actions: "applyPrivateEvent" },
+		RUNTIME_MANIFEST_RECORDED: { actions: "applyPrivateEvent" },
+		TURN_RECORDED: { actions: "applyPrivateEvent" },
+		MODEL_TURN_LIFECYCLE_UPDATED: { actions: "applyPrivateEvent" },
+		VOICE_CAPTURE_LIFECYCLE_UPDATED: { actions: "applyPrivateEvent" },
+		SPEECH_DELIVERY_LIFECYCLE_UPDATED: { actions: "applyPrivateEvent" },
 	},
 	states: {
 		preparing: {
@@ -793,6 +1037,7 @@ export const voiceWorkbenchSessionMachine = setup({
 					},
 				},
 				responding: {
+					exit: "clearActiveTurn",
 					on: {
 						MODEL_FAILED: {
 							target: "#conversation-session.unavailable",
@@ -803,11 +1048,35 @@ export const voiceWorkbenchSessionMachine = setup({
 						COMPLETE_RESPONSE: [
 							{
 								guard: "transitionAccepted",
-								target: "idle",
 								actions: "applyTransition",
 							},
 							{ actions: "applyTransition" },
 						],
+						TURN_COMPLETED: {
+							guard: "completedTurnIsReady",
+							target: "idle",
+							actions: "recordTurnTerminal",
+						},
+						TURN_FAILED: {
+							guard: "terminalMatchesActiveTurn",
+							target: "idle",
+							actions: "recordTurnTerminal",
+						},
+						CANCELLED: {
+							guard: "terminalMatchesActiveTurn",
+							target: "idle",
+							actions: "recordTurnTerminal",
+						},
+						TIMEOUT: {
+							guard: "terminalMatchesActiveTurn",
+							target: "idle",
+							actions: "recordTurnTerminal",
+						},
+						ROUND_LIMIT_REACHED: {
+							guard: "terminalMatchesActiveTurn",
+							target: "idle",
+							actions: "recordTurnTerminal",
+						},
 					},
 				},
 			},
@@ -835,6 +1104,56 @@ export type VoiceWorkbenchSessionActor = ReturnType<
 >;
 
 export const source = createVoiceWorkbenchSessionActor().start();
+
+/** Example-private adapter/read-model ports. These are intentionally absent from getSchema(). */
+export const reportModelAvailable = (): void =>
+	source.send({ type: "MODEL_AVAILABLE" });
+
+export const reportModelFailure = (failure: ModelFailureFact): void =>
+	source.send({ type: "MODEL_FAILED", failure });
+
+export const commitDocument = (
+	document: NonNullable<WorkbenchPresentation["documentCommit"]>,
+): void => source.send({ type: "DOCUMENT_COMMITTED", document });
+
+export const commitSpeech = (
+	speech: NonNullable<WorkbenchPresentation["speechCommit"]>,
+): void => source.send({ type: "SPEECH_COMMITTED", speech });
+
+export const presentVoice = (fact: VoiceCaptureFact): void =>
+	source.send({ type: "VOICE_RECORDED", fact });
+
+export const recordCapabilityOutcome = (
+	outcome: WorkbenchCapabilityOutcome,
+): void => source.send({ type: "CAPABILITY_OUTCOME_RECORDED", outcome });
+
+export const recordDomainPolicyDecision = (
+	decision: DomainPolicyDecision,
+): void => source.send({ type: "DOMAIN_POLICY_RECORDED", decision });
+
+export const recordRuntimeManifest = (
+	manifest: readonly WorkbenchRuntimeManifestEntry[],
+): void => source.send({ type: "RUNTIME_MANIFEST_RECORDED", manifest });
+
+export const recordTurn = (fact: WorkbenchTurnFact): void =>
+	source.send({ type: "TURN_RECORDED", fact });
+
+export const recordModelTurnLifecycle = (
+	lifecycle: ModelTurnLifecycleProjection,
+): void => source.send({ type: "MODEL_TURN_LIFECYCLE_UPDATED", lifecycle });
+
+export const recordVoiceCaptureLifecycle = (
+	lifecycle: VoiceCaptureLifecycleProjection,
+): void => source.send({ type: "VOICE_CAPTURE_LIFECYCLE_UPDATED", lifecycle });
+
+export const recordSpeechDeliveryLifecycle = (
+	lifecycle: SpeechDeliveryLifecycleProjection,
+): void =>
+	source.send({ type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED", lifecycle });
+
+export const recordTurnTerminal = (
+	event: VoiceWorkbenchTurnTerminalEvent,
+): void => source.send(event);
 
 const PRODUCT_PRICE_REASON_LABELS: Record<ProductPriceReasonCode, string> = {
 	"candidate-ambiguous": "Candidate selection ambiguous",
@@ -1033,6 +1352,515 @@ const productPricingResultQuality = (
 	};
 };
 
+export const projectVoiceWorkbenchView = ({
+	snapshot,
+}: {
+	snapshot: VoiceWorkbenchSessionSnapshot;
+}) => {
+	const modelPreparing = snapshot.matches("preparing");
+	const modelFailed = snapshot.matches("unavailable");
+	const modelAvailable = snapshot.matches("available");
+	const responding = snapshot.matches({ available: "responding" });
+	const turnReady = snapshot.matches({ available: "idle" });
+	const status = modelPreparing
+		? "preparing"
+		: modelFailed
+			? "failed"
+			: responding
+				? "responding"
+				: "ready";
+	const artifacts = snapshot.context.documents.map((document) => ({
+		...document,
+		displayTitle: readableArtifactTitle(document.title, document.id),
+		nodes: document.nodes.map((node) => {
+			const payload = node.kind === "action" ? node.payload : null;
+			const speech =
+				typeof payload === "object" &&
+				payload !== null &&
+				!Array.isArray(payload) &&
+				typeof payload.speech === "string" &&
+				payload.speech.trim().length > 0
+					? payload.speech.trim()
+					: undefined;
+			const input =
+				node.kind === "action" &&
+				node.commandName === "completeResponse" &&
+				typeof payload === "object" &&
+				payload !== null &&
+				!Array.isArray(payload) &&
+				typeof payload.text === "string" &&
+				payload.text.trim().length > 0 &&
+				(payload.speech === undefined || speech !== undefined)
+					? {
+							text: payload.text.trim(),
+							...(speech ? { speech } : {}),
+						}
+					: null;
+			return {
+				...node,
+				action: input ? { enabled: responding, input } : null,
+				displayRows:
+					node.kind === "table"
+						? node.rows.map((row) => ({
+								id: row.id,
+								cells: row.cells.map((cell, index) =>
+									tableCellView(cell, node.columns[index]?.label ?? ""),
+								),
+							}))
+						: [],
+			};
+		}),
+	}));
+	const activeArtifact =
+		artifacts.find(
+			(artifact) => artifact.id === snapshot.context.activeArtifactId,
+		) ??
+		artifacts[artifacts.length - 1] ??
+		null;
+	const artifactSummaries = artifacts.map((artifact) => ({
+		id: artifact.id,
+		title: artifact.displayTitle,
+		revision: artifact.revision,
+		nodeCount: artifact.nodes.length,
+		active: artifact.id === activeArtifact?.id,
+	}));
+	const activeArtifactRevisions = activeArtifact
+		? snapshot.context.artifactRevisions
+				.filter((document) => document.id === activeArtifact.id)
+				.map((document) => ({
+					revision: document.revision,
+					title: readableArtifactTitle(document.title, document.id),
+					nodeCount: document.nodes.length,
+					current: document.revision === activeArtifact.revision,
+				}))
+		: [];
+	const canSetChecklistItem =
+		turnReady &&
+		artifacts.some((artifact) =>
+			artifact.nodes.some((node) => node.kind === "checklist"),
+		);
+	const turnCount = snapshot.context.messages.filter(
+		(message) => message.role === "user",
+	).length;
+	const presentation = snapshot.context.presentation;
+	const respondingProgress = describeRespondingProgress(
+		snapshot.context.lastFact,
+	);
+	const voice = presentation.voice;
+	const transcript = voice.type === "voice-transcript" ? voice.text : null;
+	const transcriptReady = voice.type === "voice-transcript" && voice.final;
+	const voiceFailure =
+		voice.type === "voice-permission-denied" || voice.type === "voice-error"
+			? voice
+			: null;
+	const documentSchema = JSON.stringify(
+		activeArtifact
+			? {
+					id: activeArtifact.id,
+					title: activeArtifact.title,
+					revision: activeArtifact.revision,
+					nodes: activeArtifact.nodes.map((node) => {
+						const { action: _action, ...schemaNode } = node;
+						if ("displayRows" in schemaNode) {
+							const { displayRows: _displayRows, ...actorNode } = schemaNode;
+							return actorNode;
+						}
+						return schemaNode;
+					}),
+				}
+			: { artifacts: [] },
+		null,
+		2,
+	);
+	const providerState = modelPreparing
+		? "preparing"
+		: modelFailed
+			? "failed"
+			: "available";
+	const turnState = modelPreparing
+		? "preparing"
+		: modelFailed
+			? "unavailable"
+			: responding
+				? "responding"
+				: "idle";
+	const actorMatchText = modelPreparing
+		? 'matches("preparing")'
+		: modelFailed
+			? 'matches("unavailable")'
+			: `matches({\n  available: "${responding ? "responding" : "idle"}",\n})`;
+	const artifactLine = activeArtifact
+		? `${activeArtifact.displayTitle} · revision ${activeArtifact.revision}`
+		: "No accepted artifact yet";
+	let previewText: string;
+	switch (presentation.runtimePreview) {
+		case "browser":
+			previewText = `Browser JSX preview\n${artifactLine}\n${describeFact(snapshot.context.lastFact)}`;
+			break;
+		case "terminal":
+			previewText = `Terminal projection\nPreview only · no remote terminal sync\nstate: ${turnState}\n${artifactLine}`;
+			break;
+		case "speech":
+			previewText = `Speech projection\n${snapshot.context.response?.speech ?? snapshot.context.response?.text ?? "No response available for speech"}\nstatus: ${snapshot.context.speech?.status ?? "idle"}`;
+			break;
+		case "headless":
+			previewText = `Headless projection\n${JSON.stringify(
+				{
+					state: snapshot.value,
+					actorRevision: snapshot.context.revision,
+					activeArtifactId: snapshot.context.activeArtifactId,
+				},
+				null,
+				2,
+			)}`;
+			break;
+	}
+	const capabilityRows =
+		presentation.capabilityOutcomes.length === 0
+			? [
+					{
+						key: "empty-capability-row",
+						className: "capability-outcome capability-outcome-empty",
+						heading: "No external capability facts yet",
+						statusLabel: "waiting",
+						message: "Capability adapter outcomes appear after execution.",
+					},
+				]
+			: presentation.capabilityOutcomes.flatMap((outcome, index) => {
+					const key = `${outcome.ownerId}-${outcome.toolName}-${index}`;
+					const capabilityRow = {
+						key,
+						className: "capability-outcome",
+						heading: `${outcome.ownerId} · ${outcome.toolName}`,
+						statusLabel: `${outcome.type}${outcome.status ? ` · HTTP ${outcome.status}` : ""}${outcome.cacheStatus ? ` · cache ${outcome.cacheStatus}` : ""}`,
+						message: [
+							outcome.message,
+							outcome.retry
+								? `${outcome.retry.attempts}/${outcome.retry.maxAttempts} attempts${outcome.retry.exhausted ? " · exhausted" : ""}`
+								: null,
+							outcome.fallback
+								? fallbackAttemptSummary(outcome.fallback)
+								: null,
+						]
+							.filter((value): value is string => value !== null)
+							.join(" · "),
+					};
+					const pricingRows = (outcome.pricingRows ?? []).map(
+						(pricing, pricingIndex) => ({
+							key: `${key}-pricing-${pricingIndex}`,
+							className: "capability-outcome",
+							heading: `${pricing.subject} · product pricing`,
+							statusLabel: `${pricing.priceStatus} · cache ${pricing.cacheStatus}`,
+							message: [
+								pricing.product && pricing.size
+									? `${pricing.product} · ${pricing.size}`
+									: "No selected product",
+								pricing.priceStatus === "unverified"
+									? PRODUCT_PRICE_REASON_LABELS[pricing.reasonCode]
+									: null,
+								`native ${pricing.nativeStatus}`,
+								`Brave ${pricing.braveStatus}`,
+							]
+								.filter((value): value is string => value !== null)
+								.join(" · "),
+							...pricing,
+						}),
+					);
+					return [capabilityRow, ...pricingRows];
+				});
+	const domainPolicySections = presentation.domainPolicy
+		? [
+				{
+					key: "assumptions",
+					heading: "Assumptions",
+					rows: presentation.domainPolicy.assumptions.map((assumption) => ({
+						key: assumption.id,
+						text: assumption.label,
+					})),
+				},
+				{
+					key: "questions",
+					heading: "Clarification questions",
+					rows: presentation.domainPolicy.questions.map((question) => ({
+						key: question.id,
+						text: question.prompt,
+					})),
+				},
+				{
+					key: "evidence",
+					heading: "Evidence requirements",
+					rows: presentation.domainPolicy.evidenceRequirements.map(
+						(requirement) => ({
+							key: requirement.id,
+							text: requirement.label,
+						}),
+					),
+				},
+			].filter((section) => section.rows.length > 0)
+		: [];
+	const domainPolicy = presentation.domainPolicy
+		? {
+				heading: "Domain policy proof",
+				statusLabel: presentation.domainPolicy.outcome.replace("-", " "),
+				summary: presentation.domainPolicy.summary,
+				identityRows: [
+					{
+						key: "domain",
+						label: "Domain",
+						value: presentation.domainPolicy.domainLabel,
+					},
+					{
+						key: "policy",
+						label: "Policy",
+						value: presentation.domainPolicy.policyLabel,
+					},
+				],
+				sections: domainPolicySections,
+			}
+		: null;
+	const manifestRows =
+		presentation.runtimeManifest.length === 0
+			? [
+					{
+						key: "empty-manifest-row",
+						name: "Awaiting the next model request",
+						dataCommandName: "pending-model-request",
+						summaryLabel: "no live commands captured",
+						descriptions: [
+							"The exact availability-scoped manifest appears at the next model boundary.",
+						],
+						schemaText: "input · unavailable until request",
+					},
+				]
+			: presentation.runtimeManifest.map((tool) => ({
+					key: tool.name,
+					name: tool.name,
+					dataCommandName: tool.name,
+					summaryLabel: `${tool.ownerId} · live · ${tool.gated ? "gated" : "available"}`,
+					descriptions: tool.description ? [tool.description] : [],
+					schemaText: formatSchema(tool.inputSchema),
+				}));
+	const blueprintRows = Object.entries(componentBlueprintCommands).map(
+		([name, commandSchema]) => ({
+			key: name,
+			className: "command",
+			name,
+			descriptions:
+				typeof commandSchema.description === "string"
+					? [commandSchema.description]
+					: [],
+			schemaText: formatSchema(commandSchema.input),
+		}),
+	);
+	const traceRows = [
+		{
+			key: "transcript",
+			className: "trace-step",
+			heading: "Text or speech transcript",
+			detail: "outer adapter → text + modality",
+		},
+		{
+			key: "actor-fact",
+			className: "trace-step",
+			heading: describeFact(snapshot.context.lastFact),
+			detail: "current public actor fact",
+		},
+		{
+			key: "artifact",
+			className: "trace-step",
+			heading: activeArtifact
+				? `Artifact revision ${activeArtifact.revision} stored`
+				: "Awaiting accepted artifact",
+			detail: "semantic nodes, never generated DOM",
+		},
+		...(presentation.turn?.capability
+			? [
+					{
+						key: "capability",
+						className: "trace-step capability-proof",
+						heading: `${presentation.turn.capability.provider} · ${presentation.turn.capability.tool}`,
+						detail: capabilityProofSummary(presentation.turn.capability),
+					},
+				]
+			: []),
+		...(presentation.turn?.collision
+			? [
+					{
+						key: "collision",
+						className: "trace-step collision-proof",
+						heading: "Capability manifest collision",
+						detail: `${presentation.turn.collision.toolNames.join(", ")} · ${presentation.turn.collision.owners.join(" + ")}`,
+					},
+				]
+			: []),
+	];
+	const resultQuality = productPricingResultQuality(
+		presentation.domainPolicy,
+		presentation.capabilityOutcomes,
+	);
+	return {
+		sessionId: snapshot.context.sessionId,
+		lifecycle: {
+			state: snapshot.value,
+			activeTurnId: snapshot.context.activeTurnId,
+			lastTurnTerminal: snapshot.context.lastTurnTerminal,
+			children: snapshot.context.childLifecycles,
+		},
+		portRequests: {
+			modelPreparation: modelPreparing
+				? { type: "prepare-model" as const }
+				: null,
+			voiceCapture: presentation.voiceCaptureRequest,
+			speechDelivery: presentation.speechReplayRequest,
+		},
+		modelContext: {
+			status,
+			activeArtifactId: snapshot.context.activeArtifactId,
+			artifacts: snapshot.context.documents,
+		},
+		status,
+		statusLabel: modelPreparing
+			? "Preparing local model"
+			: modelFailed
+				? "Model unavailable"
+				: responding
+					? "Responding"
+					: "Ready",
+		canSubmitPrompt: modelAvailable && turnReady,
+		canSetChecklistItem,
+		canRestoreArtifactRevision:
+			turnReady &&
+			activeArtifactRevisions.some((revision) => !revision.current),
+		canRetryModel: modelFailed,
+		activeArtifact,
+		resultQuality,
+		artifactSummaries,
+		activeArtifactRevisions,
+		turnCount,
+		turnLabel: `${turnCount} ${turnCount === 1 ? "turn" : "turns"}`,
+		speechStatus: snapshot.context.speech?.status ?? "idle",
+		documentSchema,
+		voiceState: voiceState(voice),
+		transcript,
+		transcriptReady,
+		microphoneUnavailable: voice.type === "voice-unsupported",
+		voiceFailure,
+		turnMessage: describeTurn(presentation.turn),
+		lastFactLabel: describeFact(snapshot.context.lastFact),
+		respondingProgress,
+		modelPreparing,
+		modelFailed,
+		promptPlaceholder: modelPreparing
+			? "Waiting for the local model to finish preparing…"
+			: modelFailed
+				? "Retry the local model before sending a prompt…"
+				: "Ask the agent to create or revise an artifact…",
+		turnState,
+		model: {
+			status: modelPreparing
+				? "preparing"
+				: modelFailed
+					? "failed"
+					: "available",
+			failure: snapshot.context.modelFailure,
+		},
+		revision: snapshot.context.revision,
+		messageCount: snapshot.context.messages.length,
+		messages: snapshot.context.messages,
+		lastFact: snapshot.context.lastFact,
+		artifacts,
+		speech: snapshot.context.speech,
+		activeArtifactId: snapshot.context.activeArtifactId,
+		response: snapshot.context.response,
+		canRevise: responding && snapshot.context.documents.length > 0,
+		presentation: snapshot.context.presentation,
+		runtimeInspector: {
+			activeStates: snapshot.value,
+			mlx: {
+				status: providerState,
+				ready: modelAvailable,
+				heading: "MLX model readiness",
+				statusLabel: providerState,
+				detail: modelAvailable
+					? "Inference admitted for prompts"
+					: "Prompts remain gated",
+			},
+			actor: {
+				lastFact: snapshot.context.lastFact,
+				revision: snapshot.context.revision,
+				heading: "Compound actor state",
+				matchText: actorMatchText,
+				factLabel: `Current actor fact · ${describeFact(snapshot.context.lastFact)}`,
+			},
+			selectedPreview: presentation.runtimePreview,
+			preview: {
+				text: previewText,
+				selectors: runtimePreviewDefinitions.map((preview) => ({
+					...preview,
+					selected: preview.id === presentation.runtimePreview,
+				})),
+			},
+			capabilityRows,
+			domainPolicy,
+			domainPolicyCards: domainPolicy ? [domainPolicy] : [],
+			trace: {
+				acceptedArtifactLabel: activeArtifact
+					? `Artifact revision ${activeArtifact.revision} stored`
+					: "Awaiting accepted artifact",
+				rows: traceRows,
+			},
+			receipts: [
+				{
+					id: "browser" as const,
+					className: "commit commit-browser",
+					icon: "▤",
+					title: "Browser · native JSX",
+					detail: presentation.documentCommit
+						? `${presentation.documentCommit.id} · revision ${presentation.documentCommit.revision}`
+						: "awaiting artifact",
+					statusLabel: presentation.documentCommit ? "current" : "idle",
+				},
+				{
+					id: "terminal" as const,
+					className: "commit commit-terminal",
+					icon: ">_",
+					title: "Terminal · Node",
+					detail: "preview only · no remote terminal sync",
+					statusLabel: "headless",
+				},
+				{
+					id: "speech" as const,
+					className: "commit commit-speech",
+					icon: "◖",
+					title: "Speech · audio",
+					detail:
+						presentation.speechCommit?.text ??
+						"browser adapter · actor acknowledged",
+					statusLabel: presentation.speechCommit?.status ?? "idle",
+				},
+			],
+			schemaExplorer: {
+				manifest: {
+					heading: "Availability-scoped model manifest",
+					countLabel: `${presentation.runtimeManifest.length} live ${presentation.runtimeManifest.length === 1 ? "command" : "commands"}`,
+					rows: manifestRows,
+				},
+				blueprint: {
+					heading: "All-component blueprint",
+					countLabel: `${blueprintRows.length} commands from getSchema()`,
+					rows: blueprintRows,
+				},
+				policy: {
+					heading: "renderJavascript rejected",
+					result: blueprintRows.some((row) => row.name === "renderJavascript")
+						? "unexpectedly admitted"
+						: "command-not-allowed · absent from schema",
+				},
+			},
+		},
+	};
+};
+
 export const component = igniteCore({
 	source,
 	cleanup: true,
@@ -1057,497 +1885,7 @@ export const component = igniteCore({
 		"response-completed": event(),
 		"speech-acknowledged": event<{ id: string }>(),
 	}),
-	view: ({ snapshot }) => {
-		const modelPreparing = snapshot.matches("preparing");
-		const modelFailed = snapshot.matches("unavailable");
-		const modelAvailable = snapshot.matches("available");
-		const responding = snapshot.matches({ available: "responding" });
-		const turnReady = snapshot.matches({ available: "idle" });
-		const status = modelPreparing
-			? "preparing"
-			: modelFailed
-				? "failed"
-				: responding
-					? "responding"
-					: "ready";
-		const artifacts = snapshot.context.documents.map((document) => ({
-			...document,
-			displayTitle: readableArtifactTitle(document.title, document.id),
-			nodes: document.nodes.map((node) => {
-				const payload = node.kind === "action" ? node.payload : null;
-				const speech =
-					typeof payload === "object" &&
-					payload !== null &&
-					!Array.isArray(payload) &&
-					typeof payload.speech === "string" &&
-					payload.speech.trim().length > 0
-						? payload.speech.trim()
-						: undefined;
-				const input =
-					node.kind === "action" &&
-					node.commandName === "completeResponse" &&
-					typeof payload === "object" &&
-					payload !== null &&
-					!Array.isArray(payload) &&
-					typeof payload.text === "string" &&
-					payload.text.trim().length > 0 &&
-					(payload.speech === undefined || speech !== undefined)
-						? {
-								text: payload.text.trim(),
-								...(speech ? { speech } : {}),
-							}
-						: null;
-				return {
-					...node,
-					action: input ? { enabled: responding, input } : null,
-					displayRows:
-						node.kind === "table"
-							? node.rows.map((row) => ({
-									id: row.id,
-									cells: row.cells.map((cell, index) =>
-										tableCellView(cell, node.columns[index]?.label ?? ""),
-									),
-								}))
-							: [],
-				};
-			}),
-		}));
-		const activeArtifact =
-			artifacts.find(
-				(artifact) => artifact.id === snapshot.context.activeArtifactId,
-			) ??
-			artifacts[artifacts.length - 1] ??
-			null;
-		const artifactSummaries = artifacts.map((artifact) => ({
-			id: artifact.id,
-			title: artifact.displayTitle,
-			revision: artifact.revision,
-			nodeCount: artifact.nodes.length,
-			active: artifact.id === activeArtifact?.id,
-		}));
-		const activeArtifactRevisions = activeArtifact
-			? snapshot.context.artifactRevisions
-					.filter((document) => document.id === activeArtifact.id)
-					.map((document) => ({
-						revision: document.revision,
-						title: readableArtifactTitle(document.title, document.id),
-						nodeCount: document.nodes.length,
-						current: document.revision === activeArtifact.revision,
-					}))
-			: [];
-		const canSetChecklistItem =
-			turnReady &&
-			artifacts.some((artifact) =>
-				artifact.nodes.some((node) => node.kind === "checklist"),
-			);
-		const turnCount = snapshot.context.messages.filter(
-			(message) => message.role === "user",
-		).length;
-		const presentation = snapshot.context.presentation;
-		const respondingProgress = describeRespondingProgress(
-			snapshot.context.lastFact,
-		);
-		const voice = presentation.voice;
-		const transcript = voice.type === "voice-transcript" ? voice.text : null;
-		const transcriptReady = voice.type === "voice-transcript" && voice.final;
-		const voiceFailure =
-			voice.type === "voice-permission-denied" || voice.type === "voice-error"
-				? voice
-				: null;
-		const documentSchema = JSON.stringify(
-			activeArtifact
-				? {
-						id: activeArtifact.id,
-						title: activeArtifact.title,
-						revision: activeArtifact.revision,
-						nodes: activeArtifact.nodes.map((node) => {
-							const { action: _action, ...schemaNode } = node;
-							if ("displayRows" in schemaNode) {
-								const { displayRows: _displayRows, ...actorNode } = schemaNode;
-								return actorNode;
-							}
-							return schemaNode;
-						}),
-					}
-				: { artifacts: [] },
-			null,
-			2,
-		);
-		const providerState = modelPreparing
-			? "preparing"
-			: modelFailed
-				? "failed"
-				: "available";
-		const turnState = modelPreparing
-			? "preparing"
-			: modelFailed
-				? "unavailable"
-				: responding
-					? "responding"
-					: "idle";
-		const actorMatchText = modelPreparing
-			? 'matches("preparing")'
-			: modelFailed
-				? 'matches("unavailable")'
-				: `matches({\n  available: "${responding ? "responding" : "idle"}",\n})`;
-		const artifactLine = activeArtifact
-			? `${activeArtifact.displayTitle} · revision ${activeArtifact.revision}`
-			: "No accepted artifact yet";
-		let previewText: string;
-		switch (presentation.runtimePreview) {
-			case "browser":
-				previewText = `Browser JSX preview\n${artifactLine}\n${describeFact(snapshot.context.lastFact)}`;
-				break;
-			case "terminal":
-				previewText = `Terminal projection\nPreview only · no remote terminal sync\nstate: ${turnState}\n${artifactLine}`;
-				break;
-			case "speech":
-				previewText = `Speech projection\n${snapshot.context.response?.speech ?? snapshot.context.response?.text ?? "No response available for speech"}\nstatus: ${snapshot.context.speech?.status ?? "idle"}`;
-				break;
-			case "headless":
-				previewText = `Headless projection\n${JSON.stringify(
-					{
-						state: snapshot.value,
-						actorRevision: snapshot.context.revision,
-						activeArtifactId: snapshot.context.activeArtifactId,
-					},
-					null,
-					2,
-				)}`;
-				break;
-		}
-		const capabilityRows =
-			presentation.capabilityOutcomes.length === 0
-				? [
-						{
-							key: "empty-capability-row",
-							className: "capability-outcome capability-outcome-empty",
-							heading: "No external capability facts yet",
-							statusLabel: "waiting",
-							message: "Capability adapter outcomes appear after execution.",
-						},
-					]
-				: presentation.capabilityOutcomes.flatMap((outcome, index) => {
-						const key = `${outcome.ownerId}-${outcome.toolName}-${index}`;
-						const capabilityRow = {
-							key,
-							className: "capability-outcome",
-							heading: `${outcome.ownerId} · ${outcome.toolName}`,
-							statusLabel: `${outcome.type}${outcome.status ? ` · HTTP ${outcome.status}` : ""}${outcome.cacheStatus ? ` · cache ${outcome.cacheStatus}` : ""}`,
-							message: [
-								outcome.message,
-								outcome.retry
-									? `${outcome.retry.attempts}/${outcome.retry.maxAttempts} attempts${outcome.retry.exhausted ? " · exhausted" : ""}`
-									: null,
-								outcome.fallback
-									? fallbackAttemptSummary(outcome.fallback)
-									: null,
-							]
-								.filter((value): value is string => value !== null)
-								.join(" · "),
-						};
-						const pricingRows = (outcome.pricingRows ?? []).map(
-							(pricing, pricingIndex) => ({
-								key: `${key}-pricing-${pricingIndex}`,
-								className: "capability-outcome",
-								heading: `${pricing.subject} · product pricing`,
-								statusLabel: `${pricing.priceStatus} · cache ${pricing.cacheStatus}`,
-								message: [
-									pricing.product && pricing.size
-										? `${pricing.product} · ${pricing.size}`
-										: "No selected product",
-									pricing.priceStatus === "unverified"
-										? PRODUCT_PRICE_REASON_LABELS[pricing.reasonCode]
-										: null,
-									`native ${pricing.nativeStatus}`,
-									`Brave ${pricing.braveStatus}`,
-								]
-									.filter((value): value is string => value !== null)
-									.join(" · "),
-								...pricing,
-							}),
-						);
-						return [capabilityRow, ...pricingRows];
-					});
-		const domainPolicySections = presentation.domainPolicy
-			? [
-					{
-						key: "assumptions",
-						heading: "Assumptions",
-						rows: presentation.domainPolicy.assumptions.map((assumption) => ({
-							key: assumption.id,
-							text: assumption.label,
-						})),
-					},
-					{
-						key: "questions",
-						heading: "Clarification questions",
-						rows: presentation.domainPolicy.questions.map((question) => ({
-							key: question.id,
-							text: question.prompt,
-						})),
-					},
-					{
-						key: "evidence",
-						heading: "Evidence requirements",
-						rows: presentation.domainPolicy.evidenceRequirements.map(
-							(requirement) => ({
-								key: requirement.id,
-								text: requirement.label,
-							}),
-						),
-					},
-				].filter((section) => section.rows.length > 0)
-			: [];
-		const domainPolicy = presentation.domainPolicy
-			? {
-					heading: "Domain policy proof",
-					statusLabel: presentation.domainPolicy.outcome.replace("-", " "),
-					summary: presentation.domainPolicy.summary,
-					identityRows: [
-						{
-							key: "domain",
-							label: "Domain",
-							value: presentation.domainPolicy.domainLabel,
-						},
-						{
-							key: "policy",
-							label: "Policy",
-							value: presentation.domainPolicy.policyLabel,
-						},
-					],
-					sections: domainPolicySections,
-				}
-			: null;
-		const manifestRows =
-			presentation.runtimeManifest.length === 0
-				? [
-						{
-							key: "empty-manifest-row",
-							name: "Awaiting the next model request",
-							dataCommandName: "pending-model-request",
-							summaryLabel: "no live commands captured",
-							descriptions: [
-								"The exact availability-scoped manifest appears at the next model boundary.",
-							],
-							schemaText: "input · unavailable until request",
-						},
-					]
-				: presentation.runtimeManifest.map((tool) => ({
-						key: tool.name,
-						name: tool.name,
-						dataCommandName: tool.name,
-						summaryLabel: `${tool.ownerId} · live · ${tool.gated ? "gated" : "available"}`,
-						descriptions: tool.description ? [tool.description] : [],
-						schemaText: formatSchema(tool.inputSchema),
-					}));
-		const blueprintRows = Object.entries(componentBlueprintCommands).map(
-			([name, commandSchema]) => ({
-				key: name,
-				className: "command",
-				name,
-				descriptions:
-					typeof commandSchema.description === "string"
-						? [commandSchema.description]
-						: [],
-				schemaText: formatSchema(commandSchema.input),
-			}),
-		);
-		const traceRows = [
-			{
-				key: "transcript",
-				className: "trace-step",
-				heading: "Text or speech transcript",
-				detail: "outer adapter → text + modality",
-			},
-			{
-				key: "actor-fact",
-				className: "trace-step",
-				heading: describeFact(snapshot.context.lastFact),
-				detail: "current public actor fact",
-			},
-			{
-				key: "artifact",
-				className: "trace-step",
-				heading: activeArtifact
-					? `Artifact revision ${activeArtifact.revision} stored`
-					: "Awaiting accepted artifact",
-				detail: "semantic nodes, never generated DOM",
-			},
-			...(presentation.turn?.capability
-				? [
-						{
-							key: "capability",
-							className: "trace-step capability-proof",
-							heading: `${presentation.turn.capability.provider} · ${presentation.turn.capability.tool}`,
-							detail: capabilityProofSummary(presentation.turn.capability),
-						},
-					]
-				: []),
-			...(presentation.turn?.collision
-				? [
-						{
-							key: "collision",
-							className: "trace-step collision-proof",
-							heading: "Capability manifest collision",
-							detail: `${presentation.turn.collision.toolNames.join(", ")} · ${presentation.turn.collision.owners.join(" + ")}`,
-						},
-					]
-				: []),
-		];
-		const resultQuality = productPricingResultQuality(
-			presentation.domainPolicy,
-			presentation.capabilityOutcomes,
-		);
-		return {
-			sessionId: snapshot.context.sessionId,
-			modelContext: {
-				status,
-				activeArtifactId: snapshot.context.activeArtifactId,
-				artifacts: snapshot.context.documents,
-			},
-			status,
-			statusLabel: modelPreparing
-				? "Preparing local model"
-				: modelFailed
-					? "Model unavailable"
-					: responding
-						? "Responding"
-						: "Ready",
-			canSubmitPrompt: modelAvailable && turnReady,
-			canSetChecklistItem,
-			canRestoreArtifactRevision:
-				turnReady &&
-				activeArtifactRevisions.some((revision) => !revision.current),
-			canRetryModel: modelFailed,
-			activeArtifact,
-			resultQuality,
-			artifactSummaries,
-			activeArtifactRevisions,
-			turnCount,
-			turnLabel: `${turnCount} ${turnCount === 1 ? "turn" : "turns"}`,
-			speechStatus: snapshot.context.speech?.status ?? "idle",
-			documentSchema,
-			voiceState: voiceState(voice),
-			transcript,
-			transcriptReady,
-			microphoneUnavailable: voice.type === "voice-unsupported",
-			voiceFailure,
-			turnMessage: describeTurn(presentation.turn),
-			lastFactLabel: describeFact(snapshot.context.lastFact),
-			respondingProgress,
-			modelPreparing,
-			modelFailed,
-			promptPlaceholder: modelPreparing
-				? "Waiting for the local model to finish preparing…"
-				: modelFailed
-					? "Retry the local model before sending a prompt…"
-					: "Ask the agent to create or revise an artifact…",
-			turnState,
-			model: {
-				status: modelPreparing
-					? "preparing"
-					: modelFailed
-						? "failed"
-						: "available",
-				failure: snapshot.context.modelFailure,
-			},
-			revision: snapshot.context.revision,
-			messageCount: snapshot.context.messages.length,
-			messages: snapshot.context.messages,
-			lastFact: snapshot.context.lastFact,
-			artifacts,
-			speech: snapshot.context.speech,
-			activeArtifactId: snapshot.context.activeArtifactId,
-			response: snapshot.context.response,
-			canRevise: responding && snapshot.context.documents.length > 0,
-			presentation: snapshot.context.presentation,
-			runtimeInspector: {
-				activeStates: snapshot.value,
-				mlx: {
-					status: providerState,
-					ready: modelAvailable,
-					heading: "MLX model readiness",
-					statusLabel: providerState,
-					detail: modelAvailable
-						? "Inference admitted for prompts"
-						: "Prompts remain gated",
-				},
-				actor: {
-					lastFact: snapshot.context.lastFact,
-					revision: snapshot.context.revision,
-					heading: "Compound actor state",
-					matchText: actorMatchText,
-					factLabel: `Current actor fact · ${describeFact(snapshot.context.lastFact)}`,
-				},
-				selectedPreview: presentation.runtimePreview,
-				preview: {
-					text: previewText,
-					selectors: runtimePreviewDefinitions.map((preview) => ({
-						...preview,
-						selected: preview.id === presentation.runtimePreview,
-					})),
-				},
-				capabilityRows,
-				domainPolicy,
-				domainPolicyCards: domainPolicy ? [domainPolicy] : [],
-				trace: {
-					acceptedArtifactLabel: activeArtifact
-						? `Artifact revision ${activeArtifact.revision} stored`
-						: "Awaiting accepted artifact",
-					rows: traceRows,
-				},
-				receipts: [
-					{
-						id: "browser" as const,
-						className: "commit commit-browser",
-						icon: "▤",
-						title: "Browser · native JSX",
-						detail: presentation.documentCommit
-							? `${presentation.documentCommit.id} · revision ${presentation.documentCommit.revision}`
-							: "awaiting artifact",
-						statusLabel: presentation.documentCommit ? "current" : "idle",
-					},
-					{
-						id: "terminal" as const,
-						className: "commit commit-terminal",
-						icon: ">_",
-						title: "Terminal · Node",
-						detail: "preview only · no remote terminal sync",
-						statusLabel: "headless",
-					},
-					{
-						id: "speech" as const,
-						className: "commit commit-speech",
-						icon: "◖",
-						title: "Speech · audio",
-						detail:
-							presentation.speechCommit?.text ??
-							"browser adapter · actor acknowledged",
-						statusLabel: presentation.speechCommit?.status ?? "idle",
-					},
-				],
-				schemaExplorer: {
-					manifest: {
-						heading: "Availability-scoped model manifest",
-						countLabel: `${presentation.runtimeManifest.length} live ${presentation.runtimeManifest.length === 1 ? "command" : "commands"}`,
-						rows: manifestRows,
-					},
-					blueprint: {
-						heading: "All-component blueprint",
-						countLabel: `${blueprintRows.length} commands from getSchema()`,
-						rows: blueprintRows,
-					},
-					policy: {
-						heading: "renderJavascript rejected",
-						result: blueprintRows.some((row) => row.name === "renderJavascript")
-							? "unexpectedly admitted"
-							: "command-not-allowed · absent from schema",
-					},
-				},
-			},
-		};
-	},
+	view: projectVoiceWorkbenchView,
 	commands: ({ actor, command }) => {
 		const responsePayloadInput = command.object(
 			{
@@ -1751,22 +2089,6 @@ export const component = igniteCore({
 					}),
 				{ channel: "user-intent" },
 			),
-			commitDocument: command(
-				(document: NonNullable<WorkbenchPresentation["documentCommit"]>) =>
-					sendPresentationUpdate({
-						channel: "private-adapter",
-						update: { type: "document-committed", document },
-					}),
-				{ channel: "private-adapter" },
-			),
-			commitSpeech: command(
-				(speech: NonNullable<WorkbenchPresentation["speechCommit"]>) =>
-					sendPresentationUpdate({
-						channel: "private-adapter",
-						update: { type: "speech-committed", speech },
-					}),
-				{ channel: "private-adapter" },
-			),
 			completeResponse: command(
 				(input: CompleteResponseInput) =>
 					actor.send({ type: "COMPLETE_RESPONSE", input }),
@@ -1804,14 +2126,6 @@ export const component = igniteCore({
 					),
 				},
 			),
-			presentVoice: command(
-				(fact: VoiceCaptureFact) =>
-					sendPresentationUpdate({
-						channel: "private-adapter",
-						update: { type: "voice-recorded", fact },
-					}),
-				{ channel: "private-adapter" },
-			),
 			playSpeech: command(
 				() => {
 					const context = actor.getSnapshot().context;
@@ -1832,58 +2146,6 @@ export const component = igniteCore({
 				},
 				{ channel: "user-intent" },
 			),
-			recordCapabilityOutcome: command(
-				(outcome: WorkbenchCapabilityOutcome) =>
-					sendPresentationUpdate({
-						channel: "read-model",
-						update: { type: "capability-outcome-recorded", outcome },
-					}),
-				{ channel: "read-model" },
-			),
-			recordDomainPolicyDecision: command(
-				(decision: DomainPolicyDecision) =>
-					sendPresentationUpdate({
-						channel: "read-model",
-						update: { type: "domain-policy-recorded", decision },
-					}),
-				{ channel: "read-model" },
-			),
-			recordRuntimeManifest: command(
-				(manifest: readonly WorkbenchRuntimeManifestEntry[]) =>
-					sendPresentationUpdate({
-						channel: "read-model",
-						update: { type: "runtime-manifest-recorded", manifest },
-					}),
-				{ channel: "read-model" },
-			),
-			recordTurn: command(
-				(fact: WorkbenchTurnFact) => {
-					sendPresentationUpdate({
-						channel: "read-model",
-						update: { type: "turn-recorded", fact },
-					});
-					if (!actor.getSnapshot().matches({ available: "responding" })) {
-						return;
-					}
-					if (fact.type === "model-failed") {
-						actor.send({
-							type: "MODEL_FAILED",
-							failure: {
-								kind: fact.failureKind,
-								message: fact.message,
-							},
-						});
-						return;
-					}
-					actor.send({
-						type: "COMPLETE_RESPONSE",
-						input: {
-							text: "The model could not finish an accepted artifact within this turn. Refine the prompt and try again.",
-						},
-					});
-				},
-				{ channel: "read-model" },
-			),
 			replay: command(
 				() =>
 					sendPresentationUpdate({
@@ -1891,15 +2153,6 @@ export const component = igniteCore({
 						update: { type: "replayed" },
 					}),
 				{ channel: "user-intent" },
-			),
-			reportModelAvailable: command(
-				() => actor.send({ type: "MODEL_AVAILABLE" }),
-				{ channel: "private-adapter" },
-			),
-			reportModelFailure: command(
-				(failure: ModelFailureFact) =>
-					actor.send({ type: "MODEL_FAILED", failure }),
-				{ channel: "private-adapter" },
 			),
 			selectRuntimePreview: command(
 				(preview: WorkbenchRuntimePreview) =>

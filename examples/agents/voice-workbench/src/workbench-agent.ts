@@ -24,11 +24,18 @@ import {
 import {
 	createModelTurnActor,
 	type ModelTurnPortRequest,
+	projectModelTurnLifecycle,
 	projectModelTurnPortRequest,
 	projectModelTurnTerminalFact,
 } from "./model-turn";
 import {
 	component,
+	recordCapabilityOutcome,
+	recordDomainPolicyDecision,
+	recordModelTurnLifecycle,
+	recordRuntimeManifest,
+	recordTurn,
+	recordTurnTerminal,
 	type WorkbenchCapabilityProof,
 	type WorkbenchCollisionProof,
 	type WorkbenchPricingProofRow,
@@ -982,35 +989,29 @@ export async function completeSubmittedPrompt(
 		if (proof) currentCapability = proof;
 		const domainDecision = domains.projectExecution(execution);
 		if (domainDecision) {
-			await component.execute({
-				command: "recordDomainPolicyDecision",
-				input: domainDecision,
-			});
+			recordDomainPolicyDecision(domainDecision);
 		}
 		if (execution.ownerId !== "workbench-component") {
-			await component.execute({
-				command: "recordCapabilityOutcome",
-				input: {
-					type: execution.type,
-					ownerId: execution.ownerId,
-					toolName: execution.toolName,
-					message:
-						execution.type === "success"
-							? `${execution.receipt.provider} completed the capability.`
-							: execution.message,
-					...(execution.type !== "success" && execution.status !== undefined
-						? { status: execution.status }
-						: {}),
-					...(proof?.retry ? { retry: proof.retry } : {}),
-					...(proof?.cacheStatus
-						? {
-								cacheStatus: proof.cacheStatus,
-								cacheTtlMs: proof.cacheTtlMs,
-							}
-						: {}),
-					...(proof?.fallback ? { fallback: proof.fallback } : {}),
-					...(proof?.pricingRows ? { pricingRows: proof.pricingRows } : {}),
-				},
+			recordCapabilityOutcome({
+				type: execution.type,
+				ownerId: execution.ownerId,
+				toolName: execution.toolName,
+				message:
+					execution.type === "success"
+						? `${execution.receipt.provider} completed the capability.`
+						: execution.message,
+				...(execution.type !== "success" && execution.status !== undefined
+					? { status: execution.status }
+					: {}),
+				...(proof?.retry ? { retry: proof.retry } : {}),
+				...(proof?.cacheStatus
+					? {
+							cacheStatus: proof.cacheStatus,
+							cacheTtlMs: proof.cacheTtlMs,
+						}
+					: {}),
+				...(proof?.fallback ? { fallback: proof.fallback } : {}),
+				...(proof?.pricingRows ? { pricingRows: proof.pricingRows } : {}),
 			});
 		}
 		return {
@@ -1060,13 +1061,12 @@ export async function completeSubmittedPrompt(
 							),
 						),
 				);
-				await component.execute({
-					command: "recordRuntimeManifest",
-					input: modelManifest.map((tool) => ({
+				recordRuntimeManifest(
+					modelManifest.map((tool) => ({
 						...tool,
 						ownerId: federation.ownerByTool.get(tool.name)?.id ?? "federation",
 					})),
-				});
+				);
 				const response = await requestMlxWorkbenchModel(
 					configuration,
 					{
@@ -1165,6 +1165,7 @@ export async function completeSubmittedPrompt(
 		resolveTerminal = resolve;
 	});
 	const subscription = actor.subscribe((snapshot) => {
+		recordModelTurnLifecycle(projectModelTurnLifecycle(snapshot));
 		if (projectModelTurnTerminalFact(snapshot)) {
 			resolveTerminal();
 			return;
@@ -1192,19 +1193,22 @@ export async function completeSubmittedPrompt(
 	actor.start();
 	if (signal?.aborted) cancel();
 	await terminalReached;
+	const terminal = projectModelTurnTerminalFact(actor.getSnapshot());
 	const result = actor.getSnapshot().context.lastResult;
 	signal?.removeEventListener("abort", cancel);
 	subscription.unsubscribe();
 	actor.stop();
 
+	if (result) {
+		recordTurn(
+			toTurnFact(result, {
+				...(currentCapability ? { capability: currentCapability } : {}),
+				...(currentCollision ? { collision: currentCollision } : {}),
+			}),
+		);
+	}
+	if (terminal) recordTurnTerminal(terminal);
 	if (!result) return null;
-	await component.execute({
-		command: "recordTurn",
-		input: toTurnFact(result, {
-			...(currentCapability ? { capability: currentCapability } : {}),
-			...(currentCollision ? { collision: currentCollision } : {}),
-		}),
-	});
 	if (result.accepted && event.modality === "text") {
 		await component.execute({ command: "changeDraft", input: "" });
 	}

@@ -37,6 +37,7 @@ export type VoicePromptResult =
 
 export type VoiceCapture = {
 	getFact(): VoiceCaptureFact;
+	getLifecycle(): VoiceCaptureLifecycleProjection;
 	start(): VoiceCaptureFact;
 	cancel(): VoiceCaptureFact;
 	reset(): VoiceCaptureFact;
@@ -45,6 +46,9 @@ export type VoiceCapture = {
 	subscribe(listener: (fact: VoiceCaptureFact) => void): {
 		unsubscribe(): void;
 	};
+	subscribeLifecycle(
+		listener: (lifecycle: VoiceCaptureLifecycleProjection) => void,
+	): { unsubscribe(): void };
 	dispose(): void;
 };
 
@@ -379,8 +383,12 @@ export function createBrowserVoiceCapture(): VoiceCapture {
 		...(initialError ? { initialError } : {}),
 	});
 	const listeners = new Set<(fact: VoiceCaptureFact) => void>();
+	const lifecycleListeners = new Set<
+		(lifecycle: VoiceCaptureLifecycleProjection) => void
+	>();
 	const handledPorts = new Set<string>();
 	let fact: VoiceCaptureFact = { type: "voice-idle" };
+	let lifecycle = projectVoiceCaptureLifecycle(actor.getSnapshot());
 
 	const publish = (next: VoiceCaptureFact) => {
 		fact = next;
@@ -423,7 +431,9 @@ export function createBrowserVoiceCapture(): VoiceCapture {
 	};
 
 	const subscription = actor.subscribe((snapshot) => {
+		lifecycle = projectVoiceCaptureLifecycle(snapshot);
 		publish(projectVoiceCaptureFact(snapshot));
+		for (const listener of lifecycleListeners) listener(lifecycle);
 		const request = projectVoiceCapturePortRequest(snapshot);
 		if (!request) return;
 		const key = `${request.type}:${request.sequence}`;
@@ -475,6 +485,7 @@ export function createBrowserVoiceCapture(): VoiceCapture {
 
 	return {
 		getFact: () => fact,
+		getLifecycle: () => lifecycle,
 		start: () => {
 			actor.send({ type: "START" });
 			return fact;
@@ -510,9 +521,14 @@ export function createBrowserVoiceCapture(): VoiceCapture {
 			listeners.add(listener);
 			return { unsubscribe: () => listeners.delete(listener) };
 		},
+		subscribeLifecycle: (listener) => {
+			lifecycleListeners.add(listener);
+			return { unsubscribe: () => lifecycleListeners.delete(listener) };
+		},
 		dispose: () => {
 			actor.send({ type: "DISPOSE" });
 			listeners.clear();
+			lifecycleListeners.clear();
 			subscription.unsubscribe();
 			actor.stop();
 		},

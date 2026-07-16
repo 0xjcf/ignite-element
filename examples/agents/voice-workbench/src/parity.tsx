@@ -1,5 +1,15 @@
 /** @jsxImportSource ignite-element/jsx */
-import { component, source } from "./session";
+import {
+	commitDocument,
+	commitSpeech,
+	component,
+	presentVoice,
+	recordTurn,
+	recordTurnTerminal,
+	reportModelAvailable,
+	reportModelFailure,
+	source,
+} from "./session";
 import { renderWorkbench } from "./workbench";
 
 export const PARITY_STATES = [
@@ -22,15 +32,11 @@ export function resolveParityState(search: string): ParityState | null {
 	return isParityState(requested) ? requested : null;
 }
 
-const setIdleVoice = async () =>
-	component.execute({
-		command: "presentVoice",
-		input: { type: "voice-idle" },
-	});
+const setIdleVoice = () => presentVoice({ type: "voice-idle" });
 
 const ensureResponding = async () => {
 	if (component.getView().status === "responding") return;
-	await component.execute({ command: "reportModelAvailable" });
+	reportModelAvailable();
 	await component.execute({
 		command: "submitPrompt",
 		input: {
@@ -79,42 +85,35 @@ const seedArtifact = async () => {
 			speech: "Parity harness only — deterministic spoken summary.",
 		},
 	});
+	const turnId = source.getSnapshot().context.activeTurnId;
 	const view = component.getView();
 	const artifact = view.artifacts[0];
 	if (artifact) {
-		await component.execute({
-			command: "commitDocument",
-			input: {
-				id: artifact.id,
-				title: artifact.title,
-				revision: artifact.revision,
-			},
+		commitDocument({
+			id: artifact.id,
+			title: artifact.title,
+			revision: artifact.revision,
 		});
 	}
 	if (view.speech) {
-		await component.execute({
-			command: "commitSpeech",
-			input: {
-				id: view.speech.id,
-				text: view.speech.text,
-				status: "unavailable",
-			},
+		commitSpeech({
+			id: view.speech.id,
+			text: view.speech.text,
+			status: "unavailable",
 		});
 		await component.execute({
 			command: "acknowledgeSpeech",
 			input: { id: view.speech.id },
 		});
 	}
-	await component.execute({
-		command: "recordTurn",
-		input: {
-			type: "accepted",
-			trace: [
-				{ command: "createArtifact", accepted: true },
-				{ command: "completeResponse", accepted: true },
-			],
-		},
+	recordTurn({
+		type: "accepted",
+		trace: [
+			{ command: "createArtifact", accepted: true },
+			{ command: "completeResponse", accepted: true },
+		],
 	});
+	if (turnId) recordTurnTerminal({ type: "TURN_COMPLETED", turnId });
 	await component.execute({
 		command: "changeMobilePanel",
 		input: "artifact",
@@ -127,23 +126,17 @@ export async function seedParityState(state: ParityState): Promise<void> {
 			await component.execute({ command: "beginModelPreparation" });
 			return;
 		case "failed":
-			await component.execute({
-				command: "reportModelFailure",
-				input: {
-					kind: "provider",
-					message: "Parity harness only — simulated model failure.",
-				},
+			reportModelFailure({
+				kind: "provider",
+				message: "Parity harness only — simulated model failure.",
 			});
 			return;
 		case "ready":
-			await component.execute({ command: "reportModelAvailable" });
+			reportModelAvailable();
 			return;
 		case "listening":
-			await component.execute({ command: "reportModelAvailable" });
-			await component.execute({
-				command: "presentVoice",
-				input: { type: "voice-listening" },
-			});
+			reportModelAvailable();
+			presentVoice({ type: "voice-listening" });
 			return;
 		case "responding":
 			await setIdleVoice();
@@ -157,17 +150,14 @@ export async function seedParityState(state: ParityState): Promise<void> {
 			await seedArtifact();
 			return;
 		case "permission":
-			await component.execute({ command: "reportModelAvailable" });
+			reportModelAvailable();
 			await component.execute({
 				command: "changeDraft",
 				input: "Parity harness draft stays available",
 			});
-			await component.execute({
-				command: "presentVoice",
-				input: {
-					type: "voice-permission-denied",
-					message: "Parity harness only — simulated microphone denial.",
-				},
+			presentVoice({
+				type: "voice-permission-denied",
+				message: "Parity harness only — simulated microphone denial.",
 			});
 			return;
 	}

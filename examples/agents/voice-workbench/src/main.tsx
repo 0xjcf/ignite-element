@@ -9,10 +9,18 @@ import {
 } from "./domains/product-pricing";
 import { createDomainRegistry } from "./domains/registry";
 import { probeMlxWorkbenchReadiness } from "./model";
-import { component, source } from "./session";
+import {
+	commitDocument,
+	component,
+	recordSpeechDeliveryLifecycle,
+	recordVoiceCaptureLifecycle,
+	reportModelAvailable,
+	reportModelFailure,
+	source,
+} from "./session";
 import {
 	createSpeechDeliveryActor,
-	projectSpeechDeliveryFact,
+	projectSpeechDeliveryLifecycle,
 	projectSpeechDeliveryPortRequest,
 } from "./speech";
 import { createBrowserVoiceCapture } from "./voice";
@@ -74,13 +82,10 @@ const prepareModel = async () => {
 	if (attempt !== readinessAttempt || controller.signal.aborted) return;
 	readinessController = null;
 	if (fact.type === "MODEL_AVAILABLE") {
-		await component.execute({ command: "reportModelAvailable" });
+		reportModelAvailable();
 		return;
 	}
-	await component.execute({
-		command: "reportModelFailure",
-		input: fact.failure,
-	});
+	reportModelFailure(fact.failure);
 };
 
 const deliverSpeech = (
@@ -98,7 +103,6 @@ const deliverSpeech = (
 		muted: !enabled,
 	});
 	const handledPorts = new Set<string>();
-	let lastFact = "";
 	let disposed = false;
 	let subscription: { unsubscribe(): void } | null = null;
 
@@ -115,35 +119,7 @@ const deliverSpeech = (
 	activeSpeechDeliveries.add(delivery);
 
 	subscription = actor.subscribe((snapshot) => {
-		const fact = projectSpeechDeliveryFact(snapshot);
-		const factKey = fact ? JSON.stringify(fact) : "";
-		if (fact && factKey !== lastFact) {
-			lastFact = factKey;
-			switch (fact.type) {
-				case "speech-delivery-completed":
-					void component.execute({
-						command: "commitSpeech",
-						input: { ...speech, status: "played" },
-					});
-					break;
-				case "speech-delivery-muted":
-					void component.execute({
-						command: "commitSpeech",
-						input: { ...speech, status: "muted" },
-					});
-					break;
-				case "speech-delivery-unavailable":
-				case "speech-delivery-failed":
-					void component.execute({
-						command: "commitSpeech",
-						input: { ...speech, status: "unavailable" },
-					});
-					break;
-				case "speech-delivery-queued":
-				case "speech-delivery-cancelled":
-					break;
-			}
-		}
+		recordSpeechDeliveryLifecycle(projectSpeechDeliveryLifecycle(snapshot));
 
 		const request = projectSpeechDeliveryPortRequest(snapshot);
 		if (!request) return;
@@ -190,27 +166,25 @@ const deliverSpeech = (
 	actor.start();
 };
 
-const voiceSubscription = voice.subscribe((fact) => {
-	void component.execute({ command: "presentVoice", input: fact });
+const voiceSubscription = voice.subscribeLifecycle((lifecycle) => {
+	recordVoiceCaptureLifecycle(lifecycle);
 });
-void component.execute({ command: "presentVoice", input: voice.getFact() });
+recordVoiceCaptureLifecycle(voice.getLifecycle());
 
 const browserRequestSubscription = component.watchView((view, previous) => {
-	const voiceRequest = view.presentation.voiceCaptureRequest;
+	const voiceRequest = view.portRequests.voiceCapture;
 	if (
 		voiceRequest &&
-		voiceRequest.sequence !==
-			previous.presentation.voiceCaptureRequest?.sequence
+		voiceRequest.sequence !== previous.portRequests.voiceCapture?.sequence
 	) {
 		if (voiceRequest.action === "start") voice.start();
 		else voice.cancel();
 	}
 
-	const speechRequest = view.presentation.speechReplayRequest;
+	const speechRequest = view.portRequests.speechDelivery;
 	if (
 		speechRequest &&
-		speechRequest.sequence !==
-			previous.presentation.speechReplayRequest?.sequence
+		speechRequest.sequence !== previous.portRequests.speechDelivery?.sequence
 	) {
 		deliverSpeech(speechRequest, view.presentation.speakResponses);
 	}
@@ -218,8 +192,8 @@ const browserRequestSubscription = component.watchView((view, previous) => {
 
 const modelPreparationSubscription = component.watchView((view, previous) => {
 	if (
-		view.model.status === "preparing" &&
-		previous.model.status !== "preparing"
+		view.portRequests.modelPreparation &&
+		!previous.portRequests.modelPreparation
 	) {
 		void prepareModel();
 	}
@@ -240,13 +214,10 @@ void prepareModel();
 const documentProjection = component(
 	createProjectionDocumentTarget({
 		commitDocument: (projectionDocument) => {
-			void component.execute({
-				command: "commitDocument",
-				input: {
-					id: projectionDocument.id,
-					title: projectionDocument.title,
-					revision: projectionDocument.revision,
-				},
+			commitDocument({
+				id: projectionDocument.id,
+				title: projectionDocument.title,
+				revision: projectionDocument.revision,
 			});
 		},
 	}),

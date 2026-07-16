@@ -5,7 +5,7 @@ import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 import { pathToFileURL } from "node:url";
 import { probeMlxWorkbenchReadiness } from "./model";
-import { component, source } from "./session";
+import { component, reportModelAvailable, source } from "./session";
 import { completeSubmittedPrompt } from "./workbench-agent";
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:8080/v1";
@@ -73,7 +73,7 @@ const run = async () => {
 	if (readiness.type === "MODEL_FAILED") {
 		throw new Error(readiness.failure.message);
 	}
-	await component.execute({ command: "reportModelAvailable" });
+	reportModelAvailable();
 	await component.execute({
 		command: "submitPrompt",
 		input: { modality: "text", text: prompt },
