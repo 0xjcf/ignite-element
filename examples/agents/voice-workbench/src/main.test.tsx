@@ -112,6 +112,22 @@ describe("voice workbench browser entry", () => {
 	});
 
 	it("creates and revises the center document through real text and speech paths", async () => {
+		const speechModule = await import("./speech");
+		const createSpeechDeliveryActor = speechModule.createSpeechDeliveryActor;
+		const createdSpeechActors: object[] = [];
+		const stopSpeechActor = vi.fn();
+		vi.spyOn(speechModule, "createSpeechDeliveryActor").mockImplementation(
+			(input) => {
+				const actor = createSpeechDeliveryActor(input);
+				const stop = actor.stop.bind(actor);
+				createdSpeechActors.push(actor);
+				vi.spyOn(actor, "stop").mockImplementation(() => {
+					stopSpeechActor(actor);
+					stop();
+				});
+				return actor;
+			},
+		);
 		let resolveReadiness: (response: Response) => void = () => {};
 		const readiness = new Promise<Response>((resolve) => {
 			resolveReadiness = resolve;
@@ -327,6 +343,10 @@ describe("voice workbench browser entry", () => {
 				expect.objectContaining({ text: "The release checklist is ready." }),
 			);
 		});
+		await vi.waitFor(() => {
+			expect(createdSpeechActors.length).toBeGreaterThan(0);
+			expect(stopSpeechActor).toHaveBeenCalledTimes(createdSpeechActors.length);
+		});
 		expect(component.getSnapshot().context.artifactRevisions).toMatchObject([
 			{ id: "release-plan", revision: "1", nodes: [{ kind: "text" }] },
 			{
@@ -511,7 +531,9 @@ describe("voice workbench browser entry", () => {
 		Object.defineProperty(persistedPagehide, "persisted", { value: true });
 		window.dispatchEvent(persistedPagehide);
 		expect(source.getSnapshot().status).toBe("active");
+		const terminalDisposalCount = stopSpeechActor.mock.calls.length;
 		window.dispatchEvent(new Event("pagehide"));
 		expect(source.getSnapshot().status).toBe("stopped");
+		expect(stopSpeechActor).toHaveBeenCalledTimes(terminalDisposalCount);
 	});
 });

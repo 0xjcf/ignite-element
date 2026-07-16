@@ -202,18 +202,46 @@ describe("voice workbench session machine contract", () => {
 		expect(completed.getSnapshot().value).toEqual({
 			available: "responding",
 		});
-		expect(completed.getSnapshot().context.response).toEqual({
-			text: "Aggregate response accepted.",
-		});
+		expect(completed.getSnapshot().context.response).toBeNull();
+		expect(completed.getSnapshot().context.lastFact?.type).toBe(
+			"prompt-submitted",
+		);
+		expect(
+			(
+				completed.getSnapshot().context as unknown as {
+					pendingCompletion?: { text: string } | null;
+				}
+			).pendingCompletion,
+		).toEqual({ text: "Aggregate response accepted." });
 		completed.send({ type: "TURN_COMPLETED", turnId: "stale-turn" });
 		expect(completed.getSnapshot().value).toEqual({
 			available: "responding",
 		});
+		expect(completed.getSnapshot().context.response).toBeNull();
 		completed.send({
 			type: "TURN_COMPLETED",
 			turnId: "voice-workbench:1",
 		});
 		expect(completed.getSnapshot().value).toEqual({ available: "idle" });
+		expect(completed.getSnapshot().context.response).toEqual({
+			text: "Aggregate response accepted.",
+		});
+		expect(completed.getSnapshot().context.lastFact?.type).toBe(
+			"response-completed",
+		);
+		const committedFactSequence = completed.getSnapshot().context.factSequence;
+		completed.send({
+			type: "TURN_COMPLETED",
+			turnId: "voice-workbench:1",
+		});
+		expect(completed.getSnapshot().context.factSequence).toBe(
+			committedFactSequence,
+		);
+		expect(
+			completed
+				.getSnapshot()
+				.context.messages.filter((message) => message.role === "assistant"),
+		).toHaveLength(1);
 		completed.stop();
 
 		const nonSuccessEvents = [
@@ -229,14 +257,161 @@ describe("voice workbench session machine contract", () => {
 
 		for (const terminal of nonSuccessEvents) {
 			const actor = startTurn();
+			actor.send({
+				type: "COMPLETE_RESPONSE",
+				input: {
+					text: "This completion must not survive the terminal race.",
+					speech: "Do not speak this completion.",
+				},
+			});
+			expect(actor.getSnapshot().context.response).toBeNull();
 			actor.send(terminal);
 			expect(actor.getSnapshot().value).toEqual({ available: "idle" });
 			expect(actor.getSnapshot().context.response).toBeNull();
+			expect(actor.getSnapshot().context.speech).toBeNull();
 			expect(actor.getSnapshot().context.lastFact?.type).toBe(
 				"prompt-submitted",
 			);
+			expect(
+				actor
+					.getSnapshot()
+					.context.messages.some((message) => message.role === "assistant"),
+			).toBe(false);
+			expect(actor.getSnapshot().context.lastTurnTerminal).toEqual(terminal);
 			actor.stop();
 		}
+	});
+
+	it("rejects stale model, speech, and voice lifecycle projections at the parent boundary", () => {
+		const actor = createVoiceWorkbenchSessionActor().start();
+		actor.send({ type: "MODEL_AVAILABLE" });
+		actor.send({
+			type: "SUBMIT_PROMPT",
+			input: { modality: "text", text: "Start the first correlated turn." },
+		});
+		actor.send({ type: "CANCELLED", turnId: "voice-workbench:1" });
+		actor.send({
+			type: "SUBMIT_PROMPT",
+			input: { modality: "text", text: "Start the second correlated turn." },
+		});
+
+		actor.send({
+			type: "MODEL_TURN_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "requesting",
+				turnId: "voice-workbench:2",
+				attemptId: "voice-workbench:2:1",
+				round: 1,
+				terminal: null,
+			},
+		});
+		actor.send({
+			type: "MODEL_TURN_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "completed",
+				turnId: "voice-workbench:1",
+				attemptId: "voice-workbench:1:1",
+				round: 1,
+				terminal: {
+					type: "TURN_COMPLETED",
+					turnId: "voice-workbench:1",
+					trace: [],
+				},
+			},
+		});
+		expect(actor.getSnapshot().context.childLifecycles.modelTurn).toMatchObject(
+			{
+				state: "requesting",
+				turnId: "voice-workbench:2",
+				attemptId: "voice-workbench:2:1",
+			},
+		);
+
+		actor.send({
+			type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "queued",
+				id: "speech-1",
+				text: "First delivery",
+				attemptId: "speech-1:1",
+				fact: { type: "speech-delivery-queued", id: "speech-1" },
+				terminal: null,
+			},
+		});
+		actor.send({
+			type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "pending",
+				id: "speech-2",
+				text: "Second delivery",
+				attemptId: "speech-2:2",
+				fact: null,
+				terminal: null,
+			},
+		});
+		actor.send({
+			type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "queued",
+				id: "speech-2",
+				text: "Second delivery",
+				attemptId: "speech-2:2",
+				fact: { type: "speech-delivery-queued", id: "speech-2" },
+				terminal: null,
+			},
+		});
+		actor.send({
+			type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "delivered",
+				id: "speech-1",
+				text: "First delivery",
+				attemptId: "speech-1:1",
+				fact: { type: "speech-delivery-completed", id: "speech-1" },
+				terminal: { type: "speech-delivery-completed", id: "speech-1" },
+			},
+		});
+		expect(
+			actor.getSnapshot().context.childLifecycles.speechDelivery,
+		).toMatchObject({
+			state: "queued",
+			id: "speech-2",
+			attemptId: "speech-2:2",
+		});
+		expect(actor.getSnapshot().context.presentation.speechDelivery).toEqual({
+			type: "speech-delivery-queued",
+			id: "speech-2",
+		});
+
+		actor.send({
+			type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "listening",
+				attemptId: "voice:2",
+				sequence: 2,
+				fact: { type: "voice-listening" },
+			},
+		});
+		actor.send({
+			type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "transcript",
+				attemptId: "voice:1",
+				sequence: 1,
+				fact: { type: "voice-transcript", text: "stale", final: true },
+			},
+		});
+		expect(
+			actor.getSnapshot().context.childLifecycles.voiceCapture,
+		).toMatchObject({
+			state: "listening",
+			attemptId: "voice:2",
+			sequence: 2,
+		});
+		expect(actor.getSnapshot().context.presentation.voice).toEqual({
+			type: "voice-listening",
+		});
+		actor.stop();
 	});
 
 	it("projects raw lifecycle snapshots without inventing a second state model", () => {
