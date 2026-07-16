@@ -1,6 +1,20 @@
 import { test as igniteTest } from "ignite-element/testing";
 import { describe, expect, it, vi } from "vitest";
-import { component, source } from "./session";
+import {
+	component,
+	createVoiceWorkbenchSessionActor,
+	isVoiceWorkbenchKnownForbiddenStateValue,
+	source,
+	type VoiceWorkbenchSessionActor,
+	type VoiceWorkbenchSessionSnapshot,
+	type WorkbenchSpeechAcknowledgementFact,
+	type WorkbenchSpeechDeliveryFact,
+	type WorkbenchSpeechLifecycleFact,
+	voiceWorkbenchKnownForbiddenStateValues,
+	voiceWorkbenchLifecycleOwnership,
+	voiceWorkbenchSessionInvariants,
+	voiceWorkbenchSessionMachine,
+} from "./session";
 
 const nodes = [
 	{
@@ -28,6 +42,160 @@ const nodes = [
 		payload: { text: "Decision captured." },
 	},
 ] as const;
+
+describe("voice workbench session machine contract", () => {
+	it("creates unstarted actors with isolated nested context", () => {
+		const first: VoiceWorkbenchSessionActor =
+			createVoiceWorkbenchSessionActor();
+		const second = createVoiceWorkbenchSessionActor();
+		const observed = vi.fn();
+		first.subscribe(observed);
+
+		const firstInitial: VoiceWorkbenchSessionSnapshot = first.getSnapshot();
+		const secondInitial = second.getSnapshot();
+
+		expect(observed).not.toHaveBeenCalled();
+		expect(firstInitial.context).not.toBe(secondInitial.context);
+		expect(firstInitial.context.presentation).not.toBe(
+			secondInitial.context.presentation,
+		);
+		expect(firstInitial.context.messages).not.toBe(
+			secondInitial.context.messages,
+		);
+		expect(firstInitial.context.documents).not.toBe(
+			secondInitial.context.documents,
+		);
+		expect(firstInitial.context.artifactRevisions).not.toBe(
+			secondInitial.context.artifactRevisions,
+		);
+
+		first.start();
+		expect(observed).toHaveBeenCalledTimes(1);
+		first.send({ type: "PRESENTATION_DRAFT_CHANGED", draft: "first only" });
+		expect(first.getSnapshot().context.presentation.draft).toBe("first only");
+		expect(second.getSnapshot().context.presentation.draft).toBe("");
+
+		second.start();
+		first.stop();
+		second.stop();
+	});
+
+	it("preserves the started source and publishes one owner per surface", () => {
+		expect(source.logic).toBe(voiceWorkbenchSessionMachine);
+		expect(source.getSnapshot().status).toBe("active");
+		expect(voiceWorkbenchLifecycleOwnership).toEqual([
+			expect.objectContaining({
+				surface: "session-provider-turn",
+				owner: "voiceWorkbenchSessionMachine",
+				implementation: "executable",
+				maturity: "transitional",
+			}),
+			expect.objectContaining({
+				surface: "model-turn",
+				implementation: "planned",
+			}),
+			expect.objectContaining({
+				surface: "voice-capture",
+				implementation: "planned",
+			}),
+			expect.objectContaining({
+				surface: "speech-delivery",
+				implementation: "planned",
+			}),
+			expect.objectContaining({
+				surface: "conversation-artifact-aggregate",
+				owner: "reduceConversationSession",
+			}),
+			expect.objectContaining({ surface: "domain-policy" }),
+			expect.objectContaining({ surface: "capability-results" }),
+			expect.objectContaining({ surface: "presentation" }),
+		]);
+	});
+
+	it("defines transport-neutral acknowledgement and distinct delivery facts", () => {
+		const acknowledgement = {
+			type: "speech-projection-acknowledged",
+			id: "speech-1",
+		} satisfies WorkbenchSpeechAcknowledgementFact;
+		const deliveryFacts = [
+			{ type: "speech-delivery-queued", id: "speech-1" },
+			{ type: "speech-delivery-completed", id: "speech-1" },
+			{ type: "speech-delivery-muted", id: "speech-1" },
+			{ type: "speech-delivery-unavailable", id: "speech-1" },
+			{
+				type: "speech-delivery-failed",
+				id: "speech-1",
+				message: "Playback failed.",
+			},
+			{ type: "speech-delivery-cancelled", id: "speech-1" },
+		] satisfies readonly WorkbenchSpeechDeliveryFact[];
+		const lifecycleFacts = [
+			acknowledgement,
+			...deliveryFacts,
+		] satisfies readonly WorkbenchSpeechLifecycleFact[];
+
+		expect(lifecycleFacts.map((fact) => fact.type)).toEqual([
+			"speech-projection-acknowledged",
+			"speech-delivery-queued",
+			"speech-delivery-completed",
+			"speech-delivery-muted",
+			"speech-delivery-unavailable",
+			"speech-delivery-failed",
+			"speech-delivery-cancelled",
+		]);
+	});
+
+	it("characterizes the current forbidden raw states without hiding them", () => {
+		const actor = createVoiceWorkbenchSessionActor();
+		actor.start();
+
+		expect(voiceWorkbenchKnownForbiddenStateValues).toEqual([
+			{ provider: "preparing", turn: "responding" },
+			{ provider: "failed", turn: "responding" },
+		]);
+		expect(
+			voiceWorkbenchSessionInvariants.respondingRequiresAvailable(
+				actor.getSnapshot(),
+			),
+		).toBe(true);
+
+		actor.send({ type: "MODEL_AVAILABLE" });
+		actor.send({
+			type: "SUBMIT_PROMPT",
+			input: { modality: "text", text: "Inspect the current topology" },
+		});
+		expect(
+			voiceWorkbenchSessionInvariants.respondingRequiresAvailable(
+				actor.getSnapshot(),
+			),
+		).toBe(true);
+
+		actor.send({
+			type: "MODEL_FAILED",
+			failure: { kind: "network", message: "Model connection lost." },
+		});
+		const forbiddenSnapshot = actor.getSnapshot();
+		expect(forbiddenSnapshot.value).toEqual({
+			provider: "failed",
+			turn: "responding",
+		});
+		expect(
+			isVoiceWorkbenchKnownForbiddenStateValue(forbiddenSnapshot.value),
+		).toBe(true);
+		expect(
+			voiceWorkbenchSessionInvariants.respondingRequiresAvailable(
+				forbiddenSnapshot,
+			),
+		).toBe(false);
+		expect(
+			voiceWorkbenchSessionInvariants.hasNoKnownForbiddenState(
+				forbiddenSnapshot,
+			),
+		).toBe(false);
+
+		actor.stop();
+	});
+});
 
 describe("voice workbench headless component", () => {
 	it("drives one continuing projection-ready session directly", async () => {
@@ -601,6 +769,42 @@ describe("voice workbench headless component", () => {
 		expect(component.getView().presentation.domainPolicy).toBeNull();
 		expect(component.getSnapshot().matches({ turn: "responding" })).toBe(true);
 		expect(component.canExecute("completeResponse")).toBe(false);
+		await component.execute({
+			command: "reportModelFailure",
+			input: {
+				kind: "network",
+				message: "The model disconnected during the active turn.",
+			},
+		});
+		const forbiddenSnapshot = component.getSnapshot();
+		expect(forbiddenSnapshot.value).toEqual({
+			provider: "failed",
+			turn: "responding",
+		});
+		expect(
+			isVoiceWorkbenchKnownForbiddenStateValue(forbiddenSnapshot.value),
+		).toBe(true);
+		expect(
+			voiceWorkbenchSessionInvariants.hasNoKnownForbiddenState(
+				forbiddenSnapshot,
+			),
+		).toBe(false);
+		expect(component.getView()).toMatchObject({
+			status: "failed",
+			turnState: "responding",
+			model: { status: "failed" },
+		});
+		await component.execute({ command: "reportModelAvailable" });
+		expect(
+			voiceWorkbenchSessionInvariants.hasNoKnownForbiddenState(
+				component.getSnapshot(),
+			),
+		).toBe(true);
+		expect(component.getView()).toMatchObject({
+			status: "responding",
+			turnState: "responding",
+			model: { status: "available" },
+		});
 		expect(component.getView()).toMatchObject({
 			presentation: {
 				draft: "Preserve this draft",
