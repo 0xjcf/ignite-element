@@ -109,6 +109,7 @@ describe("voice workbench browser entry", () => {
 		expect(mainSource).toContain("createProductPriceCapability()");
 		expect(mainSource).toContain("createProductPricingDomainPack({");
 		expect(mainSource).toContain("createDomainRegistry(");
+		expect(mainSource).toContain("requestSequence: voiceRequest.sequence");
 	});
 
 	it("creates and revises the center document through real text and speech paths", async () => {
