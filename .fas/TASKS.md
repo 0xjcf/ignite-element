@@ -2418,8 +2418,8 @@ No active tasks.
 
 - Title: Improve voice-workbench partial-result UX and provider reason codes
 - Mode: single-agent
-- Status: implementing
-- Owner: implementer
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/improve-voice-workbench-partial-result-ux-and-provider-reaso.md
 - Verification lane: fast
 - Policy sensitivity: standard
