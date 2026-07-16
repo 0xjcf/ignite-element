@@ -53,7 +53,12 @@ DoorDash authorization.
 ## Affected files
 
 - .fas/TASKS.md
+- .fas/memory/architecture.md
+- .fas/memory/decisions.md
+- .fas/memory/incidents.md
 - .fas/memory/integrations.md
+- .fas/memory/patterns.md
+- .fas/memory/pr-feedback.md
 - .fas/tasks/improve-voice-workbench-partial-result-ux-and-provider-reaso.md
 - examples/agents/voice-workbench/src/domains/product-pricing/price-capability.ts
 - examples/agents/voice-workbench/src/domains/product-pricing/price-capability.test.ts
@@ -70,7 +75,9 @@ DoorDash authorization.
 
 ## Scope Amendments
 
-- None.
+- Five pre-existing, git-ignored `.fas/memory` projections are declared as
+  reference-only scope because the closeout scanner includes them in its live
+  ChangeSet. This task did not edit or commit those projections.
 
 ## Implementation plan
 
