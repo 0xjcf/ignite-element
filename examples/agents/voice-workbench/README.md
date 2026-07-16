@@ -193,7 +193,20 @@ If `MODEL_FAILED` arrives while responding, the transition atomically records
 the sanitized failure and a non-success turn receipt, discards
 `pendingCompletion`, leaves `response` null, and enters `unavailable`. Artifact
 mutation and completion are then unavailable until a later preparation
-succeeds.
+succeeds. Both provider failure and a new preparation request also write a
+serializable, sequence-numbered `modelTurnControlRequest` before clearing the
+active turn. The pure view exposes that request as
+`portRequests.modelTurnControl`; it never stores an `AbortController`, timer, or
+actor handle in machine context.
+
+The browser shell owns exactly one active `ModelTurnHandle`. That handle owns
+the model-turn `AbortController` and a 45-second whole-turn clock covering model
+inference, authorization, and capability execution. A projected interruption,
+replacement turn, or non-persisted `pagehide` cancels and aborts the handle
+idempotently. Clock expiry sends the child `TIMEOUT` event before aborting;
+operator and disposal paths send `CANCEL`, so the two terminal outcomes remain
+distinct. Persisted pagehide leaves the handle alive for browser history
+restoration.
 
 The command and event vocabulary is intentionally classified by authority:
 
@@ -276,8 +289,9 @@ consumers should treat these fields separately:
 
 Current serializable context owns the conversation messages, documents,
 artifact history, response, speech request, model failure, active turn
-identity, staged `pendingCompletion`, last terminal outcome, projected child
-lifecycle detail, and the private reducer-owned presentation slice.
+identity, the latest model-turn control request, staged `pendingCompletion`,
+last terminal outcome, projected child lifecycle detail, and the private
+reducer-owned presentation slice.
 `pendingCompletion` may be non-null only for the active responding turn: a
 matching `TURN_COMPLETED` consumes it, while every non-success terminal or
 provider/preparation exit clears it. This correlation invariant prevents a
@@ -289,8 +303,9 @@ The raw serializable context keys are:
 
 ```text
 activeArtifactId, activeTurnId, artifactRevisions, childLifecycles, documents,
-factSequence, lastFact, lastTurnTerminal, messages, modelFailure, presentation,
-pendingCompletion, response, revision, sessionId, speech
+factSequence, lastFact, lastTurnTerminal, messages, modelFailure,
+modelTurnControlRequest, presentation, pendingCompletion, response, revision,
+sessionId, speech
 ```
 
 The derived view currently exposes these prepared top-level keys:
@@ -385,7 +400,14 @@ The pure one-round model protocol remains policy. The child actor owns request
 invocation, authorization, capability execution, bounded history, the six-round
 limit, cancellation, timeout, stale-result rejection, and exactly one terminal
 outcome. `projectModelTurnPortRequest`, `projectModelTurnLifecycle`, and
-`projectModelTurnTerminalFact` are the shell boundary.
+`projectModelTurnTerminalFact` are the shell boundary. Each asynchronous
+runtime-manifest, domain-policy, capability-outcome, and turn envelope carries
+the originating `turnId` and `attemptId`. The parent accepts it only while that
+same child attempt is current. The driver repeats the same liveness check after
+every `await` and immediately before component commands or read-model writes,
+so a provider that ignores abort can settle its own promise but cannot execute
+a late command, append a receipt, schedule another model request, or report a
+second terminal.
 
 ### Executable voice capture
 
