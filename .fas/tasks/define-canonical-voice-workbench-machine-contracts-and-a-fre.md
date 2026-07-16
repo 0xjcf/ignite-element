@@ -32,9 +32,22 @@ Start from .fas/artifacts/audits/voice-workbench-state-machine-audit.md. Make ma
 - examples/agents/voice-workbench/src/session.ts
 - examples/agents/voice-workbench/src/session.headless.test.ts
 - examples/agents/voice-workbench/README.md
+- .fas/memory/architecture.md
+- .fas/memory/decisions.md
+- .fas/memory/incidents.md
+- .fas/memory/patterns.md
+- .fas/memory/pr-feedback.md
 
 ## Scope Amendments
-- None.
+- Type: reference-only
+- Added at: 2026-07-16
+- Trigger: FAS closeout ChangeSet scan
+- Reason: Five pre-existing git-ignored .fas/memory projections are included by the live ChangeSet scanner; this task neither edits nor commits them.
+- Added paths: .fas/memory/architecture.md, .fas/memory/decisions.md, .fas/memory/incidents.md, .fas/memory/patterns.md, .fas/memory/pr-feedback.md
+- Evidence source: git status --short --ignored .fas/memory
+- Evidence: git status --short --ignored .fas/memory | .fas/memory | The tracked implementation remains exactly session.ts, session.headless.test.ts, and README.md.
+- Accuracy signal: scanner-only reference projections; git-ignored
+- Follow-up needed: Keep these projections uncommitted and exclude them from implementation review.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

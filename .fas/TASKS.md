@@ -2429,9 +2429,12 @@ No active tasks.
 
 - Title: Define canonical voice-workbench machine contracts and a fresh actor factory
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/define-canonical-voice-workbench-machine-contracts-and-a-fre.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Add XState graph characterization and invariant tests for voice-workbench
 
