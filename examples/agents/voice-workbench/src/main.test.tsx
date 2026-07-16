@@ -240,6 +240,11 @@ describe("voice workbench browser entry", () => {
 			artifacts: [],
 			messageCount: 0,
 		});
+		expect(component.getSnapshot().value).toBe("preparing");
+		expect(component.getView().runtimeInspector.actor).toMatchObject({
+			heading: "Compound actor state",
+			matchText: 'matches("preparing")',
+		});
 		expect(host.shadowRoot.textContent).toContain(
 			"Preparing the local MLX model",
 		);
@@ -259,6 +264,11 @@ describe("voice workbench browser entry", () => {
 				canSubmitPrompt: true,
 				model: { status: "available", failure: null },
 			});
+		});
+		expect(component.getSnapshot().value).toEqual({ available: "idle" });
+		expect(component.getView().runtimeInspector.actor).toMatchObject({
+			heading: "Compound actor state",
+			matchText: 'matches({\n  available: "idle",\n})',
 		});
 		expect(host.shadowRoot.textContent).toContain(
 			"Your first accepted artifact will appear here",

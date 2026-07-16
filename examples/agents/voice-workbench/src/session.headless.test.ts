@@ -284,6 +284,43 @@ describe("voice workbench headless component", () => {
 			"submitVoiceTranscript",
 		]);
 		expect(() => JSON.stringify(schema)).not.toThrow();
+		expect(
+			Object.fromEntries(
+				Object.entries(schema.commands).map(([name, contract]) => [
+					name,
+					contract.channel,
+				]),
+			),
+		).toEqual({
+			acknowledgeSpeech: "user-intent",
+			beginModelPreparation: "user-intent",
+			cancelVoiceCapture: "user-intent",
+			changeArtifactView: "user-intent",
+			changeDraft: "user-intent",
+			changeMobilePanel: "user-intent",
+			changeSpeechPreference: "user-intent",
+			commitDocument: "private-adapter",
+			commitSpeech: "private-adapter",
+			completeResponse: "model-intent",
+			createArtifact: "model-intent",
+			playSpeech: "user-intent",
+			presentVoice: "private-adapter",
+			recordCapabilityOutcome: "read-model",
+			recordDomainPolicyDecision: "read-model",
+			recordRuntimeManifest: "read-model",
+			recordTurn: "read-model",
+			replay: "user-intent",
+			reportModelAvailable: "private-adapter",
+			reportModelFailure: "private-adapter",
+			restoreArtifactRevision: "user-intent",
+			reviseArtifact: "model-intent",
+			selectArtifact: "user-intent",
+			selectRuntimePreview: "user-intent",
+			setChecklistItem: "model-intent",
+			startVoiceCapture: "user-intent",
+			submitPrompt: "user-intent",
+			submitVoiceTranscript: "user-intent",
+		});
 		expect(schema.commands.createArtifact).toMatchObject({
 			input: {
 				properties: {
