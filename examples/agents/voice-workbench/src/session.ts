@@ -22,6 +22,7 @@ import {
 	type SubmitPromptInput,
 } from "./domain";
 import type { DomainPolicyDecision } from "./domains/contracts";
+import type { ProductPriceReasonCode } from "./domains/product-pricing/price-capability";
 import type { VoiceCaptureFact } from "./voice";
 
 export type WorkbenchArtifactView = "document" | "schema";
@@ -32,9 +33,8 @@ export type WorkbenchRuntimePreview =
 	| "speech"
 	| "headless";
 export type WorkbenchRuntimeManifestEntry = NeutralTool & { ownerId: string };
-export type WorkbenchPricingProofRow = {
+type WorkbenchPricingProofRowBase = {
 	subject: string;
-	priceStatus: "sourced" | "unverified";
 	product?: string;
 	size?: string;
 	cacheStatus: "miss" | "hit" | "coalesced";
@@ -54,6 +54,19 @@ export type WorkbenchPricingProofRow = {
 		| "attempted-failure"
 		| "coalesced";
 };
+export type WorkbenchPricingProofRow = WorkbenchPricingProofRowBase &
+	(
+		| {
+				priceStatus: "sourced";
+				reasonCode?: never;
+				reason?: never;
+		  }
+		| {
+				priceStatus: "unverified";
+				reasonCode: ProductPriceReasonCode;
+				reason: string;
+		  }
+	);
 export type WorkbenchCapabilityOutcome = {
 	type: WorkbenchCapabilityProof["outcome"];
 	ownerId: string;
@@ -694,6 +707,203 @@ const machine = setup({
 
 export const source = createActor(machine).start();
 
+const PRODUCT_PRICE_REASON_LABELS: Record<ProductPriceReasonCode, string> = {
+	"candidate-ambiguous": "Candidate selection ambiguous",
+	"candidate-low-confidence": "Candidate needs clarification",
+	"product-not-found": "Product not found",
+	"offer-unavailable": "Current offer unavailable",
+	"provider-response-invalid": "Provider response invalid",
+	"provider-unavailable": "Pricing provider unavailable",
+};
+
+const readableArtifactTitle = (
+	title: string | undefined,
+	id: string,
+): string => {
+	const value = title?.trim() || id.trim();
+	if (!/[-_]/.test(value)) return value;
+	return value
+		.split(/[-_]+/)
+		.filter(Boolean)
+		.map((part) => {
+			if (part.toLowerCase() === "wholefoods") return "Whole Foods";
+			return `${part.charAt(0).toUpperCase()}${part.slice(1).toLowerCase()}`;
+		})
+		.join(" ");
+};
+
+const tableCellView = (value: unknown, columnLabel: string) => {
+	if (typeof value === "string" && value.trim()) {
+		const text = value.trim();
+		try {
+			const url = new URL(text);
+			if (url.protocol === "https:" || url.protocol === "http:") {
+				const hostname = url.hostname.replace(/^www\./, "");
+				return {
+					text: hostname,
+					link: {
+						href: url.href,
+						ariaLabel: `Source: ${hostname}`,
+					},
+				};
+			}
+		} catch {
+			// Ordinary text cells are not links.
+		}
+		if (text.toLowerCase() === "unverified") {
+			return { text: "Unverified", tone: "warning" as const };
+		}
+		if (text.toLowerCase() === "sourced") {
+			return { text: "Verified", tone: "success" as const };
+		}
+		return { text };
+	}
+	if (typeof value === "number" || typeof value === "boolean") {
+		return { text: String(value) };
+	}
+	const column = columnLabel.trim().toLowerCase();
+	const text =
+		column === "price"
+			? "Price unavailable"
+			: column === "source"
+				? "No source"
+				: column === "product"
+					? "No product matched"
+					: "—";
+	return { text, tone: "muted" as const };
+};
+
+type WorkbenchResultQuality = {
+	tone: "success" | "warning" | "needs-input";
+	statusLabel: string;
+	heading: string;
+	summary: string;
+	metrics: readonly {
+		key: "requested" | "matched" | "verified";
+		label: string;
+		value: number;
+	}[];
+	issueRows: readonly { key: string; subject: string; label: string }[];
+	nextActions: readonly string[];
+};
+
+const productPricingResultQuality = (
+	policy: DomainPolicyDecision | null,
+	outcomes: readonly WorkbenchCapabilityOutcome[],
+): WorkbenchResultQuality | null => {
+	if (policy?.domainId !== "product-pricing") return null;
+	if (policy.outcome === "needs-input") {
+		return {
+			tone: "needs-input",
+			statusLabel: "Needs input",
+			heading: "Pricing needs clarification",
+			summary: policy.summary,
+			metrics: [],
+			issueRows: [],
+			nextActions: ["Answer the clarification questions to continue pricing."],
+		};
+	}
+	if (policy.outcome === "rejected") {
+		return {
+			tone: "warning",
+			statusLabel: "Request rejected",
+			heading: "Pricing request needs revision",
+			summary: policy.summary,
+			metrics: [],
+			issueRows: [],
+			nextActions: ["Revise the request before continuing pricing."],
+		};
+	}
+	const outcome = [...outcomes]
+		.reverse()
+		.find(
+			(candidate) =>
+				candidate.ownerId === "product-pricing-price" &&
+				candidate.toolName === "priceProducts" &&
+				candidate.pricingRows !== undefined,
+		);
+	const rows = outcome?.pricingRows ?? [];
+	if (rows.length === 0) {
+		return {
+			tone: "warning",
+			statusLabel: "Partial result",
+			heading: "Pricing results unavailable",
+			summary: "No item-level pricing results were returned.",
+			metrics: [],
+			issueRows: [],
+			nextActions: ["Retry pricing when the provider is available."],
+		};
+	}
+	const requested = rows.length;
+	const matched = rows.filter((row) => row.product && row.size).length;
+	const verified = rows.filter((row) => row.priceStatus === "sourced").length;
+	const issueRows = rows.flatMap((row, index) =>
+		row.priceStatus === "unverified"
+			? [
+					{
+						key: `${row.subject}-${index}`,
+						subject: row.subject,
+						label: PRODUCT_PRICE_REASON_LABELS[row.reasonCode],
+					},
+				]
+			: [],
+	);
+	const clarificationSubjects = rows
+		.filter(
+			(row) =>
+				row.priceStatus === "unverified" &&
+				(row.reasonCode === "candidate-ambiguous" ||
+					row.reasonCode === "candidate-low-confidence" ||
+					row.reasonCode === "product-not-found"),
+		)
+		.map((row) => row.subject);
+	const hasUnavailableOffer = rows.some(
+		(row) =>
+			row.priceStatus === "unverified" &&
+			row.reasonCode === "offer-unavailable",
+	);
+	const hasProviderIssue = rows.some(
+		(row) =>
+			row.priceStatus === "unverified" &&
+			(row.reasonCode === "provider-response-invalid" ||
+				row.reasonCode === "provider-unavailable"),
+	);
+	const complete = verified === requested;
+	const nextActions = complete
+		? ["Review verified prices before shopping."]
+		: [
+				clarificationSubjects.length > 0
+					? `Clarify brand, size, or variety for ${clarificationSubjects.join(", ")}.`
+					: null,
+				hasUnavailableOffer
+					? "Open matched product pages to confirm current availability and price."
+					: null,
+				hasProviderIssue
+					? "Retry pricing when the provider is available."
+					: null,
+			].filter((action): action is string => action !== null);
+	return {
+		tone: complete ? "success" : "warning",
+		statusLabel: complete ? "Complete result" : "Partial result",
+		heading: complete
+			? "Shopping list prices verified"
+			: verified === 0
+				? "Shopping list created; prices unavailable"
+				: "Shopping list created with partial pricing",
+		summary: `${requested} requested · ${matched} products matched · ${verified} prices verified`,
+		metrics: [
+			{ key: "requested", label: "requested", value: requested },
+			{ key: "matched", label: "matched", value: matched },
+			{ key: "verified", label: "verified", value: verified },
+		],
+		issueRows,
+		nextActions:
+			nextActions.length > 0
+				? nextActions
+				: ["Review unverified items before shopping."],
+	};
+};
+
 export const component = igniteCore({
 	source,
 	cleanup: true,
@@ -733,6 +943,7 @@ export const component = igniteCore({
 					: "ready";
 		const artifacts = snapshot.context.documents.map((document) => ({
 			...document,
+			displayTitle: readableArtifactTitle(document.title, document.id),
 			nodes: document.nodes.map((node) => {
 				const payload = node.kind === "action" ? node.payload : null;
 				const speech =
@@ -760,6 +971,16 @@ export const component = igniteCore({
 				return {
 					...node,
 					action: input ? { enabled: responding, input } : null,
+					...(node.kind === "table"
+						? {
+								displayRows: node.rows.map((row) => ({
+									id: row.id,
+									cells: row.cells.map((cell, index) =>
+										tableCellView(cell, node.columns[index]?.label ?? ""),
+									),
+								})),
+							}
+						: {}),
 				};
 			}),
 		}));
@@ -771,7 +992,7 @@ export const component = igniteCore({
 			null;
 		const artifactSummaries = artifacts.map((artifact) => ({
 			id: artifact.id,
-			title: artifact.title ?? artifact.id,
+			title: artifact.displayTitle,
 			revision: artifact.revision,
 			nodeCount: artifact.nodes.length,
 			active: artifact.id === activeArtifact?.id,
@@ -781,7 +1002,7 @@ export const component = igniteCore({
 					.filter((document) => document.id === activeArtifact.id)
 					.map((document) => ({
 						revision: document.revision,
-						title: document.title ?? document.id,
+						title: readableArtifactTitle(document.title, document.id),
 						nodeCount: document.nodes.length,
 						current: document.revision === activeArtifact.revision,
 					}))
@@ -811,9 +1032,14 @@ export const component = igniteCore({
 						id: activeArtifact.id,
 						title: activeArtifact.title,
 						revision: activeArtifact.revision,
-						nodes: activeArtifact.nodes.map(
-							({ action: _action, ...node }) => node,
-						),
+						nodes: activeArtifact.nodes.map((node) => {
+							const { action: _action, ...schemaNode } = node;
+							if ("displayRows" in schemaNode) {
+								const { displayRows: _displayRows, ...actorNode } = schemaNode;
+								return actorNode;
+							}
+							return schemaNode;
+						}),
 					}
 				: { artifacts: [] },
 			null,
@@ -826,7 +1052,7 @@ export const component = igniteCore({
 				: "available";
 		const turnState = responding ? "responding" : "ready";
 		const artifactLine = activeArtifact
-			? `${activeArtifact.title ?? activeArtifact.id} · revision ${activeArtifact.revision}`
+			? `${activeArtifact.displayTitle} · revision ${activeArtifact.revision}`
 			: "No accepted artifact yet";
 		let previewText: string;
 		switch (presentation.runtimePreview) {
@@ -891,14 +1117,49 @@ export const component = igniteCore({
 									pricing.product && pricing.size
 										? `${pricing.product} · ${pricing.size}`
 										: "No selected product",
+									pricing.priceStatus === "unverified"
+										? PRODUCT_PRICE_REASON_LABELS[pricing.reasonCode]
+										: null,
 									`native ${pricing.nativeStatus}`,
 									`Brave ${pricing.braveStatus}`,
-								].join(" · "),
+								]
+									.filter((value): value is string => value !== null)
+									.join(" · "),
 								...pricing,
 							}),
 						);
 						return [capabilityRow, ...pricingRows];
 					});
+		const domainPolicySections = presentation.domainPolicy
+			? [
+					{
+						key: "assumptions",
+						heading: "Assumptions",
+						rows: presentation.domainPolicy.assumptions.map((assumption) => ({
+							key: assumption.id,
+							text: assumption.label,
+						})),
+					},
+					{
+						key: "questions",
+						heading: "Clarification questions",
+						rows: presentation.domainPolicy.questions.map((question) => ({
+							key: question.id,
+							text: question.prompt,
+						})),
+					},
+					{
+						key: "evidence",
+						heading: "Evidence requirements",
+						rows: presentation.domainPolicy.evidenceRequirements.map(
+							(requirement) => ({
+								key: requirement.id,
+								text: requirement.label,
+							}),
+						),
+					},
+				].filter((section) => section.rows.length > 0)
+			: [];
 		const domainPolicy = presentation.domainPolicy
 			? {
 					heading: "Domain policy proof",
@@ -916,22 +1177,7 @@ export const component = igniteCore({
 							value: presentation.domainPolicy.policyLabel,
 						},
 					],
-					assumptionRows: presentation.domainPolicy.assumptions.map(
-						(assumption) => ({
-							key: assumption.id,
-							text: assumption.label,
-						}),
-					),
-					questionRows: presentation.domainPolicy.questions.map((question) => ({
-						key: question.id,
-						text: question.prompt,
-					})),
-					evidenceRows: presentation.domainPolicy.evidenceRequirements.map(
-						(requirement) => ({
-							key: requirement.id,
-							text: requirement.label,
-						}),
-					),
+					sections: domainPolicySections,
 				}
 			: null;
 		const manifestRows =
@@ -1010,6 +1256,10 @@ export const component = igniteCore({
 					]
 				: []),
 		];
+		const resultQuality = productPricingResultQuality(
+			presentation.domainPolicy,
+			presentation.capabilityOutcomes,
+		);
 		return {
 			sessionId: snapshot.context.sessionId,
 			modelContext: {
@@ -1032,6 +1282,7 @@ export const component = igniteCore({
 				activeArtifactRevisions.some((revision) => !revision.current),
 			canRetryModel: modelFailed,
 			activeArtifact,
+			resultQuality,
 			artifactSummaries,
 			activeArtifactRevisions,
 			turnCount,

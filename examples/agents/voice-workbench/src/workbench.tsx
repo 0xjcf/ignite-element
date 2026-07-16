@@ -803,30 +803,16 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 														</div>
 													))}
 												</dl>
-												<section class="domain-policy-list">
-													<strong>Assumptions</strong>
-													<ul>
-														{domainPolicy.assumptionRows.map((row) => (
-															<li key={row.key}>{row.text}</li>
-														))}
-													</ul>
-												</section>
-												<section class="domain-policy-list">
-													<strong>Clarification questions</strong>
-													<ul>
-														{domainPolicy.questionRows.map((row) => (
-															<li key={row.key}>{row.text}</li>
-														))}
-													</ul>
-												</section>
-												<section class="domain-policy-list">
-													<strong>Evidence requirements</strong>
-													<ul>
-														{domainPolicy.evidenceRows.map((row) => (
-															<li key={row.key}>{row.text}</li>
-														))}
-													</ul>
-												</section>
+												{domainPolicy.sections.map((section) => (
+													<section key={section.key} class="domain-policy-list">
+														<strong>{section.heading}</strong>
+														<ul>
+															{section.rows.map((row) => (
+																<li key={row.key}>{row.text}</li>
+															))}
+														</ul>
+													</section>
+												))}
 											</section>
 										),
 									)}

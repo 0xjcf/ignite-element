@@ -1167,7 +1167,12 @@ describe("shared voice workbench agent", () => {
 		searches[1] = { ...searches[1], subject: "   " };
 		searches[2] = {
 			...searches[2],
-			price: { status: "estimated", rawAmount: "secret price 2" },
+			price: {
+				status: "estimated",
+				reasonCode: "offer-unavailable",
+				reason: "R".repeat(300),
+				rawAmount: "secret price 2",
+			},
 		};
 		searches[3] = {
 			...searches[3],

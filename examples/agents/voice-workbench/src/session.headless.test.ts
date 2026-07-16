@@ -143,6 +143,7 @@ describe("voice workbench headless component", () => {
 			canSubmitPrompt: false,
 			canRetryModel: false,
 			activeArtifact: null,
+			resultQuality: null,
 			turnCount: 0,
 			turnLabel: "0 turns",
 			speechStatus: "idle",
@@ -352,6 +353,8 @@ describe("voice workbench headless component", () => {
 					{
 						subject: "Eggs",
 						priceStatus: "unverified",
+						reasonCode: "offer-unavailable",
+						reason: "The selected offer is not currently available.",
 						product: "365 Large Grade A Eggs",
 						size: "12 count",
 						cacheStatus: "coalesced",
@@ -361,6 +364,8 @@ describe("voice workbench headless component", () => {
 					{
 						subject: "Milk",
 						priceStatus: "unverified",
+						reasonCode: "product-not-found",
+						reason: "No compatible product was found.",
 						cacheStatus: "hit",
 						nativeStatus: "not-needed",
 						braveStatus: "not-needed",
@@ -394,9 +399,11 @@ describe("voice workbench headless component", () => {
 				heading: "Eggs · product pricing",
 				statusLabel: "unverified · cache coalesced",
 				message:
-					"365 Large Grade A Eggs · 12 count · native coalesced · Brave coalesced",
+					"365 Large Grade A Eggs · 12 count · Current offer unavailable · native coalesced · Brave coalesced",
 				subject: "Eggs",
 				priceStatus: "unverified",
+				reasonCode: "offer-unavailable",
+				reason: "The selected offer is not currently available.",
 				product: "365 Large Grade A Eggs",
 				size: "12 count",
 				cacheStatus: "coalesced",
@@ -408,9 +415,12 @@ describe("voice workbench headless component", () => {
 				className: "capability-outcome",
 				heading: "Milk · product pricing",
 				statusLabel: "unverified · cache hit",
-				message: "No selected product · native not-needed · Brave not-needed",
+				message:
+					"No selected product · Product not found · native not-needed · Brave not-needed",
 				subject: "Milk",
 				priceStatus: "unverified",
+				reasonCode: "product-not-found",
+				reason: "No compatible product was found.",
 				cacheStatus: "hit",
 				nativeStatus: "not-needed",
 				braveStatus: "not-needed",
@@ -494,11 +504,37 @@ describe("voice workbench headless component", () => {
 					value: "Representative product selection",
 				},
 			],
-			assumptionRows: [{ key: "bread", text: "Bread uses a 20 oz loaf." }],
-			questionRows: [
-				{ key: "location", text: "Which retailer location should be used?" },
+			sections: [
+				{
+					key: "assumptions",
+					heading: "Assumptions",
+					rows: [{ key: "bread", text: "Bread uses a 20 oz loaf." }],
+				},
+				{
+					key: "questions",
+					heading: "Clarification questions",
+					rows: [
+						{
+							key: "location",
+							text: "Which retailer location should be used?",
+						},
+					],
+				},
+				{
+					key: "evidence",
+					heading: "Evidence requirements",
+					rows: [{ key: "source", text: "Show the exact source." }],
+				},
 			],
-			evidenceRows: [{ key: "source", text: "Show the exact source." }],
+		});
+		expect(component.getView().resultQuality).toEqual({
+			tone: "needs-input",
+			statusLabel: "Needs input",
+			heading: "Pricing needs clarification",
+			summary: "Pricing scope needs clarification.",
+			metrics: [],
+			issueRows: [],
+			nextActions: ["Answer the clarification questions to continue pricing."],
 		});
 		expect(component.getView().runtimeInspector.domainPolicyCards).toEqual([
 			component.getView().runtimeInspector.domainPolicy,
@@ -756,6 +792,218 @@ describe("voice workbench headless component", () => {
 			})
 		).expectView({ speech: { id: speech.id, status: "acknowledged" } });
 		expect(component.canExecute("acknowledgeSpeech")).toBe(false);
+
+		await component.execute({
+			command: "submitPrompt",
+			input: {
+				modality: "text",
+				text: "Create a Whole Foods Sarasota shopping list with prices.",
+			},
+		});
+		await component.execute({
+			command: "recordDomainPolicyDecision",
+			input: {
+				type: "domain-policy-decision",
+				domainId: "product-pricing",
+				domainLabel: "Product pricing",
+				policyId: "category-pricing-scope",
+				policyLabel: "Category pricing scope",
+				outcome: "admitted",
+				summary: "Pricing scope admitted for 3 items.",
+				assumptions: [],
+				questions: [],
+				evidenceRequirements: [
+					{ id: "source", label: "Show exact source facts." },
+				],
+			},
+		});
+		await component.execute({
+			command: "recordCapabilityOutcome",
+			input: {
+				type: "success",
+				ownerId: "product-pricing-price",
+				toolName: "priceProducts",
+				message: "Whole Foods pricing completed.",
+				pricingRows: [
+					{
+						subject: "Breads",
+						priceStatus: "unverified",
+						reasonCode: "product-not-found",
+						reason: "No compatible product was found.",
+						cacheStatus: "miss",
+						nativeStatus: "miss",
+						braveStatus: "attempted-miss",
+					},
+					{
+						subject: "Eggs",
+						priceStatus: "unverified",
+						reasonCode: "offer-unavailable",
+						reason: "The selected offer is not currently available.",
+						product: "365 Large White Grade A Eggs",
+						size: "12 count",
+						cacheStatus: "miss",
+						nativeStatus: "hit",
+						braveStatus: "not-needed",
+					},
+					{
+						subject: "Milk",
+						priceStatus: "unverified",
+						reasonCode: "provider-response-invalid",
+						reason: "The provider response could not be decoded.",
+						product: "365 Whole Milk",
+						size: "1 gallon",
+						cacheStatus: "miss",
+						nativeStatus: "hit",
+						braveStatus: "not-needed",
+					},
+				],
+			},
+		});
+		await component.execute({
+			command: "createArtifact",
+			input: {
+				id: "shopping-list-wholefoods",
+				title: "shopping-list-wholefoods",
+				nodes: [
+					{
+						kind: "table",
+						id: "prices",
+						columns: [
+							{ id: "subject", label: "Subject" },
+							{ id: "price", label: "Price" },
+							{ id: "status", label: "Status" },
+							{ id: "source", label: "Source" },
+						],
+						rows: [
+							{
+								id: "breads",
+								cells: ["Breads", null, "unverified", null],
+							},
+							{
+								id: "eggs",
+								cells: [
+									"Eggs",
+									null,
+									"unverified",
+									"https://www.wholefoodsmarket.com/product/eggs",
+								],
+							},
+							{
+								id: "milk",
+								cells: [
+									"Milk",
+									null,
+									"unverified",
+									"https://www.wholefoodsmarket.com/product/milk",
+								],
+							},
+						],
+					},
+				],
+			},
+		});
+		expect(component.getView()).toMatchObject({
+			activeArtifact: {
+				id: "shopping-list-wholefoods",
+				displayTitle: "Shopping List Whole Foods",
+				nodes: [
+					{
+						id: "prices",
+						displayRows: [
+							{
+								id: "breads",
+								cells: [
+									{ text: "Breads" },
+									{ text: "Price unavailable", tone: "muted" },
+									{ text: "Unverified", tone: "warning" },
+									{ text: "No source", tone: "muted" },
+								],
+							},
+							{
+								id: "eggs",
+								cells: expect.arrayContaining([
+									{
+										text: "wholefoodsmarket.com",
+										link: {
+											href: "https://www.wholefoodsmarket.com/product/eggs",
+											ariaLabel: "Source: wholefoodsmarket.com",
+										},
+									},
+								]),
+							},
+							{ id: "milk" },
+						],
+					},
+				],
+			},
+			resultQuality: {
+				tone: "warning",
+				statusLabel: "Partial result",
+				heading: "Shopping list created; prices unavailable",
+				summary: "3 requested · 2 products matched · 0 prices verified",
+				metrics: [
+					{ key: "requested", label: "requested", value: 3 },
+					{ key: "matched", label: "matched", value: 2 },
+					{ key: "verified", label: "verified", value: 0 },
+				],
+				issueRows: [
+					{ key: "Breads-0", subject: "Breads", label: "Product not found" },
+					{
+						key: "Eggs-1",
+						subject: "Eggs",
+						label: "Current offer unavailable",
+					},
+					{
+						key: "Milk-2",
+						subject: "Milk",
+						label: "Provider response invalid",
+					},
+				],
+				nextActions: [
+					"Clarify brand, size, or variety for Breads.",
+					"Open matched product pages to confirm current availability and price.",
+					"Retry pricing when the provider is available.",
+				],
+			},
+			runtimeInspector: {
+				domainPolicy: {
+					sections: [
+						{
+							key: "evidence",
+							heading: "Evidence requirements",
+							rows: [{ key: "source", text: "Show exact source facts." }],
+						},
+					],
+				},
+			},
+		});
+		expect(component.getView().documentSchema).not.toContain("displayRows");
+		await component.execute({
+			command: "recordCapabilityOutcome",
+			input: {
+				type: "success",
+				ownerId: "product-pricing-price",
+				toolName: "priceProducts",
+				message: "All prices verified.",
+				pricingRows: ["Breads", "Eggs", "Milk"].map((subject) => ({
+					subject,
+					priceStatus: "sourced" as const,
+					product: `${subject} product`,
+					size: "1 unit",
+					cacheStatus: "hit" as const,
+					nativeStatus: "hit" as const,
+					braveStatus: "not-needed" as const,
+				})),
+			},
+		});
+		expect(component.getView().resultQuality).toMatchObject({
+			tone: "success",
+			statusLabel: "Complete result",
+			heading: "Shopping list prices verified",
+			summary: "3 requested · 3 products matched · 3 prices verified",
+			issueRows: [],
+			nextActions: ["Review verified prices before shopping."],
+		});
 
 		expect(snapshots).toHaveBeenCalled();
 		expect(views).toHaveBeenCalled();

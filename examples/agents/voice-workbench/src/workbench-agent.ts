@@ -538,61 +538,69 @@ const pricingProofRows = (
 		return undefined;
 	}
 
-	const rows = execution.data.searches.slice(0, 8).flatMap((candidate) => {
-		if (
-			!isRecord(candidate) ||
-			!isRecord(candidate.price) ||
-			!isRecord(candidate.receipt)
-		) {
-			return [];
-		}
-		const subject = boundedProofText(candidate.subject, 120);
-		const priceStatus = boundedEnum(candidate.price.status, PRICING_STATUSES);
-		const reasonCode = boundedEnum(
-			candidate.price.reasonCode,
-			PRODUCT_PRICE_REASON_CODES,
-		);
-		const reason = boundedProofText(candidate.price.reason, 240);
-		const cacheStatus = boundedEnum(
-			candidate.receipt.cache,
-			PRICING_CACHE_STATUSES,
-		);
-		const nativeStatus = boundedEnum(
-			candidate.receipt.native,
-			PRICING_NATIVE_STATUSES,
-		);
-		const braveStatus = boundedEnum(
-			candidate.receipt.brave,
-			PRICING_BRAVE_STATUSES,
-		);
-		if (
-			!subject ||
-			!priceStatus ||
-			(priceStatus === "unverified" && (!reasonCode || !reason)) ||
-			!cacheStatus ||
-			!nativeStatus ||
-			!braveStatus
-		) {
-			return [];
-		}
-		const product = isRecord(candidate.selection)
-			? boundedProofText(candidate.selection.product, 160)
-			: undefined;
-		const size = isRecord(candidate.selection)
-			? boundedProofText(candidate.selection.size, 80)
-			: undefined;
-		return [
-			{
+	const rows = execution.data.searches
+		.slice(0, 8)
+		.flatMap<WorkbenchPricingProofRow>((candidate) => {
+			if (
+				!isRecord(candidate) ||
+				!isRecord(candidate.price) ||
+				!isRecord(candidate.receipt)
+			) {
+				return [];
+			}
+			const subject = boundedProofText(candidate.subject, 120);
+			const priceStatus = boundedEnum(candidate.price.status, PRICING_STATUSES);
+			const reasonCode = boundedEnum(
+				candidate.price.reasonCode,
+				PRODUCT_PRICE_REASON_CODES,
+			);
+			const reason = boundedProofText(candidate.price.reason, 240);
+			const cacheStatus = boundedEnum(
+				candidate.receipt.cache,
+				PRICING_CACHE_STATUSES,
+			);
+			const nativeStatus = boundedEnum(
+				candidate.receipt.native,
+				PRICING_NATIVE_STATUSES,
+			);
+			const braveStatus = boundedEnum(
+				candidate.receipt.brave,
+				PRICING_BRAVE_STATUSES,
+			);
+			if (
+				!subject ||
+				!priceStatus ||
+				(priceStatus === "unverified" && (!reasonCode || !reason)) ||
+				!cacheStatus ||
+				!nativeStatus ||
+				!braveStatus
+			) {
+				return [];
+			}
+			const product = isRecord(candidate.selection)
+				? boundedProofText(candidate.selection.product, 160)
+				: undefined;
+			const size = isRecord(candidate.selection)
+				? boundedProofText(candidate.selection.size, 80)
+				: undefined;
+			const row = {
 				subject,
-				priceStatus,
-				...(reasonCode && reason ? { reasonCode, reason } : {}),
 				...(product && size ? { product, size } : {}),
 				cacheStatus,
 				nativeStatus,
 				braveStatus,
-			},
-		];
-	});
+			};
+			return priceStatus === "unverified"
+				? [
+						{
+							...row,
+							priceStatus,
+							reasonCode: reasonCode as NonNullable<typeof reasonCode>,
+							reason: reason as string,
+						},
+					]
+				: [{ ...row, priceStatus }];
+		});
 	return rows.length > 0 ? rows : undefined;
 };
 
