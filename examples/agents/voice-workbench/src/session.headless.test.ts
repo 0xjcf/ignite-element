@@ -414,6 +414,89 @@ describe("voice workbench session machine contract", () => {
 		actor.stop();
 	});
 
+	it("submits only the correlated transcript accepted by the voice child", () => {
+		const actor = createVoiceWorkbenchSessionActor().start();
+		actor.send({ type: "MODEL_AVAILABLE" });
+		actor.send({
+			type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "transcript",
+				attemptId: "voice:1",
+				sequence: 1,
+				fact: {
+					type: "voice-transcript",
+					text: "Create a correlated checklist",
+					final: true,
+				},
+			},
+		});
+		actor.send({
+			type: "PRESENTATION_UPDATED",
+			envelope: {
+				channel: "user-intent",
+				update: {
+					type: "voice-capture-requested",
+					action: "consume",
+					attemptId: "voice:1",
+					sequence: 1,
+				},
+			},
+		} as never);
+		expect(
+			projectVoiceWorkbenchView({ snapshot: actor.getSnapshot() }).portRequests
+				.voiceCapture,
+		).toEqual({
+			action: "consume",
+			attemptId: "voice:1",
+			sequence: 1,
+		});
+
+		actor.send({
+			type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "consumed",
+				attemptId: "voice:1",
+				sequence: 1,
+				fact: { type: "voice-idle" },
+			},
+		});
+		for (const fact of [
+			{
+				type: "VOICE_TRANSCRIPT_CONSUMED",
+				attemptId: "voice:stale",
+				text: "Ignore stale transcript",
+			},
+			{
+				type: "VOICE_TRANSCRIPT_CONSUMED",
+				text: "Ignore missing correlation",
+			},
+		] as const) {
+			actor.send(fact as never);
+		}
+		expect(actor.getSnapshot().value).toEqual({ available: "idle" });
+		expect(actor.getSnapshot().context.messages).toEqual([]);
+
+		const accepted = {
+			type: "VOICE_TRANSCRIPT_CONSUMED",
+			attemptId: "voice:1",
+			text: "Create a correlated checklist",
+		} as const;
+		actor.send(accepted as never);
+		expect(actor.getSnapshot().value).toEqual({ available: "responding" });
+		expect(actor.getSnapshot().context.messages).toEqual([
+			{
+				role: "user",
+				channel: "speech",
+				text: "Create a correlated checklist",
+			},
+		]);
+		expect(actor.getSnapshot().context.presentation.voiceCaptureRequest).toBeNull();
+
+		actor.send(accepted as never);
+		expect(actor.getSnapshot().context.messages).toHaveLength(1);
+		actor.stop();
+	});
+
 	it("projects turn interruption and rejects stale asynchronous read-model facts", () => {
 		const actor = createVoiceWorkbenchSessionActor().start();
 		actor.send({ type: "MODEL_AVAILABLE" });

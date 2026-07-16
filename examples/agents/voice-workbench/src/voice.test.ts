@@ -61,18 +61,28 @@ describe("browser voice capture", () => {
 		actor.send({
 			type: "RESULT",
 			attemptId: attemptId ?? "missing",
-			text: "  Create a launch checklist  ",
-			final: true,
+			text: "  Create a launch  ",
+			final: false,
 		});
 		expect(actor.getSnapshot()).toMatchObject({
 			value: "transcript",
 			context: {
-				transcript: "Create a launch checklist",
-				final: true,
+				transcript: "Create a launch",
+				final: false,
 			},
 		});
+		actor.send({ type: "CONSUME", attemptId: attemptId ?? "missing" });
+		expect(actor.getSnapshot().value).toBe("transcript");
+		actor.send({
+			type: "RESULT",
+			attemptId: attemptId ?? "missing",
+			text: "  Create a launch checklist  ",
+			final: true,
+		});
 
-		actor.send({ type: "CONSUME" });
+		actor.send({ type: "CONSUME", attemptId: "voice:stale" });
+		expect(actor.getSnapshot().value).toBe("transcript");
+		actor.send({ type: "CONSUME", attemptId: attemptId ?? "missing" });
 		expect(actor.getSnapshot().value).toBe("consumed");
 		expect(projectVoiceCaptureLifecycle(actor.getSnapshot())).toMatchObject({
 			state: "consumed",
@@ -92,7 +102,7 @@ describe("browser voice capture", () => {
 
 		expect(voice.getFact()).toEqual({ type: "voice-unsupported" });
 		expect(voice.start()).toEqual({ type: "voice-unsupported" });
-		expect(voice.useTranscript()).toEqual({
+		expect(voice.useTranscript("voice:missing")).toEqual({
 			ok: false,
 			fact: { type: "voice-unsupported" },
 		});
@@ -119,8 +129,18 @@ describe("browser voice capture", () => {
 			text: "Create a launch checklist",
 			final: true,
 		});
-		expect(voice.useTranscript()).toEqual({
+		expect(voice.useTranscript("voice:stale")).toEqual({
+			ok: false,
+			fact: {
+				type: "voice-transcript",
+				text: "Create a launch checklist",
+				final: true,
+			},
+		});
+		expect(voice.getLifecycle().state).toBe("transcript");
+		expect(voice.useTranscript("voice:1")).toEqual({
 			ok: true,
+			attemptId: "voice:1",
 			prompt: {
 				channel: "speech",
 				text: "Create a launch checklist",
@@ -145,7 +165,7 @@ describe("browser voice capture", () => {
 
 		expect(voice.cancel()).toEqual({ type: "voice-cancelled" });
 		expect(recognition.abort).toHaveBeenCalledOnce();
-		expect(voice.useTranscript()).toEqual({
+		expect(voice.useTranscript("voice:1")).toEqual({
 			ok: false,
 			fact: { type: "voice-cancelled" },
 		});

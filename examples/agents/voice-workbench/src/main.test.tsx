@@ -427,6 +427,14 @@ describe("voice workbench browser entry", () => {
 			throw new Error("use transcript button is unavailable");
 		}
 		useTranscript.click();
+		await vi.waitFor(() => {
+			expect(
+				component.getSnapshot().context.childLifecycles.voiceCapture,
+			).toMatchObject({
+				state: "consumed",
+				attemptId: "voice:1",
+			});
+		});
 
 		await vi.waitFor(() => {
 			expect(component.getView()).toMatchObject({
