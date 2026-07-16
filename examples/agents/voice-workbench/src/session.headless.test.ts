@@ -38,16 +38,62 @@ type VoiceControlContext = VoiceWorkbenchSessionSnapshot["context"] & {
 		| null;
 };
 
+type SpeechDeliveryControlRequest = {
+	id: string;
+	text: string;
+	attemptId: string;
+	sequence: number;
+};
+
+type SpeechControlContext = VoiceWorkbenchSessionSnapshot["context"] & {
+	speechDeliveryControlSequence: number;
+	speechDeliveryControlRequest: SpeechDeliveryControlRequest | null;
+};
+
 type VoiceTranscriptCandidate = { attemptId: string; text: string };
 
 const voiceControlContext = (
 	snapshot: VoiceWorkbenchSessionSnapshot,
 ): VoiceControlContext => snapshot.context as VoiceControlContext;
 
+const speechControlContext = (
+	snapshot: VoiceWorkbenchSessionSnapshot,
+): SpeechControlContext => snapshot.context as SpeechControlContext;
+
 const sendSessionEvent = (
 	actor: VoiceWorkbenchSessionActor,
 	event: Record<string, unknown>,
 ): void => (actor.send as (event: unknown) => void)(event);
+
+const speechLifecycle = (
+	request: SpeechDeliveryControlRequest,
+	state: "pending" | "queued" | "delivered" | "failed",
+) => {
+	const terminal =
+		state === "delivered"
+			? ({ type: "speech-delivery-completed", id: request.id } as const)
+			: state === "failed"
+				? ({
+						type: "speech-delivery-failed",
+						id: request.id,
+						message: "Speech adapter failed.",
+					} as const)
+				: null;
+	return {
+		state,
+		id: request.id,
+		text: request.text,
+		attemptId: request.attemptId,
+		requestSequence: request.sequence,
+		fact:
+			state === "pending"
+				? null
+				: state === "queued"
+					? ({ type: "speech-delivery-queued", id: request.id } as const)
+					: terminal,
+		terminal,
+	};
+};
 
 const transcriptCandidateSelector = () =>
 	(
@@ -313,7 +359,7 @@ describe("voice workbench session machine contract", () => {
 		}
 	});
 
-	it("rejects stale model, speech, and voice lifecycle projections at the parent boundary", () => {
+	it("rejects stale model and voice lifecycle projections at the parent boundary", () => {
 		const actor = createVoiceWorkbenchSessionActor().start();
 		actor.send({ type: "MODEL_AVAILABLE" });
 		actor.send({
@@ -359,62 +405,6 @@ describe("voice workbench session machine contract", () => {
 		);
 
 		actor.send({
-			type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED",
-			lifecycle: {
-				state: "queued",
-				id: "speech-1",
-				text: "First delivery",
-				attemptId: "speech-1:1",
-				fact: { type: "speech-delivery-queued", id: "speech-1" },
-				terminal: null,
-			},
-		});
-		actor.send({
-			type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED",
-			lifecycle: {
-				state: "pending",
-				id: "speech-2",
-				text: "Second delivery",
-				attemptId: "speech-2:2",
-				fact: null,
-				terminal: null,
-			},
-		});
-		actor.send({
-			type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED",
-			lifecycle: {
-				state: "queued",
-				id: "speech-2",
-				text: "Second delivery",
-				attemptId: "speech-2:2",
-				fact: { type: "speech-delivery-queued", id: "speech-2" },
-				terminal: null,
-			},
-		});
-		actor.send({
-			type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED",
-			lifecycle: {
-				state: "delivered",
-				id: "speech-1",
-				text: "First delivery",
-				attemptId: "speech-1:1",
-				fact: { type: "speech-delivery-completed", id: "speech-1" },
-				terminal: { type: "speech-delivery-completed", id: "speech-1" },
-			},
-		});
-		expect(
-			actor.getSnapshot().context.childLifecycles.speechDelivery,
-		).toMatchObject({
-			state: "queued",
-			id: "speech-2",
-			attemptId: "speech-2:2",
-		});
-		expect(actor.getSnapshot().context.presentation.speechDelivery).toEqual({
-			type: "speech-delivery-queued",
-			id: "speech-2",
-		});
-
-		actor.send({
 			type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
 			lifecycle: {
 				state: "listening",
@@ -446,6 +436,206 @@ describe("voice workbench session machine contract", () => {
 		expect(actor.getSnapshot().context.presentation).not.toHaveProperty(
 			"voice",
 		);
+		actor.stop();
+	});
+
+	it("owns speech request ordering and accepts only monotonic correlated child lifecycles", () => {
+		const actor = createVoiceWorkbenchSessionActor().start();
+		actor.send({ type: "MODEL_AVAILABLE" });
+		actor.send({
+			type: "SUBMIT_PROMPT",
+			input: { modality: "text", text: "Create a spoken response." },
+		});
+		actor.send({
+			type: "COMPLETE_RESPONSE",
+			input: {
+				text: "The response is ready.",
+				speech: "Speak the response.",
+			},
+		});
+		actor.send({ type: "TURN_COMPLETED", turnId: "voice-workbench:1" });
+
+		const firstSpeech = actor.getSnapshot().context.speech;
+		if (!firstSpeech) throw new Error("Expected a speech projection request.");
+		const firstRequest = speechControlContext(
+			actor.getSnapshot(),
+		).speechDeliveryControlRequest;
+		if (!firstRequest) throw new Error("Expected a parent speech request.");
+		expect(speechControlContext(actor.getSnapshot())).toMatchObject({
+			speechDeliveryControlSequence: 1,
+			speechDeliveryControlRequest: {
+				id: firstSpeech.id,
+				text: firstSpeech.text,
+				attemptId: `${firstSpeech.id}:1`,
+				sequence: 1,
+			},
+		});
+		expect(
+			projectVoiceWorkbenchView({ snapshot: actor.getSnapshot() }).portRequests
+				.speechDelivery,
+		).toEqual(firstRequest);
+		expect(actor.getSnapshot().context.presentation).not.toHaveProperty(
+			"speechDelivery",
+		);
+		expect(actor.getSnapshot().context.presentation).not.toHaveProperty(
+			"speechCommit",
+		);
+		expect(actor.getSnapshot().context.presentation).not.toHaveProperty(
+			"speechReplayRequest",
+		);
+		expect(
+			projectVoiceWorkbenchView({ snapshot: actor.getSnapshot() }).presentation,
+		).toMatchObject({ speechDelivery: null, speechCommit: null });
+
+		const pending = speechLifecycle(firstRequest, "pending");
+		for (const lifecycle of [
+			{ ...pending, requestSequence: 0 },
+			{ ...pending, id: "wrong-id" },
+			{ ...pending, text: "Wrong text" },
+			{ ...pending, attemptId: "wrong-attempt" },
+		]) {
+			sendSessionEvent(actor, {
+				type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED",
+				lifecycle,
+			});
+			expect(
+				actor.getSnapshot().context.childLifecycles.speechDelivery,
+			).toBeNull();
+		}
+
+		sendSessionEvent(actor, {
+			type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED",
+			lifecycle: pending,
+		});
+		expect(actor.getSnapshot().context.childLifecycles.speechDelivery).toEqual(
+			pending,
+		);
+		const queued = speechLifecycle(firstRequest, "queued");
+		sendSessionEvent(actor, {
+			type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED",
+			lifecycle: queued,
+		});
+		const acceptedQueued =
+			actor.getSnapshot().context.childLifecycles.speechDelivery;
+		expect(acceptedQueued).toEqual(queued);
+		expect(
+			projectVoiceWorkbenchView({ snapshot: actor.getSnapshot() }).presentation,
+		).toMatchObject({
+			speechDelivery: {
+				type: "speech-delivery-queued",
+				id: firstRequest.id,
+			},
+			speechCommit: null,
+		});
+
+		// Exact duplicates are idempotent; same-request regressions are rejected.
+		sendSessionEvent(actor, {
+			type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED",
+			lifecycle: { ...queued },
+		});
+		expect(actor.getSnapshot().context.childLifecycles.speechDelivery).toBe(
+			acceptedQueued,
+		);
+		sendSessionEvent(actor, {
+			type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED",
+			lifecycle: pending,
+		});
+		expect(actor.getSnapshot().context.childLifecycles.speechDelivery).toBe(
+			acceptedQueued,
+		);
+
+		sendSessionEvent(actor, {
+			type: "SPEECH_DELIVERY_REPLAY_REQUESTED",
+		});
+		const secondRequest = speechControlContext(
+			actor.getSnapshot(),
+		).speechDeliveryControlRequest;
+		if (!secondRequest) throw new Error("Expected a replay speech request.");
+		expect(secondRequest).toEqual({
+			id: firstSpeech.id,
+			text: firstSpeech.text,
+			attemptId: `${firstSpeech.id}:2`,
+			sequence: 2,
+		});
+		expect(
+			actor.getSnapshot().context.childLifecycles.speechDelivery,
+		).toBeNull();
+		for (const stale of [
+			pending,
+			queued,
+			speechLifecycle(firstRequest, "delivered"),
+		]) {
+			sendSessionEvent(actor, {
+				type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED",
+				lifecycle: stale,
+			});
+			expect(
+				actor.getSnapshot().context.childLifecycles.speechDelivery,
+			).toBeNull();
+		}
+
+		for (const state of ["pending", "queued", "delivered"] as const) {
+			sendSessionEvent(actor, {
+				type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED",
+				lifecycle: speechLifecycle(secondRequest, state),
+			});
+		}
+		const delivered =
+			actor.getSnapshot().context.childLifecycles.speechDelivery;
+		expect(delivered).toEqual(speechLifecycle(secondRequest, "delivered"));
+		expect(
+			speechControlContext(actor.getSnapshot()).speechDeliveryControlRequest,
+		).toBeNull();
+		expect(
+			projectVoiceWorkbenchView({ snapshot: actor.getSnapshot() }).presentation,
+		).toMatchObject({
+			speechDelivery: {
+				type: "speech-delivery-completed",
+				id: secondRequest.id,
+			},
+			speechCommit: {
+				id: secondRequest.id,
+				text: secondRequest.text,
+				status: "played",
+			},
+		});
+		for (const state of ["pending", "queued", "failed"] as const) {
+			sendSessionEvent(actor, {
+				type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED",
+				lifecycle: speechLifecycle(secondRequest, state),
+			});
+			expect(actor.getSnapshot().context.childLifecycles.speechDelivery).toBe(
+				delivered,
+			);
+		}
+
+		// Rapid replays fence the older request before its first pending projection.
+		sendSessionEvent(actor, { type: "SPEECH_DELIVERY_REPLAY_REQUESTED" });
+		const thirdRequest = speechControlContext(
+			actor.getSnapshot(),
+		).speechDeliveryControlRequest;
+		if (!thirdRequest) throw new Error("Expected a third speech request.");
+		sendSessionEvent(actor, { type: "SPEECH_DELIVERY_REPLAY_REQUESTED" });
+		const fourthRequest = speechControlContext(
+			actor.getSnapshot(),
+		).speechDeliveryControlRequest;
+		if (!fourthRequest) throw new Error("Expected a fourth speech request.");
+		expect([thirdRequest.sequence, fourthRequest.sequence]).toEqual([3, 4]);
+		sendSessionEvent(actor, {
+			type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED",
+			lifecycle: speechLifecycle(thirdRequest, "pending"),
+		});
+		expect(
+			actor.getSnapshot().context.childLifecycles.speechDelivery,
+		).toBeNull();
+		sendSessionEvent(actor, {
+			type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED",
+			lifecycle: speechLifecycle(fourthRequest, "pending"),
+		});
+		expect(actor.getSnapshot().context.childLifecycles.speechDelivery).toEqual(
+			speechLifecycle(fourthRequest, "pending"),
+		);
+		expect(() => JSON.stringify(actor.getSnapshot().context)).not.toThrow();
 		actor.stop();
 	});
 

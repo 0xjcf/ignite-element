@@ -12,12 +12,13 @@ describe("speech-delivery lifecycle machine", () => {
 			id: "speech-1",
 			text: "Ship the checklist.",
 			attemptId: "speech-1:1",
+			requestSequence: 7,
 		});
 		actor.start();
 
 		expect(actor.getSnapshot()).toMatchObject({
 			value: "pending",
-			context: { terminal: null },
+			context: { requestSequence: 7, terminal: null },
 		});
 		expect(() => JSON.stringify(actor.getSnapshot().context)).not.toThrow();
 		expect(projectSpeechDeliveryPortRequest(actor.getSnapshot())).toEqual({
@@ -25,6 +26,7 @@ describe("speech-delivery lifecycle machine", () => {
 			id: "speech-1",
 			text: "Ship the checklist.",
 			attemptId: "speech-1:1",
+			requestSequence: 7,
 			sequence: 1,
 		});
 
@@ -54,6 +56,7 @@ describe("speech-delivery lifecycle machine", () => {
 		expect(projectSpeechDeliveryLifecycle(actor.getSnapshot())).toMatchObject({
 			state: "delivered",
 			text: "Ship the checklist.",
+			requestSequence: 7,
 			terminal,
 		});
 		expect(projectSpeechDeliveryTerminalFact(actor.getSnapshot())).toBe(
@@ -76,6 +79,7 @@ describe("speech-delivery lifecycle machine", () => {
 				id: "speech-terminal",
 				text: "Terminal speech.",
 				attemptId: "speech-terminal:1",
+				requestSequence: 1,
 			});
 			actor.start();
 			actor.send({ type: event, attemptId: "speech-terminal:1" });
@@ -92,6 +96,7 @@ describe("speech-delivery lifecycle machine", () => {
 			id: "speech-failed",
 			text: "Failure speech.",
 			attemptId: "speech-failed:1",
+			requestSequence: 1,
 		});
 		failed.start();
 		failed.send({
@@ -114,6 +119,7 @@ describe("speech-delivery lifecycle machine", () => {
 			id: "speech-disposed",
 			text: "Dispose speech.",
 			attemptId: "speech-disposed:1",
+			requestSequence: 1,
 		});
 		disposed.start();
 		disposed.send({ type: "DISPOSE" });

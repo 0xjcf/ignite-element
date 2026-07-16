@@ -102,6 +102,100 @@ describe("model-turn lifecycle machine", () => {
 		actor.stop();
 	});
 
+	it.each(["requesting", "authorizing", "executing"] as const)(
+		"turns a correlated port failure in %s into one immutable terminal",
+		(phase) => {
+			const actor = createModelTurnActor({
+				turnId: "turn-port-failure",
+				prompt,
+			}).start();
+			if (phase !== "requesting") {
+				actor.send({
+					type: "MODEL_RESOLVED",
+					turnId: "turn-port-failure",
+					attemptId: "turn-port-failure:1",
+					result: {
+						ok: true,
+						calls: [
+							{
+								id: "complete",
+								command: "completeResponse",
+								input: { text: "Port failure fixture." },
+							},
+						],
+					},
+				});
+			}
+			if (phase === "executing") {
+				actor.send({
+					type: "AUTHORIZATION_RESOLVED",
+					turnId: "turn-port-failure",
+					attemptId: "turn-port-failure:1",
+					allowed: true,
+				});
+			}
+			expect(actor.getSnapshot()).toMatchObject({
+				value: phase,
+				context: { terminal: null },
+			});
+
+			for (const correlation of [
+				{ turnId: "stale-turn", attemptId: "turn-port-failure:1" },
+				{ turnId: "turn-port-failure", attemptId: "stale-attempt" },
+			]) {
+				actor.send({
+					type: "PORT_FAILED",
+					...correlation,
+					failure: { kind: "provider", message: "Stale port failure." },
+				});
+			}
+			expect(actor.getSnapshot()).toMatchObject({
+				value: phase,
+				context: { terminal: null },
+			});
+
+			actor.send({
+				type: "PORT_FAILED",
+				turnId: "turn-port-failure",
+				attemptId: "turn-port-failure:1",
+				failure: {
+					kind: "provider",
+					message: "The active turn port rejected.",
+				},
+			});
+			expect(actor.getSnapshot()).toMatchObject({
+				value: "failed",
+				context: {
+					lastResult: {
+						accepted: false,
+						reason: "model-failed",
+					},
+					terminal: {
+						type: "TURN_FAILED",
+						turnId: "turn-port-failure",
+						failure: {
+							kind: "provider",
+							message: "The active turn port rejected.",
+						},
+					},
+				},
+			});
+			expect(projectModelTurnPortRequest(actor.getSnapshot())).toBeNull();
+
+			const terminal = actor.getSnapshot().context.terminal;
+			actor.send({
+				type: "PORT_FAILED",
+				turnId: "turn-port-failure",
+				attemptId: "turn-port-failure:1",
+				failure: { kind: "network", message: "Duplicate failure." },
+			});
+			actor.send({ type: "CANCEL", turnId: "turn-port-failure" });
+			actor.send({ type: "TIMEOUT", turnId: "turn-port-failure" });
+			expect(actor.getSnapshot().context.terminal).toBe(terminal);
+			actor.stop();
+		},
+	);
+
 	it("bounds incomplete rounds and terminates with ROUND_LIMIT_REACHED", () => {
 		const actor = createModelTurnActor({ turnId: "turn-limit", prompt });
 		actor.start();

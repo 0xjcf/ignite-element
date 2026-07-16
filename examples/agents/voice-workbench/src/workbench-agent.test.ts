@@ -2441,6 +2441,81 @@ describe("shared voice workbench agent", () => {
 		}
 	});
 
+	it("turns an active authorization port rejection into TURN_FAILED before timeout", async () => {
+		const startSubmittedPrompt = await loadStartSubmittedPrompt();
+		requestModel.mockReset();
+		requestModel.mockResolvedValueOnce({
+			ok: true,
+			calls: [
+				{
+					id: "throwing-authorization",
+					command: "completeResponse",
+					input: { text: "This command must not complete." },
+				},
+			],
+		});
+		const domains = {
+			...createDomainRegistry([]),
+			authorizeExecution: () => {
+				throw new Error("Private authorization details must stay bounded.");
+			},
+		};
+
+		await component.execute({
+			command: "submitPrompt",
+			input: {
+				modality: "text",
+				text: "Exercise the authorization port failure boundary.",
+			},
+		});
+		const turnId = component.getView().lifecycle.activeTurnId;
+		if (!turnId) throw new Error("port-failure turn was not admitted");
+		const handle = startSubmittedPrompt(
+			{ baseUrl: "http://127.0.0.1:8080/v1", model: "local-model" },
+			{
+				turnId,
+				modality: "text",
+				text: "Exercise the authorization port failure boundary.",
+			},
+			[],
+			domains,
+			{ timeoutMs: 1_000 },
+		);
+
+		try {
+			await vi.waitFor(
+				() =>
+					expect(
+						component.getSnapshot().context.childLifecycles.modelTurn,
+					).toMatchObject({
+						state: "failed",
+						turnId,
+						terminal: { type: "TURN_FAILED", turnId },
+					}),
+				{ timeout: 150 },
+			);
+			await expect(handle.done).resolves.toMatchObject({
+				accepted: false,
+				reason: "model-failed",
+				failure: {
+					kind: "provider",
+					message: "A turn port failed unexpectedly.",
+				},
+			});
+			expect(source.getSnapshot()).toMatchObject({
+				value: { available: "idle" },
+				context: {
+					response: null,
+					lastTurnTerminal: { type: "TURN_FAILED", turnId },
+				},
+			});
+		} finally {
+			handle.dispose();
+			await handle.done.catch(() => null);
+			reportModelAvailable();
+		}
+	});
+
 	it("rejects a manifest collision before invoking the model", async () => {
 		requestModel.mockReset();
 		const collidingProvider: CapabilityOwner = {
