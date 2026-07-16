@@ -213,8 +213,11 @@ presentation context has no voice field. The view preserves its compatible
 `presentation.voice` field by deriving it from
 `childLifecycles.voiceCapture.fact`, with `voice-idle` only as the pre-lifecycle
 fallback, and uses the same lifecycle selector for transcript readiness. It
-also preserves the browser-facing `portRequests.voiceCapture` shape while
-projecting it from parent context.
+canonicalizes accepted final transcript text once at parent lifecycle ingress,
+so lifecycle fact, visible text, selector, consume request, and submitted prompt
+stay byte-for-byte aligned; interim transcript display is preserved verbatim.
+The view also preserves the browser-facing `portRequests.voiceCapture` shape
+while projecting it from parent context.
 
 The browser shell owns exactly one active `ModelTurnHandle`. That handle owns
 the model-turn `AbortController` and a 45-second whole-turn clock covering model
