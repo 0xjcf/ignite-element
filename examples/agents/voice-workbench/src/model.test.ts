@@ -10,7 +10,7 @@ import {
 } from "vitest";
 import { type ModelRequest, modelTools } from "./agent-loop";
 import { probeMlxWorkbenchReadiness, requestMlxWorkbenchModel } from "./model";
-import { component, source } from "./session";
+import { component, reportModelAvailable, source } from "./session";
 
 const prompt = {
 	channel: "text" as const,
@@ -26,7 +26,7 @@ const createRequest = (): ModelRequest => ({
 	domainPolicyInstructions: "",
 });
 
-beforeAll(() => component.execute({ command: "reportModelAvailable" }));
+beforeAll(() => reportModelAvailable());
 afterEach(() => vi.unstubAllGlobals());
 afterAll(() => source.stop());
 

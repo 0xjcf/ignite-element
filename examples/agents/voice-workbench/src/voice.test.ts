@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	createBrowserVoiceCapture,
 	createVoiceCaptureActor,
+	projectVoiceCaptureLifecycle,
+	projectVoiceCapturePortRequest,
 	type SpeechRecognitionLike,
 } from "./voice";
 
@@ -43,6 +45,11 @@ describe("browser voice capture", () => {
 		expect(actor.getSnapshot().value).toBe("listening");
 		expect(attemptId).toBe("voice:1");
 		expect(() => JSON.stringify(actor.getSnapshot().context)).not.toThrow();
+		expect(projectVoiceCapturePortRequest(actor.getSnapshot())).toEqual({
+			type: "start",
+			attemptId: "voice:1",
+			sequence: 1,
+		});
 
 		actor.send({
 			type: "RESULT",
@@ -67,6 +74,11 @@ describe("browser voice capture", () => {
 
 		actor.send({ type: "CONSUME" });
 		expect(actor.getSnapshot().value).toBe("consumed");
+		expect(projectVoiceCaptureLifecycle(actor.getSnapshot())).toMatchObject({
+			state: "consumed",
+			attemptId: "voice:1",
+			fact: { type: "voice-idle" },
+		});
 		actor.send({ type: "DISPOSE" });
 		actor.send({ type: "DISPOSE" });
 		expect(actor.getSnapshot().value).toBe("disposed");

@@ -8,7 +8,12 @@ import {
 	normalizeModelIssues,
 } from "./agent-loop";
 import agentLoopSource from "./agent-loop.ts?raw";
-import { component, source } from "./session";
+import {
+	component,
+	recordTurnTerminal,
+	reportModelAvailable,
+	source,
+} from "./session";
 
 const nodes = [
 	{
@@ -18,8 +23,14 @@ const nodes = [
 	},
 ] as const;
 
-beforeAll(() => component.execute({ command: "reportModelAvailable" }));
+beforeAll(() => reportModelAvailable());
 afterAll(() => source.stop());
+
+const finishCurrentTurn = () => {
+	const turnId = source.getSnapshot().context.activeTurnId;
+	if (!turnId) throw new Error("Expected an active model turn.");
+	recordTurnTerminal({ type: "TURN_COMPLETED", turnId });
+};
 
 const executeModelTurn = async (response: ModelResult) => {
 	const tools = igniteTools(component);
@@ -439,6 +450,7 @@ describe("voice/text workbench model turn", () => {
 			],
 		});
 		expect(completed.accepted).toBe(true);
+		finishCurrentTurn();
 
 		const secondPrompt = { channel: "speech" as const, text: "Revise it" };
 		await component.execute({
@@ -481,6 +493,7 @@ describe("voice/text workbench model turn", () => {
 				],
 			}),
 		).resolves.toMatchObject({ accepted: true });
+		finishCurrentTurn();
 
 		expect(requests[0]?.tools.map((tool) => tool.name)).toEqual([
 			"createArtifact",
@@ -540,6 +553,7 @@ describe("voice/text workbench model turn", () => {
 			command: "completeResponse",
 			input: { text: "Validation feedback captured." },
 		});
+		finishCurrentTurn();
 	});
 
 	it("returns provider failure as a terminal fact without synthetic completion", () => {
@@ -620,6 +634,7 @@ describe("voice/text workbench model turn", () => {
 			command: "completeResponse",
 			input: { text: "Follow-up round complete." },
 		});
+		finishCurrentTurn();
 	});
 
 	it("does not publish a prompt event when submitPrompt is not admitted", async () => {
@@ -644,5 +659,6 @@ describe("voice/text workbench model turn", () => {
 			command: "completeResponse",
 			input: { text: "Active turn completed after rejection proof." },
 		});
+		finishCurrentTurn();
 	});
 });

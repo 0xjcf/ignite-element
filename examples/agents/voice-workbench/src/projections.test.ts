@@ -3,11 +3,11 @@ import {
 	createProjectionSpeechTarget,
 } from "ignite-element/xstate";
 import { describe, expect, it, vi } from "vitest";
-import { component, source } from "./session";
+import { component, reportModelAvailable, source } from "./session";
 
 describe("voice workbench projection targets", () => {
 	it("commits documents and acknowledged speech through direct component targets", async () => {
-		await component.execute({ command: "reportModelAvailable" });
+		reportModelAvailable();
 		const commitDocument = vi.fn();
 		const commitSpeech = vi.fn();
 		const documentSession = component(

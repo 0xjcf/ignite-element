@@ -1,5 +1,10 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { component, source } from "./session";
+import {
+	component,
+	recordTurnTerminal,
+	reportModelAvailable,
+	source,
+} from "./session";
 import { formatTerminalProjection } from "./terminal";
 import terminalSource from "./terminal.ts?raw";
 
@@ -7,7 +12,7 @@ afterAll(() => source.stop());
 
 describe("voice workbench terminal projection", () => {
 	it("formats the same actor-approved view without DOM APIs", async () => {
-		await component.execute({ command: "reportModelAvailable" });
+		reportModelAvailable();
 		await component.execute({
 			command: "submitPrompt",
 			input: { modality: "text", text: "Create a terminal artifact" },
@@ -30,6 +35,8 @@ describe("voice workbench terminal projection", () => {
 			command: "completeResponse",
 			input: { text: "Terminal artifact ready." },
 		});
+		const turnId = source.getSnapshot().context.activeTurnId;
+		if (turnId) recordTurnTerminal({ type: "TURN_COMPLETED", turnId });
 
 		const view = component.getView();
 		const output = formatTerminalProjection(view);

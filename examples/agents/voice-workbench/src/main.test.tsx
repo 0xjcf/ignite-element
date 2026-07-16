@@ -70,9 +70,16 @@ describe("voice workbench browser entry", () => {
 		vi.stubGlobal(
 			"SpeechSynthesisUtterance",
 			class SpeechSynthesisUtterance {
+				onend: ((event: Event) => void) | null = null;
+				onerror: ((event: { error: string }) => void) | null = null;
 				constructor(readonly text: string) {}
 			},
 		);
+		speak.mockImplementation((utterance: SpeechSynthesisUtterance) => {
+			queueMicrotask(() =>
+				utterance.onend?.(new Event("end") as SpeechSynthesisEvent),
+			);
+		});
 		Object.defineProperty(window, "speechSynthesis", {
 			configurable: true,
 			value: { speak },
@@ -471,9 +478,7 @@ describe("voice workbench browser entry", () => {
 		await vi.waitFor(() => {
 			expect(component.getView()).toMatchObject({
 				status: "ready",
-				response: {
-					text: "The local model could not be reached. Check its configuration and try again.",
-				},
+				response: null,
 				presentation: {
 					turn: {
 						type: "model-failed",

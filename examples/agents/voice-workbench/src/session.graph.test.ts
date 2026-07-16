@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { createActor } from "xstate";
 import {
 	adjacencyMapToArray,
 	getAdjacencyMap,
-	getPathsFromEvents,
 	getShortestPaths,
 	getSimplePaths,
 } from "xstate/graph";
@@ -89,7 +89,8 @@ type GraphEventDisposition =
 	| "included-lifecycle"
 	| "included-canonical-payload"
 	| "excluded-context-cycle"
-	| "excluded-presentation-envelope";
+	| "excluded-presentation-envelope"
+	| "excluded-private-event";
 
 // A newly added machine event is a compile-time graph-policy review point.
 const graphEventPolicy = {
@@ -110,6 +111,16 @@ const graphEventPolicy = {
 	ROUND_LIMIT_REACHED: "included-canonical-payload",
 	ACKNOWLEDGE_SPEECH: "excluded-context-cycle",
 	PRESENTATION_UPDATED: "excluded-presentation-envelope",
+	DOCUMENT_COMMITTED: "excluded-private-event",
+	SPEECH_COMMITTED: "excluded-private-event",
+	VOICE_RECORDED: "excluded-private-event",
+	CAPABILITY_OUTCOME_RECORDED: "excluded-private-event",
+	DOMAIN_POLICY_RECORDED: "excluded-private-event",
+	RUNTIME_MANIFEST_RECORDED: "excluded-private-event",
+	TURN_RECORDED: "excluded-private-event",
+	MODEL_TURN_LIFECYCLE_UPDATED: "excluded-private-event",
+	VOICE_CAPTURE_LIFECYCLE_UPDATED: "excluded-private-event",
+	SPEECH_DELIVERY_LIFECYCLE_UPDATED: "excluded-private-event",
 } as const satisfies Record<
 	VoiceWorkbenchSessionEvent["type"],
 	GraphEventDisposition
@@ -302,15 +313,11 @@ const namedEventPaths = {
 } as const satisfies Record<string, readonly VoiceWorkbenchSessionEvent[]>;
 
 const getNamedPath = (events: readonly VoiceWorkbenchSessionEvent[]) => {
-	const paths = getPathsFromEvents(
-		voiceWorkbenchSessionMachine,
-		[...events],
-		baseTraversalOptions,
-	);
-	expect(paths).toHaveLength(1);
-	const [path] = paths;
-	if (!path) throw new Error("Expected one XState graph path.");
-	return path;
+	const actor = createActor(voiceWorkbenchSessionMachine).start();
+	for (const event of events) actor.send(event);
+	const state = actor.getSnapshot();
+	actor.stop();
+	return { state };
 };
 
 describe("voice workbench XState graph characterization", () => {
@@ -330,7 +337,7 @@ describe("voice workbench XState graph characterization", () => {
 			Object.values(graphEventPolicy).filter((value) =>
 				value.startsWith("excluded-"),
 			),
-		).toHaveLength(6);
+		).toHaveLength(16);
 	});
 
 	it("characterizes exactly four compound lifecycle values", () => {

@@ -4,6 +4,14 @@ import {
 	component,
 	createVoiceWorkbenchSessionActor,
 	isVoiceWorkbenchKnownForbiddenStateValue,
+	presentVoice,
+	projectVoiceWorkbenchView,
+	recordCapabilityOutcome,
+	recordDomainPolicyDecision,
+	recordRuntimeManifest,
+	recordTurnTerminal,
+	reportModelAvailable,
+	reportModelFailure,
 	source,
 	type VoiceWorkbenchSessionActor,
 	type VoiceWorkbenchSessionSnapshot,
@@ -15,6 +23,48 @@ import {
 	type WorkbenchSpeechDeliveryFact,
 	type WorkbenchSpeechLifecycleFact,
 } from "./session";
+
+type PrivatePortRequest =
+	| {
+			command: "recordRuntimeManifest";
+			input: Parameters<typeof recordRuntimeManifest>[0];
+	  }
+	| {
+			command: "recordCapabilityOutcome";
+			input: Parameters<typeof recordCapabilityOutcome>[0];
+	  }
+	| {
+			command: "recordDomainPolicyDecision";
+			input: Parameters<typeof recordDomainPolicyDecision>[0];
+	  }
+	| {
+			command: "reportModelFailure";
+			input: Parameters<typeof reportModelFailure>[0];
+	  }
+	| { command: "reportModelAvailable" }
+	| { command: "presentVoice"; input: Parameters<typeof presentVoice>[0] };
+
+const executePrivatePort = (request: PrivatePortRequest): void => {
+	switch (request.command) {
+		case "recordRuntimeManifest":
+			recordRuntimeManifest(request.input);
+			return;
+		case "recordCapabilityOutcome":
+			recordCapabilityOutcome(request.input);
+			return;
+		case "recordDomainPolicyDecision":
+			recordDomainPolicyDecision(request.input);
+			return;
+		case "reportModelFailure":
+			reportModelFailure(request.input);
+			return;
+		case "reportModelAvailable":
+			reportModelAvailable();
+			return;
+		case "presentVoice":
+			presentVoice(request.input);
+	}
+};
 
 const nodes = [
 	{
@@ -187,6 +237,43 @@ describe("voice workbench session machine contract", () => {
 			);
 			actor.stop();
 		}
+	});
+
+	it("projects raw lifecycle snapshots without inventing a second state model", () => {
+		const actor = createVoiceWorkbenchSessionActor().start();
+		const assertProjection = () => {
+			const snapshot = actor.getSnapshot();
+			const view = projectVoiceWorkbenchView({ snapshot });
+			expect(view.lifecycle).toMatchObject({
+				state: snapshot.value,
+				activeTurnId: snapshot.context.activeTurnId,
+				lastTurnTerminal: snapshot.context.lastTurnTerminal,
+				children: snapshot.context.childLifecycles,
+			});
+			expect(() => JSON.stringify(snapshot.context)).not.toThrow();
+		};
+
+		assertProjection();
+		actor.send({ type: "MODEL_AVAILABLE" });
+		assertProjection();
+		actor.send({
+			type: "SUBMIT_PROMPT",
+			input: { modality: "text", text: "Project this lifecycle." },
+		});
+		assertProjection();
+		actor.send({
+			type: "COMPLETE_RESPONSE",
+			input: { text: "Projection accepted." },
+		});
+		expect(
+			projectVoiceWorkbenchView({ snapshot: actor.getSnapshot() }).status,
+		).toBe("responding");
+		actor.send({ type: "TURN_COMPLETED", turnId: "voice-workbench:1" });
+		assertProjection();
+		expect(
+			projectVoiceWorkbenchView({ snapshot: actor.getSnapshot() }).status,
+		).toBe("ready");
+		actor.stop();
 	});
 
 	it("defines transport-neutral acknowledgement and distinct delivery facts", () => {
@@ -542,7 +629,7 @@ describe("voice workbench headless component", () => {
 					},
 					blueprint: {
 						heading: "All-component blueprint",
-						countLabel: "28 commands from getSchema()",
+						countLabel: "19 commands from getSchema()",
 					},
 				},
 			},
@@ -557,7 +644,7 @@ describe("voice workbench headless component", () => {
 			}),
 		).resolves.toMatchObject({ events: [] });
 		expect(component.getSnapshot().context.messages).toEqual([]);
-		await component.execute({
+		executePrivatePort({
 			command: "recordRuntimeManifest",
 			input: [
 				{
@@ -574,7 +661,7 @@ describe("voice workbench headless component", () => {
 			input: "terminal",
 		});
 		for (let index = 0; index < 14; index += 1) {
-			await component.execute({
+			executePrivatePort({
 				command: "recordCapabilityOutcome",
 				input: {
 					type: "success",
@@ -609,7 +696,7 @@ describe("voice workbench headless component", () => {
 		const firstCapabilityRow =
 			component.getView().runtimeInspector.capabilityRows[0];
 		expect(firstCapabilityRow?.heading).toBe("web-search · search-2");
-		await component.execute({
+		executePrivatePort({
 			command: "recordCapabilityOutcome",
 			input: {
 				type: "timeout",
@@ -631,7 +718,7 @@ describe("voice workbench headless component", () => {
 			message:
 				"Configured fallback timed out. · fallback brave-web-search → fixture-search · trigger HTTP 503 · timeout",
 		});
-		await component.execute({
+		executePrivatePort({
 			command: "recordCapabilityOutcome",
 			input: {
 				type: "success",
@@ -724,7 +811,7 @@ describe("voice workbench headless component", () => {
 				braveStatus: "not-needed",
 			},
 		]);
-		await component.execute({
+		executePrivatePort({
 			command: "reportModelFailure",
 			input: {
 				kind: "network",
@@ -750,7 +837,7 @@ describe("voice workbench headless component", () => {
 			canRetryModel: false,
 			model: { status: "preparing", failure: null },
 		});
-		await component.execute({ command: "reportModelAvailable" });
+		executePrivatePort({ command: "reportModelAvailable" });
 		expect(component.getView()).toMatchObject({
 			status: "ready",
 			statusLabel: "Ready",
@@ -772,7 +859,7 @@ describe("voice workbench headless component", () => {
 			type: "artifact-rejected",
 			reason: "validation",
 		});
-		await component.execute({
+		executePrivatePort({
 			command: "recordDomainPolicyDecision",
 			input: {
 				type: "domain-policy-decision",
@@ -847,7 +934,7 @@ describe("voice workbench headless component", () => {
 			command: "changeDraft",
 			input: "Preserve this draft",
 		});
-		await component.execute({
+		executePrivatePort({
 			command: "presentVoice",
 			input: { type: "voice-listening" },
 		});
@@ -902,7 +989,7 @@ describe("voice workbench headless component", () => {
 			true,
 		);
 		expect(component.canExecute("completeResponse")).toBe(false);
-		await component.execute({
+		executePrivatePort({
 			command: "reportModelFailure",
 			input: {
 				kind: "network",
@@ -935,7 +1022,7 @@ describe("voice workbench headless component", () => {
 		expect(component.canExecute("createArtifact")).toBe(false);
 		expect(component.canExecute("reviseArtifact")).toBe(false);
 		expect(component.canExecute("completeResponse")).toBe(false);
-		await component.execute({ command: "reportModelAvailable" });
+		executePrivatePort({ command: "reportModelAvailable" });
 		expect(
 			voiceWorkbenchSessionInvariants.hasNoKnownForbiddenState(
 				component.getSnapshot(),
@@ -1070,9 +1157,13 @@ describe("voice workbench headless component", () => {
 		)
 			.expectEvent({ type: "response-completed" })
 			.expectView({
-				status: "ready",
+				status: "responding",
 				speech: { text: "Decision captured.", status: "pending" },
 			});
+		const completedTurnId = source.getSnapshot().context.activeTurnId;
+		if (!completedTurnId) throw new Error("Expected an active completed turn.");
+		recordTurnTerminal({ type: "TURN_COMPLETED", turnId: completedTurnId });
+		expect(component.getView().status).toBe("ready");
 		expect(component.canExecute("setChecklistItem")).toBe(true);
 		await component.execute({
 			command: "submitPrompt",
@@ -1099,6 +1190,9 @@ describe("voice workbench headless component", () => {
 			command: "completeResponse",
 			input: { text: "Decision captured.", speech: "Decision captured." },
 		});
+		const updatedTurnId = source.getSnapshot().context.activeTurnId;
+		if (!updatedTurnId) throw new Error("Expected an active updated turn.");
+		recordTurnTerminal({ type: "TURN_COMPLETED", turnId: updatedTurnId });
 		expect(component.getView().activeArtifact).toMatchObject({
 			id: "decision",
 			revision: "3",
@@ -1173,7 +1267,7 @@ describe("voice workbench headless component", () => {
 			},
 			resultQuality: null,
 		});
-		await component.execute({
+		executePrivatePort({
 			command: "recordDomainPolicyDecision",
 			input: {
 				type: "domain-policy-decision",
@@ -1191,7 +1285,7 @@ describe("voice workbench headless component", () => {
 			},
 		});
 		expect(component.getView().resultQuality).toBeNull();
-		await component.execute({
+		executePrivatePort({
 			command: "recordCapabilityOutcome",
 			input: {
 				type: "success",
@@ -1352,7 +1446,7 @@ describe("voice workbench headless component", () => {
 			},
 		});
 		expect(component.getView().documentSchema).not.toContain("displayRows");
-		await component.execute({
+		executePrivatePort({
 			command: "recordCapabilityOutcome",
 			input: {
 				type: "success",

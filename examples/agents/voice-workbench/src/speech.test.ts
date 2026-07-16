@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { createSpeechDeliveryActor } from "./speech";
+import {
+	createSpeechDeliveryActor,
+	projectSpeechDeliveryLifecycle,
+	projectSpeechDeliveryPortRequest,
+	projectSpeechDeliveryTerminalFact,
+} from "./speech";
 
 describe("speech-delivery lifecycle machine", () => {
 	it("records speak acceptance as queued and onend as delivered", () => {
@@ -15,6 +20,13 @@ describe("speech-delivery lifecycle machine", () => {
 			context: { terminal: null },
 		});
 		expect(() => JSON.stringify(actor.getSnapshot().context)).not.toThrow();
+		expect(projectSpeechDeliveryPortRequest(actor.getSnapshot())).toEqual({
+			type: "speak",
+			id: "speech-1",
+			text: "Ship the checklist.",
+			attemptId: "speech-1:1",
+			sequence: 1,
+		});
 
 		actor.send({ type: "QUEUED", attemptId: "stale" });
 		expect(actor.getSnapshot().value).toBe("pending");
@@ -39,6 +51,14 @@ describe("speech-delivery lifecycle machine", () => {
 		});
 
 		const terminal = actor.getSnapshot().context.terminal;
+		expect(projectSpeechDeliveryLifecycle(actor.getSnapshot())).toMatchObject({
+			state: "delivered",
+			text: "Ship the checklist.",
+			terminal,
+		});
+		expect(projectSpeechDeliveryTerminalFact(actor.getSnapshot())).toBe(
+			terminal,
+		);
 		actor.send({ type: "CANCEL", attemptId: "speech-1:1" });
 		actor.send({ type: "DISPOSE" });
 		expect(actor.getSnapshot().context.terminal).toBe(terminal);

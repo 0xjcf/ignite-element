@@ -4,7 +4,7 @@ import type { CapabilityOwner } from "./capability-federation";
 import { createProductPricingDomainPack } from "./domains/product-pricing";
 import { createDomainRegistry } from "./domains/registry";
 import { requestMlxWorkbenchModel } from "./model";
-import { component, source } from "./session";
+import { component, reportModelAvailable, source } from "./session";
 import {
 	auditCompletionEvidence,
 	completeSubmittedPrompt,
@@ -70,7 +70,7 @@ const priceEvidenceHistory: ModelExchange[] = [
 	},
 ];
 
-beforeAll(() => component.execute({ command: "reportModelAvailable" }));
+beforeAll(() => reportModelAvailable());
 afterAll(() => source.stop());
 
 describe("shared voice workbench agent", () => {

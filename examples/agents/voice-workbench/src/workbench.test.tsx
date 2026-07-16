@@ -1,9 +1,61 @@
 // @vitest-environment jsdom
 import { test as igniteTest } from "ignite-element/testing";
 import { describe, expect, it } from "vitest";
-import { component, source } from "./session";
+import {
+	component,
+	recordCapabilityOutcome,
+	recordDomainPolicyDecision,
+	recordRuntimeManifest,
+	recordTurn,
+	recordTurnTerminal,
+	reportModelAvailable,
+	reportModelFailure,
+	source,
+} from "./session";
 import { renderWorkbench } from "./workbench";
 import workbenchSource from "./workbench.tsx?raw";
+
+type PrivatePortRequest =
+	| { command: "reportModelAvailable" }
+	| {
+			command: "reportModelFailure";
+			input: Parameters<typeof reportModelFailure>[0];
+	  }
+	| {
+			command: "recordRuntimeManifest";
+			input: Parameters<typeof recordRuntimeManifest>[0];
+	  }
+	| {
+			command: "recordCapabilityOutcome";
+			input: Parameters<typeof recordCapabilityOutcome>[0];
+	  }
+	| {
+			command: "recordDomainPolicyDecision";
+			input: Parameters<typeof recordDomainPolicyDecision>[0];
+	  }
+	| { command: "recordTurn"; input: Parameters<typeof recordTurn>[0] };
+
+const executePrivatePort = (request: PrivatePortRequest): void => {
+	switch (request.command) {
+		case "reportModelAvailable":
+			reportModelAvailable();
+			return;
+		case "reportModelFailure":
+			reportModelFailure(request.input);
+			return;
+		case "recordRuntimeManifest":
+			recordRuntimeManifest(request.input);
+			return;
+		case "recordCapabilityOutcome":
+			recordCapabilityOutcome(request.input);
+			return;
+		case "recordDomainPolicyDecision":
+			recordDomainPolicyDecision(request.input);
+			return;
+		case "recordTurn":
+			recordTurn(request.input);
+	}
+};
 
 describe("voice workbench accessible JSX", () => {
 	it("maps view-ready inspector rows without presentation derivation in JSX", () => {
@@ -54,7 +106,7 @@ describe("voice workbench accessible JSX", () => {
 				}) as HTMLTextAreaElement
 			).disabled,
 		).toBe(true);
-		await component.execute({
+		executePrivatePort({
 			command: "reportModelFailure",
 			input: {
 				kind: "network",
@@ -66,8 +118,8 @@ describe("voice workbench accessible JSX", () => {
 		);
 		bridge.getByRole("button", { name: "Retry model" }).click();
 		expect(component.getView().status).toBe("preparing");
-		await component.execute({ command: "reportModelAvailable" });
-		await component.execute({
+		executePrivatePort({ command: "reportModelAvailable" });
+		executePrivatePort({
 			command: "recordRuntimeManifest",
 			input: [
 				{
@@ -96,7 +148,7 @@ describe("voice workbench accessible JSX", () => {
 				},
 			],
 		});
-		await component.execute({
+		executePrivatePort({
 			command: "recordCapabilityOutcome",
 			input: {
 				type: "timeout",
@@ -106,7 +158,7 @@ describe("voice workbench accessible JSX", () => {
 				status: 429,
 			},
 		});
-		await component.execute({
+		executePrivatePort({
 			command: "recordDomainPolicyDecision",
 			input: {
 				type: "domain-policy-decision",
@@ -468,6 +520,9 @@ describe("voice workbench accessible JSX", () => {
 		action.focus();
 		expect(bridge.root.activeElement).toBe(action);
 		action.click();
+		const completedTurnId = source.getSnapshot().context.activeTurnId;
+		if (!completedTurnId) throw new Error("Expected an active completed turn.");
+		recordTurnTerminal({ type: "TURN_COMPLETED", turnId: completedTurnId });
 		expect(component.getView().status).toBe("ready");
 		bridge.getByRole("tab", { name: "Document" }).click();
 		const checklistItem = bridge.getByRole("checkbox", {
@@ -536,6 +591,9 @@ describe("voice workbench accessible JSX", () => {
 			command: "completeResponse",
 			input: { text: "Receipt added." },
 		});
+		const receiptTurnId = source.getSnapshot().context.activeTurnId;
+		if (!receiptTurnId) throw new Error("Expected an active receipt turn.");
+		recordTurnTerminal({ type: "TURN_COMPLETED", turnId: receiptTurnId });
 		expect(component.getView()).toMatchObject({
 			activeArtifact: { id: "receipt", revision: "1" },
 			artifactSummaries: [
@@ -549,7 +607,7 @@ describe("voice workbench accessible JSX", () => {
 			revision: "3",
 		});
 
-		await component.execute({
+		executePrivatePort({
 			command: "recordTurn",
 			input: {
 				type: "accepted",
@@ -570,7 +628,7 @@ describe("voice workbench accessible JSX", () => {
 			bridge.host.shadowRoot?.querySelector(".capability-proof")?.textContent,
 		).toContain("success · 4 queries · 4 sources");
 
-		await component.execute({
+		executePrivatePort({
 			command: "recordTurn",
 			input: {
 				type: "model-failed",
@@ -599,7 +657,7 @@ describe("voice workbench accessible JSX", () => {
 				text: "Create a Whole Foods Sarasota shopping list with prices.",
 			},
 		});
-		await component.execute({
+		executePrivatePort({
 			command: "recordDomainPolicyDecision",
 			input: {
 				type: "domain-policy-decision",
@@ -616,7 +674,7 @@ describe("voice workbench accessible JSX", () => {
 				],
 			},
 		});
-		await component.execute({
+		executePrivatePort({
 			command: "recordCapabilityOutcome",
 			input: {
 				type: "success",
@@ -705,6 +763,9 @@ describe("voice workbench accessible JSX", () => {
 			command: "completeResponse",
 			input: { text: "The shopping list is ready with partial pricing." },
 		});
+		const pricingTurnId = source.getSnapshot().context.activeTurnId;
+		if (!pricingTurnId) throw new Error("Expected an active pricing turn.");
+		recordTurnTerminal({ type: "TURN_COMPLETED", turnId: pricingTurnId });
 		const shopperQuality = bridge.host.shadowRoot?.querySelector(
 			'[aria-label="Shopper result quality"]',
 		);

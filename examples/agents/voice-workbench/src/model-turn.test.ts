@@ -3,6 +3,9 @@ import {
 	createModelTurnActor,
 	MODEL_TURN_ROUND_LIMIT,
 	type ModelTurnTerminalEvent,
+	projectModelTurnLifecycle,
+	projectModelTurnPortRequest,
+	projectModelTurnTerminalFact,
 } from "./model-turn";
 
 const prompt = {
@@ -29,6 +32,16 @@ describe("model-turn lifecycle machine", () => {
 			context: { turnId: "turn-1", round: 1, attemptId: "turn-1:1" },
 		});
 		expect(() => JSON.stringify(actor.getSnapshot().context)).not.toThrow();
+		expect(projectModelTurnLifecycle(actor.getSnapshot())).toMatchObject({
+			state: "requesting",
+			turnId: "turn-1",
+			attemptId: "turn-1:1",
+		});
+		expect(projectModelTurnPortRequest(actor.getSnapshot())).toMatchObject({
+			type: "request-model",
+			turnId: "turn-1",
+			attemptId: "turn-1:1",
+		});
 
 		actor.send({
 			type: "MODEL_RESOLVED",
@@ -82,6 +95,7 @@ describe("model-turn lifecycle machine", () => {
 		});
 
 		const terminal = actor.getSnapshot().context.terminal;
+		expect(projectModelTurnTerminalFact(actor.getSnapshot())).toBe(terminal);
 		actor.send({ type: "CANCEL", turnId: "turn-1" });
 		actor.send({ type: "TIMEOUT", turnId: "turn-1" });
 		expect(actor.getSnapshot().context.terminal).toBe(terminal);
