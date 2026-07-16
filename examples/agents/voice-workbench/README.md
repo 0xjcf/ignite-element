@@ -216,7 +216,7 @@ The command and event vocabulary is intentionally classified by authority:
 | --- | --- | --- |
 | `user-intent` | `submitPrompt`, `beginModelPreparation`, `restoreArtifactRevision`, `selectArtifact`, `acknowledgeSpeech`, voice start/cancel/transcript, presentation choices, replay, and play-speech intent | Schema-admitted only where a user or consumer can intentionally request behavior |
 | `model-intent` | `createArtifact`, `reviseArtifact`, `setChecklistItem`, `completeResponse` | Continue through statechart guards and reducer validation; the model never writes context directly |
-| Example-private adapter ports | `reportModelAvailable`, `reportModelFailure`, `presentVoice`, `commitDocument`, `commitSpeech` and child lifecycle recorders | Translate bounded adapter outcomes into typed actor events; absent from `getSchema()` |
+| Example-private adapter ports | `reportModelAvailable`, `reportModelFailure`, `presentVoice`, `recordVoiceTranscriptConsumed`, `commitDocument`, `commitSpeech` and child lifecycle recorders | Translate bounded adapter outcomes into typed actor events; absent from `getSchema()` |
 | Example-private read-model ports | `recordTurn`, `recordRuntimeManifest`, `recordCapabilityOutcome`, `recordDomainPolicyDecision` | Project bounded orchestration facts without becoming lifecycle authorities; absent from `getSchema()` |
 
 Exactly 19 public commands carry a serializable `user-intent` or `model-intent`
@@ -330,7 +330,7 @@ voiceState
 Direct `xstate/graph` characterization proves the four exact raw vertices and
 their event-labelled adjacency. The suite locks all 44 combinations of the four
 vertices and 11 included lifecycle/canonical-payload events, including unchanged
-snapshots for rejected events. Sixteen context-cycle, presentation-envelope,
+snapshots for rejected events. Seventeen context-cycle, presentation-envelope,
 and private-event cases are explicitly excluded from exhaustive enumeration.
 `voiceWorkbenchKnownForbiddenStateValues` is intentionally empty, and
 `voiceWorkbenchSessionInvariants` requires responding to be nested inside
@@ -430,7 +430,7 @@ stateDiagram-v2
 
     Transcript --> Transcript: RESULT [matching attempt]
     Transcript --> Idle: END [not final]
-    Transcript --> Consumed: CONSUME [final + non-empty]
+    Transcript --> Consumed: CONSUME [matching attempt + final + non-empty]
     Transcript --> Cancelled: CANCEL
     Consumed --> Idle: RESET
     Consumed --> Listening: START
@@ -445,8 +445,11 @@ stateDiagram-v2
 
 The browser recognition object remains an imperative port. The child actor owns
 the serializable lifecycle, attempt identity, transcript consume rule, retry,
-cancellation, and idempotent disposal. The browser driver consumes only the
-voice port-request projector and returns correlated facts.
+cancellation, and idempotent disposal. `submitVoiceTranscript` projects a
+correlated consume request; the browser driver asks the child to consume it and
+returns `VOICE_TRANSCRIPT_CONSUMED` only after the child reaches `consumed`.
+The parent admits that private fact once for the matching pending request, then
+opens the speech turn. It never infers acceptance from presentation text.
 
 ### Executable speech delivery
 
