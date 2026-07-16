@@ -311,6 +311,12 @@ export const modelTurnMachine = setup({
 		terminal: null,
 	}),
 	on: {
+		PORT_FAILED: {
+			guard: ({ context, event }) =>
+				context.terminal === null && correlated(context, event),
+			target: ".failed",
+			actions: "recordPortFailure",
+		},
 		CANCEL: {
 			guard: ({ context, event }) =>
 				context.terminal === null && event.turnId === context.turnId,
@@ -327,11 +333,6 @@ export const modelTurnMachine = setup({
 	states: {
 		requesting: {
 			on: {
-				PORT_FAILED: {
-					guard: ({ context, event }) => correlated(context, event),
-					target: "failed",
-					actions: "recordPortFailure",
-				},
 				MODEL_RESOLVED: [
 					{
 						guard: ({ context, event }) =>
