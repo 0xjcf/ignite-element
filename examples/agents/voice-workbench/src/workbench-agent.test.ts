@@ -1155,7 +1155,12 @@ describe("shared voice workbench agent", () => {
 				size: index === 0 ? oversizedSize : `${index} oz`,
 				rawProviderPayload: `secret selection ${index}`,
 			},
-			price: { status: "unverified", rawAmount: `secret price ${index}` },
+			price: {
+				status: "unverified",
+				reasonCode: "offer-unavailable",
+				reason: "R".repeat(300),
+				rawAmount: `secret price ${index}`,
+			},
 			receipt: validReceipt,
 			results: [{ raw: `secret result ${index}` }],
 		}));
@@ -1191,6 +1196,8 @@ describe("shared voice workbench agent", () => {
 		expect(recorded?.pricingRows?.[0]).toEqual({
 			subject: "S".repeat(120),
 			priceStatus: "unverified",
+			reasonCode: "offer-unavailable",
+			reason: "R".repeat(240),
 			product: "P".repeat(160),
 			size: "Z".repeat(80),
 			cacheStatus: "miss",
@@ -1400,6 +1407,7 @@ describe("shared voice workbench agent", () => {
 						status: "unverified",
 						amount: null,
 						sourceUrl: null,
+						reasonCode: "offer-unavailable",
 						reason: "No explicit current price was found.",
 					},
 					receipt:
@@ -1503,6 +1511,8 @@ describe("shared voice workbench agent", () => {
 				{
 					subject: "Bread",
 					priceStatus: "unverified",
+					reasonCode: "offer-unavailable",
+					reason: "No explicit current price was found.",
 					product: "365 Organic Sourdough Bread",
 					size: "24 oz",
 					cacheStatus: "miss",
@@ -1512,6 +1522,8 @@ describe("shared voice workbench agent", () => {
 				{
 					subject: "Eggs",
 					priceStatus: "unverified",
+					reasonCode: "offer-unavailable",
+					reason: "No explicit current price was found.",
 					cacheStatus: "miss",
 					nativeStatus: "miss",
 					braveStatus: "attempted-success",
@@ -1519,6 +1531,8 @@ describe("shared voice workbench agent", () => {
 				{
 					subject: "Milk",
 					priceStatus: "unverified",
+					reasonCode: "offer-unavailable",
+					reason: "No explicit current price was found.",
 					cacheStatus: "hit",
 					nativeStatus: "not-needed",
 					braveStatus: "not-needed",

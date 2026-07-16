@@ -4,6 +4,7 @@ import { PRODUCT_PRICING_MAX_ITEMS } from "../../src/domains/product-pricing/pol
 import {
 	PRODUCT_PRICE_OWNER_ID,
 	PRODUCT_PRICE_TOOL_NAME,
+	type ProductPriceReasonCode,
 	readProductPriceInput,
 } from "../../src/domains/product-pricing/price-capability";
 import {
@@ -59,6 +60,7 @@ type IdentityOutcome =
 	  }
 	| {
 			kind: "unverified";
+			reasonCode: ProductPriceReasonCode;
 			reason: string;
 			receipt: DiscoveryReceipt;
 			queryCount: number;
@@ -361,6 +363,10 @@ const discoverNatively = async (
 	if (!native.ok) {
 		return {
 			kind: "unverified",
+			reasonCode:
+				native.reason === "transport-error"
+					? "provider-unavailable"
+					: "provider-response-invalid",
 			reason:
 				native.reason === "transport-error"
 					? "Retailer-native discovery could not be reached."
@@ -377,6 +383,7 @@ const discoverNatively = async (
 	if (!decoded.ok) {
 		return {
 			kind: "unverified",
+			reasonCode: "provider-response-invalid",
 			reason:
 				"Retailer-native discovery returned an unsupported response shape.",
 			receipt: { cache: "miss", native: "schema-drift", brave: "not-eligible" },
@@ -394,6 +401,7 @@ const discoverNatively = async (
 	if (!options.apiKey?.trim()) {
 		return {
 			kind: "unverified",
+			reasonCode: "product-not-found",
 			reason:
 				"Retailer-native discovery returned no candidate and Brave is not configured.",
 			receipt: { cache: "miss", native: "miss", brave: "not-configured" },
@@ -419,6 +427,7 @@ const discoverNatively = async (
 	if (discovery.type !== "success") {
 		return {
 			kind: "unverified",
+			reasonCode: "provider-unavailable",
 			reason: "The clean retailer-native miss could not be resolved by Brave.",
 			receipt: { cache: "miss", native: "miss", brave: "attempted-failure" },
 			queryCount: 2,
@@ -429,6 +438,7 @@ const discoverNatively = async (
 	if (!asin) {
 		return {
 			kind: "unverified",
+			reasonCode: "product-not-found",
 			reason: "Brave returned no official Whole Foods product candidate.",
 			receipt: { cache: "miss", native: "miss", brave: "attempted-miss" },
 			queryCount: 2,
@@ -523,6 +533,7 @@ const unresolvedOwnedOutcome = (plan: OwnedPlan): IdentityOutcome => {
 	if (discovery?.kind === "candidates") {
 		return {
 			kind: "unverified",
+			reasonCode: "provider-response-invalid",
 			reason: "Whole Foods offer details could not be decoded.",
 			receipt: discovery.receipt,
 			queryCount: discovery.queryCount,
@@ -530,6 +541,7 @@ const unresolvedOwnedOutcome = (plan: OwnedPlan): IdentityOutcome => {
 	}
 	return {
 		kind: "unverified",
+		reasonCode: "provider-unavailable",
 		reason: "Retailer-native discovery did not complete.",
 		receipt: {
 			cache: "miss",
@@ -540,10 +552,15 @@ const unresolvedOwnedOutcome = (plan: OwnedPlan): IdentityOutcome => {
 	};
 };
 
-const unverifiedPrice = (reason: string, sourceUrl: string | null) => ({
+const unverifiedPrice = (
+	reasonCode: ProductPriceReasonCode,
+	reason: string,
+	sourceUrl: string | null,
+) => ({
 	status: "unverified" as const,
 	amount: null,
 	sourceUrl,
+	reasonCode,
 	reason,
 });
 
@@ -554,6 +571,10 @@ const resultForPlan = (
 ) => {
 	const outcome = plan.outcome;
 	if (!outcome || outcome.kind === "unverified") {
+		const reasonCode =
+			outcome?.kind === "unverified"
+				? outcome.reasonCode
+				: "provider-unavailable";
 		const reason =
 			outcome?.kind === "unverified"
 				? outcome.reason
@@ -561,7 +582,7 @@ const resultForPlan = (
 		return {
 			subject: plan.subject,
 			query: plan.query,
-			price: unverifiedPrice(reason, null),
+			price: unverifiedPrice(reasonCode, reason, null),
 			results: [],
 			receipt:
 				outcome?.receipt ??
@@ -600,6 +621,7 @@ const resultForPlan = (
 					sourceUrl,
 				}
 			: unverifiedPrice(
+					"offer-unavailable",
 					"The selected product has no matching current in-stock USD offer.",
 					sourceUrl,
 				),
@@ -763,6 +785,10 @@ export async function runWholeFoodsProductPricing(
 					plan,
 					{
 						kind: "unverified",
+						reasonCode:
+							selection.outcome === "ambiguous"
+								? "candidate-ambiguous"
+								: "candidate-low-confidence",
 						reason:
 							selection.outcome === "ambiguous"
 								? "Retailer-native candidate selection is ambiguous."

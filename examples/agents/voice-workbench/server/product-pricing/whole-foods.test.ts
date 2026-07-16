@@ -733,6 +733,7 @@ describe("Whole Foods server price adapter", () => {
 						price: {
 							status: "unverified",
 							amount: null,
+							reasonCode: "candidate-ambiguous",
 							reason: expect.stringContaining("ambiguous"),
 						},
 						receipt: { native: "hit", brave: "not-needed" },
@@ -819,7 +820,11 @@ describe("Whole Foods server price adapter", () => {
 					searches: [
 						{
 							selection: { asin: "B000000001" },
-							price: { status: "unverified", amount: null },
+							price: {
+								status: "unverified",
+								amount: null,
+								reasonCode: "offer-unavailable",
+							},
 						},
 					],
 				},
@@ -876,6 +881,7 @@ describe("Whole Foods server price adapter", () => {
 							price: {
 								status: "unverified",
 								amount: null,
+								reasonCode: "provider-response-invalid",
 								reason: expect.stringContaining("could not be decoded"),
 							},
 						},

@@ -17,6 +17,7 @@ import {
 	createCapabilityFederation,
 	runCapability,
 } from "./capability-federation";
+import { PRODUCT_PRICE_REASON_CODES } from "./domains/product-pricing/price-capability";
 import { type DomainRegistry, emptyDomainRegistry } from "./domains/registry";
 import {
 	type MlxWorkbenchConfiguration,
@@ -547,6 +548,11 @@ const pricingProofRows = (
 		}
 		const subject = boundedProofText(candidate.subject, 120);
 		const priceStatus = boundedEnum(candidate.price.status, PRICING_STATUSES);
+		const reasonCode = boundedEnum(
+			candidate.price.reasonCode,
+			PRODUCT_PRICE_REASON_CODES,
+		);
+		const reason = boundedProofText(candidate.price.reason, 240);
 		const cacheStatus = boundedEnum(
 			candidate.receipt.cache,
 			PRICING_CACHE_STATUSES,
@@ -562,6 +568,7 @@ const pricingProofRows = (
 		if (
 			!subject ||
 			!priceStatus ||
+			(priceStatus === "unverified" && (!reasonCode || !reason)) ||
 			!cacheStatus ||
 			!nativeStatus ||
 			!braveStatus
@@ -578,6 +585,7 @@ const pricingProofRows = (
 			{
 				subject,
 				priceStatus,
+				...(reasonCode && reason ? { reasonCode, reason } : {}),
 				...(product && size ? { product, size } : {}),
 				cacheStatus,
 				nativeStatus,

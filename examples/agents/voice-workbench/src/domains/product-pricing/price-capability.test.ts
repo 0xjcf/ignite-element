@@ -93,6 +93,70 @@ describe("same-origin product-price capability", () => {
 		);
 	});
 
+	it("preserves a bounded reason code for an unverified price", async () => {
+		const capability = createProductPriceCapability({
+			fetch: async () =>
+				new Response(
+					JSON.stringify({
+						type: "success",
+						ownerId: "product-pricing-price",
+						toolName: "priceProducts",
+						data: {
+							searches: [
+								{
+									subject: "Bread",
+									query: "provider-owned query",
+									price: {
+										status: "unverified",
+										amount: null,
+										sourceUrl: null,
+										reasonCode: "product-not-found",
+										reason: "No compatible product was found.",
+									},
+									results: [],
+									receipt: {
+										cache: "miss",
+										native: "miss",
+										brave: "attempted-miss",
+									},
+								},
+							],
+						},
+						receipt: {
+							provider: "whole-foods-product-pricing",
+							queryCount: 2,
+							sourceCount: 0,
+						},
+					}),
+					{ status: 200 },
+				),
+		});
+
+		await expect(
+			capability.run({
+				name: "priceProducts",
+				input: {
+					retailer: "Whole Foods",
+					location: "Sarasota",
+					items: [{ subject: "Bread" }],
+				},
+			}),
+		).resolves.toMatchObject({
+			type: "success",
+			data: {
+				searches: [
+					{
+						price: {
+							status: "unverified",
+							reasonCode: "product-not-found",
+							reason: "No compatible product was found.",
+						},
+					},
+				],
+			},
+		});
+	});
+
 	it("rejects provider-selection fields before transport", async () => {
 		const fetchMock = vi.fn();
 		const capability = createProductPriceCapability({ fetch: fetchMock });

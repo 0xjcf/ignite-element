@@ -26,6 +26,22 @@ export type ProductPriceCapabilityOptions = {
 
 export const PRODUCT_PRICE_TOOL_NAME = "priceProducts";
 export const PRODUCT_PRICE_OWNER_ID = "product-pricing-price";
+export const PRODUCT_PRICE_REASON_CODES = [
+	"candidate-ambiguous",
+	"candidate-low-confidence",
+	"product-not-found",
+	"offer-unavailable",
+	"provider-response-invalid",
+	"provider-unavailable",
+] as const;
+export type ProductPriceReasonCode =
+	(typeof PRODUCT_PRICE_REASON_CODES)[number];
+
+export const isProductPriceReasonCode = (
+	value: unknown,
+): value is ProductPriceReasonCode =>
+	typeof value === "string" &&
+	(PRODUCT_PRICE_REASON_CODES as readonly string[]).includes(value);
 
 const manifest: NeutralManifest = [
 	{
@@ -98,9 +114,12 @@ const readPrice = (value: unknown): Record<string, unknown> | null => {
 	}
 	if (value.status !== "unverified" || value.amount !== null) return null;
 	const reason = bounded(value.reason, 240);
+	const reasonCode = isProductPriceReasonCode(value.reasonCode)
+		? value.reasonCode
+		: null;
 	const sourceUrl = value.sourceUrl === null ? null : safeUrl(value.sourceUrl);
-	return reason && (value.sourceUrl === null || sourceUrl)
-		? { status: "unverified", amount: null, sourceUrl, reason }
+	return reasonCode && reason && (value.sourceUrl === null || sourceUrl)
+		? { status: "unverified", amount: null, sourceUrl, reasonCode, reason }
 		: null;
 };
 
