@@ -10,6 +10,11 @@ import {
 import { createDomainRegistry } from "./domains/registry";
 import { probeMlxWorkbenchReadiness } from "./model";
 import { component, source } from "./session";
+import {
+	createSpeechDeliveryActor,
+	projectSpeechDeliveryFact,
+	projectSpeechDeliveryPortRequest,
+} from "./speech";
 import { createBrowserVoiceCapture } from "./voice";
 import { createWebSearchCapability } from "./web-search-capability";
 import { renderWorkbench } from "./workbench";
@@ -52,6 +57,10 @@ const domains = createDomainRegistry([
 ]);
 let readinessAttempt = 0;
 let readinessController: AbortController | null = null;
+let speechAttempt = 0;
+const activeSpeechDeliveries = new Set<{
+	dispose(): void;
+}>();
 
 const prepareModel = async () => {
 	const attempt = ++readinessAttempt;
@@ -74,15 +83,111 @@ const prepareModel = async () => {
 	});
 };
 
-const speak = (text: string): "played" | "unavailable" => {
-	if (
-		typeof window.speechSynthesis?.speak !== "function" ||
-		typeof SpeechSynthesisUtterance === "undefined"
-	) {
-		return "unavailable";
-	}
-	window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
-	return "played";
+const deliverSpeech = (
+	speech: { id: string; text: string },
+	enabled: boolean,
+) => {
+	const attemptId = `${speech.id}:${++speechAttempt}`;
+	const supported =
+		typeof window.speechSynthesis?.speak === "function" &&
+		typeof SpeechSynthesisUtterance !== "undefined";
+	const actor = createSpeechDeliveryActor({
+		...speech,
+		attemptId,
+		supported,
+		muted: !enabled,
+	});
+	const handledPorts = new Set<string>();
+	let lastFact = "";
+	let disposed = false;
+	let subscription: { unsubscribe(): void } | null = null;
+
+	const delivery = {
+		dispose: () => {
+			if (disposed) return;
+			disposed = true;
+			actor.send({ type: "DISPOSE" });
+			subscription?.unsubscribe();
+			actor.stop();
+			activeSpeechDeliveries.delete(delivery);
+		},
+	};
+	activeSpeechDeliveries.add(delivery);
+
+	subscription = actor.subscribe((snapshot) => {
+		const fact = projectSpeechDeliveryFact(snapshot);
+		const factKey = fact ? JSON.stringify(fact) : "";
+		if (fact && factKey !== lastFact) {
+			lastFact = factKey;
+			switch (fact.type) {
+				case "speech-delivery-completed":
+					void component.execute({
+						command: "commitSpeech",
+						input: { ...speech, status: "played" },
+					});
+					break;
+				case "speech-delivery-muted":
+					void component.execute({
+						command: "commitSpeech",
+						input: { ...speech, status: "muted" },
+					});
+					break;
+				case "speech-delivery-unavailable":
+				case "speech-delivery-failed":
+					void component.execute({
+						command: "commitSpeech",
+						input: { ...speech, status: "unavailable" },
+					});
+					break;
+				case "speech-delivery-queued":
+				case "speech-delivery-cancelled":
+					break;
+			}
+		}
+
+		const request = projectSpeechDeliveryPortRequest(snapshot);
+		if (!request) return;
+		const portKey = `${request.type}:${request.sequence}`;
+		if (handledPorts.has(portKey)) return;
+		handledPorts.add(portKey);
+		switch (request.type) {
+			case "mute":
+				actor.send({ type: "MUTED", attemptId });
+				return;
+			case "unavailable":
+				actor.send({ type: "UNAVAILABLE", attemptId });
+				return;
+			case "speak": {
+				if (!supported) {
+					actor.send({ type: "UNAVAILABLE", attemptId });
+					return;
+				}
+				try {
+					const utterance = new SpeechSynthesisUtterance(request.text);
+					utterance.onend = () => actor.send({ type: "DELIVERED", attemptId });
+					utterance.onerror = (event) =>
+						actor.send({
+							type: "FAIL",
+							attemptId,
+							message: event.error || "Speech delivery failed.",
+						});
+					window.speechSynthesis.speak(utterance);
+					actor.send({ type: "QUEUED", attemptId });
+				} catch {
+					actor.send({
+						type: "FAIL",
+						attemptId,
+						message: "Speech delivery failed.",
+					});
+				}
+				return;
+			}
+			case "cancel":
+			case "dispose":
+				window.speechSynthesis?.cancel?.();
+		}
+	});
+	actor.start();
 };
 
 const voiceSubscription = voice.subscribe((fact) => {
@@ -107,17 +212,7 @@ const browserRequestSubscription = component.watchView((view, previous) => {
 		speechRequest.sequence !==
 			previous.presentation.speechReplayRequest?.sequence
 	) {
-		const status = view.presentation.speakResponses
-			? speak(speechRequest.text)
-			: "muted";
-		void component.execute({
-			command: "commitSpeech",
-			input: {
-				id: speechRequest.id,
-				text: speechRequest.text,
-				status,
-			},
-		});
+		deliverSpeech(speechRequest, view.presentation.speakResponses);
 	}
 });
 
@@ -162,13 +257,7 @@ const speechProjection = component(
 		acknowledgeCommandName: "acknowledgeSpeech",
 		resolveAcknowledgePayload: ({ id }) => ({ id }),
 		commitSpeech: (speech) => {
-			const status = component.getView().presentation.speakResponses
-				? speak(speech.text)
-				: "muted";
-			void component.execute({
-				command: "commitSpeech",
-				input: { id: speech.id, text: speech.text, status },
-			});
+			deliverSpeech(speech, component.getView().presentation.speakResponses);
 		},
 	}),
 );
@@ -181,6 +270,7 @@ window.addEventListener("pagehide", (event) => {
 	voiceSubscription.unsubscribe();
 	browserRequestSubscription.unsubscribe();
 	voice.dispose();
+	for (const delivery of [...activeSpeechDeliveries]) delivery.dispose();
 	modelPreparationSubscription.unsubscribe();
 	modelTurnSubscription.unsubscribe();
 	documentProjection.dispose();
