@@ -395,6 +395,7 @@ function requestBody(
 export async function requestMlxWorkbenchModel(
 	options: MlxWorkbenchConfiguration,
 	request: ModelRequest,
+	signal?: AbortSignal,
 ): Promise<ModelResult> {
 	const configuration = resolveConfiguration(options, 30_000);
 	if (!configuration.ok) return { ok: false, error: configuration.failure };
@@ -408,8 +409,7 @@ export async function requestMlxWorkbenchModel(
 
 	const currentTools = openai.tools(request.tools);
 	const headers = requestHeaders(options.apiKey);
-	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), configuration.timeoutMs);
+	const requestAbort = requestSignal(configuration.timeoutMs, signal);
 	let response: Response;
 	try {
 		response = await globalThis.fetch(
@@ -418,14 +418,15 @@ export async function requestMlxWorkbenchModel(
 				method: "POST",
 				headers,
 				body: requestBody(request, configuration.model, currentTools),
-				signal: controller.signal,
+				signal: requestAbort.signal,
 			},
 		);
 	} catch (error) {
-		clearTimeout(timeout);
-		if (controller.signal.aborted || isAbortError(error)) {
+		if (requestAbort.signal.aborted || isAbortError(error)) {
+			requestAbort.cleanup();
 			return failure("timeout", "The local model request timed out.");
 		}
+		requestAbort.cleanup();
 		return failure("network", "The local model could not be reached.");
 	}
 
@@ -441,7 +442,7 @@ export async function requestMlxWorkbenchModel(
 		try {
 			payload = await response.json();
 		} catch (error) {
-			if (controller.signal.aborted || isAbortError(error)) {
+			if (requestAbort.signal.aborted || isAbortError(error)) {
 				return failure("timeout", "The local model request timed out.");
 			}
 			return failure(
@@ -471,6 +472,6 @@ export async function requestMlxWorkbenchModel(
 			})),
 		};
 	} finally {
-		clearTimeout(timeout);
+		requestAbort.cleanup();
 	}
 }

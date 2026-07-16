@@ -49,7 +49,10 @@ export type CapabilityExecutionFact =
 export type CapabilityOwner = {
 	id: string;
 	manifest: NeutralManifest;
-	run(call: NeutralToolCall): Promise<CapabilityExecutionFact>;
+	run(
+		call: NeutralToolCall,
+		signal?: AbortSignal,
+	): Promise<CapabilityExecutionFact>;
 };
 
 export type CapabilityFederation = {
@@ -108,6 +111,7 @@ export const createCapabilityFederation = (
 export const runCapability = async (
 	federation: CapabilityFederation,
 	call: NeutralToolCall,
+	signal?: AbortSignal,
 ): Promise<CapabilityExecutionFact> => {
 	const owner = federation.ownerByTool.get(call.name);
 	if (!owner) {
@@ -118,11 +122,27 @@ export const runCapability = async (
 			message: "The capability is not available in this turn.",
 		};
 	}
+	if (signal?.aborted) {
+		return {
+			type: "timeout",
+			ownerId: owner.id,
+			toolName: call.name,
+			message: "The capability execution was cancelled.",
+		};
+	}
 
 	try {
-		const fact = await owner.run(call);
+		const fact = signal ? await owner.run(call, signal) : await owner.run(call);
 		return { ...fact, ownerId: owner.id, toolName: call.name };
 	} catch {
+		if (signal?.aborted) {
+			return {
+				type: "timeout",
+				ownerId: owner.id,
+				toolName: call.name,
+				message: "The capability execution was cancelled.",
+			};
+		}
 		return {
 			type: "provider-failure",
 			ownerId: owner.id,

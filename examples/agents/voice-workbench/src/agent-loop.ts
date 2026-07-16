@@ -14,6 +14,7 @@ export type ModelToolCall = { id?: string; command: string; input: unknown };
 export type ModelToolFeedback = {
 	id: string;
 	command: string;
+	attemptId?: string;
 	status:
 		| "accepted"
 		| "actor-rejected"
@@ -122,12 +123,6 @@ const sanitizedFailure = (
 	...(failure.status === undefined ? {} : { status: failure.status }),
 });
 
-const recoveryCall = (message: string): ModelToolCall => ({
-	id: "workbench-recovery",
-	command: "completeResponse",
-	input: { text: message },
-});
-
 export const normalizeModelIssues = (issues: readonly string[]): string[] =>
 	[
 		...new Set(
@@ -149,9 +144,6 @@ export function* modelTurn(
 	const trace: ModelTurnTrace[] = [];
 	if (!response.ok) {
 		const failure = sanitizedFailure(response.error);
-		const feedback = yield recoveryCall(failure.message);
-		const accepted = feedback.status === "accepted";
-		trace.push({ command: "completeResponse", accepted });
 		return {
 			accepted: false,
 			reason: "model-failed",

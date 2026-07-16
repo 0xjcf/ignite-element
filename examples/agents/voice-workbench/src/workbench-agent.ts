@@ -1,11 +1,9 @@
 import { igniteTools, isOk } from "ignite-element/tools";
 import {
 	type ModelExchange,
-	type ModelResult,
 	type ModelToolFeedback,
 	type ModelTurnResult,
 	modelTools,
-	modelTurn,
 	normalizeModelIssues,
 } from "./agent-loop";
 import {
@@ -24,6 +22,12 @@ import {
 	requestMlxWorkbenchModel,
 } from "./model";
 import {
+	createModelTurnActor,
+	type ModelTurnPortRequest,
+	projectModelTurnPortRequest,
+	projectModelTurnTerminalFact,
+} from "./model-turn";
+import {
 	component,
 	type WorkbenchCapabilityProof,
 	type WorkbenchCollisionProof,
@@ -32,7 +36,6 @@ import {
 } from "./session";
 
 const EXTERNAL_EVIDENCE_TOOL_NAMES = new Set(["searchWeb", "priceProducts"]);
-const MODEL_TURN_ROUND_LIMIT = 6;
 
 type TurnProof = {
 	capability?: WorkbenchCapabilityProof;
@@ -835,23 +838,39 @@ const capabilityFeedback = (
 
 export async function completeSubmittedPrompt(
 	configuration: MlxWorkbenchConfiguration,
-	event: { modality: "text" | "speech"; text: string },
+	event: { turnId?: string; modality: "text" | "speech"; text: string },
 	externalCapabilities: readonly CapabilityOwner[] = [],
 	domains: DomainRegistry = emptyDomainRegistry,
+	signal?: AbortSignal,
 ): Promise<ModelTurnResult | null> {
 	const prompt = { channel: event.modality, text: event.text };
-	const history: ModelExchange[] = [];
-	let result: ModelTurnResult | null = null;
-	let priorTrace: ModelTurnResult["trace"] = [];
+	const currentFact = component.getSnapshot().context.lastFact;
+	const turnId =
+		event.turnId ??
+		(currentFact?.type === "prompt-submitted" ? currentFact.turnId : null) ??
+		`${component.getSnapshot().context.sessionId}:${component.getSnapshot().context.revision}`;
 	let currentCapability: WorkbenchCapabilityProof | undefined;
 	let currentCollision: WorkbenchCollisionProof | undefined;
+	let routing: CapabilityFederation | null = null;
+	const actor = createModelTurnActor({ turnId, prompt });
+	const scheduledRequests = new Set<string>();
 
-	for (let round = 0; round < MODEL_TURN_ROUND_LIMIT; round += 1) {
+	const executeComponentCall = (
+		history: readonly ModelExchange[],
+	): CapabilityOwner => {
 		const tools = igniteTools(component);
-		const componentOwner: CapabilityOwner = {
+		return {
 			id: "workbench-component",
 			manifest: modelTools(tools.manifest),
-			run: async (call): Promise<CapabilityExecutionFact> => {
+			run: async (call, callSignal): Promise<CapabilityExecutionFact> => {
+				if (callSignal?.aborted) {
+					return {
+						type: "timeout",
+						ownerId: "workbench-component",
+						toolName: call.name,
+						message: "The component command was cancelled.",
+					};
+				}
 				if (call.name === "completeResponse") {
 					const view = component.getView().modelContext;
 					const audits = [
@@ -917,7 +936,6 @@ export async function completeSubmittedPrompt(
 							};
 					}
 				}
-
 				const rejectedByActor = execution.value.events.find(
 					(actorEvent) => actorEvent.type === "artifact-rejected",
 				);
@@ -937,7 +955,6 @@ export async function completeSubmittedPrompt(
 						actorRejected: true,
 					};
 				}
-
 				return {
 					type: "success",
 					ownerId: "workbench-component",
@@ -955,130 +972,230 @@ export async function completeSubmittedPrompt(
 				};
 			},
 		};
-		const federation = createCapabilityFederation([
-			componentOwner,
-			...domains.capabilities,
-			...externalCapabilities,
-		]);
-		if (!federation.ok) {
-			currentCollision = collisionProof(
-				federation.error.toolNames,
-				federation.error.owners,
-			);
-			const names = currentCollision.toolNames.join(", ") || "unknown tools";
-			result = {
-				accepted: false,
-				reason: "model-failed",
-				failure: {
-					kind: "configuration",
-					message: `Capability configuration rejected duplicate tool names: ${names}.`,
-				},
-				trace: priorTrace,
-			};
-			break;
+	};
+
+	const recordExecution = async (
+		execution: CapabilityExecutionFact,
+		attemptId: string,
+	): Promise<ModelToolFeedback> => {
+		const proof = capabilityProof(execution);
+		if (proof) currentCapability = proof;
+		const domainDecision = domains.projectExecution(execution);
+		if (domainDecision) {
+			await component.execute({
+				command: "recordDomainPolicyDecision",
+				input: domainDecision,
+			});
 		}
-		const routing: CapabilityFederation = federation;
-		const modelManifest = domains.manifestForExecution({
-			prompt,
-			history,
-			manifest: federation.manifest,
-		});
-		const applicableDomainEvidenceAvailable = domains.packs.some(
-			(pack) =>
-				pack.appliesTo(prompt.text) &&
-				pack.capabilities.some((capability) =>
-					capability.manifest.some((tool) =>
-						EXTERNAL_EVIDENCE_TOOL_NAMES.has(tool.name),
-					),
-				),
-		);
-		await component.execute({
-			command: "recordRuntimeManifest",
-			input: modelManifest.map((tool) => ({
-				...tool,
-				ownerId: federation.ownerByTool.get(tool.name)?.id ?? "federation",
-			})),
-		});
-		const response: ModelResult = await requestMlxWorkbenchModel(
-			configuration,
-			{
-				prompt,
-				tools: modelManifest,
-				view: component.getView().modelContext,
-				history,
-				domainPolicyInstructions: domains.modelInstructions,
-				capabilities: {
-					internetAccess:
-						modelManifest.some((tool) =>
-							EXTERNAL_EVIDENCE_TOOL_NAMES.has(tool.name),
-						) || applicableDomainEvidenceAvailable
-							? "available"
-							: "unavailable",
+		if (execution.ownerId !== "workbench-component") {
+			await component.execute({
+				command: "recordCapabilityOutcome",
+				input: {
+					type: execution.type,
+					ownerId: execution.ownerId,
+					toolName: execution.toolName,
+					message:
+						execution.type === "success"
+							? `${execution.receipt.provider} completed the capability.`
+							: execution.message,
+					...(execution.type !== "success" && execution.status !== undefined
+						? { status: execution.status }
+						: {}),
+					...(proof?.retry ? { retry: proof.retry } : {}),
+					...(proof?.cacheStatus
+						? {
+								cacheStatus: proof.cacheStatus,
+								cacheTtlMs: proof.cacheTtlMs,
+							}
+						: {}),
+					...(proof?.fallback ? { fallback: proof.fallback } : {}),
+					...(proof?.pricingRows ? { pricingRows: proof.pricingRows } : {}),
 				},
-			},
-		);
-		const protocol = modelTurn(response);
-		let step = protocol.next();
-		while (!step.done) {
-			const call = step.value;
-			const capabilityCall = {
-				id: call.id,
-				name: call.command,
-				input: call.input,
-			};
-			const execution =
-				domains.authorizeExecution({
-					prompt,
-					history,
-					call: capabilityCall,
-				}) ?? (await runCapability(routing, capabilityCall));
-			const proof = capabilityProof(execution);
-			if (proof) currentCapability = proof;
-			const domainDecision = domains.projectExecution(execution);
-			if (domainDecision) {
-				await component.execute({
-					command: "recordDomainPolicyDecision",
-					input: domainDecision,
-				});
-			}
-			if (execution.ownerId !== "workbench-component") {
-				await component.execute({
-					command: "recordCapabilityOutcome",
-					input: {
-						type: execution.type,
-						ownerId: execution.ownerId,
-						toolName: execution.toolName,
-						message:
-							execution.type === "success"
-								? `${execution.receipt.provider} completed the capability.`
-								: execution.message,
-						...(execution.type !== "success" && execution.status !== undefined
-							? { status: execution.status }
-							: {}),
-						...(proof?.retry ? { retry: proof.retry } : {}),
-						...(proof?.cacheStatus
-							? {
-									cacheStatus: proof.cacheStatus,
-									cacheTtlMs: proof.cacheTtlMs,
-								}
-							: {}),
-						...(proof?.fallback ? { fallback: proof.fallback } : {}),
-						...(proof?.pricingRows ? { pricingRows: proof.pricingRows } : {}),
-					},
-				});
-			}
-			step = protocol.next(
-				capabilityFeedback(execution, call.id ?? `model-round-${round}`),
-			);
+			});
 		}
-		result = {
-			...step.value,
-			trace: [...priorTrace, ...step.value.trace],
+		return {
+			...capabilityFeedback(execution, execution.toolName),
+			attemptId,
 		};
-		if ("exchange" in step.value) history.push(step.value.exchange);
-		priorTrace = result.trace;
-		if (result.accepted || result.reason === "model-failed") break;
-	}
+	};
+
+	const drivePortRequest = async (request: ModelTurnPortRequest) => {
+		switch (request.type) {
+			case "request-model": {
+				const federation = createCapabilityFederation([
+					executeComponentCall(request.history),
+					...domains.capabilities,
+					...externalCapabilities,
+				]);
+				if (!federation.ok) {
+					currentCollision = collisionProof(
+						federation.error.toolNames,
+						federation.error.owners,
+					);
+					const names =
+						currentCollision.toolNames.join(", ") || "unknown tools";
+					actor.send({
+						type: "PORT_FAILED",
+						turnId: request.turnId,
+						attemptId: request.attemptId,
+						failure: {
+							kind: "configuration",
+							message: `Capability configuration rejected duplicate tool names: ${names}.`,
+						},
+					});
+					return;
+				}
+				routing = federation;
+				const modelManifest = domains.manifestForExecution({
+					prompt: request.prompt,
+					history: request.history,
+					manifest: federation.manifest,
+				});
+				const applicableDomainEvidenceAvailable = domains.packs.some(
+					(pack) =>
+						pack.appliesTo(request.prompt.text) &&
+						pack.capabilities.some((capability) =>
+							capability.manifest.some((tool) =>
+								EXTERNAL_EVIDENCE_TOOL_NAMES.has(tool.name),
+							),
+						),
+				);
+				await component.execute({
+					command: "recordRuntimeManifest",
+					input: modelManifest.map((tool) => ({
+						...tool,
+						ownerId: federation.ownerByTool.get(tool.name)?.id ?? "federation",
+					})),
+				});
+				const response = await requestMlxWorkbenchModel(
+					configuration,
+					{
+						prompt: request.prompt,
+						tools: modelManifest,
+						view: component.getView().modelContext,
+						history: request.history,
+						domainPolicyInstructions: domains.modelInstructions,
+						capabilities: {
+							internetAccess:
+								modelManifest.some((tool) =>
+									EXTERNAL_EVIDENCE_TOOL_NAMES.has(tool.name),
+								) || applicableDomainEvidenceAvailable
+									? "available"
+									: "unavailable",
+						},
+					},
+					signal,
+				);
+				if (projectModelTurnTerminalFact(actor.getSnapshot())) return;
+				actor.send({
+					type: "MODEL_RESOLVED",
+					turnId: request.turnId,
+					attemptId: request.attemptId,
+					result: response,
+				});
+				return;
+			}
+			case "authorize-call": {
+				const call = {
+					id: request.call.id,
+					name: request.call.command,
+					input: request.call.input,
+				};
+				const execution = domains.authorizeExecution({
+					prompt: request.prompt,
+					history: request.history,
+					call,
+				});
+				if (!execution) {
+					actor.send({
+						type: "AUTHORIZATION_RESOLVED",
+						turnId: request.turnId,
+						attemptId: request.attemptId,
+						allowed: true,
+					});
+					return;
+				}
+				const feedback = await recordExecution(execution, request.attemptId);
+				if (projectModelTurnTerminalFact(actor.getSnapshot())) return;
+				actor.send({
+					type: "AUTHORIZATION_RESOLVED",
+					turnId: request.turnId,
+					attemptId: request.attemptId,
+					allowed: false,
+					feedback,
+				});
+				return;
+			}
+			case "execute-call": {
+				if (!routing) {
+					actor.send({
+						type: "PORT_FAILED",
+						turnId: request.turnId,
+						attemptId: request.attemptId,
+						failure: {
+							kind: "configuration",
+							message: "Capability routing was unavailable for this turn.",
+						},
+					});
+					return;
+				}
+				const execution = await runCapability(
+					routing,
+					{
+						id: request.call.id,
+						name: request.call.command,
+						input: request.call.input,
+					},
+					signal,
+				);
+				const feedback = await recordExecution(execution, request.attemptId);
+				if (projectModelTurnTerminalFact(actor.getSnapshot())) return;
+				actor.send({
+					type: "CAPABILITY_RESOLVED",
+					turnId: request.turnId,
+					attemptId: request.attemptId,
+					feedback,
+				});
+			}
+		}
+	};
+
+	let resolveTerminal!: () => void;
+	const terminalReached = new Promise<void>((resolve) => {
+		resolveTerminal = resolve;
+	});
+	const subscription = actor.subscribe((snapshot) => {
+		if (projectModelTurnTerminalFact(snapshot)) {
+			resolveTerminal();
+			return;
+		}
+		const request = projectModelTurnPortRequest(snapshot);
+		if (!request) return;
+		const requestKey = `${request.type}:${request.attemptId}`;
+		if (scheduledRequests.has(requestKey)) return;
+		scheduledRequests.add(requestKey);
+		void drivePortRequest(request).catch(() => {
+			if (projectModelTurnTerminalFact(actor.getSnapshot())) return;
+			actor.send({
+				type: "PORT_FAILED",
+				turnId: request.turnId,
+				attemptId: request.attemptId,
+				failure: {
+					kind: "provider",
+					message: "A turn port failed unexpectedly.",
+				},
+			});
+		});
+	});
+	const cancel = () => actor.send({ type: "CANCEL", turnId });
+	signal?.addEventListener("abort", cancel, { once: true });
+	actor.start();
+	if (signal?.aborted) cancel();
+	await terminalReached;
+	const result = actor.getSnapshot().context.lastResult;
+	signal?.removeEventListener("abort", cancel);
+	subscription.unsubscribe();
+	actor.stop();
 
 	if (!result) return null;
 	await component.execute({
