@@ -17,10 +17,7 @@ export const formatTerminalProjection = (view: TerminalView): string => {
 	const lines = [
 		"Ignite Element · voice + text workbench",
 		"Projection source: current actor view",
-		"matches({",
-		`  provider: "${view.model.status}",`,
-		`  turn: "${view.turnState}",`,
-		"})",
+		view.runtimeInspector.actor.matchText,
 		"",
 		`Artifacts: ${view.artifacts.length}`,
 	];

@@ -460,22 +460,11 @@ describe("voice workbench accessible JSX", () => {
 			bridge.host.shadowRoot?.querySelector(".schema-view")?.textContent,
 		).toContain('"revision": "1"');
 
-		await component.execute({
-			command: "setChecklistItem",
-			input: {
-				artifactId: "decision",
-				expectedRevision: "1",
-				nodeId: "decision-checklist",
-				itemId: "ship",
-				checked: true,
-			},
-		});
 		const action = bridge.getByRole("button", { name: "Complete response" });
 		const pendingChecklistItem = bridge.getByRole("checkbox", {
 			name: "Ship Ignite",
 		}) as HTMLInputElement;
 		expect(pendingChecklistItem.disabled).toBe(true);
-		expect(pendingChecklistItem.checked).toBe(true);
 		action.focus();
 		expect(bridge.root.activeElement).toBe(action);
 		action.click();
@@ -484,8 +473,9 @@ describe("voice workbench accessible JSX", () => {
 		const checklistItem = bridge.getByRole("checkbox", {
 			name: "Ship Ignite",
 		}) as HTMLInputElement;
-		expect(checklistItem.disabled).toBe(true);
-		expect(checklistItem.checked).toBe(true);
+		expect(checklistItem.disabled).toBe(false);
+		expect(checklistItem.checked).toBe(false);
+		checklistItem.click();
 		expect(component.getView().activeArtifact).toMatchObject({
 			id: "decision",
 			revision: "2",

@@ -1031,7 +1031,7 @@ describe("voice workbench headless component", () => {
 				status: "ready",
 				speech: { text: "Decision captured.", status: "pending" },
 			});
-		expect(component.canExecute("setChecklistItem")).toBe(false);
+		expect(component.canExecute("setChecklistItem")).toBe(true);
 		await component.execute({
 			command: "submitPrompt",
 			input: { modality: "text", text: "Update the checklist" },

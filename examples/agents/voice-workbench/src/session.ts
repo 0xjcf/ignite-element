@@ -767,6 +767,7 @@ export const voiceWorkbenchSessionMachine = setup({
 		available: {
 			initial: "idle",
 			on: {
+				SET_CHECKLIST_ITEM: { actions: "applyTransition" },
 				MODEL_PREPARATION_STARTED: {
 					target: "#conversation-session.preparing",
 					actions: "clearModelFailure",
@@ -799,7 +800,6 @@ export const voiceWorkbenchSessionMachine = setup({
 						},
 						CREATE_ARTIFACT: { actions: "applyTransition" },
 						REVISE_ARTIFACT: { actions: "applyTransition" },
-						SET_CHECKLIST_ITEM: { actions: "applyTransition" },
 						COMPLETE_RESPONSE: [
 							{
 								guard: "transitionAccepted",
@@ -1135,9 +1135,11 @@ export const component = igniteCore({
 						current: document.revision === activeArtifact.revision,
 					}))
 			: [];
-		// Checklist mutation is a model-intent command in this workbench. The
-		// rendered checkbox remains read-only even while the model turn is active.
-		const canSetChecklistItem = false;
+		const canSetChecklistItem =
+			turnReady &&
+			artifacts.some((artifact) =>
+				artifact.nodes.some((node) => node.kind === "checklist"),
+			);
 		const turnCount = snapshot.context.messages.filter(
 			(message) => message.role === "user",
 		).length;
@@ -1984,7 +1986,8 @@ export const component = igniteCore({
 					description:
 						"Set one checklist item when its artifact revision still matches.",
 					canExecute: ({ snapshot }) =>
-						snapshot.matches({ available: "responding" }) &&
+						(snapshot.matches({ available: "idle" }) ||
+							snapshot.matches({ available: "responding" })) &&
 						snapshot.context.documents.some((document) =>
 							document.nodes.some((node) => node.kind === "checklist"),
 						),

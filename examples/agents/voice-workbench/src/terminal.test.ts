@@ -31,10 +31,14 @@ describe("voice workbench terminal projection", () => {
 			input: { text: "Terminal artifact ready." },
 		});
 
-		const output = formatTerminalProjection(component.getView());
+		const view = component.getView();
+		const output = formatTerminalProjection(view);
 		expect(output).toContain("Projection source: current actor view");
-		expect(output).toContain('provider: "available"');
-		expect(output).toContain('turn: "idle"');
+		expect(view.runtimeInspector.actor.matchText).toBe(`matches({
+  available: "idle",
+})`);
+		expect(output).toContain(view.runtimeInspector.actor.matchText);
+		expect(output).not.toContain("provider:");
 		expect(output).toContain(
 			"Terminal artifact [terminal-artifact] · revision 1",
 		);

@@ -193,9 +193,10 @@ The command and event vocabulary is intentionally classified by authority:
 | `read-model` | `recordTurn`, `recordRuntimeManifest`, `recordCapabilityOutcome`, `recordDomainPolicyDecision` | Project bounded orchestration facts without becoming lifecycle authorities |
 
 Every one of the 28 commands carries one of these serializable channel labels
-in `getSchema()`. Channel metadata explains provenance; it does not replace
-statechart admission, reducer validation, or the narrower per-round model
-allowlist.
+in `getSchema()`. The channel declares the primary orchestration authority for
+the command; statechart admission, reducer validation, and the narrower
+per-round model allowlist still decide whether a particular invocation is
+accepted.
 
 The exact current `getSchema()` command inventory assigns every name to one
 category:
@@ -558,11 +559,13 @@ requirements from the current actor view. Starting another accepted prompt
 clears the prior policy proof so the rail cannot imply that a previous domain
 decision governs the new turn.
 
-MLX turns call `setChecklistItem` with stable artifact, node, and item
-identities plus the expected revision. The rendered checklist is read-only in
-this workbench because checklist mutation is a `model-intent` command, not
-public user intent. The functional core rejects stale or unknown identities and
-records an accepted change as the next immutable artifact revision.
+MLX turns and projected checklist controls invoke the same `setChecklistItem`
+command with stable artifact, node, and item identities plus the expected
+revision. Its primary channel remains `model-intent`; the projected control is
+enabled only after response completion in `available.idle`, while model
+orchestration can invoke it during `available.responding`. The functional core
+rejects stale or unknown identities and records an accepted change as the next
+immutable artifact revision.
 
 On a fresh turn with no accepted artifact, the live manifest exposes
 `createArtifact` but withholds `completeResponse`. Once the actor accepts an
