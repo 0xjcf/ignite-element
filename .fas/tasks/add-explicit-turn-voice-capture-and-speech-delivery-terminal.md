@@ -74,6 +74,13 @@ Complete the lifecycle architecture after provider/turn restructuring. Make the 
 - Accuracy signal: The acceptance criteria cannot be met by the generated tests-only plan, while every added production path owns or consumes a lifecycle or private event being changed.
 - Follow-up needed: Regenerate the task packet and commit plan before spawning the sole code writer. Do not modify shared Ignite packages, add public inspection APIs, or absorb the optional task-5 graph bridge.
 
+### Closeout alignment
+
+- `examples/agents/voice-workbench/src/domain.ts` and `examples/agents/voice-workbench/src/workbench.tsx` remained reference-only; neither required a production edit to satisfy the accepted lifecycle ownership.
+- `examples/agents/voice-workbench/src/parity.test.tsx` remained an unchanged compatibility lane. Its existing assertions passed in the complete voice-workbench suite after the parity host was migrated, so a no-op diff was intentionally not manufactured.
+- `.fas/memory/architecture.md`, `.fas/memory/decisions.md`, `.fas/memory/incidents.md`, `.fas/memory/patterns.md`, and `.fas/memory/pr-feedback.md` are generated, ignored FAS projections. They are not implementation inputs or changeset members and remain unstaged.
+- The SRE-driven supervision repair stayed inside already accepted lifecycle surfaces: the parent projects serializable interruption facts, the browser shell owns the active controller and whole-turn clock, and asynchronous read-model envelopes are fenced by turn and attempt identity.
+
 ## Implementation plan
 - Add failing machine, graph, and integration tests for all terminal outcomes, stale identities, retry bounds, voice consume rules, queued-versus-delivered speech, private command removal, and raw-snapshot/view agreement; record the TDD-red receipt before production edits.
 - Add an example-private model-turn child machine that owns request, evaluation, authorization phase, capability execution, bounded history, six-round exhaustion, cancellation, timeout, stale-result rejection, and exactly-once terminal output while recreating the pure modelTurn() one-round policy instead of storing its generator.
