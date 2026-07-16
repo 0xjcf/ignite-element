@@ -133,12 +133,12 @@ and nested context. The existing `source` export still starts one actor for the
 browser, terminal, and compatibility tests that intentionally use the example
 singleton.
 
-This is a contract-first slice, not the lifecycle rewrite. The current
-executable session still has parallel `provider` and `turn` regions. The target
-compound session and the model-turn, voice-capture, and speech-delivery child
-machines below are **planned**. Their queued implementation tasks must replace
-the known violation baseline before the documentation can call those shapes
-executable.
+The executable session is a compound statechart: provider readiness owns the
+outer lifecycle, and turn activity exists only inside `available`. The
+model-turn, voice-capture, and speech-delivery child machines below remain
+**planned** follow-up work. Those child protocols add explicit terminal,
+cancellation, and timeout behavior without weakening the compound ownership
+already enforced by the session machine.
 
 ### One owner per lifecycle or fact
 
@@ -147,14 +147,14 @@ tests and later graph tooling can detect contract drift:
 
 | Surface | Single owner | Disposition | Implementation | Maturity |
 | --- | --- | --- | --- | --- |
-| Session/provider/turn | `voiceWorkbenchSessionMachine` | Statechart | Executable | Transitional parallel topology |
+| Session/provider/turn | `voiceWorkbenchSessionMachine` | Statechart | Executable | Target compound topology |
 | Model-turn orchestration | Model-turn child actor | Statechart | Planned | Target |
 | Voice capture | Voice-capture child actor | Statechart | Planned | Target |
 | Speech delivery | Speech-delivery child actor | Statechart | Planned | Target |
 | Conversation and artifact aggregate | `reduceConversationSession` | Pure reducer | Executable | Target |
 | Domain admission and authorization | Domain-pack policies | Typed facts | Executable | Target |
 | Capability execution | Capability ports | Typed facts | Executable | Target |
-| Draft, selection, preview, and receipt UI | Browser presentation slice | Presentation state | Executable | Transitional separation |
+| Draft, selection, preview, and receipt UI | `reduceWorkbenchPresentation` | Pure reducer | Executable | Target separation |
 
 Reducers and typed result unions stay authoritative for data and decisions; a
 statechart consumes those facts only when it owns a real lifecycle. Ignite
@@ -163,46 +163,59 @@ turn, voice, speech, policy, capability, conversation, or artifact truth.
 
 ### Current executable session contract
 
-The exported machine currently defines:
+The exported machine currently defines exactly four raw state values:
 
-- provider states `preparing`, `available`, and `failed`;
-- turn states `ready` and `responding`;
-- initial value `{ provider: "preparing", turn: "ready" }`;
-- provider recovery through `MODEL_PREPARATION_STARTED`, followed by the
-  private adapter result `MODEL_AVAILABLE` or `MODEL_FAILED`;
-- prompt admission only from `turn.ready` while the provider is available and
-  the pure conversation reducer accepts the prompt;
-- successful turn closure only when an accepted `COMPLETE_RESPONSE` moves
-  `turn.responding` back to `turn.ready`.
+- `"preparing"`;
+- `"unavailable"`;
+- `{ available: "idle" }`;
+- `{ available: "responding" }`.
+
+The initial value is `"preparing"`. `MODEL_AVAILABLE` enters
+`available.idle`, while `MODEL_FAILED` enters `unavailable`.
+`MODEL_PREPARATION_STARTED` retries from `unavailable` or leaves either
+available child for `preparing`. An accepted `SUBMIT_PROMPT` moves only
+`available.idle` to `available.responding`; an accepted `COMPLETE_RESPONSE`
+moves it back to idle. Artifact mutation commands are structurally admitted
+only while responding, and restore or selection commands only while idle.
+
+If `MODEL_FAILED` arrives while responding, the transition atomically records
+the sanitized failure and a non-success turn receipt, clears no prior aggregate
+fact, leaves `response` null, and enters `unavailable`. Artifact mutation and
+completion are then unavailable until a later preparation succeeds.
 
 The command and event vocabulary is intentionally classified by authority:
 
-| Category | Current commands/events | Contract direction |
+| Channel | Current commands | Contract direction |
 | --- | --- | --- |
-| Public user intent | `submitPrompt`, `beginModelPreparation`, `restoreArtifactRevision`, `selectArtifact`, `acknowledgeSpeech`, voice start/cancel/transcript, presentation choices, replay, and play-speech intent | Remain schema-admitted only where a user or consumer can intentionally request the behavior |
-| Model-authorized domain commands | `createArtifact`, `reviseArtifact`, `setChecklistItem`, `completeResponse` | Continue through reducer validation; the model never writes context directly |
-| Private adapter results | `MODEL_AVAILABLE`, `MODEL_FAILED`, voice facts, document commit receipts, and speech delivery receipts | Transitional command wrappers such as `reportModelAvailable`, `reportModelFailure`, `presentVoice`, `commitDocument`, and `commitSpeech` move to private actor events/ports in later tasks |
-| Internal read-model facts | turn, runtime-manifest, capability-outcome, and domain-policy records | Transitional `record*` commands do not become lifecycle authorities and are removed from the public model surface when ownership is restructured |
+| `user-intent` | `submitPrompt`, `beginModelPreparation`, `restoreArtifactRevision`, `selectArtifact`, `acknowledgeSpeech`, voice start/cancel/transcript, presentation choices, replay, and play-speech intent | Schema-admitted only where a user or consumer can intentionally request behavior |
+| `model-intent` | `createArtifact`, `reviseArtifact`, `setChecklistItem`, `completeResponse` | Continue through statechart guards and reducer validation; the model never writes context directly |
+| `private-adapter` | `reportModelAvailable`, `reportModelFailure`, `presentVoice`, `commitDocument`, `commitSpeech` | Translate bounded adapter outcomes into private lifecycle or presentation facts |
+| `read-model` | `recordTurn`, `recordRuntimeManifest`, `recordCapabilityOutcome`, `recordDomainPolicyDecision` | Project bounded orchestration facts without becoming lifecycle authorities |
+
+Every one of the 28 commands carries one of these serializable channel labels
+in `getSchema()`. Channel metadata explains provenance; it does not replace
+statechart admission, reducer validation, or the narrower per-round model
+allowlist.
 
 The exact current `getSchema()` command inventory assigns every name to one
 category:
 
 ```text
-Public user intent:
+user-intent:
   submitPrompt, beginModelPreparation, restoreArtifactRevision,
   selectArtifact, acknowledgeSpeech, startVoiceCapture,
   cancelVoiceCapture, submitVoiceTranscript, changeArtifactView,
   changeDraft, changeMobilePanel, changeSpeechPreference,
   selectRuntimePreview, playSpeech, replay
 
-Model-authorized domain commands:
+model-intent:
   createArtifact, reviseArtifact, setChecklistItem, completeResponse
 
-Private adapter results exposed through transitional wrappers:
+private-adapter:
   reportModelAvailable, reportModelFailure, presentVoice,
   commitDocument, commitSpeech
 
-Internal read-model recording exposed through transitional wrappers:
+read-model:
   recordTurn, recordRuntimeManifest, recordCapabilityOutcome,
   recordDomainPolicyDecision
 ```
@@ -218,26 +231,20 @@ Conversation intent and domain actions:
 Provider lifecycle intent/results:
   MODEL_PREPARATION_STARTED, MODEL_AVAILABLE, MODEL_FAILED
 
-Transitional presentation and receipt events:
-  PRESENTATION_DRAFT_CHANGED, PRESENTATION_VOICE_CHANGED,
-  PRESENTATION_ARTIFACT_VIEW_CHANGED, PRESENTATION_MOBILE_PANEL_CHANGED,
-  PRESENTATION_SPEECH_PREFERENCE_CHANGED, PRESENTATION_TURN_RECORDED,
-  PRESENTATION_DOCUMENT_COMMITTED, PRESENTATION_SPEECH_COMMITTED,
-  PRESENTATION_SPEECH_REPLAY_REQUESTED, PRESENTATION_REPLAYED,
-  PRESENTATION_RUNTIME_MANIFEST_RECORDED,
-  PRESENTATION_RUNTIME_PREVIEW_SELECTED,
-  PRESENTATION_CAPABILITY_OUTCOME_RECORDED,
-  PRESENTATION_DOMAIN_POLICY_RECORDED,
-  PRESENTATION_VOICE_CAPTURE_REQUESTED
+Private presentation envelope:
+  PRESENTATION_UPDATED
 ```
 
-The current guards are `stateIn({ provider: "available" })` and the pure
-`transitionAccepted` reducer check. The session machine invokes no async model,
-voice, or speech effects yet; those effects still live in the imperative shell
-and are the reason the three child lifecycles remain planned. Conversation facts
-such as `prompt-submitted`, artifact changes, `response-completed`, and the
-transport-neutral `speech-acknowledged` fact come from the reducer. Presentation
-receipts remain a separate transitional slice.
+`PRESENTATION_UPDATED` carries a typed `user-intent`, `private-adapter`, or
+`read-model` envelope. The pure `reduceWorkbenchPresentation` reducer is its
+single writer and returns fresh presentation state. The state hierarchy itself
+gates lifecycle-sensitive events, and the pure `transitionAccepted` guard adds
+domain admission. The session machine invokes no async model, voice, or speech
+effects yet; those effects still live in the imperative shell and are the
+reason the three child lifecycles remain planned. Conversation facts such as
+`prompt-submitted`, artifact changes, `response-completed`, and the
+transport-neutral `speech-acknowledged` fact come from the conversation
+reducer.
 
 Every imported snapshot exposes the XState-native snapshot, but portable
 consumers should treat these fields separately:
@@ -253,10 +260,10 @@ consumers should treat these fields separately:
   value and context.
 
 Current serializable context owns the conversation messages, documents,
-artifact history, response, speech request, model failure, and the transitional
-presentation slice. Command availability must come from the same machine guard
-and reducer admission used by `canExecute()`; any `can*` view field is only a
-projection of that rule.
+artifact history, response, speech request, model failure, and the private
+reducer-owned presentation slice. Command availability must come from the same
+machine guard and reducer admission used by `canExecute()`; any `can*` view
+field is only a projection of that rule.
 
 The raw serializable context keys are:
 
@@ -279,48 +286,40 @@ transcriptReady, turnCount, turnLabel, turnMessage, turnState, voiceFailure,
 voiceState
 ```
 
-### Known violation baseline
+### Executable graph invariant
 
-The current parallel topology admits these two forbidden raw values:
+Direct `xstate/graph` characterization proves the four exact raw vertices and
+their event-labelled adjacency. The suite includes all 24 combinations of the
+four vertices and six lifecycle/domain events, including unchanged snapshots
+for rejected events. `voiceWorkbenchKnownForbiddenStateValues` is intentionally
+empty, and `voiceWorkbenchSessionInvariants` requires responding to be nested
+inside available. Tests inspect the authoritative raw snapshot independently
+from the derived view.
 
-```ts
-{ provider: "preparing", turn: "responding" }
-{ provider: "failed", turn: "responding" }
-```
-
-`voiceWorkbenchKnownForbiddenStateValues`,
-`isVoiceWorkbenchKnownForbiddenStateValue()`, and
-`voiceWorkbenchSessionInvariants` make that gap executable and visible to the
-next direct `xstate/graph` task. A provider-first derived status can say
-`failed` while the raw turn remains `responding`; tests therefore inspect the
-raw snapshot before trusting the view. The structural task must drive this
-known set to zero rather than updating the baseline to tolerate new invalid
-states.
-
-### Planned target: session, provider, and turn
+### Executable session, provider, and turn shape
 
 ```mermaid
 stateDiagram-v2
     [*] --> Preparing
     Preparing --> Available: MODEL_AVAILABLE
     Preparing --> Unavailable: MODEL_FAILED
-    Unavailable --> Preparing: RETRY
+    Unavailable --> Preparing: MODEL_PREPARATION_STARTED
+    Unavailable --> Available: MODEL_AVAILABLE
 
     state Available {
         [*] --> Idle
         Idle --> Responding: SUBMIT_PROMPT [accepted]
-        Responding --> Idle: TURN_COMPLETED
-        Responding --> Idle: TURN_FAILED
-        Responding --> Idle: CANCELLED
-        Responding --> Idle: TIMEOUT
+        Responding --> Idle: COMPLETE_RESPONSE [accepted]
     }
 
+    Available --> Preparing: MODEL_PREPARATION_STARTED
     Available --> Unavailable: MODEL_FAILED
 ```
 
-This planned compound shape makes `Responding` impossible outside
-`Available`. Leaving availability must terminate or cancel the invoked turn
-before entering `Unavailable`.
+This compound shape makes `Responding` impossible outside `Available`. A direct
+model failure while responding records a non-success receipt and leaves no
+fabricated response completion. The planned model-turn child protocol owns the
+later addition of explicit failure, cancellation, and timeout terminal events.
 
 ### Planned target: model-turn orchestration
 
@@ -559,10 +558,11 @@ requirements from the current actor view. Starting another accepted prompt
 clears the prior policy proof so the rail cannot imply that a previous domain
 decision governs the new turn.
 
-Projected checklist controls and MLX turns both call `setChecklistItem` with
-stable artifact, node, and item identities plus the expected revision. The
-functional core rejects stale or unknown identities and records an accepted
-change as the next immutable artifact revision.
+MLX turns call `setChecklistItem` with stable artifact, node, and item
+identities plus the expected revision. The rendered checklist is read-only in
+this workbench because checklist mutation is a `model-intent` command, not
+public user intent. The functional core rejects stale or unknown identities and
+records an accepted change as the next immutable artifact revision.
 
 On a fresh turn with no accepted artifact, the live manifest exposes
 `createArtifact` but withholds `completeResponse`. Once the actor accepts an
@@ -626,8 +626,7 @@ Actor-Web, which this example does not hide behind a wrapper.
 The browser right rail is a projection of the current Ignite view, not a static
 architecture diagram. Its top card keeps three kinds of evidence separate:
 
-- **MLX readiness** comes from the provider branch of the current parallel actor
-  state.
+- **MLX readiness** comes from the top-level compound actor state.
 - **Actor state and facts** come from `snapshot.matches(...)` and the accepted
   conversation facts.
 - **Capability outcomes** are bounded adapter facts, including HTTP, retry,
@@ -657,9 +656,9 @@ The schema explorer has two deliberately separate sections. **Current model
 manifest** is the exact owner-enriched, availability-scoped manifest captured at
 the model request boundary for the latest round. **All component commands** is
 the private `getSchema()` blueprint used for explanation. Expanding a command
-shows its description, owner, live availability, gated state, nested input
-schema, required fields, and constraints. The explorer does not introduce a
-public inspection API or allow the model to authorize its own commands.
+shows its description, owner, channel, live availability, gated state, nested
+input schema, required fields, and constraints. The explorer does not introduce
+a public inspection API or allow the model to authorize its own commands.
 
 Provider lifecycle is part of the same behavior contract. The workbench mounts
 while MLX is preparing, but `submitPrompt` remains unavailable at both the

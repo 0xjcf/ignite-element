@@ -34,7 +34,7 @@ describe("voice workbench terminal projection", () => {
 		const output = formatTerminalProjection(component.getView());
 		expect(output).toContain("Projection source: current actor view");
 		expect(output).toContain('provider: "available"');
-		expect(output).toContain('turn: "ready"');
+		expect(output).toContain('turn: "idle"');
 		expect(output).toContain(
 			"Terminal artifact [terminal-artifact] · revision 1",
 		);
