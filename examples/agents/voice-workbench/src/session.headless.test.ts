@@ -753,10 +753,14 @@ describe("voice workbench session machine contract", () => {
 			selectVoiceTranscriptCandidate(actor.getSnapshot().context),
 		).toBeNull();
 
-		const lifecycleCandidate = {
+		const lifecycleReceipt = {
 			type: "voice-transcript",
-			text: "Lifecycle candidate",
+			text: "  Lifecycle candidate\n",
 			final: true,
+		} as const;
+		const lifecycleCandidate = {
+			...lifecycleReceipt,
+			text: "Lifecycle candidate",
 		} as const;
 		actor.send({
 			type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
@@ -764,10 +768,13 @@ describe("voice workbench session machine contract", () => {
 				state: "transcript",
 				attemptId: "voice:3",
 				sequence: 3,
-				fact: lifecycleCandidate,
+				fact: lifecycleReceipt,
 			},
 		});
 		expectVisibleVoice(lifecycleCandidate);
+		expect(
+			actor.getSnapshot().context.childLifecycles.voiceCapture?.fact,
+		).toEqual(lifecycleCandidate);
 		expect(selectVoiceTranscriptCandidate(actor.getSnapshot().context)).toEqual(
 			{
 				attemptId: "voice:3",
