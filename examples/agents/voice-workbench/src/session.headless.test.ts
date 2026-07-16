@@ -7,13 +7,13 @@ import {
 	source,
 	type VoiceWorkbenchSessionActor,
 	type VoiceWorkbenchSessionSnapshot,
-	type WorkbenchSpeechAcknowledgementFact,
-	type WorkbenchSpeechDeliveryFact,
-	type WorkbenchSpeechLifecycleFact,
 	voiceWorkbenchKnownForbiddenStateValues,
 	voiceWorkbenchLifecycleOwnership,
 	voiceWorkbenchSessionInvariants,
 	voiceWorkbenchSessionMachine,
+	type WorkbenchSpeechAcknowledgementFact,
+	type WorkbenchSpeechDeliveryFact,
+	type WorkbenchSpeechLifecycleFact,
 } from "./session";
 
 const nodes = [
@@ -104,15 +104,15 @@ describe("voice workbench session machine contract", () => {
 			}),
 			expect.objectContaining({
 				surface: "model-turn",
-				implementation: "planned",
+				implementation: "executable",
 			}),
 			expect.objectContaining({
 				surface: "voice-capture",
-				implementation: "planned",
+				implementation: "executable",
 			}),
 			expect.objectContaining({
 				surface: "speech-delivery",
-				implementation: "planned",
+				implementation: "executable",
 			}),
 			expect.objectContaining({
 				surface: "conversation-artifact-aggregate",
@@ -127,6 +127,66 @@ describe("voice workbench session machine contract", () => {
 				maturity: "target",
 			}),
 		]);
+	});
+
+	it("keeps aggregate completion separate from correlated terminal outcomes", () => {
+		const startTurn = () => {
+			const actor = createVoiceWorkbenchSessionActor();
+			actor.start();
+			actor.send({ type: "MODEL_AVAILABLE" });
+			actor.send({
+				type: "SUBMIT_PROMPT",
+				input: { modality: "text", text: "Exercise terminal outcomes." },
+			});
+			expect(actor.getSnapshot().context.activeTurnId).toBe(
+				"voice-workbench:1",
+			);
+			return actor;
+		};
+
+		const completed = startTurn();
+		completed.send({
+			type: "COMPLETE_RESPONSE",
+			input: { text: "Aggregate response accepted." },
+		});
+		expect(completed.getSnapshot().value).toEqual({
+			available: "responding",
+		});
+		expect(completed.getSnapshot().context.response).toEqual({
+			text: "Aggregate response accepted.",
+		});
+		completed.send({ type: "TURN_COMPLETED", turnId: "stale-turn" });
+		expect(completed.getSnapshot().value).toEqual({
+			available: "responding",
+		});
+		completed.send({
+			type: "TURN_COMPLETED",
+			turnId: "voice-workbench:1",
+		});
+		expect(completed.getSnapshot().value).toEqual({ available: "idle" });
+		completed.stop();
+
+		const nonSuccessEvents = [
+			{
+				type: "TURN_FAILED",
+				turnId: "voice-workbench:1",
+				failure: { kind: "provider", message: "Turn execution failed." },
+			},
+			{ type: "CANCELLED", turnId: "voice-workbench:1" },
+			{ type: "TIMEOUT", turnId: "voice-workbench:1" },
+			{ type: "ROUND_LIMIT_REACHED", turnId: "voice-workbench:1" },
+		] as const;
+
+		for (const terminal of nonSuccessEvents) {
+			const actor = startTurn();
+			actor.send(terminal);
+			expect(actor.getSnapshot().value).toEqual({ available: "idle" });
+			expect(actor.getSnapshot().context.response).toBeNull();
+			expect(actor.getSnapshot().context.lastFact?.type).toBe(
+				"prompt-submitted",
+			);
+			actor.stop();
+		}
 	});
 
 	it("defines transport-neutral acknowledgement and distinct delivery facts", () => {
@@ -261,19 +321,10 @@ describe("voice workbench headless component", () => {
 			"changeDraft",
 			"changeMobilePanel",
 			"changeSpeechPreference",
-			"commitDocument",
-			"commitSpeech",
 			"completeResponse",
 			"createArtifact",
 			"playSpeech",
-			"presentVoice",
-			"recordCapabilityOutcome",
-			"recordDomainPolicyDecision",
-			"recordRuntimeManifest",
-			"recordTurn",
 			"replay",
-			"reportModelAvailable",
-			"reportModelFailure",
 			"restoreArtifactRevision",
 			"reviseArtifact",
 			"selectArtifact",
@@ -299,19 +350,10 @@ describe("voice workbench headless component", () => {
 			changeDraft: "user-intent",
 			changeMobilePanel: "user-intent",
 			changeSpeechPreference: "user-intent",
-			commitDocument: "private-adapter",
-			commitSpeech: "private-adapter",
 			completeResponse: "model-intent",
 			createArtifact: "model-intent",
 			playSpeech: "user-intent",
-			presentVoice: "private-adapter",
-			recordCapabilityOutcome: "read-model",
-			recordDomainPolicyDecision: "read-model",
-			recordRuntimeManifest: "read-model",
-			recordTurn: "read-model",
 			replay: "user-intent",
-			reportModelAvailable: "private-adapter",
-			reportModelFailure: "private-adapter",
 			restoreArtifactRevision: "user-intent",
 			reviseArtifact: "model-intent",
 			selectArtifact: "user-intent",

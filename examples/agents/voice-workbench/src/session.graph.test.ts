@@ -53,6 +53,18 @@ const eventCases = {
 		type: "COMPLETE_RESPONSE",
 		input: { text: "Graph characterization completed." },
 	},
+	turnCompleted: { type: "TURN_COMPLETED", turnId: "voice-workbench:1" },
+	turnFailed: {
+		type: "TURN_FAILED",
+		turnId: "voice-workbench:1",
+		failure: { kind: "provider", message: "Graph turn failed." },
+	},
+	cancelled: { type: "CANCELLED", turnId: "voice-workbench:1" },
+	timeout: { type: "TIMEOUT", turnId: "voice-workbench:1" },
+	roundLimitReached: {
+		type: "ROUND_LIMIT_REACHED",
+		turnId: "voice-workbench:1",
+	},
 } as const satisfies Record<string, VoiceWorkbenchSessionEvent>;
 
 // Exactly one deterministic case is admitted for each lifecycle or aggregate
@@ -66,6 +78,11 @@ const graphEventCases = [
 	eventCases.submitPrompt,
 	eventCases.createArtifact,
 	eventCases.completeResponse,
+	eventCases.turnCompleted,
+	eventCases.turnFailed,
+	eventCases.cancelled,
+	eventCases.timeout,
+	eventCases.roundLimitReached,
 ] as const satisfies readonly VoiceWorkbenchSessionEvent[];
 
 type GraphEventDisposition =
@@ -86,6 +103,11 @@ const graphEventPolicy = {
 	SELECT_ARTIFACT: "excluded-context-cycle",
 	SET_CHECKLIST_ITEM: "excluded-context-cycle",
 	COMPLETE_RESPONSE: "included-canonical-payload",
+	TURN_COMPLETED: "included-canonical-payload",
+	TURN_FAILED: "included-canonical-payload",
+	CANCELLED: "included-canonical-payload",
+	TIMEOUT: "included-canonical-payload",
+	ROUND_LIMIT_REACHED: "included-canonical-payload",
 	ACKNOWLEDGE_SPEECH: "excluded-context-cycle",
 	PRESENTATION_UPDATED: "excluded-presentation-envelope",
 } as const satisfies Record<
@@ -163,6 +185,11 @@ const transitionTargetBaseline = {
 		SUBMIT_PROMPT: "preparing",
 		CREATE_ARTIFACT: "preparing",
 		COMPLETE_RESPONSE: "preparing",
+		TURN_COMPLETED: "preparing",
+		TURN_FAILED: "preparing",
+		CANCELLED: "preparing",
+		TIMEOUT: "preparing",
+		ROUND_LIMIT_REACHED: "preparing",
 	},
 	"available/idle": {
 		MODEL_AVAILABLE: "available/idle",
@@ -171,6 +198,11 @@ const transitionTargetBaseline = {
 		SUBMIT_PROMPT: "available/responding",
 		CREATE_ARTIFACT: "available/idle",
 		COMPLETE_RESPONSE: "available/idle",
+		TURN_COMPLETED: "available/idle",
+		TURN_FAILED: "available/idle",
+		CANCELLED: "available/idle",
+		TIMEOUT: "available/idle",
+		ROUND_LIMIT_REACHED: "available/idle",
 	},
 	unavailable: {
 		MODEL_AVAILABLE: "available/idle",
@@ -179,6 +211,11 @@ const transitionTargetBaseline = {
 		SUBMIT_PROMPT: "unavailable",
 		CREATE_ARTIFACT: "unavailable",
 		COMPLETE_RESPONSE: "unavailable",
+		TURN_COMPLETED: "unavailable",
+		TURN_FAILED: "unavailable",
+		CANCELLED: "unavailable",
+		TIMEOUT: "unavailable",
+		ROUND_LIMIT_REACHED: "unavailable",
 	},
 	"available/responding": {
 		MODEL_AVAILABLE: "available/responding",
@@ -186,7 +223,12 @@ const transitionTargetBaseline = {
 		MODEL_PREPARATION_STARTED: "preparing",
 		SUBMIT_PROMPT: "available/responding",
 		CREATE_ARTIFACT: "available/responding",
-		COMPLETE_RESPONSE: "available/idle",
+		COMPLETE_RESPONSE: "available/responding",
+		TURN_COMPLETED: "available/responding",
+		TURN_FAILED: "available/idle",
+		CANCELLED: "available/idle",
+		TIMEOUT: "available/idle",
+		ROUND_LIMIT_REACHED: "available/idle",
 	},
 } as const satisfies Record<
 	RawStateLabel,
@@ -224,6 +266,27 @@ const namedEventPaths = {
 		eventCases.modelAvailable,
 		eventCases.submitPrompt,
 		eventCases.completeResponse,
+		eventCases.turnCompleted,
+	],
+	turnFailure: [
+		eventCases.modelAvailable,
+		eventCases.submitPrompt,
+		eventCases.turnFailed,
+	],
+	cancellation: [
+		eventCases.modelAvailable,
+		eventCases.submitPrompt,
+		eventCases.cancelled,
+	],
+	timeout: [
+		eventCases.modelAvailable,
+		eventCases.submitPrompt,
+		eventCases.timeout,
+	],
+	roundLimit: [
+		eventCases.modelAvailable,
+		eventCases.submitPrompt,
+		eventCases.roundLimitReached,
 	],
 	failureFromResponding: [
 		eventCases.modelAvailable,
@@ -315,6 +378,9 @@ describe("voice workbench XState graph characterization", () => {
 		expect(actualTransitionSignatures).toContain(
 			"available/responding --MODEL_FAILED--> unavailable",
 		);
+		expect(actualTransitionSignatures).toContain(
+			"available/responding --TIMEOUT--> available/idle",
+		);
 	});
 
 	it("has zero forbidden reachable snapshots", () => {
@@ -379,6 +445,20 @@ describe("voice workbench XState graph characterization", () => {
 		expect(completionPath.state.context.lastFact?.type).toBe(
 			"response-completed",
 		);
+	});
+
+	it("covers every non-provider terminal recovery without fabricating a response", () => {
+		for (const events of [
+			namedEventPaths.turnFailure,
+			namedEventPaths.cancellation,
+			namedEventPaths.timeout,
+			namedEventPaths.roundLimit,
+		]) {
+			const path = getNamedPath(events);
+			expect(readRawStateValue(path.state)).toEqual({ available: "idle" });
+			expect(path.state.context.response).toBeNull();
+			expect(path.state.context.lastFact?.type).toBe("prompt-submitted");
+		}
 	});
 
 	it("records a non-success receipt and recovers to a fresh idle turn", () => {

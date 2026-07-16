@@ -542,56 +542,50 @@ describe("voice/text workbench model turn", () => {
 		});
 	});
 
-	it("recovers provider failure facts to ready with a sanitized visible error", async () => {
-		await component.execute({
-			command: "submitPrompt",
-			input: { modality: "text", text: "Create a decision log" },
-		});
-		const failed = await executeModelTurn({
+	it("returns provider failure as a terminal fact without synthetic completion", () => {
+		const protocol = modelTurn({
 			ok: false,
 			error: {
 				kind: "network",
 				message: "secret provider address and stack",
 			},
 		});
+		const failed = protocol.next();
 
 		expect(failed).toEqual({
-			accepted: false,
-			reason: "model-failed",
-			failure: {
-				kind: "network",
-				message:
-					"The local model could not be reached. Check its configuration and try again.",
-			},
-			trace: [{ command: "completeResponse", accepted: true }],
-		});
-		expect(component.getView()).toMatchObject({
-			status: "ready",
-			response: {
-				text: "The local model could not be reached. Check its configuration and try again.",
+			done: true,
+			value: {
+				accepted: false,
+				reason: "model-failed",
+				failure: {
+					kind: "network",
+					message:
+						"The local model could not be reached. Check its configuration and try again.",
+				},
+				trace: [],
 			},
 		});
 	});
 
-	it("normalizes provider failure facts through the same recovery path", async () => {
-		await component.execute({
-			command: "submitPrompt",
-			input: { modality: "speech", text: "Revise the artifact" },
-		});
-		const failed = await executeModelTurn({
+	it("normalizes provider failure facts without yielding a recovery command", () => {
+		const protocol = modelTurn({
 			ok: false,
 			error: { kind: "provider", message: "secret provider failure" },
 		});
+		const failed = protocol.next();
 
 		expect(failed).toMatchObject({
-			accepted: false,
-			reason: "model-failed",
-			failure: {
-				kind: "provider",
-				message: "The local model could not complete this turn. Try again.",
+			done: true,
+			value: {
+				accepted: false,
+				reason: "model-failed",
+				failure: {
+					kind: "provider",
+					message: "The local model could not complete this turn. Try again.",
+				},
+				trace: [],
 			},
 		});
-		expect(component.getView()).toMatchObject({ status: "ready" });
 	});
 
 	it("leaves an incomplete admitted turn open for a completion round", async () => {

@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createBrowserVoiceCapture, type SpeechRecognitionLike } from "./voice";
+import {
+	createBrowserVoiceCapture,
+	createVoiceCaptureActor,
+	type SpeechRecognitionLike,
+} from "./voice";
 
 function createRecognition() {
 	const recognition: SpeechRecognitionLike = {
@@ -29,6 +33,46 @@ const installRecognition = (recognition: SpeechRecognitionLike) => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("browser voice capture", () => {
+	it("uses an attempt-correlated serializable machine for consume and disposal", () => {
+		const actor = createVoiceCaptureActor({ supported: true });
+		actor.start();
+		expect(actor.getSnapshot().value).toBe("idle");
+
+		actor.send({ type: "START" });
+		const attemptId = actor.getSnapshot().context.attemptId;
+		expect(actor.getSnapshot().value).toBe("listening");
+		expect(attemptId).toBe("voice:1");
+		expect(() => JSON.stringify(actor.getSnapshot().context)).not.toThrow();
+
+		actor.send({
+			type: "RESULT",
+			attemptId: "voice:stale",
+			text: "stale transcript",
+			final: true,
+		});
+		expect(actor.getSnapshot().value).toBe("listening");
+		actor.send({
+			type: "RESULT",
+			attemptId: attemptId ?? "missing",
+			text: "  Create a launch checklist  ",
+			final: true,
+		});
+		expect(actor.getSnapshot()).toMatchObject({
+			value: "transcript",
+			context: {
+				transcript: "Create a launch checklist",
+				final: true,
+			},
+		});
+
+		actor.send({ type: "CONSUME" });
+		expect(actor.getSnapshot().value).toBe("consumed");
+		actor.send({ type: "DISPOSE" });
+		actor.send({ type: "DISPOSE" });
+		expect(actor.getSnapshot().value).toBe("disposed");
+		actor.stop();
+	});
+
 	it("reports unsupported browsers as a capability fact", () => {
 		vi.stubGlobal("SpeechRecognition", undefined);
 		vi.stubGlobal("webkitSpeechRecognition", undefined);
