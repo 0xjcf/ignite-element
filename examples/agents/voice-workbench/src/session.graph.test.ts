@@ -56,9 +56,9 @@ const eventCases = {
 } as const satisfies Record<string, VoiceWorkbenchSessionEvent>;
 
 // Exactly one deterministic case is admitted for each lifecycle or aggregate
-// event used by the graph. Presentation-only events and context-dependent
-// revision/history cycles stay out of exhaustive traversal so mutable context
-// cannot turn the state-value graph into an unbounded graph.
+// event used by the graph. The private presentation envelope and
+// context-dependent revision/history cycles stay out of exhaustive traversal
+// so mutable context cannot turn the state-value graph into an unbounded graph.
 const graphEventCases = [
 	eventCases.modelAvailable,
 	eventCases.modelFailed,
@@ -72,10 +72,9 @@ type GraphEventDisposition =
 	| "included-lifecycle"
 	| "included-canonical-payload"
 	| "excluded-context-cycle"
-	| "excluded-presentation-only";
+	| "excluded-presentation-envelope";
 
-// This exhaustive policy makes a newly added machine event a compile-time
-// review point instead of letting graph coverage drift silently.
+// A newly added machine event is a compile-time graph-policy review point.
 const graphEventPolicy = {
 	MODEL_AVAILABLE: "included-lifecycle",
 	MODEL_FAILED: "included-canonical-payload",
@@ -88,53 +87,26 @@ const graphEventPolicy = {
 	SET_CHECKLIST_ITEM: "excluded-context-cycle",
 	COMPLETE_RESPONSE: "included-canonical-payload",
 	ACKNOWLEDGE_SPEECH: "excluded-context-cycle",
-	PRESENTATION_DRAFT_CHANGED: "excluded-presentation-only",
-	PRESENTATION_VOICE_CHANGED: "excluded-presentation-only",
-	PRESENTATION_ARTIFACT_VIEW_CHANGED: "excluded-presentation-only",
-	PRESENTATION_MOBILE_PANEL_CHANGED: "excluded-presentation-only",
-	PRESENTATION_SPEECH_PREFERENCE_CHANGED: "excluded-presentation-only",
-	PRESENTATION_TURN_RECORDED: "excluded-presentation-only",
-	PRESENTATION_DOCUMENT_COMMITTED: "excluded-presentation-only",
-	PRESENTATION_SPEECH_COMMITTED: "excluded-presentation-only",
-	PRESENTATION_SPEECH_REPLAY_REQUESTED: "excluded-presentation-only",
-	PRESENTATION_REPLAYED: "excluded-presentation-only",
-	PRESENTATION_RUNTIME_MANIFEST_RECORDED: "excluded-presentation-only",
-	PRESENTATION_RUNTIME_PREVIEW_SELECTED: "excluded-presentation-only",
-	PRESENTATION_CAPABILITY_OUTCOME_RECORDED: "excluded-presentation-only",
-	PRESENTATION_DOMAIN_POLICY_RECORDED: "excluded-presentation-only",
-	PRESENTATION_VOICE_CAPTURE_REQUESTED: "excluded-presentation-only",
+	PRESENTATION_UPDATED: "excluded-presentation-envelope",
 } as const satisfies Record<
 	VoiceWorkbenchSessionEvent["type"],
 	GraphEventDisposition
 >;
 
-const isProviderValue = (
-	value: unknown,
-): value is VoiceWorkbenchSessionStateValue["provider"] =>
-	value === "preparing" || value === "available" || value === "failed";
-
-const isTurnValue = (
-	value: unknown,
-): value is VoiceWorkbenchSessionStateValue["turn"] =>
-	value === "ready" || value === "responding";
-
 const readRawStateValue = (
 	snapshot: VoiceWorkbenchSessionSnapshot,
 ): VoiceWorkbenchSessionStateValue => {
 	const value = snapshot.value;
+	if (value === "preparing" || value === "unavailable") return value;
 	if (
-		typeof value !== "object" ||
-		value === null ||
-		!("provider" in value) ||
-		!("turn" in value) ||
-		!isProviderValue(value.provider) ||
-		!isTurnValue(value.turn)
+		typeof value === "object" &&
+		value !== null &&
+		"available" in value &&
+		(value.available === "idle" || value.available === "responding")
 	) {
-		throw new Error(
-			`Unexpected voice-workbench state: ${JSON.stringify(value)}`,
-		);
+		return { available: value.available };
 	}
-	return { provider: value.provider, turn: value.turn };
+	throw new Error(`Unexpected voice-workbench state: ${JSON.stringify(value)}`);
 };
 
 const serializeRawState = (snapshot: VoiceWorkbenchSessionSnapshot): string =>
@@ -160,76 +132,61 @@ const graphTraversalOptions = {
 };
 
 const currentStateValueBaseline = [
-	{ provider: "preparing", turn: "ready" },
-	{ provider: "available", turn: "ready" },
-	{ provider: "failed", turn: "ready" },
-	{ provider: "available", turn: "responding" },
-	{ provider: "failed", turn: "responding" },
-	{ provider: "preparing", turn: "responding" },
+	"preparing",
+	{ available: "idle" },
+	"unavailable",
+	{ available: "responding" },
 ] as const satisfies readonly VoiceWorkbenchSessionStateValue[];
 
 type RawStateLabel =
-	`${VoiceWorkbenchSessionStateValue["provider"]}/${VoiceWorkbenchSessionStateValue["turn"]}`;
+	| "preparing"
+	| "unavailable"
+	| "available/idle"
+	| "available/responding";
 type IncludedGraphEventType = (typeof graphEventCases)[number]["type"];
 
 const labelRawState = (
 	snapshot: VoiceWorkbenchSessionSnapshot,
 ): RawStateLabel => {
 	const value = readRawStateValue(snapshot);
-	return `${value.provider}/${value.turn}`;
+	if (typeof value === "string") return value;
+	return `available/${value.available}`;
 };
 
-// Every included event is asserted from every serialized raw vertex. This is
-// deliberately an expected edge matrix, not another traversal implementation;
-// XState's adjacency map remains the source of the actual transition graph.
+// XState's generated adjacency map remains the actual graph source. This
+// separately authored matrix locks every included event-labelled edge.
 const transitionTargetBaseline = {
-	"preparing/ready": {
-		MODEL_AVAILABLE: "available/ready",
-		MODEL_FAILED: "failed/ready",
-		MODEL_PREPARATION_STARTED: "preparing/ready",
-		SUBMIT_PROMPT: "preparing/ready",
-		CREATE_ARTIFACT: "preparing/ready",
-		COMPLETE_RESPONSE: "preparing/ready",
+	preparing: {
+		MODEL_AVAILABLE: "available/idle",
+		MODEL_FAILED: "unavailable",
+		MODEL_PREPARATION_STARTED: "preparing",
+		SUBMIT_PROMPT: "preparing",
+		CREATE_ARTIFACT: "preparing",
+		COMPLETE_RESPONSE: "preparing",
 	},
-	"available/ready": {
-		MODEL_AVAILABLE: "available/ready",
-		MODEL_FAILED: "failed/ready",
-		MODEL_PREPARATION_STARTED: "preparing/ready",
+	"available/idle": {
+		MODEL_AVAILABLE: "available/idle",
+		MODEL_FAILED: "unavailable",
+		MODEL_PREPARATION_STARTED: "preparing",
 		SUBMIT_PROMPT: "available/responding",
-		CREATE_ARTIFACT: "available/ready",
-		COMPLETE_RESPONSE: "available/ready",
+		CREATE_ARTIFACT: "available/idle",
+		COMPLETE_RESPONSE: "available/idle",
 	},
-	"failed/ready": {
-		MODEL_AVAILABLE: "available/ready",
-		MODEL_FAILED: "failed/ready",
-		MODEL_PREPARATION_STARTED: "preparing/ready",
-		SUBMIT_PROMPT: "failed/ready",
-		CREATE_ARTIFACT: "failed/ready",
-		COMPLETE_RESPONSE: "failed/ready",
+	unavailable: {
+		MODEL_AVAILABLE: "available/idle",
+		MODEL_FAILED: "unavailable",
+		MODEL_PREPARATION_STARTED: "preparing",
+		SUBMIT_PROMPT: "unavailable",
+		CREATE_ARTIFACT: "unavailable",
+		COMPLETE_RESPONSE: "unavailable",
 	},
 	"available/responding": {
 		MODEL_AVAILABLE: "available/responding",
-		MODEL_FAILED: "failed/responding",
-		MODEL_PREPARATION_STARTED: "preparing/responding",
+		MODEL_FAILED: "unavailable",
+		MODEL_PREPARATION_STARTED: "preparing",
 		SUBMIT_PROMPT: "available/responding",
 		CREATE_ARTIFACT: "available/responding",
-		COMPLETE_RESPONSE: "available/ready",
-	},
-	"failed/responding": {
-		MODEL_AVAILABLE: "available/responding",
-		MODEL_FAILED: "failed/responding",
-		MODEL_PREPARATION_STARTED: "preparing/responding",
-		SUBMIT_PROMPT: "failed/responding",
-		CREATE_ARTIFACT: "failed/responding",
-		COMPLETE_RESPONSE: "failed/ready",
-	},
-	"preparing/responding": {
-		MODEL_AVAILABLE: "available/responding",
-		MODEL_FAILED: "failed/responding",
-		MODEL_PREPARATION_STARTED: "preparing/responding",
-		SUBMIT_PROMPT: "preparing/responding",
-		CREATE_ARTIFACT: "preparing/responding",
-		COMPLETE_RESPONSE: "preparing/ready",
+		COMPLETE_RESPONSE: "available/idle",
 	},
 } as const satisfies Record<
 	RawStateLabel,
@@ -250,20 +207,6 @@ const expectedTransitionSignatures = Object.entries(transitionTargetBaseline)
 	)
 	.sort();
 
-// Temporary reviewed debt. task-1784171435029 owns restructuring the topology
-// so this baseline becomes an empty list and the forbidden count becomes zero.
-const temporaryForbiddenStateBaseline = {
-	owner: "task-1784171435029",
-	values: [
-		{ provider: "preparing", turn: "responding" },
-		// "failed" is the current raw state name for conceptual Unavailable.
-		{ provider: "failed", turn: "responding" },
-	],
-} as const satisfies {
-	owner: "task-1784171435029";
-	values: readonly VoiceWorkbenchSessionStateValue[];
-};
-
 const namedEventPaths = {
 	modelAvailable: [eventCases.modelAvailable],
 	modelFailed: [eventCases.modelFailed],
@@ -282,11 +225,16 @@ const namedEventPaths = {
 		eventCases.submitPrompt,
 		eventCases.completeResponse,
 	],
-	currentFailureRecovery: [
+	failureFromResponding: [
 		eventCases.modelAvailable,
 		eventCases.submitPrompt,
 		eventCases.modelFailed,
-		eventCases.completeResponse,
+	],
+	failureRecovery: [
+		eventCases.modelAvailable,
+		eventCases.submitPrompt,
+		eventCases.modelFailed,
+		eventCases.modelAvailable,
 	],
 } as const satisfies Record<string, readonly VoiceWorkbenchSessionEvent[]>;
 
@@ -319,10 +267,10 @@ describe("voice workbench XState graph characterization", () => {
 			Object.values(graphEventPolicy).filter((value) =>
 				value.startsWith("excluded-"),
 			),
-		).toHaveLength(20);
+		).toHaveLength(6);
 	});
 
-	it("characterizes exactly six current raw provider/turn values", () => {
+	it("characterizes exactly four compound lifecycle values", () => {
 		const shortestPaths = getShortestPaths(
 			voiceWorkbenchSessionMachine,
 			graphTraversalOptions,
@@ -335,7 +283,6 @@ describe("voice workbench XState graph characterization", () => {
 		expect(shortestPaths.map((path) => readRawStateValue(path.state))).toEqual(
 			currentStateValueBaseline,
 		);
-		expect(simplePaths).toHaveLength(17);
 		expect(
 			new Set(simplePaths.map((path) => serializeRawState(path.state))),
 		).toEqual(
@@ -343,7 +290,7 @@ describe("voice workbench XState graph characterization", () => {
 		);
 	});
 
-	it("locks every included event-labelled edge across all six raw vertices", () => {
+	it("locks every included event-labelled edge across all four raw vertices", () => {
 		const adjacencyMap = getAdjacencyMap(
 			voiceWorkbenchSessionMachine,
 			graphTraversalOptions,
@@ -366,11 +313,11 @@ describe("voice workbench XState graph characterization", () => {
 		);
 		expect(actualTransitionSignatures).toEqual(expectedTransitionSignatures);
 		expect(actualTransitionSignatures).toContain(
-			"failed/responding --MODEL_AVAILABLE--> available/responding",
+			"available/responding --MODEL_FAILED--> unavailable",
 		);
 	});
 
-	it("keeps exactly two reviewed forbidden raw states until task-1784171435029", () => {
+	it("has zero forbidden reachable snapshots", () => {
 		const shortestPaths = getShortestPaths(
 			voiceWorkbenchSessionMachine,
 			graphTraversalOptions,
@@ -382,54 +329,31 @@ describe("voice workbench XState graph characterization", () => {
 					!voiceWorkbenchSessionInvariants.hasNoKnownForbiddenState(snapshot),
 			);
 
-		expect(temporaryForbiddenStateBaseline.owner).toBe("task-1784171435029");
-		expect(voiceWorkbenchKnownForbiddenStateValues).toEqual(
-			temporaryForbiddenStateBaseline.values,
-		);
-		expect(forbiddenSnapshots).toHaveLength(2);
-		expect(
-			new Set(
-				forbiddenSnapshots.map((snapshot) =>
-					JSON.stringify(readRawStateValue(snapshot)),
-				),
-			),
-		).toEqual(
-			new Set(
-				temporaryForbiddenStateBaseline.values.map((value) =>
-					JSON.stringify(value),
-				),
-			),
-		);
-		for (const snapshot of forbiddenSnapshots) {
-			expect(isVoiceWorkbenchKnownForbiddenStateValue(snapshot.value)).toBe(
-				true,
+		expect(voiceWorkbenchKnownForbiddenStateValues).toEqual([]);
+		expect(forbiddenSnapshots).toEqual([]);
+		for (const path of shortestPaths) {
+			expect(isVoiceWorkbenchKnownForbiddenStateValue(path.state.value)).toBe(
+				false,
 			);
 			expect(
-				voiceWorkbenchSessionInvariants.respondingRequiresAvailable(snapshot),
-			).toBe(false);
+				voiceWorkbenchSessionInvariants.respondingRequiresAvailable(path.state),
+			).toBe(true);
 		}
 	});
 
-	it("covers provider availability, failure, and retry preparation paths", () => {
+	it("covers model availability, failure, and retry preparation paths", () => {
 		const availablePath = getNamedPath(namedEventPaths.modelAvailable);
 		const failedPath = getNamedPath(namedEventPaths.modelFailed);
 		const retryPath = getNamedPath(namedEventPaths.retryPreparation);
 
 		expect(readRawStateValue(availablePath.state)).toEqual({
-			provider: "available",
-			turn: "ready",
+			available: "idle",
 		});
-		expect(readRawStateValue(failedPath.state)).toEqual({
-			provider: "failed",
-			turn: "ready",
-		});
+		expect(readRawStateValue(failedPath.state)).toBe("unavailable");
 		expect(failedPath.state.context.modelFailure).toEqual(
 			eventCases.modelFailed.failure,
 		);
-		expect(readRawStateValue(retryPath.state)).toEqual({
-			provider: "preparing",
-			turn: "ready",
-		});
+		expect(readRawStateValue(retryPath.state)).toBe("preparing");
 		expect(retryPath.state.context.modelFailure).toBeNull();
 	});
 
@@ -439,8 +363,7 @@ describe("voice workbench XState graph characterization", () => {
 		const completionPath = getNamedPath(namedEventPaths.acceptedCompletion);
 
 		expect(readRawStateValue(promptPath.state)).toEqual({
-			provider: "available",
-			turn: "responding",
+			available: "responding",
 		});
 		expect(promptPath.state.context.lastFact?.type).toBe("prompt-submitted");
 		expect(artifactPath.state.context.documents).toEqual([
@@ -448,8 +371,7 @@ describe("voice workbench XState graph characterization", () => {
 		]);
 		expect(artifactPath.state.context.lastFact?.type).toBe("artifact-created");
 		expect(readRawStateValue(completionPath.state)).toEqual({
-			provider: "available",
-			turn: "ready",
+			available: "idle",
 		});
 		expect(completionPath.state.context.response).toEqual(
 			eventCases.completeResponse.input,
@@ -459,25 +381,25 @@ describe("voice workbench XState graph characterization", () => {
 		);
 	});
 
-	it("captures the current provider-failure recovery path through a forbidden raw snapshot", () => {
-		const recoveryPath = getNamedPath(namedEventPaths.currentFailureRecovery);
-		const forbiddenStep = recoveryPath.steps.find((step) =>
-			isVoiceWorkbenchKnownForbiddenStateValue(step.state.value),
-		);
+	it("records a non-success receipt and recovers to a fresh idle turn", () => {
+		const failurePath = getNamedPath(namedEventPaths.failureFromResponding);
+		const recoveryPath = getNamedPath(namedEventPaths.failureRecovery);
 
-		expect(forbiddenStep).toBeDefined();
-		expect(
-			readRawStateValue(forbiddenStep?.state ?? recoveryPath.state),
-		).toEqual({ provider: "failed", turn: "responding" });
-		expect(readRawStateValue(recoveryPath.state)).toEqual({
-			provider: "failed",
-			turn: "ready",
-		});
-		expect(recoveryPath.state.context.modelFailure).toEqual(
+		expect(readRawStateValue(failurePath.state)).toBe("unavailable");
+		expect(failurePath.state.context.modelFailure).toEqual(
 			eventCases.modelFailed.failure,
 		);
-		expect(recoveryPath.state.context.lastFact?.type).toBe(
-			"response-completed",
-		);
+		expect(failurePath.state.context.presentation.turn).toEqual({
+			type: "model-failed",
+			failureKind: "network",
+			message: "Graph fixture model connection failed.",
+			trace: [],
+		});
+		expect(failurePath.state.context.response).toBeNull();
+		expect(failurePath.state.context.lastFact?.type).toBe("prompt-submitted");
+		expect(readRawStateValue(recoveryPath.state)).toEqual({
+			available: "idle",
+		});
+		expect(recoveryPath.state.context.modelFailure).toBeNull();
 	});
 });

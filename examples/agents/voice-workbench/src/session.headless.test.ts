@@ -71,7 +71,19 @@ describe("voice workbench session machine contract", () => {
 
 		first.start();
 		expect(observed).toHaveBeenCalledTimes(1);
-		first.send({ type: "PRESENTATION_DRAFT_CHANGED", draft: "first only" });
+		const firstPresentationBeforeUpdate =
+			first.getSnapshot().context.presentation;
+		first.send({
+			type: "PRESENTATION_UPDATED",
+			envelope: {
+				channel: "user-intent",
+				update: { type: "draft-changed", draft: "first only" },
+			},
+		});
+		expect(firstPresentationBeforeUpdate.draft).toBe("");
+		expect(first.getSnapshot().context.presentation).not.toBe(
+			firstPresentationBeforeUpdate,
+		);
 		expect(first.getSnapshot().context.presentation.draft).toBe("first only");
 		expect(second.getSnapshot().context.presentation.draft).toBe("");
 
@@ -88,7 +100,7 @@ describe("voice workbench session machine contract", () => {
 				surface: "session-provider-turn",
 				owner: "voiceWorkbenchSessionMachine",
 				implementation: "executable",
-				maturity: "transitional",
+				maturity: "target",
 			}),
 			expect.objectContaining({
 				surface: "model-turn",
@@ -108,7 +120,12 @@ describe("voice workbench session machine contract", () => {
 			}),
 			expect.objectContaining({ surface: "domain-policy" }),
 			expect.objectContaining({ surface: "capability-results" }),
-			expect.objectContaining({ surface: "presentation" }),
+			expect.objectContaining({
+				surface: "presentation",
+				owner: "reduceWorkbenchPresentation",
+				disposition: "reducer",
+				maturity: "target",
+			}),
 		]);
 	});
 
@@ -145,11 +162,8 @@ describe("voice workbench session machine contract", () => {
 		]);
 	});
 
-	it("characterizes both current forbidden raw states without hiding them", () => {
-		expect(voiceWorkbenchKnownForbiddenStateValues).toEqual([
-			{ provider: "preparing", turn: "responding" },
-			{ provider: "failed", turn: "responding" },
-		]);
+	it("makes responding a child of available with no forbidden raw state", () => {
+		expect(voiceWorkbenchKnownForbiddenStateValues).toEqual([]);
 
 		const createRespondingActor = () => {
 			const actor = createVoiceWorkbenchSessionActor();
@@ -159,10 +173,7 @@ describe("voice workbench session machine contract", () => {
 				type: "SUBMIT_PROMPT",
 				input: { modality: "text", text: "Inspect the current topology" },
 			});
-			expect(actor.getSnapshot().value).toEqual({
-				provider: "available",
-				turn: "responding",
-			});
+			expect(actor.getSnapshot().value).toEqual({ available: "responding" });
 			expect(
 				voiceWorkbenchSessionInvariants.respondingRequiresAvailable(
 					actor.getSnapshot(),
@@ -173,26 +184,21 @@ describe("voice workbench session machine contract", () => {
 
 		const preparingActor = createRespondingActor();
 		preparingActor.send({ type: "MODEL_PREPARATION_STARTED" });
-		const preparingForbiddenSnapshot = preparingActor.getSnapshot();
-		expect(preparingForbiddenSnapshot.value).toEqual({
-			provider: "preparing",
-			turn: "responding",
-		});
+		const preparingSnapshot = preparingActor.getSnapshot();
+		expect(preparingSnapshot.value).toBe("preparing");
 		expect(
-			isVoiceWorkbenchKnownForbiddenStateValue(
-				preparingForbiddenSnapshot.value,
+			isVoiceWorkbenchKnownForbiddenStateValue(preparingSnapshot.value),
+		).toBe(false);
+		expect(
+			voiceWorkbenchSessionInvariants.respondingRequiresAvailable(
+				preparingSnapshot,
 			),
 		).toBe(true);
 		expect(
-			voiceWorkbenchSessionInvariants.respondingRequiresAvailable(
-				preparingForbiddenSnapshot,
-			),
-		).toBe(false);
-		expect(
 			voiceWorkbenchSessionInvariants.hasNoKnownForbiddenState(
-				preparingForbiddenSnapshot,
+				preparingSnapshot,
 			),
-		).toBe(false);
+		).toBe(true);
 		preparingActor.stop();
 
 		const failedActor = createRespondingActor();
@@ -200,24 +206,46 @@ describe("voice workbench session machine contract", () => {
 			type: "MODEL_FAILED",
 			failure: { kind: "network", message: "Model connection lost." },
 		});
-		const failedForbiddenSnapshot = failedActor.getSnapshot();
-		expect(failedForbiddenSnapshot.value).toEqual({
-			provider: "failed",
-			turn: "responding",
-		});
-		expect(
-			isVoiceWorkbenchKnownForbiddenStateValue(failedForbiddenSnapshot.value),
-		).toBe(true);
+		const failedSnapshot = failedActor.getSnapshot();
+		expect(failedSnapshot.value).toBe("unavailable");
+		expect(isVoiceWorkbenchKnownForbiddenStateValue(failedSnapshot.value)).toBe(
+			false,
+		);
 		expect(
 			voiceWorkbenchSessionInvariants.respondingRequiresAvailable(
-				failedForbiddenSnapshot,
+				failedSnapshot,
 			),
-		).toBe(false);
+		).toBe(true);
 		expect(
-			voiceWorkbenchSessionInvariants.hasNoKnownForbiddenState(
-				failedForbiddenSnapshot,
-			),
-		).toBe(false);
+			voiceWorkbenchSessionInvariants.hasNoKnownForbiddenState(failedSnapshot),
+		).toBe(true);
+		expect(failedSnapshot.context).toMatchObject({
+			modelFailure: { kind: "network", message: "Model connection lost." },
+			response: null,
+			presentation: {
+				turn: {
+					type: "model-failed",
+					failureKind: "network",
+					message: "Model connection lost.",
+					trace: [],
+				},
+			},
+		});
+		expect(failedSnapshot.context.lastFact?.type).toBe("prompt-submitted");
+
+		failedActor.send({
+			type: "CREATE_ARTIFACT",
+			input: {
+				id: "blocked",
+				nodes: [{ id: "copy", kind: "text", text: "No" }],
+			},
+		});
+		failedActor.send({
+			type: "COMPLETE_RESPONSE",
+			input: { text: "Must remain incomplete." },
+		});
+		expect(failedActor.getSnapshot().context.documents).toEqual([]);
+		expect(failedActor.getSnapshot().context.response).toBeNull();
 		failedActor.stop();
 	});
 });
@@ -327,8 +355,7 @@ describe("voice workbench headless component", () => {
 			},
 		});
 		const initialSnapshot = component.getSnapshot();
-		expect(initialSnapshot.matches({ provider: "preparing" })).toBe(true);
-		expect(initialSnapshot.matches({ turn: "ready" })).toBe(true);
+		expect(initialSnapshot.matches("preparing")).toBe(true);
 		expect(initialSnapshot.context).not.toHaveProperty("phase");
 		expect(component.getView()).toMatchObject({
 			status: "preparing",
@@ -351,7 +378,7 @@ describe("voice workbench headless component", () => {
 			modelPreparing: true,
 			modelFailed: false,
 			promptPlaceholder: "Waiting for the local model to finish preparing…",
-			turnState: "ready",
+			turnState: "preparing",
 			model: { status: "preparing", failure: null },
 			artifacts: [],
 			speech: null,
@@ -368,7 +395,7 @@ describe("voice workbench headless component", () => {
 				voice: { type: "voice-idle" },
 			},
 			runtimeInspector: {
-				activeStates: { provider: "preparing", turn: "ready" },
+				activeStates: "preparing",
 				mlx: {
 					status: "preparing",
 					ready: false,
@@ -379,9 +406,8 @@ describe("voice workbench headless component", () => {
 				actor: {
 					lastFact: null,
 					revision: 0,
-					heading: "Parallel actor state",
-					matchText:
-						'matches({\n  provider: "preparing",\n  turn: "ready",\n})',
+					heading: "Compound actor state",
+					matchText: 'matches("preparing")',
 					factLabel: "Current actor fact · no actor facts yet",
 				},
 				selectedPreview: "browser",
@@ -480,7 +506,7 @@ describe("voice workbench headless component", () => {
 			});
 		}
 		expect(component.getView().runtimeInspector).toMatchObject({
-			activeStates: { provider: "preparing", turn: "ready" },
+			activeStates: "preparing",
 			mlx: { status: "preparing", ready: false },
 			selectedPreview: "terminal",
 			preview: {
@@ -651,8 +677,9 @@ describe("voice workbench headless component", () => {
 			statusLabel: "Ready",
 			canSubmitPrompt: true,
 			model: { status: "available", failure: null },
+			turnState: "idle",
 			runtimeInspector: {
-				activeStates: { provider: "available", turn: "ready" },
+				activeStates: { available: "idle" },
 				mlx: { status: "available", ready: true },
 			},
 		});
@@ -661,7 +688,7 @@ describe("voice workbench headless component", () => {
 			type: "SUBMIT_PROMPT",
 			input: { modality: "text", text: " " },
 		});
-		expect(component.getSnapshot().matches({ turn: "ready" })).toBe(true);
+		expect(component.getSnapshot().matches({ available: "idle" })).toBe(true);
 		expect(component.getSnapshot().context.lastFact).toEqual({
 			type: "artifact-rejected",
 			reason: "validation",
@@ -792,7 +819,9 @@ describe("voice workbench headless component", () => {
 				},
 			});
 		expect(component.getView().presentation.domainPolicy).toBeNull();
-		expect(component.getSnapshot().matches({ turn: "responding" })).toBe(true);
+		expect(component.getSnapshot().matches({ available: "responding" })).toBe(
+			true,
+		);
 		expect(component.canExecute("completeResponse")).toBe(false);
 		await component.execute({
 			command: "reportModelFailure",
@@ -801,24 +830,32 @@ describe("voice workbench headless component", () => {
 				message: "The model disconnected during the active turn.",
 			},
 		});
-		const forbiddenSnapshot = component.getSnapshot();
-		expect(forbiddenSnapshot.value).toEqual({
-			provider: "failed",
-			turn: "responding",
-		});
+		const failedSnapshot = component.getSnapshot();
+		expect(failedSnapshot.value).toBe("unavailable");
+		expect(isVoiceWorkbenchKnownForbiddenStateValue(failedSnapshot.value)).toBe(
+			false,
+		);
 		expect(
-			isVoiceWorkbenchKnownForbiddenStateValue(forbiddenSnapshot.value),
+			voiceWorkbenchSessionInvariants.hasNoKnownForbiddenState(failedSnapshot),
 		).toBe(true);
-		expect(
-			voiceWorkbenchSessionInvariants.hasNoKnownForbiddenState(
-				forbiddenSnapshot,
-			),
-		).toBe(false);
+		expect(failedSnapshot.context.response).toBeNull();
+		expect(failedSnapshot.context.lastFact?.type).toBe("prompt-submitted");
 		expect(component.getView()).toMatchObject({
 			status: "failed",
-			turnState: "responding",
+			turnState: "unavailable",
 			model: { status: "failed" },
+			presentation: {
+				turn: {
+					type: "model-failed",
+					failureKind: "network",
+					message: "The model disconnected during the active turn.",
+					trace: [],
+				},
+			},
 		});
+		expect(component.canExecute("createArtifact")).toBe(false);
+		expect(component.canExecute("reviseArtifact")).toBe(false);
+		expect(component.canExecute("completeResponse")).toBe(false);
 		await component.execute({ command: "reportModelAvailable" });
 		expect(
 			voiceWorkbenchSessionInvariants.hasNoKnownForbiddenState(
@@ -826,8 +863,8 @@ describe("voice workbench headless component", () => {
 			),
 		).toBe(true);
 		expect(component.getView()).toMatchObject({
-			status: "responding",
-			turnState: "responding",
+			status: "ready",
+			turnState: "idle",
 			model: { status: "available" },
 		});
 		expect(component.getView()).toMatchObject({
@@ -836,6 +873,13 @@ describe("voice workbench headless component", () => {
 				voice: { type: "voice-listening" },
 			},
 		});
+		await component.execute({
+			command: "submitPrompt",
+			input: { modality: "text", text: "Capture a decision after recovery" },
+		});
+		expect(component.getSnapshot().matches({ available: "responding" })).toBe(
+			true,
+		);
 
 		(
 			await igniteTest(component).when({
@@ -912,12 +956,16 @@ describe("voice workbench headless component", () => {
 			artifactId: "decision",
 			revision: "2",
 		});
-		expect(component.getSnapshot().matches({ turn: "responding" })).toBe(true);
+		expect(component.getSnapshot().matches({ available: "responding" })).toBe(
+			true,
+		);
 		source.send({
 			type: "COMPLETE_RESPONSE",
 			input: { text: " " },
 		});
-		expect(component.getSnapshot().matches({ turn: "responding" })).toBe(true);
+		expect(component.getSnapshot().matches({ available: "responding" })).toBe(
+			true,
+		);
 		expect(component.getSnapshot().context.lastFact).toEqual({
 			type: "artifact-rejected",
 			reason: "validation",
@@ -946,6 +994,11 @@ describe("voice workbench headless component", () => {
 				status: "ready",
 				speech: { text: "Decision captured.", status: "pending" },
 			});
+		expect(component.canExecute("setChecklistItem")).toBe(false);
+		await component.execute({
+			command: "submitPrompt",
+			input: { modality: "text", text: "Update the checklist" },
+		});
 		expect(component.canExecute("setChecklistItem")).toBe(true);
 		(
 			await igniteTest(component).when({
@@ -962,6 +1015,10 @@ describe("voice workbench headless component", () => {
 			type: "artifact-revised",
 			artifactId: "decision",
 			revision: "3",
+		});
+		await component.execute({
+			command: "completeResponse",
+			input: { text: "Decision captured.", speech: "Decision captured." },
 		});
 		expect(component.getView().activeArtifact).toMatchObject({
 			id: "decision",
