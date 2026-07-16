@@ -2451,9 +2451,12 @@ No active tasks.
 
 - Title: Restructure voice-workbench lifecycle ownership and separate presentation state
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/restructure-voice-workbench-lifecycle-ownership-and-separate.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Add explicit turn, voice-capture, and speech-delivery terminal lifecycles
 

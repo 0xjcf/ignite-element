@@ -356,7 +356,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "policy-surfacing",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "processing",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -368,7 +368,7 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-16T03:10:35.029Z",
-      "updatedAt": "2026-07-16T03:11:07.799Z",
+      "updatedAt": "2026-07-16T17:01:26.551Z",
       "deferredReason": null,
       "invalidationReason": null
     },
