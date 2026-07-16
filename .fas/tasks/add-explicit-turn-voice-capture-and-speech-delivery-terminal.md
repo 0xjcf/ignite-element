@@ -26,7 +26,10 @@ Complete the lifecycle architecture after provider/turn restructuring. Make the 
 - Use the supplied problem context, acceptance criteria, and affected-file hints to draft the concrete implementation approach during planning.
 
 ## Alternatives considered
-- None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
+- Rejected retaining `presentation.speechDelivery` and `presentation.speechCommit` as independently writable receipts; the speech child lifecycle is now the sole raw authority and the view derives compatibility fields.
+- Rejected deriving ordering from a host counter, parsed attempt ID, timestamp, or optional prior presentation request; the parent allocates a durable monotonic sequence and deterministic attempt ID in one transition.
+- Rejected keeping automatic projection delivery and manual replay as parallel browser effect paths; both now use the same parent request and view-port watcher.
+- Deferred a shared Ignite graph-testing bridge. The example first proves its bounded graph policy directly with `xstate/graph`; framework extraction remains a separate dogfood-backed decision.
 
 ## Affected files
 - examples/agents/voice-workbench/src/agent-loop.ts
@@ -77,7 +80,7 @@ Complete the lifecycle architecture after provider/turn restructuring. Make the 
 ### Closeout alignment
 
 - `examples/agents/voice-workbench/src/domain.ts` and `examples/agents/voice-workbench/src/workbench.tsx` remained reference-only; neither required a production edit to satisfy the accepted lifecycle ownership.
-- `examples/agents/voice-workbench/src/parity.test.tsx` remained an unchanged compatibility lane. Its existing assertions passed in the complete voice-workbench suite after the parity host was migrated, so a no-op diff was intentionally not manufactured.
+- `examples/agents/voice-workbench/src/parity.test.tsx` now proves that the parity harness publishes a request-correlated speech child lifecycle, that the compatible view derives its unavailable receipt from that lifecycle, and that raw presentation context has no speech lifecycle authority.
 - `.fas/memory/architecture.md`, `.fas/memory/decisions.md`, `.fas/memory/incidents.md`, `.fas/memory/patterns.md`, and `.fas/memory/pr-feedback.md` are generated, ignored FAS projections. They are not implementation inputs or changeset members and remain unstaged.
 - The SRE-driven supervision repair stayed inside already accepted lifecycle surfaces: the parent projects serializable interruption facts, the browser shell owns the active controller and whole-turn clock, and asynchronous read-model envelopes are fenced by turn and attempt identity.
 
