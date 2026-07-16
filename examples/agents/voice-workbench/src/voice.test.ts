@@ -146,6 +146,14 @@ describe("browser voice capture", () => {
 				text: "Create a launch checklist",
 			},
 		});
+		expect(voice.useTranscript("voice:1")).toEqual({
+			ok: false,
+			fact: { type: "voice-idle" },
+		});
+		expect(voice.getLifecycle()).toMatchObject({
+			state: "consumed",
+			attemptId: "voice:1",
+		});
 		expect(facts).toContainEqual({
 			type: "voice-transcript",
 			text: "Create a launch checklist",

@@ -10,6 +10,7 @@ import {
 	recordDomainPolicyDecision,
 	recordRuntimeManifest,
 	recordTurnTerminal,
+	recordVoiceCaptureLifecycle,
 	reportModelAvailable,
 	reportModelFailure,
 	source,
@@ -493,6 +494,129 @@ describe("voice workbench session machine contract", () => {
 		actor.send(accepted);
 		expect(actor.getSnapshot().context.messages).toHaveLength(1);
 		actor.stop();
+	});
+
+	it.each([
+		[
+			"model preparation",
+			{ type: "MODEL_PREPARATION_STARTED" } as const,
+			"preparing",
+		],
+		[
+			"model failure",
+			{
+				type: "MODEL_FAILED",
+				failure: { kind: "network", message: "Provider interrupted consume." },
+			} as const,
+			"unavailable",
+		],
+	])(
+		"invalidates a pending voice consume across %s recovery",
+		(_label, interruption, interruptedState) => {
+			const actor = createVoiceWorkbenchSessionActor().start();
+			actor.send({ type: "MODEL_AVAILABLE" });
+			actor.send({
+				type: "SUBMIT_PROMPT",
+				input: { modality: "text", text: "Seed control sequencing." },
+			});
+			actor.send({ type: "MODEL_PREPARATION_STARTED" });
+			actor.send({ type: "MODEL_AVAILABLE" });
+			expect(actor.getSnapshot().context.modelTurnControlRequest).toEqual({
+				action: "cancel",
+				turnId: "voice-workbench:1",
+				sequence: 1,
+			});
+
+			actor.send({
+				type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
+				lifecycle: {
+					state: "transcript",
+					attemptId: "voice:1",
+					sequence: 1,
+					fact: {
+						type: "voice-transcript",
+						text: "Do not replay this transcript",
+						final: true,
+					},
+				},
+			});
+			actor.send({
+				type: "PRESENTATION_UPDATED",
+				envelope: {
+					channel: "user-intent",
+					update: {
+						type: "voice-capture-requested",
+						action: "consume",
+						attemptId: "voice:1",
+						sequence: 7,
+					},
+				},
+			});
+			actor.send({
+				type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
+				lifecycle: {
+					state: "consumed",
+					attemptId: "voice:1",
+					sequence: 1,
+					fact: { type: "voice-idle" },
+				},
+			});
+			const lifecycleEvidence =
+				actor.getSnapshot().context.childLifecycles.voiceCapture;
+
+			actor.send(interruption);
+			expect(actor.getSnapshot().value).toBe(interruptedState);
+			expect(
+				actor.getSnapshot().context.presentation.voiceCaptureRequest,
+			).toBeNull();
+			expect(actor.getSnapshot().context.childLifecycles.voiceCapture).toEqual(
+				lifecycleEvidence,
+			);
+			expect(actor.getSnapshot().context.modelTurnControlRequest).toEqual({
+				action: "cancel",
+				turnId: "voice-workbench:1",
+				sequence: 1,
+			});
+
+			actor.send({ type: "MODEL_AVAILABLE" });
+			actor.send({
+				type: "VOICE_TRANSCRIPT_CONSUMED",
+				attemptId: "voice:1",
+				text: "Do not replay this transcript",
+			});
+			expect(actor.getSnapshot().value).toEqual({ available: "idle" });
+			expect(actor.getSnapshot().context.messages).toEqual([
+				{
+					role: "user",
+					channel: "text",
+					text: "Seed control sequencing.",
+				},
+			]);
+			actor.stop();
+		},
+	);
+
+	it("preserves non-consume voice requests across provider readiness changes", () => {
+		for (const action of ["start", "cancel"] as const) {
+			const actor = createVoiceWorkbenchSessionActor().start();
+			actor.send({ type: "MODEL_AVAILABLE" });
+			actor.send({
+				type: "PRESENTATION_UPDATED",
+				envelope: {
+					channel: "user-intent",
+					update: {
+						type: "voice-capture-requested",
+						action,
+						sequence: 11,
+					},
+				},
+			});
+			actor.send({ type: "MODEL_PREPARATION_STARTED" });
+			expect(
+				actor.getSnapshot().context.presentation.voiceCaptureRequest,
+			).toEqual({ action, sequence: 11 });
+			actor.stop();
+		}
 	});
 
 	it("projects turn interruption and rejects stale asynchronous read-model facts", () => {
@@ -1033,6 +1157,17 @@ describe("voice workbench headless component", () => {
 			},
 		});
 		expect(component.getView()).not.toHaveProperty("documents");
+		recordVoiceCaptureLifecycle({
+			state: "transcript",
+			attemptId: "voice:1",
+			sequence: 1,
+			fact: {
+				type: "voice-transcript",
+				text: "Current final transcript",
+				final: true,
+			},
+		});
+		expect(component.canExecute("submitVoiceTranscript")).toBe(false);
 		expect(component.canExecute("submitPrompt")).toBe(false);
 		expect(component.canExecute("acknowledgeSpeech")).toBe(false);
 		await expect(
@@ -1216,6 +1351,7 @@ describe("voice workbench headless component", () => {
 				message: "The local model could not be reached.",
 			},
 		});
+		expect(component.canExecute("submitVoiceTranscript")).toBe(false);
 		expect(component.getView()).toMatchObject({
 			status: "failed",
 			statusLabel: "Model unavailable",
@@ -1248,6 +1384,54 @@ describe("voice workbench headless component", () => {
 			},
 		});
 		expect(component.canExecute("submitPrompt")).toBe(true);
+		expect(component.canExecute("submitVoiceTranscript")).toBe(true);
+		recordVoiceCaptureLifecycle({
+			state: "transcript",
+			attemptId: "voice:1",
+			sequence: 1,
+			fact: {
+				type: "voice-transcript",
+				text: "Interim transcript",
+				final: false,
+			},
+		});
+		expect(component.canExecute("submitVoiceTranscript")).toBe(false);
+		recordVoiceCaptureLifecycle({
+			state: "transcript",
+			attemptId: "voice:1",
+			sequence: 1,
+			fact: { type: "voice-transcript", text: " ", final: true },
+		});
+		expect(component.canExecute("submitVoiceTranscript")).toBe(false);
+		recordVoiceCaptureLifecycle({
+			state: "transcript",
+			attemptId: null,
+			sequence: 1,
+			fact: {
+				type: "voice-transcript",
+				text: "Transcript without a current attempt",
+				final: true,
+			},
+		});
+		expect(component.canExecute("submitVoiceTranscript")).toBe(false);
+		recordVoiceCaptureLifecycle({
+			state: "transcript",
+			attemptId: "voice:2",
+			sequence: 2,
+			fact: {
+				type: "voice-transcript",
+				text: "Current final transcript",
+				final: true,
+			},
+		});
+		expect(component.canExecute("submitVoiceTranscript")).toBe(true);
+		recordVoiceCaptureLifecycle({
+			state: "idle",
+			attemptId: null,
+			sequence: 2,
+			fact: { type: "voice-idle" },
+		});
+		expect(component.canExecute("submitVoiceTranscript")).toBe(false);
 		source.send({
 			type: "SUBMIT_PROMPT",
 			input: { modality: "text", text: " " },
