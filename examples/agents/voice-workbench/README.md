@@ -135,7 +135,7 @@ src/domains/
 └─ product-pricing/
    ├─ policy.ts                 pure subject-scope decision
    ├─ capability.ts             local policy capability boundary
-   ├─ price-capability.ts       same-origin domain price boundary
+   ├─ price-capability.ts       port contract + same-origin adapter (transitional)
    ├─ providers/
    │  └─ whole-foods.ts         store, native decoder, ranking, and URL policy
    ├─ authorization.ts          exact admitted-request authorization
@@ -145,7 +145,7 @@ src/domains/
    └─ *.test.ts                 deterministic policy and audit proofs
 
 server/product-pricing/
-└─ whole-foods.ts               structured retailer adapter + Brave discovery fallback
+└─ whole-foods.ts               imperative retailer adapter + Brave fallback
 ```
 
 This structure is intentionally example-private. It does not add a policy
@@ -167,6 +167,43 @@ The source-of-truth boundary is:
 | Ignite JSX | Mapping only the prepared rows; it contains no product defaults or outcome rules |
 | Product-price provider | Owning store mapping, native discovery, product/size ranking, identity caching, offer reads, validation, and receipts |
 | Generic search provider | Returning public-web facts for non-product research; it does not authorize actor transitions |
+
+### Recursive functional-core boundary
+
+The example follows the recursive model behaviorally, but its product-pricing
+files are still a transitional structure rather than the final reference
+layout. The current ownership chain is:
+
+```text
+intent
+└─ product-pricing behavior and policy
+   └─ capability authorization
+      └─ product-pricing fact contract
+         └─ same-origin + Whole Foods + Brave adapters
+            └─ external HTTP infrastructure
+```
+
+At each boundary, the inner layer owns deterministic facts and decisions while
+the outer layer performs effects. XState currently hosts the lifecycle and
+accepted application state. `igniteCore.view` projects that state into a
+renderer-ready read model, and Ignite JSX is only the browser adapter for that
+projection. The same policy and projection contracts can therefore be hosted
+by an Actor-Web actor, Redux store, or MobX store without adding source-specific
+behavior to Ignite.
+
+Two current files still mix recursive layers:
+
+- `price-capability.ts` contains the product-price fact contract, response
+  normalization, and the browser's same-origin fetch adapter.
+- `server/product-pricing/whole-foods.ts` contains provider orchestration,
+  decoding, retry/cache behavior, ranking, and HTTP effects.
+
+A dedicated architecture slice should separate those responsibilities into
+`core/`, `ports/`, `capabilities/`, and `adapters/` inside the example. That
+refactor should preserve the current domain contracts and tests; it should not
+add a new Ignite policy, capability, or port API. Actor-Web's policy composition
+can authorize the same application policy when Actor-Web is the source runtime,
+but it does not become the owner of product-pricing business rules.
 
 The model tool manifest uses JSON Schema, while small explicit runtime readers
 validate untrusted policy inputs and provider responses. This example does not
@@ -308,6 +345,20 @@ architecture diagram. Its top card keeps three kinds of evidence separate:
 - **Capability outcomes** are bounded adapter facts, including HTTP, retry,
   cache, and configured-fallback provenance when present.
 
+The center document adds a fourth, separately named axis: **shopper result
+quality**. `igniteCore.view` derives it from the admitted request and bounded
+price facts, including requested, matched, and price-verified counts plus
+stable per-item reason codes. The exact Sarasota partial result can therefore
+show **Ready**, a committed artifact, and successful capability execution while
+also saying **Partial result: 3 requested, 2 matched, 0 prices verified**. Those
+facts are not contradictory; they answer different questions.
+
+The same view callback prepares the human-readable artifact title, null-price
+copy, safe product-page links, filtered policy sections, issue rows, and next
+actions. JSX maps those prepared values without parsing URLs, interpreting null
+cells, or reclassifying provider outcomes. Display-only values do not enter the
+actor-owned artifact or its command schema.
+
 The Browser, Terminal, Speech, and Headless selectors format the same current
 actor projection. They are previews, while document and speech receipts report
 effects that actually committed. In particular, the Terminal card explicitly
@@ -441,6 +492,26 @@ availability from Whole Foods' structured, store-scoped product response. The
 model must preserve returned URLs in the artifact so people can inspect the
 evidence. A production commerce application would replace this example-private
 retailer adapter with a supported commerce or inventory contract.
+
+### DoorDash CLI evaluation
+
+The example does not integrate the
+[`dd-cli`](https://github.com/doordash-oss/doordash-cli) release. The July 14,
+2026 [`v0.2.0`](https://github.com/doordash-oss/doordash-cli/releases/tag/v0.2.0)
+build is waitlist-only, and the access terms bundled with that release limit it
+to personal transactions, restrict retaining or analyzing accessed pricing
+data, and allow transaction-completing operations. Those constraints conflict
+with a persistent, reusable open-source artifact example and require a more
+explicit human checkout boundary than this workbench currently has.
+
+DoorDash's documented
+[retail inventory and pricing APIs](https://developer.doordash.com/en-US/docs/marketplace/retail/inventory_pricing/overview/)
+are merchant-facing inventory feeds rather than a consumer catalog-query API.
+Accordingly, neither surface is used as a deterministic price source here. A
+future authorized integration could implement the existing product-pricing
+port as an imperative transaction adapter, keep cart and checkout actions
+separately policy-gated, and return only bounded facts that the authorization
+permits the application to retain.
 
 Setting `VITE_MLX_BASE_URL` makes the endpoint externally owned. The launcher
 waits for it but never installs, starts, or stops its model process. This also

@@ -106,3 +106,34 @@ closed and leaves the model proposal unchanged. Generic domains therefore retain
 model-owned semantic selection, while product pricing demonstrates where a domain
 can deterministically enforce artifact UX without moving policy into Ignite or its
 renderer.
+
+## Voice workbench result-quality and provider-eligibility boundary
+
+- Recorded: 2026-07-15
+- Task: `direct-1784167123747`
+
+Runtime readiness, capability execution, artifact commitment, and shopper result
+quality are independent facts. The product-pricing boundary now returns stable,
+bounded reason codes for ambiguous candidates, low-confidence candidates,
+missing products, unavailable offers, invalid provider responses, and provider
+unavailability. `igniteCore.view` combines those facts with the admitted request
+to derive requested, matched, and verified counts, per-item issue rows, and next
+actions. JSX maps the prepared read model and does not infer business status,
+parse source URLs, or reinterpret null table cells.
+
+The recursive architecture is behaviorally present but structurally
+transitional. Pure policy, authorization, materialization, projection, and
+result-quality decisions form the functional core. Same-origin fetch, Whole
+Foods requests, Brave discovery, retries, and caching form the imperative shell.
+`price-capability.ts` and `server/product-pricing/whole-foods.ts` still combine
+multiple layers; a follow-up architecture slice should separate `core`, `ports`,
+`capabilities`, and `adapters` without adding a generic Ignite policy API.
+
+DoorDash `dd-cli` v0.2.0 was evaluated and intentionally not integrated. Its
+waitlist access terms limit current use to personal transactions, restrict
+retention and analysis of accessed pricing data, and include transaction effects.
+That is incompatible with this persistent open-source example without written
+authorization and an explicit human checkout policy. DoorDash's public retail
+inventory/pricing surface is a merchant feed, not a consumer product-query API.
+No DoorDash binary, credential, catalog fact, checkout command, or provider code
+belongs in this task.
