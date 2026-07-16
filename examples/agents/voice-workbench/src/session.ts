@@ -245,6 +245,7 @@ export type VoiceWorkbenchSession = ConversationSession & {
 	modelFailure: ModelFailureFact | null;
 	presentation: WorkbenchPresentation;
 	activeTurnId: string | null;
+	pendingCompletion: CompleteResponseInput | null;
 	lastTurnTerminal: VoiceWorkbenchTurnTerminalEvent | null;
 	childLifecycles: {
 		modelTurn: ModelTurnLifecycleProjection | null;
@@ -749,6 +750,42 @@ const isTurnTerminalEvent = (
 	}
 };
 
+const acceptsModelTurnLifecycle = (
+	context: VoiceWorkbenchSession,
+	lifecycle: ModelTurnLifecycleProjection,
+): boolean => {
+	if (!context.activeTurnId || lifecycle.turnId !== context.activeTurnId) {
+		return false;
+	}
+	const current = context.childLifecycles.modelTurn;
+	if (!current || current.turnId !== lifecycle.turnId) return true;
+	if (lifecycle.round < current.round) return false;
+	return (
+		lifecycle.round > current.round || lifecycle.attemptId === current.attemptId
+	);
+};
+
+const acceptsSpeechDeliveryLifecycle = (
+	current: SpeechDeliveryLifecycleProjection | null,
+	lifecycle: SpeechDeliveryLifecycleProjection,
+): boolean =>
+	current === null ||
+	current.attemptId === lifecycle.attemptId ||
+	lifecycle.state === "pending";
+
+const acceptsVoiceCaptureLifecycle = (
+	current: VoiceCaptureLifecycleProjection | null,
+	lifecycle: VoiceCaptureLifecycleProjection,
+): boolean => {
+	if (!current) return true;
+	if (lifecycle.sequence < current.sequence) return false;
+	if (lifecycle.sequence > current.sequence) return true;
+	if (lifecycle.attemptId === null) return true;
+	return (
+		current.attemptId !== null && lifecycle.attemptId === current.attemptId
+	);
+};
+
 const privatePresentationEnvelope = (
 	event: VoiceWorkbenchPrivateEvent,
 ): WorkbenchPresentationEnvelope | null => {
@@ -828,6 +865,8 @@ export const voiceWorkbenchSessionMachine = setup({
 					...result.session,
 					modelFailure: context.modelFailure,
 					activeTurnId,
+					pendingCompletion:
+						event.type === "SUBMIT_PROMPT" ? null : context.pendingCompletion,
 					lastTurnTerminal:
 						event.type === "SUBMIT_PROMPT" ? null : context.lastTurnTerminal,
 					childLifecycles: {
@@ -853,6 +892,52 @@ export const voiceWorkbenchSessionMachine = setup({
 				},
 			};
 		}),
+		stageCompletion: assign(({ context, event }) => {
+			if (event.type !== "COMPLETE_RESPONSE") return context;
+			const result = reduceConversationSession(context, event);
+			if (!result.accepted || !result.session.response) return context;
+			return {
+				...context,
+				pendingCompletion: result.session.response,
+			};
+		}),
+		rejectCompletion: assign(({ context, event }) => {
+			if (event.type !== "COMPLETE_RESPONSE") return context;
+			const result = reduceConversationSession(context, event);
+			return {
+				...context,
+				factSequence: context.factSequence + 1,
+				lastFact: {
+					type: "artifact-rejected",
+					reason: result.accepted ? "conflict" : result.reason,
+					...(!result.accepted && result.issues
+						? { issues: result.issues }
+						: {}),
+				},
+			};
+		}),
+		commitCompletedTurn: assign(({ context, event }) => {
+			if (event.type !== "TURN_COMPLETED" || !context.pendingCompletion) {
+				return context;
+			}
+			const result = reduceConversationSession(context, {
+				type: "COMPLETE_RESPONSE",
+				input: context.pendingCompletion,
+			});
+			if (!result.accepted) {
+				return { ...context, pendingCompletion: null };
+			}
+			return {
+				...result.session,
+				modelFailure: context.modelFailure,
+				presentation: context.presentation,
+				activeTurnId: context.activeTurnId,
+				pendingCompletion: null,
+				lastTurnTerminal: event,
+				childLifecycles: context.childLifecycles,
+			};
+		}),
+		discardPendingCompletion: assign({ pendingCompletion: () => null }),
 		applyPresentationUpdate: assign(({ context, event }) => {
 			if (event.type !== "PRESENTATION_UPDATED") return context;
 			return {
@@ -874,40 +959,70 @@ export const voiceWorkbenchSessionMachine = setup({
 			) {
 				return context;
 			}
-			const envelope = privatePresentationEnvelope(event);
-			const presentation = envelope
-				? reduceWorkbenchPresentation(context.presentation, envelope)
-				: context.presentation;
 			switch (event.type) {
-				case "MODEL_TURN_LIFECYCLE_UPDATED":
+				case "MODEL_TURN_LIFECYCLE_UPDATED": {
+					if (!acceptsModelTurnLifecycle(context, event.lifecycle)) {
+						return context;
+					}
 					return {
 						...context,
-						presentation,
 						childLifecycles: {
 							...context.childLifecycles,
 							modelTurn: event.lifecycle,
 						},
 					};
-				case "VOICE_CAPTURE_LIFECYCLE_UPDATED":
+				}
+				case "VOICE_CAPTURE_LIFECYCLE_UPDATED": {
+					if (
+						!acceptsVoiceCaptureLifecycle(
+							context.childLifecycles.voiceCapture,
+							event.lifecycle,
+						)
+					) {
+						return context;
+					}
+					const envelope = privatePresentationEnvelope(event);
 					return {
 						...context,
-						presentation,
+						presentation: envelope
+							? reduceWorkbenchPresentation(context.presentation, envelope)
+							: context.presentation,
 						childLifecycles: {
 							...context.childLifecycles,
 							voiceCapture: event.lifecycle,
 						},
 					};
-				case "SPEECH_DELIVERY_LIFECYCLE_UPDATED":
+				}
+				case "SPEECH_DELIVERY_LIFECYCLE_UPDATED": {
+					if (
+						!acceptsSpeechDeliveryLifecycle(
+							context.childLifecycles.speechDelivery,
+							event.lifecycle,
+						)
+					) {
+						return context;
+					}
+					const envelope = privatePresentationEnvelope(event);
 					return {
 						...context,
-						presentation,
+						presentation: envelope
+							? reduceWorkbenchPresentation(context.presentation, envelope)
+							: context.presentation,
 						childLifecycles: {
 							...context.childLifecycles,
 							speechDelivery: event.lifecycle,
 						},
 					};
-				default:
-					return { ...context, presentation };
+				}
+				default: {
+					const envelope = privatePresentationEnvelope(event);
+					return {
+						...context,
+						presentation: envelope
+							? reduceWorkbenchPresentation(context.presentation, envelope)
+							: context.presentation,
+					};
+				}
 			}
 		}),
 		clearActiveTurn: assign({ activeTurnId: () => null }),
@@ -952,7 +1067,11 @@ export const voiceWorkbenchSessionMachine = setup({
 		completedTurnIsReady: ({ context, event }) =>
 			event.type === "TURN_COMPLETED" &&
 			event.turnId === context.activeTurnId &&
-			context.response !== null,
+			context.pendingCompletion !== null,
+		completionCanStage: ({ context, event }) =>
+			event.type === "COMPLETE_RESPONSE" &&
+			context.pendingCompletion === null &&
+			reduceConversationSession(context, event).accepted,
 	},
 }).createMachine({
 	id: "conversation-session",
@@ -962,6 +1081,7 @@ export const voiceWorkbenchSessionMachine = setup({
 		modelFailure: null,
 		presentation: createInitialPresentation(),
 		activeTurnId: null,
+		pendingCompletion: null,
 		lastTurnTerminal: null,
 		childLifecycles: {
 			modelTurn: null,
@@ -1014,7 +1134,7 @@ export const voiceWorkbenchSessionMachine = setup({
 				SET_CHECKLIST_ITEM: { actions: "applyTransition" },
 				MODEL_PREPARATION_STARTED: {
 					target: "#conversation-session.preparing",
-					actions: "clearModelFailure",
+					actions: ["clearModelFailure", "discardPendingCompletion"],
 				},
 				MODEL_FAILED: {
 					target: "#conversation-session.unavailable",
@@ -1041,41 +1161,44 @@ export const voiceWorkbenchSessionMachine = setup({
 					on: {
 						MODEL_FAILED: {
 							target: "#conversation-session.unavailable",
-							actions: "recordActiveTurnModelFailure",
+							actions: [
+								"recordActiveTurnModelFailure",
+								"discardPendingCompletion",
+							],
 						},
 						CREATE_ARTIFACT: { actions: "applyTransition" },
 						REVISE_ARTIFACT: { actions: "applyTransition" },
 						COMPLETE_RESPONSE: [
 							{
-								guard: "transitionAccepted",
-								actions: "applyTransition",
+								guard: "completionCanStage",
+								actions: "stageCompletion",
 							},
-							{ actions: "applyTransition" },
+							{ actions: "rejectCompletion" },
 						],
 						TURN_COMPLETED: {
 							guard: "completedTurnIsReady",
 							target: "idle",
-							actions: "recordTurnTerminal",
+							actions: "commitCompletedTurn",
 						},
 						TURN_FAILED: {
 							guard: "terminalMatchesActiveTurn",
 							target: "idle",
-							actions: "recordTurnTerminal",
+							actions: ["recordTurnTerminal", "discardPendingCompletion"],
 						},
 						CANCELLED: {
 							guard: "terminalMatchesActiveTurn",
 							target: "idle",
-							actions: "recordTurnTerminal",
+							actions: ["recordTurnTerminal", "discardPendingCompletion"],
 						},
 						TIMEOUT: {
 							guard: "terminalMatchesActiveTurn",
 							target: "idle",
-							actions: "recordTurnTerminal",
+							actions: ["recordTurnTerminal", "discardPendingCompletion"],
 						},
 						ROUND_LIMIT_REACHED: {
 							guard: "terminalMatchesActiveTurn",
 							target: "idle",
-							actions: "recordTurnTerminal",
+							actions: ["recordTurnTerminal", "discardPendingCompletion"],
 						},
 					},
 				},

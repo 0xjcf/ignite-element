@@ -123,7 +123,7 @@ describe("voice workbench browser entry", () => {
 				createdSpeechActors.push(actor);
 				vi.spyOn(actor, "stop").mockImplementation(() => {
 					stopSpeechActor(actor);
-					stop();
+					return stop();
 				});
 				return actor;
 			},

@@ -22,6 +22,7 @@ import {
 	createSpeechDeliveryActor,
 	projectSpeechDeliveryLifecycle,
 	projectSpeechDeliveryPortRequest,
+	projectSpeechDeliveryTerminalFact,
 } from "./speech";
 import { createBrowserVoiceCapture } from "./voice";
 import { createWebSearchCapability } from "./web-search-capability";
@@ -120,6 +121,10 @@ const deliverSpeech = (
 
 	subscription = actor.subscribe((snapshot) => {
 		recordSpeechDeliveryLifecycle(projectSpeechDeliveryLifecycle(snapshot));
+		if (projectSpeechDeliveryTerminalFact(snapshot)) {
+			delivery.dispose();
+			return;
+		}
 
 		const request = projectSpeechDeliveryPortRequest(snapshot);
 		if (!request) return;

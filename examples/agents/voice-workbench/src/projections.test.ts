@@ -3,7 +3,12 @@ import {
 	createProjectionSpeechTarget,
 } from "ignite-element/xstate";
 import { describe, expect, it, vi } from "vitest";
-import { component, reportModelAvailable, source } from "./session";
+import {
+	component,
+	recordTurnTerminal,
+	reportModelAvailable,
+	source,
+} from "./session";
 
 describe("voice workbench projection targets", () => {
 	it("commits documents and acknowledged speech through direct component targets", async () => {
@@ -56,6 +61,9 @@ describe("voice workbench projection targets", () => {
 			command: "completeResponse",
 			input: { text: "Decision captured.", speech: "Decision captured." },
 		});
+		const turnId = source.getSnapshot().context.activeTurnId;
+		if (!turnId) throw new Error("Expected an active projection turn.");
+		recordTurnTerminal({ type: "TURN_COMPLETED", turnId });
 		await vi.waitFor(() => {
 			expect(commitSpeech).toHaveBeenCalledWith(
 				expect.objectContaining({

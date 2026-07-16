@@ -1329,15 +1329,17 @@ describe("voice workbench headless component", () => {
 				command: "completeResponse",
 				input: { text: "Decision captured.", speech: "Decision captured." },
 			})
-		)
-			.expectEvent({ type: "response-completed" })
-			.expectView({
-				status: "responding",
-				speech: { text: "Decision captured.", status: "pending" },
-			});
+		).expectView({ status: "responding", response: null, speech: null });
 		const completedTurnId = source.getSnapshot().context.activeTurnId;
 		if (!completedTurnId) throw new Error("Expected an active completed turn.");
 		recordTurnTerminal({ type: "TURN_COMPLETED", turnId: completedTurnId });
+		expect(component.getSnapshot().context.lastFact?.type).toBe(
+			"response-completed",
+		);
+		expect(component.getView().speech).toMatchObject({
+			text: "Decision captured.",
+			status: "pending",
+		});
 		expect(component.getView().status).toBe("ready");
 		expect(component.canExecute("setChecklistItem")).toBe(true);
 		await component.execute({
