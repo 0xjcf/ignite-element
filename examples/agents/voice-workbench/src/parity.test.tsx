@@ -25,6 +25,8 @@ describe("voice workbench production parity harness", () => {
 		expect(paritySource).not.toContain("createParityEnvironment");
 		expect(paritySource).not.toContain("parityEnvironment");
 		expect(paritySource).not.toContain("source.send");
+		expect(paritySource).not.toContain("presentVoice");
+		expect(paritySource).toContain("recordVoiceCaptureLifecycle");
 	});
 
 	it("renders accessible evidence across provider, turn, artifact, and voice lifecycles", async () => {
@@ -74,6 +76,12 @@ describe("voice workbench production parity harness", () => {
 		await seedParityState("listening");
 		expect(shell()?.getAttribute("data-voice-state")).toBe("listening");
 		expect(
+			source.getSnapshot().context.childLifecycles.voiceCapture,
+		).toMatchObject({
+			state: "listening",
+			fact: { type: "voice-listening" },
+		});
+		expect(
 			igniteTest.expectControls(bridge, [
 				{ role: "button", name: "Cancel" },
 				{ role: "button", name: "Use transcript" },
@@ -121,6 +129,12 @@ describe("voice workbench production parity harness", () => {
 
 		await seedParityState("permission");
 		expect(shell()?.getAttribute("data-voice-state")).toBe("permission");
+		expect(
+			source.getSnapshot().context.childLifecycles.voiceCapture,
+		).toMatchObject({
+			state: "permission-denied",
+			fact: { type: "voice-permission-denied" },
+		});
 		expect(bridge.getByRole("alert").textContent).toContain(
 			"Microphone access was denied",
 		);

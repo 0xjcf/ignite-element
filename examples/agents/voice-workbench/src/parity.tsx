@@ -3,9 +3,9 @@ import {
 	commitDocument,
 	commitSpeech,
 	component,
-	presentVoice,
 	recordTurn,
 	recordTurnTerminal,
+	recordVoiceCaptureLifecycle,
 	reportModelAvailable,
 	reportModelFailure,
 	source,
@@ -32,7 +32,23 @@ export function resolveParityState(search: string): ParityState | null {
 	return isParityState(requested) ? requested : null;
 }
 
-const setIdleVoice = () => presentVoice({ type: "voice-idle" });
+const recordParityVoice = (
+	state: string,
+	fact: Parameters<typeof recordVoiceCaptureLifecycle>[0]["fact"],
+	attempted = false,
+): void => {
+	const sequence =
+		(source.getSnapshot().context.childLifecycles.voiceCapture?.sequence ?? 0) +
+		1;
+	recordVoiceCaptureLifecycle({
+		state,
+		attemptId: attempted ? `parity-voice:${sequence}` : null,
+		sequence,
+		fact,
+	});
+};
+
+const setIdleVoice = () => recordParityVoice("idle", { type: "voice-idle" });
 
 const ensureResponding = async () => {
 	if (component.getView().status === "responding") return;
@@ -136,7 +152,7 @@ export async function seedParityState(state: ParityState): Promise<void> {
 			return;
 		case "listening":
 			reportModelAvailable();
-			presentVoice({ type: "voice-listening" });
+			recordParityVoice("listening", { type: "voice-listening" }, true);
 			return;
 		case "responding":
 			await setIdleVoice();
@@ -155,10 +171,14 @@ export async function seedParityState(state: ParityState): Promise<void> {
 				command: "changeDraft",
 				input: "Parity harness draft stays available",
 			});
-			presentVoice({
-				type: "voice-permission-denied",
-				message: "Parity harness only — simulated microphone denial.",
-			});
+			recordParityVoice(
+				"permission-denied",
+				{
+					type: "voice-permission-denied",
+					message: "Parity harness only — simulated microphone denial.",
+				},
+				true,
+			);
 			return;
 	}
 }
