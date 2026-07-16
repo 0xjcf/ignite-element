@@ -207,9 +207,14 @@ only the payloadless parent intents `VOICE_CAPTURE_START_REQUESTED`,
 Only `available.idle` admits them. Machine actions allocate the durable
 top-level `voiceCaptureControlSequence` and write
 `voiceCaptureControlRequest`; commands never inspect a snapshot to invent
-correlation data. The presentation reducer owns transcript display facts, not
-control lifecycle. The view preserves the browser-facing
-`portRequests.voiceCapture` shape while projecting it from parent context.
+correlation data. The voice-capture child lifecycle is the sole owner of every
+visible capture fact: listening state, transcript, readiness, and failure. Raw
+presentation context has no voice field. The view preserves its compatible
+`presentation.voice` field by deriving it from
+`childLifecycles.voiceCapture.fact`, with `voice-idle` only as the pre-lifecycle
+fallback, and uses the same lifecycle selector for transcript readiness. It
+also preserves the browser-facing `portRequests.voiceCapture` shape while
+projecting it from parent context.
 
 The browser shell owns exactly one active `ModelTurnHandle`. That handle owns
 the model-turn `AbortController` and a 45-second whole-turn clock covering model
@@ -226,7 +231,7 @@ The command and event vocabulary is intentionally classified by authority:
 | --- | --- | --- |
 | `user-intent` | `submitPrompt`, `beginModelPreparation`, `restoreArtifactRevision`, `selectArtifact`, `acknowledgeSpeech`, voice start/cancel/transcript, presentation choices, replay, and play-speech intent | Schema-admitted only where a user or consumer can intentionally request behavior |
 | `model-intent` | `createArtifact`, `reviseArtifact`, `setChecklistItem`, `completeResponse` | Continue through statechart guards and reducer validation; the model never writes context directly |
-| Example-private adapter ports | `reportModelAvailable`, `reportModelFailure`, `presentVoice`, `recordVoiceTranscriptConsumed`, `commitDocument`, `commitSpeech` and child lifecycle recorders | Translate bounded adapter outcomes into typed actor events; absent from `getSchema()` |
+| Example-private adapter ports | `reportModelAvailable`, `reportModelFailure`, `recordVoiceTranscriptConsumed`, `commitDocument`, `commitSpeech` and child lifecycle recorders | Translate bounded adapter outcomes into typed actor events; absent from `getSchema()` |
 | Example-private read-model ports | `recordTurn`, `recordRuntimeManifest`, `recordCapabilityOutcome`, `recordDomainPolicyDecision` | Project bounded orchestration facts without becoming lifecycle authorities; absent from `getSchema()` |
 
 Exactly 19 public commands carry a serializable `user-intent` or `model-intent`
@@ -272,17 +277,18 @@ Presentation intent envelope:
   PRESENTATION_UPDATED
 
 Example-private adapter/read-model events:
-  DOCUMENT_COMMITTED, SPEECH_COMMITTED, VOICE_RECORDED,
-  VOICE_TRANSCRIPT_CONSUMED,
+  DOCUMENT_COMMITTED, SPEECH_COMMITTED, VOICE_TRANSCRIPT_CONSUMED,
   CAPABILITY_OUTCOME_RECORDED, DOMAIN_POLICY_RECORDED,
   RUNTIME_MANIFEST_RECORDED, TURN_RECORDED,
   MODEL_TURN_LIFECYCLE_UPDATED, VOICE_CAPTURE_LIFECYCLE_UPDATED,
   SPEECH_DELIVERY_LIFECYCLE_UPDATED
 ```
 
-The pure `reduceWorkbenchPresentation` reducer is the single presentation
-writer and returns fresh state for public presentation intent and typed private
-facts. The state hierarchy gates lifecycle-sensitive events, and the pure
+The pure `reduceWorkbenchPresentation` reducer is the single writer for the
+non-lifecycle presentation slice and returns fresh state for public
+presentation intent and typed private facts. Voice display data is instead a
+pure view projection of the authoritative child lifecycle. The state hierarchy
+gates lifecycle-sensitive events, and the pure
 `transitionAccepted` guard adds domain admission. Async model, voice, and
 speech effects stay in the imperative shell, which consumes projected port
 requests and returns attempt-correlated facts to the executable child machines.
@@ -309,7 +315,9 @@ artifact history, response, speech request, model failure, active turn
 identity, the latest model-turn control request, staged `pendingCompletion`,
 the monotonic voice-control sequence and pending control request, last terminal
 outcome, projected child lifecycle detail, and the private reducer-owned
-presentation slice.
+presentation slice. That raw presentation slice intentionally excludes voice;
+the derived view adds `presentation.voice` from the child lifecycle for UI
+compatibility.
 `pendingCompletion` may be non-null only for the active responding turn: a
 matching `TURN_COMPLETED` consumes it, while every non-success terminal or
 provider/preparation exit clears it. This correlation invariant prevents a
@@ -346,7 +354,7 @@ voiceState
 Direct `xstate/graph` characterization proves the four exact raw vertices and
 their event-labelled adjacency. The suite locks all 44 combinations of the four
 vertices and 11 included lifecycle/canonical-payload events, including unchanged
-snapshots for rejected events. Twenty context-cycle, presentation-envelope,
+snapshots for rejected events. Nineteen context-cycle, presentation-envelope,
 and private-event cases are explicitly excluded from exhaustive enumeration.
 `voiceWorkbenchKnownForbiddenStateValues` is intentionally empty, and
 `voiceWorkbenchSessionInvariants` requires responding to be nested inside
@@ -476,6 +484,9 @@ An older completion cannot satisfy a newer request even when both target the
 same child attempt. Preparation or provider failure invalidates a pending
 consume without resetting the counter. The parent never infers acceptance from
 presentation text, and it never invokes the browser-owned child directly.
+Every visible voice field is derived from the latest accepted child lifecycle
+projection. No separate adapter event or presentation reducer can overwrite
+the displayed transcript, readiness, listening state, or failure.
 
 ### Executable speech delivery
 
