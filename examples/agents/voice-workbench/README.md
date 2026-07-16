@@ -201,6 +201,16 @@ active turn. The pure view exposes that request as
 `portRequests.modelTurnControl`; it never stores an `AbortController`, timer, or
 actor handle in machine context.
 
+Voice controls follow the same boundary. The three public voice commands send
+only the payloadless parent intents `VOICE_CAPTURE_START_REQUESTED`,
+`VOICE_CAPTURE_CANCEL_REQUESTED`, and `VOICE_TRANSCRIPT_SUBMIT_REQUESTED`.
+Only `available.idle` admits them. Machine actions allocate the durable
+top-level `voiceCaptureControlSequence` and write
+`voiceCaptureControlRequest`; commands never inspect a snapshot to invent
+correlation data. The presentation reducer owns transcript display facts, not
+control lifecycle. The view preserves the browser-facing
+`portRequests.voiceCapture` shape while projecting it from parent context.
+
 The browser shell owns exactly one active `ModelTurnHandle`. That handle owns
 the model-turn `AbortController` and a 45-second whole-turn clock covering model
 inference, authorization, and capability execution. A projected interruption,
@@ -251,6 +261,10 @@ Conversation intent and domain actions:
 Provider lifecycle intent/results:
   MODEL_PREPARATION_STARTED, MODEL_AVAILABLE, MODEL_FAILED
 
+Voice capture intent:
+  VOICE_CAPTURE_START_REQUESTED, VOICE_CAPTURE_CANCEL_REQUESTED,
+  VOICE_TRANSCRIPT_SUBMIT_REQUESTED
+
 Correlated turn terminal outcomes:
   TURN_COMPLETED, TURN_FAILED, CANCELLED, TIMEOUT, ROUND_LIMIT_REACHED
 
@@ -259,6 +273,7 @@ Presentation intent envelope:
 
 Example-private adapter/read-model events:
   DOCUMENT_COMMITTED, SPEECH_COMMITTED, VOICE_RECORDED,
+  VOICE_TRANSCRIPT_CONSUMED,
   CAPABILITY_OUTCOME_RECORDED, DOMAIN_POLICY_RECORDED,
   RUNTIME_MANIFEST_RECORDED, TURN_RECORDED,
   MODEL_TURN_LIFECYCLE_UPDATED, VOICE_CAPTURE_LIFECYCLE_UPDATED,
@@ -292,8 +307,9 @@ consumers should treat these fields separately:
 Current serializable context owns the conversation messages, documents,
 artifact history, response, speech request, model failure, active turn
 identity, the latest model-turn control request, staged `pendingCompletion`,
-last terminal outcome, projected child lifecycle detail, and the private
-reducer-owned presentation slice.
+the monotonic voice-control sequence and pending control request, last terminal
+outcome, projected child lifecycle detail, and the private reducer-owned
+presentation slice.
 `pendingCompletion` may be non-null only for the active responding turn: a
 matching `TURN_COMPLETED` consumes it, while every non-success terminal or
 provider/preparation exit clears it. This correlation invariant prevents a
@@ -307,7 +323,7 @@ The raw serializable context keys are:
 activeArtifactId, activeTurnId, artifactRevisions, childLifecycles, documents,
 factSequence, lastFact, lastTurnTerminal, messages, modelFailure,
 modelTurnControlRequest, presentation, pendingCompletion, response, revision,
-sessionId, speech
+sessionId, speech, voiceCaptureControlRequest, voiceCaptureControlSequence
 ```
 
 The derived view currently exposes these prepared top-level keys:
@@ -330,7 +346,7 @@ voiceState
 Direct `xstate/graph` characterization proves the four exact raw vertices and
 their event-labelled adjacency. The suite locks all 44 combinations of the four
 vertices and 11 included lifecycle/canonical-payload events, including unchanged
-snapshots for rejected events. Seventeen context-cycle, presentation-envelope,
+snapshots for rejected events. Twenty context-cycle, presentation-envelope,
 and private-event cases are explicitly excluded from exhaustive enumeration.
 `voiceWorkbenchKnownForbiddenStateValues` is intentionally empty, and
 `voiceWorkbenchSessionInvariants` requires responding to be nested inside
@@ -349,6 +365,10 @@ stateDiagram-v2
 
     state Available {
         [*] --> Idle
+        Idle --> Idle: VOICE_CAPTURE_START_REQUESTED / allocate start sequence
+        Idle --> Idle: VOICE_CAPTURE_CANCEL_REQUESTED / allocate cancel sequence
+        Idle --> Idle: VOICE_TRANSCRIPT_SUBMIT_REQUESTED [final current transcript] / allocate consume sequence
+        Idle --> Responding: VOICE_TRANSCRIPT_CONSUMED [request sequence + attempt match]
         Idle --> Responding: SUBMIT_PROMPT [accepted]
         Responding --> Responding: COMPLETE_RESPONSE [accepted] / stage pendingCompletion
         Responding --> Idle: TURN_COMPLETED [matching + pendingCompletion] / commit aggregate
@@ -446,10 +466,16 @@ stateDiagram-v2
 The browser recognition object remains an imperative port. The child actor owns
 the serializable lifecycle, attempt identity, transcript consume rule, retry,
 cancellation, and idempotent disposal. `submitVoiceTranscript` projects a
-correlated consume request; the browser driver asks the child to consume it and
-returns `VOICE_TRANSCRIPT_CONSUMED` only after the child reaches `consumed`.
-The parent admits that private fact once for the matching pending request, then
-opens the speech turn. It never infers acceptance from presentation text.
+parent-allocated consume request; the browser driver asks the child to consume
+it and returns `VOICE_TRANSCRIPT_CONSUMED` only after the child reaches
+`consumed`. That private completion carries both the parent request sequence
+and the child attempt identity. The parent also compares the normalized text
+with the candidate captured when it allocated the request, admits the fact
+exactly once, clears only the pending request, and keeps the sequence monotonic.
+An older completion cannot satisfy a newer request even when both target the
+same child attempt. Preparation or provider failure invalidates a pending
+consume without resetting the counter. The parent never infers acceptance from
+presentation text, and it never invokes the browser-owned child directly.
 
 ### Executable speech delivery
 
