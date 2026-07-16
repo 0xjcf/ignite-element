@@ -3,7 +3,14 @@ import {
 	type IgniteAgentCommandSchema,
 	igniteCore,
 } from "ignite-element/xstate";
-import { and, assign, createActor, setup, stateIn } from "xstate";
+import {
+	and,
+	assign,
+	createActor,
+	setup,
+	type SnapshotFrom,
+	stateIn,
+} from "xstate";
 import type { ModelFailureFact } from "./agent-loop";
 import type { CapabilityFallbackAttempt } from "./capability-federation";
 import {
@@ -213,7 +220,7 @@ type WorkbenchVoiceCaptureEvent = {
 	sequence: number;
 };
 
-type WorkbenchSession = ConversationSession & {
+export type VoiceWorkbenchSession = ConversationSession & {
 	modelFailure: ModelFailureFact | null;
 	presentation: WorkbenchPresentation;
 };
@@ -221,11 +228,130 @@ export type ModelReadinessEvent =
 	| { type: "MODEL_PREPARATION_STARTED" }
 	| { type: "MODEL_AVAILABLE" }
 	| { type: "MODEL_FAILED"; failure: ModelFailureFact };
-type WorkbenchEvent =
+export type VoiceWorkbenchSessionEvent =
 	| ConversationAction
 	| ModelReadinessEvent
 	| WorkbenchPresentationEvent
 	| WorkbenchVoiceCaptureEvent;
+
+export type WorkbenchSpeechAcknowledgementFact = {
+	type: "speech-projection-acknowledged";
+	id: string;
+};
+
+export type WorkbenchSpeechDeliveryFact =
+	| { type: "speech-delivery-queued"; id: string }
+	| { type: "speech-delivery-completed"; id: string }
+	| { type: "speech-delivery-muted"; id: string }
+	| { type: "speech-delivery-unavailable"; id: string }
+	| { type: "speech-delivery-failed"; id: string; message: string }
+	| { type: "speech-delivery-cancelled"; id: string };
+
+export type WorkbenchSpeechLifecycleFact =
+	| WorkbenchSpeechAcknowledgementFact
+	| WorkbenchSpeechDeliveryFact;
+
+export type VoiceWorkbenchLifecycleOwnership = {
+	surface:
+		| "session-provider-turn"
+		| "model-turn"
+		| "voice-capture"
+		| "speech-delivery"
+		| "conversation-artifact-aggregate"
+		| "domain-policy"
+		| "capability-results"
+		| "presentation";
+	owner: string;
+	disposition: "statechart" | "reducer" | "typed-fact" | "presentation";
+	implementation: "executable" | "planned";
+	maturity: "target" | "transitional";
+};
+
+export const voiceWorkbenchLifecycleOwnership = [
+	{
+		surface: "session-provider-turn",
+		owner: "voiceWorkbenchSessionMachine",
+		disposition: "statechart",
+		implementation: "executable",
+		maturity: "transitional",
+	},
+	{
+		surface: "model-turn",
+		owner: "model-turn child actor",
+		disposition: "statechart",
+		implementation: "planned",
+		maturity: "target",
+	},
+	{
+		surface: "voice-capture",
+		owner: "voice-capture child actor",
+		disposition: "statechart",
+		implementation: "planned",
+		maturity: "target",
+	},
+	{
+		surface: "speech-delivery",
+		owner: "speech-delivery child actor",
+		disposition: "statechart",
+		implementation: "planned",
+		maturity: "target",
+	},
+	{
+		surface: "conversation-artifact-aggregate",
+		owner: "reduceConversationSession",
+		disposition: "reducer",
+		implementation: "executable",
+		maturity: "target",
+	},
+	{
+		surface: "domain-policy",
+		owner: "domain pack policies",
+		disposition: "typed-fact",
+		implementation: "executable",
+		maturity: "target",
+	},
+	{
+		surface: "capability-results",
+		owner: "capability ports",
+		disposition: "typed-fact",
+		implementation: "executable",
+		maturity: "target",
+	},
+	{
+		surface: "presentation",
+		owner: "browser presentation slice",
+		disposition: "presentation",
+		implementation: "executable",
+		maturity: "transitional",
+	},
+] as const satisfies readonly VoiceWorkbenchLifecycleOwnership[];
+
+export type VoiceWorkbenchSessionStateValue = {
+	provider: "preparing" | "available" | "failed";
+	turn: "ready" | "responding";
+};
+
+export const voiceWorkbenchKnownForbiddenStateValues = [
+	{ provider: "preparing", turn: "responding" },
+	{ provider: "failed", turn: "responding" },
+] as const satisfies readonly VoiceWorkbenchSessionStateValue[];
+
+export const isVoiceWorkbenchKnownForbiddenStateValue = (
+	value: unknown,
+): boolean => {
+	if (
+		typeof value !== "object" ||
+		value === null ||
+		!("provider" in value) ||
+		!("turn" in value)
+	) {
+		return false;
+	}
+	return voiceWorkbenchKnownForbiddenStateValues.some(
+		(forbidden) =>
+			forbidden.provider === value.provider && forbidden.turn === value.turn,
+	);
+};
 
 const createInitialPresentation = (): WorkbenchPresentation => ({
 	artifactView: "document",
@@ -457,7 +583,7 @@ const formatSchema = (schema: unknown, rootName = "input"): string => {
 let componentBlueprintCommands: IgniteAgentCommandSchema = {};
 
 const isConversationAction = (
-	event: WorkbenchEvent,
+	event: VoiceWorkbenchSessionEvent,
 ): event is ConversationAction => {
 	switch (event.type) {
 		case "SUBMIT_PROMPT":
@@ -475,17 +601,17 @@ const isConversationAction = (
 };
 
 const updatePresentation = (
-	context: WorkbenchSession,
+	context: VoiceWorkbenchSession,
 	patch: Partial<WorkbenchPresentation>,
-): WorkbenchSession => ({
+): VoiceWorkbenchSession => ({
 	...context,
 	presentation: { ...context.presentation, ...patch },
 });
 
-const machine = setup({
+export const voiceWorkbenchSessionMachine = setup({
 	types: {
-		context: {} as WorkbenchSession,
-		events: {} as WorkbenchEvent,
+		context: {} as VoiceWorkbenchSession,
+		events: {} as VoiceWorkbenchSessionEvent,
 	},
 	actions: {
 		applyTransition: assign(({ context, event }) => {
@@ -711,7 +837,26 @@ const machine = setup({
 	},
 });
 
-export const source = createActor(machine).start();
+export type VoiceWorkbenchSessionSnapshot = SnapshotFrom<
+	typeof voiceWorkbenchSessionMachine
+>;
+
+export const voiceWorkbenchSessionInvariants = {
+	respondingRequiresAvailable: (snapshot: VoiceWorkbenchSessionSnapshot) =>
+		!snapshot.matches({ turn: "responding" }) ||
+		snapshot.matches({ provider: "available" }),
+	hasNoKnownForbiddenState: (snapshot: VoiceWorkbenchSessionSnapshot) =>
+		!isVoiceWorkbenchKnownForbiddenStateValue(snapshot.value),
+} as const;
+
+export const createVoiceWorkbenchSessionActor = () =>
+	createActor(voiceWorkbenchSessionMachine);
+
+export type VoiceWorkbenchSessionActor = ReturnType<
+	typeof createVoiceWorkbenchSessionActor
+>;
+
+export const source = createVoiceWorkbenchSessionActor().start();
 
 const PRODUCT_PRICE_REASON_LABELS: Record<ProductPriceReasonCode, string> = {
 	"candidate-ambiguous": "Candidate selection ambiguous",
