@@ -2429,8 +2429,8 @@ No active tasks.
 
 - Title: Define canonical voice-workbench machine contracts and a fresh actor factory
 - Mode: 6-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/define-canonical-voice-workbench-machine-contracts-and-a-fre.md
 - Verification lane: fast
 - Policy sensitivity: standard

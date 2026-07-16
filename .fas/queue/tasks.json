@@ -348,27 +348,6 @@
       "updatedAt": "2026-07-16T03:11:42.136Z"
     },
     {
-      "id": "task-1784171303126",
-      "task": "Define canonical voice-workbench machine contracts and a fresh actor factory",
-      "priority": "high",
-      "source": "fas-project-audit",
-      "details": "Start from .fas/artifacts/audits/voice-workbench-state-machine-audit.md. Make machine shapes the reviewed design input, then make executable XState logic the only runtime lifecycle authority. Inventory every provider, turn, voice-capture, speech-delivery, aggregate, policy/fact, and presentation surface; resolve the speech receipt-versus-delivery ambiguity; classify all commands/events as public intent, model-authorized domain command, private adapter result, or internal read-model fact. Export reusable unstarted machine logic and/or a createVoiceWorkbenchSessionActor factory that creates fresh context per runtime/test while preserving getSchema() as the only public Ignite blueprint.\nSee .fas/tasks/define-canonical-voice-workbench-machine-contracts-and-a-fre.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "policy-surfacing",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [],
-      "blocks": [
-        "task-1784171355639"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-16T03:08:23.126Z",
-      "updatedAt": "2026-07-16T15:19:03.717Z"
-    },
-    {
       "id": "task-1784171355639",
       "task": "Add XState graph characterization and invariant tests for voice-workbench",
       "priority": "high",
@@ -377,7 +356,7 @@
       "taskClassification": "standard",
       "selfImprovementCategory": null,
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "4-agent",
       "dependsOn": [
@@ -390,7 +369,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-16T03:09:15.639Z",
       "updatedAt": "2026-07-16T03:10:35.029Z",
-      "deferredReason": "dependency_reopened: task-1784171303126",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -3551,6 +3530,27 @@
       "completedAt": "2026-07-15T04:16:49.678Z",
       "terminalOutcome": null,
       "workflowId": "direct-1784081714243",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784171303126",
+      "task": "Define canonical voice-workbench machine contracts and a fresh actor factory",
+      "priority": "high",
+      "source": "fas-project-audit",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [
+        "task-1784171355639"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-16T16:26:18.060Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784215143713",
       "branchName": "fas/voice-text-workbench",
       "prStatus": "draft-only"
     }
