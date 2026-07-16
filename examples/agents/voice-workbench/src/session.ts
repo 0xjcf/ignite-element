@@ -871,6 +871,17 @@ const acceptsVoiceCaptureLifecycle = (
 	);
 };
 
+const canonicalizeVoiceCaptureLifecycle = (
+	lifecycle: VoiceCaptureLifecycleProjection,
+): VoiceCaptureLifecycleProjection => {
+	const fact = lifecycle.fact;
+	if (fact.type !== "voice-transcript" || !fact.final) return lifecycle;
+	const text = fact.text.trim();
+	return text === fact.text
+		? lifecycle
+		: { ...lifecycle, fact: { ...fact, text } };
+};
+
 const privatePresentationEnvelope = (
 	event: VoiceWorkbenchPrivateEvent,
 ): WorkbenchPresentationEnvelope | null => {
@@ -1176,10 +1187,11 @@ export const voiceWorkbenchSessionMachine = setup({
 					};
 				}
 				case "VOICE_CAPTURE_LIFECYCLE_UPDATED": {
+					const lifecycle = canonicalizeVoiceCaptureLifecycle(event.lifecycle);
 					if (
 						!acceptsVoiceCaptureLifecycle(
 							context.childLifecycles.voiceCapture,
-							event.lifecycle,
+							lifecycle,
 						)
 					) {
 						return context;
@@ -1188,7 +1200,7 @@ export const voiceWorkbenchSessionMachine = setup({
 						...context,
 						childLifecycles: {
 							...context.childLifecycles,
-							voiceCapture: event.lifecycle,
+							voiceCapture: lifecycle,
 						},
 					};
 				}

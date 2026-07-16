@@ -758,10 +758,28 @@ describe("voice workbench session machine contract", () => {
 			text: "  Lifecycle candidate\n",
 			final: true,
 		} as const;
+		const interimReceipt = {
+			...lifecycleReceipt,
+			text: "  Lifecycle interim  ",
+			final: false,
+		} as const;
 		const lifecycleCandidate = {
 			...lifecycleReceipt,
 			text: "Lifecycle candidate",
 		} as const;
+		actor.send({
+			type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "transcript",
+				attemptId: "voice:3",
+				sequence: 3,
+				fact: interimReceipt,
+			},
+		});
+		expectVisibleVoice(interimReceipt);
+		expect(
+			selectVoiceTranscriptCandidate(actor.getSnapshot().context),
+		).toBeNull();
 		actor.send({
 			type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
 			lifecycle: {
