@@ -681,6 +681,155 @@ describe("voice workbench session machine contract", () => {
 		}
 	});
 
+	it("keeps every visible voice fact aligned with the authoritative child lifecycle", () => {
+		const actor = createVoiceWorkbenchSessionActor().start();
+		actor.send({ type: "MODEL_AVAILABLE" });
+		const selectVoiceTranscriptCandidate = transcriptCandidateSelector();
+		if (!selectVoiceTranscriptCandidate) {
+			throw new Error("selectVoiceTranscriptCandidate must be exported");
+		}
+		const expectVisibleVoice = (
+			fact:
+				| { type: "voice-listening" }
+				| { type: "voice-permission-denied"; message: string }
+				| {
+						type: "voice-transcript";
+						text: string;
+						final: boolean;
+				  },
+		) => {
+			const snapshot = actor.getSnapshot();
+			const view = projectVoiceWorkbenchView({ snapshot });
+			expect(view.presentation.voice).toEqual(fact);
+			expect(view.transcript).toBe(
+				fact.type === "voice-transcript" ? fact.text : null,
+			);
+			expect(view.transcriptReady).toBe(
+				fact.type === "voice-transcript" && fact.final,
+			);
+			expect(view.voiceState).toBe(
+				fact.type === "voice-listening"
+					? "listening"
+					: fact.type === "voice-transcript"
+						? "transcript"
+						: "permission",
+			);
+			expect(view.voiceFailure).toEqual(
+				fact.type === "voice-permission-denied" ? fact : null,
+			);
+		};
+
+		actor.send({
+			type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "listening",
+				attemptId: "voice:1",
+				sequence: 1,
+				fact: { type: "voice-listening" },
+			},
+		});
+		expectVisibleVoice({ type: "voice-listening" });
+		expect(
+			selectVoiceTranscriptCandidate(actor.getSnapshot().context),
+		).toBeNull();
+
+		actor.send({
+			type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "permission-denied",
+				attemptId: "voice:2",
+				sequence: 2,
+				fact: {
+					type: "voice-permission-denied",
+					message: "Lifecycle permission failure",
+				},
+			},
+		});
+		expectVisibleVoice({
+			type: "voice-permission-denied",
+			message: "Lifecycle permission failure",
+		});
+		expect(
+			selectVoiceTranscriptCandidate(actor.getSnapshot().context),
+		).toBeNull();
+
+		const lifecycleCandidate = {
+			type: "voice-transcript",
+			text: "Lifecycle candidate",
+			final: true,
+		} as const;
+		actor.send({
+			type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "transcript",
+				attemptId: "voice:3",
+				sequence: 3,
+				fact: lifecycleCandidate,
+			},
+		});
+		expectVisibleVoice(lifecycleCandidate);
+		expect(selectVoiceTranscriptCandidate(actor.getSnapshot().context)).toEqual(
+			{
+				attemptId: "voice:3",
+				text: "Lifecycle candidate",
+			},
+		);
+
+		sendSessionEvent(actor, {
+			type: "VOICE_RECORDED",
+			fact: {
+				type: "voice-transcript",
+				text: "Displayed other text",
+				final: true,
+			},
+		});
+		expectVisibleVoice(lifecycleCandidate);
+		expect(selectVoiceTranscriptCandidate(actor.getSnapshot().context)).toEqual(
+			{
+				attemptId: "voice:3",
+				text: "Lifecycle candidate",
+			},
+		);
+
+		sendSessionEvent(actor, { type: "VOICE_TRANSCRIPT_SUBMIT_REQUESTED" });
+		expect(
+			voiceControlContext(actor.getSnapshot()).voiceCaptureControlRequest,
+		).toEqual({
+			action: "consume",
+			attemptId: "voice:3",
+			candidateText: "Lifecycle candidate",
+			sequence: 1,
+		});
+		expectVisibleVoice(lifecycleCandidate);
+
+		actor.send({
+			type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "consumed",
+				attemptId: "voice:3",
+				sequence: 3,
+				fact: { type: "voice-idle" },
+			},
+		});
+		sendSessionEvent(actor, {
+			type: "VOICE_TRANSCRIPT_CONSUMED",
+			requestSequence: 1,
+			attemptId: "voice:3",
+			text: "Lifecycle candidate",
+		});
+		expect(actor.getSnapshot().context.messages).toEqual([
+			{
+				role: "user",
+				channel: "speech",
+				text: "Lifecycle candidate",
+			},
+		]);
+		expect(actor.getSnapshot().context.presentation).not.toHaveProperty(
+			"voice",
+		);
+		actor.stop();
+	});
+
 	it.each([
 		[
 			"model preparation",
