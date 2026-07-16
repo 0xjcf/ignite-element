@@ -348,31 +348,6 @@
       "updatedAt": "2026-07-16T03:11:42.136Z"
     },
     {
-      "id": "task-1784171435029",
-      "task": "Restructure voice-workbench lifecycle ownership and separate presentation state",
-      "priority": "high",
-      "source": "fas-project-audit",
-      "details": "Replace the provider/turn parallel cross-product with the approved compound machine: Preparing and Unavailable are top-level lifecycle states, while Idle and Responding exist only inside Available. Preserve the pure conversation reducer as aggregate authority. Move draft, mobile-panel, artifact-view, runtime-preview, speech-preference and read-model receipt recording out of the authoritative session lifecycle graph through the smallest compatible presentation boundary. Keep this slice behavior-compatible apart from eliminating forbidden raw snapshots; the next task owns full async terminal/cancellation/timeout protocols.\nSee .fas/tasks/restructure-voice-workbench-lifecycle-ownership-and-separate.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "policy-surfacing",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [
-        "task-1784171355639"
-      ],
-      "blocks": [
-        "task-1784171467799"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-16T03:10:35.029Z",
-      "updatedAt": "2026-07-16T17:01:26.551Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
       "id": "task-1784171467799",
       "task": "Add explicit turn, voice-capture, and speech-delivery terminal lifecycles",
       "priority": "high",
@@ -381,7 +356,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "policy-surfacing",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -394,7 +369,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-16T03:11:07.799Z",
       "updatedAt": "2026-07-16T03:11:42.136Z",
-      "deferredReason": "dependency_reopened: task-1784171435029",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -3549,6 +3524,29 @@
       "completedAt": "2026-07-16T17:00:49.202Z",
       "terminalOutcome": null,
       "workflowId": "direct-1784219208207",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784171435029",
+      "task": "Restructure voice-workbench lifecycle ownership and separate presentation state",
+      "priority": "high",
+      "source": "fas-project-audit",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1784171355639"
+      ],
+      "blocks": [
+        "task-1784171467799"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-16T18:23:19.995Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784221286547",
       "branchName": "fas/voice-text-workbench",
       "prStatus": "draft-only"
     }

@@ -2451,8 +2451,8 @@ No active tasks.
 
 - Title: Restructure voice-workbench lifecycle ownership and separate presentation state
 - Mode: 6-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/restructure-voice-workbench-lifecycle-ownership-and-separate.md
 - Verification lane: fast
 - Policy sensitivity: standard
