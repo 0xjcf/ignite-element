@@ -234,10 +234,10 @@ export type VoiceWorkbenchSessionEvent =
 	| WorkbenchPresentationEvent
 	| WorkbenchVoiceCaptureEvent;
 
-export type WorkbenchSpeechAcknowledgementFact = {
-	type: "speech-projection-acknowledged";
-	id: string;
-};
+export type WorkbenchSpeechAcknowledgementFact = Extract<
+	ConversationFact,
+	{ type: "speech-acknowledged" }
+>;
 
 export type WorkbenchSpeechDeliveryFact =
 	| { type: "speech-delivery-queued"; id: string }

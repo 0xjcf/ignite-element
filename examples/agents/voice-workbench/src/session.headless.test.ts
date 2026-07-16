@@ -114,7 +114,7 @@ describe("voice workbench session machine contract", () => {
 
 	it("defines transport-neutral acknowledgement and distinct delivery facts", () => {
 		const acknowledgement = {
-			type: "speech-projection-acknowledged",
+			type: "speech-acknowledged",
 			id: "speech-1",
 		} satisfies WorkbenchSpeechAcknowledgementFact;
 		const deliveryFacts = [
@@ -135,7 +135,7 @@ describe("voice workbench session machine contract", () => {
 		] satisfies readonly WorkbenchSpeechLifecycleFact[];
 
 		expect(lifecycleFacts.map((fact) => fact.type)).toEqual([
-			"speech-projection-acknowledged",
+			"speech-acknowledged",
 			"speech-delivery-queued",
 			"speech-delivery-completed",
 			"speech-delivery-muted",
@@ -145,55 +145,80 @@ describe("voice workbench session machine contract", () => {
 		]);
 	});
 
-	it("characterizes the current forbidden raw states without hiding them", () => {
-		const actor = createVoiceWorkbenchSessionActor();
-		actor.start();
-
+	it("characterizes both current forbidden raw states without hiding them", () => {
 		expect(voiceWorkbenchKnownForbiddenStateValues).toEqual([
 			{ provider: "preparing", turn: "responding" },
 			{ provider: "failed", turn: "responding" },
 		]);
-		expect(
-			voiceWorkbenchSessionInvariants.respondingRequiresAvailable(
-				actor.getSnapshot(),
-			),
-		).toBe(true);
 
-		actor.send({ type: "MODEL_AVAILABLE" });
-		actor.send({
-			type: "SUBMIT_PROMPT",
-			input: { modality: "text", text: "Inspect the current topology" },
-		});
-		expect(
-			voiceWorkbenchSessionInvariants.respondingRequiresAvailable(
-				actor.getSnapshot(),
-			),
-		).toBe(true);
+		const createRespondingActor = () => {
+			const actor = createVoiceWorkbenchSessionActor();
+			actor.start();
+			actor.send({ type: "MODEL_AVAILABLE" });
+			actor.send({
+				type: "SUBMIT_PROMPT",
+				input: { modality: "text", text: "Inspect the current topology" },
+			});
+			expect(actor.getSnapshot().value).toEqual({
+				provider: "available",
+				turn: "responding",
+			});
+			expect(
+				voiceWorkbenchSessionInvariants.respondingRequiresAvailable(
+					actor.getSnapshot(),
+				),
+			).toBe(true);
+			return actor;
+		};
 
-		actor.send({
-			type: "MODEL_FAILED",
-			failure: { kind: "network", message: "Model connection lost." },
-		});
-		const forbiddenSnapshot = actor.getSnapshot();
-		expect(forbiddenSnapshot.value).toEqual({
-			provider: "failed",
+		const preparingActor = createRespondingActor();
+		preparingActor.send({ type: "MODEL_PREPARATION_STARTED" });
+		const preparingForbiddenSnapshot = preparingActor.getSnapshot();
+		expect(preparingForbiddenSnapshot.value).toEqual({
+			provider: "preparing",
 			turn: "responding",
 		});
 		expect(
-			isVoiceWorkbenchKnownForbiddenStateValue(forbiddenSnapshot.value),
+			isVoiceWorkbenchKnownForbiddenStateValue(
+				preparingForbiddenSnapshot.value,
+			),
 		).toBe(true);
 		expect(
 			voiceWorkbenchSessionInvariants.respondingRequiresAvailable(
-				forbiddenSnapshot,
+				preparingForbiddenSnapshot,
 			),
 		).toBe(false);
 		expect(
 			voiceWorkbenchSessionInvariants.hasNoKnownForbiddenState(
-				forbiddenSnapshot,
+				preparingForbiddenSnapshot,
 			),
 		).toBe(false);
+		preparingActor.stop();
 
-		actor.stop();
+		const failedActor = createRespondingActor();
+		failedActor.send({
+			type: "MODEL_FAILED",
+			failure: { kind: "network", message: "Model connection lost." },
+		});
+		const failedForbiddenSnapshot = failedActor.getSnapshot();
+		expect(failedForbiddenSnapshot.value).toEqual({
+			provider: "failed",
+			turn: "responding",
+		});
+		expect(
+			isVoiceWorkbenchKnownForbiddenStateValue(failedForbiddenSnapshot.value),
+		).toBe(true);
+		expect(
+			voiceWorkbenchSessionInvariants.respondingRequiresAvailable(
+				failedForbiddenSnapshot,
+			),
+		).toBe(false);
+		expect(
+			voiceWorkbenchSessionInvariants.hasNoKnownForbiddenState(
+				failedForbiddenSnapshot,
+			),
+		).toBe(false);
+		failedActor.stop();
 	});
 });
 
