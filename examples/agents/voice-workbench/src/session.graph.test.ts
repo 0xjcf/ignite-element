@@ -97,6 +97,9 @@ const graphEventPolicy = {
 	MODEL_AVAILABLE: "included-lifecycle",
 	MODEL_FAILED: "included-canonical-payload",
 	MODEL_PREPARATION_STARTED: "included-lifecycle",
+	VOICE_CAPTURE_START_REQUESTED: "excluded-context-cycle",
+	VOICE_CAPTURE_CANCEL_REQUESTED: "excluded-context-cycle",
+	VOICE_TRANSCRIPT_SUBMIT_REQUESTED: "excluded-context-cycle",
 	SUBMIT_PROMPT: "included-canonical-payload",
 	CREATE_ARTIFACT: "included-canonical-payload",
 	REVISE_ARTIFACT: "excluded-context-cycle",
@@ -338,7 +341,7 @@ describe("voice workbench XState graph characterization", () => {
 			Object.values(graphEventPolicy).filter((value) =>
 				value.startsWith("excluded-"),
 			),
-		).toHaveLength(17);
+		).toHaveLength(20);
 	});
 
 	it("characterizes exactly four compound lifecycle values", () => {

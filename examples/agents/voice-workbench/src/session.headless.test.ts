@@ -25,7 +25,6 @@ import {
 	type WorkbenchSpeechDeliveryFact,
 	type WorkbenchSpeechLifecycleFact,
 } from "./session";
-import sessionSource from "./session.ts?raw";
 
 type VoiceControlContext = VoiceWorkbenchSessionSnapshot["context"] & {
 	voiceCaptureControlSequence: number;
@@ -453,12 +452,12 @@ describe("voice workbench session machine contract", () => {
 	it("allocates payloadless voice intents in parent-owned control state", () => {
 		const actor = createVoiceWorkbenchSessionActor().start();
 		actor.send({ type: "MODEL_AVAILABLE" });
-		sendSessionEvent(actor, { type: "START_VOICE_CAPTURE" });
+		sendSessionEvent(actor, { type: "VOICE_CAPTURE_START_REQUESTED" });
 		expect(voiceControlContext(actor.getSnapshot())).toMatchObject({
 			voiceCaptureControlSequence: 1,
 			voiceCaptureControlRequest: { action: "start", sequence: 1 },
 		});
-		sendSessionEvent(actor, { type: "CANCEL_VOICE_CAPTURE" });
+		sendSessionEvent(actor, { type: "VOICE_CAPTURE_CANCEL_REQUESTED" });
 		expect(voiceControlContext(actor.getSnapshot())).toMatchObject({
 			voiceCaptureControlSequence: 2,
 			voiceCaptureControlRequest: { action: "cancel", sequence: 2 },
@@ -476,7 +475,7 @@ describe("voice workbench session machine contract", () => {
 				},
 			},
 		});
-		sendSessionEvent(actor, { type: "SUBMIT_VOICE_TRANSCRIPT" });
+		sendSessionEvent(actor, { type: "VOICE_TRANSCRIPT_SUBMIT_REQUESTED" });
 		expect(voiceControlContext(actor.getSnapshot())).toMatchObject({
 			voiceCaptureControlSequence: 3,
 			voiceCaptureControlRequest: {
@@ -520,8 +519,8 @@ describe("voice workbench session machine contract", () => {
 				},
 			},
 		});
-		sendSessionEvent(actor, { type: "SUBMIT_VOICE_TRANSCRIPT" });
-		sendSessionEvent(actor, { type: "SUBMIT_VOICE_TRANSCRIPT" });
+		sendSessionEvent(actor, { type: "VOICE_TRANSCRIPT_SUBMIT_REQUESTED" });
+		sendSessionEvent(actor, { type: "VOICE_TRANSCRIPT_SUBMIT_REQUESTED" });
 		expect(voiceControlContext(actor.getSnapshot())).toMatchObject({
 			voiceCaptureControlSequence: 2,
 			voiceCaptureControlRequest: {
@@ -665,7 +664,7 @@ describe("voice workbench session machine contract", () => {
 			expect(projectVoiceWorkbenchView({ snapshot }).transcriptReady).toBe(
 				candidate !== null,
 			);
-			sendSessionEvent(actor, { type: "SUBMIT_VOICE_TRANSCRIPT" });
+			sendSessionEvent(actor, { type: "VOICE_TRANSCRIPT_SUBMIT_REQUESTED" });
 			expect(
 				voiceControlContext(actor.getSnapshot()).voiceCaptureControlRequest,
 			).toEqual(
@@ -680,10 +679,6 @@ describe("voice workbench session machine contract", () => {
 			);
 			actor.stop();
 		}
-
-		expect(
-			sessionSource.match(/selectVoiceTranscriptCandidate\(/g)?.length ?? 0,
-		).toBeGreaterThanOrEqual(3);
 	});
 
 	it.each([
@@ -705,8 +700,8 @@ describe("voice workbench session machine contract", () => {
 		(_label, interruption, interruptedState) => {
 			const actor = createVoiceWorkbenchSessionActor().start();
 			actor.send({ type: "MODEL_AVAILABLE" });
-			sendSessionEvent(actor, { type: "START_VOICE_CAPTURE" });
-			sendSessionEvent(actor, { type: "CANCEL_VOICE_CAPTURE" });
+			sendSessionEvent(actor, { type: "VOICE_CAPTURE_START_REQUESTED" });
+			sendSessionEvent(actor, { type: "VOICE_CAPTURE_CANCEL_REQUESTED" });
 			actor.send({
 				type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
 				lifecycle: {
@@ -720,7 +715,7 @@ describe("voice workbench session machine contract", () => {
 					},
 				},
 			});
-			sendSessionEvent(actor, { type: "SUBMIT_VOICE_TRANSCRIPT" });
+			sendSessionEvent(actor, { type: "VOICE_TRANSCRIPT_SUBMIT_REQUESTED" });
 			expect(voiceControlContext(actor.getSnapshot())).toMatchObject({
 				voiceCaptureControlSequence: 3,
 				voiceCaptureControlRequest: {
@@ -762,7 +757,7 @@ describe("voice workbench session machine contract", () => {
 			});
 			expect(actor.getSnapshot().value).toEqual({ available: "idle" });
 			expect(actor.getSnapshot().context.messages).toEqual([]);
-			sendSessionEvent(actor, { type: "START_VOICE_CAPTURE" });
+			sendSessionEvent(actor, { type: "VOICE_CAPTURE_START_REQUESTED" });
 			expect(voiceControlContext(actor.getSnapshot())).toMatchObject({
 				voiceCaptureControlSequence: 4,
 				voiceCaptureControlRequest: { action: "start", sequence: 4 },
@@ -777,7 +772,9 @@ describe("voice workbench session machine contract", () => {
 			actor.send({ type: "MODEL_AVAILABLE" });
 			sendSessionEvent(actor, {
 				type:
-					action === "start" ? "START_VOICE_CAPTURE" : "CANCEL_VOICE_CAPTURE",
+					action === "start"
+						? "VOICE_CAPTURE_START_REQUESTED"
+						: "VOICE_CAPTURE_CANCEL_REQUESTED",
 			});
 			actor.send({ type: "MODEL_PREPARATION_STARTED" });
 			expect(
@@ -1347,9 +1344,9 @@ describe("voice workbench headless component", () => {
 		expect(
 			voiceIntentSend.mock.calls.slice(-3).map(([event]) => event),
 		).toEqual([
-			{ type: "START_VOICE_CAPTURE" },
-			{ type: "CANCEL_VOICE_CAPTURE" },
-			{ type: "SUBMIT_VOICE_TRANSCRIPT" },
+			{ type: "VOICE_CAPTURE_START_REQUESTED" },
+			{ type: "VOICE_CAPTURE_CANCEL_REQUESTED" },
+			{ type: "VOICE_TRANSCRIPT_SUBMIT_REQUESTED" },
 		]);
 		voiceIntentSend.mockRestore();
 		expect(voiceControlContext(component.getSnapshot())).toMatchObject({

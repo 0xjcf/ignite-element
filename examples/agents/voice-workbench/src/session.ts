@@ -172,6 +172,12 @@ export type VoiceCaptureControlRequest =
 			sequence: number;
 	  };
 
+type VoiceCapturePendingControlRequest =
+	| Exclude<VoiceCaptureControlRequest, { action: "consume" }>
+	| (Extract<VoiceCaptureControlRequest, { action: "consume" }> & {
+			candidateText: string;
+	  });
+
 export type WorkbenchPresentation = {
 	artifactView: WorkbenchArtifactView;
 	documentCommit: {
@@ -196,7 +202,6 @@ export type WorkbenchPresentation = {
 	speechReplayRequest: { id: string; text: string; sequence: number } | null;
 	turn: WorkbenchTurnFact | null;
 	voice: VoiceCaptureFact;
-	voiceCaptureRequest: VoiceCaptureControlRequest | null;
 };
 
 export type WorkbenchPresentationIntent =
@@ -216,7 +221,6 @@ export type WorkbenchPresentationIntent =
 			type: "runtime-preview-selected";
 			preview: WorkbenchRuntimePreview;
 	  }
-	| ({ type: "voice-capture-requested" } & VoiceCaptureControlRequest)
 	| { type: "turn-started" };
 
 export type WorkbenchAdapterFact =
@@ -265,6 +269,8 @@ export type VoiceWorkbenchSession = ConversationSession & {
 	presentation: WorkbenchPresentation;
 	activeTurnId: string | null;
 	modelTurnControlRequest: ModelTurnControlRequest | null;
+	voiceCaptureControlSequence: number;
+	voiceCaptureControlRequest: VoiceCapturePendingControlRequest | null;
 	pendingCompletion: CompleteResponseInput | null;
 	lastTurnTerminal: VoiceWorkbenchTurnTerminalEvent | null;
 	childLifecycles: {
@@ -277,6 +283,10 @@ export type ModelReadinessEvent =
 	| { type: "MODEL_PREPARATION_STARTED" }
 	| { type: "MODEL_AVAILABLE" }
 	| { type: "MODEL_FAILED"; failure: ModelFailureFact };
+export type VoiceCaptureIntentEvent =
+	| { type: "VOICE_CAPTURE_START_REQUESTED" }
+	| { type: "VOICE_CAPTURE_CANCEL_REQUESTED" }
+	| { type: "VOICE_TRANSCRIPT_SUBMIT_REQUESTED" };
 export type VoiceWorkbenchTurnTerminalEvent =
 	| { type: "TURN_COMPLETED"; turnId: string }
 	| { type: "TURN_FAILED"; turnId: string; failure: ModelFailureFact }
@@ -285,6 +295,7 @@ export type VoiceWorkbenchTurnTerminalEvent =
 	| { type: "ROUND_LIMIT_REACHED"; turnId: string };
 export type VoiceTranscriptConsumedFact = {
 	attemptId: string;
+	requestSequence: number;
 	text: string;
 };
 export type VoiceWorkbenchPrivateEvent =
@@ -337,6 +348,7 @@ export type VoiceWorkbenchPrivateEvent =
 export type VoiceWorkbenchSessionEvent =
 	| ConversationAction
 	| ModelReadinessEvent
+	| VoiceCaptureIntentEvent
 	| VoiceWorkbenchTurnTerminalEvent
 	| PresentationUpdateEvent
 	| VoiceWorkbenchPrivateEvent;
@@ -455,7 +467,6 @@ const createInitialPresentation = (): WorkbenchPresentation => ({
 	speechReplayRequest: null,
 	turn: null,
 	voice: { type: "voice-idle" },
-	voiceCaptureRequest: null,
 });
 
 export const reduceWorkbenchPresentation = (
@@ -481,18 +492,6 @@ export const reduceWorkbenchPresentation = (
 			};
 		case "runtime-preview-selected":
 			return { ...presentation, runtimePreview: update.preview };
-		case "voice-capture-requested":
-			return {
-				...presentation,
-				voiceCaptureRequest:
-					update.action === "consume"
-						? {
-								action: update.action,
-								attemptId: update.attemptId,
-								sequence: update.sequence,
-							}
-						: { action: update.action, sequence: update.sequence },
-			};
 		case "turn-started":
 			return {
 				...presentation,
@@ -793,6 +792,13 @@ const isTurnTerminalEvent = (
 	}
 };
 
+const isVoiceCaptureIntentEvent = (
+	event: VoiceWorkbenchSessionEvent,
+): event is VoiceCaptureIntentEvent =>
+	event.type === "VOICE_CAPTURE_START_REQUESTED" ||
+	event.type === "VOICE_CAPTURE_CANCEL_REQUESTED" ||
+	event.type === "VOICE_TRANSCRIPT_SUBMIT_REQUESTED";
+
 const acceptsModelTurnLifecycle = (
 	context: VoiceWorkbenchSession,
 	lifecycle: ModelTurnLifecycleProjection,
@@ -949,6 +955,8 @@ const applyConversationTransition = (
 			modelFailure: context.modelFailure,
 			activeTurnId,
 			modelTurnControlRequest: context.modelTurnControlRequest,
+			voiceCaptureControlSequence: context.voiceCaptureControlSequence,
+			voiceCaptureControlRequest: context.voiceCaptureControlRequest,
 			pendingCompletion:
 				event.type === "SUBMIT_PROMPT" ? null : context.pendingCompletion,
 			lastTurnTerminal:
@@ -977,17 +985,56 @@ const applyConversationTransition = (
 	};
 };
 
+export type VoiceTranscriptCandidate = {
+	attemptId: string;
+	text: string;
+};
+
+export const selectVoiceTranscriptCandidate = (
+	context: Pick<VoiceWorkbenchSession, "childLifecycles">,
+): VoiceTranscriptCandidate | null => {
+	const lifecycle = context.childLifecycles.voiceCapture;
+	if (
+		lifecycle?.state !== "transcript" ||
+		lifecycle.attemptId === null ||
+		lifecycle.fact.type !== "voice-transcript" ||
+		!lifecycle.fact.final
+	) {
+		return null;
+	}
+	const text = lifecycle.fact.text.trim();
+	return text.length > 0 ? { attemptId: lifecycle.attemptId, text } : null;
+};
+
+const projectVoiceCaptureControlRequest = (
+	request: VoiceCapturePendingControlRequest | null,
+): VoiceCaptureControlRequest | null => {
+	if (request?.action === "consume") {
+		return {
+			action: "consume",
+			attemptId: request.attemptId,
+			sequence: request.sequence,
+		};
+	}
+	return request
+		? { action: request.action, sequence: request.sequence }
+		: null;
+};
+
 const voiceTranscriptConsumptionAction = (
 	context: VoiceWorkbenchSession,
 	event: VoiceWorkbenchSessionEvent,
 ): Extract<ConversationAction, { type: "SUBMIT_PROMPT" }> | null => {
 	if (event.type !== "VOICE_TRANSCRIPT_CONSUMED") return null;
-	const request = context.presentation.voiceCaptureRequest;
+	const request = context.voiceCaptureControlRequest;
 	const lifecycle = context.childLifecycles.voiceCapture;
 	if (
 		request?.action !== "consume" ||
-		typeof event.attemptId !== "string" ||
+		typeof event.requestSequence !== "number" ||
+		request.sequence !== event.requestSequence ||
 		request.attemptId !== event.attemptId ||
+		typeof event.text !== "string" ||
+		request.candidateText !== event.text.trim() ||
 		lifecycle?.state !== "consumed" ||
 		lifecycle.attemptId !== event.attemptId
 	) {
@@ -995,7 +1042,7 @@ const voiceTranscriptConsumptionAction = (
 	}
 	return {
 		type: "SUBMIT_PROMPT",
-		input: { modality: "speech", text: event.text },
+		input: { modality: "speech", text: request.candidateText },
 	};
 };
 
@@ -1009,26 +1056,53 @@ export const voiceWorkbenchSessionMachine = setup({
 			if (!isConversationAction(event)) return context;
 			return applyConversationTransition(context, event);
 		}),
+		requestVoiceCaptureControl: assign(({ context, event }) => {
+			if (
+				event.type !== "VOICE_CAPTURE_START_REQUESTED" &&
+				event.type !== "VOICE_CAPTURE_CANCEL_REQUESTED" &&
+				event.type !== "VOICE_TRANSCRIPT_SUBMIT_REQUESTED"
+			) {
+				return context;
+			}
+			const sequence = context.voiceCaptureControlSequence + 1;
+			if (event.type === "VOICE_TRANSCRIPT_SUBMIT_REQUESTED") {
+				const candidate = selectVoiceTranscriptCandidate(context);
+				if (!candidate) return context;
+				return {
+					...context,
+					voiceCaptureControlSequence: sequence,
+					voiceCaptureControlRequest: {
+						action: "consume",
+						attemptId: candidate.attemptId,
+						candidateText: candidate.text,
+						sequence,
+					},
+				};
+			}
+			return {
+				...context,
+				voiceCaptureControlSequence: sequence,
+				voiceCaptureControlRequest: {
+					action:
+						event.type === "VOICE_CAPTURE_START_REQUESTED" ? "start" : "cancel",
+					sequence,
+				},
+			};
+		}),
 		applyConsumedVoiceTranscript: assign(({ context, event }) => {
 			const action = voiceTranscriptConsumptionAction(context, event);
 			if (!action) return context;
 			const next = applyConversationTransition(context, action);
 			return {
 				...next,
-				presentation: {
-					...next.presentation,
-					voiceCaptureRequest: null,
-				},
+				voiceCaptureControlRequest: null,
 			};
 		}),
 		clearPendingVoiceConsume: assign({
-			presentation: ({ context }) =>
-				context.presentation.voiceCaptureRequest?.action === "consume"
-					? {
-							...context.presentation,
-							voiceCaptureRequest: null,
-						}
-					: context.presentation,
+			voiceCaptureControlRequest: ({ context }) =>
+				context.voiceCaptureControlRequest?.action === "consume"
+					? null
+					: context.voiceCaptureControlRequest,
 		}),
 		stageCompletion: assign(({ context, event }) => {
 			if (event.type !== "COMPLETE_RESPONSE") return context;
@@ -1070,6 +1144,9 @@ export const voiceWorkbenchSessionMachine = setup({
 				modelFailure: context.modelFailure,
 				presentation: context.presentation,
 				activeTurnId: context.activeTurnId,
+				modelTurnControlRequest: context.modelTurnControlRequest,
+				voiceCaptureControlSequence: context.voiceCaptureControlSequence,
+				voiceCaptureControlRequest: context.voiceCaptureControlRequest,
 				pendingCompletion: null,
 				lastTurnTerminal: event,
 				childLifecycles: context.childLifecycles,
@@ -1090,6 +1167,7 @@ export const voiceWorkbenchSessionMachine = setup({
 			if (
 				isConversationAction(event) ||
 				isTurnTerminalEvent(event) ||
+				isVoiceCaptureIntentEvent(event) ||
 				event.type === "MODEL_PREPARATION_STARTED" ||
 				event.type === "MODEL_AVAILABLE" ||
 				event.type === "MODEL_FAILED" ||
@@ -1224,6 +1302,17 @@ export const voiceWorkbenchSessionMachine = setup({
 				action && reduceConversationSession(context, action).accepted,
 			);
 		},
+		voiceTranscriptCandidateAccepted: ({ context, event }) => {
+			if (event.type !== "VOICE_TRANSCRIPT_SUBMIT_REQUESTED") return false;
+			const candidate = selectVoiceTranscriptCandidate(context);
+			return Boolean(
+				candidate &&
+					reduceConversationSession(context, {
+						type: "SUBMIT_PROMPT",
+						input: { modality: "speech", text: candidate.text },
+					}).accepted,
+			);
+		},
 		terminalMatchesActiveTurn: ({ context, event }) =>
 			isTurnTerminalEvent(event) && event.turnId === context.activeTurnId,
 		completedTurnIsReady: ({ context, event }) =>
@@ -1244,6 +1333,8 @@ export const voiceWorkbenchSessionMachine = setup({
 		presentation: createInitialPresentation(),
 		activeTurnId: null,
 		modelTurnControlRequest: null,
+		voiceCaptureControlSequence: 0,
+		voiceCaptureControlRequest: null,
 		pendingCompletion: null,
 		lastTurnTerminal: null,
 		childLifecycles: {
@@ -1313,6 +1404,16 @@ export const voiceWorkbenchSessionMachine = setup({
 					on: {
 						RESTORE_ARTIFACT_REVISION: { actions: "applyTransition" },
 						SELECT_ARTIFACT: { actions: "applyTransition" },
+						VOICE_CAPTURE_START_REQUESTED: {
+							actions: "requestVoiceCaptureControl",
+						},
+						VOICE_CAPTURE_CANCEL_REQUESTED: {
+							actions: "requestVoiceCaptureControl",
+						},
+						VOICE_TRANSCRIPT_SUBMIT_REQUESTED: {
+							guard: "voiceTranscriptCandidateAccepted",
+							actions: "requestVoiceCaptureControl",
+						},
 						VOICE_TRANSCRIPT_CONSUMED: {
 							guard: "voiceTranscriptConsumptionAccepted",
 							target: "responding",
@@ -1760,7 +1861,8 @@ export const projectVoiceWorkbenchView = ({
 	);
 	const voice = presentation.voice;
 	const transcript = voice.type === "voice-transcript" ? voice.text : null;
-	const transcriptReady = voice.type === "voice-transcript" && voice.final;
+	const transcriptReady =
+		selectVoiceTranscriptCandidate(snapshot.context) !== null;
 	const voiceFailure =
 		voice.type === "voice-permission-denied" || voice.type === "voice-error"
 			? voice
@@ -2023,7 +2125,9 @@ export const projectVoiceWorkbenchView = ({
 				? { type: "prepare-model" as const }
 				: null,
 			modelTurnControl: snapshot.context.modelTurnControlRequest,
-			voiceCapture: presentation.voiceCaptureRequest,
+			voiceCapture: projectVoiceCaptureControlRequest(
+				snapshot.context.voiceCaptureControlRequest,
+			),
 			speechDelivery: presentation.speechReplayRequest,
 		},
 		modelContext: {
@@ -2355,20 +2459,11 @@ export const component = igniteCore({
 				{ channel: "user-intent" },
 			),
 			cancelVoiceCapture: command(
-				() => {
-					const sequence =
-						(actor.getSnapshot().context.presentation.voiceCaptureRequest
-							?.sequence ?? 0) + 1;
-					sendPresentationUpdate({
-						channel: "user-intent",
-						update: {
-							type: "voice-capture-requested",
-							action: "cancel",
-							sequence,
-						},
-					});
+				() => actor.send({ type: "VOICE_CAPTURE_CANCEL_REQUESTED" }),
+				{
+					channel: "user-intent",
+					canExecute: ({ snapshot }) => snapshot.matches({ available: "idle" }),
 				},
-				{ channel: "user-intent" },
 			),
 			changeArtifactView: command(
 				(view: WorkbenchArtifactView) =>
@@ -2594,51 +2689,19 @@ export const component = igniteCore({
 				},
 			),
 			startVoiceCapture: command(
-				() => {
-					const sequence =
-						(actor.getSnapshot().context.presentation.voiceCaptureRequest
-							?.sequence ?? 0) + 1;
-					sendPresentationUpdate({
-						channel: "user-intent",
-						update: {
-							type: "voice-capture-requested",
-							action: "start",
-							sequence,
-						},
-					});
-				},
-				{ channel: "user-intent" },
-			),
-			submitVoiceTranscript: command(
-				() => {
-					const snapshot = actor.getSnapshot();
-					const lifecycle = snapshot.context.childLifecycles.voiceCapture;
-					if (lifecycle?.state !== "transcript" || !lifecycle.attemptId) return;
-					sendPresentationUpdate({
-						channel: "user-intent",
-						update: {
-							type: "voice-capture-requested",
-							action: "consume",
-							attemptId: lifecycle.attemptId,
-							sequence:
-								(snapshot.context.presentation.voiceCaptureRequest?.sequence ??
-									0) + 1,
-						},
-					});
-				},
+				() => actor.send({ type: "VOICE_CAPTURE_START_REQUESTED" }),
 				{
 					channel: "user-intent",
-					canExecute: ({ snapshot }) => {
-						if (!snapshot.matches({ available: "idle" })) return false;
-						const lifecycle = snapshot.context.childLifecycles.voiceCapture;
-						return Boolean(
-							lifecycle?.state === "transcript" &&
-								lifecycle.attemptId !== null &&
-								lifecycle.fact.type === "voice-transcript" &&
-								lifecycle.fact.final &&
-								lifecycle.fact.text.trim().length > 0,
-						);
-					},
+					canExecute: ({ snapshot }) => snapshot.matches({ available: "idle" }),
+				},
+			),
+			submitVoiceTranscript: command(
+				() => actor.send({ type: "VOICE_TRANSCRIPT_SUBMIT_REQUESTED" }),
+				{
+					channel: "user-intent",
+					canExecute: ({ snapshot }) =>
+						snapshot.matches({ available: "idle" }) &&
+						selectVoiceTranscriptCandidate(snapshot.context) !== null,
 				},
 			),
 		};
