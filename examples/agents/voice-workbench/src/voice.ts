@@ -506,6 +506,13 @@ export function createBrowserVoiceCapture(): VoiceCapture {
 			return fact;
 		},
 		useTranscript: (attemptId) => {
+			const before = actor.getSnapshot();
+			if (
+				before.value !== "transcript" ||
+				before.context.attemptId !== attemptId
+			) {
+				return { ok: false, fact: projectVoiceCaptureFact(before) };
+			}
 			actor.send({ type: "CONSUME", attemptId });
 			const snapshot = actor.getSnapshot();
 			if (

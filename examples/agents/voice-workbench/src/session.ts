@@ -1021,6 +1021,15 @@ export const voiceWorkbenchSessionMachine = setup({
 				},
 			};
 		}),
+		clearPendingVoiceConsume: assign({
+			presentation: ({ context }) =>
+				context.presentation.voiceCaptureRequest?.action === "consume"
+					? {
+							...context.presentation,
+							voiceCaptureRequest: null,
+						}
+					: context.presentation,
+		}),
 		stageCompletion: assign(({ context, event }) => {
 			if (event.type !== "COMPLETE_RESPONSE") return context;
 			const result = reduceConversationSession(context, event);
@@ -1288,11 +1297,15 @@ export const voiceWorkbenchSessionMachine = setup({
 				SET_CHECKLIST_ITEM: { actions: "applyTransition" },
 				MODEL_PREPARATION_STARTED: {
 					target: "#conversation-session.preparing",
-					actions: ["clearModelFailure", "discardPendingCompletion"],
+					actions: [
+						"clearModelFailure",
+						"discardPendingCompletion",
+						"clearPendingVoiceConsume",
+					],
 				},
 				MODEL_FAILED: {
 					target: "#conversation-session.unavailable",
-					actions: "recordModelFailure",
+					actions: ["recordModelFailure", "clearPendingVoiceConsume"],
 				},
 			},
 			states: {
@@ -1323,6 +1336,7 @@ export const voiceWorkbenchSessionMachine = setup({
 							actions: [
 								"recordActiveTurnModelFailure",
 								"discardPendingCompletion",
+								"clearPendingVoiceConsume",
 							],
 						},
 						CREATE_ARTIFACT: { actions: "applyTransition" },
@@ -2612,7 +2626,20 @@ export const component = igniteCore({
 						},
 					});
 				},
-				{ channel: "user-intent" },
+				{
+					channel: "user-intent",
+					canExecute: ({ snapshot }) => {
+						if (!snapshot.matches({ available: "idle" })) return false;
+						const lifecycle = snapshot.context.childLifecycles.voiceCapture;
+						return Boolean(
+							lifecycle?.state === "transcript" &&
+								lifecycle.attemptId !== null &&
+								lifecycle.fact.type === "voice-transcript" &&
+								lifecycle.fact.final &&
+								lifecycle.fact.text.trim().length > 0,
+						);
+					},
+				},
 			),
 		};
 	},
