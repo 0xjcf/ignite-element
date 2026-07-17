@@ -321,7 +321,10 @@ describe("ignite test DSL types", () => {
 
 		const expectLiteralName = async () => {
 			const name = "counter flow" as const;
-			const receipt = await igniteTest(component).narrative(name, async () => {});
+			const receipt = await igniteTest(component).narrative(
+				name,
+				async () => {},
+			);
 
 			expectTypeOf(receipt.name).toEqualTypeOf<"counter flow">();
 		};
