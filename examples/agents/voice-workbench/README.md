@@ -204,7 +204,8 @@ actor handle in machine context.
 Voice controls follow the same boundary. The three public voice commands send
 only the payloadless parent intents `VOICE_CAPTURE_START_REQUESTED`,
 `VOICE_CAPTURE_CANCEL_REQUESTED`, and `VOICE_TRANSCRIPT_SUBMIT_REQUESTED`.
-Only `available.idle` admits them. Machine actions allocate the durable
+`available.idle` is the aggregate prerequisite; start additionally requires a
+child lifecycle that admits `START`. Machine actions allocate the durable
 top-level `voiceCaptureControlSequence` and write
 `voiceCaptureControlRequest`; commands never inspect a snapshot to invent
 correlation data. The voice-capture child lifecycle is the sole owner of every
@@ -216,8 +217,11 @@ fallback, and uses the same lifecycle selector for transcript readiness. It
 canonicalizes accepted final transcript text once at parent lifecycle ingress,
 so lifecycle fact, visible text, selector, consume request, and submitted prompt
 stay byte-for-byte aligned; interim transcript display is preserved verbatim.
-The view also preserves the browser-facing `portRequests.voiceCapture` shape
-while projecting it from parent context.
+The same pure child-lifecycle selector drives raw start admission,
+`canExecute()`, microphone availability, and start-port projection. The view
+preserves the browser-facing `portRequests.voiceCapture` shape while projecting
+it from parent context, but it cannot advertise a stale start after the child
+becomes non-startable.
 
 The browser shell owns exactly one active `ModelTurnHandle`. That handle owns
 the model-turn `AbortController` and a 45-second whole-turn clock covering model
@@ -469,7 +473,7 @@ stateDiagram-v2
     [*] --> CheckingSupport
     CheckingSupport --> Unsupported: [unsupported]
     CheckingSupport --> Idle: [supported]
-    CheckingSupport --> Failed: [initialization error]
+    CheckingSupport --> Unavailable: [initialization error]
 
     Idle --> Listening: START
     Listening --> Transcript: RESULT [matching attempt]
@@ -495,6 +499,7 @@ stateDiagram-v2
     Failed --> Listening: RETRY
     CheckingSupport --> Disposed: DISPOSE
     Unsupported --> Disposed: DISPOSE
+    Unavailable --> Disposed: DISPOSE
     Idle --> Disposed: DISPOSE
     Listening --> Disposed: DISPOSE
     Transcript --> Disposed: DISPOSE
@@ -506,7 +511,11 @@ stateDiagram-v2
 
 The browser recognition object remains an imperative port. The child actor owns
 the serializable lifecycle, attempt identity, transcript consume rule, retry,
-cancellation, and idempotent disposal. `submitVoiceTranscript` projects a
+cancellation, and idempotent disposal. `unsupported` means the recognition API
+is absent; `unavailable` means adapter construction failed and cannot be
+retried by sending a false start port. Runtime `failed` and
+`permission-denied` remain retryable: either `START` or explicit `RETRY`
+allocates a fresh attempt. `submitVoiceTranscript` projects a
 parent-allocated consume request; the browser driver asks the child to consume
 it and returns `VOICE_TRANSCRIPT_CONSUMED` only after the child reaches
 `consumed`. That private completion carries both the parent request sequence
