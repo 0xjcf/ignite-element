@@ -65,6 +65,18 @@ const sendSessionEvent = (
 	event: Record<string, unknown>,
 ): void => (actor.send as (event: unknown) => void)(event);
 
+const reportIdleVoiceLifecycle = (actor: VoiceWorkbenchSessionActor): void => {
+	actor.send({
+		type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
+		lifecycle: {
+			state: "idle",
+			attemptId: null,
+			sequence: 0,
+			fact: { type: "voice-idle" },
+		},
+	});
+};
+
 const speechLifecycle = (
 	request: SpeechDeliveryControlRequest,
 	state: "pending" | "queued" | "delivered" | "failed",
@@ -679,6 +691,7 @@ describe("voice workbench session machine contract", () => {
 	it("allocates payloadless voice intents in parent-owned control state", () => {
 		const actor = createVoiceWorkbenchSessionActor().start();
 		actor.send({ type: "MODEL_AVAILABLE" });
+		reportIdleVoiceLifecycle(actor);
 		sendSessionEvent(actor, { type: "VOICE_CAPTURE_START_REQUESTED" });
 		expect(voiceControlContext(actor.getSnapshot())).toMatchObject({
 			voiceCaptureControlSequence: 1,
@@ -790,6 +803,59 @@ describe("voice workbench session machine contract", () => {
 			voiceCaptureControlSequence: 1,
 			voiceCaptureControlRequest: { action: "start", sequence: 1 },
 		});
+		actor.stop();
+	});
+
+	it("acknowledges one parent start at the first newer child attempt", () => {
+		const actor = createVoiceWorkbenchSessionActor().start();
+		actor.send({ type: "MODEL_AVAILABLE" });
+		reportIdleVoiceLifecycle(actor);
+		sendSessionEvent(actor, { type: "VOICE_CAPTURE_START_REQUESTED" });
+		expect(voiceControlContext(actor.getSnapshot())).toMatchObject({
+			voiceCaptureControlSequence: 1,
+			voiceCaptureControlRequest: { action: "start", sequence: 1 },
+		});
+
+		reportIdleVoiceLifecycle(actor);
+		expect(
+			voiceControlContext(actor.getSnapshot()).voiceCaptureControlRequest,
+		).toEqual({ action: "start", sequence: 1 });
+
+		actor.send({
+			type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "listening",
+				attemptId: "voice:1",
+				sequence: 1,
+				fact: { type: "voice-listening" },
+			},
+		});
+		expect
+			.soft(voiceControlContext(actor.getSnapshot()).voiceCaptureControlRequest)
+			.toBeNull();
+		expect(
+			voiceControlContext(actor.getSnapshot()).voiceCaptureControlSequence,
+		).toBe(1);
+
+		actor.send({
+			type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "permission-denied",
+				attemptId: "voice:1",
+				sequence: 1,
+				fact: {
+					type: "voice-permission-denied",
+					message: "Microphone access was denied.",
+				},
+			},
+		});
+		expect(
+			voiceControlContext(actor.getSnapshot()).voiceCaptureControlRequest,
+		).toBeNull();
+		expect(
+			projectVoiceWorkbenchView({ snapshot: actor.getSnapshot() }).portRequests
+				.voiceCapture,
+		).toBeNull();
 		actor.stop();
 	});
 
@@ -1157,6 +1223,7 @@ describe("voice workbench session machine contract", () => {
 		(_label, interruption, interruptedState) => {
 			const actor = createVoiceWorkbenchSessionActor().start();
 			actor.send({ type: "MODEL_AVAILABLE" });
+			reportIdleVoiceLifecycle(actor);
 			sendSessionEvent(actor, { type: "VOICE_CAPTURE_START_REQUESTED" });
 			sendSessionEvent(actor, { type: "VOICE_CAPTURE_CANCEL_REQUESTED" });
 			actor.send({
@@ -1227,6 +1294,7 @@ describe("voice workbench session machine contract", () => {
 		for (const action of ["start", "cancel"] as const) {
 			const actor = createVoiceWorkbenchSessionActor().start();
 			actor.send({ type: "MODEL_AVAILABLE" });
+			reportIdleVoiceLifecycle(actor);
 			sendSessionEvent(actor, {
 				type:
 					action === "start"
@@ -1681,7 +1749,7 @@ describe("voice workbench headless component", () => {
 			voiceState: "idle",
 			transcript: null,
 			transcriptReady: false,
-			microphoneUnavailable: false,
+			microphoneUnavailable: true,
 			voiceFailure: null,
 			turnMessage: "",
 			lastFactLabel: "no actor facts yet",
