@@ -362,13 +362,14 @@
       "dependsOn": [
         "task-1784171467799",
         "task-1783610933373",
-        "task-1783810065213"
+        "task-1783810065213",
+        "task-1784256179201"
       ],
       "blocks": [],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-16T03:11:42.136Z",
-      "updatedAt": "2026-07-16T03:11:42.136Z",
+      "updatedAt": "2026-07-17T02:42:59.201Z",
       "deferredReason": "dependency_reopened: task-1783610933373, task-1783810065213",
       "invalidationReason": null
     },
@@ -3570,6 +3571,30 @@
       "workflowId": "direct-1784226290532",
       "branchName": "fas/voice-text-workbench",
       "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784256179201",
+      "task": "Refactor Voice Workbench to a parent-supervised hexagonal actor topology",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "workflow-quality",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1784171467799"
+      ],
+      "blocks": [
+        "task-1784171502136"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-17T13:30:13.908Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784256193311",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
     }
   ],
   "pullRequests": [],
@@ -3866,6 +3891,10 @@
         {
           "taskId": "task-1784171502136",
           "epicRole": "optional-ignite-bridge"
+        },
+        {
+          "taskId": "task-1784256179201",
+          "epicRole": "actor-topology-hexagonal"
         }
       ],
       "id": "epic-voice-workbench-statechart-conformance",

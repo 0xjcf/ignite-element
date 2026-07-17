@@ -2485,6 +2485,17 @@ No active tasks.
 - Owner: runtime
 - Brief: .fas/tasks/converge-routing-examples-on-machine-driven-host-projections.md
 
+### Task: Refactor Voice Workbench to a parent-supervised hexagonal actor topology
+
+- Title: Refactor Voice Workbench to a parent-supervised hexagonal actor topology
+- Mode: 6-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/refactor-voice-workbench-to-a-parent-supervised-hexagonal-ac.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
