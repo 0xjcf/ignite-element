@@ -348,8 +348,8 @@ describe("voice workbench browser entry", () => {
 		await vi.waitFor(() => {
 			expect(
 				component.getSnapshot().context.childLifecycles.speechDelivery,
-				).toMatchObject({
-					state: "delivered",
+			).toMatchObject({
+				state: "delivered",
 				requestSequence: 1,
 				terminal: { type: "speech-delivery-completed" },
 			});

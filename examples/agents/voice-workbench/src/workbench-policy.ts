@@ -1,7 +1,4 @@
-import {
-	type ModelExchange,
-	normalizeModelIssues,
-} from "./agent-loop";
+import { type ModelExchange, normalizeModelIssues } from "./agent-loop";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);

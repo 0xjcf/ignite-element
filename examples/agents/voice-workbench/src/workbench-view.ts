@@ -9,10 +9,7 @@ import {
 	type WorkbenchCapabilityProof,
 	type WorkbenchTurnFact,
 } from "./session";
-import {
-	canStartVoiceCapture,
-	type VoiceCaptureFact,
-} from "./voice";
+import { canStartVoiceCapture, type VoiceCaptureFact } from "./voice";
 
 const describeTurn = (turn: WorkbenchTurnFact | null): string => {
 	if (!turn) return "";

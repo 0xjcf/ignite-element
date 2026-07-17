@@ -118,7 +118,8 @@ const run = async () => {
 		);
 		if (ready.matches("unavailable")) {
 			throw new Error(
-				ready.context.modelFailure?.message ?? "The local model is unavailable.",
+				ready.context.modelFailure?.message ??
+					"The local model is unavailable.",
 			);
 		}
 		await component.execute({
@@ -143,10 +144,9 @@ if (
 	process.argv[1] &&
 	import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
-	run()
-		.catch((error: unknown) => {
-			const message = error instanceof Error ? error.message : String(error);
-			process.stderr.write(`[voice-workbench] ${message}\n`);
-			process.exitCode = 1;
-		});
+	run().catch((error: unknown) => {
+		const message = error instanceof Error ? error.message : String(error);
+		process.stderr.write(`[voice-workbench] ${message}\n`);
+		process.exitCode = 1;
+	});
 }

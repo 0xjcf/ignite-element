@@ -3,14 +3,8 @@ import type {
 	ModelTurnLifecycleEvent,
 	ModelTurnPortRequest,
 } from "./model-turn";
-import type {
-	SpeechDeliveryEvent,
-	SpeechDeliveryPortRequest,
-} from "./speech";
-import type {
-	VoiceCaptureEvent,
-	VoiceCapturePortRequest,
-} from "./voice";
+import type { SpeechDeliveryEvent, SpeechDeliveryPortRequest } from "./speech";
+import type { VoiceCaptureEvent, VoiceCapturePortRequest } from "./voice";
 import type { VoiceWorkbenchPrivateEvent } from "./session";
 
 export type WorkbenchDisposable = { dispose(): void };
@@ -54,24 +48,14 @@ export type ModelTurnPortResult = {
 export type VoiceCapturePortReceipt = Extract<
 	VoiceCaptureEvent,
 	{
-		type:
-			| "RESULT"
-			| "END"
-			| "PERMISSION_DENIED"
-			| "FAIL";
+		type: "RESULT" | "END" | "PERMISSION_DENIED" | "FAIL";
 	}
 >;
 
 export type SpeechDeliveryPortReceipt = Extract<
 	SpeechDeliveryEvent,
 	{
-		type:
-			| "QUEUED"
-			| "DELIVERED"
-			| "MUTED"
-			| "UNAVAILABLE"
-			| "FAIL"
-			| "CANCEL";
+		type: "QUEUED" | "DELIVERED" | "MUTED" | "UNAVAILABLE" | "FAIL" | "CANCEL";
 	}
 >;
 

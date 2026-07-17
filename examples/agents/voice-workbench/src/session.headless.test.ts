@@ -1,10 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { ModelToolFeedback } from "./agent-loop";
 import type { ModelTurnPortRequest } from "./model-turn";
-import type {
-	ModelTurnPortReceipt,
-	VoiceCapturePortReceipt,
-} from "./ports";
+import type { ModelTurnPortReceipt, VoiceCapturePortReceipt } from "./ports";
 import {
 	createVoiceWorkbenchSessionActor,
 	type VoiceWorkbenchSessionActor,
@@ -19,7 +16,9 @@ afterEach(() => {
 	actors.clear();
 });
 
-const createSession = (input?: Parameters<typeof createVoiceWorkbenchSessionActor>[0]) => {
+const createSession = (
+	input?: Parameters<typeof createVoiceWorkbenchSessionActor>[0],
+) => {
 	const actor = createVoiceWorkbenchSessionActor(input).start();
 	actors.add(actor);
 	return actor;
@@ -54,7 +53,10 @@ const sendModelReceipt = (
 const acceptedFeedback = (
 	request: ModelTurnPortRequest,
 ): ModelToolFeedback => ({
-	id: request.type === "execute-call" ? request.call.id ?? "complete" : "complete",
+	id:
+		request.type === "execute-call"
+			? (request.call.id ?? "complete")
+			: "complete",
 	command:
 		request.type === "execute-call" ? request.call.command : "completeResponse",
 	status: "accepted",
@@ -144,12 +146,12 @@ describe("voice workbench parent-supervised actor system", () => {
 		expect(snapshot.children["voice-capture"]?.getSnapshot().value).toBe(
 			"idle",
 		);
-		expect(voiceWorkbenchSessionInvariants.respondingRequiresAvailable(snapshot)).toBe(
-			true,
-		);
-		expect(voiceWorkbenchSessionInvariants.hasNoKnownForbiddenState(snapshot)).toBe(
-			true,
-		);
+		expect(
+			voiceWorkbenchSessionInvariants.respondingRequiresAvailable(snapshot),
+		).toBe(true);
+		expect(
+			voiceWorkbenchSessionInvariants.hasNoKnownForbiddenState(snapshot),
+		).toBe(true);
 	});
 
 	it("invokes one model-turn child and commits only its correlated final output", () => {
@@ -180,9 +182,9 @@ describe("voice workbench parent-supervised actor system", () => {
 				failure: { kind: "provider", message: "stale" },
 			},
 		});
-		expect(actor.getSnapshot().matches({ available: { turn: "responding" } })).toBe(
-			true,
-		);
+		expect(
+			actor.getSnapshot().matches({ available: { turn: "responding" } }),
+		).toBe(true);
 
 		completeTurn(actor);
 		const completed = actor.getSnapshot();
@@ -224,9 +226,9 @@ describe("voice workbench parent-supervised actor system", () => {
 			turnId: request.turnId,
 			attemptId: `${request.attemptId}:stale`,
 		});
-		expect(actor.getSnapshot().matches({ available: { turn: "responding" } })).toBe(
-			true,
-		);
+		expect(
+			actor.getSnapshot().matches({ available: { turn: "responding" } }),
+		).toBe(true);
 
 		actor.send({
 			type: "MODEL_TURN_CANCEL_REQUESTED",
@@ -264,9 +266,9 @@ describe("voice workbench parent-supervised actor system", () => {
 				final: true,
 			},
 		});
-		expect(actor.getSnapshot().context.childLifecycles.voiceCapture?.state).toBe(
-			"listening",
-		);
+		expect(
+			actor.getSnapshot().context.childLifecycles.voiceCapture?.state,
+		).toBe("listening");
 
 		sendVoiceReceipt(actor, {
 			type: "RESULT",
@@ -274,9 +276,9 @@ describe("voice workbench parent-supervised actor system", () => {
 			text: "  Use this transcript  ",
 			final: true,
 		});
-		expect(actor.getSnapshot().context.childLifecycles.voiceCapture).toMatchObject(
-			{ state: "transcript", attemptId: request.attemptId },
-		);
+		expect(
+			actor.getSnapshot().context.childLifecycles.voiceCapture,
+		).toMatchObject({ state: "transcript", attemptId: request.attemptId });
 
 		actor.send({ type: "VOICE_TRANSCRIPT_SUBMIT_REQUESTED" });
 		const submitted = actor.getSnapshot();
@@ -287,7 +289,9 @@ describe("voice workbench parent-supervised actor system", () => {
 			text: "Use this transcript",
 		});
 		expect(submitted.context.voiceTranscriptSubmission).toBeNull();
-		expect(submitted.context.childLifecycles.voiceCapture?.state).toBe("consumed");
+		expect(submitted.context.childLifecycles.voiceCapture?.state).toBe(
+			"consumed",
+		);
 	});
 
 	it("invokes and replaces speech-delivery children from actor-owned requests", () => {
@@ -300,7 +304,9 @@ describe("voice workbench parent-supervised actor system", () => {
 		completeTurn(actor, { speech: "Done aloud" });
 
 		let snapshot = actor.getSnapshot();
-		expect(snapshot.matches({ available: { speech: "delivering" } })).toBe(true);
+		expect(snapshot.matches({ available: { speech: "delivering" } })).toBe(
+			true,
+		);
 		const firstChild = snapshot.children["speech-delivery"];
 		const firstRequest = snapshot.context.portRequests.speechDelivery;
 		expect(firstRequest).toMatchObject({
@@ -355,31 +361,38 @@ describe("voice workbench parent-supervised actor system", () => {
 			input: { modality: "text", text: "Only first" },
 		});
 
-		expect(first.getSnapshot().matches({ available: { turn: "responding" } })).toBe(
-			true,
-		);
+		expect(
+			first.getSnapshot().matches({ available: { turn: "responding" } }),
+		).toBe(true);
 		expect(second.getSnapshot().matches({ available: { turn: "idle" } })).toBe(
 			true,
 		);
-		expect(first.getSnapshot().context.childLifecycles.voiceCapture?.state).toBe(
-			"unsupported",
-		);
-		expect(second.getSnapshot().context.childLifecycles.voiceCapture?.state).toBe(
-			"idle",
-		);
+		expect(
+			first.getSnapshot().context.childLifecycles.voiceCapture?.state,
+		).toBe("unsupported");
+		expect(
+			second.getSnapshot().context.childLifecycles.voiceCapture?.state,
+		).toBe("idle");
 	});
 
 	it("publishes one executable target owner for each lifecycle surface", () => {
 		expect(voiceWorkbenchLifecycleOwnership).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({ surface: "model-turn", maturity: "target" }),
-				expect.objectContaining({ surface: "voice-capture", maturity: "target" }),
-				expect.objectContaining({ surface: "speech-delivery", maturity: "target" }),
+				expect.objectContaining({
+					surface: "voice-capture",
+					maturity: "target",
+				}),
+				expect.objectContaining({
+					surface: "speech-delivery",
+					maturity: "target",
+				}),
 			]),
 		);
 		expect(
 			voiceWorkbenchLifecycleOwnership.every(
-				(entry) => entry.implementation === "executable" && entry.maturity === "target",
+				(entry) =>
+					entry.implementation === "executable" && entry.maturity === "target",
 			),
 		).toBe(true);
 	});

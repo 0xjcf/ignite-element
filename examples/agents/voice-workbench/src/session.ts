@@ -260,8 +260,7 @@ export type VoiceWorkbenchSession = ConversationSession & {
 		speechDelivery: SpeechDeliveryLifecycleProjection | null;
 	};
 };
-export type ModelReadinessEvent =
-	{ type: "MODEL_PREPARATION_STARTED" };
+export type ModelReadinessEvent = { type: "MODEL_PREPARATION_STARTED" };
 export type VoiceCaptureIntentEvent =
 	| { type: "VOICE_CAPTURE_START_REQUESTED" }
 	| { type: "VOICE_CAPTURE_CANCEL_REQUESTED" }
@@ -475,7 +474,6 @@ export const reduceWorkbenchPresentation = (
 	}
 };
 
-
 const isConversationAction = (
 	event: VoiceWorkbenchSessionEvent,
 ): event is ConversationAction => {
@@ -500,7 +498,6 @@ const isVoiceCaptureIntentEvent = (
 	event.type === "VOICE_CAPTURE_START_REQUESTED" ||
 	event.type === "VOICE_CAPTURE_CANCEL_REQUESTED" ||
 	event.type === "VOICE_TRANSCRIPT_SUBMIT_REQUESTED";
-
 
 const isTurnReadModelEvent = (
 	event: VoiceWorkbenchPrivateEvent,
@@ -543,7 +540,6 @@ const acceptsTurnReadModelEvent = (
 		current.terminal.type !== "TIMEOUT"
 	);
 };
-
 
 const privatePresentationEnvelope = (
 	event: VoiceWorkbenchPrivateEvent,
@@ -648,8 +644,6 @@ export const selectVoiceTranscriptCandidate = (
 	const text = lifecycle.fact.text.trim();
 	return text.length > 0 ? { attemptId: lifecycle.attemptId, text } : null;
 };
-
-
 
 const createSpeechDeliveryControlRequest = (
 	speech: { id: string; text: string },
@@ -1131,10 +1125,7 @@ export const voiceWorkbenchSessionMachine = setup({
 							event.receipt.type === "available" &&
 							acceptsParentPortEvent(context, event),
 						target: "available",
-						actions: [
-							"clearModelFailure",
-							"clearModelPreparationRequest",
-						],
+						actions: ["clearModelFailure", "clearModelPreparationRequest"],
 					},
 					{
 						guard: ({ context, event }) =>
@@ -1150,7 +1141,7 @@ export const voiceWorkbenchSessionMachine = setup({
 			},
 		},
 		unavailable: {
-				on: {
+			on: {
 				MODEL_PREPARATION_STARTED: {
 					target: "preparing",
 					actions: ["clearModelFailure", "requestModelPreparation"],
@@ -1283,8 +1274,10 @@ export const voiceWorkbenchSessionMachine = setup({
 										if (
 											event.snapshot.value === "consumed" &&
 											submission !== null &&
-											submission.attemptId === event.snapshot.context.attemptId &&
-											submission.text === event.snapshot.context.transcript.trim()
+											submission.attemptId ===
+												event.snapshot.context.attemptId &&
+											submission.text ===
+												event.snapshot.context.transcript.trim()
 										) {
 											next = applyConversationTransition(next, {
 												type: "SUBMIT_PROMPT",
@@ -1342,13 +1335,15 @@ export const voiceWorkbenchSessionMachine = setup({
 										...context,
 										portRequests: {
 											...context.portRequests,
-											speechDelivery:
-												projectSpeechDeliveryPortRequest(event.snapshot),
+											speechDelivery: projectSpeechDeliveryPortRequest(
+												event.snapshot,
+											),
 										},
 										childLifecycles: {
 											...context.childLifecycles,
-											speechDelivery:
-												projectSpeechDeliveryLifecycle(event.snapshot),
+											speechDelivery: projectSpeechDeliveryLifecycle(
+												event.snapshot,
+											),
 										},
 									})),
 								},

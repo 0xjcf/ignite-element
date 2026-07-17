@@ -57,10 +57,14 @@ export const createVoiceWorkbenchRuntime = ({
 	const handled = new Set<string>();
 	let disposed = false;
 	let preparationController: AbortController | null = null;
-	let modelTurnController: { turnId: string; controller: AbortController } | null =
-		null;
-	let modelTurnTimeout: { turnId: string; disposable: WorkbenchDisposable } | null =
-		null;
+	let modelTurnController: {
+		turnId: string;
+		controller: AbortController;
+	} | null = null;
+	let modelTurnTimeout: {
+		turnId: string;
+		disposable: WorkbenchDisposable;
+	} | null = null;
 	let voiceEffect: WorkbenchDisposable | null = null;
 	let speechEffect: WorkbenchDisposable | null = null;
 

@@ -149,7 +149,9 @@ export const speechDeliveryMachine = setup({
 	initial: "pending",
 	output: ({ context }) => {
 		if (!context.terminal) {
-			throw new Error("A completed speech-delivery actor requires a terminal fact.");
+			throw new Error(
+				"A completed speech-delivery actor requires a terminal fact.",
+			);
 		}
 		return { terminal: context.terminal };
 	},

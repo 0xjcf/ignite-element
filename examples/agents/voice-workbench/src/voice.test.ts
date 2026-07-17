@@ -401,12 +401,14 @@ describe("browser voice capture", () => {
 			],
 		});
 
-		expect(receipts).toEqual([{
-			type: "RESULT",
-			attemptId: "voice:7",
-			text: "Create a launch checklist",
-			final: true,
-		}]);
+		expect(receipts).toEqual([
+			{
+				type: "RESULT",
+				attemptId: "voice:7",
+				text: "Create a launch checklist",
+				final: true,
+			},
+		]);
 	});
 
 	it("disposes the active browser recognition effect on cancel", () => {
@@ -432,31 +434,33 @@ describe("browser voice capture", () => {
 		const denied = createBrowserVoiceCapturePort();
 
 		expect(() =>
-			denied(
-				{ type: "start", attemptId: "voice:1", sequence: 1 },
-				(receipt) => deniedReceipts.push(receipt),
+			denied({ type: "start", attemptId: "voice:1", sequence: 1 }, (receipt) =>
+				deniedReceipts.push(receipt),
 			),
 		).not.toThrow();
-		expect(deniedReceipts).toEqual([{
-			type: "PERMISSION_DENIED",
-			attemptId: "voice:1",
-			message: "Microphone access was denied.",
-		}]);
+		expect(deniedReceipts).toEqual([
+			{
+				type: "PERMISSION_DENIED",
+				attemptId: "voice:1",
+				message: "Microphone access was denied.",
+			},
+		]);
 
 		const failedRecognition = createRecognition();
 		installRecognition(failedRecognition);
 		const failedReceipts: unknown[] = [];
 		const failed = createBrowserVoiceCapturePort();
-		failed(
-			{ type: "start", attemptId: "voice:2", sequence: 2 },
-			(receipt) => failedReceipts.push(receipt),
+		failed({ type: "start", attemptId: "voice:2", sequence: 2 }, (receipt) =>
+			failedReceipts.push(receipt),
 		);
 		failedRecognition.onerror?.({ error: "network", message: "Offline" });
 
-		expect(failedReceipts).toEqual([{
-			type: "FAIL",
-			attemptId: "voice:2",
-			message: "Offline",
-		}]);
+		expect(failedReceipts).toEqual([
+			{
+				type: "FAIL",
+				attemptId: "voice:2",
+				message: "Offline",
+			},
+		]);
 	});
 });

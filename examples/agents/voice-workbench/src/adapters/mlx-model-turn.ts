@@ -587,7 +587,7 @@ export const createWorkbenchModelTurnPort = (
 		}
 		return {
 			feedback: {
-			...capabilityFeedback(execution, execution.toolName, workbench),
+				...capabilityFeedback(execution, execution.toolName, workbench),
 				attemptId: request.attemptId,
 			},
 			facts,
@@ -604,7 +604,10 @@ export const createWorkbenchModelTurnPort = (
 				receipt: {
 					type: "PORT_FAILED",
 					...correlation,
-					failure: { kind: "timeout", message: "The model turn was cancelled." },
+					failure: {
+						kind: "timeout",
+						message: "The model turn was cancelled.",
+					},
 				},
 			};
 		}

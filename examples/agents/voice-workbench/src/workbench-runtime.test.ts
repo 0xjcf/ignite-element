@@ -50,9 +50,8 @@ const inertPorts = {
 
 describe("voice workbench host runtime", () => {
 	it("deduplicates model preparation and aborts outstanding host work on disposal", async () => {
-		const pending = deferred<
-			Awaited<ReturnType<VoiceWorkbenchPorts["modelPreparation"]>>
-		>();
+		const pending =
+			deferred<Awaited<ReturnType<VoiceWorkbenchPorts["modelPreparation"]>>>();
 		let preparationSignal: AbortSignal | undefined;
 		const modelPreparation = vi.fn<VoiceWorkbenchPorts["modelPreparation"]>(
 			(_request, { signal }) => {
@@ -189,16 +188,17 @@ describe("voice workbench host runtime", () => {
 	});
 
 	it("rejects a late model receipt after cancellation and a newer turn starts", async () => {
-		const pending: Array<ReturnType<typeof deferred<
-			Awaited<ReturnType<VoiceWorkbenchPorts["modelTurn"]>>
-		>>> = [];
+		const pending: Array<
+			ReturnType<
+				typeof deferred<Awaited<ReturnType<VoiceWorkbenchPorts["modelTurn"]>>>
+			>
+		> = [];
 		const modelTurn = vi.fn<VoiceWorkbenchPorts["modelTurn"]>((request) => {
 			if (request.type !== "request-model") {
 				throw new Error("Only model requests are expected in this test.");
 			}
-			const requestDeferred = deferred<
-				Awaited<ReturnType<VoiceWorkbenchPorts["modelTurn"]>>
-			>();
+			const requestDeferred =
+				deferred<Awaited<ReturnType<VoiceWorkbenchPorts["modelTurn"]>>>();
 			pending.push(requestDeferred);
 			return requestDeferred.promise;
 		});
@@ -223,7 +223,9 @@ describe("voice workbench host runtime", () => {
 			turnId: firstRequest.turnId,
 			attemptId: firstRequest.attemptId,
 		});
-		expect(actor.getSnapshot().context.lastTurnTerminal?.type).toBe("CANCELLED");
+		expect(actor.getSnapshot().context.lastTurnTerminal?.type).toBe(
+			"CANCELLED",
+		);
 
 		actor.send({
 			type: "SUBMIT_PROMPT",
@@ -248,9 +250,9 @@ describe("voice workbench host runtime", () => {
 		expect(actor.getSnapshot().context.portRequests.modelTurn).toEqual(
 			secondRequest,
 		);
-		expect(actor.getSnapshot().matches({ available: { turn: "responding" } })).toBe(
-			true,
-		);
+		expect(
+			actor.getSnapshot().matches({ available: { turn: "responding" } }),
+		).toBe(true);
 	});
 
 	it("disposes voice and replaced speech effects at the host boundary", async () => {

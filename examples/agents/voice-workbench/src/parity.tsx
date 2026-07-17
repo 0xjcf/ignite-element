@@ -1,7 +1,5 @@
 /** @jsxImportSource ignite-element/jsx */
-import {
-	createVoiceWorkbenchSessionActor,
-} from "./session";
+import { createVoiceWorkbenchSessionActor } from "./session";
 import type { ModelTurnPortRequest } from "./model-turn";
 import { createVoiceWorkbenchComponent } from "./workbench-component";
 import { renderWorkbench } from "./workbench";
@@ -34,7 +32,8 @@ const settleModelPreparation = (available: boolean) => {
 
 const currentModelTurnRequest = (): ModelTurnPortRequest => {
 	const request = paritySource.getSnapshot().context.portRequests.modelTurn;
-	if (!request) throw new Error("Parity harness expected a model-turn request.");
+	if (!request)
+		throw new Error("Parity harness expected a model-turn request.");
 	return request;
 };
 
@@ -244,8 +243,7 @@ export async function seedParityState(state: ParityState): Promise<void> {
 						receipt: {
 							type: "PERMISSION_DENIED",
 							attemptId: request.attemptId,
-							message:
-								"Parity harness only — simulated microphone denial.",
+							message: "Parity harness only — simulated microphone denial.",
 						},
 					});
 				}

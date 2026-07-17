@@ -35,9 +35,7 @@ export const renderWorkbench = (context: WorkbenchContext) => {
 							<i class="dot" /> {context.statusLabel}
 						</output>
 						<span class="pill">one component</span>
-						<span class="pill">
-							{context.commandCount} typed commands
-						</span>
+						<span class="pill">{context.commandCount} typed commands</span>
 						<span class="pill">3 projection channels</span>
 					</div>
 					<div class="top-actions">

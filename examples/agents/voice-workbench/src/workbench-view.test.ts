@@ -61,7 +61,10 @@ describe("voice workbench projections", () => {
 		const first = createFixture();
 		const second = createFixture();
 		makeAvailable(first.actor);
-		await first.component.execute({ command: "changeDraft", input: "first only" });
+		await first.component.execute({
+			command: "changeDraft",
+			input: "first only",
+		});
 
 		expect(Object.keys(first.component.getSchema().commands).sort()).toEqual(
 			commandNames,

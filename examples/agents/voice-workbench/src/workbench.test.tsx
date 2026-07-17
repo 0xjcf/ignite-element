@@ -35,9 +35,7 @@ const recordRuntimeManifest = (
 		...currentModelTurnCorrelation(),
 	});
 
-const recordCapabilityOutcome = (
-	outcome: WorkbenchCapabilityOutcome,
-): void =>
+const recordCapabilityOutcome = (outcome: WorkbenchCapabilityOutcome): void =>
 	source.send({
 		type: "CAPABILITY_OUTCOME_RECORDED",
 		outcome,
@@ -773,10 +771,12 @@ describe("voice workbench accessible JSX", () => {
 		});
 
 		expect(
-			bridge.host.shadowRoot?.querySelector(".capability-outcomes")?.textContent,
+			bridge.host.shadowRoot?.querySelector(".capability-outcomes")
+				?.textContent,
 		).toContain("brave-web-search · searchWeb");
 		expect(
-			bridge.host.shadowRoot?.querySelector(".capability-outcomes")?.textContent,
+			bridge.host.shadowRoot?.querySelector(".capability-outcomes")
+				?.textContent,
 		).toContain("success · 4 queries · 4 sources");
 
 		expect(

@@ -161,9 +161,11 @@ describe("voice workbench XState graph characterization", () => {
 		expect(available?.states?.voice?.states?.active?.invoke).toMatchObject({
 			id: "voice-capture",
 		});
-		expect(available?.states?.speech?.states?.delivering?.invoke).toMatchObject({
-			id: "speech-delivery",
-		});
+		expect(available?.states?.speech?.states?.delivering?.invoke).toMatchObject(
+			{
+				id: "speech-delivery",
+			},
+		);
 	});
 
 	it("uses graph traversal to reach every deterministic lifecycle vertex", () => {
@@ -171,7 +173,10 @@ describe("voice workbench XState graph characterization", () => {
 			voiceWorkbenchSessionMachine,
 			traversalOptions,
 		);
-		const simple = getSimplePaths(voiceWorkbenchSessionMachine, traversalOptions);
+		const simple = getSimplePaths(
+			voiceWorkbenchSessionMachine,
+			traversalOptions,
+		);
 		const expected = new Set([
 			JSON.stringify("preparing"),
 			JSON.stringify("unavailable"),
@@ -187,12 +192,14 @@ describe("voice workbench XState graph characterization", () => {
 			}),
 		]);
 
-		expect(new Set(shortest.map((path) => JSON.stringify(readStateValue(path.state))))).toEqual(
-			expected,
-		);
-		expect(new Set(simple.map((path) => JSON.stringify(readStateValue(path.state))))).toEqual(
-			expected,
-		);
+		expect(
+			new Set(
+				shortest.map((path) => JSON.stringify(readStateValue(path.state))),
+			),
+		).toEqual(expected);
+		expect(
+			new Set(simple.map((path) => JSON.stringify(readStateValue(path.state)))),
+		).toEqual(expected);
 	});
 
 	it("has zero forbidden reachable snapshots", () => {
@@ -203,12 +210,12 @@ describe("voice workbench XState graph characterization", () => {
 		expect(voiceWorkbenchKnownForbiddenStateValues).toEqual([]);
 		for (const { state } of paths) {
 			expect(isVoiceWorkbenchKnownForbiddenStateValue(state.value)).toBe(false);
-			expect(voiceWorkbenchSessionInvariants.hasNoKnownForbiddenState(state)).toBe(
-				true,
-			);
-			expect(voiceWorkbenchSessionInvariants.respondingRequiresAvailable(state)).toBe(
-				true,
-			);
+			expect(
+				voiceWorkbenchSessionInvariants.hasNoKnownForbiddenState(state),
+			).toBe(true);
+			expect(
+				voiceWorkbenchSessionInvariants.respondingRequiresAvailable(state),
+			).toBe(true);
 		}
 	});
 
@@ -220,7 +227,9 @@ describe("voice workbench XState graph characterization", () => {
 		expect(actor.getSnapshot().value).toBe("unavailable");
 		actor.send(preparationStarted);
 		expect(actor.getSnapshot().value).toBe("preparing");
-		expect(actor.getSnapshot().context.portRequests.modelPreparation?.sequence).toBe(2);
+		expect(
+			actor.getSnapshot().context.portRequests.modelPreparation?.sequence,
+		).toBe(2);
 
 		actor.send(preparationAvailable1);
 		expect(actor.getSnapshot().value).toBe("preparing");
@@ -235,16 +244,17 @@ describe("voice workbench XState graph characterization", () => {
 		}).start();
 		makeAvailable(timeoutActor);
 		timeoutActor.send(submitPrompt);
-		const timeoutRequest = timeoutActor.getSnapshot().context.portRequests.modelTurn;
+		const timeoutRequest =
+			timeoutActor.getSnapshot().context.portRequests.modelTurn;
 		if (!timeoutRequest) throw new Error("Expected a model-turn request.");
 		timeoutActor.send({
 			type: "MODEL_TURN_TIMEOUT_REQUESTED",
 			turnId: timeoutRequest.turnId,
 			attemptId: timeoutRequest.attemptId,
 		});
-		expect(timeoutActor.getSnapshot().matches({ available: { turn: "idle" } })).toBe(
-			true,
-		);
+		expect(
+			timeoutActor.getSnapshot().matches({ available: { turn: "idle" } }),
+		).toBe(true);
 		expect(timeoutActor.getSnapshot().context.lastTurnTerminal).toEqual({
 			type: "TIMEOUT",
 			turnId: timeoutRequest.turnId,
@@ -256,7 +266,8 @@ describe("voice workbench XState graph characterization", () => {
 		}).start();
 		makeAvailable(failedActor);
 		failedActor.send(submitPrompt);
-		const failureRequest = failedActor.getSnapshot().context.portRequests.modelTurn;
+		const failureRequest =
+			failedActor.getSnapshot().context.portRequests.modelTurn;
 		if (!failureRequest) throw new Error("Expected a model-turn request.");
 		failedActor.send({
 			type: "MODEL_TURN_PORT_RECEIVED",
@@ -268,9 +279,9 @@ describe("voice workbench XState graph characterization", () => {
 				failure: { kind: "provider", message: "Graph model port failed." },
 			},
 		});
-		expect(failedActor.getSnapshot().matches({ available: { turn: "idle" } })).toBe(
-			true,
-		);
+		expect(
+			failedActor.getSnapshot().matches({ available: { turn: "idle" } }),
+		).toBe(true);
 		expect(failedActor.getSnapshot().context.lastTurnTerminal).toMatchObject({
 			type: "TURN_FAILED",
 			turnId: failureRequest.turnId,

@@ -9,7 +9,8 @@ import { createVoiceWorkbenchComponent } from "./workbench-component";
 const source = createVoiceWorkbenchSessionActor().start();
 const component = createVoiceWorkbenchComponent(source);
 
-const modelPreparation = source.getSnapshot().context.portRequests.modelPreparation;
+const modelPreparation =
+	source.getSnapshot().context.portRequests.modelPreparation;
 if (!modelPreparation) throw new Error("Expected model preparation request.");
 source.send({
 	type: "MODEL_PREPARATION_PORT_RECEIVED",
