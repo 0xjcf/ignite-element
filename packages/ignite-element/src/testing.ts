@@ -104,12 +104,12 @@ export type IgniteTestScenario<
 	when<CommandName extends keyof Commands & string>(
 		step: IgniteTestCommandStep<Commands, CommandName>,
 	): Promise<IgniteTestScenario<State, Commands, Events, View>>;
-	narrative(
-		name: string,
+	narrative<Name extends string>(
+		name: Name,
 		run: (
 			narrative: IgniteTestNarrativeContext<State, Commands, Events, View>,
 		) => Promise<unknown> | unknown,
-	): Promise<IgniteStorySnapshot>;
+	): Promise<IgniteStorySnapshot & { name: Name }>;
 	expectSnapshot(
 		expected: IgniteSnapshotExpectation<State>,
 	): IgniteTestScenario<State, Commands, Events, View>;
@@ -925,12 +925,12 @@ class IgniteTestDriver<
 		return this;
 	}
 
-	async narrative(
-		name: string,
+	async narrative<Name extends string>(
+		name: Name,
 		run: (
 			narrative: IgniteTestNarrativeContext<State, Commands, Events, View>,
 		) => Promise<unknown> | unknown,
-	): Promise<IgniteStorySnapshot> {
+	): Promise<IgniteStorySnapshot & { name: Name }> {
 		const story = this.withHost(() => this.component.record(name));
 		let lastEvents: RuntimeEvent<Events>[] = [];
 		let primaryError: unknown;
@@ -1007,7 +1007,7 @@ class IgniteTestDriver<
 			throw cleanupError;
 		}
 
-		return receipt as IgniteStorySnapshot;
+		return receipt as IgniteStorySnapshot & { name: Name };
 	}
 
 	expectSnapshot(expected: IgniteSnapshotExpectation<State>) {
