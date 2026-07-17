@@ -916,6 +916,7 @@ const runSubmittedPrompt = async (
 		const parentSnapshot = component.getSnapshot();
 		const projectedChild = parentSnapshot.context.childLifecycles.modelTurn;
 		return (
+			parentSnapshot.status === "active" &&
 			parentSnapshot.context.activeTurnId === correlation.turnId &&
 			projectedChild?.turnId === correlation.turnId &&
 			projectedChild.attemptId === correlation.attemptId
@@ -1309,9 +1310,11 @@ const runSubmittedPrompt = async (
 	) {
 		await component.execute({ command: "changeDraft", input: "" });
 	}
+	const parentSnapshot = component.getSnapshot();
 	const parentStillOwnsTurn =
-		component.getSnapshot().context.activeTurnId === turnId &&
-		component.getSnapshot().context.childLifecycles.modelTurn?.attemptId ===
+		parentSnapshot.status === "active" &&
+		parentSnapshot.context.activeTurnId === turnId &&
+		parentSnapshot.context.childLifecycles.modelTurn?.attemptId ===
 			correlation.attemptId;
 	if (terminal && parentStillOwnsTurn) recordTurnTerminal(terminal);
 	if (!result || signal.aborted || !parentStillOwnsTurn) return null;

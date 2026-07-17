@@ -105,17 +105,26 @@ const deliverSpeech = (
 		muted: !enabled,
 	});
 	const handledPorts = new Set<string>();
-	let disposed = false;
+	let cleanedUp = false;
 	let subscription: { unsubscribe(): void } | null = null;
 
+	const cleanup = () => {
+		if (cleanedUp) return;
+		cleanedUp = true;
+		subscription?.unsubscribe();
+		actor.stop();
+		activeSpeechDeliveries.delete(delivery);
+	};
 	const delivery = {
 		dispose: () => {
-			if (disposed) return;
-			disposed = true;
+			if (cleanedUp) return;
+			const snapshot = actor.getSnapshot();
+			if (snapshot.status !== "active" || snapshot.context.terminal !== null) {
+				cleanup();
+				return;
+			}
 			actor.send({ type: "DISPOSE" });
-			subscription?.unsubscribe();
-			actor.stop();
-			activeSpeechDeliveries.delete(delivery);
+			cleanup();
 		},
 	};
 	activeSpeechDeliveries.add(delivery);
@@ -123,7 +132,7 @@ const deliverSpeech = (
 	subscription = actor.subscribe((snapshot) => {
 		recordSpeechDeliveryLifecycle(projectSpeechDeliveryLifecycle(snapshot));
 		if (projectSpeechDeliveryTerminalFact(snapshot)) {
-			delivery.dispose();
+			cleanup();
 			return;
 		}
 
@@ -266,8 +275,10 @@ const documentProjection = component(
 	}),
 );
 
+let pageDisposed = false;
 window.addEventListener("pagehide", (event) => {
-	if (event.persisted) return;
+	if (event.persisted || pageDisposed) return;
+	pageDisposed = true;
 	readinessAttempt += 1;
 	readinessController?.abort();
 	readinessController = null;
