@@ -2500,8 +2500,8 @@ No active tasks.
 
 - Title: Gate 0: refresh and approve the Voice Workbench Mock Studio behavior handoff
 - Mode: 6-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/gate-0-refresh-and-approve-the-voice-workbench-mock-studio-b.md
 - Verification lane: fast
 - Policy sensitivity: standard

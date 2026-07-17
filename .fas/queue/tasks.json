@@ -337,7 +337,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -351,7 +351,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-11T22:47:45.213Z",
       "updatedAt": "2026-07-17T21:49:57.164Z",
-      "deferredReason": "dependency_reopened: task-1784298607166",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -403,28 +403,6 @@
       "updatedAt": "2026-07-17T01:50:36.242Z"
     },
     {
-      "id": "task-1784298607166",
-      "task": "Gate 0: refresh and approve the Voice Workbench Mock Studio behavior handoff",
-      "priority": "high",
-      "source": "manual",
-      "details": "Amend the approved 2026-07-13 Voice Workbench Mock Studio handoff so it matches the live implementation before further refactoring. Reuse the approved visual hierarchy, tokens, responsive anatomy, and parity harness; this is an architecture-only handoff amendment unless the state-to-screen audit proves a material visual gap. Replace the stale five-command and ready/responding-only contract with the implemented compound parent plus model-turn, voice-capture, and speech-delivery child machines, exact current public schema, raw snapshot and native metadata contract, lifecycle disposition inventory, source-of-truth matrix, actor topology, command/event/guard/effect/fact tables, machine-to-projection-to-host map, expected failure facts, state-to-screen coverage, reuse/extend/move/retire matrix, proposed epic slices, and current verification receipts. Record explicit implemented, proposed, designed, retained, and deferred maturity. Add a durable approval record that cites this conversation but leave the architecture amendment pending final human approval before downstream implementation starts.\nSee .fas/tasks/gate-0-refresh-and-approve-the-voice-workbench-mock-studio-b.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "policy-surfacing",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [],
-      "blocks": [
-        "task-1784298626529",
-        "task-1783810065213"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-17T14:30:07.166Z",
-      "updatedAt": "2026-07-17T21:49:17.472Z"
-    },
-    {
       "id": "task-1784298626529",
       "task": "Create and validate every Voice Workbench state-machine contract and executable architecture boundary",
       "priority": "high",
@@ -433,7 +411,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -447,7 +425,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-17T14:30:26.529Z",
       "updatedAt": "2026-07-17T21:49:57.164Z",
-      "deferredReason": "dependency_reopened: task-1784298607166",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -3873,6 +3851,29 @@
       "prStatus": null,
       "workflowId": "cancelled:task-1784298555397",
       "cancelledReason": "Recreated with manual source because fas-project-audit requires capture metadata unavailable for this user-directed queue mutation."
+    },
+    {
+      "id": "task-1784298607166",
+      "task": "Gate 0: refresh and approve the Voice Workbench Mock Studio behavior handoff",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [
+        "task-1784298626529",
+        "task-1783810065213"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-17T22:25:50.695Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784298913248",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
     }
   ],
   "pullRequests": [],
