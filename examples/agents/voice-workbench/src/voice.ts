@@ -258,12 +258,14 @@ export const voiceCaptureMachine = setup({
 			on: {
 				RESET: { target: "idle", actions: "clearCapture" },
 				RETRY: { target: "listening", actions: "beginAttempt" },
+				START: { target: "listening", actions: "beginAttempt" },
 			},
 		},
 		failed: {
 			on: {
 				RESET: { target: "idle", actions: "clearCapture" },
 				RETRY: { target: "listening", actions: "beginAttempt" },
+				START: { target: "listening", actions: "beginAttempt" },
 			},
 		},
 		disposed: {},
