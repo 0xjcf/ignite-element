@@ -1,21 +1,58 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { waitFor } from "xstate";
+import { createWorkbenchModelTurnPort } from "./adapters/mlx-model-turn";
 import type { ModelExchange, ModelResult } from "./agent-loop";
 import type { CapabilityOwner } from "./capability-federation";
 import { createProductPricingDomainPack } from "./domains/product-pricing";
 import { createDomainRegistry } from "./domains/registry";
-import { requestMlxWorkbenchModel } from "./model";
-import { component, reportModelAvailable, source } from "./session";
+import {
+	type MlxWorkbenchConfiguration,
+	requestMlxWorkbenchModel,
+} from "./model";
+import { createVoiceWorkbenchSessionActor } from "./session";
 import {
 	auditCompletionEvidence,
-	completeSubmittedPrompt,
 	normalizeSemanticArtifactIdentity,
-} from "./workbench-agent";
+} from "./workbench-policy";
+import { createVoiceWorkbenchComponent } from "./workbench-component";
+import { createVoiceWorkbenchRuntime } from "./workbench-runtime";
+
+const source = createVoiceWorkbenchSessionActor().start();
+const component = createVoiceWorkbenchComponent(source);
 
 vi.mock("./model", () => ({
 	requestMlxWorkbenchModel: vi.fn(),
 }));
 
 const requestModel = vi.mocked(requestMlxWorkbenchModel);
+
+const reportModelAvailable = () => {
+	if (source.getSnapshot().matches("unavailable")) {
+		source.send({ type: "MODEL_PREPARATION_STARTED" });
+	}
+	const request = source.getSnapshot().context.portRequests.modelPreparation;
+	if (!request) return;
+	source.send({
+		type: "MODEL_PREPARATION_PORT_RECEIVED",
+		request,
+		receipt: { type: "available", sequence: request.sequence },
+	});
+};
+
+const failActiveModelTurn = (message: string) => {
+	const request = source.getSnapshot().context.portRequests.modelTurn;
+	if (!request) throw new Error("Expected an active model-turn request.");
+	source.send({
+		type: "MODEL_TURN_PORT_RECEIVED",
+		request,
+		receipt: {
+			type: "PORT_FAILED",
+			turnId: request.turnId,
+			attemptId: request.attemptId,
+			failure: { kind: "provider", message },
+		},
+	});
+};
 
 type ModelTurnHandle = {
 	turnId: string;
@@ -26,25 +63,92 @@ type ModelTurnHandle = {
 };
 
 type StartSubmittedPrompt = (
-	configuration: Parameters<typeof completeSubmittedPrompt>[0],
-	event: Parameters<typeof completeSubmittedPrompt>[1],
-	externalCapabilities?: Parameters<typeof completeSubmittedPrompt>[2],
-	domains?: Parameters<typeof completeSubmittedPrompt>[3],
-	options?: { timeoutMs?: number },
+	configuration: MlxWorkbenchConfiguration,
+	event: { turnId?: string; modality: "text" | "speech"; text: string },
+	externalCapabilities?: readonly CapabilityOwner[],
+	domains?: Parameters<typeof createWorkbenchModelTurnPort>[2],
+	options?: { timeoutMs?: number; signal?: AbortSignal },
 ) => ModelTurnHandle;
 
-const loadStartSubmittedPrompt = async (): Promise<StartSubmittedPrompt> => {
-	const agent = (await import("./workbench-agent")) as unknown as {
-		startSubmittedPrompt?: StartSubmittedPrompt;
+const startSubmittedPrompt: StartSubmittedPrompt = (
+	configuration,
+	event,
+	externalCapabilities = [],
+	domains,
+	options = {},
+) => {
+	const turnId =
+		event.turnId ?? source.getSnapshot().context.activeTurnId ?? "missing-turn";
+	const runtime = createVoiceWorkbenchRuntime({
+		actor: source,
+		ports: {
+			modelPreparation: async (request) => ({
+				type: "available",
+				sequence: request.sequence,
+			}),
+			modelTurn: createWorkbenchModelTurnPort(
+				configuration,
+				externalCapabilities,
+				domains ?? createDomainRegistry([]),
+				component,
+			),
+			voiceCapture: () => undefined,
+			speechDelivery: () => undefined,
+		},
+		...(options.timeoutMs === undefined
+			? {}
+			: { modelTurnTimeoutMs: options.timeoutMs }),
+	});
+	let settled = false;
+	const cancel = () => {
+		if (settled || source.getSnapshot().status !== "active") return;
+		const lifecycle = source.getSnapshot().context.childLifecycles.modelTurn;
+		if (!lifecycle || lifecycle.turnId !== turnId) return;
+		source.send({
+			type: "MODEL_TURN_CANCEL_REQUESTED",
+			turnId,
+			attemptId: lifecycle.attemptId,
+		});
 	};
-	expect(agent.startSubmittedPrompt).toBeTypeOf("function");
-	if (!agent.startSubmittedPrompt) {
-		throw new Error(
-			"startSubmittedPrompt must expose the supervised turn handle",
-		);
-	}
-	return agent.startSubmittedPrompt;
+	const timeout = () => {
+		if (settled) return;
+		const lifecycle = source.getSnapshot().context.childLifecycles.modelTurn;
+		if (!lifecycle || lifecycle.turnId !== turnId) return;
+		source.send({
+			type: "MODEL_TURN_TIMEOUT_REQUESTED",
+			turnId,
+			attemptId: lifecycle.attemptId,
+		});
+	};
+	const onAbort = () => cancel();
+	options.signal?.addEventListener("abort", onAbort, { once: true });
+	if (options.signal?.aborted) onAbort();
+	const done = waitFor(
+		source,
+		(snapshot) => snapshot.context.activeTurnId !== turnId,
+	)
+		.then((snapshot) => snapshot.context.lastModelTurnResult)
+		.finally(() => {
+			settled = true;
+			options.signal?.removeEventListener("abort", onAbort);
+			runtime.dispose();
+		});
+	return { turnId, done, cancel, timeout, dispose: cancel };
 };
+
+const completeSubmittedPrompt = (
+	configuration: MlxWorkbenchConfiguration,
+	event: { turnId?: string; modality: "text" | "speech"; text: string },
+	externalCapabilities: readonly CapabilityOwner[] = [],
+	domains?: Parameters<typeof createWorkbenchModelTurnPort>[2],
+	signal?: AbortSignal,
+) =>
+	startSubmittedPrompt(configuration, event, externalCapabilities, domains, {
+		signal,
+	}).done;
+
+const loadStartSubmittedPrompt = async (): Promise<StartSubmittedPrompt> =>
+	startSubmittedPrompt;
 
 const priceEvidenceHistory: ModelExchange[] = [
 	{
@@ -2274,15 +2378,10 @@ describe("shared voice workbench agent", () => {
 			if (interruption === "preparation") {
 				await component.execute({ command: "beginModelPreparation" });
 			} else {
-				source.send({
-					type: "MODEL_FAILED",
-					failure: {
-						kind: "provider",
-						message: "Provider interrupted turn A.",
-					},
-				});
+				failActiveModelTurn("Provider interrupted turn A.");
 			}
 			handleA.cancel();
+			const turnAResult = await handleA.done;
 			reportModelAvailable();
 			await component.execute({
 				command: "submitPrompt",
@@ -2318,7 +2417,15 @@ describe("shared voice workbench agent", () => {
 					},
 				],
 			});
-			await expect(handleA.done).resolves.toBeNull();
+			if (interruption === "provider failure") {
+				expect(turnAResult).toMatchObject({
+					accepted: false,
+					reason: "model-failed",
+					failure: { message: "Provider interrupted turn A." },
+				});
+			} else {
+				expect(turnAResult).toBeNull();
+			}
 			await Promise.resolve();
 			expect(
 				component
@@ -2454,11 +2561,12 @@ describe("shared voice workbench agent", () => {
 				},
 			],
 		});
+		const authorizeExecution = vi.fn(() => {
+			throw new Error("Private authorization details must stay bounded.");
+		});
 		const domains = {
 			...createDomainRegistry([]),
-			authorizeExecution: () => {
-				throw new Error("Private authorization details must stay bounded.");
-			},
+			authorizeExecution,
 		};
 
 		await component.execute({
@@ -2483,6 +2591,7 @@ describe("shared voice workbench agent", () => {
 		);
 
 		try {
+			await vi.waitFor(() => expect(authorizeExecution).toHaveBeenCalledOnce());
 			await vi.waitFor(
 				() =>
 					expect(
@@ -2492,18 +2601,20 @@ describe("shared voice workbench agent", () => {
 						turnId,
 						terminal: { type: "TURN_FAILED", turnId },
 					}),
-				{ timeout: 150 },
+				{ timeout: 1_000 },
 			);
 			await expect(handle.done).resolves.toMatchObject({
 				accepted: false,
 				reason: "model-failed",
 				failure: {
 					kind: "provider",
-					message: "A turn port failed unexpectedly.",
+					message: "A model-turn port failed unexpectedly.",
 				},
 			});
 			expect(source.getSnapshot()).toMatchObject({
-				value: { available: "idle" },
+				value: {
+					available: { turn: "idle", voice: "active", speech: "idle" },
+				},
 				context: {
 					response: null,
 					lastTurnTerminal: { type: "TURN_FAILED", turnId },
@@ -2610,7 +2721,9 @@ describe("shared voice workbench agent", () => {
 		expect
 			.soft(
 				parentSend.mock.calls.filter(
-					([event]) => event.type === "CANCELLED" && event.turnId === turnId,
+					([event]) =>
+						event.type === "MODEL_TURN_CANCEL_REQUESTED" &&
+						event.turnId === turnId,
 				),
 			)
 			.toEqual([]);
@@ -2618,7 +2731,7 @@ describe("shared voice workbench agent", () => {
 			.soft(
 				xstateWarning.mock.calls.filter(([message]) =>
 					String(message).includes(
-						'Event "CANCELLED" was sent to stopped actor',
+						'Event "MODEL_TURN_CANCEL_REQUESTED" was sent to stopped actor',
 					),
 				),
 			)

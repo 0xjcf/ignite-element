@@ -4,14 +4,21 @@ import "@ignite-element/renderer/jsx";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 import { pathToFileURL } from "node:url";
+import { waitFor } from "xstate";
+import { createWorkbenchModelTurnPort } from "./adapters/mlx-model-turn";
+import { emptyDomainRegistry } from "./domains/registry";
 import { probeMlxWorkbenchReadiness } from "./model";
-import { component, reportModelAvailable, source } from "./session";
-import { completeSubmittedPrompt } from "./workbench-agent";
+import { createVoiceWorkbenchSessionActor } from "./session";
+import {
+	createVoiceWorkbenchComponent,
+	type WorkbenchView,
+} from "./workbench-component";
+import { createVoiceWorkbenchRuntime } from "./workbench-runtime";
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:8080/v1";
 const DEFAULT_MODEL = "mlx-community/gemma-4-e4b-it-4bit";
 
-type TerminalView = ReturnType<typeof component.getView>;
+type TerminalView = WorkbenchView;
 
 export const formatTerminalProjection = (view: TerminalView): string => {
 	const lines = [
@@ -69,21 +76,67 @@ const run = async () => {
 			DEFAULT_MODEL,
 		apiKey: process.env.VOICE_WORKBENCH_MLX_API_KEY ?? process.env.MLX_API_KEY,
 	};
-	const readiness = await probeMlxWorkbenchReadiness(configuration);
-	if (readiness.type === "MODEL_FAILED") {
-		throw new Error(readiness.failure.message);
+	const source = createVoiceWorkbenchSessionActor().start();
+	const component = createVoiceWorkbenchComponent(source);
+	const runtime = createVoiceWorkbenchRuntime({
+		actor: source,
+		ports: {
+			modelPreparation: async (request, { signal }) => {
+				const readiness = await probeMlxWorkbenchReadiness({
+					...configuration,
+					signal,
+				});
+				return readiness.type === "MODEL_AVAILABLE"
+					? { type: "available", sequence: request.sequence }
+					: {
+							type: "failed",
+							sequence: request.sequence,
+							failure: readiness.failure,
+						};
+			},
+			modelTurn: createWorkbenchModelTurnPort(
+				configuration,
+				[],
+				emptyDomainRegistry,
+				component,
+			),
+			voiceCapture: () => undefined,
+			speechDelivery: (request, emit) => {
+				if (request.type === "mute") {
+					emit({ type: "MUTED", attemptId: request.attemptId });
+				} else if (request.type === "unavailable" || request.type === "speak") {
+					emit({ type: "UNAVAILABLE", attemptId: request.attemptId });
+				}
+			},
+		},
+	});
+	try {
+		const ready = await waitFor(
+			source,
+			(snapshot) =>
+				snapshot.matches("available") || snapshot.matches("unavailable"),
+		);
+		if (ready.matches("unavailable")) {
+			throw new Error(
+				ready.context.modelFailure?.message ?? "The local model is unavailable.",
+			);
+		}
+		await component.execute({
+			command: "submitPrompt",
+			input: { modality: "text", text: prompt },
+		});
+		const completed = await waitFor(
+			source,
+			(snapshot) =>
+				snapshot.matches({ available: { turn: "idle" } }) &&
+				snapshot.context.lastModelTurnResult !== null,
+		);
+		stdout.write(`${formatTerminalProjection(component.getView())}\n`);
+		if (!completed.context.lastModelTurnResult?.accepted) process.exitCode = 1;
+	} finally {
+		runtime.dispose();
+		source.stop();
 	}
-	reportModelAvailable();
-	await component.execute({
-		command: "submitPrompt",
-		input: { modality: "text", text: prompt },
-	});
-	const result = await completeSubmittedPrompt(configuration, {
-		modality: "text",
-		text: prompt,
-	});
-	stdout.write(`${formatTerminalProjection(component.getView())}\n`);
-	if (!result?.accepted) process.exitCode = 1;
 };
 
 if (
@@ -95,6 +148,5 @@ if (
 			const message = error instanceof Error ? error.message : String(error);
 			process.stderr.write(`[voice-workbench] ${message}\n`);
 			process.exitCode = 1;
-		})
-		.finally(() => source.stop());
+		});
 }

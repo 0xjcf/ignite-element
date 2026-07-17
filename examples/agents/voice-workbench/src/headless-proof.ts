@@ -2,16 +2,84 @@
 
 import "@ignite-element/renderer/jsx";
 import { test as igniteTest } from "ignite-element/testing";
-import {
-	component,
-	recordTurnTerminal,
-	reportModelAvailable,
-	source,
-} from "./session";
+import type { ModelTurnPortRequest } from "./model-turn";
+import { createVoiceWorkbenchSessionActor } from "./session";
+import { createVoiceWorkbenchComponent } from "./workbench-component";
+
+const source = createVoiceWorkbenchSessionActor().start();
+const component = createVoiceWorkbenchComponent(source);
+
+const modelPreparation = source.getSnapshot().context.portRequests.modelPreparation;
+if (!modelPreparation) throw new Error("Expected model preparation request.");
+source.send({
+	type: "MODEL_PREPARATION_PORT_RECEIVED",
+	request: modelPreparation,
+	receipt: { type: "available", sequence: modelPreparation.sequence },
+});
+
+const currentModelTurnRequest = (): ModelTurnPortRequest => {
+	const request = source.getSnapshot().context.portRequests.modelTurn;
+	if (!request) throw new Error("Expected a model-turn request.");
+	return request;
+};
+
+const completeHeadlessTurn = () => {
+	let request = currentModelTurnRequest();
+	source.send({
+		type: "MODEL_TURN_PORT_RECEIVED",
+		request,
+		receipt: {
+			type: "MODEL_RESOLVED",
+			turnId: request.turnId,
+			attemptId: request.attemptId,
+			result: {
+				ok: true,
+				calls: [
+					{
+						id: "headless-complete",
+						command: "completeResponse",
+						input: { text: "Headless proof complete." },
+					},
+				],
+			},
+		},
+	});
+	request = currentModelTurnRequest();
+	source.send({
+		type: "MODEL_TURN_PORT_RECEIVED",
+		request,
+		receipt: {
+			type: "AUTHORIZATION_RESOLVED",
+			turnId: request.turnId,
+			attemptId: request.attemptId,
+			allowed: true,
+		},
+	});
+	request = currentModelTurnRequest();
+	if (request.type !== "execute-call") {
+		throw new Error("Expected an executable headless model proposal.");
+	}
+	source.send({
+		type: "MODEL_TURN_PORT_RECEIVED",
+		request,
+		receipt: {
+			type: "CAPABILITY_RESOLVED",
+			turnId: request.turnId,
+			attemptId: request.attemptId,
+			feedback: {
+				id: request.call.id ?? "headless-complete",
+				command: request.call.command,
+				status: "accepted",
+				ownerId: "voice-workbench-headless-proof",
+				view: component.getView().modelContext,
+				events: [],
+			},
+		},
+	});
+};
 
 const story = component.record("voice-workbench-headless-proof");
 
-reportModelAvailable();
 await story.execute({
 	command: "submitPrompt",
 	input: { modality: "text", text: "Prove the headless artifact contract" },
@@ -55,8 +123,7 @@ await story.execute({
 	command: "completeResponse",
 	input: { text: "Headless proof complete." },
 });
-const turnId = source.getSnapshot().context.activeTurnId;
-if (turnId) recordTurnTerminal({ type: "TURN_COMPLETED", turnId });
+completeHeadlessTurn();
 
 const proof = igniteTest.snapshotStory(story);
 const view = component.getView();

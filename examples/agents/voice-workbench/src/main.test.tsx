@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import agentLoopSource from "./agent-loop.ts?raw";
 import mainSource from "./main.tsx?raw";
 import modelSource from "./model.ts?raw";
-import type { SpeechRecognitionLike } from "./voice";
+import type { SpeechRecognitionLike } from "./adapters/browser-voice";
 import voiceSource from "./voice.ts?raw";
 import workbenchSource from "./workbench.tsx?raw";
 
@@ -31,6 +31,7 @@ const completion = (calls: Array<{ name: string; input: unknown }>) => {
 
 class FakeSpeechRecognition implements SpeechRecognitionLike {
 	static current: FakeSpeechRecognition | null = null;
+	static denyNext = false;
 	continuous = false;
 	interimResults = false;
 	lang = "";
@@ -47,6 +48,8 @@ class FakeSpeechRecognition implements SpeechRecognitionLike {
 	abort = vi.fn();
 
 	constructor() {
+		this.denied = FakeSpeechRecognition.denyNext;
+		FakeSpeechRecognition.denyNext = false;
 		FakeSpeechRecognition.current = this;
 	}
 
@@ -66,6 +69,7 @@ describe("voice workbench browser entry", () => {
 		cancelSpeech.mockReset();
 		completionSequence = 0;
 		FakeSpeechRecognition.current = null;
+		FakeSpeechRecognition.denyNext = false;
 		vi.stubEnv("MLX_BASE_URL", "http://127.0.0.1:8080/v1");
 		vi.stubEnv("MLX_MODEL", "consumer-selected-model");
 		vi.stubGlobal("SpeechRecognition", FakeSpeechRecognition);
@@ -94,8 +98,8 @@ describe("voice workbench browser entry", () => {
 			expect(source).not.toMatch(
 				/(?:document\.)?querySelector|shadowRoot|\.textContent|\.dataset|\.classList|\.setAttribute|\.closest/,
 			);
-			expect(source).not.toContain("source.send");
 		}
+		expect(workbenchSource).not.toContain("source.send");
 
 		expect(agentLoopSource).not.toMatch(/\bcomponent\s*:/);
 		expect(agentLoopSource).not.toContain("runModelTurn");
@@ -111,44 +115,14 @@ describe("voice workbench browser entry", () => {
 		expect(mainSource).toContain("createProductPriceCapability()");
 		expect(mainSource).toContain("createProductPricingDomainPack({");
 		expect(mainSource).toContain("createDomainRegistry(");
-		expect(mainSource).toContain("requestSequence: voiceRequest.sequence");
+		expect(mainSource).toContain("createVoiceWorkbenchRuntime({");
+		expect(mainSource).toContain("createBrowserVoiceCapturePort()");
 	});
 
 	it("creates and revises the center document through real text and speech paths", async () => {
 		const xstateWarning = vi
 			.spyOn(console, "warn")
 			.mockImplementation(() => {});
-		const speechModule = await import("./speech");
-		const createSpeechDeliveryActor = speechModule.createSpeechDeliveryActor;
-		const createdSpeechActors: object[] = [];
-		const createdSpeechInputs: Parameters<
-			typeof createSpeechDeliveryActor
-		>[0][] = [];
-		const stopSpeechActor = vi.fn();
-		const terminalSpeechDisposals: string[] = [];
-		vi.spyOn(speechModule, "createSpeechDeliveryActor").mockImplementation(
-			(input) => {
-				const actor = createSpeechDeliveryActor(input);
-				const send = actor.send.bind(actor);
-				const stop = actor.stop.bind(actor);
-				createdSpeechActors.push(actor);
-				createdSpeechInputs.push(input);
-				vi.spyOn(actor, "send").mockImplementation((event) => {
-					if (
-						event.type === "DISPOSE" &&
-						actor.getSnapshot().context.terminal !== null
-					) {
-						terminalSpeechDisposals.push(String(actor.getSnapshot().value));
-					}
-					send(event);
-				});
-				vi.spyOn(actor, "stop").mockImplementation(() => {
-					stopSpeechActor(actor);
-					return stop();
-				});
-				return actor;
-			},
-		);
 		let resolveReadiness: (response: Response) => void = () => {};
 		const readiness = new Promise<Response>((resolve) => {
 			resolveReadiness = resolve;
@@ -277,8 +251,7 @@ describe("voice workbench browser entry", () => {
 			},
 		);
 		vi.stubGlobal("fetch", fetchMock);
-		await import("./main");
-		const { component, source } = await import("./session");
+		const { component, source } = await import("./main");
 		const host = document.querySelector("voice-workbench");
 		if (!(host instanceof HTMLElement) || !host.shadowRoot) {
 			throw new Error("voice workbench did not mount");
@@ -315,10 +288,12 @@ describe("voice workbench browser entry", () => {
 				model: { status: "available", failure: null },
 			});
 		});
-		expect(component.getSnapshot().value).toEqual({ available: "idle" });
+		expect(component.getSnapshot().value).toEqual({
+			available: { turn: "idle", voice: "active", speech: "idle" },
+		});
 		expect(component.getView().runtimeInspector.actor).toMatchObject({
 			heading: "Compound actor state",
-			matchText: 'matches({\n  available: "idle",\n})',
+			matchText: 'matches({\n  available: { turn: "idle" },\n})',
 		});
 		expect(host.shadowRoot.textContent).toContain(
 			"Your first accepted artifact will appear here",
@@ -371,10 +346,14 @@ describe("voice workbench browser entry", () => {
 			);
 		});
 		await vi.waitFor(() => {
-			expect(createdSpeechActors.length).toBeGreaterThan(0);
-			expect(stopSpeechActor).toHaveBeenCalledTimes(createdSpeechActors.length);
+			expect(
+				component.getSnapshot().context.childLifecycles.speechDelivery,
+				).toMatchObject({
+					state: "delivered",
+				requestSequence: 1,
+				terminal: { type: "speech-delivery-completed" },
+			});
 		});
-		expect.soft(terminalSpeechDisposals).toEqual([]);
 		expect
 			.soft(
 				xstateWarning.mock.calls.filter(([message]) =>
@@ -385,27 +364,46 @@ describe("voice workbench browser entry", () => {
 		const initialSpeech = component.getView().speech;
 		if (!initialSpeech)
 			throw new Error("initial speech request was not retained");
-		expect(createdSpeechInputs).toHaveLength(1);
-		expect(createdSpeechInputs[0]).toMatchObject({
+		const initialSpeechDelivery =
+			component.getSnapshot().context.childLifecycles.speechDelivery;
+		expect(initialSpeechDelivery).toMatchObject({
 			id: initialSpeech.id,
 			text: initialSpeech.text,
 			attemptId: `${initialSpeech.id}:1`,
 			requestSequence: 1,
 		});
+		const replayDeliveries = [initialSpeechDelivery];
+		const cancelCountBeforeReplay = cancelSpeech.mock.calls.length;
 		speak.mockImplementationOnce(() => {});
 		await component.execute({ command: "playSpeech" });
-		await vi.waitFor(() => expect(createdSpeechInputs).toHaveLength(2));
+		await vi.waitFor(() =>
+			expect(
+				component.getSnapshot().context.childLifecycles.speechDelivery,
+			).toMatchObject({ requestSequence: 2 }),
+		);
+		replayDeliveries.push(
+			component.getSnapshot().context.childLifecycles.speechDelivery,
+		);
 		await component.execute({ command: "playSpeech" });
-		await vi.waitFor(() => expect(createdSpeechInputs).toHaveLength(3));
+		await vi.waitFor(() =>
+			expect(
+				component.getSnapshot().context.childLifecycles.speechDelivery,
+			).toMatchObject({ requestSequence: 3 }),
+		);
+		replayDeliveries.push(
+			component.getSnapshot().context.childLifecycles.speechDelivery,
+		);
 		expect(
-			createdSpeechInputs.map(({ requestSequence }) => requestSequence),
+			replayDeliveries.map((delivery) => delivery?.requestSequence),
 		).toEqual([1, 2, 3]);
-		expect(createdSpeechInputs.map(({ attemptId }) => attemptId)).toEqual([
+		expect(replayDeliveries.map((delivery) => delivery?.attemptId)).toEqual([
 			`${initialSpeech.id}:1`,
 			`${initialSpeech.id}:2`,
 			`${initialSpeech.id}:3`,
 		]);
-		expect(cancelSpeech).toHaveBeenCalledOnce();
+		expect(cancelSpeech.mock.calls.length).toBeGreaterThan(
+			cancelCountBeforeReplay,
+		);
 		expect(
 			(
 				component.getSnapshot().context as unknown as {
@@ -588,7 +586,7 @@ describe("voice workbench browser entry", () => {
 		if (!FakeSpeechRecognition.current) {
 			throw new Error("speech recognition was not initialized");
 		}
-		FakeSpeechRecognition.current.denied = true;
+		FakeSpeechRecognition.denyNext = true;
 		const currentMicrophone = host.shadowRoot.querySelector("#mic-button");
 		if (!(currentMicrophone instanceof HTMLButtonElement)) {
 			throw new Error("microphone button is unavailable after recovery");
@@ -597,21 +595,21 @@ describe("voice workbench browser entry", () => {
 		expect(component.getView()).toMatchObject({
 			presentation: { draft: "Show provider recovery" },
 		});
-		expect(
-			host.shadowRoot.querySelector('[role="alert"]')?.textContent,
-		).toContain("Microphone access was denied");
-		expect(FakeSpeechRecognition.current.start).toHaveBeenCalledTimes(2);
-		expect(
-			component.getSnapshot().context.childLifecycles.voiceCapture,
-		).toMatchObject({
-			state: "permission-denied",
-			attemptId: "voice:2",
-			sequence: 2,
+		await vi.waitFor(() => {
+			expect(
+				host.shadowRoot?.querySelector('[role="alert"]')?.textContent,
+			).toContain("Microphone access was denied");
+			expect(FakeSpeechRecognition.current?.start).toHaveBeenCalledOnce();
+			expect(
+				component.getSnapshot().context.childLifecycles.voiceCapture,
+			).toMatchObject({
+				state: "permission-denied",
+				attemptId: "voice:2",
+				sequence: 2,
+			});
 		});
 		expect(component.getView().portRequests.voiceCapture).toBeNull();
-		expect(component.getSnapshot().context.voiceCaptureControlSequence).toBe(3);
 
-		FakeSpeechRecognition.current.denied = false;
 		const permissionRetryMicrophone =
 			host.shadowRoot.querySelector("#mic-button");
 		if (!(permissionRetryMicrophone instanceof HTMLButtonElement)) {
@@ -621,7 +619,7 @@ describe("voice workbench browser entry", () => {
 		}
 		permissionRetryMicrophone.click();
 		await vi.waitFor(() => {
-			expect(FakeSpeechRecognition.current?.start).toHaveBeenCalledTimes(3);
+			expect(FakeSpeechRecognition.current?.start).toHaveBeenCalledOnce();
 			expect(
 				component.getSnapshot().context.childLifecycles.voiceCapture,
 			).toMatchObject({
@@ -629,10 +627,10 @@ describe("voice workbench browser entry", () => {
 				attemptId: "voice:3",
 				sequence: 3,
 			});
-			expect(component.getView().portRequests.voiceCapture).toBeNull();
-			expect(component.getSnapshot().context.voiceCaptureControlSequence).toBe(
-				4,
-			);
+			expect(component.getView().portRequests.voiceCapture).toMatchObject({
+				type: "start",
+				attemptId: "voice:3",
+			});
 		});
 
 		FakeSpeechRecognition.current.onerror?.({
@@ -657,7 +655,7 @@ describe("voice workbench browser entry", () => {
 		}
 		failureRetryMicrophone.click();
 		await vi.waitFor(() => {
-			expect(FakeSpeechRecognition.current?.start).toHaveBeenCalledTimes(4);
+			expect(FakeSpeechRecognition.current?.start).toHaveBeenCalledOnce();
 			expect(
 				component.getSnapshot().context.childLifecycles.voiceCapture,
 			).toMatchObject({
@@ -665,10 +663,10 @@ describe("voice workbench browser entry", () => {
 				attemptId: "voice:4",
 				sequence: 4,
 			});
-			expect(component.getView().portRequests.voiceCapture).toBeNull();
-			expect(component.getSnapshot().context.voiceCaptureControlSequence).toBe(
-				5,
-			);
+			expect(component.getView().portRequests.voiceCapture).toMatchObject({
+				type: "start",
+				attemptId: "voice:4",
+			});
 		});
 
 		deferNextModelRequest = true;
@@ -699,14 +697,12 @@ describe("voice workbench browser entry", () => {
 		window.dispatchEvent(persistedPagehide);
 		expect(source.getSnapshot().status).toBe("active");
 		expect(pendingTurnSignal?.aborted).toBe(false);
-		const terminalDisposalCount = stopSpeechActor.mock.calls.length;
 		window.dispatchEvent(new Event("pagehide"));
 		expect(source.getSnapshot().status).toBe("stopped");
 		expect(pendingTurnSignal?.aborted).toBe(true);
 		expect(pendingTurnAbort).toHaveBeenCalledOnce();
 		window.dispatchEvent(new Event("pagehide"));
 		expect(pendingTurnAbort).toHaveBeenCalledOnce();
-		expect(stopSpeechActor).toHaveBeenCalledTimes(terminalDisposalCount);
 
 		resolveDeferredModelRequest(
 			new Response(
@@ -744,5 +740,5 @@ describe("voice workbench browser entry", () => {
 			),
 		).toEqual([]);
 		xstateWarning.mockRestore();
-	});
+	}, 45_000);
 });

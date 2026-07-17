@@ -1,37 +1,40 @@
 import type { NeutralTool } from "ignite-element/tools";
-import {
-	type IgniteAgentCommandSchema,
-	igniteCore,
-} from "ignite-element/xstate";
-import { assign, createActor, type SnapshotFrom, setup } from "xstate";
-import type { ModelFailureFact } from "./agent-loop";
+import { assign, createActor, type SnapshotFrom, sendTo, setup } from "xstate";
+import type { ModelFailureFact, ModelTurnResult } from "./agent-loop";
 import type { CapabilityFallbackAttempt } from "./capability-federation";
 import {
-	type AcknowledgeSpeechInput,
 	type CompleteResponseInput,
 	type ConversationAction,
 	type ConversationFact,
 	type ConversationSession,
-	type CreateArtifactInput,
 	createInitialSession,
-	type RestoreArtifactRevisionInput,
-	type ReviseArtifactInput,
 	reduceConversationSession,
-	type SelectArtifactInput,
-	type SetChecklistItemInput,
-	type SubmitPromptInput,
 } from "./domain";
 import type { DomainPolicyDecision } from "./domains/contracts";
 import type { ProductPriceReasonCode } from "./domains/product-pricing/price-capability";
-import type { ModelTurnLifecycleProjection } from "./model-turn";
-import type {
-	SpeechDeliveryFact,
-	SpeechDeliveryLifecycleProjection,
+import {
+	type ModelTurnLifecycleProjection,
+	type ModelTurnTerminalEvent,
+	modelTurnStateFromTerminal,
+	modelTurnMachine,
+	projectModelTurnLifecycle,
+	projectModelTurnPortRequest,
+} from "./model-turn";
+import type { ModelPreparationPortRequest, ParentPortEvent } from "./ports";
+import {
+	projectSpeechDeliveryLifecycle,
+	projectSpeechDeliveryPortRequest,
+	speechDeliveryStateFromTerminal,
+	type SpeechDeliveryFact,
+	type SpeechDeliveryLifecycleProjection,
+	speechDeliveryMachine,
 } from "./speech";
 import {
 	canStartVoiceCapture,
-	type VoiceCaptureFact,
+	projectVoiceCaptureLifecycle,
+	projectVoiceCapturePortRequest,
 	type VoiceCaptureLifecycleProjection,
+	voiceCaptureMachine,
 } from "./voice";
 
 export type WorkbenchArtifactView = "document" | "schema";
@@ -87,6 +90,7 @@ export type WorkbenchCapabilityOutcome = {
 	cacheTtlMs?: number;
 	fallback?: CapabilityFallbackAttempt;
 	pricingRows?: readonly WorkbenchPricingProofRow[];
+	proof?: WorkbenchCapabilityProof;
 };
 export type WorkbenchTurnTrace = readonly {
 	command: string;
@@ -152,27 +156,6 @@ export type ModelTurnCorrelation = {
 	attemptId: string;
 };
 
-export type ModelTurnControlRequest = {
-	action: "cancel";
-	turnId: string;
-	sequence: number;
-};
-
-export type VoiceCaptureControlRequest =
-	| {
-			action: "start";
-			sequence: number;
-	  }
-	| {
-			action: "cancel";
-			sequence: number;
-	  }
-	| {
-			action: "consume";
-			attemptId: string;
-			sequence: number;
-	  };
-
 export type SpeechDeliveryControlRequest = {
 	id: string;
 	text: string;
@@ -180,11 +163,17 @@ export type SpeechDeliveryControlRequest = {
 	sequence: number;
 };
 
-type VoiceCapturePendingControlRequest =
-	| Exclude<VoiceCaptureControlRequest, { action: "consume" }>
-	| (Extract<VoiceCaptureControlRequest, { action: "consume" }> & {
-			candidateText: string;
-	  });
+export type VoiceWorkbenchSessionInput = {
+	voiceSupported?: boolean;
+	speechSupported?: boolean;
+};
+
+export type VoiceWorkbenchPortRequests = {
+	modelPreparation: ModelPreparationPortRequest | null;
+	modelTurn: ReturnType<typeof projectModelTurnPortRequest>;
+	voiceCapture: ReturnType<typeof projectVoiceCapturePortRequest>;
+	speechDelivery: ReturnType<typeof projectSpeechDeliveryPortRequest>;
+};
 
 export type WorkbenchPresentation = {
 	artifactView: WorkbenchArtifactView;
@@ -252,14 +241,19 @@ export type PresentationUpdateEvent = {
 export type VoiceWorkbenchSession = ConversationSession & {
 	modelFailure: ModelFailureFact | null;
 	presentation: WorkbenchPresentation;
+	hostCapabilities: {
+		voiceSupported: boolean;
+		speechSupported: boolean;
+	};
+	modelPreparationSequence: number;
+	portRequests: VoiceWorkbenchPortRequests;
 	activeTurnId: string | null;
-	modelTurnControlRequest: ModelTurnControlRequest | null;
-	voiceCaptureControlSequence: number;
-	voiceCaptureControlRequest: VoiceCapturePendingControlRequest | null;
+	lastModelTurnResult: ModelTurnResult | null;
+	voiceTranscriptSubmission: VoiceTranscriptCandidate | null;
 	speechDeliveryControlSequence: number;
 	speechDeliveryControlRequest: SpeechDeliveryControlRequest | null;
 	pendingCompletion: CompleteResponseInput | null;
-	lastTurnTerminal: VoiceWorkbenchTurnTerminalEvent | null;
+	lastTurnTerminal: ModelTurnTerminalEvent | null;
 	childLifecycles: {
 		modelTurn: ModelTurnLifecycleProjection | null;
 		voiceCapture: VoiceCaptureLifecycleProjection | null;
@@ -267,9 +261,7 @@ export type VoiceWorkbenchSession = ConversationSession & {
 	};
 };
 export type ModelReadinessEvent =
-	| { type: "MODEL_PREPARATION_STARTED" }
-	| { type: "MODEL_AVAILABLE" }
-	| { type: "MODEL_FAILED"; failure: ModelFailureFact };
+	{ type: "MODEL_PREPARATION_STARTED" };
 export type VoiceCaptureIntentEvent =
 	| { type: "VOICE_CAPTURE_START_REQUESTED" }
 	| { type: "VOICE_CAPTURE_CANCEL_REQUESTED" }
@@ -277,23 +269,11 @@ export type VoiceCaptureIntentEvent =
 export type SpeechDeliveryIntentEvent = {
 	type: "SPEECH_DELIVERY_REPLAY_REQUESTED";
 };
-export type VoiceWorkbenchTurnTerminalEvent =
-	| { type: "TURN_COMPLETED"; turnId: string }
-	| { type: "TURN_FAILED"; turnId: string; failure: ModelFailureFact }
-	| { type: "CANCELLED"; turnId: string }
-	| { type: "TIMEOUT"; turnId: string }
-	| { type: "ROUND_LIMIT_REACHED"; turnId: string };
-export type VoiceTranscriptConsumedFact = {
-	attemptId: string;
-	requestSequence: number;
-	text: string;
-};
 export type VoiceWorkbenchPrivateEvent =
 	| {
 			type: "DOCUMENT_COMMITTED";
 			document: NonNullable<WorkbenchPresentation["documentCommit"]>;
 	  }
-	| ({ type: "VOICE_TRANSCRIPT_CONSUMED" } & VoiceTranscriptConsumedFact)
 	| {
 			type: "CAPABILITY_OUTCOME_RECORDED";
 			outcome: WorkbenchCapabilityOutcome;
@@ -317,25 +297,13 @@ export type VoiceWorkbenchPrivateEvent =
 			fact: WorkbenchTurnFact;
 			turnId?: string;
 			attemptId?: string;
-	  }
-	| {
-			type: "MODEL_TURN_LIFECYCLE_UPDATED";
-			lifecycle: ModelTurnLifecycleProjection;
-	  }
-	| {
-			type: "VOICE_CAPTURE_LIFECYCLE_UPDATED";
-			lifecycle: VoiceCaptureLifecycleProjection;
-	  }
-	| {
-			type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED";
-			lifecycle: SpeechDeliveryLifecycleProjection;
 	  };
 export type VoiceWorkbenchSessionEvent =
 	| ConversationAction
 	| ModelReadinessEvent
+	| ParentPortEvent
 	| VoiceCaptureIntentEvent
 	| SpeechDeliveryIntentEvent
-	| VoiceWorkbenchTurnTerminalEvent
 	| PresentationUpdateEvent
 	| VoiceWorkbenchPrivateEvent;
 
@@ -428,7 +396,13 @@ export const voiceWorkbenchLifecycleOwnership = [
 export type VoiceWorkbenchSessionStateValue =
 	| "preparing"
 	| "unavailable"
-	| { available: "idle" | "responding" };
+	| {
+			available: {
+				turn: "idle" | "responding";
+				voice: "active";
+				speech: "idle" | "delivering";
+			};
+	  };
 
 export const voiceWorkbenchKnownForbiddenStateValues =
 	[] as const satisfies readonly VoiceWorkbenchSessionStateValue[];
@@ -501,216 +475,6 @@ export const reduceWorkbenchPresentation = (
 	}
 };
 
-const describeTurn = (turn: WorkbenchTurnFact | null): string => {
-	if (!turn) return "";
-	switch (turn.type) {
-		case "accepted":
-			return "Actor accepted the model-authored turn.";
-		case "model-failed":
-			return turn.message;
-		case "prompt-rejected":
-			return "The actor did not admit this prompt.";
-		case "response-incomplete":
-			return "The model omitted a completed response, so the actor recovered the turn.";
-		case "command-not-allowed":
-			return `${turn.command} was not allowed by the model command policy.`;
-		case "command-rejected":
-			return `${turn.command} was rejected by the actor.`;
-	}
-};
-
-const describeFact = (fact: ConversationFact | null): string => {
-	if (!fact) return "no actor facts yet";
-	switch (fact.type) {
-		case "prompt-submitted":
-			return `${fact.type} · ${fact.modality}`;
-		case "artifact-created":
-		case "artifact-revised":
-			return `${fact.type} · revision ${fact.revision}`;
-		case "artifact-restored":
-			return `${fact.type} · ${fact.fromRevision} → ${fact.revision}`;
-		case "artifact-selected":
-			return `${fact.type} · ${fact.artifactId}`;
-		case "artifact-rejected":
-			return `${fact.type} · ${fact.reason}`;
-		case "speech-acknowledged":
-			return `${fact.type} · ${fact.id}`;
-		case "response-completed":
-			return fact.type;
-	}
-};
-
-const fallbackAttemptSummary = (fallback: CapabilityFallbackAttempt): string =>
-	`fallback ${fallback.from} → ${fallback.provider} · trigger HTTP ${fallback.status} · ${fallback.outcome}`;
-
-const capabilityProofSummary = (proof: WorkbenchCapabilityProof): string =>
-	[
-		proof.outcome,
-		proof.status === undefined ? null : `HTTP ${proof.status}`,
-		proof.queryCount === undefined
-			? null
-			: `${proof.queryCount} ${proof.queryCount === 1 ? "query" : "queries"}`,
-		proof.sourceCount === undefined
-			? null
-			: `${proof.sourceCount} ${proof.sourceCount === 1 ? "source" : "sources"}`,
-		proof.retry === undefined
-			? null
-			: `${proof.retry.attempts}/${proof.retry.maxAttempts} attempts${proof.retry.retryAfterMs === undefined ? "" : ` · waited ${proof.retry.retryAfterMs}ms`}`,
-		proof.cacheStatus === undefined
-			? null
-			: `cache ${proof.cacheStatus}${proof.cacheTtlMs === undefined ? "" : ` · TTL ${proof.cacheTtlMs}ms`}`,
-		proof.fallback === undefined
-			? null
-			: fallbackAttemptSummary(proof.fallback),
-	]
-		.filter((value): value is string => value !== null)
-		.join(" · ");
-
-const describeRespondingProgress = (
-	fact: ConversationFact | null,
-): {
-	actorOutcome: string;
-	actorOutcomeRecorded: boolean;
-	pendingResult: string;
-} => {
-	if (!fact || fact.type === "prompt-submitted") {
-		return {
-			actorOutcome: "No actor command accepted yet",
-			actorOutcomeRecorded: false,
-			pendingResult: "Awaiting the first model or capability result",
-		};
-	}
-
-	switch (fact.type) {
-		case "artifact-created":
-		case "artifact-revised":
-			return {
-				actorOutcome: `Actor accepted artifact revision ${fact.revision}`,
-				actorOutcomeRecorded: true,
-				pendingResult: "Awaiting the next model or capability result",
-			};
-		case "artifact-restored":
-			return {
-				actorOutcome: `Actor restored artifact as revision ${fact.revision}`,
-				actorOutcomeRecorded: true,
-				pendingResult: "Awaiting the next model or capability result",
-			};
-		case "artifact-rejected":
-			return {
-				actorOutcome: `Actor rejected the previous command: ${fact.reason}`,
-				actorOutcomeRecorded: true,
-				pendingResult: "Awaiting a repaired model command",
-			};
-		case "artifact-selected":
-			return {
-				actorOutcome: `Actor selected artifact ${fact.artifactId}`,
-				actorOutcomeRecorded: true,
-				pendingResult: "Awaiting the next model or capability result",
-			};
-		case "speech-acknowledged":
-			return {
-				actorOutcome: "Actor acknowledged projected speech",
-				actorOutcomeRecorded: true,
-				pendingResult: "Awaiting the next model or capability result",
-			};
-		case "response-completed":
-			return {
-				actorOutcome: "Actor completed the response",
-				actorOutcomeRecorded: true,
-				pendingResult: "Completing the authorized turn",
-			};
-	}
-};
-
-const voiceState = (
-	fact: VoiceCaptureFact,
-): "idle" | "listening" | "transcript" | "permission" | "unsupported" => {
-	switch (fact.type) {
-		case "voice-listening":
-			return "listening";
-		case "voice-transcript":
-			return "transcript";
-		case "voice-permission-denied":
-		case "voice-error":
-			return "permission";
-		case "voice-unsupported":
-			return "unsupported";
-		case "voice-idle":
-		case "voice-cancelled":
-			return "idle";
-	}
-};
-
-const runtimePreviewDefinitions = [
-	{ id: "browser", label: "Browser preview" },
-	{ id: "terminal", label: "Terminal preview" },
-	{ id: "speech", label: "Speech preview" },
-	{ id: "headless", label: "Headless preview" },
-] as const;
-
-const isSchemaRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
-
-const schemaType = (schema: Record<string, unknown>): string => {
-	if (typeof schema.type === "string") return schema.type;
-	if (Array.isArray(schema.enum)) return "enum";
-	return "value";
-};
-
-const formatSchema = (schema: unknown, rootName = "input"): string => {
-	const lines: string[] = [];
-	const visit = (
-		value: unknown,
-		name: string,
-		required: boolean,
-		depth: number,
-	) => {
-		if (!isSchemaRecord(value)) return;
-		const indent = "  ".repeat(depth);
-		lines.push(
-			`${indent}${name} · ${schemaType(value)}${required ? " · required" : ""}`,
-		);
-		for (const constraint of [
-			"minLength",
-			"maxLength",
-			"minimum",
-			"maximum",
-			"minItems",
-			"maxItems",
-		] as const) {
-			if (typeof value[constraint] === "number") {
-				lines.push(`${indent}  ${constraint}: ${value[constraint]}`);
-			}
-		}
-		if (Array.isArray(value.enum)) {
-			lines.push(`${indent}  allowed: ${value.enum.join(" | ")}`);
-		}
-		const requiredNames = new Set(
-			Array.isArray(value.required)
-				? value.required.filter(
-						(entry): entry is string => typeof entry === "string",
-					)
-				: [],
-		);
-		if (isSchemaRecord(value.properties)) {
-			for (const [propertyName, propertySchema] of Object.entries(
-				value.properties,
-			)) {
-				visit(
-					propertySchema,
-					propertyName,
-					requiredNames.has(propertyName),
-					depth + 1,
-				);
-			}
-		}
-		if (value.items !== undefined) visit(value.items, "items", true, depth + 1);
-	};
-	visit(schema, rootName, false, 0);
-	return lines.join("\n");
-};
-
-let componentBlueprintCommands: IgniteAgentCommandSchema = {};
 
 const isConversationAction = (
 	event: VoiceWorkbenchSessionEvent,
@@ -730,21 +494,6 @@ const isConversationAction = (
 	}
 };
 
-const isTurnTerminalEvent = (
-	event: VoiceWorkbenchSessionEvent,
-): event is VoiceWorkbenchTurnTerminalEvent => {
-	switch (event.type) {
-		case "TURN_COMPLETED":
-		case "TURN_FAILED":
-		case "CANCELLED":
-		case "TIMEOUT":
-		case "ROUND_LIMIT_REACHED":
-			return true;
-		default:
-			return false;
-	}
-};
-
 const isVoiceCaptureIntentEvent = (
 	event: VoiceWorkbenchSessionEvent,
 ): event is VoiceCaptureIntentEvent =>
@@ -752,20 +501,6 @@ const isVoiceCaptureIntentEvent = (
 	event.type === "VOICE_CAPTURE_CANCEL_REQUESTED" ||
 	event.type === "VOICE_TRANSCRIPT_SUBMIT_REQUESTED";
 
-const acceptsModelTurnLifecycle = (
-	context: VoiceWorkbenchSession,
-	lifecycle: ModelTurnLifecycleProjection,
-): boolean => {
-	if (!context.activeTurnId || lifecycle.turnId !== context.activeTurnId) {
-		return false;
-	}
-	const current = context.childLifecycles.modelTurn;
-	if (!current || current.turnId !== lifecycle.turnId) return true;
-	if (lifecycle.round < current.round) return false;
-	return (
-		lifecycle.round > current.round || lifecycle.attemptId === current.attemptId
-	);
-};
 
 const isTurnReadModelEvent = (
 	event: VoiceWorkbenchPrivateEvent,
@@ -809,151 +544,6 @@ const acceptsTurnReadModelEvent = (
 	);
 };
 
-const sameSpeechDeliveryFact = (
-	left: SpeechDeliveryFact | null,
-	right: SpeechDeliveryFact | null,
-): boolean => {
-	if (left === right) return true;
-	if (!left || !right || left.type !== right.type || left.id !== right.id) {
-		return false;
-	}
-	return (
-		left.type !== "speech-delivery-failed" ||
-		(right.type === "speech-delivery-failed" && left.message === right.message)
-	);
-};
-
-const speechLifecycleIsSelfConsistent = (
-	lifecycle: SpeechDeliveryLifecycleProjection,
-): boolean => {
-	const factMatches = (type: SpeechDeliveryFact["type"]) =>
-		lifecycle.fact?.type === type && lifecycle.fact.id === lifecycle.id;
-	const terminalMatches = (type: SpeechDeliveryFact["type"]) =>
-		lifecycle.terminal?.type === type &&
-		lifecycle.terminal.id === lifecycle.id &&
-		sameSpeechDeliveryFact(lifecycle.fact, lifecycle.terminal);
-	switch (lifecycle.state) {
-		case "pending":
-			return lifecycle.fact === null && lifecycle.terminal === null;
-		case "queued":
-			return (
-				factMatches("speech-delivery-queued") && lifecycle.terminal === null
-			);
-		case "delivered":
-			return terminalMatches("speech-delivery-completed");
-		case "muted":
-			return terminalMatches("speech-delivery-muted");
-		case "unavailable":
-			return terminalMatches("speech-delivery-unavailable");
-		case "failed":
-			return terminalMatches("speech-delivery-failed");
-		case "cancelled":
-			return terminalMatches("speech-delivery-cancelled");
-		case "disposed":
-			return (
-				lifecycle.terminal === null &&
-				(lifecycle.fact === null || factMatches("speech-delivery-queued"))
-			);
-	}
-};
-
-const sameSpeechDeliveryLifecycle = (
-	left: SpeechDeliveryLifecycleProjection,
-	right: SpeechDeliveryLifecycleProjection,
-): boolean =>
-	left.state === right.state &&
-	left.id === right.id &&
-	left.text === right.text &&
-	left.attemptId === right.attemptId &&
-	left.requestSequence === right.requestSequence &&
-	sameSpeechDeliveryFact(left.fact, right.fact) &&
-	sameSpeechDeliveryFact(left.terminal, right.terminal);
-
-const speechLifecycleProgressions = {
-	pending: [
-		"queued",
-		"delivered",
-		"muted",
-		"unavailable",
-		"failed",
-		"cancelled",
-		"disposed",
-	],
-	queued: ["delivered", "failed", "cancelled", "disposed"],
-	delivered: [],
-	muted: [],
-	unavailable: [],
-	failed: [],
-	cancelled: [],
-	disposed: [],
-} as const satisfies Record<
-	SpeechDeliveryLifecycleProjection["state"],
-	readonly SpeechDeliveryLifecycleProjection["state"][]
->;
-
-type SpeechLifecycleDisposition = "advance" | "duplicate" | "reject";
-
-const speechDeliveryLifecycleDisposition = (
-	request: SpeechDeliveryControlRequest | null,
-	current: SpeechDeliveryLifecycleProjection | null,
-	lifecycle: SpeechDeliveryLifecycleProjection,
-): SpeechLifecycleDisposition => {
-	if (
-		!request ||
-		request.sequence !== lifecycle.requestSequence ||
-		request.id !== lifecycle.id ||
-		request.text !== lifecycle.text ||
-		request.attemptId !== lifecycle.attemptId ||
-		!speechLifecycleIsSelfConsistent(lifecycle)
-	) {
-		return "reject";
-	}
-	if (!current) return lifecycle.state === "pending" ? "advance" : "reject";
-	if (
-		current.requestSequence !== request.sequence ||
-		current.id !== request.id ||
-		current.text !== request.text ||
-		current.attemptId !== request.attemptId
-	) {
-		return "reject";
-	}
-	if (current.state === lifecycle.state) {
-		return sameSpeechDeliveryLifecycle(current, lifecycle)
-			? "duplicate"
-			: "reject";
-	}
-	return (
-		speechLifecycleProgressions[
-			current.state
-		] as readonly SpeechDeliveryLifecycleProjection["state"][]
-	).includes(lifecycle.state)
-		? "advance"
-		: "reject";
-};
-
-const acceptsVoiceCaptureLifecycle = (
-	current: VoiceCaptureLifecycleProjection | null,
-	lifecycle: VoiceCaptureLifecycleProjection,
-): boolean => {
-	if (!current) return true;
-	if (lifecycle.sequence < current.sequence) return false;
-	if (lifecycle.sequence > current.sequence) return true;
-	if (lifecycle.attemptId === null) return true;
-	return (
-		current.attemptId !== null && lifecycle.attemptId === current.attemptId
-	);
-};
-
-const canonicalizeVoiceCaptureLifecycle = (
-	lifecycle: VoiceCaptureLifecycleProjection,
-): VoiceCaptureLifecycleProjection => {
-	const fact = lifecycle.fact;
-	if (fact.type !== "voice-transcript" || !fact.final) return lifecycle;
-	const text = fact.text.trim();
-	return text === fact.text
-		? lifecycle
-		: { ...lifecycle, fact: { ...fact, text } };
-};
 
 const privatePresentationEnvelope = (
 	event: VoiceWorkbenchPrivateEvent,
@@ -964,8 +554,6 @@ const privatePresentationEnvelope = (
 				channel: "private-adapter",
 				update: { type: "document-committed", document: event.document },
 			};
-		case "VOICE_TRANSCRIPT_CONSUMED":
-			return null;
 		case "CAPABILITY_OUTCOME_RECORDED":
 			return {
 				channel: "read-model",
@@ -986,12 +574,6 @@ const privatePresentationEnvelope = (
 				channel: "read-model",
 				update: { type: "turn-recorded", fact: event.fact },
 			};
-		case "VOICE_CAPTURE_LIFECYCLE_UPDATED":
-			return null;
-		case "SPEECH_DELIVERY_LIFECYCLE_UPDATED":
-			return null;
-		case "MODEL_TURN_LIFECYCLE_UPDATED":
-			return null;
 	}
 };
 
@@ -1009,10 +591,13 @@ const applyConversationTransition = (
 		return {
 			...result.session,
 			modelFailure: context.modelFailure,
+			hostCapabilities: context.hostCapabilities,
+			modelPreparationSequence: context.modelPreparationSequence,
+			portRequests: context.portRequests,
 			activeTurnId,
-			modelTurnControlRequest: context.modelTurnControlRequest,
-			voiceCaptureControlSequence: context.voiceCaptureControlSequence,
-			voiceCaptureControlRequest: context.voiceCaptureControlRequest,
+			lastModelTurnResult:
+				event.type === "SUBMIT_PROMPT" ? null : context.lastModelTurnResult,
+			voiceTranscriptSubmission: context.voiceTranscriptSubmission,
 			speechDeliveryControlSequence: context.speechDeliveryControlSequence,
 			speechDeliveryControlRequest: context.speechDeliveryControlRequest,
 			pendingCompletion:
@@ -1064,49 +649,7 @@ export const selectVoiceTranscriptCandidate = (
 	return text.length > 0 ? { attemptId: lifecycle.attemptId, text } : null;
 };
 
-const projectVoiceCaptureControlRequest = (
-	request: VoiceCapturePendingControlRequest | null,
-	lifecycle: VoiceCaptureLifecycleProjection | null,
-): VoiceCaptureControlRequest | null => {
-	if (request?.action === "start" && !canStartVoiceCapture(lifecycle)) {
-		return null;
-	}
-	if (request?.action === "consume") {
-		return {
-			action: "consume",
-			attemptId: request.attemptId,
-			sequence: request.sequence,
-		};
-	}
-	return request
-		? { action: request.action, sequence: request.sequence }
-		: null;
-};
 
-const voiceTranscriptConsumptionAction = (
-	context: VoiceWorkbenchSession,
-	event: VoiceWorkbenchSessionEvent,
-): Extract<ConversationAction, { type: "SUBMIT_PROMPT" }> | null => {
-	if (event.type !== "VOICE_TRANSCRIPT_CONSUMED") return null;
-	const request = context.voiceCaptureControlRequest;
-	const lifecycle = context.childLifecycles.voiceCapture;
-	if (
-		request?.action !== "consume" ||
-		typeof event.requestSequence !== "number" ||
-		request.sequence !== event.requestSequence ||
-		request.attemptId !== event.attemptId ||
-		typeof event.text !== "string" ||
-		request.candidateText !== event.text.trim() ||
-		lifecycle?.state !== "consumed" ||
-		lifecycle.attemptId !== event.attemptId
-	) {
-		return null;
-	}
-	return {
-		type: "SUBMIT_PROMPT",
-		input: { modality: "speech", text: request.candidateText },
-	};
-};
 
 const createSpeechDeliveryControlRequest = (
 	speech: { id: string; text: string },
@@ -1118,63 +661,284 @@ const createSpeechDeliveryControlRequest = (
 	sequence,
 });
 
+const selectActiveModelTurnInput = (context: VoiceWorkbenchSession) => {
+	const fact = context.lastFact;
+	if (
+		fact?.type !== "prompt-submitted" ||
+		fact.turnId !== context.activeTurnId
+	) {
+		throw new Error("A responding session requires an active prompt fact.");
+	}
+	return {
+		turnId: fact.turnId,
+		prompt: { channel: fact.modality, text: fact.text },
+	};
+};
+
+const sameModelTurnPortRequest = (
+	left: VoiceWorkbenchPortRequests["modelTurn"],
+	right: VoiceWorkbenchPortRequests["modelTurn"],
+): boolean =>
+	Boolean(
+		left &&
+			right &&
+			left.type === right.type &&
+			left.turnId === right.turnId &&
+			left.attemptId === right.attemptId,
+	);
+
+const acceptsParentPortEvent = (
+	context: VoiceWorkbenchSession,
+	event: ParentPortEvent,
+): boolean => {
+	switch (event.type) {
+		case "MODEL_PREPARATION_PORT_RECEIVED":
+			return (
+				context.portRequests.modelPreparation?.sequence ===
+					event.request.sequence &&
+				event.receipt.sequence === event.request.sequence
+			);
+		case "MODEL_TURN_PORT_RECEIVED":
+			return (
+				sameModelTurnPortRequest(
+					context.portRequests.modelTurn,
+					event.request,
+				) &&
+				event.receipt.turnId === event.request.turnId &&
+				event.receipt.attemptId === event.request.attemptId
+			);
+		case "VOICE_CAPTURE_PORT_RECEIVED":
+			if (
+				event.request.type === "start" &&
+				(event.receipt.type === "RESULT" ||
+					event.receipt.type === "END" ||
+					event.receipt.type === "PERMISSION_DENIED" ||
+					event.receipt.type === "FAIL")
+			) {
+				return (
+					event.request.attemptId !== null &&
+					event.receipt.attemptId === event.request.attemptId &&
+					context.childLifecycles.voiceCapture?.attemptId ===
+						event.request.attemptId
+				);
+			}
+			return (
+				context.portRequests.voiceCapture?.sequence ===
+					event.request.sequence &&
+				context.portRequests.voiceCapture.type === event.request.type &&
+				event.receipt.attemptId === event.request.attemptId
+			);
+		case "SPEECH_DELIVERY_PORT_RECEIVED":
+			return (
+				context.childLifecycles.speechDelivery?.attemptId ===
+					event.request.attemptId &&
+				context.childLifecycles.speechDelivery.requestSequence ===
+					event.request.requestSequence &&
+				event.receipt.attemptId === event.request.attemptId
+			);
+		case "MODEL_TURN_TIMEOUT_REQUESTED":
+		case "MODEL_TURN_CANCEL_REQUESTED":
+			return (
+				context.portRequests.modelTurn?.turnId === event.turnId &&
+				context.portRequests.modelTurn.attemptId === event.attemptId
+			);
+	}
+};
+
+const toWorkbenchTurnFact = (result: ModelTurnResult): WorkbenchTurnFact => {
+	if (result.accepted) return { type: "accepted", trace: result.trace };
+	if (result.reason === "model-failed") {
+		return {
+			type: "model-failed",
+			failureKind: result.failure.kind,
+			message: result.failure.message,
+			trace: result.trace,
+		};
+	}
+	if (!("command" in result)) {
+		return { type: result.reason, trace: result.trace };
+	}
+	return {
+		type: result.reason,
+		command: result.command,
+		trace: result.trace,
+	};
+};
+
+const applyModelTurnTerminal = (
+	context: VoiceWorkbenchSession,
+	terminal: ModelTurnTerminalEvent,
+	result: ModelTurnResult | null,
+): VoiceWorkbenchSession => {
+	const modelTurnLifecycle = context.childLifecycles.modelTurn;
+	const childLifecycles = {
+		...context.childLifecycles,
+		modelTurn: modelTurnLifecycle
+			? {
+					...modelTurnLifecycle,
+					state: modelTurnStateFromTerminal(terminal),
+					terminal,
+				}
+			: null,
+	};
+	const latestCapability =
+		context.presentation.capabilityOutcomes[
+			context.presentation.capabilityOutcomes.length - 1
+		]?.proof;
+	const existingCollision = context.presentation.turn?.collision;
+	const turnFact = result
+		? {
+				...toWorkbenchTurnFact(result),
+				...(latestCapability ? { capability: latestCapability } : {}),
+				...(existingCollision ? { collision: existingCollision } : {}),
+			}
+		: null;
+	const presentation = result
+		? reduceWorkbenchPresentation(context.presentation, {
+				channel: "read-model",
+				update: { type: "turn-recorded", fact: turnFact as WorkbenchTurnFact },
+			})
+		: context.presentation;
+	if (terminal.type !== "TURN_COMPLETED" || !context.pendingCompletion) {
+		return {
+			...context,
+			childLifecycles,
+			presentation,
+			lastModelTurnResult: result,
+			pendingCompletion: null,
+			lastTurnTerminal: terminal,
+		};
+	}
+	const completion = reduceConversationSession(context, {
+		type: "COMPLETE_RESPONSE",
+		input: context.pendingCompletion,
+	});
+	if (!completion.accepted) {
+		return {
+			...context,
+			childLifecycles,
+			presentation,
+			lastModelTurnResult: result,
+			pendingCompletion: null,
+			lastTurnTerminal: terminal,
+		};
+	}
+	const speech = completion.session.speech;
+	const speechDeliveryControlSequence = speech
+		? context.speechDeliveryControlSequence + 1
+		: context.speechDeliveryControlSequence;
+	return {
+		...completion.session,
+		modelFailure: context.modelFailure,
+		presentation,
+		hostCapabilities: context.hostCapabilities,
+		modelPreparationSequence: context.modelPreparationSequence,
+		portRequests: context.portRequests,
+		activeTurnId: context.activeTurnId,
+		lastModelTurnResult: result,
+		voiceTranscriptSubmission: context.voiceTranscriptSubmission,
+		speechDeliveryControlSequence,
+		speechDeliveryControlRequest: speech
+			? createSpeechDeliveryControlRequest(
+					speech,
+					speechDeliveryControlSequence,
+				)
+			: context.speechDeliveryControlRequest,
+		pendingCompletion: null,
+		lastTurnTerminal: terminal,
+		childLifecycles: speech
+			? { ...childLifecycles, speechDelivery: null }
+			: childLifecycles,
+	};
+};
+
 export const voiceWorkbenchSessionMachine = setup({
 	types: {
 		context: {} as VoiceWorkbenchSession,
 		events: {} as VoiceWorkbenchSessionEvent,
+		input: {} as VoiceWorkbenchSessionInput | undefined,
+	},
+	actors: {
+		modelTurn: modelTurnMachine,
+		voiceCapture: voiceCaptureMachine,
+		speechDelivery: speechDeliveryMachine,
 	},
 	actions: {
+		requestModelPreparation: assign(({ context }) => {
+			const sequence = context.modelPreparationSequence + 1;
+			return {
+				...context,
+				modelPreparationSequence: sequence,
+				portRequests: {
+					...context.portRequests,
+					modelPreparation: { type: "prepare-model", sequence },
+				},
+			};
+		}),
+		clearModelPreparationRequest: assign(({ context }) => ({
+			...context,
+			portRequests: { ...context.portRequests, modelPreparation: null },
+		})),
+		recordModelPreparationFailure: assign(({ context, event }) =>
+			event.type === "MODEL_PREPARATION_PORT_RECEIVED" &&
+			event.receipt.type === "failed"
+				? { ...context, modelFailure: event.receipt.failure }
+				: context,
+		),
+		clearModelTurnPortRequest: assign(({ context }) => ({
+			...context,
+			portRequests: { ...context.portRequests, modelTurn: null },
+		})),
+		forwardModelTurnReceipt: sendTo("model-turn", ({ event }) => {
+			if (event.type !== "MODEL_TURN_PORT_RECEIVED") {
+				throw new Error("Expected a model-turn port receipt.");
+			}
+			return event.receipt;
+		}),
+		forwardModelTurnTimeout: sendTo("model-turn", ({ event }) => {
+			if (event.type !== "MODEL_TURN_TIMEOUT_REQUESTED") {
+				throw new Error("Expected a model-turn timeout request.");
+			}
+			return { type: "TIMEOUT", turnId: event.turnId };
+		}),
+		forwardModelTurnCancellation: sendTo("model-turn", ({ event }) => {
+			if (event.type !== "MODEL_TURN_CANCEL_REQUESTED") {
+				throw new Error("Expected a model-turn cancellation request.");
+			}
+			return { type: "CANCEL", turnId: event.turnId };
+		}),
+		forwardVoiceCaptureReceipt: sendTo("voice-capture", ({ event }) => {
+			if (event.type !== "VOICE_CAPTURE_PORT_RECEIVED") {
+				throw new Error("Expected a voice-capture port receipt.");
+			}
+			return event.receipt;
+		}),
+		forwardSpeechDeliveryReceipt: sendTo("speech-delivery", ({ event }) => {
+			if (event.type !== "SPEECH_DELIVERY_PORT_RECEIVED") {
+				throw new Error("Expected a speech-delivery port receipt.");
+			}
+			return event.receipt;
+		}),
+		startVoiceCapture: sendTo("voice-capture", { type: "START" }),
+		cancelVoiceCapture: sendTo("voice-capture", { type: "CANCEL" }),
+		consumeVoiceTranscript: sendTo("voice-capture", ({ context }) => ({
+			type: "CONSUME",
+			attemptId:
+				selectVoiceTranscriptCandidate(context)?.attemptId ?? "missing-attempt",
+		})),
 		applyTransition: assign(({ context, event }) => {
 			if (!isConversationAction(event)) return context;
 			return applyConversationTransition(context, event);
 		}),
-		requestVoiceCaptureControl: assign(({ context, event }) => {
-			if (
-				event.type !== "VOICE_CAPTURE_START_REQUESTED" &&
-				event.type !== "VOICE_CAPTURE_CANCEL_REQUESTED" &&
-				event.type !== "VOICE_TRANSCRIPT_SUBMIT_REQUESTED"
-			) {
-				return context;
-			}
-			const sequence = context.voiceCaptureControlSequence + 1;
-			if (event.type === "VOICE_TRANSCRIPT_SUBMIT_REQUESTED") {
-				const candidate = selectVoiceTranscriptCandidate(context);
-				if (!candidate) return context;
-				return {
-					...context,
-					voiceCaptureControlSequence: sequence,
-					voiceCaptureControlRequest: {
-						action: "consume",
-						attemptId: candidate.attemptId,
-						candidateText: candidate.text,
-						sequence,
-					},
-				};
-			}
-			return {
-				...context,
-				voiceCaptureControlSequence: sequence,
-				voiceCaptureControlRequest: {
-					action:
-						event.type === "VOICE_CAPTURE_START_REQUESTED" ? "start" : "cancel",
-					sequence,
-				},
-			};
-		}),
-		applyConsumedVoiceTranscript: assign(({ context, event }) => {
-			const action = voiceTranscriptConsumptionAction(context, event);
-			if (!action) return context;
-			const next = applyConversationTransition(context, action);
-			return {
-				...next,
-				voiceCaptureControlRequest: null,
-			};
-		}),
-		clearPendingVoiceConsume: assign({
-			voiceCaptureControlRequest: ({ context }) =>
-				context.voiceCaptureControlRequest?.action === "consume"
-					? null
-					: context.voiceCaptureControlRequest,
+		stageVoiceTranscriptSubmission: assign(({ context, event }) => ({
+			...context,
+			voiceTranscriptSubmission:
+				event.type === "VOICE_TRANSCRIPT_SUBMIT_REQUESTED"
+					? selectVoiceTranscriptCandidate(context)
+					: context.voiceTranscriptSubmission,
+		})),
+		clearVoiceTranscriptSubmission: assign({
+			voiceTranscriptSubmission: () => null,
 		}),
 		requestSpeechDeliveryReplay: assign(({ context, event }) => {
 			if (event.type !== "SPEECH_DELIVERY_REPLAY_REQUESTED") return context;
@@ -1218,43 +982,6 @@ export const voiceWorkbenchSessionMachine = setup({
 				},
 			};
 		}),
-		commitCompletedTurn: assign(({ context, event }) => {
-			if (event.type !== "TURN_COMPLETED" || !context.pendingCompletion) {
-				return context;
-			}
-			const result = reduceConversationSession(context, {
-				type: "COMPLETE_RESPONSE",
-				input: context.pendingCompletion,
-			});
-			if (!result.accepted) {
-				return { ...context, pendingCompletion: null };
-			}
-			const speech = result.session.speech;
-			const speechDeliveryControlSequence = speech
-				? context.speechDeliveryControlSequence + 1
-				: context.speechDeliveryControlSequence;
-			return {
-				...result.session,
-				modelFailure: context.modelFailure,
-				presentation: context.presentation,
-				activeTurnId: context.activeTurnId,
-				modelTurnControlRequest: context.modelTurnControlRequest,
-				voiceCaptureControlSequence: context.voiceCaptureControlSequence,
-				voiceCaptureControlRequest: context.voiceCaptureControlRequest,
-				speechDeliveryControlSequence,
-				speechDeliveryControlRequest: speech
-					? createSpeechDeliveryControlRequest(
-							speech,
-							speechDeliveryControlSequence,
-						)
-					: context.speechDeliveryControlRequest,
-				pendingCompletion: null,
-				lastTurnTerminal: event,
-				childLifecycles: speech
-					? { ...context.childLifecycles, speechDelivery: null }
-					: context.childLifecycles,
-			};
-		}),
 		discardPendingCompletion: assign({ pendingCompletion: () => null }),
 		applyPresentationUpdate: assign(({ context, event }) => {
 			if (event.type !== "PRESENTATION_UPDATED") return context;
@@ -1269,72 +996,21 @@ export const voiceWorkbenchSessionMachine = setup({
 		applyPrivateEvent: assign(({ context, event }) => {
 			if (
 				isConversationAction(event) ||
-				isTurnTerminalEvent(event) ||
 				isVoiceCaptureIntentEvent(event) ||
 				event.type === "SPEECH_DELIVERY_REPLAY_REQUESTED" ||
 				event.type === "MODEL_PREPARATION_STARTED" ||
-				event.type === "MODEL_AVAILABLE" ||
-				event.type === "MODEL_FAILED" ||
+				event.type === "MODEL_PREPARATION_PORT_RECEIVED" ||
+				event.type === "MODEL_TURN_PORT_RECEIVED" ||
+				event.type === "VOICE_CAPTURE_PORT_RECEIVED" ||
+				event.type === "SPEECH_DELIVERY_PORT_RECEIVED" ||
+				event.type === "MODEL_TURN_TIMEOUT_REQUESTED" ||
+				event.type === "MODEL_TURN_CANCEL_REQUESTED" ||
 				event.type === "PRESENTATION_UPDATED"
 			) {
 				return context;
 			}
 			if (!acceptsTurnReadModelEvent(context, event)) return context;
 			switch (event.type) {
-				case "MODEL_TURN_LIFECYCLE_UPDATED": {
-					if (!acceptsModelTurnLifecycle(context, event.lifecycle)) {
-						return context;
-					}
-					return {
-						...context,
-						childLifecycles: {
-							...context.childLifecycles,
-							modelTurn: event.lifecycle,
-						},
-					};
-				}
-				case "VOICE_CAPTURE_LIFECYCLE_UPDATED": {
-					const lifecycle = canonicalizeVoiceCaptureLifecycle(event.lifecycle);
-					const current = context.childLifecycles.voiceCapture;
-					if (!acceptsVoiceCaptureLifecycle(current, lifecycle)) {
-						return context;
-					}
-					const startWasAccepted =
-						context.voiceCaptureControlRequest?.action === "start" &&
-						current !== null &&
-						lifecycle.sequence > current.sequence;
-					return {
-						...context,
-						voiceCaptureControlRequest: startWasAccepted
-							? null
-							: context.voiceCaptureControlRequest,
-						childLifecycles: {
-							...context.childLifecycles,
-							voiceCapture: lifecycle,
-						},
-					};
-				}
-				case "SPEECH_DELIVERY_LIFECYCLE_UPDATED": {
-					const disposition = speechDeliveryLifecycleDisposition(
-						context.speechDeliveryControlRequest,
-						context.childLifecycles.speechDelivery,
-						event.lifecycle,
-					);
-					if (disposition !== "advance") {
-						return context;
-					}
-					return {
-						...context,
-						speechDeliveryControlRequest:
-							event.lifecycle.terminal || event.lifecycle.state === "disposed"
-								? null
-								: context.speechDeliveryControlRequest,
-						childLifecycles: {
-							...context.childLifecycles,
-							speechDelivery: event.lifecycle,
-						},
-					};
-				}
 				default: {
 					const envelope = privatePresentationEnvelope(event);
 					return {
@@ -1346,69 +1022,30 @@ export const voiceWorkbenchSessionMachine = setup({
 				}
 			}
 		}),
-		requestModelTurnInterruption: assign(({ context, event }) => {
-			if (
-				!context.activeTurnId ||
-				(event.type !== "MODEL_PREPARATION_STARTED" &&
-					event.type !== "MODEL_FAILED")
-			) {
-				return context;
-			}
-			return {
-				...context,
-				modelTurnControlRequest: {
-					action: "cancel",
-					turnId: context.activeTurnId,
-					sequence: (context.modelTurnControlRequest?.sequence ?? 0) + 1,
-				},
-			};
-		}),
 		clearActiveTurn: assign({ activeTurnId: () => null }),
-		recordTurnTerminal: assign(({ context, event }) =>
-			isTurnTerminalEvent(event)
-				? { ...context, lastTurnTerminal: event }
-				: context,
-		),
 		clearModelFailure: assign({ modelFailure: () => null }),
-		recordModelFailure: assign({
-			modelFailure: ({ event }) =>
-				event.type === "MODEL_FAILED" ? event.failure : null,
-		}),
-		recordActiveTurnModelFailure: assign(({ context, event }) => {
-			if (event.type !== "MODEL_FAILED") return context;
-			const currentTurn = context.presentation.turn;
-			const failureTurn: WorkbenchTurnFact =
-				currentTurn?.type === "model-failed"
-					? currentTurn
-					: {
-							type: "model-failed",
-							failureKind: event.failure.kind,
-							message: event.failure.message,
-							trace: [],
-						};
-			return {
-				...context,
-				modelFailure: event.failure,
-				presentation: reduceWorkbenchPresentation(context.presentation, {
-					channel: "read-model",
-					update: { type: "turn-recorded", fact: failureTurn },
-				}),
-			};
-		}),
 	},
 	guards: {
+		parentPortEventAccepted: ({ context, event }) =>
+			(event.type === "MODEL_PREPARATION_PORT_RECEIVED" ||
+				event.type === "MODEL_TURN_PORT_RECEIVED" ||
+				event.type === "VOICE_CAPTURE_PORT_RECEIVED" ||
+				event.type === "SPEECH_DELIVERY_PORT_RECEIVED" ||
+				event.type === "MODEL_TURN_TIMEOUT_REQUESTED" ||
+				event.type === "MODEL_TURN_CANCEL_REQUESTED") &&
+			acceptsParentPortEvent(context, event),
+		voicePromptReady: ({ context }) =>
+			context.activeTurnId !== null &&
+			context.lastFact?.type === "prompt-submitted" &&
+			context.lastFact.turnId === context.activeTurnId,
+		hasPendingSpeechDelivery: ({ context }) =>
+			context.speechDeliveryControlRequest !== null,
 		transitionAccepted: ({ context, event }) =>
 			isConversationAction(event) &&
 			reduceConversationSession(context, event).accepted,
 		voiceCaptureStartAccepted: ({ context, event }) =>
 			event.type === "VOICE_CAPTURE_START_REQUESTED" &&
 			canStartVoiceCapture(context.childLifecycles.voiceCapture),
-		voiceTranscriptConsumptionAccepted: ({ context, event }) => {
-			const action = voiceTranscriptConsumptionAction(context, event);
-			return Boolean(
-				action && reduceConversationSession(context, action).accepted,
-			);
-		},
 		voiceTranscriptCandidateAccepted: ({ context, event }) => {
 			if (event.type !== "VOICE_TRANSCRIPT_SUBMIT_REQUESTED") return false;
 			const candidate = selectVoiceTranscriptCandidate(context);
@@ -1420,12 +1057,6 @@ export const voiceWorkbenchSessionMachine = setup({
 					}).accepted,
 			);
 		},
-		terminalMatchesActiveTurn: ({ context, event }) =>
-			isTurnTerminalEvent(event) && event.turnId === context.activeTurnId,
-		completedTurnIsReady: ({ context, event }) =>
-			event.type === "TURN_COMPLETED" &&
-			event.turnId === context.activeTurnId &&
-			context.pendingCompletion !== null,
 		completionCanStage: ({ context, event }) =>
 			event.type === "COMPLETE_RESPONSE" &&
 			context.pendingCompletion === null &&
@@ -1434,14 +1065,24 @@ export const voiceWorkbenchSessionMachine = setup({
 }).createMachine({
 	id: "conversation-session",
 	initial: "preparing",
-	context: () => ({
+	context: ({ input }) => ({
 		...createInitialSession("voice-workbench"),
 		modelFailure: null,
 		presentation: createInitialPresentation(),
+		hostCapabilities: {
+			voiceSupported: input?.voiceSupported ?? true,
+			speechSupported: input?.speechSupported ?? true,
+		},
+		modelPreparationSequence: 1,
+		portRequests: {
+			modelPreparation: { type: "prepare-model", sequence: 1 },
+			modelTurn: null,
+			voiceCapture: null,
+			speechDelivery: null,
+		},
 		activeTurnId: null,
-		modelTurnControlRequest: null,
-		voiceCaptureControlSequence: 0,
-		voiceCaptureControlRequest: null,
+		lastModelTurnResult: null,
+		voiceTranscriptSubmission: null,
 		speechDeliveryControlSequence: 0,
 		speechDeliveryControlRequest: null,
 		pendingCompletion: null,
@@ -1454,136 +1095,311 @@ export const voiceWorkbenchSessionMachine = setup({
 	}),
 	on: {
 		ACKNOWLEDGE_SPEECH: { actions: "applyTransition" },
-		SPEECH_DELIVERY_REPLAY_REQUESTED: {
-			actions: "requestSpeechDeliveryReplay",
-		},
 		PRESENTATION_UPDATED: { actions: "applyPresentationUpdate" },
 		DOCUMENT_COMMITTED: { actions: "applyPrivateEvent" },
 		CAPABILITY_OUTCOME_RECORDED: { actions: "applyPrivateEvent" },
 		DOMAIN_POLICY_RECORDED: { actions: "applyPrivateEvent" },
 		RUNTIME_MANIFEST_RECORDED: { actions: "applyPrivateEvent" },
 		TURN_RECORDED: { actions: "applyPrivateEvent" },
-		MODEL_TURN_LIFECYCLE_UPDATED: { actions: "applyPrivateEvent" },
-		VOICE_CAPTURE_LIFECYCLE_UPDATED: { actions: "applyPrivateEvent" },
-		SPEECH_DELIVERY_LIFECYCLE_UPDATED: { actions: "applyPrivateEvent" },
+		MODEL_TURN_PORT_RECEIVED: {
+			guard: "parentPortEventAccepted",
+			actions: "forwardModelTurnReceipt",
+		},
+		VOICE_CAPTURE_PORT_RECEIVED: {
+			guard: "parentPortEventAccepted",
+			actions: "forwardVoiceCaptureReceipt",
+		},
+		SPEECH_DELIVERY_PORT_RECEIVED: {
+			guard: "parentPortEventAccepted",
+			actions: "forwardSpeechDeliveryReceipt",
+		},
+		MODEL_TURN_TIMEOUT_REQUESTED: {
+			guard: "parentPortEventAccepted",
+			actions: "forwardModelTurnTimeout",
+		},
+		MODEL_TURN_CANCEL_REQUESTED: {
+			guard: "parentPortEventAccepted",
+			actions: "forwardModelTurnCancellation",
+		},
 	},
 	states: {
 		preparing: {
 			on: {
-				MODEL_AVAILABLE: {
-					target: "available",
-					actions: "clearModelFailure",
-				},
-				MODEL_FAILED: {
-					target: "unavailable",
-					actions: "recordModelFailure",
-				},
+				MODEL_PREPARATION_PORT_RECEIVED: [
+					{
+						guard: ({ context, event }) =>
+							event.receipt.type === "available" &&
+							acceptsParentPortEvent(context, event),
+						target: "available",
+						actions: [
+							"clearModelFailure",
+							"clearModelPreparationRequest",
+						],
+					},
+					{
+						guard: ({ context, event }) =>
+							event.receipt.type === "failed" &&
+							acceptsParentPortEvent(context, event),
+						target: "unavailable",
+						actions: [
+							"recordModelPreparationFailure",
+							"clearModelPreparationRequest",
+						],
+					},
+				],
 			},
 		},
 		unavailable: {
-			on: {
+				on: {
 				MODEL_PREPARATION_STARTED: {
 					target: "preparing",
-					actions: "clearModelFailure",
-				},
-				MODEL_AVAILABLE: {
-					target: "available",
-					actions: "clearModelFailure",
+					actions: ["clearModelFailure", "requestModelPreparation"],
 				},
 			},
 		},
 		available: {
-			initial: "idle",
+			type: "parallel",
 			on: {
 				SET_CHECKLIST_ITEM: { actions: "applyTransition" },
 				MODEL_PREPARATION_STARTED: {
 					target: "#conversation-session.preparing",
 					actions: [
 						"clearModelFailure",
+						"requestModelPreparation",
 						"discardPendingCompletion",
-						"clearPendingVoiceConsume",
+						"clearVoiceTranscriptSubmission",
 					],
-				},
-				MODEL_FAILED: {
-					target: "#conversation-session.unavailable",
-					actions: ["recordModelFailure", "clearPendingVoiceConsume"],
 				},
 			},
 			states: {
-				idle: {
-					on: {
-						RESTORE_ARTIFACT_REVISION: { actions: "applyTransition" },
-						SELECT_ARTIFACT: { actions: "applyTransition" },
-						VOICE_CAPTURE_START_REQUESTED: {
-							guard: "voiceCaptureStartAccepted",
-							actions: "requestVoiceCaptureControl",
-						},
-						VOICE_CAPTURE_CANCEL_REQUESTED: {
-							actions: "requestVoiceCaptureControl",
-						},
-						VOICE_TRANSCRIPT_SUBMIT_REQUESTED: {
-							guard: "voiceTranscriptCandidateAccepted",
-							actions: "requestVoiceCaptureControl",
-						},
-						VOICE_TRANSCRIPT_CONSUMED: {
-							guard: "voiceTranscriptConsumptionAccepted",
-							target: "responding",
-							actions: "applyConsumedVoiceTranscript",
-						},
-						SUBMIT_PROMPT: [
-							{
-								guard: "transitionAccepted",
+				turn: {
+					initial: "idle",
+					states: {
+						idle: {
+							always: {
+								guard: "voicePromptReady",
 								target: "responding",
-								actions: "applyTransition",
 							},
-							{ actions: "applyTransition" },
-						],
+							on: {
+								RESTORE_ARTIFACT_REVISION: { actions: "applyTransition" },
+								SELECT_ARTIFACT: { actions: "applyTransition" },
+								VOICE_CAPTURE_START_REQUESTED: {
+									guard: "voiceCaptureStartAccepted",
+									actions: "startVoiceCapture",
+								},
+								VOICE_CAPTURE_CANCEL_REQUESTED: {
+									actions: "cancelVoiceCapture",
+								},
+								VOICE_TRANSCRIPT_SUBMIT_REQUESTED: {
+									guard: "voiceTranscriptCandidateAccepted",
+									actions: [
+										"stageVoiceTranscriptSubmission",
+										"consumeVoiceTranscript",
+									],
+								},
+								SUBMIT_PROMPT: [
+									{
+										guard: "transitionAccepted",
+										target: "responding",
+										actions: "applyTransition",
+									},
+									{ actions: "applyTransition" },
+								],
+							},
+						},
+						responding: {
+							exit: ["clearModelTurnPortRequest", "clearActiveTurn"],
+							invoke: {
+								id: "model-turn",
+								src: "modelTurn",
+								input: ({ context }) => selectActiveModelTurnInput(context),
+								onSnapshot: {
+									actions: assign(({ context, event }) => ({
+										...context,
+										portRequests: {
+											...context.portRequests,
+											modelTurn: projectModelTurnPortRequest(event.snapshot),
+										},
+										childLifecycles: {
+											...context.childLifecycles,
+											modelTurn: projectModelTurnLifecycle(event.snapshot),
+										},
+									})),
+								},
+								onDone: {
+									target: "idle",
+									actions: assign(({ context, event }) =>
+										applyModelTurnTerminal(
+											context,
+											event.output.terminal,
+											event.output.result,
+										),
+									),
+								},
+							},
+							on: {
+								CREATE_ARTIFACT: { actions: "applyTransition" },
+								REVISE_ARTIFACT: { actions: "applyTransition" },
+								COMPLETE_RESPONSE: [
+									{
+										guard: "completionCanStage",
+										actions: "stageCompletion",
+									},
+									{ actions: "rejectCompletion" },
+								],
+							},
+						},
 					},
 				},
-				responding: {
-					exit: ["requestModelTurnInterruption", "clearActiveTurn"],
-					on: {
-						MODEL_FAILED: {
-							target: "#conversation-session.unavailable",
-							actions: [
-								"recordActiveTurnModelFailure",
-								"discardPendingCompletion",
-								"clearPendingVoiceConsume",
-							],
-						},
-						CREATE_ARTIFACT: { actions: "applyTransition" },
-						REVISE_ARTIFACT: { actions: "applyTransition" },
-						COMPLETE_RESPONSE: [
-							{
-								guard: "completionCanStage",
-								actions: "stageCompletion",
+				voice: {
+					initial: "active",
+					states: {
+						active: {
+							invoke: {
+								id: "voice-capture",
+								src: "voiceCapture",
+								input: ({ context }) => ({
+									supported: context.hostCapabilities.voiceSupported,
+								}),
+								onSnapshot: {
+									actions: assign(({ context, event }) => {
+										const lifecycle = projectVoiceCaptureLifecycle(
+											event.snapshot,
+										);
+										const submission = context.voiceTranscriptSubmission;
+										let next: VoiceWorkbenchSession = {
+											...context,
+											portRequests: {
+												...context.portRequests,
+												voiceCapture: projectVoiceCapturePortRequest(
+													event.snapshot,
+												),
+											},
+											childLifecycles: {
+												...context.childLifecycles,
+												voiceCapture: lifecycle,
+											},
+										};
+										if (
+											event.snapshot.value === "consumed" &&
+											submission !== null &&
+											submission.attemptId === event.snapshot.context.attemptId &&
+											submission.text === event.snapshot.context.transcript.trim()
+										) {
+											next = applyConversationTransition(next, {
+												type: "SUBMIT_PROMPT",
+												input: {
+													modality: "speech",
+													text: submission.text,
+												},
+											});
+											next = { ...next, voiceTranscriptSubmission: null };
+										}
+										return next;
+									}),
+								},
 							},
-							{ actions: "rejectCompletion" },
-						],
-						TURN_COMPLETED: {
-							guard: "completedTurnIsReady",
-							target: "idle",
-							actions: "commitCompletedTurn",
 						},
-						TURN_FAILED: {
-							guard: "terminalMatchesActiveTurn",
-							target: "idle",
-							actions: ["recordTurnTerminal", "discardPendingCompletion"],
+					},
+				},
+				speech: {
+					initial: "idle",
+					states: {
+						idle: {
+							always: {
+								guard: "hasPendingSpeechDelivery",
+								target: "delivering",
+							},
+							on: {
+								SPEECH_DELIVERY_REPLAY_REQUESTED: {
+									target: "delivering",
+									actions: "requestSpeechDeliveryReplay",
+								},
+							},
 						},
-						CANCELLED: {
-							guard: "terminalMatchesActiveTurn",
-							target: "idle",
-							actions: ["recordTurnTerminal", "discardPendingCompletion"],
-						},
-						TIMEOUT: {
-							guard: "terminalMatchesActiveTurn",
-							target: "idle",
-							actions: ["recordTurnTerminal", "discardPendingCompletion"],
-						},
-						ROUND_LIMIT_REACHED: {
-							guard: "terminalMatchesActiveTurn",
-							target: "idle",
-							actions: ["recordTurnTerminal", "discardPendingCompletion"],
+						delivering: {
+							invoke: {
+								id: "speech-delivery",
+								src: "speechDelivery",
+								input: ({ context }) => {
+									const request = context.speechDeliveryControlRequest;
+									if (!request) {
+										throw new Error(
+											"Speech delivery requires an actor-owned request.",
+										);
+									}
+									return {
+										id: request.id,
+										text: request.text,
+										attemptId: request.attemptId,
+										requestSequence: request.sequence,
+										supported: context.hostCapabilities.speechSupported,
+										muted: !context.presentation.speakResponses,
+									};
+								},
+								onSnapshot: {
+									actions: assign(({ context, event }) => ({
+										...context,
+										portRequests: {
+											...context.portRequests,
+											speechDelivery:
+												projectSpeechDeliveryPortRequest(event.snapshot),
+										},
+										childLifecycles: {
+											...context.childLifecycles,
+											speechDelivery:
+												projectSpeechDeliveryLifecycle(event.snapshot),
+										},
+									})),
+								},
+								onDone: {
+									target: "idle",
+									actions: assign(({ context, event }) => {
+										const speech = context.speech;
+										const terminal = event.output.terminal;
+										const lifecycle = context.childLifecycles.speechDelivery;
+										const acknowledged =
+											speech?.status === "pending"
+												? reduceConversationSession(context, {
+														type: "ACKNOWLEDGE_SPEECH",
+														input: { id: speech.id },
+													}).session
+												: context;
+										return {
+											...context,
+											...acknowledged,
+											hostCapabilities: context.hostCapabilities,
+											modelFailure: context.modelFailure,
+											presentation: context.presentation,
+											modelPreparationSequence:
+												context.modelPreparationSequence,
+											portRequests: {
+												...context.portRequests,
+												speechDelivery: null,
+											},
+											childLifecycles: {
+												...context.childLifecycles,
+												speechDelivery: lifecycle
+													? {
+															...lifecycle,
+															state: speechDeliveryStateFromTerminal(terminal),
+															fact: terminal,
+															terminal,
+														}
+													: null,
+											},
+											speechDeliveryControlRequest: null,
+										};
+									}),
+								},
+							},
+							on: {
+								SPEECH_DELIVERY_REPLAY_REQUESTED: {
+									target: "delivering",
+									reenter: true,
+									actions: "requestSpeechDeliveryReplay",
+								},
+							},
 						},
 					},
 				},
@@ -1598,1253 +1414,16 @@ export type VoiceWorkbenchSessionSnapshot = SnapshotFrom<
 
 export const voiceWorkbenchSessionInvariants = {
 	respondingRequiresAvailable: (snapshot: VoiceWorkbenchSessionSnapshot) =>
-		!snapshot.matches({ available: "responding" }) ||
+		!snapshot.matches({ available: { turn: "responding" } }) ||
 		snapshot.matches("available"),
 	hasNoKnownForbiddenState: (snapshot: VoiceWorkbenchSessionSnapshot) =>
 		!isVoiceWorkbenchKnownForbiddenStateValue(snapshot.value),
 } as const;
 
-export const createVoiceWorkbenchSessionActor = () =>
-	createActor(voiceWorkbenchSessionMachine);
+export const createVoiceWorkbenchSessionActor = (
+	input: VoiceWorkbenchSessionInput = {},
+) => createActor(voiceWorkbenchSessionMachine, { input });
 
 export type VoiceWorkbenchSessionActor = ReturnType<
 	typeof createVoiceWorkbenchSessionActor
 >;
-
-export const source = createVoiceWorkbenchSessionActor().start();
-
-/** Example-private adapter/read-model ports. These are intentionally absent from getSchema(). */
-export const reportModelAvailable = (): void =>
-	source.send({ type: "MODEL_AVAILABLE" });
-
-export const reportModelFailure = (failure: ModelFailureFact): void =>
-	source.send({ type: "MODEL_FAILED", failure });
-
-export const commitDocument = (
-	document: NonNullable<WorkbenchPresentation["documentCommit"]>,
-): void => source.send({ type: "DOCUMENT_COMMITTED", document });
-
-export const recordCapabilityOutcome = (
-	outcome: WorkbenchCapabilityOutcome,
-	correlation?: ModelTurnCorrelation,
-): void =>
-	source.send({
-		type: "CAPABILITY_OUTCOME_RECORDED",
-		outcome,
-		...correlation,
-	});
-
-export const recordDomainPolicyDecision = (
-	decision: DomainPolicyDecision,
-	correlation?: ModelTurnCorrelation,
-): void =>
-	source.send({ type: "DOMAIN_POLICY_RECORDED", decision, ...correlation });
-
-export const recordRuntimeManifest = (
-	manifest: readonly WorkbenchRuntimeManifestEntry[],
-	correlation?: ModelTurnCorrelation,
-): void =>
-	source.send({ type: "RUNTIME_MANIFEST_RECORDED", manifest, ...correlation });
-
-export const recordTurn = (
-	fact: WorkbenchTurnFact,
-	correlation?: ModelTurnCorrelation,
-): void => source.send({ type: "TURN_RECORDED", fact, ...correlation });
-
-export const recordModelTurnLifecycle = (
-	lifecycle: ModelTurnLifecycleProjection,
-): void => source.send({ type: "MODEL_TURN_LIFECYCLE_UPDATED", lifecycle });
-
-export const recordVoiceCaptureLifecycle = (
-	lifecycle: VoiceCaptureLifecycleProjection,
-): void => source.send({ type: "VOICE_CAPTURE_LIFECYCLE_UPDATED", lifecycle });
-
-export const recordVoiceTranscriptConsumed = (
-	fact: VoiceTranscriptConsumedFact,
-): void => source.send({ type: "VOICE_TRANSCRIPT_CONSUMED", ...fact });
-
-export const recordSpeechDeliveryLifecycle = (
-	lifecycle: SpeechDeliveryLifecycleProjection,
-): void =>
-	source.send({ type: "SPEECH_DELIVERY_LIFECYCLE_UPDATED", lifecycle });
-
-export const recordTurnTerminal = (
-	event: VoiceWorkbenchTurnTerminalEvent,
-): void => source.send(event);
-
-const PRODUCT_PRICE_REASON_LABELS: Record<ProductPriceReasonCode, string> = {
-	"candidate-ambiguous": "Candidate selection ambiguous",
-	"candidate-low-confidence": "Candidate needs clarification",
-	"product-not-found": "Product not found",
-	"offer-unavailable": "Current offer unavailable",
-	"provider-response-invalid": "Provider response invalid",
-	"provider-unavailable": "Pricing provider unavailable",
-};
-
-const readableArtifactTitle = (
-	title: string | undefined,
-	id: string,
-): string => {
-	const value = title?.trim() || id.trim();
-	if (!/[-_]/.test(value)) return value;
-	return value
-		.split(/[-_]+/)
-		.filter(Boolean)
-		.map((part) => {
-			if (part.toLowerCase() === "wholefoods") return "Whole Foods";
-			return `${part.charAt(0).toUpperCase()}${part.slice(1).toLowerCase()}`;
-		})
-		.join(" ");
-};
-
-const tableCellView = (value: unknown, columnLabel: string) => {
-	if (typeof value === "string" && value.trim()) {
-		const text = value.trim();
-		try {
-			const url = new URL(text);
-			if (url.protocol === "https:" || url.protocol === "http:") {
-				const hostname = url.hostname.replace(/^www\./, "");
-				return {
-					text: hostname,
-					link: {
-						href: url.href,
-						ariaLabel: `Source: ${hostname}`,
-					},
-				};
-			}
-		} catch {
-			// Ordinary text cells are not links.
-		}
-		if (text.toLowerCase() === "unverified") {
-			return { text: "Unverified", tone: "warning" as const };
-		}
-		if (text.toLowerCase() === "sourced") {
-			return { text: "Verified", tone: "success" as const };
-		}
-		return { text };
-	}
-	if (typeof value === "number" || typeof value === "boolean") {
-		return { text: String(value) };
-	}
-	const column = columnLabel.trim().toLowerCase();
-	const text =
-		column === "price"
-			? "Price unavailable"
-			: column === "source"
-				? "No source"
-				: column === "product"
-					? "No product matched"
-					: "—";
-	return { text, tone: "muted" as const };
-};
-
-type WorkbenchResultQuality = {
-	tone: "success" | "warning" | "needs-input";
-	statusLabel: string;
-	heading: string;
-	summary: string;
-	metrics: readonly {
-		key: "requested" | "matched" | "verified";
-		label: string;
-		value: number;
-	}[];
-	issueRows: readonly { key: string; subject: string; label: string }[];
-	nextActions: readonly string[];
-};
-
-const productPricingResultQuality = (
-	policy: DomainPolicyDecision | null,
-	outcomes: readonly WorkbenchCapabilityOutcome[],
-): WorkbenchResultQuality | null => {
-	if (policy?.domainId !== "product-pricing") return null;
-	if (policy.outcome === "needs-input") {
-		return {
-			tone: "needs-input",
-			statusLabel: "Needs input",
-			heading: "Pricing needs clarification",
-			summary: policy.summary,
-			metrics: [],
-			issueRows: [],
-			nextActions: ["Answer the clarification questions to continue pricing."],
-		};
-	}
-	if (policy.outcome === "rejected") {
-		return {
-			tone: "warning",
-			statusLabel: "Request rejected",
-			heading: "Pricing request needs revision",
-			summary: policy.summary,
-			metrics: [],
-			issueRows: [],
-			nextActions: ["Revise the request before continuing pricing."],
-		};
-	}
-	const outcome = [...outcomes]
-		.reverse()
-		.find(
-			(candidate) =>
-				candidate.ownerId === "product-pricing-price" &&
-				candidate.toolName === "priceProducts",
-		);
-	if (!outcome) return null;
-	const rows = outcome.pricingRows ?? [];
-	if (rows.length === 0) {
-		return {
-			tone: "warning",
-			statusLabel: "Partial result",
-			heading: "Pricing results unavailable",
-			summary: "No item-level pricing results were returned.",
-			metrics: [],
-			issueRows: [],
-			nextActions: ["Retry pricing when the provider is available."],
-		};
-	}
-	const requested = rows.length;
-	const matched = rows.filter((row) => row.product && row.size).length;
-	const verified = rows.filter((row) => row.priceStatus === "sourced").length;
-	const issueRows = rows.flatMap((row, index) =>
-		row.priceStatus === "unverified"
-			? [
-					{
-						key: `${row.subject}-${index}`,
-						subject: row.subject,
-						label: PRODUCT_PRICE_REASON_LABELS[row.reasonCode],
-					},
-				]
-			: [],
-	);
-	const clarificationSubjects = rows
-		.filter(
-			(row) =>
-				row.priceStatus === "unverified" &&
-				(row.reasonCode === "candidate-ambiguous" ||
-					row.reasonCode === "candidate-low-confidence" ||
-					row.reasonCode === "product-not-found"),
-		)
-		.map((row) => row.subject);
-	const hasUnavailableOffer = rows.some(
-		(row) =>
-			row.priceStatus === "unverified" &&
-			row.reasonCode === "offer-unavailable",
-	);
-	const hasProviderIssue = rows.some(
-		(row) =>
-			row.priceStatus === "unverified" &&
-			(row.reasonCode === "provider-response-invalid" ||
-				row.reasonCode === "provider-unavailable"),
-	);
-	const complete = verified === requested;
-	const nextActions = complete
-		? ["Review verified prices before shopping."]
-		: [
-				clarificationSubjects.length > 0
-					? `Clarify brand, size, or variety for ${clarificationSubjects.join(", ")}.`
-					: null,
-				hasUnavailableOffer
-					? "Open matched product pages to confirm current availability and price."
-					: null,
-				hasProviderIssue
-					? "Retry pricing when the provider is available."
-					: null,
-			].filter((action): action is string => action !== null);
-	return {
-		tone: complete ? "success" : "warning",
-		statusLabel: complete ? "Complete result" : "Partial result",
-		heading: complete
-			? "Shopping list prices verified"
-			: verified === 0
-				? "Shopping list created; prices unavailable"
-				: "Shopping list created with partial pricing",
-		summary: `${requested} requested · ${matched} products matched · ${verified} prices verified`,
-		metrics: [
-			{ key: "requested", label: "requested", value: requested },
-			{ key: "matched", label: "matched", value: matched },
-			{ key: "verified", label: "verified", value: verified },
-		],
-		issueRows,
-		nextActions:
-			nextActions.length > 0
-				? nextActions
-				: ["Review unverified items before shopping."],
-	};
-};
-
-export const projectVoiceWorkbenchView = ({
-	snapshot,
-}: {
-	snapshot: VoiceWorkbenchSessionSnapshot;
-}) => {
-	const modelPreparing = snapshot.matches("preparing");
-	const modelFailed = snapshot.matches("unavailable");
-	const modelAvailable = snapshot.matches("available");
-	const responding = snapshot.matches({ available: "responding" });
-	const turnReady = snapshot.matches({ available: "idle" });
-	const status = modelPreparing
-		? "preparing"
-		: modelFailed
-			? "failed"
-			: responding
-				? "responding"
-				: "ready";
-	const artifacts = snapshot.context.documents.map((document) => ({
-		...document,
-		displayTitle: readableArtifactTitle(document.title, document.id),
-		nodes: document.nodes.map((node) => {
-			const payload = node.kind === "action" ? node.payload : null;
-			const speech =
-				typeof payload === "object" &&
-				payload !== null &&
-				!Array.isArray(payload) &&
-				typeof payload.speech === "string" &&
-				payload.speech.trim().length > 0
-					? payload.speech.trim()
-					: undefined;
-			const input =
-				node.kind === "action" &&
-				node.commandName === "completeResponse" &&
-				typeof payload === "object" &&
-				payload !== null &&
-				!Array.isArray(payload) &&
-				typeof payload.text === "string" &&
-				payload.text.trim().length > 0 &&
-				(payload.speech === undefined || speech !== undefined)
-					? {
-							text: payload.text.trim(),
-							...(speech ? { speech } : {}),
-						}
-					: null;
-			return {
-				...node,
-				action: input ? { enabled: responding, input } : null,
-				displayRows:
-					node.kind === "table"
-						? node.rows.map((row) => ({
-								id: row.id,
-								cells: row.cells.map((cell, index) =>
-									tableCellView(cell, node.columns[index]?.label ?? ""),
-								),
-							}))
-						: [],
-			};
-		}),
-	}));
-	const activeArtifact =
-		artifacts.find(
-			(artifact) => artifact.id === snapshot.context.activeArtifactId,
-		) ??
-		artifacts[artifacts.length - 1] ??
-		null;
-	const artifactSummaries = artifacts.map((artifact) => ({
-		id: artifact.id,
-		title: artifact.displayTitle,
-		revision: artifact.revision,
-		nodeCount: artifact.nodes.length,
-		active: artifact.id === activeArtifact?.id,
-	}));
-	const activeArtifactRevisions = activeArtifact
-		? snapshot.context.artifactRevisions
-				.filter((document) => document.id === activeArtifact.id)
-				.map((document) => ({
-					revision: document.revision,
-					title: readableArtifactTitle(document.title, document.id),
-					nodeCount: document.nodes.length,
-					current: document.revision === activeArtifact.revision,
-				}))
-		: [];
-	const canSetChecklistItem =
-		turnReady &&
-		artifacts.some((artifact) =>
-			artifact.nodes.some((node) => node.kind === "checklist"),
-		);
-	const turnCount = snapshot.context.messages.filter(
-		(message) => message.role === "user",
-	).length;
-	const presentation = snapshot.context.presentation;
-	const respondingProgress = describeRespondingProgress(
-		snapshot.context.lastFact,
-	);
-	const voiceLifecycle = snapshot.context.childLifecycles.voiceCapture;
-	const voice = voiceLifecycle?.fact ?? ({ type: "voice-idle" } as const);
-	const speechLifecycle = snapshot.context.childLifecycles.speechDelivery;
-	const speechDelivery = speechLifecycle?.fact ?? null;
-	const speechCommit: {
-		id: string;
-		text: string;
-		status: "played" | "muted" | "unavailable";
-	} | null = speechLifecycle
-		? speechLifecycle.fact?.type === "speech-delivery-completed"
-			? {
-					id: speechLifecycle.id,
-					text: speechLifecycle.text,
-					status: "played",
-				}
-			: speechLifecycle.fact?.type === "speech-delivery-muted"
-				? {
-						id: speechLifecycle.id,
-						text: speechLifecycle.text,
-						status: "muted",
-					}
-				: speechLifecycle.fact?.type === "speech-delivery-unavailable" ||
-						speechLifecycle.fact?.type === "speech-delivery-failed"
-					? {
-							id: speechLifecycle.id,
-							text: speechLifecycle.text,
-							status: "unavailable",
-						}
-					: null
-		: null;
-	const transcript = voice.type === "voice-transcript" ? voice.text : null;
-	const transcriptReady =
-		selectVoiceTranscriptCandidate(snapshot.context) !== null;
-	const voiceFailure =
-		voice.type === "voice-permission-denied" || voice.type === "voice-error"
-			? voice
-			: null;
-	const documentSchema = JSON.stringify(
-		activeArtifact
-			? {
-					id: activeArtifact.id,
-					title: activeArtifact.title,
-					revision: activeArtifact.revision,
-					nodes: activeArtifact.nodes.map((node) => {
-						const { action: _action, ...schemaNode } = node;
-						if ("displayRows" in schemaNode) {
-							const { displayRows: _displayRows, ...actorNode } = schemaNode;
-							return actorNode;
-						}
-						return schemaNode;
-					}),
-				}
-			: { artifacts: [] },
-		null,
-		2,
-	);
-	const providerState = modelPreparing
-		? "preparing"
-		: modelFailed
-			? "failed"
-			: "available";
-	const turnState = modelPreparing
-		? "preparing"
-		: modelFailed
-			? "unavailable"
-			: responding
-				? "responding"
-				: "idle";
-	const actorMatchText = modelPreparing
-		? 'matches("preparing")'
-		: modelFailed
-			? 'matches("unavailable")'
-			: `matches({\n  available: "${responding ? "responding" : "idle"}",\n})`;
-	const artifactLine = activeArtifact
-		? `${activeArtifact.displayTitle} · revision ${activeArtifact.revision}`
-		: "No accepted artifact yet";
-	let previewText: string;
-	switch (presentation.runtimePreview) {
-		case "browser":
-			previewText = `Browser JSX preview\n${artifactLine}\n${describeFact(snapshot.context.lastFact)}`;
-			break;
-		case "terminal":
-			previewText = `Terminal projection\nPreview only · no remote terminal sync\nstate: ${turnState}\n${artifactLine}`;
-			break;
-		case "speech":
-			previewText = `Speech projection\n${snapshot.context.response?.speech ?? snapshot.context.response?.text ?? "No response available for speech"}\nstatus: ${snapshot.context.speech?.status ?? "idle"}`;
-			break;
-		case "headless":
-			previewText = `Headless projection\n${JSON.stringify(
-				{
-					state: snapshot.value,
-					actorRevision: snapshot.context.revision,
-					activeArtifactId: snapshot.context.activeArtifactId,
-				},
-				null,
-				2,
-			)}`;
-			break;
-	}
-	const capabilityRows =
-		presentation.capabilityOutcomes.length === 0
-			? [
-					{
-						key: "empty-capability-row",
-						className: "capability-outcome capability-outcome-empty",
-						heading: "No external capability facts yet",
-						statusLabel: "waiting",
-						message: "Capability adapter outcomes appear after execution.",
-					},
-				]
-			: presentation.capabilityOutcomes.flatMap((outcome, index) => {
-					const key = `${outcome.ownerId}-${outcome.toolName}-${index}`;
-					const capabilityRow = {
-						key,
-						className: "capability-outcome",
-						heading: `${outcome.ownerId} · ${outcome.toolName}`,
-						statusLabel: `${outcome.type}${outcome.status ? ` · HTTP ${outcome.status}` : ""}${outcome.cacheStatus ? ` · cache ${outcome.cacheStatus}` : ""}`,
-						message: [
-							outcome.message,
-							outcome.retry
-								? `${outcome.retry.attempts}/${outcome.retry.maxAttempts} attempts${outcome.retry.exhausted ? " · exhausted" : ""}`
-								: null,
-							outcome.fallback
-								? fallbackAttemptSummary(outcome.fallback)
-								: null,
-						]
-							.filter((value): value is string => value !== null)
-							.join(" · "),
-					};
-					const pricingRows = (outcome.pricingRows ?? []).map(
-						(pricing, pricingIndex) => ({
-							key: `${key}-pricing-${pricingIndex}`,
-							className: "capability-outcome",
-							heading: `${pricing.subject} · product pricing`,
-							statusLabel: `${pricing.priceStatus} · cache ${pricing.cacheStatus}`,
-							message: [
-								pricing.product && pricing.size
-									? `${pricing.product} · ${pricing.size}`
-									: "No selected product",
-								pricing.priceStatus === "unverified"
-									? PRODUCT_PRICE_REASON_LABELS[pricing.reasonCode]
-									: null,
-								`native ${pricing.nativeStatus}`,
-								`Brave ${pricing.braveStatus}`,
-							]
-								.filter((value): value is string => value !== null)
-								.join(" · "),
-							...pricing,
-						}),
-					);
-					return [capabilityRow, ...pricingRows];
-				});
-	const domainPolicySections = presentation.domainPolicy
-		? [
-				{
-					key: "assumptions",
-					heading: "Assumptions",
-					rows: presentation.domainPolicy.assumptions.map((assumption) => ({
-						key: assumption.id,
-						text: assumption.label,
-					})),
-				},
-				{
-					key: "questions",
-					heading: "Clarification questions",
-					rows: presentation.domainPolicy.questions.map((question) => ({
-						key: question.id,
-						text: question.prompt,
-					})),
-				},
-				{
-					key: "evidence",
-					heading: "Evidence requirements",
-					rows: presentation.domainPolicy.evidenceRequirements.map(
-						(requirement) => ({
-							key: requirement.id,
-							text: requirement.label,
-						}),
-					),
-				},
-			].filter((section) => section.rows.length > 0)
-		: [];
-	const domainPolicy = presentation.domainPolicy
-		? {
-				heading: "Domain policy proof",
-				statusLabel: presentation.domainPolicy.outcome.replace("-", " "),
-				summary: presentation.domainPolicy.summary,
-				identityRows: [
-					{
-						key: "domain",
-						label: "Domain",
-						value: presentation.domainPolicy.domainLabel,
-					},
-					{
-						key: "policy",
-						label: "Policy",
-						value: presentation.domainPolicy.policyLabel,
-					},
-				],
-				sections: domainPolicySections,
-			}
-		: null;
-	const manifestRows =
-		presentation.runtimeManifest.length === 0
-			? [
-					{
-						key: "empty-manifest-row",
-						name: "Awaiting the next model request",
-						dataCommandName: "pending-model-request",
-						summaryLabel: "no live commands captured",
-						descriptions: [
-							"The exact availability-scoped manifest appears at the next model boundary.",
-						],
-						schemaText: "input · unavailable until request",
-					},
-				]
-			: presentation.runtimeManifest.map((tool) => ({
-					key: tool.name,
-					name: tool.name,
-					dataCommandName: tool.name,
-					summaryLabel: `${tool.ownerId} · live · ${tool.gated ? "gated" : "available"}`,
-					descriptions: tool.description ? [tool.description] : [],
-					schemaText: formatSchema(tool.inputSchema),
-				}));
-	const blueprintRows = Object.entries(componentBlueprintCommands).map(
-		([name, commandSchema]) => ({
-			key: name,
-			className: "command",
-			name,
-			descriptions:
-				typeof commandSchema.description === "string"
-					? [commandSchema.description]
-					: [],
-			schemaText: formatSchema(commandSchema.input),
-		}),
-	);
-	const traceRows = [
-		{
-			key: "transcript",
-			className: "trace-step",
-			heading: "Text or speech transcript",
-			detail: "outer adapter → text + modality",
-		},
-		{
-			key: "actor-fact",
-			className: "trace-step",
-			heading: describeFact(snapshot.context.lastFact),
-			detail: "current public actor fact",
-		},
-		{
-			key: "artifact",
-			className: "trace-step",
-			heading: activeArtifact
-				? `Artifact revision ${activeArtifact.revision} stored`
-				: "Awaiting accepted artifact",
-			detail: "semantic nodes, never generated DOM",
-		},
-		...(presentation.turn?.capability
-			? [
-					{
-						key: "capability",
-						className: "trace-step capability-proof",
-						heading: `${presentation.turn.capability.provider} · ${presentation.turn.capability.tool}`,
-						detail: capabilityProofSummary(presentation.turn.capability),
-					},
-				]
-			: []),
-		...(presentation.turn?.collision
-			? [
-					{
-						key: "collision",
-						className: "trace-step collision-proof",
-						heading: "Capability manifest collision",
-						detail: `${presentation.turn.collision.toolNames.join(", ")} · ${presentation.turn.collision.owners.join(" + ")}`,
-					},
-				]
-			: []),
-	];
-	const resultQuality = productPricingResultQuality(
-		presentation.domainPolicy,
-		presentation.capabilityOutcomes,
-	);
-	return {
-		sessionId: snapshot.context.sessionId,
-		lifecycle: {
-			state: snapshot.value,
-			activeTurnId: snapshot.context.activeTurnId,
-			lastTurnTerminal: snapshot.context.lastTurnTerminal,
-			children: snapshot.context.childLifecycles,
-		},
-		portRequests: {
-			modelPreparation: modelPreparing
-				? { type: "prepare-model" as const }
-				: null,
-			modelTurnControl: snapshot.context.modelTurnControlRequest,
-			voiceCapture: projectVoiceCaptureControlRequest(
-				snapshot.context.voiceCaptureControlRequest,
-				voiceLifecycle,
-			),
-			speechDelivery: snapshot.context.speechDeliveryControlRequest,
-		},
-		modelContext: {
-			status,
-			activeArtifactId: snapshot.context.activeArtifactId,
-			artifacts: snapshot.context.documents,
-		},
-		status,
-		statusLabel: modelPreparing
-			? "Preparing local model"
-			: modelFailed
-				? "Model unavailable"
-				: responding
-					? "Responding"
-					: "Ready",
-		canSubmitPrompt: modelAvailable && turnReady,
-		canSetChecklistItem,
-		canRestoreArtifactRevision:
-			turnReady &&
-			activeArtifactRevisions.some((revision) => !revision.current),
-		canRetryModel: modelFailed,
-		activeArtifact,
-		resultQuality,
-		artifactSummaries,
-		activeArtifactRevisions,
-		turnCount,
-		turnLabel: `${turnCount} ${turnCount === 1 ? "turn" : "turns"}`,
-		speechStatus: snapshot.context.speech?.status ?? "idle",
-		documentSchema,
-		voiceState: voiceState(voice),
-		transcript,
-		transcriptReady,
-		microphoneUnavailable: !canStartVoiceCapture(voiceLifecycle),
-		voiceFailure,
-		turnMessage: describeTurn(presentation.turn),
-		lastFactLabel: describeFact(snapshot.context.lastFact),
-		respondingProgress,
-		modelPreparing,
-		modelFailed,
-		promptPlaceholder: modelPreparing
-			? "Waiting for the local model to finish preparing…"
-			: modelFailed
-				? "Retry the local model before sending a prompt…"
-				: "Ask the agent to create or revise an artifact…",
-		turnState,
-		model: {
-			status: modelPreparing
-				? "preparing"
-				: modelFailed
-					? "failed"
-					: "available",
-			failure: snapshot.context.modelFailure,
-		},
-		revision: snapshot.context.revision,
-		messageCount: snapshot.context.messages.length,
-		messages: snapshot.context.messages,
-		lastFact: snapshot.context.lastFact,
-		artifacts,
-		speech: snapshot.context.speech,
-		activeArtifactId: snapshot.context.activeArtifactId,
-		response: snapshot.context.response,
-		canRevise: responding && snapshot.context.documents.length > 0,
-		presentation: {
-			...snapshot.context.presentation,
-			voice,
-			speechDelivery,
-			speechCommit,
-		},
-		runtimeInspector: {
-			activeStates: snapshot.value,
-			mlx: {
-				status: providerState,
-				ready: modelAvailable,
-				heading: "MLX model readiness",
-				statusLabel: providerState,
-				detail: modelAvailable
-					? "Inference admitted for prompts"
-					: "Prompts remain gated",
-			},
-			actor: {
-				lastFact: snapshot.context.lastFact,
-				revision: snapshot.context.revision,
-				heading: "Compound actor state",
-				matchText: actorMatchText,
-				factLabel: `Current actor fact · ${describeFact(snapshot.context.lastFact)}`,
-			},
-			selectedPreview: presentation.runtimePreview,
-			preview: {
-				text: previewText,
-				selectors: runtimePreviewDefinitions.map((preview) => ({
-					...preview,
-					selected: preview.id === presentation.runtimePreview,
-				})),
-			},
-			capabilityRows,
-			domainPolicy,
-			domainPolicyCards: domainPolicy ? [domainPolicy] : [],
-			trace: {
-				acceptedArtifactLabel: activeArtifact
-					? `Artifact revision ${activeArtifact.revision} stored`
-					: "Awaiting accepted artifact",
-				rows: traceRows,
-			},
-			receipts: [
-				{
-					id: "browser" as const,
-					className: "commit commit-browser",
-					icon: "▤",
-					title: "Browser · native JSX",
-					detail: presentation.documentCommit
-						? `${presentation.documentCommit.id} · revision ${presentation.documentCommit.revision}`
-						: "awaiting artifact",
-					statusLabel: presentation.documentCommit ? "current" : "idle",
-				},
-				{
-					id: "terminal" as const,
-					className: "commit commit-terminal",
-					icon: ">_",
-					title: "Terminal · Node",
-					detail: "preview only · no remote terminal sync",
-					statusLabel: "headless",
-				},
-				{
-					id: "speech" as const,
-					className: "commit commit-speech",
-					icon: "◖",
-					title: "Speech · audio",
-					detail: speechCommit?.text ?? "browser adapter · actor acknowledged",
-					statusLabel: speechCommit?.status ?? "idle",
-				},
-			],
-			schemaExplorer: {
-				manifest: {
-					heading: "Availability-scoped model manifest",
-					countLabel: `${presentation.runtimeManifest.length} live ${presentation.runtimeManifest.length === 1 ? "command" : "commands"}`,
-					rows: manifestRows,
-				},
-				blueprint: {
-					heading: "All-component blueprint",
-					countLabel: `${blueprintRows.length} commands from getSchema()`,
-					rows: blueprintRows,
-				},
-				policy: {
-					heading: "renderJavascript rejected",
-					result: blueprintRows.some((row) => row.name === "renderJavascript")
-						? "unexpectedly admitted"
-						: "command-not-allowed · absent from schema",
-				},
-			},
-		},
-	};
-};
-
-export const component = igniteCore({
-	source,
-	cleanup: true,
-	events: (event) => ({
-		"prompt-submitted": event<{
-			turnId: string;
-			modality: "text" | "speech";
-			text: string;
-		}>(),
-		"artifact-created": event<{ artifactId: string; revision: string }>(),
-		"artifact-revised": event<{ artifactId: string; revision: string }>(),
-		"artifact-restored": event<{
-			artifactId: string;
-			fromRevision: string;
-			revision: string;
-		}>(),
-		"artifact-selected": event<{ artifactId: string }>(),
-		"artifact-rejected": event<{
-			reason: "validation" | "conflict";
-			issues?: readonly string[];
-		}>(),
-		"response-completed": event(),
-		"speech-acknowledged": event<{ id: string }>(),
-	}),
-	view: projectVoiceWorkbenchView,
-	commands: ({ actor, command }) => {
-		const responsePayloadInput = command.object(
-			{
-				text: command.string({ minLength: 1 }),
-				speech: command.string({ minLength: 1 }),
-			},
-			{ required: ["text"] },
-		);
-		const actionNodeInput = command.object(
-			{
-				kind: command.enum(["action"]),
-				id: command.string({ minLength: 1 }),
-				label: command.string({ minLength: 1 }),
-				commandName: command.enum(["completeResponse"]),
-				payload: responsePayloadInput,
-				description: command.string({ minLength: 1 }),
-			},
-			{
-				required: ["kind", "id", "label", "commandName", "payload"],
-			},
-		);
-		const semanticNodeInput = command.object(
-			{
-				id: command.string({ minLength: 1 }),
-				kind: command.enum([
-					"text",
-					"checklist",
-					"action",
-					"form",
-					"table",
-					"timeline",
-					"chart",
-					"code-diff",
-					"decision-log",
-				]),
-				text: command.string({ minLength: 1 }),
-				items: command.array(
-					command.object(
-						{
-							id: command.string({ minLength: 1 }),
-							label: command.string({ minLength: 1 }),
-							checked: command.boolean(),
-						},
-						{ required: ["id", "label", "checked"] },
-					),
-					{ minItems: 1 },
-				),
-				label: command.string({ minLength: 1 }),
-				commandName: command.enum(["completeResponse"]),
-				payload: responsePayloadInput,
-				description: command.string({ minLength: 1 }),
-				title: command.string({ minLength: 1 }),
-				fields: command.array(
-					command.object(
-						{
-							id: command.string({ minLength: 1 }),
-							label: command.string({ minLength: 1 }),
-							input: command.object(
-								{
-									type: command.enum(["string", "number", "boolean"]),
-									title: command.string({ minLength: 1 }),
-									description: command.string({ minLength: 1 }),
-									minimum: command.number(),
-									maximum: command.number(),
-									minLength: command.number({ minimum: 0 }),
-									maxLength: command.number({ minimum: 0 }),
-								},
-								{ required: ["type"] },
-							),
-							value: command.string(),
-							description: command.string({ minLength: 1 }),
-						},
-						{ required: ["id", "label", "input"] },
-					),
-				),
-				submit: actionNodeInput,
-				columns: command.array(
-					command.object(
-						{
-							id: command.string({ minLength: 1 }),
-							label: command.string({ minLength: 1 }),
-						},
-						{ required: ["id", "label"] },
-					),
-				),
-				rows: command.array(
-					command.object(
-						{
-							id: command.string({ minLength: 1 }),
-							cells: command.array(),
-						},
-						{ required: ["id", "cells"] },
-					),
-				),
-				events: command.array(
-					command.object(
-						{
-							id: command.string({ minLength: 1 }),
-							label: command.string({ minLength: 1 }),
-							timestamp: command.string({ minLength: 1 }),
-							detail: command.string({ minLength: 1 }),
-						},
-						{ required: ["id", "label", "timestamp"] },
-					),
-				),
-				chartType: command.enum(["bar", "line", "pie"]),
-				series: command.array(
-					command.object(
-						{
-							id: command.string({ minLength: 1 }),
-							label: command.string({ minLength: 1 }),
-							value: command.number(),
-						},
-						{ required: ["id", "label", "value"] },
-					),
-				),
-				language: command.string({ minLength: 1 }),
-				before: command.string({ minLength: 1 }),
-				after: command.string({ minLength: 1 }),
-				entries: command.array(
-					command.object(
-						{
-							id: command.string({ minLength: 1 }),
-							title: command.string({ minLength: 1 }),
-							decision: command.string({ minLength: 1 }),
-							rationale: command.string({ minLength: 1 }),
-						},
-						{ required: ["id", "title", "decision"] },
-					),
-				),
-			},
-			{ required: ["id", "kind"] },
-		);
-		const sendPresentationUpdate = (envelope: WorkbenchPresentationEnvelope) =>
-			actor.send({ type: "PRESENTATION_UPDATED", envelope });
-
-		return {
-			acknowledgeSpeech: command(
-				(input: AcknowledgeSpeechInput) =>
-					actor.send({ type: "ACKNOWLEDGE_SPEECH", input }),
-				{
-					channel: "user-intent",
-					description: "Acknowledge the currently pending speech request.",
-					canExecute: ({ snapshot }) =>
-						snapshot.context.speech?.status === "pending",
-					input: command.object(
-						{ id: command.string({ minLength: 1 }) },
-						{ required: ["id"] },
-					),
-				},
-			),
-			beginModelPreparation: command(
-				() => actor.send({ type: "MODEL_PREPARATION_STARTED" }),
-				{ channel: "user-intent" },
-			),
-			cancelVoiceCapture: command(
-				() => actor.send({ type: "VOICE_CAPTURE_CANCEL_REQUESTED" }),
-				{
-					channel: "user-intent",
-					canExecute: ({ snapshot }) => snapshot.matches({ available: "idle" }),
-				},
-			),
-			changeArtifactView: command(
-				(view: WorkbenchArtifactView) =>
-					sendPresentationUpdate({
-						channel: "user-intent",
-						update: { type: "artifact-view-changed", view },
-					}),
-				{ channel: "user-intent" },
-			),
-			changeDraft: command(
-				(draft: string) =>
-					sendPresentationUpdate({
-						channel: "user-intent",
-						update: { type: "draft-changed", draft },
-					}),
-				{ channel: "user-intent" },
-			),
-			changeMobilePanel: command(
-				(panel: WorkbenchPanel) =>
-					sendPresentationUpdate({
-						channel: "user-intent",
-						update: { type: "mobile-panel-changed", panel },
-					}),
-				{ channel: "user-intent" },
-			),
-			changeSpeechPreference: command(
-				(enabled: boolean) =>
-					sendPresentationUpdate({
-						channel: "user-intent",
-						update: { type: "speech-preference-changed", enabled },
-					}),
-				{ channel: "user-intent" },
-			),
-			completeResponse: command(
-				(input: CompleteResponseInput) =>
-					actor.send({ type: "COMPLETE_RESPONSE", input }),
-				{
-					channel: "model-intent",
-					description: "Complete the active response turn.",
-					canExecute: ({ snapshot }) =>
-						snapshot.matches({ available: "responding" }) &&
-						snapshot.context.documents.length > 0,
-					input: command.object(
-						{
-							text: command.string({ minLength: 1 }),
-							speech: command.string({ minLength: 1 }),
-						},
-						{ required: ["text"] },
-					),
-				},
-			),
-			createArtifact: command(
-				(input: CreateArtifactInput) =>
-					actor.send({ type: "CREATE_ARTIFACT", input }),
-				{
-					channel: "model-intent",
-					description:
-						"Create a validated semantic artifact for the active turn.",
-					canExecute: ({ snapshot }) =>
-						snapshot.matches({ available: "responding" }),
-					input: command.object(
-						{
-							id: command.string({ minLength: 1 }),
-							title: command.string({ minLength: 1 }),
-							nodes: command.array(semanticNodeInput, { minItems: 1 }),
-						},
-						{ required: ["id", "nodes"] },
-					),
-				},
-			),
-			playSpeech: command(
-				() => actor.send({ type: "SPEECH_DELIVERY_REPLAY_REQUESTED" }),
-				{ channel: "user-intent" },
-			),
-			replay: command(
-				() =>
-					sendPresentationUpdate({
-						channel: "user-intent",
-						update: { type: "replayed" },
-					}),
-				{ channel: "user-intent" },
-			),
-			selectRuntimePreview: command(
-				(preview: WorkbenchRuntimePreview) =>
-					sendPresentationUpdate({
-						channel: "user-intent",
-						update: { type: "runtime-preview-selected", preview },
-					}),
-				{ channel: "user-intent" },
-			),
-			reviseArtifact: command(
-				(input: ReviseArtifactInput) =>
-					actor.send({ type: "REVISE_ARTIFACT", input }),
-				{
-					channel: "model-intent",
-					description:
-						"Revise an artifact when its expected revision still matches.",
-					canExecute: ({ snapshot }) =>
-						snapshot.matches({ available: "responding" }) &&
-						snapshot.context.documents.length > 0,
-					input: command.object(
-						{
-							artifactId: command.string({ minLength: 1 }),
-							expectedRevision: command.string({ minLength: 1 }),
-							nodes: command.array(semanticNodeInput, { minItems: 1 }),
-						},
-						{ required: ["artifactId", "expectedRevision", "nodes"] },
-					),
-				},
-			),
-			restoreArtifactRevision: command(
-				(input: RestoreArtifactRevisionInput) =>
-					actor.send({ type: "RESTORE_ARTIFACT_REVISION", input }),
-				{
-					channel: "user-intent",
-					description:
-						"Restore a historical snapshot as a new forward artifact revision.",
-					canExecute: ({ snapshot }) => {
-						if (!snapshot.matches({ available: "idle" })) return false;
-						const activeId = snapshot.context.activeArtifactId;
-						const current = snapshot.context.documents.find(
-							(document) => document.id === activeId,
-						);
-						return Boolean(
-							current &&
-								snapshot.context.artifactRevisions.some(
-									(document) =>
-										document.id === current.id &&
-										document.revision !== current.revision,
-								),
-						);
-					},
-					input: command.object(
-						{
-							artifactId: command.string({ minLength: 1 }),
-							expectedRevision: command.string({ minLength: 1 }),
-							revision: command.string({ minLength: 1 }),
-						},
-						{
-							required: ["artifactId", "expectedRevision", "revision"],
-						},
-					),
-				},
-			),
-			selectArtifact: command(
-				(input: SelectArtifactInput) =>
-					actor.send({ type: "SELECT_ARTIFACT", input }),
-				{
-					channel: "user-intent",
-					description: "Select the active artifact in this session.",
-					canExecute: ({ snapshot }) =>
-						snapshot.matches({ available: "idle" }) &&
-						snapshot.context.documents.length > 0,
-					input: command.object(
-						{ artifactId: command.string({ minLength: 1 }) },
-						{ required: ["artifactId"] },
-					),
-				},
-			),
-			setChecklistItem: command(
-				(input: SetChecklistItemInput) =>
-					actor.send({ type: "SET_CHECKLIST_ITEM", input }),
-				{
-					channel: "model-intent",
-					description:
-						"Set one checklist item when its artifact revision still matches.",
-					canExecute: ({ snapshot }) =>
-						(snapshot.matches({ available: "idle" }) ||
-							snapshot.matches({ available: "responding" })) &&
-						snapshot.context.documents.some((document) =>
-							document.nodes.some((node) => node.kind === "checklist"),
-						),
-					input: command.object(
-						{
-							artifactId: command.string({ minLength: 1 }),
-							expectedRevision: command.string({ minLength: 1 }),
-							nodeId: command.string({ minLength: 1 }),
-							itemId: command.string({ minLength: 1 }),
-							checked: command.boolean(),
-						},
-						{
-							required: [
-								"artifactId",
-								"expectedRevision",
-								"nodeId",
-								"itemId",
-								"checked",
-							],
-						},
-					),
-				},
-			),
-			submitPrompt: command(
-				(input: SubmitPromptInput) =>
-					actor.send({ type: "SUBMIT_PROMPT", input }),
-				{
-					channel: "user-intent",
-					description: "Open the next text or speech conversation turn.",
-					canExecute: ({ snapshot }) => snapshot.matches({ available: "idle" }),
-					input: command.object(
-						{
-							modality: command.enum(["text", "speech"]),
-							text: command.string({ minLength: 1 }),
-						},
-						{ required: ["modality", "text"] },
-					),
-				},
-			),
-			startVoiceCapture: command(
-				() => actor.send({ type: "VOICE_CAPTURE_START_REQUESTED" }),
-				{
-					channel: "user-intent",
-					canExecute: ({ snapshot }) =>
-						snapshot.matches({ available: "idle" }) &&
-						canStartVoiceCapture(snapshot.context.childLifecycles.voiceCapture),
-				},
-			),
-			submitVoiceTranscript: command(
-				() => actor.send({ type: "VOICE_TRANSCRIPT_SUBMIT_REQUESTED" }),
-				{
-					channel: "user-intent",
-					canExecute: ({ snapshot }) =>
-						snapshot.matches({ available: "idle" }) &&
-						selectVoiceTranscriptCandidate(snapshot.context) !== null,
-				},
-			),
-		};
-	},
-	effects: ({ emit, select }) => {
-		const fact = select((snapshot) => snapshot.context.lastFact);
-		const sequence = select((snapshot) => snapshot.context.factSequence);
-		if (!sequence.changed || !fact.current) return;
-		emit(fact.current as ConversationFact);
-	},
-});
-
-type WorkbenchRenderer = Extract<
-	Parameters<typeof component>[1],
-	(...args: never[]) => unknown
->;
-export type WorkbenchProjection = Parameters<WorkbenchRenderer>[0];
-
-export const workbenchSchema = component.getSchema();
-componentBlueprintCommands = workbenchSchema.commands;
-export const workbenchCommandNames = Object.freeze(
-	Object.keys(workbenchSchema.commands),
-);

@@ -37,6 +37,23 @@ export type ModelTurnTerminalEvent =
 			trace: ModelTurnResult["trace"];
 	  };
 
+export const modelTurnStateFromTerminal = (
+	terminal: ModelTurnTerminalEvent,
+): "completed" | "failed" | "cancelled" | "timed-out" | "exhausted" => {
+	switch (terminal.type) {
+		case "TURN_COMPLETED":
+			return "completed";
+		case "TURN_FAILED":
+			return "failed";
+		case "CANCELLED":
+			return "cancelled";
+		case "TIMEOUT":
+			return "timed-out";
+		case "ROUND_LIMIT_REACHED":
+			return "exhausted";
+	}
+};
+
 export type ModelTurnLifecycleInput = {
 	turnId: string;
 	prompt: { channel: "text" | "speech"; text: string };
@@ -51,6 +68,11 @@ export type ModelTurnLifecycleContext = ModelTurnLifecycleInput & {
 	pendingCall: ModelToolCall | null;
 	lastResult: ModelTurnResult | null;
 	terminal: ModelTurnTerminalEvent | null;
+};
+
+export type ModelTurnOutput = {
+	terminal: ModelTurnTerminalEvent;
+	result: ModelTurnResult | null;
 };
 
 export type ModelTurnLifecycleEvent =
@@ -151,6 +173,7 @@ export const modelTurnMachine = setup({
 		context: {} as ModelTurnLifecycleContext,
 		events: {} as ModelTurnLifecycleEvent,
 		input: {} as ModelTurnLifecycleInput,
+		output: {} as ModelTurnOutput,
 	},
 	actions: {
 		storeModelCall: assign(({ context, event }) => {
@@ -299,6 +322,12 @@ export const modelTurnMachine = setup({
 }).createMachine({
 	id: "voice-workbench-model-turn",
 	initial: "requesting",
+	output: ({ context }) => {
+		if (!context.terminal) {
+			throw new Error("A completed model-turn actor requires a terminal fact.");
+		}
+		return { terminal: context.terminal, result: context.lastResult };
+	},
 	context: ({ input }) => ({
 		...input,
 		round: 1,
@@ -419,11 +448,11 @@ export const modelTurnMachine = setup({
 				],
 			},
 		},
-		completed: {},
-		failed: {},
-		cancelled: {},
-		"timed-out": {},
-		exhausted: {},
+		completed: { type: "final" },
+		failed: { type: "final" },
+		cancelled: { type: "final" },
+		"timed-out": { type: "final" },
+		exhausted: { type: "final" },
 	},
 });
 

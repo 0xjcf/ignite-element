@@ -1,16 +1,100 @@
 /** @jsxImportSource ignite-element/jsx */
 import {
-	commitDocument,
-	component,
-	recordSpeechDeliveryLifecycle,
-	recordTurn,
-	recordTurnTerminal,
-	recordVoiceCaptureLifecycle,
-	reportModelAvailable,
-	reportModelFailure,
-	source,
+	createVoiceWorkbenchSessionActor,
 } from "./session";
+import type { ModelTurnPortRequest } from "./model-turn";
+import { createVoiceWorkbenchComponent } from "./workbench-component";
 import { renderWorkbench } from "./workbench";
+
+export const paritySource = createVoiceWorkbenchSessionActor().start();
+export const parityComponent = createVoiceWorkbenchComponent(paritySource);
+
+const settleModelPreparation = (available: boolean) => {
+	if (paritySource.getSnapshot().matches("unavailable")) {
+		paritySource.send({ type: "MODEL_PREPARATION_STARTED" });
+	}
+	const request =
+		paritySource.getSnapshot().context.portRequests.modelPreparation;
+	if (!request) return;
+	paritySource.send({
+		type: "MODEL_PREPARATION_PORT_RECEIVED",
+		request,
+		receipt: available
+			? { type: "available", sequence: request.sequence }
+			: {
+					type: "failed",
+					sequence: request.sequence,
+					failure: {
+						kind: "provider",
+						message: "Parity harness only — simulated model failure.",
+					},
+				},
+	});
+};
+
+const currentModelTurnRequest = (): ModelTurnPortRequest => {
+	const request = paritySource.getSnapshot().context.portRequests.modelTurn;
+	if (!request) throw new Error("Parity harness expected a model-turn request.");
+	return request;
+};
+
+const completeSeededModelTurn = () => {
+	let request = currentModelTurnRequest();
+	paritySource.send({
+		type: "MODEL_TURN_PORT_RECEIVED",
+		request,
+		receipt: {
+			type: "MODEL_RESOLVED",
+			turnId: request.turnId,
+			attemptId: request.attemptId,
+			result: {
+				ok: true,
+				calls: [
+					{
+						id: "parity-complete",
+						command: "completeResponse",
+						input: {
+							text: "Parity harness only — deterministic response committed.",
+							speech: "Parity harness only — deterministic spoken summary.",
+						},
+					},
+				],
+			},
+		},
+	});
+	request = currentModelTurnRequest();
+	paritySource.send({
+		type: "MODEL_TURN_PORT_RECEIVED",
+		request,
+		receipt: {
+			type: "AUTHORIZATION_RESOLVED",
+			turnId: request.turnId,
+			attemptId: request.attemptId,
+			allowed: true,
+		},
+	});
+	request = currentModelTurnRequest();
+	if (request.type !== "execute-call") {
+		throw new Error("Parity harness expected an executable model proposal.");
+	}
+	paritySource.send({
+		type: "MODEL_TURN_PORT_RECEIVED",
+		request,
+		receipt: {
+			type: "CAPABILITY_RESOLVED",
+			turnId: request.turnId,
+			attemptId: request.attemptId,
+			feedback: {
+				id: request.call.id ?? "parity-complete",
+				command: request.call.command,
+				status: "accepted",
+				ownerId: "voice-workbench-parity",
+				view: parityComponent.getView().modelContext,
+				events: [],
+			},
+		},
+	});
+};
 
 export const PARITY_STATES = [
 	"preparing",
@@ -32,28 +116,10 @@ export function resolveParityState(search: string): ParityState | null {
 	return isParityState(requested) ? requested : null;
 }
 
-const recordParityVoice = (
-	state: Parameters<typeof recordVoiceCaptureLifecycle>[0]["state"],
-	fact: Parameters<typeof recordVoiceCaptureLifecycle>[0]["fact"],
-	attempted = false,
-): void => {
-	const sequence =
-		(source.getSnapshot().context.childLifecycles.voiceCapture?.sequence ?? 0) +
-		1;
-	recordVoiceCaptureLifecycle({
-		state,
-		attemptId: attempted ? `parity-voice:${sequence}` : null,
-		sequence,
-		fact,
-	});
-};
-
-const setIdleVoice = () => recordParityVoice("idle", { type: "voice-idle" });
-
 const ensureResponding = async () => {
-	if (component.getView().status === "responding") return;
-	reportModelAvailable();
-	await component.execute({
+	if (parityComponent.getView().status === "responding") return;
+	settleModelPreparation(true);
+	await parityComponent.execute({
 		command: "submitPrompt",
 		input: {
 			modality: "text",
@@ -63,10 +129,9 @@ const ensureResponding = async () => {
 };
 
 const seedArtifact = async () => {
-	await setIdleVoice();
 	await ensureResponding();
-	if (component.getView().artifacts.length === 0) {
-		await component.execute({
+	if (parityComponent.getView().artifacts.length === 0) {
+		await parityComponent.execute({
 			command: "createArtifact",
 			input: {
 				id: "parity-artifact",
@@ -94,64 +159,45 @@ const seedArtifact = async () => {
 			},
 		});
 	}
-	await component.execute({
+	await parityComponent.execute({
 		command: "completeResponse",
 		input: {
 			text: "Parity harness only — deterministic response committed.",
 			speech: "Parity harness only — deterministic spoken summary.",
 		},
 	});
-	const turnId = source.getSnapshot().context.activeTurnId;
-	const view = component.getView();
+	const view = parityComponent.getView();
 	const artifact = view.artifacts[0];
 	if (artifact) {
-		commitDocument({
-			id: artifact.id,
-			title: artifact.title,
-			revision: artifact.revision,
+		paritySource.send({
+			type: "DOCUMENT_COMMITTED",
+			document: {
+				id: artifact.id,
+				title: artifact.title,
+				revision: artifact.revision,
+			},
 		});
 	}
-	recordTurn({
-		type: "accepted",
-		trace: [
-			{ command: "createArtifact", accepted: true },
-			{ command: "completeResponse", accepted: true },
-		],
-	});
-	if (turnId) recordTurnTerminal({ type: "TURN_COMPLETED", turnId });
-	const speechRequest = component.getView().portRequests.speechDelivery;
+	completeSeededModelTurn();
+	const speechRequest = parityComponent.getView().portRequests.speechDelivery;
 	if (speechRequest) {
-		recordSpeechDeliveryLifecycle({
-			state: "pending",
-			id: speechRequest.id,
-			text: speechRequest.text,
-			attemptId: speechRequest.attemptId,
-			requestSequence: speechRequest.sequence,
-			fact: null,
-			terminal: null,
+		paritySource.send({
+			type: "SPEECH_DELIVERY_PORT_RECEIVED",
+			request: speechRequest,
+			receipt: {
+				type: "UNAVAILABLE",
+				attemptId: speechRequest.attemptId,
+			},
 		});
-		const unavailable = {
-			type: "speech-delivery-unavailable" as const,
-			id: speechRequest.id,
-		};
-		recordSpeechDeliveryLifecycle({
-			state: "unavailable",
-			id: speechRequest.id,
-			text: speechRequest.text,
-			attemptId: speechRequest.attemptId,
-			requestSequence: speechRequest.sequence,
-			fact: unavailable,
-			terminal: unavailable,
-		});
-		const speech = component.getView().speech;
+		const speech = parityComponent.getView().speech;
 		if (speech?.id === speechRequest.id && speech.status === "pending") {
-			await component.execute({
+			await parityComponent.execute({
 				command: "acknowledgeSpeech",
 				input: { id: speech.id },
 			});
 		}
 	}
-	await component.execute({
+	await parityComponent.execute({
 		command: "changeMobilePanel",
 		input: "artifact",
 	});
@@ -160,26 +206,21 @@ const seedArtifact = async () => {
 export async function seedParityState(state: ParityState): Promise<void> {
 	switch (state) {
 		case "preparing":
-			await component.execute({ command: "beginModelPreparation" });
+			await parityComponent.execute({ command: "beginModelPreparation" });
 			return;
 		case "failed":
-			reportModelFailure({
-				kind: "provider",
-				message: "Parity harness only — simulated model failure.",
-			});
+			settleModelPreparation(false);
 			return;
 		case "ready":
-			setIdleVoice();
-			reportModelAvailable();
+			settleModelPreparation(true);
 			return;
 		case "listening":
-			reportModelAvailable();
-			recordParityVoice("listening", { type: "voice-listening" }, true);
+			settleModelPreparation(true);
+			await parityComponent.execute({ command: "startVoiceCapture" });
 			return;
 		case "responding":
-			await setIdleVoice();
 			await ensureResponding();
-			await component.execute({
+			await parityComponent.execute({
 				command: "changeMobilePanel",
 				input: "artifact",
 			});
@@ -188,26 +229,34 @@ export async function seedParityState(state: ParityState): Promise<void> {
 			await seedArtifact();
 			return;
 		case "permission":
-			reportModelAvailable();
-			await component.execute({
+			settleModelPreparation(true);
+			await parityComponent.execute({
 				command: "changeDraft",
 				input: "Parity harness draft stays available",
 			});
-			recordParityVoice(
-				"permission-denied",
-				{
-					type: "voice-permission-denied",
-					message: "Parity harness only — simulated microphone denial.",
-				},
-				true,
-			);
+			await parityComponent.execute({ command: "startVoiceCapture" });
+			{
+				const request = parityComponent.getView().portRequests.voiceCapture;
+				if (request?.type === "start" && request.attemptId) {
+					paritySource.send({
+						type: "VOICE_CAPTURE_PORT_RECEIVED",
+						request,
+						receipt: {
+							type: "PERMISSION_DENIED",
+							attemptId: request.attemptId,
+							message:
+								"Parity harness only — simulated microphone denial.",
+						},
+					});
+				}
+			}
 			return;
 	}
 }
 
 export async function mountParityHarness(state: ParityState) {
 	await seedParityState(state);
-	return component("voice-workbench-parity", (projection) => (
+	return parityComponent("voice-workbench-parity", (projection) => (
 		<>
 			<style>{`
 				.parity-badge {
@@ -247,4 +296,4 @@ if (!state) {
 	);
 }
 void mountParityHarness(state);
-window.addEventListener("pagehide", () => source.stop(), { once: true });
+window.addEventListener("pagehide", () => paritySource.stop(), { once: true });

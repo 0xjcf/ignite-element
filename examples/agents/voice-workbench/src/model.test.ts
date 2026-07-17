@@ -10,7 +10,11 @@ import {
 } from "vitest";
 import { type ModelRequest, modelTools } from "./agent-loop";
 import { probeMlxWorkbenchReadiness, requestMlxWorkbenchModel } from "./model";
-import { component, reportModelAvailable, source } from "./session";
+import { createVoiceWorkbenchSessionActor } from "./session";
+import { createVoiceWorkbenchComponent } from "./workbench-component";
+
+const source = createVoiceWorkbenchSessionActor().start();
+const component = createVoiceWorkbenchComponent(source);
 
 const prompt = {
 	channel: "text" as const,
@@ -26,7 +30,15 @@ const createRequest = (): ModelRequest => ({
 	domainPolicyInstructions: "",
 });
 
-beforeAll(() => reportModelAvailable());
+beforeAll(() => {
+	const request = source.getSnapshot().context.portRequests.modelPreparation;
+	if (!request) throw new Error("Expected model preparation.");
+	source.send({
+		type: "MODEL_PREPARATION_PORT_RECEIVED",
+		request,
+		receipt: { type: "available", sequence: request.sequence },
+	});
+});
 afterEach(() => vi.unstubAllGlobals());
 afterAll(() => source.stop());
 

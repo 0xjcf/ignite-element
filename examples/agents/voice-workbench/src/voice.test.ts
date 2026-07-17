@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-	createBrowserVoiceCapture,
+	createBrowserVoiceCapturePort,
+	isBrowserVoiceCaptureSupported,
+	type SpeechRecognitionLike,
+} from "./adapters/browser-voice";
+import {
 	createVoiceCaptureActor,
 	projectVoiceCaptureLifecycle,
 	projectVoiceCapturePortRequest,
-	type SpeechRecognitionLike,
 	voiceCaptureMachine,
 } from "./voice";
 
@@ -18,7 +21,6 @@ function createRecognition() {
 		onresult: null,
 		abort: vi.fn(),
 		start: vi.fn(),
-		stop: vi.fn(),
 	};
 	return recognition;
 }
@@ -99,20 +101,21 @@ describe("browser voice capture", () => {
 			throw new Error("Speech recognition constructor failed.");
 		});
 		vi.stubGlobal("SpeechRecognition", Recognition);
-		const voice = createBrowserVoiceCapture();
+		const receipts: unknown[] = [];
+		const port = createBrowserVoiceCapturePort();
+
+		port({ type: "start", attemptId: "voice:1", sequence: 1 }, (receipt) =>
+			receipts.push(receipt),
+		);
 
 		expect(Recognition).toHaveBeenCalledOnce();
-		voice.start();
-		expect(voice.getLifecycle()).toEqual({
-			state: "unavailable",
-			attemptId: null,
-			sequence: 0,
-			fact: {
-				type: "voice-error",
+		expect(receipts).toEqual([
+			{
+				type: "FAIL",
+				attemptId: "voice:1",
 				message: "Speech recognition could not be initialized.",
 			},
-		});
-		voice.dispose();
+		]);
 	});
 
 	it("uses an attempt-correlated serializable machine for consume and disposal", () => {
@@ -362,27 +365,34 @@ describe("browser voice capture", () => {
 		},
 	);
 
-	it("reports unsupported browsers as a capability fact", () => {
+	it("reports unsupported browsers as a typed port receipt", () => {
 		vi.stubGlobal("SpeechRecognition", undefined);
 		vi.stubGlobal("webkitSpeechRecognition", undefined);
-		const voice = createBrowserVoiceCapture();
+		const receipts: unknown[] = [];
+		const port = createBrowserVoiceCapturePort();
 
-		expect(voice.getFact()).toEqual({ type: "voice-unsupported" });
-		expect(voice.start()).toEqual({ type: "voice-unsupported" });
-		expect(voice.useTranscript("voice:missing")).toEqual({
-			ok: false,
-			fact: { type: "voice-unsupported" },
-		});
+		expect(isBrowserVoiceCaptureSupported()).toBe(false);
+		port({ type: "start", attemptId: "voice:1", sequence: 1 }, (receipt) =>
+			receipts.push(receipt),
+		);
+		expect(receipts).toEqual([
+			{
+				type: "FAIL",
+				attemptId: "voice:1",
+				message: "Speech recognition is unavailable in this browser.",
+			},
+		]);
 	});
 
-	it("turns a final transcript into the same semantic prompt with speech modality", () => {
+	it("returns final browser transcripts as correlated receipts", () => {
 		const recognition = createRecognition();
-		const facts: unknown[] = [];
+		const receipts: unknown[] = [];
 		installRecognition(recognition);
-		const voice = createBrowserVoiceCapture();
-		voice.subscribe((fact) => facts.push(fact));
+		const port = createBrowserVoiceCapturePort();
 
-		expect(voice.start()).toEqual({ type: "voice-listening" });
+		port({ type: "start", attemptId: "voice:7", sequence: 7 }, (receipt) =>
+			receipts.push(receipt),
+		);
 		expect(recognition.start).toHaveBeenCalledOnce();
 		expect(recognition.lang).toBe("en-US");
 		recognition.onresult?.({
@@ -391,84 +401,62 @@ describe("browser voice capture", () => {
 			],
 		});
 
-		expect(voice.getFact()).toEqual({
-			type: "voice-transcript",
+		expect(receipts).toEqual([{
+			type: "RESULT",
+			attemptId: "voice:7",
 			text: "Create a launch checklist",
 			final: true,
-		});
-		expect(voice.useTranscript("voice:stale")).toEqual({
-			ok: false,
-			fact: {
-				type: "voice-transcript",
-				text: "Create a launch checklist",
-				final: true,
-			},
-		});
-		expect(voice.getLifecycle().state).toBe("transcript");
-		expect(voice.useTranscript("voice:1")).toEqual({
-			ok: true,
-			attemptId: "voice:1",
-			prompt: {
-				channel: "speech",
-				text: "Create a launch checklist",
-			},
-		});
-		expect(voice.useTranscript("voice:1")).toEqual({
-			ok: false,
-			fact: { type: "voice-idle" },
-		});
-		expect(voice.getLifecycle()).toMatchObject({
-			state: "consumed",
-			attemptId: "voice:1",
-		});
-		expect(facts).toContainEqual({
-			type: "voice-transcript",
-			text: "Create a launch checklist",
-			final: true,
-		});
+		}]);
 	});
 
-	it("cancels capture without submitting the partial transcript", () => {
+	it("disposes the active browser recognition effect on cancel", () => {
 		const recognition = createRecognition();
 		installRecognition(recognition);
-		const voice = createBrowserVoiceCapture();
+		const port = createBrowserVoiceCapturePort();
 
-		voice.start();
-		recognition.onresult?.({
-			results: [{ 0: { transcript: "partial" }, isFinal: false }],
-		});
-
-		expect(voice.cancel()).toEqual({ type: "voice-cancelled" });
+		port({ type: "start", attemptId: "voice:1", sequence: 1 }, () => {});
+		port({ type: "cancel", attemptId: "voice:1", sequence: 2 }, () => {});
 		expect(recognition.abort).toHaveBeenCalledOnce();
-		expect(voice.useTranscript("voice:1")).toEqual({
-			ok: false,
-			fact: { type: "voice-cancelled" },
-		});
+		expect(recognition.onresult).toBeNull();
+		expect(recognition.onerror).toBeNull();
+		expect(recognition.onend).toBeNull();
 	});
 
-	it("returns permission denial and recognition failures as facts", () => {
+	it("returns permission denial and recognition failures as receipts", () => {
 		const deniedRecognition = createRecognition();
 		deniedRecognition.start = vi.fn(() => {
 			throw new DOMException("Microphone denied", "NotAllowedError");
 		});
 		installRecognition(deniedRecognition);
-		const denied = createBrowserVoiceCapture();
+		const deniedReceipts: unknown[] = [];
+		const denied = createBrowserVoiceCapturePort();
 
-		expect(() => denied.start()).not.toThrow();
-		expect(denied.getFact()).toEqual({
-			type: "voice-permission-denied",
+		expect(() =>
+			denied(
+				{ type: "start", attemptId: "voice:1", sequence: 1 },
+				(receipt) => deniedReceipts.push(receipt),
+			),
+		).not.toThrow();
+		expect(deniedReceipts).toEqual([{
+			type: "PERMISSION_DENIED",
+			attemptId: "voice:1",
 			message: "Microphone access was denied.",
-		});
+		}]);
 
 		const failedRecognition = createRecognition();
 		installRecognition(failedRecognition);
-		const failed = createBrowserVoiceCapture();
-		failed.start();
+		const failedReceipts: unknown[] = [];
+		const failed = createBrowserVoiceCapturePort();
+		failed(
+			{ type: "start", attemptId: "voice:2", sequence: 2 },
+			(receipt) => failedReceipts.push(receipt),
+		);
 		failedRecognition.onerror?.({ error: "network", message: "Offline" });
 
-		expect(failed.getFact()).toEqual({
-			type: "voice-error",
+		expect(failedReceipts).toEqual([{
+			type: "FAIL",
+			attemptId: "voice:2",
 			message: "Offline",
-		});
+		}]);
 	});
 });

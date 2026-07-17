@@ -23,6 +23,26 @@ export type SpeechDeliveryState =
 	| "cancelled"
 	| "disposed";
 
+export const speechDeliveryStateFromTerminal = (
+	terminal: SpeechDeliveryTerminalFact,
+): Extract<
+	SpeechDeliveryState,
+	"delivered" | "muted" | "unavailable" | "failed" | "cancelled"
+> => {
+	switch (terminal.type) {
+		case "speech-delivery-completed":
+			return "delivered";
+		case "speech-delivery-muted":
+			return "muted";
+		case "speech-delivery-unavailable":
+			return "unavailable";
+		case "speech-delivery-failed":
+			return "failed";
+		case "speech-delivery-cancelled":
+			return "cancelled";
+	}
+};
+
 export type SpeechDeliveryInput = {
 	id: string;
 	text: string;
@@ -43,6 +63,10 @@ export type SpeechDeliveryContext = {
 	terminal: SpeechDeliveryTerminalFact | null;
 	portSequence: number;
 	portAction: "speak" | "mute" | "unavailable" | "cancel" | "dispose" | null;
+};
+
+export type SpeechDeliveryOutput = {
+	terminal: SpeechDeliveryTerminalFact;
 };
 
 export type SpeechDeliveryEvent =
@@ -88,6 +112,7 @@ export const speechDeliveryMachine = setup({
 		context: {} as SpeechDeliveryContext,
 		events: {} as SpeechDeliveryEvent,
 		input: {} as SpeechDeliveryInput,
+		output: {} as SpeechDeliveryOutput,
 	},
 	actions: {
 		recordQueued: assign(({ context }) => ({
@@ -122,6 +147,12 @@ export const speechDeliveryMachine = setup({
 }).createMachine({
 	id: "voice-workbench-speech-delivery",
 	initial: "pending",
+	output: ({ context }) => {
+		if (!context.terminal) {
+			throw new Error("A completed speech-delivery actor requires a terminal fact.");
+		}
+		return { terminal: context.terminal };
+	},
 	context: ({ input }) => ({
 		id: input.id,
 		text: input.text,
@@ -200,11 +231,11 @@ export const speechDeliveryMachine = setup({
 				},
 			},
 		},
-		delivered: {},
-		muted: {},
-		unavailable: {},
-		failed: {},
-		cancelled: {},
+		delivered: { type: "final" },
+		muted: { type: "final" },
+		unavailable: { type: "final" },
+		failed: { type: "final" },
+		cancelled: { type: "final" },
 		disposed: {},
 	},
 });

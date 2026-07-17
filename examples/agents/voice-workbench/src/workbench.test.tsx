@@ -1,19 +1,146 @@
 // @vitest-environment jsdom
 import { test as igniteTest } from "ignite-element/testing";
 import { describe, expect, it } from "vitest";
+import type { ModelFailureFact } from "./agent-loop";
+import type { DomainPolicyDecision } from "./domains/contracts";
 import {
-	component,
-	recordCapabilityOutcome,
-	recordDomainPolicyDecision,
-	recordRuntimeManifest,
-	recordTurn,
-	recordTurnTerminal,
-	reportModelAvailable,
-	reportModelFailure,
-	source,
+	createVoiceWorkbenchSessionActor,
+	type WorkbenchCapabilityOutcome,
+	type WorkbenchRuntimeManifestEntry,
+	type WorkbenchTurnFact,
 } from "./session";
+import { createVoiceWorkbenchComponent } from "./workbench-component";
 import { renderWorkbench } from "./workbench";
+import artifactViewSource from "./views/artifact.tsx?raw";
+import runtimeViewSource from "./views/runtime.tsx?raw";
+import workbenchViewSource from "./workbench-view.ts?raw";
 import workbenchSource from "./workbench.tsx?raw";
+
+const source = createVoiceWorkbenchSessionActor().start();
+const component = createVoiceWorkbenchComponent(source);
+
+const currentModelTurnCorrelation = () => {
+	const lifecycle = source.getSnapshot().context.childLifecycles.modelTurn;
+	return lifecycle && lifecycle.terminal === null
+		? { turnId: lifecycle.turnId, attemptId: lifecycle.attemptId }
+		: {};
+};
+
+const recordRuntimeManifest = (
+	manifest: readonly WorkbenchRuntimeManifestEntry[],
+): void =>
+	source.send({
+		type: "RUNTIME_MANIFEST_RECORDED",
+		manifest,
+		...currentModelTurnCorrelation(),
+	});
+
+const recordCapabilityOutcome = (
+	outcome: WorkbenchCapabilityOutcome,
+): void =>
+	source.send({
+		type: "CAPABILITY_OUTCOME_RECORDED",
+		outcome,
+		...currentModelTurnCorrelation(),
+	});
+
+const recordDomainPolicyDecision = (decision: DomainPolicyDecision): void =>
+	source.send({
+		type: "DOMAIN_POLICY_RECORDED",
+		decision,
+		...currentModelTurnCorrelation(),
+	});
+
+const recordTurn = (fact: WorkbenchTurnFact): void =>
+	source.send({
+		type: "TURN_RECORDED",
+		fact,
+		...currentModelTurnCorrelation(),
+	});
+
+const reportModelAvailable = () => {
+	if (source.getSnapshot().matches("unavailable")) {
+		source.send({ type: "MODEL_PREPARATION_STARTED" });
+	}
+	const request = source.getSnapshot().context.portRequests.modelPreparation;
+	if (!request) return;
+	source.send({
+		type: "MODEL_PREPARATION_PORT_RECEIVED",
+		request,
+		receipt: { type: "available", sequence: request.sequence },
+	});
+};
+
+const reportModelFailure = (failure: ModelFailureFact) => {
+	const request = source.getSnapshot().context.portRequests.modelPreparation;
+	if (!request) throw new Error("Expected model preparation.");
+	source.send({
+		type: "MODEL_PREPARATION_PORT_RECEIVED",
+		request,
+		receipt: { type: "failed", sequence: request.sequence, failure },
+	});
+};
+
+const recordTurnTerminal = (event: {
+	type: "TURN_COMPLETED";
+	turnId: string;
+}) => {
+	let request = source.getSnapshot().context.portRequests.modelTurn;
+	if (!request || request.turnId !== event.turnId) {
+		throw new Error("Expected a matching model request.");
+	}
+	source.send({
+		type: "MODEL_TURN_PORT_RECEIVED",
+		request,
+		receipt: {
+			type: "MODEL_RESOLVED",
+			turnId: request.turnId,
+			attemptId: request.attemptId,
+			result: {
+				ok: true,
+				calls: [
+					{
+						id: "workbench-complete",
+						command: "completeResponse",
+						input: source.getSnapshot().context.pendingCompletion,
+					},
+				],
+			},
+		},
+	});
+	request = source.getSnapshot().context.portRequests.modelTurn;
+	if (!request) throw new Error("Expected authorization.");
+	source.send({
+		type: "MODEL_TURN_PORT_RECEIVED",
+		request,
+		receipt: {
+			type: "AUTHORIZATION_RESOLVED",
+			turnId: request.turnId,
+			attemptId: request.attemptId,
+			allowed: true,
+		},
+	});
+	request = source.getSnapshot().context.portRequests.modelTurn;
+	if (!request || request.type !== "execute-call") {
+		throw new Error("Expected execution.");
+	}
+	source.send({
+		type: "MODEL_TURN_PORT_RECEIVED",
+		request,
+		receipt: {
+			type: "CAPABILITY_RESOLVED",
+			turnId: request.turnId,
+			attemptId: request.attemptId,
+			feedback: {
+				id: request.call.id ?? "workbench-complete",
+				command: request.call.command,
+				status: "accepted",
+				view: component.getView().modelContext,
+				events: [],
+			},
+		},
+	});
+};
 
 type PrivatePortRequest =
 	| { command: "reportModelAvailable" }
@@ -59,9 +186,7 @@ const executePrivatePort = (request: PrivatePortRequest): void => {
 
 describe("voice workbench accessible JSX", () => {
 	it("maps view-ready inspector rows without presentation derivation in JSX", () => {
-		const runtimeRail = workbenchSource.slice(
-			workbenchSource.indexOf("<aside\n\t\t\t\t\t\tclass={`panel runtime"),
-		);
+		const runtimeRail = runtimeViewSource;
 
 		expect(runtimeRail).not.toContain('row.kind === "empty"');
 		expect(runtimeRail).not.toMatch(/row\.ownerLabel/);
@@ -70,11 +195,13 @@ describe("voice workbench accessible JSX", () => {
 		expect(runtimeRail).not.toContain('outcome === "needs-input"');
 		expect(runtimeRail).not.toContain("standard sandwich bread");
 		expect(runtimeRail).toContain("domainPolicyCards.map");
-		expect(workbenchSource).not.toContain("const sourceLink");
-		expect(workbenchSource).not.toContain("new URL(");
-		expect(workbenchSource).not.toContain("String(value ??");
-		expect(workbenchSource).toContain("node.displayRows.map");
-		expect(workbenchSource).toContain("context.resultQuality");
+		expect(artifactViewSource).not.toContain("const sourceLink");
+		expect(artifactViewSource).not.toContain("new URL(");
+		expect(artifactViewSource).not.toContain("String(value ??");
+		expect(artifactViewSource).toContain("node.displayRows.map");
+		expect(runtimeViewSource).not.toContain("context.resultQuality");
+		expect(workbenchViewSource).toContain("resultQuality");
+		expect(workbenchSource).toContain("renderRuntimeView");
 	});
 
 	it("renders the approved empty-to-artifact workflow from the component view", async () => {
@@ -299,9 +426,7 @@ describe("voice workbench accessible JSX", () => {
 		expect(searchSchema).toContain("query · string · required");
 		expect(
 			bridge.host.shadowRoot?.querySelector(".actor-match")?.textContent,
-		).toBe(`matches({
-  available: "idle",
-})`);
+		).toBe('matches({\n  available: { turn: "idle" },\n})');
 
 		const prompt = bridge.getByRole("textbox", { name: "Prompt" });
 		if (!(prompt instanceof HTMLTextAreaElement)) {
@@ -593,6 +718,46 @@ describe("voice workbench accessible JSX", () => {
 		});
 		const receiptTurnId = source.getSnapshot().context.activeTurnId;
 		if (!receiptTurnId) throw new Error("Expected an active receipt turn.");
+		const receiptLifecycle =
+			source.getSnapshot().context.childLifecycles.modelTurn;
+		if (!receiptLifecycle || receiptLifecycle.turnId !== receiptTurnId) {
+			throw new Error("Expected a correlated receipt turn lifecycle.");
+		}
+		source.send({
+			type: "CAPABILITY_OUTCOME_RECORDED",
+			turnId: receiptTurnId,
+			attemptId: receiptLifecycle.attemptId,
+			outcome: {
+				type: "success",
+				ownerId: "brave-web-search",
+				toolName: "searchWeb",
+				message: "success · 4 queries · 4 sources",
+				proof: {
+					provider: "brave-web-search",
+					tool: "searchWeb",
+					outcome: "success",
+					queryCount: 4,
+					sourceCount: 4,
+				},
+			},
+		});
+		source.send({
+			type: "TURN_RECORDED",
+			turnId: receiptTurnId,
+			attemptId: receiptLifecycle.attemptId,
+			fact: {
+				type: "model-failed",
+				failureKind: "configuration",
+				message:
+					"Capability configuration rejected duplicate tool names: searchWeb.",
+				trace: [],
+				collision: {
+					outcome: "collision",
+					toolNames: ["searchWeb"],
+					owners: ["workbench-component", "duplicate-provider"],
+				},
+			},
+		});
 		recordTurnTerminal({ type: "TURN_COMPLETED", turnId: receiptTurnId });
 		expect(component.getView()).toMatchObject({
 			activeArtifact: { id: "receipt", revision: "1" },
@@ -607,42 +772,13 @@ describe("voice workbench accessible JSX", () => {
 			revision: "3",
 		});
 
-		executePrivatePort({
-			command: "recordTurn",
-			input: {
-				type: "accepted",
-				trace: [{ command: "searchWeb", accepted: true }],
-				capability: {
-					provider: "brave-web-search",
-					tool: "searchWeb",
-					outcome: "success",
-					queryCount: 4,
-					sourceCount: 4,
-				},
-			},
-		});
 		expect(
-			bridge.host.shadowRoot?.querySelector(".capability-proof")?.textContent,
+			bridge.host.shadowRoot?.querySelector(".capability-outcomes")?.textContent,
 		).toContain("brave-web-search · searchWeb");
 		expect(
-			bridge.host.shadowRoot?.querySelector(".capability-proof")?.textContent,
+			bridge.host.shadowRoot?.querySelector(".capability-outcomes")?.textContent,
 		).toContain("success · 4 queries · 4 sources");
 
-		executePrivatePort({
-			command: "recordTurn",
-			input: {
-				type: "model-failed",
-				failureKind: "configuration",
-				message:
-					"Capability configuration rejected duplicate tool names: searchWeb.",
-				trace: [],
-				collision: {
-					outcome: "collision",
-					toolNames: ["searchWeb"],
-					owners: ["workbench-component", "duplicate-provider"],
-				},
-			},
-		});
 		expect(
 			bridge.host.shadowRoot?.querySelector(".collision-proof")?.textContent,
 		).toContain("Capability manifest collision");

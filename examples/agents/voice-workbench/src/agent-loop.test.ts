@@ -8,12 +8,11 @@ import {
 	normalizeModelIssues,
 } from "./agent-loop";
 import agentLoopSource from "./agent-loop.ts?raw";
-import {
-	component,
-	recordTurnTerminal,
-	reportModelAvailable,
-	source,
-} from "./session";
+import { createVoiceWorkbenchSessionActor } from "./session";
+import { createVoiceWorkbenchComponent } from "./workbench-component";
+
+const source = createVoiceWorkbenchSessionActor().start();
+const component = createVoiceWorkbenchComponent(source);
 
 const nodes = [
 	{
@@ -23,13 +22,71 @@ const nodes = [
 	},
 ] as const;
 
-beforeAll(() => reportModelAvailable());
+beforeAll(() => {
+	const request = source.getSnapshot().context.portRequests.modelPreparation;
+	if (!request) throw new Error("Expected model preparation.");
+	source.send({
+		type: "MODEL_PREPARATION_PORT_RECEIVED",
+		request,
+		receipt: { type: "available", sequence: request.sequence },
+	});
+});
 afterAll(() => source.stop());
 
 const finishCurrentTurn = () => {
-	const turnId = source.getSnapshot().context.activeTurnId;
-	if (!turnId) throw new Error("Expected an active model turn.");
-	recordTurnTerminal({ type: "TURN_COMPLETED", turnId });
+	let request = source.getSnapshot().context.portRequests.modelTurn;
+	if (!request) throw new Error("Expected an active model turn.");
+	source.send({
+		type: "MODEL_TURN_PORT_RECEIVED",
+		request,
+		receipt: {
+			type: "MODEL_RESOLVED",
+			turnId: request.turnId,
+			attemptId: request.attemptId,
+			result: {
+				ok: true,
+				calls: [
+					{
+						id: "test-complete",
+						command: "completeResponse",
+						input: source.getSnapshot().context.pendingCompletion,
+					},
+				],
+			},
+		},
+	});
+	request = source.getSnapshot().context.portRequests.modelTurn;
+	if (!request) throw new Error("Expected authorization request.");
+	source.send({
+		type: "MODEL_TURN_PORT_RECEIVED",
+		request,
+		receipt: {
+			type: "AUTHORIZATION_RESOLVED",
+			turnId: request.turnId,
+			attemptId: request.attemptId,
+			allowed: true,
+		},
+	});
+	request = source.getSnapshot().context.portRequests.modelTurn;
+	if (!request || request.type !== "execute-call") {
+		throw new Error("Expected execution request.");
+	}
+	source.send({
+		type: "MODEL_TURN_PORT_RECEIVED",
+		request,
+		receipt: {
+			type: "CAPABILITY_RESOLVED",
+			turnId: request.turnId,
+			attemptId: request.attemptId,
+			feedback: {
+				id: request.call.id ?? "test-complete",
+				command: request.call.command,
+				status: "accepted",
+				view: component.getView().modelContext,
+				events: [],
+			},
+		},
+	});
 };
 
 const executeModelTurn = async (response: ModelResult) => {
