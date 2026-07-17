@@ -10,11 +10,11 @@ import {
 	requestMlxWorkbenchModel,
 } from "./model";
 import { createVoiceWorkbenchSessionActor } from "./session";
+import { createVoiceWorkbenchComponent } from "./workbench-component";
 import {
 	auditCompletionEvidence,
 	normalizeSemanticArtifactIdentity,
 } from "./workbench-policy";
-import { createVoiceWorkbenchComponent } from "./workbench-component";
 import { createVoiceWorkbenchRuntime } from "./workbench-runtime";
 
 const source = createVoiceWorkbenchSessionActor().start();
@@ -202,6 +202,118 @@ const priceEvidenceHistory: ModelExchange[] = [
 		],
 	},
 ];
+
+describe("model-turn adapter routing ownership", () => {
+	it("releases only the routing instance owned by the disposed turn lease", async () => {
+		const actor = createVoiceWorkbenchSessionActor().start();
+		const independentComponent = createVoiceWorkbenchComponent(actor);
+		const executeCapability = vi.fn(async () => ({
+			type: "success" as const,
+			ownerId: "routing-probe",
+			toolName: "probeCapability",
+			data: { retained: false },
+			receipt: { provider: "routing-probe" },
+		}));
+		const capability: CapabilityOwner = {
+			id: "routing-probe",
+			manifest: [
+				{
+					name: "probeCapability",
+					inputSchema: { type: "object", properties: {} },
+					gated: false,
+				},
+			],
+			run: executeCapability,
+		};
+		const port = createWorkbenchModelTurnPort(
+			{ baseUrl: "http://127.0.0.1:8080/v1", model: "local-model" },
+			[capability],
+			createDomainRegistry([]),
+			independentComponent,
+		);
+		const turnId = "routing-lease-turn";
+		requestModel.mockReset();
+		requestModel.mockResolvedValue({ ok: true, calls: [] });
+
+		try {
+			expect(port.startTurn).toBeTypeOf("function");
+			expect(port.dispose).toBeTypeOf("function");
+
+			const firstLease = port.startTurn(turnId);
+			await port(
+				{
+					type: "request-model",
+					turnId,
+					attemptId: `${turnId}:1`,
+					round: 1,
+					prompt: { channel: "text", text: "Create the first route." },
+					history: [],
+				},
+				{ signal: new AbortController().signal },
+			);
+
+			const currentLease = port.startTurn(turnId);
+			await port(
+				{
+					type: "request-model",
+					turnId,
+					attemptId: `${turnId}:2`,
+					round: 2,
+					prompt: { channel: "text", text: "Replace the first route." },
+					history: [],
+				},
+				{ signal: new AbortController().signal },
+			);
+
+			firstLease.dispose();
+			firstLease.dispose();
+			const currentResult = await port(
+				{
+					type: "execute-call",
+					turnId,
+					attemptId: `${turnId}:2`,
+					call: {
+						id: "current-probe",
+						command: "probeCapability",
+						input: {},
+					},
+				},
+				{ signal: new AbortController().signal },
+			);
+			expect(currentResult.receipt.type).toBe("CAPABILITY_RESOLVED");
+			expect(executeCapability).toHaveBeenCalledOnce();
+
+			currentLease.dispose();
+			currentLease.dispose();
+			const staleResult = await port(
+				{
+					type: "execute-call",
+					turnId,
+					attemptId: `${turnId}:2`,
+					call: {
+						id: "stale-probe",
+						command: "probeCapability",
+						input: {},
+					},
+				},
+				{ signal: new AbortController().signal },
+			);
+			expect(staleResult.receipt).toMatchObject({
+				type: "PORT_FAILED",
+				turnId,
+				failure: {
+					kind: "configuration",
+					message: "Capability routing was unavailable for this turn.",
+				},
+			});
+			expect(executeCapability).toHaveBeenCalledOnce();
+		} finally {
+			port.dispose?.();
+			actor.stop();
+			requestModel.mockReset();
+		}
+	});
+});
 
 beforeAll(() => reportModelAvailable());
 afterAll(() => source.stop());

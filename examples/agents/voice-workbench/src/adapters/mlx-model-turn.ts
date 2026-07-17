@@ -23,12 +23,13 @@ import type { ModelTurnPortRequest } from "../model-turn";
 import type {
 	ModelTurnPort,
 	ModelTurnPortFact,
+	ModelTurnPortLifecycle,
 	ModelTurnPortResult,
 } from "../ports";
-import {
-	type WorkbenchCapabilityProof,
-	type WorkbenchCollisionProof,
-	type WorkbenchPricingProofRow,
+import type {
+	WorkbenchCapabilityProof,
+	WorkbenchCollisionProof,
+	WorkbenchPricingProofRow,
 } from "../session";
 import type { VoiceWorkbenchComponent } from "../workbench-component";
 import {
@@ -399,6 +400,7 @@ const cancelledComponentExecution = (
 });
 
 type ModelTurnAdapterState = {
+	owner: symbol;
 	routing: CapabilityFederation | null;
 };
 
@@ -412,8 +414,20 @@ export const createWorkbenchModelTurnPort = (
 	externalCapabilities: readonly CapabilityOwner[],
 	domains: DomainRegistry,
 	workbench: VoiceWorkbenchComponent,
-): ModelTurnPort => {
+): ModelTurnPort & ModelTurnPortLifecycle => {
 	const turns = new Map<string, ModelTurnAdapterState>();
+	const startTurn = (turnId: string) => {
+		const owner = Symbol(turnId);
+		turns.set(turnId, { owner, routing: null });
+		let released = false;
+		return {
+			dispose() {
+				if (released) return;
+				released = true;
+				if (turns.get(turnId)?.owner === owner) turns.delete(turnId);
+			},
+		};
+	};
 
 	const componentCapability = (
 		request: ModelTurnPortRequest,
@@ -594,7 +608,10 @@ export const createWorkbenchModelTurnPort = (
 		};
 	};
 
-	return async (request, { signal }): Promise<ModelTurnPortResult> => {
+	const port: ModelTurnPort = async (
+		request,
+		{ signal },
+	): Promise<ModelTurnPortResult> => {
 		const correlation = {
 			turnId: request.turnId,
 			attemptId: request.attemptId,
@@ -613,6 +630,19 @@ export const createWorkbenchModelTurnPort = (
 		}
 		switch (request.type) {
 			case "request-model": {
+				const state = turns.get(request.turnId);
+				if (!state) {
+					return {
+						receipt: {
+							type: "PORT_FAILED",
+							...correlation,
+							failure: {
+								kind: "configuration",
+								message: "Model-turn routing ownership was unavailable.",
+							},
+						},
+					};
+				}
 				const federation = createCapabilityFederation([
 					componentCapability(request, signal),
 					...domains.capabilities,
@@ -648,7 +678,7 @@ export const createWorkbenchModelTurnPort = (
 						],
 					};
 				}
-				turns.set(request.turnId, { routing: federation });
+				state.routing = federation;
 				const manifest = domains.manifestForExecution({
 					prompt: request.prompt,
 					history: request.history,
@@ -764,4 +794,8 @@ export const createWorkbenchModelTurnPort = (
 			}
 		}
 	};
+	return Object.assign(port, {
+		startTurn,
+		dispose: () => turns.clear(),
+	});
 };

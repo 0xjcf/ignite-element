@@ -54,13 +54,17 @@ export const createVoiceWorkbenchRuntime = ({
 	modelTurnTimeoutMs = MODEL_TURN_TIMEOUT_MS,
 }: CreateVoiceWorkbenchRuntimeOptions): VoiceWorkbenchRuntime => {
 	const clock = ports.clock ?? defaultClock;
-	const handled = new Set<string>();
 	let disposed = false;
+	let handledPreparationKey: string | null = null;
+	let handledModelTurnKey: string | null = null;
+	let handledVoiceKey: string | null = null;
+	let handledSpeechKey: string | null = null;
 	let preparationController: AbortController | null = null;
 	let modelTurnController: {
 		turnId: string;
 		controller: AbortController;
 	} | null = null;
+	let modelTurnLease: WorkbenchDisposable | null = null;
 	let modelTurnTimeout: {
 		turnId: string;
 		disposable: WorkbenchDisposable;
@@ -75,13 +79,17 @@ export const createVoiceWorkbenchRuntime = ({
 	const stopPreparation = () => {
 		preparationController?.abort();
 		preparationController = null;
+		handledPreparationKey = null;
 	};
 
 	const stopModelTurn = () => {
 		modelTurnController?.controller.abort();
 		modelTurnController = null;
+		modelTurnLease?.dispose();
+		modelTurnLease = null;
 		modelTurnTimeout?.disposable.dispose();
 		modelTurnTimeout = null;
+		handledModelTurnKey = null;
 	};
 
 	const drivePreparation = (snapshot: VoiceWorkbenchSessionSnapshot) => {
@@ -91,9 +99,9 @@ export const createVoiceWorkbenchRuntime = ({
 			return;
 		}
 		const key = `model-preparation:${request.sequence}`;
-		if (handled.has(key)) return;
-		handled.add(key);
+		if (handledPreparationKey === key) return;
 		stopPreparation();
+		handledPreparationKey = key;
 		const controller = new AbortController();
 		preparationController = controller;
 		void ports
@@ -120,13 +128,17 @@ export const createVoiceWorkbenchRuntime = ({
 			return;
 		}
 		const request = snapshot.context.portRequests.modelTurn;
-		if (!request) return;
+		if (!request) {
+			handledModelTurnKey = null;
+			return;
+		}
 		if (modelTurnController?.turnId !== request.turnId) {
 			stopModelTurn();
 			modelTurnController = {
 				turnId: request.turnId,
 				controller: new AbortController(),
 			};
+			modelTurnLease = ports.modelTurn.startTurn?.(request.turnId) ?? null;
 			modelTurnTimeout = {
 				turnId: request.turnId,
 				disposable: clock.setTimeout(() => {
@@ -141,8 +153,8 @@ export const createVoiceWorkbenchRuntime = ({
 			};
 		}
 		const key = modelRequestKey(request);
-		if (handled.has(key)) return;
-		handled.add(key);
+		if (handledModelTurnKey === key) return;
+		handledModelTurnKey = key;
 		const controller = modelTurnController.controller;
 		void ports
 			.modelTurn(request, { signal: controller.signal })
@@ -172,13 +184,17 @@ export const createVoiceWorkbenchRuntime = ({
 		if (!snapshot.children["voice-capture"]) {
 			voiceEffect?.dispose();
 			voiceEffect = null;
+			handledVoiceKey = null;
 			return;
 		}
 		const request = snapshot.context.portRequests.voiceCapture;
-		if (!request) return;
+		if (!request) {
+			handledVoiceKey = null;
+			return;
+		}
 		const key = voiceRequestKey(request);
-		if (handled.has(key)) return;
-		handled.add(key);
+		if (handledVoiceKey === key) return;
+		handledVoiceKey = key;
 		if (request.type === "start") {
 			voiceEffect?.dispose();
 			voiceEffect = null;
@@ -199,13 +215,17 @@ export const createVoiceWorkbenchRuntime = ({
 		if (!snapshot.children["speech-delivery"]) {
 			speechEffect?.dispose();
 			speechEffect = null;
+			handledSpeechKey = null;
 			return;
 		}
 		const request = snapshot.context.portRequests.speechDelivery;
-		if (!request) return;
+		if (!request) {
+			handledSpeechKey = null;
+			return;
+		}
 		const key = speechRequestKey(request);
-		if (handled.has(key)) return;
-		handled.add(key);
+		if (handledSpeechKey === key) return;
+		handledSpeechKey = key;
 		if (request.type === "speak") {
 			speechEffect?.dispose();
 			speechEffect = null;
@@ -241,11 +261,13 @@ export const createVoiceWorkbenchRuntime = ({
 			subscription.unsubscribe();
 			stopPreparation();
 			stopModelTurn();
+			ports.modelTurn.dispose?.();
 			voiceEffect?.dispose();
 			voiceEffect = null;
 			speechEffect?.dispose();
 			speechEffect = null;
-			handled.clear();
+			handledVoiceKey = null;
+			handledSpeechKey = null;
 		},
 	};
 };

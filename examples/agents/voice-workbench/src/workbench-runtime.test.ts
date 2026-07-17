@@ -1,15 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { waitFor } from "xstate";
-import type { VoiceWorkbenchPorts } from "./ports";
+import type { VoiceWorkbenchPorts, WorkbenchDisposable } from "./ports";
 import {
 	createVoiceWorkbenchSessionActor,
 	type VoiceWorkbenchSessionActor,
 } from "./session";
 import {
-	createVoiceWorkbenchRuntime,
 	type CreateVoiceWorkbenchRuntimeOptions,
+	createVoiceWorkbenchRuntime,
 	type VoiceWorkbenchRuntime,
 } from "./workbench-runtime";
+import runtimeSource from "./workbench-runtime.ts?raw";
 
 const active: Array<{
 	actor: VoiceWorkbenchSessionActor;
@@ -48,7 +49,174 @@ const inertPorts = {
 	speechDelivery: () => undefined,
 } satisfies Pick<VoiceWorkbenchPorts, "voiceCapture" | "speechDelivery">;
 
+type LifecycleAwareModelTurnPort = VoiceWorkbenchPorts["modelTurn"] & {
+	startTurn(turnId: string): WorkbenchDisposable;
+	dispose(): void;
+};
+
+const lifecycleAwareModelTurnPort = (
+	handler: VoiceWorkbenchPorts["modelTurn"],
+) => {
+	const releases: ReturnType<typeof vi.fn>[] = [];
+	const port = Object.assign(vi.fn(handler), {
+		startTurn: vi.fn((_turnId: string) => {
+			const release = vi.fn();
+			releases.push(release);
+			return { dispose: release };
+		}),
+		dispose: vi.fn(),
+	}) satisfies LifecycleAwareModelTurnPort;
+	return { port, releases };
+};
+
 describe("voice workbench host runtime", () => {
+	it("releases the model-turn routing lease for every parent-owned terminal path", async () => {
+		const scenarios = [
+			"parent-exit",
+			"cancellation",
+			"timeout",
+			"completion",
+			"runtime-dispose",
+		] as const;
+
+		for (const scenario of scenarios) {
+			let actor!: VoiceWorkbenchSessionActor;
+			let timeoutCallback: (() => void) | undefined;
+			const pendingPreparation =
+				deferred<
+					Awaited<ReturnType<VoiceWorkbenchPorts["modelPreparation"]>>
+				>();
+			const lifecyclePort = lifecycleAwareModelTurnPort(async (request) => {
+				if (scenario !== "completion") return new Promise(() => {});
+				switch (request.type) {
+					case "request-model":
+						return {
+							receipt: {
+								type: "MODEL_RESOLVED",
+								turnId: request.turnId,
+								attemptId: request.attemptId,
+								result: {
+									ok: true,
+									calls: [
+										{
+											id: "complete",
+											command: "completeResponse",
+											input: { text: "Complete the lease test." },
+										},
+									],
+								},
+							},
+						};
+					case "authorize-call":
+						return {
+							receipt: {
+								type: "AUTHORIZATION_RESOLVED",
+								turnId: request.turnId,
+								attemptId: request.attemptId,
+								allowed: true,
+							},
+						};
+					case "execute-call":
+						actor.send({
+							type: "COMPLETE_RESPONSE",
+							input: { text: "Complete the lease test." },
+						});
+						return {
+							receipt: {
+								type: "CAPABILITY_RESOLVED",
+								turnId: request.turnId,
+								attemptId: request.attemptId,
+								feedback: {
+									id: request.call.id ?? "complete",
+									command: request.call.command,
+									status: "accepted",
+									ownerId: "workbench-component",
+									view: {},
+									events: [],
+								},
+							},
+						};
+				}
+			});
+			const created = createRuntime(
+				{
+					modelPreparation: async (request) =>
+						request.sequence === 1
+							? { type: "available", sequence: request.sequence }
+							: pendingPreparation.promise,
+					modelTurn: lifecyclePort.port,
+					...inertPorts,
+					clock: {
+						setTimeout(callback) {
+							timeoutCallback = callback;
+							return { dispose: vi.fn() };
+						},
+					},
+				},
+				{ modelTurnTimeoutMs: 25 },
+			);
+			actor = created.actor;
+			await waitFor(actor, (snapshot) => snapshot.matches("available"));
+			actor.send({
+				type: "SUBMIT_PROMPT",
+				input: { modality: "text", text: `Release through ${scenario}` },
+			});
+			await vi.waitFor(() => expect(lifecyclePort.port).toHaveBeenCalled());
+
+			const request = actor.getSnapshot().context.portRequests.modelTurn;
+			if (!request) throw new Error("Expected an active model-turn request.");
+			switch (scenario) {
+				case "parent-exit":
+					actor.send({ type: "MODEL_PREPARATION_STARTED" });
+					break;
+				case "cancellation":
+					actor.send({
+						type: "MODEL_TURN_CANCEL_REQUESTED",
+						turnId: request.turnId,
+						attemptId: request.attemptId,
+					});
+					break;
+				case "timeout":
+					timeoutCallback?.();
+					break;
+				case "completion":
+					await waitFor(
+						actor,
+						(snapshot) =>
+							snapshot.context.lastTurnTerminal?.type === "TURN_COMPLETED",
+					);
+					break;
+				case "runtime-dispose":
+					created.runtime.dispose();
+					break;
+			}
+
+			await vi.waitFor(() => {
+				expect(lifecyclePort.port.startTurn).toHaveBeenCalledOnce();
+				expect(lifecyclePort.releases).toHaveLength(1);
+				expect(lifecyclePort.releases[0]).toHaveBeenCalledOnce();
+			});
+			created.runtime.dispose();
+			expect(lifecyclePort.releases[0]).toHaveBeenCalledOnce();
+			if (scenario === "runtime-dispose") {
+				expect(lifecyclePort.port.dispose).toHaveBeenCalledOnce();
+			}
+		}
+	});
+
+	it("uses bounded current request keys instead of retaining lifecycle history", () => {
+		expect(runtimeSource).not.toContain("new Set");
+		expect(runtimeSource).not.toContain("Set<string>");
+		for (const slot of [
+			"handledPreparationKey",
+			"handledModelTurnKey",
+			"handledVoiceKey",
+			"handledSpeechKey",
+		]) {
+			expect(runtimeSource).toContain(`let ${slot}: string | null = null`);
+		}
+	});
+
 	it("deduplicates model preparation and aborts outstanding host work on disposal", async () => {
 		const pending =
 			deferred<Awaited<ReturnType<VoiceWorkbenchPorts["modelPreparation"]>>>();
@@ -258,6 +426,12 @@ describe("voice workbench host runtime", () => {
 	it("disposes voice and replaced speech effects at the host boundary", async () => {
 		const voiceDispose = vi.fn();
 		const speechDisposals: ReturnType<typeof vi.fn>[] = [];
+		const voiceCapture = vi.fn(() => ({ dispose: voiceDispose }));
+		const speechDelivery = vi.fn(() => {
+			const dispose = vi.fn();
+			speechDisposals.push(dispose);
+			return { dispose };
+		});
 		let actor!: VoiceWorkbenchSessionActor;
 		const modelTurn = vi.fn<VoiceWorkbenchPorts["modelTurn"]>(
 			async (request) => {
@@ -318,12 +492,8 @@ describe("voice workbench host runtime", () => {
 				sequence: request.sequence,
 			}),
 			modelTurn,
-			voiceCapture: () => ({ dispose: voiceDispose }),
-			speechDelivery: () => {
-				const dispose = vi.fn();
-				speechDisposals.push(dispose);
-				return { dispose };
-			},
+			voiceCapture,
+			speechDelivery,
 		});
 		actor = created.actor;
 		await waitFor(actor, (snapshot) => snapshot.matches("available"));
@@ -335,14 +505,29 @@ describe("voice workbench host runtime", () => {
 		await waitFor(actor, (snapshot) =>
 			snapshot.matches({ available: { speech: "delivering" } }),
 		);
+		created.runtime.drive();
+		created.runtime.drive(actor.getSnapshot());
+		expect(voiceCapture).toHaveBeenCalledOnce();
+		expect(speechDelivery).toHaveBeenCalledOnce();
 		expect(speechDisposals).toHaveLength(1);
 
-		actor.send({ type: "SPEECH_DELIVERY_REPLAY_REQUESTED" });
-		await vi.waitFor(() => expect(speechDisposals).toHaveLength(2));
-		expect(speechDisposals[0]).toHaveBeenCalledOnce();
+		for (let requestCount = 2; requestCount <= 12; requestCount += 1) {
+			actor.send({ type: "SPEECH_DELIVERY_REPLAY_REQUESTED" });
+			await vi.waitFor(() =>
+				expect(speechDisposals).toHaveLength(requestCount),
+			);
+			created.runtime.drive();
+			created.runtime.drive(actor.getSnapshot());
+			expect(speechDelivery).toHaveBeenCalledTimes(requestCount);
+			expect(speechDisposals[requestCount - 2]).toHaveBeenCalledOnce();
+		}
 		created.runtime.dispose();
 		expect(voiceDispose).toHaveBeenCalledOnce();
-		expect(speechDisposals[1]).toHaveBeenCalledOnce();
+		const currentSpeechDisposal = speechDisposals[speechDisposals.length - 1];
+		if (!currentSpeechDisposal) {
+			throw new Error("Expected the current speech disposal.");
+		}
+		expect(currentSpeechDisposal).toHaveBeenCalledOnce();
 	});
 
 	it("clears active child projections and host effects when the parent leaves available", async () => {

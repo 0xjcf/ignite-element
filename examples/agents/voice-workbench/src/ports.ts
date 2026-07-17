@@ -3,9 +3,9 @@ import type {
 	ModelTurnLifecycleEvent,
 	ModelTurnPortRequest,
 } from "./model-turn";
+import type { VoiceWorkbenchPrivateEvent } from "./session";
 import type { SpeechDeliveryEvent, SpeechDeliveryPortRequest } from "./speech";
 import type { VoiceCaptureEvent, VoiceCapturePortRequest } from "./voice";
-import type { VoiceWorkbenchPrivateEvent } from "./session";
 
 export type WorkbenchDisposable = { dispose(): void };
 
@@ -96,10 +96,18 @@ export type ModelPreparationPort = (
 	options: { signal: AbortSignal },
 ) => Promise<ModelPreparationPortReceipt>;
 
-export type ModelTurnPort = (
+export type ModelTurnPortHandler = (
 	request: ModelTurnPortRequest,
 	options: { signal: AbortSignal },
 ) => Promise<ModelTurnPortResult>;
+
+/** A parent-owned turn lifetime spans every request-scoped port call. */
+export type ModelTurnPortLifecycle = WorkbenchDisposable & {
+	startTurn(turnId: string): WorkbenchDisposable;
+};
+
+export type ModelTurnPort = ModelTurnPortHandler &
+	Partial<ModelTurnPortLifecycle>;
 
 export type VoiceCapturePort = (
 	request: VoiceCapturePortRequest,
