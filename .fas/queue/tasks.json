@@ -348,31 +348,6 @@
       "updatedAt": "2026-07-16T03:11:42.136Z"
     },
     {
-      "id": "task-1784171467799",
-      "task": "Add explicit turn, voice-capture, and speech-delivery terminal lifecycles",
-      "priority": "high",
-      "source": "fas-project-audit",
-      "details": "Complete the lifecycle architecture after provider/turn restructuring. Make the outer model/capability round loop an invoked child actor or machine that owns request, evaluation, authorization, capability execution, round count, cancellation, timeout, exhaustion, and exactly one terminal result while retaining modelTurn() as pure one-round policy. Formalize browser voice capture and speech delivery as child lifecycles with imperative ports and serializable facts. Replace shell-owned watcher orchestration and synthetic COMPLETE_RESPONSE failure recovery with explicit typed events.\nSee .fas/tasks/add-explicit-turn-voice-capture-and-speech-delivery-terminal.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "policy-surfacing",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [
-        "task-1784171435029"
-      ],
-      "blocks": [
-        "task-1784171502136"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-16T03:11:07.799Z",
-      "updatedAt": "2026-07-16T18:24:50.537Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
       "id": "task-1784171502136",
       "task": "Evaluate an optional Ignite XState graph-testing bridge from dogfood",
       "priority": "high",
@@ -394,8 +369,29 @@
       "prDependencies": [],
       "createdAt": "2026-07-16T03:11:42.136Z",
       "updatedAt": "2026-07-16T03:11:42.136Z",
-      "deferredReason": "dependency_reopened: task-1784171467799, task-1783610933373, task-1783810065213",
+      "deferredReason": "dependency_reopened: task-1783610933373, task-1783810065213",
       "invalidationReason": null
+    },
+    {
+      "id": "task-1784253036241",
+      "task": "Converge routing examples on machine-driven host projections",
+      "priority": "high",
+      "source": "manual",
+      "details": "Bring the spa-router and nested-child-router examples into the same authority boundary proven by the voice-workbench audit. Machine state is the sole workflow and navigation authority. projectRoute(snapshot) and projectView(snapshot) are sibling pure projections; neither performs History or browser work. The browser host is the imperative shell: bootstrap the URL into the machine before outbound synchronization, push only accepted user navigation, send popstate as intent without immediately writing History, and use replace for canonical fallback. Never write History before actor acceptance. Do not add an Ignite router API or shared core API unless repeated dogfood friction proves a need. Keep the optional XState graph-testing bridge separate. Document the source-of-truth matrix and lifecycle/event contract.\nSee .fas/tasks/converge-routing-examples-on-machine-driven-host-projections.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "queued",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784171467799"
+      ],
+      "blocks": [],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-17T01:50:36.242Z",
+      "updatedAt": "2026-07-17T01:50:36.242Z"
     }
   ],
   "completedTasks": [
@@ -3549,6 +3545,31 @@
       "workflowId": "direct-1784221286547",
       "branchName": "fas/voice-text-workbench",
       "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784171467799",
+      "task": "Add explicit turn, voice-capture, and speech-delivery terminal lifecycles",
+      "priority": "high",
+      "source": "fas-project-audit",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1784171435029"
+      ],
+      "blocks": [
+        "task-1784171502136",
+        "task-1784253036241"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-17T01:47:54.379Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784226290532",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
     }
   ],
   "pullRequests": [],
@@ -3618,6 +3639,10 @@
         {
           "taskId": "task-1782187745669",
           "epicRole": "example-doc-cleanup"
+        },
+        {
+          "taskId": "task-1784253036241",
+          "epicRole": "routing-conformance"
         }
       ]
     },

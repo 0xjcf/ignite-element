@@ -2462,7 +2462,7 @@ No active tasks.
 
 - Title: Add explicit turn, voice-capture, and speech-delivery terminal lifecycles
 - Mode: 6-agent
-- Status: implementing
+- Status: done
 - Owner: implementer
 - Brief: .fas/tasks/add-explicit-turn-voice-capture-and-speech-delivery-terminal.md
 - Verification lane: fast
@@ -2476,6 +2476,14 @@ No active tasks.
 - Status: queued
 - Owner: runtime
 - Brief: .fas/tasks/evaluate-an-optional-ignite-xstate-graph-testing-bridge-from.md
+
+### Task: Converge routing examples on machine-driven host projections
+
+- Title: Converge routing examples on machine-driven host projections
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/converge-routing-examples-on-machine-driven-host-projections.md
 
 ## Template
 
