@@ -54,6 +54,48 @@ Scenario methods — every `given`/`expect*` **returns the scenario** so calls c
 
 Snapshot, view, and event expectations accept a deep-partial object or a predicate function. Event expectations match flat `{ type, ...fields }` members.
 
+## Narratives
+
+When you need more than one intent in the same falsifiable user story, use `narrative(name, async (narrative) => ...)`. It reuses the runtime's existing `record(name)` story and returns the same serializable `IgniteStorySnapshot` that `snapshotStory(story)` produces — there is no second recorder or alternate trace schema.
+
+```ts
+const receipt = await igniteTest(counter).narrative(
+  'counter recovery',
+  async (narrative) => {
+    narrative.given({
+      snapshot: { counter: { count: 0 } },
+      view: { count: 0, canDecrement: false },
+      canExecute: { decrement: false },
+    });
+
+    await narrative.intent({ command: 'increment', input: 2 });
+    narrative.checkpoint('after increment', {
+      snapshot: { counter: { count: 2 } },
+      view: { count: 2, canDecrement: true },
+      events: [{ type: 'counter-incremented', count: 2 }],
+      canExecute: { decrement: true },
+    });
+
+    // Consumer-owned facts stay ordinary test code between intents.
+    await someExternalFixture.retry();
+
+    await narrative.intent({ command: 'decrement' });
+    narrative.checkpoint('after decrement', {
+      snapshot: { counter: { count: 1 } },
+    });
+  },
+);
+```
+
+Narrative methods:
+
+- `narrative(name, run)` — create a named story, run multiple ordered command steps, and return the existing `{ name, trace, lifecycle, summary }` snapshot.
+- `narrative.given(expected)` — assertion-only precondition check against the current `snapshot`, projected `view`, and `canExecute(...)` state.
+- `await narrative.intent({ command, input? })` — run one intent through the existing Story `execute(...)` path and capture its last-step events for the next checkpoint.
+- `narrative.checkpoint(name, expected)` — assert the current `snapshot`, projected `view`, `canExecute(...)`, and the emitted `event`/`events` (or `noEvents`) from the most recent intent.
+
+If a narrative fails, the error includes the narrative name, the failing phase or checkpoint, and the serialized Story evidence gathered so far.
+
 ## Stories
 
 A story records command, snapshot, view, and event activity as one ordered behavior trace. Start one from the runtime's [`record(name)`](/ignite-element/api/headless-runtime/#recordname):
