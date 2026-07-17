@@ -730,6 +730,69 @@ describe("voice workbench session machine contract", () => {
 		actor.stop();
 	});
 
+	it.each([
+		{
+			state: "unavailable",
+			fact: {
+				type: "voice-error",
+				message: "Speech recognition could not be initialized.",
+			},
+		},
+		{ state: "unsupported", fact: { type: "voice-unsupported" } },
+		{ state: "disposed", fact: { type: "voice-idle" } },
+	] as const)(
+		"does not advertise or admit voice START from $state",
+		({ state, fact }) => {
+			const actor = createVoiceWorkbenchSessionActor().start();
+			actor.send({ type: "MODEL_AVAILABLE" });
+			actor.send({
+				type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
+				lifecycle: {
+					state,
+					attemptId: null,
+					sequence: 0,
+					fact,
+				},
+			});
+
+			expect(
+				projectVoiceWorkbenchView({ snapshot: actor.getSnapshot() })
+					.microphoneUnavailable,
+			).toBe(true);
+			sendSessionEvent(actor, { type: "VOICE_CAPTURE_START_REQUESTED" });
+			expect(voiceControlContext(actor.getSnapshot())).toMatchObject({
+				voiceCaptureControlSequence: 0,
+				voiceCaptureControlRequest: null,
+			});
+			actor.stop();
+		},
+	);
+
+	it("keeps runtime voice failure startable through parent admission", () => {
+		const actor = createVoiceWorkbenchSessionActor().start();
+		actor.send({ type: "MODEL_AVAILABLE" });
+		actor.send({
+			type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "failed",
+				attemptId: "voice:1",
+				sequence: 1,
+				fact: { type: "voice-error", message: "Recognition failed." },
+			},
+		});
+
+		expect(
+			projectVoiceWorkbenchView({ snapshot: actor.getSnapshot() })
+				.microphoneUnavailable,
+		).toBe(false);
+		sendSessionEvent(actor, { type: "VOICE_CAPTURE_START_REQUESTED" });
+		expect(voiceControlContext(actor.getSnapshot())).toMatchObject({
+			voiceCaptureControlSequence: 1,
+			voiceCaptureControlRequest: { action: "start", sequence: 1 },
+		});
+		actor.stop();
+	});
+
 	it("requires both request and attempt correlation before consuming a transcript", () => {
 		const actor = createVoiceWorkbenchSessionActor().start();
 		actor.send({ type: "MODEL_AVAILABLE" });
@@ -2027,6 +2090,50 @@ describe("voice workbench headless component", () => {
 			fact: { type: "voice-idle" },
 		});
 		expect(component.canExecute("submitVoiceTranscript")).toBe(false);
+		for (const voiceAdmission of [
+			{
+				state: "unavailable",
+				fact: {
+					type: "voice-error",
+					message: "Speech recognition could not be initialized.",
+				},
+				canStart: false,
+			},
+			{
+				state: "unsupported",
+				fact: { type: "voice-unsupported" },
+				canStart: false,
+			},
+			{
+				state: "disposed",
+				fact: { type: "voice-idle" },
+				canStart: false,
+			},
+			{
+				state: "failed",
+				fact: { type: "voice-error", message: "Recognition failed." },
+				canStart: true,
+			},
+		] as const) {
+			recordVoiceCaptureLifecycle({
+				state: voiceAdmission.state,
+				attemptId: null,
+				sequence: 2,
+				fact: voiceAdmission.fact,
+			});
+			expect(component.canExecute("startVoiceCapture")).toBe(
+				voiceAdmission.canStart,
+			);
+			expect(component.getView().microphoneUnavailable).toBe(
+				!voiceAdmission.canStart,
+			);
+		}
+		recordVoiceCaptureLifecycle({
+			state: "idle",
+			attemptId: null,
+			sequence: 2,
+			fact: { type: "voice-idle" },
+		});
 		source.send({
 			type: "SUBMIT_PROMPT",
 			input: { modality: "text", text: " " },

@@ -5,6 +5,7 @@ import {
 	projectVoiceCaptureLifecycle,
 	projectVoiceCapturePortRequest,
 	type SpeechRecognitionLike,
+	voiceCaptureMachine,
 } from "./voice";
 
 function createRecognition() {
@@ -35,6 +36,83 @@ const installRecognition = (recognition: SpeechRecognitionLike) => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("browser voice capture", () => {
+	it("declares the exact voice-capture lifecycle state shape", () => {
+		expect(Object.keys(voiceCaptureMachine.config.states).sort()).toEqual([
+			"cancelled",
+			"checking",
+			"consumed",
+			"disposed",
+			"failed",
+			"idle",
+			"listening",
+			"permission-denied",
+			"transcript",
+			"unavailable",
+			"unsupported",
+		]);
+	});
+
+	it("classifies adapter initialization failure as unavailable", () => {
+		const actor = createVoiceCaptureActor({
+			supported: false,
+			initialError: "Speech recognition could not be initialized.",
+		}).start();
+
+		expect(projectVoiceCaptureLifecycle(actor.getSnapshot())).toEqual({
+			state: "unavailable",
+			attemptId: null,
+			sequence: 0,
+			fact: {
+				type: "voice-error",
+				message: "Speech recognition could not be initialized.",
+			},
+		});
+		expect(projectVoiceCapturePortRequest(actor.getSnapshot())).toBeNull();
+		actor.stop();
+	});
+
+	it("keeps initialization failure inert to repeated START intent", () => {
+		const actor = createVoiceCaptureActor({
+			supported: false,
+			initialError: "Speech recognition could not be initialized.",
+		}).start();
+
+		actor.send({ type: "START" });
+		expect(actor.getSnapshot()).toMatchObject({
+			value: "unavailable",
+			context: {
+				attemptId: null,
+				sequence: 0,
+				portSequence: 0,
+				portAction: null,
+			},
+		});
+		expect(projectVoiceCapturePortRequest(actor.getSnapshot())).toBeNull();
+		actor.stop();
+	});
+
+	it("keeps a real browser constructor failure unavailable", () => {
+		// biome-ignore lint/complexity/useArrowFunction: constructor mocks must be constructable.
+		const Recognition = vi.fn(function () {
+			throw new Error("Speech recognition constructor failed.");
+		});
+		vi.stubGlobal("SpeechRecognition", Recognition);
+		const voice = createBrowserVoiceCapture();
+
+		expect(Recognition).toHaveBeenCalledOnce();
+		voice.start();
+		expect(voice.getLifecycle()).toEqual({
+			state: "unavailable",
+			attemptId: null,
+			sequence: 0,
+			fact: {
+				type: "voice-error",
+				message: "Speech recognition could not be initialized.",
+			},
+		});
+		voice.dispose();
+	});
+
 	it("uses an attempt-correlated serializable machine for consume and disposal", () => {
 		const actor = createVoiceCaptureActor({ supported: true });
 		actor.start();
