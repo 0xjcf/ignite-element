@@ -2195,9 +2195,9 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
-### Task: Evaluate headless projection testing ergonomics from workbench dogfood
+### Task: Evaluate executable-narrative testing ergonomics from Voice Workbench dogfood
 
-- Title: Evaluate headless projection testing ergonomics from workbench dogfood
+- Title: Evaluate executable-narrative testing ergonomics from Voice Workbench dogfood
 - Mode: 4-agent
 - Status: deferred
 - Owner: runtime
@@ -2328,10 +2328,10 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
-### Task: Add named igniteTest rehearsals with trace snapshots
+### Task: Define and implement multi-step igniteTest narratives over existing Story evidence
 
-- Title: Add named igniteTest rehearsals with trace snapshots
-- Mode: 4-agent
+- Title: Define and implement multi-step igniteTest narratives over existing Story evidence
+- Mode: 6-agent
 - Status: queued
 - Owner: runtime
 - Brief: .fas/tasks/add-named-ignitetest-rehearsals-with-trace-snapshots.md
@@ -2469,9 +2469,9 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
-### Task: Evaluate an optional Ignite XState graph-testing bridge from dogfood
+### Task: Evaluate an optional Ignite XState graph-testing bridge after executable-narrative dogfood
 
-- Title: Evaluate an optional Ignite XState graph-testing bridge from dogfood
+- Title: Evaluate an optional Ignite XState graph-testing bridge after executable-narrative dogfood
 - Mode: 6-agent
 - Status: queued
 - Owner: runtime
@@ -2495,6 +2495,82 @@ No active tasks.
 - Verification lane: fast
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
+
+### Task: Gate 0: refresh and approve the Voice Workbench Mock Studio behavior handoff
+
+- Title: Gate 0: refresh and approve the Voice Workbench Mock Studio behavior handoff
+- Mode: 6-agent
+- Status: implementing
+- Owner: implementer
+- Brief: .fas/tasks/gate-0-refresh-and-approve-the-voice-workbench-mock-studio-b.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Create and validate every Voice Workbench state-machine contract and executable architecture boundary
+
+- Title: Create and validate every Voice Workbench state-machine contract and executable architecture boundary
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/define-executable-voice-workbench-architecture-boundaries-an.md
+
+### Task: Extract framework-neutral Voice Workbench contracts and deterministic cores
+
+- Title: Extract framework-neutral Voice Workbench contracts and deterministic cores
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/extract-framework-neutral-voice-workbench-contracts-and-dete.md
+
+### Task: Introduce the actor-backed Voice Workbench command and read-model port
+
+- Title: Introduce the actor-backed Voice Workbench command and read-model port
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/introduce-the-actor-backed-voice-workbench-command-and-read-.md
+
+### Task: Split Voice Workbench provider protocols from imperative adapters
+
+- Title: Split Voice Workbench provider protocols from imperative adapters
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/split-voice-workbench-provider-protocols-from-imperative-ada.md
+
+### Task: Separate Voice Workbench read models, Ignite composition, and renderers
+
+- Title: Separate Voice Workbench read models, Ignite composition, and renderers
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/separate-voice-workbench-read-models-ignite-composition-and-.md
+
+### Task: Converge Voice Workbench hosts and close hexagonal boundary conformance
+
+- Title: Converge Voice Workbench hosts and close hexagonal boundary conformance
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/converge-voice-workbench-hosts-and-close-hexagonal-boundary-.md
+
+### Task: Dogfood executable narratives across Voice Workbench failure and recovery paths
+
+- Title: Dogfood executable narratives across Voice Workbench failure and recovery paths
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/dogfood-executable-narratives-across-voice-workbench-failure.md
+- Automation mode: advisory
+
+### Task: Decide Story API naming and v3 beta migration from narrative dogfood
+
+- Title: Decide Story API naming and v3 beta migration from narrative dogfood
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/decide-story-api-naming-and-v3-beta-migration-from-narrative.md
 
 ## Template
 

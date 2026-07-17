@@ -82,27 +82,29 @@
     },
     {
       "id": "task-1783610933373",
-      "task": "Evaluate headless projection testing ergonomics from workbench dogfood",
+      "task": "Evaluate executable-narrative testing ergonomics from Voice Workbench dogfood",
       "priority": "high",
       "source": "manual",
-      "details": "After the voice/text workbench lands with deterministic tests using existing headless APIs, evaluate whether repeated consumer friction justifies additional testing ergonomics. Prefer fixtures, documentation, and internal helpers; do not assume a new public matcher, public inspect method, projection CRUD, or second authoring DSL is needed. Close with an evidence-backed no-change verdict when the existing API is sufficient.\nSee .fas/tasks/add-headless-accessibility-contract-assertions-to-the-test-d.md",
+      "details": "After the executable Voice Workbench narrative catalog lands, audit whether the multi-step igniteTest narrative helper, existing Story recorder, Story snapshot receipt, focused getters, command availability, events, and ordinary assertions express the required user, system, and projection narratives with strong diagnostics. Start from concrete dogfood evidence. Prefer documentation, example fixtures, or internal helpers; a no-change verdict is successful. Any additional public API or receipt envelope requires repeated friction and a separate implementation decision.\nSee .fas/tasks/add-headless-accessibility-contract-assertions-to-the-test-d.md",
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "deferred",
       "owner": "runtime",
       "mode": "4-agent",
       "dependsOn": [
-        "task-1783613728381"
+        "task-1783613728381",
+        "task-1784324997164"
       ],
       "blocks": [
-        "task-1784171502136"
+        "task-1784171502136",
+        "task-1784325062961"
       ],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-09T15:28:53.373Z",
-      "updatedAt": "2026-07-16T03:11:42.136Z",
-      "deferredReason": null,
+      "updatedAt": "2026-07-17T21:51:02.962Z",
+      "deferredReason": "dependency_reopened: task-1784324997164",
       "invalidationReason": null
     },
     {
@@ -328,31 +330,36 @@
     },
     {
       "id": "task-1783810065213",
-      "task": "Add named igniteTest rehearsals with trace snapshots",
+      "task": "Define and implement multi-step igniteTest narratives over existing Story evidence",
       "priority": "high",
       "source": "manual",
-      "details": "Add a compact named-rehearsal layer to the existing igniteTest scenario API. Consumers define a rehearsal such as serve-ball with an asserted initial snapshot, one typed object-form command call, and expected final snapshot/view/events, then call await scenario.rehearse(\"serve-ball\") and receive the existing serializable IgniteStorySnapshot trace. Reuse component.record(), story execution, trace serialization, and summary machinery rather than introducing a second recorder or state authority. The initial state is asserted, never injected; consumers provide a fresh isolated runtime when they need repeatable rehearsals, and Ignite must not silently reset shared sources.\nSee .fas/tasks/add-named-ignitetest-rehearsals-with-trace-snapshots.md",
+      "details": "Replace the queued one-command rehearsal proposal with a typed multi-step narrative helper over the existing igniteTest scenario and Story evidence APIs. A narrative is the expected falsifiable experience; component.record produces the observed Story and snapshotStory produces its portable receipt. The helper must support assertion-only preconditions, multiple typed intent commands, consumer-driven external facts between intents, and named semantic checkpoints without creating a second recorder, state authority, graph engine, or trace schema. The first slice should return the existing IgniteStorySnapshot and use dogfood to decide whether a later receipt envelope is justified.\nSee .fas/tasks/add-named-ignitetest-rehearsals-with-trace-snapshots.md",
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "deferred",
       "owner": "runtime",
-      "mode": "4-agent",
-      "dependsOn": [],
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784298607166"
+      ],
       "blocks": [
-        "task-1784171502136"
+        "task-1784171502136",
+        "task-1784324997164"
       ],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-11T22:47:45.213Z",
-      "updatedAt": "2026-07-16T03:11:42.136Z"
+      "updatedAt": "2026-07-17T21:49:57.164Z",
+      "deferredReason": "dependency_reopened: task-1784298607166",
+      "invalidationReason": null
     },
     {
       "id": "task-1784171502136",
-      "task": "Evaluate an optional Ignite XState graph-testing bridge from dogfood",
+      "task": "Evaluate an optional Ignite XState graph-testing bridge after executable-narrative dogfood",
       "priority": "high",
       "source": "fas-project-audit",
-      "details": "After the statechart epic's example work, the existing headless-ergonomics audit, and named igniteTest rehearsals complete, evaluate whether repeated consumer friction remains when using XState 5 graph utilities directly from xstate/graph. Prefer documented composition and example-local helpers. A no-change verdict is successful. Only if concrete repeated friction remains, add the smallest XState-specific optional bridge that feeds generated paths into the existing igniteTest/story/rehearsal machinery without owning graph traversal or runtime state.\nSee .fas/tasks/evaluate-an-optional-ignite-xstate-graph-testing-bridge-from.md",
+      "details": "After the statechart epic example work, executable igniteTest narratives, Voice Workbench narrative dogfood, the post-dogfood ergonomics audit, and the Story API naming verdict complete, evaluate whether repeated consumer friction remains when composing XState 5 graph utilities with the final narrative and Story evidence APIs. Prefer documented composition and example-local helpers. A no-change verdict is successful. Only if at least two concrete repeated integration problems remain, add the smallest XState-specific optional bridge that feeds generated paths into existing narrative and Story machinery without owning graph traversal, runtime state, or narrative semantics.\nSee .fas/tasks/evaluate-an-optional-ignite-xstate-graph-testing-bridge-from.md",
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
@@ -363,14 +370,15 @@
         "task-1784171467799",
         "task-1783610933373",
         "task-1783810065213",
-        "task-1784256179201"
+        "task-1784256179201",
+        "task-1784325062961"
       ],
       "blocks": [],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-16T03:11:42.136Z",
-      "updatedAt": "2026-07-17T02:42:59.201Z",
-      "deferredReason": "dependency_reopened: task-1783610933373, task-1783810065213",
+      "updatedAt": "2026-07-17T21:51:02.962Z",
+      "deferredReason": "dependency_reopened: task-1783610933373, task-1783810065213, task-1784325062961",
       "invalidationReason": null
     },
     {
@@ -393,6 +401,228 @@
       "prDependencies": [],
       "createdAt": "2026-07-17T01:50:36.242Z",
       "updatedAt": "2026-07-17T01:50:36.242Z"
+    },
+    {
+      "id": "task-1784298607166",
+      "task": "Gate 0: refresh and approve the Voice Workbench Mock Studio behavior handoff",
+      "priority": "high",
+      "source": "manual",
+      "details": "Amend the approved 2026-07-13 Voice Workbench Mock Studio handoff so it matches the live implementation before further refactoring. Reuse the approved visual hierarchy, tokens, responsive anatomy, and parity harness; this is an architecture-only handoff amendment unless the state-to-screen audit proves a material visual gap. Replace the stale five-command and ready/responding-only contract with the implemented compound parent plus model-turn, voice-capture, and speech-delivery child machines, exact current public schema, raw snapshot and native metadata contract, lifecycle disposition inventory, source-of-truth matrix, actor topology, command/event/guard/effect/fact tables, machine-to-projection-to-host map, expected failure facts, state-to-screen coverage, reuse/extend/move/retire matrix, proposed epic slices, and current verification receipts. Record explicit implemented, proposed, designed, retained, and deferred maturity. Add a durable approval record that cites this conversation but leave the architecture amendment pending final human approval before downstream implementation starts.\nSee .fas/tasks/gate-0-refresh-and-approve-the-voice-workbench-mock-studio-b.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "processing",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [],
+      "blocks": [
+        "task-1784298626529",
+        "task-1783810065213"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-17T14:30:07.166Z",
+      "updatedAt": "2026-07-17T21:49:17.472Z"
+    },
+    {
+      "id": "task-1784298626529",
+      "task": "Create and validate every Voice Workbench state-machine contract and executable architecture boundary",
+      "priority": "high",
+      "source": "manual",
+      "details": "Turn the approved Gate 0 ownership and layer model into executable example-local evidence before moving modules. First create and validate the complete contract for every explicit Voice Workbench state machine: the parent session, model-turn, voice-capture, and speech-delivery machines. Prove source-aligned diagrams, exhaustive event dispositions, bounded reachability, required terminal and recovery paths, forbidden-state invariants, correlation and idempotency, serializable snapshots, and parent-child supervision. Then define and enforce the allowed dependency direction for contracts, functional core, actors, application ports/runtime, adapters, pure projections, Ignite composition, renderers, and host roots. Record a bounded reviewed architecture-violation baseline that cannot grow; every later epic task must reduce it and final acceptance must reach zero.\nSee .fas/tasks/define-executable-voice-workbench-architecture-boundaries-an.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784298607166"
+      ],
+      "blocks": [
+        "task-1784298642791",
+        "task-1784324997164"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-17T14:30:26.529Z",
+      "updatedAt": "2026-07-17T21:49:57.164Z",
+      "deferredReason": "dependency_reopened: task-1784298607166",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784298642791",
+      "task": "Extract framework-neutral Voice Workbench contracts and deterministic cores",
+      "priority": "high",
+      "source": "manual",
+      "details": "Create example-owned serializable document, speech, tool, capability, command, fact, request, receipt, and failure vocabulary. Remove Ignite projection and Neutral tool types from authoritative domain, reducer, policy, actor-protocol, and pure projection contracts. Split deterministic presentation reduction, selectors, provider request/response mapping, validation, sanitization, and decoding away from effectful modules while preserving behavior and public compatibility through outward adapters.\nSee .fas/tasks/extract-framework-neutral-voice-workbench-contracts-and-dete.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784298626529"
+      ],
+      "blocks": [
+        "task-1784298657330"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-17T14:30:42.791Z",
+      "updatedAt": "2026-07-17T14:30:57.330Z",
+      "deferredReason": "dependency_reopened: task-1784298626529",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784298657330",
+      "task": "Introduce the actor-backed Voice Workbench command and read-model port",
+      "priority": "high",
+      "source": "manual",
+      "details": "Add a framework-neutral application boundary through which model and capability adapters obtain the current model read model, discover the availability-scoped command manifest, and submit proposed semantic commands for deterministic actor admission. Preserve the parent-supervised compound topology and child machines. Rewire the model-turn application path to this port so Ignite remains an optional projection and command-binding adapter rather than a required execution authority.\nSee .fas/tasks/introduce-the-actor-backed-voice-workbench-command-and-read-.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784298642791"
+      ],
+      "blocks": [
+        "task-1784298673199"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-17T14:30:57.330Z",
+      "updatedAt": "2026-07-17T14:31:13.200Z",
+      "deferredReason": "dependency_reopened: task-1784298642791",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784298673199",
+      "task": "Split Voice Workbench provider protocols from imperative adapters",
+      "priority": "high",
+      "source": "manual",
+      "details": "Move nondeterministic MLX, web-search, product-pricing, browser microphone, speech synthesis, timeout, abort, retry, and environment work into explicitly named replaceable adapters. Keep pure request construction, response decoding, validation, ranking, sanitization, policy, proof normalization, and error classification in deterministic protocol/core modules. Compose adapters through application-owned ports and return correlated expected outcomes as facts or receipts.\nSee .fas/tasks/split-voice-workbench-provider-protocols-from-imperative-ada.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784298657330"
+      ],
+      "blocks": [
+        "task-1784298685324"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-17T14:31:13.200Z",
+      "updatedAt": "2026-07-17T14:31:25.324Z",
+      "deferredReason": "dependency_reopened: task-1784298657330",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784298685324",
+      "task": "Separate Voice Workbench read models, Ignite composition, and renderers",
+      "priority": "high",
+      "source": "manual",
+      "details": "Export explicit renderer-neutral Voice Workbench view contracts and split the composed presentation read model into coherent conversation, artifact, and runtime pure projectors. Keep Ignite composition thin: bind the caller-owned actor source, derive views, expose schema-admitted semantic commands, and emit public facts. Make JSX renderers consume prepared view contracts and return templates only, without importing the Ignite component type, reading raw snapshots, repeating guards, allocating workflow data, or performing effects.\nSee .fas/tasks/separate-voice-workbench-read-models-ignite-composition-and-.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784298673199"
+      ],
+      "blocks": [
+        "task-1784298700854"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-17T14:31:25.324Z",
+      "updatedAt": "2026-07-17T14:31:40.854Z",
+      "deferredReason": "dependency_reopened: task-1784298673199",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784298700854",
+      "task": "Converge Voice Workbench hosts and close hexagonal boundary conformance",
+      "priority": "high",
+      "source": "manual",
+      "details": "Finish browser, terminal, parity, and headless composition around the framework-neutral actor/application core and replaceable adapters. Remove the reviewed architecture-violation baseline and require zero violations. Refresh the Mock Studio implementation receipt and README architecture map, then prove graph, command, view, fact, failure, cleanup, replay, accessibility, responsive parity, and end-to-end behavior without restoring duplicate authority.\nSee .fas/tasks/converge-voice-workbench-hosts-and-close-hexagonal-boundary-.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784298685324"
+      ],
+      "blocks": [],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-17T14:31:40.854Z",
+      "updatedAt": "2026-07-17T14:31:40.854Z",
+      "deferredReason": "dependency_reopened: task-1784298685324",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784324997164",
+      "task": "Dogfood executable narratives across Voice Workbench failure and recovery paths",
+      "priority": "high",
+      "source": "manual",
+      "details": "Use the new multi-step igniteTest narrative helper in Voice Workbench to turn the approved behavior handoff into executable user, system, and projection narratives. Cover preparation failure and retry, microphone permission denial with text recovery, turn cancellation, timeout and retry, stale correlated receipts, artifact revision conflicts, and speech-unavailable recovery. Each narrative must preserve actor and adapter authority, drive typed intents through Ignite, keep external outcomes in consumer-owned fixtures, assert semantic projection checkpoints, and emit portable Story evidence suitable for review and coverage reporting.\nSee .fas/tasks/dogfood-executable-narratives-across-voice-workbench-failure.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1783810065213",
+        "task-1784298626529"
+      ],
+      "blocks": [
+        "task-1783610933373"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-17T21:49:57.164Z",
+      "updatedAt": "2026-07-17T21:49:57.164Z",
+      "deferredReason": "dependency_reopened: task-1783810065213, task-1784298626529",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784325062961",
+      "task": "Decide Story API naming and v3 beta migration from narrative dogfood",
+      "priority": "high",
+      "source": "manual",
+      "details": "Use the completed executable-narrative dogfood and ergonomics audit to decide whether component.record, snapshotStory, IgniteStory, and related public Story types remain the correct low-level evidence vocabulary for v3 or should be renamed before stable. Preserve the distinction that narratives are expected experience claims, recorded Stories are observed execution evidence, and serializable snapshots are portable receipts. A no-rename verdict is valid. If a rename earns its migration cost, update every supported entrypoint with compatibility aliases, changeset, migration documentation, and type and runtime coverage without creating a second trace format.\nSee .fas/tasks/decide-story-api-naming-and-v3-beta-migration-from-narrative.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1783610933373"
+      ],
+      "blocks": [
+        "task-1784171502136"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-17T21:51:02.962Z",
+      "updatedAt": "2026-07-17T21:51:02.962Z",
+      "deferredReason": "dependency_reopened: task-1783610933373",
+      "invalidationReason": null
     }
   ],
   "completedTasks": [
@@ -3595,6 +3825,54 @@
       "workflowId": "direct-1784256193311",
       "branchName": "fas/voice-text-workbench",
       "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784298500346",
+      "task": "Gate 0: refresh and approve the Voice Workbench Mock Studio behavior handoff",
+      "priority": "high",
+      "source": "mock-studio-architecture-audit",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [],
+      "nonEpicDisposition": {
+        "kind": "standalone",
+        "reason": "Cancelled duplicate retained only as provenance for corrected trusted-source Gate 0 row."
+      },
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-17T14:28:58.776Z",
+      "terminalOutcome": null,
+      "branchName": null,
+      "prStatus": null,
+      "workflowId": "cancelled:task-1784298500346",
+      "cancelledReason": "Recreated with trusted fas-project-audit provenance so fas implement can bind the queued Gate 0 task automatically."
+    },
+    {
+      "id": "task-1784298555397",
+      "task": "Gate 0: refresh and approve the Voice Workbench Mock Studio behavior handoff",
+      "priority": "high",
+      "source": "fas-project-audit",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [],
+      "nonEpicDisposition": {
+        "kind": "standalone",
+        "reason": "Superseded before execution by manual-source Gate 0 row so fas implement can bind it without project-audit metadata."
+      },
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-17T14:29:51.392Z",
+      "terminalOutcome": null,
+      "branchName": null,
+      "prStatus": null,
+      "workflowId": "cancelled:task-1784298555397",
+      "cancelledReason": "Recreated with manual source because fas-project-audit requires capture metadata unavailable for this user-directed queue mutation."
     }
   ],
   "pullRequests": [],
@@ -3793,10 +4071,6 @@
           "epicRole": "example"
         },
         {
-          "taskId": "task-1783610933373",
-          "epicRole": "testing-ergonomics-follow-up"
-        },
-        {
           "taskId": "task-1783610950265",
           "epicRole": "validation"
         },
@@ -3908,6 +4182,85 @@
         "Direct xstate/graph tests prove reachability, forbidden combinations, terminal outcomes, recovery, cancellation, timeout, and path coverage.",
         "The model-turn, voice-capture, and speech-delivery workflows have one authoritative owner with typed events, effects, facts, raw snapshots, and derived views.",
         "Any Ignite graph-testing bridge is optional, XState-specific, dogfood-justified, additive to igniteTest, and does not create a second graph engine, recorder, schema, or state authority."
+      ]
+    },
+    {
+      "members": [
+        {
+          "taskId": "task-1784298607166",
+          "epicRole": "behavior-handoff-gate"
+        },
+        {
+          "taskId": "task-1784298626529",
+          "epicRole": "boundary-characterization"
+        },
+        {
+          "taskId": "task-1784298642791",
+          "epicRole": "neutral-contracts-functional-core"
+        },
+        {
+          "taskId": "task-1784298657330",
+          "epicRole": "actor-application-boundary"
+        },
+        {
+          "taskId": "task-1784298673199",
+          "epicRole": "imperative-adapters"
+        },
+        {
+          "taskId": "task-1784298685324",
+          "epicRole": "projections-renderers"
+        },
+        {
+          "taskId": "task-1784298700854",
+          "epicRole": "host-composition-acceptance"
+        }
+      ],
+      "id": "epic-voice-workbench-hexagonal-boundary-conformance",
+      "title": "Voice Workbench Hexagonal Boundary Conformance",
+      "priority": "high",
+      "consumer": "ignite-element/examples/agents/voice-workbench",
+      "goal": "Bring the implemented Voice Workbench into full Mock Studio, actor-model, and hexagonal conformance: refresh the accepted behavior handoff, make example-owned contracts and deterministic cores framework-neutral, keep Ignite projection-only, isolate nondeterministic provider and host adapters, and enforce the dependency direction with executable evidence.",
+      "acceptance": [
+        "The Mock Studio handoff matches the implemented parent and child machine topology, exact public command surface, raw snapshots, lifecycle dispositions, ownership matrix, host projections, failure coverage, and maturity labels, with an explicit architecture amendment approval gate.",
+        "Deterministic domain, policy, reducer, actor protocol, and pure projection modules depend only inward on example-owned serializable contracts and contain no browser, Node, provider, clock, network, randomness, or concrete adapter work.",
+        "The model-turn application path uses a framework-neutral actor-backed command and read-model port; browser, terminal, and headless model execution do not require an Ignite component as runtime authority.",
+        "MLX, web search, product pricing, microphone, speech, time, and environment behavior live in replaceable imperative adapters that translate expected outcomes into correlated facts or receipts.",
+        "Ignite composition contains projection and command binding only; renderer functions consume renderer-neutral prepared views and return JSX/templates without workflow derivation or effects.",
+        "Every explicit Voice Workbench state machine has a source-aligned contract and independent bounded validation receipt covering reachability, event disposition, terminal and recovery paths, forbidden states, serialization, correlation, and supervision.",
+        "Executable import-boundary, forbidden-global, graph, headless, browser, terminal, parity, accessibility, replay, cleanup, and full verification gates pass with zero reviewed architecture violations."
+      ]
+    },
+    {
+      "members": [
+        {
+          "taskId": "task-1783810065213",
+          "epicRole": "narrative-helper"
+        },
+        {
+          "taskId": "task-1784324997164",
+          "epicRole": "voice-workbench-dogfood"
+        },
+        {
+          "taskId": "task-1783610933373",
+          "epicRole": "post-dogfood-ergonomics-audit"
+        },
+        {
+          "taskId": "task-1784325062961",
+          "epicRole": "story-api-naming-verdict"
+        }
+      ],
+      "id": "epic-ignite-executable-narratives",
+      "title": "Executable Narratives and Story Evidence",
+      "priority": "high",
+      "consumer": "ignite-element",
+      "goal": "Make user and system narratives typed, executable, and evidence-producing across authoritative behavior and semantic projections without introducing a second state authority, graph engine, recorder, or trace format.",
+      "acceptance": [
+        "igniteTest exposes a typed multi-step narrative helper that composes the existing scenario assertions, Story recorder, trace serialization, and cleanup semantics.",
+        "Narrative preconditions are assertion-only, commands remain typed intent inputs, host and adapter outcomes remain externally driven facts, and named checkpoints assert semantic snapshot, view, event, and command-availability evidence.",
+        "Voice Workbench dogfoods preparation failure and retry, permission denial and text recovery, cancellation, timeout, stale receipts, artifact revision conflicts, and speech-unavailable recovery with machine and projection receipts.",
+        "A post-dogfood ergonomics audit records concrete repeated friction or closes with a no-change verdict before any wider testing surface is added.",
+        "A beta naming verdict explicitly retains the Story vocabulary or migrates it with compatibility aliases, changeset, documentation, and entrypoint coverage.",
+        "The optional XState graph bridge remains downstream, delegates traversal to xstate/graph, and consumes narrative and Story evidence without becoming a second narrative engine."
       ]
     }
   ]

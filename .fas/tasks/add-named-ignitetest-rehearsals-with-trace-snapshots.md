@@ -1,61 +1,67 @@
-# Add named igniteTest rehearsals with trace snapshots
+# Define and implement multi-step igniteTest narratives over existing Story evidence
 
 ## Source
 Created with `fas create-task` on 2026-07-11.
 
 ## Problem
-Add a compact named-rehearsal layer to the existing igniteTest scenario API. Consumers define a rehearsal such as serve-ball with an asserted initial snapshot, one typed object-form command call, and expected final snapshot/view/events, then call await scenario.rehearse("serve-ball") and receive the existing serializable IgniteStorySnapshot trace. Reuse component.record(), story execution, trace serialization, and summary machinery rather than introducing a second recorder or state authority. The initial state is asserted, never injected; consumers provide a fresh isolated runtime when they need repeatable rehearsals, and Ignite must not silently reset shared sources.
+Replace the queued one-command rehearsal proposal with a typed multi-step narrative helper over the existing igniteTest scenario and Story evidence APIs. A narrative is the expected falsifiable experience; component.record produces the observed Story and snapshotStory produces its portable receipt. The helper must support assertion-only preconditions, multiple typed intent commands, consumer-driven external facts between intents, and named semantic checkpoints without creating a second recorder, state authority, graph engine, or trace schema. The first slice should return the existing IgniteStorySnapshot and use dogfood to decide whether a later receipt envelope is justified.
+
 
 ## Acceptance criteria
-- igniteTest accepts typed named rehearsal definitions without changing the existing igniteTest(component, { host }) behavior for consumers that do not use rehearsals.
-- scenario.rehearse("name") infers the declared rehearsal names and rejects unknown names at type level and runtime.
-- Each rehearsal supports an asserted from snapshot, a canonical object-form when command call, and expected to.snapshot, to.view, and to.events assertions using existing deep-partial or predicate semantics.
-- Command input typing remains discriminated: required inputs are required, optional inputs remain optional, and no-input commands omit input.
-- A successful rehearsal returns the existing serializable IgniteStorySnapshot shape with trace, lifecycle, and final summary; no parallel trace schema or public inspection API is added.
-- A mismatch reports the rehearsal name, failing phase, expected and received values, and the serialized trace accumulated before cleanup.
-- Rehearsal recording is stopped in a finally path on success or failure and does not leak lifecycle listeners or alter source ownership.
-- from is assertion-only: rehearsals never inject, rehydrate, rewind, or silently reset state; repeatable execution requires a consumer-supplied fresh isolated runtime/scenario.
-- Commands remain intent inputs and emitted events remain typed facts; serve-ball may name the rehearsal while serveBall is the command and ball-served is the emitted event.
-- Focused runtime, type-level, error-diagnostic, cleanup, and documentation tests pass, with no DOM required for headless rehearsals.
-- The task is tracked in .fas/TASKS.md and queued independently from the retained-surface epic.
-- TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
-- TDD: every production code change in the change set is covered by an added or updated test.
-- DDD: respect domain boundaries — keep the functional core deterministic and side-effect-free (no reads, writes, network, or clock), confine coordination to the imperative shell, and have adapters return facts instead of throwing.
+- igniteTest exposes a named callback-based narrative helper that supports multiple ordered steps while preserving existing igniteTest behavior for consumers that do not use narratives.
+- Narrative names and typed command calls preserve literal inference; required, optional, and absent command inputs remain correctly discriminated.
+- given assertions never inject, rehydrate, rewind, or reset source state, and repeatable execution requires a consumer-supplied fresh isolated runtime.
+- intent steps delegate to the existing Story execute path and remain distinct from emitted events and externally driven adapter or host facts.
+- The narrative callback may drive consumer-owned fixtures between intents without Ignite reclassifying those facts as commands or taking environment ownership.
+- Named checkpoints assert current snapshot, view, emitted-event, and canExecute evidence using existing expectations and focused public reads.
+- A successful narrative returns the existing serializable IgniteStorySnapshot; no parallel trace representation or public coherent inspection API is added.
+- Failures identify the narrative name, checkpoint or phase, expected and received values, and the serialized Story trace accumulated before cleanup.
+- Story recording and all narrative-owned observers are stopped in a finally path on success or failure without changing shared-source ownership.
+- Focused runtime, type-level, diagnostics, cleanup, documentation, and entrypoint tests pass without requiring DOM.
 - The work is tracked in `.fas/TASKS.md`.
 - The task has a clear implementation and verification plan before execution starts.
-- The task is queued in `.fas/queue/tasks.json` for the runtime.
 
 ## Proposed solution
 
-- Compose the existing scenario assertions and story recorder behind a named rehearsal definition:
+- Compose existing scenario assertions and Story evidence behind a named callback-based narrative:
 
   ```ts
-  const scenario = igniteTest(component, {
-    rehearsals: {
-      "serve-ball": {
-        from: { phase: "ready" },
-        when: { command: "serveBall" },
-        to: {
-          snapshot: { phase: "playing" },
-          view: { ballInPlay: true },
-          events: [{ type: "ball-served" }],
-        },
-      },
-    },
-  });
+  const receipt = await igniteTest(component).narrative(
+    "permission denial preserves text recovery",
+    async (narrative) => {
+      narrative.given({
+        view: { voice: { status: "idle" } },
+        canExecute: { startVoiceCapture: true },
+      });
 
-  const result = await scenario.rehearse("serve-ball");
+      await narrative.intent({ command: "startVoiceCapture" });
+      await voiceDriver.denyCurrentPermissionRequest();
+
+      narrative.checkpoint("text recovery remains available", {
+        view: { voice: { status: "permission-denied" } },
+        canExecute: { submitPrompt: true },
+      });
+
+      await narrative.intent({
+        command: "submitPrompt",
+        input: { modality: "text", text: "Continue using text" },
+      });
+    },
+  );
   ```
 
-- Implement `rehearse()` as orchestration over `given`, `component.record(name)`, object-form story execution, existing expectations, `snapshotStory`, and `story.stop()` in `finally`.
-- Return `IgniteStorySnapshot` directly so consumers receive the existing trace, lifecycle, and summary format.
+- Treat the example as directional rather than a locked signature; planning must preserve typed intent calls and reuse existing expectation types with the smallest coherent callback context.
+- Implement narrative execution over assertion-only preconditions, `component.record(name)`, Story execution, focused reads, existing expectations, `snapshotStory`, and `story.stop()` in `finally`.
+- Let consumer fixtures drive environment facts directly between intents; Ignite records and asserts resulting behavior without owning those facts.
+- Return `IgniteStorySnapshot` directly in the first slice so consumers receive the existing trace, lifecycle, and summary format.
 
 ## Alternatives considered
 
-- A new rehearsal trace type: rejected because `IgniteStorySnapshot` already supplies a serializable trace and final summary.
+- Renaming `record()` or `snapshotStory()` before dogfood: rejected because a downstream verdict task owns evidence-backed Story vocabulary changes.
+- A new narrative trace type: rejected because `IgniteStorySnapshot` already supplies a serializable trace and final summary.
+- A declarative one-command rehearsal registry: rejected because meaningful failure and recovery narratives interleave multiple intents with consumer-owned environment facts.
 - State injection or automatic reset: rejected because it would create hidden state authority and unsafe behavior for shared sources.
-- Treating `serve-ball` as a raw source event: rejected because rehearsal names describe scenarios, commands remain intent inputs, and events remain emitted facts.
-- Multi-command choreography in the first slice: deferred to keep the public addition small and prove the one-command end-state contract first.
+- Treating host receipts or machine events as Ignite commands: rejected because commands are intents while adapters and actors own external facts and transition authority.
 
 ## Affected files
 - packages/ignite-element/src/testing.ts
@@ -65,32 +71,35 @@ Add a compact named-rehearsal layer to the existing igniteTest scenario API. Con
 - docs/site/src/content/docs/api/testing-dsl.mdx
 
 ## Scope Amendments
-- None.
+- Type: scope-refresh
+- Added at: 2026-07-17
+- Added paths: packages/ignite-element/src/testing.ts, packages/ignite-element/src/types/agent.ts, packages/ignite-element/src/tests/testing.test.ts, packages/ignite-element/src/tests/types/testing.types.test.ts, docs/site/src/content/docs/api/testing-dsl.mdx
 
 ## Implementation plan
-- Write failing runtime and type tests for named lookup, typed command inputs, from/to assertions, returned IgniteStorySnapshot, diagnostics, and cleanup.
-- Add generic rehearsal definition and result types by composing existing IgniteSnapshotExpectation, IgniteViewExpectation, IgniteEventExpectation, IgniteCommandCall, and IgniteStorySnapshot contracts.
-- Extend the scenario driver to assert from, record the named story, execute the canonical command, assert to values, snapshot the story, and stop recording in finally without resetting the runtime.
-- Document the minimal API, fresh-isolated-runtime requirement, serve-ball example, and distinction between rehearsal names, commands, and emitted events; add a changeset if the testing export changes.
+- Write failing runtime and type tests for multi-step narrative execution, typed intents, assertion-only preconditions, consumer-driven external facts, named checkpoints, returned Story snapshots, diagnostics, and cleanup.
+- Define the smallest callback-based narrative context by composing existing scenario assertions, component.record, story.execute, snapshotStory, canExecute, and focused getters.
+- Implement narrative orchestration with deterministic cleanup and no state injection, second recorder, or hidden runtime reset.
+- Document narrative versus Story versus receipt vocabulary and include one framework-neutral recovery example before Voice Workbench dogfood.
 
 ## Verification plan
-- Run focused packages/ignite-element/src/tests/testing.test.ts coverage for successful, failing, cleanup, and headless rehearsals.
-- Run packages/ignite-element/src/tests/types/testing.types.test.ts plus package typecheck for name and command-input inference.
-- Run fas validate-task, the fast verification lane, full verification before closeout, and committed review.
+- Run focused testing runtime and type suites for the narrative helper.
+- Run entrypoint and documentation checks for any exported testing types.
+- Run fas validate-task and the fast verification lane during implementation.
+- Run full verification and committed review before closeout.
 
 ## Risks
-- Adding a second trace representation would drift from IgniteStorySnapshot and duplicate recorder behavior.
-- Implicit state reset or injection would make shared-source behavior unsafe and hide nondeterminism.
-- Overloading event vocabulary for commands would blur intent inputs and emitted facts.
-- Generic inference across named definitions can widen command names or inputs unless the mapped union is preserved.
+- Avoid turning externally driven facts into Ignite commands or hiding environment ownership inside the helper.
+- Avoid adding a second trace or atomic inspection promise alongside IgniteStorySnapshot.
+- Avoid silent source reset, leaked Story observers, or widened command input inference.
+- Keep the first public slice small enough for Voice Workbench dogfood to challenge before further API growth.
 
 ## Dependencies
-- Independent of the retained-surface epic and its stable-release dependency chain.
-- Builds only on already-shipped igniteTest, component.record(), object-form command calls, and IgniteStorySnapshot contracts.
-- Does not block or depend on the voice/text workbench unless separately connected by a future queue decision.
+- Depends on task-1784298607166 so the active Voice Workbench behavior handoff remains the approved narrative vocabulary input.
+- Blocks Voice Workbench executable-narrative dogfood and remains an upstream dependency of the optional XState graph-bridge evaluation.
 
 ## Open questions
-- Whether a later task should support multi-command rehearsal sequences; this slice intentionally starts with one canonical command call per named rehearsal.
+- Whether Voice Workbench dogfood justifies a later IgniteNarrativeReceipt envelope around IgniteStorySnapshot; the first slice returns the existing Story snapshot.
+- Whether record and snapshotStory remain the final low-level names; a downstream beta naming-verdict task owns that decision.
 
 ## Artifact links
 - Planning: `.fas/state/planning.json`
