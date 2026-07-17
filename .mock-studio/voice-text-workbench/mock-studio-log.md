@@ -45,7 +45,7 @@ Round 1 established the visual direction. Round 2 and its artifact-proof correct
 
 ## Round 2 — one component, authorized turn, three commits
 
-Approved direction: make the example teach one literal `igniteCore(...)` component across headless, browser, terminal, and speech consumers; show the model proposing from `getSchema()` while the actor authorizes; render semantic artifacts rather than generated DOM; and keep the existing five-command schema unchanged.
+Approved direction: make the example teach one literal `igniteCore(...)` component across headless, browser, terminal, and speech consumers; show the model proposing from `getSchema()` while the actor authorizes; render semantic artifacts rather than generated DOM; and keep browser-only controls out of the model-facing manifest.
 
 Reference grounding:
 
@@ -127,3 +127,22 @@ Final rendered-browser evidence lives at
 overflow, every visible target at least 44px, every proof selector visible, and
 correct actor, voice, and active-panel state. The permission draft was preserved
 exactly. This final directory supersedes all pre-fix captures.
+
+## Gate 0 amendment — 2026-07-17
+
+The Round 2 visual direction remains valid, but the older handoff text drifted
+from the live implementation. Gate 0 corrects the architecture narrative only:
+
+- the component blueprint is 19 public commands, not five;
+- the session is a compound parent with `turn`, `voice`, and `speech` regions,
+  not a ready/responding-only machine;
+- `model-turn`, `voice-capture`, and `speech-delivery` are implemented child
+  actors with correlated receipts and terminal outputs;
+- the runtime already separates the full component blueprint from the narrower
+  availability-scoped model manifest.
+
+No new UI direction is introduced by this correction. The approved visual
+baseline, token system, responsive behavior, and parity harness receipts remain
+the retained design source. On 2026-07-17, the user approved beginning the
+downstream chain after committing and properly closing out this Gate 0 branch,
+so the architecture amendment is now the approved downstream contract.

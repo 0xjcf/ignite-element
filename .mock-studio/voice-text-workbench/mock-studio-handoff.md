@@ -1,176 +1,350 @@
 # Implementation handoff — Voice + text artifact workbench
 
-Status: Round 2 human-approved for implementation on 2026-07-13. This is the Mock Studio to POC/MVP handoff contract.
+Status: architecture amendment prepared from the live implementation and human-approved on 2026-07-17. The visual baseline remains approved from 2026-07-13, and downstream tasks may use this amended contract.
+
+## Scope of this Gate 0 amendment
+
+This handoff replaces two stale claims in the older Mock Studio contract:
+
+- The public component schema is not a five-command surface. The live `igniteCore(...)` component exposes 19 public commands.
+- The session machine is not a ready/responding-only actor. The live implementation is a parent-supervised compound statechart with model-turn, voice-capture, and speech-delivery child actors.
+
+This document is architecture-only. It preserves the approved visual hierarchy, tokens, responsive anatomy, and parity harness as the current presentation baseline.
+
+## Live source of truth
+
+- Parent session statechart: `examples/agents/voice-workbench/src/session.ts`
+- Model-turn child machine: `examples/agents/voice-workbench/src/model-turn.ts`
+- Voice-capture child machine: `examples/agents/voice-workbench/src/voice.ts`
+- Speech-delivery child machine: `examples/agents/voice-workbench/src/speech.ts`
+- Public command blueprint: `examples/agents/voice-workbench/src/workbench-component.ts`
+- View projection and command availability: `examples/agents/voice-workbench/src/workbench-view.ts`
+- Host runtime port wiring: `examples/agents/voice-workbench/src/workbench-runtime.ts`
 
 ## Product intent
 
-The example should demonstrate that one literal callable value returned by `igniteCore(...)` can keep a deterministic, headless actor as the source of truth while serving headless tests, typed model tools, accessible browser JSX, terminal text, and speech projection targets.
+The example still proves one Ignite component can keep actor-owned conversation and artifact state authoritative while serving:
 
-The interface must remain a real example rather than decorative marketing UI:
+- headless tests,
+- typed model tools,
+- accessible browser JSX,
+- terminal preview, and
+- speech delivery.
 
-- Text and speech enter the same conversation domain with an explicit modality.
-- Speech capture is an input adapter; speech synthesis is an output adapter.
-- The artifact canvas renders the existing semantic node contract.
-- Runtime evidence is derived from Ignite view data and public component events, not a parallel state store.
-- No wrapper may obscure `igniteCore`, `component(...)`, `igniteTools(component)`, or the direct projection targets.
-- The model proposes tool calls from the filtered `getSchema()` manifest; the consumer-owned actor validates, authorizes, and persists them.
-- Browser, terminal, and speech commits are independent consumers of the same accepted actor facts. Terminal and speech require no DOM.
-- The center artifact is the primary observable proof: every accepted text or speech-authored revision must visibly change its semantic content, revision label, schema, and browser commit receipt.
+The important contract is now narrower and more explicit:
 
-### Proof contract
+- Text and speech converge only at `submitPrompt({ modality, text })`.
+- The model proposes only from the current availability-scoped manifest.
+- The parent session machine authorizes when turns start and end.
+- Reducers remain authoritative for aggregate conversation and artifact data.
+- Browser, terminal, and speech remain independent projections or adapters of accepted facts.
 
-The production example is successful only when this causal chain is real:
+## Actor topology
+
+### Parent session machine
+
+The live parent machine is `conversation-session` with this exact state shape:
 
 ```text
-text or speech transcript
-  → submitPrompt({ modality, text })
-  → model proposes reviseArtifact from getSchema()
-  → actor validates and stores revision N+1
-  → Ignite view exposes the revised semantic artifact
-  → browser document + terminal text + speech audio commit revision N+1
+"preparing"
+"unavailable"
+{
+  available: {
+    turn: "idle" | "responding",
+    voice: "active",
+    speech: "idle" | "delivering"
+  }
+}
 ```
 
-The static prototype demonstrates this with a deterministic adoption-plan fixture: both Send and Use transcript advance revision 2 to revision 3, append the prompt and response to the conversation, add a visible semantic `plan` node to the center document and schema, and update the browser commit receipt. This fixture is not evidence of a live model or production `igniteCore` integration; the implementation must prove that boundary with `igniteTest` and the headless runtime before projection parity is accepted.
+`available` is a parallel state with three fixed child regions:
 
-### POC to MVP implementation contract
+- `turn`
+- `voice`
+- `speech`
 
-- Fresh load begins with an empty actor-owned conversation, no artifact, and revision 0. Prototype ids, titles, nodes, messages, counts, responses, and revisions are never runtime defaults.
-- The live path uses the SDK-free OpenAI-compatible dialect around `igniteTools(component, openai)`. Consumers supply the MLX base URL and model; Ignite does not start, stop, discover, or supervise the provider.
-- Text and microphone transcripts converge only at `submitPrompt({ modality, text })`. Microphone capture, denial, cancellation, and transcription remain capability-gated outer-adapter state; they do not add actor commands or states.
-- The model receives only `createArtifact`, `reviseArtifact`, and `completeResponse`. `submitPrompt` stays application-owned and `acknowledgeSpeech` stays projection-owned.
-- Every renderer-supported semantic node has a complete model schema and deterministic domain validator. Invalid, partial, stale, or non-allowlisted proposals become visible rejection facts and never reach the renderer.
-- The center document changes only after the actor accepts a create or revision command. Schema, trace, statistics, and browser/terminal/speech receipts derive from the same component view, events, tool results, and projection callbacks.
-- Deterministic scripted-model and voice fakes are the CI contract. Live MLX, microphone, transcription, and speech synthesis are optional manual validation paths with explicit unavailable and permission-denied states.
-- Production parity covers ready, listening, responding, artifact, permission, and visible provider-error states without copying the prototype fixture store.
+The responding turn invokes `model-turn`, the persistent voice region invokes `voice-capture`, and the delivery region invokes `speech-delivery`.
 
-## Approved design source
+### Child machines
 
-- Prototype: `source/index.html`
-- Tokens: `source/tokens.css`
-- Addressable states: `#ready`, `#listening`, `#responding`, `#artifact`, `#permission`
-- Profile: desktop primary at 1440×900 and 1280×800; tablet/mobile verification at 768×900 and 390×844.
+`model-turn`
 
-## Interaction contract
+- Owns attempt identity, round counting, model request, authorization, capability execution, cancellation, timeout, and terminal status.
+- Terminal outputs: `TURN_COMPLETED`, `TURN_FAILED`, `CANCELLED`, `TIMEOUT`, `ROUND_LIMIT_REACHED`.
 
-The public component schema remains exactly the five commands already proven by `igniteTest`: `submitPrompt`, `createArtifact`, `reviseArtifact`, `completeResponse`, and `acknowledgeSpeech`.
+`voice-capture`
 
-| Control | Intent | Component command or adapter boundary | Status |
+- Owns `checking`, `unsupported`, `unavailable`, `idle`, `listening`, `transcript`, `consumed`, `cancelled`, `permission-denied`, `failed`, `disposed`.
+- Correlates browser receipts by `attemptId`.
+
+`speech-delivery`
+
+- Owns `pending`, `queued`, `delivered`, `muted`, `unavailable`, `failed`, `cancelled`, `disposed`.
+- Separates queued playback from completed playback and returns terminal facts through XState output.
+
+## Public commands vs model manifest
+
+### All public component commands
+
+The live component blueprint exposes exactly 19 public commands:
+
+1. `acknowledgeSpeech`
+2. `beginModelPreparation`
+3. `cancelVoiceCapture`
+4. `changeArtifactView`
+5. `changeDraft`
+6. `changeMobilePanel`
+7. `changeSpeechPreference`
+8. `completeResponse`
+9. `createArtifact`
+10. `playSpeech`
+11. `replay`
+12. `restoreArtifactRevision`
+13. `reviseArtifact`
+14. `selectArtifact`
+15. `selectRuntimePreview`
+16. `setChecklistItem`
+17. `startVoiceCapture`
+18. `submitPrompt`
+19. `submitVoiceTranscript`
+
+Command count is projected from `component.getSchema().commands` and asserted as `19` in `workbench-view.test.ts`.
+
+### Availability-gated commands
+
+The view separately projects availability for 11 commands:
+
+- `acknowledgeSpeech`
+- `cancelVoiceCapture`
+- `completeResponse`
+- `createArtifact`
+- `restoreArtifactRevision`
+- `reviseArtifact`
+- `selectArtifact`
+- `setChecklistItem`
+- `startVoiceCapture`
+- `submitPrompt`
+- `submitVoiceTranscript`
+
+### Model-tool manifest
+
+The model does not receive the full 19-command blueprint. The live runtime inspector already distinguishes:
+
+- `All-component blueprint`
+- `Availability-scoped model manifest`
+
+The current implementation narrows the model-facing surface per turn. At minimum, the component marks these as `channel: "model-intent"`:
+
+- `completeResponse`
+- `createArtifact`
+- `reviseArtifact`
+- `setChecklistItem`
+
+This is the right architecture boundary to preserve in follow-on work: user-intent and presentation commands stay public for hosts without becoming model tools.
+
+## Lifecycle and ownership matrix
+
+| Surface | Single owner | Representation | Live maturity |
 | --- | --- | --- | --- |
-| Prompt textarea + Send | Submit typed prompt | `submitPrompt({ modality: "text", text })` | Designed |
-| Microphone | Begin ephemeral browser speech capture | Outer browser adapter; no component command | Designed; optional live adapter |
-| Cancel capture | Abort capture without losing typed draft | Outer browser adapter local state | Designed |
-| Use transcript | Admit captured transcript as a speech prompt | `submitPrompt({ modality: "speech", text: transcript })` | Designed |
-| Speak responses | Enable or suppress automatic host playback | Speech target/host preference; no component command | Designed |
-| Play/pause summary | Control browser playback of the committed speech request | Speech target/host adapter; no component command | Designed |
-| Document/Schema tabs | Switch the local representation of the same artifact | Projection-local presentation state | Designed |
-| Mobile workbench tabs | Select Conversation, Artifact, or Runtime regions | Projection-local presentation state | Designed |
-| Replay last turn | Animate already-recorded causal evidence | Mock/example projection state; never a model tool | Designed |
+| Session readiness and turn supervision | `voiceWorkbenchSessionMachine` | parent statechart | Implemented |
+| Model-turn orchestration | `modelTurnMachine` | child statechart | Implemented |
+| Voice capture lifecycle | `voiceCaptureMachine` | child statechart | Implemented |
+| Speech delivery lifecycle | `speechDeliveryMachine` | child statechart | Implemented |
+| Conversation and artifacts | `reduceConversationSession` | pure reducer | Implemented |
+| Presentation state | `reduceWorkbenchPresentation` | pure reducer | Implemented |
+| Domain policy outcomes | domain pack policies | typed facts | Implemented |
+| Capability execution outcomes | capability ports | typed facts | Implemented |
+| Browser document commit receipt | private adapter event | read-model fact | Implemented |
+| Visual hierarchy, tokens, responsive anatomy | Mock Studio parity baseline | retained visual contract | Retained |
 
-## Machine sketch
+`voiceWorkbenchLifecycleOwnership` in `session.ts` already encodes this ownership table and is asserted in `session.headless.test.ts`.
 
-The actor state shape stays exactly as implemented:
+## Raw snapshot and native metadata contract
 
-```text
-conversation-session
-├─ ready
-└─ responding
-```
+The portable architecture contract is:
 
-The existing domain transitions for `SUBMIT_PROMPT`, artifact create/revise, response completion, and speech acknowledgement remain authoritative. Round 2 does not add microphone, playback, tab, or replay events to the conversation actor.
+- serializable `snapshot.value`
+- serializable `snapshot.context`
+- relevant native lifecycle metadata:
+  - `status`
+  - `output`
+  - `error`
+  - `tags`
+  - child identity and child status
 
-The prototype’s `listening`, `permission`, `artifact`, and mobile-panel states are adapter or projection states, not new `conversation-session` states. The browser capture adapter may manage short-lived `idle | listening | permissionDenied` state locally. Its only domain handoff is the existing `submitPrompt` command after a transcript exists.
+The handoff should not treat these XState internals as portable state data:
 
-Browser I/O belongs behind explicit outer adapters. The speech projection target commits playback and acknowledges the current speech request; terminal and document targets consume the same actor-owned facts independently.
+- machine internals
+- methods
+- `_nodes`
+- `can`
+- `getMeta`
+- `matches`
+- `toJSON`
 
-### View and command collision pre-flight
+The current view intentionally exposes raw lifecycle state under `view.lifecycle` and `view.runtimeInspector.activeStates`, while keeping executable machine internals out of the public architectural contract.
 
-| View fields — nouns/state | Commands — verbs |
+## Event, guard, effect, fact, and host map
+
+### Public intent and lifecycle events
+
+Conversation actions:
+
+- `SUBMIT_PROMPT`
+- `CREATE_ARTIFACT`
+- `REVISE_ARTIFACT`
+- `RESTORE_ARTIFACT_REVISION`
+- `SELECT_ARTIFACT`
+- `SET_CHECKLIST_ITEM`
+- `COMPLETE_RESPONSE`
+- `ACKNOWLEDGE_SPEECH`
+
+Host and child-driving intent:
+
+- `MODEL_PREPARATION_STARTED`
+- `VOICE_CAPTURE_START_REQUESTED`
+- `VOICE_CAPTURE_CANCEL_REQUESTED`
+- `VOICE_TRANSCRIPT_SUBMIT_REQUESTED`
+- `SPEECH_DELIVERY_REPLAY_REQUESTED`
+
+Port correlation events:
+
+- `MODEL_PREPARATION_PORT_RECEIVED`
+- `MODEL_TURN_PORT_RECEIVED`
+- `VOICE_CAPTURE_PORT_RECEIVED`
+- `SPEECH_DELIVERY_PORT_RECEIVED`
+- `MODEL_TURN_TIMEOUT_REQUESTED`
+- `MODEL_TURN_CANCEL_REQUESTED`
+
+Read-model and adapter facts:
+
+- `DOCUMENT_COMMITTED`
+- `CAPABILITY_OUTCOME_RECORDED`
+- `DOMAIN_POLICY_RECORDED`
+- `RUNTIME_MANIFEST_RECORDED`
+- `TURN_RECORDED`
+- `PRESENTATION_UPDATED`
+
+### Key guards and invariants
+
+- `parentPortEventAccepted` rejects stale or mis-correlated host receipts.
+- `voicePromptReady` is the authoritative gate into `available.turn.responding`.
+- `voiceCaptureStartAccepted` and `voiceTranscriptCandidateAccepted` keep transcript flow child-owned until a final candidate exists.
+- `completionCanStage` keeps `COMPLETE_RESPONSE` staged and correlated rather than immediately mutating aggregate state.
+- `respondingRequiresAvailable` and `hasNoKnownForbiddenState` are exported invariants and exercised by graph tests.
+
+### Effects and host ownership
+
+- `workbench-runtime.ts` owns model preparation, model-turn, voice-capture, and speech-delivery port execution.
+- Browser capture and speech APIs remain host adapters that return correlated receipts.
+- Renderers consume projected values only. They do not own workflow transitions, IDs, retries, or authorization.
+
+## Source-of-truth matrix
+
+| Concern | Authority |
 | --- | --- |
-| `status`, `statusLabel` | `submitPrompt` |
-| `speech`, `response` | `acknowledgeSpeech` |
-| `artifacts`, `activeArtifactId` | `createArtifact`, `reviseArtifact` |
-| `revision`, `messageCount`, `canSubmitPrompt`, `canRevise` | `completeResponse` |
+| Session readiness and active-turn admission | parent session statechart |
+| Turn attempt ID and round progression | `model-turn` child |
+| Aggregate messages, revisions, artifacts, speech facts | conversation reducer |
+| Draft, panel, artifact-view, runtime-preview, replay count, speech preference | presentation reducer |
+| Live model manifest snapshot | read-model fact recorded into presentation |
+| Domain policy decision | typed domain-policy fact |
+| Capability result, retry, cache, fallback, proof rows | typed capability fact |
+| Voice transcript candidate | `voice-capture` child lifecycle projection |
+| Speech queued, delivered, muted, unavailable, failed, cancelled | `speech-delivery` child lifecycle projection |
+| Browser document commit receipt | adapter fact recorded into presentation |
+| Human visual baseline | retained Mock Studio parity baseline |
 
-Confirmed: command names are disjoint from view fields.
+## State-to-screen matrix
 
-## Coverage matrix
+| Live state or fact | Screen or inspector proof |
+| --- | --- |
+| `preparing` | status `Preparing local model`; prompts gated |
+| `unavailable` | status `Model unavailable`; retry path visible |
+| `available.turn.idle` | status `Ready`; prompt and capture affordances available |
+| `available.turn.responding` | status `Responding`; trace and model activity visible |
+| `voice.listening` | transcript capture UI and live voice state |
+| `voice.transcript` | transcript preview plus `submitVoiceTranscript` availability |
+| `voice.permission-denied` | visible voice failure and text-path recovery |
+| `voice.failed` | visible voice error and retry path |
+| `speech.pending` | aggregate speech awaiting adapter acknowledgement |
+| `speech-delivery.queued` | queued playback fact before completion |
+| `speech-delivery.delivered` | speech commit status `played` |
+| `speech-delivery.muted` | speech commit status `muted` |
+| `speech-delivery.unavailable` | speech commit status `unavailable` |
+| `speech-delivery.failed` | adapter failure retained as unavailable-style commit proof |
+| `speech-delivery.cancelled` | child terminal captured without claiming playback |
+| document commit fact | browser receipt card with artifact revision |
+| runtime manifest fact | live manifest card separate from blueprint commands |
+| stale or rejected artifact action | `artifact-rejected` fact in trace/runtime evidence |
 
-| Actor / adapter state | Ready workbench | Speech capture | Responding overlay | Committed artifact | Permission recovery |
-| --- | --- | --- | --- | --- | --- |
-| Actor `ready` + adapter `idle` | designed | n/a | n/a | designed | n/a |
-| Actor `ready` + adapter `listening` | n/a | designed | n/a | n/a | n/a |
-| Actor `ready` + adapter `permissionDenied` | designed | n/a | n/a | n/a | designed |
-| Actor `responding` | n/a | n/a | designed | designed after accepted commit | n/a |
-| Actor `ready` + acknowledged speech | designed | n/a | n/a | designed | n/a |
-| unrecoverable error | deferred; follow existing example error contract if added | deferred | deferred | deferred | n/a |
+## Failure, recovery, and stale-receipt receipts
 
-## Production translation
+The live implementation already proves these architecture behaviors:
 
-Target stack: the repository’s current `ignite-element/xstate`, Ignite JSX renderer, and XState v5 actor. The local source remains canonical for API shape; do not translate the prototype into React or add a projection wrapper.
+- stale voice receipts are ignored unless `attemptId` matches the active child;
+- stale model-preparation receipts are fenced across retry sequences;
+- stale or mismatched model-turn receipts are rejected unless `turnId` and `attemptId` match the current request;
+- cancellation and timeout return the responding turn to idle through child output, not ad hoc parent mutation;
+- replay replaces the speech-delivery child and allocates a fresh `requestSequence`;
+- speech acknowledgement is separate from queued and delivered adapter facts.
 
-Implementation outline:
+## Reuse, move, retire
 
-1. Preserve the existing five-command headless contract and its `igniteTest` coverage. Do not expand it for browser-only controls.
-2. Derive every domain presentation field in the existing `igniteCore({ view })` callback.
-3. Keep commands in `igniteCore({ commands })` and component events in `events`/`effects`.
-4. Port prototype structure into the existing `component("voice-workbench", renderWorkbench)` projection.
-5. Copy the approved token variables into the example’s production stylesheet or shadow-local `<style>` source; every component rule must use `var(--token)`.
-6. Keep `createProjectionDocumentTarget` and `createProjectionSpeechTarget` direct in the browser entrypoint; add an equally direct injectable terminal/text target if the task slice includes it.
-7. Implement microphone capture, playback preference, local tabs, and trace replay as explicit outer-adapter or projection-local concerns. They must not appear in `component.getSchema()`.
-8. Derive the causal inspector from current view data, `getSchema()`, allowlist decisions, emitted component facts, and channel commit receipts. Do not introduce a second durable store.
+### Reuse unchanged
 
-## Per-state parity and accessibility gate
+- Mock Studio visual hierarchy
+- token system
+- responsive layout
+- parity harness states and measurements
 
-Run before implementation closeout for each designed matrix cell:
+### Keep but reframe
 
-- Header contains Ignite identity, actor status, capability labels, and independent speech-output preference.
-- Conversation includes typed and speech modality labels, agent replies, composer, microphone, and one Send action.
-- Listening includes live status, transcript, waveform as decorative-only, Cancel, and Use transcript.
-- Responding includes actor-state label and semantic commit steps.
-- Artifact includes title/id/revision, committed state, document/schema tabs, spoken-summary control, semantic nodes, and decision record.
-- Runtime includes the one-component contract, model proposal versus actor authorization, revision storage, browser/terminal/speech channel commits, the five-command schema, and a rejected non-allowlisted command.
-- Microphone denial preserves the typed draft and offers continued text input.
-- Horizontal overflow is 0 at 1440, 1280, 768, and 390.
-- Page overflow is 0; conversation, artifact, runtime, and status rails own any necessary internal scrolling.
-- Visible targets are at least 32px desktop and 44px tablet/mobile.
-- Every interactive control has a visible `:focus-visible` treatment and a keyboard path.
-- Reduced-motion preference suppresses pulsing, waveform, and transition animation.
-- All component colors resolve from the approved token file across the Shadow DOM boundary.
-- Axe WCAG 2 A/AA reports zero violations; translucent backgrounds receive a manual contrast check where axe is incomplete.
+- product proof chain
+- runtime teaching rail
+- browser, terminal, and speech projection concept
 
-Presence and alignment failures are blockers. Small cosmetic variance may be logged as design debt.
+### Retire as stale
 
-## Approval record
+- exact five-command headless contract claim
+- ready/responding-only machine sketch
+- statement that microphone, playback, tabs, and replay are outside the component command surface
 
-- Approved artifact: Round 2 plus the artifact-proof collision correction.
-- Approved transition: Mock Studio specification to production POC/MVP implementation.
-- Approval scope: visual hierarchy, interaction states, responsive behavior, token system, runtime teaching rail, and the implementation contract above.
-- Approval does not certify: a live MLX connection, live speech recognition, production Ignite integration, or accessibility parity. Those require implementation receipts.
+### Move into downstream implementation slices
 
-## Production implementation receipt — 2026-07-13
+- any renderer or host cleanup driven by this architectural clarification
+- any manifest-copy or wording cleanup in browser/runtime UI
+- any follow-on extraction of ports, reducers, or domain packs
 
-The approved Mock Studio design is now represented by a test-only production
-parity harness that imports the real component, source, commands, and
-`renderWorkbench` projection. It allowlists `ready`, `listening`, `responding`,
-`artifact`, and `permission`; unknown fixtures fail closed. Deterministic content
-is visibly labeled **Parity harness only** and never enters the live entrypoint.
+## Maturity labels
 
-Automated verification passed with 10 test files and 36 tests, TypeScript
-typechecking, and a two-page Vite build. The suite exercises all five fixtures
-through the `igniteTest` accessibility bridge, checks ten opaque or translucent
-WCAG AA token pairs, enforces a 44px global target contract, and guards the
-parity entrypoint against imperative DOM lookup.
+- Implemented: compound parent statechart, fixed child topology, command blueprint, command availability, runtime manifest/read-model separation, stale-receipt guards, parity harness baseline.
+- Retained: approved visual baseline and responsive anatomy from 2026-07-13.
+- Deferred: any new UI mutation, host redesign, or public API reshaping not already in the live source.
 
-The final rendered-browser receipt is
-`/private/tmp/ignite-voice-workbench-parity-20260713-final`: 25 PNGs plus
-`measurements.json`, covering all five states at 1920×1080, 1440×900, 1280×800,
-768×900, and 390×844. It reports no failures or browser logs, zero maximum
-horizontal overflow, all visible targets at least 44px, every state proof
-visible, correct actor and voice state, and the approved active panel in every
-cell. The test-only artifact title was visible and the permission fixture
-preserved its draft exactly. Earlier pre-fix browser captures are superseded by
-this receipt.
+## Verification receipts
 
-This receipt certifies production projection parity for the deterministic
-fixtures. It does not certify a live MLX process, live microphone permission,
-speech-recognition quality, or assistive-technology behavior.
+Architecture receipts used for this amendment:
+
+- `examples/agents/voice-workbench/src/workbench-view.test.ts`
+  - asserts the exact 19-command blueprint
+  - asserts projected command availability matches `canExecute`
+- `examples/agents/voice-workbench/src/session.headless.test.ts`
+  - proves persistent voice child correlation and transcript submission
+  - proves speech-delivery replay replacement and terminal receipt handling
+  - asserts lifecycle ownership is executable and target-aligned
+- `examples/agents/voice-workbench/src/session.graph.test.ts`
+  - asserts the compound parallel topology
+  - verifies reachable deterministic lifecycle vertices
+  - verifies zero known forbidden reachable states
+- `examples/agents/voice-workbench/src/workbench-runtime.test.ts`
+  - verifies bounded request-key tracking and cleanup
+  - verifies parent-owned terminal paths release the model-turn routing lease
+
+## Approval gate
+
+This amended handoff completed human review on 2026-07-17.
+
+- Visual baseline: approved and retained from 2026-07-13
+- Architecture amendment: approved on 2026-07-17
+- Downstream decision: use this live-implementation-aligned Gate 0 contract instead of the stale five-command and ready/responding-only claims

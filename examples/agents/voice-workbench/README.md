@@ -11,7 +11,9 @@ actor validates the semantic change.
 
 ## What the example proves
 
-The component's domain contract centers on eight behavior commands:
+The public Ignite component exposes 19 commands across user intent, model
+intent, and presentation controls. The actor-owned behavior contract centers on
+eight domain commands:
 
 - `submitPrompt`
 - `createArtifact`
@@ -23,9 +25,11 @@ The component's domain contract centers on eight behavior commands:
 - `acknowledgeSpeech`
 
 Text and speech are two input adapters for the same `submitPrompt` command.
-Additional presentation commands keep browser intent actor-owned without
-exposing the source. The model receives a narrower allowlist from `getSchema()`
-through a fresh `igniteTools(component)` manifest on every model round:
+Additional public commands keep browser intent actor-owned without exposing the
+source: draft, panel, artifact-view, runtime-preview, speech-preference,
+replay, voice-capture, and preparation controls all stay outside the model's
+tool surface. The model receives a narrower allowlist from `getSchema()` through
+a fresh `igniteTools(component)` manifest on every model round:
 `createArtifact`, `reviseArtifact`, `setChecklistItem`, and
 `completeResponse`. It may propose semantic artifacts and responses, but it
 cannot write DOM, JSX, JavaScript, or actor state directly.
@@ -868,7 +872,7 @@ pnpm --dir examples/agents/voice-workbench proof:headless
 ```
 
 It uses `component.record(...)` and `igniteTest.snapshotStory(...)` to print the
-five-command trace, emitted actor events, final nested state value, retained
+live command trace, emitted actor events, final nested state value, retained
 revisions, and checked checklist state.
 
 ## Use text and speech
