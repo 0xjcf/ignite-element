@@ -488,8 +488,10 @@ stateDiagram-v2
     Cancelled --> Listening: START
     Cancelled --> Listening: RETRY
     PermissionDenied --> Idle: RESET
+    PermissionDenied --> Listening: START
     PermissionDenied --> Listening: RETRY
     Failed --> Idle: RESET
+    Failed --> Listening: START
     Failed --> Listening: RETRY
     CheckingSupport --> Disposed: DISPOSE
     Unsupported --> Disposed: DISPOSE
