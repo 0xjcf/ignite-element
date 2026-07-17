@@ -1,5 +1,11 @@
 import type { CapabilityFallbackAttempt } from "./capability-federation";
-import type { ConversationFact } from "./domain";
+import type {
+	ConversationFact,
+	RestoreArtifactRevisionInput,
+	SelectArtifactInput,
+	SetChecklistItemInput,
+	SubmitPromptInput,
+} from "./domain";
 import type { DomainPolicyDecision } from "./domains/contracts";
 import type { ProductPriceReasonCode } from "./domains/product-pricing/price-capability";
 import {
@@ -424,6 +430,62 @@ export type WorkbenchBlueprintCommands = Record<
 	}
 >;
 
+export type VoiceWorkbenchCommandAvailability = {
+	acknowledgeSpeech: boolean;
+	cancelVoiceCapture: boolean;
+	completeResponse: boolean;
+	createArtifact: boolean;
+	restoreArtifactRevision: boolean;
+	reviseArtifact: boolean;
+	selectArtifact: boolean;
+	setChecklistItem: boolean;
+	startVoiceCapture: boolean;
+	submitPrompt: boolean;
+	submitVoiceTranscript: boolean;
+};
+
+export const selectVoiceWorkbenchCommandAvailability = (
+	snapshot: VoiceWorkbenchSessionSnapshot,
+): VoiceWorkbenchCommandAvailability => {
+	const turnIdle = snapshot.matches({ available: { turn: "idle" } });
+	const turnResponding = snapshot.matches({
+		available: { turn: "responding" },
+	});
+	const modelAvailable = snapshot.matches("available");
+	const hasDocuments = snapshot.context.documents.length > 0;
+	const activeArtifact = snapshot.context.documents.find(
+		(document) => document.id === snapshot.context.activeArtifactId,
+	);
+	const hasHistoricalRevision = Boolean(
+		activeArtifact &&
+			snapshot.context.artifactRevisions.some(
+				(document) =>
+					document.id === activeArtifact.id &&
+					document.revision !== activeArtifact.revision,
+			),
+	);
+	const hasChecklist = snapshot.context.documents.some((document) =>
+		document.nodes.some((node) => node.kind === "checklist"),
+	);
+
+	return {
+		acknowledgeSpeech: snapshot.context.speech?.status === "pending",
+		cancelVoiceCapture: turnIdle,
+		completeResponse: turnResponding && hasDocuments,
+		createArtifact: turnResponding,
+		restoreArtifactRevision: turnIdle && hasHistoricalRevision,
+		reviseArtifact: turnResponding && hasDocuments,
+		selectArtifact: turnIdle && hasDocuments,
+		setChecklistItem: modelAvailable && hasChecklist,
+		startVoiceCapture:
+			turnIdle &&
+			canStartVoiceCapture(snapshot.context.childLifecycles.voiceCapture),
+		submitPrompt: turnIdle,
+		submitVoiceTranscript:
+			turnIdle && selectVoiceTranscriptCandidate(snapshot.context) !== null,
+	};
+};
+
 export const projectVoiceWorkbenchView = ({
 	snapshot,
 	blueprintCommands = {},
@@ -434,10 +496,16 @@ export const projectVoiceWorkbenchView = ({
 	const modelPreparing = snapshot.matches("preparing");
 	const modelFailed = snapshot.matches("unavailable");
 	const modelAvailable = snapshot.matches("available");
-	const responding = snapshot.matches({
-		available: { turn: "responding" },
-	});
-	const turnReady = snapshot.matches({ available: { turn: "idle" } });
+	const commandAvailability = selectVoiceWorkbenchCommandAvailability(snapshot);
+	const responding = commandAvailability.createArtifact;
+	const canSetChecklistItem =
+		commandAvailability.setChecklistItem && commandAvailability.submitPrompt;
+	const presentation = snapshot.context.presentation;
+	const preparedDraft = presentation.draft.trim();
+	const submitPromptInput: SubmitPromptInput | null =
+		commandAvailability.submitPrompt && preparedDraft.length > 0
+			? { modality: "text", text: preparedDraft }
+			: null;
 	const status = modelPreparing
 		? "preparing"
 		: modelFailed
@@ -472,9 +540,10 @@ export const projectVoiceWorkbenchView = ({
 							...(speech ? { speech } : {}),
 						}
 					: null;
-			return {
-				...node,
-				action: input ? { enabled: responding, input } : null,
+			const projection = {
+				action: input
+					? { enabled: commandAvailability.completeResponse, input }
+					: null,
 				chart:
 					node.kind === "chart"
 						? {
@@ -506,6 +575,24 @@ export const projectVoiceWorkbenchView = ({
 							}))
 						: [],
 			};
+			if (node.kind !== "checklist") return { ...node, ...projection };
+			return {
+				...node,
+				...projection,
+				items: node.items.map((item) => {
+					const setCheckedInput: SetChecklistItemInput | null =
+						canSetChecklistItem
+							? {
+									artifactId: document.id,
+									expectedRevision: document.revision,
+									nodeId: node.id,
+									itemId: item.id,
+									checked: !item.checked,
+								}
+							: null;
+					return { ...item, setCheckedInput };
+				}),
+			};
 		}),
 	}));
 	const activeArtifact =
@@ -520,26 +607,42 @@ export const projectVoiceWorkbenchView = ({
 		revision: artifact.revision,
 		nodeCount: artifact.nodes.length,
 		active: artifact.id === activeArtifact?.id,
+		selectInput: commandAvailability.selectArtifact
+			? ({ artifactId: artifact.id } satisfies SelectArtifactInput)
+			: null,
 	}));
 	const activeArtifactRevisions = activeArtifact
 		? snapshot.context.artifactRevisions
 				.filter((document) => document.id === activeArtifact.id)
-				.map((document) => ({
-					revision: document.revision,
-					title: readableArtifactTitle(document.title, document.id),
-					nodeCount: document.nodes.length,
-					current: document.revision === activeArtifact.revision,
-				}))
+				.map((document) => {
+					const current = document.revision === activeArtifact.revision;
+					const nodeCount = document.nodes.length;
+					const restoreInput: RestoreArtifactRevisionInput | null =
+						!current && commandAvailability.restoreArtifactRevision
+							? {
+									artifactId: activeArtifact.id,
+									expectedRevision: activeArtifact.revision,
+									revision: document.revision,
+								}
+							: null;
+					return {
+						key: `${document.id}:${document.revision}`,
+						revision: document.revision,
+						title: readableArtifactTitle(document.title, document.id),
+						nodeCount,
+						current,
+						label: `Revision ${document.revision}`,
+						summary: `${nodeCount} ${nodeCount === 1 ? "node" : "nodes"}`,
+						restoreLabel: current
+							? `Current revision ${document.revision}`
+							: `Restore revision ${document.revision}`,
+						restoreInput,
+					};
+				})
 		: [];
-	const canSetChecklistItem =
-		turnReady &&
-		artifacts.some((artifact) =>
-			artifact.nodes.some((node) => node.kind === "checklist"),
-		);
 	const turnCount = snapshot.context.messages.filter(
 		(message) => message.role === "user",
 	).length;
-	const presentation = snapshot.context.presentation;
 	const respondingProgress = describeRespondingProgress(
 		snapshot.context.lastFact,
 	);
@@ -574,8 +677,7 @@ export const projectVoiceWorkbenchView = ({
 					: null
 		: null;
 	const transcript = voice.type === "voice-transcript" ? voice.text : null;
-	const transcriptReady =
-		selectVoiceTranscriptCandidate(snapshot.context) !== null;
+	const transcriptReady = commandAvailability.submitVoiceTranscript;
 	const voiceFailure =
 		voice.type === "voice-permission-denied" || voice.type === "voice-error"
 			? voice
@@ -588,6 +690,14 @@ export const projectVoiceWorkbenchView = ({
 					revision: activeArtifact.revision,
 					nodes: activeArtifact.nodes.map((node) => {
 						const { action: _action, ...schemaNode } = node;
+						if (schemaNode.kind === "checklist") {
+							return {
+								...schemaNode,
+								items: schemaNode.items.map(
+									({ setCheckedInput: _setCheckedInput, ...item }) => item,
+								),
+							};
+						}
 						if ("displayRows" in schemaNode) {
 							const { displayRows: _displayRows, ...actorNode } = schemaNode;
 							return actorNode;
@@ -840,6 +950,10 @@ export const projectVoiceWorkbenchView = ({
 			artifacts: snapshot.context.documents,
 		},
 		status,
+		commandAvailability,
+		intents: {
+			submitPrompt: submitPromptInput,
+		},
 		commandCount: blueprintRows.length,
 		statusLabel: modelPreparing
 			? "Preparing local model"
@@ -848,11 +962,9 @@ export const projectVoiceWorkbenchView = ({
 				: responding
 					? "Responding"
 					: "Ready",
-		canSubmitPrompt: modelAvailable && turnReady,
+		canSubmitPrompt: commandAvailability.submitPrompt,
 		canSetChecklistItem,
-		canRestoreArtifactRevision:
-			turnReady &&
-			activeArtifactRevisions.some((revision) => !revision.current),
+		canRestoreArtifactRevision: commandAvailability.restoreArtifactRevision,
 		canRetryModel: modelFailed,
 		activeArtifact,
 		resultQuality,
@@ -865,7 +977,7 @@ export const projectVoiceWorkbenchView = ({
 		voiceState: voiceState(voice),
 		transcript,
 		transcriptReady,
-		microphoneUnavailable: !canStartVoiceCapture(voiceLifecycle),
+		microphoneUnavailable: !commandAvailability.startVoiceCapture,
 		voiceFailure,
 		turnMessage: describeTurn(presentation.turn),
 		lastFactLabel: describeFact(snapshot.context.lastFact),
@@ -894,9 +1006,9 @@ export const projectVoiceWorkbenchView = ({
 		speech: snapshot.context.speech,
 		activeArtifactId: snapshot.context.activeArtifactId,
 		response: snapshot.context.response,
-		canRevise: responding && snapshot.context.documents.length > 0,
+		canRevise: commandAvailability.reviseArtifact,
 		presentation: {
-			...snapshot.context.presentation,
+			...presentation,
 			voice,
 			speechDelivery,
 			speechCommit,

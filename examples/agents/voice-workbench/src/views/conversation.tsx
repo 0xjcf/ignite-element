@@ -126,13 +126,8 @@ export const renderConversationView = (context: WorkbenchProjection) => (
 				class="composer"
 				onSubmit={(event: Event) => {
 					event.preventDefault();
-					const text = context.presentation.draft.trim();
-					if (text) {
-						context.submitPrompt({
-							modality: "text",
-							text,
-						});
-					}
+					const input = context.intents.submitPrompt;
+					if (input) context.submitPrompt(input);
 				}}
 			>
 				<label class="sr-only" for="prompt">
@@ -167,7 +162,7 @@ export const renderConversationView = (context: WorkbenchProjection) => (
 						class="send-button"
 						type="submit"
 						aria-label="Send"
-						disabled={!context.canSubmitPrompt}
+						disabled={!context.intents.submitPrompt}
 					>
 						Send <span aria-hidden="true">→</span>
 					</button>

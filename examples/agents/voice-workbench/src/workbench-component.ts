@@ -11,16 +11,15 @@ import type {
 	SubmitPromptInput,
 } from "./domain";
 import {
-	selectVoiceTranscriptCandidate,
 	type VoiceWorkbenchSessionActor,
 	type WorkbenchArtifactView,
 	type WorkbenchPanel,
 	type WorkbenchPresentationEnvelope,
 	type WorkbenchRuntimePreview,
 } from "./session";
-import { canStartVoiceCapture } from "./voice";
 import {
 	projectVoiceWorkbenchView,
+	selectVoiceWorkbenchCommandAvailability,
 	type WorkbenchBlueprintCommands,
 } from "./workbench-view";
 
@@ -199,7 +198,8 @@ export const createVoiceWorkbenchComponent = (
 						channel: "user-intent",
 						description: "Acknowledge the currently pending speech request.",
 						canExecute: ({ snapshot }) =>
-							snapshot.context.speech?.status === "pending",
+							selectVoiceWorkbenchCommandAvailability(snapshot)
+								.acknowledgeSpeech,
 						input: command.object(
 							{ id: command.string({ minLength: 1 }) },
 							{ required: ["id"] },
@@ -215,7 +215,8 @@ export const createVoiceWorkbenchComponent = (
 					{
 						channel: "user-intent",
 						canExecute: ({ snapshot }) =>
-							snapshot.matches({ available: { turn: "idle" } }),
+							selectVoiceWorkbenchCommandAvailability(snapshot)
+								.cancelVoiceCapture,
 					},
 				),
 				changeArtifactView: command(
@@ -257,8 +258,8 @@ export const createVoiceWorkbenchComponent = (
 						channel: "model-intent",
 						description: "Complete the active response turn.",
 						canExecute: ({ snapshot }) =>
-							snapshot.matches({ available: { turn: "responding" } }) &&
-							snapshot.context.documents.length > 0,
+							selectVoiceWorkbenchCommandAvailability(snapshot)
+								.completeResponse,
 						input: command.object(
 							{
 								text: command.string({ minLength: 1 }),
@@ -276,7 +277,7 @@ export const createVoiceWorkbenchComponent = (
 						description:
 							"Create a validated semantic artifact for the active turn.",
 						canExecute: ({ snapshot }) =>
-							snapshot.matches({ available: { turn: "responding" } }),
+							selectVoiceWorkbenchCommandAvailability(snapshot).createArtifact,
 						input: command.object(
 							{
 								id: command.string({ minLength: 1 }),
@@ -315,8 +316,7 @@ export const createVoiceWorkbenchComponent = (
 						description:
 							"Revise an artifact when its expected revision still matches.",
 						canExecute: ({ snapshot }) =>
-							snapshot.matches({ available: { turn: "responding" } }) &&
-							snapshot.context.documents.length > 0,
+							selectVoiceWorkbenchCommandAvailability(snapshot).reviseArtifact,
 						input: command.object(
 							{
 								artifactId: command.string({ minLength: 1 }),
@@ -334,22 +334,9 @@ export const createVoiceWorkbenchComponent = (
 						channel: "user-intent",
 						description:
 							"Restore a historical snapshot as a new forward artifact revision.",
-						canExecute: ({ snapshot }) => {
-							if (!snapshot.matches({ available: { turn: "idle" } }))
-								return false;
-							const activeId = snapshot.context.activeArtifactId;
-							const current = snapshot.context.documents.find(
-								(document) => document.id === activeId,
-							);
-							return Boolean(
-								current &&
-									snapshot.context.artifactRevisions.some(
-										(document) =>
-											document.id === current.id &&
-											document.revision !== current.revision,
-									),
-							);
-						},
+						canExecute: ({ snapshot }) =>
+							selectVoiceWorkbenchCommandAvailability(snapshot)
+								.restoreArtifactRevision,
 						input: command.object(
 							{
 								artifactId: command.string({ minLength: 1 }),
@@ -369,8 +356,7 @@ export const createVoiceWorkbenchComponent = (
 						channel: "user-intent",
 						description: "Select the active artifact in this session.",
 						canExecute: ({ snapshot }) =>
-							snapshot.matches({ available: { turn: "idle" } }) &&
-							snapshot.context.documents.length > 0,
+							selectVoiceWorkbenchCommandAvailability(snapshot).selectArtifact,
 						input: command.object(
 							{ artifactId: command.string({ minLength: 1 }) },
 							{ required: ["artifactId"] },
@@ -385,11 +371,8 @@ export const createVoiceWorkbenchComponent = (
 						description:
 							"Set one checklist item when its artifact revision still matches.",
 						canExecute: ({ snapshot }) =>
-							(snapshot.matches({ available: { turn: "idle" } }) ||
-								snapshot.matches({ available: { turn: "responding" } })) &&
-							snapshot.context.documents.some((document) =>
-								document.nodes.some((node) => node.kind === "checklist"),
-							),
+							selectVoiceWorkbenchCommandAvailability(snapshot)
+								.setChecklistItem,
 						input: command.object(
 							{
 								artifactId: command.string({ minLength: 1 }),
@@ -417,7 +400,7 @@ export const createVoiceWorkbenchComponent = (
 						channel: "user-intent",
 						description: "Open the next text or speech conversation turn.",
 						canExecute: ({ snapshot }) =>
-							snapshot.matches({ available: { turn: "idle" } }),
+							selectVoiceWorkbenchCommandAvailability(snapshot).submitPrompt,
 						input: command.object(
 							{
 								modality: command.enum(["text", "speech"]),
@@ -432,10 +415,8 @@ export const createVoiceWorkbenchComponent = (
 					{
 						channel: "user-intent",
 						canExecute: ({ snapshot }) =>
-							snapshot.matches({ available: { turn: "idle" } }) &&
-							canStartVoiceCapture(
-								snapshot.context.childLifecycles.voiceCapture,
-							),
+							selectVoiceWorkbenchCommandAvailability(snapshot)
+								.startVoiceCapture,
 					},
 				),
 				submitVoiceTranscript: command(
@@ -443,8 +424,8 @@ export const createVoiceWorkbenchComponent = (
 					{
 						channel: "user-intent",
 						canExecute: ({ snapshot }) =>
-							snapshot.matches({ available: { turn: "idle" } }) &&
-							selectVoiceTranscriptCandidate(snapshot.context) !== null,
+							selectVoiceWorkbenchCommandAvailability(snapshot)
+								.submitVoiceTranscript,
 					},
 				),
 			};

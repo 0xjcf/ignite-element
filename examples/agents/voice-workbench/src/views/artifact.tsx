@@ -31,20 +31,10 @@ const renderNode = (node: DocumentNode, context: WorkbenchProjection) => {
 									<input
 										type="checkbox"
 										checked={item.checked}
-										disabled={
-											!context.canSetChecklistItem || !context.activeArtifact
-										}
-										onChange={(event: Event) => {
-											const artifact = context.activeArtifact;
-											if (!artifact) return;
-											context.setChecklistItem({
-												artifactId: artifact.id,
-												expectedRevision: artifact.revision,
-												nodeId: node.id,
-												itemId: item.id,
-												checked: (event.currentTarget as HTMLInputElement)
-													.checked,
-											});
+										disabled={!item.setCheckedInput}
+										onChange={() => {
+											const input = item.setCheckedInput;
+											if (input) context.setChecklistItem(input);
 										}}
 									/>
 									<span>{item.label}</span>
@@ -290,9 +280,11 @@ export const renderArtifactView = (context: WorkbenchProjection) => (
 								type="button"
 								aria-label={`${artifact.title}, revision ${artifact.revision}`}
 								aria-current={artifact.active ? "page" : undefined}
-								onClick={() =>
-									context.selectArtifact({ artifactId: artifact.id })
-								}
+								disabled={!artifact.selectInput}
+								onClick={() => {
+									if (artifact.selectInput)
+										context.selectArtifact(artifact.selectInput);
+								}}
 							>
 								<strong>{artifact.title}</strong>
 								<span>
@@ -401,30 +393,18 @@ export const renderArtifactView = (context: WorkbenchProjection) => (
 							<div class="revision-history-list">
 								{context.activeArtifactRevisions.map((revision) => (
 									<button
-										key={revision.revision}
+										key={revision.key}
 										class={revision.current ? "is-current" : ""}
 										type="button"
-										disabled={
-											revision.current || !context.canRestoreArtifactRevision
-										}
-										aria-label={
-											revision.current
-												? `Current revision ${revision.revision}`
-												: `Restore revision ${revision.revision}`
-										}
-										onClick={() =>
-											context.restoreArtifactRevision({
-												artifactId: context.activeArtifact.id,
-												expectedRevision: context.activeArtifact.revision,
-												revision: revision.revision,
-											})
-										}
+										disabled={!revision.restoreInput}
+										aria-label={revision.restoreLabel}
+										onClick={() => {
+											if (revision.restoreInput)
+												context.restoreArtifactRevision(revision.restoreInput);
+										}}
 									>
-										<strong>Revision {revision.revision}</strong>
-										<span>
-											{revision.nodeCount}{" "}
-											{revision.nodeCount === 1 ? "node" : "nodes"}
-										</span>
+										<strong>{revision.label}</strong>
+										<span>{revision.summary}</span>
 									</button>
 								))}
 							</div>
