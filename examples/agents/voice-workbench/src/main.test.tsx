@@ -115,6 +115,9 @@ describe("voice workbench browser entry", () => {
 	});
 
 	it("creates and revises the center document through real text and speech paths", async () => {
+		const xstateWarning = vi
+			.spyOn(console, "warn")
+			.mockImplementation(() => {});
 		const speechModule = await import("./speech");
 		const createSpeechDeliveryActor = speechModule.createSpeechDeliveryActor;
 		const createdSpeechActors: object[] = [];
@@ -122,12 +125,23 @@ describe("voice workbench browser entry", () => {
 			typeof createSpeechDeliveryActor
 		>[0][] = [];
 		const stopSpeechActor = vi.fn();
+		const terminalSpeechDisposals: string[] = [];
 		vi.spyOn(speechModule, "createSpeechDeliveryActor").mockImplementation(
 			(input) => {
 				const actor = createSpeechDeliveryActor(input);
+				const send = actor.send.bind(actor);
 				const stop = actor.stop.bind(actor);
 				createdSpeechActors.push(actor);
 				createdSpeechInputs.push(input);
+				vi.spyOn(actor, "send").mockImplementation((event) => {
+					if (
+						event.type === "DISPOSE" &&
+						actor.getSnapshot().context.terminal !== null
+					) {
+						terminalSpeechDisposals.push(String(actor.getSnapshot().value));
+					}
+					send(event);
+				});
 				vi.spyOn(actor, "stop").mockImplementation(() => {
 					stopSpeechActor(actor);
 					return stop();
@@ -360,6 +374,14 @@ describe("voice workbench browser entry", () => {
 			expect(createdSpeechActors.length).toBeGreaterThan(0);
 			expect(stopSpeechActor).toHaveBeenCalledTimes(createdSpeechActors.length);
 		});
+		expect.soft(terminalSpeechDisposals).toEqual([]);
+		expect
+			.soft(
+				xstateWarning.mock.calls.filter(([message]) =>
+					String(message).includes('Event "DISPOSE" was sent to stopped actor'),
+				),
+			)
+			.toEqual([]);
 		const initialSpeech = component.getView().speech;
 		if (!initialSpeech)
 			throw new Error("initial speech request was not retained");
@@ -716,5 +738,6 @@ describe("voice workbench browser entry", () => {
 					(document) => document.id === "pagehide-stale-artifact",
 				),
 		).toBe(false);
+		xstateWarning.mockRestore();
 	});
 });

@@ -2568,4 +2568,68 @@ describe("shared voice workbench agent", () => {
 			},
 		});
 	});
+
+	it("does not report a child terminal event after the parent actor stops", async () => {
+		const startSubmittedPrompt = await loadStartSubmittedPrompt();
+		requestModel.mockReset();
+		let resolveModel!: (result: ModelResult) => void;
+		requestModel.mockImplementationOnce(
+			() =>
+				new Promise<ModelResult>((resolve) => {
+					resolveModel = resolve;
+				}),
+		);
+		await component.execute({
+			command: "submitPrompt",
+			input: {
+				modality: "text",
+				text: "Keep this turn pending while the parent stops.",
+			},
+		});
+		const turnId = component.getView().lifecycle.activeTurnId;
+		if (!turnId) throw new Error("post-stop turn was not admitted");
+		const handle = startSubmittedPrompt(
+			{ baseUrl: "http://127.0.0.1:8080/v1", model: "local-model" },
+			{
+				turnId,
+				modality: "text",
+				text: "Keep this turn pending while the parent stops.",
+			},
+		);
+		await vi.waitFor(() => expect(requestModel).toHaveBeenCalledOnce());
+
+		const parentSend = vi.spyOn(source, "send");
+		const xstateWarning = vi
+			.spyOn(console, "warn")
+			.mockImplementation(() => {});
+		handle.dispose();
+		source.stop();
+		parentSend.mockClear();
+		await expect(handle.done).resolves.toBeNull();
+
+		expect
+			.soft(
+				parentSend.mock.calls.filter(
+					([event]) => event.type === "CANCELLED" && event.turnId === turnId,
+				),
+			)
+			.toEqual([]);
+		expect
+			.soft(
+				xstateWarning.mock.calls.filter(([message]) =>
+					String(message).includes(
+						'Event "CANCELLED" was sent to stopped actor',
+					),
+				),
+			)
+			.toEqual([]);
+
+		resolveModel({
+			ok: false,
+			error: { kind: "provider", message: "Late post-stop settlement." },
+		});
+		await Promise.resolve();
+		parentSend.mockRestore();
+		xstateWarning.mockRestore();
+	});
 });
