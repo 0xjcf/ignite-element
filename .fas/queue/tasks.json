@@ -329,32 +329,6 @@
       "updatedAt": "2026-07-11T02:10:35.707Z"
     },
     {
-      "id": "task-1783810065213",
-      "task": "Define and implement multi-step igniteTest narratives over existing Story evidence",
-      "priority": "high",
-      "source": "manual",
-      "details": "Replace the queued one-command rehearsal proposal with a typed multi-step narrative helper over the existing igniteTest scenario and Story evidence APIs. A narrative is the expected falsifiable experience; component.record produces the observed Story and snapshotStory produces its portable receipt. The helper must support assertion-only preconditions, multiple typed intent commands, consumer-driven external facts between intents, and named semantic checkpoints without creating a second recorder, state authority, graph engine, or trace schema. The first slice should return the existing IgniteStorySnapshot and use dogfood to decide whether a later receipt envelope is justified.\nSee .fas/tasks/add-named-ignitetest-rehearsals-with-trace-snapshots.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [
-        "task-1784298607166"
-      ],
-      "blocks": [
-        "task-1784171502136",
-        "task-1784324997164"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-11T22:47:45.213Z",
-      "updatedAt": "2026-07-17T22:26:54.208Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
       "id": "task-1784171502136",
       "task": "Evaluate an optional Ignite XState graph-testing bridge after executable-narrative dogfood",
       "priority": "high",
@@ -378,7 +352,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-16T03:11:42.136Z",
       "updatedAt": "2026-07-17T21:51:02.962Z",
-      "deferredReason": "dependency_reopened: task-1783610933373, task-1783810065213, task-1784325062961",
+      "deferredReason": "dependency_reopened: task-1783610933373, task-1784325062961",
       "invalidationReason": null
     },
     {
@@ -574,7 +548,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-17T21:49:57.164Z",
       "updatedAt": "2026-07-17T21:49:57.164Z",
-      "deferredReason": "dependency_reopened: task-1783810065213, task-1784298626529",
+      "deferredReason": "dependency_reopened: task-1784298626529",
       "invalidationReason": null
     },
     {
@@ -3872,6 +3846,31 @@
       "completedAt": "2026-07-17T22:25:50.695Z",
       "terminalOutcome": null,
       "workflowId": "direct-1784298913248",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1783810065213",
+      "task": "Define and implement multi-step igniteTest narratives over existing Story evidence",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1784298607166"
+      ],
+      "blocks": [
+        "task-1784171502136",
+        "task-1784324997164"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-17T23:29:40.596Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784327214204",
       "branchName": "fas/voice-text-workbench",
       "prStatus": "draft-only"
     }

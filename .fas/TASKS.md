@@ -2332,8 +2332,8 @@ No active tasks.
 
 - Title: Define and implement multi-step igniteTest narratives over existing Story evidence
 - Mode: 6-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/add-named-ignitetest-rehearsals-with-trace-snapshots.md
 - Verification lane: fast
 - Policy sensitivity: standard
