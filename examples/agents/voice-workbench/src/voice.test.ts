@@ -37,19 +37,21 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("browser voice capture", () => {
 	it("declares the exact voice-capture lifecycle state shape", () => {
-		expect(Object.keys(voiceCaptureMachine.config.states).sort()).toEqual([
-			"cancelled",
-			"checking",
-			"consumed",
-			"disposed",
-			"failed",
-			"idle",
-			"listening",
-			"permission-denied",
-			"transcript",
-			"unavailable",
-			"unsupported",
-		]);
+		expect(Object.keys(voiceCaptureMachine.config.states ?? {}).sort()).toEqual(
+			[
+				"cancelled",
+				"checking",
+				"consumed",
+				"disposed",
+				"failed",
+				"idle",
+				"listening",
+				"permission-denied",
+				"transcript",
+				"unavailable",
+				"unsupported",
+			],
+		);
 	});
 
 	it("classifies adapter initialization failure as unavailable", () => {

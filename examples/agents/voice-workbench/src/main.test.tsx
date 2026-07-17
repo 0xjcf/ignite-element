@@ -586,8 +586,8 @@ describe("voice workbench browser entry", () => {
 			attemptId: "voice:2",
 			sequence: 2,
 		});
-		const deniedStartRequest = component.getView().portRequests.voiceCapture;
-		expect(deniedStartRequest).toMatchObject({ action: "start" });
+		expect(component.getView().portRequests.voiceCapture).toBeNull();
+		expect(component.getSnapshot().context.voiceCaptureControlSequence).toBe(3);
 
 		FakeSpeechRecognition.current.denied = false;
 		const permissionRetryMicrophone =
@@ -607,10 +607,10 @@ describe("voice workbench browser entry", () => {
 				attemptId: "voice:3",
 				sequence: 3,
 			});
-			expect(component.getView().portRequests.voiceCapture).toEqual({
-				action: "start",
-				sequence: (deniedStartRequest?.sequence ?? 0) + 1,
-			});
+			expect(component.getView().portRequests.voiceCapture).toBeNull();
+			expect(component.getSnapshot().context.voiceCaptureControlSequence).toBe(
+				4,
+			);
 		});
 
 		FakeSpeechRecognition.current.onerror?.({
@@ -626,7 +626,7 @@ describe("voice workbench browser entry", () => {
 				sequence: 3,
 			});
 		});
-		const failedStartRequest = component.getView().portRequests.voiceCapture;
+		expect(component.getView().portRequests.voiceCapture).toBeNull();
 		const failureRetryMicrophone = host.shadowRoot.querySelector("#mic-button");
 		if (!(failureRetryMicrophone instanceof HTMLButtonElement)) {
 			throw new Error(
@@ -643,10 +643,10 @@ describe("voice workbench browser entry", () => {
 				attemptId: "voice:4",
 				sequence: 4,
 			});
-			expect(component.getView().portRequests.voiceCapture).toEqual({
-				action: "start",
-				sequence: (failedStartRequest?.sequence ?? 0) + 1,
-			});
+			expect(component.getView().portRequests.voiceCapture).toBeNull();
+			expect(component.getSnapshot().context.voiceCaptureControlSequence).toBe(
+				5,
+			);
 		});
 
 		deferNextModelRequest = true;

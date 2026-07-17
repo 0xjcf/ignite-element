@@ -375,6 +375,15 @@ describe("voice workbench XState graph characterization", () => {
 		expect(readRawStateValue(actor.getSnapshot())).toEqual({
 			available: "idle",
 		});
+		send({
+			type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "idle",
+				attemptId: null,
+				sequence: 0,
+				fact: { type: "voice-idle" },
+			},
+		});
 
 		send({ type: "VOICE_CAPTURE_START_REQUESTED" });
 		send({ type: "VOICE_CAPTURE_CANCEL_REQUESTED" });

@@ -63,6 +63,16 @@ describe("voice workbench production parity harness", () => {
 		expect(shell()?.getAttribute("data-actor-state")).toBe("ready");
 		expect(shell()?.getAttribute("data-voice-state")).toBe("idle");
 		expect(
+			source.getSnapshot().context.childLifecycles.voiceCapture,
+		).toMatchObject({ state: "idle", fact: { type: "voice-idle" } });
+		expect(
+			(
+				bridge.getByRole("button", {
+					name: "Start speech input",
+				}) as HTMLButtonElement
+			).disabled,
+		).toBe(false);
+		expect(
 			igniteTest.expectControls(bridge, [
 				{ role: "textbox", name: "Prompt" },
 				{ role: "button", name: "Start speech input" },

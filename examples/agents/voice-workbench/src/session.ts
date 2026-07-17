@@ -28,9 +28,10 @@ import type {
 	SpeechDeliveryFact,
 	SpeechDeliveryLifecycleProjection,
 } from "./speech";
-import type {
-	VoiceCaptureFact,
-	VoiceCaptureLifecycleProjection,
+import {
+	canStartVoiceCapture,
+	type VoiceCaptureFact,
+	type VoiceCaptureLifecycleProjection,
 } from "./voice";
 
 export type WorkbenchArtifactView = "document" | "schema";
@@ -1065,7 +1066,11 @@ export const selectVoiceTranscriptCandidate = (
 
 const projectVoiceCaptureControlRequest = (
 	request: VoiceCapturePendingControlRequest | null,
+	lifecycle: VoiceCaptureLifecycleProjection | null,
 ): VoiceCaptureControlRequest | null => {
+	if (request?.action === "start" && !canStartVoiceCapture(lifecycle)) {
+		return null;
+	}
 	if (request?.action === "consume") {
 		return {
 			action: "consume",
@@ -1290,16 +1295,19 @@ export const voiceWorkbenchSessionMachine = setup({
 				}
 				case "VOICE_CAPTURE_LIFECYCLE_UPDATED": {
 					const lifecycle = canonicalizeVoiceCaptureLifecycle(event.lifecycle);
-					if (
-						!acceptsVoiceCaptureLifecycle(
-							context.childLifecycles.voiceCapture,
-							lifecycle,
-						)
-					) {
+					const current = context.childLifecycles.voiceCapture;
+					if (!acceptsVoiceCaptureLifecycle(current, lifecycle)) {
 						return context;
 					}
+					const startWasAccepted =
+						context.voiceCaptureControlRequest?.action === "start" &&
+						current !== null &&
+						lifecycle.sequence > current.sequence;
 					return {
 						...context,
+						voiceCaptureControlRequest: startWasAccepted
+							? null
+							: context.voiceCaptureControlRequest,
 						childLifecycles: {
 							...context.childLifecycles,
 							voiceCapture: lifecycle,
@@ -1392,6 +1400,9 @@ export const voiceWorkbenchSessionMachine = setup({
 		transitionAccepted: ({ context, event }) =>
 			isConversationAction(event) &&
 			reduceConversationSession(context, event).accepted,
+		voiceCaptureStartAccepted: ({ context, event }) =>
+			event.type === "VOICE_CAPTURE_START_REQUESTED" &&
+			canStartVoiceCapture(context.childLifecycles.voiceCapture),
 		voiceTranscriptConsumptionAccepted: ({ context, event }) => {
 			const action = voiceTranscriptConsumptionAction(context, event);
 			return Boolean(
@@ -1504,6 +1515,7 @@ export const voiceWorkbenchSessionMachine = setup({
 						RESTORE_ARTIFACT_REVISION: { actions: "applyTransition" },
 						SELECT_ARTIFACT: { actions: "applyTransition" },
 						VOICE_CAPTURE_START_REQUESTED: {
+							guard: "voiceCaptureStartAccepted",
 							actions: "requestVoiceCaptureControl",
 						},
 						VOICE_CAPTURE_CANCEL_REQUESTED: {
@@ -1951,9 +1963,8 @@ export const projectVoiceWorkbenchView = ({
 	const respondingProgress = describeRespondingProgress(
 		snapshot.context.lastFact,
 	);
-	const voice =
-		snapshot.context.childLifecycles.voiceCapture?.fact ??
-		({ type: "voice-idle" } as const);
+	const voiceLifecycle = snapshot.context.childLifecycles.voiceCapture;
+	const voice = voiceLifecycle?.fact ?? ({ type: "voice-idle" } as const);
 	const speechLifecycle = snapshot.context.childLifecycles.speechDelivery;
 	const speechDelivery = speechLifecycle?.fact ?? null;
 	const speechCommit: {
@@ -2249,6 +2260,7 @@ export const projectVoiceWorkbenchView = ({
 			modelTurnControl: snapshot.context.modelTurnControlRequest,
 			voiceCapture: projectVoiceCaptureControlRequest(
 				snapshot.context.voiceCaptureControlRequest,
+				voiceLifecycle,
 			),
 			speechDelivery: snapshot.context.speechDeliveryControlRequest,
 		},
@@ -2282,7 +2294,7 @@ export const projectVoiceWorkbenchView = ({
 		voiceState: voiceState(voice),
 		transcript,
 		transcriptReady,
-		microphoneUnavailable: voice.type === "voice-unsupported",
+		microphoneUnavailable: !canStartVoiceCapture(voiceLifecycle),
 		voiceFailure,
 		turnMessage: describeTurn(presentation.turn),
 		lastFactLabel: describeFact(snapshot.context.lastFact),
@@ -2801,7 +2813,9 @@ export const component = igniteCore({
 				() => actor.send({ type: "VOICE_CAPTURE_START_REQUESTED" }),
 				{
 					channel: "user-intent",
-					canExecute: ({ snapshot }) => snapshot.matches({ available: "idle" }),
+					canExecute: ({ snapshot }) =>
+						snapshot.matches({ available: "idle" }) &&
+						canStartVoiceCapture(snapshot.context.childLifecycles.voiceCapture),
 				},
 			),
 			submitVoiceTranscript: command(

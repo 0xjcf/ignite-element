@@ -28,6 +28,19 @@ export type VoiceCaptureFact =
 	| { type: "voice-permission-denied"; message: string }
 	| { type: "voice-error"; message: string };
 
+export type VoiceCaptureState =
+	| "checking"
+	| "unsupported"
+	| "unavailable"
+	| "idle"
+	| "listening"
+	| "transcript"
+	| "consumed"
+	| "cancelled"
+	| "permission-denied"
+	| "failed"
+	| "disposed";
+
 export type VoicePromptResult =
 	| {
 			ok: true;
@@ -176,13 +189,14 @@ export const voiceCaptureMachine = setup({
 			always: [
 				{
 					guard: ({ context }) => Boolean(context.initialError),
-					target: "failed",
+					target: "unavailable",
 				},
 				{ guard: ({ context }) => context.supported, target: "idle" },
 				{ target: "unsupported" },
 			],
 		},
 		unsupported: {},
+		unavailable: {},
 		idle: {
 			on: { START: { target: "listening", actions: "beginAttempt" } },
 		},
@@ -318,6 +332,7 @@ export const projectVoiceCaptureFact = (
 				type: "voice-permission-denied",
 				message: context.message ?? "Microphone access was denied.",
 			};
+		case "unavailable":
 		case "failed":
 			return {
 				type: "voice-error",
@@ -329,16 +344,31 @@ export const projectVoiceCaptureFact = (
 };
 
 export type VoiceCaptureLifecycleProjection = {
-	state: string;
+	state: VoiceCaptureState;
 	attemptId: string | null;
 	sequence: number;
 	fact: VoiceCaptureFact;
 };
 
+export const canStartVoiceCapture = (
+	lifecycle: Pick<VoiceCaptureLifecycleProjection, "state"> | null,
+): boolean => {
+	switch (lifecycle?.state) {
+		case "idle":
+		case "consumed":
+		case "cancelled":
+		case "permission-denied":
+		case "failed":
+			return true;
+		default:
+			return false;
+	}
+};
+
 export const projectVoiceCaptureLifecycle = (
 	snapshot: VoiceCaptureSnapshot,
 ): VoiceCaptureLifecycleProjection => ({
-	state: String(snapshot.value),
+	state: snapshot.value as VoiceCaptureState,
 	attemptId: snapshot.context.attemptId,
 	sequence: snapshot.context.sequence,
 	fact: projectVoiceCaptureFact(snapshot),

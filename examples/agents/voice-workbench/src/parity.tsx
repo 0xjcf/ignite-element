@@ -33,7 +33,7 @@ export function resolveParityState(search: string): ParityState | null {
 }
 
 const recordParityVoice = (
-	state: string,
+	state: Parameters<typeof recordVoiceCaptureLifecycle>[0]["state"],
 	fact: Parameters<typeof recordVoiceCaptureLifecycle>[0]["fact"],
 	attempted = false,
 ): void => {
@@ -169,6 +169,7 @@ export async function seedParityState(state: ParityState): Promise<void> {
 			});
 			return;
 		case "ready":
+			setIdleVoice();
 			reportModelAvailable();
 			return;
 		case "listening":

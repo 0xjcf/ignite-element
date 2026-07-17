@@ -715,6 +715,9 @@ describe("voice workbench session machine contract", () => {
 				},
 			},
 		});
+		expect(
+			voiceControlContext(actor.getSnapshot()).voiceCaptureControlRequest,
+		).toEqual({ action: "cancel", sequence: 2 });
 		sendSessionEvent(actor, { type: "VOICE_TRANSCRIPT_SUBMIT_REQUESTED" });
 		expect(voiceControlContext(actor.getSnapshot())).toMatchObject({
 			voiceCaptureControlSequence: 3,
@@ -729,6 +732,22 @@ describe("voice workbench session machine contract", () => {
 			projectVoiceWorkbenchView({ snapshot: actor.getSnapshot() }).portRequests
 				.voiceCapture,
 		).toEqual({
+			action: "consume",
+			attemptId: "voice:1",
+			sequence: 3,
+		});
+		actor.send({
+			type: "VOICE_CAPTURE_LIFECYCLE_UPDATED",
+			lifecycle: {
+				state: "listening",
+				attemptId: "voice:2",
+				sequence: 2,
+				fact: { type: "voice-listening" },
+			},
+		});
+		expect(
+			voiceControlContext(actor.getSnapshot()).voiceCaptureControlRequest,
+		).toMatchObject({
 			action: "consume",
 			attemptId: "voice:1",
 			sequence: 3,
