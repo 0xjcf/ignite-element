@@ -344,4 +344,124 @@ describe("voice workbench host runtime", () => {
 		expect(voiceDispose).toHaveBeenCalledOnce();
 		expect(speechDisposals[1]).toHaveBeenCalledOnce();
 	});
+
+	it("clears active child projections and host effects when the parent leaves available", async () => {
+		const voiceDispose = vi.fn();
+		const speechDispose = vi.fn();
+		const pendingPreparation =
+			deferred<Awaited<ReturnType<VoiceWorkbenchPorts["modelPreparation"]>>>();
+		let actor!: VoiceWorkbenchSessionActor;
+		const modelTurn = vi.fn<VoiceWorkbenchPorts["modelTurn"]>(
+			async (request) => {
+				switch (request.type) {
+					case "request-model":
+						return {
+							receipt: {
+								type: "MODEL_RESOLVED",
+								turnId: request.turnId,
+								attemptId: request.attemptId,
+								result: {
+									ok: true,
+									calls: [
+										{
+											id: "complete",
+											command: "completeResponse",
+											input: {
+												text: "Done",
+												speech: "Keep speaking",
+											},
+										},
+									],
+								},
+							},
+						};
+					case "authorize-call":
+						return {
+							receipt: {
+								type: "AUTHORIZATION_RESOLVED",
+								turnId: request.turnId,
+								attemptId: request.attemptId,
+								allowed: true,
+							},
+						};
+					case "execute-call":
+						actor.send({
+							type: "COMPLETE_RESPONSE",
+							input: { text: "Done", speech: "Keep speaking" },
+						});
+						return {
+							receipt: {
+								type: "CAPABILITY_RESOLVED",
+								turnId: request.turnId,
+								attemptId: request.attemptId,
+								feedback: {
+									id: request.call.id ?? "complete",
+									command: request.call.command,
+									status: "accepted",
+									ownerId: "workbench-component",
+									view: {},
+									events: [],
+								},
+							},
+						};
+				}
+			},
+		);
+		const created = createRuntime({
+			modelPreparation: async (request) =>
+				request.sequence === 1
+					? { type: "available", sequence: request.sequence }
+					: pendingPreparation.promise,
+			modelTurn,
+			voiceCapture: () => ({ dispose: voiceDispose }),
+			speechDelivery: () => ({ dispose: speechDispose }),
+		});
+		actor = created.actor;
+		await waitFor(actor, (snapshot) => snapshot.matches("available"));
+
+		actor.send({ type: "VOICE_CAPTURE_START_REQUESTED" });
+		actor.send({
+			type: "SUBMIT_PROMPT",
+			input: { modality: "text", text: "Leave while effects are active" },
+		});
+		await waitFor(actor, (snapshot) =>
+			snapshot.matches({ available: { speech: "delivering" } }),
+		);
+		const active = actor.getSnapshot();
+		const voiceRequest = active.context.portRequests.voiceCapture;
+		const speechRequest = active.context.portRequests.speechDelivery;
+		if (
+			voiceRequest?.type !== "start" ||
+			!voiceRequest.attemptId ||
+			!speechRequest
+		) {
+			throw new Error("Expected active voice and speech port requests.");
+		}
+
+		actor.send({ type: "MODEL_PREPARATION_STARTED" });
+		const preparing = actor.getSnapshot();
+
+		expect(preparing.matches("preparing")).toBe(true);
+		expect(preparing.children["voice-capture"]).toBeUndefined();
+		expect(preparing.children["speech-delivery"]).toBeUndefined();
+		expect(preparing.context.portRequests.voiceCapture).toBeNull();
+		expect(preparing.context.portRequests.speechDelivery).toBeNull();
+		expect(preparing.context.childLifecycles.voiceCapture).toBeNull();
+		expect(preparing.context.childLifecycles.speechDelivery).toBeNull();
+		expect(voiceDispose).toHaveBeenCalledOnce();
+		expect(speechDispose).toHaveBeenCalledOnce();
+
+		actor.send({
+			type: "VOICE_CAPTURE_PORT_RECEIVED",
+			request: voiceRequest,
+			receipt: { type: "END", attemptId: voiceRequest.attemptId },
+		});
+		actor.send({
+			type: "SPEECH_DELIVERY_PORT_RECEIVED",
+			request: speechRequest,
+			receipt: { type: "DELIVERED", attemptId: speechRequest.attemptId },
+		});
+		expect(actor.getSnapshot().context.portRequests.voiceCapture).toBeNull();
+		expect(actor.getSnapshot().context.portRequests.speechDelivery).toBeNull();
+	});
 });

@@ -115,11 +115,12 @@ export const createVoiceWorkbenchRuntime = ({
 	};
 
 	const driveModelTurn = (snapshot: VoiceWorkbenchSessionSnapshot) => {
-		const request = snapshot.context.portRequests.modelTurn;
-		if (!request) {
-			if (!snapshot.children["model-turn"]) stopModelTurn();
+		if (!snapshot.children["model-turn"]) {
+			stopModelTurn();
 			return;
 		}
+		const request = snapshot.context.portRequests.modelTurn;
+		if (!request) return;
 		if (modelTurnController?.turnId !== request.turnId) {
 			stopModelTurn();
 			modelTurnController = {
@@ -168,14 +169,13 @@ export const createVoiceWorkbenchRuntime = ({
 	};
 
 	const driveVoice = (snapshot: VoiceWorkbenchSessionSnapshot) => {
-		const request = snapshot.context.portRequests.voiceCapture;
-		if (!request) {
-			if (!snapshot.children["voice-capture"]) {
-				voiceEffect?.dispose();
-				voiceEffect = null;
-			}
+		if (!snapshot.children["voice-capture"]) {
+			voiceEffect?.dispose();
+			voiceEffect = null;
 			return;
 		}
+		const request = snapshot.context.portRequests.voiceCapture;
+		if (!request) return;
 		const key = voiceRequestKey(request);
 		if (handled.has(key)) return;
 		handled.add(key);
@@ -196,14 +196,13 @@ export const createVoiceWorkbenchRuntime = ({
 	};
 
 	const driveSpeech = (snapshot: VoiceWorkbenchSessionSnapshot) => {
-		const request = snapshot.context.portRequests.speechDelivery;
-		if (!request) {
-			if (!snapshot.children["speech-delivery"]) {
-				speechEffect?.dispose();
-				speechEffect = null;
-			}
+		if (!snapshot.children["speech-delivery"]) {
+			speechEffect?.dispose();
+			speechEffect = null;
 			return;
 		}
+		const request = snapshot.context.portRequests.speechDelivery;
+		if (!request) return;
 		const key = speechRequestKey(request);
 		if (handled.has(key)) return;
 		handled.add(key);

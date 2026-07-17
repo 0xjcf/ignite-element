@@ -1017,6 +1017,24 @@ export const voiceWorkbenchSessionMachine = setup({
 			}
 		}),
 		clearActiveTurn: assign({ activeTurnId: () => null }),
+		clearAvailableChildProjections: assign(({ context }) => ({
+			...context,
+			activeTurnId: null,
+			voiceTranscriptSubmission: null,
+			speechDeliveryControlRequest: null,
+			pendingCompletion: null,
+			portRequests: {
+				...context.portRequests,
+				modelTurn: null,
+				voiceCapture: null,
+				speechDelivery: null,
+			},
+			childLifecycles: {
+				modelTurn: null,
+				voiceCapture: null,
+				speechDelivery: null,
+			},
+		})),
 		clearModelFailure: assign({ modelFailure: () => null }),
 	},
 	guards: {
@@ -1150,6 +1168,7 @@ export const voiceWorkbenchSessionMachine = setup({
 		},
 		available: {
 			type: "parallel",
+			exit: "clearAvailableChildProjections",
 			on: {
 				SET_CHECKLIST_ITEM: { actions: "applyTransition" },
 				MODEL_PREPARATION_STARTED: {
