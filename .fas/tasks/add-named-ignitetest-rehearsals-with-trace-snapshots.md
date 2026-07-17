@@ -69,11 +69,21 @@ Replace the queued one-command rehearsal proposal with a typed multi-step narrat
 - packages/ignite-element/src/tests/testing.test.ts
 - packages/ignite-element/src/tests/types/testing.types.test.ts
 - docs/site/src/content/docs/api/testing-dsl.mdx
+- .changeset/executable-narratives.md
 
 ## Scope Amendments
 - Type: scope-refresh
 - Added at: 2026-07-17
 - Added paths: packages/ignite-element/src/testing.ts, packages/ignite-element/src/types/agent.ts, packages/ignite-element/src/tests/testing.test.ts, packages/ignite-element/src/tests/types/testing.types.test.ts, docs/site/src/content/docs/api/testing-dsl.mdx
+
+- Type: public-api-release-metadata
+- Added at: 2026-07-17
+- Trigger: exported-ignite-test-scenario-method
+- Reason: Adding narrative() to the exported IgniteTestScenario contract is a public additive beta API and repository precedent requires a package changeset.
+- Added paths: .changeset/executable-narratives.md
+- Evidence source: repository changeset precedent
+- Evidence: repository changeset precedent | .changeset/object-command-call-envelope.md | Existing igniteTest and Story public contract changes carry ignite-element changesets.
+- Accuracy signal: packages/ignite-element/package.json is 3.0.0-beta.8 and the new method is visible through the existing testing entrypoint.
 
 ## Implementation plan
 - Write failing runtime and type tests for multi-step narrative execution, typed intents, assertion-only preconditions, consumer-driven external facts, named checkpoints, returned Story snapshots, diagnostics, and cleanup.

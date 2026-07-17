@@ -2332,9 +2332,12 @@ No active tasks.
 
 - Title: Define and implement multi-step igniteTest narratives over existing Story evidence
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/add-named-ignitetest-rehearsals-with-trace-snapshots.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Simplify the voice workbench to one command that starts a recommended MLX model server and the web example with safe lifecycle, configuration, documentation, and verification
 
