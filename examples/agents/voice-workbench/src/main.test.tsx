@@ -738,6 +738,11 @@ describe("voice workbench browser entry", () => {
 					(document) => document.id === "pagehide-stale-artifact",
 				),
 		).toBe(false);
+		expect(
+			xstateWarning.mock.calls.filter(([message]) =>
+				String(message).includes("was sent to stopped actor"),
+			),
+		).toEqual([]);
 		xstateWarning.mockRestore();
 	});
 });
