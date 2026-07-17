@@ -65,11 +65,15 @@ Replace the queued one-command rehearsal proposal with a typed multi-step narrat
 
 ## Affected files
 - packages/ignite-element/src/testing.ts
-- packages/ignite-element/src/types/agent.ts
 - packages/ignite-element/src/tests/testing.test.ts
 - packages/ignite-element/src/tests/types/testing.types.test.ts
 - docs/site/src/content/docs/api/testing-dsl.mdx
 - .changeset/executable-narratives.md
+- .fas/memory/architecture.md
+- .fas/memory/decisions.md
+- .fas/memory/incidents.md
+- .fas/memory/patterns.md
+- .fas/memory/pr-feedback.md
 
 ## Scope Amendments
 - Type: scope-refresh
@@ -84,6 +88,24 @@ Replace the queued one-command rehearsal proposal with a typed multi-step narrat
 - Evidence source: repository changeset precedent
 - Evidence: repository changeset precedent | .changeset/object-command-call-envelope.md | Existing igniteTest and Story public contract changes carry ignite-element changesets.
 - Accuracy signal: packages/ignite-element/package.json is 3.0.0-beta.8 and the new method is visible through the existing testing entrypoint.
+
+- Type: implementation-scope-narrowing
+- Added at: 2026-07-17
+- Trigger: existing-story-types-proved-sufficient
+- Removed paths: packages/ignite-element/src/types/agent.ts
+- Reason: Implementation composes IgniteCommandCall, IgniteStory, and IgniteStorySnapshot from testing.ts without changing the lower-level public agent contract, so packages/ignite-element/src/types/agent.ts remains reference-only.
+- Evidence source: committed implementation
+- Evidence: 44624ec7 | packages/ignite-element/src/testing.ts | Existing public Story and command types support the narrative helper without a lower-level type edit.
+- Accuracy signal: focused runtime and type tests plus the package typecheck pass on the committed implementation.
+
+- Type: closeout-bookkeeping
+- Added at: 2026-07-17
+- Trigger: ignored-memory-projection-change-set-classification
+- Reason: FAS memory projection files are ignored closeout bookkeeping already present in the worktree; classifying them prevents the live ChangeSet from treating them as product implementation.
+- Added paths: .fas/memory/architecture.md, .fas/memory/decisions.md, .fas/memory/incidents.md, .fas/memory/patterns.md, .fas/memory/pr-feedback.md
+- Evidence source: closeout-readiness
+- Evidence: closeout-readiness | .fas/state/closeout-readiness/latest.json | Five ignored .fas/memory projections were the only unexpected paths; product implementation remains limited to testing.ts, tests, docs, and changeset.
+- Accuracy signal: git status excludes the ignored projections while live ChangeSet discovery reports them as untracked bookkeeping.
 
 ## Implementation plan
 - Write failing runtime and type tests for multi-step narrative execution, typed intents, assertion-only preconditions, consumer-driven external facts, named checkpoints, returned Story snapshots, diagnostics, and cleanup.
