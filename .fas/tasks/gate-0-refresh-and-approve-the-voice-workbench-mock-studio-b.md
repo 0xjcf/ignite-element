@@ -174,6 +174,11 @@ Amend the approved 2026-07-13 Voice Workbench Mock Studio handoff so it matches 
 - .mock-studio/voice-text-workbench/mock-studio-log.md
 - examples/agents/voice-workbench/README.md
 - .fas/artifacts/audits/voice-workbench-state-machine-audit.md
+- .fas/memory/architecture.md
+- .fas/memory/decisions.md
+- .fas/memory/incidents.md
+- .fas/memory/patterns.md
+- .fas/memory/pr-feedback.md
 
 ## Scope Amendments
 - 2026-07-17 user-approved amendment: make explicit validation of every state
@@ -185,6 +190,16 @@ Amend the approved 2026-07-13 Voice Workbench Mock Studio handoff so it matches 
 - Strengthen downstream task `task-1784298626529` into the explicit
   create-and-validate-every-state-machine-contract characterization gate while
   preserving its position in the epic dependency chain.
+
+- Type: closeout-bookkeeping
+- Added at: 2026-07-17
+- Trigger: ignored-memory-projection-misclassification
+- Reason: FAS closeout reads these ignored generated memory projections as changed documentation; record them explicitly as closeout evidence without treating them as product implementation.
+- Added paths: .fas/memory/architecture.md, .fas/memory/decisions.md, .fas/memory/incidents.md, .fas/memory/patterns.md, .fas/memory/pr-feedback.md
+- Evidence source: fas closeout-readiness and fas commit-plan check
+- Evidence: fas closeout-readiness and fas commit-plan check | .fas/state/closeout-readiness/latest.json | Five ignored .fas/memory projections were the only remaining plan-alignment hold after the intended docs and workflow projections were committed.
+- Accuracy signal: git status is otherwise limited to FAS tracker state, and full verification found no product regression.
+- Follow-up needed: FAS should classify ignored .fas/memory projections as generated closeout evidence.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
