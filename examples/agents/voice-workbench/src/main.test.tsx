@@ -578,6 +578,76 @@ describe("voice workbench browser entry", () => {
 		expect(
 			host.shadowRoot.querySelector('[role="alert"]')?.textContent,
 		).toContain("Microphone access was denied");
+		expect(FakeSpeechRecognition.current.start).toHaveBeenCalledTimes(2);
+		expect(
+			component.getSnapshot().context.childLifecycles.voiceCapture,
+		).toMatchObject({
+			state: "permission-denied",
+			attemptId: "voice:2",
+			sequence: 2,
+		});
+		const deniedStartRequest = component.getView().portRequests.voiceCapture;
+		expect(deniedStartRequest).toMatchObject({ action: "start" });
+
+		FakeSpeechRecognition.current.denied = false;
+		const permissionRetryMicrophone =
+			host.shadowRoot.querySelector("#mic-button");
+		if (!(permissionRetryMicrophone instanceof HTMLButtonElement)) {
+			throw new Error(
+				"microphone button is unavailable after permission denial",
+			);
+		}
+		permissionRetryMicrophone.click();
+		await vi.waitFor(() => {
+			expect(FakeSpeechRecognition.current?.start).toHaveBeenCalledTimes(3);
+			expect(
+				component.getSnapshot().context.childLifecycles.voiceCapture,
+			).toMatchObject({
+				state: "listening",
+				attemptId: "voice:3",
+				sequence: 3,
+			});
+			expect(component.getView().portRequests.voiceCapture).toEqual({
+				action: "start",
+				sequence: (deniedStartRequest?.sequence ?? 0) + 1,
+			});
+		});
+
+		FakeSpeechRecognition.current.onerror?.({
+			error: "network",
+			message: "Recognition failed.",
+		});
+		await vi.waitFor(() => {
+			expect(
+				component.getSnapshot().context.childLifecycles.voiceCapture,
+			).toMatchObject({
+				state: "failed",
+				attemptId: "voice:3",
+				sequence: 3,
+			});
+		});
+		const failedStartRequest = component.getView().portRequests.voiceCapture;
+		const failureRetryMicrophone = host.shadowRoot.querySelector("#mic-button");
+		if (!(failureRetryMicrophone instanceof HTMLButtonElement)) {
+			throw new Error(
+				"microphone button is unavailable after recognition failure",
+			);
+		}
+		failureRetryMicrophone.click();
+		await vi.waitFor(() => {
+			expect(FakeSpeechRecognition.current?.start).toHaveBeenCalledTimes(4);
+			expect(
+				component.getSnapshot().context.childLifecycles.voiceCapture,
+			).toMatchObject({
+				state: "listening",
+				attemptId: "voice:4",
+				sequence: 4,
+			});
+			expect(component.getView().portRequests.voiceCapture).toEqual({
+				action: "start",
+				sequence: (failedStartRequest?.sequence ?? 0) + 1,
+			});
+		});
 
 		deferNextModelRequest = true;
 		const pagehidePrompt = host.shadowRoot.querySelector("textarea");

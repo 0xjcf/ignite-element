@@ -244,6 +244,44 @@ describe("browser voice capture", () => {
 		},
 	);
 
+	it.each(["permission-denied", "failed"] as const)(
+		"treats START from %s as a fresh correlated retry port",
+		(state) => {
+			const actor = createVoiceCaptureActor({ supported: true }).start();
+			actor.send({ type: "START" });
+			actor.send(
+				state === "permission-denied"
+					? {
+							type: "PERMISSION_DENIED",
+							attemptId: "voice:1",
+							message: "Permission denied.",
+						}
+					: {
+							type: "FAIL",
+							attemptId: "voice:1",
+							message: "Recognition failed.",
+						},
+			);
+			expect(actor.getSnapshot().value).toBe(state);
+
+			actor.send({ type: "START" });
+			expect(actor.getSnapshot()).toMatchObject({
+				value: "listening",
+				context: {
+					attemptId: "voice:2",
+					sequence: 2,
+					message: null,
+				},
+			});
+			expect(projectVoiceCapturePortRequest(actor.getSnapshot())).toEqual({
+				type: "start",
+				attemptId: "voice:2",
+				sequence: 2,
+			});
+			actor.stop();
+		},
+	);
+
 	it("reports unsupported browsers as a capability fact", () => {
 		vi.stubGlobal("SpeechRecognition", undefined);
 		vi.stubGlobal("webkitSpeechRecognition", undefined);
