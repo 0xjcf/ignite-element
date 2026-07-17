@@ -104,6 +104,12 @@ export type IgniteTestScenario<
 	when<CommandName extends keyof Commands & string>(
 		step: IgniteTestCommandStep<Commands, CommandName>,
 	): Promise<IgniteTestScenario<State, Commands, Events, View>>;
+	narrative(
+		name: string,
+		run: (
+			narrative: IgniteTestNarrativeContext<State, Commands, Events, View>,
+		) => Promise<unknown> | unknown,
+	): Promise<IgniteStorySnapshot>;
 	expectSnapshot(
 		expected: IgniteSnapshotExpectation<State>,
 	): IgniteTestScenario<State, Commands, Events, View>;
@@ -202,6 +208,59 @@ export type IgniteTestCommandStep<
 	Commands extends FacadeCommandResult,
 	CommandName extends keyof Commands & string = keyof Commands & string,
 > = IgniteCommandCall<Commands, CommandName>;
+
+type IgniteTestNarrativeCheckpoint<
+	State,
+	Commands extends FacadeCommandResult,
+	Events extends EventMap,
+	View extends Record<string, unknown>,
+> = {
+	snapshot: State;
+	view: View;
+	events: RuntimeEvent<Events>[];
+	canExecute<CommandName extends keyof Commands & string>(
+		commandName: CommandName,
+	): boolean;
+};
+
+type IgniteTestNarrativeCanExecuteExpectation<
+	Commands extends FacadeCommandResult,
+> = Partial<Record<keyof Commands & string, boolean>>;
+
+type IgniteTestNarrativeAssertion<
+	State,
+	Commands extends FacadeCommandResult,
+	Events extends EventMap,
+	View extends Record<string, unknown>,
+> = {
+	snapshot?: IgniteSnapshotExpectation<State>;
+	view?: IgniteViewExpectation<View>;
+	event?: IgniteEventExpectation<Events>;
+	events?: IgniteEventExpectation<Events>[];
+	noEvents?: true;
+	canExecute?: IgniteTestNarrativeCanExecuteExpectation<Commands>;
+};
+
+type IgniteTestNarrativeContext<
+	State,
+	Commands extends FacadeCommandResult,
+	Events extends EventMap,
+	View extends Record<string, unknown>,
+> = {
+	given(
+		expected: Omit<
+			IgniteTestNarrativeAssertion<State, Commands, Events, View>,
+			"event" | "events" | "noEvents"
+		>,
+	): void;
+	intent<CommandName extends keyof Commands & string>(
+		step: IgniteTestCommandStep<Commands, CommandName>,
+	): Promise<IgniteAgentExecutionResult<State, Events>>;
+	checkpoint(
+		name: string,
+		expected: IgniteTestNarrativeAssertion<State, Commands, Events, View>,
+	): void;
+};
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" &&
@@ -556,9 +615,42 @@ const assertEvent = <
 	);
 };
 
+const assertCanExecute = <
+	Commands extends FacadeCommandResult,
+	CommandName extends keyof Commands & string,
+>(
+	commandName: CommandName,
+	actual: boolean,
+	expected: boolean,
+) => {
+	if (actual !== expected) {
+		throw new Error(
+			`[igniteTest] canExecute failed for "${commandName}".\nExpected: ${formatValue(expected)}\nReceived: ${formatValue(actual)}`,
+		);
+	}
+};
+
 const serializeTrace = (
 	trace: readonly IgniteStoryTraceEntry[],
 ): IgniteStoryTraceSnapshot => trace.map(cloneTraceSnapshotEntry);
+
+type IgniteNarrativeFailurePhase =
+	| "given"
+	| "intent"
+	| "checkpoint"
+	| "callback"
+	| "cleanup";
+
+type IgniteNarrativeFailure = Error & {
+	__igniteNarrativeFailure: true;
+};
+
+const isIgniteNarrativeFailure = (
+	error: unknown,
+): error is IgniteNarrativeFailure =>
+	error instanceof Error &&
+	"__igniteNarrativeFailure" in error &&
+	error.__igniteNarrativeFailure === true;
 
 const snapshotStory = <
 	State,
@@ -669,6 +761,113 @@ const expectTrace = (
 	return snapshot;
 };
 
+const assertNarrativeAssertion = <
+	State,
+	Commands extends FacadeCommandResult,
+	Events extends EventMap,
+	View extends Record<string, unknown>,
+>(
+	assertion:
+		| IgniteTestNarrativeAssertion<State, Commands, Events, View>
+		| Omit<
+				IgniteTestNarrativeAssertion<State, Commands, Events, View>,
+				"event" | "events" | "noEvents"
+		  >,
+	checkpoint: IgniteTestNarrativeCheckpoint<State, Commands, Events, View>,
+) => {
+	if ("snapshot" in assertion && typeof assertion.snapshot !== "undefined") {
+		assertSnapshot("expectSnapshot", checkpoint.snapshot, assertion.snapshot);
+	}
+
+	if ("view" in assertion && typeof assertion.view !== "undefined") {
+		assertView(checkpoint.view, assertion.view);
+	}
+
+	if (
+		"canExecute" in assertion &&
+		typeof assertion.canExecute !== "undefined"
+	) {
+		for (const [commandName, expected] of Object.entries(
+			assertion.canExecute,
+		)) {
+			if (typeof expected === "undefined") {
+				continue;
+			}
+
+			assertCanExecute(
+				commandName as keyof Commands & string,
+				checkpoint.canExecute(commandName as keyof Commands & string),
+				expected,
+			);
+		}
+	}
+
+	if ("noEvents" in assertion && assertion.noEvents) {
+		if (checkpoint.events.length > 0) {
+			throw new Error(
+				`[igniteTest] Expected no events but received ${formatValue(checkpoint.events)}.`,
+			);
+		}
+	}
+
+	if ("event" in assertion && typeof assertion.event !== "undefined") {
+		assertEvent(checkpoint.events, assertion.event);
+	}
+
+	if ("events" in assertion && typeof assertion.events !== "undefined") {
+		const remainingEvents = [...checkpoint.events];
+		for (const event of assertion.events) {
+			const matchedIndex = assertEvent(remainingEvents, event);
+			remainingEvents.splice(matchedIndex, 1);
+		}
+	}
+};
+
+const createNarrativeFailure = <
+	State,
+	Commands extends FacadeCommandResult,
+	Events extends EventMap,
+	View extends Record<string, unknown>,
+>(
+	narrativeName: string,
+	phase: IgniteNarrativeFailurePhase,
+	story: IgniteStory<State, Commands, Events, View>,
+	error: unknown,
+	options: {
+		checkpointName?: string;
+		intent?: IgniteCommandCall<Commands>;
+	} = {},
+): IgniteNarrativeFailure => {
+	const lines = [
+		`[igniteTest] Narrative "${narrativeName}" failed.`,
+		`Phase: ${phase}`,
+	];
+
+	if (options.checkpointName) {
+		lines.push(`Checkpoint: ${options.checkpointName}`);
+	}
+
+	if (options.intent) {
+		lines.push(`Intent: ${formatValue(options.intent)}`);
+	}
+
+	lines.push(
+		`Cause: ${error instanceof Error ? error.message : formatValue(error)}`,
+		`Story: ${formatValue(snapshotStory(story))}`,
+	);
+
+	const narrativeError = new Error(
+		lines.join("\n"),
+	) as IgniteNarrativeFailure & {
+		cause?: Error;
+	};
+	if (error instanceof Error) {
+		narrativeError.cause = error;
+	}
+	narrativeError.__igniteNarrativeFailure = true;
+	return narrativeError;
+};
+
 class IgniteTestDriver<
 	State,
 	Commands extends FacadeCommandResult,
@@ -724,6 +923,91 @@ class IgniteTestDriver<
 	) {
 		this.lastResult = await this.withHost(() => this.component.execute(step));
 		return this;
+	}
+
+	async narrative(
+		name: string,
+		run: (
+			narrative: IgniteTestNarrativeContext<State, Commands, Events, View>,
+		) => Promise<unknown> | unknown,
+	): Promise<IgniteStorySnapshot> {
+		const story = this.withHost(() => this.component.record(name));
+		let lastEvents: RuntimeEvent<Events>[] = [];
+		let primaryError: unknown;
+		let cleanupError: IgniteNarrativeFailure | undefined;
+		let receipt: IgniteStorySnapshot | undefined;
+
+		const narrative: IgniteTestNarrativeContext<State, Commands, Events, View> =
+			{
+				given: (expected) => {
+					try {
+						assertNarrativeAssertion(expected, {
+							snapshot: this.withHost(() => this.component.getSnapshot()),
+							view: this.withHost(() => this.component.getView()),
+							events: [],
+							canExecute: (commandName) =>
+								this.withHost(() => story.canExecute(commandName)),
+						});
+					} catch (error) {
+						throw createNarrativeFailure(name, "given", story, error);
+					}
+				},
+				intent: async (step) => {
+					try {
+						const result = await this.withHost(() => story.execute(step));
+						this.lastResult = result;
+						lastEvents = cloneSerializable(
+							result.events,
+						) as RuntimeEvent<Events>[];
+						return result;
+					} catch (error) {
+						throw createNarrativeFailure(name, "intent", story, error, {
+							intent: step,
+						});
+					}
+				},
+				checkpoint: (checkpointName, expected) => {
+					try {
+						assertNarrativeAssertion(expected, {
+							snapshot: this.withHost(() => this.component.getSnapshot()),
+							view: this.withHost(() => this.component.getView()),
+							events: cloneSerializable(lastEvents) as RuntimeEvent<Events>[],
+							canExecute: (commandName) =>
+								this.withHost(() => story.canExecute(commandName)),
+						});
+					} catch (error) {
+						throw createNarrativeFailure(name, "checkpoint", story, error, {
+							checkpointName,
+						});
+					}
+				},
+			};
+
+		try {
+			await run(narrative);
+			receipt = this.withHost(() => snapshotStory(story));
+		} catch (error) {
+			primaryError = error;
+			if (isIgniteNarrativeFailure(error)) {
+				throw error;
+			}
+
+			throw createNarrativeFailure(name, "callback", story, error);
+		} finally {
+			try {
+				story.stop();
+			} catch (error) {
+				if (!primaryError) {
+					cleanupError = createNarrativeFailure(name, "cleanup", story, error);
+				}
+			}
+		}
+
+		if (cleanupError) {
+			throw cleanupError;
+		}
+
+		return receipt as IgniteStorySnapshot;
 	}
 
 	expectSnapshot(expected: IgniteSnapshotExpectation<State>) {
@@ -811,6 +1095,7 @@ function createTestScenario<
 			RuntimeState<Runtime>,
 			RuntimeCommands<Runtime>,
 			RuntimeEvents<Runtime>,
+			unknown,
 			RuntimeView<Runtime>
 		>,
 		options,
