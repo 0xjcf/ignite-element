@@ -2591,9 +2591,12 @@ No active tasks.
 
 - Title: Harden beta dist-tags for scoped lockstep packages
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/harden-beta-dist-tags-for-scoped-lockstep-packages.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Cut v3.0.0-beta.9 after executable narrative dogfood
 

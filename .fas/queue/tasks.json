@@ -482,7 +482,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "processing",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -498,7 +498,7 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-18T13:57:12.552Z",
-      "updatedAt": "2026-07-18T13:57:33.533Z",
+      "updatedAt": "2026-07-18T17:47:00.663Z",
       "deferredReason": null,
       "invalidationReason": null
     },
