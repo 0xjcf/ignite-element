@@ -56,7 +56,7 @@
       "prDependencies": [],
       "createdAt": "2026-06-12T19:30:13.064Z",
       "updatedAt": "2026-07-18T21:04:00.433Z",
-      "deferredReason": "dependency_reopened: task-1781919547313, task-1783610965770, task-1783719740973, task-1784408640433",
+      "deferredReason": "dependency_reopened: task-1781919547313, task-1783610965770, task-1783719740973",
       "invalidationReason": null
     },
     {
@@ -473,29 +473,6 @@
       "updatedAt": "2026-07-17T14:31:40.854Z",
       "deferredReason": "dependency_reopened: task-1784298685324",
       "invalidationReason": null
-    },
-    {
-      "id": "task-1784408640433",
-      "task": "Harden beta release dist-tag verification against registry propagation lag",
-      "priority": "high",
-      "source": "manual",
-      "details": "The beta.9 publish and dist-tag writes succeeded, but the wrapper immediately read stale npm dist-tags and exited 1 with misleading OTP repair instructions. Make post-write verification force fresh registry reads, tolerate bounded propagation lag, and distinguish a persistent verification mismatch from an actual dist-tag write failure so successful releases do not report false failure.\nSee .fas/tasks/harden-beta-release-dist-tag-verification-against-registry-p.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1784383053533"
-      ],
-      "blocks": [
-        "task-1781292613064"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-18T21:04:00.433Z",
-      "updatedAt": "2026-07-18T21:04:11.682Z"
     }
   ],
   "completedTasks": [
@@ -3993,6 +3970,30 @@
       "completedAt": "2026-07-18T20:59:57.419Z",
       "terminalOutcome": null,
       "workflowId": "direct-1784397938766",
+      "branchName": "beta",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784408640433",
+      "task": "Harden beta release dist-tag verification against registry propagation lag",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1784383053533"
+      ],
+      "blocks": [
+        "task-1781292613064"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-18T21:47:17.610Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784408651679",
       "branchName": "beta",
       "prStatus": "draft-only"
     }
