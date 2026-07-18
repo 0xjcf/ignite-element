@@ -474,35 +474,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1784383032552",
-      "task": "Harden beta dist-tags for scoped lockstep packages",
-      "priority": "high",
-      "source": "manual",
-      "details": "Repair and verify the beta release flow so ignite-element and all three scoped packages publish the same prerelease under the beta dist-tag while the stable latest tag remains unchanged until v3 stable. Start from the live registry discrepancy: ignite-element beta points to 3.0.0-beta.8, while the scoped package beta tags remain at 3.0.0-beta.2 and latest points to beta.8. Add automated pre-publish or post-publish assertions where practical, document an explicit recoverable npm dist-tag repair command, and prove a dry run cannot publish.\nSee .fas/tasks/harden-beta-dist-tags-for-scoped-lockstep-packages.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [
-        "task-1784325062961"
-      ],
-      "blocks": [
-        "task-1784383053533"
-      ],
-      "nonEpicDisposition": {
-        "kind": "standalone",
-        "reason": "Cross-cutting release hardening required before the beta.9 operator cut."
-      },
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-18T13:57:12.552Z",
-      "updatedAt": "2026-07-18T17:47:00.663Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
       "id": "task-1784383053533",
       "task": "Cut v3.0.0-beta.9 after executable narrative dogfood",
       "priority": "high",
@@ -511,7 +482,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -528,7 +499,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-18T13:57:33.533Z",
       "updatedAt": "2026-07-18T13:57:33.533Z",
-      "deferredReason": "dependency_reopened: task-1784383032552",
+      "deferredReason": null,
       "invalidationReason": null
     }
   ],
@@ -3973,6 +3944,33 @@
       "completedAt": "2026-07-18T17:45:57.030Z",
       "terminalOutcome": null,
       "workflowId": "direct-1784395631185",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784383032552",
+      "task": "Harden beta dist-tags for scoped lockstep packages",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1784325062961"
+      ],
+      "blocks": [
+        "task-1784383053533"
+      ],
+      "nonEpicDisposition": {
+        "kind": "standalone",
+        "reason": "Cross-cutting release hardening required before the beta.9 operator cut."
+      },
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-18T18:04:54.980Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784396820659",
       "branchName": "fas/voice-text-workbench",
       "prStatus": "draft-only"
     }
