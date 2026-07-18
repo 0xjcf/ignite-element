@@ -386,11 +386,12 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "processing",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
-        "task-1784298607166"
+        "task-1784298607166",
+        "task-1784386923255"
       ],
       "blocks": [
         "task-1784298642791",
@@ -399,7 +400,7 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-17T14:30:26.529Z",
-      "updatedAt": "2026-07-17T21:49:57.164Z",
+      "updatedAt": "2026-07-18T15:02:03.255Z",
       "deferredReason": null,
       "invalidationReason": null
     },
@@ -635,6 +636,27 @@
       "updatedAt": "2026-07-18T13:57:33.533Z",
       "deferredReason": "dependency_reopened: task-1784383032552",
       "invalidationReason": null
+    },
+    {
+      "id": "task-1784386923255",
+      "task": "Repair Voice Workbench projection-target liveness in the full verification lane",
+      "priority": "high",
+      "source": "manual",
+      "details": "The root-owned full verification for boundary characterization exposed an untouched Voice Workbench projection test that does not complete within either the default 5-second timeout or an isolated 15-second timeout. Diagnose the real liveness/cleanup cause in the direct projection-target path; do not paper over it with a larger timeout. Restore deterministic completion and process cleanup so the isolated projection test and the full verification lane both pass. Keep this repair separate from the executable state-machine characterization commit.\nSee .fas/tasks/repair-voice-workbench-projection-target-liveness-in-the-ful.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "queued",
+      "owner": "runtime",
+      "mode": "single-agent",
+      "dependsOn": [],
+      "blocks": [
+        "task-1784298626529"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-18T15:02:03.255Z",
+      "updatedAt": "2026-07-18T15:02:03.255Z"
     }
   ],
   "completedTasks": [
@@ -4273,6 +4295,10 @@
         {
           "taskId": "task-1784298700854",
           "epicRole": "host-composition-acceptance"
+        },
+        {
+          "taskId": "task-1784386923255",
+          "epicRole": "full-gate-liveness-repair"
         }
       ],
       "id": "epic-voice-workbench-hexagonal-boundary-conformance",
