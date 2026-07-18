@@ -35,9 +35,19 @@ After the Voice Workbench narrative dogfood, ergonomics audit, Story API naming 
 - packages/ignite-core/CHANGELOG.md
 - packages/ignite-adapters/CHANGELOG.md
 - packages/ignite-renderer/CHANGELOG.md
+- examples/agents/voice-workbench/vite.config.ts
+- examples/agents/voice-workbench/vite.config.test.ts
 
 ## Scope Amendments
-- None.
+- Type: ci-failure-follow-up
+- Added at: 2026-07-18
+- Trigger: PR #94 GitHub Actions example runtime timeout
+- Reason: Voice Workbench integration tests pass locally but five exceeded Vitest's 5000ms default under CI runner contention; the PR cannot merge until the example owns a bounded CI-safe timeout.
+- Added paths: examples/agents/voice-workbench/vite.config.ts, examples/agents/voice-workbench/vite.config.test.ts
+- Evidence source: GitHub Actions
+- Evidence: GitHub Actions | https://github.com/0xjcf/ignite-element/actions/runs/29655301133/job/88108402221 | Five existing integration tests timed out at 5000ms while neighboring tests completed between roughly 3s and 5s; no product assertions failed.
+- Accuracy signal: The exact failing suite passes locally and CI reported only default-timeout expirations, so the amended paths are limited to the example test config and its contract test.
+- Follow-up needed: None; verify the full Voice Workbench suite and FAS full lane before pushing.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
