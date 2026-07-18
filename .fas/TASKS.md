@@ -2635,8 +2635,8 @@ No active tasks.
 
 - Title: Harden beta release dist-tag verification against registry propagation lag
 - Mode: single-agent
-- Status: implementing
-- Owner: implementer
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/harden-beta-release-dist-tag-verification-against-registry-p.md
 - Verification lane: fast
 - Policy sensitivity: standard
