@@ -3,13 +3,16 @@ import {
 	createProjectionSpeechTarget,
 } from "ignite-element/xstate";
 import { describe, expect, it, vi } from "vitest";
-import { createVoiceWorkbenchSessionActor } from "./session";
-import { createVoiceWorkbenchComponent } from "./workbench-component";
+import {
+	createVoiceWorkbenchSessionActor,
+	type VoiceWorkbenchSessionActor,
+} from "./session";
+import {
+	createVoiceWorkbenchComponent,
+	type VoiceWorkbenchComponent,
+} from "./workbench-component";
 
-const source = createVoiceWorkbenchSessionActor().start();
-const component = createVoiceWorkbenchComponent(source);
-
-const makeAvailable = () => {
+const makeAvailable = (source: VoiceWorkbenchSessionActor) => {
 	const request = source.getSnapshot().context.portRequests.modelPreparation;
 	if (!request) throw new Error("Expected model preparation.");
 	source.send({
@@ -19,7 +22,10 @@ const makeAvailable = () => {
 	});
 };
 
-const completeCurrentTurn = () => {
+const completeCurrentTurn = (
+	source: VoiceWorkbenchSessionActor,
+	component: VoiceWorkbenchComponent,
+) => {
 	let request = source.getSnapshot().context.portRequests.modelTurn;
 	if (!request) throw new Error("Expected a model request.");
 	source.send({
@@ -77,71 +83,78 @@ const completeCurrentTurn = () => {
 
 describe("voice workbench projection targets", () => {
 	it("commits documents and acknowledged speech through direct component targets", async () => {
-		makeAvailable();
+		const source = createVoiceWorkbenchSessionActor().start();
+		const component = createVoiceWorkbenchComponent(source);
 		const commitDocument = vi.fn();
 		const commitSpeech = vi.fn();
-		const documentSession = component(
-			createProjectionDocumentTarget({ commitDocument }),
-		);
-		const speechSession = component(
-			createProjectionSpeechTarget({
-				commitSpeech,
-				acknowledgeCommandName: "acknowledgeSpeech",
-				resolveAcknowledgePayload: ({ id }) => ({ id }),
-			}),
-		);
+		let documentSession: { dispose(): void } | undefined;
+		let speechSession: { dispose(): void } | undefined;
 
-		await component.execute({
-			command: "submitPrompt",
-			input: { modality: "text", text: "Capture a decision" },
-		});
-		await component.execute({
-			command: "createArtifact",
-			input: {
-				id: "decision",
-				title: "Decision",
-				nodes: [
-					{
-						kind: "decision-log",
-						id: "decision-entries",
-						entries: [
-							{
-								id: "runtime",
-								title: "Runtime",
-								decision: "Use Ignite",
-								rationale: "One behavior model",
-							},
-						],
-					},
-				],
-			},
-		});
-		await vi.waitFor(() =>
-			expect(commitDocument).toHaveBeenLastCalledWith(
-				expect.objectContaining({ id: "decision", revision: "1" }),
-			),
-		);
-
-		await component.execute({
-			command: "completeResponse",
-			input: { text: "Decision captured.", speech: "Decision captured." },
-		});
-		completeCurrentTurn();
-		await vi.waitFor(() => {
-			expect(commitSpeech).toHaveBeenCalledWith(
-				expect.objectContaining({
-					text: "Decision captured.",
-					status: "pending",
+		try {
+			makeAvailable(source);
+			documentSession = component(
+				createProjectionDocumentTarget({ commitDocument }),
+			);
+			speechSession = component(
+				createProjectionSpeechTarget({
+					commitSpeech,
+					acknowledgeCommandName: "acknowledgeSpeech",
+					resolveAcknowledgePayload: ({ id }) => ({ id }),
 				}),
 			);
-			expect(component.getView().speech).toMatchObject({
-				text: "Decision captured.",
-				status: "acknowledged",
-			});
-		});
 
-		documentSession.dispose();
-		speechSession.dispose();
-		source.stop();
+			await component.execute({
+				command: "submitPrompt",
+				input: { modality: "text", text: "Capture a decision" },
+			});
+			await component.execute({
+				command: "createArtifact",
+				input: {
+					id: "decision",
+					title: "Decision",
+					nodes: [
+						{
+							kind: "decision-log",
+							id: "decision-entries",
+							entries: [
+								{
+									id: "runtime",
+									title: "Runtime",
+									decision: "Use Ignite",
+									rationale: "One behavior model",
+								},
+							],
+						},
+					],
+				},
+			});
+			await vi.waitFor(() =>
+				expect(commitDocument).toHaveBeenLastCalledWith(
+					expect.objectContaining({ id: "decision", revision: "1" }),
+				),
+			);
+
+			await component.execute({
+				command: "completeResponse",
+				input: { text: "Decision captured.", speech: "Decision captured." },
+			});
+			completeCurrentTurn(source, component);
+			await vi.waitFor(() => {
+				expect(commitSpeech).toHaveBeenCalledWith(
+					expect.objectContaining({
+						text: "Decision captured.",
+						status: "pending",
+					}),
+				);
+				expect(component.getView().speech).toMatchObject({
+					text: "Decision captured.",
+					status: "acknowledged",
+				});
+			});
+		} finally {
+			documentSession?.dispose();
+			speechSession?.dispose();
+			source.stop();
+		}
 	});
 });

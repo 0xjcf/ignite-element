@@ -39,7 +39,7 @@ type ProjectionEvent =
 	| { type: "TOGGLE_ALLOW_CONFIRM"; value: boolean }
 	| { type: "CONFIRM"; payload: { value: number } };
 
-function createProjectionCore() {
+function createProjectionCore(onProjectView: () => void = () => undefined) {
 	const machine = setup({
 		types: {
 			context: {} as ProjectionContext,
@@ -113,10 +113,13 @@ function createProjectionCore() {
 
 	return igniteCore({
 		source: machine,
-		view: ({ snapshot }) => ({
-			documentCount: snapshot.context.documents.length,
-			speechStatus: snapshot.context.speech?.status ?? "idle",
-		}),
+		view: ({ snapshot }) => {
+			onProjectView();
+			return {
+				documentCount: snapshot.context.documents.length,
+				speechStatus: snapshot.context.speech?.status ?? "idle",
+			};
+		},
 		commands: ({ actor, command }) => ({
 			upsertProjection: command(
 				(document: ProjectionDocument) =>
@@ -3652,6 +3655,81 @@ describe("projection targets", () => {
 		}
 		await flushMicrotasks();
 		session.dispose();
+	});
+
+	it("coalesces an unrelated snapshot burst before committing pending speech", async () => {
+		const projectView = vi.fn();
+		const core = createProjectionCore(projectView);
+		let releaseFirstCommit: (() => void) | undefined;
+		const commitSpeech = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					releaseFirstCommit ??= resolve;
+					if (commitSpeech.mock.calls.length > 1) resolve();
+				}),
+		);
+		const session = core(
+			createProjectionSpeechTarget({
+				commitSpeech,
+				acknowledgeCommandName: "acknowledgeSpeech",
+				resolveAcknowledgePayload: (speech) => ({ speechId: speech.id }),
+			}),
+		);
+
+		try {
+			await core.execute({
+				command: "queueSpeech",
+				input: {
+					id: "speech-blocking",
+					text: "Block the first delivery.",
+					status: "pending",
+				},
+			});
+			await flushMicrotasks();
+			expect(commitSpeech).toHaveBeenCalledTimes(1);
+			const viewCallsBeforeBurst = projectView.mock.calls.length;
+
+			const burst = Array.from({ length: 100 }, (_, index) =>
+				core.execute({
+					command: "upsertProjection",
+					input: {
+						id: "panel",
+						revision: String(index + 1),
+						nodes: [
+							{
+								kind: "text",
+								id: "summary",
+								text: `Revision ${index + 1}`,
+							},
+						],
+					},
+				}),
+			);
+			const latestSpeech = core.execute({
+				command: "queueSpeech",
+				input: {
+					id: "speech-after-burst",
+					text: "Latest projection ready.",
+					status: "pending",
+				},
+			});
+			await Promise.all([...burst, latestSpeech]);
+			expect(projectView).toHaveBeenCalledTimes(viewCallsBeforeBurst);
+
+			if (!releaseFirstCommit) {
+				throw new Error("Expected the first speech commit to be pending.");
+			}
+			releaseFirstCommit();
+			await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+			expect(commitSpeech).toHaveBeenCalledTimes(2);
+			expect(core.getSnapshot().context.speech?.status).toBe("acknowledged");
+			expect(
+				projectView.mock.calls.length - viewCallsBeforeBurst,
+			).toBeLessThanOrEqual(3);
+		} finally {
+			session.dispose();
+		}
 	});
 
 	it("does not surface invalid projection documents as unhandled rejections", async () => {

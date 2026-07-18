@@ -978,14 +978,17 @@ export default function igniteElementFactory<
 			"installing";
 		const bindingState = createProjectionBindingState();
 		let commitQueue = Promise.resolve();
+		let commitQueued = false;
 
 		const commitCurrent = () => {
-			if (setupState !== "active") {
+			if (setupState !== "active" || commitQueued) {
 				return;
 			}
+			commitQueued = true;
 
 			commitQueue = commitQueue
 				.then(async () => {
+					commitQueued = false;
 					if (setupState !== "active") {
 						return;
 					}
