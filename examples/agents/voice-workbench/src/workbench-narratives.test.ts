@@ -22,7 +22,9 @@ afterEach(() => {
 	activeActors.clear();
 });
 
-const createFixture = (input?: Parameters<typeof createVoiceWorkbenchSessionActor>[0]) => {
+const createFixture = (
+	input?: Parameters<typeof createVoiceWorkbenchSessionActor>[0],
+) => {
 	const actor = createVoiceWorkbenchSessionActor(input).start();
 	activeActors.add(actor);
 	const component = createVoiceWorkbenchComponent(actor);
@@ -112,9 +114,9 @@ const currentArtifactRevision = (
 	actor: VoiceWorkbenchSessionActor,
 	artifactId: string,
 ) => {
-	return actor.getSnapshot().context.documents.find(
-		(document) => document.id === artifactId,
-	)?.revision;
+	return actor
+		.getSnapshot()
+		.context.documents.find((document) => document.id === artifactId)?.revision;
 };
 
 const beginCurrentTurnCompletion = (
@@ -400,10 +402,7 @@ describe("voice workbench executable narratives", () => {
 			coverageMatrix.push({
 				narrative: story.name,
 				commands: commandTrace(story),
-				checkpoints: [
-					"turn is responding",
-					"turn cancellation returns idle",
-				],
+				checkpoints: ["turn is responding", "turn cancellation returns idle"],
 				receipts: ["MODEL_TURN_CANCEL_REQUESTED"],
 				finalStatus: finalViewStatus(story),
 			});
@@ -612,18 +611,21 @@ describe("voice workbench executable narratives", () => {
 						},
 					});
 
-					narrative.checkpoint("first revision is available for follow-up work", {
-						view: {
-							activeArtifact: {
-								id: "launch-plan",
-								revision: "1",
+					narrative.checkpoint(
+						"first revision is available for follow-up work",
+						{
+							view: {
+								activeArtifact: {
+									id: "launch-plan",
+									revision: "1",
+								},
+							},
+							canExecute: {
+								reviseArtifact: true,
+								completeResponse: true,
 							},
 						},
-						canExecute: {
-							reviseArtifact: true,
-							completeResponse: true,
-						},
-					});
+					);
 
 					await narrative.intent({
 						command: "reviseArtifact",
@@ -640,18 +642,21 @@ describe("voice workbench executable narratives", () => {
 						},
 					});
 
-					narrative.checkpoint("stale revision preserves the accepted artifact", {
-						view: {
-							activeArtifact: {
-								id: "launch-plan",
-								revision: "1",
+					narrative.checkpoint(
+						"stale revision preserves the accepted artifact",
+						{
+							view: {
+								activeArtifact: {
+									id: "launch-plan",
+									revision: "1",
+								},
+							},
+							canExecute: {
+								reviseArtifact: true,
+								completeResponse: true,
 							},
 						},
-						canExecute: {
-							reviseArtifact: true,
-							completeResponse: true,
-						},
-					});
+					);
 
 					const currentRevision = currentArtifactRevision(actor, "launch-plan");
 					if (!currentRevision) throw new Error("Expected a current revision.");
@@ -697,7 +702,10 @@ describe("voice workbench executable narratives", () => {
 					"stale revision preserves the accepted artifact",
 					"current revision recovers the conflict",
 				],
-				receipts: ["actor-conflict:reviseArtifact", "actor-accepted:reviseArtifact"],
+				receipts: [
+					"actor-conflict:reviseArtifact",
+					"actor-accepted:reviseArtifact",
+				],
 				finalStatus: finalViewStatus(story),
 			});
 		}
@@ -838,10 +846,7 @@ describe("voice workbench executable narratives", () => {
 			{
 				narrative: "correlated cancellation returns the active turn to idle",
 				commands: ["submitPrompt"],
-				checkpoints: [
-					"turn is responding",
-					"turn cancellation returns idle",
-				],
+				checkpoints: ["turn is responding", "turn cancellation returns idle"],
 				receipts: ["MODEL_TURN_CANCEL_REQUESTED"],
 				finalStatus: "ready",
 			},
@@ -867,7 +872,8 @@ describe("voice workbench executable narratives", () => {
 				finalStatus: "ready",
 			},
 			{
-				narrative: "stale correlated model receipts stay inert until the live turn ends",
+				narrative:
+					"stale correlated model receipts stay inert until the live turn ends",
 				commands: ["submitPrompt"],
 				checkpoints: [
 					"stale receipt cannot close the turn",
@@ -880,8 +886,14 @@ describe("voice workbench executable narratives", () => {
 				finalStatus: "ready",
 			},
 			{
-				narrative: "artifact revision conflicts recover with the current revision",
-				commands: ["submitPrompt", "createArtifact", "reviseArtifact", "reviseArtifact"],
+				narrative:
+					"artifact revision conflicts recover with the current revision",
+				commands: [
+					"submitPrompt",
+					"createArtifact",
+					"reviseArtifact",
+					"reviseArtifact",
+				],
 				checkpoints: [
 					"first revision is available for follow-up work",
 					"stale revision preserves the accepted artifact",
