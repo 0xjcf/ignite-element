@@ -4,7 +4,11 @@ import { execSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { env, exit, stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
+import { setTimeout as waitFor } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
+
+const DIST_TAG_VERIFY_MAX_ATTEMPTS = 8;
+const DIST_TAG_VERIFY_RETRY_DELAY_MS = 2_000;
 
 const RELEASE_PACKAGE_MANIFESTS = [
 	{
@@ -124,6 +128,56 @@ export const assertBetaDistTags = ({
 			`[release:beta] Dist-tag verification failed:\n- ${failures.join("\n- ")}`,
 		);
 	}
+};
+
+export const verifyBetaDistTagsWithRetry = async ({
+	expectedVersion,
+	mainLatestBefore,
+	readTags,
+	maxAttempts = DIST_TAG_VERIFY_MAX_ATTEMPTS,
+	retryDelayMs = DIST_TAG_VERIFY_RETRY_DELAY_MS,
+	wait = waitFor,
+	onRetry = () => {},
+}) => {
+	const attemptLimit =
+		Number.isInteger(maxAttempts) && maxAttempts > 0 ? maxAttempts : 1;
+	let lastError = new Error(
+		"[release:beta] Dist-tag verification did not run.",
+	);
+
+	for (let attempt = 1; attempt <= attemptLimit; attempt += 1) {
+		try {
+			const tagsByPackage = await readTags();
+			assertBetaDistTags({
+				expectedVersion,
+				mainLatestBefore,
+				tagsByPackage,
+			});
+			return {
+				status: "verified",
+				attempts: attempt,
+				tagsByPackage,
+			};
+		} catch (error) {
+			lastError =
+				error instanceof Error ? error : new Error(String(error ?? "unknown"));
+			if (attempt < attemptLimit) {
+				onRetry({
+					attempt,
+					attemptLimit,
+					error: lastError,
+					retryDelayMs,
+				});
+				await wait(retryDelayMs);
+			}
+		}
+	}
+
+	return {
+		status: "failed",
+		attempts: attemptLimit,
+		error: lastError,
+	};
 };
 
 const args = process.argv.slice(2);
@@ -248,8 +302,11 @@ const isPreMode = () => {
 	}
 };
 
+export const createDistTagReadCommand = (packageName) =>
+	`npm view ${packageName} dist-tags --json --prefer-online`;
+
 const readPublishedDistTags = (packageName, commandEnv = env) => {
-	const output = execSync(`npm view ${packageName} dist-tags --json`, {
+	const output = execSync(createDistTagReadCommand(packageName), {
 		encoding: "utf8",
 		env: commandEnv,
 		stdio: ["ignore", "pipe", "inherit"],
@@ -265,12 +322,34 @@ const readAllPublishedDistTags = (commandEnv = env) =>
 		]),
 	);
 
-const printDistTagRecovery = (distTagCommands) => {
-	console.error(
-		"[release:beta] Repair the beta tags with a fresh npm OTP, then rerun the release script to verify:",
+export const createDistTagRecoveryInstructions = ({
+	distTagCommands,
+	kind,
+}) => {
+	const repairCommands = distTagCommands.map(
+		(command) => `  ${command} --otp=<OTP>`,
 	);
-	for (const command of distTagCommands) {
-		console.error(`  ${command} --otp=<OTP>`);
+	if (kind === "write") {
+		return [
+			"[release:beta] A beta dist-tag update failed. Repair the beta tags with a fresh npm OTP, then rerun the release script to verify:",
+			...repairCommands,
+		];
+	}
+
+	return [
+		"[release:beta] Dist-tag verification remained stale or mismatched after bounded online retries.",
+		"[release:beta] Recheck the live registry before changing any tags:",
+		...RELEASE_PACKAGE_MANIFESTS.map(
+			({ name }) => `  ${createDistTagReadCommand(name)}`,
+		),
+		"[release:beta] If the live tags are still wrong, repair them with a fresh npm OTP, then rerun the release script:",
+		...repairCommands,
+	];
+};
+
+const printDistTagRecovery = (options) => {
+	for (const instruction of createDistTagRecoveryInstructions(options)) {
+		console.error(instruction);
 	}
 };
 
@@ -448,19 +527,34 @@ const main = async () => {
 		for (const command of plan.distTagCommands) {
 			run(command, { env: publishEnv });
 		}
-		const tagsByPackage = readAllPublishedDistTags(publishEnv);
-		assertBetaDistTags({
-			expectedVersion: plan.expectedVersion,
-			mainLatestBefore,
-			tagsByPackage,
-		});
-		console.log(
-			`[release:beta] Verified all beta tags at ${plan.expectedVersion}; ignite-element latest remains ${mainLatestBefore}.`,
-		);
 	} catch (error) {
-		printDistTagRecovery(plan.distTagCommands);
+		printDistTagRecovery({
+			distTagCommands: plan.distTagCommands,
+			kind: "write",
+		});
 		throw error;
 	}
+
+	const verification = await verifyBetaDistTagsWithRetry({
+		expectedVersion: plan.expectedVersion,
+		mainLatestBefore,
+		readTags: () => readAllPublishedDistTags(publishEnv),
+		onRetry: ({ attempt, attemptLimit, retryDelayMs }) => {
+			console.warn(
+				`[release:beta] Dist-tags have not converged after attempt ${attempt}/${attemptLimit}; retrying in ${retryDelayMs}ms.`,
+			);
+		},
+	});
+	if (verification.status === "failed") {
+		printDistTagRecovery({
+			distTagCommands: plan.distTagCommands,
+			kind: "verification",
+		});
+		throw verification.error;
+	}
+	console.log(
+		`[release:beta] Verified all beta tags at ${plan.expectedVersion} after ${verification.attempts} attempt(s); ignite-element latest remains ${mainLatestBefore}.`,
+	);
 
 	console.log(
 		"\n✅ Beta release complete. Review git status, commit the changes, and push tags to share the release.",
