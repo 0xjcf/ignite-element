@@ -945,6 +945,7 @@ browser and accessibility checks; it is not a demo-data mode.
 ## Verify
 
 ```bash
+pnpm --dir examples/agents/voice-workbench test -- src/workbench-narratives.test.ts
 pnpm --dir examples/agents/voice-workbench test
 pnpm --dir examples/agents/voice-workbench typecheck
 pnpm --dir examples/agents/voice-workbench build
@@ -958,9 +959,21 @@ failures, correlated multi-round tool feedback, accepted-artifact correction,
 model-driven checklist interaction, all nine browser node projections,
 multi-artifact selection, append-only restore history, real terminal formatting,
 speech lifecycle, projection commits, and the no-imperative-DOM-writer guard.
+`src/workbench-narratives.test.ts` dogfoods seven named multi-step narratives
+over the same Story receipts: preparation failure and retry, microphone
+permission denial with typed recovery, correlated turn cancellation, timeout and
+retry, stale model-turn correlation, revision conflict recovery, and
+speech-unavailable recovery. The file keeps intent on public commands and drives
+preparation, timeout, cancellation, speech, and voice failures through
+consumer-owned facts.
 The parity suite checks all seven states through the `igniteTest` accessibility
 bridge, ten opaque or translucent WCAG AA token pairs, and the global 44px
 target contract.
+
+The current helper returns the existing Story snapshot, so the test keeps its
+coverage matrix and checkpoint labels local instead of relying on a second
+receipt envelope. That is intentional dogfood for the downstream ergonomics
+audit, not a reason to widen the public testing API here.
 
 ## Deliberate boundaries
 

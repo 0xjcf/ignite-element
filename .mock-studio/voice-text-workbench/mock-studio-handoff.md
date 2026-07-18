@@ -289,6 +289,28 @@ The live implementation already proves these architecture behaviors:
 - replay replaces the speech-delivery child and allocates a fresh `requestSequence`;
 - speech acknowledgement is separate from queued and delivered adapter facts.
 
+The downstream executable dogfood receipt now lives in
+`examples/agents/voice-workbench/src/workbench-narratives.test.ts`. It runs
+seven named `igniteTest(...).narrative(...)` stories over the approved failure
+and recovery surface:
+
+- preparation failure and retry;
+- microphone permission denial with typed prompt recovery;
+- correlated active-turn cancellation;
+- timeout and retry to an accepted response;
+- stale model-turn receipt rejection;
+- artifact revision conflict recovery with the current revision; and
+- speech-unavailable recovery without introducing a second trace authority.
+
+Current helper friction recorded for the downstream ergonomics audit:
+
+- named checkpoints stay local to the test because the helper returns the
+  existing Story snapshot rather than a parallel checkpoint receipt envelope;
+- the speech-unavailable path settles to an acknowledged speech status inside
+  the actor-owned recovery, so the unavailable adapter fact and the final
+  acknowledgement need separate assertions in the local coverage matrix rather
+  than a new testing API.
+
 ## Reuse, move, retire
 
 ### Reuse unchanged
@@ -340,6 +362,11 @@ Architecture receipts used for this amendment:
 - `examples/agents/voice-workbench/src/workbench-runtime.test.ts`
   - verifies bounded request-key tracking and cleanup
   - verifies parent-owned terminal paths release the model-turn routing lease
+- `examples/agents/voice-workbench/src/workbench-narratives.test.ts`
+  - dogfoods seven named executable narratives across failure, recovery, stale
+    correlation, conflict, and speech-unavailable paths
+  - keeps coverage evidence additive to existing Story snapshots and graph or
+    projection receipts
 
 ## Approval gate
 
