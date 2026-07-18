@@ -2580,8 +2580,8 @@ No active tasks.
 
 - Title: Decide Story API naming and v3 beta migration from narrative dogfood
 - Mode: 6-agent
-- Status: blocked
-- Owner: planner
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/decide-story-api-naming-and-v3-beta-migration-from-narrative.md
 - Verification lane: fast
 - Policy sensitivity: standard

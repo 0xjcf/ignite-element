@@ -311,7 +311,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -326,7 +326,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-16T03:11:42.136Z",
       "updatedAt": "2026-07-17T21:51:02.962Z",
-      "deferredReason": "dependency_reopened: task-1784325062961",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -474,32 +474,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1784325062961",
-      "task": "Decide Story API naming and v3 beta migration from narrative dogfood",
-      "priority": "high",
-      "source": "manual",
-      "details": "Use the completed executable-narrative dogfood and ergonomics audit to decide whether component.record, snapshotStory, IgniteStory, and related public Story types remain the correct low-level evidence vocabulary for v3 or should be renamed before stable. Preserve the distinction that narratives are expected experience claims, recorded Stories are observed execution evidence, and serializable snapshots are portable receipts. A no-rename verdict is valid. If a rename earns its migration cost, update every supported entrypoint with compatibility aliases, changeset, migration documentation, and type and runtime coverage without creating a second trace format.\nSee .fas/tasks/decide-story-api-naming-and-v3-beta-migration-from-narrative.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [
-        "task-1783610933373"
-      ],
-      "blocks": [
-        "task-1784171502136",
-        "task-1784383032552"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-17T21:51:02.962Z",
-      "updatedAt": "2026-07-18T17:25:13.591Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
       "id": "task-1784383032552",
       "task": "Harden beta dist-tags for scoped lockstep packages",
       "priority": "high",
@@ -508,7 +482,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
@@ -525,7 +499,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-18T13:57:12.552Z",
       "updatedAt": "2026-07-18T13:57:33.533Z",
-      "deferredReason": "dependency_reopened: task-1784325062961",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -3974,6 +3948,31 @@
       "completedAt": "2026-07-18T17:24:28.025Z",
       "terminalOutcome": null,
       "workflowId": "direct-1784394586900",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784325062961",
+      "task": "Decide Story API naming and v3 beta migration from narrative dogfood",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1783610933373"
+      ],
+      "blocks": [
+        "task-1784171502136",
+        "task-1784383032552"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-18T17:45:57.030Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784395631185",
       "branchName": "fas/voice-text-workbench",
       "prStatus": "draft-only"
     }
