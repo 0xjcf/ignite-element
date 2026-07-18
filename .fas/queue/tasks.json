@@ -647,7 +647,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "policy-surfacing",
       "signalFingerprint": null,
-      "status": "processing",
+      "status": "blocked",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [],
@@ -657,7 +657,7 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-18T15:02:03.255Z",
-      "updatedAt": "2026-07-18T15:15:16.421Z"
+      "updatedAt": "2026-07-18T15:38:44.461Z"
     },
     {
       "id": "task-1784389086743",
@@ -668,7 +668,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "processing",
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [],
@@ -678,7 +678,7 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-18T15:38:06.743Z",
-      "updatedAt": "2026-07-18T15:38:06.743Z"
+      "updatedAt": "2026-07-18T15:40:09.609Z"
     }
   ],
   "completedTasks": [

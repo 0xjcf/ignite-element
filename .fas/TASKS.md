@@ -2609,9 +2609,12 @@ No active tasks.
 
 - Title: Repair Voice Workbench characterization typecheck conformance
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/repair-voice-workbench-characterization-typecheck-conformanc.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ## Template
 
