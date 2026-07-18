@@ -116,17 +116,17 @@ describe("speech-delivery graph characterization", () => {
 		actor.send({ type: "DELIVERED", attemptId: "speech-graph:1" });
 		const snapshot = actor.getSnapshot();
 		expect(snapshot.value).toBe("delivered");
+		const terminal = snapshot.context.terminal;
+		if (!terminal) throw new Error("Expected a delivered terminal fact.");
 		expect(projectSpeechDeliveryPortRequest(snapshot)).toBeNull();
 		expect(projectSpeechDeliveryLifecycle(snapshot)).toMatchObject({
 			state: "delivered",
 			id: "speech-graph",
 		});
-		expect(speechDeliveryStateFromTerminal(snapshot.context.terminal!)).toBe(
-			"delivered",
-		);
+		expect(speechDeliveryStateFromTerminal(terminal)).toBe("delivered");
 		expect(() => JSON.stringify(snapshot.context)).not.toThrow();
 		expect(snapshot.output).toEqual({
-			terminal: snapshot.context.terminal,
+			terminal,
 		} satisfies SpeechDeliveryOutput);
 		actor.stop();
 	});
