@@ -82,33 +82,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1783610933373",
-      "task": "Evaluate executable-narrative testing ergonomics from Voice Workbench dogfood",
-      "priority": "high",
-      "source": "manual",
-      "details": "After the executable Voice Workbench narrative catalog lands, audit whether the multi-step igniteTest narrative helper, existing Story recorder, Story snapshot receipt, focused getters, command availability, events, and ordinary assertions express the required user, system, and projection narratives with strong diagnostics. Start from concrete dogfood evidence. Prefer documentation, example fixtures, or internal helpers; a no-change verdict is successful. Any additional public API or receipt envelope requires repeated friction and a separate implementation decision.\nSee .fas/tasks/add-headless-accessibility-contract-assertions-to-the-test-d.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "queued",
-      "owner": "runtime",
-      "mode": "4-agent",
-      "dependsOn": [
-        "task-1783613728381",
-        "task-1784324997164"
-      ],
-      "blocks": [
-        "task-1784171502136",
-        "task-1784325062961"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-09T15:28:53.373Z",
-      "updatedAt": "2026-07-17T21:51:02.962Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
       "id": "task-1783610950265",
       "task": "Add rendered DOM accessibility verification for Ignite examples",
       "priority": "high",
@@ -353,7 +326,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-16T03:11:42.136Z",
       "updatedAt": "2026-07-17T21:51:02.962Z",
-      "deferredReason": "dependency_reopened: task-1783610933373, task-1784325062961",
+      "deferredReason": "dependency_reopened: task-1784325062961",
       "invalidationReason": null
     },
     {
@@ -509,7 +482,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -523,7 +496,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-17T21:51:02.962Z",
       "updatedAt": "2026-07-18T13:57:12.552Z",
-      "deferredReason": "dependency_reopened: task-1783610933373",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -3975,6 +3948,32 @@
       "completedAt": "2026-07-18T17:08:39.687Z",
       "terminalOutcome": null,
       "workflowId": "direct-1784389728898",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1783610933373",
+      "task": "Evaluate executable-narrative testing ergonomics from Voice Workbench dogfood",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1783613728381",
+        "task-1784324997164"
+      ],
+      "blocks": [
+        "task-1784171502136",
+        "task-1784325062961"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-18T17:24:28.025Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784394586900",
       "branchName": "fas/voice-text-workbench",
       "prStatus": "draft-only"
     }

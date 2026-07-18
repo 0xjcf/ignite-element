@@ -2199,9 +2199,12 @@ No active tasks.
 
 - Title: Evaluate executable-narrative testing ergonomics from Voice Workbench dogfood
 - Mode: 4-agent
-- Status: deferred
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/add-headless-accessibility-contract-assertions-to-the-test-d.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Build LLM-authored voice/text artifact control-center workbench
 
