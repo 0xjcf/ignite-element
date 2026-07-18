@@ -78,6 +78,15 @@ describe("voice workbench Vite capability boundary", () => {
 		});
 	});
 
+	it("gives integration tests a bounded CI-safe timeout", () => {
+		const config = createVoiceWorkbenchViteConfig({});
+
+		expect(config.test).toMatchObject({
+			environment: "node",
+			testTimeout: 15_000,
+		});
+	});
+
 	it("omits search from browser admission and returns an unavailable fact without a key", async () => {
 		const fetchMock = vi.fn();
 		const config = createVoiceWorkbenchViteConfig({

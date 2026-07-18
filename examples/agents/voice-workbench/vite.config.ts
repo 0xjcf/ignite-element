@@ -281,7 +281,7 @@ export const createVoiceWorkbenchViteConfig = (
 			},
 		},
 	},
-	test: { environment: "node" },
+	test: { environment: "node", testTimeout: 15_000 },
 	resolve: {
 		alias: [
 			{
