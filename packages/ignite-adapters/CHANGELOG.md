@@ -1,5 +1,44 @@
 # ignite-adapters
 
+## 3.0.0-beta.9
+
+### Major Changes
+
+- ccdc9e5: Collapse `ActorWebAddress` to plain `string` now that `@actor-web/runtime@0.2.0` publishes the canonical branded string `ActorAddress`.
+
+  The actor-web adapter no longer accepts the legacy object address shape from `@actor-web/runtime@0.1.x`; the optional actor-web peer floor is now `>=0.2.0`.
+
+### Minor Changes
+
+- 787b6c8: Make the headless agent runtime DOM-free, so `getSchema()` / `execute()` / `on()` / `watchView()` work in pure Node and edge runtimes with no jsdom polyfill.
+
+  The agent runtime is meant to be headless, but it allocated its internal host element via `document.createElement`, so `getSchema()` / `execute()` threw `document is not defined` in a non-DOM runtime. That host is only ever used as an **EventTarget** — `on()` registers `host.addEventListener` / `removeEventListener` and effect emits go through `host.dispatchEvent` — so a real element was never required for headless use. `createRuntimeHost` now falls back to a bare `EventTarget` when there is no `document` (Node 22 ships `EventTarget` + `CustomEvent` globally), and keeps `document.createElement` when a real or jsdom DOM is present (no behavior change in the browser or in tests). The DOM render path (the custom element / DOM bridge) is unchanged and still requires a real DOM. This unblocks running an igniteTools agent loop — the act → observe → act surface — headless on a server, CLI, or edge device with zero DOM shim.
+
+- fe3fc74: Add the Anthropic `ToolDialect` adapter — the first provider dialect for igniteTools — on a new `ignite-element/tools/anthropic` entrypoint, and refine the `ToolDialect` port to its final shape.
+
+  - **Added — `ignite-element/tools/anthropic`:** a pure, SDK-free `anthropic` dialect (no `@anthropic-ai/sdk` runtime dependency) that translates the neutral manifest to/from the Anthropic Messages tool-use wire format — `tools()` emits `{ name, description?, input_schema }` defs, `toolCalls()` extracts `tool_use` blocks, and `toolResult()` renders `tool_result` blocks (`is_error: true` on a failed call). The consumer brings the SDK and runs the model loop.
+  - **Added — shared scalar round-trip (`tools/scalar.ts`):** `toProviderInputSchema`/`fromProviderInput` object-wrap a single-arg command's scalar input under a `value` key for the model and unwrap the returned `{ value }` on the way back — gated on the manifest schema, so an object command with its own `value` field is never unwrapped (collision-free). The neutral manifest stays scalar-honest; wrapping lives only at the provider boundary. PR3 (OpenAI/Ollama) reuses these verbatim.
+  - **Breaking (pre-stable beta igniteTools surface) — `ToolDialect` port + `igniteTools` result renamed to bare ecosystem nouns:** `toToolDefs` → `tools`, `parseToolCalls` → `toolCalls` (now `toolCalls(response, manifest)`, the manifest threaded in for scalar unwrap), `toToolResult` → `toolResult`; the consumer execution verb `invoke` → `run`. The bound first argument/type is now `runtime` / `IgniteToolsRuntime` (was `component` / `IgniteToolsComponent`) — it is the agent runtime, not a UI element. `ToolObservation` is unchanged: `run`/`execute` remain act-plus-acknowledgement observations (state at command-acknowledgement; ongoing/remote effects are observed via the view/event stream).
+
+- eabc37d: igniteTools: surface the derived **view** in `ToolObservation` so an agent grounds on the read-model, not just the raw snapshot.
+
+  `run()`'s observation is now `{ snapshot, view, events }` (was `{ snapshot, events }`). `igniteTools` binds `getView` — added to the `IgniteToolsRuntime` surface alongside `getSchema`/`execute` — and captures it at command-acknowledgement, so every observation, and thus every provider `tool_result` a dialect serializes, carries the view (the derived read-model, e.g. `lightsOn`/`allDoorsLocked`) the design says agents should ground on, distinct from the raw snapshot. `ToolObservation<Snapshot, Events>` gains a `View` type parameter (`ToolObservation<Snapshot, View, Events>`) and `NeutralToolResult` threads it through. Breaking to the pre-stable beta igniteTools surface (the observation shape + the `IgniteToolsRuntime` pick); the Anthropic dialect needs no change (it serializes the whole observation). Found while dogfooding the headless smart-home agent example.
+
+- b0f3aee: Add command availability predicates through `command(fn, { canExecute })` and expose the headless runtime `canExecute(name)` query, with gated commands marked in `getSchema()`.
+
+### Patch Changes
+
+- 02b9381: Remove the positional effects callback form for v3 beta. Effects callbacks now
+  use only the object-form signature:
+  `({ snapshot, prevSnapshot, actor, emit, host, select }) => { ... }`.
+- Updated dependencies [02b9381]
+- Updated dependencies [8201902]
+- Updated dependencies [787b6c8]
+- Updated dependencies [fe3fc74]
+- Updated dependencies [eabc37d]
+- Updated dependencies [b0f3aee]
+  - @ignite-element/core@3.0.0-beta.9
+
 ## 3.0.0-beta.8
 
 ### Minor Changes
