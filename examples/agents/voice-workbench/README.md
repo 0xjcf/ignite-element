@@ -151,6 +151,10 @@ The checked characterization receipts now live beside the source:
 - `src/architecture.test.ts` validates that every production example module is
   owned by `architecture-boundaries.json` and that the reviewed import-violation
   baseline cannot grow silently.
+- `narrative-ergonomics-audit.md` records the post-dogfood verdict that the
+  current `igniteTest(...).narrative(...)`, `record()`, and `snapshotStory()`
+  surfaces are sufficient for the seven executable narratives without adding a
+  new public receipt envelope or bridge API.
 
 The parent session is a host-agnostic compound statechart. Its `available`
 state is parallel: turn orchestration, persistent voice capture, and speech
