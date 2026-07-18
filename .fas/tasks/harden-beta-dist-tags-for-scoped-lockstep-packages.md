@@ -29,9 +29,22 @@ Repair and verify the beta release flow so ignite-element and all three scoped p
 - scripts/release-beta.test.mjs
 - package.json
 - docs/v3-stable-roadmap.md
+- .fas/memory/architecture.md
+- .fas/memory/decisions.md
+- .fas/memory/incidents.md
+- .fas/memory/patterns.md
+- .fas/memory/pr-feedback.md
 
 ## Scope Amendments
-- None.
+- Type: baseline-operational-projection
+- Added at: 2026-07-18
+- Trigger: change-set false-positive
+- Reason: FAS ChangeSet intentionally surfaces ignored curated memory projections as untracked docs even though they predate this task and Git reports a clean worktree.
+- Added paths: .fas/memory/architecture.md, .fas/memory/decisions.md, .fas/memory/incidents.md, .fas/memory/patterns.md, .fas/memory/pr-feedback.md
+- Evidence source: git status and ChangeSet
+- Evidence: git status and ChangeSet | .fas/state/closeout-readiness/latest.json | All five paths are ignored by the managed .fas/* rule; no projection content was changed or staged.
+- Accuracy signal: git status --short is clean and git check-ignore attributes every path to the managed .fas/* rule.
+- Follow-up needed: Fix the FAS collector so pre-existing ignored curated memory projections do not appear as task changes.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
