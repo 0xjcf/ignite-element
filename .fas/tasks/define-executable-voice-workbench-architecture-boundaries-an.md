@@ -176,11 +176,26 @@ Turn the approved Gate 0 ownership and layer model into executable example-local
 - examples/agents/voice-workbench/src/voice.graph.test.ts
 - examples/agents/voice-workbench/src/speech.graph.test.ts
 - .fas/artifacts/audits/voice-workbench-state-machine-audit.md
+- .fas/memory/architecture.md
+- .fas/memory/decisions.md
+- .fas/memory/incidents.md
+- .fas/memory/patterns.md
+- .fas/memory/pr-feedback.md
 
 ## Scope Amendments
 - Type: scope-refresh
 - Added at: 2026-07-17
 - Added paths: examples/agents/voice-workbench/src/architecture.test.ts, examples/agents/voice-workbench/architecture-boundaries.json, examples/agents/voice-workbench/src/session.graph.test.ts, examples/agents/voice-workbench/src/model-turn.graph.test.ts, examples/agents/voice-workbench/src/voice.graph.test.ts, examples/agents/voice-workbench/src/speech.graph.test.ts, examples/agents/voice-workbench/README.md, .fas/artifacts/audits/voice-workbench-state-machine-audit.md
+
+- Type: reference-evidence-alignment
+- Added at: 2026-07-18T15:06:00Z
+- Trigger: FAS live ChangeSet classified pre-existing ignored curated-memory projections as untracked reference changes during closeout.
+- Reason: Declare the existing local memory projections as reference evidence only so they are preserved, not deleted or force-tracked, and cannot be mistaken for implementation drift.
+- Added paths: .fas/memory/architecture.md, .fas/memory/decisions.md, .fas/memory/incidents.md, .fas/memory/patterns.md, .fas/memory/pr-feedback.md
+- Evidence source: root closeout inspection
+- Evidence: root closeout inspection | .fas/state/closeout-readiness/latest.json | Git check-ignore confirms all five paths are ignored by .gitignore; git status is otherwise clean after the planned commits.
+- Accuracy signal: Plan alignment should report zero unexpected implementation and reference files while Git remains clean.
+- Follow-up needed: Do not edit, stage, or publish these generated memory projections as part of this task.
 
 ## Implementation plan
 - Build the four-machine contract inventory and source-aligned validation matrix from the approved Gate 0 handoff and live XState configurations.
