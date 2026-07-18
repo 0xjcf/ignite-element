@@ -215,6 +215,32 @@ breaking trio plus docs final sweep ship as one beta. Stable `3.0.0` is the
 final lockstep publish from `main` (see the `release-beta` skill +
 `v3-beta-release-flow` memory).
 
+### Beta dist-tag contract
+
+`pnpm release:beta` publishes all four fixed-group packages at one prerelease
+version, repairs every `beta` tag to that version, and verifies the result. The
+unscoped `ignite-element` package keeps `latest` on the existing stable 2.x
+release until the v3 stable cut. Because the three scoped packages do not yet
+have a stable release, Changesets also points their `latest` tags at the current
+prerelease; the release wrapper accepts that temporary behavior but no longer
+allows their `beta` tags to remain stale.
+
+If publication succeeds but dist-tag repair fails, rerun these recoverable npm
+operations with the published prerelease version and a fresh OTP:
+
+```sh
+npm dist-tag add ignite-element@<version> beta --otp=<OTP>
+npm dist-tag add @ignite-element/core@<version> beta --otp=<OTP>
+npm dist-tag add @ignite-element/adapters@<version> beta --otp=<OTP>
+npm dist-tag add @ignite-element/renderer@<version> beta --otp=<OTP>
+```
+
+Then rerun `pnpm release:beta`; with no pending version bump it republishes
+nothing, reapplies the idempotent tag repair, and verifies all four `beta` tags
+plus the unchanged stable `ignite-element` `latest` tag. The inert
+`pnpm release:beta --dry-run` path never calls Changesets publish or npm
+dist-tag mutation.
+
 ## Done this session (context)
 
 Examples restructure (adapters/apps/frameworks) · spa-router idiom cleanup ·
