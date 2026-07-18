@@ -45,7 +45,8 @@
         "task-1781919547313",
         "task-1783461996097",
         "task-1783610965770",
-        "task-1783719740973"
+        "task-1783719740973",
+        "task-1784383053533"
       ],
       "blocks": [
         "task-1781197578529"
@@ -53,8 +54,8 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-12T19:30:13.064Z",
-      "updatedAt": "2026-07-10T21:48:32.394Z",
-      "deferredReason": "dependency_reopened: task-1781919547313, task-1783610965770, task-1783719740973",
+      "updatedAt": "2026-07-18T13:57:33.533Z",
+      "deferredReason": "dependency_reopened: task-1781919547313, task-1783610965770, task-1783719740973, task-1784383053533",
       "invalidationReason": null
     },
     {
@@ -567,13 +568,72 @@
         "task-1783610933373"
       ],
       "blocks": [
-        "task-1784171502136"
+        "task-1784171502136",
+        "task-1784383032552"
       ],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-17T21:51:02.962Z",
-      "updatedAt": "2026-07-17T21:51:02.962Z",
+      "updatedAt": "2026-07-18T13:57:12.552Z",
       "deferredReason": "dependency_reopened: task-1783610933373",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784383032552",
+      "task": "Harden beta dist-tags for scoped lockstep packages",
+      "priority": "high",
+      "source": "manual",
+      "details": "Repair and verify the beta release flow so ignite-element and all three scoped packages publish the same prerelease under the beta dist-tag while the stable latest tag remains unchanged until v3 stable. Start from the live registry discrepancy: ignite-element beta points to 3.0.0-beta.8, while the scoped package beta tags remain at 3.0.0-beta.2 and latest points to beta.8. Add automated pre-publish or post-publish assertions where practical, document an explicit recoverable npm dist-tag repair command, and prove a dry run cannot publish.\nSee .fas/tasks/harden-beta-dist-tags-for-scoped-lockstep-packages.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "single-agent",
+      "dependsOn": [
+        "task-1784325062961"
+      ],
+      "blocks": [
+        "task-1784383053533"
+      ],
+      "nonEpicDisposition": {
+        "kind": "standalone",
+        "reason": "Cross-cutting release hardening required before the beta.9 operator cut."
+      },
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-18T13:57:12.552Z",
+      "updatedAt": "2026-07-18T13:57:33.533Z",
+      "deferredReason": "dependency_reopened: task-1784325062961",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784383053533",
+      "task": "Cut v3.0.0-beta.9 after executable narrative dogfood",
+      "priority": "high",
+      "source": "manual",
+      "details": "After the Voice Workbench narrative dogfood, ergonomics audit, Story API naming verdict, and scoped dist-tag hardening complete, close and merge the beta line, run the inert beta dry run, publish all four fixed packages at 3.0.0-beta.9, push the release commit and annotated package tags, verify registry versions and beta/latest dist-tags, deploy and smoke-test the beta documentation, and record the operator receipts. This is a prerelease checkpoint; do not exit Changesets pre mode and do not move ignite-element latest away from 2.2.2.\nSee .fas/tasks/cut-v3-0-0-beta-9-after-executable-narrative-dogfood.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "single-agent",
+      "dependsOn": [
+        "task-1784383032552"
+      ],
+      "blocks": [
+        "task-1781292613064"
+      ],
+      "nonEpicDisposition": {
+        "kind": "standalone",
+        "reason": "Operator-owned prerelease checkpoint across the four fixed packages."
+      },
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-18T13:57:33.533Z",
+      "updatedAt": "2026-07-18T13:57:33.533Z",
+      "deferredReason": "dependency_reopened: task-1784383032552",
       "invalidationReason": null
     }
   ],

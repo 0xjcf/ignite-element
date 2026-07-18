@@ -2575,6 +2575,22 @@ No active tasks.
 - Owner: runtime
 - Brief: .fas/tasks/decide-story-api-naming-and-v3-beta-migration-from-narrative.md
 
+### Task: Harden beta dist-tags for scoped lockstep packages
+
+- Title: Harden beta dist-tags for scoped lockstep packages
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/harden-beta-dist-tags-for-scoped-lockstep-packages.md
+
+### Task: Cut v3.0.0-beta.9 after executable narrative dogfood
+
+- Title: Cut v3.0.0-beta.9 after executable narrative dogfood
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/cut-v3-0-0-beta-9-after-executable-narrative-dogfood.md
+
 ## Template
 
 ### Task: <short task title>
