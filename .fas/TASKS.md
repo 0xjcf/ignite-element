@@ -2602,8 +2602,8 @@ No active tasks.
 
 - Title: Cut v3.0.0-beta.9 after executable narrative dogfood
 - Mode: single-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/cut-v3-0-0-beta-9-after-executable-narrative-dogfood.md
 - Verification lane: fast
 - Policy sensitivity: standard
