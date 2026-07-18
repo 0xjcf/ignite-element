@@ -378,34 +378,6 @@
       "updatedAt": "2026-07-17T01:50:36.242Z"
     },
     {
-      "id": "task-1784298626529",
-      "task": "Create and validate every Voice Workbench state-machine contract and executable architecture boundary",
-      "priority": "high",
-      "source": "manual",
-      "details": "Turn the approved Gate 0 ownership and layer model into executable example-local evidence before moving modules. First create and validate the complete contract for every explicit Voice Workbench state machine: the parent session, model-turn, voice-capture, and speech-delivery machines. Prove source-aligned diagrams, exhaustive event dispositions, bounded reachability, required terminal and recovery paths, forbidden-state invariants, correlation and idempotency, serializable snapshots, and parent-child supervision. Then define and enforce the allowed dependency direction for contracts, functional core, actors, application ports/runtime, adapters, pure projections, Ignite composition, renderers, and host roots. Record a bounded reviewed architecture-violation baseline that cannot grow; every later epic task must reduce it and final acceptance must reach zero.\nSee .fas/tasks/define-executable-voice-workbench-architecture-boundaries-an.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "blocked",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [
-        "task-1784298607166",
-        "task-1784386923255",
-        "task-1784389086743"
-      ],
-      "blocks": [
-        "task-1784298642791",
-        "task-1784324997164"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-17T14:30:26.529Z",
-      "updatedAt": "2026-07-18T15:38:06.743Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
       "id": "task-1784298642791",
       "task": "Extract framework-neutral Voice Workbench contracts and deterministic cores",
       "priority": "high",
@@ -414,7 +386,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "policy-surfacing",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -427,7 +399,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-17T14:30:42.791Z",
       "updatedAt": "2026-07-17T14:30:57.330Z",
-      "deferredReason": "dependency_reopened: task-1784298626529",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -537,7 +509,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -551,7 +523,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-17T21:49:57.164Z",
       "updatedAt": "2026-07-17T21:49:57.164Z",
-      "deferredReason": "dependency_reopened: task-1784298626529",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -637,48 +609,6 @@
       "updatedAt": "2026-07-18T13:57:33.533Z",
       "deferredReason": "dependency_reopened: task-1784383032552",
       "invalidationReason": null
-    },
-    {
-      "id": "task-1784386923255",
-      "task": "Repair Voice Workbench projection-target liveness in the full verification lane",
-      "priority": "high",
-      "source": "manual",
-      "details": "The root-owned full verification for boundary characterization exposed an untouched Voice Workbench projection test that does not complete within either the default 5-second timeout or an isolated 15-second timeout. Diagnose the real liveness/cleanup cause in the direct projection-target path; do not paper over it with a larger timeout. Restore deterministic completion and process cleanup so the isolated projection test and the full verification lane both pass. Keep this repair separate from the executable state-machine characterization commit.\nSee .fas/tasks/repair-voice-workbench-projection-target-liveness-in-the-ful.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "policy-surfacing",
-      "signalFingerprint": null,
-      "status": "blocked",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [],
-      "blocks": [
-        "task-1784298626529"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-18T15:02:03.255Z",
-      "updatedAt": "2026-07-18T15:38:44.461Z"
-    },
-    {
-      "id": "task-1784389086743",
-      "task": "Repair Voice Workbench characterization typecheck conformance",
-      "priority": "high",
-      "source": "manual",
-      "details": "The committed executable machine-characterization tests pass at runtime but the direct Voice Workbench TypeScript lane reports four errors: architecture.test.ts uses String.replaceAll under the example target, and model-turn/speech graph helpers return nullable terminal facts where the asserted contract requires a terminal. Make the smallest test-only corrections, preserve the executable characterization semantics, and restore the full example typecheck before the shared repository full-verification closeout.\nSee .fas/tasks/repair-voice-workbench-characterization-typecheck-conformanc.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "single-agent",
-      "dependsOn": [],
-      "blocks": [
-        "task-1784298626529"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-18T15:38:06.743Z",
-      "updatedAt": "2026-07-18T15:40:09.609Z"
     }
   ],
   "completedTasks": [
@@ -3975,6 +3905,77 @@
       "completedAt": "2026-07-17T23:29:40.596Z",
       "terminalOutcome": null,
       "workflowId": "direct-1784327214204",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784298626529",
+      "task": "Create and validate every Voice Workbench state-machine contract and executable architecture boundary",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1784298607166",
+        "task-1784386923255",
+        "task-1784389086743"
+      ],
+      "blocks": [
+        "task-1784298642791",
+        "task-1784324997164"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-18T15:46:56.562Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784383141406",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784386923255",
+      "task": "Repair Voice Workbench projection-target liveness in the full verification lane",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [
+        "task-1784298626529"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-18T15:47:10.883Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784387716416",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784389086743",
+      "task": "Repair Voice Workbench characterization typecheck conformance",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [
+        "task-1784298626529"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-18T15:47:23.591Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784389209605",
       "branchName": "fas/voice-text-workbench",
       "prStatus": "draft-only"
     }
