@@ -30,13 +30,17 @@ After the Voice Workbench narrative dogfood, ergonomics audit, Story API naming 
 - packages/ignite-core/package.json
 - packages/ignite-adapters/package.json
 - packages/ignite-renderer/package.json
-- pnpm-lock.yaml
 - packages/ignite-element/CHANGELOG.md
 - packages/ignite-core/CHANGELOG.md
 - packages/ignite-adapters/CHANGELOG.md
 - packages/ignite-renderer/CHANGELOG.md
 - examples/agents/voice-workbench/vite.config.ts
 - examples/agents/voice-workbench/vite.config.test.ts
+- .fas/memory/architecture.md
+- .fas/memory/decisions.md
+- .fas/memory/incidents.md
+- .fas/memory/patterns.md
+- .fas/memory/pr-feedback.md
 
 ## Scope Amendments
 - Type: ci-failure-follow-up
@@ -48,6 +52,16 @@ After the Voice Workbench narrative dogfood, ergonomics audit, Story API naming 
 - Evidence: GitHub Actions | https://github.com/0xjcf/ignite-element/actions/runs/29655301133/job/88108402221 | Five existing integration tests timed out at 5000ms while neighboring tests completed between roughly 3s and 5s; no product assertions failed.
 - Accuracy signal: The exact failing suite passes locally and CI reported only default-timeout expirations, so the amended paths are limited to the example test config and its contract test.
 - Follow-up needed: None; verify the full Voice Workbench suite and FAS full lane before pushing.
+
+- Type: release-closeout-evidence
+- Added at: 2026-07-18
+- Trigger: FAS closeout plan-alignment receipt
+- Reason: Declare FAS-generated ignored memory projections as reference-only workflow evidence; Changesets did not mutate pnpm-lock.yaml for workspace-local prerelease version changes.
+- Added paths: .fas/memory/architecture.md, .fas/memory/decisions.md, .fas/memory/incidents.md, .fas/memory/patterns.md, .fas/memory/pr-feedback.md
+- Evidence source: FAS ChangeSet and git
+- Evidence: FAS ChangeSet and git | .fas/state/closeout-readiness/latest.json | git status is clean; five ignored memory projections are local runtime evidence and pnpm-lock.yaml has no release diff.
+- Accuracy signal: git diff from the workflow base shows all package manifests and changelogs changed while pnpm-lock.yaml did not.
+- Follow-up needed: Keep generated memory projections uncommitted and remove pnpm-lock.yaml from the reconciled planned paths.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.
