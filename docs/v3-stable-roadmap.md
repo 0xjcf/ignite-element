@@ -225,8 +225,15 @@ have a stable release, Changesets also points their `latest` tags at the current
 prerelease; the release wrapper accepts that temporary behavior but no longer
 allows their `beta` tags to remain stale.
 
-If publication succeeds but dist-tag repair fails, rerun these recoverable npm
-operations with the published prerelease version and a fresh OTP:
+After writing the tags, the wrapper forces online registry reads and retries
+verification eight times over roughly 14 seconds so temporary npm propagation
+lag does not report a false release failure. If verification still fails, first
+run the printed `npm view <package> dist-tags --json --prefer-online` commands.
+Only repair tags that remain wrong in those live results.
+
+If a dist-tag write fails, or the online recheck confirms incorrect tags, rerun
+these recoverable npm operations with the published prerelease version and a
+fresh OTP:
 
 ```sh
 npm dist-tag add ignite-element@<version> beta --otp=<OTP>
