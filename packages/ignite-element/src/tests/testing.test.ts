@@ -593,6 +593,249 @@ describe("ignite test DSL", () => {
 		);
 	});
 
+	it("runs a named multi-step narrative over story evidence and returns a story snapshot", async () => {
+		const store = counterStore();
+		const component = igniteCore({
+			adapter: "redux",
+			source: store,
+			view: ({ snapshot }) => ({
+				count: snapshot.counter.count,
+				canDecrement: snapshot.counter.count > 0,
+			}),
+			commands: ({ actor, command }) => ({
+				increment: (amount: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+				decrement: command(
+					() => actor.dispatch(counterSlice.actions.decrement()),
+					{
+						canExecute: ({ snapshot }) => snapshot.counter.count > 0,
+					},
+				),
+			}),
+			events: (event) => ({
+				"counter-incremented": event<{ count: number }>(),
+			}),
+			effects: ({ snapshot, prevSnapshot, emit }) => {
+				if (snapshot.counter.count === prevSnapshot.counter.count) {
+					return;
+				}
+
+				emit({
+					type: "counter-incremented",
+					count: snapshot.counter.count,
+				});
+			},
+		});
+
+		const storySnapshot = await igniteTest(component).narrative(
+			"counter recovery",
+			async (narrative) => {
+				narrative.given({
+					snapshot: { counter: { count: 0 } },
+					view: { count: 0, canDecrement: false },
+					canExecute: { decrement: false },
+				});
+
+				await narrative.intent({ command: "increment", input: 2 });
+				narrative.checkpoint("after increment", {
+					snapshot: { counter: { count: 2 } },
+					view: { count: 2, canDecrement: true },
+					events: [{ type: "counter-incremented", count: 2 }],
+					canExecute: { decrement: true },
+				});
+
+				store.dispatch(counterSlice.actions.addByAmount(1));
+				narrative.checkpoint("after external fact", {
+					snapshot: { counter: { count: 3 } },
+					view: { count: 3, canDecrement: true },
+					canExecute: { decrement: true },
+				});
+
+				await narrative.intent({ command: "decrement" });
+				narrative.checkpoint("after decrement", {
+					snapshot: { counter: { count: 2 } },
+					view: { count: 2, canDecrement: true },
+					events: [{ type: "counter-incremented", count: 2 }],
+					canExecute: { decrement: true },
+				});
+			},
+		);
+
+		expect(storySnapshot.summary.finalSnapshot).toEqual({
+			counter: { count: 2 },
+		});
+		expect(storySnapshot.summary.commandCount).toBe(2);
+		expect(storySnapshot.trace).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					kind: "command",
+					command: "increment",
+					payload: 2,
+				}),
+				expect.objectContaining({
+					kind: "command",
+					command: "decrement",
+				}),
+			]),
+		);
+	});
+
+	it("reports checkpoint failures with narrative metadata and serialized story evidence", async () => {
+		const store = counterStore();
+		const component = igniteCore({
+			adapter: "redux",
+			source: store,
+			view: ({ snapshot }) => ({
+				count: snapshot.counter.count,
+			}),
+			commands: ({ actor }) => ({
+				increment: (amount: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+			}),
+			events: (event) => ({
+				"counter-incremented": event<{ count: number }>(),
+			}),
+			effects: ({ snapshot, prevSnapshot, emit }) => {
+				if (snapshot.counter.count === prevSnapshot.counter.count) {
+					return;
+				}
+
+				emit({
+					type: "counter-incremented",
+					count: snapshot.counter.count,
+				});
+			},
+		});
+
+		const rejection = await igniteTest(component)
+			.narrative("failing counter story", async (narrative) => {
+				await narrative.intent({ command: "increment", input: 2 });
+				narrative.checkpoint("after increment", {
+					snapshot: { counter: { count: 99 } },
+				});
+			})
+			.then(
+				() => null,
+				(error: unknown) => error,
+			);
+
+		expect(rejection).toMatchObject({
+			message: expect.stringContaining(
+				'[igniteTest] Narrative "failing counter story" failed.',
+			),
+			cause: expect.objectContaining({
+				message: expect.stringContaining("Expected:"),
+			}),
+		});
+		expect((rejection as Error).message).toContain("Phase: checkpoint");
+		expect((rejection as Error).message).toContain(
+			"Checkpoint: after increment",
+		);
+		expect((rejection as Error).message).toContain("Expected:");
+		expect((rejection as Error).message).toContain("Received:");
+		expect((rejection as Error).message).toContain(
+			'"name": "failing counter story"',
+		);
+		expect((rejection as Error).message).toContain('"command": "increment"');
+	});
+
+	it("stops the story on success, checkpoint failure, callback failure, and preserves the primary failure when cleanup also fails", async () => {
+		const createRuntime = () => {
+			const stop = vi.fn();
+			const story = {
+				name: "tracked story",
+				execute: vi.fn(async () => ({
+					snapshot: { count: 1 },
+					events: [],
+				})),
+				trace: vi.fn(() => []),
+				lifecycle: vi.fn(() => []),
+				summary: vi.fn(() => ({
+					name: "tracked story",
+					finalSnapshot: { count: 1 },
+					finalView: { count: 1 },
+					events: [],
+					commandCount: 1,
+					traceCount: 0,
+					lifecycleCount: 0,
+				})),
+				canExecute: vi.fn(() => true),
+				stop,
+			};
+			const runtime = {
+				execute: vi.fn(async () => ({
+					snapshot: { count: 0 },
+					events: [],
+				})),
+				getSnapshot: vi.fn(() => ({ count: 0 })),
+				getView: vi.fn(() => ({ count: 0 })),
+				canExecute: vi.fn(() => true),
+				on: vi.fn(() => ({ unsubscribe() {} })),
+				watchSnapshot: vi.fn(() => ({ unsubscribe() {} })),
+				watchView: vi.fn(() => ({ unsubscribe() {} })),
+				record: vi.fn(() => story),
+			} as unknown as IgniteAgentRuntime<
+				{ count: number },
+				{
+					increment: (amount: number) => unknown;
+				},
+				EmptyEventMap,
+				unknown,
+				{ count: number }
+			>;
+
+			return { runtime, story, stop };
+		};
+
+		const success = createRuntime();
+		await igniteTest(success.runtime).narrative(
+			"successful narrative",
+			async (narrative) => {
+				await narrative.intent({ command: "increment", input: 1 });
+			},
+		);
+		expect(success.stop).toHaveBeenCalledTimes(1);
+
+		const checkpointFailure = createRuntime();
+		await expect(
+			igniteTest(checkpointFailure.runtime).narrative(
+				"checkpoint failure narrative",
+				async (narrative) => {
+					await narrative.intent({ command: "increment", input: 1 });
+					narrative.checkpoint("mismatch", {
+						snapshot: { count: 999 },
+					});
+				},
+			),
+		).rejects.toThrow("Expected:");
+		expect(checkpointFailure.stop).toHaveBeenCalledTimes(1);
+
+		const callbackFailure = createRuntime();
+		await expect(
+			igniteTest(callbackFailure.runtime).narrative(
+				"callback failure narrative",
+				async () => {
+					throw new Error("primary callback failure");
+				},
+			),
+		).rejects.toThrow("primary callback failure");
+		expect(callbackFailure.stop).toHaveBeenCalledTimes(1);
+
+		const cleanupFailure = createRuntime();
+		cleanupFailure.stop.mockImplementation(() => {
+			throw new Error("cleanup failure");
+		});
+		await expect(
+			igniteTest(cleanupFailure.runtime).narrative(
+				"cleanup should not mask callback",
+				async () => {
+					throw new Error("primary callback failure");
+				},
+			),
+		).rejects.toThrow("primary callback failure");
+		expect(cleanupFailure.stop).toHaveBeenCalledTimes(1);
+	});
+
 	it("serializes story traces and matches ordered workflow checkpoints", async () => {
 		const store = counterStore();
 		const component = igniteCore({

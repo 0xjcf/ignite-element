@@ -1,0 +1,21 @@
+{
+	"mainResultSet": {
+		"searchResults": [
+			{
+				"asin": "B074H5SR5S",
+				"injectionSource": "keywords,phrasedoc,knn,behavioral",
+				"productGroup": "grocery_display_on_website"
+			},
+			{
+				"asin": "B000O6K8TI",
+				"injectionSource": "keywords,phrasedoc,knn,behavioral",
+				"productGroup": "grocery_display_on_website"
+			},
+			{
+				"asin": "B074VDFX51",
+				"injectionSource": "keywords,phrasedoc,knn,behavioral",
+				"productGroup": "grocery_display_on_website"
+			}
+		]
+	}
+}

@@ -45,7 +45,8 @@
         "task-1781919547313",
         "task-1783461996097",
         "task-1783610965770",
-        "task-1783719740973"
+        "task-1783719740973",
+        "task-1784383053533"
       ],
       "blocks": [
         "task-1781197578529"
@@ -53,8 +54,8 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-12T19:30:13.064Z",
-      "updatedAt": "2026-07-10T21:48:32.394Z",
-      "deferredReason": "dependency_reopened: task-1781919547313, task-1783610965770, task-1783719740973",
+      "updatedAt": "2026-07-18T13:57:33.533Z",
+      "deferredReason": "dependency_reopened: task-1781919547313, task-1783610965770, task-1783719740973, task-1784383053533",
       "invalidationReason": null
     },
     {
@@ -81,29 +82,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1783610933373",
-      "task": "Evaluate headless projection testing ergonomics from workbench dogfood",
-      "priority": "high",
-      "source": "manual",
-      "details": "After the voice/text workbench lands with deterministic tests using existing headless APIs, evaluate whether repeated consumer friction justifies additional testing ergonomics. Prefer fixtures, documentation, and internal helpers; do not assume a new public matcher, public inspect method, projection CRUD, or second authoring DSL is needed. Close with an evidence-backed no-change verdict when the existing API is sufficient.\nSee .fas/tasks/add-headless-accessibility-contract-assertions-to-the-test-d.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "deferred",
-      "owner": "runtime",
-      "mode": "4-agent",
-      "dependsOn": [
-        "task-1783613728381"
-      ],
-      "blocks": [],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-09T15:28:53.373Z",
-      "updatedAt": "2026-07-11T01:56:45.336Z",
-      "deferredReason": "dependency_reopened: task-1783613728381",
-      "invalidationReason": null
-    },
-    {
       "id": "task-1783610950265",
       "task": "Add rendered DOM accessibility verification for Ignite examples",
       "priority": "high",
@@ -112,7 +90,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "4-agent",
       "dependsOn": [
@@ -125,7 +103,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-09T15:29:10.265Z",
       "updatedAt": "2026-07-09T16:15:28.381Z",
-      "deferredReason": "dependency_reopened: task-1783613728381",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -154,65 +132,15 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1783613728381",
-      "task": "Build LLM-authored voice/text artifact control-center workbench",
-      "priority": "high",
-      "source": "manual",
-      "details": "Build examples/agents/voice-workbench as the decisive dogfood for agent-authored interfaces. A user types or speaks a prompt; a conversation/command-center actor exposes consumer-owned createArtifact, reviseArtifact, and completeResponse commands through igniteTools; a scripted or live OpenAI-compatible/MLX model proposes artifact content and response text/speech through those intent-oriented commands; the actor validates and stores durable ProjectionDocument state; Ignite commits it to accessible native JSX, speech, and text/terminal outputs. Workbench tests use igniteTest.when({ command, input }). Bootstrap uses getSchema(), focused getters, canExecute(), and subscriptions without public inspect().\nSee .fas/tasks/build-voice-text-agent-control-center-workbench-example-for-.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "deferred",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [
-        "task-1783735005336",
-        "task-1783783535436"
-      ],
-      "blocks": [
-        "task-1783610950265",
-        "task-1783610933373"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-09T16:15:28.381Z",
-      "updatedAt": "2026-07-11T15:25:35.436Z",
-      "deferredReason": "dependency_reopened: task-1783783535436",
-      "invalidationReason": null
-    },
-    {
-      "id": "task-1783719632720",
-      "task": "Design retained-surface lifecycle and projection-commit contract for complex interfaces",
-      "priority": "critical",
-      "source": "manual",
-      "details": "Define the Ignite-owned architecture for retained imperative presentation surfaces such as canvas, WebGL, editors, maps, video, and high-frequency dashboards. Compare callback refs, renderer commit directives, lifecycle resources, and first-party projection-target approaches against the current igniteCore and Ignite JSX contracts. Preserve source/view/commands/events/effects semantics, keep effects consequence-oriented, keep Actor-Web authoritative for runtime and simulation, and avoid a canvas-specific core API or a generic multi-source state owner.\nSee .fas/tasks/design-retained-surface-lifecycle-and-projection-commit-cont.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "queued",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [],
-      "blocks": [
-        "task-1783719649309"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-10T21:40:32.720Z",
-      "updatedAt": "2026-07-10T21:47:07.305Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
       "id": "task-1783719649309",
-      "task": "Implement typed retained-node refs and move-safe resource lifecycle",
+      "task": "Implement typed retained-node refs, commit directives, and move-safe lifecycle",
       "priority": "high",
       "source": "manual",
-      "details": "Implement the architecture-approved generic retained-node access path for Ignite JSX and reactive Ignite components. The primitive must support imperative presentation resources without turning drawing or editor state into source truth. Cover initial commit, update, replacement, ref identity change, error containment, same-tick move preservation, true-disconnect teardown, reconnect, and isolated/shared source ownership. Keep the default renderer contract source-compatible and do not add canvas-specific APIs.\nSee .fas/tasks/implement-typed-retained-node-refs-and-move-safe-resource-li.md",
+      "details": "Implement typed callback refs and a reserved commit renderer directive for retained Ignite JSX nodes. ref acquires the stable node and may return cleanup; commit runs after reconciliation and ref acquisition. Preserve move-safe lifecycle and source ownership without DOM leakage, canvas-specific APIs, or framework scheduling.\nSee .fas/tasks/implement-typed-retained-node-refs-and-move-safe-resource-li.md",
       "taskClassification": "standard",
       "selfImprovementCategory": null,
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -224,8 +152,8 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-10T21:40:49.309Z",
-      "updatedAt": "2026-07-10T21:41:05.018Z",
-      "deferredReason": "dependency_reopened: task-1783719632720",
+      "updatedAt": "2026-07-11T22:49:48.000Z",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -233,7 +161,7 @@
       "task": "Honor Ignite JSX keys and preserve retained interface nodes during reconciliation",
       "priority": "high",
       "source": "manual",
-      "details": "Implement key-aware Ignite JSX normalization and reconciliation so retained interface nodes preserve identity across insertions, removals, and reorders. Integrate the retained-node lifecycle contract from the preceding task, preserve focus, selection, canvas/WebGL context identity, and editor-style imperative state, and define deterministic duplicate-key and mixed keyed/unkeyed behavior. Keep positional reconciliation as the compatible unkeyed path and retain explicit fallback diagnostics.\nSee .fas/tasks/honor-ignite-jsx-keys-and-preserve-retained-interface-nodes-.md",
+      "details": "Implement key-aware Ignite JSX normalization and reconciliation so retained interface nodes preserve identity across insertions, removals, and reorders. Integrate the preceding ref/commit lifecycle, preserve focus, selection, canvas/WebGL context identity, and editor state, and keep positional reconciliation as the compatible unkeyed path without adding scheduling policy.\nSee .fas/tasks/honor-ignite-jsx-keys-and-preserve-retained-interface-nodes-.md",
       "taskClassification": "standard",
       "selfImprovementCategory": null,
       "signalFingerprint": null,
@@ -244,23 +172,48 @@
         "task-1783719649309"
       ],
       "blocks": [
-        "task-1783719681572"
+        "task-1783719697500"
       ],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-10T21:41:05.018Z",
-      "updatedAt": "2026-07-10T21:41:21.572Z",
+      "updatedAt": "2026-07-11T22:49:48.000Z",
       "deferredReason": "dependency_reopened: task-1783719649309",
       "invalidationReason": null
     },
     {
       "id": "task-1783719681572",
-      "task": "Add opt-in projection commit scheduling for high-frequency sources",
+      "task": "Evaluate retained-surface scheduling needs after canvas and Mesh Pong dogfood",
       "priority": "high",
       "source": "manual",
-      "details": "Add the architecture-approved opt-in scheduling policy for reactive projection commits from high-frequency sources. Preserve the current synchronous default. Coalesce only presentation commits using latest-snapshot semantics; never drop or merge source snapshots, commands, source-emitted events, telemetry facts, or authoritative actor transitions. Reconcile scheduled rendering with Ignite effects so effects that depend on committed DOM still run after the matching commit, and cancel queued work safely on replacement or true disconnect.\nSee .fas/tasks/add-opt-in-projection-commit-scheduling-for-high-frequency-s.md",
+      "details": "Evaluate whether the shipped ref/commit lifecycle plus consumer-owned requestAnimationFrame or microtask scheduling are sufficient after the local canvas stress example and read-only Actor-Web Mesh Pong validation. This is an evidence and verdict task, not a predetermined implementation. Prefer no new public surface; commitScheduling in igniteCore remains rejected.\nSee .fas/tasks/add-opt-in-projection-commit-scheduling-for-high-frequency-s.md",
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "4-agent",
+      "dependsOn": [
+        "task-1783719721452"
+      ],
+      "blocks": [
+        "task-1783719740973"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-10T21:41:21.572Z",
+      "updatedAt": "2026-07-11T22:54:20.056Z",
+      "deferredReason": "dependency_reopened: task-1783719721452",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1783719697500",
+      "task": "Build a retained real-time canvas stress example and conformance suite",
+      "priority": "high",
+      "source": "manual",
+      "details": "Build a self-contained Ignite canvas example that dogfoods the shipped ref/commit, keyed reconciliation, and move-safe lifecycle contracts. Keep authoritative snapshots separate from display interpolation and demonstrate DPR sizing, ResizeObserver cleanup, consumer-owned requestAnimationFrame drawing, scoped input, recovery, cadence telemetry, and semantic DOM companions without scheduler configuration or game-specific core behavior.\nSee .fas/tasks/build-a-retained-real-time-canvas-stress-example-and-conform.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
       "status": "deferred",
       "owner": "runtime",
@@ -269,38 +222,13 @@
         "task-1783719665018"
       ],
       "blocks": [
-        "task-1783719697500"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-10T21:41:21.572Z",
-      "updatedAt": "2026-07-10T21:41:37.500Z",
-      "deferredReason": "dependency_reopened: task-1783719665018",
-      "invalidationReason": null
-    },
-    {
-      "id": "task-1783719697500",
-      "task": "Build a retained real-time canvas stress example and conformance suite",
-      "priority": "high",
-      "source": "manual",
-      "details": "Build a self-contained Ignite example that stress-tests the retained-surface, keyed reconciliation, lifecycle, and commit-scheduling contracts using a real-time canvas backed by deterministic authoritative snapshots. Keep the simulation clock and state authority separate from display interpolation. Demonstrate high-DPI responsive sizing, ResizeObserver cleanup, requestAnimationFrame interpolation, scoped keyboard and pointer input, blur/visibility recovery, telemetry for source versus render cadence, and semantic DOM controls/status alongside the canvas. The example must exercise generic Ignite APIs rather than introduce a canvas package or game-specific core behavior.\nSee .fas/tasks/build-a-retained-real-time-canvas-stress-example-and-conform.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "deferred",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [
-        "task-1783719681572"
-      ],
-      "blocks": [
         "task-1783719721452"
       ],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-10T21:41:37.500Z",
-      "updatedAt": "2026-07-10T21:42:01.452Z",
-      "deferredReason": "dependency_reopened: task-1783719681572",
+      "updatedAt": "2026-07-11T22:49:48.000Z",
+      "deferredReason": "dependency_reopened: task-1783719665018",
       "invalidationReason": null
     },
     {
@@ -308,7 +236,7 @@
       "task": "Validate the retained-interface contract against Actor-Web Mesh Pong",
       "priority": "high",
       "source": "manual",
-      "details": "Run a bounded cross-repo consumer validation against the current Actor-Web Mesh Pong implementation after the generic Ignite capabilities and local stress example are complete. Treat Actor-Web as a read-only downstream consumer in this task. Verify that authoritative topology sources/read models can feed a headless igniteCore contract and retained canvas component without a Mesh-Pong-specific Ignite wrapper, hardcoded transport facts, DOM-owned lifecycle repair, or migration of simulation/controller/advisory authority into Ignite. Produce a decision-ready adoption brief and create any Actor-Web-owned implementation follow-ups in the Actor-Web queue separately.\nSee .fas/tasks/validate-the-retained-interface-contract-against-actor-web-m.md",
+      "details": "Run a bounded read-only validation against Actor-Web Mesh Pong using the existing igniteCore callable registration API, generic ref/commit directives, and consumer-owned drawing cadence. Verify source/read-model ownership, stable canvas lifecycle, transport truth, and measured reconciliation/draw cadence without a Mesh-Pong wrapper, scheduler configuration, or migration of simulation authority into Ignite.\nSee .fas/tasks/validate-the-retained-interface-contract-against-actor-web-m.md",
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
@@ -319,12 +247,12 @@
         "task-1783719697500"
       ],
       "blocks": [
-        "task-1783719740973"
+        "task-1783719681572"
       ],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-10T21:42:01.452Z",
-      "updatedAt": "2026-07-10T21:42:20.973Z",
+      "updatedAt": "2026-07-11T22:49:48.000Z",
       "deferredReason": "dependency_reopened: task-1783719697500",
       "invalidationReason": null
     },
@@ -333,7 +261,7 @@
       "task": "Document complex-interface authoring, performance, accessibility, and ownership boundaries",
       "priority": "high",
       "source": "manual",
-      "details": "Publish the stable authoring guidance for retained Ignite interfaces after implementation and downstream validation. Document when to use ordinary Ignite JSX, retained-node commits, keyed reconciliation, commit scheduling, igniteShell, Lit, or a separate native custom element. Cover canvas/WebGL/editor/map/video patterns, high-DPI sizing, resize and animation lifecycle, input scoping, accessibility companions, telemetry, testing, and the Actor-Web ownership split. Keep examples self-contained, use the final shipped API only, and avoid presenting Canvas or Mesh Pong as special framework modes.\nSee .fas/tasks/document-complex-interface-authoring-performance-accessibili.md",
+      "details": "Publish stable authoring guidance after implementation, dogfood, downstream validation, and the explicit scheduling verdict. Document ordinary JSX versus retained ref/commit resources, keyed reconciliation, consumer-owned scheduling, igniteShell, Lit, and native elements using only shipped APIs and preserving the Actor-Web ownership split.\nSee .fas/tasks/document-complex-interface-authoring-performance-accessibili.md",
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
@@ -341,7 +269,7 @@
       "owner": "runtime",
       "mode": "single-agent",
       "dependsOn": [
-        "task-1783719721452"
+        "task-1783719681572"
       ],
       "blocks": [
         "task-1781292613064"
@@ -349,8 +277,8 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-10T21:42:20.973Z",
-      "updatedAt": "2026-07-10T21:48:32.394Z",
-      "deferredReason": "dependency_reopened: task-1783719721452",
+      "updatedAt": "2026-07-11T22:49:48.000Z",
+      "deferredReason": "dependency_reopened: task-1783719681572",
       "invalidationReason": null
     },
     {
@@ -375,27 +303,202 @@
       "updatedAt": "2026-07-11T02:10:35.707Z"
     },
     {
-      "id": "task-1783783535436",
-      "task": "Define getSchema as the compiled blueprint and keep coherent inspection private",
-      "priority": "critical",
-      "source": "memory-context-architecture-followup",
-      "details": "Finalize and document the restrained headless discovery contract after the object-form command-call cutover. Treat igniteCore(config) as the executable authoring source and runtime.getSchema() as its only compiled JSON-safe blueprint. Do not add getBlueprint() or public inspect(). Keep coherent inspection private for atomic projection validation and channel commits. Require the voice/text workbench to prove getSchema(), getSnapshot(), getView(), canExecute(commandName), on(...), watchSnapshot(...), and watchView(...) are insufficient before any future observation API is proposed. Projections remain private headless interface-output machinery for validated document and speech facts consumed by DOM, terminal, voice, accessibility, and agent adapters.\nSee .fas/tasks/define-getschema-blueprint-and-public-coherent-inspect-obser.md",
-      "taskClassification": "standard",
-      "selfImprovementCategory": null,
+      "id": "task-1784171502136",
+      "task": "Evaluate an optional Ignite XState graph-testing bridge after executable-narrative dogfood",
+      "priority": "high",
+      "source": "fas-project-audit",
+      "details": "After the statechart epic example work, executable igniteTest narratives, Voice Workbench narrative dogfood, the post-dogfood ergonomics audit, and the Story API naming verdict complete, evaluate whether repeated consumer friction remains when composing XState 5 graph utilities with the final narrative and Story evidence APIs. Prefer documented composition and example-local helpers. A no-change verdict is successful. Only if at least two concrete repeated integration problems remain, add the smallest XState-specific optional bridge that feeds generated paths into existing narrative and Story machinery without owning graph traversal, runtime state, or narrative semantics.\nSee .fas/tasks/evaluate-an-optional-ignite-xstate-graph-testing-bridge-from.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
       "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
-        "task-1783735005336"
+        "task-1784171467799",
+        "task-1783610933373",
+        "task-1783810065213",
+        "task-1784256179201",
+        "task-1784325062961"
+      ],
+      "blocks": [],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-16T03:11:42.136Z",
+      "updatedAt": "2026-07-17T21:51:02.962Z",
+      "deferredReason": null,
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784253036241",
+      "task": "Converge routing examples on machine-driven host projections",
+      "priority": "high",
+      "source": "manual",
+      "details": "Bring the spa-router and nested-child-router examples into the same authority boundary proven by the voice-workbench audit. Machine state is the sole workflow and navigation authority. projectRoute(snapshot) and projectView(snapshot) are sibling pure projections; neither performs History or browser work. The browser host is the imperative shell: bootstrap the URL into the machine before outbound synchronization, push only accepted user navigation, send popstate as intent without immediately writing History, and use replace for canonical fallback. Never write History before actor acceptance. Do not add an Ignite router API or shared core API unless repeated dogfood friction proves a need. Keep the optional XState graph-testing bridge separate. Document the source-of-truth matrix and lifecycle/event contract.\nSee .fas/tasks/converge-routing-examples-on-machine-driven-host-projections.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "queued",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784171467799"
+      ],
+      "blocks": [],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-17T01:50:36.242Z",
+      "updatedAt": "2026-07-17T01:50:36.242Z"
+    },
+    {
+      "id": "task-1784298642791",
+      "task": "Extract framework-neutral Voice Workbench contracts and deterministic cores",
+      "priority": "high",
+      "source": "manual",
+      "details": "Create example-owned serializable document, speech, tool, capability, command, fact, request, receipt, and failure vocabulary. Remove Ignite projection and Neutral tool types from authoritative domain, reducer, policy, actor-protocol, and pure projection contracts. Split deterministic presentation reduction, selectors, provider request/response mapping, validation, sanitization, and decoding away from effectful modules while preserving behavior and public compatibility through outward adapters.\nSee .fas/tasks/extract-framework-neutral-voice-workbench-contracts-and-dete.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "queued",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784298626529"
       ],
       "blocks": [
-        "task-1783613728381"
+        "task-1784298657330"
       ],
       "branchBase": null,
       "prDependencies": [],
-      "createdAt": "2026-07-11T15:25:35.436Z",
-      "updatedAt": "2026-07-11T17:45:38.864Z",
+      "createdAt": "2026-07-17T14:30:42.791Z",
+      "updatedAt": "2026-07-17T14:30:57.330Z",
+      "deferredReason": null,
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784298657330",
+      "task": "Introduce the actor-backed Voice Workbench command and read-model port",
+      "priority": "high",
+      "source": "manual",
+      "details": "Add a framework-neutral application boundary through which model and capability adapters obtain the current model read model, discover the availability-scoped command manifest, and submit proposed semantic commands for deterministic actor admission. Preserve the parent-supervised compound topology and child machines. Rewire the model-turn application path to this port so Ignite remains an optional projection and command-binding adapter rather than a required execution authority.\nSee .fas/tasks/introduce-the-actor-backed-voice-workbench-command-and-read-.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784298642791"
+      ],
+      "blocks": [
+        "task-1784298673199"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-17T14:30:57.330Z",
+      "updatedAt": "2026-07-17T14:31:13.200Z",
+      "deferredReason": "dependency_reopened: task-1784298642791",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784298673199",
+      "task": "Split Voice Workbench provider protocols from imperative adapters",
+      "priority": "high",
+      "source": "manual",
+      "details": "Move nondeterministic MLX, web-search, product-pricing, browser microphone, speech synthesis, timeout, abort, retry, and environment work into explicitly named replaceable adapters. Keep pure request construction, response decoding, validation, ranking, sanitization, policy, proof normalization, and error classification in deterministic protocol/core modules. Compose adapters through application-owned ports and return correlated expected outcomes as facts or receipts.\nSee .fas/tasks/split-voice-workbench-provider-protocols-from-imperative-ada.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784298657330"
+      ],
+      "blocks": [
+        "task-1784298685324"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-17T14:31:13.200Z",
+      "updatedAt": "2026-07-17T14:31:25.324Z",
+      "deferredReason": "dependency_reopened: task-1784298657330",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784298685324",
+      "task": "Separate Voice Workbench read models, Ignite composition, and renderers",
+      "priority": "high",
+      "source": "manual",
+      "details": "Export explicit renderer-neutral Voice Workbench view contracts and split the composed presentation read model into coherent conversation, artifact, and runtime pure projectors. Keep Ignite composition thin: bind the caller-owned actor source, derive views, expose schema-admitted semantic commands, and emit public facts. Make JSX renderers consume prepared view contracts and return templates only, without importing the Ignite component type, reading raw snapshots, repeating guards, allocating workflow data, or performing effects.\nSee .fas/tasks/separate-voice-workbench-read-models-ignite-composition-and-.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784298673199"
+      ],
+      "blocks": [
+        "task-1784298700854"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-17T14:31:25.324Z",
+      "updatedAt": "2026-07-17T14:31:40.854Z",
+      "deferredReason": "dependency_reopened: task-1784298673199",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784298700854",
+      "task": "Converge Voice Workbench hosts and close hexagonal boundary conformance",
+      "priority": "high",
+      "source": "manual",
+      "details": "Finish browser, terminal, parity, and headless composition around the framework-neutral actor/application core and replaceable adapters. Remove the reviewed architecture-violation baseline and require zero violations. Refresh the Mock Studio implementation receipt and README architecture map, then prove graph, command, view, fact, failure, cleanup, replay, accessibility, responsive parity, and end-to-end behavior without restoring duplicate authority.\nSee .fas/tasks/converge-voice-workbench-hosts-and-close-hexagonal-boundary-.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784298685324"
+      ],
+      "blocks": [],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-17T14:31:40.854Z",
+      "updatedAt": "2026-07-17T14:31:40.854Z",
+      "deferredReason": "dependency_reopened: task-1784298685324",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784383053533",
+      "task": "Cut v3.0.0-beta.9 after executable narrative dogfood",
+      "priority": "high",
+      "source": "manual",
+      "details": "After the Voice Workbench narrative dogfood, ergonomics audit, Story API naming verdict, and scoped dist-tag hardening complete, close and merge the beta line, run the inert beta dry run, publish all four fixed packages at 3.0.0-beta.9, push the release commit and annotated package tags, verify registry versions and beta/latest dist-tags, deploy and smoke-test the beta documentation, and record the operator receipts. This is a prerelease checkpoint; do not exit Changesets pre mode and do not move ignite-element latest away from 2.2.2.\nSee .fas/tasks/cut-v3-0-0-beta-9-after-executable-narrative-dogfood.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "processing",
+      "owner": "runtime",
+      "mode": "single-agent",
+      "dependsOn": [
+        "task-1784383032552"
+      ],
+      "blocks": [
+        "task-1781292613064"
+      ],
+      "nonEpicDisposition": {
+        "kind": "standalone",
+        "reason": "Operator-owned prerelease checkpoint across the four fixed packages."
+      },
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-18T13:57:33.533Z",
+      "updatedAt": "2026-07-18T18:05:38.770Z",
       "deferredReason": null,
       "invalidationReason": null
     }
@@ -3329,6 +3432,547 @@
       "workflowId": "direct-1783736267263",
       "branchName": "beta",
       "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1783719632720",
+      "task": "Define retained-surface ref and commit contract for complex interfaces",
+      "priority": "critical",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [
+        "task-1783719649309"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-11T23:17:58.380Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783805968624",
+      "branchName": "fas/retained-surface-contract",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1783783535436",
+      "task": "Define getSchema as the compiled blueprint and keep coherent inspection private",
+      "priority": "critical",
+      "source": "memory-context-architecture-followup",
+      "taskClassification": "standard",
+      "selfImprovementCategory": null,
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1783735005336"
+      ],
+      "blocks": [
+        "task-1783613728381"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-12T02:12:31.715Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783813576313",
+      "branchName": "fas/getschema-blueprint",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1783613728381",
+      "task": "Build LLM-authored voice/text artifact control-center workbench",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1783735005336",
+        "task-1783783535436"
+      ],
+      "blocks": [
+        "task-1783610950265",
+        "task-1783610933373"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-13T20:02:06.081Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1783823059078",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784038468448",
+      "task": "Dogfood provider-neutral external capability federation in the generic voice and text workbench",
+      "priority": "critical",
+      "source": "voice-workbench-followup",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1783613728381"
+      ],
+      "blocks": [],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-14T14:15:20.432Z",
+      "terminalOutcome": null,
+      "branchName": null,
+      "prStatus": null,
+      "workflowId": "cancelled:task-1784038468448",
+      "cancelledReason": "Duplicate queue row created while correcting follow-up source trust; superseded by task-1784038488251."
+    },
+    {
+      "id": "task-1784038488251",
+      "task": "Dogfood provider-neutral external capability federation in the generic voice and text workbench",
+      "priority": "critical",
+      "source": "sre-followup",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1783613728381"
+      ],
+      "blocks": [
+        "task-1784061144784"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-15T02:12:47.963Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784038532882",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784061144784",
+      "task": "Turn the voice workbench right rail into a live runtime inspector and harden capability reliability",
+      "priority": "critical",
+      "source": "operator-followup",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1784038488251"
+      ],
+      "blocks": [],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-15T02:14:56.396Z",
+      "terminalOutcome": null,
+      "branchName": null,
+      "prStatus": null,
+      "workflowId": "cancelled:task-1784061144784",
+      "cancelledReason": "Re-authorized directly by the operator for immediate continuation in the same PR; replacing the untrusted operator-followup row with a trusted operator row."
+    },
+    {
+      "id": "task-1784081707323",
+      "task": "Turn the voice workbench right rail into a live runtime inspector and harden capability reliability",
+      "priority": "critical",
+      "source": "operator",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-15T04:16:49.678Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784081714243",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784171303126",
+      "task": "Define canonical voice-workbench machine contracts and a fresh actor factory",
+      "priority": "high",
+      "source": "fas-project-audit",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [
+        "task-1784171355639"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-16T16:26:18.060Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784215143713",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784171355639",
+      "task": "Add XState graph characterization and invariant tests for voice-workbench",
+      "priority": "high",
+      "source": "fas-project-audit",
+      "taskClassification": "standard",
+      "selfImprovementCategory": null,
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1784171303126"
+      ],
+      "blocks": [
+        "task-1784171435029"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-16T17:00:49.202Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784219208207",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784171435029",
+      "task": "Restructure voice-workbench lifecycle ownership and separate presentation state",
+      "priority": "high",
+      "source": "fas-project-audit",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1784171355639"
+      ],
+      "blocks": [
+        "task-1784171467799"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-16T18:23:19.995Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784221286547",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784171467799",
+      "task": "Add explicit turn, voice-capture, and speech-delivery terminal lifecycles",
+      "priority": "high",
+      "source": "fas-project-audit",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1784171435029"
+      ],
+      "blocks": [
+        "task-1784171502136",
+        "task-1784253036241"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-17T01:47:54.379Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784226290532",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784256179201",
+      "task": "Refactor Voice Workbench to a parent-supervised hexagonal actor topology",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "workflow-quality",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1784171467799"
+      ],
+      "blocks": [
+        "task-1784171502136"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-17T13:30:13.908Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784256193311",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784298500346",
+      "task": "Gate 0: refresh and approve the Voice Workbench Mock Studio behavior handoff",
+      "priority": "high",
+      "source": "mock-studio-architecture-audit",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [],
+      "nonEpicDisposition": {
+        "kind": "standalone",
+        "reason": "Cancelled duplicate retained only as provenance for corrected trusted-source Gate 0 row."
+      },
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-17T14:28:58.776Z",
+      "terminalOutcome": null,
+      "branchName": null,
+      "prStatus": null,
+      "workflowId": "cancelled:task-1784298500346",
+      "cancelledReason": "Recreated with trusted fas-project-audit provenance so fas implement can bind the queued Gate 0 task automatically."
+    },
+    {
+      "id": "task-1784298555397",
+      "task": "Gate 0: refresh and approve the Voice Workbench Mock Studio behavior handoff",
+      "priority": "high",
+      "source": "fas-project-audit",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [],
+      "nonEpicDisposition": {
+        "kind": "standalone",
+        "reason": "Superseded before execution by manual-source Gate 0 row so fas implement can bind it without project-audit metadata."
+      },
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-17T14:29:51.392Z",
+      "terminalOutcome": null,
+      "branchName": null,
+      "prStatus": null,
+      "workflowId": "cancelled:task-1784298555397",
+      "cancelledReason": "Recreated with manual source because fas-project-audit requires capture metadata unavailable for this user-directed queue mutation."
+    },
+    {
+      "id": "task-1784298607166",
+      "task": "Gate 0: refresh and approve the Voice Workbench Mock Studio behavior handoff",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [
+        "task-1784298626529",
+        "task-1783810065213"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-17T22:25:50.695Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784298913248",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1783810065213",
+      "task": "Define and implement multi-step igniteTest narratives over existing Story evidence",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1784298607166"
+      ],
+      "blocks": [
+        "task-1784171502136",
+        "task-1784324997164"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-17T23:29:40.596Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784327214204",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784298626529",
+      "task": "Create and validate every Voice Workbench state-machine contract and executable architecture boundary",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1784298607166",
+        "task-1784386923255",
+        "task-1784389086743"
+      ],
+      "blocks": [
+        "task-1784298642791",
+        "task-1784324997164"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-18T15:46:56.562Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784383141406",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784386923255",
+      "task": "Repair Voice Workbench projection-target liveness in the full verification lane",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [
+        "task-1784298626529"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-18T15:47:10.883Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784387716416",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784389086743",
+      "task": "Repair Voice Workbench characterization typecheck conformance",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [
+        "task-1784298626529"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-18T15:47:23.591Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784389209605",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784324997164",
+      "task": "Dogfood executable narratives across Voice Workbench failure and recovery paths",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1783810065213",
+        "task-1784298626529"
+      ],
+      "blocks": [
+        "task-1783610933373"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-18T17:08:39.687Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784389728898",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1783610933373",
+      "task": "Evaluate executable-narrative testing ergonomics from Voice Workbench dogfood",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1783613728381",
+        "task-1784324997164"
+      ],
+      "blocks": [
+        "task-1784171502136",
+        "task-1784325062961"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-18T17:24:28.025Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784394586900",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784325062961",
+      "task": "Decide Story API naming and v3 beta migration from narrative dogfood",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1783610933373"
+      ],
+      "blocks": [
+        "task-1784171502136",
+        "task-1784383032552"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-18T17:45:57.030Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784395631185",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784383032552",
+      "task": "Harden beta dist-tags for scoped lockstep packages",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1784325062961"
+      ],
+      "blocks": [
+        "task-1784383053533"
+      ],
+      "nonEpicDisposition": {
+        "kind": "standalone",
+        "reason": "Cross-cutting release hardening required before the beta.9 operator cut."
+      },
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-18T18:04:54.980Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784396820659",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
     }
   ],
   "pullRequests": [],
@@ -3398,6 +4042,10 @@
         {
           "taskId": "task-1782187745669",
           "epicRole": "example-doc-cleanup"
+        },
+        {
+          "taskId": "task-1784253036241",
+          "epicRole": "routing-conformance"
         }
       ]
     },
@@ -3523,10 +4171,6 @@
           "epicRole": "example"
         },
         {
-          "taskId": "task-1783610933373",
-          "epicRole": "testing-ergonomics-follow-up"
-        },
-        {
           "taskId": "task-1783610950265",
           "epicRole": "validation"
         },
@@ -3571,7 +4215,7 @@
         },
         {
           "taskId": "task-1783719681572",
-          "epicRole": "commit-scheduling"
+          "epicRole": "scheduling-evidence"
         },
         {
           "taskId": "task-1783719697500",
@@ -3590,14 +4234,141 @@
       "title": "Retained Surfaces and Complex Interface Runtime",
       "priority": "high",
       "consumer": "ignite-element",
-      "goal": "Make Ignite Element support canvas, WebGL, editors, maps, video, and high-frequency dashboards through stable retained-node access, keyed reconciliation, move-safe resource lifecycle, and projection-only commit scheduling while preserving source authority and the existing source/view/commands/effects model.",
+      "goal": "Make Ignite Element support canvas, WebGL, editors, maps, video, and high-frequency dashboards through typed callback refs, reserved post-reconciliation commit directives, keyed reconciliation, move-safe resource lifecycle, and evidence-driven scheduling decisions while preserving the existing igniteCore registration API and source authority.",
       "acceptance": [
         "The architecture defines a generic retained-surface contract rather than a canvas-specific core API, with source state remaining authoritative and effects remaining consequence-oriented.",
-        "Ignite JSX provides typed retained-node access with deterministic initial, update, replacement, move, and true-disconnect cleanup semantics.",
+        "Ignite JSX provides typed callback refs and a reserved commit directive with deterministic initial, update, replacement, move, and true-disconnect cleanup semantics without leaking directives to the DOM.",
         "Keyed reconciliation preserves canvas contexts, editor instances, focus, selection, and other retained node state through reorder and fallback paths.",
-        "An opt-in commit scheduler coalesces projection work without dropping Actor-Web snapshots, commands, events, or effect ordering guarantees.",
-        "A deterministic real-time canvas stress example proves device-pixel-ratio sizing, ResizeObserver handling, requestAnimationFrame interpolation, scoped input, telemetry, and accessible DOM companions.",
-        "Downstream validation documents the Actor-Web Mesh Pong adoption contract without moving Actor-Web lifecycle, simulation, transport, or advisory authority into Ignite."
+        "igniteCore gains no commitScheduling surface; retained resources own requestAnimationFrame or microtask cadence until post-dogfood evidence demonstrates a need at the component registration boundary.",
+        "A deterministic real-time canvas stress example proves device-pixel-ratio sizing, ResizeObserver handling, consumer-owned requestAnimationFrame interpolation, scoped input, telemetry, and accessible DOM companions.",
+        "Downstream validation documents the Actor-Web Mesh Pong adoption contract without moving Actor-Web lifecycle, simulation, transport, or advisory authority into Ignite, and a later evidence task records the no-API verdict or creates a separate scheduler implementation brief."
+      ]
+    },
+    {
+      "members": [
+        {
+          "taskId": "task-1784171303126",
+          "epicRole": "machine-contracts"
+        },
+        {
+          "taskId": "task-1784171355639",
+          "epicRole": "graph-characterization"
+        },
+        {
+          "taskId": "task-1784171435029",
+          "epicRole": "lifecycle-ownership"
+        },
+        {
+          "taskId": "task-1784171467799",
+          "epicRole": "terminal-lifecycles"
+        },
+        {
+          "taskId": "task-1784171502136",
+          "epicRole": "optional-ignite-bridge"
+        },
+        {
+          "taskId": "task-1784256179201",
+          "epicRole": "actor-topology-hexagonal"
+        }
+      ],
+      "id": "epic-voice-workbench-statechart-conformance",
+      "title": "Voice Workbench Statechart Conformance",
+      "priority": "high",
+      "consumer": "ignite-element/examples/agents/voice-workbench",
+      "goal": "Make executable statecharts the single lifecycle authority for voice-workbench provider, turn, voice-capture, and speech-delivery workflows while keeping reducers, policies, adapter facts, and Ignite projections in their proper roles.",
+      "acceptance": [
+        "Every lifecycle has an approved machine shape or an explicit reducer, policy/fact, or presentation-only disposition.",
+        "The executable session logic prevents responding while the model is preparing or unavailable and exposes fresh isolated actor construction.",
+        "Direct xstate/graph tests prove reachability, forbidden combinations, terminal outcomes, recovery, cancellation, timeout, and path coverage.",
+        "The model-turn, voice-capture, and speech-delivery workflows have one authoritative owner with typed events, effects, facts, raw snapshots, and derived views.",
+        "Any Ignite graph-testing bridge is optional, XState-specific, dogfood-justified, additive to igniteTest, and does not create a second graph engine, recorder, schema, or state authority."
+      ]
+    },
+    {
+      "members": [
+        {
+          "taskId": "task-1784298607166",
+          "epicRole": "behavior-handoff-gate"
+        },
+        {
+          "taskId": "task-1784298626529",
+          "epicRole": "boundary-characterization"
+        },
+        {
+          "taskId": "task-1784298642791",
+          "epicRole": "neutral-contracts-functional-core"
+        },
+        {
+          "taskId": "task-1784298657330",
+          "epicRole": "actor-application-boundary"
+        },
+        {
+          "taskId": "task-1784298673199",
+          "epicRole": "imperative-adapters"
+        },
+        {
+          "taskId": "task-1784298685324",
+          "epicRole": "projections-renderers"
+        },
+        {
+          "taskId": "task-1784298700854",
+          "epicRole": "host-composition-acceptance"
+        },
+        {
+          "taskId": "task-1784386923255",
+          "epicRole": "full-gate-liveness-repair"
+        },
+        {
+          "taskId": "task-1784389086743",
+          "epicRole": "characterization-gate-repair"
+        }
+      ],
+      "id": "epic-voice-workbench-hexagonal-boundary-conformance",
+      "title": "Voice Workbench Hexagonal Boundary Conformance",
+      "priority": "high",
+      "consumer": "ignite-element/examples/agents/voice-workbench",
+      "goal": "Bring the implemented Voice Workbench into full Mock Studio, actor-model, and hexagonal conformance: refresh the accepted behavior handoff, make example-owned contracts and deterministic cores framework-neutral, keep Ignite projection-only, isolate nondeterministic provider and host adapters, and enforce the dependency direction with executable evidence.",
+      "acceptance": [
+        "The Mock Studio handoff matches the implemented parent and child machine topology, exact public command surface, raw snapshots, lifecycle dispositions, ownership matrix, host projections, failure coverage, and maturity labels, with an explicit architecture amendment approval gate.",
+        "Deterministic domain, policy, reducer, actor protocol, and pure projection modules depend only inward on example-owned serializable contracts and contain no browser, Node, provider, clock, network, randomness, or concrete adapter work.",
+        "The model-turn application path uses a framework-neutral actor-backed command and read-model port; browser, terminal, and headless model execution do not require an Ignite component as runtime authority.",
+        "MLX, web search, product pricing, microphone, speech, time, and environment behavior live in replaceable imperative adapters that translate expected outcomes into correlated facts or receipts.",
+        "Ignite composition contains projection and command binding only; renderer functions consume renderer-neutral prepared views and return JSX/templates without workflow derivation or effects.",
+        "Every explicit Voice Workbench state machine has a source-aligned contract and independent bounded validation receipt covering reachability, event disposition, terminal and recovery paths, forbidden states, serialization, correlation, and supervision.",
+        "Executable import-boundary, forbidden-global, graph, headless, browser, terminal, parity, accessibility, replay, cleanup, and full verification gates pass with zero reviewed architecture violations."
+      ]
+    },
+    {
+      "members": [
+        {
+          "taskId": "task-1783810065213",
+          "epicRole": "narrative-helper"
+        },
+        {
+          "taskId": "task-1784324997164",
+          "epicRole": "voice-workbench-dogfood"
+        },
+        {
+          "taskId": "task-1783610933373",
+          "epicRole": "post-dogfood-ergonomics-audit"
+        },
+        {
+          "taskId": "task-1784325062961",
+          "epicRole": "story-api-naming-verdict"
+        }
+      ],
+      "id": "epic-ignite-executable-narratives",
+      "title": "Executable Narratives and Story Evidence",
+      "priority": "high",
+      "consumer": "ignite-element",
+      "goal": "Make user and system narratives typed, executable, and evidence-producing across authoritative behavior and semantic projections without introducing a second state authority, graph engine, recorder, or trace format.",
+      "acceptance": [
+        "igniteTest exposes a typed multi-step narrative helper that composes the existing scenario assertions, Story recorder, trace serialization, and cleanup semantics.",
+        "Narrative preconditions are assertion-only, commands remain typed intent inputs, host and adapter outcomes remain externally driven facts, and named checkpoints assert semantic snapshot, view, event, and command-availability evidence.",
+        "Voice Workbench dogfoods preparation failure and retry, permission denial and text recovery, cancellation, timeout, stale receipts, artifact revision conflicts, and speech-unavailable recovery with machine and projection receipts.",
+        "A post-dogfood ergonomics audit records concrete repeated friction or closes with a no-change verdict before any wider testing surface is added.",
+        "A beta naming verdict explicitly retains the Story vocabulary or migrates it with compatibility aliases, changeset, documentation, and entrypoint coverage.",
+        "The optional XState graph bridge remains downstream, delegates traversal to xstate/graph, and consumes narrative and Story evidence without becoming a second narrative engine."
       ]
     }
   ]

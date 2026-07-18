@@ -2195,21 +2195,27 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
-### Task: Evaluate headless projection testing ergonomics from workbench dogfood
+### Task: Evaluate executable-narrative testing ergonomics from Voice Workbench dogfood
 
-- Title: Evaluate headless projection testing ergonomics from workbench dogfood
+- Title: Evaluate executable-narrative testing ergonomics from Voice Workbench dogfood
 - Mode: 4-agent
-- Status: deferred
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/add-headless-accessibility-contract-assertions-to-the-test-d.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Build LLM-authored voice/text artifact control-center workbench
 
 - Title: Build LLM-authored voice/text artifact control-center workbench
 - Mode: 6-agent
-- Status: deferred
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/build-voice-text-agent-control-center-workbench-example-for-.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Add rendered DOM accessibility verification for Ignite examples
 
@@ -2235,17 +2241,20 @@ No active tasks.
 - Owner: planner
 - Brief: .fas/tasks/harden-self-hosted-renovate-reproducibility.md
 
-### Task: Design retained-surface lifecycle and projection-commit contract for complex interfaces
+### Task: Define retained-surface ref and commit contract for complex interfaces
 
-- Title: Design retained-surface lifecycle and projection-commit contract for complex interfaces
+- Title: Define retained-surface ref and commit contract for complex interfaces
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/design-retained-surface-lifecycle-and-projection-commit-cont.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
-### Task: Implement typed retained-node refs and move-safe resource lifecycle
+### Task: Implement typed retained-node refs, commit directives, and move-safe lifecycle
 
-- Title: Implement typed retained-node refs and move-safe resource lifecycle
+- Title: Implement typed retained-node refs, commit directives, and move-safe lifecycle
 - Mode: 6-agent
 - Status: queued
 - Owner: runtime
@@ -2259,10 +2268,10 @@ No active tasks.
 - Owner: runtime
 - Brief: .fas/tasks/honor-ignite-jsx-keys-and-preserve-retained-interface-nodes-.md
 
-### Task: Add opt-in projection commit scheduling for high-frequency sources
+### Task: Evaluate retained-surface scheduling needs after canvas and Mesh Pong dogfood
 
-- Title: Add opt-in projection commit scheduling for high-frequency sources
-- Mode: 6-agent
+- Title: Evaluate retained-surface scheduling needs after canvas and Mesh Pong dogfood
+- Mode: 4-agent
 - Status: queued
 - Owner: runtime
 - Brief: .fas/tasks/add-opt-in-projection-commit-scheduling-for-high-frequency-s.md
@@ -2315,9 +2324,312 @@ No active tasks.
 
 - Title: Define getSchema as the compiled blueprint and keep coherent inspection private
 - Mode: 6-agent
-- Status: deferred
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/define-getschema-blueprint-and-public-coherent-inspect-obser.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Define and implement multi-step igniteTest narratives over existing Story evidence
+
+- Title: Define and implement multi-step igniteTest narratives over existing Story evidence
+- Mode: 6-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/add-named-ignitetest-rehearsals-with-trace-snapshots.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Simplify the voice workbench to one command that starts a recommended MLX model server and the web example with safe lifecycle, configuration, documentation, and verification
+
+- Title: Simplify the voice workbench to one command that starts a recommended MLX model server and the web example with safe lifecycle, configuration, documentation, and verification
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/simplify-the-voice-workbench-to-one-command-that-starts-a-re.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Complete the dynamic MLX tool-feedback loop and retain artifact revision history in the voice workbench
+
+- Title: Complete the dynamic MLX tool-feedback loop and retain artifact revision history in the voice workbench
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/complete-the-dynamic-mlx-tool-feedback-loop-and-retain-artif.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Dogfood provider-neutral external capability federation in the generic voice and text workbench
+
+- Title: Dogfood provider-neutral external capability federation in the generic voice and text workbench
+- Mode: 6-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/dogfood-provider-neutral-external-capability-federation-in-t.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Turn the voice workbench right rail into a live runtime inspector and harden capability reliability
+
+- Title: Turn the voice workbench right rail into a live runtime inspector and harden capability reliability
+- Mode: 6-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/turn-the-voice-workbench-right-rail-into-a-live-runtime-insp.md
+- Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Pace batched Brave web-search queries against provider rate limits without adding LLM rounds
+
+- Title: Pace batched Brave web-search queries against provider rate limits without adding LLM rounds
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/pace-batched-brave-web-search-queries-against-provider-rate-.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Structure voice-workbench domains and add a product-pricing policy with explicit UI projections
+
+- Title: Structure voice-workbench domains and add a product-pricing policy with explicit UI projections
+- Mode: 6-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/structure-voice-workbench-domains-and-add-a-product-pricing-.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Derive and implement deterministic Brave pricing query enrichment for voice-workbench
+
+- Title: Derive and implement deterministic Brave pricing query enrichment for voice-workbench
+- Mode: 6-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/derive-and-implement-deterministic-brave-pricing-query-enric.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Improve voice-workbench partial-result UX and provider reason codes
+
+- Title: Improve voice-workbench partial-result UX and provider reason codes
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/improve-voice-workbench-partial-result-ux-and-provider-reaso.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Define canonical voice-workbench machine contracts and a fresh actor factory
+
+- Title: Define canonical voice-workbench machine contracts and a fresh actor factory
+- Mode: 6-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/define-canonical-voice-workbench-machine-contracts-and-a-fre.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Add XState graph characterization and invariant tests for voice-workbench
+
+- Title: Add XState graph characterization and invariant tests for voice-workbench
+- Mode: 4-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/add-xstate-graph-characterization-and-invariant-tests-for-vo.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Restructure voice-workbench lifecycle ownership and separate presentation state
+
+- Title: Restructure voice-workbench lifecycle ownership and separate presentation state
+- Mode: 6-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/restructure-voice-workbench-lifecycle-ownership-and-separate.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Add explicit turn, voice-capture, and speech-delivery terminal lifecycles
+
+- Title: Add explicit turn, voice-capture, and speech-delivery terminal lifecycles
+- Mode: 6-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/add-explicit-turn-voice-capture-and-speech-delivery-terminal.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Evaluate an optional Ignite XState graph-testing bridge after executable-narrative dogfood
+
+- Title: Evaluate an optional Ignite XState graph-testing bridge after executable-narrative dogfood
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/evaluate-an-optional-ignite-xstate-graph-testing-bridge-from.md
+
+### Task: Converge routing examples on machine-driven host projections
+
+- Title: Converge routing examples on machine-driven host projections
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/converge-routing-examples-on-machine-driven-host-projections.md
+
+### Task: Refactor Voice Workbench to a parent-supervised hexagonal actor topology
+
+- Title: Refactor Voice Workbench to a parent-supervised hexagonal actor topology
+- Mode: 6-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/refactor-voice-workbench-to-a-parent-supervised-hexagonal-ac.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Gate 0: refresh and approve the Voice Workbench Mock Studio behavior handoff
+
+- Title: Gate 0: refresh and approve the Voice Workbench Mock Studio behavior handoff
+- Mode: 6-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/gate-0-refresh-and-approve-the-voice-workbench-mock-studio-b.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Create and validate every Voice Workbench state-machine contract and executable architecture boundary
+
+- Title: Create and validate every Voice Workbench state-machine contract and executable architecture boundary
+- Mode: 6-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/define-executable-voice-workbench-architecture-boundaries-an.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Extract framework-neutral Voice Workbench contracts and deterministic cores
+
+- Title: Extract framework-neutral Voice Workbench contracts and deterministic cores
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/extract-framework-neutral-voice-workbench-contracts-and-dete.md
+
+### Task: Introduce the actor-backed Voice Workbench command and read-model port
+
+- Title: Introduce the actor-backed Voice Workbench command and read-model port
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/introduce-the-actor-backed-voice-workbench-command-and-read-.md
+
+### Task: Split Voice Workbench provider protocols from imperative adapters
+
+- Title: Split Voice Workbench provider protocols from imperative adapters
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/split-voice-workbench-provider-protocols-from-imperative-ada.md
+
+### Task: Separate Voice Workbench read models, Ignite composition, and renderers
+
+- Title: Separate Voice Workbench read models, Ignite composition, and renderers
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/separate-voice-workbench-read-models-ignite-composition-and-.md
+
+### Task: Converge Voice Workbench hosts and close hexagonal boundary conformance
+
+- Title: Converge Voice Workbench hosts and close hexagonal boundary conformance
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/converge-voice-workbench-hosts-and-close-hexagonal-boundary-.md
+
+### Task: Dogfood executable narratives across Voice Workbench failure and recovery paths
+
+- Title: Dogfood executable narratives across Voice Workbench failure and recovery paths
+- Mode: 6-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/dogfood-executable-narratives-across-voice-workbench-failure.md
+- Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Decide Story API naming and v3 beta migration from narrative dogfood
+
+- Title: Decide Story API naming and v3 beta migration from narrative dogfood
+- Mode: 6-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/decide-story-api-naming-and-v3-beta-migration-from-narrative.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Harden beta dist-tags for scoped lockstep packages
+
+- Title: Harden beta dist-tags for scoped lockstep packages
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/harden-beta-dist-tags-for-scoped-lockstep-packages.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Cut v3.0.0-beta.9 after executable narrative dogfood
+
+- Title: Cut v3.0.0-beta.9 after executable narrative dogfood
+- Mode: single-agent
+- Status: implementing
+- Owner: implementer
+- Brief: .fas/tasks/cut-v3-0-0-beta-9-after-executable-narrative-dogfood.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Repair Voice Workbench projection-target liveness in the full verification lane
+
+- Title: Repair Voice Workbench projection-target liveness in the full verification lane
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/repair-voice-workbench-projection-target-liveness-in-the-ful.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Repair Voice Workbench characterization typecheck conformance
+
+- Title: Repair Voice Workbench characterization typecheck conformance
+- Mode: single-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/repair-voice-workbench-characterization-typecheck-conformanc.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ## Template
 

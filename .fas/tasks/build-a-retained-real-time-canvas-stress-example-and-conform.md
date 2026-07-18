@@ -6,21 +6,23 @@ Created with `fas create-task` on 2026-07-10.
 
 ## Problem
 
-Build a self-contained Ignite example that stress-tests the retained-surface, keyed reconciliation, lifecycle, and commit-scheduling contracts using a real-time canvas backed by deterministic authoritative snapshots. Keep the simulation clock and state authority separate from display interpolation. Demonstrate high-DPI responsive sizing, ResizeObserver cleanup, requestAnimationFrame interpolation, scoped keyboard and pointer input, blur/visibility recovery, telemetry for source versus render cadence, and semantic DOM controls/status alongside the canvas. The example must exercise generic Ignite APIs rather than introduce a canvas package or game-specific core behavior.
+Build a self-contained Ignite example that dogfoods the retained ref/commit, keyed reconciliation, and move-safe lifecycle contracts using a real-time canvas backed by deterministic authoritative snapshots. Keep simulation clock and state authority separate from display interpolation. Demonstrate high-DPI responsive sizing, ResizeObserver cleanup, consumer-owned requestAnimationFrame drawing, scoped keyboard and pointer input, blur/visibility recovery, telemetry for source versus reconciliation versus draw cadence, and semantic DOM controls/status. Use the existing igniteCore callable registration shape and generic JSX ref/commit directives; do not introduce a scheduler config, canvas package, or game-specific core behavior.
 
 ## Acceptance criteria
 
-- The example renders a responsive device-pixel-ratio-aware canvas without recreating its context during ordinary state changes or keyed layout reorders.
-- Authoritative fixed-step snapshots remain separate from requestAnimationFrame interpolation, and telemetry reports source cadence, commit cadence, coalesced commits, and retained-node lifecycle.
+- The example uses component("name", projection => <canvas ref={...} commit={...} />) and renders a responsive DPR-aware canvas without recreating its context during state changes or keyed reorders.
+- Authoritative fixed-step snapshots remain separate from consumer-owned requestAnimationFrame interpolation; telemetry distinguishes source, reconciliation, commit, and draw cadence.
 - Input is focus-scoped, prevents unintended page interaction where appropriate, clears held state on blur/visibility loss, and exposes keyboard-accessible DOM controls and status.
-- ResizeObserver, animation-frame, input, and retained-resource cleanup are proven across disconnect, reconnect, and same-tick moves.
+- ResizeObserver, animation-frame, input, ref cleanup, and retained-resource cleanup are proven across disconnect, reconnect, and same-tick moves.
+- Any consumer-owned microtask queue uses an active or generation token because queued microtasks are not cancelable, and tests prove that invalidated work cannot draw after disconnect or into a later reconnect generation.
+- The dogfood records whether consumer-owned scheduling is sufficient and supplies measurements to task-1783719681572 without adding a public Ignite scheduler.
 - Unit, renderer, browser, accessibility, and example runtime-test lanes are self-contained and included in test:examples/test:full coverage.
 - TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
 - TDD: every production code change in the change set is covered by an added or updated test.
-- DDD: respect domain boundaries — keep the functional core deterministic and side-effect-free (no reads, writes, network, or clock), confine coordination to the imperative shell, and have adapters return facts instead of throwing.
+- DDD: keep simulation deterministic, keep time/DOM/input in the imperative shell, and have adapters return facts instead of throwing.
+- The work is tracked in .fas/TASKS.md and queued in .fas/queue/tasks.json.
 - The work is tracked in `.fas/TASKS.md`.
 - The task has a clear implementation and verification plan before execution starts.
-- The task is queued in `.fas/queue/tasks.json` for the runtime.
 
 ## Proposed solution
 
@@ -44,10 +46,10 @@ Build a self-contained Ignite example that stress-tests the retained-surface, ke
 
 ## Implementation plan
 
-- Create a self-contained example package with deterministic fixed-step source snapshots and a separate requestAnimationFrame presentation loop.
-- Use only the shipped retained-node, keyed reconciliation, lifecycle, and commit-scheduling APIs; add DPR sizing, ResizeObserver, scoped input, recovery, telemetry, and semantic DOM companions.
+- Create a self-contained example package with deterministic fixed-step source snapshots and a consumer-owned requestAnimationFrame presentation resource acquired through ref.
+- Use only shipped ref/commit, keyed reconciliation, and lifecycle APIs; add DPR sizing, ResizeObserver, scoped input, recovery, telemetry, and semantic DOM companions.
 - Add unit, renderer, browser, accessibility, move/reconnect, and example-lane tests with no live provider or network dependency.
-- Wire the example into test:examples and test:full, document the pattern, and complete full verification.
+- Wire the example into test:examples and test:full, document measured scheduling behavior, and complete full verification.
 
 ## Verification plan
 
@@ -63,8 +65,9 @@ Build a self-contained Ignite example that stress-tests the retained-surface, ke
 
 ## Dependencies
 
-- Depends on commit-scheduling task-1783719681572.
+- Depends on keyed reconciliation task-1783719665018.
 - Blocks Actor-Web Mesh Pong downstream validation task-1783719721452.
+- Provides local dogfood evidence for scheduling-verdict task-1783719681572.
 
 ## Open questions
 

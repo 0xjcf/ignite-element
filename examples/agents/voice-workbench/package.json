@@ -1,0 +1,26 @@
+{
+	"name": "voice-workbench-agent-example",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"dev:mlx": "node scripts/dev-with-mlx.mjs",
+		"demo:terminal": "vite build --ssr src/terminal.ts --outDir dist/terminal && node dist/terminal/terminal.js",
+		"build": "vite build",
+		"preview": "vite preview",
+		"proof:headless": "vite build --ssr src/headless-proof.ts --outDir dist/headless && node dist/headless/headless-proof.js",
+		"test": "vitest run",
+		"test:browser": "vitest run src/workbench.test.tsx src/main.test.tsx",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"xstate": "5.32.1"
+	},
+	"devDependencies": {
+		"jsdom": "^27.4.0",
+		"typescript": "^5.9.3",
+		"vite": "^7.2.7",
+		"vitest": "^4.0.3"
+	}
+}

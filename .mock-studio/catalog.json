@@ -1,0 +1,13 @@
+{
+	"surfaces": [
+		{
+			"id": "voice-text-workbench",
+			"role": "Developer",
+			"workflow": "Agent examples",
+			"title": "Voice + text artifact workbench",
+			"status": "Implementation approved",
+			"href": "./voice-text-workbench/source/index.html#ready",
+			"states": ["ready", "listening", "responding", "artifact", "permission"]
+		}
+	]
+}

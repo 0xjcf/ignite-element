@@ -223,11 +223,19 @@ shared `/v1/chat/completions` shape, so hosted OpenAI, Ollama, and local MLX
 servers can reuse the same SDK-free translator while the consumer owns endpoint
 configuration, credentials, and network calls.
 
-The smart-home agent example dogfoods this boundary with a local MLX path:
-`examples/agents/smart-home` exposes `npm run mlx` for a headless prompt and
-`npm run demo:mlx` for the same OpenAI-compatible model driving the browser and
-terminal bridge over one shared headless runtime. Both paths stay opt-in; CI uses
-scripted responses and fake `fetch` instead of a live model server.
+Two agent examples dogfood this boundary with local MLX paths:
+
+- `examples/agents/smart-home` exposes `npm run mlx` for a headless prompt and
+  `npm run demo:mlx` for the same OpenAI-compatible model driving the browser and
+  terminal bridge over one shared headless runtime.
+- `examples/agents/voice-workbench` starts with an empty conversation and lets a
+  typed or browser-transcribed prompt drive a semantic artifact. The model sees
+  only the current artifact commands selected from `getSchema()` through
+  `igniteTools`; the actor validates the proposed document before native JSX,
+  terminal, and speech consumers receive it.
+
+Both paths stay opt-in. CI uses scripted model results and fake `fetch` instead
+of a live model server.
 
 ## Local model workflow and ecosystem boundaries
 
@@ -249,6 +257,22 @@ Ollama-style `/v1/chat/completions` servers. The consumer owns endpoint selectio
 credentials, retry policy, and model process lifecycle; `igniteTools` only owns
 the pure manifest/call/result translation and the call into the supplied headless
 runtime. That keeps the core SDK-free and avoids a new MLX-specific dependency.
+
+For the voice workbench, configure the browser consumer rather than Ignite core:
+
+```bash
+VITE_MLX_BASE_URL=http://127.0.0.1:8080/v1 \
+VITE_MLX_MODEL=<model> \
+pnpm --dir examples/agents/voice-workbench dev
+```
+
+The workbench filters the neutral manifest to `createArtifact`,
+`reviseArtifact`, and `completeResponse` for the model turn. The component keeps
+`submitPrompt` and `acknowledgeSpeech` as public actor commands, but they are
+coordinated by the consumer rather than offered to the model. This is a
+capability boundary, not prompt-only advice: unknown model calls are rejected,
+and every selected call still passes through `igniteTools.run()` and actor
+validation.
 
 For ecosystem work, the boundaries are:
 

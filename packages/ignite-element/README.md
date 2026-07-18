@@ -141,6 +141,14 @@ story.summary();
 story.stop();
 ```
 
+For testing vocabulary, keep the layers distinct:
+
+- `igniteTest(...).narrative(...)` states an expected multi-step user experience.
+- `record(name)` captures the observed execution evidence for that experience.
+- `snapshotStory(story)` turns that Story into a serializable portable receipt.
+
+The narrative helper composes over the existing Story recorder. It does not add a second recorder, trace format, or runtime authority.
+
 ## Package contract
 
 - `ignite-element` is the default public package.

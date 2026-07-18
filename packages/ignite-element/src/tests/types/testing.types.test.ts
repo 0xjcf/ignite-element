@@ -219,4 +219,116 @@ describe("ignite test DSL types", () => {
 
 		void hostOptionTyping;
 	});
+
+	it("types named narratives with object-form command steps and checkpoint evidence", () => {
+		const store = counterStore();
+		const componentConfig = {
+			adapter: "redux",
+			source: store,
+			view: ({ snapshot }) => ({
+				count: snapshot.counter.count,
+				canDecrement: snapshot.counter.count > 0,
+			}),
+			commands: ({ actor, command }) => ({
+				increment: (amount: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+				maybeIncrement: (amount?: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount ?? 1)),
+				decrement: command(
+					() => actor.dispatch(counterSlice.actions.decrement()),
+					{
+						canExecute: ({ snapshot }) => snapshot.counter.count > 0,
+					},
+				),
+			}),
+			events: (event) => ({
+				"counter-incremented": event<{ count: number }>(),
+			}),
+			effects: ({ snapshot, prevSnapshot, emit }) => {
+				if (snapshot.counter.count === prevSnapshot.counter.count) {
+					return;
+				}
+
+				emit({
+					type: "counter-incremented",
+					count: snapshot.counter.count,
+				});
+			},
+		} satisfies ReduxInstanceConfig<
+			typeof store,
+			{
+				"counter-incremented": EventDescriptor<{ count: number }>;
+			},
+			{
+				count: number;
+				canDecrement: boolean;
+			},
+			{
+				increment: (amount: number) => unknown;
+				maybeIncrement: (amount?: number) => unknown;
+				decrement: () => unknown;
+			}
+		>;
+		const component = igniteCore(componentConfig);
+
+		const expectNarrativeTyping = async () => {
+			const story = await igniteTest(component).narrative(
+				"counter flow",
+				async (narrative) => {
+					narrative.given({
+						snapshot: { counter: { count: 0 } },
+						view: { count: 0, canDecrement: false },
+						canExecute: { decrement: false },
+					});
+					await narrative.intent({ command: "increment", input: 2 });
+					await narrative.intent({ command: "maybeIncrement" });
+					narrative.checkpoint("after increment", {
+						snapshot: { counter: { count: 3 } },
+						view: { count: 3, canDecrement: true },
+						events: [{ type: "counter-incremented", count: 3 }],
+						canExecute: { decrement: true },
+					});
+
+					const expectCommandValidation = () => {
+						// @ts-expect-error - required command input must be present
+						narrative.intent({ command: "increment" });
+						// @ts-expect-error - no-arg commands do not accept input
+						narrative.intent({ command: "decrement", input: 1 });
+						// @ts-expect-error - invalid command names stay rejected
+						narrative.intent({ command: "missing" });
+					};
+
+					void expectCommandValidation;
+				},
+			);
+
+			expectTypeOf(story.summary.commandCount).toEqualTypeOf<number>();
+		};
+
+		void expectNarrativeTyping;
+	});
+
+	it("preserves literal narrative names on the returned receipt", () => {
+		const store = counterStore();
+		const component = igniteCore({
+			adapter: "redux",
+			source: store,
+			commands: ({ actor }) => ({
+				increment: (amount: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+			}),
+		});
+
+		const expectLiteralName = async () => {
+			const name = "counter flow" as const;
+			const receipt = await igniteTest(component).narrative(
+				name,
+				async () => {},
+			);
+
+			expectTypeOf(receipt.name).toEqualTypeOf<"counter flow">();
+		};
+
+		void expectLiteralName;
+	});
 });

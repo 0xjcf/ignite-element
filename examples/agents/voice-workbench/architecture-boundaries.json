@@ -1,0 +1,176 @@
+{
+	"moduleRules": [
+		{
+			"id": "contracts",
+			"layer": "contracts",
+			"paths": ["src/ports.ts", "src/domains/contracts.ts"],
+			"allowSideEffects": false,
+			"allowedInternalDependencies": [
+				"contracts",
+				"functional-core",
+				"statechart"
+			],
+			"allowedExternalRuntimeImports": [],
+			"disposition": "reuse"
+		},
+		{
+			"id": "functional-core",
+			"layer": "functional-core",
+			"paths": [
+				"src/agent-loop.ts",
+				"src/capability-federation.ts",
+				"src/domain.ts",
+				"src/workbench-policy.ts",
+				"src/domains/registry.ts",
+				"src/styles.ts",
+				"src/domains/product-pricing/artifact-materializer.ts",
+				"src/domains/product-pricing/authorization.ts",
+				"src/domains/product-pricing/capability.ts",
+				"src/domains/product-pricing/completion-audit.ts",
+				"src/domains/product-pricing/index.ts",
+				"src/domains/product-pricing/policy.ts",
+				"src/domains/product-pricing/projection.ts"
+			],
+			"allowSideEffects": false,
+			"allowedInternalDependencies": ["contracts", "functional-core"],
+			"allowedExternalRuntimeImports": ["ignite-element/tools"],
+			"disposition": "reuse"
+		},
+		{
+			"id": "statechart",
+			"layer": "statechart",
+			"paths": [
+				"src/model-turn.ts",
+				"src/voice.ts",
+				"src/speech.ts",
+				"src/session.ts"
+			],
+			"allowSideEffects": false,
+			"allowedInternalDependencies": [
+				"contracts",
+				"functional-core",
+				"statechart"
+			],
+			"allowedExternalRuntimeImports": [],
+			"disposition": "reuse"
+		},
+		{
+			"id": "projection",
+			"layer": "projection",
+			"paths": ["src/workbench-view.ts"],
+			"allowSideEffects": false,
+			"allowedInternalDependencies": [
+				"contracts",
+				"functional-core",
+				"statechart",
+				"projection"
+			],
+			"allowedExternalRuntimeImports": [],
+			"disposition": "reuse"
+		},
+		{
+			"id": "runtime",
+			"layer": "runtime",
+			"paths": ["src/workbench-runtime.ts"],
+			"allowSideEffects": true,
+			"allowedInternalDependencies": [
+				"contracts",
+				"functional-core",
+				"statechart",
+				"projection",
+				"runtime"
+			],
+			"allowedExternalRuntimeImports": [],
+			"disposition": "reuse"
+		},
+		{
+			"id": "adapter",
+			"layer": "adapter",
+			"prefixes": ["src/adapters/"],
+			"paths": [
+				"src/domains/product-pricing/price-capability.ts",
+				"src/domains/product-pricing/providers/whole-foods.ts",
+				"src/model.ts",
+				"src/web-search-capability.ts"
+			],
+			"allowSideEffects": true,
+			"allowedInternalDependencies": [
+				"contracts",
+				"functional-core",
+				"statechart",
+				"projection",
+				"runtime",
+				"composition",
+				"adapter"
+			],
+			"allowedExternalRuntimeImports": [
+				"ignite-element/tools",
+				"ignite-element/tools/openai"
+			],
+			"disposition": "split"
+		},
+		{
+			"id": "composition",
+			"layer": "composition",
+			"paths": ["src/workbench-component.ts", "src/workbench.tsx"],
+			"prefixes": ["src/views/"],
+			"allowSideEffects": false,
+			"allowedInternalDependencies": [
+				"contracts",
+				"functional-core",
+				"statechart",
+				"projection",
+				"runtime",
+				"adapter",
+				"composition"
+			],
+			"allowedExternalRuntimeImports": [],
+			"disposition": "move"
+		},
+		{
+			"id": "host-root",
+			"layer": "host-root",
+			"paths": [
+				"src/headless-proof.ts",
+				"src/main.tsx",
+				"src/parity.tsx",
+				"src/terminal.ts"
+			],
+			"allowSideEffects": true,
+			"allowedInternalDependencies": [
+				"contracts",
+				"functional-core",
+				"statechart",
+				"projection",
+				"runtime",
+				"adapter",
+				"composition",
+				"host-root"
+			],
+			"allowedExternalRuntimeImports": ["ignite-element/testing"],
+			"disposition": "move"
+		}
+	],
+	"reviewedViolations": [
+		{
+			"rule": "allowed-internal-dependencies",
+			"file": "src/domains/product-pricing/authorization.ts",
+			"detail": "functional-core cannot import adapter via src/domains/product-pricing/price-capability.ts."
+		},
+		{
+			"rule": "allowed-internal-dependencies",
+			"file": "src/domains/product-pricing/index.ts",
+			"detail": "functional-core cannot import adapter via src/domains/product-pricing/price-capability.ts."
+		},
+		{
+			"rule": "allowed-internal-dependencies",
+			"file": "src/session.ts",
+			"detail": "statechart cannot import adapter via src/domains/product-pricing/price-capability.ts."
+		},
+		{
+			"rule": "allowed-internal-dependencies",
+			"file": "src/workbench-view.ts",
+			"detail": "projection cannot import adapter via src/domains/product-pricing/price-capability.ts."
+		}
+	]
+}

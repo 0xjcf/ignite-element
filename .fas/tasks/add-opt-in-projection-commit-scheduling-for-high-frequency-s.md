@@ -1,4 +1,4 @@
-# Add opt-in projection commit scheduling for high-frequency sources
+# Evaluate retained-surface scheduling needs after canvas and Mesh Pong dogfood
 
 ## Source
 
@@ -6,39 +6,47 @@ Created with `fas create-task` on 2026-07-10.
 
 ## Problem
 
-Add the architecture-approved opt-in scheduling policy for reactive projection commits from high-frequency sources. Preserve the current synchronous default. Coalesce only presentation commits using latest-snapshot semantics; never drop or merge source snapshots, commands, source-emitted events, telemetry facts, or authoritative actor transitions. Reconcile scheduled rendering with Ignite effects so effects that depend on committed DOM still run after the matching commit, and cancel queued work safely on replacement or true disconnect.
+Evaluate whether the shipped ref/commit lifecycle and consumer-owned requestAnimationFrame or microtask scheduling are sufficient for high-frequency retained surfaces after the local canvas stress example and read-only Actor-Web Mesh Pong validation. This is an evidence and decision task, not a predetermined API implementation. Measure reconciliation and commit cadence, stale-frame behavior, effect ordering, cleanup, and consumer complexity. Prefer no new Ignite public surface. Only if evidence shows that full projection reconciliation must be coalesced should this task propose a separately planned registration-level renderer policy; commitScheduling in igniteCore remains rejected.
 
 ## Acceptance criteria
 
-- Existing components retain synchronous rendering by default with no source or type behavior change.
-- Approved microtask and/or animation-frame policies coalesce redundant presentation commits to the latest snapshot while preserving command and event delivery.
-- Effects, retained-node callbacks, lifecycle records, and rendered-state inspection have a documented ordering contract under every scheduler mode.
-- Disconnect, reconnect, source replacement, errors, and reentrant notifications cancel or supersede queued commits without stale DOM writes or leaked callbacks.
-- Deterministic fake-clock/fake-animation-frame tests and measured stress tests verify commit counts, latest-state correctness, and no regression in the synchronous path.
-- TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
-- TDD: every production code change in the change set is covered by an added or updated test.
-- DDD: respect domain boundaries — keep the functional core deterministic and side-effect-free (no reads, writes, network, or clock), confine coordination to the imperative shell, and have adapters return facts instead of throwing.
+- The task evaluates the shipped synchronous ref/commit contract with consumer-owned scheduling against measured canvas stress and Mesh Pong evidence.
+- The evidence records source cadence, reconciliation cadence, commit/draw cadence, latest-snapshot correctness, effect ordering, disconnect/reconnect behavior, and consumer code complexity.
+- The default verdict is no framework API when retained-resource scheduling is sufficient; no speculative scheduler implementation or changeset is required.
+- Any demonstrated framework gap identifies the exact layer that must be scheduled and explains why a consumer-owned retained resource cannot solve it.
+- Any proposed follow-up uses the existing component registration boundary, preserves synchronous default behavior, and is created as a separate task with compatibility and deterministic-test requirements.
+- commitScheduling or equivalent configuration is not added to igniteCore by this task.
+- The verdict updates the architecture and final documentation inputs and preserves commands, events, effects, source snapshots, and Actor-Web authority.
+- The work is tracked in .fas/TASKS.md and queued in .fas/queue/tasks.json.
 - The work is tracked in `.fas/TASKS.md`.
 - The task has a clear implementation and verification plan before execution starts.
-- The task is queued in `.fas/queue/tasks.json` for the runtime.
 
 ## Proposed solution
 
-- Use the supplied problem context, acceptance criteria, and affected-file hints to draft the concrete implementation approach during planning.
+- Produce an evidence-only verdict from the already-shipped canvas and Mesh Pong
+  measurements. Prefer a documented no-API conclusion. If the evidence gate
+  fails, create a separate implementation task rather than editing production
+  runtime or renderer code in this slice.
 
 ## Alternatives considered
 
-- None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
+- Implementing scheduling while evaluating it: rejected because it would turn
+  the verdict into a predetermined API change.
+- `commitScheduling` on `igniteCore`: rejected by the architecture because it
+  expands source configuration before the need and ordering boundary are proven.
+- Treating skipped visual frames as skipped source facts: rejected because
+  commands, events, effects, telemetry, and authoritative snapshots remain real.
 
 ## Affected files
 
-- packages/ignite-element/src/IgniteElement.ts
-- packages/ignite-element/src/IgniteElementFactory.ts
-- packages/ignite-element/src/igniteCore/types.ts
-- packages/ignite-element/src/runtime/effects.ts
-- packages/ignite-renderer/src/renderers/RenderStrategy.ts
-- packages/ignite-element/src/tests/IgniteCore.test.ts
-- packages/ignite-element/src/tests/IgniteElement.test.tsx
+- docs/retained-surface-scheduling-verdict.md
+- docs/retained-complex-interfaces.md
+
+## Reference files
+
+- examples/apps/retained-canvas
+- docs/retained-complex-interfaces.md
+- /Users/joseflores/Development/actor-web/examples/mesh-pong
 
 ## Scope Amendments
 
@@ -46,31 +54,32 @@ Add the architecture-approved opt-in scheduling policy for reactive projection c
 
 ## Implementation plan
 
-- Write failing fake-clock and fake-animation-frame tests for sync default, coalescing, latest snapshot, effect ordering, reentrancy, cancellation, disconnect, and reconnect.
-- Implement the approved scheduler at the presentation-commit boundary while leaving adapter notification, commands, events, and source truth untouched.
-- Make scheduled effects and retained-node callbacks observe the matching committed DOM and contain stale or superseded work.
-- Add metrics-oriented stress tests, docs, changesets, and full verification.
+- Collect deterministic measurements from the retained-canvas stress example and the pinned Mesh Pong consumer validation.
+- Compare synchronous reconciliation plus consumer-owned requestAnimationFrame/microtask scheduling against the observed performance and ordering requirements.
+- Record a no-API verdict when sufficient, or create a separate evidence-backed implementation brief at the component registration boundary when insufficient.
+- Feed the decision and measurements into the final retained-interface documentation task.
 
 ## Verification plan
 
-- Run focused IgniteCore, IgniteElement, effects-ordering, and renderer strategy tests under every scheduler mode.
-- Measure commit counts and latest-state correctness under burst notifications using deterministic clocks.
-- Run fas validate-task, full FAS verification, bundle-size checks if exports change, and committed review.
+- Re-run the stress and Mesh Pong validation measurements with deterministic clocks where possible.
+- Validate latest-snapshot correctness, callback/effect ordering, cleanup, no stale draw after disconnect/reconnect, and no loss of commands/events/source facts. Because queued microtasks cannot be canceled, require an active/generation-token proof when a consumer uses them.
+- Run fas validate-task and review the evidence-to-verdict trace; production full verification is required only if tracked production files unexpectedly change.
 
 ## Risks
 
-- Scheduling can violate the current render-before-effects contract.
-- Coalescing the wrong layer can lose observable source facts or events.
-- Queued commits can write stale DOM after replacement or disconnect.
+- Benchmarks can overfit one canvas example and create an unnecessary general API.
+- Scheduling the wrong layer can violate render-before-effects ordering or hide source facts.
+- A no-API verdict can be wrong if consumer complexity is not measured alongside frame cadence.
 
 ## Dependencies
 
-- Depends on keyed reconciliation task-1783719665018.
-- Blocks retained-canvas stress example task-1783719697500.
+- Depends on read-only Actor-Web Mesh Pong validation task-1783719721452, which itself depends on the local canvas stress example.
+- Blocks final retained-interface documentation task-1783719740973.
+- Does not implement a scheduler; any evidence-backed public API requires a new separately planned task.
 
 ## Open questions
 
-- The architecture task decides which scheduler modes are public; implementation must preserve synchronous default behavior.
+- Does dogfood demonstrate a need to coalesce full Ignite reconciliation, or is scheduling retained drawing inside the consumer-owned resource sufficient?
 
 ## Artifact links
 

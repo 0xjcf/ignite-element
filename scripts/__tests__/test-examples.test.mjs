@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -10,6 +16,7 @@ const expectedExampleRoots = [
 	"examples/adapters/redux",
 	"examples/adapters/xstate",
 	"examples/agents/smart-home",
+	"examples/agents/voice-workbench",
 	"examples/apps/dashboard-with-shared-state",
 	"examples/apps/form-with-validation",
 	"examples/apps/nested-child-router",
@@ -21,6 +28,25 @@ const expectedCoverageArgs = expectedExampleRoots.flatMap((exampleRoot) => [
 ]);
 
 describe("test-examples", () => {
+	it("admits every runtime-tested example to the root and FAS full lanes", () => {
+		const packageJson = JSON.parse(
+			readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+		);
+		const fasConfig = JSON.parse(
+			readFileSync(new URL("../../.fas-config.json", import.meta.url), "utf8"),
+		);
+
+		assert.equal(packageJson.scripts.test, "pnpm run test:full");
+		for (const exampleRoot of expectedExampleRoots) {
+			const coverageArgument = `--covers-package ${exampleRoot}`;
+			assert.match(
+				packageJson.scripts["test:full"],
+				new RegExp(coverageArgument),
+			);
+			assert.match(fasConfig.testCommand, new RegExp(coverageArgument));
+		}
+	});
+
 	it("discovers example roots with runtime tests", () => {
 		const output = execFileSync(
 			"node",
