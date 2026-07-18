@@ -780,50 +780,99 @@ describe("voice workbench executable narratives", () => {
 			coverageMatrix.map((entry) => ({
 				narrative: entry.narrative,
 				commands: entry.commands,
-				checkpointCount: entry.checkpoints.length,
+				checkpoints: entry.checkpoints,
+				receipts: entry.receipts,
 				finalStatus: entry.finalStatus,
 			})),
 		).toEqual([
 			{
 				narrative: "preparation failure retries into ready",
 				commands: ["beginModelPreparation"],
-				checkpointCount: 1,
+				checkpoints: ["ready after retry"],
+				receipts: [
+					"MODEL_PREPARATION_PORT_RECEIVED:failed",
+					"MODEL_PREPARATION_STARTED",
+					"MODEL_PREPARATION_PORT_RECEIVED:available",
+				],
 				finalStatus: "ready",
 			},
 			{
 				narrative: "microphone permission denial recovers to typed prompt",
 				commands: ["startVoiceCapture", "submitPrompt"],
-				checkpointCount: 2,
+				checkpoints: [
+					"voice permission stays a fact",
+					"text recovery starts a new turn",
+				],
+				receipts: [
+					"VOICE_CAPTURE_START_REQUESTED",
+					"VOICE_CAPTURE_PORT_RECEIVED:PERMISSION_DENIED",
+				],
 				finalStatus: "responding",
 			},
 			{
 				narrative: "correlated cancellation returns the active turn to idle",
 				commands: ["submitPrompt"],
-				checkpointCount: 2,
+				checkpoints: [
+					"turn is responding",
+					"turn cancellation returns idle",
+				],
+				receipts: ["MODEL_TURN_CANCEL_REQUESTED"],
 				finalStatus: "ready",
 			},
 			{
 				narrative: "timed out turn retries to an accepted response",
 				commands: ["submitPrompt", "submitPrompt", "createArtifact"],
-				checkpointCount: 3,
+				checkpoints: [
+					"timeout returns the turn to idle",
+					"retry can finish with an accepted artifact",
+					"accepted retry returns to ready",
+				],
+				receipts: [
+					"MODEL_TURN_TIMEOUT_REQUESTED",
+					"MODEL_TURN_PORT_RECEIVED:MODEL_RESOLVED",
+					"MODEL_TURN_PORT_RECEIVED:AUTHORIZATION_RESOLVED",
+					"MODEL_TURN_PORT_RECEIVED:CAPABILITY_RESOLVED",
+				],
 				finalStatus: "ready",
 			},
 			{
 				narrative: "stale correlated model receipts stay inert until the live turn ends",
 				commands: ["submitPrompt"],
-				checkpointCount: 2,
+				checkpoints: [
+					"stale receipt cannot close the turn",
+					"live correlation still controls exit",
+				],
+				receipts: [
+					"MODEL_TURN_PORT_RECEIVED:PORT_FAILED(stale)",
+					"MODEL_TURN_CANCEL_REQUESTED",
+				],
 				finalStatus: "ready",
 			},
 			{
 				narrative: "artifact revision conflicts recover with the current revision",
 				commands: ["submitPrompt", "createArtifact", "reviseArtifact", "reviseArtifact"],
-				checkpointCount: 3,
+				checkpoints: [
+					"first revision is available for follow-up work",
+					"stale revision preserves the accepted artifact",
+					"current revision recovers the conflict",
+				],
+				receipts: [
+					"actor-conflict:reviseArtifact",
+					"actor-accepted:reviseArtifact",
+				],
 				finalStatus: "responding",
 			},
 			{
 				narrative: "speech unavailable remains actor-owned until acknowledged",
 				commands: ["submitPrompt", "createArtifact"],
-				checkpointCount: 2,
+				checkpoints: [
+					"pending speech stays acknowledged-later",
+					"speech unavailable settles through the actor",
+				],
+				receipts: [
+					"MODEL_TURN_PORT_RECEIVED:MODEL_RESOLVED",
+					"SPEECH_DELIVERY_PORT_RECEIVED:UNAVAILABLE",
+				],
 				finalStatus: "ready",
 			},
 		]);
