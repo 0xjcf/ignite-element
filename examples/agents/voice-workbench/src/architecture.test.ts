@@ -114,7 +114,7 @@ const importMatches = (source: string) =>
 	}));
 
 const normalizeWorkspacePath = (path: string) =>
-	relative(workbenchRoot, path).replaceAll("\\", "/");
+	relative(workbenchRoot, path).replace(/\\/g, "/");
 
 const resolveRelativeImport = (fromFile: string, specifier: string) => {
 	const base = resolve(dirname(fromFile), specifier);
