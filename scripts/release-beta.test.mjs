@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { assertBetaDistTags, createBetaPublishPlan } from "./release-beta.mjs";
+import {
+	assertBetaDistTags,
+	createBetaPublishPlan,
+	createDistTagReadCommand,
+	createDistTagRecoveryInstructions,
+	verifyBetaDistTagsWithRetry,
+} from "./release-beta.mjs";
 
 const releasePackages = [
 	{ name: "ignite-element", version: "3.0.0-beta.9" },
@@ -8,6 +14,33 @@ const releasePackages = [
 	{ name: "@ignite-element/adapters", version: "3.0.0-beta.9" },
 	{ name: "@ignite-element/renderer", version: "3.0.0-beta.9" },
 ];
+
+const expectedTags = {
+	"ignite-element": {
+		beta: "3.0.0-beta.9",
+		latest: "2.2.2",
+	},
+	"@ignite-element/core": {
+		beta: "3.0.0-beta.9",
+		latest: "3.0.0-beta.9",
+	},
+	"@ignite-element/adapters": {
+		beta: "3.0.0-beta.9",
+		latest: "3.0.0-beta.9",
+	},
+	"@ignite-element/renderer": {
+		beta: "3.0.0-beta.9",
+		latest: "3.0.0-beta.9",
+	},
+};
+
+const staleTags = {
+	...expectedTags,
+	"@ignite-element/core": {
+		beta: "3.0.0-beta.2",
+		latest: "3.0.0-beta.8",
+	},
+};
 
 describe("release-beta", () => {
 	it("keeps the dry-run plan inert", () => {
@@ -74,24 +107,7 @@ describe("release-beta", () => {
 			assertBetaDistTags({
 				expectedVersion: "3.0.0-beta.9",
 				mainLatestBefore: "2.2.2",
-				tagsByPackage: {
-					"ignite-element": {
-						beta: "3.0.0-beta.9",
-						latest: "2.2.2",
-					},
-					"@ignite-element/core": {
-						beta: "3.0.0-beta.9",
-						latest: "3.0.0-beta.9",
-					},
-					"@ignite-element/adapters": {
-						beta: "3.0.0-beta.9",
-						latest: "3.0.0-beta.9",
-					},
-					"@ignite-element/renderer": {
-						beta: "3.0.0-beta.9",
-						latest: "3.0.0-beta.9",
-					},
-				},
+				tagsByPackage: expectedTags,
 			}),
 		);
 	});
@@ -103,6 +119,7 @@ describe("release-beta", () => {
 					expectedVersion: "3.0.0-beta.9",
 					mainLatestBefore: "2.2.2",
 					tagsByPackage: {
+						...expectedTags,
 						"ignite-element": {
 							beta: "3.0.0-beta.9",
 							latest: "3.0.0-beta.9",
@@ -111,17 +128,82 @@ describe("release-beta", () => {
 							beta: "3.0.0-beta.2",
 							latest: "3.0.0-beta.9",
 						},
-						"@ignite-element/adapters": {
-							beta: "3.0.0-beta.9",
-							latest: "3.0.0-beta.9",
-						},
-						"@ignite-element/renderer": {
-							beta: "3.0.0-beta.9",
-							latest: "3.0.0-beta.9",
-						},
 					},
 				}),
 			/beta tag|stable latest tag/,
 		);
+	});
+
+	it("forces dist-tag reads to prefer the online npm registry", () => {
+		assert.equal(
+			createDistTagReadCommand("@ignite-element/core"),
+			"npm view @ignite-element/core dist-tags --json --prefer-online",
+		);
+	});
+
+	it("retries stale registry snapshots until the expected tags converge", async () => {
+		const snapshots = [staleTags, expectedTags];
+		const waits = [];
+
+		const result = await verifyBetaDistTagsWithRetry({
+			expectedVersion: "3.0.0-beta.9",
+			mainLatestBefore: "2.2.2",
+			maxAttempts: 3,
+			readTags: () => snapshots.shift(),
+			retryDelayMs: 25,
+			wait: async (delayMs) => waits.push(delayMs),
+		});
+
+		assert.equal(result.status, "verified");
+		assert.equal(result.attempts, 2);
+		assert.deepEqual(waits, [25]);
+	});
+
+	it("returns a persistent mismatch fact after the bounded retry budget", async () => {
+		let reads = 0;
+		const waits = [];
+
+		const result = await verifyBetaDistTagsWithRetry({
+			expectedVersion: "3.0.0-beta.9",
+			mainLatestBefore: "2.2.2",
+			maxAttempts: 3,
+			readTags: () => {
+				reads += 1;
+				return staleTags;
+			},
+			retryDelayMs: 25,
+			wait: async (delayMs) => waits.push(delayMs),
+		});
+
+		assert.equal(result.status, "failed");
+		assert.equal(result.attempts, 3);
+		assert.equal(reads, 3);
+		assert.deepEqual(waits, [25, 25]);
+		assert.match(result.error.message, /Dist-tag verification failed/);
+	});
+
+	it("puts an online recheck before repair commands for verification failures", () => {
+		const distTagCommands = [
+			"npm dist-tag add ignite-element@3.0.0-beta.9 beta",
+		];
+		const verificationInstructions = createDistTagRecoveryInstructions({
+			distTagCommands,
+			kind: "verification",
+		});
+		const writeInstructions = createDistTagRecoveryInstructions({
+			distTagCommands,
+			kind: "write",
+		});
+
+		const recheckIndex = verificationInstructions.findIndex((line) =>
+			line.includes("npm view"),
+		);
+		const repairIndex = verificationInstructions.findIndex((line) =>
+			line.includes("npm dist-tag add"),
+		);
+		assert.ok(recheckIndex < repairIndex);
+		assert.match(verificationInstructions.join("\n"), /recheck/i);
+		assert.doesNotMatch(writeInstructions.join("\n"), /recheck/i);
+		assert.match(writeInstructions.join("\n"), /fresh npm OTP/i);
 	});
 });

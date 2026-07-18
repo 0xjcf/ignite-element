@@ -2631,6 +2631,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: Harden beta release dist-tag verification against registry propagation lag
+
+- Title: Harden beta release dist-tag verification against registry propagation lag
+- Mode: single-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/harden-beta-release-dist-tag-verification-against-registry-p.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>
