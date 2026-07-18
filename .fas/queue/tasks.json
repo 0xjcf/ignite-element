@@ -90,7 +90,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "4-agent",
       "dependsOn": [
@@ -105,7 +105,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-09T15:28:53.373Z",
       "updatedAt": "2026-07-17T21:51:02.962Z",
-      "deferredReason": "dependency_reopened: task-1784324997164",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -498,32 +498,6 @@
       "createdAt": "2026-07-17T14:31:40.854Z",
       "updatedAt": "2026-07-17T14:31:40.854Z",
       "deferredReason": "dependency_reopened: task-1784298685324",
-      "invalidationReason": null
-    },
-    {
-      "id": "task-1784324997164",
-      "task": "Dogfood executable narratives across Voice Workbench failure and recovery paths",
-      "priority": "high",
-      "source": "manual",
-      "details": "Use the new multi-step igniteTest narrative helper in Voice Workbench to turn the approved behavior handoff into executable user, system, and projection narratives. Cover preparation failure and retry, microphone permission denial with text recovery, turn cancellation, timeout and retry, stale correlated receipts, artifact revision conflicts, and speech-unavailable recovery. Each narrative must preserve actor and adapter authority, drive typed intents through Ignite, keep external outcomes in consumer-owned fixtures, assert semantic projection checkpoints, and emit portable Story evidence suitable for review and coverage reporting.\nSee .fas/tasks/dogfood-executable-narratives-across-voice-workbench-failure.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "queued",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [
-        "task-1783810065213",
-        "task-1784298626529"
-      ],
-      "blocks": [
-        "task-1783610933373"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-17T21:49:57.164Z",
-      "updatedAt": "2026-07-17T21:49:57.164Z",
-      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -3976,6 +3950,31 @@
       "completedAt": "2026-07-18T15:47:23.591Z",
       "terminalOutcome": null,
       "workflowId": "direct-1784389209605",
+      "branchName": "fas/voice-text-workbench",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784324997164",
+      "task": "Dogfood executable narratives across Voice Workbench failure and recovery paths",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1783810065213",
+        "task-1784298626529"
+      ],
+      "blocks": [
+        "task-1783610933373"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-18T17:08:39.687Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784389728898",
       "branchName": "fas/voice-text-workbench",
       "prStatus": "draft-only"
     }

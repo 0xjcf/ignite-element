@@ -2565,10 +2565,13 @@ No active tasks.
 
 - Title: Dogfood executable narratives across Voice Workbench failure and recovery paths
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/dogfood-executable-narratives-across-voice-workbench-failure.md
 - Automation mode: advisory
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Decide Story API naming and v3 beta migration from narrative dogfood
 
