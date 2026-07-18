@@ -391,7 +391,8 @@
       "mode": "6-agent",
       "dependsOn": [
         "task-1784298607166",
-        "task-1784386923255"
+        "task-1784386923255",
+        "task-1784389086743"
       ],
       "blocks": [
         "task-1784298642791",
@@ -400,7 +401,7 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-17T14:30:26.529Z",
-      "updatedAt": "2026-07-18T15:15:16.701Z",
+      "updatedAt": "2026-07-18T15:38:06.743Z",
       "deferredReason": null,
       "invalidationReason": null
     },
@@ -657,6 +658,27 @@
       "prDependencies": [],
       "createdAt": "2026-07-18T15:02:03.255Z",
       "updatedAt": "2026-07-18T15:15:16.421Z"
+    },
+    {
+      "id": "task-1784389086743",
+      "task": "Repair Voice Workbench characterization typecheck conformance",
+      "priority": "high",
+      "source": "manual",
+      "details": "The committed executable machine-characterization tests pass at runtime but the direct Voice Workbench TypeScript lane reports four errors: architecture.test.ts uses String.replaceAll under the example target, and model-turn/speech graph helpers return nullable terminal facts where the asserted contract requires a terminal. Make the smallest test-only corrections, preserve the executable characterization semantics, and restore the full example typecheck before the shared repository full-verification closeout.\nSee .fas/tasks/repair-voice-workbench-characterization-typecheck-conformanc.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "queued",
+      "owner": "runtime",
+      "mode": "single-agent",
+      "dependsOn": [],
+      "blocks": [
+        "task-1784298626529"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-18T15:38:06.743Z",
+      "updatedAt": "2026-07-18T15:38:06.743Z"
     }
   ],
   "completedTasks": [
@@ -4299,6 +4321,10 @@
         {
           "taskId": "task-1784386923255",
           "epicRole": "full-gate-liveness-repair"
+        },
+        {
+          "taskId": "task-1784389086743",
+          "epicRole": "characterization-gate-repair"
         }
       ],
       "id": "epic-voice-workbench-hexagonal-boundary-conformance",

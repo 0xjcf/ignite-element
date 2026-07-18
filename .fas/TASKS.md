@@ -2605,6 +2605,14 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: Repair Voice Workbench characterization typecheck conformance
+
+- Title: Repair Voice Workbench characterization typecheck conformance
+- Mode: single-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/repair-voice-workbench-characterization-typecheck-conformanc.md
+
 ## Template
 
 ### Task: <short task title>
