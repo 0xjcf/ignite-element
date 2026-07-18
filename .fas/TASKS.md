@@ -2602,9 +2602,12 @@ No active tasks.
 
 - Title: Cut v3.0.0-beta.9 after executable narrative dogfood
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/cut-v3-0-0-beta-9-after-executable-narrative-dogfood.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Repair Voice Workbench projection-target liveness in the full verification lane
 
