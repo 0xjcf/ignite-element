@@ -189,18 +189,18 @@ describe("model-turn graph characterization", () => {
 
 		const snapshot = actor.getSnapshot();
 		expect(snapshot.value).toBe("completed");
+		const terminal = snapshot.context.terminal;
+		if (!terminal) throw new Error("Expected a completed terminal fact.");
 		expect(projectModelTurnPortRequest(snapshot)).toBeNull();
 		expect(projectModelTurnLifecycle(snapshot)).toMatchObject({
 			state: "completed",
 			turnId: "turn-graph",
 			attemptId: "turn-graph:1",
 		});
-		expect(modelTurnStateFromTerminal(snapshot.context.terminal!)).toBe(
-			"completed",
-		);
+		expect(modelTurnStateFromTerminal(terminal)).toBe("completed");
 		expect(() => JSON.stringify(snapshot.context)).not.toThrow();
 		expect(snapshot.output).toEqual({
-			terminal: snapshot.context.terminal,
+			terminal,
 			result: snapshot.context.lastResult,
 		} satisfies ModelTurnOutput);
 		actor.stop();
@@ -225,16 +225,16 @@ describe("model-turn graph characterization", () => {
 		const snapshot = actor.getSnapshot();
 		expect(snapshot.value).toBe("exhausted");
 		expect(snapshot.context.round).toBe(MODEL_TURN_ROUND_LIMIT);
-		expect(snapshot.context.terminal).toEqual({
+		const terminal = snapshot.context.terminal;
+		if (!terminal) throw new Error("Expected an exhausted terminal fact.");
+		expect(terminal).toEqual({
 			type: "ROUND_LIMIT_REACHED",
 			turnId: "turn-exhausted",
 			trace: snapshot.context.trace,
 		});
-		expect(modelTurnStateFromTerminal(snapshot.context.terminal!)).toBe(
-			"exhausted",
-		);
+		expect(modelTurnStateFromTerminal(terminal)).toBe("exhausted");
 		expect(snapshot.output).toEqual({
-			terminal: snapshot.context.terminal,
+			terminal,
 			result: snapshot.context.lastResult,
 		} satisfies ModelTurnOutput);
 		expect(projectModelTurnPortRequest(snapshot)).toBeNull();
