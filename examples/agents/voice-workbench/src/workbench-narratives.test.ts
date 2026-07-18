@@ -117,9 +117,8 @@ const currentArtifactRevision = (
 	)?.revision;
 };
 
-const resolveCurrentTurn = (
+const beginCurrentTurnCompletion = (
 	actor: VoiceWorkbenchSessionActor,
-	component: VoiceWorkbenchComponent,
 	input: { text: string; speech?: string },
 ) => {
 	let request = currentModelRequest(actor);
@@ -152,14 +151,26 @@ const resolveCurrentTurn = (
 		throw new Error("Expected an execute-call request.");
 	}
 
-	actor.send({ type: "COMPLETE_RESPONSE", input });
-	sendModelReceipt(actor, {
-		type: "CAPABILITY_RESOLVED",
+	return {
 		turnId: request.turnId,
 		attemptId: request.attemptId,
+		callId: request.call.id ?? "narrative-complete",
+		command: request.call.command,
+	};
+};
+
+const finishCurrentTurnCompletion = (
+	actor: VoiceWorkbenchSessionActor,
+	component: VoiceWorkbenchComponent,
+	completion: ReturnType<typeof beginCurrentTurnCompletion>,
+) => {
+	sendModelReceipt(actor, {
+		type: "CAPABILITY_RESOLVED",
+		turnId: completion.turnId,
+		attemptId: completion.attemptId,
 		feedback: {
-			id: request.call.id ?? "narrative-complete",
-			command: request.call.command,
+			id: completion.callId,
+			command: completion.command,
 			status: "accepted",
 			ownerId: "voice-workbench-narratives",
 			view: component.getView().modelContext,
@@ -459,9 +470,14 @@ describe("voice workbench executable narratives", () => {
 						canExecute: { completeResponse: true },
 					});
 
-					resolveCurrentTurn(actor, component, {
+					const completion = beginCurrentTurnCompletion(actor, {
 						text: "Recovered after timeout.",
 					});
+					await narrative.intent({
+						command: "completeResponse",
+						input: { text: "Recovered after timeout." },
+					});
+					finishCurrentTurnCompletion(actor, component, completion);
 
 					narrative.checkpoint("accepted retry returns to ready", {
 						snapshot: (snapshot) =>
@@ -712,10 +728,18 @@ describe("voice workbench executable narratives", () => {
 						},
 					});
 
-					resolveCurrentTurn(actor, component, {
+					const completion = beginCurrentTurnCompletion(actor, {
 						text: "Speech fallback stays semantic.",
 						speech: "Speech fallback stays semantic.",
 					});
+					await narrative.intent({
+						command: "completeResponse",
+						input: {
+							text: "Speech fallback stays semantic.",
+							speech: "Speech fallback stays semantic.",
+						},
+					});
+					finishCurrentTurnCompletion(actor, component, completion);
 
 					narrative.checkpoint("pending speech stays acknowledged-later", {
 						snapshot: (snapshot) =>
@@ -770,6 +794,8 @@ describe("voice workbench executable narratives", () => {
 				],
 				receipts: [
 					"MODEL_TURN_PORT_RECEIVED:MODEL_RESOLVED",
+					"MODEL_TURN_PORT_RECEIVED:AUTHORIZATION_RESOLVED",
+					"MODEL_TURN_PORT_RECEIVED:CAPABILITY_RESOLVED",
 					"SPEECH_DELIVERY_PORT_RECEIVED:UNAVAILABLE",
 				],
 				finalStatus: finalViewStatus(story),
@@ -821,7 +847,12 @@ describe("voice workbench executable narratives", () => {
 			},
 			{
 				narrative: "timed out turn retries to an accepted response",
-				commands: ["submitPrompt", "submitPrompt", "createArtifact"],
+				commands: [
+					"submitPrompt",
+					"submitPrompt",
+					"createArtifact",
+					"completeResponse",
+				],
 				checkpoints: [
 					"timeout returns the turn to idle",
 					"retry can finish with an accepted artifact",
@@ -864,13 +895,15 @@ describe("voice workbench executable narratives", () => {
 			},
 			{
 				narrative: "speech unavailable remains actor-owned until acknowledged",
-				commands: ["submitPrompt", "createArtifact"],
+				commands: ["submitPrompt", "createArtifact", "completeResponse"],
 				checkpoints: [
 					"pending speech stays acknowledged-later",
 					"speech unavailable settles through the actor",
 				],
 				receipts: [
 					"MODEL_TURN_PORT_RECEIVED:MODEL_RESOLVED",
+					"MODEL_TURN_PORT_RECEIVED:AUTHORIZATION_RESOLVED",
+					"MODEL_TURN_PORT_RECEIVED:CAPABILITY_RESOLVED",
 					"SPEECH_DELIVERY_PORT_RECEIVED:UNAVAILABLE",
 				],
 				finalStatus: "ready",
