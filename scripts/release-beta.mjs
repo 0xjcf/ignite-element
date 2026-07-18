@@ -326,15 +326,8 @@ const main = async () => {
 	ensureCleanWorkingTree();
 
 	// A dry run never publishes, so it does not need npm credentials.
-	let mainLatestBefore;
 	if (!dryRun) {
 		ensureNpmAuth();
-		mainLatestBefore = readPublishedDistTags("ignite-element").latest;
-		if (!mainLatestBefore || mainLatestBefore.includes("-")) {
-			throw new Error(
-				`[release:beta] Refusing to publish because ignite-element latest is not a stable version: ${mainLatestBefore ?? "missing"}`,
-			);
-		}
 	}
 
 	// Informational only. `changeset status` exits non-zero when packages changed
@@ -428,6 +421,15 @@ const main = async () => {
 	if (resolvedOtp) {
 		publishEnv.NPM_CONFIG_OTP = resolvedOtp;
 		console.log("[release:beta] Using provided OTP for npm publish.");
+	}
+	const mainLatestBefore = readPublishedDistTags(
+		"ignite-element",
+		publishEnv,
+	).latest;
+	if (!mainLatestBefore || mainLatestBefore.includes("-")) {
+		throw new Error(
+			`[release:beta] Refusing to publish because ignite-element latest is not a stable version: ${mainLatestBefore ?? "missing"}`,
+		);
 	}
 
 	// changeset publish has no real dry-run (the dry-run path returns above), so
