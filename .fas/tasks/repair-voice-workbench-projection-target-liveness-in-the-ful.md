@@ -26,11 +26,46 @@ The root-owned full verification for boundary characterization exposed an untouc
 
 ## Affected files
 - examples/agents/voice-workbench/src/projections.test.ts
-- examples/agents/voice-workbench/src/workbench-component.ts
-- examples/agents/voice-workbench/src/session.ts
+- packages/ignite-element/src/IgniteElementFactory.ts
+- packages/ignite-element/src/tests/projection-runtime.test.ts
+
+## Reference files
+- .fas/memory/architecture.md
+- .fas/memory/decisions.md
+- .fas/memory/incidents.md
+- .fas/memory/patterns.md
+- .fas/memory/pr-feedback.md
 
 ## Scope Amendments
-- None.
+- Type: root-cause-promotion
+- Added at: 2026-07-18T15:20:00Z
+- Trigger: Timed checkpoints localized the 6.2-second delay to the Ignite projection binder queue after all Voice Workbench commands completed in under 20ms.
+- Reason: The binder serializes every historical snapshot inspection instead of coalescing superseded pending work. A test-only workaround would preserve the production liveness defect and violate the no-timeout-inflation criterion.
+- Added paths: packages/ignite-element/src/IgniteElementFactory.ts, packages/ignite-element/src/tests/projection-runtime.test.ts
+- Evidence source: isolated Vitest reproduction and source inspection
+- Evidence: isolated Vitest reproduction and source inspection | examples/agents/voice-workbench/src/projections.test.ts | Default-timeout run reached turn completion at 18ms but speech acknowledgment at 6228ms; packages/ignite-element/src/IgniteElementFactory.ts owns the projection commit queue.
+- Accuracy signal: A direct package-level burst test must fail before the fix and pass after coalescing, while existing ordering, at-most-once, and disposal tests remain green.
+- Follow-up needed: Keep the public API and projection authority model unchanged; only queue scheduling semantics may change.
+
+- Type: diagnostic-scope-demotion
+- Added at: 2026-07-18T15:35:00Z
+- Trigger: Timed checkpoints proved the Voice Workbench commands and state machines completed before the delayed projection acknowledgement.
+- Reason: The session and component modules were inspected during diagnosis but need no implementation change after the defect was localized to Ignite's projection-target binder.
+- Removed paths: examples/agents/voice-workbench/src/workbench-component.ts, examples/agents/voice-workbench/src/session.ts
+- Evidence source: isolated default-timeout projection test
+- Evidence: isolated default-timeout projection test | examples/agents/voice-workbench/src/projections.test.ts | All commands completed before the projection binder drained its historical snapshot queue.
+- Accuracy signal: Implementation scope contains only the binder, its deterministic regression test, and the Voice Workbench lifecycle acceptance test.
+- Follow-up needed: Keep the inspected Voice Workbench production modules unchanged.
+
+- Type: reference-evidence-alignment
+- Added at: 2026-07-18T15:35:00Z
+- Trigger: FAS live ChangeSet classified pre-existing ignored curated-memory projections as untracked reference changes during closeout.
+- Reason: Declare the existing local memory projections as reference evidence only so they remain preserved and cannot be mistaken for implementation drift.
+- Added paths: .fas/memory/architecture.md, .fas/memory/decisions.md, .fas/memory/incidents.md, .fas/memory/patterns.md, .fas/memory/pr-feedback.md
+- Evidence source: root closeout inspection
+- Evidence: root closeout inspection | .fas/state/closeout-readiness/latest.json | Git check-ignore confirms the five paths are ignored local projections.
+- Accuracy signal: Plan alignment reports zero unexpected implementation and reference files without staging generated memory.
+- Follow-up needed: Do not edit, stage, or publish these memory projections as part of this task.
 
 ## Implementation plan
 - Convert the supplied context into a scoped implementation plan before editing.

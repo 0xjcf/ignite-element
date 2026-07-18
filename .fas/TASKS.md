@@ -2514,8 +2514,8 @@ No active tasks.
 
 - Title: Create and validate every Voice Workbench state-machine contract and executable architecture boundary
 - Mode: 6-agent
-- Status: implementing
-- Owner: implementer
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/define-executable-voice-workbench-architecture-boundaries-an.md
 - Verification lane: fast
 - Policy sensitivity: standard
@@ -2598,9 +2598,12 @@ No active tasks.
 
 - Title: Repair Voice Workbench projection-target liveness in the full verification lane
 - Mode: single-agent
-- Status: queued
-- Owner: runtime
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/repair-voice-workbench-projection-target-liveness-in-the-ful.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ## Template
 
