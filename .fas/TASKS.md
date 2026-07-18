@@ -2591,8 +2591,8 @@ No active tasks.
 
 - Title: Harden beta dist-tags for scoped lockstep packages
 - Mode: single-agent
-- Status: implementing
-- Owner: implementer
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/harden-beta-dist-tags-for-scoped-lockstep-packages.md
 - Verification lane: fast
 - Policy sensitivity: standard
