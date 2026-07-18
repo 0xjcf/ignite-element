@@ -28,6 +28,126 @@ Use the completed executable-narrative dogfood and ergonomics audit to decide wh
 ## Alternatives considered
 - None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
 
+## Architecture Context
+```json
+{
+  "schemaVersion": 1,
+  "responsibilityAxis": {
+    "intent": [
+      "Narratives state falsifiable expected experience claims; they do not issue runtime authority or replace public commands."
+    ],
+    "behavior": [
+      "The existing recorder observes accepted runtime behavior and produces Story evidence without changing machine decisions, source state, or projection ownership."
+    ],
+    "policies": [
+      "A rename is allowed only when dogfood evidence shows repeated semantic or consumer confusion whose value exceeds the v3 beta migration cost."
+    ],
+    "capabilities": [
+      {
+        "name": "story-evidence-recording",
+        "qualifier": "runtime",
+        "owner": "Ignite component recorder and existing Story implementation"
+      },
+      {
+        "name": "executable-narrative-composition",
+        "qualifier": "testing",
+        "owner": "igniteTest narrative helper over existing Story evidence"
+      }
+    ],
+    "ports": [
+      "record(), snapshotStory(), IgniteStory, and their serializable Story trace and snapshot types are the existing public evidence boundary under review."
+    ],
+    "adapters": [
+      "XState, Redux, MobX, and Actor-Web entrypoints may re-export or compose the same Story vocabulary but may not define separate recorder or receipt semantics."
+    ],
+    "infrastructure": [
+      "Type tests, runtime tests, entrypoint tests, docs checks, Changesets, and the v3 migration guide provide migration evidence only if a rename is approved."
+    ],
+    "projections": [
+      "Serializable Story snapshots are portable receipts derived from observed execution; views and narrative reports consume them without becoming state authority."
+    ]
+  },
+  "executionAxis": {
+    "functionalCore": [
+      "Story trace and snapshot schemas, serializers, and naming decisions remain deterministic and preserve one evidence format."
+    ],
+    "imperativeShell": [
+      "Recording lifecycle, package exports, documentation, and release migration steps coordinate existing evidence without altering authoritative behavior."
+    ]
+  },
+  "ownership": [
+    {
+      "owner": "Authoritative application runtime or state machine",
+      "responsibilities": [
+        "Own state transitions, commands, facts, correlation, and lifecycle decisions."
+      ],
+      "maturity": "current"
+    },
+    {
+      "owner": "Ignite Story recorder",
+      "responsibilities": [
+        "Observe accepted execution and expose the single canonical Story trace and portable snapshot receipt."
+      ],
+      "maturity": "current"
+    },
+    {
+      "owner": "igniteTest narrative helper",
+      "responsibilities": [
+        "Compose expected multi-step experience claims over Story evidence and ordinary assertions."
+      ],
+      "maturity": "current"
+    },
+    {
+      "owner": "Optional XState graph bridge",
+      "responsibilities": [
+        "If later justified, feed graph-generated paths into the final narrative and Story vocabulary without owning traversal or evidence semantics."
+      ],
+      "maturity": "proposed"
+    }
+  ],
+  "maturity": [
+    {
+      "claim": "Voice Workbench dogfood and the post-dogfood ergonomics audit support keeping record(), snapshotStory(), IgniteStory, and igniteTest(...).narrative(...) distinct and unchanged.",
+      "status": "validated",
+      "evidenceRefs": [
+        "examples/agents/voice-workbench/src/workbench-narratives.test.ts",
+        "examples/agents/voice-workbench/narrative-ergonomics-audit.md"
+      ]
+    },
+    {
+      "claim": "A v3 beta rename remains conditional until this task inventories every public entrypoint and finds migration value beyond naming preference.",
+      "status": "transitional",
+      "evidenceRefs": [
+        "packages/ignite-element/src/types/agent.ts",
+        "packages/ignite-element/src/testing.ts"
+      ]
+    }
+  ],
+  "boundaries": [
+    "Do not collapse expected narrative claims into observed Story evidence.",
+    "Do not introduce a second recorder, trace schema, portable receipt, runtime authority, graph engine, getBlueprint alias, or public coherent inspection API.",
+    "A keep verdict is a complete outcome and should change only the durable decision documentation needed to clarify roles.",
+    "A rename verdict must preserve package entrypoint parity and ship explicit compatibility, deprecation, changeset, migration, type, and runtime evidence."
+  ],
+  "forbiddenCouplings": [
+    "Narrative helpers may not own runtime transitions or replace Story trace capture.",
+    "Framework adapters may not fork Story naming or serialization contracts.",
+    "Optional XState graph work may not become a prerequisite for the core Story evidence API."
+  ],
+  "evidenceRefs": [
+    "examples/agents/voice-workbench/src/workbench-narratives.test.ts",
+    "examples/agents/voice-workbench/narrative-ergonomics-audit.md",
+    "packages/ignite-element/src/types/agent.ts",
+    "packages/ignite-element/src/testing.ts",
+    "packages/ignite-element/src/index.ts",
+    "packages/ignite-element/src/xstate.ts",
+    "packages/ignite-element/src/redux.ts",
+    "packages/ignite-element/src/mobx.ts",
+    "packages/ignite-element/src/actor-web.ts"
+  ]
+}
+```
+
 ## Affected files
 - packages/ignite-element/src/types/agent.ts
 - packages/ignite-element/src/testing.ts
