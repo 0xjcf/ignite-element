@@ -136,6 +136,22 @@ actor boundary. It does not export a shared actor, component, schema, or
 mutation helper. Browser, terminal, parity, and headless composition roots each
 create and own their actor, Ignite component, ports, and runtime disposal.
 
+The checked characterization receipts now live beside the source:
+
+- `src/session.graph.test.ts` validates the parent topology, deterministic
+  reachable session vertices, stale preparation correlation, and the fixed
+  invoked child IDs.
+- `src/model-turn.graph.test.ts` validates the child turn topology, bounded
+  requesting/authorizing/executing reachability, correlated terminal output, and
+  stale receipt rejection.
+- `src/voice.graph.test.ts` validates the supported interactive graph, explicit
+  unsupported and unavailable exclusions, and stale adapter receipt handling.
+- `src/speech.graph.test.ts` validates the delivery topology, reachable queued
+  and terminal states, and correlated output facts.
+- `src/architecture.test.ts` validates that every production example module is
+  owned by `architecture-boundaries.json` and that the reviewed import-violation
+  baseline cannot grow silently.
+
 The parent session is a host-agnostic compound statechart. Its `available`
 state is parallel: turn orchestration, persistent voice capture, and speech
 delivery advance independently without creating impossible combinations.
@@ -225,6 +241,24 @@ Its final output contains one terminal fact plus the bounded result. The parent
 commits a staged response only for a correlated `TURN_COMPLETED` output; every
 other terminal discards the staged completion before returning the turn region
 to idle.
+
+### Architecture boundary baseline
+
+`architecture-boundaries.json` is intentionally a characterization artifact, not
+the new runtime authority. It records the current module ownership and the
+reviewed violations that still need reduction in downstream extraction tasks.
+
+As of July 18, 2026, the reviewed baseline is four import-direction violations,
+all caused by `src/domains/product-pricing/price-capability.ts` still acting as
+an adapter dependency across deterministic and projection consumers:
+
+- `src/domains/product-pricing/authorization.ts`
+- `src/domains/product-pricing/index.ts`
+- `src/session.ts`
+- `src/workbench-view.ts`
+
+The architecture test fails if any additional file or rule is added to that
+baseline without review.
 
 ```mermaid
 stateDiagram-v2

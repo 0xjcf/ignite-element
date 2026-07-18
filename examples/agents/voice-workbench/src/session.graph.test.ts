@@ -292,4 +292,54 @@ describe("voice workbench XState graph characterization", () => {
 		});
 		failedActor.stop();
 	});
+
+	it("starts a fresh supervised child after timeout and ignores stale follow-up receipts", () => {
+		const actor = createActor(voiceWorkbenchSessionMachine, {
+			input: undefined,
+		}).start();
+		makeAvailable(actor);
+		actor.send(submitPrompt);
+		const firstRequest = actor.getSnapshot().context.portRequests.modelTurn;
+		if (!firstRequest)
+			throw new Error("Expected the first model-turn request.");
+		actor.send({
+			type: "MODEL_TURN_TIMEOUT_REQUESTED",
+			turnId: firstRequest.turnId,
+			attemptId: firstRequest.attemptId,
+		});
+		expect(actor.getSnapshot().matches({ available: { turn: "idle" } })).toBe(
+			true,
+		);
+
+		actor.send({
+			type: "SUBMIT_PROMPT",
+			input: {
+				modality: "text",
+				text: "Start a fresh turn after the timeout.",
+			},
+		});
+		const secondRequest = actor.getSnapshot().context.portRequests.modelTurn;
+		if (!secondRequest)
+			throw new Error("Expected the second model-turn request.");
+		expect(secondRequest.turnId).not.toBe(firstRequest.turnId);
+		expect(secondRequest.attemptId).not.toBe(firstRequest.attemptId);
+
+		actor.send({
+			type: "MODEL_TURN_PORT_RECEIVED",
+			request: firstRequest,
+			receipt: {
+				type: "PORT_FAILED",
+				turnId: firstRequest.turnId,
+				attemptId: firstRequest.attemptId,
+				failure: { kind: "provider", message: "Stale child failure." },
+			},
+		});
+		expect(actor.getSnapshot().context.portRequests.modelTurn).toEqual(
+			secondRequest,
+		);
+		expect(
+			actor.getSnapshot().matches({ available: { turn: "responding" } }),
+		).toBe(true);
+		actor.stop();
+	});
 });
