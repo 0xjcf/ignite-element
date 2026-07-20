@@ -66,7 +66,7 @@ describe("ignite test DSL", () => {
 		const component = igniteCore(componentConfig);
 
 		(
-			await igniteTest(component)
+			await igniteTest({ component })
 				.given({ value: "off" })
 				.when({ command: "toggle" })
 		)
@@ -97,7 +97,9 @@ describe("ignite test DSL", () => {
 			Record<string, never>
 		>;
 
-		const scenario = await igniteTest(runtime).when({ command: "noop" });
+		const scenario = await igniteTest({ component: runtime }).when({
+			command: "noop",
+		});
 
 		expect(() => scenario.expectSnapshot(null)).not.toThrow();
 	});
@@ -123,7 +125,7 @@ describe("ignite test DSL", () => {
 			}),
 		});
 
-		const scenario = await igniteTest(component)
+		const scenario = await igniteTest({ component })
 			.given({ value: "off" })
 			.when({ command: "toggle" });
 
@@ -204,7 +206,7 @@ describe("ignite test DSL", () => {
 			},
 		} satisfies XStateConfig<typeof machine, ModuleEventMap>);
 
-		const scenario = await igniteTest(component, { host }).when({
+		const scenario = await igniteTest({ component, host }).when({
 			command: "startModule",
 		});
 
@@ -266,7 +268,7 @@ describe("ignite test DSL", () => {
 			},
 		};
 
-		igniteTest(runtime, { host })
+		igniteTest({ component: runtime, host })
 			.given({ hostId: "supplied" })
 			.expectSnapshot({ hostId: "supplied" })
 			.expectView({ hostId: "supplied" });
@@ -319,16 +321,16 @@ describe("ignite test DSL", () => {
 		hostB.dataset.hostId = "b";
 		hostB.dataset.delayMs = "20";
 
-		const firstCommand = igniteTest(component, { host: hostA }).when({
+		const firstCommand = igniteTest({ component, host: hostA }).when({
 			command: "captureHost",
 		});
-		const secondCommand = igniteTest(component, { host: hostB }).when({
+		const secondCommand = igniteTest({ component, host: hostB }).when({
 			command: "captureHost",
 		});
 
 		await Promise.all([firstCommand, secondCommand]);
 		expect([...seenHostIds].sort()).toEqual(["a", "b"]);
-		await igniteTest(component).when({ command: "captureHost" });
+		await igniteTest({ component }).when({ command: "captureHost" });
 
 		expect(component.getSnapshot().context.hostId).toBe("none");
 	});
@@ -369,7 +371,7 @@ describe("ignite test DSL", () => {
 		const component = igniteCore(componentConfig);
 
 		const result = (
-			await igniteTest(component)
+			await igniteTest({ component })
 				.given({ counter: { count: 0 } })
 				.when({ command: "increment", input: 2 })
 		)
@@ -419,9 +421,8 @@ describe("ignite test DSL", () => {
 			},
 		});
 
-		(
-			await igniteTest(component).when({ command: "increment", input: 2 })
-		).expectEvent({
+		(await igniteTest({ component }).when({ command: "increment", input: 2 }))
+			.expectEvent({
 			type: "counter-incremented",
 			count: 2,
 		});
@@ -450,7 +451,7 @@ describe("ignite test DSL", () => {
 				});
 			},
 		});
-		const scenario = await igniteTest(component).when({
+		const scenario = await igniteTest({ component }).when({
 			command: "increment",
 			input: 2,
 		});
@@ -474,7 +475,7 @@ describe("ignite test DSL", () => {
 			}),
 		});
 
-		const scenario = await igniteTest(component).when({
+		const scenario = await igniteTest({ component }).when({
 			command: "increment",
 			input: 1,
 		});
@@ -516,7 +517,7 @@ describe("ignite test DSL", () => {
 				),
 			}),
 		});
-		const scenario = igniteTest(component);
+		const scenario = igniteTest({ component });
 		const story = component.record("availability");
 
 		expect(scenario.canExecute("increment")).toBe(true);
@@ -561,10 +562,16 @@ describe("ignite test DSL", () => {
 			{ count: number }
 		>;
 
-		await igniteTest(runtime).when({ command: "increment", input: 2 });
-		await igniteTest(runtime).when({ command: "decrement" });
-		await igniteTest(runtime).when({ command: "maybeIncrement" });
-		await igniteTest(runtime).when({ command: "maybeIncrement", input: 3 });
+		await igniteTest({ component: runtime }).when({
+			command: "increment",
+			input: 2,
+		});
+		await igniteTest({ component: runtime }).when({ command: "decrement" });
+		await igniteTest({ component: runtime }).when({ command: "maybeIncrement" });
+		await igniteTest({ component: runtime }).when({
+			command: "maybeIncrement",
+			input: 3,
+		});
 
 		expect(execute.mock.calls).toEqual([
 			[{ command: "increment", input: 2 }],
@@ -584,7 +591,7 @@ describe("ignite test DSL", () => {
 					actor.dispatch(counterSlice.actions.addByAmount(amount)),
 			}),
 		});
-		const dynamicScenario = igniteTest(component) as unknown as {
+		const dynamicScenario = igniteTest({ component }) as unknown as {
 			when(step: { command: string; input?: unknown }): Promise<unknown>;
 		};
 
@@ -627,32 +634,34 @@ describe("ignite test DSL", () => {
 			},
 		});
 
-		const storySnapshot = await igniteTest(component).narrative(
+		const storySnapshot = await igniteTest({ component }).story(
 			"counter recovery",
 			async (narrative) => {
-				narrative.given({
+				await narrative.given({
 					snapshot: { counter: { count: 0 } },
 					view: { count: 0, canDecrement: false },
 					canExecute: { decrement: false },
 				});
 
 				await narrative.intent({ command: "increment", input: 2 });
-				narrative.checkpoint("after increment", {
+				await narrative.checkpoint("after increment", {
 					snapshot: { counter: { count: 2 } },
 					view: { count: 2, canDecrement: true },
 					events: [{ type: "counter-incremented", count: 2 }],
 					canExecute: { decrement: true },
 				});
 
-				store.dispatch(counterSlice.actions.addByAmount(1));
-				narrative.checkpoint("after external fact", {
+				await narrative.behavior("external fact", async () => {
+					store.dispatch(counterSlice.actions.addByAmount(1));
+				});
+				await narrative.checkpoint("after external fact", {
 					snapshot: { counter: { count: 3 } },
 					view: { count: 3, canDecrement: true },
 					canExecute: { decrement: true },
 				});
 
 				await narrative.intent({ command: "decrement" });
-				narrative.checkpoint("after decrement", {
+				await narrative.checkpoint("after decrement", {
 					snapshot: { counter: { count: 2 } },
 					view: { count: 2, canDecrement: true },
 					events: [{ type: "counter-incremented", count: 2 }],
@@ -680,7 +689,7 @@ describe("ignite test DSL", () => {
 		);
 	});
 
-	it("reports checkpoint failures with narrative metadata and serialized story evidence", async () => {
+	it("reports checkpoint failures with story metadata and serialized story evidence", async () => {
 		const store = counterStore();
 		const component = igniteCore({
 			adapter: "redux",
@@ -707,10 +716,10 @@ describe("ignite test DSL", () => {
 			},
 		});
 
-		const rejection = await igniteTest(component)
-			.narrative("failing counter story", async (narrative) => {
+		const rejection = await igniteTest({ component })
+			.story("failing counter story", async (narrative) => {
 				await narrative.intent({ command: "increment", input: 2 });
-				narrative.checkpoint("after increment", {
+				await narrative.checkpoint("after increment", {
 					snapshot: { counter: { count: 99 } },
 				});
 			})
@@ -721,7 +730,7 @@ describe("ignite test DSL", () => {
 
 		expect(rejection).toMatchObject({
 			message: expect.stringContaining(
-				'[igniteTest] Narrative "failing counter story" failed.',
+				'[igniteTest] Story "failing counter story" failed.',
 			),
 			cause: expect.objectContaining({
 				message: expect.stringContaining("Expected:"),
@@ -788,8 +797,8 @@ describe("ignite test DSL", () => {
 		};
 
 		const success = createRuntime();
-		await igniteTest(success.runtime).narrative(
-			"successful narrative",
+		await igniteTest({ component: success.runtime }).story(
+			"successful story",
 			async (narrative) => {
 				await narrative.intent({ command: "increment", input: 1 });
 			},
@@ -798,11 +807,11 @@ describe("ignite test DSL", () => {
 
 		const checkpointFailure = createRuntime();
 		await expect(
-			igniteTest(checkpointFailure.runtime).narrative(
-				"checkpoint failure narrative",
+			igniteTest({ component: checkpointFailure.runtime }).story(
+				"checkpoint failure story",
 				async (narrative) => {
 					await narrative.intent({ command: "increment", input: 1 });
-					narrative.checkpoint("mismatch", {
+					await narrative.checkpoint("mismatch", {
 						snapshot: { count: 999 },
 					});
 				},
@@ -812,8 +821,8 @@ describe("ignite test DSL", () => {
 
 		const callbackFailure = createRuntime();
 		await expect(
-			igniteTest(callbackFailure.runtime).narrative(
-				"callback failure narrative",
+			igniteTest({ component: callbackFailure.runtime }).story(
+				"callback failure story",
 				async () => {
 					throw new Error("primary callback failure");
 				},
@@ -826,7 +835,7 @@ describe("ignite test DSL", () => {
 			throw new Error("cleanup failure");
 		});
 		await expect(
-			igniteTest(cleanupFailure.runtime).narrative(
+			igniteTest({ component: cleanupFailure.runtime }).story(
 				"cleanup should not mask callback",
 				async () => {
 					throw new Error("primary callback failure");
@@ -1189,6 +1198,8 @@ describe("ignite test DSL", () => {
 				snapshot: finalSnapshot,
 				events: [],
 			}),
+			behavior: async <Result>(_name: string, operation: () => Result) =>
+				operation(),
 			until: async () => finalView,
 			trace: () => [],
 			lifecycle: () => [],
@@ -1393,7 +1404,7 @@ describe("ignite test DSL", () => {
 			}),
 		});
 
-		expect(() => igniteTest(component).expectNoEvents()).toThrow(
+		expect(() => igniteTest({ component }).expectNoEvents()).toThrow(
 			"[igniteTest] No command has been executed yet. Call when() before asserting execution results.",
 		);
 	});

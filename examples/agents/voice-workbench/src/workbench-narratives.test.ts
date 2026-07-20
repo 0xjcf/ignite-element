@@ -217,22 +217,24 @@ describe("voice workbench executable narratives", () => {
 				},
 			});
 
-			const story = await igniteTest(component).narrative(
+			const story = await igniteTest({ component }).story(
 				"preparation failure retries into ready",
 				async (narrative) => {
-					narrative.given({
+					await narrative.given({
 						snapshot: (snapshot) => snapshot.matches("unavailable"),
 						view: { status: "failed", model: { status: "failed" } },
 						canExecute: { submitPrompt: false },
 					});
 
 					await narrative.intent({ command: "beginModelPreparation" });
-					reportPreparation(actor, {
-						type: "available",
-						sequence: currentPreparationRequest(actor).sequence,
+					await narrative.behavior("model preparation becomes available", async () => {
+						reportPreparation(actor, {
+							type: "available",
+							sequence: currentPreparationRequest(actor).sequence,
+						});
 					});
 
-					narrative.checkpoint("ready after retry", {
+					await narrative.checkpoint("ready after retry", {
 						snapshot: (snapshot) =>
 							snapshot.matches({ available: { turn: "idle" } }),
 						view: {
@@ -269,10 +271,10 @@ describe("voice workbench executable narratives", () => {
 			const { actor, component } = createFixture();
 			makeAvailable(actor);
 
-			const story = await igniteTest(component).narrative(
+			const story = await igniteTest({ component }).story(
 				"microphone permission denial recovers to typed prompt",
 				async (narrative) => {
-					narrative.given({
+					await narrative.given({
 						snapshot: (snapshot) =>
 							snapshot.matches({ available: { turn: "idle" } }),
 						view: {
@@ -291,13 +293,15 @@ describe("voice workbench executable narratives", () => {
 					if (request.type !== "start" || request.attemptId === null) {
 						throw new Error("Expected a correlated voice start request.");
 					}
-					sendVoiceReceipt(actor, {
-						type: "PERMISSION_DENIED",
-						attemptId: request.attemptId,
-						message: "Microphone access was denied.",
+					await narrative.behavior("microphone permission denied", async () => {
+						sendVoiceReceipt(actor, {
+							type: "PERMISSION_DENIED",
+							attemptId: request.attemptId,
+							message: "Microphone access was denied.",
+						});
 					});
 
-					narrative.checkpoint("voice permission stays a fact", {
+					await narrative.checkpoint("voice permission stays a fact", {
 						view: {
 							voiceState: "permission",
 							voiceFailure: {
@@ -320,7 +324,7 @@ describe("voice workbench executable narratives", () => {
 						},
 					});
 
-					narrative.checkpoint("text recovery starts a new turn", {
+					await narrative.checkpoint("text recovery starts a new turn", {
 						snapshot: (snapshot) =>
 							snapshot.matches({ available: { turn: "responding" } }),
 						view: {
@@ -362,7 +366,7 @@ describe("voice workbench executable narratives", () => {
 			const { actor, component } = createFixture();
 			makeAvailable(actor);
 
-			const story = await igniteTest(component).narrative(
+			const story = await igniteTest({ component }).story(
 				"correlated cancellation returns the active turn to idle",
 				async (narrative) => {
 					await narrative.intent({
@@ -370,22 +374,24 @@ describe("voice workbench executable narratives", () => {
 						input: { modality: "text", text: "Cancel this turn." },
 					});
 
-					narrative.checkpoint("turn is responding", {
-						snapshot: (snapshot) =>
+					await narrative.checkpoint("turn is responding", {
+						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "responding" } }),
 						view: { status: "responding" },
 						canExecute: { createArtifact: true },
 					});
 
 					const request = currentModelRequest(actor);
-					actor.send({
-						type: "MODEL_TURN_CANCEL_REQUESTED",
-						turnId: request.turnId,
-						attemptId: request.attemptId,
+					await narrative.behavior("cancel active turn", async () => {
+						actor.send({
+							type: "MODEL_TURN_CANCEL_REQUESTED",
+							turnId: request.turnId,
+							attemptId: request.attemptId,
+						});
 					});
 
-					narrative.checkpoint("turn cancellation returns idle", {
-						snapshot: (snapshot) =>
+					await narrative.checkpoint("turn cancellation returns idle", {
+						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "idle" } }),
 						view: {
 							status: "ready",
@@ -412,7 +418,7 @@ describe("voice workbench executable narratives", () => {
 			const { actor, component } = createFixture();
 			makeAvailable(actor);
 
-			const story = await igniteTest(component).narrative(
+			const story = await igniteTest({ component }).story(
 				"timed out turn retries to an accepted response",
 				async (narrative) => {
 					await narrative.intent({
@@ -421,14 +427,16 @@ describe("voice workbench executable narratives", () => {
 					});
 
 					let request = currentModelRequest(actor);
-					actor.send({
-						type: "MODEL_TURN_TIMEOUT_REQUESTED",
-						turnId: request.turnId,
-						attemptId: request.attemptId,
+					await narrative.behavior("timeout active turn", async () => {
+						actor.send({
+							type: "MODEL_TURN_TIMEOUT_REQUESTED",
+							turnId: request.turnId,
+							attemptId: request.attemptId,
+						});
 					});
 
-					narrative.checkpoint("timeout returns the turn to idle", {
-						snapshot: (snapshot) =>
+					await narrative.checkpoint("timeout returns the turn to idle", {
+						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "idle" } }),
 						view: {
 							status: "ready",
@@ -458,7 +466,7 @@ describe("voice workbench executable narratives", () => {
 						},
 					});
 
-					narrative.checkpoint("retry can finish with an accepted artifact", {
+					await narrative.checkpoint("retry can finish with an accepted artifact", {
 						view: {
 							status: "responding",
 							activeArtifact: {
@@ -476,10 +484,12 @@ describe("voice workbench executable narratives", () => {
 						command: "completeResponse",
 						input: { text: "Recovered after timeout." },
 					});
-					finishCurrentTurnCompletion(actor, component, completion);
+					await narrative.behavior("finish accepted retry", async () => {
+						finishCurrentTurnCompletion(actor, component, completion);
+					});
 
-					narrative.checkpoint("accepted retry returns to ready", {
-						snapshot: (snapshot) =>
+					await narrative.checkpoint("accepted retry returns to ready", {
+						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "idle" } }),
 						view: {
 							status: "ready",
@@ -520,7 +530,7 @@ describe("voice workbench executable narratives", () => {
 			const { actor, component } = createFixture();
 			makeAvailable(actor);
 
-			const story = await igniteTest(component).narrative(
+			const story = await igniteTest({ component }).story(
 				"stale correlated model receipts stay inert until the live turn ends",
 				async (narrative) => {
 					await narrative.intent({
@@ -529,19 +539,21 @@ describe("voice workbench executable narratives", () => {
 					});
 
 					const request = currentModelRequest(actor);
-					actor.send({
-						type: "MODEL_TURN_PORT_RECEIVED",
-						request,
-						receipt: {
-							type: "PORT_FAILED",
-							turnId: request.turnId,
-							attemptId: `${request.attemptId}:stale`,
-							failure: { kind: "provider", message: "stale" },
-						},
+					await narrative.behavior("send stale model receipt", async () => {
+						actor.send({
+							type: "MODEL_TURN_PORT_RECEIVED",
+							request,
+							receipt: {
+								type: "PORT_FAILED",
+								turnId: request.turnId,
+								attemptId: `${request.attemptId}:stale`,
+								failure: { kind: "provider", message: "stale" },
+							},
+						});
 					});
 
-					narrative.checkpoint("stale receipt cannot close the turn", {
-						snapshot: (snapshot) =>
+					await narrative.checkpoint("stale receipt cannot close the turn", {
+						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "responding" } }),
 						view: {
 							status: "responding",
@@ -550,14 +562,16 @@ describe("voice workbench executable narratives", () => {
 						canExecute: { createArtifact: true },
 					});
 
-					actor.send({
-						type: "MODEL_TURN_CANCEL_REQUESTED",
-						turnId: request.turnId,
-						attemptId: request.attemptId,
+					await narrative.behavior("cancel live turn", async () => {
+						actor.send({
+							type: "MODEL_TURN_CANCEL_REQUESTED",
+							turnId: request.turnId,
+							attemptId: request.attemptId,
+						});
 					});
 
-					narrative.checkpoint("live correlation still controls exit", {
-						snapshot: (snapshot) =>
+					await narrative.checkpoint("live correlation still controls exit", {
+						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "idle" } }),
 						view: {
 							status: "ready",
@@ -589,7 +603,7 @@ describe("voice workbench executable narratives", () => {
 			const { actor, component } = createFixture();
 			makeAvailable(actor);
 
-			const story = await igniteTest(component).narrative(
+			const story = await igniteTest({ component }).story(
 				"artifact revision conflicts recover with the current revision",
 				async (narrative) => {
 					await narrative.intent({
@@ -611,7 +625,7 @@ describe("voice workbench executable narratives", () => {
 						},
 					});
 
-					narrative.checkpoint(
+					await narrative.checkpoint(
 						"first revision is available for follow-up work",
 						{
 							view: {
@@ -642,7 +656,7 @@ describe("voice workbench executable narratives", () => {
 						},
 					});
 
-					narrative.checkpoint(
+					await narrative.checkpoint(
 						"stale revision preserves the accepted artifact",
 						{
 							view: {
@@ -676,7 +690,7 @@ describe("voice workbench executable narratives", () => {
 						},
 					});
 
-					narrative.checkpoint("current revision recovers the conflict", {
+					await narrative.checkpoint("current revision recovers the conflict", {
 						view: {
 							activeArtifact: {
 								id: "launch-plan",
@@ -714,7 +728,7 @@ describe("voice workbench executable narratives", () => {
 			const { actor, component } = createFixture();
 			makeAvailable(actor);
 
-			const story = await igniteTest(component).narrative(
+			const story = await igniteTest({ component }).story(
 				"speech unavailable remains actor-owned until acknowledged",
 				async (narrative) => {
 					await narrative.intent({
@@ -747,10 +761,12 @@ describe("voice workbench executable narratives", () => {
 							speech: "Speech fallback stays semantic.",
 						},
 					});
-					finishCurrentTurnCompletion(actor, component, completion);
+					await narrative.behavior("finish speech completion", async () => {
+						finishCurrentTurnCompletion(actor, component, completion);
+					});
 
-					narrative.checkpoint("pending speech stays acknowledged-later", {
-						snapshot: (snapshot) =>
+					await narrative.checkpoint("pending speech stays acknowledged-later", {
+						when: (snapshot) =>
 							snapshot.matches({ available: { speech: "delivering" } }),
 						view: {
 							status: "ready",
@@ -763,12 +779,14 @@ describe("voice workbench executable narratives", () => {
 					});
 
 					const request = currentSpeechRequest(actor);
-					sendSpeechReceipt(actor, {
-						type: "UNAVAILABLE",
-						attemptId: request.attemptId,
+					await narrative.behavior("speech becomes unavailable", async () => {
+						sendSpeechReceipt(actor, {
+							type: "UNAVAILABLE",
+							attemptId: request.attemptId,
+						});
 					});
 
-					narrative.checkpoint("speech unavailable settles through the actor", {
+					await narrative.checkpoint("speech unavailable settles through the actor", {
 						view: {
 							speech: {
 								status: "acknowledged",

@@ -42,7 +42,12 @@ export type IgniteCommandCall<
 			: { command: Name; input: CommandPayload<Commands, Name> };
 }[CommandName];
 
-export type IgniteStoryTraceKind = "command" | "snapshot" | "view" | "event";
+export type IgniteStoryTraceKind =
+	| "command"
+	| "behavior"
+	| "snapshot"
+	| "view"
+	| "event";
 
 export type IgniteStoryTracePhase = "before" | "after";
 
@@ -52,6 +57,13 @@ export type IgniteStoryCommandTraceEntry = {
 	step: number;
 	command: string;
 	payload?: IgniteSchemaValue;
+};
+
+export type IgniteStoryBehaviorTraceEntry = {
+	kind: "behavior";
+	sequence: number;
+	step: number;
+	name: string;
 };
 
 export type IgniteStorySnapshotTraceEntry = {
@@ -80,6 +92,7 @@ export type IgniteStoryEventTraceEntry = {
 
 export type IgniteStoryTraceEntry =
 	| IgniteStoryCommandTraceEntry
+	| IgniteStoryBehaviorTraceEntry
 	| IgniteStorySnapshotTraceEntry
 	| IgniteStoryViewTraceEntry
 	| IgniteStoryEventTraceEntry;
@@ -157,6 +170,10 @@ export type IgniteStory<
 	execute<CommandName extends keyof Commands & string>(
 		call: IgniteCommandCall<Commands, CommandName>,
 	): Promise<IgniteAgentExecutionResult<State, Events>>;
+	behavior<Result>(
+		name: string,
+		operation: () => Promise<Result> | Result,
+	): Promise<Result>;
 	until(
 		viewPredicate: IgniteStoryViewPredicate<View>,
 		action: (

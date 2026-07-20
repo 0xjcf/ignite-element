@@ -3,6 +3,7 @@ import type {
 	IgniteAgentSubscription,
 	IgniteCommandCall,
 	IgniteStory,
+	IgniteStoryBehaviorTraceEntry,
 	IgniteStoryCommandTraceEntry,
 	IgniteStoryEventTraceEntry,
 	IgniteStoryLifecycleEntry,
@@ -201,6 +202,7 @@ export type IgniteRuntimeHostOverride = <Result>(
 
 type IgniteStoryTraceEntryDraft =
 	| Omit<IgniteStoryCommandTraceEntry, "sequence">
+	| Omit<IgniteStoryBehaviorTraceEntry, "sequence">
 	| Omit<IgniteStoryEventTraceEntry, "sequence">
 	| Omit<IgniteStorySnapshotTraceEntry, "sequence">
 	| Omit<IgniteStoryViewTraceEntry, "sequence">;
@@ -289,6 +291,8 @@ function cloneTraceEntry(entry: IgniteStoryTraceEntry): IgniteStoryTraceEntry {
 			return typeof entry.payload === "undefined"
 				? { ...entry }
 				: { ...entry, payload: cloneSchemaValue(entry.payload) };
+		case "behavior":
+			return { ...entry };
 		case "event":
 			return { ...entry, payload: cloneSchemaValue(entry.payload) };
 		case "snapshot":
@@ -598,6 +602,7 @@ export function createAgentRuntime<
 		const lifecycleEntries: IgniteStoryLifecycleEntry[] = [];
 		const emittedEvents: RuntimeEventMember[] = [];
 		let active = true;
+		let totalStepCount = 0;
 		let commandCount = 0;
 		let traceSequence = 0;
 
@@ -632,7 +637,7 @@ export function createAgentRuntime<
 				call: IgniteCommandCall<Record<string, (arg?: unknown) => unknown>>,
 			) {
 				assertActive();
-				const step = commandCount + 1;
+				const step = totalStepCount + 1;
 				const beforeState = resolveRuntime().adapter.getSnapshot();
 				const beforeView = resolveView(resolveRuntime().adapter);
 				const { command, input } = commandCallToArgs(call);
@@ -690,8 +695,54 @@ export function createAgentRuntime<
 					view: normalizeTraceValue(resolveView(resolveRuntime().adapter)),
 				});
 
-				commandCount = step;
+				totalStepCount = step;
+				commandCount += 1;
 				return result;
+			},
+			async behavior<Result>(
+				behaviorName: string,
+				operation: () => Promise<Result> | Result,
+			): Promise<Result> {
+				assertActive();
+				const step = totalStepCount + 1;
+				const beforeState = resolveRuntime().adapter.getSnapshot();
+				const beforeView = resolveView(resolveRuntime().adapter);
+
+				pushTrace({
+					kind: "behavior",
+					step,
+					name: behaviorName,
+				});
+				pushTrace({
+					kind: "snapshot",
+					step,
+					phase: "before",
+					snapshot: normalizeTraceValue(beforeState),
+				});
+				pushTrace({
+					kind: "view",
+					step,
+					phase: "before",
+					view: normalizeTraceValue(beforeView),
+				});
+
+				try {
+					return await operation();
+				} finally {
+					pushTrace({
+						kind: "snapshot",
+						step,
+						phase: "after",
+						snapshot: normalizeTraceValue(resolveRuntime().adapter.getSnapshot()),
+					});
+					pushTrace({
+						kind: "view",
+						step,
+						phase: "after",
+						view: normalizeTraceValue(resolveView(resolveRuntime().adapter)),
+					});
+					totalStepCount = step;
+				}
 			},
 			async until(
 				viewPredicate: (view: View) => boolean,

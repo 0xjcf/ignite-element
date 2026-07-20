@@ -60,7 +60,7 @@ describe("ignite test DSL types", () => {
 		const component = igniteCore(componentConfig);
 
 		const scenario = (
-			await igniteTest(component)
+			await igniteTest({ component })
 				.given({ value: "off" })
 				.when({ command: "toggle" })
 		)
@@ -117,31 +117,33 @@ describe("ignite test DSL types", () => {
 		const component = igniteCore(componentConfig);
 
 		const expectWhenTyping = () => {
-			igniteTest(component).when({ command: "increment", input: 2 });
-			igniteTest(component).when({ command: "decrement" });
-			igniteTest(component).when({ command: "maybeIncrement" });
-			igniteTest(component).when({ command: "maybeIncrement", input: 3 });
+			igniteTest({ component }).when({ command: "increment", input: 2 });
+			igniteTest({ component }).when({ command: "decrement" });
+			igniteTest({ component }).when({ command: "maybeIncrement" });
+			igniteTest({ component }).when({ command: "maybeIncrement", input: 3 });
 		};
 		expectTypeOf(
-			igniteTest(component).canExecute("decrement"),
+			igniteTest({ component }).canExecute("decrement"),
 		).toEqualTypeOf<boolean>();
 
 		const expectCommandNameValidation = () => {
 			// @ts-expect-error - required command input must be present
-			igniteTest(component).when({ command: "increment" });
+			igniteTest({ component }).when({ command: "increment" });
 			// @ts-expect-error - no-arg commands do not accept input
-			igniteTest(component).when({ command: "decrement", input: 1 });
+			igniteTest({ component }).when({ command: "decrement", input: 1 });
 			// @ts-expect-error - invalid command input type
-			igniteTest(component).when({ command: "increment", input: "2" });
+			igniteTest({ component }).when({ command: "increment", input: "2" });
 			// @ts-expect-error - `when` is typed to known command names
-			igniteTest(component).when({ command: "missing" });
-			// @ts-expect-error - positional overload is removed in favor of object form
-			igniteTest(component).when("increment", 2);
+			igniteTest({ component }).when({ command: "missing" });
 			// @ts-expect-error - canExecute is typed to known command names
-			igniteTest(component).canExecute("missing");
+			igniteTest({ component }).canExecute("missing");
+			// @ts-expect-error - positional igniteTest form is removed in favor of object form
+			igniteTest(component);
+			// @ts-expect-error - host remains nested inside the object input
+			igniteTest(component, { host: document.createElement("section") });
 		};
 
-		expectTypeOf(igniteTest(component).expectSnapshot).toBeFunction();
+		expectTypeOf(igniteTest({ component }).expectSnapshot).toBeFunction();
 		void expectWhenTyping;
 		void expectCommandNameValidation;
 	});
@@ -180,7 +182,7 @@ describe("ignite test DSL types", () => {
 		// run (these `.types.test.ts` files also execute under vitest, and the
 		// freshly-created component's view would not satisfy the assertion at runtime).
 		const expectViewTyping = () => {
-			igniteTest(component).expectView((view) => {
+			igniteTest({ component }).expectView((view) => {
 				expectTypeOf(view).toEqualTypeOf<
 					{ isOn: boolean; label: string } & Record<string, unknown>
 				>();
@@ -211,16 +213,16 @@ describe("ignite test DSL types", () => {
 
 		const hostOptionTyping = () => {
 			const host = document.createElement("section");
-			igniteTest(component, { host }).canExecute("readHost");
+			igniteTest({ component, host }).canExecute("readHost");
 
 			// @ts-expect-error - the host seam must satisfy the HTMLElement contract
-			igniteTest(component, { host: new EventTarget() });
+			igniteTest({ component, host: new EventTarget() });
 		};
 
 		void hostOptionTyping;
 	});
 
-	it("types named narratives with object-form command steps and checkpoint evidence", () => {
+	it("types named stories with object-form command steps, async checkpoints, and behavior results", () => {
 		const store = counterStore();
 		const componentConfig = {
 			adapter: "redux",
@@ -271,23 +273,45 @@ describe("ignite test DSL types", () => {
 		>;
 		const component = igniteCore(componentConfig);
 
-		const expectNarrativeTyping = async () => {
-			const story = await igniteTest(component).narrative(
+		const expectStoryTyping = async () => {
+			const story = await igniteTest({ component }).story(
 				"counter flow",
 				async (narrative) => {
-					narrative.given({
+					expectTypeOf(
+						narrative.given({
+							snapshot: { counter: { count: 0 } },
+							when: (snapshot) => snapshot.counter.count === 0,
+							view: { count: 0, canDecrement: false },
+							canExecute: { decrement: false },
+						}),
+					).toEqualTypeOf<Promise<void>>();
+					await narrative.given({
 						snapshot: { counter: { count: 0 } },
+						when: (snapshot) => snapshot.counter.count === 0,
 						view: { count: 0, canDecrement: false },
 						canExecute: { decrement: false },
 					});
 					await narrative.intent({ command: "increment", input: 2 });
 					await narrative.intent({ command: "maybeIncrement" });
-					narrative.checkpoint("after increment", {
+					expectTypeOf(
+						narrative.checkpoint("after increment", {
+							snapshot: { counter: { count: 3 } },
+							view: { count: 3, canDecrement: true },
+							events: [{ type: "counter-incremented", count: 3 }],
+							canExecute: { decrement: true },
+						}),
+					).toEqualTypeOf<Promise<void>>();
+					await narrative.checkpoint("after increment", {
 						snapshot: { counter: { count: 3 } },
 						view: { count: 3, canDecrement: true },
 						events: [{ type: "counter-incremented", count: 3 }],
 						canExecute: { decrement: true },
 					});
+					const externalCount = await narrative.behavior(
+						"external increment",
+						async () => 4 as const,
+					);
+					expectTypeOf(externalCount).toEqualTypeOf<4>();
 
 					const expectCommandValidation = () => {
 						// @ts-expect-error - required command input must be present
@@ -296,6 +320,19 @@ describe("ignite test DSL types", () => {
 						narrative.intent({ command: "decrement", input: 1 });
 						// @ts-expect-error - invalid command names stay rejected
 						narrative.intent({ command: "missing" });
+						narrative.checkpoint(
+							"invalid snapshot predicate",
+							{
+								// @ts-expect-error - snapshot is structural only; predicates belong under when
+								snapshot: (
+									snapshot: { counter: { count: number } },
+								) => snapshot.counter.count === 3,
+							},
+						);
+						// @ts-expect-error - stories receive only the narrative context
+						igniteTest({ component }).story("invalid callback args", async (_narrative, actor) => actor);
+						// @ts-expect-error - narrative alias is removed in favor of story
+						igniteTest({ component }).narrative("counter flow", async () => {});
 					};
 
 					void expectCommandValidation;
@@ -305,10 +342,10 @@ describe("ignite test DSL types", () => {
 			expectTypeOf(story.summary.commandCount).toEqualTypeOf<number>();
 		};
 
-		void expectNarrativeTyping;
+		void expectStoryTyping;
 	});
 
-	it("preserves literal narrative names on the returned receipt", () => {
+	it("preserves literal story names on the returned receipt", () => {
 		const store = counterStore();
 		const component = igniteCore({
 			adapter: "redux",
@@ -321,7 +358,7 @@ describe("ignite test DSL types", () => {
 
 		const expectLiteralName = async () => {
 			const name = "counter flow" as const;
-			const receipt = await igniteTest(component).narrative(
+			const receipt = await igniteTest({ component }).story(
 				name,
 				async () => {},
 			);

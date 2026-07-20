@@ -140,4 +140,20 @@ describe("public adapter entrypoints", () => {
 		expect(typeof component.watchView).toBe("function");
 		expect(typeof component.on).toBe("function");
 	});
+
+	it("keeps the testing entrypoint stable for object-form stories", async () => {
+		const testingPublic = await import("../testing");
+		const machine = createMachine({
+			initial: "idle",
+			states: {
+				idle: {},
+			},
+		});
+		const component = igniteCoreXState({ source: machine });
+
+		const scenario = testingPublic.test({ component });
+
+		expect(typeof testingPublic.test).toBe("function");
+		expect(typeof scenario.story).toBe("function");
+	});
 });

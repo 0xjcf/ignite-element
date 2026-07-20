@@ -15,6 +15,7 @@ import { toSchemaValue } from "./runtime/schema";
 import type {
 	IgniteAgentExecutionResult,
 	IgniteAgentRuntime,
+	IgniteAgentSubscription,
 	IgniteCommandCall,
 	IgniteStory,
 	IgniteStorySnapshot,
@@ -35,9 +36,8 @@ type DeepPartial<T> = T extends readonly (infer Item)[]
 				[K in keyof T]?: DeepPartial<T[K]>;
 			}
 		: T;
-export type IgniteSnapshotExpectation<State> =
-	| DeepPartial<State>
-	| ((snapshot: State) => boolean);
+export type IgniteSnapshotExpectation<State> = DeepPartial<State>;
+export type IgniteSnapshotPredicate<State> = (snapshot: State) => boolean;
 
 export type IgniteViewExpectation<View> =
 	| DeepPartial<View>
@@ -65,6 +65,11 @@ export type IgniteStoryTraceAssertionOptions = {
 };
 
 export type IgniteTestScenarioOptions = {
+	host?: HTMLElement;
+};
+
+export type IgniteTestInput<Runtime> = {
+	component: Runtime;
 	host?: HTMLElement;
 };
 
@@ -104,10 +109,10 @@ export type IgniteTestScenario<
 	when<CommandName extends keyof Commands & string>(
 		step: IgniteTestCommandStep<Commands, CommandName>,
 	): Promise<IgniteTestScenario<State, Commands, Events, View>>;
-	narrative<Name extends string>(
+	story<Name extends string>(
 		name: Name,
 		run: (
-			narrative: IgniteTestNarrativeContext<State, Commands, Events, View>,
+			story: IgniteTestStoryContext<State, Commands, Events, View>,
 		) => Promise<unknown> | unknown,
 	): Promise<IgniteStorySnapshot & { name: Name }>;
 	expectSnapshot(
@@ -209,7 +214,7 @@ export type IgniteTestCommandStep<
 	CommandName extends keyof Commands & string = keyof Commands & string,
 > = IgniteCommandCall<Commands, CommandName>;
 
-type IgniteTestNarrativeCheckpoint<
+type IgniteTestStoryCheckpoint<
 	State,
 	Commands extends FacadeCommandResult,
 	Events extends EventMap,
@@ -223,25 +228,26 @@ type IgniteTestNarrativeCheckpoint<
 	): boolean;
 };
 
-type IgniteTestNarrativeCanExecuteExpectation<
+type IgniteTestStoryCanExecuteExpectation<
 	Commands extends FacadeCommandResult,
 > = Partial<Record<keyof Commands & string, boolean>>;
 
-type IgniteTestNarrativeAssertion<
+type IgniteTestStoryAssertion<
 	State,
 	Commands extends FacadeCommandResult,
 	Events extends EventMap,
 	View extends Record<string, unknown>,
 > = {
 	snapshot?: IgniteSnapshotExpectation<State>;
+	when?: IgniteSnapshotPredicate<State>;
 	view?: IgniteViewExpectation<View>;
 	event?: IgniteEventExpectation<Events>;
 	events?: IgniteEventExpectation<Events>[];
 	noEvents?: true;
-	canExecute?: IgniteTestNarrativeCanExecuteExpectation<Commands>;
+	canExecute?: IgniteTestStoryCanExecuteExpectation<Commands>;
 };
 
-type IgniteTestNarrativeContext<
+type IgniteTestStoryContext<
 	State,
 	Commands extends FacadeCommandResult,
 	Events extends EventMap,
@@ -249,17 +255,21 @@ type IgniteTestNarrativeContext<
 > = {
 	given(
 		expected: Omit<
-			IgniteTestNarrativeAssertion<State, Commands, Events, View>,
+			IgniteTestStoryAssertion<State, Commands, Events, View>,
 			"event" | "events" | "noEvents"
 		>,
-	): void;
+	): Promise<void>;
 	intent<CommandName extends keyof Commands & string>(
 		step: IgniteTestCommandStep<Commands, CommandName>,
 	): Promise<IgniteAgentExecutionResult<State, Events>>;
+	behavior<Result>(
+		name: string,
+		operation: () => Promise<Result> | Result,
+	): Promise<Result>;
 	checkpoint(
 		name: string,
-		expected: IgniteTestNarrativeAssertion<State, Commands, Events, View>,
-	): void;
+		expected: IgniteTestStoryAssertion<State, Commands, Events, View>,
+	): Promise<void>;
 };
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
@@ -296,6 +306,8 @@ const cloneTraceSnapshotEntry = (
 			return typeof entry.payload === "undefined"
 				? { ...entry }
 				: { ...entry, payload: cloneSerializable(entry.payload) };
+		case "behavior":
+			return { ...entry };
 		case "event":
 			return { ...entry, payload: cloneSerializable(entry.payload) };
 		case "snapshot":
@@ -634,23 +646,22 @@ const serializeTrace = (
 	trace: readonly IgniteStoryTraceEntry[],
 ): IgniteStoryTraceSnapshot => trace.map(cloneTraceSnapshotEntry);
 
-type IgniteNarrativeFailurePhase =
+type IgniteStoryFailurePhase =
 	| "given"
 	| "intent"
+	| "behavior"
 	| "checkpoint"
 	| "callback"
 	| "cleanup";
 
-type IgniteNarrativeFailure = Error & {
-	__igniteNarrativeFailure: true;
+type IgniteStoryFailure = Error & {
+	__igniteStoryFailure: true;
 };
 
-const isIgniteNarrativeFailure = (
-	error: unknown,
-): error is IgniteNarrativeFailure =>
+const isIgniteStoryFailure = (error: unknown): error is IgniteStoryFailure =>
 	error instanceof Error &&
-	"__igniteNarrativeFailure" in error &&
-	error.__igniteNarrativeFailure === true;
+	"__igniteStoryFailure" in error &&
+	error.__igniteStoryFailure === true;
 
 const snapshotStory = <
 	State,
@@ -761,22 +772,30 @@ const expectTrace = (
 	return snapshot;
 };
 
-const assertNarrativeAssertion = <
+const assertStoryAssertion = <
 	State,
 	Commands extends FacadeCommandResult,
 	Events extends EventMap,
 	View extends Record<string, unknown>,
 >(
 	assertion:
-		| IgniteTestNarrativeAssertion<State, Commands, Events, View>
+		| IgniteTestStoryAssertion<State, Commands, Events, View>
 		| Omit<
-				IgniteTestNarrativeAssertion<State, Commands, Events, View>,
+				IgniteTestStoryAssertion<State, Commands, Events, View>,
 				"event" | "events" | "noEvents"
 		  >,
-	checkpoint: IgniteTestNarrativeCheckpoint<State, Commands, Events, View>,
+	checkpoint: IgniteTestStoryCheckpoint<State, Commands, Events, View>,
 ) => {
 	if ("snapshot" in assertion && typeof assertion.snapshot !== "undefined") {
 		assertSnapshot("expectSnapshot", checkpoint.snapshot, assertion.snapshot);
+	}
+
+	if ("when" in assertion && typeof assertion.when !== "undefined") {
+		if (!assertion.when(checkpoint.snapshot)) {
+			throw new Error(
+				`[igniteTest] snapshot predicate failed.\nReceived: ${formatValue(checkpoint.snapshot)}`,
+			);
+		}
 	}
 
 	if ("view" in assertion && typeof assertion.view !== "undefined") {
@@ -823,23 +842,24 @@ const assertNarrativeAssertion = <
 	}
 };
 
-const createNarrativeFailure = <
+const createStoryFailure = <
 	State,
 	Commands extends FacadeCommandResult,
 	Events extends EventMap,
 	View extends Record<string, unknown>,
 >(
-	narrativeName: string,
-	phase: IgniteNarrativeFailurePhase,
+	storyName: string,
+	phase: IgniteStoryFailurePhase,
 	story: IgniteStory<State, Commands, Events, View>,
 	error: unknown,
 	options: {
 		checkpointName?: string;
 		intent?: IgniteCommandCall<Commands>;
+		behaviorName?: string;
 	} = {},
-): IgniteNarrativeFailure => {
+): IgniteStoryFailure => {
 	const lines = [
-		`[igniteTest] Narrative "${narrativeName}" failed.`,
+		`[igniteTest] Story "${storyName}" failed.`,
 		`Phase: ${phase}`,
 	];
 
@@ -851,21 +871,25 @@ const createNarrativeFailure = <
 		lines.push(`Intent: ${formatValue(options.intent)}`);
 	}
 
+	if (options.behaviorName) {
+		lines.push(`Behavior: ${options.behaviorName}`);
+	}
+
 	lines.push(
 		`Cause: ${error instanceof Error ? error.message : formatValue(error)}`,
 		`Story: ${formatValue(snapshotStory(story))}`,
 	);
 
-	const narrativeError = new Error(
+	const storyError = new Error(
 		lines.join("\n"),
-	) as IgniteNarrativeFailure & {
+	) as IgniteStoryFailure & {
 		cause?: Error;
 	};
 	if (error instanceof Error) {
-		narrativeError.cause = error;
+		storyError.cause = error;
 	}
-	narrativeError.__igniteNarrativeFailure = true;
-	return narrativeError;
+	storyError.__igniteStoryFailure = true;
+	return storyError;
 };
 
 class IgniteTestDriver<
@@ -876,6 +900,7 @@ class IgniteTestDriver<
 > implements IgniteTestScenario<State, Commands, Events, View>
 {
 	private lastResult: IgniteAgentExecutionResult<State, Events> | null = null;
+	private readonly storyAssertionTimeoutMs = 1000;
 
 	constructor(
 		private readonly component: IgniteAgentRuntime<
@@ -909,6 +934,108 @@ class IgniteTestDriver<
 		return hostOverride(host, callback);
 	}
 
+	private createStoryCheckpoint(
+		story: IgniteStory<State, Commands, Events, View>,
+		events: RuntimeEvent<Events>[],
+	): IgniteTestStoryCheckpoint<State, Commands, Events, View> {
+		return {
+			snapshot: this.withHost(() => this.component.getSnapshot()),
+			view: this.withHost(() => this.component.getView()),
+			events,
+			canExecute: (commandName) =>
+				this.withHost(() => story.canExecute(commandName)),
+		};
+	}
+
+	private async awaitStoryAssertion(
+		story: IgniteStory<State, Commands, Events, View>,
+		phase: "given" | "checkpoint",
+		expected:
+			| IgniteTestStoryAssertion<State, Commands, Events, View>
+			| Omit<
+					IgniteTestStoryAssertion<State, Commands, Events, View>,
+					"event" | "events" | "noEvents"
+			  >,
+		events: RuntimeEvent<Events>[],
+		checkpointName?: string,
+	): Promise<void> {
+		let settled = false;
+		let timeoutId: ReturnType<typeof setTimeout> | undefined;
+		let snapshotSubscription: IgniteAgentSubscription | undefined;
+		let viewSubscription: IgniteAgentSubscription | undefined;
+		let latestError: unknown;
+
+		const cleanup = () => {
+			if (timeoutId) {
+				clearTimeout(timeoutId);
+			}
+			snapshotSubscription?.unsubscribe();
+			viewSubscription?.unsubscribe();
+		};
+
+		const evaluate = () => {
+			assertStoryAssertion(
+				expected,
+				this.createStoryCheckpoint(
+					story,
+					cloneSerializable(events) as RuntimeEvent<Events>[],
+				),
+			);
+		};
+
+		return await new Promise<void>((resolve, reject) => {
+			const settle = (
+				status: "resolved" | "rejected",
+				value?: unknown,
+			) => {
+				if (settled) {
+					return;
+				}
+				settled = true;
+				cleanup();
+				if (status === "resolved") {
+					resolve();
+					return;
+				}
+				reject(value);
+			};
+
+			const check = () => {
+				try {
+					evaluate();
+					settle("resolved");
+				} catch (error) {
+					latestError = error;
+				}
+			};
+
+			try {
+				snapshotSubscription = this.withHost(() =>
+					this.component.watchSnapshot(() => {
+						check();
+					}),
+				);
+				viewSubscription = this.withHost(() =>
+					this.component.watchView(() => {
+						check();
+					}),
+				);
+			} catch (error) {
+				cleanup();
+				throw error;
+			}
+
+			timeoutId = setTimeout(() => {
+				const timeoutError = new Error(
+					`[igniteTest] ${phase} timed out after ${this.storyAssertionTimeoutMs}ms.${checkpointName ? `\nCheckpoint: ${checkpointName}` : ""}\nLatest mismatch: ${latestError instanceof Error ? latestError.message : formatValue(latestError)}\nStory: ${formatValue(snapshotStory(story))}`,
+				);
+				settle("rejected", timeoutError);
+			}, this.storyAssertionTimeoutMs);
+
+			check();
+		});
+	}
+
 	given(expected: IgniteSnapshotExpectation<State>) {
 		assertSnapshot(
 			"given",
@@ -925,31 +1052,30 @@ class IgniteTestDriver<
 		return this;
 	}
 
-	async narrative<Name extends string>(
+	async story<Name extends string>(
 		name: Name,
 		run: (
-			narrative: IgniteTestNarrativeContext<State, Commands, Events, View>,
+			storyContext: IgniteTestStoryContext<State, Commands, Events, View>,
 		) => Promise<unknown> | unknown,
 	): Promise<IgniteStorySnapshot & { name: Name }> {
 		const story = this.withHost(() => this.component.record(name));
 		let lastEvents: RuntimeEvent<Events>[] = [];
 		let primaryError: unknown;
-		let cleanupError: IgniteNarrativeFailure | undefined;
+		let cleanupError: IgniteStoryFailure | undefined;
 		let receipt: IgniteStorySnapshot | undefined;
 
-		const narrative: IgniteTestNarrativeContext<State, Commands, Events, View> =
+		const storyContext: IgniteTestStoryContext<
+			State,
+			Commands,
+			Events,
+			View
+		> =
 			{
-				given: (expected) => {
+				given: async (expected) => {
 					try {
-						assertNarrativeAssertion(expected, {
-							snapshot: this.withHost(() => this.component.getSnapshot()),
-							view: this.withHost(() => this.component.getView()),
-							events: [],
-							canExecute: (commandName) =>
-								this.withHost(() => story.canExecute(commandName)),
-						});
+						await this.awaitStoryAssertion(story, "given", expected, []);
 					} catch (error) {
-						throw createNarrativeFailure(name, "given", story, error);
+						throw createStoryFailure(name, "given", story, error);
 					}
 				},
 				intent: async (step) => {
@@ -961,22 +1087,33 @@ class IgniteTestDriver<
 						) as RuntimeEvent<Events>[];
 						return result;
 					} catch (error) {
-						throw createNarrativeFailure(name, "intent", story, error, {
+						throw createStoryFailure(name, "intent", story, error, {
 							intent: step,
 						});
 					}
 				},
-				checkpoint: (checkpointName, expected) => {
+				behavior: async (behaviorName, operation) => {
 					try {
-						assertNarrativeAssertion(expected, {
-							snapshot: this.withHost(() => this.component.getSnapshot()),
-							view: this.withHost(() => this.component.getView()),
-							events: cloneSerializable(lastEvents) as RuntimeEvent<Events>[],
-							canExecute: (commandName) =>
-								this.withHost(() => story.canExecute(commandName)),
-						});
+						return await this.withHost(() =>
+							story.behavior(behaviorName, operation),
+						);
 					} catch (error) {
-						throw createNarrativeFailure(name, "checkpoint", story, error, {
+						throw createStoryFailure(name, "behavior", story, error, {
+							behaviorName,
+						});
+					}
+				},
+				checkpoint: async (checkpointName, expected) => {
+					try {
+						await this.awaitStoryAssertion(
+							story,
+							"checkpoint",
+							expected,
+							cloneSerializable(lastEvents) as RuntimeEvent<Events>[],
+							checkpointName,
+						);
+					} catch (error) {
+						throw createStoryFailure(name, "checkpoint", story, error, {
 							checkpointName,
 						});
 					}
@@ -984,21 +1121,21 @@ class IgniteTestDriver<
 			};
 
 		try {
-			await run(narrative);
+			await run(storyContext);
 			receipt = this.withHost(() => snapshotStory(story));
 		} catch (error) {
 			primaryError = error;
-			if (isIgniteNarrativeFailure(error)) {
+			if (isIgniteStoryFailure(error)) {
 				throw error;
 			}
 
-			throw createNarrativeFailure(name, "callback", story, error);
+			throw createStoryFailure(name, "callback", story, error);
 		} finally {
 			try {
 				story.stop();
 			} catch (error) {
 				if (!primaryError) {
-					cleanupError = createNarrativeFailure(name, "cleanup", story, error);
+					cleanupError = createStoryFailure(name, "cleanup", story, error);
 				}
 			}
 		}
@@ -1082,14 +1219,14 @@ function createTestScenario<
 		getSnapshot: () => unknown;
 	},
 >(
-	component: Runtime,
-	options?: IgniteTestScenarioOptions,
+	input: IgniteTestInput<Runtime>,
 ): IgniteTestScenario<
 	RuntimeState<Runtime>,
 	RuntimeCommands<Runtime>,
 	RuntimeEvents<Runtime>,
 	RuntimeView<Runtime>
 > {
+	const { component, host } = input;
 	return new IgniteTestDriver(
 		component as unknown as IgniteAgentRuntime<
 			RuntimeState<Runtime>,
@@ -1098,7 +1235,7 @@ function createTestScenario<
 			unknown,
 			RuntimeView<Runtime>
 		>,
-		options,
+		{ host },
 	);
 }
 
