@@ -36,6 +36,7 @@
 		"remove-deprecated-pre-stable-surface",
 		"scope-sibling-packages",
 		"shared-source-ownership-cleanup",
+		"story-object-form-testing-dsl",
 		"strict-scalar-tool-envelope",
 		"tall-buckets-execute",
 		"typed-view-test-dsl",
