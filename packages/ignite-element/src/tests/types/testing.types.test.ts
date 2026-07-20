@@ -273,7 +273,7 @@ describe("ignite test DSL types", () => {
 		>;
 		const component = igniteCore(componentConfig);
 
-	const expectStoryTyping = async () => {
+		const expectStoryTyping = async () => {
 			const story = await igniteTest({ component }).story(
 				"counter flow",
 				async (narrative) => {

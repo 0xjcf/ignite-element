@@ -39,8 +39,8 @@ type DeepPartial<T> = T extends readonly (infer Item)[]
 export type IgniteSnapshotExpectation<State> =
 	| DeepPartial<State>
 	| IgniteSnapshotPredicate<State>;
-export type IgniteSnapshotPredicate<State> = (snapshot: State) => boolean;
-export type IgniteStorySnapshotExpectation<State> = DeepPartial<State>;
+type IgniteSnapshotPredicate<State> = (snapshot: State) => boolean;
+type IgniteStorySnapshotExpectation<State> = DeepPartial<State>;
 
 export type IgniteViewExpectation<View> =
 	| DeepPartial<View>
