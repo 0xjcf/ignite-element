@@ -993,12 +993,25 @@ class IgniteTestDriver<
 		let viewSubscription: IgniteAgentSubscription | undefined;
 		let latestError: unknown;
 
-		const cleanup = () => {
+		const cleanup = (): unknown => {
+			let cleanupError: unknown;
 			if (timeoutId) {
 				clearTimeout(timeoutId);
+				timeoutId = undefined;
 			}
-			snapshotSubscription?.unsubscribe();
-			viewSubscription?.unsubscribe();
+			for (const subscription of [snapshotSubscription, viewSubscription]) {
+				if (!subscription) {
+					continue;
+				}
+				try {
+					subscription.unsubscribe();
+				} catch (error) {
+					cleanupError ??= error;
+				}
+			}
+			snapshotSubscription = undefined;
+			viewSubscription = undefined;
+			return cleanupError;
 		};
 
 		const evaluate = () => {
@@ -1016,13 +1029,17 @@ class IgniteTestDriver<
 				if (settled) {
 					return;
 				}
+				const cleanupError = cleanup();
 				settled = true;
-				cleanup();
-				if (status === "resolved") {
-					resolve();
+				if (status === "rejected") {
+					reject(value);
 					return;
 				}
-				reject(value);
+				if (cleanupError) {
+					reject(cleanupError);
+					return;
+				}
+				resolve();
 			};
 
 			const check = () => {

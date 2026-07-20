@@ -14,6 +14,20 @@ import { test as igniteTest } from "../testing";
 import type { IgniteAgentRuntime, IgniteStory } from "../types/agent";
 import counterStore, { counterSlice } from "./fixtures/reduxCounterStore";
 
+const settleOnNextMacrotask = () =>
+	new Promise<{ status: "pending" }>((resolve) => {
+		setTimeout(() => resolve({ status: "pending" }), 0);
+	});
+
+const observePromptSettlement = async (promise: Promise<unknown>) =>
+	Promise.race([
+		promise.then(
+			() => ({ status: "resolved" as const }),
+			(error) => ({ status: "rejected" as const, error }),
+		),
+		settleOnNextMacrotask(),
+	]);
+
 describe("ignite test DSL", () => {
 	it("drives xstate components through deterministic headless assertions", async () => {
 		const machine = createMachine({
@@ -896,6 +910,217 @@ describe("ignite test DSL", () => {
 			),
 		).rejects.toThrow("primary callback failure");
 		expect(cleanupFailure.stop).toHaveBeenCalledTimes(1);
+	});
+
+	it("settles promptly and attempts both watcher cleanups when a successful story assertion cleanup fails", async () => {
+		const snapshotUnsubscribe = vi.fn(() => {
+			throw new Error("snapshot cleanup failure");
+		});
+		const viewUnsubscribe = vi.fn(() => {
+			throw new Error("view cleanup failure");
+		});
+		const stop = vi.fn();
+		const story = {
+			name: "tracked story",
+			execute: vi.fn(async () => ({
+				snapshot: { count: 1 },
+				events: [],
+			})),
+			trace: vi.fn(() => []),
+			lifecycle: vi.fn(() => []),
+			summary: vi.fn(() => ({
+				name: "tracked story",
+				finalSnapshot: { count: 0 },
+				finalView: { count: 0 },
+				events: [],
+				commandCount: 0,
+				traceCount: 0,
+				lifecycleCount: 0,
+			})),
+			canExecute: vi.fn(() => true),
+			stop,
+		};
+		const runtime = {
+			execute: vi.fn(async () => ({
+				snapshot: { count: 0 },
+				events: [],
+			})),
+			getSnapshot: vi.fn(() => ({ count: 0 })),
+			getView: vi.fn(() => ({ count: 0 })),
+			canExecute: vi.fn(() => true),
+			on: vi.fn(() => ({ unsubscribe() {} })),
+			watchSnapshot: vi.fn(() => ({ unsubscribe: snapshotUnsubscribe })),
+			watchView: vi.fn(() => ({ unsubscribe: viewUnsubscribe })),
+			record: vi.fn(() => story),
+		} as unknown as IgniteAgentRuntime<
+			{ count: number },
+			{
+				increment: (amount: number) => unknown;
+			},
+			EmptyEventMap,
+			unknown,
+			{ count: number }
+		>;
+
+		const outcome = await observePromptSettlement(
+			igniteTest({ component: runtime }).story(
+				"cleanup after successful assertion",
+				async (narrative) => {
+					await narrative.given({
+						snapshot: { count: 0 },
+						view: { count: 0 },
+					});
+				},
+			),
+		);
+
+		expect(outcome).toMatchObject({
+			status: "rejected",
+			error: expect.objectContaining({
+				message: expect.stringContaining("snapshot cleanup failure"),
+			}),
+		});
+		expect(snapshotUnsubscribe).toHaveBeenCalledTimes(1);
+		expect(viewUnsubscribe).toHaveBeenCalledTimes(1);
+		expect(stop).toHaveBeenCalledTimes(1);
+	});
+
+	it("preserves timeout diagnostics when watcher cleanup also fails and still attempts both watcher cleanups", async () => {
+		const snapshotUnsubscribe = vi.fn(() => {
+			throw new Error("snapshot cleanup failure");
+		});
+		const viewUnsubscribe = vi.fn(() => {
+			throw new Error("view cleanup failure");
+		});
+		const stop = vi.fn();
+		const story = {
+			name: "tracked story",
+			execute: vi.fn(async () => ({
+				snapshot: { count: 1 },
+				events: [],
+			})),
+			trace: vi.fn(() => []),
+			lifecycle: vi.fn(() => []),
+			summary: vi.fn(() => ({
+				name: "tracked story",
+				finalSnapshot: { count: 0 },
+				finalView: { count: 0 },
+				events: [],
+				commandCount: 0,
+				traceCount: 0,
+				lifecycleCount: 0,
+			})),
+			canExecute: vi.fn(() => true),
+			stop,
+		};
+		const runtime = {
+			execute: vi.fn(async () => ({
+				snapshot: { count: 0 },
+				events: [],
+			})),
+			getSnapshot: vi.fn(() => ({ count: 0 })),
+			getView: vi.fn(() => ({ count: 0 })),
+			canExecute: vi.fn(() => true),
+			on: vi.fn(() => ({ unsubscribe() {} })),
+			watchSnapshot: vi.fn(() => ({ unsubscribe: snapshotUnsubscribe })),
+			watchView: vi.fn(() => ({ unsubscribe: viewUnsubscribe })),
+			record: vi.fn(() => story),
+		} as unknown as IgniteAgentRuntime<
+			{ count: number },
+			{
+				increment: (amount: number) => unknown;
+			},
+			EmptyEventMap,
+			unknown,
+			{ count: number }
+		>;
+		const driver = igniteTest({
+			component: runtime,
+		});
+		(
+			driver as typeof driver & { storyAssertionTimeoutMs: number }
+		).storyAssertionTimeoutMs = 1;
+
+		const outcome = await observePromptSettlement(
+			driver.story("timeout stays primary", async (narrative) => {
+				await narrative.given({
+					snapshot: { count: 1 },
+				});
+			}),
+		);
+
+		expect(outcome).toMatchObject({
+			status: "rejected",
+			error: expect.objectContaining({
+				message: expect.stringContaining("given timed out after 1ms"),
+			}),
+		});
+		expect(snapshotUnsubscribe).toHaveBeenCalledTimes(1);
+		expect(viewUnsubscribe).toHaveBeenCalledTimes(1);
+		expect(stop).toHaveBeenCalledTimes(1);
+	});
+
+	it("preserves watch setup failures after cleaning up partial watcher subscriptions", async () => {
+		const snapshotUnsubscribe = vi.fn(() => {
+			throw new Error("snapshot cleanup failure");
+		});
+		const stop = vi.fn();
+		const story = {
+			name: "tracked story",
+			execute: vi.fn(async () => ({
+				snapshot: { count: 1 },
+				events: [],
+			})),
+			trace: vi.fn(() => []),
+			lifecycle: vi.fn(() => []),
+			summary: vi.fn(() => ({
+				name: "tracked story",
+				finalSnapshot: { count: 0 },
+				finalView: { count: 0 },
+				events: [],
+				commandCount: 0,
+				traceCount: 0,
+				lifecycleCount: 0,
+			})),
+			canExecute: vi.fn(() => true),
+			stop,
+		};
+		const runtime = {
+			execute: vi.fn(async () => ({
+				snapshot: { count: 0 },
+				events: [],
+			})),
+			getSnapshot: vi.fn(() => ({ count: 0 })),
+			getView: vi.fn(() => ({ count: 0 })),
+			canExecute: vi.fn(() => true),
+			on: vi.fn(() => ({ unsubscribe() {} })),
+			watchSnapshot: vi.fn(() => ({ unsubscribe: snapshotUnsubscribe })),
+			watchView: vi.fn(() => {
+				throw new Error("view watcher setup failed");
+			}),
+			record: vi.fn(() => story),
+		} as unknown as IgniteAgentRuntime<
+			{ count: number },
+			{
+				increment: (amount: number) => unknown;
+			},
+			EmptyEventMap,
+			unknown,
+			{ count: number }
+		>;
+
+		await expect(
+			igniteTest({ component: runtime }).story(
+				"cleanup after partial watcher setup",
+				async (narrative) => {
+					await narrative.given({
+						snapshot: { count: 0 },
+					});
+				},
+			),
+		).rejects.toThrow("view watcher setup failed");
+		expect(snapshotUnsubscribe).toHaveBeenCalledTimes(1);
+		expect(stop).toHaveBeenCalledTimes(1);
 	});
 
 	it("serializes story traces and matches ordered workflow checkpoints", async () => {
