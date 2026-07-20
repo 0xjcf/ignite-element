@@ -993,9 +993,11 @@ class IgniteTestDriver<
 		let viewSubscription: IgniteAgentSubscription | undefined;
 		let latestError: unknown;
 
-		const cleanup = (): unknown => {
-			let cleanupError: unknown;
-			if (timeoutId) {
+		const cleanup = (): { ok: true } | { ok: false; error: unknown } => {
+			let cleanupResult: { ok: true } | { ok: false; error: unknown } = {
+				ok: true,
+			};
+			if (timeoutId !== undefined) {
 				clearTimeout(timeoutId);
 				timeoutId = undefined;
 			}
@@ -1006,12 +1008,14 @@ class IgniteTestDriver<
 				try {
 					subscription.unsubscribe();
 				} catch (error) {
-					cleanupError ??= error;
+					if (cleanupResult.ok) {
+						cleanupResult = { ok: false, error };
+					}
 				}
 			}
 			snapshotSubscription = undefined;
 			viewSubscription = undefined;
-			return cleanupError;
+			return cleanupResult;
 		};
 
 		const evaluate = () => {
@@ -1029,14 +1033,14 @@ class IgniteTestDriver<
 				if (settled) {
 					return;
 				}
-				const cleanupError = cleanup();
 				settled = true;
+				const cleanupResult = cleanup();
 				if (status === "rejected") {
 					reject(value);
 					return;
 				}
-				if (cleanupError) {
-					reject(cleanupError);
+				if (!cleanupResult.ok) {
+					reject(cleanupResult.error);
 					return;
 				}
 				resolve();
