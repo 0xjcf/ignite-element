@@ -2642,6 +2642,17 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: BREAKING v3 beta: make object-form igniteTest stories behavior-evidenced and adapter-neutral
+
+- Title: BREAKING v3 beta: make object-form igniteTest stories behavior-evidenced and adapter-neutral
+- Mode: 6-agent
+- Status: done
+- Owner: implementer
+- Brief: .fas/tasks/breaking-v3-beta-make-object-form-ignitetest-stories-behavio.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
 ## Template
 
 ### Task: <short task title>

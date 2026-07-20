@@ -320,13 +320,14 @@
         "task-1783610933373",
         "task-1783810065213",
         "task-1784256179201",
-        "task-1784325062961"
+        "task-1784325062961",
+        "task-1784562435054"
       ],
       "blocks": [],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-16T03:11:42.136Z",
-      "updatedAt": "2026-07-17T21:51:02.962Z",
+      "updatedAt": "2026-07-20T15:47:15.054Z",
       "deferredReason": null,
       "invalidationReason": null
     },
@@ -3996,6 +3997,30 @@
       "workflowId": "direct-1784408651679",
       "branchName": "beta",
       "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784562435054",
+      "task": "BREAKING v3 beta: make object-form igniteTest stories behavior-evidenced and adapter-neutral",
+      "priority": "critical",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "developer-experience",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1784325062961"
+      ],
+      "blocks": [
+        "task-1784171502136"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-20T18:37:29.828Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784562575235",
+      "branchName": "beta",
+      "prStatus": "draft-only"
     }
   ],
   "pullRequests": [],
@@ -4382,6 +4407,10 @@
         {
           "taskId": "task-1784325062961",
           "epicRole": "story-api-naming-verdict"
+        },
+        {
+          "taskId": "task-1784562435054",
+          "epicRole": "story-api-beta-cutover"
         }
       ],
       "id": "epic-ignite-executable-narratives",
