@@ -304,34 +304,6 @@
       "updatedAt": "2026-07-11T02:10:35.707Z"
     },
     {
-      "id": "task-1784171502136",
-      "task": "Evaluate an optional Ignite XState graph-testing bridge after executable-narrative dogfood",
-      "priority": "high",
-      "source": "fas-project-audit",
-      "details": "After the statechart epic example work, executable igniteTest narratives, Voice Workbench narrative dogfood, the post-dogfood ergonomics audit, and the Story API naming verdict complete, evaluate whether repeated consumer friction remains when composing XState 5 graph utilities with the final narrative and Story evidence APIs. Prefer documented composition and example-local helpers. A no-change verdict is successful. Only if at least two concrete repeated integration problems remain, add the smallest XState-specific optional bridge that feeds generated paths into existing narrative and Story machinery without owning graph traversal, runtime state, or narrative semantics.\nSee .fas/tasks/evaluate-an-optional-ignite-xstate-graph-testing-bridge-from.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "queued",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [
-        "task-1784171467799",
-        "task-1783610933373",
-        "task-1783810065213",
-        "task-1784256179201",
-        "task-1784325062961",
-        "task-1784562435054"
-      ],
-      "blocks": [],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-16T03:11:42.136Z",
-      "updatedAt": "2026-07-20T15:47:15.054Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
       "id": "task-1784253036241",
       "task": "Converge routing examples on machine-driven host projections",
       "priority": "high",
@@ -4019,6 +3991,33 @@
       "completedAt": "2026-07-20T18:37:29.828Z",
       "terminalOutcome": null,
       "workflowId": "direct-1784562575235",
+      "branchName": "beta",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784171502136",
+      "task": "Evaluate an optional Ignite XState graph-testing bridge after executable-narrative dogfood",
+      "priority": "high",
+      "source": "fas-project-audit",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1784171467799",
+        "task-1783610933373",
+        "task-1783810065213",
+        "task-1784256179201",
+        "task-1784325062961",
+        "task-1784562435054"
+      ],
+      "blocks": [],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-20T20:28:33.714Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784575625413",
       "branchName": "beta",
       "prStatus": "draft-only"
     }

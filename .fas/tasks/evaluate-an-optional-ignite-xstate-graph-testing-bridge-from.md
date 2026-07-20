@@ -19,34 +19,44 @@ After the statechart epic example work, executable igniteTest narratives, Voice 
 - The task has a clear implementation and verification plan before execution starts.
 
 ## Proposed solution
-- Use the supplied problem context, acceptance criteria, and affected-file hints to draft the concrete implementation approach during planning.
+- Begin with an example-local Voice Workbench comparison harness and evidence artifact. Exercise `getShortestPaths`, `getSimplePaths`, `getPathsFromEvents`, and `createTestModel` against the finalized object-form `igniteTest({ component }).story(...)` vocabulary.
+- Keep graph generation over raw XState logic and snapshots. Drive the system under test only through explicit public `narrative.intent(...)` mappings or fixture-owned `narrative.behavior(...)` operations, then assert ordinary Story checkpoints and receipts.
+- Record which integration costs repeat across utilities and paths. Close with a no-new-API verdict when fewer than two framework-level problems remain.
+- If two repeated framework-level problems are proven, stop and refresh scope before implementing the smallest optional XState-only bridge. Package implementation files are conditional, not pre-authorized by the evaluation plan.
 
 ## Alternatives considered
-- None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
+- Add `igniteTest().graph(...)` before dogfood: rejected because it would combine traversal and experience evidence before demonstrating repeated consumer need.
+- Translate every raw machine event into an Ignite command: rejected because private receipts and machine lifecycle events are not public user intents.
+- Let `createTestModel` replace Story execution: rejected because Story remains the portable behavior/projection evidence surface and XState remains the graph owner.
+- Reuse one live actor across generated paths: rejected because each path needs fresh logic, actor, component, subscriptions, and cleanup.
 
 ## Affected files
-- packages/ignite-element/src/xstate.ts
-- packages/ignite-element/src/testing.ts
-- packages/ignite-element/src/tests/adapters/XStateAdapter.test.ts
-- packages/ignite-element/src/tests/testing.test.ts
-- packages/ignite-element/src/tests/types/testing.types.test.ts
-- packages/ignite-element/src/tests/entrypoints.test.ts
 - examples/agents/voice-workbench/src/session.graph.test.ts
+- examples/agents/voice-workbench/xstate-graph-story-evaluation.md
 - examples/agents/voice-workbench/README.md
+
+## Conditional API scope
+- Not planned for the evaluation slice.
+- If and only if the evidence identifies at least two repeated framework-level integration problems, refresh scope before touching `packages/ignite-element/src/xstate.ts`, `packages/ignite-element/src/testing.ts`, adapter tests, type tests, or public entrypoints.
 
 ## Scope Amendments
 - None.
 
 ## Implementation plan
-- Convert the supplied context into a scoped implementation plan before editing.
-- Refresh affected-file scope before implementation if the generated hints are incomplete.
+- Add an executable, example-local direct-composition proof in `session.graph.test.ts` that compares all four XState graph utilities while preserving explicit machine-event-to-intent-or-behavior mappings and fresh system construction.
+- Write `xstate-graph-story-evaluation.md` with the comparison matrix, user benefit, friction evidence, ownership boundaries, and the two-problem decision gate.
+- Update the Voice Workbench README with the supported direct-composition pattern and the final no-API or conditional-bridge verdict.
+- If the evidence does not meet the gate, make no package API, entrypoint, type, or changeset edits. If it does meet the gate, stop and run `fas scope refresh` before implementation.
 
 ## Verification plan
 - Run `fas validate-task` for the inner-loop verification gate.
 - Run `.fas/scripts/verify.sh --full` at the final release-quality gate when tracked files change.
 
 ## Risks
-- Validate generated scope, acceptance criteria, and verification evidence before closeout to avoid workflow drift.
+- A graph path can look like a user story while containing private machine events; explicit drivers must preserve the distinction.
+- `createTestModel` can become a second test runner if it is allowed to own Story semantics; use it only as a comparison point over XState traversal and execution hooks.
+- Reusing actors or components across paths can leak state and subscriptions; each executable path proof must construct and dispose fresh resources.
+- A Voice Workbench-specific inconvenience must not be promoted as framework-level friction without repetition across utilities or consumers.
 
 ## Dependencies
 - Remains the optional-ignite-bridge member of epic-voice-workbench-statechart-conformance.

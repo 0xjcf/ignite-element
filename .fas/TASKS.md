@@ -2479,9 +2479,12 @@ No active tasks.
 
 - Title: Evaluate an optional Ignite XState graph-testing bridge after executable-narrative dogfood
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/evaluate-an-optional-ignite-xstate-graph-testing-bridge-from.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Converge routing examples on machine-driven host projections
 
