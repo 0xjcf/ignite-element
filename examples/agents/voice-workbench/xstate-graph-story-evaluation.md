@@ -33,7 +33,7 @@ Neither cost justifies a new bridge API.
 | --- | --- | --- | --- |
 | `getShortestPaths` | Deterministic reachable parent-session vertices match the expected topology. | Callers must choose a serialized state projection that strips raw XState details down to the semantic state shape they care about. | Accept direct use. |
 | `getSimplePaths` | The same reachable vertex set is available with longer traversals preserved. | Same state-serialization choice as `getShortestPaths`; no extra Ignite help needed. | Accept direct use. |
-| `getPathsFromEvents` | Explicit public event sequences can select the `ready -> submitPrompt -> responding` prefix for Voice Workbench. | The runtime-correlated timeout exit is not directly selectable from static traversal because the timeout event must match the live child request identity. | Keep path selection explicit, then let Story prove the correlated outcome. |
+| `getPathsFromEvents` | An explicit characterization sequence can use `MODEL_PREPARATION_PORT_RECEIVED` as setup/boundary data to reach `ready`, then `SUBMIT_PROMPT` to begin the public user-intent prefix into `responding`. | The runtime-correlated timeout exit is not directly selectable from static traversal because the timeout event must match the live child request identity. | Keep setup receipts local to graph characterization, keep `SUBMIT_PROMPT` as the public intent boundary, then let Story prove the correlated outcome. |
 | `createTestModel` | Useful as a characterization boundary only. On XState `5.32.1`, it rejects invoked machines with `Invocations on test machines are not supported`. | It cannot own Voice Workbench narrative replay because the parent machine intentionally invokes children. | Record as comparison-only evidence; do not wrap it with an Ignite bridge. |
 
 ## Executable Proof
@@ -42,16 +42,18 @@ Neither cost justifies a new bridge API.
 
 1. Use `getShortestPaths` and `getSimplePaths` over the raw parent machine with
    explicit event filtering and a semantic state serializer.
-2. Use `getPathsFromEvents` to select the user-intent prefix:
-   `MODEL_PREPARATION_PORT_RECEIVED -> SUBMIT_PROMPT`.
+2. Use `getPathsFromEvents` to select a characterization sequence that reaches
+   `ready` with the setup receipt `MODEL_PREPARATION_PORT_RECEIVED`, then starts
+   the public user-intent prefix with `SUBMIT_PROMPT`.
 3. Use `igniteTest({ component }).story(...)` plus a fresh local fixture to
    prove the real behavioral path:
    `ready -> submit prompt -> timeout -> ready`.
 4. Checkpoint the semantic snapshot, projected view, and command availability,
    while preserving the ordinary Story trace and receipt output.
 
-This split is intentional. Raw graph traversal can identify the public path
-prefix, but Story plus fixture-owned behavior is the right layer for proving the
+This split is intentional. Raw graph traversal can use the preparation receipt
+as local setup data and identify where the public `SUBMIT_PROMPT` intent begins,
+but Story plus fixture-owned behavior is the right layer for proving the
 runtime-correlated timeout outcome.
 
 ## Repeated Friction Categories
@@ -62,7 +64,8 @@ concerns unless broader consumers prove otherwise:
 - Explicit event-to-driver mapping:
   graph utilities operate on machine events, but Voice Workbench intentionally
   exposes public commands, not private child-machine or timeout correlation
-  facts, as the user-facing surface.
+  facts, as the user-facing surface. Even in characterization, the preparation
+  receipt is setup data, not a public user command.
 - Fresh fixture lifecycle:
   each replay needs a new actor, runtime, component, pending port state, and
   cleanup boundary.

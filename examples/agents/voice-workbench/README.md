@@ -167,8 +167,9 @@ The supported pattern is deliberately split across two layers:
 
 1. Use `xstate/graph` to characterize reachability over raw machine state.
    For Voice Workbench, `getShortestPaths(...)` and `getSimplePaths(...)` prove
-   deterministic session vertices, while `getPathsFromEvents(...)` selects the
-   public `ready -> submitPrompt -> responding` prefix.
+   deterministic session vertices, while `getPathsFromEvents(...)` can use
+   `MODEL_PREPARATION_PORT_RECEIVED` as local setup data to reach `ready` and
+   then start the public user-intent prefix with `SUBMIT_PROMPT`.
 2. Use `igniteTest({ component }).story(...)` to prove the user-visible
    behavior that depends on runtime correlation, fixture-owned ports, and
    semantic evidence. The example-local fixture drives the real
@@ -179,7 +180,9 @@ That split is the user value:
 
 - generated reachability paths plus user-visible behavioral proof;
 - normal Story receipts, trace, and diagnostics;
-- explicit drivers that keep private machine facts private; and
+- explicit drivers that keep private machine facts private, with setup receipts
+  staying local to characterization and `SUBMIT_PROMPT` mapping to
+  `narrative.intent(...)`; and
 - fresh fixtures that isolate each replay without adding a new Ignite testing
   DSL or dependency.
 
