@@ -37,6 +37,10 @@ export type { IgniteCoreReturn } from "./igniteCore/types";
 
 import { igniteCoreXState as baseIgniteCoreXState } from "./igniteCore/xstate";
 
+export {
+	createProjectionDocumentTarget,
+	createProjectionSpeechTarget,
+} from "./runtime/projectionTargets";
 export type {
 	IgniteDomBridge,
 	IgniteDomRoleExpectation,
@@ -47,10 +51,6 @@ export type {
 	IgniteTestScenarioOptions,
 } from "./testing";
 export { test } from "./testing";
-export {
-	createProjectionDocumentTarget,
-	createProjectionSpeechTarget,
-} from "./runtime/projectionTargets";
 export type {
 	IgniteAgentEventListener,
 	IgniteAgentExecutionResult,

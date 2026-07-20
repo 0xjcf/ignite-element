@@ -24,6 +24,10 @@ export type {
 } from "@ignite-element/core";
 export { igniteCoreActorWeb as igniteCore } from "./igniteCore/actor-web";
 export type { ActorWebConfig, IgniteCoreReturn } from "./igniteCore/types";
+export {
+	createProjectionDocumentTarget,
+	createProjectionSpeechTarget,
+} from "./runtime/projectionTargets";
 export type {
 	IgniteDomBridge,
 	IgniteDomRoleExpectation,
@@ -34,10 +38,6 @@ export type {
 	IgniteTestScenarioOptions,
 } from "./testing";
 export { test } from "./testing";
-export {
-	createProjectionDocumentTarget,
-	createProjectionSpeechTarget,
-} from "./runtime/projectionTargets";
 export type {
 	IgniteAgentEventListener,
 	IgniteAgentExecutionResult,
