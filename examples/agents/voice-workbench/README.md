@@ -139,8 +139,8 @@ create and own their actor, Ignite component, ports, and runtime disposal.
 The checked characterization receipts now live beside the source:
 
 - `src/session.graph.test.ts` validates the parent topology, deterministic
-  reachable session vertices, stale preparation correlation, and the fixed
-  invoked child IDs.
+  reachable session vertices, stale preparation correlation, the fixed invoked
+  child IDs, and the direct XState-graph-to-Story composition proof.
 - `src/model-turn.graph.test.ts` validates the child turn topology, bounded
   requesting/authorizing/executing reachability, correlated terminal output, and
   stale receipt rejection.
@@ -156,6 +156,37 @@ The checked characterization receipts now live beside the source:
   `snapshotStory()` surfaces are sufficient for the seven executable stories
   without adding a
   new public receipt envelope or bridge API.
+- `xstate-graph-story-evaluation.md` records the follow-on graph verdict:
+  direct XState composition is enough, `getPathsFromEvents(...)` should select
+  the public-intent prefix, Story plus fixture behavior should prove correlated
+  timeout outcomes, and no Ignite-side graph bridge API is justified.
+
+### Direct XState graph composition
+
+The supported pattern is deliberately split across two layers:
+
+1. Use `xstate/graph` to characterize reachability over raw machine state.
+   For Voice Workbench, `getShortestPaths(...)` and `getSimplePaths(...)` prove
+   deterministic session vertices, while `getPathsFromEvents(...)` selects the
+   public `ready -> submitPrompt -> responding` prefix.
+2. Use `igniteTest({ component }).story(...)` to prove the user-visible
+   behavior that depends on runtime correlation, fixture-owned ports, and
+   semantic evidence. The example-local fixture drives the real
+   `ready -> submit prompt -> timeout -> ready` outcome and checkpoints the
+   semantic snapshot, projected view, and command availability.
+
+That split is the user value:
+
+- generated reachability paths plus user-visible behavioral proof;
+- normal Story receipts, trace, and diagnostics;
+- explicit drivers that keep private machine facts private; and
+- fresh fixtures that isolate each replay without adding a new Ignite testing
+  DSL or dependency.
+
+`createTestModel(...)` remains comparison-only here. On XState `5.32.1`, it
+rejects invoked machines with `Invocations on test machines are not supported`,
+so it is useful as a characterization boundary, not as the Voice Workbench
+narrative runner.
 
 The parent session is a host-agnostic compound statechart. Its `available`
 state is parallel: turn orchestration, persistent voice capture, and speech
