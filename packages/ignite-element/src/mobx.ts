@@ -35,6 +35,7 @@ export type {
 	IgniteAgentSubscription,
 	IgniteCommandCall,
 	IgniteStory,
+	IgniteStoryBehaviorTraceEntry,
 	IgniteStoryCommandTraceEntry,
 	IgniteStoryEventTraceEntry,
 	IgniteStoryLifecycleEntry,

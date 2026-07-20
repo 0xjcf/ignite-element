@@ -300,7 +300,7 @@ Ignite includes a built-in headless testing DSL for state and event assertions.
 ```ts
 import { test as igniteTest } from "ignite-element";
 
-(await igniteTest(toggle)
+(await igniteTest({ component: toggle })
   .given({ value: "off" })
   .when({ command: "toggle" }))
   .expectSnapshot({ value: "on" })

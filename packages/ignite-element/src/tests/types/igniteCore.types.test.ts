@@ -19,6 +19,7 @@ import type {
 	ActorWebExtendedState,
 	IgniteDomBridge as ActorWebIgniteDomBridge,
 	IgniteDomRoleExpectation as ActorWebIgniteDomRoleExpectation,
+	IgniteStoryBehaviorTraceEntry as ActorWebIgniteStoryBehaviorTraceEntry,
 	IgniteStorySnapshot as ActorWebIgniteStorySnapshot,
 	IgniteStorySnapshotEvent as ActorWebIgniteStorySnapshotEvent,
 	IgniteStorySummarySnapshot as ActorWebIgniteStorySummarySnapshot,
@@ -42,6 +43,7 @@ import type {
 import type {
 	IgniteDomBridge as RootIgniteDomBridge,
 	IgniteDomRoleExpectation as RootIgniteDomRoleExpectation,
+	IgniteStoryBehaviorTraceEntry as RootIgniteStoryBehaviorTraceEntry,
 	IgniteStorySnapshot as RootIgniteStorySnapshot,
 	IgniteStorySnapshotEvent as RootIgniteStorySnapshotEvent,
 	IgniteStorySummarySnapshot as RootIgniteStorySummarySnapshot,
@@ -56,6 +58,7 @@ import {
 import type {
 	IgniteDomBridge as MobxIgniteDomBridge,
 	IgniteDomRoleExpectation as MobxIgniteDomRoleExpectation,
+	IgniteStoryBehaviorTraceEntry as MobxIgniteStoryBehaviorTraceEntry,
 	IgniteStorySnapshot as MobxIgniteStorySnapshot,
 	IgniteStorySnapshotEvent as MobxIgniteStorySnapshotEvent,
 	IgniteStorySummarySnapshot as MobxIgniteStorySummarySnapshot,
@@ -77,6 +80,7 @@ import type {
 import type {
 	IgniteDomBridge as ReduxIgniteDomBridge,
 	IgniteDomRoleExpectation as ReduxIgniteDomRoleExpectation,
+	IgniteStoryBehaviorTraceEntry as ReduxIgniteStoryBehaviorTraceEntry,
 	IgniteStorySnapshot as ReduxIgniteStorySnapshot,
 	IgniteStorySnapshotEvent as ReduxIgniteStorySnapshotEvent,
 	IgniteStorySummarySnapshot as ReduxIgniteStorySummarySnapshot,
@@ -92,6 +96,7 @@ import type {
 } from "../../testing";
 import type {
 	IgniteCommandCall,
+	IgniteStoryBehaviorTraceEntry,
 	IgniteStoryLifecycleEntry,
 	IgniteStorySnapshot,
 	IgniteStorySnapshotEvent,
@@ -110,6 +115,7 @@ import type {
 	IgniteCoreReturn as XStateIgniteCoreReturn,
 	IgniteDomBridge as XStateIgniteDomBridge,
 	IgniteDomRoleExpectation as XStateIgniteDomRoleExpectation,
+	IgniteStoryBehaviorTraceEntry as XStateIgniteStoryBehaviorTraceEntry,
 	IgniteStorySnapshot as XStateIgniteStorySnapshot,
 	IgniteStorySnapshotEvent as XStateIgniteStorySnapshotEvent,
 	IgniteStorySummarySnapshot as XStateIgniteStorySummarySnapshot,
@@ -381,30 +387,35 @@ describe("igniteCore type inference", () => {
 	});
 
 	it("exports story snapshot types from public entrypoints", () => {
+		expectTypeOf<RootIgniteStoryBehaviorTraceEntry>().toEqualTypeOf<IgniteStoryBehaviorTraceEntry>();
 		expectTypeOf<RootIgniteStorySnapshot>().toEqualTypeOf<IgniteStorySnapshot>();
 		expectTypeOf<RootIgniteStorySnapshotEvent>().toEqualTypeOf<IgniteStorySnapshotEvent>();
 		expectTypeOf<RootIgniteStorySummarySnapshot>().toEqualTypeOf<IgniteStorySummarySnapshot>();
 		expectTypeOf<RootIgniteStoryTraceSnapshot>().toEqualTypeOf<IgniteStoryTraceSnapshot>();
 		expectTypeOf<RootIgniteStoryTraceSnapshotEntry>().toEqualTypeOf<IgniteStoryTraceSnapshotEntry>();
 
+		expectTypeOf<XStateIgniteStoryBehaviorTraceEntry>().toEqualTypeOf<IgniteStoryBehaviorTraceEntry>();
 		expectTypeOf<XStateIgniteStorySnapshot>().toEqualTypeOf<IgniteStorySnapshot>();
 		expectTypeOf<XStateIgniteStorySnapshotEvent>().toEqualTypeOf<IgniteStorySnapshotEvent>();
 		expectTypeOf<XStateIgniteStorySummarySnapshot>().toEqualTypeOf<IgniteStorySummarySnapshot>();
 		expectTypeOf<XStateIgniteStoryTraceSnapshot>().toEqualTypeOf<IgniteStoryTraceSnapshot>();
 		expectTypeOf<XStateIgniteStoryTraceSnapshotEntry>().toEqualTypeOf<IgniteStoryTraceSnapshotEntry>();
 
+		expectTypeOf<ReduxIgniteStoryBehaviorTraceEntry>().toEqualTypeOf<IgniteStoryBehaviorTraceEntry>();
 		expectTypeOf<ReduxIgniteStorySnapshot>().toEqualTypeOf<IgniteStorySnapshot>();
 		expectTypeOf<ReduxIgniteStorySnapshotEvent>().toEqualTypeOf<IgniteStorySnapshotEvent>();
 		expectTypeOf<ReduxIgniteStorySummarySnapshot>().toEqualTypeOf<IgniteStorySummarySnapshot>();
 		expectTypeOf<ReduxIgniteStoryTraceSnapshot>().toEqualTypeOf<IgniteStoryTraceSnapshot>();
 		expectTypeOf<ReduxIgniteStoryTraceSnapshotEntry>().toEqualTypeOf<IgniteStoryTraceSnapshotEntry>();
 
+		expectTypeOf<MobxIgniteStoryBehaviorTraceEntry>().toEqualTypeOf<IgniteStoryBehaviorTraceEntry>();
 		expectTypeOf<MobxIgniteStorySnapshot>().toEqualTypeOf<IgniteStorySnapshot>();
 		expectTypeOf<MobxIgniteStorySnapshotEvent>().toEqualTypeOf<IgniteStorySnapshotEvent>();
 		expectTypeOf<MobxIgniteStorySummarySnapshot>().toEqualTypeOf<IgniteStorySummarySnapshot>();
 		expectTypeOf<MobxIgniteStoryTraceSnapshot>().toEqualTypeOf<IgniteStoryTraceSnapshot>();
 		expectTypeOf<MobxIgniteStoryTraceSnapshotEntry>().toEqualTypeOf<IgniteStoryTraceSnapshotEntry>();
 
+		expectTypeOf<ActorWebIgniteStoryBehaviorTraceEntry>().toEqualTypeOf<IgniteStoryBehaviorTraceEntry>();
 		expectTypeOf<ActorWebIgniteStorySnapshot>().toEqualTypeOf<IgniteStorySnapshot>();
 		expectTypeOf<ActorWebIgniteStorySnapshotEvent>().toEqualTypeOf<IgniteStorySnapshotEvent>();
 		expectTypeOf<ActorWebIgniteStorySummarySnapshot>().toEqualTypeOf<IgniteStorySummarySnapshot>();

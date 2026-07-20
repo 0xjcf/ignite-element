@@ -26,7 +26,7 @@ const component = igniteCore({
   },
 });
 
-(await igniteTest(component)
+(await igniteTest({ component })
   .given({ value: "off" })
   .when({ command: "toggle" }))
   .expectSnapshot({ value: "on" })
