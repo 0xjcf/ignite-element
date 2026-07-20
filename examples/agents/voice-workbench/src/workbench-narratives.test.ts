@@ -1,10 +1,12 @@
 import { test as igniteTest } from "ignite-element/testing";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ModelFailureFact } from "./agent-loop";
 import type {
 	ModelPreparationPortReceipt,
-	ModelTurnPortReceipt,
+	ModelTurnPortResult,
 	SpeechDeliveryPortReceipt,
 	VoiceCapturePortReceipt,
+	VoiceWorkbenchPorts,
 } from "./ports";
 import {
 	createVoiceWorkbenchSessionActor,
@@ -14,172 +16,87 @@ import {
 	createVoiceWorkbenchComponent,
 	type VoiceWorkbenchComponent,
 } from "./workbench-component";
+import {
+	createVoiceWorkbenchRuntime,
+	type VoiceWorkbenchRuntime,
+} from "./workbench-runtime";
 
-const activeActors = new Set<VoiceWorkbenchSessionActor>();
+type Deferred<Value> = {
+	promise: Promise<Value>;
+	resolve: (value: Value) => void;
+	reject: (reason?: unknown) => void;
+	settled: boolean;
+};
+
+const deferred = <Value>(): Deferred<Value> => {
+	let resolve!: (value: Value) => void;
+	let reject!: (reason?: unknown) => void;
+	const state = {
+		settled: false,
+		promise: new Promise<Value>((resolvePromise, rejectPromise) => {
+			resolve = (value) => {
+				state.settled = true;
+				resolvePromise(value);
+			};
+			reject = (reason) => {
+				state.settled = true;
+				rejectPromise(reason);
+			};
+		}),
+		resolve,
+		reject,
+	};
+	return state;
+};
+
+type PendingPreparationCall = {
+	request: Parameters<VoiceWorkbenchPorts["modelPreparation"]>[0];
+	deferred: Deferred<ModelPreparationPortReceipt>;
+	signal: AbortSignal;
+};
+
+type PendingModelTurnCall = {
+	request: Parameters<VoiceWorkbenchPorts["modelTurn"]>[0];
+	deferred: Deferred<ModelTurnPortResult>;
+};
+
+type ActiveEmitter<Request, Receipt> = {
+	request: Request;
+	emit: (receipt: Receipt) => void;
+	disposed: boolean;
+};
+
+type PreparationPlan =
+	| { type: "available" }
+	| { type: "failed"; failure: ModelFailureFact }
+	| null;
+
+type FixtureOptions = {
+	input?: Parameters<typeof createVoiceWorkbenchSessionActor>[0];
+	initialPreparation?: PreparationPlan;
+	modelTurnTimeoutMs?: number;
+};
+
+const activeFixtures = new Set<{
+	actor: VoiceWorkbenchSessionActor;
+	runtime: VoiceWorkbenchRuntime;
+}>();
 
 afterEach(() => {
-	for (const actor of activeActors) actor.stop();
-	activeActors.clear();
+	for (const fixture of activeFixtures) {
+		fixture.runtime.dispose();
+		fixture.actor.stop();
+	}
+	activeFixtures.clear();
 });
-
-const createFixture = (
-	input?: Parameters<typeof createVoiceWorkbenchSessionActor>[0],
-) => {
-	const actor = createVoiceWorkbenchSessionActor(input).start();
-	activeActors.add(actor);
-	const component = createVoiceWorkbenchComponent(actor);
-	return { actor, component };
-};
-
-const currentPreparationRequest = (actor: VoiceWorkbenchSessionActor) => {
-	const request = actor.getSnapshot().context.portRequests.modelPreparation;
-	if (!request) throw new Error("Expected a model preparation request.");
-	return request;
-};
-
-const currentModelRequest = (actor: VoiceWorkbenchSessionActor) => {
-	const request = actor.getSnapshot().context.portRequests.modelTurn;
-	if (!request) throw new Error("Expected a model-turn request.");
-	return request;
-};
-
-const currentVoiceRequest = (actor: VoiceWorkbenchSessionActor) => {
-	const request = actor.getSnapshot().context.portRequests.voiceCapture;
-	if (!request) throw new Error("Expected a voice-capture request.");
-	return request;
-};
-
-const currentSpeechRequest = (actor: VoiceWorkbenchSessionActor) => {
-	const request = actor.getSnapshot().context.portRequests.speechDelivery;
-	if (!request) throw new Error("Expected a speech-delivery request.");
-	return request;
-};
-
-const reportPreparation = (
-	actor: VoiceWorkbenchSessionActor,
-	receipt: ModelPreparationPortReceipt,
-) => {
-	const request = currentPreparationRequest(actor);
-	actor.send({
-		type: "MODEL_PREPARATION_PORT_RECEIVED",
-		request,
-		receipt,
-	});
-};
-
-const makeAvailable = (actor: VoiceWorkbenchSessionActor) => {
-	reportPreparation(actor, {
-		type: "available",
-		sequence: currentPreparationRequest(actor).sequence,
-	});
-};
-
-const sendModelReceipt = (
-	actor: VoiceWorkbenchSessionActor,
-	receipt: ModelTurnPortReceipt,
-) => {
-	const request = currentModelRequest(actor);
-	actor.send({
-		type: "MODEL_TURN_PORT_RECEIVED",
-		request,
-		receipt,
-	});
-};
-
-const sendVoiceReceipt = (
-	actor: VoiceWorkbenchSessionActor,
-	receipt: VoiceCapturePortReceipt,
-) => {
-	const request = currentVoiceRequest(actor);
-	actor.send({
-		type: "VOICE_CAPTURE_PORT_RECEIVED",
-		request,
-		receipt,
-	});
-};
-
-const sendSpeechReceipt = (
-	actor: VoiceWorkbenchSessionActor,
-	receipt: SpeechDeliveryPortReceipt,
-) => {
-	const request = currentSpeechRequest(actor);
-	actor.send({
-		type: "SPEECH_DELIVERY_PORT_RECEIVED",
-		request,
-		receipt,
-	});
-};
 
 const currentArtifactRevision = (
 	actor: VoiceWorkbenchSessionActor,
 	artifactId: string,
-) => {
-	return actor
+) =>
+	actor
 		.getSnapshot()
 		.context.documents.find((document) => document.id === artifactId)?.revision;
-};
-
-const beginCurrentTurnCompletion = (
-	actor: VoiceWorkbenchSessionActor,
-	input: { text: string; speech?: string },
-) => {
-	let request = currentModelRequest(actor);
-	sendModelReceipt(actor, {
-		type: "MODEL_RESOLVED",
-		turnId: request.turnId,
-		attemptId: request.attemptId,
-		result: {
-			ok: true,
-			calls: [
-				{
-					id: "narrative-complete",
-					command: "completeResponse",
-					input,
-				},
-			],
-		},
-	});
-
-	request = currentModelRequest(actor);
-	sendModelReceipt(actor, {
-		type: "AUTHORIZATION_RESOLVED",
-		turnId: request.turnId,
-		attemptId: request.attemptId,
-		allowed: true,
-	});
-
-	request = currentModelRequest(actor);
-	if (request.type !== "execute-call") {
-		throw new Error("Expected an execute-call request.");
-	}
-
-	return {
-		turnId: request.turnId,
-		attemptId: request.attemptId,
-		callId: request.call.id ?? "narrative-complete",
-		command: request.call.command,
-	};
-};
-
-const finishCurrentTurnCompletion = (
-	actor: VoiceWorkbenchSessionActor,
-	component: VoiceWorkbenchComponent,
-	completion: ReturnType<typeof beginCurrentTurnCompletion>,
-) => {
-	sendModelReceipt(actor, {
-		type: "CAPABILITY_RESOLVED",
-		turnId: completion.turnId,
-		attemptId: completion.attemptId,
-		feedback: {
-			id: completion.callId,
-			command: completion.command,
-			status: "accepted",
-			ownerId: "voice-workbench-narratives",
-			view: component.getView().modelContext,
-			events: [],
-		},
-	});
-};
 
 const commandTrace = (story: {
 	trace: Array<{ kind: string; command?: string }>;
@@ -196,8 +113,388 @@ const finalViewStatus = (story: {
 	return typeof view.status === "string" ? view.status : null;
 };
 
+const createFixture = ({
+	input,
+	initialPreparation = { type: "available" },
+	modelTurnTimeoutMs,
+}: FixtureOptions = {}) => {
+	const actor = createVoiceWorkbenchSessionActor(input).start();
+	const component = createVoiceWorkbenchComponent(actor);
+	const pendingPreparations: PendingPreparationCall[] = [];
+	const pendingModelTurns: PendingModelTurnCall[] = [];
+	let activeVoice:
+		| ActiveEmitter<
+				Parameters<VoiceWorkbenchPorts["voiceCapture"]>[0],
+				VoiceCapturePortReceipt
+		  >
+		| null = null;
+	let activeSpeech:
+		| ActiveEmitter<
+				Parameters<VoiceWorkbenchPorts["speechDelivery"]>[0],
+				SpeechDeliveryPortReceipt
+		  >
+		| null = null;
+	let latestTimeout:
+		| {
+				callback: () => void;
+				delayMs: number;
+				disposed: boolean;
+		  }
+		| null = null;
+	let nextPreparationPlan = initialPreparation;
+
+	const ports: VoiceWorkbenchPorts = {
+		modelPreparation(request, { signal }) {
+			const call = {
+				request,
+				deferred: deferred<ModelPreparationPortReceipt>(),
+				signal,
+			};
+			pendingPreparations.push(call);
+			if (nextPreparationPlan) {
+				const plan = nextPreparationPlan;
+				nextPreparationPlan = null;
+				queueMicrotask(() => {
+					if (call.deferred.settled) return;
+					if (plan.type === "available") {
+						call.deferred.resolve({
+							type: "available",
+							sequence: request.sequence,
+						});
+						return;
+					}
+					call.deferred.resolve({
+						type: "failed",
+						sequence: request.sequence,
+						failure: plan.failure,
+					});
+				});
+			}
+			return call.deferred.promise;
+		},
+		modelTurn(request) {
+			const call = {
+				request,
+				deferred: deferred<ModelTurnPortResult>(),
+			};
+			pendingModelTurns.push(call);
+			return call.deferred.promise;
+		},
+		voiceCapture(request, emit) {
+			const effect = { request, emit, disposed: false };
+			activeVoice = effect;
+			return {
+				dispose() {
+					effect.disposed = true;
+					if (activeVoice === effect) {
+						activeVoice = null;
+					}
+				},
+			};
+		},
+		speechDelivery(request, emit) {
+			const effect = { request, emit, disposed: false };
+			activeSpeech = effect;
+			return {
+				dispose() {
+					effect.disposed = true;
+					if (activeSpeech === effect) {
+						activeSpeech = null;
+					}
+				},
+			};
+		},
+		clock: {
+			setTimeout(callback, delayMs) {
+				const timeout = {
+					callback,
+					delayMs,
+					disposed: false,
+				};
+				latestTimeout = timeout;
+				return {
+					dispose() {
+						timeout.disposed = true;
+					},
+				};
+			},
+		},
+	};
+
+	const runtime = createVoiceWorkbenchRuntime({
+		actor,
+		ports,
+		...(typeof modelTurnTimeoutMs === "number" ? { modelTurnTimeoutMs } : {}),
+	});
+	activeFixtures.add({ actor, runtime });
+
+	const waitForPreparationCall = async () => {
+		await vi.waitFor(() => {
+			expect(
+				pendingPreparations.some((call) => !call.deferred.settled),
+			).toBe(true);
+		});
+		const call = pendingPreparations.find((entry) => !entry.deferred.settled);
+		if (!call) throw new Error("Expected a pending model preparation call.");
+		return call;
+	};
+
+	const waitForModelTurnCall = async (
+		type?: PendingModelTurnCall["request"]["type"],
+	) => {
+		await vi.waitFor(() => {
+			expect(
+				pendingModelTurns.some(
+					(call) =>
+						!call.deferred.settled &&
+						(typeof type === "undefined" || call.request.type === type),
+				),
+			).toBe(true);
+		});
+		const call = pendingModelTurns.find(
+			(entry) =>
+				!entry.deferred.settled &&
+				(typeof type === "undefined" || entry.request.type === type),
+		);
+		if (!call) {
+			throw new Error(
+				`Expected a pending model-turn call${type ? ` of type ${type}` : ""}.`,
+			);
+		}
+		return call;
+	};
+
+	const waitForNextModelTurnCall = async (
+		type: PendingModelTurnCall["request"]["type"],
+		afterCount: number,
+	) => {
+		await vi.waitFor(() => {
+			expect(
+				pendingModelTurns.slice(afterCount).some(
+					(call) => !call.deferred.settled && call.request.type === type,
+				),
+			).toBe(true);
+		});
+		const call = pendingModelTurns
+			.slice(afterCount)
+			.find((entry) => !entry.deferred.settled && entry.request.type === type);
+		if (!call) {
+			throw new Error(
+				`Expected a model-turn call of type ${type} after index ${afterCount}.`,
+			);
+		}
+		return call;
+	};
+
+	const waitForVoiceEmitter = async (
+		type?: Parameters<VoiceWorkbenchPorts["voiceCapture"]>[0]["type"],
+	) => {
+		await vi.waitFor(() => {
+			expect(
+				Boolean(
+					activeVoice &&
+						!activeVoice.disposed &&
+						(typeof type === "undefined" || activeVoice.request.type === type),
+				),
+			).toBe(true);
+		});
+		if (!activeVoice || activeVoice.disposed) {
+			throw new Error("Expected an active voice-capture collaborator.");
+		}
+		return activeVoice;
+	};
+
+	const waitForSpeechEmitter = async (
+		type?: Parameters<VoiceWorkbenchPorts["speechDelivery"]>[0]["type"],
+	) => {
+		await vi.waitFor(() => {
+			expect(
+				Boolean(
+					activeSpeech &&
+						!activeSpeech.disposed &&
+						(typeof type === "undefined" || activeSpeech.request.type === type),
+				),
+			).toBe(true);
+		});
+		if (!activeSpeech || activeSpeech.disposed) {
+			throw new Error("Expected an active speech-delivery collaborator.");
+		}
+		return activeSpeech;
+	};
+
+	return {
+		actor,
+		component,
+		runtime,
+		currentModelRequest: () => {
+			const request = actor.getSnapshot().context.portRequests.modelTurn;
+			if (!request) throw new Error("Expected a model-turn request.");
+			return request;
+		},
+		currentVoiceRequest: () => {
+			const request = actor.getSnapshot().context.portRequests.voiceCapture;
+			if (!request) throw new Error("Expected a voice-capture request.");
+			return request;
+		},
+		currentSpeechRequest: () => {
+			const request = actor.getSnapshot().context.portRequests.speechDelivery;
+			if (!request) throw new Error("Expected a speech-delivery request.");
+			return request;
+		},
+		resolvePreparationAvailable: async () => {
+			const call = await waitForPreparationCall();
+			call.deferred.resolve({
+				type: "available",
+				sequence: call.request.sequence,
+			});
+			return call.request;
+		},
+		resolvePreparationFailure: async (failure: ModelFailureFact) => {
+			const call = await waitForPreparationCall();
+			call.deferred.resolve({
+				type: "failed",
+				sequence: call.request.sequence,
+				failure,
+			});
+			return call.request;
+		},
+		waitForModelTurnCall,
+		waitForNextModelTurnCall,
+		modelTurnCallCount: () => pendingModelTurns.length,
+		resolveModelTurn: (
+			call: PendingModelTurnCall,
+			result: ModelTurnPortResult,
+		) => {
+			call.deferred.resolve(result);
+			return call.request;
+		},
+		resolveModelResult: async (
+			text: string,
+			speech?: string,
+			callId = "story-complete",
+		) => {
+			const call = await waitForModelTurnCall("request-model");
+			call.deferred.resolve({
+				receipt: {
+					type: "MODEL_RESOLVED",
+					turnId: call.request.turnId,
+					attemptId: call.request.attemptId,
+					result: {
+						ok: true,
+						calls: [
+							{
+								id: callId,
+								command: "completeResponse",
+								input: speech ? { text, speech } : { text },
+							},
+						],
+					},
+				},
+			});
+			return call.request;
+		},
+		resolveAuthorization: async () => {
+			const call = await waitForModelTurnCall("authorize-call");
+			call.deferred.resolve({
+				receipt: {
+					type: "AUTHORIZATION_RESOLVED",
+					turnId: call.request.turnId,
+					attemptId: call.request.attemptId,
+					allowed: true,
+				},
+			});
+			return call.request;
+		},
+		waitForExecuteCall: async () => {
+			const call = await waitForModelTurnCall("execute-call");
+			return call;
+		},
+		emitVoice: async (receipt: VoiceCapturePortReceipt) => {
+			const effect = await waitForVoiceEmitter("start");
+			effect.emit(receipt);
+			return effect.request;
+		},
+		emitSpeech: async (receipt: SpeechDeliveryPortReceipt) => {
+			const effect = await waitForSpeechEmitter("speak");
+			effect.emit(receipt);
+			return effect.request;
+		},
+		fireTimeout: () => {
+			if (!latestTimeout || latestTimeout.disposed) {
+				throw new Error("Expected an active model-turn timeout.");
+			}
+			latestTimeout.callback();
+			return latestTimeout.delayMs;
+		},
+	};
+};
+
+const beginCurrentTurnCompletion = async (
+	fixture: ReturnType<typeof createFixture>,
+	requestModelCall: PendingModelTurnCall,
+	input: { text: string; speech?: string },
+) => {
+	const authorizeStart = fixture.modelTurnCallCount();
+	fixture.resolveModelTurn(requestModelCall, {
+		receipt: {
+			type: "MODEL_RESOLVED",
+			turnId: requestModelCall.request.turnId,
+			attemptId: requestModelCall.request.attemptId,
+			result: {
+				ok: true,
+				calls: [
+					{
+						id: "story-complete",
+						command: "completeResponse",
+						input: input.speech ? { text: input.text, speech: input.speech } : input,
+					},
+				],
+			},
+		},
+	});
+	const authorizeCall = await fixture.waitForNextModelTurnCall(
+		"authorize-call",
+		authorizeStart,
+	);
+	const executeStart = fixture.modelTurnCallCount();
+	fixture.resolveModelTurn(authorizeCall, {
+		receipt: {
+			type: "AUTHORIZATION_RESOLVED",
+			turnId: authorizeCall.request.turnId,
+			attemptId: authorizeCall.request.attemptId,
+			allowed: true,
+		},
+	});
+	return fixture.waitForNextModelTurnCall("execute-call", executeStart);
+};
+
+const finishCurrentTurnCompletion = (
+	fixture: ReturnType<typeof createFixture>,
+	component: VoiceWorkbenchComponent,
+	executeCall: Awaited<ReturnType<typeof beginCurrentTurnCompletion>>,
+) => {
+	if (executeCall.request.type !== "execute-call") {
+		throw new Error("Expected an execute-call request.");
+	}
+	fixture.resolveModelTurn(executeCall, {
+		receipt: {
+			type: "CAPABILITY_RESOLVED",
+			turnId: executeCall.request.turnId,
+			attemptId: executeCall.request.attemptId,
+			feedback: {
+				id: executeCall.request.call.id ?? "story-complete",
+				command: executeCall.request.call.command,
+				status: "accepted",
+				ownerId: "voice-workbench-narratives",
+				view: component.getView().modelContext,
+				events: [],
+			},
+		},
+	});
+};
+
 describe("voice workbench executable narratives", () => {
-	it("dogfoods failure and recovery paths through named narratives", async () => {
+	it("dogfoods failure and recovery paths through named stories", async () => {
 		const coverageMatrix: Array<{
 			narrative: string;
 			commands: string[];
@@ -207,35 +504,35 @@ describe("voice workbench executable narratives", () => {
 		}> = [];
 
 		{
-			const { actor, component } = createFixture();
-			reportPreparation(actor, {
-				type: "failed",
-				sequence: currentPreparationRequest(actor).sequence,
-				failure: {
-					kind: "network",
-					message: "The local model could not be reached.",
+			const fixture = createFixture({
+				initialPreparation: {
+					type: "failed",
+					failure: {
+						kind: "network",
+						message: "The local model could not be reached.",
+					},
 				},
 			});
 
-			const story = await igniteTest({ component }).story(
+			const story = await igniteTest({ component: fixture.component }).story(
 				"preparation failure retries into ready",
 				async (narrative) => {
 					await narrative.given({
-						snapshot: (snapshot) => snapshot.matches("unavailable"),
+						when: (snapshot) => snapshot.matches("unavailable"),
 						view: { status: "failed", model: { status: "failed" } },
 						canExecute: { submitPrompt: false },
 					});
 
 					await narrative.intent({ command: "beginModelPreparation" });
-					await narrative.behavior("model preparation becomes available", async () => {
-						reportPreparation(actor, {
-							type: "available",
-							sequence: currentPreparationRequest(actor).sequence,
-						});
-					});
+					await narrative.behavior(
+						"model preparation port becomes available",
+						async () => {
+							await fixture.resolvePreparationAvailable();
+						},
+					);
 
 					await narrative.checkpoint("ready after retry", {
-						snapshot: (snapshot) =>
+						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "idle" } }),
 						view: {
 							status: "ready",
@@ -259,23 +556,22 @@ describe("voice workbench executable narratives", () => {
 				commands: commandTrace(story),
 				checkpoints: ["ready after retry"],
 				receipts: [
-					"MODEL_PREPARATION_PORT_RECEIVED:failed",
+					"modelPreparation:failed",
 					"MODEL_PREPARATION_STARTED",
-					"MODEL_PREPARATION_PORT_RECEIVED:available",
+					"modelPreparation:available",
 				],
 				finalStatus: finalViewStatus(story),
 			});
 		}
 
 		{
-			const { actor, component } = createFixture();
-			makeAvailable(actor);
+			const fixture = createFixture();
 
-			const story = await igniteTest({ component }).story(
+			const story = await igniteTest({ component: fixture.component }).story(
 				"microphone permission denial recovers to typed prompt",
 				async (narrative) => {
 					await narrative.given({
-						snapshot: (snapshot) =>
+						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "idle" } }),
 						view: {
 							status: "ready",
@@ -289,14 +585,15 @@ describe("voice workbench executable narratives", () => {
 					});
 
 					await narrative.intent({ command: "startVoiceCapture" });
-					const request = currentVoiceRequest(actor);
-					if (request.type !== "start" || request.attemptId === null) {
+					const voiceRequest = fixture.currentVoiceRequest();
+					if (voiceRequest.type !== "start" || voiceRequest.attemptId === null) {
 						throw new Error("Expected a correlated voice start request.");
 					}
-					await narrative.behavior("microphone permission denied", async () => {
-						sendVoiceReceipt(actor, {
+					const voiceAttemptId = voiceRequest.attemptId;
+					await narrative.behavior("microphone denies permission", async () => {
+						await fixture.emitVoice({
 							type: "PERMISSION_DENIED",
-							attemptId: request.attemptId,
+							attemptId: voiceAttemptId,
 							message: "Microphone access was denied.",
 						});
 					});
@@ -325,7 +622,7 @@ describe("voice workbench executable narratives", () => {
 					});
 
 					await narrative.checkpoint("text recovery starts a new turn", {
-						snapshot: (snapshot) =>
+						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "responding" } }),
 						view: {
 							status: "responding",
@@ -356,19 +653,25 @@ describe("voice workbench executable narratives", () => {
 				],
 				receipts: [
 					"VOICE_CAPTURE_START_REQUESTED",
-					"VOICE_CAPTURE_PORT_RECEIVED:PERMISSION_DENIED",
+					"voiceCapture:PERMISSION_DENIED",
 				],
 				finalStatus: finalViewStatus(story),
 			});
 		}
 
 		{
-			const { actor, component } = createFixture();
-			makeAvailable(actor);
+			const fixture = createFixture();
 
-			const story = await igniteTest({ component }).story(
+			const story = await igniteTest({ component: fixture.component }).story(
 				"correlated cancellation returns the active turn to idle",
 				async (narrative) => {
+					await narrative.given({
+						when: (snapshot) =>
+							snapshot.matches({ available: { turn: "idle" } }),
+						view: { status: "ready" },
+						canExecute: { submitPrompt: true },
+					});
+
 					await narrative.intent({
 						command: "submitPrompt",
 						input: { modality: "text", text: "Cancel this turn." },
@@ -381,9 +684,9 @@ describe("voice workbench executable narratives", () => {
 						canExecute: { createArtifact: true },
 					});
 
-					const request = currentModelRequest(actor);
+					const request = fixture.currentModelRequest();
 					await narrative.behavior("cancel active turn", async () => {
-						actor.send({
+						fixture.actor.send({
 							type: "MODEL_TURN_CANCEL_REQUESTED",
 							turnId: request.turnId,
 							attemptId: request.attemptId,
@@ -415,24 +718,26 @@ describe("voice workbench executable narratives", () => {
 		}
 
 		{
-			const { actor, component } = createFixture();
-			makeAvailable(actor);
+			const fixture = createFixture({ modelTurnTimeoutMs: 25 });
 
-			const story = await igniteTest({ component }).story(
+			const story = await igniteTest({ component: fixture.component }).story(
 				"timed out turn retries to an accepted response",
 				async (narrative) => {
+					await narrative.given({
+						when: (snapshot) =>
+							snapshot.matches({ available: { turn: "idle" } }),
+						view: { status: "ready" },
+						canExecute: { submitPrompt: true },
+					});
+
 					await narrative.intent({
 						command: "submitPrompt",
 						input: { modality: "text", text: "Recover after timeout." },
 					});
+					await fixture.waitForModelTurnCall("request-model");
 
-					let request = currentModelRequest(actor);
-					await narrative.behavior("timeout active turn", async () => {
-						actor.send({
-							type: "MODEL_TURN_TIMEOUT_REQUESTED",
-							turnId: request.turnId,
-							attemptId: request.attemptId,
-						});
+					await narrative.behavior("clock fires the active turn timeout", async () => {
+						expect(fixture.fireTimeout()).toBe(25);
 					});
 
 					await narrative.checkpoint("timeout returns the turn to idle", {
@@ -441,12 +746,13 @@ describe("voice workbench executable narratives", () => {
 						view: {
 							status: "ready",
 							lifecycle: {
-								lastTurnTerminal: { type: "TIMEOUT", turnId: request.turnId },
+								lastTurnTerminal: { type: "TIMEOUT" },
 							},
 						},
 						canExecute: { submitPrompt: true },
 					});
 
+					const retryRequestStart = fixture.modelTurnCallCount();
 					await narrative.intent({
 						command: "submitPrompt",
 						input: { modality: "text", text: "Retry after timeout." },
@@ -475,17 +781,27 @@ describe("voice workbench executable narratives", () => {
 							},
 						},
 						canExecute: { completeResponse: true },
-					});
+						});
 
-					const completion = beginCurrentTurnCompletion(actor, {
-						text: "Recovered after timeout.",
-					});
+					const retryModelCall = await fixture.waitForNextModelTurnCall(
+						"request-model",
+						retryRequestStart,
+					);
+					const completion = await beginCurrentTurnCompletion(
+						fixture,
+						retryModelCall,
+						{ text: "Recovered after timeout." },
+					);
 					await narrative.intent({
 						command: "completeResponse",
 						input: { text: "Recovered after timeout." },
 					});
-					await narrative.behavior("finish accepted retry", async () => {
-						finishCurrentTurnCompletion(actor, component, completion);
+					await narrative.behavior("model turn accepts the retry", async () => {
+						finishCurrentTurnCompletion(
+							fixture,
+							fixture.component,
+							completion,
+						);
 					});
 
 					await narrative.checkpoint("accepted retry returns to ready", {
@@ -517,42 +833,64 @@ describe("voice workbench executable narratives", () => {
 					"accepted retry returns to ready",
 				],
 				receipts: [
-					"MODEL_TURN_TIMEOUT_REQUESTED",
-					"MODEL_TURN_PORT_RECEIVED:MODEL_RESOLVED",
-					"MODEL_TURN_PORT_RECEIVED:AUTHORIZATION_RESOLVED",
-					"MODEL_TURN_PORT_RECEIVED:CAPABILITY_RESOLVED",
+					"clock:MODEL_TURN_TIMEOUT_REQUESTED",
+					"modelTurn:MODEL_RESOLVED",
+					"modelTurn:AUTHORIZATION_RESOLVED",
+					"modelTurn:CAPABILITY_RESOLVED",
 				],
 				finalStatus: finalViewStatus(story),
 			});
 		}
 
 		{
-			const { actor, component } = createFixture();
-			makeAvailable(actor);
+			const fixture = createFixture();
 
-			const story = await igniteTest({ component }).story(
+			const story = await igniteTest({ component: fixture.component }).story(
 				"stale correlated model receipts stay inert until the live turn ends",
 				async (narrative) => {
+					await narrative.given({
+						when: (snapshot) =>
+							snapshot.matches({ available: { turn: "idle" } }),
+						view: { status: "ready" },
+						canExecute: { submitPrompt: true },
+					});
+
 					await narrative.intent({
 						command: "submitPrompt",
 						input: { modality: "text", text: "Ignore stale turn receipts." },
 					});
 
-					const request = currentModelRequest(actor);
-					await narrative.behavior("send stale model receipt", async () => {
-						actor.send({
-							type: "MODEL_TURN_PORT_RECEIVED",
-							request,
-							receipt: {
-								type: "PORT_FAILED",
-								turnId: request.turnId,
-								attemptId: `${request.attemptId}:stale`,
-								failure: { kind: "provider", message: "stale" },
-							},
+					const staleCall = await fixture.waitForModelTurnCall("request-model");
+
+					await narrative.behavior("cancel the first active turn", async () => {
+						fixture.actor.send({
+							type: "MODEL_TURN_CANCEL_REQUESTED",
+							turnId: staleCall.request.turnId,
+							attemptId: staleCall.request.attemptId,
 						});
 					});
 
-					await narrative.checkpoint("stale receipt cannot close the turn", {
+					await narrative.checkpoint("cancelled first turn returns idle", {
+						when: (snapshot) =>
+							snapshot.matches({ available: { turn: "idle" } }),
+						view: {
+							status: "ready",
+							lifecycle: {
+								lastTurnTerminal: {
+									type: "CANCELLED",
+									turnId: staleCall.request.turnId,
+								},
+							},
+						},
+						canExecute: { submitPrompt: true },
+					});
+
+					await narrative.intent({
+						command: "submitPrompt",
+						input: { modality: "text", text: "Live turn stays in control." },
+					});
+
+					await narrative.checkpoint("second turn is responding", {
 						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "responding" } }),
 						view: {
@@ -562,11 +900,33 @@ describe("voice workbench executable narratives", () => {
 						canExecute: { createArtifact: true },
 					});
 
-					await narrative.behavior("cancel live turn", async () => {
-						actor.send({
+					await narrative.behavior("late first-turn model result arrives", async () => {
+						fixture.resolveModelTurn(staleCall, {
+							receipt: {
+								type: "MODEL_RESOLVED",
+								turnId: staleCall.request.turnId,
+								attemptId: staleCall.request.attemptId,
+								result: { ok: true, calls: [] },
+							},
+						});
+					});
+
+					await narrative.checkpoint("stale port result stays inert", {
+						when: (snapshot) =>
+							snapshot.matches({ available: { turn: "responding" } }),
+						view: {
+							status: "responding",
+							lifecycle: { lastTurnTerminal: null },
+						},
+						canExecute: { createArtifact: true },
+					});
+
+					const liveRequest = fixture.currentModelRequest();
+					await narrative.behavior("cancel the live turn", async () => {
+						fixture.actor.send({
 							type: "MODEL_TURN_CANCEL_REQUESTED",
-							turnId: request.turnId,
-							attemptId: request.attemptId,
+							turnId: liveRequest.turnId,
+							attemptId: liveRequest.attemptId,
 						});
 					});
 
@@ -576,7 +936,7 @@ describe("voice workbench executable narratives", () => {
 						view: {
 							status: "ready",
 							lifecycle: {
-								lastTurnTerminal: { type: "CANCELLED", turnId: request.turnId },
+								lastTurnTerminal: { type: "CANCELLED", turnId: liveRequest.turnId },
 							},
 						},
 					});
@@ -588,24 +948,33 @@ describe("voice workbench executable narratives", () => {
 				narrative: story.name,
 				commands: commandTrace(story),
 				checkpoints: [
-					"stale receipt cannot close the turn",
+					"cancelled first turn returns idle",
+					"second turn is responding",
+					"stale port result stays inert",
 					"live correlation still controls exit",
 				],
 				receipts: [
-					"MODEL_TURN_PORT_RECEIVED:PORT_FAILED(stale)",
-					"MODEL_TURN_CANCEL_REQUESTED",
+					"MODEL_TURN_CANCEL_REQUESTED:first",
+					"modelTurn:late-first-result",
+					"MODEL_TURN_CANCEL_REQUESTED:live",
 				],
 				finalStatus: finalViewStatus(story),
 			});
 		}
 
 		{
-			const { actor, component } = createFixture();
-			makeAvailable(actor);
+			const fixture = createFixture();
 
-			const story = await igniteTest({ component }).story(
+			const story = await igniteTest({ component: fixture.component }).story(
 				"artifact revision conflicts recover with the current revision",
 				async (narrative) => {
+					await narrative.given({
+						when: (snapshot) =>
+							snapshot.matches({ available: { turn: "idle" } }),
+						view: { status: "ready" },
+						canExecute: { submitPrompt: true },
+					});
+
 					await narrative.intent({
 						command: "submitPrompt",
 						input: { modality: "text", text: "Revise this artifact." },
@@ -672,7 +1041,10 @@ describe("voice workbench executable narratives", () => {
 						},
 					);
 
-					const currentRevision = currentArtifactRevision(actor, "launch-plan");
+					const currentRevision = currentArtifactRevision(
+						fixture.actor,
+						"launch-plan",
+					);
 					if (!currentRevision) throw new Error("Expected a current revision.");
 
 					await narrative.intent({
@@ -725,12 +1097,19 @@ describe("voice workbench executable narratives", () => {
 		}
 
 		{
-			const { actor, component } = createFixture();
-			makeAvailable(actor);
+			const fixture = createFixture();
 
-			const story = await igniteTest({ component }).story(
+			const story = await igniteTest({ component: fixture.component }).story(
 				"speech unavailable remains actor-owned until acknowledged",
 				async (narrative) => {
+					await narrative.given({
+						when: (snapshot) =>
+							snapshot.matches({ available: { turn: "idle" } }),
+						view: { status: "ready" },
+						canExecute: { submitPrompt: true },
+					});
+
+					const completionRequestStart = fixture.modelTurnCallCount();
 					await narrative.intent({
 						command: "submitPrompt",
 						input: { modality: "text", text: "Speak this response." },
@@ -747,13 +1126,21 @@ describe("voice workbench executable narratives", () => {
 									text: "Speech fallback stays semantic.",
 								},
 							],
-						},
-					});
+							},
+						});
 
-					const completion = beginCurrentTurnCompletion(actor, {
-						text: "Speech fallback stays semantic.",
-						speech: "Speech fallback stays semantic.",
-					});
+					const completionModelCall = await fixture.waitForNextModelTurnCall(
+						"request-model",
+						completionRequestStart,
+					);
+					const completion = await beginCurrentTurnCompletion(
+						fixture,
+						completionModelCall,
+						{
+							text: "Speech fallback stays semantic.",
+							speech: "Speech fallback stays semantic.",
+						},
+					);
 					await narrative.intent({
 						command: "completeResponse",
 						input: {
@@ -761,8 +1148,12 @@ describe("voice workbench executable narratives", () => {
 							speech: "Speech fallback stays semantic.",
 						},
 					});
-					await narrative.behavior("finish speech completion", async () => {
-						finishCurrentTurnCompletion(actor, component, completion);
+					await narrative.behavior("model turn completes with speech output", async () => {
+						finishCurrentTurnCompletion(
+							fixture,
+							fixture.component,
+							completion,
+						);
 					});
 
 					await narrative.checkpoint("pending speech stays acknowledged-later", {
@@ -778,11 +1169,11 @@ describe("voice workbench executable narratives", () => {
 						canExecute: { acknowledgeSpeech: true },
 					});
 
-					const request = currentSpeechRequest(actor);
-					await narrative.behavior("speech becomes unavailable", async () => {
-						sendSpeechReceipt(actor, {
+					const speechRequest = fixture.currentSpeechRequest();
+					await narrative.behavior("speech delivery reports unavailable", async () => {
+						await fixture.emitSpeech({
 							type: "UNAVAILABLE",
-							attemptId: request.attemptId,
+							attemptId: speechRequest.attemptId,
 						});
 					});
 
@@ -795,7 +1186,7 @@ describe("voice workbench executable narratives", () => {
 							speechStatus: "acknowledged",
 							presentation: {
 								speechCommit: {
-									id: request.id,
+									id: speechRequest.id,
 									status: "unavailable",
 								},
 							},
@@ -819,10 +1210,10 @@ describe("voice workbench executable narratives", () => {
 					"speech unavailable settles through the actor",
 				],
 				receipts: [
-					"MODEL_TURN_PORT_RECEIVED:MODEL_RESOLVED",
-					"MODEL_TURN_PORT_RECEIVED:AUTHORIZATION_RESOLVED",
-					"MODEL_TURN_PORT_RECEIVED:CAPABILITY_RESOLVED",
-					"SPEECH_DELIVERY_PORT_RECEIVED:UNAVAILABLE",
+					"modelTurn:MODEL_RESOLVED",
+					"modelTurn:AUTHORIZATION_RESOLVED",
+					"modelTurn:CAPABILITY_RESOLVED",
+					"speechDelivery:UNAVAILABLE",
 				],
 				finalStatus: finalViewStatus(story),
 			});
@@ -842,9 +1233,9 @@ describe("voice workbench executable narratives", () => {
 				commands: ["beginModelPreparation"],
 				checkpoints: ["ready after retry"],
 				receipts: [
-					"MODEL_PREPARATION_PORT_RECEIVED:failed",
+					"modelPreparation:failed",
 					"MODEL_PREPARATION_STARTED",
-					"MODEL_PREPARATION_PORT_RECEIVED:available",
+					"modelPreparation:available",
 				],
 				finalStatus: "ready",
 			},
@@ -857,7 +1248,7 @@ describe("voice workbench executable narratives", () => {
 				],
 				receipts: [
 					"VOICE_CAPTURE_START_REQUESTED",
-					"VOICE_CAPTURE_PORT_RECEIVED:PERMISSION_DENIED",
+					"voiceCapture:PERMISSION_DENIED",
 				],
 				finalStatus: "responding",
 			},
@@ -882,24 +1273,27 @@ describe("voice workbench executable narratives", () => {
 					"accepted retry returns to ready",
 				],
 				receipts: [
-					"MODEL_TURN_TIMEOUT_REQUESTED",
-					"MODEL_TURN_PORT_RECEIVED:MODEL_RESOLVED",
-					"MODEL_TURN_PORT_RECEIVED:AUTHORIZATION_RESOLVED",
-					"MODEL_TURN_PORT_RECEIVED:CAPABILITY_RESOLVED",
+					"clock:MODEL_TURN_TIMEOUT_REQUESTED",
+					"modelTurn:MODEL_RESOLVED",
+					"modelTurn:AUTHORIZATION_RESOLVED",
+					"modelTurn:CAPABILITY_RESOLVED",
 				],
 				finalStatus: "ready",
 			},
 			{
 				narrative:
 					"stale correlated model receipts stay inert until the live turn ends",
-				commands: ["submitPrompt"],
+				commands: ["submitPrompt", "submitPrompt"],
 				checkpoints: [
-					"stale receipt cannot close the turn",
+					"cancelled first turn returns idle",
+					"second turn is responding",
+					"stale port result stays inert",
 					"live correlation still controls exit",
 				],
 				receipts: [
-					"MODEL_TURN_PORT_RECEIVED:PORT_FAILED(stale)",
-					"MODEL_TURN_CANCEL_REQUESTED",
+					"MODEL_TURN_CANCEL_REQUESTED:first",
+					"modelTurn:late-first-result",
+					"MODEL_TURN_CANCEL_REQUESTED:live",
 				],
 				finalStatus: "ready",
 			},
@@ -931,10 +1325,10 @@ describe("voice workbench executable narratives", () => {
 					"speech unavailable settles through the actor",
 				],
 				receipts: [
-					"MODEL_TURN_PORT_RECEIVED:MODEL_RESOLVED",
-					"MODEL_TURN_PORT_RECEIVED:AUTHORIZATION_RESOLVED",
-					"MODEL_TURN_PORT_RECEIVED:CAPABILITY_RESOLVED",
-					"SPEECH_DELIVERY_PORT_RECEIVED:UNAVAILABLE",
+					"modelTurn:MODEL_RESOLVED",
+					"modelTurn:AUTHORIZATION_RESOLVED",
+					"modelTurn:CAPABILITY_RESOLVED",
+					"speechDelivery:UNAVAILABLE",
 				],
 				finalStatus: "ready",
 			},

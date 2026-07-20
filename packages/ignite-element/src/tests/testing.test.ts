@@ -501,6 +501,31 @@ describe("ignite test DSL", () => {
 		);
 	});
 
+	it("rejects runtime snapshot predicates with a use-when diagnostic", () => {
+		const store = counterStore();
+		const component = igniteCore({
+			adapter: "redux",
+			source: store,
+		});
+		const weaklyTypedSnapshot = {
+			snapshot: {
+				counter: {
+					count: ((count: number) => count > 0) as unknown,
+				},
+			},
+		} as {
+			snapshot: unknown;
+		};
+
+		expect(() =>
+			igniteTest({ component }).given(
+				weaklyTypedSnapshot.snapshot as { counter: { count: number } },
+			),
+		).toThrow(
+			"[igniteTest] snapshot.counter.count must be structural data. Move predicate assertions to when.",
+		);
+	});
+
 	it("reads command availability with canExecute", async () => {
 		const store = counterStore();
 		const component = igniteCore({

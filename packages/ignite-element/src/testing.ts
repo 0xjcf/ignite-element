@@ -573,11 +573,39 @@ const expectControls = (
 ): HTMLElement[] =>
 	expected.map((expectation) => assertControl(bridge, expectation));
 
+const assertStructuralSnapshotExpectation = (
+	expected: unknown,
+	path = "snapshot",
+) => {
+	if (typeof expected === "function") {
+		throw new Error(
+			`[igniteTest] ${path} must be structural data. Move predicate assertions to when.`,
+		);
+	}
+
+	if (Array.isArray(expected)) {
+		for (const [index, value] of expected.entries()) {
+			assertStructuralSnapshotExpectation(value, `${path}[${index}]`);
+		}
+		return;
+	}
+
+	if (!isPlainObject(expected)) {
+		return;
+	}
+
+	for (const [key, value] of Object.entries(expected)) {
+		assertStructuralSnapshotExpectation(value, `${path}.${key}`);
+	}
+};
+
 const assertSnapshot = <State>(
 	label: "given" | "expectSnapshot",
 	snapshot: State,
 	expected: IgniteSnapshotExpectation<State>,
 ) => {
+	assertStructuralSnapshotExpectation(expected);
+
 	if (!valuesMatch(snapshot, expected)) {
 		throw new Error(
 			`[igniteTest] ${label} failed.\nExpected: ${formatValue(expected)}\nReceived: ${formatValue(snapshot)}`,
