@@ -344,10 +344,14 @@ describe("voice workbench XState graph characterization", () => {
 		expect(shortest.length).toBeLessThanOrEqual(simple.length);
 		for (const path of shortest) {
 			const simpleMatch = simple.find(
-				(candidate) => serializeStateValue(candidate.state) === serializeStateValue(path.state),
+				(candidate) =>
+					serializeStateValue(candidate.state) ===
+					serializeStateValue(path.state),
 			);
 			expect(simpleMatch).toBeDefined();
-			expect(path.steps.length).toBeLessThanOrEqual(simpleMatch!.steps.length);
+			expect(path.steps.length).toBeLessThanOrEqual(
+				simpleMatch?.steps.length ?? 0,
+			);
 		}
 	});
 
@@ -497,15 +501,27 @@ describe("voice workbench XState graph characterization", () => {
 			preparationAvailable1,
 			submitPrompt,
 		];
+		const staticTimeoutSelection = getPathsFromEvents(
+			voiceWorkbenchSessionMachine,
+			[preparationAvailable1, submitPrompt, timeoutTurn],
+			traversalOptions,
+		);
+		// Static graph traversal cannot correlate MODEL_TURN_TIMEOUT_REQUESTED to
+		// the live runtime child request identity, so the timeout event stays inert
+		// here. The Story fixture below proves the real timeout-to-ready outcome.
+		expect(readStateValue(staticTimeoutSelection[0].state)).toEqual(
+			{
+				available: { turn: "responding", voice: "active", speech: "idle" },
+			},
+		);
+
 		const directSelected = getPathsFromEvents(
 			voiceWorkbenchSessionMachine,
 			selectedEvents,
 			traversalOptions,
 		);
 		expect(directSelected).toHaveLength(1);
-		expect(
-			directSelected[0].steps.map((step) => step.event.type),
-		).toEqual([
+		expect(directSelected[0].steps.map((step) => step.event.type)).toEqual([
 			"xstate.init",
 			"MODEL_PREPARATION_PORT_RECEIVED",
 			"SUBMIT_PROMPT",
@@ -516,15 +532,14 @@ describe("voice workbench XState graph characterization", () => {
 
 		expect(() =>
 			createTestModel(voiceWorkbenchSessionMachine, traversalOptions),
-		).toThrowError("Invocations on test machines are not supported");
+		).toThrowError(/Invocations .* not supported/i);
 
 		const fixture = createGraphFixture();
 		const story = await igniteTest({ component: fixture.component }).story(
 			"xstate graph selected timeout path composes with story evidence",
 			async (narrative) => {
 				await narrative.given({
-					when: (snapshot) =>
-						snapshot.matches({ available: { turn: "idle" } }),
+					when: (snapshot) => snapshot.matches({ available: { turn: "idle" } }),
 					view: { status: "ready" },
 					canExecute: { submitPrompt: true },
 				});
@@ -549,17 +564,20 @@ describe("voice workbench XState graph characterization", () => {
 					},
 				);
 
-				await narrative.checkpoint("timeout returns the selected path to ready", {
-					when: (snapshot) =>
-						snapshot.matches({ available: { turn: "idle" } }),
-					view: {
-						status: "ready",
-						lifecycle: {
-							lastTurnTerminal: { type: "TIMEOUT" },
+				await narrative.checkpoint(
+					"timeout returns the selected path to ready",
+					{
+						when: (snapshot) =>
+							snapshot.matches({ available: { turn: "idle" } }),
+						view: {
+							status: "ready",
+							lifecycle: {
+								lastTurnTerminal: { type: "TIMEOUT" },
+							},
 						},
+						canExecute: { submitPrompt: true },
 					},
-					canExecute: { submitPrompt: true },
-				});
+				);
 			},
 		);
 
