@@ -36,8 +36,11 @@ type DeepPartial<T> = T extends readonly (infer Item)[]
 				[K in keyof T]?: DeepPartial<T[K]>;
 			}
 		: T;
-export type IgniteSnapshotExpectation<State> = DeepPartial<State>;
+export type IgniteSnapshotExpectation<State> =
+	| DeepPartial<State>
+	| IgniteSnapshotPredicate<State>;
 export type IgniteSnapshotPredicate<State> = (snapshot: State) => boolean;
+export type IgniteStorySnapshotExpectation<State> = DeepPartial<State>;
 
 export type IgniteViewExpectation<View> =
 	| DeepPartial<View>
@@ -238,7 +241,7 @@ type IgniteTestStoryAssertion<
 	Events extends EventMap,
 	View extends Record<string, unknown>,
 > = {
-	snapshot?: IgniteSnapshotExpectation<State>;
+	snapshot?: IgniteStorySnapshotExpectation<State>;
 	when?: IgniteSnapshotPredicate<State>;
 	view?: IgniteViewExpectation<View>;
 	event?: IgniteEventExpectation<Events>;
@@ -604,8 +607,6 @@ const assertSnapshot = <State>(
 	snapshot: State,
 	expected: IgniteSnapshotExpectation<State>,
 ) => {
-	assertStructuralSnapshotExpectation(expected);
-
 	if (!valuesMatch(snapshot, expected)) {
 		throw new Error(
 			`[igniteTest] ${label} failed.\nExpected: ${formatValue(expected)}\nReceived: ${formatValue(snapshot)}`,
@@ -815,6 +816,7 @@ const assertStoryAssertion = <
 	checkpoint: IgniteTestStoryCheckpoint<State, Commands, Events, View>,
 ) => {
 	if ("snapshot" in assertion && typeof assertion.snapshot !== "undefined") {
+		assertStructuralSnapshotExpectation(assertion.snapshot);
 		assertSnapshot("expectSnapshot", checkpoint.snapshot, assertion.snapshot);
 	}
 

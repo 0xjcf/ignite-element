@@ -501,27 +501,49 @@ describe("ignite test DSL", () => {
 		);
 	});
 
-	it("rejects runtime snapshot predicates with a use-when diagnostic", () => {
+	it("preserves top-level scenario snapshot predicates for given and expectSnapshot", async () => {
 		const store = counterStore();
 		const component = igniteCore({
 			adapter: "redux",
 			source: store,
+			commands: ({ actor }) => ({
+				increment: (amount: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+			}),
 		});
-		const weaklyTypedSnapshot = {
-			snapshot: {
-				counter: {
-					count: ((count: number) => count > 0) as unknown,
-				},
-			},
-		} as {
-			snapshot: unknown;
-		};
+
+		const scenario = await igniteTest({ component })
+			.given((snapshot) => snapshot.counter.count === 0)
+			.when({ command: "increment", input: 2 });
 
 		expect(() =>
-			igniteTest({ component }).given(
-				weaklyTypedSnapshot.snapshot as { counter: { count: number } },
-			),
-		).toThrow(
+			scenario.expectSnapshot((snapshot) => snapshot.counter.count === 2),
+		).not.toThrow();
+	});
+
+	it("rejects story snapshot predicates with a use-when diagnostic", async () => {
+		const store = counterStore();
+		const component = igniteCore({
+			adapter: "redux",
+			source: store,
+			commands: ({ actor }) => ({
+				increment: (amount: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+			}),
+		});
+		const weaklyTypedStorySnapshot = {
+			counter: {
+				count: ((count: number) => count > 0) as unknown,
+			},
+		} as unknown as { counter: { count: number } };
+
+		await expect(
+			igniteTest({ component }).story("reject invalid story snapshot", async (narrative) => {
+				await narrative.given({
+					snapshot: weaklyTypedStorySnapshot,
+				});
+			}),
+		).rejects.toThrow(
 			"[igniteTest] snapshot.counter.count must be structural data. Move predicate assertions to when.",
 		);
 	});

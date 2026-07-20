@@ -273,7 +273,7 @@ describe("ignite test DSL types", () => {
 		>;
 		const component = igniteCore(componentConfig);
 
-		const expectStoryTyping = async () => {
+	const expectStoryTyping = async () => {
 			const story = await igniteTest({ component }).story(
 				"counter flow",
 				async (narrative) => {
@@ -343,6 +343,32 @@ describe("ignite test DSL types", () => {
 		};
 
 		void expectStoryTyping;
+	});
+
+	it("keeps top-level scenario snapshot predicates typed", () => {
+		const store = counterStore();
+		const component = igniteCore({
+			adapter: "redux",
+			source: store,
+			commands: ({ actor }) => ({
+				increment: (amount: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
+			}),
+		});
+
+		const expectScenarioPredicateTyping = async () => {
+			const scenario = await igniteTest({ component })
+				.given((snapshot) => snapshot.counter.count === 0)
+				.when({ command: "increment", input: 1 });
+
+			expectTypeOf(
+				scenario.expectSnapshot(
+					(snapshot) => snapshot.counter.count === 1,
+				),
+			).toEqualTypeOf<typeof scenario>();
+		};
+
+		void expectScenarioPredicateTyping;
 	});
 
 	it("preserves literal story names on the returned receipt", () => {
