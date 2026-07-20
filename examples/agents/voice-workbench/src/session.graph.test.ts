@@ -509,11 +509,9 @@ describe("voice workbench XState graph characterization", () => {
 		// Static graph traversal cannot correlate MODEL_TURN_TIMEOUT_REQUESTED to
 		// the live runtime child request identity, so the timeout event stays inert
 		// here. The Story fixture below proves the real timeout-to-ready outcome.
-		expect(readStateValue(staticTimeoutSelection[0].state)).toEqual(
-			{
-				available: { turn: "responding", voice: "active", speech: "idle" },
-			},
-		);
+		expect(readStateValue(staticTimeoutSelection[0].state)).toEqual({
+			available: { turn: "responding", voice: "active", speech: "idle" },
+		});
 
 		const directSelected = getPathsFromEvents(
 			voiceWorkbenchSessionMachine,
