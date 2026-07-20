@@ -910,9 +910,7 @@ const createStoryFailure = <
 		`Story: ${formatValue(snapshotStory(story))}`,
 	);
 
-	const storyError = new Error(
-		lines.join("\n"),
-	) as IgniteStoryFailure & {
+	const storyError = new Error(lines.join("\n")) as IgniteStoryFailure & {
 		cause?: Error;
 	};
 	if (error instanceof Error) {
@@ -1014,10 +1012,7 @@ class IgniteTestDriver<
 		};
 
 		return await new Promise<void>((resolve, reject) => {
-			const settle = (
-				status: "resolved" | "rejected",
-				value?: unknown,
-			) => {
+			const settle = (status: "resolved" | "rejected", value?: unknown) => {
 				if (settled) {
 					return;
 				}
@@ -1094,12 +1089,7 @@ class IgniteTestDriver<
 		let cleanupError: IgniteStoryFailure | undefined;
 		let receipt: IgniteStorySnapshot | undefined;
 
-		const storyContext: IgniteTestStoryContext<
-			State,
-			Commands,
-			Events,
-			View
-		> =
+		const storyContext: IgniteTestStoryContext<State, Commands, Events, View> =
 			{
 				given: async (expected) => {
 					try {

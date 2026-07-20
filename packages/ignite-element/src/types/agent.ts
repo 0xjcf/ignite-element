@@ -4,12 +4,12 @@ import type {
 	EventMember,
 	FacadeCommandResult,
 } from "../RenderArgs";
+import { igniteProjectionTargetBrand } from "./projectionTargetBrand";
 import type {
 	IgniteAgentSchema,
 	IgniteSchemaObject,
 	IgniteSchemaValue,
 } from "./schema";
-import { igniteProjectionTargetBrand } from "./projectionTargetBrand";
 
 type RuntimeEventUnion<Events extends EventMap> = {
 	[Type in keyof Events & string]: EventMember<Events, Type>;

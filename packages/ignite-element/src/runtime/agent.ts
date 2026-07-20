@@ -733,7 +733,9 @@ export function createAgentRuntime<
 						kind: "snapshot",
 						step,
 						phase: "after",
-						snapshot: normalizeTraceValue(resolveRuntime().adapter.getSnapshot()),
+						snapshot: normalizeTraceValue(
+							resolveRuntime().adapter.getSnapshot(),
+						),
 					});
 					pushTrace({
 						kind: "view",

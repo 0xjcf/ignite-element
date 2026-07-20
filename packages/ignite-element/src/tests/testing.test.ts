@@ -421,8 +421,9 @@ describe("ignite test DSL", () => {
 			},
 		});
 
-		(await igniteTest({ component }).when({ command: "increment", input: 2 }))
-			.expectEvent({
+		(
+			await igniteTest({ component }).when({ command: "increment", input: 2 })
+		).expectEvent({
 			type: "counter-incremented",
 			count: 2,
 		});
@@ -538,11 +539,14 @@ describe("ignite test DSL", () => {
 		} as unknown as { counter: { count: number } };
 
 		await expect(
-			igniteTest({ component }).story("reject invalid story snapshot", async (narrative) => {
-				await narrative.given({
-					snapshot: weaklyTypedStorySnapshot,
-				});
-			}),
+			igniteTest({ component }).story(
+				"reject invalid story snapshot",
+				async (narrative) => {
+					await narrative.given({
+						snapshot: weaklyTypedStorySnapshot,
+					});
+				},
+			),
 		).rejects.toThrow(
 			"[igniteTest] snapshot.counter.count must be structural data. Move predicate assertions to when.",
 		);
@@ -614,7 +618,9 @@ describe("ignite test DSL", () => {
 			input: 2,
 		});
 		await igniteTest({ component: runtime }).when({ command: "decrement" });
-		await igniteTest({ component: runtime }).when({ command: "maybeIncrement" });
+		await igniteTest({ component: runtime }).when({
+			command: "maybeIncrement",
+		});
 		await igniteTest({ component: runtime }).when({
 			command: "maybeIncrement",
 			input: 3,

@@ -122,25 +122,19 @@ const createFixture = ({
 	const component = createVoiceWorkbenchComponent(actor);
 	const pendingPreparations: PendingPreparationCall[] = [];
 	const pendingModelTurns: PendingModelTurnCall[] = [];
-	let activeVoice:
-		| ActiveEmitter<
-				Parameters<VoiceWorkbenchPorts["voiceCapture"]>[0],
-				VoiceCapturePortReceipt
-		  >
-		| null = null;
-	let activeSpeech:
-		| ActiveEmitter<
-				Parameters<VoiceWorkbenchPorts["speechDelivery"]>[0],
-				SpeechDeliveryPortReceipt
-		  >
-		| null = null;
-	let latestTimeout:
-		| {
-				callback: () => void;
-				delayMs: number;
-				disposed: boolean;
-		  }
-		| null = null;
+	let activeVoice: ActiveEmitter<
+		Parameters<VoiceWorkbenchPorts["voiceCapture"]>[0],
+		VoiceCapturePortReceipt
+	> | null = null;
+	let activeSpeech: ActiveEmitter<
+		Parameters<VoiceWorkbenchPorts["speechDelivery"]>[0],
+		SpeechDeliveryPortReceipt
+	> | null = null;
+	let latestTimeout: {
+		callback: () => void;
+		delayMs: number;
+		disposed: boolean;
+	} | null = null;
 	let nextPreparationPlan = initialPreparation;
 
 	const ports: VoiceWorkbenchPorts = {
@@ -230,9 +224,9 @@ const createFixture = ({
 
 	const waitForPreparationCall = async () => {
 		await vi.waitFor(() => {
-			expect(
-				pendingPreparations.some((call) => !call.deferred.settled),
-			).toBe(true);
+			expect(pendingPreparations.some((call) => !call.deferred.settled)).toBe(
+				true,
+			);
 		});
 		const call = pendingPreparations.find((entry) => !entry.deferred.settled);
 		if (!call) throw new Error("Expected a pending model preparation call.");
@@ -270,9 +264,9 @@ const createFixture = ({
 	) => {
 		await vi.waitFor(() => {
 			expect(
-				pendingModelTurns.slice(afterCount).some(
-					(call) => !call.deferred.settled && call.request.type === type,
-				),
+				pendingModelTurns
+					.slice(afterCount)
+					.some((call) => !call.deferred.settled && call.request.type === type),
 			).toBe(true);
 		});
 		const call = pendingModelTurns
@@ -446,7 +440,9 @@ const beginCurrentTurnCompletion = async (
 					{
 						id: "story-complete",
 						command: "completeResponse",
-						input: input.speech ? { text: input.text, speech: input.speech } : input,
+						input: input.speech
+							? { text: input.text, speech: input.speech }
+							: input,
 					},
 				],
 			},
@@ -586,7 +582,10 @@ describe("voice workbench executable narratives", () => {
 
 					await narrative.intent({ command: "startVoiceCapture" });
 					const voiceRequest = fixture.currentVoiceRequest();
-					if (voiceRequest.type !== "start" || voiceRequest.attemptId === null) {
+					if (
+						voiceRequest.type !== "start" ||
+						voiceRequest.attemptId === null
+					) {
 						throw new Error("Expected a correlated voice start request.");
 					}
 					const voiceAttemptId = voiceRequest.attemptId;
@@ -736,9 +735,12 @@ describe("voice workbench executable narratives", () => {
 					});
 					await fixture.waitForModelTurnCall("request-model");
 
-					await narrative.behavior("clock fires the active turn timeout", async () => {
-						expect(fixture.fireTimeout()).toBe(25);
-					});
+					await narrative.behavior(
+						"clock fires the active turn timeout",
+						async () => {
+							expect(fixture.fireTimeout()).toBe(25);
+						},
+					);
 
 					await narrative.checkpoint("timeout returns the turn to idle", {
 						when: (snapshot) =>
@@ -772,16 +774,19 @@ describe("voice workbench executable narratives", () => {
 						},
 					});
 
-					await narrative.checkpoint("retry can finish with an accepted artifact", {
-						view: {
-							status: "responding",
-							activeArtifact: {
-								id: "timeout-recovery",
-								revision: "1",
+					await narrative.checkpoint(
+						"retry can finish with an accepted artifact",
+						{
+							view: {
+								status: "responding",
+								activeArtifact: {
+									id: "timeout-recovery",
+									revision: "1",
+								},
 							},
+							canExecute: { completeResponse: true },
 						},
-						canExecute: { completeResponse: true },
-						});
+					);
 
 					const retryModelCall = await fixture.waitForNextModelTurnCall(
 						"request-model",
@@ -797,11 +802,7 @@ describe("voice workbench executable narratives", () => {
 						input: { text: "Recovered after timeout." },
 					});
 					await narrative.behavior("model turn accepts the retry", async () => {
-						finishCurrentTurnCompletion(
-							fixture,
-							fixture.component,
-							completion,
-						);
+						finishCurrentTurnCompletion(fixture, fixture.component, completion);
 					});
 
 					await narrative.checkpoint("accepted retry returns to ready", {
@@ -900,16 +901,19 @@ describe("voice workbench executable narratives", () => {
 						canExecute: { createArtifact: true },
 					});
 
-					await narrative.behavior("late first-turn model result arrives", async () => {
-						fixture.resolveModelTurn(staleCall, {
-							receipt: {
-								type: "MODEL_RESOLVED",
-								turnId: staleCall.request.turnId,
-								attemptId: staleCall.request.attemptId,
-								result: { ok: true, calls: [] },
-							},
-						});
-					});
+					await narrative.behavior(
+						"late first-turn model result arrives",
+						async () => {
+							fixture.resolveModelTurn(staleCall, {
+								receipt: {
+									type: "MODEL_RESOLVED",
+									turnId: staleCall.request.turnId,
+									attemptId: staleCall.request.attemptId,
+									result: { ok: true, calls: [] },
+								},
+							});
+						},
+					);
 
 					await narrative.checkpoint("stale port result stays inert", {
 						when: (snapshot) =>
@@ -936,7 +940,10 @@ describe("voice workbench executable narratives", () => {
 						view: {
 							status: "ready",
 							lifecycle: {
-								lastTurnTerminal: { type: "CANCELLED", turnId: liveRequest.turnId },
+								lastTurnTerminal: {
+									type: "CANCELLED",
+									turnId: liveRequest.turnId,
+								},
 							},
 						},
 					});
@@ -1126,8 +1133,8 @@ describe("voice workbench executable narratives", () => {
 									text: "Speech fallback stays semantic.",
 								},
 							],
-							},
-						});
+						},
+					});
 
 					const completionModelCall = await fixture.waitForNextModelTurnCall(
 						"request-model",
@@ -1148,51 +1155,63 @@ describe("voice workbench executable narratives", () => {
 							speech: "Speech fallback stays semantic.",
 						},
 					});
-					await narrative.behavior("model turn completes with speech output", async () => {
-						finishCurrentTurnCompletion(
-							fixture,
-							fixture.component,
-							completion,
-						);
-					});
-
-					await narrative.checkpoint("pending speech stays acknowledged-later", {
-						when: (snapshot) =>
-							snapshot.matches({ available: { speech: "delivering" } }),
-						view: {
-							status: "ready",
-							speech: {
-								status: "pending",
-								text: "Speech fallback stays semantic.",
-							},
+					await narrative.behavior(
+						"model turn completes with speech output",
+						async () => {
+							finishCurrentTurnCompletion(
+								fixture,
+								fixture.component,
+								completion,
+							);
 						},
-						canExecute: { acknowledgeSpeech: true },
-					});
+					);
 
-					const speechRequest = fixture.currentSpeechRequest();
-					await narrative.behavior("speech delivery reports unavailable", async () => {
-						await fixture.emitSpeech({
-							type: "UNAVAILABLE",
-							attemptId: speechRequest.attemptId,
-						});
-					});
-
-					await narrative.checkpoint("speech unavailable settles through the actor", {
-						view: {
-							speech: {
-								status: "acknowledged",
-								text: "Speech fallback stays semantic.",
-							},
-							speechStatus: "acknowledged",
-							presentation: {
-								speechCommit: {
-									id: speechRequest.id,
-									status: "unavailable",
+					await narrative.checkpoint(
+						"pending speech stays acknowledged-later",
+						{
+							when: (snapshot) =>
+								snapshot.matches({ available: { speech: "delivering" } }),
+							view: {
+								status: "ready",
+								speech: {
+									status: "pending",
+									text: "Speech fallback stays semantic.",
 								},
 							},
+							canExecute: { acknowledgeSpeech: true },
 						},
-						canExecute: { acknowledgeSpeech: false },
-					});
+					);
+
+					const speechRequest = fixture.currentSpeechRequest();
+					await narrative.behavior(
+						"speech delivery reports unavailable",
+						async () => {
+							await fixture.emitSpeech({
+								type: "UNAVAILABLE",
+								attemptId: speechRequest.attemptId,
+							});
+						},
+					);
+
+					await narrative.checkpoint(
+						"speech unavailable settles through the actor",
+						{
+							view: {
+								speech: {
+									status: "acknowledged",
+									text: "Speech fallback stays semantic.",
+								},
+								speechStatus: "acknowledged",
+								presentation: {
+									speechCommit: {
+										id: speechRequest.id,
+										status: "unavailable",
+									},
+								},
+							},
+							canExecute: { acknowledgeSpeech: false },
+						},
+					);
 				},
 			);
 

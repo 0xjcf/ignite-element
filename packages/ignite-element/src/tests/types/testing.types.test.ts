@@ -320,17 +320,16 @@ describe("ignite test DSL types", () => {
 						narrative.intent({ command: "decrement", input: 1 });
 						// @ts-expect-error - invalid command names stay rejected
 						narrative.intent({ command: "missing" });
-						narrative.checkpoint(
-							"invalid snapshot predicate",
-							{
-								// @ts-expect-error - snapshot is structural only; predicates belong under when
-								snapshot: (
-									snapshot: { counter: { count: number } },
-								) => snapshot.counter.count === 3,
-							},
+						narrative.checkpoint("invalid snapshot predicate", {
+							// @ts-expect-error - snapshot is structural only; predicates belong under when
+							snapshot: (snapshot: { counter: { count: number } }) =>
+								snapshot.counter.count === 3,
+						});
+						igniteTest({ component }).story(
+							"invalid callback args",
+							// @ts-expect-error - stories receive only the narrative context
+							async (_narrative, actor) => actor,
 						);
-						// @ts-expect-error - stories receive only the narrative context
-						igniteTest({ component }).story("invalid callback args", async (_narrative, actor) => actor);
 						// @ts-expect-error - narrative alias is removed in favor of story
 						igniteTest({ component }).narrative("counter flow", async () => {});
 					};
@@ -362,9 +361,7 @@ describe("ignite test DSL types", () => {
 				.when({ command: "increment", input: 1 });
 
 			expectTypeOf(
-				scenario.expectSnapshot(
-					(snapshot) => snapshot.counter.count === 1,
-				),
+				scenario.expectSnapshot((snapshot) => snapshot.counter.count === 1),
 			).toEqualTypeOf<typeof scenario>();
 		};
 
