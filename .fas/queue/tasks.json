@@ -4020,6 +4020,31 @@
       "workflowId": "direct-1784575625413",
       "branchName": "beta",
       "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784583927505",
+      "task": "Cut v3.0.0-beta.10 after Story API and XState graph evaluation",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1784562435054",
+        "task-1784171502136"
+      ],
+      "blocks": [],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-20T21:45:45.293Z",
+      "terminalOutcome": null,
+      "branchName": "beta",
+      "prStatus": null,
+      "workflowId": "operator:task-1784583927505",
+      "completedBy": "joseflores",
+      "operatorEvidence": "Published v3.0.0-beta.10 from beta. Inert pnpm release:beta --dry-run exited 0 and planned lockstep beta.10 for ignite-element, @ignite-element/core, @ignite-element/adapters, and @ignite-element/renderer. Real release verified all beta dist-tags at 3.0.0-beta.10 after registry convergence attempt 3/8; ignite-element latest remains 2.2.2. Release commit 1115283b is on origin/beta. Remote annotated tags resolve to 1115283b for all four packages. Post-release git status is clean and synchronized."
     }
   ],
   "pullRequests": [],
@@ -4410,6 +4435,10 @@
         {
           "taskId": "task-1784562435054",
           "epicRole": "story-api-beta-cutover"
+        },
+        {
+          "taskId": "task-1784583927505",
+          "epicRole": "beta-release"
         }
       ],
       "id": "epic-ignite-executable-narratives",

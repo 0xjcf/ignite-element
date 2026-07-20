@@ -2656,6 +2656,14 @@ No active tasks.
 - Policy sensitivity: standard
 - Blast radius: cross-cutting
 
+### Task: Cut v3.0.0-beta.10 after Story API and XState graph evaluation
+
+- Title: Cut v3.0.0-beta.10 after Story API and XState graph evaluation
+- Mode: single-agent
+- Status: done
+- Owner: runtime
+- Brief: .fas/tasks/cut-v3-0-0-beta-10-after-story-api-and-xstate-graph-evaluati.md
+
 ## Template
 
 ### Task: <short task title>
