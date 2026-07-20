@@ -152,8 +152,9 @@ The checked characterization receipts now live beside the source:
   owned by `architecture-boundaries.json` and that the reviewed import-violation
   baseline cannot grow silently.
 - `narrative-ergonomics-audit.md` records the post-dogfood verdict that the
-  current `igniteTest(...).narrative(...)`, `record()`, and `snapshotStory()`
-  surfaces are sufficient for the seven executable narratives without adding a
+  current `igniteTest({ component }).story(...)`, `record()`, and
+  `snapshotStory()` surfaces are sufficient for the seven executable stories
+  without adding a
   new public receipt envelope or bridge API.
 
 The parent session is a host-agnostic compound statechart. Its `available`
@@ -963,7 +964,7 @@ failures, correlated multi-round tool feedback, accepted-artifact correction,
 model-driven checklist interaction, all nine browser node projections,
 multi-artifact selection, append-only restore history, real terminal formatting,
 speech lifecycle, projection commits, and the no-imperative-DOM-writer guard.
-`src/workbench-narratives.test.ts` dogfoods seven named multi-step narratives
+`src/workbench-narratives.test.ts` dogfoods seven named multi-step stories
 over the same Story receipts: preparation failure and retry, microphone
 permission denial with typed recovery, correlated turn cancellation, timeout and
 retry, stale model-turn correlation, revision conflict recovery, and

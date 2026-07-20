@@ -1,4 +1,4 @@
-# Voice Workbench Narrative Ergonomics Audit
+# Voice Workbench Story Ergonomics Audit
 
 Date: 2026-07-18
 Task: `direct-1784394586900` / `task-1783610933373`
@@ -7,9 +7,9 @@ Task: `direct-1784394586900` / `task-1783610933373`
 
 No public Ignite testing surface change is justified by the current dogfood.
 
-The shipped `igniteTest(...).narrative(...)` helper, `record()`,
+The shipped `igniteTest({ component }).story(...)` helper, `record()`,
 `snapshotStory()`, named checkpoints, command availability checks, ordinary test
-assertions, and cleanup semantics already cover the Voice Workbench narratives
+assertions, and cleanup semantics already cover the Voice Workbench stories
 with strong enough diagnostics to close this task without changing
 `ignite-element/testing`.
 
@@ -26,10 +26,10 @@ Primary evidence came from:
 - `examples/agents/voice-workbench/README.md`
 - `docs/site/src/content/docs/guides/accessibility-first.mdx`
 
-The dogfood suite exercises seven named narratives and locks a coverage matrix
+The dogfood suite exercises seven named stories and locks a coverage matrix
 for commands, checkpoints, typed receipts, and final view status:
 
-| Narrative | Core evidence covered |
+| Story | Core evidence covered |
 | --- | --- |
 | `preparation failure retries into ready` | preconditions, recovery, command availability, typed preparation receipts |
 | `microphone permission denial recovers to typed prompt` | capability facts, passive voice failure state, text fallback |
@@ -41,12 +41,15 @@ for commands, checkpoints, typed receipts, and final view status:
 
 The shipped helper coverage already proves:
 
-- `given(...)` supports preconditions through `snapshot`, `view`, and
+- `given(...)` supports preconditions through structural `snapshot`, native
+  `when(snapshot)` predicates, `view`, and
   `canExecute`.
 - `intent(...)` supports typed public command calls with object-form commands.
+- `behavior(...)` supports named fixture-owned external operations while keeping
+  the existing Story recorder and trace.
 - `checkpoint(...)` reports named failures against snapshot, view, events, and
   command availability.
-- narrative failures include serialized story evidence and phase metadata.
+- story failures include serialized Story evidence and phase metadata.
 - cleanup runs on success, checkpoint failure, and callback failure.
 - `serializeTrace()` and `snapshotStory()` already preserve portable receipts.
 
@@ -56,16 +59,16 @@ The shipped helper coverage already proves:
 | --- | --- | --- | --- |
 | Fixture helpers such as `currentModelRequest`, `beginCurrentTurnCompletion`, and custom receipt senders are verbose | Voice Workbench/XState fixture-specific | No | The verbosity comes from this example's actor topology and correlated port receipts, not from a missing generic Ignite testing primitive. |
 | Coverage matrix assembly is manual | Documentation-only | No | It is useful audit evidence, but the example can own this report structure locally. |
-| Named checkpoint diagnostics need more context | Repeated public-surface evidence | No | The current helper already includes narrative name, phase, checkpoint label, expected/received output, and serialized trace evidence. |
+| Named checkpoint diagnostics need more context | Repeated public-surface evidence | No | The current helper already includes the story name, phase, checkpoint label, expected/received output, and serialized trace evidence. |
 | External facts arrive through direct actor sends instead of `intent(...)` | Framework-neutral | No | This is expected: these are passive receipts and actor-owned lifecycle events, not public consumer commands. |
-| Need a second narrative receipt envelope over `snapshotStory()` | Repeated public-surface evidence | No | Existing `snapshotStory()` and serialized trace already carry the portable summary this audit needed. |
+| Need a second story receipt envelope over `snapshotStory()` | Repeated public-surface evidence | No | Existing `snapshotStory()` and serialized trace already carry the portable summary this audit needed. |
 | Need graph traversal or graph-aware assertions in Ignite | XState fixture-specific | No | Optional future bridge work belongs with `xstate/graph` ownership, not with Ignite’s core test DSL. |
 
 ## Why Public Surfaces Stay Unchanged
 
 `packages/ignite-element/src/tests/testing.test.ts` stays unchanged because the
 existing helper contract already covers the exact failure metadata, cleanup, and
-portable story evidence used by the seven narratives.
+portable story evidence used by the seven stories.
 
 `docs/site/src/content/docs/guides/accessibility-first.mdx` stays unchanged
 because the current guide already states the headless/runtime-vs-rendered-DOM
@@ -73,7 +76,7 @@ boundary and cites the Voice Workbench example as behavior-contract proof rather
 than browser-AT proof. This audit did not surface repeated consumer confusion
 that required broader docs changes there.
 
-No narrative receipt envelope, trace replacement, graph engine, package API,
+No story receipt envelope, trace replacement, graph engine, package API,
 changeset, or XState bridge implementation is warranted from this evidence.
 
 ## Downstream Recommendations
@@ -84,14 +87,14 @@ Ready to keep the current Story vocabulary.
 
 - Keep `record()` as the durable way to capture long-form behavioral evidence.
 - Keep `snapshotStory()` as the portable receipt surface.
-- Keep `igniteTest(...).narrative(...)` as the opinionated composition layer
+- Keep `igniteTest({ component }).story(...)` as the opinionated composition layer
   over Story evidence rather than a replacement runtime authority.
 
 ### Optional XState bridge readiness
 
 Not ready for implementation in Ignite core.
 
-- There is a legitimate future seam for bridging named narrative checkpoints to
+- There is a legitimate future seam for bridging named story checkpoints to
   XState graph coverage.
 - The current dogfood does not show repeated consumer pain in Ignite’s public
   API.

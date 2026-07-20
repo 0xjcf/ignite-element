@@ -33,10 +33,12 @@ const counter = igniteCore({
 
 ## Scenarios
 
-Call `igniteTest(component)` with a runtime to get a chainable scenario. `given(...)` asserts the starting snapshot, `when({ command, input? })` executes a command (it is async — `await` it), and the `expect*` methods assert the result of the most recent `when(...)`.
+Call `igniteTest({ component, host? })` with a runtime to get a chainable scenario. `given(...)` asserts the starting snapshot, `when({ command, input? })` executes a command (it is async — `await` it), and the `expect*` methods assert the result of the most recent `when(...)`.
 
 ```ts
-(await igniteTest(counter).given({ value: 'off' }).when({ command: 'toggle' }))
+(await igniteTest({ component: counter })
+  .given({ value: 'off' })
+  .when({ command: 'toggle' }))
   .expectSnapshot({ value: 'on' })
   .expectEvent({ type: 'toggled', isOn: true });
 ```
@@ -54,51 +56,56 @@ Scenario methods — every `given`/`expect*` **returns the scenario** so calls c
 
 Snapshot, view, and event expectations accept a deep-partial object or a predicate function. Event expectations match flat `{ type, ...fields }` members.
 
-## Narratives
+## Stories
 
-When you need more than one intent in the same falsifiable user story, use `narrative(name, async (narrative) => ...)`.
+When you need more than one intent in the same falsifiable user story, use `story(name, async (story) => ...)`.
 
-A narrative is the expected experience claim: the sequence you think a user can actually live through. It reuses the runtime's existing `record(name)` story to capture observed execution evidence, and it returns the same serializable `IgniteStorySnapshot` that `snapshotStory(story)` produces as a portable receipt. There is no second recorder, alternate trace schema, graph engine, or inspection surface.
+A story is the expected experience claim: the sequence you think a user can actually live through. It reuses the runtime's existing `record(name)` story to capture observed execution evidence, and it returns the same serializable `IgniteStorySnapshot` that `snapshotStory(story)` produces as a portable receipt. There is no second recorder, alternate trace schema, graph engine, or inspection surface.
 
 ```ts
-const receipt = await igniteTest(counter).narrative(
+const receipt = await igniteTest({ component: counter }).story(
   'counter recovery',
-  async (narrative) => {
-    narrative.given({
+  async (story) => {
+    await story.given({
       snapshot: { counter: { count: 0 } },
+      when: (snapshot) => snapshot.counter.count === 0,
       view: { count: 0, canDecrement: false },
       canExecute: { decrement: false },
     });
 
-    await narrative.intent({ command: 'increment', input: 2 });
-    narrative.checkpoint('after increment', {
+    await story.intent({ command: 'increment', input: 2 });
+    await story.checkpoint('after increment', {
       snapshot: { counter: { count: 2 } },
       view: { count: 2, canDecrement: true },
       events: [{ type: 'counter-incremented', count: 2 }],
       canExecute: { decrement: true },
     });
 
-    // Consumer-owned facts stay ordinary test code between intents.
-    await someExternalFixture.retry();
+    await story.behavior('external retry', async () => {
+      await someExternalFixture.retry();
+    });
 
-    await narrative.intent({ command: 'decrement' });
-    narrative.checkpoint('after decrement', {
+    await story.intent({ command: 'decrement' });
+    await story.checkpoint('after decrement', {
       snapshot: { counter: { count: 1 } },
     });
   },
 );
 ```
 
-Narrative methods:
+Story methods:
 
-- `narrative(name, run)` — create a named expected-experience claim, run multiple ordered command steps, and return the existing `{ name, trace, lifecycle, summary }` receipt.
-- `narrative.given(expected)` — assertion-only precondition check against the current `snapshot`, projected `view`, and `canExecute(...)` state.
-- `await narrative.intent({ command, input? })` — run one intent through the existing Story `execute(...)` path and capture its last-step events for the next checkpoint.
-- `narrative.checkpoint(name, expected)` — assert the current `snapshot`, projected `view`, `canExecute(...)`, and the emitted `event`/`events` (or `noEvents`) from the most recent intent.
+- `story(name, run)` — create a named expected-experience claim, run multiple ordered command steps, and return the existing `{ name, trace, lifecycle, summary }` receipt.
+- `await story.given(expected)` — assertion-only precondition check against the current `snapshot`, projected `view`, and `canExecute(...)` state.
+- `await story.intent({ command, input? })` — run one intent through the existing Story `execute(...)` path and capture its last-step events for the next checkpoint.
+- `await story.behavior(name, operation)` — record a named fixture-owned external behavior step on the same Story trace, with before/after snapshot and view evidence, and return the operation result.
+- `await story.checkpoint(name, expected)` — assert the current `snapshot`, projected `view`, `canExecute(...)`, and the emitted `event`/`events` (or `noEvents`) from the most recent intent.
 
-If a narrative fails, the error includes the narrative name, the failing phase or checkpoint, and the serialized Story evidence gathered so far.
+For story assertions, `snapshot` is structural evidence only: use a deep-partial native snapshot shape. Use `when(snapshot)` for arbitrary adapter-native predicates. If both are present, the assertion waits until both pass.
 
-## Stories
+If a story fails, the error includes the story name, the failing phase or checkpoint, and the serialized Story evidence gathered so far.
+
+## Runtime Stories
 
 A story records command, snapshot, view, and event activity as one ordered behavior trace. Start one from the runtime's [`record(name)`](/ignite-element/api/headless-runtime/#recordname):
 
@@ -120,8 +127,9 @@ story.stop();
 Story methods:
 
 - `execute({ command, input? })` — run a command and record it; resolves to the same `{ snapshot, events }` as the runtime.
+- `behavior(name, operation)` — run a fixture-owned external behavior step and record a named `behavior` marker plus before/after snapshot and view evidence without incrementing `commandCount`.
 - `until(viewPredicate, action, options?)` — repeatedly run `action` until the projected view satisfies `viewPredicate`. `options.maxSteps` bounds the loop. Returns a `Promise<View>` (the satisfying view).
-- `trace()` — returns `IgniteStoryTraceEntry[]`: the ordered behavior trace of `command`, `snapshot`, `view`, and `event` entries with `kind`, `sequence`, and `step`.
+- `trace()` — returns `IgniteStoryTraceEntry[]`: the ordered behavior trace of `command`, `behavior`, `snapshot`, `view`, and `event` entries with `kind`, `sequence`, and `step`.
 - `lifecycle()` — returns `IgniteStoryLifecycleEntry[]`: DOM lifecycle evidence (registration, connection, render, disconnection, cleanup) when a custom element or accessibility bridge participates; otherwise an empty array.
 - `summary()` — returns `{ name, finalSnapshot, finalView, events, commandCount, traceCount, lifecycleCount }`.
 - `stop()` — releases the story's runtime subscriptions; returns nothing.
