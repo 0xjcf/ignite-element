@@ -1,0 +1,71 @@
+{
+	"status": "partial",
+	"recordedAt": "2026-07-21",
+	"taskId": "direct-1784661171192",
+	"queueTaskId": "task-1784655399770",
+	"targets": ["1440x900", "1280x800", "1024-resilient"],
+	"donors": [
+		{
+			"donorId": "DIR-A",
+			"direction": "Evidence Ledger",
+			"componentId": "430398641119842304",
+			"revisionId": "430398641119842305",
+			"generatedName": "calm-pool-4819",
+			"previewImageUrl": "https://storage.googleapis.com/storage.magicpath.ai/component-previews/3192cecb-8916-4f2f-860b-b05919656bd0.png",
+			"intendedBehaviorsObservedFromSource": [
+				"viewport toggle controls for 1440, 1280, and 1024",
+				"reduced-motion toggle",
+				"Story selection state",
+				"paused step state",
+				"receipt, coverage, and evidence panel switching"
+			],
+			"measurementReceipt": {
+				"previewAssetExposed": true,
+				"interactiveBrowserMeasurementPerformed": false,
+				"overflowVerified": false,
+				"focusOrderVerified": false,
+				"tapTargetSizeVerified": false,
+				"contrastVerified": false
+			}
+		},
+		{
+			"donorId": "DIR-B",
+			"direction": "Reaction Map",
+			"componentId": "430398641077891072",
+			"revisionId": "430398641077891073",
+			"generatedName": "noble-creek-8025",
+			"previewImageUrl": "https://storage.googleapis.com/storage.magicpath.ai/component-previews/2d032329-3d41-4d7a-b70b-b686d10d7e1a.png",
+			"intendedBehaviorsObservedFromSource": [
+				"viewport toggle controls for 1440, 1280, and 1024",
+				"reduced-motion toggle",
+				"state inspector switching",
+				"topology-map evidence states",
+				"certainty legend and coverage surface"
+			],
+			"measurementReceipt": {
+				"previewAssetExposed": true,
+				"interactiveBrowserMeasurementPerformed": false,
+				"overflowVerified": false,
+				"focusOrderVerified": false,
+				"tapTargetSizeVerified": false,
+				"contrastVerified": false
+			}
+		}
+	],
+	"methodsAttempted": [
+		"MagicPath component inventory via list-components JSON output",
+		"MagicPath share and inspect metadata recovery",
+		"direct API fetch of published component pages"
+	],
+	"verifiedFacts": [
+		"Both donor components were published successfully on 2026-07-21",
+		"Both donors expose preview image URLs through MagicPath component inventory",
+		"Both donor source implementations include target viewport toggles and reduced-motion controls"
+	],
+	"limitations": [
+		"This turn did not include a live browser measurement harness or automated viewport capture against the published donors.",
+		"Preview image URLs were recoverable, but no authoritative in-turn receipt proved overflow, keyboard traversal, target sizing, or contrast.",
+		"Responsive and reduced-motion claims are therefore design-intent and source-inspection receipts, not browser-verified acceptance receipts."
+	],
+	"approvalGate": "pending explicit human selection"
+}
