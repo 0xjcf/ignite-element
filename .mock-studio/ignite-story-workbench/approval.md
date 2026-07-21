@@ -1,66 +1,62 @@
 # Ignite Alchemy Approval Gate
 
-Status: pending explicit human selection
+Status: Round 2 direction approved for prototype iteration; browser acceptance pending measurement
 Recorded: 2026-07-21
 Task: `direct-1784661171192` / `task-1784655399770`
 
-## First-round result
+## Human feedback outcome
 
-The first material donor round is complete. Two distinct MagicPath reviewer
-directions now exist over the same Story Workbench behavior matrix:
+The first material donor round was explicitly rejected by human feedback. Both
+of these directions remain archived as rejected references:
 
 - `DIR-A` Evidence Ledger
 - `DIR-B` Reaction Map
 
-No direction is approved by this document. This gate remains open until the
-human reviewer explicitly selects a donor direction or requests another round.
+Reason captured for both: the directions were over-engineered relative to the
+reviewer shell the product needs.
 
-## Covered reviewer contract
+## Approved replacement direction
 
-Both directions were authored to cover the same required reviewer states and
-terms:
+The approved replacement direction for the next prototype iteration is:
 
-- Ignite Alchemy / Story Workbench identity
-- Story, Intent, Behavior, Checkpoint, receipt, XState, command, view, and coverage vocabulary
-- idle Story selection
-- paused stepping
-- Back and replay
-- completed receipt review
-- assertion failure posture
-- exact, candidate, and unavailable evidence certainty
-- no-XState-lens fallback
-- uncovered-gap review
-- keyboard-visible controls
-- non-color cues
-- reduced-motion-safe presentation
+- `ROUND-2` / Ignite Alchemy Story Runner / `dreamily-forest-8280`
 
-## Direction summary
+This approval is for prototype iteration only. It does not claim browser-ready
+acceptance, production parity, or implementation handoff completeness.
 
-| Direction | Strongest qualities | Main tradeoff |
-| --- | --- | --- |
-| `DIR-A` Evidence Ledger | strongest audit notebook hierarchy, receipt-first review, failure handling, no-lens posture, and uncovered-gap inventory | less spatially memorable for topology certainty |
-| `DIR-B` Reaction Map | strongest reaction-path identity and exact-versus-candidate topology explanation | weaker fit for dense receipt reading and 1024 review resilience |
+## What was accepted
 
-## Measured versus unmeasured
+The accepted direction matches the requested reviewer experience:
 
-- Recorded:
-  - MagicPath component IDs, revisions, share/API URLs, and preview image URLs
-  - source-level presence of viewport toggles and reduced-motion toggles in both donors
-- Not recorded as proven:
-  - viewport overflow behavior
-  - keyboard traversal order
-  - target sizing
-  - contrast
-  - live browser interaction against published donor builds
+- restrained header with product, Story, status, and Run / Step / Back
+- compact Story list on the left
+- dominant application-under-test preview in the center
+- small Given -> Intent -> Behavior -> Checkpoint lane
+- compact result bar
+- collapsed Debug drawer with failure-first disclosure
+- tabs for failure/current checkpoint, Context diff, Receipt, Machine, and Coverage
+- exact, candidate, and unavailable evidence language kept literal
+- XState graph confined to the Machine tab when a lens exists
 
-See `receipts/measurements.json` for the exact receipt and limitation record.
+## What remains unproven
 
-## Required next step
+Recorded in this turn:
 
-Human reviewer must choose one of these outcomes:
+- MagicPath component creation, submission, share/API URL, generated name, revision, and preview URL
+- source-confirmed interactions for Story selection, Run, Step, Back, Debug toggle, failure auto-open, and evidence tabs
 
-- approve `DIR-A` as the implementation donor
-- approve `DIR-B` as the implementation donor
-- request a second material round with explicit adjustment notes
+Not yet proven in this turn:
 
-Until that happens, approval remains `pending explicit human selection`.
+- live browser overflow behavior at 1440x900, 1280x800, and resilient 1024
+- keyboard traversal order and visible focus in the published build
+- target sizing
+- contrast verification
+- reduced-motion verification in a measured browser session
+
+See `receipts/measurements.json` for the exact partial receipt.
+
+## Gate meaning
+
+This document now records a design-direction approval, not a browser-acceptance
+approval. The next acceptance gate is live measurement of the published Round 2
+artifact.

@@ -1,75 +1,61 @@
 # Ignite Alchemy Donor Matrix
 
-Status: first-round donor comparison
+Status: Round 2 replacement prototype recorded
 Recorded: 2026-07-21
 Task: `direct-1784661171192` / `task-1784655399770`
-Selection: pending explicit human selection
+Selection: human approved the Round 2 direction for prototype iteration; browser acceptance is still pending live measurement
 
-## Donor register
+## Artifact register
 
-| Donor ID | Direction | MagicPath component | Generated name | Component ID | Revision ID | Share/API URL |
-| --- | --- | --- | --- | --- | --- | --- |
-| `DIR-A` | Evidence Ledger | Ignite Alchemy Evidence Ledger | `calm-pool-4819` | `430398641119842304` | `430398641119842305` | `https://api.magicpath.ai/v1/calm-pool-4819` |
-| `DIR-B` | Reaction Map | Ignite Alchemy Reaction Map | `noble-creek-8025` | `430398641077891072` | `430398641077891073` | `https://api.magicpath.ai/v1/noble-creek-8025` |
+| Artifact ID | Kind | Direction | MagicPath component | Generated name | Component ID | Revision ID | Share/API URL | Disposition |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `DIR-A` | first-round donor | Evidence Ledger | Ignite Alchemy Evidence Ledger | `calm-pool-4819` | `430398641119842304` | `430398641119842305` | `https://api.magicpath.ai/v1/calm-pool-4819` | rejected by human feedback as over-engineered |
+| `DIR-B` | first-round donor | Reaction Map | Ignite Alchemy Reaction Map | `noble-creek-8025` | `430398641077891072` | `430398641077891073` | `https://api.magicpath.ai/v1/noble-creek-8025` | rejected by human feedback as over-engineered |
+| `ROUND-2` | replacement prototype | Story Runner | Ignite Alchemy Story Runner | `dreamily-forest-8280` | `430424171277877248` | `430424171277877249` | `https://api.magicpath.ai/v1/dreamily-forest-8280` | approved direction for prototype iteration only |
 
-## Shared contract coverage
+## Reviewer contract carried into Round 2
 
-Both donors were authored against the same Story Workbench behavior contract and
-must be judged against the same reviewer surface:
+The replacement prototype preserves the required reviewer experience that the
+first-round donors were trying to cover:
 
-- idle Story selection
-- paused stepping
-- Back and replay
-- completed receipt review
-- assertion failure handling
-- exact, candidate, and unavailable transition evidence
-- no-XState-lens operation
-- uncovered-gap review
-- keyboard-visible controls
-- non-color cues
-- reduced-motion-safe presentation
-- responsive fit targets at 1440x900 and 1280x800 with resilient 1024 layout
+- Story selection with a compact left rail
+- Run, Step, and Back controls in a restrained header
+- dominant application-under-test preview
+- Given -> Intent -> Behavior -> Checkpoint progress lane
+- compact result bar
+- collapsed Debug drawer that auto-opens on failure
+- failure/current checkpoint, Context diff, Receipt, Machine, and Coverage tabs
+- exact, candidate, and unavailable evidence language
+- local `no XState lens` explanation instead of a global topology-first layout
 
-## Behavior and state matrix
+## Why the replacement direction won
 
-| State or reviewer demand | `DIR-A` Evidence Ledger | `DIR-B` Reaction Map | Surface lead |
-| --- | --- | --- | --- |
-| `STATE-IDLE-SELECTION` | strong catalog and Story summary framing with notebook-style selection rail | strong top-level orientation but less direct catalog density | `DIR-A` |
-| `STATE-PAUSED-STEP` | phase lane and current step posture read clearly in dense ledger layout | central topology makes active step position very legible | split |
-| `STATE-BACK-REPLAY` | replay status reads as procedural audit event | replay route reads as spatial return path | split |
-| `STATE-COMPLETED-RECEIPT` | strongest receipt-first hierarchy and annex posture | completed proof remains visible but secondary to map | `DIR-A` |
-| `STATE-ASSERTION-FAILURE` | failure card and recovery language fit the audit notebook idiom | failure node is visible but slightly less procedural | `DIR-A` |
-| `STATE-EVIDENCE-EXACT` | exact certainty reads well in tabular evidence | exact route proof is strongest in graph/path form | `DIR-B` |
-| `STATE-EVIDENCE-CANDIDATE` | ambiguity language is explicit in panel copy | candidate path ambiguity is visually intuitive on map edges | `DIR-B` |
-| `STATE-EVIDENCE-UNAVAILABLE` | `no XState lens` fallback reads clearly in receipt-first mode | unavailable posture remains visible but less central | `DIR-A` |
-| `STATE-UNCOVERED-GAP` | exclusions and uncovered review fit annex/ledger model | gaps can be surfaced, but inventory reading is less efficient | `DIR-A` |
-| keyboard focus visibility | explicit control chips and section boundaries support visible focus | map-plus-inspector still workable, but denser hotspots need careful QA later | `DIR-A` |
-| non-color evidence cues | labels, chips, and receipt language do most of the work | legends and node shapes help, but color carries more hierarchy | `DIR-A` |
-| reduced motion | straightforward to collapse to immediate state swaps | animated route emphasis will need stricter restraint in implementation | `DIR-A` |
-| 1440x900 fit | strong dense review posture | strong showcase posture | split |
-| 1280x800 fit | controlled compression across notebook panels | still readable, but map dominance starts to compete with evidence panes | `DIR-A` |
-| resilient 1024 fit | more likely to preserve controls and literal labels under stacking | can survive, but topology density becomes the main risk | `DIR-A` |
-
-## Strengths and liabilities
-
-| Donor | Strengths | Liabilities | Best use if selected |
-| --- | --- | --- | --- |
-| `DIR-A` Evidence Ledger | strongest receipt-first hierarchy, literal reviewer terminology, dense evidence reading, gap review, and no-lens fallback | topology/path reasoning is less emotionally striking than the map direction | primary landing and reviewer shell for audit-first users |
-| `DIR-B` Reaction Map | strongest explanation of exact versus candidate path evidence, memorable spatial identity, strong central-state orientation | less efficient for long-form receipt review, uncovered-gap inventory, and 1024-density resilience | additive topology/evidence mode or alternate visual lead |
-
-## Surface donor recommendation by area
-
-| Surface area | Preferred donor | Why |
+| Requirement | First-round donor gap | `ROUND-2` response |
 | --- | --- | --- |
-| landing identity | `DIR-B` | stronger first-glance spatial signature for Ignite Alchemy |
-| Story picker and session setup | `DIR-A` | clearer catalog and summary density |
-| active step review | mixed | `DIR-A` for procedural checkpoints, `DIR-B` for route awareness |
-| receipt and annex evidence | `DIR-A` | strongest audit and provenance posture |
-| topology certainty explanation | `DIR-B` | exact/candidate path proof reads naturally on map |
-| uncovered-gap review | `DIR-A` | exclusions and provenance inventory are clearer in ledger form |
-| implementation-risk posture | `DIR-A` | easier path to accessible, reduced-motion, resilient reviewer shell |
+| literal reviewer shell | both donors leaned into concept-heavy framing | uses literal Story/Checkpoint/Receipt/Debug terms throughout |
+| progressive disclosure | both donors kept too much evidence visible at once | keeps Debug collapsed until needed and auto-opens only on failure |
+| application-first review | both donors gave too much hierarchy to supporting evidence | centers the application preview and keeps evidence secondary |
+| deterministic pass/fail | both donors read as atmospheric proof surfaces | result bar and state machine stay explicit about Ready, Running, Paused, Passed, and Failed |
+| constrained topology posture | `DIR-B` made the graph a primary visual language | Machine tab is local and explains unavailable/candidate evidence without dominating the shell |
+| lower-complexity iteration path | both donors would need large hierarchy reductions | new artifact starts directly from the accepted simpler contract |
+
+## Round 2 interaction coverage
+
+| Surface or state | `ROUND-2` posture |
+| --- | --- |
+| `STATE-IDLE-SELECTION` | Story rail plus summary header keep the shell ready-focused |
+| `STATE-PAUSED-STEP` | progress lane and application preview hold the current checkpoint without flooding evidence |
+| `STATE-BACK-REPLAY` | Back returns to earlier checkpoints and re-enters Ready or Paused deterministically |
+| `STATE-COMPLETED-RECEIPT` | result bar and Receipt tab keep the final proof compact |
+| `STATE-ASSERTION-FAILURE` | failure auto-opens Debug and pins the failed checkpoint first |
+| `STATE-EVIDENCE-EXACT` | exact chip plus receipt language stay literal |
+| `STATE-EVIDENCE-CANDIDATE` | candidate cue is local to the Story and Machine tab |
+| `STATE-EVIDENCE-UNAVAILABLE` | Machine tab explains `No XState lens` without inventing a graph |
+| `STATE-UNCOVERED-GAP` | Coverage tab keeps uncovered and excluded items additive, not blocking the shell |
 
 ## Decision gate
 
-No donor is approved in this document. The first material round is complete, and
-the outcome remains `pending explicit human selection`.
+`DIR-A` and `DIR-B` remain archived first-round donors only. `ROUND-2` is the
+approved direction for the next prototype iteration, but it is not yet browser
+accepted because this turn did not record live viewport, focus, target-size, or
+overflow measurements against the published component.
