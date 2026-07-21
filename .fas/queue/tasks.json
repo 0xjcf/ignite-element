@@ -450,28 +450,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1784602834084",
-      "task": "Lock Ignite Alchemy product, ownership, observation, and replay contracts",
-      "priority": "high",
-      "source": "manual",
-      "details": "Create the example-local architecture contract that establishes Ignite Alchemy as the product identity and Story Workbench as its descriptive category before Mock Studio synthesis or implementation. Lock the product promise and maturity, source-of-truth matrix, responsibility and execution axes, browser host placement, browser-safe Story boundary, stable page model, fresh-fixture lifecycle, replay, coverage dispositions, optional XState evidence limits, derived report boundary, verification lanes, migration, rollback, and post-MVP packaging threshold. Preserve literal Ignite and XState vocabulary and existing Story execution and receipts. Do not add a public API, package, runner, recorder, trace, graph algorithm, browser import of tests, or authoritative mock.\nSee .fas/tasks/lock-ignite-story-workbench-ownership-observation-and-replay.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "policy-surfacing",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [],
-      "blocks": [
-        "task-1784602854408",
-        "task-1784655399770"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-21T03:00:34.084Z",
-      "updatedAt": "2026-07-21T17:54:10.508Z"
-    },
-    {
       "id": "task-1784602854408",
       "task": "Extract browser-safe shared Voice Workbench Story modules and fresh-fixture entrypoints",
       "priority": "high",
@@ -496,7 +474,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-21T03:00:54.408Z",
       "updatedAt": "2026-07-21T17:42:53.000Z",
-      "deferredReason": "dependency_reopened: task-1784602834084, task-1784298700854",
+      "deferredReason": "dependency_reopened: task-1784298700854",
       "invalidationReason": null
     },
     {
@@ -659,7 +637,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "policy-surfacing",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -672,7 +650,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-21T17:36:39.770Z",
       "updatedAt": "2026-07-21T17:36:55.553Z",
-      "deferredReason": "dependency_reopened: task-1784602834084",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -4325,6 +4303,29 @@
       "workflowId": "operator:task-1784583927505",
       "completedBy": "joseflores",
       "operatorEvidence": "Published v3.0.0-beta.10 from beta. Inert pnpm release:beta --dry-run exited 0 and planned lockstep beta.10 for ignite-element, @ignite-element/core, @ignite-element/adapters, and @ignite-element/renderer. Real release verified all beta dist-tags at 3.0.0-beta.10 after registry convergence attempt 3/8; ignite-element latest remains 2.2.2. Release commit 1115283b is on origin/beta. Remote annotated tags resolve to 1115283b for all four packages. Post-release git status is clean and synchronized."
+    },
+    {
+      "id": "task-1784602834084",
+      "task": "Lock Ignite Alchemy product, ownership, observation, and replay contracts",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [
+        "task-1784602854408",
+        "task-1784655399770"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-21T19:00:59.026Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784656450498",
+      "branchName": "fas/ignite-alchemy-architecture",
+      "prStatus": "draft-only"
     }
   ],
   "pullRequests": [],
