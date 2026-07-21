@@ -1,80 +1,158 @@
 {
-	"status": "partial",
-	"recordedAt": "2026-07-21",
-	"taskId": "direct-1784661171192",
-	"queueTaskId": "task-1784655399770",
-	"targets": ["1440x900", "1280x800", "1024-resilient"],
-	"archivedDonors": [
-		{
-			"artifactId": "DIR-A",
-			"direction": "Evidence Ledger",
-			"componentId": "430398641119842304",
-			"revisionId": "430398641119842305",
-			"generatedName": "calm-pool-4819",
-			"previewImageUrl": "https://storage.googleapis.com/storage.magicpath.ai/component-previews/3192cecb-8916-4f2f-860b-b05919656bd0.png",
-			"disposition": "rejected_by_human_feedback_over_engineered"
-		},
-		{
-			"artifactId": "DIR-B",
-			"direction": "Reaction Map",
-			"componentId": "430398641077891072",
-			"revisionId": "430398641077891073",
-			"generatedName": "noble-creek-8025",
-			"previewImageUrl": "https://storage.googleapis.com/storage.magicpath.ai/component-previews/2d032329-3d41-4d7a-b70b-b686d10d7e1a.png",
-			"disposition": "rejected_by_human_feedback_over_engineered"
-		}
-	],
-	"round2Prototype": {
-		"artifactId": "ROUND-2",
-		"componentName": "Ignite Alchemy Story Runner",
-		"componentId": "430424171277877248",
-		"revisionId": "430424171277877249",
-		"generatedName": "dreamily-forest-8280",
-		"shareApiUrl": "https://api.magicpath.ai/v1/dreamily-forest-8280",
-		"previewImageUrl": "https://storage.googleapis.com/storage.magicpath.ai/component-previews/6e862546-75c1-440e-ba95-dbacd47a2c0f.png",
-		"localWorkdir": "/private/tmp/ignite-alchemy-story-runner.round2",
-		"dimensions": {
-			"width": 1440,
-			"height": 900
-		},
-		"roleInHandoff": "prototype_iteration_shell",
-		"interactionCoverageObservedFromPublishedSource": [
-			"Story selection via left rail buttons",
-			"Run control transitions into deterministic passed or failed outcomes",
-			"Step control advances checkpoint-by-checkpoint through the selected Story",
-			"Back control returns to earlier checkpoints and re-enters ready or paused state",
-			"Debug toggle opens and closes the evidence drawer",
-			"Failure state auto-opens the Debug drawer and pins the checkpoint tab first",
-			"Tabs switch between failure/current checkpoint, Context diff, Receipt, Machine, and Coverage",
-			"Machine tab confines the XState graph to lens-available stories and uses a local no-lens explanation otherwise"
-		],
-		"measurementReceipt": {
-			"previewAssetExposed": true,
-			"interactiveBrowserMeasurementPerformed": false,
-			"overflowVerified": false,
-			"focusOrderVerified": false,
-			"tapTargetSizeVerified": false,
-			"contrastVerified": false,
-			"reducedMotionVerifiedInBrowser": false
-		}
-	},
-	"methodsAttempted": [
-		"MagicPath info and list-components JSON preflight",
-		"MagicPath code start in an external workdir",
-		"MagicPath code submit --wait for the replacement component",
-		"MagicPath inspect/share metadata recovery",
-		"direct API fetch of the published Round 2 component page"
-	],
-	"verifiedFacts": [
-		"The new Round 2 component was published successfully on 2026-07-21",
-		"The published Round 2 artifact exposes a preview image URL through MagicPath component inventory",
-		"The Round 2 source contains Story selection, Run, Step, Back, Debug toggle, failure auto-open, and evidence tab interactions",
-		"The Round 2 Machine tab keeps XState graph output local to that tab and explains unavailable lens state without making topology the global shell"
-	],
-	"limitations": [
-		"This turn did not include a live browser measurement harness or automated viewport capture against the published Round 2 build.",
-		"Preview image and published source metadata were recoverable, but no authoritative in-turn receipt proved overflow, keyboard traversal, target sizing, contrast, or reduced motion in the browser.",
-		"Round 2 direction approval is therefore design-direction approval only, not browser-verified acceptance."
-	],
-	"approvalGate": "round_2_direction_approved_browser_acceptance_pending_measurement"
+  "status": "complete",
+  "recordedAt": "2026-07-21",
+  "taskId": "direct-1784661171192",
+  "queueTaskId": "task-1784655399770",
+  "approvalGate": "browser_verified_candidate_human_visual_approval_pending",
+  "publishedArtifact": {
+    "artifactId": "ROUND-2",
+    "componentName": "Ignite Alchemy Story Runner",
+    "projectId": "430393512920518656",
+    "componentId": "430424171277877248",
+    "revisionId": "430443925757644800",
+    "generatedName": "dreamily-forest-8280",
+    "designUrl": "https://designs.magicpath.ai/v1/dreamily-forest-8280",
+    "projectUrl": "https://www.magicpath.ai/files/430393512920518656",
+    "componentShareUrl": "https://www.magicpath.ai/files/430424171277877248",
+    "shareApiUrl": "https://api.magicpath.ai/v1/dreamily-forest-8280",
+    "submitStatus": "completed",
+    "requiresClientResync": true
+  },
+  "archivedDonors": [
+    {
+      "artifactId": "DIR-A",
+      "direction": "Evidence Ledger",
+      "componentId": "430398641119842304",
+      "revisionId": "430398641119842305",
+      "generatedName": "calm-pool-4819",
+      "disposition": "rejected_by_human_feedback_over_engineered"
+    },
+    {
+      "artifactId": "DIR-B",
+      "direction": "Reaction Map",
+      "componentId": "430398641077891072",
+      "revisionId": "430398641077891073",
+      "generatedName": "noble-creek-8025",
+      "disposition": "rejected_by_human_feedback_over_engineered"
+    }
+  ],
+  "interactionReceipts": {
+    "step": {
+      "fromPage": "ALCH-NAR-001-PAGE-01-DISCOVER-GIVEN",
+      "toPage": "ALCH-NAR-001-PAGE-02-STEP-INTENT-START-VOICE",
+      "status": "Paused",
+      "backEnabled": true,
+      "restartEnabled": true
+    },
+    "run": {
+      "terminalPage": "ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT",
+      "status": "Receipt ready",
+      "ordinaryReceiptAccepted": true
+    },
+    "back": {
+      "fromPage": "ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT",
+      "toPage": "ALCH-NAR-001-PAGE-06-CHECKPOINT-NEW-RESPONDING-TURN",
+      "mechanism": "replay",
+      "futureReleaseTruncationVerified": true,
+      "returnedPendingPageId": "ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT"
+    },
+    "restart": {
+      "returnedPage": "ALCH-NAR-001-PAGE-01-DISCOVER-GIVEN",
+      "backEnabled": false,
+      "restartEnabled": false
+    },
+    "failureBranch": {
+      "terminalPage": "ALCH-NAR-001-PAGE-04-CHECKPOINT-PERMISSION-STAYS-A-FACT",
+      "status": "failed",
+      "debugAutoOpened": true,
+      "firstDrawerView": "failed checkpoint"
+    },
+    "noLensBranch": {
+      "terminalPage": "ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT",
+      "selectedStoryVisible": true,
+      "ordinaryReceiptAccepted": true,
+      "machineText": "No XState lens"
+    },
+    "advancedBranch": {
+      "terminalPage": "ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT",
+      "ordinaryReceiptAccepted": true,
+      "coverageAdditiveReceipts": [
+        "STORY-003 timeout receipt remains secondary",
+        "STORY-004 stale receipt remains secondary"
+      ]
+    },
+    "console": {
+      "warnings": 0,
+      "errors": 0
+    }
+  },
+  "viewportReceipts": [
+    {
+      "requested": {
+        "width": 1440,
+        "height": 900
+      },
+      "reportedInner": {
+        "width": 1800,
+        "height": 1125
+      },
+      "composition": "two_column_rail_plus_primary",
+      "horizontalOverflow": false,
+      "unexpectedElementOverflow": false,
+      "minProductButtonHeightPx": 44
+    },
+    {
+      "requested": {
+        "width": 1280,
+        "height": 800
+      },
+      "reportedInner": {
+        "width": 1600,
+        "height": 1000
+      },
+      "composition": "two_column_rail_plus_primary",
+      "horizontalOverflow": false,
+      "unexpectedElementOverflow": false,
+      "minProductButtonHeightPx": 44
+    },
+    {
+      "requested": {
+        "width": 1024,
+        "height": 800
+      },
+      "reportedInner": {
+        "width": 1280,
+        "height": 1000
+      },
+      "composition": "two_column_rail_plus_primary",
+      "storyRailWidthPx": 232,
+      "primaryWorkAreaWidthPx": 965,
+      "reviewDetailsPlacement": "full_width_below",
+      "horizontalOverflow": false,
+      "unexpectedElementOverflow": false,
+      "minProductButtonHeightPx": 44
+    }
+  ],
+  "focusReceipt": {
+    "path": "Tab from Run to Step",
+    "settledBoxShadow": "0 0 0 2px rgba(9,13,19,.92), 0 0 0 4px rgba(255,148,74,.72)"
+  },
+  "contrastReceipt": {
+    "titleAgainstBaseBackground": "16.7:1",
+    "copyAgainstBaseBackground": "10.67:1",
+    "mutedAgainstBaseBackground": "6.21:1",
+    "monoAgainstBaseBackground": "13.1:1",
+    "buttonInkOnEmber": "7.75:1"
+  },
+  "reducedMotionReceipt": {
+    "liveBrowserQuery": false,
+    "liveEmulationVerified": false,
+    "sourceContractPresent": true,
+    "sourceContract": {
+      "css": "published CSS media rule forces animation and transition duration to 0.01ms",
+      "js": "published JS observes prefers-reduced-motion and shortens Run and Back timers"
+    },
+    "status": "ready_with_extension",
+    "limitation": "No live reduced-motion browser pass is claimed because the observed browser query was false."
+  }
 }

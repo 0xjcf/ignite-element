@@ -1,68 +1,50 @@
 # Ignite Alchemy Approval Gate
 
-Status: narrative gate reviewed
+Status: browser-verified candidate ready for human visual approval
 Recorded: 2026-07-21
 Task: `direct-1784661171192` / `task-1784655399770`
 
-## Narrative readiness receipt
+## Approval receipt
 
-| Check | Verdict | Evidence |
+| Gate | Verdict | Evidence |
 | --- | --- | --- |
-| Product authority is primary | `pass` | `stories-and-narratives.md` now defines `ALCH-US-*` and `ALCH-NAR-*` as the design-driving contract for Ignite Alchemy itself. |
-| Golden walkthrough is a product narrative, not a fixture identity mistake | `pass` | `ALCH-NAR-001-DETERMINISTIC-STORY-REVIEW` is the golden product walkthrough and binds to `STORY-002` only as its subject fixture. The visible product sequence now explicitly includes `ALCH-NAR-001-PAGE-01-DISCOVER-GIVEN` through `ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT`, including Behavior and the second Intent / Checkpoint. |
-| Subject-fixture truth remains explicit and bounded | `pass` | `STORY-001` to `STORY-004` remain the only named executable fixtures and retain exact commands, checkpoints, and receipt posture from `examples/agents/voice-workbench/src/workbench-narratives.test.ts`. |
-| UI surfaces and controls derive from product narratives | `pass` | `experience-inventory.md` and `narrative-machine-matrix.md` now trace the full corrected `ALCH-NAR-001-PAGE-*` sequence and only bind preview / receipt content to selected `STORY-*`. |
-| Material branches are present and bounded | `pass` | failed-checkpoint Debug, Back replay, no-lens review, and advanced additive evidence each have explicit `ALCH-NAR-*` identifiers and rejoin or terminal outcomes. |
-| Design-system gate is aligned to the narrative split | `pass` | `design-system-coverage.md` now uses only `ready`, `ready-with-extension`, `blocked`, or `deferred`; critical extensions have explicit accountability to the accepted Ignite Alchemy product direction, tracked work under `direct-1784661171192` / `task-1784655399770`, and a measured Round 2 validation plan. |
-| Human acceptance evidence exists for using this corrected narrative as the gate | `pass` | The user instruction to "correct the documents and then proceed" is recorded as acceptance evidence for the clarified product narrative gate. |
+| Narrative authority | `pass` | Ignite Alchemy remains the product contract owner through `ALCH-US-*` and `ALCH-NAR-*`, with `STORY-*` bound as subject fixtures only. |
+| Published artifact recorded | `pass` | Final published candidate is component `430424171277877248`, revision `430443925757644800`, generated name `dreamily-forest-8280`, design `https://designs.magicpath.ai/v1/dreamily-forest-8280`, project `https://www.magicpath.ai/files/430393512920518656`, component share `https://www.magicpath.ai/files/430424171277877248`. |
+| Golden product flow behavior | `pass` | Browser receipts confirm Step moves page 1 to exactly `ALCH-NAR-001-PAGE-02-STEP-INTENT-START-VOICE`, Run reaches `ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT`, Back replays from page 7 to page 6 and returns page 7 to pending, and Restart resets to page 1 with Back and Restart disabled. |
+| Failure, no-lens, and advanced branches | `pass` | Failure branch stops at page 4 and auto-opens Debug on the failed checkpoint first. No-lens branch reaches page 7 with selected Story and ordinary receipt intact, and the Machine view says exactly `No XState lens`. Advanced branch keeps `STORY-003 timeout receipt remains secondary` and `STORY-004 stale receipt remains secondary` additive. |
+| Browser layout and interaction acceptance | `pass` | Requested 1440x900, 1280x800, and 1024x800 targets all showed no horizontal overflow, no unexpected element overflow, visible keyboard focus, and a minimum product-button height of 44px. The resilient target stayed in the readable two-column rail-plus-primary composition rather than the rejected three-panel squeeze. |
+| Contrast acceptance | `pass` | Measured contrast against the base background: title `16.7:1`, copy `10.67:1`, muted `6.21:1`, mono `13.1:1`, button ink on ember `7.75:1`. |
+| Reduced-motion live browser evidence | `ready-with-extension` | Published source contains the reduced-motion CSS contract and JS `prefers-reduced-motion` observer, but the live browser query was false, so this turn does not claim an emulated reduced-motion pass. |
+| Human visual/design approval | `pending` | The published component is browser-verified and technically acceptable, but the user has not yet visually approved the final revision. |
+| POC admission | `pending` | The next gate is human visual/design approval before POC. This candidate is not admitted to POC yet. |
 
-Narrative readiness verdict: `pass`
+Technical/browser acceptance verdict: `pass`
 
-## Human feedback outcome
+Human visual approval verdict: `pending`
 
-The first material donor round was explicitly rejected by human feedback. Both
-of these directions remain archived as rejected references:
+POC admission verdict: `pending`
+
+## Archived donor outcome
+
+The first material donor round remains archived and rejected:
 
 - `DIR-A` Evidence Ledger
 - `DIR-B` Reaction Map
 
-Reason captured for both: the directions were over-engineered relative to the
-reviewer shell the product needs.
+Reason: both were over-engineered relative to the restrained reviewer shell the
+product needs.
 
-## Replacement direction state
+## Candidate state
 
-The replacement visual direction remains the same candidate:
+The current candidate is the published replacement direction:
 
 - `ROUND-2` / Ignite Alchemy Story Runner / `dreamily-forest-8280`
 
-This direction is no longer blocked on narrative authority. It remains subject
-to the ordinary Round 2 design and measurement work.
+This artifact is now a browser-verified candidate ready for human visual
+approval. It is not the same as human visual approval itself.
 
-## What remains directionally accepted
+## Remaining gate
 
-The candidate direction still matches the requested reviewer shell shape:
+Before POC work is admitted, the remaining decision is:
 
-- restrained header with product, Story, status, and Run / Step / Back
-- compact Story list on the left
-- dominant application-under-test preview in the center
-- small Given -> Intent -> Behavior -> Checkpoint lane
-- compact result bar
-- collapsed Debug drawer with failure-first disclosure
-- tabs for failure/current checkpoint, Context diff, Receipt, Machine, and Coverage
-- exact, candidate, and unavailable evidence language kept literal
-- XState graph confined to the Machine tab when a lens exists
-
-Those layout intentions are now subordinate to the corrected `ALCH-NAR-*`
-contract rather than a story-first product framing.
-
-## Remaining non-narrative proof
-
-Not yet proven in this turn:
-
-- live browser overflow behavior at 1440x900, 1280x800, and resilient 1024
-- keyboard traversal order and visible focus in the published build
-- target sizing
-- contrast verification
-- reduced-motion verification in a measured browser session
-
-These remain visual / measurement obligations rather than narrative blockers.
+- human visual/design approval of the final published candidate
