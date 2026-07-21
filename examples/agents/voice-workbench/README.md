@@ -160,6 +160,10 @@ The checked characterization receipts now live beside the source:
   direct XState composition is enough, `getPathsFromEvents(...)` should select
   the public-intent prefix, Story plus fixture behavior should prove correlated
   timeout outcomes, and no Ignite-side graph bridge API is justified.
+- [Story Workbench architecture](./story-workbench-architecture.md) locks Ignite Alchemy as the example-local
+  product identity and MVP target for this reviewer surface. It records the
+  Story/page authority model, replay and observation boundaries, and the
+  downstream W2/W3 dependency chain without claiming a shipped public package.
 
 ### Direct XState graph composition
 
