@@ -2668,8 +2668,8 @@ No active tasks.
 
 - Title: Lock Ignite Alchemy product, ownership, observation, and replay contracts
 - Mode: 6-agent
-- Status: implementing
-- Owner: implementer
+- Status: review
+- Owner: reviewer
 - Brief: .fas/tasks/lock-ignite-story-workbench-ownership-observation-and-replay.md
 - Verification lane: fast
 - Policy sensitivity: standard
