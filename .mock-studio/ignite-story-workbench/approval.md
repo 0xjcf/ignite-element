@@ -1,8 +1,22 @@
 # Ignite Alchemy Approval Gate
 
-Status: visual iteration paused pending executable narrative gate review
+Status: narrative gate reviewed
 Recorded: 2026-07-21
 Task: `direct-1784661171192` / `task-1784655399770`
+
+## Narrative readiness receipt
+
+| Check | Verdict | Evidence |
+| --- | --- | --- |
+| Product authority is primary | `pass` | `stories-and-narratives.md` now defines `ALCH-US-*` and `ALCH-NAR-*` as the design-driving contract for Ignite Alchemy itself. |
+| Golden walkthrough is a product narrative, not a fixture identity mistake | `pass` | `ALCH-NAR-001-DETERMINISTIC-STORY-REVIEW` is the golden product walkthrough and binds to `STORY-002` only as its subject fixture. |
+| Subject-fixture truth remains explicit and bounded | `pass` | `STORY-001` to `STORY-004` remain the only named executable fixtures and retain exact commands, checkpoints, and receipt posture from `examples/agents/voice-workbench/src/workbench-narratives.test.ts`. |
+| UI surfaces and controls derive from product narratives | `pass` | `experience-inventory.md` now maps surfaces and state to `ALCH-NAR-*` and only binds preview / receipt content to selected `STORY-*`. |
+| Material branches are present and bounded | `pass` | failed-checkpoint Debug, Back replay, no-lens review, and advanced additive evidence each have explicit `ALCH-NAR-*` identifiers and rejoin or terminal outcomes. |
+| Design-system gate is aligned to the narrative split | `pass` | `design-system-coverage.md` now treats remaining visual gaps as Round 2 representation and measurement work, not narrative ambiguity. |
+| Human acceptance evidence exists for using this corrected narrative as the gate | `pass` | The user instruction to "correct the documents and then proceed" is recorded as acceptance evidence for the clarified product narrative gate. |
+
+Narrative readiness verdict: `pass`
 
 ## Human feedback outcome
 
@@ -21,10 +35,8 @@ The replacement visual direction remains the same candidate:
 
 - `ROUND-2` / Ignite Alchemy Story Runner / `dreamily-forest-8280`
 
-That direction is now paused behind a stricter narrative gate. Further MagicPath
-iteration is deferred until the reviewer shell is re-anchored on the exact
-executable Story names, page ids, checkpoints, commands, and receipts from
-`examples/agents/voice-workbench/src/workbench-narratives.test.ts`.
+This direction is no longer blocked on narrative authority. It remains subject
+to the ordinary Round 2 design and measurement work.
 
 ## What remains directionally accepted
 
@@ -40,26 +52,10 @@ The candidate direction still matches the requested reviewer shell shape:
 - exact, candidate, and unavailable evidence language kept literal
 - XState graph confined to the Machine tab when a lens exists
 
-Those layout intentions remain advisory until they are rechecked against the new
-story-first narrative contract.
+Those layout intentions are now subordinate to the corrected `ALCH-NAR-*`
+contract rather than a story-first product framing.
 
-## Why the gate is paused
-
-The immediate acceptance sequence changed. Before more visual work, the
-foundation must prove that the reviewer shell is driven by:
-
-- exact executable Story names;
-- exact Given / Intent / Behavior / Checkpoint page sequences;
-- exact commands and `canExecute` outcomes;
-- exact ordinary receipt truth; and
-- bounded reviewer flows for failure, no-lens review, and Back replay.
-
-## What remains unproven
-
-Recorded in this turn:
-
-- MagicPath component creation, submission, share/API URL, generated name, revision, and preview URL
-- source-confirmed interactions for Story selection, Run, Step, Back, Debug toggle, failure auto-open, and evidence tabs
+## Remaining non-narrative proof
 
 Not yet proven in this turn:
 
@@ -69,11 +65,4 @@ Not yet proven in this turn:
 - contrast verification
 - reduced-motion verification in a measured browser session
 
-See `receipts/measurements.json` for the exact partial receipt.
-
-## Gate meaning
-
-This document no longer grants active visual-iteration approval. It records that
-the first-round donors were rejected, the Round 2 shell remains the current
-candidate, and all further MagicPath refinement is paused until the executable
-narrative gate is reviewed and accepted.
+These remain visual / measurement obligations rather than narrative blockers.
