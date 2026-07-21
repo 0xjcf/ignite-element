@@ -9,11 +9,11 @@ Task: `direct-1784661171192` / `task-1784655399770`
 | Check | Verdict | Evidence |
 | --- | --- | --- |
 | Product authority is primary | `pass` | `stories-and-narratives.md` now defines `ALCH-US-*` and `ALCH-NAR-*` as the design-driving contract for Ignite Alchemy itself. |
-| Golden walkthrough is a product narrative, not a fixture identity mistake | `pass` | `ALCH-NAR-001-DETERMINISTIC-STORY-REVIEW` is the golden product walkthrough and binds to `STORY-002` only as its subject fixture. |
+| Golden walkthrough is a product narrative, not a fixture identity mistake | `pass` | `ALCH-NAR-001-DETERMINISTIC-STORY-REVIEW` is the golden product walkthrough and binds to `STORY-002` only as its subject fixture. The visible product sequence now explicitly includes `ALCH-NAR-001-PAGE-01-DISCOVER-GIVEN` through `ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT`, including Behavior and the second Intent / Checkpoint. |
 | Subject-fixture truth remains explicit and bounded | `pass` | `STORY-001` to `STORY-004` remain the only named executable fixtures and retain exact commands, checkpoints, and receipt posture from `examples/agents/voice-workbench/src/workbench-narratives.test.ts`. |
-| UI surfaces and controls derive from product narratives | `pass` | `experience-inventory.md` now maps surfaces and state to `ALCH-NAR-*` and only binds preview / receipt content to selected `STORY-*`. |
+| UI surfaces and controls derive from product narratives | `pass` | `experience-inventory.md` and `narrative-machine-matrix.md` now trace the full corrected `ALCH-NAR-001-PAGE-*` sequence and only bind preview / receipt content to selected `STORY-*`. |
 | Material branches are present and bounded | `pass` | failed-checkpoint Debug, Back replay, no-lens review, and advanced additive evidence each have explicit `ALCH-NAR-*` identifiers and rejoin or terminal outcomes. |
-| Design-system gate is aligned to the narrative split | `pass` | `design-system-coverage.md` now treats remaining visual gaps as Round 2 representation and measurement work, not narrative ambiguity. |
+| Design-system gate is aligned to the narrative split | `pass` | `design-system-coverage.md` now uses only `ready`, `ready-with-extension`, `blocked`, or `deferred`; critical extensions have explicit accountability to the accepted Ignite Alchemy product direction, tracked work under `direct-1784661171192` / `task-1784655399770`, and a measured Round 2 validation plan. |
 | Human acceptance evidence exists for using this corrected narrative as the gate | `pass` | The user instruction to "correct the documents and then proceed" is recorded as acceptance evidence for the clarified product narrative gate. |
 
 Narrative readiness verdict: `pass`

@@ -14,7 +14,7 @@ those surfaces derive from the selected `STORY-*` fixture.
 | --- | --- | --- | --- | --- |
 | `EXP-001` | screen | primary desktop Ignite Alchemy reviewer surface | `ALCH-NAR-001` to `ALCH-NAR-005` | selected Story preview and receipt |
 | `EXP-002` | view | Story catalog and selected fixture summary | `ALCH-NAR-001`, `ALCH-NAR-004` | `STORY-001` to `STORY-004` names, starting posture, summary |
-| `EXP-003` | view | page lane / page release surface | `ALCH-NAR-001`, `ALCH-NAR-002`, `ALCH-NAR-003` | Given, Intent, Behavior, Checkpoint pages from the selected fixture |
+| `EXP-003` | view | page lane / page release surface | `ALCH-NAR-001`, `ALCH-NAR-002`, `ALCH-NAR-003` | Given, Intent, Behavior, and Checkpoint pages from the selected fixture, including every visible `ALCH-NAR-001-PAGE-*` release |
 | `EXP-004` | view | receipt and additive evidence workspace | `ALCH-NAR-001`, `ALCH-NAR-004`, `ALCH-NAR-005` | ordinary Story receipt plus additive tabs |
 | `EXP-005` | view | coverage and gap review | `ALCH-NAR-004`, `ALCH-NAR-005` | additive uncovered / excluded / unavailable evidence |
 | `EXP-006` | pattern | command/control rail | `ALCH-NAR-001`, `ALCH-NAR-002`, `ALCH-NAR-003` | Step, Run, Back, Restart, Debug entry bound to fixture posture |
@@ -41,7 +41,7 @@ those surfaces derive from the selected `STORY-*` fixture.
 
 | Product narrative / branch | Primary surfaces | Secondary surfaces | Distinct visual state needed | Bound fixture role |
 | --- | --- | --- | --- | --- |
-| `ALCH-NAR-001-DETERMINISTIC-STORY-REVIEW` | `EXP-002`, `EXP-003`, `EXP-006`, `EXP-008` | `EXP-004` | yes | `STORY-002` supplies preview and receipt truth |
+| `ALCH-NAR-001-DETERMINISTIC-STORY-REVIEW` | `EXP-002`, `EXP-003`, `EXP-006`, `EXP-008` | `EXP-004` | yes | `STORY-002` supplies preview and receipt truth across `ALCH-NAR-001-PAGE-01-DISCOVER-GIVEN` through `ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT` |
 | `ALCH-NAR-002-FAILED-CHECKPOINT-DEBUG` | `EXP-003`, `EXP-009` | `EXP-008`, `EXP-004` | yes | selected fixture supplies failed page and receipt truth |
 | `ALCH-NAR-003-BACK-REPLAY` | `EXP-003`, `EXP-006` | `EXP-004` | yes | selected fixture is rebuilt and replayed deterministically |
 | `ALCH-NAR-004-NO-LENS-REVIEW` | `EXP-002`, `EXP-004`, `EXP-007` | `EXP-005` | yes | selected fixture remains fully reviewable without Machine evidence |
@@ -60,7 +60,7 @@ those surfaces derive from the selected `STORY-*` fixture.
 | Interaction | Required behavior | Bound authority note |
 | --- | --- | --- |
 | Story selection | selecting a catalog item updates the selected product review target | product chooses which `STORY-*` fixture to review; it does not alter fixture truth |
-| Step / Run | visible focus, predictable order, Enter / Space activation where applicable | product releases fixture pages but does not rewrite them |
+| Step / Run | visible focus, predictable order, Enter / Space activation where applicable | product releases fixture pages but does not rewrite them; Run must still visibly advance through `ALCH-NAR-001-PAGE-03-BEHAVIOR-PERMISSION-DENIED`, `PAGE-04-CHECKPOINT-PERMISSION-STAYS-A-FACT`, `PAGE-05-INTENT-TYPED-FALLBACK`, and `PAGE-06-CHECKPOINT-NEW-RESPONDING-TURN` rather than collapsing them |
 | Back replay | visibly indicates deterministic replay from a fresh fixture | product owns replay policy; fixture owns replayed truth |
 | reduced motion | no critical state communicated only through motion | motion is aesthetic only |
 | certainty changes | exact / candidate / unavailable distinguished by text, iconography, and shape, not color alone | additive evidence only; not fixture truth |
