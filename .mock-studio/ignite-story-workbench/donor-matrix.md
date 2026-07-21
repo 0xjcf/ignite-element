@@ -1,9 +1,9 @@
 # Ignite Alchemy Donor Matrix
 
-Status: browser-verified candidate recorded
+Status: interaction-verified candidate recorded; exact viewport recheck pending
 Recorded: 2026-07-21
 Task: `direct-1784661171192` / `task-1784655399770`
-Selection: rejected donors archived; Round 2 published candidate is browser-verified and awaiting human visual approval
+Selection: rejected donors archived; Round 2 published candidate is interaction-verified and awaiting exact viewport recheck plus human visual approval
 
 ## Artifact register
 
@@ -11,7 +11,7 @@ Selection: rejected donors archived; Round 2 published candidate is browser-veri
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `DIR-A` | first-round donor | Evidence Ledger | Ignite Alchemy Evidence Ledger | `calm-pool-4819` | `430398641119842304` | `430398641119842305` | `https://api.magicpath.ai/v1/calm-pool-4819` | rejected by human feedback as over-engineered |
 | `DIR-B` | first-round donor | Reaction Map | Ignite Alchemy Reaction Map | `noble-creek-8025` | `430398641077891072` | `430398641077891073` | `https://api.magicpath.ai/v1/noble-creek-8025` | rejected by human feedback as over-engineered |
-| `ROUND-2` | replacement candidate | Story Runner | Ignite Alchemy Story Runner | `dreamily-forest-8280` | `430424171277877248` | `430443925757644800` | `https://api.magicpath.ai/v1/dreamily-forest-8280` | browser-verified candidate; human visual approval pending |
+| `ROUND-2` | replacement candidate | Story Runner | Ignite Alchemy Story Runner | `dreamily-forest-8280` | `430424171277877248` | `430443925757644800` | `https://api.magicpath.ai/v1/dreamily-forest-8280` | interaction-verified candidate; exact viewport recheck and human visual approval pending |
 
 ## Reviewer contract carried into Round 2
 
@@ -55,11 +55,15 @@ first-round donors were trying to cover:
 
 ## Browser measurement posture
 
-| Requested viewport | Reported inner size | Observed shell posture | Acceptance notes |
+| Browser control request | Reported inner size | Observed shell posture | Evidence boundary |
 | --- | --- | --- | --- |
-| `1440x900` | `1800x1125` | readable two-column rail-plus-primary composition | no horizontal overflow, no unexpected element overflow, min product-button height `44px` |
-| `1280x800` | `1600x1000` | readable two-column rail-plus-primary composition | no horizontal overflow, no unexpected element overflow, min product-button height `44px` |
-| `1024x800` | `1280x1000` | `232px` Story rail plus `965px` primary work area with full-width Review Details below | no horizontal overflow, no unexpected element overflow, min product-button height `44px`; rejected three-panel squeeze avoided |
+| `1440x900` | `1800x1125` | readable two-column rail-plus-primary composition | no observed overflow and min product-button height `44px` at the reported inner size; exact 1440x900 CSS viewport not verified |
+| `1280x800` | `1600x1000` | readable two-column rail-plus-primary composition | no observed overflow and min product-button height `44px` at the reported inner size; exact 1280x800 CSS viewport not verified |
+| `1024x800` | `1280x1000` | `232px` Story rail plus `965px` primary work area with full-width Review Details below | no observed overflow and min product-button height `44px` at the reported inner size; exact 1024x800 collapse not verified |
+
+The browser host mapped each control request to a reported inner size 1.25 times
+larger. These are useful responsive samples, but they are not acceptance
+receipts for the exact requested CSS viewports.
 
 Keyboard focus receipt:
 
@@ -69,5 +73,5 @@ Keyboard focus receipt:
 ## Decision gate
 
 `DIR-A` and `DIR-B` remain archived first-round donors only. `ROUND-2` is the
-browser-verified candidate ready for human visual approval, but it is not yet
-human-approved and is not admitted to POC yet.
+interaction-verified candidate, but exact viewport verification and human
+visual approval remain pending, so it is not admitted to POC yet.

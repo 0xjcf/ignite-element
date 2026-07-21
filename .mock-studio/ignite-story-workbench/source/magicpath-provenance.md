@@ -12,7 +12,8 @@ MagicPath project: Ignite Alchemy (`430393512920518656`)
   establish package, runtime, or public API commitments.
 - `DIR-A` and `DIR-B` remain rejected first-round reviewer directions.
 - `ROUND-2` is the final published candidate over the same Story Workbench
-  behavior contract and is browser-verified for technical acceptance.
+  behavior contract and is browser interaction-verified. Exact CSS viewport
+  acceptance and human visual approval remain pending.
 
 ## Command receipts
 
@@ -33,7 +34,7 @@ MagicPath project: Ignite Alchemy (`430393512920518656`)
 | --- | --- | --- | --- | --- | --- |
 | `DIR-A` | Ignite Alchemy Evidence Ledger | `calm-pool-4819` | `430398641119842304` | `430398641119842305` | rejected by human feedback as over-engineered |
 | `DIR-B` | Ignite Alchemy Reaction Map | `noble-creek-8025` | `430398641077891072` | `430398641077891073` | rejected by human feedback as over-engineered |
-| `ROUND-2` | Ignite Alchemy Story Runner | `dreamily-forest-8280` | `430424171277877248` | `430443925757644800` | browser-verified candidate; human visual approval pending |
+| `ROUND-2` | Ignite Alchemy Story Runner | `dreamily-forest-8280` | `430424171277877248` | `430443925757644800` | interaction-verified candidate; exact viewport recheck and human visual approval pending |
 
 ## Public URLs
 
@@ -57,7 +58,7 @@ MagicPath project: Ignite Alchemy (`430393512920518656`)
 | --- | --- | --- |
 | `DIR-A` | rejected donor | archived reference only |
 | `DIR-B` | rejected donor | archived reference only |
-| `ROUND-2` | browser-verified candidate | single focused replacement component; human visual approval still pending |
+| `ROUND-2` | interaction-verified candidate | single focused replacement component; exact viewport recheck and human visual approval still pending |
 
 ## Browser receipts captured against the published component
 
