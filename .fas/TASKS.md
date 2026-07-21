@@ -2664,6 +2664,97 @@ No active tasks.
 - Owner: runtime
 - Brief: .fas/tasks/cut-v3-0-0-beta-10-after-story-api-and-xstate-graph-evaluati.md
 
+### Task: Lock Ignite Alchemy product, ownership, observation, and replay contracts
+
+- Title: Lock Ignite Alchemy product, ownership, observation, and replay contracts
+- Mode: 6-agent
+- Status: implementing
+- Owner: implementer
+- Brief: .fas/tasks/lock-ignite-story-workbench-ownership-observation-and-replay.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Extract browser-safe shared Voice Workbench Story modules and fresh-fixture entrypoints
+
+- Title: Extract browser-safe shared Voice Workbench Story modules and fresh-fixture entrypoints
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/extract-browser-safe-shared-voice-workbench-story-modules-an.md
+
+### Task: Implement the Ignite Alchemy adapter-neutral controlled Story session controller
+
+- Title: Implement the Ignite Alchemy adapter-neutral controlled Story session controller
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/implement-the-adapter-neutral-controlled-story-session-contr.md
+
+### Task: Implement the optional XState topology and observation lens for Ignite Alchemy
+
+- Title: Implement the optional XState topology and observation lens for Ignite Alchemy
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/implement-the-optional-xstate-topology-and-observation-lens-.md
+
+### Task: Build the Vite-hosted Ignite Alchemy Story Workbench application
+
+- Title: Build the Vite-hosted Ignite Alchemy Story Workbench application
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/build-the-vite-hosted-ignite-story-workbench-reviewer-interf.md
+
+### Task: Add Ignite Alchemy bidirectional Story-to-machine coverage and gap review
+
+- Title: Add Ignite Alchemy bidirectional Story-to-machine coverage and gap review
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/add-bidirectional-story-to-machine-coverage-indexing-and-gap.md
+
+### Task: Harden Ignite Alchemy deterministic replay and derived review evidence
+
+- Title: Harden Ignite Alchemy deterministic replay and derived review evidence
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/harden-story-workbench-deterministic-replay-and-derived-revi.md
+
+### Task: Dogfood Ignite Alchemy and close or disposition Voice Workbench gaps
+
+- Title: Dogfood Ignite Alchemy and close or disposition Voice Workbench gaps
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/dogfood-the-ignite-story-workbench-and-close-or-disposition-.md
+
+### Task: Create and approve the Ignite Alchemy Mock Studio foundation and MagicPath prototype
+
+- Title: Create and approve the Ignite Alchemy Mock Studio foundation and MagicPath prototype
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/create-and-approve-the-ignite-alchemy-mock-studio-foundation.md
+
+### Task: Prove Ignite Alchemy Story stepping, replay, and observation seams in a browser POC
+
+- Title: Prove Ignite Alchemy Story stepping, replay, and observation seams in a browser POC
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/prove-ignite-alchemy-story-stepping-replay-and-observation-s.md
+
+### Task: Produce the approved Ignite Alchemy MVP implementation handoff
+
+- Title: Produce the approved Ignite Alchemy MVP implementation handoff
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/produce-the-approved-ignite-alchemy-mvp-implementation-hando.md
+
 ## Template
 
 ### Task: <short task title>
