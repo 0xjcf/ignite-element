@@ -1,6 +1,6 @@
 # Ignite Alchemy Approval Gate
 
-Status: Round 2 direction approved for prototype iteration; browser acceptance pending measurement
+Status: visual iteration paused pending executable narrative gate review
 Recorded: 2026-07-21
 Task: `direct-1784661171192` / `task-1784655399770`
 
@@ -15,18 +15,20 @@ of these directions remain archived as rejected references:
 Reason captured for both: the directions were over-engineered relative to the
 reviewer shell the product needs.
 
-## Approved replacement direction
+## Replacement direction state
 
-The approved replacement direction for the next prototype iteration is:
+The replacement visual direction remains the same candidate:
 
 - `ROUND-2` / Ignite Alchemy Story Runner / `dreamily-forest-8280`
 
-This approval is for prototype iteration only. It does not claim browser-ready
-acceptance, production parity, or implementation handoff completeness.
+That direction is now paused behind a stricter narrative gate. Further MagicPath
+iteration is deferred until the reviewer shell is re-anchored on the exact
+executable Story names, page ids, checkpoints, commands, and receipts from
+`examples/agents/voice-workbench/src/workbench-narratives.test.ts`.
 
-## What was accepted
+## What remains directionally accepted
 
-The accepted direction matches the requested reviewer experience:
+The candidate direction still matches the requested reviewer shell shape:
 
 - restrained header with product, Story, status, and Run / Step / Back
 - compact Story list on the left
@@ -37,6 +39,20 @@ The accepted direction matches the requested reviewer experience:
 - tabs for failure/current checkpoint, Context diff, Receipt, Machine, and Coverage
 - exact, candidate, and unavailable evidence language kept literal
 - XState graph confined to the Machine tab when a lens exists
+
+Those layout intentions remain advisory until they are rechecked against the new
+story-first narrative contract.
+
+## Why the gate is paused
+
+The immediate acceptance sequence changed. Before more visual work, the
+foundation must prove that the reviewer shell is driven by:
+
+- exact executable Story names;
+- exact Given / Intent / Behavior / Checkpoint page sequences;
+- exact commands and `canExecute` outcomes;
+- exact ordinary receipt truth; and
+- bounded reviewer flows for failure, no-lens review, and Back replay.
 
 ## What remains unproven
 
@@ -57,6 +73,7 @@ See `receipts/measurements.json` for the exact partial receipt.
 
 ## Gate meaning
 
-This document now records a design-direction approval, not a browser-acceptance
-approval. The next acceptance gate is live measurement of the published Round 2
-artifact.
+This document no longer grants active visual-iteration approval. It records that
+the first-round donors were rejected, the Round 2 shell remains the current
+candidate, and all further MagicPath refinement is paused until the executable
+narrative gate is reviewed and accepted.

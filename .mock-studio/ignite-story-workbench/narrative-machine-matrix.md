@@ -1,6 +1,6 @@
 # Ignite Alchemy Narrative and Machine Matrix
 
-Status: foundation gate
+Status: narrative gate before further visual iteration
 Recorded: 2026-07-21
 Task: `direct-1784661171192` / `task-1784655399770`
 
@@ -8,110 +8,120 @@ Task: `direct-1784661171192` / `task-1784655399770`
 
 | Concern | Authority/source of truth | Functional core | Imperative shell/adapter | Projection/UI |
 | --- | --- | --- | --- | --- |
-| Story execution and final receipt | `igniteTest({ component }).story(...)` | page ordering and narrative semantics remain external inputs | fixture setup, Story callback execution, teardown | reviewer shell may display, never replace |
-| Session lifecycle and workflow truth | `voiceWorkbenchSessionMachine` | reducers, policies, and derived views | actor startup, port subscriptions, runtime disposal | reviewer shell reads state-derived facts only |
-| Model-turn lifecycle | `modelTurnMachine` | authorization/policy results and terminal facts | model adapter, timeout/cancel requests | surfaced as evidence only |
-| Voice capture lifecycle | `voiceCaptureMachine` | passive receipt interpretation | browser voice adapter | surfaced as evidence only |
-| Speech delivery lifecycle | `speechDeliveryMachine` | delivery facts and acknowledgment rules | speech adapter | surfaced as evidence only |
-| Reviewer stepping session | future Story session controller | page identity joins, replay equivalence, control availability | gate release, cancellation, rebuild, replay | primary host-product surface |
-| Optional topology and observation evidence | future XState lens | certainty classification and joins | actor observation installation | additive reaction/evidence views |
-| Derived review report | future review report generator | bounded normalization and redaction | artifact writing | read-only CI/LLM consumption |
+| Executable Story page order and receipt | `igniteTest({ component }).story(...)` | page semantics, checkpoint names, and final receipt truth stay in Story source | fixture setup, callback execution, teardown | reviewer shell may reveal and sequence, never replace |
+| Voice Workbench session lifecycle | `voiceWorkbenchSessionMachine` | actor-owned lifecycle and derived views | actor startup, subscriptions, disposal | reviewer reads state-derived facts only |
+| Model turn, voice capture, and speech delivery | real child machines | authorization, timeout, cancellation, and delivery facts | controlled ports and host adapters | additive evidence only |
+| Reviewer stepping and replay controller | future Ignite Alchemy host controller | page cursor, replay equivalence, and control policy | dispose, rebuild, replay, optional lens join | primary reviewer shell |
+| Optional XState lens | future additive observation join | exact / candidate / unavailable certainty policy | observation installation | Machine tab only |
+| Coverage and gap review | future coverage join | uncovered / excluded classification | report assembly | additive review surfaces only |
 
 ## Lifecycle disposition gate
 
 | Workflow/lifecycle | Disposition | Single authority | Evidence | Required action |
 | --- | --- | --- | --- | --- |
-| Executable Story receipt lifecycle | explicit machine-like execution contract | existing Story executor | narrative ergonomics audit + executable stories | retain as authority |
-| Reviewer Story session controller | implicit-needs-machine | future Ignite Alchemy controller | queued controller task `task-1784602868853` | formalize and implement |
+| Executable Story page / checkpoint truth | implemented execution contract | existing Story executor | `workbench-narratives.test.ts` named stories | retain as canonical initial design truth |
 | Voice Workbench parent session | explicit machine | `voiceWorkbenchSessionMachine` | `src/session.graph.test.ts`, `src/session.headless.test.ts`, README topology | retain and cite |
-| Model-turn child | explicit machine | `modelTurnMachine` | `src/model-turn.graph.test.ts` | retain and cite |
+| Model turn child | explicit machine | `modelTurnMachine` | `src/model-turn.graph.test.ts` | retain and cite |
 | Voice capture child | explicit machine | `voiceCaptureMachine` | `src/voice.graph.test.ts` | retain and cite |
 | Speech delivery child | explicit machine | `speechDeliveryMachine` | `src/speech.graph.test.ts` | retain and cite |
-| Coverage join and gap review | reducer-owned / policy-or-effect-facts | future coverage projection | W1 architecture + future coverage task | design, do not imply implementation |
-| Topology and observation certainty | policy-or-effect-facts | future XState lens + joins | W1 architecture + future lens task | design, do not overclaim |
-| Prototype-only panel state | presentation-only | MagicPath local component state | MagicPath component interactions | keep explicitly non-authoritative |
+| Reviewer Story stepping / Back replay | designed controller lifecycle | future Ignite Alchemy host controller | queued controller / POC tasks | design only; do not claim implementation |
+| Optional XState evidence joins | policy-or-effect facts | future lens join | architecture task plus queued follow-up | design only; fail closed when unavailable |
+| Coverage join and gap review | reducer-owned / policy facts | future coverage projection | architecture task plus queued follow-up | design only; additive only |
 
-## Current implemented machine receipts
+## Canonical executable Story seeds
 
-| Machine | Maturity | Source and diagram | Reachable states | Event dispositions | Required paths | Forbidden invariants | Snapshot and serialization | Ownership and supervision | Evidence | Verdict |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Parent session | implemented | README parent-supervised topology + `src/session.graph.test.ts` | preparing, unavailable, available.turn idle/responding, available.voice active, available.speech idle/delivering | explicit graph checks plus stale receipt fencing | ready, retry, timeout, stale receipt, Story composition | no duplicate lifecycle writer; stale receipts inert | semantic serializer and headless receipts | parent owns aggregate conversation projection and child supervision | `src/session.graph.test.ts`, `src/session.headless.test.ts` | pass |
-| Model-turn | implemented | README child topology + `src/model-turn.graph.test.ts` | requesting, authorizing, executing, completed, failed, cancelled, timedOut, exhausted | graph assertions over correlated terminal outputs | bounded requesting/authorizing/executing reachability, stale receipt inertness | terminal output remains correlated and serializable | terminal output serialized | invoked child with fixed owner boundary | `src/model-turn.graph.test.ts` | pass |
-| Voice capture | implemented | README lifecycle contract + `src/voice.graph.test.ts` | idle, listening/active, unsupported, unavailable, terminal outcomes | interactive graph + stale adapter receipts | supported interactive flow, exclusions, stale inertness | stale adapter receipts cannot satisfy newer attempt | projection remains serializable | persistent invoked child | `src/voice.graph.test.ts` | pass |
-| Speech delivery | implemented | README lifecycle contract + `src/speech.graph.test.ts` | queued, delivering, delivered, unavailable, failed, cancelled | reachable queued and terminal facts | correlated output and unavailable path | stale receipts inert, actor owns acknowledgment | output facts serializable | replaceable invoked child | `src/speech.graph.test.ts` | pass |
+| Story ID | Story name | Implemented subject truth | Named checkpoints | Commands | Final view truth | Why it matters to design |
+| --- | --- | --- | --- | --- | --- | --- |
+| `STORY-001` | `preparation failure retries into ready` | retry from failed preparation into ready state | `ready after retry` | `beginModelPreparation` | `status: "ready"`, `model.status: "available"` | simplest pass and clean receipt |
+| `STORY-002` | `microphone permission denial recovers to typed prompt` | permission denial remains visible while typed recovery starts a new turn | `voice permission stays a fact`, `text recovery starts a new turn` | `startVoiceCapture`, `submitPrompt` | `status: "responding"`, `voiceState: "permission"` | golden walkthrough recommendation |
+| `STORY-003` | `timed out turn retries to an accepted response` | timeout returns idle, retry creates artifact, accepted completion returns ready | `timeout returns the turn to idle`, `retry can finish with an accepted artifact`, `accepted retry returns to ready` | `submitPrompt`, `createArtifact`, `completeResponse` | `status: "ready"`, accepted response text, artifact revision `1` | timeout and ordinary completion |
+| `STORY-004` | `stale correlated model receipts stay inert until the live turn ends` | stale first-turn result never mutates the live second turn | `cancelled first turn returns idle`, `second turn is responding`, `stale port result stays inert`, `live correlation still controls exit` | `submitPrompt` plus actor-owned cancel events | only the live turn controls return to ready | advanced stale-suppression evidence |
 
-## Designed reviewer session controller
+## Subject Story to reviewer-journey mapping
 
-The reviewer session controller is not implemented yet. This task records its
-complete transition contract so later work has a single target.
+| Subject Story truth | Reviewer shell obligation | Allowed shell behavior | Forbidden shell behavior | Maturity |
+| --- | --- | --- | --- | --- |
+| Given / Intent / Behavior / Checkpoint pages are named and ordered by the Story source | reveal the same page phases literally | step one page at a time or run all remaining pages | rename phases, merge away checkpoint identity, or invent mock domains | designed |
+| `canExecute` outcomes at each checkpoint come from the Story receipt | show command availability before / after each page | present controls as enabled / disabled / deferred | infer availability from layout convenience | designed |
+| final receipt remains ordinary Story truth | keep receipt primary at completion or failure | show additive context, Machine, or Coverage tabs secondarily | replace the ordinary receipt with a topology-first explanation | designed |
+| stale and unavailable evidence may exist | explain them honestly | candidate / unavailable language, optional Machine tab, no-lens fallback | manufacture exact causal confidence | designed |
+| Back is not part of Story source | host may offer deterministic replay to a prior page | dispose, rebuild, replay from fresh fixture | mutate snapshots in place or fake rewind | designed |
+
+## Golden walkthrough and bounded variants
+
+| Flow ID | Source Story | Reviewer goal | Distinctive proof | Rejoin / terminal | Maturity |
+| --- | --- | --- | --- | --- | --- |
+| `FLOW-GOLDEN` | `STORY-002` | recover from microphone denial to typed prompt | permission fact survives into the responding turn | terminal pass into ordinary receipt review | designed over implemented Story |
+| `FLOW-FAIL-CHECKPOINT` | `STORY-002` variant | diagnose a regression on the same story path | failed checkpoint auto-opens Debug first | recover via Back or Restart | designed |
+| `FLOW-NO-LENS` | `STORY-002` or `STORY-001` | complete review without topology proof | explicit `No XState lens` message while Story truth stays intact | rejoins same Story review | designed |
+| `FLOW-BACK-REPLAY` | prior page in `FLOW-GOLDEN` | move to a prior page without in-place rewind | dispose / rebuild / replay is explicit | rejoins restored prior page | designed |
+| `FLOW-STALE-EVIDENCE` | `STORY-004` | prove stale evidence stays inert | stale receipt never becomes active application truth | terminal pass after live turn exits | designed over implemented Story |
+
+## Machine-validation receipts already supporting the design
+
+| Machine / contract | Maturity | Evidence | Design implication |
+| --- | --- | --- | --- |
+| `voiceWorkbenchSessionMachine` | implemented | `src/session.graph.test.ts`, `src/session.headless.test.ts`, README topology | parent session lifecycle and supervision are already authoritative |
+| `modelTurnMachine` | implemented | `src/model-turn.graph.test.ts` | timeout, cancellation, stale-result correlation, and accepted completion already have machine truth |
+| `voiceCaptureMachine` | implemented | `src/voice.graph.test.ts` | microphone permission denial is real behavior, not a design invention |
+| `speechDeliveryMachine` | implemented | `src/speech.graph.test.ts` | speech evidence remains additive and actor-owned |
+| Story execution contract in `workbench-narratives.test.ts` | implemented | exact named stories, commands, pages, and checkpoints | reviewer shell must preserve page-by-page Story truth literally |
+
+## Designed reviewer controller contract
+
+The reviewer controller is still a designed host-product machine, not current
+implemented truth. It exists only to sequence review around the authoritative
+Story executor.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Idle
     Idle --> Running: RUN
-    Idle --> Paused: STEP [release first page]
-    Running --> Paused: PAGE_COMPLETED [pause-before-next]
-    Paused --> Running: STEP | RUN
-    Running --> Replaying: BACK
+    Idle --> Paused: STEP [release one Story page]
+    Paused --> Paused: STEP [release next Story page]
     Paused --> Replaying: BACK
-    Running --> Disposing: CANCEL | RESTART | REPLACE
-    Paused --> Disposing: CANCEL | RESTART | REPLACE
-    Replaying --> Running: REPLAY_READY
-    Disposing --> Idle: CANCELLED
-    Disposing --> Running: RESTARTED
-    Running --> Completed: STORY_COMPLETED
+    Running --> Replaying: BACK
+    Replaying --> Paused: REPLAY_READY
+    Running --> Completed: STORY_RECEIPT_READY
     Running --> Failed: CHECKPOINT_FAILED
-    Running --> Cancelled: CANCELLED
+    Failed --> Replaying: BACK
+    Completed --> Replaying: BACK
     Failed --> Idle: RESTART
     Completed --> Idle: RESTART
-    Cancelled --> Idle: RESET
 ```
 
-| Machine | State/value | Accepted events | Public commands | Guard/policy | Effect/adapter | Emitted fact | Error/recovery | Screen/read model |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Story session controller | idle, running, paused, replaying, disposing, completed, failed, cancelled | run, step, back, restart, cancel, page-completed, story-completed, checkpoint-failed, replay-ready | Run, Step, Back, Restart, Cancel | one-page release, generation-scoped stale suppression, dispose-before-rebuild | Story callback gate, fixture disposal, replay bootstrap, optional observation join | transient page outcome, current certainty, final ordinary receipt | restart from fresh fixture, cancel, stale suppression | Story catalog, phase lane, receipt/evidence panels, coverage review |
-
-| Machine | Raw state value | Context | Native metadata | Derived view | Command availability | Snapshot consumers |
+| State/value | Accepted events | Public controls | Guard/policy | Effect/adapter | Emitted fact | Read model |
 | --- | --- | --- | --- | --- | --- | --- |
-| Story session controller | literal session state | selected `storyId`, page cursor, completed pages, generation, optional lens status, final ordinary receipt | none required beyond internal session bookkeeping | prepared session header, page lane, control bar, receipt/evidence panels, gap review | derived from session state and page boundary | future Vite host, POC, implementation handoff |
+| idle | select-story, run, step | Story picker, Run, Step | Story must be selected | fresh fixture bootstrap | selected Story and initial page truth | selected Story summary |
+| running | story-page-released, checkpoint-failed, story-receipt-ready, back | Run, Back | preserve Story page order and receipt truth | gated Story execution | current page, current checkpoint status | application preview + progress lane |
+| paused | step, run, back | Step, Run, Back | one page per Step | host sequencing only | paused page boundary | page-by-page review |
+| replaying | replay-ready | Back disabled until replay completes | dispose, rebuild, replay from fresh fixture | fixture teardown and reconstruction | restored prior page | replay status |
+| completed | back, restart, open-receipt, open-machine, open-coverage | Back, Restart, Debug tabs | ordinary receipt stays primary | additive evidence joins only | final Story receipt | receipt-first completion surface |
+| failed | back, restart, open-debug | Back, Restart, Debug tabs | failed checkpoint remains first Debug target | additive evidence joins only | failed checkpoint + ordinary receipt | failure-first review surface |
 
-Required queued implementation evidence:
+Maturity note:
 
-- controller task `task-1784602868853`
-- POC task `task-1784655415553`
-- handoff task from `.fas/tasks/produce-the-approved-ignite-alchemy-mvp-implementation-hando.md`
+- Story/page truth above is implemented.
+- Host-product stepping, Back replay, and optional lens joins remain designed
+  until the queued controller and POC tasks land.
 
-## Narrative-to-machine traceability
+## Traceability from executable truth to reviewer pages
 
-| Narrative/branch | Step | User action/observation | Public command/input | Authority | From/to state or decision | Expected fact | Derived projection | Surface | Evidence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `NAR-001-PRIMARY` | 1 | chooses Story from catalog | select Story | reviewer session controller (future) | idle -> idle with selected `storyId` | selected Story changes | catalog highlight + Story summary | landing header / picker | W1 architecture + this task |
-| `NAR-001-NO-LENS` | 2 | sees no observation overlay | none; read-only posture | optional lens contract | no lens attached | certainty unavailable | `no XState lens` badge | evidence mode panel | W1 architecture |
-| `NAR-002-PRIMARY` | 1 | presses Step/Run | step / run | reviewer session controller over existing Story executor | idle -> paused/running | one page released | current phase and page card | main narrative pane | controller task + Story ergonomics audit |
-| `NAR-002-ASSERTION-FAILURE` | 2 | sees failed Checkpoint | none after checkpoint completion | existing Story receipt + controller failure posture | running -> failed | failed Checkpoint fact | failure panel + retry posture | failure view | existing Checkpoint receipts |
-| `NAR-002-CANDIDATE-EVIDENCE` | 3 | sees candidate edge/state cue | none; derived observation | future XState lens + coverage join | exact proof unavailable | candidate certainty | candidate badge + explanation | evidence panel | W1 architecture + future lens task |
-| `NAR-003-PRIMARY` | 4 | presses Back | back | reviewer session controller | paused/running -> replaying -> paused | fresh-fixture replay fact | replay status + target prior page | control rail + phase lane | W1 replay rules + controller task |
-| `NAR-003-CANCELLED` | 5 | presses Cancel | cancel | reviewer session controller | running/paused -> disposing -> cancelled/idle | cancellation fact | cancelled status and reset controls | control rail | existing cancellation narrative + controller task |
-| `NAR-003-STALE-SUPPRESSED` | 6 | obsolete result arrives after replacement | none; stale external result | controller generation rule | no state change to active generation | stale ignored | no unexpected UI mutation | evidence/log panel | stale receipt narrative |
-| `NAR-004-PRIMARY` | 7 | opens final receipt and evidence panes | projection-only tabs | final Story receipt remains authority | completed session | ordinary final receipt | receipt pane + additive evidence panes | lower evidence surfaces | W1 report boundary |
-| `NAR-004-GAP-REVIEW` | 8 | reviews uncovered gap list | projection-only filters | future coverage join | uncovered or excluded coverage classification | gap provenance | uncovered-gap review | coverage pane | W1 coverage contract |
-| `NAR-005-1024-RESILIENT` | 9 | compresses width to 1024 | viewport change | prototype layout only | no behavior change | same facts as current session | stacked or collapsed evidence panes | responsive layout | required measurements |
-
-## Race and precedence matrix
-
-| Competing stimuli | Authoritative owner | Admission and ordering rule | Losing or stale outcome | Emitted fact/projection | Invariant and evidence |
+| Reviewer flow/page | Subject Story page source | Reviewer-visible application outcome | Checkpoint / evidence summary | Permitted controls before / after | Terminal / rejoin |
 | --- | --- | --- | --- | --- | --- |
-| Step vs Run | reviewer session controller | exactly one page release per Step; Run drains remaining pages | duplicate release rejected | paused/running state reflects single active release | one page per Step; future controller tests |
-| Back vs late page completion | reviewer session controller generation | Back increments generation and disposes before replay | late completion ignored as stale | replaying state remains authoritative | no obsolete session update; stale suppression task |
-| Cancel vs pending behavior/adapter result | reviewer session controller + fixture teardown | cancel settles gates and disposes exactly once | late result ignored | cancelled/disposed state | no duplicate writer; controller task |
-| completed receipt vs observation update | final Story receipt + future lens join | ordinary final receipt stays primary; observation remains additive | observation cannot replace receipt | completed receipt view plus evidence pane | receipt-first rule; W1 architecture |
-| exact vs candidate vs unavailable evidence | future lens join policy | exact only when directly proven; else candidate or unavailable | false exactness rejected | explicit certainty label | W1 certainty boundary |
+| `FLOW-GOLDEN/REV-002-PAGE-01` | `STORY-002-GIVEN-READY` | ready workbench with voice idle and typed prompt available | exact starting view and `canExecute` posture | before: select Story; after: Step or Run | rejoin to first intent |
+| `FLOW-GOLDEN/REV-002-PAGE-04` | `STORY-002-CHECKPOINT-VOICE-PERMISSION-STAYS-A-FACT` | permission denial remains visible while typed prompt is still allowed | named checkpoint shown literally | before: waiting on permission fact; after: typed fallback intent | rejoin to second intent |
+| `FLOW-GOLDEN/REV-002-PAGE-06` | `STORY-002-CHECKPOINT-TEXT-RECOVERY-STARTS-A-NEW-TURN` | responding turn starts while permission fact persists | named checkpoint shown literally | before: awaiting recovery; after: receipt review, Back, optional Machine tab | terminal pass |
+| `FLOW-FAIL-CHECKPOINT` | same Story page as the current failed assertion | selected Story remains visible and Debug opens on the failed checkpoint first | ordinary receipt preserved, Debug prioritized | before: Step/Run; after: Debug, Back, Restart | recoverable terminal |
+| `FLOW-NO-LENS` | same Story page truth as implemented Story | Story review remains complete without graph proof | Machine tab says `No XState lens` | before: receipt review; after: continue Story review | rejoins same Story |
+| `FLOW-BACK-REPLAY` | host replay to prior implemented Story page | prior page is restored by dispose / rebuild / replay | replay is explicit, not an in-place rewind | before: Back available; after: Step / Run resume | rejoins restored prior page |
+| `FLOW-STALE-EVIDENCE` | `STORY-004-CHECKPOINT-STALE-PORT-RESULT-STAYS-INERT` | second turn remains authoritative after stale first-turn result arrives | stale evidence stays additive only | before: second turn responding; after: live cancel / receipt review | rejoin to live turn exit |
 
-## Prototype direction guardrails
+## Guardrails for the next design round
 
-- `DIR-A` and `DIR-B` may experiment with hierarchy, density, motion, and
-  layout.
-- Neither direction may invent new reviewer commands, runtime states, or
-  machine truth beyond this matrix.
-- Both directions must keep non-color cues for certainty, failure, and gap
-  states.
+- MagicPath may simulate reviewer controls, but it must use the exact Story and
+  checkpoint names from the executable source.
+- It must not invent substitute application domains.
+- It must keep ordinary receipt truth primary and XState evidence additive.
+- It must treat no-lens and stale-evidence cases as first-class review flows,
+  not hidden edge cases.
