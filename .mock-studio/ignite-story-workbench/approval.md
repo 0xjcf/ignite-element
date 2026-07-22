@@ -1,7 +1,7 @@
 # Ignite Alchemy Approval Gate
 
-Status: narrative-ready with Round 3 candidates published; root browser
-validation and human visual approval pending
+Status: narrative-ready with corrected Round 3 candidates published; root
+browser validation and human visual approval pending
 Recorded: 2026-07-22
 Task: `direct-1784661171192` / `task-1784655399770`
 
@@ -53,14 +53,13 @@ Experience coverage:
 
 - `experience-inventory.md` remains the authoritative inventory for the compact
   Story rail, dominant application-under-test preview, current-step strip,
-  receipt-first workspace, latent details drawer, and bounded additive evidence
-  surfaces.
+  latent details drawer, and bounded additive evidence surfaces.
 
 Design-system readiness:
 
 - `design-system-coverage.md` remains the readiness artifact for token-first
-  chrome, compact control rails, page-lane treatment, receipt-first layout,
-  no-lens wording, responsive density, focus, contrast, and reduced-motion
+  chrome, compact control rails, single-line page status, late receipt
+  exposure, no-lens wording, responsive density, focus, and reduced-motion
   disposition.
 
 Blocking gaps:
@@ -88,16 +87,30 @@ visual direction or donor for the next material round.
 ## Current gate
 
 The next material round was admitted because narrative readiness passed and the
-new human direction was explicit. That round has now produced two published
-candidates:
+new human direction was explicit. That round produced two first-pass Round 3
+revisions, but internal root preview inspection rejected those first revisions
+because they still showed metadata-led previews and exposed receipt structure
+too early.
+
+Corrected revisions are now published:
 
 - `ROUND-3A` / Ignite Alchemy Canvas Runner / `keenly-wood-5115` /
-  component `430498394188955648`
+  component `430498394188955648` / revision `430502451452473344`
 - `ROUND-3B` / Ignite Alchemy Focus Runner / `vibrantly-second-1236` /
-  component `430498394214125568`
+  component `430498394214125568` / revision `430502451368595456`
 
-Both candidates are published but unvalidated in-browser at the repo level, so
-the next decision remains:
+Human feedback during this correction also identified a preferred leading
+direction:
 
-- root browser validation of the new candidates; then
+- `ROUND-3B-VAR2` / Ignite Alchemy Focus Runner (Variant 2) /
+  `dreamily-sand-6842` / component `430503922197753859`
+
+That preferred variant is treated as the leading donor/candidate only. It is
+not yet browser-accepted and it is not a POC approval.
+
+The corrected candidates and preferred variant are still unvalidated in-browser
+at the repo level, so the next decision remains:
+
+- root browser validation of the corrected candidates and preferred variant;
+  then
 - human visual/design approval before POC.

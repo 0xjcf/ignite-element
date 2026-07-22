@@ -3,7 +3,7 @@
   "recordedAt": "2026-07-22",
   "taskId": "direct-1784661171192",
   "queueTaskId": "task-1784655399770",
-  "approvalGate": "round3_candidates_published_root_browser_validation_and_human_visual_selection_pending",
+  "approvalGate": "corrected_round3_candidates_published_root_browser_validation_and_human_visual_selection_pending",
   "narrativeReadiness": {
     "status": "pass",
     "goldenNarrative": "ALCH-NAR-001-DETERMINISTIC-STORY-REVIEW",
@@ -38,44 +38,68 @@
       "artifactId": "ROUND-3A",
       "componentName": "Ignite Alchemy Canvas Runner",
       "componentId": "430498394188955648",
-      "revisionId": "430498394188955649",
+      "initialRejectedRevisionId": "430498394188955649",
+      "revisionId": "430502451452473344",
       "generatedName": "keenly-wood-5115",
       "componentShareUrl": "https://www.magicpath.ai/files/430498394188955648",
-      "previewImageUrl": "https://storage.googleapis.com/storage.magicpath.ai/component-previews/0be9d315-0a35-4ad9-ac41-edd4133efe68.png",
+      "previewImageUrl": "https://storage.googleapis.com/storage.magicpath.ai/component-previews/3aceb67e-c1c8-4f0d-b712-5950c570b7f5.png",
       "requiresClientResync": true,
       "authoringViewport": {
         "width": 1440,
         "height": 900
       },
       "shellProfile": "compact_story_rail_plus_dominant_preview",
+      "internalPreviewDisposition": "initial_revision_rejected_then_corrected_revision_published",
       "validationStatus": "awaiting_root_browser_validation_and_human_selection"
     },
     {
       "artifactId": "ROUND-3B",
       "componentName": "Ignite Alchemy Focus Runner",
       "componentId": "430498394214125568",
-      "revisionId": "430498394214125569",
+      "initialRejectedRevisionId": "430498394214125569",
+      "revisionId": "430502451368595456",
       "generatedName": "vibrantly-second-1236",
       "componentShareUrl": "https://www.magicpath.ai/files/430498394214125568",
-      "previewImageUrl": "https://storage.googleapis.com/storage.magicpath.ai/component-previews/373803bc-d083-47b9-aee8-0eb9b5bd1a6c.png",
+      "previewImageUrl": "https://storage.googleapis.com/storage.magicpath.ai/component-previews/9d765441-69b9-4488-a027-cbd2ce85aa56.png",
       "requiresClientResync": true,
       "authoringViewport": {
         "width": 1280,
         "height": 900
       },
       "shellProfile": "toolbar_picker_plus_single_dominant_stage",
+      "internalPreviewDisposition": "initial_revision_rejected_then_corrected_revision_published",
       "validationStatus": "awaiting_root_browser_validation_and_human_selection"
     }
   ],
+  "humanPreferredLeadingDonor": {
+    "artifactId": "ROUND-3B-VAR2",
+    "componentName": "Ignite Alchemy Focus Runner (Variant 2)",
+    "componentId": "430503922197753859",
+    "parentComponentId": "430498394214125568",
+    "generatedName": "dreamily-sand-6842",
+    "designUrl": "https://designs.magicpath.ai/v1/dreamily-sand-6842",
+    "previewImageUrl": "https://storage.googleapis.com/storage.magicpath.ai/component-previews/8d6e63c6-c00c-47ea-ae32-5c08ca1cd0f9.png",
+    "sourceAssessment": "root reported inspected source matches the corrected progressive Voice Workbench contract",
+    "status": "human_preferred_leading_donor_candidate_pending_browser_validation_and_final_approval"
+  },
+  "internalRootPreviewCorrection": {
+    "status": "applied",
+    "reason": "initial Round 3 revisions still showed metadata-led previews and exposed receipt structure too early",
+    "correctedExpectation": "recognizable progressive Voice Workbench preview with receipt exposed only at page 7"
+  },
   "magicpathSubmitReceipts": [
     {
       "artifactId": "ROUND-3A",
       "firstSubmitAttempt": "failed_tailwind_v4_index_css_constraint",
+      "firstPublishedRevisionId": "430498394188955649",
+      "correctionResyncRevisionId": "430502451452473344",
       "finalSubmitStatus": "completed"
     },
     {
       "artifactId": "ROUND-3B",
       "firstSubmitAttempt": "failed_tailwind_v4_index_css_constraint",
+      "firstPublishedRevisionId": "430498394214125569",
+      "correctionResyncRevisionId": "430502451368595456",
       "finalSubmitStatus": "completed"
     }
   ],
