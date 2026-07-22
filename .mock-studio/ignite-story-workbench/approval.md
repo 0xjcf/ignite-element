@@ -1,56 +1,94 @@
 # Ignite Alchemy Approval Gate
 
-Status: interaction-verified candidate with exact viewport and human visual approval pending
-Recorded: 2026-07-21
+Status: narrative-ready for a new material round; human visual approval pending
+Recorded: 2026-07-22
 Task: `direct-1784661171192` / `task-1784655399770`
 
-## Approval receipt
+## Narrative readiness receipt
 
-| Gate | Verdict | Evidence |
-| --- | --- | --- |
-| Narrative authority | `pass` | Ignite Alchemy remains the product contract owner through `ALCH-US-*` and `ALCH-NAR-*`, with `STORY-*` bound as subject fixtures only. |
-| Published artifact recorded | `pass` | Final published candidate is component `430424171277877248`, revision `430443925757644800`, generated name `dreamily-forest-8280`, design `https://designs.magicpath.ai/v1/dreamily-forest-8280`, project `https://www.magicpath.ai/files/430393512920518656`, component share `https://www.magicpath.ai/files/430424171277877248`. |
-| Golden product flow behavior | `pass` | Browser receipts confirm Step moves page 1 to exactly `ALCH-NAR-001-PAGE-02-STEP-INTENT-START-VOICE`, Run reaches `ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT`, Back replays from page 7 to page 6 and returns page 7 to pending, and Restart resets to page 1 with Back and Restart disabled. |
-| Failure, no-lens, and advanced branches | `pass` | Failure branch stops at page 4 and auto-opens Debug on the failed checkpoint first. No-lens branch reaches page 7 with selected Story and ordinary receipt intact, and the Machine view says exactly `No XState lens`. Advanced branch keeps `STORY-003 timeout receipt remains secondary` and `STORY-004 stale receipt remains secondary` additive. |
-| Browser interaction acceptance | `pass` | Step, Run, Back, Restart, failure, no-lens, advanced evidence, focus, and target-size behavior passed in the observed browser session. |
-| Exact responsive viewport acceptance | `pending-recheck` | The browser controls were requested at 1440x900, 1280x800, and 1024x800, but `window.innerWidth` / `window.innerHeight` reported 1800x1125, 1600x1000, and 1280x1000 respectively. Those host-scaled samples had no observed overflow, but they do not prove the exact requested CSS viewports. |
-| Contrast acceptance | `pass` | Measured contrast against the base background: title `16.7:1`, copy `10.67:1`, muted `6.21:1`, mono `13.1:1`, button ink on ember `7.75:1`. |
-| Reduced-motion live browser evidence | `ready-with-extension` | Published source contains the reduced-motion CSS contract and JS `prefers-reduced-motion` observer, but the live browser query was false, so this turn does not claim an emulated reduced-motion pass. |
-| Human visual/design approval | `pending` | The published component is interaction-verified, but exact responsive viewport verification and user visual approval are still pending. |
-| POC admission | `pending` | The next gate is human visual/design approval before POC. This candidate is not admitted to POC yet. |
+Narrative readiness: `pass`
 
-Browser interaction acceptance verdict: `pass`
+Golden walkthrough:
 
-Exact responsive viewport acceptance verdict: `pending-recheck`
+- `ALCH-NAR-001-DETERMINISTIC-STORY-REVIEW`
+- acceptance evidence: the user explicitly approved a new material round with
+  the direction to "build out the application over time as we progress through
+  each narrative; do not throw the whole kitchen sink."
 
-Human visual approval verdict: `pending`
+Design-driving pages:
 
-POC admission verdict: `pending`
+- `ALCH-NAR-001-PAGE-01-DISCOVER-GIVEN`
+- `ALCH-NAR-001-PAGE-02-STEP-INTENT-START-VOICE`
+- `ALCH-NAR-001-PAGE-03-BEHAVIOR-PERMISSION-DENIED`
+- `ALCH-NAR-001-PAGE-04-CHECKPOINT-PERMISSION-STAYS-A-FACT`
+- `ALCH-NAR-001-PAGE-05-INTENT-TYPED-FALLBACK`
+- `ALCH-NAR-001-PAGE-06-CHECKPOINT-NEW-RESPONDING-TURN`
+- `ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT`
 
-## Archived donor outcome
+Material branches:
 
-The first material donor round remains archived and rejected:
+- `ALCH-NAR-002-FAILED-CHECKPOINT-DEBUG`
+- `ALCH-NAR-003-BACK-REPLAY`
+- `ALCH-NAR-004-NO-LENS-REVIEW`
+- `ALCH-NAR-005-ADVANCED-ADDITIVE-EVIDENCE`
 
-- `DIR-A` Evidence Ledger
-- `DIR-B` Reaction Map
+Behavior evidence:
 
-Reason: both were over-engineered relative to the restrained reviewer shell the
-product needs.
+- `STORY-002` remains the golden subject fixture with exact Given, Intent,
+  Behavior, Checkpoint, second Intent, and second Checkpoint truth from
+  `examples/agents/voice-workbench/src/workbench-narratives.test.ts`.
+- `STORY-003` and `STORY-004` remain additive timeout and stale-evidence
+  receipts for the advanced branch.
 
-## Candidate state
+Subject/operator split:
 
-The current candidate is the published replacement direction:
+- `stories-and-narratives.md` keeps Ignite Alchemy's operator journey primary
+  through `ALCH-US-*` and `ALCH-NAR-*`.
+- `STORY-*` fixtures remain bound subject truth only. The reviewer tool may
+  step, run, replay, and inspect receipts, but it may not redesign Voice
+  Workbench or invent substitute domains.
 
-- `ROUND-2` / Ignite Alchemy Story Runner / `dreamily-forest-8280`
+Experience coverage:
 
-This artifact is now an interaction-verified candidate. Exact CSS viewport
-verification and human visual approval remain open; neither is implied by the
-host-scaled browser samples.
+- `experience-inventory.md` remains the authoritative inventory for the compact
+  Story rail, dominant application-under-test preview, current-step strip,
+  receipt-first workspace, latent details drawer, and bounded additive evidence
+  surfaces.
 
-## Remaining gate
+Design-system readiness:
 
-Before POC work is admitted, the remaining decision is:
+- `design-system-coverage.md` remains the readiness artifact for token-first
+  chrome, compact control rails, page-lane treatment, receipt-first layout,
+  no-lens wording, responsive density, focus, contrast, and reduced-motion
+  disposition.
 
-- exact responsive verification at 1440x900, 1280x800, and 1024x800 CSS
-  viewports; and
-- human visual/design approval of the final published candidate
+Blocking gaps:
+
+- none for visual synthesis
+
+## Rejected round record
+
+`dreamily-forest-8280` / Ignite Alchemy Story Runner is not an approved donor
+for the next material round.
+
+Rejection status:
+
+- artifact: `ROUND-2`
+- component: `430424171277877248`
+- generated name: `dreamily-forest-8280`
+- disposition: rejected by human feedback
+- reason: kitchen-sink density and excessive simultaneous detail; it does not
+  feel like a restrained developer tool and violates the approved direction to
+  build the application progressively through the narrative.
+
+This rejected artifact remains useful as provenance, but not as an approved
+visual direction or donor for the next material round.
+
+## Current gate
+
+The next material round is admitted because narrative readiness passed and the
+new human direction is explicit. The next decision after new candidates are
+published is:
+
+- root browser validation of the new candidates; then
+- human visual/design approval before POC.
