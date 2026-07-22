@@ -1,7 +1,7 @@
 # Ignite Alchemy Approval Gate
 
-Status: narrative-ready with corrected Round 3 candidates published; root
-browser validation and human visual approval pending
+Status: narrative-ready pass for the dev/test companion-tool direction; no
+rendered acceptance claimed
 Recorded: 2026-07-22
 Task: `direct-1784661171192` / `task-1784655399770`
 
@@ -9,108 +9,69 @@ Task: `direct-1784661171192` / `task-1784655399770`
 
 Narrative readiness: `pass`
 
-Golden walkthrough:
+Settled product role:
 
-- `ALCH-NAR-001-DETERMINISTIC-STORY-REVIEW`
-- acceptance evidence: the user explicitly approved a new material round with
-  the direction to "build out the application over time as we progress through
-  each narrative; do not throw the whole kitchen sink."
+- Ignite Alchemy is a reusable development/testing companion shell like
+  TanStack Devtools or Astro Dev Toolbar.
+- Voice Workbench remains the subject application/fixture rendered or attached
+  inside Alchemy's preview workspace.
+- Alchemy is never the production end-user surface and never runtime authority.
 
-Design-driving pages:
+Primary host contract:
 
-- `ALCH-NAR-001-PAGE-01-DISCOVER-GIVEN`
-- `ALCH-NAR-001-PAGE-02-STEP-INTENT-START-VOICE`
-- `ALCH-NAR-001-PAGE-03-BEHAVIOR-PERMISSION-DENIED`
-- `ALCH-NAR-001-PAGE-04-CHECKPOINT-PERMISSION-STAYS-A-FACT`
-- `ALCH-NAR-001-PAGE-05-INTENT-TYPED-FALLBACK`
-- `ALCH-NAR-001-PAGE-06-CHECKPOINT-NEW-RESPONDING-TURN`
-- `ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT`
+- local host remains example-local and dev/test-only for the current POC;
+- subject runtime may attach through a dev-only bridge or host adapter;
+- headless/CI uses the same Story/controller semantics without rendering
+  Alchemy; and
+- the optimized subject application build must expose no Alchemy UI, route,
+  assets, bridge, inspection endpoints, fixture data, or receipts by default.
+  Alchemy may still be served or distributed separately as a dev/test tool.
 
-Material branches:
+Page-4 branch admission:
 
-- `ALCH-NAR-002-FAILED-CHECKPOINT-DEBUG`
-- `ALCH-NAR-003-BACK-REPLAY`
-- `ALCH-NAR-004-NO-LENS-REVIEW`
-- `ALCH-NAR-005-ADVANCED-ADDITIVE-EVIDENCE`
+- `ALCH-NAR-001-BRANCH-TYPED-FALLBACK` is admitted from
+  `submitPrompt: true` in
+  `examples/agents/voice-workbench/src/workbench-narratives.test.ts:600-621`.
+- `ALCH-NAR-001-BRANCH-RETRY-MICROPHONE` is admitted from
+  `startVoiceCapture: true` in
+  `examples/agents/voice-workbench/src/workbench-narratives.test.ts:600-613`
+  and retry behavior proven in
+  `examples/agents/voice-workbench/src/main.test.tsx:613-632`.
 
-Behavior evidence:
+Operator synchronization:
 
-- `STORY-002` remains the golden subject fixture with exact Given, Intent,
-  Behavior, Checkpoint, second Intent, and second Checkpoint truth from
-  `examples/agents/voice-workbench/src/workbench-narratives.test.ts`.
-- `STORY-003` and `STORY-004` remain additive timeout and stale-evidence
-  receipts for the advanced branch.
+- Step pauses at the page-4 branch boundary.
+- Run uses the declared golden typed-fallback branch unless reviewer
+  interaction is required.
+- Branch choice is an Alchemy lane input recorded in replay/receipt.
+- Back rebuilds to the branch boundary and changing choice truncates future
+  evidence.
+- Retry microphone materializes two explicit branch pages:
+  `ALCH-NAR-001-BRANCH-RETRY-PAGE-01-INTENT-START-VOICE-RETRY` and
+  `ALCH-NAR-001-BRANCH-RETRY-PAGE-02-CHECKPOINT-VOICE-ATTEMPT-LISTENING`.
 
-Subject/operator split:
+Inspector direction:
 
-- `stories-and-narratives.md` keeps Ignite Alchemy's operator journey primary
-  through `ALCH-US-*` and `ALCH-NAR-*`.
-- `STORY-*` fixtures remain bound subject truth only. The reviewer tool may
-  step, run, replay, and inspect receipts, but it may not redesign Voice
-  Workbench or invent substitute domains.
-
-Experience coverage:
-
-- `experience-inventory.md` remains the authoritative inventory for the compact
-  Story rail, dominant application-under-test preview, current-step strip,
-  latent details drawer, and bounded additive evidence surfaces.
-
-Design-system readiness:
-
-- `design-system-coverage.md` remains the readiness artifact for token-first
-  chrome, compact control rails, single-line page status, late receipt
-  exposure, no-lens wording, responsive density, focus, and reduced-motion
-  disposition.
+- Inspector is the docked sibling split pane for Story, Debug, Machine, and
+  Evidence.
+- Machine owns the live statechart lens and exact `No XState lens` fallback.
+- Machine must highlight the edge from the permission-denied recovery posture
+  into the child listening attempt for the retry branch.
+- Opening Inspector must reflow the subject preview rather than overlay it.
 
 Blocking gaps:
 
-- none for visual synthesis
-
-## Rejected round record
-
-`dreamily-forest-8280` / Ignite Alchemy Story Runner is not an approved donor
-for the next material round.
-
-Rejection status:
-
-- artifact: `ROUND-2`
-- component: `430424171277877248`
-- generated name: `dreamily-forest-8280`
-- disposition: rejected by human feedback
-- reason: kitchen-sink density and excessive simultaneous detail; it does not
-  feel like a restrained developer tool and violates the approved direction to
-  build the application progressively through the narrative.
-
-This rejected artifact remains useful as provenance, but not as an approved
-visual direction or donor for the next material round.
+- none for the revised narrative/tool-host contract
 
 ## Current gate
 
-The next material round was admitted because narrative readiness passed and the
-new human direction was explicit. That round produced two first-pass Round 3
-revisions, but internal root preview inspection rejected those first revisions
-because they still showed metadata-led previews and exposed receipt structure
-too early.
+Narrative readiness passed for the dev/test companion-tool direction. Before
+any new rendered acceptance claim:
 
-Corrected revisions are now published:
-
-- `ROUND-3A` / Ignite Alchemy Canvas Runner / `keenly-wood-5115` /
-  component `430498394188955648` / revision `430502451452473344`
-- `ROUND-3B` / Ignite Alchemy Focus Runner / `vibrantly-second-1236` /
-  component `430498394214125568` / revision `430502451368595456`
-
-Human feedback during this correction also identified a preferred leading
-direction:
-
-- `ROUND-3B-VAR2` / Ignite Alchemy Focus Runner (Variant 2) /
-  `dreamily-sand-6842` / component `430503922197753859`
-
-That preferred variant is treated as the leading donor/candidate only. It is
-not yet browser-accepted and it is not a POC approval.
-
-The corrected candidates and preferred variant are still unvalidated in-browser
-at the repo level, so the next decision remains:
-
-- root browser validation of the corrected candidates and preferred variant;
-  then
-- human visual/design approval before POC.
+- deferred downstream implementation remains tracked in `task-1784602868853`,
+  `task-1784602883094`, `task-1784602901002`, `task-1784602939863`, and
+  `task-1784602955608`;
+- the preferred component must be resynced fresh;
+- the next MagicPath revision must materialize the docked Inspector and
+  dev/test tool-shell contract; then
+- root browser validation and human visual approval remain required.

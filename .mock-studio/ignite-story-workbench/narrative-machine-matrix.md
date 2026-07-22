@@ -1,127 +1,114 @@
 # Ignite Alchemy Narrative and Machine Matrix
 
-Status: narrative gate before further visual iteration
-Recorded: 2026-07-21
+Status: narrative-ready for the dev/test companion-tool direction
+Recorded: 2026-07-22
 Task: `direct-1784661171192` / `task-1784655399770`
 
 ## Ownership and boundary table
 
 | Concern | Primary authority/source of truth | Functional core | Imperative shell/adapter | Projection/UI |
 | --- | --- | --- | --- | --- |
-| Product narrative and operator controls | `ALCH-US-*` and `ALCH-NAR-*` in Ignite Alchemy | review policy, branch identity, control availability, receipt-first posture | product controller, replay orchestration, additive evidence joins | primary reviewer shell |
-| Executable Story page order and receipt | `igniteTest({ component }).story(...)` | page semantics, checkpoint names, and final receipt truth stay in Story source | fixture setup, callback execution, teardown | preview and receipt content only |
-| Voice Workbench session lifecycle | `voiceWorkbenchSessionMachine` | actor-owned lifecycle and derived views | actor startup, subscriptions, disposal | additive state facts only |
-| Model turn, voice capture, and speech delivery | real child machines | authorization, timeout, cancellation, permission, and delivery facts | controlled ports and host adapters | additive evidence only |
-| Optional XState lens | future additive observation join | exact / candidate / unavailable certainty policy | observation installation | Machine tab only |
-| Coverage and gap review | future coverage join | uncovered / excluded classification | report assembly | additive review surfaces only |
+| Product devtool shell and operator controls | `ALCH-US-*` and `ALCH-NAR-*` | tool policy, branch identity, attach/detach posture, receipt-first inspection | Alchemy controller, dev-only bridge lifecycle, replay orchestration | Alchemy shell and docked Inspector |
+| Executable Story page order and receipt | `igniteTest({ component }).story(...)` | page semantics, checkpoint names, branch availability, final receipt truth | fixture setup, callback execution, teardown | preview and receipt content only |
+| Voice Workbench session lifecycle | `voiceWorkbenchSessionMachine` | actor-owned lifecycle and derived views | runtime startup, subscriptions, disposal, HMR/reconnect | subject facts only |
+| Model turn, voice capture, and speech delivery | real child machines | timeout, cancellation, permission, delivery, and retry facts | host adapters and ports | additive inspection only |
+| Headless/CI parity | `igniteTest().story()` semantics | same Story/controller receipts without Alchemy rendering | test runtime bootstrap | receipt output only |
+| Production absence invariant | build/security contract | optimized subject application build ships no Alchemy surface or bridge by default | build exclusion and environment gating | no production projection |
 
 ## Lifecycle disposition gate
 
 | Workflow/lifecycle | Disposition | Single authority | Evidence | Required action |
 | --- | --- | --- | --- | --- |
-| Product deterministic review flow | designed product contract | `ALCH-NAR-001-DETERMINISTIC-STORY-REVIEW` | scoped narrative docs in this task | retain as the design-driving operator journey |
-| Product failure-first Debug branch | designed product contract | `ALCH-NAR-002-FAILED-CHECKPOINT-DEBUG` | scoped narrative docs in this task | retain and carry into visual work |
-| Product Back replay branch | designed product contract | `ALCH-NAR-003-BACK-REPLAY` | scoped narrative docs in this task | retain; do not claim implementation |
-| Product no-lens review branch | designed product contract | `ALCH-NAR-004-NO-LENS-REVIEW` | scoped narrative docs in this task | retain; fail closed when unavailable |
-| Product additive advanced-evidence branch | designed product contract | `ALCH-NAR-005-ADVANCED-ADDITIVE-EVIDENCE` | scoped narrative docs in this task | retain as additive only |
-| Executable Story page / checkpoint truth | implemented execution contract | existing Story executor | `workbench-narratives.test.ts` named stories | retain as bound subject truth |
-| Voice Workbench parent session | explicit machine | `voiceWorkbenchSessionMachine` | `src/session.graph.test.ts`, `src/session.headless.test.ts`, README topology | retain and cite |
-| Model turn child | explicit machine | `modelTurnMachine` | `src/model-turn.graph.test.ts` | retain and cite |
-| Voice capture child | explicit machine | `voiceCaptureMachine` | `src/voice.graph.test.ts` | retain and cite |
-| Speech delivery child | explicit machine | `speechDeliveryMachine` | `src/speech.graph.test.ts` | retain and cite |
+| Alchemy dev/test launch and attach | designed product contract | `ALCH-NAR-002-ATTACH-AND-DETACH` | scoped narrative docs in this task | retain as the first tool-host state |
+| Golden tool-hosted Story walkthrough | designed over implemented fixture | `ALCH-NAR-001-DEVTOOL-STORY-REVIEW` over `STORY-002` | scoped narrative docs plus existing Story source | retain as the design-driving operator journey |
+| Page-4 typed fallback branch | designed over implemented command | `ALCH-NAR-001-BRANCH-TYPED-FALLBACK` | `workbench-narratives.test.ts:600-621` | retain as the declared Run default |
+| Page-4 retry microphone branch | designed over implemented command | `ALCH-NAR-001-BRANCH-RETRY-MICROPHONE` | `workbench-narratives.test.ts:600-613`, `main.test.tsx:613-632` | retain as the alternate branch choice |
+| Back replay branch | designed product contract | `ALCH-NAR-004-BACK-REPLAY` | scoped docs in this task | retain and keep deterministic |
+| Failed-checkpoint Debug | designed product contract | `ALCH-NAR-003-FAILED-CHECKPOINT-DEBUG` | scoped docs in this task | retain and keep failure-first |
+| No-lens review | designed product contract | `ALCH-NAR-005-NO-LENS-REVIEW` | scoped docs in this task | retain and fail closed |
+| Headless/CI parity | designed product contract | `ALCH-NAR-006-HEADLESS-CI-PARITY` | scoped docs in this task | retain; do not claim shipped harness yet |
+| Production absence | designed build/security contract | `ALCH-NAR-007-PRODUCTION-ABSENCE` | scoped docs in this task | retain as explicit exclusion proof |
+| Executable Story page/checkpoint truth | implemented execution contract | existing Story executor | `workbench-narratives.test.ts` named stories | retain as bound subject truth |
+| Voice capture retry after denial | implemented subject behavior | current Voice Workbench runtime | `main.test.tsx:613-632` | retain as real alternate branch evidence |
 
-## Product narratives to bound fixture evidence
+## Operator narratives to bound subject evidence
 
-| Product narrative | Operator-facing goal | Bound `STORY-*` evidence | Control implications | Terminal / rejoin |
+| Product narrative | Operator-facing goal | Bound subject truth | Control implications | Terminal / rejoin |
 | --- | --- | --- | --- | --- |
-| `ALCH-NAR-001-DETERMINISTIC-STORY-REVIEW` | inspect a deterministic Story by selecting it, stepping once, then letting Run continue each remaining visible release before verifying the receipt | `STORY-002` | Story picker, Step, Run, receipt review, additive evidence tabs | terminal pass into receipt review |
-| `ALCH-NAR-002-FAILED-CHECKPOINT-DEBUG` | diagnose a failed checkpoint without losing the selected fixture | selected fixture page where assertion failed, initially `STORY-002` | Debug auto-opens first; Back and Restart remain available | recoverable terminal |
-| `ALCH-NAR-003-BACK-REPLAY` | move safely to a prior page | any selected `STORY-*` page replayed from scratch | Back triggers deterministic dispose / rebuild / replay | rejoins restored prior page |
-| `ALCH-NAR-004-NO-LENS-REVIEW` | complete Story review without Machine proof | selected `STORY-001` or `STORY-002` | Machine tab shows `No XState lens`; ordinary review still completes | rejoins same Story review |
-| `ALCH-NAR-005-ADVANCED-ADDITIVE-EVIDENCE` | inspect timeout or stale evidence without confusing it for active truth | `STORY-003` and `STORY-004` | additive Debug / Machine / Coverage context only | terminal review or rejoin to live-turn exit |
+| `ALCH-NAR-001-DEVTOOL-STORY-REVIEW` | launch Alchemy, attach Voice Workbench, review a deterministic Story, branch when required, inspect, and detach | `STORY-002` | attach status, Story controls, branch lane, Inspector tabs, detach control | terminal tool review |
+| `ALCH-NAR-001-BRANCH-TYPED-FALLBACK` | continue the golden branch through typed recovery | page-4 `submitPrompt: true` and current pages 5-7 | branch lane chooses typed fallback or Run defaults to it | rejoins page 5 |
+| `ALCH-NAR-001-BRANCH-RETRY-MICROPHONE` | continue the alternate recovery branch through microphone retry | page-4 `startVoiceCapture: true` and retry behavior after denial | branch lane chooses retry microphone and Machine edge highlights the transition from permission-denied recovery posture into the child listening attempt | rejoins next voice attempt |
+| `ALCH-NAR-002-ATTACH-AND-DETACH` | attach, disconnect, restart, or reattach the subject runtime | bridge/host lifecycle only | attach/detach status, unsupported state, reconnect state | recoverable; rejoins selection |
+| `ALCH-NAR-003-FAILED-CHECKPOINT-DEBUG` | diagnose a failed checkpoint without losing the selected fixture | same selected Story page where the assertion failed | Inspector auto-opens on Debug | recoverable terminal |
+| `ALCH-NAR-004-BACK-REPLAY` | move safely to a prior page or branch boundary | selected Story page replayed from scratch | Back rebuilds deterministic state and truncates future evidence | rejoins restored page |
+| `ALCH-NAR-005-NO-LENS-REVIEW` | complete review without Machine proof | same Story page truth as the selected Story | Machine tab shows `No XState lens` | rejoins same review |
+| `ALCH-NAR-006-HEADLESS-CI-PARITY` | run the same Story semantics without rendering Alchemy | same Story pages/receipt and branch default | no Alchemy shell required in CI | terminal receipt |
+| `ALCH-NAR-007-PRODUCTION-ABSENCE` | prove no Alchemy surface ships by default | build/security evidence only | no production-mode UI allowed | terminal pass/fail |
 
-## Canonical subject-fixture seeds
+## Subject-to-tool mapping rules
 
-| Story ID | Story name | Implemented subject truth | Named checkpoints | Commands | Final view truth | Why it matters to product design |
-| --- | --- | --- | --- | --- | --- | --- |
-| `STORY-001` | `preparation failure retries into ready` | retry from failed preparation into ready state | `ready after retry` | `beginModelPreparation` | `status: "ready"`, `model.status: "available"` | simplest pass and clean receipt |
-| `STORY-002` | `microphone permission denial recovers to typed prompt` | permission denial remains visible while typed recovery starts a new turn | `voice permission stays a fact`, `text recovery starts a new turn` | `startVoiceCapture`, `submitPrompt` | `status: "responding"`, `voiceState: "permission"` | golden subject fixture for the golden product narrative |
-| `STORY-003` | `timed out turn retries to an accepted response` | timeout returns idle, retry creates artifact, accepted completion returns ready | `timeout returns the turn to idle`, `retry can finish with an accepted artifact`, `accepted retry returns to ready` | `submitPrompt`, `createArtifact`, `completeResponse` | `status: "ready"`, accepted response text, artifact revision `1` | timeout and ordinary completion evidence |
-| `STORY-004` | `stale correlated model receipts stay inert until the live turn ends` | stale first-turn result never mutates the live second turn | `cancelled first turn returns idle`, `second turn is responding`, `stale port result stays inert`, `live correlation still controls exit` | `submitPrompt` plus actor-owned cancel events | only the live turn controls return to ready | advanced stale-suppression evidence |
-
-## Product-to-subject mapping rules
-
-| Subject-fixture truth | Product obligation | Allowed product behavior | Forbidden product behavior | Maturity |
+| Subject truth | Tool obligation | Allowed tool behavior | Forbidden tool behavior | Maturity |
 | --- | --- | --- | --- | --- |
-| Given / Intent / Behavior / Checkpoint pages are named and ordered by the Story source | reveal the same page phases literally inside the selected review flow | step one page at a time or run all remaining pages | rename phases, merge away checkpoint identity, or invent mock application domains | designed |
-| `canExecute` outcomes at each checkpoint come from the Story receipt | show control posture before / after each page | enable, disable, or defer controls according to the bound fixture truth | infer availability from layout convenience | designed |
-| final receipt remains ordinary Story truth | keep receipt primary at completion or failure | show additive context, Machine, or Coverage tabs secondarily | replace the ordinary receipt with a topology-first explanation | designed |
-| stale and unavailable evidence may exist | explain them honestly as additive evidence | candidate / unavailable language, optional Machine tab, no-lens fallback | manufacture exact causal confidence | designed |
-| Back is not part of Story source | expose it as a product replay branch | dispose, rebuild, replay from fresh fixture | mutate snapshots in place or fake rewind | designed |
+| Given / Intent / Behavior / Checkpoint pages are named and ordered by the Story source | reveal the same page phases literally inside the selected tool flow | step one page at a time or run all remaining pages | rename phases, merge checkpoint identity, or invent app-domain pages | designed |
+| page-4 `canExecute` admits `startVoiceCapture` and `submitPrompt` | pause at a branch boundary and expose only those two choices in the tool lane | default to typed fallback on Run, allow explicit retry microphone choice, record branch choice in replay/receipt | invent Cancel or bypass subject guards | designed over implemented commands |
+| final receipt remains ordinary Story truth | keep receipt primary only when the branch reaches terminal receipt | show additive Debug/Machine/Evidence secondarily | expose future receipt facts before page 7 | designed |
+| Back is not part of Story source | expose it as deterministic replay | rebuild to prior page or branch boundary from a fresh fixture | mutate snapshots in place or fake rewind | designed |
+| Alchemy is dev/test-only | keep host, bridge, and inspection surfaces out of optimized subject application builds | local host, dogfood example, CI parity harness | public production route or default shipped bridge | designed |
 
-## Machine-validation receipts already supporting the design
-
-| Machine / contract | Maturity | Evidence | Design implication |
-| --- | --- | --- | --- |
-| `voiceWorkbenchSessionMachine` | implemented | `src/session.graph.test.ts`, `src/session.headless.test.ts`, README topology | parent session lifecycle and supervision are authoritative subject truth |
-| `modelTurnMachine` | implemented | `src/model-turn.graph.test.ts` | timeout, cancellation, stale-result correlation, and accepted completion already have machine truth |
-| `voiceCaptureMachine` | implemented | `src/voice.graph.test.ts` | microphone permission denial is real fixture behavior, not a product invention |
-| `speechDeliveryMachine` | implemented | `src/speech.graph.test.ts` | speech evidence remains additive and actor-owned |
-| Story execution contract in `workbench-narratives.test.ts` | implemented | exact named stories, commands, pages, and checkpoints | product review surfaces must preserve page-by-page Story truth literally |
-
-## Designed product controller contract
-
-The product controller is still a designed Ignite Alchemy machine, not current
-implemented truth. It exists to sequence review around the authoritative
-subject-fixture executor.
+## Designed tool controller contract
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Idle
-    Idle --> Running: RUN
-    Idle --> Paused: STEP [release one Story page]
-    Paused --> Paused: STEP [release next Story page]
-    Paused --> Replaying: BACK
-    Running --> Replaying: BACK
-    Replaying --> Paused: REPLAY_READY
+    [*] --> Detached
+    Detached --> Attached: ATTACH_RUNTIME
+    Attached --> StoryReady: SELECT_STORY
+    StoryReady --> Running: RUN
+    StoryReady --> Paused: STEP
+    Paused --> BranchBoundary: STEP [page 4 admitted]
+    BranchBoundary --> Running: CHOOSE_TYPED_FALLBACK
+    BranchBoundary --> Running: CHOOSE_RETRY_MICROPHONE
     Running --> Completed: STORY_RECEIPT_READY
     Running --> Failed: CHECKPOINT_FAILED
+    Running --> Replaying: BACK
+    BranchBoundary --> Replaying: BACK
     Failed --> Replaying: BACK
     Completed --> Replaying: BACK
-    Failed --> Idle: RESTART
-    Completed --> Idle: RESTART
+    Replaying --> Paused: REPLAY_READY
+    Attached --> Detached: DETACH_RUNTIME
 ```
 
-| State/value | Accepted events | Public controls | Guard/policy | Effect/adapter | Emitted fact | Read model |
-| --- | --- | --- | --- | --- | --- | --- |
-| idle | select-story, run, step | Story picker, Run, Step | a selected `STORY-*` fixture is required | fresh fixture bootstrap | selected Story and initial page truth | selected Story summary |
-| running | story-page-released, checkpoint-failed, story-receipt-ready, back | Run, Back | preserve bound Story page order and receipt truth | gated Story execution | current product page, current fixture checkpoint status | application preview + progress lane |
-| paused | step, run, back | Step, Run, Back | one page per Step | host sequencing only | paused review boundary | page-by-page review |
-| replaying | replay-ready | Back disabled until replay completes | dispose, rebuild, replay from fresh fixture | fixture teardown and reconstruction | restored prior page | replay status |
-| completed | back, restart, open-receipt, open-machine, open-coverage | Back, Restart, Debug tabs | ordinary receipt stays primary | additive evidence joins only | final Story receipt | receipt-first completion surface |
-| failed | back, restart, open-debug | Back, Restart, Debug tabs | failed checkpoint remains first Debug target | additive evidence joins only | failed checkpoint + ordinary receipt | failure-first review surface |
-
-## Traceability from product narrative to subject truth
-
-| Product narrative/page | Bound subject page source | Operator-visible product outcome | Preview / evidence summary | Controls before / after | Terminal / rejoin |
+| State/value | Accepted events | Public controls | Guard/policy | Effect/adapter | Read model |
 | --- | --- | --- | --- | --- | --- |
-| `ALCH-NAR-001-PAGE-01-DISCOVER-GIVEN` | `STORY-002-GIVEN-READY` | Story selection and deterministic review setup are visible | exact starting view and `canExecute` posture | before: select Story; after: Step or Run | rejoin to first release |
-| `ALCH-NAR-001-PAGE-02-STEP-INTENT-START-VOICE` | `STORY-002-INTENT-START-VOICE` | voice capture is shown as an explicit released intent | command trace shows `startVoiceCapture` | before: Step or Run; after: Step reveals behavior, Run continues sequential release | rejoin to permission behavior |
-| `ALCH-NAR-001-PAGE-03-BEHAVIOR-PERMISSION-DENIED` | `STORY-002-BEHAVIOR-PERMISSION-DENIED` | permission denial becomes visible subject truth | denial evidence remains literal | before: permission pending; after: Step or Run reveals checkpoint | rejoin to permission checkpoint |
-| `ALCH-NAR-001-PAGE-04-CHECKPOINT-PERMISSION-STAYS-A-FACT` | `STORY-002-CHECKPOINT-VOICE-PERMISSION-STAYS-A-FACT` | permission denial remains visible while typed prompt is still allowed | named checkpoint shown literally | before: waiting on permission fact; after: Step reveals typed fallback intent, Run continues sequential release | rejoin to typed fallback intent |
-| `ALCH-NAR-001-PAGE-05-INTENT-TYPED-FALLBACK` | `STORY-002-INTENT-SUBMIT-TYPED-FALLBACK` | the typed fallback is shown as its own released intent | exact fallback text remains literal | before: typed fallback available; after: Step or Run reveals checkpoint | rejoin to responding checkpoint |
-| `ALCH-NAR-001-PAGE-06-CHECKPOINT-NEW-RESPONDING-TURN` | `STORY-002-CHECKPOINT-TEXT-RECOVERY-STARTS-A-NEW-TURN` | the responding turn begins while the permission fact persists | named checkpoint shown literally | before: awaiting recovery; after: receipt review, Back, optional Machine tab | terminal pass |
-| `ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT` | Story terminal receipt | deterministic final receipt and command availability are reviewed after all visible releases | final preview and ordinary receipt remain primary | before: receipt closed; after: Back, Restart, additive evidence | terminal review state |
-| `ALCH-NAR-002-FAILED-CHECKPOINT-DEBUG` | same Story page as the failed assertion | selected Story remains visible and Debug opens on the failed checkpoint first | ordinary receipt preserved, Debug prioritized | before: Step/Run; after: Debug, Back, Restart | recoverable terminal |
-| `ALCH-NAR-003-BACK-REPLAY` | host replay to prior implemented Story page | prior page is restored by dispose / rebuild / replay | replay is explicit, not an in-place rewind | before: Back available; after: Step / Run resume | rejoins restored prior page |
-| `ALCH-NAR-004-NO-LENS-REVIEW` | same Story page truth as implemented Story | Story review remains complete without graph proof | Machine tab says `No XState lens` | before: receipt review; after: continue Story review | rejoins same Story |
-| `ALCH-NAR-005-ADVANCED-ADDITIVE-EVIDENCE` | `STORY-003` and `STORY-004` advanced receipts | timeout and stale evidence remain secondary | additive evidence stays secondary to the selected Story | before: advanced evidence hidden; after: review or exit | terminal review or live-turn rejoin |
+| detached | attach-runtime | Attach | dev/test host only | bridge/bootstrap | detached shell |
+| attached | select-story, detach-runtime | Story select, Detach | subject runtime reachable | bridge subscription | connected shell |
+| story-ready | run, step, open-inspector | Run, Step, Inspector | selected Story required | Story bootstrap | ready preview |
+| paused | step, run, back, open-inspector | Step, Run, Back, Inspector | one page per Step | gated Story execution | current page |
+| branch-boundary | choose-typed-fallback, choose-retry-microphone, back, open-inspector | branch lane, Back, Inspector | choices limited to admitted subject commands | branch provenance record, command dispatch | branch chooser + page-4 subject truth |
+| running | page-released, checkpoint-failed, story-receipt-ready, back | Run, Back | Run defaults to typed fallback unless reviewer interaction is required | Story execution | progressing preview |
+| completed | back, restart, open-inspector, detach-runtime | Back, Restart, Inspector, Detach | receipt remains ordinary truth | additive joins only | final review |
+| failed | back, restart, open-inspector | Back, Restart, Inspector | Debug first | additive joins only | failure-first review |
 
-## Guardrails for the next design round
+## Traceability from operator narrative to subject truth
 
-- MagicPath may simulate Ignite Alchemy controls, but it must derive them from
-  `ALCH-NAR-*` first and bind them to exact `STORY-*` fixture names second.
-- It must not invent substitute application domains.
-- It must keep ordinary receipt truth primary and XState evidence additive.
-- It must treat no-lens and advanced additive evidence as first-class review
-  branches, not hidden edge cases.
+| Product narrative/page | Bound subject source | Operator-visible outcome | Preview / evidence summary | Controls before / after | Terminal / rejoin |
+| --- | --- | --- | --- | --- | --- |
+| `ALCH-NAR-001-PAGE-00-LAUNCH-AND-ATTACH` | host attach state | `Ignite Alchemy` shell opens with env badge and subject connection status | host-only facts | before: launch; after: Story select | rejoin selection |
+| `ALCH-NAR-001-PAGE-04-CHECKPOINT-PERMISSION-STAYS-A-FACT` | `STORY-002` checkpoint at lines `600-613` | branch boundary is explicit in the tool lane | `startVoiceCapture: true`, `submitPrompt: true`, denial remains fact | before: Step/Run; after: choose branch or default Run | branch boundary |
+| `ALCH-NAR-001-BRANCH-TYPED-FALLBACK` | `STORY-002` intent/checkpoint at lines `615-632` | typed fallback continues the current golden pages 5-7 | exact fallback input and responding checkpoint | before: branch choice; after: receipt review | rejoins page 5 |
+| `ALCH-NAR-001-BRANCH-RETRY-PAGE-01-INTENT-START-VOICE-RETRY` | page-4 `canExecute` plus `main.test.tsx:613-632` | retry microphone is explicitly chosen and dispatches public `startVoiceCapture` | branch choice and retry command are recorded in replay/receipt provenance | before: branch choice; after: retry checkpoint | rejoins branch page 2 |
+| `ALCH-NAR-001-BRANCH-RETRY-PAGE-02-CHECKPOINT-VOICE-ATTEMPT-LISTENING` | `main.test.tsx:613-632` | child voice capture re-enters listening with a new attempt | Machine highlights the edge from permission-denied recovery posture into the child listening attempt; Inspector may show additive attempt/sequence evidence | before: retry dispatch; after: inspect or Back | alternate recoverable rejoin |
+| `ALCH-NAR-005-NO-LENS-REVIEW` | same selected Story page truth | Machine tab says exactly `No XState lens` | Story and receipt remain intact | before: receipt review; after: continue | rejoins same Story |
+| `ALCH-NAR-006-HEADLESS-CI-PARITY` | same Story/controller semantics | CI receipt aligns with tool-hosted semantics without rendering | branch default and receipt remain the same | before: CI run; after: receipt | terminal receipt |
+| `ALCH-NAR-007-PRODUCTION-ABSENCE` | build/security evidence | optimized subject application build exposes no Alchemy surface | absence proof only | before: build; after: pass/fail | terminal contract |
+
+## Deferred downstream implementation ownership
+
+- `task-1784602868853`: Story controller branch lane, branch defaulting, replay,
+  and headless parity execution.
+- `task-1784602883094`: Machine/XState topology, active-state view, retry-edge
+  highlight, and exact fallback copy.
+- `task-1784602901002`: dev/test host shell, attach/detach lifecycle, docked
+  split-pane Inspector, and subject-build production exclusion.
+- `task-1784602939863`: replay/receipt provenance, branch-choice durability,
+  and deterministic rejoin evidence.
+- `task-1784602955608`: later package/distribution decision only.

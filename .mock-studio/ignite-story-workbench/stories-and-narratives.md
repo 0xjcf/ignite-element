@@ -1,140 +1,155 @@
 # Ignite Alchemy Stories and Narratives
 
-Status: narrative gate before further visual iteration
-Recorded: 2026-07-21
+Status: narrative-ready for the dev/test companion-tool direction
+Recorded: 2026-07-22
 Task: `direct-1784661171192` / `task-1784655399770`
 Product: Ignite Alchemy
 Category: Story Workbench
 
-Ignite Alchemy is the product being designed. Its job is to help an operator
-review deterministic executable Stories without pretending to be the Voice
-Workbench application itself. This document therefore separates authority into
-two layers:
+Ignite Alchemy is a reusable development/testing companion like TanStack
+Devtools or Astro Dev Toolbar. It is not an end-user production page. Its job
+is to host deterministic Story controls, docked inspection, and receipts around
+an attached subject runtime such as Voice Workbench without becoming runtime
+authority itself.
 
-1. Product/operator authority: Ignite Alchemy user stories and narratives,
-   identified as `ALCH-US-*` and `ALCH-NAR-*`, define what the operator sees,
-   what controls exist, and what review branches the product must support.
-2. Subject-fixture authority: selected executable Stories, identified here as
-   `STORY-*`, define the preview truth, checkpoints, command availability, and
-   final receipts that Ignite Alchemy is allowed to present.
+Two linked authority layers therefore remain explicit:
 
-The product may sequence, step, replay, and contextualize review. It may not
-replace the subject-fixture truth with a new domain, a second lifecycle writer,
-or synthetic certainty.
+1. Operator/tool authority: `ALCH-US-*` and `ALCH-NAR-*` define how the
+   developer launches Alchemy in `DEV` or `TEST`, attaches a subject runtime,
+   selects a Story, steps or runs it, branches when a fixture allows multiple
+   public commands, inspects Debug/Machine/Evidence, and detaches.
+2. Subject-fixture authority: `STORY-*` and current Voice Workbench machine
+   truth define the preview facts, admitted commands, checkpoints, and final
+   receipts that Alchemy may project.
 
-## Scope and authority
+The tool may sequence, step, replay, contextualize, and inspect. It may not
+replace the subject authority, invent new machine commands, or ship itself by
+default in production builds.
 
-- Ignite Alchemy owns the operator journey, review shell, control policy, and
-  receipt-first evidence presentation.
-- `igniteTest({ component }).story(...)` remains authoritative for subject
-  Story names, page order, commands, checkpoints, `canExecute` posture, and
-  final receipts.
-- Existing Voice Workbench XState machines remain authoritative for turn,
-  capture, timeout, cancellation, permission, and stale-suppression behavior.
-- Optional Machine and Coverage surfaces remain additive product evidence, not
-  replacements for the ordinary Story receipt.
-- Controlled Step, Run, Back replay, failure-first Debug, and no-lens review
-  are Ignite Alchemy product responsibilities even when their implementation is
-  still designed rather than shipped.
+## Product and host contract
+
+- Primary local host: a dev/test-only Alchemy workspace with Story controls and
+  a docked Inspector.
+- Subject runtime: Voice Workbench renders or attaches inside the preview
+  workspace through a dev-only bridge or host adapter.
+- Tool authority boundary: Alchemy remains a projection and command surface,
+  never lifecycle authority.
+- Headless/CI parity: `igniteTest().story()` uses the same controlled
+  Story/controller semantics and receipts without rendering Alchemy.
+- Production invariant: the optimized subject application build ships no
+  Alchemy UI, route, assets, bridge/listeners, fixture data, inspection
+  endpoints, or receipts by default. Alchemy may still be served or
+  distributed separately as a dev/test tool.
+- Initial maturity: the current POC may remain example-local. Package
+  extraction, CLI, and a public Ignite Alchemy API remain later decisions.
 
 ## Product stories
 
-These are the stable user stories for Ignite Alchemy itself.
-
 | Product story ID | User story | Outcome the product must provide | Bound fixture families | Maturity |
 | --- | --- | --- | --- | --- |
-| `ALCH-US-001` | As a reviewer, I can select a deterministic Story and understand what subject fixture I am about to inspect. | Story choice, fixture summary, and review posture are visible before execution starts. | `STORY-001` to `STORY-004` | designed |
-| `ALCH-US-002` | As a reviewer, I can step or run the selected Story while keeping Given, Intent, Behavior, and Checkpoint phases legible. | The product reveals one page at a time or the full remainder without changing subject truth. | `STORY-001` to `STORY-004` | designed |
-| `ALCH-US-003` | As a reviewer, I can diagnose a failed checkpoint without losing the selected Story or ordinary receipt. | Debug opens on failure first, but the same selected fixture remains authoritative. | any selected `STORY-*` | designed |
-| `ALCH-US-004` | As a reviewer, I can move backward safely by replaying from a fresh fixture instead of rewinding state in place. | Back is explicit deterministic replay with a rejoin point. | any selected `STORY-*` | designed |
-| `ALCH-US-005` | As a reviewer, I can finish a review even when additive Machine evidence is missing. | No-lens review still preserves full Story and receipt truth. | `STORY-001` or `STORY-002` initially | designed |
-| `ALCH-US-006` | As a reviewer, I can inspect advanced stale or timeout evidence without confusing it for active application truth. | Additive evidence stays secondary to the selected Story outcome. | `STORY-003`, `STORY-004` | designed |
+| `ALCH-US-001` | As a developer, I can launch Ignite Alchemy in `DEV` or `TEST` and see which subject runtime is attached. | Tool chrome exposes environment, subject identity, and connection state before execution begins. | example-local Voice Workbench first | designed |
+| `ALCH-US-002` | As a developer, I can select a deterministic Story and understand what subject fixture I am about to inspect. | Story identity, fixture summary, and review posture are visible before execution starts. | `STORY-002` first; other stories remain future scope | designed |
+| `ALCH-US-003` | As a developer, I can step or run the selected Story while keeping Given, Intent, Behavior, Checkpoint, and branch boundaries legible. | The tool reveals one page at a time or the full remainder without changing subject truth. | `STORY-002` | designed over implemented fixture |
+| `ALCH-US-004` | As a developer, I can choose between real public subject branches when the Story pauses at a branch boundary. | Branch choice is a tool-lane input that maps to real subject commands and is recorded in replay/receipt. | `STORY-002` page-4 branch boundary | designed over implemented commands |
+| `ALCH-US-005` | As a developer, I can inspect failed checkpoints, Machine state, and Evidence without losing the selected Story or ordinary receipt. | Inspector tabs remain additive to subject truth and stay docked beside the preview. | selected `STORY-*`, initially `STORY-002` | designed |
+| `ALCH-US-006` | As a developer, I can complete the same Story deterministically in headless/CI without rendering Alchemy. | Headless receipts remain semantically aligned with the tool-hosted Story controller. | any selected `STORY-*` | designed |
+| `ALCH-US-007` | As a developer, I can prove that optimized production builds expose no Alchemy surface or inspection leakage. | Production absence is a build/security contract, not a hidden CSS state. | all future hosts | designed |
 
 ## Product narratives
 
-`ALCH-NAR-*` identifiers are the primary narrative contract for product design.
-Each narrative binds to one or more `STORY-*` fixtures for application preview
-and receipt evidence.
-
 | Narrative ID | Product narrative | Product intent | Bound `STORY-*` evidence | Terminal / rejoin | Maturity |
 | --- | --- | --- | --- | --- | --- |
-| `ALCH-NAR-001-DETERMINISTIC-STORY-REVIEW` | Golden product walkthrough | reviewer discovers executable Stories, selects one, steps one page, runs the remainder, then verifies the deterministic receipt and changed command availability | `STORY-002` as the golden subject fixture | terminal pass into receipt review | designed over implemented fixture |
-| `ALCH-NAR-002-FAILED-CHECKPOINT-DEBUG` | Failure-first Debug branch | failed checkpoint auto-opens Debug while the selected Story remains visible and ordinary receipt stays available | selected `STORY-*`, initially `STORY-002` | recoverable terminal, rejoins via Back or Restart | designed |
-| `ALCH-NAR-003-BACK-REPLAY` | Fresh-fixture deterministic replay branch | Back disposes the current run, rebuilds a fresh fixture, and rejoins the prior page without in-place rewind | any selected `STORY-*` page | rejoins the restored prior page | designed |
-| `ALCH-NAR-004-NO-LENS-REVIEW` | Full review without Machine proof | product keeps Story pages and receipt fully reviewable while Machine evidence is explicitly unavailable | selected `STORY-001` or `STORY-002` | rejoins the same review flow | designed |
-| `ALCH-NAR-005-ADVANCED-ADDITIVE-EVIDENCE` | Timeout and stale-evidence branch | advanced receipts remain inspectable but never become active product truth | `STORY-003`, `STORY-004` | terminal review or rejoins live-turn exit | designed |
+| `ALCH-NAR-001-DEVTOOL-STORY-REVIEW` | Golden dev/test tool walkthrough | developer launches Alchemy in `DEV`/`TEST`, attaches Voice Workbench, selects `STORY-002`, steps/runs it, chooses a branch when required, verifies the receipt, inspects the docked Inspector, then detaches | `STORY-002` | terminal pass into receipt/Inspector review | designed over implemented fixture |
+| `ALCH-NAR-002-ATTACH-AND-DETACH` | Attach, disconnect, restart, or HMR subject runtime | tool truthfully reflects connected, disconnected, restarting, or reattached subject runtime posture | current example-local host | recoverable; rejoins story selection | designed |
+| `ALCH-NAR-003-FAILED-CHECKPOINT-DEBUG` | Failure-first Debug branch | failed checkpoint auto-opens Inspector on Debug while the selected Story remains visible and ordinary receipt stays available | selected `STORY-*`, initially `STORY-002` | recoverable terminal | designed |
+| `ALCH-NAR-004-BACK-REPLAY` | Fresh-fixture deterministic replay branch | Back disposes the current run, rebuilds a fresh fixture, and rejoins the prior page or branch boundary without in-place rewind | selected `STORY-*` page | rejoins restored prior page or branch boundary | designed |
+| `ALCH-NAR-005-NO-LENS-REVIEW` | Full review without Machine proof | tool keeps Story pages and receipt reviewable while Machine says exactly `No XState lens` | selected `STORY-002` first | rejoins same review flow | designed |
+| `ALCH-NAR-006-HEADLESS-CI-PARITY` | Headless receipt parity | CI and headless Story execution use the same controller semantics and branch defaults without rendering Alchemy | selected `STORY-*`, initially `STORY-002` | terminal receipt | designed |
+| `ALCH-NAR-007-PRODUCTION-ABSENCE` | Production absence invariant | optimized subject application build exposes no Alchemy UI, route, bridge, or inspection surface while Alchemy remains a separate dev/test tool | build/security contract | terminal pass/fail contract | designed |
 
 ## Subject-fixture portfolio
-
-These executable Stories are the subject matter Ignite Alchemy reviews. They
-are not the product narratives themselves.
 
 | Story ID | Executable Story | Why this fixture matters | Commands | Named checkpoints | Final view / receipt posture | Maturity |
 | --- | --- | --- | --- | --- | --- | --- |
 | `STORY-001` | `preparation failure retries into ready` | clean retry-to-ready recovery path and simplest pass receipt | `beginModelPreparation` | `ready after retry` | final view returns to `status: "ready"` with `model.status: "available"` and `submitPrompt: true` | implemented |
-| `STORY-002` | `microphone permission denial recovers to typed prompt` | golden subject fixture because it clearly spans Given, Intent, Behavior, Checkpoint, second Intent, and second Checkpoint | `startVoiceCapture`, `submitPrompt` | `voice permission stays a fact`, `text recovery starts a new turn` | final view stays `status: "responding"` while `voiceState: "permission"` remains visible | implemented |
+| `STORY-002` | `microphone permission denial recovers to typed prompt` | golden subject fixture because page 4 exposes two real public recovery commands and the later pages prove deterministic continuation | `startVoiceCapture`, `submitPrompt` | `voice permission stays a fact`, `text recovery starts a new turn` | final view stays `status: "responding"` while `voiceState: "permission"` remains visible | implemented |
 | `STORY-003` | `timed out turn retries to an accepted response` | timeout, retry, artifact creation, and accepted completion as ordinary deterministic truth | `submitPrompt`, `createArtifact`, `completeResponse` | `timeout returns the turn to idle`, `retry can finish with an accepted artifact`, `accepted retry returns to ready` | final view returns to `status: "ready"` with accepted response text and retained artifact revision `1` | implemented |
 | `STORY-004` | `stale correlated model receipts stay inert until the live turn ends` | additive stale-evidence branch and live-correlation proof | `submitPrompt` plus actor-owned cancel events | `cancelled first turn returns idle`, `second turn is responding`, `stale port result stays inert`, `live correlation still controls exit` | final view returns to `status: "ready"` only when the live turn ends | implemented |
 
-## Subject-fixture truth register
+## Golden devtool walkthrough over `STORY-002`
 
-| Story ID | Executable Story | Starting view and `canExecute` | Commands actually issued by the fixture | Reviewer-visible page truth | Final view / `canExecute` truth |
-| --- | --- | --- | --- | --- | --- |
-| `STORY-001` | `preparation failure retries into ready` | Given waits for `snapshot.matches("unavailable")`, `view.status: "failed"`, `model.status: "failed"`, `submitPrompt: false` | `beginModelPreparation` | one retry intent, one external availability behavior, one ready checkpoint | `status: "ready"`, `model.status: "available"`, `submitPrompt: true`, `startVoiceCapture: true` |
-| `STORY-002` | `microphone permission denial recovers to typed prompt` | Given waits for `available.turn.idle`, `view.status: "ready"`, `voiceState: "idle"`, `startVoiceCapture: true`, `submitPrompt: true` | `startVoiceCapture`, `submitPrompt` with `{ modality: "text", text: "Continue with text fallback." }` | microphone denial remains a fact, then typed prompt starts a new responding turn | `status: "responding"`, `voiceState: "permission"`, `createArtifact: true`, `completeResponse: false` |
-| `STORY-003` | `timed out turn retries to an accepted response` | Given waits for `available.turn.idle`, `view.status: "ready"`, `submitPrompt: true` | `submitPrompt` timeout pass 1, `submitPrompt` retry pass 2, `createArtifact`, `completeResponse` | timeout returns idle, retry keeps responding with artifact revision `1`, accepted completion returns ready | `status: "ready"`, `response.text: "Recovered after timeout."`, retained artifact `timeout-recovery@1`, `submitPrompt: true` |
-| `STORY-004` | `stale correlated model receipts stay inert until the live turn ends` | Given waits for `available.turn.idle`, `view.status: "ready"`, `submitPrompt: true` | `submitPrompt` first turn, actor-owned cancel, `submitPrompt` live turn | stale first-turn result must not move the live turn or overwrite lifecycle | live turn remains authoritative until its own cancel returns `status: "ready"` |
-
-## Golden product walkthrough
-
-The product golden walkthrough is `ALCH-NAR-001-DETERMINISTIC-STORY-REVIEW`.
-Its bound subject fixture is `STORY-002`, not because Ignite Alchemy is a Voice
-Workbench redesign, but because that fixture best demonstrates the product's
-review value.
-
-Acceptance evidence for this gate includes the user direction from this review
-cycle to "correct the documents and then proceed," which explicitly authorizes
-the clarified product narrative to become the design gate before more visual
-iteration.
-
-### `ALCH-NAR-001-DETERMINISTIC-STORY-REVIEW` over `STORY-002`
-
-| Product page ID | Product phase | Bound fixture page | Reviewer-visible product outcome | Fixture evidence shown in preview / receipt | Controls before / after | Terminal / rejoin |
+| Product page ID | Product phase | Bound fixture page | Operator-visible tool outcome | Fixture evidence shown in preview / receipt | Controls before / after | Terminal / rejoin |
 | --- | --- | --- | --- | --- | --- | --- |
-| `ALCH-NAR-001-PAGE-01-DISCOVER-GIVEN` | Discover / Given | `STORY-002-GIVEN-READY` | reviewer sees the Story catalog, selects the microphone-denial fixture, and understands that the preview is ready for review | exact Story name, starting `view.status: "ready"`, `voiceState: "idle"`, `startVoiceCapture: true`, `submitPrompt: true`, `submitVoiceTranscript: false` | before: Story selection; after: Step or Run | rejoin to first release |
-| `ALCH-NAR-001-PAGE-02-STEP-INTENT-START-VOICE` | Step / Intent | `STORY-002-INTENT-START-VOICE` | one page is released and the operator sees that voice capture was explicitly requested | command trace shows `startVoiceCapture` and pending permission result | before: Step or Run; after: Step reveals permission behavior, Run begins sequential remainder release | rejoin to permission behavior |
-| `ALCH-NAR-001-PAGE-03-BEHAVIOR-PERMISSION-DENIED` | Behavior | `STORY-002-BEHAVIOR-PERMISSION-DENIED` | the application preview visibly preserves the permission denial rather than silently recovering | correlated denial evidence and permission failure message remain visible as fixture truth | before: permission result pending; after: Step or Run reveals the permission checkpoint | rejoin to permission checkpoint |
-| `ALCH-NAR-001-PAGE-04-CHECKPOINT-PERMISSION-STAYS-A-FACT` | Checkpoint | `STORY-002-CHECKPOINT-VOICE-PERMISSION-STAYS-A-FACT` | the product keeps the permission fact visible and shows that typed prompt remains available | named checkpoint `voice permission stays a fact`; `voiceState: "permission"`, `startVoiceCapture: true`, `submitPrompt: true`, `submitVoiceTranscript: false` | before: Step or Run; after: Step reveals typed fallback intent, Run continues sequential remainder release | rejoin to typed fallback intent |
-| `ALCH-NAR-001-PAGE-05-INTENT-TYPED-FALLBACK` | Intent | `STORY-002-INTENT-SUBMIT-TYPED-FALLBACK` | the operator sees that typed fallback, not voice retry, starts the next turn | exact fallback input `{ modality: "text", text: "Continue with text fallback." }` is inspectable | before: typed fallback available; after: Step or Run reveals the new-turn checkpoint | rejoin to responding checkpoint |
-| `ALCH-NAR-001-PAGE-06-CHECKPOINT-NEW-RESPONDING-TURN` | Checkpoint | `STORY-002-CHECKPOINT-TEXT-RECOVERY-STARTS-A-NEW-TURN` | the application preview moves into a new responding turn without clearing the permission fact | named checkpoint `text recovery starts a new turn`; final preview remains `status: "responding"`, `voiceState: "permission"`, `createArtifact: true`, `completeResponse: false` | before: Step or Run; after: receipt review, Back replay, Debug, Machine if present | terminal pass into receipt review |
-| `ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT` | Verify receipt | Story terminal receipt | the operator verifies the deterministic final receipt and changed command availability for the selected fixture after every visible release has been surfaced | final view remains `status: "responding"`, `voiceState: "permission"`, `createArtifact: true`, `completeResponse: false` | before: receipt closed; after: Back, Restart, open additive evidence | terminal review state |
+| `ALCH-NAR-001-PAGE-00-LAUNCH-AND-ATTACH` | Launch / Attach | host attach surface | developer sees `Ignite Alchemy`, `DEV` or `TEST`, and subject status such as `Local · Voice Workbench · Connected` | host/bridge state only; no subject mutation implied | before: launch or attach; after: Story select | rejoin to story selection |
+| `ALCH-NAR-001-PAGE-01-DISCOVER-GIVEN` | Discover / Given | `STORY-002-GIVEN-READY` | developer sees the attached Voice Workbench fixture and confirms the preview is ready for review | `view.status: "ready"`, `voiceState: "idle"`, `startVoiceCapture: true`, `submitPrompt: true` | before: select Story; after: Step or Run | rejoin to first release |
+| `ALCH-NAR-001-PAGE-02-STEP-INTENT-START-VOICE` | Intent | `STORY-002-INTENT-START-VOICE` | one page is released and the tool shows that voice capture was explicitly requested | command trace shows `startVoiceCapture` and pending permission result | before: Step or Run; after: permission behavior | rejoin to permission behavior |
+| `ALCH-NAR-001-PAGE-03-BEHAVIOR-PERMISSION-DENIED` | Behavior | `STORY-002-BEHAVIOR-PERMISSION-DENIED` | the attached preview visibly preserves the permission denial rather than silently recovering | correlated denial evidence and permission failure message remain visible as fixture truth | before: permission result pending; after: checkpoint | rejoin to page 4 |
+| `ALCH-NAR-001-PAGE-04-CHECKPOINT-PERMISSION-STAYS-A-FACT` | Checkpoint / Branch boundary | `STORY-002-CHECKPOINT-VOICE-PERMISSION-STAYS-A-FACT` | tool pauses at the branch boundary and shows two admitted recovery choices in the Alchemy control lane while the preview keeps the real microphone and typed controls | named checkpoint `voice permission stays a fact`; `startVoiceCapture: true`; `submitPrompt: true`; `submitVoiceTranscript: false` | before: Step or Run; after: choose branch or continue default golden branch | branch boundary; rejoin depends on branch |
+| `ALCH-NAR-001-PAGE-05-INTENT-TYPED-FALLBACK` | Intent | `STORY-002-INTENT-SUBMIT-TYPED-FALLBACK` | under the declared golden branch, the tool issues typed fallback and the preview shows that same input | exact input `{ modality: "text", text: "Continue with text fallback." }` is inspectable | before: typed fallback selected or defaulted by Run; after: responding checkpoint | rejoin to page 6 |
+| `ALCH-NAR-001-PAGE-06-CHECKPOINT-NEW-RESPONDING-TURN` | Checkpoint | `STORY-002-CHECKPOINT-TEXT-RECOVERY-STARTS-A-NEW-TURN` | the attached preview moves into a new responding turn without clearing the permission fact | named checkpoint `text recovery starts a new turn`; final preview remains `status: "responding"` and `voiceState: "permission"` | before: branch continuation; after: receipt/Inspector review | terminal pass into page 7 |
+| `ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT` | Verify receipt | Story terminal receipt | the developer verifies the deterministic final receipt, branch choice, and changed command posture after every visible release has surfaced | final view remains `status: "responding"`, `voiceState: "permission"`, `createArtifact: true`, `completeResponse: false` | before: receipt hidden; after: Back, Restart, inspect tabs, detach | terminal review state |
+| `ALCH-NAR-001-PAGE-08-CLOSE-OR-DETACH` | Close / Detach | host detach surface | developer closes or detaches Alchemy without mutating production behavior | host/bridge disposal facts only | before: close/detach; after: detached or closed | terminal host state |
 
-## Material product branches
+## Page-4 admitted subject branches
 
-Every material branch belongs to Ignite Alchemy first and binds to fixture
-truth second.
+Current Voice Workbench source proves exactly two public recovery branches at
+page 4:
 
-| Narrative branch ID | Product branch | Bound `STORY-*` evidence | Required product behavior | Rejoin / terminal |
-| --- | --- | --- | --- | --- |
-| `ALCH-NAR-002-FAILED-CHECKPOINT-DEBUG` | failed checkpoint auto-opens Debug | same selected fixture page where the assertion fails, initially from `STORY-002` | Debug opens on the failed checkpoint first while the selected Story, preview, and ordinary receipt remain intact | recoverable terminal; rejoin via Back or Restart |
-| `ALCH-NAR-003-BACK-REPLAY` | Back performs fresh-fixture deterministic replay | any selected fixture page | dispose current review run, rebuild a fresh fixture, replay deterministically to the prior page, then continue from there | rejoins restored prior page |
-| `ALCH-NAR-004-NO-LENS-REVIEW` | no-lens review retains full Story and receipt truth | selected `STORY-001` or `STORY-002` without Machine evidence | Machine tab says `No XState lens` while Story review and receipt remain complete | rejoins same Story review |
-| `ALCH-NAR-005-ADVANCED-ADDITIVE-EVIDENCE` | advanced stale evidence remains additive | `STORY-003` timeout receipts and `STORY-004` stale-result receipts | advanced receipts may be inspected in Debug or evidence tabs but never replace active application truth | terminal review or rejoin to live-turn exit |
+- `examples/agents/voice-workbench/src/workbench-narratives.test.ts:600-613`
+  records `startVoiceCapture: true` and `submitPrompt: true` at checkpoint
+  `voice permission stays a fact`.
+- `examples/agents/voice-workbench/src/main.test.tsx:613-632` proves the
+  microphone button remains public after denial and starts a new voice attempt.
 
-## Product-to-fixture traceability
+| Branch ID | Branch type | Subject fact | Operator action in Alchemy | Bound subject command | Stable pages | Rejoin / terminal | Subject maturity | Operator maturity |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `ALCH-NAR-001-BRANCH-TYPED-FALLBACK` | golden continuation | text fallback is publicly admitted at page 4 | choose typed fallback in the runner lane or allow Run to use the declared default | `submitPrompt` | pages 5-7 as currently defined | rejoins page 5 and terminates at receipt review | implemented | designed over implemented command |
+| `ALCH-NAR-001-BRANCH-RETRY-MICROPHONE` | alternate recovery | microphone retry is publicly admitted at page 4 after denial | choose retry microphone in the runner lane | `startVoiceCapture` | `ALCH-NAR-001-BRANCH-RETRY-PAGE-01-INTENT-START-VOICE-RETRY`, `ALCH-NAR-001-BRANCH-RETRY-PAGE-02-CHECKPOINT-VOICE-ATTEMPT-LISTENING` | alternate rejoin into the next voice attempt in `listening`; later terminal outcome stays under subject authority | implemented | designed over implemented command |
 
-| Product narrative | Operator-facing promise | Bound subject fixture truth | What the product may project | What the product may not invent |
-| --- | --- | --- | --- | --- |
-| `ALCH-NAR-001-DETERMINISTIC-STORY-REVIEW` | deterministic story review with Step and Run | `STORY-002` page order, checkpoints, command availability, and final receipt | Story catalog, page lane, application preview, receipt-first review surface | substitute application domain or a different checkpoint vocabulary |
-| `ALCH-NAR-002-FAILED-CHECKPOINT-DEBUG` | failure-first diagnosis | failing selected fixture checkpoint | Debug drawer, failure framing, ordinary receipt side-by-side | synthetic success receipt or automatic fixture mutation |
-| `ALCH-NAR-003-BACK-REPLAY` | safe backward navigation | same selected fixture replayed from scratch | replay status, restored prior page, deterministic audit note | in-place rewind or hidden state scrub |
-| `ALCH-NAR-004-NO-LENS-REVIEW` | complete review with missing Machine evidence | same selected fixture pages and receipt | explicit `No XState lens` messaging | fake graph or downgraded Story truth |
-| `ALCH-NAR-005-ADVANCED-ADDITIVE-EVIDENCE` | additive advanced evidence | `STORY-003` and `STORY-004` timeout / stale receipts | secondary Machine, Debug, or Coverage context | stale evidence becoming active product truth |
+### `ALCH-NAR-001-BRANCH-RETRY-MICROPHONE` page materialization
 
-## Design gate for the next visual round
+| Branch page ID | Phase | Bound subject truth | Operator-visible outcome | Evidence boundary | Controls before / after | Rejoin |
+| --- | --- | --- | --- | --- | --- | --- |
+| `ALCH-NAR-001-BRANCH-RETRY-PAGE-01-INTENT-START-VOICE-RETRY` | Intent | page-4 denial checkpoint still admits `startVoiceCapture: true` | reviewer explicitly chooses Retry microphone in the Alchemy lane and the tool dispatches the public `startVoiceCapture` command | branch choice, command trace, and branch provenance are recorded; no transcript or acceptance is implied | before: branch boundary; after: next voice attempt checkpoint | rejoins retry branch page 2 |
+| `ALCH-NAR-001-BRANCH-RETRY-PAGE-02-CHECKPOINT-VOICE-ATTEMPT-LISTENING` | Checkpoint | retry behavior in `examples/agents/voice-workbench/src/main.test.tsx:613-632` shows a new voice attempt entering listening after denial | preview remains on the same subject experience while the next voice attempt becomes active; Inspector may show additive details like a new attempt id or sequence increment | prove only new attempt/listening truth and command/evidence correlation; do not invent transcript success, second denial, or cancel | before: retry dispatch; after: inspect, continue later branch work, or Back replay | alternate recoverable rejoin at active listening attempt |
 
-No further MagicPath iteration should proceed until the reviewer shell is
-designed from the `ALCH-US-*` and `ALCH-NAR-*` product contract above, with
-selected `STORY-*` fixtures supplying preview and receipt truth underneath it.
-Later visual work may simplify layout, but it must not collapse Ignite Alchemy
-into a redesign of the Voice Workbench subject application.
+## Tool-lane branch and replay policy
+
+- Step pauses at the page-4 branch boundary instead of silently choosing a
+  future path.
+- Branch choice is an Alchemy input recorded in replay and ordinary receipt
+  provenance.
+- Run uses the declared golden typed-fallback branch unless reviewer
+  interaction is required.
+- Back rebuilds to the branch boundary when needed, and changing choice
+  truncates future evidence before replaying the newly selected path.
+- The branch chooser belongs in Alchemy's runner/control lane. The subject
+  preview continues to show its real microphone retry and typed input controls.
+
+## Production absence invariant
+
+`ALCH-NAR-007-PRODUCTION-ABSENCE` is a build/security contract for the
+optimized subject application build:
+
+- no Alchemy route;
+- no Alchemy shell or assets;
+- no dev bridge/listeners;
+- no fixture data or receipts;
+- no inspection endpoints; and
+- no accidental production-mode toggle that reveals hidden devtools.
+
+This invariant must be proven by build/exclusion receipts, not by a hidden CSS
+state.
+
+## Downstream implementation follow-through
+
+- `task-1784602868853` must implement the Story controller branch lane,
+  branch-default policy, replay semantics, and headless parity.
+- `task-1784602883094` must implement the Machine/XState lens, including the
+  retry-edge highlight and exact `No XState lens` fallback.
+- `task-1784602901002` must implement the dev/test host shell, attach/detach
+  lifecycle, docked split Inspector, and production exclusion.
+- `task-1784602939863` must harden replay/receipt provenance for branch choice
+  and rejoin semantics.
+- `task-1784602955608` remains the package/distribution decision after
+  dogfooding rather than part of this example-local pass.
