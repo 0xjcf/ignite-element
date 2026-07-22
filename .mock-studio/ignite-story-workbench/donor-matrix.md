@@ -1,77 +1,57 @@
 # Ignite Alchemy Donor Matrix
 
-Status: interaction-verified candidate recorded; exact viewport recheck pending
-Recorded: 2026-07-21
+Status: Round 2 rejected; Round 3 published candidates awaiting root browser
+validation and human visual selection
+Recorded: 2026-07-22
 Task: `direct-1784661171192` / `task-1784655399770`
-Selection: rejected donors archived; Round 2 published candidate is interaction-verified and awaiting exact viewport recheck plus human visual approval
 
 ## Artifact register
 
-| Artifact ID | Kind | Direction | MagicPath component | Generated name | Component ID | Revision ID | Share/API URL | Disposition |
+| Artifact ID | Kind | Direction | MagicPath component | Generated name | Component ID | Revision ID | URL | Disposition |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `DIR-A` | first-round donor | Evidence Ledger | Ignite Alchemy Evidence Ledger | `calm-pool-4819` | `430398641119842304` | `430398641119842305` | `https://api.magicpath.ai/v1/calm-pool-4819` | rejected by human feedback as over-engineered |
 | `DIR-B` | first-round donor | Reaction Map | Ignite Alchemy Reaction Map | `noble-creek-8025` | `430398641077891072` | `430398641077891073` | `https://api.magicpath.ai/v1/noble-creek-8025` | rejected by human feedback as over-engineered |
-| `ROUND-2` | replacement candidate | Story Runner | Ignite Alchemy Story Runner | `dreamily-forest-8280` | `430424171277877248` | `430443925757644800` | `https://api.magicpath.ai/v1/dreamily-forest-8280` | interaction-verified candidate; exact viewport recheck and human visual approval pending |
+| `ROUND-2` | rejected candidate | Story Runner | Ignite Alchemy Story Runner | `dreamily-forest-8280` | `430424171277877248` | `430443925757644800` | `https://www.magicpath.ai/files/430424171277877248` | rejected by human feedback for kitchen-sink density and excessive simultaneous detail |
+| `ROUND-3A` | published candidate | Canvas Runner | Ignite Alchemy Canvas Runner | `keenly-wood-5115` | `430498394188955648` | `430498394188955649` | `https://www.magicpath.ai/files/430498394188955648` | published candidate awaiting root browser validation and human selection |
+| `ROUND-3B` | published candidate | Focus Runner | Ignite Alchemy Focus Runner | `vibrantly-second-1236` | `430498394214125568` | `430498394214125569` | `https://www.magicpath.ai/files/430498394214125568` | published candidate awaiting root browser validation and human selection |
 
-## Reviewer contract carried into Round 2
+## Reviewer contract carried forward
 
-The replacement candidate preserves the required reviewer experience that the
-first-round donors were trying to cover:
+Both Round 3 candidates were authored from the same narrative contract rather
+than by extending the rejected Round 2 surface:
 
-- Story selection with a compact left rail
-- Run, Step, Back, and Restart controls in a restrained header
-- dominant application-under-test preview
-- Given -> Intent -> Behavior -> Checkpoint progress lane
-- compact result bar
-- collapsed Debug drawer that auto-opens on failure
-- failure/current checkpoint, Context diff, Receipt, Machine, and Coverage tabs
-- exact, candidate, and unavailable evidence language
-- local `No XState lens` explanation instead of a global topology-first layout
+- exact `ALCH-NAR-001-PAGE-01` through `PAGE-07` sequencing over `STORY-002`;
+- one-page Step progression and visibly sequential Run progression;
+- Back as deterministic replay that truncates future releases;
+- Restart as a fresh reset to page 1;
+- compact ordinary receipt summary at completion;
+- failed checkpoint path that auto-opens Details on the failed assertion;
+- `No XState lens` confined to Machine details only; and
+- timeout and stale evidence kept latent until explicitly requested.
 
-## Why the replacement direction won
+## Why Round 3 replaced Round 2
 
-| Requirement | First-round donor gap | `ROUND-2` response |
+| Requirement | Rejected `ROUND-2` gap | Round 3 response |
 | --- | --- | --- |
-| literal reviewer shell | both donors leaned into concept-heavy framing | uses literal Story/Checkpoint/Receipt/Debug terms throughout |
-| progressive disclosure | both donors kept too much evidence visible at once | keeps Debug collapsed until needed and auto-opens only on failure |
-| application-first review | both donors gave too much hierarchy to supporting evidence | centers the application preview and keeps evidence secondary |
-| deterministic pass/fail | both donors read as atmospheric proof surfaces | result bar and state machine stay explicit about Ready, Running, Paused, Replay, Receipt ready, and Failed |
-| constrained topology posture | `DIR-B` made the graph a primary visual language | Machine tab is local and explains unavailable/candidate evidence without dominating the shell |
-| lower-complexity iteration path | both donors would need large hierarchy reductions | replacement artifact started directly from the accepted simpler contract |
+| progressive disclosure | too many simultaneous panes and signals | both candidates reduce the persistent shell to the current step and dominant preview |
+| restrained developer-tool posture | Story Runner read as a kitchen sink | Canvas and Focus use neutral chrome with restrained copper status cues |
+| bounded structure | permanent detail density competed with the preview | additive details move into a latent drawer opened manually or by failure |
+| review-first narrative | branch surface felt ever-present | failure, no-lens, and advanced evidence are reachable from an overflow test-state menu |
+| variant comparison | only one visual answer existed | Round 3 publishes two distinct but equally restrained shells for selection |
 
-## Round 2 interaction coverage
+## Candidate distinction
 
-| Surface or state | `ROUND-2` posture |
-| --- | --- |
-| `STATE-IDLE-SELECTION` | Story rail plus summary header keep the shell ready-focused |
-| `STATE-PAUSED-STEP` | Step advances from page 1 to exactly `ALCH-NAR-001-PAGE-02-STEP-INTENT-START-VOICE`, with Back and Restart enabled |
-| `STATE-BACK-REPLAY` | Back from page 7 replays to page 6 and returns page 7 to pending, proving future-release truncation |
-| `STATE-COMPLETED-RECEIPT` | Run reaches `ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT`, `Receipt ready`, and ordinary receipt accepted |
-| `STATE-ASSERTION-FAILURE` | failure auto-opens Debug and pins the failed checkpoint first |
-| `STATE-EVIDENCE-EXACT` | exact chip plus receipt language stay literal |
-| `STATE-EVIDENCE-CANDIDATE` | candidate cue is local to the Story and Machine tab |
-| `STATE-EVIDENCE-UNAVAILABLE` | Machine tab explains `No XState lens` without inventing a graph |
-| `STATE-UNCOVERED-GAP` | Coverage tab keeps uncovered and excluded items additive, not blocking the shell |
-
-## Browser measurement posture
-
-| Browser control request | Reported inner size | Observed shell posture | Evidence boundary |
+| Candidate | Persistent structure | Distinguishing trait | Browser status |
 | --- | --- | --- | --- |
-| `1440x900` | `1800x1125` | readable two-column rail-plus-primary composition | no observed overflow and min product-button height `44px` at the reported inner size; exact 1440x900 CSS viewport not verified |
-| `1280x800` | `1600x1000` | readable two-column rail-plus-primary composition | no observed overflow and min product-button height `44px` at the reported inner size; exact 1280x800 CSS viewport not verified |
-| `1024x800` | `1280x1000` | `232px` Story rail plus `965px` primary work area with full-width Review Details below | no observed overflow and min product-button height `44px` at the reported inner size; exact 1024x800 collapse not verified |
-
-The browser host mapped each control request to a reported inner size 1.25 times
-larger. These are useful responsive samples, but they are not acceptance
-receipts for the exact requested CSS viewports.
-
-Keyboard focus receipt:
-
-- Tabbing from Run focused Step with settled two-ring box shadow
-  `0 0 0 2px rgba(9,13,19,.92), 0 0 0 4px rgba(255,148,74,.72)`.
+| `ROUND-3A` / Canvas Runner | compact `210px`-class Story rail plus dominant main stage | visible rail keeps fixture choice available without adding a permanent detail column | awaiting root browser validation |
+| `ROUND-3B` / Focus Runner | single dominant main stage with toolbar picker | no persistent sidebar; Story access stays in the toolbar | awaiting root browser validation |
 
 ## Decision gate
 
-`DIR-A` and `DIR-B` remain archived first-round donors only. `ROUND-2` is the
-interaction-verified candidate, but exact viewport verification and human
-visual approval remain pending, so it is not admitted to POC yet.
+`DIR-A`, `DIR-B`, and `ROUND-2` remain provenance only. `ROUND-3A` and
+`ROUND-3B` are the only active visual candidates, and neither is admitted to
+POC until:
+
+- root browser validation records the real interaction and responsive posture;
+  then
+- a human selects or rejects the published direction.

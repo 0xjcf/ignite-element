@@ -1,169 +1,88 @@
 {
-	"status": "complete",
-	"recordedAt": "2026-07-21",
-	"taskId": "direct-1784661171192",
-	"queueTaskId": "task-1784655399770",
-	"approvalGate": "interaction_verified_exact_viewports_and_human_visual_approval_pending",
-	"browserAcceptance": {
-		"interaction": "pass",
-		"exactResponsiveViewports": "pending_recheck",
-		"reason": "Browser control requests mapped to reported window inner sizes 1.25 times larger; observed samples do not prove the exact requested CSS viewports."
-	},
-	"publishedArtifact": {
-		"artifactId": "ROUND-2",
-		"componentName": "Ignite Alchemy Story Runner",
-		"projectId": "430393512920518656",
-		"componentId": "430424171277877248",
-		"revisionId": "430443925757644800",
-		"generatedName": "dreamily-forest-8280",
-		"designUrl": "https://designs.magicpath.ai/v1/dreamily-forest-8280",
-		"projectUrl": "https://www.magicpath.ai/files/430393512920518656",
-		"componentShareUrl": "https://www.magicpath.ai/files/430424171277877248",
-		"shareApiUrl": "https://api.magicpath.ai/v1/dreamily-forest-8280",
-		"submitStatus": "completed",
-		"requiresClientResync": true
-	},
-	"archivedDonors": [
-		{
-			"artifactId": "DIR-A",
-			"direction": "Evidence Ledger",
-			"componentId": "430398641119842304",
-			"revisionId": "430398641119842305",
-			"generatedName": "calm-pool-4819",
-			"disposition": "rejected_by_human_feedback_over_engineered"
-		},
-		{
-			"artifactId": "DIR-B",
-			"direction": "Reaction Map",
-			"componentId": "430398641077891072",
-			"revisionId": "430398641077891073",
-			"generatedName": "noble-creek-8025",
-			"disposition": "rejected_by_human_feedback_over_engineered"
-		}
-	],
-	"interactionReceipts": {
-		"step": {
-			"fromPage": "ALCH-NAR-001-PAGE-01-DISCOVER-GIVEN",
-			"toPage": "ALCH-NAR-001-PAGE-02-STEP-INTENT-START-VOICE",
-			"status": "Paused",
-			"backEnabled": true,
-			"restartEnabled": true
-		},
-		"run": {
-			"terminalPage": "ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT",
-			"status": "Receipt ready",
-			"ordinaryReceiptAccepted": true
-		},
-		"back": {
-			"fromPage": "ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT",
-			"toPage": "ALCH-NAR-001-PAGE-06-CHECKPOINT-NEW-RESPONDING-TURN",
-			"mechanism": "replay",
-			"futureReleaseTruncationVerified": true,
-			"returnedPendingPageId": "ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT"
-		},
-		"restart": {
-			"returnedPage": "ALCH-NAR-001-PAGE-01-DISCOVER-GIVEN",
-			"backEnabled": false,
-			"restartEnabled": false
-		},
-		"failureBranch": {
-			"terminalPage": "ALCH-NAR-001-PAGE-04-CHECKPOINT-PERMISSION-STAYS-A-FACT",
-			"status": "failed",
-			"debugAutoOpened": true,
-			"firstDrawerView": "failed checkpoint"
-		},
-		"noLensBranch": {
-			"terminalPage": "ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT",
-			"selectedStoryVisible": true,
-			"ordinaryReceiptAccepted": true,
-			"machineText": "No XState lens"
-		},
-		"advancedBranch": {
-			"terminalPage": "ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT",
-			"ordinaryReceiptAccepted": true,
-			"coverageAdditiveReceipts": [
-				"STORY-003 timeout receipt remains secondary",
-				"STORY-004 stale receipt remains secondary"
-			]
-		},
-		"console": {
-			"warnings": 0,
-			"errors": 0
-		}
-	},
-	"viewportReceipts": [
-		{
-			"browserControlRequest": {
-				"width": 1440,
-				"height": 900
-			},
-			"reportedInner": {
-				"width": 1800,
-				"height": 1125
-			},
-			"reportedScaleFromRequest": 1.25,
-			"exactCssViewportVerified": false,
-			"composition": "two_column_rail_plus_primary",
-			"horizontalOverflow": false,
-			"unexpectedElementOverflow": false,
-			"minProductButtonHeightPx": 44
-		},
-		{
-			"browserControlRequest": {
-				"width": 1280,
-				"height": 800
-			},
-			"reportedInner": {
-				"width": 1600,
-				"height": 1000
-			},
-			"reportedScaleFromRequest": 1.25,
-			"exactCssViewportVerified": false,
-			"composition": "two_column_rail_plus_primary",
-			"horizontalOverflow": false,
-			"unexpectedElementOverflow": false,
-			"minProductButtonHeightPx": 44
-		},
-		{
-			"browserControlRequest": {
-				"width": 1024,
-				"height": 800
-			},
-			"reportedInner": {
-				"width": 1280,
-				"height": 1000
-			},
-			"reportedScaleFromRequest": 1.25,
-			"exactCssViewportVerified": false,
-			"composition": "two_column_rail_plus_primary",
-			"storyRailWidthPx": 232,
-			"primaryWorkAreaWidthPx": 965,
-			"reviewDetailsPlacement": "full_width_below",
-			"horizontalOverflow": false,
-			"unexpectedElementOverflow": false,
-			"minProductButtonHeightPx": 44
-		}
-	],
-	"focusReceipt": {
-		"path": "Tab from Run to Step",
-		"settledBoxShadow": "0 0 0 2px rgba(9,13,19,.92), 0 0 0 4px rgba(255,148,74,.72)"
-	},
-	"contrastReceipt": {
-		"titleAgainstBaseBackground": "16.7:1",
-		"copyAgainstBaseBackground": "10.67:1",
-		"mutedAgainstBaseBackground": "6.21:1",
-		"monoAgainstBaseBackground": "13.1:1",
-		"buttonInkOnEmber": "7.75:1"
-	},
-	"reducedMotionReceipt": {
-		"liveBrowserQuery": false,
-		"liveEmulationVerified": false,
-		"sourceContractPresent": true,
-		"sourceContract": {
-			"css": "published CSS media rule forces animation and transition duration to 0.01ms",
-			"js": "published JS observes prefers-reduced-motion and shortens Run and Back timers"
-		},
-		"status": "ready_with_extension",
-		"limitation": "No live reduced-motion browser pass is claimed because the observed browser query was false."
-	}
+  "status": "complete",
+  "recordedAt": "2026-07-22",
+  "taskId": "direct-1784661171192",
+  "queueTaskId": "task-1784655399770",
+  "approvalGate": "round3_candidates_published_root_browser_validation_and_human_visual_selection_pending",
+  "narrativeReadiness": {
+    "status": "pass",
+    "goldenNarrative": "ALCH-NAR-001-DETERMINISTIC-STORY-REVIEW",
+    "designDrivingPages": [
+      "ALCH-NAR-001-PAGE-01-DISCOVER-GIVEN",
+      "ALCH-NAR-001-PAGE-02-STEP-INTENT-START-VOICE",
+      "ALCH-NAR-001-PAGE-03-BEHAVIOR-PERMISSION-DENIED",
+      "ALCH-NAR-001-PAGE-04-CHECKPOINT-PERMISSION-STAYS-A-FACT",
+      "ALCH-NAR-001-PAGE-05-INTENT-TYPED-FALLBACK",
+      "ALCH-NAR-001-PAGE-06-CHECKPOINT-NEW-RESPONDING-TURN",
+      "ALCH-NAR-001-PAGE-07-VERIFY-RECEIPT"
+    ],
+    "materialBranches": [
+      "ALCH-NAR-002-FAILED-CHECKPOINT-DEBUG",
+      "ALCH-NAR-003-BACK-REPLAY",
+      "ALCH-NAR-004-NO-LENS-REVIEW",
+      "ALCH-NAR-005-ADVANCED-ADDITIVE-EVIDENCE"
+    ],
+    "blockingGaps": []
+  },
+  "rejectedArtifact": {
+    "artifactId": "ROUND-2",
+    "componentName": "Ignite Alchemy Story Runner",
+    "componentId": "430424171277877248",
+    "revisionId": "430443925757644800",
+    "generatedName": "dreamily-forest-8280",
+    "disposition": "rejected_by_human_feedback",
+    "reason": "kitchen-sink density and excessive simultaneous detail"
+  },
+  "publishedCandidates": [
+    {
+      "artifactId": "ROUND-3A",
+      "componentName": "Ignite Alchemy Canvas Runner",
+      "componentId": "430498394188955648",
+      "revisionId": "430498394188955649",
+      "generatedName": "keenly-wood-5115",
+      "componentShareUrl": "https://www.magicpath.ai/files/430498394188955648",
+      "previewImageUrl": "https://storage.googleapis.com/storage.magicpath.ai/component-previews/0be9d315-0a35-4ad9-ac41-edd4133efe68.png",
+      "requiresClientResync": true,
+      "authoringViewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "shellProfile": "compact_story_rail_plus_dominant_preview",
+      "validationStatus": "awaiting_root_browser_validation_and_human_selection"
+    },
+    {
+      "artifactId": "ROUND-3B",
+      "componentName": "Ignite Alchemy Focus Runner",
+      "componentId": "430498394214125568",
+      "revisionId": "430498394214125569",
+      "generatedName": "vibrantly-second-1236",
+      "componentShareUrl": "https://www.magicpath.ai/files/430498394214125568",
+      "previewImageUrl": "https://storage.googleapis.com/storage.magicpath.ai/component-previews/373803bc-d083-47b9-aee8-0eb9b5bd1a6c.png",
+      "requiresClientResync": true,
+      "authoringViewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "shellProfile": "toolbar_picker_plus_single_dominant_stage",
+      "validationStatus": "awaiting_root_browser_validation_and_human_selection"
+    }
+  ],
+  "magicpathSubmitReceipts": [
+    {
+      "artifactId": "ROUND-3A",
+      "firstSubmitAttempt": "failed_tailwind_v4_index_css_constraint",
+      "finalSubmitStatus": "completed"
+    },
+    {
+      "artifactId": "ROUND-3B",
+      "firstSubmitAttempt": "failed_tailwind_v4_index_css_constraint",
+      "finalSubmitStatus": "completed"
+    }
+  ],
+  "verificationReceipts": {
+    "approvalMarkdownlint": "pass",
+    "browserValidation": "not_recorded_in_this_turn",
+    "responsiveValidation": "not_recorded_in_this_turn",
+    "reducedMotionLiveValidation": "not_recorded_in_this_turn"
+  }
 }

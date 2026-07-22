@@ -1,6 +1,7 @@
 # Ignite Alchemy Approval Gate
 
-Status: narrative-ready for a new material round; human visual approval pending
+Status: narrative-ready with Round 3 candidates published; root browser
+validation and human visual approval pending
 Recorded: 2026-07-22
 Task: `direct-1784661171192` / `task-1784655399770`
 
@@ -86,9 +87,17 @@ visual direction or donor for the next material round.
 
 ## Current gate
 
-The next material round is admitted because narrative readiness passed and the
-new human direction is explicit. The next decision after new candidates are
-published is:
+The next material round was admitted because narrative readiness passed and the
+new human direction was explicit. That round has now produced two published
+candidates:
+
+- `ROUND-3A` / Ignite Alchemy Canvas Runner / `keenly-wood-5115` /
+  component `430498394188955648`
+- `ROUND-3B` / Ignite Alchemy Focus Runner / `vibrantly-second-1236` /
+  component `430498394214125568`
+
+Both candidates are published but unvalidated in-browser at the repo level, so
+the next decision remains:
 
 - root browser validation of the new candidates; then
 - human visual/design approval before POC.
