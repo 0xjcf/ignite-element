@@ -133,6 +133,8 @@ Fixed decisions:
 - There is no implicit retry.
 - One teardown failure preserves and rejects with the original error.
 - Multiple teardown failures reject with `AggregateError`.
+- After `dispose_failed`, every later `dispose()` call returns the exact same
+  rejected `Promise` object and never re-runs cleanup.
 - The source remains readable after disposal. Disposal does not imply
   stop/close/unsubscribe/abort unless a registered teardown performs that work
   explicitly.
