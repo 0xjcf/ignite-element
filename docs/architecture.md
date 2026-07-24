@@ -10,6 +10,8 @@ The short version:
 - adapters normalize runtime/library facts into stable Ignite contracts
 - `ignite-element` is the projection, assembly, and runtime-host surface
 - `ignite-renderer` stays renderer-only
+- source-native provisioning and host-boundary rules live in
+  [`docs/source-native-provisioning.md`](./source-native-provisioning.md)
 
 If code crosses those boundaries, it is wrong even when it appears to work.
 
@@ -28,6 +30,11 @@ The repo is layered as packages, but the responsibility model is hexagonal:
   the DOM, and renderer environments into normalized facts
 - the shell assembles projections, renderer integration, and host lifecycle into
   a usable component/runtime surface
+
+For the normative `createFeature({ ports, setup })` target contract, the
+source-native binding boundary, the disposal/error rules, and the retained
+Canvas/Cytoscape boundary, see
+[`docs/source-native-provisioning.md`](./source-native-provisioning.md).
 
 ## Package Responsibilities
 
@@ -115,9 +122,9 @@ It does not own:
 | --- | --- | --- |
 | Intent | consumer commands and declared events surfaced through `ignite-element` | Commands are the public intent surface. Declared events are the outward fact surface for hosts, tests, and headless runtimes. |
 | Deterministic decision | consumer-owned actors/state machines plus `ignite-core` contracts | Ignite supplies typed contracts and adapter-neutral helpers. Product behavior remains in the consuming source. |
-| Workflow and lifecycle | source lifecycles plus `ignite-element` host lifecycle | Ignite starts, watches, and releases adapters for DOM and headless usage; it does not own FAS workflow lifecycle or external orchestration policy. |
+| Workflow and lifecycle | source lifecycles plus `ignite-element` host lifecycle | Ignite starts, watches, and releases adapters for DOM and headless usage; it does not own FAS workflow lifecycle or external orchestration policy. Source-native provisioning and explicit feature disposal are standardized separately in [`docs/source-native-provisioning.md`](./source-native-provisioning.md). |
 | Imperative execution over time | `ignite-adapters` plus `ignite-element` runtime host coordination | Runtime-library integration, subscriptions, setup, cleanup, and command execution live at the edge. |
-| Projection | `ignite-element` projection assembly | `view`, `commands`, `effects`, and schema metadata turn source snapshots into a stable UI/runtime contract. |
+| Projection | `ignite-element` projection assembly | `view`, `commands`, `effects`, and schema metadata turn source snapshots into a stable UI/runtime contract. Effects are the outward fact layer; the normative host/effect boundary lives in [`docs/source-native-provisioning.md`](./source-native-provisioning.md). |
 | Product composition | `ignite-element` package surface, then consumer apps on top | Ignite assembles the package family into a reusable component/runtime surface. Consumer apps compose those surfaces into products. |
 
 ## Current Fact Vs Target State
@@ -128,6 +135,7 @@ It does not own:
 | Boundary rules | `.fas-config.json` and `.fas/architecture-rules.json` define the committed repo map. | FAS and CI both evaluate the same committed rules before release. |
 | Actor-web integration | Ignite supports an optional actor-web adapter surface; that is compatibility, not a claim that this repo owns actor-web orchestration boundaries. | A later cross-repo contract can name actor-web's runtime role explicitly once that repository confirms it. |
 | FAS integration | FAS remains a workflow participant around this repo's planning and verification artifacts. Ignite owns repo-local architecture facts. | FAS may consume the committed Ignite boundary map, but product semantics stay in Ignite and consumer apps. |
+| Source-native provisioning | Current shipped behavior passes a bound source into `igniteCore(...)`; host access still exists in current callback contexts. | `docs/source-native-provisioning.md` defines the accepted `createFeature({ ports, setup })` contract, labels current-vs-target host semantics, and rejects `driver`/`igniteEnvironment`/`ports` on `igniteCore(...)`. |
 
 ## Explanatory Topology
 
@@ -186,6 +194,10 @@ UI should never:
 
 Instead, `ignite-element` converts snapshots plus commands/effects into a stable
 render/runtime surface.
+
+The projection boundary does not own environment selection, source-native
+binding, or retained-resource lifecycle. Those are fixed separately in
+[`docs/source-native-provisioning.md`](./source-native-provisioning.md).
 
 ### Renderer Boundary
 
@@ -248,10 +260,13 @@ these responsibilities.
 When adding a feature:
 
 1. Identify the source that owns the behavior.
-2. Express new intent and fact events through explicit contracts.
-3. Add or extend adapters only for runtime/library integration.
-4. Project the resulting meaning through `ignite-element`.
-5. Render declaratively on top of that projected contract.
+2. Bind concrete adapters through the source library's native provisioning
+   mechanism, not through `igniteCore(...)`.
+3. Express new intent and fact events through explicit contracts.
+4. Add or extend adapters only for runtime/library integration.
+5. Project the resulting meaning through `ignite-element`.
+6. Render declaratively on top of that projected contract, keeping retained
+   resources in presentation-owned ref or commit code.
 
 If a change requires behavior in UI, adapters, or renderer code, the boundary is
 probably wrong.

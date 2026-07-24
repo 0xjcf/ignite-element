@@ -18,6 +18,10 @@ across the three surfaces a consumer or agent touches:
 Those surfaces have drifted. This pass realigns them while we are pre-stable and can
 still make breaking changes cheaply.
 
+For the normative source-native provisioning, `createFeature({ ports, setup })`
+target contract, disposal/error semantics, and host-boundary language, see
+[`docs/source-native-provisioning.md`](./source-native-provisioning.md).
+
 ## Principle
 
 Same concept → same word → same shape, on author / observe / assert. Prefer the
@@ -39,6 +43,7 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
 | `ignite-element/react` schema-driven wrapper + registration handle | `ignite-react.md` | additive (gap) | design ✓, task reshaped (1781805261094) |
 | `getSchema().view` — expose the typed view projection in the schema | this doc | additive (gap) | task queued 2026-06-21 (needs typed-view) |
 | `igniteTools(component)` — getSchema → LLM tool-use bridge (agent analog of `igniteReact`) | `ignite-tools.md` | additive (gap) | design ✓, task queued 2026-06-21 |
+| Source-native provisioning + `createFeature({ ports, setup })` | `source-native-provisioning.md` | architecture / additive | accepted target contract; implementation remains evidence-gated |
 
 ## Intentional — document, do not "fix"
 
@@ -51,6 +56,9 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
   (removed beta.8 for a unified one-source surface — every adapter takes one `source`;
   the command actor derives from it, writable iff it exposes `send`). A source can
   still bundle reads + writes internally.
+- **Capability `ports` vocabulary is reserved** for source-native environmental
+  capability interfaces, not for Ignite callback arguments or render args. See
+  `source-native-provisioning.md`.
 
 ## Sequencing
 
@@ -116,6 +124,7 @@ main-merge**, which blocks the stable cut — see `docs/v3-stable-roadmap.md`.
 
 - `docs/v3-stable-roadmap.md` — the phased plan + dependency spine to stable.
 - `docs/effects-change-detection.md`, `docs/event-shape.md`,
-  `docs/view-context-canonicalization.md`, `docs/ignite-shell.md`
+  `docs/view-context-canonicalization.md`, `docs/ignite-shell.md`,
+  `docs/source-native-provisioning.md`
 - Memory: `v3-api-consistency-epic`, `ignite-monorepo-dual-state-lib-skew`,
   `expose-source-native-api`

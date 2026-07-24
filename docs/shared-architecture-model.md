@@ -16,6 +16,10 @@ jobs:
 - separate current facts from inferred or target-state alignment work
 - keep explanatory topology sketches from being mistaken for compliance truth
 
+The normative source-native provisioning, host boundary, and feature-disposal
+contract for this repository lives in
+[`docs/source-native-provisioning.md`](./source-native-provisioning.md).
+
 ### Legend
 
 - `Current fact`: supported by files, package structure, or workflow surfaces in
@@ -56,6 +60,10 @@ This repository directly grounds the following package families:
 | `ignite-adapters` | translation between Ignite contracts and external runtime sources, normalized into stable runtime facts | deterministic decision, workflow and lifecycle, imperative execution over time | canonical business policy, renderer ownership, projection assembly, product composition |
 | `ignite-renderer` | renderer registration and renderer-specific runtime utilities | projection | workflow policy, orchestration topology, product grammar |
 | `ignite-element` | projection, assembly, runtime host coordination, and public Web Component/headless runtime surface | imperative execution over time, projection, product composition | ecosystem orchestration topology, provider/model ownership, repo-external composition authority |
+
+The accepted target for application-owned `createFeature({ ports, setup })`
+composition does not move this ownership into Ignite. It standardizes how
+consumers arrive at the already-bound source before they call `igniteCore(...)`.
 
 ### Why the Ignite mapping is grounded
 
@@ -103,11 +111,16 @@ Current fact:
   workspace
 - `ignite-element` exposes optional integration surfaces, including actor-web
   entrypoints, without claiming ownership of external orchestration
+- current callback surfaces still expose physical `host` access as compatibility
+  behavior
 
 Target state:
 
 - keep ADR-003 and the local package map aligned as the repo evolves
 - make any future cross-repo adoption language explicit, bounded, and evidenced
+- keep the accepted source-native provisioning contract and current compatibility
+  host access clearly separated, per
+  [`docs/source-native-provisioning.md`](./source-native-provisioning.md)
 
 ### `actor-web`
 
@@ -177,6 +190,8 @@ Current fact:
   such as shared versus isolated scope
 - FAS workflow files in this repository encode explicit task phases and
   verification stages for repo operation
+- application-owned feature disposal is an accepted target documented separately
+  in [`docs/source-native-provisioning.md`](./source-native-provisioning.md)
 
 ### Imperative execution over time
 
@@ -184,6 +199,11 @@ Current fact:
 
 - adapter integrations and the `ignite-element` runtime host deal with
   subscriptions, setup, cleanup, and headless runtime execution
+
+Target state:
+
+- source-native binding remains outside Ignite and is standardized around the
+  accepted `createFeature({ ports, setup })` boundary
 
 ### Projection
 
@@ -193,6 +213,13 @@ Current fact:
   metadata into a stable projected surface
 - `ignite-renderer` consumes that projected surface to execute a renderer
   strategy
+
+Target state:
+
+- effects are documented as outward post-render facts rather than a generic
+  imperative escape hatch
+- retained Canvas/Cytoscape lifecycle stays in presentation-owned ref or commit
+  code rather than projection or effect ownership
 
 ### Product composition
 
@@ -235,6 +262,8 @@ this:
 - topology diagrams remain explanatory, not compliance truth by themselves
 - optional integrations remain additive rather than mandatory runtime
   dependencies
+- source-native provisioning remains consumer or source-library composition, not
+  `igniteCore(...)` configuration
 
 ## Open Questions And Follow-Ups
 
@@ -244,3 +273,6 @@ this:
   exist, instead of carrying target-state notes in each repo?
 - Are there any remaining local docs that still imply dependency truth where the
   contract only supports explanatory topology?
+- Once `createFeature({ ports, setup })` ships, should this companion add a
+  short current-fact receipt section that points back to
+  [`docs/source-native-provisioning.md`](./source-native-provisioning.md)?
