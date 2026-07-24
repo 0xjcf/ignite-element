@@ -25,9 +25,11 @@ The repo is layered as packages, but the responsibility model is hexagonal:
 
 - behavior remains in consumer-owned actors, machines, stores, or equivalent
   sources
-- ports are the event, command, state, effect, and render-arg contracts
+- capability ports name environmental needs consumed by source behavior
 - adapters translate concrete runtimes such as XState, Redux, MobX, actor-web,
   the DOM, and renderer environments into normalized facts
+- events, commands, state/snapshot, effects, and render args are Ignite
+  contracts and projection callback surfaces, not ports
 - the shell assembles projections, renderer integration, and host lifecycle into
   a usable component/runtime surface
 
