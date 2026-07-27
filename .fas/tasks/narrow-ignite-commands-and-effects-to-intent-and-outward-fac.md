@@ -96,6 +96,180 @@ effects: ({ snapshot, select, emit }) => {
 - Do not fold routing, cross-adapter provisioning, retained ref/commit implementation, or Ignite Alchemy work into this task.
 - Do not introduce a generic port registry, lifecycle container, or replacement host capability on igniteCore.
 
+## Architecture Context
+
+This task inherits the normalized architecture context accepted by
+`task-1784909239951` without reconstructing or weakening its ownership model.
+
+```json
+{
+  "schemaVersion": 1,
+  "responsibilityAxis": {
+    "intent": [
+      "Standardize environmental integration around source-owned behavior, explicit capability ports, application-provided adapters, exact native sources, and native lifecycle ownership without turning Ignite into a dependency-injection or disposal runtime."
+    ],
+    "behavior": [
+      "A source library owns state transitions, dependency binding, and the lifecycle of environmental resources attached to that source.",
+      "The consuming application selects concrete adapters and constructs the exact XState, Redux, MobX, Actor-Web, or custom source passed to Ignite.",
+      "Ignite projects source state, sends command intent, publishes outward facts through effects, and delegates node-bound retained resources to presentation ref and commit callbacks."
+    ],
+    "policies": [
+      "Commands express intent and never mutate a host or environment directly.",
+      "Ignite effects publish outward post-render facts and do not own environmental I/O, source cleanup, or retained resources.",
+      "Capability ports describe environmental needs; concrete adapters are bound through the selected source library native composition APIs.",
+      "igniteCore receives the exact supported source and no wrapper, port bag, driver, environment, provide hook, or disposal policy.",
+      "Native source cleanup and retained presentation cleanup remain distinct ownership boundaries."
+    ],
+    "capabilities": [
+      {
+        "name": "environment-independent application behavior",
+        "qualifier": "business",
+        "owner": "application domain source"
+      },
+      {
+        "name": "source-native provisioning and lifecycle",
+        "qualifier": "runtime",
+        "owner": "selected source library and consuming application"
+      },
+      {
+        "name": "architecture-boundary reasoning and conformance",
+        "qualifier": "agent-model",
+        "owner": "Ignite architecture standard and FAS roles"
+      },
+      {
+        "name": "DOM projection and retained interface lifecycle",
+        "qualifier": "host-product",
+        "owner": "Ignite renderer plus consuming presentation code"
+      }
+    ],
+    "ports": [
+      "application capability interfaces consumed by source behavior",
+      "source command and snapshot contracts consumed by Ignite Core",
+      "outward effect-fact callbacks consumed by application observers",
+      "presentation ref and commit callbacks for retained renderer resources"
+    ],
+    "adapters": [
+      "browser navigation, storage, network, and clock implementations",
+      "Node filesystem, process, transport, and clock implementations",
+      "deterministic fake implementations for tests",
+      "XState provide, Redux construction or middleware injection, MobX constructor or factory injection, and Actor-Web source composition",
+      "DOM, Canvas, Cytoscape, editor, and similar presentation adapters"
+    ],
+    "infrastructure": [
+      "browser and Node host APIs",
+      "XState, Redux, MobX, Actor-Web, and custom source runtimes",
+      "DOM and retained presentation instances"
+    ],
+    "projections": [
+      "Ignite DOM or headless output derived from exact source state",
+      "outward transition facts published by effects",
+      "retained Canvas and Cytoscape updates committed from current projection data"
+    ]
+  },
+  "executionAxis": {
+    "functionalCore": [
+      "deterministic state transitions and policy decisions",
+      "commands as source-directed intent",
+      "capability contracts with no concrete host imports",
+      "projection data derived from source snapshots"
+    ],
+    "imperativeShell": [
+      "select concrete browser, Node, test, or transport adapters",
+      "bind implementations through source-library-native composition",
+      "start and stop shared sources through native lifecycle APIs",
+      "acquire and release node-bound retained resources through ref cleanup",
+      "synchronize retained presentation from current projection data through commit"
+    ]
+  },
+  "ownership": [
+    {
+      "owner": "application domain source",
+      "responsibilities": [
+        "own behavior, policy, commands, and accepted transitions",
+        "depend on capability contracts rather than concrete host APIs"
+      ],
+      "maturity": "current"
+    },
+    {
+      "owner": "source-library composition",
+      "responsibilities": [
+        "bind concrete implementations through native APIs",
+        "return the exact source consumed by Ignite",
+        "define native source start, stop, shutdown, cancellation, and subscription cleanup"
+      ],
+      "maturity": "current"
+    },
+    {
+      "owner": "Ignite Core",
+      "responsibilities": [
+        "consume exact source snapshots and native command targets",
+        "remain independent of ports, environment adapters, and application lifecycle wrappers"
+      ],
+      "maturity": "current"
+    },
+    {
+      "owner": "Ignite Element presentation",
+      "responsibilities": [
+        "project source state into DOM and headless targets",
+        "publish outward facts through effects",
+        "provide retained ref and commit seams without taking source ownership"
+      ],
+      "maturity": "target"
+    }
+  ],
+  "maturity": [
+    {
+      "claim": "Ignite Core consumes source contracts and remains independent of concrete host APIs.",
+      "status": "current",
+      "evidenceRefs": [
+        "docs/architecture.md",
+        "docs/shared-architecture-model.md"
+      ]
+    },
+    {
+      "claim": "Exact source-only provisioning is the accepted canonical pattern.",
+      "status": "target",
+      "evidenceRefs": [
+        ".fas/tasks/define-the-canonical-source-native-provisioning-and-host-bou.md"
+      ]
+    },
+    {
+      "claim": "Effects publish outward facts, commands express source intent, and retained ref and commit own only node-bound presentation resources.",
+      "status": "transitional",
+      "evidenceRefs": [
+        ".fas/tasks/narrow-ignite-commands-and-effects-to-intent-and-outward-fac.md",
+        ".fas/tasks/implement-typed-retained-node-refs-and-move-safe-resource-li.md"
+      ]
+    }
+  ],
+  "boundaries": [
+    "Functional cores may name capabilities but may not import concrete browser, DOM, Node, Canvas, Cytoscape, provider, or transport implementations.",
+    "Applications bind concrete ports through native source-library composition and pass only the exact result to igniteCore.",
+    "Ignite Core receives no source wrapper, concrete ports, drivers, environments, provide hooks, or disposal policy.",
+    "Native source lifecycle owns behavior-related listeners, timers, transports, cancellation, and shutdown.",
+    "Presentation ref and commit own node-bound retained resource identity and updates but never source lifecycle."
+  ],
+  "forbiddenCouplings": [
+    "Domain machines, reducers, or models import concrete host or provider APIs.",
+    "igniteCore accepts ports, drivers, environments, provisioning hooks, source wrappers, or application disposal policy.",
+    "Commands mutate the host before source acceptance.",
+    "Ignite effects own environmental I/O, source feedback, listener lifetime, or retained renderer identity.",
+    "ref or commit creates, wraps, starts, stops, or disposes the source.",
+    "Headless source composition depends on DOM globals or custom-element lifecycle."
+  ],
+  "evidenceRefs": [
+    ".fas/tasks/define-the-canonical-source-native-provisioning-and-host-bou.md",
+    ".fas/tasks/refactor-routing-examples-to-source-native-navigation-ports-.md",
+    ".fas/tasks/dogfood-source-native-provisioning-across-redux-mobx-node-an.md",
+    ".fas/tasks/enforce-source-provisioning-boundaries-and-decide-the-minima.md",
+    ".fas/tasks/implement-typed-retained-node-refs-and-move-safe-resource-li.md",
+    "docs/architecture.md",
+    "docs/v3-api-consistency.md",
+    "docs/shared-architecture-model.md"
+  ]
+}
+```
+
 ## Affected files
 
 - packages/ignite-core/src/RenderArgs.ts
