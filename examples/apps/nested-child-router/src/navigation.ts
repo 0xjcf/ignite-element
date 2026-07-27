@@ -16,12 +16,10 @@ export type MemoryNavigation = NavigationPort & {
 	rejectNextCommit(error: unknown): void;
 };
 
-type BrowserNavigationResult =
-	| {
-			committed?: Promise<unknown>;
-			finished?: Promise<unknown>;
-	  }
-	| void;
+type BrowserNavigationResult = {
+	committed?: Promise<unknown>;
+	finished?: Promise<unknown>;
+} | void;
 
 type BrowserNavigationEvent = Event & {
 	canIntercept?: boolean;
@@ -57,13 +55,18 @@ const toPath = (url: string | undefined): string => {
 	return path === "" ? "/" : path;
 };
 
-const sameOrigin = (left: string | undefined, right: string | undefined): boolean => {
+const sameOrigin = (
+	left: string | undefined,
+	right: string | undefined,
+): boolean => {
 	if (!left || !right) {
 		return true;
 	}
 
-	return new URL(left, "https://example.test").origin ===
-		new URL(right, "https://example.test").origin;
+	return (
+		new URL(left, "https://example.test").origin ===
+		new URL(right, "https://example.test").origin
+	);
 };
 
 const isInterceptableNavigation = (
@@ -143,7 +146,7 @@ export const createBrowserNavigation = (
 			trackSuppressedPath(path);
 			try {
 				const result = navigation.navigate(path, { history });
-				await result?.committed ?? result?.finished ?? Promise.resolve();
+				(await result?.committed) ?? result?.finished ?? Promise.resolve();
 			} finally {
 				releaseSuppressedPath(path);
 			}
@@ -151,7 +154,9 @@ export const createBrowserNavigation = (
 	};
 };
 
-export const createMemoryNavigation = (initialPath: string): MemoryNavigation => {
+export const createMemoryNavigation = (
+	initialPath: string,
+): MemoryNavigation => {
 	let currentPath = initialPath;
 	let nextCommitError: unknown;
 	const listeners = new Set<(path: string) => void>();

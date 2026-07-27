@@ -117,12 +117,10 @@ describe("nested child router core", () => {
 		expect(shouldHandleClientNavigation(click({ button: 1 }))).toBe(false);
 		expect(shouldHandleClientNavigation(click({ metaKey: true }))).toBe(false);
 		expect(shouldHandleClientNavigation(click({ ctrlKey: true }))).toBe(false);
-		expect(shouldHandleClientNavigation(click({ shiftKey: true }))).toBe(
-			false,
-		);
+		expect(shouldHandleClientNavigation(click({ shiftKey: true }))).toBe(false);
 		expect(shouldHandleClientNavigation(click({ altKey: true }))).toBe(false);
-		expect(shouldHandleClientNavigation(click({ defaultPrevented: true }))).toBe(
-			false,
-		);
+		expect(
+			shouldHandleClientNavigation(click({ defaultPrevented: true })),
+		).toBe(false);
 	});
 });

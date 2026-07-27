@@ -7,7 +7,10 @@ const createFakeNavigation = (initialUrl = "https://example.test/") => {
 	let currentUrl = initialUrl;
 	const listeners = new Set<NavigateListener>();
 
-	const dispatchNavigate = (url: string, overrides: Record<string, unknown> = {}) => {
+	const dispatchNavigate = (
+		url: string,
+		overrides: Record<string, unknown> = {},
+	) => {
 		let intercepted = false;
 		const event = {
 			type: "navigate",

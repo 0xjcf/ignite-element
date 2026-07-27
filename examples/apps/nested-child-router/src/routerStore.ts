@@ -4,7 +4,10 @@ import { createRouterSource } from "./routerSource";
 type NavigationWindow = Window & {
 	navigation?: EventTarget & {
 		currentEntry?: { url?: string };
-		navigate: (path: string, options?: { history?: "push" | "replace" }) => {
+		navigate: (
+			path: string,
+			options?: { history?: "push" | "replace" },
+		) => {
 			committed?: Promise<unknown>;
 			finished?: Promise<unknown>;
 		};
@@ -32,9 +35,11 @@ export const routerSource = createRouterSource({
 	navigation: createBrowserNavigation(resolveBrowserNavigation()),
 });
 
-const hot = (import.meta as ImportMeta & {
-	hot?: { dispose(callback: () => void): void };
-}).hot;
+const hot = (
+	import.meta as ImportMeta & {
+		hot?: { dispose(callback: () => void): void };
+	}
+).hot;
 
 if (hot) {
 	hot.dispose(() => {
