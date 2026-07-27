@@ -246,15 +246,11 @@ describe("createComponentFactory", () => {
 		});
 		const commands = ({
 			actor,
-			host,
 		}: {
 			actor: { send: (event: CounterEvent) => void };
-			host: HTMLElement;
 		}) => ({
-			increment: () => {
-				const amountAttr = host.getAttribute("data-amount");
-				const amount = amountAttr ? Number(amountAttr) : 1;
-				host.setAttribute("data-last-amount", String(amount));
+			increment: (amount = 1) => {
+				seenAmounts.push(amount);
 				actor.send({ type: "INC" });
 			},
 		});
@@ -276,11 +272,12 @@ describe("createComponentFactory", () => {
 			state: CounterState;
 			send: (event: CounterEvent) => void;
 			count: number;
-			increment: () => void;
+			increment: (amount?: number) => void;
 		};
 
 		const elementName = `ccf-events-${crypto.randomUUID()}`;
 		let latestArgs: EventArgs | undefined;
+		const seenAmounts: number[] = [];
 
 		factory(elementName, (args) => {
 			latestArgs = args;
@@ -288,7 +285,6 @@ describe("createComponentFactory", () => {
 		});
 
 		const element = document.createElement(elementName);
-		element.setAttribute("data-amount", "5");
 		const order: string[] = [];
 		vi.spyOn(adapter, "send").mockImplementation(() => {
 			order.push("send");
@@ -297,9 +293,9 @@ describe("createComponentFactory", () => {
 		document.body.appendChild(element);
 		expect(latestArgs).toBeDefined();
 
-		latestArgs?.increment();
+		latestArgs?.increment(5);
 
-		expect(element.getAttribute("data-last-amount")).toBe("5");
+		expect(seenAmounts).toEqual([5]);
 		expect(order).toEqual(["send"]);
 	});
 

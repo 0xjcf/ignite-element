@@ -350,7 +350,6 @@ export function createProjectionFactory<
 			const commandResult = commandCallback({
 				actor,
 				command: commandHelper as CommandHelper<Snapshot>,
-				host,
 			});
 			ensureFacadeResult(commandResult, "commands", errorPrefix);
 
@@ -383,7 +382,6 @@ export function createProjectionFactory<
 				value: attachEffects({
 					adapter,
 					effects,
-					resolveActor,
 					resolveSnapshot,
 					host,
 					emit: safeEmit,

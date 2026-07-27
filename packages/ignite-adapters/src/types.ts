@@ -61,13 +61,11 @@ type ReduxBlueprintBaseConfig<
 type ReduxBlueprintEffectsConfig<
 	Source extends ReduxBlueprintSource,
 	Events extends EventMap,
-	Host,
 > = {
 	effects?: FacadeEffectsObjectCallback<
 		InferStateAndEvent<Source>["State"],
 		ReduxCommandActorFor<Source>,
-		Events,
-		Host
+		Events
 	>;
 };
 
@@ -87,7 +85,7 @@ export type ReduxBlueprintConfig<
 	CommandsResult,
 	Host
 > &
-	ReduxBlueprintEffectsConfig<Source, Events, Host>;
+	ReduxBlueprintEffectsConfig<Source, Events>;
 
 type ReduxInstanceBaseConfig<
 	StoreInstance extends ReduxInstanceSource,
@@ -118,13 +116,11 @@ type ReduxInstanceBaseConfig<
 type ReduxInstanceEffectsConfig<
 	StoreInstance extends ReduxInstanceSource,
 	Events extends EventMap,
-	Host,
 > = {
 	effects?: FacadeEffectsObjectCallback<
 		InferStateAndEvent<StoreInstance>["State"],
 		ReduxCommandActorFor<StoreInstance>,
-		Events,
-		Host
+		Events
 	>;
 };
 
@@ -144,7 +140,7 @@ export type ReduxInstanceConfig<
 	CommandsResult,
 	Host
 > &
-	ReduxInstanceEffectsConfig<StoreInstance, Events, Host>;
+	ReduxInstanceEffectsConfig<StoreInstance, Events>;
 
 type MobxBaseConfig<
 	State extends object,

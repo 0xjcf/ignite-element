@@ -203,17 +203,17 @@ describe("ignite test DSL types", () => {
 		const component = igniteCore({
 			adapter: "xstate",
 			source: machine,
-			commands: ({ actor, host }) => ({
-				readHost: () => {
-					void host.dataset.moduleId;
+			commands: ({ actor, command }) => ({
+				readModule: command((moduleId: string) => {
+					void moduleId;
 					actor.send({ type: "PING" });
-				},
+				}),
 			}),
 		});
 
 		const hostOptionTyping = () => {
 			const host = document.createElement("section");
-			igniteTest({ component, host }).canExecute("readHost");
+			igniteTest({ component, host }).canExecute("readModule");
 
 			// @ts-expect-error - the host seam must satisfy the HTMLElement contract
 			igniteTest({ component, host: new EventTarget() });

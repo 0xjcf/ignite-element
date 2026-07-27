@@ -314,8 +314,7 @@ export type ActorWebConfig<
 	effects?: FacadeEffectsObjectCallback<
 		ActorWebExtendedState<Context>,
 		ActorWebCommandActor<Context, Message, Emitted>,
-		Events,
-		HTMLElement
+		Events
 	>;
 } & ActorWebConfigSource<Context, Message, Emitted, Source>;
 

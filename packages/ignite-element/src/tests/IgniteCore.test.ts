@@ -720,7 +720,6 @@ describe("igniteCore", () => {
 			snapshot,
 			prevSnapshot,
 			emit,
-			host,
 		}: FacadeEffectArgs<
 			EventStoreState,
 			ReduxStoreCommandActor<typeof store>,
@@ -728,15 +727,14 @@ describe("igniteCore", () => {
 			HTMLElement
 		>) => {
 			if (snapshot.counter.count === prevSnapshot.counter.count) {
-				return;
+				return undefined;
 			}
 
-			const amountAttr = host.getAttribute("data-amount");
-			const amount = amountAttr ? Number(amountAttr) : 1;
 			emit({
 				type: "counter-incremented",
-				amount,
+				amount: snapshot.counter.count - prevSnapshot.counter.count,
 			});
+			return undefined;
 		};
 		const register = igniteCore({
 			adapter: "redux",
@@ -771,7 +769,7 @@ describe("igniteCore", () => {
 				throw new Error("Unexpected event type");
 			}
 			order.push("emit");
-			expect(event.detail.amount).toBe(4);
+			expect(event.detail.amount).toBe(1);
 		});
 		element.addEventListener("counter-incremented", listener);
 		document.body.appendChild(element);
@@ -941,6 +939,53 @@ describe("igniteCore", () => {
 		expect(consoleError).toHaveBeenCalledWith(
 			"[igniteCore] Effect callback failed.",
 			effectError,
+		);
+	});
+
+	it("fails closed when an untyped JavaScript effect returns a thenable", async () => {
+		const store = counterStore();
+		type StoreState = ReturnType<typeof store.getState>;
+		const effectError = new Error("thenable failed");
+		const consoleError = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => {});
+		const register = igniteCore({
+			adapter: "redux",
+			source: store,
+			commands: ({ actor }) => ({
+				increment: () => actor.dispatch(counterSlice.actions.increment()),
+			}),
+			effects: (({
+				snapshot,
+				prevSnapshot,
+			}: {
+				snapshot: StoreState;
+				prevSnapshot: StoreState;
+			}) => {
+				if (snapshot.counter.count === prevSnapshot.counter.count) {
+					return undefined;
+				}
+
+				return {
+					then: (
+						_resolve?: (value: unknown) => void,
+						reject?: (reason: unknown) => void,
+					) => {
+						reject?.(effectError);
+					},
+				};
+			}) as unknown as ReduxInstanceConfig<typeof store>["effects"],
+		});
+
+		await register.execute({ command: "increment" });
+		await flushMicrotasks();
+
+		expect(consoleError).toHaveBeenCalledWith(
+			"[igniteCore] Effect callback failed.",
+			expect.objectContaining({
+				message:
+					"[igniteCore] Effect callbacks must return void. Move async work into the source and emit outward facts from accepted state transitions.",
+			}),
 		);
 	});
 

@@ -874,10 +874,10 @@ describe("igniteCore type inference", () => {
 
 		igniteCoreXState({
 			source: machine,
-			commands: ({ actor, host }) => ({
+			commands: ({ actor, command }) => ({
 				noop: () => {
 					void actor;
-					void host;
+					void command;
 				},
 			}),
 		});
@@ -968,12 +968,12 @@ describe("igniteCore type inference", () => {
 				sort: snapshot.context.sort,
 			}),
 			commands: ({ actor }) => ({
-				trigger: () => {
-					actor.send({ type: "PING" });
-				},
-			}),
-			effects: ({ actor, emit }) => {
-				const { activeTournamentId, sort } = actor.getSnapshot().context;
+					trigger: () => {
+						actor.send({ type: "PING" });
+					},
+				}),
+			effects: ({ snapshot, emit }) => {
+				const { activeTournamentId, sort } = snapshot.context;
 				emit({
 					type: "leaderboardRefresh",
 					tournamentId: activeTournamentId,
@@ -1081,18 +1081,25 @@ describe("igniteCore type inference", () => {
 
 		void assertNoCommandEmit;
 
-		igniteCoreXState({
-			source: machine,
-			events: (event) => ({
-				legacy: event<{ email: string }>(),
-			}),
-			commands: ({ actor, host }) => ({
-				trigger: () => {
-					void actor;
-					void host;
-				},
-			}),
-		});
+		const assertNoCommandHost = () => {
+			igniteCoreXState({
+				source: machine,
+				events: (event) => ({
+					legacy: event<{ email: string }>(),
+				}),
+				commands: (
+					// @ts-expect-error host has been removed from command context
+					{ actor, host },
+				) => ({
+					trigger: () => {
+						void actor;
+						void host;
+					},
+				}),
+			});
+		};
+
+		void assertNoCommandHost;
 	});
 
 	it("types the agent runtime surface", () => {
@@ -1288,9 +1295,9 @@ describe("igniteCore type inference", () => {
 				count: snapshot.context.count,
 				ready: snapshot.context.ready,
 			}),
-			commands: ({ actor, host }) => ({
+			commands: ({ actor, command }) => ({
 				increment: () => {
-					void host;
+					void command;
 					actor.send({ type: "INCREMENT" });
 				},
 				reset: () => actor.send({ type: "RESET" }),
@@ -1299,13 +1306,9 @@ describe("igniteCore type inference", () => {
 				"counter-incremented": event<{ count: number }>(),
 				"ready-changed": event<{ ready: boolean }>(),
 			}),
-			effects: ({ snapshot, prevSnapshot, emit, select, actor, host }) => {
+			effects: ({ snapshot, prevSnapshot, emit, select }) => {
 				expectTypeOf(snapshot.context.count).toEqualTypeOf<number>();
 				expectTypeOf(prevSnapshot.context.ready).toEqualTypeOf<boolean>();
-				expectTypeOf(host).toEqualTypeOf<HTMLElement>();
-				expectTypeOf(actor.send).toEqualTypeOf<
-					(event: EventFrom<typeof machine>) => void
-				>();
 
 				const count = select((state) => state.context.count);
 				expectTypeOf(count.current).toEqualTypeOf<number>();

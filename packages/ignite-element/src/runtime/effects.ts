@@ -24,7 +24,6 @@ type AttachEffectsOptions<
 	adapter: IgniteAdapter<State, Event>;
 	effects: FacadeEffectsObjectCallback<Snapshot, CommandActor, Events, Host>;
 	resolveSnapshot: (adapter: IgniteAdapter<State, Event>) => Snapshot;
-	resolveActor: (adapter: IgniteAdapter<State, Event>) => CommandActor;
 	host: Host;
 	emit: EmitFromEvents<Events>;
 };
@@ -71,7 +70,6 @@ export function attachEffects<
 	adapter,
 	effects,
 	resolveSnapshot,
-	resolveActor,
 	host,
 	emit,
 }: AttachEffectsOptions<State, Event, Snapshot, CommandActor, Events, Host>) {
@@ -97,24 +95,21 @@ export function attachEffects<
 		// microtask ensures the DOM is updated before effects execute.
 		queueMicrotask(() => {
 			try {
-				const actor = resolveActor(adapter);
 				const select = createSelect(snapshot, prev);
 				const result = effects({
 					snapshot,
 					prevSnapshot: prev,
-					actor,
 					emit,
-					host,
 					select,
 				});
 
-				if (
-					result &&
-					typeof (result as PromiseLike<unknown>).then === "function"
-				) {
-					void Promise.resolve(result).catch((error: unknown) => {
-						reportEffectError(host, error);
-					});
+				if (typeof result !== "undefined") {
+					reportEffectError(
+						host,
+						new Error(
+							"[igniteCore] Effect callbacks must return void. Move async work into the source and emit outward facts from accepted state transitions.",
+						),
+					);
 				}
 			} catch (error) {
 				reportEffectError(host, error);

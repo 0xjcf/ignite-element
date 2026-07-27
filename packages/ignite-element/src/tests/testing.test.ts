@@ -161,17 +161,21 @@ describe("ignite test DSL", () => {
 	it("passes a supplied host to headless scenario commands and effects", async () => {
 		const machine = setup({
 			types: {
-				context: {} as { startedModule: string },
+				context: {} as { startedModule: string; lastStartedModule: string },
 				events: {} as { type: "START_MODULE"; moduleId: string },
 			},
 			actions: {
-				rememberStartedModule: assign(({ event }) => ({
+				rememberStartedModule: assign(({ context, event }) => ({
 					startedModule:
-						event.type === "START_MODULE" ? event.moduleId : "unknown",
+						event.type === "START_MODULE" ? event.moduleId : context.startedModule,
+					lastStartedModule:
+						event.type === "START_MODULE"
+							? event.moduleId
+							: context.lastStartedModule,
 				})),
 			},
 		}).createMachine({
-			context: { startedModule: "" },
+			context: { startedModule: "", lastStartedModule: "" },
 			on: {
 				START_MODULE: { actions: "rememberStartedModule" },
 			},
@@ -189,13 +193,15 @@ describe("ignite test DSL", () => {
 			source: machine,
 			view: ({ snapshot }) => ({
 				moduleId: snapshot.context.startedModule,
+				lastStartedModule: snapshot.context.lastStartedModule,
 			}),
-			commands: ({ actor, host }) => ({
-				startModule: () =>
+			commands: ({ actor, command }) => ({
+				startModule: command((moduleId: string) =>
 					actor.send({
 						type: "START_MODULE",
-						moduleId: host.dataset.moduleId ?? "missing",
+						moduleId,
 					}),
+				),
 			}),
 			events: (event) => ({
 				"module-started": event<{ moduleId: string }>(),
@@ -204,7 +210,6 @@ describe("ignite test DSL", () => {
 				snapshot,
 				prevSnapshot,
 				emit,
-				host,
 			}: FacadeEffectArgs<ModuleSnapshot, unknown, ModuleEventMap>) => {
 				if (
 					snapshot.context.startedModule === prevSnapshot.context.startedModule
@@ -212,7 +217,6 @@ describe("ignite test DSL", () => {
 					return;
 				}
 
-				host.dataset.lastStarted = snapshot.context.startedModule;
 				emit({
 					type: "module-started",
 					moduleId: snapshot.context.startedModule,
@@ -222,13 +226,16 @@ describe("ignite test DSL", () => {
 
 		const scenario = await igniteTest({ component, host }).when({
 			command: "startModule",
+			input: "dispatch",
 		});
 
 		scenario
 			.expectSnapshot({ context: { startedModule: "dispatch" } })
-			.expectView({ moduleId: "dispatch" })
+			.expectView({
+				moduleId: "dispatch",
+				lastStartedModule: "dispatch",
+			})
 			.expectEvent({ type: "module-started", moduleId: "dispatch" });
-		expect(host.dataset.lastStarted).toBe("dispatch");
 	});
 
 	it("uses a supplied host for scenario state and view reads", () => {
@@ -310,21 +317,20 @@ describe("ignite test DSL", () => {
 		const component = igniteCore({
 			adapter: "xstate",
 			source: machine,
-			commands: ({ actor, host }) => ({
-				captureHost: async () => {
-					await new Promise((resolve) =>
-						setTimeout(
-							resolve,
-							Number((host as HTMLElement).dataset.delayMs ?? 0),
-						),
-					);
-					const hostId = (host as HTMLElement).dataset.hostId ?? "none";
-					seenHostIds.push(hostId);
-					actor.send({
-						type: "CAPTURE_HOST",
-						hostId,
-					});
-				},
+			commands: ({ actor, command }) => ({
+				captureHost: command(
+					async ({ hostId, delayMs }: { hostId?: string; delayMs?: number }) => {
+						await new Promise((resolve) =>
+							setTimeout(resolve, delayMs ?? 0),
+						);
+						const resolvedHostId = hostId ?? "none";
+						seenHostIds.push(resolvedHostId);
+						actor.send({
+							type: "CAPTURE_HOST",
+							hostId: resolvedHostId,
+						});
+					},
+				),
 			}),
 		});
 
@@ -337,14 +343,19 @@ describe("ignite test DSL", () => {
 
 		const firstCommand = igniteTest({ component, host: hostA }).when({
 			command: "captureHost",
+			input: { hostId: "a", delayMs: 0 },
 		});
 		const secondCommand = igniteTest({ component, host: hostB }).when({
 			command: "captureHost",
+			input: { hostId: "b", delayMs: 20 },
 		});
 
 		await Promise.all([firstCommand, secondCommand]);
 		expect([...seenHostIds].sort()).toEqual(["a", "b"]);
-		await igniteTest({ component }).when({ command: "captureHost" });
+		await igniteTest({ component }).when({
+			command: "captureHost",
+			input: { hostId: "none" },
+		});
 
 		expect(component.getSnapshot().context.hostId).toBe("none");
 	});

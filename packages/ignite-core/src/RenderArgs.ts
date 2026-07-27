@@ -305,11 +305,12 @@ export type EmitFromEvents<Events extends EventMap> = <
 	event: EventMember<Events, Type>,
 ) => void;
 
+type Phantom<T> = Record<never, T>;
+
 export type CommandContext<Actor, Host = unknown, Snapshot = unknown> = {
 	actor: Actor;
 	command: CommandHelper<Snapshot>;
-	host: Host;
-};
+} & Phantom<Host>;
 
 export type FacadeCommandsCallback<
 	Actor,
@@ -324,11 +325,10 @@ export type EffectContext<
 	Host = unknown,
 	Snapshot = unknown,
 > = {
-	actor: Actor;
 	emit: EmitFromEvents<Events>;
-	host: Host;
 	select: EffectSelector<Snapshot>;
-};
+} & Phantom<Actor> &
+	Phantom<Host>;
 
 export type EffectSelection<Value> = {
 	current: Value;
@@ -350,9 +350,6 @@ export type FacadeEffectArgs<
 	prevSnapshot: Snapshot;
 };
 
-// biome-ignore lint/suspicious/noConfusingVoidType: effects callbacks may return nothing, or a promise the runtime catches.
-type EffectCallbackResult = void | PromiseLike<unknown>;
-
 export type FacadeEffectsObjectCallback<
 	Snapshot,
 	Actor,
@@ -360,7 +357,7 @@ export type FacadeEffectsObjectCallback<
 	Host = unknown,
 > = (
 	args: FacadeEffectArgs<Snapshot, Actor, Events, Host>,
-) => EffectCallbackResult;
+) => undefined;
 
 type IsNever<T> = [T] extends [never] ? true : false;
 
