@@ -1,39 +1,53 @@
 # Nested child router (worked app)
 
 A small Ignite Element app that splits routing into a parent outlet and child
-outlets. It builds on the SPA router example, but focuses on composition: the
-top-level router decides whether the user is in Home, Docs, Settings, or 404,
-while child outlets own their scoped tabs.
+outlets while still using one application-owned XState router source. It builds
+on the SPA router example, but focuses on composition: parent and child outlets
+project one shared actor, while scoped commands stay local to each surface.
 
 ## What it demonstrates
 
-- **Parent route plus child route projection.** The machine projects both
-  `parent` and `child` route state from one path.
-- **Scoped child commands.** Docs tabs dispatch `OPEN_DOC_SECTION`; settings
-  tabs dispatch `OPEN_SETTINGS_PANEL`.
-- **Multiple elements, one source.** `<nested-router-app>`,
-  `<docs-child-outlet>`, and `<settings-child-outlet>` all read one shared
-  actor. Ignite keeps that consumer-owned actor alive for the core lifetime.
-- **Headless coverage.** The same router core is driven with `execute` and
-  asserted with `getView` / `execute().events`.
+- Parent and child route projection from one pure route machine.
+- Scoped intent commands: `NAVIGATE_REQUESTED`, `OPEN_DOC_SECTION`, and
+  `OPEN_SETTINGS_PANEL`.
+- An example-local `NavigationPort` with browser and deterministic memory
+  implementations.
+- Accepted navigation commits that happen after machine resolution, not before.
+- Headless tests that exercise the same `createRouterSource(...)` factory.
+
+This example also requires browser Navigation API support (Baseline 2026). No
+History API fallback is provided.
 
 ## Project layout
 
 | File | Role |
 | --- | --- |
-| `src/routerMachine.ts` | Pure route resolution plus the XState machine. |
-| `src/routerStore.ts` | App-lifetime shared actor. |
-| `src/router.tsx` | Parent outlet and child outlet custom elements. |
-| `src/routerMachine.test.ts` | Functional-core route tests. |
+| `src/routerMachine.ts` | Pure parent/child route resolution and XState machine. |
+| `src/navigation.ts` | Example-local Navigation API and memory adapters. |
+| `src/routerSource.ts` | Example-owned source composition and accepted navigation commit seam. |
+| `src/routerStore.ts` | App-lifetime `routerSource` created from `window.navigation`. |
+| `src/router.tsx` | Parent outlet plus child outlet custom elements. |
+| `src/routerSource.test.ts` | Source-owned commit, canonicalization, and cleanup tests. |
 | `src/router.headless.test.ts` | Ignite headless runtime tests. |
+| `src/routerMachine.test.ts` | Pure routing tests. |
 
 ## Run
 
 ```bash
-cd examples/apps/nested-child-router
-pnpm install --ignore-workspace --link-workspace-packages=false
-pnpm run dev
+pnpm --filter nested-child-router-example dev
+pnpm --filter nested-child-router-example build
 ```
 
 The Vite config aliases `ignite-element` and the scoped workspace packages to
-local source so the example runs against the current checkout.
+local source so the example always runs against the current checkout.
+
+## Architecture summary
+
+The nested example keeps the same boundary as the SPA example:
+
+- the machine resolves routes and child sections without browser imports
+- `createRouterSource(...)` owns observation and accepted commits
+- Ignite components project state and send intent only
+
+That means child tabs never write browser state before the machine accepts the
+route, and browser listener cleanup stays tied to `routerSource.stop()`.
