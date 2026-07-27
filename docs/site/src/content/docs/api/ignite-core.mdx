@@ -15,8 +15,8 @@ const component = igniteCore({
   source: machineOrActor,
   events: (event) => ({ /* typed events */ }),
   view: ({ snapshot }) => ({ /* derived values */ }),
-  commands: ({ actor, host }) => ({ /* actions */ }),
-  effects: ({ snapshot, prevSnapshot, emit, actor, host, select }) => { /* consequences */ },
+  commands: ({ actor, command }) => ({ /* actions */ }),
+  effects: ({ snapshot, prevSnapshot, emit, select }) => { /* outward facts */ },
 });
 
 component('tag-name', (props) => /* JSX or lit template */);
@@ -27,8 +27,8 @@ component('tag-name', (props) => /* JSX or lit template */);
 - `source`: machine definition or started actor (XState), Redux store/slice, or MobX observable.
 - `events(mapper)`: optional; defines typed DOM events.
 - `view(ctx)`: derive render props from `{ snapshot }`; runs on mount and on changes.
-- `commands(context)`: expose actions; receives `{ actor, host }`.
-- `effects(context)`: optional; runs after every state update and receives `{ snapshot, prevSnapshot, emit, actor, host, select }`.
+- `commands(context)`: expose actions; receives `{ actor, command }`.
+- `effects(context)`: optional; runs after every state update and receives `{ snapshot, prevSnapshot, emit, select }`.
 - `cleanup`: shared-adapter teardown override. Defaults to `false` for **shared** (consumer-owned) sources — a live instance you pass lives for the core's lifetime, so the shared adapter is kept alive across element disconnects. For **isolated** sources (Ignite creates one adapter per element, stopped on disconnect) it has no practical effect. Set `cleanup: true` on a shared core to opt back into element-refcount teardown of the adapter. Ignite never stops or closes a source it did not create.
 
 ## Returns
@@ -51,6 +51,12 @@ See [The Ignite model](/ignite-element/concepts/the-ignite-model/) for adapter-s
 ## Headless runtime
 
 Every component registration also exposes a headless runtime (`execute`, `getSnapshot`, `getView`, `getSchema`, `on`, `watchSnapshot`, `watchView`, `record`) for driving and inspecting behavior without the DOM. See [Headless runtime](/ignite-element/api/headless-runtime/) for the full method reference.
+
+## Callback boundaries
+
+- Commands express explicit intent. Pass user or host-derived data as command input instead of reading it from an implicit host object.
+- Effects stay synchronous and publish outward facts from accepted state transitions. Move async work, retries, cancellation, and feedback loops into the source runtime.
+- DOM event dispatch and internal error routing still exist, but the host stays an internal runtime concern rather than a public callback capability.
 
 ## Related
 

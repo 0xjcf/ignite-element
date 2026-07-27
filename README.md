@@ -145,7 +145,7 @@ Because the outward contract is DOM-native, the same component can be consumed f
 Commands describe what should happen.
 
 ```ts
-commands: ({ actor, host }) => ({
+commands: ({ actor, command }) => ({
   toggle: () => actor.send({ type: "TOGGLE" })
 })
 ```
@@ -155,6 +155,7 @@ Commands:
 - do not emit events
 - do not contain outward side effects
 - express intent through the adapter actor or store
+- accept explicit typed input when they need data from the host environment
 
 ### State = truth
 
@@ -183,15 +184,16 @@ effects: ({ emit, select }) => {
 Effects:
 
 - run after state updates
-- can read `snapshot`, `prevSnapshot`, `actor`, `host`, and `emit`
+- can read `snapshot`, `prevSnapshot`, `select(...)`, and `emit(...)`
 - expose `select(...)` for common transition comparisons
 - emit typed DOM events
 - support deterministic testing and replay-safe workflows
+- stay synchronous; async work belongs in the source runtime and re-enters as facts
 
 When one transition needs multiple consequences, keep each concern in its own guarded block inside the same `effects(...)` callback:
 
 ```ts
-effects: ({ snapshot, emit, host, select }) => {
+effects: ({ snapshot, emit, select }) => {
   const status = select((current) => current.context.status);
   const error = select((current) => current.context.error);
 
@@ -201,10 +203,6 @@ effects: ({ snapshot, emit, host, select }) => {
 
   if (error.changed && error.current) {
     emit("save-failed", { message: error.current });
-  }
-
-  if (status.changed) {
-    host.dataset.status = status.current;
   }
 }
 ```
