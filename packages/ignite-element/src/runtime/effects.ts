@@ -59,6 +59,15 @@ function reportEffectError(host: unknown, error: unknown): void {
 	console.error("[igniteCore] Effect callback failed.", error);
 }
 
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+	return (
+		(typeof value === "object" || typeof value === "function") &&
+		value !== null &&
+		"then" in value &&
+		typeof (value as { then?: unknown }).then === "function"
+	);
+}
+
 export function attachEffects<
 	State,
 	Event,
@@ -104,6 +113,12 @@ export function attachEffects<
 				});
 
 				if (typeof result !== "undefined") {
+					if (isPromiseLike(result)) {
+						void Promise.resolve(result).catch((error: unknown) => {
+							reportEffectError(host, error);
+						});
+					}
+
 					reportEffectError(
 						host,
 						new Error(

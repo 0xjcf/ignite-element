@@ -942,16 +942,21 @@ describe("igniteCore", () => {
 		);
 	});
 
-	it("fails closed when an untyped JavaScript effect returns a thenable", async () => {
+	it("fails closed when an untyped JavaScript effect returns a rejected promise", async () => {
 		const store = counterStore();
 		type StoreState = ReturnType<typeof store.getState>;
 		const effectError = new Error("thenable failed");
-		const consoleError = vi
-			.spyOn(console, "error")
-			.mockImplementation(() => {});
+		const handleError = vi.fn();
+		const unhandled: unknown[] = [];
+		const captureUnhandled = (reason: unknown) => {
+			unhandled.push(reason);
+		};
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
+			view: ({ snapshot }: ViewContext<StoreState>) => ({
+				count: snapshot.counter.count,
+			}),
 			commands: ({ actor }) => ({
 				increment: () => actor.dispatch(counterSlice.actions.increment()),
 			}),
@@ -966,27 +971,49 @@ describe("igniteCore", () => {
 					return undefined;
 				}
 
-				return {
-					then: (
-						_resolve?: (value: unknown) => void,
-						reject?: (reason: unknown) => void,
-					) => {
-						reject?.(effectError);
-					},
-				};
+				return Promise.reject(effectError);
 			}) as unknown as ReduxInstanceConfig<typeof store>["effects"],
 		});
 
-		await register.execute({ command: "increment" });
-		await flushMicrotasks();
+		type RenderArgs = {
+			count: number;
+			increment: () => void;
+		};
 
-		expect(consoleError).toHaveBeenCalledWith(
-			"[igniteCore] Effect callback failed.",
+		const elementName = `redux-effect-rejected-${crypto.randomUUID()}`;
+		let latestArgs: RenderArgs | undefined;
+		const renderFn = vi.fn<(args: RenderArgs) => TemplateResult>((args) => {
+			latestArgs = args;
+			return html``;
+		});
+
+		register(elementName, renderFn);
+
+		const element = document.createElement(elementName) as HTMLElement & {
+			handleError?: (error: unknown) => void;
+		};
+		element.handleError = handleError;
+
+		process.on("unhandledRejection", captureUnhandled);
+		try {
+			document.body.appendChild(element);
+			expect(latestArgs).toBeDefined();
+
+			latestArgs?.increment();
+			await flushMicrotasks();
+			await flushMicrotasks();
+		} finally {
+			process.off("unhandledRejection", captureUnhandled);
+		}
+
+		expect(unhandled).toEqual([]);
+		expect(handleError).toHaveBeenCalledWith(
 			expect.objectContaining({
 				message:
 					"[igniteCore] Effect callbacks must return void. Move async work into the source and emit outward facts from accepted state transitions.",
 			}),
 		);
+		expect(handleError).toHaveBeenCalledWith(effectError);
 	});
 
 	it("supports headless command execution, projected views, event listeners, and watchers", async () => {
