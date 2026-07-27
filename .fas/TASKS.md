@@ -2773,9 +2773,12 @@ No active tasks.
 
 - Title: Narrow Ignite commands and effects to intent and outward-fact callbacks
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: implementing
+- Owner: implementer
 - Brief: .fas/tasks/narrow-ignite-commands-and-effects-to-intent-and-outward-fac.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Refactor routing examples to source-native navigation ports and XState provisioning
 

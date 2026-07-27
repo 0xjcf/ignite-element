@@ -288,6 +288,20 @@ This task inherits the normalized architecture context accepted by
 - packages/ignite-element/src/tests/types/igniteCore.types.test.ts
 - packages/ignite-element/src/tests/types/testing.types.test.ts
 
+## Reference files
+
+These paths carry inherited architecture evidence or were inspected during
+compiler-guided propagation. They are read-only references, not deliverables in
+this task's final change envelope.
+
+- docs/architecture.md
+- docs/shared-architecture-model.md
+- docs/v3-api-consistency.md
+- packages/ignite-core/src/types.ts
+- packages/ignite-element/src/RenderArgs.ts
+- packages/ignite-adapters/src/xstate.ts
+- packages/ignite-element/src/igniteCore/
+
 ## Scope Amendments
 
 - Type: dependency-reachable public type propagation
