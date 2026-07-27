@@ -345,6 +345,16 @@ it does not change the accepted ownership or execution axes.
 - examples/apps/nested-child-router/README.md
 - docs/site/src/content/docs/guides/routing.mdx
 
+## Reference files
+
+These inherited architecture surfaces are read-only evidence for the accepted
+ownership boundary. They are not implementation deliverables for this task.
+
+- docs/architecture.md
+- docs/shared-architecture-model.md
+- docs/v3-api-consistency.md
+- .fas/tasks/define-the-canonical-source-native-provisioning-and-host-bou.md
+
 ## Scope Amendments
 
 - None.
