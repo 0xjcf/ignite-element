@@ -703,29 +703,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1784909239951",
-      "task": "Define the canonical source-native provisioning and host-boundary architecture standard",
-      "priority": "high",
-      "source": "manual",
-      "details": "Write the normative architecture decision for environmental integration in Ignite applications. Define capability ports, environment adapters, and source-native binding through XState provide and actor composition, Redux middleware or thunk injection, MobX constructors or factories, Actor-Web composition, and equivalent custom-source APIs. The canonical result is the exact native source, passed directly to igniteCore. Native source lifecycles own environmental listeners, subscriptions, timers, cancellation, and shutdown. Explicitly reject createFeature, Feature wrappers, generic lifecycle containers, driver, igniteEnvironment, ports on igniteCore, host mutation from commands, environmental I/O in Ignite effects, and retained Canvas or Cytoscape ownership in effects. Preserve retained ref and commit as the separate presentation lifecycle and label current facts, accepted targets, compatibility impact, and evidence gates.\nSee .fas/tasks/define-the-canonical-source-native-provisioning-and-host-bou.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "policy-surfacing",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [],
-      "blocks": [
-        "task-1784909267400",
-        "task-1784909278954",
-        "task-1784909318199"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-24T16:07:19.951Z",
-      "updatedAt": "2026-07-24T17:56:42.633Z"
-    },
-    {
       "id": "task-1784909267400",
       "task": "Narrow Ignite commands and effects to intent and outward-fact callbacks",
       "priority": "high",
@@ -734,7 +711,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "developer-experience",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -747,7 +724,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-24T16:07:47.400Z",
       "updatedAt": "2026-07-24T17:39:34.000Z",
-      "deferredReason": "dependency_reopened: task-1784909239951",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -759,7 +736,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -772,7 +749,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-24T16:07:58.954Z",
       "updatedAt": "2026-07-24T17:39:34.000Z",
-      "deferredReason": "dependency_reopened: task-1784909239951",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -784,7 +761,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -797,7 +774,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-24T16:08:38.199Z",
       "updatedAt": "2026-07-24T17:39:34.000Z",
-      "deferredReason": "dependency_reopened: task-1784909239951",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -4522,6 +4499,32 @@
       "prStatus": null,
       "workflowId": "cancelled:task-1784914562979",
       "cancelledReason": "Rejected by owner architecture decision on 2026-07-24: exact source-only provisioning preserves the native XState, Redux, MobX, Actor-Web, and custom source APIs. A generic createFeature wrapper adds a second lifecycle abstraction and feature.source ceremony without improving source-native composition. Native source lifecycles own cleanup; no public helper will be implemented."
+    },
+    {
+      "id": "task-1784909239951",
+      "task": "Define the canonical source-native provisioning and host-boundary architecture standard",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "experienceDesign": null,
+      "acceptanceSourcePath": null,
+      "dependsOn": [],
+      "blocks": [
+        "task-1784909267400",
+        "task-1784909278954",
+        "task-1784909318199"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-27T02:40:00.902Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1784915802628",
+      "branchName": "fas/source-native-provisioning-architecture",
+      "prStatus": "draft-only"
     }
   ],
   "pullRequests": [],

@@ -2762,8 +2762,8 @@ No active tasks.
 
 - Title: Define the canonical source-native provisioning and host-boundary architecture standard
 - Mode: 6-agent
-- Status: review
-- Owner: reviewer
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/define-the-canonical-source-native-provisioning-and-host-bou.md
 - Verification lane: fast
 - Policy sensitivity: standard
