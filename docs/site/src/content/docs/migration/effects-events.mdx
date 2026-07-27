@@ -16,11 +16,11 @@ const registerToggle = igniteCore({
   events: (event) => ({
     toggled: event<{ isOn: boolean }>(),
   }),
-  commands: ({ actor, emit }) => ({
-    toggle: () => {
+  commands: ({ actor, command }) => ({
+    toggle: command((mode: "user" | "system") => {
+      void mode;
       actor.send({ type: "TOGGLE" });
-      emit("toggled", { isOn: true });
-    },
+    }),
   }),
 });
 ```
@@ -40,7 +40,7 @@ const registerToggle = igniteCore({
   }),
   effects: ({ snapshot, prevSnapshot, emit }) => {
     if (snapshot.matches("on") === prevSnapshot.matches("on")) return;
-    emit("toggled", { isOn: snapshot.matches("on") });
+    emit({ type: "toggled", isOn: snapshot.matches("on") });
   },
 });
 ```
@@ -48,10 +48,11 @@ const registerToggle = igniteCore({
 ## Migration checklist
 
 1. Remove `emit` from the `commands` parameter list.
-2. Keep commands limited to actor/store/observable intent.
+2. Replace host-derived or UI-derived values with explicit typed command input.
 3. Add an `effects` callback and destructure only the fields you use.
 4. Compare state before emitting, such as `snapshot` with `prevSnapshot`.
 5. Keep your `events` map so `emit` stays typed.
+6. Keep effects synchronous. Async work and source feedback belong in source-native behavior, not in `effects()`.
 
 ## Scripted assist
 
@@ -70,9 +71,10 @@ Use `--report <path>` to save the output to a file.
 
 ## Breaking release note
 
-`emit` has been removed from command context. Commands still receive `{ actor, command, host }`; typed event emission belongs in `effects()`.
+`emit` has been removed from command context. Commands receive `{ actor, command }`, typed event emission belongs in `effects()`, and public host ownership stays internal to Ignite's rendering/event-dispatch/error-routing runtime.
 
 ## Release boundary
 
 - Migration tooling and docs remain available to help with old command emit patterns.
 - `effects()` is now the supported path for typed event emission.
+- Public effect callbacks must return `undefined`/nothing so `async` callbacks are rejected at compile time. Inline callbacks can omit a return, while extracted or explicitly typed helpers may need an `undefined` return annotation plus `return undefined`.

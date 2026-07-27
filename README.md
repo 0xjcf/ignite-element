@@ -121,7 +121,7 @@ const toggle = igniteCore({
   effects: ({ emit, select }) => {
     const isOn = select((snapshot) => snapshot.matches("on"));
     if (!isOn.changed) return;
-    emit("toggled", { isOn: isOn.current });
+    emit({ type: "toggled", isOn: isOn.current });
   },
 });
 
@@ -177,7 +177,7 @@ Effects react to state transitions.
 effects: ({ emit, select }) => {
   const isOn = select((snapshot) => snapshot.matches("on"));
   if (!isOn.changed) return;
-  emit("toggled", { isOn: isOn.current });
+  emit({ type: "toggled", isOn: isOn.current });
 }
 ```
 
@@ -189,6 +189,9 @@ Effects:
 - emit typed DOM events
 - support deterministic testing and replay-safe workflows
 - stay synchronous; async work belongs in the source runtime and re-enters as facts
+- must return `undefined`/nothing so `async` effect callbacks are rejected at compile time
+
+Inline effect callbacks can usually omit a return. Extracted helpers or explicitly typed effect functions may need an `undefined` return annotation plus an explicit `return undefined`.
 
 When one transition needs multiple consequences, keep each concern in its own guarded block inside the same `effects(...)` callback:
 
@@ -198,11 +201,11 @@ effects: ({ snapshot, emit, select }) => {
   const error = select((current) => current.context.error);
 
   if (status.changed && status.current === "saved") {
-    emit("saved", { id: snapshot.context.id });
+    emit({ type: "saved", id: snapshot.context.id });
   }
 
   if (error.changed && error.current) {
-    emit("save-failed", { message: error.current });
+    emit({ type: "save-failed", message: error.current });
   }
 }
 ```
