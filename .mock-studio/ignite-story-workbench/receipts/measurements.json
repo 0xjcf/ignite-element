@@ -1,65 +1,65 @@
 {
-  "status": "complete",
-  "recordedAt": "2026-07-22",
-  "taskId": "direct-1784661171192",
-  "queueTaskId": "task-1784655399770",
-  "approvalGate": "narrative_ready_for_dev_test_companion_tool_direction_magicpath_sync_not_started",
-  "narrativeReadiness": {
-    "status": "pass",
-    "productRole": "dev_test_companion_tool",
-    "goldenNarrative": "ALCH-NAR-001-DEVTOOL-STORY-REVIEW",
-    "page4AdmittedBranches": [
-      {
-        "branchId": "ALCH-NAR-001-BRANCH-TYPED-FALLBACK",
-        "subjectCommand": "submitPrompt",
-        "evidence": "examples/agents/voice-workbench/src/workbench-narratives.test.ts:600-621"
-      },
-      {
-        "branchId": "ALCH-NAR-001-BRANCH-RETRY-MICROPHONE",
-        "subjectCommand": "startVoiceCapture",
-        "stablePages": [
-          "ALCH-NAR-001-BRANCH-RETRY-PAGE-01-INTENT-START-VOICE-RETRY",
-          "ALCH-NAR-001-BRANCH-RETRY-PAGE-02-CHECKPOINT-VOICE-ATTEMPT-LISTENING"
-        ],
-        "evidence": [
-          "examples/agents/voice-workbench/src/workbench-narratives.test.ts:600-613",
-          "examples/agents/voice-workbench/src/main.test.tsx:613-632"
-        ]
-      }
-    ],
-    "controllerPolicy": {
-      "stepAtPage4": "pause_for_branch_choice",
-      "runDefaultBranch": "typed_fallback",
-      "backBehavior": "rebuild_to_branch_boundary_and_truncate_future_evidence",
-      "branchChoiceRecordedInReceipt": true
-    },
-    "hostContract": {
-      "localHost": "example_local_dev_test_only",
-      "headlessParity": true,
-      "productionAbsenceInvariant": true,
-      "subjectApplicationBuildExcludesAlchemyByDefault": true
-    }
-  },
-  "preferredLeadingDonor": {
-    "artifactId": "ROUND-3B-VAR2",
-    "componentId": "430503922197753859",
-    "generatedName": "dreamily-sand-6842",
-    "designUrl": "https://designs.magicpath.ai/v1/dreamily-sand-6842",
-    "revisionCount": 2,
-    "previewUrl": "https://storage.googleapis.com/storage.magicpath.ai/component-previews/8823b4e8-5dc2-4c9e-9a9c-0bc39f78012b.png",
-    "status": "preferred_donor_for_next_tool_shell_material_pass_semantically_corrected_donor_only"
-  },
-  "renderedAcceptance": {
-    "browserValidation": "not_recorded_in_this_turn",
-    "responsiveValidation": "not_recorded_in_this_turn",
-    "productionExclusionReceipt": "placeholder_only",
-    "headlessParityReceipt": "placeholder_only"
-  },
-  "deferredDownstreamImplementationTasks": {
-    "controllerBranchHeadless": "task-1784602868853",
-    "machineLens": "task-1784602883094",
-    "hostSplitAttachProductionExclusion": "task-1784602901002",
-    "replayReceiptHardening": "task-1784602939863",
-    "packagingDecision": "task-1784602955608"
-  }
+	"status": "complete",
+	"recordedAt": "2026-07-22",
+	"taskId": "direct-1784661171192",
+	"queueTaskId": "task-1784655399770",
+	"approvalGate": "narrative_ready_for_dev_test_companion_tool_direction_magicpath_sync_not_started",
+	"narrativeReadiness": {
+		"status": "pass",
+		"productRole": "dev_test_companion_tool",
+		"goldenNarrative": "ALCH-NAR-001-DEVTOOL-STORY-REVIEW",
+		"page4AdmittedBranches": [
+			{
+				"branchId": "ALCH-NAR-001-BRANCH-TYPED-FALLBACK",
+				"subjectCommand": "submitPrompt",
+				"evidence": "examples/agents/voice-workbench/src/workbench-narratives.test.ts:600-621"
+			},
+			{
+				"branchId": "ALCH-NAR-001-BRANCH-RETRY-MICROPHONE",
+				"subjectCommand": "startVoiceCapture",
+				"stablePages": [
+					"ALCH-NAR-001-BRANCH-RETRY-PAGE-01-INTENT-START-VOICE-RETRY",
+					"ALCH-NAR-001-BRANCH-RETRY-PAGE-02-CHECKPOINT-VOICE-ATTEMPT-LISTENING"
+				],
+				"evidence": [
+					"examples/agents/voice-workbench/src/workbench-narratives.test.ts:600-613",
+					"examples/agents/voice-workbench/src/main.test.tsx:613-632"
+				]
+			}
+		],
+		"controllerPolicy": {
+			"stepAtPage4": "pause_for_branch_choice",
+			"runDefaultBranch": "typed_fallback",
+			"backBehavior": "rebuild_to_branch_boundary_and_truncate_future_evidence",
+			"branchChoiceRecordedInReceipt": true
+		},
+		"hostContract": {
+			"localHost": "example_local_dev_test_only",
+			"headlessParity": true,
+			"productionAbsenceInvariant": true,
+			"subjectApplicationBuildExcludesAlchemyByDefault": true
+		}
+	},
+	"preferredLeadingDonor": {
+		"artifactId": "ROUND-3B-VAR2",
+		"componentId": "430503922197753859",
+		"generatedName": "dreamily-sand-6842",
+		"designUrl": "https://designs.magicpath.ai/v1/dreamily-sand-6842",
+		"revisionCount": 2,
+		"previewUrl": "https://storage.googleapis.com/storage.magicpath.ai/component-previews/8823b4e8-5dc2-4c9e-9a9c-0bc39f78012b.png",
+		"status": "preferred_donor_for_next_tool_shell_material_pass_semantically_corrected_donor_only"
+	},
+	"renderedAcceptance": {
+		"browserValidation": "not_recorded_in_this_turn",
+		"responsiveValidation": "not_recorded_in_this_turn",
+		"productionExclusionReceipt": "placeholder_only",
+		"headlessParityReceipt": "placeholder_only"
+	},
+	"deferredDownstreamImplementationTasks": {
+		"controllerBranchHeadless": "task-1784602868853",
+		"machineLens": "task-1784602883094",
+		"hostSplitAttachProductionExclusion": "task-1784602901002",
+		"replayReceiptHardening": "task-1784602939863",
+		"packagingDecision": "task-1784602955608"
+	}
 }
