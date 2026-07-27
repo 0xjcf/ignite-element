@@ -26,11 +26,17 @@ Build a self-contained Ignite example that dogfoods the retained ref/commit, key
 
 ## Proposed solution
 
-- Use the supplied problem context, acceptance criteria, and affected-file hints to draft the concrete implementation approach during planning.
+- Build a small deterministic fixed-step simulation whose exact native source remains authoritative and is passed directly to `igniteCore`; keep interpolation state outside that source as presentation-only data.
+- Acquire the canvas context, `ResizeObserver`, scoped input listeners, and consumer-owned animation-frame loop through `ref`, returning cleanup for true disconnect. Use `commit` only to publish the latest projected snapshot into the retained drawing resource.
+- Preserve canvas identity through keyed reorder and reconnect cases, use generation tokens for non-cancelable queued work, and instrument source, reconciliation, commit, and draw cadence separately.
+- Pair the canvas with semantic controls and live status, then make fake clocks, resize events, visibility changes, and animation frames available to self-contained test lanes.
 
 ## Alternatives considered
 
-- None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
+- Draw from Ignite effects: rejected because effects are outward facts and do not own stable node identity, animation cadence, or teardown.
+- Put interpolation or the animation clock into authoritative source state: rejected because display cadence must not distort deterministic domain truth.
+- Add a framework scheduler or canvas-specific package: rejected until the evidence task demonstrates that consumer-owned scheduling is insufficient.
+- Use Mesh Pong as the first implementation specimen: rejected because the local example must prove the generic contract before cross-repo validation.
 
 ## Affected files
 

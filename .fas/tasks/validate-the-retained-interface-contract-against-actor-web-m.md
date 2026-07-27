@@ -21,11 +21,17 @@ Run a bounded cross-repo consumer validation against the current Actor-Web Mesh 
 
 ## Proposed solution
 
-- Use the supplied problem context, acceptance criteria, and affected-file hints to draft the concrete implementation approach during planning.
+- Pin the Actor-Web revision and map its topology source/read model, simulation, transport, commands, canvas host, and telemetry to an explicit source-of-truth and lifecycle matrix.
+- Model the intended Ignite consumer using the exact Actor-Web source or read-model handle directly with `igniteCore`; do not add an Ignite-specific feature, topology, transport, or lifecycle wrapper.
+- Map stable canvas acquisition and cleanup to `ref`, current projection synchronization to `commit`, and animation cadence to consumer-owned scheduling. Record measured source, reconciliation, commit, and draw rates.
+- Produce a read-only adoption brief that classifies each remaining gap by owning repository and feeds only scheduling evidence back to the retained-interface epic.
 
 ## Alternatives considered
 
-- None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
+- Edit Mesh Pong during validation: rejected because this task establishes compatibility and ownership evidence, not downstream implementation.
+- Wrap Actor-Web in an Ignite-specific source or feature lifecycle: rejected because Actor-Web already owns its source, runtime, transport, and shutdown contracts.
+- Move simulation or transport truth into retained canvas callbacks: rejected because `ref` and `commit` are presentation-only.
+- Add Ignite scheduler configuration to make the specimen pass: rejected until measured local and downstream evidence proves a framework-level need.
 
 ## Affected files
 

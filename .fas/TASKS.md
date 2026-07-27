@@ -2683,25 +2683,25 @@ No active tasks.
 - Owner: runtime
 - Brief: .fas/tasks/extract-browser-safe-shared-voice-workbench-story-modules-an.md
 
-### Task: Implement the Ignite Alchemy adapter-neutral controlled Story session controller
+### Task: Implement the Ignite Alchemy selected-specimen Story session controller
 
-- Title: Implement the Ignite Alchemy adapter-neutral controlled Story session controller
+- Title: Implement the Ignite Alchemy selected-specimen Story session controller
 - Mode: 6-agent
 - Status: queued
 - Owner: runtime
 - Brief: .fas/tasks/implement-the-adapter-neutral-controlled-story-session-contr.md
 
-### Task: Implement the optional XState topology and observation lens for Ignite Alchemy
+### Task: Implement the optional selected-specimen XState observation lens for Ignite Alchemy
 
-- Title: Implement the optional XState topology and observation lens for Ignite Alchemy
+- Title: Implement the optional selected-specimen XState observation lens for Ignite Alchemy
 - Mode: 6-agent
 - Status: queued
 - Owner: runtime
 - Brief: .fas/tasks/implement-the-optional-xstate-topology-and-observation-lens-.md
 
-### Task: Build the Vite-hosted Ignite Alchemy Story Workbench application
+### Task: Build the Vite-hosted Ignite Alchemy repo-scoped specimen workbench
 
-- Title: Build the Vite-hosted Ignite Alchemy Story Workbench application
+- Title: Build the Vite-hosted Ignite Alchemy repo-scoped specimen workbench
 - Mode: 6-agent
 - Status: queued
 - Owner: runtime
@@ -2731,17 +2731,20 @@ No active tasks.
 - Owner: runtime
 - Brief: .fas/tasks/dogfood-the-ignite-story-workbench-and-close-or-disposition-.md
 
-### Task: Create and approve the Ignite Alchemy Mock Studio foundation and MagicPath prototype
+### Task: Create and approve the Ignite Alchemy component-specimen Mock Studio foundation and prototype
 
-- Title: Create and approve the Ignite Alchemy Mock Studio foundation and MagicPath prototype
+- Title: Create and approve the Ignite Alchemy component-specimen Mock Studio foundation and prototype
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: backlog
+- Owner: planner
 - Brief: .fas/tasks/create-and-approve-the-ignite-alchemy-mock-studio-foundation.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
-### Task: Prove Ignite Alchemy Story stepping, replay, and observation seams in a browser POC
+### Task: Prove Ignite Alchemy selected-specimen Story stepping, replay, and optional observation in a browser POC
 
-- Title: Prove Ignite Alchemy Story stepping, replay, and observation seams in a browser POC
+- Title: Prove Ignite Alchemy selected-specimen Story stepping, replay, and optional observation in a browser POC
 - Mode: 6-agent
 - Status: queued
 - Owner: runtime
@@ -2754,6 +2757,65 @@ No active tasks.
 - Status: queued
 - Owner: runtime
 - Brief: .fas/tasks/produce-the-approved-ignite-alchemy-mvp-implementation-hando.md
+
+### Task: Define the canonical source-native provisioning and host-boundary architecture standard
+
+- Title: Define the canonical source-native provisioning and host-boundary architecture standard
+- Mode: 6-agent
+- Status: review
+- Owner: reviewer
+- Brief: .fas/tasks/define-the-canonical-source-native-provisioning-and-host-bou.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
+
+### Task: Narrow Ignite commands and effects to intent and outward-fact callbacks
+
+- Title: Narrow Ignite commands and effects to intent and outward-fact callbacks
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/narrow-ignite-commands-and-effects-to-intent-and-outward-fac.md
+
+### Task: Refactor routing examples to source-native navigation ports and XState provisioning
+
+- Title: Refactor routing examples to source-native navigation ports and XState provisioning
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/refactor-routing-examples-to-source-native-navigation-ports-.md
+
+### Task: Dogfood source-native provisioning across Redux, MobX, Node, and deterministic fakes
+
+- Title: Dogfood source-native provisioning across Redux, MobX, Node, and deterministic fakes
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/dogfood-source-native-provisioning-across-redux-mobx-node-an.md
+
+### Task: Enforce exact-source provisioning and native lifecycle boundaries
+
+- Title: Enforce exact-source provisioning and native lifecycle boundaries
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/enforce-source-provisioning-boundaries-and-decide-the-minima.md
+
+### Task: Publish source-provisioning guidance and migrate current Ignite documentation
+
+- Title: Publish source-provisioning guidance and migrate current Ignite documentation
+- Mode: 4-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/publish-source-provisioning-guidance-and-migrate-current-ign.md
+
+### Task: Implement the DOM-free createFeature composition and disposal helper
+
+- Title: Implement the DOM-free createFeature composition and disposal helper
+- Mode: 6-agent
+- Status: cancelled
+- Owner: runtime
+- Brief: .fas/tasks/implement-the-dom-free-createfeature-composition-and-disposa.md
 
 ## Template
 

@@ -5,33 +5,51 @@
 Created with `fas create-task` on 2026-07-10.
 
 ## Problem
+Implement the architecture-approved retained-node contract for Ignite JSX using typed callback refs and a reserved commit renderer directive. ref acquires a stable DOM node and owns only node-bound presentation resources; commit receives that node after reconciliation and ref acquisition and synchronizes the latest projected data. Neither directive leaks to the DOM, creates or wraps a state source, binds environmental capability ports, or stops or disposes the exact native source passed to igniteCore. Cover replacement, callback identity, failures, same-tick moves, true disconnect, reconnect, and isolated or shared source observation without adding canvas-specific APIs or framework scheduling.
 
-Implement the architecture-approved generic retained-node contract for Ignite JSX using typed callback refs and a reserved commit renderer directive. ref acquires the stable DOM node and may return cleanup; commit receives the node after reconciliation and ref acquisition on initial mount and relevant projection updates. Neither directive may leak as a DOM attribute or property. Cover replacement, ref or commit identity changes, callback failures, same-tick move preservation, true-disconnect teardown, reconnect, and isolated/shared source ownership without adding canvas-specific APIs or framework scheduling.
 
 ## Acceptance criteria
-
 - Ignite JSX types expose generic callback ref and commit directives for compatible retained nodes, and neither directive is forwarded to the DOM.
 - ref acquisition runs after node materialization, may return cleanup, and cleanup occurs exactly once for ref replacement, node replacement, or true disconnect.
-- commit runs synchronously after reconciliation and ref acquisition on initial mount and relevant updates with the current projection; callback identity changes do not leak stale callbacks.
-- Same-tick DOM moves and keyed reorders preserve retained resources, observers, animation loops, canvas/editor contexts, and source ownership.
-- Callback and cleanup failures are contained and reported without masking adapter cleanup or corrupting lifecycle bookkeeping.
-- A throwing `host.handleError` or `host.onError` reporter cannot abort sibling cleanup, ref acquisition, commit traversal, or later error reporting.
-- No commitScheduling option, animation-frame policy, canvas helper, or second state authority is added to igniteCore.
-- Focused renderer, lifecycle, type-level, shared/isolated ownership, move/reconnect, and SSR/headless tests pass through the repo verification lane.
-- TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
-- TDD: every production code change in the change set is covered by an added or updated test.
-- DDD: keep projection calculation deterministic, confine retained-resource work to the renderer/lifecycle shell, and keep commands/events/effects semantics unchanged.
-- The work is tracked in .fas/TASKS.md and queued in .fas/queue/tasks.json.
+- ref cleanup owns only resources attached to retained presentation identity such as Canvas or Cytoscape instances, observers, node listeners, and consumer draw queues; it never stops or disposes the source.
+- commit runs synchronously after reconciliation and ref acquisition with the current projection and cannot become source provisioning, command authority, or a generic environmental effect.
+- The exact XState, Redux, MobX, Actor-Web, or custom source passed to igniteCore retains its established shared or isolated ownership independently of retained node lifetime.
+- Same-tick DOM moves and keyed reorders preserve retained resources, focus, selection, canvas or editor identity, and source observation.
+- Callback and cleanup failures are contained without masking adapter cleanup, source lifecycle, sibling traversal, or renderer bookkeeping.
+- No commitScheduling option, animation-frame policy, canvas helper, source wrapper, or second state authority is added to igniteCore.
+- Focused renderer, lifecycle, type, source-ownership, move or reconnect, and SSR or headless tests pass.
+- TDD and DDD guardrails remain satisfied and the work stays tracked in the live queue.
 - The work is tracked in `.fas/TASKS.md`.
 - The task has a clear implementation and verification plan before execution starts.
 
 ## Proposed solution
 
-- Use the supplied problem context, acceptance criteria, and affected-file hints to draft the concrete implementation approach during planning.
+- Reserve `ref` and `commit` in Ignite JSX normalization so neither reaches DOM
+  attributes or properties.
+- Track stable node and ref identity privately in the renderer. Acquire refs
+  after materialization, store one returned cleanup per node/ref pair, and
+  consume cleanup exactly once on ref replacement, incompatible node
+  replacement, or true disconnect.
+- Run `commit` synchronously after ordinary reconciliation and ref acquisition
+  with the current projection callback. Contain errors without rolling back DOM
+  or suppressing sibling callbacks.
+- Preserve source-only ownership: renderer lifecycle may subscribe to and
+  project the exact source through existing Ignite adapters, but ref cleanup
+  never stops, closes, or disposes that source.
+- Keep draw cadence, Canvas or Cytoscape construction, observers, node-local
+  input listeners, and accessibility companions in consumer presentation code;
+  add no scheduler or canvas-specific Ignite API.
 
 ## Alternatives considered
 
-- None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
+- Put retained work in Ignite effects: rejected because effects have transition
+  cadence and no stable node identity or deterministic teardown point.
+- Let `commit` create or dispose the state source: rejected because source
+  provisioning and retained presentation are separate lifecycles.
+- Stop shared sources on true element disconnect: rejected because other
+  projections may still consume the application-owned source.
+- Add Canvas, Cytoscape, editor, or scheduling-specific APIs: rejected until
+  repeated dogfood proves the generic ref and commit contract insufficient.
 
 ## Affected files
 
@@ -48,32 +66,28 @@ Implement the architecture-approved generic retained-node contract for Ignite JS
 - None.
 
 ## Implementation plan
-
-- Write failing JSX type, renderer, and lifecycle tests for ref acquisition/cleanup, commit ordering, updates, callback identity, replacement, move, disconnect, reconnect, callback failures, a throwing host error reporter, and headless execution.
-- Implement reserved ref and commit normalization plus post-reconciliation invocation without DOM leakage.
-- Integrate cleanup with shared and isolated adapter ownership and move-safe teardown without adding scheduling or canvas-specific behavior.
-- Add type tests, focused docs, a changeset, and fast/full verification.
+- Write failing JSX type, renderer, and lifecycle tests for ref acquisition and cleanup, commit ordering, updates, callback identity, replacement, moves, disconnect, reconnect, failures, and source-lifecycle independence.
+- Implement reserved ref and commit normalization plus post-reconciliation invocation without DOM leakage or access to provisioning ports.
+- Integrate retained cleanup with shared and isolated adapter observation without taking ownership of the exact native source, then add focused docs, a changeset, and verification.
 
 ## Verification plan
-
-- Run focused Ignite JSX renderer, IgniteElement lifecycle, shared/isolated ownership, and type tests after each commit-plan step.
-- Run fas validate-task after the full task change set.
-- Run the full FAS verification lane and external review before closeout.
+- Run focused Ignite JSX renderer, IgniteElement lifecycle, shared and isolated source ownership, and type tests after each commit-plan step.
+- Add explicit tests that ref cleanup never calls source stop or dispose and source shutdown does not depend on retained-node presence.
+- Run fas validate-task and the full FAS verification lane before closeout.
 
 ## Risks
-
 - Double-calling ref cleanup can leak or destroy retained resources.
-- DOM moves can be mistaken for true disconnects and recreate stateful resources.
-- Callback errors can mask adapter cleanup unless lifecycle bookkeeping is exception-safe.
+- DOM moves can be mistaken for disconnects and recreate stateful resources.
+- Callback errors can mask adapter cleanup unless bookkeeping is exception-safe.
+- Source lifecycle could be accidentally coupled to element or retained-node lifecycle if ownership tests are incomplete.
 
 ## Dependencies
-
-- Depends on architecture task-1783719632720.
-- Blocks keyed reconciliation task-1783719665018.
+- Depends on retained-surface architecture task-1783719632720.
+- Blocks keyed reconciliation task-1783719665018 and final source-provisioning guidance task-1784909364827.
+- The source-only provisioning epic is a sibling contract; this task consumes its ownership boundary but does not depend on its implementation chain.
 
 ## Open questions
-
-- None; use the architecture-approved ref and commit contract and return any incompatible requirement to architecture instead of improvising.
+- None. Use the architecture-approved ref and commit contract; return any requirement to provision, wrap, or dispose sources through renderer callbacks to architecture.
 
 ## Artifact links
 

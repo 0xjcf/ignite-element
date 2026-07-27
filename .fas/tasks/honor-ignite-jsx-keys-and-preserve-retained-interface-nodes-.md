@@ -24,11 +24,17 @@ Implement key-aware Ignite JSX normalization and reconciliation so retained inte
 
 ## Proposed solution
 
-- Use the supplied problem context, acceptance criteria, and affected-file hints to draft the concrete implementation approach during planning.
+- Carry an internal key field through JSX normalization without emitting it as a DOM attribute, then reconcile keyed siblings by key and compatible node shape before falling back to the existing positional path for wholly unkeyed children.
+- Define one deterministic policy for duplicate and mixed keyed/unkeyed siblings, surface development diagnostics, and test the fallback so identity is never silently reassigned.
+- Integrate the retained lifecycle directly into reconciliation: moved nodes keep their acquired resource, removed or incompatible nodes run ref cleanup exactly once, and commit runs against the retained node with the latest projection after placement.
+- Preserve current listener/property update semantics and add focused identity assertions for focus, selection, canvas context, and editor-like retained state.
 
 ## Alternatives considered
 
-- None recorded at task creation. Add rejected approaches during planning if scope tradeoffs appear.
+- Replace every keyed subtree: rejected because it destroys the retained identity the feature is meant to preserve.
+- Treat keys as ordinary DOM attributes: rejected because keys are renderer identity metadata and must not leak to the host.
+- Make commit or effects repair identity after replacement: rejected because neither callback can recover a destroyed canvas context, focus position, or editor instance.
+- Add scheduling policy while changing reconciliation: rejected because scheduling remains consumer-owned and is evaluated only after dogfood.
 
 ## Affected files
 

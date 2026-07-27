@@ -47,7 +47,8 @@
         "task-1783610965770",
         "task-1783719740973",
         "task-1784383053533",
-        "task-1784408640433"
+        "task-1784408640433",
+        "task-1784909364827"
       ],
       "blocks": [
         "task-1781197578529"
@@ -55,8 +56,8 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-12T19:30:13.064Z",
-      "updatedAt": "2026-07-18T21:04:00.433Z",
-      "deferredReason": "dependency_reopened: task-1781919547313, task-1783610965770, task-1783719740973",
+      "updatedAt": "2026-07-24T16:09:24.827Z",
+      "deferredReason": "dependency_reopened: task-1781919547313, task-1783610965770, task-1783719740973, task-1784909364827",
       "invalidationReason": null
     },
     {
@@ -148,12 +149,13 @@
         "task-1783719632720"
       ],
       "blocks": [
-        "task-1783719665018"
+        "task-1783719665018",
+        "task-1784909364827"
       ],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-10T21:40:49.309Z",
-      "updatedAt": "2026-07-11T22:49:48.000Z",
+      "updatedAt": "2026-07-24T16:09:24.827Z",
       "deferredReason": null,
       "invalidationReason": null
     },
@@ -262,7 +264,7 @@
       "task": "Document complex-interface authoring, performance, accessibility, and ownership boundaries",
       "priority": "high",
       "source": "manual",
-      "details": "Publish stable authoring guidance after implementation, dogfood, downstream validation, and the explicit scheduling verdict. Document ordinary JSX versus retained ref/commit resources, keyed reconciliation, consumer-owned scheduling, igniteShell, Lit, and native elements using only shipped APIs and preserving the Actor-Web ownership split.\nSee .fas/tasks/document-complex-interface-authoring-performance-accessibili.md",
+      "details": "Publish stable authoring guidance after implementation, dogfood, downstream validation, and the explicit scheduling verdict. Document ordinary JSX versus retained ref/commit resources, keyed reconciliation, consumer-owned scheduling, igniteShell, Lit, and native elements using only shipped APIs and preserving the Actor-Web ownership split. Cross-link the exact-source provisioning standard and make clear that ref and commit own only node-bound presentation resources; they never construct, wrap, start, stop, or dispose the source.\nSee .fas/tasks/document-complex-interface-authoring-performance-accessibili.md",
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
@@ -302,27 +304,6 @@
       "prDependencies": [],
       "createdAt": "2026-07-11T02:10:35.707Z",
       "updatedAt": "2026-07-11T02:10:35.707Z"
-    },
-    {
-      "id": "task-1784253036241",
-      "task": "Converge routing examples on machine-driven host projections",
-      "priority": "high",
-      "source": "manual",
-      "details": "Bring the spa-router and nested-child-router examples into the same authority boundary proven by the voice-workbench audit. Machine state is the sole workflow and navigation authority. projectRoute(snapshot) and projectView(snapshot) are sibling pure projections; neither performs History or browser work. The browser host is the imperative shell: bootstrap the URL into the machine before outbound synchronization, push only accepted user navigation, send popstate as intent without immediately writing History, and use replace for canonical fallback. Never write History before actor acceptance. Do not add an Ignite router API or shared core API unless repeated dogfood friction proves a need. Keep the optional XState graph-testing bridge separate. Document the source-of-truth matrix and lifecycle/event contract.\nSee .fas/tasks/converge-routing-examples-on-machine-driven-host-projections.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "policy-surfacing",
-      "signalFingerprint": null,
-      "status": "queued",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [
-        "task-1784171467799"
-      ],
-      "blocks": [],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-17T01:50:36.242Z",
-      "updatedAt": "2026-07-17T01:50:36.242Z"
     },
     {
       "id": "task-1784298642791",
@@ -479,10 +460,10 @@
     },
     {
       "id": "task-1784602868853",
-      "task": "Implement the Ignite Alchemy adapter-neutral controlled Story session controller",
+      "task": "Implement the Ignite Alchemy selected-specimen Story session controller",
       "priority": "high",
       "source": "manual",
-      "details": "Implement the production Ignite Alchemy controller around approved shared Story callbacks and the existing igniteTest component story executor. Gate before each Given, Intent, Behavior, and Checkpoint page; release exactly one page per Step; and project transient reviewer facts without creating another receipt or runtime authority. Model explicit session lifecycle states, use generation tokens to suppress stale async updates, coordinate abortable fixture disposal before replacement, and implement Back only as dispose, rebuild, and controlled replay. Return the ordinary final IgniteStorySnapshot only after Story completion and remain useful without XState.\nSee .fas/tasks/implement-the-adapter-neutral-controlled-story-session-contr.md",
+      "details": "Implement the adapter-neutral selected-specimen Story session controller for bounded component, feature projection, and explicitly labeled integration specimens. Gate the existing Ignite Story before each Given, Intent, Behavior, and Checkpoint page, release exactly one page per Step, pause for admitted public-command branches, and project transient reviewer facts without creating another receipt or runtime authority. Scope every session to one selected specimen and Story; never make the controller application or project admission authority. Use generation tokens, abortable exactly-once fixture disposal, and fresh-fixture Back replay, return the ordinary final IgniteStorySnapshot only after completion, and remain fully useful without an XState lens.\nSee .fas/tasks/implement-the-adapter-neutral-controlled-story-session-contr.md",
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
@@ -505,10 +486,10 @@
     },
     {
       "id": "task-1784602883094",
-      "task": "Implement the optional XState topology and observation lens for Ignite Alchemy",
+      "task": "Implement the optional selected-specimen XState observation lens for Ignite Alchemy",
       "priority": "high",
       "source": "manual",
-      "details": "Implement the production optional XState lens for Ignite Alchemy using the approved actor-creation observation seam without changing Story execution. Derive topology with XState-owned utilities and emit monotonic ordered observation facts for active parallel nodes, snapshot deltas, directly evidenced transitions, candidate edges, child or passive activity, context changes, and explicitly unknown causality. Keep the lens independent of Story page intervals so downstream application and coverage projections perform correlation. Bound and redact raw context evidence, fail closed on trigger and guard certainty, and preserve no-lens operation.\nSee .fas/tasks/implement-the-optional-xstate-topology-and-observation-lens-.md",
+      "details": "Implement an optional XState topology and observation lens for the currently selected Ignite Alchemy specimen without changing Story execution or requiring every specimen to own a machine. Derive topology with XState-owned utilities and emit monotonic ordered evidence for real active states, snapshot deltas, directly evidenced or candidate edges, child or passive activity, context changes, and explicitly unknown causality. Support component, feature projection, and integration specimens, including multiple specimens observing one shared app-owned actor; never introduce a machine-per-visual-atom rule or duplicate actor authority. Bound and redact raw context evidence, fail closed on trigger and guard certainty, and preserve complete no-lens operation.\nSee .fas/tasks/implement-the-optional-xstate-topology-and-observation-lens-.md",
       "taskClassification": "standard",
       "selfImprovementCategory": null,
       "signalFingerprint": null,
@@ -531,10 +512,10 @@
     },
     {
       "id": "task-1784602901002",
-      "task": "Build the Vite-hosted Ignite Alchemy Story Workbench application",
+      "task": "Build the Vite-hosted Ignite Alchemy repo-scoped specimen workbench",
       "priority": "high",
       "source": "manual",
-      "details": "Build the production example-local Ignite Alchemy application from the accepted Mock Studio handoff and POC evidence. Add a deterministic-fixture-only Vite multi-page entry under Voice Workbench and implement the scientific-alchemy product identity across the Story catalog, controlled procedure page, optional reaction map, composition diff, evidence ledger, receipts, snapshots, semantic views, command availability, and session controls. Keep canonical technical labels visible, use token-driven accessible presentation, distinguish transient telemetry from the final Story receipt, dispose on page lifecycle boundaries, and never boot live microphone, MLX, provider, or normal application composition paths.\nSee .fas/tasks/build-the-vite-hosted-ignite-story-workbench-reviewer-interf.md",
+      "details": "Build an example-local, repo-scoped Ignite Alchemy dev/test specimen workbench from the accepted specimen-first Mock Studio foundation and POC evidence. The primary UI is repository specimen catalog, selected specimen canvas, Story/page/public-command branch lane, and docked Inspector. Default review units are bounded component or feature projection specimens; full-page or composed Voice Workbench views appear only as explicitly labeled integration specimens. Use one fresh deterministic fixture per session, keep Story receipts and real actor or machine truth authoritative, support optional lenses and exact no-lens behavior, preserve production exclusion, and add no public Ignite API or production application surface.\nSee .fas/tasks/build-the-vite-hosted-ignite-story-workbench-reviewer-interf.md",
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
@@ -630,16 +611,32 @@
     },
     {
       "id": "task-1784655399770",
-      "task": "Create and approve the Ignite Alchemy Mock Studio foundation and MagicPath prototype",
+      "task": "Create and approve the Ignite Alchemy component-specimen Mock Studio foundation and prototype",
       "priority": "high",
       "source": "manual",
-      "details": "Define Ignite Alchemy as the product identity for the executable Story Workbench, then create its behavior-complete Mock Studio foundation and an interactive MagicPath prototype. Derive prioritized reviewer stories, bounded narratives, source-of-truth ownership, the Story session controller lifecycle, existing-machine validation references, race and precedence cases, experience inventory, design-system coverage, and state-to-screen coverage before visual synthesis. Prototype the approved scientific-alchemy application direction in MagicPath with stable reviewable states, token-first styling, control dispositions, accessibility contracts, measured browser receipts, and explicit human approval. The mock is design evidence only and MagicPath React never becomes production architecture.\nSee .fas/tasks/create-and-approve-the-ignite-alchemy-mock-studio-foundation.md",
+      "details": "Reframe Ignite Alchemy as a repo-scoped, Storybook-like component-specimen workbench. Its default executable review unit is a bounded component, feature projection, or explicitly labeled integration specimen backed by a fresh deterministic fixture, existing Ignite Story receipts, and an optional real machine or actor lens. Replace the broad Project Explorer and whole-application admission model with repository catalog -> specimen -> Story -> page -> admitted branch. Keep Voice Workbench honest as existing integration-specimen evidence rather than the default component taxonomy, and retain STORY-002 as the narrow source-backed golden path. MagicPath revision 9 remains donor-only evidence. The authorized specimen-first visual round produced browser-validated revision 11 at dreamily-sand-6842; human visual approval and all product-source implementation remain pending. Multi-project management, application generation, whole-app runtime connect or import, persistent registration, and broad capability negotiation remain deferred.\nSee .fas/tasks/create-and-approve-the-ignite-alchemy-mock-studio-foundation.md",
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "policy-surfacing",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "blocked",
       "owner": "runtime",
       "mode": "6-agent",
+      "experienceDesign": {
+        "requiresProductFlowDelivery": true,
+        "requiresVisualDesignDelivery": true,
+        "changeKind": "material-mutation",
+        "unsettledAuthority": []
+      },
+      "experienceDesignCapabilities": {
+        "experience-design-protocol": true,
+        "artifact-write": true,
+        "design-source-write": true,
+        "browser-render-evidence": true,
+        "visual-input": true,
+        "magicpath": true,
+        "mobbin-reference": true,
+        "built-for-mars-reference": true
+      },
       "dependsOn": [
         "task-1784602834084"
       ],
@@ -649,16 +646,16 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-21T17:36:39.770Z",
-      "updatedAt": "2026-07-21T17:36:55.553Z",
+      "updatedAt": "2026-07-24T17:52:49.521Z",
       "deferredReason": null,
       "invalidationReason": null
     },
     {
       "id": "task-1784655415553",
-      "task": "Prove Ignite Alchemy Story stepping, replay, and observation seams in a browser POC",
+      "task": "Prove Ignite Alchemy selected-specimen Story stepping, replay, and optional observation in a browser POC",
       "priority": "high",
       "source": "manual",
-      "details": "Use the approved Ignite Alchemy prototype and browser-safe shared Voice Workbench Stories to retire the smallest risky integration seams before MVP implementation. Build a deliberately narrow browser POC around the real timeout and retry Story, the existing igniteTest component story executor, controlled ports, exactly-once page gates, fresh-fixture Back replay, ordinary final Story receipts, and optional XState actor-system observation installed before actor start. Prove ordered active-state and candidate-edge evidence without adding a public Ignite API, second runner, graph algorithm, state authority, or trace. Keep POC evidence and source explicitly separate from production-readiness claims and record whether each part should be retained, rewritten, or retired.\nSee .fas/tasks/prove-ignite-alchemy-story-stepping-replay-and-observation-s.md",
+      "details": "Build a deliberately narrow browser POC over the existing Voice Workbench / STORY-002 integration specimen and the specimen-first foundation evidence. Use the existing igniteTest component Story executor, a fresh deterministic fixture around the real Voice Workbench machine and controlled ports, exactly-once page gates, both admitted page-4 public-command branches, fresh-fixture Back replay, ordinary final Story receipts, and optional observation installed before actor start. Prove selected-specimen Story, page, branch, replay, and lens seams without project admission, a broad application shell, a public Ignite API, a second runner, a second graph algorithm, a new state authority, or a new trace. Keep POC evidence separate from production-readiness claims and record retain, rewrite, or retire dispositions.\nSee .fas/tasks/prove-ignite-alchemy-story-stepping-replay-and-observation-s.md",
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
@@ -703,6 +700,157 @@
       "createdAt": "2026-07-21T17:37:12.373Z",
       "updatedAt": "2026-07-21T17:37:12.373Z",
       "deferredReason": "dependency_reopened: task-1784655415553",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784909239951",
+      "task": "Define the canonical source-native provisioning and host-boundary architecture standard",
+      "priority": "high",
+      "source": "manual",
+      "details": "Write the normative architecture decision for environmental integration in Ignite applications. Define capability ports, environment adapters, and source-native binding through XState provide and actor composition, Redux middleware or thunk injection, MobX constructors or factories, Actor-Web composition, and equivalent custom-source APIs. The canonical result is the exact native source, passed directly to igniteCore. Native source lifecycles own environmental listeners, subscriptions, timers, cancellation, and shutdown. Explicitly reject createFeature, Feature wrappers, generic lifecycle containers, driver, igniteEnvironment, ports on igniteCore, host mutation from commands, environmental I/O in Ignite effects, and retained Canvas or Cytoscape ownership in effects. Preserve retained ref and commit as the separate presentation lifecycle and label current facts, accepted targets, compatibility impact, and evidence gates.\nSee .fas/tasks/define-the-canonical-source-native-provisioning-and-host-bou.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "processing",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [],
+      "blocks": [
+        "task-1784909267400",
+        "task-1784909278954",
+        "task-1784909318199"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-24T16:07:19.951Z",
+      "updatedAt": "2026-07-24T17:56:42.633Z"
+    },
+    {
+      "id": "task-1784909267400",
+      "task": "Narrow Ignite commands and effects to intent and outward-fact callbacks",
+      "priority": "high",
+      "source": "manual",
+      "details": "Apply the architecture standard to the pre-stable public callback contract. Commands receive only the adapter-native actor and command metadata helper and express public intent. Effects receive snapshot, prevSnapshot, select, and emit; they remain synchronous transition-to-public-fact bridges and do not receive actor or host. Keep the actual DOM or headless host internal for CustomEvent dispatch and error reporting. Remove promise-returning effect semantics, migrate real examples and docs, preserve source-emitted event bridges, and provide a coordinated beta migration note and changeset.\nSee .fas/tasks/narrow-ignite-commands-and-effects-to-intent-and-outward-fac.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "developer-experience",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784909239951"
+      ],
+      "blocks": [
+        "task-1784909335843"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-24T16:07:47.400Z",
+      "updatedAt": "2026-07-24T17:39:34.000Z",
+      "deferredReason": "dependency_reopened: task-1784909239951",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784909278954",
+      "task": "Refactor routing examples to source-native navigation ports and XState provisioning",
+      "priority": "high",
+      "source": "manual",
+      "details": "Replace the older machine-driven host-projection routing plan with exact source-only provisioning. Define a framework-neutral NavigationPort with browser and deterministic memory adapters; bind location observation and accepted navigation writes through named XState actors, actions, or callback actors using machine.provide; create and start the shared router actor through an example-owned createRouterSource factory; and pass that exact actor directly to igniteCore. Remove History writes from Ignite effects. Tie browser-listener cleanup to actor.stop through XState native lifecycle and preserve deep-link, guard, canonicalization, parent-child ownership, emitted facts, and headless behavior.\nSee .fas/tasks/refactor-routing-examples-to-source-native-navigation-ports-.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784909239951"
+      ],
+      "blocks": [
+        "task-1784909335843"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-24T16:07:58.954Z",
+      "updatedAt": "2026-07-24T17:39:34.000Z",
+      "deferredReason": "dependency_reopened: task-1784909239951",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784909318199",
+      "task": "Dogfood source-native provisioning across Redux, MobX, Node, and deterministic fakes",
+      "priority": "high",
+      "source": "manual",
+      "details": "Prove that exact source-only provisioning is source-library-native rather than XState-specific. Refactor the Redux and MobX examples to inject capability ports through Redux store construction, thunk or middleware and MobX constructors or factories, then pass the exact configured store or observable directly to igniteCore. Add Actor-Web comparison evidence, a Node or headless composition proof, and deterministic fakes. Each ecosystem retains its native lifecycle and shutdown conventions; do not introduce createFeature, Feature wrappers, onDispose, or a cross-library lifecycle abstraction. Treat Voice Workbench as read-only evidence and avoid overlapping its queued implementation scope.\nSee .fas/tasks/dogfood-source-native-provisioning-across-redux-mobx-node-an.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784909239951"
+      ],
+      "blocks": [
+        "task-1784909335843"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-24T16:08:38.199Z",
+      "updatedAt": "2026-07-24T17:39:34.000Z",
+      "deferredReason": "dependency_reopened: task-1784909239951",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784909335843",
+      "task": "Enforce exact-source provisioning and native lifecycle boundaries",
+      "priority": "high",
+      "source": "manual",
+      "details": "Turn the accepted source-only architecture and cross-adapter dogfood into enforceable conformance. Add boundary and type tests that prevent concrete environment APIs from entering deterministic source modules, prevent public Ignite commands and effects from regaining host or actor escape hatches, and prevent igniteCore from accepting ports, drivers, environments, provide hooks, Feature wrappers, lifecycle containers, or disposal policy. Verify that browser, Node, fake, isolated, and shared cleanup follows the selected source ecosystem native lifecycle. Produce the source-of-truth matrix consumed by final documentation; no public composition or lifecycle helper is implemented.\nSee .fas/tasks/enforce-source-provisioning-boundaries-and-decide-the-minima.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784909267400",
+        "task-1784909278954",
+        "task-1784909318199"
+      ],
+      "blocks": [
+        "task-1784909364827"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-24T16:08:55.843Z",
+      "updatedAt": "2026-07-24T20:50:06.831Z",
+      "deferredReason": "dependency_reopened: task-1784909267400, task-1784909278954, task-1784909318199",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1784909364827",
+      "task": "Publish source-provisioning guidance and migrate current Ignite documentation",
+      "priority": "high",
+      "source": "manual",
+      "details": "Publish the final source-only idiom after callback, routing, cross-adapter, exact-source conformance, and retained ref and commit evidence exists. Make the normative source-provisioning document discoverable; update current v3 architecture, mental-model, igniteCore API, headless, routing, Redux and MobX, Actor-Web, testing, and migration pages; replace examples that teach host access or environmental work in effects; teach capability ports bound through each source library native construction and lifecycle, then pass the exact resulting source directly to igniteCore. Distinguish source-owned environmental I/O and cleanup from renderer-retained presentation, semantic projections, outward facts, and igniteShell lifecycle. Do not modify the frozen 2.x archive or duplicate the separate complex-interface guide.\nSee .fas/tasks/publish-source-provisioning-guidance-and-migrate-current-ign.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "4-agent",
+      "dependsOn": [
+        "task-1783719649309",
+        "task-1784909335843"
+      ],
+      "blocks": [
+        "task-1781292613064"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-24T16:09:24.827Z",
+      "updatedAt": "2026-07-24T20:50:07.009Z",
+      "deferredReason": "dependency_reopened: task-1783719649309, task-1784909335843",
       "invalidationReason": null
     }
   ],
@@ -4326,6 +4474,54 @@
       "workflowId": "direct-1784656450498",
       "branchName": "fas/ignite-alchemy-architecture",
       "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784253036241",
+      "task": "Converge routing examples on machine-driven host projections",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "dependsOn": [
+        "task-1784171467799"
+      ],
+      "blocks": [],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-24T16:08:04.783Z",
+      "terminalOutcome": null,
+      "branchName": null,
+      "prStatus": null,
+      "workflowId": "superseded:task-1784253036241",
+      "supersededBy": "task-1784909278954",
+      "supersededReason": "The accepted source-native provisioning standard replaces the older host-owned History synchronization plan; the new task preserves router authority and tests while binding browser I/O through XState-provided port adapters."
+    },
+    {
+      "id": "task-1784914562979",
+      "task": "Implement the DOM-free createFeature composition and disposal helper",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "developer-experience",
+      "signalFingerprint": null,
+      "dependsOn": [],
+      "blocks": [],
+      "nonEpicDisposition": {
+        "kind": "standalone",
+        "reason": "Cancelled historical proposal retained only as decision provenance; it is not part of the source-only implementation epic."
+      },
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-24T20:48:27.439Z",
+      "terminalOutcome": null,
+      "branchName": null,
+      "prStatus": null,
+      "workflowId": "cancelled:task-1784914562979",
+      "cancelledReason": "Rejected by owner architecture decision on 2026-07-24: exact source-only provisioning preserves the native XState, Redux, MobX, Actor-Web, and custom source APIs. A generic createFeature wrapper adds a second lifecycle abstraction and feature.source ceremony without improving source-native composition. Native source lifecycles own cleanup; no public helper will be implemented."
     }
   ],
   "pullRequests": [],
@@ -4768,7 +4964,7 @@
         },
         {
           "taskId": "task-1784602901002",
-          "epicRole": "browser-reviewer-host"
+          "epicRole": "specimen-workbench-host"
         },
         {
           "taskId": "task-1784602918285",
@@ -4787,20 +4983,61 @@
       "title": "Ignite Alchemy — Story Workbench",
       "priority": "high",
       "consumer": "examples/agents/voice-workbench",
-      "goal": "Deliver the example-local Ignite Alchemy product MVP: an executable Story Workbench that turns real-machine Stories into controlled experiments, observable reaction maps, reproducible evidence, and bidirectional narrative-to-machine gap review without introducing another runtime, graph engine, recorder, trace format, state authority, or public testing API.",
+      "goal": "Deliver the example-local Ignite Alchemy product MVP: a repo-scoped executable specimen workbench that turns bounded component, feature-projection, and explicitly labeled integration specimens backed by real Stories into controlled review, reproducible evidence, and bidirectional narrative-to-machine gap discovery without introducing another runtime, graph engine, recorder, trace format, state authority, or public testing API.",
       "acceptance": [
         "Ignite Alchemy is the product identity and Story Workbench is its descriptive category; the scientific-alchemy presentation language never replaces canonical Ignite, Story, XState, command, view, receipt, or coverage contracts.",
-        "A behavior-complete Mock Studio foundation precedes visual synthesis, an interactive MagicPath prototype covers every P0/P1 product state, measured browser evidence is retained, and explicit human approval gates the technical POC.",
-        "A narrow browser POC proves existing igniteTest Story execution, exactly-once stepping, fresh-fixture Back replay, ordinary final receipts, and evidence-limited XState observation against a real Voice Workbench machine before the accepted MVP implementation handoff.",
+        "A behavior-complete specimen-first Mock Studio foundation precedes a fresh visual round; MagicPath revision 9 remains historical donor-only evidence, and explicit human approval gates any new visual synthesis and the technical POC.",
+        "A narrow browser POC proves existing igniteTest Story execution, exactly-once stepping, admitted public-command branches, fresh-fixture Back replay, ordinary final receipts, and evidence-limited optional observation against the selected Voice Workbench / STORY-002 integration specimen before the MVP implementation handoff.",
         "The browser and Vitest consume the same browser-safe shared Story modules through the existing igniteTest story API; browser code never imports test files.",
-        "Every run uses a fresh real machine and Ignite runtime while clocks, providers, network, microphone, speech, and other nondeterministic boundaries are controlled through fixture-owned ports.",
+        "Every run uses a fresh real target runtime and any real machine or actor owned by the specimen while clocks, providers, network, microphone, speech, and other nondeterministic boundaries are controlled through fixture-owned ports.",
         "Run, Step, Cancel, Restart, and Back via dispose, rebuild, and replay expose transient page facts, snapshots, semantic views, command availability, assertions, timing telemetry, semantic context diffs, and only the ordinary final Story receipt after completion.",
         "An optional XState lens projects topology, active parallel nodes, monotonic observations, snapshot deltas, candidate or uniquely evidenced edges, and only directly provable trigger, guard, or branch labels without moving graph ownership into Ignite.",
         "Bidirectional narrative, state, transition, and page coverage joins explicit stable catalog IDs, declared direct-test evidence, optional topology, and ordered observations while surfacing unavailable, uncovered, excluded, invariant-only, private-system, projection-only, and expected-no-change dispositions honestly.",
-        "The accepted Mock Studio handoff defines token-driven scientific-alchemy presentation, responsive anatomy, keyboard and focus behavior, reduced motion, failure and no-lens states, and measurable parity targets for the production application.",
-        "The product remains example-local under Voice Workbench for the MVP, adds no package or public Ignite API, owns no runtime state or replacement trace, and keeps MagicPath preview, rendered DOM, manual browser, headless Story, graph, and machine evidence distinct.",
-        "Deterministic-within-a-controlled-envelope replay, fixture isolation, stale-session suppression, exact cleanup, browser accessibility, adapter-neutral no-lens behavior, and a versioned JSON-safe CI and LLM review artifact are verified across all seven Stories before MVP closeout.",
+        "The accepted Mock Studio handoff defines the repo catalog, bounded specimen canvas, Story/page/public-command branch lane, docked Inspector, token-driven presentation, responsive anatomy, keyboard and focus behavior, reduced motion, failure and no-lens states, and measurable parity targets for the dev/test workbench host.",
+        "The product remains example-local for the MVP, defaults to component and feature-projection specimens, labels full-page or composed Voice Workbench surfaces as integration specimens, adds no package or public Ignite API, owns no runtime state or replacement trace, and keeps MagicPath preview, rendered DOM, manual browser, headless Story, graph, and machine evidence distinct.",
+        "Deterministic-within-a-controlled-envelope replay, fixture isolation, stale-session suppression, exact cleanup, browser accessibility, adapter-neutral no-lens behavior, and a versioned JSON-safe CI and LLM review artifact are verified incrementally across admitted specimens; broader Voice Workbench Story dogfooding remains a later integration-specimen phase.",
         "Public preview distribution and package extraction remain post-epic decisions requiring at least one second real adopter and a separate compatibility and ownership review."
+      ]
+    },
+    {
+      "members": [
+        {
+          "taskId": "task-1784909239951",
+          "epicRole": "architecture-standard"
+        },
+        {
+          "taskId": "task-1784909267400",
+          "epicRole": "callback-contract"
+        },
+        {
+          "taskId": "task-1784909278954",
+          "epicRole": "xstate-routing-dogfood"
+        },
+        {
+          "taskId": "task-1784909318199",
+          "epicRole": "cross-adapter-dogfood"
+        },
+        {
+          "taskId": "task-1784909335843",
+          "epicRole": "conformance-and-api-finalization"
+        },
+        {
+          "taskId": "task-1784909364827",
+          "epicRole": "public-guidance"
+        }
+      ],
+      "id": "epic-ignite-source-native-provisioning",
+      "title": "Source-only provisioning and host-boundary standard",
+      "priority": "high",
+      "consumer": "packages/ignite-element",
+      "goal": "Make exact native sources the canonical application composition boundary across browser, Node, test, XState, Redux, MobX, Actor-Web, and custom runtimes: applications bind capability ports through source-library-native APIs, native source lifecycles own environmental cleanup, igniteCore receives only the resulting source, and retained presentation resources remain in renderer ref and commit lifecycle.",
+      "acceptance": [
+        "A durable architecture standard defines ports, adapters, exact native sources, source-native provisioning, native lifecycle ownership, commands, effects, renderer ref and commit, igniteShell, and headless boundaries without introducing createFeature or another wrapper vocabulary.",
+        "igniteCore gains no driver, environment, ports, provisioning, disposal, Feature, or lifecycle-wrapper surface and receives the exact XState, Redux, MobX, Actor-Web, or custom source.",
+        "Routing, Redux, MobX, Actor-Web, Node/headless, and deterministic fake examples bind ports through native source APIs and prove cleanup through each source ecosystem native lifecycle.",
+        "Commands express intent without host access; effects publish accepted outward facts without owning environmental I/O, source lifecycle, or retained presentation resources.",
+        "ref acquires and cleans up stable node-bound resources while commit synchronizes current projected data after reconciliation; neither callback creates, wraps, stops, or disposes the source.",
+        "Public docs and migration guidance teach the source-only pattern with automated conformance evidence and link to the separate retained-interface contract for Canvas, Cytoscape, editors, and similar resources."
       ]
     }
   ]

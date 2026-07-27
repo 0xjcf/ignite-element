@@ -1,10 +1,10 @@
-# Implement the Ignite Alchemy adapter-neutral controlled Story session controller
+# Implement the Ignite Alchemy selected-specimen Story session controller
 
 ## Source
 Created with `fas create-task` on 2026-07-20.
 
 ## Problem
-Implement the production Ignite Alchemy controller around approved shared Story callbacks and the existing igniteTest component story executor. Gate before each Given, Intent, Behavior, and Checkpoint page; release exactly one page per Step; and project transient reviewer facts without creating another receipt or runtime authority. Model explicit session lifecycle states, use generation tokens to suppress stale async updates, coordinate abortable fixture disposal before replacement, and implement Back only as dispose, rebuild, and controlled replay. Return the ordinary final IgniteStorySnapshot only after Story completion and remain useful without XState.
+Implement the adapter-neutral selected-specimen Story session controller for bounded component, feature projection, and explicitly labeled integration specimens. Gate the existing Ignite Story before each Given, Intent, Behavior, and Checkpoint page, release exactly one page per Step, pause for admitted public-command branches, and project transient reviewer facts without creating another receipt or runtime authority. Scope every session to one selected specimen and Story; never make the controller application or project admission authority. Use generation tokens, abortable exactly-once fixture disposal, and fresh-fixture Back replay, return the ordinary final IgniteStorySnapshot only after completion, and remain fully useful without an XState lens.
 
 
 ## Acceptance criteria
@@ -19,6 +19,8 @@ Implement the production Ignite Alchemy controller around approved shared Story 
 - Back disposes the current fixture, rebuilds, and replays deterministically to the selected prior page; no snapshot mutation, event injection, or history rewind shortcut is used.
 - Semantic replay equivalence ignores wall-clock duration and compares stable Story receipts, page outcomes, views, availability, and controlled-clock evidence.
 - The controller works with an adapter-neutral IgniteAgentRuntime and produces a useful session without an XState lens.
+- The controller is instantiated only for a selected component, feature projection, or explicitly labeled integration specimen and one of its existing Stories; catalog selection remains presentation metadata.
+- The controller never discovers, validates, admits, registers, connects, or imports an application/project and never becomes target projection, runtime, actor, machine, or receipt authority.
 - No public Ignite API, package entrypoint, recorder, or trace type is added.
 - TDD: a failing test that captures the new or changed behavior is written before the implementation and lands in the same change.
 - TDD: every production code change in the change set is covered by an added or updated test.
@@ -28,7 +30,7 @@ Implement the production Ignite Alchemy controller around approved shared Story 
 - The task is queued in `.fas/queue/tasks.json` for the runtime.
 
 ## Proposed solution
-- Implement a small example-local session state machine and gate protocol around a decorated Story context, while the existing igniteTest story call remains the only executor and receipt producer.
+- Implement a small example-local selected-specimen session state machine and gate protocol around a decorated Story context, while the existing igniteTest story call remains the only executor and receipt producer.
 - Publish immutable transient session facts after each completed page and use a monotonic generation to reject stale async updates.
 - Centralize idempotent abort and disposal, then implement Restart and Back as new-session construction after teardown; Back automatically replays completed pages and pauses before the requested boundary.
 
@@ -36,6 +38,7 @@ Implement the production Ignite Alchemy controller around approved shared Story 
 - Rejected modifying igniteTest, adding a second Story runner, or snapshotting partial receipts.
 - Rejected in-place rewind, actor state mutation, private event injection, retained fixtures, and concurrent replacement sessions.
 - Rejected importing XState into the base controller; optional observations join downstream.
+- Rejected expanding the controller into catalog persistence, project/application admission, runtime connection, machine import, or broad capability negotiation.
 
 ## Affected files
 - examples/agents/voice-workbench/src/story-workbench/controller.ts
@@ -61,12 +64,12 @@ Implement the production Ignite Alchemy controller around approved shared Story 
 - Paused callbacks or external behaviors can deadlock cancellation unless gates and fixture aborts are coordinated.
 - Late page completions or observations can corrupt a new run unless every publication is generation-scoped.
 - Back replay can duplicate effects if fixture disposal or controlled-port reset is incomplete.
-- Controller state could become an accidental second runtime or trace if it persists more than reviewer-session facts.
+- Controller state could become an accidental application admission authority, second runtime, or trace if it persists more than selected-specimen reviewer-session facts.
 
 ## Dependencies
 - Depends directly on shared Story and fixture task-1784602854408.
 - Depends directly on approved implementation handoff task-1784655432373.
-- Blocks application task-1784602901002 together with the optional XState lens.
+- Blocks repo-scoped specimen workbench host task-1784602901002 together with the optional XState lens.
 
 ## Open questions
 - The handoff may refine presentation names for lifecycle states, but the controller contract and serialized reviewer facts remain literal and adapter-neutral.
