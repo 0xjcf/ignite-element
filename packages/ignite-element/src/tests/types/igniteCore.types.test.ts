@@ -968,10 +968,10 @@ describe("igniteCore type inference", () => {
 				sort: snapshot.context.sort,
 			}),
 			commands: ({ actor }) => ({
-					trigger: () => {
-						actor.send({ type: "PING" });
-					},
-				}),
+				trigger: () => {
+					actor.send({ type: "PING" });
+				},
+			}),
 			effects: ({ snapshot, emit }) => {
 				const { activeTournamentId, sort } = snapshot.context;
 				emit({

@@ -355,9 +355,7 @@ export type FacadeEffectsObjectCallback<
 	Actor,
 	Events extends EventMap = EmptyEventMap,
 	Host = unknown,
-> = (
-	args: FacadeEffectArgs<Snapshot, Actor, Events, Host>,
-) => undefined;
+> = (args: FacadeEffectArgs<Snapshot, Actor, Events, Host>) => undefined;
 
 type IsNever<T> = [T] extends [never] ? true : false;
 

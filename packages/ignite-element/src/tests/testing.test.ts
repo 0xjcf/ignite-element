@@ -167,7 +167,9 @@ describe("ignite test DSL", () => {
 			actions: {
 				rememberStartedModule: assign(({ context, event }) => ({
 					startedModule:
-						event.type === "START_MODULE" ? event.moduleId : context.startedModule,
+						event.type === "START_MODULE"
+							? event.moduleId
+							: context.startedModule,
 					lastStartedModule:
 						event.type === "START_MODULE"
 							? event.moduleId
@@ -319,10 +321,14 @@ describe("ignite test DSL", () => {
 			source: machine,
 			commands: ({ actor, command }) => ({
 				captureHost: command(
-					async ({ hostId, delayMs }: { hostId?: string; delayMs?: number }) => {
-						await new Promise((resolve) =>
-							setTimeout(resolve, delayMs ?? 0),
-						);
+					async ({
+						hostId,
+						delayMs,
+					}: {
+						hostId?: string;
+						delayMs?: number;
+					}) => {
+						await new Promise((resolve) => setTimeout(resolve, delayMs ?? 0));
 						const resolvedHostId = hostId ?? "none";
 						seenHostIds.push(resolvedHostId);
 						actor.send({
