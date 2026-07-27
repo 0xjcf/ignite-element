@@ -8,10 +8,61 @@ Created with `fas create-task` on 2026-07-24.
 
 Apply the architecture standard to the pre-stable public callback contract. Commands receive only the adapter-native actor and command metadata helper and express public intent. Effects receive snapshot, prevSnapshot, select, and emit; they remain synchronous transition-to-public-fact bridges and do not receive actor or host. Keep the actual DOM or headless host internal for CustomEvent dispatch and error reporting. Remove promise-returning effect semantics, migrate real examples and docs, preserve source-emitted event bridges, and provide a coordinated beta migration note and changeset.
 
+## Purpose and migration model
+
+This task removes two public escape hatches before stable v3:
+
+- Commands must not read hidden intent from the host or mutate presentation. Host-derived values become explicit command inputs, commands send intent to the adapter-native source, and projected source state drives rendering.
+- Effects must not feed work back into the source, mutate the host, or own promises. Asynchronous work, cancellation, failure, and cleanup move into native actors, actions, thunks, middleware, methods, or transports; effects synchronously translate accepted state transitions into typed outward facts.
+
+Representative command migration:
+
+```ts
+// Before: hidden DOM input and imperative presentation mutation.
+commands: ({ actor, host }) => ({
+  increment: () => {
+    const amount = Number(host.dataset.amount ?? 1);
+    host.dataset.lastAmount = String(amount);
+    actor.send({ type: "INCREMENT", amount });
+  },
+});
+
+// After: explicit intent; state and rendering own presentation.
+commands: ({ actor, command }) => ({
+  increment: command(
+    (amount: number) => actor.send({ type: "INCREMENT", amount }),
+    { input: command.number({ minimum: 1 }) },
+  ),
+});
+```
+
+Representative effect migration:
+
+```ts
+// Before: the projection callback owns async work and source feedback.
+effects: async ({ actor, host, snapshot }) => {
+  host.dataset.status = "saving";
+  const result = await saveOrder(snapshot.context.order);
+  actor.send({ type: "SAVE_SUCCEEDED", result });
+};
+
+// After: the native source owns saveOrder, cancellation, and failure.
+// The effect publishes only the accepted outward fact.
+effects: ({ snapshot, select, emit }) => {
+  const status = select((state) => state.context.saveStatus);
+  if (status.changed && status.current === "saved") {
+    emit({ type: "order-saved", orderId: snapshot.context.orderId });
+  }
+};
+```
+
 ## Acceptance criteria
 
 - CommandContext no longer exposes host and all public types, overloads, tests, examples, and docs compile against actor plus command only.
 - EffectContext no longer exposes actor or host and effect callbacks return void rather than promise-like work.
+- Host-derived command values are migrated to explicit typed inputs, and host-written presentation is migrated to projected state plus rendering or the separate retained ref/commit lifecycle.
+- Async effect work and effect-to-source feedback are migrated to ecosystem-native actors, actions, thunks, middleware, methods, or transports with explicit success, failure, cancellation, and cleanup facts where applicable.
+- Current docs describe effects as synchronous transition-to-outward-fact callbacks rather than general-purpose consequence handlers.
 - Internal DOM and EventTarget hosts continue to dispatch typed events and route errors without becoming public mutation capabilities.
 - XState and Actor-Web emitted facts remain preferred when sources emit natively; Redux and MobX transition-to-event effects remain supported.
 - Headless Node tests prove the same callback contract without document, HTMLElement, browser globals, or retained resources.
@@ -37,6 +88,14 @@ Apply the architecture standard to the pre-stable public callback contract. Comm
 - Keep `actor` or async work in effects: rejected because feedback belongs in source-native actions, actors, thunks, or store methods where success, failure, cancellation, and cleanup can re-enter as explicit facts.
 - Add a replacement host API in the same change: rejected unless a real migration case cannot be expressed through source provisioning, outward events, or retained presentation callbacks.
 
+## Boundaries and non-goals
+
+- Do not remove the host from Ignite internals; DOM CustomEvent dispatch, headless EventTarget dispatch, rendering, retained presentation, and runtime error routing still require internal host ownership.
+- Do not ban asynchronous work in native sources or command-triggered source behavior. Only promise-returning Ignite effects and effect-owned async coordination are removed.
+- Do not replace source-native emitted facts. XState and Actor-Web should continue to emit through their native runtime seams where available.
+- Do not fold routing, cross-adapter provisioning, retained ref/commit implementation, or Ignite Alchemy work into this task.
+- Do not introduce a generic port registry, lifecycle container, or replacement host capability on igniteCore.
+
 ## Affected files
 
 - packages/ignite-core/src/RenderArgs.ts
@@ -47,6 +106,7 @@ Apply the architecture standard to the pre-stable public callback contract. Comm
 - README.md
 - packages/ignite-element/README.md
 - docs/site/src/content/docs
+- .changeset
 
 ## Scope Amendments
 
@@ -55,7 +115,7 @@ Apply the architecture standard to the pre-stable public callback contract. Comm
 ## Implementation plan
 
 - Write failing public type and headless tests that reject host in commands, actor or host in effects, and promise-returning effects while preserving emit, select, snapshot, and prevSnapshot.
-- Narrow RenderArgs and projection assembly types, retain host-only internal event dispatch and error routing, and migrate package tests and real examples in one coordinated beta cutover.
+- Narrow RenderArgs and projection assembly types, retain host-only internal event dispatch and error routing, and migrate package tests and real examples in one coordinated beta cutover. Replace host-derived command data with explicit inputs, host-written presentation with state/view/render or retained presentation, and async effect feedback with source-native behavior.
 - Update current API docs and migration notes, add changesets, and verify source-emitted events and Redux or MobX effect bridges remain intact.
 
 ## Verification plan
