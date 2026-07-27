@@ -1,10 +1,13 @@
 import { igniteCore } from "ignite-element/xstate";
 import { describe, expect, it } from "vitest";
-import { routerMachine } from "./routerMachine";
+import { createMemoryNavigation } from "./navigation";
+import { createRouterSource } from "./routerSource";
 
 const makeRouter = () =>
 	igniteCore({
-		source: routerMachine,
+		source: createRouterSource({
+			navigation: createMemoryNavigation("/"),
+		}),
 		view: ({ snapshot }) => ({
 			parent: snapshot.context.parent,
 			child: snapshot.context.child,
@@ -12,7 +15,7 @@ const makeRouter = () =>
 			label: snapshot.context.label,
 		}),
 		commands: ({ actor }) => ({
-			navigate: (to: string) => actor.send({ type: "NAVIGATE", to }),
+			navigate: (to: string) => actor.send({ type: "NAVIGATE_REQUESTED", to }),
 			openDocSection: (section: "overview" | "api" | "examples") =>
 				actor.send({ type: "OPEN_DOC_SECTION", section }),
 			openSettingsPanel: (panel: "profile" | "billing") =>

@@ -1,6 +1,7 @@
 import { igniteCore } from "ignite-element/xstate";
 import { describe, expect, it } from "vitest";
-import { routerMachine } from "./routerMachine";
+import { createMemoryNavigation } from "./navigation";
+import { createRouterSource } from "./routerSource";
 
 // The payoff of keeping the router's core pure: you can drive navigation
 // through Ignite's headless runtime and assert the result with no DOM, no
@@ -9,7 +10,9 @@ import { routerMachine } from "./routerMachine";
 // `navigated` event (bridged from the machine through the subscribeEvents seam).
 const makeRouter = () =>
 	igniteCore({
-		source: routerMachine,
+		source: createRouterSource({
+			navigation: createMemoryNavigation("/"),
+		}),
 		view: ({ snapshot }) => ({
 			route: snapshot.context.route,
 			path: snapshot.context.path,
@@ -17,7 +20,7 @@ const makeRouter = () =>
 			authed: snapshot.context.authed,
 		}),
 		commands: ({ actor }) => ({
-			navigate: (to: string) => actor.send({ type: "NAVIGATE", to }),
+			navigate: (to: string) => actor.send({ type: "NAVIGATE_REQUESTED", to }),
 			login: () => actor.send({ type: "LOGIN" }),
 			logout: () => actor.send({ type: "LOGOUT" }),
 		}),
