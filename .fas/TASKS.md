@@ -2784,9 +2784,12 @@ No active tasks.
 
 - Title: Refactor routing examples to source-native navigation ports and XState provisioning
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/refactor-routing-examples-to-source-native-navigation-ports-.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Dogfood source-native provisioning across Redux, MobX, Node, and deterministic fakes
 

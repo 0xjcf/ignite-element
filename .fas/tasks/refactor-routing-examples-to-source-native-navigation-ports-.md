@@ -357,7 +357,15 @@ ownership boundary. They are not implementation deliverables for this task.
 
 ## Scope Amendments
 
-- None.
+- Type: generated-supporting-file
+- Added at: 2026-07-27
+- Trigger: closeout-change-set-collection
+- Reason: FAS setup created curated memory projection files before implementation. The closeout collector intentionally includes those ignored projections, so they must be classified transparently even though this task did not modify or ship them.
+- Added paths: .fas/memory/architecture.md, .fas/memory/decisions.md, .fas/memory/incidents.md, .fas/memory/patterns.md, .fas/memory/pr-feedback.md
+- Evidence source: closeout readiness
+- Evidence: .fas/state/downstream-context/latest.json | Five ignored curated memory projections were the only unexpected paths at closeout.
+- Accuracy signal: generated-supporting-file
+- Follow-up: Keep these files as project-local FAS memory projections; do not treat them as router implementation deliverables.
 
 ## Implementation plan
 

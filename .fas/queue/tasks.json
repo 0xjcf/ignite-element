@@ -703,31 +703,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1784909278954",
-      "task": "Refactor routing examples to source-native navigation ports and XState provisioning",
-      "priority": "high",
-      "source": "manual",
-      "details": "Replace the older machine-driven host-projection routing plan with exact source-only provisioning. Define a framework-neutral NavigationPort with browser and deterministic memory adapters; bind location observation and accepted navigation writes through named XState actors, actions, or callback actors using machine.provide; create and start the shared router actor through an example-owned createRouterSource factory; and pass that exact actor directly to igniteCore. Remove History writes from Ignite effects. Tie browser-listener cleanup to actor.stop through XState native lifecycle and preserve deep-link, guard, canonicalization, parent-child ownership, emitted facts, and headless behavior.\nSee .fas/tasks/refactor-routing-examples-to-source-native-navigation-ports-.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "queued",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [
-        "task-1784909239951"
-      ],
-      "blocks": [
-        "task-1784909335843"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-24T16:07:58.954Z",
-      "updatedAt": "2026-07-24T17:39:34.000Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
       "id": "task-1784909318199",
       "task": "Dogfood source-native provisioning across Redux, MobX, Node, and deterministic fakes",
       "priority": "high",
@@ -776,7 +751,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-24T16:08:55.843Z",
       "updatedAt": "2026-07-24T20:50:06.831Z",
-      "deferredReason": "dependency_reopened: task-1784909278954, task-1784909318199",
+      "deferredReason": "dependency_reopened: task-1784909318199",
       "invalidationReason": null
     },
     {
@@ -4524,6 +4499,32 @@
       "completedAt": "2026-07-27T04:42:08.551Z",
       "terminalOutcome": null,
       "workflowId": "direct-1785121265213",
+      "branchName": "fas/source-native-provisioning-architecture",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784909278954",
+      "task": "Refactor routing examples to source-native navigation ports and XState provisioning",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "experienceDesign": null,
+      "acceptanceSourcePath": null,
+      "dependsOn": [
+        "task-1784909239951"
+      ],
+      "blocks": [
+        "task-1784909335843"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-27T18:01:02.802Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1785170698702",
       "branchName": "fas/source-native-provisioning-architecture",
       "prStatus": "draft-only"
     }
