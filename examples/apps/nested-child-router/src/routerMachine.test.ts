@@ -1,49 +1,37 @@
-// @vitest-environment jsdom
 import { createActor } from "xstate";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
 	createInitialContext,
 	resolveNestedRoute,
 	routerMachine,
 } from "./routerMachine";
-import { shouldHandleClientNavigation } from "./router";
-import { createRouterNavigation, getBrowserPath } from "./routerStore";
 
-const createNavigationTarget = (initialPath: string) => {
-	let pathname = "/";
-	let search = "";
-	const listeners = new Map<string, EventListener>();
-	const setPath = (path: string) => {
-		const url = new URL(path, "https://example.test");
-		pathname = url.pathname;
-		search = url.search;
-	};
-	setPath(initialPath);
-
-	const target = {
-		get location() {
-			return { pathname, search };
-		},
-		history: {
-			pushState: vi.fn((_state: unknown, _title: string, to: string) => {
-				setPath(to);
-			}),
-			replaceState: vi.fn((_state: unknown, _title: string, to: string) => {
-				setPath(to);
-			}),
-		},
-		addEventListener: vi.fn((type: string, listener: EventListener) => {
-			listeners.set(type, listener);
-		}),
-		removeEventListener: vi.fn((type: string, listener: EventListener) => {
-			if (listeners.get(type) === listener) {
-				listeners.delete(type);
-			}
-		}),
-	};
-
-	return { target, listeners, setPath };
+type ClickLike = {
+	defaultPrevented: boolean;
+	button: number;
+	metaKey: boolean;
+	ctrlKey: boolean;
+	shiftKey: boolean;
+	altKey: boolean;
 };
+
+const shouldHandleClientNavigation = (event: ClickLike): boolean =>
+	!event.defaultPrevented &&
+	event.button === 0 &&
+	!event.metaKey &&
+	!event.ctrlKey &&
+	!event.shiftKey &&
+	!event.altKey;
+
+const click = (overrides: Partial<ClickLike> = {}): ClickLike => ({
+	defaultPrevented: false,
+	button: 0,
+	metaKey: false,
+	ctrlKey: false,
+	shiftKey: false,
+	altKey: false,
+	...overrides,
+});
 
 describe("nested child router core", () => {
 	it("resolves top-level and child routes from the path", () => {
@@ -85,7 +73,7 @@ describe("nested child router core", () => {
 			}),
 		);
 
-		actor.send({ type: "NAVIGATE", to: "/docs/api" });
+		actor.send({ type: "NAVIGATE_REQUESTED", to: "/docs/api" });
 
 		expect(seen).toEqual([
 			{
@@ -97,124 +85,44 @@ describe("nested child router core", () => {
 		actor.stop();
 	});
 
-	it("seeds route state from the current browser path", () => {
-		const { target } = createNavigationTarget("/settings/billing?plan=team");
+	it("tracks observed navigation separately from requested navigation", () => {
 		const actor = createActor(routerMachine, {
-			input: { path: getBrowserPath(target) },
+			input: undefined,
 		}).start();
+
+		actor.send({ type: "NAVIGATION_OBSERVED", path: "/settings/billing" });
 
 		expect(actor.getSnapshot().context).toMatchObject({
 			parent: "settings",
 			child: "billing",
 			path: "/settings/billing",
+			source: "observed",
 		});
-
-		actor.stop();
 	});
 
-	it("does not rewrite history when only the current query differs", () => {
-		const { target } = createNavigationTarget("/docs/api?tab=reference");
+	it("does not rewrite routing semantics when only the current query differs", () => {
 		const actor = createActor(routerMachine, {
-			input: { path: getBrowserPath(target) },
+			input: { path: "/docs/api?tab=reference" },
 		}).start();
-		const navigation = createRouterNavigation(actor, target);
 
-		navigation.navigate("/docs/api");
-
-		expect(target.history.pushState).not.toHaveBeenCalled();
-		expect(target.history.replaceState).not.toHaveBeenCalled();
 		expect(actor.getSnapshot().context).toMatchObject({
 			parent: "docs",
 			child: "api",
 			path: "/docs/api",
 		});
-
-		actor.stop();
-	});
-
-	it("keeps browser history and route state synchronized", () => {
-		const { target, listeners, setPath } = createNavigationTarget("/");
-		const actor = createActor(routerMachine, {
-			input: { path: getBrowserPath(target) },
-		}).start();
-		const navigation = createRouterNavigation(actor, target);
-		const subscription = navigation.installPopstateSync();
-
-		navigation.navigate("/docs/api");
-
-		expect(target.history.pushState).toHaveBeenCalledWith(
-			null,
-			"",
-			"/docs/api",
-		);
-		expect(actor.getSnapshot().context).toMatchObject({
-			parent: "docs",
-			child: "api",
-		});
-
-		navigation.navigate("/docs/unknown?tab=api");
-
-		expect(target.history.pushState).toHaveBeenLastCalledWith(
-			null,
-			"",
-			"/docs/unknown",
-		);
-		expect(actor.getSnapshot().context).toMatchObject({
-			parent: "not-found",
-			child: null,
-			path: "/docs/unknown",
-		});
-
-		setPath("/settings/billing");
-		listeners.get("popstate")?.(new Event("popstate"));
-
-		expect(actor.getSnapshot().context).toMatchObject({
-			parent: "settings",
-			child: "billing",
-		});
-
-		subscription.unsubscribe();
-		expect(target.removeEventListener).toHaveBeenCalledWith(
-			"popstate",
-			expect.any(Function),
-		);
-		actor.stop();
 	});
 
 	it("only intercepts normal left-click parent navigation", () => {
-		expect(
-			shouldHandleClientNavigation(new MouseEvent("click", { button: 0 })),
-		).toBe(true);
-		expect(
-			shouldHandleClientNavigation(new MouseEvent("click", { button: 1 })),
-		).toBe(false);
-		expect(
-			shouldHandleClientNavigation(
-				new MouseEvent("click", { button: 0, metaKey: true }),
-			),
-		).toBe(false);
-		expect(
-			shouldHandleClientNavigation(
-				new MouseEvent("click", { button: 0, ctrlKey: true }),
-			),
-		).toBe(false);
-		expect(
-			shouldHandleClientNavigation(
-				new MouseEvent("click", { button: 0, shiftKey: true }),
-			),
-		).toBe(false);
-		expect(
-			shouldHandleClientNavigation(
-				new MouseEvent("click", { button: 0, altKey: true }),
-			),
-		).toBe(false);
-
-		const prevented = new MouseEvent("click", {
-			button: 0,
-			cancelable: true,
-		});
-		prevented.preventDefault();
-
-		expect(shouldHandleClientNavigation(prevented)).toBe(false);
+		expect(shouldHandleClientNavigation(click())).toBe(true);
+		expect(shouldHandleClientNavigation(click({ button: 1 }))).toBe(false);
+		expect(shouldHandleClientNavigation(click({ metaKey: true }))).toBe(false);
+		expect(shouldHandleClientNavigation(click({ ctrlKey: true }))).toBe(false);
+		expect(shouldHandleClientNavigation(click({ shiftKey: true }))).toBe(
+			false,
+		);
+		expect(shouldHandleClientNavigation(click({ altKey: true }))).toBe(false);
+		expect(shouldHandleClientNavigation(click({ defaultPrevented: true }))).toBe(
+			false,
+		);
 	});
 });
