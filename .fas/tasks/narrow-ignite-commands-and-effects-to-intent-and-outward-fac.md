@@ -271,21 +271,21 @@ This task inherits the normalized architecture context accepted by
 ```
 
 ## Affected files
-- packages/ignite-core/src/RenderArgs.ts
-- packages/ignite-adapters/src/types.ts
-- packages/ignite-element/src/createProjectionFactory.ts
-- packages/ignite-element/src/runtime/effects.ts
-- packages/ignite-element/src/igniteCore/types.ts
-- packages/ignite-element/src/tests
+
+- .changeset/narrow-command-effect-callbacks.md
 - README.md
-- packages/ignite-element/README.md
-- docs/site/src/content/docs
-- .changeset
+- docs/site/src/content/docs/api/ignite-core.mdx
+- docs/site/src/content/docs/concepts/the-ignite-model.mdx
+- docs/site/src/content/docs/migration/effects-events.mdx
+- packages/ignite-adapters/src/types.ts
+- packages/ignite-core/src/RenderArgs.ts
+- packages/ignite-element/src/createProjectionFactory.ts
 - packages/ignite-element/src/igniteCore/types.ts
+- packages/ignite-element/src/runtime/effects.ts
+- packages/ignite-element/src/tests/IgniteCore.test.ts
+- packages/ignite-element/src/tests/createComponentFactory.test.ts
 - packages/ignite-element/src/tests/testing.test.ts
 - packages/ignite-element/src/tests/types/igniteCore.types.test.ts
-- packages/ignite-element/src/igniteCore/createIgniteComponentFactory.ts
-- packages/ignite-element/src/tests/IgniteCore.test.ts
 - packages/ignite-element/src/tests/types/testing.types.test.ts
 
 ## Scope Amendments
@@ -313,16 +313,7 @@ This task inherits the normalized architecture context accepted by
   - Evidence source: `fas validate-task` closeout-readiness hold
   - Evidence paths: `.fas/state/closeout-readiness/latest.json`, `.fas/state/downstream-context/latest.json`
   - Accuracy signal: zero unexpected files, 15 implemented files, and exactly four missing planned files, all confirmed unnecessary by the final compiler/test passes
-  - Follow-up: refresh active scope and rerun the narrow orchestration confirmations before root validation.
-
-- Type: scope-refresh-promotion
-- Added at: 2026-07-27
-- Trigger: dirty-low-confidence-scope
-- Reason: Promoted dirty low-confidence or dependency-reachable task-packet path(s) into affected scope.
-- Added paths: packages/ignite-element/src/igniteCore/types.ts, packages/ignite-element/src/tests/testing.test.ts, packages/ignite-element/src/tests/types/igniteCore.types.test.ts, packages/ignite-element/src/igniteCore/createIgniteComponentFactory.ts, packages/ignite-element/src/tests/IgniteCore.test.ts, packages/ignite-element/src/tests/types/testing.types.test.ts
-- Evidence source: task-packet dirty scope promotion
-- Evidence: task-packet dirty scope promotion | .fas/state/task-packet.json | Promoted dirty path(s): packages/ignite-element/src/igniteCore/types.ts, packages/ignite-element/src/tests/testing.test.ts, packages/ignite-element/src/tests/types/igniteCore.types.test.ts, packages/ignite-element/src/igniteCore/createIgniteComponentFactory.ts, packages/ignite-element/src/tests/IgniteCore.test.ts, packages/ignite-element/src/tests/types/testing.types.test.ts
-- Accuracy signal: Path was dirty in git status and present in task-packet low-confidence/dependency-reachable scope.
+  - Follow-up: final affected-files block normalized to the exact 15-file implementation diff; stale dirty-path promotion removed before final replanning.
 
 ## Implementation plan
 
