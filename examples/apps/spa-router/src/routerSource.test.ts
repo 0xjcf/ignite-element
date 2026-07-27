@@ -76,4 +76,28 @@ describe("spa router source", () => {
 			"commit rejected",
 		);
 	});
+
+	it("retries the same accepted navigation after a rejected commit without mutating currentPath", async () => {
+		const navigation = createMemoryNavigation("/");
+		const source = createRouterSource({ navigation });
+
+		navigation.rejectNextCommit(new Error("commit rejected"));
+		source.send({ type: "NAVIGATE_REQUESTED", to: "/about" });
+		await flushMicrotasks();
+
+		expect(navigation.currentPath()).toBe("/");
+		expect(source.getSnapshot().context.lastCommitError).toBe(
+			"commit rejected",
+		);
+
+		source.send({ type: "NAVIGATE_REQUESTED", to: "/about" });
+		await flushMicrotasks();
+
+		expect(navigation.currentPath()).toBe("/about");
+		expect(navigation.commitCalls).toEqual([
+			{ path: "/about", history: "push" },
+			{ path: "/about", history: "push" },
+		]);
+		expect(source.getSnapshot().context.lastCommitError).toBeNull();
+	});
 });

@@ -171,12 +171,13 @@ export const createMemoryNavigation = (initialPath: string): MemoryNavigation =>
 		},
 		async commit(path, history) {
 			commitCalls.push({ path, history });
-			currentPath = path;
 			if (typeof nextCommitError !== "undefined") {
 				const error = nextCommitError;
 				nextCommitError = undefined;
 				throw error;
 			}
+
+			currentPath = path;
 		},
 		externalNavigate(path) {
 			currentPath = path;

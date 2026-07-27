@@ -57,4 +57,25 @@ describe("nested child router source", () => {
 		source.stop();
 		expect(navigation.observerCount()).toBe(0);
 	});
+
+	it("retries the same accepted child-route navigation after a rejected commit", async () => {
+		const navigation = createMemoryNavigation("/");
+		const source = createRouterSource({ navigation });
+
+		navigation.rejectNextCommit(new Error("commit rejected"));
+		source.send({ type: "OPEN_DOC_SECTION", section: "api" });
+		await flushMicrotasks();
+
+		expect(navigation.currentPath()).toBe("/");
+
+		source.send({ type: "OPEN_DOC_SECTION", section: "api" });
+		await flushMicrotasks();
+
+		expect(navigation.currentPath()).toBe("/docs/api");
+		expect(navigation.commitCalls).toEqual([
+			{ path: "/docs/api", history: "push" },
+			{ path: "/docs/api", history: "push" },
+		]);
+		expect(source.getSnapshot().context.lastCommitError).toBeNull();
+	});
 });
