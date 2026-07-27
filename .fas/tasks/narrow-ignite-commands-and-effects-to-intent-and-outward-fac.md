@@ -271,20 +271,58 @@ This task inherits the normalized architecture context accepted by
 ```
 
 ## Affected files
-
 - packages/ignite-core/src/RenderArgs.ts
+- packages/ignite-adapters/src/types.ts
 - packages/ignite-element/src/createProjectionFactory.ts
 - packages/ignite-element/src/runtime/effects.ts
-- packages/ignite-element/src/igniteCore
+- packages/ignite-element/src/igniteCore/types.ts
 - packages/ignite-element/src/tests
 - README.md
 - packages/ignite-element/README.md
 - docs/site/src/content/docs
 - .changeset
+- packages/ignite-element/src/igniteCore/types.ts
+- packages/ignite-element/src/tests/testing.test.ts
+- packages/ignite-element/src/tests/types/igniteCore.types.test.ts
+- packages/ignite-element/src/igniteCore/createIgniteComponentFactory.ts
+- packages/ignite-element/src/tests/IgniteCore.test.ts
+- packages/ignite-element/src/tests/types/testing.types.test.ts
 
 ## Scope Amendments
 
-- None.
+- Type: dependency-reachable public type propagation
+  - Added at: 2026-07-26
+  - Trigger: the initial red/green implementation pass showed the narrowed callback types must propagate through the public core and element type aliases.
+  - Reason: `packages/ignite-core/src/types.ts` and `packages/ignite-element/src/RenderArgs.ts` re-export and specialize the callback types changed in `packages/ignite-core/src/RenderArgs.ts`; leaving them unchanged would preserve stale public generics or break typecheck.
+  - Evidence source: tests-first implementation checkpoint
+  - Evidence paths: `packages/ignite-element/src/tests/types/igniteCore.types.test.ts`, `packages/ignite-element/src/tests/types/testing.types.test.ts`
+  - Accuracy signal: direct compiler failures and dependency-reachable imports
+  - Result: the compiler-guided pass ultimately preserved compatibility without changes in `packages/ignite-core/src/types.ts` or `packages/ignite-element/src/RenderArgs.ts`; both are intentionally unchanged and removed from the final change envelope.
+- Type: dependency-reachable adapter type propagation
+  - Added at: 2026-07-26
+  - Trigger: the narrowed core callback generics produced compiler errors in the shared adapter definitions.
+  - Reason: `packages/ignite-adapters/src/types.ts` and `packages/ignite-adapters/src/xstate.ts` instantiate the old command/effect generic signatures; they must propagate the same public contract for the workspace to compile.
+  - Evidence source: compiler-guided implementation checkpoint
+  - Evidence paths: `packages/ignite-adapters/src/types.ts`, `packages/ignite-adapters/src/xstate.ts`
+  - Accuracy signal: direct `TS2707` failures plus exhaustive `FacadeCommandsCallback` and `FacadeEffectsObjectCallback` reference search
+  - Result: only `packages/ignite-adapters/src/types.ts` required a final signature change; `packages/ignite-adapters/src/xstate.ts` remained compatible and is intentionally unchanged.
+- Type: final change-envelope contraction
+  - Added at: 2026-07-27
+  - Trigger: green root validation reported four missing planned files after the compiler-guided implementation had already reverted unnecessary propagation edits.
+  - Reason: final ChangeSet truth must describe implemented files, not force no-op changes. The broad `packages/ignite-element/src/igniteCore` path is narrowed to `packages/ignite-element/src/igniteCore/types.ts`; `createIgniteComponentFactory.ts` is intentionally unchanged.
+  - Evidence source: `fas validate-task` closeout-readiness hold
+  - Evidence paths: `.fas/state/closeout-readiness/latest.json`, `.fas/state/downstream-context/latest.json`
+  - Accuracy signal: zero unexpected files, 15 implemented files, and exactly four missing planned files, all confirmed unnecessary by the final compiler/test passes
+  - Follow-up: refresh active scope and rerun the narrow orchestration confirmations before root validation.
+
+- Type: scope-refresh-promotion
+- Added at: 2026-07-27
+- Trigger: dirty-low-confidence-scope
+- Reason: Promoted dirty low-confidence or dependency-reachable task-packet path(s) into affected scope.
+- Added paths: packages/ignite-element/src/igniteCore/types.ts, packages/ignite-element/src/tests/testing.test.ts, packages/ignite-element/src/tests/types/igniteCore.types.test.ts, packages/ignite-element/src/igniteCore/createIgniteComponentFactory.ts, packages/ignite-element/src/tests/IgniteCore.test.ts, packages/ignite-element/src/tests/types/testing.types.test.ts
+- Evidence source: task-packet dirty scope promotion
+- Evidence: task-packet dirty scope promotion | .fas/state/task-packet.json | Promoted dirty path(s): packages/ignite-element/src/igniteCore/types.ts, packages/ignite-element/src/tests/testing.test.ts, packages/ignite-element/src/tests/types/igniteCore.types.test.ts, packages/ignite-element/src/igniteCore/createIgniteComponentFactory.ts, packages/ignite-element/src/tests/IgniteCore.test.ts, packages/ignite-element/src/tests/types/testing.types.test.ts
+- Accuracy signal: Path was dirty in git status and present in task-packet low-confidence/dependency-reachable scope.
 
 ## Implementation plan
 
