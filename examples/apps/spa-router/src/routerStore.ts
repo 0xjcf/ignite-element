@@ -1,15 +1,43 @@
-import { createActor } from "xstate";
-import { currentPath, onPopState } from "./history";
-import { routerMachine } from "./routerMachine";
+import { createBrowserNavigation } from "./navigation";
+import { createRouterSource } from "./routerSource";
 
-// One router actor, shared by the outlet and every page element (all register
-// with this same source, so they project the same live route state). Created
-// from the current URL so a deep link / refresh lands on the right route.
-export const routerActor = createActor(routerMachine, {
-	input: { path: currentPath() },
-}).start();
+type NavigationWindow = Window & {
+	navigation?: EventTarget & {
+		currentEntry?: { url?: string };
+		navigate: (path: string, options?: { history?: "push" | "replace" }) => {
+			committed?: Promise<unknown>;
+			finished?: Promise<unknown>;
+		};
+	};
+};
 
-// Shell wiring: browser back/forward feeds the machine. POPSTATE must not push a
-// new history entry — the browser already moved the URL — which is why the
-// machine tags the transition `popstate` and the outlet's effect skips it.
-onPopState((path) => routerActor.send({ type: "POPSTATE", path }));
+const resolveBrowserNavigation = () => {
+	if (typeof window === "undefined") {
+		throw new Error(
+			"The spa-router example requires the browser Navigation API.",
+		);
+	}
+
+	const navigation = (window as NavigationWindow).navigation;
+	if (!navigation) {
+		throw new Error(
+			"The spa-router example requires Navigation API support (Baseline 2026).",
+		);
+	}
+
+	return navigation;
+};
+
+export const routerSource = createRouterSource({
+	navigation: createBrowserNavigation(resolveBrowserNavigation()),
+});
+
+const hot = (import.meta as ImportMeta & {
+	hot?: { dispose(callback: () => void): void };
+}).hot;
+
+if (hot) {
+	hot.dispose(() => {
+		routerSource.stop();
+	});
+}

@@ -1,36 +1,27 @@
-import { assign, emit, setup } from "xstate";
+import { assign, emit, fromCallback, setup } from "xstate";
 import { matchRoute, type RouteParams } from "./matchRoute";
 import { LOGIN_PATH, type RouteName, routes } from "./routes";
 
-// The router's functional core: an XState machine that holds the logical route
-// state and computes the next route (including auth guards) as a pure function
-// of the requested path. It never touches `window.history` or `location` — that
-// I/O lives in the shell (history.ts) and the component's effect. Keeping the
-// core pure is what makes navigation testable without a browser.
-
-export type NavSource = "init" | "navigate" | "popstate";
+export type NavSource = "init" | "navigate" | "observed";
 
 export type RouterContext = {
-	/** The effective pathname after guards (what the URL should show). */
 	path: string;
-	/** The matched (or guard-redirected) route name. */
 	route: RouteName;
 	params: RouteParams;
 	authed: boolean;
-	/** What drove the last transition — the History effect only writes for `navigate`. */
 	source: NavSource;
-	/** True when an auth guard rewrote the requested destination. */
 	redirected: boolean;
+	lastCommitError: string | null;
+	requestedPath: string | null;
 };
 
 export type RouterEvent =
-	| { type: "NAVIGATE"; to: string }
-	| { type: "POPSTATE"; path: string }
+	| { type: "NAVIGATE_REQUESTED"; to: string }
+	| { type: "NAVIGATION_OBSERVED"; path: string }
 	| { type: "LOGIN" }
-	| { type: "LOGOUT" };
+	| { type: "LOGOUT" }
+	| { type: "NAVIGATION_COMMIT_FAILED"; path: string; message: string };
 
-// Emitted on every committed navigation. Surfaces through the headless runtime
-// (`on('navigated')`, `execute().events`) via the adapter's subscribeEvents seam.
 export type RouterEmitted = {
 	type: "navigated";
 	path: string;
@@ -42,10 +33,6 @@ const requiresAuth = (name: RouteName): boolean =>
 
 type Resolved = Pick<RouterContext, "path" | "route" | "params" | "redirected">;
 
-/**
- * Pure navigation resolution: match the path, then apply the auth guard. A
- * guarded route requested while unauthenticated resolves to `/login` instead.
- */
 export const resolveNavigation = (
 	toPath: string,
 	authed: boolean,
@@ -60,6 +47,7 @@ export const resolveNavigation = (
 			redirected: true,
 		};
 	}
+
 	return {
 		path: match.path,
 		route: match.name,
@@ -75,6 +63,8 @@ export const createInitialContext = (
 	...resolveNavigation(initialPath, authed),
 	authed,
 	source: "init",
+	lastCommitError: null,
+	requestedPath: initialPath,
 });
 
 export const routerMachine = setup({
@@ -84,18 +74,24 @@ export const routerMachine = setup({
 		emitted: {} as RouterEmitted,
 		input: {} as { path?: string; authed?: boolean } | undefined,
 	},
+	actors: {
+		observeNavigation: fromCallback<RouterEvent>(() => () => {}),
+	},
 	actions: {
 		applyNavigation: assign(
 			({ context, event }, params: { source: NavSource }) => {
 				const requested =
-					event.type === "NAVIGATE"
+					event.type === "NAVIGATE_REQUESTED"
 						? event.to
-						: event.type === "POPSTATE"
+						: event.type === "NAVIGATION_OBSERVED"
 							? event.path
 							: context.path;
+
 				return {
 					...resolveNavigation(requested, context.authed),
 					source: params.source,
+					lastCommitError: null,
+					requestedPath: requested,
 				};
 			},
 		),
@@ -104,24 +100,49 @@ export const routerMachine = setup({
 			path: context.path,
 			route: context.route,
 		})),
+		captureCommitFailure: assign(({ context, event }) =>
+			event.type === "NAVIGATION_COMMIT_FAILED"
+				? { ...context, lastCommitError: event.message }
+				: context,
+		),
+		commitAcceptedNavigation: () => {},
 	},
 }).createMachine({
 	context: ({ input }) =>
 		createInitialContext(input?.path ?? "/", input?.authed ?? false),
+	invoke: {
+		id: "observeNavigation",
+		src: "observeNavigation",
+	},
 	on: {
-		NAVIGATE: {
+		NAVIGATE_REQUESTED: {
 			actions: [
 				{ type: "applyNavigation", params: { source: "navigate" } },
 				"announceNavigation",
+				{
+					type: "commitAcceptedNavigation",
+					params: ({
+						context,
+						event,
+					}: {
+						context: RouterContext;
+						event: Extract<RouterEvent, { type: "NAVIGATE_REQUESTED" }>;
+					}) => ({
+						acceptedPath: resolveNavigation(event.to, context.authed).path,
+						previousPath: context.path,
+						requestedPath: event.to,
+					}),
+				},
 			],
 		},
-		POPSTATE: {
+		NAVIGATION_OBSERVED: {
 			actions: [
-				{ type: "applyNavigation", params: { source: "popstate" } },
+				{ type: "applyNavigation", params: { source: "observed" } },
 				"announceNavigation",
 			],
 		},
 		LOGIN: { actions: assign({ authed: true }) },
 		LOGOUT: { actions: assign({ authed: false }) },
+		NAVIGATION_COMMIT_FAILED: { actions: "captureCommitFailure" },
 	},
 });

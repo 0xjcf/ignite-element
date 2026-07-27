@@ -1,17 +1,7 @@
 import { igniteCore } from "ignite-element/xstate";
-// Each page is its own Shadow DOM, so it needs its own copy of the shared
-// styles. Pull the sheet in as raw text (config-free) and inject it once per
-// page via the `registerPage` wrapper below — no ignite.config.ts, no plugin.
 import styles from "../styles.css?raw";
-import { routerActor } from "./routerStore";
+import { routerSource } from "./routerStore";
 
-// Each page is its own custom element registered against the SAME shared router
-// actor, so every page projects the same live route state (params, auth) — no
-// prop drilling, no attribute plumbing. Composition happens through HTML: the
-// outlet renders whichever page tag matches the active route.
-
-// In-page navigation link: a real <a> for accessibility and middle-click, with
-// a click handler that hands control to the client router instead of the browser.
 const link = (href: string, label: string, navigate: (to: string) => void) => (
 	<a
 		href={href}
@@ -26,35 +16,24 @@ const link = (href: string, label: string, navigate: (to: string) => void) => (
 );
 
 const definePage = igniteCore({
-	source: routerActor,
+	source: routerSource,
 	view: ({ snapshot }) => ({
 		id: snapshot.context.params.id ?? "",
 		path: snapshot.context.path,
 		authed: snapshot.context.authed,
 	}),
 	commands: ({ actor }) => ({
-		navigate: (to: string) => actor.send({ type: "NAVIGATE", to }),
+		navigate: (to: string) => actor.send({ type: "NAVIGATE_REQUESTED", to }),
 		login: () => actor.send({ type: "LOGIN" }),
 		logout: () => actor.send({ type: "LOGOUT" }),
 	}),
-	// `routerActor` is an app-lifetime singleton owned by routerStore, shared by
-	// every page element. Because it's passed as a live (consumer-owned) source,
-	// ignite keeps the shared adapter alive for the core's lifetime — swapping
-	// pages through the outlet won't tear it down, so every page keeps projecting
-	// live route state (params/route). The shell (routerStore) owns the actor's
-	// lifetime. (Pass `cleanup: true` only to opt a shared core back into
-	// element-refcount teardown.)
 });
 
-// Register a page element, injecting the shared <style> into its shadow root
-// alongside the page's own markup. Keeps the per-page styling boilerplate in
-// one place instead of repeating a <style> tag in every template.
-// The render param is a union (function | object | class renderer); pull out
-// just the function form so the wrapper can call it.
 type PageRender = Extract<
 	Parameters<typeof definePage>[1],
 	(args: never) => unknown
 >;
+
 const registerPage = (name: string, render: PageRender) =>
 	definePage(name, (args) => (
 		<>
@@ -78,7 +57,8 @@ registerPage("about-page", () => (
 		<p>
 			This router models the current route as an XState machine. The machine is
 			a pure functional core — matching paths and applying auth guards — while
-			History reads/writes live in the shell.
+			the source factory owns browser observation and accepted navigation
+			commits.
 		</p>
 	</section>
 ));

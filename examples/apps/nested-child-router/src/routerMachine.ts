@@ -1,10 +1,10 @@
-import { assign, emit, setup } from "xstate";
+import { assign, emit, fromCallback, setup } from "xstate";
 
 export type ParentRoute = "home" | "docs" | "settings" | "not-found";
 export type DocsSection = "overview" | "api" | "examples";
 export type SettingsPanel = "profile" | "billing";
 export type ChildRoute = DocsSection | SettingsPanel | null;
-export type RouteSource = "init" | "navigate" | "child";
+export type RouteSource = "init" | "navigate" | "child" | "observed";
 
 export type NestedRouteContext = {
 	path: string;
@@ -12,12 +12,16 @@ export type NestedRouteContext = {
 	child: ChildRoute;
 	label: string;
 	source: RouteSource;
+	lastCommitError: string | null;
+	requestedPath: string | null;
 };
 
 export type NestedRouteEvent =
-	| { type: "NAVIGATE"; to: string }
+	| { type: "NAVIGATE_REQUESTED"; to: string }
 	| { type: "OPEN_DOC_SECTION"; section: DocsSection }
-	| { type: "OPEN_SETTINGS_PANEL"; panel: SettingsPanel };
+	| { type: "OPEN_SETTINGS_PANEL"; panel: SettingsPanel }
+	| { type: "NAVIGATION_OBSERVED"; path: string }
+	| { type: "NAVIGATION_COMMIT_FAILED"; path: string; message: string };
 
 export type NestedRouteEmitted = {
 	type: "routed";
@@ -26,7 +30,10 @@ export type NestedRouteEmitted = {
 	path: string;
 };
 
-type ResolvedNestedRoute = Omit<NestedRouteContext, "source">;
+type ResolvedNestedRoute = Omit<
+	NestedRouteContext,
+	"source" | "lastCommitError" | "requestedPath"
+>;
 
 const docsPathBySection: Record<DocsSection, string> = {
 	overview: "/docs",
@@ -111,6 +118,8 @@ export const resolveNestedRoute = (path: string): ResolvedNestedRoute => {
 export const createInitialContext = (path = "/"): NestedRouteContext => ({
 	...resolveNestedRoute(path),
 	source: "init",
+	lastCommitError: null,
+	requestedPath: path,
 });
 
 const requestedPath = (
@@ -118,8 +127,10 @@ const requestedPath = (
 	currentPath: string,
 ): string => {
 	switch (event.type) {
-		case "NAVIGATE":
+		case "NAVIGATE_REQUESTED":
 			return event.to;
+		case "NAVIGATION_OBSERVED":
+			return event.path;
 		case "OPEN_DOC_SECTION":
 			return pathForDocSection(event.section);
 		case "OPEN_SETTINGS_PANEL":
@@ -136,11 +147,16 @@ export const routerMachine = setup({
 		emitted: {} as NestedRouteEmitted,
 		input: {} as { path?: string } | undefined,
 	},
+	actors: {
+		observeNavigation: fromCallback<NestedRouteEvent>(() => () => {}),
+	},
 	actions: {
 		applyRoute: assign(
 			({ context, event }, params: { source: RouteSource }) => ({
 				...resolveNestedRoute(requestedPath(event, context.path)),
 				source: params.source,
+				lastCommitError: null,
+				requestedPath: requestedPath(event, context.path),
 			}),
 		),
 		announceRoute: emit(({ context }) => ({
@@ -149,27 +165,86 @@ export const routerMachine = setup({
 			child: context.child,
 			path: context.path,
 		})),
+		captureCommitFailure: assign(({ context, event }) =>
+			event.type === "NAVIGATION_COMMIT_FAILED"
+				? { ...context, lastCommitError: event.message }
+				: context,
+		),
+		commitAcceptedNavigation: () => {},
 	},
 }).createMachine({
 	context: ({ input }) => createInitialContext(input?.path),
+	invoke: {
+		id: "observeNavigation",
+		src: "observeNavigation",
+	},
 	on: {
-		NAVIGATE: {
+		NAVIGATE_REQUESTED: {
 			actions: [
 				{ type: "applyRoute", params: { source: "navigate" } },
 				"announceRoute",
+				{
+					type: "commitAcceptedNavigation",
+					params: ({
+						context,
+						event,
+					}: {
+						context: NestedRouteContext;
+						event: Extract<NestedRouteEvent, { type: "NAVIGATE_REQUESTED" }>;
+					}) => ({
+						acceptedPath: resolveNestedRoute(event.to).path,
+						previousPath: context.path,
+						requestedPath: event.to,
+					}),
+				},
 			],
 		},
 		OPEN_DOC_SECTION: {
 			actions: [
 				{ type: "applyRoute", params: { source: "child" } },
 				"announceRoute",
+				{
+					type: "commitAcceptedNavigation",
+					params: ({
+						context,
+						event,
+					}: {
+						context: NestedRouteContext;
+						event: Extract<NestedRouteEvent, { type: "OPEN_DOC_SECTION" }>;
+					}) => ({
+						acceptedPath: pathForDocSection(event.section),
+						previousPath: context.path,
+						requestedPath: pathForDocSection(event.section),
+					}),
+				},
 			],
 		},
 		OPEN_SETTINGS_PANEL: {
 			actions: [
 				{ type: "applyRoute", params: { source: "child" } },
 				"announceRoute",
+				{
+					type: "commitAcceptedNavigation",
+					params: ({
+						context,
+						event,
+					}: {
+						context: NestedRouteContext;
+						event: Extract<NestedRouteEvent, { type: "OPEN_SETTINGS_PANEL" }>;
+					}) => ({
+						acceptedPath: pathForSettingsPanel(event.panel),
+						previousPath: context.path,
+						requestedPath: pathForSettingsPanel(event.panel),
+					}),
+				},
 			],
 		},
+		NAVIGATION_OBSERVED: {
+			actions: [
+				{ type: "applyRoute", params: { source: "observed" } },
+				"announceRoute",
+			],
+		},
+		NAVIGATION_COMMIT_FAILED: { actions: "captureCommitFailure" },
 	},
 });
