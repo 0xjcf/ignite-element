@@ -288,9 +288,10 @@ This task inherits the normalized architecture context accepted by
 
 ## Implementation plan
 
-- Write failing public type and headless tests that reject host in commands, actor or host in effects, and promise-returning effects while preserving emit, select, snapshot, and prevSnapshot.
-- Narrow RenderArgs and projection assembly types, retain host-only internal event dispatch and error routing, and migrate package tests and real examples in one coordinated beta cutover. Replace host-derived command data with explicit inputs, host-written presentation with state/view/render or retained presentation, and async effect feedback with source-native behavior.
-- Update current API docs and migration notes, add changesets, and verify source-emitted events and Redux or MobX effect bridges remain intact.
+1. Add failing public type, headless, and runtime tests first. Reject `host` in commands, reject `actor` and `host` in effects, reject promise-returning effects, and preserve `emit`, `select`, `snapshot`, and `prevSnapshot`. Record the expected red result before changing production code.
+2. Narrow `RenderArgs` and projection/runtime assembly. Keep the host internal for event dispatch and error routing, and fail closed through that existing error path if an untyped JavaScript effect returns a thenable.
+3. Migrate package wrappers, tests, real examples, current API docs, and migration notes in one coordinated beta cutover. Replace host-derived command data with explicit inputs, host-written presentation with state/view/render or retained presentation, and async effect feedback with source-native behavior. Add the breaking beta changeset and verify source-emitted events and Redux or MobX effect bridges remain intact.
+4. Perform only scope-bound cleanup revealed by the migration; do not add replacement host capabilities or fold routing, provisioning, retained ref/commit, or Ignite Alchemy work into this task.
 
 ## Verification plan
 
