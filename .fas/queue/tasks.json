@@ -703,31 +703,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1784909267400",
-      "task": "Narrow Ignite commands and effects to intent and outward-fact callbacks",
-      "priority": "high",
-      "source": "manual",
-      "details": "Apply the architecture standard to the pre-stable public callback contract. Commands receive only the adapter-native actor and command metadata helper and express public intent. Effects receive snapshot, prevSnapshot, select, and emit; they remain synchronous transition-to-public-fact bridges and do not receive actor or host. Keep the actual DOM or headless host internal for CustomEvent dispatch and error reporting. Remove promise-returning effect semantics, migrate real examples and docs, preserve source-emitted event bridges, and provide a coordinated beta migration note and changeset.\nSee .fas/tasks/narrow-ignite-commands-and-effects-to-intent-and-outward-fac.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "developer-experience",
-      "signalFingerprint": null,
-      "status": "processing",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [
-        "task-1784909239951"
-      ],
-      "blocks": [
-        "task-1784909335843"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-24T16:07:47.400Z",
-      "updatedAt": "2026-07-27T03:01:05.218Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
       "id": "task-1784909278954",
       "task": "Refactor routing examples to source-native navigation ports and XState provisioning",
       "priority": "high",
@@ -801,7 +776,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-24T16:08:55.843Z",
       "updatedAt": "2026-07-24T20:50:06.831Z",
-      "deferredReason": "dependency_reopened: task-1784909267400, task-1784909278954, task-1784909318199",
+      "deferredReason": "dependency_reopened: task-1784909278954, task-1784909318199",
       "invalidationReason": null
     },
     {
@@ -4523,6 +4498,32 @@
       "completedAt": "2026-07-27T02:40:00.902Z",
       "terminalOutcome": null,
       "workflowId": "direct-1784915802628",
+      "branchName": "fas/source-native-provisioning-architecture",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784909267400",
+      "task": "Narrow Ignite commands and effects to intent and outward-fact callbacks",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "developer-experience",
+      "signalFingerprint": null,
+      "experienceDesign": null,
+      "acceptanceSourcePath": null,
+      "dependsOn": [
+        "task-1784909239951"
+      ],
+      "blocks": [
+        "task-1784909335843"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-27T04:42:08.551Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1785121265213",
       "branchName": "fas/source-native-provisioning-architecture",
       "prStatus": "draft-only"
     }
