@@ -22,6 +22,7 @@
 import type {
 	ActorAddress,
 	ActorCommandSource,
+	ActorEventEnvelope,
 	ActorEventSubscriptionOptions,
 	ActorReadModelSource,
 	ActorSourceSnapshot,
@@ -76,6 +77,9 @@ declare const canonicalCommandSource: ActorCommandSource<
 declare const canonicalSnapshot: ActorSourceSnapshot<ShipmentContext>;
 declare const canonicalTransport: ProjectionTransportStatus;
 declare const canonicalEventOptions: ActorEventSubscriptionOptions;
+declare const canonicalRuntimeEventEnvelope: ActorEventEnvelope<{
+	shipmentId: string;
+}>;
 
 export function _canonicalSourcesSatisfyIgniteContract() {
 	const readModel: ActorWebReadModelSource<
@@ -102,6 +106,11 @@ export function _canonicalSourcesSatisfyIgniteContract() {
 	const eventOptionsBack: ActorEventSubscriptionOptions =
 		undefined as unknown as ActorWebEventSubscriptionOptions;
 
+	// Current upstream evidence includes a neutral runtime envelope at
+	// `schemaVersion: 1`; that is distinct from any future admission, receipt,
+	// checkpoint, or reconciliation fixture.
+	const schemaVersion: 1 = canonicalRuntimeEventEnvelope.schemaVersion;
+
 	return {
 		readModel,
 		commandSource,
@@ -110,5 +119,6 @@ export function _canonicalSourcesSatisfyIgniteContract() {
 		transportBack,
 		eventOptions,
 		eventOptionsBack,
+		schemaVersion,
 	};
 }
