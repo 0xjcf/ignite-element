@@ -2826,9 +2826,12 @@ No active tasks.
 
 - Title: Define the versioned evidence-governed Actor-Web consumer contract for Ignite
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: blocked
+- Owner: implementer
 - Brief: .fas/tasks/define-the-versioned-evidence-governed-actor-web-consumer-co.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Extend the optional Actor-Web adapter with execution-evidence projection
 

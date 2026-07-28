@@ -796,7 +796,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "policy-surfacing",
       "signalFingerprint": null,
-      "status": "queued",
+      "status": "blocked",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -809,7 +809,8 @@
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-28T16:08:48.652Z",
-      "updatedAt": "2026-07-28T16:15:10.451Z"
+      "updatedAt": "2026-07-28T17:33:50.000Z",
+      "blockedReason": "closeout_lifecycle_gate"
     },
     {
       "id": "task-1785254961929",
