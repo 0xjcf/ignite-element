@@ -12,6 +12,8 @@ The short version:
 - `ignite-renderer` stays renderer-only
 - source-native provisioning and host-boundary rules live in
   [`docs/source-native-provisioning.md`](./source-native-provisioning.md)
+- Actor-Web evidence-consumption boundaries live in
+  [`docs/actor-web-evidence-governed-projections.md`](./actor-web-evidence-governed-projections.md)
 
 If code crosses those boundaries, it is wrong even when it appears to work.
 
@@ -125,8 +127,8 @@ It does not own:
 | Intent | consumer commands and declared events surfaced through `ignite-element` | Commands are the public intent surface. Declared events are the outward fact surface for hosts, tests, and headless runtimes. |
 | Deterministic decision | consumer-owned actors/state machines plus `ignite-core` contracts | Ignite supplies typed contracts and adapter-neutral helpers. Product behavior remains in the consuming source. |
 | Workflow and lifecycle | source lifecycles plus `ignite-element` host lifecycle | Ignite starts, watches, and releases adapters for DOM and headless usage; it does not own FAS workflow lifecycle or external orchestration policy. Source-native provisioning and explicit feature disposal are standardized separately in [`docs/source-native-provisioning.md`](./source-native-provisioning.md). |
-| Imperative execution over time | `ignite-adapters` plus `ignite-element` runtime host coordination | Runtime-library integration, subscriptions, setup, cleanup, and command execution live at the edge. |
-| Projection | `ignite-element` projection assembly | `view`, `commands`, `effects`, and schema metadata turn source snapshots into a stable UI/runtime contract. Effects are the outward fact layer; the normative host/effect boundary lives in [`docs/source-native-provisioning.md`](./source-native-provisioning.md). |
+| Imperative execution over time | `ignite-adapters` plus `ignite-element` runtime host coordination | Runtime-library integration, subscriptions, setup, cleanup, and command execution live at the edge. Actor-Web keeps execution-time authorization, durable receipts, checkpoints, and reconciliation when that runtime is composed. |
+| Projection | `ignite-element` projection assembly | `view`, `commands`, `effects`, and schema metadata turn source snapshots into a stable UI/runtime contract. Effects are the outward fact layer; the normative host/effect boundary lives in [`docs/source-native-provisioning.md`](./source-native-provisioning.md), and Actor-Web evidence-consumption boundaries live in [`docs/actor-web-evidence-governed-projections.md`](./actor-web-evidence-governed-projections.md). |
 | Product composition | `ignite-element` package surface, then consumer apps on top | Ignite assembles the package family into a reusable component/runtime surface. Consumer apps compose those surfaces into products. |
 
 ## Current Fact Vs Target State
@@ -135,8 +137,8 @@ It does not own:
 | --- | --- | --- |
 | Package boundaries | `ignite-core`, `ignite-adapters`, `ignite-renderer`, and `ignite-element` are split into workspace packages. | CI and FAS checks keep package imports aligned with this split. |
 | Boundary rules | `.fas-config.json` and `.fas/architecture-rules.json` define the committed repo map. | FAS and CI both evaluate the same committed rules before release. |
-| Actor-web integration | Ignite supports an optional actor-web adapter surface; that is compatibility, not a claim that this repo owns actor-web orchestration boundaries. | A later cross-repo contract can name actor-web's runtime role explicitly once that repository confirms it. |
-| FAS integration | FAS remains a workflow participant around this repo's planning and verification artifacts. Ignite owns repo-local architecture facts. | FAS may consume the committed Ignite boundary map, but product semantics stay in Ignite and consumer apps. |
+| Actor-web integration | Ignite supports an optional actor-web adapter surface; that is compatibility, not a claim that this repo owns actor-web orchestration boundaries, execution receipts, checkpoint truth, or reconciliation authority. | A later cross-repo contract can name actor-web's runtime role explicitly once that repository confirms it. |
+| FAS integration | FAS remains a workflow participant around this repo's planning and verification artifacts. Ignite owns repo-local architecture facts and separate Story or narrative evidence. | FAS may consume the committed Ignite boundary map or exported evidence fixtures, but product semantics stay in Ignite and consumer apps. |
 | Source-native provisioning | Current shipped behavior passes a bound source into `igniteCore(...)`; host access still exists in current callback contexts. | `docs/source-native-provisioning.md` defines the accepted `createFeature({ ports, setup })` contract, labels current-vs-target host semantics, and rejects `driver`/`igniteEnvironment`/`ports` on `igniteCore(...)`. |
 
 ## Explanatory Topology
@@ -197,9 +199,16 @@ UI should never:
 Instead, `ignite-element` converts snapshots plus commands/effects into a stable
 render/runtime surface.
 
+For Actor-Web specifically, projected capability or `canExecute` state is
+descriptive only. Actor-Web must still re-authorize command existence, payload,
+principal, approval freshness, revision freshness, idempotency, and policy at
+execution time, and Ignite must not treat `send` acceptance or Story evidence
+as a receipt.
+
 The projection boundary does not own environment selection, source-native
 binding, or retained-resource lifecycle. Those are fixed separately in
-[`docs/source-native-provisioning.md`](./source-native-provisioning.md).
+[`docs/source-native-provisioning.md`](./source-native-provisioning.md) and
+[`docs/actor-web-evidence-governed-projections.md`](./actor-web-evidence-governed-projections.md).
 
 ### Renderer Boundary
 

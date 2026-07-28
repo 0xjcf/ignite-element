@@ -18,7 +18,9 @@ jobs:
 
 The normative source-native provisioning, host boundary, and feature-disposal
 contract for this repository lives in
-[`docs/source-native-provisioning.md`](./source-native-provisioning.md).
+[`docs/source-native-provisioning.md`](./source-native-provisioning.md). The
+normative Ignite-side Actor-Web evidence-consumption contract lives in
+[`docs/actor-web-evidence-governed-projections.md`](./actor-web-evidence-governed-projections.md).
 
 ### Legend
 
@@ -129,6 +131,9 @@ Current fact from this repository:
 - Ignite supports an optional actor-web adapter and subpath entrypoint
 - that support proves compatibility, not that this repo can declare actor-web's
   present-fact ownership model
+- current evidence only proves a loose source-compatibility floor plus a
+  neutral `schemaVersion: 1` runtime event envelope, not an authoritative
+  receipt, admission, checkpoint, or reconciliation fixture
 
 Target state:
 
@@ -136,6 +141,8 @@ Target state:
   participation in its own repository
 - once confirmed there, this companion can link to that adoption instead of
   speaking from inference
+- Ignite's consumer requirements for those future fixtures stay documented in
+  [`docs/actor-web-evidence-governed-projections.md`](./actor-web-evidence-governed-projections.md)
 
 ### `FAS`
 
@@ -145,6 +152,8 @@ Current fact from this repository:
   planning state, commit plans, and verification scripts
 - that grounds FAS as a workflow participant around this repository, not as a
   present-fact owner of Ignite runtime behavior
+- FAS evidence bindings remain separate from Actor-Web receipts and Ignite Story
+  traces, even when they correlate through shared identifiers
 
 Target state:
 
@@ -199,6 +208,8 @@ Current fact:
 
 - adapter integrations and the `ignite-element` runtime host deal with
   subscriptions, setup, cleanup, and headless runtime execution
+- when Actor-Web is composed, execution-time reauthorization and durable truth
+  stay in Actor-Web rather than moving into Ignite
 
 Target state:
 
@@ -213,6 +224,8 @@ Current fact:
   metadata into a stable projected surface
 - `ignite-renderer` consumes that projected surface to execute a renderer
   strategy
+- Actor-Web receipts, Ignite Story traces, and FAS evidence bindings remain
+  separate provenance-bearing artifacts that must be joined explicitly
 
 Target state:
 
@@ -264,6 +277,8 @@ this:
   dependencies
 - source-native provisioning remains consumer or source-library composition, not
   `igniteCore(...)` configuration
+- no projected capability, `canExecute`, or accepted `send` path is described
+  as authoritative execution success
 
 ## Open Questions And Follow-Ups
 

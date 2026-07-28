@@ -29,7 +29,9 @@ The decision is:
 This document is the normative contract. Companion summaries live in
 [`docs/architecture.md`](./architecture.md),
 [`docs/shared-architecture-model.md`](./shared-architecture-model.md), and
-[`docs/v3-api-consistency.md`](./v3-api-consistency.md).
+[`docs/v3-api-consistency.md`](./v3-api-consistency.md). The separate
+Actor-Web evidence-consumption contract lives in
+[`docs/actor-web-evidence-governed-projections.md`](./actor-web-evidence-governed-projections.md).
 
 ## Vocabulary
 
@@ -47,6 +49,10 @@ This document is the normative contract. Companion summaries live in
 | Retained resource | An identity-bearing imperative presentation resource such as Canvas, WebGL, Cytoscape, editors, or observers | `Current fact` |
 | Host | The concrete environment surface around a mounted projection, including DOM element access today | `Current fact` |
 | Disposal | Explicit application-owned cleanup for the feature and any resources registered during setup | `Accepted target` |
+
+When the bound source is Actor-Web, command projection is still only intent.
+Admission, execution-time reauthorization, durable receipts, checkpoints,
+rehydration, and reconciliation remain Actor-Web-owned runtime facts.
 
 ## Responsibility Matrix
 
@@ -343,6 +349,12 @@ Fixed decisions:
   shipped surface. It is not the accepted target host-integration architecture.
 - Effects remain outward-fact publication only. The host may observe those facts
   and perform imperative work outside Ignite.
+- For Actor-Web, projected `canExecute` or other availability hints remain
+  descriptive preflight only; the runtime must recheck command existence,
+  payload, principal, approval freshness, revision freshness, idempotency, and
+  policy at execution.
+- Do not treat `send`, optimistic UI, or an Ignite Story trace as an execution
+  receipt.
 
 ## Retained Canvas And Cytoscape Boundary
 
