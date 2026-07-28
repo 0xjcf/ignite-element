@@ -1461,7 +1461,6 @@ No active tasks.
 - Mode: single-agent
 - Status: deferred
 - Owner: runtime
-- Note: Re-sequenced 2026-07-07 — parked in the launch-polish side-chain after GTM; no longer blocks the breaking API cutover.
 - Brief: .fas/tasks/examples-frameworks-angular-interop-demo-consume-an-ignite-e.md
 
 ### Task: examples/apps: form-with-validation worked app (XState + ignite-jsx)
@@ -2822,6 +2821,56 @@ No active tasks.
 - Status: cancelled
 - Owner: runtime
 - Brief: .fas/tasks/implement-the-dom-free-createfeature-composition-and-disposa.md
+
+### Task: Define the versioned evidence-governed Actor-Web consumer contract for Ignite
+
+- Title: Define the versioned evidence-governed Actor-Web consumer contract for Ignite
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/define-the-versioned-evidence-governed-actor-web-consumer-co.md
+
+### Task: Extend the optional Actor-Web adapter with execution-evidence projection
+
+- Title: Extend the optional Actor-Web adapter with execution-evidence projection
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/extend-the-optional-actor-web-adapter-with-execution-evidenc.md
+
+### Task: Prove authorization freshness, restart, replay, and reconciliation conformance
+
+- Title: Prove authorization freshness, restart, replay, and reconciliation conformance
+- Mode: 4-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/prove-authorization-freshness-restart-replay-and-reconciliat.md
+
+### Task: Dogfood evidence-governed runtime projections in Voice Workbench
+
+- Title: Dogfood evidence-governed runtime projections in Voice Workbench
+- Mode: 6-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/dogfood-evidence-governed-runtime-projections-in-voice-workb.md
+- Automation mode: advisory
+
+### Task: Publish ecosystem conformance evidence and issue the Ignite public API verdict
+
+- Title: Publish ecosystem conformance evidence and issue the Ignite public API verdict
+- Mode: 4-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/publish-ecosystem-conformance-evidence-and-issue-the-ignite-.md
+
+### Task: Recover Ignite FAS memory and autonomous runtime readiness
+
+- Title: Recover Ignite FAS memory and autonomous runtime readiness
+- Mode: 4-agent
+- Status: queued
+- Owner: runtime
+- Brief: .fas/tasks/recover-ignite-fas-memory-and-autonomous-runtime-readiness.md
+- Automation mode: advisory
 
 ## Template
 

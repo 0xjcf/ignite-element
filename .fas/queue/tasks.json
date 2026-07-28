@@ -75,11 +75,13 @@
       "dependsOn": [
         "task-1781724738855"
       ],
-      "blocks": [],
+      "blocks": [
+        "task-1781292613064"
+      ],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-06-20T01:39:07.313Z",
-      "updatedAt": "2026-07-02T20:00:00.000Z",
+      "updatedAt": "2026-07-28T16:11:00.307Z",
       "deferredReason": null,
       "invalidationReason": null
     },
@@ -421,12 +423,13 @@
         "task-1784298685324"
       ],
       "blocks": [
-        "task-1784602854408"
+        "task-1784602854408",
+        "task-1785255004194"
       ],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-17T14:31:40.854Z",
-      "updatedAt": "2026-07-21T03:00:54.408Z",
+      "updatedAt": "2026-07-28T16:10:04.194Z",
       "deferredReason": "dependency_reopened: task-1784298685324",
       "invalidationReason": null
     },
@@ -599,14 +602,17 @@
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
-        "task-1784602939863"
+        "task-1784602939863",
+        "task-1785255004194"
       ],
-      "blocks": [],
+      "blocks": [
+        "task-1785255031081"
+      ],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-21T03:02:35.608Z",
-      "updatedAt": "2026-07-21T17:42:53.000Z",
-      "deferredReason": "dependency_reopened: task-1784602939863",
+      "updatedAt": "2026-07-28T16:11:01.107Z",
+      "deferredReason": "dependency_reopened: task-1784602939863, task-1785255004194",
       "invalidationReason": null
     },
     {
@@ -745,12 +751,13 @@
         "task-1784909318199"
       ],
       "blocks": [
-        "task-1784909364827"
+        "task-1784909364827",
+        "task-1785254961929"
       ],
       "branchBase": null,
       "prDependencies": [],
       "createdAt": "2026-07-24T16:08:55.843Z",
-      "updatedAt": "2026-07-24T20:50:06.831Z",
+      "updatedAt": "2026-07-28T16:09:21.929Z",
       "deferredReason": "dependency_reopened: task-1784909318199",
       "invalidationReason": null
     },
@@ -779,6 +786,155 @@
       "updatedAt": "2026-07-24T20:50:07.009Z",
       "deferredReason": "dependency_reopened: task-1783719649309, task-1784909335843",
       "invalidationReason": null
+    },
+    {
+      "id": "task-1785254928652",
+      "task": "Define the versioned evidence-governed Actor-Web consumer contract for Ignite",
+      "priority": "critical",
+      "source": "operator",
+      "details": "Define the additive, optional consumer boundary through which Ignite can project Actor-Web authenticated admission facts, execution receipts, durable-session checkpoints, replay/restart state, and reconciliation outcomes without becoming the execution authority. Start from the accepted cross-repo ownership contract and Actor-Web tasks task-1785250528660, task-1785250545761, and task-1785250562339; preserve current loose structural source compatibility and treat any unavailable upstream schema as provisional rather than inventing shipped interoperability.\nSee .fas/tasks/define-the-versioned-evidence-governed-actor-web-consumer-co.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "status": "queued",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1784909239951",
+        "task-1784298626529"
+      ],
+      "blocks": [
+        "task-1785254961929"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-28T16:08:48.652Z",
+      "updatedAt": "2026-07-28T16:15:10.451Z"
+    },
+    {
+      "id": "task-1785254961929",
+      "task": "Extend the optional Actor-Web adapter with execution-evidence projection",
+      "priority": "high",
+      "source": "operator",
+      "details": "Implement the accepted versioned consumer contract in ignite-adapters while preserving the exact caller-owned Actor-Web source and native lifecycle. Project authenticated admission outcomes, execution receipts, checkpoint/rehydration state, transport/replay status, and reconciliation facts through optional structural capabilities; never infer success from send(), authorize a command, persist a session, or make Actor-Web a required runtime dependency.\nSee .fas/tasks/extend-the-optional-actor-web-adapter-with-execution-evidenc.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1785254928652",
+        "task-1784909335843"
+      ],
+      "blocks": [
+        "task-1785254980835"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-28T16:09:21.929Z",
+      "updatedAt": "2026-07-28T16:09:40.835Z",
+      "deferredReason": "dependency_reopened: task-1785254928652, task-1784909335843",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1785254980835",
+      "task": "Prove authorization freshness, restart, replay, and reconciliation conformance",
+      "priority": "high",
+      "source": "operator",
+      "details": "Add fixture-backed conformance that proves Ignite remains an honest projection when Actor-Web authority changes between discovery and execution, when sessions restart or rehydrate, and when transport replay or reconciliation produces delayed, duplicated, conflicting, or partial evidence. Test the neutral contract independently from a live sibling checkout and keep irreversible effects owned by the Actor-Web fixture runtime.\nSee .fas/tasks/prove-authorization-freshness-restart-replay-and-reconciliat.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "4-agent",
+      "dependsOn": [
+        "task-1785254961929"
+      ],
+      "blocks": [
+        "task-1785255004194"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-28T16:09:40.835Z",
+      "updatedAt": "2026-07-28T16:10:04.194Z",
+      "deferredReason": "dependency_reopened: task-1785254961929",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1785255004194",
+      "task": "Dogfood evidence-governed runtime projections in Voice Workbench",
+      "priority": "high",
+      "source": "operator",
+      "details": "Dogfood the accepted Actor-Web execution-evidence projection through the framework-neutral Voice Workbench command/read-model port after hexagonal host convergence. Show a model proposal moving through descriptive capability discovery, authoritative actor admission, external effect receipts, durable session recovery, and truthful Ignite projection without making the component, Story recorder, or model loop an execution authority. Produce the upstream evidence needed before Ignite Alchemy closes its broader dogfood gaps.\nSee .fas/tasks/dogfood-evidence-governed-runtime-projections-in-voice-workb.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "6-agent",
+      "dependsOn": [
+        "task-1785254980835",
+        "task-1784298700854"
+      ],
+      "blocks": [
+        "task-1784602955608",
+        "task-1785255031081"
+      ],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-28T16:10:04.194Z",
+      "updatedAt": "2026-07-28T16:10:31.081Z",
+      "deferredReason": "dependency_reopened: task-1785254980835, task-1784298700854",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1785255031081",
+      "task": "Publish ecosystem conformance evidence and issue the Ignite public API verdict",
+      "priority": "high",
+      "source": "operator",
+      "details": "Close the Evidence-Governed Runtime Projections epic after Voice Workbench and Ignite Alchemy dogfood. Publish the versioned neutral fixtures and adoption guidance, prove compatibility with FAS optional behavioral-evidence adapters and scenario-evidence read models, and record an explicit no-change or follow-up API verdict. This task documents and validates evidence; it must not silently add public Ignite, Actor-Web, or FAS coupling.\nSee .fas/tasks/publish-ecosystem-conformance-evidence-and-issue-the-ignite-.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "deferred",
+      "owner": "runtime",
+      "mode": "4-agent",
+      "dependsOn": [
+        "task-1785255004194",
+        "task-1784602955608"
+      ],
+      "blocks": [],
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-28T16:10:31.081Z",
+      "updatedAt": "2026-07-28T16:10:31.081Z",
+      "deferredReason": "dependency_reopened: task-1785255004194, task-1784602955608",
+      "invalidationReason": null
+    },
+    {
+      "id": "task-1785255090712",
+      "task": "Recover Ignite FAS memory and autonomous runtime readiness",
+      "priority": "medium",
+      "source": "operator",
+      "details": "Restore trustworthy project-local FAS runtime prerequisites without changing Ignite product behavior. Preserve a recoverable backup of the unreadable SQLite memory database, rebuild it from curated projections, verify queue/current-task continuity, and assess the configured monitor packs and launchd readiness so future autonomous workflows report active, quiet, stalled, blocked, and recoverable states truthfully.\nSee .fas/tasks/recover-ignite-fas-memory-and-autonomous-runtime-readiness.md",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "status": "queued",
+      "owner": "runtime",
+      "mode": "4-agent",
+      "dependsOn": [],
+      "blocks": [],
+      "nonEpicDisposition": {
+        "kind": "standalone",
+        "reason": "Project-local FAS runtime health is operational infrastructure shared by every epic, not Ignite product scope."
+      },
+      "branchBase": null,
+      "prDependencies": [],
+      "createdAt": "2026-07-28T16:11:30.712Z",
+      "updatedAt": "2026-07-28T16:11:30.712Z"
     }
   ],
   "completedTasks": [
@@ -4739,6 +4895,10 @@
         {
           "taskId": "task-1783650880370",
           "epicRole": "implementation"
+        },
+        {
+          "taskId": "task-1783735835707",
+          "epicRole": "projection-runtime-hardening"
         }
       ],
       "id": "epic-accessibility-contract",
@@ -5043,6 +5203,44 @@
         "Commands express intent without host access; effects publish accepted outward facts without owning environmental I/O, source lifecycle, or retained presentation resources.",
         "ref acquires and cleans up stable node-bound resources while commit synchronizes current projected data after reconciliation; neither callback creates, wraps, stops, or disposes the source.",
         "Public docs and migration guidance teach the source-only pattern with automated conformance evidence and link to the separate retained-interface contract for Canvas, Cytoscape, editors, and similar resources."
+      ]
+    },
+    {
+      "members": [
+        {
+          "taskId": "task-1785254928652",
+          "epicRole": "architecture-contract"
+        },
+        {
+          "taskId": "task-1785254961929",
+          "epicRole": "adapter-projection"
+        },
+        {
+          "taskId": "task-1785254980835",
+          "epicRole": "conformance"
+        },
+        {
+          "taskId": "task-1785255004194",
+          "epicRole": "voice-workbench-dogfood"
+        },
+        {
+          "taskId": "task-1785255031081",
+          "epicRole": "conformance-publication-and-api-verdict"
+        }
+      ],
+      "id": "epic-ignite-evidence-governed-runtime-projections",
+      "title": "Evidence-Governed Runtime Projections",
+      "priority": "high",
+      "consumer": "packages/ignite-adapters and examples/agents/voice-workbench",
+      "goal": "Consume versioned Actor-Web execution, admission, session, and reconciliation evidence as optional external facts; project it through Ignite without acquiring runtime authority; prove freshness, replay, recovery, and FAS evidence compatibility; and issue an evidence-backed public API verdict.",
+      "acceptance": [
+        "Actor-Web remains the authority for authenticated admission, execution receipts, durable sessions, retries, replay, and reconciliation while Ignite consumes and projects versioned facts only.",
+        "The optional Actor-Web adapter fails closed on unsupported or malformed evidence and preserves upstream principal, intent, correlation, attempt, revision, sequence, and receipt identity without duplicating authority.",
+        "Projected capability and canExecute state remains descriptive preflight; the authoritative runtime rechecks command, payload, principal, approval, revision, idempotency, and policy at execution time.",
+        "Ignite Story evidence and Actor-Web execution receipts remain distinct, provenance-bearing channels joined through an explicit source-of-truth matrix rather than a second trace or receipt authority.",
+        "Voice Workbench and Ignite Alchemy dogfood stale authorization, revision rejection, timeout, retry, cancellation, restart, replay, partial failure, and reconciliation using the same neutral contract.",
+        "FAS consumes versioned fixture evidence through its existing optional adapters without becoming an Ignite or Actor-Web runtime dependency.",
+        "No new public Ignite inspection, orchestration, blueprint, or receipt API ships unless dogfood demonstrates a concrete gap and a separate compatibility review accepts it."
       ]
     }
   ]

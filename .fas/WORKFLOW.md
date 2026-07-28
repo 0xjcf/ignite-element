@@ -28,7 +28,6 @@ Notes:
 - `planner.sh` selects `mode` and `phase`, then derives `agentOrchestration.strategy` for interactive sessions (Cursor, Codex, Claude Code). It also writes `.fas/state/agent-orchestration.json` and `.fas/state/agent-orchestration-prompt.md`.
 - `plan-commits.sh` does not choose workflow mode, task phase, or agent orchestration strategy. It only turns the approved plan into ordered commit steps.
 - Status transitions are performed by `fas_transition_task` which updates both `current-task.json` and `TASKS.md` atomically.
-- In Codex interactive runs, use `.fas/state/codex-orchestration.json` and `.fas/state/codex-subagents-prompt.md` as the authoritative subagent recipe. Treat the task packet, planning output, and commit plan as the source of truth over generic skill defaults.
 
 ## Delegated Checkpoints
 
@@ -37,7 +36,7 @@ Notes:
 - At the watchdog warning window, request the interrupting checkpoint and wait through the recorded grace deadline. Warning plus no first diff is supporting context only, never enough to replace a code-writing delegate by itself.
 - If the watchdog timeout window arrives with no pending checkpoint, request an urgent interrupting checkpoint first and record its grace deadline before replacement or root takeover.
 - For same-actor retry resume, reissue `fas spawn-subagent <step-key> --json` without `--session-id`; FAS reuses the step's prior session id when one exists. Pass an explicit new `--session-id` only for replacement or root takeover.
-- When recording a retry `started` event, attach `--retry-context <json>` so continuity (`resume-original`, `replacement`, or `root-takeover`), failure class, checkpoint audit evidence, touched files, verification attempt status, next safe resume point, and downstream reconfirmation need are durable on the append-only execution log. For failed-checkpoint replacement or root takeover, keep `replacementReason` explicit and include `checkpointAudit` plus `partialStateInspectedAt`.
+- When recording a retry `started` event, attach `--retry-context <json>` using `kind` (`resume-original`, `replacement`, or `root-takeover`) plus fields such as `failedCommand`, `failureClass`, `filesTouched`, `verificationAttempted`, `nextSafeResumePoint`, and `downstreamReconfirmationNeed` so retry evidence is durable on the append-only execution log. Do not use a legacy `continuity` key. For `replacement` or `root-takeover`, keep `replacementReason` explicit; for failed-checkpoint replacement or root takeover, also include `checkpointAudit` plus `partialStateInspectedAt`.
 - Code-writing delegated agents should send an early orientation heartbeat after reading the task packet and commit plan, then send that same partial-state handoff before a long verification run or whenever they hit a blocker that will delay completion.
 - If the checkpoint request fails, inspect any partial edits or verification receipts that already exist, then record `failed` before root takeover or delegated reissue. Use replacement or root takeover only after failed interrupting checkpoint after grace, missing or unusable handoff, scope drift, repeated bad fixes, context poisoning, or explicit takeover. Use `closed` only when intentionally abandoning a still-running non-failed step if the state machine supports that path.
 
@@ -57,8 +56,8 @@ Run `fas setup` once after `fas install` and before any `fas implement` or `fas 
 
 ## Core Rules
 
-- Start from `TASKS.md`.
 - Run `fas setup` before creating tasks.
+- Start from `TASKS.md`.
 - Read task-packet contextual memory first, then expected change and ChangeSet evidence, before falling back to raw `.fas/memory/*`.
 - Use structural and semantic search before editing.
 - Run Behavior Guardian checks before finalizing the plan and again during verification.
@@ -70,14 +69,3 @@ Run `fas setup` once after `fas install` and before any `fas implement` or `fas 
 ## Verification
 
 Use the platform verification pipeline through `fas verify` or the local wrapper scripts generated from the platform.
-
-## Codex Interactive Runs
-
-- After `fas implement`, inspect `.fas/state/codex-orchestration.json` before deciding whether to spawn subagents.
-- Use `.fas/state/codex-orchestration.json` and `.fas/state/codex-subagents-prompt.md` as the authoritative Codex setup surface for agent types, mode hints, and spawn order.
-- Spawn Codex subagents only when delegated execution is required by the orchestration artifact or the user explicitly requested a delegated mode.
-- Only the declared code-writing role may modify source files; the root session owns final verification, review summary refresh, and `fas done`.
-
-## Intentional Local Delta
-
-`fas status` may continue to report `.fas/WORKFLOW.md` drift against `../FAS/templates/WORKFLOW.md` because this repo keeps the Codex interactive-run section above. The rest of this document tracks the platform template guidance for setup, memory, spike phase, planner-owned orchestration, delegated checkpoints, and verification.

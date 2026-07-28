@@ -62,7 +62,7 @@
 		"runtimeMode": "active",
 		"allowedTaskClasses": ["independent", "dependent", "monitor"],
 		"maxActiveDraftPrs": 5,
-		"maxStackDepth": 3,
+		"maxStackDepth": 24,
 		"forbiddenPaths": [],
 		"forbiddenModules": [],
 		"maxEstimatedToolCalls": null,

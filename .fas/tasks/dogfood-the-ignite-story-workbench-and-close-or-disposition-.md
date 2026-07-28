@@ -52,7 +52,14 @@ Run the completed Ignite Alchemy MVP across all seven Voice Workbench executable
 - .mock-studio/ignite-story-workbench/approval.md
 
 ## Scope Amendments
-- None.
+- Type: cross-epic-evidence-gate
+- Added at: 2026-07-28
+- Trigger: evidence-governed-runtime-alignment
+- Reason: Require the accepted Voice Workbench evidence-governed projection dogfood before Alchemy closes shared runtime-evidence gaps, while preserving Alchemy Story and observation ownership.
+- Evidence source: Evidence-Governed Runtime Projections epic
+- Evidence: Evidence-Governed Runtime Projections epic | .fas/tasks/dogfood-evidence-governed-runtime-projections-in-voice-workb.md | task-1785255004194 supplies the neutral admission, receipt, restart, replay, reconciliation, and FAS-compatible fixture evidence consumed by this downstream dogfood.
+- Accuracy signal: high: live queue dependency and accepted cross-repo ownership contract
+- Follow-up needed: Keep Alchemy example-local and do not add another runtime, graph, recorder, or receipt authority.
 
 ## Implementation plan
 - Run all seven shared Voice Workbench Stories through the browser Workbench from fresh fixtures.
