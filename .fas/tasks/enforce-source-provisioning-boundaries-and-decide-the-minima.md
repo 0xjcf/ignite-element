@@ -4,35 +4,80 @@
 
 Created with `fas create-task` on 2026-07-24.
 
+## Product frame
+
+- **Person and context:** An Ignite developer is composing XState, Redux, MobX, Actor-Web, browser, Node, shared, isolated, or deterministic fake sources through `igniteCore`.
+- **Desired progress:** Pass the exact source the application already owns to Ignite, keep that ecosystem's native lifecycle intact, and know that regressions will fail visibly.
+- **Observed difficulty:** Current architecture guidance still advertises a rejected `createFeature` wrapper and generic disposal model, while the accepted exact-source boundary is not yet enforced by architecture, type, and lifecycle tests.
+- **Known constraint:** Ignite may project source state and send source-directed intent, but it must not take ownership of source behavior, admission, authorization, persistence, replay, transport, or shutdown.
+- **Hypothesis:** If the written contract, executable rules, public types, lifecycle fixtures, and evidence matrix all express the same boundary, developers and downstream tasks can rely on one source-native contract without an Ignite-specific wrapper.
+- **Outcome signal:** Supported native sources work without wrapper or lifecycle escape hatches; invalid imports and public types fail conformance; downstream documentation and Actor-Web projection work consume cited receipts instead of inferred behavior.
+
+## Product narrative
+
+An Ignite developer wants to bind UI capabilities through the source library they
+already use, pass that exact source to Ignite, and keep native cleanup ownership
+clear. They should not have to adopt an Ignite-specific wrapper or guess whether
+the docs, types, and runtime enforce the same boundary.
+
 ## Problem
 
-Turn the accepted exact-source-only architecture and completed cross-adapter evidence into executable conformance, while repairing normative architecture surfaces that still advertise the rejected createFeature, Feature, onDispose, and generic disposal direction. Enforce deterministic source, adapter, composition-root, projection, command, effect, retained-presentation, and native-lifecycle boundaries with architecture, public-type, and lifecycle tests. Preserve exact source identity and ecosystem-native ownership across XState, Redux, MobX, Actor-Web, browser, Node, isolated, shared, and deterministic fake flows. Produce a cited conformance source-of-truth matrix for downstream documentation and the optional Actor-Web evidence projection. Do not implement a public composition or lifecycle helper, the Actor-Web evidence projection, or retained-interface features in this task.
+The accepted architecture says that `igniteCore` receives the caller's exact
+native source. Some normative docs still describe the rejected `createFeature`,
+`Feature`, `onDispose`, and generic disposal direction, and executable checks do
+not yet protect the accepted boundary.
+
+This task makes that contract trustworthy. It aligns the written architecture,
+then adds focused architecture, public-type, and lifecycle tests that preserve
+source identity and ecosystem-native ownership.
+
+The result is a cited conformance matrix that downstream documentation and the
+optional Actor-Web projection can consume. It does not add a public composition
+or lifecycle helper, implement the Actor-Web projection, or build retained UI
+features.
+
+## Behavior and authority
+
+- **Application:** Constructs and owns the native source, chooses sharing, and invokes native shutdown when appropriate.
+- **Source ecosystem:** Owns transitions, policy, cancellation, unsubscribe, stop, shutdown, abort, or close semantics.
+- **Actor-Web runtime:** Owns admission, authorization, execution receipts, checkpoints, replay, reconciliation, and transport lifecycle.
+- **Ignite:** Reads projections, sends source-directed intent, publishes synchronous outward facts, and cleans up only its own observation and presentation resources.
+- **Evidence:** Architecture checks, public-type tests, lifecycle fixtures, and the cited matrix prove these boundaries without inventing a common runtime wrapper.
+
+## Developer outcome
+
+| Before | After |
+| --- | --- |
+| Conflicting guidance leaves developers unsure whether the exact source or an Ignite wrapper is authoritative. | One exact-source contract is reflected in docs, types, architecture rules, and lifecycle fixtures. |
+| Cleanup ownership can be confused with element disconnect or retained-node cleanup. | Ignite cleanup and ecosystem-native shutdown are tested as separate responsibilities. |
+| Downstream tasks must infer which claims are trustworthy. | Documentation and optional Actor-Web projection work receive cited, freshness-bearing conformance receipts. |
 
 ## Acceptance criteria
 
-- Current architecture surfaces no longer describe createFeature, Feature, feature.source, onDispose, or generic disposal as current or accepted targets; the cancelled proposal remains historical only.
-- Architecture checks classify deterministic source, adapter, composition-root, projection, and retained-presentation paths and fail direct imports, alias imports, re-export barrels, and dynamic imports that move browser, Node, provider, renderer, host, or transport APIs into deterministic source modules without flagging legitimate adapters.
-- Public type tests prove commands remain source-directed intent, effects remain synchronous outward facts, host and actor escape hatches do not return, and promise-like environmental work is rejected.
-- Public type tests prove igniteCore accepts the exact supported native source and rejects ports, drivers, environments, provide hooks, Feature wrappers, lifecycle containers, and disposal policy.
-- Lifecycle tests distinguish Ignite observation cleanup from ecosystem-native unsubscribe, cancellation, stop, shutdown, abort, or close semantics for representative XState, Redux, MobX, Actor-Web, browser, Node, isolated, shared, and deterministic fake flows.
-- Actor-Web retains source, runtime, admission, authorization, receipt, checkpoint, replay, reconciliation, and transport lifecycle ownership; Ignite remains projection-only and this task does not implement the optional evidence adapter.
-- Retained ref and commit cleanup remains presentation-only: retained cleanup never starts or stops a source, and native source cleanup never depends on a retained node callback.
-- docs/source-native-provisioning.md contains a Conformance source-of-truth matrix citing the concrete task, fixture, test, verification command, ownership, maturity, provenance, and freshness for every supported ecosystem claim.
-- task-1784909318199 completes before implementation admission, and FAS scope, planning, task-packet, and commit-plan artifacts are refreshed from its actual receipts before code-writing delegation.
-- The final handoff explicitly unlocks task-1784909364827 and task-1785254961929 without claiming the external Actor-Web evidence fixture is available before its upstream handoff.
-- Each enforcement rule begins with a task-scoped failing test and a current TDD red receipt; every production or rule change is covered by an added or updated test.
-- pnpm architecture:check, pnpm typecheck:packages, pnpm typecheck:examples, pnpm test:packages, pnpm test:examples, pnpm test:node, contract-doc validation, fas validate-task, and fas verify --full all pass.
+- **Developer outcome:** A developer can pass each supported exact native source to `igniteCore` without a port, driver, environment, `Feature` wrapper, lifecycle container, or disposal policy.
+- **Contract correction:** Current architecture surfaces no longer present `createFeature`, `Feature`, `feature.source`, `onDispose`, or generic disposal as accepted targets; the cancelled proposal remains historical only.
+- **Architecture enforcement:** Checks classify deterministic source, adapter, composition-root, projection, and retained-presentation paths. They reject direct, alias, barrel, and dynamic imports that move environmental APIs into deterministic source modules without flagging legitimate adapters.
+- **Public behavior:** Type tests keep commands as source-directed intent and effects as synchronous outward facts. Host and actor escape hatches stay absent, and promise-like environmental work is rejected.
+- **Lifecycle proof:** Tests distinguish Ignite observation cleanup from ecosystem-native unsubscribe, cancellation, stop, shutdown, abort, or close semantics across representative XState, Redux, MobX, Actor-Web, browser, Node, isolated, shared, and deterministic fake flows.
+- **Ownership boundary:** Actor-Web retains source/runtime and execution lifecycle authority; Ignite remains projection-only and this task does not implement the optional evidence adapter.
+- **Presentation boundary:** Retained ref and commit cleanup remains presentation-only. It never starts or stops a source, and native source cleanup never depends on a retained-node callback.
+- **Evidence matrix:** `docs/source-native-provisioning.md` cites the task, fixture, test, verification command, ownership, maturity, provenance, and freshness for every supported ecosystem claim.
+- **Admission gate:** `task-1784909318199` completes before implementation admission, then FAS scope, planning, task-packet, and commit-plan artifacts are refreshed from its actual receipts.
+- **Downstream handoff:** The final handoff explicitly unlocks `task-1784909364827` and `task-1785254961929` without claiming that an external Actor-Web evidence fixture exists before its upstream handoff.
+- **TDD evidence:** Each enforcement rule starts with a task-scoped failing test and a current TDD red receipt; every production or rule change has test coverage.
+- **Verification:** `pnpm architecture:check`, package and example typechecks, package/example/Node tests, contract-doc validation, `fas validate-task`, and `fas verify --full` all pass.
 - The work is tracked in `.fas/TASKS.md`.
 - The task has a clear implementation and verification plan before execution starts.
 
 ## Proposed solution
 
-- First reconcile the normative architecture surfaces with the accepted exact-source-only decision by removing rejected `createFeature`, `Feature`, `feature.source`, `onDispose`, and generic disposal target claims.
-- Extend the architecture-rule fixtures with explicit deterministic-source, adapter, composition-root, and projection classifications so forbidden imports are rejected without flagging legitimate browser or Node adapters.
-- Add public type tests that fail if `host` returns to commands, `host` or `actor` returns to effects, effects accept promise-like work, or `igniteCore` gains ports, drivers, environments, provisioning, or lifecycle-wrapper inputs.
-- Add a lifecycle conformance matrix spanning isolated Ignite-owned sources, shared consumer-owned XState, Redux, MobX, and Actor-Web sources, browser and Node adapters, and deterministic fakes. Record native stop, unsubscribe, abort, shutdown, or close semantics without forcing one public abstraction.
-- Add cross-epic fixtures proving retained `ref` cleanup owns only node-bound presentation resources and never terminates an exact source.
-- Hand the finalized exact-source contract and conformance fixtures directly to task-1784909364827 for public documentation and task-1785254961929 for the optional Actor-Web evidence projection.
+Deliver this in five readable slices:
+
+1. **Correct the contract:** Remove rejected wrapper-first and generic-disposal claims from normative architecture surfaces.
+2. **Make drift fail:** Add architecture and public-type fixtures for layer violations, callback escape hatches, environmental effects, exact-source identity, and wrapper rejection.
+3. **Prove native lifecycle ownership:** Exercise representative shared, isolated, browser, Node, Actor-Web, and deterministic fake flows without forcing them behind one disposal abstraction.
+4. **Separate presentation cleanup:** Prove retained `ref` cleanup owns node-bound presentation resources only and never terminates a source.
+5. **Publish the evidence handoff:** Record the conformance matrix and pass cited receipts to the public-guidance and optional Actor-Web projection tasks.
 
 ## Alternatives considered
 
@@ -55,7 +100,7 @@ Turn the accepted exact-source-only architecture and completed cross-adapter evi
 - docs/architecture.md
 - docs/shared-architecture-model.md
 - docs/v3-api-consistency.md
-- scripts/__tests__/script-hardening.test.js
+- `scripts/__tests__/script-hardening.test.js`
 
 ## Scope Amendments
 
@@ -63,7 +108,7 @@ Turn the accepted exact-source-only architecture and completed cross-adapter evi
 - Added at: 2026-07-29T18:15:43-04:00
 - Trigger: operator Queue Inspector task-readiness review
 - Reason: Make the task execution-ready by repairing rejected createFeature contract drift, binding concrete conformance evidence, and recording both downstream unlocks before implementation.
-- Added paths: docs/architecture.md, docs/shared-architecture-model.md, docs/v3-api-consistency.md, scripts/__tests__/script-hardening.test.js
+- Added paths: `docs/architecture.md`, `docs/shared-architecture-model.md`, `docs/v3-api-consistency.md`, `scripts/__tests__/script-hardening.test.js`
 - Evidence source: repo-and-queue-audit
 - Evidence: repo-and-queue-audit | docs/source-native-provisioning.md | The normative document still labels createFeature and Feature disposal as accepted targets while the completed architecture brief and cancelled implementation task reject that direction.
 - Accuracy signal: high
