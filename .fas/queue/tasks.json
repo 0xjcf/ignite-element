@@ -788,31 +788,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1785254928652",
-      "task": "Define the versioned evidence-governed Actor-Web consumer contract for Ignite",
-      "priority": "critical",
-      "source": "operator",
-      "details": "Define the additive, optional consumer boundary through which Ignite can project Actor-Web authenticated admission facts, execution receipts, durable-session checkpoints, replay/restart state, and reconciliation outcomes without becoming the execution authority. Start from the accepted cross-repo ownership contract and Actor-Web tasks task-1785250528660, task-1785250545761, and task-1785250562339; preserve current loose structural source compatibility and treat any unavailable upstream schema as provisional rather than inventing shipped interoperability.\nSee .fas/tasks/define-the-versioned-evidence-governed-actor-web-consumer-co.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "policy-surfacing",
-      "signalFingerprint": null,
-      "status": "blocked",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [
-        "task-1784909239951",
-        "task-1784298626529"
-      ],
-      "blocks": [
-        "task-1785254961929"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-28T16:08:48.652Z",
-      "updatedAt": "2026-07-28T17:33:50.000Z",
-      "blockedReason": "closeout_lifecycle_gate"
-    },
-    {
       "id": "task-1785254961929",
       "task": "Extend the optional Actor-Web adapter with execution-evidence projection",
       "priority": "high",
@@ -835,7 +810,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-28T16:09:21.929Z",
       "updatedAt": "2026-07-28T16:09:40.835Z",
-      "deferredReason": "dependency_reopened: task-1785254928652, task-1784909335843",
+      "deferredReason": "dependency_reopened: task-1784909335843",
       "invalidationReason": null
     },
     {
@@ -4682,6 +4657,33 @@
       "completedAt": "2026-07-27T18:01:02.802Z",
       "terminalOutcome": null,
       "workflowId": "direct-1785170698702",
+      "branchName": "fas/source-native-provisioning-architecture",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1785254928652",
+      "task": "Define the versioned evidence-governed Actor-Web consumer contract for Ignite",
+      "priority": "critical",
+      "source": "operator",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "experienceDesign": null,
+      "acceptanceSourcePath": null,
+      "dependsOn": [
+        "task-1784909239951",
+        "task-1784298626529"
+      ],
+      "blocks": [
+        "task-1785254961929"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-29T00:49:54.888Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1785257309986",
       "branchName": "fas/source-native-provisioning-architecture",
       "prStatus": "draft-only"
     }
