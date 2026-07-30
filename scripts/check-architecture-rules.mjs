@@ -215,6 +215,14 @@ export function checkRules(root, rulesFilePath, workspacePackages) {
 					workspacePackages,
 				);
 				if (!resolved) {
+					if (
+						specifier === forbidden ||
+						specifier.startsWith(`${forbidden}/`)
+					) {
+						violations.push(
+							`${rule.name}: ${relativePath(root, sourceFile)} imports ${specifier} -> ${specifier}`,
+						);
+					}
 					continue;
 				}
 
