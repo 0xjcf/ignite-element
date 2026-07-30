@@ -93,6 +93,7 @@ const coveredPackageRoots = readRepeatedPathFlag("--covers-package");
 const requireCoveredPackagesMatchDiscovered = args.has(
 	"--require-covered-packages-match-discovered",
 );
+const hasCoveredPackageFilter = coveredPackageRoots.length > 0;
 
 async function findTestFiles(dir) {
 	const entries = await readdir(dir, { withFileTypes: true });
@@ -229,14 +230,20 @@ if (requireCoveredPackagesMatchDiscovered) {
 	}
 }
 
+const filteredExampleRoots = hasCoveredPackageFilter
+	? exampleRoots.filter((exampleRoot) =>
+			coveredPackageRoots.includes(exampleRoot),
+		)
+	: exampleRoots;
+
 if (args.has("--list")) {
-	for (const exampleRoot of exampleRoots) {
+	for (const exampleRoot of filteredExampleRoots) {
 		console.log(path.relative(repoRoot, exampleRoot));
 	}
 	process.exit(0);
 }
 
-const missingConfigs = exampleRoots
+const missingConfigs = filteredExampleRoots
 	.map((exampleRoot) => ({ config: findConfig(exampleRoot), exampleRoot }))
 	.filter(({ config }) => config === null);
 
@@ -254,7 +261,7 @@ if (missingConfigs.length > 0) {
 
 const failedExamples = [];
 
-for (const exampleRoot of exampleRoots) {
+for (const exampleRoot of filteredExampleRoots) {
 	const config = findConfig(exampleRoot);
 	const relativeRoot = path.relative(repoRoot, exampleRoot);
 
@@ -295,5 +302,5 @@ if (failedExamples.length > 0) {
 }
 
 console.log(
-	`\nExample runtime tests passed for ${exampleRoots.length} example root(s).`,
+	`\nExample runtime tests passed for ${filteredExampleRoots.length} example root(s).`,
 );

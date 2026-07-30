@@ -88,6 +88,28 @@ describe("test-examples", () => {
 		assert.deepEqual(output.trim().split("\n"), expectedExampleRoots);
 	});
 
+	it("lists only the covered packages when a focused runtime lane is requested", () => {
+		const output = execFileSync(
+			"node",
+			[
+				"scripts/test-examples.mjs",
+				"--list",
+				"--covers-package",
+				"examples/adapters/redux",
+				"--covers-package",
+				"examples/adapters/mobx",
+			],
+			{
+				encoding: "utf8",
+			},
+		);
+
+		assert.deepEqual(output.trim().split("\n"), [
+			"examples/adapters/mobx",
+			"examples/adapters/redux",
+		]);
+	});
+
 	it("fails when a runtime test is outside an example package", () => {
 		const examplesRoot = mkdtempSync(path.join(tmpdir(), "ignite-examples-"));
 		const orphanDir = path.join(examplesRoot, "orphan", "src");

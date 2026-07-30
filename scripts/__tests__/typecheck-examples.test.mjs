@@ -77,6 +77,55 @@ describe("typecheck-examples", () => {
 		assert.deepEqual(output.trim().split("\n"), expectedExampleRoots);
 	});
 
+	it("lists only the covered packages when a focused typecheck lane is requested", () => {
+		const output = execFileSync(
+			node,
+			[
+				"scripts/typecheck-examples.mjs",
+				"--list",
+				"--covers-package",
+				"examples/adapters/redux",
+				"--covers-package",
+				"examples/adapters/mobx",
+			],
+			{
+				encoding: "utf8",
+			},
+		);
+
+		assert.deepEqual(output.trim().split("\n"), [
+			"examples/adapters/mobx",
+			"examples/adapters/redux",
+		]);
+	});
+
+	it("fails when a covered example package was not discovered", () => {
+		assert.throws(
+			() =>
+				execFileSync(
+					node,
+					[
+						"scripts/typecheck-examples.mjs",
+						"--list",
+						"--covers-package",
+						"examples/unknown-package",
+					],
+					{
+						encoding: "utf8",
+						stderr: "pipe",
+					},
+				),
+			(error) => {
+				assert.equal(error.status, 1);
+				assert.match(
+					String(error.stderr),
+					/Covered example package was not discovered: examples\/unknown-package/,
+				);
+				return true;
+			},
+		);
+	});
+
 	it("rejects invalid options", () => {
 		assert.throws(
 			() =>

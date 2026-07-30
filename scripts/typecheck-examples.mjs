@@ -27,6 +27,34 @@ function isMissingPathValue(value) {
 	return !value || value.startsWith("--");
 }
 
+function readRepeatedPathFlag(rawArgs, name) {
+	const values = [];
+	const assignmentPrefix = `${name}=`;
+
+	for (let index = 0; index < rawArgs.length; index += 1) {
+		const arg = rawArgs[index];
+		if (arg === name) {
+			const value = rawArgs[index + 1];
+			if (isMissingPathValue(value)) {
+				failCli(`${name} requires a path.`);
+			}
+			values.push(path.resolve(repoRoot, value));
+			index += 1;
+			continue;
+		}
+
+		if (arg.startsWith(assignmentPrefix)) {
+			const value = arg.slice(assignmentPrefix.length);
+			if (isMissingPathValue(value)) {
+				failCli(`${name} requires a path.`);
+			}
+			values.push(path.resolve(repoRoot, value));
+		}
+	}
+
+	return values;
+}
+
 function parseOptions(rawArgs = process.argv.slice(2)) {
 	const args = new Set(rawArgs);
 	const examplesRootArgIndex = rawArgs.findIndex(
@@ -71,7 +99,12 @@ function parseOptions(rawArgs = process.argv.slice(2)) {
 		failCli("--install must be one of: always, missing, never.");
 	}
 
-	return { args, examplesRoot, installMode };
+	return {
+		args,
+		coveredPackageRoots: readRepeatedPathFlag(rawArgs, "--covers-package"),
+		examplesRoot,
+		installMode,
+	};
 }
 
 export async function discoverExampleRoots(
@@ -263,7 +296,8 @@ function runTypecheck(exampleRoot) {
 }
 
 async function main() {
-	const { args, examplesRoot, installMode } = parseOptions();
+	const { args, coveredPackageRoots, examplesRoot, installMode } =
+		parseOptions();
 	const exampleRoots = await discoverExampleRoots(examplesRoot);
 
 	if (exampleRoots.length === 0) {
@@ -275,8 +309,30 @@ async function main() {
 		);
 	}
 
+	const hasCoveredPackageFilter = coveredPackageRoots.length > 0;
+	const missingCoveredPackageRoots = coveredPackageRoots.filter(
+		(coveredPackageRoot) => !exampleRoots.includes(coveredPackageRoot),
+	);
+
+	if (missingCoveredPackageRoots.length > 0) {
+		for (const coveredPackageRoot of missingCoveredPackageRoots) {
+			failCli(
+				`Covered example package was not discovered: ${path.relative(
+					repoRoot,
+					coveredPackageRoot,
+				)}`,
+			);
+		}
+	}
+
+	const filteredExampleRoots = hasCoveredPackageFilter
+		? exampleRoots.filter((exampleRoot) =>
+				coveredPackageRoots.includes(exampleRoot),
+			)
+		: exampleRoots;
+
 	if (args.has("--list")) {
-		for (const exampleRoot of exampleRoots) {
+		for (const exampleRoot of filteredExampleRoots) {
 			console.log(path.relative(repoRoot, exampleRoot));
 		}
 		return;
@@ -284,7 +340,7 @@ async function main() {
 
 	const failedExamples = [];
 
-	for (const exampleRoot of exampleRoots) {
+	for (const exampleRoot of filteredExampleRoots) {
 		const relativeRoot = path.relative(repoRoot, exampleRoot);
 		console.log(`\n==> ${relativeRoot}`);
 
@@ -307,7 +363,7 @@ async function main() {
 	}
 
 	console.log(
-		`\nExample typecheck passed for ${exampleRoots.length} example(s).`,
+		`\nExample typecheck passed for ${filteredExampleRoots.length} example(s).`,
 	);
 }
 
