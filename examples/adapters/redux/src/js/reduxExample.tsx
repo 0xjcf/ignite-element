@@ -20,7 +20,36 @@ const resolveReduxSliceView = (snapshot: CounterSliceSnapshot) => ({
 	count: snapshot.count,
 });
 
-const sharedStore = counterStore();
+function createMemoryPersistence(initialCount = 0) {
+	let current = initialCount;
+	const listeners = new Set<(count: number) => void>();
+
+	return {
+		load() {
+			return current;
+		},
+		save(count: number) {
+			current = count;
+			for (const listener of listeners) {
+				listener(current);
+			}
+		},
+		observe(listener: (count: number) => void) {
+			listeners.add(listener);
+			return () => {
+				listeners.delete(listener);
+			};
+		},
+	};
+}
+
+const sharedStore = counterStore({
+	persistence: createMemoryPersistence(),
+});
+
+export const disposeSharedRedux = () => {
+	sharedStore.dispose();
+};
 
 export const registerSharedRedux = igniteCore({
 	source: sharedStore,
