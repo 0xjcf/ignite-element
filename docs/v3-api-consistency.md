@@ -18,8 +18,8 @@ across the three surfaces a consumer or agent touches:
 Those surfaces have drifted. This pass realigns them while we are pre-stable and can
 still make breaking changes cheaply.
 
-For the normative source-native provisioning, `createFeature({ ports, setup })`
-target contract, disposal/error semantics, and host-boundary language, see
+For the normative source-native provisioning, exact-source contract,
+native-lifecycle ownership semantics, and host-boundary language, see
 [`docs/source-native-provisioning.md`](./source-native-provisioning.md).
 
 ## Principle
@@ -43,7 +43,7 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
 | `ignite-element/react` schema-driven wrapper + registration handle | `ignite-react.md` | additive (gap) | design ✓, task reshaped (1781805261094) |
 | `getSchema().view` — expose the typed view projection in the schema | this doc | additive (gap) | task queued 2026-06-21 (needs typed-view) |
 | `igniteTools(component)` — getSchema → LLM tool-use bridge (agent analog of `igniteReact`) | `ignite-tools.md` | additive (gap) | design ✓, task queued 2026-06-21 |
-| Source-native provisioning + `createFeature({ ports, setup })` | `source-native-provisioning.md` | architecture / additive | accepted target contract; implementation remains evidence-gated |
+| Source-native provisioning + exact-source ownership | `source-native-provisioning.md` | architecture / corrective | accepted contract; `igniteCore(...)` takes only the already-bound source |
 
 ## Intentional — document, do not "fix"
 

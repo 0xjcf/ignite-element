@@ -16,8 +16,8 @@ jobs:
 - separate current facts from inferred or target-state alignment work
 - keep explanatory topology sketches from being mistaken for compliance truth
 
-The normative source-native provisioning, host boundary, and feature-disposal
-contract for this repository lives in
+The normative source-native provisioning, host boundary, and native-lifecycle
+ownership contract for this repository lives in
 [`docs/source-native-provisioning.md`](./source-native-provisioning.md). The
 normative Ignite-side Actor-Web evidence-consumption contract lives in
 [`docs/actor-web-evidence-governed-projections.md`](./actor-web-evidence-governed-projections.md).
@@ -63,9 +63,9 @@ This repository directly grounds the following package families:
 | `ignite-renderer` | renderer registration and renderer-specific runtime utilities | projection | workflow policy, orchestration topology, product grammar |
 | `ignite-element` | projection, assembly, runtime host coordination, and public Web Component/headless runtime surface | imperative execution over time, projection, product composition | ecosystem orchestration topology, provider/model ownership, repo-external composition authority |
 
-The accepted target for application-owned `createFeature({ ports, setup })`
-composition does not move this ownership into Ignite. It standardizes how
-consumers arrive at the already-bound source before they call `igniteCore(...)`.
+The accepted exact-source contract does not move composition ownership into
+Ignite. Consumers still arrive at the already-bound source through their
+selected source ecosystem before they call `igniteCore(...)`.
 
 ### Why the Ignite mapping is grounded
 
@@ -199,8 +199,8 @@ Current fact:
   such as shared versus isolated scope
 - FAS workflow files in this repository encode explicit task phases and
   verification stages for repo operation
-- application-owned feature disposal is an accepted target documented separately
-  in [`docs/source-native-provisioning.md`](./source-native-provisioning.md)
+- application-owned native shutdown ownership is documented separately in
+  [`docs/source-native-provisioning.md`](./source-native-provisioning.md)
 
 ### Imperative execution over time
 
@@ -214,7 +214,7 @@ Current fact:
 Target state:
 
 - source-native binding remains outside Ignite and is standardized around the
-  accepted `createFeature({ ports, setup })` boundary
+  accepted exact-source boundary
 
 ### Projection
 
@@ -288,6 +288,6 @@ this:
   exist, instead of carrying target-state notes in each repo?
 - Are there any remaining local docs that still imply dependency truth where the
   contract only supports explanatory topology?
-- Once `createFeature({ ports, setup })` ships, should this companion add a
-  short current-fact receipt section that points back to
+- Should this companion later add a short current-fact receipt section that
+  points back to
   [`docs/source-native-provisioning.md`](./source-native-provisioning.md)?

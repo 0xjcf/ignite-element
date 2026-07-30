@@ -35,8 +35,8 @@ The repo is layered as packages, but the responsibility model is hexagonal:
 - the shell assembles projections, renderer integration, and host lifecycle into
   a usable component/runtime surface
 
-For the normative `createFeature({ ports, setup })` target contract, the
-source-native binding boundary, the disposal/error rules, and the retained
+For the normative exact-source provisioning contract, the source-native binding
+boundary, the native-lifecycle ownership rules, and the retained
 Canvas/Cytoscape boundary, see
 [`docs/source-native-provisioning.md`](./source-native-provisioning.md).
 
@@ -126,7 +126,7 @@ It does not own:
 | --- | --- | --- |
 | Intent | consumer commands and declared events surfaced through `ignite-element` | Commands are the public intent surface. Declared events are the outward fact surface for hosts, tests, and headless runtimes. |
 | Deterministic decision | consumer-owned actors/state machines plus `ignite-core` contracts | Ignite supplies typed contracts and adapter-neutral helpers. Product behavior remains in the consuming source. |
-| Workflow and lifecycle | source lifecycles plus `ignite-element` host lifecycle | Ignite starts, watches, and releases adapters for DOM and headless usage; it does not own FAS workflow lifecycle or external orchestration policy. Source-native provisioning and explicit feature disposal are standardized separately in [`docs/source-native-provisioning.md`](./source-native-provisioning.md). |
+| Workflow and lifecycle | source lifecycles plus `ignite-element` host lifecycle | Ignite starts, watches, and releases adapters for DOM and headless usage; it does not own FAS workflow lifecycle or external orchestration policy. Source-native provisioning and native shutdown ownership are standardized separately in [`docs/source-native-provisioning.md`](./source-native-provisioning.md). |
 | Imperative execution over time | `ignite-adapters` plus `ignite-element` runtime host coordination | Runtime-library integration, subscriptions, setup, cleanup, and command execution live at the edge. Actor-Web keeps execution-time authorization, durable receipts, checkpoints, and reconciliation when that runtime is composed. |
 | Projection | `ignite-element` projection assembly | `view`, `commands`, `effects`, and schema metadata turn source snapshots into a stable UI/runtime contract. Effects are the outward fact layer; the normative host/effect boundary lives in [`docs/source-native-provisioning.md`](./source-native-provisioning.md), and Actor-Web evidence-consumption boundaries live in [`docs/actor-web-evidence-governed-projections.md`](./actor-web-evidence-governed-projections.md). |
 | Product composition | `ignite-element` package surface, then consumer apps on top | Ignite assembles the package family into a reusable component/runtime surface. Consumer apps compose those surfaces into products. |
@@ -139,7 +139,7 @@ It does not own:
 | Boundary rules | `.fas-config.json` and `.fas/architecture-rules.json` define the committed repo map. | FAS and CI both evaluate the same committed rules before release. |
 | Actor-web integration | Ignite supports an optional actor-web adapter surface; that is compatibility, not a claim that this repo owns actor-web orchestration boundaries, execution receipts, checkpoint truth, or reconciliation authority. | A later cross-repo contract can name actor-web's runtime role explicitly once that repository confirms it. |
 | FAS integration | FAS remains a workflow participant around this repo's planning and verification artifacts. Ignite owns repo-local architecture facts and separate Story or narrative evidence. | FAS may consume the committed Ignite boundary map or exported evidence fixtures, but product semantics stay in Ignite and consumer apps. |
-| Source-native provisioning | Current shipped behavior passes a bound source into `igniteCore(...)`; host access still exists in current callback contexts. | `docs/source-native-provisioning.md` defines the accepted `createFeature({ ports, setup })` contract, labels current-vs-target host semantics, and rejects `driver`/`igniteEnvironment`/`ports` on `igniteCore(...)`. |
+| Source-native provisioning | Current shipped behavior passes a bound source into `igniteCore(...)`; host access still exists in current callback contexts. | `docs/source-native-provisioning.md` defines the accepted exact-source contract, labels current-vs-target host semantics, and rejects `Feature` wrappers, disposal policy, `driver`, `igniteEnvironment`, and `ports` on `igniteCore(...)`. |
 
 ## Explanatory Topology
 
