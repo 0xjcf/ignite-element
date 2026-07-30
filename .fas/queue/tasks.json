@@ -709,31 +709,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1784909318199",
-      "task": "Dogfood source-native provisioning across Redux, MobX, Node, and deterministic fakes",
-      "priority": "high",
-      "source": "manual",
-      "details": "Prove that exact source-only provisioning is source-library-native rather than XState-specific. Refactor the Redux and MobX examples to inject capability ports through Redux store construction, thunk or middleware and MobX constructors or factories, then pass the exact configured store or observable directly to igniteCore. Add Actor-Web comparison evidence, a Node or headless composition proof, and deterministic fakes. Each ecosystem retains its native lifecycle and shutdown conventions; do not introduce createFeature, Feature wrappers, onDispose, or a cross-library lifecycle abstraction. Treat Voice Workbench as read-only evidence and avoid overlapping its queued implementation scope.\nSee .fas/tasks/dogfood-source-native-provisioning-across-redux-mobx-node-an.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "runtime-reliability",
-      "signalFingerprint": null,
-      "status": "queued",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [
-        "task-1784909239951"
-      ],
-      "blocks": [
-        "task-1784909335843"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-24T16:08:38.199Z",
-      "updatedAt": "2026-07-24T17:39:34.000Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
       "id": "task-1784909335843",
       "task": "Enforce exact-source provisioning and native lifecycle boundaries",
       "priority": "high",
@@ -742,7 +717,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "policy-surfacing",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -758,7 +733,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-24T16:08:55.843Z",
       "updatedAt": "2026-07-28T16:09:21.929Z",
-      "deferredReason": "dependency_reopened: task-1784909318199",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -4684,6 +4659,32 @@
       "completedAt": "2026-07-29T00:49:54.888Z",
       "terminalOutcome": null,
       "workflowId": "direct-1785257309986",
+      "branchName": "fas/source-native-provisioning-architecture",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784909318199",
+      "task": "Dogfood source-native provisioning across Redux, MobX, Node, and deterministic fakes",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "runtime-reliability",
+      "signalFingerprint": null,
+      "experienceDesign": null,
+      "acceptanceSourcePath": null,
+      "dependsOn": [
+        "task-1784909239951"
+      ],
+      "blocks": [
+        "task-1784909335843"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-30T02:32:46.572Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1785375394663",
       "branchName": "fas/source-native-provisioning-architecture",
       "prStatus": "draft-only"
     }

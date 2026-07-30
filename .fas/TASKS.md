@@ -2794,9 +2794,12 @@ No active tasks.
 
 - Title: Dogfood source-native provisioning across Redux, MobX, Node, and deterministic fakes
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/dogfood-source-native-provisioning-across-redux-mobx-node-an.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Enforce exact-source provisioning and native lifecycle boundaries
 
