@@ -233,7 +233,10 @@ describe("check-architecture-rules", () => {
 	it("flags workspace package alias imports into forbidden adapter sources", () => {
 		const root = createTempDirectory("ignite-architecture-");
 		const deterministicSourceDirectory = path.join(root, "packages/core/src");
-		const adapterSourceDirectory = path.join(root, "packages/runtime-adapter/src");
+		const adapterSourceDirectory = path.join(
+			root,
+			"packages/runtime-adapter/src",
+		);
 		const rulesPath = path.join(root, "architecture-rules.json");
 		fs.mkdirSync(deterministicSourceDirectory, { recursive: true });
 		fs.mkdirSync(adapterSourceDirectory, { recursive: true });
@@ -270,7 +273,10 @@ describe("check-architecture-rules", () => {
 			root,
 			rulesPath,
 			new Map([
-				["@ignite/runtime-adapter", path.join(root, "packages/runtime-adapter")],
+				[
+					"@ignite/runtime-adapter",
+					path.join(root, "packages/runtime-adapter"),
+				],
 			]),
 		);
 
@@ -282,7 +288,10 @@ describe("check-architecture-rules", () => {
 	it("flags barrel entrypoints that resolve into forbidden adapter sources", () => {
 		const root = createTempDirectory("ignite-architecture-");
 		const deterministicSourceDirectory = path.join(root, "packages/core/src");
-		const adapterSourceDirectory = path.join(root, "packages/runtime-adapter/src");
+		const adapterSourceDirectory = path.join(
+			root,
+			"packages/runtime-adapter/src",
+		);
 		const rulesPath = path.join(root, "architecture-rules.json");
 		fs.mkdirSync(deterministicSourceDirectory, { recursive: true });
 		fs.mkdirSync(adapterSourceDirectory, { recursive: true });
@@ -323,7 +332,10 @@ describe("check-architecture-rules", () => {
 			root,
 			rulesPath,
 			new Map([
-				["@ignite/runtime-adapter", path.join(root, "packages/runtime-adapter")],
+				[
+					"@ignite/runtime-adapter",
+					path.join(root, "packages/runtime-adapter"),
+				],
 			]),
 		);
 
@@ -368,7 +380,10 @@ describe("check-architecture-rules", () => {
 	it("does not flag legitimate adapter imports outside deterministic source roots", () => {
 		const root = createTempDirectory("ignite-architecture-");
 		const deterministicSourceDirectory = path.join(root, "packages/core/src");
-		const adapterSourceDirectory = path.join(root, "packages/runtime-adapter/src");
+		const adapterSourceDirectory = path.join(
+			root,
+			"packages/runtime-adapter/src",
+		);
 		const rulesPath = path.join(root, "architecture-rules.json");
 		fs.mkdirSync(deterministicSourceDirectory, { recursive: true });
 		fs.mkdirSync(adapterSourceDirectory, { recursive: true });
