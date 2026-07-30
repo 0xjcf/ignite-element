@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { listSourceFiles } from "../check-architecture-rules.mjs";
+import { checkRules, listSourceFiles } from "../check-architecture-rules.mjs";
 import { analyzeSource, parseCliArgs } from "../migrate-emit-to-effects.mjs";
 
 const tempDirectories = [];
@@ -195,5 +195,38 @@ describe("check-architecture-rules", () => {
 			.sort();
 
 		expect(files).toEqual(["src/entry.ts", "src/nested/child.ts"]);
+	});
+
+	it("flags direct environmental imports from deterministic source modules", () => {
+		const root = createTempDirectory("ignite-architecture-");
+		const deterministicSourceDirectory = path.join(root, "packages/core/src");
+		const rulesPath = path.join(root, "architecture-rules.json");
+		fs.mkdirSync(deterministicSourceDirectory, { recursive: true });
+		fs.writeFileSync(
+			path.join(deterministicSourceDirectory, "counter.ts"),
+			'import fs from "node:fs";\nexport const readCounter = () => fs.readFileSync("counter.txt", "utf8");\n',
+		);
+		fs.writeFileSync(
+			rulesPath,
+			JSON.stringify(
+				{
+					rules: [
+						{
+							name: "deterministic-source-no-node-fs",
+							from: "packages/core/src",
+							cannotImport: "node:fs",
+						},
+					],
+				},
+				null,
+				2,
+			),
+		);
+
+		const violations = checkRules(root, rulesPath, new Map());
+
+		expect(violations).toEqual([
+			"deterministic-source-no-node-fs: packages/core/src/counter.ts imports node:fs -> node:fs",
+		]);
 	});
 });
