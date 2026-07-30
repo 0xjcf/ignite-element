@@ -219,7 +219,7 @@ The accepted contract is backed by current repository evidence:
 | Claim | Evidence | Command or fixture | Ownership |
 | --- | --- | --- | --- |
 | `igniteCore(...)` consumes the exact source rather than an Ignite wrapper | task `direct-1785375394663`; Redux and MobX dogfood receipts; exact-source docs/task packet alignment | focused example runtime and typecheck lanes for Redux and MobX | Application and source ecosystem own composition |
-| Deterministic sources may not import environmental APIs directly when rules forbid them | task `direct-1785379064768`; `scripts/check-architecture-rules.mjs`; `scripts/__tests__/script-hardening.test.js` | `pnpm architecture:check` and the focused script-hardening Vitest lane | Conformance enforcement |
+| Deterministic sources may not import environmental APIs directly when rules forbid them | task `direct-1785381384532`; `scripts/check-architecture-rules.mjs`; `scripts/__tests__/architecture-boundaries.test.mjs` | `pnpm architecture:check` and `pnpm run test:scripts` | Conformance enforcement |
 | Public command context does not regain removed host escape hatches | `packages/ignite-element/src/tests/types/igniteCore.types.test.ts` | package typecheck lane | Ignite public contract |
 | Headless runtime remains DOM-free while preserving runtime observation semantics | `packages/ignite-element/src/tests/agent-runtime-headless-node.test.ts` | `pnpm --filter ignite-element test:node` | Ignite runtime host |
 | Actor-Web remains projection-only from Ignite's side | `docs/actor-web-evidence-governed-projections.md`; actor-web public type tests and adapter coverage | package test and typecheck lanes | Actor-Web runtime owns execution authority |
@@ -229,7 +229,7 @@ Freshness note:
 - The exact-source dogfood evidence was refreshed on July 30, 2026 through the
   completed task `direct-1785375394663`.
 - The deterministic-source import enforcement evidence was refreshed on
-  July 30, 2026 through the current task `direct-1785379064768`.
+  July 30, 2026 through the current task `direct-1785381384532`.
 
 ## Cross-References
 
