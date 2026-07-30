@@ -95,10 +95,7 @@ test("flags workspace package alias imports into forbidden adapter sources", () 
 		root,
 		rulesPath,
 		new Map([
-			[
-				"@ignite/runtime-adapter",
-				path.join(root, "packages/runtime-adapter"),
-			],
+			["@ignite/runtime-adapter", path.join(root, "packages/runtime-adapter")],
 		]),
 	);
 
@@ -154,10 +151,7 @@ test("flags barrel entrypoints that resolve into forbidden adapter sources", () 
 		root,
 		rulesPath,
 		new Map([
-			[
-				"@ignite/runtime-adapter",
-				path.join(root, "packages/runtime-adapter"),
-			],
+			["@ignite/runtime-adapter", path.join(root, "packages/runtime-adapter")],
 		]),
 	);
 
