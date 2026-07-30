@@ -87,20 +87,186 @@ Deliver this in five readable slices:
 - Make `igniteCore` accept a lifecycle wrapper so it can call `dispose`: rejected because shared source ownership belongs to the application and an element disconnect must not terminate resources used by other consumers.
 - Rely on the architecture document without executable fixtures: rejected because callback and import boundaries would otherwise regress silently.
 
+## Architecture Context
+
+```json
+{
+  "schemaVersion": 1,
+  "responsibilityAxis": {
+    "intent": [
+      "Make the accepted exact-source Ignite boundary executable and reviewable across architecture rules, public types, lifecycle fixtures, and current documentation."
+    ],
+    "behavior": [
+      "Applications construct, share, isolate, and terminate their native sources through ecosystem-owned APIs.",
+      "Source ecosystems own transitions, policy, cancellation, persistence, replay, transport, and shutdown semantics.",
+      "Actor-Web owns runtime admission, authorization, execution evidence, checkpoints, replay, reconciliation, and transport lifecycle.",
+      "Ignite observes exact native source projections, sends source-directed intent, publishes synchronous outward facts, and releases only its own observation or presentation resources."
+    ],
+    "policies": [
+      "igniteCore accepts the exact caller-owned source rather than a Feature, port bag, driver, environment, lifecycle container, or disposal policy.",
+      "Deterministic source modules cannot import environmental APIs directly, including through aliases, barrels, re-exports, or dynamic imports.",
+      "Adapters and application composition roots may bind environmental capabilities through explicit allowlists.",
+      "Public commands cannot regain host or actor escape hatches, and effects remain synchronous outward-fact callbacks.",
+      "Presentation cleanup cannot start, stop, or dispose a native source.",
+      "Actor-Web remains optional and retains runtime authority; this task does not implement its evidence projection."
+    ],
+    "capabilities": [
+      {
+        "name": "source-directed commands and synchronous outward facts",
+        "qualifier": "business",
+        "owner": "Ignite public contract"
+      },
+      {
+        "name": "native source lifecycle and environmental capability binding",
+        "qualifier": "runtime",
+        "owner": "application and selected source ecosystem"
+      },
+      {
+        "name": "architecture, type, lifecycle, and evidence conformance",
+        "qualifier": "agent-model",
+        "owner": "Ignite enforcement task and FAS workflow"
+      },
+      {
+        "name": "retained-node and presentation cleanup",
+        "qualifier": "host-product",
+        "owner": "Ignite renderer or consuming host"
+      }
+    ],
+    "ports": [
+      "native source command, snapshot, and observation contracts consumed by Ignite",
+      "environmental capabilities injected at adapter or application composition roots",
+      "verification receipts consumed by downstream guidance and optional projection work"
+    ],
+    "adapters": [
+      "XState, Redux, MobX, Actor-Web, browser, Node, and deterministic fake integrations",
+      "architecture-rule classifications and explicit environmental-import allowlists",
+      "public-type and lifecycle conformance fixtures"
+    ],
+    "infrastructure": [
+      "browser and Node hosts",
+      "source runtimes and transports",
+      "architecture checker and TypeScript compiler",
+      "FAS verification and evidence artifacts"
+    ],
+    "projections": [
+      "exact-source read models rendered or inspected by Ignite",
+      "architecture and type failures for forbidden couplings",
+      "lifecycle receipts separating Ignite observation cleanup from native shutdown",
+      "freshness-bearing source-of-truth conformance matrix"
+    ]
+  },
+  "executionAxis": {
+    "functionalCore": [
+      "deterministic source behavior and source-directed intent",
+      "pure architecture classification and boundary decisions",
+      "conformance facts and evidence-matrix claims"
+    ],
+    "imperativeShell": [
+      "bind environmental implementations at declared adapter or composition roots",
+      "construct and terminate exact native sources",
+      "attach and release Ignite observation or presentation resources",
+      "run architecture, type, lifecycle, and repository verification"
+    ]
+  },
+  "ownership": [
+    {
+      "owner": "Application and native source ecosystem",
+      "responsibilities": [
+        "construct, share, isolate, and terminate the source",
+        "own policy, persistence, cancellation, replay, transport, and shutdown"
+      ],
+      "maturity": "current"
+    },
+    {
+      "owner": "Actor-Web runtime",
+      "responsibilities": [
+        "own admission, authorization, execution receipts, checkpoints, replay, reconciliation, and transport lifecycle",
+        "publish optional evidence through a later versioned consumer contract"
+      ],
+      "maturity": "current"
+    },
+    {
+      "owner": "Ignite",
+      "responsibilities": [
+        "observe the exact source and send source-directed intent",
+        "clean up only Ignite-owned observation and presentation resources"
+      ],
+      "maturity": "current"
+    },
+    {
+      "owner": "Conformance enforcement",
+      "responsibilities": [
+        "reject forbidden architectural and public-type couplings",
+        "publish cited lifecycle and freshness evidence for downstream consumers"
+      ],
+      "maturity": "target"
+    }
+  ],
+  "maturity": [
+    {
+      "claim": "Exact source-only provisioning is the accepted architecture.",
+      "status": "current",
+      "evidenceRefs": [
+        ".fas/tasks/define-the-canonical-source-native-provisioning-and-host-bou.md",
+        ".fas/tasks/dogfood-source-native-provisioning-across-redux-mobx-node-an.md"
+      ]
+    },
+    {
+      "claim": "Architecture, public types, lifecycle fixtures, and normative docs prevent regression to wrapper-owned lifecycle.",
+      "status": "target",
+      "evidenceRefs": [
+        ".fas/tasks/enforce-source-provisioning-boundaries-and-decide-the-minima.md"
+      ]
+    },
+    {
+      "claim": "Optional Actor-Web execution-evidence projection is implemented.",
+      "status": "proposed",
+      "evidenceRefs": [
+        ".fas/tasks/extend-the-optional-actor-web-adapter-with-execution-evidenc.md"
+      ]
+    }
+  ],
+  "boundaries": [
+    "Deterministic sources remain free of direct environmental imports.",
+    "Adapters and application composition roots bind environmental capabilities without leaking them into Ignite public contracts.",
+    "Ignite receives the exact caller-owned source and never terminates it during observation or presentation cleanup.",
+    "Actor-Web runtime and evidence authority remain upstream-owned and optional.",
+    "Retained-node cleanup stays presentation-only.",
+    "Downstream guidance and projection tasks consume cited current receipts rather than inferred claims."
+  ],
+  "forbiddenCouplings": [
+    "Feature, createFeature, feature.source, onDispose, generic lifecycle containers, or disposal policy become accepted Ignite contracts.",
+    "Commands expose host or actor mutation escape hatches, or effects perform promise-like environmental work.",
+    "Deterministic source modules import browser, Node, provider, transport, or persistence APIs outside declared adapters or composition roots.",
+    "Ignite element disconnect or retained-node cleanup stops a shared native source.",
+    "Actor-Web admission, authorization, execution, persistence, replay, reconciliation, or transport authority moves into Ignite.",
+    "The optional Actor-Web evidence projection is implemented before its upstream versioned fixture handoff."
+  ],
+  "evidenceRefs": [
+    ".fas/tasks/define-the-canonical-source-native-provisioning-and-host-bou.md",
+    ".fas/tasks/dogfood-source-native-provisioning-across-redux-mobx-node-an.md",
+    ".fas/tasks/enforce-source-provisioning-boundaries-and-decide-the-minima.md",
+    ".fas/architecture-rules.json",
+    "scripts/check-architecture-rules.mjs",
+    "packages/ignite-element/src/tests/types",
+    "docs/source-native-provisioning.md"
+  ]
+}
+```
+
 ## Affected files
 
 - .fas/architecture-rules.json
-- .fas-config.json
 - scripts/check-architecture-rules.mjs
-- packages/ignite-core/src/RenderArgs.ts
-- packages/ignite-element/src/tests/types
+- scripts/__tests__/script-hardening.test.js
+- scripts/__tests__/architecture-boundaries.test.mjs
+- packages/ignite-element/src/tests/types/igniteCore.types.test.ts
+- packages/ignite-element/src/tests/types/testing.types.test.ts
 - packages/ignite-element/src/tests/agent-runtime-headless-node.test.ts
-- examples/adapters
 - docs/source-native-provisioning.md
 - docs/architecture.md
 - docs/shared-architecture-model.md
 - docs/v3-api-consistency.md
-- `scripts/__tests__/script-hardening.test.js`
 
 ## Scope Amendments
 
@@ -114,13 +280,40 @@ Deliver this in five readable slices:
 - Accuracy signal: high
 - Follow-up needed: After task-1784909318199 completes, run fas scope refresh and regenerate planning, task-packet, and commit-plan artifacts before code-writing delegation.
 
+- Type: scope-narrowing
+- Added at: 2026-07-29T22:51:22-04:00
+- Trigger: current-generation architect and staff-engineer review
+- Reason: Preserve TDD order and prevent this enforcement task from reopening the completed source-native dogfood implementation. The accepted slice is documentation correction, red conformance fixtures, and the narrowest checker or rule-data change proven necessary by those fixtures.
+- Removed production paths: `.fas-config.json`, `packages/ignite-core/src/RenderArgs.ts`, `examples/adapters`
+- Removed broad paths: `packages/ignite-element/src/tests/types`, `examples/adapters`
+- Promoted exact test paths: `packages/ignite-element/src/tests/types/igniteCore.types.test.ts`, `packages/ignite-element/src/tests/types/testing.types.test.ts`
+- Reference-only evidence: `.fas-config.json`, `packages/ignite-core/src/RenderArgs.ts`, the completed Redux/MobX/Node/deterministic-fake adapter receipts, and Actor-Web emitted-event type coverage.
+- Conditional path: `.fas/architecture-rules.json` changes only if a failing script-hardening fixture proves the existing rule data cannot express the required classification or allowlist.
+- Evidence source: current-generation architecture and staff-engineer handoffs
+- Accuracy signal: high
+- Follow-up needed: Regenerate planning, task-packet, commit-plan, and orchestration artifacts before code-writing delegation.
+
+- Type: verification-lane-correction
+- Added at: 2026-07-29T23:15:32-04:00
+- Trigger: root-owned `fas tdd-red` replay
+- Reason: `scripts/__tests__/script-hardening.test.js` is a focused Vitest file but the durable `test:scripts` lane runs Node-native `scripts/__tests__/*.test.mjs`; the new enforcement cases otherwise pass only through an ad hoc temporary Vitest config and are skipped by project verification.
+- Added path: `scripts/__tests__/architecture-boundaries.test.mjs`
+- Superseded test placement: Move this task's direct, workspace-alias, barrel/re-export, dynamic-import, and legitimate adapter/composition-root architecture cases out of `scripts/__tests__/script-hardening.test.js` into the Node-native file. Keep unrelated existing script-hardening coverage unchanged.
+- Evidence source: `.fas/state/verification/tdd-red-receipt.json`, `package.json`
+- Accuracy signal: high
+- Follow-up needed: Refresh scope and planning, then record a genuine current-task red receipt through the durable project test command before review.
+
 ## Implementation plan
 
-- Reconcile docs/source-native-provisioning.md, docs/architecture.md, docs/shared-architecture-model.md, and docs/v3-api-consistency.md with the accepted exact-source-only decision and remove rejected wrapper-first target claims.
-- After task-1784909318199 completes, refresh scope and planning from its Redux, MobX, Actor-Web comparison, Node, deterministic fake, cleanup, and cancellation receipts; do not infer missing evidence.
-- Add task-scoped failing architecture, public-type, and lifecycle fixtures for import escapes, callback escape hatches, environmental effects, exact-source identity, wrapper rejection, shared versus isolated ownership, and presentation-versus-source cleanup.
-- Implement the narrowest deterministic enforcement needed to make those fixtures pass, including alias, re-export, and dynamic-import coverage with explicit adapter and composition-root allowlists.
-- Write the Conformance source-of-truth matrix in docs/source-native-provisioning.md and hand cited receipts to the public-guidance and optional Actor-Web projection tasks.
+1. Add task-scoped red fixtures before enforcement or documentation changes. The accepted task brief is the test contract while the current normative docs remain known-stale:
+   - `scripts/__tests__/architecture-boundaries.test.mjs` for direct, alias, barrel, re-export, and dynamic environmental imports plus legitimate adapter and composition-root allowlists in the durable `test:scripts` lane.
+   - `scripts/__tests__/script-hardening.test.js` remains the source location from which this task's temporary focused Vitest cases are removed; unrelated existing hardening coverage stays unchanged.
+   - `packages/ignite-element/src/tests/types/igniteCore.types.test.ts` for wrapper, lifecycle-helper, host, actor, and promise-like effect escape-hatch rejection.
+   - `packages/ignite-element/src/tests/types/testing.types.test.ts` only where the public test harness needs the same negative contract.
+   - `packages/ignite-element/src/tests/agent-runtime-headless-node.test.ts` for exact-source identity and the separation of Ignite observation cleanup from application-owned native shutdown.
+2. Make the red fixtures pass with the narrowest enforcement change in `scripts/check-architecture-rules.mjs`. Change `.fas/architecture-rules.json` only when the fixture proves the checker needs new declared classification or allowlist data. Do not change `.fas-config.json`, `packages/ignite-core/src/RenderArgs.ts`, or adapter examples unless a new scope amendment cites a failing fixture that cannot be satisfied within the accepted paths.
+3. Correct the normative contract and publish the source-of-truth conformance matrix, starting with `docs/source-native-provisioning.md`, then aligning `docs/architecture.md`, `docs/shared-architecture-model.md`, and `docs/v3-api-consistency.md`. Remove rejected wrapper and generic-disposal targets, preserve the cancelled proposal as historical evidence only, and cite current dogfood, architecture, type, lifecycle, and verification receipts.
+4. Hand the cited evidence to `task-1784909364827` and `task-1785254961929` without claiming that the optional Actor-Web projection has been implemented.
 
 ## Verification plan
 

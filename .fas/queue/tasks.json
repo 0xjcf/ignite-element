@@ -709,34 +709,6 @@
       "invalidationReason": null
     },
     {
-      "id": "task-1784909335843",
-      "task": "Enforce exact-source provisioning and native lifecycle boundaries",
-      "priority": "high",
-      "source": "manual",
-      "details": "Turn the accepted source-only architecture and cross-adapter dogfood into enforceable conformance. Add boundary and type tests that prevent concrete environment APIs from entering deterministic source modules, prevent public Ignite commands and effects from regaining host or actor escape hatches, and prevent igniteCore from accepting ports, drivers, environments, provide hooks, Feature wrappers, lifecycle containers, or disposal policy. Verify that browser, Node, fake, isolated, and shared cleanup follows the selected source ecosystem native lifecycle. Produce the source-of-truth matrix consumed by final documentation; no public composition or lifecycle helper is implemented.\nSee .fas/tasks/enforce-source-provisioning-boundaries-and-decide-the-minima.md",
-      "taskClassification": "self-improvement",
-      "selfImprovementCategory": "policy-surfacing",
-      "signalFingerprint": null,
-      "status": "queued",
-      "owner": "runtime",
-      "mode": "6-agent",
-      "dependsOn": [
-        "task-1784909267400",
-        "task-1784909278954",
-        "task-1784909318199"
-      ],
-      "blocks": [
-        "task-1784909364827",
-        "task-1785254961929"
-      ],
-      "branchBase": null,
-      "prDependencies": [],
-      "createdAt": "2026-07-24T16:08:55.843Z",
-      "updatedAt": "2026-07-28T16:09:21.929Z",
-      "deferredReason": null,
-      "invalidationReason": null
-    },
-    {
       "id": "task-1784909364827",
       "task": "Publish source-provisioning guidance and migrate current Ignite documentation",
       "priority": "high",
@@ -759,7 +731,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-24T16:09:24.827Z",
       "updatedAt": "2026-07-24T20:50:07.009Z",
-      "deferredReason": "dependency_reopened: task-1783719649309, task-1784909335843",
+      "deferredReason": "dependency_reopened: task-1783719649309",
       "invalidationReason": null
     },
     {
@@ -771,7 +743,7 @@
       "taskClassification": "self-improvement",
       "selfImprovementCategory": "runtime-reliability",
       "signalFingerprint": null,
-      "status": "deferred",
+      "status": "queued",
       "owner": "runtime",
       "mode": "6-agent",
       "dependsOn": [
@@ -785,7 +757,7 @@
       "prDependencies": [],
       "createdAt": "2026-07-28T16:09:21.929Z",
       "updatedAt": "2026-07-28T16:09:40.835Z",
-      "deferredReason": "dependency_reopened: task-1784909335843",
+      "deferredReason": null,
       "invalidationReason": null
     },
     {
@@ -4685,6 +4657,35 @@
       "completedAt": "2026-07-30T02:32:46.572Z",
       "terminalOutcome": null,
       "workflowId": "direct-1785375394663",
+      "branchName": "fas/source-native-provisioning-architecture",
+      "prStatus": "draft-only"
+    },
+    {
+      "id": "task-1784909335843",
+      "task": "Enforce exact-source provisioning and native lifecycle boundaries",
+      "priority": "high",
+      "source": "manual",
+      "taskClassification": "self-improvement",
+      "selfImprovementCategory": "policy-surfacing",
+      "signalFingerprint": null,
+      "experienceDesign": null,
+      "acceptanceSourcePath": null,
+      "dependsOn": [
+        "task-1784909267400",
+        "task-1784909278954",
+        "task-1784909318199"
+      ],
+      "blocks": [
+        "task-1784909364827",
+        "task-1785254961929"
+      ],
+      "nonEpicDisposition": null,
+      "branchBase": null,
+      "prDependencies": [],
+      "prRef": null,
+      "completedAt": "2026-07-30T03:43:37.480Z",
+      "terminalOutcome": null,
+      "workflowId": "direct-1785381384532",
       "branchName": "fas/source-native-provisioning-architecture",
       "prStatus": "draft-only"
     }

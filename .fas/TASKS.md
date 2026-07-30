@@ -2805,9 +2805,12 @@ No active tasks.
 
 - Title: Enforce exact-source provisioning and native lifecycle boundaries
 - Mode: 6-agent
-- Status: queued
-- Owner: runtime
+- Status: done
+- Owner: implementer
 - Brief: .fas/tasks/enforce-source-provisioning-boundaries-and-decide-the-minima.md
+- Verification lane: fast
+- Policy sensitivity: standard
+- Blast radius: cross-cutting
 
 ### Task: Publish source-provisioning guidance and migrate current Ignite documentation
 
