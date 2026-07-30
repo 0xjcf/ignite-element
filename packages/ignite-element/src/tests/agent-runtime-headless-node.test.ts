@@ -121,4 +121,22 @@ describe("agent runtime is DOM-free (pure Node, no jsdom)", () => {
 		expect(seen[seen.length - 1]).toEqual({ count: 1 });
 		subscription.unsubscribe();
 	});
+
+	it("releases observation handles without terminating the headless source", async () => {
+		const counter = createCounter();
+		const eventHandler = vi.fn();
+		const viewHandler = vi.fn();
+		const eventSubscription = counter.on("counted", eventHandler);
+		const viewSubscription = counter.watchView(viewHandler);
+
+		eventSubscription.unsubscribe();
+		viewSubscription.unsubscribe();
+
+		const result = await counter.execute({ command: "increment" });
+
+		expect(result.snapshot.context.count).toBe(1);
+		expect(eventHandler).not.toHaveBeenCalled();
+		expect(viewHandler).not.toHaveBeenCalled();
+		expect(counter.canExecute("decrement")).toBe(true);
+	});
 });

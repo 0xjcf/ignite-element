@@ -217,6 +217,10 @@ describe("ignite test DSL types", () => {
 
 			// @ts-expect-error - the host seam must satisfy the HTMLElement contract
 			igniteTest({ component, host: new EventTarget() });
+			// @ts-expect-error - igniteTest does not accept source-provisioning ports
+			igniteTest({ component, ports: { clock: () => 1 } });
+			// @ts-expect-error - igniteTest does not accept feature wrappers
+			igniteTest({ component, feature: { source: component } });
 		};
 
 		void hostOptionTyping;

@@ -1257,6 +1257,51 @@ describe("igniteCore type inference", () => {
 		void expectPositionalEffectsRejection;
 	});
 
+	it("rejects source-provisioning wrappers and environment config on igniteCore", () => {
+		const store = counterStore();
+
+		const expectProvisioningSurfaceRejection = () => {
+			const invalidFeatureConfig = {
+				adapter: "redux",
+				source: store,
+				// @ts-expect-error - igniteCore consumes the exact source, not a wrapper
+				feature: { source: store },
+			} satisfies ReduxInstanceConfig<typeof store>;
+			const invalidPortsConfig = {
+				adapter: "redux",
+				source: store,
+				// @ts-expect-error - ports belong to application composition, not igniteCore
+				ports: { clock: () => 1 },
+			} satisfies ReduxInstanceConfig<typeof store>;
+			const invalidDriverConfig = {
+				adapter: "redux",
+				source: store,
+				// @ts-expect-error - driver is not an igniteCore composition surface
+				driver: { name: "browser" },
+			} satisfies ReduxInstanceConfig<typeof store>;
+			const invalidEnvironmentConfig = {
+				adapter: "redux",
+				source: store,
+				// @ts-expect-error - igniteEnvironment is not part of the public config
+				igniteEnvironment: { document },
+			} satisfies ReduxInstanceConfig<typeof store>;
+			const invalidDisposalConfig = {
+				adapter: "redux",
+				source: store,
+				// @ts-expect-error - disposal policy stays native to the source ecosystem
+				onDispose: () => undefined,
+			} satisfies ReduxInstanceConfig<typeof store>;
+
+			void invalidFeatureConfig;
+			void invalidPortsConfig;
+			void invalidDriverConfig;
+			void invalidEnvironmentConfig;
+			void invalidDisposalConfig;
+		};
+
+		void expectProvisioningSurfaceRejection;
+	});
+
 	it("infers object-style xstate effects without core type imports", () => {
 		const machine = setup({
 			types: {
