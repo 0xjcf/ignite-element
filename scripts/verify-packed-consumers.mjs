@@ -243,9 +243,15 @@ function verifyConsumer(lane, tarballPaths) {
 		join(consumerDirectory, "consumer.mjs"),
 		`import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
 
 const specifiers = ${JSON.stringify(lane.specifiers, null, 2)};
+const installedRoot = pathToFileURL(process.cwd() + "/node_modules/").href;
 for (const specifier of specifiers) {
+	assert.ok(
+		import.meta.resolve(specifier).startsWith(installedRoot),
+		specifier + " must resolve inside the disposable consumer",
+	);
 	if (specifier.endsWith("/package.json")) {
 		await import(specifier, { with: { type: "json" } });
 	} else {
