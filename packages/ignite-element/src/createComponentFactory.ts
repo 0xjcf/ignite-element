@@ -1,9 +1,5 @@
 import type { IgniteAdapter, StateScope } from "@ignite-element/core";
-import type {
-	IgniteJsxChild,
-	RenderStrategyFactory,
-} from "@ignite-element/renderer";
-import type { TemplateResult } from "lit-html";
+import type { RenderStrategyFactory } from "@ignite-element/renderer";
 import {
 	type AdapterCreator,
 	type AdapterFactory,
@@ -36,7 +32,7 @@ export type ElementFactoryOptions<
 	State,
 	Event,
 	RenderArgs extends BaseRenderArgs<State, Event>,
-	View = TemplateResult | IgniteJsxChild,
+	View = unknown,
 	Events extends EventMap = EmptyEventMap,
 	RuntimeView extends Record<string, unknown> = Record<never, never>,
 > = {
@@ -96,7 +92,7 @@ export type ComponentFactoryOptions<
 		FacadeCommandFunction
 	>,
 	Additional extends Record<string, unknown> = Record<never, never>,
-	View = TemplateResult | IgniteJsxChild,
+	View = unknown,
 	Events extends EventMap = EmptyEventMap,
 > = ProjectionFactoryOptions<
 	State,
@@ -154,7 +150,7 @@ export function bindProjectionToElements<
 	State,
 	Event,
 	RenderArgs extends BaseRenderArgs<State, Event>,
-	View = TemplateResult | IgniteJsxChild,
+	View = unknown,
 	Result = ComponentFactory<State, Event, RenderArgs, View>,
 	Events extends EventMap = EmptyEventMap,
 	RuntimeView extends Record<string, unknown> = Record<never, never>,
@@ -231,7 +227,7 @@ export function createComponentFactoryWithRenderer<
 		FacadeCommandFunction
 	>,
 	Additional extends Record<string, unknown> = Record<never, never>,
-	View = TemplateResult | IgniteJsxChild,
+	View = unknown,
 	Events extends EventMap = EmptyEventMap,
 	FactoryResult = ComponentFactory<
 		State,
@@ -356,7 +352,7 @@ export function createComponentFactory<
 		CommandActor,
 		CommandsResult,
 		Additional,
-		TemplateResult | IgniteJsxChild,
+		unknown,
 		Events
 	>,
 ): ComponentFactory<
@@ -380,7 +376,7 @@ export function createComponentFactory<
 		CommandActor,
 		CommandsResult,
 		Additional,
-		TemplateResult | IgniteJsxChild,
+		unknown,
 		Events
 	>(createAdapter, igniteElementFactory, options);
 }

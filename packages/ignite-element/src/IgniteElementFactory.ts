@@ -1,10 +1,6 @@
 import type { CommandMetadata, IgniteAdapter } from "@ignite-element/core";
 import { StateScope } from "@ignite-element/core";
-import type {
-	IgniteJsxChild,
-	RenderStrategyFactory,
-} from "@ignite-element/renderer";
-import type { TemplateResult } from "lit-html";
+import type { RenderStrategyFactory } from "@ignite-element/renderer";
 import IgniteElement, {
 	type IgniteElementLifecycleHooks,
 } from "./IgniteElement";
@@ -59,10 +55,7 @@ type RendererObject<RenderArgs, View> = {
 	render: (args: RenderArgs) => View;
 };
 
-export type ComponentRenderer<
-	RenderArgs,
-	View = TemplateResult | IgniteJsxChild,
-> =
+export type ComponentRenderer<RenderArgs, View = unknown> =
 	| ((args: RenderArgs) => View)
 	| RendererObject<RenderArgs, View>
 	| (new () => RendererObject<RenderArgs, View>);
@@ -74,7 +67,7 @@ export type ComponentFactory<
 		State,
 		Event
 	>,
-	View = TemplateResult | IgniteJsxChild,
+	View = unknown,
 > = (
 	elementName: string,
 	renderer: ComponentRenderer<RenderArgs, View>,
@@ -290,7 +283,7 @@ export default function igniteElementFactory<
 		Event
 	>,
 	RuntimeView extends Record<string, unknown> = Record<never, never>,
-	View = TemplateResult | IgniteJsxChild,
+	View = unknown,
 >(
 	createAdapter: (host?: HTMLElement) => IgniteAdapter<State, Event>,
 	options?: FactoryOptions<State, Event, RenderArgs, RuntimeView, View>,
