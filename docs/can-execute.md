@@ -18,10 +18,12 @@ callable right now?"** before trying it. Two consumers need that:
 - **External imperative hosts** — e.g. a React app holding a ref to the element,
   disabling a control.
 
-A component's **own** UI does *not* use this — it derives `disabled` from the
-destructured renderer args, source-native (`snapshot.can(...)` for xstate,
-`snapshot.matches(...)`, …). `canExecute` is the **headless/agent surface** (see the
-two-surface rule below).
+A component's **own** UI does *not* use this. It derives an availability field
+inside `states(snapshot)`, where source-native checks such as
+`snapshot.can(...)` or `snapshot.matches(...)` run. The renderer receives that
+derived field (for example, `canSubmit` or `disabled`) alongside semantic
+commands. `canExecute` is the **headless/agent surface** (see the two-surface
+rule below).
 
 The original brief said "backed by the same info `getSchema()` exposes" — that's the
 contradiction this design resolves: `getSchema()` is JSON (`toSchemaValue` strips
@@ -38,7 +40,7 @@ the command via the existing `command(fn, metadata)` helper, evaluated on demand
 commands: ({ actor }) => ({
   submit: command(
     () => actor.send({ type: "SUBMIT" }),                          // write — uses actor
-    { canExecute: ({ snapshot }) => snapshot.can({ type: "SUBMIT" }) }, // read — injected read-model snapshot
+    { canExecute: ({ snapshot }) => snapshot.can({ type: "SUBMIT" }) }, // read — source-native snapshot
   ),
 });
 
@@ -76,13 +78,15 @@ consumer asks the *question* `(name) => boolean` — same word, two roles.)
   "query `canExecute` for this one" and `igniteTools` can skip the call for ungated
   commands. (`gated` is the one deliberately-different term — it's a static meta-fact
   about the gate, not the gate; the schema can't hold the dynamic value.)
-- **Read-model snapshot, not the write-side actor.** The predicate receives a
-  `{ snapshot }` context — the runtime injects the **read-model**
-  snapshot (`adapter.getSnapshot()`). This matters for actor-web's read/write split: the
-  command `actor` is the *command source* (write side), so `actor.getSnapshot()` is the
-  wrong source for availability (`transport`/`context` live on the read model). For
-  xstate they coincide; for actor-web they don't. As a bonus, the predicate stays a pure
-  `snapshot → boolean` (functional-core-clean, trivially testable).
+- **Source-native snapshot, not the write-side actor.** The predicate receives a
+  `{ snapshot }` context — the runtime injects the source-native snapshot from
+  `adapter.getSnapshot()`. For Actor-Web, that snapshot is the read-side source
+  observation, including its `context` and `transport` facts, while the command
+  `actor` remains the separate write-side command source. Calling
+  `actor.getSnapshot()` would therefore inspect the wrong side for availability.
+  For XState the read and write capabilities live on the same actor. In every
+  adapter, the predicate remains a pure `snapshot → boolean` over source truth;
+  it does not receive the Ignite derived states read model.
 - **Snapshot-only.** No payload. *Availability* ("should this tool be offered?") and
   *call-validity* ("are these specific args valid?") are different layers: availability
   gates the manifest; arg-validity is an `execute`-time concern (reject) or an

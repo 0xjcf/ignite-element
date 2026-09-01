@@ -6,7 +6,7 @@ sidebar:
   order: 1
 ---
 
-Ignite Element separates **state** from **rendering**. Your state lives in a source (an XState machine, a Redux store, a MobX observable, or an Actor-Web runtime); an **adapter** subscribes to it and hands Ignite native snapshots; `states(snapshot)` derives a consumer-facing read model; and the registration **renderer** turns those states into a view. One `igniteCore` registration yields one custom element, and composition happens through HTML.
+Ignite Element separates **state** from **rendering**. Your state lives in a source (an XState machine, a Redux store, a MobX observable, or an Actor-Web runtime); an **adapter** subscribes to it and hands Ignite native snapshots; `states(snapshot)` derives a consumer-facing read model; and each registration **renderer** turns those states into a view. One `igniteCore` value provides one behavior/runtime contract and can register multiple custom element names or renderer surfaces, with composition through HTML.
 
 The whole model is four ideas: who **owns** the source, how the **adapter** bridges it, how `states` derives the public read model, and how the renderer plus **commands, events, and effects** move presentation, intent, and consequences across the element boundary.
 
