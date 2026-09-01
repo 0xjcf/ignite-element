@@ -60,7 +60,7 @@ research turn inside the five-round model budget, and its receipt records both
 query and source counts.
 
 Before `completeResponse` can close a researched turn, a pure evidence audit
-compares those accepted search facts with the current actor view. Checklist
+compares those accepted search facts with the current derived states. Checklist
 labels remain action state, while a semantic table must preserve each subject's
 exact Price, Status, and Source. Evidence charts may contain exact sourced
 numeric values but must exclude unverified values. Incomplete evidence returns
@@ -178,7 +178,7 @@ The supported pattern is deliberately split across two layers:
    behavior that depends on runtime correlation, fixture-owned ports, and
    semantic evidence. The example-local fixture drives the real
    `ready -> submit prompt -> timeout -> ready` outcome and checkpoints the
-   semantic snapshot, projected view, and command availability.
+   semantic snapshot, derived states, and command availability.
 
 That split is the user value:
 
@@ -438,13 +438,13 @@ The Ignite `states` callback delegates to
 `projectVoiceWorkbenchView(snapshot)`, which derives status, command count,
 labels, control availability, prepared artifact rows, safe source links,
 runtime-inspector rows, route-independent presentation values, and model
-context. Pure selectors may be shared by views, guards, and `canExecute`, but
-views never feed values back into commands or machines.
+context. Pure selectors may be shared by renderers, guards, and `canExecute`, but
+renderer views never feed values back into commands or machines.
 
 The JSX files are split by projected view:
 
 ```text
-workbench-component.ts  Ignite command/event/view composition
+workbench-component.ts  Ignite states/command/event composition
 workbench-view.ts       pure presentation projection
 workbench.tsx            shell template
 views/conversation.tsx  conversation template
@@ -477,12 +477,13 @@ The verification matrix also locks:
 - child replacement and parent-stop disposal;
 - runtime request deduplication, abort, timeout, and effect disposal;
 - exact 19-command schema and fresh actor/component isolation;
-- renderer purity and view-owned derivation;
+- states-projection purity and renderer purity;
 - browser, terminal, parity, and headless projection behavior.
 
 A snapshot consumer should treat `snapshot.value` plus serializable
 `snapshot.context` as authoritative machine state, XState lifecycle metadata
-as runtime metadata, and the Ignite view as a derived read model. None of those
+as runtime metadata, and Ignite states as the derived read model. The JSX
+renderer turns those states into the browser view. None of those
 layers is a substitute for another.
 
 ## Domain packs and policy ownership
@@ -524,7 +525,7 @@ The source-of-truth boundary is:
 | Product-pricing artifact materializer | Deriving canonical checklist, selection-disclosure, and evidence-table nodes from the latest admitted decision plus one ordered provider fact |
 | Model | Proposing policy and price calls; owning generic semantic composition and the product-pricing artifact command envelope |
 | XState workbench source | Retaining the bounded policy fact and accepting or rejecting artifact transitions |
-| `igniteCore.view` | Deriving domain, policy, status, assumption, question, and evidence rows |
+| `states` callback passed to `igniteCore` | Deriving domain, policy, status, assumption, question, and evidence rows from the native XState snapshot |
 | Ignite JSX | Mapping only the prepared rows; it contains no product defaults or outcome rules |
 | Product-price provider | Owning store mapping, native discovery, product/size ranking, identity caching, offer reads, validation, and receipts |
 | Generic search provider | Returning public-web facts for non-product research; it does not authorize actor transitions |
@@ -546,9 +547,9 @@ intent
 
 At each boundary, the inner layer owns deterministic facts and decisions while
 the outer layer performs effects. XState currently hosts the lifecycle and
-accepted application state. `igniteCore.view` projects that state into a
-renderer-ready read model, and Ignite JSX is only the browser adapter for that
-projection. The same policy and projection contracts can therefore be hosted
+accepted application state. The `states` callback derives a renderer-ready read
+model from that native snapshot, and Ignite JSX owns only the browser view for
+that projection. The same policy and projection contracts can therefore be hosted
 by an Actor-Web actor, Redux store, or MobX store without adding source-specific
 behavior to Ignite.
 
@@ -603,7 +604,7 @@ completion.
 example. It is not Ignite runtime behavior, renderer behavior, or a generic
 requirement that artifacts be deterministic. Ignite tools still execute the
 resulting command against the XState source, the actor still validates the
-transition, `igniteCore.view` derives presentation values, and JSX only maps
+transition, the `states` callback derives presentation values, and JSX only maps
 the accepted projection.
 
 To add a second domain:
@@ -623,12 +624,13 @@ To add a second domain:
    instructions in order, retains the first recognized policy fact, applies
    authorization before provider dispatch, selects the first non-null artifact
    materialization, and runs only applicable completion audits.
-6. Project any new generic rows in the `igniteCore.view` callback. Do not derive
-   domain defaults, questions, or conditional labels in `workbench.tsx`.
+6. Project any new generic rows in the `states` callback passed to `igniteCore`.
+   Do not derive domain defaults, questions, or conditional labels in
+   `workbench.tsx`.
 
 The right rail makes this boundary observable. It shows the active domain and
 policy, decision status, assumptions, clarification questions, and evidence
-requirements from the current actor view. Starting another accepted prompt
+requirements from the current derived states. Starting another accepted prompt
 clears the prior policy proof so the rail cannot imply that a previous domain
 decision governs the new turn.
 
@@ -699,8 +701,8 @@ Actor-Web, which this example does not hide behind a wrapper.
 
 ## Reading the live runtime inspector
 
-The browser right rail is a projection of the current Ignite view, not a static
-architecture diagram. Its top card keeps three kinds of evidence separate:
+The browser right rail renders the current Ignite derived states; it is not a
+static architecture diagram. Its top card keeps three kinds of evidence separate:
 
 - **MLX readiness** comes from the top-level compound actor state.
 - **Actor state and facts** come from `snapshot.matches(...)` and the accepted
@@ -709,7 +711,7 @@ architecture diagram. Its top card keeps three kinds of evidence separate:
   cache, and configured-fallback provenance when present.
 
 The center document adds a fourth, separately named axis: **shopper result
-quality**. `igniteCore.view` derives it from the admitted request and bounded
+quality**. The `states` callback derives it from the admitted request and bounded
 price facts, including requested, matched, and price-verified counts plus
 stable per-item reason codes. The exact Sarasota partial result can therefore
 show **Ready**, a committed artifact, and successful capability execution while
@@ -911,7 +913,7 @@ entrypoint. Those values are also available to browser code; this example's
 configuration paths are development-only.
 
 Each model invocation serializes the submitted prompt and a compact
-`modelContext` derived by `igniteCore.view`. It includes artifact state needed
+`modelContext` derived by the `states` callback. It includes artifact state needed
 for creation and revision but excludes browser draft, microphone, trace, and
 commit-receipt presentation state. It also excludes the private artifact
 revision history. Correlated tool-result messages contain a bounded outcome,
@@ -1032,5 +1034,5 @@ The bundled `mlx-lm.server` is a loopback development server with basic security
 checks, not a production deployment. Do not expose it to an untrusted network.
 A hosted version must configure CORS and CSP `connect-src` for its model endpoint
 and should send an explicitly redacted model-context projection rather than the
-complete component view. Browser `SpeechRecognition` availability, audio
+complete derived states object. Browser `SpeechRecognition` availability, audio
 handling, and provider behavior remain browser- and vendor-dependent.

@@ -59,8 +59,8 @@ function toInputSchema(metadata: IgniteSchemaObject): IgniteSchemaObject {
  * are omitted when an availability predicate reports them currently
  * unavailable; without a predicate, every command is offered.
  *
- * Only `schema.commands` is read, so the snapshot/view types are left open —
- * any `getSchema()` return is accepted regardless of its state/view shape.
+ * Only `schema.commands` is read, so the snapshot/states types are left open —
+ * any `getSchema()` return is accepted regardless of those shapes.
  */
 export function buildManifest(
 	schema: IgniteAgentSchema<unknown, Record<string, unknown>>,

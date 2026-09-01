@@ -193,13 +193,13 @@ apiShowcase.on("api-count-changed", (event) => [
   event.state,
 ]);
 apiShowcase.watchSnapshot((snapshot, prevSnapshot) => [prevSnapshot, snapshot]);
-apiShowcase.watchStates((view, prevView) => [prevView, view]);
+apiShowcase.watchStates((states, prevStates) => [prevStates, states]);
 
 const result = await apiShowcase.execute({ command: "increment" });
 
 const story = apiShowcase.record("reaches limit");
 await story.execute({ command: "setLimit", input: 6 });
-await story.until((view) => view.stateLabel === "Limit reached", async () => {
+await story.until((states) => states.stateLabel === "Limit reached", async () => {
   await story.execute({ command: "increment" });
 });
 story.trace();

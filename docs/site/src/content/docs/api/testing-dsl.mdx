@@ -48,13 +48,13 @@ Scenario methods — every `given`/`expect*` **returns the scenario** so calls c
 - `given(expected)` — assert the current snapshot before acting. Accepts a deep-partial snapshot match or a predicate.
 - `when({ command, input? })` — execute a command; `input` is required for one-argument commands, omitted for no-argument commands, and optional when the command's first argument is optional. Returns a `Promise` of the scenario.
 - `expectSnapshot(expected)` — assert the post-command snapshot.
-- `expectStates(expected)` — assert the projected view (mirrors `getStates()`). Accepts a deep-partial object or a predicate.
+- `expectStates(expected)` — assert the derived states (mirrors `getStates()`). Accepts a deep-partial object or a predicate.
 - `expectEvent({ type, ...fields })` — assert an event was emitted, optionally matching its fields.
 - `expectEvents(expected)` — assert several events by an array of `{ type, ...fields }` objects.
 - `expectNoEvents()` — assert the command emitted nothing.
-- `getResult()` — return the raw `{ snapshot, events }` of the last `when(...)`.
+- `getResult()` — return the raw `{ snapshot, states, events }` of the last `when(...)`.
 
-Snapshot, view, and event expectations accept a deep-partial object or a predicate function. Event expectations match flat `{ type, ...fields }` members.
+Snapshot, states, and event expectations accept a deep-partial object or a predicate function. Event expectations match flat `{ type, ...fields }` members.
 
 ## Stories
 
@@ -96,10 +96,10 @@ const receipt = await igniteTest({ component: counter }).story(
 Story methods:
 
 - `story(name, run)` — create a named expected-experience claim, run multiple ordered command steps, and return the existing `{ name, trace, lifecycle, summary }` receipt.
-- `await story.given(expected)` — assertion-only precondition check against the current `snapshot`, projected `view`, and `canExecute(...)` state.
+- `await story.given(expected)` — assertion-only precondition check against the current native `snapshot`, derived `states`, and `canExecute(...)` state.
 - `await story.intent({ command, input? })` — run one intent through the existing Story `execute(...)` path and capture its last-step events for the next checkpoint.
-- `await story.behavior(name, operation)` — record a named fixture-owned external behavior step on the same Story trace, with before/after snapshot and view evidence, and return the operation result.
-- `await story.checkpoint(name, expected)` — assert the current `snapshot`, projected `view`, `canExecute(...)`, and the emitted `event`/`events` (or `noEvents`) from the most recent intent.
+- `await story.behavior(name, operation)` — record a named fixture-owned external behavior step on the same Story trace, with before/after snapshot and states evidence, and return the operation result.
+- `await story.checkpoint(name, expected)` — assert the current native `snapshot`, derived `states`, `canExecute(...)`, and the emitted `event`/`events` (or `noEvents`) from the most recent intent.
 
 For story assertions, `snapshot` is structural evidence only: use a deep-partial native snapshot shape. Use `when(snapshot)` for arbitrary adapter-native predicates. If both are present, the assertion waits until both pass.
 
@@ -107,13 +107,13 @@ If a story fails, the error includes the story name, the failing phase or checkp
 
 ## Runtime Stories
 
-A story records command, snapshot, view, and event activity as one ordered behavior trace. Start one from the runtime's [`record(name)`](/ignite-element/api/headless-runtime/#recordname):
+A story records command, native snapshot, derived states, and event activity as one ordered behavior trace. Start one from the runtime's [`record(name)`](/ignite-element/api/headless-runtime/#recordname):
 
 ```ts
 const story = counter.record('toggles on');
 
 await story.execute({ command: 'toggle' });
-await story.until((view) => view.isOn, async () => {
+await story.until((states) => states.isOn, async () => {
   await story.execute({ command: 'toggle' });
 });
 
@@ -126,10 +126,10 @@ story.stop();
 
 Story methods:
 
-- `execute({ command, input? })` — run a command and record it; resolves to the same `{ snapshot, events }` as the runtime.
-- `behavior(name, operation)` — run a fixture-owned external behavior step and record a named `behavior` marker plus before/after snapshot and view evidence without incrementing `commandCount`.
-- `until(viewPredicate, action, options?)` — repeatedly run `action` until the projected view satisfies `viewPredicate`. `options.maxSteps` bounds the loop. Returns a `Promise<View>` (the satisfying view).
-- `trace()` — returns `IgniteStoryTraceEntry[]`: the ordered behavior trace of `command`, `behavior`, `snapshot`, `view`, and `event` entries with `kind`, `sequence`, and `step`.
+- `execute({ command, input? })` — run a command and record it; resolves to the same `{ snapshot, states, events }` as the runtime.
+- `behavior(name, operation)` — run a fixture-owned external behavior step and record a named `behavior` marker plus before/after snapshot and states evidence without incrementing `commandCount`.
+- `until(statesPredicate, action, options?)` — repeatedly run `action` until the derived states satisfy `statesPredicate`. `options.maxSteps` bounds the loop. Returns a promise containing the satisfying states object.
+- `trace()` — returns `IgniteStoryTraceEntry[]`: the ordered behavior trace of `command`, `behavior`, `snapshot`, `states`, and `event` entries with `kind`, `sequence`, and `step`.
 - `lifecycle()` — returns `IgniteStoryLifecycleEntry[]`: DOM lifecycle evidence (registration, connection, render, disconnection, cleanup) when a custom element or accessibility bridge participates; otherwise an empty array.
 - `summary()` — returns `{ name, finalSnapshot, finalStates, events, commandCount, traceCount, lifecycleCount }`.
 - `stop()` — releases the story's runtime subscriptions; returns nothing.
@@ -160,7 +160,7 @@ igniteTest.expectTrace(story.trace(), [
     snapshot: { value: 'off' },
   },
   {
-    kind: 'view',
+    kind: 'states',
     sequence: 3,
     step: 1,
     phase: 'before',

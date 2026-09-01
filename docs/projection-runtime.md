@@ -157,9 +157,9 @@ This validation begins after an adapter has acquired source state. Redux passes
 store state through directly. MobX observable evaluation through `toJS`,
 Actor-Web snapshot and `toJSON` callbacks, and custom adapter source callbacks
 remain trusted programmatic boundaries outside the canonical projection-data
-contract. XState snapshots are flattened with property descriptors so
-projection-bearing accessors are preserved for fail-closed inspection rather
-than invoked by Ignite's adapter.
+contract. XState passes its native snapshot through unchanged; `states(snapshot)`
+derives the consumer-facing read model from that native truth. Ignite does not
+flatten the snapshot or substitute the derived states for source state.
 
 ## Command-backed actions
 

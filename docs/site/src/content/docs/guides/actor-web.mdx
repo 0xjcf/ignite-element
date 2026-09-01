@@ -6,7 +6,7 @@ sidebar:
   order: 5
 ---
 
-Use `ignite-element/actor-web` when an **Actor-Web runtime already owns** orchestration, supervision, sequencing, transport, and source lifecycle. Ignite stays in the projection/read-model role: it turns Actor-Web snapshots into render state and exposes explicit commands, without taking over the runtime.
+Use `ignite-element/actor-web` when an **Actor-Web runtime already owns** orchestration, supervision, sequencing, transport, and source lifecycle. Ignite stays in the projection/read-model role: it preserves Actor-Web snapshots as native source truth, derives consumer-facing states, and exposes explicit commands without taking over the runtime. The registration renderer turns those states into the view.
 
 This is the opposite split from `ignite-element/xstate`, where Ignite owns the local machine. Reach for Actor-Web when the source is long-lived and lives outside the element; reach for XState (or Redux/MobX) when the element owns its own state.
 
@@ -58,7 +58,7 @@ export const shipmentCard = igniteCore({
 });
 ```
 
-`ShipmentProjection` flows into `view` as `snapshot.context`, and `ShipmentRequest` flows into `actor.send`, all inferred from `shipmentSource` — no `igniteCore<...>` annotations. The projected context carries business/read-model state inside the snapshot; updating it stays Actor-Web's job. Ignite sends requests back and re-renders when the next projection snapshot arrives.
+`ShipmentProjection` flows into the native snapshot as `snapshot.context`, the `states` callback derives the renderer-facing read model, and `ShipmentRequest` flows into `actor.send`, all inferred from `shipmentSource` — no `igniteCore<...>` annotations. Updating the projected context stays Actor-Web's job. Ignite sends requests back and re-renders when the next source snapshot arrives.
 
 :::note[Source shapes]
 `source` accepts a source **value** (read-only or command-capable), a zero-argument factory, or a host-context factory `({ host }) => source`. When a source exposes `close()`, Ignite calls it during adapter teardown. Passing a typed source **value** gives the cleanest inference; the `ignite-element/actor-web` entrypoint is required for zero-argument and defaulted factories (see [Source factory adapter inference](/ignite-element/concepts/the-ignite-model/)).
@@ -165,7 +165,7 @@ export const shipmentBadge = igniteCore({
 });
 ```
 
-Use that pattern for connection badges, replay banners, or diagnostics — not as a default field on every view.
+Use that pattern for connection badges, replay banners, or diagnostics — not as a default field in every derived states object.
 
 ## Emitted events
 

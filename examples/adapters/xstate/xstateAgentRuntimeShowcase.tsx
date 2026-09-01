@@ -13,7 +13,7 @@ type RuntimeCommand =
 	| "incrementToLimit";
 type PayloadCommand = "setStep" | "setLimit";
 type ApiShowcaseState = ReturnType<typeof apiShowcase.getSnapshot>;
-type ApiShowcaseView = ReturnType<typeof apiShowcase.getStates>;
+type ApiShowcaseStates = ReturnType<typeof apiShowcase.getStates>;
 type ApiShowcaseStory = ReturnType<typeof apiShowcase.record>;
 type RuntimeEventRecord = {
 	type: string;
@@ -43,7 +43,7 @@ interface RuntimeReport {
 	resultEvents: RuntimeEventRecord[];
 	eventLog: string[];
 	stateLog: string[];
-	viewLog: string[];
+	statesLog: string[];
 	agentLog: string[];
 	traceLog: string[];
 	lifecycleLog: string[];
@@ -52,7 +52,7 @@ interface RuntimeReport {
 		traceCount: number;
 		lifecycleCount: number;
 		eventCount: number;
-		finalStates: ApiShowcaseView;
+		finalStates: ApiShowcaseStates;
 	};
 }
 
@@ -180,7 +180,7 @@ const createPlaceholderReport = (command: string): RuntimeReport => ({
 	resultEvents: [],
 	eventLog: [],
 	stateLog: [],
-	viewLog: [],
+	statesLog: [],
 	agentLog: [],
 	traceLog: [],
 	lifecycleLog: [],
@@ -230,7 +230,7 @@ const incrementToLimit = async (
 		};
 	}
 
-	let states: ApiShowcaseView = apiShowcase.getStates();
+	let states: ApiShowcaseStates = apiShowcase.getStates();
 	agentLog.push(
 		`getStates() -> count ${states.count}/${states.limit}, limited ${states.isLimited}`,
 	);
@@ -316,7 +316,7 @@ const createRuntimeReport = async (
 ): Promise<RuntimeReport> => {
 	const eventLog: string[] = [];
 	const stateLog: string[] = [];
-	const viewLog: string[] = [];
+	const statesLog: string[] = [];
 	const story = apiShowcase.record(
 		typeof payload === "number" ? `${command}(${payload})` : `${command}()`,
 	);
@@ -335,9 +335,9 @@ const createRuntimeReport = async (
 			`watchSnapshot(...) count ${prevState.context.count} -> ${state.context.count}`,
 		);
 	});
-	const viewSubscription = apiShowcase.watchStates((states, prevView) => {
-		viewLog.push(
-			`watchStates(...) ${prevView.stateLabel} -> ${states.stateLabel}`,
+	const statesSubscription = apiShowcase.watchStates((states, prevStates) => {
+		statesLog.push(
+			`watchStates(...) ${prevStates.stateLabel} -> ${states.stateLabel}`,
 		);
 	});
 
@@ -357,7 +357,7 @@ const createRuntimeReport = async (
 		limitSubscription.unsubscribe();
 		resetSubscription.unsubscribe();
 		stateSubscription.unsubscribe();
-		viewSubscription.unsubscribe();
+		statesSubscription.unsubscribe();
 		traceLog = story.trace().map(formatTraceEntry);
 		lifecycleLog = story.lifecycle().map(formatLifecycleEntry);
 		const summary = story.summary();
@@ -381,7 +381,7 @@ const createRuntimeReport = async (
 		resultEvents,
 		eventLog,
 		stateLog,
-		viewLog,
+		statesLog,
 		agentLog,
 		traceLog,
 		lifecycleLog,
@@ -485,7 +485,7 @@ const agentRuntimeShowcase = igniteCore({
 		watcherCount:
 			snapshot.context.report.eventLog.length +
 			snapshot.context.report.stateLog.length +
-			snapshot.context.report.viewLog.length,
+			snapshot.context.report.statesLog.length,
 		agentStepCount: snapshot.context.report.agentLog.length,
 		traceCount: snapshot.context.report.storySummary.traceCount,
 		lifecycleCount: snapshot.context.report.storySummary.lifecycleCount,
@@ -749,12 +749,12 @@ agentRuntimeShowcase("xstate-agent-runtime-showcase", (ctx) => (
 					{[
 						...ctx.report.eventLog,
 						...ctx.report.stateLog,
-						...ctx.report.viewLog,
+						...ctx.report.statesLog,
 					].length ? (
 						[
 							...ctx.report.eventLog,
 							...ctx.report.stateLog,
-							...ctx.report.viewLog,
+							...ctx.report.statesLog,
 						].map((entry, index) => (
 							<li class="rounded bg-white px-3 py-2" key={`${entry}-${index}`}>
 								{entry}

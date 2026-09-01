@@ -30,8 +30,8 @@ The repo is layered as packages, but the responsibility model is hexagonal:
 - capability ports name environmental needs consumed by source behavior
 - adapters translate concrete runtimes such as XState, Redux, MobX, actor-web,
   the DOM, and renderer environments into normalized facts
-- events, commands, state/snapshot, effects, and render args are Ignite
-  contracts and projection callback surfaces, not ports
+- events, commands, native snapshots, derived states, effects, and renderer
+  arguments are Ignite contracts and projection callback surfaces, not ports
 - the shell assembles projections, renderer integration, and host lifecycle into
   a usable component/runtime surface
 
@@ -128,7 +128,7 @@ It does not own:
 | Deterministic decision | consumer-owned actors/state machines plus `ignite-core` contracts | Ignite supplies typed contracts and adapter-neutral helpers. Product behavior remains in the consuming source. |
 | Workflow and lifecycle | source lifecycles plus `ignite-element` host lifecycle | Ignite starts, watches, and releases adapters for DOM and headless usage; it does not own FAS workflow lifecycle or external orchestration policy. Source-native provisioning and native shutdown ownership are standardized separately in [`docs/source-native-provisioning.md`](./source-native-provisioning.md). |
 | Imperative execution over time | `ignite-adapters` plus `ignite-element` runtime host coordination | Runtime-library integration, subscriptions, setup, cleanup, and command execution live at the edge. Actor-Web keeps execution-time authorization, durable receipts, checkpoints, and reconciliation when that runtime is composed. |
-| Projection | `ignite-element` projection assembly | `view`, `commands`, `effects`, and schema metadata turn source snapshots into a stable UI/runtime contract. Effects are the outward fact layer; the normative host/effect boundary lives in [`docs/source-native-provisioning.md`](./source-native-provisioning.md), and Actor-Web evidence-consumption boundaries live in [`docs/actor-web-evidence-governed-projections.md`](./actor-web-evidence-governed-projections.md). |
+| Projection | `ignite-element` projection assembly | `states`, `commands`, `effects`, and schema metadata turn source-native snapshots into a stable UI/runtime contract; the registration renderer supplies the view. Effects are the outward fact layer; the normative host/effect boundary lives in [`docs/source-native-provisioning.md`](./source-native-provisioning.md), and Actor-Web evidence-consumption boundaries live in [`docs/actor-web-evidence-governed-projections.md`](./actor-web-evidence-governed-projections.md). |
 | Product composition | `ignite-element` package surface, then consumer apps on top | Ignite assembles the package family into a reusable component/runtime surface. Consumer apps compose those surfaces into products. |
 
 ## Current Fact Vs Target State
@@ -196,8 +196,9 @@ UI should never:
 - duplicate business rules
 - branch on unprojected infrastructure state
 
-Instead, `ignite-element` converts snapshots plus commands/effects into a stable
-render/runtime surface.
+Instead, `ignite-element` preserves the source-native snapshot as truth, derives
+consumer-facing states, and gives those states plus commands/effects to the
+registration renderer that owns the view.
 
 For Actor-Web specifically, projected capability or `canExecute` state is
 descriptive only. Actor-Web must still re-authorize command existence, payload,

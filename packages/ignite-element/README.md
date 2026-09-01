@@ -120,7 +120,9 @@ states: (snapshot) => ({
 ## Runtime model
 
 - commands express intent
-- state defines truth
+- the source-native snapshot defines truth
+- `states(snapshot)` derives the consumer-facing read model
+- the registration renderer owns the view
 - effects express consequences
 
 Headless runtime APIs are available on the same component contract:
@@ -132,7 +134,7 @@ toggle.getStates();
 toggle.getSchema();
 toggle.on("toggled", handler);
 toggle.watchSnapshot((snapshot, prevSnapshot) => {});
-toggle.watchStates((view, prevView) => {});
+toggle.watchStates((states, prevStates) => {});
 const story = toggle.record("turns on");
 await story.execute({ command: "toggle" });
 story.trace();
