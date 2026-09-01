@@ -35,7 +35,7 @@ const FIELDS: ReadonlyArray<{
 // commands derive from the injected `actor` and use source-native `actor.send`.
 const registerForm = igniteCore({
 	source: formMachine,
-	view: ({ snapshot }) => ({
+	states: (snapshot) => ({
 		values: snapshot.context.values,
 		errors: snapshot.context.errors,
 		touched: snapshot.context.touched,

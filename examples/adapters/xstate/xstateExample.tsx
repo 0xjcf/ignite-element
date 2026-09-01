@@ -15,7 +15,7 @@ const sharedActor = createActor(advancedMachine).start();
 
 type MachineSnapshot = StateFrom<typeof advancedMachine>;
 
-const xstateView = ({ snapshot }: { snapshot: MachineSnapshot }) => {
+const xstateStates = (snapshot: MachineSnapshot) => {
 	const darkMode = snapshot.context.darkMode;
 	const containerClasses = darkMode
 		? "p-4 bg-gray-800 text-white border rounded-md mb-2"
@@ -31,7 +31,7 @@ const xstateView = ({ snapshot }: { snapshot: MachineSnapshot }) => {
 
 const registerSharedXState = igniteCore({
 	source: sharedActor,
-	view: xstateView,
+	states: xstateStates,
 	commands: ({ actor }) => ({
 		increment: () => actor.send({ type: "INC" }),
 		decrement: () => actor.send({ type: "DEC" }),
@@ -42,7 +42,7 @@ const registerSharedXState = igniteCore({
 // Isolated components receive a fresh actor per registration.
 const registerIsolatedXState = igniteCore({
 	source: advancedMachine,
-	view: xstateView,
+	states: xstateStates,
 	commands: ({ actor }) => ({
 		increment: () => actor.send({ type: "INC" }),
 		decrement: () => actor.send({ type: "DEC" }),

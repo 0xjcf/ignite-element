@@ -5,7 +5,7 @@ import { createRouterSource } from "./routerSource";
 
 // The payoff of keeping the router's core pure: you can drive navigation
 // through Ignite's headless runtime and assert the result with no DOM, no
-// jsdom History, no rendered element. `execute` issues a command, `getView`
+// jsdom History, no rendered element. `execute` issues a command, `getStates`
 // reads the projection, and `on`/`execute().events` observe the emitted
 // `navigated` event (bridged from the machine through the subscribeEvents seam).
 const makeRouter = () =>
@@ -13,7 +13,7 @@ const makeRouter = () =>
 		source: createRouterSource({
 			navigation: createMemoryNavigation("/"),
 		}),
-		view: ({ snapshot }) => ({
+		states: (snapshot) => ({
 			route: snapshot.context.route,
 			path: snapshot.context.path,
 			id: snapshot.context.params.id ?? null,
@@ -31,7 +31,7 @@ describe("SPA router — headless runtime", () => {
 		const router = makeRouter();
 		await router.execute({ command: "navigate", input: "/users/7" });
 
-		const view = router.getView();
+		const view = router.getStates();
 		expect(view.route).toBe("user");
 		expect(view.id).toBe("7");
 		expect(view.path).toBe("/users/7");
@@ -65,17 +65,17 @@ describe("SPA router — headless runtime", () => {
 		const router = makeRouter();
 
 		await router.execute({ command: "navigate", input: "/dashboard" });
-		expect(router.getView().route).toBe("login");
+		expect(router.getStates().route).toBe("login");
 
 		await router.execute({ command: "login" });
 		await router.execute({ command: "navigate", input: "/dashboard" });
-		expect(router.getView().route).toBe("dashboard");
-		expect(router.getView().authed).toBe(true);
+		expect(router.getStates().route).toBe("dashboard");
+		expect(router.getStates().authed).toBe(true);
 	});
 
 	it("resolves unknown paths to the not-found route", async () => {
 		const router = makeRouter();
 		await router.execute({ command: "navigate", input: "/no/such/page" });
-		expect(router.getView().route).toBe("not-found");
+		expect(router.getStates().route).toBe("not-found");
 	});
 });

@@ -205,7 +205,7 @@ export async function startSmartHomeBridgeServer(
 		};
 
 		stream = tools.observe((observation) => {
-			const view = home.getView();
+			const view = home.getStates();
 			if (observation.type === "event") {
 				broadcast({ type: "home:event", event: observation.event, view });
 			} else {
@@ -223,7 +223,7 @@ export async function startSmartHomeBridgeServer(
 				}
 				socket.send(serializeBridgeMessage(message));
 			};
-			sendSocketMessage({ type: "home:view", view: home.getView() });
+			sendSocketMessage({ type: "home:view", view: home.getStates() });
 			startAgentOnce();
 			socket.on("message", (payload) => {
 				if (closing) {
@@ -246,7 +246,7 @@ export async function startSmartHomeBridgeServer(
 										type: "home:command-result",
 										command: commandMessage.command,
 										ok: true,
-										view: home.getView(),
+										view: home.getStates(),
 									});
 									return;
 								}
@@ -254,7 +254,7 @@ export async function startSmartHomeBridgeServer(
 									type: "home:error",
 									command: commandMessage.command,
 									message: result.error.kind,
-									view: home.getView(),
+									view: home.getStates(),
 								});
 							})
 							.catch((error) => {
@@ -266,14 +266,14 @@ export async function startSmartHomeBridgeServer(
 									command: commandMessage.command,
 									message:
 										error instanceof Error ? error.message : String(error),
-									view: home.getView(),
+									view: home.getStates(),
 								});
 							}),
 					(error) => {
 						sendSocketMessage({
 							type: "home:error",
 							message: error instanceof Error ? error.message : String(error),
-							view: home.getView(),
+							view: home.getStates(),
 						});
 					},
 				);
@@ -302,7 +302,7 @@ export async function startSmartHomeBridgeServer(
 							openAIAgentTools,
 							prompt,
 							broadcast,
-							() => home.getView(),
+							() => home.getStates(),
 							() => closing,
 						)
 					: runSharedHomeAgent(
@@ -310,7 +310,7 @@ export async function startSmartHomeBridgeServer(
 							agentTools,
 							prompt,
 							broadcast,
-							() => home.getView(),
+							() => home.getStates(),
 							() => closing,
 						)
 			).catch((error) => {
@@ -321,7 +321,7 @@ export async function startSmartHomeBridgeServer(
 				broadcast({
 					type: "home:error",
 					message: error instanceof Error ? error.message : String(error),
-					view: home.getView(),
+					view: home.getStates(),
 				});
 			});
 			const lifecycle = runPromise.finally(() => {
@@ -460,7 +460,7 @@ function startTerminalControls(options: {
 		prompt: "smart-home> ",
 	});
 
-	printTerminalHelp(options.home.getView());
+	printTerminalHelp(options.home.getStates());
 	rl.prompt();
 
 	let closed = false;
@@ -504,7 +504,7 @@ async function handleTerminalLine(
 	}
 
 	if (parsed.type === "help") {
-		printTerminalHelp(options.home.getView());
+		printTerminalHelp(options.home.getStates());
 		return;
 	}
 
@@ -523,7 +523,7 @@ async function handleTerminalLine(
 			type: "home:command-result",
 			command: parsed.command,
 			ok: true,
-			view: result.value.view,
+			view: result.value.states,
 		});
 		return;
 	}
@@ -532,7 +532,7 @@ async function handleTerminalLine(
 		type: "home:error",
 		command: parsed.command,
 		message: result.error.kind,
-		view: options.home.getView(),
+		view: options.home.getStates(),
 	});
 	console.error(`Command failed: ${result.error.kind}`);
 }
@@ -632,7 +632,7 @@ async function runSharedHomeAgent(
 	tools: SharedHomeAgentTools,
 	userPrompt: string,
 	broadcast: (message: HomeBridgeMessage) => void,
-	getView: () => HomeView,
+	getStates: () => HomeView,
 	shouldStop: () => boolean,
 ): Promise<void> {
 	const messages: AnthropicMessage[] = [{ role: "user", content: userPrompt }];
@@ -666,14 +666,14 @@ async function runSharedHomeAgent(
 					type: "home:command-result",
 					command: call.name,
 					ok: true,
-					view: result.value.view,
+					view: result.value.states,
 				});
 			} else {
 				broadcast({
 					type: "home:error",
 					command: call.name,
 					message: result.error.kind,
-					view: getView(),
+					view: getStates(),
 				});
 			}
 			resultBlocks.push(
@@ -689,7 +689,7 @@ async function runSharedHomeOpenAICompatibleAgent(
 	tools: SharedHomeOpenAICompatibleAgentTools,
 	userPrompt: string,
 	broadcast: (message: HomeBridgeMessage) => void,
-	getView: () => HomeView,
+	getStates: () => HomeView,
 	shouldStop: () => boolean,
 ): Promise<void> {
 	const messages: OpenAICompatibleMessage[] = [
@@ -730,14 +730,14 @@ async function runSharedHomeOpenAICompatibleAgent(
 					type: "home:command-result",
 					command: call.name,
 					ok: true,
-					view: result.value.view,
+					view: result.value.states,
 				});
 			} else {
 				broadcast({
 					type: "home:error",
 					command: call.name,
 					message: result.error.kind,
-					view: getView(),
+					view: getStates(),
 				});
 			}
 			resultMessages.push(

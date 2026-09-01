@@ -51,7 +51,7 @@ import { igniteCore } from "ignite-element/redux";
 
 export const registerSharedRedux = igniteCore({
   source: counterStore(),
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     count: snapshot.counter.count,
   }),
   commands: ({ actor }) => ({
@@ -64,7 +64,7 @@ export const registerSharedRedux = igniteCore({
 
 export const registerIsolatedRedux = igniteCore({
   source: counterSlice,
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     count: snapshot.count,
   }),
   commands: ({ actor }) => ({

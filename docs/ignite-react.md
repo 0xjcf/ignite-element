@@ -77,7 +77,7 @@ Usage:
 // counter.ignite.ts — authored as today; registration now returns a handle
 export const Counter = igniteCore({
   source: counterMachine,
-  view: ({ snapshot }) => ({ count: snapshot.context.count, label: snapshot.context.label }),
+  states: (snapshot) => ({ count: snapshot.context.count, label: snapshot.context.label }),
   commands: ({ actor }) => ({
     increment: () => actor.send({ type: "INC" }),
     decrement: () => actor.send({ type: "DEC" }),

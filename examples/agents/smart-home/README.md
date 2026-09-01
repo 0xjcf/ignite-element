@@ -107,7 +107,7 @@ OpenAI-compatible `/v1/chat/completions` server such as MLX.
 ## What it exercises
 
 - **DOM-free runtime** — the whole thing runs in the Vitest `node` environment
-  (see `vite.config.ts`); `getSchema`/`execute`/`on`/`watchView` need no DOM.
+  (see `vite.config.ts`); `getSchema`/`execute`/`on`/`watchStates` need no DOM.
 - **Varied command schemas** — object (`toggleLight`, `setThermostat`,
   `setBlinds`), scalar enum (`lockDoor`, `unlockDoor`, `runScene`), array
   (`dimRooms`), and no-arg (`status`) — all translated to Anthropic tool defs.

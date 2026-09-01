@@ -24,7 +24,7 @@ const prompt = {
 const createRequest = (): ModelRequest => ({
 	prompt,
 	tools: modelTools(igniteTools(component).manifest),
-	view: component.getView().modelContext,
+	view: component.getStates().modelContext,
 	history: [],
 	capabilities: { internetAccess: "unavailable" },
 	domainPolicyInstructions: "",

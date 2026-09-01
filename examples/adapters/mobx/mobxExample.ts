@@ -11,7 +11,7 @@ import themeStyles from "./theme.css?raw";
 
 type CounterStoreInstance = ReturnType<typeof counterStore>;
 
-const mobxView = ({ snapshot }: { snapshot: CounterStoreInstance }) => ({
+const mobxStates = (snapshot: CounterStoreInstance) => ({
 	count: snapshot.count,
 });
 
@@ -54,7 +54,7 @@ export const disposeSharedMobx = () => {
 
 export const registerSharedMobx = igniteCore({
 	source: sharedStore,
-	view: mobxView,
+	states: mobxStates,
 	commands: mobxCommands,
 });
 
@@ -66,7 +66,7 @@ export const registerSharedMobx = igniteCore({
 export const registerIsolatedMobx = igniteCore({
 	adapter: "mobx",
 	source: counterStore,
-	view: mobxView,
+	states: mobxStates,
 	commands: mobxCommands,
 });
 

@@ -306,7 +306,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 		// Each observation carries the derived view (not just the raw snapshot), so
 		// the agent grounds on the read-model — after toggleLight the living light is on.
 		expect(
-			(result.trace[0].view as { lights: { living: boolean } }).lights.living,
+			(result.trace[0].states as { lights: { living: boolean } }).lights.living,
 		).toBe(true);
 		// runScene emitted the scene-applied event (the observation stream).
 		expect(result.trace[3].events).toContain("scene-applied");
@@ -320,7 +320,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 		});
 
 		// Final state reflects the valid commands; the invalid one left living temp alone.
-		const view = result.home.getView();
+		const view = result.home.getStates();
 		expect(view).toMatchObject({
 			activeScene: "movie",
 			thermostat: { bedroom: 72, living: 68 },
@@ -357,7 +357,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 			throw new Error(`Expected dimRooms to run: ${result.error.kind}`);
 		}
 
-		expect(result.value.view).toMatchObject({
+		expect(result.value.states).toMatchObject({
 			activeScene: null,
 			lights: { living: false, bedroom: true, kitchen: false },
 			blinds: { living: 0, bedroom: 100, kitchen: 0 },
@@ -374,47 +374,47 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 		const home = createHome();
 
 		await home.execute({ command: "runScene", input: "morning" });
-		expect(home.getView().activeScene).toBe("morning");
+		expect(home.getStates().activeScene).toBe("morning");
 		await home.execute({
 			command: "setThermostat",
 			input: { room: "living", temp: 69 },
 		});
-		expect(home.getView().activeScene).toBeNull();
+		expect(home.getStates().activeScene).toBeNull();
 
 		await home.execute({ command: "runScene", input: "movie" });
-		expect(home.getView().activeScene).toBe("movie");
+		expect(home.getStates().activeScene).toBe("movie");
 		await home.execute({
 			command: "setBlinds",
 			input: { room: "living", percent: 25 },
 		});
-		expect(home.getView().activeScene).toBeNull();
+		expect(home.getStates().activeScene).toBeNull();
 
 		await home.execute({ command: "runScene", input: "away" });
-		expect(home.getView().activeScene).toBe("away");
+		expect(home.getStates().activeScene).toBe("away");
 		await home.execute({ command: "unlockDoor", input: "front" });
-		expect(home.getView().activeScene).toBeNull();
+		expect(home.getStates().activeScene).toBeNull();
 	});
 
 	it("keeps the active scene when a manual command is a no-op", async () => {
 		const home = createHome();
 
 		await home.execute({ command: "runScene", input: "away" });
-		expect(home.getView().activeScene).toBe("away");
+		expect(home.getStates().activeScene).toBe("away");
 		await home.execute({ command: "lockDoor", input: "front" });
-		expect(home.getView().activeScene).toBe("away");
+		expect(home.getStates().activeScene).toBe("away");
 
 		await home.execute({ command: "runScene", input: "morning" });
-		expect(home.getView().activeScene).toBe("morning");
+		expect(home.getStates().activeScene).toBe("morning");
 		await home.execute({
 			command: "setThermostat",
 			input: { room: "living", temp: 70 },
 		});
-		expect(home.getView().activeScene).toBe("morning");
+		expect(home.getStates().activeScene).toBe("morning");
 		await home.execute({
 			command: "toggleLight",
 			input: { room: "living", on: true },
 		});
-		expect(home.getView().activeScene).toBe("morning");
+		expect(home.getStates().activeScene).toBe("morning");
 	});
 
 	it("keeps a pending scene when a manual command is a no-op", async () => {
@@ -423,7 +423,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 
 		try {
 			await home.execute({ command: "transitionScene", input: "movie" });
-			expect(home.getView()).toMatchObject({
+			expect(home.getStates()).toMatchObject({
 				activeScene: null,
 				pendingScene: "movie",
 			});
@@ -434,7 +434,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 				input: { room: "living", temp: 68 },
 			});
 
-			expect(home.getView()).toMatchObject({
+			expect(home.getStates()).toMatchObject({
 				activeScene: null,
 				pendingScene: "movie",
 			});
@@ -468,7 +468,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 			expect(result.value.events.map((event) => event.type)).not.toContain(
 				"scene-applied",
 			);
-			expect(result.value.view).toMatchObject({
+			expect(result.value.states).toMatchObject({
 				activeScene: null,
 				pendingScene: "morning",
 				lights: { living: false, bedroom: false, kitchen: false },
@@ -476,7 +476,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 
 			await vi.runOnlyPendingTimersAsync();
 
-			expect(home.getView()).toMatchObject({
+			expect(home.getStates()).toMatchObject({
 				activeScene: "morning",
 				pendingScene: null,
 				lights: { living: true, bedroom: true, kitchen: true },
@@ -489,8 +489,8 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 						event: { type: "scene-applied", scene: "morning" },
 					},
 					expect.objectContaining({
-						type: "view",
-						view: expect.objectContaining({
+						type: "states",
+						states: expect.objectContaining({
 							activeScene: "morning",
 							pendingScene: null,
 							lights: expect.objectContaining({
@@ -526,7 +526,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 				);
 			}
 
-			expect(result.value.view).toMatchObject({
+			expect(result.value.states).toMatchObject({
 				activeScene: null,
 				pendingScene: "morning",
 			});
@@ -543,7 +543,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 				);
 			}
 
-			expect(interimResult.value.view).toMatchObject({
+			expect(interimResult.value.states).toMatchObject({
 				activeScene: null,
 				pendingScene: null,
 				thermostat: { living: 69 },
@@ -551,7 +551,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 
 			await vi.runOnlyPendingTimersAsync();
 
-			expect(home.getView()).toMatchObject({
+			expect(home.getStates()).toMatchObject({
 				activeScene: null,
 				pendingScene: null,
 				lights: { living: false, bedroom: false, kitchen: false },
@@ -588,21 +588,21 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 				);
 			}
 
-			expect(secondResult.value.view).toMatchObject({
+			expect(secondResult.value.states).toMatchObject({
 				activeScene: null,
 				pendingScene: "movie",
 			});
 
 			await vi.advanceTimersByTimeAsync(20);
 
-			expect(home.getView()).toMatchObject({
+			expect(home.getStates()).toMatchObject({
 				activeScene: null,
 				pendingScene: "movie",
 			});
 
 			await vi.advanceTimersByTimeAsync(5);
 
-			expect(home.getView()).toMatchObject({
+			expect(home.getStates()).toMatchObject({
 				activeScene: "movie",
 				pendingScene: null,
 				lights: { living: false },
@@ -614,14 +614,14 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 
 	it("returns defensive copies from the derived view", () => {
 		const home = createHome();
-		const view = home.getView();
+		const view = home.getStates();
 
 		view.lights.living = true;
 		view.thermostat.living = 80;
 		view.blinds.living = 100;
 		view.locks.front = false;
 
-		expect(home.getView()).toMatchObject({
+		expect(home.getStates()).toMatchObject({
 			lights: { living: false },
 			thermostat: { living: 68 },
 			blinds: { living: 0 },
@@ -641,7 +641,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 			});
 
 			expect(isOk(result)).toBe(true);
-			expect(session.home.getView()).toMatchObject({
+			expect(session.home.getStates()).toMatchObject({
 				pendingScene: "movie",
 				activeScene: null,
 			});
@@ -650,7 +650,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 			closed = true;
 			await vi.advanceTimersByTimeAsync(SCENE_TRANSITION_DELAY_MS);
 
-			expect(session.home.getView()).toMatchObject({
+			expect(session.home.getStates()).toMatchObject({
 				pendingScene: "movie",
 				activeScene: null,
 			});
@@ -776,7 +776,7 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 				input: "movie",
 				ok: true,
 			});
-			expect(result.home.getView()).toMatchObject({
+			expect(result.home.getStates()).toMatchObject({
 				activeScene: "movie",
 				locks: { front: true },
 			});
@@ -1312,7 +1312,7 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 				input: { room: "living", on: true },
 				ok: true,
 			});
-			expect(result.home.getView().lights.living).toBe(true);
+			expect(result.home.getStates().lights.living).toBe(true);
 
 			const replayAssistantMessage = observedMessages[1]?.[1];
 			expect(replayAssistantMessage).toMatchObject({
@@ -1567,7 +1567,7 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 				"toggleLight",
 			]);
 			expect(result.finalText).toBe("Kitchen light is on.");
-			expect(result.home.getView()).toMatchObject({
+			expect(result.home.getStates()).toMatchObject({
 				lights: { kitchen: true },
 				allDoorsLocked: true,
 			});
@@ -1708,7 +1708,7 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 				"toggleLight",
 				"runScene",
 			]);
-			expect(result.trace[0]?.view).toMatchObject({
+			expect(result.trace[0]?.states).toMatchObject({
 				lights: { living: true },
 				lightsOn: ["living"],
 			});
@@ -1721,7 +1721,7 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 					lights: { living: false },
 				},
 			});
-			expect(result.home.getView()).toMatchObject({
+			expect(result.home.getStates()).toMatchObject({
 				activeScene: "movie",
 				lights: { living: false },
 			});
@@ -1746,7 +1746,7 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 				return;
 			}
 
-			expect(result.value.view).toMatchObject({
+			expect(result.value.states).toMatchObject({
 				activeScene: "movie",
 				lights: { living: false },
 			});
@@ -1839,7 +1839,7 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 				throw new Error(firstResult.error.kind);
 			}
 
-			expect(firstResult.value.view).toMatchObject({
+			expect(firstResult.value.states).toMatchObject({
 				activeScene: null,
 				pendingScene: "morning",
 			});
@@ -1855,21 +1855,21 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 				throw new Error(secondResult.error.kind);
 			}
 
-			expect(secondResult.value.view).toMatchObject({
+			expect(secondResult.value.states).toMatchObject({
 				activeScene: null,
 				pendingScene: "movie",
 			});
 
 			await vi.advanceTimersByTimeAsync(20);
 
-			expect(session.home.getView()).toMatchObject({
+			expect(session.home.getStates()).toMatchObject({
 				activeScene: null,
 				pendingScene: "movie",
 			});
 
 			await vi.advanceTimersByTimeAsync(5);
 
-			expect(session.home.getView()).toMatchObject({
+			expect(session.home.getStates()).toMatchObject({
 				activeScene: "movie",
 				pendingScene: null,
 				lights: { living: false },
@@ -1905,7 +1905,7 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 				throw new Error(result.error.kind);
 			}
 
-			expect(result.value.view).toMatchObject({
+			expect(result.value.states).toMatchObject({
 				activeScene: null,
 				pendingScene: "movie",
 			});
@@ -1918,7 +1918,7 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 			);
 
 			await vi.advanceTimersByTimeAsync(SCENE_TRANSITION_DELAY_MS + 1);
-			expect(session.home.getView()).toMatchObject({
+			expect(session.home.getStates()).toMatchObject({
 				activeScene: null,
 				pendingScene: "movie",
 			});

@@ -1,6 +1,6 @@
 # ignite-element
 
-Default public package for building platform-native custom elements with explicit intent, derived view state, deterministic effects, and DOM-native events.
+Default public package for building platform-native custom elements with explicit intent, derived states, deterministic effects, and DOM-native events.
 
 > **v3 is in beta.** Install with `@beta` — the stable `latest` tag is still
 > v2.2.x. The state libraries are optional peer dependencies, so only the one
@@ -59,7 +59,7 @@ const toggle = igniteCore({
   events: (event) => ({
     toggled: event<{ isOn: boolean }>(),
   }),
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     isOn: snapshot.matches("on"),
   }),
   commands: ({ actor }) => ({
@@ -86,14 +86,14 @@ The resulting element can be consumed anywhere the browser can render a custom e
 
 Use `ignite-element/xstate` when Ignite owns the element's local behavior and lifecycle.
 
-Use `ignite-element/actor-web` when an Actor-Web runtime already owns orchestration, transport, sequencing, and source lifecycle. In that mode Ignite stays projection-first: it consumes Actor-Web snapshots, derives view state, and sends explicit requests back with `actor.send(...)` or `actor.ask(...)`. `actor.ask` is optional and only exists on sources that support request/response.
+Use `ignite-element/actor-web` when an Actor-Web runtime already owns orchestration, transport, sequencing, and source lifecycle. In that mode Ignite stays projection-first: it consumes Actor-Web snapshots, derives states, and sends explicit requests back with `actor.send(...)` or `actor.ask(...)`. `actor.ask` is optional and only exists on sources that support request/response.
 
 ```ts
 import { igniteCore } from "ignite-element/actor-web";
 
 const shipmentCard = igniteCore({
   source: ({ host }) => checkoutRuntime.shipments.commandSource({ host }),
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     shipmentId: snapshot.context.shipmentId,
     status: snapshot.context.status,
     etaLabel: snapshot.context.etaLabel,
@@ -110,7 +110,7 @@ const shipmentCard = igniteCore({
 Keep ordinary UI projections focused on business/read-model fields. Opt into runtime metadata only when the component needs it:
 
 ```ts
-view: ({ snapshot }) => ({
+states: (snapshot) => ({
   shipmentId: snapshot.context.shipmentId,
   status: snapshot.context.status,
   syncState: snapshot.transport.state,
@@ -128,11 +128,11 @@ Headless runtime APIs are available on the same component contract:
 ```ts
 await toggle.execute({ command: "toggle" });
 toggle.getSnapshot();
-toggle.getView();
+toggle.getStates();
 toggle.getSchema();
 toggle.on("toggled", handler);
 toggle.watchSnapshot((snapshot, prevSnapshot) => {});
-toggle.watchView((view, prevView) => {});
+toggle.watchStates((view, prevView) => {});
 const story = toggle.record("turns on");
 await story.execute({ command: "toggle" });
 story.trace();

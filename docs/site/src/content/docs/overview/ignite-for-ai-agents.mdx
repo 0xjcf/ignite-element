@@ -17,7 +17,7 @@ tools:
 - Humans click the custom element and see the projected view.
 - Tests call the runtime directly and assert snapshots, views, and events.
 - Agents inspect `getSchema()`, check `canExecute()`, call `execute()`, and
-  observe outcomes through `on(...)` or `watchView(...)`.
+  observe outcomes through `on(...)` or `watchStates(...)`.
 
 Ignite is not a separate agent framework. It is the component boundary that
 turns UI behavior into explicit tools.
@@ -33,10 +33,10 @@ exists:
   snapshot plus emitted events from that transition.
 - `canExecute(commandName)` evaluates dynamic command availability for gated
   commands.
-- `getView()` returns the projected state that renderers, tests, and agents can
+- `getStates()` returns the projected state that renderers, tests, and agents can
   use without reading DOM nodes.
 - `on(eventName, handler)` subscribes to public emitted events.
-- `watchView(handler)` subscribes to projected view changes over time.
+- `watchStates(handler)` subscribes to projected view changes over time.
 
 Command metadata keeps model prompts and tool manifests grounded in the
 component's own contract:
@@ -70,7 +70,7 @@ The reliable flow is:
 4. Call `execute({ command, input? })` and inspect the returned `events` and
    `snapshot`.
 5. Keep long-lived workflows synchronized with `on(...)` for events and
-   `watchView(...)` for projected state.
+   `watchStates(...)` for projected state.
 
 That keeps the model out of selector guessing and stale DOM assumptions. The
 agent reasons over named commands and typed state transitions.

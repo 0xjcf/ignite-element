@@ -200,7 +200,7 @@ import { igniteCore } from "ignite-element/xstate"; // DOM authoring over shared
 const socketComponent = igniteCore({
   source: socketActor,
 
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     mode: snapshot.status,
     lastMessage: snapshot.lastMessage,
     errorMessage: snapshot.error ?? null,

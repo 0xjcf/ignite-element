@@ -301,7 +301,7 @@ const capabilityFeedback = (
 				command: execution.toolName,
 				ownerId: execution.ownerId,
 				status: "accepted",
-				view: data.view ?? workbench.getView().modelContext,
+				view: data.view ?? workbench.getStates().modelContext,
 				events: readEvents(data.events),
 			};
 		}
@@ -334,7 +334,7 @@ const capabilityFeedback = (
 						}
 					: {}),
 			},
-			view: workbench.getView().modelContext,
+			view: workbench.getStates().modelContext,
 			events: [],
 		};
 	}
@@ -349,7 +349,7 @@ const capabilityFeedback = (
 			...(execution.issues
 				? { issues: normalizeModelIssues(execution.issues) }
 				: {}),
-			view: workbench.getView().modelContext,
+			view: workbench.getStates().modelContext,
 			events: [],
 		};
 	}
@@ -385,7 +385,7 @@ const capabilityFeedback = (
 				: {}),
 			...(proof?.fallback ? { fallback: proof.fallback } : {}),
 		},
-		view: workbench.getView().modelContext,
+		view: workbench.getStates().modelContext,
 		events: [],
 	};
 };
@@ -447,7 +447,7 @@ export const createWorkbenchModelTurnPort = (
 						? request.prompt
 						: { channel: "text" as const, text: "" };
 				if (call.name === "completeResponse") {
-					const view = workbench.getView().modelContext;
+					const view = workbench.getStates().modelContext;
 					const audits = [
 						domains.auditCompletion({ prompt, history, view }),
 						auditCompletionEvidence(history, view),
@@ -471,7 +471,7 @@ export const createWorkbenchModelTurnPort = (
 				const materializedCall = domains.materializeArtifact({
 					prompt,
 					history,
-					view: workbench.getView().modelContext,
+					view: workbench.getStates().modelContext,
 					call,
 				});
 				if (signal.aborted || callSignal?.aborted) {
@@ -539,7 +539,7 @@ export const createWorkbenchModelTurnPort = (
 					ownerId: "workbench-component",
 					toolName: call.name,
 					data: {
-						view: workbench.getView().modelContext,
+						view: workbench.getStates().modelContext,
 						events: execution.value.events.map((actorEvent) => ({
 							type: actorEvent.type,
 							...("reason" in actorEvent
@@ -709,7 +709,7 @@ export const createWorkbenchModelTurnPort = (
 					{
 						prompt: request.prompt,
 						tools: manifest,
-						view: workbench.getView().modelContext,
+						view: workbench.getStates().modelContext,
 						history: request.history,
 						domainPolicyInstructions: domains.modelInstructions,
 						capabilities: {

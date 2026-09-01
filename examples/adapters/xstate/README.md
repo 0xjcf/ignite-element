@@ -68,7 +68,7 @@ sharedActor.start();
 
 const registerSharedXState = igniteCore({
   source: sharedActor, // shared actor → shared scope
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     count: snapshot.context.count,
     darkMode: snapshot.context.darkMode,
     containerClasses: snapshot.context.darkMode
@@ -92,7 +92,7 @@ const registerSharedXState = igniteCore({
 // Isolated variant: same facade as above, just change source to a machine
 const registerIsolatedXState = igniteCore({
   source: advancedMachine, // machine → isolated scope per element
-  view: ({ snapshot }) => ({ /* same mapping as shared */ }),
+  states: (snapshot) => ({ /* same mapping as shared */ }),
   events: (event) => ({ toggled: event<{ isDark: boolean }>() }),
   commands: ({ actor }) => ({ /* same commands as shared */ }),
   effects: ({ snapshot, prevSnapshot, emit }) => {
@@ -101,7 +101,7 @@ const registerIsolatedXState = igniteCore({
 });
 ```
 
-Every registered component receives the merged facade values: the projected values from `view(...)`, the command helpers from `commands(...)`, and the underlying `state`/`send` utilities from the adapter.
+Every registered component receives the projected values from `states(snapshot)` and the semantic command helpers from `commands(...)`; raw adapter `state`/`send` utilities are not part of the public renderer boundary.
 
 Register elements with the direct callback form:
 
@@ -127,7 +127,7 @@ registerSharedXState("my-counter-xstate", ({ count, increment }) => (
 
 `xstateApiShowcase.tsx` is the recommended starting point for the v3 API shape. It demonstrates:
 
-- `view(...)` for projected render/runtime data
+- `states(snapshot)` for projected render/runtime data
 - `commands(...)` for intent helpers backed by the XState actor
 - `events(...)` for typed DOM event declarations
 - `effects(...)` for emitting events after state changes
@@ -143,7 +143,7 @@ const apiShowcase = igniteCore({
       state: string;
     }>(),
   }),
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     count: snapshot.context.count,
     stateLabel: matchState(
       snapshot,
@@ -185,7 +185,7 @@ apiShowcase("xstate-api-showcase", ({ count, increment }) => (
 ```ts
 apiShowcase.getSchema();
 apiShowcase.getSnapshot();
-apiShowcase.getView();
+apiShowcase.getStates();
 
 apiShowcase.on("api-count-changed", (event) => [
   event.count,
@@ -193,7 +193,7 @@ apiShowcase.on("api-count-changed", (event) => [
   event.state,
 ]);
 apiShowcase.watchSnapshot((snapshot, prevSnapshot) => [prevSnapshot, snapshot]);
-apiShowcase.watchView((view, prevView) => [prevView, view]);
+apiShowcase.watchStates((view, prevView) => [prevView, view]);
 
 const result = await apiShowcase.execute({ command: "increment" });
 
@@ -268,7 +268,7 @@ The example Vite config is only there to alias this monorepo workspace into loca
 ## Tips & Next Steps
 
 - **Shared vs. isolated**: pass a running actor for shared state, or a machine for isolated instances. ignite-element figures it out for you.
-- **Facade composition**: keep expensive selectors inside `view(...)`; it runs against the adapter snapshot and feeds both renderers and the headless runtime view.
+- **Facade composition**: keep lightweight selectors inside `states(snapshot)`; it feeds both renderers and the headless runtime states surface.
 - **Registration shape**: prefer `component("element-name", (args) => view)` so every example reads the same way across XState, Redux, and MobX.
 - **Experiment**: extend the machine with additional states or actions, expose them through the `commands` facade, and render them in a new component.
 

@@ -4,18 +4,18 @@ Building a real agent loop against `getSchema()` / `execute()` / `igniteTools` +
 the Anthropic adapter surfaced these. Ordered by impact. Each is a candidate
 follow-up; none blocks the example (the loop works headless today).
 
-## 1. ✅ FIXED — the tool result now carries the derived view, not just the snapshot
+## 1. ✅ FIXED — the tool result now carries the derived states, not just the snapshot
 
 **Was:** `ToolObservation = { snapshot, events }` carried only `getSnapshot()` (raw
-machine context), so the model never saw the **view** (the derived read-model:
+machine context), so the model never saw the **states** (the derived read-model:
 `lightsOn`, `allDoorsLocked`, `activeScene`) the design says agents should ground
-on — a consumer had to inject `getView()` out-of-band.
+on — a consumer had to inject `getStates()` out-of-band.
 
-**Fixed in this PR:** `ToolObservation` is now `{ snapshot, view, events }`.
-`igniteTools` binds `getView` (added to the `IgniteToolsRuntime` surface) and
+**Fixed in this PR:** `ToolObservation` is now `{ snapshot, states, events }`.
+`igniteTools` binds `getStates` (added to the `IgniteToolsRuntime` surface) and
 captures it post-command, so every `run()` observation — and thus every
-`tool_result` the adapter serializes — carries the view. The agent grounds on the
-read-model out of the box. (See `result.trace[*].view` in the scripted test.)
+`tool_result` the adapter serializes — carries the states. The agent grounds on the
+read-model out of the box. (See `result.trace[*].states` in the scripted test.)
 
 ## 2. ✅ FIXED — availability gating (`canExecute`) is now on the runtime
 
@@ -30,16 +30,16 @@ need dynamic availability checks, and the headless runtime exposes
 with this surface, so gated unavailable commands can be omitted from the manifest
 instead of failing later as `ExecuteFailed`.
 
-## 3. ✅ FIXED — `observe()` streams events and view changes between acts
+## 3. ✅ FIXED — `observe()` streams events and states changes between acts
 
 **Was:** the agent saw `result.value.events` emitted **during** `run()`, but
-there was no channel to observe events/view **between** acts. The loop could not
+there was no channel to observe events/states **between** acts. The loop could not
 react to anything that happened outside a command window.
 
 **Fixed in this PR:** `igniteTools(...).observe(handler)` now streams
-schema-declared events and derived view transitions with a standard
+schema-declared events and derived states transitions with a standard
 `unsubscribe()` handle, so the agent loop can stay on one act → observe → act
-surface instead of calling runtime `on()` / `watchView()` directly.
+surface instead of calling runtime `on()` / `watchStates()` directly.
 
 ## 4. ✅ FIXED — async / long-running effects are observed after act+ack
 
@@ -49,9 +49,9 @@ contract case — `run()` returns at acknowledgement while the effect settles ov
 time — was untested here.
 
 **Fixed in this PR:** the smart-home now has a delayed `transitionScene` command
-that acknowledges immediately with `pendingScene` in the view, then settles via
+that acknowledges immediately with `pendingScene` in the states, then settles via
 the runtime observation stream. The focused test proves `run()` keeps act+ack
-semantics while `igniteTools(...).observe(...)` receives the later settled view
+semantics while `igniteTools(...).observe(...)` receives the later settled states
 and `scene-applied` event. Phase C still owns the broader terminal↔browser
 transport and cross-runtime bridge gaps.
 
@@ -90,7 +90,7 @@ no demo where the agent and a human UI acted on the same canonical home.
 scripted `igniteTools` terminal agent against it, serves a browser
 `<smart-home-bridge>` Ignite element, and links both sides with a thin WebSocket
 protocol. Browser commands route back through `igniteTools.run()`, while
-`igniteTools.observe()` broadcasts runtime events and view updates.
+`igniteTools.observe()` broadcasts runtime events and states updates.
 
 **Update:** the example can now swap that shared runtime to an actor-web-backed
 Ignite runtime with `SMART_HOME_RUNTIME=actor-web`, so the dogfood loop proves
@@ -108,7 +108,7 @@ surface while keeping the Ignite UI on the same `source`-first shape.
 The current dogfood story is complete for Ignite's v3 target: a real agent loop
 can drive a headless Ignite runtime through `igniteTools`, can use an
 OpenAI-compatible local MLX server without an MLX-specific Ignite dependency, and
-can swap the backing runtime to actor-web through the same command/view contract.
+can swap the backing runtime to actor-web through the same command/states contract.
 
 The remaining ecosystem work is deliberately outside this example's ownership:
 

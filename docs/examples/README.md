@@ -15,7 +15,7 @@ integration tests:
 
 Each example now uses the v3 public adapter entrypoints: `ignite-element/xstate`, `ignite-element/redux`, and `ignite-element/mobx`. `igniteCore` detects the correct scope from the `source` you provide. Shared sources (running actors, store instances, observables) produce shared scopes, while definitions (machines, slices, factories) yield isolated scopes.
 
-Examples project UI-facing data through `view(...)`; `commands(...)` exposes intent helpers, and the original `state`/`send` adapter utilities remain available to renderers. The XState example also exposes `record(...)` so the Playwright proof can drive behavior traces and DOM lifecycle evidence from the same story object.
+Examples project public data through `states(snapshot)` and expose intent through `commands(...)`. Public `igniteCore` renderers receive those derived states and commands, not raw `state` or `send`. The XState example also exposes `record(...)` so the Playwright proof can drive behavior traces and DOM lifecycle evidence from the same story object.
 
 > The examples include `ignite.config.ts` only as an advanced compatibility layer for demo-wide shared styles. The normal v3 public path is adapter entrypoint + `jsxImportSource: "ignite-element/jsx"` + component-local `<style>` tags.
 

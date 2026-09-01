@@ -21,7 +21,7 @@ const ranges: Array<{ value: Range; label: string }> = [
 
 const defineDashboardWidget = igniteCore({
 	source: dashboardActor,
-	view: ({ snapshot }) => ({
+	states: (snapshot) => ({
 		team: snapshot.context.team,
 		range: snapshot.context.range,
 		summary: getDashboardSummary(snapshot.context.team, snapshot.context.range),

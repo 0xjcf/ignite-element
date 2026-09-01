@@ -354,7 +354,7 @@ export function createHomeCommands(
 		),
 		status: command(
 			() => {
-				// No-op: the home state is read from the returned snapshot / getView().
+				// No-op: the home state is read from the returned snapshot / getStates().
 			},
 			{ description: "Read the current home state (no change)." },
 		),
@@ -486,7 +486,7 @@ const homeMachine = setup({
 
 /**
  * Build a fresh headless smart home. Returns the agent-runtime surface
- * (`getSchema()` + `execute()` + `getView()` + `on()` + `watchView()`), no DOM.
+ * (`getSchema()` + `execute()` + `getStates()` + `on()` + `watchStates()`), no DOM.
  */
 export function createHome() {
 	return createHomeFromSource(homeMachine);
@@ -502,7 +502,7 @@ function createHomeFromSource(source: typeof homeMachine | HomeActor) {
 			"scene-applied": event<{ scene: Scene }>(),
 			"security-changed": event<{ allDoorsLocked: boolean }>(),
 		}),
-		view: ({ snapshot }) => projectHomeView(snapshot.context),
+		states: (snapshot) => projectHomeView(snapshot.context),
 		commands: ({ actor, command }) =>
 			createHomeCommands(command, (message) => actor.send(message)),
 		effects: ({ emit, select }) => {

@@ -40,7 +40,7 @@ DOM:
 - `src/formMachine.test.ts` — machine transitions, the `canSubmit` guard, the
   async submit (success + server-error) via XState's `waitFor`.
 - `src/form.headless.test.ts` — the same core driven through Ignite's headless
-  runtime (`execute` / `getView`).
+  runtime (`execute` / `getStates`).
 
 Example tests are typecheck-gated (the package's `vitest` run set excludes
 `src/examples/**`); run them directly with `vitest run` against this folder.

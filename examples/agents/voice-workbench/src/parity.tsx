@@ -88,7 +88,7 @@ const completeSeededModelTurn = () => {
 				command: request.call.command,
 				status: "accepted",
 				ownerId: "voice-workbench-parity",
-				view: parityComponent.getView().modelContext,
+				view: parityComponent.getStates().modelContext,
 				events: [],
 			},
 		},
@@ -116,7 +116,7 @@ export function resolveParityState(search: string): ParityState | null {
 }
 
 const ensureResponding = async () => {
-	if (parityComponent.getView().status === "responding") return;
+	if (parityComponent.getStates().status === "responding") return;
 	settleModelPreparation(true);
 	await parityComponent.execute({
 		command: "submitPrompt",
@@ -129,7 +129,7 @@ const ensureResponding = async () => {
 
 const seedArtifact = async () => {
 	await ensureResponding();
-	if (parityComponent.getView().artifacts.length === 0) {
+	if (parityComponent.getStates().artifacts.length === 0) {
 		await parityComponent.execute({
 			command: "createArtifact",
 			input: {
@@ -165,7 +165,7 @@ const seedArtifact = async () => {
 			speech: "Parity harness only — deterministic spoken summary.",
 		},
 	});
-	const view = parityComponent.getView();
+	const view = parityComponent.getStates();
 	const artifact = view.artifacts[0];
 	if (artifact) {
 		paritySource.send({
@@ -178,7 +178,7 @@ const seedArtifact = async () => {
 		});
 	}
 	completeSeededModelTurn();
-	const speechRequest = parityComponent.getView().portRequests.speechDelivery;
+	const speechRequest = parityComponent.getStates().portRequests.speechDelivery;
 	if (speechRequest) {
 		paritySource.send({
 			type: "SPEECH_DELIVERY_PORT_RECEIVED",
@@ -188,7 +188,7 @@ const seedArtifact = async () => {
 				attemptId: speechRequest.attemptId,
 			},
 		});
-		const speech = parityComponent.getView().speech;
+		const speech = parityComponent.getStates().speech;
 		if (speech?.id === speechRequest.id && speech.status === "pending") {
 			await parityComponent.execute({
 				command: "acknowledgeSpeech",
@@ -235,7 +235,7 @@ export async function seedParityState(state: ParityState): Promise<void> {
 			});
 			await parityComponent.execute({ command: "startVoiceCapture" });
 			{
-				const request = parityComponent.getView().portRequests.voiceCapture;
+				const request = parityComponent.getStates().portRequests.voiceCapture;
 				if (request?.type === "start" && request.attemptId) {
 					paritySource.send({
 						type: "VOICE_CAPTURE_PORT_RECEIVED",

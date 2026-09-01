@@ -42,7 +42,7 @@ const counterSlice = createSlice({
 
 export const registerCounter = igniteCore({
   source: counterSlice,
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     count: snapshot.count,
   }),
   commands: ({ actor }) => ({
@@ -80,7 +80,7 @@ const store = configureStore({
 
 export const registerSharedCounter = igniteCore({
   source: store,
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     count: snapshot.counter.count,
   }),
   commands: ({ actor }) => ({
@@ -111,7 +111,7 @@ const counterSlice = createSlice({
 
 export const registerCounter = igniteCore({
   source: counterSlice,
-  view: ({ snapshot }) => ({ count: snapshot.count }),
+  states: (snapshot) => ({ count: snapshot.count }),
   commands: ({ actor }) => ({
     increment: () => actor.dispatch(counterSlice.actions.increment()),
   }),
@@ -158,7 +158,7 @@ const counterStore = () => new Counter();
 // Shared: one observable instance reused across elements.
 export const registerSharedCounter = igniteCore({
   source: counterStore(),
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     count: snapshot.count,
   }),
   commands: ({ actor }) => ({
@@ -172,7 +172,7 @@ export const registerSharedCounter = igniteCore({
 export const registerIsolatedCounter = igniteCore({
   adapter: 'mobx',
   source: counterStore,
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     count: snapshot.count,
   }),
   commands: ({ actor }) => ({

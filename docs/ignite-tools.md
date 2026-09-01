@@ -14,7 +14,7 @@ agent-runtime counterpart to `ignite-element/react`; the roadmap thread lives in
 ## Context
 
 `getSchema()` already describes a component as a machine-readable contract — `commands`
-(name + input schema + `gated`), `events`, `snapshot`, `view`. With headless
+(name + input schema + `gated`), `events`, `snapshot`, `states`. With headless
 `execute({ command, input })`, that's everything an LLM agent needs to *drive* a component.
 `igniteTools` is the bridge from that contract to LLM tool-use.
 
@@ -35,7 +35,7 @@ with no cloud and no web UI.
         │                  │   FUNCTIONAL CORE (pure)      │
   [Anthropic] ─┐  adapter  │   buildManifest(schema)       │        ignite component
   [OpenAI/Codex]┼─(format  │     → NeutralManifest         │ ──────►  execute({ command, input })
-  [Ollama]  ─┘   xlate)    │   resolveCall(name,input)     │          getView()/events ◄──
+  [Ollama]  ─┘   xlate)    │   resolveCall(name,input)     │          getStates()/events ◄──
         ▲                  │     → Result<Route, ToolError>│              (actor)
         │                  │                               │               │
    ToolDialect PORT ◄──────┤   ── PORT: ToolDialect ──     │          ┌─ remote actors
@@ -118,10 +118,10 @@ two helpers; the OpenAI/Ollama dialect reuses them verbatim.
 
 ### Imperative shell
 
-- `run(toolCall): Promise<Result<{ snapshot, view, events }, ToolError>>` — the single
+- `run(toolCall): Promise<Result<{ snapshot, states, events }, ToolError>>` — the single
   side-effect: `runtime.execute({ command, input })` (which may reach a remote actor). The
-  observation carries the raw `snapshot`, the derived **`view`** (the read-model the
-  agent grounds on — `igniteTools` binds `getView` and captures it post-command), and
+  observation carries the raw `snapshot`, the derived **`states`** (the read-model the
+  agent grounds on — `igniteTools` binds `getStates` and captures it post-command), and
   the `events` from the command window. Returns a `Result` so a failed command is data
   the agent reacts to, not an exception across the seam. The LLM API call itself stays
   in the **consumer's** loop — `igniteTools` provides the (provider-shaped) `tools` +
@@ -130,17 +130,17 @@ two helpers; the OpenAI/Ollama dialect reuses them verbatim.
 ### Observation contract — act + acknowledgement
 
 `run` (and the underlying `execute`) is **act + ACK observation**: the returned
-`ToolObservation` (`{ snapshot, view, events }`) is the snapshot + derived view
+`ToolObservation` (`{ snapshot, states, events }`) is the snapshot + derived states
 **at command-acknowledgement** plus the events emitted up to that point — not
 "after the effect settles". The actor model has no
 bounded "done" for a long-running effect (a deploy spans minutes and many states),
 and a settle-wait would misattribute unrelated concurrent read-model updates. So
 for async/remote adapters the observation reflects **state at acknowledgement**.
 Ongoing effects are observed via `observe()`, which streams schema-declared
-events and derived view transitions from the same `igniteTools` surface: the
+events and derived states transitions from the same `igniteTools` surface: the
 agent loop is act → observe → act. A bounded `settle` opt-in on `execute()` is
 deferred (YAGNI until the dogfood shows short-command latency hurts).
-`ToolObservation` carries `{ snapshot, view, events }` — the derived view is
+`ToolObservation` carries `{ snapshot, states, events }` — the derived states is
 captured at acknowledgement so the agent grounds on the read-model, not just raw
 state.
 
@@ -156,8 +156,8 @@ const { tools, toolCalls, run, observe, toolResult } = igniteTools(
 );
 
 const subscription = observe((observation) => {
-  if (observation.type === "view") {
-    console.log("view changed", observation.view);
+  if (observation.type === "states") {
+    console.log("states changed", observation.states);
   } else {
     console.log("event", observation.event);
   }
@@ -280,7 +280,7 @@ For ecosystem work, the boundaries are:
 | --- | --- | --- |
 | `ignite-element` | projection, headless `execute`/`observe`, `getSchema`, `igniteTools`, provider dialect translators, examples | durable model-process lifecycle, distributed actor hosting |
 | `fas-local` | durable local MLX provider lifecycle, operator setup, process reuse, local model health | Ignite projection semantics or component command contracts |
-| `actor-web` | execution/data-plane hosting, topology, actor addresses, future gateway/client transport | Ignite's tool manifest, view projection, or provider dialects |
+| `actor-web` | execution/data-plane hosting, topology, actor addresses, future gateway/client transport | Ignite's tool manifest, states projection, or provider dialects |
 
 The smart-home example now exercises two runtime factories:
 
@@ -306,7 +306,7 @@ not in the Ignite tool dialect.
 | **DDD boundaries** | domain = manifest/routing; adapters translate + **return facts (no throw)**; shell coordinates |
 | **Errors as values** | `resolveCall`/`run` → `Result<…, ToolError>`; the LLM gets the error back as a `tool_result` |
 | **Actor model + topology** | agent-actor → `[igniteTools seam]` → component-actor → remote actors; a tool-call *is* a message; location-transparent via actor-web |
-| **Projections** | the agent grounds on the **view** (`getView()` / `getSchema().view`), the derived read-model — distinct from the raw snapshot |
+| **Projections** | the agent grounds on the **states** (`getStates()` / `getSchema().states`), the derived read-model — distinct from the raw snapshot |
 | **TDD** | pure core + each dialect = unit-tested with **zero LLM calls** (golden neutral↔provider fixtures); red→green per piece |
 | **Manual validation** | headless loop per provider; **Ollama/MLX give a fully-local, key-free loop** (the edge showcase) |
 
@@ -335,7 +335,7 @@ to the provider's `tool_result` (`is_error: true`) so the model can recover.
 
 ## Dependencies
 
-- **typed-view** ✓ + **`getSchema().view`** ✓ (done) — typed manifest inputs + view grounding.
+- **typed-states** ✓ + **`getSchema().states`** ✓ (done) — typed manifest inputs + states grounding.
 - **`canExecute`** (`docs/can-execute.md`) — composes for availability-gated tools
   by omitting unavailable commands when `igniteTools(runtime)` builds the manifest
   and by re-checking availability when `run()` routes a call. To publish a fresh

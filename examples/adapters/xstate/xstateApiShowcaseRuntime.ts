@@ -17,7 +17,7 @@ export const apiShowcase = igniteCore({
 			previousCount: number;
 		}>(),
 	}),
-	view: ({ snapshot }) => {
+	states: (snapshot) => {
 		const progress = Math.round(
 			(snapshot.context.count / snapshot.context.limit) * 100,
 		);

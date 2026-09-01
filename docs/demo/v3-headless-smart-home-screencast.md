@@ -72,9 +72,9 @@ Show that `createHome()` returns the runtime surface:
 
 - `getSchema()`
 - `execute()`
-- `getView()`
+- `getStates()`
 - `on()`
-- `watchView()`
+- `watchStates()`
 
 Point at the command metadata for `toggleLight`, `setThermostat`, `runScene`,
 `dimRooms`, and `status`. Call out that scalar, object, array, and no-argument

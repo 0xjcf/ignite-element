@@ -112,13 +112,13 @@ breaking cutover freezes it.
 | --- | --- | --- |
 | `ignite-element/react` helper + React demo (+ registration handle) | `1781805261094` | **DONE** (beta.7) — the gap-finder that surfaced `IgniteReactRef` + config-free lit auto-detect; `docs/ignite-react.md`. Remaining framework demos are Phase 0 |
 | `select().whenChanged()` | `1781798483059` | additive |
-| `expectView` | `1781798484574` | additive only; the `expectState`→`expectSnapshot` rename is a separate breaking task |
+| `expectStates` | `1781798484574` | additive only; the `expectState`→`expectSnapshot` rename is a separate breaking task |
 | `canExecute(name)` | `1781798486122` | ✅ done |
 | Test host seam (fluent `.host()`) | `1781619012619` | additive |
 | `igniteShell` + shared move-safe teardown | `1781817947799` | additive primitive |
 | Effects object-form / remove positional | `1781818975642` | **DONE** (beta breaking) — object-form is the only v3 beta effects callback shape |
 
-Suggested intra-phase order for remaining work: `whenChanged` → `expectView` →
+Suggested intra-phase order for remaining work: `whenChanged` → `expectStates` →
 host-seam → `igniteShell`.
 
 ## Agent-runtime thread (additive, getSchema-driven) — added 2026-06-21
@@ -129,15 +129,15 @@ across `3.x` minors and does **not** gate stable — but it's where the "dev DX 
 agent/LLM-drivability" differentiator gets proven. The spine:
 
 ```
-typed-view (1781971975611) ─▶ getSchema().view ─▶ igniteTools(component)
+typed-view (1781971975611) ─▶ getSchema().states ─▶ igniteTools(component)
                                                         │
                           canExecute (1781798486122) ───┘  (dynamic tool gating)
                                                         ▼
         dogfood example (actor-web) ─▶ showcase app (remote actor + headless console)
 ```
 
-- **typed-view** (`1781971975611`) — types `getView()` end-to-end; prereq for a typed schema view + typed tools.
-- **`getSchema().view`** — the missing read-model facet; agents see the projection they bind to. Brief `.fas/tasks/additive-expose-the-typed-view-projection-in-getschema-as-ig.md`.
+- **typed-view** (`1781971975611`) — types `getStates()` end-to-end; prereq for a typed schema view + typed tools.
+- **`getSchema().states`** — the missing read-model facet; agents see the projection they bind to. Brief `.fas/tasks/additive-expose-the-typed-view-projection-in-getschema-as-ig.md`.
 - **`igniteTools(component)`** — LLM tool manifest from `getSchema().commands`, `tool_use` → `execute`, events + view as observations. Agent analog of `igniteReact`; SDK-neutral core. Brief `.fas/tasks/additive-agent-api-add-ignitetools-*`.
 - **`canExecute`** (`1781798486122`) — dynamic tool availability (hide a tool when its command can't run for the current snapshot) now ships as per-command `canExecute({ snapshot })` metadata plus the headless `canExecute(name)` query.
 - **Dogfood (actor-web)** — point a real agent at an actor-web component via `igniteTools`; proves the closed loop (flat events = native actor messages, transport-aware view). Brief `.fas/tasks/example-dogfood-prove-the-agent-runtime-*`.

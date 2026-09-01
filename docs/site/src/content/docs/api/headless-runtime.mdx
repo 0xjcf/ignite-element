@@ -1,6 +1,6 @@
 ---
 title: Headless runtime
-description: The agent runtime API on the igniteCore return — execute, canExecute, getSnapshot, getView, getSchema, on, watchSnapshot, watchView, and record.
+description: The agent runtime API on the igniteCore return — execute, canExecute, getSnapshot, getStates, getSchema, on, watchSnapshot, watchStates, and record.
 sidebar:
   label: Headless runtime
   order: 4
@@ -15,7 +15,7 @@ import { igniteCore } from 'ignite-element/xstate';
 
 const counter = igniteCore({
   source: counterMachine,
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     isOn: snapshot.matches('on'),
   }),
   commands: ({ actor }) => ({
@@ -32,10 +32,10 @@ const counter = igniteCore({
 });
 
 // Register a DOM projection later — the runtime is available immediately.
-const { snapshot, events } = await counter.execute({ command: 'toggle' });
+const { snapshot, states, events } = await counter.execute({ command: 'toggle' });
 const isToggleAvailable = counter.canExecute('toggle');
 const current = counter.getSnapshot();
-const view = counter.getView();
+const states = counter.getStates();
 const schema = counter.getSchema();
 ```
 
@@ -44,9 +44,9 @@ const schema = counter.getSchema();
 | Layer | Contract |
 | --- | --- |
 | Authoring | `igniteCore(config)` accepts executable application input, including source ownership and callbacks. |
-| Blueprint | `getSchema()` is the sole public compiled JSON-safe description of commands, declared events, snapshot, and view. |
-| Focused reads | `getSnapshot()`, `getView()`, and `canExecute(...)` answer one live question at a time. |
-| Subscriptions | `on(...)`, `watchSnapshot(...)`, and `watchView(...)` keep long-lived consumers synchronized. |
+| Blueprint | `getSchema()` is the sole public compiled JSON-safe description of commands, declared events, snapshot, and states. |
+| Focused reads | `getSnapshot()`, `getStates()`, and `canExecute(...)` answer one live question at a time. |
+| Subscriptions | `on(...)`, `watchSnapshot(...)`, and `watchStates(...)` keep long-lived consumers synchronized. |
 | Private machinery | Each projection validation and commit attempt captures one coherent inspection inside Ignite; it is not a public API. |
 
 Separate focused getter calls are non-atomic. A source transition between calls can make them observe different revisions; use subscriptions and `execute()` results for ongoing synchronization.
@@ -57,7 +57,7 @@ Separate focused getter calls are non-atomic. A source transition between calls 
 
 Runs a command by name and resolves at command acknowledgement, after the command window closes and the transition result is available. It does not wait for long-running or asynchronous effects. The input type is inferred from the command function's first parameter, so commands that take no argument omit `input`.
 
-**Returns** `Promise<{ snapshot, events }>` — the snapshot **after** the transition plus the ordered events emitted by that single transition (an `IgniteAgentExecutionResult`).
+**Returns** `Promise<{ snapshot, states, events }>` — one coherent post-command snapshot/states pair plus the ordered events emitted by that command window (an `IgniteAgentExecutionResult`).
 
 ```ts
 const result = await counter.execute({ command: 'toggle' });
@@ -69,6 +69,7 @@ The shape:
 // IgniteAgentExecutionResult<State, Events>
 {
   snapshot: { value: 'on', context: {} },
+  states: { isOn: true },
   events: [{ type: 'toggled', isOn: true }],
 }
 ```
@@ -105,14 +106,14 @@ const snapshot = counter.getSnapshot();
 
 The pre-stable `getState()` alias was removed at v3.0.0 — use `getSnapshot()`.
 
-### `getView()`
+### `getStates()`
 
-Returns the current projected view — the object your `view(...)` builder derives from the snapshot.
+Returns the current derived states — the plain object your optional `states(snapshot)` callback derives from the native snapshot.
 
-**Returns** `View` — the projected view object, or `{}` when no `view` is configured.
+**Returns** the inferred states object, or one stable `{}` when no `states` callback is configured.
 
 ```ts
-const view = counter.getView();
+const states = counter.getStates();
 ```
 
 ### `on(eventName, handler)`
@@ -145,15 +146,15 @@ const subscription = counter.watchSnapshot((snapshot, prevSnapshot) => {
 
 The pre-stable `watch(handler)` alias was removed at v3.0.0 — use `watchSnapshot()`.
 
-### `watchView(handler)`
+### `watchStates(handler)`
 
-Subscribes to **projected view** updates. The handler receives `(view, prevView)` on every view change.
+Subscribes to **derived states** updates. The handler receives `(states, prevStates)` for every delivered source observation; this API does not add deep-equality filtering.
 
 **Returns** a subscription — `{ unsubscribe(): void }`.
 
 ```ts
-const subscription = counter.watchView((view, prevView) => {
-  console.log(prevView.isOn, '->', view.isOn);
+const subscription = counter.watchStates((states, prevStates) => {
+  console.log(prevStates.isOn, '->', states.isOn);
 });
 ```
 
@@ -163,7 +164,7 @@ Returns the sole public compiled, JSON-safe Ignite blueprint describing the comp
 
 "Blueprint" is Ignite vocabulary, not a claim that this object is a formal JSON Schema document. A command's `input` metadata may use JSON-Schema-like fragments, but the complete blueprint is an Ignite discovery contract.
 
-**Returns** `{ commands, events, snapshot, view }` — a JSON-serializable `IgniteAgentSchema`: `commands` maps each name to its metadata (`{}` when none), `events` is the array of declared event descriptors such as `{ type }`, `snapshot` is the current snapshot value, and `view` is the projected view. Commands with an availability predicate include `gated: true`; call `canExecute(commandName)` for the current boolean result.
+**Returns** `{ commands, events, snapshot, states }` — a JSON-serializable `IgniteAgentSchema`: `commands` maps each name to its metadata (`{}` when none), `events` is the array of declared event descriptors such as `{ type }`, and `snapshot` and `states` are one coherent current observation. Commands with an availability predicate include `gated: true`; call `canExecute(commandName)` for the current boolean result.
 
 The blueprint excludes source actors and factories, effects, callbacks, selectors, registries, projection bindings, committers, and executable model-authored content.
 
@@ -201,7 +202,7 @@ The shape:
       armed: false,
     },
   },
-  view: {
+  states: {
     mode: 'auto',
     canArmAlarm: true,
     statusLabel: 'Ready',
@@ -214,8 +215,8 @@ How tools usually consume it:
 1. Read `commands` to decide which actions exist and whether any carry input schemas or descriptions.
 2. Use `input` to shape payloads before calling `execute({ command, input? })`.
 3. Treat `gated: true` as "availability is dynamic" and call `canExecute(commandName)` before offering or invoking that command.
-4. Use `snapshot` when the raw source state matters, and `view` when the projected UI-facing state is the better contract.
-5. Observe outcomes with `execute().events`, `on(...)`, or `watchView(...)` instead of assuming a command succeeded silently.
+4. Use `snapshot` when the raw source state matters, and `states` when the derived read model is the better contract.
+5. Observe outcomes with `execute().events`, `on(...)`, or `watchStates(...)` instead of assuming a command succeeded silently.
 
 Example runtime flow:
 
@@ -226,8 +227,8 @@ const eventSubscription = panel.on('alarm-armed', (event) => {
   console.log('Alarm status:', event);
 });
 
-const viewSubscription = panel.watchView((view) => {
-  console.log('Status label:', view.statusLabel);
+const statesSubscription = panel.watchStates((states) => {
+  console.log('Status label:', states.statusLabel);
 });
 
 const schema = panel.getSchema();
@@ -241,7 +242,7 @@ const result = await panel.execute({ command: 'armAlarm' });
 console.log('Command events:', result.events);
 
 eventSubscription.unsubscribe();
-viewSubscription.unsubscribe();
+statesSubscription.unsubscribe();
 ```
 
 This separation is intentional:
@@ -249,7 +250,7 @@ This separation is intentional:
 - `getSchema()` tells you what the runtime exposes right now in JSON-safe form.
 - `canExecute()` answers dynamic command availability.
 - `execute()` performs the transition and returns the resulting snapshot plus emitted events.
-- `on(...)` and `watchView(...)` keep long-lived observers in sync across bootstrap and after the initial schema read.
+- `on(...)` and `watchStates(...)` keep long-lived observers in sync across bootstrap and after the initial schema read.
 
 Ignite does not expose a second `getBlueprint()` alias, a public `inspect()` method, or a public inspection-bundle type. Internally, each projection validation and commit attempt captures one private coherent inspection, so the document and behavior facts for that attempt come from the same captured revision. An asynchronous external commit is not transactional with source transitions that occur later; the captured inspection is not part of the headless API.
 

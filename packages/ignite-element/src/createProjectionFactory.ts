@@ -104,8 +104,7 @@ export type PublicFacadeRenderArgs<
 	CommandsResult,
 	Additional extends Record<string, unknown> = Record<never, never>,
 	Events extends EventMap = EmptyEventMap,
-> =
-	Additional &
+> = Additional &
 	FacadeStateResult<StatesResult> &
 	ExtractCommandResult<CommandsResult> &
 	Phantom<CommandActor> &
@@ -266,7 +265,9 @@ export function createProjectionFactory<
 	const userAdditionalArgs = createAdditionalArgs ?? (() => ({}) as Additional);
 	const resolvedStates = states;
 	const emptyStates = Object.freeze({}) as FacadeStateResult<StatesResult>;
-	const deriveStates = (snapshot: Snapshot): FacadeStateResult<StatesResult> => {
+	const deriveStates = (
+		snapshot: Snapshot,
+	): FacadeStateResult<StatesResult> => {
 		if (!resolvedStates) {
 			return emptyStates;
 		}

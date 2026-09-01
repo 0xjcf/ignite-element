@@ -36,7 +36,7 @@ const counterMachine = setup({
 
 const counterCore = igniteCore({
 	source: counterMachine,
-	view: ({ snapshot }) => ({
+	states: (snapshot) => ({
 		count: snapshot.context.count,
 		label: snapshot.context.label,
 	}),

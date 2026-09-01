@@ -8,7 +8,7 @@ const createSharedDashboard = () => createActor(dashboardMachine).start();
 const makeFiltersRuntime = (actor: ReturnType<typeof createSharedDashboard>) =>
 	igniteCore({
 		source: actor,
-		view: ({ snapshot }) => ({
+		states: (snapshot) => ({
 			team: snapshot.context.team,
 			range: snapshot.context.range,
 		}),
@@ -23,7 +23,7 @@ const makeFiltersRuntime = (actor: ReturnType<typeof createSharedDashboard>) =>
 const makeSummaryRuntime = (actor: ReturnType<typeof createSharedDashboard>) =>
 	igniteCore({
 		source: actor,
-		view: ({ snapshot }) => ({
+		states: (snapshot) => ({
 			team: snapshot.context.team,
 			range: snapshot.context.range,
 			summary: getDashboardSummary(
@@ -45,7 +45,7 @@ describe("dashboard shared state — headless runtime", () => {
 		await filters.execute({ command: "selectTeam", input: "ops" });
 		await filters.execute({ command: "selectRange", input: "day" });
 
-		expect(summary.getView()).toMatchObject({
+		expect(summary.getStates()).toMatchObject({
 			team: "ops",
 			range: "day",
 			summary: { openTickets: 17, slaRisk: 2 },

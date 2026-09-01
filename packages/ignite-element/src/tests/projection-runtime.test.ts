@@ -3456,9 +3456,9 @@ describe("projection targets", () => {
 
 			expect(commitSpeech).toHaveBeenCalledTimes(2);
 			expect(core.getSnapshot().context.speech?.status).toBe("acknowledged");
-			expect(
-				projectStates.mock.calls.length - statesCallsBeforeBurst,
-			).toBe(103);
+			expect(projectStates.mock.calls.length - statesCallsBeforeBurst).toBe(
+				103,
+			);
 		} finally {
 			session.dispose();
 		}

@@ -13,7 +13,7 @@ type RuntimeCommand =
 	| "incrementToLimit";
 type PayloadCommand = "setStep" | "setLimit";
 type ApiShowcaseState = ReturnType<typeof apiShowcase.getSnapshot>;
-type ApiShowcaseView = ReturnType<typeof apiShowcase.getView>;
+type ApiShowcaseView = ReturnType<typeof apiShowcase.getStates>;
 type ApiShowcaseStory = ReturnType<typeof apiShowcase.record>;
 type RuntimeEventRecord = {
 	type: string;
@@ -39,7 +39,7 @@ interface RuntimeReport {
 		step: number;
 		lastCommand: string;
 	};
-	view: ReturnType<typeof apiShowcase.getView>;
+	states: ReturnType<typeof apiShowcase.getStates>;
 	resultEvents: RuntimeEventRecord[];
 	eventLog: string[];
 	stateLog: string[];
@@ -52,7 +52,7 @@ interface RuntimeReport {
 		traceCount: number;
 		lifecycleCount: number;
 		eventCount: number;
-		finalView: ApiShowcaseView;
+		finalStates: ApiShowcaseView;
 	};
 }
 
@@ -100,10 +100,12 @@ const formatTraceEntry = (
 			return `command #${entry.step}: ${entry.command}`;
 		case "event":
 			return `event #${entry.step}: ${entry.event}`;
+		case "behavior":
+			return `behavior #${entry.step}: ${entry.name}`;
 		case "snapshot":
 			return `snapshot ${entry.phase} #${entry.step}`;
-		case "view":
-			return `view ${entry.phase} #${entry.step}`;
+		case "states":
+			return `states ${entry.phase} #${entry.step}`;
 	}
 };
 
@@ -146,7 +148,7 @@ const codeForCommand = (
 			return [
 				"apiShowcase.getSchema()",
 				"apiShowcase.getSnapshot()",
-				"apiShowcase.getView()",
+				"apiShowcase.getStates()",
 			].join("\n");
 		case "setStep":
 			return `await story.execute({ command: "setStep", input: ${payload ?? 1} })`;
@@ -156,7 +158,7 @@ const codeForCommand = (
 			return [
 				'const story = apiShowcase.record("reaches limit")',
 				"await story.until(",
-				"  (view) => view.isLimited,",
+				"  (states) => states.isLimited,",
 				'  async () => await story.execute({ command: "increment" }),',
 				"  { maxSteps: 20 },",
 				")",
@@ -174,7 +176,7 @@ const createPlaceholderReport = (command: string): RuntimeReport => ({
 	code: "// Loading runtime report...",
 	schema: apiShowcase.getSchema(),
 	state: summarizeState(apiShowcase.getSnapshot()),
-	view: apiShowcase.getView(),
+	states: apiShowcase.getStates(),
 	resultEvents: [],
 	eventLog: [],
 	stateLog: [],
@@ -187,14 +189,14 @@ const createPlaceholderReport = (command: string): RuntimeReport => ({
 		traceCount: 0,
 		lifecycleCount: 0,
 		eventCount: 0,
-		finalView: apiShowcase.getView(),
+		finalStates: apiShowcase.getStates(),
 	},
 });
 
 const inspectRuntime = (): RuntimeExecution => {
 	const schema = apiShowcase.getSchema();
 	const state = summarizeState(apiShowcase.getSnapshot());
-	const view = apiShowcase.getView();
+	const states = apiShowcase.getStates();
 	const commandNames = Object.keys(schema.commands);
 	const eventNames = schema.events.map((event) => event.type);
 
@@ -205,7 +207,7 @@ const inspectRuntime = (): RuntimeExecution => {
 			`commands -> ${commandNames.join(", ") || "none"}`,
 			`events -> ${eventNames.join(", ") || "none"}`,
 			`getSnapshot() -> count ${state.count}/${state.limit}, state ${state.value}`,
-			`getView() -> ${view.stateLabel}, progress ${view.progress}%`,
+			`getStates() -> ${states.stateLabel}, progress ${states.progress}%`,
 		],
 	};
 };
@@ -228,26 +230,26 @@ const incrementToLimit = async (
 		};
 	}
 
-	let view: ApiShowcaseView = apiShowcase.getView();
+	let states: ApiShowcaseView = apiShowcase.getStates();
 	agentLog.push(
-		`getView() -> count ${view.count}/${view.limit}, limited ${view.isLimited}`,
+		`getStates() -> count ${states.count}/${states.limit}, limited ${states.isLimited}`,
 	);
 
-	const maxSteps = Math.max(1, view.limit - view.count + 1);
+	const maxSteps = Math.max(1, states.limit - states.count + 1);
 	let steps = 0;
 
-	while (!view.isLimited && steps < maxSteps) {
+	while (!states.isLimited && steps < maxSteps) {
 		const result = await story.execute({ command: "increment" });
 		resultEvents.push(...mapRuntimeEvents(result.events));
-		view = apiShowcase.getView();
+		states = apiShowcase.getStates();
 		steps += 1;
 		agentLog.push(
-			`execute({ command: "increment" }) -> count ${view.count}/${view.limit}, state ${view.stateLabel}`,
+			`execute({ command: "increment" }) -> count ${states.count}/${states.limit}, state ${states.stateLabel}`,
 		);
 	}
 
 	agentLog.push(
-		view.isLimited
+		states.isLimited
 			? `Goal reached after ${steps} increment command(s).`
 			: `Stopped after ${steps} command(s) before reaching the limit guard.`,
 	);
@@ -333,8 +335,10 @@ const createRuntimeReport = async (
 			`watchSnapshot(...) count ${prevState.context.count} -> ${state.context.count}`,
 		);
 	});
-	const viewSubscription = apiShowcase.watchView((view, prevView) => {
-		viewLog.push(`watchView(...) ${prevView.stateLabel} -> ${view.stateLabel}`);
+	const viewSubscription = apiShowcase.watchStates((states, prevView) => {
+		viewLog.push(
+			`watchStates(...) ${prevView.stateLabel} -> ${states.stateLabel}`,
+		);
 	});
 
 	let resultEvents: RuntimeEventRecord[] = [];
@@ -362,7 +366,7 @@ const createRuntimeReport = async (
 			traceCount: summary.traceCount,
 			lifecycleCount: summary.lifecycleCount,
 			eventCount: summary.events.length,
-			finalView: summary.finalView,
+			finalStates: summary.finalStates,
 		};
 		story.stop();
 	}
@@ -373,7 +377,7 @@ const createRuntimeReport = async (
 		code: codeForCommand(command, payload),
 		schema: apiShowcase.getSchema(),
 		state: summarizeState(apiShowcase.getSnapshot()),
-		view: apiShowcase.getView(),
+		states: apiShowcase.getStates(),
 		resultEvents,
 		eventLog,
 		stateLog,
@@ -473,7 +477,7 @@ const agentRuntimeMachine = setup({
 
 const agentRuntimeShowcase = igniteCore({
 	source: agentRuntimeMachine,
-	view: ({ snapshot }) => ({
+	states: (snapshot) => ({
 		report: snapshot.context.report,
 		step: snapshot.context.step,
 		limit: snapshot.context.limit,
@@ -514,8 +518,8 @@ agentRuntimeShowcase("xstate-agent-runtime-showcase", (ctx) => (
 					{ctx.report.command}
 				</h2>
 				<p class="mt-2 text-sm text-slate-600">
-					Headless count: <strong>{ctx.report.view.count}</strong> · State:{" "}
-					<strong>{ctx.report.view.stateLabel}</strong> · Events:{" "}
+					Headless count: <strong>{ctx.report.states.count}</strong> · State:{" "}
+					<strong>{ctx.report.states.stateLabel}</strong> · Events:{" "}
 					<strong>{ctx.eventCount}</strong> · Watchers:{" "}
 					<strong>{ctx.watcherCount}</strong> · Agent steps:{" "}
 					<strong>{ctx.agentStepCount}</strong> · Trace:{" "}
@@ -666,9 +670,9 @@ agentRuntimeShowcase("xstate-agent-runtime-showcase", (ctx) => (
 			</div>
 
 			<div class="min-w-0 rounded border border-slate-200 bg-slate-50 p-4">
-				<h3 class="text-sm font-semibold text-slate-800">getView()</h3>
+				<h3 class="text-sm font-semibold text-slate-800">getStates()</h3>
 				<pre class="mt-3 overflow-auto rounded bg-white p-3 text-xs text-slate-700">
-					<code>{formatJson(ctx.report.view)}</code>
+					<code>{formatJson(ctx.report.states)}</code>
 				</pre>
 			</div>
 		</div>
@@ -739,7 +743,7 @@ agentRuntimeShowcase("xstate-agent-runtime-showcase", (ctx) => (
 
 			<div class="min-w-0 rounded border border-slate-200 bg-slate-50 p-4">
 				<h3 class="text-sm font-semibold text-slate-800">
-					on / watch / watchView
+					on / watch / watchStates
 				</h3>
 				<ul class="mt-3 grid gap-2 text-sm text-slate-700">
 					{[

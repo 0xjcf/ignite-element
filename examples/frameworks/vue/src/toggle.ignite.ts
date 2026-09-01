@@ -26,7 +26,7 @@ const toggleMachine = setup({
 
 const toggle = igniteCore({
 	source: toggleMachine,
-	view: ({ snapshot }) => ({
+	states: (snapshot) => ({
 		on: snapshot.context.on,
 		label: snapshot.context.label,
 	}),

@@ -90,7 +90,7 @@ The headless tests use the same source factory with a deterministic memory port:
 ```ts
 const router = igniteCore({
   source: createRouterSource({ navigation: createMemoryNavigation("/") }),
-  view: ({ snapshot }) => ({ id: snapshot.context.params.id ?? null }),
+  states: (snapshot) => ({ id: snapshot.context.params.id ?? null }),
 });
 ```
 

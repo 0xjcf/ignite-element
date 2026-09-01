@@ -43,7 +43,7 @@ declare const shipmentSource: ActorWebCommandSource<
 
 export const shipmentCard = igniteCore({
   source: shipmentSource,
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     shipmentId: snapshot.context.shipmentId,
     status: snapshot.context.status,
     etaLabel: snapshot.context.etaLabel,
@@ -129,7 +129,7 @@ Never mutate the projected read model to "send" — always go through `send`/`as
 
 ## Transport status
 
-Each projection snapshot carries transport metadata describing the runtime connection. Opt into it explicitly through the `transport` field on the `view` callback — most components should stay focused on business state.
+Each projection snapshot carries transport metadata describing the runtime connection. Opt into it explicitly through `snapshot.transport` in the `states` callback — most components should stay focused on business state.
 
 `transport` is an `ActorWebTransportStatus`: `{ state, updatedAt, lastSequence?, lagMs?, reason? }`. The `state` is one of:
 
@@ -155,7 +155,7 @@ declare const shipmentReadModel: ActorWebReadModelSource<
 
 export const shipmentBadge = igniteCore({
   source: shipmentReadModel,
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     shipmentId: snapshot.context.shipmentId,
     status: snapshot.context.status,
     syncState: snapshot.transport.state,
@@ -189,7 +189,7 @@ declare const shipmentSource: ActorWebCommandSource<
 
 export const shipmentFeed = igniteCore({
   source: shipmentSource,
-  view: ({ snapshot }) => ({ status: snapshot.context.status }),
+  states: (snapshot) => ({ status: snapshot.context.status }),
   commands: ({ actor }) => ({
     cancel: (shipmentId: string) =>
       actor.send({ type: 'shipment.cancel', shipmentId }),

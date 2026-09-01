@@ -17,7 +17,7 @@ const link = (href: string, label: string, navigate: (to: string) => void) => (
 
 const definePage = igniteCore({
 	source: routerSource,
-	view: ({ snapshot }) => ({
+	states: (snapshot) => ({
 		id: snapshot.context.params.id ?? "",
 		path: snapshot.context.path,
 		authed: snapshot.context.authed,

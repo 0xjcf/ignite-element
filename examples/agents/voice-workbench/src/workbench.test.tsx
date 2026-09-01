@@ -133,7 +133,7 @@ const recordTurnTerminal = (event: {
 				id: request.call.id ?? "workbench-complete",
 				command: request.call.command,
 				status: "accepted",
-				view: component.getView().modelContext,
+				view: component.getStates().modelContext,
 				events: [],
 			},
 		},
@@ -242,7 +242,7 @@ describe("voice workbench accessible JSX", () => {
 			"The local model could not be reached.",
 		);
 		bridge.getByRole("button", { name: "Retry model" }).click();
-		expect(component.getView().status).toBe("preparing");
+		expect(component.getStates().status).toBe("preparing");
 		executePrivatePort({ command: "reportModelAvailable" });
 		executePrivatePort({
 			command: "recordRuntimeManifest",
@@ -313,7 +313,7 @@ describe("voice workbench accessible JSX", () => {
 				],
 			},
 		});
-		expect(component.getView().runtimeInspector).toMatchObject({
+		expect(component.getStates().runtimeInspector).toMatchObject({
 			mlx: {
 				heading: "MLX model readiness",
 				statusLabel: "available",
@@ -401,7 +401,7 @@ describe("voice workbench accessible JSX", () => {
 			bridge.getByRole("button", { name: "Headless preview" }),
 		).toBeTruthy();
 		bridge.getByRole("button", { name: "Terminal preview" }).click();
-		expect(component.getView().runtimeInspector.selectedPreview).toBe(
+		expect(component.getStates().runtimeInspector.selectedPreview).toBe(
 			"terminal",
 		);
 		expect(
@@ -441,7 +441,7 @@ describe("voice workbench accessible JSX", () => {
 		form.dispatchEvent(
 			new Event("submit", { bubbles: true, cancelable: true }),
 		);
-		expect(component.getView().status).toBe("responding");
+		expect(component.getStates().status).toBe("responding");
 		expect(
 			bridge.host.shadowRoot?.querySelector(".progress-card")?.textContent,
 		).toContain("Awaiting the first model or capability result");
@@ -625,7 +625,7 @@ describe("voice workbench accessible JSX", () => {
 
 		const schemaTab = bridge.getByRole("tab", { name: "Schema" });
 		schemaTab.click();
-		expect(component.getView()).toMatchObject({
+		expect(component.getStates()).toMatchObject({
 			presentation: { artifactView: "schema" },
 		});
 		expect(
@@ -646,7 +646,7 @@ describe("voice workbench accessible JSX", () => {
 		const completedTurnId = source.getSnapshot().context.activeTurnId;
 		if (!completedTurnId) throw new Error("Expected an active completed turn.");
 		recordTurnTerminal({ type: "TURN_COMPLETED", turnId: completedTurnId });
-		expect(component.getView().status).toBe("ready");
+		expect(component.getStates().status).toBe("ready");
 		bridge.getByRole("tab", { name: "Document" }).click();
 		const checklistItem = bridge.getByRole("checkbox", {
 			name: "Ship Ignite",
@@ -654,11 +654,11 @@ describe("voice workbench accessible JSX", () => {
 		expect(checklistItem.disabled).toBe(false);
 		expect(checklistItem.checked).toBe(false);
 		checklistItem.click();
-		expect(component.getView().activeArtifact).toMatchObject({
+		expect(component.getStates().activeArtifact).toMatchObject({
 			id: "decision",
 			revision: "2",
 		});
-		expect(component.getView().activeArtifact?.nodes[0]).toMatchObject({
+		expect(component.getStates().activeArtifact?.nodes[0]).toMatchObject({
 			id: "decision-checklist",
 			items: [{ id: "ship", checked: true }],
 		});
@@ -674,7 +674,7 @@ describe("voice workbench accessible JSX", () => {
 				?.textContent,
 		).toContain("Revision 2");
 		bridge.getByRole("button", { name: "Restore revision 1" }).click();
-		expect(component.getView().activeArtifact).toMatchObject({
+		expect(component.getStates().activeArtifact).toMatchObject({
 			id: "decision",
 			revision: "3",
 		});
@@ -757,7 +757,7 @@ describe("voice workbench accessible JSX", () => {
 			},
 		});
 		recordTurnTerminal({ type: "TURN_COMPLETED", turnId: receiptTurnId });
-		expect(component.getView()).toMatchObject({
+		expect(component.getStates()).toMatchObject({
 			activeArtifact: { id: "receipt", revision: "1" },
 			artifactSummaries: [
 				{ id: "decision", active: false },
@@ -765,7 +765,7 @@ describe("voice workbench accessible JSX", () => {
 			],
 		});
 		bridge.getByRole("button", { name: "Decision, revision 3" }).click();
-		expect(component.getView().activeArtifact).toMatchObject({
+		expect(component.getStates().activeArtifact).toMatchObject({
 			id: "decision",
 			revision: "3",
 		});

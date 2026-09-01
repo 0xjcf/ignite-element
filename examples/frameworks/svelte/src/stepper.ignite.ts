@@ -37,7 +37,7 @@ const stepperSlice = createSlice({
 const stepper = igniteCore({
 	// An isolated slice source: each element instance gets its own store.
 	source: stepperSlice,
-	view: ({ snapshot }) => ({
+	states: (snapshot) => ({
 		value: snapshot.value,
 		step: snapshot.step,
 		label: snapshot.label,

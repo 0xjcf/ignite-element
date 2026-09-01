@@ -32,8 +32,8 @@ export type AgentTraceEntry = {
 	ok: boolean;
 	/** errors-as-values: the ToolError kind when the call was rejected. */
 	errorKind?: string;
-	/** The derived view at command-acknowledgement — what the agent grounds on. */
-	view?: unknown;
+	/** The derived states at command-acknowledgement — what the agent grounds on. */
+	states?: unknown;
 	/** Domain events emitted during the command window (the observation stream). */
 	events: string[];
 };
@@ -105,7 +105,7 @@ export async function runHomeAgent(
 					input: call.input,
 					ok: isOk(result),
 					errorKind: isOk(result) ? undefined : result.error.kind,
-					view: isOk(result) ? result.value.view : undefined,
+					states: isOk(result) ? result.value.states : undefined,
 					events: isOk(result)
 						? result.value.events.map((event) => event.type)
 						: [],
@@ -188,7 +188,7 @@ export async function runHomeOpenAICompatibleAgent(
 					input: call.input,
 					ok: isOk(result),
 					errorKind: isOk(result) ? undefined : result.error.kind,
-					view: isOk(result) ? result.value.view : undefined,
+					states: isOk(result) ? result.value.states : undefined,
 					events: isOk(result)
 						? result.value.events.map((event) => event.type)
 						: [],

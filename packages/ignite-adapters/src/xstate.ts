@@ -16,11 +16,7 @@ import createXStateAdapter, {
 } from "./adapters/XStateAdapter";
 import { isXStateActor, isXStateMachine } from "./utils/adapterGuards";
 
-export type {
-	XStateActorInstance,
-	XStateCommandActor,
-	XStateSnapshot,
-};
+export type { XStateActorInstance, XStateCommandActor, XStateSnapshot };
 
 export type EventsDefinition<Events> = (event: EventBuilder) => Events;
 

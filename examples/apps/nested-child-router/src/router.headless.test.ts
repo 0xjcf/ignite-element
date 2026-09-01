@@ -8,7 +8,7 @@ const makeRouter = () =>
 		source: createRouterSource({
 			navigation: createMemoryNavigation("/"),
 		}),
-		view: ({ snapshot }) => ({
+		states: (snapshot) => ({
 			parent: snapshot.context.parent,
 			child: snapshot.context.child,
 			path: snapshot.context.path,
@@ -29,7 +29,7 @@ describe("nested child router — headless runtime", () => {
 
 		await router.execute({ command: "openDocSection", input: "api" });
 
-		expect(router.getView()).toMatchObject({
+		expect(router.getStates()).toMatchObject({
 			parent: "docs",
 			child: "api",
 			path: "/docs/api",
@@ -41,13 +41,13 @@ describe("nested child router — headless runtime", () => {
 		const router = makeRouter();
 
 		await router.execute({ command: "navigate", input: "/settings/billing" });
-		expect(router.getView()).toMatchObject({
+		expect(router.getStates()).toMatchObject({
 			parent: "settings",
 			child: "billing",
 		});
 
 		await router.execute({ command: "openDocSection", input: "examples" });
-		expect(router.getView()).toMatchObject({
+		expect(router.getStates()).toMatchObject({
 			parent: "docs",
 			child: "examples",
 			path: "/docs/examples",

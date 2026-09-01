@@ -1347,7 +1347,9 @@ describe("ignite test DSL", () => {
 				{ kind: "command", command: "increment", payload: 2 },
 				{ kind: "event", event: "counter-incremented", payload: { count: 2 } },
 				(entry) =>
-					entry.kind === "states" && entry.phase === "after" && entry.step === 2,
+					entry.kind === "states" &&
+					entry.phase === "after" &&
+					entry.step === 2,
 			]),
 		).toEqual(trace);
 

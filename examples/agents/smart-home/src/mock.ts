@@ -78,7 +78,7 @@ function printSession(result: AgentResult): void {
 	}
 	console.log(`\n💬 ${result.finalText}\n`);
 	console.log("Final state:");
-	console.log(renderHome(result.home.getView()));
+	console.log(renderHome(result.home.getStates()));
 }
 
 try {
@@ -86,7 +86,7 @@ try {
 
 	console.log("🏠 Smart-home agent — scripted, key-free, headless (no DOM)\n");
 	console.log("Initial state:");
-	console.log(renderHome(createHome().getView()));
+	console.log(renderHome(createHome().getStates()));
 	console.log(`\n🗣️  "${prompt}"\n`);
 
 	const result = await runHomeAgent(scriptedModel(script), prompt, {

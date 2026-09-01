@@ -7,11 +7,9 @@ import { taskManagerMachine } from "./taskManagerMachine";
 // path available for comparison, but it is not part of the config-free Ignite
 // JSX happy path documented for v3.
 
-const resolveTaskManagerView = ({
-	snapshot,
-}: {
-	snapshot: StateFrom<typeof taskManagerMachine>;
-}) => {
+const resolveTaskManagerStates = (
+	snapshot: StateFrom<typeof taskManagerMachine>,
+) => {
 	const tasks = snapshot.context.tasks;
 	const completedCount = tasks.filter((task) => task.completed).length;
 	const totalTasks = tasks.length;
@@ -31,7 +29,7 @@ const resolveTaskManagerView = ({
 
 const TaskManagerComponent = igniteCore({
 	source: taskManagerMachine,
-	view: resolveTaskManagerView,
+	states: resolveTaskManagerStates,
 	commands: ({ actor }) => ({
 		addTask: (name: string, priority: string) =>
 			actor.send({ type: "ADD", name, priority }),

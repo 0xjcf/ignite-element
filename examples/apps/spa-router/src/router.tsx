@@ -54,7 +54,7 @@ const renderPage = (route: string) => {
 
 const registerRouter = igniteCore({
 	source: routerSource,
-	view: ({ snapshot }) => ({
+	states: (snapshot) => ({
 		route: snapshot.context.route,
 		path: snapshot.context.path,
 	}),

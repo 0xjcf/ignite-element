@@ -434,7 +434,7 @@ receipts or child outputs.
 ### Ignite projection and renderer boundary
 
 `createVoiceWorkbenchComponent(actor)` is a factory over a caller-owned actor.
-The Ignite `view` callback delegates to
+The Ignite `states` callback delegates to
 `projectVoiceWorkbenchView(snapshot)`, which derives status, command count,
 labels, control availability, prepared artifact rows, safe source links,
 runtime-inspector rows, route-independent presentation values, and model
@@ -716,7 +716,7 @@ show **Ready**, a committed artifact, and successful capability execution while
 also saying **Partial result: 3 requested, 2 matched, 0 prices verified**. Those
 facts are not contradictory; they answer different questions.
 
-The same view callback prepares the human-readable artifact title, null-price
+The same states callback prepares the human-readable artifact title, null-price
 copy, safe product-page links, filtered policy sections, issue rows, and next
 actions. JSX maps those prepared values without parsing URLs, interpreting null
 cells, or reclassifying provider outcomes. Display-only values do not enter the

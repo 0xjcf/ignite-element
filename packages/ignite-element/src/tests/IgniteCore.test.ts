@@ -18,9 +18,7 @@ import type {
 	ActorWebSourceSnapshot,
 	ActorWebTransportStatus,
 } from "../actor-web";
-import type {
-	XStateCommandActor,
-} from "../adapters/XStateAdapter";
+import type { XStateCommandActor } from "../adapters/XStateAdapter";
 import { igniteCore } from "../IgniteCore";
 import type { ReduxInstanceConfig } from "../igniteCore/types";
 import type {
@@ -1057,10 +1055,12 @@ describe("igniteCore", () => {
 			expect(prevState.counter.count).toBe(0);
 			expect(state.counter.count).toBe(3);
 		});
-		const watchStatesListener = vi.fn((states: StoreStates, prevStates: StoreStates) => {
-			expect(prevStates).toEqual({ count: 0, isEven: true });
-			expect(states).toEqual({ count: 3, isEven: false });
-		});
+		const watchStatesListener = vi.fn(
+			(states: StoreStates, prevStates: StoreStates) => {
+				expect(prevStates).toEqual({ count: 0, isEven: true });
+				expect(states).toEqual({ count: 3, isEven: false });
+			},
+		);
 		const eventSubscription = register.on("counter-incremented", listener);
 		const stateSubscription = register.watchSnapshot(watchListener);
 		const viewSubscription = register.watchStates(watchStatesListener);

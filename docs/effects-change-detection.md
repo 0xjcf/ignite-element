@@ -153,7 +153,7 @@ concern).
 
 Purely additive and behavior-neutral for agents. `whenChanged` only changes how an
 effect is **authored**; the emitted-event stream is identical to the hand-written
-`.changed` guard. Every agent API (`execute`, `on`, `getSnapshot`, `getView`,
+`.changed` guard. Every agent API (`execute`, `on`, `getSnapshot`, `getStates`,
 `watch*`, `getSchema`, `record`) is unchanged, and effects are not introspected into
 `getSchema`, so the schema is unchanged.
 

@@ -68,7 +68,7 @@ const completeCurrentTurn = () => {
 				id: request.call.id ?? "terminal-complete",
 				command: request.call.command,
 				status: "accepted",
-				view: component.getView().modelContext,
+				view: component.getStates().modelContext,
 				events: [],
 			},
 		},
@@ -102,7 +102,7 @@ describe("voice workbench terminal projection", () => {
 		});
 		completeCurrentTurn();
 
-		const view = component.getView();
+		const view = component.getStates();
 		const output = formatTerminalProjection(view);
 		expect(output).toContain("Projection source: current actor view");
 		expect(view.runtimeInspector.actor.matchText).toBe(

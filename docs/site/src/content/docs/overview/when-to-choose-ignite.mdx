@@ -13,7 +13,7 @@ Ignite is a good fit when these are true:
 - You need one UI contract that can ship to plain HTML, React, Vue, tests, or automation.
 - Your team already has state logic in XState, Redux Toolkit, MobX, or Actor-Web and does not want to rewrite it into a framework-local model.
 - You want commands, projected view state, effects, and typed public events to stay explicit and inspectable.
-- You need a headless runtime that agents, tests, and wrappers can drive through `execute()`, `getView()`, `getSchema()`, and `canExecute()`.
+- You need a headless runtime that agents, tests, and wrappers can drive through `execute()`, `getStates()`, `getSchema()`, and `canExecute()`.
 
 Ignite is usually the wrong fit when these are true:
 
@@ -38,7 +38,7 @@ That means the common pairing is not “Ignite instead of React.” It is “Rea
 Tools like lit or Stencil focus on authoring and rendering custom elements. Ignite focuses on **behavior contracts** first:
 
 - Commands express intent.
-- `view(...)` projects state for renderers and tools.
+- `states(snapshot)` projects native source observations for renderers and tools.
 - `effects(...)` expresses consequences from state transitions.
 - The headless runtime exposes the same contract without a DOM.
 
@@ -62,7 +62,7 @@ Ignite is a strong fit when the same component needs to serve humans and tools:
 - `getSchema()` exposes commands, declared events, snapshot, and projected view as JSON-serializable data.
 - `canExecute()` answers whether a gated command is currently available.
 - `execute()` runs the command and returns the resulting snapshot plus emitted events.
-- `on(...)` and `watchView(...)` let tools observe public events and projected state over time.
+- `on(...)` and `watchStates(...)` let tools observe public events and projected state over time.
 
 That is why Ignite works well for test DSLs, assistant workflows, and tool-calling adapters without requiring DOM scraping as the primary integration surface.
 

@@ -5,12 +5,12 @@ import { type FormField, isValid } from "./validation";
 
 // The same core the element registers, minus the renderer: keeping validation
 // and the machine pure means the whole form drives through Ignite's headless
-// runtime — `execute` issues a command, `getView` reads the projection — with no
+// runtime — `execute` issues a command, `getStates` reads the projection — with no
 // DOM and no rendered element.
 const makeForm = () =>
 	igniteCore({
 		source: formMachine,
-		view: ({ snapshot }) => ({
+		states: (snapshot) => ({
 			values: snapshot.context.values,
 			errors: snapshot.context.errors,
 			status: snapshot.value as "editing" | "submitting" | "success",
@@ -31,14 +31,14 @@ const waitForStatus = async (
 	status: string,
 ) => {
 	for (let i = 0; i < 100; i += 1) {
-		if (form.getView().status === status) return;
+		if (form.getStates().status === status) return;
 		await new Promise((resolve) => setTimeout(resolve, 20));
 	}
 	throw new Error(`timed out waiting for status "${status}"`);
 };
 
 describe("signup form — headless runtime", () => {
-	it("projects per-field validation through getView", async () => {
+	it("projects per-field validation through getStates", async () => {
 		const form = makeForm();
 		await form.execute({
 			command: "updateField",
@@ -46,15 +46,15 @@ describe("signup form — headless runtime", () => {
 		});
 		await form.execute({ command: "blurField", input: "email" });
 
-		expect(form.getView().errors.email).toBe("Enter a valid email address");
-		expect(form.getView().canSubmit).toBe(false);
+		expect(form.getStates().errors.email).toBe("Enter a valid email address");
+		expect(form.getStates().canSubmit).toBe(false);
 	});
 
 	it("blocks an invalid submit and stays editing", async () => {
 		const form = makeForm();
 		await form.execute({ command: "submit" });
 
-		const view = form.getView();
+		const view = form.getStates();
 		expect(view.status).toBe("editing");
 		expect(view.errors).toEqual({
 			name: "Name is required",
@@ -80,10 +80,10 @@ describe("signup form — headless runtime", () => {
 			command: "updateField",
 			input: { field: "password", value: "hunter2!" },
 		});
-		expect(form.getView().canSubmit).toBe(true);
+		expect(form.getStates().canSubmit).toBe(true);
 
 		await form.execute({ command: "submit" });
 		await waitForStatus(form, "success");
-		expect(form.getView().status).toBe("success");
+		expect(form.getStates().status).toBe("success");
 	});
 });

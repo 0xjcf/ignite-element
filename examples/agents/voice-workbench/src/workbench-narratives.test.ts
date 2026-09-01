@@ -106,9 +106,9 @@ const commandTrace = (story: {
 	);
 
 const finalViewStatus = (story: {
-	summary: { finalView: unknown | null };
+	summary: { finalStates: unknown | null };
 }): string | null => {
-	const view = story.summary.finalView;
+	const view = story.summary.finalStates;
 	if (!view || typeof view !== "object" || !("status" in view)) return null;
 	return typeof view.status === "string" ? view.status : null;
 };
@@ -482,7 +482,7 @@ const finishCurrentTurnCompletion = (
 				command: executeCall.request.call.command,
 				status: "accepted",
 				ownerId: "voice-workbench-narratives",
-				view: component.getView().modelContext,
+				view: component.getStates().modelContext,
 				events: [],
 			},
 		},
@@ -515,7 +515,7 @@ describe("voice workbench executable narratives", () => {
 				async (narrative) => {
 					await narrative.given({
 						when: (snapshot) => snapshot.matches("unavailable"),
-						view: { status: "failed", model: { status: "failed" } },
+						states: { status: "failed", model: { status: "failed" } },
 						canExecute: { submitPrompt: false },
 					});
 
@@ -530,7 +530,7 @@ describe("voice workbench executable narratives", () => {
 					await narrative.checkpoint("ready after retry", {
 						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "idle" } }),
-						view: {
+						states: {
 							status: "ready",
 							model: { status: "available" },
 							statusLabel: "Ready",
@@ -543,7 +543,7 @@ describe("voice workbench executable narratives", () => {
 				},
 			);
 
-			expect(story.summary.finalView).toMatchObject({
+			expect(story.summary.finalStates).toMatchObject({
 				status: "ready",
 				model: { status: "available" },
 			});
@@ -569,7 +569,7 @@ describe("voice workbench executable narratives", () => {
 					await narrative.given({
 						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "idle" } }),
-						view: {
+						states: {
 							status: "ready",
 							voiceState: "idle",
 						},
@@ -598,7 +598,7 @@ describe("voice workbench executable narratives", () => {
 					});
 
 					await narrative.checkpoint("voice permission stays a fact", {
-						view: {
+						states: {
 							voiceState: "permission",
 							voiceFailure: {
 								type: "voice-permission-denied",
@@ -623,7 +623,7 @@ describe("voice workbench executable narratives", () => {
 					await narrative.checkpoint("text recovery starts a new turn", {
 						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "responding" } }),
-						view: {
+						states: {
 							status: "responding",
 							lastFact: {
 								type: "prompt-submitted",
@@ -639,7 +639,7 @@ describe("voice workbench executable narratives", () => {
 				},
 			);
 
-			expect(story.summary.finalView).toMatchObject({
+			expect(story.summary.finalStates).toMatchObject({
 				status: "responding",
 				voiceState: "permission",
 			});
@@ -667,7 +667,7 @@ describe("voice workbench executable narratives", () => {
 					await narrative.given({
 						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "idle" } }),
-						view: { status: "ready" },
+						states: { status: "ready" },
 						canExecute: { submitPrompt: true },
 					});
 
@@ -679,7 +679,7 @@ describe("voice workbench executable narratives", () => {
 					await narrative.checkpoint("turn is responding", {
 						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "responding" } }),
-						view: { status: "responding" },
+						states: { status: "responding" },
 						canExecute: { createArtifact: true },
 					});
 
@@ -695,7 +695,7 @@ describe("voice workbench executable narratives", () => {
 					await narrative.checkpoint("turn cancellation returns idle", {
 						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "idle" } }),
-						view: {
+						states: {
 							status: "ready",
 							lifecycle: {
 								lastTurnTerminal: { type: "CANCELLED", turnId: request.turnId },
@@ -706,7 +706,7 @@ describe("voice workbench executable narratives", () => {
 				},
 			);
 
-			expect(story.summary.finalView).toMatchObject({ status: "ready" });
+			expect(story.summary.finalStates).toMatchObject({ status: "ready" });
 			coverageMatrix.push({
 				narrative: story.name,
 				commands: commandTrace(story),
@@ -725,7 +725,7 @@ describe("voice workbench executable narratives", () => {
 					await narrative.given({
 						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "idle" } }),
-						view: { status: "ready" },
+						states: { status: "ready" },
 						canExecute: { submitPrompt: true },
 					});
 
@@ -745,7 +745,7 @@ describe("voice workbench executable narratives", () => {
 					await narrative.checkpoint("timeout returns the turn to idle", {
 						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "idle" } }),
-						view: {
+						states: {
 							status: "ready",
 							lifecycle: {
 								lastTurnTerminal: { type: "TIMEOUT" },
@@ -777,7 +777,7 @@ describe("voice workbench executable narratives", () => {
 					await narrative.checkpoint(
 						"retry can finish with an accepted artifact",
 						{
-							view: {
+							states: {
 								status: "responding",
 								activeArtifact: {
 									id: "timeout-recovery",
@@ -808,7 +808,7 @@ describe("voice workbench executable narratives", () => {
 					await narrative.checkpoint("accepted retry returns to ready", {
 						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "idle" } }),
-						view: {
+						states: {
 							status: "ready",
 							response: { text: "Recovered after timeout." },
 							activeArtifact: {
@@ -821,7 +821,7 @@ describe("voice workbench executable narratives", () => {
 				},
 			);
 
-			expect(story.summary.finalView).toMatchObject({
+			expect(story.summary.finalStates).toMatchObject({
 				status: "ready",
 				response: { text: "Recovered after timeout." },
 			});
@@ -852,7 +852,7 @@ describe("voice workbench executable narratives", () => {
 					await narrative.given({
 						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "idle" } }),
-						view: { status: "ready" },
+						states: { status: "ready" },
 						canExecute: { submitPrompt: true },
 					});
 
@@ -874,7 +874,7 @@ describe("voice workbench executable narratives", () => {
 					await narrative.checkpoint("cancelled first turn returns idle", {
 						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "idle" } }),
-						view: {
+						states: {
 							status: "ready",
 							lifecycle: {
 								lastTurnTerminal: {
@@ -894,7 +894,7 @@ describe("voice workbench executable narratives", () => {
 					await narrative.checkpoint("second turn is responding", {
 						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "responding" } }),
-						view: {
+						states: {
 							status: "responding",
 							lifecycle: { lastTurnTerminal: null },
 						},
@@ -918,7 +918,7 @@ describe("voice workbench executable narratives", () => {
 					await narrative.checkpoint("stale port result stays inert", {
 						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "responding" } }),
-						view: {
+						states: {
 							status: "responding",
 							lifecycle: { lastTurnTerminal: null },
 						},
@@ -937,7 +937,7 @@ describe("voice workbench executable narratives", () => {
 					await narrative.checkpoint("live correlation still controls exit", {
 						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "idle" } }),
-						view: {
+						states: {
 							status: "ready",
 							lifecycle: {
 								lastTurnTerminal: {
@@ -950,7 +950,7 @@ describe("voice workbench executable narratives", () => {
 				},
 			);
 
-			expect(story.summary.finalView).toMatchObject({ status: "ready" });
+			expect(story.summary.finalStates).toMatchObject({ status: "ready" });
 			coverageMatrix.push({
 				narrative: story.name,
 				commands: commandTrace(story),
@@ -978,7 +978,7 @@ describe("voice workbench executable narratives", () => {
 					await narrative.given({
 						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "idle" } }),
-						view: { status: "ready" },
+						states: { status: "ready" },
 						canExecute: { submitPrompt: true },
 					});
 
@@ -1004,7 +1004,7 @@ describe("voice workbench executable narratives", () => {
 					await narrative.checkpoint(
 						"first revision is available for follow-up work",
 						{
-							view: {
+							states: {
 								activeArtifact: {
 									id: "launch-plan",
 									revision: "1",
@@ -1035,7 +1035,7 @@ describe("voice workbench executable narratives", () => {
 					await narrative.checkpoint(
 						"stale revision preserves the accepted artifact",
 						{
-							view: {
+							states: {
 								activeArtifact: {
 									id: "launch-plan",
 									revision: "1",
@@ -1070,7 +1070,7 @@ describe("voice workbench executable narratives", () => {
 					});
 
 					await narrative.checkpoint("current revision recovers the conflict", {
-						view: {
+						states: {
 							activeArtifact: {
 								id: "launch-plan",
 								revision: "2",
@@ -1084,7 +1084,7 @@ describe("voice workbench executable narratives", () => {
 				},
 			);
 
-			expect(story.summary.finalView).toMatchObject({
+			expect(story.summary.finalStates).toMatchObject({
 				activeArtifact: { id: "launch-plan", revision: "2" },
 			});
 			coverageMatrix.push({
@@ -1112,7 +1112,7 @@ describe("voice workbench executable narratives", () => {
 					await narrative.given({
 						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "idle" } }),
-						view: { status: "ready" },
+						states: { status: "ready" },
 						canExecute: { submitPrompt: true },
 					});
 
@@ -1171,7 +1171,7 @@ describe("voice workbench executable narratives", () => {
 						{
 							when: (snapshot) =>
 								snapshot.matches({ available: { speech: "delivering" } }),
-							view: {
+							states: {
 								status: "ready",
 								speech: {
 									status: "pending",
@@ -1196,7 +1196,7 @@ describe("voice workbench executable narratives", () => {
 					await narrative.checkpoint(
 						"speech unavailable settles through the actor",
 						{
-							view: {
+							states: {
 								speech: {
 									status: "acknowledged",
 									text: "Speech fallback stays semantic.",
@@ -1215,7 +1215,7 @@ describe("voice workbench executable narratives", () => {
 				},
 			);
 
-			expect(story.summary.finalView).toMatchObject({
+			expect(story.summary.finalStates).toMatchObject({
 				speech: {
 					status: "acknowledged",
 					text: "Speech fallback stays semantic.",

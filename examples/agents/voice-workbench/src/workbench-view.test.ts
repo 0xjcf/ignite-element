@@ -76,7 +76,7 @@ const expectProjectedCommandAvailability = (
 	const commandAvailability = Object.fromEntries(
 		availabilityCommandNames.map((name) => [name, component.canExecute(name)]),
 	);
-	expect(component.getView()).toMatchObject({ commandAvailability });
+	expect(component.getStates()).toMatchObject({ commandAvailability });
 };
 
 const cancelActiveTurn = (actor: VoiceWorkbenchSessionActor) => {
@@ -105,12 +105,12 @@ describe("voice workbench projections", () => {
 		expect(Object.keys(second.component.getSchema().commands).sort()).toEqual(
 			commandNames,
 		);
-		expect(first.component.getView()).toMatchObject({
+		expect(first.component.getStates()).toMatchObject({
 			status: "ready",
 			commandCount: 19,
 			presentation: { draft: "first only" },
 		});
-		expect(second.component.getView()).toMatchObject({
+		expect(second.component.getStates()).toMatchObject({
 			status: "preparing",
 			commandCount: 19,
 			presentation: { draft: "" },
@@ -201,7 +201,7 @@ describe("voice workbench projections", () => {
 		const currentRevision = actor.getSnapshot().context.documents[0]?.revision;
 		if (!currentRevision) throw new Error("Expected the current revision.");
 
-		const view = component.getView();
+		const view = component.getStates();
 		expect(view).toMatchObject({
 			intents: {
 				submitPrompt: {
@@ -257,7 +257,7 @@ describe("voice workbench projections", () => {
 		);
 
 		await component.execute({ command: "changeDraft", input: "   " });
-		expect(component.getView()).toMatchObject({
+		expect(component.getStates()).toMatchObject({
 			intents: { submitPrompt: null },
 		});
 	});

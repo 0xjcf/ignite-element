@@ -518,7 +518,9 @@ export function createAgentRuntime<
 		);
 	};
 
-	const watchStates = (handler: (states: States, prevStates: States) => void) => {
+	const watchStates = (
+		handler: (states: States, prevStates: States) => void,
+	) => {
 		return createWatcher(resolveStates, deriveDeliveredStates, handler);
 	};
 
@@ -799,12 +801,12 @@ export function createAgentRuntime<
 			lifecycle() {
 				return lifecycleEntries.map(cloneLifecycleEntry);
 			},
-				summary() {
-					const final = resolveRuntimeInspection(resolveRuntime().adapter);
-					return {
-						name,
-						finalSnapshot: final.snapshot,
-						finalStates: final.states,
+			summary() {
+				const final = resolveRuntimeInspection(resolveRuntime().adapter);
+				return {
+					name,
+					finalSnapshot: final.snapshot,
+					finalStates: final.states,
 					events: copyEvents(),
 					commandCount,
 					traceCount: traceEntries.length,

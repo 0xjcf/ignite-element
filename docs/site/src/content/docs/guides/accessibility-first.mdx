@@ -106,7 +106,7 @@ const thermostatMachine = setup({
 export const thermostat = igniteCore({
   source: thermostatMachine,
 
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     target: snapshot.context.target,
     targetLabel: 'Target temperature',
     targetHint: 'Choose a value between 58 and 82 degrees.',
@@ -151,7 +151,7 @@ The application persistence service handles the `SAVE_TARGET` request and sends
 That single registration already supports three consumers:
 
 1. A browser UI can render labels, hints, and disabled states.
-2. A headless test can assert `getView()`, `getSchema()`, and `canExecute()`.
+2. A headless test can assert `getStates()`, `getSchema()`, and `canExecute()`.
 3. An agent can inspect the same facts without scraping the DOM.
 
 ## Use native elements first
@@ -229,7 +229,7 @@ before any DOM assertion:
 
 ```ts no-check
 const schema = thermostat.getSchema();
-const view = thermostat.getView();
+const view = thermostat.getStates();
 const canSave = thermostat.canExecute('saveTarget');
 
 if (canSave) {
@@ -355,7 +355,7 @@ Use this split when you review an accessibility-first component.
 
 - `getSchema()` exposes the right commands and input metadata.
 - `canExecute()` matches the current availability rules.
-- `getView()` exposes labels, status summaries, errors, and disabled reasons.
+- `getStates()` exposes labels, status summaries, errors, and disabled reasons.
 - Validated semantic documents reject unsafe content and keep stable ids.
 - Command-backed actions resolve against existing commands and schema.
 - Speech requests dedupe and acknowledge correctly.

@@ -215,7 +215,7 @@ import { igniteCore, matchState } from "ignite-element/xstate"; // DOM authoring
 const usersCore = igniteCore({
   source: usersActor,
 
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     mode: matchState(
       snapshot,
       {

@@ -78,7 +78,9 @@ function createFakeComponent(
 	const eventHandlers = new Set<
 		(event: { type: "item-added"; id: number }) => void
 	>();
-	const viewHandlers = new Set<(states: FakeStates, prevStates: FakeStates) => void>();
+	const viewHandlers = new Set<
+		(states: FakeStates, prevStates: FakeStates) => void
+	>();
 	const component: ObservableFakeComponent = {
 		calls,
 		getSchema: () => fakeSchema,
@@ -88,10 +90,10 @@ function createFakeComponent(
 				throw new Error("kaboom");
 			}
 			states = { count: calls.length, label: "active" };
-				return {
-					snapshot: { count: 1, last: call.command, payload: call.input },
-					states,
-					events: [{ type: "item-added", id: 1 }],
+			return {
+				snapshot: { count: 1, last: call.command, payload: call.input },
+				states,
+				events: [{ type: "item-added", id: 1 }],
 			};
 		}) as FakeComponent["execute"],
 		// The derived read-model the agent grounds on; reflects the calls so far.
@@ -107,7 +109,9 @@ function createFakeComponent(
 				unsubscribe: () => eventHandlers.delete(handler),
 			};
 		}) as FakeComponent["on"],
-		watchStates: ((handler: (states: FakeStates, prevStates: FakeStates) => void) => {
+		watchStates: ((
+			handler: (states: FakeStates, prevStates: FakeStates) => void,
+		) => {
 			viewHandlers.add(handler);
 			return {
 				unsubscribe: () => viewHandlers.delete(handler),
@@ -145,12 +149,12 @@ class ThisBoundFakeComponent implements FakeComponent {
 				count: this.calls.length,
 				last: call.command,
 				payload: call.input,
-				},
-				states: {
-					count: this.calls.length,
-					label: "active",
-				},
-				events: [{ type: "item-added", id: this.calls.length }],
+			},
+			states: {
+				count: this.calls.length,
+				label: "active",
+			},
+			events: [{ type: "item-added", id: this.calls.length }],
 		};
 	} as FakeComponent["execute"];
 
@@ -610,10 +614,10 @@ describe("igniteTools (neutral, no dialect)", () => {
 			getSchema: () => projectionSchema,
 			execute: async (call: { command: string; input?: unknown }) => {
 				calls.push({ name: call.command, payload: call.input });
-					return {
-						snapshot: { documents: [call.input] },
-						states: { count: calls.length },
-						events: [],
+				return {
+					snapshot: { documents: [call.input] },
+					states: { count: calls.length },
+					events: [],
 				};
 			},
 			getStates: () => ({ count: calls.length }),
@@ -691,7 +695,8 @@ describe("igniteTools (neutral, no dialect)", () => {
 		});
 
 		component.on = on as unknown as FakeComponent["on"];
-		component.watchStates = watchStates as unknown as FakeComponent["watchStates"];
+		component.watchStates =
+			watchStates as unknown as FakeComponent["watchStates"];
 
 		const { observe } = igniteTools(component);
 

@@ -76,8 +76,8 @@ consumer asks the *question* `(name) => boolean` — same word, two roles.)
   "query `canExecute` for this one" and `igniteTools` can skip the call for ungated
   commands. (`gated` is the one deliberately-different term — it's a static meta-fact
   about the gate, not the gate; the schema can't hold the dynamic value.)
-- **Read-model snapshot, not the write-side actor.** The predicate receives the same
-  `{ snapshot }` context the `view` callback gets — the runtime injects the **read-model**
+- **Read-model snapshot, not the write-side actor.** The predicate receives a
+  `{ snapshot }` context — the runtime injects the **read-model**
   snapshot (`adapter.getSnapshot()`). This matters for actor-web's read/write split: the
   command `actor` is the *command source* (write side), so `actor.getSnapshot()` is the
   wrong source for availability (`transport`/`context` live on the read model). For
@@ -89,10 +89,11 @@ consumer asks the *question* `(name) => boolean` — same word, two roles.)
   input-schema constraint. A `canExecute(name, payload)` overload can be added later if a
   real arg-dependent case appears.
 
-### Uniform `{ snapshot }` across adapters
+### Uniform `{ snapshot }` command metadata
 
-The arg is uniformly `{ snapshot }` on every adapter — identical to `view`. Only the
-snapshot's *internal* shape differs (that's the state model, inherent), never the param:
+The `canExecute` arg is uniformly `{ snapshot }` on every adapter. This differs
+intentionally from the projection callback, which is `states(snapshot)`. Only the
+snapshot's *internal* shape differs (that's the state model, inherent):
 
 ```ts
 canExecute: ({ snapshot }) => snapshot.can({ type: "SUBMIT" })          // xstate    — the xstate snapshot
@@ -101,32 +102,31 @@ canExecute: ({ snapshot }) => snapshot.isValid && !snapshot.submitting  // mobx 
 canExecute: ({ snapshot }) => snapshot.transport.state === "connected"  // actor-web — extended state + transport
 ```
 
-Read-side callbacks all share one context shape: `view ({ snapshot })`,
-`effects ({ snapshot, prevSnapshot, emit })`, `canExecute ({ snapshot })`. Since
-`canExecute` is brand-new and additive, it is *born* on the canonical `{ snapshot }` — no
-migration, and it reinforces the view-context decision (change 2) instead of fighting it.
+The callbacks keep ownership-specific shapes: `states(snapshot)` derives public
+states, while `effects({ snapshot, prevSnapshot, emit })` and
+`canExecute({ snapshot })` receive metadata contexts.
 
 ### Reactivity
 
 `canExecute` is a point query; there is no `watchCanExecute` primitive. Reactivity is
-free: call it inside the existing reactive surfaces (`view` / `watchSnapshot` /
-`watchView`) and it re-evaluates on every snapshot change. An agent re-derives the
+free: derive a parallel availability field in `states` or observe the source with `watchSnapshot` /
+`watchStates`) and it re-evaluates on every snapshot change. An agent re-derives the
 manifest per turn.
 
 ### Two-surface rule
 
-`canExecute` / `execute` / `getView` / `getSchema` / `igniteTools` are the
+`canExecute` / `execute` / `getStates` / `getSchema` / `igniteTools` are the
 **headless/agent surface**. A component's own UI authors from the destructured callback
-args, source-native (`snapshot.can`, `actor.send` via commands) — it must NOT reach for
+args: availability projected through `states` and behavior exposed through commands. It must NOT reach for
 `component.canExecute(...)` / `.execute(...)`. For an xstate component the button's
-`disabled` comes from `snapshot.can(E)` in the view; the command's
+`disabled` comes from a projected states field derived with `snapshot.can(E)`; the command's
 `canExecute: ({snapshot}) => snapshot.can(E)` is the parallel predicate for the agent
 surface. Both are thin reads of the authoritative machine.
 
 ## Test DSL — no bespoke assertion
 
 **No `expectCanExecute` helper.** The DSL's `expect*` methods earn their place only where
-they add matching power over the host runner — `expectSnapshot`/`expectView` do
+they add matching power over the host runner — `expectSnapshot`/`expectStates` do
 partial-object + predicate matching, `expectEvent(s)` collect events emitted during a
 step. `canExecute` returns a plain boolean, which the native matcher covers completely.
 So the scenario exposes `canExecute(name): boolean` (mirroring the runtime) and you assert

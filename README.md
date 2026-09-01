@@ -108,8 +108,8 @@ const toggle = igniteCore({
     toggled: event<{ isOn: boolean }>(),
   }),
 
-  view: ({ matches }) => ({
-    isOn: matches("on"),
+  states: (snapshot) => ({
+    isOn: snapshot.matches("on"),
   }),
 
   commands: ({ actor }) => ({
@@ -162,8 +162,8 @@ Commands:
 State is projected into the render surface.
 
 ```ts
-view: ({ matches }) => ({
-  isOn: matches("on")
+states: (snapshot) => ({
+  isOn: snapshot.matches("on")
 })
 ```
 
@@ -239,24 +239,24 @@ async function inspectToggle() {
   const snapshotSubscription = toggle.watchSnapshot((state, prevState) => {
     console.log(prevState.value, "->", state.value);
   });
-  const viewSubscription = toggle.watchView((view, prevView) => {
-    console.log(prevView.isOn, "->", view.isOn);
+  const statesSubscription = toggle.watchStates((states, prevStates) => {
+    console.log(prevStates.isOn, "->", states.isOn);
   });
 
   try {
     const result = await toggle.execute({ command: "toggle" });
     toggle.getSnapshot();
-    toggle.getView();
+    toggle.getStates();
     toggle.getSchema();
   } finally {
     eventSubscription.unsubscribe();
     snapshotSubscription.unsubscribe();
-    viewSubscription.unsubscribe();
+    statesSubscription.unsubscribe();
   }
 }
 ```
 
-Use `on(...)` for outward event signals, `watchSnapshot(...)` for raw state changes, and `watchView(...)` for projected view changes.
+Use `on(...)` for outward event signals, `watchSnapshot(...)` for raw state changes, and `watchStates(...)` for projected states changes.
 
 Use `record(...)` when a test or agent needs workflow evidence:
 
@@ -276,6 +276,7 @@ async function recordToggleStory() {
 ```ts
 {
   snapshot,
+  states: { isOn: true },
   events: [{ type: "toggled", isOn: true }]
 }
 ```
@@ -288,7 +289,8 @@ async function recordToggleStory() {
     toggle: {}
   },
   events: [{ type: "toggled" }],
-  snapshot: { value: "off", context: {} }
+  snapshot: { value: "off", context: {} },
+  states: { isOn: false }
 }
 ```
 
@@ -336,7 +338,7 @@ Define behavior once and register multiple render surfaces from the same core.
 const toggle = igniteCore({
   source: machine,
   events: toggleEvents,
-  view: toggleView,
+  states: toggleStates,
   commands: toggleCommands,
   effects: toggleEffects,
 });

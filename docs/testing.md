@@ -10,7 +10,7 @@ import { igniteCore } from "ignite-element/xstate";
 
 const component = igniteCore({
   source: machine,
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     isOn: snapshot.matches("on"),
   }),
   commands: ({ actor }) => ({

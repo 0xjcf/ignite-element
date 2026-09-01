@@ -365,16 +365,16 @@ export default function igniteElementFactory<
 		}));
 	const createRenderArgs =
 		options?.createRenderArgs ??
-			((
-				snapshot: State,
-				send: (event: Event) => void,
-				additionalArgs: RuntimeAdditionalArgs,
-			) =>
-				({
-					...additionalArgs,
-					state: snapshot,
-					send,
-				}) as RenderArgs);
+		((
+			snapshot: State,
+			send: (event: Event) => void,
+			additionalArgs: RuntimeAdditionalArgs,
+		) =>
+			({
+				...additionalArgs,
+				state: snapshot,
+				send,
+			}) as RenderArgs);
 	const resolveLifecycleScope = (): IgniteStoryLifecycleScope =>
 		inferredScope === StateScope.Shared ? "shared" : "isolated";
 

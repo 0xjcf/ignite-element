@@ -23,7 +23,7 @@ const settingsPanels: Array<{ panel: SettingsPanel; label: string }> = [
 
 const defineRouteElement = igniteCore({
 	source: routerSource,
-	view: ({ snapshot }) => ({
+	states: (snapshot) => ({
 		parent: snapshot.context.parent,
 		child: snapshot.context.child,
 		path: snapshot.context.path,

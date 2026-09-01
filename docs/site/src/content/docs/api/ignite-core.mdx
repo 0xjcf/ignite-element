@@ -14,7 +14,7 @@ import { igniteCore } from 'ignite-element/xstate';
 const component = igniteCore({
   source: machineOrActor,
   events: (event) => ({ /* typed events */ }),
-  view: ({ snapshot }) => ({ /* derived values */ }),
+  states: (snapshot) => ({ /* derived values */ }),
   commands: ({ actor, command }) => ({ /* actions */ }),
   effects: ({ snapshot, prevSnapshot, emit, select }) => { /* outward facts */ },
 });
@@ -26,14 +26,14 @@ component('tag-name', (props) => /* JSX or lit template */);
 
 - `source`: machine definition or started actor (XState), Redux store/slice, or MobX observable.
 - `events(mapper)`: optional; defines typed DOM events.
-- `view(ctx)`: derive render props from `{ snapshot }`; runs on mount and on changes.
+- `states(snapshot)`: optionally derive a plain object from the bare native snapshot; runs on mount and on source observations. Omission yields one stable empty object.
 - `commands(context)`: expose actions; receives `{ actor, command }`.
 - `effects(context)`: optional; runs after every state update and receives `{ snapshot, prevSnapshot, emit, select }`.
 - `cleanup`: shared-adapter teardown override. Defaults to `false` for **shared** (consumer-owned) sources — a live instance you pass lives for the core's lifetime, so the shared adapter is kept alive across element disconnects. For **isolated** sources (Ignite creates one adapter per element, stopped on disconnect) it has no practical effect. Set `cleanup: true` on a shared core to opt back into element-refcount teardown of the adapter. Ignite never stops or closes a source it did not create.
 
 ## Returns
 
-A **component factory** — call it as `component(tagName, renderer)` to register the custom element (returns nothing). The same value is also the [headless runtime](/ignite-element/api/headless-runtime/): it carries `execute`, `getSnapshot`, `getView`, `getSchema`, `on`, `watchSnapshot`, `watchView`, and `record` for driving and inspecting the component without the DOM.
+A **component factory** — call it as `component(tagName, renderer)` to register the custom element (returns nothing). The same value is also the [headless runtime](/ignite-element/api/headless-runtime/): it carries `execute`, `getSnapshot`, `getStates`, `getSchema`, `on`, `watchSnapshot`, `watchStates`, and `record` for driving and inspecting the component without the DOM.
 
 ## Advanced overrides
 
@@ -50,7 +50,7 @@ See [The Ignite model](/ignite-element/concepts/the-ignite-model/) for adapter-s
 
 ## Headless runtime
 
-Every component registration also exposes a headless runtime (`execute`, `getSnapshot`, `getView`, `getSchema`, `on`, `watchSnapshot`, `watchView`, `record`) for driving and inspecting behavior without the DOM. See [Headless runtime](/ignite-element/api/headless-runtime/) for the full method reference.
+Every component registration also exposes a headless runtime (`execute`, `getSnapshot`, `getStates`, `getSchema`, `on`, `watchSnapshot`, `watchStates`, `record`) for driving and inspecting behavior without the DOM. See [Headless runtime](/ignite-element/api/headless-runtime/) for the full method reference.
 
 ## Callback boundaries
 

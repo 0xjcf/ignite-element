@@ -51,7 +51,7 @@ export const createVoiceWorkbenchComponent = (
 			"response-completed": event(),
 			"speech-acknowledged": event<{ id: string }>(),
 		}),
-		view: ({ snapshot }) =>
+		states: (snapshot) =>
 			projectVoiceWorkbenchView({ snapshot, blueprintCommands }),
 		commands: ({ actor, command }) => {
 			const responsePayloadInput = command.object(
@@ -450,4 +450,4 @@ type WorkbenchRenderer = Extract<
 	(...args: never[]) => unknown
 >;
 export type WorkbenchProjection = Parameters<WorkbenchRenderer>[0];
-export type WorkbenchView = ReturnType<VoiceWorkbenchComponent["getView"]>;
+export type WorkbenchView = ReturnType<VoiceWorkbenchComponent["getStates"]>;

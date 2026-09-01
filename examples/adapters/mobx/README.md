@@ -51,7 +51,7 @@ const sharedStore = counterStore();
 
 export const registerSharedMobx = igniteCore({
   source: sharedStore, // shared observable instance
-  view: ({ snapshot }) => ({ count: snapshot.count }),
+  states: (snapshot) => ({ count: snapshot.count }),
   commands: ({ actor }) => ({
     decrement: () => actor.decrement(),
     increment: () => actor.increment(),
@@ -60,7 +60,7 @@ export const registerSharedMobx = igniteCore({
 
 export const registerIsolatedMobx = igniteCore({
   source: counterStore, // factory → new observable each time
-  view: ({ snapshot }) => ({ count: snapshot.count }),
+  states: (snapshot) => ({ count: snapshot.count }),
   commands: ({ actor }) => ({
     decrement: () => actor.decrement(),
     increment: () => actor.increment(),
@@ -89,7 +89,7 @@ as raw text and injected via `<style>` tags — no `ignite.config.ts`, no plugin
 ## Suggested Experiments
 
 - Add new MobX actions (e.g. reset) and surface them through the `commands` facade.
-- Introduce computed getters in the store and include them in `view(...)` to see how recalculations propagate.
+- Introduce computed getters in the store and include them in `states(snapshot)` to see how recalculations propagate.
 - Render multiple isolated counters side-by-side to confirm each maintains its own observable state.
 
 Enjoy building with ignite-element and MobX! Questions or ideas? Open an issue or start a discussion in the main repository.

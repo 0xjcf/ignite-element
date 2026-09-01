@@ -14,7 +14,7 @@ import { igniteCore } from 'ignite-element/xstate';
 
 const counter = igniteCore({
   source: counterMachine,
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     isOn: snapshot.matches('on'),
   }),
   commands: ({ actor }) => ({
@@ -48,7 +48,7 @@ Scenario methods — every `given`/`expect*` **returns the scenario** so calls c
 - `given(expected)` — assert the current snapshot before acting. Accepts a deep-partial snapshot match or a predicate.
 - `when({ command, input? })` — execute a command; `input` is required for one-argument commands, omitted for no-argument commands, and optional when the command's first argument is optional. Returns a `Promise` of the scenario.
 - `expectSnapshot(expected)` — assert the post-command snapshot.
-- `expectView(expected)` — assert the projected view (mirrors `getView()`). Accepts a deep-partial object or a predicate.
+- `expectStates(expected)` — assert the projected view (mirrors `getStates()`). Accepts a deep-partial object or a predicate.
 - `expectEvent({ type, ...fields })` — assert an event was emitted, optionally matching its fields.
 - `expectEvents(expected)` — assert several events by an array of `{ type, ...fields }` objects.
 - `expectNoEvents()` — assert the command emitted nothing.
@@ -69,14 +69,14 @@ const receipt = await igniteTest({ component: counter }).story(
     await story.given({
       snapshot: { counter: { count: 0 } },
       when: (snapshot) => snapshot.counter.count === 0,
-      view: { count: 0, canDecrement: false },
+      states: { count: 0, canDecrement: false },
       canExecute: { decrement: false },
     });
 
     await story.intent({ command: 'increment', input: 2 });
     await story.checkpoint('after increment', {
       snapshot: { counter: { count: 2 } },
-      view: { count: 2, canDecrement: true },
+      states: { count: 2, canDecrement: true },
       events: [{ type: 'counter-incremented', count: 2 }],
       canExecute: { decrement: true },
     });
@@ -131,7 +131,7 @@ Story methods:
 - `until(viewPredicate, action, options?)` — repeatedly run `action` until the projected view satisfies `viewPredicate`. `options.maxSteps` bounds the loop. Returns a `Promise<View>` (the satisfying view).
 - `trace()` — returns `IgniteStoryTraceEntry[]`: the ordered behavior trace of `command`, `behavior`, `snapshot`, `view`, and `event` entries with `kind`, `sequence`, and `step`.
 - `lifecycle()` — returns `IgniteStoryLifecycleEntry[]`: DOM lifecycle evidence (registration, connection, render, disconnection, cleanup) when a custom element or accessibility bridge participates; otherwise an empty array.
-- `summary()` — returns `{ name, finalSnapshot, finalView, events, commandCount, traceCount, lifecycleCount }`.
+- `summary()` — returns `{ name, finalSnapshot, finalStates, events, commandCount, traceCount, lifecycleCount }`.
 - `stop()` — releases the story's runtime subscriptions; returns nothing.
 
 `record()` is the low-level evidence boundary. `story.trace()` holds only observed behavior evidence; DOM evidence stays on the separate `story.lifecycle()` channel, so logic stays inspectable without a DOM.
@@ -164,7 +164,7 @@ igniteTest.expectTrace(story.trace(), [
     sequence: 3,
     step: 1,
     phase: 'before',
-    view: { isOn: false },
+    states: { isOn: false },
   },
   {
     kind: 'event',

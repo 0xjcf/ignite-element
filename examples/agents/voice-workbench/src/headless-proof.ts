@@ -72,7 +72,7 @@ const completeHeadlessTurn = () => {
 				command: request.call.command,
 				status: "accepted",
 				ownerId: "voice-workbench-headless-proof",
-				view: component.getView().modelContext,
+				view: component.getStates().modelContext,
 				events: [],
 			},
 		},
@@ -127,7 +127,7 @@ await story.execute({
 completeHeadlessTurn();
 
 const proof = igniteTest.snapshotStory(story);
-const view = component.getView();
+const view = component.getStates();
 const trace = proof.trace.flatMap((entry) =>
 	entry.kind === "command"
 		? [

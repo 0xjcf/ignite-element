@@ -92,12 +92,12 @@ The observe shape is the **agent contract**, so flattening is breaking:
   `execute().events` / `record()`), removing the envelope.
 - Update `getSchema` event descriptors + the `record()` `.payload` mapping.
 - Coordinate the downstream goodway migration.
-- Sequence alongside the assertion-surface change (`expectSnapshot`/`expectView` +
+- Sequence alongside the assertion-surface change (`expectSnapshot`/`expectStates` +
   `expectEvent` object form) — same pre-stable vocabulary pass, but track the
   breaking wire change distinctly from the additive assertion work.
 
 ## Related
 
 - `docs/effects-change-detection.md` — `select().whenChanged()` (same coherence theme).
-- Assertion-surface alignment: `expectSnapshot` + `expectView` (mirror
-  `getSnapshot`/`getView`); `expectEvent` adopts the member object as part of this.
+- Assertion-surface alignment: `expectSnapshot` + `expectStates` (mirror
+  `getSnapshot`/`getStates`); `expectEvent` adopts the member object as part of this.

@@ -9,10 +9,10 @@ This document supersedes the earlier registry-oriented proposal.
 
 Ignite already has the right behavior boundary:
 
-- `view` derives stable UI-facing state from the source snapshot.
-- `getView()` returns that derived state to headless consumers.
+- `states` derives stable UI-facing state from the source snapshot.
+- `getStates()` returns that derived state to headless consumers.
 - `getSchema()` returns the compiled JSON-safe blueprint of commands, events,
-  snapshot, and view.
+  snapshot, and states.
 - `execute()` and `canExecute()` keep intent and availability explicit.
 
 ## Authoring input and compiled blueprint
@@ -24,7 +24,7 @@ a serialization contract.
 
 `runtime.getSchema()` is the sole public compiled, JSON-safe Ignite blueprint.
 The blueprint describes the runtime's commands, declared events, current
-snapshot, and derived view. "Blueprint" is Ignite vocabulary, not a claim that
+snapshot, and derived states. "Blueprint" is Ignite vocabulary, not a claim that
 the returned object is a formal JSON Schema document. Individual command input
 descriptions may use JSON-Schema-like fragments, but the blueprint as a whole is
 an Ignite discovery contract.
@@ -49,7 +49,7 @@ for a first-party non-DOM projection target.
 
 The public surface remains intentionally small:
 
-- `igniteCore` keeps the current source, view, commands, events, and effects
+- `igniteCore` keeps the current source, states, commands, events, and effects
   config shape.
 - `component(tagName, renderer)` remains source-compatible.
 - One additive overload is allowed: `component(target)`.
@@ -57,8 +57,8 @@ The public surface remains intentionally small:
   registry key, or model-authored document.
 - The one-argument overload returns only a disposable handle:
   `{ dispose(): void }`.
-- `getSnapshot()`, `getView()`, `getSchema()`, `canExecute()`, `on(...)`,
-  `watchSnapshot(...)`, and `watchView(...)` remain the focused public reads and
+- `getSnapshot()`, `getStates()`, `getSchema()`, `canExecute()`, `on(...)`,
+  `watchSnapshot(...)`, and `watchStates(...)` remain the focused public reads and
   subscriptions.
 
 Focused reads are live and intentionally independent. Two separate getter calls
@@ -82,7 +82,7 @@ coherent inspection read. It captures one deterministic bundle for each
 projection validation and commit attempt:
 
 - snapshot,
-- derived view,
+- derived states,
 - schema,
 - `canExecute`,
 - validated `ProjectionDocument` state,

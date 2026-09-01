@@ -100,7 +100,7 @@ const testSource = createRouterSource({
 ```tsx
 const outlet = igniteCore({
   source: routerSource,
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     route: snapshot.context.route,
     path: snapshot.context.path,
   }),
@@ -118,14 +118,14 @@ That work belongs to the application-owned source.
 ```ts
 const router = igniteCore({
   source: createRouterSource({ navigation: createMemoryNavigation("/") }),
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     id: snapshot.context.params.id ?? null,
     path: snapshot.context.path,
   }),
 });
 
 await router.execute({ command: "navigate", input: "/users/7" });
-expect(router.getView().id).toBe("7");
+expect(router.getStates().id).toBe("7");
 ```
 
 This keeps the routing proof aligned across:

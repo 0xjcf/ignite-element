@@ -538,7 +538,7 @@ describe("voice workbench XState graph characterization", () => {
 			async (narrative) => {
 				await narrative.given({
 					when: (snapshot) => snapshot.matches({ available: { turn: "idle" } }),
-					view: { status: "ready" },
+					states: { status: "ready" },
 					canExecute: { submitPrompt: true },
 				});
 
@@ -551,7 +551,7 @@ describe("voice workbench XState graph characterization", () => {
 				await narrative.checkpoint("turn is responding before timeout", {
 					when: (snapshot) =>
 						snapshot.matches({ available: { turn: "responding" } }),
-					view: { status: "responding" },
+					states: { status: "responding" },
 					canExecute: { createArtifact: true },
 				});
 
@@ -567,7 +567,7 @@ describe("voice workbench XState graph characterization", () => {
 					{
 						when: (snapshot) =>
 							snapshot.matches({ available: { turn: "idle" } }),
-						view: {
+						states: {
 							status: "ready",
 							lifecycle: {
 								lastTurnTerminal: { type: "TIMEOUT" },
@@ -585,7 +585,7 @@ describe("voice workbench XState graph characterization", () => {
 				available: { turn: "idle", voice: "active", speech: "idle" },
 			},
 		});
-		expect(story.summary.finalView).toMatchObject({
+		expect(story.summary.finalStates).toMatchObject({
 			status: "ready",
 			lifecycle: {
 				lastTurnTerminal: { type: "TIMEOUT" },

@@ -28,7 +28,7 @@ import { igniteCore } from 'ignite-element/xstate';
 export const counter = igniteCore({
   source: counterMachine,
 
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     count: snapshot.context.count,
     limit: snapshot.context.limit,
     isLimited: snapshot.matches('limited'),
@@ -66,19 +66,19 @@ That registration gives agents a contract to inspect and a command surface to dr
 
 ```ts
 counter.getSchema(); // commands + metadata + events + state shape
-counter.getView();   // current projected view
+counter.getStates();   // current projected view
 counter.canExecute('increment'); // current command availability
 
 await counter.execute({ command: 'setLimit', input: 6 });
 
-while (!counter.getView().isLimited) {
+while (!counter.getStates().isLimited) {
   await counter.execute({ command: 'increment' });
 }
 
-expect(counter.getView()).toMatchObject({ count: 6, limit: 6, isLimited: true });
+expect(counter.getStates()).toMatchObject({ count: 6, limit: 6, isLimited: true });
 ```
 
-See [Headless runtime](/ignite-element/api/headless-runtime/) for every method (`execute`, `canExecute`, `getSnapshot`, `getView`, `getSchema`, `on`, `watchSnapshot`, `watchView`, `record`) and its return shape.
+See [Headless runtime](/ignite-element/api/headless-runtime/) for every method (`execute`, `canExecute`, `getSnapshot`, `getStates`, `getSchema`, `on`, `watchSnapshot`, `watchStates`, `record`) and its return shape.
 
 In practice, the loop is:
 
@@ -86,7 +86,7 @@ In practice, the loop is:
 2. Use command metadata input schemas to shape payloads instead of guessing argument structure.
 3. Check `canExecute()` when a command is marked as `gated`.
 4. Run `execute()` and inspect the returned snapshot plus emitted events.
-5. Keep long-lived observers attached with `on(...)` or `watchView(...)` when the workflow spans multiple actions.
+5. Keep long-lived observers attached with `on(...)` or `watchStates(...)` when the workflow spans multiple actions.
 
 ## Add the DOM layer
 
@@ -184,7 +184,7 @@ await story.until((view) => view.isLimited, async () => {
 igniteTest.expectTrace(igniteTest.serializeTrace(story.trace()), [
   { kind: 'command', command: 'setLimit', payload: 6 },
   { kind: 'event', event: 'limit-reached', payload: { count: 6, limit: 6 } },
-  { kind: 'view', phase: 'after', view: { isLimited: true } },
+  { kind: 'states', phase: 'after', states: { isLimited: true } },
 ]);
 
 story.stop();

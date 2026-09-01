@@ -227,7 +227,7 @@ transitions directly:
 igniteCore({
   source: actor,
 
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     mode: matchState(
       snapshot,
       {

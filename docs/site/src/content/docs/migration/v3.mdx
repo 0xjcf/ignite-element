@@ -1,6 +1,6 @@
 ---
 title: Migrate from v2 to v3 (beta)
-description: Upgrade to Ignite Element v3 — scoped internal packages, optional state-library peers, and the view-first single-source context.
+description: Upgrade to Ignite Element v3 — scoped internal packages, optional state-library peers, and the states-first single-source contract.
 sidebar:
   label: v2 → v3 (beta)
   order: 0
@@ -12,24 +12,20 @@ v3 publishes under the `beta` dist-tag. Install with `@beta`; the stable
 the `3.0.0` release.
 :::
 
-Ignite Element v3 keeps the default Ignite JSX renderer and headless runtime from v2, and adds a cleaner install surface, a view-first context, and a narrower public API. Most app code that uses `ignite-element` and one state adapter upgrades with just the install change.
+Ignite Element v3 keeps the default Ignite JSX renderer and headless runtime from v2, and adds a cleaner install surface, a states-first projection contract, and a narrower public API.
 
 :::tip[Will this break my app?]
-For most apps, **no** — the upgrade is install-only. The view-first context is
-**additive** (your existing `({ snapshot }) => …` callbacks keep working), and
-making state libraries optional peers only stops pulling in packages you weren't
-using. The **one breaking change** is the removed `ignite-element/config/*` and
-`ignite-element/renderers/*` subpaths ([step 4](#4-narrower-public-api)) — and
-that affects you only if you imported config loaders, renderer-strategy
-registration, or global style internals directly. The default Ignite JSX path
-uses none of those.
+The states projection cutover is breaking for v3 beta consumers: config `view`
+is removed, `states` receives the bare native snapshot, and headless projection
+fields use states vocabulary. The renderer callback supplied during component
+registration remains a view.
 :::
 
 ## TL;DR
 
 1. Install the beta: `pnpm add ignite-element@beta` (plus the one state library you use).
 2. State libraries (`xstate`, `redux`, `@reduxjs/toolkit`, `mobx`) and `lit-html` are now **optional** peers — install only what you use.
-3. Use the canonical view context: `view: ({ snapshot }) => …`; object snapshot fields are no longer spread onto the callback argument.
+3. Use the canonical states projection: `states: (snapshot) => …`; config `view` is rejected.
 4. The removed `ignite-element/config/*` and `ignite-element/renderers/*` subpaths are no longer part of the public API.
 
 ## 1) Install the beta
@@ -48,9 +44,9 @@ In v3 the state libraries and `lit-html` are declared as **optional** peer depen
 
 Selecting lit is now **config-free**: install `lit-html`, import `@ignite-element/renderer/lit`, and author lit-html templates — Ignite auto-detects them and renders with lit. You no longer set `renderer: 'lit'` in `ignite.config.ts` just to use lit (it remains the way to *force* one renderer project-wide). See [Rendering](/ignite-element/concepts/rendering/).
 
-## 3) Canonical view context
+## 3) Canonical states projection
 
-The facade `view(...)` callback now receives a single `{ snapshot }` argument. Read adapter-specific state through that snapshot:
+Replace the beta.10 `view` projection with `states`, passing the bare native snapshot:
 
 ```ts
 // v2 / early v3 beta
@@ -60,13 +56,13 @@ view: ({ context, transport }) => ({
 });
 
 // v3
-view: ({ snapshot }) => ({
+states: (snapshot) => ({
   status: snapshot.context.status,
   connected: snapshot.transport.state === "connected",
 });
 ```
 
-`ViewContext<Snapshot>` is exactly `{ snapshot: Snapshot }`. XState and Actor-Web state live under `snapshot.context`; Redux and MobX state are the snapshot itself.
+XState uses native `StateFrom<Machine>` snapshots. XState and Actor-Web state live under `snapshot.context`; Redux and MobX state are the snapshot itself. Also migrate `getView`/`watchView` to `getStates`/`watchStates`, `schema.view` to `schema.states`, execution results to `{ snapshot, states, events }`, and public renderer access from raw `state`/`send` to derived states and semantic commands.
 
 ## 4) Narrower public API
 

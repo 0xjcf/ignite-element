@@ -671,7 +671,7 @@ describe("igniteCore type inference", () => {
 				status: snapshot.context.status,
 				connected: snapshot.transport.state === "connected",
 			}),
-			});
+		});
 		void defaultedHostSubpathRegister;
 		void requiredHostSubpathRegister;
 		expectTypeOf<RenderArgs["createShipment"]>().toEqualTypeOf<

@@ -11,8 +11,8 @@ ignite's differentiators are dev DX **and** agent/LLM-drivability (`getSchema`,
 headless `execute`). Both depend on **one** canonical vocabulary and shape repeated
 across the three surfaces a consumer or agent touches:
 
-- **author** — `igniteCore` callbacks (`view` / `commands` / `effects` / `events`)
-- **observe** — runtime: `getSnapshot` / `getView` / `on` / `execute().events` / `record` / `getSchema`
+- **author** — `igniteCore` callbacks (`states` / `commands` / `effects` / `events`)
+- **observe** — runtime: `getSnapshot` / `getStates` / `on` / `execute().states` / `execute().events` / `record` / `getSchema`
 - **assert** — the test DSL (`given` / `when` / `expect*`)
 
 Those surfaces have drifted. This pass realigns them while we are pre-stable and can
@@ -34,14 +34,14 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
 | --- | --- | --- | --- |
 | ~~`select().whenChanged()` + structural-equality default~~ | `effects-change-detection.md` | additive | **dropped (2026-06-20)** — marginal sugar over `.changed`; see doc |
 | Flat tagged event `{ type, … }` (emit / observe / `expectEvent`) | `event-shape.md` | **breaking** | implemented in v3 cutover batch (1781818971210) |
-| Uniform view/effects context = `{ snapshot }` (drop the spread) | `view-context-canonicalization.md` | **breaking** | implemented in v3 cutover batch (1781818972687) |
+| Canonical `states(snapshot)` projection with a bare native snapshot | `view-context-canonicalization.md` | **breaking** | implemented for the v3 beta states cutover |
 | Effects single (object) signature; remove positional for v3 beta | this doc | beta breaking | shipped in this epic (1781818975642) |
-| `expectView` (add) + **full `state`→`snapshot` rename** (`expectState`→`expectSnapshot` + `result.snapshot`/`schema.snapshot`/record-trace) + `expectEvent` object form | `event-shape.md` + this doc | mixed | `expectView` shipped; full rename implemented in v3 cutover batch (1781818974159) — scope = full rename (b), resolved 2026-06-20 |
+| `expectStates` (add) + **full `state`→`snapshot` rename** (`expectState`→`expectSnapshot` + `result.snapshot`/`schema.snapshot`/record-trace) + `expectEvent` object form | `event-shape.md` + this doc | mixed | `expectStates` shipped; full rename implemented in v3 cutover batch (1781818974159) — scope = full rename (b), resolved 2026-06-20 |
 | Test host seam: fluent `.host({ dataset, attributes })` | `task-1781619012619` | additive | task (refine brief to fluent shape) |
 | `canExecute(name)` command-availability query | `can-execute.md` | additive (gap) | shipped (1781798486122) |
 | `igniteShell` sourceless composition root (+ shared move-safe teardown) | `ignite-shell.md` | additive | shipped current public helper/surface |
 | `ignite-element/react` schema-driven wrapper + registration handle | `ignite-react.md` | additive (gap) | design ✓, task reshaped (1781805261094) |
-| `getSchema().view` — expose the typed view projection in the schema | this doc | additive (gap) | task queued 2026-06-21 (needs typed-view) |
+| `getSchema().states` — expose the typed states projection in the schema | this doc | breaking vocabulary cutover | implemented |
 | `igniteTools(component)` — getSchema → LLM tool-use bridge (agent analog of `igniteReact`) | `ignite-tools.md` | additive (gap) | design ✓, task queued 2026-06-21 |
 | Source-native provisioning + exact-source ownership | `source-native-provisioning.md` | architecture / corrective | accepted contract; `igniteCore(...)` takes only the already-bound source |
 
@@ -62,15 +62,15 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
 
 ## Sequencing
 
-- **Additive** (`expectView`, host seam, `canExecute`): ship independently,
+- **Additive** (`expectStates`, host seam, `canExecute`): ship independently,
   anytime.
-- **Breaking** (event shape, view-context `{ snapshot }`, full `state`→`snapshot`
+- **Breaking** (event shape, `states(snapshot)`, full `state`→`snapshot`
   rename): land **together** in one pre-stable cutover, one coordinated changeset,
   one goodway migration note. Tracked here so they cut over once.
 
 **Cutover scope reality (all three).** The breaking landing is not just `src`: the
 doc code-example guardrail (`check-doc-examples.mjs`) typechecks every `ts`/`tsx`
-fence against the real API, so **every `docs/site` example** using `emit`, the view
+fence against the real API, so **every `docs/site` example** using `emit`, the states
 context, or `expectSnapshot`/`result.snapshot` must migrate in the *same* change or the
 guardrail fails. Budget the cutover as **src + docs-site sweep + the three design
 docs + one goodway migration note**. The beta-breaking **effects object-form**
@@ -78,7 +78,8 @@ docs + one goodway migration note**. The beta-breaking **effects object-form**
 changes once, cleanly, before the emit-shape break. One consolidated migration table
 covers all transforms: `emit(t,p)` →
 `emit({type:t,…})`; `event.payload` → direct member fields; `{ context }` → `{ snapshot }` +
-`snapshot.*`; `expectSnapshot`/`result.snapshot`/`schema.snapshot` → `…snapshot`;
+`snapshot.*`; config `view` → `states`; `getView`/`watchView` →
+`getStates`/`watchStates`; `expectSnapshot`/`result.snapshot`/`schema.snapshot` → `…snapshot`;
 `expectEvent(t,p)` → `expectEvent({type:t,…})`.
 
 ## Decisions (resolved 2026-06-18)
@@ -87,14 +88,13 @@ covers all transforms: `emit(t,p)` →
    the XState command actor (the one invented accessor, `.state`, was removed); an
    optional unified `send()` remains a separate deferred spike, not a stable
    blocker. See `expose-source-native-api`.
-2. **view-context: `{ snapshot }`-only** (no convenience alias). Tasked:
-   `1781818972687`.
+2. **states projection: bare native snapshot** (no wrapper or config alias).
 3. **`state` → `snapshot`: full rename, everywhere the value is named (resolved
    2026-06-20 — chose the complete rename (b), not method-only (a)).** The value
    `getSnapshot()` returns is a *snapshot*, not a state-machine "state": per adapter
-   it's the xstate snapshot (`ExtendedState` = `StateFrom & context`; the FSM state
-   is only `snapshot.value`), the redux state tree, the mobx store, or the actor-web
-   extended state. "state" is the native word for **redux only**, ambiguous for
+   it's the native XState `StateFrom<Machine>` snapshot (the FSM state is only
+   `snapshot.value`), the redux state tree, the mobx store, or the actor-web
+   supported snapshot. "state" is the native word for **redux only**, ambiguous for
    xstate (collides with `snapshot.value`) and foreign to mobx. "snapshot" is the
    honest *uniform* word — it *contains* the FSM state rather than colliding with it,
    and it matches the instrument ignite already chose (`getSnapshot`/`watchSnapshot`,

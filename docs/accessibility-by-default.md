@@ -27,7 +27,7 @@ agent tooling.
 Accessibility begins in the runtime contract, not in a post-hoc DOM scrape.
 Ignite already exposes the facts most accessible interfaces need:
 
-- derived state through `view` and `getView()`,
+- derived state through `view` and `getStates()`,
 - command descriptions and input shapes through `getSchema()`,
 - dynamic availability through `canExecute()`,
 - command results and emitted events through `execute()` and `on(...)`,
@@ -93,7 +93,7 @@ import { thermostatMachine } from "./thermostatMachine";
 
 const thermostat = igniteCore({
   source: thermostatMachine,
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     target: snapshot.context.target,
     targetLabel: "Target temperature",
     targetHint: "Choose a value between 58 and 82 degrees.",
@@ -147,7 +147,7 @@ testable, not accidental side effects of repeated reads.
 | Semantic document validity | Yes | No |
 | Action payload validity | Yes | No |
 | Speech request identity and dedupe | Yes | No |
-| Status summaries and disabled reasons | Yes via `getView()` and semantic documents | No |
+| Status summaries and disabled reasons | Yes via `getStates()` and semantic documents | No |
 | Computed accessible name/description | No | Yes |
 | Focus order, trap, and restoration | No | Yes |
 | Keyboard interaction details | No | Yes |

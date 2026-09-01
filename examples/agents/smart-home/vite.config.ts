@@ -79,7 +79,7 @@ export default defineConfig({
 	test: {
 		// `node`, NOT jsdom — the smart-home agent runs fully headless. This is the
 		// end-to-end proof of the DOM-free agent runtime: getSchema/execute/on/
-		// watchView work here with zero DOM polyfill.
+		// watchStates work here with zero DOM polyfill.
 		environment: "node",
 		include: ["src/**/*.test.ts"],
 	},

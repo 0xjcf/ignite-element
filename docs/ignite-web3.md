@@ -170,7 +170,7 @@ import { igniteCore, matchState } from "ignite-element/xstate"; // DOM authoring
 const walletCore = igniteCore({
   source: walletActor,
 
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     mode: matchState(
       snapshot,
       {

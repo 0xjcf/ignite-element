@@ -82,7 +82,7 @@ const finishCurrentTurn = () => {
 				id: request.call.id ?? "test-complete",
 				command: request.call.command,
 				status: "accepted",
-				view: component.getView().modelContext,
+				view: component.getStates().modelContext,
 				events: [],
 			},
 		},
@@ -127,7 +127,7 @@ const executeModelTurn = async (response: ModelResult) => {
 								: {}),
 						}
 					: {}),
-			view: component.getView().modelContext,
+			view: component.getStates().modelContext,
 			events: isOk(execution)
 				? execution.value.events.map((actorEvent) => ({
 						type: actorEvent.type,
@@ -470,7 +470,7 @@ describe("voice/text workbench model turn", () => {
 			const modelRequest = {
 				prompt,
 				tools: modelTools(tools.manifest),
-				view: component.getView().modelContext,
+				view: component.getStates().modelContext,
 				history: [],
 				capabilities: { internetAccess: "unavailable" as const },
 			};
@@ -564,7 +564,7 @@ describe("voice/text workbench model turn", () => {
 		expect(
 			requests.flatMap((request) => request.tools.map((tool) => tool.name)),
 		).not.toContain("acknowledgeSpeech");
-		expect(component.getView()).toMatchObject({
+		expect(component.getStates()).toMatchObject({
 			status: "ready",
 			artifacts: [{ id: "plan", revision: "2" }],
 		});
@@ -683,7 +683,7 @@ describe("voice/text workbench model turn", () => {
 			reason: "response-incomplete",
 			trace: [{ command: "createArtifact", accepted: true }],
 		});
-		expect(component.getView()).toMatchObject({
+		expect(component.getStates()).toMatchObject({
 			status: "responding",
 			response: null,
 		});
@@ -699,7 +699,7 @@ describe("voice/text workbench model turn", () => {
 			command: "submitPrompt",
 			input: { modality: "text", text: "Keep this turn active" },
 		});
-		const beforeRejectedPrompt = component.getView();
+		const beforeRejectedPrompt = component.getStates();
 		const promptSubmitted = vi.fn();
 		const subscription = component.on("prompt-submitted", promptSubmitted);
 
@@ -709,7 +709,7 @@ describe("voice/text workbench model turn", () => {
 		});
 
 		expect(promptSubmitted).not.toHaveBeenCalled();
-		expect(component.getView()).toEqual(beforeRejectedPrompt);
+		expect(component.getStates()).toEqual(beforeRejectedPrompt);
 		subscription.unsubscribe();
 
 		await component.execute({

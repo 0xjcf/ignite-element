@@ -359,7 +359,7 @@ function requestBody(
 							...(result.receipt ? { receipt: result.receipt } : {}),
 							events: result.events,
 						},
-						view: result.view,
+						states: result.view,
 						events: [],
 					}),
 				}),

@@ -54,7 +54,7 @@ sharedActor.start();
 
 const register = igniteCore({
   source: sharedActor,
-  // ...view/commands/events
+  // ...states/commands/events
 });
 
 register('ignite-toggle', /* renderer */);
@@ -63,26 +63,26 @@ register('ignite-toggle', /* renderer */);
 sharedActor.stop();
 ```
 
-## Projection (`view`)
+## Projection (`states`)
 
-The projection is explicit: you decide which snapshot fields become render values and commands. Use the `view` callback to map raw snapshots into render-friendly data. It runs on access and reflects the latest adapter snapshot; it is not memoized, so keep it fast.
+The projection is explicit: you decide which snapshot fields become public render and headless values. Use the optional `states(snapshot)` callback to map the native snapshot into a plain object. It runs once per inspection or delivered observation and is not memoized, so keep it fast.
 
 ```ts
-view: ({ snapshot }) => ({
+states: (snapshot) => ({
   count: snapshot.context.count,
   canUndo: snapshot.can?.({ type: 'UNDO' }) ?? false,
 })
 ```
 
 :::tip[Heavy derivations]
-If you need expensive computed values, move the derivation into your state source (machine/store/observable) so the snapshot already contains it. Keep `view` fast and simple.
+If you need expensive computed values, move the derivation into your state source (machine/store/observable) so the snapshot already contains it. Keep `states` fast and simple.
 :::
 
-:::note[View context shape]
-The `view` callback always receives `{ snapshot }`. For XState and Actor-Web, read domain state from `snapshot.context`; for Redux and MobX, the snapshot is the store state itself. Ignite does not spread snapshot fields onto the callback argument.
+:::note[States callback shape]
+The `states` callback receives the bare native snapshot. For XState and Actor-Web, read domain state from `snapshot.context`; for Redux and MobX, the snapshot is the store state itself. Ignite does not spread or wrap snapshot fields.
 :::
 
-:::note[View helpers are source-native]
+:::note[Snapshot helpers are source-native]
 Helpers like `matches`, `can`, and `hasTag` come from the source snapshot, so they're only present when the source provides them — their types are `… | undefined`. Ignite doesn't polyfill a uniform set; you get your chosen library's ergonomics.
 
 | Helper | XState | Redux | MobX | Actor-Web |
@@ -91,7 +91,7 @@ Helpers like `matches`, `can`, and `hasTag` come from the source snapshot, so th
 | `can(event)` | ✅ | — | — | if the read model exposes it |
 | `hasTag(tag)` | ✅ | — | — | if the read model exposes it |
 
-For Redux and MobX, derive those booleans yourself in `view` (e.g. `canUndo: state.history.length > 0`). The deterministic-effects contract, `getView()`, and the headless runtime stay identical across all adapters — only these source-native helpers differ.
+For Redux and MobX, derive those booleans yourself in `states` (e.g. `canUndo: snapshot.history.length > 0`). The deterministic-effects contract, `getStates()`, and the headless runtime stay identical across all adapters — only these source-native helpers differ.
 :::
 
 ## Commands, events, and effects
@@ -144,7 +144,7 @@ const component = igniteCore({
   events: (event) => ({
     incremented: event<{ count: number }>(),
   }),
-  view: ({ snapshot }) => ({
+  states: (snapshot) => ({
     count: snapshot.context.count,
     canDecrement: snapshot.context.count > 0,
   }),

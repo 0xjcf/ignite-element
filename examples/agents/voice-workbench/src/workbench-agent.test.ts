@@ -624,14 +624,14 @@ describe("shared voice workbench agent", () => {
 				{ command: "completeResponse", accepted: true },
 			],
 		});
-		expect(component.getView()).toMatchObject({
+		expect(component.getStates()).toMatchObject({
 			status: "ready",
 			activeArtifact: { id: "terminal-plan", revision: "1" },
 			response: { text: "Terminal plan ready." },
 		});
 		expect(requestModel).toHaveBeenCalledTimes(2);
 		expect(requestModel.mock.calls[0]?.[1]).not.toHaveProperty("component");
-		expect(component.getView().presentation.runtimeManifest).toEqual(
+		expect(component.getStates().presentation.runtimeManifest).toEqual(
 			requestModel.mock.calls[1]?.[1].tools.map((tool) => ({
 				...tool,
 				ownerId: "workbench-component",
@@ -944,7 +944,7 @@ describe("shared voice workbench agent", () => {
 				},
 			},
 		});
-		expect(component.getView().activeArtifact).toMatchObject({
+		expect(component.getStates().activeArtifact).toMatchObject({
 			id: "sourced-budget",
 			nodes: [
 				{
@@ -990,7 +990,7 @@ describe("shared voice workbench agent", () => {
 				},
 			],
 		});
-		expect(component.getView().presentation.turn).toMatchObject({
+		expect(component.getStates().presentation.turn).toMatchObject({
 			type: "accepted",
 			capability: {
 				provider: "fake-search",
@@ -1007,10 +1007,10 @@ describe("shared voice workbench agent", () => {
 			},
 		});
 		expect(
-			component.getView().presentation.turn?.capability,
+			component.getStates().presentation.turn?.capability,
 		).not.toHaveProperty("pricingRows");
 		expect(
-			component.getView().runtimeInspector.capabilityRows.slice(-1)[0],
+			component.getStates().runtimeInspector.capabilityRows.slice(-1)[0],
 		).toMatchObject({
 			message: expect.stringContaining(
 				"fallback brave-web-search → fake-search · trigger HTTP 503 · success",
@@ -1191,7 +1191,7 @@ describe("shared voice workbench agent", () => {
 			status: "capability-success",
 			fact: { decision: { outcome: "admitted" } },
 		});
-		expect(component.getView().presentation.domainPolicy).toMatchObject({
+		expect(component.getStates().presentation.domainPolicy).toMatchObject({
 			domainId: "product-pricing",
 			outcome: "admitted",
 			assumptions: [],
@@ -1441,7 +1441,7 @@ describe("shared voice workbench agent", () => {
 		);
 
 		const recorded = component
-			.getView()
+			.getStates()
 			.presentation.capabilityOutcomes.filter(
 				(outcome) => outcome.ownerId === "product-pricing-price",
 			)
@@ -1758,7 +1758,7 @@ describe("shared voice workbench agent", () => {
 			),
 		).not.toContain("searchWeb");
 		expect(
-			component.getView().presentation.capabilityOutcomes.slice(-1)[0],
+			component.getStates().presentation.capabilityOutcomes.slice(-1)[0],
 		).toMatchObject({
 			ownerId: "product-pricing-price",
 			toolName: "priceProducts",
@@ -1794,7 +1794,7 @@ describe("shared voice workbench agent", () => {
 				},
 			],
 		});
-		expect(component.getView().presentation.turn?.capability).toMatchObject({
+		expect(component.getStates().presentation.turn?.capability).toMatchObject({
 			pricingRows: [
 				{ subject: "Bread" },
 				{ subject: "Eggs" },
@@ -2000,7 +2000,7 @@ describe("shared voice workbench agent", () => {
 		expect(
 			result?.trace.some((entry) => entry.command === "reviseArtifact"),
 		).toBe(false);
-		expect(component.getView().activeArtifact).toMatchObject({
+		expect(component.getStates().activeArtifact).toMatchObject({
 			id: "live-sarasota-list",
 			revision: "1",
 			nodes: [
@@ -2271,7 +2271,7 @@ describe("shared voice workbench agent", () => {
 				expect.stringContaining("Subject, Price, Status, and Source"),
 			]),
 		});
-		expect(component.getView().activeArtifact).toMatchObject({
+		expect(component.getStates().activeArtifact).toMatchObject({
 			id: "completion-evidence-repair",
 			revision: "2",
 			nodes: [
@@ -2411,7 +2411,7 @@ describe("shared voice workbench agent", () => {
 				},
 			},
 		});
-		expect(component.getView().presentation.turn).toMatchObject({
+		expect(component.getStates().presentation.turn).toMatchObject({
 			type: "accepted",
 			capability: {
 				provider: "catalog-search",
@@ -2433,15 +2433,15 @@ describe("shared voice workbench agent", () => {
 			},
 		});
 		expect(
-			component.getView().runtimeInspector.capabilityRows.slice(-1)[0],
+			component.getStates().runtimeInspector.capabilityRows.slice(-1)[0],
 		).toMatchObject({
 			message: expect.stringContaining(
 				"fallback brave-web-search → fixture-search · trigger HTTP 503 · timeout",
 			),
 		});
-		expect(JSON.stringify(component.getView().presentation.turn)).not.toContain(
-			"secret",
-		);
+		expect(
+			JSON.stringify(component.getStates().presentation.turn),
+		).not.toContain("secret");
 	});
 
 	it.each(["preparation", "provider failure"] as const)(
@@ -2478,7 +2478,7 @@ describe("shared voice workbench agent", () => {
 				command: "submitPrompt",
 				input: { modality: "text", text: `Start turn A for ${interruption}.` },
 			});
-			const turnA = component.getView().lifecycle.activeTurnId;
+			const turnA = component.getStates().lifecycle.activeTurnId;
 			if (!turnA) throw new Error("turn A was not admitted");
 			const handleA = startSubmittedPrompt(configuration, {
 				turnId: turnA,
@@ -2502,7 +2502,7 @@ describe("shared voice workbench agent", () => {
 					text: `Start turn B after ${interruption}.`,
 				},
 			});
-			const turnB = component.getView().lifecycle.activeTurnId;
+			const turnB = component.getStates().lifecycle.activeTurnId;
 			if (!turnB) throw new Error("turn B was not admitted");
 			const handleB = startSubmittedPrompt(configuration, {
 				turnId: turnB,
@@ -2544,7 +2544,7 @@ describe("shared voice workbench agent", () => {
 					.getSnapshot()
 					.context.documents.some((document) => document.id === artifactId),
 			).toBe(false);
-			expect(component.getView().lifecycle.activeTurnId).toBe(turnB);
+			expect(component.getStates().lifecycle.activeTurnId).toBe(turnB);
 
 			handleB.dispose();
 			handleB.dispose();
@@ -2609,10 +2609,10 @@ describe("shared voice workbench agent", () => {
 				command: "submitPrompt",
 				input: { modality: "text", text: "Wait for the slow capability." },
 			});
-			const turnId = component.getView().lifecycle.activeTurnId;
+			const turnId = component.getStates().lifecycle.activeTurnId;
 			if (!turnId) throw new Error("timeout turn was not admitted");
 			const capabilityCount =
-				component.getView().presentation.capabilityOutcomes.length;
+				component.getStates().presentation.capabilityOutcomes.length;
 			const handle = startSubmittedPrompt(
 				{ baseUrl: "http://127.0.0.1:8080/v1", model: "local-model" },
 				{
@@ -2647,9 +2647,9 @@ describe("shared voice workbench agent", () => {
 			});
 			await vi.advanceTimersByTimeAsync(0);
 			expect(requestModel).toHaveBeenCalledTimes(1);
-			expect(component.getView().presentation.capabilityOutcomes).toHaveLength(
-				capabilityCount,
-			);
+			expect(
+				component.getStates().presentation.capabilityOutcomes,
+			).toHaveLength(capabilityCount);
 			expect(terminalFacts.filter((type) => type === "TIMEOUT")).toHaveLength(
 				1,
 			);
@@ -2688,7 +2688,7 @@ describe("shared voice workbench agent", () => {
 				text: "Exercise the authorization port failure boundary.",
 			},
 		});
-		const turnId = component.getView().lifecycle.activeTurnId;
+		const turnId = component.getStates().lifecycle.activeTurnId;
 		if (!turnId) throw new Error("port-failure turn was not admitted");
 		const handle = startSubmittedPrompt(
 			{ baseUrl: "http://127.0.0.1:8080/v1", model: "local-model" },
@@ -2780,7 +2780,7 @@ describe("shared voice workbench agent", () => {
 
 		expect(requestModel).not.toHaveBeenCalled();
 		expect(collidingProvider.run).not.toHaveBeenCalled();
-		expect(component.getView().presentation.turn).toMatchObject({
+		expect(component.getStates().presentation.turn).toMatchObject({
 			type: "model-failed",
 			message:
 				"Capability configuration rejected duplicate tool names: createArtifact.",
@@ -2809,7 +2809,7 @@ describe("shared voice workbench agent", () => {
 				text: "Keep this turn pending while the parent stops.",
 			},
 		});
-		const turnId = component.getView().lifecycle.activeTurnId;
+		const turnId = component.getStates().lifecycle.activeTurnId;
 		if (!turnId) throw new Error("post-stop turn was not admitted");
 		const handle = startSubmittedPrompt(
 			{ baseUrl: "http://127.0.0.1:8080/v1", model: "local-model" },

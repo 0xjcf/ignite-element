@@ -1,72 +1,61 @@
-# Design: View/effects context canonicalization — uniform `{ snapshot }`
+# Design: states projection canonicalization
 
 ## Status
 
-Implemented. **Breaking.** Part of `docs/v3-api-consistency.md`.
-
-## Context
-
-The `view` (and effect) context is built by spreading the snapshot onto the context
-object (`createProjectionFactory`: `{ ...snapshot, snapshot }`). Two problems:
-
-1. **Two paths to the same data** — `ctx.count` *and* `ctx.snapshot.count` both work
-   → ambiguous, fragile to refactor, unclear which is "the" path.
-2. **Shape differs per adapter** — what you destructure depends on the adapter's
-   snapshot:
-   - xstate: `view: ({ snapshot }) => snapshot.context.x`
-   - redux / mobx: `view: ({ snapshot }) => snapshot.x` (the snapshot *is* the state)
-   - actor-web: `view: ({ snapshot }) => …` (reads `snapshot.context` and `snapshot.transport`)
-
-   So the **arg shape is heterogeneous** across adapters — a consumer learns a
-   different destructure per source, which undercuts "swap the source without
-   rewriting views."
+Implemented for the v3 beta contract. **Breaking.**
 
 ## Decision
 
-The callback receives a single uniform arg: **`{ snapshot }`** (no spread). One arg
-shape on every adapter; one path to data:
+`states` is the only `igniteCore` projection configuration field. It receives
+the adapter's bare native snapshot and returns a plain object:
 
 ```ts
-view: ({ snapshot }) => ({ on: snapshot.matches("on") });            // xstate
-view: ({ snapshot }) => ({ count: snapshot.count });                 // mobx / redux
-view: ({ snapshot }) => ({                                            // actor-web
-  status: snapshot.context.status,
-  connected: snapshot.transport.state === "connected",
+const counter = igniteCore({
+  source,
+  states: (snapshot) => ({
+    count: snapshot.context.count,
+    active: snapshot.matches("active"),
+  }),
 });
 ```
 
-`snapshot`'s *internal* shape stays adapter-specific (that is your state model, and
-inherent) — but the **arg shape is uniform**, the data path is single (`snapshot.*`),
-and it matches the runtime's `getSnapshot()` vocabulary (author == observe).
+The callback does not receive `{ snapshot }`, and config `view` is rejected.
+`view` remains valid terminology for the renderer supplied when registering a
+component.
 
-### Before → after
+Native snapshot shapes remain adapter-specific:
+
+- XState exposes `StateFrom<Machine>`, including `snapshot.context` and
+  `snapshot.matches(...)`.
+- Redux and MobX expose their supported store observations directly.
+- Actor-Web exposes its existing supported snapshot, including its current
+  context and transport facts.
+
+Omitting `states` means no derived states. `getStates()` returns one stable empty
+object; raw snapshot fields are not copied into it.
+
+## Migration
 
 ```ts
-// before — spread + per-adapter destructure + dual path
-view: ({ context }) => ({ route: context.route })                    // xstate
-//   also worked: ({ snapshot }) => ({ route: snapshot.context.route })  ← ambiguity
-
-// after — uniform { snapshot }, single path
+// beta.10
 view: ({ snapshot }) => ({ route: snapshot.context.route })
+
+// next beta
+states: (snapshot) => ({ route: snapshot.context.route })
 ```
 
-## Impact
+Also migrate:
 
-Breaking for consumers who destructure top-level fields (`{ context }`, or spread
-state fields) — they move to `snapshot.*`. Confirm the **effects** context is already
-`{ snapshot, prevSnapshot, … }` (no spread) so the two callbacks match. Ship with a
-changeset + migration note; land with the other breaking items
-(`docs/v3-api-consistency.md`).
+- `getView()` / `watchView()` to `getStates()` / `watchStates()`;
+- `schema.view` to `schema.states`;
+- story `view` / `finalView` fields to `states` / `finalStates`;
+- tool and execution observations to `{ snapshot, states, events }`;
+- XState flattened `ExtendedState` annotations to `StateFrom<Machine>`;
+- public renderer access to raw `state` / `send` to derived states and semantic
+  commands.
 
-## Alternatives considered
+## Coherence
 
-- **Keep the spread, document the canonical path** — rejected: ambiguity remains.
-- **Force a uniform `{ context }` wrapper on all adapters** — rejected: redux/mobx
-  have no `context`; artificial.
-- **Provide both `{ snapshot, context }` explicitly** — rejected: re-introduces the
-  dual path.
-
-## Open questions
-
-- No deprecated convenience alias in v3 beta; the cutover removes the spread.
-- Headless `getView()` uses the same projection path as element rendering.
+Each inspection resolves one snapshot and derives states exactly once from that
+same value. `execute()`, schemas, stories, tools, subscriptions, and renders use
+that paired observation instead of rereading the source between fields.

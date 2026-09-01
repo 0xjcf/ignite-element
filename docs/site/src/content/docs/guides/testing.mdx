@@ -14,7 +14,7 @@ For the scenario API, story recorder, and DOM accessibility helpers with exact s
 
 ## Behavior tests vs. DOM tests
 
-For deterministic command/event assertions without mounting an element, drive the headless runtime (`execute`, `on`, `getView`, …) or the scenario/story helpers directly. Both are documented with full signatures and examples in the [Testing DSL](/ignite-element/api/testing-dsl/) reference, built on the [Headless runtime](/ignite-element/api/headless-runtime/). Effect timing in those tests is deterministic — see [Deterministic effects](/ignite-element/concepts/the-ignite-model/#deterministic-effects) for why a single transition never replays mount-time emissions.
+For deterministic command/event assertions without mounting an element, drive the headless runtime (`execute`, `on`, `getStates`, …) or the scenario/story helpers directly. Both are documented with full signatures and examples in the [Testing DSL](/ignite-element/api/testing-dsl/) reference, built on the [Headless runtime](/ignite-element/api/headless-runtime/). Effect timing in those tests is deterministic — see [Deterministic effects](/ignite-element/concepts/the-ignite-model/#deterministic-effects) for why a single transition never replays mount-time emissions.
 
 The rest of this guide covers the test harness setup and the state-source and DOM tests that sit alongside those behavior tests.
 
@@ -89,7 +89,7 @@ import { counterMachine } from './counter.machine';
 export const registerCounterElement = () =>
   igniteCore({
     source: counterMachine,
-    view: ({ snapshot }) => ({ count: snapshot.context.count }),
+    states: (snapshot) => ({ count: snapshot.context.count }),
     commands: ({ actor }) => ({
       inc: () => actor.send({ type: 'INC' }),
       dec: () => actor.send({ type: 'DEC' }),

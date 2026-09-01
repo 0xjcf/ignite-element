@@ -360,7 +360,9 @@ type IsNever<T> = [T] extends [never] ? true : false;
 type StateResult<
 	Snapshot,
 	StateCallback,
-	Result = [StateCallback] extends [FacadeStatesCallback<Snapshot, infer Result>]
+	Result = [StateCallback] extends [
+		FacadeStatesCallback<Snapshot, infer Result>,
+	]
 		? Result
 		: Record<never, never>,
 > = IsNever<StateCallback> extends true ? Record<never, never> : Result;

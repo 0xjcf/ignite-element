@@ -256,7 +256,7 @@ describe("voice workbench browser entry", () => {
 		if (!(host instanceof HTMLElement) || !host.shadowRoot) {
 			throw new Error("voice workbench did not mount");
 		}
-		expect(component.getView()).toMatchObject({
+		expect(component.getStates()).toMatchObject({
 			status: "preparing",
 			canSubmitPrompt: false,
 			model: { status: "preparing", failure: null },
@@ -264,7 +264,7 @@ describe("voice workbench browser entry", () => {
 			messageCount: 0,
 		});
 		expect(component.getSnapshot().value).toBe("preparing");
-		expect(component.getView().runtimeInspector.actor).toMatchObject({
+		expect(component.getStates().runtimeInspector.actor).toMatchObject({
 			heading: "Compound actor state",
 			matchText: 'matches("preparing")',
 		});
@@ -282,7 +282,7 @@ describe("voice workbench browser entry", () => {
 			),
 		);
 		await vi.waitFor(() => {
-			expect(component.getView()).toMatchObject({
+			expect(component.getStates()).toMatchObject({
 				status: "ready",
 				canSubmitPrompt: true,
 				model: { status: "available", failure: null },
@@ -291,7 +291,7 @@ describe("voice workbench browser entry", () => {
 		expect(component.getSnapshot().value).toEqual({
 			available: { turn: "idle", voice: "active", speech: "idle" },
 		});
-		expect(component.getView().runtimeInspector.actor).toMatchObject({
+		expect(component.getStates().runtimeInspector.actor).toMatchObject({
 			heading: "Compound actor state",
 			matchText: 'matches({\n  available: { turn: "idle" },\n})',
 		});
@@ -315,7 +315,7 @@ describe("voice workbench browser entry", () => {
 		);
 
 		await vi.waitFor(() => {
-			expect(component.getView()).toMatchObject({
+			expect(component.getStates()).toMatchObject({
 				status: "ready",
 				artifacts: [
 					{
@@ -328,7 +328,7 @@ describe("voice workbench browser entry", () => {
 			expect(host.shadowRoot?.textContent).toContain(
 				"Verify dynamic Ignite tools",
 			);
-			expect(component.getView()).toMatchObject({
+			expect(component.getStates()).toMatchObject({
 				presentation: {
 					documentCommit: {
 						id: "release-plan",
@@ -361,7 +361,7 @@ describe("voice workbench browser entry", () => {
 				),
 			)
 			.toEqual([]);
-		const initialSpeech = component.getView().speech;
+		const initialSpeech = component.getStates().speech;
 		if (!initialSpeech)
 			throw new Error("initial speech request was not retained");
 		const initialSpeechDelivery =
@@ -495,25 +495,25 @@ describe("voice workbench browser entry", () => {
 		});
 
 		await vi.waitFor(() => {
-			expect(component.getView()).toMatchObject({
+			expect(component.getStates()).toMatchObject({
 				status: "ready",
 				artifacts: [{ id: "release-plan", revision: "3" }],
 			});
 			expect(host.shadowRoot?.textContent).toContain(
 				"Add a speech-authored rollout checkpoint.",
 			);
-			expect(component.getView()).toMatchObject({
+			expect(component.getStates()).toMatchObject({
 				presentation: {
 					documentCommit: { id: "release-plan", revision: "3" },
 				},
 			});
 		});
-		expect(component.getView().messages).toContainEqual({
+		expect(component.getStates().messages).toContainEqual({
 			role: "user",
 			channel: "speech",
 			text: "Revise the plan through speech",
 		});
-		expect(component.getView()).toMatchObject({
+		expect(component.getStates()).toMatchObject({
 			presentation: { draft: "Keep this typed draft" },
 		});
 		expect(fetchMock).toHaveBeenCalledTimes(6);
@@ -532,7 +532,7 @@ describe("voice workbench browser entry", () => {
 			new Event("submit", { bubbles: true, cancelable: true }),
 		);
 		await vi.waitFor(() => {
-			expect(component.getView()).toMatchObject({
+			expect(component.getStates()).toMatchObject({
 				status: "ready",
 				artifacts: [{ id: "release-plan", revision: "4" }],
 				response: {
@@ -568,7 +568,7 @@ describe("voice workbench browser entry", () => {
 			new Event("submit", { bubbles: true, cancelable: true }),
 		);
 		await vi.waitFor(() => {
-			expect(component.getView()).toMatchObject({
+			expect(component.getStates()).toMatchObject({
 				status: "ready",
 				response: null,
 				presentation: {
@@ -592,7 +592,7 @@ describe("voice workbench browser entry", () => {
 			throw new Error("microphone button is unavailable after recovery");
 		}
 		currentMicrophone.click();
-		expect(component.getView()).toMatchObject({
+		expect(component.getStates()).toMatchObject({
 			presentation: { draft: "Show provider recovery" },
 		});
 		await vi.waitFor(() => {
@@ -608,7 +608,7 @@ describe("voice workbench browser entry", () => {
 				sequence: 2,
 			});
 		});
-		expect(component.getView().portRequests.voiceCapture).toBeNull();
+		expect(component.getStates().portRequests.voiceCapture).toBeNull();
 
 		const permissionRetryMicrophone =
 			host.shadowRoot.querySelector("#mic-button");
@@ -627,7 +627,7 @@ describe("voice workbench browser entry", () => {
 				attemptId: "voice:3",
 				sequence: 3,
 			});
-			expect(component.getView().portRequests.voiceCapture).toMatchObject({
+			expect(component.getStates().portRequests.voiceCapture).toMatchObject({
 				type: "start",
 				attemptId: "voice:3",
 			});
@@ -646,7 +646,7 @@ describe("voice workbench browser entry", () => {
 				sequence: 3,
 			});
 		});
-		expect(component.getView().portRequests.voiceCapture).toBeNull();
+		expect(component.getStates().portRequests.voiceCapture).toBeNull();
 		const failureRetryMicrophone = host.shadowRoot.querySelector("#mic-button");
 		if (!(failureRetryMicrophone instanceof HTMLButtonElement)) {
 			throw new Error(
@@ -663,7 +663,7 @@ describe("voice workbench browser entry", () => {
 				attemptId: "voice:4",
 				sequence: 4,
 			});
-			expect(component.getView().portRequests.voiceCapture).toMatchObject({
+			expect(component.getStates().portRequests.voiceCapture).toMatchObject({
 				type: "start",
 				attemptId: "voice:4",
 			});
@@ -685,7 +685,7 @@ describe("voice workbench browser entry", () => {
 		);
 		await vi.waitFor(() => {
 			expect(fetchMock).toHaveBeenCalledTimes(10);
-			expect(component.getView().status).toBe("responding");
+			expect(component.getStates().status).toBe("responding");
 		});
 		const pendingTurnSignal = fetchMock.mock.calls[9]?.[1]?.signal;
 		expect(pendingTurnSignal).toBeInstanceOf(AbortSignal);

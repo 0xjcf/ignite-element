@@ -132,7 +132,7 @@ const scheduleCourtDraw = (canvas: HTMLCanvasElement, frame: CourtFrame) => {
 
 const component = igniteCore({
   source: tableSource,
-  view: ({ snapshot }) => ({ frame: snapshot.context.frame }),
+  states: (snapshot) => ({ frame: snapshot.context.frame }),
 });
 
 component("pong-game", ({ frame }) => (
@@ -247,7 +247,7 @@ queue. No framework scheduler clock or flush API is added by the lifecycle task.
 - Creating or using the headless runtime must not read `document`, `Element`, or
   animation-frame globals.
 - Ref and commit callbacks run only after a DOM strategy creates a real element.
-- `getSchema()`, `getView()`, commands, events, and non-DOM projection targets do
+- `getSchema()`, `getStates()`, commands, events, and non-DOM projection targets do
   not acquire retained nodes or schedule presentation work.
 - No DOM means no synthetic ref acquisition or commit callback.
 - A stale callback captured before detach cannot run against a later tree.

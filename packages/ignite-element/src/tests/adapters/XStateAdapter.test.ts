@@ -326,24 +326,24 @@ describe("XStateAdapter", () => {
 		expect(delivered).toBe(snapshot);
 		expect(current.value).toBe("idle");
 		expect(current.context).toBe(context);
-		expect(Object.getOwnPropertyDescriptor(current, "snapshotAccessor")?.get).toBe(
-			snapshotAccessor,
-		);
-		expect(Object.getOwnPropertyDescriptor(current, snapshotSymbol)?.value).toBe(
-			"snapshot symbol",
-		);
-		expect(Object.getOwnPropertyDescriptor(context, "contextAccessor")?.get).toBe(
-			contextAccessor,
-		);
+		expect(
+			Object.getOwnPropertyDescriptor(current, "snapshotAccessor")?.get,
+		).toBe(snapshotAccessor);
+		expect(
+			Object.getOwnPropertyDescriptor(current, snapshotSymbol)?.value,
+		).toBe("snapshot symbol");
+		expect(
+			Object.getOwnPropertyDescriptor(context, "contextAccessor")?.get,
+		).toBe(contextAccessor);
 		expect(Object.getOwnPropertyDescriptor(context, contextSymbol)?.value).toBe(
 			"context symbol",
 		);
-		expect(Object.getOwnPropertyDescriptor(context, "hiddenContext")?.value).toBe(
-			"hidden context",
-		);
-		expect(Object.getOwnPropertyDescriptor(current, "hiddenSnapshot")?.value).toBe(
-			"hidden snapshot",
-		);
+		expect(
+			Object.getOwnPropertyDescriptor(context, "hiddenContext")?.value,
+		).toBe("hidden context");
+		expect(
+			Object.getOwnPropertyDescriptor(current, "hiddenSnapshot")?.value,
+		).toBe("hidden snapshot");
 		expect(contextAccessor).not.toHaveBeenCalled();
 		expect(snapshotAccessor).not.toHaveBeenCalled();
 

@@ -1110,56 +1110,60 @@ class IgniteTestDriver<
 		let cleanupError: IgniteStoryFailure | undefined;
 		let receipt: IgniteStorySnapshot | undefined;
 
-		const storyContext: IgniteTestStoryContext<State, Commands, Events, States> =
-			{
-				given: async (expected) => {
-					try {
-						await this.awaitStoryAssertion(story, "given", expected, []);
-					} catch (error) {
-						throw createStoryFailure(name, "given", story, error);
-					}
-				},
-				intent: async (step) => {
-					try {
-						const result = await this.withHost(() => story.execute(step));
-						this.lastResult = result;
-						lastEvents = cloneSerializable(
-							result.events,
-						) as RuntimeEvent<Events>[];
-						return result;
-					} catch (error) {
-						throw createStoryFailure(name, "intent", story, error, {
-							intent: step,
-						});
-					}
-				},
-				behavior: async (behaviorName, operation) => {
-					try {
-						return await this.withHost(() =>
-							story.behavior(behaviorName, operation),
-						);
-					} catch (error) {
-						throw createStoryFailure(name, "behavior", story, error, {
-							behaviorName,
-						});
-					}
-				},
-				checkpoint: async (checkpointName, expected) => {
-					try {
-						await this.awaitStoryAssertion(
-							story,
-							"checkpoint",
-							expected,
-							cloneSerializable(lastEvents) as RuntimeEvent<Events>[],
-							checkpointName,
-						);
-					} catch (error) {
-						throw createStoryFailure(name, "checkpoint", story, error, {
-							checkpointName,
-						});
-					}
-				},
-			};
+		const storyContext: IgniteTestStoryContext<
+			State,
+			Commands,
+			Events,
+			States
+		> = {
+			given: async (expected) => {
+				try {
+					await this.awaitStoryAssertion(story, "given", expected, []);
+				} catch (error) {
+					throw createStoryFailure(name, "given", story, error);
+				}
+			},
+			intent: async (step) => {
+				try {
+					const result = await this.withHost(() => story.execute(step));
+					this.lastResult = result;
+					lastEvents = cloneSerializable(
+						result.events,
+					) as RuntimeEvent<Events>[];
+					return result;
+				} catch (error) {
+					throw createStoryFailure(name, "intent", story, error, {
+						intent: step,
+					});
+				}
+			},
+			behavior: async (behaviorName, operation) => {
+				try {
+					return await this.withHost(() =>
+						story.behavior(behaviorName, operation),
+					);
+				} catch (error) {
+					throw createStoryFailure(name, "behavior", story, error, {
+						behaviorName,
+					});
+				}
+			},
+			checkpoint: async (checkpointName, expected) => {
+				try {
+					await this.awaitStoryAssertion(
+						story,
+						"checkpoint",
+						expected,
+						cloneSerializable(lastEvents) as RuntimeEvent<Events>[],
+						checkpointName,
+					);
+				} catch (error) {
+					throw createStoryFailure(name, "checkpoint", story, error, {
+						checkpointName,
+					});
+				}
+			},
+		};
 
 		try {
 			await run(storyContext);

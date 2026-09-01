@@ -97,7 +97,7 @@ registerFasShell("fas-shell", () => (
 `igniteCore`'s contract *is* a projection pipeline —
 `source → adapter → snapshot → view(snapshot) → render(ctx)`, with `commands`
 dispatching to the source, `effects` reacting to transitions, and the agent
-runtime (`getSnapshot`/`getView`/`execute`/`on`/`record`/`getSchema`) all keyed
+runtime (`getSnapshot`/`getStates`/`execute`/`on`/`record`/`getSchema`) all keyed
 off the snapshot. Make `source` optional and every other field plus every runtime
 method becomes meaningless in the sourceless case, and the types must gate
 `view`/`commands`/`effects` on source-presence across all five adapter config

@@ -16,8 +16,7 @@ Creates a registration function for wiring adapters to custom elements.
 
 | Option | Type | Description |
 | --- | --- | --- |
-| `view` | `({ snapshot }) => Record<string, unknown>` | Derive render-facing data from the adapter snapshot. Runs when the runtime attaches and after later state updates. |
-| `states` | `(snapshot) => Record<string, unknown>` | Supported alias for derived render-facing data. Prefer `view` for new components; keep `states` when maintaining existing components that already use it. |
+| `states` | `(snapshot) => Record<string, unknown>` | Derive render- and headless-facing data from the native adapter snapshot. Optional; omission returns one stable empty object. |
 | `commands` | `({ actor, command, host }) => Record<string, (...args: any[]) => unknown>` | Expose imperative helpers from the command context. Use `actor` for adapter dispatch/send/store access, `command` to attach command contract metadata, and `host` for host-aware commands. |
 | `cleanup` | `boolean` | Defaults to `true`. Shared adapter teardown override. When `false`, keeps shared adapters alive after the last element disconnects so the host can release them manually. |
 
@@ -26,7 +25,7 @@ Creates a registration function for wiring adapters to custom elements.
 `(tag: string, renderer: ComponentRenderer) => void`
 
 - `ComponentRenderer` can be a function, an object with `render(args)`, or a class whose instances implement `render(args)`.
-- Render args merge the original adapter state/metadata with the derived façade values.
+- Public `igniteCore` render args contain derived states, semantic commands, and explicitly supported component facilities. They do not expose raw `state` or `send`.
 - TypeScript infers the render argument shape from the callbacks you provide—no extra helper types required.
 
 ### Headless testing
@@ -61,13 +60,14 @@ const result = await component.execute({ command: "toggle" });
 subscription.unsubscribe();
 
 expect(result.snapshot.value).toBe("on");
+expect(result.states).toEqual({});
 expect(result.events).toEqual([
   { type: "toggled", isOn: true },
 ]);
 expect(seen).toEqual([{ type: "toggled", isOn: true }]);
 ```
 
-Use `execute()` for command-driven assertions, `on(...)` for emitted events, and `watchSnapshot(...)` or `watchView(...)` when a test needs to observe longer-lived snapshots or projection changes.
+Use `execute()` for command-driven assertions, `on(...)` for emitted events, and `watchSnapshot(...)` or `watchStates(...)` when a test needs to observe longer-lived snapshots or projection changes.
 
 ## Advanced renderer config
 
