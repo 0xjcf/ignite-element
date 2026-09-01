@@ -453,7 +453,7 @@ describe("consumer-configured MLX workbench model", () => {
 		).toEqual(["create", "early-complete", "search"]);
 		expect(JSON.parse(body.messages[3].content)).toMatchObject({
 			snapshot: { outcome: "accepted" },
-			view: { artifacts: [{ id: "release-checklist", revision: "1" }] },
+			states: { artifacts: [{ id: "release-checklist", revision: "1" }] },
 		});
 		expect(JSON.parse(body.messages[4].content)).toMatchObject({
 			snapshot: { outcome: "deferred" },

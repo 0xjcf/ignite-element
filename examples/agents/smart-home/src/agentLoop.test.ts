@@ -1716,7 +1716,7 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 				command: "runScene",
 				input: "movie",
 				ok: true,
-				view: {
+				states: {
 					activeScene: "movie",
 					lights: { living: false },
 				},
