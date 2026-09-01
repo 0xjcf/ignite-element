@@ -72,7 +72,7 @@ The accepted boundary is direct exact-source provisioning:
 const source = composeSourceWithNativeApis(...);
 const projection = igniteCore({
   source,
-  view,
+  states,
   commands,
   effects,
   events,

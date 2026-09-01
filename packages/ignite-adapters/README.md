@@ -2,6 +2,8 @@
 
 Advanced adapter integrations for Ignite.
 
+The v3 package is native ESM-only. Use ESM imports; it does not provide a CommonJS `main` or `require` contract.
+
 This package provides the state-library-specific adapter layers that power Ignite's higher-level APIs.
 
 Exported entrypoints:

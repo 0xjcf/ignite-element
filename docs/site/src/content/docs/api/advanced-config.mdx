@@ -69,6 +69,12 @@ Component-local `<style>` tags remain the default scoped-styling path; `styles` 
 
 You normally **don't** set `renderer`. On the config-free path Ignite auto-detects the strategy from each view's output — a lit-html `TemplateResult` renders with lit (when `@ignite-element/renderer/lit` is imported), everything else with Ignite JSX — so using lit needs no config:
 
+```bash
+pnpm add ignite-element@beta @ignite-element/renderer@beta lit-html
+```
+
+Because this path imports a scoped renderer directly, `@ignite-element/renderer` must be a direct dependency. Normal facade/JSX consumers do not need to install scoped packages explicitly.
+
 ```ts no-check
 import '@ignite-element/renderer/lit';
 import { html } from 'lit-html';

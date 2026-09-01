@@ -10,7 +10,7 @@ Ignite will support retained imperative presentation surfaces through the
 existing two-stage component API:
 
 ```tsx
-const component = igniteCore({ source, view, commands, events, effects });
+const component = igniteCore({ source, states, commands, events, effects });
 
 component("pong-game", ({ frame }) => (
   <canvas

@@ -2,6 +2,8 @@
 
 Advanced adapter-neutral primitives for Ignite contracts and shared typing.
 
+The v3 package is native ESM-only. Use ESM imports; it does not provide a CommonJS `main` or `require` contract.
+
 Use `@ignite-element/core` only when you are building custom adapters, headless integrations, or library-level tooling on top of Ignite internals.
 
 Most application and component authors should install `ignite-element` instead.

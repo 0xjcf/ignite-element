@@ -26,7 +26,13 @@ JSX is **compiled** — `<output>` becomes a `jsx(...)` call at build time — s
 
 ### lit-html
 
-A `html` tagged template, rendered by the lit strategy. Unlike JSX, a tagged template is **plain runtime JavaScript** — nothing to compile. Install `lit-html` and import the strategy once to register it:
+A `html` tagged template, rendered by the lit strategy. Unlike JSX, a tagged template is **plain runtime JavaScript** — nothing to compile. Install the directly imported scoped renderer and `lit-html`:
+
+```bash
+pnpm add ignite-element@beta @ignite-element/renderer@beta lit-html
+```
+
+Normal facade/JSX consumers do not need to declare scoped Ignite packages. The direct `@ignite-element/renderer/lit` import below does, so keep `@ignite-element/renderer` as a direct dependency.
 
 ```ts no-check
 import '@ignite-element/renderer/lit';

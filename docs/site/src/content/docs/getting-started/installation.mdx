@@ -20,7 +20,9 @@ pnpm add ignite-element@beta xstate
 # pnpm add ignite-element@beta mobx               # MobX
 ```
 
-The state libraries are optional peer dependencies, so only the one you install is pulled in — adding `ignite-element@beta` never drags in Redux/MobX/lit when you only use XState. `ignite-element` depends on the scoped `@ignite-element/core`, `@ignite-element/adapters`, and `@ignite-element/renderer` packages internally; they install automatically and you don't reference them directly.
+Ignite Element v3 and its scoped packages are native ESM-only. Use ESM `import` syntax; v3 does not advertise a CommonJS `main` or `require` contract.
+
+The state libraries are optional peer dependencies, so only the one you install is pulled in — adding `ignite-element@beta` never drags in Redux/MobX/lit when you only use XState. `ignite-element` depends on the scoped `@ignite-element/core`, `@ignite-element/adapters`, and `@ignite-element/renderer` packages internally; normal facade consumers receive them automatically and do not import them directly.
 
 Node 22+ and TypeScript 5.x are required. For the full version matrix (state libraries, `lit-html`), see [Compatibility](/ignite-element/api/compatibility/).
 
@@ -43,7 +45,13 @@ For the default path, you do not need `ignite.config.ts`, a bundler plugin, or s
 
 ### Optional advanced and legacy setup
 
-Use the advanced setup only when you need `@ignite-element/renderer` primitives for shared styles or renderer diagnostics. (Using lit is **not** advanced — it is config-free; see [Rendering](/ignite-element/concepts/rendering/).)
+Use the advanced setup only when you need `@ignite-element/renderer` primitives for shared styles, renderer diagnostics, or the optional lit renderer. Direct scoped imports must be direct dependencies. For lit:
+
+```bash
+pnpm add ignite-element@beta @ignite-element/renderer@beta lit-html
+```
+
+Renderer selection remains config-free; importing `@ignite-element/renderer/lit` registers the strategy. See [Rendering](/ignite-element/concepts/rendering/).
 
 - **Advanced config**: [`ignite.config.ts`, renderer selection, and bundler notes](/ignite-element/api/advanced-config/)
 
@@ -55,7 +63,7 @@ Ignite Element stays lean but is not literally “zero dependency”: you must i
 
 - Run a TypeScript check (e.g., `pnpm exec tsc --noEmit` or `npx tsc --noEmit`) to ensure JSX settings work.
 - Create a smoke test component via [Your first component](/ignite-element/getting-started/first-component/).
-- Add config/plugins only if you need global renderer defaults, shared styles, or diagnostics. Using lit needs none of these — just import `@ignite-element/renderer/lit`.
+- Add config/plugins only if you need global renderer defaults, shared styles, or diagnostics. Using lit needs no config, but the direct `@ignite-element/renderer/lit` import requires `@ignite-element/renderer` and `lit-html` to be declared dependencies.
 
 ## Project checklist
 

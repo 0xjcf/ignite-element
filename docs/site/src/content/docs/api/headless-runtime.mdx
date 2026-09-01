@@ -55,7 +55,7 @@ Separate focused getter calls are non-atomic. A source transition between calls 
 
 ### `execute({ command, input? })`
 
-Runs a command by name and resolves at command acknowledgement, after the command window closes and the transition result is available. It does not wait for long-running or asynchronous effects. The input type is inferred from the command function's first parameter, so commands that take no argument omit `input`.
+Runs a command by name and resolves at command acknowledgement, after the command window closes and the transition result is available. Effects are synchronous; asynchronous environmental work belongs to the source runtime and is not part of this acknowledgement window. The input type is inferred from the command function's first parameter, so commands that take no argument omit `input`.
 
 **Returns** `Promise<{ snapshot, states, events }>` — one coherent post-command snapshot/states pair plus the ordered events emitted by that command window (an `IgniteAgentExecutionResult`).
 
@@ -76,7 +76,7 @@ The shape:
 
 `events` is the same ordered stream the runtime emitted for that transition, so assertions stay deterministic and align with the events delivered to `on(...)` listeners.
 
-For sources with a native emit stream (Actor-Web today), domain events the **source** emits during the command window are captured too as flat `{ type, ...fields }` members, independent of the `events:` declaration. See [declared vs source-emitted events](/ignite-element/guides/actor-web/#emitted-events).
+For sources with a native emit stream (XState and Actor-Web today), domain events the **source** emits during the command window are captured too as flat `{ type, ...fields }` members, independent of the `events:` declaration. See [declared vs source-emitted events](/ignite-element/concepts/the-ignite-model/#commands-events-and-effects).
 
 ### `canExecute(commandName)`
 
@@ -130,7 +130,7 @@ const subscription = counter.on('toggled', (event) => {
 subscription.unsubscribe();
 ```
 
-Use `on(...)` for the public events your component emits through `effects`. When the source has a native emit stream (Actor-Web today), `on(...)` also receives the source's emitted domain events as the same flat `{ type, ...fields }` shape, and the names are typed from the source's `Emitted` union. (The pre-stable `subscribe(eventName, handler)` alias was removed at v3.0.0 — use `on`.)
+Use `on(...)` for the public events your component emits through `effects`. When the source has a native emit stream (XState and Actor-Web today), `on(...)` also receives the source's emitted domain events as the same flat `{ type, ...fields }` shape, and the names are typed from the source's `Emitted` union. (The pre-stable `subscribe(eventName, handler)` alias was removed at v3.0.0 — use `on`.)
 
 ### `watchSnapshot(handler)`
 
@@ -255,7 +255,7 @@ This separation is intentional:
 Ignite does not expose a second `getBlueprint()` alias, a public `inspect()` method, or a public inspection-bundle type. Internally, each projection validation and commit attempt captures one private coherent inspection, so the document and behavior facts for that attempt come from the same captured revision. An asynchronous external commit is not transactional with source transitions that occur later; the captured inspection is not part of the headless API.
 
 :::note[Dynamic events are not listed]
-`events` enumerates only the names **declared** in the `events:` map. Events emitted by the source itself (the Actor-Web [emitted-event bridge](/ignite-element/guides/actor-web/#emitted-events)) are a compile-time union with no runtime registry, so they don't appear in the schema — observe them via `on(...)` and `execute().events` instead.
+`events` enumerates only the names **declared** in the `events:` map. Events emitted by XState or Actor-Web sources are a compile-time union with no runtime registry, so they don't appear in the schema — observe them via `on(...)` and `execute().events` instead.
 :::
 
 ### `record(name)`

@@ -138,6 +138,8 @@ create and own their actor, Ignite component, ports, and runtime disposal.
 
 The checked characterization receipts now live beside the source:
 
+Repository development keeps Vite/TypeScript source aliases for fast feedback, but those aliases are not package-export evidence. The example manifest directly declares `ignite-element` and `@ignite-element/renderer`, its tests import `test` from the supported `ignite-element/xstate` entrypoint, and the root packed-consumer lane independently validates candidate tarballs without source aliases.
+
 - `src/session.graph.test.ts` validates the parent topology, deterministic
   reachable session vertices, stale preparation correlation, the fixed invoked
   child IDs, and the direct XState-graph-to-Story composition proof.

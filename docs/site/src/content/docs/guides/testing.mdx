@@ -23,6 +23,8 @@ The rest of this guide covers the test harness setup and the state-source and DO
 - Use a browser-like runner (e.g., Vitest + JSDOM). If you rely on advanced `@ignite-element/renderer` config, shared styles, or the legacy `lit` renderer, import that setup once before tests.
 - Register the component under test before each suite. Clear the DOM between tests (`document.body.innerHTML = ""`).
 
+Tests that import the scoped lit renderer must declare it and its peer directly: `pnpm add -D @ignite-element/renderer@beta lit-html` (with `ignite-element@beta` in application dependencies). Normal facade/JSX tests do not need a direct scoped-package dependency.
+
 ```ts
 // test/setup.ts
 import './ignite.config'; // only if your app uses ignite.config.ts

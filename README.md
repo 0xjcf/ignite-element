@@ -24,9 +24,11 @@ command (intent)
       ↓
 state transition
       ↓
-effect (consequence)
+states derivation
       ↓
 UI render
+      ↓
+effect microtask (outward consequence)
 ```
 
 This gives you:
@@ -42,7 +44,8 @@ Ignite is not trying to replace your app framework. It gives you a browser-nativ
 
 > **v3 is in beta.** Install with `@beta` — the stable `latest` tag is still
 > v2.2.x. The state libraries are optional peer dependencies, so only the one
-> you install is pulled in. See the [v2 → v3 migration guide](./docs/site/src/content/docs/migration/v3.mdx).
+> you install is pulled in. v3 packages are native ESM-only, so use ESM
+> imports rather than CommonJS `require`. See the [v2 → v3 migration guide](./docs/site/src/content/docs/migration/v3.mdx).
 
 Install Ignite Element with the one state library you use.
 
@@ -85,7 +88,7 @@ toggle("toggle-button", ({ isOn, toggle }) => (
 ));
 ```
 
-If your bundler can import CSS as text, you can swap `toggleStyles` for an imported string. Use `ignite.config.ts` only for shared shadow-root styles, diagnostics, or opting into `lit`. For hosts with strict `style-src` CSP rules, prefer emitted stylesheet URLs through shared styles instead of inline `<style>` tags.
+If your bundler can import CSS as text, you can swap `toggleStyles` for an imported string. Use `ignite.config.ts` only for shared shadow-root styles or diagnostics. The optional lit path is config-free but directly imports a scoped package, so install `ignite-element@beta @ignite-element/renderer@beta lit-html` before importing `@ignite-element/renderer/lit`. For hosts with strict `style-src` CSP rules, prefer emitted stylesheet URLs through shared styles instead of inline `<style>` tags.
 
 Create a component:
 
@@ -185,7 +188,7 @@ effects: ({ emit, select }) => {
 
 Effects:
 
-- run after state updates
+- run synchronously in a microtask after the renderer has been notified
 - can read `snapshot`, `prevSnapshot`, `select(...)`, and `emit(...)`
 - expose `select(...)` for common transition comparisons
 - emit typed DOM events

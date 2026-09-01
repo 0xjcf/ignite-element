@@ -47,4 +47,4 @@ Because it wraps the headless runtime, this style stays aligned with effects-bas
 - A new host/runtime seeds `prevSnapshot` from the current adapter state.
 - Historical transitions are not replayed when a new host attaches.
 - The first subscription notification establishes the baseline and does not run `effects(...)`.
-- For mounted elements, effects run before that host's next render for the same transition.
+- For mounted elements, Ignite notifies the renderer first, then runs synchronous effects in a microtask for that transition.

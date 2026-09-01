@@ -176,8 +176,25 @@ Effect timing is deterministic, which is what makes the [headless runtime](/igni
 
 - Attaching a host or headless runtime seeds `prevSnapshot` from the current adapter state. Ignite does not replay historical transitions to newly attached consumers.
 - The first subscription notification establishes that baseline and does **not** run `effects(...)`.
-- After that, `effects(...)` runs once per adapter update in a stable order.
-- For mounted custom elements, effects attach before the render subscription, so events emitted from a transition fire **before** the next render for that same host.
+- After that, each source transition notifies the snapshot subscriber, derives `states`, and performs the renderer update before the effect microtask runs.
+- Effects stay synchronous and emit outward facts. Async environmental work, retries, cancellation, and feedback into the source belong to source/application ports.
+
+```text
+command dispatch
+→ source transition
+→ snapshot notification
+→ states derivation
+→ renderer notification and update
+→ effect microtask
+→ outward emit
+```
+
+```ts
+effects: ({ snapshot, prevSnapshot, select, emit }) => {
+  // Synchronous transition-to-outward-fact behavior.
+  // No async environmental work.
+};
+```
 
 ## Lifecycle at a glance
 

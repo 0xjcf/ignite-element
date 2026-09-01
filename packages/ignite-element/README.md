@@ -4,7 +4,8 @@ Default public package for building platform-native custom elements with explici
 
 > **v3 is in beta.** Install with `@beta` — the stable `latest` tag is still
 > v2.2.x. The state libraries are optional peer dependencies, so only the one
-> you install is pulled in.
+> you install is pulled in. v3 is native ESM-only and does not advertise a
+> CommonJS `main` or `require` contract.
 
 Most users should install `ignite-element` and one state library:
 
@@ -153,6 +154,7 @@ The story helper composes over the existing Story recorder. It does not add a se
 
 ## Package contract
 
+- All four v3 packages are native ESM-only. Consumers use ESM imports; public ESM entrypoints and declarations remain supported.
 - `ignite-element` is the default public package.
 - `ignite-element/xstate`, `ignite-element/redux`, and `ignite-element/mobx` are the default public adapter entrypoints.
 - `ignite-element/actor-web` is the optional advanced runtime bridge for host apps that already use Actor-Web.
@@ -160,6 +162,8 @@ The story helper composes over the existing Story recorder. It does not add a se
 - `@ignite-element/core` is limited to adapter-neutral contracts, event/effect typing, and small shared utilities.
 - `@ignite-element/adapters` is limited to adapter factories, guards, and source-specific config/types.
 - `@ignite-element/renderer` remains the advanced renderer/runtime layer for custom renderer integration, shared style injection, and legacy config compatibility work.
+
+Normal facade/JSX consumers do not install scoped packages directly. A consumer that imports `@ignite-element/renderer/lit` must declare both `@ignite-element/renderer` and `lit-html` as direct dependencies.
 
 Actor-Web remains outside the Ignite runtime boundary. Actor-Web owns
 orchestration, transport, and long-lived runtime coordination; Ignite consumes
