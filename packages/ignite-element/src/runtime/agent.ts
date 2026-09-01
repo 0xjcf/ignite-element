@@ -8,8 +8,8 @@ import type {
 	IgniteStoryEventTraceEntry,
 	IgniteStoryLifecycleEntry,
 	IgniteStorySnapshotTraceEntry,
-	IgniteStoryTraceEntry,
 	IgniteStoryStatesTraceEntry,
+	IgniteStoryTraceEntry,
 } from "../types/agent";
 import type { IgniteSchemaValue } from "../types/schema";
 import { commandMetadataSymbol } from "./commands";

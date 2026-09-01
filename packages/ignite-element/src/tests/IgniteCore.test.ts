@@ -8,8 +8,8 @@ import {
 	createActor,
 	createMachine,
 	emit,
-	setup,
 	type StateFrom,
+	setup,
 } from "xstate";
 import type {
 	ActorWebCommandSource,

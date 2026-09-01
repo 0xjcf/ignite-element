@@ -3,13 +3,13 @@ import {
 	createVoiceWorkbenchSessionActor,
 	type VoiceWorkbenchSessionActor,
 } from "./session";
-import { createVoiceWorkbenchComponent } from "./workbench-component";
-import componentSource from "./workbench-component.ts?raw";
-import viewSource from "./workbench-view.ts?raw";
-import workbenchSource from "./workbench.tsx?raw";
 import artifactSource from "./views/artifact.tsx?raw";
 import conversationSource from "./views/conversation.tsx?raw";
 import runtimeSource from "./views/runtime.tsx?raw";
+import workbenchSource from "./workbench.tsx?raw";
+import { createVoiceWorkbenchComponent } from "./workbench-component";
+import componentSource from "./workbench-component.ts?raw";
+import viewSource from "./workbench-view.ts?raw";
 
 const actors = new Set<VoiceWorkbenchSessionActor>();
 

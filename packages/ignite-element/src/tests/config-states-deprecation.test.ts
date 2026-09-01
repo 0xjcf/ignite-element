@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import counterStore from "./fixtures/reduxCounterStore";
 import { igniteCore } from "../IgniteCore";
 import type { ReduxInstanceConfig } from "../igniteCore/types";
 import type { InferStateAndEvent } from "../utils/igniteRedux";
+import counterStore from "./fixtures/reduxCounterStore";
 
 describe("removed `view` projection config", () => {
 	it("rejects view at the type level and throws migration guidance at runtime", () => {

@@ -99,10 +99,10 @@ export function createIgniteComponentFactory<
 	Events
 > {
 	if (
-		Object.prototype.hasOwnProperty.call(
+		Object.getOwnPropertyDescriptor(
 			options as unknown as Record<string, unknown>,
 			"view",
-		)
+		) !== undefined
 	) {
 		throw new Error(
 			"[igniteCore] Config `view` was removed; use `states` with a bare native snapshot callback.",

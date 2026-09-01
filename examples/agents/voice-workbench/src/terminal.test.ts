@@ -1,8 +1,8 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { createVoiceWorkbenchSessionActor } from "./session";
-import { createVoiceWorkbenchComponent } from "./workbench-component";
 import { formatTerminalProjection } from "./terminal";
 import terminalSource from "./terminal.ts?raw";
+import { createVoiceWorkbenchComponent } from "./workbench-component";
 
 const source = createVoiceWorkbenchSessionActor().start();
 const component = createVoiceWorkbenchComponent(source);

@@ -1,8 +1,9 @@
 /** @jsxImportSource ignite-element/jsx */
-import { createVoiceWorkbenchSessionActor } from "./session";
+
 import type { ModelTurnPortRequest } from "./model-turn";
-import { createVoiceWorkbenchComponent } from "./workbench-component";
+import { createVoiceWorkbenchSessionActor } from "./session";
 import { renderWorkbench } from "./workbench";
+import { createVoiceWorkbenchComponent } from "./workbench-component";
 
 export const paritySource = createVoiceWorkbenchSessionActor().start();
 export const parityComponent = createVoiceWorkbenchComponent(paritySource);

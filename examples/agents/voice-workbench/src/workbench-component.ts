@@ -10,12 +10,12 @@ import type {
 	SetChecklistItemInput,
 	SubmitPromptInput,
 } from "./domain";
-import {
-	type VoiceWorkbenchSessionActor,
-	type WorkbenchArtifactView,
-	type WorkbenchPanel,
-	type WorkbenchPresentationEnvelope,
-	type WorkbenchRuntimePreview,
+import type {
+	VoiceWorkbenchSessionActor,
+	WorkbenchArtifactView,
+	WorkbenchPanel,
+	WorkbenchPresentationEnvelope,
+	WorkbenchRuntimePreview,
 } from "./session";
 import {
 	projectVoiceWorkbenchView,

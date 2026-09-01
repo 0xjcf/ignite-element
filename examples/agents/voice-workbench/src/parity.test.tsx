@@ -2,11 +2,11 @@
 import { test as igniteTest } from "ignite-element/testing";
 import { describe, expect, it } from "vitest";
 import {
-	PARITY_STATES,
 	parityComponent as component,
-	paritySource as source,
+	PARITY_STATES,
 	resolveParityState,
 	seedParityState,
+	paritySource as source,
 } from "./parity";
 import paritySource from "./parity.tsx?raw";
 import { renderWorkbench } from "./workbench";

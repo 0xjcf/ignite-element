@@ -1,12 +1,12 @@
-import {
-	isPendingSpeechRequest,
-	validateProjectionSelection,
-} from "./projectionDocument";
 import type {
 	ProjectionDocument,
 	ProjectionSpeechRequest,
 } from "../types/agent";
 import type { IgniteAgentSchema, IgniteSchemaValue } from "../types/schema";
+import {
+	isPendingSpeechRequest,
+	validateProjectionSelection,
+} from "./projectionDocument";
 
 type ProjectionCommitResult =
 	| { status: "committed" }

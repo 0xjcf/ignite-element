@@ -9,7 +9,7 @@ import type {
 	ToolStreamObservation,
 } from "../tools";
 import { buildManifest, igniteTools, isErr, isOk, resolveCall } from "../tools";
-import { openai, type OpenAIChatCompletionResponse } from "../tools/openai";
+import { type OpenAIChatCompletionResponse, openai } from "../tools/openai";
 import type { IgniteAgentSchema, IgniteSchemaObject } from "../types/schema";
 
 // --- Fakes (zero LLM, zero adapters, fully deterministic) ---------------------

@@ -2,12 +2,12 @@
 
 import type { Action } from "redux";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { igniteCore } from "../IgniteCore";
+import IgniteElement from "../IgniteElement";
 import counterStore, {
 	addByAmount,
 	increment,
 } from "./fixtures/reduxCounterStore";
-import { igniteCore } from "../IgniteCore";
-import IgniteElement from "../IgniteElement";
 
 type RootState = ReturnType<ReturnType<typeof counterStore>["getState"]>;
 

@@ -11,13 +11,17 @@ import IgniteElement, {
 import {
 	commitProjectionDocumentTarget,
 	commitProjectionSpeechTarget,
-	createProjectionDocument,
 	createProjectionBindingState,
+	createProjectionDocument,
 	createProjectionSpeech,
 	type ProjectionInspection,
 } from "./internal/projectionBinding";
 import "./renderers/ignite-jsx";
 import type { IgniteComponent } from "./igniteCore/types";
+import {
+	parseProjectionDocumentCollection,
+	parseProjectionSpeechRequest,
+} from "./internal/projectionDocument";
 import { resolveConfiguredRenderStrategy } from "./renderers/resolveConfiguredRenderStrategy";
 import {
 	createAgentRuntime,
@@ -28,10 +32,6 @@ import { commandMetadataSymbol } from "./runtime/commands";
 import { facadeCleanupSymbol } from "./runtime/effects";
 import { resolveProjectionTarget } from "./runtime/projectionTargets";
 import { toInspectableSchemaValue, toSchemaValue } from "./runtime/schema";
-import {
-	parseProjectionDocumentCollection,
-	parseProjectionSpeechRequest,
-} from "./internal/projectionDocument";
 import type {
 	IgniteAgentSubscription,
 	IgniteProjectionSession,

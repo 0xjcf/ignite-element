@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { SpeechRecognitionLike } from "./adapters/browser-voice";
 import agentLoopSource from "./agent-loop.ts?raw";
 import mainSource from "./main.tsx?raw";
 import modelSource from "./model.ts?raw";
-import type { SpeechRecognitionLike } from "./adapters/browser-voice";
 import voiceSource from "./voice.ts?raw";
 import workbenchSource from "./workbench.tsx?raw";
 

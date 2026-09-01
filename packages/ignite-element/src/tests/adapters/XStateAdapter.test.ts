@@ -8,8 +8,8 @@ import {
 	setup,
 } from "xstate";
 import createXStateAdapter from "../../adapters/XStateAdapter";
-import counterMachine from "../fixtures/xstateCounterMachine";
 import { StateScope } from "../../IgniteAdapter";
+import counterMachine from "../fixtures/xstateCounterMachine";
 
 function createLifecycleActor() {
 	const actor = createActor(

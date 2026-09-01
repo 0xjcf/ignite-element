@@ -9,12 +9,12 @@ import {
 	type WorkbenchRuntimeManifestEntry,
 	type WorkbenchTurnFact,
 } from "./session";
-import { createVoiceWorkbenchComponent } from "./workbench-component";
-import { renderWorkbench } from "./workbench";
 import artifactViewSource from "./views/artifact.tsx?raw";
 import runtimeViewSource from "./views/runtime.tsx?raw";
-import workbenchViewSource from "./workbench-view.ts?raw";
+import { renderWorkbench } from "./workbench";
 import workbenchSource from "./workbench.tsx?raw";
+import { createVoiceWorkbenchComponent } from "./workbench-component";
+import workbenchViewSource from "./workbench-view.ts?raw";
 
 const source = createVoiceWorkbenchSessionActor().start();
 const component = createVoiceWorkbenchComponent(source);

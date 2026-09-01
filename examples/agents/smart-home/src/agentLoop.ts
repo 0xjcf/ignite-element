@@ -15,9 +15,9 @@ import {
 	type HomeRuntimeFactory,
 } from "./home";
 import {
+	type AnthropicMessage,
 	assertOpenAIChatCompletionResponse,
 	firstOpenAIChoiceResponse,
-	type AnthropicMessage,
 	type Model,
 	type OpenAICompatibleMessage,
 	type OpenAICompatibleModel,

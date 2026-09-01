@@ -1,7 +1,7 @@
 import { igniteCore } from "ignite-element/xstate";
 import styles from "../styles.css?raw";
-import { routerSource } from "./routerStore";
 import type { DocsSection, ParentRoute, SettingsPanel } from "./routerMachine";
+import { routerSource } from "./routerStore";
 
 const parentLinks: Array<{ href: string; label: string; route: ParentRoute }> =
 	[

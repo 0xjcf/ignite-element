@@ -1,11 +1,11 @@
 import { igniteCore } from "ignite-element/xstate";
+import styles from "./dashboard.css?raw";
 import {
-	type Range,
-	type Team,
 	getDashboardSummary,
 	getVisibleAlerts,
+	type Range,
+	type Team,
 } from "./dashboardModel";
-import styles from "./dashboard.css?raw";
 import { dashboardActor } from "./dashboardStore";
 
 const teams: Array<{ value: Team; label: string }> = [
