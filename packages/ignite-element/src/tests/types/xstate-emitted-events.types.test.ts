@@ -52,7 +52,7 @@ async function _typeAssertions() {
 	// No igniteCore<...> type arguments and no `events:` map.
 	const register = igniteCore({
 		source: emittingMachine,
-		view: ({ snapshot }) => ({ count: snapshot.context.count }),
+		states: (snapshot) => ({ count: snapshot.context.count }),
 		commands: ({ actor }) => ({
 			increment: () => actor.send({ type: "INC" }),
 		}),
@@ -89,7 +89,7 @@ async function _typeAssertions() {
 	// this is the path every example and consumer actually imports.
 	const subpathRegister = subpathIgniteCore({
 		source: emittingMachine,
-		view: ({ snapshot }) => ({ count: snapshot.context.count }),
+		states: (snapshot) => ({ count: snapshot.context.count }),
 		commands: ({ actor }) => ({
 			increment: () => actor.send({ type: "INC" }),
 		}),

@@ -6,11 +6,10 @@ import type {
 	FacadeCommandResult,
 	FacadeCommandsCallback,
 	FacadeEffectsObjectCallback,
-	FacadeViewCallback,
+	FacadeStatesCallback,
 } from "@ignite-element/core";
-import type { AnyStateMachine } from "xstate";
+import type { AnyStateMachine, StateFrom } from "xstate";
 import createXStateAdapter, {
-	type ExtendedState,
 	type XStateActorInstance,
 	type XStateCommandActor,
 	type XStateSnapshot,
@@ -18,7 +17,6 @@ import createXStateAdapter, {
 import { isXStateActor, isXStateMachine } from "./utils/adapterGuards";
 
 export type {
-	ExtendedState,
 	XStateActorInstance,
 	XStateCommandActor,
 	XStateSnapshot,
@@ -38,12 +36,12 @@ type XStateConfigBase<
 > = {
 	adapter?: "xstate";
 	source: Machine | XStateActorInstance<Machine>;
-	view?: FacadeViewCallback<ExtendedState<Machine>, StatesResult>;
+	states?: FacadeStatesCallback<StateFrom<Machine>, StatesResult>;
 	commands?: FacadeCommandsCallback<
 		XStateCommandActor<Machine>,
 		CommandsResult,
 		Host,
-		ExtendedState<Machine>
+		StateFrom<Machine>
 	>;
 	events?: EventsDefinition<Events>;
 	cleanup?: boolean;
@@ -55,7 +53,7 @@ type XStateEffectsOptions<
 	Host,
 > = {
 	effects?: FacadeEffectsObjectCallback<
-		ExtendedState<Machine>,
+		StateFrom<Machine>,
 		XStateCommandActor<Machine>,
 		Events,
 		Host

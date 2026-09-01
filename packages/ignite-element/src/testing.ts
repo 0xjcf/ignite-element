@@ -42,9 +42,9 @@ export type IgniteSnapshotExpectation<State> =
 type IgniteSnapshotPredicate<State> = (snapshot: State) => boolean;
 type IgniteStorySnapshotExpectation<State> = DeepPartial<State>;
 
-export type IgniteViewExpectation<View> =
-	| DeepPartial<View>
-	| ((view: View) => boolean);
+export type IgniteStatesExpectation<States> =
+	| DeepPartial<States>
+	| ((states: States) => boolean);
 
 export type IgniteEventExpectation<
 	Events extends EventMap = EmptyEventMap,
@@ -104,33 +104,33 @@ export type IgniteTestScenario<
 	State,
 	Commands extends FacadeCommandResult = FacadeCommandResult,
 	Events extends EventMap = EmptyEventMap,
-	View extends Record<string, unknown> = Record<string, unknown>,
+	States extends Record<string, unknown> = Record<string, unknown>,
 > = {
 	given(
 		expected: IgniteSnapshotExpectation<State>,
-	): IgniteTestScenario<State, Commands, Events, View>;
+	): IgniteTestScenario<State, Commands, Events, States>;
 	when<CommandName extends keyof Commands & string>(
 		step: IgniteTestCommandStep<Commands, CommandName>,
-	): Promise<IgniteTestScenario<State, Commands, Events, View>>;
+	): Promise<IgniteTestScenario<State, Commands, Events, States>>;
 	story<Name extends string>(
 		name: Name,
 		run: (
-			story: IgniteTestStoryContext<State, Commands, Events, View>,
+			story: IgniteTestStoryContext<State, Commands, Events, States>,
 		) => Promise<unknown> | unknown,
 	): Promise<IgniteStorySnapshot & { name: Name }>;
 	expectSnapshot(
 		expected: IgniteSnapshotExpectation<State>,
-	): IgniteTestScenario<State, Commands, Events, View>;
-	expectView(
-		expected: IgniteViewExpectation<View>,
-	): IgniteTestScenario<State, Commands, Events, View>;
+	): IgniteTestScenario<State, Commands, Events, States>;
+	expectStates(
+		expected: IgniteStatesExpectation<States>,
+	): IgniteTestScenario<State, Commands, Events, States>;
 	expectEvent<Type extends keyof Events & string>(
 		expected: IgniteEventExpectation<Events, Type>,
-	): IgniteTestScenario<State, Commands, Events, View>;
+	): IgniteTestScenario<State, Commands, Events, States>;
 	expectEvents(
 		expected: IgniteEventExpectation<Events>[],
-	): IgniteTestScenario<State, Commands, Events, View>;
-	expectNoEvents(): IgniteTestScenario<State, Commands, Events, View>;
+	): IgniteTestScenario<State, Commands, Events, States>;
+	expectNoEvents(): IgniteTestScenario<State, Commands, Events, States>;
 	canExecute<CommandName extends keyof Commands & string>(
 		commandName: CommandName,
 	): boolean;
@@ -159,9 +159,9 @@ export type IgniteTestHelpers = {
 		State,
 		Commands extends FacadeCommandResult,
 		Events extends EventMap,
-		View extends Record<string, unknown>,
+		States extends Record<string, unknown>,
 	>(
-		story: IgniteStory<State, Commands, Events, View>,
+		story: IgniteStory<State, Commands, Events, States>,
 	) => IgniteStorySnapshot;
 	expectTrace: (
 		trace: readonly IgniteStoryTraceEntry[],
@@ -197,17 +197,17 @@ type RuntimeEvents<Runtime> = Runtime extends IgniteAgentRuntime<
 	? Events
 	: EmptyEventMap;
 
-type RuntimeView<Runtime> = (Runtime extends IgniteAgentRuntime<
+type RuntimeStates<Runtime> = (Runtime extends IgniteAgentRuntime<
 	infer _State,
 	infer _Commands,
 	infer _Events,
 	infer _SchemaState,
-	infer View
+	infer States
 >
-	? View
+	? States
 	: Record<string, unknown>) &
 	// Intersect so the result provably satisfies the `Record<string, unknown>`
-	// constraint on the scenario/driver `View` param (the extracted projection
+	// constraint on the scenario/driver `States` param (the extracted projection
 	// already does; this also clamps the deferred-generic case) while keeping the
 	// projection's own keys typed.
 	Record<string, unknown>;
@@ -221,10 +221,10 @@ type IgniteTestStoryCheckpoint<
 	State,
 	Commands extends FacadeCommandResult,
 	Events extends EventMap,
-	View extends Record<string, unknown>,
+	States extends Record<string, unknown>,
 > = {
 	snapshot: State;
-	view: View;
+	states: States;
 	events: RuntimeEvent<Events>[];
 	canExecute<CommandName extends keyof Commands & string>(
 		commandName: CommandName,
@@ -239,11 +239,11 @@ type IgniteTestStoryAssertion<
 	State,
 	Commands extends FacadeCommandResult,
 	Events extends EventMap,
-	View extends Record<string, unknown>,
+	States extends Record<string, unknown>,
 > = {
 	snapshot?: IgniteStorySnapshotExpectation<State>;
 	when?: IgniteSnapshotPredicate<State>;
-	view?: IgniteViewExpectation<View>;
+	states?: IgniteStatesExpectation<States>;
 	event?: IgniteEventExpectation<Events>;
 	events?: IgniteEventExpectation<Events>[];
 	noEvents?: true;
@@ -254,11 +254,11 @@ type IgniteTestStoryContext<
 	State,
 	Commands extends FacadeCommandResult,
 	Events extends EventMap,
-	View extends Record<string, unknown>,
+	States extends Record<string, unknown>,
 > = {
 	given(
 		expected: Omit<
-			IgniteTestStoryAssertion<State, Commands, Events, View>,
+			IgniteTestStoryAssertion<State, Commands, Events, States>,
 			"event" | "events" | "noEvents"
 		>,
 	): Promise<void>;
@@ -271,7 +271,7 @@ type IgniteTestStoryContext<
 	): Promise<Result>;
 	checkpoint(
 		name: string,
-		expected: IgniteTestStoryAssertion<State, Commands, Events, View>,
+		expected: IgniteTestStoryAssertion<State, Commands, Events, States>,
 	): Promise<void>;
 };
 
@@ -315,8 +315,8 @@ const cloneTraceSnapshotEntry = (
 			return { ...entry, payload: cloneSerializable(entry.payload) };
 		case "snapshot":
 			return { ...entry, snapshot: cloneSerializable(entry.snapshot) };
-		case "view":
-			return { ...entry, view: cloneSerializable(entry.view) };
+		case "states":
+			return { ...entry, states: cloneSerializable(entry.states) };
 	}
 };
 
@@ -614,13 +614,13 @@ const assertSnapshot = <State>(
 	}
 };
 
-const assertView = <View>(
-	view: View,
-	expected: IgniteViewExpectation<View>,
+const assertStates = <States>(
+	states: States,
+	expected: IgniteStatesExpectation<States>,
 ) => {
-	if (!valuesMatch(view, expected)) {
+	if (!valuesMatch(states, expected)) {
 		throw new Error(
-			`[igniteTest] expectView failed.\nExpected: ${formatValue(expected)}\nReceived: ${formatValue(view)}`,
+			`[igniteTest] expectStates failed.\nExpected: ${formatValue(expected)}\nReceived: ${formatValue(states)}`,
 		);
 	}
 };
@@ -696,9 +696,9 @@ const snapshotStory = <
 	State,
 	Commands extends FacadeCommandResult,
 	Events extends EventMap,
-	View extends Record<string, unknown>,
+	States extends Record<string, unknown>,
 >(
-	story: IgniteStory<State, Commands, Events, View>,
+	story: IgniteStory<State, Commands, Events, States>,
 ) =>
 	({
 		name: story.name,
@@ -724,13 +724,13 @@ const serializeEvent = (event: RuntimeEvent): IgniteStorySnapshotEvent => {
 const serializeSummary = <
 	State,
 	Events extends EventMap,
-	View extends Record<string, unknown>,
+	States extends Record<string, unknown>,
 >(
-	summary: IgniteStorySummary<State, Events, View>,
+	summary: IgniteStorySummary<State, Events, States>,
 ): IgniteStorySummarySnapshot => ({
 	name: summary.name,
 	finalSnapshot: normalizeSnapshotValue(summary.finalSnapshot),
-	finalView: normalizeSnapshotValue(summary.finalView),
+	finalStates: normalizeSnapshotValue(summary.finalStates),
 	events: summary.events.map((event) => serializeEvent(event as RuntimeEvent)),
 	commandCount: summary.commandCount,
 	traceCount: summary.traceCount,
@@ -805,15 +805,15 @@ const assertStoryAssertion = <
 	State,
 	Commands extends FacadeCommandResult,
 	Events extends EventMap,
-	View extends Record<string, unknown>,
+	States extends Record<string, unknown>,
 >(
 	assertion:
-		| IgniteTestStoryAssertion<State, Commands, Events, View>
+		| IgniteTestStoryAssertion<State, Commands, Events, States>
 		| Omit<
-				IgniteTestStoryAssertion<State, Commands, Events, View>,
+				IgniteTestStoryAssertion<State, Commands, Events, States>,
 				"event" | "events" | "noEvents"
 		  >,
-	checkpoint: IgniteTestStoryCheckpoint<State, Commands, Events, View>,
+	checkpoint: IgniteTestStoryCheckpoint<State, Commands, Events, States>,
 ) => {
 	if ("snapshot" in assertion && typeof assertion.snapshot !== "undefined") {
 		assertStructuralSnapshotExpectation(assertion.snapshot);
@@ -828,8 +828,8 @@ const assertStoryAssertion = <
 		}
 	}
 
-	if ("view" in assertion && typeof assertion.view !== "undefined") {
-		assertView(checkpoint.view, assertion.view);
+	if ("states" in assertion && typeof assertion.states !== "undefined") {
+		assertStates(checkpoint.states, assertion.states);
 	}
 
 	if (
@@ -876,11 +876,11 @@ const createStoryFailure = <
 	State,
 	Commands extends FacadeCommandResult,
 	Events extends EventMap,
-	View extends Record<string, unknown>,
+	States extends Record<string, unknown>,
 >(
 	storyName: string,
 	phase: IgniteStoryFailurePhase,
-	story: IgniteStory<State, Commands, Events, View>,
+	story: IgniteStory<State, Commands, Events, States>,
 	error: unknown,
 	options: {
 		checkpointName?: string;
@@ -924,8 +924,8 @@ class IgniteTestDriver<
 	State,
 	Commands extends FacadeCommandResult,
 	Events extends EventMap,
-	View extends Record<string, unknown> = Record<string, unknown>,
-> implements IgniteTestScenario<State, Commands, Events, View>
+	States extends Record<string, unknown> = Record<string, unknown>,
+> implements IgniteTestScenario<State, Commands, Events, States>
 {
 	private lastResult: IgniteAgentExecutionResult<State, Events> | null = null;
 	private readonly storyAssertionTimeoutMs = 1000;
@@ -936,7 +936,7 @@ class IgniteTestDriver<
 			Commands,
 			Events,
 			unknown,
-			View
+			States
 		>,
 		private readonly options: IgniteTestScenarioOptions = {},
 	) {}
@@ -963,12 +963,12 @@ class IgniteTestDriver<
 	}
 
 	private createStoryCheckpoint(
-		story: IgniteStory<State, Commands, Events, View>,
+		story: IgniteStory<State, Commands, Events, States>,
 		events: RuntimeEvent<Events>[],
-	): IgniteTestStoryCheckpoint<State, Commands, Events, View> {
+	): IgniteTestStoryCheckpoint<State, Commands, Events, States> {
 		return {
 			snapshot: this.withHost(() => this.component.getSnapshot()),
-			view: this.withHost(() => this.component.getView()),
+			states: this.withHost(() => this.component.getStates()),
 			events,
 			canExecute: (commandName) =>
 				this.withHost(() => story.canExecute(commandName)),
@@ -976,12 +976,12 @@ class IgniteTestDriver<
 	}
 
 	private async awaitStoryAssertion(
-		story: IgniteStory<State, Commands, Events, View>,
+		story: IgniteStory<State, Commands, Events, States>,
 		phase: "given" | "checkpoint",
 		expected:
-			| IgniteTestStoryAssertion<State, Commands, Events, View>
+			| IgniteTestStoryAssertion<State, Commands, Events, States>
 			| Omit<
-					IgniteTestStoryAssertion<State, Commands, Events, View>,
+					IgniteTestStoryAssertion<State, Commands, Events, States>,
 					"event" | "events" | "noEvents"
 			  >,
 		events: RuntimeEvent<Events>[],
@@ -990,7 +990,7 @@ class IgniteTestDriver<
 		let settled = false;
 		let timeoutId: ReturnType<typeof setTimeout> | undefined;
 		let snapshotSubscription: IgniteAgentSubscription | undefined;
-		let viewSubscription: IgniteAgentSubscription | undefined;
+		let statesSubscription: IgniteAgentSubscription | undefined;
 		let latestError: unknown;
 
 		const cleanup = (): { ok: true } | { ok: false; error: unknown } => {
@@ -1001,7 +1001,7 @@ class IgniteTestDriver<
 				clearTimeout(timeoutId);
 				timeoutId = undefined;
 			}
-			for (const subscription of [snapshotSubscription, viewSubscription]) {
+			for (const subscription of [snapshotSubscription, statesSubscription]) {
 				if (!subscription) {
 					continue;
 				}
@@ -1014,7 +1014,7 @@ class IgniteTestDriver<
 				}
 			}
 			snapshotSubscription = undefined;
-			viewSubscription = undefined;
+			statesSubscription = undefined;
 			return cleanupResult;
 		};
 
@@ -1061,8 +1061,8 @@ class IgniteTestDriver<
 						check();
 					}),
 				);
-				viewSubscription = this.withHost(() =>
-					this.component.watchView(() => {
+				statesSubscription = this.withHost(() =>
+					this.component.watchStates(() => {
 						check();
 					}),
 				);
@@ -1101,7 +1101,7 @@ class IgniteTestDriver<
 	async story<Name extends string>(
 		name: Name,
 		run: (
-			storyContext: IgniteTestStoryContext<State, Commands, Events, View>,
+			storyContext: IgniteTestStoryContext<State, Commands, Events, States>,
 		) => Promise<unknown> | unknown,
 	): Promise<IgniteStorySnapshot & { name: Name }> {
 		const story = this.withHost(() => this.component.record(name));
@@ -1110,7 +1110,7 @@ class IgniteTestDriver<
 		let cleanupError: IgniteStoryFailure | undefined;
 		let receipt: IgniteStorySnapshot | undefined;
 
-		const storyContext: IgniteTestStoryContext<State, Commands, Events, View> =
+		const storyContext: IgniteTestStoryContext<State, Commands, Events, States> =
 			{
 				given: async (expected) => {
 					try {
@@ -1196,12 +1196,12 @@ class IgniteTestDriver<
 		return this;
 	}
 
-	expectView(expected: IgniteViewExpectation<View>) {
-		// Mirrors the runtime's getView(): the projected view after the last
-		// command (execute awaits, so getView() reflects it). The execution result
-		// carries no view, so getView() is the single source.
-		assertView(
-			this.withHost(() => this.component.getView()),
+	expectStates(expected: IgniteStatesExpectation<States>) {
+		// Mirrors the runtime's getStates(): the projected states after the last
+		// command (execute awaits, so getStates() reflects it). The execution result
+		// carries no states, so getStates() is the single source.
+		assertStates(
+			this.withHost(() => this.component.getStates()),
 			expected,
 		);
 		return this;
@@ -1265,7 +1265,7 @@ function createTestScenario<
 	RuntimeState<Runtime>,
 	RuntimeCommands<Runtime>,
 	RuntimeEvents<Runtime>,
-	RuntimeView<Runtime>
+	RuntimeStates<Runtime>
 > {
 	const { component, host } = input;
 	return new IgniteTestDriver(
@@ -1274,7 +1274,7 @@ function createTestScenario<
 			RuntimeCommands<Runtime>,
 			RuntimeEvents<Runtime>,
 			unknown,
-			RuntimeView<Runtime>
+			RuntimeStates<Runtime>
 		>,
 		{ host },
 	);

@@ -69,10 +69,10 @@ describe("public adapter entrypoints", () => {
 		expect(typeof component).toBe("function");
 		expect(typeof component.execute).toBe("function");
 		expect(typeof component.getSnapshot).toBe("function");
-		expect(typeof component.getView).toBe("function");
+		expect(typeof component.getStates).toBe("function");
 		expect(typeof component.getSchema).toBe("function");
 		expect(typeof component.watchSnapshot).toBe("function");
-		expect(typeof component.watchView).toBe("function");
+		expect(typeof component.watchStates).toBe("function");
 		expect(typeof component.on).toBe("function");
 	});
 
@@ -101,10 +101,10 @@ describe("public adapter entrypoints", () => {
 		expect(typeof component).toBe("function");
 		expect(typeof component.execute).toBe("function");
 		expect(typeof component.getSnapshot).toBe("function");
-		expect(typeof component.getView).toBe("function");
+		expect(typeof component.getStates).toBe("function");
 		expect(typeof component.getSchema).toBe("function");
 		expect(typeof component.watchSnapshot).toBe("function");
-		expect(typeof component.watchView).toBe("function");
+		expect(typeof component.watchStates).toBe("function");
 		expect(typeof component.on).toBe("function");
 	});
 
@@ -118,10 +118,10 @@ describe("public adapter entrypoints", () => {
 		expect(typeof component).toBe("function");
 		expect(typeof component.execute).toBe("function");
 		expect(typeof component.getSnapshot).toBe("function");
-		expect(typeof component.getView).toBe("function");
+		expect(typeof component.getStates).toBe("function");
 		expect(typeof component.getSchema).toBe("function");
 		expect(typeof component.watchSnapshot).toBe("function");
-		expect(typeof component.watchView).toBe("function");
+		expect(typeof component.watchStates).toBe("function");
 		expect(typeof component.on).toBe("function");
 	});
 
@@ -134,10 +134,10 @@ describe("public adapter entrypoints", () => {
 		expect(typeof component).toBe("function");
 		expect(typeof component.execute).toBe("function");
 		expect(typeof component.getSnapshot).toBe("function");
-		expect(typeof component.getView).toBe("function");
+		expect(typeof component.getStates).toBe("function");
 		expect(typeof component.getSchema).toBe("function");
 		expect(typeof component.watchSnapshot).toBe("function");
-		expect(typeof component.watchView).toBe("function");
+		expect(typeof component.watchStates).toBe("function");
 		expect(typeof component.on).toBe("function");
 	});
 

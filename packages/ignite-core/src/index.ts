@@ -34,7 +34,7 @@ export type {
 	FacadeCommandsCallback,
 	FacadeEffectArgs,
 	FacadeEffectsObjectCallback,
-	FacadeViewCallback,
+	FacadeStatesCallback,
 	NumberCommandInputMetadata,
 	NumberCommandInputOptions,
 	ObjectCommandInputMetadata,
@@ -43,13 +43,12 @@ export type {
 	RenderArgs,
 	StringCommandInputMetadata,
 	StringCommandInputOptions,
-	ViewContext,
 } from "./RenderArgs";
 export { command, commandMetadataSymbol } from "./RenderArgs";
 export type {
 	AnyCommandsCallback,
 	AnyEffectsCallback,
-	AnyViewCallback,
+	AnyStatesCallback,
 	EventsDefinition,
 	InferEvents,
 } from "./types";

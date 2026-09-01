@@ -128,7 +128,7 @@ describe("anthropic.toolResult (neutral result -> Anthropic tool_result block)",
 			name: "setLimit",
 			result: ok({
 				snapshot: { count: 7 },
-				view: { atLimit: false },
+				states: { atLimit: false },
 				events: [],
 			}),
 		};
@@ -137,7 +137,7 @@ describe("anthropic.toolResult (neutral result -> Anthropic tool_result block)",
 			tool_use_id: "toolu_1",
 			content: JSON.stringify({
 				snapshot: { count: 7 },
-				view: { atLimit: false },
+				states: { atLimit: false },
 				events: [],
 			}),
 			is_error: false,
@@ -168,7 +168,7 @@ describe("anthropic.toolResult (neutral result -> Anthropic tool_result block)",
 			name: "setLimit",
 			result: ok({
 				snapshot: { count: 7 },
-				view: { atLimit: false },
+				states: { atLimit: false },
 				events: [],
 			}),
 		};

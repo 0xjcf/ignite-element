@@ -3,7 +3,7 @@ import { createProjectionFactory } from "../createProjectionFactory";
 import { StateScope } from "../IgniteAdapter";
 
 describe("createProjectionFactory", () => {
-	it("captures snapshot and view from one coherent source read", () => {
+	it("captures snapshot and states from one coherent source read", () => {
 		let revision = 0;
 		const adapter = {
 			scope: StateScope.Isolated,
@@ -24,7 +24,7 @@ describe("createProjectionFactory", () => {
 			}),
 		});
 		const projection = createProjectionFactory(createAdapter, {
-			view: ({ snapshot }: { snapshot: { revision: number } }) => ({
+			states: (snapshot: { revision: number }) => ({
 				revision: snapshot.revision,
 			}),
 		});
@@ -32,7 +32,7 @@ describe("createProjectionFactory", () => {
 		const inspection = projection.resolveInspection(adapter);
 
 		expect(inspection.snapshot).toEqual({ revision: 1 });
-		expect(inspection.view).toEqual({ revision: 1 });
+		expect(inspection.states).toEqual({ revision: 1 });
 		expect(adapter.getSnapshot).toHaveBeenCalledTimes(1);
 	});
 
@@ -58,13 +58,13 @@ describe("createProjectionFactory", () => {
 		const projection = createProjectionFactory(createAdapter, {
 			resolveStateSnapshot: (): Snapshot => ({ label: "override" }),
 			resolveCommandActor: (): CommandActor => overrideActor,
-			view: ({ snapshot }) => ({ label: snapshot.label }),
+			states: (snapshot) => ({ label: snapshot.label }),
 			commands: ({ actor }) => ({ publish: () => actor.publish() }),
 		});
 
 		expect(projection.resolveInspection(adapter)).toEqual({
 			snapshot: { label: "override" },
-			view: { label: "override" },
+			states: { label: "override" },
 		});
 		const args = projection.createAdditionalArgs(adapter, {}, () => true);
 		args.publish();

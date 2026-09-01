@@ -105,7 +105,7 @@ type FactoryOptions<
 	State,
 	Event,
 	RenderArgs extends BaseRenderArgs<State, Event>,
-	RuntimeView extends Record<string, unknown>,
+	RuntimeStates extends Record<string, unknown>,
 	View,
 > = {
 	scope?: StateScope;
@@ -114,11 +114,17 @@ type FactoryOptions<
 		adapter: IgniteAdapter<State, Event>,
 		host?: EventTarget,
 	) => AdditionalRenderArgs<State, Event, RenderArgs>;
-	resolveView?: (adapter: IgniteAdapter<State, Event>) => RuntimeView;
+	resolveStates?: (adapter: IgniteAdapter<State, Event>) => RuntimeStates;
 	resolveInspection?: (adapter: IgniteAdapter<State, Event>) => {
 		snapshot: unknown;
-		view: RuntimeView;
+		states: RuntimeStates;
 	};
+	resolveDeliveredStates?: (snapshot: State) => RuntimeStates;
+	createRenderArgs?: (
+		snapshot: State,
+		send: (event: Event) => void,
+		additionalArgs: AdditionalRenderArgs<State, Event, RenderArgs>,
+	) => RenderArgs;
 	createRenderStrategy?: RenderStrategyFactory<View>;
 	cleanup?: boolean;
 };
@@ -346,14 +352,29 @@ export default function igniteElementFactory<
 	const cleanupSharedLifecycle =
 		options?.cleanup ?? inferredScope !== StateScope.Shared;
 	const eventTypes = options?.eventTypes ?? [];
-	const resolveView =
-		options?.resolveView ?? ((_) => Object.create(null) as RuntimeView);
+	const resolveStates =
+		options?.resolveStates ?? ((_) => Object.create(null) as RuntimeView);
+	const resolveDeliveredStates =
+		options?.resolveDeliveredStates ??
+		((_) => Object.create(null) as RuntimeView);
 	const resolveInspection =
 		options?.resolveInspection ??
 		((adapter: IgniteAdapter<State, Event>) => ({
 			snapshot: adapter.getSnapshot(),
-			view: resolveView(adapter),
+			states: resolveStates(adapter),
 		}));
+	const createRenderArgs =
+		options?.createRenderArgs ??
+			((
+				snapshot: State,
+				send: (event: Event) => void,
+				additionalArgs: RuntimeAdditionalArgs,
+			) =>
+				({
+					...additionalArgs,
+					state: snapshot,
+					send,
+				}) as RenderArgs);
 	const resolveLifecycleScope = (): IgniteStoryLifecycleScope =>
 		inferredScope === StateScope.Shared ? "shared" : "isolated";
 
@@ -514,13 +535,15 @@ export default function igniteElementFactory<
 			lifecycleHooks.instanceId,
 		);
 
-		const renderCurrent = () => {
+		const renderCurrent = (snapshot: State) => {
 			strategy.render(
-				render({
-					...additionalArgs,
-					state: adapter.getSnapshot(),
-					send: (event) => adapter.send(event),
-				} as RenderArgs),
+				render(
+					createRenderArgs(
+						snapshot,
+						(event) => adapter.send(event),
+						additionalArgs,
+					),
+				),
 			);
 			recordLifecycle(
 				"rendered",
@@ -530,15 +553,15 @@ export default function igniteElementFactory<
 			);
 		};
 
-		const subscription = adapter.subscribeSnapshots(() => {
+		const subscription = adapter.subscribeSnapshots((snapshot) => {
 			if (!active) {
 				return;
 			}
 
-			renderCurrent();
+			renderCurrent(snapshot);
 		});
 
-		renderCurrent();
+		renderCurrent(adapter.getSnapshot());
 
 		return {
 			host: bridgeHost,
@@ -851,7 +874,7 @@ export default function igniteElementFactory<
 
 	const resolveProjectionState = (
 		snapshot: unknown,
-		view: unknown,
+		states: unknown,
 	): Pick<ProjectionInspection, "documents" | "speech"> & {
 		inspectionDataSafe: boolean;
 	} => {
@@ -868,16 +891,16 @@ export default function igniteElementFactory<
 			}
 		}
 
-		const derivedViewContainers = [view];
-		if (isInspectableRecord(view)) {
-			const property = readInspectableProperty(view, "projection");
+		const derivedStatesContainers = [states];
+		if (isInspectableRecord(states)) {
+			const property = readInspectableProperty(states, "projection");
 			if (property.found && property.safe) {
-				derivedViewContainers.push(property.value);
+				derivedStatesContainers.push(property.value);
 			} else if (property.found) {
 				inspectionDataSafe = false;
 			}
 		}
-		const containers = [...actorOwnedContainers, ...derivedViewContainers];
+		const containers = [...actorOwnedContainers, ...derivedStatesContainers];
 
 		let documents:
 			| readonly ProjectionInspection["documents"][number][]
@@ -906,8 +929,8 @@ export default function igniteElementFactory<
 	const resolveProjectionInspection = (): ProjectionInspection => {
 		const { adapter, additionalArgs } = resolveRuntimeResources();
 		const commandEntries = getOwnCommandEntries(additionalArgs);
-		const { snapshot, view } = resolveInspection(adapter);
-		const projectionState = resolveProjectionState(snapshot, view);
+		const { snapshot, states } = resolveInspection(adapter);
+		const projectionState = resolveProjectionState(snapshot, states);
 		const schema = {
 			commands: Object.fromEntries(
 				commandEntries
@@ -918,19 +941,19 @@ export default function igniteElementFactory<
 			snapshot: projectionState.inspectionDataSafe
 				? (toInspectableSchemaValue(snapshot) ?? null)
 				: null,
-			view: projectionState.inspectionDataSafe
-				? (toInspectableSchemaValue(view) ?? null)
+			states: projectionState.inspectionDataSafe
+				? (toInspectableSchemaValue(states) ?? null)
 				: null,
 		};
 		const revision = JSON.stringify({
 			snapshot: schema.snapshot,
-			view: schema.view,
+			states: schema.states,
 			commands: Object.keys(schema.commands),
 		});
 
 		return {
 			snapshot,
-			view,
+			states,
 			schema,
 			canExecute: (commandName: string) => {
 				const command = getAdditionalArg(additionalArgs, commandName);
@@ -963,7 +986,8 @@ export default function igniteElementFactory<
 		releaseRuntimeAccess,
 		resolveInspection,
 		resolveRuntime: resolveRuntimeResources,
-		resolveView,
+		resolveDeliveredStates,
+		resolveStates,
 	});
 
 	const bindProjectionTarget = (target: unknown): IgniteProjectionSession => {
@@ -1214,11 +1238,13 @@ export default function igniteElementFactory<
 				}
 
 				protected renderView(): View {
-					return render({
-						...this.additionalArgs,
-						state: this.currentState,
-						send: (event) => this.send(event),
-					} as RenderArgs);
+					return render(
+						createRenderArgs(
+							this.currentState,
+							(event) => this.send(event),
+							this.additionalArgs,
+						),
+					);
 				}
 			}
 
@@ -1286,11 +1312,13 @@ export default function igniteElementFactory<
 					);
 				}
 
-				return this.renderImpl({
-					...this.additionalArgs,
-					state: this.currentState,
-					send: (event) => this.send(event),
-				} as RenderArgs);
+				return this.renderImpl(
+					createRenderArgs(
+						this.currentState,
+						(event) => this.send(event),
+						this.additionalArgs,
+					),
+				);
 			}
 		}
 

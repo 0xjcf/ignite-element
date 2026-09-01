@@ -1,7 +1,7 @@
 // @vitest-environment node
 //
 // The headless agent runtime must be DOM-free: getSchema()/execute()/on()/
-// watchView() have to work in pure Node (no jsdom). Before the createRuntimeHost
+// watchStates() have to work in pure Node (no jsdom). Before the createRuntimeHost
 // fix these threw "document is not defined" via createRuntimeHost ->
 // document.createElement. This file runs in the `node` environment (overriding
 // the package's global jsdom) so it would fail without a genuinely DOM-free
@@ -40,7 +40,7 @@ function createCounter() {
 	return igniteCore({
 		source: machine,
 		events: (event) => ({ counted: event<{ count: number }>() }),
-		view: ({ snapshot }) => ({ count: snapshot.context.count }),
+		states: (snapshot) => ({ count: snapshot.context.count }),
 		commands: ({ actor, command }) => ({
 			increment: () => actor.send({ type: "INC" }),
 			decrement: command(() => actor.send({ type: "DEC" }), {
@@ -69,7 +69,7 @@ describe("agent runtime is DOM-free (pure Node, no jsdom)", () => {
 		expect(schema.commands.decrement).toMatchObject({ gated: true });
 		expect(schema.commands.decrement).not.toHaveProperty("canExecute");
 		expect(schema.events).toContainEqual({ type: "counted" });
-		expect(schema.view).toMatchObject({ count: 0 });
+		expect(schema.states).toMatchObject({ count: 0 });
 	});
 
 	it("canExecute() queries command availability against the current snapshot", async () => {
@@ -110,14 +110,14 @@ describe("agent runtime is DOM-free (pure Node, no jsdom)", () => {
 		subscription.unsubscribe();
 	});
 
-	it("watchView()/getView() observe the derived view without a DOM", async () => {
+	it("watchStates()/getStates() observe the derived states without a DOM", async () => {
 		const counter = createCounter();
 		const seen: Array<{ count: number }> = [];
-		const subscription = counter.watchView((view) => seen.push(view));
+		const subscription = counter.watchStates((states) => seen.push(states));
 
 		await counter.execute({ command: "increment" });
 
-		expect(counter.getView()).toEqual({ count: 1 });
+		expect(counter.getStates()).toEqual({ count: 1 });
 		expect(seen[seen.length - 1]).toEqual({ count: 1 });
 		subscription.unsubscribe();
 	});
@@ -127,7 +127,7 @@ describe("agent runtime is DOM-free (pure Node, no jsdom)", () => {
 		const eventHandler = vi.fn();
 		const viewHandler = vi.fn();
 		const eventSubscription = counter.on("counted", eventHandler);
-		const viewSubscription = counter.watchView(viewHandler);
+		const viewSubscription = counter.watchStates(viewHandler);
 
 		eventSubscription.unsubscribe();
 		viewSubscription.unsubscribe();

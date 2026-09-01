@@ -185,19 +185,19 @@ describe("XStateAdapter", () => {
 		expect(() => subscription.unsubscribe()).not.toThrow();
 	});
 
-	it("should return the current state by using state directly", () => {
+	it("returns the current native snapshot", () => {
 		adapter.send({ type: "START" });
 		expect(adapter.getSnapshot().value).toBe("active");
-		expect(adapter.getSnapshot().count).toBe(0);
+		expect(adapter.getSnapshot().context.count).toBe(0);
 	});
 
-	it("should return the last known state after stop using state directly", () => {
+	it("returns the last known native snapshot after stop", () => {
 		adapter.send({ type: "START" });
 		adapter.send({ type: "INC" });
 		adapter.stop();
 
 		expect(adapter.getSnapshot().value).toBe("active");
-		expect(adapter.getSnapshot().count).toBe(1);
+		expect(adapter.getSnapshot().context.count).toBe(1);
 	});
 
 	it("marks isolated adapter scope", () => {
@@ -322,47 +322,28 @@ describe("XStateAdapter", () => {
 		const current = sharedAdapter.getSnapshot();
 		const delivered: unknown = listener.mock.calls[0]?.[0];
 
-		const verifyDescriptors = (state: unknown) => {
-			expect(state).toBeTypeOf("object");
-			if (typeof state !== "object" || state === null) {
-				return;
-			}
-			expect(Object.getOwnPropertyDescriptor(state, "value")?.value).toBe(
-				"context value",
-			);
-			expect(
-				Object.getOwnPropertyDescriptor(state, "visibleContext")?.value,
-			).toBe("visible context");
-			expect(Object.getOwnPropertyDescriptor(state, "context")?.value).toBe(
-				context,
-			);
-			expect(Object.getOwnPropertyDescriptor(state, "context")).toMatchObject({
-				enumerable: true,
-				writable: true,
-				configurable: true,
-			});
-			expect(
-				Object.getOwnPropertyDescriptor(state, "contextAccessor")?.get,
-			).toBe(contextAccessor);
-			expect(
-				Object.getOwnPropertyDescriptor(state, "snapshotAccessor")?.get,
-			).toBe(snapshotAccessor);
-			expect(Object.getOwnPropertyDescriptor(state, contextSymbol)?.value).toBe(
-				"context symbol",
-			);
-			expect(
-				Object.getOwnPropertyDescriptor(state, snapshotSymbol)?.value,
-			).toBe("snapshot symbol");
-			expect(
-				Object.getOwnPropertyDescriptor(state, "hiddenContext"),
-			).toBeUndefined();
-			expect(
-				Object.getOwnPropertyDescriptor(state, "hiddenSnapshot"),
-			).toBeUndefined();
-		};
-
-		verifyDescriptors(current);
-		verifyDescriptors(delivered);
+		expect(current).toBe(snapshot);
+		expect(delivered).toBe(snapshot);
+		expect(current.value).toBe("idle");
+		expect(current.context).toBe(context);
+		expect(Object.getOwnPropertyDescriptor(current, "snapshotAccessor")?.get).toBe(
+			snapshotAccessor,
+		);
+		expect(Object.getOwnPropertyDescriptor(current, snapshotSymbol)?.value).toBe(
+			"snapshot symbol",
+		);
+		expect(Object.getOwnPropertyDescriptor(context, "contextAccessor")?.get).toBe(
+			contextAccessor,
+		);
+		expect(Object.getOwnPropertyDescriptor(context, contextSymbol)?.value).toBe(
+			"context symbol",
+		);
+		expect(Object.getOwnPropertyDescriptor(context, "hiddenContext")?.value).toBe(
+			"hidden context",
+		);
+		expect(Object.getOwnPropertyDescriptor(current, "hiddenSnapshot")?.value).toBe(
+			"hidden snapshot",
+		);
 		expect(contextAccessor).not.toHaveBeenCalled();
 		expect(snapshotAccessor).not.toHaveBeenCalled();
 
@@ -371,67 +352,7 @@ describe("XStateAdapter", () => {
 		actor.stop();
 	});
 
-	it("recovers transactionally from missing and accessor-backed context", () => {
-		for (const contextShape of ["missing", "accessor"]) {
-			const actor = createLifecycleActor();
-			const stopSpy = vi.spyOn(actor, "stop");
-			const subscribeSpy = vi.spyOn(actor, "subscribe");
-			const snapshot = actor.getSnapshot();
-			const contextDescriptor = Object.getOwnPropertyDescriptor(
-				snapshot,
-				"context",
-			);
-			expect(contextDescriptor).toBeDefined();
-			if (!contextDescriptor) {
-				actor.stop();
-				continue;
-			}
-			const contextGetter = vi.fn(() => contextDescriptor.value);
-			if (contextShape === "missing") {
-				Reflect.deleteProperty(snapshot, "context");
-			} else {
-				Object.defineProperty(snapshot, "context", {
-					enumerable: true,
-					configurable: true,
-					get: contextGetter,
-				});
-			}
-			const factory = createXStateAdapter(actor);
-			const adapterA = factory();
-			const adapterB = factory();
-			const failedListener = vi.fn();
-
-			expect(() => adapterA.subscribeSnapshots(failedListener)).toThrow(
-				"[XStateAdapter] Snapshot context must be an own data property.",
-			);
-			expect(subscribeSpy).not.toHaveBeenCalled();
-
-			Object.defineProperty(snapshot, "context", contextDescriptor);
-			actor.send({ type: "NEXT" });
-			expect(failedListener).not.toHaveBeenCalled();
-			expect(contextGetter).not.toHaveBeenCalled();
-
-			const recoveredListener = vi.fn();
-			const recoveredSubscription =
-				adapterB.subscribeSnapshots(recoveredListener);
-			expect(adapterB).toBe(adapterA);
-			expect(recoveredListener).toHaveBeenCalledTimes(1);
-			expect(recoveredListener).toHaveBeenLastCalledWith(
-				expect.objectContaining({ value: "active" }),
-			);
-			actor.send({ type: "RESET" });
-			expect(recoveredListener).toHaveBeenCalledTimes(2);
-
-			recoveredSubscription.unsubscribe();
-			recoveredSubscription.unsubscribe();
-			adapterA.stop();
-			adapterB.stop();
-			expect(stopSpy).not.toHaveBeenCalled();
-			actor.stop();
-		}
-	});
-
-	it("rolls back snapshot acquisition and descriptor failures before subscribe", () => {
+	it("rolls back snapshot acquisition failures before subscribe", () => {
 		const actor = createLifecycleActor();
 		const factory = createXStateAdapter(actor);
 		const lifecycleAdapter = factory();
@@ -448,44 +369,12 @@ describe("XStateAdapter", () => {
 		expect(acquisitionListener).not.toHaveBeenCalled();
 		expect(subscribeSpy).not.toHaveBeenCalled();
 
-		const snapshot = actor.getSnapshot();
-		const contextDescriptor = Object.getOwnPropertyDescriptor(
-			snapshot,
-			"context",
-		);
-		expect(contextDescriptor).toBeDefined();
-		if (!contextDescriptor || !("value" in contextDescriptor)) {
-			lifecycleAdapter.stop();
-			actor.stop();
-			return;
-		}
-		const ownKeysTrap = vi.fn(() => {
-			throw new Error("descriptor trap failed");
-		});
-		const unsafeContext = new Proxy(contextDescriptor.value, {
-			ownKeys: ownKeysTrap,
-		});
-		Object.defineProperty(snapshot, "context", {
-			...contextDescriptor,
-			value: unsafeContext,
-		});
-		const descriptorListener = vi.fn();
-
-		expect(() =>
-			lifecycleAdapter.subscribeSnapshots(descriptorListener),
-		).toThrow("[XStateAdapter] Unable to inspect snapshot descriptors safely.");
-		expect(descriptorListener).not.toHaveBeenCalled();
-		expect(subscribeSpy).not.toHaveBeenCalled();
-		expect(ownKeysTrap).toHaveBeenCalled();
-
-		Object.defineProperty(snapshot, "context", contextDescriptor);
 		const recoveredListener = vi.fn();
 		const subscription = lifecycleAdapter.subscribeSnapshots(recoveredListener);
 		expect(recoveredListener).toHaveBeenCalledTimes(1);
 		actor.send({ type: "NEXT" });
 		expect(recoveredListener).toHaveBeenCalledTimes(2);
 		expect(acquisitionListener).not.toHaveBeenCalled();
-		expect(descriptorListener).not.toHaveBeenCalled();
 
 		subscription.unsubscribe();
 		lifecycleAdapter.stop();
@@ -555,39 +444,6 @@ describe("XStateAdapter", () => {
 			expect(unsubscribe).toHaveBeenCalledTimes(1);
 			actor.stop();
 		}
-	});
-
-	it("unsubscribes a provisional handle when its buffered snapshot is invalid", () => {
-		const actor = createLifecycleActor();
-		const factory = createXStateAdapter(actor);
-		const lifecycleAdapter = factory();
-		const unsubscribe = vi.fn(() => {
-			throw new Error("source unsubscribe failed");
-		});
-		const snapshot = actor.getSnapshot();
-		const contextDescriptor = Object.getOwnPropertyDescriptor(
-			snapshot,
-			"context",
-		);
-		expect(contextDescriptor).toBeDefined();
-		vi.spyOn(actor, "subscribe").mockImplementation((observer) => {
-			Reflect.deleteProperty(snapshot, "context");
-			deliverSnapshot(observer, snapshot);
-			return { unsubscribe };
-		});
-		const failedListener = vi.fn();
-
-		expect(() => lifecycleAdapter.subscribeSnapshots(failedListener)).toThrow(
-			"[XStateAdapter] Snapshot context must be an own data property.",
-		);
-		expect(failedListener).not.toHaveBeenCalled();
-		expect(unsubscribe).toHaveBeenCalledTimes(1);
-
-		if (contextDescriptor) {
-			Object.defineProperty(snapshot, "context", contextDescriptor);
-		}
-		lifecycleAdapter.stop();
-		actor.stop();
 	});
 
 	it("rolls back first and additional initial-listener failures", () => {
@@ -665,7 +521,7 @@ describe("XStateAdapter", () => {
 		additionalActor.stop();
 	});
 
-	it("preserves established listeners across additional preflight failures", () => {
+	it("preserves established listeners across additional snapshot failures", () => {
 		const actor = createLifecycleActor();
 		const factory = createXStateAdapter(actor);
 		const lifecycleAdapter = factory();
@@ -673,34 +529,6 @@ describe("XStateAdapter", () => {
 		const establishedListener = vi.fn();
 		const establishedSubscription =
 			lifecycleAdapter.subscribeSnapshots(establishedListener);
-		const snapshot = actor.getSnapshot();
-		const contextDescriptor = Object.getOwnPropertyDescriptor(
-			snapshot,
-			"context",
-		);
-		expect(contextDescriptor).toBeDefined();
-		if (!contextDescriptor) {
-			establishedSubscription.unsubscribe();
-			lifecycleAdapter.stop();
-			actor.stop();
-			return;
-		}
-		const contextGetter = vi.fn(() => contextDescriptor.value);
-		const missingListener = vi.fn();
-		Reflect.deleteProperty(snapshot, "context");
-		expect(() => lifecycleAdapter.subscribeSnapshots(missingListener)).toThrow(
-			"[XStateAdapter] Snapshot context must be an own data property.",
-		);
-		Object.defineProperty(snapshot, "context", {
-			enumerable: true,
-			configurable: true,
-			get: contextGetter,
-		});
-		const accessorListener = vi.fn();
-		expect(() => lifecycleAdapter.subscribeSnapshots(accessorListener)).toThrow(
-			"[XStateAdapter] Snapshot context must be an own data property.",
-		);
-		Object.defineProperty(snapshot, "context", contextDescriptor);
 		const acquisitionListener = vi.fn();
 		vi.spyOn(actor, "getSnapshot").mockImplementationOnce(() => {
 			throw new Error("additional snapshot failed");
@@ -711,10 +539,7 @@ describe("XStateAdapter", () => {
 
 		actor.send({ type: "NEXT" });
 		expect(establishedListener).toHaveBeenCalledTimes(2);
-		expect(missingListener).not.toHaveBeenCalled();
-		expect(accessorListener).not.toHaveBeenCalled();
 		expect(acquisitionListener).not.toHaveBeenCalled();
-		expect(contextGetter).not.toHaveBeenCalled();
 		expect(subscribeSpy).toHaveBeenCalledTimes(1);
 
 		establishedSubscription.unsubscribe();

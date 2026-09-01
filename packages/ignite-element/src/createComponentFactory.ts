@@ -47,13 +47,21 @@ export type ElementFactoryOptions<
 	) => AdditionalRenderArgs<State, Event, RenderArgs>;
 	createRenderStrategy?: RenderStrategyFactory<View>;
 	eventTypes?: readonly (keyof Events & string)[];
-	resolveView?: (
+	resolveStates?: (
 		adapter: IgniteAdapter<State, Event>,
 	) => RuntimeView | Record<never, never>;
 	resolveInspection?: (adapter: IgniteAdapter<State, Event>) => {
 		snapshot: unknown;
-		view: RuntimeView | Record<never, never>;
+		states: RuntimeView | Record<never, never>;
 	};
+	resolveDeliveredStates?: (
+		snapshot: State,
+	) => RuntimeView | Record<never, never>;
+	createRenderArgs?: (
+		snapshot: State,
+		send: (event: Event) => void,
+		additionalArgs: AdditionalRenderArgs<State, Event, RenderArgs>,
+	) => RenderArgs;
 	cleanup?: boolean;
 };
 
@@ -187,7 +195,9 @@ export function bindProjectionToElements<
 		cleanup: projection.cleanup,
 		eventTypes: projection.eventTypes,
 		resolveInspection: projection.resolveInspection,
-		resolveView: projection.resolveView,
+		resolveStates: projection.resolveStates,
+		resolveDeliveredStates: projection.resolveDeliveredStates,
+		createRenderArgs: projection.createRenderArgs,
 		createRenderStrategy: options.createRenderStrategy,
 		createAdditionalArgs: (adapter, host) => {
 			if (!host) {

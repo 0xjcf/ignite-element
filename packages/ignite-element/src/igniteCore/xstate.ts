@@ -1,9 +1,11 @@
-import type {
-	ExtendedState,
-	XStateCommandActor,
-} from "@ignite-element/adapters/xstate";
+import type { XStateCommandActor } from "@ignite-element/adapters/xstate";
 import { createXStateAdapter } from "@ignite-element/adapters/xstate";
-import type { AnyStateMachine, EmittedFrom, EventFrom } from "xstate";
+import type {
+	AnyStateMachine,
+	EmittedFrom,
+	EventFrom,
+	StateFrom,
+} from "xstate";
 import type {
 	EmptyEventMap,
 	EventMap,
@@ -28,9 +30,9 @@ export function igniteCoreXState<
 >(
 	options: XStateConfig<Machine, Events, StatesResult, CommandsResult>,
 ): IgniteCoreReturn<
-	ExtendedState<Machine>,
+	StateFrom<Machine>,
 	EventFrom<Machine>,
-	ExtendedState<Machine>,
+	StateFrom<Machine>,
 	StatesResult,
 	XStateCommandActor<Machine>,
 	CommandsResult,
@@ -41,17 +43,17 @@ export function igniteCoreXState<
 	// runtime's declared eventTypes stay driven by the `events:` config (the
 	// adapter subscribeEvents() bridge surfaces emitted events dynamically).
 	return createIgniteComponentFactory<
-		ExtendedState<Machine>,
+		StateFrom<Machine>,
 		EventFrom<Machine>,
-		ExtendedState<Machine>,
+		StateFrom<Machine>,
 		StatesResult,
 		XStateCommandActor<Machine>,
 		CommandsResult,
 		Events
 	>(createAdapter, options) as IgniteCoreReturn<
-		ExtendedState<Machine>,
+		StateFrom<Machine>,
 		EventFrom<Machine>,
-		ExtendedState<Machine>,
+		StateFrom<Machine>,
 		StatesResult,
 		XStateCommandActor<Machine>,
 		CommandsResult,

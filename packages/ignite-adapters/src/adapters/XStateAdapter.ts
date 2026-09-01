@@ -10,40 +10,34 @@ import type {
 import { createActor } from "xstate";
 import { isXStateActor } from "../utils/adapterGuards";
 
-export type ExtendedState<Machine extends AnyStateMachine> =
-	StateFrom<Machine> &
-		StateFrom<Machine>["context"] & {
-			context: StateFrom<Machine>["context"];
-		};
-
 export type XStateActorInstance<Machine extends AnyStateMachine> = ReturnType<
 	typeof createActor<Machine>
 >;
 
 export type XStateSnapshot<Machine extends AnyStateMachine> =
-	ExtendedState<Machine>;
+	StateFrom<Machine>;
 
 export type XStateCommandActor<Machine extends AnyStateMachine> = {
 	send: (event: EventFrom<Machine>) => void;
-	getSnapshot: () => ExtendedState<Machine>;
+	getSnapshot: () => StateFrom<Machine>;
 };
 
 export type XStateMachineActor<Machine extends AnyStateMachine> =
 	XStateActorInstance<Machine>;
 
 type XStateAdapterFactory<Machine extends AnyStateMachine> =
-	(() => IgniteAdapter<ExtendedState<Machine>, EventFrom<Machine>>) & {
+	(() => IgniteAdapter<StateFrom<Machine>, EventFrom<Machine>>) & {
 		scope: StateScope;
 		resolveStateSnapshot: (
-			adapter: IgniteAdapter<ExtendedState<Machine>, EventFrom<Machine>>,
+			adapter: IgniteAdapter<StateFrom<Machine>, EventFrom<Machine>>,
 		) => StateFrom<Machine>;
 		resolveCommandActor: (
-			adapter: IgniteAdapter<ExtendedState<Machine>, EventFrom<Machine>>,
+			adapter: IgniteAdapter<StateFrom<Machine>, EventFrom<Machine>>,
 		) => XStateCommandActor<Machine>;
 	};
 
 type AdapterEntry<Machine extends AnyStateMachine> = {
-	adapter: IgniteAdapter<ExtendedState<Machine>, EventFrom<Machine>>;
+	adapter: IgniteAdapter<StateFrom<Machine>, EventFrom<Machine>>;
 	snapshot: () => StateFrom<Machine>;
 	actor: XStateActorInstance<Machine>;
 	commandActor: XStateCommandActor<Machine>;
@@ -51,33 +45,12 @@ type AdapterEntry<Machine extends AnyStateMachine> = {
 
 const stoppedSubscribeWarning =
 	"[XStateAdapter] Cannot subscribe when adapter is stopped.";
-const invalidSnapshotContextMessage =
-	"[XStateAdapter] Snapshot context must be an own data property.";
-const unsafeSnapshotInspectionMessage =
-	"[XStateAdapter] Unable to inspect snapshot descriptors safely.";
-
-function collectEnumerableDescriptors(
-	source: object,
-	descriptors: Map<PropertyKey, PropertyDescriptor>,
-	omitContext: boolean,
-): void {
-	for (const key of Reflect.ownKeys(source)) {
-		if (omitContext && key === "context") {
-			continue;
-		}
-		const descriptor = Object.getOwnPropertyDescriptor(source, key);
-		if (descriptor?.enumerable === true) {
-			descriptors.set(key, descriptor);
-		}
-	}
-}
-
 function requireEntry<Machine extends AnyStateMachine>(
 	registry: WeakMap<
-		IgniteAdapter<ExtendedState<Machine>, EventFrom<Machine>>,
+		IgniteAdapter<StateFrom<Machine>, EventFrom<Machine>>,
 		AdapterEntry<Machine>
 	>,
-	adapter: IgniteAdapter<ExtendedState<Machine>, EventFrom<Machine>>,
+	adapter: IgniteAdapter<StateFrom<Machine>, EventFrom<Machine>>,
 	errorMessage: string,
 ): AdapterEntry<Machine> {
 	const entry = registry.get(adapter);
@@ -116,7 +89,7 @@ function createIsolatedFactory<Machine extends AnyStateMachine>(
 	createEntry: () => AdapterEntry<Machine>,
 ): XStateAdapterFactory<Machine> {
 	const registry = new WeakMap<
-		IgniteAdapter<ExtendedState<Machine>, EventFrom<Machine>>,
+		IgniteAdapter<StateFrom<Machine>, EventFrom<Machine>>,
 		AdapterEntry<Machine>
 	>();
 
@@ -150,13 +123,13 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 	scope: StateScope,
 	ownsSource: boolean,
 ): AdapterEntry<Machine> {
-	const listeners = new Set<(state: ExtendedState<Machine>) => void>();
+	const listeners = new Set<(state: StateFrom<Machine>) => void>();
 	let subscription: Subscription | null = null;
 	let isStopped = false;
 	let lastKnownSnapshot: StateFrom<Machine> = actor.getSnapshot();
 	type InitialSnapshotState = {
 		snapshot: StateFrom<Machine>;
-		state: ExtendedState<Machine>;
+		state: StateFrom<Machine>;
 	};
 	type ProvisionalCallbackState = {
 		active: boolean;
@@ -166,11 +139,10 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 	};
 
 	function notify(snapshot: StateFrom<Machine>) {
-		const state = toExtendedState(snapshot);
 		const deliveryListeners = Array.from(listeners);
 		for (const listener of deliveryListeners) {
 			if (listeners.has(listener)) {
-				listener(state);
+				listener(snapshot);
 			}
 		}
 	}
@@ -179,44 +151,6 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 		const currentSubscription = subscription;
 		subscription = null;
 		currentSubscription?.unsubscribe();
-	}
-
-	function toExtendedState(
-		snapshot: StateFrom<Machine>,
-	): ExtendedState<Machine> {
-		let contextDescriptor: PropertyDescriptor | undefined;
-		try {
-			contextDescriptor = Object.getOwnPropertyDescriptor(snapshot, "context");
-		} catch {
-			return failInvariant(unsafeSnapshotInspectionMessage);
-		}
-		if (!contextDescriptor || !("value" in contextDescriptor)) {
-			return failInvariant(invalidSnapshotContextMessage);
-		}
-		const context: unknown = contextDescriptor.value;
-		if (typeof context !== "object" || context === null) {
-			return failInvariant(invalidSnapshotContextMessage);
-		}
-
-		try {
-			const descriptors = new Map<PropertyKey, PropertyDescriptor>();
-			collectEnumerableDescriptors(snapshot, descriptors, true);
-			collectEnumerableDescriptors(context, descriptors, false);
-			descriptors.set("context", {
-				value: context,
-				enumerable: true,
-				writable: true,
-				configurable: true,
-			});
-
-			const extendedState = Object.create(Object.prototype);
-			for (const [key, descriptor] of descriptors) {
-				Object.defineProperty(extendedState, key, descriptor);
-			}
-			return extendedState;
-		} catch {
-			return failInvariant(unsafeSnapshotInspectionMessage);
-		}
 	}
 
 	function createGuardedSubscription(
@@ -238,7 +172,7 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 
 	function installSubscription(
 		preflightSnapshot: StateFrom<Machine>,
-		preflightState: ExtendedState<Machine>,
+		preflightState: StateFrom<Machine>,
 	): InitialSnapshotState {
 		const callbackState: ProvisionalCallbackState = {
 			active: true,
@@ -292,7 +226,7 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 				typeof callbackState.bufferedSnapshot !== "undefined"
 			) {
 				initialSnapshot = callbackState.bufferedSnapshot;
-				initialState = toExtendedState(initialSnapshot);
+				initialState = initialSnapshot;
 			}
 			lastKnownSnapshot = initialSnapshot;
 			callbackState.installing = false;
@@ -314,7 +248,7 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 	}
 
 	const typedAdapter: IgniteAdapter<
-		ExtendedState<Machine>,
+		StateFrom<Machine>,
 		EventFrom<Machine>,
 		EmittedFrom<Machine>
 	> = {
@@ -325,7 +259,7 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 			}
 
 			const preflightSnapshot = actor.getSnapshot();
-			const preflightState = toExtendedState(preflightSnapshot);
+			const preflightState = preflightSnapshot;
 			const initial = subscription
 				? { snapshot: preflightSnapshot, state: preflightState }
 				: installSubscription(preflightSnapshot, preflightState);
@@ -395,7 +329,7 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 			if (!isStopped) {
 				lastKnownSnapshot = snapshot;
 			}
-			return toExtendedState(snapshot);
+			return snapshot;
 		},
 		stop() {
 			if (isStopped) {
@@ -456,7 +390,7 @@ function createAdapterEntry<Machine extends AnyStateMachine>(
 	// Emitted to the 2-arg IgniteAdapter the factory pipeline expects (no
 	// generics ripple).
 	const adapter = typedAdapter as unknown as IgniteAdapter<
-		ExtendedState<Machine>,
+		StateFrom<Machine>,
 		EventFrom<Machine>
 	>;
 

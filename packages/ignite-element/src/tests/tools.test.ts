@@ -15,13 +15,13 @@ import type { IgniteAgentSchema, IgniteSchemaObject } from "../types/schema";
 // --- Fakes (zero LLM, zero adapters, fully deterministic) ---------------------
 
 type FakeState = { count: number; last?: string; payload?: unknown };
-type FakeView = { count: number; label: string };
+type FakeStates = { count: number; label: string };
 
 type FakeEvents = {
 	"item-added": EventDescriptor<{ id: number }>;
 };
 
-const fakeSchema: IgniteAgentSchema<FakeState, FakeView> = {
+const fakeSchema: IgniteAgentSchema<FakeState, FakeStates> = {
 	commands: {
 		// no-arg command (no `input` metadata)
 		increment: { description: "Increment the count." },
@@ -51,7 +51,7 @@ const fakeSchema: IgniteAgentSchema<FakeState, FakeView> = {
 	},
 	events: [{ type: "item-added" }],
 	snapshot: { count: 0 },
-	view: { count: 0, label: "zero" },
+	states: { count: 0, label: "zero" },
 };
 
 type FakeComponent = IgniteToolsRuntime<
@@ -59,7 +59,7 @@ type FakeComponent = IgniteToolsRuntime<
 	Record<string, (...args: never[]) => unknown>,
 	FakeEvents,
 	FakeState,
-	FakeView
+	FakeStates
 > & {
 	calls: Array<{ name: string; payload: unknown }>;
 	canExecute?: (name: string) => boolean;
@@ -67,18 +67,18 @@ type FakeComponent = IgniteToolsRuntime<
 
 type ObservableFakeComponent = FakeComponent & {
 	emitEvent: (event: { type: "item-added"; id: number }) => void;
-	emitView: (view: FakeView) => void;
+	emitStates: (states: FakeStates) => void;
 };
 
 function createFakeComponent(
 	options: { canExecute?: (name: string) => boolean } = {},
 ): ObservableFakeComponent {
 	const calls: Array<{ name: string; payload: unknown }> = [];
-	let view: FakeView = { count: 0, label: "zero" };
+	let states: FakeStates = { count: 0, label: "zero" };
 	const eventHandlers = new Set<
 		(event: { type: "item-added"; id: number }) => void
 	>();
-	const viewHandlers = new Set<(view: FakeView, prevView: FakeView) => void>();
+	const viewHandlers = new Set<(states: FakeStates, prevStates: FakeStates) => void>();
 	const component: ObservableFakeComponent = {
 		calls,
 		getSchema: () => fakeSchema,
@@ -87,14 +87,15 @@ function createFakeComponent(
 			if (call.command === "boom") {
 				throw new Error("kaboom");
 			}
-			view = { count: calls.length, label: "active" };
-			return {
-				snapshot: { count: 1, last: call.command, payload: call.input },
-				events: [{ type: "item-added", id: 1 }],
+			states = { count: calls.length, label: "active" };
+				return {
+					snapshot: { count: 1, last: call.command, payload: call.input },
+					states,
+					events: [{ type: "item-added", id: 1 }],
 			};
 		}) as FakeComponent["execute"],
 		// The derived read-model the agent grounds on; reflects the calls so far.
-		getView: () => view,
+		getStates: () => states,
 		on: ((
 			eventName: "item-added",
 			handler: (event: { type: "item-added"; id: number }) => void,
@@ -106,22 +107,22 @@ function createFakeComponent(
 				unsubscribe: () => eventHandlers.delete(handler),
 			};
 		}) as FakeComponent["on"],
-		watchView: ((handler: (view: FakeView, prevView: FakeView) => void) => {
+		watchStates: ((handler: (states: FakeStates, prevStates: FakeStates) => void) => {
 			viewHandlers.add(handler);
 			return {
 				unsubscribe: () => viewHandlers.delete(handler),
 			};
-		}) as FakeComponent["watchView"],
+		}) as FakeComponent["watchStates"],
 		emitEvent: (event) => {
 			for (const handler of eventHandlers) {
 				handler(event);
 			}
 		},
-		emitView: (nextView) => {
-			const prevView = view;
-			view = nextView;
+		emitStates: (nextStates) => {
+			const prevStates = states;
+			states = nextStates;
 			for (const handler of viewHandlers) {
-				handler(nextView, prevView);
+				handler(nextStates, prevStates);
 			}
 		},
 	};
@@ -144,8 +145,12 @@ class ThisBoundFakeComponent implements FakeComponent {
 				count: this.calls.length,
 				last: call.command,
 				payload: call.input,
-			},
-			events: [{ type: "item-added", id: this.calls.length }],
+				},
+				states: {
+					count: this.calls.length,
+					label: "active",
+				},
+				events: [{ type: "item-added", id: this.calls.length }],
 		};
 	} as FakeComponent["execute"];
 
@@ -153,7 +158,7 @@ class ThisBoundFakeComponent implements FakeComponent {
 		return fakeSchema;
 	}
 
-	getView() {
+	getStates() {
 		return {
 			count: this.calls.length,
 			label: this.calls.length > 0 ? "active" : "zero",
@@ -164,7 +169,7 @@ class ThisBoundFakeComponent implements FakeComponent {
 		return { unsubscribe: () => undefined };
 	}
 
-	watchView() {
+	watchStates() {
 		return { unsubscribe: () => undefined };
 	}
 }
@@ -188,8 +193,8 @@ const fakeDialect: ToolDialect<FakeToolDefs, FakeResponse, FakeResultBlock> = {
 	// (no scalar wrapping to undo) — proving the param is optional to consume.
 	toolCalls: (response: FakeResponse): NeutralToolCall[] =>
 		response.calls.map((c) => ({ id: c.id, name: c.name, input: c.input })),
-	toolResult<Snapshot, View, Events extends EventMap>(
-		result: NeutralToolResult<Snapshot, View, Events>,
+	toolResult<Snapshot, States, Events extends EventMap>(
+		result: NeutralToolResult<Snapshot, States, Events>,
 	): FakeResultBlock {
 		return {
 			tool_use_id: result.id,
@@ -482,7 +487,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		expect("tools" in tools).toBe(false);
 	});
 
-	it("run routes a valid call through execute and returns { snapshot, view, events }", async () => {
+	it("run routes a valid call through execute and returns { snapshot, states, events }", async () => {
 		const component = createFakeComponent();
 		const { run } = igniteTools(component);
 		const result = await run({ name: "setLimit", input: 7 });
@@ -494,14 +499,14 @@ describe("igniteTools (neutral, no dialect)", () => {
 				last: "setLimit",
 				payload: 7,
 			});
-			// The observation carries the derived view (post-command), so the agent
+			// The observation carries the derived states (post-command), so the agent
 			// can ground on the read-model, not just the raw snapshot.
-			expect(result.value.view).toEqual({ count: 1, label: "active" });
+			expect(result.value.states).toEqual({ count: 1, label: "active" });
 			expect(result.value.events).toEqual([{ type: "item-added", id: 1 }]);
 		}
 	});
 
-	it("binds runtime.execute before storage and calls getView with runtime context", async () => {
+	it("binds runtime.execute before storage and calls getStates with runtime context", async () => {
 		const component = new ThisBoundFakeComponent();
 		const { run } = igniteTools(component);
 		const result = await run({ name: "setLimit", input: 7 });
@@ -512,7 +517,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 				count: 1,
 				last: "setLimit",
 			});
-			expect(result.value.view).toEqual({ count: 1, label: "active" });
+			expect(result.value.states).toEqual({ count: 1, label: "active" });
 		}
 	});
 
@@ -598,21 +603,22 @@ describe("igniteTools (neutral, no dialect)", () => {
 			},
 			events: [],
 			snapshot: { documents: [] },
-			view: { count: 0 },
+			states: { count: 0 },
 		};
 		const calls: Array<{ name: string; payload: unknown }> = [];
 		const tools = igniteTools({
 			getSchema: () => projectionSchema,
 			execute: async (call: { command: string; input?: unknown }) => {
 				calls.push({ name: call.command, payload: call.input });
-				return {
-					snapshot: { documents: [call.input] },
-					events: [],
+					return {
+						snapshot: { documents: [call.input] },
+						states: { count: calls.length },
+						events: [],
 				};
 			},
-			getView: () => ({ count: calls.length }),
+			getStates: () => ({ count: calls.length }),
 			on: () => ({ unsubscribe: () => undefined }),
-			watchView: () => ({ unsubscribe: () => undefined }),
+			watchStates: () => ({ unsubscribe: () => undefined }),
 		});
 
 		expect(tools.manifest.map((tool) => tool.name)).toEqual([
@@ -634,7 +640,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		]);
 		expect(result.ok).toBe(true);
 		if (result.ok) {
-			expect(result.value.view).toEqual({ count: 1 });
+			expect(result.value.states).toEqual({ count: 1 });
 		}
 	});
 
@@ -646,15 +652,15 @@ describe("igniteTools (neutral, no dialect)", () => {
 		expect(manifest.find((t) => t.name === "adminOnly")).toBeUndefined();
 	});
 
-	it("observe streams schema-declared events and view changes between acts", () => {
+	it("observe streams schema-declared events and states changes between acts", () => {
 		const component = createFakeComponent();
 		const { observe } = igniteTools(component);
-		const seen: Array<ToolStreamObservation<FakeView, FakeEvents>> = [];
+		const seen: Array<ToolStreamObservation<FakeStates, FakeEvents>> = [];
 
 		const subscription = observe((observation) => seen.push(observation));
 
 		component.emitEvent({ type: "item-added", id: 2 });
-		component.emitView({ count: 2, label: "observed" });
+		component.emitStates({ count: 2, label: "observed" });
 
 		expect(seen).toEqual([
 			{
@@ -662,16 +668,16 @@ describe("igniteTools (neutral, no dialect)", () => {
 				event: { type: "item-added", id: 2 },
 			},
 			{
-				type: "view",
-				view: { count: 2, label: "observed" },
-				prevView: { count: 0, label: "zero" },
+				type: "states",
+				states: { count: 2, label: "observed" },
+				prevStates: { count: 0, label: "zero" },
 			},
 		]);
 
 		subscription.unsubscribe();
 		subscription.unsubscribe();
 		component.emitEvent({ type: "item-added", id: 3 });
-		component.emitView({ count: 3, label: "ignored" });
+		component.emitStates({ count: 3, label: "ignored" });
 
 		expect(seen).toHaveLength(2);
 	});
@@ -680,18 +686,18 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const component = createFakeComponent();
 		const unsubscribeEvent = vi.fn();
 		const on = vi.fn(() => ({ unsubscribe: unsubscribeEvent }));
-		const watchView = vi.fn(() => {
+		const watchStates = vi.fn(() => {
 			throw new Error("watch failed");
 		});
 
 		component.on = on as unknown as FakeComponent["on"];
-		component.watchView = watchView as unknown as FakeComponent["watchView"];
+		component.watchStates = watchStates as unknown as FakeComponent["watchStates"];
 
 		const { observe } = igniteTools(component);
 
 		expect(() => observe(() => undefined)).toThrow("watch failed");
 		expect(on).toHaveBeenCalledWith("item-added", expect.any(Function));
-		expect(watchView).toHaveBeenCalledTimes(1);
+		expect(watchStates).toHaveBeenCalledTimes(1);
 		expect(unsubscribeEvent).toHaveBeenCalledTimes(1);
 	});
 });

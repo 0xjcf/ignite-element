@@ -46,7 +46,7 @@ export type IgniteStoryTraceKind =
 	| "command"
 	| "behavior"
 	| "snapshot"
-	| "view"
+	| "states"
 	| "event";
 
 export type IgniteStoryTracePhase = "before" | "after";
@@ -74,12 +74,12 @@ export type IgniteStorySnapshotTraceEntry = {
 	snapshot: IgniteSchemaValue;
 };
 
-export type IgniteStoryViewTraceEntry = {
-	kind: "view";
+export type IgniteStoryStatesTraceEntry = {
+	kind: "states";
 	sequence: number;
 	step: number;
 	phase: IgniteStoryTracePhase;
-	view: IgniteSchemaValue;
+	states: IgniteSchemaValue;
 };
 
 export type IgniteStoryEventTraceEntry = {
@@ -94,7 +94,7 @@ export type IgniteStoryTraceEntry =
 	| IgniteStoryCommandTraceEntry
 	| IgniteStoryBehaviorTraceEntry
 	| IgniteStorySnapshotTraceEntry
-	| IgniteStoryViewTraceEntry
+	| IgniteStoryStatesTraceEntry
 	| IgniteStoryEventTraceEntry;
 
 export type IgniteStoryTraceSnapshotEntry = IgniteStoryTraceEntry;
@@ -123,16 +123,16 @@ export type IgniteStoryUntilOptions = {
 	maxSteps?: number;
 };
 
-export type IgniteStoryViewPredicate<View> = (view: View) => boolean;
+export type IgniteStoryStatesPredicate<States> = (states: States) => boolean;
 
 export type IgniteStorySummary<
 	State,
 	Events extends EventMap = EmptyEventMap,
-	View extends Record<string, unknown> = Record<never, never>,
+	States extends Record<string, unknown> = Record<never, never>,
 > = {
 	name: string;
 	finalSnapshot: State;
-	finalView: View;
+	finalStates: States;
 	events: RuntimeEvent<Events>[];
 	commandCount: number;
 	traceCount: number;
@@ -146,7 +146,7 @@ export type IgniteStorySnapshotEvent = {
 export type IgniteStorySummarySnapshot = {
 	name: string;
 	finalSnapshot: IgniteSchemaValue;
-	finalView: IgniteSchemaValue;
+	finalStates: IgniteSchemaValue;
 	events: IgniteStorySnapshotEvent[];
 	commandCount: number;
 	traceCount: number;
@@ -164,28 +164,28 @@ export type IgniteStory<
 	State,
 	Commands extends FacadeCommandResult = FacadeCommandResult,
 	Events extends EventMap = EmptyEventMap,
-	View extends Record<string, unknown> = Record<never, never>,
+	States extends Record<string, unknown> = Record<never, never>,
 > = {
 	readonly name: string;
 	execute<CommandName extends keyof Commands & string>(
 		call: IgniteCommandCall<Commands, CommandName>,
-	): Promise<IgniteAgentExecutionResult<State, Events>>;
+	): Promise<IgniteAgentExecutionResult<State, Events, States>>;
 	behavior<Result>(
 		name: string,
 		operation: () => Promise<Result> | Result,
 	): Promise<Result>;
 	until(
-		viewPredicate: IgniteStoryViewPredicate<View>,
+		statesPredicate: IgniteStoryStatesPredicate<States>,
 		action: (
-			story: IgniteStory<State, Commands, Events, View>,
-			view: View,
+			story: IgniteStory<State, Commands, Events, States>,
+			states: States,
 			iteration: number,
 		) => unknown,
 		options?: IgniteStoryUntilOptions,
-	): Promise<View>;
+	): Promise<States>;
 	trace(): IgniteStoryTraceEntry[];
 	lifecycle(): IgniteStoryLifecycleEntry[];
-	summary(): IgniteStorySummary<State, Events, View>;
+	summary(): IgniteStorySummary<State, Events, States>;
 	canExecute<CommandName extends keyof Commands & string>(
 		commandName: CommandName,
 	): boolean;
@@ -195,8 +195,10 @@ export type IgniteStory<
 export type IgniteAgentExecutionResult<
 	State,
 	Events extends EventMap = EmptyEventMap,
+	States extends Record<string, unknown> = Record<never, never>,
 > = {
 	snapshot: State;
+	states: States;
 	events: RuntimeEvent<Events>[];
 };
 
@@ -219,16 +221,16 @@ export type IgniteAgentRuntime<
 	Commands extends FacadeCommandResult = FacadeCommandResult,
 	Events extends EventMap = EmptyEventMap,
 	SchemaState = IgniteSchemaValue,
-	View extends Record<string, unknown> = Record<never, never>,
+	States extends Record<string, unknown> = Record<never, never>,
 > = {
 	canExecute<CommandName extends keyof Commands & string>(
 		commandName: CommandName,
 	): boolean;
 	execute<CommandName extends keyof Commands & string>(
 		call: IgniteCommandCall<Commands, CommandName>,
-	): Promise<IgniteAgentExecutionResult<State, Events>>;
+	): Promise<IgniteAgentExecutionResult<State, Events, States>>;
 	getSnapshot(): State;
-	getView(): View;
+	getStates(): States;
 	on<Type extends keyof Events & string>(
 		eventName: Type,
 		handler: IgniteAgentEventListener<Events, Type>,
@@ -236,11 +238,11 @@ export type IgniteAgentRuntime<
 	watchSnapshot(
 		handler: IgniteAgentSnapshotListener<State>,
 	): IgniteAgentSubscription;
-	watchView(
-		handler: IgniteAgentSnapshotListener<View>,
+	watchStates(
+		handler: IgniteAgentSnapshotListener<States>,
 	): IgniteAgentSubscription;
-	getSchema(): IgniteAgentSchema<SchemaState, View>;
-	record(name: string): IgniteStory<State, Commands, Events, View>;
+	getSchema(): IgniteAgentSchema<SchemaState, States>;
+	record(name: string): IgniteStory<State, Commands, Events, States>;
 };
 
 export type ProjectionNodeBase = {

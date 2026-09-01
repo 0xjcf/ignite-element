@@ -32,7 +32,7 @@ describe("ignite test DSL types", () => {
 		const componentConfig = {
 			adapter: "xstate",
 			source: machine,
-			view: ({ snapshot }) => ({
+			states: (snapshot) => ({
 				isOn: snapshot.matches("on"),
 			}),
 			commands: ({ actor }) => ({
@@ -148,7 +148,7 @@ describe("ignite test DSL types", () => {
 		void expectCommandNameValidation;
 	});
 
-	it("types expectView from the runtime's view projection", () => {
+	it("types expectStates from the runtime's states projection", () => {
 		const machine = createMachine({
 			initial: "off",
 			states: {
@@ -160,7 +160,7 @@ describe("ignite test DSL types", () => {
 		const component = igniteCore({
 			adapter: "xstate",
 			source: machine,
-			view: ({ snapshot }) => ({
+			states: (snapshot) => ({
 				isOn: snapshot.matches("on"),
 				label: "Power",
 			}),
@@ -169,30 +169,30 @@ describe("ignite test DSL types", () => {
 			}),
 		});
 
-		// The runtime surface projects the typed view from the `view` callback.
-		expectTypeOf(component.getView()).toEqualTypeOf<{
+		// The runtime surface projects the typed states from the `states` callback.
+		expectTypeOf(component.getStates()).toEqualTypeOf<{
 			isOn: boolean;
 			label: string;
 		}>();
 
 		// The test DSL extracts that same projection (intersected with the
-		// `Record<string, unknown>` scenario constraint), so expectView's predicate
+		// `Record<string, unknown>` scenario constraint), so expectStates's predicate
 		// sees the projection keys with their value types — not `unknown`. Wrapped in
 		// an uncalled function: the body is typechecked, but the predicate is never
 		// run (these `.types.test.ts` files also execute under vitest, and the
-		// freshly-created component's view would not satisfy the assertion at runtime).
-		const expectViewTyping = () => {
-			igniteTest({ component }).expectView((view) => {
-				expectTypeOf(view).toEqualTypeOf<
+		// freshly-created component's states would not satisfy the assertion at runtime).
+		const expectStatesTyping = () => {
+			igniteTest({ component }).expectStates((states) => {
+				expectTypeOf(states).toEqualTypeOf<
 					{ isOn: boolean; label: string } & Record<string, unknown>
 				>();
-				expectTypeOf(view.isOn).toEqualTypeOf<boolean>();
-				expectTypeOf(view.label).toEqualTypeOf<string>();
-				return view.isOn && view.label.startsWith("P");
+				expectTypeOf(states.isOn).toEqualTypeOf<boolean>();
+				expectTypeOf(states.label).toEqualTypeOf<string>();
+				return states.isOn && states.label.startsWith("P");
 			});
 		};
 
-		void expectViewTyping;
+		void expectStatesTyping;
 	});
 
 	it("types the optional headless scenario host seam", () => {
@@ -231,7 +231,7 @@ describe("ignite test DSL types", () => {
 		const componentConfig = {
 			adapter: "redux",
 			source: store,
-			view: ({ snapshot }) => ({
+			states: (snapshot) => ({
 				count: snapshot.counter.count,
 				canDecrement: snapshot.counter.count > 0,
 			}),
@@ -285,14 +285,14 @@ describe("ignite test DSL types", () => {
 						narrative.given({
 							snapshot: { counter: { count: 0 } },
 							when: (snapshot) => snapshot.counter.count === 0,
-							view: { count: 0, canDecrement: false },
+							states: { count: 0, canDecrement: false },
 							canExecute: { decrement: false },
 						}),
 					).toEqualTypeOf<Promise<void>>();
 					await narrative.given({
 						snapshot: { counter: { count: 0 } },
 						when: (snapshot) => snapshot.counter.count === 0,
-						view: { count: 0, canDecrement: false },
+						states: { count: 0, canDecrement: false },
 						canExecute: { decrement: false },
 					});
 					await narrative.intent({ command: "increment", input: 2 });
@@ -300,14 +300,14 @@ describe("ignite test DSL types", () => {
 					expectTypeOf(
 						narrative.checkpoint("after increment", {
 							snapshot: { counter: { count: 3 } },
-							view: { count: 3, canDecrement: true },
+							states: { count: 3, canDecrement: true },
 							events: [{ type: "counter-incremented", count: 3 }],
 							canExecute: { decrement: true },
 						}),
 					).toEqualTypeOf<Promise<void>>();
 					await narrative.checkpoint("after increment", {
 						snapshot: { counter: { count: 3 } },
-						view: { count: 3, canDecrement: true },
+						states: { count: 3, canDecrement: true },
 						events: [{ type: "counter-incremented", count: 3 }],
 						canExecute: { decrement: true },
 					});

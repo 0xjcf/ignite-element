@@ -9,7 +9,7 @@ import type {
 	IgniteStoryLifecycleEntry,
 	IgniteStorySnapshotTraceEntry,
 	IgniteStoryTraceEntry,
-	IgniteStoryViewTraceEntry,
+	IgniteStoryStatesTraceEntry,
 } from "../types/agent";
 import type { IgniteSchemaValue } from "../types/schema";
 import { commandMetadataSymbol } from "./commands";
@@ -156,7 +156,7 @@ type RuntimeResources<
 type AgentRuntimeOptions<
 	State,
 	Event,
-	View extends Record<string, unknown>,
+	States extends Record<string, unknown>,
 	AdditionalArgs extends Record<string, unknown>,
 	Renderer,
 > = {
@@ -173,9 +173,10 @@ type AgentRuntimeOptions<
 	releaseRuntimeAccess?: () => void;
 	resolveInspection?: (adapter: IgniteAdapter<State, Event>) => {
 		snapshot: unknown;
-		view: View;
+		states: States;
 	};
-	resolveView: (adapter: IgniteAdapter<State, Event>) => View;
+	resolveStates: (adapter: IgniteAdapter<State, Event>) => States;
+	resolveDeliveredStates?: (snapshot: State) => States;
 };
 
 const defaultUntilMaxSteps = 50;
@@ -205,7 +206,7 @@ type IgniteStoryTraceEntryDraft =
 	| Omit<IgniteStoryBehaviorTraceEntry, "sequence">
 	| Omit<IgniteStoryEventTraceEntry, "sequence">
 	| Omit<IgniteStorySnapshotTraceEntry, "sequence">
-	| Omit<IgniteStoryViewTraceEntry, "sequence">;
+	| Omit<IgniteStoryStatesTraceEntry, "sequence">;
 
 function getCommandContract(
 	commandValue: unknown,
@@ -297,8 +298,8 @@ function cloneTraceEntry(entry: IgniteStoryTraceEntry): IgniteStoryTraceEntry {
 			return { ...entry, payload: cloneSchemaValue(entry.payload) };
 		case "snapshot":
 			return { ...entry, snapshot: cloneSchemaValue(entry.snapshot) };
-		case "view":
-			return { ...entry, view: cloneSchemaValue(entry.view) };
+		case "states":
+			return { ...entry, states: cloneSchemaValue(entry.states) };
 	}
 }
 
@@ -311,7 +312,7 @@ function cloneLifecycleEntry(
 export function createAgentRuntime<
 	State,
 	Event,
-	View extends Record<string, unknown>,
+	States extends Record<string, unknown>,
 	AdditionalArgs extends Record<string, unknown>,
 	Renderer = unknown,
 >({
@@ -322,14 +323,18 @@ export function createAgentRuntime<
 	releaseRuntimeAccess,
 	resolveInspection,
 	resolveRuntime,
-	resolveView,
-}: AgentRuntimeOptions<State, Event, View, AdditionalArgs, Renderer>) {
+	resolveDeliveredStates,
+	resolveStates,
+}: AgentRuntimeOptions<State, Event, States, AdditionalArgs, Renderer>) {
 	const resolveRuntimeInspection =
 		resolveInspection ??
 		((adapter: IgniteAdapter<State, Event>) => ({
 			snapshot: adapter.getSnapshot(),
-			view: resolveView(adapter),
+			states: resolveStates(adapter),
 		}));
+	const deriveDeliveredStates =
+		resolveDeliveredStates ??
+		((snapshot: State) => snapshot as unknown as States);
 	const isThenable = (value: unknown): value is PromiseLike<unknown> =>
 		(typeof value === "object" || typeof value === "function") &&
 		value !== null &&
@@ -407,6 +412,7 @@ export function createAgentRuntime<
 	};
 	const createWatcher = <Value>(
 		resolveCurrent: (adapter: IgniteAdapter<State, Event>) => Value,
+		resolveDelivered: (snapshot: State) => Value,
 		handler: (value: Value, prevValue: Value) => void,
 	) => {
 		retainRuntimeAccess?.();
@@ -414,8 +420,8 @@ export function createAgentRuntime<
 		let prevValue = resolveCurrent(adapter);
 		let installing = true;
 
-		const subscription = adapter.subscribeSnapshots(() => {
-			const nextValue = resolveCurrent(adapter);
+		const subscription = adapter.subscribeSnapshots((snapshot) => {
+			const nextValue = resolveDelivered(snapshot);
 			if (installing) {
 				prevValue = nextValue;
 				return;
@@ -505,11 +511,15 @@ export function createAgentRuntime<
 	const watchSnapshot = (
 		handler: (snapshot: State, prevSnapshot: State) => void,
 	) => {
-		return createWatcher((adapter) => adapter.getSnapshot(), handler);
+		return createWatcher(
+			(adapter) => adapter.getSnapshot(),
+			(snapshot) => snapshot,
+			handler,
+		);
 	};
 
-	const watchView = (handler: (view: View, prevView: View) => void) => {
-		return createWatcher(resolveView, handler);
+	const watchStates = (handler: (states: States, prevStates: States) => void) => {
+		return createWatcher(resolveStates, deriveDeliveredStates, handler);
 	};
 
 	const canExecuteCommand = (commandName: string) =>
@@ -571,10 +581,8 @@ export function createAgentRuntime<
 				// Flush microtask to allow post-render effects to emit events
 				await new Promise<void>((resolve) => queueMicrotask(resolve));
 
-				return {
-					snapshot: adapter.getSnapshot(),
-					events,
-				};
+				const observation = resolveRuntimeInspection(adapter);
+				return { ...observation, events };
 			} finally {
 				for (const { eventType, listener } of listeners) {
 					runCleanup(
@@ -638,8 +646,7 @@ export function createAgentRuntime<
 			) {
 				assertActive();
 				const step = totalStepCount + 1;
-				const beforeState = resolveRuntime().adapter.getSnapshot();
-				const beforeView = resolveView(resolveRuntime().adapter);
+				const before = resolveRuntimeInspection(resolveRuntime().adapter);
 				const { command, input } = commandCallToArgs(call);
 				const normalizedPayload = normalizeTraceValue(input);
 
@@ -661,13 +668,13 @@ export function createAgentRuntime<
 					kind: "snapshot",
 					step,
 					phase: "before",
-					snapshot: normalizeTraceValue(beforeState),
+					snapshot: normalizeTraceValue(before.snapshot),
 				});
 				pushTrace({
-					kind: "view",
+					kind: "states",
 					step,
 					phase: "before",
-					view: normalizeTraceValue(beforeView),
+					states: normalizeTraceValue(before.states),
 				});
 
 				const result = await executeCommand(command, input);
@@ -689,10 +696,10 @@ export function createAgentRuntime<
 					snapshot: normalizeTraceValue(result.snapshot),
 				});
 				pushTrace({
-					kind: "view",
+					kind: "states",
 					step,
 					phase: "after",
-					view: normalizeTraceValue(resolveView(resolveRuntime().adapter)),
+					states: normalizeTraceValue(result.states),
 				});
 
 				totalStepCount = step;
@@ -705,8 +712,7 @@ export function createAgentRuntime<
 			): Promise<Result> {
 				assertActive();
 				const step = totalStepCount + 1;
-				const beforeState = resolveRuntime().adapter.getSnapshot();
-				const beforeView = resolveView(resolveRuntime().adapter);
+				const before = resolveRuntimeInspection(resolveRuntime().adapter);
 
 				pushTrace({
 					kind: "behavior",
@@ -717,45 +723,44 @@ export function createAgentRuntime<
 					kind: "snapshot",
 					step,
 					phase: "before",
-					snapshot: normalizeTraceValue(beforeState),
+					snapshot: normalizeTraceValue(before.snapshot),
 				});
 				pushTrace({
-					kind: "view",
+					kind: "states",
 					step,
 					phase: "before",
-					view: normalizeTraceValue(beforeView),
+					states: normalizeTraceValue(before.states),
 				});
 
 				try {
 					return await operation();
 				} finally {
+					const after = resolveRuntimeInspection(resolveRuntime().adapter);
 					pushTrace({
 						kind: "snapshot",
 						step,
 						phase: "after",
-						snapshot: normalizeTraceValue(
-							resolveRuntime().adapter.getSnapshot(),
-						),
+						snapshot: normalizeTraceValue(after.snapshot),
 					});
 					pushTrace({
-						kind: "view",
+						kind: "states",
 						step,
 						phase: "after",
-						view: normalizeTraceValue(resolveView(resolveRuntime().adapter)),
+						states: normalizeTraceValue(after.states),
 					});
 					totalStepCount = step;
 				}
 			},
 			async until(
-				viewPredicate: (view: View) => boolean,
+				statesPredicate: (states: States) => boolean,
 				action: (
 					story: IgniteStory<
 						State,
 						Record<string, (...args: never[]) => unknown>,
 						Record<string, never>,
-						View
+						States
 					>,
-					view: View,
+					states: States,
 					iteration: number,
 				) => unknown,
 				options?: { maxSteps?: number },
@@ -770,23 +775,23 @@ export function createAgentRuntime<
 				}
 
 				let iterations = 0;
-				let view = resolveView(resolveRuntime().adapter);
+				let states = resolveStates(resolveRuntime().adapter);
 
-				while (!viewPredicate(view)) {
+				while (!statesPredicate(states)) {
 					if (iterations >= maxSteps) {
 						throw new Error(
 							`[igniteCore] Story "${name}" until(...) exceeded maxSteps (${maxSteps}).`,
 						);
 					}
 
-					await action(story as never, view, iterations);
+					await action(story as never, states, iterations);
 					iterations += 1;
-					view = resolveView(resolveRuntime().adapter);
+					states = resolveStates(resolveRuntime().adapter);
 					// Flush microtask to allow effects to emit events
 					await new Promise<void>((resolve) => queueMicrotask(resolve));
 				}
 
-				return view;
+				return states;
 			},
 			trace() {
 				return traceEntries.map(cloneTraceEntry);
@@ -794,11 +799,12 @@ export function createAgentRuntime<
 			lifecycle() {
 				return lifecycleEntries.map(cloneLifecycleEntry);
 			},
-			summary() {
-				return {
-					name,
-					finalSnapshot: resolveRuntime().adapter.getSnapshot(),
-					finalView: resolveView(resolveRuntime().adapter),
+				summary() {
+					const final = resolveRuntimeInspection(resolveRuntime().adapter);
+					return {
+						name,
+						finalSnapshot: final.snapshot,
+						finalStates: final.states,
 					events: copyEvents(),
 					commandCount,
 					traceCount: traceEntries.length,
@@ -835,9 +841,9 @@ export function createAgentRuntime<
 				resolveRuntime().adapter.getSnapshot(),
 			);
 		},
-		getView() {
+		getStates() {
 			return withSynchronousRuntimeAccess(() =>
-				resolveView(resolveRuntime().adapter),
+				resolveStates(resolveRuntime().adapter),
 			);
 		},
 		getSchema() {
@@ -858,14 +864,14 @@ export function createAgentRuntime<
 					commands,
 					events: [...eventTypes].sort().map((type) => ({ type })),
 					snapshot: toInspectableSchemaValue(inspection.snapshot) ?? null,
-					view: toInspectableSchemaValue(inspection.view) ?? null,
+					states: toInspectableSchemaValue(inspection.states) ?? null,
 				};
 			});
 		},
 		on,
 		record,
 		watchSnapshot,
-		watchView,
+		watchStates,
 	};
 
 	if (createDomBridge) {

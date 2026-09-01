@@ -1,9 +1,7 @@
-export type ViewContext<Snapshot> = { snapshot: Snapshot };
-
-export type FacadeViewCallback<
+export type FacadeStatesCallback<
 	Snapshot,
 	Result extends Record<string, unknown> = Record<string, unknown>,
-> = (context: ViewContext<Snapshot>) => Result;
+> = (snapshot: Snapshot) => Result;
 
 // biome-ignore lint/suspicious/noExplicitAny: tuple-preserving command metadata needs an unconstrained callable base type.
 export type FacadeCommandFunction = (...args: any[]) => unknown;
@@ -362,7 +360,7 @@ type IsNever<T> = [T] extends [never] ? true : false;
 type StateResult<
 	Snapshot,
 	StateCallback,
-	Result = [StateCallback] extends [FacadeViewCallback<Snapshot, infer Result>]
+	Result = [StateCallback] extends [FacadeStatesCallback<Snapshot, infer Result>]
 		? Result
 		: Record<never, never>,
 > = IsNever<StateCallback> extends true ? Record<never, never> : Result;

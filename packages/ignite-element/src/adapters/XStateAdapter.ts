@@ -1,5 +1,4 @@
 export type {
-	ExtendedState,
 	XStateActorInstance,
 	XStateCommandActor,
 	XStateSnapshot,

@@ -350,7 +350,7 @@ describe("openai.toolResult (neutral result -> OpenAI-compatible tool message)",
 			name: "setLimit",
 			result: ok({
 				snapshot: { count: 7 },
-				view: { atLimit: false },
+				states: { atLimit: false },
 				events: [],
 			}),
 		};
@@ -359,7 +359,7 @@ describe("openai.toolResult (neutral result -> OpenAI-compatible tool message)",
 			tool_call_id: "call_1",
 			content: JSON.stringify({
 				snapshot: { count: 7 },
-				view: { atLimit: false },
+				states: { atLimit: false },
 				events: [],
 			}),
 		});
@@ -420,7 +420,7 @@ describe("openai.toolResult (neutral result -> OpenAI-compatible tool message)",
 			name: "setLimit",
 			result: ok({
 				snapshot: { count: 7 },
-				view: { atLimit: false },
+				states: { atLimit: false },
 				events: [],
 			}),
 		};
@@ -433,7 +433,7 @@ describe("openai.toolResult (neutral result -> OpenAI-compatible tool message)",
 			name: "setLimit",
 			result: ok({
 				snapshot: { count: 7 },
-				view: { atLimit: false },
+				states: { atLimit: false },
 				events: [],
 			}),
 		};

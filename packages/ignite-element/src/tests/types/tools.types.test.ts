@@ -23,7 +23,7 @@ describe("igniteTools types", () => {
 	const component = igniteCore({
 		adapter: "xstate",
 		source: machine,
-		view: ({ snapshot }) => ({ isOn: snapshot.matches("on") }),
+		states: (snapshot) => ({ isOn: snapshot.matches("on") }),
 		commands: ({ actor }) => ({
 			toggle: () => actor.send({ type: "TOGGLE" }),
 		}),
@@ -53,9 +53,9 @@ describe("igniteTools types", () => {
 
 			if (result.ok) {
 				expectTypeOf(result.value.snapshot).toEqualTypeOf<ComponentSnapshot>();
-				// The observation also carries the derived view, typed from the
-				// component's `view` projection.
-				expectTypeOf(result.value.view).toEqualTypeOf<{ isOn: boolean }>();
+				// The observation also carries the derived states, typed from the
+				// component's `states` projection.
+				expectTypeOf(result.value.states).toEqualTypeOf<{ isOn: boolean }>();
 				expectTypeOf(result.value.events).toEqualTypeOf<
 					Array<{ type: "toggled"; isOn: boolean }>
 				>();
@@ -66,7 +66,7 @@ describe("igniteTools types", () => {
 		void probe;
 	});
 
-	it("types observe() from the component's view + events", () => {
+	it("types observe() from the component's states + events", () => {
 		const { observe } = igniteTools(component);
 
 		observe((observation) => {
@@ -77,9 +77,9 @@ describe("igniteTools types", () => {
 				>
 			>();
 
-			if (observation.type === "view") {
-				expectTypeOf(observation.view).toEqualTypeOf<{ isOn: boolean }>();
-				expectTypeOf(observation.prevView).toEqualTypeOf<{ isOn: boolean }>();
+			if (observation.type === "states") {
+				expectTypeOf(observation.states).toEqualTypeOf<{ isOn: boolean }>();
+				expectTypeOf(observation.prevStates).toEqualTypeOf<{ isOn: boolean }>();
 			} else {
 				expectTypeOf(observation.event).toEqualTypeOf<{
 					type: "toggled";

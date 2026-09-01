@@ -54,8 +54,8 @@ export type {
 	IgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry,
 	IgniteStoryUntilOptions,
-	IgniteStoryViewPredicate,
-	IgniteStoryViewTraceEntry,
+	IgniteStoryStatesPredicate,
+	IgniteStoryStatesTraceEntry,
 	RuntimeEvent,
 } from "./types/agent";
 export type {

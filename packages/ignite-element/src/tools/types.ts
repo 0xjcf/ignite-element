@@ -49,28 +49,28 @@ export type NeutralToolCall = {
 
 /**
  * The observation an agent gets back after a successful tool call: the
- * post-command `snapshot` (raw state), the derived `view` (the read-model the
+ * post-command `snapshot` (raw state), the derived `states` (the read-model the
  * agent should ground on — distinct from the raw snapshot), and the events
- * emitted during the command window. Both snapshot and view are captured at
+ * emitted during the command window. Both snapshot and states are captured at
  * command-acknowledgement (see the act+ack note in `docs/ignite-tools.md`).
  */
 export type ToolObservation<
 	Snapshot,
-	View = unknown,
+	States = unknown,
 	Events extends EventMap = EmptyEventMap,
 > = {
 	snapshot: Snapshot;
-	view: View;
+	states: States;
 	events: RuntimeEvent<Events>[];
 };
 
 /**
  * A live observation emitted between tool acts. `event` entries mirror the
- * runtime's `{ type, ...fields }` event shape; `view` entries carry the derived
- * read-model transition from `watchView`.
+ * runtime's `{ type, ...fields }` event shape; `states` entries carry the derived
+ * read-model transition from `watchStates`.
  */
 export type ToolStreamObservation<
-	View = unknown,
+	States = unknown,
 	Events extends EventMap = EmptyEventMap,
 > =
 	| {
@@ -78,15 +78,15 @@ export type ToolStreamObservation<
 			event: RuntimeEvent<Events>;
 	  }
 	| {
-			type: "view";
-			view: View;
-			prevView: View;
+			type: "states";
+			states: States;
+			prevStates: States;
 	  };
 
 export type ToolStreamHandler<
-	View = unknown,
+	States = unknown,
 	Events extends EventMap = EmptyEventMap,
-> = (observation: ToolStreamObservation<View, Events>) => void;
+> = (observation: ToolStreamObservation<States, Events>) => void;
 
 /**
  * Errors as values. Returned (never thrown) by `resolveCall`/`run` so the
@@ -114,12 +114,12 @@ export type Route<Name extends string = string> = {
  */
 export type NeutralToolResult<
 	Snapshot = unknown,
-	View = unknown,
+	States = unknown,
 	Events extends EventMap = EmptyEventMap,
 > = {
 	id?: string;
 	name: string;
-	result: Result<ToolObservation<Snapshot, View, Events>, ToolError>;
+	result: Result<ToolObservation<Snapshot, States, Events>, ToolError>;
 };
 
 /**
@@ -149,9 +149,9 @@ export interface ToolDialect<
 	/** Neutral result → provider tool-result block (encoded one call at a time). */
 	toolResult<
 		Snapshot = unknown,
-		View = unknown,
+		States = unknown,
 		Events extends EventMap = EmptyEventMap,
-	>(result: NeutralToolResult<Snapshot, View, Events>): ResultBlock;
+	>(result: NeutralToolResult<Snapshot, States, Events>): ResultBlock;
 }
 
 /** Per-command availability predicate, evaluated against the current snapshot. */
@@ -159,9 +159,9 @@ export type AvailabilityPredicate = (name: string) => boolean;
 
 /**
  * The minimal slice of the agent runtime that `igniteTools` depends on:
- * `getSchema` (the contract), `execute` (the single side effect), and `getView`
+ * `getSchema` (the contract), `execute` (the single side effect), and `getStates`
  * (the derived read-model captured into each observation so the agent grounds on
- * the view, not just the raw snapshot). Any `igniteCore(...)` return satisfies
+ * the states, not just the raw snapshot). Any `igniteCore(...)` return satisfies
  * it. `canExecute` is optional and duck-typed so older runtimes still work; when
  * present, it gates the manifest, and when absent all commands are offered.
  */
@@ -170,10 +170,10 @@ export type IgniteToolsRuntime<
 	Commands extends FacadeCommandResult = FacadeCommandResult,
 	Events extends EventMap = EmptyEventMap,
 	SchemaState = IgniteSchemaValue,
-	View extends Record<string, unknown> = Record<never, never>,
+	States extends Record<string, unknown> = Record<never, never>,
 > = Pick<
-	IgniteAgentRuntime<State, Commands, Events, SchemaState, View>,
-	"getSchema" | "execute" | "getView" | "on" | "watchView"
+	IgniteAgentRuntime<State, Commands, Events, SchemaState, States>,
+	"getSchema" | "execute" | "getStates" | "on" | "watchStates"
 > & {
 	canExecute?(commandName: keyof Commands & string): boolean;
 };

@@ -12,7 +12,7 @@ import {
 } from "@ignite-element/core";
 import { makeAutoObservable } from "mobx";
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { createMachine, type EventFrom, setup } from "xstate";
+import { createMachine, setup } from "xstate";
 import type {
 	ActorWebCommandActor,
 	ActorWebCommandSource,
@@ -31,7 +31,6 @@ import type {
 } from "../../actor-web";
 import * as actorWebPublic from "../../actor-web";
 import { igniteCore as igniteCoreActorWebEntrypoint } from "../../actor-web";
-import type { MobxEvent } from "../../adapters/MobxAdapter";
 import type { XStateSnapshot } from "../../adapters/XStateAdapter";
 import { igniteCore } from "../../IgniteCore";
 import type { AdapterPack } from "../../IgniteElementFactory";
@@ -75,7 +74,6 @@ import type {
 	IgniteSchemaValue,
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
-	ViewContext,
 } from "../../RenderArgs";
 import type {
 	IgniteDomBridge as ReduxIgniteDomBridge,
@@ -279,7 +277,7 @@ describe("igniteCore type inference", () => {
 		});
 		const counter = igniteCore({
 			source: machine,
-			view: ({ snapshot }) => ({ count: snapshot.context.count }),
+			states: (snapshot) => ({ count: snapshot.context.count }),
 		});
 		type CounterParameters = Parameters<typeof counter>;
 		expectTypeOf<CounterParameters["length"]>().toEqualTypeOf<2>();
@@ -357,14 +355,14 @@ describe("igniteCore type inference", () => {
 			eventTypes: [],
 			resolveInspection: (current) => ({
 				snapshot: current.getSnapshot(),
-				view: {},
+				states: {},
 			}),
 			resolveRuntime: () => ({
 				adapter,
 				additionalArgs: {},
 				host: new EventTarget(),
 			}),
-			resolveView: () => ({}),
+			resolveStates: () => ({}),
 		});
 
 		void runtime;
@@ -425,7 +423,7 @@ describe("igniteCore type inference", () => {
 			IgniteStorySnapshot["summary"]["finalSnapshot"]
 		>().toEqualTypeOf<IgniteSchemaValue>();
 		expectTypeOf<
-			IgniteStorySnapshot["summary"]["finalView"]
+			IgniteStorySnapshot["summary"]["finalStates"]
 		>().toEqualTypeOf<IgniteSchemaValue>();
 	});
 
@@ -516,10 +514,10 @@ describe("igniteCore type inference", () => {
 		>();
 	});
 
-	it("infers actor-web view context, transport, and command actor facades", () => {
+	it("infers actor-web states context, transport, and command actor facades", () => {
 		const register = igniteCore({
 			source: actorWebShipmentSource,
-			view: ({ snapshot }) => ({
+			states: (snapshot) => ({
 				status: snapshot.context.status,
 				connected: snapshot.transport.state === "connected",
 				snapshotStatus: snapshot.context.status,
@@ -531,23 +529,12 @@ describe("igniteCore type inference", () => {
 		});
 
 		type RenderArgs = AdapterPack<typeof register>;
-		type Snapshot = ActorWebExtendedState<ActorWebShipmentContext>;
 		type Actor = ActorWebCommandActor<
 			ActorWebShipmentContext,
 			ActorWebShipmentCommand,
 			ActorWebShipmentEvent
 		>;
 
-		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<Snapshot>();
-		expectTypeOf<
-			RenderArgs["state"]["context"]
-		>().toEqualTypeOf<ActorWebShipmentContext>();
-		expectTypeOf<RenderArgs["state"]["transport"]>().toEqualTypeOf<
-			Snapshot["transport"]
-		>();
-		expectTypeOf<RenderArgs["send"]>().toEqualTypeOf<
-			(event: ActorWebShipmentCommand) => void
-		>();
 		expectTypeOf<RenderArgs["status"]>().toEqualTypeOf<
 			ActorWebShipmentContext["status"]
 		>();
@@ -570,7 +557,7 @@ describe("igniteCore type inference", () => {
 	it("infers command actors from a single command-capable actor-web source", () => {
 		const register = igniteCoreActorWebEntrypoint({
 			source: actorWebShipmentSource,
-			view: ({ snapshot }) => ({
+			states: (snapshot) => ({
 				status: snapshot.context.status,
 			}),
 			commands: ({ actor, command }) => ({
@@ -582,9 +569,6 @@ describe("igniteCore type inference", () => {
 
 		type RenderArgs = AdapterPack<typeof register>;
 
-		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<
-			ActorWebExtendedState<ActorWebShipmentContext>
-		>();
 		expectTypeOf<RenderArgs["status"]>().toEqualTypeOf<
 			ActorWebShipmentContext["status"]
 		>();
@@ -604,7 +588,7 @@ describe("igniteCore type inference", () => {
 	it("infers actor-web read-model source snapshots from a single source", () => {
 		const register = igniteCoreActorWebEntrypoint({
 			source: actorWebShipmentReadModelHostFactory,
-			view: ({ snapshot }) => ({
+			states: (snapshot) => ({
 				shipmentId: snapshot.context.shipmentId,
 				phase: snapshot.phase,
 				status: snapshot.status,
@@ -622,26 +606,6 @@ describe("igniteCore type inference", () => {
 
 		type RenderArgs = AdapterPack<typeof register>;
 
-		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<
-			ActorWebExtendedState<ActorWebShipmentContext>
-		>();
-		expectTypeOf<
-			RenderArgs["state"]["context"]
-		>().toEqualTypeOf<ActorWebShipmentContext>();
-		expectTypeOf<RenderArgs["state"]["phase"]>().toEqualTypeOf<string>();
-		expectTypeOf<RenderArgs["state"]["status"]>().toEqualTypeOf<
-			ActorWebShipmentContext["status"]
-		>();
-		expectTypeOf<RenderArgs["state"]["value"]>().toEqualTypeOf<unknown>();
-		expectTypeOf<RenderArgs["state"]["matches"]>().toEqualTypeOf<
-			((state: string) => boolean) | undefined
-		>();
-		expectTypeOf<RenderArgs["state"]["can"]>().toEqualTypeOf<
-			((event: string | { type: string }) => boolean) | undefined
-		>();
-		expectTypeOf<RenderArgs["state"]["hasTag"]>().toEqualTypeOf<
-			((tag: string) => boolean) | undefined
-		>();
 		expectTypeOf<RenderArgs["shipmentId"]>().toEqualTypeOf<string | null>();
 		expectTypeOf<RenderArgs["idle"]>().toEqualTypeOf<boolean>();
 		expectTypeOf<RenderArgs["canCreate"]>().toEqualTypeOf<boolean>();
@@ -654,7 +618,7 @@ describe("igniteCore type inference", () => {
 	it("rejects a per-config commandSource — every adapter shares one source surface", () => {
 		igniteCoreActorWebEntrypoint({
 			source: actorWebShipmentSource,
-			view: ({ snapshot }) => ({ status: snapshot.context.status }),
+			states: (snapshot) => ({ status: snapshot.context.status }),
 			commands: ({ actor }) => ({
 				createShipment: (shipmentId: string) =>
 					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
@@ -671,7 +635,7 @@ describe("igniteCore type inference", () => {
 		const register = igniteCore({
 			adapter: "actor-web",
 			source: actorWebShipmentFactory,
-			view: ({ snapshot }) => ({
+			states: (snapshot) => ({
 				status: snapshot.context.status,
 				connected: snapshot.transport.state === "connected",
 			}),
@@ -688,7 +652,7 @@ describe("igniteCore type inference", () => {
 			ActorWebShipmentEvent
 		>({
 			source: actorWebShipmentDefaultedHostFactory,
-			view: ({ snapshot }) => ({
+			states: (snapshot) => ({
 				status: snapshot.context.status,
 				connected: snapshot.transport.state === "connected",
 			}),
@@ -703,32 +667,16 @@ describe("igniteCore type inference", () => {
 			ActorWebShipmentEvent
 		>({
 			source: actorWebShipmentHostFactory,
-			view: ({ snapshot }) => ({
+			states: (snapshot) => ({
 				status: snapshot.context.status,
 				connected: snapshot.transport.state === "connected",
 			}),
-		});
-		type DefaultedHostSubpathRenderArgs = AdapterPack<
-			typeof defaultedHostSubpathRegister
-		>;
-		type RequiredHostSubpathRenderArgs = AdapterPack<
-			typeof requiredHostSubpathRegister
-		>;
-
-		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<
-			ActorWebExtendedState<ActorWebShipmentContext>
-		>();
+			});
+		void defaultedHostSubpathRegister;
+		void requiredHostSubpathRegister;
 		expectTypeOf<RenderArgs["createShipment"]>().toEqualTypeOf<
 			(shipmentId: string) => Promise<unknown>
 		>();
-		expectTypeOf<
-			DefaultedHostSubpathRenderArgs["state"]["transport"]
-		>().toEqualTypeOf<
-			ActorWebExtendedState<ActorWebShipmentContext>["transport"]
-		>();
-		expectTypeOf<
-			RequiredHostSubpathRenderArgs["state"]["context"]
-		>().toEqualTypeOf<ActorWebShipmentContext>();
 		expectTypeOf<
 			InferAdapterFromSource<typeof actorWebShipmentHostFactory>
 		>().toEqualTypeOf<"actor-web">();
@@ -750,7 +698,6 @@ describe("igniteCore type inference", () => {
 			igniteCore({
 				source: counterStore,
 			});
-
 			// @ts-expect-error zero-arg mobx factories must specify adapter
 			igniteCore({
 				source: mobxCounterFactory,
@@ -796,7 +743,7 @@ describe("igniteCore type inference", () => {
 		const register = igniteCore({
 			adapter: "xstate",
 			source: machine,
-			view: ({ snapshot }: { snapshot: Snapshot }) => ({
+			states: (snapshot: Snapshot) => ({
 				double: snapshot.context.count * 2,
 			}),
 			commands: ({ actor }) => ({
@@ -806,10 +753,6 @@ describe("igniteCore type inference", () => {
 
 		type RenderArgs = AdapterPack<typeof register>;
 
-		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<Snapshot>();
-		expectTypeOf<RenderArgs["send"]>().toEqualTypeOf<
-			(event: EventFrom<Machine>) => void
-		>();
 		expectTypeOf<RenderArgs["double"]>().toEqualTypeOf<number>();
 		expectTypeOf<RenderArgs["increment"]>().toEqualTypeOf<() => void>();
 	});
@@ -826,7 +769,7 @@ describe("igniteCore type inference", () => {
 
 		const register = igniteCore({
 			source: machine,
-			view: ({ snapshot }: ViewContext<Snapshot>) => ({
+			states: (snapshot: Snapshot) => ({
 				count: snapshot.context.count,
 			}),
 			commands: ({ actor }) => ({
@@ -836,10 +779,6 @@ describe("igniteCore type inference", () => {
 
 		type RenderArgs = AdapterPack<typeof register>;
 
-		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<Snapshot>();
-		expectTypeOf<RenderArgs["send"]>().toEqualTypeOf<
-			(event: EventFrom<Machine>) => void
-		>();
 		expectTypeOf<RenderArgs["count"]>().toEqualTypeOf<number>();
 		expectTypeOf<RenderArgs["ping"]>().toEqualTypeOf<() => void>();
 	});
@@ -963,7 +902,7 @@ describe("igniteCore type inference", () => {
 
 		igniteCoreXState({
 			source: leaderboardMachine,
-			view: ({ snapshot }) => ({
+			states: (snapshot) => ({
 				leaderboard: snapshot.context.leaderboard,
 				sort: snapshot.context.sort,
 			}),
@@ -1109,7 +1048,7 @@ describe("igniteCore type inference", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: ({ snapshot }: { snapshot: StoreState }) => ({
+			states: (snapshot: StoreState) => ({
 				count: snapshot.counter.count,
 			}),
 			commands: ({ actor }) => ({
@@ -1146,19 +1085,20 @@ describe("igniteCore type inference", () => {
 		expectTypeOf(result).toEqualTypeOf<
 			Promise<{
 				snapshot: StoreState;
+				states: { count: number };
 				events: Array<{
 					type: "counter-incremented";
 					count: number;
 				}>;
 			}>
 		>();
-		expectTypeOf(register.getView()).toEqualTypeOf<{ count: number }>();
+		expectTypeOf(register.getStates()).toEqualTypeOf<{ count: number }>();
 		expectTypeOf(schema.commands).toEqualTypeOf<IgniteAgentCommandSchema>();
 		expectTypeOf(schema.events).toEqualTypeOf<IgniteAgentEventSchema[]>();
 		expectTypeOf(schema.snapshot).toEqualTypeOf<IgniteSchemaValue>();
-		// getSchema().view carries the typed view projection (mirrors getView()),
+		// getSchema().states carries the typed states projection (mirrors getStates()),
 		// not the loose IgniteSchemaValue that `snapshot` falls back to.
-		expectTypeOf(schema.view).toEqualTypeOf<{ count: number }>();
+		expectTypeOf(schema.states).toEqualTypeOf<{ count: number }>();
 		register.on("counter-incremented", (event) => {
 			expectTypeOf(event).toEqualTypeOf<{
 				type: "counter-incremented";
@@ -1169,9 +1109,9 @@ describe("igniteCore type inference", () => {
 			expectTypeOf(state).toEqualTypeOf<StoreState>();
 			expectTypeOf(prevState).toEqualTypeOf<StoreState>();
 		});
-		register.watchView((view, prevView) => {
-			expectTypeOf(view).toEqualTypeOf<{ count: number }>();
-			expectTypeOf(prevView).toEqualTypeOf<{ count: number }>();
+		register.watchStates((states, prevStates) => {
+			expectTypeOf(states).toEqualTypeOf<{ count: number }>();
+			expectTypeOf(prevStates).toEqualTypeOf<{ count: number }>();
 		});
 
 		const story = register.record("typed counter");
@@ -1181,8 +1121,8 @@ describe("igniteCore type inference", () => {
 				increment: (amount: number) => unknown;
 			}>
 		>();
-		const storyView = story.until(
-			(view) => view.count >= 4,
+		const storyStates = story.until(
+			(states) => states.count >= 4,
 			() => {
 				story.execute({ command: "increment", input: 1 });
 			},
@@ -1194,17 +1134,18 @@ describe("igniteCore type inference", () => {
 		expectTypeOf(storyResult).toEqualTypeOf<
 			Promise<{
 				snapshot: StoreState;
+				states: { count: number };
 				events: Array<{
 					type: "counter-incremented";
 					count: number;
 				}>;
 			}>
 		>();
-		expectTypeOf(storyView).toEqualTypeOf<Promise<{ count: number }>>();
+		expectTypeOf(storyStates).toEqualTypeOf<Promise<{ count: number }>>();
 		expectTypeOf(storyTrace).toEqualTypeOf<IgniteStoryTraceEntry[]>();
 		expectTypeOf(storyLifecycle).toEqualTypeOf<IgniteStoryLifecycleEntry[]>();
 		expectTypeOf(storySummary.finalSnapshot).toEqualTypeOf<StoreState>();
-		expectTypeOf(storySummary.finalView).toEqualTypeOf<{ count: number }>();
+		expectTypeOf(storySummary.finalStates).toEqualTypeOf<{ count: number }>();
 		expectTypeOf(storySummary.events).toEqualTypeOf<
 			Array<{ type: "counter-incremented"; count: number }>
 		>();
@@ -1336,7 +1277,7 @@ describe("igniteCore type inference", () => {
 
 		const register = igniteCoreXState({
 			source: machine,
-			view: ({ snapshot }) => ({
+			states: (snapshot) => ({
 				count: snapshot.context.count,
 				ready: snapshot.context.ready,
 			}),
@@ -1382,6 +1323,7 @@ describe("igniteCore type inference", () => {
 		expectTypeOf(register.execute({ command: "increment" })).toEqualTypeOf<
 			Promise<{
 				snapshot: XStateSnapshot<typeof machine>;
+				states: { count: number; ready: boolean };
 				events: Array<
 					| {
 							type: "counter-incremented";
@@ -1399,6 +1341,7 @@ describe("igniteCore type inference", () => {
 		expectTypeOf(story.execute({ command: "increment" })).toEqualTypeOf<
 			Promise<{
 				snapshot: XStateSnapshot<typeof machine>;
+				states: { count: number; ready: boolean };
 				events: Array<
 					| {
 							type: "counter-incremented";
@@ -1589,10 +1532,9 @@ describe("igniteCore type inference", () => {
 
 	it("infers redux slice snapshot and actor facades", () => {
 		type SliceState = InferStateAndEvent<typeof counterSlice>["State"];
-		type SliceEvent = InferStateAndEvent<typeof counterSlice>["Event"];
 		type SliceActor = ReduxSliceCommandActor<typeof counterSlice>;
 
-		const viewCallback = ({ snapshot }: ViewContext<SliceState>) => ({
+		const viewCallback = (snapshot: SliceState) => ({
 			count: snapshot.count,
 		});
 		const commandsCallback = ({ actor }: { actor: SliceActor }) => ({
@@ -1602,16 +1544,12 @@ describe("igniteCore type inference", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: counterSlice,
-			view: viewCallback,
+			states: viewCallback,
 			commands: commandsCallback,
 		});
 
 		type RenderArgs = AdapterPack<typeof register>;
 
-		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<SliceState>();
-		expectTypeOf<RenderArgs["send"]>().toEqualTypeOf<
-			(event: SliceEvent) => void
-		>();
 		expectTypeOf<RenderArgs["count"]>().toEqualTypeOf<number>();
 		expectTypeOf<RenderArgs["increment"]>().toEqualTypeOf<() => void>();
 	});
@@ -1621,7 +1559,7 @@ describe("igniteCore type inference", () => {
 		type SliceContext = CommandContext<
 			ReduxSliceCommandActor<typeof counterSlice>
 		>;
-		const sliceView = ({ snapshot }: ViewContext<SliceState>) => ({
+		const sliceStates = (snapshot: SliceState) => ({
 			count: snapshot.count,
 		});
 		const sliceCommands = ({ actor }: SliceContext) => ({
@@ -1630,7 +1568,7 @@ describe("igniteCore type inference", () => {
 
 		const register = igniteCore({
 			source: counterSlice,
-			view: sliceView,
+			states: sliceStates,
 			commands: sliceCommands,
 		});
 
@@ -1638,19 +1576,15 @@ describe("igniteCore type inference", () => {
 
 		expectTypeOf<RenderArgs["count"]>().toEqualTypeOf<number>();
 		expectTypeOf<RenderArgs["increment"]>().toEqualTypeOf<() => void>();
-		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<
-			InferStateAndEvent<typeof counterSlice>["State"]
-		>();
 	});
 
 	it("infers redux store snapshot and actor facades", () => {
 		const store = counterStore();
 		type StoreInstance = typeof store;
 		type StoreState = InferStateAndEvent<StoreInstance>["State"];
-		type StoreEvent = InferStateAndEvent<StoreInstance>["Event"];
 		type StoreActor = ReduxStoreCommandActor<StoreInstance>;
 
-		const viewCallback = ({ snapshot }: ViewContext<StoreState>) => ({
+		const viewCallback = (snapshot: StoreState) => ({
 			count: snapshot.counter.count,
 		});
 		const commandsCallback = ({ actor }: { actor: StoreActor }) => ({
@@ -1660,16 +1594,12 @@ describe("igniteCore type inference", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: viewCallback,
+			states: viewCallback,
 			commands: commandsCallback,
 		});
 
 		type RenderArgs = AdapterPack<typeof register>;
 
-		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<StoreState>();
-		expectTypeOf<RenderArgs["send"]>().toEqualTypeOf<
-			(event: StoreEvent) => void
-		>();
 		expectTypeOf<RenderArgs["count"]>().toEqualTypeOf<number>();
 		expectTypeOf<RenderArgs["increment"]>().toEqualTypeOf<() => void>();
 	});
@@ -1678,7 +1608,7 @@ describe("igniteCore type inference", () => {
 		const store = counterStore();
 		type StoreState = InferStateAndEvent<typeof store>["State"];
 		type StoreContext = CommandContext<ReduxStoreCommandActor<typeof store>>;
-		const storeStates = ({ snapshot }: ViewContext<StoreState>) => ({
+		const storeStates = (snapshot: StoreState) => ({
 			count: snapshot.counter.count,
 		});
 		const storeCommands = ({ actor }: StoreContext) => ({
@@ -1687,15 +1617,12 @@ describe("igniteCore type inference", () => {
 
 		const register = igniteCore({
 			source: store,
-			view: storeStates,
+			states: storeStates,
 			commands: storeCommands,
 		});
 
 		type RenderArgs = AdapterPack<typeof register>;
 
-		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<
-			InferStateAndEvent<typeof store>["State"]
-		>();
 		expectTypeOf<RenderArgs["count"]>().toEqualTypeOf<number>();
 		expectTypeOf<RenderArgs["increment"]>().toEqualTypeOf<() => void>();
 	});
@@ -1710,9 +1637,8 @@ describe("igniteCore type inference", () => {
 			});
 
 		type StoreState = ReturnType<typeof createStore>;
-		type StoreEvent = MobxEvent<StoreState>;
 
-		const viewCallback = ({ snapshot }: ViewContext<StoreState>) => ({
+		const viewCallback = (snapshot: StoreState) => ({
 			count: snapshot.count,
 		});
 		const commandsCallback = ({
@@ -1726,16 +1652,12 @@ describe("igniteCore type inference", () => {
 		const register = igniteCore({
 			adapter: "mobx",
 			source: createStore,
-			view: viewCallback,
+			states: viewCallback,
 			commands: commandsCallback,
 		});
 
 		type RenderArgs = AdapterPack<typeof register>;
 
-		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<StoreState>();
-		expectTypeOf<RenderArgs["send"]>().toEqualTypeOf<
-			(event: StoreEvent) => void
-		>();
 		expectTypeOf<RenderArgs["count"]>().toEqualTypeOf<number>();
 		expectTypeOf<RenderArgs["increment"]>().toEqualTypeOf<() => void>();
 	});
@@ -1750,7 +1672,7 @@ describe("igniteCore type inference", () => {
 
 		type SharedStore = typeof sharedStore;
 		type SharedContext = CommandContext<SharedStore>;
-		const sharedStates = ({ snapshot }: ViewContext<SharedStore>) => ({
+		const sharedStates = (snapshot: SharedStore) => ({
 			count: snapshot.count,
 		});
 		const sharedCommands = ({ actor: storeInstance }: SharedContext) => ({
@@ -1759,13 +1681,12 @@ describe("igniteCore type inference", () => {
 
 		const register = igniteCore({
 			source: sharedStore,
-			view: sharedStates,
+			states: sharedStates,
 			commands: sharedCommands,
 		});
 
 		type RenderArgs = AdapterPack<typeof register>;
 
-		expectTypeOf<RenderArgs["state"]>().toEqualTypeOf<typeof sharedStore>();
 		expectTypeOf<RenderArgs["count"]>().toEqualTypeOf<number>();
 		expectTypeOf<RenderArgs["increment"]>().toEqualTypeOf<() => void>();
 	});

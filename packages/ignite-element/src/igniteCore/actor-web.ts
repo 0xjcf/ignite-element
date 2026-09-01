@@ -58,21 +58,21 @@ type ActorWebSubpathConfig<
 		StatesResult,
 		CommandsResult
 	>,
-	"adapter" | "source" | "view"
+	"adapter" | "source" | "states"
 > & {
 	adapter?: "actor-web";
 	source:
 		| ActorWebSubpathSourceValue<Context, Message, Emitted>
 		| (() => ActorWebSubpathSourceValue<Context, Message, Emitted>)
 		| ActorWebSubpathHostContextFactory<Context, Message, Emitted>;
-	view?: ActorWebConfig<
+	states?: ActorWebConfig<
 		Context,
 		Message,
 		Emitted,
 		Events,
 		StatesResult,
 		CommandsResult
-	>["view"];
+	>["states"];
 };
 
 export function igniteCoreActorWeb<

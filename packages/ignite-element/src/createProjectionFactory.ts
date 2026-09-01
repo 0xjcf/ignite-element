@@ -10,8 +10,7 @@ import type {
 	FacadeCommandResult,
 	FacadeCommandsCallback,
 	FacadeEffectsObjectCallback,
-	FacadeViewCallback,
-	ViewContext,
+	FacadeStatesCallback,
 } from "./RenderArgs";
 import { command as commandHelper } from "./runtime/commands";
 import {
@@ -63,7 +62,7 @@ export type ProjectionFactoryOptions<
 	Host = EventTarget,
 > = {
 	scope?: StateScope;
-	view?: FacadeViewCallback<Snapshot, StatesResult>;
+	states?: FacadeStatesCallback<Snapshot, StatesResult>;
 	commands?: FacadeCommandsCallback<
 		CommandActor,
 		CommandsResult,
@@ -91,6 +90,21 @@ export type WithFacadeRenderArgs<
 	Additional extends Record<string, unknown> = Record<never, never>,
 	Events extends EventMap = EmptyEventMap,
 > = BaseRenderArgs<State, Event> &
+	PublicFacadeRenderArgs<
+		StatesResult,
+		CommandActor,
+		CommandsResult,
+		Additional,
+		Events
+	>;
+
+export type PublicFacadeRenderArgs<
+	StatesResult,
+	CommandActor,
+	CommandsResult,
+	Additional extends Record<string, unknown> = Record<never, never>,
+	Events extends EventMap = EmptyEventMap,
+> =
 	Additional &
 	FacadeStateResult<StatesResult> &
 	ExtractCommandResult<CommandsResult> &
@@ -103,7 +117,7 @@ export type ProjectionFactory<
 	RenderArgs extends BaseRenderArgs<State, Event>,
 	Host = EventTarget,
 	Events extends EventMap = EmptyEventMap,
-	ViewResult extends Record<string, unknown> = Record<never, never>,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
 > = {
 	createAdapter: AdapterCreator<State, Event, Host>;
 	scope?: StateScope;
@@ -111,16 +125,22 @@ export type ProjectionFactory<
 	eventTypes: readonly (keyof Events & string)[];
 	resolveInspection: (adapter: IgniteAdapter<State, Event>) => {
 		snapshot: unknown;
-		view: FacadeStateResult<ViewResult>;
+		states: FacadeStateResult<StatesResult>;
 	};
-	resolveView: (
+	resolveStates: (
 		adapter: IgniteAdapter<State, Event>,
-	) => FacadeStateResult<ViewResult>;
+	) => FacadeStateResult<StatesResult>;
+	resolveDeliveredStates: (snapshot: State) => FacadeStateResult<StatesResult>;
 	createAdditionalArgs: (
 		adapter: IgniteAdapter<State, Event>,
 		host: Host,
 		emit: EmitFromEvents<Events>,
 	) => AdditionalRenderArgs<State, Event, RenderArgs>;
+	createRenderArgs: (
+		snapshot: State,
+		send: (event: Event) => void,
+		additionalArgs: AdditionalRenderArgs<State, Event, RenderArgs>,
+	) => RenderArgs;
 };
 
 type FacadeStateResult<Result> = [Result] extends [Record<string, unknown>]
@@ -144,15 +164,9 @@ function freezeIfDev<T extends object>(value: T): T {
 	return isDevelopment() ? Object.freeze(value) : value;
 }
 
-const createViewContext = <Snapshot>(
-	snapshot: Snapshot,
-): ViewContext<Snapshot> => {
-	return { snapshot };
-};
-
 function ensureFacadeResult(
 	result: unknown,
-	feature: "view" | "commands",
+	feature: "states" | "commands",
 	errorPrefix: string,
 ) {
 	if (!isPlainObject(result)) {
@@ -220,9 +234,20 @@ export function createProjectionFactory<
 	Events,
 	StatesResult
 > {
+	if (
+		options &&
+		Object.prototype.hasOwnProperty.call(
+			options as Record<string, unknown>,
+			"view",
+		)
+	) {
+		throw new Error(
+			"[createProjectionFactory] Config `view` was removed; use `states` with a bare native snapshot callback.",
+		);
+	}
 	const {
 		scope,
-		view,
+		states,
 		commands,
 		effects,
 		resolveStateSnapshot,
@@ -239,7 +264,17 @@ export function createProjectionFactory<
 	const resolveActor = resolveCommandActor ?? createAdapter.resolveCommandActor;
 
 	const userAdditionalArgs = createAdditionalArgs ?? (() => ({}) as Additional);
-	const resolvedView = view;
+	const resolvedStates = states;
+	const emptyStates = Object.freeze({}) as FacadeStateResult<StatesResult>;
+	const deriveStates = (snapshot: Snapshot): FacadeStateResult<StatesResult> => {
+		if (!resolvedStates) {
+			return emptyStates;
+		}
+
+		const result = resolvedStates(snapshot);
+		ensureFacadeResult(result, "states", errorPrefix);
+		return result;
+	};
 	const resolveInspection: ProjectionFactory<
 		State,
 		Event,
@@ -249,25 +284,20 @@ export function createProjectionFactory<
 		StatesResult
 	>["resolveInspection"] = (adapter: IgniteAdapter<State, Event>) => {
 		const snapshot = resolveSnapshot(adapter);
-		if (!resolvedView) {
-			return {
-				snapshot,
-				view: Object.create(null) as FacadeStateResult<StatesResult>,
-			};
-		}
-
-		const result = resolvedView(createViewContext(snapshot));
-		ensureFacadeResult(result, "view", errorPrefix);
 		return {
 			snapshot,
-			view: result,
+			states: deriveStates(snapshot),
 		};
 	};
-	const resolveView = (
+	const resolveStates = (
 		adapter: IgniteAdapter<State, Event>,
 	): FacadeStateResult<StatesResult> => {
-		return resolveInspection(adapter).view;
+		return resolveInspection(adapter).states;
 	};
+	const resolveDeliveredStates = (
+		snapshot: State,
+	): FacadeStateResult<StatesResult> =>
+		deriveStates(snapshot as unknown as Snapshot);
 
 	type FinalRenderArgs = WithFacadeRenderArgs<
 		State,
@@ -319,25 +349,6 @@ export function createProjectionFactory<
 		Object.defineProperties(merged, {
 			...Object.getOwnPropertyDescriptors(extras),
 		});
-
-		if (resolvedView) {
-			const initial = resolveView(adapter);
-			const stateFacade = Object.create(
-				null,
-			) as FacadeStateResult<StatesResult>;
-
-			for (const key of Object.keys(initial)) {
-				Object.defineProperty(stateFacade, key, {
-					configurable: false,
-					enumerable: true,
-					get: () => (resolveView(adapter) as Record<string, unknown>)[key],
-				});
-			}
-
-			Object.defineProperties(merged, {
-				...Object.getOwnPropertyDescriptors(freezeIfDev(stateFacade)),
-			});
-		}
 
 		if (commands) {
 			const commandCallback = commands as FacadeCommandsCallback<
@@ -398,7 +409,13 @@ export function createProjectionFactory<
 		cleanup,
 		eventTypes: Object.keys(eventDefinitions) as Array<keyof Events & string>,
 		resolveInspection,
-		resolveView,
+		resolveStates,
+		resolveDeliveredStates,
 		createAdditionalArgs: createMergedArgs,
+		createRenderArgs: (snapshot, _send, additionalArgs) =>
+			({
+				...resolveDeliveredStates(snapshot),
+				...additionalArgs,
+			}) as unknown as FinalRenderArgs,
 	};
 }

@@ -18,27 +18,27 @@ import type {
 } from "./types";
 
 /** The neutral core surface, usable directly without a provider dialect. */
-export type IgniteToolsNeutral<State, View, Events extends EventMap> = {
+export type IgniteToolsNeutral<State, States, Events extends EventMap> = {
 	manifest: NeutralManifest;
 	resolveCall(name: string, input: unknown): Result<Route, ToolError>;
 	run(
 		call: NeutralToolCall,
-	): Promise<Result<ToolObservation<State, View, Events>, ToolError>>;
-	observe(handler: ToolStreamHandler<View, Events>): ToolStreamSubscription;
+	): Promise<Result<ToolObservation<State, States, Events>, ToolError>>;
+	observe(handler: ToolStreamHandler<States, Events>): ToolStreamSubscription;
 };
 
 /** The neutral core plus a dialect's provider-shaped tools + translators. */
 export type IgniteToolsWithDialect<
 	State,
-	View,
+	States,
 	Events extends EventMap,
 	Tools,
 	Response,
 	ResultBlock,
-> = IgniteToolsNeutral<State, View, Events> & {
+> = IgniteToolsNeutral<State, States, Events> & {
 	tools: Tools;
 	toolCalls(response: Response): NeutralToolCall[];
-	toolResult(result: NeutralToolResult<State, View, Events>): ResultBlock;
+	toolResult(result: NeutralToolResult<State, States, Events>): ResultBlock;
 };
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -73,23 +73,23 @@ export function igniteTools<
 	Commands extends FacadeCommandResult,
 	Events extends EventMap,
 	SchemaState,
-	View extends Record<string, unknown>,
+	States extends Record<string, unknown>,
 >(
-	runtime: IgniteToolsRuntime<State, Commands, Events, SchemaState, View>,
-): IgniteToolsNeutral<State, View, Events>;
+	runtime: IgniteToolsRuntime<State, Commands, Events, SchemaState, States>,
+): IgniteToolsNeutral<State, States, Events>;
 export function igniteTools<
 	State,
 	Commands extends FacadeCommandResult,
 	Events extends EventMap,
 	SchemaState,
-	View extends Record<string, unknown>,
+	States extends Record<string, unknown>,
 	Tools,
 	Response,
 	ResultBlock,
 >(
-	runtime: IgniteToolsRuntime<State, Commands, Events, SchemaState, View>,
+	runtime: IgniteToolsRuntime<State, Commands, Events, SchemaState, States>,
 	dialect: ToolDialect<Tools, Response, ResultBlock>,
-): IgniteToolsWithDialect<State, View, Events, Tools, Response, ResultBlock>;
+): IgniteToolsWithDialect<State, States, Events, Tools, Response, ResultBlock>;
 /**
  * Bridge the agent-runtime contract to LLM tool-use. The pure core builds a
  * neutral manifest from `getSchema()` and routes validated calls; the shell
@@ -102,12 +102,12 @@ export function igniteTools<
 	Commands extends FacadeCommandResult,
 	Events extends EventMap,
 	SchemaState,
-	View extends Record<string, unknown>,
+	States extends Record<string, unknown>,
 	Tools,
 	Response,
 	ResultBlock,
 >(
-	runtime: IgniteToolsRuntime<State, Commands, Events, SchemaState, View>,
+	runtime: IgniteToolsRuntime<State, Commands, Events, SchemaState, States>,
 	dialect?: ToolDialect<Tools, Response, ResultBlock>,
 ) {
 	const canExecute: AvailabilityPredicate | undefined =
@@ -118,10 +118,6 @@ export function igniteTools<
 	const schema = runtime.getSchema();
 	const manifest = buildManifest(schema, canExecute);
 
-	// Captured post-command (at acknowledgement) into each observation so the
-	// agent grounds on the derived view, not just the raw snapshot.
-	const getView = () => runtime.getView();
-
 	const boundResolveCall = (
 		name: string,
 		input: unknown,
@@ -129,7 +125,7 @@ export function igniteTools<
 
 	const run = async (
 		call: NeutralToolCall,
-	): Promise<Result<ToolObservation<State, View, Events>, ToolError>> => {
+	): Promise<Result<ToolObservation<State, States, Events>, ToolError>> => {
 		const routed = boundResolveCall(call.name, call.input);
 		if (!routed.ok) {
 			return routed;
@@ -156,8 +152,8 @@ export function igniteTools<
 				});
 			}
 
-			const { snapshot, events } = await runtime.execute(routed.value);
-			return ok({ snapshot, view: getView(), events });
+			const { snapshot, states, events } = await runtime.execute(routed.value);
+			return ok({ snapshot, states, events });
 		} catch (cause) {
 			return err({
 				kind: "ExecuteFailed",
@@ -169,14 +165,14 @@ export function igniteTools<
 	};
 
 	const observe = (
-		handler: ToolStreamHandler<View, Events>,
+		handler: ToolStreamHandler<States, Events>,
 	): ToolStreamSubscription => {
 		const on = runtime.on.bind(runtime) as unknown as (
 			eventName: string,
 			handler: (event: RuntimeEvent<Events>) => void,
 		) => ToolStreamSubscription;
-		const watchView = runtime.watchView.bind(runtime) as unknown as (
-			handler: (view: View, prevView: View) => void,
+		const watchStates = runtime.watchStates.bind(runtime) as unknown as (
+			handler: (states: States, prevStates: States) => void,
 		) => ToolStreamSubscription;
 		const subscriptions: ToolStreamSubscription[] = [];
 
@@ -193,8 +189,8 @@ export function igniteTools<
 			}
 
 			subscriptions.push(
-				watchView((view, prevView) => {
-					handler({ type: "view", view, prevView });
+				watchStates((states, prevStates) => {
+					handler({ type: "states", states, prevStates });
 				}),
 			);
 		} catch (cause) {
@@ -229,7 +225,7 @@ export function igniteTools<
 		...neutral,
 		tools: dialect.tools(manifest),
 		toolCalls: (response: Response) => dialect.toolCalls(response, manifest),
-		toolResult: (result: NeutralToolResult<State, View, Events>) =>
+		toolResult: (result: NeutralToolResult<State, States, Events>) =>
 			dialect.toolResult(result),
 	};
 }

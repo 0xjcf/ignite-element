@@ -8,7 +8,7 @@ import type {
 	FacadeCommandResult,
 	FacadeCommandsCallback,
 	FacadeEffectsObjectCallback,
-	FacadeViewCallback,
+	FacadeStatesCallback,
 } from "../RenderArgs";
 import type { IgniteCoreReturn } from "./types";
 
@@ -30,7 +30,7 @@ export type IgniteComponentFactoryOptions<
 	CommandsResult extends FacadeCommandResult,
 	Events extends EventMap = EmptyEventMap,
 > = {
-	view?: FacadeViewCallback<Snapshot, StatesResult>;
+	states?: FacadeStatesCallback<Snapshot, StatesResult>;
 	commands?: FacadeCommandsCallback<
 		CommandActor,
 		CommandsResult,
@@ -98,6 +98,16 @@ export function createIgniteComponentFactory<
 	CommandsResult,
 	Events
 > {
+	if (
+		Object.prototype.hasOwnProperty.call(
+			options as unknown as Record<string, unknown>,
+			"view",
+		)
+	) {
+		throw new Error(
+			"[igniteCore] Config `view` was removed; use `states` with a bare native snapshot callback.",
+		);
+	}
 	return createComponentFactory<
 		State,
 		Event,
@@ -109,12 +119,12 @@ export function createIgniteComponentFactory<
 		Events
 	>(createAdapter, {
 		scope: createAdapter.scope,
-		view: options.view,
+		states: options.states,
 		commands: options.commands,
 		effects: options.effects,
 		events: options.events?.(event),
 		cleanup: options.cleanup,
-	}) as IgniteCoreReturn<
+	}) as unknown as IgniteCoreReturn<
 		State,
 		Event,
 		Snapshot,

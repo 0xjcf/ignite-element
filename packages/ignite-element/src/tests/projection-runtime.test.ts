@@ -39,7 +39,7 @@ type ProjectionEvent =
 	| { type: "TOGGLE_ALLOW_CONFIRM"; value: boolean }
 	| { type: "CONFIRM"; payload: { value: number } };
 
-function createProjectionCore(onProjectView: () => void = () => undefined) {
+function createProjectionCore(onProjectStates: () => void = () => undefined) {
 	const machine = setup({
 		types: {
 			context: {} as ProjectionContext,
@@ -113,8 +113,8 @@ function createProjectionCore(onProjectView: () => void = () => undefined) {
 
 	return igniteCore({
 		source: machine,
-		view: ({ snapshot }) => {
-			onProjectView();
+		states: (snapshot) => {
+			onProjectStates();
 			return {
 				documentCount: snapshot.context.documents.length,
 				speechStatus: snapshot.context.speech?.status ?? "idle",
@@ -183,14 +183,14 @@ type InspectionSnapshot = {
 
 type InspectionEvent = { type: "NOOP" };
 
-type InspectionView = {
+type InspectionStates = {
 	documents: ProjectionDocument[];
 	speech: ProjectionSpeechRequest | null;
 };
 
 function createInspectionCore(
 	getSnapshot: () => InspectionSnapshot,
-	resolveView: (snapshot: InspectionSnapshot) => InspectionView,
+	resolveStates: (snapshot: InspectionSnapshot) => InspectionStates,
 	onCanExecute: (snapshot: InspectionSnapshot) => void = () => undefined,
 ) {
 	const adapter: IgniteAdapter<InspectionSnapshot, InspectionEvent> = {
@@ -213,7 +213,7 @@ function createInspectionCore(
 		}),
 	});
 	const core = createIgniteComponentFactory(createAdapter, {
-		view: ({ snapshot }) => resolveView(snapshot),
+		states: (snapshot) => resolveStates(snapshot),
 		commands: ({ command: createCommand }) => ({
 			acknowledgeSpeech: () => undefined,
 			confirm: createCommand((_payload: { value: number }) => undefined, {
@@ -230,7 +230,7 @@ function createInspectionCore(
 }
 
 function createRawProjectionCore(
-	resolveView: () => Record<string, unknown> = () => ({}),
+	resolveStates: () => Record<string, unknown> = () => ({}),
 ) {
 	type RawProjectionEvent = {
 		type: "SET_SNAPSHOT";
@@ -266,7 +266,7 @@ function createRawProjectionCore(
 		}),
 	});
 	const core = createIgniteComponentFactory(createAdapter, {
-		view: resolveView,
+		states: resolveStates,
 		commands: () => ({ acknowledgeSpeech: () => undefined }),
 	});
 
@@ -1448,9 +1448,9 @@ describe("projection targets", () => {
 		};
 		const resolveInspection = vi.fn(() => ({
 			snapshot: { sequence: 1 },
-			view: { sequence: 1 },
+			states: { sequence: 1 },
 		}));
-		const resolveView = vi.fn(() => ({ sequence: 99 }));
+		const resolveStates = vi.fn(() => ({ sequence: 99 }));
 		const runtime = createAgentRuntime({
 			eventTypes: [],
 			resolveInspection,
@@ -1459,26 +1459,26 @@ describe("projection targets", () => {
 				additionalArgs: {},
 				host: new EventTarget(),
 			}),
-			resolveView,
+			resolveStates,
 		});
 
 		expect(runtime.getSchema()).toMatchObject({
 			snapshot: { sequence: 1 },
-			view: { sequence: 1 },
+			states: { sequence: 1 },
 		});
 		expect(resolveInspection).toHaveBeenCalledOnce();
 		expect(adapter.getSnapshot).not.toHaveBeenCalled();
-		expect(resolveView).not.toHaveBeenCalled();
+		expect(resolveStates).not.toHaveBeenCalled();
 	});
 
 	it("serializes runtime schema inspection without invoking toJSON accessors", () => {
 		const snapshot = { visible: "snapshot" };
-		const view = { visible: "view" };
+		const states = { visible: "states" };
 		const toJSON = vi.fn(() => {
 			throw new Error("toJSON accessor invoked");
 		});
 		Object.defineProperty(snapshot, "toJSON", { get: toJSON });
-		Object.defineProperty(view, "toJSON", { get: toJSON });
+		Object.defineProperty(states, "toJSON", { get: toJSON });
 		const adapter: IgniteAdapter<typeof snapshot, InspectionEvent> = {
 			scope: StateScope.Isolated,
 			subscribeSnapshots: () => ({ unsubscribe: () => undefined }),
@@ -1488,18 +1488,18 @@ describe("projection targets", () => {
 		};
 		const runtime = createAgentRuntime({
 			eventTypes: [],
-			resolveInspection: () => ({ snapshot, view }),
+			resolveInspection: () => ({ snapshot, states }),
 			resolveRuntime: () => ({
 				adapter,
 				additionalArgs: {},
 				host: new EventTarget(),
 			}),
-			resolveView: () => view,
+			resolveStates: () => states,
 		});
 
 		expect(runtime.getSchema()).toMatchObject({
 			snapshot: { visible: "snapshot" },
-			view: { visible: "view" },
+			states: { visible: "states" },
 		});
 		expect(toJSON).not.toHaveBeenCalled();
 	});
@@ -1516,13 +1516,13 @@ describe("projection targets", () => {
 		};
 		const runtime = createAgentRuntime({
 			eventTypes: [],
-			resolveInspection: () => ({ snapshot, view: {} }),
+			resolveInspection: () => ({ snapshot, states: {} }),
 			resolveRuntime: () => ({
 				adapter,
 				additionalArgs: {},
 				host: new EventTarget(),
 			}),
-			resolveView: () => ({}),
+			resolveStates: () => ({}),
 		});
 
 		expect(runtime.getSchema().snapshot).toEqual({
@@ -1566,7 +1566,7 @@ describe("projection targets", () => {
 			get: getter,
 		});
 		const core = createComponentFactory(createAdapter, {
-			view: () => ({}),
+			states: () => ({}),
 			commands: () => ({}),
 			createAdditionalArgs: () => additionalArgs,
 			createRenderStrategy: () => ({
@@ -1637,7 +1637,7 @@ describe("projection targets", () => {
 			}),
 		});
 		const core = createIgniteComponentFactory(createAdapter, {
-			view: () => ({ projection: { documents: [document] } }),
+			states: () => ({ projection: { documents: [document] } }),
 			commands: () => ({}),
 		});
 
@@ -1689,7 +1689,7 @@ describe("projection targets", () => {
 					additionalArgs: {},
 					host: new EventTarget(),
 				}),
-				resolveView: () => ({}),
+				resolveStates: () => ({}),
 			});
 
 			const subscription = runtime.watchSnapshot(handler);
@@ -1767,7 +1767,7 @@ describe("projection targets", () => {
 		});
 		const availabilitySequences: number[] = [];
 		const core = createIgniteComponentFactory(createAdapter, {
-			view: ({ snapshot }) => ({
+			states: (snapshot) => ({
 				sequence: snapshot.sequence,
 				documentRevision: snapshot.context.documents[0]?.revision ?? null,
 			}),
@@ -1784,24 +1784,24 @@ describe("projection targets", () => {
 
 		const schema = core.getSchema();
 
-		expect(resolveStateSnapshot).toHaveBeenCalledTimes(2);
-		expect(adapter.getSnapshot).toHaveBeenCalledTimes(2);
+		expect(resolveStateSnapshot).toHaveBeenCalledOnce();
+		expect(adapter.getSnapshot).toHaveBeenCalledOnce();
 		expect(schema.snapshot).toMatchObject({
-			sequence: 2,
+			sequence: 1,
 			context: {
-				documents: [{ revision: "2" }],
+				documents: [{ revision: "1" }],
 			},
 		});
-		expect(schema.view).toEqual({
-			sequence: 2,
-			documentRevision: "2",
+		expect(schema.states).toEqual({
+			sequence: 1,
+			documentRevision: "1",
 		});
 		resolveStateSnapshot.mockClear();
 		vi.mocked(adapter.getSnapshot).mockClear();
 		expect(core.canExecute("confirm")).toBe(true);
 		expect(resolveStateSnapshot).toHaveBeenCalledOnce();
 		expect(adapter.getSnapshot).toHaveBeenCalledOnce();
-		expect(availabilitySequences).toEqual([3]);
+		expect(availabilitySequences).toEqual([2]);
 		resolveStateSnapshot.mockClear();
 		vi.mocked(adapter.getSnapshot).mockClear();
 
@@ -1814,7 +1814,7 @@ describe("projection targets", () => {
 		expect(adapter.getSnapshot).toHaveBeenCalledTimes(2);
 		expect(commitDocument).toHaveBeenCalledTimes(1);
 		expect(availabilitySequences).toEqual([
-			3,
+			2,
 			Number(commitDocument.mock.calls[0]?.[0].revision),
 		]);
 
@@ -1856,7 +1856,7 @@ describe("projection targets", () => {
 				}),
 			});
 			const core = createIgniteComponentFactory(createAdapter, {
-				view: () => ({}),
+				states: () => ({}),
 				commands: () => ({}),
 			});
 			const commitDocument = vi.fn();
@@ -1908,7 +1908,7 @@ describe("projection targets", () => {
 			}),
 		});
 		const core = createIgniteComponentFactory(createAdapter, {
-			view: () => ({}),
+			states: () => ({}),
 			commands: () => ({}),
 		});
 		const commitDocument = vi.fn();
@@ -1959,7 +1959,7 @@ describe("projection targets", () => {
 			}),
 		});
 		const core = createComponentFactory(createAdapter, {
-			view: () => ({}),
+			states: () => ({}),
 			commands: () => ({}),
 			cleanup: true,
 			createRenderStrategy: () => ({
@@ -2041,7 +2041,7 @@ describe("projection targets", () => {
 		}
 	});
 
-	it("prefers actor-owned snapshot context over conflicting derived view output", async () => {
+	it("prefers actor-owned snapshot context over conflicting derived states output", async () => {
 		const actorDocument: ProjectionDocument = {
 			id: "panel",
 			revision: "actor-1",
@@ -2049,8 +2049,8 @@ describe("projection targets", () => {
 		};
 		const viewDocument: ProjectionDocument = {
 			id: "panel",
-			revision: "view-1",
-			nodes: [{ kind: "text", id: "view", text: "Derived view" }],
+			revision: "states-1",
+			nodes: [{ kind: "text", id: "states", text: "Derived states" }],
 		};
 		const actorSpeech: ProjectionSpeechRequest = {
 			id: "actor-speech",
@@ -2058,8 +2058,8 @@ describe("projection targets", () => {
 			status: "pending",
 		};
 		const viewSpeech: ProjectionSpeechRequest = {
-			id: "view-speech",
-			text: "Derived view speech",
+			id: "states-speech",
+			text: "Derived states speech",
 			status: "pending",
 		};
 		const snapshot: InspectionSnapshot = {
@@ -2101,12 +2101,12 @@ describe("projection targets", () => {
 	it("keeps actor-owned empty projection channels authoritative", async () => {
 		const viewDocument: ProjectionDocument = {
 			id: "panel",
-			revision: "view-1",
-			nodes: [{ kind: "text", id: "view", text: "Derived view" }],
+			revision: "states-1",
+			nodes: [{ kind: "text", id: "states", text: "Derived states" }],
 		};
 		const viewSpeech: ProjectionSpeechRequest = {
-			id: "view-speech",
-			text: "Derived view speech",
+			id: "states-speech",
+			text: "Derived states speech",
 			status: "pending",
 		};
 		const snapshot: InspectionSnapshot = {
@@ -2182,7 +2182,7 @@ describe("projection targets", () => {
 		await flushMicrotasks();
 		await flushMicrotasks();
 
-		expect(adapter.getSnapshot).toHaveBeenCalledTimes(3);
+		expect(adapter.getSnapshot).toHaveBeenCalledTimes(2);
 		expect(commitDocument).toHaveBeenCalledTimes(1);
 		expect(availabilitySnapshots).toHaveLength(1);
 		expect(availabilitySnapshots[0]?.context.documents[0]?.revision).toBe(
@@ -3059,7 +3059,7 @@ describe("projection targets", () => {
 		};
 		const core = igniteCore({
 			source: machine,
-			view: () => ({
+			states: () => ({
 				documents: [derivedDocument],
 				speech: {
 					id: "derived-speech",
@@ -3136,7 +3136,7 @@ describe("projection targets", () => {
 		actor.start();
 		const core = igniteCore({
 			source: actor,
-			view: () => ({}),
+			states: () => ({}),
 			commands: () => ({ acknowledgeSpeech: () => undefined }),
 		});
 		const commitDocument = vi.fn();
@@ -3176,274 +3176,6 @@ describe("projection targets", () => {
 		expect(commitDocument).not.toHaveBeenCalled();
 		expect(commitSpeech).not.toHaveBeenCalled();
 		expect(unhandled).toEqual([]);
-	});
-
-	it("recovers public XState projection sessions without ghost commits", async () => {
-		const initialDocument: ProjectionDocument = {
-			id: "panel",
-			revision: "1",
-			nodes: [{ kind: "text", id: "summary", text: "Initial" }],
-		};
-		const updatedDocument: ProjectionDocument = {
-			id: "panel",
-			revision: "2",
-			nodes: [{ kind: "text", id: "summary", text: "Updated" }],
-		};
-		const finalDocument: ProjectionDocument = {
-			id: "panel",
-			revision: "3",
-			nodes: [{ kind: "text", id: "summary", text: "Final" }],
-		};
-		const context: {
-			documents: ProjectionDocument[];
-			speech: ProjectionSpeechRequest | null;
-		} = {
-			documents: [initialDocument],
-			speech: {
-				id: "speech-1",
-				text: "Initial speech",
-				status: "pending",
-			},
-		};
-		const machine = createMachine({
-			context,
-			initial: "idle",
-			states: {
-				idle: { on: { RECOVER: "active" } },
-				active: {
-					on: {
-						UPDATE: {
-							actions: assign({
-								documents: () => [updatedDocument],
-								speech: () => ({
-									id: "speech-2",
-									text: "Updated speech",
-									status: "pending",
-								}),
-							}),
-						},
-						FINAL: {
-							actions: assign({
-								documents: () => [finalDocument],
-								speech: () => ({
-									id: "speech-3",
-									text: "Final speech",
-									status: "pending",
-								}),
-							}),
-						},
-					},
-				},
-			},
-		});
-		const actor = createActor(machine);
-		actor.start();
-		const stopSpy = vi.spyOn(actor, "stop");
-		const snapshot = actor.getSnapshot();
-		const contextDescriptor = Object.getOwnPropertyDescriptor(
-			snapshot,
-			"context",
-		);
-		expect(contextDescriptor).toBeDefined();
-		if (!contextDescriptor) {
-			actor.stop();
-			return;
-		}
-		const contextGetter = vi.fn(() => contextDescriptor.value);
-		Reflect.deleteProperty(snapshot, "context");
-		const core = igniteCore({
-			source: actor,
-			view: () => ({}),
-			commands: () => ({ acknowledgeSpeech: () => undefined }),
-		});
-		const ghostDocumentCommit = vi.fn();
-		const ghostSpeechCommit = vi.fn();
-		const unhandled: unknown[] = [];
-		const captureUnhandled = (reason: unknown) => {
-			unhandled.push(reason);
-		};
-
-		process.on("unhandledRejection", captureUnhandled);
-		try {
-			expect(() =>
-				core(
-					createProjectionDocumentTarget({
-						commitDocument: ghostDocumentCommit,
-					}),
-				),
-			).toThrow(
-				"[XStateAdapter] Snapshot context must be an own data property.",
-			);
-			Object.defineProperty(snapshot, "context", contextDescriptor);
-			actor.send({ type: "RECOVER" });
-			await flushMicrotasks();
-			await flushMicrotasks();
-			expect(ghostDocumentCommit).not.toHaveBeenCalled();
-
-			const repairedSnapshot = actor.getSnapshot();
-			const repairedContextDescriptor = Object.getOwnPropertyDescriptor(
-				repairedSnapshot,
-				"context",
-			);
-			expect(repairedContextDescriptor).toBeDefined();
-			if (!repairedContextDescriptor) {
-				return;
-			}
-			Reflect.deleteProperty(repairedSnapshot, "context");
-			Object.defineProperty(repairedSnapshot, "context", {
-				enumerable: true,
-				configurable: true,
-				get: contextGetter,
-			});
-			expect(() =>
-				core(
-					createProjectionSpeechTarget({
-						commitSpeech: ghostSpeechCommit,
-						acknowledgeCommandName: "acknowledgeSpeech",
-					}),
-				),
-			).toThrow(
-				"[XStateAdapter] Snapshot context must be an own data property.",
-			);
-			Object.defineProperty(
-				repairedSnapshot,
-				"context",
-				repairedContextDescriptor,
-			);
-			await flushMicrotasks();
-			await flushMicrotasks();
-			expect(ghostDocumentCommit).not.toHaveBeenCalled();
-			expect(ghostSpeechCommit).not.toHaveBeenCalled();
-			expect(contextGetter).not.toHaveBeenCalled();
-
-			const commitDocument = vi.fn();
-			const commitSpeech = vi.fn();
-			const documentSession = core(
-				createProjectionDocumentTarget({ commitDocument }),
-			);
-			const speechSession = core(
-				createProjectionSpeechTarget({
-					commitSpeech,
-					acknowledgeCommandName: "acknowledgeSpeech",
-				}),
-			);
-			await flushMicrotasks();
-			expect(commitDocument).toHaveBeenCalledTimes(1);
-			expect(commitSpeech).toHaveBeenCalledTimes(1);
-
-			actor.send({ type: "UPDATE" });
-			await vi.waitFor(() => {
-				expect(commitDocument).toHaveBeenCalledTimes(2);
-				expect(commitSpeech).toHaveBeenCalledTimes(2);
-			});
-
-			documentSession.dispose();
-			speechSession.dispose();
-			actor.send({ type: "FINAL" });
-			await flushMicrotasks();
-			await flushMicrotasks();
-			expect(commitDocument).toHaveBeenCalledTimes(2);
-			expect(commitSpeech).toHaveBeenCalledTimes(2);
-			expect(stopSpy).not.toHaveBeenCalled();
-		} finally {
-			process.off("unhandledRejection", captureUnhandled);
-			actor.stop();
-		}
-
-		expect(unhandled).toEqual([]);
-	});
-
-	it("recovers an isolated XState projection session after failed initial binding", async () => {
-		const initialDocument: ProjectionDocument = {
-			id: "isolated-panel",
-			revision: "1",
-			nodes: [{ kind: "text", id: "summary", text: "Initial" }],
-		};
-		const updatedDocument: ProjectionDocument = {
-			id: "isolated-panel",
-			revision: "2",
-			nodes: [{ kind: "text", id: "summary", text: "Updated" }],
-		};
-		const finalDocument: ProjectionDocument = {
-			id: "isolated-panel",
-			revision: "3",
-			nodes: [{ kind: "text", id: "summary", text: "Final" }],
-		};
-		const machine = createMachine({
-			context: { documents: [initialDocument], speech: null },
-			initial: "idle",
-			states: {
-				idle: { on: { RECOVER: "active" } },
-				active: {
-					on: {
-						UPDATE: {
-							actions: assign({ documents: () => [updatedDocument] }),
-						},
-						FINAL: {
-							actions: assign({ documents: () => [finalDocument] }),
-						},
-					},
-				},
-			},
-		});
-		const getInitialSnapshot = machine.getInitialSnapshot.bind(machine);
-		let capturedSnapshot:
-			| ReturnType<typeof machine.getInitialSnapshot>
-			| undefined;
-		let capturedContextDescriptor: PropertyDescriptor | undefined;
-		vi.spyOn(machine, "getInitialSnapshot").mockImplementation(
-			(actorScope, input) => {
-				const snapshot = getInitialSnapshot(actorScope, input);
-				capturedSnapshot = snapshot;
-				capturedContextDescriptor = Object.getOwnPropertyDescriptor(
-					snapshot,
-					"context",
-				);
-				Reflect.deleteProperty(snapshot, "context");
-				return snapshot;
-			},
-		);
-		const core = igniteCore({
-			source: machine,
-			view: () => ({}),
-			commands: ({ actor }) => ({
-				recover: () => actor.send({ type: "RECOVER" }),
-				update: () => actor.send({ type: "UPDATE" }),
-				finalize: () => actor.send({ type: "FINAL" }),
-			}),
-		});
-		const ghostCommit = vi.fn();
-
-		expect(() =>
-			core(createProjectionDocumentTarget({ commitDocument: ghostCommit })),
-		).toThrow("[XStateAdapter] Snapshot context must be an own data property.");
-
-		if (!capturedSnapshot || !capturedContextDescriptor) {
-			return;
-		}
-		Object.defineProperty(
-			capturedSnapshot,
-			"context",
-			capturedContextDescriptor,
-		);
-		await core.execute({ command: "recover" });
-		await flushMicrotasks();
-		await flushMicrotasks();
-		expect(ghostCommit).not.toHaveBeenCalled();
-
-		const commitDocument = vi.fn();
-		const session = core(createProjectionDocumentTarget({ commitDocument }));
-		await flushMicrotasks();
-		expect(commitDocument).toHaveBeenCalledTimes(1);
-		await core.execute({ command: "update" });
-		await vi.waitFor(() => {
-			expect(commitDocument).toHaveBeenCalledTimes(2);
-		});
-
-		session.dispose();
-		await core.execute({ command: "finalize" });
-		await flushMicrotasks();
-		expect(commitDocument).toHaveBeenCalledTimes(2);
 	});
 
 	it("binds a branded document target, commits revision changes, and disposes cleanly", async () => {
@@ -3658,8 +3390,8 @@ describe("projection targets", () => {
 	});
 
 	it("coalesces an unrelated snapshot burst before committing pending speech", async () => {
-		const projectView = vi.fn();
-		const core = createProjectionCore(projectView);
+		const projectStates = vi.fn();
+		const core = createProjectionCore(projectStates);
 		let releaseFirstCommit: (() => void) | undefined;
 		const commitSpeech = vi.fn(
 			() =>
@@ -3687,7 +3419,7 @@ describe("projection targets", () => {
 			});
 			await flushMicrotasks();
 			expect(commitSpeech).toHaveBeenCalledTimes(1);
-			const viewCallsBeforeBurst = projectView.mock.calls.length;
+			const statesCallsBeforeBurst = projectStates.mock.calls.length;
 
 			const burst = Array.from({ length: 100 }, (_, index) =>
 				core.execute({
@@ -3714,7 +3446,7 @@ describe("projection targets", () => {
 				},
 			});
 			await Promise.all([...burst, latestSpeech]);
-			expect(projectView).toHaveBeenCalledTimes(viewCallsBeforeBurst);
+			expect(projectStates).toHaveBeenCalledTimes(statesCallsBeforeBurst + 101);
 
 			if (!releaseFirstCommit) {
 				throw new Error("Expected the first speech commit to be pending.");
@@ -3725,8 +3457,8 @@ describe("projection targets", () => {
 			expect(commitSpeech).toHaveBeenCalledTimes(2);
 			expect(core.getSnapshot().context.speech?.status).toBe("acknowledged");
 			expect(
-				projectView.mock.calls.length - viewCallsBeforeBurst,
-			).toBeLessThanOrEqual(3);
+				projectStates.mock.calls.length - statesCallsBeforeBurst,
+			).toBe(103);
 		} finally {
 			session.dispose();
 		}
@@ -3809,7 +3541,7 @@ describe("projection targets", () => {
 		});
 		const core = igniteCore({
 			source: malformedMachine,
-			view: () => ({}),
+			states: () => ({}),
 			commands: ({ actor, command }) => ({
 				setDocuments: command(
 					(documents: unknown[]) =>

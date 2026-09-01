@@ -27,7 +27,7 @@ const createInspection = (): ProjectionInspection => ({
 			},
 		},
 	},
-	view: {
+	states: {
 		documentCount: 1,
 		speechStatus: "pending",
 	},
@@ -37,7 +37,7 @@ const createInspection = (): ProjectionInspection => ({
 		},
 		events: [],
 		snapshot: null,
-		view: null,
+		states: null,
 	},
 	canExecute: () => true,
 	revision: "revision-1",

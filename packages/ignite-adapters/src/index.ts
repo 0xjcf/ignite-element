@@ -29,7 +29,6 @@ export type { InferStateAndEvent } from "./utils/igniteRedux";
 export { isMobxObservable } from "./utils/mobxGuards";
 export type {
 	EventsDefinition as XStateEventsDefinition,
-	ExtendedState,
 	XStateActorInstance,
 	XStateCommandActor,
 	XStateConfig,

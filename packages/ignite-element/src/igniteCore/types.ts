@@ -21,7 +21,7 @@ import type {
 import type {
 	AnyCommandsCallback,
 	AnyEffectsCallback,
-	AnyViewCallback,
+	AnyStatesCallback,
 	EmptyEventMap,
 	EventDescriptor,
 	EventMap,
@@ -30,12 +30,12 @@ import type {
 	FacadeCommandResult,
 	FacadeCommandsCallback,
 	FacadeEffectsObjectCallback,
-	FacadeViewCallback,
+	FacadeStatesCallback,
 } from "@ignite-element/core";
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type { AnyStateMachine } from "xstate";
-import type { WithFacadeRenderArgs } from "../createProjectionFactory";
-import type { ComponentFactory } from "../IgniteElementFactory";
+import type { PublicFacadeRenderArgs } from "../createProjectionFactory";
+import type { ComponentRenderer } from "../IgniteElementFactory";
 import type {
 	IgniteAgentRuntime,
 	IgniteProjectionSession,
@@ -95,8 +95,8 @@ export interface IgniteComponent<
 }
 
 export type IgniteCoreReturn<
-	State,
-	Event,
+	_State,
+	_Event,
 	Snapshot,
 	StatesResult extends Record<string, unknown> = Record<never, never>,
 	CommandActor = unknown,
@@ -107,32 +107,20 @@ export type IgniteCoreReturn<
 	Events extends EventMap = EmptyEventMap,
 > = {
 	(target: IgniteProjectionTarget): IgniteProjectionSession;
-	// Call signature mirrors ComponentFactory's parameter typing (same
-	// elementName + projected RenderArgs renderer) but returns a typed
-	// IgniteComponent handle instead of void. The handle return is additive — a
-	// function returning an object is assignable to a void-expecting position —
-	// so existing side-effect callers compile unchanged.
 	(
-		...args: Parameters<
-			ComponentFactory<
-				State,
-				Event,
-				WithFacadeRenderArgs<
-					State,
-					Event,
-					StatesResult,
-					CommandActor,
-					CommandsResult,
-					Record<never, never>,
-					Events
-				> &
-					Record<never, Snapshot>
-			>
-		>
+		elementName: string,
+		renderer: ComponentRenderer<
+			PublicFacadeRenderArgs<
+				StatesResult,
+				CommandActor,
+				CommandsResult,
+				Record<never, never>,
+				Events
+			> &
+				Record<never, Snapshot>
+		>,
 	): IgniteComponent<CommandsResult, Events>;
-	readonly __igniteRenderArgs?: WithFacadeRenderArgs<
-		State,
-		Event,
+	readonly __igniteRenderArgs?: PublicFacadeRenderArgs<
 		StatesResult,
 		CommandActor,
 		CommandsResult,
@@ -150,7 +138,7 @@ export type IgniteCoreReturn<
 export type {
 	AnyCommandsCallback,
 	AnyEffectsCallback,
-	AnyViewCallback,
+	AnyStatesCallback,
 	ActorWebCommandActor,
 	ActorWebExtendedState,
 	ActorWebSource,
@@ -294,7 +282,7 @@ export type ActorWebConfig<
 		Emitted
 	> = ActorWebSourceLike<Context, Message, Emitted>,
 > = {
-	view?: FacadeViewCallback<ActorWebExtendedState<Context>, StatesResult>;
+	states?: FacadeStatesCallback<ActorWebExtendedState<Context>, StatesResult>;
 	commands?: FacadeCommandsCallback<
 		ActorWebCommandActor<Context, Message, Emitted>,
 		CommandsResult,

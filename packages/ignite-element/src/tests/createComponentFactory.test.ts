@@ -2,7 +2,6 @@ import { html } from "lit-html";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createComponentFactory } from "../createComponentFactory";
 import { StateScope } from "../IgniteAdapter";
-import type { ViewContext } from "../RenderArgs";
 import MockAdapter from "./MockAdapter";
 
 function createMockAdapterFactory<State, Event>(
@@ -25,29 +24,17 @@ describe("createComponentFactory", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("throws when view callback does not return a plain object", () => {
+	it("throws when states callback does not return a plain object", () => {
 		const adapter = new MockAdapter({ count: 0 }, StateScope.Shared);
 		const createAdapter = createMockAdapterFactory(adapter, StateScope.Shared);
 
 		const factory = createComponentFactory(createAdapter, {
-			// @ts-expect-error - view callback returns a non-object for runtime validation.
-			view: () => 123,
+			// @ts-expect-error - states callback returns a non-object for runtime validation.
+			states: () => 123,
 		});
 
-		const elementName = `ccf-invalid-states-${crypto.randomUUID()}`;
-
-		factory(elementName, () => html``);
-
-		const Component = customElements.get(elementName);
-		expect(Component).toBeDefined();
-		if (!Component) {
-			throw new Error("Expected custom element to be registered");
-		}
-
-		expect(() => {
-			new Component();
-		}).toThrowError(
-			"[createComponentFactory] Facade view callback must return a plain object.",
+		expect(() => factory.getStates()).toThrowError(
+			"[createComponentFactory] Facade states callback must return a plain object.",
 		);
 	});
 
@@ -56,7 +43,7 @@ describe("createComponentFactory", () => {
 		const createAdapter = createMockAdapterFactory(adapter, StateScope.Shared);
 
 		const factory = createComponentFactory(createAdapter, {
-			view: () => ({}),
+			states: () => ({}),
 			// @ts-expect-error - commands callback must return a plain object.
 			commands: () => 42,
 		});
@@ -83,7 +70,7 @@ describe("createComponentFactory", () => {
 		const createAdapter = createMockAdapterFactory(adapter, StateScope.Shared);
 
 		const factory = createComponentFactory(createAdapter, {
-			view: () => ({}),
+			states: () => ({}),
 			// @ts-expect-error - command results must be callable.
 			commands: () => ({ bad: 1 }),
 		});
@@ -114,7 +101,7 @@ describe("createComponentFactory", () => {
 			StateScope.Isolated,
 		);
 
-		const viewCallback = ({ snapshot }: ViewContext<CounterState>) => ({
+		const viewCallback = (snapshot: CounterState) => ({
 			count: snapshot.count,
 		});
 		type FallbackActor = {
@@ -134,7 +121,7 @@ describe("createComponentFactory", () => {
 			{ increment: () => void },
 			{ extra: string }
 		>(createAdapter, {
-			view: viewCallback,
+			states: viewCallback,
 			commands: commandsCallback,
 			createAdditionalArgs: () => ({ extra: "value" }),
 		});
@@ -188,7 +175,7 @@ describe("createComponentFactory", () => {
 			resolveCommandActor: (): CustomActor => actor,
 		});
 
-		const viewCallback = ({ snapshot }: ViewContext<CustomState>) => ({
+		const statesCallback = (snapshot: CustomState) => ({
 			value: snapshot.value,
 		});
 		const commandsCallback = ({
@@ -202,7 +189,7 @@ describe("createComponentFactory", () => {
 		const factory = createComponentFactory(createAdapter, {
 			resolveStateSnapshot: customSnapshot,
 			resolveCommandActor: customActorResolver,
-			view: viewCallback,
+			states: statesCallback,
 			commands: commandsCallback,
 		});
 
@@ -224,9 +211,10 @@ describe("createComponentFactory", () => {
 		const element = document.createElement(elementName);
 		document.body.appendChild(element);
 
+		expect(factory.getStates()).toEqual({ value: 99 });
 		expect(customSnapshot).toHaveBeenCalled();
 		expect(customActorResolver).toHaveBeenCalled();
-		expect(latestArgs?.value).toBe(99);
+		expect(latestArgs?.value).toBe(10);
 
 		latestArgs?.invoke();
 		expect(actor.send).toHaveBeenCalledWith("ping");
@@ -241,7 +229,7 @@ describe("createComponentFactory", () => {
 			StateScope.Isolated,
 		);
 
-		const view = ({ snapshot }: ViewContext<CounterState>) => ({
+		const states = (snapshot: CounterState) => ({
 			count: snapshot.count,
 		});
 		const commands = ({
@@ -264,7 +252,7 @@ describe("createComponentFactory", () => {
 			{ increment: () => void },
 			Record<never, never>
 		>(createAdapter, {
-			view,
+			states,
 			commands,
 		});
 

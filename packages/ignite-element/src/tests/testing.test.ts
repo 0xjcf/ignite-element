@@ -53,7 +53,7 @@ describe("ignite test DSL", () => {
 		const componentConfig = {
 			adapter: "xstate",
 			source: machine,
-			view: ({ snapshot }) => ({
+			states: (snapshot) => ({
 				isOn: snapshot.matches("on"),
 			}),
 			commands: ({ actor }) => ({
@@ -98,11 +98,11 @@ describe("ignite test DSL", () => {
 				events: [],
 			}),
 			getSnapshot: () => ({ fallback: true }),
-			getView: () => ({}),
+			getStates: () => ({}),
 			canExecute: () => true,
 			on: () => ({ unsubscribe() {} }),
 			watchSnapshot: () => ({ unsubscribe() {} }),
-			watchView: () => ({ unsubscribe() {} }),
+			watchStates: () => ({ unsubscribe() {} }),
 		} as unknown as IgniteAgentRuntime<
 			null,
 			Commands,
@@ -118,7 +118,7 @@ describe("ignite test DSL", () => {
 		expect(() => scenario.expectSnapshot(null)).not.toThrow();
 	});
 
-	it("asserts the projected view with expectView (object, predicate, mismatch)", async () => {
+	it("asserts the projected states with expectStates (object, predicate, mismatch)", async () => {
 		const machine = createMachine({
 			initial: "off",
 			states: {
@@ -130,7 +130,7 @@ describe("ignite test DSL", () => {
 		const component = igniteCore({
 			adapter: "xstate",
 			source: machine,
-			view: ({ snapshot }) => ({
+			states: (snapshot) => ({
 				isOn: snapshot.matches("on"),
 				label: "Power",
 			}),
@@ -144,17 +144,17 @@ describe("ignite test DSL", () => {
 			.when({ command: "toggle" });
 
 		scenario
-			// partial-object match against the projected view
-			.expectView({ isOn: true, label: "Power" })
-			// predicate form over the typed projected view — `view.label.startsWith`
+			// partial-object match against the projected states
+			.expectStates({ isOn: true, label: "Power" })
+			// predicate form over the typed projected states — `states.label.startsWith`
 			// only compiles when the projection's keys carry their value types
-			// (string), proving expectView sees the projection, not `unknown`.
-			.expectView(
-				(view) => view.isOn === true && view.label.startsWith("Power"),
+			// (string), proving expectStates sees the projection, not `unknown`.
+			.expectStates(
+				(states) => states.isOn === true && states.label.startsWith("Power"),
 			);
 
-		expect(() => scenario.expectView({ isOn: false })).toThrow(
-			/expectView failed/,
+		expect(() => scenario.expectStates({ isOn: false })).toThrow(
+			/expectStates failed/,
 		);
 	});
 
@@ -193,7 +193,7 @@ describe("ignite test DSL", () => {
 		const component = igniteCore({
 			adapter: "xstate",
 			source: machine,
-			view: ({ snapshot }) => ({
+			states: (snapshot) => ({
 				moduleId: snapshot.context.startedModule,
 				lastStartedModule: snapshot.context.lastStartedModule,
 			}),
@@ -233,14 +233,14 @@ describe("ignite test DSL", () => {
 
 		scenario
 			.expectSnapshot({ context: { startedModule: "dispatch" } })
-			.expectView({
+			.expectStates({
 				moduleId: "dispatch",
 				lastStartedModule: "dispatch",
 			})
 			.expectEvent({ type: "module-started", moduleId: "dispatch" });
 	});
 
-	it("uses a supplied host for scenario state and view reads", () => {
+	it("uses a supplied host for scenario state and states reads", () => {
 		const defaultHost = document.createElement("section");
 		defaultHost.dataset.hostId = "default";
 		const host = document.createElement("section");
@@ -261,18 +261,22 @@ describe("ignite test DSL", () => {
 		} = {
 			canExecute: () => false,
 			async execute() {
-				return { snapshot: this.getSnapshot(), events: [] };
+				return {
+					snapshot: this.getSnapshot(),
+					states: this.getStates(),
+					events: [],
+				};
 			},
 			getSnapshot: () => ({ hostId: activeHost.dataset.hostId ?? "missing" }),
-			getView: () => ({ hostId: activeHost.dataset.hostId ?? "missing" }),
+			getStates: () => ({ hostId: activeHost.dataset.hostId ?? "missing" }),
 			on: () => ({ unsubscribe: () => {} }),
 			watchSnapshot: () => ({ unsubscribe: () => {} }),
-			watchView: () => ({ unsubscribe: () => {} }),
+			watchStates: () => ({ unsubscribe: () => {} }),
 			getSchema: () => ({
 				commands: {},
 				events: [],
 				snapshot: { hostId: activeHost.dataset.hostId ?? "missing" },
-				view: { hostId: activeHost.dataset.hostId ?? "missing" },
+				states: { hostId: activeHost.dataset.hostId ?? "missing" },
 			}),
 			record: () => {
 				throw new Error("record is not used by this test");
@@ -294,7 +298,7 @@ describe("ignite test DSL", () => {
 		igniteTest({ component: runtime, host })
 			.given({ hostId: "supplied" })
 			.expectSnapshot({ hostId: "supplied" })
-			.expectView({ hostId: "supplied" });
+			.expectStates({ hostId: "supplied" });
 	});
 
 	it("restores the baseline runtime host after overlapping host-scoped commands", async () => {
@@ -627,11 +631,11 @@ describe("ignite test DSL", () => {
 		const runtime = {
 			execute,
 			getSnapshot: () => ({ count: 0 }),
-			getView: () => ({ count: 0 }),
+			getStates: () => ({ count: 0 }),
 			canExecute: () => true,
 			on: () => ({ unsubscribe() {} }),
 			watchSnapshot: () => ({ unsubscribe() {} }),
-			watchView: () => ({ unsubscribe() {} }),
+			watchStates: () => ({ unsubscribe() {} }),
 		} as unknown as IgniteAgentRuntime<
 			{ count: number },
 			{
@@ -689,7 +693,7 @@ describe("ignite test DSL", () => {
 		const component = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: ({ snapshot }) => ({
+			states: (snapshot) => ({
 				count: snapshot.counter.count,
 				canDecrement: snapshot.counter.count > 0,
 			}),
@@ -723,14 +727,14 @@ describe("ignite test DSL", () => {
 			async (narrative) => {
 				await narrative.given({
 					snapshot: { counter: { count: 0 } },
-					view: { count: 0, canDecrement: false },
+					states: { count: 0, canDecrement: false },
 					canExecute: { decrement: false },
 				});
 
 				await narrative.intent({ command: "increment", input: 2 });
 				await narrative.checkpoint("after increment", {
 					snapshot: { counter: { count: 2 } },
-					view: { count: 2, canDecrement: true },
+					states: { count: 2, canDecrement: true },
 					events: [{ type: "counter-incremented", count: 2 }],
 					canExecute: { decrement: true },
 				});
@@ -740,14 +744,14 @@ describe("ignite test DSL", () => {
 				});
 				await narrative.checkpoint("after external fact", {
 					snapshot: { counter: { count: 3 } },
-					view: { count: 3, canDecrement: true },
+					states: { count: 3, canDecrement: true },
 					canExecute: { decrement: true },
 				});
 
 				await narrative.intent({ command: "decrement" });
 				await narrative.checkpoint("after decrement", {
 					snapshot: { counter: { count: 2 } },
-					view: { count: 2, canDecrement: true },
+					states: { count: 2, canDecrement: true },
 					events: [{ type: "counter-incremented", count: 2 }],
 					canExecute: { decrement: true },
 				});
@@ -778,7 +782,7 @@ describe("ignite test DSL", () => {
 		const component = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: ({ snapshot }) => ({
+			states: (snapshot) => ({
 				count: snapshot.counter.count,
 			}),
 			commands: ({ actor }) => ({
@@ -846,7 +850,7 @@ describe("ignite test DSL", () => {
 				summary: vi.fn(() => ({
 					name: "tracked story",
 					finalSnapshot: { count: 1 },
-					finalView: { count: 1 },
+					finalStates: { count: 1 },
 					events: [],
 					commandCount: 1,
 					traceCount: 0,
@@ -861,11 +865,11 @@ describe("ignite test DSL", () => {
 					events: [],
 				})),
 				getSnapshot: vi.fn(() => ({ count: 0 })),
-				getView: vi.fn(() => ({ count: 0 })),
+				getStates: vi.fn(() => ({ count: 0 })),
 				canExecute: vi.fn(() => true),
 				on: vi.fn(() => ({ unsubscribe() {} })),
 				watchSnapshot: vi.fn(() => ({ unsubscribe() {} })),
-				watchView: vi.fn(() => ({ unsubscribe() {} })),
+				watchStates: vi.fn(() => ({ unsubscribe() {} })),
 				record: vi.fn(() => story),
 			} as unknown as IgniteAgentRuntime<
 				{ count: number },
@@ -934,7 +938,7 @@ describe("ignite test DSL", () => {
 			throw new Error("snapshot cleanup failure");
 		});
 		const viewUnsubscribe = vi.fn(() => {
-			throw new Error("view cleanup failure");
+			throw new Error("states cleanup failure");
 		});
 		const stop = vi.fn();
 		const story = {
@@ -948,7 +952,7 @@ describe("ignite test DSL", () => {
 			summary: vi.fn(() => ({
 				name: "tracked story",
 				finalSnapshot: { count: 0 },
-				finalView: { count: 0 },
+				finalStates: { count: 0 },
 				events: [],
 				commandCount: 0,
 				traceCount: 0,
@@ -963,11 +967,11 @@ describe("ignite test DSL", () => {
 				events: [],
 			})),
 			getSnapshot: vi.fn(() => ({ count: 0 })),
-			getView: vi.fn(() => ({ count: 0 })),
+			getStates: vi.fn(() => ({ count: 0 })),
 			canExecute: vi.fn(() => true),
 			on: vi.fn(() => ({ unsubscribe() {} })),
 			watchSnapshot: vi.fn(() => ({ unsubscribe: snapshotUnsubscribe })),
-			watchView: vi.fn(() => ({ unsubscribe: viewUnsubscribe })),
+			watchStates: vi.fn(() => ({ unsubscribe: viewUnsubscribe })),
 			record: vi.fn(() => story),
 		} as unknown as IgniteAgentRuntime<
 			{ count: number },
@@ -985,7 +989,7 @@ describe("ignite test DSL", () => {
 				async (narrative) => {
 					await narrative.given({
 						snapshot: { count: 0 },
-						view: { count: 0 },
+						states: { count: 0 },
 					});
 				},
 			),
@@ -1007,7 +1011,7 @@ describe("ignite test DSL", () => {
 			throw new Error("snapshot cleanup failure");
 		});
 		const viewUnsubscribe = vi.fn(() => {
-			throw new Error("view cleanup failure");
+			throw new Error("states cleanup failure");
 		});
 		const stop = vi.fn();
 		const story = {
@@ -1021,7 +1025,7 @@ describe("ignite test DSL", () => {
 			summary: vi.fn(() => ({
 				name: "tracked story",
 				finalSnapshot: { count: 0 },
-				finalView: { count: 0 },
+				finalStates: { count: 0 },
 				events: [],
 				commandCount: 0,
 				traceCount: 0,
@@ -1036,11 +1040,11 @@ describe("ignite test DSL", () => {
 				events: [],
 			})),
 			getSnapshot: vi.fn(() => ({ count: 0 })),
-			getView: vi.fn(() => ({ count: 0 })),
+			getStates: vi.fn(() => ({ count: 0 })),
 			canExecute: vi.fn(() => true),
 			on: vi.fn(() => ({ unsubscribe() {} })),
 			watchSnapshot: vi.fn(() => ({ unsubscribe: snapshotUnsubscribe })),
-			watchView: vi.fn(() => ({ unsubscribe: viewUnsubscribe })),
+			watchStates: vi.fn(() => ({ unsubscribe: viewUnsubscribe })),
 			record: vi.fn(() => story),
 		} as unknown as IgniteAgentRuntime<
 			{ count: number },
@@ -1093,7 +1097,7 @@ describe("ignite test DSL", () => {
 			summary: vi.fn(() => ({
 				name: "tracked story",
 				finalSnapshot: { count: 0 },
-				finalView: { count: 0 },
+				finalStates: { count: 0 },
 				events: [],
 				commandCount: 0,
 				traceCount: 0,
@@ -1108,12 +1112,12 @@ describe("ignite test DSL", () => {
 				events: [],
 			})),
 			getSnapshot: vi.fn(() => ({ count: 0 })),
-			getView: vi.fn(() => ({ count: 0 })),
+			getStates: vi.fn(() => ({ count: 0 })),
 			canExecute: vi.fn(() => true),
 			on: vi.fn(() => ({ unsubscribe() {} })),
 			watchSnapshot: vi.fn(() => ({ unsubscribe: snapshotUnsubscribe })),
-			watchView: vi.fn(() => {
-				throw new Error("view watcher setup failed");
+			watchStates: vi.fn(() => {
+				throw new Error("states watcher setup failed");
 			}),
 			record: vi.fn(() => story),
 		} as unknown as IgniteAgentRuntime<
@@ -1135,7 +1139,7 @@ describe("ignite test DSL", () => {
 					});
 				},
 			),
-		).rejects.toThrow("view watcher setup failed");
+		).rejects.toThrow("states watcher setup failed");
 		expect(snapshotUnsubscribe).toHaveBeenCalledTimes(1);
 		expect(stop).toHaveBeenCalledTimes(1);
 	});
@@ -1145,7 +1149,7 @@ describe("ignite test DSL", () => {
 		const component = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: ({ snapshot }) => ({
+			states: (snapshot) => ({
 				count: snapshot.counter.count,
 				isEven: snapshot.counter.count % 2 === 0,
 			}),
@@ -1209,7 +1213,7 @@ describe("ignite test DSL", () => {
 			        "count": 3,
 			      },
 			    },
-			    "finalView": {
+			    "finalStates": {
 			      "count": 3,
 			      "isEven": false,
 			    },
@@ -1237,14 +1241,14 @@ describe("ignite test DSL", () => {
 			      "step": 1,
 			    },
 			    {
-			      "kind": "view",
+			      "kind": "states",
 			      "phase": "before",
 			      "sequence": 3,
-			      "step": 1,
-			      "view": {
+			      "states": {
 			        "count": 0,
 			        "isEven": true,
 			      },
+			      "step": 1,
 			    },
 			    {
 			      "event": "counter-incremented",
@@ -1267,14 +1271,14 @@ describe("ignite test DSL", () => {
 			      "step": 1,
 			    },
 			    {
-			      "kind": "view",
+			      "kind": "states",
 			      "phase": "after",
 			      "sequence": 6,
-			      "step": 1,
-			      "view": {
+			      "states": {
 			        "count": 2,
 			        "isEven": true,
 			      },
+			      "step": 1,
 			    },
 			    {
 			      "command": "increment",
@@ -1295,14 +1299,14 @@ describe("ignite test DSL", () => {
 			      "step": 2,
 			    },
 			    {
-			      "kind": "view",
+			      "kind": "states",
 			      "phase": "before",
 			      "sequence": 9,
-			      "step": 2,
-			      "view": {
+			      "states": {
 			        "count": 2,
 			        "isEven": true,
 			      },
+			      "step": 2,
 			    },
 			    {
 			      "event": "counter-incremented",
@@ -1325,14 +1329,14 @@ describe("ignite test DSL", () => {
 			      "step": 2,
 			    },
 			    {
-			      "kind": "view",
+			      "kind": "states",
 			      "phase": "after",
 			      "sequence": 12,
-			      "step": 2,
-			      "view": {
+			      "states": {
 			        "count": 3,
 			        "isEven": false,
 			      },
+			      "step": 2,
 			    },
 			  ],
 			}
@@ -1343,7 +1347,7 @@ describe("ignite test DSL", () => {
 				{ kind: "command", command: "increment", payload: 2 },
 				{ kind: "event", event: "counter-incremented", payload: { count: 2 } },
 				(entry) =>
-					entry.kind === "view" && entry.phase === "after" && entry.step === 2,
+					entry.kind === "states" && entry.phase === "after" && entry.step === 2,
 			]),
 		).toEqual(trace);
 
@@ -1355,7 +1359,7 @@ describe("ignite test DSL", () => {
 		const component = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: ({ snapshot }) => ({
+			states: (snapshot) => ({
 				count: snapshot.counter.count,
 			}),
 			commands: ({ actor }) => ({
@@ -1402,7 +1406,7 @@ describe("ignite test DSL", () => {
 		const component = igniteCore({
 			adapter: "redux",
 			source: store,
-			view: ({ snapshot }) => ({
+			states: (snapshot) => ({
 				count: snapshot.counter.count,
 			}),
 			commands: ({ actor }) => ({
@@ -1456,9 +1460,9 @@ describe("ignite test DSL", () => {
 		expect(story.trace().map((entry) => entry.kind)).toEqual([
 			"command",
 			"snapshot",
-			"view",
+			"states",
 			"snapshot",
-			"view",
+			"states",
 		]);
 		expect(story.lifecycle().map((entry) => entry.elementName)).toContain(
 			"counter-accessibility-bridge",
@@ -1482,8 +1486,8 @@ describe("ignite test DSL", () => {
 
 		const finalSnapshot: CircularPayload = { count: BigInt(2) };
 		finalSnapshot.self = finalSnapshot;
-		const finalView: CircularPayload = { count: BigInt(3) };
-		finalView.self = finalView;
+		const finalStates: CircularPayload = { count: BigInt(3) };
+		finalStates.self = finalStates;
 		const payload: CircularPayload = { count: BigInt(4) };
 		payload.self = payload;
 
@@ -1491,17 +1495,18 @@ describe("ignite test DSL", () => {
 			name: "schema-safe summary",
 			execute: async () => ({
 				snapshot: finalSnapshot,
+				states: finalStates,
 				events: [],
 			}),
 			behavior: async <Result>(_name: string, operation: () => Result) =>
 				operation(),
-			until: async () => finalView,
+			until: async () => finalStates,
 			trace: () => [],
 			lifecycle: () => [],
 			summary: () => ({
 				name: "schema-safe summary",
 				finalSnapshot,
-				finalView,
+				finalStates,
 				events: [
 					{
 						type: "counter-incremented",
@@ -1528,7 +1533,7 @@ describe("ignite test DSL", () => {
 				count: "2",
 				self: "[Circular]",
 			},
-			finalView: {
+			finalStates: {
 				count: "3",
 				self: "[Circular]",
 			},
@@ -1570,7 +1575,7 @@ describe("ignite test DSL", () => {
 		const component = igniteCore({
 			adapter: "xstate",
 			source: machine,
-			view: ({ snapshot }) => ({
+			states: (snapshot) => ({
 				limit: snapshot.context.limit,
 			}),
 			commands: ({ actor }) => ({
@@ -1660,10 +1665,10 @@ describe("ignite test DSL", () => {
 			  },
 			  {
 			    "sequence": 3,
-			    "kind": "view",
+			    "kind": "states",
 			    "step": 1,
 			    "phase": "before",
-			    "view": {}
+			    "states": {}
 			  },
 			  {
 			    "sequence": 4,
@@ -1678,10 +1683,10 @@ describe("ignite test DSL", () => {
 			  },
 			  {
 			    "sequence": 5,
-			    "kind": "view",
+			    "kind": "states",
 			    "step": 1,
 			    "phase": "after",
-			    "view": {}
+			    "states": {}
 			  }
 			]]
 		`);

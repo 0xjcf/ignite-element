@@ -16,7 +16,7 @@ type ProjectionCommitValue = ProjectionCommitResult | undefined;
 
 export type ProjectionInspection = {
 	readonly snapshot: unknown;
-	readonly view: unknown;
+	readonly states: unknown;
 	readonly schema: IgniteAgentSchema<IgniteSchemaValue, IgniteSchemaValue>;
 	readonly canExecute: (commandName: string) => boolean;
 	readonly revision: string;

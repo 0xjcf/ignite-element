@@ -47,7 +47,7 @@ function makeHarness(commands: Record<string, () => void> = {}) {
 			additionalArgs: commands,
 			host,
 		}),
-		resolveView: () => ({}),
+		resolveStates: () => ({}),
 	});
 
 	return {
@@ -176,7 +176,7 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 				},
 				host,
 			}),
-			resolveView: () => ({}),
+			resolveStates: () => ({}),
 		});
 
 		await expect(runtime.execute({ command: "noop" })).rejects.toThrow(
@@ -218,7 +218,7 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 				additionalArgs: {},
 				host,
 			}),
-			resolveView: () => ({}),
+			resolveStates: () => ({}),
 		});
 
 		expect(() => runtime.on("ui-event", () => {})).toThrow(setupError);
@@ -261,7 +261,7 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 				},
 				host,
 			}),
-			resolveView: () => ({}),
+			resolveStates: () => ({}),
 		});
 
 		try {
@@ -314,7 +314,7 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 				additionalArgs: {},
 				host,
 			}),
-			resolveView: () => ({}),
+			resolveStates: () => ({}),
 		});
 
 		try {
@@ -431,7 +431,7 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 				},
 				host,
 			}),
-			resolveView: () => ({}),
+			resolveStates: () => ({}),
 		});
 
 		const result = await runtime.execute({ command: "noop" });

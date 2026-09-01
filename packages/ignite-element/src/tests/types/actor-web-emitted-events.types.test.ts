@@ -28,7 +28,7 @@ async function _typeAssertions() {
 	const register = igniteCore({
 		adapter: "actor-web",
 		source: shipmentSource,
-		view: ({ snapshot }) => ({ id: snapshot.context.shipmentId }),
+		states: (snapshot) => ({ id: snapshot.context.shipmentId }),
 		commands: ({ actor }) => ({
 			cancel: (shipmentId: string) =>
 				actor.send({ type: "shipment.cancel", shipmentId }),

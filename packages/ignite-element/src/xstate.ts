@@ -2,7 +2,6 @@ import "./internal/setupDomPolyfill";
 
 import type {
 	XStateConfig as AdapterXStateConfig,
-	ExtendedState,
 	XStateCommandActor,
 } from "@ignite-element/adapters/xstate";
 import type {
@@ -12,7 +11,12 @@ import type {
 	FacadeCommandFunction,
 	FacadeCommandResult,
 } from "@ignite-element/core";
-import type { AnyStateMachine, EmittedFrom, EventFrom } from "xstate";
+import type {
+	AnyStateMachine,
+	EmittedFrom,
+	EventFrom,
+	StateFrom,
+} from "xstate";
 import type { IgniteCoreReturn, WithEmittedEvents } from "./igniteCore/types";
 
 // A machine's declared `emitted` types fold into the headless runtime's events
@@ -75,8 +79,8 @@ export type {
 	IgniteStoryTraceSnapshot,
 	IgniteStoryTraceSnapshotEntry,
 	IgniteStoryUntilOptions,
-	IgniteStoryViewPredicate,
-	IgniteStoryViewTraceEntry,
+	IgniteStoryStatesPredicate,
+	IgniteStoryStatesTraceEntry,
 	RuntimeEvent,
 } from "./types/agent";
 export type {
@@ -170,9 +174,9 @@ export function igniteCore<
 		CommandsResult
 	>,
 ): IgniteCoreReturn<
-	ExtendedState<Machine>,
+	StateFrom<Machine>,
 	EventFrom<Machine>,
-	ExtendedState<Machine>,
+	StateFrom<Machine>,
 	StatesResult,
 	XStateCommandActor<Machine>,
 	CommandsResult,
@@ -196,9 +200,9 @@ export function igniteCore<
 >(
 	options: XStateConfigWithoutEvents<Machine, StatesResult, CommandsResult>,
 ): IgniteCoreReturn<
-	ExtendedState<Machine>,
+	StateFrom<Machine>,
 	EventFrom<Machine>,
-	ExtendedState<Machine>,
+	StateFrom<Machine>,
 	StatesResult,
 	XStateCommandActor<Machine>,
 	CommandsResult,

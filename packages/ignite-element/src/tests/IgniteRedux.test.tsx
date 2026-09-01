@@ -33,21 +33,25 @@ describe("igniteRedux", () => {
 			const register = igniteCore({
 				adapter: "redux",
 				source: () => sharedStore,
+				states: (snapshot) => ({ count: snapshot.counter.count }),
+				commands: ({ actor }) => ({
+					increment: () => actor.dispatch(increment()),
+				}),
 			});
 
 			uniqueName = crypto.randomUUID();
 
-			register(`shared-counter-${uniqueName}`, ({ state, send }) => (
+			register(`shared-counter-${uniqueName}`, ({ count, increment }) => (
 				<div>
-					Count: {state.counter.count}
-					<button type="button" onClick={() => send(increment())}>
+					Count: {count}
+					<button type="button" onClick={increment}>
 						+
 					</button>
 				</div>
 			));
 
-			register(`shared-display-${uniqueName}`, ({ state }) => (
-				<div>Count: {state.counter.count}</div>
+			register(`shared-display-${uniqueName}`, ({ count }) => (
+				<div>Count: {count}</div>
 			));
 
 			const counterElement = document.createElement(
@@ -88,21 +92,25 @@ describe("igniteRedux", () => {
 			const register = igniteCore({
 				adapter: "redux",
 				source: counterStore,
+				states: (snapshot) => ({ count: snapshot.counter.count }),
+				commands: ({ actor }) => ({
+					increment: () => actor.dispatch(increment()),
+				}),
 			});
 
 			uniqueName = crypto.randomUUID();
 
-			register(`isolated-counter-${uniqueName}`, ({ state, send }) => (
+			register(`isolated-counter-${uniqueName}`, ({ count, increment }) => (
 				<div>
-					Count: {state.counter.count}
-					<button type="button" onClick={() => send(increment())}>
+					Count: {count}
+					<button type="button" onClick={increment}>
 						+
 					</button>
 				</div>
 			));
 
-			register(`isolated-display-${uniqueName}`, ({ state }) => (
-				<div>Count: {state.counter.count}</div>
+			register(`isolated-display-${uniqueName}`, ({ count }) => (
+				<div>Count: {count}</div>
 			));
 
 			const counterElement = document.createElement(

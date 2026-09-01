@@ -12,12 +12,12 @@ type RuntimeEventMap = {
 function createRegister() {
 	const store = counterStore();
 	type StoreState = InferStateAndEvent<typeof store>["State"];
-	type StoreView = { count: number; isEven: boolean };
+	type StoreStates = { count: number; isEven: boolean };
 
 	const runtimeConfig = {
 		adapter: "redux",
 		source: store,
-		view: ({ snapshot }: { snapshot: StoreState }): StoreView => ({
+		states: (snapshot: StoreState): StoreStates => ({
 			count: snapshot.counter.count,
 			isEven: snapshot.counter.count % 2 === 0,
 		}),

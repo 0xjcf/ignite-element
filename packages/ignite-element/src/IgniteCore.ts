@@ -9,10 +9,7 @@ import type {
 	ActorWebExtendedState,
 	ActorWebSource,
 } from "@ignite-element/adapters/actor-web";
-import type {
-	ExtendedState,
-	XStateCommandActor,
-} from "@ignite-element/adapters/xstate";
+import type { XStateCommandActor } from "@ignite-element/adapters/xstate";
 import {
 	isXStateActor,
 	isXStateMachine,
@@ -20,7 +17,12 @@ import {
 import type { IgniteAdapter } from "@ignite-element/core";
 import { StateScope } from "@ignite-element/core";
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
-import type { AnyStateMachine, EmittedFrom, EventFrom } from "xstate";
+import type {
+	AnyStateMachine,
+	EmittedFrom,
+	EventFrom,
+	StateFrom,
+} from "xstate";
 import igniteElementFactory, {
 	type ComponentFactory,
 	type IgniteRenderArgs,
@@ -188,9 +190,9 @@ export function igniteCore<
 >(
 	options: XStateConfig<Machine, Events, StatesResult, CommandsResult>,
 ): IgniteCoreReturn<
-	ExtendedState<Machine>,
+	StateFrom<Machine>,
 	EventFrom<Machine>,
-	ExtendedState<Machine>,
+	StateFrom<Machine>,
 	StatesResult,
 	XStateCommandActor<Machine>,
 	CommandsResult,

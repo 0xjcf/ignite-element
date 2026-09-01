@@ -1,13 +1,9 @@
 import type {
 	InferStateAndEvent,
-	MobxEvent,
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
 } from "@ignite-element/adapters";
-import type {
-	ExtendedState,
-	XStateCommandActor,
-} from "@ignite-element/adapters/xstate";
+import type { XStateCommandActor } from "@ignite-element/adapters/xstate";
 import type {
 	CommandCanExecuteContext,
 	CommandCanExecutePredicate,
@@ -21,7 +17,6 @@ import type {
 	EffectSelection as CoreEffectSelection,
 	EffectSelector as CoreEffectSelector,
 	FacadeEffectArgs as CoreFacadeEffectArgs,
-	ViewContext as CoreViewContext,
 	EmitFromEvents,
 	EmptyEventMap,
 	EventBuilder,
@@ -33,12 +28,12 @@ import type {
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeEffectsObjectCallback,
-	FacadeViewCallback,
+	FacadeStatesCallback,
 	NumberCommandInputMetadata,
 	NumberCommandInputOptions,
 } from "@ignite-element/core";
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
-import type { AnyStateMachine, EventFrom, StateFrom } from "xstate";
+import type { AnyStateMachine, StateFrom } from "xstate";
 
 export type {
 	EmptyEventMap,
@@ -52,7 +47,7 @@ export type {
 	EventPayload,
 	FacadeCommandFunction,
 	FacadeCommandResult,
-	FacadeViewCallback,
+	FacadeStatesCallback,
 	CommandHelper,
 	CommandCanExecuteContext,
 	CommandCanExecutePredicate,
@@ -89,8 +84,6 @@ export type FacadeEffectArgs<
 	Events extends EventMap = EmptyEventMap,
 	Host = HTMLElement,
 > = CoreFacadeEffectArgs<Snapshot, Actor, Events, Host>;
-export type ViewContext<Snapshot> = CoreViewContext<Snapshot>;
-
 export type { IgniteSchemaValue } from "./types/schema";
 
 export type FacadeCommandsCallback<
@@ -99,34 +92,6 @@ export type FacadeCommandsCallback<
 	Host = HTMLElement,
 	Snapshot = unknown,
 > = (context: CommandContext<Actor, Host, Snapshot>) => Result;
-
-type AdapterState<Source> = Source extends AnyStateMachine
-	? ExtendedState<Source>
-	: Source extends Slice
-		? InferStateAndEvent<Source>["State"]
-		: Source extends () => EnhancedStore
-			? InferStateAndEvent<Source>["State"]
-			: Source extends EnhancedStore
-				? InferStateAndEvent<Source>["State"]
-				: Source extends () => object
-					? ReturnType<Source>
-					: Source extends object
-						? Source
-						: never;
-
-type AdapterEvent<Source> = Source extends AnyStateMachine
-	? EventFrom<Source>
-	: Source extends Slice
-		? InferStateAndEvent<Source>["Event"]
-		: Source extends () => EnhancedStore
-			? InferStateAndEvent<Source>["Event"]
-			: Source extends EnhancedStore
-				? InferStateAndEvent<Source>["Event"]
-				: Source extends () => object
-					? MobxEvent<ReturnType<Source>>
-					: Source extends object
-						? MobxEvent<Source>
-						: never;
 
 type AdapterSnapshot<Source> = Source extends AnyStateMachine
 	? StateFrom<Source>
@@ -162,7 +127,7 @@ type StateResult<
 	Source,
 	StateCallback,
 	Result = [StateCallback] extends [
-		FacadeViewCallback<AdapterSnapshot<Source>, infer Result>,
+		FacadeStatesCallback<AdapterSnapshot<Source>, infer Result>,
 	]
 		? Result
 		: Record<never, never>,
@@ -183,15 +148,9 @@ type CommandResult<
 		: Record<never, never>,
 > = IsNever<CommandCallback> extends true ? Record<never, never> : Result;
 
-type BaseRenderArgs<Source> = {
-	state: AdapterState<Source>;
-	send: (event: AdapterEvent<Source>) => void;
-};
-
 export type RenderArgs<
 	Source,
 	StateCallback = undefined,
 	CommandCallback = undefined,
-> = BaseRenderArgs<Source> &
-	StateResult<Source, NonNullable<StateCallback>> &
+> = StateResult<Source, NonNullable<StateCallback>> &
 	CommandResult<Source, NonNullable<CommandCallback>>;
