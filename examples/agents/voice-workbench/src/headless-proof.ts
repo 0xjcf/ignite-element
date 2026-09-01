@@ -1,7 +1,7 @@
 /// <reference types="node" />
 
 import "@ignite-element/renderer/jsx";
-import { test as igniteTest } from "ignite-element/testing";
+import { test as igniteTest } from "ignite-element/xstate";
 import type { ModelTurnPortRequest } from "./model-turn";
 import { createVoiceWorkbenchSessionActor } from "./session";
 import { createVoiceWorkbenchComponent } from "./workbench-component";

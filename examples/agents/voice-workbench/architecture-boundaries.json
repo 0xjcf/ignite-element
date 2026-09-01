@@ -147,7 +147,7 @@
 				"composition",
 				"host-root"
 			],
-			"allowedExternalRuntimeImports": ["ignite-element/testing"],
+			"allowedExternalRuntimeImports": [],
 			"disposition": "move"
 		}
 	],

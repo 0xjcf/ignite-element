@@ -15,6 +15,8 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@ignite-element/renderer": "3.0.0-beta.10",
+		"ignite-element": "3.0.0-beta.10",
 		"xstate": "5.32.1"
 	},
 	"devDependencies": {

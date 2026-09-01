@@ -8,6 +8,12 @@ importers:
 
   .:
     dependencies:
+      '@ignite-element/renderer':
+        specifier: 3.0.0-beta.10
+        version: 3.0.0-beta.10
+      ignite-element:
+        specifier: 3.0.0-beta.10
+        version: 3.0.0-beta.10(xstate@5.32.1)
       xstate:
         specifier: 5.32.1
         version: 5.32.1
@@ -238,6 +244,37 @@ packages:
       '@noble/hashes': ^1.8.0 || ^2.0.0
     peerDependenciesMeta:
       '@noble/hashes':
+        optional: true
+
+  '@ignite-element/adapters@3.0.0-beta.10':
+    resolution: {integrity: sha512-SK0yU2lfBxs8NK0I91Tdf4UnjM5QuCysaGhID2Fwb5xgRZgwR1bsIHnu1wYAMyLT1XZU5gclRGPzBFIZjRmqQw==}
+    peerDependencies:
+      '@actor-web/runtime': '>=0.2.0'
+      '@reduxjs/toolkit': '>=2.3.0'
+      mobx: '>=6.13.5'
+      redux: '>=5.0.1'
+      xstate: '>=5.19.0'
+    peerDependenciesMeta:
+      '@actor-web/runtime':
+        optional: true
+      '@reduxjs/toolkit':
+        optional: true
+      mobx:
+        optional: true
+      redux:
+        optional: true
+      xstate:
+        optional: true
+
+  '@ignite-element/core@3.0.0-beta.10':
+    resolution: {integrity: sha512-TzKO4eVUD6yle0hiQoBXJx+kS0fnwkDF+hn1aVm844Jg3YFIDvvqHonc8WcsdxYinZgMS4IkPLvCSeRP2iIN9g==}
+
+  '@ignite-element/renderer@3.0.0-beta.10':
+    resolution: {integrity: sha512-qy3nMQ9kqL4GA/L3FMl/swCorX9t/WquyBmG2MpHjBV9Z4iNgpuYExiIx0IghyrAP5X8ntBooosG7JjvUD7FMQ==}
+    peerDependencies:
+      lit-html: '>=3.2.1'
+    peerDependenciesMeta:
+      lit-html:
         optional: true
 
   '@jridgewell/sourcemap-codec@1.5.5':
@@ -495,6 +532,30 @@ packages:
   https-proxy-agent@7.0.6:
     resolution: {integrity: sha512-vK9P5/iUfdl95AI+JVyUuIcVtd4ofvtrOr3HNtM2yxC9bnMbEdp3x01OhQNnjb8IJYi38VlTE3mBXwcfvywuSw==}
     engines: {node: '>= 14'}
+
+  ignite-element@3.0.0-beta.10:
+    resolution: {integrity: sha512-AttelrPt6avAu1wR80ch82NUL5cZRLOElekqxQJhyGaqHdgycFYbuhzxowX+nNczmuLkuXrRkk68SuVtQZkptg==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      '@reduxjs/toolkit': '>=2.3.0'
+      lit-html: '>=3.2.1'
+      mobx: '>=6.13.5'
+      react: '>=18'
+      redux: '>=5.0.1'
+      xstate: '>=5.19.0'
+    peerDependenciesMeta:
+      '@reduxjs/toolkit':
+        optional: true
+      lit-html:
+        optional: true
+      mobx:
+        optional: true
+      react:
+        optional: true
+      redux:
+        optional: true
+      xstate:
+        optional: true
 
   is-potential-custom-element-name@1.0.1:
     resolution: {integrity: sha512-bCYeRA2rVibKZd+s2625gGnGF/t7DSqDs4dP7CrLA1m7jKWz6pps0LpYLJN8Q64HtmPKJ1hrN3nzPNKFEKOUiQ==}
@@ -869,6 +930,16 @@ snapshots:
 
   '@exodus/bytes@1.15.1': {}
 
+  '@ignite-element/adapters@3.0.0-beta.10(xstate@5.32.1)':
+    dependencies:
+      '@ignite-element/core': 3.0.0-beta.10
+    optionalDependencies:
+      xstate: 5.32.1
+
+  '@ignite-element/core@3.0.0-beta.10': {}
+
+  '@ignite-element/renderer@3.0.0-beta.10': {}
+
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
   '@rollup/rollup-android-arm-eabi@4.62.2':
@@ -1098,6 +1169,16 @@ snapshots:
       debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
+
+  ignite-element@3.0.0-beta.10(xstate@5.32.1):
+    dependencies:
+      '@ignite-element/adapters': 3.0.0-beta.10(xstate@5.32.1)
+      '@ignite-element/core': 3.0.0-beta.10
+      '@ignite-element/renderer': 3.0.0-beta.10
+    optionalDependencies:
+      xstate: 5.32.1
+    transitivePeerDependencies:
+      - '@actor-web/runtime'
 
   is-potential-custom-element-name@1.0.1: {}
 

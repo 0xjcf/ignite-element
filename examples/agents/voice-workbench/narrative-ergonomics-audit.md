@@ -11,7 +11,7 @@ The shipped `igniteTest({ component }).story(...)` helper, `record()`,
 `snapshotStory()`, named checkpoints, command availability checks, ordinary test
 assertions, and cleanup semantics already cover the Voice Workbench stories
 with strong enough diagnostics to close this task without changing
-`ignite-element/testing`.
+the `test` export from `ignite-element/xstate`.
 
 The remaining friction does not cross the brief threshold for public API growth:
 there are not two repeated consumer problems that point to the same missing

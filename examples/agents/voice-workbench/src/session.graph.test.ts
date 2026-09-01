@@ -1,4 +1,4 @@
-import { test as igniteTest } from "ignite-element/testing";
+import { test as igniteTest } from "ignite-element/xstate";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createActor } from "xstate";
 import {

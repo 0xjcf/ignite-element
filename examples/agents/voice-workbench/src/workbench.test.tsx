@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { test as igniteTest } from "ignite-element/testing";
+import { test as igniteTest } from "ignite-element/xstate";
 import { describe, expect, it } from "vitest";
 import type { ModelFailureFact } from "./agent-loop";
 import type { DomainPolicyDecision } from "./domains/contracts";
