@@ -6,6 +6,12 @@ const packageJson = JSON.parse(
 	readFileSync(new URL("./../package.json", import.meta.url), "utf8"),
 );
 
+assert.equal(
+	Object.hasOwn(packageJson, "main"),
+	false,
+	"The ESM-only package must not advertise a CommonJS main entrypoint.",
+);
+
 const expectedPublicSubpaths = [
 	".",
 	"./xstate",
@@ -282,7 +288,23 @@ for (const subpath of expectedPublicSubpaths) {
 		continue;
 	}
 
-	const typesEntry = packageJson.exports[subpath]?.types;
+	const exportEntry = packageJson.exports[subpath];
+	assert.equal(
+		Object.hasOwn(exportEntry, "require"),
+		false,
+		`ESM-only export ${subpath} must not advertise a require condition.`,
+	);
+	assert.equal(
+		exportEntry.default,
+		exportEntry.import,
+		`Default export condition for ${subpath} must resolve to its ESM entrypoint.`,
+	);
+	assert.ok(
+		existsSync(new URL(`./../${exportEntry.import}`, import.meta.url)),
+		`Missing built ESM file for ${subpath}: ${exportEntry.import}.`,
+	);
+
+	const typesEntry = exportEntry.types;
 	assert.equal(
 		typeof typesEntry,
 		"string",
@@ -307,20 +329,9 @@ for (const subpath of removedStableSubpaths) {
 }
 
 assertDistGraphDoesNotReference("xstate.es.js", ["mobx", "@reduxjs/toolkit"]);
-assertDistGraphDoesNotReference("xstate.cjs.js", ["mobx", "@reduxjs/toolkit"]);
 assertDistGraphDoesNotReference("redux.es.js", ['"mobx"', '"xstate"']);
-assertDistGraphDoesNotReference("redux.cjs.js", ['"mobx"', '"xstate"']);
 assertDistGraphDoesNotReference("mobx.es.js", ['"xstate"', "@reduxjs/toolkit"]);
-assertDistGraphDoesNotReference("mobx.cjs.js", [
-	'"xstate"',
-	"@reduxjs/toolkit",
-]);
 assertDistGraphDoesNotReference("actor-web.es.js", [
-	'"xstate"',
-	"@reduxjs/toolkit",
-	'"mobx"',
-]);
-assertDistGraphDoesNotReference("actor-web.cjs.js", [
 	'"xstate"',
 	"@reduxjs/toolkit",
 	'"mobx"',
@@ -347,9 +358,20 @@ assert.ok(
 );
 
 const distDir = new URL("./../dist/", import.meta.url);
-const polyfillChunks = readdirSync(distDir, { recursive: true })
-	.map((entry) => `./dist/${String(entry).split(path.sep).join("/")}`)
-	.filter((entry) => /\.(js|cjs)$/.test(entry))
+const distEntries = readdirSync(distDir, { recursive: true }).map(
+	(entry) => `./dist/${String(entry).split(path.sep).join("/")}`,
+);
+const legacyModuleArtifacts = distEntries.filter((entry) =>
+	/(?:\.cjs(?:\.|$)|\.umd(?:\.|$))/.test(entry),
+);
+assert.deepEqual(
+	legacyModuleArtifacts,
+	[],
+	"The ESM-only dist must not contain CommonJS or UMD artifacts.",
+);
+
+const polyfillChunks = distEntries
+	.filter((entry) => entry.endsWith(".js"))
 	.filter((entry) =>
 		polyfillMarker.test(
 			readFileSync(new URL(`.${entry}`, import.meta.url), "utf8"),

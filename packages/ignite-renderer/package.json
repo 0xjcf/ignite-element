@@ -2,7 +2,6 @@
 	"name": "@ignite-element/renderer",
 	"version": "3.0.0-beta.10",
 	"type": "module",
-	"main": "dist/ignite-renderer.cjs.js",
 	"module": "dist/ignite-renderer.es.js",
 	"types": "dist/types/index.d.ts",
 	"description": "Advanced renderer and runtime utilities for ignite-element.",
@@ -29,45 +28,37 @@
 		".": {
 			"types": "./dist/types/index.d.ts",
 			"import": "./dist/ignite-renderer.es.js",
-			"require": "./dist/ignite-renderer.cjs.js",
 			"default": "./dist/ignite-renderer.es.js"
 		},
 		"./jsx": {
 			"types": "./dist/types/renderers/ignite-jsx.d.ts",
 			"import": "./dist/jsx.es.js",
-			"require": "./dist/jsx.cjs.js",
 			"default": "./dist/jsx.es.js"
 		},
 		"./lit": {
 			"types": "./dist/types/renderers/lit.d.ts",
 			"import": "./dist/lit.es.js",
-			"require": "./dist/lit.cjs.js",
 			"default": "./dist/lit.es.js"
 		},
 		"./jsx-runtime": {
 			"types": "./dist/types/jsx/jsx-runtime.d.ts",
 			"import": "./dist/jsx-runtime.es.js",
-			"require": "./dist/jsx-runtime.cjs.js",
 			"default": "./dist/jsx-runtime.es.js"
 		},
 		"./jsx-dev-runtime": {
 			"types": "./dist/types/jsx/jsx-dev-runtime.d.ts",
 			"import": "./dist/jsx-dev-runtime.es.js",
-			"require": "./dist/jsx-dev-runtime.cjs.js",
 			"default": "./dist/jsx-dev-runtime.es.js"
 		},
 		"./jsx/index": {
 			"types": "./dist/types/jsx/index.d.ts",
 			"import": "./dist/jsx/index.es.js",
-			"require": "./dist/jsx/index.cjs.js",
 			"default": "./dist/jsx/index.es.js"
 		}
 	},
 	"sideEffects": [
 		"./dist/jsx.es.js",
-		"./dist/jsx.cjs.js",
-		"./dist/lit.es.js",
-		"./dist/lit.cjs.js"
+		"./dist/lit.es.js"
 	],
 	"files": [
 		"dist",

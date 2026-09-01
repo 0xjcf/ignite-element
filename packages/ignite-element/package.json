@@ -2,7 +2,6 @@
 	"name": "ignite-element",
 	"version": "3.0.0-beta.10",
 	"type": "module",
-	"main": "dist/ignite-element.cjs.js",
 	"types": "dist/types/index.d.ts",
 	"module": "dist/ignite-element.es.js",
 	"typesVersions": {
@@ -46,73 +45,61 @@
 		".": {
 			"types": "./dist/types/index.d.ts",
 			"import": "./dist/ignite-element.es.js",
-			"require": "./dist/ignite-element.cjs.js",
 			"default": "./dist/ignite-element.es.js"
 		},
 		"./xstate": {
 			"types": "./dist/types/xstate.d.ts",
 			"import": "./dist/xstate.es.js",
-			"require": "./dist/xstate.cjs.js",
 			"default": "./dist/xstate.es.js"
 		},
 		"./redux": {
 			"types": "./dist/types/redux.d.ts",
 			"import": "./dist/redux.es.js",
-			"require": "./dist/redux.cjs.js",
 			"default": "./dist/redux.es.js"
 		},
 		"./mobx": {
 			"types": "./dist/types/mobx.d.ts",
 			"import": "./dist/mobx.es.js",
-			"require": "./dist/mobx.cjs.js",
 			"default": "./dist/mobx.es.js"
 		},
 		"./actor-web": {
 			"types": "./dist/types/actor-web.d.ts",
 			"import": "./dist/actor-web.es.js",
-			"require": "./dist/actor-web.cjs.js",
 			"default": "./dist/actor-web.es.js"
 		},
 		"./jsx": {
 			"types": "./dist/types/jsx/index.d.ts",
 			"import": "./dist/jsx/index.es.js",
-			"require": "./dist/jsx/index.cjs.js",
 			"default": "./dist/jsx/index.es.js"
 		},
 		"./jsx/jsx-runtime": {
 			"types": "./dist/types/jsx/jsx-runtime.d.ts",
 			"import": "./dist/jsx/jsx-runtime.es.js",
-			"require": "./dist/jsx/jsx-runtime.cjs.js",
 			"default": "./dist/jsx/jsx-runtime.es.js"
 		},
 		"./jsx/jsx-dev-runtime": {
 			"types": "./dist/types/jsx/jsx-dev-runtime.d.ts",
 			"import": "./dist/jsx/jsx-dev-runtime.es.js",
-			"require": "./dist/jsx/jsx-dev-runtime.cjs.js",
 			"default": "./dist/jsx/jsx-dev-runtime.es.js"
 		},
 		"./react": {
 			"types": "./dist/types/react/index.d.ts",
 			"import": "./dist/react.es.js",
-			"require": "./dist/react.cjs.js",
 			"default": "./dist/react.es.js"
 		},
 		"./tools": {
 			"types": "./dist/types/tools/index.d.ts",
 			"import": "./dist/tools.es.js",
-			"require": "./dist/tools.cjs.js",
 			"default": "./dist/tools.es.js"
 		},
 		"./tools/anthropic": {
 			"types": "./dist/types/tools/anthropic/index.d.ts",
 			"import": "./dist/tools/anthropic.es.js",
-			"require": "./dist/tools/anthropic.cjs.js",
 			"default": "./dist/tools/anthropic.es.js"
 		},
 		"./tools/openai": {
 			"types": "./dist/types/tools/openai/index.d.ts",
 			"import": "./dist/tools/openai.es.js",
-			"require": "./dist/tools/openai.cjs.js",
 			"default": "./dist/tools/openai.es.js"
 		},
 		"./package.json": "./package.json"
@@ -146,9 +133,7 @@
 	"sideEffects": [
 		"./src/internal/setupDomPolyfill.ts",
 		"./dist/projectionTargets-*.js",
-		"./dist/projectionTargets-*.cjs",
-		"./dist/testing-*.js",
-		"./dist/testing-*.cjs"
+		"./dist/testing-*.js"
 	],
 	"scripts": {
 		"build:types": "tsc",

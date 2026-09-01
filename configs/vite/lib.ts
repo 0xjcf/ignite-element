@@ -22,6 +22,7 @@ export function createLibConfig({
 			outDir,
 			lib: {
 				entry,
+				formats: ["es"],
 				name,
 				fileName: (format: ModuleFormat, entryName: string) =>
 					entryName === "index"

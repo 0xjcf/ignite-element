@@ -11,8 +11,8 @@ const repositoryRoot = resolve(
 
 const packageDirectories = [
 	"packages/ignite-core",
-	"packages/adapters",
-	"packages/renderer",
+	"packages/ignite-adapters",
+	"packages/ignite-renderer",
 	"packages/ignite-element",
 ];
 
@@ -64,7 +64,9 @@ test("publishable package manifests advertise ESM-only entrypoints", () => {
 			);
 		}
 
-		for (const sideEffect of manifest.sideEffects ?? []) {
+		for (const sideEffect of Array.isArray(manifest.sideEffects)
+			? manifest.sideEffects
+			: []) {
 			assert.doesNotMatch(
 				sideEffect,
 				/(?:\.cjs(?:\.|$)|\.umd(?:\.|$))/,

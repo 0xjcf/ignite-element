@@ -40,6 +40,9 @@ jobs:
       - name: Build packages
         run: pnpm run build
 
+      - name: Verify packed ESM consumers
+        run: pnpm run verify:packed
+
       - name: Run tests and generate coverage
         run: pnpm run test:coverage
 
