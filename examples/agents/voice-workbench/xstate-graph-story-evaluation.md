@@ -12,7 +12,7 @@ Direct composition is sufficient:
 
 - XState owns graph generation and raw machine snapshots.
 - Story owns user intent, fixture-owned boundary behavior, semantic checkpoints,
-  view evidence, command-availability evidence, and the ordinary receipt/trace
+  derived-states evidence, command-availability evidence, and the ordinary receipt/trace
   output.
 - The example-local fixture owns fresh actor/runtime/component construction and
   cleanup for each replayed path.
@@ -48,7 +48,7 @@ Neither cost justifies a new bridge API.
 3. Use `igniteTest({ component }).story(...)` plus a fresh local fixture to
    prove the real behavioral path:
    `ready -> submit prompt -> timeout -> ready`.
-4. Checkpoint the semantic snapshot, projected view, and command availability,
+4. Checkpoint the semantic snapshot, derived states, and command availability,
    while preserving the ordinary Story trace and receipt output.
 
 This split is intentional. Raw graph traversal can use the preparation receipt

@@ -19,7 +19,7 @@ callable right now?"** before trying it. Two consumers need that:
   disabling a control.
 
 A component's **own** UI does *not* use this — it derives `disabled` from the
-destructured view args, source-native (`snapshot.can(...)` for xstate,
+destructured renderer args, source-native (`snapshot.can(...)` for xstate,
 `snapshot.matches(...)`, …). `canExecute` is the **headless/agent surface** (see the
 two-surface rule below).
 
@@ -157,7 +157,7 @@ the runner's matchers for scalars.
 - **Backed by `getSchema` metadata** — rejected: schema is JSON; a predicate can't live
   there (the original brief's contradiction).
 - **`watchCanExecute` reactive primitive** — rejected: redundant with calling
-  `canExecute` inside the existing view/watch.
+  `canExecute` alongside the existing states/watch surface.
 
 ## Impact
 

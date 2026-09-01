@@ -35,7 +35,7 @@ const counter = igniteCore({
 const { snapshot, states, events } = await counter.execute({ command: 'toggle' });
 const isToggleAvailable = counter.canExecute('toggle');
 const current = counter.getSnapshot();
-const states = counter.getStates();
+const currentStates = counter.getStates();
 const schema = counter.getSchema();
 ```
 
@@ -249,7 +249,7 @@ This separation is intentional:
 
 - `getSchema()` tells you what the runtime exposes right now in JSON-safe form.
 - `canExecute()` answers dynamic command availability.
-- `execute()` performs the transition and returns the resulting snapshot plus emitted events.
+- `execute()` performs the transition and returns the resulting snapshot, derived states, and emitted events.
 - `on(...)` and `watchStates(...)` keep long-lived observers in sync across bootstrap and after the initial schema read.
 
 Ignite does not expose a second `getBlueprint()` alias, a public `inspect()` method, or a public inspection-bundle type. Internally, each projection validation and commit attempt captures one private coherent inspection, so the document and behavior facts for that attempt come from the same captured revision. An asynchronous external commit is not transactional with source transitions that occur later; the captured inspection is not part of the headless API.
@@ -262,7 +262,7 @@ Ignite does not expose a second `getBlueprint()` alias, a public `inspect()` met
 
 Starts a named [story](/ignite-element/api/testing-dsl/#stories) recorder over the same runtime.
 
-**Returns** a [story](/ignite-element/api/testing-dsl/#stories) — an object that records command, snapshot, view, and event activity as one ordered behavior trace (`execute`, `until`, `trace`, `lifecycle`, `summary`, `stop`).
+**Returns** a [story](/ignite-element/api/testing-dsl/#stories) — an object that records command, native snapshot, derived states, and event activity as one ordered behavior trace (`execute`, `until`, `trace`, `lifecycle`, `summary`, `stop`). Its summary exposes `finalSnapshot` and `finalStates`, and derived-state trace entries use `kind: 'states'`.
 
 ```ts
 const story = counter.record('toggles on');

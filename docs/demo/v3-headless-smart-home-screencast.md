@@ -113,7 +113,7 @@ Show the terminal output:
 - initial state,
 - scripted prompt,
 - `toggleLight`, `setThermostat`, `lockDoor`, and `runScene` tool calls,
-- final projected view.
+- final derived states.
 
 Narration:
 
@@ -153,7 +153,7 @@ Show the terminal receiving the same updated view.
 Narration:
 
 > The Node process owns one headless runtime. The terminal agent and the browser
-> bridge both use the same command/view contract, so changes made on either side
+> bridge both use the same command/states contract, so changes made on either side
 > stay synchronized.
 
 ### 3:20 - Optional actor-web runtime swap

@@ -14,7 +14,7 @@ the ignite element that renders it.
 | --- | --- | --- |
 | `src/validation.ts` | functional core | Pure validators (`required` / email shape / min length). No I/O. |
 | `src/formMachine.ts` | functional core | XState v5 machine: `editing → submitting → success`, a `canSubmit` guard, and the one async seam (`submitForm`) modelled as a `fromPromise` actor. |
-| `src/form.tsx` | ignite element | `igniteCore({ source, view, commands })` + the ignite-JSX view. Registers `<signup-form>`. |
+| `src/form.tsx` | ignite element | `igniteCore({ source, states, commands })` + the ignite-JSX renderer view. Registers `<signup-form>`. |
 | `src/form.css` | styling | Injected into the Shadow DOM via `?raw` (document CSS can't reach shadow content). |
 
 ## What it shows
@@ -28,8 +28,8 @@ the ignite element that renders it.
   (button shows "Creating account…"); the mock server rejects `taken@example.com`
   to show the error returning you to `editing` with a message.
 - **Idiomatic ignite.** Commands derive from the injected `actor` and use
-  source-native `actor.send`; the view is a pure projection of the snapshot
-  (`{ snapshot }` — the forward-compatible context shape).
+  source-native `actor.send`; `states(snapshot)` derives the renderer-ready read
+  model from the bare native snapshot.
 
 ## Headless-testable
 

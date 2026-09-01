@@ -12,7 +12,7 @@ Ignite is a good fit when these are true:
 
 - You need one UI contract that can ship to plain HTML, React, Vue, tests, or automation.
 - Your team already has state logic in XState, Redux Toolkit, MobX, or Actor-Web and does not want to rewrite it into a framework-local model.
-- You want commands, projected view state, effects, and typed public events to stay explicit and inspectable.
+- You want commands, derived states, effects, renderer views, and typed public events to stay explicit and inspectable.
 - You need a headless runtime that agents, tests, and wrappers can drive through `execute()`, `getStates()`, `getSchema()`, and `canExecute()`.
 
 Ignite is usually the wrong fit when these are true:
@@ -59,10 +59,10 @@ That separation matters for long-lived design systems and agent-facing workflows
 
 Ignite is a strong fit when the same component needs to serve humans and tools:
 
-- `getSchema()` exposes commands, declared events, snapshot, and projected view as JSON-serializable data.
+- `getSchema()` exposes commands, declared events, snapshot, and derived states as JSON-serializable data.
 - `canExecute()` answers whether a gated command is currently available.
-- `execute()` runs the command and returns the resulting snapshot plus emitted events.
-- `on(...)` and `watchStates(...)` let tools observe public events and projected state over time.
+- `execute()` runs the command and returns the resulting snapshot, derived states, and emitted events.
+- `on(...)` and `watchStates(...)` let tools observe public events and derived states over time.
 
 That is why Ignite works well for test DSLs, assistant workflows, and tool-calling adapters without requiring DOM scraping as the primary integration surface.
 

@@ -48,7 +48,7 @@ pnpm run examples:xstate
 | `advancedCounterMachine.ts` | The XState machine definition used for both shared and isolated variants. |
 | `xstateAgentRuntimeShowcase.tsx` | Demonstrates the headless agent runtime API exposed by the same `igniteCore(...)` registration. |
 | `xstateApiShowcaseRuntime.ts` | Exports the shared `apiShowcase` runtime contract used by both showcase elements. |
-| `xstateApiShowcase.tsx` | Renders the v3 authoring API: `view`, `commands`, declared events, and effects. |
+| `xstateApiShowcase.tsx` | Renders the v3 authoring API: `states`, `commands`, declared events, effects, and a renderer view. |
 | `xstateExample.tsx` | Registers web components via `igniteCore` using the Ignite JSX renderer. |
 | `dist/styles.css` | Tailwind build output linked from `index.html` for playground-wide utility classes. |
 | `index.html` | Hosts the custom elements during development. |
@@ -214,7 +214,7 @@ The example also exposes the same runtime on `window.__igniteExamples.apiShowcas
 const runtime = window.__igniteExamples?.apiShowcase;
 const story = runtime?.record("browser proof");
 
-await story?.until((view) => view.stateLabel === "Limit reached", async () => {
+await story?.until((states) => states.stateLabel === "Limit reached", async () => {
   await story.execute({ command: "increment" });
 });
 story?.trace();

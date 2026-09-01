@@ -6,7 +6,7 @@ sidebar:
   order: 3
 ---
 
-Ignite Element is behavior-first. The same `igniteCore(...)` registration that creates a custom element also exposes a headless runtime, so agents and tests can inspect the contract, execute commands, observe events, and verify projected view state before any DOM selector exists.
+Ignite Element is behavior-first. The same `igniteCore(...)` registration that creates a custom element also exposes a headless runtime, so agents and tests can inspect the contract, execute commands, observe events, and verify derived states before any DOM selector exists.
 
 The practical model is:
 
@@ -20,7 +20,7 @@ This guide is the narrative walkthrough. For exact signatures and return shapes,
 
 ## Behavior-first components
 
-Start by describing the state source, projected view, commands, events, and effects. `igniteCore(...)` infers `snapshot`, `prevSnapshot`, `emit`, `select`, `actor`, and `host` from the `source` plus your `events` builder, so standard authoring needs no internal helper-type imports.
+Start by describing the state source, derived states, commands, events, and effects. `igniteCore(...)` infers `snapshot`, `prevSnapshot`, `emit`, `select`, `actor`, and `host` from the `source` plus your `events` builder, so standard authoring needs no internal helper-type imports.
 
 ```ts no-check
 import { igniteCore } from 'ignite-element/xstate';
@@ -65,8 +65,8 @@ export const counter = igniteCore({
 That registration gives agents a contract to inspect and a command surface to drive — all without the DOM:
 
 ```ts
-counter.getSchema(); // commands + metadata + events + state shape
-counter.getStates();   // current projected view
+counter.getSchema(); // commands + metadata + events + snapshot + states
+counter.getStates();   // current derived states
 counter.canExecute('increment'); // current command availability
 
 await counter.execute({ command: 'setLimit', input: 6 });
@@ -82,15 +82,15 @@ See [Headless runtime](/ignite-element/api/headless-runtime/) for every method (
 
 In practice, the loop is:
 
-1. Read `getSchema()` to discover commands, declared events, snapshot, and projected view.
+1. Read `getSchema()` to discover commands, declared events, snapshot, and derived states.
 2. Use command metadata input schemas to shape payloads instead of guessing argument structure.
 3. Check `canExecute()` when a command is marked as `gated`.
-4. Run `execute()` and inspect the returned snapshot plus emitted events.
+4. Run `execute()` and inspect the returned snapshot, derived states, and emitted events.
 5. Keep long-lived observers attached with `on(...)` or `watchStates(...)` when the workflow spans multiple actions.
 
 ## Add the DOM layer
 
-Once the behavior is stable, the custom element stays thin — it consumes projected view values and command functions. The default DOM layer uses the public `ignite-element/jsx` runtime and ordinary local style tags; no project config is required.
+Once the behavior is stable, the custom element stays thin — its renderer consumes derived states and command functions to produce the view. The default DOM layer uses the public `ignite-element/jsx` runtime and ordinary local style tags; no project config is required.
 
 ```tsx
 const panelStyles = `
@@ -171,13 +171,13 @@ That means an agent or provider can keep the contract discovery step pure and JS
 
 ## Story recording
 
-Stories make behavior workflows first-class: a recorder captures command, event, state, and projected-view changes as one trace, while DOM lifecycle evidence stays on a separate channel of the same story object. Serialize a trace for snapshot tests with `igniteTest.serializeTrace(...)` and assert ordered checkpoints with `igniteTest.expectTrace(...)`.
+Stories make behavior workflows first-class: a recorder captures command, event, native-snapshot, and derived-states changes as one trace, while DOM lifecycle evidence stays on a separate channel of the same story object. Serialize a trace for snapshot tests with `igniteTest.serializeTrace(...)` and assert ordered checkpoints with `igniteTest.expectTrace(...)`.
 
 ```ts no-check
 const story = counter.record('reaches limit');
 
 await story.execute({ command: 'setLimit', input: 6 });
-await story.until((view) => view.isLimited, async () => {
+await story.until((states) => states.isLimited, async () => {
   await story.execute({ command: 'increment' });
 });
 

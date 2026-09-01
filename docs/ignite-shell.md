@@ -95,12 +95,12 @@ registerFasShell("fas-shell", () => (
 ### Why a new primitive, not optional `source` on `igniteCore`
 
 `igniteCore`'s contract *is* a projection pipeline —
-`source → adapter → snapshot → view(snapshot) → render(ctx)`, with `commands`
+`source → adapter → native snapshot → derived states → renderer view`, with `commands`
 dispatching to the source, `effects` reacting to transitions, and the agent
 runtime (`getSnapshot`/`getStates`/`execute`/`on`/`record`/`getSchema`) all keyed
 off the snapshot. Make `source` optional and every other field plus every runtime
 method becomes meaningless in the sourceless case, and the types must gate
-`view`/`commands`/`effects` on source-presence across all five adapter config
+`states`/`commands`/`effects` on source-presence across all five adapter config
 unions. That is not a smaller API — it is `igniteCore` with most of its contract
 amputated through optionality, and it destroys the property that
 `igniteCore({…})` always means "a reactive projection of a source." Two small,
@@ -115,7 +115,7 @@ apt — docs disambiguate in one line.
 
 ### The boundary (keeps it from rotting into a dumping ground)
 
-An `igniteShell` has **no source, no `view`, no `commands`, no `events`, no agent
+An `igniteShell` has **no source, no derived `states`, no `commands`, no `events`, no agent
 surface, and no attribute reactivity.** `render` is pure and takes no arguments,
 so it renders **once**. The moment you need any of those, you have state → use
 `igniteCore`. Agents walking the component tree see shell elements as opaque

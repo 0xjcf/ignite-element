@@ -6,9 +6,9 @@ sidebar:
   order: 1
 ---
 
-Ignite Element separates **state** from **rendering**. Your state lives in a source (an XState machine, a Redux store, a MobX observable, or an Actor-Web runtime); an **adapter** subscribes to it and hands Ignite snapshots; you **project** those snapshots into render props and expose **commands**. One `igniteCore` registration yields one custom element, and composition happens through HTML.
+Ignite Element separates **state** from **rendering**. Your state lives in a source (an XState machine, a Redux store, a MobX observable, or an Actor-Web runtime); an **adapter** subscribes to it and hands Ignite native snapshots; `states(snapshot)` derives a consumer-facing read model; and the registration **renderer** turns those states into a view. One `igniteCore` registration yields one custom element, and composition happens through HTML.
 
-The whole model is four ideas: who **owns** the source, how the **adapter** bridges it, how you **project** state into a view, and how **commands, events, and effects** move intent and consequences across the element boundary.
+The whole model is four ideas: who **owns** the source, how the **adapter** bridges it, how `states` derives the public read model, and how the renderer plus **commands, events, and effects** move presentation, intent, and consequences across the element boundary.
 
 ## Ownership model
 
@@ -184,7 +184,7 @@ Effect timing is deterministic, which is what makes the [headless runtime](/igni
 <figure class="ignite-lifecycle" style="color: var(--sl-color-text); margin-inline: 0;">
   <svg viewBox="0 0 760 230" role="img" aria-labelledby="ie-lifecycle-title ie-lifecycle-desc" width="100%" style="max-width: 760px; height: auto;">
     <title id="ie-lifecycle-title">Ignite Element data flow</title>
-    <desc id="ie-lifecycle-desc">A state source feeds an adapter, which produces snapshots that the view projects into render props for a custom element. Commands send intent back to the source, and effects emit typed DOM events outward.</desc>
+    <desc id="ie-lifecycle-desc">A state source feeds an adapter, which produces native snapshots. The states callback derives a read model, and the renderer turns it into the custom-element view. Commands send intent back to the source, and effects emit typed DOM events outward.</desc>
     <defs>
       <marker id="ie-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
         <path d="M0 0 L10 5 L0 10 z" fill="currentColor" />
@@ -201,8 +201,8 @@ Effect timing is deterministic, which is what makes the [headless runtime](/igni
       <text x="83" y="121" style="font-size: 11px; opacity: 0.75;">machine / store</text>
       <text x="289" y="103">Ignite adapter</text>
       <text x="289" y="121" style="font-size: 11px; opacity: 0.75;">subscribe · snapshot</text>
-      <text x="495" y="103">view()</text>
-      <text x="495" y="121" style="font-size: 11px; opacity: 0.75;">render props</text>
+      <text x="495" y="103">states()</text>
+      <text x="495" y="121" style="font-size: 11px; opacity: 0.75;">derived read model</text>
       <text x="681" y="111">&lt;custom-element&gt;</text>
     </g>
     <g style="stroke: currentColor; stroke-width: 1.5; fill: none;" marker-end="url(#ie-arrow)">

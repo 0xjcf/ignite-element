@@ -8,14 +8,14 @@ sidebar:
 
 Ignite Element gives agents a behavior contract instead of asking them to scrape
 the DOM. The same `igniteCore(...)` value that registers a custom element also
-exposes a headless runtime with commands, projected view state, emitted events,
+exposes a headless runtime with commands, derived states, emitted events,
 and agent-readable metadata.
 
 That contract is useful because it is the same surface for humans, tests, and
 tools:
 
-- Humans click the custom element and see the projected view.
-- Tests call the runtime directly and assert snapshots, views, and events.
+- Humans click the custom element and see the renderer view.
+- Tests call the runtime directly and assert native snapshots, derived states, and events.
 - Agents inspect `getSchema()`, check `canExecute()`, call `execute()`, and
   observe outcomes through `on(...)` or `watchStates(...)`.
 
@@ -28,15 +28,15 @@ An Ignite component exposes these runtime methods before any DOM projection
 exists:
 
 - `getSchema()` returns the current JSON-serializable contract: commands,
-  command metadata, declared events, raw snapshot, and projected view.
+  command metadata, declared events, raw snapshot, and derived states.
 - `execute({ command, input? })` runs a command and returns the post-command
-  snapshot plus emitted events from that transition.
+  snapshot, derived states, and emitted events from that transition.
 - `canExecute(commandName)` evaluates dynamic command availability for gated
   commands.
-- `getStates()` returns the projected state that renderers, tests, and agents can
+- `getStates()` returns the derived states that renderers, tests, and agents can
   use without reading DOM nodes.
 - `on(eventName, handler)` subscribes to public emitted events.
-- `watchStates(handler)` subscribes to projected view changes over time.
+- `watchStates(handler)` subscribes to derived-states updates over time.
 
 Command metadata keeps model prompts and tool manifests grounded in the
 component's own contract:
@@ -62,15 +62,15 @@ runtime keeps execution and availability checks close to the state source.
 The reliable flow is:
 
 1. Read `getSchema()` to learn the commands, payload shapes, events, snapshot,
-   and view.
-2. Prefer the projected `view` for user-facing reasoning; use `snapshot` when
+   and states.
+2. Prefer derived `states` for user-facing reasoning; use `snapshot` when
    the raw state source matters.
 3. Treat `gated: true` as dynamic and call `canExecute(commandName)` immediately
    before invoking that command.
-4. Call `execute({ command, input? })` and inspect the returned `events` and
-   `snapshot`.
+4. Call `execute({ command, input? })` and inspect the returned `snapshot`,
+   `states`, and `events`.
 5. Keep long-lived workflows synchronized with `on(...)` for events and
-   `watchStates(...)` for projected state.
+   `watchStates(...)` for derived states.
 
 That keeps the model out of selector guessing and stale DOM assumptions. The
 agent reasons over named commands and typed state transitions.
@@ -96,7 +96,7 @@ to see the contract driven without a DOM first, then shared with a browser UI.
 
 ## Ecosystem boundaries
 
-Ignite owns the component contract: commands, projected view state, effects,
+Ignite owns the component contract: commands, derived states, effects,
 events, schema, and headless execution.
 
 Provider adapters and examples can turn that contract into model tools, including

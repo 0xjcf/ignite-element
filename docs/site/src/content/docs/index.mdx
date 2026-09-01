@@ -56,7 +56,7 @@ Try the counter directly in the docs, or open the full example in StackBlitz.
 
 <CounterDemo />
 
-Every press is a command — the buttons express intent, the state machine owns the transition, and the view re-renders from state. Here is the same counter with the real API:
+Every press is a command — the buttons express intent, the state machine owns the transition, `states(snapshot)` derives the read model, and the renderer view re-renders from those states. Here is the same counter with the real API:
 
 ```tsx
 import { igniteCore } from 'ignite-element/xstate';

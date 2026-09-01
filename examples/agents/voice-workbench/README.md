@@ -434,14 +434,15 @@ receipts or child outputs.
 ### Ignite projection and renderer boundary
 
 `createVoiceWorkbenchComponent(actor)` is a factory over a caller-owned actor.
-The Ignite `states` callback delegates to
-`projectVoiceWorkbenchView(snapshot)`, which derives status, command count,
+The Ignite `states` callback delegates to the historically named
+`projectVoiceWorkbenchView(snapshot)` helper, whose output is the derived states
+read model: status, command count,
 labels, control availability, prepared artifact rows, safe source links,
 runtime-inspector rows, route-independent presentation values, and model
 context. Pure selectors may be shared by renderers, guards, and `canExecute`, but
 renderer views never feed values back into commands or machines.
 
-The JSX files are split by projected view:
+The JSX files split the renderer view by presentation responsibility:
 
 ```text
 workbench-component.ts  Ignite states/command/event composition

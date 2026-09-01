@@ -157,9 +157,10 @@ Commands:
 - express intent through the adapter actor or store
 - accept explicit typed input when they need data from the host environment
 
-### State = truth
+### Native snapshot = truth; states = derived read model
 
-State is projected into the render surface.
+The source-native snapshot remains authoritative. `states(snapshot)` derives
+the consumer-facing values used by renderers and the headless runtime.
 
 ```ts
 states: (snapshot) => ({
@@ -167,7 +168,8 @@ states: (snapshot) => ({
 })
 ```
 
-This keeps rendering tied to explicit state, not ad hoc imperative updates.
+This keeps rendering tied to explicit derived states, not ad hoc imperative
+updates. The registration renderer turns those states into the view.
 
 ### Effects = consequences
 
@@ -258,12 +260,16 @@ async function inspectToggle() {
 
 Use `on(...)` for outward event signals, `watchSnapshot(...)` for raw state changes, and `watchStates(...)` for projected states changes.
 
-Use `record(...)` when a test or agent needs workflow evidence:
+Use `record(...)` when a test or agent needs workflow evidence. Story summaries
+contain `finalSnapshot` and `finalStates`, and trace entries use `kind: "states"`
+for the derived read model:
 
 ```ts
 async function recordToggleStory() {
   const story = toggle.record("turns on");
-  await story.execute({ command: "toggle" });
+  await story.until((states) => states.isOn, async () => {
+    await story.execute({ command: "toggle" });
+  });
   story.trace();
   story.lifecycle();
   story.summary();
@@ -354,7 +360,7 @@ toggle("toggle-menu-item", ToggleMenuItemView);
 toggle/
   toggle.core.ts
   toggle.machine.ts
-  toggle.view.ts
+  toggle.states.ts
   toggle.commands.ts
   toggle.effects.ts
   toggle.events.ts
@@ -381,7 +387,7 @@ This structure works well for both human maintainers and agent tooling because t
 Ignite enforces three rules:
 
 1. Commands express intent.
-2. State defines truth.
+2. The native snapshot defines truth; `states` derives the public read model.
 3. Effects express consequences.
 
 The result is a deterministic UI architecture that scales from ordinary component work to testing, automation, and AI-agent execution.

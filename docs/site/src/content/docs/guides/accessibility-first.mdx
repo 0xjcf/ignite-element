@@ -9,7 +9,7 @@ sidebar:
 Ignite Element works best when accessibility is treated as part of the behavior
 contract, not as a late DOM patch. The same headless runtime that powers tests
 and agents already exposes the facts that accessible interfaces depend on:
-commands, command metadata, derived view state, dynamic availability, and
+commands, command metadata, derived states, dynamic availability, and
 validated semantic projection state.
 
 This guide shows how to start from those facts, keep the DOM native-first, and
@@ -229,7 +229,7 @@ before any DOM assertion:
 
 ```ts no-check
 const schema = thermostat.getSchema();
-const view = thermostat.getStates();
+const states = thermostat.getStates();
 const canSave = thermostat.canExecute('saveTarget');
 
 if (canSave) {
@@ -243,7 +243,7 @@ if (canSave) {
 }
 
 console.log(schema.commands.saveTarget.description);
-console.log(view.statusLabel);
+console.log(states.statusLabel);
 ```
 
 This is the right place to verify:
@@ -258,7 +258,7 @@ accessible name or focus order.
 
 ## Use validated semantic documents for shared non-DOM output
 
-When multiple channels need more than raw `view` state, Ignite's accepted v3
+When multiple channels need more than the derived `states` read model, Ignite's accepted v3
 direction is to use actor-owned validated semantic documents rather than a
 public projection registry.
 
@@ -323,7 +323,7 @@ remain separate rendered-DOM evidence.
 Projection design does not move Actor-Web ownership into Ignite.
 
 - Actor-Web owns topology, transport, supervision, and source lifecycle.
-- Ignite consumes the source snapshot, derives `view`, exposes commands, and
+- Ignite consumes the source snapshot, derives `states`, exposes commands, and
   projects validated state to different targets.
 
 If a component is backed by `ignite-element/actor-web`, projection state still
@@ -334,7 +334,7 @@ transport or orchestration internals directly.
 
 ### A mandatory top-level accessibility callback
 
-Rejected because it duplicates `view`, command metadata, and semantic document
+Rejected because it duplicates `states`, command metadata, and semantic document
 state with a second authoring surface.
 
 ### Raw generated UI for agents

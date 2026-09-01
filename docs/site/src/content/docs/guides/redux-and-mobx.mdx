@@ -1,12 +1,12 @@
 ---
 title: Redux & MobX adapters
-description: Complete, runnable Redux Toolkit and MobX examples at parity with the XState path — source, view, commands, and effects.
+description: Complete, runnable Redux Toolkit and MobX examples at parity with the XState path — source, states, commands, effects, and renderer view.
 sidebar:
   label: Redux & MobX
   order: 4
 ---
 
-`igniteCore` works the same way across adapters: you describe a `source`, project it with `view`, expose `commands`, and react with `effects`. Only the **source** and how you talk to the **actor** change per adapter. Import from the matching entrypoint — `ignite-element/redux` or `ignite-element/mobx` — and the rest of the contract mirrors the [XState path](/ignite-element/guides/agent-runtime-v3/).
+`igniteCore` works the same way across adapters: you describe a `source`, derive a read model with `states`, expose `commands`, and react with `effects`. The registration renderer turns those states into the view. Only the **source** and how you talk to the **actor** change per adapter. Import from the matching entrypoint — `ignite-element/redux` or `ignite-element/mobx` — and the rest of the contract mirrors the [XState path](/ignite-element/guides/agent-runtime-v3/).
 
 ## Redux Toolkit
 
@@ -54,11 +54,11 @@ export const registerCounter = igniteCore({
 });
 ```
 
-With a slice source, the `view` snapshot is the slice's own state, so `snapshot.count` reads the reducer state directly.
+With a slice source, the native snapshot is the slice's own state, so `snapshot.count` reads the reducer state directly.
 
 ### Store instance source (shared)
 
-Pass a configured store when several elements should share one state tree. The `view` snapshot is the **root** state, so project through the slice key (`snapshot.counter.count`).
+Pass a configured store when several elements should share one state tree. The native snapshot is the **root** state, so derive through the slice key (`snapshot.counter.count`).
 
 ```ts
 import { igniteCore } from 'ignite-element/redux';
