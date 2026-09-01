@@ -1,0 +1,14 @@
+{
+	"extends": "../tsconfig.typecheck.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"composite": false,
+		"rootDir": "../../..",
+		"types": ["node", "@playwright/test"]
+	},
+	"include": [
+		"./xstate-agent-runtime.spec.ts",
+		"../../../examples/adapters/xstate/xstateApiShowcaseRuntime.ts"
+	],
+	"exclude": []
+}

@@ -1,76 +1,7 @@
 import { expect, test } from "@playwright/test";
+import type { apiShowcase } from "../../../examples/adapters/xstate/xstateApiShowcaseRuntime";
 
-type AgentRuntimeView = {
-	count: number;
-	limit: number;
-	step: number;
-	isLimited: boolean;
-	stateLabel: string;
-};
-
-type RuntimeEvent = {
-	type: string;
-	[key: string]: unknown;
-};
-
-type StoryTraceEntry = {
-	kind: "command" | "event" | "snapshot" | "view";
-};
-
-type StoryLifecycleEntry = {
-	stage:
-		| "cleaned-up"
-		| "connected"
-		| "disconnected"
-		| "registered"
-		| "rendered";
-};
-
-type RuntimeStory = {
-	execute: AgentRuntime["execute"];
-	until: (
-		predicate: (view: AgentRuntimeView) => boolean,
-		action: () => Promise<void>,
-		options?: { maxSteps?: number },
-	) => Promise<AgentRuntimeView>;
-	trace: () => StoryTraceEntry[];
-	lifecycle: () => StoryLifecycleEntry[];
-	summary: () => {
-		commandCount: number;
-		traceCount: number;
-		lifecycleCount: number;
-		events: RuntimeEvent[];
-		finalView: AgentRuntimeView;
-	};
-	stop: () => void;
-};
-
-type AgentRuntime = {
-	execute: (
-		call:
-			| { command: "increment" }
-			| { command: "setLimit"; input: number }
-			| { command: "setStep"; input: number },
-	) => Promise<{
-		events: RuntimeEvent[];
-	}>;
-	getSchema: () => {
-		commands: Record<string, unknown>;
-		events: { type: string }[];
-		snapshot: unknown;
-		view: AgentRuntimeView;
-	};
-	getView: () => AgentRuntimeView;
-	record: (name: string) => RuntimeStory;
-};
-
-declare global {
-	interface Window {
-		__igniteExamples?: {
-			apiShowcase?: AgentRuntime;
-		};
-	}
-}
+type ApiShowcaseRuntime = typeof apiShowcase;
 
 test("agents can drive the XState example runtime without DOM locators", async ({
 	page,
@@ -78,23 +9,24 @@ test("agents can drive the XState example runtime without DOM locators", async (
 	await page.goto("/");
 
 	const result = await page.evaluate(async () => {
-		const runtime = window.__igniteExamples?.apiShowcase;
+		const runtime: ApiShowcaseRuntime | undefined =
+			window.__igniteExamples?.apiShowcase;
 		if (!runtime) {
 			throw new Error("window.__igniteExamples.apiShowcase is not available.");
 		}
 
 		const schema = runtime.getSchema();
-		const startView = runtime.getView();
+		const startStates = runtime.getStates();
 		const story = runtime.record("playwright reaches limit");
 
 		await story.execute({ command: "setStep", input: 2 });
-		const stepView = runtime.getView();
+		const stepStates = runtime.getStates();
 		await story.execute({ command: "setLimit", input: 6 });
-		const limitView = runtime.getView();
+		const limitStates = runtime.getStates();
 
 		let steps = 0;
-		const finalView = await story.until(
-			(view) => view.isLimited,
+		const finalStates = await story.until(
+			(states) => states.isLimited,
 			async () => {
 				await story.execute({ command: "increment" });
 				steps += 1;
@@ -116,17 +48,17 @@ test("agents can drive the XState example runtime without DOM locators", async (
 		return {
 			commands: schema.commands,
 			events: summary.events,
-			finalView,
-			limitView,
+			finalStates,
+			limitStates,
 			lifecycleCount: summary.lifecycleCount,
 			lifecycleStages: lifecycle.map((entry) => entry.stage),
 			schemaEvents: schema.events,
 			schemaSnapshot: schema.snapshot,
-			schemaView: schema.view,
-			startView,
-			stepView,
+			schemaStates: schema.states,
+			startStates,
+			stepStates,
 			summaryCommandCount: summary.commandCount,
-			summaryFinalView: summary.finalView,
+			summaryFinalStates: summary.finalStates,
 			traceCount: summary.traceCount,
 			traceKinds: trace.map((entry) => entry.kind),
 			steps,
@@ -178,18 +110,18 @@ test("agents can drive the XState example runtime without DOM locators", async (
 		context: { count: 0 },
 		value: "active",
 	});
-	expect(result.schemaView).toEqual(result.startView);
-	expect(result.startView.isLimited).toBe(false);
-	expect(result.stepView.step).toBe(2);
-	expect(result.limitView.limit).toBe(6);
+	expect(result.schemaStates).toEqual(result.startStates);
+	expect(result.startStates.isLimited).toBe(false);
+	expect(result.stepStates.step).toBe(2);
+	expect(result.limitStates.limit).toBe(6);
 	expect(result.steps).toBeGreaterThan(0);
-	expect(result.finalView.isLimited).toBe(true);
-	expect(result.finalView.count).toBe(result.finalView.limit);
-	expect(result.summaryFinalView).toMatchObject(result.finalView);
+	expect(result.finalStates.isLimited).toBe(true);
+	expect(result.finalStates.count).toBe(result.finalStates.limit);
+	expect(result.summaryFinalStates).toMatchObject(result.finalStates);
 	expect(result.summaryCommandCount).toBe(result.steps + 2);
 	expect(result.traceCount).toBeGreaterThan(result.summaryCommandCount);
 	expect(result.traceKinds).toEqual(
-		expect.arrayContaining(["command", "event", "snapshot", "view"]),
+		expect.arrayContaining(["command", "event", "snapshot", "states"]),
 	);
 	expect(result.lifecycleCount).toBeGreaterThan(0);
 	expect(result.lifecycleStages).toEqual(
@@ -200,7 +132,7 @@ test("agents can drive the XState example runtime without DOM locators", async (
 			"cleaned-up",
 		]),
 	);
-	expect(result.finalView.stateLabel).toBe("Limit reached");
+	expect(result.finalStates.stateLabel).toBe("Limit reached");
 	expect(result.events.map((event) => event.type)).toContain(
 		"api-limit-reached",
 	);

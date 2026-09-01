@@ -127,6 +127,9 @@ const requiredExports = [
 const recursiveImportPattern =
 	/(?:from|import)\s+["'](\.\/[^"']+)["']|require\(["'](\.\/[^"']+)["']\)/g;
 
+const declarationImportPattern =
+	/\bfrom\s+["']([^"']+)["']|\bimport\s+["']([^"']+)["']|\bimport\(\s*["']([^"']+)["']\s*\)/g;
+
 function assertDistGraphDoesNotReference(entryFile, forbiddenMarkers) {
 	const pending = [entryFile];
 	const seen = new Set();
@@ -159,6 +162,57 @@ function assertDistGraphDoesNotReference(entryFile, forbiddenMarkers) {
 				path.posix.join(path.posix.dirname(nextFile), relativeImport),
 			);
 			pending.push(resolved);
+		}
+	}
+}
+
+function resolveDeclarationImport(fromFile, relativeImport) {
+	const unresolved = path.posix.normalize(
+		path.posix.join(path.posix.dirname(fromFile), relativeImport),
+	);
+	const candidates = relativeImport.endsWith(".js")
+		? [unresolved.replace(/\.js$/, ".d.ts")]
+		: [unresolved, `${unresolved}.d.ts`, `${unresolved}/index.d.ts`];
+
+	return candidates.find((candidate) =>
+		existsSync(new URL(`./../dist/${candidate}`, import.meta.url)),
+	);
+}
+
+function assertDeclarationGraphDoesNotReference(entryFile, forbiddenModules) {
+	const pending = [entryFile];
+	const seen = new Set();
+
+	while (pending.length > 0) {
+		const nextFile = pending.pop();
+		if (!nextFile || seen.has(nextFile)) {
+			continue;
+		}
+
+		seen.add(nextFile);
+		const fileUrl = new URL(`./../dist/${nextFile}`, import.meta.url);
+		assert.ok(existsSync(fileUrl), `Missing declaration: dist/${nextFile}.`);
+		const source = readFileSync(fileUrl, "utf8");
+
+		for (const match of source.matchAll(declarationImportPattern)) {
+			const specifier = match[1] ?? match[2] ?? match[3];
+			if (!specifier) {
+				continue;
+			}
+
+			assert.ok(
+				!forbiddenModules.includes(specifier),
+				`Expected the public declaration graph from dist/${entryFile} to avoid optional module ${specifier}; reached it through dist/${nextFile}.`,
+			);
+
+			if (specifier.startsWith(".")) {
+				const resolved = resolveDeclarationImport(nextFile, specifier);
+				assert.ok(
+					resolved,
+					`Could not resolve declaration import ${specifier} from dist/${nextFile}.`,
+				);
+				pending.push(resolved);
+			}
 		}
 	}
 }
@@ -221,6 +275,23 @@ for (const [subpath, expectedExports] of requiredExports) {
 			`Expected ${specifier} to export ${expectedName}.`,
 		);
 	}
+}
+
+for (const subpath of expectedPublicSubpaths) {
+	if (subpath === "./package.json") {
+		continue;
+	}
+
+	const typesEntry = packageJson.exports[subpath]?.types;
+	assert.equal(
+		typeof typesEntry,
+		"string",
+		`Missing public declaration entry for ${subpath}.`,
+	);
+	assertDeclarationGraphDoesNotReference(
+		typesEntry.replace(/^\.\/dist\//, ""),
+		["lit-html"],
+	);
 }
 
 for (const subpath of removedStableSubpaths) {
