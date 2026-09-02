@@ -29,7 +29,7 @@ function read(relativePath) {
 }
 
 function workflowJob(workflow, name) {
-	const jobs = [...workflow.matchAll(/^  ([a-zA-Z0-9_-]+):\s*$/gm)];
+	const jobs = [...workflow.matchAll(/^ {2}([a-zA-Z0-9_-]+):\s*$/gm)];
 	const index = jobs.findIndex((match) => match[1] === name);
 	assert.notEqual(index, -1, `workflow must define the ${name} job`);
 	return workflow.slice(jobs[index].index, jobs[index + 1]?.index);
@@ -121,8 +121,8 @@ describe("v3 beta staged-release boundary", () => {
 
 	it("serializes staging runs without cancelling an in-flight release", () => {
 		const workflow = read(".github/workflows/publish.yml");
-		assert.match(workflow, /^concurrency:\n  group: ignite-v3-beta-stage$/m);
-		assert.match(workflow, /^  cancel-in-progress: false$/m);
+		assert.match(workflow, /^concurrency:\n {2}group: ignite-v3-beta-stage$/m);
+		assert.match(workflow, /^ {2}cancel-in-progress: false$/m);
 	});
 
 	it("keeps OIDC authority only in the protected staging job", () => {

@@ -1,17 +1,40 @@
 # V3 beta staged release
 
-This procedure separates version preparation, private registry staging, human
-review, public approval, and verification. It never makes `main` a v3 branch:
-`beta` is the prerelease authority, while `ignite-element@latest` remains on the
-v2 stable line.
+This procedure separates version preparation, validation, private registry
+staging, independent review, public approval, and verification. It never makes
+`main` a v3 product branch: `beta` is the prerelease authority, while
+`ignite-element@latest` remains on the v2 stable line.
 
 ## One-time external configuration
 
-Repository administrators configure the protected GitHub Environment
-`npm-stage` and an npm trusted publisher for `.github/workflows/publish.yml` on
-the `beta` branch. The trust relationship permits `npm stage publish`, uses
-GitHub Actions OIDC, and does not grant ordinary unattended publication. No npm
-token belongs in GitHub secrets or repository configuration.
+GitHub can dispatch a manual workflow only when its workflow file exists on the
+default branch `main`. Register `.github/workflows/publish.yml` on `main`
+without merging v3 source, packages, documentation, or Changesets into that
+branch. The workflow must remain byte-identical to the reviewed workflow on the
+v3 candidate.
+
+Configure a trusted publisher separately for each of these four npm packages:
+
+| npm package | Trusted-publisher configuration |
+| --- | --- |
+| `@ignite-element/core` | Provider: GitHub Actions; Owner/organization: 0xjcf; Repository: ignite-element; Workflow filename: publish.yml; Environment: npm-stage; Allowed action: npm stage publish only |
+| `@ignite-element/adapters` | Provider: GitHub Actions; Owner/organization: 0xjcf; Repository: ignite-element; Workflow filename: publish.yml; Environment: npm-stage; Allowed action: npm stage publish only |
+| `@ignite-element/renderer` | Provider: GitHub Actions; Owner/organization: 0xjcf; Repository: ignite-element; Workflow filename: publish.yml; Environment: npm-stage; Allowed action: npm stage publish only |
+| `ignite-element` | Provider: GitHub Actions; Owner/organization: 0xjcf; Repository: ignite-element; Workflow filename: publish.yml; Environment: npm-stage; Allowed action: npm stage publish only |
+
+The npm configuration does not specify the Git branch. GitHub owns the `beta` ref guard
+and binds the run to the dispatched commit. Before release use, protect `beta` with
+branch protection or an equivalent ruleset.
+
+Create the protected GitHub Environment `npm-stage` and require Operator
+approval before its job can start. After trusted publishing is configured and
+authenticated for all four packages, change traditional package publishing
+access to **Require two-factor authentication and disallow tokens**. No
+replacement npm automation token is required, and no publication token belongs
+in GitHub secrets or repository configuration.
+
+GitHub tags and Releases remain separate approvals. This procedure does not
+create either one.
 
 ## Prepare a version commit
 
@@ -33,25 +56,60 @@ the working-tree diff. Restore only the generated version files to the reviewed
 commit before trying again; never continue with a partial or mismatched version
 set.
 
-## Stage reviewed artifacts
+## Pre-dispatch check
 
-After the reviewed version commit is on `beta`, manually dispatch **Stage v3
-beta packages** for that exact branch revision. The workflow refuses every
-other ref and runs under `npm-stage` with only `contents: read` and
-`id-token: write`.
+An authenticated npm maintainer checks for abandoned or conflicting private
+stages before every dispatch:
 
-The job authenticates Node 22, npm 11.19.1, and the repository-pinned pnpm;
-performs a frozen install; rejects dirty, mismatched, already-public, or
-unconsumed-Changesets candidates; builds declarations and exports; packs core,
-adapters, renderer, and facade exactly once; records file size and SHA-256;
-tests those exact files as downstream dependencies; runs the complete suite;
-then stages the same files with `--tag beta`, provenance, and OIDC. Structured
-`--json` output supplies each stage ID. The uploaded receipt is not publication
-approval.
+```sh
+npm stage list --json
+```
 
-Independent review must match the receipt commit and tree, all four tarball
-hashes, validation entries, and stage IDs. A reviewer can use an authenticated
-interactive npm session to inspect without approving:
+Resolve any conflict through an authenticated interactive session before
+starting a new run. The workflow cannot list, approve, or reject existing
+stages.
+
+## Dispatch the reviewed beta commit
+
+After the reviewed version commit is on `beta`, dispatch **Stage v3 beta
+packages** with the `beta` ref:
+
+```sh
+gh workflow run publish.yml --ref beta
+```
+
+The workflow file is loaded from the default branch registration, while the run
+checks out and validates the exact `beta` revision selected by the dispatch.
+Every other ref fails closed.
+
+The validation job has only `contents: read`; it has neither the protected npm
+environment nor OIDC authority. It performs a frozen install without release
+dependency caching, builds declarations and exports, checks the four package
+repository identities, packs core, adapters, renderer, and facade exactly once,
+records byte sizes and SHA-256 digests, verifies exact internal dependencies,
+tests those exact tarballs as downstream dependencies, and runs the complete
+validation profile. It uploads one bounded payload and exposes the artifact ID,
+artifact digest, payload digest, commit, and tree to the staging job.
+
+Only after validation succeeds may the staging job enter `npm-stage`. That job
+has `contents: read` and `id-token: write`, checks out the validated commit,
+uses Node 22 and exactly npm 11.19.1, downloads the validation artifact by its
+exact artifact ID, and verifies the artifact binding, payload hash, commit,
+tree, manifest hash, package identities, internal versions, tarball sizes, and
+tarball hashes. It installs no workspace dependencies and runs no build or test.
+It stages only the four downloaded tarballs, in dependency order, using
+`--tag beta`, provenance, and OIDC.
+
+Structured `--json` output supplies each stage UUID. The receipt is written
+before staging and after every successful package so a partial failure remains
+reviewable. The uploaded receipt is not publication approval.
+
+## Independent review
+
+Independent review must match the receipt commit and tree, artifact and payload
+identities, all four tarball hashes, validation entries, and stage IDs. A
+reviewer can use an authenticated interactive npm session to inspect without
+approving:
 
 ```sh
 npm stage view <stage-id> --json
@@ -64,7 +122,8 @@ The downloaded digest must equal the receipt before approval.
 ## Operator approval and tags
 
 With 2FA present, approve in dependency order. Adapters and renderer may be
-approved in either order after core; the facade is always last.
+approved in either order after core; the deterministic workflow order is core,
+adapters, renderer, then facade. The facade is always last.
 
 ```sh
 npm stage approve <core-stage-id>
