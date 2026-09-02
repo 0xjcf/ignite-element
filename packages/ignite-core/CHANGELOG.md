@@ -1,5 +1,45 @@
 # ignite-core
 
+## 3.0.0-beta.11
+
+### Major Changes
+
+- 4b9effe: Make the v3 package family native ESM-only.
+
+  Remove the CommonJS `main` and `require` contracts and stop publishing CommonJS
+  or default UMD build artifacts. Consumers must use ESM imports. Existing public
+  ESM entrypoints and their TypeScript declarations remain supported.
+
+- 1b09e98: Narrow the v3 beta command and effect callback contract before stable release.
+
+  Commands no longer expose a public `host` capability. Public command callbacks
+  now receive `{ actor, command }`, so host-derived intent must be provided as
+  explicit command input instead of being read from the runtime host.
+
+  Effects no longer expose public `actor` or `host` capabilities and now receive
+  only `{ snapshot, prevSnapshot, select, emit }`. Effects are synchronous
+  transition-to-outward-fact callbacks: async work, retries, cancellation, and
+  feedback into the source must move into source-native actors, actions, store
+  methods, middleware, or transports.
+
+  Public effect callbacks must return `undefined`/nothing so `async` functions are
+  rejected at compile time. Inline callbacks can usually omit a return, while
+  extracted or explicitly typed helpers may need an `undefined` return annotation
+  plus an explicit `return undefined`.
+
+  The runtime still keeps internal host ownership for DOM/headless event dispatch
+  and error routing, and it now fails closed when untyped JavaScript effects
+  return a thenable.
+
+### Minor Changes
+
+- a7486a9: Make `states(snapshot)` the canonical optional v3 projection contract. Config
+  `view`, `getView`, and `watchView` are removed; headless schemas, execution
+  results, stories, tests, and tools now use states vocabulary. XState entrypoints
+  expose native `StateFrom<Machine>` snapshots instead of flattened
+  `ExtendedState`, and public component renderers receive derived states and
+  semantic commands without raw `state` or `send`.
+
 ## 3.0.0-beta.10
 
 ## 3.0.0-beta.9

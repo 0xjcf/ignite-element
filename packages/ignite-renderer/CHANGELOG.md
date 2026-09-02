@@ -1,5 +1,15 @@
 # ignite-renderer
 
+## 3.0.0-beta.11
+
+### Major Changes
+
+- 4b9effe: Make the v3 package family native ESM-only.
+
+  Remove the CommonJS `main` and `require` contracts and stop publishing CommonJS
+  or default UMD build artifacts. Consumers must use ESM imports. Existing public
+  ESM entrypoints and their TypeScript declarations remain supported.
+
 ## 3.0.0-beta.10
 
 ## 3.0.0-beta.9
