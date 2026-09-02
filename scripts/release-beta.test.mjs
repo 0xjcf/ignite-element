@@ -21,10 +21,7 @@ const actionPins = new Map([
 	["pnpm/action-setup", "b906affcce14559ad1aafd4ab0e942779e9f58b1"],
 	["actions/setup-node", "a0853c24544627f65ddf259abe73b1d18a591444"],
 	["actions/upload-artifact", "ea165f8d65b6e75b540449e92b4886f43607fa02"],
-	[
-		"actions/download-artifact",
-		"634f93cb2916e3fdff6788551b99b062d0335ce0",
-	],
+	["actions/download-artifact", "634f93cb2916e3fdff6788551b99b062d0335ce0"],
 ]);
 
 function read(relativePath) {
@@ -114,7 +111,11 @@ describe("v3 beta staged-release boundary", () => {
 		assert.ok(actions.length >= 5, "split workflow must use reviewed actions");
 		for (const [, action, revision] of actions) {
 			assert.match(revision, /^[0-9a-f]{40}$/);
-			assert.equal(revision, actionPins.get(action), `${action} pin is unreviewed`);
+			assert.equal(
+				revision,
+				actionPins.get(action),
+				`${action} pin is unreviewed`,
+			);
 		}
 	});
 
@@ -162,7 +163,10 @@ describe("v3 beta staged-release boundary", () => {
 			assert.match(validate, new RegExp(`${output}:`));
 		}
 		assert.match(stage, /actions\/download-artifact@[0-9a-f]{40}/);
-		assert.match(stage, /artifact-ids:\s*\$\{\{ needs\.validate\.outputs\.artifact-id \}\}/);
+		assert.match(
+			stage,
+			/artifact-ids:\s*\$\{\{ needs\.validate\.outputs\.artifact-id \}\}/,
+		);
 		for (const argument of [
 			"--expected-artifact-id",
 			"--expected-artifact-digest",
@@ -174,6 +178,41 @@ describe("v3 beta staged-release boundary", () => {
 			assert.match(stage, new RegExp(argument));
 		}
 		assert.doesNotMatch(stage, /pnpm\s+install|pnpm\s+run|changeset/);
+	});
+
+	it("fails closed when downloaded payload identity or hashes differ", async () => {
+		const { assertPayloadBinding } = await import("./stage-beta-release.mjs");
+		const commit = "1".repeat(40);
+		const tree = "2".repeat(40);
+		const payloadDigest = "3".repeat(64);
+		const valid = {
+			artifactDigest: "4".repeat(64),
+			artifactId: "12345",
+			expectedCommit: commit,
+			expectedPayloadDigest: payloadDigest,
+			expectedTree: tree,
+			payload: {
+				branchRef: "refs/heads/beta",
+				commit,
+				repository: "0xjcf/ignite-element",
+				schemaVersion: 1,
+				tree,
+			},
+			payloadDigest,
+		};
+		assert.doesNotThrow(() => assertPayloadBinding(valid));
+		for (const candidate of [
+			{ ...valid, artifactId: "not-an-id" },
+			{ ...valid, artifactDigest: "short" },
+			{ ...valid, payloadDigest: "5".repeat(64) },
+			{
+				...valid,
+				payload: { ...valid.payload, commit: "6".repeat(40) },
+			},
+			{ ...valid, payload: { ...valid.payload, tree: "7".repeat(40) } },
+		]) {
+			assert.throws(() => assertPayloadBinding(candidate));
+		}
 	});
 
 	it("documents default-branch registration and four-package trusted publishing", () => {
@@ -192,7 +231,10 @@ describe("v3 beta staged-release boundary", () => {
 		assert.match(documentation, /does not specify the Git branch/);
 		assert.match(documentation, /GitHub owns the `beta` ref guard/);
 		assert.match(documentation, /branch protection|ruleset/);
-		assert.match(documentation, /Require two-factor authentication and disallow tokens/);
+		assert.match(
+			documentation,
+			/Require two-factor authentication and disallow tokens/,
+		);
 		assert.match(documentation, /npm stage list --json/);
 		assert.match(documentation, /gh workflow run publish\.yml --ref beta/);
 	});
@@ -234,7 +276,7 @@ describe("v3 beta staged-release boundary", () => {
 		);
 	});
 
-	it("flows four exact tarballs from consumer validation to staging", async () => {
+	it("flows four exact validated tarballs into staging", async () => {
 		const { createTarballManifest, createStagePlan } = await import(
 			"./stage-beta-release.mjs"
 		);
@@ -254,11 +296,7 @@ describe("v3 beta staged-release boundary", () => {
 				manifest.packages.map(({ name }) => name),
 				packageNames,
 			);
-			assert.deepEqual(plan.consumerValidation.args, [
-				path.join(repositoryRoot, "scripts/verify-packed-consumers.mjs"),
-				"--tarball-manifest",
-				manifestPath,
-			]);
+			assert.equal(plan.consumerValidation, undefined);
 			assert.deepEqual(
 				plan.stageCommands.map(({ tarball }) => tarball),
 				candidates.map(({ file }) => file),
@@ -354,7 +392,6 @@ describe("v3 beta staged-release boundary", () => {
 				plan,
 				runCommand: (command) => {
 					calls.push(command);
-					if (command.kind === "consumer-validation") return "";
 					const index = packageNames.indexOf(command.name);
 					return JSON.stringify({
 						name: command.name,
@@ -365,13 +402,7 @@ describe("v3 beta staged-release boundary", () => {
 			});
 			assert.deepEqual(
 				calls.map(({ kind }) => kind),
-				[
-					"consumer-validation",
-					"stage-publish",
-					"stage-publish",
-					"stage-publish",
-					"stage-publish",
-				],
+				["stage-publish", "stage-publish", "stage-publish", "stage-publish"],
 			);
 			assert.deepEqual(
 				receipts.map(({ name }) => name),
@@ -384,7 +415,6 @@ describe("v3 beta staged-release boundary", () => {
 					executeStagePlan({
 						plan,
 						runCommand: (command) => {
-							if (command.kind === "consumer-validation") return "";
 							attempted += 1;
 							if (attempted === 3) throw new Error("registry unavailable");
 							return JSON.stringify({

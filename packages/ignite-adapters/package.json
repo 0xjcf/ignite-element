@@ -5,6 +5,10 @@
 	"module": "dist/ignite-adapters.es.js",
 	"types": "dist/types/index.d.ts",
 	"description": "Advanced state-library adapter integrations for ignite-element.",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/0xjcf/ignite-element.git"
+	},
 	"typesVersions": {
 		"*": {
 			"actor-web": [

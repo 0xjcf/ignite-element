@@ -18,6 +18,10 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const temporaryRoot = mkdtempSync(join(tmpdir(), "ignite-element-packed-"));
 const tarballDirectory = join(temporaryRoot, "tarballs");
 const npmCacheDirectory = join(temporaryRoot, "npm-cache");
+const repositoryIdentity = {
+	type: "git",
+	url: "git+https://github.com/0xjcf/ignite-element.git",
+};
 
 const packageDefinitions = [
 	{
@@ -172,6 +176,11 @@ function validateTarball(definition, tarballPath) {
 	);
 
 	assert.equal(manifest.name, definition.name);
+	assert.deepEqual(
+		manifest.repository,
+		repositoryIdentity,
+		`${manifest.name} tarball must expose the trusted-publisher repository identity`,
+	);
 	assert.equal(
 		Object.hasOwn(manifest, "main"),
 		false,
