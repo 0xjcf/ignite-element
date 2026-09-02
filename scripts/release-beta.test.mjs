@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repositoryRoot = path.resolve(
 	path.dirname(fileURLToPath(import.meta.url)),
@@ -39,6 +40,131 @@ function workflowActionSteps(job, action) {
 	return job
 		.split(/\n(?= {6}- )/)
 		.filter((step) => step.includes(`uses: ${action}@`));
+}
+
+function runGit(cwd, args) {
+	const result = spawnSync("git", args, { cwd, encoding: "utf8" });
+	assert.equal(
+		result.status,
+		0,
+		`git ${args.join(" ")} failed: ${result.stderr}`,
+	);
+	return result.stdout;
+}
+
+function writeFixtureFile(directory, relativePath, content) {
+	const file = path.join(directory, relativePath);
+	fs.mkdirSync(path.dirname(file), { recursive: true });
+	fs.writeFileSync(file, content);
+}
+
+function initializeGitFixture(prefix) {
+	const directory = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+	runGit(directory, ["init", "-b", "beta"]);
+	runGit(directory, ["config", "user.email", "release-test@example.com"]);
+	runGit(directory, ["config", "user.name", "Release Test"]);
+	return directory;
+}
+
+function commitFixture(directory) {
+	runGit(directory, ["add", "."]);
+	runGit(directory, ["commit", "-m", "fixture"]);
+}
+
+function createPorcelainFixture() {
+	const directory = initializeGitFixture("ignite-porcelain-test-");
+	for (const relativePath of [
+		".changeset/pre.json",
+		"packages/ignite-core/package.json",
+		"filename with spaces.txt",
+		"trailing-space ",
+		"embedded\nnewline.txt",
+	]) {
+		writeFixtureFile(directory, relativePath, "before\n");
+	}
+	commitFixture(directory);
+	for (const relativePath of [
+		".changeset/pre.json",
+		"packages/ignite-core/package.json",
+		"filename with spaces.txt",
+		"trailing-space ",
+		"embedded\nnewline.txt",
+	]) {
+		writeFixtureFile(directory, relativePath, "after\n");
+	}
+	writeFixtureFile(directory, "ordinary untracked.txt", "untracked\n");
+	return directory;
+}
+
+function createPreparationFixture() {
+	const directory = initializeGitFixture("ignite-release-prepare-test-");
+	fs.mkdirSync(path.join(directory, "scripts"), { recursive: true });
+	fs.copyFileSync(
+		path.join(repositoryRoot, "scripts/prepare-beta-release.mjs"),
+		path.join(directory, "scripts/prepare-beta-release.mjs"),
+	);
+	writeFixtureFile(directory, "package.json", '{"type":"module"}\n');
+	writeFixtureFile(directory, ".changeset/config.json", '{"commit":true}\n');
+	writeFixtureFile(
+		directory,
+		".changeset/pre.json",
+		'{"mode":"pre","tag":"beta","changesets":[]}\n',
+	);
+	writeFixtureFile(
+		directory,
+		".changeset/leading-dot.md",
+		'---\n"ignite-element": patch\n---\n\nFixture.\n',
+	);
+	for (const [packageDirectory, name, dependencies] of [
+		["ignite-core", "@ignite-element/core", undefined],
+		[
+			"ignite-adapters",
+			"@ignite-element/adapters",
+			{ "@ignite-element/core": "workspace:*" },
+		],
+		["ignite-renderer", "@ignite-element/renderer", undefined],
+		[
+			"ignite-element",
+			"ignite-element",
+			{
+				"@ignite-element/adapters": "workspace:*",
+				"@ignite-element/core": "workspace:*",
+				"@ignite-element/renderer": "workspace:*",
+			},
+		],
+	]) {
+		writeFixtureFile(
+			directory,
+			`packages/${packageDirectory}/package.json`,
+			`${JSON.stringify({ dependencies, name, version: "3.0.0-beta.10" })}\n`,
+		);
+	}
+	const fakePnpm = path.join(directory, "bin/pnpm");
+	writeFixtureFile(
+		directory,
+		"bin/pnpm",
+		`#!/usr/bin/env node
+import fs from "node:fs";
+import path from "node:path";
+
+const args = process.argv.slice(2);
+if (args[0] === "exec" && args[1] === "changeset" && args[2] === "version") {
+	const prePath = path.join(process.cwd(), ".changeset/pre.json");
+	const pre = JSON.parse(fs.readFileSync(prePath, "utf8"));
+	pre.changesets.push("leading-dot");
+	fs.writeFileSync(prePath, JSON.stringify(pre, null, "\\t") + "\\n");
+	for (const directory of ["ignite-core", "ignite-adapters", "ignite-renderer", "ignite-element"]) {
+		const manifestPath = path.join(process.cwd(), "packages", directory, "package.json");
+		const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+		manifest.version = "3.0.0-beta.11";
+		fs.writeFileSync(manifestPath, JSON.stringify(manifest) + "\\n");
+	}
+}
+`,
+	);
+	fs.chmodSync(fakePnpm, 0o755);
+	commitFixture(directory);
+	return directory;
 }
 
 describe("v3 beta staged-release boundary", () => {
@@ -520,5 +646,120 @@ describe("v3 beta staged-release boundary", () => {
 			() => assertApprovedRelease({ expectedVersion: version, metadata }),
 			/facade latest/,
 		);
+	});
+});
+
+describe("lossless porcelain status parsing", () => {
+	it("preserves the first leading-dot path during real beta preparation", async () => {
+		const directory = createPreparationFixture();
+		const originalPath = process.env.PATH;
+		try {
+			process.env.PATH = `${path.join(directory, "bin")}${path.delimiter}${originalPath}`;
+			const moduleUrl = pathToFileURL(
+				path.join(directory, "scripts/prepare-beta-release.mjs"),
+			);
+			const { prepareBetaRelease } = await import(
+				`${moduleUrl.href}?fixture=${Date.now()}`
+			);
+			assert.doesNotThrow(
+				() => prepareBetaRelease(),
+				".changeset/pre.json must remain an allowed leading-dot path",
+			);
+		} finally {
+			process.env.PATH = originalPath;
+			fs.rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it("parses real NUL-delimited records without changing path bytes", async () => {
+		const directory = createPorcelainFixture();
+		try {
+			const { parsePorcelainStatus } = await import(
+				`./prepare-beta-release.mjs?parser=${Date.now()}`
+			);
+			const raw = runGit(directory, [
+				"status",
+				"--porcelain=v1",
+				"-z",
+				"--untracked-files=all",
+			]);
+			const paths = parsePorcelainStatus(raw);
+			assert.equal(paths[0], ".changeset/pre.json");
+			for (const expected of [
+				"packages/ignite-core/package.json",
+				"filename with spaces.txt",
+				"trailing-space ",
+				"embedded\nnewline.txt",
+				"ordinary untracked.txt",
+			]) {
+				assert.ok(paths.includes(expected), `missing exact path ${expected}`);
+			}
+
+			const records = raw.split("\0");
+			assert.equal(records.pop(), "");
+			const reordered = `${[records.at(-1), ...records.slice(0, -1)].join("\0")}\0`;
+			assert.deepEqual(
+				new Set(parsePorcelainStatus(reordered)),
+				new Set(paths),
+			);
+		} finally {
+			fs.rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it("returns an empty path list for a clean real repository", async () => {
+		const directory = initializeGitFixture("ignite-porcelain-clean-test-");
+		try {
+			writeFixtureFile(directory, "tracked.txt", "tracked\n");
+			commitFixture(directory);
+			const { parsePorcelainStatus } = await import(
+				`./prepare-beta-release.mjs?clean=${Date.now()}`
+			);
+			assert.deepEqual(
+				parsePorcelainStatus(
+					runGit(directory, [
+						"status",
+						"--porcelain=v1",
+						"-z",
+						"--untracked-files=all",
+					]),
+				),
+				[],
+			);
+		} finally {
+			fs.rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it("fails closed for rename, copy, and malformed records", async () => {
+		const directory = initializeGitFixture("ignite-porcelain-rename-test-");
+		try {
+			writeFixtureFile(directory, "before.txt", "tracked\n");
+			commitFixture(directory);
+			runGit(directory, ["mv", "before.txt", "after.txt"]);
+			const { parsePorcelainStatus } = await import(
+				`./prepare-beta-release.mjs?rename=${Date.now()}`
+			);
+			assert.throws(
+				() =>
+					parsePorcelainStatus(
+						runGit(directory, [
+							"status",
+							"--porcelain=v1",
+							"-z",
+							"--untracked-files=all",
+						]),
+					),
+				/rename or copy/,
+			);
+			assert.throws(
+				() => parsePorcelainStatus("C  copied.txt\0source.txt\0"),
+				/rename or copy/,
+			);
+			assert.throws(() => parsePorcelainStatus("M! invalid.txt\0"));
+			assert.throws(() => parsePorcelainStatus("M  missing-nul.txt"));
+		} finally {
+			fs.rmSync(directory, { recursive: true, force: true });
+		}
 	});
 });
