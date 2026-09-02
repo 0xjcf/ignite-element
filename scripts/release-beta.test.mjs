@@ -35,6 +35,12 @@ function workflowJob(workflow, name) {
 	return workflow.slice(jobs[index].index, jobs[index + 1]?.index);
 }
 
+function workflowActionSteps(job, action) {
+	return job
+		.split(/\n(?= {6}- )/)
+		.filter((step) => step.includes(`uses: ${action}@`));
+}
+
 describe("v3 beta staged-release boundary", () => {
 	it("removes obsolete token-refresh automation and credentials", () => {
 		for (const relativePath of [
@@ -145,8 +151,28 @@ describe("v3 beta staged-release boundary", () => {
 
 	it("disables package-manager caching in both release jobs", () => {
 		const workflow = read(".github/workflows/publish.yml");
-		assert.doesNotMatch(workflow, /^\s+cache:\s/m);
-		assert.doesNotMatch(workflow, /actions\/cache@/);
+		const jobs = [
+			["validate", workflowJob(workflow, "validate")],
+			["stage", workflowJob(workflow, "stage")],
+		];
+		let setupNodeUses = 0;
+		for (const [name, job] of jobs) {
+			const setupNodeSteps = workflowActionSteps(job, "actions/setup-node");
+			assert.equal(
+				setupNodeSteps.length,
+				1,
+				`${name} must contain exactly one setup-node step`,
+			);
+			setupNodeUses += setupNodeSteps.length;
+			assert.match(
+				setupNodeSteps[0],
+				/^ {10}package-manager-cache: false$/m,
+				`${name} setup-node must explicitly disable package-manager caching`,
+			);
+			assert.doesNotMatch(job, /^\s+cache:\s/m);
+			assert.doesNotMatch(job, /actions\/cache@/);
+		}
+		assert.equal(setupNodeUses, 2);
 	});
 
 	it("binds staging to the exact downloaded validation artifact", () => {
