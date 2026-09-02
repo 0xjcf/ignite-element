@@ -61,19 +61,43 @@ export const shipmentCard = igniteCore({
 `ShipmentProjection` flows into the native snapshot as `snapshot.context`, the `states` callback derives the renderer-facing read model, and `ShipmentRequest` flows into `actor.send`, all inferred from `shipmentSource` — no `igniteCore<...>` annotations. Updating the projected context stays Actor-Web's job. Ignite sends requests back and re-renders when the next source snapshot arrives.
 
 :::note[Source shapes]
-`source` accepts a source **value** (read-only or command-capable), a zero-argument factory, or a host-context factory `({ host }) => source`. When a source exposes `close()`, Ignite calls it during adapter teardown. Passing a typed source **value** gives the cleanest inference; the `ignite-element/actor-web` entrypoint is required for zero-argument and defaulted factories (see [Source factory adapter inference](/ignite-element/concepts/the-ignite-model/)).
+`source` accepts a source **value** (read-only or command-capable), a zero-argument factory, or a host-context factory `({ host }) => source`. A shared source value remains application-owned; stop its Actor-Web runtime from application cleanup. Ignite closes only sources returned by its isolated source-factory form. Passing a typed source **value** gives the cleanest inference; the `ignite-element/actor-web` entrypoint is required for zero-argument and defaulted factories (see [Source factory adapter inference](/ignite-element/concepts/the-ignite-model/)).
 :::
 
 ## Where sources come from
 
-Your Actor-Web runtime owns the sources and hands Ignite ready-made handles — Ignite never constructs them, and `ignite-element` core has no dependency on actor-web (the binding lives only in the optional `ignite-element/actor-web` entrypoint). A runtime topology typically exposes one source factory per shape; each maps to an `igniteCore` key:
+Your Actor-Web runtime owns the sources and hands Ignite ready-made handles — Ignite never constructs them, and `ignite-element` core has no dependency on actor-web (the binding lives only in the optional `ignite-element/actor-web` entrypoint). Actor-Web 0.2.1 exposes each source directly after actor selection:
 
 | Actor-Web source factory | Hands you | Pass to `igniteCore` as |
 | --- | --- | --- |
-| `readModel(options)` | a read-only projection (`snapshot`/`subscribe`, no `send`) | `source` |
-| `commandSource(options)` | a read model **plus** `send`/`ask` | `source` |
+| `runtime.topology.readModel(key, options?)` | a read-only projection (`snapshot`/`subscribe`, no `send`) | `source` |
+| `runtime.topology.source(key, options?)` or `runtime.topology.commands(key, options?)` | a read model **plus** `send`/`ask` | `source` |
 
-`options` is **connection config, not actor identity** — the gateway URL, auth, scope, and transport (`{ gateway: { url, scope?, auth? }, … }`). The actor is already selected by the topology path. Refer to your Actor-Web runtime's source/topology API for the exact factory signatures.
+For a local runtime, `options` can carry application host or abort context. For a remote topology source, it carries connection config such as the gateway URL, auth, scope, and transport. The `key` selects the actor; Ignite receives only the resulting source:
+
+```ts
+const runtime = await startRuntime(homeTopology);
+
+try {
+  const commandSource = runtime.topology.source('home', {
+    host: new EventTarget(),
+  });
+
+  const home = igniteCore({
+    source: commandSource,
+    states: (snapshot) => projectHomeView(snapshot.context),
+    commands: ({ actor }) => ({
+      refresh: () => actor.send({ type: 'home.refresh' }),
+    }),
+  });
+
+  // Mount or drive `home` while the Actor-Web runtime remains live.
+} finally {
+  // The application owns the runtime and its sources. Stopping the runtime
+  // closes sources it created before shutting down its nodes.
+  await runtime.stop();
+}
+```
 
 ### One source surface
 
