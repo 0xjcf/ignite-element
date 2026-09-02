@@ -49,6 +49,47 @@ function capture(command, args) {
 	return result.stdout.trim();
 }
 
+function captureRaw(command, args) {
+	const result = spawnSync(command, args, {
+		cwd: repositoryRoot,
+		encoding: "utf8",
+	});
+	if (result.error) throw result.error;
+	if (result.status !== 0)
+		throw new Error(
+			`${command} ${args.join(" ")} failed: ${result.stderr.trim()}`,
+		);
+	return result.stdout;
+}
+
+export function parsePorcelainStatus(output) {
+	if (typeof output !== "string")
+		throw new Error("porcelain status output must be a string");
+	if (output === "") return [];
+	if (!output.endsWith("\0"))
+		throw new Error("malformed porcelain status: missing NUL terminator");
+
+	const records = output.split("\0");
+	records.pop();
+	return records.map((record) => {
+		if (record.length < 4)
+			throw new Error("malformed porcelain status: record is too short");
+		const status = record.slice(0, 2);
+		if (record[2] !== " ")
+			throw new Error("malformed porcelain status: missing status separator");
+		if (status.includes("R") || status.includes("C"))
+			throw new Error(
+				"porcelain status contains an unauthorized rename or copy record",
+			);
+		if (status !== "??" && (!/^[ MTADU]{2}$/.test(status) || status === "  "))
+			throw new Error(`malformed porcelain status field: ${status}`);
+		const relativePath = record.slice(3);
+		if (relativePath.length === 0)
+			throw new Error("malformed porcelain status: path is empty");
+		return relativePath;
+	});
+}
+
 function readPackageVersions() {
 	return Object.fromEntries(
 		RELEASE_PACKAGES.map(({ directory, name }) => [
@@ -155,10 +196,14 @@ function validateReviewableCandidate(before) {
 	assertInternalDependencies(after);
 	const allowed =
 		/^(?:\.changeset\/pre\.json|\.changeset\/[^/]+\.md|packages\/ignite-(?:core|adapters|renderer|element)\/(?:package\.json|CHANGELOG\.md))$/;
-	const changed = capture("git", ["status", "--porcelain=v1"])
-		.split("\n")
-		.filter(Boolean)
-		.map((line) => line.slice(3));
+	const changed = parsePorcelainStatus(
+		captureRaw("git", [
+			"status",
+			"--porcelain=v1",
+			"-z",
+			"--untracked-files=all",
+		]),
+	);
 	if (changed.length === 0 || changed.some((name) => !allowed.test(name)))
 		throw new Error(`unexpected preparation output: ${changed.join(", ")}`);
 	return { changed, pendingChangesets: before.pending, version: after };
