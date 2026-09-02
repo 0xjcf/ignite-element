@@ -1,209 +1,149 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, it } from "node:test";
-import {
-	assertBetaDistTags,
-	createBetaPublishPlan,
-	createDistTagReadCommand,
-	createDistTagRecoveryInstructions,
-	verifyBetaDistTagsWithRetry,
-} from "./release-beta.mjs";
+import { fileURLToPath } from "node:url";
 
-const releasePackages = [
-	{ name: "ignite-element", version: "3.0.0-beta.9" },
-	{ name: "@ignite-element/core", version: "3.0.0-beta.9" },
-	{ name: "@ignite-element/adapters", version: "3.0.0-beta.9" },
-	{ name: "@ignite-element/renderer", version: "3.0.0-beta.9" },
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const packageNames = [
+	"@ignite-element/core",
+	"@ignite-element/adapters",
+	"@ignite-element/renderer",
+	"ignite-element",
 ];
 
-const expectedTags = {
-	"ignite-element": {
-		beta: "3.0.0-beta.9",
-		latest: "2.2.2",
-	},
-	"@ignite-element/core": {
-		beta: "3.0.0-beta.9",
-		latest: "3.0.0-beta.9",
-	},
-	"@ignite-element/adapters": {
-		beta: "3.0.0-beta.9",
-		latest: "3.0.0-beta.9",
-	},
-	"@ignite-element/renderer": {
-		beta: "3.0.0-beta.9",
-		latest: "3.0.0-beta.9",
-	},
-};
+function read(relativePath) {
+	return fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8");
+}
 
-const staleTags = {
-	...expectedTags,
-	"@ignite-element/core": {
-		beta: "3.0.0-beta.2",
-		latest: "3.0.0-beta.8",
-	},
-};
-
-describe("release-beta", () => {
-	it("keeps the dry-run plan inert", () => {
-		const plan = createBetaPublishPlan({
-			dryRun: true,
-			preMode: true,
-			releasePackages,
-		});
-
-		assert.equal(
-			plan.publishCommand,
-			"pnpm -r publish --dry-run --no-git-checks --tag beta",
-		);
-		assert.deepEqual(plan.distTagCommands, []);
-		assert.doesNotMatch(plan.publishCommand, /changeset publish|npm dist-tag/);
+describe("v3 beta staged-release boundary", () => {
+	it("removes obsolete token-refresh automation and credentials", () => {
+		for (const relativePath of [
+			".github/workflows/refresh-token.yml",
+			"scripts/refresh-npm-token.js",
+			"scripts/__tests__/refresh-npm-token.test.js",
+		]) {
+			assert.equal(fs.existsSync(path.join(repositoryRoot, relativePath)), false);
+		}
 	});
 
-	it("repairs the beta tag for every lockstep package after a real publish", () => {
-		const plan = createBetaPublishPlan({
-			dryRun: false,
-			preMode: true,
-			releasePackages,
-		});
-
-		assert.equal(plan.publishCommand, "pnpm changeset publish");
-		assert.deepEqual(plan.distTagCommands, [
-			"npm dist-tag add ignite-element@3.0.0-beta.9 beta",
-			"npm dist-tag add @ignite-element/core@3.0.0-beta.9 beta",
-			"npm dist-tag add @ignite-element/adapters@3.0.0-beta.9 beta",
-			"npm dist-tag add @ignite-element/renderer@3.0.0-beta.9 beta",
-		]);
+	it("keeps package lifecycle hooks unable to publish or stage", () => {
+		const manifest = JSON.parse(read("packages/ignite-element/package.json"));
+		assert.equal(manifest.scripts.postrelease, undefined);
+		for (const [name, command] of Object.entries(manifest.scripts)) {
+			assert.doesNotMatch(command, /(?:pnpm|npm)\s+(?:stage\s+)?publish|changeset\s+publish/, `${name} must not publish or stage`);
+		}
 	});
 
-	it("rejects a non-lockstep or non-prerelease publish plan", () => {
-		assert.throws(
-			() =>
-				createBetaPublishPlan({
-					dryRun: false,
-					preMode: true,
-					releasePackages: releasePackages.map((pkg) =>
-						pkg.name === "@ignite-element/core"
-							? { ...pkg, version: "3.0.0-beta.8" }
-							: pkg,
-					),
-				}),
-			/lockstep prerelease version/,
-		);
-		assert.throws(
-			() =>
-				createBetaPublishPlan({
-					dryRun: false,
-					preMode: true,
-					releasePackages: releasePackages.map((pkg) => ({
-						...pkg,
-						version: "$(unsafe)-beta.9",
-					})),
-				}),
-			/lockstep prerelease version/,
-		);
+	it("keeps general CI validation-only", () => {
+		const workflow = read(".github/workflows/ci.yml");
+		assert.doesNotMatch(workflow, /NPM_TOKEN|changesets\/action|\bnpm\s+(?:stage\s+)?publish\b|\bpnpm\s+publish\b|\bchangeset\s+publish\b|\bdist-tag\b/);
+		assert.doesNotMatch(workflow, /^\s{2}release:\s*$/m);
 	});
 
-	it("accepts repaired beta tags while preserving the main stable latest tag", () => {
-		assert.doesNotThrow(() =>
-			assertBetaDistTags({
-				expectedVersion: "3.0.0-beta.9",
-				mainLatestBefore: "2.2.2",
-				tagsByPackage: expectedTags,
-			}),
-		);
+	it("defines the guarded OIDC-only staging workflow", () => {
+		const workflow = read(".github/workflows/publish.yml");
+		assert.match(workflow, /workflow_dispatch:/);
+		assert.match(workflow, /github\.ref\s*==\s*'refs\/heads\/beta'/);
+		assert.match(workflow, /environment:\s*npm-stage/);
+		assert.match(workflow, /contents:\s*read/);
+		assert.match(workflow, /id-token:\s*write/);
+		assert.match(workflow, /node-version:\s*["']?22["']?/);
+		assert.match(workflow, /npm(?:@|\s+)11\.19\.1/);
+		assert.match(workflow, /pnpm install --frozen-lockfile/);
+		assert.doesNotMatch(workflow, /NPM_TOKEN|stage\s+approve|npm\s+publish/);
 	});
 
-	it("rejects stale scoped beta tags or a moved main latest tag", () => {
-		assert.throws(
-			() =>
-				assertBetaDistTags({
-					expectedVersion: "3.0.0-beta.9",
-					mainLatestBefore: "2.2.2",
-					tagsByPackage: {
-						...expectedTags,
-						"ignite-element": {
-							beta: "3.0.0-beta.9",
-							latest: "3.0.0-beta.9",
-						},
-						"@ignite-element/core": {
-							beta: "3.0.0-beta.2",
-							latest: "3.0.0-beta.9",
-						},
-					},
-				}),
-			/beta tag|stable latest tag/,
-		);
+	it("separates reviewable version preparation from staging", async () => {
+		const { PREPARATION_STEPS } = await import("./prepare-beta-release.mjs");
+		assert.deepEqual(PREPARATION_STEPS, ["check-prerequisites", "changeset-version-without-commit", "format-version-output", "validate-reviewable-candidate"]);
+		assert.doesNotMatch(read("scripts/prepare-beta-release.mjs"), /\b(?:npm|pnpm)\s+(?:stage\s+)?publish\b|stage\s+approve|git\s+(?:commit|amend|tag|push)|--no-verify/);
+		assert.doesNotMatch(read("scripts/stage-beta-release.mjs"), /changeset\s+version|stage\s+approve|git\s+(?:commit|amend|tag|push)|--no-verify/);
 	});
 
-	it("forces dist-tag reads to prefer the online npm registry", () => {
-		assert.equal(
-			createDistTagReadCommand("@ignite-element/core"),
-			"npm view @ignite-element/core dist-tags --json --prefer-online",
-		);
+	it("flows four exact tarballs from consumer validation to staging", async () => {
+		const { createTarballManifest, createStagePlan } = await import("./stage-beta-release.mjs");
+		const directory = fs.mkdtempSync(path.join(os.tmpdir(), "ignite-stage-test-"));
+		try {
+			const candidates = packageNames.map((name, index) => {
+				const file = path.join(directory, `package-${index}.tgz`);
+				fs.writeFileSync(file, `tarball-${index}`);
+				return { file, name, version: "3.0.0-beta.10" };
+			});
+			const manifest = createTarballManifest(candidates, directory);
+			const manifestPath = path.join(directory, "tarballs.json");
+			const plan = createStagePlan({ manifest, manifestPath });
+			assert.deepEqual(manifest.packages.map(({ name }) => name), packageNames);
+			assert.deepEqual(plan.consumerValidation.args, [path.join(repositoryRoot, "scripts/verify-packed-consumers.mjs"), "--tarball-manifest", manifestPath]);
+			assert.deepEqual(plan.stageCommands.map(({ tarball }) => tarball), candidates.map(({ file }) => file));
+			for (const command of plan.stageCommands) {
+				assert.deepEqual(command.args.slice(0, 2), ["stage", "publish"]);
+				for (const required of ["--json", "--provenance", "--tag", "beta"]) assert.ok(command.args.includes(required));
+				assert.ok(!command.args.includes("approve"));
+			}
+		} finally {
+			fs.rmSync(directory, { recursive: true, force: true });
+		}
 	});
 
-	it("retries stale registry snapshots until the expected tags converge", async () => {
-		const snapshots = [staleTags, expectedTags];
-		const waits = [];
-
-		const result = await verifyBetaDistTagsWithRetry({
-			expectedVersion: "3.0.0-beta.9",
-			mainLatestBefore: "2.2.2",
-			maxAttempts: 3,
-			readTags: () => snapshots.shift(),
-			retryDelayMs: 25,
-			wait: async (delayMs) => waits.push(delayMs),
-		});
-
-		assert.equal(result.status, "verified");
-		assert.equal(result.attempts, 2);
-		assert.deepEqual(waits, [25]);
+	it("fails closed for a missing or changed reviewed tarball", async () => {
+		const { assertTarballManifest, createTarballManifest } = await import("./stage-beta-release.mjs");
+		const directory = fs.mkdtempSync(path.join(os.tmpdir(), "ignite-stage-hash-test-"));
+		try {
+			const candidates = packageNames.map((name, index) => {
+				const file = path.join(directory, `package-${index}.tgz`);
+				fs.writeFileSync(file, `tarball-${index}`);
+				return { file, name, version: "3.0.0-beta.10" };
+			});
+			const manifest = createTarballManifest(candidates, directory);
+			fs.writeFileSync(candidates[2].file, "changed");
+			assert.throws(() => assertTarballManifest(manifest, directory), /SHA-256 mismatch/);
+			fs.rmSync(candidates[2].file);
+			assert.throws(() => assertTarballManifest(manifest, directory), /missing tarball/);
+		} finally {
+			fs.rmSync(directory, { recursive: true, force: true });
+		}
 	});
 
-	it("returns a persistent mismatch fact after the bounded retry budget", async () => {
-		let reads = 0;
-		const waits = [];
-
-		const result = await verifyBetaDistTagsWithRetry({
-			expectedVersion: "3.0.0-beta.9",
-			mainLatestBefore: "2.2.2",
-			maxAttempts: 3,
-			readTags: () => {
-				reads += 1;
-				return staleTags;
-			},
-			retryDelayMs: 25,
-			wait: async (delayMs) => waits.push(delayMs),
-		});
-
-		assert.equal(result.status, "failed");
-		assert.equal(result.attempts, 3);
-		assert.equal(reads, 3);
-		assert.deepEqual(waits, [25, 25]);
-		assert.match(result.error.message, /Dist-tag verification failed/);
+	it("captures structured stage identifiers and rejects a missing ID", async () => {
+		const { parseStagePublishReceipt } = await import("./stage-beta-release.mjs");
+		const stageId = "7c0c4f9c-e72d-4ac0-81be-d32e79884c7b";
+		assert.deepEqual(parseStagePublishReceipt(JSON.stringify({ name: "@ignite-element/core", version: "3.0.0-beta.10", stageId }), { name: "@ignite-element/core", version: "3.0.0-beta.10" }), { name: "@ignite-element/core", stageId, version: "3.0.0-beta.10" });
+		assert.throws(() => parseStagePublishReceipt(JSON.stringify({ name: "@ignite-element/core", version: "3.0.0-beta.10" }), { name: "@ignite-element/core", version: "3.0.0-beta.10" }), /missing a valid stageId/);
 	});
 
-	it("puts an online recheck before repair commands for verification failures", () => {
-		const distTagCommands = [
-			"npm dist-tag add ignite-element@3.0.0-beta.9 beta",
-		];
-		const verificationInstructions = createDistTagRecoveryInstructions({
-			distTagCommands,
-			kind: "verification",
-		});
-		const writeInstructions = createDistTagRecoveryInstructions({
-			distTagCommands,
-			kind: "write",
-		});
+	it("rejects invalid branch, custody, version, Changesets, and registry state", async () => {
+		const { assertStagingPreconditions } = await import("./stage-beta-release.mjs");
+		const valid = {
+			branchRef: "refs/heads/beta",
+			clean: true,
+			pendingChangesets: [],
+			preState: { mode: "pre", tag: "beta" },
+			publicVersions: [],
+			versions: Object.fromEntries(packageNames.map((name) => [name, "3.0.0-beta.10"])),
+		};
+		assert.doesNotThrow(() => assertStagingPreconditions(valid));
+		for (const candidate of [
+			{ ...valid, branchRef: "refs/heads/main" },
+			{ ...valid, clean: false },
+			{ ...valid, versions: { ...valid.versions, "ignite-element": "3.0.0-beta.9" } },
+			{ ...valid, pendingChangesets: ["unconsumed"] },
+			{ ...valid, publicVersions: ["@ignite-element/core@3.0.0-beta.10"] },
+		]) assert.throws(() => assertStagingPreconditions(candidate));
+	});
 
-		const recheckIndex = verificationInstructions.findIndex((line) =>
-			line.includes("npm view"),
-		);
-		const repairIndex = verificationInstructions.findIndex((line) =>
-			line.includes("npm dist-tag add"),
-		);
-		assert.ok(recheckIndex < repairIndex);
-		assert.match(verificationInstructions.join("\n"), /recheck/i);
-		assert.doesNotMatch(writeInstructions.join("\n"), /recheck/i);
-		assert.match(writeInstructions.join("\n"), /fresh npm OTP/i);
+	it("verifies the explicit post-approval tag policy", async () => {
+		const { assertApprovedRelease } = await import("./verify-beta-release.mjs");
+		const version = "3.0.0-beta.10";
+		const metadata = Object.fromEntries(packageNames.map((name) => [name, {
+			dependencies: name === "ignite-element" ? { "@ignite-element/adapters": version, "@ignite-element/core": version, "@ignite-element/renderer": version } : {},
+			dist: { attestations: { url: "https://registry.example/attestation" } },
+			tags: { beta: version, latest: name === "ignite-element" ? "2.2.2" : version },
+			version,
+		}]));
+		assert.doesNotThrow(() => assertApprovedRelease({ expectedVersion: version, metadata }));
+		metadata["ignite-element"].tags.latest = version;
+		assert.throws(() => assertApprovedRelease({ expectedVersion: version, metadata }), /facade latest/);
 	});
 });

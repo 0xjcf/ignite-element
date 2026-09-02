@@ -3,7 +3,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { checkRules } from "../check-architecture-rules.mjs";
+
+const repositoryRoot = path.resolve(
+	path.dirname(fileURLToPath(import.meta.url)),
+	"../..",
+);
 
 const tempDirectories = [];
 
@@ -231,4 +237,18 @@ test("does not flag legitimate adapter imports outside deterministic source root
 	const violations = checkRules(root, rulesPath, new Map());
 
 	assert.deepEqual(violations, []);
+});
+
+test("repository cannot restore obsolete npm token-refresh automation", () => {
+	for (const relativePath of [
+		".github/workflows/refresh-token.yml",
+		"scripts/refresh-npm-token.js",
+		"scripts/__tests__/refresh-npm-token.test.js",
+	]) {
+		assert.equal(
+			fs.existsSync(path.join(repositoryRoot, relativePath)),
+			false,
+			`${relativePath} is forbidden by the OIDC-only release boundary`,
+		);
+	}
 });
