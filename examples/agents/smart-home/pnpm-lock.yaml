@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@actor-web/runtime':
-        specifier: ^0.2.0
-        version: 0.2.0
+        specifier: 0.2.1
+        version: 0.2.1
       ws:
         specifier: ^8.18.3
         version: 8.21.0
@@ -36,8 +36,8 @@ importers:
 
 packages:
 
-  '@actor-web/runtime@0.2.0':
-    resolution: {integrity: sha512-chYJpvL9vQGXWu16TmvBf3dohZS9BqUSSTpI0YYQV+IVkhizRuoBNWweGZpmi4rWsub0pf8+mMSvzWR3RlpgHA==}
+  '@actor-web/runtime@0.2.1':
+    resolution: {integrity: sha512-Uf7vabhaxMuv1ohhGuEpp3jIF5HcAg1iXkcx3VeoIGpYiBV3FyLhZ6VlkdRf0Hq+7V9gtA0wKZZN3iNqldLNLQ==}
     engines: {node: '>=18.0.0'}
 
   '@emnapi/core@1.11.1':
@@ -839,7 +839,7 @@ packages:
 
 snapshots:
 
-  '@actor-web/runtime@0.2.0':
+  '@actor-web/runtime@0.2.1':
     dependencies:
       '@msgpack/msgpack': 3.1.3
       uuid: 11.1.1
