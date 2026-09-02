@@ -5,10 +5,7 @@ import {
 	node,
 	startRuntime,
 } from "@actor-web/runtime";
-import {
-	type ActorWebCommandSource,
-	igniteCore,
-} from "ignite-element/actor-web";
+import { igniteCore } from "ignite-element/actor-web";
 import {
 	createHomeCommands,
 	createInitialHomeContext,
@@ -75,18 +72,10 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 		pendingTransitionTimers.add(timer);
 	});
 	const runtime = await startRuntime(homeTopology);
-	let sourceHandle:
-		| ReturnType<ReturnType<typeof runtime.topology.source>>
-		| undefined;
 	try {
-		sourceHandle = runtime.topology.source("home")({
+		const commandSource = runtime.topology.source("home", {
 			host: new EventTarget(),
 		});
-		const commandSource = sourceHandle.commandSource as ActorWebCommandSource<
-			HomeContext,
-			HomeCommand,
-			HomeActorEmitted
-		>;
 		sendAndFlush = (message: HomeCommand) => {
 			if (closed) {
 				return Promise.reject(new Error("Actor-web home session is closed."));
@@ -123,31 +112,7 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 						closed = true;
 						clearPendingTransitionTimers();
 						await waitForPendingSends();
-						const errors: unknown[] = [];
-						if (sourceHandle) {
-							try {
-								await sourceHandle.stop();
-							} catch (error) {
-								errors.push(error);
-							}
-						}
-						try {
-							await runtime.stop();
-						} catch (error) {
-							errors.push(error);
-						}
-						if (errors.length > 0) {
-							const primary = errors[0];
-							const cleanupError =
-								primary instanceof Error ? primary : new Error(String(primary));
-							if (errors.length > 1) {
-								const errorWithSuppressed = cleanupError as Error & {
-									suppressedErrors?: unknown[];
-								};
-								errorWithSuppressed.suppressedErrors = errors.slice(1);
-							}
-							throw cleanupError;
-						}
+						await runtime.stop();
 					})(),
 					"closing actor-web home session",
 				),
@@ -155,14 +120,6 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 	} catch (error) {
 		closed = true;
 		clearPendingTransitionTimers();
-		if (sourceHandle) {
-			await sourceHandle.stop().catch((cleanupError: unknown) => {
-				console.error(
-					"Failed to stop actor-web home source after setup failure",
-					cleanupError,
-				);
-			});
-		}
 		try {
 			await runtime.stop();
 		} catch (cleanupError) {
