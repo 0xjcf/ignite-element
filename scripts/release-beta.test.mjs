@@ -35,14 +35,21 @@ describe("v3 beta staged-release boundary", () => {
 	});
 
 	it("keeps package lifecycle hooks unable to publish or stage", () => {
-		const manifest = JSON.parse(read("packages/ignite-element/package.json"));
-		assert.equal(manifest.scripts.postrelease, undefined);
-		for (const [name, command] of Object.entries(manifest.scripts)) {
-			assert.doesNotMatch(
-				command,
-				/(?:pnpm|npm)\s+(?:stage\s+)?publish|changeset\s+publish/,
-				`${name} must not publish or stage`,
-			);
+		for (const directory of [
+			"ignite-core",
+			"ignite-adapters",
+			"ignite-renderer",
+			"ignite-element",
+		]) {
+			const manifest = JSON.parse(read(`packages/${directory}/package.json`));
+			assert.equal(manifest.scripts?.postrelease, undefined);
+			for (const [name, command] of Object.entries(manifest.scripts ?? {})) {
+				assert.doesNotMatch(
+					command,
+					/(?:pnpm|npm)\s+(?:stage\s+)?publish|changeset\s+publish/,
+					`${manifest.name} ${name} must not publish or stage`,
+				);
+			}
 		}
 	});
 
