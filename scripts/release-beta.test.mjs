@@ -15,9 +15,27 @@ const packageNames = [
 	"@ignite-element/renderer",
 	"ignite-element",
 ];
+const repositoryUrl = "git+https://github.com/0xjcf/ignite-element.git";
+const actionPins = new Map([
+	["actions/checkout", "fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09"],
+	["pnpm/action-setup", "b906affcce14559ad1aafd4ab0e942779e9f58b1"],
+	["actions/setup-node", "a0853c24544627f65ddf259abe73b1d18a591444"],
+	["actions/upload-artifact", "ea165f8d65b6e75b540449e92b4886f43607fa02"],
+	[
+		"actions/download-artifact",
+		"634f93cb2916e3fdff6788551b99b062d0335ce0",
+	],
+]);
 
 function read(relativePath) {
 	return fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8");
+}
+
+function workflowJob(workflow, name) {
+	const jobs = [...workflow.matchAll(/^  ([a-zA-Z0-9_-]+):\s*$/gm)];
+	const index = jobs.findIndex((match) => match[1] === name);
+	assert.notEqual(index, -1, `workflow must define the ${name} job`);
+	return workflow.slice(jobs[index].index, jobs[index + 1]?.index);
 }
 
 describe("v3 beta staged-release boundary", () => {
@@ -73,6 +91,129 @@ describe("v3 beta staged-release boundary", () => {
 		assert.match(workflow, /npm(?:@|\s+)11\.19\.1/);
 		assert.match(workflow, /pnpm install --frozen-lockfile/);
 		assert.doesNotMatch(workflow, /NPM_TOKEN|stage\s+approve|npm\s+publish/);
+	});
+
+	it("declares the exact repository identity on all release packages", () => {
+		for (const directory of [
+			"ignite-core",
+			"ignite-adapters",
+			"ignite-renderer",
+			"ignite-element",
+		]) {
+			const manifest = JSON.parse(read(`packages/${directory}/package.json`));
+			assert.deepEqual(manifest.repository, {
+				type: "git",
+				url: repositoryUrl,
+			});
+		}
+	});
+
+	it("pins every release action to its authenticated full commit SHA", () => {
+		const workflow = read(".github/workflows/publish.yml");
+		const actions = [...workflow.matchAll(/^\s*uses:\s*([^@\s]+)@([^\s#]+)/gm)];
+		assert.ok(actions.length >= 5, "split workflow must use reviewed actions");
+		for (const [, action, revision] of actions) {
+			assert.match(revision, /^[0-9a-f]{40}$/);
+			assert.equal(revision, actionPins.get(action), `${action} pin is unreviewed`);
+		}
+	});
+
+	it("serializes staging runs without cancelling an in-flight release", () => {
+		const workflow = read(".github/workflows/publish.yml");
+		assert.match(workflow, /^concurrency:\n  group: ignite-v3-beta-stage$/m);
+		assert.match(workflow, /^  cancel-in-progress: false$/m);
+	});
+
+	it("keeps OIDC authority only in the protected staging job", () => {
+		const workflow = read(".github/workflows/publish.yml");
+		const validate = workflowJob(workflow, "validate");
+		const stage = workflowJob(workflow, "stage");
+		assert.match(validate, /permissions:\n\s+contents: read/);
+		assert.doesNotMatch(validate, /id-token:\s*write/);
+		assert.match(stage, /permissions:\n\s+contents: read\n\s+id-token: write/);
+		assert.match(stage, /needs:\s*validate/);
+	});
+
+	it("keeps the protected npm environment only in the staging job", () => {
+		const workflow = read(".github/workflows/publish.yml");
+		const validate = workflowJob(workflow, "validate");
+		const stage = workflowJob(workflow, "stage");
+		assert.doesNotMatch(validate, /environment:/);
+		assert.match(stage, /environment:\s*npm-stage/);
+	});
+
+	it("disables package-manager caching in both release jobs", () => {
+		const workflow = read(".github/workflows/publish.yml");
+		assert.doesNotMatch(workflow, /^\s+cache:\s/m);
+		assert.doesNotMatch(workflow, /actions\/cache@/);
+	});
+
+	it("binds staging to the exact downloaded validation artifact", () => {
+		const workflow = read(".github/workflows/publish.yml");
+		const validate = workflowJob(workflow, "validate");
+		const stage = workflowJob(workflow, "stage");
+		for (const output of [
+			"artifact-id",
+			"artifact-digest",
+			"payload-digest",
+			"commit",
+			"tree",
+		]) {
+			assert.match(validate, new RegExp(`${output}:`));
+		}
+		assert.match(stage, /actions\/download-artifact@[0-9a-f]{40}/);
+		assert.match(stage, /artifact-ids:\s*\$\{\{ needs\.validate\.outputs\.artifact-id \}\}/);
+		for (const argument of [
+			"--expected-artifact-id",
+			"--expected-artifact-digest",
+			"--expected-payload-digest",
+			"--expected-commit",
+			"--expected-tree",
+			"--payload-dir",
+		]) {
+			assert.match(stage, new RegExp(argument));
+		}
+		assert.doesNotMatch(stage, /pnpm\s+install|pnpm\s+run|changeset/);
+	});
+
+	it("documents default-branch registration and four-package trusted publishing", () => {
+		const documentation = read("docs/v3-beta-staged-release.md");
+		for (const required of [
+			"Provider: GitHub Actions",
+			"Owner/organization: 0xjcf",
+			"Repository: ignite-element",
+			"Workflow filename: publish.yml",
+			"Environment: npm-stage",
+			"Allowed action: npm stage publish only",
+		]) {
+			assert.match(documentation, new RegExp(required));
+		}
+		assert.match(documentation, /default branch `main`/);
+		assert.match(documentation, /does not specify the Git branch/);
+		assert.match(documentation, /GitHub owns the `beta` ref guard/);
+		assert.match(documentation, /branch protection|ruleset/);
+		assert.match(documentation, /Require two-factor authentication and disallow tokens/);
+		assert.match(documentation, /npm stage list --json/);
+		assert.match(documentation, /gh workflow run publish\.yml --ref beta/);
+	});
+
+	it("forbids direct publication and stage approval in executable release surfaces", () => {
+		const executableReleaseSurfaces = [
+			".github/workflows/publish.yml",
+			"scripts/prepare-beta-release.mjs",
+			"scripts/stage-beta-release.mjs",
+			"package.json",
+			"packages/ignite-core/package.json",
+			"packages/ignite-adapters/package.json",
+			"packages/ignite-renderer/package.json",
+			"packages/ignite-element/package.json",
+		]
+			.map(read)
+			.join("\n");
+		assert.doesNotMatch(
+			executableReleaseSurfaces,
+			/\bnpm\s+publish\b|\bpnpm\s+publish\b|\bchangeset\s+publish\b|\bnpm\s+stage\s+approve\b/,
+		);
 	});
 
 	it("separates reviewable version preparation from staging", async () => {
