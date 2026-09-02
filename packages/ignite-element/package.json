@@ -154,8 +154,6 @@
 		"format": "biome format --write .",
 		"check": "biome check .",
 		"lint": "biome lint .",
-		"release": "changeset publish",
-		"postrelease": "pnpm publish",
 		"prepare": "husky"
 	},
 	"dependencies": {

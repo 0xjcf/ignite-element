@@ -34,7 +34,8 @@
 		"examples:mobx": "pnpm --filter ignite-element examples:mobx",
 		"migrate:effects-events": "node scripts/migrate-emit-to-effects.mjs",
 		"changeset": "changeset",
-		"release:beta": "node scripts/release-beta.mjs"
+		"release:beta": "node scripts/prepare-beta-release.mjs",
+		"release:beta:verify": "node scripts/verify-beta-release.mjs"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.3.1",

@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
+	existsSync,
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
 	rmSync,
+	statSync,
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -113,6 +116,46 @@ function run(command, args, options = {}) {
 
 function tarballName(packageName, version) {
 	return `${packageName.replace(/^@/, "").replace("/", "-")}-${version}.tgz`;
+}
+
+function sha256(file) {
+	return createHash("sha256").update(readFileSync(file)).digest("hex");
+}
+
+export function resolveReviewedTarballs(manifestPath) {
+	const manifest = readJson(manifestPath);
+	if (
+		manifest.schemaVersion !== 1 ||
+		manifest.algorithm !== "sha256" ||
+		manifest.packages?.length !== packageDefinitions.length
+	) {
+		throw new Error(
+			"reviewed tarball manifest must contain exactly four SHA-256 entries",
+		);
+	}
+	const baseDirectory = dirname(manifestPath);
+	return packageDefinitions.map((definition, index) => {
+		const entry = manifest.packages[index];
+		if (entry.name !== definition.name) {
+			throw new Error(`reviewed tarball order mismatch for ${definition.name}`);
+		}
+		const tarballPath = resolve(baseDirectory, entry.filename);
+		if (
+			!tarballPath.startsWith(`${resolve(baseDirectory)}/`) ||
+			!existsSync(tarballPath)
+		) {
+			throw new Error(`missing reviewed tarball for ${entry.name}`);
+		}
+		if (
+			statSync(tarballPath).size !== entry.size ||
+			sha256(tarballPath) !== entry.sha256
+		) {
+			throw new Error(`reviewed tarball SHA-256 mismatch for ${entry.name}`);
+		}
+		const packedManifest = validateTarball(definition, tarballPath);
+		assert.equal(packedManifest.version, entry.version);
+		return tarballPath;
+	});
 }
 
 function validateTarball(definition, tarballPath) {
@@ -294,21 +337,31 @@ assert.throws(() => require.resolve("lit-html"), { code: "MODULE_NOT_FOUND" });`
 
 try {
 	mkdirSync(tarballDirectory);
-	const tarballPaths = [];
-
-	for (const definition of packageDefinitions) {
-		const packageDirectory = resolve(repositoryRoot, definition.directory);
-		const sourceManifest = readJson(join(packageDirectory, "package.json"));
-		run("pnpm", ["pack", "--pack-destination", tarballDirectory], {
-			cwd: packageDirectory,
-		});
-
-		const tarballPath = join(
-			tarballDirectory,
-			tarballName(definition.name, sourceManifest.version),
+	const manifestArgument = process.argv.indexOf("--tarball-manifest");
+	let tarballPaths;
+	if (manifestArgument !== -1) {
+		if (!process.argv[manifestArgument + 1]) {
+			throw new Error("--tarball-manifest requires a path");
+		}
+		tarballPaths = resolveReviewedTarballs(
+			resolve(process.argv[manifestArgument + 1]),
 		);
-		validateTarball(definition, tarballPath);
-		tarballPaths.push(tarballPath);
+	} else {
+		tarballPaths = [];
+		for (const definition of packageDefinitions) {
+			const packageDirectory = resolve(repositoryRoot, definition.directory);
+			const sourceManifest = readJson(join(packageDirectory, "package.json"));
+			run("pnpm", ["pack", "--pack-destination", tarballDirectory], {
+				cwd: packageDirectory,
+			});
+
+			const tarballPath = join(
+				tarballDirectory,
+				tarballName(definition.name, sourceManifest.version),
+			);
+			validateTarball(definition, tarballPath);
+			tarballPaths.push(tarballPath);
+		}
 	}
 
 	for (const lane of consumerLanes) {
