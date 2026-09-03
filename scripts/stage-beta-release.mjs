@@ -77,6 +77,17 @@ function tarballName(packageName, version) {
 	return `${packageName.replace(/^@/, "").replace("/", "-")}-${version}.tgz`;
 }
 
+export function createPnpmPackArguments(directory, tarballDirectory) {
+	return [
+		"--config.ignore-scripts=true",
+		"--dir",
+		directory,
+		"pack",
+		"--pack-destination",
+		tarballDirectory,
+	];
+}
+
 function readVersions() {
 	return Object.fromEntries(
 		RELEASE_PACKAGES.map(({ directory, name }) => [
@@ -412,14 +423,7 @@ export function prepareStagingPayload({
 	const tarballDirectory = path.join(outputDirectory, "tarballs");
 	fs.mkdirSync(tarballDirectory);
 	const candidates = RELEASE_PACKAGES.map(({ directory, name }) => {
-		run("pnpm", [
-			"--dir",
-			directory,
-			"pack",
-			"--ignore-scripts",
-			"--pack-destination",
-			tarballDirectory,
-		]);
+		run("pnpm", createPnpmPackArguments(directory, tarballDirectory));
 		return {
 			file: path.join(tarballDirectory, tarballName(name, version)),
 			name,
