@@ -75,6 +75,52 @@ function writeFixtureFile(directory, relativePath, content) {
 	fs.writeFileSync(file, content);
 }
 
+function createPnpmPackLifecycleFixture(prefix) {
+	const directory = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+	writeFixtureFile(
+		directory,
+		"package.json",
+		`${JSON.stringify(
+			{
+				name: "pnpm-pack-lifecycle-fixture",
+				scripts: {
+					postpack: "node lifecycle-marker.mjs postpack",
+					prepack: "node lifecycle-marker.mjs prepack",
+					prepare: "node lifecycle-marker.mjs prepare",
+				},
+				version: "1.0.0",
+			},
+			null,
+			2,
+		)}\n`,
+	);
+	writeFixtureFile(
+		directory,
+		"lifecycle-marker.mjs",
+		`import fs from "node:fs";
+
+fs.writeFileSync(\`\${process.argv[2]}.marker\`, "executed\\n");
+`,
+	);
+	return directory;
+}
+
+function assertLifecycleMarkersAbsent(directory) {
+	for (const lifecycle of ["prepack", "prepare", "postpack"])
+		assert.equal(
+			fs.existsSync(path.join(directory, `${lifecycle}.marker`)),
+			false,
+			`${lifecycle} must not execute while packing`,
+		);
+}
+
+function runPnpm(args) {
+	return spawnSync("pnpm", args, {
+		cwd: repositoryRoot,
+		encoding: "utf8",
+	});
+}
+
 function initializeGitFixture(prefix) {
 	const directory = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 	runGit(directory, ["init", "-b", "beta"]);
@@ -563,6 +609,111 @@ describe("v3 beta staged-release boundary", () => {
 			read("scripts/stage-beta-release.mjs"),
 			/changeset\s+version|stage\s+approve|git\s+(?:commit|amend|tag|push)|--no-verify/,
 		);
+	});
+
+	it("authenticates the real pnpm pack lifecycle-suppression syntax", () => {
+		const version = runPnpm(["--version"]);
+		assert.equal(version.status, 0, version.stderr);
+		assert.equal(version.stdout.trim(), "10.33.0");
+
+		const directory = createPnpmPackLifecycleFixture(
+			"ignite-pnpm-pack-syntax-test-",
+		);
+		const tarballDirectory = path.join(directory, "tarballs");
+		fs.mkdirSync(tarballDirectory);
+		try {
+			for (const args of [
+				[
+					"--dir",
+					directory,
+					"pack",
+					"--ignore-scripts",
+					"--pack-destination",
+					tarballDirectory,
+				],
+				[
+					"--dir",
+					directory,
+					"--ignore-scripts",
+					"pack",
+					"--pack-destination",
+					tarballDirectory,
+				],
+			]) {
+				const unsupported = runPnpm(args);
+				assert.notEqual(unsupported.status, 0);
+				assert.match(
+					`${unsupported.stdout}\n${unsupported.stderr}`,
+					/Unknown option: 'ignore-scripts'/,
+				);
+			}
+
+			const supported = runPnpm([
+				"--config.ignore-scripts=true",
+				"--dir",
+				directory,
+				"pack",
+				"--pack-destination",
+				tarballDirectory,
+			]);
+			assert.equal(supported.status, 0, supported.stderr);
+			assert.equal(
+				fs.existsSync(
+					path.join(
+						tarballDirectory,
+						"pnpm-pack-lifecycle-fixture-1.0.0.tgz",
+					),
+				),
+				true,
+			);
+			assertLifecycleMarkersAbsent(directory);
+		} finally {
+			fs.rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it("uses the authenticated pnpm pack arguments in production", async () => {
+		const { createPnpmPackArguments } = await import(
+			"./stage-beta-release.mjs"
+		);
+		assert.equal(
+			typeof createPnpmPackArguments,
+			"function",
+			"production must expose the shared pnpm pack argument builder",
+		);
+
+		const directory = createPnpmPackLifecycleFixture(
+			"ignite-production-pnpm-pack-test-",
+		);
+		const tarballDirectory = path.join(directory, "tarballs");
+		fs.mkdirSync(tarballDirectory);
+		try {
+			const args = createPnpmPackArguments(directory, tarballDirectory);
+			assert.deepEqual(args, [
+				"--config.ignore-scripts=true",
+				"--dir",
+				directory,
+				"pack",
+				"--pack-destination",
+				tarballDirectory,
+			]);
+			assert.equal(args.includes("--ignore-scripts"), false);
+
+			const result = runPnpm(args);
+			assert.equal(result.status, 0, result.stderr);
+			assert.equal(
+				fs.existsSync(
+					path.join(
+						tarballDirectory,
+						"pnpm-pack-lifecycle-fixture-1.0.0.tgz",
+					),
+				),
+				true,
+			);
+			assertLifecycleMarkersAbsent(directory);
+		} finally {
+			fs.rmSync(directory, { recursive: true, force: true });
+		}
 	});
 
 	it("flows four exact validated tarballs into staging", async () => {
