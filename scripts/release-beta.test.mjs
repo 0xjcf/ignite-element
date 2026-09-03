@@ -659,10 +659,7 @@ describe("v3 beta staged-release boundary", () => {
 			assert.equal(supported.status, 0, supported.stderr);
 			assert.equal(
 				fs.existsSync(
-					path.join(
-						tarballDirectory,
-						"pnpm-pack-lifecycle-fixture-1.0.0.tgz",
-					),
+					path.join(tarballDirectory, "pnpm-pack-lifecycle-fixture-1.0.0.tgz"),
 				),
 				true,
 			);
@@ -703,10 +700,7 @@ describe("v3 beta staged-release boundary", () => {
 			assert.equal(result.status, 0, result.stderr);
 			assert.equal(
 				fs.existsSync(
-					path.join(
-						tarballDirectory,
-						"pnpm-pack-lifecycle-fixture-1.0.0.tgz",
-					),
+					path.join(tarballDirectory, "pnpm-pack-lifecycle-fixture-1.0.0.tgz"),
 				),
 				true,
 			);
