@@ -119,6 +119,39 @@ jobs:
           --expected-commit "${{ needs.validate.outputs.commit }}"
           --expected-tree "${{ needs.validate.outputs.tree }}"
 
+      - name: Create fallback staging failure receipt
+        if: ${{ always() }}
+        env:
+          STAGE_COMMIT: ${{ github.sha }}
+          STAGE_OUTCOME: ${{ steps.staging.outcome }}
+          STAGE_RECEIPT_FILE: ${{ runner.temp }}/ignite-beta-stage-receipt/receipt.json
+          STAGE_RUN_ATTEMPT: ${{ github.run_attempt }}
+          STAGE_RUN_ID: ${{ github.run_id }}
+        run: |
+          node --input-type=module <<'EOF'
+          import fs from "node:fs";
+          import path from "node:path";
+
+          const receiptFile = process.env.STAGE_RECEIPT_FILE;
+          if (fs.existsSync(receiptFile)) process.exit(0);
+
+          fs.mkdirSync(path.dirname(receiptFile), { recursive: true });
+          const receipt = {
+            schemaVersion: 1,
+            kind: "ignite-element-npm-stage-failure",
+            status: "failure",
+            reason: "staging-receipt-not-produced",
+            stageOutcome: process.env.STAGE_OUTCOME,
+            commit: process.env.STAGE_COMMIT,
+            runId: process.env.STAGE_RUN_ID,
+            runAttempt: process.env.STAGE_RUN_ATTEMPT,
+          };
+          fs.writeFileSync(receiptFile, `${JSON.stringify(receipt, null, 2)}\n`, {
+            flag: "wx",
+          });
+          process.exitCode = 1;
+          EOF
+
       - name: Upload bounded incremental staging receipt
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
