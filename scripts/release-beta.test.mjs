@@ -42,6 +42,23 @@ function workflowActionSteps(job, action) {
 		.filter((step) => step.includes(`uses: ${action}@`));
 }
 
+function workflowNamedSteps(job) {
+	return job
+		.split(/\n(?= {6}- )/)
+		.filter((step) => step.startsWith("      - "));
+}
+
+function workflowRunScript(step) {
+	const marker = "        run: |\n";
+	const start = step.indexOf(marker);
+	assert.notEqual(start, -1, "workflow step must contain a literal run block");
+	return step
+		.slice(start + marker.length)
+		.split("\n")
+		.map((line) => (line.startsWith("          ") ? line.slice(10) : line))
+		.join("\n");
+}
+
 function runGit(cwd, args) {
 	const result = spawnSync("git", args, { cwd, encoding: "utf8" });
 	assert.equal(
@@ -330,6 +347,126 @@ describe("v3 beta staged-release boundary", () => {
 			assert.match(stage, new RegExp(argument));
 		}
 		assert.doesNotMatch(stage, /pnpm\s+install|pnpm\s+run|changeset/);
+	});
+
+	it("uploads a fail-closed fallback when staging produces no receipt", () => {
+		const workflow = read(".github/workflows/publish.yml");
+		const stage = workflowJob(workflow, "stage");
+		const steps = workflowNamedSteps(stage);
+		const uploadIndex = steps.findIndex((step) =>
+			step.startsWith(
+				"      - name: Upload bounded incremental staging receipt\n",
+			),
+		);
+		assert.notEqual(uploadIndex, -1, "staging receipt upload step is required");
+		assert.equal(
+			steps[uploadIndex],
+			`      - name: Upload bounded incremental staging receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ignite-beta-stage-receipt-\${{ github.sha }}
+          path: \${{ runner.temp }}/ignite-beta-stage-receipt
+          if-no-files-found: error
+          retention-days: 14
+`,
+			"the existing upload step must remain byte-for-byte unchanged",
+		);
+
+		const fallbackIndex = steps.findIndex((step) =>
+			step.startsWith(
+				"      - name: Create fallback staging failure receipt\n",
+			),
+		);
+		assert.notEqual(fallbackIndex, -1, "fallback receipt step is required");
+		assert.equal(
+			fallbackIndex + 1,
+			uploadIndex,
+			"fallback receipt step must immediately precede receipt upload",
+		);
+
+		const fallback = steps[fallbackIndex];
+		assert.match(fallback, /^ {8}if: \$\{\{ always\(\) \}\}$/m);
+		assert.match(
+			fallback,
+			/^ {10}STAGE_OUTCOME: \$\{\{ steps\.staging\.outcome \}\}$/m,
+		);
+		assert.match(
+			fallback,
+			/^ {10}STAGE_RECEIPT_FILE: \$\{\{ runner\.temp \}\}\/ignite-beta-stage-receipt\/receipt\.json$/m,
+		);
+		assert.match(fallback, /writeFileSync\([\s\S]*flag: "wx"/);
+		assert.doesNotMatch(fallback, /continue-on-error|\|\| true/);
+		assert.doesNotMatch(
+			fallback,
+			/\b(?:npm|pnpm)\s+(?:stage\s+)?(?:publish|approve|reject)|\bdist-tag\b/,
+		);
+
+		const script = workflowRunScript(fallback);
+		const directory = fs.mkdtempSync(
+			path.join(os.tmpdir(), "ignite-fallback-receipt-test-"),
+		);
+		const receiptFile = path.join(directory, "receipt.json");
+		const environment = {
+			...process.env,
+			STAGE_COMMIT: "1".repeat(40),
+			STAGE_OUTCOME: "success",
+			STAGE_RECEIPT_FILE: receiptFile,
+			STAGE_RUN_ATTEMPT: "2",
+			STAGE_RUN_ID: "123456789",
+		};
+		try {
+			const existingBytes = Buffer.from(
+				'{"schemaVersion":1,"kind":"incremental-stage-receipt","stageId":"preserve-me"}\n',
+			);
+			fs.writeFileSync(receiptFile, existingBytes);
+			const existingResult = spawnSync(
+				"bash",
+				["-e", "-o", "pipefail", "-c", script],
+				{ encoding: "utf8", env: environment },
+			);
+			assert.equal(existingResult.status, 0, existingResult.stderr);
+			assert.deepEqual(fs.readFileSync(receiptFile), existingBytes);
+
+			fs.rmSync(receiptFile);
+			const missingResult = spawnSync(
+				"bash",
+				["-e", "-o", "pipefail", "-c", script],
+				{ encoding: "utf8", env: environment },
+			);
+			assert.notEqual(
+				missingResult.status,
+				0,
+				"a missing receipt must fail even after a successful staging outcome",
+			);
+			const fallbackBytes = fs.readFileSync(receiptFile, "utf8");
+			assert.ok(fallbackBytes.endsWith("\n"));
+			assert.deepEqual(JSON.parse(fallbackBytes), {
+				schemaVersion: 1,
+				kind: "ignite-element-npm-stage-failure",
+				status: "failure",
+				reason: "staging-receipt-not-produced",
+				stageOutcome: "success",
+				commit: "1".repeat(40),
+				runId: "123456789",
+				runAttempt: "2",
+			});
+			assert.doesNotMatch(
+				fallbackBytes,
+				/stageId|packages?|registry|credential|stderr|token/i,
+			);
+
+			const createdBytes = fs.readFileSync(receiptFile);
+			const secondResult = spawnSync(
+				"bash",
+				["-e", "-o", "pipefail", "-c", script],
+				{ encoding: "utf8", env: environment },
+			);
+			assert.equal(secondResult.status, 0, secondResult.stderr);
+			assert.deepEqual(fs.readFileSync(receiptFile), createdBytes);
+		} finally {
+			fs.rmSync(directory, { recursive: true, force: true });
+		}
 	});
 
 	it("fails closed when downloaded payload identity or hashes differ", async () => {
