@@ -9,7 +9,9 @@
 		"start": "astro dev",
 		"build": "astro build",
 		"preview": "astro preview",
-		"astro": "astro"
+		"astro": "astro",
+		"check:versions": "node scripts/check-version-routing.mjs",
+		"check:versions:built": "node scripts/check-version-routing.mjs --built"
 	},
 	"dependencies": {
 		"@astrojs/starlight": "^0.37.1",
