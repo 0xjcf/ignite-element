@@ -15,6 +15,7 @@
 		"check:contrast": "node scripts/check-contrast.mjs",
 		"test:contrast": "astro build && node scripts/check-contrast.mjs",
 		"check:docs": "node scripts/check-doc-examples.mjs",
+		"check:publication": "node scripts/check-docs-publication-contract.mjs",
 		"check:links": "node scripts/check-links.mjs",
 		"check:links:external": "node scripts/check-links.mjs --external",
 		"check:versions": "node scripts/check-version-routing.mjs",
