@@ -41,8 +41,19 @@ const unsafeWorkflows = new Map([
 		workflow.replace("permissions: {}", "permissions: read-all"),
 	],
 	[
+		"top-level permissions: write-all",
+		workflow.replace("permissions: {}", "permissions: write-all"),
+	],
+	[
 		"non-empty top-level permissions map",
 		workflow.replace("permissions: {}", "permissions:\n  contents: read"),
+	],
+	[
+		"poisoned top-level permissions map",
+		workflow.replace(
+			"permissions: {}",
+			"permissions:\n  contents: read\n  issues: write",
+		),
 	],
 	["additional issues: read permission", addContrastPermission("issues: read")],
 	[
@@ -53,10 +64,55 @@ const unsafeWorkflows = new Map([
 		),
 	],
 	[
+		"additional job without explicit authority",
+		workflow.replace(
+			"jobs:\n  contrast:",
+			"jobs:\n  extra:\n    runs-on: ubuntu-22.04\n    steps: []\n  contrast:",
+		),
+	],
+	[
 		"duplicate ambiguous job permissions",
 		workflow.replace(
 			"      contents: read",
 			"      contents: read\n    permissions: write-all",
+		),
+	],
+	[
+		"inline job permissions map",
+		workflow.replace(
+			"    permissions:\n      contents: read",
+			"    permissions: { contents: read }",
+		),
+	],
+	[
+		"aliased job permissions",
+		workflow
+			.replace(
+				"permissions: {}",
+				"permission-template: &permission-template\n  contents: read\npermissions: {}",
+			)
+			.replace(
+				"    permissions:\n      contents: read",
+				"    permissions: *permission-template",
+			),
+	],
+	[
+		"duplicate top-level permissions",
+		workflow.replace("permissions: {}", "permissions: {}\npermissions: {}"),
+	],
+	[
+		"malformed permission indentation",
+		workflow.replace("      contents: read", "       contents: read"),
+	],
+	[
+		"missing job permissions",
+		workflow.replace("    permissions:\n      contents: read\n", ""),
+	],
+	[
+		"duplicate contents permission",
+		workflow.replace(
+			"      contents: read",
+			"      contents: read\n      contents: read",
 		),
 	],
 ]);
