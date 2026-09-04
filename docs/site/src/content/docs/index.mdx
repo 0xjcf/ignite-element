@@ -1,11 +1,11 @@
 ---
 title: Ignite Element
-description: Build framework-agnostic, typed custom elements powered by XState, Redux, or MobX.
+description: Build platform-native custom elements with typed state, commands, effects, events, and a headless runtime.
 sidebar:
   label: Welcome
   order: 1
 hero:
-  tagline: Framework-agnostic custom elements with typed state and events.
+  tagline: Platform-native custom elements for modern state-driven UI.
   badge: v2 docs
   actions:
     - text: Install
@@ -15,11 +15,11 @@ hero:
       variant: secondary
 ---
 
-Ignite Element gives you a thin, typed layer around your favorite state library so you can ship web components without bringing a framework runtime.
+Ignite Element gives you a thin, typed layer around modern state systems so you can ship platform-native custom elements without dragging along an app framework runtime. Commands express intent, effects express consequences, and the same component contract can run in the DOM, in tests, or headlessly.
 
 :::tip[Goal]
 
-Fast onboarding: install, wire your renderer, and ship a component in minutes.
+Fast onboarding: install, enable JSX once, and ship a component in minutes.
 
 :::
 
@@ -56,68 +56,43 @@ Add JSX runtime settings for Ignite JSX (the default renderer):
 
 ```tsx
 import { igniteCore } from 'ignite-element/xstate';
-import machine from './counter-machine';
+import { createMachine } from 'xstate';
+
+const machine = createMachine({
+  initial: 'off',
+  states: {
+    off: { on: { TOGGLE: 'on' } },
+    on: { on: { TOGGLE: 'off' } },
+  },
+});
 
 const component = igniteCore({
   source: machine,
-});
-
-component('my-counter', ({ state, send }) => {
-  const { count } = state;
-  const increment = () => send({ type: 'INCREMENT' });
-  const decrement = () => send({ type: 'DECREMENT' });
-
-  return (
-    <div class="counter">
-      <span class="counter-value">{count}</span>
-      <div class="counter-buttons">
-        <button onClick={increment}>+</button>
-        <button onClick={decrement}>-</button>
-      </div>
-    </div>
-  );
-});
-```
-
-`counter-machine.ts`:
-
-```ts
-import { assign, setup } from 'xstate';
-
-const machine = setup({
-  types: {
-    context: {} as { count: number },
-    events: {} as { type: 'INCREMENT' } | { type: 'DECREMENT' },
-  },
-}).createMachine({
-  id: 'counter-machine',
-  context: { count: 0 },
-  initial: 'active',
-  states: {
-    active: {
-      on: {
-        INCREMENT: {
-          actions: assign({
-            count: ({ context }) => context.count + 1,
-          }),
-        },
-        DECREMENT: {
-          actions: assign({
-            count: ({ context }) => context.count - 1,
-          }),
-        },
-      },
-    },
+  events: (event) => ({
+    toggled: event<{ isOn: boolean }>(),
+  }),
+  view: ({ snapshot }) => ({
+    isOn: snapshot.matches('on'),
+  }),
+  commands: ({ actor }) => ({
+    toggle: () => actor.send({ type: 'TOGGLE' }),
+  }),
+  effects: (_snapshot, _prevSnapshot, { emit, select }) => {
+    const isOn = select((snapshot) => snapshot.matches('on'));
+    if (!isOn.changed) return;
+    emit('toggled', { isOn: isOn.current });
   },
 });
 
-export default machine;
+component('my-toggle', ({ isOn, toggle }) => (
+  <button onClick={toggle}>{isOn ? 'On' : 'Off'}</button>
+));
 ```
 
 Add the element anywhere:
 
 ```html
-<my-counter></my-counter>
+<my-toggle></my-toggle>
 ```
 
 Want to go deeper with XState itself? See the <a href="https://stately.ai/docs" target="_blank" rel="noreferrer" aria-label="XState docs (opens in a new tab)">XState docs&nbsp;↗</a>.
@@ -127,7 +102,7 @@ Want to go deeper with XState itself? See the <a href="https://stately.ai/docs" 
 Spin up the counter example in your browser:
 
 - [Open in StackBlitz](https://stackblitz.com/edit/ignite-element?file=src%2Fmy-counter.tsx) (inline playground)
-- [Open repo example](https://github.com/0xjcf/ignite-element/tree/main/src/examples/xstate)
+- [Open repo example](https://github.com/0xjcf/ignite-element/tree/main/packages/ignite-element/src/examples/xstate)
 
 <iframe
   class="stackblitz-embed"
@@ -143,16 +118,17 @@ Spin up the counter example in your browser:
 
 ## Why teams pick Ignite Element
 
-- Works with XState, Redux Toolkit, or MobX—bring your adapter, keep your patterns.
-- Typed commands, states, and events without a React/Solid runtime; you only install the state library and renderer you pick.
-- Renderer choice: Ignite JSX (default, backed by `lit-html`); choose per project via config.
+- Platform-native distribution: ship one custom element contract to plain HTML, React, Vue, or other hosts.
+- Typed commands, view projection, effects, events, and headless runtime hooks without a React/Solid runtime.
+- Keep XState, Redux Toolkit, or MobX—bring your state model instead of adopting a new reactive system just to ship components.
+- No config is required for the default Ignite JSX path.
 - Built-in lifecycle handling for shared vs. isolated adapters.
-- Ship design-safe components: global styles via `ignite.config.ts`, per-component CSS as needed.
+- Optional project-level config exists for renderer defaults, global styles, and diagnostics when you need it.
 
 ## Ignite vs. other options
 
+- **React / Vue / Solid**: Ignite is a distribution layer for stateful UI, not a full app framework. Keep your existing app shell and ship DOM-native components across host boundaries.
 - **Lit / Stencil**: Ignite is renderer-agnostic with pluggable adapters; keep your state library instead of adopting a bespoke reactive model.
-- **Framework wrappers**: No React/Solid runtime required—ship native custom elements with typed events and commands.
 - **State-library lock-in**: Swap XState/Redux/MobX without rewriting renderers; shared lifecycle handling stays consistent.
 
 ## Performance snapshot
@@ -166,4 +142,5 @@ Spin up the counter example in your browser:
 
 - New to Ignite Element? Start with [Installation](/ignite-element/getting-started/installation/) then [Your first component](/ignite-element/getting-started/first-component/).
 - Need concepts fast? Jump to [State adapters](/ignite-element/concepts/state-adapters/) and [Renderers](/ignite-element/concepts/renderers/).
+- Shipping into another app? Read [Host app integration](/ignite-element/guides/host-app-integration/) and [Platform contracts](/ignite-element/guides/platform-contracts/).
 - Upgrading? Read [v1 → v2 migration](/ignite-element/migration/v2/).

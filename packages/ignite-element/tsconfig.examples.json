@@ -1,0 +1,15 @@
+{
+	"extends": "./tsconfig.typecheck.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"declaration": false,
+		"emitDeclarationOnly": false,
+		"paths": {
+			"ignite-element/jsx": ["./src/jsx"],
+			"ignite-element/jsx/*": ["./src/jsx/*"]
+		},
+		"jsxImportSource": "ignite-element/jsx"
+	},
+	"include": ["src/examples", "src/tests"],
+	"exclude": ["node_modules", "dist"]
+}

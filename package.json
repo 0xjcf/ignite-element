@@ -1,195 +1,32 @@
 {
-	"name": "ignite-element",
-	"version": "2.2.2",
-	"type": "module",
-	"main": "dist/ignite-element.cjs.js",
-	"types": "dist/types/index.d.ts",
-	"module": "dist/ignite-element.es.js",
-	"typesVersions": {
-		"*": {
-			"xstate": [
-				"dist/types/xstate.d.ts"
-			],
-			"redux": [
-				"dist/types/redux.d.ts"
-			],
-			"mobx": [
-				"dist/types/mobx.d.ts"
-			],
-			"renderers/ignite-jsx": [
-				"dist/types/renderers/ignite-jsx.d.ts"
-			],
-			"renderers/lit": [
-				"dist/types/renderers/lit.d.ts"
-			],
-			"config/vite": [
-				"dist/types/config/vite.d.ts"
-			],
-			"config/webpack": [
-				"dist/types/config/webpack.d.ts"
-			],
-			"config/loadIgniteConfig": [
-				"dist/types/config/loadIgniteConfig.d.ts"
-			],
-			"jsx": [
-				"dist/types/jsx/index.d.ts"
-			],
-			"jsx/jsx-runtime": [
-				"dist/types/jsx/jsx-runtime.d.ts"
-			],
-			"jsx/jsx-dev-runtime": [
-				"dist/types/jsx/jsx-dev-runtime.d.ts"
-			]
-		}
-	},
-	"exports": {
-		".": {
-			"types": "./dist/types/index.d.ts",
-			"import": "./dist/ignite-element.es.js",
-			"require": "./dist/ignite-element.cjs.js",
-			"default": "./dist/ignite-element.es.js"
-		},
-		"./xstate": {
-			"types": "./dist/types/xstate.d.ts",
-			"import": "./dist/xstate.es.js",
-			"require": "./dist/xstate.cjs.js",
-			"default": "./dist/xstate.es.js"
-		},
-		"./redux": {
-			"types": "./dist/types/redux.d.ts",
-			"import": "./dist/redux.es.js",
-			"require": "./dist/redux.cjs.js",
-			"default": "./dist/redux.es.js"
-		},
-		"./mobx": {
-			"types": "./dist/types/mobx.d.ts",
-			"import": "./dist/mobx.es.js",
-			"require": "./dist/mobx.cjs.js",
-			"default": "./dist/mobx.es.js"
-		},
-		"./renderers/ignite-jsx": {
-			"types": "./dist/types/renderers/ignite-jsx.d.ts",
-			"import": "./dist/renderers/ignite-jsx.es.js",
-			"require": "./dist/renderers/ignite-jsx.cjs.js",
-			"default": "./dist/renderers/ignite-jsx.es.js"
-		},
-		"./renderers/lit": {
-			"types": "./dist/types/renderers/lit.d.ts",
-			"import": "./dist/renderers/lit.es.js",
-			"require": "./dist/renderers/lit.cjs.js",
-			"default": "./dist/renderers/lit.es.js"
-		},
-		"./config/webpack": {
-			"types": "./dist/types/config/webpack.d.ts",
-			"import": "./dist/config/webpack.es.js",
-			"require": "./dist/config/webpack.cjs.js",
-			"default": "./dist/config/webpack.es.js"
-		},
-		"./config/vite": {
-			"types": "./dist/types/config/vite.d.ts",
-			"import": "./dist/config/vite.es.js",
-			"require": "./dist/config/vite.cjs.js",
-			"default": "./dist/config/vite.es.js"
-		},
-		"./jsx": {
-			"types": "./dist/types/jsx/index.d.ts",
-			"import": "./dist/jsx/index.es.js",
-			"require": "./dist/jsx/index.cjs.js",
-			"default": "./dist/jsx/index.es.js"
-		},
-		"./jsx/jsx-runtime": {
-			"types": "./dist/types/jsx/jsx-runtime.d.ts",
-			"import": "./dist/jsx/jsx-runtime.es.js",
-			"require": "./dist/jsx/jsx-runtime.cjs.js",
-			"default": "./dist/jsx/jsx-runtime.es.js"
-		},
-		"./jsx/jsx-dev-runtime": {
-			"types": "./dist/types/jsx/jsx-dev-runtime.d.ts",
-			"import": "./dist/jsx/jsx-dev-runtime.es.js",
-			"require": "./dist/jsx/jsx-dev-runtime.cjs.js",
-			"default": "./dist/jsx/jsx-dev-runtime.es.js"
-		},
-		"./config/loadIgniteConfig": {
-			"types": "./dist/types/config/loadIgniteConfig.d.ts",
-			"import": "./dist/config/loadIgniteConfig.es.js",
-			"require": "./dist/config/loadIgniteConfig.cjs.js",
-			"default": "./dist/config/loadIgniteConfig.es.js"
-		},
-		"./package.json": "./package.json"
-	},
-	"description": "A framework-agnostic library for creating web components with state management support.",
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/0xjcf/ignite-element.git"
-	},
-	"homepage": "https://github.com/0xjcf/ignite-element#readme",
-	"bugs": {
-		"url": "https://github.com/0xjcf/ignite-element/issues"
-	},
-	"keywords": [
-		"web-components",
-		"state-management",
-		"redux",
-		"xstate",
-		"mobx",
-		"ignite-element"
-	],
-	"author": "Jose C. Flores (0xjcf)",
-	"license": "MIT",
-	"files": [
-		"dist",
-		"README.md",
-		"LICENSE",
-		"CHANGELOG.md"
-	],
+	"name": "ignite-workspace",
+	"private": true,
 	"scripts": {
-		"build:types": "tsc",
-		"build:js": "vite build",
-		"build": "pnpm run build:types && pnpm run build:js",
-		"docs:dev": "pnpm --filter docs-site dev",
-		"docs:build": "pnpm --filter docs-site build",
-		"docs:preview": "pnpm --filter docs-site preview",
-		"examples:xstate": "cd src/examples/xstate && pnpm install --ignore-workspace --no-link-workspace-packages && pnpm run build:css && pnpm run dev",
-		"examples:redux": "cd src/examples/redux && pnpm install --ignore-workspace --no-link-workspace-packages && pnpm run dev",
-		"examples:mobx": "cd src/examples/mobx && pnpm install --ignore-workspace --no-link-workspace-packages && pnpm run dev",
-		"test": "vitest --run",
-		"test:coverage": "vitest --run --coverage",
-		"test:node": "FORCE_COLOR=1 vitest --config vitest.node.config.ts --run",
-		"typecheck": "pnpm exec tsc --noEmit --pretty false && pnpm exec tsc --project src/examples/xstate/tsconfig.json && pnpm exec tsc --project src/examples/redux/tsconfig.json && pnpm exec tsc --project src/tests/tsconfig.json",
+		"build": "pnpm -r run build",
+		"build:types": "pnpm -r run build:types",
+		"build:js": "pnpm -r run build:js",
+		"test": "pnpm --filter ignite-element test",
+		"test:coverage": "pnpm --filter ignite-element test:coverage",
+		"test:node": "pnpm --filter ignite-element test:node",
+		"typecheck": "pnpm -r run typecheck",
 		"format": "biome format --write .",
 		"check": "biome check .",
 		"lint": "biome lint .",
-		"release:beta": "node ./scripts/release-beta.mjs",
-		"release": "changeset publish",
-		"postrelease": "pnpm publish",
-		"prepare": "husky"
+		"architecture:check": "node scripts/check-architecture-rules.mjs",
+		"docs:dev": "pnpm --filter docs-site dev",
+		"docs:build": "pnpm --filter docs-site build",
+		"docs:preview": "pnpm --filter docs-site preview",
+		"examples:xstate": "pnpm --filter ignite-element examples:xstate",
+		"examples:redux": "pnpm --filter ignite-element examples:redux",
+		"examples:mobx": "pnpm --filter ignite-element examples:mobx",
+		"migrate:effects-events": "node scripts/migrate-emit-to-effects.mjs"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.3.1",
-		"@changesets/cli": "^2.29.8",
-		"@commitlint/cli": "^20.2.0",
-		"@commitlint/config-conventional": "^20.0.0",
-		"@playwright/test": "^1.56.1",
-		"@types/jsdom": "^27.0.0",
-		"@vitest/coverage-v8": "^4.0.3",
-		"chalk": "^5.6.2",
-		"husky": "^9.1.7",
-		"jsdom": "^27.0.1",
+		"@types/node": "^25.0.3",
 		"typescript": "^5.9.3",
 		"vite": "^7.1.12",
-		"vite-plugin-dts": "^4.5.4",
-		"vitest": "^4.0.3",
-		"xstate": "^5.23.0"
-	},
-	"peerDependencies": {
-		"@reduxjs/toolkit": ">=2.3.0",
-		"lit-html": ">=3.2.1",
-		"mobx": ">=6.13.5",
-		"redux": ">=5.0.1",
-		"xstate": ">=5.19.0"
-	},
-	"engines": {
-		"node": ">=22"
+		"vite-plugin-dts": "^4.5.4"
 	},
 	"pnpm": {
 		"overrides": {
@@ -197,5 +34,6 @@
 			"tar": "^7.5.2",
 			"read-yaml-file>js-yaml": "3.14.2"
 		}
-	}
+	},
+	"packageManager": "pnpm@10.33.0+sha512.10568bb4a6afb58c9eb3630da90cc9516417abebd3fabbe6739f0ae795728da1491e9db5a544c76ad8eb7570f5c4bb3d6c637b2cb41bfdcdb47fa823c8649319"
 }

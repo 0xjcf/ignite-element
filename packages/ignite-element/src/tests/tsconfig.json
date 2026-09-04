@@ -1,0 +1,12 @@
+{
+	"extends": "../../tsconfig.typecheck.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"composite": false,
+		"jsx": "react-jsx",
+		"jsxImportSource": "../renderers/jsx",
+		"types": ["vitest"]
+	},
+	"include": ["./**/*", "../renderers/jsx/jsx.d.ts"],
+	"exclude": []
+}

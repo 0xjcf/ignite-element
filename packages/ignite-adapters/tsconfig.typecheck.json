@@ -1,0 +1,12 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"rootDir": "..",
+		"composite": false,
+		"noEmit": true,
+		"paths": {
+			"ignite-core": ["../ignite-core/src/index.ts"]
+		}
+	},
+	"include": ["src", "../ignite-core/src"]
+}

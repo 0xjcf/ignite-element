@@ -265,7 +265,9 @@ body {
 }
 
 [data-theme="dark"] #starlight__search .pagefind-ui__search-clear:hover::before,
-[data-theme="dark"] #starlight__search .pagefind-ui__search-clear:focus-visible::before {
+[data-theme="dark"]
+	#starlight__search
+	.pagefind-ui__search-clear:focus-visible::before {
 	background-color: var(--sl-color-accent-high);
 }
 

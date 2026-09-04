@@ -1,0 +1,20 @@
+{
+	"extends": "../../configs/tsconfig/lib.dom.json",
+	"compilerOptions": {
+		"useDefineForClassFields": true,
+		"declarationDir": "./dist/types",
+		"rootDir": "src",
+		"experimentalDecorators": true,
+		"emitDecoratorMetadata": true
+	},
+	"include": ["src"],
+	"exclude": [
+		"node_modules",
+		"dist",
+		"src/examples",
+		"src/renderers/jsx",
+		"src/renderers/LitRenderStrategy.ts",
+		"src/tests",
+		"src/**/__tests__"
+	]
+}

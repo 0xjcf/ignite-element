@@ -7,7 +7,16 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"includes": ["**", "!**/dist", "!**/coverage", "!**/.astro"]
+		"includes": [
+			"**",
+			"!**/dist",
+			"!**/coverage",
+			"!**/.astro",
+			"!**/.fas",
+			"!**/*.d.ts",
+			"!**/*.d.ts.map",
+			"!**/*.tsbuildinfo"
+		]
 	},
 	"formatter": {
 		"enabled": true,
@@ -39,7 +48,7 @@
 	},
 	"overrides": [
 		{
-			"includes": ["src/examples/**/*.css"],
+			"includes": ["packages/ignite-element/src/examples/**/*.css"],
 			"linter": {
 				"rules": {
 					"suspicious": {

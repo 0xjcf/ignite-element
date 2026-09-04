@@ -8,15 +8,62 @@ sidebar:
 
 Test the state source and the DOM separately. Keep your XState/Redux/MobX logic covered with its own unit tests, then add light DOM tests for the web components.
 
+## Headless runtime tests
+
+For deterministic command/event assertions, use the built-in scenario helper against the headless runtime returned by `igniteCore(...)`.
+
+```ts
+import { test as igniteTest } from 'ignite-element';
+import { igniteCore } from 'ignite-element/xstate';
+import { counterMachine } from './counter.machine';
+
+const component = igniteCore({
+  source: counterMachine,
+  view: ({ snapshot }) => ({
+    isOn: snapshot.matches('on'),
+  }),
+  commands: ({ actor }) => ({
+    toggle: () => actor.send({ type: 'TOGGLE' }),
+  }),
+  events: (event) => ({
+    toggled: event<{ isOn: boolean }>(),
+  }),
+  effects: (_snapshot, _prevSnapshot, { emit, select }) => {
+    const isOn = select((snapshot) => snapshot.matches('on'));
+    if (!isOn.changed) return;
+    emit('toggled', { isOn: isOn.current });
+  },
+});
+
+igniteTest(component)
+  .given('off')
+  .when('toggle')
+  .expectState('on')
+  .expectEvent('toggled', { isOn: true });
+```
+
+This path is useful when you want to verify command execution, resulting state, and emitted events without mounting a custom element. The helper wraps `execute()`, so the observed events are the exact ones returned by the runtime for that transition.
+
+## Replay semantics
+
+Effects are seeded from the current snapshot when a host or runtime attaches.
+
+- Historical transitions are not replayed to new hosts.
+- The first subscription notification establishes `prevSnapshot` and does not run `effects(...)`.
+- Subsequent state updates run `effects(snapshot, prevSnapshot, ctx)` in a stable order.
+- For mounted elements, effects run before the render subscription for that host, so emitted DOM events arrive before the next render caused by the same transition.
+
+That makes it safe to write deterministic tests around a single transition without accidentally asserting mount-time emissions.
+
 ## Setup
 
-- Use a browser-like runner (e.g., Vitest + JSDOM). Import `ignite.config.ts` (or the renderer entry) once so renderers/styles are registered.
+- Use a browser-like runner (e.g., Vitest + JSDOM). If you rely on `ignite.config.ts`, global styles, or a non-default renderer, import that setup once before tests.
 - Register the component under test before each suite. Clear the DOM between tests (`document.body.innerHTML = ""`).
 
 ```ts
 // test/setup.ts
-import './ignite.config'; // ensures renderer + styles are loaded for all tests
-import 'ignite-element/renderers/lit'; // optional if config already sets lit
+import './ignite.config'; // only if your app uses ignite.config.ts
+import 'ignite-element/renderers/lit'; // only if your tests use the lit renderer
 
 // vitest.config.ts
 export default defineConfig({
@@ -79,7 +126,7 @@ import { counterMachine } from './counter.machine';
 export const registerCounterElement = () =>
   igniteCore({
     source: counterMachine,
-    states: (snapshot) => ({ count: snapshot.context.count }),
+    view: ({ snapshot }) => ({ count: snapshot.context.count }),
     commands: ({ actor }) => ({
       inc: () => actor.send({ type: 'INC' }),
       dec: () => actor.send({ type: 'DEC' }),
@@ -119,7 +166,7 @@ describe('<my-counter>', () => {
 });
 ```
 
-## Lifecycle checks (shared adapters)
+## Shared adapter teardown checks
 
 - For shared sources you own (started actors/stores), stop them in your tests when you own their lifecycle.
-- For Ignite-created shared adapters, you can assert cleanup by connecting/disconnecting elements and verifying subscriptions stop when `cleanup` is `true`.
+- For Ignite-created sources (e.g., XState machines), you can assert shared adapter teardown by connecting/disconnecting elements and verifying the adapter is released when `cleanup` is `true`.

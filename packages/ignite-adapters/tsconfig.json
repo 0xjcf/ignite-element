@@ -1,0 +1,10 @@
+{
+	"extends": "../../configs/tsconfig/lib.node.json",
+	"compilerOptions": {
+		"rootDir": "src",
+		"declarationDir": "./dist/types",
+		"tsBuildInfoFile": "dist/.tsbuildinfo"
+	},
+	"include": ["src"],
+	"exclude": ["node_modules", "dist", "src/**/__tests__"]
+}

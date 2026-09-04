@@ -1,40 +1,54 @@
 # ignite-element
 
-[![CI Build](https://github.com/0xjcf/ignite-element/actions/workflows/ci.yml/badge.svg)](https://github.com/0xjcf/ignite-element/actions/workflows/ci.yml)
-[![npm version](https://img.shields.io/npm/v/ignite-element.svg)](https://www.npmjs.com/package/ignite-element)
-[![Bundlephobia](https://img.shields.io/bundlephobia/minzip/ignite-element.svg)](https://bundlephobia.com/package/ignite-element)
-[![Zero Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](https://bundlephobia.com/package/ignite-element)
-[![Tree-shakeable](https://img.shields.io/badge/tree--shakeable-yes-blue.svg)](https://bundlephobia.com/package/ignite-element)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript Ready](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
-[![codecov](https://codecov.io/github/0xjcf/ignite-element/graph/badge.svg?token=6SSFPOV9J8)](https://codecov.io/github/0xjcf/ignite-element)
-![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/0xjcf/ignite-element?utm_source=oss&utm_medium=github&utm_campaign=0xjcf%2Fignite-element&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+Platform-native custom elements built around explicit intent, derived state, deterministic effects, and DOM-native contracts.
 
----
+Ignite Element lets you build systems where:
 
-**Ignite-Element** is a framework-agnostic way to build stateful Custom Elements. Bring your state library (XState, Redux, MobX), get typed `commands`, `states`, and `emit`, and render with the built-in Ignite JSX runtime or lit.
+- commands express intent
+- state defines truth
+- effects express consequences
+- custom elements expose the public contract
 
-Quick links: [Quick start](#quick-start-vite) · [Install matrix](#installation-matrix) · [Typed events](#typed-events) · [Styling](#styling) · [Examples](#examples)
+That makes components easier to reason about for developers, easier to reuse across host apps, and directly operable by AI agents.
 
-## Why use it?
+Quick links: [Quick start](#quick-start) · [Mental model](#mental-model) · [Agent runtime](#agent-runtime) · [Testing](#testing) · [Install matrix](#installation-matrix) · [Documentation](#documentation)
 
-- Works with XState, Redux, or MobX (shared or per-element state, inferred automatically)
-- Fully Typed commands and emit
-- Tiny runtime; no React/Solid dependency for JSX
-- Configurable renderer and global styles through `ignite.config.ts`
+## Why Ignite Element?
 
-## Quick start (Vite)
+Most UI systems blur together rendering, state changes, and side effects.
 
-1. Install
+Ignite keeps them separate:
+
+```txt
+command (intent)
+      ↓
+state transition
+      ↓
+effect (consequence)
+      ↓
+UI render
+```
+
+This gives you:
+
+- platform-native distribution through custom elements and `CustomEvent`
+- typed boundaries between intent, state, effects, and rendering
+- reusable stateful UI without shipping an app framework runtime
+- a headless runtime for testing and automation
+
+Ignite is not trying to replace your app framework. It gives you a browser-native distribution layer for stateful UI: project behavior into a custom element, expose DOM-native events, and keep the same contract usable in plain HTML, React, Vue, tests, and automation.
+
+## Quick start
+
+Install Ignite Element with your preferred state library.
 
 ```bash
 npm install ignite-element xstate
 ```
 
-1. TypeScript JSX (required if you use the Ignite JSX renderer)
+If you use the built-in JSX runtime, enable Ignite JSX once in your `tsconfig.json`:
 
-```jsonc
-// tsconfig.json
+```json
 {
   "compilerOptions": {
     "jsx": "react-jsx",
@@ -43,65 +57,224 @@ npm install ignite-element xstate
 }
 ```
 
-If you can’t change `tsconfig`, add `/** @jsxImportSource ignite-element/jsx */` at the top of each JSX/TSX file instead.
-
-1. Add config (all fields are optional)
+If you cannot change `tsconfig`, add this per file:
 
 ```ts
-// ignite.config.ts
-import { defineIgniteConfig } from "ignite-element/config";
-export default defineIgniteConfig({
-  styles: new URL("./styles.css", import.meta.url).href,
-  renderer: "ignite-jsx", // or "lit"
-  logging: "warn",
-});
+/** @jsxImportSource ignite-element/jsx */
 ```
 
-1. Wire the Vite plugin
+For the default path, you do not need `ignite.config.ts`, a bundler plugin, or shared adapter teardown overrides.
 
-```ts
-// vite.config.ts
-import { defineConfig } from "vite";
-import { igniteConfigVitePlugin } from "ignite-element/config/vite";
-export default defineConfig({ plugins: [igniteConfigVitePlugin()] });
-```
-
-1. Create a component
+Create a component:
 
 ```tsx
 import { createMachine } from "xstate";
 import { igniteCore } from "ignite-element/xstate";
 
-const machine = createMachine({ 
-  initial: "off", 
-  states: { 
-    off: { on: { TOGGLE: "on" } }, 
-    on: { on: { TOGGLE: "off" } } 
-  } 
+const machine = createMachine({
+  initial: "off",
+  states: {
+    off: { on: { TOGGLE: "on" } },
+    on: { on: { TOGGLE: "off" } },
+  },
 });
 
-const component = igniteCore({
+const toggle = igniteCore({
   source: machine,
-  events: (event) => ({ toggled: event<{ isOn: boolean }>() }),
-  states: (snapshot) => ({ isOn: snapshot.matches("on") }),
-  commands: ({ actor, emit }) => ({
+
+  events: (event) => ({
+    toggled: event<{ isOn: boolean }>(),
+  }),
+
+  view: ({ snapshot }) => ({
+    isOn: snapshot.matches("on"),
+  }),
+
+  commands: ({ actor }) => ({
     toggle: () => {
       actor.send({ type: "TOGGLE" });
-      emit("toggled", { isOn: actor.getSnapshot().matches("on") });
     },
   }),
+
+  effects: (_snapshot, _prevSnapshot, { emit, select }) => {
+    const isOn = select((snapshot) => snapshot.matches("on"));
+    if (!isOn.changed) return;
+    emit("toggled", { isOn: isOn.current });
+  },
 });
 
-component("toggle-button", ({ isOn, toggle }) => (
+toggle("toggle-button", ({ isOn, toggle }) => (
   <button onClick={toggle}>{isOn ? "On" : "Off"}</button>
 ));
 ```
 
-1. Use it
+Use it anywhere the browser can render a custom element:
 
 ```html
 <toggle-button></toggle-button>
 ```
+
+Because the outward contract is DOM-native, the same component can be consumed from plain HTML or host frameworks without a wrapper-specific protocol.
+
+## Mental model
+
+### Commands = intent
+
+Commands describe what should happen.
+
+```ts
+commands: ({ actor, host }) => ({
+  toggle: () => actor.send({ type: "TOGGLE" })
+})
+```
+
+Commands:
+
+- do not emit events
+- do not contain outward side effects
+- express intent through the adapter actor or store
+
+### State = truth
+
+State is projected into the render surface.
+
+```ts
+view: ({ snapshot }) => ({
+  isOn: snapshot.matches("on")
+})
+```
+
+This keeps rendering tied to explicit state, not ad hoc imperative updates.
+
+### Effects = consequences
+
+Effects react to state transitions.
+
+```ts
+effects: (_snapshot, _prevSnapshot, { emit, select }) => {
+  const isOn = select((snapshot) => snapshot.matches("on"));
+  if (!isOn.changed) return;
+  emit("toggled", { isOn: isOn.current });
+}
+```
+
+Effects:
+
+- run after state updates
+- can read `snapshot`, `prevSnapshot`, `actor`, `host`, and `emit`
+- expose `select(...)` for common transition comparisons
+- emit typed DOM events
+- support deterministic testing and replay-safe workflows
+
+When one transition needs multiple consequences, keep each concern in its own guarded block inside the same `effects(...)` callback:
+
+```ts
+effects: (snapshot, _prevSnapshot, { emit, host, select }) => {
+  const status = select((current) => current.context.status);
+  const error = select((current) => current.context.error);
+
+  if (status.changed && status.current === "saved") {
+    emit("saved", { id: snapshot.context.id });
+  }
+
+  if (error.changed && error.current) {
+    emit("save-failed", { message: error.current });
+  }
+
+  if (status.changed) {
+    host.dataset.status = status.current;
+  }
+}
+```
+
+For larger components, extract each branch into a small helper and call those helpers from the single `effects(...)` callback.
+
+### Events = public contract
+
+```ts
+events: (event) => ({
+  toggled: event<{ isOn: boolean }>()
+})
+```
+
+Events are:
+
+- typed
+- observable
+- DOM-native
+- usable by parent components, tests, and agent runtimes
+
+## Agent runtime
+
+Every `igniteCore(...)` registration exposes a headless runtime API in addition to the DOM component.
+
+```ts
+const result = toggle.execute("toggle");
+toggle.getState();
+toggle.getView();
+toggle.getSchema();
+toggle.on("toggled", (event) => {
+  console.log(event.detail.isOn);
+});
+toggle.watch((state, prevState) => {
+  console.log(prevState.value, "->", state.value);
+});
+toggle.watchView((view, prevView) => {
+  console.log(prevView.isOn, "->", view.isOn);
+});
+```
+
+Use `on(...)` for outward event signals, `watch(...)` for raw state changes, and `watchView(...)` for projected view changes.
+
+Use `record(...)` when a test or agent needs workflow evidence:
+
+```ts
+const story = toggle.record("turns on");
+story.execute("toggle");
+story.trace();
+story.lifecycle();
+story.summary();
+story.stop();
+```
+
+`execute()` returns structured output:
+
+```ts
+{
+  state,
+  events: [{ type: "toggled", payload: { isOn: true } }]
+}
+```
+
+`getSchema()` returns a JSON-serializable description of the component contract:
+
+```ts
+{
+  commands: {
+    toggle: {}
+  },
+  events: ["toggled"],
+  state: { value: "off", context: {} }
+}
+```
+
+This makes the same component usable in the browser, in tests, and in automation workflows.
+
+## Testing
+
+Ignite includes a built-in headless testing DSL for state and event assertions.
+
+```ts
+import { test as igniteTest } from "ignite-element";
+
+igniteTest(toggle)
+  .given("off")
+  .when("toggle")
+  .expectState("on")
+  .expectEvent("toggled", { isOn: true });
+```
+
+Because this runs against the same deterministic runtime, state and event expectations stay aligned with real component behavior.
 
 ## Installation matrix
 
@@ -109,198 +282,68 @@ component("toggle-button", ({ isOn, toggle }) => (
 - Redux: `npm install ignite-element @reduxjs/toolkit`
 - MobX: `npm install ignite-element mobx`
 
-### Cleanup & Teardown
+## Package map
 
-- **Isolated adapters** (the default when you pass factories or definitions) are created per custom element. Ignite Element automatically calls `stop()` on disconnect, so no extra work is required.
-- **Shared adapters** (long-lived instances you construct once) are reference-counted and stopped automatically when the final element disconnects. Set `cleanup: false` if you want to keep them alive and stop them manually.
+`ignite-element` is the default public package. Unless you are extending Ignite itself, this is the package you should install and document against.
 
-```ts
-// Shared XState actor example
-const actor = createActor(machine);
-actor.start();
+- `ignite-element`: default public package for app and component authors
+- `ignite-element/xstate`, `ignite-element/redux`, `ignite-element/mobx`: default public adapter entrypoints
+- `ignite-core`: advanced adapter-neutral contracts, event/effect typing, and shared utilities
+- `ignite-adapters`: advanced adapter factories, guards, and source-specific config/types
+- `ignite-renderer`: advanced renderer/runtime layer for custom renderer integration work
 
-const shared = igniteCore({
-  source: actor,
-  cleanup: false, // leave actor running until the host decides to stop it
-  states: (snapshot) => ({ count: snapshot.context.count }),
-});
+## Multiple components from one core
 
-shared("shared-counter", ({ count }) => <span>{count}</span>);
-
-// Stop the actor when your host application shuts down
-window.addEventListener("beforeunload", () => actor.stop());
-```
-
-Use the same approach for shared Redux stores, MobX observables, or any custom adapters: set `cleanup: false` if they outlive your elements and stop them yourself when the host app shuts down.
-
-### Facade callbacks
-
-`igniteCore` merges the outputs of your facade callbacks into the render arguments:
-
-- `states(snapshot)` derives the values your component needs to display.
-- `commands({ actor, emit, host })` returns the actions your component can call; when you declare `events`, it also includes the typed `emit` helper and the `host` element.
-
-Both callbacks run once per adapter instance (shared) or per element (isolated), so you can safely memoize values or close over resources without worrying about duplicate subscriptions.
-
-### Typed events
-
-Opt in by declaring an `events` map:
+Define behavior once and register multiple render surfaces from the same core.
 
 ```ts
-const registerCounter = igniteCore({
-  source: counterSlice,
-  events: (event) => ({
-    "counter:incremented": event<{ amount: number }>(),
-  }),
-  commands: ({ actor, emit }) => ({
-    add: (amount: number) => {
-      actor.dispatch(counterSlice.actions.addByAmount(amount));
-      emit("counter:incremented", { amount });
-    },
-  }),
+const toggle = igniteCore({
+  source: machine,
+  events: toggleEvents,
+  view: toggleView,
+  commands: toggleCommands,
+  effects: toggleEffects,
 });
+
+toggle("toggle-button", ToggleButtonView);
+toggle("toggle-chip", ToggleChipView);
+toggle("toggle-menu-item", ToggleMenuItemView);
 ```
 
-Commands receive `{ actor, emit, host }`. The `emit` helper dispatches bubbling, composed `CustomEvent` instances so parents can listen with `addEventListener`. When no `events` map is supplied the helper is omitted, keeping render args lean.
+## Recommended file structure
 
-> Heads-up: event name inference is most reliable when `events` is declared before `commands`. We’re tightening this in a future release.
-
-### Styling
-
-You can:
-
-- Declare component-wide styles in `ignite.config.ts` (`styles`, formerly `globalStyles`, accepts a string URL or object literal stylesheet). These are injected into each component’s **shadow root**, not the page’s light DOM.
-- Provide custom CSS per component.
-- Combine both for progressive enhancement.
-
-For page shell / light-DOM styling (e.g. body background, layout), import a stylesheet in your app entry or include a `<link>` in `index.html`. Use `styles` for the component layer.
-
-If you aren’t using the Vite/Webpack plugins, keep `ignite.config.ts` and import it in your app’s entry point (e.g. `main.ts`) so `styles` and renderer defaults are applied before you register components.
-
----
-
-## Examples
-
-Every example demonstrates a different pattern and styling approach:
-
-| Example | State Library | Styling | Highlights |
-| --- | --- | --- | --- |
-| [XState + Tailwind](./src/examples/xstate) | XState | Tailwind CSS | Isolated machine vs. shared actor, gradient sub-component |
-| [Redux + Bootstrap](./src/examples/redux) | Redux Toolkit | Bootstrap | Store factory vs. shared store, scoped Bootstrap link injection |
-| [MobX + Custom](./src/examples/mobx) | MobX | Custom CSS | Observable reuse vs. new instances, hybrid global + component styles |
-
-### Run locally
-
-```bash
-pnpm run examples:xstate
-pnpm run examples:redux
-pnpm run examples:mobx
+```txt
+toggle/
+  toggle.core.ts
+  toggle.machine.ts
+  toggle.view.ts
+  toggle.commands.ts
+  toggle.effects.ts
+  toggle.events.ts
+  toggle.view.tsx
 ```
 
-> 💡 Start with the XState example to see shared and isolated behaviour side-by-side.
+This structure works well for both human maintainers and agent tooling because the execution model is explicit.
 
----
+## Documentation
 
-## 🌐 Browser Support
+- [API docs](./docs/site/src/content/docs/api/ignite-core.mdx)
+- [Host app integration](./docs/site/src/content/docs/guides/host-app-integration.mdx)
+- [Platform contracts](./docs/site/src/content/docs/guides/platform-contracts.mdx)
+- [Testing guide](./docs/site/src/content/docs/guides/testing.mdx)
+- [Configuration and renderers](./docs/site/src/content/docs/api/define-ignite-config.mdx)
+- [State adapter lifecycle](./docs/site/src/content/docs/concepts/state-adapters.mdx)
+- [Migration guide](./docs/migrations/v2.2.3-effects-events.md)
+- [Package boundary migration](./docs/migrations/adr-003-package-boundaries.md)
+- Advanced package layers: `ignite-core`, `ignite-adapters`, and `ignite-renderer`
+- [Local examples](./packages/ignite-element/src/examples)
 
-Ignite-Element targets evergreen browsers with:
+## Philosophy
 
-- Custom Elements v1
-- Shadow DOM v1
-- ES Modules
+Ignite enforces three rules:
 
-| Chrome | Firefox | Safari | Edge |
-| --- | --- | --- | --- |
-| ✅ 67+ | ✅ 63+ | ✅ 10.1+ | ✅ 79+ |
+1. Commands express intent.
+2. State defines truth.
+3. Effects express consequences.
 
-For legacy support, include the [webcomponents polyfills](https://github.com/webcomponents/polyfills).
-
----
-
-## 📦 Bundle Size
-
-| Package | Description | Size (min + gzip) |
-| --- | --- | --- |
-| `ignite-element` | Core runtime (facades, adapters) | ~3.2 KB |
-| `ignite-element` (Ignite JSX) | Core runtime + Ignite JSX renderer | ~4.2 KB |
-| `ignite-element` + `lit-html` | Optional lit strategy | ~8.3 KB |
-
-_Rendering engines and state libraries (`lit-html`, XState, Redux Toolkit, MobX) are optional peer dependencies. Mix only what your project needs—ignite-element itself adds ~4 KB on top of the stack you choose._
-
----
-
----
-
-## 📖 Documentation
-
-- [Ignite Element v2 (Starlight)](https://0xjcf.github.io/ignite-element/)
-- [Getting Started (v2)](https://0xjcf.github.io/ignite-element/getting-started/installation/)
-- [Core Concepts (v2)](https://0xjcf.github.io/ignite-element/concepts/state-adapters/)
-- [API Notes](docs/api/README.md)
-- [Styling Guide](docs/styling/README.md)
-- [Examples Overview](docs/examples/README.md)
-
----
-
-## 🔧 Troubleshooting
-
-| Symptom | Fix |
-| --- | --- |
-| Component not rendering | Ensure you've configured `jsxImportSource` (or installed `lit-html` and selected the lit strategy). |
-| State not updating | Confirm you’re using the provided `send` function and that your store/machine handles the event. |
-| TypeScript errors | Align adapter dependencies (`xstate`, `@reduxjs/toolkit`, `mobx`) with the versions in package peer requirements. |
-
-Need more help? Check the [FAQ](https://joseflores.gitbook.io/ignite-element/faq) or [open an issue](https://github.com/0xjcf/ignite-element/issues).
-
----
-
-## 🎯 When to Use Ignite-Element
-
-**Best fit:**
-
-- Building reusable, state-driven component libraries.
-- Projects that need framework flexibility or native web component distribution.
-- Teams looking for deterministic state management with minimal runtime overhead.
-
-**Consider alternatives when:**
-
-- You are deeply invested in a single framework (React, Vue, etc.) and prefer their native component models.
-- Server-side rendering is a strict requirement today (SSR support is on the roadmap).
-
----
-
-## 🤝 Contributing
-
-We welcome all contributions!
-
-- 🐛 [Report bugs](https://github.com/0xjcf/ignite-element/issues/new?template=bug_report.md)
-- 💡 [Propose ideas](https://github.com/0xjcf/ignite-element/discussions)
-- 📝 Improve docs, clarify examples, or fix typos
-- 🔨 Submit pull requests
-
-### Development setup
-
-```bash
-git clone https://github.com/<your-username>/ignite-element.git
-cd ignite-element
-pnpm install
-git checkout -b feature/my-awesome-feature
-pnpm test
-```
-
-Please review our [Code of Conduct](CODE_OF_CONDUCT.md) before contributing.
-
----
-
-## 📜 License
-
-Ignite-Element is released under the MIT License.
-
----
-
-## 💬 Feedback
-
-We appreciate feedback—let us know what helps or what’s missing.
-
-- [Open an issue](https://github.com/0xjcf/ignite-element/issues)
-- [Join GitHub Discussions](https://github.com/0xjcf/ignite-element/discussions)
+The result is a deterministic UI architecture that scales from ordinary component work to testing, automation, and AI-agent execution.

@@ -1,0 +1,84 @@
+{
+	"name": "ignite-adapters",
+	"version": "2.2.2",
+	"type": "module",
+	"main": "dist/ignite-adapters.cjs.js",
+	"module": "dist/ignite-adapters.es.js",
+	"types": "dist/types/index.d.ts",
+	"description": "Advanced state-library adapter integrations for ignite-element.",
+	"typesVersions": {
+		"*": {
+			"actor-web": [
+				"dist/types/actor-web.d.ts"
+			],
+			"xstate": [
+				"dist/types/xstate.d.ts"
+			],
+			"redux": [
+				"dist/types/redux.d.ts"
+			],
+			"mobx": [
+				"dist/types/mobx.d.ts"
+			]
+		}
+	},
+	"exports": {
+		".": {
+			"types": "./dist/types/index.d.ts",
+			"import": "./dist/ignite-adapters.es.js",
+			"require": "./dist/ignite-adapters.cjs.js",
+			"default": "./dist/ignite-adapters.es.js"
+		},
+		"./actor-web": {
+			"types": "./dist/types/actor-web.d.ts",
+			"import": "./dist/actor-web.es.js",
+			"require": "./dist/actor-web.cjs.js",
+			"default": "./dist/actor-web.es.js"
+		},
+		"./xstate": {
+			"types": "./dist/types/xstate.d.ts",
+			"import": "./dist/xstate.es.js",
+			"require": "./dist/xstate.cjs.js",
+			"default": "./dist/xstate.es.js"
+		},
+		"./redux": {
+			"types": "./dist/types/redux.d.ts",
+			"import": "./dist/redux.es.js",
+			"require": "./dist/redux.cjs.js",
+			"default": "./dist/redux.es.js"
+		},
+		"./mobx": {
+			"types": "./dist/types/mobx.d.ts",
+			"import": "./dist/mobx.es.js",
+			"require": "./dist/mobx.cjs.js",
+			"default": "./dist/mobx.es.js"
+		}
+	},
+	"sideEffects": false,
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"scripts": {
+		"build:types": "tsc",
+		"build:js": "vite build",
+		"build": "pnpm run build:types && pnpm run build:js",
+		"typecheck": "tsc --pretty false --project tsconfig.typecheck.json"
+	},
+	"devDependencies": {
+		"@reduxjs/toolkit": "^2.3.0",
+		"typescript": "^5.9.3",
+		"vite": "^7.1.12",
+		"vite-plugin-dts": "^4.5.4",
+		"xstate": "^5.23.0"
+	},
+	"dependencies": {
+		"ignite-core": "workspace:*"
+	},
+	"peerDependencies": {
+		"@reduxjs/toolkit": ">=2.3.0",
+		"mobx": ">=6.13.5",
+		"redux": ">=5.0.1",
+		"xstate": ">=5.19.0"
+	}
+}

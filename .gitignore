@@ -11,11 +11,13 @@ node_modules
 dist
 dist-ssr
 dev-dist
+*.tsbuildinfo
 *.local
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+.cursor/
 .idea
 .DS_Store
 *.suo
@@ -37,3 +39,24 @@ coverage/
 /blob-report/
 /playwright/.cache/
 plans/
+
+# generated declaration artifacts should only live in dist/types
+packages/ignite-core/src/**/*.d.ts
+packages/ignite-core/src/**/*.d.ts.map
+packages/ignite-adapters/src/**/*.d.ts
+packages/ignite-adapters/src/**/*.d.ts.map
+packages/ignite-renderer/src/**/*.d.ts
+packages/ignite-renderer/src/**/*.d.ts.map
+
+# >>> FAS managed ignore block >>>
+# FAS runtime data and local workspace state (generated, do not commit)
+.codex/
+.fas/*
+!.fas/TASKS.md
+!.fas/architecture-rules.json
+!.fas/workspace-dependencies.json
+!.fas/tasks/
+.fas/tasks/*
+!.fas/tasks/*.md
+fas
+# <<< FAS managed ignore block <<<

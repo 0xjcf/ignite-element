@@ -1,0 +1,328 @@
+{
+	"schemaVersion": 1,
+	"project": {
+		"name": "ignite-element",
+		"root": "."
+	},
+	"aliases": {
+		"ignite-core": [
+			"core contracts",
+			"commands",
+			"events",
+			"effects",
+			"deterministic decision"
+		],
+		"ignite-adapters": [
+			"state adapters",
+			"redux",
+			"mobx",
+			"xstate",
+			"actor-web bridge"
+		],
+		"ignite-renderer": [
+			"render strategies",
+			"jsx renderer",
+			"lit renderer",
+			"projection rendering"
+		],
+		"ignite-element": [
+			"web component surface",
+			"component factory",
+			"projection factory",
+			"public package"
+		],
+		"agent-runtime": [
+			"agent runtime v3",
+			"story recorder",
+			"command metadata",
+			"runtime schema"
+		],
+		"actor-web-bridge": [
+			"ActorWebAdapter",
+			"actor-web source",
+			"typed command actor",
+			"runtime projection bridge"
+		]
+	},
+	"domains": {
+		"ignite-core": {
+			"name": "Ignite Core",
+			"description": "Adapter-neutral contracts and deterministic primitives for state, commands, events, effects, render args, and invariant helpers.",
+			"aliases": [
+				"core",
+				"ignite-core",
+				"deterministic decision",
+				"commands",
+				"events",
+				"effects"
+			],
+			"ownedPaths": ["packages/ignite-core/"],
+			"entrypoints": [
+				"packages/ignite-core/package.json",
+				"packages/ignite-core/src/index.ts"
+			],
+			"docs": [
+				"packages/ignite-core/README.md",
+				"docs/adr-003-shared-arc.md",
+				"docs/shared-architecture-model.md"
+			],
+			"tests": [
+				"packages/ignite-element/src/tests/types/igniteCore.types.test.ts",
+				"packages/ignite-element/src/tests/IgniteCore.test.ts"
+			],
+			"boundaries": ["packages/ignite-core/src/"],
+			"dependencies": []
+		},
+		"ignite-adapters": {
+			"name": "Ignite Adapters",
+			"description": "Integration adapters that translate Redux, MobX, XState, and Actor-Web runtime sources into Ignite adapter contracts.",
+			"aliases": [
+				"adapters",
+				"redux adapter",
+				"mobx adapter",
+				"xstate adapter",
+				"actor-web adapter"
+			],
+			"ownedPaths": ["packages/ignite-adapters/"],
+			"entrypoints": [
+				"packages/ignite-adapters/package.json",
+				"packages/ignite-adapters/src/index.ts"
+			],
+			"docs": [
+				"packages/ignite-adapters/README.md",
+				"docs/site/src/content/docs/concepts/state-adapters.mdx"
+			],
+			"tests": [
+				"packages/ignite-element/src/tests/adapters/ReduxAdapter.test.ts",
+				"packages/ignite-element/src/tests/adapters/MobxAdapter.test.ts",
+				"packages/ignite-element/src/tests/adapters/XStateAdapter.test.ts"
+			],
+			"boundaries": ["packages/ignite-adapters/src/"],
+			"dependencies": ["ignite-core"]
+		},
+		"actor-web-bridge": {
+			"name": "Actor-Web Bridge",
+			"description": "Optional Actor-Web integration surface that consumes actor snapshots, transport status, events, and typed command senders as Ignite adapter state.",
+			"aliases": [
+				"ActorWebAdapter",
+				"actor-web",
+				"actor snapshots",
+				"command actor",
+				"transport status"
+			],
+			"ownedPaths": [
+				"packages/ignite-adapters/src/adapters/ActorWebAdapter.ts",
+				"packages/ignite-adapters/src/actor-web.ts",
+				"packages/ignite-element/src/actor-web.ts",
+				"packages/ignite-element/src/igniteCore/actor-web.ts"
+			],
+			"entrypoints": [
+				"packages/ignite-adapters/src/actor-web.ts",
+				"packages/ignite-element/src/actor-web.ts",
+				"packages/ignite-element/src/igniteCore/actor-web.ts"
+			],
+			"docs": [
+				"docs/adr-003-shared-arc.md",
+				"docs/shared-architecture-model.md"
+			],
+			"tests": [
+				"packages/ignite-element/src/tests/IgniteCore.test.ts",
+				"packages/ignite-element/src/tests/IgniteElementFactory.test.ts"
+			],
+			"boundaries": [
+				"packages/ignite-adapters/src/adapters/ActorWebAdapter.ts",
+				"packages/ignite-adapters/src/actor-web.ts",
+				"packages/ignite-element/src/actor-web.ts",
+				"packages/ignite-element/src/igniteCore/actor-web.ts"
+			],
+			"dependencies": ["ignite-core", "ignite-adapters", "ignite-element"]
+		},
+		"ignite-renderer": {
+			"name": "Ignite Renderer",
+			"description": "Renderer registration and projection-to-renderer execution utilities, including Ignite JSX and Lit render strategies.",
+			"aliases": [
+				"renderer",
+				"render strategies",
+				"ignite jsx",
+				"lit renderer",
+				"projection"
+			],
+			"ownedPaths": ["packages/ignite-renderer/"],
+			"entrypoints": [
+				"packages/ignite-renderer/package.json",
+				"packages/ignite-renderer/src/index.ts"
+			],
+			"docs": [
+				"packages/ignite-renderer/README.md",
+				"docs/renderers/README.md",
+				"docs/renderers/diffing-rollout.md"
+			],
+			"tests": [
+				"packages/ignite-element/src/tests/renderers/renderer.test.ts",
+				"packages/ignite-element/src/tests/renderers/igniteJsxRenderStrategy.test.ts",
+				"packages/ignite-element/src/tests/renderers/litRenderStrategy.test.ts",
+				"packages/ignite-element/src/tests/renderers/diffing.behavior.test.ts"
+			],
+			"boundaries": ["packages/ignite-renderer/src/"],
+			"dependencies": []
+		},
+		"ignite-element": {
+			"name": "Ignite Element",
+			"description": "Default public Web Component package that assembles Ignite Core, adapters, renderer strategies, factories, config plugins, and testing helpers.",
+			"aliases": [
+				"public package",
+				"web components",
+				"component factory",
+				"projection factory",
+				"ignite-element"
+			],
+			"ownedPaths": ["packages/ignite-element/"],
+			"entrypoints": [
+				"packages/ignite-element/package.json",
+				"packages/ignite-element/src/index.ts",
+				"packages/ignite-element/src/IgniteElement.ts",
+				"packages/ignite-element/src/IgniteCore.ts",
+				"packages/ignite-element/src/createComponentFactory.ts",
+				"packages/ignite-element/src/createProjectionFactory.ts"
+			],
+			"docs": [
+				"packages/ignite-element/README.md",
+				"docs/site/src/content/docs/overview/what-is-ignite-element.mdx",
+				"docs/site/src/content/docs/guides/host-app-integration.mdx",
+				"docs/site/src/content/docs/guides/platform-contracts.mdx"
+			],
+			"tests": [
+				"packages/ignite-element/src/tests/IgniteElement.test.tsx",
+				"packages/ignite-element/src/tests/IgniteElementFactory.test.ts",
+				"packages/ignite-element/src/tests/createComponentFactory.test.ts",
+				"packages/ignite-element/src/tests/entrypoints.test.ts"
+			],
+			"boundaries": ["packages/ignite-element/src/"],
+			"dependencies": ["ignite-core", "ignite-adapters", "ignite-renderer"]
+		},
+		"agent-runtime": {
+			"name": "Ignite Agent Runtime",
+			"description": "Agent-facing runtime contracts, command metadata, schemas, story recorder traces, and testing DSL used to expose Ignite components to AI agents.",
+			"aliases": [
+				"agent runtime",
+				"runtime schema",
+				"command metadata",
+				"story recorder",
+				"testing DSL"
+			],
+			"ownedPaths": [
+				"packages/ignite-element/src/runtime/",
+				"packages/ignite-element/src/types/agent.ts",
+				"packages/ignite-element/src/types/schema.ts",
+				"packages/ignite-element/src/testing.ts"
+			],
+			"entrypoints": [
+				"packages/ignite-element/src/runtime/agent.ts",
+				"packages/ignite-element/src/runtime/commands.ts",
+				"packages/ignite-element/src/runtime/schema.ts",
+				"packages/ignite-element/src/testing.ts"
+			],
+			"docs": [
+				"docs/site/src/content/docs/guides/agent-runtime-v3.mdx",
+				"docs/testing.md"
+			],
+			"tests": [
+				"packages/ignite-element/tests/xstate-agent-runtime.spec.ts",
+				"packages/ignite-element/src/tests/testing.test.ts",
+				"packages/ignite-element/src/tests/types/testing.types.test.ts"
+			],
+			"boundaries": [
+				"packages/ignite-element/src/runtime/",
+				"packages/ignite-element/src/types/",
+				"packages/ignite-element/src/testing.ts"
+			],
+			"dependencies": ["ignite-element"]
+		},
+		"docs-site": {
+			"name": "Ignite Documentation Site",
+			"description": "Astro documentation site and narrative docs for Ignite package APIs, platform contracts, examples, and migration guides.",
+			"aliases": [
+				"docs",
+				"docs site",
+				"astro docs",
+				"guides",
+				"migration docs"
+			],
+			"ownedPaths": ["docs/site/", "docs/"],
+			"entrypoints": [
+				"docs/site/package.json",
+				"docs/site/src/content.config.ts"
+			],
+			"docs": [
+				"docs/site/README.md",
+				"docs/architecture.md",
+				"docs/adr-003-shared-arc.md",
+				"docs/shared-architecture-model.md"
+			],
+			"tests": [],
+			"boundaries": ["docs/site/", "docs/"],
+			"dependencies": [
+				"ignite-core",
+				"ignite-adapters",
+				"ignite-renderer",
+				"ignite-element"
+			]
+		}
+	},
+	"workspaceContracts": [
+		{
+			"name": "ignite-core-public-api",
+			"producer": "ignite-core",
+			"consumers": ["ignite-adapters", "ignite-element", "agent-runtime"],
+			"surfaces": [
+				"packages/ignite-core/package.json",
+				"packages/ignite-core/src/index.ts",
+				"packages/ignite-core/README.md"
+			]
+		},
+		{
+			"name": "ignite-adapters-public-api",
+			"producer": "ignite-adapters",
+			"consumers": ["ignite-element", "actor-web-bridge"],
+			"surfaces": [
+				"packages/ignite-adapters/package.json",
+				"packages/ignite-adapters/src/index.ts",
+				"packages/ignite-adapters/src/actor-web.ts"
+			]
+		},
+		{
+			"name": "ignite-renderer-public-api",
+			"producer": "ignite-renderer",
+			"consumers": ["ignite-element"],
+			"surfaces": [
+				"packages/ignite-renderer/package.json",
+				"packages/ignite-renderer/src/index.ts",
+				"packages/ignite-renderer/src/renderers/"
+			]
+		},
+		{
+			"name": "ignite-element-public-api",
+			"producer": "ignite-element",
+			"consumers": ["docs-site"],
+			"surfaces": [
+				"packages/ignite-element/package.json",
+				"packages/ignite-element/src/index.ts",
+				"packages/ignite-element/README.md"
+			]
+		},
+		{
+			"name": "actor-web-ignite-adapter-contract",
+			"producer": "actor-web-bridge",
+			"consumers": ["ignite-element", "agent-runtime"],
+			"surfaces": [
+				"packages/ignite-adapters/src/adapters/ActorWebAdapter.ts",
+				"packages/ignite-adapters/src/actor-web.ts",
+				"packages/ignite-element/src/actor-web.ts",
+				"packages/ignite-element/src/igniteCore/actor-web.ts",
+				"docs/adr-003-shared-arc.md",
+				"docs/shared-architecture-model.md"
+			]
+		}
+	],
+	"curated": true
+}

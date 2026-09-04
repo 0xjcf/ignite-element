@@ -18,7 +18,7 @@ Creates a registration function for wiring adapters to custom elements.
 | --- | --- | --- |
 | `states` | `(snapshot) => Record<string, unknown>` | Derive façade data from the adapter snapshot. Runs once per adapter instance. |
 | `commands` | `(actor) => Record<string, (...args: any[]) => unknown>` | Expose imperative helpers bound to the adapter’s command actor (dispatch/send/store). |
-| `cleanup` | `boolean` | Defaults to `true`. When `false`, disables the reference-counted shutdown for shared adapters so the host can stop them manually. |
+| `cleanup` | `boolean` | Defaults to `true`. Shared adapter teardown override. When `false`, keeps shared adapters alive after the last element disconnects so the host can release them manually. |
 
 ### Returns
 
@@ -28,13 +28,29 @@ Creates a registration function for wiring adapters to custom elements.
 - Render args merge the original adapter state/metadata with the derived façade values.
 - TypeScript infers the render argument shape from the callbacks you provide—no extra helper types required.
 
+### Headless testing
+
+`igniteCore(...)` also returns a headless runtime for deterministic testing and automation:
+
+```ts
+import { test as igniteTest } from "ignite-element";
+
+igniteTest(component)
+  .given("off")
+  .when("toggle")
+  .expectState("on")
+  .expectEvent("toggled");
+```
+
+The helper wraps `execute()` so state and event assertions use the same runtime contract as agents and other headless callers.
+
 ## `igniteElementFactory(createAdapter, options?)`
 
 Lower-level factory used by `igniteCore`. Accepts a callback that returns an adapter and optional configuration:
 
 - `scope`: force `StateScope.Shared` or `StateScope.Isolated` when auto-detection is not desired.
 - `createAdditionalArgs(adapter)`: supply extra props that should always appear in render arguments.
-- `cleanup`: defaults to `true`. When enabled, shared adapters are reference-counted and stopped once the last element disconnects. Set to `false` if you want to manage shutdown manually.
+- `cleanup`: defaults to `true`. When enabled, shared adapters are reference-counted and released once the last element disconnects. Set to `false` if you want to manage shared adapter teardown manually.
 
 It returns a `(tag, renderer)` function identical to the one from `igniteCore`.
 

@@ -1,0 +1,35 @@
+{
+	"_comment": "Package-family import boundaries aligned to ADR-003.",
+	"rules": [
+		{
+			"name": "ignite-core-no-ignite-adapters",
+			"from": "packages/ignite-core/src",
+			"cannotImport": "packages/ignite-adapters/src"
+		},
+		{
+			"name": "ignite-core-no-ignite-renderer",
+			"from": "packages/ignite-core/src",
+			"cannotImport": "packages/ignite-renderer/src"
+		},
+		{
+			"name": "ignite-core-no-ignite-element",
+			"from": "packages/ignite-core/src",
+			"cannotImport": "packages/ignite-element/src"
+		},
+		{
+			"name": "ignite-adapters-no-ignite-element",
+			"from": "packages/ignite-adapters/src",
+			"cannotImport": "packages/ignite-element/src"
+		},
+		{
+			"name": "ignite-adapters-no-ignite-renderer",
+			"from": "packages/ignite-adapters/src",
+			"cannotImport": "packages/ignite-renderer/src"
+		},
+		{
+			"name": "ignite-renderer-no-ignite-element",
+			"from": "packages/ignite-renderer/src",
+			"cannotImport": "packages/ignite-element/src"
+		}
+	]
+}

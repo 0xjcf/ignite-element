@@ -1,6 +1,6 @@
 ---
 title: Styling
-description: Style components with global config and per-element CSS.
+description: Style components with shadow-root defaults, CSS variables, and DOM-native contracts.
 sidebar:
   label: Styling
   order: 1
@@ -9,6 +9,8 @@ sidebar:
 - **Global styles**: set `styles` in `ignite.config.ts` to inject a stylesheet into every component’s shadow root.
 - **Per-component styles**: add inline `<style>` blocks or CSS-in-JS inside your renderer.
 - **Light DOM**: use host-app styles for page-level layout; Ignite only scopes what you inject via `styles`.
+- **CSS custom properties**: use tokens like `--button-accent` when host apps need to theme a component without breaking encapsulation.
+- **`part` attributes**: expose stable styling hooks for important sub-elements when host apps need targeted overrides across the shadow boundary.
 
 ```ts
 export default defineIgniteConfig({
@@ -16,4 +18,21 @@ export default defineIgniteConfig({
 });
 ```
 
-For a deeper walkthrough, see the legacy notes in [docs/styling/README.md](https://github.com/0xjcf/ignite-element/blob/main/docs/styling/README.md) (kept as reference) while we expand this guide.
+Example renderer contract:
+
+```tsx
+component('brand-button', ({ label, press }) => (
+  <button
+    part="button"
+    class="button"
+    style={{ backgroundColor: 'var(--button-accent, #1453ff)' }}
+    onClick={press}
+  >
+    {label}
+  </button>
+));
+```
+
+Ignite does not invent a separate styling system. Use normal platform primitives in your renderer and expose only the hooks you want host apps to depend on.
+
+For a deeper walkthrough, see [Platform contracts](/ignite-element/guides/platform-contracts/) and the legacy notes in [docs/styling/README.md](https://github.com/0xjcf/ignite-element/blob/main/docs/styling/README.md) (kept as reference).

@@ -1,1 +1,1 @@
-npx --no -- commitlint --edit $1
+pnpm --filter ignite-element exec commitlint --edit "$1"
