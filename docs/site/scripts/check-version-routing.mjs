@@ -183,7 +183,8 @@ if (process.argv.includes("--built")) {
 		"built site is required for --built validation",
 	);
 	const routeFile = (route) => {
-		const routeDirectory = route === "index" ? "" : route.replace(/\/index$/, "");
+		const routeDirectory =
+			route === "index" ? "" : route.replace(/\/index$/, "");
 		return path.join(builtRoot, routeDirectory, "index.html");
 	};
 	const routeUrl = (route) => {
