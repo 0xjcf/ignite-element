@@ -4,6 +4,7 @@ description: Configure renderer defaults, styles, and logging.
 sidebar:
   label: defineIgniteConfig
   order: 2
+slug: 2.x/api/define-ignite-config
 ---
 
 `defineIgniteConfig` declares how Ignite Element should behave across your project. The Vite/Webpack plugins auto-import this file; otherwise import it near your app entry.
@@ -22,10 +23,10 @@ export default defineIgniteConfig({
 
 **Options**
 
-- `renderer`: `"ignite-jsx"` (default) or `"lit"`.
-- `strategy`: `"diff"` or `"replace"` render mode.
-- `styles`: string URL or `{ href, integrity?, crossOrigin? }` injected into each component’s shadow root.
-- `logging`: `"off" | "warn" | "debug"`.
+* `renderer`: `"ignite-jsx"` (default) or `"lit"`.
+* `strategy`: `"diff"` or `"replace"` render mode.
+* `styles`: string URL or `{ href, integrity?, crossOrigin? }` injected into each component’s shadow root.
+* `logging`: `"off" | "warn" | "debug"`.
 
 :::tip[Choosing a styles shape]
 Use a string URL for local assets (e.g., `new URL('./styles.css', import.meta.url).href`). Use an object when pulling from a CDN and you need SRI or CORS control (e.g., `{ href: 'https://cdn.example.com/styles.css', integrity: '...', crossOrigin: 'anonymous' }`).

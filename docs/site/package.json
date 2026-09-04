@@ -1,6 +1,6 @@
 {
 	"name": "docs-site",
-	"description": "Ignite Element v2 documentation (Astro + Starlight).",
+	"description": "Ignite Element v3 beta documentation with a frozen v2 archive (Astro + Starlight).",
 	"private": true,
 	"type": "module",
 	"version": "0.0.1",
@@ -8,14 +8,34 @@
 		"dev": "astro dev",
 		"start": "astro dev",
 		"build": "astro build",
+		"check:astro": "astro check",
+		"check:accessibility": "node scripts/check-accessibility.mjs",
 		"preview": "astro preview",
 		"astro": "astro",
+		"check:contrast": "node scripts/check-contrast.mjs",
+		"test:contrast": "astro build && node scripts/check-contrast.mjs",
+		"check:docs": "node scripts/check-doc-examples.mjs",
+		"check:links": "node scripts/check-links.mjs",
+		"check:links:external": "node scripts/check-links.mjs --external",
 		"check:versions": "node scripts/check-version-routing.mjs",
 		"check:versions:built": "node scripts/check-version-routing.mjs --built"
 	},
 	"dependencies": {
-		"@astrojs/starlight": "^0.37.1",
-		"astro": "^5.16.5",
-		"sharp": "^0.34.2"
+		"@astrojs/starlight": "0.39.3",
+		"astro": "6.4.3",
+		"sharp": "0.34.5",
+		"starlight-versions": "0.9.0"
+	},
+	"devDependencies": {
+		"@astrojs/check": "0.9.10",
+		"@axe-core/playwright": "4.13.0",
+		"@ignite-element/adapters": "3.0.0-beta.11",
+		"@ignite-element/core": "3.0.0-beta.11",
+		"@ignite-element/renderer": "3.0.0-beta.11",
+		"@playwright/test": "1.57.0",
+		"ignite-element": "3.0.0-beta.11",
+		"remark-gfm": "4.0.1",
+		"starlight-llms-txt": "0.10.0",
+		"typescript": "5.9.3"
 	}
 }

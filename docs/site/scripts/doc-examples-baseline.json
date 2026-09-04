@@ -1,0 +1,4 @@
+{
+	"note": "Known doc-example failures to burn down (docs-accuracy tasks). Each is a real finding or symptom; the guardrail fails on anything NOT listed here.",
+	"entries": []
+}

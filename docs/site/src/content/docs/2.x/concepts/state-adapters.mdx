@@ -4,15 +4,16 @@ description: How Ignite Element works with XState, Redux Toolkit, and MobX.
 sidebar:
   label: State adapters
   order: 1
+slug: 2.x/concepts/state-adapters
 ---
 
 Ignite Element wraps your state source in an **adapter** that handles lifecycle, subscriptions, and snapshots for you.
 
 ## Adapter shapes
 
-- **XState**: pass a machine definition or a started actor to `igniteCore`. Ignite starts machine-backed actors and stops the ones it owns; if you pass a pre-started actor, Ignite will subscribe to it but will not stop it for you.
-- **Redux Toolkit**: pass a slice (factory) or a store instance; Ignite subscribes and reads state on change. If you pass your own store, Ignite will unsubscribe on cleanup but will not dispose it.
-- **MobX**: pass an observable or factory; Ignite reads derived values when observables mutate. Externally created observables are left running; Ignite only tears down the subscriptions it owns.
+* **XState**: pass a machine definition or a started actor to `igniteCore`. Ignite starts machine-backed actors and stops the ones it owns; if you pass a pre-started actor, Ignite will subscribe to it but will not stop it for you.
+* **Redux Toolkit**: pass a slice (factory) or a store instance; Ignite subscribes and reads state on change. If you pass your own store, Ignite will unsubscribe on cleanup but will not dispose it.
+* **MobX**: pass an observable or factory; Ignite reads derived values when observables mutate. Externally created observables are left running; Ignite only tears down the subscriptions it owns.
 
 :::note[Ownership and cleanup]
 - `cleanup` only controls adapters Ignite owns. For XState machines (actors Ignite creates), `cleanup` applies; for pre-started actors you provide, Ignite will never stop them.
@@ -49,14 +50,14 @@ owns actor; stop on disconnect stops? only if Ignite owns actor
 cleanup flag: n/a              cleanup flag: keep/release adapter subscription
 ```
 
-- Isolated (machine): per-element actors, stopped on disconnect; `cleanup` doesn’t apply.
-- Shared (passed actor/store/observable): one adapter reused; `cleanup` drops or keeps Ignite’s subscription. User-owned sources are never stopped by Ignite.
+* Isolated (machine): per-element actors, stopped on disconnect; `cleanup` doesn’t apply.
+* Shared (passed actor/store/observable): one adapter reused; `cleanup` drops or keeps Ignite’s subscription. User-owned sources are never stopped by Ignite.
 :::
 
 ## Shared vs. isolated
 
-- **Isolated (default)**: Ignite constructs a new adapter per element instance. Great for local state.
-- **Shared**: pass a long-lived actor/store/observable. Ignite reference-counts subscriptions and, when it owns the underlying resource, stops/unsubscribes after the last element disconnects. External sources you provide stay alive; set `cleanup: false` to skip auto-teardown even for Ignite-created shared resources.
+* **Isolated (default)**: Ignite constructs a new adapter per element instance. Great for local state.
+* **Shared**: pass a long-lived actor/store/observable. Ignite reference-counts subscriptions and, when it owns the underlying resource, stops/unsubscribes after the last element disconnects. External sources you provide stay alive; set `cleanup: false` to skip auto-teardown even for Ignite-created shared resources.
 
 ## Deriving render state
 
@@ -85,7 +86,7 @@ commands: ({ actor }) => ({
 
 ## Events
 
-Declare `events` to type `emit`, then fire DOM `CustomEvent`s from your commands. Prefer names with casing that maps to Ignite JSX handler props (`onEventName`). See [Events & commands](/ignite-element/concepts/events-and-commands/) for more patterns.
+Declare `events` to type `emit`, then fire DOM `CustomEvent`s from your commands. Prefer names with casing that maps to Ignite JSX handler props (`onEventName`). See [Events & commands](/ignite-element/2.x/concepts/events-and-commands/) for more patterns.
 
 ```ts
 events: (event) => ({
@@ -99,5 +100,5 @@ commands: ({ actor, emit }) => ({
 }),
 ```
 
-In Ignite JSX, the handler name follows the event:  
+In Ignite JSX, the handler name follows the event:\
 `<my-counter onIncremented={(event) => handleIncrement(event.detail)}></my-counter>`

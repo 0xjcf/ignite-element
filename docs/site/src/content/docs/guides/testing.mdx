@@ -8,15 +8,27 @@ sidebar:
 
 Test the state source and the DOM separately. Keep your XState/Redux/MobX logic covered with its own unit tests, then add light DOM tests for the web components.
 
+:::note[API reference]
+For the scenario API, story recorder, and DOM accessibility helpers with exact signatures, see the [Testing DSL](/ignite-element/api/testing-dsl/) reference. The runtime they build on is documented in [Headless runtime](/ignite-element/api/headless-runtime/).
+:::
+
+## Behavior tests vs. DOM tests
+
+For deterministic command/event assertions without mounting an element, drive the headless runtime (`execute`, `on`, `getStates`, …) or the scenario/story helpers directly. Both are documented with full signatures and examples in the [Testing DSL](/ignite-element/api/testing-dsl/) reference, built on the [Headless runtime](/ignite-element/api/headless-runtime/). Effect timing in those tests is deterministic — see [Deterministic effects](/ignite-element/concepts/the-ignite-model/#deterministic-effects) for why a single transition never replays mount-time emissions.
+
+The rest of this guide covers the test harness setup and the state-source and DOM tests that sit alongside those behavior tests.
+
 ## Setup
 
-- Use a browser-like runner (e.g., Vitest + JSDOM). Import `ignite.config.ts` (or the renderer entry) once so renderers/styles are registered.
+- Use a browser-like runner (e.g., Vitest + JSDOM). If you rely on advanced `@ignite-element/renderer` config, shared styles, or the legacy `lit` renderer, import that setup once before tests.
 - Register the component under test before each suite. Clear the DOM between tests (`document.body.innerHTML = ""`).
+
+Tests that import the scoped lit renderer must declare it and its peer directly: `pnpm add -D @ignite-element/renderer@beta lit-html` (with `ignite-element@beta` in application dependencies). Normal facade/JSX tests do not need a direct scoped-package dependency.
 
 ```ts
 // test/setup.ts
-import './ignite.config'; // ensures renderer + styles are loaded for all tests
-import 'ignite-element/renderers/lit'; // optional if config already sets lit
+import './ignite.config'; // only if your app uses ignite.config.ts
+import '@ignite-element/renderer/lit'; // only if your tests use the lit renderer
 
 // vitest.config.ts
 export default defineConfig({
@@ -94,7 +106,7 @@ export const registerCounterElement = () =>
 
 // counter.element.test.ts
 import { beforeAll, afterEach, describe, expect, it } from 'vitest';
-import 'ignite-element/renderers/lit';
+import '@ignite-element/renderer/lit';
 import './ignite.config';
 import { registerCounterElement } from './counter.element';
 
@@ -119,7 +131,7 @@ describe('<my-counter>', () => {
 });
 ```
 
-## Lifecycle checks (shared adapters)
+## Shared adapter teardown checks
 
 - For shared sources you own (started actors/stores), stop them in your tests when you own their lifecycle.
-- For Ignite-created shared adapters, you can assert cleanup by connecting/disconnecting elements and verifying subscriptions stop when `cleanup` is `true`.
+- To assert shared-adapter teardown, opt a shared core into it with `cleanup: true` and verify the adapter is released when the last element disconnects. By default a consumer-owned shared adapter stays alive for the core's lifetime, so there is nothing to assert there.

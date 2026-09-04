@@ -1,0 +1,159 @@
+---
+title: Routing
+description: Build a client-side SPA router with Ignite Element by keeping routing pure and binding browser navigation through an application-owned XState source.
+sidebar:
+  label: Routing
+  order: 3
+---
+
+Ignite Element still has no router, and still does not need one. A router is a
+state-driven component. The important boundary is ownership: the route machine
+stays pure, the consuming app chooses a concrete navigation adapter, and the
+exact started source is what you pass into Ignite.
+
+The runnable examples live in:
+
+- [`examples/apps/spa-router`](https://github.com/0xjcf/ignite-element/tree/v3.0.0-beta.11/examples/apps/spa-router)
+- [`examples/apps/nested-child-router`](https://github.com/0xjcf/ignite-element/tree/v3.0.0-beta.11/examples/apps/nested-child-router)
+
+Both examples require browser Navigation API support (Baseline 2026). No
+History API fallback is provided.
+
+## 1. Routes are plain data
+
+```ts
+export type RouteName = "home" | "users" | "user" | "login" | "dashboard" | "not-found";
+
+export const routes = [
+  { name: "home", path: "/" },
+  { name: "users", path: "/users" },
+  { name: "user", path: "/users/:id" },
+  { name: "login", path: "/login" },
+  { name: "dashboard", path: "/dashboard", requiresAuth: true },
+] as const;
+```
+
+## 2. Keep matching and route resolution pure
+
+```ts
+import { matchRoute, requiresAuth } from "./routes";
+
+export const resolveNavigation = (toPath: string, authed: boolean) => {
+  const match = matchRoute(toPath);
+  if (requiresAuth(match.name) && !authed) {
+    return { ...matchRoute("/login"), redirected: true };
+  }
+
+  return {
+    path: match.path,
+    route: match.name,
+    params: match.params,
+    redirected: false,
+  };
+};
+```
+
+The machine should not import `window`, `navigation`, History, or Ignite.
+
+## 3. Define a tiny example-local navigation boundary
+
+```ts
+type NavigationPort = {
+  currentPath(): string;
+  observe(listener: (path: string) => void): () => void;
+  commit(path: string, history: "push" | "replace"): Promise<void>;
+};
+```
+
+The examples implement that port twice:
+
+- `createBrowserNavigation(window.navigation)` for the browser
+- `createMemoryNavigation("/")` for deterministic headless tests
+
+The browser adapter filters non-interceptable, cross-origin, hash-only, and
+download navigations, suppresses self-originated commits, and uses
+`navigation.navigate(...)` for accepted writes.
+
+## 4. Compose the exact source in application code
+
+```ts
+import { createBrowserNavigation, createMemoryNavigation } from "./navigation";
+import { createRouterSource } from "./router-source";
+
+const navigation = Reflect.get(window, "navigation");
+const routerSource = createRouterSource({
+  navigation: createBrowserNavigation(navigation),
+});
+```
+
+`createRouterSource(...)` is example-owned composition, not an Ignite router
+abstraction. It binds:
+
+- source-owned observation through `fromCallback(...)`
+- accepted post-decision navigation commits
+- explicit failure facts when a commit rejects
+
+The same factory works headlessly:
+
+```ts
+const testSource = createRouterSource({
+  navigation: createMemoryNavigation("/"),
+});
+```
+
+## 5. Ignite only projects and sends intent
+
+```tsx
+const outlet = igniteCore({
+  source: routerSource,
+  states: (snapshot) => ({
+    route: snapshot.context.route,
+    path: snapshot.context.path,
+  }),
+  commands: ({ actor }) => ({
+    navigate: (to: string) => actor.send({ type: "NAVIGATE_REQUESTED", to }),
+  }),
+});
+```
+
+The router component does not write browser state in `commands` or `effects`.
+That work belongs to the application-owned source.
+
+## 6. Headless tests use the same source factory
+
+```ts
+const router = igniteCore({
+  source: createRouterSource({ navigation: createMemoryNavigation("/") }),
+  states: (snapshot) => ({
+    id: snapshot.context.params.id ?? null,
+    path: snapshot.context.path,
+  }),
+});
+
+await router.execute({ command: "navigate", input: "/users/7" });
+expect(router.getStates().id).toBe("7");
+```
+
+This keeps the routing proof aligned across:
+
+- pure machine tests
+- source-owned commit/cleanup tests
+- Ignite headless runtime tests
+
+## 7. Parent/child composition uses the same ownership rule
+
+The nested-child example keeps one shared `routerSource` and exposes scoped
+commands from different elements:
+
+- parent links send `NAVIGATE_REQUESTED`
+- docs tabs send `OPEN_DOC_SECTION`
+- settings tabs send `OPEN_SETTINGS_PANEL`
+
+Those commands still express intent only. The source decides the accepted path
+and commits it afterward.
+
+## Styling
+
+The examples still use the config-free styling path: `styles.css?raw` is
+injected into each shadow root. The routing change does not introduce a router
+plugin, an Ignite environment layer, or a shared disposal wrapper.

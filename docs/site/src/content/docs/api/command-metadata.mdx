@@ -1,0 +1,139 @@
+---
+title: Command metadata
+description: Enrich commands with agent-readable metadata using command(fn, metadata) and the command.number/string/boolean/enum/object/array helpers.
+sidebar:
+  label: Command metadata
+  order: 5
+---
+
+Plain functions are valid commands. When an agent or inspector needs more context than a name, wrap a command with `command(fn, metadata)` to attach a JSON-serializable description and input schema, plus an optional runtime availability predicate. The serializable metadata surfaces in [`getSchema()`](/ignite-element/api/headless-runtime/#getschema) without changing how the command is called.
+
+`command` is provided to your `commands` builder — no import is required:
+
+```ts
+commands: ({ actor, command }) => ({
+  reset: command(
+    () => actor.send({ type: 'RESET' }),
+    { description: 'Clear the counter back to zero.' },
+  ),
+});
+```
+
+The same helper is also exported as a value from `@ignite-element/core` if you build command definitions outside the `commands` builder:
+
+```ts
+import { command } from '@ignite-element/core';
+```
+
+## `command(fn, metadata?)`
+
+Attaches non-enumerable metadata to a command without changing its behavior: calling it behaves exactly like calling `fn`, and the metadata only surfaces in `getSchema()`.
+
+**Returns** the same command function `fn`, tagged with the metadata (passing no `metadata` returns `fn` unchanged).
+
+`metadata` is a `CommandMetadata` object:
+
+- `description?: string` — human/agent-readable summary.
+- `input?` — an input schema produced by one of the helpers below.
+- `canExecute?: ({ snapshot }) => boolean` — current-snapshot availability for
+  the [headless runtime](/ignite-element/api/headless-runtime/#canexecutecommandname).
+- Additional JSON-serializable keys are allowed for custom conventions.
+
+## Input helpers
+
+Each helper returns a JSON-serializable metadata object. Build them standalone or inline inside `command(...)`:
+
+```ts
+import { command } from '@ignite-element/core';
+
+const limitInput = command.number({ minimum: 3, maximum: 12 });
+const presetInput = command.string({ minLength: 1, maxLength: 32 });
+const enabledInput = command.boolean({ default: true });
+const priorityInput = command.enum(['low', 'high'], { default: 'low' });
+const channelsInput = command.array(command.string(), { minItems: 1 });
+
+const alertInput = command.object(
+  {
+    enabled: command.boolean({ default: true }),
+    priority: command.enum(['low', 'high'], { default: 'low' }),
+    channels: command.array(command.string(), { minItems: 1 }),
+  },
+  { required: ['enabled', 'priority', 'channels'] },
+);
+```
+
+| Helper | `type` | Options |
+| --- | --- | --- |
+| `command.number(options?)` | `'number'` | `minimum`, `maximum`, `multipleOf`, `default`, `description` |
+| `command.string(options?)` | `'string'` | `minLength`, `maxLength`, `pattern`, `format`, `default`, `description` |
+| `command.boolean(options?)` | `'boolean'` | `default`, `description` |
+| `command.enum(values, options?)` | `'string'` + `enum` | `default`, `description` |
+| `command.object(properties?, options?)` | `'object'` | `required`, `additionalProperties`, `default`, `description` |
+| `command.array(items?, options?)` | `'array'` | `minItems`, `maxItems`, `default`, `description` |
+
+`command.enum(values)` records `{ type: 'string', enum: [...values] }`. `command.object(properties)` and `command.array(items)` nest other helper results, so input schemas compose to any depth while staying JSON-serializable.
+
+## Availability predicates
+
+`canExecute` lets a command declare its current availability without moving guard
+logic into the provider or test harness. The predicate receives the adapter's
+current snapshot and returns a boolean:
+
+```ts no-check
+commands: ({ actor, command }) => ({
+  submit: command(
+    () => actor.send({ type: 'SUBMIT' }),
+    {
+      description: 'Submit the current form.',
+      canExecute: ({ snapshot }) => snapshot.can({ type: 'SUBMIT' }),
+    },
+  ),
+});
+```
+
+The predicate function is not serialized into `getSchema()`. Instead the schema
+marks the command with `gated: true`, and consumers call
+`runtime.canExecute('submit')` for the current answer.
+
+That split keeps `getSchema()` JSON-serializable for agents and tool providers while leaving the current availability check in the live runtime. See the richer [`getSchema()` walkthrough](/ignite-element/api/headless-runtime/#getschema) for the full read -> gate -> execute flow.
+
+## In `getSchema()`
+
+Once commands carry metadata, `getSchema()` returns executable commands and their metadata in one map. Commands without metadata appear as empty objects:
+
+```ts
+// getSchema() returns:
+{
+  commands: {
+    reset: {},
+    renamePreset: {
+      description: 'Rename the saved preset label.',
+      input: { type: 'string', minLength: 1, maxLength: 32 },
+    },
+    submit: {
+      description: 'Submit the current form.',
+      gated: true,
+    },
+    configureAlerts: {
+      description: 'Update alert routing rules.',
+      input: {
+        type: 'object',
+        properties: {
+          enabled: { type: 'boolean', default: true },
+          priority: { type: 'string', enum: ['low', 'high'], default: 'low' },
+          channels: { type: 'array', items: { type: 'string' }, minItems: 1 },
+        },
+        required: ['enabled', 'priority', 'channels'],
+      },
+    },
+  },
+  events: [{ type: 'limit-reached' }],
+  snapshot: { value: 'active', context: { count: 0, limit: 6 } },
+  states: { count: 0, limit: 6 },
+}
+```
+
+## Related
+
+- [Build for agents](/ignite-element/guides/agent-runtime-v3/#agent-readable-contracts) — the full in-context example with payload-bearing commands.
+- [Headless runtime](/ignite-element/api/headless-runtime/) — where `getSchema()` lives.

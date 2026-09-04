@@ -1,0 +1,375 @@
+---
+title: Accessibility first
+description: Build accessible Ignite Element interfaces from behavior contracts, validated semantic documents, and rendered-browser verification.
+sidebar:
+  label: Accessibility first
+  order: 6
+---
+
+Ignite Element works best when accessibility is treated as part of the behavior
+contract, not as a late DOM patch. The same headless runtime that powers tests
+and agents already exposes the facts that accessible interfaces depend on:
+commands, command metadata, derived states, dynamic availability, and
+validated semantic projection state.
+
+This guide shows how to start from those facts, keep the DOM native-first, and
+stay honest about what headless verification can and cannot prove.
+
+:::note[Related docs]
+For exact runtime signatures, see [Headless runtime](/ignite-element/api/headless-runtime/).
+For actor-web boundaries, see [Actor-Web](/ignite-element/guides/actor-web/).
+For the agent framing, see [Ignite Element for AI Agents](/ignite-element/overview/ignite-for-ai-agents/).
+For test workflows, see [Testing DSL](/ignite-element/api/testing-dsl/).
+:::
+
+## Start from the behavior contract
+
+An accessible component usually needs the same facts regardless of channel:
+
+- a stable label,
+- helper or error text,
+- clear command descriptions,
+- dynamic availability,
+- a status summary,
+- and sometimes focus or announcement intent.
+
+Those facts belong in the runtime contract before they are styled in the DOM.
+
+```ts no-check
+import { igniteCore } from 'ignite-element/xstate';
+import { assign, setup } from 'xstate';
+
+type ThermostatContext = {
+  target: number;
+  isSaving: boolean;
+  errorText: string | undefined;
+};
+
+type ThermostatEvent =
+  | { type: 'SET_TARGET_DRAFT'; target: number }
+  | { type: 'SAVE_TARGET'; target: number }
+  | { type: 'SAVE_SUCCESS' }
+  | { type: 'SAVE_FAILURE'; message: string };
+
+const thermostatMachine = setup({
+  types: {
+    context: {} as ThermostatContext,
+    events: {} as ThermostatEvent,
+  },
+}).createMachine({
+  context: {
+    target: 70,
+    isSaving: false,
+    errorText: undefined,
+  },
+  initial: 'ready',
+  states: {
+    ready: {
+      on: {
+        SET_TARGET_DRAFT: {
+          actions: assign({
+            target: ({ event }) => event.target,
+            errorText: () => undefined,
+          }),
+        },
+        SAVE_TARGET: {
+          target: 'saving',
+          actions: assign({
+            target: ({ event }) => event.target,
+            isSaving: () => true,
+            errorText: () => undefined,
+          }),
+        },
+      },
+    },
+    saving: {
+      on: {
+        SAVE_SUCCESS: {
+          target: 'ready',
+          actions: assign({
+            isSaving: () => false,
+            errorText: () => undefined,
+          }),
+        },
+        SAVE_FAILURE: {
+          target: 'ready',
+          actions: assign({
+            isSaving: () => false,
+            errorText: ({ event }) => event.message,
+          }),
+        },
+      },
+    },
+  },
+});
+
+export const thermostat = igniteCore({
+  source: thermostatMachine,
+
+  states: (snapshot) => ({
+    target: snapshot.context.target,
+    targetLabel: 'Target temperature',
+    targetHint: 'Choose a value between 58 and 82 degrees.',
+    statusLabel: snapshot.context.isSaving ? 'Saving target' : 'Ready',
+    errorText: snapshot.context.errorText,
+    canEditTarget: snapshot.can({ type: 'SET_TARGET_DRAFT', target: snapshot.context.target }),
+    canSave: snapshot.can({ type: 'SAVE_TARGET', target: snapshot.context.target }),
+  }),
+
+  commands: ({ actor, command }) => ({
+    setTargetDraft: command(
+      (target: number) => actor.send({ type: 'SET_TARGET_DRAFT', target }),
+      {
+        description: 'Synchronize the actor-owned target draft.',
+        input: command.number({ minimum: 58, maximum: 82 }),
+        canExecute: ({ snapshot }) => snapshot.can({
+          type: 'SET_TARGET_DRAFT',
+          target: snapshot.context.target,
+        }),
+      },
+    ),
+    saveTarget: command(
+      (target: number) => actor.send({ type: 'SAVE_TARGET', target }),
+      {
+        description: 'Save the target temperature.',
+        input: command.number({ minimum: 58, maximum: 82 }),
+        canExecute: ({ snapshot }) => snapshot.can({
+          type: 'SAVE_TARGET',
+          target: snapshot.context.target,
+        }),
+      },
+    ),
+  }),
+});
+```
+
+The application persistence service handles the `SAVE_TARGET` request and sends
+`SAVE_SUCCESS` or `SAVE_FAILURE` back to the actor. While the machine is in
+`saving`, neither draft edits nor another save transition are available, so
+`canEditTarget` and `canSave` disable their respective controls from actor facts.
+
+That single registration already supports three consumers:
+
+1. A browser UI can render labels, hints, and disabled states.
+2. A headless test can assert `getStates()`, `getSchema()`, and `canExecute()`.
+3. An agent can inspect the same facts without scraping the DOM.
+
+## Use native elements first
+
+Once the behavior contract is stable, render it with native controls before
+reaching for ARIA.
+
+```tsx no-check
+thermostat('thermostat-panel', ({ target, targetLabel, targetHint, statusLabel, errorText, canEditTarget, canSave, setTargetDraft, saveTarget }) => (
+  <form aria-describedby="thermostat-hint thermostat-status">
+    <label for="thermostat-target">{targetLabel}</label>
+    <input
+      id="thermostat-target"
+      name="target"
+      type="range"
+      min={58}
+      max={82}
+      value={target}
+      onInput={(event) => setTargetDraft(Number(event.currentTarget.value))}
+      disabled={!canEditTarget}
+      aria-invalid={errorText ? 'true' : undefined}
+      aria-describedby={errorText ? 'thermostat-hint thermostat-error thermostat-status' : 'thermostat-hint thermostat-status'}
+    />
+
+    <p id="thermostat-hint">{targetHint}</p>
+    <p id="thermostat-status" aria-live="polite">{statusLabel}</p>
+    {errorText && <p id="thermostat-error" role="alert">{errorText}</p>}
+
+    <button
+      type="button"
+      disabled={!canSave}
+      onClick={(event) => {
+        const draft = event.currentTarget.form?.elements.namedItem('target');
+        if (draft instanceof HTMLInputElement) {
+          saveTarget(Number(draft.value));
+        }
+      }}
+    >
+      Save target
+    </button>
+  </form>
+));
+```
+
+Rendered validation must cover `SAVE_FAILURE` while focus remains on the
+triggering control and verify that the dedicated assertive error announcement is
+exposed to assistive technology.
+
+The range value is actor-owned rather than a one-time DOM default. Active user
+edits call `setTargetDraft`, which sends `SET_TARGET_DRAFT` and re-renders the
+control from the resulting `target`. External integrations use the same command
+path, so their updates converge through the same actor state:
+
+```ts no-check
+await thermostat.execute({ command: 'setTargetDraft', input: 72 });
+```
+
+The save handler still reads the synchronized native control. It does not own a
+second local draft that can drift from an external actor update.
+
+The runtime contract already knew:
+
+- what the control is called,
+- when saving is allowed,
+- what status text should be announced,
+- and whether an error exists.
+
+The DOM projection expresses those facts with native semantics instead of trying
+to reconstruct them later.
+
+## Use the existing headless APIs
+
+Ignite's current runtime APIs are already enough to verify most of the contract
+before any DOM assertion:
+
+```ts no-check
+const schema = thermostat.getSchema();
+const states = thermostat.getStates();
+const canSave = thermostat.canExecute('saveTarget');
+
+if (canSave) {
+  try {
+    const result = await thermostat.execute({ command: 'saveTarget', input: 70 });
+    console.log(result.snapshot, result.events);
+  } catch (error) {
+    // Availability can change after preflight; execute remains authoritative.
+    console.error('Saving the target was rejected or failed.', error);
+  }
+}
+
+console.log(schema.commands.saveTarget.description);
+console.log(states.statusLabel);
+```
+
+This is the right place to verify:
+
+- command descriptions and input shapes,
+- dynamic availability,
+- projected status summaries,
+- and post-command events.
+
+It is not the right place to claim that the browser computed the right
+accessible name or focus order.
+
+## Use validated semantic documents for shared non-DOM output
+
+When multiple channels need more than the derived `states` read model, Ignite's accepted v3
+direction is to use actor-owned validated semantic documents rather than a
+public projection registry.
+
+That means:
+
+- the source writes durable `ProjectionDocument` state through commands,
+- the runtime validates safe semantic nodes,
+- command-backed actions resolve against existing commands,
+- DOM, text, terminal, and speech committers consume the same document.
+
+The document remains data, not executable UI. Ignite rejects raw JSX,
+JavaScript, imports, event handlers, DOM references, and arbitrary executable
+strings in this path.
+
+## Speech is request-driven
+
+Speech and announcements need stricter lifecycle rules than ordinary DOM or text
+updates:
+
+- DOM and text projections can be change-driven.
+- Speech should be request-driven.
+- Spoken text or structured speech first becomes durable actor state.
+- Each utterance has stable identity.
+- Acknowledged utterances must not replay when state is re-read or a session is
+  rebound.
+
+This keeps announcement behavior explicit and testable.
+
+## Voice and text share behavior, not browser machinery
+
+The [voice and text workbench example](https://github.com/0xjcf/ignite-element/tree/v3.0.0-beta.11/examples/agents/voice-workbench)
+demonstrates the split in a complete agent-authored interface:
+
+1. Typed input and a final browser speech transcript both become the same
+   `submitPrompt` command with an explicit modality.
+2. The actor owns the conversation state and command availability.
+3. `getSchema()` and `igniteTools` expose only semantic artifact commands to the
+   model turn.
+4. The actor validates the proposed semantic document before Ignite renders
+   native JSX or commits terminal and speech output.
+5. Each speech request has stable identity and is acknowledged after the speech
+   projection commits it.
+
+Microphone capture remains a capability-gated browser adapter. Permission
+denial, cancellation, unsupported recognition, and transcription errors are
+typed facts; they do not mutate the DOM or bypass the actor. The headless suite
+can therefore prove that speech and text converge on the behavior contract, but
+it cannot claim that a particular browser exposed the right permission prompt,
+accessible name, or assistive-technology announcement.
+
+The production parity harness was manually checked across all five states at
+1920×1080, 1440×900, 1280×800, 768×900, and 390×844: 25 combinations in total.
+Every combination had zero horizontal overflow, no browser warnings or errors,
+the expected state proof visible, and visible controls measuring at least 44px.
+Actor, voice, and active-panel state matched each fixture; microphone denial
+preserved the typed draft. These receipts prove responsive interaction geometry
+and runtime behavior. Browser accessibility-tree and assistive-technology checks
+remain separate rendered-DOM evidence.
+
+## Actor-Web boundary
+
+Projection design does not move Actor-Web ownership into Ignite.
+
+- Actor-Web owns topology, transport, supervision, and source lifecycle.
+- Ignite consumes the source snapshot, derives `states`, exposes commands, and
+  projects validated state to different targets.
+
+If a component is backed by `ignite-element/actor-web`, projection state still
+flows through the same read-model and command boundaries. It does not reach into
+transport or orchestration internals directly.
+
+## Rejected alternatives
+
+### A mandatory top-level accessibility callback
+
+Rejected because it duplicates `states`, command metadata, and semantic document
+state with a second authoring surface.
+
+### Raw generated UI for agents
+
+Rejected because it bypasses the component contract and makes deterministic
+verification impossible.
+
+### Headless accessibility-tree proof
+
+Rejected because browser accessibility semantics, focus order, and assistive
+technology behavior must be verified in rendered DOM.
+
+## Verification checklist
+
+Use this split when you review an accessibility-first component.
+
+### Headless runtime can verify
+
+- `getSchema()` exposes the right commands and input metadata.
+- `canExecute()` matches the current availability rules.
+- `getStates()` exposes labels, status summaries, errors, and disabled reasons.
+- Validated semantic documents reject unsafe content and keep stable ids.
+- Command-backed actions resolve against existing commands and schema.
+- Speech requests dedupe and acknowledge correctly.
+- `execute()` produces the expected events and resulting snapshot.
+
+### Rendered DOM must verify
+
+- accessible names and descriptions,
+- label and helper-text wiring,
+- keyboard flows and focus order,
+- live-region timing,
+- visual hiding and visibility behavior,
+- browser and assistive technology integration.
+
+Accessibility first in Ignite means the behavior contract comes first, the DOM
+stays native-first, and verification stays honest about the boundary between
+headless facts and browser truth.

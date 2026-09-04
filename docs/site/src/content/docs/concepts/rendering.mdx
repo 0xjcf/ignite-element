@@ -1,0 +1,95 @@
+---
+title: Rendering
+description: How Ignite turns a view into DOM — Ignite JSX vs lit-html authoring, where jsxImportSource lives, config-free renderer auto-detection, and using either renderer from vanilla JavaScript.
+sidebar:
+  label: Rendering
+  order: 2
+---
+
+A `view` returns one of two things: an **Ignite JSX** element (the default) or a **lit-html** template. Ignite renders each with the matching strategy, and it picks the strategy **automatically** from what the view returns — no `ignite.config.ts`, no plugin, and no `renderer` setting.
+
+## Two ways to author a view
+
+Both styles use the same `view`/`commands` contract; they differ only in how you write the markup.
+
+### Ignite JSX (default)
+
+JSX syntax, rendered by Ignite's built-in diffing renderer. It ships with the package and registers itself:
+
+```tsx no-check
+const Counter = component('ignite-counter', ({ count }) => (
+  <output>Count: {count}</output>
+));
+```
+
+JSX is **compiled** — `<output>` becomes a `jsx(...)` call at build time — so you must point the JSX transform at `ignite-element/jsx` (see [Where jsxImportSource lives](#where-jsximportsource-lives)).
+
+### lit-html
+
+A `html` tagged template, rendered by the lit strategy. Unlike JSX, a tagged template is **plain runtime JavaScript** — nothing to compile. Install the directly imported scoped renderer and `lit-html`:
+
+```bash
+pnpm add ignite-element@beta @ignite-element/renderer@beta lit-html
+```
+
+Normal facade/JSX consumers do not need to declare scoped Ignite packages. The direct `@ignite-element/renderer/lit` import below does, so keep `@ignite-element/renderer` as a direct dependency.
+
+```ts no-check
+import '@ignite-element/renderer/lit';
+import { html } from 'lit-html';
+
+const Counter = component('ignite-counter', ({ count }) =>
+  html`<output>Count: ${count}</output>`
+);
+```
+
+:::note[`import` registers, it doesn't select]
+Importing `@ignite-element/renderer/lit` makes the lit strategy *available*. Ignite still chooses it from the view's output (see [below](#renderer-selection-is-automatic)) — you do **not** set `renderer: 'lit'` for this.
+:::
+
+## Where jsxImportSource lives
+
+Ignite JSX needs the compiler told to use its JSX runtime. That is the `jsxImportSource` setting, and it can live in any **one** of three places — pick whichever fits your project:
+
+| Where | Use it when |
+| --- | --- |
+| Global `tsconfig.json` — `"jsxImportSource": "ignite-element/jsx"` | Every JSX file is Ignite JSX. The common case; see [Installation](/ignite-element/getting-started/installation/). |
+| Per-file pragma — `/** @jsxImportSource ignite-element/jsx */` | You **mix** runtimes in one project (e.g. React app files alongside Ignite element files). |
+| Bundler config — esbuild/Vite `jsxImportSource` | You drive JSX through the bundler instead of `tsconfig` (e.g. a plain-JavaScript build). |
+
+lit-html needs none of this — a `html` template is not compiled.
+
+## Renderer selection is automatic
+
+On the config-free path, Ignite resolves the strategy from each view's output:
+
+- a lit-html `TemplateResult` (with `@ignite-element/renderer/lit` imported) → the **lit** strategy;
+- anything else → **Ignite JSX**.
+
+A lit view rendered *without* importing the lit strategy falls back to Ignite JSX unchanged (no error) — importing the strategy is what upgrades it. To force one renderer project-wide regardless of output, set `renderer` in [`ignite.config.ts`](/ignite-element/api/advanced-config/); that explicit override wins over auto-detection.
+
+## TypeScript is optional
+
+Nothing here requires TypeScript — TS only adds type-checking on top. What a renderer needs depends on whether its markup is *compiled*:
+
+| Authoring | No build step (raw `.js` in the browser) | With a bundler (`.js`/`.jsx`, no TS) |
+| --- | --- | --- |
+| lit-html (`html` template) | ✅ runtime tagged template | ✅ |
+| Ignite JSX (`<div/>` syntax) | ❌ JSX must be transformed | ✅ set `jsxImportSource` in the bundler |
+| Ignite JSX (`jsx(...)` calls) | ✅ plain function calls | ✅ |
+
+`<div/>` is not valid JavaScript, so it cannot run untransformed. With no build step you can still use Ignite JSX by calling its runtime directly — `jsx`/`jsxs`/`Fragment` are exported from `ignite-element/jsx/jsx-runtime`, the same functions JSX compiles to:
+
+```js
+import { jsx } from 'ignite-element/jsx/jsx-runtime';
+
+const view = ({ count }) => jsx('output', { children: `Count: ${count}` });
+```
+
+For a no-build setup, lit-html is usually the simpler choice: it needs only an [import map](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap) for the bare `ignite-element` specifiers — the standard way to run ESM in the browser.
+
+## Related
+
+- [Installation](/ignite-element/getting-started/installation/) — the `jsxImportSource` tsconfig setup.
+- [Advanced config](/ignite-element/api/advanced-config/) — the project-wide `renderer` override, shared styles, and render-strategy primitives.
+- [Styling](/ignite-element/guides/styling/) — component CSS inside the shadow root.

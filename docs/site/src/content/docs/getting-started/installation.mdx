@@ -1,20 +1,32 @@
 ---
 title: Installation
-description: Set up Ignite Element with your state library and renderer defaults.
+description: Set up Ignite Element with your state library and the default JSX path.
 sidebar:
   label: Installation
   order: 1
 ---
 
-Pick your package manager and install Ignite Element with a state adapter:
+:::caution[v3 is in beta]
+v3 publishes under the `beta` dist-tag, so install with `@beta`. The consumer-facing
+stable tag remains `ignite-element@latest = 2.2.2`. See the [v2 → v3 migration guide](/ignite-element/migration/v3/)
+for what changed.
+:::
+
+Pick your package manager and install Ignite Element with the one state adapter you use:
 
 ```bash
-pnpm add ignite-element xstate
-# pnpm add ignite-element @reduxjs/toolkit   # Redux
-# pnpm add ignite-element mobx               # MobX
+pnpm add ignite-element@beta xstate
+# pnpm add ignite-element@beta @reduxjs/toolkit   # Redux
+# pnpm add ignite-element@beta mobx               # MobX
 ```
 
-### 1) Configure JSX (Ignite JSX renderer)
+Ignite Element v3 and its scoped packages are native ESM-only. Use ESM `import` syntax; v3 does not advertise a CommonJS `main` or `require` contract.
+
+The state libraries are optional peer dependencies, so only the one you install is pulled in — adding `ignite-element@beta` never drags in Redux/MobX/lit when you only use XState. `ignite-element` depends on the scoped `@ignite-element/core`, `@ignite-element/adapters`, and `@ignite-element/renderer` packages internally; normal facade consumers receive them automatically and do not import them directly.
+
+Node 22+ and TypeScript 5.x are required. For the full version matrix (state libraries, `lit-html`), see [Compatibility](/ignite-element/api/compatibility/).
+
+## 1) Configure JSX (required for the default Ignite JSX path)
 
 Add the Ignite JSX runtime to your `tsconfig.json` (or use a file-level pragma):
 
@@ -27,66 +39,38 @@ Add the Ignite JSX runtime to your `tsconfig.json` (or use a file-level pragma):
 }
 ```
 
-### 2) Add `ignite.config.ts`
+## 2) Start building
 
-Centralize renderer defaults, logging, and global styles:
+For the default path, you do not need `ignite.config.ts`, a bundler plugin, or shared adapter teardown overrides. The default Ignite JSX renderer is registered automatically by the public entrypoints.
 
-```ts
-// ignite.config.ts
-import { defineIgniteConfig } from 'ignite-element/config';
+## Optional advanced and legacy setup
 
-export default defineIgniteConfig({
-  renderer: 'ignite-jsx', // or "lit"
-  styles: new URL('./src/styles.css', import.meta.url).href,
-  logging: 'warn',
-});
+Use the advanced setup only when you need `@ignite-element/renderer` primitives for shared styles, renderer diagnostics, or the optional lit renderer. Direct scoped imports must be direct dependencies. For lit:
+
+```bash
+pnpm add ignite-element@beta @ignite-element/renderer@beta lit-html
 ```
 
-:::note[Why config?]
+Renderer selection remains config-free; importing `@ignite-element/renderer/lit` registers the strategy. See [Rendering](/ignite-element/concepts/rendering/).
 
-Ignite uses this file to pick renderers, inject shared styles into each custom element’s shadow root, and set logging. The Vite/Webpack plugins will auto-import it.
+- **Advanced config**: [`ignite.config.ts`, renderer selection, and bundler notes](/ignite-element/api/advanced-config/)
 
-:::
-
-### 3) Wire your bundler
-
-- **Vite**: add the plugin.
-
-```ts
-// vite.config.ts
-import { defineConfig } from 'vite';
-import { igniteConfigVitePlugin } from 'ignite-element/config/vite';
-
-export default defineConfig({
-  plugins: [igniteConfigVitePlugin()],
-});
-```
-
-- **Webpack**: use the provided plugin.
-
-```ts
-// webpack.config.js
-const { IgniteConfigWebpackPlugin } = require('ignite-element/config/webpack');
-
-module.exports = {
-  plugins: [new IgniteConfigWebpackPlugin()],
-};
-```
-
-### 4) Optional: lit renderer
-
-If you prefer lit templates, install `lit-html` and set `renderer: "lit"` in `ignite.config.ts`. Keep the bundler plugins from step 3; they load your config and renderer entrypoint.
-
-:::note[Renderer entrypoints without plugins]
-Skipping the plugins? Import your `ignite.config.ts` before registering components. The default Ignite JSX renderer is registered automatically via the core entrypoints; if you set `renderer: "lit"`, also import `'ignite-element/renderers/lit'` once to register it.
-:::
-
-### Runtime dependencies and tree shaking
+## Runtime dependencies and tree shaking
 
 Ignite Element stays lean but is not literally “zero dependency”: you must install the state library you choose (XState, Redux Toolkit, or MobX). Ignite JSX uses a minimal custom renderer (no framework runtime). If you opt into the lit renderer, install `lit-html`. Import from the adapter entry point that matches your state library (`ignite-element/xstate`, `ignite-element/redux`, or `ignite-element/mobx`) so only the renderer and adapter you pick are pulled into your bundle and unused adapters are tree-shaken.
 
-### Verify your setup
+## Verify your setup
 
 - Run a TypeScript check (e.g., `pnpm exec tsc --noEmit` or `npx tsc --noEmit`) to ensure JSX settings work.
 - Create a smoke test component via [Your first component](/ignite-element/getting-started/first-component/).
-- Keep the `ignite.config.ts` import near your app entry if you are not using the bundler plugins.
+- Add config/plugins only if you need global renderer defaults, shared styles, or diagnostics. Using lit needs no config, but the direct `@ignite-element/renderer/lit` import requires `@ignite-element/renderer` and `lit-html` to be declared dependencies.
+
+## Project checklist
+
+A baseline for a real project:
+
+- **Node & package manager**: Node 22+. Pick pnpm, npm, or yarn and use it consistently.
+- **TypeScript JSX**: set `"jsx": "react-jsx"` and `"jsxImportSource": "ignite-element/jsx"` (or the per-file pragma).
+- **Testing**: add a runner (Vitest or Jest) and a smoke test per web component (mount + basic interaction). See [Test components](/ignite-element/guides/testing/).
+- **Linting/formatting**: use your preferred stack (ESLint/Prettier, Biome, …); the package imposes none.
+- **Advanced setup (optional)**: reach for [`ignite.config.ts`](/ignite-element/api/advanced-config/) only when you need project-wide renderer defaults, shared styles, or diagnostics. Lit is config-free — see [Rendering](/ignite-element/concepts/rendering/).

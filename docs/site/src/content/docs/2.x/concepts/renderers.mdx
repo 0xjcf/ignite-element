@@ -4,15 +4,16 @@ description: Choose between Ignite JSX (default) and the lit renderer.
 sidebar:
   label: Renderers
   order: 2
+slug: 2.x/concepts/renderers
 ---
 
 Ignite Element separates **state** from **rendering**. Pick a renderer per project in your config.
 
 ## Ignite JSX (default)
 
-- Ships with the package; no extra peer deps.
-- Author JSX directly in your component definition.
-- Configure TypeScript with `jsxImportSource: "ignite-element/jsx"`.
+* Ships with the package; no extra peer deps.
+* Author JSX directly in your component definition.
+* Configure TypeScript with `jsxImportSource: "ignite-element/jsx"`.
 
 ```tsx
 component('ignite-toggle', ({ isOn, toggle }) => (
@@ -22,8 +23,8 @@ component('ignite-toggle', ({ isOn, toggle }) => (
 
 ## lit renderer
 
-- Install `lit-html` and set `renderer: "lit"` in `ignite.config.ts`.
-- Author lit templates while keeping the same `states`/`commands` contract.
+* Install `lit-html` and set `renderer: "lit"` in `ignite.config.ts`.
+* Author lit templates while keeping the same `states`/`commands` contract.
 
 ```ts
 import { html } from 'lit-html';

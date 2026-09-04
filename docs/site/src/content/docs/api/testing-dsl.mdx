@@ -1,0 +1,230 @@
+---
+title: Testing DSL
+description: The igniteTest scenario API, story recorder, and DOM accessibility helpers exported as test from ignite-element and ignite-element/xstate.
+sidebar:
+  label: Testing DSL
+  order: 6
+---
+
+Ignite ships a scenario-style testing helper built on the [headless runtime](/ignite-element/api/headless-runtime/). It is exported as `test` from both `ignite-element` and `ignite-element/xstate` (and the other adapter entrypoints); import it under any name you like.
+
+```ts
+import { test as igniteTest } from 'ignite-element/xstate';
+import { igniteCore } from 'ignite-element/xstate';
+
+const counter = igniteCore({
+  source: counterMachine,
+  states: (snapshot) => ({
+    isOn: snapshot.matches('on'),
+  }),
+  commands: ({ actor }) => ({
+    toggle: () => actor.send({ type: 'TOGGLE' }),
+  }),
+  events: (event) => ({
+    toggled: event<{ isOn: boolean }>(),
+  }),
+  effects: ({ emit, select }) => {
+    const isOn = select((snapshot) => snapshot.matches('on'));
+    if (!isOn.changed) return;
+    emit({ type: 'toggled', isOn: isOn.current });
+  },
+});
+```
+
+## Scenarios
+
+Call `igniteTest({ component, host? })` with a runtime to get a chainable scenario. `given(...)` asserts the starting snapshot, `when({ command, input? })` executes a command (it is async — `await` it), and the `expect*` methods assert the result of the most recent `when(...)`.
+
+```ts
+(await igniteTest({ component: counter })
+  .given({ value: 'off' })
+  .when({ command: 'toggle' }))
+  .expectSnapshot({ value: 'on' })
+  .expectEvent({ type: 'toggled', isOn: true });
+```
+
+Scenario methods — every `given`/`expect*` **returns the scenario** so calls chain; `when(...)` returns a `Promise` of the scenario:
+
+- `given(expected)` — assert the current snapshot before acting. Accepts a deep-partial snapshot match or a predicate.
+- `when({ command, input? })` — execute a command; `input` is required for one-argument commands, omitted for no-argument commands, and optional when the command's first argument is optional. Returns a `Promise` of the scenario.
+- `expectSnapshot(expected)` — assert the post-command snapshot.
+- `expectStates(expected)` — assert the derived states (mirrors `getStates()`). Accepts a deep-partial object or a predicate.
+- `expectEvent({ type, ...fields })` — assert an event was emitted, optionally matching its fields.
+- `expectEvents(expected)` — assert several events by an array of `{ type, ...fields }` objects.
+- `expectNoEvents()` — assert the command emitted nothing.
+- `getResult()` — return the raw `{ snapshot, states, events }` of the last `when(...)`.
+
+Snapshot, states, and event expectations accept a deep-partial object or a predicate function. Event expectations match flat `{ type, ...fields }` members.
+
+## Stories
+
+When you need more than one intent in the same falsifiable user story, use `story(name, async (story) => ...)`.
+
+A story is the expected experience claim: the sequence you think a user can actually live through. It reuses the runtime's existing `record(name)` story to capture observed execution evidence, and it returns the same serializable `IgniteStorySnapshot` that `snapshotStory(story)` produces as a portable receipt. There is no second recorder, alternate trace schema, graph engine, or inspection surface.
+
+```ts
+import { someExternalFixture } from './test-fixtures';
+
+const receipt = await igniteTest({ component: counter }).story(
+  'counter recovery',
+  async (story) => {
+    await story.given({
+      snapshot: { counter: { count: 0 } },
+      when: (snapshot) => snapshot.counter.count === 0,
+      states: { count: 0, canDecrement: false },
+      canExecute: { decrement: false },
+    });
+
+    await story.intent({ command: 'increment', input: 2 });
+    await story.checkpoint('after increment', {
+      snapshot: { counter: { count: 2 } },
+      states: { count: 2, canDecrement: true },
+      events: [{ type: 'counter-incremented', count: 2 }],
+      canExecute: { decrement: true },
+    });
+
+    await story.behavior('external retry', async () => {
+      await someExternalFixture.retry();
+    });
+
+    await story.intent({ command: 'decrement' });
+    await story.checkpoint('after decrement', {
+      snapshot: { counter: { count: 1 } },
+    });
+  },
+);
+```
+
+Story methods:
+
+- `story(name, run)` — create a named expected-experience claim, run multiple ordered command steps, and return the existing `{ name, trace, lifecycle, summary }` receipt.
+- `await story.given(expected)` — assertion-only precondition check against the current native `snapshot`, derived `states`, and `canExecute(...)` state.
+- `await story.intent({ command, input? })` — run one intent through the existing Story `execute(...)` path and capture its last-step events for the next checkpoint.
+- `await story.behavior(name, operation)` — record a named fixture-owned external behavior step on the same Story trace, with before/after snapshot and states evidence, and return the operation result.
+- `await story.checkpoint(name, expected)` — assert the current native `snapshot`, derived `states`, `canExecute(...)`, and the emitted `event`/`events` (or `noEvents`) from the most recent intent.
+
+For story assertions, `snapshot` is structural evidence only: use a deep-partial native snapshot shape. Use `when(snapshot)` for arbitrary adapter-native predicates. If both are present, the assertion waits until both pass.
+
+If a story fails, the error includes the story name, the failing phase or checkpoint, and the serialized Story evidence gathered so far.
+
+## Runtime Stories
+
+A story records command, native snapshot, derived states, and event activity as one ordered behavior trace. Start one from the runtime's [`record(name)`](/ignite-element/api/headless-runtime/#recordname):
+
+```ts
+const story = counter.record('toggles on');
+
+await story.execute({ command: 'toggle' });
+await story.until((states) => states.isOn, async () => {
+  await story.execute({ command: 'toggle' });
+});
+
+const trace = story.trace();
+const lifecycle = story.lifecycle();
+const summary = story.summary();
+
+story.stop();
+```
+
+Story methods:
+
+- `execute({ command, input? })` — run a command and record it; resolves to the same `{ snapshot, states, events }` as the runtime.
+- `behavior(name, operation)` — run a fixture-owned external behavior step and record a named `behavior` marker plus before/after snapshot and states evidence without incrementing `commandCount`.
+- `until(statesPredicate, action, options?)` — repeatedly run `action` until the derived states satisfy `statesPredicate`. `options.maxSteps` bounds the loop. Returns a promise containing the satisfying states object.
+- `trace()` — returns `IgniteStoryTraceEntry[]`: the ordered behavior trace of `command`, `behavior`, `snapshot`, `states`, and `event` entries with `kind`, `sequence`, and `step`.
+- `lifecycle()` — returns `IgniteStoryLifecycleEntry[]`: DOM lifecycle evidence (registration, connection, render, disconnection, cleanup) when a custom element or accessibility bridge participates; otherwise an empty array.
+- `summary()` — returns `{ name, finalSnapshot, finalStates, events, commandCount, traceCount, lifecycleCount }`.
+- `stop()` — releases the story's runtime subscriptions; returns nothing.
+
+`record()` is the low-level evidence boundary. `story.trace()` holds only observed behavior evidence; DOM evidence stays on the separate `story.lifecycle()` channel, so logic stays inspectable without a DOM.
+
+## Trace and snapshot helpers
+
+The `test` export also carries helpers as properties:
+
+- `serializeTrace(trace)` — convert `story.trace()` into a deterministic JSON-safe snapshot (the same ordered shape, deep-cloned).
+- `snapshotStory(story)` — produce `{ name, trace, lifecycle, summary }` for inline snapshot tests and portable receipts.
+- `expectTrace(trace, expected, options?)` — assert ordered checkpoints against a trace. By default it matches a subsequence; pass `{ exact: true }` to require a one-to-one match. Each expectation is a deep-partial entry or a predicate. Returns nothing; throws on mismatch.
+
+```ts
+const story = counter.record('toggles on');
+await story.execute({ command: 'toggle' });
+
+const snapshot = igniteTest.serializeTrace(story.trace());
+
+igniteTest.expectTrace(story.trace(), [
+  { kind: 'command', sequence: 1, step: 1, command: 'toggle' },
+  {
+    kind: 'snapshot',
+    sequence: 2,
+    step: 1,
+    phase: 'before',
+    snapshot: { value: 'off' },
+  },
+  {
+    kind: 'states',
+    sequence: 3,
+    step: 1,
+    phase: 'before',
+    states: { isOn: false },
+  },
+  {
+    kind: 'event',
+    sequence: 4,
+    step: 1,
+    event: 'toggled',
+    payload: { isOn: true },
+  },
+]);
+
+const full = igniteTest.snapshotStory(story);
+```
+
+## DOM accessibility bridge
+
+For projection proof, mount the same runtime behind a test-only DOM bridge and assert rendered controls by role and accessible name. The bridge renders against the same runtime state the story mutates, so behavior assertions stay headless while DOM assertions stay focused.
+
+```ts
+import { test as igniteTest } from 'ignite-element/xstate';
+
+const story = counter.record('reaches limit');
+const bridge = igniteTest.accessibilityBridge(
+  counter,
+  ({ count, limit, isLimited, increment, setLimit }) => (
+    <section>
+      <output role="status" aria-label="Counter status">
+        {count} / {limit}
+      </output>
+      <button type="button" onClick={() => increment()}>
+        Increment
+      </button>
+      {isLimited && <p role="status">Limit reached</p>}
+    </section>
+  ),
+  { elementName: 'counter-accessibility-bridge' },
+);
+
+await story.execute({ command: 'increment' });
+
+igniteTest.expectControls(bridge, [
+  { role: 'status', name: 'Counter status' },
+  { role: 'button', name: 'Increment' },
+]);
+
+bridge.stop();
+story.stop();
+```
+
+Bridge surface:
+
+- `accessibilityBridge(component, renderer, options?)` — render the runtime into a shadow root and return a bridge.
+- `bridge.getByRole(role, options?)` / `bridge.queryByRole(role, options?)` — find a control by role, optionally narrowing by accessible `name`, `text`, or `value` (string, `RegExp`, or predicate). `getByRole` returns the matching control (throws if none/ambiguous); `queryByRole` returns the control or `null`.
+- `bridge.expectControls(expected)` (or `igniteTest.expectControls(bridge, expected)`) — assert a set of controls by role, name, text, or value. Returns nothing; throws on mismatch.
+- `bridge.host` / `bridge.root` — the host element and its shadow root.
+- `bridge.stop()` — tear the bridge down; returns nothing.
+
+## Related
+
+- [Testing guide](/ignite-element/guides/testing/) — project setup, machine tests, and DOM tests.
+- [Build for agents](/ignite-element/guides/agent-runtime-v3/) — the behavior-first workflow.
+- [Headless runtime](/ignite-element/api/headless-runtime/) — the runtime these helpers wrap.

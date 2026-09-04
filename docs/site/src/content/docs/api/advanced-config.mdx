@@ -1,0 +1,146 @@
+---
+title: Advanced config
+description: The ignite.config.ts file, defineIgniteConfig options, renderer selection, and render-strategy primitives in one reference.
+sidebar:
+  label: Advanced config
+  order: 5
+---
+
+`defineIgniteConfig` and the `ignite.config.ts` file are part of `@ignite-element/renderer`, not the stable `ignite-element` root API. The default v3 path stays **config-free**: import the adapter entry (`ignite-element/xstate`, `ignite-element/redux`, `ignite-element/mobx`, or `ignite-element/actor-web`), set `jsxImportSource` to `ignite-element/jsx`, and keep component CSS in local `<style>` tags.
+
+Reach for this page only when you need one of these advanced, project-wide capabilities:
+
+- Shared styles injected into every component shadow root.
+- Renderer/strategy diagnostics (`logging`).
+- Forcing one renderer project-wide, overriding per-view auto-detection.
+
+Using lit is **not** on this list anymore: it is config-free — see [Rendering](/ignite-element/concepts/rendering/).
+
+## The `ignite.config.ts` file
+
+`ignite.config.ts` is an ordinary TypeScript module that calls `defineIgniteConfig` and `export default`s the result. There is **no auto-loader** in the supported v3 beta API — you wire the file in yourself.
+
+**1. Create the file** at your project root (or wherever your bundler resolves modules):
+
+```ts
+// ignite.config.ts
+import { defineIgniteConfig } from '@ignite-element/renderer';
+
+export default defineIgniteConfig({
+  styles: new URL('./styles.css', import.meta.url).href, // injected into each shadow root
+  logging: 'warn', // "off" | "warn" | "debug"
+});
+```
+
+**2. Import it once from your app entry**, before any component registers, so the config is applied before the first render:
+
+```ts
+// main.ts (app entry)
+import './ignite.config';
+import './components/ignite-counter';
+```
+
+**3. Bundler integration.** Vite, Webpack, esbuild, and similar bundlers resolve `ignite.config.ts` as a normal module — no plugin is required. Because the side effect runs at import time, keep the import at the **top** of your entry. The default JSX path needs only the TypeScript setting; see [Installation](/ignite-element/getting-started/installation/) for `jsxImportSource` wiring.
+
+:::note[No bundler / no `import.meta.url`]
+If your toolchain doesn't support `import.meta.url`, set `styles` to a fully qualified or root-relative URL (`styles: '/styles.css'` or a CDN link). The config shape is unchanged.
+:::
+
+## `defineIgniteConfig` options
+
+`defineIgniteConfig(config: IgniteConfig): IgniteConfig` normalizes and registers the config.
+
+**Returns** the normalized `IgniteConfig` that was registered (the effective value).
+
+| Option | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `styles` | `string \| { href, integrity?, crossOrigin? }` | — | Stylesheet injected into every component shadow root. |
+| `renderer` | `"ignite-jsx" \| "lit"` | auto-detect | Force one renderer project-wide, overriding per-view auto-detection. |
+| `strategy` | `"diff" \| "replace"` | `"diff"` | Render-update strategy (see below). |
+| `logging` | `"off" \| "warn" \| "debug"` | `"off"` | Renderer/strategy diagnostics. |
+
+:::tip[Choosing a `styles` shape]
+Use a **string URL** for local assets (`new URL('./styles.css', import.meta.url).href`). Use the **object form** when pulling from a CDN and you need SRI or CORS control: `{ href: 'https://cdn.example.com/styles.css', integrity: '…', crossOrigin: 'anonymous' }`.
+:::
+
+Component-local `<style>` tags remain the default scoped-styling path; `styles` is for stylesheets shared across every component. Add light-DOM styles in your host app as usual.
+
+## Renderer selection
+
+You normally **don't** set `renderer`. On the config-free path Ignite auto-detects the strategy from each view's output — a lit-html `TemplateResult` renders with lit (when `@ignite-element/renderer/lit` is imported), everything else with Ignite JSX — so using lit needs no config:
+
+```bash
+pnpm add ignite-element@beta @ignite-element/renderer@beta lit-html
+```
+
+Because this path imports a scoped renderer directly, `@ignite-element/renderer` must be a direct dependency. Normal facade/JSX consumers do not need to install scoped packages explicitly.
+
+```ts no-check
+import '@ignite-element/renderer/lit';
+import { html } from 'lit-html';
+
+component('ignite-toggle', ({ isOn, toggle }) =>
+  html`<button @click=${toggle}>${isOn ? 'On' : 'Off'}</button>`
+);
+```
+
+See [Rendering](/ignite-element/concepts/rendering/) for the full authoring and selection story.
+
+Set `renderer` here only to **force** one strategy project-wide, overriding auto-detection — for example, to render every component through lit regardless of output:
+
+```ts
+import { defineIgniteConfig } from '@ignite-element/renderer';
+
+export default defineIgniteConfig({
+  renderer: 'lit',
+});
+```
+
+An unknown `renderer` value is normalized by legacy compatibility behavior and logged — don't rely on that path.
+
+## Render strategies
+
+The render strategy controls how DOM updates apply: `diff` minimizes DOM churn for JSX components (the default); `replace` mirrors lit's replace-by-default behavior. Override it project-wide only when needed:
+
+```ts
+import { defineIgniteConfig } from '@ignite-element/renderer';
+
+export default defineIgniteConfig({
+  strategy: 'replace',
+});
+```
+
+Per-component strategy overrides are internal and not part of the public API.
+
+## Advanced primitives
+
+`@ignite-element/renderer` exposes a small set of `@public` primitives for custom render strategies and config introspection. Ordinary v3 apps never need these — they are for tooling, custom renderers, and diagnostics.
+
+```ts
+import {
+  registerRenderStrategy,
+  resolveRenderStrategy,
+  getRegisteredRenderStrategies,
+  getIgniteConfig,
+} from '@ignite-element/renderer';
+```
+
+- `registerRenderStrategy(rendererId, factory)` — register a custom render-strategy factory under a renderer id. The built-in `ignite-jsx` (default) and `lit` strategies register themselves when you import their entry points. Returns nothing.
+- `resolveRenderStrategy(rendererId)` — returns the render-strategy factory registered for an id, falling back to the default strategy (with a warning) if the id is unknown.
+- `getRegisteredRenderStrategies()` — returns `string[]`: the renderer ids that currently have a registered strategy.
+- `getIgniteConfig()` — returns the effective `IgniteConfig` registered by `defineIgniteConfig`, or `undefined` when no config is registered.
+
+Other symbols on the package (`injectStyles`, `flushPendingStyles`, `getGlobalStyles`/`setGlobalStyles`) are `@internal` implementation details. Manage shared styles through `defineIgniteConfig({ styles })` instead.
+
+## Notes & troubleshooting
+
+- With no `renderer` set — whether config is absent or present only for `styles`/`logging` — Ignite auto-detects per view (lit for lit-html output, Ignite JSX otherwise).
+- `lit` is not part of the stable `ignite-element` root surface — import `@ignite-element/renderer/lit` to make the lit strategy available; auto-detection then selects it for lit-html views.
+- Legacy config-loader plugins are compatibility-only internals, not part of the public v3 beta API. Keep them only in setups you already own.
+- `globalStyles` is a deprecated alias for `styles`; migrate to `styles`.
+
+## Related
+
+- [The Ignite model](/ignite-element/concepts/the-ignite-model/) — where the config-free default path is explained.
+- [igniteCore](/ignite-element/api/ignite-core/) — the component factory these options apply to.
+- [Compatibility](/ignite-element/api/compatibility/) — supported `lit-html` and toolchain versions.

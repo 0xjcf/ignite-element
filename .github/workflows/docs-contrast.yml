@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Docs Contrast
+
+# Renders the built docs site in headless Chromium and fails the PR if any key
+# chrome/content selector drops below WCAG AA contrast in either theme. Scoped to
+# PRs that touch docs/site so non-docs PRs don't pay the browser cost.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/site/**"
+      - "packages/**" # doc examples are typechecked against the package API
+      - ".github/workflows/docs-contrast.yml"
+  workflow_dispatch:
+
+jobs:
+  contrast:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck doc code examples against the public API
+        run: pnpm --filter docs-site run check:docs
+
+      - name: Validate Astro content and types
+        run: pnpm --filter docs-site run check:astro
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter docs-site exec playwright install --with-deps chromium
+
+      - name: Build docs site
+        run: pnpm --filter docs-site build
+
+      - name: Check versioned routes and prerelease disclosure
+        run: pnpm --filter docs-site run check:versions:built
+
+      - name: Check internal routes, links, anchors, and assets
+        run: pnpm --filter docs-site run check:links
+
+      - name: Check theme contrast (WCAG AA) and control geometry
+        run: pnpm --filter docs-site run check:contrast
+
+      - name: Check rendered accessibility in both themes
+        run: pnpm --filter docs-site run check:accessibility

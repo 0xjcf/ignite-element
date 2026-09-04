@@ -1,19 +1,59 @@
 ---
 title: Styling
-description: Style components with global config and per-element CSS.
+description: Style components with shadow-root defaults, CSS variables, and DOM-native contracts.
 sidebar:
   label: Styling
   order: 1
 ---
 
-- **Global styles**: set `styles` in `ignite.config.ts` to inject a stylesheet into every component’s shadow root.
-- **Per-component styles**: add inline `<style>` blocks or CSS-in-JS inside your renderer.
+- **Default styles**: keep component CSS next to the JSX with ordinary `<style>` tags or CSS text imported by your bundler.
+- **Shared styles**: set `styles` in `ignite.config.ts` only when one stylesheet should be injected into every component’s shadow root.
 - **Light DOM**: use host-app styles for page-level layout; Ignite only scopes what you inject via `styles`.
+- **CSS custom properties**: use tokens like `--button-accent` when host apps need to theme a component without breaking encapsulation.
+- **`part` attributes**: expose stable styling hooks for important sub-elements when host apps need targeted overrides across the shadow boundary.
+- **CSP**: if the host disallows inline styles, prefer emitted stylesheet URLs through shared styles.
 
-```ts
-export default defineIgniteConfig({
-  styles: new URL('./styles/components.css', import.meta.url).href,
-});
+```tsx
+const buttonStyles = `
+  .button { background: var(--button-accent, #1453ff); }
+`;
 ```
 
-For a deeper walkthrough, see the legacy notes in [docs/styling/README.md](https://github.com/0xjcf/ignite-element/blob/main/docs/styling/README.md) (kept as reference) while we expand this guide.
+Example renderer contract:
+
+```tsx
+component('brand-button', ({ label, press }) => (
+  <>
+    <style>{buttonStyles}</style>
+    <button part="button" class="button" onClick={press}>
+      {label}
+    </button>
+  </>
+));
+```
+
+Ignite does not invent a separate styling system. Use normal platform primitives in your renderer and expose only the hooks you want host apps to depend on.
+
+## Styling is part of the contract
+
+Use the shadow root for implementation details, then deliberately expose the styling hooks host apps are allowed to depend on:
+
+- CSS custom properties for design tokens.
+- `part` attributes for targeted shadow-root styling hooks.
+- light-DOM layout styles in the host app.
+
+```tsx
+component('status-chip', ({ label, tone }) => (
+  <span
+    part="chip"
+    class={`chip chip--${tone}`}
+    style={{ color: 'var(--status-chip-fg, currentColor)' }}
+  >
+    {label}
+  </span>
+));
+```
+
+If you expect host apps to theme a component, expose a stable token or `part`. If you do not want a sub-tree styled externally, keep it internal.
+
+For host-side wiring and the full element contract, see [Host app integration](/ignite-element/guides/host-app-integration/).

@@ -1,20 +1,93 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Ignite Element docs theme — token-driven.
+
+   Tokens are the single source of truth. Every custom token is defined for
+   BOTH the dark base (:root) and the light override ([data-theme="light"]), so
+   no control can fall through to an un-themed default (the bug that made the
+   version picker invisible in dark mode — see commit f2f61cb). Component rules
+   below read from var(--sl-color-*) / var(--control-*) instead of duplicating
+   hardcoded hex, so a new control inherits correct contrast automatically.
+   ────────────────────────────────────────────────────────────────────────── */
+
 :root {
+	/* Accent ramp (dark) */
 	--sl-color-accent-low: #0d2a38;
 	--sl-color-accent: #1ad2ff;
 	--sl-color-accent-high: #7ae8ff;
+	/* Ink painted ON an accent fill. Dark theme → dark ink on bright cyan.
+	   Must be re-themed for light (white ink on dark teal) below. */
 	--sl-color-accent-contrast: #0b1324;
+
+	/* Text + surfaces (dark) */
 	--sl-color-text: #e8edf7;
 	--sl-color-text-soft: #c5d0de;
+	--link-hover: #c4f4ff; /* brightened accent for content-link hover */
 	--sl-color-hairline: #223049;
 	--sl-color-gray-1: #0b1324;
 	--sl-color-gray-2: #0f182e;
 	--sl-color-gray-3: #162038;
 	--sl-color-gray-4: #1f2a45;
-	--sl-color-soft: #0f182e;
-	--sl-text-accent: #fbbf24;
+	--sl-color-bg: #0d1324;
+	--sl-color-bg-nav: #0c1223;
+	--sl-color-bg-sidebar: #0c1223;
+	--sl-color-panel: #0f182e;
+
+	/* Aside surface (dark) — re-themed for light below so the rules stay
+	   theme-agnostic. */
+	--aside-border: rgba(122, 232, 255, 0.25);
+	--aside-heading: var(--sl-color-accent-high);
+	--aside-code-bg: rgba(255, 255, 255, 0.08);
+
+	/* Accent-tinted chrome (dark) — tokenized so the beta accent block below
+	   can re-tint them with the ramp instead of leaving stale cyan washes. */
+	--inline-code-bg: rgba(26, 210, 255, 0.12);
+	--bg-glow: rgba(26, 210, 255, 0.06);
+
+	/* Table + diagram surfaces (dark) — re-themed for light below so the
+	   component rules stay theme-agnostic and inherit AA contrast in both. */
+	--table-header-bg: var(--sl-color-gray-3);
+	--table-stripe: rgba(255, 255, 255, 0.03);
+	--diagram-bg: var(--sl-color-panel);
+	--diagram-border: var(--sl-color-hairline);
+
+	/* Paint the page surface from the token so the canvas never falls back to
+	   the browser's color-scheme default (the dark theme layers its gradient
+	   over this below). */
+	background: var(--sl-color-bg);
+
+	/* Header controls (selects + search). Any new chrome inherits correct
+	   contrast by reading these tokens instead of patching per-component hex. */
+	--control-bg: var(--sl-color-bg-nav);
+	--control-bg-hover: #111a2d;
+	--control-text: var(--sl-color-text);
+	--control-border: #345074;
+	--control-focus-ring: #3c5b82;
+
+	/* Control + radius geometry. One height / padding / gap for every header
+	   control so spacing is inherited from tokens instead of each component's
+	   own default (which is why the selects and search trigger were uneven). */
+	--control-height: 2.5rem;
+	--control-pad-x: 0.75rem;
+	--control-pad-y: 0.375rem;
+	--control-select-min-width: 8rem; /* fits "v3 (beta)" with comfortable headroom */
+	--control-gap: 0.5rem;
+	--radius-sm: 6px;
+	--radius-md: 8px;
+	--radius-lg: 12px;
+
+	/* Button geometry — one step up from the compact header chrome. Prominent
+	   CTAs share a single height + symmetric padding so primary, secondary, and
+	   minimal variants are identical in size (no per-variant drift). */
+	--button-height: 2.75rem;
+	--button-pad-x: 1.25rem;
+	--button-pad-y: 0.625rem;
+
+	/* Layout */
 	--sl-nav-height: 64px;
 	--sl-content-width: 1080px;
 	--sl-sidebar-width: 240px;
+
+	/* Buttons */
 	--button-bg: linear-gradient(
 		135deg,
 		var(--sl-color-accent),
@@ -28,39 +101,98 @@
 	--button-secondary-text: var(--sl-color-text);
 }
 
+:root[data-theme="dark"] {
+	color-scheme: dark;
+	background:
+		radial-gradient(circle at 20% 20%, var(--bg-glow), transparent 35%),
+		radial-gradient(
+			circle at 80% 10%,
+			rgba(251, 191, 36, 0.08),
+			transparent 35%
+		), var(--sl-color-gray-1);
+}
+
 :root[data-theme="light"] {
+	color-scheme: light;
+
+	/* Accent ramp (light) */
 	--sl-color-accent-low: #d6f4ff;
 	--sl-color-accent: #006d93;
 	--sl-color-accent-high: #004b66;
+	/* Light theme → white ink on the dark-teal accent fill. */
+	--sl-color-accent-contrast: #ffffff;
+
+	/* Text + surfaces (light) */
 	--sl-color-text: #0f172a;
 	--sl-color-text-soft: #334155;
+	--link-hover: var(--sl-color-accent-high);
 	--sl-color-hairline: #e2e8f0;
 	--sl-color-bg: #ffffff;
 	--sl-color-bg-nav: #f8fafc;
 	--sl-color-bg-sidebar: #f8fafc;
 	--sl-color-panel: #f8fafc;
-	--button-text: #ffffff;
+
+	/* Aside surface (light) */
+	--aside-border: #d8e2f2;
+	--aside-heading: var(--sl-color-text);
+	--aside-code-bg: var(--sl-color-hairline);
+
+	/* Accent-tinted chrome (light) */
+	--inline-code-bg: rgba(26, 210, 255, 0.12);
+	--bg-glow: rgba(26, 210, 255, 0.06);
+
+	/* Table + diagram surfaces (light) */
+	--table-header-bg: var(--sl-color-bg-nav);
+	--table-stripe: rgba(15, 23, 42, 0.03);
+	--diagram-bg: var(--sl-color-panel);
+	--diagram-border: var(--sl-color-hairline);
+
+	/* Header controls (light) */
+	--control-bg: var(--sl-color-bg-nav);
+	--control-bg-hover: rgba(15, 23, 42, 0.05);
+	--control-text: var(--sl-color-text);
+	--control-border: #cbd5e1;
+	--control-focus-ring: #94a3b8;
+
+	/* Buttons */
 	--button-shadow: 0 6px 20px rgba(0, 109, 147, 0.28);
 	--button-secondary-text: var(--sl-color-accent);
 }
 
-:root[data-theme="dark"] {
-	color-scheme: dark;
-	--sl-color-bg: #0d1324;
-	--sl-color-bg-nav: #0c1223;
-	--sl-color-bg-sidebar: #0c1223;
-	--sl-color-panel: #0f182e;
-	background:
-		radial-gradient(
-			circle at 20% 20%,
-			rgba(26, 210, 255, 0.06),
-			transparent 35%
-		),
-		radial-gradient(
-			circle at 80% 10%,
-			rgba(251, 191, 36, 0.08),
-			transparent 35%
-		), #0b1324;
+/* ──────────────────────────────────────────────────────────────────────────
+   v3 BETA accent — current (beta) pages swap the cyan accent ramp for neon
+   green so beta docs are instantly distinguishable from the archived stable
+   docs. Scoped without runtime JS: starlight-versions server-renders the
+   version picker with `selected` on the active option, and archived pages'
+   option values live under /2.x/ — so any page NOT marked archived is beta.
+   Both blocks override every accent-derived token (light must re-override the
+   dark block, which also matches light pages at higher specificity than the
+   plain light block above). DELETE this whole section at stable v3.
+   ────────────────────────────────────────────────────────────────────────── */
+:root:not(:has(starlight-version-select option[selected][value*="/2.x/"])) {
+	/* Accent ramp (beta dark) */
+	--sl-color-accent-low: #0a3d1c;
+	--sl-color-accent: #2bff66;
+	--sl-color-accent-high: #7dffa6;
+	--link-hover: #b3ffd1;
+	--aside-border: rgba(125, 255, 166, 0.25);
+	--button-shadow: 0 6px 20px rgba(43, 255, 102, 0.35);
+	--inline-code-bg: rgba(43, 255, 102, 0.12);
+	--bg-glow: rgba(43, 255, 102, 0.05);
+}
+
+:root[data-theme="light"]:not(
+		:has(starlight-version-select option[selected][value*="/2.x/"])
+	) {
+	/* Accent ramp (beta light) */
+	--sl-color-accent-low: #d7f7e2;
+	--sl-color-accent: #0b7a3e;
+	--sl-color-accent-high: #045c2c;
+	--link-hover: var(--sl-color-accent-high);
+	--aside-border: #bfe8cd;
+	--button-shadow: 0 6px 20px rgba(11, 122, 62, 0.28);
+	--inline-code-bg: rgba(43, 255, 102, 0.14);
+	--bg-glow: rgba(43, 255, 102, 0.06);
 }
 
 body {
@@ -69,48 +201,40 @@ body {
 	font-feature-settings: "cv11", "ss01";
 }
 
-[data-theme="dark"] .main-pane,
-[data-theme="dark"] .content,
-[data-theme="dark"] .page {
-	color: var(--sl-color-text);
-}
-
-[data-theme="dark"] a {
-	color: var(--sl-color-accent-high);
-}
-
-[data-theme="dark"] a:hover {
-	color: #c4f4ff;
+/* Content links inherit Starlight's themed --sl-color-text-accent (accent-high
+   in dark, accent in light); only the hover is customised, via a themed token. */
+.sl-markdown-content a:hover {
+	color: var(--link-hover);
 }
 
 .sl-markdown pre {
 	border: 1px solid var(--sl-color-hairline);
-	background: #0f182e;
+	background: var(--sl-color-panel);
 	box-shadow: 0 14px 40px rgba(0, 0, 0, 0.25);
 }
 
 .sl-markdown code:not(pre > code) {
-	background: rgba(26, 210, 255, 0.12);
+	background: var(--inline-code-bg);
 	color: var(--sl-color-accent-high);
-	border-radius: 0.4rem;
+	border-radius: var(--radius-sm);
 	padding: 0.1rem 0.4rem;
 }
 
 .starlight-aside {
-	border-radius: 12px;
-	border: 1px solid rgba(122, 232, 255, 0.25);
-	background: #0f182e;
+	border-radius: var(--radius-lg);
+	border: 1px solid var(--aside-border);
+	background: var(--sl-color-panel);
 	color: var(--sl-color-text);
 }
 
 .starlight-aside h2,
 .starlight-aside .title {
-	color: var(--sl-color-accent-high);
+	color: var(--aside-heading);
 	margin-bottom: 0.35rem;
 }
 
 .starlight-aside code:not(pre > code) {
-	background: rgba(255, 255, 255, 0.08);
+	background: var(--aside-code-bg);
 	color: var(--sl-color-text);
 }
 
@@ -118,30 +242,69 @@ body {
 	border-color: rgba(251, 191, 36, 0.35);
 }
 
-[data-theme="light"] .starlight-aside {
-	background: #f8fafc;
-	border: 1px solid #d8e2f2;
-	color: #0f172a;
+/* ──────────────────────────────────────────────────────────────────────────
+   Tables — one token-driven chrome for every reference matrix (compatibility,
+   config options, transport status). Header + zebra surfaces come from themed
+   tokens so both themes inherit AA contrast; the rounded container uses the
+   shared radius scale. Separate borders (not collapse) so the radius clips.
+   ────────────────────────────────────────────────────────────────────────── */
+.sl-markdown-content table {
+	border-collapse: separate;
+	border-spacing: 0;
+	border: 1px solid var(--sl-color-hairline);
+	border-radius: var(--radius-md);
+	overflow: hidden;
 }
 
-[data-theme="light"] .starlight-aside h2,
-[data-theme="light"] .starlight-aside .title {
-	color: #0f172a;
+.sl-markdown-content th,
+.sl-markdown-content td {
+	border-bottom: 1px solid var(--sl-color-hairline);
+	padding: 0.5rem 0.85rem;
 }
 
-[data-theme="light"] .starlight-aside code:not(pre > code) {
-	background: #e2e8f0;
-	color: #0f172a;
+.sl-markdown-content tbody tr:last-child td {
+	border-bottom: none;
 }
 
-.stackblitz-embed {
+.sl-markdown-content thead th {
+	background: var(--table-header-bg);
+	color: var(--sl-color-text);
+	font-weight: 600;
+}
+
+.sl-markdown-content tbody tr:nth-child(even) {
+	background: var(--table-stripe);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Diagrams — shared figure chrome for hand-authored inline SVGs (e.g. the
+   lifecycle diagram). Theme-aware via tokens + currentColor in the SVG, so the
+   strokes/text inherit the page ink and pass contrast in both themes.
+   ────────────────────────────────────────────────────────────────────────── */
+.ignite-lifecycle {
+	margin-block: 1.75rem;
+	padding: 1.25rem;
+	border: 1px solid var(--diagram-border);
+	border-radius: var(--radius-lg);
+	background: var(--diagram-bg);
+}
+
+.ignite-lifecycle svg {
+	display: block;
+	margin-inline: auto;
 	width: 100%;
-	max-width: 100%;
-	height: 80vh;
+	max-width: 720px;
+	height: auto;
 }
 
 .hero .actions a {
-	border-radius: 10px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	min-height: var(--button-height);
+	padding: var(--button-pad-y) var(--button-pad-x);
+	border-radius: var(--radius-md);
 	border: 1px solid var(--button-secondary-border);
 	color: var(--button-secondary-text);
 	background: var(--button-secondary-bg);
@@ -163,133 +326,194 @@ body {
 	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
-[data-theme="dark"] .hero .tagline,
-[data-theme="dark"] .hero p {
+.hero .tagline,
+.hero p {
 	color: var(--sl-color-text-soft);
 }
 
-[data-theme="dark"] input[type="search"],
-[data-theme="dark"] input[type="text"],
-[data-theme="dark"] .search-input input {
-	color: #f5f7ff;
-	caret-color: var(--sl-color-accent-high);
+/* ──────────────────────────────────────────────────────────────────────────
+   Header controls — one token-driven chrome shared by the theme toggle, the
+   theme/version selects, and the search trigger. Driving every control from
+   the same --control-* tokens is what keeps contrast correct in both themes
+   and stops new controls from shipping invisible in one of them.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* The :root prefix keeps these rules theme-agnostic while giving them enough
+   specificity to win over Astro-scoped component defaults (e.g. Starlight's own
+   `site-search button` styles), which the bare tag selectors would lose to. */
+:root .header .sl-theme-toggle,
+:root starlight-theme-select label,
+:root starlight-version-select label,
+:root site-search button {
+	display: inline-flex;
+	align-items: center;
+	box-sizing: border-box;
+	min-height: var(--control-height);
+	background: var(--control-bg);
+	color: var(--control-text);
+	border: 1px solid var(--control-border);
+	border-radius: var(--radius-md);
 }
 
-[data-theme="dark"] .search-input {
-	background: #111a2d;
-	border-color: #345074;
+:root .header .sl-theme-toggle:hover,
+:root starlight-theme-select label:hover,
+:root starlight-version-select label:hover,
+:root site-search button:hover {
+	background: var(--control-bg-hover);
 }
 
-[data-theme="dark"] .search-input input::placeholder,
-[data-theme="dark"] ::placeholder {
-	color: #bcd5f1;
-	opacity: 1;
+:root .header .sl-theme-toggle:focus-within,
+:root starlight-theme-select label:focus-within,
+:root starlight-version-select label:focus-within,
+:root site-search button:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--control-focus-ring);
 }
 
-[data-theme="dark"] site-search button {
-	color: #dce6f5;
-	background: #111a2d;
+/* biome-ignore lint/style/noDescendingSpecificity: one intentional control-text
+   rule shared across the toggle/select/search chrome; order is deliberate. */
+:root .header .sl-theme-toggle svg,
+:root starlight-theme-select select,
+:root starlight-version-select select,
+:root site-search button svg,
+:root site-search button span {
+	color: var(--control-text);
 }
 
-[data-theme="dark"] site-search button svg,
-[data-theme="dark"] site-search button span {
-	color: #dce6f5;
+:root starlight-theme-select select:focus-visible,
+:root starlight-version-select select:focus-visible {
+	outline: none;
 }
 
-[data-theme="dark"] site-search button kbd {
-	color: #dce6f5;
-	background: #1a2740;
+/* Both selects share one vertical rhythm and a min-width sized to the longest
+   label — one shared token instead of a per-component min-width on just the
+   version picker. Horizontal padding is left to Starlight: each select has an
+   absolutely-positioned leading icon (and the theme select a negative offset),
+   so a forced uniform inline padding clips the label text. */
+:root starlight-theme-select select,
+:root starlight-version-select select {
+	box-sizing: border-box;
+	min-width: var(--control-select-min-width);
+	padding-top: var(--control-pad-y);
+	padding-bottom: var(--control-pad-y);
 }
 
-[data-theme="dark"] site-search button kbd:last-child {
+/* Inset the leading icon and the label content off the left border so the icon
+   isn't flush against the edge. The label padding shifts the select/text; the
+   icon is absolutely positioned, so it needs the same inset to move with it. */
+:root starlight-theme-select label,
+:root starlight-version-select label {
+	padding-left: var(--control-pad-x);
+}
+
+/* Leading icon inset from the left, trailing caret inset from the right by the
+   same token, so both affordances are balanced against their borders. */
+:root starlight-theme-select label .label-icon,
+:root starlight-version-select label .label-icon {
+	inset-inline-start: var(--control-pad-x);
+}
+
+:root starlight-theme-select label .caret,
+:root starlight-version-select label .caret-icon {
+	inset-inline-end: var(--control-pad-x);
+}
+
+/* One deliberate gap between adjacent header controls. */
+:root starlight-theme-select,
+:root starlight-version-select {
+	margin-left: var(--control-gap);
+}
+
+/* Search trigger uses the shared horizontal control padding. */
+:root site-search button {
+	padding-inline: var(--control-pad-x);
+}
+
+site-search button kbd {
+	color: var(--control-text);
+	background: var(--control-bg-hover);
+}
+
+site-search button kbd:last-child {
 	margin-right: 0.2rem;
 }
 
-[data-theme="dark"] site-search button kbd:first-child {
+site-search button kbd:first-child {
 	margin-left: 0.2rem;
 }
 
-[data-theme="dark"] .search-input .icon,
-[data-theme="dark"] .search-input svg {
-	color: #dce6f5;
-}
-
-[data-theme="dark"] .search-input .shortcut {
-	color: #dce6f5;
-	background: #1a2740;
-}
-
-/* Starlight search (Pagefind) dark theme */
-[data-theme="dark"] #starlight__search {
-	--pagefind-ui-background: #0f182e;
-	--pagefind-ui-border: #223049;
+/* Starlight search modal (Pagefind) — theme-agnostic, driven from the themed
+   tokens so the modal matches the active theme in BOTH light and dark instead
+   of light falling back to un-themed Pagefind defaults. */
+#starlight__search {
+	--pagefind-ui-background: var(--sl-color-panel);
+	--pagefind-ui-border: var(--sl-color-hairline);
 	--pagefind-ui-text: var(--sl-color-text);
 	--pagefind-ui-primary: var(--sl-color-accent-high);
 }
 
-[data-theme="dark"] #starlight__search .pagefind-ui__form {
-	background: #0c1223;
-	border: 1px solid #223049;
+#starlight__search .pagefind-ui__form {
+	background: var(--sl-color-bg-nav);
+	border: 1px solid var(--sl-color-hairline);
 }
 
-[data-theme="dark"] #starlight__search .pagefind-ui__form::before {
+#starlight__search .pagefind-ui__form::before {
 	--pagefind-ui-text: var(--sl-color-text-soft);
 }
 
-[data-theme="dark"] #starlight__search .pagefind-ui__search-input {
-	background: #111a2d;
+#starlight__search .pagefind-ui__search-input {
+	background: var(--control-bg-hover);
 	color: var(--sl-color-text);
-	border: 1px solid #223049;
+	caret-color: var(--sl-color-accent-high);
+	border: 1px solid var(--sl-color-hairline);
 }
 
-[data-theme="dark"] #starlight__search .pagefind-ui__result-title,
-[data-theme="dark"] #starlight__search .pagefind-ui__result-nested {
-	background: #0f182e;
+#starlight__search .pagefind-ui__search-input::placeholder {
+	color: var(--sl-color-text-soft);
+	opacity: 1;
+}
+
+#starlight__search .pagefind-ui__result-title,
+#starlight__search .pagefind-ui__result-nested {
+	background: var(--sl-color-panel);
 	color: var(--sl-color-text);
 }
 
-[data-theme="dark"] #starlight__search .pagefind-ui__result-excerpt {
+#starlight__search .pagefind-ui__result-excerpt {
 	color: var(--sl-color-text-soft);
 }
 
-[data-theme="dark"] #starlight__search .pagefind-ui__result-tags {
-	background: #0f182e;
+#starlight__search .pagefind-ui__result-tags {
+	background: var(--sl-color-panel);
 }
 
-[data-theme="dark"] #starlight__search .pagefind-ui__message {
+#starlight__search .pagefind-ui__message {
 	color: var(--sl-color-text-soft);
 }
 
-[data-theme="dark"] #starlight__search .pagefind-ui__search-clear::before {
+#starlight__search .pagefind-ui__search-clear::before {
 	background-color: var(--sl-color-text-soft);
 }
 
-[data-theme="dark"] #starlight__search .pagefind-ui__search-clear:hover::before,
-[data-theme="dark"] #starlight__search .pagefind-ui__search-clear:focus-visible::before {
+#starlight__search .pagefind-ui__search-clear:hover::before,
+#starlight__search .pagefind-ui__search-clear:focus-visible::before {
 	background-color: var(--sl-color-accent-high);
 }
 
-[data-theme="dark"] #starlight__search mark {
+#starlight__search mark {
 	color: var(--sl-color-accent-high);
 }
 
-[data-theme="dark"]
-	#starlight__search
+#starlight__search
 	.pagefind-ui__result-inner
 	> .pagefind-ui__result-title::before {
 	background: var(--sl-color-text-soft);
 	opacity: 0.55;
 }
 
-[data-theme="dark"] #starlight__search .pagefind-ui__result-nested::before {
+#starlight__search .pagefind-ui__result-nested::before {
 	background: var(--sl-color-text-soft);
 	opacity: 0.4;
-}
-
-.header .sl-theme-toggle {
-	border: 1px solid var(--button-secondary-border);
-	background: #0f182e;
-	color: var(--sl-color-text);
 }
 
 @layer starlight.utils {
@@ -298,79 +522,82 @@ body {
 		width: calc(var(--sl-nav-height) - 2 * var(--sl-nav-pad-y));
 		aspect-ratio: 1;
 		object-fit: cover;
-		border-radius: 12px;
+		border-radius: var(--radius-lg);
 		background: var(--sl-color-bg-nav);
 		padding: 2px;
 	}
 }
 
-.header .sl-theme-toggle svg {
+/* Sidebar links — themed text colour on both the anchor and the title span, so
+   they read correctly over the dark sidebar surface (where Starlight's default
+   would otherwise inherit the overridden gray ramp). Current-page rules below
+   are more specific and win. */
+/* biome-ignore lint/style/noDescendingSpecificity: current-page rules below are
+   intentionally more specific and must override this base. */
+.sidebar-pane a,
+.sl-sidebar .link .link-title {
 	color: var(--sl-color-text);
 }
 
-.header .sl-theme-toggle:hover {
-	background: #12233a;
-}
-
-[data-theme="light"] starlight-theme-select label:hover {
-	background: rgba(15, 23, 42, 0.05);
-}
-
-[data-theme="light"] starlight-theme-select label:focus-within {
-	outline: none;
-	box-shadow: 0 0 0 2px #94a3b8;
-}
-
-[data-theme="dark"] starlight-theme-select label {
-	background: #0c1223;
-	border-radius: 8%;
-	color: #dce6f5;
-}
-
-[data-theme="dark"] starlight-theme-select label:hover {
-	background: #111a2d;
-}
-
-[data-theme="dark"] starlight-theme-select label:focus-within {
-	outline: none;
-	box-shadow: 0 0 0 2px #3c5b82;
-}
-
-[data-theme="dark"] starlight-theme-select {
-	margin-left: 0.25rem;
-}
-
-starlight-theme-select select:focus-visible {
-	outline: none;
-}
-
-[data-theme="dark"] .sl-sidebar .link .link-title {
-	color: var(--sl-color-text);
-}
-
-[data-theme="dark"] .sidebar-pane a[aria-current="page"],
-[data-theme="dark"] .sidebar-pane a[aria-current="page"] span {
+/* Current sidebar page: ink on the accent-filled active link. Theme-agnostic —
+   --sl-color-accent-contrast is dark ink in dark, white in light, matching the
+   accent fill in both. */
+.sidebar-pane a[aria-current="page"],
+.sidebar-pane a[aria-current="page"] span {
 	color: var(--sl-color-accent-contrast);
 }
 
-[data-theme="dark"] .sl-sidebar .link.is-current,
-[data-theme="dark"] .sl-sidebar .link.is-active {
+.sl-sidebar .link.is-current,
+.sl-sidebar .link.is-active {
 	color: var(--sl-color-accent-contrast);
 	font-weight: 700;
 }
 
-[data-theme="dark"] .sl-sidebar .link.is-current a,
-[data-theme="dark"] .sl-sidebar .link.is-active a {
+.sl-sidebar .link.is-current a,
+.sl-sidebar .link.is-active a {
 	color: var(--sl-color-accent-contrast);
 }
 
-[data-theme="dark"] .sl-sidebar .link.is-current .link-title,
-[data-theme="dark"] .sl-sidebar .link.is-active .link-title {
+.sl-sidebar .link.is-current .link-title,
+.sl-sidebar .link.is-active .link-title {
 	color: var(--sl-color-accent-contrast);
+}
+
+/* Right-sidebar TOC links — same gray-ramp gotcha as the sidebar links above:
+   Starlight's default TOC link colour is --sl-color-gray-3, which this theme
+   repurposes as a dark surface, leaving non-current items near-invisible in
+   dark mode. Soft text is the right rank for secondary navigation; the
+   aria-current rule below re-states Starlight's accent highlight, which is
+   :where()-scoped and would otherwise lose to the base rule here. */
+starlight-toc a,
+mobile-starlight-toc a {
+	color: var(--sl-color-text-soft);
+}
+
+starlight-toc a[aria-current="true"],
+mobile-starlight-toc a[aria-current="true"] {
+	color: var(--sl-color-text-accent);
+}
+
+/* Prev/next pagination — same leak: Starlight paints the link (the
+   Previous/Next label + arrow via currentColor) with --sl-color-gray-2, a dark
+   surface here. The page-title span keeps Starlight's own white rule. */
+.pagination-links a {
+	color: var(--sl-color-text-soft);
+}
+
+/* Native select popups (theme/version pickers) — Starlight styles options with
+   gray-1 on bg-nav, both dark surfaces in this theme, leaving the open dropdown
+   dark-on-dark in browsers that render styled options. */
+:root starlight-theme-select option,
+:root starlight-version-select option {
+	color: var(--control-text);
+	background: var(--control-bg);
 }
 
 @media (min-width: 72rem) {
-	/* Extend the right sidebar border through the nav so the line aligns perfectly */
+	/* Extend the right-sidebar border up through the nav so the line aligns,
+	   and keep the sidebar inside the viewport at wider content widths. */
 	.right-sidebar {
 		position: sticky;
 		top: var(--sl-nav-height);
@@ -391,7 +618,7 @@ starlight-theme-select select:focus-visible {
 
 	.right-sidebar-panel .sl-container {
 		width: 100%;
-		max-width: clamp(15rem, 22vw, var(--sl-sidebar-width));
+		max-width: var(--sl-sidebar-width);
 	}
 
 	.right-sidebar-container {
@@ -400,21 +627,5 @@ starlight-theme-select select:focus-visible {
 			22vw,
 			calc(var(--sl-sidebar-width) + (100% - var(--sl-content-width)) / 3)
 		);
-	}
-}
-
-@media (min-width: 72rem) {
-	/* Keep the right sidebar inside the viewport when using wider content widths */
-	.right-sidebar {
-		position: sticky;
-		top: var(--sl-nav-height);
-		max-height: calc(100vh - var(--sl-nav-height));
-		overflow-y: auto;
-		width: 100%;
-	}
-
-	.right-sidebar-panel .sl-container {
-		width: 100%;
-		max-width: var(--sl-sidebar-width);
 	}
 }

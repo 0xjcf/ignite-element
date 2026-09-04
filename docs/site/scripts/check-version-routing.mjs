@@ -182,16 +182,18 @@ if (process.argv.includes("--built")) {
 		fs.existsSync(builtRoot),
 		"built site is required for --built validation",
 	);
-	const routeFile = (route) =>
-		path.join(
-			builtRoot,
-			route === "index" ? "index.html" : route,
-			"index.html",
-		);
+	const routeFile = (route) => {
+		const routeDirectory = route === "index" ? "" : route.replace(/\/index$/, "");
+		return path.join(builtRoot, routeDirectory, "index.html");
+	};
+	const routeUrl = (route) => {
+		const pathname = route === "index" ? "" : route.replace(/\/index$/, "");
+		return `/ignite-element/${pathname ? `${pathname}/` : ""}`;
+	};
 	for (const route of [...requiredCurrentRoutes, ...requiredArchivedRoutes]) {
 		assert.ok(
 			fs.existsSync(routeFile(route)),
-			`missing built route: /ignite-element/${route === "index" ? "" : `${route}/`}`,
+			`missing built route: ${routeUrl(route)}`,
 		);
 	}
 
@@ -205,7 +207,7 @@ if (process.argv.includes("--built")) {
 		assert.match(
 			html,
 			new RegExp(
-				`<link rel="canonical" href="https://0xjcf\\.github\\.io/ignite-element/${route === "index" ? "" : `${route}/`}">`,
+				`<link rel="canonical" href="https://0xjcf\\.github\\.io${routeUrl(route)}"\\s*/?>`,
 			),
 			`wrong canonical URL: ${route}`,
 		);
