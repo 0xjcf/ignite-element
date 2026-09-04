@@ -223,12 +223,78 @@ if (process.argv.includes("--built")) {
 		);
 	}
 
+	const builtPages = walk(builtRoot, ".html");
+	const archivedPages = builtPages.filter((file) =>
+		path.relative(builtRoot, file).startsWith(`2.x${path.sep}`),
+	);
+	const currentPages = builtPages.filter(
+		(file) => !archivedPages.includes(file),
+	);
+	for (const file of currentPages) {
+		const relative = path.relative(builtRoot, file);
+		const html = fs.readFileSync(file, "utf8");
+		assert.match(
+			html,
+			/v3 \(beta\)/,
+			`v3 beta chrome missing from ${relative}`,
+		);
+		assert.match(
+			html,
+			/href="\/ignite-element\/ignite-element-favicon\.svg"/,
+			`v3 beta favicon missing from ${relative}`,
+		);
+	}
+	for (const file of archivedPages) {
+		const relative = path.relative(builtRoot, file);
+		const html = fs.readFileSync(file, "utf8");
+		assert.match(
+			html,
+			/>\s*2\.x\s*<\/option>/,
+			`2.x selector missing from ${relative}`,
+		);
+		assert.match(
+			html,
+			/href="\/ignite-element\/ignite-element-favicon-stable\.svg"/,
+			`stable-v2 favicon missing from ${relative}`,
+		);
+		assert.match(
+			html,
+			/ignite-element-logo-stable(?:-light)?\.[A-Za-z0-9_-]+\.svg/,
+			`stable-v2 logo missing from ${relative}`,
+		);
+	}
+
 	const smallLlms = path.join(builtRoot, "llms-small.txt");
 	assert.ok(fs.existsSync(smallLlms), "missing llms-small.txt");
+	const smallLlmsContent = fs.readFileSync(smallLlms, "utf8");
 	assert.doesNotMatch(
-		fs.readFileSync(smallLlms, "utf8"),
+		smallLlmsContent,
 		/\/2\.x\//,
 		"llms-small.txt must exclude frozen v2 pages",
+	);
+	assert.match(
+		smallLlmsContent,
+		/v3 \(beta\)/,
+		"llms-small.txt must identify v3 as beta",
+	);
+	assert.match(
+		smallLlmsContent,
+		/ignite-element@latest = 2\.2\.2/,
+		"llms-small.txt must preserve the stable facade policy",
+	);
+
+	const fullLlms = path.join(builtRoot, "llms-full.txt");
+	assert.ok(fs.existsSync(fullLlms), "missing llms-full.txt");
+	const fullLlmsContent = fs.readFileSync(fullLlms, "utf8");
+	assert.match(
+		fullLlmsContent,
+		/v3 \(beta\)/,
+		"llms-full.txt must identify v3 as beta",
+	);
+	assert.match(
+		fullLlmsContent,
+		/reading the Ignite Element v2 docs/,
+		"llms-full.txt must identify the frozen v2 archive",
 	);
 }
 
