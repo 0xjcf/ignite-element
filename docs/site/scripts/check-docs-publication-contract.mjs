@@ -114,6 +114,20 @@ function inspectV2Installs() {
 	return violations;
 }
 
+export function inspectWorkflowPermissions(workflow) {
+	const problems = [];
+	if (!/^permissions:\s*\{\}\s*$/m.test(workflow)) {
+		problems.push("top-level permissions are not explicitly empty");
+	}
+	if (!/^\s{4}permissions:\s*\n\s{6}contents:\s*read\s*$/m.test(workflow)) {
+		problems.push("contrast job does not grant only contents: read");
+	}
+	if (/\b(?:write|id-token|pages|packages|deployments):/i.test(workflow)) {
+		problems.push("workflow contains write, OIDC, Pages, or package authority");
+	}
+	return problems;
+}
+
 function inspectWorkflow() {
 	const workflow = fs.readFileSync(workflowPath, "utf8");
 	const rootPackage = JSON.parse(
@@ -121,7 +135,7 @@ function inspectWorkflow() {
 	);
 	const packageManager =
 		rootPackage.packageManager ?? rootPackage.devEngines?.packageManager;
-	const problems = [];
+	const problems = inspectWorkflowPermissions(workflow);
 	if (
 		!/uses:\s*pnpm\/action-setup@v4[\s\S]{0,240}\bversion:\s*9\.15\.9\b/.test(
 			workflow,
@@ -131,17 +145,8 @@ function inspectWorkflow() {
 			`pnpm/action-setup has no explicit 9.15.9 input and root fallback is ${packageManager ?? "absent"}`,
 		);
 	}
-	if (!/^permissions:\s*\{\}\s*$/m.test(workflow)) {
-		problems.push("top-level permissions are not explicitly empty");
-	}
-	if (!/^\s{4}permissions:\s*\n\s{6}contents:\s*read\s*$/m.test(workflow)) {
-		problems.push("contrast job does not grant only contents: read");
-	}
 	if (/pull_request_target\s*:/.test(workflow)) {
 		problems.push("pull_request_target is prohibited");
-	}
-	if (/\b(?:write|id-token|pages|packages|deployments):/i.test(workflow)) {
-		problems.push("workflow contains write, OIDC, Pages, or package authority");
 	}
 	if (/\$\{\{\s*secrets\.|NPM_TOKEN|NODE_AUTH_TOKEN/.test(workflow)) {
 		problems.push("workflow references a secret or npm credential");
@@ -188,87 +193,92 @@ function runExampleValidator() {
 	return { status: result.status, output, report };
 }
 
-const failures = [];
-const workflowProblems = inspectWorkflow();
-for (const problem of workflowProblems) failures.push(`workflow: ${problem}`);
+function main() {
+	const failures = [];
+	const workflowProblems = inspectWorkflow();
+	for (const problem of workflowProblems) failures.push(`workflow: ${problem}`);
 
-const v2Violations = inspectV2Installs();
-for (const violation of v2Violations) {
-	failures.push(
-		`v2 install: ${violation.doc}:${violation.line} selects ${violation.package}`,
-	);
-}
+	const v2Violations = inspectV2Installs();
+	for (const violation of v2Violations) {
+		failures.push(
+			`v2 install: ${violation.doc}:${violation.line} selects ${violation.package}`,
+		);
+	}
 
-const discovered = inspectCurrentDocs();
-const eligible = discovered.total - discovered.exclusions.length;
-const validator = runExampleValidator();
-if (validator.status !== 0) {
-	failures.push(
-		`example validator exited ${validator.status}\n${validator.output.trim()}`,
-	);
-} else if (!validator.report) {
-	failures.push(
-		`example accounting: validator omits ${discovered.exclusions.length} explicit exclusions and reports no complete accounting record`,
-	);
-} else {
-	const expected = {
-		filesScanned: discovered.files,
-		totalDiscovered: discovered.total,
-		explicitlyExcluded: discovered.exclusions.length,
-		eligible,
-	};
-	for (const [field, value] of Object.entries(expected)) {
-		if (validator.report[field] !== value) {
+	const discovered = inspectCurrentDocs();
+	const eligible = discovered.total - discovered.exclusions.length;
+	const validator = runExampleValidator();
+	if (validator.status !== 0) {
+		failures.push(
+			`example validator exited ${validator.status}\n${validator.output.trim()}`,
+		);
+	} else if (!validator.report) {
+		failures.push(
+			`example accounting: validator omits ${discovered.exclusions.length} explicit exclusions and reports no complete accounting record`,
+		);
+	} else {
+		const expected = {
+			filesScanned: discovered.files,
+			totalDiscovered: discovered.total,
+			explicitlyExcluded: discovered.exclusions.length,
+			eligible,
+		};
+		for (const [field, value] of Object.entries(expected)) {
+			if (validator.report[field] !== value) {
+				failures.push(
+					`example accounting: ${field} is ${validator.report[field]}, expected discovered value ${value}`,
+				);
+			}
+		}
+		if (
+			validator.report.totalDiscovered !==
+			validator.report.explicitlyExcluded +
+				validator.report.syntacticallyIncomplete +
+				validator.report.actuallyTypechecked
+		) {
 			failures.push(
-				`example accounting: ${field} is ${validator.report[field]}, expected discovered value ${value}`,
+				"example accounting: total partition invariant is not proved",
+			);
+		}
+		if (
+			validator.report.eligible !==
+			validator.report.syntacticallyIncomplete +
+				validator.report.actuallyTypechecked
+		) {
+			failures.push(
+				"example accounting: eligible partition invariant is not proved",
+			);
+		}
+		if (
+			JSON.stringify(validator.report.exclusions) !==
+			JSON.stringify(discovered.exclusions)
+		) {
+			failures.push(
+				"example accounting: explicit-exclusion inventory is incomplete",
 			);
 		}
 	}
-	if (
-		validator.report.totalDiscovered !==
-		validator.report.explicitlyExcluded +
-			validator.report.syntacticallyIncomplete +
-			validator.report.actuallyTypechecked
-	) {
-		failures.push(
-			"example accounting: total partition invariant is not proved",
-		);
-	}
-	if (
-		validator.report.eligible !==
-		validator.report.syntacticallyIncomplete +
-			validator.report.actuallyTypechecked
-	) {
-		failures.push(
-			"example accounting: eligible partition invariant is not proved",
-		);
-	}
-	if (
-		JSON.stringify(validator.report.exclusions) !==
-		JSON.stringify(discovered.exclusions)
-	) {
-		failures.push(
-			"example accounting: explicit-exclusion inventory is incomplete",
-		);
+
+	console.log(
+		JSON.stringify({
+			status: failures.length
+				? "failed-docs-publication-contract"
+				: "verified-docs-publication-contract",
+			workflowProblems: workflowProblems.length,
+			v2InstallViolations: v2Violations.length,
+			filesScanned: discovered.files,
+			totalDiscovered: discovered.total,
+			explicitlyExcluded: discovered.exclusions.length,
+			eligible,
+			validatorReportedCompleteAccounting: Boolean(validator.report),
+		}),
+	);
+
+	if (failures.length) {
+		for (const failure of failures) console.error(`- ${failure}`);
+		process.exit(1);
 	}
 }
 
-console.log(
-	JSON.stringify({
-		status: failures.length
-			? "failed-docs-publication-contract"
-			: "verified-docs-publication-contract",
-		workflowProblems: workflowProblems.length,
-		v2InstallViolations: v2Violations.length,
-		filesScanned: discovered.files,
-		totalDiscovered: discovered.total,
-		explicitlyExcluded: discovered.exclusions.length,
-		eligible,
-		validatorReportedCompleteAccounting: Boolean(validator.report),
-	}),
-);
-
-if (failures.length) {
-	for (const failure of failures) console.error(`- ${failure}`);
-	process.exit(1);
-}
+if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url))
+	main();
