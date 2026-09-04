@@ -15,6 +15,8 @@ hero:
       variant: secondary
 ---
 
+import CounterDemo from '../../components/CounterDemo.astro';
+
 Ignite Element gives you a thin, typed layer around your favorite state library so you can ship web components without bringing a framework runtime.
 
 :::tip[Goal]
@@ -124,22 +126,14 @@ Want to go deeper with XState itself? See the <a href="https://stately.ai/docs" 
 
 ## Try it live
 
-Spin up the counter example in your browser:
+Try the counter directly in the docs, or open the full example in StackBlitz. The card below is the same `<my-counter>` mental model from the example above: buttons dispatch intent events, the state owns the transition, and the view re-renders from state.
 
-- [Open in StackBlitz](https://stackblitz.com/edit/ignite-element?file=src%2Fmy-counter.tsx) (inline playground)
+<CounterDemo />
+
+Want to edit and fork the full project?
+
+- [Open in StackBlitz](https://stackblitz.com/edit/ignite-element?file=src%2Fmy-counter.tsx)
 - [Open repo example](https://github.com/0xjcf/ignite-element/tree/main/src/examples/xstate)
-
-<iframe
-  class="stackblitz-embed"
-  data-src="https://stackblitz.com/edit/ignite-element?embed=1&file=src%2Fmy-counter.tsx&view=both"
-  width="100%"
-  height="980"
-  style="border: 1px solid #2f4565; border-radius: 12px;"
-  title="Ignite Element XState live demo"
-  loading="lazy"
-  allowfullscreen
-></iframe>
-<script src="/ignite-element/stackblitz-lazy.js" defer></script>
 
 ## Why teams pick Ignite Element
 
