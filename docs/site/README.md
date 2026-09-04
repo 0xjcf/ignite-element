@@ -22,6 +22,7 @@ Run from repo root:
 | `pnpm --filter docs-site preview` | Preview the built site locally. |
 | `pnpm --filter docs-site check:versions` | Check source-level version routing, beta disclosure, installation, and immutable-link contracts. |
 | `pnpm --filter docs-site check:versions:built` | Check built routes, canonical URLs, version labels, and LLM output. |
+| `pnpm --filter docs-site check:publication` | Check workflow provisioning and permissions, frozen-v2 installs, and complete example accounting. |
 
 You can also use root shortcuts: `pnpm docs:dev`, `pnpm docs:build`, `pnpm docs:preview`.
 
@@ -47,14 +48,14 @@ Install the Chromium binary once with `pnpm --filter docs-site exec playwright i
 
 ## Doc code-example guardrail
 
-[`scripts/check-doc-examples.mjs`](./scripts/check-doc-examples.mjs) extracts the TypeScript/TSX code fences from the current (v3) docs and typechecks them against the exact public `3.0.0-beta.11` package declarations, so examples cannot drift from the published beta API (it catches things like an example referencing a `snapshot` variable that isn't in scope, or an `effects` callback shape the adapter doesn't accept).
+[`scripts/check-doc-examples.mjs`](./scripts/check-doc-examples.mjs) extracts the TypeScript/TSX code fences from the current (v3) docs and performs an exact-public-beta declaration compatibility check against the public `3.0.0-beta.11` package declarations, so examples cannot drift from the published beta API (it catches things like an example referencing a `snapshot` variable that isn't in scope, or an `effects` callback shape the adapter doesn't accept).
 
 It is tolerant of doc realities: external imports and app-relative paths resolve to `any`, names from earlier blocks on the same page are in scope, and un-parseable fragments are skipped. Opt a block out with a `no-check` fence meta or a leading `// docs-check: skip`.
 
-A baseline ([`scripts/doc-examples-baseline.json`](./scripts/doc-examples-baseline.json)) lists known failures in the current docs so the gate is green today while failing on any **new** drift; burning it down is the docs-accuracy work. Regenerate it with `node scripts/check-doc-examples.mjs --update-baseline`.
+The validator reports every discovered TS/TSX fence as explicitly excluded, syntactically incomplete, or actually typechecked, and prints the complete exclusion inventory. An optional baseline ([`scripts/doc-examples-baseline.json`](./scripts/doc-examples-baseline.json)) can identify accepted diagnostics while failing on any **new** drift; the current baseline is empty. Regenerate it with `node scripts/check-doc-examples.mjs --update-baseline` only after an explicit review decision.
 
 | Command | Action |
 | --- | --- |
-| `pnpm --filter docs-site check:docs` | Typecheck all doc code examples (no build needed). |
+| `pnpm --filter docs-site check:docs` | Run the declaration-compatibility check and complete accounting for current doc examples (no build needed). |
 
 CI runs this on PRs touching `docs/site/**` or `packages/**` (the same [docs-contrast workflow](../../.github/workflows/docs-contrast.yml)).

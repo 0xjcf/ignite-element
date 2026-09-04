@@ -22,9 +22,8 @@
  *  - Blocks that don't parse as a complete module are treated as illustrative
  *    fragments and skipped.
  *
- * A baseline file (doc-examples-baseline.json) lists KNOWN real failures in the
- * current docs (each with a TODO owner) so this gate is green today while still
- * failing on any NEW drift. Burning the baseline down is the docs-accuracy task.
+ * An optional baseline file (doc-examples-baseline.json) can identify accepted
+ * diagnostics while still failing on new drift. The current baseline is empty.
  *
  * Opt a block out entirely with a `no-check` fence meta or a leading
  * `// docs-check: skip` comment. The frozen *.x archive is never checked.
@@ -217,6 +216,14 @@ function extractBlocks(text) {
 	return blocks.map((b) => ({ ...b, code: b.code.join("\n") }));
 }
 
+function exclusionMechanism(block) {
+	const metaMatch = block.meta.match(SKIP_META);
+	if (metaMatch) return metaMatch[1];
+	const firstLine = block.code.split("\n").find((line) => line.trim());
+	if (firstLine && SKIP_COMMENT.test(firstLine)) return "skip-comment";
+	return undefined;
+}
+
 /** Top-level binding names declared OR imported in a block. */
 function declaredNames(code) {
 	const names = new Set();
@@ -265,16 +272,27 @@ async function main() {
 
 	const files = await findDocs(DOCS_DIR);
 	const snippets = [];
+	const exclusions = [];
+	let totalDiscovered = 0;
 	for (const file of files) {
 		const blocks = extractBlocks(await readFile(file, "utf8"));
 		const earlier = new Set();
+		let typeScriptBlockIndex = 0;
 		for (let i = 0; i < blocks.length; i++) {
 			const b = blocks[i];
 			if (LANGS.has(b.lang)) {
-				const firstLine = b.code.split("\n").find((l) => l.trim());
-				const skip =
-					SKIP_META.test(b.meta) || (firstLine && SKIP_COMMENT.test(firstLine));
-				if (!skip)
+				totalDiscovered++;
+				typeScriptBlockIndex++;
+				const mechanism = exclusionMechanism(b);
+				if (mechanism) {
+					exclusions.push({
+						doc: relative(REPO_ROOT, file).split(sep).join("/"),
+						blockIndex: typeScriptBlockIndex,
+						line: b.startLine,
+						language: b.lang,
+						mechanism,
+					});
+				} else {
 					snippets.push({
 						file,
 						index: i,
@@ -282,6 +300,7 @@ async function main() {
 						code: b.code,
 						ambient: new Set(earlier),
 					});
+				}
 			}
 			for (const n of declaredNames(b.code)) earlier.add(n);
 		}
@@ -375,14 +394,45 @@ async function main() {
 	const stale = baseline.filter((b) => !baselinedHits.has(b));
 
 	const checked = byVirtual.size - syntactic.size;
+	const eligible = snippets.length;
+	if (totalDiscovered !== exclusions.length + syntactic.size + checked) {
+		throw new Error(
+			"documentation example accounting invariant failed: total != excluded + incomplete + typechecked",
+		);
+	}
+	if (eligible !== syntactic.size + checked) {
+		throw new Error(
+			"documentation example accounting invariant failed: eligible != incomplete + typechecked",
+		);
+	}
+	const report = {
+		status: "documentation-example-accounting",
+		filesScanned: files.length,
+		totalDiscovered,
+		explicitlyExcluded: exclusions.length,
+		eligible,
+		syntacticallyIncomplete: syntactic.size,
+		actuallyTypechecked: checked,
+		knownBaselineEntries: baseline.length,
+		knownBaselinedFailures: failures.length - fresh.length,
+		newFailures: fresh.length,
+		exclusions,
+	};
 	console.log("\nDocs code-block typecheck guardrail");
 	console.log("─".repeat(72));
 	console.log(
-		`Scanned ${files.length} doc files, ${byVirtual.size} TS/TSX blocks (typechecked ${checked}, ${syntactic.size} fragments skipped).`,
+		`Scanned ${files.length} doc files: ${totalDiscovered} TS/TSX fences discovered, ${exclusions.length} explicitly excluded, ${eligible} eligible, ${syntactic.size} syntactically incomplete, ${checked} typechecked.`,
 	);
 	console.log(
-		`Known-baselined failures: ${failures.length - fresh.length}/${baseline.length}.`,
+		`Known-baselined failures: ${failures.length - fresh.length}; baseline entries: ${baseline.length}; new failures: ${fresh.length}.`,
 	);
+	console.log("Explicit exclusions:");
+	for (const exclusion of exclusions) {
+		console.log(
+			`  - ${exclusion.doc}:${exclusion.line} block ${exclusion.blockIndex} ${exclusion.language} via ${exclusion.mechanism}`,
+		);
+	}
+	console.log(JSON.stringify(report));
 	if (stale.length) {
 		console.log(
 			`\n⚠ ${stale.length} baseline entr(ies) no longer occur — remove them:`,
@@ -400,7 +450,7 @@ async function main() {
 		process.exit(1);
 	}
 	console.log(
-		`\n✓ No new doc/API drift. ${checked} typechecked blocks; ${baseline.length} known issues baselined.`,
+		`\n✓ Exact-public-beta declaration compatibility check passed for ${checked} blocks; ${baseline.length} baseline entries.`,
 	);
 }
 

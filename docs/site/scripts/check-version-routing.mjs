@@ -8,7 +8,11 @@ const siteRoot = path.resolve(
 	"..",
 );
 const docsRoot = path.join(siteRoot, "src/content/docs");
+const archivedDocsRoot = path.join(docsRoot, "2.x");
 const builtRoot = path.join(siteRoot, "dist");
+const installCommand =
+	/\b(?:pnpm\s+add|npm\s+(?:install|i)|yarn\s+add|bun\s+add)\b([^\n`]*)/g;
+const facadePackage = /(?:^|\s)(ignite-element(?:@[^\s#,'"]+)?)/g;
 
 const requiredCurrentRoutes = [
 	"index",
@@ -145,6 +149,23 @@ assert.doesNotMatch(
 	"v2 install must not select beta packages",
 );
 
+for (const file of [
+	...walk(archivedDocsRoot, ".md"),
+	...walk(archivedDocsRoot, ".mdx"),
+]) {
+	const relative = path.relative(docsRoot, file);
+	const content = fs.readFileSync(file, "utf8");
+	for (const command of content.matchAll(installCommand)) {
+		for (const facade of command[1].matchAll(facadePackage)) {
+			assert.equal(
+				facade[1],
+				"ignite-element@2.2.2",
+				`archived install must select exact v2.2.2 in ${relative}: ${facade[1]}`,
+			);
+		}
+	}
+}
+
 for (const file of walk(docsRoot, ".mdx")) {
 	const relative = path.relative(docsRoot, file);
 	const content = fs.readFileSync(file, "utf8");
@@ -157,7 +178,11 @@ for (const file of walk(docsRoot, ".mdx")) {
 		continue;
 	}
 	for (const line of content.split("\n")) {
-		if (/\b(?:pnpm add|npm install|yarn add)\s+ignite-element\b/.test(line)) {
+		if (
+			/\b(?:pnpm add|npm (?:install|i)|yarn add|bun add)\s+ignite-element\b/.test(
+				line,
+			)
+		) {
 			assert.match(
 				line,
 				/ignite-element@(?:beta|3\.0\.0-beta\.11)/,
