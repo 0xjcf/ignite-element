@@ -1,0 +1,294 @@
+---
+title: Host app integration
+description: Use Ignite Element from plain HTML, React, Vue, Svelte, and other host environments.
+sidebar:
+  label: Host app integration
+  order: 1
+---
+
+Ignite Element ships a browser-level contract: a custom element tag, DOM attributes or child content you choose to support, and typed `CustomEvent`s for outward signals.
+
+That means integration should stay browser-native. Register the element once, render the tag where you need it, and listen for DOM events from the host app.
+
+## Register once
+
+Start with the source module:
+
+```ts
+// toggle-machine.ts
+import { createMachine } from 'xstate';
+
+export const toggleMachine = createMachine({
+  initial: 'off',
+  states: {
+    off: { on: { TOGGLE: 'on' } },
+    on: { on: { TOGGLE: 'off' } },
+  },
+});
+```
+
+Create one TSX module that registers your elements, then import that module from
+the host app entrypoint. Configure its JSX import source as `ignite-element/jsx`:
+
+```tsx
+// register-ignite.tsx
+import { igniteCore } from 'ignite-element/xstate';
+import { toggleMachine } from './toggle-machine';
+
+const toggle = igniteCore({
+  source: toggleMachine,
+  events: (event) => ({
+    toggled: event<{ isOn: boolean }>(),
+  }),
+  states: (snapshot) => ({
+    isOn: snapshot.matches('on'),
+  }),
+  commands: ({ actor }) => ({
+    toggle: () => actor.send({ type: 'TOGGLE' }),
+  }),
+  effects: ({ emit, select }) => {
+    const isOn = select((snapshot) => snapshot.matches('on'));
+    if (!isOn.changed) return;
+    emit({ type: 'toggled', isOn: isOn.current });
+  },
+});
+
+export const Toggle = toggle('ignite-toggle', ({ isOn, toggle }) => (
+  <button onClick={toggle}>{isOn ? 'On' : 'Off'}</button>
+));
+```
+
+## Plain HTML
+
+```html
+<ignite-toggle id="settings-toggle"></ignite-toggle>
+
+<script type="module">
+  import './register-ignite.js';
+
+  const toggle = document.querySelector('#settings-toggle');
+
+  toggle?.addEventListener('toggled', (event) => {
+    const customEvent = /** @type {CustomEvent<{ isOn: boolean }>} */ (event);
+    console.log(customEvent.detail.isOn);
+  });
+</script>
+```
+
+## React
+
+There are two ways to use an ignite element from React. Prefer the
+schema-driven wrapper; the hand-rolled path is the fallback when you do not want
+the helper.
+
+### Schema-driven wrapper (recommended)
+
+Registration returns a typed handle, and `igniteReact` turns that handle into an
+idiomatic, fully typed React component — no `tagName` argument and no manual
+type arguments. Commands become the ref API, single-arg `setX` commands become
+props, and each event becomes an `on<Event>` callback prop receiving the **flat
+member** (the wrapper forwards `event.detail` directly — there is no
+`{ type, payload }` envelope at the DOM boundary):
+
+```tsx no-check
+import { igniteReact } from 'ignite-element/react';
+// The registrar returns a handle; export it for the wrapper.
+import { Toggle as ToggleEl } from './register-ignite';
+
+const Toggle = igniteReact(ToggleEl);
+
+export function SettingsToggle() {
+  // onToggled receives the flat payload member, not an envelope.
+  return <Toggle onToggled={(toggled) => console.log(toggled.isOn)} />;
+}
+```
+
+Commands run through the ref. Type it with `IgniteReactRef<typeof Handle>` — it
+resolves to the command handle from the handle's schema, so you never hand-write
+the shape (and it never drifts from the element's commands). It is also the only
+way to name the ref type: `React.ComponentRef` of the wrapper resolves to `never`.
+
+```tsx no-check
+import { type IgniteReactRef, igniteReact } from 'ignite-element/react';
+import { useRef } from 'react';
+import { Toggle as ToggleEl } from './register-ignite';
+
+const Toggle = igniteReact(ToggleEl);
+
+export function SettingsToggle() {
+  const ref = useRef<IgniteReactRef<typeof ToggleEl>>(null);
+  return (
+    <>
+      <Toggle ref={ref} onToggled={(toggled) => console.log(toggled.isOn)} />
+      <button onClick={() => ref.current?.toggle()}>Toggle</button>
+    </>
+  );
+}
+```
+
+The `Toggle` export from `register-ignite.tsx` above is the registration handle
+passed to `igniteReact`; extensionless TypeScript imports resolve that TSX module.
+The plain HTML example imports its compiled `.js` output.
+
+`register-ignite.tsx` stays **framework-neutral** — it is just the ignite element.
+`igniteReact(handle)` is the React *binding*; keep it in app code or a small
+`*.react.ts` module so the same element can get a Vue or Svelte binding from the
+same handle. That is how `getSchema()` drives Vue and Svelte wrappers as
+follow-up entrypoints — write the binding once per framework, reuse the element
+everywhere.
+
+### Hand-rolled wrapper (fallback)
+
+If you prefer not to use the helper, use a `ref` and native `addEventListener`
+so your integration works consistently across React versions:
+
+```tsx
+import { useEffect, useRef } from 'react';
+import './register-ignite';
+
+export function SettingsToggle() {
+  const toggleRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const element = toggleRef.current;
+    if (!element) return;
+
+    const onToggled = (event: Event) => {
+      const customEvent = event as CustomEvent<{ isOn: boolean }>;
+      console.log(customEvent.detail.isOn);
+    };
+
+    element.addEventListener('toggled', onToggled as EventListener);
+    return () => {
+      element.removeEventListener('toggled', onToggled as EventListener);
+    };
+  }, []);
+
+  return <ignite-toggle ref={toggleRef} />;
+}
+```
+
+## Vue
+
+```vue
+<script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref } from 'vue';
+import './register-ignite';
+
+const toggleRef = ref<HTMLElement | null>(null);
+
+const onToggled = (event: Event) => {
+  const customEvent = event as CustomEvent<{ isOn: boolean }>;
+  console.log(customEvent.detail.isOn);
+};
+
+onMounted(() => {
+  toggleRef.value?.addEventListener('toggled', onToggled as EventListener);
+});
+
+onBeforeUnmount(() => {
+  toggleRef.value?.removeEventListener('toggled', onToggled as EventListener);
+});
+</script>
+
+<template>
+  <ignite-toggle ref="toggleRef" />
+</template>
+```
+
+## Svelte
+
+Svelte consumes custom elements through the standard browser surface with **no
+compiler config** (no Vue `isCustomElement` setup). Svelte 5's `oneventname`
+event attribute listens to the `CustomEvent` declaratively — no `addEventListener`
+— and `bind:this` reaches the element's commands.
+
+```svelte
+<script lang="ts">
+import './register-ignite';
+
+// Commands are plain element methods; bind:this reaches them.
+let toggleRef = $state<HTMLElement & { toggle?: () => void }>();
+
+const onToggled = (event: Event) => {
+  const customEvent = event as CustomEvent<{ isOn: boolean }>;
+  console.log(customEvent.detail.isOn);
+};
+</script>
+
+<ignite-toggle bind:this={toggleRef} ontoggled={onToggled}></ignite-toggle>
+<button type="button" onclick={() => toggleRef?.toggle?.()}>Toggle</button>
+```
+
+## SSR and hydration
+
+- Server-render the custom element tag if your host framework supports it.
+- Register the element on the client before the first interaction.
+- Keep host integration based on DOM events, child content, and explicit public attributes or properties you own.
+- Avoid framework-specific assumptions like synthetic events or implicit prop serialization across the boundary.
+
+If a host app needs rich inputs, prefer explicit DOM properties or nested markup over hidden framework coupling.
+
+## The element contract
+
+Ignite keeps behavior explicit, but it does not replace the browser contract. Good components still need good HTML, clear events, and accessibility semantics — the part host apps actually depend on.
+
+### Semantics live in your markup
+
+Use real platform elements first:
+
+- Prefer `<button>`, `<input>`, `<label>`, `<dialog>`, and `<form>` over generic `<div>` wrappers.
+- Keep labels, names, and interactive affordances in the rendered markup.
+- Reflect derived state with DOM attributes or `aria-*` when that state matters to assistive technology.
+
+Ignite keeps logic out of the renderer; it does not invent semantics for you.
+
+### Commands stay internal, events go outward
+
+Inside Ignite, `commands` are the renderer-facing intent API. Outside Ignite, host apps integrate through DOM events and the custom-element boundary. Emit events from `effects`, not from view code:
+
+```ts
+events: (event) => ({
+  saveSucceeded: event<{ id: string }>(),
+  saveFailed: event<{ message: string }>(),
+}),
+effects: ({ snapshot, emit, select }) => {
+  const status = select((current) => current.context.status);
+  const error = select((current) => current.context.error);
+
+  if (status.changed && status.current === 'saved') {
+    emit({ type: 'saveSucceeded', id: snapshot.context.id });
+  }
+
+  if (error.changed && error.current) {
+    emit({ type: 'saveFailed', message: error.current });
+  }
+},
+```
+
+Good event contracts are stable, named for business meaning (not framework mechanics), emitted from `effects`, and documented as part of the public element surface.
+
+### Accessibility is not optional
+
+Use this checklist for every public component:
+
+- Interactive controls use native interactive elements where possible.
+- Focus states are visible.
+- Icon-only UI has an accessible name.
+- Derived state that matters externally is reflected with `aria-*`, text, or both.
+- Events communicate business outcomes, not just implementation details.
+
+For example, one transition might update `aria-pressed`, the button text, and emit `toggled` together.
+
+Styling hooks (CSS custom properties and `part`) are also part of the public contract — see [Style components](/ignite-element/guides/styling/).
+
+## Design rule
+
+Treat Ignite elements like browser-native widgets:
+
+- The renderer owns internal DOM structure.
+- The host app owns placement, surrounding layout, and orchestration.
+- DOM events (`CustomEvent`) are the outward contract; CSS variables and `part` are the theming hooks.
+- Framework wrappers are optional convenience, not the source of truth.
+
+If a host app cannot consume your component without framework-specific glue, the public contract is probably too framework-shaped.

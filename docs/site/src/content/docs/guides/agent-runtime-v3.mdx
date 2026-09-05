@@ -1,0 +1,195 @@
+---
+title: Build for agents
+description: Build and test Ignite Element components from behavior contracts before adding a DOM layer.
+sidebar:
+  label: Build for agents
+  order: 3
+---
+
+Ignite Element is behavior-first. The same `igniteCore(...)` registration that creates a custom element also exposes a headless runtime, so agents and tests can inspect the contract, execute commands, observe events, and verify derived states before any DOM selector exists.
+
+The practical model is:
+
+1. Define component behavior and boundaries.
+2. Test workflows through the headless runtime.
+3. Add the DOM layer as a projection over already-proven behavior.
+
+:::note[API reference]
+This guide is the narrative walkthrough. For exact signatures and return shapes, see [Headless runtime](/ignite-element/api/headless-runtime/), [Command metadata](/ignite-element/api/command-metadata/), and the [Testing DSL](/ignite-element/api/testing-dsl/).
+:::
+
+## Behavior-first components
+
+Start by describing the state source, derived states, commands, events, and effects. `igniteCore(...)` infers `snapshot`, `prevSnapshot`, `emit`, `select`, `actor`, and `host` from the `source` plus your `events` builder, so standard authoring needs no internal helper-type imports.
+
+```ts no-check
+import { igniteCore } from 'ignite-element/xstate';
+
+export const counter = igniteCore({
+  source: counterMachine,
+
+  states: (snapshot) => ({
+    count: snapshot.context.count,
+    limit: snapshot.context.limit,
+    isLimited: snapshot.matches('limited'),
+  }),
+
+  commands: ({ actor, command }) => ({
+    increment: () => actor.send({ type: 'INCREMENT' }),
+
+    setLimit: command(
+      (limit: number) => actor.send({ type: 'SET_LIMIT', limit }),
+      {
+        description: 'Set maximum count',
+        input: command.number({ minimum: 3, maximum: 12 }),
+      },
+    ),
+  }),
+
+  events: (event) => ({
+    'limit-reached': event<{ count: number; limit: number }>(),
+  }),
+
+  effects: ({ snapshot, prevSnapshot, emit }) => {
+    if (!prevSnapshot.matches('limited') && snapshot.matches('limited')) {
+      emit({
+        type: 'limit-reached',
+        count: snapshot.context.count,
+        limit: snapshot.context.limit,
+      });
+    }
+  },
+});
+```
+
+That registration gives agents a contract to inspect and a command surface to drive — all without the DOM:
+
+```ts
+counter.getSchema(); // commands + metadata + events + snapshot + states
+counter.getStates();   // current derived states
+counter.canExecute('increment'); // current command availability
+
+await counter.execute({ command: 'setLimit', input: 6 });
+
+while (!counter.getStates().isLimited) {
+  await counter.execute({ command: 'increment' });
+}
+
+expect(counter.getStates()).toMatchObject({ count: 6, limit: 6, isLimited: true });
+```
+
+See [Headless runtime](/ignite-element/api/headless-runtime/) for every method (`execute`, `canExecute`, `getSnapshot`, `getStates`, `getSchema`, `on`, `watchSnapshot`, `watchStates`, `record`) and its return shape.
+
+In practice, the loop is:
+
+1. Read `getSchema()` to discover commands, declared events, snapshot, and derived states.
+2. Use command metadata input schemas to shape payloads instead of guessing argument structure.
+3. Check `canExecute()` when a command is marked as `gated`.
+4. Run `execute()` and inspect the returned snapshot, derived states, and emitted events.
+5. Keep long-lived observers attached with `on(...)` or `watchStates(...)` when the workflow spans multiple actions.
+
+## Add the DOM layer
+
+Once the behavior is stable, the custom element stays thin — its renderer consumes derived states and command functions to produce the view. The default DOM layer uses the public `ignite-element/jsx` runtime and ordinary local style tags; no project config is required.
+
+```tsx
+const panelStyles = `
+  section {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+    border-radius: 1rem;
+  }
+`;
+
+counter('counter-panel', ({ count, limit, isLimited, increment, setLimit }) => (
+  <section>
+    <style>{panelStyles}</style>
+    <strong>
+      {count} / {limit}
+    </strong>
+
+    <button type="button" onClick={() => increment()}>
+      Increment
+    </button>
+
+    <input
+      type="range"
+      min={3}
+      max={12}
+      value={limit}
+      onInput={(event) => setLimit(Number(event.currentTarget.value))}
+    />
+
+    {isLimited && <p>Limit reached</p>}
+  </section>
+));
+```
+
+This keeps DOM tests focused on rendering and accessibility, while behavior tests stay selector-free. To assert the rendered controls by role and accessible name against the same proven runtime, mount a test-only DOM bridge with `igniteTest.accessibilityBridge(...)` / `igniteTest.expectControls(...)` — see the [Testing DSL](/ignite-element/api/testing-dsl/).
+
+## Agent-readable contracts
+
+Command metadata is optional. Plain functions remain valid commands; `command(fn, metadata)` enriches the runtime schema when an agent or inspector needs more context.
+
+```ts no-check
+commands: ({ actor, command }) => ({
+  reset: () => actor.send({ type: 'RESET' }),
+
+  renamePreset: command(
+    (label: string) => actor.send({ type: 'RENAME_PRESET', label }),
+    {
+      description: 'Rename the saved preset label.',
+      input: command.string({ minLength: 1, maxLength: 32 }),
+    },
+  ),
+});
+```
+
+Built-in helpers cover `number`, `string`, `boolean`, `enum`, `object`, and `array` while staying JSON-serializable. `getSchema().commands` contains command metadata, not callable functions; invoke commands through `counter.execute({ command, input? })`. The full helper catalog and the serialized schema shape live in [Command metadata](/ignite-element/api/command-metadata/).
+
+Availability predicates live on the same command metadata but stay off the JSON
+schema. They are evaluated against the current snapshot by the headless runtime:
+
+```ts no-check
+commands: ({ actor, command }) => ({
+  submit: command(
+    () => actor.send({ type: 'SUBMIT' }),
+    {
+      description: 'Submit the current form.',
+      canExecute: ({ snapshot }) => snapshot.can({ type: 'SUBMIT' }),
+    },
+  ),
+});
+
+counter.getSchema().commands.submit.gated; // true
+counter.canExecute('submit');              // boolean for the current snapshot
+```
+
+That means an agent or provider can keep the contract discovery step pure and JSON-safe, then defer the live authorization question to `canExecute()` immediately before invocation. The full runtime example is in [`getSchema()`](/ignite-element/api/headless-runtime/#getschema).
+
+## Story recording
+
+Stories make behavior workflows first-class: a recorder captures command, event, native-snapshot, and derived-states changes as one trace, while DOM lifecycle evidence stays on a separate channel of the same story object. Serialize a trace for snapshot tests with `igniteTest.serializeTrace(...)` and assert ordered checkpoints with `igniteTest.expectTrace(...)`.
+
+```ts no-check
+const story = counter.record('reaches limit');
+
+await story.execute({ command: 'setLimit', input: 6 });
+await story.until((states) => states.isLimited, async () => {
+  await story.execute({ command: 'increment' });
+});
+
+igniteTest.expectTrace(igniteTest.serializeTrace(story.trace()), [
+  { kind: 'command', command: 'setLimit', payload: 6 },
+  { kind: 'event', event: 'limit-reached', payload: { count: 6, limit: 6 } },
+  { kind: 'states', phase: 'after', states: { isLimited: true } },
+]);
+
+story.stop();
+```
+
+`story.trace()` holds only behavior evidence; `story.lifecycle()` holds DOM evidence (registration, connection, render, disconnect, cleanup) when a custom element or accessibility bridge participates. The exact recorder, trace, and serialization signatures are in the [Testing DSL](/ignite-element/api/testing-dsl/).
+
+The important boundary: logic stays inspectable without the DOM, and the DOM remains a projection over the tested contract.

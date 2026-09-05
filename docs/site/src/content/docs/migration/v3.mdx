@@ -1,0 +1,80 @@
+---
+title: Migrate from v2 to v3 (beta)
+description: Upgrade to Ignite Element v3 — scoped internal packages, optional state-library peers, and the states-first single-source contract.
+sidebar:
+  label: v2 → v3 (beta)
+  order: 0
+---
+
+:::caution[v3 is in beta]
+v3 publishes under the `beta` dist-tag. Install with `@beta`; the stable
+consumer-facing stable tag remains `ignite-element@latest = 2.2.2`. The beta APIs may see small changes before
+the `3.0.0` release.
+:::
+
+Ignite Element v3 keeps the default Ignite JSX renderer and headless runtime from v2, and adds a cleaner install surface, a states-first projection contract, and a narrower public API.
+
+:::tip[Will this break my app?]
+The states projection cutover is breaking for v3 beta consumers: config `view`
+is removed, `states` receives the bare native snapshot, and headless projection
+fields use states vocabulary. The renderer callback supplied during component
+registration remains a view.
+:::
+
+## TL;DR
+
+1. Install the beta: `pnpm add ignite-element@beta` (plus the one state library you use).
+2. State libraries (`xstate`, `redux`, `@reduxjs/toolkit`, `mobx`) and `lit-html` are now **optional** peers — install only what you use.
+3. Use the canonical states projection: `states: (snapshot) => …`; config `view` is rejected.
+4. The removed `ignite-element/config/*` and `ignite-element/renderers/*` subpaths are no longer part of the public API.
+
+## 1) Install the beta
+
+```bash
+pnpm add ignite-element@beta xstate
+# pnpm add ignite-element@beta @reduxjs/toolkit   # Redux
+# pnpm add ignite-element@beta mobx               # MobX
+```
+
+`ignite-element` now depends on the scoped packages `@ignite-element/core`, `@ignite-element/adapters`, and `@ignite-element/renderer`. They install automatically as dependencies — you don't add them yourself, and your imports stay `ignite-element` and `ignite-element/<adapter>`.
+
+## 2) Optional peer dependencies
+
+In v3 the state libraries and `lit-html` are declared as **optional** peer dependencies. Installing `ignite-element@beta xstate` no longer pulls in Redux, MobX, Redux Toolkit, or lit, and you won't see "unmet peer" warnings for the adapters you don't use. `lit-html` is only needed if you opt into the `lit` render strategy — the default Ignite JSX renderer requires no renderer dependency.
+
+Selecting lit is now **config-free**: install `@ignite-element/renderer` and `lit-html` as direct dependencies, import `@ignite-element/renderer/lit`, and author lit-html templates — Ignite auto-detects them and renders with lit. You no longer set `renderer: 'lit'` in `ignite.config.ts` just to use lit (it remains the way to *force* one renderer project-wide). See [Rendering](/ignite-element/concepts/rendering/).
+
+## 3) Canonical states projection
+
+Replace the beta.10 `view` projection with `states`, passing the bare native snapshot:
+
+```ts
+// v2 / early v3 beta
+view: ({ context, transport }) => ({
+  status: context.status,
+  connected: transport.state === "connected",
+});
+
+// v3
+states: (snapshot) => ({
+  status: snapshot.context.status,
+  connected: snapshot.transport.state === "connected",
+});
+```
+
+XState uses native `StateFrom<Machine>` snapshots. XState and Actor-Web state live under `snapshot.context`; Redux and MobX state are the snapshot itself. Also migrate `getView`/`watchView` to `getStates`/`watchStates`, `schema.view` to `schema.states`, execution results to `{ snapshot, states, events }`, and public renderer access from raw `state`/`send` to derived states and semantic commands.
+
+## 4) Narrower public API
+
+v3 locks the stable public surface to the root entrypoint, the adapter entrypoints (`ignite-element/xstate`, `/redux`, `/mobx`, `/actor-web`), and the JSX entrypoints. The following are no longer public:
+
+- The `ignite-element/config/*` and `ignite-element/renderers/*` subpaths.
+- Root exports for config loaders, renderer-strategy registration, global style mutation, and factory internals.
+
+If an advanced app still needs shared shadow styles or renderer diagnostics, import the underlying `@ignite-element/renderer` primitives directly in app-owned code. For the default Ignite JSX path you need none of this.
+
+## Verify
+
+- Reinstall and run a TypeScript check (`pnpm exec tsc --noEmit`).
+- Confirm only your chosen state library is installed (`npm ls xstate redux mobx`).
+- Smoke-test a component per [Your first component](/ignite-element/getting-started/first-component/).

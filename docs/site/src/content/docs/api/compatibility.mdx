@@ -1,0 +1,32 @@
+---
+title: Compatibility
+description: Supported Node, TypeScript, and state-library versions for Ignite Element v3.
+sidebar:
+  label: Compatibility
+  order: 6
+---
+
+The current `ignite-element@beta` v3 candidate supports the versions below. The state libraries and `lit-html` are **optional** peer dependencies — install only the ones the adapter you import needs. npm/pnpm warn if an installed version is below the minimum.
+
+All four v3 packages are native ESM-only: `ignite-element`, `@ignite-element/core`, `@ignite-element/adapters`, and `@ignite-element/renderer`. Their public ESM entrypoints and declarations are supported; CommonJS `main` and `require` entrypoints are not.
+
+| Dependency | Required | Needed for |
+| --- | --- | --- |
+| Node.js | `>=22` | running the build/dev toolchain |
+| TypeScript | `5.x` (authored against 5.9) | the typed JSX authoring path |
+| `xstate` | `>=5.19.0` | `ignite-element/xstate` |
+| `@reduxjs/toolkit` | `>=2.3.0` | `ignite-element/redux` |
+| `redux` | `>=5.0.1` | `ignite-element/redux` (peer of Redux Toolkit) |
+| `mobx` | `>=6.13.5` | `ignite-element/mobx` |
+| `lit-html` | `>=3.2.1` | the optional legacy `lit` renderer |
+
+The version ranges come from each package's `peerDependencies`; the Node and TypeScript rows reflect the toolchain the v3 types and packages are built and tested against.
+
+:::caution[v3 is in beta]
+v3 publishes under the `beta` dist-tag. The consumer-facing stable tag remains `ignite-element@latest = 2.2.2`. Pin exact `3.0.0-beta.11` or use `@beta` until the stable release. See the [v2 → v3 migration guide](/ignite-element/migration/v3/).
+:::
+
+## Related
+
+- [Installation](/ignite-element/getting-started/installation/) — install steps and the project checklist.
+- [Advanced config](/ignite-element/api/advanced-config/) — the optional `lit` renderer that needs `lit-html`.

@@ -1,16 +1,18 @@
 ---
 title: Migrate from v1 to v2
-description: Upgrade to Ignite Element v2 with the Ignite JSX renderer and renderer strategies.
+description: Upgrade to Ignite Element v2 with the Ignite JSX renderer and
+  renderer strategies.
 sidebar:
   label: v1 → v2
   order: 1
+slug: 2.x/migration/v2
 ---
 
 Ignite Element v2 introduces the Ignite JSX renderer, renderer strategies, and a central `ignite.config.ts`. Use this guide to upgrade from v1.x.
 
 ## TL;DR
 
-1. Upgrade dependencies: `pnpm add ignite-element@latest`.
+1. Upgrade dependencies: `pnpm add ignite-element@2.2.2`.
 2. Set `"jsxImportSource": "ignite-element/jsx"` (or add the pragma per file).
 3. Add `ignite.config.ts` with your renderer (`ignite-jsx` or `lit`), styles, and logging.
 4. Opt into the diff or replace render strategy (defaults to `diff` with Ignite JSX).
@@ -19,7 +21,7 @@ Ignite Element v2 introduces the Ignite JSX renderer, renderer strategies, and a
 ## 1) Install
 
 ```bash
-pnpm add ignite-element@latest
+pnpm add ignite-element@2.2.2
 # keep your peer: xstate | @reduxjs/toolkit | mobx
 ```
 
@@ -60,8 +62,8 @@ Use `igniteConfigVitePlugin()` (Vite) or `IgniteConfigWebpackPlugin` (Webpack) s
 
 ## 4) Update renderers
 
-- **Ignite JSX (recommended)**: write JSX in your component render function.
-- **lit**: set `renderer: "lit"` to keep lit templates. Renderer choice is per project (not per component).
+* **Ignite JSX (recommended)**: write JSX in your component render function.
+* **lit**: set `renderer: "lit"` to keep lit templates. Renderer choice is per project (not per component).
 
 ## 5) Lifecycle changes
 
@@ -78,10 +80,10 @@ shared('shared-counter', Renderer);
 
 ## 6) Checklist
 
-- [ ] Dependencies updated to v2
-- [ ] JSX runtime configured
-- [ ] `ignite.config.ts` added and loaded by bundler
-- [ ] Renderer choice confirmed (Ignite JSX or lit)
-- [ ] Shared adapter lifecycle verified
+* [ ] Dependencies updated to v2
+* [ ] JSX runtime configured
+* [ ] `ignite.config.ts` added and loaded by bundler
+* [ ] Renderer choice confirmed (Ignite JSX or lit)
+* [ ] Shared adapter lifecycle verified
 
 Need more depth? See the legacy migration notes in `docs/migrations/v2.0.0-ignite-jsx.md` (kept for reference).

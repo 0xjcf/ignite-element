@@ -6,28 +6,89 @@ sidebar:
   order: 1
 ---
 
-`igniteCore` adapts your state source (XState, Redux, MobX) into a render-ready component factory.
+`igniteCore` adapts your state source (XState, Redux, MobX, or Actor-Web) into a render-ready component factory. The data path stays explicit: source → native snapshot → derived states → renderer view.
 
 ```ts
 import { igniteCore } from 'ignite-element/xstate';
 
-const component = igniteCore({
+const core = igniteCore({
   source: machineOrActor,
   events: (event) => ({ /* typed events */ }),
   states: (snapshot) => ({ /* derived values */ }),
-  commands: ({ actor, emit, host }) => ({ /* actions */ }),
-  cleanup: true, // default
+  commands: ({ actor, command }) => ({ /* actions */ }),
+  effects: ({ snapshot, prevSnapshot, emit, select }) => { /* outward facts */ },
 });
 
-component('tag-name', (props) => /* JSX or lit template */);
+const component = core('tag-name', (props) => /* JSX or lit template */);
+
+component.tagName;
+component.getSchema();
 ```
 
-**Params**
+## Parameters
 
 - `source`: machine definition or started actor (XState), Redux store/slice, or MobX observable.
-- `events(mapper)`: optional; defines typed DOM events and enables `emit` inside `commands`.
-- `states(snapshot)`: derive render props from the current snapshot; runs on mount and on changes.
-- `commands(context)`: expose actions; receives `{ actor, emit?, host }`.
-- `cleanup`: defaults to `true`; set to `false` to keep shared adapters running after disconnect.
+- `events(mapper)`: optional; defines typed DOM events.
+- `states(snapshot)`: optionally derive a plain object from the bare native snapshot; runs on mount and on source observations. Omission yields one stable empty object.
+- `commands(context)`: expose actions; receives `{ actor, command }`.
+- `effects(context)`: optional; receives `{ snapshot, prevSnapshot, select, emit }`, stays synchronous, and runs in a microtask after renderer notification for each delivered update after the initial baseline.
+- `cleanup`: shared-adapter teardown override. Defaults to `false` for **shared** (consumer-owned) sources — a live instance you pass lives for the core's lifetime, so the shared adapter is kept alive across element disconnects. For **isolated** sources (Ignite creates one adapter per element, stopped on disconnect) it has no practical effect. Set `cleanup: true` on a shared core to opt back into element-refcount teardown of the adapter. Ignite never stops or closes a source it did not create.
 
-See [State adapters](/ignite-element/concepts/state-adapters/) for adapter-specific behavior.
+## Returns
+
+A **component factory and headless runtime**. Call it as `core(tagName, renderer)` to register a custom element and receive a component handle. The handle exposes the registered `tagName` and delegates `getSchema()` to the same runtime:
+
+```ts no-check
+const component = core('counter-button', renderer);
+
+component.tagName; // 'counter-button'
+component.getSchema();
+```
+
+The callable `core` value carries `execute`, `canExecute`, `getSnapshot`, `getStates`, `getSchema`, `on`, `watchSnapshot`, `watchStates`, and `record` for driving and inspecting the behavior without the DOM.
+
+The accepted one-argument overload binds an opaque non-DOM projection target and returns a disposable projection session:
+
+```ts no-check
+const session = core(projectionTarget);
+session.dispose();
+```
+
+Create supported targets with `createProjectionDocumentTarget(...)` or `createProjectionSpeechTarget(...)`; a retained DOM element is not a projection target.
+
+## Advanced overrides
+
+`cleanup` controls shared-adapter teardown; most components won't need to change it. A consumer-owned shared source is kept alive for the core's lifetime by default — pass `cleanup: true` only to opt a shared core back into element-refcount teardown of the adapter.
+
+```ts
+const component = igniteCore({
+  source: actor,
+  cleanup: true, // opt this shared core back into element-refcount teardown of the adapter
+});
+```
+
+See [The Ignite model](/ignite-element/concepts/the-ignite-model/) for adapter-specific behavior.
+
+## Headless runtime
+
+Every component registration also exposes a headless runtime (`execute`, `canExecute`, `getSnapshot`, `getStates`, `getSchema`, `on`, `watchSnapshot`, `watchStates`, `record`) for driving and inspecting behavior without the DOM. See [Headless runtime](/ignite-element/api/headless-runtime/) for the full method reference.
+
+## Callback boundaries
+
+- Commands express explicit intent. Pass user or host-derived data as command input instead of reading it from an implicit host object.
+- Effects stay synchronous and publish outward facts after the renderer has been notified. Move async environmental work, retries, cancellation, and feedback loops into source/application ports.
+- DOM event dispatch and internal error routing still exist, but the host stays an internal runtime concern rather than a public callback capability.
+
+```ts
+effects: ({ snapshot, prevSnapshot, select, emit }) => {
+  // Synchronous transition-to-outward-fact behavior.
+  // No async environmental work.
+};
+```
+
+## Related
+
+- [The Ignite model](/ignite-element/concepts/the-ignite-model/) — ownership, projection, and the deterministic-effects semantics.
+- [Headless runtime](/ignite-element/api/headless-runtime/) — the agent-facing runtime methods.
+- [Command metadata](/ignite-element/api/command-metadata/) — enrich `getSchema()` output.
+- [Testing DSL](/ignite-element/api/testing-dsl/) — scenario and story helpers built on the same runtime.

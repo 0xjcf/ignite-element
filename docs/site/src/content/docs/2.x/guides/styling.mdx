@@ -1,0 +1,22 @@
+---
+title: Styling
+description: Style components with global config and per-element CSS.
+sidebar:
+  label: Styling
+  order: 1
+slug: 2.x/guides/styling
+---
+
+* **Global styles**: set `styles` in `ignite.config.ts` to inject a stylesheet into every component’s shadow root.
+* **Per-component styles**: add inline `<style>` blocks or CSS-in-JS inside your renderer.
+* **Light DOM**: use host-app styles for page-level layout; Ignite only scopes what you inject via `styles`.
+
+```ts
+import { defineIgniteConfig } from 'ignite-element';
+
+export default defineIgniteConfig({
+  styles: new URL('./styles/components.css', import.meta.url).href,
+});
+```
+
+For a deeper walkthrough, see the frozen legacy notes in [docs/styling/README.md](https://github.com/0xjcf/ignite-element/blob/fe5e4b435fc914c4e811d420bf2391f6a270db03/docs/styling/README.md).

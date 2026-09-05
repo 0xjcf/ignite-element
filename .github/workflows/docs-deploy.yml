@@ -32,8 +32,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Typecheck doc code examples against the public beta API
+        run: pnpm --filter docs-site run check:docs
+
+      - name: Validate Astro content and types
+        run: pnpm --filter docs-site run check:astro
+
       - name: Build docs site
         run: pnpm --filter docs-site build
+
+      - name: Check versioned routes and prerelease disclosure
+        run: pnpm --filter docs-site run check:versions:built
+
+      - name: Check internal routes, links, anchors, and assets
+        run: pnpm --filter docs-site run check:links
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

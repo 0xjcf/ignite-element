@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+	<title id="title">Ignite Element Icon</title>
+	<desc id="desc">Rounded square icon with cyan outline, golden core and orbiting rings.</desc>
+	<defs>
+		<radialGradient id="core" cx="50%" cy="50%" r="60%">
+			<stop offset="0%" stop-color="#fcd34d" />
+			<stop offset="55%" stop-color="#f59e0b" />
+			<stop offset="100%" stop-color="#0f182e" stop-opacity="0.2" />
+		</radialGradient>
+		<filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+			<feGaussianBlur stdDeviation="2.2" result="blur" />
+			<feMerge>
+				<feMergeNode in="blur" />
+				<feMergeNode in="SourceGraphic" />
+			</feMerge>
+		</filter>
+	</defs>
+
+	<rect width="512" height="512" rx="92" fill="#0f182e" />
+	<rect x="38" y="38" width="436" height="436" rx="76" fill="none" stroke="#1ad2ff" stroke-width="8" />
+
+	<g fill="#fbbf24">
+		<!-- Octagon of accent nodes -->
+		<circle cx="256" cy="70" r="6" />
+		<circle cx="387" cy="125" r="6" />
+		<circle cx="442" cy="256" r="6" />
+		<circle cx="387" cy="387" r="6" />
+		<circle cx="256" cy="442" r="6" />
+		<circle cx="125" cy="387" r="6" />
+		<circle cx="70" cy="256" r="6" />
+		<circle cx="125" cy="125" r="6" />
+	</g>
+
+	<g stroke="#40e0ff" stroke-width="4.5" fill="none" stroke-linecap="round" filter="url(#glow)">
+		<ellipse cx="256" cy="256" rx="110" ry="70" />
+		<ellipse cx="256" cy="256" rx="110" ry="70" transform="rotate(60 256 256)" />
+		<ellipse cx="256" cy="256" rx="110" ry="70" transform="rotate(-60 256 256)" />
+	</g>
+
+	<circle cx="256" cy="256" r="30" fill="url(#core)" filter="url(#glow)" />
+</svg>

@@ -4,6 +4,7 @@ description: Emit typed DOM events and keep commands focused.
 sidebar:
   label: Events & commands
   order: 3
+slug: 2.x/concepts/events-and-commands
 ---
 
 Commands are the actions exposed to your renderer; events are optional typed `CustomEvent`s you can bubble to host apps.
@@ -31,8 +32,8 @@ Events bubble and are composed by default, so frameworks can listen with `addEve
 
 ### Listening
 
-- Plain DOM: `element.addEventListener('incremented', (event) => console.log(event.detail.amount));`
-- Ignite JSX: `<my-counter onIncremented={(event) => handleIncrement(event.detail)}></my-counter>`.
+* Plain DOM: `element.addEventListener('incremented', (event) => console.log(event.detail.amount));`
+* Ignite JSX: `<my-counter onIncremented={(event) => handleIncrement(event.detail)}></my-counter>`.
 
 :::note[Emit safety]
 In development, emitting an event that isn’t declared in `events` throws an error to help keep the map in sync. Declare events first, then call `emit`.
@@ -59,11 +60,11 @@ commands: ({ host, emit }) => ({
 You can read `dataset`, measure the element, or dispatch additional DOM events from `host` as needed. Reflect state (attrs/aria/class) primarily via your renderer to keep outputs declarative.
 
 :::tip[Host + actor model]
-- Keep state in your adapter; use `host` to reflect state (attrs/aria/class) or perform tiny DOM affordances (focus).
-- Avoid treating `host` as a source of truth—don’t stash business logic or long-lived state on the element.
-- Prefer taking behavioral inputs (like `step`) from your state source/context, not from host attributes. If you must read an attribute, parse it once and feed it into state.
-- Keep side effects small and deterministic; longer side effects belong in your state library.
-- This keeps a clean separation: adapter = state/actor model; renderer = declarative view; `host` = small imperative DOM bridge when needed (while staying outside your state logic).
+* Keep state in your adapter; use `host` to reflect state (attrs/aria/class) or perform tiny DOM affordances (focus).
+* Avoid treating `host` as a source of truth—don’t stash business logic or long-lived state on the element.
+* Prefer taking behavioral inputs (like `step`) from your state source/context, not from host attributes. If you must read an attribute, parse it once and feed it into state.
+* Keep side effects small and deterministic; longer side effects belong in your state library.
+* This keeps a clean separation: adapter = state/actor model; renderer = declarative view; `host` = small imperative DOM bridge when needed (while staying outside your state logic).
 :::
 
 :::note[Think “ref”]
@@ -72,8 +73,8 @@ You can read `dataset`, measure the element, or dispatch additional DOM events f
 
 ## Type flow
 
-- When `events` is present, event names and payloads are inferred into `emit`.
-- `states` and `commands` outputs are merged into the props your renderer receives, giving you typed render args without extra wiring.
+* When `events` is present, event names and payloads are inferred into `emit`.
+* `states` and `commands` outputs are merged into the props your renderer receives, giving you typed render args without extra wiring.
 
 ### Putting it together (XState)
 

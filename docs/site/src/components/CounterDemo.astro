@@ -1,0 +1,140 @@
+---
+/**
+ * Docs-only live counter for the homepage "Try it live" section.
+ *
+ * Deliberately does NOT import `ignite-element`: the docs site stays
+ * dependency-free and the demo must run as plain static JS on GitHub Pages
+ * (the StackBlitz embed it replaces needed cross-origin isolation headers
+ * GitHub Pages can't send). It mirrors the same mental model as the real
+ * API shown in the snippet next to it: a state object drives the view, and
+ * buttons dispatch intent events instead of mutating the DOM directly.
+ */
+---
+
+<docs-counter class="not-content">
+	<div class="counter-card">
+		<p class="counter-tag"><code>&lt;ignite-counter&gt;</code></p>
+		<output class="counter-count" aria-live="polite">0</output>
+		<div class="counter-controls">
+			<button type="button" data-command="DEC" aria-label="Decrement">−</button>
+			<button type="button" data-command="INC" aria-label="Increment">+</button>
+			<button type="button" data-command="RESET">Reset</button>
+		</div>
+		<noscript><p class="counter-noscript">Enable JavaScript to try the live counter.</p></noscript>
+	</div>
+</docs-counter>
+
+<script>
+	class DocsCounter extends HTMLElement {
+		#state = { count: 0 };
+		#output: HTMLElement | null = null;
+		#listeners: AbortController | undefined;
+
+		connectedCallback() {
+			this.#listeners?.abort();
+			this.#listeners = new AbortController();
+			this.#output = this.querySelector(".counter-count");
+			for (const button of this.querySelectorAll<HTMLButtonElement>("[data-command]")) {
+				button.addEventListener("click", () => {
+					this.#send({ type: button.dataset.command ?? "" });
+				}, { signal: this.#listeners.signal });
+			}
+			this.#render();
+		}
+
+		disconnectedCallback() {
+			this.#listeners?.abort();
+			this.#listeners = undefined;
+		}
+
+		// Commands express intent; state transitions live here, not in the buttons.
+		#send(event: { type: string }) {
+			switch (event.type) {
+				case "INC":
+					this.#state = { count: this.#state.count + 1 };
+					break;
+				case "DEC":
+					this.#state = { count: this.#state.count - 1 };
+					break;
+				case "RESET":
+					this.#state = { count: 0 };
+					break;
+			}
+			this.#render();
+		}
+
+		// The view is a projection of state — never edited in place by handlers.
+		#render() {
+			if (this.#output) {
+				this.#output.textContent = String(this.#state.count);
+			}
+		}
+	}
+
+	if (!customElements.get("docs-counter")) {
+		customElements.define("docs-counter", DocsCounter);
+	}
+</script>
+
+<style>
+	docs-counter {
+		display: block;
+	}
+
+	.counter-card {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 1.5rem;
+		background: var(--sl-color-panel);
+		border: 1px solid var(--sl-color-hairline);
+		border-radius: var(--radius-lg);
+	}
+
+	.counter-tag {
+		margin: 0;
+		font-size: var(--sl-text-sm);
+		color: var(--sl-color-text-soft);
+	}
+
+	.counter-count {
+		font-size: 2.5rem;
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
+		line-height: 1;
+		color: var(--sl-color-text);
+	}
+
+	.counter-controls {
+		display: flex;
+		gap: var(--control-gap);
+	}
+
+	.counter-controls button {
+		min-width: var(--control-height);
+		min-height: var(--control-height);
+		padding: var(--control-pad-y) var(--control-pad-x);
+		font-size: var(--sl-text-base);
+		color: var(--control-text);
+		background: var(--control-bg);
+		border: 1px solid var(--control-border);
+		border-radius: var(--radius-md);
+		cursor: pointer;
+		transition: background 120ms ease;
+	}
+
+	.counter-controls button:hover {
+		background: var(--control-bg-hover);
+	}
+
+	.counter-controls button:focus-visible {
+		outline: 2px solid var(--control-focus-ring);
+		outline-offset: 2px;
+	}
+
+	.counter-noscript {
+		margin: 0;
+		color: var(--sl-color-text-soft);
+	}
+</style>

@@ -4,6 +4,7 @@ description: Control renderers, styles, and logging from one place.
 sidebar:
   label: Configuration
   order: 4
+slug: 2.x/concepts/configuration
 ---
 
 `ignite.config.ts` is the single place to define renderer defaults, styles, and diagnostics.
@@ -22,12 +23,13 @@ export default defineIgniteConfig({
 
 ### Loading the config
 
-- With Vite or Webpack plugins, the config is auto-imported (install and register the plugin in your bundler config).
-- Without plugins, import it in your app entry so the renderer and styles are applied before you register components.
+* With Vite or Webpack plugins, the config is auto-imported (install and register the plugin in your bundler config).
+* Without plugins, import it in your app entry so the renderer and styles are applied before you register components.
 
 Default behavior:
-- If `renderer` is not set, Ignite defaults to `ignite-jsx`.
-- If you set a renderer that isn’t registered, Ignite falls back to `ignite-jsx` and logs a warning.
+
+* If `renderer` is not set, Ignite defaults to `ignite-jsx`.
+* If you set a renderer that isn’t registered, Ignite falls back to `ignite-jsx` and logs a warning.
 
 ### Scoped vs. global styles
 

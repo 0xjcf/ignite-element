@@ -1,0 +1,54 @@
+---
+title: Bundle size
+description: Tree-shaken and gzip bundle-size numbers for the current public Ignite Element entrypoints.
+sidebar:
+  label: Bundle size
+  order: 5
+---
+
+These numbers measure the current public `ignite-element` ESM entrypoints after a
+production Vite build. State-library and framework peers are externalized, while
+Ignite's own workspace packages are bundled so the table reflects the Ignite
+code a host app pulls in through each import.
+
+Run the measurement from the [released v3 beta.11 source revision](https://github.com/0xjcf/ignite-element/tree/e2eb1517c8818a16a3142ff2c2b6c534674625d4),
+not the documentation branch or the v2 source layout on main. In a fresh checkout,
+use that revision's Node and pnpm requirements, then run:
+
+```bash
+git clone https://github.com/0xjcf/ignite-element.git ignite-element-beta11-size
+cd ignite-element-beta11-size
+git checkout --detach e2eb1517c8818a16a3142ff2c2b6c534674625d4
+pnpm install --frozen-lockfile
+pnpm run size:entrypoints
+```
+
+That command rebuilds the package dependency chain and then bundles each public
+entrypoint from `packages/ignite-element/package.json`.
+
+| Entry point | Import | Minified | Gzip |
+| --- | --- | ---: | ---: |
+| ignite-element | `ignite-element` | 25.62 kB | 7.24 kB |
+| ignite-element/xstate | `ignite-element/xstate` | 47.72 kB | 12.27 kB |
+| ignite-element/redux | `ignite-element/redux` | 48.18 kB | 12.34 kB |
+| ignite-element/mobx | `ignite-element/mobx` | 47.10 kB | 12.21 kB |
+| ignite-element/actor-web | `ignite-element/actor-web` | 48.86 kB | 12.62 kB |
+| ignite-element/jsx | `ignite-element/jsx` | 501 B | 276 B |
+| ignite-element/jsx/jsx-runtime | `ignite-element/jsx/jsx-runtime` | 432 B | 258 B |
+| ignite-element/jsx/jsx-dev-runtime | `ignite-element/jsx/jsx-dev-runtime` | 386 B | 258 B |
+| ignite-element/react | `ignite-element/react` | 1.34 kB | 636 B |
+| ignite-element/tools | `ignite-element/tools` | 4.96 kB | 1.74 kB |
+| ignite-element/tools/anthropic | `ignite-element/tools/anthropic` | 1.27 kB | 600 B |
+| ignite-element/tools/openai | `ignite-element/tools/openai` | 2.89 kB | 1.02 kB |
+
+## How to read the table
+
+- **Minified** is the production ESM bundle emitted by Vite for that entrypoint.
+- **Gzip** is the gzip-compressed size of the same generated bundle.
+- **Peers are not counted**: XState, Redux Toolkit, Redux, MobX, React,
+  `lit-html`, and `@actor-web/runtime` remain host-app dependencies.
+- **Entrypoints are measured from the public export map**. Removed compatibility
+  subpaths, including `ignite-element/renderers/lit`, are intentionally omitted.
+
+These are full-entrypoint measurements. A host app that imports a smaller subset
+of symbols can be smaller after its own bundler finishes tree-shaking.
