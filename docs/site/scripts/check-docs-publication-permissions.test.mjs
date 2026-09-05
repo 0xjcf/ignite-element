@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { isMap, parseDocument } from "yaml";
 
 import { inspectWorkflowPermissions } from "./check-docs-publication-contract.mjs";
 
@@ -147,6 +148,61 @@ const escapedDuplicate = workflow.replace(
 	jobPermissionBlock,
 	`${jobPermissionBlock}\n    ${escapedKey}: write-all`,
 );
+
+for (const [name, source] of [
+	["explicit key", explicitKeyBypass],
+	["escaped key", escapedKeyBypass],
+]) {
+	test(`parser rejects the exact reported ${name} decoy as malformed YAML`, () => {
+		const document = parseDocument(source, {
+			version: "1.2",
+			schema: "core",
+			uniqueKeys: true,
+		});
+		assert.ok(document.errors.some(({ code }) => code === "MISSING_CHAR"));
+		assert.notDeepEqual(inspectWorkflowPermissions(source), []);
+	});
+	test(`parser identifies write-all behind a valid multiline ${name} decoy`, () => {
+		// YAML 1.2 requires continuation lines to be indented inside the scalar.
+		const validSource = source.replace(
+			scalarDecoy,
+			'    name: "Permission check\n      permissions:\n        contents: read\n      "',
+		);
+		const document = parseDocument(validSource, {
+			version: "1.2",
+			schema: "core",
+			uniqueKeys: true,
+		});
+		assert.deepEqual(document.errors, []);
+		assert.deepEqual(document.warnings, []);
+		assert.equal(
+			document.getIn(["jobs", "contrast", "permissions"]),
+			"write-all",
+		);
+		assert.match(
+			document.getIn(["jobs", "contrast", "name"]),
+			/permissions: contents: read/,
+		);
+		assert.notDeepEqual(inspectWorkflowPermissions(validSource), []);
+	});
+}
+
+test("parser rejects duplicate permission keys after escape decoding", () => {
+	const document = parseDocument(escapedDuplicate, {
+		version: "1.2",
+		schema: "core",
+		uniqueKeys: true,
+	});
+	assert.ok(document.errors.some(({ code }) => code === "DUPLICATE_KEY"));
+	assert.notDeepEqual(inspectWorkflowPermissions(escapedDuplicate), []);
+});
+
+test("YAML 1.2 preserves the GitHub on key as a string", () => {
+	const document = parseDocument(workflow, { version: "1.2", schema: "core" });
+	assert.ok(isMap(document.get("on", true)));
+	assert.equal(document.has(true), false);
+	assert.deepEqual(inspectWorkflowPermissions(workflow), []);
+});
 
 const yamlUnsafeWorkflows = new Map([
 	["multiline name and explicit permission key", explicitKeyBypass],

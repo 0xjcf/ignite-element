@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isAlias, isMap, isScalar, parseAllDocuments, visit } from "yaml";
 
 const siteRoot = path.resolve(
 	path.dirname(fileURLToPath(import.meta.url)),
@@ -115,123 +116,85 @@ function inspectV2Installs() {
 }
 
 export function inspectWorkflowPermissions(workflow) {
-	const problems = [];
-	const lines = workflow.split("\n").map((raw, index) => ({
-		raw,
-		line: index + 1,
-		indent: raw.match(/^ */)?.[0].length ?? 0,
-		trimmed: raw.trim(),
-	}));
-	const activeLines = lines.filter(
-		({ trimmed }) => trimmed && !trimmed.startsWith("#"),
+	// YAML 1.2 core keeps GitHub's "on" key a string. Inspect nodes before any
+	// conversion to objects so aliases and decoded duplicate keys cannot hide.
+	const documents = parseAllDocuments(workflow, {
+		version: "1.2",
+		schema: "core",
+		strict: true,
+		uniqueKeys: true,
+		merge: false,
+		customTags: [],
+		resolveKnownTags: false,
+		keepSourceTokens: true,
+	});
+	if (documents.length !== 1)
+		return ["workflow must contain exactly one YAML document"];
+	const document = documents[0];
+	const problems = [...document.errors, ...document.warnings].map(
+		({ code, message }) => `YAML ${code}: ${message}`,
 	);
+	if (document.directives?.yaml.version !== "1.2") {
+		problems.push("workflow must use YAML 1.2");
+	}
+	if (problems.length) return problems;
+	if (!isMap(document.contents)) return ["workflow root must be a mapping"];
 
-	if (workflow.includes("\r")) {
-		problems.push("workflow uses unsupported carriage-return line endings");
+	visit(document, {
+		Node(_key, node) {
+			if (isAlias(node)) problems.push("YAML aliases are unsupported");
+			if (node.anchor) problems.push("YAML anchors are unsupported");
+			if (node.tag && !node.tag.startsWith("tag:yaml.org,2002:")) {
+				problems.push("custom YAML tags are unsupported");
+			}
+		},
+		Pair(_key, pair) {
+			if (!isScalar(pair.key) || typeof pair.key.value !== "string") {
+				problems.push("YAML mapping keys must be scalar strings");
+			} else if (pair.key.value === "<<") {
+				problems.push("YAML merge keys are unsupported");
+			}
+		},
+	});
+	if (problems.length) return [...new Set(problems)];
+
+	const root = document.contents;
+	const rootPermissions = root.get("permissions", true);
+	if (!isMap(rootPermissions) || rootPermissions.items.length !== 0) {
+		problems.push("top-level permissions must be an explicit empty mapping");
 	}
-	if (activeLines.some(({ raw }) => /^ *\t/.test(raw))) {
-		problems.push("workflow uses tab indentation");
-	}
+	const jobs = root.get("jobs", true);
 	if (
-		activeLines.some(
-			({ raw }) =>
-				/^\s*<<\s*:/.test(raw) || /(^|\s)[&*][A-Za-z0-9_-]+/.test(raw),
-		)
+		!isMap(jobs) ||
+		jobs.items.length !== 1 ||
+		jobs.items[0].key.value !== "contrast"
 	) {
-		problems.push("workflow uses an alias, anchor, or merge key");
+		problems.push("jobs must be a mapping containing only contrast");
+		return problems;
 	}
-
-	const permissionDeclarations = activeLines.filter(({ raw }) =>
-		/^\s*(?:permissions|"permissions"|'permissions')\s*:/.test(raw),
-	);
-	const rootPermissionDeclarations = permissionDeclarations.filter(
-		({ indent }) => indent === 0,
-	);
+	const contrast = jobs.get("contrast", true);
+	if (!isMap(contrast)) {
+		problems.push("contrast must be a job mapping");
+		return problems;
+	}
+	const permissions = contrast.get("permissions", true);
 	if (
-		rootPermissionDeclarations.length !== 1 ||
-		rootPermissionDeclarations[0]?.raw !== "permissions: {}"
-	) {
-		problems.push("top-level permissions are not explicitly empty");
-	}
-
-	const jobsDeclarations = activeLines.filter(
-		({ raw, indent }) => indent === 0 && /^jobs\s*:/.test(raw),
-	);
-	const jobsDeclaration = jobsDeclarations[0];
-	if (jobsDeclarations.length !== 1 || jobsDeclaration?.raw !== "jobs:") {
-		problems.push("workflow does not contain one canonical jobs mapping");
-	}
-
-	let jobLines = [];
-	if (jobsDeclaration) {
-		const jobsStart = jobsDeclaration.line;
-		const nextTopLevel = activeLines.find(
-			({ line, indent }) => line > jobsStart && indent === 0,
-		);
-		jobLines = activeLines.filter(
-			({ line }) =>
-				line > jobsStart && (!nextTopLevel || line < nextTopLevel.line),
-		);
-	}
-	const jobDeclarations = jobLines.filter(({ indent }) => indent === 2);
-	if (
-		jobDeclarations.length !== 1 ||
-		jobDeclarations[0]?.raw !== "  contrast:"
-	) {
-		problems.push("jobs mapping must contain only the canonical contrast job");
-	}
-
-	const contrastDeclaration = jobDeclarations.find(
-		({ raw }) => raw === "  contrast:",
-	);
-	let contrastLines = [];
-	if (contrastDeclaration) {
-		const nextJob = jobLines.find(
-			({ line, indent }) =>
-				line > contrastDeclaration.line && indent <= contrastDeclaration.indent,
-		);
-		contrastLines = jobLines.filter(
-			({ line }) =>
-				line > contrastDeclaration.line && (!nextJob || line < nextJob.line),
-		);
-	}
-	const jobPermissionDeclarations = contrastLines.filter(({ raw }) =>
-		/^\s*(?:permissions|"permissions"|'permissions')\s*:/.test(raw),
-	);
-	const jobPermissionDeclaration = jobPermissionDeclarations[0];
-	if (
-		jobPermissionDeclarations.length !== 1 ||
-		jobPermissionDeclaration?.raw !== "    permissions:"
+		!isMap(permissions) ||
+		permissions.flow ||
+		permissions.items.length !== 1 ||
+		permissions.items[0].key.value !== "contents" ||
+		!isScalar(permissions.items[0].value) ||
+		permissions.items[0].value.value !== "read"
 	) {
 		problems.push(
-			"contrast job must contain one canonical permissions mapping",
+			"contrast permissions must be a block mapping containing only contents: read",
 		);
+	} else if (permissions.srcToken?.indent !== contrast.srcToken?.indent + 2) {
+		// Preserve the existing two-space permission-map indentation contract,
+		// using the parser's CST metadata rather than scanning workflow text.
+		problems.push("contrast permission mapping must use two-space indentation");
 	}
-
-	let jobPermissionLines = [];
-	if (jobPermissionDeclaration) {
-		const nextJobProperty = contrastLines.find(
-			({ line, indent }) =>
-				line > jobPermissionDeclaration.line &&
-				indent <= jobPermissionDeclaration.indent,
-		);
-		jobPermissionLines = contrastLines.filter(
-			({ line }) =>
-				line > jobPermissionDeclaration.line &&
-				(!nextJobProperty || line < nextJobProperty.line),
-		);
-	}
-	if (
-		jobPermissionLines.length !== 1 ||
-		jobPermissionLines[0]?.raw !== "      contents: read"
-	) {
-		problems.push("contrast job permissions must be exactly contents: read");
-	}
-
-	if (permissionDeclarations.length !== 2) {
-		problems.push("workflow contains an unexpected permissions declaration");
-	}
-	return [...new Set(problems)];
+	return problems;
 }
 
 function inspectWorkflow() {
