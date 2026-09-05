@@ -28,15 +28,23 @@
 	class DocsCounter extends HTMLElement {
 		#state = { count: 0 };
 		#output: HTMLElement | null = null;
+		#listeners: AbortController | undefined;
 
 		connectedCallback() {
+			this.#listeners?.abort();
+			this.#listeners = new AbortController();
 			this.#output = this.querySelector(".counter-count");
 			for (const button of this.querySelectorAll<HTMLButtonElement>("[data-command]")) {
 				button.addEventListener("click", () => {
 					this.#send({ type: button.dataset.command ?? "" });
-				});
+				}, { signal: this.#listeners.signal });
 			}
 			this.#render();
+		}
+
+		disconnectedCallback() {
+			this.#listeners?.abort();
+			this.#listeners = undefined;
 		}
 
 		// Commands express intent; state transitions live here, not in the buttons.

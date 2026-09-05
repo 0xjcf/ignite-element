@@ -11,7 +11,7 @@ sidebar:
 - **Light DOM**: use host-app styles for page-level layout; Ignite only scopes what you inject via `styles`.
 - **CSS custom properties**: use tokens like `--button-accent` when host apps need to theme a component without breaking encapsulation.
 - **`part` attributes**: expose stable styling hooks for important sub-elements when host apps need targeted overrides across the shadow boundary.
-- **CSP**: if the host disallows inline styles, prefer emitted stylesheet URLs through shared styles.
+- **CSP**: if the host disallows inline styles, use an external stylesheet URL allowed by its `style-src` policy. Neither a style attribute nor an inline `<style>` is permitted merely because it is in a shadow root.
 
 ```tsx
 const buttonStyles = `
@@ -19,7 +19,7 @@ const buttonStyles = `
 `;
 ```
 
-Example renderer contract:
+Example renderer contract when the host permits inline `<style>` elements:
 
 ```tsx
 component('brand-button', ({ label, press }) => (
@@ -44,14 +44,22 @@ Use the shadow root for implementation details, then deliberately expose the sty
 
 ```tsx
 component('status-chip', ({ label, tone }) => (
-  <span
-    part="chip"
-    class={`chip chip--${tone}`}
-    style={{ color: 'var(--status-chip-fg, currentColor)' }}
-  >
-    {label}
-  </span>
+  <>
+    <link rel="stylesheet" href="/styles/status-chip.css" />
+    <span part="chip" class={`chip chip--${tone}`}>
+      {label}
+    </span>
+  </>
 ));
+```
+
+Serve the following as `/styles/status-chip.css`. The link is inside the shadow
+root, so its classes apply there. This assumes the host's CSP allows that
+stylesheet URL (for example, same-origin `style-src 'self'`); it needs no inline
+style attribute or inline style element:
+
+```css
+.chip { color: var(--status-chip-fg, currentColor); }
 ```
 
 If you expect host apps to theme a component, expose a stable token or `part`. If you do not want a sub-tree styled externally, keep it internal.

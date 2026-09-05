@@ -116,6 +116,10 @@ export default defineConfig({
 						{ label: "Routing", slug: "guides/routing" },
 						{ label: "Actor-Web", slug: "guides/actor-web" },
 						{ label: "Styling", slug: "guides/styling" },
+						{
+							label: "Accessibility first",
+							slug: "guides/accessibility-first",
+						},
 						{ label: "Testing", slug: "guides/testing" },
 					],
 				},

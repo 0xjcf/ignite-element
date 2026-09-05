@@ -11,9 +11,18 @@ Ignite ships a scenario-style testing helper built on the [headless runtime](/ig
 ```ts
 import { test as igniteTest } from 'ignite-element/xstate';
 import { igniteCore } from 'ignite-element/xstate';
+import { createMachine } from 'xstate';
 
-const counter = igniteCore({
-  source: counterMachine,
+const toggleMachine = createMachine({
+  initial: 'off',
+  states: {
+    off: { on: { TOGGLE: 'on' } },
+    on: { on: { TOGGLE: 'off' } },
+  },
+});
+
+const toggle = igniteCore({
+  source: toggleMachine,
   states: (snapshot) => ({
     isOn: snapshot.matches('on'),
   }),
@@ -33,10 +42,12 @@ const counter = igniteCore({
 
 ## Scenarios
 
+Run each example below with a fresh runtime from the setup above, initially off.
+
 Call `igniteTest({ component, host? })` with a runtime to get a chainable scenario. `given(...)` asserts the starting snapshot, `when({ command, input? })` executes a command (it is async — `await` it), and the `expect*` methods assert the result of the most recent `when(...)`.
 
 ```ts
-(await igniteTest({ component: counter })
+(await igniteTest({ component: toggle })
   .given({ value: 'off' })
   .when({ command: 'toggle' }))
   .expectSnapshot({ value: 'on' })
@@ -63,33 +74,28 @@ When you need more than one intent in the same falsifiable user story, use `stor
 A story is the expected experience claim: the sequence you think a user can actually live through. It reuses the runtime's existing `record(name)` story to capture observed execution evidence, and it returns the same serializable `IgniteStorySnapshot` that `snapshotStory(story)` produces as a portable receipt. There is no second recorder, alternate trace schema, graph engine, or inspection surface.
 
 ```ts
-import { someExternalFixture } from './test-fixtures';
-
-const receipt = await igniteTest({ component: counter }).story(
-  'counter recovery',
+const receipt = await igniteTest({ component: toggle }).story(
+  'toggle on and off',
   async (story) => {
     await story.given({
-      snapshot: { counter: { count: 0 } },
-      when: (snapshot) => snapshot.counter.count === 0,
-      states: { count: 0, canDecrement: false },
-      canExecute: { decrement: false },
+      snapshot: { value: 'off' },
+      states: { isOn: false },
+      canExecute: { toggle: true },
     });
 
-    await story.intent({ command: 'increment', input: 2 });
-    await story.checkpoint('after increment', {
-      snapshot: { counter: { count: 2 } },
-      states: { count: 2, canDecrement: true },
-      events: [{ type: 'counter-incremented', count: 2 }],
-      canExecute: { decrement: true },
+    await story.intent({ command: 'toggle' });
+    await story.checkpoint('on', {
+      snapshot: { value: 'on' },
+      states: { isOn: true },
+      events: [{ type: 'toggled', isOn: true }],
+      canExecute: { toggle: true },
     });
 
-    await story.behavior('external retry', async () => {
-      await someExternalFixture.retry();
-    });
-
-    await story.intent({ command: 'decrement' });
-    await story.checkpoint('after decrement', {
-      snapshot: { counter: { count: 1 } },
+    await story.intent({ command: 'toggle' });
+    await story.checkpoint('off again', {
+      snapshot: { value: 'off' },
+      states: { isOn: false },
+      events: [{ type: 'toggled', isOn: false }],
     });
   },
 );
@@ -112,7 +118,7 @@ If a story fails, the error includes the story name, the failing phase or checkp
 A story records command, native snapshot, derived states, and event activity as one ordered behavior trace. Start one from the runtime's [`record(name)`](/ignite-element/api/headless-runtime/#recordname):
 
 ```ts
-const story = counter.record('toggles on');
+const story = toggle.record('toggles on');
 
 await story.execute({ command: 'toggle' });
 await story.until((states) => states.isOn, async () => {
@@ -147,7 +153,7 @@ The `test` export also carries helpers as properties:
 - `expectTrace(trace, expected, options?)` — assert ordered checkpoints against a trace. By default it matches a subsequence; pass `{ exact: true }` to require a one-to-one match. Each expectation is a deep-partial entry or a predicate. Returns nothing; throws on mismatch.
 
 ```ts
-const story = counter.record('toggles on');
+const story = toggle.record('toggles on');
 await story.execute({ command: 'toggle' });
 
 const snapshot = igniteTest.serializeTrace(story.trace());
@@ -184,31 +190,30 @@ const full = igniteTest.snapshotStory(story);
 
 For projection proof, mount the same runtime behind a test-only DOM bridge and assert rendered controls by role and accessible name. The bridge renders against the same runtime state the story mutates, so behavior assertions stay headless while DOM assertions stay focused.
 
-```ts
+```tsx
 import { test as igniteTest } from 'ignite-element/xstate';
 
-const story = counter.record('reaches limit');
+const story = toggle.record('toggles on');
 const bridge = igniteTest.accessibilityBridge(
-  counter,
-  ({ count, limit, isLimited, increment, setLimit }) => (
+  toggle,
+  ({ isOn, toggle: toggleCommand }: ReturnType<typeof toggle.getStates> & { toggle: () => void }) => (
     <section>
-      <output role="status" aria-label="Counter status">
-        {count} / {limit}
+      <output role="status" aria-label="Toggle status">
+        {isOn ? 'On' : 'Off'}
       </output>
-      <button type="button" onClick={() => increment()}>
-        Increment
+      <button type="button" onClick={toggleCommand}>
+        Toggle
       </button>
-      {isLimited && <p role="status">Limit reached</p>}
     </section>
   ),
-  { elementName: 'counter-accessibility-bridge' },
+  { elementName: 'toggle-accessibility-bridge' },
 );
 
-await story.execute({ command: 'increment' });
+await story.execute({ command: 'toggle' });
 
 igniteTest.expectControls(bridge, [
-  { role: 'status', name: 'Counter status' },
-  { role: 'button', name: 'Increment' },
+  { role: 'status', name: 'Toggle status' },
+  { role: 'button', name: 'Toggle' },
 ]);
 
 bridge.stop();

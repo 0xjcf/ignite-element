@@ -99,7 +99,7 @@ That split keeps `getSchema()` JSON-serializable for agents and tool providers w
 
 ## In `getSchema()`
 
-Once commands carry metadata, `getSchema()` returns executable commands and their metadata in one map. Commands without metadata appear as empty objects:
+`getSchema().commands` is a JSON-serializable map of command metadata, not callable functions. Execute commands through `runtime.execute({ command, input? })`. Commands without metadata appear as empty objects:
 
 ```ts
 // getSchema() returns:

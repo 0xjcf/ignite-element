@@ -14,12 +14,20 @@ Test the state source and the DOM separately. Keep your XState/Redux/MobX logic 
 * Use a browser-like runner (e.g., Vitest + JSDOM). Import `ignite.config.ts` (or the renderer entry) once so renderers/styles are registered.
 * Register the component under test before each suite. Clear the DOM between tests (`document.body.innerHTML = ""`).
 
+Keep `ignite.config.ts`, `vitest.config.ts`, and the `counter.*` files below at
+the project root; only `setup.ts` lives in the `test/` directory. Each named
+file is a separate module.
+
 ```ts
 // test/setup.ts
-import './ignite.config'; // ensures renderer + styles are loaded for all tests
+import '../ignite.config'; // the config is at the project root
 import 'ignite-element/renderers/lit'; // optional if config already sets lit
+```
 
+```ts
 // vitest.config.ts
+import { defineConfig } from 'vitest/config';
+
 export default defineConfig({
   test: {
     globals: true,
@@ -50,6 +58,9 @@ export const counterMachine = setup({
   },
 });
 
+```
+
+```ts
 // counter.machine.test.ts
 import { createActor } from 'xstate';
 import { counterMachine } from './counter.machine';
@@ -93,6 +104,9 @@ export const registerCounterElement = () =>
     </div>
   `);
 
+```
+
+```ts
 // counter.element.test.ts
 import { beforeAll, afterEach, describe, expect, it } from 'vitest';
 import 'ignite-element/renderers/lit';

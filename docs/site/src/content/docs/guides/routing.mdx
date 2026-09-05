@@ -36,12 +36,17 @@ export const routes = [
 ## 2. Keep matching and route resolution pure
 
 ```ts
-import { matchRoute, requiresAuth } from "./routes";
+import { matchRoute } from "./matchRoute";
+import { routes, type RouteName } from "./routes";
+
+const requiresAuth = (name: RouteName) =>
+  routes.find((route) => route.name === name)?.requiresAuth ?? false;
 
 export const resolveNavigation = (toPath: string, authed: boolean) => {
   const match = matchRoute(toPath);
   if (requiresAuth(match.name) && !authed) {
-    return { ...matchRoute("/login"), redirected: true };
+    const login = matchRoute("/login");
+    return { path: login.path, route: login.name, params: login.params, redirected: true };
   }
 
   return {
@@ -78,7 +83,7 @@ download navigations, suppresses self-originated commits, and uses
 
 ```ts
 import { createBrowserNavigation, createMemoryNavigation } from "./navigation";
-import { createRouterSource } from "./router-source";
+import { createRouterSource } from "./routerSource";
 
 const navigation = Reflect.get(window, "navigation");
 const routerSource = createRouterSource({
@@ -121,17 +126,34 @@ That work belongs to the application-owned source.
 
 ## 6. Headless tests use the same source factory
 
+Use `navigation.ts`, `routerSource.ts`, `routerMachine.ts`, `matchRoute.ts`, and
+`routes.ts` from the [released example source](https://github.com/0xjcf/ignite-element/tree/e2eb1517c8818a16a3142ff2c2b6c534674625d4/examples/apps/spa-router/src)
+as the application-owned prerequisites for this test:
+
 ```ts
+import { igniteCore } from 'ignite-element/xstate';
+import { expect } from 'vitest';
+import { createMemoryNavigation } from './navigation';
+import { createRouterSource } from './routerSource';
+
+const source = createRouterSource({ navigation: createMemoryNavigation("/") });
 const router = igniteCore({
-  source: createRouterSource({ navigation: createMemoryNavigation("/") }),
+  source,
   states: (snapshot) => ({
     id: snapshot.context.params.id ?? null,
     path: snapshot.context.path,
   }),
+  commands: ({ actor }) => ({
+    navigate: (to: string) => actor.send({ type: "NAVIGATE_REQUESTED", to }),
+  }),
 });
 
-await router.execute({ command: "navigate", input: "/users/7" });
-expect(router.getStates().id).toBe("7");
+try {
+  await router.execute({ command: "navigate", input: "/users/7" });
+  expect(router.getStates().id).toBe("7");
+} finally {
+  source.stop(); // The application/test owns this started source.
+}
 ```
 
 This keeps the routing proof aligned across:

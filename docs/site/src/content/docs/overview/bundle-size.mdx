@@ -11,9 +11,15 @@ production Vite build. State-library and framework peers are externalized, while
 Ignite's own workspace packages are bundled so the table reflects the Ignite
 code a host app pulls in through each import.
 
-The measurement command is:
+Run the measurement from the [released v3 beta.11 source revision](https://github.com/0xjcf/ignite-element/tree/e2eb1517c8818a16a3142ff2c2b6c534674625d4),
+not the documentation branch or the v2 source layout on main. In a fresh checkout,
+use that revision's Node and pnpm requirements, then run:
 
 ```bash
+git clone https://github.com/0xjcf/ignite-element.git ignite-element-beta11-size
+cd ignite-element-beta11-size
+git checkout --detach e2eb1517c8818a16a3142ff2c2b6c534674625d4
+pnpm install --frozen-lockfile
 pnpm run size:entrypoints
 ```
 

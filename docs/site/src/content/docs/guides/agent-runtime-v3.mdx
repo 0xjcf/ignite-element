@@ -147,7 +147,7 @@ commands: ({ actor, command }) => ({
 });
 ```
 
-Built-in helpers cover `number`, `string`, `boolean`, `enum`, `object`, and `array` while staying JSON-serializable, and `getSchema()` returns executable commands plus their metadata in one map. The full helper catalog and the serialized schema shape live in [Command metadata](/ignite-element/api/command-metadata/).
+Built-in helpers cover `number`, `string`, `boolean`, `enum`, `object`, and `array` while staying JSON-serializable. `getSchema().commands` contains command metadata, not callable functions; invoke commands through `counter.execute({ command, input? })`. The full helper catalog and the serialized schema shape live in [Command metadata](/ignite-element/api/command-metadata/).
 
 Availability predicates live on the same command metadata but stay off the JSON
 schema. They are evaluated against the current snapshot by the headless runtime:

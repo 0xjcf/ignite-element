@@ -6,6 +6,7 @@ import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import AxeBuilder from "@axe-core/playwright";
 import { chromium } from "@playwright/test";
+import { navigateForAudit, requireAuditTargets } from "./audit-contract.mjs";
 
 const SITE_ROOT = fileURLToPath(new URL("..", import.meta.url));
 const DIST = join(SITE_ROOT, "dist");
@@ -76,9 +77,18 @@ async function main() {
 			}, theme);
 			const page = await context.newPage();
 			for (const path of PAGES) {
-				await page.goto(`http://127.0.0.1:${port}${BASE}${path}`, {
+				await navigateForAudit(page, `http://127.0.0.1:${port}${BASE}${path}`, {
 					waitUntil: "networkidle",
 				});
+				await requireAuditTargets(
+					page,
+					[
+						"main h1",
+						"starlight-version-select select",
+						"site-search button[data-open-modal]",
+					],
+					`${theme} ${path}`,
+				);
 				const result = await new AxeBuilder({ page }).analyze();
 				console.log(
 					`${result.violations.length ? "✗" : "✓"} ${theme.padEnd(5)} ${path}`,

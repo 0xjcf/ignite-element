@@ -12,6 +12,8 @@ slug: 2.x/guides/styling
 * **Light DOM**: use host-app styles for page-level layout; Ignite only scopes what you inject via `styles`.
 
 ```ts
+import { defineIgniteConfig } from 'ignite-element';
+
 export default defineIgniteConfig({
   styles: new URL('./styles/components.css', import.meta.url).href,
 });

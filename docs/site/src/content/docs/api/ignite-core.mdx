@@ -45,7 +45,7 @@ component.tagName; // 'counter-button'
 component.getSchema();
 ```
 
-The callable `core` value carries `execute`, `getSnapshot`, `getStates`, `getSchema`, `on`, `watchSnapshot`, `watchStates`, and `record` for driving and inspecting the behavior without the DOM.
+The callable `core` value carries `execute`, `canExecute`, `getSnapshot`, `getStates`, `getSchema`, `on`, `watchSnapshot`, `watchStates`, and `record` for driving and inspecting the behavior without the DOM.
 
 The accepted one-argument overload binds an opaque non-DOM projection target and returns a disposable projection session:
 
@@ -71,7 +71,7 @@ See [The Ignite model](/ignite-element/concepts/the-ignite-model/) for adapter-s
 
 ## Headless runtime
 
-Every component registration also exposes a headless runtime (`execute`, `getSnapshot`, `getStates`, `getSchema`, `on`, `watchSnapshot`, `watchStates`, `record`) for driving and inspecting behavior without the DOM. See [Headless runtime](/ignite-element/api/headless-runtime/) for the full method reference.
+Every component registration also exposes a headless runtime (`execute`, `canExecute`, `getSnapshot`, `getStates`, `getSchema`, `on`, `watchSnapshot`, `watchStates`, `record`) for driving and inspecting behavior without the DOM. See [Headless runtime](/ignite-element/api/headless-runtime/) for the full method reference.
 
 ## Callback boundaries
 

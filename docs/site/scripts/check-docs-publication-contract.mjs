@@ -2,7 +2,14 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { isAlias, isMap, isScalar, parseAllDocuments, visit } from "yaml";
+import {
+	isAlias,
+	isMap,
+	isScalar,
+	isSeq,
+	parseAllDocuments,
+	visit,
+} from "yaml";
 
 const siteRoot = path.resolve(
 	path.dirname(fileURLToPath(import.meta.url)),
@@ -232,14 +239,35 @@ function inspectWorkflow() {
 			problems.push(`workflow trigger/filter changed: missing ${required}`);
 		}
 	}
-	if (
-		/\brun:\s*.*\b(?:git\s+push|npm\s+publish|pnpm\s+publish|gh\s+|deploy)\b/i.test(
-			workflow,
-		)
-	) {
-		problems.push(
-			"workflow contains a repository or publication mutation command",
-		);
+	// Only inspect decoded executable fields after the strict structural gate.
+	// This intentionally remains a bounded command check, not a shell analyzer.
+	if (problems.length === 0) {
+		const [document] = parseAllDocuments(workflow, {
+			version: "1.2",
+			schema: "core",
+		});
+		const steps = document.getIn(["jobs", "contrast", "steps"], true);
+		if (!isSeq(steps)) problems.push("contrast steps must be a sequence");
+		else
+			for (const step of steps.items) {
+				if (!isMap(step)) {
+					problems.push("workflow step must be a mapping");
+					continue;
+				}
+				if (!step.has("run")) continue;
+				const run = step.get("run", true);
+				if (!isScalar(run) || typeof run.value !== "string") {
+					problems.push("workflow run must be a string scalar");
+				} else if (
+					/\b(?:git\s+push|npm\s+publish|pnpm\s+publish|gh\s+|deploy)\b/i.test(
+						run.value,
+					)
+				) {
+					problems.push(
+						"workflow contains a repository or publication mutation command",
+					);
+				}
+			}
 	}
 	return problems;
 }

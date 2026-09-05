@@ -12,10 +12,26 @@ That means integration should stay browser-native. Register the element once, re
 
 ## Register once
 
-Create one module that registers your elements, then import that module from the host app entrypoint:
+Start with the source module:
 
 ```ts
-// register-ignite.ts
+// toggle-machine.ts
+import { createMachine } from 'xstate';
+
+export const toggleMachine = createMachine({
+  initial: 'off',
+  states: {
+    off: { on: { TOGGLE: 'on' } },
+    on: { on: { TOGGLE: 'off' } },
+  },
+});
+```
+
+Create one TSX module that registers your elements, then import that module from
+the host app entrypoint. Configure its JSX import source as `ignite-element/jsx`:
+
+```tsx
+// register-ignite.tsx
 import { igniteCore } from 'ignite-element/xstate';
 import { toggleMachine } from './toggle-machine';
 
@@ -37,7 +53,7 @@ const toggle = igniteCore({
   },
 });
 
-toggle('ignite-toggle', ({ isOn, toggle }) => (
+export const Toggle = toggle('ignite-toggle', ({ isOn, toggle }) => (
   <button onClick={toggle}>{isOn ? 'On' : 'Off'}</button>
 ));
 ```
@@ -110,17 +126,11 @@ export function SettingsToggle() {
 }
 ```
 
-`register-ignite.ts` is authored exactly as before — the only change is that
-registration now returns the handle you pass to `igniteReact`:
+The `Toggle` export from `register-ignite.tsx` above is the registration handle
+passed to `igniteReact`; extensionless TypeScript imports resolve that TSX module.
+The plain HTML example imports its compiled `.js` output.
 
-```ts no-check
-// register-ignite.ts (excerpt) — `toggle` is the registrar from "Register once"
-export const Toggle = toggle('ignite-toggle', ({ isOn, toggle }) => (
-  <button onClick={toggle}>{isOn ? 'On' : 'Off'}</button>
-));
-```
-
-`register-ignite.ts` stays **framework-neutral** — it is just the ignite element.
+`register-ignite.tsx` stays **framework-neutral** — it is just the ignite element.
 `igniteReact(handle)` is the React *binding*; keep it in app code or a small
 `*.react.ts` module so the same element can get a Vue or Svelte binding from the
 same handle. That is how `getSchema()` drives Vue and Svelte wrappers as

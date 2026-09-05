@@ -30,6 +30,7 @@ const requiredCurrentRoutes = [
 	"guides/agent-runtime-v3",
 	"guides/redux-and-mobx",
 	"guides/routing",
+	"guides/accessibility-first",
 	"guides/actor-web",
 	"guides/styling",
 	"guides/testing",

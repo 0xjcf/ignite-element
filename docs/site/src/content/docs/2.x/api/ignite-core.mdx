@@ -7,7 +7,7 @@ sidebar:
 slug: 2.x/api/ignite-core
 ---
 
-`igniteCore` adapts your state source (XState, Redux, MobX) into a render-ready component factory.
+The v2 `igniteCore` export from `ignite-element/xstate` adapts an XState machine or started actor into a render-ready component factory. Redux and MobX use their separate adapter entrypoints.
 
 ```ts
 import { igniteCore } from 'ignite-element/xstate';
@@ -25,7 +25,7 @@ component('tag-name', (props) => /* JSX or lit template */);
 
 **Params**
 
-* `source`: machine definition or started actor (XState), Redux store/slice, or MobX observable.
+* `source`: an XState machine definition or started actor for the entrypoint shown here.
 * `events(mapper)`: optional; defines typed DOM events and enables `emit` inside `commands`.
 * `states(snapshot)`: derive render props from the current snapshot; runs on mount and on changes.
 * `commands(context)`: expose actions; receives `{ actor, emit?, host }`.

@@ -35,6 +35,7 @@ import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
+import { navigateForAudit, requireAuditTargets } from "./audit-contract.mjs";
 
 const SITE_ROOT = fileURLToPath(new URL("..", import.meta.url)); // docs/site
 const DIST = join(SITE_ROOT, "dist");
@@ -47,7 +48,7 @@ const TEXT = 4.5; // WCAG AA for body text
 const SELECTORS = {
 	versionPicker: { sel: "starlight-version-select select", min: UI },
 	themeToggle: { sel: "starlight-theme-select select", min: UI },
-	search: { sel: "site-search button", min: UI },
+	search: { sel: "site-search button[data-open-modal]", min: UI },
 	sidebar: { sel: ".sidebar-pane a", min: TEXT },
 	toc: { sel: ".right-sidebar a", min: TEXT },
 	pagination: { sel: ".pagination-links a span", min: TEXT },
@@ -65,6 +66,14 @@ const PAGES = [
 	"/2.x/getting-started/installation/",
 ];
 const THEMES = ["dark", "light"];
+
+// These three content routes contain the complete chrome/content sample in
+// both themes. Other routes (e.g. the splash page) have different coverage.
+const REQUIRED_CONTRAST = {
+	"/getting-started/installation/": Object.keys(SELECTORS),
+	"/migration/v3/": Object.keys(SELECTORS),
+	"/2.x/getting-started/installation/": Object.keys(SELECTORS),
+};
 
 // Geometry guardrail: interactive controls must use the radius scale and (where
 // text sits inside) have non-zero horizontal padding. This catches un-tokenized
@@ -85,7 +94,8 @@ const GEOMETRY = [
 	},
 	{
 		path: "/getting-started/installation/",
-		sel: "site-search button",
+		// Audit the header search trigger, not Pagefind's hidden modal buttons.
+		sel: "site-search button[data-open-modal]",
 		needPadX: true,
 	},
 	{ path: "/", sel: ".hero .actions a", needPadX: true },
@@ -242,7 +252,12 @@ async function main() {
 			const page = await context.newPage();
 
 			for (const path of PAGES) {
-				await page.goto(`${origin}${path}`, { waitUntil: "load" });
+				await navigateForAudit(page, `${origin}${path}`, { waitUntil: "load" });
+				await requireAuditTargets(
+					page,
+					REQUIRED_CONTRAST[path].map((key) => SELECTORS[key].sel),
+					`${theme} ${path}`,
+				);
 				const got = await page.evaluate(auditInPage, {
 					...Object.fromEntries(
 						Object.entries(SELECTORS).map(([k, v]) => [k, v.sel]),
@@ -263,7 +278,10 @@ async function main() {
 		const geomContext = await browser.newContext();
 		const geomPage = await geomContext.newPage();
 		for (const g of GEOMETRY) {
-			await geomPage.goto(`${origin}${g.path}`, { waitUntil: "load" });
+			await navigateForAudit(geomPage, `${origin}${g.path}`, {
+				waitUntil: "load",
+			});
+			await requireAuditTargets(geomPage, [g.sel], `geometry ${g.path}`);
 			const items = await geomPage.evaluate(geometryInPage, {
 				sel: g.sel,
 				scaleVars: RADIUS_SCALE_VARS,

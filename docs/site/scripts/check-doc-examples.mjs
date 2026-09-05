@@ -13,8 +13,9 @@
  * Robustness against doc realities (so it reports real drift, not noise):
  *  - `ignite-element` + subpaths and `@ignite-element/*` map to the declaration
  *    files from the pinned public 3.0.0-beta.11 packages.
- *  - External peers (xstate, lit-html, …) and app-relative imports resolve to
- *    `any`; their "cannot find module" (TS2307) errors are filtered.
+ *  - Unresolved imports fail unless a specific document/module pair is listed
+ *    as an illustrative prerequisite. Connected runnable examples are checked
+ *    separately without ambient scaffolding.
  *  - Names declared in EARLIER code blocks on the same page, plus a small set of
  *    test-runner globals and doc placeholders, are injected as ambient `any` so
  *    cross-block references and "your app provides this" names don't false-fail.
@@ -62,6 +63,56 @@ const LANGS = new Set(["ts", "tsx", "typescript", "typescriptreact"]);
 const SKIP_META = /\b(no-check|no-typecheck|docs-skip)\b/;
 const SKIP_COMMENT = /^\s*\/\/\s*docs-check:\s*skip\b/;
 const ARCHIVE = /(^|\/)\d+\.x(\/|$)/;
+
+// Per-document prerequisites only. These fragments are not standalone runnable
+// programs. Never exempt an Ignite package path or an arbitrary relative import.
+const ILLUSTRATIVE_IMPORTS = {
+	"api/advanced-config.mdx": {
+		"./ignite.config":
+			"Application entrypoint illustration loads the configuration shown above.",
+		"./components/ignite-counter":
+			"Application-owned component registration illustrating config-before-component load order.",
+	},
+	"concepts/the-ignite-model.mdx": {
+		"./counter-machine":
+			"Application-owned counter source in the model illustration.",
+	},
+	"getting-started/first-component.mdx": {
+		"./toggleMachine": "Source module is shown in the preceding fence.",
+	},
+	"guides/actor-web.mdx": {
+		"./application":
+			"Application-owned topology, runtime startup, and view projection.",
+	},
+	"guides/host-app-integration.mdx": {
+		"./register-ignite":
+			"Registration module shown on the same page and exercised by the connected check.",
+		"./toggle-machine":
+			"Preceding source module; connected registration also strictly checked.",
+		react:
+			"Optional host-framework prerequisite in the hand-written wrapper illustration, absent from the frozen docs dependencies; this fragment is not runnable verification.",
+	},
+	"guides/routing.mdx": {
+		"./routes": "Route table from the linked released example.",
+		"./matchRoute": "Pure matcher from the linked released example.",
+		"./navigation":
+			"Application-owned navigation port from the linked example.",
+		"./routerSource":
+			"Started source from the linked example; connected test also strictly checked.",
+	},
+	"guides/testing.mdx": {
+		"./ignite.config":
+			"Application config loaded by the separate test setup module.",
+		"./counter.machine": "Separate machine module shown on the same page.",
+		"./counter.element": "Separate registration module shown on the same page.",
+	},
+	"index.mdx": {
+		"./toggle-machine":
+			"Homepage illustration of an application-owned toggle source.",
+		"./counter-machine":
+			"Homepage illustration of an application-owned counter source.",
+	},
+};
 
 // Names assumed available without declaration: test-runner globals + the
 // "your app provides this" placeholders that appear throughout the guides.
@@ -117,6 +168,7 @@ const COMPILER_OPTIONS = {
 	skipLibCheck: true,
 	noEmit: true,
 	allowJs: false,
+	noUncheckedSideEffectImports: true,
 	types: [],
 	baseUrl: TMP,
 	// Map directly to the declaration graph from the exact public prerelease.
@@ -235,6 +287,7 @@ function declaredNames(code) {
 			for (const part of m[3].split(",")) {
 				const name = part
 					.trim()
+					.replace(/^type\s+/, "")
 					.split(/\s+as\s+/)
 					.pop()
 					.trim();
@@ -264,6 +317,26 @@ async function main() {
 				`[check-doc-examples] Expected ${packageName}@${BETA_VERSION} as native ESM, received ${packageJson.version ?? "unknown"}.`,
 			);
 			process.exit(2);
+		}
+		for (const [specifier, targets] of Object.entries(COMPILER_OPTIONS.paths)) {
+			if (specifier !== packageName && !specifier.startsWith(`${packageName}/`))
+				continue;
+			const subpath =
+				specifier === packageName
+					? "."
+					: `.${specifier.slice(packageName.length)}`;
+			const exported = packageJson.exports?.[subpath]?.types;
+			if (
+				!exported ||
+				targets.length !== 1 ||
+				resolve(TMP, targets[0]) !==
+					resolve(PUBLIC_PACKAGE_ROOT, packageName, exported) ||
+				!existsSync(resolve(TMP, targets[0]))
+			) {
+				throw new Error(
+					`Missing or unsupported declaration target: ${specifier}`,
+				);
+			}
 		}
 	}
 	const baseline = existsSync(BASELINE_FILE)
@@ -335,18 +408,30 @@ async function main() {
 			byVirtual.has(resolve(d.file.fileName)) &&
 			d.code >= 1000 &&
 			d.code < 2000
-		)
+		) {
 			syntactic.add(resolve(d.file.fileName));
+		}
 	}
 
 	const failures = [];
+	const illustrativeImports = [];
 	for (const d of all) {
 		if (!d.file) continue;
 		const key = resolve(d.file.fileName);
 		const s = byVirtual.get(key);
 		if (!s) continue; // library-internal noise
 		if (syntactic.has(key)) continue; // fragment
-		if (d.code === 2307) continue; // external/relative import → any
+		if (d.code === 2307) {
+			const specifier = ts
+				.flattenDiagnosticMessageText(d.messageText, " ")
+				.match(/Cannot find module '([^']+)'/)?.[1];
+			const doc = relative(DOCS_DIR, s.file).split(sep).join("/");
+			const reason = ILLUSTRATIVE_IMPORTS[doc]?.[specifier];
+			if (reason) {
+				illustrativeImports.push({ doc, specifier, reason });
+				continue;
+			}
+		}
 		if (ARTIFACT_CODES.has(d.code)) continue; // file-synthesis / TS-perf artifact
 		const message = ts.flattenDiagnosticMessageText(d.messageText, " ");
 		const { line } = d.file.getLineAndCharacterOfPosition(d.start);
@@ -412,10 +497,18 @@ async function main() {
 		explicitlyExcluded: exclusions.length,
 		eligible,
 		syntacticallyIncomplete: syntactic.size,
+		incompleteFragments: [...syntactic].map((key) => {
+			const snippet = byVirtual.get(key);
+			return {
+				doc: relative(REPO_ROOT, snippet.file).split(sep).join("/"),
+				line: snippet.startLine,
+			};
+		}),
 		actuallyTypechecked: checked,
 		knownBaselineEntries: baseline.length,
 		knownBaselinedFailures: failures.length - fresh.length,
 		newFailures: fresh.length,
+		illustrativeImports,
 		exclusions,
 	};
 	console.log("\nDocs code-block typecheck guardrail");
