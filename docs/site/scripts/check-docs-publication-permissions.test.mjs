@@ -130,3 +130,139 @@ for (const [name, unsafeWorkflow] of unsafeWorkflows) {
 		);
 	});
 }
+
+const jobPermissionBlock = "    permissions:\n      contents: read";
+const scalarDecoy =
+	'    name: "Permission check\n    permissions:\n      contents: read\n    "';
+const explicitKeyBypass = workflow.replace(
+	jobPermissionBlock,
+	`${scalarDecoy}\n    ? permissions\n    : write-all`,
+);
+const escapedKey = String.raw`"permis\u0073ions"`;
+const escapedKeyBypass = workflow.replace(
+	jobPermissionBlock,
+	`${scalarDecoy}\n    ${escapedKey}: write-all`,
+);
+const escapedDuplicate = workflow.replace(
+	jobPermissionBlock,
+	`${jobPermissionBlock}\n    ${escapedKey}: write-all`,
+);
+
+const yamlUnsafeWorkflows = new Map([
+	["multiline name and explicit permission key", explicitKeyBypass],
+	["multiline name and escaped permission key", escapedKeyBypass],
+	["escaped duplicate permission key", escapedDuplicate],
+	["duplicate decoded jobs key", `${workflow}\n"jo\\u0062s": {}\n`],
+	["duplicate decoded contrast key", `${workflow}\n  "con\\u0074rast": {}\n`],
+	["multiple YAML documents", `${workflow}\n---\npermissions: write-all\n`],
+	["malformed YAML", `${workflow}\nbroken: [\n`],
+	["sequence document root", "- permissions: {}\n- jobs: {}\n"],
+	["empty YAML document", ""],
+	["unsupported YAML 1.1 directive", `%YAML 1.1\n---\n${workflow}`],
+	["unsupported YAML version directive", `%YAML 1.3\n---\n${workflow}`],
+	["unknown directive warning", `%UNKNOWN example\n---\n${workflow}`],
+	["anchored root mapping", `&workflow\n${workflow}`],
+	["unused scalar anchor", `${workflow}\nnote: &note safe\n`],
+	["alias", `${workflow}\nnote: *missing\n`],
+	["merge key", `${workflow}\n<<: { permissions: {} }\n`],
+	["custom scalar tag", `${workflow}\nnote: !custom safe\n`],
+	[
+		"custom mapping tag",
+		workflow.replace("permissions: {}", "permissions: !custom {}"),
+	],
+	["complex sequence key", `${workflow}\n? [permissions]\n: write-all\n`],
+	["complex mapping key", `${workflow}\n? {permissions: read}\n: write-all\n`],
+	["non-string mapping key", `${workflow}\ntrue: safe\n`],
+	[
+		"quoted scalar substituting for job permissions",
+		workflow.replace(jobPermissionBlock, scalarDecoy),
+	],
+	[
+		"block scalar substituting for job permissions",
+		workflow.replace(
+			jobPermissionBlock,
+			"    name: |\n      permissions:\n        contents: read",
+		),
+	],
+	[
+		"block scalar substituting for root permissions",
+		workflow.replace("permissions: {}", "name: |\n  permissions: {}"),
+	],
+	["missing root permissions", workflow.replace("permissions: {}\n", "")],
+	[
+		"null jobs",
+		workflow.replace("jobs:\n  contrast:", "jobs: null\nother:\n  contrast:"),
+	],
+	[
+		"sequence jobs",
+		workflow.replace("jobs:\n  contrast:", "jobs:\n  - contrast:"),
+	],
+	["scalar contrast job", "permissions: {}\njobs:\n  contrast: read\n"],
+	["sequence contrast job", "permissions: {}\njobs:\n  contrast: []\n"],
+]);
+for (const [name, value] of [
+	["null", "null"],
+	["implicit null", ""],
+	["scalar", "read"],
+	["sequence", "[contents, read]"],
+]) {
+	yamlUnsafeWorkflows.set(
+		`${name} root permissions`,
+		workflow.replace("permissions: {}", `permissions: ${value}`),
+	);
+	yamlUnsafeWorkflows.set(
+		`${name} job permissions`,
+		workflow.replace(jobPermissionBlock, `    permissions: ${value}`),
+	);
+}
+for (const [name, source] of yamlUnsafeWorkflows) {
+	test(`rejects YAML ${name}`, () => {
+		assert.notDeepEqual(
+			inspectWorkflowPermissions(source),
+			[],
+			`unsafe YAML accepted: ${name}`,
+		);
+	});
+}
+
+const harmlessWorkflows = new Map([
+	["permission-like comment", `${workflow}\n# permissions: write-all\n`],
+	[
+		"permission-like string",
+		workflow.replace("name: Docs Contrast", 'name: "permissions: write-all"'),
+	],
+	[
+		"permission-like multiline string",
+		workflow.replace(
+			"    runs-on:",
+			`    name: "permissions:\n      contents: write"\n    runs-on:`,
+		),
+	],
+	[
+		"permission-like block scalar",
+		workflow.replace(
+			"    runs-on:",
+			"    name: |\n      permissions:\n        contents: write\n    runs-on:",
+		),
+	],
+	[
+		"quoted and escaped keys",
+		workflow.replace(
+			jobPermissionBlock,
+			`    ${escapedKey}:\n      "contents": "read"`,
+		),
+	],
+	[
+		"explicit safe key",
+		workflow.replace(
+			jobPermissionBlock,
+			"    ? permissions\n    :\n      contents: read",
+		),
+	],
+	["explicit YAML 1.2 directive", `%YAML 1.2\n---\n${workflow}`],
+]);
+for (const [name, source] of harmlessWorkflows) {
+	test(`accepts harmless YAML ${name}`, () => {
+		assert.deepEqual(inspectWorkflowPermissions(source), []);
+	});
+}
