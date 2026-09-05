@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { isMap, parseDocument } from "yaml";
-
-import { inspectWorkflowPermissions } from "./check-docs-publication-contract.mjs";
+import {
+	inspectDocumentationWorkflow,
+	inspectWorkflowPermissions,
+} from "./check-docs-publication-contract.mjs";
+import { cli, withSite } from "./review-fixtures.mjs";
 
 const siteRoot = path.resolve(
 	path.dirname(fileURLToPath(import.meta.url)),
@@ -15,6 +19,20 @@ const workflow = fs.readFileSync(
 	path.resolve(siteRoot, "../../.github/workflows/docs-contrast.yml"),
 	"utf8",
 );
+
+test("production guard rejects a privileged deployment build", () =>
+	withSite(({ root, site }) => {
+		const file = path.join(root, ".github/workflows/docs-deploy.yml");
+		fs.writeFileSync(
+			file,
+			fs
+				.readFileSync(file, "utf8")
+				.replace("contents: read", "contents: write"),
+		);
+		const result = cli(site, "check-docs-publication-contract.mjs");
+		assert.notEqual(result.status, 0, result.output);
+		assert.match(result.output, /build permissions/);
+	}));
 
 function addContrastPermission(permission) {
 	return workflow.replace(
@@ -322,3 +340,272 @@ for (const [name, source] of harmlessWorkflows) {
 		assert.deepEqual(inspectWorkflowPermissions(source), []);
 	});
 }
+
+const deployment = fs.readFileSync(
+	path.resolve(siteRoot, "../../.github/workflows/docs-deploy.yml"),
+	"utf8",
+);
+test("accepts both complete documentation workflow contracts", () => {
+	assert.deepEqual(inspectDocumentationWorkflow(workflow), []);
+	assert.deepEqual(inspectDocumentationWorkflow(deployment, "deploy"), []);
+});
+const deploymentMutations = new Map([
+	[
+		"ignored build failure",
+		(d) => d.setIn(["jobs", "build", "continue-on-error"], true),
+	],
+	[
+		"ignored deployment failure",
+		(d) => d.setIn(["jobs", "deploy", "continue-on-error"], true),
+	],
+	["missing root permissions", (d) => d.delete("permissions")],
+	["root write-all", (d) => d.set("permissions", "write-all")],
+	[
+		"privileged build",
+		(d) => d.setIn(["jobs", "build", "permissions"], { contents: "write" }),
+	],
+	[
+		"missing build permissions",
+		(d) => d.deleteIn(["jobs", "build", "permissions"]),
+	],
+	[
+		"missing deploy permissions",
+		(d) => d.deleteIn(["jobs", "deploy", "permissions"]),
+	],
+	[
+		"extra deploy permission",
+		(d) => d.setIn(["jobs", "deploy", "permissions", "contents"], "write"),
+	],
+	[
+		"missing OIDC permission",
+		(d) => d.deleteIn(["jobs", "deploy", "permissions", "id-token"]),
+	],
+	[
+		"missing Pages permission",
+		(d) => d.deleteIn(["jobs", "deploy", "permissions", "pages"]),
+	],
+	["missing dependency", (d) => d.deleteIn(["jobs", "deploy", "needs"])],
+	["other dependency", (d) => d.setIn(["jobs", "deploy", "needs"], "other")],
+	["missing environment", (d) => d.deleteIn(["jobs", "deploy", "environment"])],
+	[
+		"other environment",
+		(d) => d.setIn(["jobs", "deploy", "environment", "name"], "other"),
+	],
+	["missing branch condition", (d) => d.deleteIn(["jobs", "deploy", "if"])],
+	[
+		"failure-bypassing condition",
+		(d) =>
+			d.setIn(
+				["jobs", "deploy", "if"],
+				"always() && github.ref == 'refs/heads/main'",
+			),
+	],
+	[
+		"other branch condition",
+		(d) => d.setIn(["jobs", "deploy", "if"], "github.ref == 'refs/heads/beta'"),
+	],
+	["unexpected job", (d) => d.setIn(["jobs", "extra"], {})],
+	["pull_request_target", (d) => d.setIn(["on", "pull_request_target"], {})],
+	["other push branch", (d) => d.setIn(["on", "push", "branches"], ["beta"])],
+	["missing manual trigger", (d) => d.deleteIn(["on", "workflow_dispatch"])],
+	[
+		"npm credentials",
+		(d) =>
+			d.setIn(["jobs", "build", "env"], {
+				NPM_TOKEN: "$" + "{{ secrets.NPM_TOKEN }}",
+			}),
+	],
+	[
+		"secret in action input",
+		(d) =>
+			d.setIn(["jobs", "build", "steps", 0, "with"], {
+				token: "$" + "{{ secrets.WRITE_TOKEN }}",
+			}),
+	],
+	[
+		"unpinned pnpm",
+		(d) => d.setIn(["jobs", "build", "steps", 1, "with", "version"], 9),
+	],
+	[
+		"missing publication validation",
+		(d) => {
+			const steps = d.getIn(["jobs", "build", "steps"]);
+			steps.items = steps.items.filter(
+				(s) => s.get("run") !== "pnpm --filter docs-site run check:publication",
+			);
+		},
+	],
+	[
+		"wrong Pages artifact path",
+		(d) => {
+			const upload = d
+				.getIn(["jobs", "build", "steps"])
+				.items.find((s) =>
+					s.get("uses")?.startsWith("actions/upload-pages-artifact@"),
+				);
+			upload.setIn(["with", "path"], "other");
+		},
+	],
+	["missing Pages deployment", (d) => d.setIn(["jobs", "deploy", "steps"], [])],
+	[
+		"wrong URL wiring",
+		(d) =>
+			d.setIn(
+				["jobs", "deploy", "environment", "url"],
+				"https://example.invalid",
+			),
+	],
+]);
+for (const command of [
+	"npm publish",
+	"pnpm publish",
+	"npm stage approve fake",
+	"npm dist-tag add pkg latest",
+	"git push origin main",
+	"gh release create fake",
+]) {
+	deploymentMutations.set(`executable ${command}`, (d) =>
+		d.getIn(["jobs", "build", "steps"]).add({ name: "fixture", run: command }),
+	);
+}
+for (const [name, mutate] of deploymentMutations) {
+	test(`deployment policy rejects ${name} in valid YAML`, () => {
+		const document = parseDocument(deployment);
+		mutate(document);
+		const source = document.toString();
+		assert.deepEqual(parseDocument(source).errors, []);
+		assert.notDeepEqual(inspectDocumentationWorkflow(source, "deploy"), []);
+	});
+}
+for (const [name, mutation] of [
+	[
+		"duplicate key",
+		(s) => s.replace("permissions: {}", "permissions: {}\npermissions: {}"),
+	],
+	[
+		"escaped duplicate key",
+		(s) =>
+			s.replace("permissions: {}", 'permissions: {}\n"permis\\u0073ions": {}'),
+	],
+	["malformed document", (s) => `${s}\nbroken: [\n`],
+]) {
+	test(`deployment parser rejects ${name}`, () => {
+		const source = mutation(deployment);
+		assert.ok(parseDocument(source).errors.length > 0);
+		assert.ok(
+			inspectDocumentationWorkflow(source, "deploy").some((p) =>
+				p.startsWith("YAML "),
+			),
+		);
+	});
+}
+for (const [name, mutation] of [
+	["alias", (s) => `${s}\nnote: *missing\n`],
+	["anchor", (s) => `${s}\nnote: &unused safe\n`],
+	["merge", (s) => `${s}\n<<: { permissions: {} }\n`],
+	["multiple documents", (s) => `${s}\n---\n{}\n`],
+	["custom tag", (s) => `${s}\nnote: !custom safe\n`],
+	[
+		"multiline decoy",
+		(s) =>
+			s.replace(
+				"    permissions:\n      contents: read",
+				'    name: "permissions:\n      contents: read"\n    "permis\\u0073ions": write-all',
+			),
+	],
+]) {
+	test(`deployment structural policy rejects ${name}`, () =>
+		assert.notDeepEqual(
+			inspectDocumentationWorkflow(mutation(deployment), "deploy"),
+			[],
+		));
+}
+for (const kind of ["contrast", "deploy"]) {
+	for (const [name, value] of [
+		["multiline", "run: npm publish\npermissions: write-all\nNPM_TOKEN"],
+		["plain", "git push is prohibited"],
+	]) {
+		test(
+			kind +
+				" accepts descriptive " +
+				name +
+				" text without treating it as executable",
+			() => {
+				const doc = parseDocument(kind === "contrast" ? workflow : deployment);
+				doc.set("name", value);
+				const job = kind === "contrast" ? "contrast" : "build";
+				doc.setIn(["jobs", job, "steps", 0, "name"], value);
+				assert.deepEqual(
+					inspectDocumentationWorkflow(doc.toString(), kind),
+					[],
+				);
+			},
+		);
+	}
+}
+test("deployment accepts decoded escaped permission keys", () => {
+	assert.deepEqual(
+		inspectDocumentationWorkflow(
+			deployment.replace("permissions: {}", '"permis\\u0073ions": {}'),
+			"deploy",
+		),
+		[],
+	);
+});
+
+test("actual CI browser command propagates test failure and success", () =>
+	withSite(({ root, site }) => {
+		const data = parseDocument(workflow).toJS();
+		const steps = data.jobs.contrast.steps;
+		const index = steps.findIndex(
+			(s) => s.run === "pnpm --filter docs-site run test:browser-audits",
+		);
+		assert.ok(
+			index > steps.findIndex((s) => s.run === "pnpm --filter docs-site build"),
+		);
+		assert.ok(
+			index > steps.findIndex((s) => s.run?.includes("playwright install")),
+		);
+		assert.equal(steps[index]["continue-on-error"], undefined);
+		assert.equal(steps[index].if, undefined);
+		assert.equal(
+			steps.filter((s) => s.run?.includes("check:publication")).length,
+			1,
+		);
+		assert.equal(
+			steps.filter((s) => s.run === "pnpm --filter docs-site build").length,
+			1,
+		);
+		for (const script of ["check:contrast", "check:accessibility"])
+			assert.ok(
+				steps.some((s) => s.run === `pnpm --filter docs-site run ${script}`),
+			);
+		fs.copyFileSync(
+			path.resolve(siteRoot, "../../pnpm-workspace.yaml"),
+			path.join(root, "pnpm-workspace.yaml"),
+		);
+		for (const failure of [true, false]) {
+			fs.writeFileSync(
+				path.join(site, "scripts/browser-audits.test.mjs"),
+				"import test from 'node:test'; test('CI propagation fixture', () => { " +
+					(failure
+						? "throw new Error('intentional browser-lane failure');"
+						: "") +
+					" });\n",
+			);
+			const [command, ...args] = steps[index].run.split(" ");
+			// This is a fresh CI process, not a recursive node:test child.
+			const env = { ...process.env };
+			delete env.NODE_TEST_CONTEXT;
+			const result = spawnSync(command, args, {
+				cwd: root,
+				env,
+				encoding: "utf8",
+				timeout: 30000,
+			});
+			const output = result.stdout + result.stderr;
+			assert.match(output, /CI propagation fixture/);
+			assert.match(output, /# tests 1/);
+			assert.equal(result.status === 0, !failure, output);
+		}
+	}));

@@ -66,17 +66,34 @@ function ids(text) {
 	);
 }
 
-async function validateExternal(url) {
+export async function validateExternal(url, timeoutMs = EXTERNAL_TIMEOUT_MS) {
+	const controller = new AbortController();
+	const timer = setTimeout(
+		() => controller.abort(new Error("External link deadline exceeded")),
+		timeoutMs,
+	);
 	const options = {
 		headers: { "user-agent": "ignite-element-docs-link-check/1.0" },
 		redirect: "follow",
-		signal: AbortSignal.timeout(EXTERNAL_TIMEOUT_MS),
+		signal: controller.signal,
 	};
-	let response = await fetch(url, { ...options, method: "HEAD" });
-	if (response.status === 405 || response.status === 501) {
-		response = await fetch(url, { ...options, method: "GET" });
+	let response;
+	try {
+		response = await fetch(url, { ...options, method: "HEAD" });
+		if (response.status === 405 || response.status === 501) {
+			await response.body?.cancel();
+			response = undefined;
+			response = await fetch(url, { ...options, method: "GET" });
+		}
+		if (!response.ok) throw new Error(`HTTP ${response.status}`);
+	} finally {
+		try {
+			await response?.body?.cancel();
+		} finally {
+			clearTimeout(timer);
+			controller.abort();
+		}
 	}
-	if (!response.ok) throw new Error(`HTTP ${response.status}`);
 }
 
 async function main() {
@@ -155,7 +172,8 @@ async function main() {
 	);
 }
 
-main().catch((error) => {
-	console.error("[links] unexpected error:", error);
-	process.exit(2);
-});
+if (resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url))
+	main().catch((error) => {
+		console.error("[links] unexpected error:", error);
+		process.exit(2);
+	});

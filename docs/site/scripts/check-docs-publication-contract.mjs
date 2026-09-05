@@ -2,14 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	isAlias,
-	isMap,
-	isScalar,
-	isSeq,
-	parseAllDocuments,
-	visit,
-} from "yaml";
+import { isAlias, isMap, isScalar, parseAllDocuments, visit } from "yaml";
 
 const siteRoot = path.resolve(
 	path.dirname(fileURLToPath(import.meta.url)),
@@ -18,7 +11,7 @@ const siteRoot = path.resolve(
 const repoRoot = path.resolve(siteRoot, "..", "..");
 const docsRoot = path.join(siteRoot, "src/content/docs");
 const archiveRoot = path.join(docsRoot, "2.x");
-const workflowPath = path.join(repoRoot, ".github/workflows/docs-contrast.yml");
+
 const validatorPath = path.join(siteRoot, "scripts/check-doc-examples.mjs");
 
 const TS_LANGUAGES = new Set(["ts", "tsx", "typescript", "typescriptreact"]);
@@ -122,7 +115,7 @@ function inspectV2Installs() {
 	return violations;
 }
 
-export function inspectWorkflowPermissions(workflow) {
+function parseWorkflow(workflow) {
 	// YAML 1.2 core keeps GitHub's "on" key a string. Inspect nodes before any
 	// conversion to objects so aliases and decoded duplicate keys cannot hide.
 	const documents = parseAllDocuments(workflow, {
@@ -136,7 +129,7 @@ export function inspectWorkflowPermissions(workflow) {
 		keepSourceTokens: true,
 	});
 	if (documents.length !== 1)
-		return ["workflow must contain exactly one YAML document"];
+		return { problems: ["workflow must contain exactly one YAML document"] };
 	const document = documents[0];
 	const problems = [...document.errors, ...document.warnings].map(
 		({ code, message }) => `YAML ${code}: ${message}`,
@@ -144,8 +137,9 @@ export function inspectWorkflowPermissions(workflow) {
 	if (document.directives?.yaml.version !== "1.2") {
 		problems.push("workflow must use YAML 1.2");
 	}
-	if (problems.length) return problems;
-	if (!isMap(document.contents)) return ["workflow root must be a mapping"];
+	if (problems.length) return { problems };
+	if (!isMap(document.contents))
+		return { problems: ["workflow root must be a mapping"] };
 
 	visit(document, {
 		Node(_key, node) {
@@ -163,9 +157,48 @@ export function inspectWorkflowPermissions(workflow) {
 			}
 		},
 	});
-	if (problems.length) return [...new Set(problems)];
+	if (problems.length) return { problems: [...new Set(problems)] };
 
-	const root = document.contents;
+	return { root: document.contents, problems: [] };
+}
+
+export function inspectWorkflowPermissions(workflow) {
+	const parsed = parseWorkflow(workflow);
+	return parsed.problems.length
+		? parsed.problems
+		: inspectPermissions(parsed.root, "contrast");
+}
+
+function inspectPermissions(root, kind) {
+	const problems = [];
+	if (kind === "deploy") {
+		const data = root.toJSON();
+		const exact = (actual, expected) =>
+			actual &&
+			typeof actual === "object" &&
+			!Array.isArray(actual) &&
+			Object.keys(actual).length === Object.keys(expected).length &&
+			Object.entries(expected).every(([key, value]) => actual[key] === value);
+		if (!exact(data.permissions, {}))
+			problems.push("top-level permissions must be an explicit empty mapping");
+		if (
+			!data.jobs ||
+			Object.keys(data.jobs).sort().join(",") !== "build,deploy"
+		)
+			problems.push("jobs must contain only build and deploy");
+		if (!exact(data.jobs?.build?.permissions, { contents: "read" }))
+			problems.push("build permissions must contain only contents: read");
+		if (
+			!exact(data.jobs?.deploy?.permissions, {
+				pages: "write",
+				"id-token": "write",
+			})
+		)
+			problems.push(
+				"deploy permissions must contain only pages: write and id-token: write",
+			);
+		return problems;
+	}
 	const rootPermissions = root.get("permissions", true);
 	if (!isMap(rootPermissions) || rootPermissions.items.length !== 0) {
 		problems.push("top-level permissions must be an explicit empty mapping");
@@ -204,72 +237,164 @@ export function inspectWorkflowPermissions(workflow) {
 	return problems;
 }
 
-function inspectWorkflow() {
-	const workflow = fs.readFileSync(workflowPath, "utf8");
-	const rootPackage = JSON.parse(
-		fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"),
-	);
-	const packageManager =
-		rootPackage.packageManager ?? rootPackage.devEngines?.packageManager;
-	const problems = inspectWorkflowPermissions(workflow);
+export function inspectDocumentationWorkflow(workflow, kind = "contrast") {
+	const parsed = parseWorkflow(workflow);
+	if (parsed.problems.length) return parsed.problems;
+	const problems = inspectPermissions(parsed.root, kind);
+	if (problems.length) return problems;
+	const data = parsed.root.toJSON();
+	const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+	const trigger = kind === "deploy" ? "push" : "pull_request";
 	if (
-		!/uses:\s*pnpm\/action-setup@v4[\s\S]{0,240}\bversion:\s*9\.15\.9\b/.test(
-			workflow,
-		)
+		!data.on ||
+		Object.keys(data.on).sort().join(",") !==
+			[trigger, "workflow_dispatch"].sort().join(",") ||
+		!same(data.on[trigger]?.branches, ["main"])
 	) {
 		problems.push(
-			`pnpm/action-setup has no explicit 9.15.9 input and root fallback is ${packageManager ?? "absent"}`,
+			"workflow triggers must select main and allow manual dispatch; pull_request_target is prohibited",
 		);
 	}
-	if (/pull_request_target\s*:/.test(workflow)) {
-		problems.push("pull_request_target is prohibited");
-	}
-	if (/\$\{\{\s*secrets\.|NPM_TOKEN|NODE_AUTH_TOKEN/.test(workflow)) {
-		problems.push("workflow references a secret or npm credential");
-	}
-	for (const required of [
-		"pull_request:",
-		"branches: [main]",
-		'"docs/site/**"',
-		'"packages/**"',
-		'".github/workflows/docs-contrast.yml"',
-		"workflow_dispatch:",
-	]) {
-		if (!workflow.includes(required)) {
-			problems.push(`workflow trigger/filter changed: missing ${required}`);
+	if (kind === "contrast") {
+		for (const filter of [
+			"docs/site/**",
+			"packages/**",
+			".github/workflows/docs-contrast.yml",
+			".github/workflows/docs-deploy.yml",
+		]) {
+			if (!data.on?.pull_request?.paths?.includes(filter))
+				problems.push(`missing PR path filter: ${filter}`);
 		}
 	}
-	// Only inspect decoded executable fields after the strict structural gate.
-	// This intentionally remains a bounded command check, not a shell analyzer.
-	if (problems.length === 0) {
-		const [document] = parseAllDocuments(workflow, {
-			version: "1.2",
-			schema: "core",
-		});
-		const steps = document.getIn(["jobs", "contrast", "steps"], true);
-		if (!isSeq(steps)) problems.push("contrast steps must be a sequence");
-		else
-			for (const step of steps.items) {
-				if (!isMap(step)) {
-					problems.push("workflow step must be a mapping");
-					continue;
-				}
-				if (!step.has("run")) continue;
-				const run = step.get("run", true);
-				if (!isScalar(run) || typeof run.value !== "string") {
+	// These checks cover decoded executable fields, not descriptive names or
+	// arbitrary shell programs. Do not claim general shell-program analysis.
+	const inspectCredentials = (value) => {
+		if (
+			typeof value === "string" &&
+			/\$\{\{\s*secrets\.|NPM_TOKEN|NODE_AUTH_TOKEN/i.test(value)
+		)
+			problems.push("workflow references a secret or npm credential");
+		if (value && typeof value === "object")
+			for (const [key, child] of Object.entries(value)) {
+				if (/NPM_TOKEN|NODE_AUTH_TOKEN/i.test(key))
+					problems.push("workflow references an npm credential");
+				inspectCredentials(child);
+			}
+	};
+	inspectCredentials(data.env);
+	for (const [name, job] of Object.entries(data.jobs)) {
+		for (const field of ["env", "secrets", "with", "uses"])
+			inspectCredentials(job[field]);
+		if (!Array.isArray(job.steps)) {
+			problems.push(`${name} steps must be a sequence`);
+			continue;
+		}
+		for (const step of job.steps) {
+			if (!step || typeof step !== "object" || Array.isArray(step)) {
+				problems.push("workflow step must be a mapping");
+				continue;
+			}
+			for (const field of ["run", "env", "with", "uses"])
+				inspectCredentials(step[field]);
+			if ("run" in step) {
+				if (typeof step.run !== "string")
 					problems.push("workflow run must be a string scalar");
-				} else if (
-					/\b(?:git\s+push|npm\s+publish|pnpm\s+publish|gh\s+|deploy)\b/i.test(
-						run.value,
+				else if (
+					/\b(?:git\s+push|(?:npm|pnpm)\s+(?:publish|stage|dist-tag|login|adduser)|gh\s+|deploy)\b/i.test(
+						step.run,
 					)
-				) {
+				)
 					problems.push(
 						"workflow contains a repository or publication mutation command",
 					);
-				}
 			}
+		}
+		if (
+			name !== "deploy" &&
+			!job.steps.some(
+				(step) =>
+					step?.uses === "pnpm/action-setup@v4" &&
+					String(step.with?.version) === "9.15.9",
+			)
+		)
+			problems.push(`${name} must pin pnpm/action-setup to 9.15.9`);
 	}
-	return problems;
+	if (kind === "deploy") {
+		const { build, deploy } = data.jobs;
+		if (build["continue-on-error"] || deploy["continue-on-error"])
+			problems.push("Pages jobs must not ignore failure");
+		if (deploy.needs !== "build" && !same(deploy.needs, ["build"]))
+			problems.push("deploy must depend on successful build");
+		if (
+			![
+				"github.ref == 'refs/heads/main'",
+				`\${{ github.ref == 'refs/heads/main' }}`,
+			].includes(deploy.if)
+		)
+			problems.push(
+				"deploy must use the explicit main-only condition with implicit success()",
+			);
+		if (deploy.environment?.name !== "github-pages")
+			problems.push("deploy must use the github-pages environment");
+		const steps = Array.isArray(build.steps) ? build.steps : [];
+		const publication = steps.findIndex(
+			(s) =>
+				s?.run === "pnpm --filter docs-site run check:publication" &&
+				!s.if &&
+				!s["continue-on-error"],
+		);
+		const built = steps.findIndex(
+			(s) =>
+				s?.run === "pnpm --filter docs-site build" &&
+				!s.if &&
+				!s["continue-on-error"],
+		);
+		const uploads = steps.filter((s) =>
+			s?.uses?.startsWith("actions/upload-pages-artifact@"),
+		);
+		const upload = steps.indexOf(uploads[0]);
+		if (
+			publication < 0 ||
+			built < 0 ||
+			upload <= publication ||
+			upload <= built
+		)
+			problems.push(
+				"build must validate publication and build before Pages artifact upload",
+			);
+		if (
+			uploads.length !== 1 ||
+			uploads[0].with?.path !== "docs/site/dist" ||
+			(uploads[0].with?.name ?? "github-pages") !== "github-pages"
+		)
+			problems.push(
+				"build must upload the existing github-pages artifact from docs/site/dist",
+			);
+		const deployments = Array.isArray(deploy.steps)
+			? deploy.steps.filter((s) => s?.uses?.startsWith("actions/deploy-pages@"))
+			: [];
+		if (
+			deployments.length !== 1 ||
+			deployments[0].id !== "deployment" ||
+			(deployments[0].with?.artifact_name ?? "github-pages") !==
+				"github-pages" ||
+			deploy.environment?.url !== `\${{ steps.deployment.outputs.page_url }}`
+		)
+			problems.push("deploy must retain the Pages artifact and URL wiring");
+	}
+	return [...new Set(problems)];
+}
+
+function inspectWorkflow() {
+	return ["contrast", "deploy"].flatMap((kind) =>
+		inspectDocumentationWorkflow(
+			fs.readFileSync(
+				path.join(repoRoot, `.github/workflows/docs-${kind}.yml`),
+				"utf8",
+			),
+			kind,
+		).map((problem) => `${kind}: ${problem}`),
+	);
 }
 
 function runExampleValidator() {
