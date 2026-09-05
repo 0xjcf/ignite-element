@@ -237,6 +237,47 @@ function inspectPermissions(root, kind) {
 	return problems;
 }
 
+// Inspect GitHub expression tokens only. Single-quoted expression literals use
+// doubled quotes; words inside them are data, not context references. This is
+// deliberately not a general expression evaluator or shell-program analyzer.
+function referencesSecrets(value) {
+	let offset = 0;
+	while (offset < value.length) {
+		const start = value.indexOf("${{", offset);
+		if (start === -1) break;
+		offset = start + 3;
+		let previous;
+		while (offset < value.length && !value.startsWith("}}", offset)) {
+			const character = value[offset];
+			if (/\s/.test(character)) {
+				offset++;
+				continue;
+			}
+			if (character === "'") {
+				offset++;
+				while (offset < value.length) {
+					if (value[offset++] !== "'") continue;
+					if (value[offset] !== "'") break;
+					offset++;
+				}
+				previous = "literal";
+				continue;
+			}
+			const identifier = /^[A-Za-z_][A-Za-z0-9_-]*/.exec(value.slice(offset));
+			if (identifier) {
+				if (identifier[0].toLowerCase() === "secrets" && previous !== ".")
+					return true;
+				previous = identifier[0];
+				offset += identifier[0].length;
+			} else {
+				previous = character;
+				offset++;
+			}
+		}
+	}
+	return false;
+}
+
 export function inspectDocumentationWorkflow(workflow, kind = "contrast") {
 	const parsed = parseWorkflow(workflow);
 	if (parsed.problems.length) return parsed.problems;
@@ -271,7 +312,7 @@ export function inspectDocumentationWorkflow(workflow, kind = "contrast") {
 	const inspectCredentials = (value) => {
 		if (
 			typeof value === "string" &&
-			/\$\{\{\s*secrets\.|NPM_TOKEN|NODE_AUTH_TOKEN/i.test(value)
+			(referencesSecrets(value) || /NPM_TOKEN|NODE_AUTH_TOKEN/i.test(value))
 		)
 			problems.push("workflow references a secret or npm credential");
 		if (value && typeof value === "object")
@@ -340,13 +381,13 @@ export function inspectDocumentationWorkflow(workflow, kind = "contrast") {
 		const publication = steps.findIndex(
 			(s) =>
 				s?.run === "pnpm --filter docs-site run check:publication" &&
-				!s.if &&
+				!Object.hasOwn(s, "if") &&
 				!s["continue-on-error"],
 		);
 		const built = steps.findIndex(
 			(s) =>
 				s?.run === "pnpm --filter docs-site build" &&
-				!s.if &&
+				!Object.hasOwn(s, "if") &&
 				!s["continue-on-error"],
 		);
 		const uploads = steps.filter((s) =>

@@ -587,7 +587,7 @@ test("actual CI browser command propagates test failure and success", () =>
 		for (const failure of [true, false]) {
 			fs.writeFileSync(
 				path.join(site, "scripts/browser-audits.test.mjs"),
-				"import test from 'node:test'; test('CI propagation fixture', () => { " +
+				"import {test, after} from 'node:test'; let executed = 0; after(() => console.log(JSON.stringify({status:'ci-browser-fixture',executed}))); test('CI propagation fixture', () => { executed++; " +
 					(failure
 						? "throw new Error('intentional browser-lane failure');"
 						: "") +
@@ -605,7 +605,132 @@ test("actual CI browser command propagates test failure and success", () =>
 			});
 			const output = result.stdout + result.stderr;
 			assert.match(output, /CI propagation fixture/);
-			assert.match(output, /# tests 1/);
+			// Count actual test-body execution without depending on TAP vs spec.
+			const counts = [
+				...output.matchAll(
+					/\{"status":"ci-browser-fixture","executed":(\d+)\}/g,
+				),
+			];
+			assert.equal(counts.length, 1, output);
+			assert.equal(Number(counts[0][1]), 1, output);
 			assert.equal(result.status === 0, !failure, output);
 		}
 	}));
+
+for (const command of [
+	"pnpm --filter docs-site run check:publication",
+	"pnpm --filter docs-site build",
+]) {
+	for (const condition of [false, null, 0, "", "false", "$" + "{{ false }}"]) {
+		test(`required step rejects explicit condition ${JSON.stringify(condition)} on ${command}`, () => {
+			const doc = parseDocument(deployment);
+			const step = doc
+				.getIn(["jobs", "build", "steps"])
+				.items.find((s) => s.get("run") === command);
+			step.set("if", condition);
+			assert.notDeepEqual(
+				inspectDocumentationWorkflow(doc.toString(), "deploy"),
+				[],
+			);
+		});
+	}
+}
+
+for (const command of [
+	"pnpm --filter docs-site run check:publication",
+	"pnpm --filter docs-site build",
+]) {
+	for (const mutation of ["missing", "ignored failure", "after upload"]) {
+		test(`required step still rejects ${mutation} for ${command}`, () => {
+			const doc = parseDocument(deployment);
+			const steps = doc.getIn(["jobs", "build", "steps"]);
+			const index = steps.items.findIndex(
+				(step) => step.get("run") === command,
+			);
+			if (mutation === "ignored failure")
+				steps.items[index].set("continue-on-error", true);
+			else {
+				const [step] = steps.items.splice(index, 1);
+				if (mutation === "after upload") steps.items.push(step);
+			}
+			assert.notDeepEqual(
+				inspectDocumentationWorkflow(doc.toString(), "deploy"),
+				[],
+			);
+		});
+	}
+}
+
+const expression = (value) => ["$", "{{ ", value, " }}"].join("");
+const secretExpressions = [
+	"secrets.WRITE_TOKEN",
+	"secrets['WRITE_TOKEN']",
+	"format('{0}', secrets.WRITE_TOKEN)",
+	"github.ref == 'refs/heads/main' && secrets['WRITE_TOKEN']",
+	"secrets['GROUP']['WRITE_TOKEN']",
+	"toJSON(secrets)",
+];
+for (const kind of ["contrast", "deploy"]) {
+	for (const field of ["input", "env", "run"]) {
+		for (const source of secretExpressions) {
+			test(`${kind} rejects secret expression in ${field}: ${source}`, () => {
+				const doc = parseDocument(kind === "contrast" ? workflow : deployment);
+				const job = kind === "contrast" ? "contrast" : "build";
+				const steps = doc.getIn(["jobs", job, "steps"]);
+				const value = expression(source);
+				if (field === "input") steps.items[0].setIn(["with", "token"], value);
+				if (field === "env")
+					doc.setIn(["jobs", job, "env", "SYNTHETIC_VALUE"], value);
+				if (field === "run")
+					steps.add({
+						name: "Synthetic expression fixture",
+						run: `echo ${value}`,
+					});
+				assert.notDeepEqual(
+					inspectDocumentationWorkflow(doc.toString(), kind),
+					[],
+				);
+			});
+		}
+	}
+	for (const source of [
+		"github.ref",
+		"github.event.secrets",
+		"github['secrets']",
+		"'secrets.WRITE_TOKEN'",
+		"format('secrets[''WRITE_TOKEN'']', github.ref)",
+		"format('literal }} secrets.X', github.ref)",
+		"'it''s a secrets.X description'",
+	]) {
+		test(`${kind} preserves non-secret expression ${source}`, () => {
+			const doc = parseDocument(kind === "contrast" ? workflow : deployment);
+			const job = kind === "contrast" ? "contrast" : "build";
+			doc.setIn(["jobs", job, "steps", 0, "with", "ref"], expression(source));
+			assert.deepEqual(inspectDocumentationWorkflow(doc.toString(), kind), []);
+		});
+	}
+	test(`${kind} preserves descriptive secret names and plain text`, () => {
+		const doc = parseDocument(kind === "contrast" ? workflow : deployment);
+		const job = kind === "contrast" ? "contrast" : "build";
+		doc.setIn(
+			["jobs", job, "steps", 0, "name"],
+			expression("secrets['WRITE_TOKEN']"),
+		);
+		doc.setIn(
+			["jobs", job, "env", "DESCRIPTION"],
+			"Documentation mentions secrets.WRITE_TOKEN without evaluating it",
+		);
+		assert.deepEqual(inspectDocumentationWorkflow(doc.toString(), kind), []);
+	});
+	for (const marker of ["NPM_TOKEN", "NODE_AUTH_TOKEN"]) {
+		test(`${kind} still rejects ${marker}`, () => {
+			const doc = parseDocument(kind === "contrast" ? workflow : deployment);
+			const job = kind === "contrast" ? "contrast" : "build";
+			doc.setIn(["jobs", job, "env", marker], "SYNTHETIC_ONLY");
+			assert.notDeepEqual(
+				inspectDocumentationWorkflow(doc.toString(), kind),
+				[],
+			);
+		});
+	}
+}
