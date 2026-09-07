@@ -4,7 +4,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+import {
+	assertFixtureGitOwnership,
+	fixtureGitEnvironment,
+} from "./__tests__/helpers/git-fixture-env.mjs";
 
 const repositoryRoot = path.resolve(
 	path.dirname(fileURLToPath(import.meta.url)),
@@ -60,7 +64,11 @@ function workflowRunScript(step) {
 }
 
 function runGit(cwd, args) {
-	const result = spawnSync("git", args, { cwd, encoding: "utf8" });
+	const result = spawnSync("git", args, {
+		cwd,
+		encoding: "utf8",
+		env: fixtureGitEnvironment(),
+	});
 	assert.equal(
 		result.status,
 		0,
@@ -122,8 +130,12 @@ function runPnpm(args) {
 }
 
 function initializeGitFixture(prefix) {
-	const directory = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+	const directory = fs.realpathSync(
+		fs.mkdtempSync(path.join(os.tmpdir(), prefix)),
+	);
 	runGit(directory, ["init", "-b", "beta"]);
+	assertFixtureGitOwnership(directory, fixtureGitEnvironment());
+	assert.equal(runGit(directory, ["branch", "--show-current"]).trim(), "beta");
 	runGit(directory, ["config", "user.email", "release-test@example.com"]);
 	runGit(directory, ["config", "user.name", "Release Test"]);
 	return directory;
@@ -932,23 +944,39 @@ describe("v3 beta staged-release boundary", () => {
 });
 
 describe("lossless porcelain status parsing", () => {
-	it("preserves the first leading-dot path during real beta preparation", async () => {
+	it("preserves the first leading-dot path during real beta preparation", () => {
 		const directory = createPreparationFixture();
-		const originalPath = process.env.PATH;
 		try {
-			process.env.PATH = `${path.join(directory, "bin")}${path.delimiter}${originalPath}`;
-			const moduleUrl = pathToFileURL(
-				path.join(directory, "scripts/prepare-beta-release.mjs"),
+			const env = fixtureGitEnvironment({
+				...process.env,
+				PATH: `${path.join(directory, "bin")}${path.delimiter}${process.env.PATH}`,
+			});
+			// This is a CLI subprocess, not a nested Node test-runner worker.
+			delete env.NODE_TEST_CONTEXT;
+			const result = spawnSync(
+				process.execPath,
+				[path.join(directory, "scripts/prepare-beta-release.mjs")],
+				{
+					cwd: directory,
+					encoding: "utf8",
+					timeout: 20000,
+					env,
+				},
 			);
-			const { prepareBetaRelease } = await import(
-				`${moduleUrl.href}?fixture=${Date.now()}`
+			assert.equal(result.error, undefined);
+			assert.equal(result.signal, null);
+			assert.equal(
+				result.status,
+				0,
+				`.changeset/pre.json must remain an allowed leading-dot path: ${result.stderr}`,
 			);
-			assert.doesNotThrow(
-				() => prepareBetaRelease(),
-				".changeset/pre.json must remain an allowed leading-dot path",
+			const receipt = JSON.parse(
+				result.stdout.slice(result.stdout.indexOf("{\n")),
 			);
+			assert.equal(receipt.status, "reviewable-version-changes");
+			assert.equal(receipt.version, "3.0.0-beta.11");
+			assert.ok(receipt.changed.includes(".changeset/pre.json"));
 		} finally {
-			process.env.PATH = originalPath;
 			fs.rmSync(directory, { recursive: true, force: true });
 		}
 	});
