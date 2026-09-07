@@ -6,12 +6,16 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions: {}
+
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
   build:
+    permissions:
+      contents: read
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
@@ -20,7 +24,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 9.15.9
           run_install: false
 
       - name: Set up Node.js
@@ -34,6 +38,9 @@ jobs:
 
       - name: Typecheck doc code examples against the public beta API
         run: pnpm --filter docs-site run check:docs
+
+      - name: Validate documentation publication contracts
+        run: pnpm --filter docs-site run check:publication
 
       - name: Validate Astro content and types
         run: pnpm --filter docs-site run check:astro
@@ -54,6 +61,7 @@ jobs:
 
   deploy:
     needs: build
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
     permissions:
       pages: write

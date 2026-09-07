@@ -11,6 +11,7 @@ on:
       - "docs/site/**"
       - "packages/**" # doc examples are typechecked against the package API
       - ".github/workflows/docs-contrast.yml"
+      - ".github/workflows/docs-deploy.yml"
   workflow_dispatch:
 
 permissions: {}
@@ -53,6 +54,9 @@ jobs:
 
       - name: Build docs site
         run: pnpm --filter docs-site build
+
+      - name: Exercise browser audit failure cases
+        run: pnpm --filter docs-site run test:browser-audits
 
       - name: Check versioned routes and prerelease disclosure
         run: pnpm --filter docs-site run check:versions:built
