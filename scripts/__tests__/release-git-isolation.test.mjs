@@ -13,10 +13,83 @@ import {
 const source = fileURLToPath(new URL("../", import.meta.url));
 // The regression harness must be safe even when testing the broken baseline.
 // None of the invoking repository's Git environment reaches sentinel setup.
-const harnessEnv = Object.fromEntries(
-	Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
+const harnessEnv = fixtureGitEnvironment(
+	Object.fromEntries(
+		Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
+	),
 );
 delete harnessEnv.NODE_TEST_CONTEXT;
+
+test("synthetic global hooks cannot replace sentinel or nested fixture hooks", () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "ignite-global-hooks-"));
+	try {
+		const home = path.join(root, "home");
+		const hooks = path.join(root, "external-hooks");
+		const marker = path.join(root, "external-hook-ran");
+		const baseline = path.join(root, "baseline");
+		const receiver = path.join(root, "receiver.git");
+		fs.mkdirSync(baseline);
+		write(home, ".gitconfig", `[core]\n\thooksPath = ${hooks}\n`);
+		for (const name of ["pre-commit", "pre-push"]) {
+			write(
+				hooks,
+				name,
+				`#!${process.execPath}\nrequire('node:fs').appendFileSync(${JSON.stringify(marker)}, ${JSON.stringify(`${name}\n`)});\n`,
+			);
+			fs.chmodSync(path.join(hooks, name), 0o755);
+		}
+		const injected = {
+			...harnessEnv,
+			HOME: home,
+			XDG_CONFIG_HOME: home,
+			GIT_CONFIG_GLOBAL: path.join(home, ".gitconfig"),
+			GIT_CONFIG_SYSTEM: os.devNull,
+			GIT_CONFIG_NOSYSTEM: "1",
+			TMPDIR: root,
+		};
+		const baselineGit = (...args) => {
+			const result = command(baseline, "git", args, injected);
+			assert.equal(result.status, 0, result.stderr);
+			return result.stdout.trim();
+		};
+		baselineGit("init", "-b", "sentinel");
+		baselineGit("config", "user.name", "Synthetic Owner");
+		baselineGit("config", "user.email", "synthetic@example.invalid");
+		write(baseline, "tracked", "baseline\n");
+		baselineGit("add", "tracked");
+		baselineGit("commit", "-m", "baseline");
+		baselineGit("init", "--bare", receiver);
+		assert.equal(baselineGit("config", "--get", "core.hooksPath"), hooks);
+		baselineGit("push", receiver, "HEAD:refs/heads/candidate");
+		assert.match(
+			fs.readFileSync(marker, "utf8"),
+			/pre-push/,
+			"positive control must execute the synthetic global hook",
+		);
+		fs.unlinkSync(marker);
+		const result = command(
+			source,
+			process.execPath,
+			[
+				"--test",
+				"--test-name-pattern=^real pre-push fixture isolation: (direct|linked)$",
+				fileURLToPath(import.meta.url),
+			],
+			injected,
+		);
+		assert.equal(result.status, 0, result.stdout + result.stderr);
+		assert.match(result.stdout, /real pre-push fixture isolation: direct/);
+		assert.match(result.stdout, /real pre-push fixture isolation: linked/);
+		assert.match(result.stdout, /# fail 0\n/);
+		assert.equal(
+			fs.existsSync(marker),
+			false,
+			"synthetic global hooks must not execute in either fixture layer",
+		);
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
 
 function command(cwd, program, args, env = harnessEnv) {
 	const result = spawnSync(program, args, {
@@ -262,10 +335,24 @@ test("fixture environment removes routing and config injection without changing 
 		JSON.stringify(process.env) === processBefore,
 		"process environment unchanged",
 	);
-	for (const name of Object.keys(injected).filter((key) =>
-		key.startsWith("GIT_"),
+	for (const name of Object.keys(injected).filter(
+		(key) =>
+			key.startsWith("GIT_") &&
+			![
+				"GIT_CONFIG_GLOBAL",
+				"GIT_CONFIG_SYSTEM",
+				"GIT_CONFIG_NOSYSTEM",
+			].includes(key),
 	))
 		assert.equal(clean[name], undefined);
+	assert.equal(clean.GIT_CONFIG_GLOBAL, os.devNull);
+	assert.equal(clean.GIT_CONFIG_SYSTEM, os.devNull);
+	assert.equal(clean.GIT_CONFIG_NOSYSTEM, "1");
+	assert.deepEqual(
+		fixtureGitEnvironment(clean),
+		clean,
+		"a nested handoff must retain trusted configuration isolation",
+	);
 	assert.equal(clean.PATH, harnessEnv.PATH);
 	assert.equal(clean.FIXTURE_SENTINEL, "preserved");
 });

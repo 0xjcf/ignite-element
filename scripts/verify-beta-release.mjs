@@ -12,7 +12,13 @@ const packageNames = [
 ];
 
 function betaVersion(value) {
-	if (typeof value !== "string" || !/^\d+\.\d+\.\d+-beta\.\d+$/.test(value))
+	// The final negative lookahead requires absolute end-of-input, including newlines.
+	if (
+		typeof value !== "string" ||
+		!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)-beta\.(0|[1-9]\d*)(?![\s\S])/.test(
+			value,
+		)
+	)
 		throw new Error(
 			"expected version must be a beta prerelease; usage: node scripts/verify-beta-release.mjs [--] <x.y.z-beta.n>",
 		);
@@ -30,6 +36,12 @@ function withAnonymousRegistry(read) {
 		path.join(os.tmpdir(), "ignite-public-verification-"),
 	);
 	try {
+		// Pin npm's project boundary even when TMPDIR is beneath another project.
+		fs.writeFileSync(
+			path.join(directory, "package.json"),
+			'{"private":true}\n',
+		);
+		fs.writeFileSync(path.join(directory, ".npmrc"), "", { mode: 0o600 });
 		const userconfig = path.join(directory, "user.npmrc");
 		const globalconfig = path.join(directory, "global.npmrc");
 		const cache = path.join(directory, "cache");
@@ -51,7 +63,11 @@ function withAnonymousRegistry(read) {
 		return read((args) => {
 			const result = spawnSync(
 				"npm",
-				[...args, "--registry=https://registry.npmjs.org"],
+				[
+					...args,
+					`--prefix=${directory}`,
+					"--registry=https://registry.npmjs.org",
+				],
 				{ cwd: directory, env, encoding: "utf8" },
 			);
 			// npm stderr can include configuration or response data. Report the

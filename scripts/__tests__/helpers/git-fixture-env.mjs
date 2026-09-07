@@ -1,7 +1,16 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
+
+// These are trusted test-only defaults, not values copied from the caller.
+// Reapply them after sanitizing every handoff, including discovery and nested fixtures.
+const isolatedConfig = {
+	GIT_CONFIG_GLOBAL: os.devNull,
+	GIT_CONFIG_SYSTEM: os.devNull,
+	GIT_CONFIG_NOSYSTEM: "1",
+};
 
 // Hooks export repository-local routing and config. Discover Git's own list
 // without letting those inputs poison discovery; never mutate process.env.
@@ -10,7 +19,7 @@ export function fixtureGitEnvironment(input = process.env) {
 		Object.entries(input).filter(([key]) => !key.startsWith("GIT_")),
 	);
 	const result = spawnSync("git", ["rev-parse", "--local-env-vars"], {
-		env: discoveryEnv,
+		env: { ...discoveryEnv, ...isolatedConfig },
 		encoding: "utf8",
 		timeout: 10000,
 	});
@@ -36,11 +45,14 @@ export function fixtureGitEnvironment(input = process.env) {
 		"fixture Git environment discovery returned invalid names",
 	);
 	const local = new Set(names);
-	return Object.fromEntries(
-		Object.entries(input).filter(
-			([key]) => !local.has(key) && !/^GIT_CONFIG(?:_|$)/.test(key),
+	return {
+		...Object.fromEntries(
+			Object.entries(input).filter(
+				([key]) => !local.has(key) && !/^GIT_CONFIG(?:_|$)/.test(key),
+			),
 		),
-	);
+		...isolatedConfig,
+	};
 }
 
 // Authenticate ownership after init, before identity, index, or commit writes.

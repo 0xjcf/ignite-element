@@ -157,15 +157,19 @@ pnpm run release:beta:verify 3.0.0-beta.11
 Substitute the approved beta version. Both the canonical form above and
 `pnpm run release:beta:verify -- 3.0.0-beta.11` are supported, as are direct
 `node scripts/verify-beta-release.mjs 3.0.0-beta.11` and the same Node command
-with one leading `--`. Exactly one beta version is required; invalid input is
-rejected before any registry request, including through the exported verifier.
+with one leading `--`. Exactly one canonical `x.y.z-beta.n` version is required;
+numeric components permit zero but not leading zeroes. Whitespace and trailing
+newlines are rejected. Invalid input is rejected before any registry request,
+including through the exported verifier.
 
 The verifier anonymously queries the public npm registry from a disposable
-working directory, with empty user/global configuration and one writable cache
-shared across that execution's requests. It excludes inherited authentication
+working directory, with an explicitly pinned npm project root, empty project,
+user, and global configuration, and one writable cache shared across that
+execution's requests. It excludes inherited authentication
 and npm configuration, does not use the repository's project configuration, and
-removes its temporary workspace on success or failure. It does not require
-maintainer credentials or repair the workstation's default cache.
+removes its temporary workspace on success or failure. Ancestor project settings
+are excluded even when the temporary directory is nested under a project.
+It does not require maintainer credentials or repair the workstation's default cache.
 
 This metadata check requires all four exact versions, expected beta and latest
 tags, exact internal dependency versions, and presence of attestation metadata.
