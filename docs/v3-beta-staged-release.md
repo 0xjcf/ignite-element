@@ -151,12 +151,81 @@ Do not add the v3 prerelease to `ignite-element@latest`.
 Finally run the read-only registry check:
 
 ```sh
-pnpm run release:beta:verify -- <version>
+pnpm run release:beta:verify 3.0.0-beta.11
 ```
 
-It requires all four exact versions, expected beta and latest tags, exact
-internal dependency versions, and exposed provenance attestations. A failed
-check is not permission to overwrite or delete a public version.
+Substitute the approved beta version. Both the canonical form above and
+`pnpm run release:beta:verify -- 3.0.0-beta.11` are supported, as are direct
+`node scripts/verify-beta-release.mjs 3.0.0-beta.11` and the same Node command
+with one leading `--`. Exactly one canonical `x.y.z-beta.n` version is required;
+numeric components permit zero but not leading zeroes. Whitespace and trailing
+newlines are rejected. Invalid input is rejected before any registry request,
+including through the exported verifier.
+
+The verifier anonymously queries the public npm registry from a disposable
+working directory, with an explicitly pinned npm project root, empty project,
+user, and global configuration, and one writable cache shared across that
+execution's requests. It excludes inherited authentication
+and npm configuration, does not use the repository's project configuration, and
+removes its temporary workspace on success or failure. Ancestor project settings
+are excluded even when the temporary directory is nested under a project.
+It does not require maintainer credentials or repair the workstation's default cache.
+
+This metadata check requires all four exact versions, expected beta and latest
+tags, exact internal dependency versions, and presence of attestation metadata.
+It does not download or hash tarballs, nor cryptographically verify provenance
+signatures. Downloaded-byte and provenance verification remain separate
+publication-evidence operations: bind each package to the authoritative workflow
+manifest, and verify provenance against the repository, workflow, ref and release
+commit using the approved publication procedure. A failed check is not permission
+to overwrite or delete a public version.
+
+## Artifact comparison and evidence reuse
+
+Within one release, workflow-generated, staged, and publicly downloaded tarballs
+must match the authoritative workflow manifest's **exact raw byte sizes and
+hashes**. Record each original size and SHA-256 using:
+
+```sh
+wc -c < package.tgz
+shasum -a 256 package.tgz
+```
+
+For historical or cross-environment comparison only, the previously accepted
+differences are limited to:
+
+- The gzip OS-header byte at offset 9, with otherwise identical decompressed
+  tar data. Preserve the raw identities, inspect the differing raw bytes with
+  `cmp -l historical.tgz current.tgz`, and compare decompressed data using
+  `cmp <(gzip -dc historical.tgz) <(gzip -dc current.tgz)` in Bash.
+- Dependency-key ordering in the aggregate `package/package.json`, with
+  identical dependency values and all other required member content, order and
+  metadata. Record precisely which dependency keys were reordered and the
+  member-by-member comparison evidence; ordinary semantic JSON equality alone
+  is insufficient. This runbook does not introduce an archive-normalization
+  tool or authorize repacking published artifacts.
+
+Normalized equivalence must never override a raw mismatch in the
+workflow-to-stage-to-publication chain. Record both original raw identities and
+the precise comparison result. Any additional difference requires investigation.
+
+Reuse validation only when the relevant content, lockfile/dependency graph,
+toolchain, validation profile, declarations/exports and environment inputs match.
+A ref-name change or squash merge with the identical relevant tree need not
+invalidate evidence; changed validation inputs do. Identify the prerequisite and
+candidate commit/tree and the inputs relevant to each reused result. When an
+incremental patch digest is useful, generate it reproducibly (replace the two
+revision placeholders with authenticated commits):
+
+```sh
+git diff --binary --full-index --no-ext-diff --no-textconv --no-renames \
+  --src-prefix=a/ --dst-prefix=b/ <prerequisite> <candidate> -- | shasum -a 256
+```
+
+This digest describes that exact patch, not validation execution or release
+tarball equality. Mandatory Git hooks still run: reused evidence never authorizes
+hook bypass. Do not add redundant comparison digests without a defined generation
+command and a distinct review purpose.
 
 ## Recovery
 

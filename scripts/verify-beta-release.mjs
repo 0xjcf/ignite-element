@@ -1,11 +1,9 @@
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const repositoryRoot = path.resolve(
-	path.dirname(fileURLToPath(import.meta.url)),
-	"..",
-);
 const packageNames = [
 	"@ignite-element/core",
 	"@ignite-element/adapters",
@@ -13,22 +11,88 @@ const packageNames = [
 	"ignite-element",
 ];
 
-function capture(command, args) {
-	const result = spawnSync(command, args, {
-		cwd: repositoryRoot,
-		encoding: "utf8",
-	});
-	if (result.error) throw result.error;
-	if (result.status !== 0)
+function betaVersion(value) {
+	// The final negative lookahead requires absolute end-of-input, including newlines.
+	if (
+		typeof value !== "string" ||
+		!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)-beta\.(0|[1-9]\d*)(?![\s\S])/.test(
+			value,
+		)
+	)
 		throw new Error(
-			`${command} ${args.join(" ")} failed: ${result.stderr.trim()}`,
+			"expected version must be a beta prerelease; usage: node scripts/verify-beta-release.mjs [--] <x.y.z-beta.n>",
 		);
-	return result.stdout.trim();
+	return value;
+}
+
+export function parseVerificationArguments(args) {
+	const values = args[0] === "--" ? args.slice(1) : args;
+	if (values.length !== 1) betaVersion(undefined);
+	return betaVersion(values[0]);
+}
+
+function withAnonymousRegistry(read) {
+	const directory = fs.mkdtempSync(
+		path.join(os.tmpdir(), "ignite-public-verification-"),
+	);
+	try {
+		// Pin npm's project boundary even when TMPDIR is beneath another project.
+		fs.writeFileSync(
+			path.join(directory, "package.json"),
+			'{"private":true}\n',
+		);
+		fs.writeFileSync(path.join(directory, ".npmrc"), "", { mode: 0o600 });
+		const userconfig = path.join(directory, "user.npmrc");
+		const globalconfig = path.join(directory, "global.npmrc");
+		const cache = path.join(directory, "cache");
+		fs.writeFileSync(userconfig, "", { mode: 0o600 });
+		fs.writeFileSync(globalconfig, "", { mode: 0o600 });
+		fs.mkdirSync(cache);
+		// Allow only tool discovery and Windows execution essentials. In particular,
+		// do not inherit npm config, tokens, NODE_OPTIONS or project configuration.
+		const env = Object.fromEntries(
+			["PATH", "SystemRoot", "WINDIR", "PATHEXT"]
+				.filter((key) => process.env[key] !== undefined)
+				.map((key) => [key, process.env[key]]),
+		);
+		Object.assign(env, {
+			NPM_CONFIG_USERCONFIG: userconfig,
+			NPM_CONFIG_GLOBALCONFIG: globalconfig,
+			NPM_CONFIG_CACHE: cache,
+		});
+		return read((args) => {
+			const result = spawnSync(
+				"npm",
+				[
+					...args,
+					`--prefix=${directory}`,
+					"--registry=https://registry.npmjs.org",
+				],
+				{ cwd: directory, env, encoding: "utf8" },
+			);
+			// npm stderr can include configuration or response data. Report the
+			// operation and exit disposition without echoing that untrusted data.
+			if (result.error)
+				throw new Error(
+					`npm view could not execute (${result.error.code ?? "spawn error"})`,
+				);
+			if (result.status !== 0)
+				throw new Error(
+					`npm view ${args[1]} failed (exit ${result.status}, signal ${result.signal ?? "none"})`,
+				);
+			try {
+				return JSON.parse(result.stdout);
+			} catch {
+				throw new Error(`npm view ${args[1]} returned invalid JSON`);
+			}
+		});
+	} finally {
+		fs.rmSync(directory, { recursive: true, force: true });
+	}
 }
 
 export function assertApprovedRelease({ expectedVersion, metadata }) {
-	if (!/^\d+\.\d+\.\d+-beta\.\d+$/.test(expectedVersion))
-		throw new Error("expected version must be a beta prerelease");
+	betaVersion(expectedVersion);
 	for (const name of packageNames) {
 		const record = metadata[name];
 		if (record?.version !== expectedVersion)
@@ -68,27 +132,26 @@ export function assertApprovedRelease({ expectedVersion, metadata }) {
 }
 
 export function verifyApprovedRelease(expectedVersion) {
-	const metadata = Object.fromEntries(
-		packageNames.map((name) => {
-			const record = JSON.parse(
-				capture("npm", [
+	betaVersion(expectedVersion);
+	const metadata = withAnonymousRegistry((capture) =>
+		Object.fromEntries(
+			packageNames.map((name) => {
+				const record = capture([
 					"view",
 					`${name}@${expectedVersion}`,
 					"--json",
 					"--prefer-online",
-				]),
-			);
-			record.tags = JSON.parse(
-				capture("npm", [
+				]);
+				record.tags = capture([
 					"view",
 					name,
 					"dist-tags",
 					"--json",
 					"--prefer-online",
-				]),
-			);
-			return [name, record];
-		}),
+				]);
+				return [name, record];
+			}),
+		),
 	);
 	assertApprovedRelease({ expectedVersion, metadata });
 	console.info(
@@ -110,11 +173,7 @@ if (
 	path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
 	try {
-		if (!process.argv[2])
-			throw new Error(
-				"usage: node scripts/verify-beta-release.mjs <x.y.z-beta.n>",
-			);
-		verifyApprovedRelease(process.argv[2]);
+		verifyApprovedRelease(parseVerificationArguments(process.argv.slice(2)));
 	} catch (error) {
 		console.error(`[release:verify] ${error.message}`);
 		process.exitCode = 1;
