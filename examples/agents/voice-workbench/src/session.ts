@@ -15,8 +15,8 @@ import type { ProductPriceReasonCode } from "./domains/product-pricing/price-cap
 import {
 	type ModelTurnLifecycleProjection,
 	type ModelTurnTerminalEvent,
-	modelTurnStateFromTerminal,
 	modelTurnMachine,
+	modelTurnStateFromTerminal,
 	projectModelTurnLifecycle,
 	projectModelTurnPortRequest,
 } from "./model-turn";
@@ -24,10 +24,10 @@ import type { ModelPreparationPortRequest, ParentPortEvent } from "./ports";
 import {
 	projectSpeechDeliveryLifecycle,
 	projectSpeechDeliveryPortRequest,
-	speechDeliveryStateFromTerminal,
 	type SpeechDeliveryFact,
 	type SpeechDeliveryLifecycleProjection,
 	speechDeliveryMachine,
+	speechDeliveryStateFromTerminal,
 } from "./speech";
 import {
 	canStartVoiceCapture,

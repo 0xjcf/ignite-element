@@ -44,6 +44,24 @@ const packageDefinitions = [
 
 const consumerLanes = [
 	{
+		name: "source-free",
+		dependencies: ["typescript@5.9.3"],
+		forbidPeers: [
+			"lit-html",
+			"xstate",
+			"redux",
+			"@reduxjs/toolkit",
+			"mobx",
+			"@actor-web/runtime",
+			"react",
+		],
+		specifiers: [
+			"ignite-element",
+			"ignite-element/jsx",
+			"ignite-element/jsx/jsx-runtime",
+		],
+	},
+	{
 		name: "no-lit",
 		dependencies: [
 			"typescript@5.9.3",
@@ -261,8 +279,13 @@ function verifyConsumer(lane, tarballPaths) {
 		`${JSON.stringify(
 			{
 				compilerOptions: {
-					lib: ["ES2022", "DOM"],
+					lib:
+						lane.name === "adapters"
+							? ["ES2022", "DOM", "ESNext.Collection"]
+							: ["ES2022", "DOM"],
 					module: "ESNext",
+					jsx: "react-jsx",
+					jsxImportSource: "ignite-element/jsx",
 					moduleResolution: "Bundler",
 					noEmit: true,
 					resolveJsonModule: true,
@@ -270,7 +293,7 @@ function verifyConsumer(lane, tarballPaths) {
 					strict: true,
 					target: "ES2022",
 				},
-				include: ["consumer.ts"],
+				include: ["consumer.tsx"],
 			},
 			null,
 			2,
@@ -281,7 +304,7 @@ function verifyConsumer(lane, tarballPaths) {
 		(specifier) => !specifier.endsWith("/package.json"),
 	);
 	writeFileSync(
-		join(consumerDirectory, "consumer.ts"),
+		join(consumerDirectory, "consumer.tsx"),
 		`${typeSpecifiers
 			.map(
 				(specifier, index) =>
@@ -289,7 +312,9 @@ function verifyConsumer(lane, tarballPaths) {
 			)
 			.join("\n")}\n\nexport const packages: unknown[] = [${typeSpecifiers
 			.map((_, index) => `package${index}`)
-			.join(", ")}];\n`,
+			.join(
+				", ",
+			)}];\n${lane.name === "source-free" ? sourceFreeTypeConsumer : ""}`,
 	);
 	writeFileSync(
 		join(consumerDirectory, "consumer.mjs"),
@@ -310,6 +335,14 @@ for (const specifier of specifiers) {
 		await import(specifier);
 	}
 }
+${lane.name === "source-free" ? sourceFreeRuntimeConsumer : ""}
+${
+	lane.forbidPeers
+		? `for (const peer of ${JSON.stringify(lane.forbidPeers)}) {
+  assert.throws(() => createRequire(import.meta.url).resolve(peer), { code: "MODULE_NOT_FOUND" });
+}`
+		: ""
+}
 ${
 	lane.forbidLit
 		? `const require = createRequire(import.meta.url);
@@ -318,6 +351,19 @@ assert.throws(() => require.resolve("lit-html"), { code: "MODULE_NOT_FOUND" });`
 }
 `,
 	);
+	if (lane.name === "adapters") {
+		writeFileSync(
+			join(consumerDirectory, "consumer.tsx"),
+			readFileSync(join(consumerDirectory, "consumer.tsx"), "utf8") +
+				readFileSync(
+					join(
+						repositoryRoot,
+						"scripts/__tests__/fixtures/source-free-adapters.tsx",
+					),
+					"utf8",
+				),
+		);
+	}
 
 	run(
 		"npm",
@@ -343,6 +389,108 @@ assert.throws(() => require.resolve("lit-html"), { code: "MODULE_NOT_FOUND" });`
 	);
 	run("node", ["consumer.mjs"], { cwd: consumerDirectory });
 }
+
+const sourceFreeTypeConsumer = `
+import { igniteCore, event, type IgniteAgentRuntime, type IgniteCommandCall, type RuntimeEvent, type CommandHelper, type IgniteTestScenario } from "ignite-element";
+const events = { changed: event<{ count: number }>() };
+type Commands = { set: (value: number) => void };
+declare const runtime: IgniteAgentRuntime<{ count: number }, Commands, typeof events, unknown, { label: string }>;
+const call: IgniteCommandCall<Commands> = { command: "set", input: 2 };
+runtime.execute(call).then(result => {
+  const count: number = result.snapshot.count;
+  const label: string = result.states.label;
+  void count; void label;
+});
+runtime.on("changed", fact => { const count: number = fact.count; void count; });
+const fact: RuntimeEvent<typeof events> = { type: "changed", count: 2 };
+declare const command: CommandHelper<{ count: number }>;
+declare const scenario: IgniteTestScenario<{ count: number }, Commands, typeof events, { label: string }>;
+scenario.expectStates({ label: "ready" });
+void command; void fact;
+// @ts-expect-error preserved command input type
+runtime.execute({ command: "set", input: "bad" });
+// @ts-expect-error preserved event name
+runtime.on("missing", () => {});
+// @ts-expect-error preserved event payload
+const badFact: RuntimeEvent<typeof events> = { type: "changed", count: "bad" };
+// @ts-expect-error preserved testing projection type
+scenario.expectStates({ label: 2 });
+// @ts-expect-error retired runtime export
+import { igniteShell } from "ignite-element";
+// @ts-expect-error retired shell config
+import type { IgniteShellConfig } from "ignite-element";
+// @ts-expect-error retired shell host
+import type { IgniteShellHost } from "ignite-element";
+// @ts-expect-error retired shell registrar
+import type { IgniteShellRegistrar } from "ignite-element";
+// @ts-expect-error retired shell teardown
+import type { IgniteShellTeardown } from "ignite-element";
+
+const core = igniteCore();
+const explicit = igniteCore(undefined);
+const empty = igniteCore({});
+core("packed-layout", () => <><style>{":host{display:grid}"}</style><main><slot /></main></>);
+explicit("packed-explicit", () => null);
+empty("packed-empty", () => <button onClick={() => {}}>Run</button>);
+// @ts-expect-error renderer has no source argument
+core("invalid-render", (ctx: { count: number }) => ctx.count);
+// @ts-expect-error no execution on a source-free registrar
+core.execute({ command: "anything" });
+// @ts-expect-error no source state
+core.getStates();
+// @ts-expect-error no snapshots
+core.getSnapshot();
+// @ts-expect-error no subscription
+core.watchStates(() => {});
+// @ts-expect-error no disposal API
+core.dispose();
+// @ts-expect-error lifecycle hook retired, not ignored
+igniteCore({ onConnect() {} });
+// @ts-expect-error undefined hook is still a supplied key
+igniteCore({ onConnect: undefined });
+// @ts-expect-error source belongs to adapter entrypoints
+igniteCore({ source: {} });
+// @ts-expect-error invalid source is not a static component
+igniteCore({ source: undefined });
+// @ts-expect-error no states configuration
+igniteCore({ states: () => ({}) });
+// @ts-expect-error no commands configuration
+igniteCore({ commands: () => ({}) });
+// @ts-expect-error no effects configuration
+igniteCore({ effects: () => {} });
+// @ts-expect-error no event configuration
+igniteCore({ events: {} });
+// @ts-expect-error no cleanup configuration
+igniteCore({ cleanup: false });
+// @ts-expect-error unknown key
+igniteCore({ unexpected: true });
+// @ts-expect-error null is not an empty configuration
+igniteCore(null);
+// @ts-expect-error array is not an empty configuration
+igniteCore([]);
+// @ts-expect-error function is not an empty configuration
+igniteCore(() => {});
+// @ts-expect-error primitive is not an empty configuration
+igniteCore(1);
+// @ts-expect-error extra arguments are not supported
+igniteCore({}, {});
+`;
+
+const sourceFreeRuntimeConsumer = `
+const root = await import("ignite-element");
+assert.equal(typeof root.igniteCore, "function");
+assert.equal("igniteShell" in root, false);
+for (const args of [[], [undefined], [{}]]) {
+  const core = Reflect.apply(root.igniteCore, undefined, args);
+  assert.equal(typeof core, "function");
+  for (const name of ["execute", "getSnapshot", "getStates", "watchStates", "dispose"]) {
+    assert.equal(name in core, false);
+  }
+}
+for (const config of [null, [], 1, "", () => {}, { onConnect() {} }, { source: undefined }, { states() {} }, { unexpected: true }]) {
+  assert.throws(() => root.igniteCore(config), /source-free.*configuration/i);
+}
+`;
 
 try {
 	mkdirSync(tarballDirectory);

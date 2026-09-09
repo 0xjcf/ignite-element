@@ -17,16 +17,10 @@ export type {
 } from "@ignite-element/core";
 export { event, StateScope } from "@ignite-element/core";
 export {
-	type IgniteShellConfig,
-	type IgniteShellHost,
-	type IgniteShellRegistrar,
-	type IgniteShellTeardown,
-	igniteShell,
-} from "./igniteShell";
-export {
 	createProjectionDocumentTarget,
 	createProjectionSpeechTarget,
 } from "./runtime/projectionTargets";
+export { igniteCore } from "./sourceFreeCore";
 export type {
 	IgniteDomBridge,
 	IgniteDomRoleExpectation,

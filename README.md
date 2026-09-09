@@ -42,6 +42,25 @@ Ignite is not trying to replace your app framework. It gives you a browser-nativ
 
 ## Quick start
 
+### Source-free layouts (unpublished review candidate)
+
+The candidate replaces beta.11's `igniteShell` with root `igniteCore()` and removes
+its `onConnect`/teardown option. Released beta.11 does not have this root API.
+No state library is needed for source-free composition:
+
+```tsx
+import { igniteCore } from "ignite-element";
+
+const core = igniteCore();
+core("app-layout", () => <main><slot /></main>);
+```
+
+The renderer has no source arguments; successful DOM mounts once per instance.
+The result is a registrar, not a behavior runtime. Adapter imports stay unchanged.
+See the [breaking migration](./docs/source-free-core.md).
+
+### Source-backed components
+
 > **v3 is in beta.** Install with `@beta` — the stable `latest` tag is still
 > v2.2.x. The state libraries are optional peer dependencies, so only the one
 > you install is pulled in. v3 packages are native ESM-only, so use ESM

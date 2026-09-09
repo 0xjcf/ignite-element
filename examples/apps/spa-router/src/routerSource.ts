@@ -1,9 +1,9 @@
 import { createActor, fromCallback } from "xstate";
 import type { NavigationHistoryMode, NavigationPort } from "./navigation";
 import {
+	type RouterEvent,
 	resolveNavigation,
 	routerMachine,
-	type RouterEvent,
 } from "./routerMachine";
 
 const toErrorMessage = (error: unknown): string =>

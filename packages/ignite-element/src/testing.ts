@@ -3,7 +3,7 @@ import type {
 	EventMap,
 	EventMember,
 	FacadeCommandResult,
-} from "./RenderArgs";
+} from "@ignite-element/core";
 import {
 	type IgniteDomBridgeOptions,
 	type IgniteDomBridgeSession,

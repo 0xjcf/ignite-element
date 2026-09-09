@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import createReduxAdapter from "../../adapters/ReduxAdapter";
-import counterStore, { counterSlice } from "../fixtures/reduxCounterStore";
 import type { IgniteAdapter } from "../../IgniteAdapter";
 import { StateScope } from "../../IgniteAdapter";
 import type {
@@ -8,6 +7,7 @@ import type {
 	ReduxStoreCommandActor,
 } from "../../RenderArgs";
 import type { InferStateAndEvent } from "../../utils/igniteRedux";
+import counterStore, { counterSlice } from "../fixtures/reduxCounterStore";
 
 type StoreAdapterTypes = InferStateAndEvent<typeof counterStore>;
 

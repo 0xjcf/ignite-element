@@ -11,9 +11,18 @@ Ignite ships a scenario-style testing helper built on the [headless runtime](/ig
 ```ts
 import { test as igniteTest } from 'ignite-element/xstate';
 import { igniteCore } from 'ignite-element/xstate';
+import { createActor, createMachine } from 'xstate';
+
+const counterSource = createActor(createMachine({
+  initial: 'off',
+  states: {
+    off: { on: { TOGGLE: 'on' } },
+    on: { on: { TOGGLE: 'off' } },
+  },
+})).start();
 
 const counter = igniteCore({
-  source: counterMachine,
+  source: counterSource,
   states: (snapshot) => ({
     isOn: snapshot.matches('on'),
   }),
@@ -62,8 +71,45 @@ When you need more than one intent in the same falsifiable user story, use `stor
 
 A story is the expected experience claim: the sequence you think a user can actually live through. It reuses the runtime's existing `record(name)` story to capture observed execution evidence, and it returns the same serializable `IgniteStorySnapshot` that `snapshotStory(story)` produces as a portable receipt. There is no second recorder, alternate trace schema, graph engine, or inspection surface.
 
+This separate Redux fixture has numeric counter behavior. The test owns its store
+and external operations; Ignite only observes and records their results. The
+external fact below updates the real store without passing through an Ignite
+command, then the story verifies that update before the next intent.
+
 ```ts
-const receipt = await igniteTest({ component: counter }).story(
+import { configureStore, createSlice } from '@reduxjs/toolkit';
+import { igniteCore as igniteRedux, test as igniteTest } from 'ignite-element/redux';
+
+const counterSlice = createSlice({
+  name: 'counter',
+  initialState: { count: 0 },
+  reducers: {
+    add: (state, action: { payload: number }) => { state.count += action.payload; },
+    decrement: (state) => { state.count -= 1; },
+  },
+});
+const store = configureStore({ reducer: { counter: counterSlice.reducer } });
+const recoveryCounter = igniteRedux({
+  source: store,
+  states: (snapshot) => ({
+    count: snapshot.counter.count,
+    canDecrement: snapshot.counter.count > 0,
+  }),
+  commands: ({ actor, command }) => ({
+    increment: (amount: number) => actor.dispatch(counterSlice.actions.add(amount)),
+    decrement: command(() => actor.dispatch(counterSlice.actions.decrement()), {
+      canExecute: ({ snapshot }) => snapshot.counter.count > 0,
+    }),
+  }),
+  events: (event) => ({ 'counter-incremented': event<{ count: number }>() }),
+  effects: ({ snapshot, prevSnapshot, emit }) => {
+    if (snapshot.counter.count !== prevSnapshot.counter.count) {
+      emit({ type: 'counter-incremented', count: snapshot.counter.count });
+    }
+  },
+});
+
+const receipt = await igniteTest({ component: recoveryCounter }).story(
   'counter recovery',
   async (story) => {
     await story.given({
@@ -81,13 +127,17 @@ const receipt = await igniteTest({ component: counter }).story(
       canExecute: { decrement: true },
     });
 
-    await story.behavior('external retry', async () => {
-      await someExternalFixture.retry();
+    await story.behavior('external fact', async () => {
+      store.dispatch(counterSlice.actions.add(1));
+    });
+    await story.checkpoint('after external fact', {
+      snapshot: { counter: { count: 3 } },
+      states: { count: 3, canDecrement: true },
     });
 
     await story.intent({ command: 'decrement' });
     await story.checkpoint('after decrement', {
-      snapshot: { counter: { count: 1 } },
+      snapshot: { counter: { count: 2 } },
     });
   },
 );
@@ -123,6 +173,9 @@ const summary = story.summary();
 
 story.stop();
 ```
+
+The test/application stops `counterSource` when all uses of the toggle source are
+finished. Stopping a story releases its recording subscriptions, not that source.
 
 Story methods:
 
@@ -185,28 +238,32 @@ For projection proof, mount the same runtime behind a test-only DOM bridge and a
 ```ts
 import { test as igniteTest } from 'ignite-element/xstate';
 
-const story = counter.record('reaches limit');
+const story = recoveryCounter.record('counter controls');
 const bridge = igniteTest.accessibilityBridge(
-  counter,
-  ({ count, limit, isLimited, increment, setLimit }) => (
+  recoveryCounter,
+  ({ count, canDecrement, increment, decrement }) => (
     <section>
       <output role="status" aria-label="Counter status">
-        {count} / {limit}
+        {count}
       </output>
-      <button type="button" onClick={() => increment()}>
+      <button type="button" onClick={() => increment(1)}>
         Increment
       </button>
-      {isLimited && <p role="status">Limit reached</p>}
+      <button type="button" disabled={!canDecrement} onClick={() => decrement()}>
+        Decrement
+      </button>
+      {!canDecrement && <p role="status">Counter at zero</p>}
     </section>
   ),
   { elementName: 'counter-accessibility-bridge' },
 );
 
-await story.execute({ command: 'increment' });
+await story.execute({ command: 'increment', input: 1 });
 
 igniteTest.expectControls(bridge, [
   { role: 'status', name: 'Counter status' },
   { role: 'button', name: 'Increment' },
+  { role: 'button', name: 'Decrement' },
 ]);
 
 bridge.stop();

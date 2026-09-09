@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { StateScope } from "../IgniteAdapter";
 import igniteElementFactory from "../IgniteElementFactory";
 import {
-	igniteDomBridgeSymbol,
 	type IgniteRuntimeHostOverride,
+	igniteDomBridgeSymbol,
 	igniteRuntimeHostOverrideSymbol,
 } from "../runtime/agent";
 import { facadeCleanupSymbol } from "../runtime/effects";

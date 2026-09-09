@@ -85,7 +85,34 @@ The resulting element can be consumed anywhere the browser can render a custom e
 
 ## Choosing an adapter entrypoint
 
-Use `ignite-element/xstate` when Ignite owns the element's local behavior and lifecycle.
+### Source-free layouts (unpublished review candidate)
+
+The candidate replaces root `igniteShell` with `igniteCore()` and retires the four
+shell-specific types. `onConnect` and returned teardown are removed, not silently
+accepted. Released beta.11 does not have this root constructor.
+
+```tsx
+import { igniteCore } from "ignite-element";
+
+const core = igniteCore();
+core("app-layout", () => <main><slot /></main>);
+```
+
+No source or state-library peer is needed. Omitted configuration, undefined and
+an empty plain object are equivalent; options are rejected. The renderer has no
+source arguments. The registrar has no behavior/runtime/disposal methods, and
+successful DOM is retained across moves and reconnection.
+
+Hook consumers must use application-owned presentation integration or an existing
+custom element, including initial state, updates and cleanup. This does not move
+resource ownership or source shutdown into effects. External usage is unknown.
+The repository's `docs/source-free-core.md` records the full breaking migration.
+
+### Source-backed entrypoints
+
+Use `ignite-element/xstate` when XState owns the source behavior. The application
+owns source construction and lifetime; Ignite observes snapshots, projects states,
+coordinates rendering and cleans up its own observation handles.
 
 Use `ignite-element/actor-web` when an Actor-Web runtime already owns orchestration, transport, sequencing, and source lifecycle. In that mode Ignite stays projection-first: it consumes Actor-Web snapshots, derives states, and sends explicit requests back with `actor.send(...)` or `actor.ask(...)`. `actor.ask` is optional and only exists on sources that support request/response.
 

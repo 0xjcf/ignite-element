@@ -1,10 +1,10 @@
 /** @jsxImportSource ignite-element/jsx */
 
-import type { WorkbenchProjection } from "./workbench-component";
 import { workbenchStyles } from "./styles";
 import { renderArtifactView } from "./views/artifact";
 import { renderConversationView } from "./views/conversation";
 import { renderRuntimeView } from "./views/runtime";
+import type { WorkbenchProjection } from "./workbench-component";
 
 type WorkbenchContext = WorkbenchProjection;
 

@@ -58,7 +58,7 @@ const requiredExports = [
 			createProjectionDocumentTarget: "function",
 			createProjectionSpeechTarget: "function",
 			event: "function",
-			igniteShell: "function",
+			igniteCore: "function",
 			test: "function",
 		},
 	],
@@ -329,6 +329,17 @@ for (const subpath of removedStableSubpaths) {
 }
 
 assertDistGraphDoesNotReference("xstate.es.js", ["mobx", "@reduxjs/toolkit"]);
+assertDeclarationGraphDoesNotReference("types/index.d.ts", [
+	"@ignite-element/adapters",
+	"@ignite-element/adapters/xstate",
+	"xstate",
+	"redux",
+	"@reduxjs/toolkit",
+	"mobx",
+	"@actor-web/runtime",
+	"lit-html",
+	"react",
+]);
 assertDistGraphDoesNotReference("redux.es.js", ['"mobx"', '"xstate"']);
 assertDistGraphDoesNotReference("mobx.es.js", ['"xstate"', "@reduxjs/toolkit"]);
 assertDistGraphDoesNotReference("actor-web.es.js", [
