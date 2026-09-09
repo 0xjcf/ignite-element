@@ -1,5 +1,3 @@
-import "./internal/setupDomPolyfill";
-
 export type {
 	CommandHelper,
 	CommandMetadata,

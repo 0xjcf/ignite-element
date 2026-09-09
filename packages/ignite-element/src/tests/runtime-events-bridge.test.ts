@@ -1,6 +1,196 @@
+import {
+	type ActorWebSourceSnapshot,
+	createActorWebAdapter,
+} from "@ignite-element/adapters/actor-web";
 import type { IgniteAdapter } from "@ignite-element/core";
 import { describe, expect, it, vi } from "vitest";
 import { createAgentRuntime } from "../runtime/agent";
+
+describe("Actor-Web observation rollback", () => {
+	function sourceFixture() {
+		const listeners = new Set<
+			(snapshot: ActorWebSourceSnapshot<{ count: number }>) => void
+		>();
+		const snapshot = () => ({
+			address: "counter",
+			context: { count: 0 },
+			phase: "ready",
+			toJSON: () => ({ count: 0 }),
+		});
+		const releaseSource = vi.fn();
+		const releaseTransport = vi.fn();
+		const close = vi.fn();
+		const source = {
+			address: "counter",
+			snapshot,
+			close,
+			subscribe(
+				listener: (value: ActorWebSourceSnapshot<{ count: number }>) => void,
+			) {
+				listeners.add(listener);
+				return () => {
+					listeners.delete(listener);
+					releaseSource();
+				};
+			},
+			subscribeTransportStatus: vi.fn(() => () => releaseTransport()),
+		};
+		return { source, listeners, releaseSource, releaseTransport, close };
+	}
+	it("rolls back a source observation when transport setup fails and later recovers", () => {
+		const h = sourceFixture();
+		const failure = new Error("transport setup failed");
+		h.source.subscribeTransportStatus.mockImplementationOnce(() => {
+			throw failure;
+		});
+		const adapter = createActorWebAdapter(h.source)();
+		expect(() => adapter.subscribeSnapshots(() => {})).toThrow(failure);
+		expect(h.listeners.size).toBe(0);
+		expect(h.releaseSource).toHaveBeenCalledTimes(1);
+		const received = vi.fn();
+		const subscription = adapter.subscribeSnapshots(received);
+		expect(received).toHaveBeenCalled();
+		subscription.unsubscribe();
+		subscription.unsubscribe();
+		expect(h.listeners.size).toBe(0);
+		expect(h.releaseSource).toHaveBeenCalledTimes(2);
+		expect(h.releaseTransport).toHaveBeenCalledTimes(1);
+		expect(h.close).not.toHaveBeenCalled();
+	});
+	it("tries both cleanup handles, preserves the first failure and permits a later subscription", () => {
+		const h = sourceFixture();
+		const first = new Error("source cleanup failed");
+		h.releaseSource.mockImplementationOnce(() => {
+			throw first;
+		});
+		h.releaseTransport.mockImplementationOnce(() => {
+			throw new Error("transport cleanup failed");
+		});
+		const adapter = createActorWebAdapter(h.source)();
+		const subscription = adapter.subscribeSnapshots(() => {});
+		expect(() => subscription.unsubscribe()).toThrow(first);
+		expect(h.releaseTransport).toHaveBeenCalledTimes(1);
+		expect(() => subscription.unsubscribe()).not.toThrow();
+		const next = adapter.subscribeSnapshots(() => {});
+		next.unsubscribe();
+		expect(h.releaseSource).toHaveBeenCalledTimes(2);
+		expect(h.close).not.toHaveBeenCalled();
+	});
+});
+
+describe("runtime handle custody", () => {
+	function handles() {
+		let leases = 0;
+		const listeners = new Set<(state: number) => void>();
+		const getSnapshot = vi.fn(() => 0);
+		const unsubscribe = vi.fn();
+		const adapter: IgniteAdapter<number, never> = {
+			getSnapshot,
+			send() {},
+			stop() {},
+			subscribeSnapshots(listener) {
+				listeners.add(listener);
+				return {
+					unsubscribe() {
+						listeners.delete(listener);
+						unsubscribe();
+					},
+				};
+			},
+		};
+		const release = vi.fn(() => {
+			leases -= 1;
+		});
+		const runtime = createAgentRuntime({
+			eventTypes: [],
+			retainRuntimeAccess: () => {
+				leases += 1;
+			},
+			releaseRuntimeAccess: release,
+			resolveRuntime: () => ({
+				adapter,
+				additionalArgs: {},
+				host: new EventTarget(),
+			}),
+			resolveStates: () => ({}),
+		});
+		return {
+			runtime,
+			getSnapshot,
+			unsubscribe,
+			release,
+			leases: () => leases,
+			deliver: () => {
+				for (const listener of listeners) listener(1);
+			},
+		};
+	}
+	it("a second unsubscribe never releases another consumer's lease", () => {
+		const h = handles();
+		const received = vi.fn();
+		const first = h.runtime.watchSnapshot(() => {});
+		const second = h.runtime.watchSnapshot(received);
+		first.unsubscribe();
+		first.unsubscribe();
+		expect(h.leases()).toBe(1);
+		h.deliver();
+		expect(received).toHaveBeenCalledWith(1, 0);
+		second.unsubscribe();
+		expect(h.leases()).toBe(0);
+		expect(h.unsubscribe).toHaveBeenCalledTimes(2);
+	});
+	it("setup failure releases its lease once and permits later observation", () => {
+		const h = handles();
+		const failure = new Error("initial read failed");
+		h.getSnapshot.mockImplementationOnce(() => {
+			throw failure;
+		});
+		const states = h.runtime.watchStates(() => {});
+		// watchStates does not read the native snapshot in this fixture.
+		const baseline = h.leases();
+		expect(() => h.runtime.watchSnapshot(() => {})).toThrow(failure);
+		expect(h.leases()).toBe(baseline);
+		const next = h.runtime.watchSnapshot(() => {});
+		next.unsubscribe();
+		expect(h.leases()).toBe(baseline);
+		states.unsubscribe();
+		expect(h.leases()).toBe(0);
+	});
+	it("unsubscribe failure preserves the primary error and still releases once", () => {
+		const h = handles();
+		const failure = new Error("unsubscribe failed");
+		h.unsubscribe.mockImplementation(() => {
+			throw failure;
+		});
+		const handle = h.runtime.watchSnapshot(() => {});
+		expect(() => handle.unsubscribe()).toThrow(failure);
+		expect(h.leases()).toBe(0);
+		expect(() => handle.unsubscribe()).not.toThrow();
+		expect(h.release).toHaveBeenCalledTimes(1);
+	});
+	it("event unsubscribe is idempotent with two live consumers", () => {
+		const h = handles();
+		const a = h.runtime.on("fact", () => {});
+		const b = h.runtime.on("fact", () => {});
+		a.unsubscribe();
+		a.unsubscribe();
+		expect(h.leases()).toBe(1);
+		b.unsubscribe();
+		expect(h.leases()).toBe(0);
+	});
+	it("preserves a watcher release error after successful subscription cleanup", () => {
+		const h = handles();
+		const failure = new Error("release failed");
+		h.release.mockImplementationOnce(() => {
+			throw failure;
+		});
+		const handle = h.runtime.watchSnapshot(() => {});
+		expect(() => handle.unsubscribe()).toThrow(failure);
+		expect(h.unsubscribe).toHaveBeenCalledTimes(1);
+		expect(() => handle.unsubscribe()).not.toThrow();
+		expect(h.release).toHaveBeenCalledTimes(1);
+	});
+});
 
 /**
  * E2 — runtime bridge for the adapter `subscribeEvents()` emitted-event seam.

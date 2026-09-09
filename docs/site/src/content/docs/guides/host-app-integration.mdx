@@ -212,6 +212,8 @@ const onToggled = (event: Event) => {
 
 ## SSR and hydration
 
+Headless Node import and execution do not establish SSR rendering or hydration support. Import a source/behavior module without tag registration on the server; a module that calls `core(tagName, renderer)` during evaluation is a browser entrypoint and throws without a DOM. Root source-free construction is safe before browser registration but does not supply an agent runtime.
+
 - Server-render the custom element tag if your host framework supports it.
 - Register the element on the client before the first interaction.
 - Keep host integration based on DOM events, child content, and explicit public attributes or properties you own.

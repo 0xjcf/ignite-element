@@ -1023,3 +1023,7 @@ A hosted version must configure CORS and CSP `connect-src` for its model endpoin
 and should send an explicitly redacted model-context projection rather than the
 complete derived states object. Browser `SpeechRecognition` availability, audio
 handling, and provider behavior remain browser- and vendor-dependent.
+
+## Headless import boundary
+
+`src/headless-proof.ts` imports the behavior factory without a renderer-strategy side-effect import. `src/main.tsx` remains the browser registration entrypoint. The `proof:headless` SSR-target bundling command executes a Node artifact; it does not prove SSR rendering or hydration. Sources own asynchronous work and shutdown; observation cleanup does not supply whole-core disposal.

@@ -1,6 +1,5 @@
 /// <reference types="node" />
 
-import "@ignite-element/renderer/jsx";
 import type { ModelTurnPortRequest } from "./model-turn";
 import { createVoiceWorkbenchSessionActor } from "./session";
 import { createVoiceWorkbenchComponent } from "./workbench-component";

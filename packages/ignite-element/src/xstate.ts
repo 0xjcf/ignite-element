@@ -1,5 +1,3 @@
-import "./internal/setupDomPolyfill";
-
 import type {
 	XStateConfig as AdapterXStateConfig,
 	XStateCommandActor,

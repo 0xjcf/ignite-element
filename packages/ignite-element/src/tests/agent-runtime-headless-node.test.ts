@@ -7,9 +7,41 @@
 // the package's global jsdom) so it would fail without a genuinely DOM-free
 // runtime. The DOM render path is intentionally not exercised here — it still
 // requires a real DOM.
+
+import { configureStore } from "@reduxjs/toolkit";
 import { describe, expect, it, vi } from "vitest";
 import { assign, setup } from "xstate";
+import { igniteCore as igniteRedux } from "../redux";
 import { igniteCore } from "../xstate";
+
+it("characterizes live-source effect retention separately from per-handle cleanup", () => {
+	const source = configureStore({ reducer: (state = { count: 0 }) => state });
+	const subscribe = source.subscribe.bind(source);
+	const owned = new Set<() => void>();
+	const spy = vi.spyOn(source, "subscribe").mockImplementation((listener) => {
+		const unsubscribe = subscribe(listener);
+		const release = () => {
+			unsubscribe();
+			owned.delete(release);
+		};
+		owned.add(release);
+		return release;
+	});
+	try {
+		for (let index = 0; index < 2; index += 1) {
+			const core = igniteRedux({ source, effects: () => {} });
+			core.getStates();
+			const handle = core.watchSnapshot(() => {});
+			handle.unsubscribe();
+		}
+		expect(owned.size).toBe(2);
+	} finally {
+		for (const release of owned) release();
+		spy.mockRestore();
+	}
+	expect(owned.size).toBe(0);
+	expect(source.getState()).toEqual({ count: 0 });
+});
 
 function createCounter() {
 	const machine = setup({

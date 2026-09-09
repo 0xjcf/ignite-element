@@ -397,3 +397,9 @@ Ignite enforces three rules:
 3. Effects express consequences.
 
 The result is a deterministic UI architecture that scales from ordinary component work to testing, automation, and AI-agent execution.
+
+## Headless Node boundary
+
+The development candidate imports and uses source-backed cores in Node 22.16.0 without fabricated browser globals. Keep `source → snapshot → states → renderer view`: construct a named core first, then register tags only in the browser. Root source-free `const core = igniteCore()` returns only a registrar. Tag registration throws synchronously without a DOM; ordinary runtime work and existing non-DOM projection bindings do not register a tag.
+
+Observation cleanup does not establish reclamation of abandoned cores. Cached effects and factory-owned source work retain existing core-lifetime semantics. Root/adapter TypeScript consumers still need browser declaration types (`lib: DOM`), independently of runtime DOM safety. Both whole-core ownership and no-DOM declaration support remain stable-readiness follow-ups, not solved by this candidate.

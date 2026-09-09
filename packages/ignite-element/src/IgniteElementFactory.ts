@@ -1,7 +1,8 @@
 import type { CommandMetadata, IgniteAdapter } from "@ignite-element/core";
 import { StateScope } from "@ignite-element/core";
 import type { RenderStrategyFactory } from "@ignite-element/renderer";
-import IgniteElement from "./IgniteElement";
+import type IgniteElement from "./IgniteElement";
+import { getIgniteElementClasses } from "./IgniteElement";
 import {
 	commitProjectionDocumentTarget,
 	commitProjectionSpeechTarget,
@@ -10,6 +11,7 @@ import {
 	createProjectionSpeech,
 	type ProjectionInspection,
 } from "./internal/projectionBinding";
+import { requireDomRegistration } from "./internal/requireDomRegistration";
 import "./renderers/ignite-jsx";
 import type { IgniteComponent } from "./igniteCore/types";
 import {
@@ -301,10 +303,6 @@ export default function igniteElementFactory<
 		options?.createAdditionalArgs ??
 		((_) => ({}) as AdditionalRenderArgs<State, Event, RenderArgs>);
 
-	const configuredFactory = resolveConfiguredRenderStrategy();
-	const renderStrategyFactory: RenderStrategyFactory<View> =
-		options?.createRenderStrategy ??
-		(configuredFactory as RenderStrategyFactory<View>);
 	const inferredScope =
 		options?.scope ??
 		(createAdapter as { scope?: StateScope }).scope ??
@@ -419,10 +417,7 @@ export default function igniteElementFactory<
 
 	// The headless agent runtime only needs EventTarget APIs for `on()` and
 	// effect-emitted events. The DOM render path creates its own real element.
-	const createRuntimeHost = (): EventTarget =>
-		typeof document === "undefined"
-			? new EventTarget()
-			: document.createElement("div");
+	const createRuntimeHost = (): EventTarget => new EventTarget();
 
 	const resolveRuntimeAdapter = () => {
 		if (inferredScope === StateScope.Shared) {
@@ -771,14 +766,6 @@ export default function igniteElementFactory<
 			setupState = "active";
 		} catch (error) {
 			setupState = "failed";
-			try {
-				releaseRuntimeAccess();
-			} catch (releaseError) {
-				console.error(
-					"[igniteElementFactory] Runtime access release failed after projection watcher setup error.",
-					releaseError,
-				);
-			}
 			throw error;
 		}
 
@@ -813,6 +800,7 @@ export default function igniteElementFactory<
 		}
 
 		const elementName = elementNameOrTarget;
+		const { ElementBase, registry } = requireDomRegistration();
 		// The handle delegates getSchema LAZILY: createAgentRuntime(...) is
 		// Object.assign-ed onto `register` AFTER this body is defined, so we must
 		// call through `register.getSchema()` at invocation time rather than
@@ -823,9 +811,13 @@ export default function igniteElementFactory<
 			getSchema: () => agentRuntime.getSchema(),
 		};
 
-		if (customElements.get(elementName)) {
+		if (registry.get(elementName)) {
 			return handle;
 		}
+		const renderStrategyFactory =
+			options?.createRenderStrategy ??
+			(resolveConfiguredRenderStrategy() as RenderStrategyFactory<View>);
+		const IgniteElement = getIgniteElementClasses(ElementBase).Element;
 
 		// Attribute observation is set up per-instance after commands are resolved.
 		// We use MutationObserver since observedAttributes must be static and
@@ -893,7 +885,7 @@ export default function igniteElementFactory<
 					super.disconnectedCallback();
 				}
 
-				protected onTrueDisconnect(): void {
+				public onTrueDisconnect(): void {
 					this.disconnectAttrObserver?.();
 					this.disconnectAttrObserver = undefined;
 					const additionalArgs = this.additionalArgs;
@@ -919,7 +911,7 @@ export default function igniteElementFactory<
 					cleanupAdditionalArgs(additionalArgs);
 				}
 
-				protected renderView(): View {
+				public renderView(): View {
 					return render(
 						createRenderArgs(
 							this.currentState,
@@ -930,7 +922,7 @@ export default function igniteElementFactory<
 				}
 			}
 
-			customElements.define(elementName, SharedIgniteComponent);
+			registry.define(elementName, SharedIgniteComponent);
 			return handle;
 		}
 
@@ -965,7 +957,7 @@ export default function igniteElementFactory<
 				super.disconnectedCallback();
 			}
 
-			protected onTrueDisconnect(): void {
+			public onTrueDisconnect(): void {
 				this.disconnectAttrObserver?.();
 				this.disconnectAttrObserver = undefined;
 				const additionalArgs = this.additionalArgs;
@@ -974,7 +966,7 @@ export default function igniteElementFactory<
 				cleanupAdditionalArgs(additionalArgs);
 			}
 
-			protected renderView(): View {
+			public renderView(): View {
 				if (!this.additionalArgs) {
 					throw new Error(
 						`[igniteElementFactory] Unable to render "${elementName}" before initialization.`,
@@ -991,7 +983,7 @@ export default function igniteElementFactory<
 			}
 		}
 
-		customElements.define(elementName, IsolatedIgniteComponent);
+		registry.define(elementName, IsolatedIgniteComponent);
 		return handle;
 	};
 

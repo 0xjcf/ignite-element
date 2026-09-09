@@ -1,5 +1,3 @@
-import "./internal/setupDomPolyfill";
-
 // The low-level factories `createComponentFactory`, `createProjectionFactory`,
 // and `igniteElementFactory` are intentionally NOT re-exported here. They are
 // `igniteCore`'s internal building blocks and are marked `@internal` at their

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
 	existsSync,
@@ -389,6 +389,47 @@ assert.throws(() => require.resolve("lit-html"), { code: "MODULE_NOT_FOUND" });`
 		{ cwd: consumerDirectory },
 	);
 	verifyTarballProvenance(consumerDirectory);
+	if (lane.name === "adapters") {
+		// Bundle the actual installed tarballs using normal package exports and
+		// sideEffects metadata. A used constructor must retain its JSX registration.
+		writeFileSync(
+			join(consumerDirectory, "bundle-entry.mjs"),
+			`
+import { igniteCore } from "ignite-element/xstate";
+import { getRegisteredRenderStrategies } from "@ignite-element/renderer";
+export { igniteCore, getRegisteredRenderStrategies };
+`,
+		);
+		writeFileSync(
+			join(consumerDirectory, "bundle-build.mjs"),
+			`
+import { build } from ${JSON.stringify(import.meta.resolve("vite"))};
+await build({ configFile: false, root: process.cwd(), build: {
+  outDir: "bundled", minify: true,
+  lib: { entry: "bundle-entry.mjs", formats: ["es"], fileName: () => "consumer.mjs" }
+}});
+`,
+		);
+		run("node", ["bundle-build.mjs"], { cwd: consumerDirectory });
+		run(
+			"node",
+			[
+				"--input-type=module",
+				"-e",
+				`
+import assert from "node:assert/strict";
+import { igniteCore, getRegisteredRenderStrategies } from "./bundled/consumer.mjs";
+assert.equal(typeof igniteCore, "function");
+assert.ok(getRegisteredRenderStrategies().includes("ignite-jsx"));
+for (const name of ["HTMLElement", "document", "customElements", "window"]) {
+  assert.equal(Object.hasOwn(globalThis, name), false);
+}
+console.info("[verify:packed] tree-shaken renderer registration retained without DOM fabrication");
+`,
+			],
+			{ cwd: consumerDirectory },
+		);
+	}
 	run(
 		"node",
 		["node_modules/typescript/bin/tsc", "--project", "tsconfig.json"],
@@ -397,6 +438,76 @@ assert.throws(() => require.resolve("lit-html"), { code: "MODULE_NOT_FOUND" });`
 		},
 	);
 	run("node", ["consumer.mjs"], { cwd: consumerDirectory });
+	writeFileSync(
+		join(consumerDirectory, "headless-dom-probe.mjs"),
+		readFileSync(
+			join(repositoryRoot, "scripts/__tests__/fixtures/headless-dom-probe.mjs"),
+		),
+	);
+	for (const specifier of typeSpecifiers) {
+		run(
+			"node",
+			[
+				"headless-dom-probe.mjs",
+				specifier,
+				specifier === "ignite-element" ? "root" : "import",
+			],
+			{ cwd: consumerDirectory },
+		);
+	}
+	if (lane.name === "adapters") {
+		for (const [entry, kind] of [
+			["xstate", "xstate"],
+			["redux", "redux"],
+			["mobx", "mobx"],
+			["actor-web", "actor"],
+		]) {
+			for (const lifetime of ["live", "factory"])
+				run(
+					"node",
+					[
+						"headless-dom-probe.mjs",
+						`ignite-element/${entry}`,
+						`${kind}-${lifetime}`,
+					],
+					{ cwd: consumerDirectory },
+				);
+		}
+	}
+	if (lane.name === "source-free") {
+		for (const [control, expected] of [
+			["fake-control", /browser globals changed/],
+			["access-control", /premature browser access detected/],
+		]) {
+			const result = spawnSync(
+				process.execPath,
+				["headless-dom-probe.mjs", "ignite-element", control],
+				{ cwd: consumerDirectory, encoding: "utf8" },
+			);
+			assert.notEqual(result.status, 0);
+			assert.match(result.stderr, expected);
+			console.info(`[verify:packed] negative control rejected: ${control}`);
+		}
+		const config = readJson(join(consumerDirectory, "tsconfig.json"));
+		config.compilerOptions.lib = ["ES2022"];
+		writeFileSync(
+			join(consumerDirectory, "tsconfig.no-dom.json"),
+			JSON.stringify(config),
+		);
+		const diagnostic = spawnSync(
+			process.execPath,
+			["node_modules/typescript/bin/tsc", "-p", "tsconfig.no-dom.json"],
+			{ cwd: consumerDirectory, encoding: "utf8" },
+		);
+		console.info(
+			`[verify:packed] NON-GATING no-lib-DOM diagnostic exit ${diagnostic.status}\n${diagnostic.stdout}${diagnostic.stderr}`,
+		);
+		if (diagnostic.status !== 0)
+			assert.match(
+				diagnostic.stdout,
+				/Cannot find name '(HTMLElement|ShadowRoot|Node)'/,
+			);
+	}
 }
 
 const removedTestingTypes = [

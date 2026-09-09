@@ -1,7 +1,112 @@
+import { fileURLToPath } from "node:url";
+import { type IgniteAdapter, StateScope } from "@ignite-element/core";
 import { expect, test } from "@playwright/test";
 import type { apiShowcase } from "../../../examples/adapters/xstate/xstateApiShowcaseRuntime";
+import type * as RendererApi from "../../ignite-renderer/src/index";
+import type * as FactoryApi from "../src/IgniteElementFactory";
 
 type ApiShowcaseRuntime = typeof apiShowcase;
+
+test("browser registration freezes selection and override without taking source ownership", async ({
+	page,
+}) => {
+	await page.goto(
+		`/@fs${fileURLToPath(new URL("./source-free.html", import.meta.url))}`,
+	);
+	const result = await page.evaluate(
+		async ({ factoryUrl, rendererUrl, sharedScope }) => {
+			const { default: factory }: typeof FactoryApi = await import(factoryUrl);
+			const renderer: typeof RendererApi = await import(rendererUrl);
+			const updates = new Set<(value: number) => void>();
+			let count = 0;
+			let stopped = 0;
+			const mounts: string[] = [];
+			const adapter: IgniteAdapter<number, never> = {
+				scope: sharedScope,
+				getSnapshot: () => count,
+				send() {},
+				stop() {
+					stopped += 1;
+				},
+				subscribeSnapshots(listener) {
+					updates.add(listener);
+					listener(count);
+					return {
+						unsubscribe() {
+							updates.delete(listener);
+						},
+					};
+				},
+			};
+			const strategy = (label: string) => () => {
+				let root: ShadowRoot;
+				return {
+					attach(host: ShadowRoot) {
+						root = host;
+						mounts.push(label);
+					},
+					render(value: number) {
+						root.textContent = `${label}:${value}`;
+					},
+				};
+			};
+			renderer.registerRenderStrategy("ignite-jsx", strategy("A"));
+			renderer.defineIgniteConfig({ renderer: "ignite-jsx" });
+			const core = factory(() => adapter, { scope: sharedScope });
+			renderer.registerRenderStrategy("ignite-jsx", strategy("B"));
+			core("strategy-first", ({ state }) => state);
+			const synchronous = customElements.get("strategy-first") !== undefined;
+			renderer.registerRenderStrategy("ignite-jsx", strategy("C"));
+			core("strategy-second", ({ state }) => state);
+			renderer.clearRegisteredRenderStrategiesForTests();
+			const override = factory(() => adapter, {
+				scope: sharedScope,
+				createRenderStrategy: strategy("override"),
+			});
+			override("strategy-override", ({ state }) => state);
+			const first = document.createElement("strategy-first");
+			const peer = document.createElement("strategy-first");
+			const second = document.createElement("strategy-second");
+			const explicit = document.createElement("strategy-override");
+			document.body.append(first, peer, second, explicit);
+			count = 1;
+			for (const listener of updates) listener(count);
+			const values = [first, peer, second, explicit].map(
+				(element) => element.shadowRoot?.textContent,
+			);
+			first.remove();
+			document.body.append(first);
+			await Promise.resolve();
+			first.remove();
+			await Promise.resolve();
+			document.body.append(first);
+			const retained = first.shadowRoot?.textContent;
+			document.body.replaceChildren();
+			await Promise.resolve();
+			return {
+				synchronous,
+				values,
+				retained,
+				stopped,
+				listeners: updates.size,
+				mounts,
+			};
+		},
+		{
+			factoryUrl: `/@fs${fileURLToPath(new URL("../src/IgniteElementFactory.ts", import.meta.url))}`,
+			rendererUrl: `/@fs${fileURLToPath(new URL("../../ignite-renderer/src/index.ts", import.meta.url))}`,
+			sharedScope: StateScope.Shared,
+		},
+	);
+	expect(result).toEqual({
+		synchronous: true,
+		values: ["B:1", "B:1", "C:1", "override:1"],
+		retained: "B:1",
+		stopped: 0,
+		listeners: 0,
+		mounts: ["B", "B", "C", "override"],
+	});
+});
 
 test("agents can drive the XState example runtime without DOM locators", async ({
 	page,

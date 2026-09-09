@@ -2,14 +2,18 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StateScope } from "../IgniteAdapter";
-import IgniteElement from "../IgniteElement";
+import type IgniteElement from "../IgniteElement";
+import { getIgniteElementClasses } from "../IgniteElement";
+
 import igniteElementFactory from "../IgniteElementFactory";
 import MockAdapter from "./MockAdapter";
+
+const IgniteElementClass = getIgniteElementClasses(HTMLElement).Element;
 
 function assertIgniteElement<State, Event>(
 	element: Element,
 ): asserts element is IgniteElement<State, Event> {
-	expect(element).toBeInstanceOf(IgniteElement);
+	expect(element).toBeInstanceOf(IgniteElementClass);
 }
 
 const flushMicrotasks = () =>
@@ -142,7 +146,7 @@ describe("IgniteElement", () => {
 		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 		element.remove();
 
-		// @ts-expect-error - accessing protected method to verify inactive warning.
+		// The internal deferred-class contract exposes this method to its subclasses.
 		element.send(new CustomEvent("send", { detail: { type: "increment" } }));
 
 		expect(warnSpy).toHaveBeenCalledWith(

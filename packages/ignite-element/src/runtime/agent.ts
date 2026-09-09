@@ -254,32 +254,46 @@ export function createAgentRuntime<
 		handler: (value: Value, prevValue: Value) => void,
 	) => {
 		retainRuntimeAccess?.();
-		const { adapter } = resolveRuntime();
-		let prevValue = resolveCurrent(adapter);
-		let installing = true;
+		try {
+			const { adapter } = resolveRuntime();
+			let prevValue = resolveCurrent(adapter);
+			let installing = true;
 
-		const subscription = adapter.subscribeSnapshots((snapshot) => {
-			const nextValue = resolveDelivered(snapshot);
-			if (installing) {
-				prevValue = nextValue;
-				return;
-			}
-
-			const lastValue = prevValue;
-			prevValue = nextValue;
-			handler(nextValue, lastValue);
-		});
-		installing = false;
-
-		return {
-			unsubscribe: () => {
-				try {
-					subscription.unsubscribe();
-				} finally {
-					releaseRuntimeAccess?.();
+			const subscription = adapter.subscribeSnapshots((snapshot) => {
+				const nextValue = resolveDelivered(snapshot);
+				if (installing) {
+					prevValue = nextValue;
+					return;
 				}
-			},
-		};
+
+				const lastValue = prevValue;
+				prevValue = nextValue;
+				handler(nextValue, lastValue);
+			});
+			installing = false;
+			let active = true;
+
+			return {
+				unsubscribe: () => {
+					if (!active) return;
+					active = false;
+					try {
+						subscription.unsubscribe();
+					} catch (error) {
+						releaseAfterError(
+							"[igniteCore] Runtime access release failed after watcher cleanup error.",
+						);
+						throw error;
+					}
+					releaseRuntimeAccess?.();
+				},
+			};
+		} catch (error) {
+			releaseAfterError(
+				"[igniteCore] Runtime access release failed after watcher setup error.",
+			);
+			throw error;
+		}
 	};
 
 	const on = (
@@ -328,8 +342,11 @@ export function createAgentRuntime<
 			throw error;
 		}
 
+		let active = true;
 		return {
 			unsubscribe: () => {
+				if (!active) return;
+				active = false;
 				runCleanup("[igniteCore] Event listener cleanup failed.", () => {
 					if (host && listener) {
 						host.removeEventListener(eventName, listener);

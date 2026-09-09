@@ -349,11 +349,19 @@ function createAdapterEntry<
 	let lastNotifiedSignature: string | null = null;
 
 	const cleanupSubscriptions = () => {
-		unsubscribeSource?.();
+		const owned = [unsubscribeSource, unsubscribeTransportStatus];
 		unsubscribeSource = null;
-		unsubscribeTransportStatus?.();
 		unsubscribeTransportStatus = null;
 		lastNotifiedSignature = null;
+		let failure: unknown;
+		for (const unsubscribe of owned) {
+			try {
+				unsubscribe?.();
+			} catch (error) {
+				failure ??= error;
+			}
+		}
+		if (failure !== undefined) throw failure;
 	};
 
 	const notify = () => {
@@ -411,22 +419,39 @@ function createAdapterEntry<
 			}
 
 			listeners.add(listener);
-
-			if (!unsubscribeSource) {
-				// Keep the initial delivery synchronous while replay-signature dedupe
-				// suppresses duplicate startup notifications from transport/source replays.
-				const notificationsBeforeSubscribe = notificationCount;
-				ensureSubscription();
-				if (notificationCount === notificationsBeforeSubscribe) {
-					readCurrentState();
-					notify();
+			try {
+				if (!unsubscribeSource) {
+					// Keep the initial delivery synchronous while replay-signature dedupe
+					// suppresses duplicate startup notifications from transport/source replays.
+					const notificationsBeforeSubscribe = notificationCount;
+					ensureSubscription();
+					if (notificationCount === notificationsBeforeSubscribe) {
+						readCurrentState();
+						notify();
+					}
+				} else {
+					listener(readCurrentState());
 				}
-			} else {
-				listener(readCurrentState());
+			} catch (error) {
+				listeners.delete(listener);
+				if (!listeners.size) {
+					try {
+						cleanupSubscriptions();
+					} catch (cleanupError) {
+						console.error(
+							"[ActorWebAdapter] Observation rollback failed.",
+							cleanupError,
+						);
+					}
+				}
+				throw error;
 			}
+			let active = true;
 
 			return {
 				unsubscribe: () => {
+					if (!active) return;
+					active = false;
 					listeners.delete(listener);
 					if (!listeners.size) {
 						cleanupSubscriptions();

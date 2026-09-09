@@ -41,7 +41,7 @@ toggle('ignite-toggle', ({ isOn, toggle }) => (
 ));
 ```
 
-That registration is both a `<ignite-toggle>` custom element and a headless runtime you can drive from tests or agents — no DOM required.
+The source-backed `toggle` core is usable headlessly before registration, without browser globals. Registering `<ignite-toggle>` requires a browser DOM; keep modules that register tags during evaluation on the browser side.
 
 ## Pick your path
 

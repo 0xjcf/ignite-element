@@ -45,7 +45,7 @@ component.tagName; // 'counter-button'
 component.getSchema();
 ```
 
-The callable `core` value carries `execute`, `getSnapshot`, `getStates`, `getSchema`, `on`, `watchSnapshot`, `watchStates`, and `record` for driving and inspecting the behavior without the DOM.
+The source-backed callable `core` value carries `execute`, `getSnapshot`, `getStates`, `getSchema`, `on`, `watchSnapshot`, and `watchStates` for driving and inspecting behavior without the DOM. Root source-free construction returns only its registrar.
 
 The accepted one-argument overload binds an opaque non-DOM projection target and returns a disposable projection session:
 
@@ -71,7 +71,7 @@ See [The Ignite model](/ignite-element/concepts/the-ignite-model/) for adapter-s
 
 ## Headless runtime
 
-Every component registration also exposes a headless runtime (`execute`, `getSnapshot`, `getStates`, `getSchema`, `on`, `watchSnapshot`, `watchStates`, `record`) for driving and inspecting behavior without the DOM. See [Headless runtime](/ignite-element/api/headless-runtime/) for the full method reference.
+Source-backed construction exposes the runtime before registration. Tag-and-renderer registration requires a browser and otherwise throws a synchronous DOM-registration error without acquiring additional source observations. Renderer defaults are selected at registration, not construction; an explicit strategy bypasses default resolution. The registered tag retains its selection across rendering and reconnection. See [Headless runtime](/ignite-element/api/headless-runtime/) for the method reference and lifetime limitation.
 
 ## Callback boundaries
 

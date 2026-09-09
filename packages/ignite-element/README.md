@@ -196,3 +196,9 @@ boundary model.
 - Migration guide: `../../docs/migrations/v2.2.3-effects-events.md`
 - Package boundary migration: `../../docs/migrations/adr-003-package-boundaries.md`
 - Examples: `src/examples`
+
+## Headless Node boundary
+
+In the development candidate, supported Node imports and source-backed runtime operations use native events without fake browser globals or hidden DOM elements. Root source-free `const core = igniteCore()` is only a registrar. Register a tag in a real browser; missing DOM capabilities cause a synchronous registration-specific error. Renderer defaults are selected at registration, with explicit overrides taking precedence without resolving defaults.
+
+Keep application/source ownership of work and shutdown. Unsubscribing an observation is not whole-core disposal: effects over live sources and factory-owned actors can outlive individual handles. Whole-core resource ownership remains unresolved for stable readiness. Public root/adapter declarations still require TypeScript browser types even though runtime Node execution does not require a DOM; no-DOM declaration support is a separate follow-up.

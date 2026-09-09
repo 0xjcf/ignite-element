@@ -1,6 +1,7 @@
 import type { IgniteJsxChild } from "@ignite-element/renderer";
 import { mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";
-import { IgniteMoveSafeLifecycleElement } from "./IgniteElement";
+import { getIgniteElementClasses } from "./IgniteElement";
+import { requireDomRegistration } from "./internal/requireDomRegistration";
 
 /** Register static JSX components without a source or public lifecycle hooks. */
 export function igniteCore(
@@ -21,7 +22,10 @@ export function igniteCore(
 	}
 
 	return (tagName, render) => {
-		if (customElements.get(tagName)) return;
+		const { ElementBase, registry } = requireDomRegistration();
+		if (registry.get(tagName)) return;
+		const IgniteMoveSafeLifecycleElement =
+			getIgniteElementClasses(ElementBase).Lifecycle;
 
 		class SourceFreeElement extends IgniteMoveSafeLifecycleElement {
 			private readonly root = this.attachShadow({ mode: "open" });
@@ -42,6 +46,6 @@ export function igniteCore(
 			}
 		}
 
-		customElements.define(tagName, SourceFreeElement);
+		registry.define(tagName, SourceFreeElement);
 	};
 }

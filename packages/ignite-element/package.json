@@ -131,7 +131,10 @@
 		"CHANGELOG.md"
 	],
 	"sideEffects": [
-		"./src/internal/setupDomPolyfill.ts",
+		"./src/renderers/*.ts",
+		"./dist/registry-*.js",
+		"./dist/jsx.es-*.js",
+		"./dist/renderers/*.es.js",
 		"./dist/projectionTargets-*.js",
 		"./dist/IgniteElement-*.js"
 	],

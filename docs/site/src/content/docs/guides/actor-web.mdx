@@ -220,7 +220,7 @@ Use that pattern for connection badges, replay banners, or diagnostics — not a
 
 ## Emitted events
 
-Actor-Web sources can carry a third type parameter, `Emitted` — the union of domain events the actor publishes on its event side-channel (the source's optional `subscribeEvent`). When a source declares it, the adapter bridges those events into the [headless runtime](/ignite-element/api/headless-runtime/) automatically: they surface through `on(type)`, `execute().events`, and `record()` with **no `events:` declaration and no `effects:` callback** — and the event names and payloads are typed from the source's union, with no manual type arguments.
+Actor-Web sources can carry a third type parameter, `Emitted` — the union of domain events the actor publishes on its event side-channel (the source's optional `subscribeEvent`). When a source declares it, the adapter bridges those events into the [headless runtime](/ignite-element/api/headless-runtime/) automatically: they surface through `on(type)` and `execute().events` with **no `events:` declaration and no `effects:` callback** — and the event names and payloads are typed from the source's union, with no manual type arguments.
 
 ```ts
 import { igniteCore } from 'ignite-element/actor-web';
@@ -264,8 +264,8 @@ for (const entry of result.events) {
 
 How the bridge behaves:
 
-- **Uniform shape.** An emitted member `M` surfaces directly in `execute().events`, `record()` summaries, and `on(...)` handlers — the same flat member shape declared events use.
-- **Command-window capture.** `execute()` collects the emits that arrive between command start and the post-command flush; `record()` inherits them through `execute`. Emits outside a command window still reach `on(...)` listeners, which stay subscribed for their lifetime.
+- **Uniform shape.** An emitted member `M` surfaces directly in `execute().events` and `on(...)` handlers — the same flat member shape declared events use.
+- **Command-window capture.** `execute()` collects the emits that arrive between command start and the post-command flush. Emits outside a command window still reach `on(...)` listeners, which stay subscribed for their lifetime.
 - **Leak-free.** Each `on(...)` subscription and each `execute()` call manages its own source subscription and releases it on `unsubscribe()` / command completion.
 - **Effects stay additive.** `events:` + `effects:` remain the way to emit **UI-derived** events (computed from snapshot changes); source-emitted events need neither. Both flow side by side into the same `execute().events` stream and `on(...)` surface.
 

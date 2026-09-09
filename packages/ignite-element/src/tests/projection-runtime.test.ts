@@ -2,7 +2,6 @@
 import { command, type IgniteAdapter, StateScope } from "@ignite-element/core";
 import { describe, expect, it, vi } from "vitest";
 import { assign, createActor, createMachine, setup } from "xstate";
-import "../internal/setupDomPolyfill";
 import { createComponentFactory } from "../createComponentFactory";
 import { createIgniteComponentFactory } from "../igniteCore/createIgniteComponentFactory";
 import {
@@ -1921,124 +1920,6 @@ describe("projection targets", () => {
 
 		expect(unsubscribe).toHaveBeenCalledTimes(1);
 		expect(commitDocument).not.toHaveBeenCalled();
-	});
-
-	it("balances shared runtime access when watcher setup fails", async () => {
-		const document: ProjectionDocument = {
-			id: "shared-panel",
-			revision: "1",
-			nodes: [{ kind: "text", id: "summary", text: "Ready" }],
-		};
-		const snapshot = { documents: [document], speech: null };
-		let failWatcherSetup = true;
-		const unsubscribe = vi.fn();
-		const stop = vi.fn();
-		const adapter: IgniteAdapter<typeof snapshot, { type: "NOOP" }> = {
-			scope: StateScope.Shared,
-			subscribeSnapshots: (listener) => {
-				if (failWatcherSetup) {
-					throw new Error("watcher setup failed");
-				}
-				listener(snapshot);
-				return { unsubscribe };
-			},
-			send: () => undefined,
-			getSnapshot: () => snapshot,
-			stop,
-		};
-		const createAdapter = Object.assign(() => adapter, {
-			scope: StateScope.Shared,
-			resolveStateSnapshot: (
-				current: IgniteAdapter<typeof snapshot, { type: "NOOP" }>,
-			) => current.getSnapshot(),
-			resolveCommandActor: (
-				current: IgniteAdapter<typeof snapshot, { type: "NOOP" }>,
-			) => ({
-				send: (event: { type: "NOOP" }) => current.send(event),
-				getState: () => current.getSnapshot(),
-			}),
-		});
-		const core = createComponentFactory(createAdapter, {
-			states: () => ({}),
-			commands: () => ({}),
-			cleanup: true,
-			createRenderStrategy: () => ({
-				attach: () => undefined,
-				render: () => undefined,
-			}),
-		});
-		const ghostCommit = vi.fn();
-		let registeredConstructor: CustomElementConstructor | undefined;
-		const defineSpy = vi
-			.spyOn(customElements, "define")
-			.mockImplementation((_name, elementConstructor) => {
-				registeredConstructor = elementConstructor;
-			});
-		const addEventListenerDescriptor = Object.getOwnPropertyDescriptor(
-			HTMLElement.prototype,
-			"addEventListener",
-		);
-		const removeEventListenerDescriptor = Object.getOwnPropertyDescriptor(
-			HTMLElement.prototype,
-			"removeEventListener",
-		);
-		Object.defineProperty(HTMLElement.prototype, "addEventListener", {
-			value: () => undefined,
-			configurable: true,
-		});
-		Object.defineProperty(HTMLElement.prototype, "removeEventListener", {
-			value: () => undefined,
-			configurable: true,
-		});
-
-		try {
-			expect(() =>
-				Reflect.apply(core, undefined, [
-					createProjectionDocumentTarget({ commitDocument: ghostCommit }),
-				]),
-			).toThrow("watcher setup failed");
-			failWatcherSetup = false;
-			core(`shared-cleanup-${crypto.randomUUID()}`, () => "ready");
-			expect(registeredConstructor).toBeDefined();
-			if (!registeredConstructor) {
-				return;
-			}
-			const element = new registeredConstructor();
-			const connect = Reflect.get(element, "connectedCallback");
-			const disconnect = Reflect.get(element, "disconnectedCallback");
-			expect(connect).toBeTypeOf("function");
-			expect(disconnect).toBeTypeOf("function");
-			if (typeof connect !== "function" || typeof disconnect !== "function") {
-				return;
-			}
-			Reflect.apply(connect, element, []);
-			Reflect.apply(disconnect, element, []);
-			await flushMicrotasks();
-			await flushMicrotasks();
-
-			expect(ghostCommit).not.toHaveBeenCalled();
-			expect(stop).toHaveBeenCalledTimes(1);
-		} finally {
-			defineSpy.mockRestore();
-			if (addEventListenerDescriptor) {
-				Object.defineProperty(
-					HTMLElement.prototype,
-					"addEventListener",
-					addEventListenerDescriptor,
-				);
-			} else {
-				Reflect.deleteProperty(HTMLElement.prototype, "addEventListener");
-			}
-			if (removeEventListenerDescriptor) {
-				Object.defineProperty(
-					HTMLElement.prototype,
-					"removeEventListener",
-					removeEventListenerDescriptor,
-				);
-			} else {
-				Reflect.deleteProperty(HTMLElement.prototype, "removeEventListener");
-			}
-		}
 	});
 
 	it("prefers actor-owned snapshot context over conflicting derived states output", async () => {

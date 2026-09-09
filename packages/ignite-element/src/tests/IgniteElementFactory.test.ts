@@ -1,15 +1,97 @@
+import type { IgniteAdapter } from "@ignite-element/core";
 import { html } from "lit-html";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createComponentFactory } from "../createComponentFactory";
 import { StateScope } from "../IgniteAdapter";
 import igniteElementFactory from "../IgniteElementFactory";
+import { createProjectionDocumentTarget } from "../index";
+import * as strategyResolution from "../renderers/resolveConfiguredRenderStrategy";
 import { facadeCleanupSymbol } from "../runtime/effects";
-import type { IgniteAgentRuntime } from "../types/agent";
+import type { IgniteAgentRuntime, ProjectionDocument } from "../types/agent";
 import MinimalMockAdapter from "./MockAdapter";
+
+it("selects configured rendering at registration, and never with an override", () => {
+	const spy = vi.spyOn(strategyResolution, "resolveConfiguredRenderStrategy");
+	const createAdapter = vi.fn(() => new MinimalMockAdapter({ count: 0 }));
+	const core = igniteElementFactory(createAdapter);
+	expect(spy).not.toHaveBeenCalled();
+	expect(createAdapter).not.toHaveBeenCalled();
+	core(`selection-${crypto.randomUUID()}`, () => null);
+	expect(spy).toHaveBeenCalledTimes(1);
+	spy.mockClear();
+	const override = igniteElementFactory(createAdapter, {
+		createRenderStrategy: () => ({ attach() {}, render() {} }),
+	});
+	override(`override-${crypto.randomUUID()}`, () => null);
+	expect(spy).not.toHaveBeenCalled();
+	spy.mockRestore();
+});
 
 const flushMicrotasks = () =>
 	new Promise<void>((resolve) => queueMicrotask(resolve));
 
 describe("igniteElementFactory", () => {
+	it("balances shared runtime access when watcher setup fails", async () => {
+		const document: ProjectionDocument = {
+			id: "shared-panel",
+			revision: "1",
+			nodes: [{ kind: "text", id: "summary", text: "Ready" }],
+		};
+		const snapshot = { documents: [document], speech: null };
+		let failWatcherSetup = true;
+		const unsubscribe = vi.fn();
+		const stop = vi.fn();
+		const adapter: IgniteAdapter<typeof snapshot, { type: "NOOP" }> = {
+			scope: StateScope.Shared,
+			subscribeSnapshots: (listener) => {
+				if (failWatcherSetup) {
+					throw new Error("watcher setup failed");
+				}
+				listener(snapshot);
+				return { unsubscribe };
+			},
+			send: () => undefined,
+			getSnapshot: () => snapshot,
+			stop,
+		};
+		const createAdapter = Object.assign(() => adapter, {
+			scope: StateScope.Shared,
+			resolveStateSnapshot: (
+				current: IgniteAdapter<typeof snapshot, { type: "NOOP" }>,
+			) => current.getSnapshot(),
+			resolveCommandActor: (
+				current: IgniteAdapter<typeof snapshot, { type: "NOOP" }>,
+			) => ({
+				send: (event: { type: "NOOP" }) => current.send(event),
+				getState: () => current.getSnapshot(),
+			}),
+		});
+		const core = createComponentFactory(createAdapter, {
+			states: () => ({}),
+			commands: () => ({}),
+			cleanup: true,
+			createRenderStrategy: () => ({
+				attach: () => undefined,
+				render: () => undefined,
+			}),
+		});
+		const ghostCommit = vi.fn();
+		expect(() =>
+			Reflect.apply(core, undefined, [
+				createProjectionDocumentTarget({ commitDocument: ghostCommit }),
+			]),
+		).toThrow("watcher setup failed");
+		failWatcherSetup = false;
+		const elementName = `shared-cleanup-${crypto.randomUUID()}`;
+		core(elementName, () => "ready");
+		const element = globalThis.document.createElement(elementName);
+		globalThis.document.body.append(element);
+		element.remove();
+		await flushMicrotasks();
+		await flushMicrotasks();
+		expect(ghostCommit).not.toHaveBeenCalled();
+		expect(stop).toHaveBeenCalledTimes(1);
+	});
 	const initialState = { count: 0 };
 
 	afterEach(() => {

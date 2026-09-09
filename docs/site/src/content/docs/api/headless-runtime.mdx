@@ -1,12 +1,16 @@
 ---
 title: Headless runtime
-description: The agent runtime API on the igniteCore return — execute, canExecute, getSnapshot, getStates, getSchema, on, watchSnapshot, watchStates, and record.
+description: The source-backed runtime API — execute, canExecute, getSnapshot, getStates, getSchema, on, watchSnapshot, and watchStates.
 sidebar:
   label: Headless runtime
   order: 4
 ---
 
-Every `igniteCore(...)` registration is also a **headless runtime**. The same value you call with a tag name to register a custom element exposes methods that drive and inspect the component contract without a DOM — the surface agents and tests use before any selector is involved.
+An adapter entrypoint's `igniteCore(...)` returns a **source-backed headless runtime** before any DOM registration. Importing and using it in supported Node does not install browser globals or create hidden elements. Root source-free `const core = igniteCore()` instead returns only a registrar, with no dummy runtime methods.
+
+Calling `core(tagName, renderer)` requires a browser DOM and throws synchronously if it is unavailable. Import behavior modules on the server; modules that register tags during evaluation remain browser entrypoints. Existing one-argument non-DOM projection bindings do not require DOM registration.
+
+Release each `on`, `watchSnapshot`, and `watchStates` handle explicitly. This does not dispose the whole core: cached effect subscriptions and factory-owned actors may remain for its lifetime. The application owns source work and native shutdown. `execute()` awaits its callback and defined observation window, not all asynchronous work that callback starts. See [Compatibility](/ignite-element/api/compatibility/) for the separate stable-readiness lifetime and declaration decisions.
 
 The object passed to `igniteCore(config)` is executable authoring input. It can contain source actors or factories, callbacks, selectors, effects, and other application-only values. It is not the serialized runtime contract. Use `runtime.getSchema()` for the sole public compiled, JSON-safe Ignite blueprint.
 

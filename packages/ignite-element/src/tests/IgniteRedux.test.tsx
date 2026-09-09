@@ -3,18 +3,22 @@
 import type { Action } from "redux";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { igniteCore } from "../IgniteCore";
-import IgniteElement from "../IgniteElement";
+import type IgniteElement from "../IgniteElement";
+import { getIgniteElementClasses } from "../IgniteElement";
+
 import counterStore, {
 	addByAmount,
 	increment,
 } from "./fixtures/reduxCounterStore";
+
+const IgniteElementClass = getIgniteElementClasses(HTMLElement).Element;
 
 type RootState = ReturnType<ReturnType<typeof counterStore>["getState"]>;
 
 function assertIgniteElement<State, Event>(
 	element: Element,
 ): asserts element is IgniteElement<State, Event> {
-	expect(element).toBeInstanceOf(IgniteElement);
+	expect(element).toBeInstanceOf(IgniteElementClass);
 }
 
 describe("igniteRedux", () => {

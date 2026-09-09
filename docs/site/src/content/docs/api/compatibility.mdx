@@ -30,3 +30,13 @@ v3 publishes under the `beta` dist-tag (the stable `latest` tag is still v2.2.x)
 
 - [Installation](/ignite-element/getting-started/installation/) — install steps and the project checklist.
 - [Advanced config](/ignite-element/api/advanced-config/) — the optional `lit` renderer that needs `lit-html`.
+
+## Node runtime versus declaration support
+
+The headless-isolation development candidate is validated on Node 22.16.0, pnpm 10.33.0 and TypeScript 5.9.3. Native `EventTarget`, `Event` and `CustomEvent` provide the runtime event path; Ignite does not fabricate browser globals. Source-backed construction and execution need no DOM. Tag registration is synchronous and requires a browser. Other engines, workers and SSR/hydration are not established by this evidence.
+
+Root/JSX optional-peer isolation, adapter inference with the selected peer, and compilation without `lib: DOM` are independent checks. Current root/adapter declaration graphs reference `HTMLElement`, `ShadowRoot` and other browser types: include the DOM library for those TypeScript consumers, without installing a runtime DOM shim. Full no-DOM declaration support and the stable support policy remain separate follow-ups. Documentation direct-topology examples use Actor-Web 0.2.1; adapter validation deliberately retains 0.2.0.
+
+### Whole-core lifetime remains an open stable-readiness decision
+
+Individual watcher/event handles and projection sessions release their observations. They do not signal that an entire core has been abandoned. Cached effects over application-owned live sources may retain subscriptions, and factory-owned actors may continue source work after the final individual watcher ends. Existing whole-core semantics are preserved: no automatic source shutdown, per-command reset, or new public disposal API is introduced. Application/source owners retain asynchronous work, cancellation and native shutdown. Completing DOM isolation does not close this resource-ownership decision.

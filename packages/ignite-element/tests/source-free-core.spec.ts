@@ -17,6 +17,15 @@ test("source-free composition retains real browser DOM without lifecycle hooks",
 	await page.goto(`/@fs${fixture}`);
 	const result = await page.evaluate(
 		async ({ rootUrl, jsxUrl }) => {
+			const browserGlobals = [
+				HTMLElement,
+				customElements,
+				document,
+				window,
+				EventTarget,
+				Event,
+				CustomEvent,
+			];
 			const api: typeof RootApi = await import(rootUrl);
 			const jsxApi: typeof JsxApi = await import(jsxUrl);
 			const { jsx, jsxs } = jsxApi;
@@ -43,6 +52,14 @@ test("source-free composition retains real browser DOM without lifecycle hooks",
 				});
 			};
 			core("browser-layout", render);
+			const synchronous =
+				typeof customElements.get("browser-layout") === "function";
+			const firstConstructor = customElements.get("browser-layout");
+			core("browser-layout", () => {
+				throw new Error("duplicate registration replaced renderer");
+			});
+			const duplicatePreserved =
+				customElements.get("browser-layout") === firstConstructor;
 			core("browser-layout-two", render);
 			const hosts = [
 				"browser-layout",
@@ -91,6 +108,21 @@ test("source-free composition retains real browser DOM without lifecycle hooks",
 				retry.shadowRoot?.textContent === "recovered" && attempts === 2;
 			document.body.replaceChildren();
 			return {
+				synchronous,
+				duplicatePreserved,
+				globalsPreserved: browserGlobals.every(
+					(value, index) =>
+						value ===
+						[
+							HTMLElement,
+							customElements,
+							document,
+							window,
+							EventTarget,
+							Event,
+							CustomEvent,
+						][index],
+				),
 				slotAssigned,
 				rootless,
 				retained,
@@ -104,6 +136,9 @@ test("source-free composition retains real browser DOM without lifecycle hooks",
 		{ rootUrl, jsxUrl },
 	);
 	expect(result).toEqual({
+		synchronous: true,
+		duplicatePreserved: true,
+		globalsPreserved: true,
 		slotAssigned: true,
 		rootless: true,
 		retained: true,

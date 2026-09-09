@@ -6,7 +6,7 @@ Accepted (2026-06-19). **Additive.** Selects the lit-html render strategy
 config-free, so a `html\`…\`` view renders without `ignite.config.ts`. Part of
 `docs/v3-api-consistency.md` (the config-free philosophy).
 
-## Context
+## Historical context
 
 ignite resolves **one** render strategy per element, eagerly, in
 `resolveConfiguredRenderStrategy()` — before any view runs — defaulting to
@@ -35,6 +35,14 @@ likewise need a build plugin. Auto-detect needs neither — the lit `TemplateRes
 strategy renders.
 
 ## Decision
+
+The headless-isolation candidate selects the strategy factory synchronously at
+DOM registration, not at source-backed construction. An explicit strategy
+override bypasses configured defaults entirely. A registered tag keeps that
+selection across instances and reconnection; later configuration changes affect
+later registrations. Without a DOM, tag registration throws before source
+acquisition. Pure JSX builders remain importable in Node; importing a browser
+module that registers a tag is a different operation.
 
 The **config-free default** resolution auto-detects the view output:
 
