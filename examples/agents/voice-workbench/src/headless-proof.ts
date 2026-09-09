@@ -1,7 +1,6 @@
 /// <reference types="node" />
 
 import "@ignite-element/renderer/jsx";
-import { test as igniteTest } from "ignite-element/xstate";
 import type { ModelTurnPortRequest } from "./model-turn";
 import { createVoiceWorkbenchSessionActor } from "./session";
 import { createVoiceWorkbenchComponent } from "./workbench-component";
@@ -79,82 +78,88 @@ const completeHeadlessTurn = () => {
 	});
 };
 
-const story = component.record("voice-workbench-headless-proof");
-
-await story.execute({
-	command: "submitPrompt",
-	input: { modality: "text", text: "Prove the headless artifact contract" },
-});
-await story.execute({
-	command: "createArtifact",
-	input: {
-		id: "headless-proof",
-		title: "Headless proof",
-		nodes: [
-			{
-				id: "proof-items",
-				kind: "checklist",
-				items: [
-					{
-						id: "actor-authorized",
-						label: "Actor authorized",
-						checked: false,
-					},
-				],
-			},
-			{
-				id: "proof-summary",
-				kind: "text",
-				text: "The same component runs without a browser.",
-			},
-		],
-	},
-});
-await story.execute({
-	command: "setChecklistItem",
-	input: {
-		artifactId: "headless-proof",
-		expectedRevision: "1",
-		nodeId: "proof-items",
-		itemId: "actor-authorized",
-		checked: true,
-	},
-});
-await story.execute({
-	command: "completeResponse",
-	input: { text: "Headless proof complete." },
-});
-completeHeadlessTurn();
-
-const proof = igniteTest.snapshotStory(story);
-const view = component.getStates();
-const trace = proof.trace.flatMap((entry) =>
-	entry.kind === "command"
-		? [
+try {
+	await component.execute({
+		command: "submitPrompt",
+		input: { modality: "text", text: "Prove the headless artifact contract" },
+	});
+	await component.execute({
+		command: "createArtifact",
+		input: {
+			id: "headless-proof",
+			title: "Headless proof",
+			nodes: [
 				{
-					step: entry.step,
-					command: entry.command,
-					...("payload" in entry ? { input: entry.payload } : {}),
+					id: "proof-items",
+					kind: "checklist",
+					items: [
+						{
+							id: "actor-authorized",
+							label: "Actor authorized",
+							checked: false,
+						},
+					],
 				},
-			]
-		: [],
-);
+				{
+					id: "proof-summary",
+					kind: "text",
+					text: "The same component runs without a browser.",
+				},
+			],
+		},
+	});
+	await component.execute({
+		command: "setChecklistItem",
+		input: {
+			artifactId: "headless-proof",
+			expectedRevision: "1",
+			nodeId: "proof-items",
+			itemId: "actor-authorized",
+			checked: true,
+		},
+	});
+	await component.execute({
+		command: "completeResponse",
+		input: { text: "Headless proof complete." },
+	});
+	completeHeadlessTurn();
 
-process.stdout.write(
-	`${JSON.stringify(
-		{
-			name: proof.name,
-			trace,
-			events: proof.summary.events,
-			final: {
+	const view = component.getStates();
+	if (view.status !== "ready") throw new Error("Expected ready status.");
+	if (view.response?.text !== "Headless proof complete.") {
+		throw new Error("Expected the completed headless response.");
+	}
+	if (view.activeArtifact?.id !== "headless-proof") {
+		throw new Error("Expected the headless proof artifact.");
+	}
+	if (view.activeArtifactRevisions.length !== 2) {
+		throw new Error("Expected both artifact revisions.");
+	}
+	const checklist = view.activeArtifact?.nodes.find(
+		(node) => node.id === "proof-items",
+	);
+	if (checklist?.kind !== "checklist") throw new Error("Expected a checklist.");
+	if (
+		checklist.items.find((item) => item.id === "actor-authorized")?.checked !==
+		true
+	) {
+		throw new Error("Expected the actor-authorized item to be checked.");
+	}
+	if (!component.getSnapshot().matches({ available: { turn: "idle" } })) {
+		throw new Error("Expected the source to reach the idle turn state.");
+	}
+	process.stdout.write(
+		JSON.stringify(
+			{
 				matches: component.getSnapshot().value,
 				artifact: view.activeArtifact,
 				revisions: view.activeArtifactRevisions,
 				response: view.response,
 			},
-		},
-		null,
-		2,
-	)}\n`,
-);
-source.stop();
+			null,
+			2,
+		) + "\n",
+	);
+} finally {
+	source.stop();
+}

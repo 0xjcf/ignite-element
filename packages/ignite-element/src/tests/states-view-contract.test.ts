@@ -197,7 +197,7 @@ describe("v3 states/view public contract", () => {
 		expect(actorWeb.getStates()).toEqual({ count: 0 });
 	});
 
-	it("exposes states vocabulary through schema, stories, and tests", async () => {
+	it("exposes states vocabulary through schema and command results", async () => {
 		const counter = igniteXState({
 			source: counterMachine,
 			states: (snapshot) => ({ count: snapshot.context.count }),
@@ -209,14 +209,8 @@ describe("v3 states/view public contract", () => {
 		expect(counter.getSchema()).toMatchObject({ states: { count: 0 } });
 		expect(counter.getSchema()).not.toHaveProperty("view");
 
-		const story = counter.record("counter increments");
-		await story.execute({ command: "increment" });
-		expect(story.summary()).toMatchObject({ finalStates: { count: 1 } });
-		expect(story.trace()).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ kind: "states", phase: "after" }),
-			]),
-		);
-		story.stop();
+		const result = await counter.execute({ command: "increment" });
+		expect(result.states).toEqual({ count: 1 });
+		expect(counter.getStates()).toEqual(result.states);
 	});
 });

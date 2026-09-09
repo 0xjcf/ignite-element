@@ -197,31 +197,27 @@ apiShowcase.watchStates((states, prevStates) => [prevStates, states]);
 
 const result = await apiShowcase.execute({ command: "increment" });
 
-const story = apiShowcase.record("reaches limit");
-await story.execute({ command: "setLimit", input: 6 });
-await story.until((states) => states.stateLabel === "Limit reached", async () => {
-  await story.execute({ command: "increment" });
-});
-story.trace();
-story.lifecycle();
-story.summary();
-story.stop();
+await apiShowcase.execute({ command: "setLimit", input: 6 });
+for (let step = 0; step < 20 && apiShowcase.getStates().stateLabel !== "Limit reached"; step += 1) {
+  await apiShowcase.execute({ command: "increment" });
+}
+if (apiShowcase.getStates().stateLabel !== "Limit reached") throw new Error("Limit not reached");
 ```
 
 The example also exposes the same runtime on `window.__igniteExamples.apiShowcase` so browser automation can prove the contract directly:
 
 ```ts
 const runtime = window.__igniteExamples?.apiShowcase;
-const story = runtime?.record("browser proof");
-
-await story?.until((states) => states.stateLabel === "Limit reached", async () => {
-  await story.execute({ command: "increment" });
-});
-story?.trace();
-story?.lifecycle();
+if (!runtime) throw new Error("Runtime unavailable");
+await runtime.execute({ command: "reset" });
+await runtime.execute({ command: "increment" });
+runtime.getSnapshot();
+runtime.getStates();
 ```
 
 ---
+
+The development candidate no longer records stories or lifecycle histories. The bounded loop belongs to this application; asynchronous report work and shutdown remain source/application-owned. Test real controls by role and accessible name, independently of headless state assertions.
 
 ## Styling
 

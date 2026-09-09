@@ -1,5 +1,7 @@
 # Design index: v3 API vocabulary & shape consistency
 
+> Historical design record: the development candidate now retires testing/story APIs and recording entirely. The assertion and recorder rename discussion below is superseded for those removed surfaces; retained runtime snapshot/state terminology still applies. Historical task references are not active lifecycle authority.
+
 ## Status
 
 Active tracking doc (pre-stable v3). Indexes the sub-decisions for a coherent

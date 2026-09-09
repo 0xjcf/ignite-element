@@ -2,12 +2,8 @@ import { html } from "lit-html";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StateScope } from "../IgniteAdapter";
 import igniteElementFactory from "../IgniteElementFactory";
-import {
-	type IgniteRuntimeHostOverride,
-	igniteDomBridgeSymbol,
-	igniteRuntimeHostOverrideSymbol,
-} from "../runtime/agent";
 import { facadeCleanupSymbol } from "../runtime/effects";
+import type { IgniteAgentRuntime } from "../types/agent";
 import MinimalMockAdapter from "./MockAdapter";
 
 const flushMicrotasks = () =>
@@ -216,106 +212,6 @@ describe("igniteElementFactory", () => {
 		expect(adapter.stop).toHaveBeenCalledTimes(1);
 	});
 
-	it("restores shared runtime state after host overrides so cleanup:true can release", async () => {
-		const runCase = async (
-			runOverride: (
-				override: IgniteRuntimeHostOverride,
-			) => Promise<void> | void,
-		) => {
-			const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
-			const component = igniteElementFactory(() => adapter, {
-				scope: StateScope.Shared,
-				cleanup: true,
-			});
-			const name = `ignite-shared-runtime-restore-${crypto.randomUUID()}`;
-			component(name, () => html`<div></div>`);
-
-			const override = (
-				component as typeof component & {
-					[igniteRuntimeHostOverrideSymbol]: IgniteRuntimeHostOverride;
-				}
-			)[igniteRuntimeHostOverrideSymbol];
-			await runOverride(override);
-
-			const element = document.createElement(name);
-			document.body.appendChild(element);
-			element.remove();
-			await flushMicrotasks();
-
-			expect(adapter.stop).toHaveBeenCalledTimes(1);
-		};
-
-		await runCase((override) => {
-			override(document.createElement("section"), () => undefined);
-		});
-		await runCase(async (override) => {
-			await override(document.createElement("section"), async () => undefined);
-		});
-		await runCase((override) => {
-			expect(() =>
-				override(document.createElement("section"), () => {
-					throw new Error("host override failed");
-				}),
-			).toThrow("host override failed");
-		});
-	});
-
-	it("does not restore host override resources created during override as the runtime base", async () => {
-		const adapters: MinimalMockAdapter<
-			typeof initialState,
-			{ type: string }
-		>[] = [];
-		const reportedAdapters: MinimalMockAdapter<
-			typeof initialState,
-			{ type: string }
-		>[] = [];
-		const createAdapter = vi.fn(() => {
-			const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
-			adapters.push(adapter);
-			return adapter;
-		});
-		const cleanupAdditionalArgs = vi.fn();
-		const component = igniteElementFactory(createAdapter, {
-			scope: StateScope.Shared,
-			cleanup: true,
-			createAdditionalArgs: (adapter) =>
-				({
-					reportAdapter: () => {
-						reportedAdapters.push(
-							adapter as MinimalMockAdapter<
-								typeof initialState,
-								{ type: string }
-							>,
-						);
-					},
-					[facadeCleanupSymbol]: cleanupAdditionalArgs,
-				}) as never,
-		});
-		const name = `ignite-runtime-override-base-${crypto.randomUUID()}`;
-		component(name, () => html`<div></div>`);
-		const runtime = component as typeof component & {
-			execute: (call: { command: string; input?: unknown }) => Promise<unknown>;
-		};
-		const override = (
-			component as typeof component & {
-				[igniteRuntimeHostOverrideSymbol]: IgniteRuntimeHostOverride;
-			}
-		)[igniteRuntimeHostOverrideSymbol];
-
-		await override(document.createElement("section"), () =>
-			runtime.execute({ command: "reportAdapter" }),
-		);
-		const element = document.createElement(name);
-		document.body.appendChild(element);
-		element.remove();
-		await flushMicrotasks();
-		await runtime.execute({ command: "reportAdapter" });
-
-		expect(createAdapter).toHaveBeenCalledTimes(2);
-		expect(adapters[0]?.stop).toHaveBeenCalledTimes(1);
-		expect(reportedAdapters).toEqual([adapters[0], adapters[1]]);
-	});
-
 	it("releases shared cleanup after direct runtime access and last disconnect", async () => {
 		const adapters: MinimalMockAdapter<
 			typeof initialState,
@@ -434,8 +330,8 @@ describe("igniteElementFactory", () => {
 		expect(reportedAdapters[1]).toBe(adapters[1]);
 	});
 
-	it("logs deferred shared cleanup failures when bridge stop releases runtime access", async () => {
-		const cleanupError = new Error("bridge runtime cleanup failed");
+	it("logs deferred shared cleanup failures when unsubscribe releases runtime access", async () => {
+		const cleanupError = new Error("runtime cleanup failed");
 		const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
 		const component = igniteElementFactory(() => adapter, {
 			scope: StateScope.Shared,
@@ -447,15 +343,15 @@ describe("igniteElementFactory", () => {
 					},
 				}) as never,
 		});
-		const name = `ignite-bridge-deferred-cleanup-error-${crypto.randomUUID()}`;
+		const name = `ignite-runtime-deferred-cleanup-error-${crypto.randomUUID()}`;
 		component(name, () => html`<div></div>`);
-		const bridge = (
-			component as typeof component & {
-				[igniteDomBridgeSymbol]: (renderer: () => unknown) => {
-					stop: () => void;
-				};
-			}
-		)[igniteDomBridgeSymbol](() => html`<span>bridge</span>`);
+		// The low-level factory's public return type is registration-only; its
+		// assembled runtime is exercised here without widening that internal type.
+		const watchStates: unknown = Reflect.get(component, "watchStates");
+		if (typeof watchStates !== "function")
+			throw new Error("Expected runtime watcher");
+		const subscription: ReturnType<IgniteAgentRuntime<unknown>["watchStates"]> =
+			watchStates(() => {});
 		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
 		const element = document.createElement(name);
@@ -463,208 +359,10 @@ describe("igniteElementFactory", () => {
 		element.remove();
 		await flushMicrotasks();
 
-		expect(() => bridge.stop()).not.toThrow();
+		expect(() => subscription.unsubscribe()).not.toThrow();
 		expect(adapter.stop).toHaveBeenCalledTimes(1);
 		expect(errorSpy).toHaveBeenCalledWith(
 			"[IgniteElement] Deferred disconnect cleanup failed.",
-			cleanupError,
-		);
-	});
-
-	it("restores host override state when additional args cleanup fails", async () => {
-		const cleanupError = new Error("runtime args cleanup failed");
-		const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
-		const component = igniteElementFactory(() => adapter, {
-			scope: StateScope.Shared,
-			cleanup: true,
-			createAdditionalArgs: () =>
-				({
-					[facadeCleanupSymbol]: () => {
-						throw cleanupError;
-					},
-				}) as never,
-		});
-		const name = `ignite-shared-runtime-cleanup-error-${crypto.randomUUID()}`;
-		component(name, () => html`<div></div>`);
-		const override = (
-			component as typeof component & {
-				[igniteRuntimeHostOverrideSymbol]: IgniteRuntimeHostOverride;
-			}
-		)[igniteRuntimeHostOverrideSymbol];
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-		expect(override(document.createElement("section"), () => undefined)).toBe(
-			undefined,
-		);
-
-		const element = document.createElement(name);
-		document.body.appendChild(element);
-		element.remove();
-		await flushMicrotasks();
-
-		expect(adapter.stop).toHaveBeenCalledTimes(1);
-		expect(errorSpy).toHaveBeenCalledWith(
-			"[igniteElementFactory] Runtime host restore failed after callback completion.",
-			cleanupError,
-		);
-	});
-
-	it("rolls back host override state when additional args setup fails", async () => {
-		const setupError = new Error("runtime args setup failed");
-		const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
-		const overrideHost = document.createElement("section");
-		const component = igniteElementFactory(() => adapter, {
-			scope: StateScope.Shared,
-			cleanup: true,
-			createAdditionalArgs: (_adapter, host) => {
-				if (host === overrideHost) {
-					throw setupError;
-				}
-				return {} as never;
-			},
-		});
-		const name = `ignite-shared-runtime-setup-error-${crypto.randomUUID()}`;
-		component(name, () => html`<div></div>`);
-		const override = (
-			component as typeof component & {
-				[igniteRuntimeHostOverrideSymbol]: IgniteRuntimeHostOverride;
-			}
-		)[igniteRuntimeHostOverrideSymbol];
-
-		expect(() => override(overrideHost, () => undefined)).toThrow(setupError);
-
-		const element = document.createElement(name);
-		document.body.appendChild(element);
-		element.remove();
-		await flushMicrotasks();
-
-		expect(adapter.stop).toHaveBeenCalledTimes(1);
-	});
-
-	it("preserves host override callback errors when restore cleanup fails", () => {
-		const cleanupError = new Error("runtime args cleanup failed");
-		const callbackError = new Error("host override failed");
-		const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
-		const component = igniteElementFactory(() => adapter, {
-			scope: StateScope.Shared,
-			cleanup: true,
-			createAdditionalArgs: () =>
-				({
-					[facadeCleanupSymbol]: () => {
-						throw cleanupError;
-					},
-				}) as never,
-		});
-		const name = `ignite-shared-runtime-callback-error-${crypto.randomUUID()}`;
-		component(name, () => html`<div></div>`);
-		const override = (
-			component as typeof component & {
-				[igniteRuntimeHostOverrideSymbol]: IgniteRuntimeHostOverride;
-			}
-		)[igniteRuntimeHostOverrideSymbol];
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-		expect(() =>
-			override(document.createElement("section"), () => {
-				throw callbackError;
-			}),
-		).toThrow(callbackError);
-		expect(errorSpy).toHaveBeenCalledWith(
-			"[igniteElementFactory] Runtime host restore failed after callback error.",
-			cleanupError,
-		);
-	});
-
-	it("preserves host override callback results when restore cleanup fails", () => {
-		const cleanupError = new Error("runtime args cleanup failed");
-		const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
-		const component = igniteElementFactory(() => adapter, {
-			scope: StateScope.Shared,
-			cleanup: true,
-			createAdditionalArgs: () =>
-				({
-					[facadeCleanupSymbol]: () => {
-						throw cleanupError;
-					},
-				}) as never,
-		});
-		const name = `ignite-shared-runtime-callback-result-${crypto.randomUUID()}`;
-		component(name, () => html`<div></div>`);
-		const override = (
-			component as typeof component & {
-				[igniteRuntimeHostOverrideSymbol]: IgniteRuntimeHostOverride;
-			}
-		)[igniteRuntimeHostOverrideSymbol];
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-		expect(override(document.createElement("section"), () => "ok")).toBe("ok");
-		expect(errorSpy).toHaveBeenCalledWith(
-			"[igniteElementFactory] Runtime host restore failed after callback completion.",
-			cleanupError,
-		);
-	});
-
-	it("preserves async host override callback errors when restore cleanup fails", async () => {
-		const cleanupError = new Error("runtime args cleanup failed");
-		const callbackError = new Error("async host override failed");
-		const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
-		const component = igniteElementFactory(() => adapter, {
-			scope: StateScope.Shared,
-			cleanup: true,
-			createAdditionalArgs: () =>
-				({
-					[facadeCleanupSymbol]: () => {
-						throw cleanupError;
-					},
-				}) as never,
-		});
-		const name = `ignite-shared-runtime-async-callback-error-${crypto.randomUUID()}`;
-		component(name, () => html`<div></div>`);
-		const override = (
-			component as typeof component & {
-				[igniteRuntimeHostOverrideSymbol]: IgniteRuntimeHostOverride;
-			}
-		)[igniteRuntimeHostOverrideSymbol];
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-		await expect(
-			override(document.createElement("section"), () =>
-				Promise.reject(callbackError),
-			),
-		).rejects.toThrow(callbackError);
-		expect(errorSpy).toHaveBeenCalledWith(
-			"[igniteElementFactory] Runtime host restore failed after callback error.",
-			cleanupError,
-		);
-	});
-
-	it("preserves async host override callback results when restore cleanup fails", async () => {
-		const cleanupError = new Error("runtime args cleanup failed");
-		const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
-		const component = igniteElementFactory(() => adapter, {
-			scope: StateScope.Shared,
-			cleanup: true,
-			createAdditionalArgs: () =>
-				({
-					[facadeCleanupSymbol]: () => {
-						throw cleanupError;
-					},
-				}) as never,
-		});
-		const name = `ignite-shared-runtime-async-callback-result-${crypto.randomUUID()}`;
-		component(name, () => html`<div></div>`);
-		const override = (
-			component as typeof component & {
-				[igniteRuntimeHostOverrideSymbol]: IgniteRuntimeHostOverride;
-			}
-		)[igniteRuntimeHostOverrideSymbol];
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-		await expect(
-			override(document.createElement("section"), () => Promise.resolve("ok")),
-		).resolves.toBe("ok");
-		expect(errorSpy).toHaveBeenCalledWith(
-			"[igniteElementFactory] Runtime host restore failed after callback resolution.",
 			cleanupError,
 		);
 	});

@@ -49,8 +49,7 @@
 			"packages/ignite-element/src/index.ts",
 			"packages/ignite-element/src/xstate.ts",
 			"packages/ignite-element/src/redux.ts",
-			"packages/ignite-element/src/mobx.ts",
-			"packages/ignite-element/src/testing.ts"
+			"packages/ignite-element/src/mobx.ts"
 		],
 		"adapters": ["packages/ignite-adapters/src/"],
 		"lifecycle": [],

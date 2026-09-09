@@ -138,11 +138,11 @@ create and own their actor, Ignite component, ports, and runtime disposal.
 
 The checked characterization receipts now live beside the source:
 
-Repository development keeps Vite/TypeScript source aliases for fast feedback, but those aliases are not package-export evidence. The example manifest directly declares `ignite-element` and `@ignite-element/renderer`, its tests import `test` from the supported `ignite-element/xstate` entrypoint, and the root packed-consumer lane independently validates candidate tarballs without source aliases.
+Repository development keeps Vite/TypeScript source aliases for fast feedback, but those aliases are not package-export evidence. The example manifest directly declares `ignite-element` and `@ignite-element/renderer`, its tests use ordinary assertions over the supported `ignite-element/xstate` runtime and actual rendered elements, and the root packed-consumer lane independently validates candidate tarballs without source aliases.
 
 - `src/session.graph.test.ts` validates the parent topology, deterministic
   reachable session vertices, stale preparation correlation, the fixed invoked
-  child IDs, and the direct XState-graph-to-Story composition proof.
+  child IDs, and the direct XState-graph and ordinary correlated-runtime proof.
 - `src/model-turn.graph.test.ts` validates the child turn topology, bounded
   requesting/authorizing/executing reachability, correlated terminal output, and
   stale receipt rejection.
@@ -153,19 +153,10 @@ Repository development keeps Vite/TypeScript source aliases for fast feedback, b
 - `src/architecture.test.ts` validates that every production example module is
   owned by `architecture-boundaries.json` and that the reviewed import-violation
   baseline cannot grow silently.
-- `narrative-ergonomics-audit.md` records the post-dogfood verdict that the
-  current `igniteTest({ component }).story(...)`, `record()`, and
-  `snapshotStory()` surfaces are sufficient for the seven executable stories
-  without adding a
-  new public receipt envelope or bridge API.
-- `xstate-graph-story-evaluation.md` records the follow-on graph verdict:
-  direct XState composition is enough, `getPathsFromEvents(...)` should select
-  the public-intent prefix, Story plus fixture behavior should prove correlated
-  timeout outcomes, and no Ignite-side graph bridge API is justified.
-- [Story Workbench architecture](./story-workbench-architecture.md) locks Ignite Alchemy as the example-local
-  product identity and MVP target for this reviewer surface. It records the
-  Story/page authority model, replay and observation boundaries, and the
-  downstream W2/W3 dependency chain without claiming a shipped public package.
+- `narrative-ergonomics-audit.md`, `xstate-graph-story-evaluation.md`, and
+  [Story Workbench architecture](./story-workbench-architecture.md) are preserved
+  historical evaluations and product proposals. Their story/recorder references
+  describe the earlier API, not the current supported testing surface.
 
 ### Direct XState graph composition
 
@@ -176,7 +167,7 @@ The supported pattern is deliberately split across two layers:
    deterministic session vertices, while `getPathsFromEvents(...)` can use
    `MODEL_PREPARATION_PORT_RECEIVED` as local setup data to reach `ready` and
    then start the public user-intent prefix with `SUBMIT_PROMPT`.
-2. Use `igniteTest({ component }).story(...)` to prove the user-visible
+2. Use ordinary named tests and `component.execute(...)` to prove the user-visible
    behavior that depends on runtime correlation, fixture-owned ports, and
    semantic evidence. The example-local fixture drives the real
    `ready -> submit prompt -> timeout -> ready` outcome and checkpoints the
@@ -185,10 +176,10 @@ The supported pattern is deliberately split across two layers:
 That split is the user value:
 
 - generated reachability paths plus user-visible behavioral proof;
-- normal Story receipts, trace, and diagnostics;
+- direct native-snapshot, derived-state and event assertions;
 - explicit drivers that keep private machine facts private, with setup receipts
   staying local to characterization and `SUBMIT_PROMPT` mapping to
-  `narrative.intent(...)`; and
+  `component.execute(...)`; and
 - fresh fixtures that isolate each replay without adding a new Ignite testing
   DSL or dependency.
 
@@ -677,7 +668,7 @@ then consumed in three environments:
 same component = igniteCore({...})
 ├─ browser: text or speech → actor → MLX tools → JSX + speech
 ├─ terminal: text → actor → MLX tools → formatted text
-└─ headless proof: igniteTest commands → actor → inspectable trace
+└─ headless proof: runtime commands → actor → asserted state
 ```
 
 With product pricing configured, one browser turn adds a domain provider
@@ -953,9 +944,7 @@ The deterministic proof needs no model server or browser:
 pnpm --dir examples/agents/voice-workbench proof:headless
 ```
 
-It uses `component.record(...)` and `igniteTest.snapshotStory(...)` to print the
-live command trace, emitted actor events, final nested state value, retained
-revisions, and checked checklist state.
+It executes ordinary runtime commands and asserts the final source state, response, artifact revisions and checklist state, then prints the resulting application data. The fixture owns correlated source outcomes and stops its actor. This is not a portable trace or lifecycle-history receipt.
 
 ## Use text and speech
 
@@ -1000,28 +989,23 @@ pnpm --dir examples/agents/voice-workbench build
 pnpm --dir examples/agents/voice-workbench proof:headless
 ```
 
-The deterministic suite uses `igniteTest` and the headless runtime before it
+The deterministic suite uses ordinary assertions and the headless runtime before it
 tests the browser projection. It covers both prompt modalities, semantic-node
 validation, stale revision rejection, schema-limited model commands, provider
 failures, correlated multi-round tool feedback, accepted-artifact correction,
 model-driven checklist interaction, all nine browser node projections,
 multi-artifact selection, append-only restore history, real terminal formatting,
 speech lifecycle, projection commits, and the no-imperative-DOM-writer guard.
-`src/workbench-narratives.test.ts` dogfoods seven named multi-step stories
-over the same Story receipts: preparation failure and retry, microphone
+`src/workbench-narratives.test.ts` preserves seven ordinary named multi-step scenarios: preparation failure and retry, microphone
 permission denial with typed recovery, correlated turn cancellation, timeout and
 retry, stale model-turn correlation, revision conflict recovery, and
 speech-unavailable recovery. The file keeps intent on public commands and drives
 preparation, timeout, cancellation, speech, and voice failures through
 consumer-owned facts.
-The parity suite checks all seven states through the `igniteTest` accessibility
-bridge, ten opaque or translucent WCAG AA token pairs, and the global 44px
+The parity suite checks all seven states through actual registered components and DOM Testing Library, ten opaque or translucent WCAG AA token pairs, and the global 44px
 target contract.
 
-The current helper returns the existing Story snapshot, so the test keeps its
-coverage matrix and checkpoint labels local instead of relying on a second
-receipt envelope. That is intentional dogfood for the downstream ergonomics
-audit, not a reason to widen the public testing API here.
+Portable story receipts, trace-derived coverage matrices and complete internal lifecycle histories are intentionally removed. Native graph coverage, all seven scenarios, source-owned ports and real-control assertions remain. No replacement recorder or private testing DSL is introduced.
 
 ## Deliberate boundaries
 

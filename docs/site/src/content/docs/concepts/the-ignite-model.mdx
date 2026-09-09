@@ -172,7 +172,7 @@ component('my-counter', ({ count, canDecrement, increment, decrement }) => (
 
 ### Deterministic effects
 
-Effect timing is deterministic, which is what makes the [headless runtime](/ignite-element/api/headless-runtime/) and [testing DSL](/ignite-element/api/testing-dsl/) reproducible:
+Effect timing is deterministic, which is what makes the [headless runtime](/ignite-element/api/headless-runtime/) and [ordinary runtime tests](/ignite-element/guides/testing/) reproducible:
 
 - Attaching a host or headless runtime seeds `prevSnapshot` from the current adapter state. Ignite does not replay historical transitions to newly attached consumers.
 - The first subscription notification establishes that baseline and does **not** run `effects(...)`.

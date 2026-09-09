@@ -6,7 +6,7 @@ sidebar:
   order: 3
 ---
 
-Ignite Element is behavior-first. The same `igniteCore(...)` registration that creates a custom element also exposes a headless runtime, so agents and tests can inspect the contract, execute commands, observe events, and verify derived states before any DOM selector exists.
+Ignite Element is behavior-first. A source-backed `igniteCore(...)` registration that creates a custom element also exposes a headless runtime, so agents and tests can inspect the contract, execute commands, observe events, and verify derived states before any DOM selector exists.
 
 The practical model is:
 
@@ -15,7 +15,7 @@ The practical model is:
 3. Add the DOM layer as a projection over already-proven behavior.
 
 :::note[API reference]
-This guide is the narrative walkthrough. For exact signatures and return shapes, see [Headless runtime](/ignite-element/api/headless-runtime/), [Command metadata](/ignite-element/api/command-metadata/), and the [Testing DSL](/ignite-element/api/testing-dsl/).
+This guide is the narrative walkthrough. For exact signatures and return shapes, see [Headless runtime](/ignite-element/api/headless-runtime/), [Command metadata](/ignite-element/api/command-metadata/), and the [Testing guide](/ignite-element/guides/testing/).
 :::
 
 ## Behavior-first components
@@ -71,14 +71,14 @@ counter.canExecute('increment'); // current command availability
 
 await counter.execute({ command: 'setLimit', input: 6 });
 
-while (!counter.getStates().isLimited) {
+for (let step = 0; step < 20 && !counter.getStates().isLimited; step += 1) {
   await counter.execute({ command: 'increment' });
 }
 
 expect(counter.getStates()).toMatchObject({ count: 6, limit: 6, isLimited: true });
 ```
 
-See [Headless runtime](/ignite-element/api/headless-runtime/) for every method (`execute`, `canExecute`, `getSnapshot`, `getStates`, `getSchema`, `on`, `watchSnapshot`, `watchStates`, `record`) and its return shape.
+See [Headless runtime](/ignite-element/api/headless-runtime/) for every method (`execute`, `canExecute`, `getSnapshot`, `getStates`, `getSchema`, `on`, `watchSnapshot`, `watchStates`) and its return shape.
 
 In practice, the loop is:
 
@@ -127,7 +127,7 @@ counter('counter-panel', ({ count, limit, isLimited, increment, setLimit }) => (
 ));
 ```
 
-This keeps DOM tests focused on rendering and accessibility, while behavior tests stay selector-free. To assert the rendered controls by role and accessible name against the same proven runtime, mount a test-only DOM bridge with `igniteTest.accessibilityBridge(...)` / `igniteTest.expectControls(...)` — see the [Testing DSL](/ignite-element/api/testing-dsl/).
+This keeps DOM tests focused on rendering and accessibility, while behavior tests stay selector-free. To assert rendered controls by role and accessible name, mount the registered component and use DOM Testing Library on its actual rendered elements — see the [Testing guide](/ignite-element/guides/testing/).
 
 ## Agent-readable contracts
 
@@ -169,27 +169,8 @@ counter.canExecute('submit');              // boolean for the current snapshot
 
 That means an agent or provider can keep the contract discovery step pure and JSON-safe, then defer the live authorization question to `canExecute()` immediately before invocation. The full runtime example is in [`getSchema()`](/ignite-element/api/headless-runtime/#getschema).
 
-## Story recording
+## Ordinary workflow tests
 
-Stories make behavior workflows first-class: a recorder captures command, event, native-snapshot, and derived-states changes as one trace, while DOM lifecycle evidence stays on a separate channel of the same story object. Serialize a trace for snapshot tests with `igniteTest.serializeTrace(...)` and assert ordered checkpoints with `igniteTest.expectTrace(...)`.
+Assert the direct runtime results shown above, preserving source-owned asynchronous outcomes and real DOM coverage. Replace unbounded loops with an application-specific step limit; after a command starts asynchronous source work, wait on its correlated source state/event rather than assuming `execute()` completes it. Release observers and let the source owner stop native resources.
 
-```ts no-check
-const story = counter.record('reaches limit');
-
-await story.execute({ command: 'setLimit', input: 6 });
-await story.until((states) => states.isLimited, async () => {
-  await story.execute({ command: 'increment' });
-});
-
-igniteTest.expectTrace(igniteTest.serializeTrace(story.trace()), [
-  { kind: 'command', command: 'setLimit', payload: 6 },
-  { kind: 'event', event: 'limit-reached', payload: { count: 6, limit: 6 } },
-  { kind: 'states', phase: 'after', states: { isLimited: true } },
-]);
-
-story.stop();
-```
-
-`story.trace()` holds only behavior evidence; `story.lifecycle()` holds DOM evidence (registration, connection, render, disconnect, cleanup) when a custom element or accessibility bridge participates. The exact recorder, trace, and serialization signatures are in the [Testing DSL](/ignite-element/api/testing-dsl/).
-
-The important boundary: logic stays inspectable without the DOM, and the DOM remains a projection over the tested contract.
+The former recorder, trace helpers, story snapshots and lifecycle histories are intentionally retired without a replacement recorder. See the [migration notice](/ignite-element/api/testing-dsl/). Logic remains inspectable without the DOM, and the DOM remains a projection over that contract.

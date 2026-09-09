@@ -6,7 +6,6 @@ import type { ActorWebCommandSource } from "../../actor-web";
 import { igniteCore as igniteActorWeb } from "../../actor-web";
 import { igniteCore as igniteMobx } from "../../mobx";
 import { igniteCore as igniteRedux } from "../../redux";
-import { test as igniteTest } from "../../testing";
 import type { ToolStreamObservation } from "../../tools";
 import { igniteTools } from "../../tools";
 import { igniteCore as igniteXState } from "../../xstate";
@@ -111,7 +110,7 @@ describe("v3 states/view contract types", () => {
 		void inferActorWeb;
 	});
 
-	it("threads states through stories, testing, and tools", () => {
+	it("threads states through runtime and tools", () => {
 		const machine = createMachine({
 			initial: "idle",
 			states: { idle: {} },
@@ -121,13 +120,6 @@ describe("v3 states/view contract types", () => {
 			states: (snapshot) => ({ idle: snapshot.matches("idle") }),
 			commands: ({ actor }) => ({ ping: () => actor.send({ type: "PING" }) }),
 		});
-
-		expectTypeOf(
-			component.record("story").summary().finalStates,
-		).toEqualTypeOf<{
-			idle: boolean;
-		}>();
-		expectTypeOf(igniteTest({ component }).expectStates).toBeFunction();
 
 		const tools = igniteTools(component);
 		const inspectTools = async () => {

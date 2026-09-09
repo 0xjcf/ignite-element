@@ -14,7 +14,6 @@ type RuntimeCommand =
 type PayloadCommand = "setStep" | "setLimit";
 type ApiShowcaseState = ReturnType<typeof apiShowcase.getSnapshot>;
 type ApiShowcaseStates = ReturnType<typeof apiShowcase.getStates>;
-type ApiShowcaseStory = ReturnType<typeof apiShowcase.record>;
 type RuntimeEventRecord = {
 	type: string;
 	[key: string]: unknown;
@@ -45,15 +44,6 @@ interface RuntimeReport {
 	stateLog: string[];
 	statesLog: string[];
 	agentLog: string[];
-	traceLog: string[];
-	lifecycleLog: string[];
-	storySummary: {
-		commandCount: number;
-		traceCount: number;
-		lifecycleCount: number;
-		eventCount: number;
-		finalStates: ApiShowcaseStates;
-	};
 }
 
 interface AgentRuntimeContext {
@@ -92,46 +82,6 @@ const summarizeState = (state: ApiShowcaseState): RuntimeReport["state"] => ({
 
 const formatJson = (value: unknown) => JSON.stringify(value, null, 2);
 
-const formatTraceEntry = (
-	entry: ReturnType<ApiShowcaseStory["trace"]>[number],
-) => {
-	switch (entry.kind) {
-		case "command":
-			return `command #${entry.step}: ${entry.command}`;
-		case "event":
-			return `event #${entry.step}: ${entry.event}`;
-		case "behavior":
-			return `behavior #${entry.step}: ${entry.name}`;
-		case "snapshot":
-			return `snapshot ${entry.phase} #${entry.step}`;
-		case "states":
-			return `states ${entry.phase} #${entry.step}`;
-	}
-};
-
-const formatLifecycleEntry = (
-	entry: ReturnType<ApiShowcaseStory["lifecycle"]>[number],
-) => {
-	const instance =
-		typeof entry.instanceId === "number" ? ` #${entry.instanceId}` : "";
-	return `${entry.stage}: ${entry.elementName}${instance}`;
-};
-
-const collectLifecycleProbe = () => {
-	if (
-		typeof document === "undefined" ||
-		!document.body ||
-		!customElements.get("xstate-api-showcase")
-	) {
-		return;
-	}
-
-	const probe = document.createElement("xstate-api-showcase");
-	probe.setAttribute("hidden", "");
-	document.body.appendChild(probe);
-	probe.remove();
-};
-
 const mapRuntimeEvents = (
 	events: ReadonlyArray<RuntimeEventRecord>,
 ): RuntimeEventRecord[] =>
@@ -151,23 +101,18 @@ const codeForCommand = (
 				"apiShowcase.getStates()",
 			].join("\n");
 		case "setStep":
-			return `await story.execute({ command: "setStep", input: ${payload ?? 1} })`;
+			return `await apiShowcase.execute({ command: "setStep", input: ${payload ?? 1} })`;
 		case "setLimit":
-			return `await story.execute({ command: "setLimit", input: ${payload ?? 5} })`;
+			return `await apiShowcase.execute({ command: "setLimit", input: ${payload ?? 5} })`;
 		case "incrementToLimit":
 			return [
-				'const story = apiShowcase.record("reaches limit")',
-				"await story.until(",
-				"  (states) => states.isLimited,",
-				'  async () => await story.execute({ command: "increment" }),',
-				"  { maxSteps: 20 },",
-				")",
-				"story.trace()",
-				"story.lifecycle()",
-				"story.summary()",
+				"for (let step = 0; step < 20 && !apiShowcase.getStates().isLimited; step++) {",
+				'  await apiShowcase.execute({ command: "increment" });',
+				"}",
+				'if (!apiShowcase.getStates().isLimited) throw new Error("Limit not reached");',
 			].join("\n");
 		default:
-			return `await story.execute({ command: "${command}" })`;
+			return `await apiShowcase.execute({ command: "${command}" })`;
 	}
 };
 
@@ -182,15 +127,6 @@ const createPlaceholderReport = (command: string): RuntimeReport => ({
 	stateLog: [],
 	statesLog: [],
 	agentLog: [],
-	traceLog: [],
-	lifecycleLog: [],
-	storySummary: {
-		commandCount: 0,
-		traceCount: 0,
-		lifecycleCount: 0,
-		eventCount: 0,
-		finalStates: apiShowcase.getStates(),
-	},
 });
 
 const inspectRuntime = (): RuntimeExecution => {
@@ -212,9 +148,7 @@ const inspectRuntime = (): RuntimeExecution => {
 	};
 };
 
-const incrementToLimit = async (
-	story: ApiShowcaseStory,
-): Promise<RuntimeExecution> => {
+const incrementToLimit = async (): Promise<RuntimeExecution> => {
 	const schema = apiShowcase.getSchema();
 	const commandNames = Object.keys(schema.commands);
 	const agentLog = [`getSchema() commands -> ${commandNames.join(", ")}`];
@@ -239,7 +173,7 @@ const incrementToLimit = async (
 	let steps = 0;
 
 	while (!states.isLimited && steps < maxSteps) {
-		const result = await story.execute({ command: "increment" });
+		const result = await apiShowcase.execute({ command: "increment" });
 		resultEvents.push(...mapRuntimeEvents(result.events));
 		states = apiShowcase.getStates();
 		steps += 1;
@@ -261,7 +195,6 @@ const incrementToLimit = async (
 };
 
 const executeRuntimeCommand = async (
-	story: ApiShowcaseStory,
 	command: RuntimeCommand | PayloadCommand,
 	payload?: number,
 ): Promise<RuntimeExecution> => {
@@ -271,39 +204,47 @@ const executeRuntimeCommand = async (
 		case "increment":
 			return {
 				resultEvents: mapRuntimeEvents(
-					(await story.execute({ command: "increment" })).events,
+					(await apiShowcase.execute({ command: "increment" })).events,
 				),
 				agentLog: ['execute({ command: "increment" })'],
 			};
 		case "decrement":
 			return {
 				resultEvents: mapRuntimeEvents(
-					(await story.execute({ command: "decrement" })).events,
+					(await apiShowcase.execute({ command: "decrement" })).events,
 				),
 				agentLog: ['execute({ command: "decrement" })'],
 			};
 		case "reset":
 			return {
 				resultEvents: mapRuntimeEvents(
-					(await story.execute({ command: "reset" })).events,
+					(await apiShowcase.execute({ command: "reset" })).events,
 				),
 				agentLog: ['execute({ command: "reset" })'],
 			};
 		case "incrementToLimit":
-			return incrementToLimit(story);
+			return incrementToLimit();
 		case "setStep":
 			return {
 				resultEvents: mapRuntimeEvents(
-					(await story.execute({ command: "setStep", input: payload ?? 1 }))
-						.events,
+					(
+						await apiShowcase.execute({
+							command: "setStep",
+							input: payload ?? 1,
+						})
+					).events,
 				),
 				agentLog: [`execute({ command: "setStep", input: ${payload ?? 1} })`],
 			};
 		case "setLimit":
 			return {
 				resultEvents: mapRuntimeEvents(
-					(await story.execute({ command: "setLimit", input: payload ?? 5 }))
-						.events,
+					(
+						await apiShowcase.execute({
+							command: "setLimit",
+							input: payload ?? 5,
+						})
+					).events,
 				),
 				agentLog: [`execute({ command: "setLimit", input: ${payload ?? 5} })`],
 			};
@@ -317,9 +258,6 @@ const createRuntimeReport = async (
 	const eventLog: string[] = [];
 	const stateLog: string[] = [];
 	const statesLog: string[] = [];
-	const story = apiShowcase.record(
-		typeof payload === "number" ? `${command}(${payload})` : `${command}()`,
-	);
 
 	const countSubscription = apiShowcase.on("api-count-changed", (event) => {
 		eventLog.push(`on("api-count-changed") -> ${formatEventFields(event)}`);
@@ -343,32 +281,17 @@ const createRuntimeReport = async (
 
 	let resultEvents: RuntimeEventRecord[] = [];
 	let agentLog: string[] = [];
-	let traceLog: string[] = [];
-	let lifecycleLog: string[] = [];
-	let storySummary: RuntimeReport["storySummary"];
 
 	try {
-		const result = await executeRuntimeCommand(story, command, payload);
+		const result = await executeRuntimeCommand(command, payload);
 		resultEvents = result.resultEvents;
 		agentLog = result.agentLog;
-		collectLifecycleProbe();
 	} finally {
 		countSubscription.unsubscribe();
 		limitSubscription.unsubscribe();
 		resetSubscription.unsubscribe();
 		stateSubscription.unsubscribe();
 		statesSubscription.unsubscribe();
-		traceLog = story.trace().map(formatTraceEntry);
-		lifecycleLog = story.lifecycle().map(formatLifecycleEntry);
-		const summary = story.summary();
-		storySummary = {
-			commandCount: summary.commandCount,
-			traceCount: summary.traceCount,
-			lifecycleCount: summary.lifecycleCount,
-			eventCount: summary.events.length,
-			finalStates: summary.finalStates,
-		};
-		story.stop();
 	}
 
 	return {
@@ -383,9 +306,6 @@ const createRuntimeReport = async (
 		stateLog,
 		statesLog,
 		agentLog,
-		traceLog,
-		lifecycleLog,
-		storySummary,
 	};
 };
 
@@ -487,8 +407,6 @@ const agentRuntimeShowcase = igniteCore({
 			snapshot.context.report.stateLog.length +
 			snapshot.context.report.statesLog.length,
 		agentStepCount: snapshot.context.report.agentLog.length,
-		traceCount: snapshot.context.report.storySummary.traceCount,
-		lifecycleCount: snapshot.context.report.storySummary.lifecycleCount,
 	}),
 	commands: ({ actor }) => ({
 		inspect: () => actor.send({ type: "INSPECT" }),
@@ -522,9 +440,7 @@ agentRuntimeShowcase("xstate-agent-runtime-showcase", (ctx) => (
 					<strong>{ctx.report.states.stateLabel}</strong> · Events:{" "}
 					<strong>{ctx.eventCount}</strong> · Watchers:{" "}
 					<strong>{ctx.watcherCount}</strong> · Agent steps:{" "}
-					<strong>{ctx.agentStepCount}</strong> · Trace:{" "}
-					<strong>{ctx.traceCount}</strong> · Lifecycle:{" "}
-					<strong>{ctx.lifecycleCount}</strong>
+					<strong>{ctx.agentStepCount}</strong>
 				</p>
 			</div>
 			<button
@@ -678,7 +594,9 @@ agentRuntimeShowcase("xstate-agent-runtime-showcase", (ctx) => (
 		</div>
 
 		<div class="mt-4 rounded border border-slate-200 bg-slate-50 p-4">
-			<h3 class="text-sm font-semibold text-slate-800">Agent decision trace</h3>
+			<h3 class="text-sm font-semibold text-slate-800">
+				Application decision log
+			</h3>
 			<ol class="mt-3 grid gap-2 text-sm text-slate-700">
 				{ctx.report.agentLog.map((entry, index) => (
 					<li class="rounded bg-white px-3 py-2" key={`${entry}-${index}`}>
@@ -686,38 +604,6 @@ agentRuntimeShowcase("xstate-agent-runtime-showcase", (ctx) => (
 					</li>
 				))}
 			</ol>
-		</div>
-
-		<div class="mt-4 grid gap-4">
-			<div class="min-w-0 rounded border border-slate-200 bg-slate-50 p-4">
-				<h3 class="text-sm font-semibold text-slate-800">story.trace()</h3>
-				<ol class="mt-3 grid gap-2 text-sm text-slate-700">
-					{ctx.report.traceLog.length ? (
-						ctx.report.traceLog.map((entry, index) => (
-							<li class="rounded bg-white px-3 py-2" key={`${entry}-${index}`}>
-								{entry}
-							</li>
-						))
-					) : (
-						<li class="rounded bg-white px-3 py-2">No behavior entries</li>
-					)}
-				</ol>
-			</div>
-
-			<div class="min-w-0 rounded border border-slate-200 bg-slate-50 p-4">
-				<h3 class="text-sm font-semibold text-slate-800">story.lifecycle()</h3>
-				<ol class="mt-3 grid gap-2 text-sm text-slate-700">
-					{ctx.report.lifecycleLog.length ? (
-						ctx.report.lifecycleLog.map((entry, index) => (
-							<li class="rounded bg-white px-3 py-2" key={`${entry}-${index}`}>
-								{entry}
-							</li>
-						))
-					) : (
-						<li class="rounded bg-white px-3 py-2">No lifecycle entries</li>
-					)}
-				</ol>
-			</div>
 		</div>
 
 		<div class="mt-4 grid gap-4">

@@ -146,6 +146,12 @@ function ensureDependencies(exampleRoot) {
 	}
 
 	const relativeRoot = path.relative(repoRoot, exampleRoot);
+	if (!existsSync(path.join(exampleRoot, "pnpm-lock.yaml"))) {
+		console.error(
+			`Example ${relativeRoot} requires an existing pnpm-lock.yaml before dependency installation.`,
+		);
+		return false;
+	}
 	console.log(`Installing dependencies for ${relativeRoot}`);
 
 	const result = spawnSync(
@@ -154,7 +160,7 @@ function ensureDependencies(exampleRoot) {
 			"install",
 			"--ignore-workspace",
 			"--no-link-workspace-packages",
-			"--no-lockfile",
+			"--frozen-lockfile",
 		],
 		{
 			cwd: exampleRoot,

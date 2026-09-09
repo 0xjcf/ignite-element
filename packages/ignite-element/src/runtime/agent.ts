@@ -2,14 +2,6 @@ import type { CommandMetadata, IgniteAdapter } from "@ignite-element/core";
 import type {
 	IgniteAgentSubscription,
 	IgniteCommandCall,
-	IgniteStory,
-	IgniteStoryBehaviorTraceEntry,
-	IgniteStoryCommandTraceEntry,
-	IgniteStoryEventTraceEntry,
-	IgniteStoryLifecycleEntry,
-	IgniteStorySnapshotTraceEntry,
-	IgniteStoryStatesTraceEntry,
-	IgniteStoryTraceEntry,
 } from "../types/agent";
 import type { IgniteSchemaValue } from "../types/schema";
 import { commandMetadataSymbol } from "./commands";
@@ -60,89 +52,6 @@ function sourceEventToRuntimeEvent(
 	};
 }
 
-function cloneFallbackValue(
-	value: unknown,
-	seen: WeakMap<object, unknown> = new WeakMap(),
-): unknown {
-	switch (typeof value) {
-		case "boolean":
-		case "number":
-		case "string":
-		case "bigint":
-			return value;
-		case "symbol":
-			return value.toString();
-		case "function":
-			return "[Function]";
-		case "undefined":
-			return undefined;
-		case "object": {
-			if (value === null) {
-				return null;
-			}
-
-			const cached = seen.get(value);
-			if (cached) {
-				return cached;
-			}
-
-			if (value instanceof Date) {
-				return value.toISOString();
-			}
-
-			if (Array.isArray(value)) {
-				const cloned: unknown[] = [];
-				seen.set(value, cloned);
-				for (const item of value) {
-					cloned.push(cloneFallbackValue(item, seen));
-				}
-				return cloned;
-			}
-
-			const cloned: Record<string, unknown> = {};
-			seen.set(value, cloned);
-			for (const [key, entry] of Object.entries(
-				value as Record<string, unknown>,
-			)) {
-				const clonedEntry = cloneFallbackValue(entry, seen);
-				if (typeof clonedEntry !== "undefined") {
-					cloned[key] = clonedEntry;
-				}
-			}
-			return cloned;
-		}
-		default:
-			return String(value);
-	}
-}
-
-function cloneValue(value: unknown): unknown {
-	if (typeof globalThis.structuredClone === "function") {
-		try {
-			return globalThis.structuredClone(value);
-		} catch {
-			// Fall back to schema normalization for non-cloneable event payloads.
-		}
-	}
-
-	const normalized = toSchemaValue(value);
-	return typeof normalized === "undefined"
-		? cloneFallbackValue(value)
-		: normalized;
-}
-
-function cloneRuntimeEvent(event: RuntimeEventMember): RuntimeEventMember {
-	const cloned = cloneValue(event);
-	return isPlainRecord(cloned) && typeof cloned.type === "string"
-		? { ...cloned, type: cloned.type }
-		: { type: event.type, detail: cloneValue(event) };
-}
-
-function eventFields(event: RuntimeEventMember): Record<string, unknown> {
-	const { type: _type, ...fields } = event;
-	return fields;
-}
-
 type RuntimeResources<
 	State,
 	Event,
@@ -158,16 +67,8 @@ type AgentRuntimeOptions<
 	Event,
 	States extends Record<string, unknown>,
 	AdditionalArgs extends Record<string, unknown>,
-	Renderer,
 > = {
 	eventTypes: readonly string[];
-	observeLifecycle?: (
-		handler: (entry: IgniteStoryLifecycleEntry) => void,
-	) => IgniteAgentSubscription;
-	createDomBridge?: (
-		renderer: Renderer,
-		options?: IgniteDomBridgeOptions,
-	) => IgniteDomBridgeSession;
 	resolveRuntime: () => RuntimeResources<State, Event, AdditionalArgs>;
 	retainRuntimeAccess?: () => void;
 	releaseRuntimeAccess?: () => void;
@@ -178,35 +79,6 @@ type AgentRuntimeOptions<
 	resolveStates: (adapter: IgniteAdapter<State, Event>) => States;
 	resolveDeliveredStates?: (snapshot: State) => States;
 };
-
-const defaultUntilMaxSteps = 50;
-
-export type IgniteDomBridgeOptions = {
-	elementName?: string;
-};
-
-export type IgniteDomBridgeSession = {
-	host: HTMLElement;
-	root: ShadowRoot;
-	stop: () => void;
-};
-
-export const igniteDomBridgeSymbol = Symbol("ignite-element.dom-bridge");
-export const igniteRuntimeHostOverrideSymbol = Symbol(
-	"ignite-element.runtime-host-override",
-);
-
-export type IgniteRuntimeHostOverride = <Result>(
-	host: EventTarget,
-	callback: () => Result,
-) => Result;
-
-type IgniteStoryTraceEntryDraft =
-	| Omit<IgniteStoryCommandTraceEntry, "sequence">
-	| Omit<IgniteStoryBehaviorTraceEntry, "sequence">
-	| Omit<IgniteStoryEventTraceEntry, "sequence">
-	| Omit<IgniteStorySnapshotTraceEntry, "sequence">
-	| Omit<IgniteStoryStatesTraceEntry, "sequence">;
 
 function getCommandContract(
 	commandValue: unknown,
@@ -278,54 +150,20 @@ function hasCanExecute(
 	return typeof metadata?.canExecute === "function";
 }
 
-function normalizeTraceValue(value: unknown): IgniteSchemaValue {
-	return toSchemaValue(value) ?? null;
-}
-
-function cloneSchemaValue(value: IgniteSchemaValue): IgniteSchemaValue {
-	return JSON.parse(JSON.stringify(value)) as IgniteSchemaValue;
-}
-
-function cloneTraceEntry(entry: IgniteStoryTraceEntry): IgniteStoryTraceEntry {
-	switch (entry.kind) {
-		case "command":
-			return typeof entry.payload === "undefined"
-				? { ...entry }
-				: { ...entry, payload: cloneSchemaValue(entry.payload) };
-		case "behavior":
-			return { ...entry };
-		case "event":
-			return { ...entry, payload: cloneSchemaValue(entry.payload) };
-		case "snapshot":
-			return { ...entry, snapshot: cloneSchemaValue(entry.snapshot) };
-		case "states":
-			return { ...entry, states: cloneSchemaValue(entry.states) };
-	}
-}
-
-function cloneLifecycleEntry(
-	entry: IgniteStoryLifecycleEntry,
-): IgniteStoryLifecycleEntry {
-	return { ...entry };
-}
-
 export function createAgentRuntime<
 	State,
 	Event,
 	States extends Record<string, unknown>,
 	AdditionalArgs extends Record<string, unknown>,
-	Renderer = unknown,
 >({
-	createDomBridge,
 	eventTypes,
-	observeLifecycle,
 	retainRuntimeAccess,
 	releaseRuntimeAccess,
 	resolveInspection,
 	resolveRuntime,
 	resolveDeliveredStates,
 	resolveStates,
-}: AgentRuntimeOptions<State, Event, States, AdditionalArgs, Renderer>) {
+}: AgentRuntimeOptions<State, Event, States, AdditionalArgs>) {
 	const resolveRuntimeInspection =
 		resolveInspection ??
 		((adapter: IgniteAdapter<State, Event>) => ({
@@ -607,229 +445,6 @@ export function createAgentRuntime<
 		input: "input" in call ? call.input : undefined,
 	});
 
-	const record = (name: string) => {
-		const traceEntries: IgniteStoryTraceEntry[] = [];
-		const lifecycleEntries: IgniteStoryLifecycleEntry[] = [];
-		const emittedEvents: RuntimeEventMember[] = [];
-		let active = true;
-		let totalStepCount = 0;
-		let commandCount = 0;
-		let traceSequence = 0;
-
-		const lifecycleSubscription = observeLifecycle?.((entry) => {
-			if (!active) {
-				return;
-			}
-
-			lifecycleEntries.push(cloneLifecycleEntry(entry));
-		});
-
-		const assertActive = () => {
-			if (!active) {
-				throw new Error(`[igniteCore] Story "${name}" has been stopped.`);
-			}
-		};
-
-		const pushTrace = (entry: IgniteStoryTraceEntryDraft) => {
-			traceSequence += 1;
-			traceEntries.push({
-				sequence: traceSequence,
-				...entry,
-			} as IgniteStoryTraceEntry);
-		};
-
-		const copyEvents = () =>
-			emittedEvents.map((event) => cloneRuntimeEvent(event));
-
-		const story = {
-			name,
-			async execute(
-				call: IgniteCommandCall<Record<string, (arg?: unknown) => unknown>>,
-			) {
-				assertActive();
-				const step = totalStepCount + 1;
-				const before = resolveRuntimeInspection(resolveRuntime().adapter);
-				const { command, input } = commandCallToArgs(call);
-				const normalizedPayload = normalizeTraceValue(input);
-
-				if (typeof input === "undefined") {
-					pushTrace({
-						kind: "command",
-						step,
-						command,
-					});
-				} else {
-					pushTrace({
-						kind: "command",
-						step,
-						command,
-						payload: normalizedPayload,
-					});
-				}
-				pushTrace({
-					kind: "snapshot",
-					step,
-					phase: "before",
-					snapshot: normalizeTraceValue(before.snapshot),
-				});
-				pushTrace({
-					kind: "states",
-					step,
-					phase: "before",
-					states: normalizeTraceValue(before.states),
-				});
-
-				const result = await executeCommand(command, input);
-
-				for (const event of result.events) {
-					emittedEvents.push(cloneRuntimeEvent(event));
-					pushTrace({
-						kind: "event",
-						step,
-						event: event.type,
-						payload: normalizeTraceValue(eventFields(event)),
-					});
-				}
-
-				pushTrace({
-					kind: "snapshot",
-					step,
-					phase: "after",
-					snapshot: normalizeTraceValue(result.snapshot),
-				});
-				pushTrace({
-					kind: "states",
-					step,
-					phase: "after",
-					states: normalizeTraceValue(result.states),
-				});
-
-				totalStepCount = step;
-				commandCount += 1;
-				return result;
-			},
-			async behavior<Result>(
-				behaviorName: string,
-				operation: () => Promise<Result> | Result,
-			): Promise<Result> {
-				assertActive();
-				const step = totalStepCount + 1;
-				const before = resolveRuntimeInspection(resolveRuntime().adapter);
-
-				pushTrace({
-					kind: "behavior",
-					step,
-					name: behaviorName,
-				});
-				pushTrace({
-					kind: "snapshot",
-					step,
-					phase: "before",
-					snapshot: normalizeTraceValue(before.snapshot),
-				});
-				pushTrace({
-					kind: "states",
-					step,
-					phase: "before",
-					states: normalizeTraceValue(before.states),
-				});
-
-				try {
-					return await operation();
-				} finally {
-					const after = resolveRuntimeInspection(resolveRuntime().adapter);
-					pushTrace({
-						kind: "snapshot",
-						step,
-						phase: "after",
-						snapshot: normalizeTraceValue(after.snapshot),
-					});
-					pushTrace({
-						kind: "states",
-						step,
-						phase: "after",
-						states: normalizeTraceValue(after.states),
-					});
-					totalStepCount = step;
-				}
-			},
-			async until(
-				statesPredicate: (states: States) => boolean,
-				action: (
-					story: IgniteStory<
-						State,
-						Record<string, (...args: never[]) => unknown>,
-						Record<string, never>,
-						States
-					>,
-					states: States,
-					iteration: number,
-				) => unknown,
-				options?: { maxSteps?: number },
-			) {
-				assertActive();
-				const maxSteps = options?.maxSteps ?? defaultUntilMaxSteps;
-
-				if (!Number.isInteger(maxSteps) || maxSteps < 1) {
-					throw new Error(
-						`[igniteCore] Story "${name}" until(...) maxSteps must be a positive integer.`,
-					);
-				}
-
-				let iterations = 0;
-				let states = resolveStates(resolveRuntime().adapter);
-
-				while (!statesPredicate(states)) {
-					if (iterations >= maxSteps) {
-						throw new Error(
-							`[igniteCore] Story "${name}" until(...) exceeded maxSteps (${maxSteps}).`,
-						);
-					}
-
-					await action(story as never, states, iterations);
-					iterations += 1;
-					states = resolveStates(resolveRuntime().adapter);
-					// Flush microtask to allow effects to emit events
-					await new Promise<void>((resolve) => queueMicrotask(resolve));
-				}
-
-				return states;
-			},
-			trace() {
-				return traceEntries.map(cloneTraceEntry);
-			},
-			lifecycle() {
-				return lifecycleEntries.map(cloneLifecycleEntry);
-			},
-			summary() {
-				const final = resolveRuntimeInspection(resolveRuntime().adapter);
-				return {
-					name,
-					finalSnapshot: final.snapshot,
-					finalStates: final.states,
-					events: copyEvents(),
-					commandCount,
-					traceCount: traceEntries.length,
-					lifecycleCount: lifecycleEntries.length,
-				};
-			},
-			canExecute(commandName: string) {
-				assertActive();
-				return canExecuteCommand(commandName);
-			},
-			stop() {
-				if (!active) {
-					return;
-				}
-
-				active = false;
-				lifecycleSubscription?.unsubscribe();
-			},
-		};
-
-		return story;
-	};
-
 	const runtime = {
 		canExecute: canExecuteCommand,
 		execute(
@@ -871,16 +486,9 @@ export function createAgentRuntime<
 			});
 		},
 		on,
-		record,
 		watchSnapshot,
 		watchStates,
 	};
-
-	if (createDomBridge) {
-		Object.assign(runtime, {
-			[igniteDomBridgeSymbol]: createDomBridge,
-		});
-	}
 
 	return runtime;
 }

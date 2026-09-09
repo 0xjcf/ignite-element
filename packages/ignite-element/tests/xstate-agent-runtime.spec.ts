@@ -17,50 +17,31 @@ test("agents can drive the XState example runtime without DOM locators", async (
 
 		const schema = runtime.getSchema();
 		const startStates = runtime.getStates();
-		const story = runtime.record("playwright reaches limit");
+		const events: Awaited<ReturnType<typeof runtime.execute>>["events"] = [];
 
-		await story.execute({ command: "setStep", input: 2 });
+		await runtime.execute({ command: "setStep", input: 2 });
 		const stepStates = runtime.getStates();
-		await story.execute({ command: "setLimit", input: 6 });
+		await runtime.execute({ command: "setLimit", input: 6 });
 		const limitStates = runtime.getStates();
 
 		let steps = 0;
-		const finalStates = await story.until(
-			(states) => states.isLimited,
-			async () => {
-				await story.execute({ command: "increment" });
-				steps += 1;
-			},
-			{ maxSteps: 20 },
-		);
-
-		const probe = document.createElement("xstate-api-showcase");
-		probe.setAttribute("hidden", "");
-		document.body.appendChild(probe);
-		probe.remove();
-		await new Promise<void>((resolve) => queueMicrotask(resolve));
-
-		const trace = story.trace();
-		const lifecycle = story.lifecycle();
-		const summary = story.summary();
-		story.stop();
+		while (!runtime.getStates().isLimited && steps < 20) {
+			const result = await runtime.execute({ command: "increment" });
+			events.push(...result.events);
+			steps += 1;
+		}
+		const finalStates = runtime.getStates();
 
 		return {
 			commands: schema.commands,
-			events: summary.events,
+			events,
 			finalStates,
 			limitStates,
-			lifecycleCount: summary.lifecycleCount,
-			lifecycleStages: lifecycle.map((entry) => entry.stage),
 			schemaEvents: schema.events,
 			schemaSnapshot: schema.snapshot,
 			schemaStates: schema.states,
 			startStates,
 			stepStates,
-			summaryCommandCount: summary.commandCount,
-			summaryFinalStates: summary.finalStates,
-			traceCount: summary.traceCount,
-			traceKinds: trace.map((entry) => entry.kind),
 			steps,
 		};
 	});
@@ -117,21 +98,6 @@ test("agents can drive the XState example runtime without DOM locators", async (
 	expect(result.steps).toBeGreaterThan(0);
 	expect(result.finalStates.isLimited).toBe(true);
 	expect(result.finalStates.count).toBe(result.finalStates.limit);
-	expect(result.summaryFinalStates).toMatchObject(result.finalStates);
-	expect(result.summaryCommandCount).toBe(result.steps + 2);
-	expect(result.traceCount).toBeGreaterThan(result.summaryCommandCount);
-	expect(result.traceKinds).toEqual(
-		expect.arrayContaining(["command", "event", "snapshot", "states"]),
-	);
-	expect(result.lifecycleCount).toBeGreaterThan(0);
-	expect(result.lifecycleStages).toEqual(
-		expect.arrayContaining([
-			"connected",
-			"rendered",
-			"disconnected",
-			"cleaned-up",
-		]),
-	);
 	expect(result.finalStates.stateLabel).toBe("Limit reached");
 	expect(result.events.map((event) => event.type)).toContain(
 		"api-limit-reached",
@@ -153,4 +119,21 @@ test("agents can drive the XState example runtime without DOM locators", async (
 		]),
 	);
 	expect(result.events.some((event) => "payload" in event)).toBe(false);
+});
+
+test("registered showcase buttons update the rendered count", async ({
+	page,
+}) => {
+	await page.goto("/");
+	const counter = page.locator("xstate-api-showcase");
+	await counter.getByRole("button", { name: "Reset", exact: true }).click();
+	await expect(
+		counter.getByRole("heading", { name: /^Count 0 \/ / }),
+	).toBeVisible();
+	await counter
+		.getByRole("button", { name: "Add ctx.step", exact: true })
+		.click();
+	await expect(
+		counter.getByRole("heading", { name: /^Count 1 \/ / }),
+	).toBeVisible();
 });

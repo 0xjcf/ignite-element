@@ -1,4 +1,3 @@
-import { test as igniteTest } from "ignite-element/xstate";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ModelFailureFact } from "./agent-loop";
 import type {
@@ -97,21 +96,6 @@ const currentArtifactRevision = (
 	actor
 		.getSnapshot()
 		.context.documents.find((document) => document.id === artifactId)?.revision;
-
-const commandTrace = (story: {
-	trace: Array<{ kind: string; command?: string }>;
-}) =>
-	story.trace.flatMap((entry) =>
-		entry.kind === "command" && entry.command ? [entry.command] : [],
-	);
-
-const finalViewStatus = (story: {
-	summary: { finalStates: unknown | null };
-}): string | null => {
-	const view = story.summary.finalStates;
-	if (!view || typeof view !== "object" || !("status" in view)) return null;
-	return typeof view.status === "string" ? view.status : null;
-};
 
 const createFixture = ({
 	input,
@@ -489,868 +473,655 @@ const finishCurrentTurnCompletion = (
 	});
 };
 
-describe("voice workbench executable narratives", () => {
-	it("dogfoods failure and recovery paths through named stories", async () => {
-		const coverageMatrix: Array<{
-			narrative: string;
-			commands: string[];
-			checkpoints: string[];
-			receipts: string[];
-			finalStatus: unknown;
-		}> = [];
+describe("voice workbench failure and recovery", () => {
+	it("preparation failure retries into ready", async () => {
+		const fixture = createFixture({
+			initialPreparation: {
+				type: "failed",
+				failure: {
+					kind: "network",
+					message: "The local model could not be reached.",
+				},
+			},
+		});
 
-		{
-			const fixture = createFixture({
-				initialPreparation: {
-					type: "failed",
-					failure: {
-						kind: "network",
-						message: "The local model could not be reached.",
+		await vi.waitFor(
+			() => {
+				const snapshot = fixture.component.getSnapshot();
+				expect(snapshot.matches("unavailable")).toBe(true);
+				expect(fixture.component.getStates()).toMatchObject({
+					status: "failed",
+					model: { status: "failed" },
+				});
+				expect(fixture.component.canExecute("submitPrompt")).toBe(false);
+			},
+			{ timeout: 1000 },
+		);
+
+		await fixture.component.execute({ command: "beginModelPreparation" });
+		await fixture.resolvePreparationAvailable();
+
+		// ready after retry
+		await vi.waitFor(
+			() => {
+				const snapshot = fixture.component.getSnapshot();
+				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
+				expect(fixture.component.getStates()).toMatchObject({
+					status: "ready",
+					model: { status: "available" },
+					statusLabel: "Ready",
+				});
+				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+				expect(fixture.component.canExecute("startVoiceCapture")).toBe(true);
+			},
+			{ timeout: 1000 },
+		);
+
+		expect(fixture.component.getStates()).toMatchObject({
+			status: "ready",
+			model: { status: "available" },
+		});
+	});
+	it("microphone permission denial recovers to typed prompt", async () => {
+		const fixture = createFixture();
+
+		await vi.waitFor(
+			() => {
+				const snapshot = fixture.component.getSnapshot();
+				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
+				expect(fixture.component.getStates()).toMatchObject({
+					status: "ready",
+					voiceState: "idle",
+				});
+				expect(fixture.component.canExecute("startVoiceCapture")).toBe(true);
+				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+				expect(fixture.component.canExecute("submitVoiceTranscript")).toBe(
+					false,
+				);
+			},
+			{ timeout: 1000 },
+		);
+
+		await fixture.component.execute({ command: "startVoiceCapture" });
+		const voiceRequest = fixture.currentVoiceRequest();
+		if (voiceRequest.type !== "start" || voiceRequest.attemptId === null) {
+			throw new Error("Expected a correlated voice start request.");
+		}
+		const voiceAttemptId = voiceRequest.attemptId;
+		await fixture.emitVoice({
+			type: "PERMISSION_DENIED",
+			attemptId: voiceAttemptId,
+			message: "Microphone access was denied.",
+		});
+
+		// voice permission stays a fact
+		await vi.waitFor(
+			() => {
+				expect(fixture.component.getStates()).toMatchObject({
+					voiceState: "permission",
+					voiceFailure: {
+						type: "voice-permission-denied",
+						message: "Microphone access was denied.",
 					},
-				},
-			});
+				});
+				expect(fixture.component.canExecute("startVoiceCapture")).toBe(true);
+				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+				expect(fixture.component.canExecute("submitVoiceTranscript")).toBe(
+					false,
+				);
+			},
+			{ timeout: 1000 },
+		);
 
-			const story = await igniteTest({ component: fixture.component }).story(
-				"preparation failure retries into ready",
-				async (narrative) => {
-					await narrative.given({
-						when: (snapshot) => snapshot.matches("unavailable"),
-						states: { status: "failed", model: { status: "failed" } },
-						canExecute: { submitPrompt: false },
-					});
+		await fixture.component.execute({
+			command: "submitPrompt",
+			input: {
+				modality: "text",
+				text: "Continue with text fallback.",
+			},
+		});
 
-					await narrative.intent({ command: "beginModelPreparation" });
-					await narrative.behavior(
-						"model preparation port becomes available",
-						async () => {
-							await fixture.resolvePreparationAvailable();
-						},
-					);
+		// text recovery starts a new turn
+		await vi.waitFor(
+			() => {
+				const snapshot = fixture.component.getSnapshot();
+				expect(snapshot.matches({ available: { turn: "responding" } })).toBe(
+					true,
+				);
+				expect(fixture.component.getStates()).toMatchObject({
+					status: "responding",
+					lastFact: {
+						type: "prompt-submitted",
+						modality: "text",
+						text: "Continue with text fallback.",
+					},
+				});
+				expect(fixture.component.canExecute("createArtifact")).toBe(true);
+				expect(fixture.component.canExecute("completeResponse")).toBe(false);
+			},
+			{ timeout: 1000 },
+		);
 
-					await narrative.checkpoint("ready after retry", {
-						when: (snapshot) =>
-							snapshot.matches({ available: { turn: "idle" } }),
-						states: {
-							status: "ready",
-							model: { status: "available" },
-							statusLabel: "Ready",
-						},
-						canExecute: {
-							submitPrompt: true,
-							startVoiceCapture: true,
-						},
-					});
-				},
-			);
+		expect(fixture.component.getStates()).toMatchObject({
+			status: "responding",
+			voiceState: "permission",
+		});
+	});
+	it("correlated cancellation returns the active turn to idle", async () => {
+		const fixture = createFixture();
 
-			expect(story.summary.finalStates).toMatchObject({
-				status: "ready",
-				model: { status: "available" },
-			});
-			coverageMatrix.push({
-				narrative: story.name,
-				commands: commandTrace(story),
-				checkpoints: ["ready after retry"],
-				receipts: [
-					"modelPreparation:failed",
-					"MODEL_PREPARATION_STARTED",
-					"modelPreparation:available",
+		await vi.waitFor(
+			() => {
+				const snapshot = fixture.component.getSnapshot();
+				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
+				expect(fixture.component.getStates()).toMatchObject({
+					status: "ready",
+				});
+				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+			},
+			{ timeout: 1000 },
+		);
+
+		await fixture.component.execute({
+			command: "submitPrompt",
+			input: { modality: "text", text: "Cancel this turn." },
+		});
+
+		// turn is responding
+		await vi.waitFor(
+			() => {
+				const snapshot = fixture.component.getSnapshot();
+				expect(snapshot.matches({ available: { turn: "responding" } })).toBe(
+					true,
+				);
+				expect(fixture.component.getStates()).toMatchObject({
+					status: "responding",
+				});
+				expect(fixture.component.canExecute("createArtifact")).toBe(true);
+			},
+			{ timeout: 1000 },
+		);
+
+		const request = fixture.currentModelRequest();
+		fixture.actor.send({
+			type: "MODEL_TURN_CANCEL_REQUESTED",
+			turnId: request.turnId,
+			attemptId: request.attemptId,
+		});
+
+		// turn cancellation returns idle
+		await vi.waitFor(
+			() => {
+				const snapshot = fixture.component.getSnapshot();
+				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
+				expect(fixture.component.getStates()).toMatchObject({
+					status: "ready",
+					lifecycle: {
+						lastTurnTerminal: { type: "CANCELLED", turnId: request.turnId },
+					},
+				});
+				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+			},
+			{ timeout: 1000 },
+		);
+
+		expect(fixture.component.getStates()).toMatchObject({ status: "ready" });
+	});
+	it("timed out turn retries to an accepted response", async () => {
+		const fixture = createFixture({ modelTurnTimeoutMs: 25 });
+
+		await vi.waitFor(
+			() => {
+				const snapshot = fixture.component.getSnapshot();
+				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
+				expect(fixture.component.getStates()).toMatchObject({
+					status: "ready",
+				});
+				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+			},
+			{ timeout: 1000 },
+		);
+
+		await fixture.component.execute({
+			command: "submitPrompt",
+			input: { modality: "text", text: "Recover after timeout." },
+		});
+		await fixture.waitForModelTurnCall("request-model");
+		expect(fixture.fireTimeout()).toBe(25);
+
+		// timeout returns the turn to idle
+		await vi.waitFor(
+			() => {
+				const snapshot = fixture.component.getSnapshot();
+				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
+				expect(fixture.component.getStates()).toMatchObject({
+					status: "ready",
+					lifecycle: {
+						lastTurnTerminal: { type: "TIMEOUT" },
+					},
+				});
+				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+			},
+			{ timeout: 1000 },
+		);
+
+		const retryRequestStart = fixture.modelTurnCallCount();
+		await fixture.component.execute({
+			command: "submitPrompt",
+			input: { modality: "text", text: "Retry after timeout." },
+		});
+		await fixture.component.execute({
+			command: "createArtifact",
+			input: {
+				id: "timeout-recovery",
+				title: "Timeout recovery",
+				nodes: [
+					{
+						id: "summary",
+						kind: "text",
+						text: "Recovery document",
+					},
 				],
-				finalStatus: finalViewStatus(story),
-			});
-		}
+			},
+		});
 
-		{
-			const fixture = createFixture();
+		// retry can finish with an accepted artifact
+		await vi.waitFor(
+			() => {
+				expect(fixture.component.getStates()).toMatchObject({
+					status: "responding",
+					activeArtifact: {
+						id: "timeout-recovery",
+						revision: "1",
+					},
+				});
+				expect(fixture.component.canExecute("completeResponse")).toBe(true);
+			},
+			{ timeout: 1000 },
+		);
 
-			const story = await igniteTest({ component: fixture.component }).story(
-				"microphone permission denial recovers to typed prompt",
-				async (narrative) => {
-					await narrative.given({
-						when: (snapshot) =>
-							snapshot.matches({ available: { turn: "idle" } }),
-						states: {
-							status: "ready",
-							voiceState: "idle",
-						},
-						canExecute: {
-							startVoiceCapture: true,
-							submitPrompt: true,
-							submitVoiceTranscript: false,
-						},
-					});
+		const retryModelCall = await fixture.waitForNextModelTurnCall(
+			"request-model",
+			retryRequestStart,
+		);
+		const completion = await beginCurrentTurnCompletion(
+			fixture,
+			retryModelCall,
+			{ text: "Recovered after timeout." },
+		);
+		await fixture.component.execute({
+			command: "completeResponse",
+			input: { text: "Recovered after timeout." },
+		});
+		finishCurrentTurnCompletion(fixture, fixture.component, completion);
 
-					await narrative.intent({ command: "startVoiceCapture" });
-					const voiceRequest = fixture.currentVoiceRequest();
-					if (
-						voiceRequest.type !== "start" ||
-						voiceRequest.attemptId === null
-					) {
-						throw new Error("Expected a correlated voice start request.");
-					}
-					const voiceAttemptId = voiceRequest.attemptId;
-					await narrative.behavior("microphone denies permission", async () => {
-						await fixture.emitVoice({
-							type: "PERMISSION_DENIED",
-							attemptId: voiceAttemptId,
-							message: "Microphone access was denied.",
-						});
-					});
+		// accepted retry returns to ready
+		await vi.waitFor(
+			() => {
+				const snapshot = fixture.component.getSnapshot();
+				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
+				expect(fixture.component.getStates()).toMatchObject({
+					status: "ready",
+					response: { text: "Recovered after timeout." },
+					activeArtifact: {
+						id: "timeout-recovery",
+						revision: "1",
+					},
+				});
+				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+			},
+			{ timeout: 1000 },
+		);
 
-					await narrative.checkpoint("voice permission stays a fact", {
-						states: {
-							voiceState: "permission",
-							voiceFailure: {
-								type: "voice-permission-denied",
-								message: "Microphone access was denied.",
-							},
-						},
-						canExecute: {
-							startVoiceCapture: true,
-							submitPrompt: true,
-							submitVoiceTranscript: false,
-						},
-					});
+		expect(fixture.component.getStates()).toMatchObject({
+			status: "ready",
+			response: { text: "Recovered after timeout." },
+		});
+	});
+	it("stale correlated model receipts stay inert until the live turn ends", async () => {
+		const fixture = createFixture();
 
-					await narrative.intent({
-						command: "submitPrompt",
-						input: {
-							modality: "text",
-							text: "Continue with text fallback.",
-						},
-					});
+		await vi.waitFor(
+			() => {
+				const snapshot = fixture.component.getSnapshot();
+				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
+				expect(fixture.component.getStates()).toMatchObject({
+					status: "ready",
+				});
+				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+			},
+			{ timeout: 1000 },
+		);
 
-					await narrative.checkpoint("text recovery starts a new turn", {
-						when: (snapshot) =>
-							snapshot.matches({ available: { turn: "responding" } }),
-						states: {
-							status: "responding",
-							lastFact: {
-								type: "prompt-submitted",
-								modality: "text",
-								text: "Continue with text fallback.",
-							},
-						},
-						canExecute: {
-							createArtifact: true,
-							completeResponse: false,
-						},
-					});
-				},
-			);
+		await fixture.component.execute({
+			command: "submitPrompt",
+			input: { modality: "text", text: "Ignore stale turn receipts." },
+		});
 
-			expect(story.summary.finalStates).toMatchObject({
-				status: "responding",
-				voiceState: "permission",
-			});
-			coverageMatrix.push({
-				narrative: story.name,
-				commands: commandTrace(story),
-				checkpoints: [
-					"voice permission stays a fact",
-					"text recovery starts a new turn",
-				],
-				receipts: [
-					"VOICE_CAPTURE_START_REQUESTED",
-					"voiceCapture:PERMISSION_DENIED",
-				],
-				finalStatus: finalViewStatus(story),
-			});
-		}
+		const staleCall = await fixture.waitForModelTurnCall("request-model");
+		fixture.actor.send({
+			type: "MODEL_TURN_CANCEL_REQUESTED",
+			turnId: staleCall.request.turnId,
+			attemptId: staleCall.request.attemptId,
+		});
 
-		{
-			const fixture = createFixture();
-
-			const story = await igniteTest({ component: fixture.component }).story(
-				"correlated cancellation returns the active turn to idle",
-				async (narrative) => {
-					await narrative.given({
-						when: (snapshot) =>
-							snapshot.matches({ available: { turn: "idle" } }),
-						states: { status: "ready" },
-						canExecute: { submitPrompt: true },
-					});
-
-					await narrative.intent({
-						command: "submitPrompt",
-						input: { modality: "text", text: "Cancel this turn." },
-					});
-
-					await narrative.checkpoint("turn is responding", {
-						when: (snapshot) =>
-							snapshot.matches({ available: { turn: "responding" } }),
-						states: { status: "responding" },
-						canExecute: { createArtifact: true },
-					});
-
-					const request = fixture.currentModelRequest();
-					await narrative.behavior("cancel active turn", async () => {
-						fixture.actor.send({
-							type: "MODEL_TURN_CANCEL_REQUESTED",
-							turnId: request.turnId,
-							attemptId: request.attemptId,
-						});
-					});
-
-					await narrative.checkpoint("turn cancellation returns idle", {
-						when: (snapshot) =>
-							snapshot.matches({ available: { turn: "idle" } }),
-						states: {
-							status: "ready",
-							lifecycle: {
-								lastTurnTerminal: { type: "CANCELLED", turnId: request.turnId },
-							},
-						},
-						canExecute: { submitPrompt: true },
-					});
-				},
-			);
-
-			expect(story.summary.finalStates).toMatchObject({ status: "ready" });
-			coverageMatrix.push({
-				narrative: story.name,
-				commands: commandTrace(story),
-				checkpoints: ["turn is responding", "turn cancellation returns idle"],
-				receipts: ["MODEL_TURN_CANCEL_REQUESTED"],
-				finalStatus: finalViewStatus(story),
-			});
-		}
-
-		{
-			const fixture = createFixture({ modelTurnTimeoutMs: 25 });
-
-			const story = await igniteTest({ component: fixture.component }).story(
-				"timed out turn retries to an accepted response",
-				async (narrative) => {
-					await narrative.given({
-						when: (snapshot) =>
-							snapshot.matches({ available: { turn: "idle" } }),
-						states: { status: "ready" },
-						canExecute: { submitPrompt: true },
-					});
-
-					await narrative.intent({
-						command: "submitPrompt",
-						input: { modality: "text", text: "Recover after timeout." },
-					});
-					await fixture.waitForModelTurnCall("request-model");
-
-					await narrative.behavior(
-						"clock fires the active turn timeout",
-						async () => {
-							expect(fixture.fireTimeout()).toBe(25);
-						},
-					);
-
-					await narrative.checkpoint("timeout returns the turn to idle", {
-						when: (snapshot) =>
-							snapshot.matches({ available: { turn: "idle" } }),
-						states: {
-							status: "ready",
-							lifecycle: {
-								lastTurnTerminal: { type: "TIMEOUT" },
-							},
-						},
-						canExecute: { submitPrompt: true },
-					});
-
-					const retryRequestStart = fixture.modelTurnCallCount();
-					await narrative.intent({
-						command: "submitPrompt",
-						input: { modality: "text", text: "Retry after timeout." },
-					});
-					await narrative.intent({
-						command: "createArtifact",
-						input: {
-							id: "timeout-recovery",
-							title: "Timeout recovery",
-							nodes: [
-								{
-									id: "summary",
-									kind: "text",
-									text: "Recovery document",
-								},
-							],
-						},
-					});
-
-					await narrative.checkpoint(
-						"retry can finish with an accepted artifact",
-						{
-							states: {
-								status: "responding",
-								activeArtifact: {
-									id: "timeout-recovery",
-									revision: "1",
-								},
-							},
-							canExecute: { completeResponse: true },
-						},
-					);
-
-					const retryModelCall = await fixture.waitForNextModelTurnCall(
-						"request-model",
-						retryRequestStart,
-					);
-					const completion = await beginCurrentTurnCompletion(
-						fixture,
-						retryModelCall,
-						{ text: "Recovered after timeout." },
-					);
-					await narrative.intent({
-						command: "completeResponse",
-						input: { text: "Recovered after timeout." },
-					});
-					await narrative.behavior("model turn accepts the retry", async () => {
-						finishCurrentTurnCompletion(fixture, fixture.component, completion);
-					});
-
-					await narrative.checkpoint("accepted retry returns to ready", {
-						when: (snapshot) =>
-							snapshot.matches({ available: { turn: "idle" } }),
-						states: {
-							status: "ready",
-							response: { text: "Recovered after timeout." },
-							activeArtifact: {
-								id: "timeout-recovery",
-								revision: "1",
-							},
-						},
-						canExecute: { submitPrompt: true },
-					});
-				},
-			);
-
-			expect(story.summary.finalStates).toMatchObject({
-				status: "ready",
-				response: { text: "Recovered after timeout." },
-			});
-			coverageMatrix.push({
-				narrative: story.name,
-				commands: commandTrace(story),
-				checkpoints: [
-					"timeout returns the turn to idle",
-					"retry can finish with an accepted artifact",
-					"accepted retry returns to ready",
-				],
-				receipts: [
-					"clock:MODEL_TURN_TIMEOUT_REQUESTED",
-					"modelTurn:MODEL_RESOLVED",
-					"modelTurn:AUTHORIZATION_RESOLVED",
-					"modelTurn:CAPABILITY_RESOLVED",
-				],
-				finalStatus: finalViewStatus(story),
-			});
-		}
-
-		{
-			const fixture = createFixture();
-
-			const story = await igniteTest({ component: fixture.component }).story(
-				"stale correlated model receipts stay inert until the live turn ends",
-				async (narrative) => {
-					await narrative.given({
-						when: (snapshot) =>
-							snapshot.matches({ available: { turn: "idle" } }),
-						states: { status: "ready" },
-						canExecute: { submitPrompt: true },
-					});
-
-					await narrative.intent({
-						command: "submitPrompt",
-						input: { modality: "text", text: "Ignore stale turn receipts." },
-					});
-
-					const staleCall = await fixture.waitForModelTurnCall("request-model");
-
-					await narrative.behavior("cancel the first active turn", async () => {
-						fixture.actor.send({
-							type: "MODEL_TURN_CANCEL_REQUESTED",
+		// cancelled first turn returns idle
+		await vi.waitFor(
+			() => {
+				const snapshot = fixture.component.getSnapshot();
+				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
+				expect(fixture.component.getStates()).toMatchObject({
+					status: "ready",
+					lifecycle: {
+						lastTurnTerminal: {
+							type: "CANCELLED",
 							turnId: staleCall.request.turnId,
-							attemptId: staleCall.request.attemptId,
-						});
-					});
-
-					await narrative.checkpoint("cancelled first turn returns idle", {
-						when: (snapshot) =>
-							snapshot.matches({ available: { turn: "idle" } }),
-						states: {
-							status: "ready",
-							lifecycle: {
-								lastTurnTerminal: {
-									type: "CANCELLED",
-									turnId: staleCall.request.turnId,
-								},
-							},
 						},
-						canExecute: { submitPrompt: true },
-					});
+					},
+				});
+				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+			},
+			{ timeout: 1000 },
+		);
 
-					await narrative.intent({
-						command: "submitPrompt",
-						input: { modality: "text", text: "Live turn stays in control." },
-					});
+		await fixture.component.execute({
+			command: "submitPrompt",
+			input: { modality: "text", text: "Live turn stays in control." },
+		});
 
-					await narrative.checkpoint("second turn is responding", {
-						when: (snapshot) =>
-							snapshot.matches({ available: { turn: "responding" } }),
-						states: {
-							status: "responding",
-							lifecycle: { lastTurnTerminal: null },
-						},
-						canExecute: { createArtifact: true },
-					});
+		// second turn is responding
+		await vi.waitFor(
+			() => {
+				const snapshot = fixture.component.getSnapshot();
+				expect(snapshot.matches({ available: { turn: "responding" } })).toBe(
+					true,
+				);
+				expect(fixture.component.getStates()).toMatchObject({
+					status: "responding",
+					lifecycle: { lastTurnTerminal: null },
+				});
+				expect(fixture.component.canExecute("createArtifact")).toBe(true);
+			},
+			{ timeout: 1000 },
+		);
+		fixture.resolveModelTurn(staleCall, {
+			receipt: {
+				type: "MODEL_RESOLVED",
+				turnId: staleCall.request.turnId,
+				attemptId: staleCall.request.attemptId,
+				result: { ok: true, calls: [] },
+			},
+		});
 
-					await narrative.behavior(
-						"late first-turn model result arrives",
-						async () => {
-							fixture.resolveModelTurn(staleCall, {
-								receipt: {
-									type: "MODEL_RESOLVED",
-									turnId: staleCall.request.turnId,
-									attemptId: staleCall.request.attemptId,
-									result: { ok: true, calls: [] },
-								},
-							});
-						},
-					);
+		// stale port result stays inert
+		await vi.waitFor(
+			() => {
+				const snapshot = fixture.component.getSnapshot();
+				expect(snapshot.matches({ available: { turn: "responding" } })).toBe(
+					true,
+				);
+				expect(fixture.component.getStates()).toMatchObject({
+					status: "responding",
+					lifecycle: { lastTurnTerminal: null },
+				});
+				expect(fixture.component.canExecute("createArtifact")).toBe(true);
+			},
+			{ timeout: 1000 },
+		);
 
-					await narrative.checkpoint("stale port result stays inert", {
-						when: (snapshot) =>
-							snapshot.matches({ available: { turn: "responding" } }),
-						states: {
-							status: "responding",
-							lifecycle: { lastTurnTerminal: null },
-						},
-						canExecute: { createArtifact: true },
-					});
+		const liveRequest = fixture.currentModelRequest();
+		fixture.actor.send({
+			type: "MODEL_TURN_CANCEL_REQUESTED",
+			turnId: liveRequest.turnId,
+			attemptId: liveRequest.attemptId,
+		});
 
-					const liveRequest = fixture.currentModelRequest();
-					await narrative.behavior("cancel the live turn", async () => {
-						fixture.actor.send({
-							type: "MODEL_TURN_CANCEL_REQUESTED",
+		// live correlation still controls exit
+		await vi.waitFor(
+			() => {
+				const snapshot = fixture.component.getSnapshot();
+				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
+				expect(fixture.component.getStates()).toMatchObject({
+					status: "ready",
+					lifecycle: {
+						lastTurnTerminal: {
+							type: "CANCELLED",
 							turnId: liveRequest.turnId,
-							attemptId: liveRequest.attemptId,
-						});
-					});
-
-					await narrative.checkpoint("live correlation still controls exit", {
-						when: (snapshot) =>
-							snapshot.matches({ available: { turn: "idle" } }),
-						states: {
-							status: "ready",
-							lifecycle: {
-								lastTurnTerminal: {
-									type: "CANCELLED",
-									turnId: liveRequest.turnId,
-								},
-							},
 						},
-					});
-				},
-			);
-
-			expect(story.summary.finalStates).toMatchObject({ status: "ready" });
-			coverageMatrix.push({
-				narrative: story.name,
-				commands: commandTrace(story),
-				checkpoints: [
-					"cancelled first turn returns idle",
-					"second turn is responding",
-					"stale port result stays inert",
-					"live correlation still controls exit",
-				],
-				receipts: [
-					"MODEL_TURN_CANCEL_REQUESTED:first",
-					"modelTurn:late-first-result",
-					"MODEL_TURN_CANCEL_REQUESTED:live",
-				],
-				finalStatus: finalViewStatus(story),
-			});
-		}
-
-		{
-			const fixture = createFixture();
-
-			const story = await igniteTest({ component: fixture.component }).story(
-				"artifact revision conflicts recover with the current revision",
-				async (narrative) => {
-					await narrative.given({
-						when: (snapshot) =>
-							snapshot.matches({ available: { turn: "idle" } }),
-						states: { status: "ready" },
-						canExecute: { submitPrompt: true },
-					});
-
-					await narrative.intent({
-						command: "submitPrompt",
-						input: { modality: "text", text: "Revise this artifact." },
-					});
-					await narrative.intent({
-						command: "createArtifact",
-						input: {
-							id: "launch-plan",
-							title: "Launch plan",
-							nodes: [
-								{
-									id: "summary",
-									kind: "text",
-									text: "Revision one",
-								},
-							],
-						},
-					});
-
-					await narrative.checkpoint(
-						"first revision is available for follow-up work",
-						{
-							states: {
-								activeArtifact: {
-									id: "launch-plan",
-									revision: "1",
-								},
-							},
-							canExecute: {
-								reviseArtifact: true,
-								completeResponse: true,
-							},
-						},
-					);
-
-					await narrative.intent({
-						command: "reviseArtifact",
-						input: {
-							artifactId: "launch-plan",
-							expectedRevision: "0",
-							nodes: [
-								{
-									id: "summary",
-									kind: "text",
-									text: "This stale revision must be rejected.",
-								},
-							],
-						},
-					});
-
-					await narrative.checkpoint(
-						"stale revision preserves the accepted artifact",
-						{
-							states: {
-								activeArtifact: {
-									id: "launch-plan",
-									revision: "1",
-								},
-							},
-							canExecute: {
-								reviseArtifact: true,
-								completeResponse: true,
-							},
-						},
-					);
-
-					const currentRevision = currentArtifactRevision(
-						fixture.actor,
-						"launch-plan",
-					);
-					if (!currentRevision) throw new Error("Expected a current revision.");
-
-					await narrative.intent({
-						command: "reviseArtifact",
-						input: {
-							artifactId: "launch-plan",
-							expectedRevision: currentRevision,
-							nodes: [
-								{
-									id: "summary",
-									kind: "text",
-									text: "Revision two",
-								},
-							],
-						},
-					});
-
-					await narrative.checkpoint("current revision recovers the conflict", {
-						states: {
-							activeArtifact: {
-								id: "launch-plan",
-								revision: "2",
-							},
-						},
-						canExecute: {
-							reviseArtifact: true,
-							completeResponse: true,
-						},
-					});
-				},
-			);
-
-			expect(story.summary.finalStates).toMatchObject({
-				activeArtifact: { id: "launch-plan", revision: "2" },
-			});
-			coverageMatrix.push({
-				narrative: story.name,
-				commands: commandTrace(story),
-				checkpoints: [
-					"first revision is available for follow-up work",
-					"stale revision preserves the accepted artifact",
-					"current revision recovers the conflict",
-				],
-				receipts: [
-					"actor-conflict:reviseArtifact",
-					"actor-accepted:reviseArtifact",
-				],
-				finalStatus: finalViewStatus(story),
-			});
-		}
-
-		{
-			const fixture = createFixture();
-
-			const story = await igniteTest({ component: fixture.component }).story(
-				"speech unavailable remains actor-owned until acknowledged",
-				async (narrative) => {
-					await narrative.given({
-						when: (snapshot) =>
-							snapshot.matches({ available: { turn: "idle" } }),
-						states: { status: "ready" },
-						canExecute: { submitPrompt: true },
-					});
-
-					const completionRequestStart = fixture.modelTurnCallCount();
-					await narrative.intent({
-						command: "submitPrompt",
-						input: { modality: "text", text: "Speak this response." },
-					});
-					await narrative.intent({
-						command: "createArtifact",
-						input: {
-							id: "speech-proof",
-							title: "Speech proof",
-							nodes: [
-								{
-									id: "summary",
-									kind: "text",
-									text: "Speech fallback stays semantic.",
-								},
-							],
-						},
-					});
-
-					const completionModelCall = await fixture.waitForNextModelTurnCall(
-						"request-model",
-						completionRequestStart,
-					);
-					const completion = await beginCurrentTurnCompletion(
-						fixture,
-						completionModelCall,
-						{
-							text: "Speech fallback stays semantic.",
-							speech: "Speech fallback stays semantic.",
-						},
-					);
-					await narrative.intent({
-						command: "completeResponse",
-						input: {
-							text: "Speech fallback stays semantic.",
-							speech: "Speech fallback stays semantic.",
-						},
-					});
-					await narrative.behavior(
-						"model turn completes with speech output",
-						async () => {
-							finishCurrentTurnCompletion(
-								fixture,
-								fixture.component,
-								completion,
-							);
-						},
-					);
-
-					await narrative.checkpoint(
-						"pending speech stays acknowledged-later",
-						{
-							when: (snapshot) =>
-								snapshot.matches({ available: { speech: "delivering" } }),
-							states: {
-								status: "ready",
-								speech: {
-									status: "pending",
-									text: "Speech fallback stays semantic.",
-								},
-							},
-							canExecute: { acknowledgeSpeech: true },
-						},
-					);
-
-					const speechRequest = fixture.currentSpeechRequest();
-					await narrative.behavior(
-						"speech delivery reports unavailable",
-						async () => {
-							await fixture.emitSpeech({
-								type: "UNAVAILABLE",
-								attemptId: speechRequest.attemptId,
-							});
-						},
-					);
-
-					await narrative.checkpoint(
-						"speech unavailable settles through the actor",
-						{
-							states: {
-								speech: {
-									status: "acknowledged",
-									text: "Speech fallback stays semantic.",
-								},
-								speechStatus: "acknowledged",
-								presentation: {
-									speechCommit: {
-										id: speechRequest.id,
-										status: "unavailable",
-									},
-								},
-							},
-							canExecute: { acknowledgeSpeech: false },
-						},
-					);
-				},
-			);
-
-			expect(story.summary.finalStates).toMatchObject({
-				speech: {
-					status: "acknowledged",
-					text: "Speech fallback stays semantic.",
-				},
-			});
-			coverageMatrix.push({
-				narrative: story.name,
-				commands: commandTrace(story),
-				checkpoints: [
-					"pending speech stays acknowledged-later",
-					"speech unavailable settles through the actor",
-				],
-				receipts: [
-					"modelTurn:MODEL_RESOLVED",
-					"modelTurn:AUTHORIZATION_RESOLVED",
-					"modelTurn:CAPABILITY_RESOLVED",
-					"speechDelivery:UNAVAILABLE",
-				],
-				finalStatus: finalViewStatus(story),
-			});
-		}
-
-		expect(
-			coverageMatrix.map((entry) => ({
-				narrative: entry.narrative,
-				commands: entry.commands,
-				checkpoints: entry.checkpoints,
-				receipts: entry.receipts,
-				finalStatus: entry.finalStatus,
-			})),
-		).toEqual([
-			{
-				narrative: "preparation failure retries into ready",
-				commands: ["beginModelPreparation"],
-				checkpoints: ["ready after retry"],
-				receipts: [
-					"modelPreparation:failed",
-					"MODEL_PREPARATION_STARTED",
-					"modelPreparation:available",
-				],
-				finalStatus: "ready",
+					},
+				});
 			},
-			{
-				narrative: "microphone permission denial recovers to typed prompt",
-				commands: ["startVoiceCapture", "submitPrompt"],
-				checkpoints: [
-					"voice permission stays a fact",
-					"text recovery starts a new turn",
-				],
-				receipts: [
-					"VOICE_CAPTURE_START_REQUESTED",
-					"voiceCapture:PERMISSION_DENIED",
-				],
-				finalStatus: "responding",
+			{ timeout: 1000 },
+		);
+
+		expect(fixture.component.getStates()).toMatchObject({ status: "ready" });
+	});
+	it("artifact revision conflicts recover with the current revision", async () => {
+		const fixture = createFixture();
+
+		await vi.waitFor(
+			() => {
+				const snapshot = fixture.component.getSnapshot();
+				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
+				expect(fixture.component.getStates()).toMatchObject({
+					status: "ready",
+				});
+				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
 			},
-			{
-				narrative: "correlated cancellation returns the active turn to idle",
-				commands: ["submitPrompt"],
-				checkpoints: ["turn is responding", "turn cancellation returns idle"],
-				receipts: ["MODEL_TURN_CANCEL_REQUESTED"],
-				finalStatus: "ready",
+			{ timeout: 1000 },
+		);
+
+		await fixture.component.execute({
+			command: "submitPrompt",
+			input: { modality: "text", text: "Revise this artifact." },
+		});
+		await fixture.component.execute({
+			command: "createArtifact",
+			input: {
+				id: "launch-plan",
+				title: "Launch plan",
+				nodes: [
+					{
+						id: "summary",
+						kind: "text",
+						text: "Revision one",
+					},
+				],
 			},
-			{
-				narrative: "timed out turn retries to an accepted response",
-				commands: [
-					"submitPrompt",
-					"submitPrompt",
-					"createArtifact",
-					"completeResponse",
-				],
-				checkpoints: [
-					"timeout returns the turn to idle",
-					"retry can finish with an accepted artifact",
-					"accepted retry returns to ready",
-				],
-				receipts: [
-					"clock:MODEL_TURN_TIMEOUT_REQUESTED",
-					"modelTurn:MODEL_RESOLVED",
-					"modelTurn:AUTHORIZATION_RESOLVED",
-					"modelTurn:CAPABILITY_RESOLVED",
-				],
-				finalStatus: "ready",
+		});
+
+		// first revision is available for follow-up work
+		await vi.waitFor(
+			() => {
+				expect(fixture.component.getStates()).toMatchObject({
+					activeArtifact: {
+						id: "launch-plan",
+						revision: "1",
+					},
+				});
+				expect(fixture.component.canExecute("reviseArtifact")).toBe(true);
+				expect(fixture.component.canExecute("completeResponse")).toBe(true);
 			},
-			{
-				narrative:
-					"stale correlated model receipts stay inert until the live turn ends",
-				commands: ["submitPrompt", "submitPrompt"],
-				checkpoints: [
-					"cancelled first turn returns idle",
-					"second turn is responding",
-					"stale port result stays inert",
-					"live correlation still controls exit",
+			{ timeout: 1000 },
+		);
+
+		await fixture.component.execute({
+			command: "reviseArtifact",
+			input: {
+				artifactId: "launch-plan",
+				expectedRevision: "0",
+				nodes: [
+					{
+						id: "summary",
+						kind: "text",
+						text: "This stale revision must be rejected.",
+					},
 				],
-				receipts: [
-					"MODEL_TURN_CANCEL_REQUESTED:first",
-					"modelTurn:late-first-result",
-					"MODEL_TURN_CANCEL_REQUESTED:live",
-				],
-				finalStatus: "ready",
 			},
-			{
-				narrative:
-					"artifact revision conflicts recover with the current revision",
-				commands: [
-					"submitPrompt",
-					"createArtifact",
-					"reviseArtifact",
-					"reviseArtifact",
-				],
-				checkpoints: [
-					"first revision is available for follow-up work",
-					"stale revision preserves the accepted artifact",
-					"current revision recovers the conflict",
-				],
-				receipts: [
-					"actor-conflict:reviseArtifact",
-					"actor-accepted:reviseArtifact",
-				],
-				finalStatus: "responding",
+		});
+
+		// stale revision preserves the accepted artifact
+		await vi.waitFor(
+			() => {
+				expect(fixture.component.getStates()).toMatchObject({
+					activeArtifact: {
+						id: "launch-plan",
+						revision: "1",
+					},
+				});
+				expect(fixture.component.canExecute("reviseArtifact")).toBe(true);
+				expect(fixture.component.canExecute("completeResponse")).toBe(true);
 			},
-			{
-				narrative: "speech unavailable remains actor-owned until acknowledged",
-				commands: ["submitPrompt", "createArtifact", "completeResponse"],
-				checkpoints: [
-					"pending speech stays acknowledged-later",
-					"speech unavailable settles through the actor",
+			{ timeout: 1000 },
+		);
+
+		const currentRevision = currentArtifactRevision(
+			fixture.actor,
+			"launch-plan",
+		);
+		if (!currentRevision) throw new Error("Expected a current revision.");
+
+		await fixture.component.execute({
+			command: "reviseArtifact",
+			input: {
+				artifactId: "launch-plan",
+				expectedRevision: currentRevision,
+				nodes: [
+					{
+						id: "summary",
+						kind: "text",
+						text: "Revision two",
+					},
 				],
-				receipts: [
-					"modelTurn:MODEL_RESOLVED",
-					"modelTurn:AUTHORIZATION_RESOLVED",
-					"modelTurn:CAPABILITY_RESOLVED",
-					"speechDelivery:UNAVAILABLE",
-				],
-				finalStatus: "ready",
 			},
-		]);
+		});
+
+		// current revision recovers the conflict
+		await vi.waitFor(
+			() => {
+				expect(fixture.component.getStates()).toMatchObject({
+					activeArtifact: {
+						id: "launch-plan",
+						revision: "2",
+					},
+				});
+				expect(fixture.component.canExecute("reviseArtifact")).toBe(true);
+				expect(fixture.component.canExecute("completeResponse")).toBe(true);
+			},
+			{ timeout: 1000 },
+		);
+
+		expect(fixture.component.getStates()).toMatchObject({
+			activeArtifact: { id: "launch-plan", revision: "2" },
+		});
+	});
+	it("speech unavailable remains actor-owned until acknowledged", async () => {
+		const fixture = createFixture();
+
+		await vi.waitFor(
+			() => {
+				const snapshot = fixture.component.getSnapshot();
+				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
+				expect(fixture.component.getStates()).toMatchObject({
+					status: "ready",
+				});
+				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+			},
+			{ timeout: 1000 },
+		);
+
+		const completionRequestStart = fixture.modelTurnCallCount();
+		await fixture.component.execute({
+			command: "submitPrompt",
+			input: { modality: "text", text: "Speak this response." },
+		});
+		await fixture.component.execute({
+			command: "createArtifact",
+			input: {
+				id: "speech-proof",
+				title: "Speech proof",
+				nodes: [
+					{
+						id: "summary",
+						kind: "text",
+						text: "Speech fallback stays semantic.",
+					},
+				],
+			},
+		});
+
+		const completionModelCall = await fixture.waitForNextModelTurnCall(
+			"request-model",
+			completionRequestStart,
+		);
+		const completion = await beginCurrentTurnCompletion(
+			fixture,
+			completionModelCall,
+			{
+				text: "Speech fallback stays semantic.",
+				speech: "Speech fallback stays semantic.",
+			},
+		);
+		await fixture.component.execute({
+			command: "completeResponse",
+			input: {
+				text: "Speech fallback stays semantic.",
+				speech: "Speech fallback stays semantic.",
+			},
+		});
+		finishCurrentTurnCompletion(fixture, fixture.component, completion);
+
+		// pending speech stays acknowledged-later
+		await vi.waitFor(
+			() => {
+				const snapshot = fixture.component.getSnapshot();
+				expect(snapshot.matches({ available: { speech: "delivering" } })).toBe(
+					true,
+				);
+				expect(fixture.component.getStates()).toMatchObject({
+					status: "ready",
+					speech: {
+						status: "pending",
+						text: "Speech fallback stays semantic.",
+					},
+				});
+				expect(fixture.component.canExecute("acknowledgeSpeech")).toBe(true);
+			},
+			{ timeout: 1000 },
+		);
+
+		const speechRequest = fixture.currentSpeechRequest();
+		await fixture.emitSpeech({
+			type: "UNAVAILABLE",
+			attemptId: speechRequest.attemptId,
+		});
+
+		// speech unavailable settles through the actor
+		await vi.waitFor(
+			() => {
+				expect(fixture.component.getStates()).toMatchObject({
+					speech: {
+						status: "acknowledged",
+						text: "Speech fallback stays semantic.",
+					},
+					speechStatus: "acknowledged",
+					presentation: {
+						speechCommit: {
+							id: speechRequest.id,
+							status: "unavailable",
+						},
+					},
+				});
+				expect(fixture.component.canExecute("acknowledgeSpeech")).toBe(false);
+			},
+			{ timeout: 1000 },
+		);
+
+		expect(fixture.component.getStates()).toMatchObject({
+			speech: {
+				status: "acknowledged",
+				text: "Speech fallback stays semantic.",
+			},
+		});
 	});
 });

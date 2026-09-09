@@ -30,7 +30,7 @@ function example(file, marker) {
 	return code;
 }
 
-const redux = example("api/testing-dsl.mdx", "const recoveryCounter =");
+const redux = example("guides/testing.mdx", "const recoveryCounter =");
 const actorWeb = example("guides/actor-web.mdx", "const homeTopology =");
 
 function check(codes, { missing } = {}) {
@@ -122,13 +122,10 @@ test("actual checker accepts substantive Redux and Actor-Web examples with final
 });
 
 test("actual checker rejects an invalid inferred event payload", () => {
-	const valid = "events: [{ type: 'counter-incremented', count: 2 }]";
+	const valid = "{ type: 'counter-incremented', count: 2 }";
 	assert.ok(redux.includes(valid));
 	const result = check([
-		redux.replace(
-			valid,
-			"events: [{ type: 'counter-incremented', count: 'invalid' }]",
-		),
+		redux.replace(valid, "{ type: 'counter-incremented', count: 'invalid' }"),
 	]);
 	assert.equal(result.status, 1, result.output);
 	assert.match(result.output, /TS2322.*string.*number/);

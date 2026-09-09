@@ -282,22 +282,7 @@ async function inspectToggle() {
 
 Use `on(...)` for outward event signals, `watchSnapshot(...)` for raw state changes, and `watchStates(...)` for projected states changes.
 
-Use `record(...)` when a test or agent needs workflow evidence. Story summaries
-contain `finalSnapshot` and `finalStates`, and trace entries use `kind: "states"`
-for the derived read model:
-
-```ts
-async function recordToggleStory() {
-  const story = toggle.record("turns on");
-  await story.until((states) => states.isOn, async () => {
-    await story.execute({ command: "toggle" });
-  });
-  story.trace();
-  story.lifecycle();
-  story.summary();
-  story.stop();
-}
-```
+Ordinary tests assert command results and source outcomes directly. The former testing/story recorder is retired in the development candidate; no portable trace or complete lifecycle history replaces it.
 
 `execute()` returns structured output:
 
@@ -326,19 +311,18 @@ This makes the same component usable in the browser, in tests, and in automation
 
 ## Testing
 
-Ignite includes a built-in headless testing DSL for state and event assertions.
+Use your ordinary test runner with the retained runtime:
 
 ```ts
-import { test as igniteTest } from "ignite-element";
+import { expect } from "vitest";
 
-(await igniteTest({ component: toggle })
-  .given({ value: "off" })
-  .when({ command: "toggle" }))
-  .expectSnapshot({ value: "on" })
-  .expectEvent({ type: "toggled", isOn: true });
+const result = await toggle.execute({ command: "toggle" });
+expect(result.snapshot.matches("on")).toBe(true);
+expect(result.states.isOn).toBe(true);
+expect(result.events).toContainEqual({ type: "toggled", isOn: true });
 ```
 
-Because this runs against the same deterministic runtime, state and event expectations stay aligned with real component behavior.
+Use a fresh source per test. Mount registered components and query actual rendered controls for DOM coverage. The application/test owns asynchronous source outcomes and source shutdown; `execute()` does not wait for every downstream business operation. See [testing](./docs/testing.md) and the [migration notice](https://0xjcf.github.io/ignite-element/api/testing-dsl/).
 
 ## Installation matrix
 

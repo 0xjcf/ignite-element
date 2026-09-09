@@ -134,3 +134,11 @@ redux.execute({ command: "missing" });
 mobx.execute({ command: "missing" });
 // @ts-expect-error unknown Actor-Web command
 actorWeb.execute({ command: "missing" });
+// @ts-expect-error source-backed xstate runtime no longer records stories
+xstate.record("removed");
+// @ts-expect-error source-backed redux runtime no longer records stories
+redux.record("removed");
+// @ts-expect-error source-backed mobx runtime no longer records stories
+mobx.record("removed");
+// @ts-expect-error source-backed actorWeb runtime no longer records stories
+actorWeb.record("removed");

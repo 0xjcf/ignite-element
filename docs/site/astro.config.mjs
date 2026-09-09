@@ -95,7 +95,7 @@ export default defineConfig({
 						{ label: "igniteCore", slug: "api/ignite-core" },
 						{ label: "Headless runtime", slug: "api/headless-runtime" },
 						{ label: "Command metadata", slug: "api/command-metadata" },
-						{ label: "Testing DSL", slug: "api/testing-dsl" },
+						{ label: "Testing API migration", slug: "api/testing-dsl" },
 						{ label: "Advanced config", slug: "api/advanced-config" },
 						{ label: "Compatibility", slug: "api/compatibility" },
 					],

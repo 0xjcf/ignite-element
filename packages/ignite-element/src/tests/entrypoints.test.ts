@@ -141,19 +141,17 @@ describe("public adapter entrypoints", () => {
 		expect(typeof component.on).toBe("function");
 	});
 
-	it("keeps the testing entrypoint stable for object-form stories", async () => {
-		const testingPublic = await import("../testing");
-		const machine = createMachine({
-			initial: "idle",
-			states: {
-				idle: {},
-			},
-		});
-		const component = igniteCoreXState({ source: machine });
-
-		const scenario = testingPublic.test({ component });
-
-		expect(typeof testingPublic.test).toBe("function");
-		expect(typeof scenario.story).toBe("function");
+	it("does not expose the retired testing API from public entrypoints", async () => {
+		const entrypoints = await Promise.all([
+			import("ignite-element"),
+			import("ignite-element/xstate"),
+			import("ignite-element/redux"),
+			import("ignite-element/mobx"),
+			import("ignite-element/actor-web"),
+		]);
+		for (const entrypoint of entrypoints) {
+			expect(entrypoint).not.toHaveProperty("test");
+			expect(typeof entrypoint.igniteCore).toBe("function");
+		}
 	});
 });

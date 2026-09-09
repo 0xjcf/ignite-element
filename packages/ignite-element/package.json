@@ -133,7 +133,7 @@
 	"sideEffects": [
 		"./src/internal/setupDomPolyfill.ts",
 		"./dist/projectionTargets-*.js",
-		"./dist/testing-*.js"
+		"./dist/IgniteElement-*.js"
 	],
 	"scripts": {
 		"build:types": "tsc",
@@ -168,6 +168,7 @@
 		"@commitlint/config-conventional": "^20.0.0",
 		"@playwright/test": "^1.56.1",
 		"@reduxjs/toolkit": "^2.12.0",
+		"@testing-library/dom": "10.4.1",
 		"@testing-library/react": "^16.1.0",
 		"@types/jsdom": "^27.0.0",
 		"@types/react": "^19.0.0",

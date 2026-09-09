@@ -163,21 +163,9 @@ toggle.getSchema();
 toggle.on("toggled", handler);
 toggle.watchSnapshot((snapshot, prevSnapshot) => {});
 toggle.watchStates((states, prevStates) => {});
-const story = toggle.record("turns on");
-await story.execute({ command: "toggle" });
-story.trace();
-story.lifecycle();
-story.summary();
-story.stop();
 ```
 
-For testing vocabulary, keep the layers distinct:
-
-- `igniteTest({ component }).story(...)` states an expected multi-step user experience.
-- `record(name)` captures the observed execution evidence for that experience.
-- `snapshotStory(story)` turns that Story into a serializable portable receipt.
-
-The story helper composes over the existing Story recorder. It does not add a second recorder, trace format, or runtime authority.
+Use ordinary tests over runtime results, source-owned asynchronous outcomes, and real registered DOM controls. Release subscriptions explicitly and stop sources only when the application/test owns them. The development candidate retires `test`, its dedicated testing/story types, `record(name)`, and the accessibility bridge. Portable receipts and complete lifecycle histories are intentionally removed, not replaced by another recorder. See the [testing migration](https://0xjcf.github.io/ignite-element/api/testing-dsl/).
 
 ## Package contract
 

@@ -17,15 +17,6 @@ import type {
 	ActorWebCommandActor,
 	ActorWebCommandSource,
 	ActorWebExtendedState,
-	IgniteDomBridge as ActorWebIgniteDomBridge,
-	IgniteDomRoleExpectation as ActorWebIgniteDomRoleExpectation,
-	IgniteStoryBehaviorTraceEntry as ActorWebIgniteStoryBehaviorTraceEntry,
-	IgniteStorySnapshot as ActorWebIgniteStorySnapshot,
-	IgniteStorySnapshotEvent as ActorWebIgniteStorySnapshotEvent,
-	IgniteStorySummarySnapshot as ActorWebIgniteStorySummarySnapshot,
-	IgniteStoryTraceSnapshot as ActorWebIgniteStoryTraceSnapshot,
-	IgniteStoryTraceSnapshotEntry as ActorWebIgniteStoryTraceSnapshotEntry,
-	IgniteTestHelpers as ActorWebIgniteTestHelpers,
 	ActorWebReadModelSource,
 	ActorWebSource,
 } from "../../actor-web";
@@ -39,32 +30,10 @@ import type {
 	ReduxInstanceConfig,
 	IgniteCoreReturn as SharedIgniteCoreReturn,
 } from "../../igniteCore/types";
-import type {
-	IgniteDomBridge as RootIgniteDomBridge,
-	IgniteDomRoleExpectation as RootIgniteDomRoleExpectation,
-	IgniteStoryBehaviorTraceEntry as RootIgniteStoryBehaviorTraceEntry,
-	IgniteStorySnapshot as RootIgniteStorySnapshot,
-	IgniteStorySnapshotEvent as RootIgniteStorySnapshotEvent,
-	IgniteStorySummarySnapshot as RootIgniteStorySummarySnapshot,
-	IgniteStoryTraceSnapshot as RootIgniteStoryTraceSnapshot,
-	IgniteStoryTraceSnapshotEntry as RootIgniteStoryTraceSnapshotEntry,
-	IgniteTestHelpers as RootIgniteTestHelpers,
-} from "../../index";
 import {
 	createProjectionDocumentTarget,
 	createProjectionSpeechTarget,
 } from "../../index";
-import type {
-	IgniteDomBridge as MobxIgniteDomBridge,
-	IgniteDomRoleExpectation as MobxIgniteDomRoleExpectation,
-	IgniteStoryBehaviorTraceEntry as MobxIgniteStoryBehaviorTraceEntry,
-	IgniteStorySnapshot as MobxIgniteStorySnapshot,
-	IgniteStorySnapshotEvent as MobxIgniteStorySnapshotEvent,
-	IgniteStorySummarySnapshot as MobxIgniteStorySummarySnapshot,
-	IgniteStoryTraceSnapshot as MobxIgniteStoryTraceSnapshot,
-	IgniteStoryTraceSnapshotEntry as MobxIgniteStoryTraceSnapshotEntry,
-	IgniteTestHelpers as MobxIgniteTestHelpers,
-} from "../../mobx";
 import type {
 	CommandContext,
 	CommandMetadata,
@@ -75,56 +44,16 @@ import type {
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
 } from "../../RenderArgs";
-import type {
-	IgniteDomBridge as ReduxIgniteDomBridge,
-	IgniteDomRoleExpectation as ReduxIgniteDomRoleExpectation,
-	IgniteStoryBehaviorTraceEntry as ReduxIgniteStoryBehaviorTraceEntry,
-	IgniteStorySnapshot as ReduxIgniteStorySnapshot,
-	IgniteStorySnapshotEvent as ReduxIgniteStorySnapshotEvent,
-	IgniteStorySummarySnapshot as ReduxIgniteStorySummarySnapshot,
-	IgniteStoryTraceSnapshot as ReduxIgniteStoryTraceSnapshot,
-	IgniteStoryTraceSnapshotEntry as ReduxIgniteStoryTraceSnapshotEntry,
-	IgniteTestHelpers as ReduxIgniteTestHelpers,
-} from "../../redux";
 import { createAgentRuntime } from "../../runtime/agent";
-import type {
-	IgniteDomBridge,
-	IgniteDomRoleExpectation,
-	IgniteTestHelpers,
-} from "../../testing";
-import type {
-	IgniteCommandCall,
-	IgniteStoryBehaviorTraceEntry,
-	IgniteStoryLifecycleEntry,
-	IgniteStorySnapshot,
-	IgniteStorySnapshotEvent,
-	IgniteStorySummarySnapshot,
-	IgniteStoryTraceEntry,
-	IgniteStoryTraceSnapshot,
-	IgniteStoryTraceSnapshotEntry,
-} from "../../types/agent";
+import type { IgniteCommandCall } from "../../types/agent";
 import type {
 	IgniteAgentCommandContract,
 	IgniteAgentCommandSchema,
 	IgniteAgentEventSchema,
 } from "../../types/schema";
 import type { InferStateAndEvent } from "../../utils/igniteRedux";
-import type {
-	IgniteCoreReturn as XStateIgniteCoreReturn,
-	IgniteDomBridge as XStateIgniteDomBridge,
-	IgniteDomRoleExpectation as XStateIgniteDomRoleExpectation,
-	IgniteStoryBehaviorTraceEntry as XStateIgniteStoryBehaviorTraceEntry,
-	IgniteStorySnapshot as XStateIgniteStorySnapshot,
-	IgniteStorySnapshotEvent as XStateIgniteStorySnapshotEvent,
-	IgniteStorySummarySnapshot as XStateIgniteStorySummarySnapshot,
-	IgniteStoryTraceSnapshot as XStateIgniteStoryTraceSnapshot,
-	IgniteStoryTraceSnapshotEntry as XStateIgniteStoryTraceSnapshotEntry,
-	IgniteTestHelpers as XStateIgniteTestHelpers,
-} from "../../xstate";
-import {
-	igniteCore as igniteCoreXState,
-	test as xstateTest,
-} from "../../xstate";
+import type { IgniteCoreReturn as XStateIgniteCoreReturn } from "../../xstate";
+import { igniteCore as igniteCoreXState } from "../../xstate";
 import counterStore, { counterSlice } from "../fixtures/reduxCounterStore";
 
 type RemovedRootProjectionExports = [
@@ -382,77 +311,6 @@ describe("igniteCore type inference", () => {
 				{ count: number }
 			>
 		>();
-	});
-
-	it("exports story snapshot types from public entrypoints", () => {
-		expectTypeOf<RootIgniteStoryBehaviorTraceEntry>().toEqualTypeOf<IgniteStoryBehaviorTraceEntry>();
-		expectTypeOf<RootIgniteStorySnapshot>().toEqualTypeOf<IgniteStorySnapshot>();
-		expectTypeOf<RootIgniteStorySnapshotEvent>().toEqualTypeOf<IgniteStorySnapshotEvent>();
-		expectTypeOf<RootIgniteStorySummarySnapshot>().toEqualTypeOf<IgniteStorySummarySnapshot>();
-		expectTypeOf<RootIgniteStoryTraceSnapshot>().toEqualTypeOf<IgniteStoryTraceSnapshot>();
-		expectTypeOf<RootIgniteStoryTraceSnapshotEntry>().toEqualTypeOf<IgniteStoryTraceSnapshotEntry>();
-
-		expectTypeOf<XStateIgniteStoryBehaviorTraceEntry>().toEqualTypeOf<IgniteStoryBehaviorTraceEntry>();
-		expectTypeOf<XStateIgniteStorySnapshot>().toEqualTypeOf<IgniteStorySnapshot>();
-		expectTypeOf<XStateIgniteStorySnapshotEvent>().toEqualTypeOf<IgniteStorySnapshotEvent>();
-		expectTypeOf<XStateIgniteStorySummarySnapshot>().toEqualTypeOf<IgniteStorySummarySnapshot>();
-		expectTypeOf<XStateIgniteStoryTraceSnapshot>().toEqualTypeOf<IgniteStoryTraceSnapshot>();
-		expectTypeOf<XStateIgniteStoryTraceSnapshotEntry>().toEqualTypeOf<IgniteStoryTraceSnapshotEntry>();
-
-		expectTypeOf<ReduxIgniteStoryBehaviorTraceEntry>().toEqualTypeOf<IgniteStoryBehaviorTraceEntry>();
-		expectTypeOf<ReduxIgniteStorySnapshot>().toEqualTypeOf<IgniteStorySnapshot>();
-		expectTypeOf<ReduxIgniteStorySnapshotEvent>().toEqualTypeOf<IgniteStorySnapshotEvent>();
-		expectTypeOf<ReduxIgniteStorySummarySnapshot>().toEqualTypeOf<IgniteStorySummarySnapshot>();
-		expectTypeOf<ReduxIgniteStoryTraceSnapshot>().toEqualTypeOf<IgniteStoryTraceSnapshot>();
-		expectTypeOf<ReduxIgniteStoryTraceSnapshotEntry>().toEqualTypeOf<IgniteStoryTraceSnapshotEntry>();
-
-		expectTypeOf<MobxIgniteStoryBehaviorTraceEntry>().toEqualTypeOf<IgniteStoryBehaviorTraceEntry>();
-		expectTypeOf<MobxIgniteStorySnapshot>().toEqualTypeOf<IgniteStorySnapshot>();
-		expectTypeOf<MobxIgniteStorySnapshotEvent>().toEqualTypeOf<IgniteStorySnapshotEvent>();
-		expectTypeOf<MobxIgniteStorySummarySnapshot>().toEqualTypeOf<IgniteStorySummarySnapshot>();
-		expectTypeOf<MobxIgniteStoryTraceSnapshot>().toEqualTypeOf<IgniteStoryTraceSnapshot>();
-		expectTypeOf<MobxIgniteStoryTraceSnapshotEntry>().toEqualTypeOf<IgniteStoryTraceSnapshotEntry>();
-
-		expectTypeOf<ActorWebIgniteStoryBehaviorTraceEntry>().toEqualTypeOf<IgniteStoryBehaviorTraceEntry>();
-		expectTypeOf<ActorWebIgniteStorySnapshot>().toEqualTypeOf<IgniteStorySnapshot>();
-		expectTypeOf<ActorWebIgniteStorySnapshotEvent>().toEqualTypeOf<IgniteStorySnapshotEvent>();
-		expectTypeOf<ActorWebIgniteStorySummarySnapshot>().toEqualTypeOf<IgniteStorySummarySnapshot>();
-		expectTypeOf<ActorWebIgniteStoryTraceSnapshot>().toEqualTypeOf<IgniteStoryTraceSnapshot>();
-		expectTypeOf<ActorWebIgniteStoryTraceSnapshotEntry>().toEqualTypeOf<IgniteStoryTraceSnapshotEntry>();
-		expectTypeOf<
-			IgniteStorySnapshot["summary"]["finalSnapshot"]
-		>().toEqualTypeOf<IgniteSchemaValue>();
-		expectTypeOf<
-			IgniteStorySnapshot["summary"]["finalStates"]
-		>().toEqualTypeOf<IgniteSchemaValue>();
-	});
-
-	it("exports DOM bridge testing types from public entrypoints", () => {
-		expectTypeOf<RootIgniteDomBridge>().toEqualTypeOf<IgniteDomBridge>();
-		expectTypeOf<RootIgniteDomRoleExpectation>().toEqualTypeOf<IgniteDomRoleExpectation>();
-		expectTypeOf<RootIgniteTestHelpers>().toEqualTypeOf<IgniteTestHelpers>();
-
-		expectTypeOf<XStateIgniteDomBridge>().toEqualTypeOf<IgniteDomBridge>();
-		expectTypeOf<XStateIgniteDomRoleExpectation>().toEqualTypeOf<IgniteDomRoleExpectation>();
-		expectTypeOf<XStateIgniteTestHelpers>().toEqualTypeOf<IgniteTestHelpers>();
-		expectTypeOf(xstateTest.accessibilityBridge).toEqualTypeOf<
-			IgniteTestHelpers["accessibilityBridge"]
-		>();
-		expectTypeOf(xstateTest.expectControls).toEqualTypeOf<
-			IgniteTestHelpers["expectControls"]
-		>();
-
-		expectTypeOf<ReduxIgniteDomBridge>().toEqualTypeOf<IgniteDomBridge>();
-		expectTypeOf<ReduxIgniteDomRoleExpectation>().toEqualTypeOf<IgniteDomRoleExpectation>();
-		expectTypeOf<ReduxIgniteTestHelpers>().toEqualTypeOf<IgniteTestHelpers>();
-
-		expectTypeOf<MobxIgniteDomBridge>().toEqualTypeOf<IgniteDomBridge>();
-		expectTypeOf<MobxIgniteDomRoleExpectation>().toEqualTypeOf<IgniteDomRoleExpectation>();
-		expectTypeOf<MobxIgniteTestHelpers>().toEqualTypeOf<IgniteTestHelpers>();
-
-		expectTypeOf<ActorWebIgniteDomBridge>().toEqualTypeOf<IgniteDomBridge>();
-		expectTypeOf<ActorWebIgniteDomRoleExpectation>().toEqualTypeOf<IgniteDomRoleExpectation>();
-		expectTypeOf<ActorWebIgniteTestHelpers>().toEqualTypeOf<IgniteTestHelpers>();
 	});
 
 	it("keeps the actor-web public bridge limited to stable types plus igniteCore", () => {
@@ -1114,55 +972,11 @@ describe("igniteCore type inference", () => {
 			expectTypeOf(prevStates).toEqualTypeOf<{ count: number }>();
 		});
 
-		const story = register.record("typed counter");
-		const storyResult = story.execute({ command: "increment", input: 2 });
-		expectTypeOf<Parameters<typeof story.execute>[0]>().toEqualTypeOf<
-			IgniteCommandCall<{
-				increment: (amount: number) => unknown;
-			}>
-		>();
-		const storyStates = story.until(
-			(states) => states.count >= 4,
-			() => {
-				story.execute({ command: "increment", input: 1 });
-			},
-			{ maxSteps: 3 },
-		);
-		const storyTrace = story.trace();
-		const storyLifecycle = story.lifecycle();
-		const storySummary = story.summary();
-		expectTypeOf(storyResult).toEqualTypeOf<
-			Promise<{
-				snapshot: StoreState;
-				states: { count: number };
-				events: Array<{
-					type: "counter-incremented";
-					count: number;
-				}>;
-			}>
-		>();
-		expectTypeOf(storyStates).toEqualTypeOf<Promise<{ count: number }>>();
-		expectTypeOf(storyTrace).toEqualTypeOf<IgniteStoryTraceEntry[]>();
-		expectTypeOf(storyLifecycle).toEqualTypeOf<IgniteStoryLifecycleEntry[]>();
-		expectTypeOf(storySummary.finalSnapshot).toEqualTypeOf<StoreState>();
-		expectTypeOf(storySummary.finalStates).toEqualTypeOf<{ count: number }>();
-		expectTypeOf(storySummary.events).toEqualTypeOf<
-			Array<{ type: "counter-incremented"; count: number }>
-		>();
-		expectTypeOf(storySummary.commandCount).toEqualTypeOf<number>();
-		expectTypeOf(storySummary.traceCount).toEqualTypeOf<number>();
-		expectTypeOf(storySummary.lifecycleCount).toEqualTypeOf<number>();
-		story.stop();
-
 		const expectRuntimeValidation = () => {
 			// @ts-expect-error - command name should be validated
 			register.execute({ command: "incrementt", input: 2 });
-			// @ts-expect-error - story command name should be validated
-			story.execute({ command: "incrementt", input: 2 });
 			// @ts-expect-error - positional execute overloads are removed
 			register.execute("increment", 2);
-			// @ts-expect-error - positional story execute overloads are removed
-			story.execute("increment", 2);
 			// @ts-expect-error - event name should be validated
 			register.on("counter-incrementedd", () => {});
 		};
@@ -1336,25 +1150,6 @@ describe("igniteCore type inference", () => {
 				>;
 			}>
 		>();
-
-		const story = register.record("typed xstate authoring");
-		expectTypeOf(story.execute({ command: "increment" })).toEqualTypeOf<
-			Promise<{
-				snapshot: XStateSnapshot<typeof machine>;
-				states: { count: number; ready: boolean };
-				events: Array<
-					| {
-							type: "counter-incremented";
-							count: number;
-					  }
-					| {
-							type: "ready-changed";
-							ready: boolean;
-					  }
-				>;
-			}>
-		>();
-		story.stop();
 	});
 
 	it("preserves command payload inference when metadata is attached", () => {

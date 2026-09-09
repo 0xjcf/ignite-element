@@ -28,9 +28,7 @@ import type {
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
 } from "../RenderArgs";
-import { jsx, jsxs } from "../renderers/jsx/jsx-runtime";
 import { toSchemaValue } from "../runtime/schema";
-import { test as igniteTest } from "../testing";
 import type { InferStateAndEvent } from "../utils/igniteRedux";
 import counterStore, { counterSlice } from "./fixtures/reduxCounterStore";
 
@@ -1149,254 +1147,6 @@ describe("igniteCore", () => {
 		]);
 	});
 
-	it("records behavior-first stories with traces, until guards, and summaries", async () => {
-		const store = counterStore();
-		type StoreState = InferStateAndEvent<typeof store>["State"];
-		type StoreStates = {
-			count: number;
-			isEven: boolean;
-		};
-		type RuntimeEventMap = {
-			"counter-incremented": EventDescriptor<{ count: number }>;
-		};
-		const register = igniteCore({
-			adapter: "redux",
-			source: store,
-			states: (snapshot: StoreState): StoreStates => ({
-				count: snapshot.counter.count,
-				isEven: snapshot.counter.count % 2 === 0,
-			}),
-			commands: ({ actor }) => ({
-				increment: (amount = 1) =>
-					actor.dispatch(counterSlice.actions.addByAmount(amount)),
-			}),
-			events: (event) => ({
-				"counter-incremented": event<{ count: number }>(),
-			}),
-			effects: ({ snapshot, prevSnapshot, emit }) => {
-				if (snapshot.counter.count === prevSnapshot.counter.count) {
-					return;
-				}
-
-				emit({
-					type: "counter-incremented",
-					count: snapshot.counter.count,
-				});
-			},
-		} satisfies ReduxInstanceConfig<typeof store, RuntimeEventMap>);
-
-		const story = register.record("counter reaches five");
-		await story.execute({ command: "increment", input: 2 });
-		const finalStates = await story.until(
-			(states) => states.count >= 5,
-			async () => {
-				await story.execute({ command: "increment", input: 1 });
-			},
-			{ maxSteps: 5 },
-		);
-
-		expect(finalStates).toEqual({ count: 5, isEven: false });
-		expect(story.trace().map((entry) => entry.kind)).toEqual([
-			"command",
-			"snapshot",
-			"states",
-			"event",
-			"snapshot",
-			"states",
-			"command",
-			"snapshot",
-			"states",
-			"event",
-			"snapshot",
-			"states",
-			"command",
-			"snapshot",
-			"states",
-			"event",
-			"snapshot",
-			"states",
-			"command",
-			"snapshot",
-			"states",
-			"event",
-			"snapshot",
-			"states",
-		]);
-		expect(
-			story
-				.trace()
-				.filter((entry) => entry.kind === "command")
-				.map((entry) => entry.command),
-		).toEqual(["increment", "increment", "increment", "increment"]);
-
-		const summary = story.summary();
-		expect(summary.finalSnapshot.counter.count).toBe(5);
-		expect(summary.finalStates).toEqual({ count: 5, isEven: false });
-		expect(summary.events).toEqual([
-			{ type: "counter-incremented", count: 2 },
-			{ type: "counter-incremented", count: 3 },
-			{ type: "counter-incremented", count: 4 },
-			{ type: "counter-incremented", count: 5 },
-		]);
-		expect(summary.commandCount).toBe(4);
-		expect(summary.traceCount).toBe(24);
-		expect(summary.lifecycleCount).toBe(0);
-
-		story.stop();
-
-		await expect(
-			story.execute({ command: "increment", input: 1 }),
-		).rejects.toThrow(
-			'[igniteCore] Story "counter reaches five" has been stopped.',
-		);
-		expect(
-			(await register.execute({ command: "increment", input: 1 })).snapshot
-				.counter.count,
-		).toBe(6);
-	});
-
-	it("records DOM lifecycle evidence for active stories and detaches on stop", async () => {
-		const store = counterStore();
-		type StoreState = InferStateAndEvent<typeof store>["State"];
-		const register = igniteCore({
-			adapter: "redux",
-			source: store,
-			states: (snapshot: StoreState) => ({
-				count: snapshot.counter.count,
-			}),
-			commands: ({ actor }) => ({
-				increment: () => actor.dispatch(counterSlice.actions.increment()),
-			}),
-		});
-
-		type RenderArgs = {
-			count: number;
-			increment: () => void;
-		};
-
-		const story = register.record("component lifecycle");
-		const elementName = `story-lifecycle-${crypto.randomUUID()}`;
-		const renderFn = vi.fn<(args: RenderArgs) => TemplateResult>(
-			(_args) => html``,
-		);
-
-		register(elementName, renderFn);
-		const element = document.createElement(elementName);
-		document.body.appendChild(element);
-		await story.execute({ command: "increment" });
-		element.remove();
-		await flushMicrotasks();
-
-		const lifecycle = story.lifecycle();
-		expect(lifecycle.map((entry) => entry.stage)).toEqual(
-			expect.arrayContaining([
-				"registered",
-				"connected",
-				"rendered",
-				"disconnected",
-				"cleaned-up",
-			]),
-		);
-		expect(lifecycle.every((entry) => entry.elementName === elementName)).toBe(
-			true,
-		);
-		expect(story.summary().lifecycleCount).toBe(lifecycle.length);
-
-		story.stop();
-		const lifecycleCount = story.lifecycle().length;
-		const secondElement = document.createElement(elementName);
-		document.body.appendChild(secondElement);
-		secondElement.remove();
-
-		expect(story.lifecycle()).toHaveLength(lifecycleCount);
-		expect(
-			(await register.execute({ command: "increment" })).snapshot.counter.count,
-		).toBe(2);
-	});
-
-	it("projects runtime stories into an accessibility bridge without mixing trace entries", async () => {
-		const store = counterStore();
-		type StoreState = InferStateAndEvent<typeof store>["State"];
-		const register = igniteCore({
-			adapter: "redux",
-			source: store,
-			states: (snapshot: StoreState) => ({
-				count: snapshot.counter.count,
-			}),
-			commands: ({ actor }) => ({
-				increment: (amount: number) =>
-					actor.dispatch(counterSlice.actions.addByAmount(amount)),
-			}),
-		});
-
-		const story = register.record("dom accessibility bridge");
-		const bridge = igniteTest.accessibilityBridge(
-			register,
-			({
-				count,
-				increment,
-			}: {
-				count: number;
-				increment: (amount: number) => void;
-			}) =>
-				jsxs("section", {
-					children: [
-						jsx("output", {
-							role: "status",
-							"aria-label": "Counter total",
-							children: String(count),
-						}),
-						jsx("button", {
-							type: "button",
-							onClick: () => increment(1),
-							children: "Increment",
-						}),
-					],
-				}),
-			{ elementName: "story-dom-bridge" },
-		);
-
-		await story.execute({ command: "increment", input: 2 });
-
-		const [statusElement, buttonElement] = igniteTest.expectControls(bridge, [
-			{
-				role: "status",
-				name: "Counter total",
-				text: "2",
-			},
-			{
-				role: "button",
-				name: "Increment",
-			},
-		]);
-
-		expect(statusElement.textContent).toBe("2");
-		expect(buttonElement.textContent?.trim()).toBe("Increment");
-		expect(story.trace().map((entry) => entry.kind)).toEqual([
-			"command",
-			"snapshot",
-			"states",
-			"snapshot",
-			"states",
-		]);
-		expect(story.lifecycle().map((entry) => entry.stage)).toEqual(
-			expect.arrayContaining(["connected", "rendered"]),
-		);
-		expect(
-			story
-				.lifecycle()
-				.every((entry) => entry.elementName === "story-dom-bridge"),
-		).toBe(true);
-
-		bridge.stop();
-
-		expect(story.lifecycle().map((entry) => entry.stage)).toEqual(
-			expect.arrayContaining(["disconnected", "cleaned-up"]),
-		);
-
-		story.stop();
-	});
-
 	it("exposes a JSON-serializable agent schema", () => {
 		const store = counterStore();
 
@@ -1870,7 +1620,7 @@ describe("igniteCore", () => {
 });
 
 // E4 — actor-web emitted events surface through the real igniteCore runtime path
-// (on()/execute().events/record()), typed from the source's `Emitted` union. E2
+// (on()/execute().events), typed from the source's `Emitted` union. E2
 // proved the runtime bridge with a fake adapter; this exercises the actual
 // ActorWebAdapter.subscribeEvents() → source.subscribeEvent wiring end to end.
 describe("igniteCore actor-web emitted-event bridge", () => {
@@ -1984,39 +1734,6 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 		});
 	});
 
-	it("includes source emits in record() traces and summaries", async () => {
-		const source = createActorWebShipmentSource();
-		const register = igniteCore({
-			source,
-			states: (snapshot) => ({ status: snapshot.context.status }),
-			commands: ({ actor }) => ({
-				createShipment: (shipmentId: string) =>
-					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
-			}),
-		});
-
-		const story = register.record("shipment created");
-		await story.execute({
-			command: "createShipment",
-			input: "shipment-3003",
-		});
-
-		const emitted = {
-			type: "SHIPMENT_CREATED",
-			shipmentId: "shipment-3003",
-		};
-		expect(story.summary().events).toContainEqual(emitted);
-		expect(story.trace()).toContainEqual(
-			expect.objectContaining({
-				kind: "event",
-				event: "SHIPMENT_CREATED",
-				payload: { shipmentId: "shipment-3003" },
-			}),
-		);
-
-		story.stop();
-	});
-
 	it("leaves non-emitting adapters (redux) unaffected by the events bridge", async () => {
 		const store = counterStore();
 		const register = igniteCore({
@@ -2039,7 +1756,7 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 
 // XState joins the subscribeEvents() seam as its second consumer: emitted events
 // (XState v5 emit(...)) surface through the same runtime path as actor-web —
-// on(type), execute().events, and record() — with the uniform shape.
+// on(type) and execute().events — with the uniform shape.
 describe("igniteCore xstate emitted-event bridge", () => {
 	afterEach(() => {
 		document.body.innerHTML = "";
@@ -2110,26 +1827,5 @@ describe("igniteCore xstate emitted-event bridge", () => {
 		expect(
 			result.events.filter((event) => event.type === "count-changed"),
 		).toHaveLength(1);
-	});
-
-	it("records machine emits in story traces", async () => {
-		const register = igniteCore({
-			source: emittingCounterMachine,
-			states: (snapshot) => ({ count: snapshot.context.count }),
-			commands: ({ actor }) => ({
-				increment: () => actor.send({ type: "INC" }),
-			}),
-		});
-
-		const story = register.record("xstate emitted events");
-		await story.execute({ command: "increment" });
-
-		const emitted = {
-			type: "count-changed",
-			count: 1,
-		};
-		expect(story.summary().events).toContainEqual(emitted);
-
-		story.stop();
 	});
 });

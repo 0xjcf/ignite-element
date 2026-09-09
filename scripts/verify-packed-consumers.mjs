@@ -293,7 +293,7 @@ function verifyConsumer(lane, tarballPaths) {
 					strict: true,
 					target: "ES2022",
 				},
-				include: ["consumer.tsx"],
+				include: ["consumer.tsx", "removed-*.ts"],
 			},
 			null,
 			2,
@@ -332,7 +332,10 @@ for (const specifier of specifiers) {
 	if (specifier.endsWith("/package.json")) {
 		await import(specifier, { with: { type: "json" } });
 	} else {
-		await import(specifier);
+		const entry = await import(specifier);
+		if (["ignite-element", "ignite-element/xstate", "ignite-element/redux", "ignite-element/mobx", "ignite-element/actor-web"].includes(specifier)) {
+			assert.equal(Object.hasOwn(entry, "test"), false, specifier + " must not export test");
+		}
 	}
 }
 ${lane.name === "source-free" ? sourceFreeRuntimeConsumer : ""}
@@ -352,6 +355,12 @@ assert.throws(() => require.resolve("lit-html"), { code: "MODULE_NOT_FOUND" });`
 `,
 	);
 	if (lane.name === "adapters") {
+		for (const entry of ["xstate", "redux", "mobx", "actor-web"]) {
+			writeFileSync(
+				join(consumerDirectory, "removed-" + entry + ".ts"),
+				removedTestingImports("ignite-element/" + entry),
+			);
+		}
 		writeFileSync(
 			join(consumerDirectory, "consumer.tsx"),
 			readFileSync(join(consumerDirectory, "consumer.tsx"), "utf8") +
@@ -390,8 +399,56 @@ assert.throws(() => require.resolve("lit-html"), { code: "MODULE_NOT_FOUND" });`
 	run("node", ["consumer.mjs"], { cwd: consumerDirectory });
 }
 
+const removedTestingTypes = [
+	"IgniteDomBridge",
+	"IgniteDomRoleExpectation",
+	"IgniteEventExpectation",
+	"IgniteSnapshotExpectation",
+	"IgniteTestHelpers",
+	"IgniteTestScenario",
+	"IgniteTestScenarioOptions",
+	"IgniteStoryTraceKind",
+	"IgniteStoryTracePhase",
+	"IgniteStoryCommandTraceEntry",
+	"IgniteStoryBehaviorTraceEntry",
+	"IgniteStorySnapshotTraceEntry",
+	"IgniteStoryStatesTraceEntry",
+	"IgniteStoryEventTraceEntry",
+	"IgniteStoryTraceEntry",
+	"IgniteStoryTraceSnapshotEntry",
+	"IgniteStoryTraceSnapshot",
+	"IgniteStoryLifecycleStage",
+	"IgniteStoryLifecycleScope",
+	"IgniteStoryLifecycleEntry",
+	"IgniteStoryUntilOptions",
+	"IgniteStoryStatesPredicate",
+	"IgniteStorySummary",
+	"IgniteStorySnapshotEvent",
+	"IgniteStorySummarySnapshot",
+	"IgniteStorySnapshot",
+	"IgniteStory",
+];
+
+function removedTestingImports(specifier) {
+	return [
+		"// @ts-expect-error the testing value is retired",
+		"import { test } from " + JSON.stringify(specifier) + ";",
+		...removedTestingTypes.flatMap((name, index) => [
+			"// @ts-expect-error retired named public type " + name,
+			"import type { " +
+				name +
+				" as Removed" +
+				index +
+				" } from " +
+				JSON.stringify(specifier) +
+				";",
+		]),
+	].join("\n");
+}
+
 const sourceFreeTypeConsumer = `
-import { igniteCore, event, type IgniteAgentRuntime, type IgniteCommandCall, type RuntimeEvent, type CommandHelper, type IgniteTestScenario } from "ignite-element";
+${removedTestingImports("ignite-element")}
+import { igniteCore, event, type IgniteAgentRuntime, type IgniteCommandCall, type RuntimeEvent, type CommandHelper } from "ignite-element";
 const events = { changed: event<{ count: number }>() };
 type Commands = { set: (value: number) => void };
 declare const runtime: IgniteAgentRuntime<{ count: number }, Commands, typeof events, unknown, { label: string }>;
@@ -404,8 +461,6 @@ runtime.execute(call).then(result => {
 runtime.on("changed", fact => { const count: number = fact.count; void count; });
 const fact: RuntimeEvent<typeof events> = { type: "changed", count: 2 };
 declare const command: CommandHelper<{ count: number }>;
-declare const scenario: IgniteTestScenario<{ count: number }, Commands, typeof events, { label: string }>;
-scenario.expectStates({ label: "ready" });
 void command; void fact;
 // @ts-expect-error preserved command input type
 runtime.execute({ command: "set", input: "bad" });
@@ -413,8 +468,11 @@ runtime.execute({ command: "set", input: "bad" });
 runtime.on("missing", () => {});
 // @ts-expect-error preserved event payload
 const badFact: RuntimeEvent<typeof events> = { type: "changed", count: "bad" };
-// @ts-expect-error preserved testing projection type
-scenario.expectStates({ label: 2 });
+runtime.watchStates(states => { const label: string = states.label; void label; });
+// @ts-expect-error preserved runtime projection type
+const invalidStates: { label: number } = runtime.getStates();
+// @ts-expect-error recording is retired from source-backed runtime typing
+runtime.record("removed");
 // @ts-expect-error retired runtime export
 import { igniteShell } from "ignite-element";
 // @ts-expect-error retired shell config
@@ -480,6 +538,7 @@ const sourceFreeRuntimeConsumer = `
 const root = await import("ignite-element");
 assert.equal(typeof root.igniteCore, "function");
 assert.equal("igniteShell" in root, false);
+assert.equal("test" in root, false);
 for (const args of [[], [undefined], [{}]]) {
   const core = Reflect.apply(root.igniteCore, undefined, args);
   assert.equal(typeof core, "function");

@@ -1,9 +1,7 @@
 import type { CommandMetadata, IgniteAdapter } from "@ignite-element/core";
 import { StateScope } from "@ignite-element/core";
 import type { RenderStrategyFactory } from "@ignite-element/renderer";
-import IgniteElement, {
-	type IgniteElementLifecycleHooks,
-} from "./IgniteElement";
+import IgniteElement from "./IgniteElement";
 import {
 	commitProjectionDocumentTarget,
 	commitProjectionSpeechTarget,
@@ -19,11 +17,7 @@ import {
 	parseProjectionSpeechRequest,
 } from "./internal/projectionDocument";
 import { resolveConfiguredRenderStrategy } from "./renderers/resolveConfiguredRenderStrategy";
-import {
-	createAgentRuntime,
-	type IgniteDomBridgeOptions,
-	igniteRuntimeHostOverrideSymbol,
-} from "./runtime/agent";
+import { createAgentRuntime } from "./runtime/agent";
 import { commandMetadataSymbol } from "./runtime/commands";
 import { facadeCleanupSymbol } from "./runtime/effects";
 import { resolveProjectionTarget } from "./runtime/projectionTargets";
@@ -32,9 +26,6 @@ import type {
 	IgniteAgentSubscription,
 	IgniteProjectionSession,
 	IgniteProjectionTarget,
-	IgniteStoryLifecycleEntry,
-	IgniteStoryLifecycleScope,
-	IgniteStoryLifecycleStage,
 } from "./types/agent";
 import type { IgniteSchemaValue } from "./types/schema";
 
@@ -289,16 +280,6 @@ export default function igniteElementFactory<
 	options?: FactoryOptions<State, Event, RenderArgs, RuntimeView, View>,
 ): ComponentFactory<State, Event, RenderArgs, View> {
 	type RuntimeAdditionalArgs = AdditionalRenderArgs<State, Event, RenderArgs>;
-	type RuntimeHostOverrideBase = {
-		host: EventTarget | null;
-		additionalArgs: RuntimeAdditionalArgs | null;
-		sharedRuntimeActive: boolean;
-	};
-	type RuntimeHostOverrideFrame = {
-		host: EventTarget;
-		additionalArgs: RuntimeAdditionalArgs;
-		sharedRuntimeActive: boolean;
-	};
 
 	let sharedAdapter: IgniteAdapter<State, Event> | null = null;
 	let sharedAdditionalArgs = new WeakMap<
@@ -312,13 +293,6 @@ export default function igniteElementFactory<
 	let runtimeAdapter: IgniteAdapter<State, Event> | null = null;
 	let runtimeAdditionalArgs: RuntimeAdditionalArgs | null = null;
 	let runtimeHost: EventTarget | null = null;
-	let runtimeHostOverrideBase: RuntimeHostOverrideBase | null = null;
-	const runtimeHostOverrideFrames: RuntimeHostOverrideFrame[] = [];
-	let lifecycleSequence = 0;
-	let lifecycleInstanceSequence = 0;
-	const lifecycleObservers = new Set<
-		(entry: IgniteStoryLifecycleEntry) => void
-	>();
 
 	const createAdditionalArgs: (
 		adapter: IgniteAdapter<State, Event>,
@@ -368,58 +342,6 @@ export default function igniteElementFactory<
 				state: snapshot,
 				send,
 			}) as RenderArgs);
-	const resolveLifecycleScope = (): IgniteStoryLifecycleScope =>
-		inferredScope === StateScope.Shared ? "shared" : "isolated";
-
-	const observeLifecycle = (
-		handler: (entry: IgniteStoryLifecycleEntry) => void,
-	) => {
-		lifecycleObservers.add(handler);
-
-		return {
-			unsubscribe: () => {
-				lifecycleObservers.delete(handler);
-			},
-		};
-	};
-
-	const recordLifecycle = (
-		stage: IgniteStoryLifecycleStage,
-		elementName: string,
-		scope: IgniteStoryLifecycleScope,
-		instanceId?: number,
-	) => {
-		if (lifecycleObservers.size === 0) {
-			return;
-		}
-
-		lifecycleSequence += 1;
-		const entry: IgniteStoryLifecycleEntry = {
-			kind: "lifecycle",
-			sequence: lifecycleSequence,
-			stage,
-			elementName,
-			scope,
-			...(typeof instanceId === "number" ? { instanceId } : {}),
-		};
-
-		for (const observer of lifecycleObservers) {
-			observer(entry);
-		}
-	};
-
-	const createLifecycleHooks = (
-		elementName: string,
-		scope: IgniteStoryLifecycleScope,
-	): IgniteElementLifecycleHooks => {
-		lifecycleInstanceSequence += 1;
-		return {
-			elementName,
-			instanceId: lifecycleInstanceSequence,
-			scope,
-			record: recordLifecycle,
-		};
-	};
 
 	const cleanupAdditionalArgs = (
 		additionalArgs?: AdditionalRenderArgs<State, Event, RenderArgs> | null,
@@ -502,92 +424,6 @@ export default function igniteElementFactory<
 			? new EventTarget()
 			: document.createElement("div");
 
-	const createRuntimeDomBridge = (
-		renderer: ComponentRenderer<RenderArgs, View>,
-		options?: IgniteDomBridgeOptions,
-	) => {
-		const { adapter, additionalArgs } = resolveRuntimeResources();
-		retainRuntimeAccess();
-		const bridgeHost = document.createElement("div");
-		const bridgeRoot = bridgeHost.attachShadow({ mode: "open" });
-		const strategy = renderStrategyFactory();
-		const render = resolveRenderer(renderer);
-		const bridgeElementName = options?.elementName ?? "ignite-test-bridge";
-		const lifecycleHooks = createLifecycleHooks(
-			bridgeElementName,
-			resolveLifecycleScope(),
-		);
-		let active = true;
-
-		strategy.attach(bridgeRoot);
-		document.body.appendChild(bridgeHost);
-		recordLifecycle(
-			"connected",
-			bridgeElementName,
-			lifecycleHooks.scope,
-			lifecycleHooks.instanceId,
-		);
-
-		const renderCurrent = (snapshot: State) => {
-			strategy.render(
-				render(
-					createRenderArgs(
-						snapshot,
-						(event) => adapter.send(event),
-						additionalArgs,
-					),
-				),
-			);
-			recordLifecycle(
-				"rendered",
-				bridgeElementName,
-				lifecycleHooks.scope,
-				lifecycleHooks.instanceId,
-			);
-		};
-
-		const subscription = adapter.subscribeSnapshots((snapshot) => {
-			if (!active) {
-				return;
-			}
-
-			renderCurrent(snapshot);
-		});
-
-		renderCurrent(adapter.getSnapshot());
-
-		return {
-			host: bridgeHost,
-			root: bridgeRoot,
-			stop() {
-				if (!active) {
-					return;
-				}
-
-				active = false;
-				try {
-					subscription.unsubscribe();
-					recordLifecycle(
-						"disconnected",
-						bridgeElementName,
-						lifecycleHooks.scope,
-						lifecycleHooks.instanceId,
-					);
-					strategy.detach?.();
-					bridgeHost.remove();
-					recordLifecycle(
-						"cleaned-up",
-						bridgeElementName,
-						lifecycleHooks.scope,
-						lifecycleHooks.instanceId,
-					);
-				} finally {
-					releaseRuntimeAccess();
-				}
-			},
-		};
-	};
-
 	const resolveRuntimeAdapter = () => {
 		if (inferredScope === StateScope.Shared) {
 			const { adapter } = resolveSharedResources();
@@ -647,135 +483,6 @@ export default function igniteElementFactory<
 					error,
 				);
 			}
-		}
-	};
-
-	const withRuntimeHost = <Result>(
-		host: EventTarget,
-		callback: () => Result,
-	): Result => {
-		const previousRuntimeHost = runtimeHost;
-		const previousRuntimeAdditionalArgs = runtimeAdditionalArgs;
-		const previousSharedRuntimeActive = sharedRuntimeActive;
-		const previousRuntimeHostOverrideBase = runtimeHostOverrideBase;
-		const previousRuntimeHostOverrideFrameCount =
-			runtimeHostOverrideFrames.length;
-		const baseFrame =
-			runtimeHostOverrideFrames.length === 0
-				? {
-						host: runtimeHost,
-						additionalArgs: runtimeAdditionalArgs,
-						sharedRuntimeActive,
-					}
-				: null;
-		let frame: RuntimeHostOverrideFrame | null = null;
-
-		let restored = false;
-		const restore = () => {
-			if (restored || !frame) {
-				return;
-			}
-			restored = true;
-			const frameToRestore = frame;
-
-			const frameIndex = runtimeHostOverrideFrames.indexOf(frameToRestore);
-			if (frameIndex !== -1) {
-				runtimeHostOverrideFrames.splice(frameIndex, 1);
-			}
-			const activeFrame =
-				runtimeHostOverrideFrames[runtimeHostOverrideFrames.length - 1];
-			if (activeFrame) {
-				runtimeHost = activeFrame.host;
-				runtimeAdditionalArgs = activeFrame.additionalArgs;
-				sharedRuntimeActive = activeFrame.sharedRuntimeActive;
-				cleanupAdditionalArgs(frameToRestore.additionalArgs);
-				return;
-			}
-
-			runtimeHost = runtimeHostOverrideBase?.host ?? null;
-			runtimeAdditionalArgs = runtimeHostOverrideBase?.additionalArgs ?? null;
-			sharedRuntimeActive =
-				runtimeHostOverrideBase?.sharedRuntimeActive ?? false;
-			runtimeHostOverrideBase = null;
-			cleanupAdditionalArgs(frameToRestore.additionalArgs);
-		};
-		const rollbackSetup = () => {
-			runtimeHost = previousRuntimeHost;
-			runtimeAdditionalArgs = previousRuntimeAdditionalArgs;
-			sharedRuntimeActive = previousSharedRuntimeActive;
-			runtimeHostOverrideBase = previousRuntimeHostOverrideBase;
-			runtimeHostOverrideFrames.length = previousRuntimeHostOverrideFrameCount;
-		};
-		const isThenable = (value: unknown): value is PromiseLike<unknown> =>
-			(typeof value === "object" || typeof value === "function") &&
-			value !== null &&
-			"then" in value &&
-			typeof (value as { then?: unknown }).then === "function";
-		const restoreAfterSuccess = (message: string) => {
-			try {
-				restore();
-			} catch (restoreError) {
-				console.error(message, restoreError);
-			}
-		};
-
-		try {
-			const adapter = resolveRuntimeAdapter();
-			const additionalArgs = createAdditionalArgs(adapter, host);
-			if (runtimeHostOverrideFrames.length === 0) {
-				runtimeHostOverrideBase = baseFrame;
-			}
-
-			frame = {
-				host,
-				additionalArgs,
-				sharedRuntimeActive,
-			};
-			runtimeHostOverrideFrames.push(frame);
-			runtimeHost = frame.host;
-			runtimeAdditionalArgs = frame.additionalArgs;
-
-			const result = callback();
-			if (isThenable(result)) {
-				return result.then(
-					(value) => {
-						restoreAfterSuccess(
-							"[igniteElementFactory] Runtime host restore failed after callback resolution.",
-						);
-						return value;
-					},
-					(error) => {
-						try {
-							restore();
-						} catch (restoreError) {
-							console.error(
-								"[igniteElementFactory] Runtime host restore failed after callback error.",
-								restoreError,
-							);
-						}
-						throw error;
-					},
-				) as Result;
-			}
-
-			restoreAfterSuccess(
-				"[igniteElementFactory] Runtime host restore failed after callback completion.",
-			);
-			return result;
-		} catch (error) {
-			if (frame) {
-				try {
-					restore();
-				} catch (restoreError) {
-					console.error(
-						"[igniteElementFactory] Runtime host restore failed after callback error.",
-						restoreError,
-					);
-				}
-			} else {
-				rollbackSetup();
-			}
-			throw error;
 		}
 	};
 
@@ -968,13 +675,9 @@ export default function igniteElementFactory<
 		State,
 		Event,
 		RuntimeView,
-		AdditionalRenderArgs<State, Event, RenderArgs>,
-		ComponentRenderer<RenderArgs, View>
+		AdditionalRenderArgs<State, Event, RenderArgs>
 	>({
-		createDomBridge: (renderer, options) =>
-			createRuntimeDomBridge(renderer, options),
 		eventTypes,
-		observeLifecycle,
 		retainRuntimeAccess,
 		releaseRuntimeAccess,
 		resolveInspection,
@@ -1124,8 +827,6 @@ export default function igniteElementFactory<
 			return handle;
 		}
 
-		const lifecycleScope = resolveLifecycleScope();
-
 		// Attribute observation is set up per-instance after commands are resolved.
 		// We use MutationObserver since observedAttributes must be static and
 		// commands aren't known until the adapter is created.
@@ -1165,17 +866,11 @@ export default function igniteElementFactory<
 
 			class SharedIgniteComponent extends IgniteElement<State, Event, View> {
 				private additionalArgs: AdditionalRenderArgs<State, Event, RenderArgs>;
-				private readonly lifecycleHooks: IgniteElementLifecycleHooks;
 				private disconnectAttrObserver: (() => void) | undefined;
 
 				constructor() {
 					const { adapter } = resolveSharedResources();
-					const lifecycleHooks = createLifecycleHooks(
-						elementName,
-						lifecycleScope,
-					);
-					super(adapter, renderStrategyFactory(), lifecycleHooks);
-					this.lifecycleHooks = lifecycleHooks;
+					super(adapter, renderStrategyFactory());
 					this.additionalArgs = resolveSharedAdditionalArgs(this);
 				}
 
@@ -1202,12 +897,6 @@ export default function igniteElementFactory<
 					this.disconnectAttrObserver?.();
 					this.disconnectAttrObserver = undefined;
 					const additionalArgs = this.additionalArgs;
-					recordLifecycle(
-						"cleaned-up",
-						elementName,
-						lifecycleScope,
-						this.lifecycleHooks.instanceId,
-					);
 					sharedAdditionalArgs.delete(this);
 
 					if (sharedInstanceCount > 0) {
@@ -1242,7 +931,6 @@ export default function igniteElementFactory<
 			}
 
 			customElements.define(elementName, SharedIgniteComponent);
-			recordLifecycle("registered", elementName, lifecycleScope);
 			return handle;
 		}
 
@@ -1251,17 +939,11 @@ export default function igniteElementFactory<
 				| AdditionalRenderArgs<State, Event, RenderArgs>
 				| undefined;
 			private adapterInstance: IgniteAdapter<State, Event> | undefined;
-			private readonly lifecycleHooks: IgniteElementLifecycleHooks;
 			private readonly renderImpl: (args: RenderArgs) => View;
 			private disconnectAttrObserver: (() => void) | undefined;
 
 			constructor() {
-				const lifecycleHooks = createLifecycleHooks(
-					elementName,
-					lifecycleScope,
-				);
-				super(undefined, renderStrategyFactory(), lifecycleHooks);
-				this.lifecycleHooks = lifecycleHooks;
+				super(undefined, renderStrategyFactory());
 				this.renderImpl = resolveRenderer(resolvedRenderer);
 			}
 
@@ -1289,12 +971,6 @@ export default function igniteElementFactory<
 				const additionalArgs = this.additionalArgs;
 				this.additionalArgs = undefined;
 				this.adapterInstance = undefined;
-				recordLifecycle(
-					"cleaned-up",
-					elementName,
-					lifecycleScope,
-					this.lifecycleHooks.instanceId,
-				);
 				cleanupAdditionalArgs(additionalArgs);
 			}
 
@@ -1316,13 +992,10 @@ export default function igniteElementFactory<
 		}
 
 		customElements.define(elementName, IsolatedIgniteComponent);
-		recordLifecycle("registered", elementName, lifecycleScope);
 		return handle;
 	};
 
-	Object.assign(register, agentRuntime, {
-		[igniteRuntimeHostOverrideSymbol]: withRuntimeHost,
-	});
+	Object.assign(register, agentRuntime);
 
 	return register;
 

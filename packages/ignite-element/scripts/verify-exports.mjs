@@ -59,7 +59,6 @@ const requiredExports = [
 			createProjectionSpeechTarget: "function",
 			event: "function",
 			igniteCore: "function",
-			test: "function",
 		},
 	],
 	[
@@ -69,7 +68,6 @@ const requiredExports = [
 			createProjectionSpeechTarget: "function",
 			igniteCore: "function",
 			matchState: "function",
-			test: "function",
 		},
 	],
 	[
@@ -78,7 +76,6 @@ const requiredExports = [
 			createProjectionDocumentTarget: "function",
 			createProjectionSpeechTarget: "function",
 			igniteCore: "function",
-			test: "function",
 		},
 	],
 	[
@@ -87,7 +84,6 @@ const requiredExports = [
 			createProjectionDocumentTarget: "function",
 			createProjectionSpeechTarget: "function",
 			igniteCore: "function",
-			test: "function",
 		},
 	],
 	[
@@ -96,7 +92,6 @@ const requiredExports = [
 			createProjectionDocumentTarget: "function",
 			createProjectionSpeechTarget: "function",
 			igniteCore: "function",
-			test: "function",
 		},
 	],
 	[

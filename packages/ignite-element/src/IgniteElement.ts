@@ -1,22 +1,6 @@
 import type { IgniteAdapter } from "@ignite-element/core";
 import { StateScope } from "@ignite-element/core";
 import type { RenderStrategy } from "./renderers/RenderStrategy";
-import type {
-	IgniteStoryLifecycleScope,
-	IgniteStoryLifecycleStage,
-} from "./types/agent";
-
-export type IgniteElementLifecycleHooks = {
-	elementName: string;
-	instanceId: number;
-	scope: IgniteStoryLifecycleScope;
-	record: (
-		stage: IgniteStoryLifecycleStage,
-		elementName: string,
-		scope: IgniteStoryLifecycleScope,
-		instanceId?: number,
-	) => void;
-};
 
 export abstract class IgniteMoveSafeLifecycleElement extends HTMLElement {
 	private disconnectTeardownScheduled = false;
@@ -72,18 +56,15 @@ export default abstract class IgniteElement<
 	private _unsubscribe: (() => void) | undefined;
 	private _sendListener: ((event: globalThis.Event) => void) | undefined;
 	private readonly strategy: RenderStrategy<View>;
-	private readonly lifecycle?: IgniteElementLifecycleHooks;
 
 	constructor(
 		adapter: IgniteAdapter<State, Event> | undefined,
 		strategy: RenderStrategy<View>,
-		lifecycle?: IgniteElementLifecycleHooks,
 	) {
 		super();
 		this._shadowRoot = this.attachShadow({ mode: "open" });
 
 		this.strategy = strategy;
-		this.lifecycle = lifecycle;
 		this.strategy.attach(this._shadowRoot);
 
 		if (adapter) {
@@ -115,7 +96,6 @@ export default abstract class IgniteElement<
 			this._sendListener = (event: globalThis.Event) => this.send(event);
 		}
 		this.addEventListener("send", this._sendListener as EventListener);
-		this.recordLifecycle("connected");
 		this.renderTemplate();
 	}
 
@@ -153,8 +133,6 @@ export default abstract class IgniteElement<
 				throw disconnectError;
 			}
 		});
-
-		this.recordLifecycle("disconnected");
 	}
 
 	protected onTrueDisconnect(): void {}
@@ -182,7 +160,6 @@ export default abstract class IgniteElement<
 				send: (event: Event) => this.send(event),
 			}),
 		);
-		this.recordLifecycle("rendered");
 	}
 
 	protected abstract renderView(props: {
@@ -239,18 +216,5 @@ export default abstract class IgniteElement<
 	private updateCurrentState(state: State): void {
 		this._currentState = state;
 		this._hasCurrentState = state !== undefined;
-	}
-
-	private recordLifecycle(stage: IgniteStoryLifecycleStage): void {
-		if (!this.lifecycle) {
-			return;
-		}
-
-		this.lifecycle.record(
-			stage,
-			this.lifecycle.elementName,
-			this.lifecycle.scope,
-			this.lifecycle.instanceId,
-		);
 	}
 }

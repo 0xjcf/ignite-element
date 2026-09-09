@@ -73,6 +73,12 @@ v3 locks the stable public surface to the root entrypoint, the adapter entrypoin
 
 If an advanced app still needs shared shadow styles or renderer diagnostics, import the underlying `@ignite-element/renderer` primitives directly in app-owned code. For the default Ignite JSX path you need none of this.
 
+## Testing/story retirement in the development candidate
+
+The next candidate removes `test` from all five public barrels, the 27 dedicated testing/story types, the declaration-reachable testing graph, `record(name)`, and the accessibility bridge. Migrate to ordinary runtime/source assertions and real registered-element DOM queries. Retained runtime results, typed commands/events, subscriptions, snapshots, derived states and schema remain. Portable receipts and internal lifecycle histories are intentionally removed; there is no alias or replacement recorder.
+
+See the [migration table](/ignite-element/api/testing-dsl/) and [complete testing examples](/ignite-element/guides/testing/). Source/application ownership of asynchronous work, cancellation and native shutdown is unchanged. This unconsumed major change is not evidence that a new beta or stable version has been published.
+
 ## Verify
 
 - Reinstall and run a TypeScript check (`pnpm exec tsc --noEmit`).
