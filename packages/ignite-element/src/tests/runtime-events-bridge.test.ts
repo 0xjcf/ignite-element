@@ -37,6 +37,38 @@ describe("Actor-Web observation rollback", () => {
 		};
 		return { source, listeners, releaseSource, releaseTransport, close };
 	}
+	for (const firstFailure of [undefined, null]) {
+		it(`preserves thrown ${String(firstFailure)} while attempting both cleanup handles once`, () => {
+			const h = sourceFixture();
+			h.releaseSource.mockImplementationOnce(() => {
+				throw firstFailure;
+			});
+			if (firstFailure === null) {
+				h.releaseTransport.mockImplementationOnce(() => {
+					throw new Error("secondary cleanup failure");
+				});
+			}
+			const adapter = createActorWebAdapter(h.source)();
+			const subscription = adapter.subscribeSnapshots(() => {});
+			let caught = false;
+			let received: unknown;
+			try {
+				subscription.unsubscribe();
+			} catch (error) {
+				caught = true;
+				received = error;
+			}
+			expect(h.releaseSource).toHaveBeenCalledTimes(1);
+			expect(h.releaseTransport).toHaveBeenCalledTimes(1);
+			expect(h.listeners.size).toBe(0);
+			expect(() => subscription.unsubscribe()).not.toThrow();
+			expect(h.releaseSource).toHaveBeenCalledTimes(1);
+			expect(h.releaseTransport).toHaveBeenCalledTimes(1);
+			expect(h.close).not.toHaveBeenCalled();
+			expect(caught).toBe(true);
+			expect(received).toBe(firstFailure);
+		});
+	}
 	it("rolls back a source observation when transport setup fails and later recovers", () => {
 		const h = sourceFixture();
 		const failure = new Error("transport setup failed");

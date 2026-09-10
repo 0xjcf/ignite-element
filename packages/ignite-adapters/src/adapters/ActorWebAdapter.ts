@@ -353,15 +353,19 @@ function createAdapterEntry<
 		unsubscribeSource = null;
 		unsubscribeTransportStatus = null;
 		lastNotifiedSignature = null;
+		let failed = false;
 		let failure: unknown;
 		for (const unsubscribe of owned) {
 			try {
 				unsubscribe?.();
 			} catch (error) {
-				failure ??= error;
+				if (!failed) {
+					failed = true;
+					failure = error;
+				}
 			}
 		}
-		if (failure !== undefined) throw failure;
+		if (failed) throw failure;
 	};
 
 	const notify = () => {
