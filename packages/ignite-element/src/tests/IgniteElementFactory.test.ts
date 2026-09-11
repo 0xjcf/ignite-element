@@ -86,7 +86,7 @@ describe("igniteElementFactory", () => {
 			]),
 		).toThrow("watcher setup failed");
 		expect(acquireAdapter).toHaveBeenCalledOnce();
-		expect(acquireAdapter.mock.results[0]?.value.stop).toHaveBeenCalledOnce();
+		expect(acquireAdapter.mock.results[0]?.value.stop).not.toHaveBeenCalled();
 		failWatcherSetup = false;
 		const elementName = `shared-cleanup-${crypto.randomUUID()}`;
 		core(elementName, () => "ready");
@@ -96,10 +96,9 @@ describe("igniteElementFactory", () => {
 		await flushMicrotasks();
 		await flushMicrotasks();
 		expect(ghostCommit).not.toHaveBeenCalled();
-		expect(acquireAdapter).toHaveBeenCalledTimes(2);
+		expect(acquireAdapter).toHaveBeenCalledOnce();
 		expect(acquireAdapter.mock.results[0]?.value.stop).toHaveBeenCalledOnce();
-		expect(acquireAdapter.mock.results[1]?.value.stop).toHaveBeenCalledOnce();
-		expect(stop).toHaveBeenCalledTimes(2);
+		expect(stop).toHaveBeenCalledOnce();
 	});
 	const initialState = { count: 0 };
 

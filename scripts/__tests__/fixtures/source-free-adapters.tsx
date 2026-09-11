@@ -159,6 +159,8 @@ const hostCore = igniteActorWebHost({
 	states: (snapshot) => ({ count: snapshot.context.count }),
 	commands: ({ actor }) => ({
 		setCount: (value: number) => actor.send({ type: "SET", value }),
+		setOnline: (value: string) => value,
+		setLabel: (value: string) => value,
 	}),
 	events: (event) => ({ changed: event<{ count: number }>() }),
 });
@@ -177,6 +179,8 @@ hostHandle.dispose();
 const Host = igniteReact(hostHandle);
 const wrapped = createElement(Host, {
 	count: "2",
+	online: "yes",
+	label: "control",
 	onChanged: (event) => {
 		const count: number = event.count;
 		void count;
@@ -187,3 +191,5 @@ hostCore.execute({ command: "setCount", input: "bad" });
 void wrapped;
 // @ts-expect-error Web setters remain string attributes, not headless numeric props.
 createElement(Host, { count: 2 });
+// @ts-expect-error Setter names beginning with on are still string attributes.
+createElement(Host, { online: true });

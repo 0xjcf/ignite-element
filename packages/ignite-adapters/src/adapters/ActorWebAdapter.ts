@@ -347,8 +347,11 @@ function createAdapterEntry<
 		source.transportStatus?.() ??
 		disconnectedStatus("Actor-Web source does not expose transport status.");
 	let lastNotifiedSignature: string | null = null;
+	let observationGeneration = 0;
 
 	const cleanupSubscriptions = () => {
+		// Invalidate callbacks before releasing handles, including throwing cleanup.
+		observationGeneration += 1;
 		const owned = [unsubscribeSource, unsubscribeTransportStatus];
 		unsubscribeSource = null;
 		unsubscribeTransportStatus = null;
@@ -400,12 +403,15 @@ function createAdapterEntry<
 			return;
 		}
 
+		const generation = ++observationGeneration;
 		unsubscribeSource = source.subscribe((snapshot) => {
+			if (generation !== observationGeneration) return;
 			lastKnownSnapshot = snapshot;
 			notify();
 		});
 		unsubscribeTransportStatus =
 			source.subscribeTransportStatus?.((status) => {
+				if (generation !== observationGeneration) return;
 				lastKnownTransportStatus = status;
 				notify();
 			}) ?? null;

@@ -1,6 +1,13 @@
 import type { IgniteAdapter } from "@ignite-element/core";
 import { StateScope } from "@ignite-element/core";
 import type { RenderStrategy } from "./renderers/RenderStrategy";
+import { releaseAll } from "./runtime/lifetime";
+
+const setupRollbacks = new WeakMap<object, () => void>();
+/** Internal assembly rollback; not a public element lifecycle API. */
+export function rollbackElementSetup(element: object): void {
+	setupRollbacks.get(element)?.();
+}
 
 export interface IgniteMoveSafeLifecycle extends HTMLElement {
 	readonly hasPendingDisconnectTeardown: boolean;
@@ -98,6 +105,23 @@ export function getIgniteElementClasses(
 
 			this.strategy = strategy;
 			this.strategy.attach(this._shadowRoot);
+			setupRollbacks.set(this, () => {
+				this.cancelDisconnectTeardown();
+				this._isActive = false;
+				this._initialized = false;
+				this._hasCurrentState = false;
+				this._adapter = undefined;
+				const unsubscribe = this._unsubscribe;
+				const sendListener = this._sendListener;
+				this._unsubscribe = undefined;
+				this._sendListener = undefined;
+				releaseAll([
+					() => {
+						if (sendListener) this.removeEventListener("send", sendListener);
+					},
+					() => unsubscribe?.(),
+				]);
+			});
 
 			if (adapter) {
 				this.initializeAdapter(adapter);
@@ -232,17 +256,28 @@ export function getIgniteElementClasses(
 				return;
 			}
 
-			const subscription = this._adapter.subscribeSnapshots((state: State) => {
-				this.updateCurrentState(state);
-				if (this._isActive) {
-					this.renderTemplate();
-				}
-			});
+			let active = true;
+			try {
+				const subscription = this._adapter.subscribeSnapshots(
+					(state: State) => {
+						if (!active) return;
+						this.updateCurrentState(state);
+						if (this._isActive) {
+							this.renderTemplate();
+						}
+					},
+				);
 
-			this._unsubscribe = () => {
-				subscription.unsubscribe();
-				this._unsubscribe = undefined;
-			};
+				this._unsubscribe = () => {
+					if (!active) return;
+					active = false;
+					this._unsubscribe = undefined;
+					subscription.unsubscribe();
+				};
+			} catch (error) {
+				active = false;
+				throw error;
+			}
 		}
 
 		private updateCurrentState(state: State): void {

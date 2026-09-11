@@ -25,6 +25,42 @@ function makeCore() {
 	});
 }
 describe("prepared useIgnite binding", () => {
+	it("preserves sparse arrays and enumerable symbols across immutable versions", () => {
+		const mark = Symbol("mark");
+		const rows = new Array<string>(3);
+		rows[0] = "first";
+		const data = {
+			rows,
+			sparse: new Array<string>(4),
+			dense: ["a", "b"],
+			nested: { [mark]: { value: 1 } },
+		};
+		const actor = createActor(machine).start();
+		const core = igniteCore({ source: actor, states: () => data });
+		core.get("states");
+		const hook = renderHook(() => useIgnite(core));
+		const old = hook.result.current;
+		expect(old.rows.length).toBe(3);
+		expect(1 in old.rows).toBe(false);
+		expect(2 in old.rows).toBe(false);
+		expect(old.sparse.length).toBe(4);
+		expect(Object.keys(old.sparse)).toEqual([]);
+		expect(old.dense).toEqual(["a", "b"]);
+		expect(old.nested[mark].value).toBe(1);
+		expect(Object.isFrozen(old.nested[mark])).toBe(true);
+		data.rows.length = 5;
+		data.nested[mark].value = 2;
+		act(() => actor.send({ type: "ADD" }));
+		expect(hook.result.current.rows.length).toBe(5);
+		expect(hook.result.current.nested[mark].value).toBe(2);
+		expect(old.rows.length).toBe(3);
+		expect(old.nested[mark].value).toBe(1);
+		expect(Object.isFrozen(data.rows)).toBe(false);
+		expect(Object.isFrozen(data.nested[mark])).toBe(false);
+		hook.unmount();
+		core.dispose();
+		actor.stop();
+	});
 	it("catches an update between render and subscribe without acquiring in a read", () => {
 		const core = makeCore();
 		core.get("states");

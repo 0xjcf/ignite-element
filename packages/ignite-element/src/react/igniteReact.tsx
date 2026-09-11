@@ -181,7 +181,6 @@ export function igniteReact<
 			// Setter props are already typed from the handle. Forward strings before
 			// connection so the element can provision from its actual attributes.
 			for (const [attr, value] of Object.entries(props)) {
-				if (attr.startsWith("on")) continue;
 				if (typeof value === "string") {
 					attrs[attr] = value;
 				}

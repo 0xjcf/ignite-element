@@ -89,13 +89,12 @@ export function immutableProjection(
 		);
 	}
 	const copy: Record<string, unknown> | unknown[] = Array.isArray(value)
-		? []
+		? new Array(value.length)
 		: Object.create(null);
 	seen.set(value, copy);
-	for (const [key, descriptor] of Object.entries(
-		Object.getOwnPropertyDescriptors(value),
-	)) {
-		if (!descriptor.enumerable) continue;
+	for (const key of Reflect.ownKeys(value)) {
+		const descriptor = Object.getOwnPropertyDescriptor(value, key);
+		if (!descriptor?.enumerable) continue;
 		if (!("value" in descriptor))
 			throw new Error(
 				"[useIgnite] Projection values must not contain accessors.",

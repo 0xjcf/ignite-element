@@ -2,7 +2,7 @@ import type { IgniteAdapter } from "@ignite-element/core";
 import { StateScope } from "@ignite-element/core";
 import type { RenderStrategyFactory } from "@ignite-element/renderer";
 import type IgniteElement from "./IgniteElement";
-import { getIgniteElementClasses } from "./IgniteElement";
+import { getIgniteElementClasses, rollbackElementSetup } from "./IgniteElement";
 import {
 	commitProjectionDocumentTarget,
 	commitProjectionSpeechTarget,
@@ -152,18 +152,44 @@ function getOwnCommandEntries(value: object): Array<[string, unknown]> {
 function exposeCommands(
 	element: HTMLElement,
 	additionalArgs: Record<string, unknown>,
-): void {
+): () => void {
+	const previous = new Map<string, PropertyDescriptor | undefined>();
+	const release = () => {
+		registerElementCommands(element, {});
+		const descriptors = [...previous];
+		previous.clear();
+		releaseAll(
+			descriptors.map(([key, descriptor]) => () => {
+				if (descriptor) Object.defineProperty(element, key, descriptor);
+				else Reflect.deleteProperty(element, key);
+			}),
+		);
+	};
 	registerElementCommands(element, additionalArgs);
-	for (const key of Object.keys(additionalArgs)) {
-		const descriptor = Object.getOwnPropertyDescriptor(additionalArgs, key);
-		if (
-			descriptor &&
-			"value" in descriptor &&
-			typeof descriptor.value === "function"
-		) {
-			(element as unknown as Record<string, unknown>)[key] = descriptor.value;
+	try {
+		for (const key of Object.keys(additionalArgs)) {
+			const descriptor = Object.getOwnPropertyDescriptor(additionalArgs, key);
+			if (
+				descriptor &&
+				"value" in descriptor &&
+				typeof descriptor.value === "function"
+			) {
+				previous.set(key, Object.getOwnPropertyDescriptor(element, key));
+				(element as unknown as Record<string, unknown>)[key] = descriptor.value;
+			}
 		}
+	} catch (error) {
+		try {
+			release();
+		} catch (cleanupError) {
+			console.error(
+				"[IgniteElement] Command setup rollback failed.",
+				cleanupError,
+			);
+		}
+		throw error;
 	}
+	return release;
 }
 
 /**
@@ -401,6 +427,12 @@ export default function igniteElementFactory<
 		runtimeHost = null;
 		adapter?.stop();
 	};
+	const rollbackNewAdapter = () => {
+		// Shared factories cache a reusable wrapper over a borrowed source. Its
+		// stop is terminal, not a release of this acquisition's observation handles.
+		// Those handles are drained separately; keep the wrapper for retry/dispose.
+		if (inferredScope !== StateScope.Shared) clearRuntime();
+	};
 	const dispose = () => {
 		if (registered || registrationInProgress)
 			throw new Error(
@@ -436,7 +468,7 @@ export default function igniteElementFactory<
 							}
 							// An already-acquired shared DOM adapter is not owned by this
 							// failed headless preparation. Preserve its element consumers.
-							if (!existingAdapter) clearRuntime();
+							if (!existingAdapter) rollbackNewAdapter();
 						},
 					]);
 				};
@@ -456,7 +488,7 @@ export default function igniteElementFactory<
 					rollback,
 					() => {
 						if (!existingAdapter && (runtimeAdapter || sharedAdapter))
-							clearRuntime();
+							rollbackNewAdapter();
 					},
 				]);
 			} catch (cleanupError) {
@@ -872,10 +904,22 @@ export default function igniteElementFactory<
 					if (fn) fn(element.getAttribute(mutation.attributeName));
 				}
 			});
-			observer.observe(element, {
-				attributes: true,
-				attributeFilter: [...map.keys()],
-			});
+			try {
+				observer.observe(element, {
+					attributes: true,
+					attributeFilter: [...map.keys()],
+				});
+			} catch (error) {
+				try {
+					observer.disconnect();
+				} catch (cleanupError) {
+					console.error(
+						"[IgniteElement] Attribute setup rollback failed.",
+						cleanupError,
+					);
+				}
+				throw error;
+			}
 			return () => observer.disconnect();
 		};
 
@@ -965,6 +1009,7 @@ export default function igniteElementFactory<
 			private adapterInstance: IgniteAdapter<State, Event> | undefined;
 			private readonly renderImpl: (args: RenderArgs) => View;
 			private disconnectAttrObserver: (() => void) | undefined;
+			private releaseCommands: (() => void) | undefined;
 
 			constructor() {
 				super(undefined, renderStrategyFactory());
@@ -972,17 +1017,40 @@ export default function igniteElementFactory<
 			}
 
 			connectedCallback(): void {
-				if (!this.adapterInstance) {
-					const adapter = createAdapter(this);
-					adapter.scope ??= StateScope.Isolated;
-					this.adapterInstance = adapter;
-					this.additionalArgs = createAdditionalArgs(adapter, this);
-					exposeCommands(this, this.additionalArgs as Record<string, unknown>);
-					this.disconnectAttrObserver = setupAttributeObservation(this);
-					this.initializeAdapter(adapter);
-				}
+				const acquiring = !this.adapterInstance;
+				try {
+					if (!this.adapterInstance) {
+						const adapter = createAdapter(this);
+						adapter.scope ??= StateScope.Isolated;
+						this.adapterInstance = adapter;
+						this.additionalArgs = createAdditionalArgs(adapter, this);
+						this.releaseCommands = exposeCommands(
+							this,
+							this.additionalArgs as Record<string, unknown>,
+						);
+						this.disconnectAttrObserver = setupAttributeObservation(this);
+						this.initializeAdapter(adapter);
+					}
 
-				super.connectedCallback();
+					super.connectedCallback();
+				} catch (error) {
+					if (acquiring) {
+						const adapter = this.adapterInstance;
+						try {
+							releaseAll([
+								() => rollbackElementSetup(this),
+								() => this.onTrueDisconnect(),
+								() => adapter?.stop(),
+							]);
+						} catch (cleanupError) {
+							console.error(
+								"[IgniteElement] Connection rollback failed.",
+								cleanupError,
+							);
+						}
+					}
+					throw error;
+				}
 			}
 
 			disconnectedCallback(): void {
@@ -990,12 +1058,18 @@ export default function igniteElementFactory<
 			}
 
 			public onTrueDisconnect(): void {
-				this.disconnectAttrObserver?.();
+				const disconnectObserver = this.disconnectAttrObserver;
+				const releaseCommands = this.releaseCommands;
+				this.releaseCommands = undefined;
 				this.disconnectAttrObserver = undefined;
 				const additionalArgs = this.additionalArgs;
 				this.additionalArgs = undefined;
 				this.adapterInstance = undefined;
-				cleanupAdditionalArgs(additionalArgs);
+				releaseAll([
+					() => disconnectObserver?.(),
+					() => releaseCommands?.(),
+					() => cleanupAdditionalArgs(additionalArgs),
+				]);
 			}
 
 			public renderView(): View {
