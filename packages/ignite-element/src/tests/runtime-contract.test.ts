@@ -7,6 +7,7 @@ import * as xstate from "ignite-element/xstate";
 import { describe, expect, it, vi } from "vitest";
 import { createActor, createMachine } from "xstate";
 import { createAgentRuntime } from "../runtime/agent";
+import { createLifetime } from "../runtime/lifetime";
 import counterStore, { counterSlice } from "./fixtures/reduxCounterStore";
 
 describe("retired testing and recording API", () => {
@@ -32,8 +33,8 @@ describe("retired testing and recording API", () => {
 				commands: () => ({ ping: () => undefined }),
 			});
 			expect(core).not.toHaveProperty("record");
-			expect(core.getSnapshot().value).toBe("ready");
-			expect(core.canExecute("ping")).toBe(true);
+			expect(source.getSnapshot().value).toBe("ready");
+			expect(core.get("commands")).toBeNull();
 			expect((await core.execute({ command: "ping" })).snapshot.value).toBe(
 				"ready",
 			);
@@ -48,17 +49,12 @@ const createCounter = () => {
 	const core = redux.igniteCore({
 		source: store,
 		states: (snapshot) => ({ count: snapshot.counter.count, label: "Count" }),
-		commands: ({ actor, command }) => ({
+		commands: ({ actor }) => ({
 			increment: (amount: number) =>
 				actor.dispatch(counterSlice.actions.addByAmount(amount)),
 			maybeIncrement: (amount?: number) =>
 				actor.dispatch(counterSlice.actions.addByAmount(amount ?? 1)),
-			decrement: command(
-				() => actor.dispatch(counterSlice.actions.decrement()),
-				{
-					canExecute: ({ snapshot }) => snapshot.counter.count > 0,
-				},
-			),
+			decrement: () => actor.dispatch(counterSlice.actions.decrement()),
 			fail: () => {
 				throw new Error("command failed");
 			},
@@ -75,21 +71,23 @@ const createCounter = () => {
 
 describe("ordinary runtime assertions", () => {
 	it("preserves native snapshots, derived values, results and gated commands", async () => {
-		const { core } = createCounter();
-		expect(core.getSnapshot()).toEqual({ counter: { count: 0 } });
-		expect(core.canExecute("decrement")).toBe(false);
+		const { core, store } = createCounter();
+		const canDecrement = () => core.get("states").count > 0;
+		expect(store.getState()).toEqual({ counter: { count: 0 } });
+		expect(canDecrement()).toBe(false);
 		const result = await core.execute({ command: "increment", input: 2 });
 		expect(result.snapshot).toEqual({ counter: { count: 2 } });
 		expect(result.states).toEqual({ count: 2, label: "Count" });
 		expect(result.events).toEqual([{ type: "changed", count: 2 }]);
-		expect(core.getSchema().states).toEqual(result.states);
-		expect(core.getSchema()).toHaveProperty("snapshot");
-		expect(core.getSchema()).not.toHaveProperty("view");
-		expect(core.canExecute("decrement")).toBe(true);
+		expect(core.get("states")).toEqual(result.states);
+		expect(core.get("schema").states).toEqual({ schema: null });
+		expect(core.get("schema")).not.toHaveProperty("snapshot");
+		expect(core.get("schema")).not.toHaveProperty("view");
+		expect(canDecrement()).toBe(true);
 		await core.execute({ command: "decrement" });
 		await core.execute({ command: "maybeIncrement" });
 		await core.execute({ command: "maybeIncrement", input: 3 });
-		expect(core.getStates().count).toBe(5);
+		expect(core.get("states").count).toBe(5);
 	});
 
 	it("observes external source updates and releases each ordinary subscription", async () => {
@@ -98,8 +96,8 @@ describe("ordinary runtime assertions", () => {
 			states = vi.fn(),
 			events = vi.fn();
 		const handles = [
-			core.watchSnapshot(snapshots),
-			core.watchStates(states),
+			{ unsubscribe: store.subscribe(() => snapshots(store.getState())) },
+			core.watch(states),
 			core.on("changed", events),
 		];
 		try {
@@ -107,10 +105,7 @@ describe("ordinary runtime assertions", () => {
 			await vi.waitFor(() =>
 				expect(events).toHaveBeenCalledWith({ type: "changed", count: 2 }),
 			);
-			expect(snapshots).toHaveBeenCalledWith(
-				{ counter: { count: 2 } },
-				{ counter: { count: 0 } },
-			);
+			expect(snapshots).toHaveBeenCalledWith({ counter: { count: 2 } });
 			expect(states).toHaveBeenCalledWith(
 				{ count: 2, label: "Count" },
 				{ count: 0, label: "Count" },
@@ -126,7 +121,7 @@ describe("ordinary runtime assertions", () => {
 		expect(snapshots).not.toHaveBeenCalled();
 		expect(states).not.toHaveBeenCalled();
 		expect(events).not.toHaveBeenCalled();
-		expect(core.getSnapshot().counter.count).toBe(3);
+		expect(store.getState().counter.count).toBe(3);
 	});
 
 	it("keeps emitted event order and multiplicity across commands without a recorder", async () => {
@@ -169,7 +164,10 @@ describe("ordinary runtime assertions", () => {
 			stop: () => {},
 			subscribeSnapshots: () => ({ unsubscribe() {} }),
 		};
-		const runtime = createAgentRuntime({
+		const lifetime = createLifetime();
+		const { runtime } = createAgentRuntime({
+			lifetime,
+			dispose: () => lifetime.dispose(),
 			eventTypes: [],
 			resolveStates: () => ({ available: false }),
 			resolveRuntime: () => ({
@@ -179,6 +177,7 @@ describe("ordinary runtime assertions", () => {
 			}),
 		});
 		expect((await runtime.execute({ command: "noop" })).snapshot).toBeNull();
-		expect(runtime.getSnapshot()).toBeNull();
+		expect(runtime.get("states")).toEqual({ available: false });
+		runtime.dispose();
 	});
 });

@@ -8,8 +8,8 @@ export type IgniteSchemaValue =
 	| IgniteSchemaValue[]
 	| IgniteSchemaObject;
 
-export type IgniteAgentCommandContract = IgniteSchemaObject & {
-	gated?: boolean;
+export type IgniteAgentCommandContract = {
+	readonly input: null;
 };
 
 export type IgniteAgentCommandSchema = Record<
@@ -17,16 +17,17 @@ export type IgniteAgentCommandSchema = Record<
 	IgniteAgentCommandContract
 >;
 
-export type IgniteAgentEventSchema = IgniteSchemaObject & {
-	type: string;
+export type IgniteAgentEventSchema = {
+	readonly type: string;
+	readonly payload: null;
 };
 
 export type IgniteAgentSchema<
-	Snapshot = IgniteSchemaValue,
-	States = IgniteSchemaValue,
+	_Snapshot = IgniteSchemaValue,
+	_States = IgniteSchemaValue,
 > = {
-	commands: IgniteAgentCommandSchema;
-	events: IgniteAgentEventSchema[];
-	snapshot: Snapshot;
-	states: States;
+	readonly schemaVersion: 1;
+	readonly commands: Readonly<IgniteAgentCommandSchema> | null;
+	readonly events: readonly IgniteAgentEventSchema[];
+	readonly states: { readonly schema: null };
 };

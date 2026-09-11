@@ -1,10 +1,13 @@
 import type { ActorWebCommandSource } from "@ignite-element/adapters/actor-web";
 import { configureStore, createSlice } from "@reduxjs/toolkit";
 import { igniteCore as igniteActorWeb } from "ignite-element/actor-web";
+import { igniteCore as igniteActorWebHost } from "ignite-element/actor-web/web";
 import { igniteCore as igniteMobx } from "ignite-element/mobx";
+import { igniteReact } from "ignite-element/react/web";
 import { igniteCore as igniteRedux } from "ignite-element/redux";
 import { igniteCore as igniteXState } from "ignite-element/xstate";
 import { makeAutoObservable } from "mobx";
+import { createElement } from "react";
 import { createActor, createMachine } from "xstate";
 
 const machine = createMachine({
@@ -25,7 +28,7 @@ const xstate = igniteXState({
 	}),
 	events: (event) => ({ changed: event<{ count: number }>() }),
 });
-const xcount: number = xstate.getSnapshot().context.count;
+const xcount: number = source.getSnapshot().context.count;
 xstate("packed-count", ({ count, set }) => (
 	<button type="button" onClick={() => set(count + 1)}>
 		{count}
@@ -50,7 +53,8 @@ const redux = igniteRedux({
 	}),
 	events: (event) => ({ changed: event<{ count: number }>() }),
 });
-const rcount: number = redux.getSnapshot().count;
+const rcount: number = (await redux.execute({ command: "set", input: 2 }))
+	.snapshot.count;
 
 const mobx = igniteMobx({
 	source: makeAutoObservable({
@@ -63,7 +67,8 @@ const mobx = igniteMobx({
 	commands: ({ actor }) => ({ set: (value: number) => actor.set(value) }),
 	events: (event) => ({ changed: event<{ count: number }>() }),
 });
-const mcount: number = mobx.getSnapshot().count;
+const mcount: number = (await mobx.execute({ command: "set", input: 2 }))
+	.snapshot.count;
 
 declare const actorSource: ActorWebCommandSource<
 	{ count: number },
@@ -77,17 +82,17 @@ const actorWeb = igniteActorWeb({
 	}),
 	events: (event) => ({ changed: event<{ count: number }>() }),
 });
-const acount: number = actorWeb.getSnapshot().context.count;
+const acount: number = actorSource.snapshot().context.count;
 void xcount;
 void rcount;
 void mcount;
 void acount;
 
 const counts: number[] = [
-	xstate.getStates().count,
-	redux.getStates().count,
-	mobx.getStates().count,
-	actorWeb.getStates().count,
+	xstate.get("states").count,
+	redux.get("states").count,
+	mobx.get("states").count,
+	actorWeb.get("states").count,
 ];
 void counts;
 xstate.execute({ command: "set", input: 2 });
@@ -142,3 +147,43 @@ redux.record("removed");
 mobx.record("removed");
 // @ts-expect-error source-backed actorWeb runtime no longer records stories
 actorWeb.record("removed");
+
+const hostCore = igniteActorWebHost({
+	source: ({ host }) => {
+		const element: HTMLElement | undefined = host;
+		const fleet: string | null | undefined = host?.getAttribute("fleet-id");
+		void element;
+		void fleet;
+		return actorSource;
+	},
+	states: (snapshot) => ({ count: snapshot.context.count }),
+	commands: ({ actor }) => ({
+		setCount: (value: number) => actor.send({ type: "SET", value }),
+	}),
+	events: (event) => ({ changed: event<{ count: number }>() }),
+});
+const hostHandle = hostCore("packed-actor-web-host", ({ count, setCount }) => (
+	<button type="button" onClick={() => setCount(count + 1)}>
+		{count}
+	</button>
+));
+hostHandle.get("schema");
+hostHandle.get("commands");
+hostHandle.get("events");
+// @ts-expect-error Registration handles are discovery-only.
+hostHandle.get("states");
+// @ts-expect-error No dummy disposal on a registration handle.
+hostHandle.dispose();
+const Host = igniteReact(hostHandle);
+const wrapped = createElement(Host, {
+	count: "2",
+	onChanged: (event) => {
+		const count: number = event.count;
+		void count;
+	},
+});
+// @ts-expect-error Web command payload typing remains strict.
+hostCore.execute({ command: "setCount", input: "bad" });
+void wrapped;
+// @ts-expect-error Web setters remain string attributes, not headless numeric props.
+createElement(Host, { count: 2 });

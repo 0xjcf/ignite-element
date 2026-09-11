@@ -68,6 +68,9 @@ importers:
       starlight-llms-txt:
         specifier: ^0.10.0
         version: 0.10.0(@astrojs/starlight@0.39.3(astro@6.4.3(@types/node@25.0.3)(jiti@2.6.1)(rollup@4.54.0)(yaml@2.9.0))(typescript@5.9.3))(astro@6.4.3(@types/node@25.0.3)(jiti@2.6.1)(rollup@4.54.0)(yaml@2.9.0))
+      xstate:
+        specifier: 5.32.1
+        version: 5.32.1
 
   packages/ignite-adapters:
     dependencies:

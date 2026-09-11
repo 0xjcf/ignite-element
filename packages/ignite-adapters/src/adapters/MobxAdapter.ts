@@ -1,4 +1,14 @@
-import type { IgniteAdapter } from "@ignite-element/core";
+import type {
+	EmptyEventMap,
+	EventMap,
+	EventsDefinition,
+	FacadeCommandFunction,
+	FacadeCommandResult,
+	FacadeCommandsCallback,
+	FacadeEffectsObjectCallback,
+	FacadeStatesCallback,
+	IgniteAdapter,
+} from "@ignite-element/core";
 import { failInvariant, StateScope } from "@ignite-element/core";
 import type { IReactionDisposer } from "mobx";
 import { autorun, toJS } from "mobx";
@@ -243,3 +253,37 @@ function createAdapterEntryFromStore<State extends object>(
 		store,
 	};
 }
+
+type MobxBaseConfig<
+	State extends object,
+	Events extends EventMap = EmptyEventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+	Host = unknown,
+> = {
+	adapter?: "mobx";
+	source: (() => State) | State;
+	states?: FacadeStatesCallback<State, StatesResult>;
+	commands?: FacadeCommandsCallback<State, CommandsResult, Host, State>;
+	events?: EventsDefinition<Events>;
+	cleanup?: boolean;
+};
+
+type MobxEffectsConfig<State extends object, Events extends EventMap, Host> = {
+	effects?: FacadeEffectsObjectCallback<State, State, Events, Host>;
+};
+
+export type MobxConfig<
+	State extends object,
+	Events extends EventMap = EmptyEventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+	Host = unknown,
+> = MobxBaseConfig<State, Events, StatesResult, CommandsResult, Host> &
+	MobxEffectsConfig<State, Events, Host>;

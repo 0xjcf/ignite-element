@@ -2,7 +2,7 @@ import type {
 	ProjectionDocument,
 	ProjectionSpeechRequest,
 } from "../types/agent";
-import type { IgniteAgentSchema, IgniteSchemaValue } from "../types/schema";
+import type { IgniteSchemaValue } from "../types/schema";
 import {
 	isPendingSpeechRequest,
 	validateProjectionSelection,
@@ -17,7 +17,12 @@ type ProjectionCommitValue = ProjectionCommitResult | undefined;
 export type ProjectionInspection = {
 	readonly snapshot: unknown;
 	readonly states: unknown;
-	readonly schema: IgniteAgentSchema<IgniteSchemaValue, IgniteSchemaValue>;
+	readonly schema: {
+		commands: Record<string, Record<string, IgniteSchemaValue>>;
+		events: { type: string }[];
+		snapshot: IgniteSchemaValue;
+		states: IgniteSchemaValue;
+	};
 	readonly canExecute: (commandName: string) => boolean;
 	readonly revision: string;
 	readonly documents: readonly ProjectionDocument[];

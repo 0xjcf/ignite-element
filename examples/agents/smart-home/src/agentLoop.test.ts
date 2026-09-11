@@ -39,6 +39,23 @@ import {
 
 type RecordedFetchCall = { input: RequestInfo | URL; init?: RequestInit };
 
+describe("smart-home session owns Ignite cleanup separately from source shutdown", () => {
+	it.each([
+		["XState", createLocalHomeSession],
+		["Actor-Web", createActorWebHomeSession],
+	] as const)(
+		"closes the prepared %s core and releases its handles",
+		async (_name, createSession) => {
+			const session = await createSession();
+			session.home.get("states");
+			const handle = session.home.watch(() => {});
+			await session.close();
+			expect(() => session.home.get("states")).toThrow(/disposed/);
+			expect(() => handle.unsubscribe()).not.toThrow();
+		},
+	);
+});
+
 function recordingOpenAICompatibleFetch(
 	response: OpenAIChatCompletionResponse,
 ): {
@@ -59,7 +76,9 @@ function recordingOpenAICompatibleFetch(
 }
 
 describe("smart-home agent — Anthropic tool schemas (getSchema → adapter)", () => {
-	const { tools } = igniteTools(createHome(), anthropic);
+	const { tools } = igniteTools(createHome(), anthropic, {
+		schema: homeToolSchema,
+	});
 	const byName = (name: string) => tools.find((tool) => tool.name === name);
 
 	it("runs headless: this whole file is in the node environment (no document)", () => {
@@ -161,7 +180,9 @@ describe("smart-home shared reducer", () => {
 });
 
 describe("smart-home agent — OpenAI-compatible tool schemas (getSchema → adapter)", () => {
-	const { tools } = igniteTools(createHome(), openai);
+	const { tools } = igniteTools(createHome(), openai, {
+		schema: homeToolSchema,
+	});
 	const byName = (name: string) =>
 		tools.find((tool) => tool.function.name === name);
 
@@ -320,7 +341,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 		});
 
 		// Final state reflects the valid commands; the invalid one left living temp alone.
-		const view = result.home.getStates();
+		const view = result.home.get("states");
 		expect(view).toMatchObject({
 			activeScene: "movie",
 			thermostat: { bedroom: 72, living: 68 },
@@ -332,7 +353,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 	it("round-trips an array command through Anthropic value wrapping", async () => {
 		const home = createHome();
 		await home.execute({ command: "runScene", input: "morning" });
-		const tools = igniteTools(home, anthropic);
+		const tools = igniteTools(home, anthropic, { schema: homeToolSchema });
 		const [call] = tools.toolCalls({
 			content: [
 				{
@@ -374,47 +395,47 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 		const home = createHome();
 
 		await home.execute({ command: "runScene", input: "morning" });
-		expect(home.getStates().activeScene).toBe("morning");
+		expect(home.get("states").activeScene).toBe("morning");
 		await home.execute({
 			command: "setThermostat",
 			input: { room: "living", temp: 69 },
 		});
-		expect(home.getStates().activeScene).toBeNull();
+		expect(home.get("states").activeScene).toBeNull();
 
 		await home.execute({ command: "runScene", input: "movie" });
-		expect(home.getStates().activeScene).toBe("movie");
+		expect(home.get("states").activeScene).toBe("movie");
 		await home.execute({
 			command: "setBlinds",
 			input: { room: "living", percent: 25 },
 		});
-		expect(home.getStates().activeScene).toBeNull();
+		expect(home.get("states").activeScene).toBeNull();
 
 		await home.execute({ command: "runScene", input: "away" });
-		expect(home.getStates().activeScene).toBe("away");
+		expect(home.get("states").activeScene).toBe("away");
 		await home.execute({ command: "unlockDoor", input: "front" });
-		expect(home.getStates().activeScene).toBeNull();
+		expect(home.get("states").activeScene).toBeNull();
 	});
 
 	it("keeps the active scene when a manual command is a no-op", async () => {
 		const home = createHome();
 
 		await home.execute({ command: "runScene", input: "away" });
-		expect(home.getStates().activeScene).toBe("away");
+		expect(home.get("states").activeScene).toBe("away");
 		await home.execute({ command: "lockDoor", input: "front" });
-		expect(home.getStates().activeScene).toBe("away");
+		expect(home.get("states").activeScene).toBe("away");
 
 		await home.execute({ command: "runScene", input: "morning" });
-		expect(home.getStates().activeScene).toBe("morning");
+		expect(home.get("states").activeScene).toBe("morning");
 		await home.execute({
 			command: "setThermostat",
 			input: { room: "living", temp: 70 },
 		});
-		expect(home.getStates().activeScene).toBe("morning");
+		expect(home.get("states").activeScene).toBe("morning");
 		await home.execute({
 			command: "toggleLight",
 			input: { room: "living", on: true },
 		});
-		expect(home.getStates().activeScene).toBe("morning");
+		expect(home.get("states").activeScene).toBe("morning");
 	});
 
 	it("keeps a pending scene when a manual command is a no-op", async () => {
@@ -423,7 +444,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 
 		try {
 			await home.execute({ command: "transitionScene", input: "movie" });
-			expect(home.getStates()).toMatchObject({
+			expect(home.get("states")).toMatchObject({
 				activeScene: null,
 				pendingScene: "movie",
 			});
@@ -434,7 +455,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 				input: { room: "living", temp: 68 },
 			});
 
-			expect(home.getStates()).toMatchObject({
+			expect(home.get("states")).toMatchObject({
 				activeScene: null,
 				pendingScene: "movie",
 			});
@@ -446,7 +467,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 	it("observes a delayed scene after run() acknowledges the pending view", async () => {
 		vi.useFakeTimers();
 		const home = createHome();
-		const tools = igniteTools(home);
+		const tools = igniteTools(home, undefined, { schema: homeToolSchema });
 		const observations: unknown[] = [];
 		const subscription = tools.observe((observation) => {
 			observations.push(observation);
@@ -476,7 +497,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 
 			await vi.runOnlyPendingTimersAsync();
 
-			expect(home.getStates()).toMatchObject({
+			expect(home.get("states")).toMatchObject({
 				activeScene: "morning",
 				pendingScene: null,
 				lights: { living: true, bedroom: true, kitchen: true },
@@ -511,7 +532,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 	it("cancels a delayed scene when a manual command runs before the timer", async () => {
 		vi.useFakeTimers();
 		const home = createHome();
-		const tools = igniteTools(home);
+		const tools = igniteTools(home, undefined, { schema: homeToolSchema });
 
 		try {
 			const result = await tools.run({
@@ -551,7 +572,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 
 			await vi.runOnlyPendingTimersAsync();
 
-			expect(home.getStates()).toMatchObject({
+			expect(home.get("states")).toMatchObject({
 				activeScene: null,
 				pendingScene: null,
 				lights: { living: false, bedroom: false, kitchen: false },
@@ -565,7 +586,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 	it("restarts a delayed scene when transitionScene is repeated", async () => {
 		vi.useFakeTimers();
 		const home = createHome();
-		const tools = igniteTools(home);
+		const tools = igniteTools(home, undefined, { schema: homeToolSchema });
 
 		try {
 			const firstResult = await tools.run({
@@ -595,14 +616,14 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 
 			await vi.advanceTimersByTimeAsync(20);
 
-			expect(home.getStates()).toMatchObject({
+			expect(home.get("states")).toMatchObject({
 				activeScene: null,
 				pendingScene: "movie",
 			});
 
 			await vi.advanceTimersByTimeAsync(5);
 
-			expect(home.getStates()).toMatchObject({
+			expect(home.get("states")).toMatchObject({
 				activeScene: "movie",
 				pendingScene: null,
 				lights: { living: false },
@@ -614,14 +635,14 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 
 	it("returns defensive copies from the derived view", () => {
 		const home = createHome();
-		const view = home.getStates();
+		const view = home.get("states");
 
 		view.lights.living = true;
 		view.thermostat.living = 80;
 		view.blinds.living = 100;
 		view.locks.front = false;
 
-		expect(home.getStates()).toMatchObject({
+		expect(home.get("states")).toMatchObject({
 			lights: { living: false },
 			thermostat: { living: 68 },
 			blinds: { living: 0 },
@@ -634,26 +655,29 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 		const session = createLocalHomeSession();
 		let closed = false;
 		try {
-			const tools = igniteTools(session.home, anthropic);
+			const tools = igniteTools(session.home, anthropic, {
+				schema: homeToolSchema,
+			});
 			const result = await tools.run({
 				name: "transitionScene",
 				input: "movie",
 			});
 
 			expect(isOk(result)).toBe(true);
-			expect(session.home.getStates()).toMatchObject({
+			expect(session.home.get("states")).toMatchObject({
 				pendingScene: "movie",
 				activeScene: null,
 			});
 
+			expect(vi.getTimerCount()).toBeGreaterThan(0);
 			await session.close();
 			closed = true;
+			expect(vi.getTimerCount()).toBe(0);
 			await vi.advanceTimersByTimeAsync(SCENE_TRANSITION_DELAY_MS);
 
-			expect(session.home.getStates()).toMatchObject({
-				pendingScene: "movie",
-				activeScene: null,
-			});
+			// Native delayed work is cancelled, and the owning core cannot reopen it.
+			expect(vi.getTimerCount()).toBe(0);
+			expect(() => session.home.get("states")).toThrow(/disposed/);
 		} finally {
 			try {
 				if (!closed) {
@@ -776,7 +800,7 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 				input: "movie",
 				ok: true,
 			});
-			expect(result.home.getStates()).toMatchObject({
+			expect(result.home.get("states")).toMatchObject({
 				activeScene: "movie",
 				locks: { front: true },
 			});
@@ -831,7 +855,9 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 			model: "mlx-test",
 			fetch: fetchImpl,
 		});
-		const [tool] = igniteTools(createHome(), openai).tools;
+		const [tool] = igniteTools(createHome(), openai, {
+			schema: homeToolSchema,
+		}).tools;
 		if (!tool) {
 			throw new Error("Expected smart-home OpenAI tool definitions.");
 		}
@@ -1312,7 +1338,7 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 				input: { room: "living", on: true },
 				ok: true,
 			});
-			expect(result.home.getStates().lights.living).toBe(true);
+			expect(result.home.get("states").lights.living).toBe(true);
 
 			const replayAssistantMessage = observedMessages[1]?.[1];
 			expect(replayAssistantMessage).toMatchObject({
@@ -1567,7 +1593,7 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 				"toggleLight",
 			]);
 			expect(result.finalText).toBe("Kitchen light is on.");
-			expect(result.home.getStates()).toMatchObject({
+			expect(result.home.get("states")).toMatchObject({
 				lights: { kitchen: true },
 				allDoorsLocked: true,
 			});
@@ -1721,7 +1747,7 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 					lights: { living: false },
 				},
 			});
-			expect(result.home.getStates()).toMatchObject({
+			expect(result.home.get("states")).toMatchObject({
 				activeScene: "movie",
 				lights: { living: false },
 			});
@@ -1738,7 +1764,9 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 		});
 
 		try {
-			const tools = igniteTools(session.home, anthropic);
+			const tools = igniteTools(session.home, anthropic, {
+				schema: homeToolSchema,
+			});
 			const result = await tools.run({ name: "runScene", input: "movie" });
 
 			expect(isOk(result)).toBe(true);
@@ -1775,7 +1803,9 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 		});
 
 		try {
-			const tools = igniteTools(session.home, anthropic);
+			const tools = igniteTools(session.home, anthropic, {
+				schema: homeToolSchema,
+			});
 			const first = await tools.run({ name: "unlockDoor", input: "front" });
 			const second = await tools.run({ name: "unlockDoor", input: "back" });
 
@@ -1810,7 +1840,9 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 
 	it("fails actor-web commands after session close starts", async () => {
 		const session = await createActorWebHomeSession();
-		const tools = igniteTools(session.home, anthropic);
+		const tools = igniteTools(session.home, anthropic, {
+			schema: homeToolSchema,
+		});
 
 		await session.close();
 		const result = await tools.run({
@@ -1829,7 +1861,9 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 
 		try {
 			session = await createActorWebHomeSession();
-			const tools = igniteTools(session.home, anthropic);
+			const tools = igniteTools(session.home, anthropic, {
+				schema: homeToolSchema,
+			});
 			const firstResult = await tools.run({
 				name: "transitionScene",
 				input: "morning",
@@ -1862,14 +1896,14 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 
 			await vi.advanceTimersByTimeAsync(20);
 
-			expect(session.home.getStates()).toMatchObject({
+			expect(session.home.get("states")).toMatchObject({
 				activeScene: null,
 				pendingScene: "movie",
 			});
 
 			await vi.advanceTimersByTimeAsync(5);
 
-			expect(session.home.getStates()).toMatchObject({
+			expect(session.home.get("states")).toMatchObject({
 				activeScene: "movie",
 				pendingScene: null,
 				lights: { living: false },
@@ -1894,7 +1928,9 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 
 		try {
 			session = await createActorWebHomeSession();
-			const tools = igniteTools(session.home, anthropic);
+			const tools = igniteTools(session.home, anthropic, {
+				schema: homeToolSchema,
+			});
 			const timerCountBeforeTransition = vi.getTimerCount();
 			const result = await tools.run({
 				name: "transitionScene",
@@ -1918,10 +1954,11 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 			);
 
 			await vi.advanceTimersByTimeAsync(SCENE_TRANSITION_DELAY_MS + 1);
-			expect(session.home.getStates()).toMatchObject({
-				activeScene: null,
-				pendingScene: "movie",
-			});
+			expect(vi.getTimerCount()).toBeLessThanOrEqual(
+				timerCountBeforeTransition,
+			);
+			const closedHome = session.home;
+			expect(() => closedHome.get("states")).toThrow(/disposed/);
 		} finally {
 			try {
 				if (session && !closed) {
@@ -1933,3 +1970,5 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 		}
 	});
 });
+
+import { homeToolSchema } from "./home";

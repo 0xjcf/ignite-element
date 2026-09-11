@@ -1,17 +1,9 @@
-export type {
-	CommandHelper,
-	CommandMetadata,
-	CommandMetadataValue,
-	CommandWithMetadata,
-	NumberCommandInputMetadata,
-	NumberCommandInputOptions,
-} from "@ignite-element/core";
 export { igniteCoreMobx as igniteCore } from "./igniteCore/mobx";
 export type {
 	IgniteCoreReturn,
 	MobxConfig,
 	MobxEvent,
-} from "./igniteCore/types";
+} from "./igniteCore/mobxTypes";
 export {
 	createProjectionDocumentTarget,
 	createProjectionSpeechTarget,

@@ -43,6 +43,7 @@ export type ElementFactoryOptions<
 	) => AdditionalRenderArgs<State, Event, RenderArgs>;
 	createRenderStrategy?: RenderStrategyFactory<View>;
 	eventTypes?: readonly (keyof Events & string)[];
+	hasCommands?: boolean;
 	resolveStates?: (
 		adapter: IgniteAdapter<State, Event>,
 	) => RuntimeView | Record<never, never>;
@@ -190,6 +191,7 @@ export function bindProjectionToElements<
 		scope: projection.scope,
 		cleanup: projection.cleanup,
 		eventTypes: projection.eventTypes,
+		hasCommands: projection.hasCommands,
 		resolveInspection: projection.resolveInspection,
 		resolveStates: projection.resolveStates,
 		resolveDeliveredStates: projection.resolveDeliveredStates,

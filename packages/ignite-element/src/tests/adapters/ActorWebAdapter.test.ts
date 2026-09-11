@@ -18,6 +18,50 @@ type ShipmentCommand =
 
 type ShipmentEmitted = { type: "SHIPMENT_CREATED"; shipmentId: string };
 
+describe("terminal Actor-Web adapter ownership", () => {
+	it.each([undefined, null])(
+		"drains owned close after subscription failure %s without reacquiring",
+		async (failure) => {
+			const calls: string[] = [];
+			const source = {
+				address: "actor://owned",
+				snapshot: vi.fn(() => ({
+					address: "actor://owned",
+					context: {},
+					phase: "ready",
+					toJSON: () => ({}),
+				})),
+				subscribe: () => () => {
+					calls.push("snapshot");
+					throw failure;
+				},
+				subscribeTransportStatus: () => () => {
+					calls.push("transport");
+				},
+				close: vi.fn(async () => {
+					calls.push("close");
+				}),
+			};
+			const adapter = createActorWebAdapter(() => source)();
+			adapter.subscribeSnapshots(() => {});
+			const reads = source.snapshot.mock.calls.length;
+			let caught = false;
+			try {
+				adapter.stop();
+			} catch (error) {
+				caught = true;
+				expect(error).toBe(failure);
+			}
+			expect(caught).toBe(true);
+			await Promise.resolve();
+			expect(calls).toEqual(["snapshot", "transport", "close"]);
+			expect(source.snapshot).toHaveBeenCalledTimes(reads);
+			adapter.stop();
+			expect(source.close).toHaveBeenCalledOnce();
+		},
+	);
+});
+
 function createSource(options?: {
 	replayOnSubscribe?: boolean;
 	replayTransportOnSubscribe?: boolean;

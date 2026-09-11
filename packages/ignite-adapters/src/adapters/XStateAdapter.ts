@@ -8,7 +8,7 @@ import type {
 	Subscription,
 } from "xstate";
 import { createActor } from "xstate";
-import { isXStateActor } from "../utils/adapterGuards";
+import { isXStateActor } from "../utils/xstateGuards";
 
 export type XStateActorInstance<Machine extends AnyStateMachine> = ReturnType<
 	typeof createActor<Machine>

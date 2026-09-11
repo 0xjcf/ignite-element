@@ -14,7 +14,7 @@ parallel accessibility DSL or by making a model generate DOM.
 The correct default is:
 
 1. Start with native HTML semantics.
-2. Keep behavior facts explicit in `view`, commands, and validated semantic
+2. Keep behavior facts explicit in derived `states`, commands, and validated semantic
    documents.
 3. Use headless runtime checks to prove those facts are coherent.
 4. Use rendered DOM checks to prove browser accessibility behavior.
@@ -27,9 +27,10 @@ agent tooling.
 Accessibility begins in the runtime contract, not in a post-hoc DOM scrape.
 Ignite already exposes the facts most accessible interfaces need:
 
-- derived state through `view` and `getStates()`,
-- command descriptions and input shapes through `getSchema()`,
-- dynamic availability through `canExecute()`,
+- derived state through `states` and `get("states")`,
+- command names through `get("commands")` after actual binding, with descriptions
+  and validated input schemas supplied separately by the application,
+- dynamic availability projected into states and enforced by the source,
 - command results and emitted events through `execute()` and `on(...)`,
 - validated semantic projection state through actor-owned
   `ProjectionDocument` data.
@@ -60,9 +61,13 @@ Accessible interaction still has to respect the command surface.
 
 Command-backed action nodes must:
 
-- resolve to an existing command in `getSchema().commands`,
-- validate any payload against the declared command schema,
-- check current availability through `canExecute()` at commit time.
+- resolve to an existing command at the application action boundary,
+- validate any payload against the application's declared command schema,
+- check application/source availability at commit time.
+
+Minimal core discovery alone cannot validate payloads: its `input: null` means
+unknown schema, not unrestricted input. Projection bindings retain their private
+source observation seam; it is not a public raw-snapshot core API.
 
 This keeps accessible controls aligned with the same executable contract agents
 and headless tests already use.
@@ -98,6 +103,10 @@ const thermostat = igniteCore({
     targetLabel: "Target temperature",
     targetHint: "Choose a value between 58 and 82 degrees.",
     statusLabel: snapshot.context.isSaving ? "Saving target" : "Ready",
+    canSave: snapshot.can({
+      type: "SAVE_TARGET",
+      target: snapshot.context.target,
+    }),
     disabledReason: snapshot.can({
       type: "SAVE_TARGET",
       target: snapshot.context.target,
@@ -105,20 +114,17 @@ const thermostat = igniteCore({
       ? null
       : "Connect to the thermostat before saving.",
   }),
-  commands: ({ actor, command }) => ({
-    saveTarget: command(
-      (target: number) => actor.send({ type: "SAVE_TARGET", target }),
-      {
-        description: "Save the target temperature.",
-        input: command.number({ minimum: 58, maximum: 82 }),
-        canExecute: ({ snapshot }) => snapshot.can({
-          type: "SAVE_TARGET",
-          target: snapshot.context.target,
-        }),
-      },
-    ),
+  commands: ({ actor }) => ({
+    saveTarget: (target: number) => actor.send({ type: "SAVE_TARGET", target }),
   }),
 });
+
+// An application/tool-boundary definition, not a core authoring requirement.
+const saveTargetDefinition = {
+  description: "Save the target temperature.",
+  input: { type: "number", minimum: 58, maximum: 82 },
+  gated: true,
+};
 ```
 
 Nothing new is invented here. The runtime already carries the facts that a DOM
@@ -142,12 +148,12 @@ testable, not accidental side effects of repeated reads.
 
 | Concern | Headless runtime can prove | Rendered DOM/browser must prove |
 | --- | --- | --- |
-| Command existence and descriptions | Yes via `getSchema()` | No |
-| Dynamic availability | Yes via `canExecute()` | No |
+| Command existence and descriptions | Bound names via `get("commands")`; descriptions via explicit application definitions | No |
+| Dynamic availability | Yes via derived states and source guards | No |
 | Semantic document validity | Yes | No |
 | Action payload validity | Yes | No |
 | Speech request identity and dedupe | Yes | No |
-| Status summaries and disabled reasons | Yes via `getStates()` and semantic documents | No |
+| Status summaries and disabled reasons | Yes via `get("states")` and semantic documents | No |
 | Computed accessible name/description | No | Yes |
 | Focus order, trap, and restoration | No | Yes |
 | Keyboard interaction details | No | Yes |
@@ -172,7 +178,7 @@ focus order, or assistive technology integration.
 
 ### A mandatory accessibility callback
 
-Rejected because it duplicates `view`, command metadata, and semantic document
+Rejected because it duplicates derived states, application command definitions, and semantic document
 state with a second authoring surface.
 
 ### Raw model-authored UI

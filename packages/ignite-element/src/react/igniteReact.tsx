@@ -1,24 +1,25 @@
-import * as React from "react";
-import type { IgniteComponent } from "../igniteCore/types";
 import type {
 	EventMap,
 	EventPayload,
 	FacadeCommandResult,
-} from "../RenderArgs";
+} from "@ignite-element/core";
+import * as React from "react";
+import type { IgniteComponent } from "../igniteCore/publicTypes";
+import { readElementCommandNames } from "../runtime/bindings";
 
 /**
- * `ignite-element/react` — schema-driven typed React wrapper.
+ * `ignite-element/react/web` — typed custom-element React wrapper.
  *
  * `igniteReact(component)` turns an {@link IgniteComponent} handle into an
  * idiomatic, fully typed React component. This is host-app coordination (React
  * glue at the shell boundary): it uses refs, effects, and DOM
  * `addEventListener` and reaches only the public handle (`tagName` +
- * `getSchema()`) and the element's own methods/attributes. It never touches the
+ * keyed catalogue reads) and the element's own methods/attributes. It never touches the
  * functional core or adapters.
  *
  * Inference (compile-time) flows from the handle's phantom `Commands`/`Events`
- * generics; the wiring (runtime) reads `getSchema()`. Two surfaces, one source
- * each.
+ * generics; runtime command wiring uses the actual element's private command
+ * catalogue, without acquiring an invisible headless source.
  */
 
 // --- Type-level mapping --------------------------------------------------
@@ -103,17 +104,6 @@ export type IgniteReactProps<
 const toHandlerName = (type: string): string =>
 	`on${type.charAt(0).toUpperCase()}${type.slice(1)}`;
 
-const toSetterAttr = (commandName: string): string | undefined => {
-	if (
-		commandName.length > 3 &&
-		commandName.startsWith("set") &&
-		commandName[3] === commandName[3].toUpperCase()
-	) {
-		return commandName[3].toLowerCase() + commandName.slice(4);
-	}
-	return undefined;
-};
-
 type ElementWithCommands = HTMLElement &
 	Record<string, ((...args: unknown[]) => unknown) | undefined>;
 
@@ -152,7 +142,7 @@ export function igniteReact<
 				const el = elRef.current;
 				if (!el) return;
 				const eventTypes = component
-					.getSchema()
+					.get("schema")
 					.events.map((event) => event.type);
 				const offs = eventTypes.map((type) => {
 					const handlerName = toHandlerName(type);
@@ -175,10 +165,9 @@ export function igniteReact<
 
 			// Bind the command methods exposed on the element as the ref API.
 			// `component` is stable for the wrapper's lifetime (see above).
-			// biome-ignore lint/correctness/useExhaustiveDependencies: component handle is stable; bind once.
 			React.useImperativeHandle(ref, () => {
 				const el = elRef.current as ElementWithCommands | null;
-				const commandNames = Object.keys(component.getSchema().commands);
+				const commandNames = el ? readElementCommandNames(el) : [];
 				const handle = {} as Record<string, (...args: unknown[]) => unknown>;
 				for (const name of commandNames) {
 					handle[name] = (...args: unknown[]) => el?.[name]?.(...args);
@@ -189,11 +178,10 @@ export function igniteReact<
 			// Map de-prefixed setX props back to the element's string attributes
 			// (mirrors inferObservedAttributes on the element side).
 			const attrs: Record<string, string> = {};
-			const commandNames = Object.keys(component.getSchema().commands);
-			for (const name of commandNames) {
-				const attr = toSetterAttr(name);
-				if (!attr) continue;
-				const value = (props as Record<string, unknown>)[attr];
+			// Setter props are already typed from the handle. Forward strings before
+			// connection so the element can provision from its actual attributes.
+			for (const [attr, value] of Object.entries(props)) {
+				if (attr.startsWith("on")) continue;
 				if (typeof value === "string") {
 					attrs[attr] = value;
 				}

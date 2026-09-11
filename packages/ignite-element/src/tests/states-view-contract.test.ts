@@ -82,12 +82,17 @@ describe("v3 states/view public contract", () => {
 		});
 		const counter = igniteXState({
 			source: actor,
+			events: (event) => ({ unused: event() }),
 			states,
 			commands: ({ actor: commandActor }) => ({
 				increment: () => commandActor.send({ type: "INC" }),
 			}),
 		});
 
+		// Bind commands and check initial collisions separately from the result
+		// observation. This listener does not prepare a framework state cache.
+		counter.on("unused", () => {}).unsubscribe();
+		expect(states).toHaveBeenCalledOnce();
 		states.mockClear();
 		seenSnapshots.length = 0;
 		const result = await counter.execute({ command: "increment" });
@@ -100,8 +105,8 @@ describe("v3 states/view public contract", () => {
 
 	it("uses one stable empty states object when states is omitted", () => {
 		const counter = igniteXState({ source: counterMachine });
-		const first = counter.getStates();
-		const second = counter.getStates();
+		const first = counter.get("states");
+		const second = counter.get("states");
 
 		expect(first).toEqual({});
 		expect(Object.is(first, second)).toBe(true);
@@ -126,7 +131,7 @@ describe("v3 states/view public contract", () => {
 			}),
 		});
 		const transitions: Array<[{ count: number }, { count: number }]> = [];
-		const subscription = counter.watchStates((states, prevStates) => {
+		const subscription = counter.watch((states, prevStates) => {
 			transitions.push([states, prevStates]);
 		});
 
@@ -192,9 +197,9 @@ describe("v3 states/view public contract", () => {
 			states: (snapshot) => ({ count: snapshot.context.count }),
 		});
 
-		expect(redux.getStates()).toEqual({ count: 2 });
-		expect(mobx.getStates()).toEqual({ count: 3 });
-		expect(actorWeb.getStates()).toEqual({ count: 0 });
+		expect(redux.get("states")).toEqual({ count: 2 });
+		expect(mobx.get("states")).toEqual({ count: 3 });
+		expect(actorWeb.get("states")).toEqual({ count: 0 });
 	});
 
 	it("exposes states vocabulary through schema and command results", async () => {
@@ -206,11 +211,11 @@ describe("v3 states/view public contract", () => {
 			}),
 		});
 
-		expect(counter.getSchema()).toMatchObject({ states: { count: 0 } });
-		expect(counter.getSchema()).not.toHaveProperty("view");
+		expect(counter.get("schema")).toMatchObject({ states: { schema: null } });
+		expect(counter.get("schema")).not.toHaveProperty("view");
 
 		const result = await counter.execute({ command: "increment" });
 		expect(result.states).toEqual({ count: 1 });
-		expect(counter.getStates()).toEqual(result.states);
+		expect(counter.get("states")).toEqual(result.states);
 	});
 });

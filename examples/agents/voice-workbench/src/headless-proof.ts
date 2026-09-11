@@ -70,7 +70,7 @@ const completeHeadlessTurn = () => {
 				command: request.call.command,
 				status: "accepted",
 				ownerId: "voice-workbench-headless-proof",
-				view: component.getStates().modelContext,
+				view: component.get("states").modelContext,
 				events: [],
 			},
 		},
@@ -123,7 +123,7 @@ try {
 	});
 	completeHeadlessTurn();
 
-	const view = component.getStates();
+	const view = component.get("states");
 	if (view.status !== "ready") throw new Error("Expected ready status.");
 	if (view.response?.text !== "Headless proof complete.") {
 		throw new Error("Expected the completed headless response.");
@@ -144,13 +144,13 @@ try {
 	) {
 		throw new Error("Expected the actor-authorized item to be checked.");
 	}
-	if (!component.getSnapshot().matches({ available: { turn: "idle" } })) {
+	if (!source.getSnapshot().matches({ available: { turn: "idle" } })) {
 		throw new Error("Expected the source to reach the idle turn state.");
 	}
 	process.stdout.write(
 		JSON.stringify(
 			{
-				matches: component.getSnapshot().value,
+				matches: source.getSnapshot().value,
 				artifact: view.activeArtifact,
 				revisions: view.activeArtifactRevisions,
 				response: view.response,

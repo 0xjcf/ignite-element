@@ -502,17 +502,20 @@ function createAdapterEntry<
 			}
 
 			isStopped = true;
-			cleanupSubscriptions();
+			let failed = false;
+			let failure: unknown;
+			try {
+				cleanupSubscriptions();
+			} catch (error) {
+				failed = true;
+				failure = error;
+			}
 			listeners.clear();
-			lastKnownSnapshot = source.snapshot();
-			lastKnownTransportStatus =
-				source.transportStatus?.() ?? lastKnownTransportStatus;
 
-			// Only tear down the underlying source when ignite created it (isolated
-			// scope). A consumer-owned source passed as a live instance (shared
-			// scope) is the consumer's to dispose — ignite must never close()/stop()
-			// a source it did not create.
+			// Only the explicit web factory capability owns source-handle close.
+			// Headless factories and borrowed source values retain caller ownership.
 			if (!ownsSource) {
+				if (failed) throw failure;
 				return;
 			}
 
@@ -528,6 +531,7 @@ function createAdapterEntry<
 					error,
 				);
 			});
+			if (failed) throw failure;
 		},
 		scope,
 	};
@@ -556,10 +560,15 @@ export default function createActorWebAdapter<
 		| ((context?: {
 				host?: Host;
 		  }) => ActorWebSourceLike<Context, Message, Emitted>),
+	ownership: { ownsFactorySource: boolean } = { ownsFactorySource: true },
 ): ActorWebAdapterFactory<Context, Message, Emitted, Host> {
 	if (typeof source === "function") {
 		return createIsolatedFactory((host) =>
-			createAdapterEntry(source({ host }), StateScope.Isolated, true),
+			createAdapterEntry(
+				source({ host }),
+				StateScope.Isolated,
+				ownership.ownsFactorySource,
+			),
 		);
 	}
 

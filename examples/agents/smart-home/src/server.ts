@@ -27,6 +27,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import type { HomeBridgeClientMessage, HomeBridgeMessage } from "./bridge";
 import { parseBridgeMessage, serializeBridgeMessage } from "./bridge";
 import { resolveSmartHomeRuntimeFactory } from "./cli";
+import { homeToolSchema } from "./home";
 import { runSmartHomeBridgeCli, waitForLifecyclePromise } from "./lifecycle";
 import {
 	type AnthropicMessage,
@@ -171,15 +172,13 @@ export async function startSmartHomeBridgeServer(
 
 	try {
 		const { home } = session;
-		const tools = igniteTools(home);
-		const agentTools = igniteTools(
-			home,
-			anthropic,
-		) as unknown as SharedHomeAgentTools;
-		const openAIAgentTools = igniteTools(
-			home,
-			openai,
-		) as unknown as SharedHomeOpenAICompatibleAgentTools;
+		const tools = igniteTools(home, undefined, { schema: homeToolSchema });
+		const agentTools = igniteTools(home, anthropic, {
+			schema: homeToolSchema,
+		}) as unknown as SharedHomeAgentTools;
+		const openAIAgentTools = igniteTools(home, openai, {
+			schema: homeToolSchema,
+		}) as unknown as SharedHomeOpenAICompatibleAgentTools;
 		vite = await createViteMiddleware();
 		httpServer = createHttpServer((request, response) => {
 			vite?.middlewares(request, response, () => {
@@ -205,7 +204,7 @@ export async function startSmartHomeBridgeServer(
 		};
 
 		stream = tools.observe((observation) => {
-			const view = home.getStates();
+			const view = home.get("states");
 			if (observation.type === "event") {
 				broadcast({ type: "home:event", event: observation.event, view });
 			} else {
@@ -223,7 +222,7 @@ export async function startSmartHomeBridgeServer(
 				}
 				socket.send(serializeBridgeMessage(message));
 			};
-			sendSocketMessage({ type: "home:view", view: home.getStates() });
+			sendSocketMessage({ type: "home:view", view: home.get("states") });
 			startAgentOnce();
 			socket.on("message", (payload) => {
 				if (closing) {
@@ -246,7 +245,7 @@ export async function startSmartHomeBridgeServer(
 										type: "home:command-result",
 										command: commandMessage.command,
 										ok: true,
-										view: home.getStates(),
+										view: home.get("states"),
 									});
 									return;
 								}
@@ -254,7 +253,7 @@ export async function startSmartHomeBridgeServer(
 									type: "home:error",
 									command: commandMessage.command,
 									message: result.error.kind,
-									view: home.getStates(),
+									view: home.get("states"),
 								});
 							})
 							.catch((error) => {
@@ -266,14 +265,14 @@ export async function startSmartHomeBridgeServer(
 									command: commandMessage.command,
 									message:
 										error instanceof Error ? error.message : String(error),
-									view: home.getStates(),
+									view: home.get("states"),
 								});
 							}),
 					(error) => {
 						sendSocketMessage({
 							type: "home:error",
 							message: error instanceof Error ? error.message : String(error),
-							view: home.getStates(),
+							view: home.get("states"),
 						});
 					},
 				);
@@ -302,7 +301,7 @@ export async function startSmartHomeBridgeServer(
 							openAIAgentTools,
 							prompt,
 							broadcast,
-							() => home.getStates(),
+							() => home.get("states"),
 							() => closing,
 						)
 					: runSharedHomeAgent(
@@ -310,7 +309,7 @@ export async function startSmartHomeBridgeServer(
 							agentTools,
 							prompt,
 							broadcast,
-							() => home.getStates(),
+							() => home.get("states"),
 							() => closing,
 						)
 			).catch((error) => {
@@ -321,7 +320,7 @@ export async function startSmartHomeBridgeServer(
 				broadcast({
 					type: "home:error",
 					message: error instanceof Error ? error.message : String(error),
-					view: home.getStates(),
+					view: home.get("states"),
 				});
 			});
 			const lifecycle = runPromise.finally(() => {
@@ -460,7 +459,7 @@ function startTerminalControls(options: {
 		prompt: "smart-home> ",
 	});
 
-	printTerminalHelp(options.home.getStates());
+	printTerminalHelp(options.home.get("states"));
 	rl.prompt();
 
 	let closed = false;
@@ -504,7 +503,7 @@ async function handleTerminalLine(
 	}
 
 	if (parsed.type === "help") {
-		printTerminalHelp(options.home.getStates());
+		printTerminalHelp(options.home.get("states"));
 		return;
 	}
 
@@ -532,7 +531,7 @@ async function handleTerminalLine(
 		type: "home:error",
 		command: parsed.command,
 		message: result.error.kind,
-		view: options.home.getStates(),
+		view: options.home.get("states"),
 	});
 	console.error(`Command failed: ${result.error.kind}`);
 }

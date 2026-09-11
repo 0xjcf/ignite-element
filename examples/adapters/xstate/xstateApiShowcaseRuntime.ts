@@ -1,6 +1,21 @@
 import { igniteCore, matchState } from "ignite-element/xstate";
 import { apiShowcaseMachine } from "./apiShowcaseMachine";
 
+// Optional application/tool definitions, independent from core discovery.
+export const apiShowcaseCommandDefinitions = {
+	increment: { description: "Add the current step to the count." },
+	decrement: { description: "Decrease the count by one." },
+	setLimit: {
+		description: "Set maximum count before the limited state is reached.",
+		input: { type: "number", minimum: 3, maximum: 12 },
+	},
+	setStep: {
+		description: "Set the amount added by the increment command.",
+		input: { type: "number", minimum: 1, maximum: 4 },
+	},
+	reset: { description: "Reset the count to zero." },
+};
+
 export const apiShowcase = igniteCore({
 	source: apiShowcaseMachine,
 	events: (event) => ({
@@ -42,31 +57,13 @@ export const apiShowcase = igniteCore({
 			isLimited: snapshot.matches("limited"),
 		};
 	},
-	commands: ({ actor, command }) => ({
-		increment: command(
-			() =>
-				actor.send({ type: "ADD", amount: actor.getSnapshot().context.step }),
-			{
-				description: "Add the current step to the count.",
-			},
-		),
-		decrement: command(() => actor.send({ type: "DECREMENT" }), {
-			description: "Decrease the count by one.",
-		}),
-		setLimit: command(
-			(limit: number) => actor.send({ type: "SET_LIMIT", limit }),
-			{
-				description: "Set maximum count before the limited state is reached.",
-				input: command.number({ minimum: 3, maximum: 12 }),
-			},
-		),
-		setStep: command((step: number) => actor.send({ type: "SET_STEP", step }), {
-			description: "Set the amount added by the increment command.",
-			input: command.number({ minimum: 1, maximum: 4 }),
-		}),
-		reset: command(() => actor.send({ type: "RESET" }), {
-			description: "Reset the count to zero.",
-		}),
+	commands: ({ actor }) => ({
+		increment: () =>
+			actor.send({ type: "ADD", amount: actor.getSnapshot().context.step }),
+		decrement: () => actor.send({ type: "DECREMENT" }),
+		setLimit: (limit: number) => actor.send({ type: "SET_LIMIT", limit }),
+		setStep: (step: number) => actor.send({ type: "SET_STEP", step }),
+		reset: () => actor.send({ type: "RESET" }),
 	}),
 	effects: ({ emit, select, snapshot, prevSnapshot }) => {
 		const count = select((state) => state.context.count);

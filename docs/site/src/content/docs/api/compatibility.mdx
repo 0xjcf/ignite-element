@@ -35,8 +35,14 @@ v3 publishes under the `beta` dist-tag (the stable `latest` tag is still v2.2.x)
 
 The headless-isolation development candidate is validated on Node 22.16.0, pnpm 10.33.0 and TypeScript 5.9.3. Native `EventTarget`, `Event` and `CustomEvent` provide the runtime event path; Ignite does not fabricate browser globals. Source-backed construction and execution need no DOM. Tag registration is synchronous and requires a browser. Other engines, workers and SSR/hydration are not established by this evidence.
 
-Root/JSX optional-peer isolation, adapter inference with the selected peer, and compilation without `lib: DOM` are independent checks. Current root/adapter declaration graphs reference `HTMLElement`, `ShadowRoot` and other browser types: include the DOM library for those TypeScript consumers, without installing a runtime DOM shim. Full no-DOM declaration support and the stable support policy remain separate follow-ups. Documentation direct-topology examples use Actor-Web 0.2.1; adapter validation deliberately retains 0.2.0.
+Root/JSX optional-peer isolation, adapter inference with the selected peer, and compilation without `lib: DOM` are independent checks. The core-API/bindings candidate partitions the neutral source entrypoints and `ignite-element/react` from browser declarations. Genuine registration/JSX and the explicit `/react/web` and `/actor-web/web` consumers retain actual DOM types. Do not install ambient browser stubs to make a native lane pass. Documentation direct-topology examples use Actor-Web 0.2.1; the existing adapter control retains 0.2.0. Authentic neutral source-only consumption additionally needs the separately reviewed local `@actor-web/runtime/source` candidate, not the already-published root declaration graph.
 
-### Whole-core lifetime remains an open stable-readiness decision
+### Owning-core lifetime in this development candidate
 
-Individual watcher/event handles and projection sessions release their observations. They do not signal that an entire core has been abandoned. Cached effects over application-owned live sources may retain subscriptions, and factory-owned actors may continue source work after the final individual watcher ends. Existing whole-core semantics are preserved: no automatic source shutdown, per-command reset, or new public disposal API is introduced. Application/source owners retain asynchronous work, cancellation and native shutdown. Completing DOM isolation does not close this resource-ownership decision.
+The repository and strict packed-consumer profiles use TypeScript's `Bundler`
+module resolution. A separate NodeNext probe still reports extensionless
+declaration-import resolution failures; NodeNext support is not established or
+claimed by Bundler success. Native ESM runtime imports and strict no-DOM
+declaration consumption are distinct from that compiler-mode limitation.
+
+Source-backed owning cores now expose terminal `dispose()` before successful custom-element registration. It releases all Ignite observations and stops only a private Ignite-created XState actor; borrowed sources and headless Actor-Web factory handles remain application-owned. Registered cores reject disposal before teardown. Handles and projection sessions remain independently releasable. The React hook borrows a core prepared once outside rendering and never disposes its owner on unmount. SSR, framework commit barriers and native device execution are not implied. These development-candidate changes are unconsumed, not evidence of a newly published package.

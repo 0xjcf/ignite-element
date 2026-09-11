@@ -73,7 +73,7 @@ Ignite effects. Use application-owned presentation integration or an existing
 custom element with the appropriate ownership boundary.
 
 That external owner must acquire the widget, read initial derived state (for
-example `getStates()`), deliver ongoing updates (`watchStates()`), release the
+example `get('states')`), deliver ongoing updates (`watch()`), release the
 observation and resource, and reacquire/read fresh state on reconnect where
 needed. Subscription alone does not provide initial rendering. Setup rollback,
 exception-safe release, moves and conditional node replacement remain explicit

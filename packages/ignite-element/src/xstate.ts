@@ -15,7 +15,11 @@ import type {
 	EventFrom,
 	StateFrom,
 } from "xstate";
-import type { IgniteCoreReturn, WithEmittedEvents } from "./igniteCore/types";
+import type {
+	DisjointBindings,
+	IgniteCoreReturn,
+	WithEmittedEvents,
+} from "./igniteCore/publicTypes";
 
 // A machine's declared `emitted` types fold into the headless runtime's events
 // on this adapter entry the same way they do on the bare `ignite-element`
@@ -26,16 +30,8 @@ type XStateRuntimeEvents<
 	Events extends EventMap,
 > = WithEmittedEvents<Events, EmittedFrom<Machine>, EventFrom<Machine>>;
 
-export type {
-	CommandHelper,
-	CommandMetadata,
-	CommandMetadataValue,
-	CommandWithMetadata,
-	NumberCommandInputMetadata,
-	NumberCommandInputOptions,
-} from "@ignite-element/core";
 export { matchState } from "@ignite-element/core";
-export type { IgniteCoreReturn } from "./igniteCore/types";
+export type { IgniteCoreReturn } from "./igniteCore/publicTypes";
 
 import { igniteCoreXState as baseIgniteCoreXState } from "./igniteCore/xstate";
 
@@ -67,15 +63,10 @@ type XStateConfigBase<
 		FacadeCommandFunction
 	>,
 > = Omit<
-	AdapterXStateConfig<
-		Machine,
-		Events,
-		StatesResult,
-		CommandsResult,
-		HTMLElement
-	>,
+	AdapterXStateConfig<Machine, Events, StatesResult, CommandsResult, unknown>,
 	"events"
->;
+> &
+	DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>>;
 
 type XStateConfigWithEvents<
 	Machine extends AnyStateMachine,
@@ -190,8 +181,9 @@ export function igniteCore<
 		EventMap,
 		StatesResult,
 		CommandsResult,
-		HTMLElement
-	>,
+		unknown
+	> &
+		DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>>,
 ) {
 	return baseIgniteCoreXState(options);
 }

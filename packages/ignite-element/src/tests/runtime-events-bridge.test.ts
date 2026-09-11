@@ -4,7 +4,30 @@ import {
 } from "@ignite-element/adapters/actor-web";
 import type { IgniteAdapter } from "@ignite-element/core";
 import { describe, expect, it, vi } from "vitest";
-import { createAgentRuntime } from "../runtime/agent";
+import { createAgentRuntime as createOwnedAgentRuntime } from "../runtime/agent";
+import { createLifetime } from "../runtime/lifetime";
+
+// Unit coverage intentionally includes the private raw-observation seam. It is
+// not assigned to the public core; public removed-method controls live separately.
+function createAgentRuntime<
+	State,
+	Event,
+	States extends Record<string, unknown>,
+	Args extends Record<string, unknown>,
+>(
+	options: Omit<
+		Parameters<typeof createOwnedAgentRuntime<State, Event, States, Args>>[0],
+		"lifetime" | "dispose"
+	>,
+) {
+	const lifetime = createLifetime();
+	const owned = createOwnedAgentRuntime({
+		...options,
+		lifetime,
+		dispose: () => lifetime.dispose(),
+	});
+	return { ...owned.runtime, watchSnapshot: owned.watchSnapshot };
+}
 
 describe("Actor-Web observation rollback", () => {
 	function sourceFixture() {
@@ -177,7 +200,7 @@ describe("runtime handle custody", () => {
 		h.getSnapshot.mockImplementationOnce(() => {
 			throw failure;
 		});
-		const states = h.runtime.watchStates(() => {});
+		const states = h.runtime.watch(() => {});
 		// watchStates does not read the native snapshot in this fixture.
 		const baseline = h.leases();
 		expect(() => h.runtime.watchSnapshot(() => {})).toThrow(failure);

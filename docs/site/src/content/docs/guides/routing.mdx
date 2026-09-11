@@ -167,7 +167,7 @@ const router = igniteCore({
 
 try {
   await router.execute({ command: 'navigate', input: '/users/7' });
-  assert.equal(router.getStates().id, '7');
+  assert.equal(router.get('states').id, '7');
 } finally {
   source.stop(); // The test owns the started source and its navigation observer.
 }

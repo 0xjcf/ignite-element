@@ -13,7 +13,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setup } from "xstate";
 import { igniteCore } from "../../IgniteCore";
-import { igniteReact } from "../../react";
+import { igniteReact } from "../../react/web";
 
 const counterMachine = setup({
 	types: {} as {

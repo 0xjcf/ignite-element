@@ -31,7 +31,7 @@ const waitForStatus = async (
 	status: string,
 ) => {
 	for (let i = 0; i < 100; i += 1) {
-		if (form.getStates().status === status) return;
+		if (form.get("states").status === status) return;
 		await new Promise((resolve) => setTimeout(resolve, 20));
 	}
 	throw new Error(`timed out waiting for status "${status}"`);
@@ -46,15 +46,15 @@ describe("signup form — headless runtime", () => {
 		});
 		await form.execute({ command: "blurField", input: "email" });
 
-		expect(form.getStates().errors.email).toBe("Enter a valid email address");
-		expect(form.getStates().canSubmit).toBe(false);
+		expect(form.get("states").errors.email).toBe("Enter a valid email address");
+		expect(form.get("states").canSubmit).toBe(false);
 	});
 
 	it("blocks an invalid submit and stays editing", async () => {
 		const form = makeForm();
 		await form.execute({ command: "submit" });
 
-		const view = form.getStates();
+		const view = form.get("states");
 		expect(view.status).toBe("editing");
 		expect(view.errors).toEqual({
 			name: "Name is required",
@@ -80,10 +80,10 @@ describe("signup form — headless runtime", () => {
 			command: "updateField",
 			input: { field: "password", value: "hunter2!" },
 		});
-		expect(form.getStates().canSubmit).toBe(true);
+		expect(form.get("states").canSubmit).toBe(true);
 
 		await form.execute({ command: "submit" });
 		await waitForStatus(form, "success");
-		expect(form.getStates().status).toBe("success");
+		expect(form.get("states").status).toBe("success");
 	});
 });

@@ -10,10 +10,9 @@ This document supersedes the earlier registry-oriented proposal.
 Ignite already has the right behavior boundary:
 
 - `states` derives stable UI-facing state from the source snapshot.
-- `getStates()` returns that derived state to headless consumers.
-- `getSchema()` returns the compiled JSON-safe blueprint of commands, events,
-  snapshot, and states.
-- `execute()` and `canExecute()` keep intent and availability explicit.
+- `get('states')` returns that derived state to headless consumers.
+- `get('schema')` returns a pure immutable minimal catalogue, not a live snapshot.
+- `execute()` expresses intent; source-native availability is projected into states.
 
 ## Authoring input and compiled blueprint
 
@@ -22,12 +21,12 @@ source factories or actors, callbacks, selectors, effects, and other values that
 are meaningful only inside the running application. That authoring input is not
 a serialization contract.
 
-`runtime.getSchema()` is the sole public compiled, JSON-safe Ignite blueprint.
-The blueprint describes the runtime's commands, declared events, current
-snapshot, and derived states. "Blueprint" is Ignite vocabulary, not a claim that
-the returned object is a formal JSON Schema document. Individual command input
-descriptions may use JSON-Schema-like fragments, but the blueprint as a whole is
-an Ignite discovery contract.
+`runtime.get('schema')` is the sole public compiled, JSON-safe Ignite blueprint.
+The catalogue describes actual bound own command names and declared event names,
+with unknown input/payload/state schemas represented as null. Configured commands
+remain unknown until real binding; no callback means known empty. It contains no
+live snapshot and acquires no source. Explicit tool input definitions belong to
+the application, not inferred metadata in core discovery.
 
 The blueprint deliberately excludes source actors and factories, effects,
 callbacks, selectors, registries, projection bindings, committers, and
@@ -57,9 +56,9 @@ The public surface remains intentionally small:
   registry key, or model-authored document.
 - The one-argument overload returns only a disposable handle:
   `{ dispose(): void }`.
-- `getSnapshot()`, `getStates()`, `getSchema()`, `canExecute()`, `on(...)`,
-  `watchSnapshot(...)`, and `watchStates(...)` remain the focused public reads and
-  subscriptions.
+- Keyed `get`, `watch`, `on`, `execute`, and owning `dispose` are the public runtime.
+  Native snapshots stay on sources and in paired execution results. Discovery-only
+  component handles do not acquire dummy runtime or disposal methods.
 
 Focused reads are live and intentionally independent. Two separate getter calls
 can observe different source revisions when a transition occurs between them;
@@ -166,10 +165,11 @@ flatten the snapshot or substitute the derived states for source state.
 Action nodes never carry closures. They reference existing runtime commands by
 name and are validated against the runtime contract:
 
-1. the command must exist in `getSchema().commands`,
-2. any payload must satisfy the declared schema,
-3. commit-time execution must still respect current availability through
-   `canExecute`.
+1. the command must exist in the actual bound command catalogue,
+2. payload validation uses explicit application definitions where supplied; the
+   minimal core catalogue does not fabricate an input schema,
+3. commit-time availability comes from the captured source-derived
+   `commandAvailability` map through the private predicate, never a new public method.
 
 This keeps actions grounded in the same command system that already powers
 `execute()`.
@@ -180,7 +180,7 @@ LLMs do not generate JSX, DOM fragments, or executable projection code.
 
 Instead:
 
-1. `igniteTools` exposes the runtime schema as tools,
+1. `igniteTools` exposes explicit application definitions as validated tools,
 2. the model issues explicit domain commands such as `upsertProjection` or
    `patchProjection`,
 3. those commands write validated `ProjectionDocument` state,
@@ -218,6 +218,9 @@ The non-DOM overload follows existing runtime ownership semantics:
   - disposing tears down only that session.
 
 DOM and non-DOM sessions can coexist on the same `igniteCore` value.
+Unregistered owner disposal drains all its retained sessions and observations.
+It stops only a private Ignite-created XState actor, never a borrowed source or
+headless Actor-Web factory handle. Registered cores reject owning disposal.
 Non-DOM sessions must not depend on `customElements`, `ShadowRoot`, or DOM
 globals.
 
@@ -244,7 +247,7 @@ semantics.
 The public boundary is:
 
 - executable authoring input through `igniteCore(config)`,
-- `getSchema()` as the sole compiled JSON-safe Ignite blueprint,
+- `get('schema')` as the sole compiled JSON-safe Ignite blueprint,
 - focused live getters, availability reads, command execution, and
   subscriptions,
 - and exactly one narrow non-DOM overload through an opaque target.

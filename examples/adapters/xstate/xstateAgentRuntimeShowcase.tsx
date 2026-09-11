@@ -1,3 +1,4 @@
+import type { IgniteAgentSchema } from "ignite-element/xstate";
 import { igniteCore } from "ignite-element/xstate";
 import { assign, fromPromise, setup } from "xstate";
 // Tailwind classes need to reach this component's Shadow DOM; inject the built
@@ -12,8 +13,10 @@ type RuntimeCommand =
 	| "reset"
 	| "incrementToLimit";
 type PayloadCommand = "setStep" | "setLimit";
-type ApiShowcaseState = ReturnType<typeof apiShowcase.getSnapshot>;
-type ApiShowcaseStates = ReturnType<typeof apiShowcase.getStates>;
+type ApiShowcaseState = ApiShowcaseStates;
+type ApiShowcaseStates = Awaited<
+	ReturnType<typeof apiShowcase.execute>
+>["states"];
 type RuntimeEventRecord = {
 	type: string;
 	[key: string]: unknown;
@@ -30,7 +33,7 @@ type RuntimeReportRequest = {
 interface RuntimeReport {
 	command: string;
 	code: string;
-	schema: ReturnType<typeof apiShowcase.getSchema>;
+	schema: IgniteAgentSchema;
 	state: {
 		value: string;
 		count: number;
@@ -38,7 +41,7 @@ interface RuntimeReport {
 		step: number;
 		lastCommand: string;
 	};
-	states: ReturnType<typeof apiShowcase.getStates>;
+	states: Awaited<ReturnType<typeof apiShowcase.execute>>["states"];
 	resultEvents: RuntimeEventRecord[];
 	eventLog: string[];
 	stateLog: string[];
@@ -73,11 +76,11 @@ const formatEventFields = (event: RuntimeEventRecord) => {
 };
 
 const summarizeState = (state: ApiShowcaseState): RuntimeReport["state"] => ({
-	value: String(state.value),
-	count: state.context.count,
-	limit: state.context.limit,
-	step: state.context.step,
-	lastCommand: state.context.lastCommand,
+	value: state.stateValue,
+	count: state.count,
+	limit: state.limit,
+	step: state.step,
+	lastCommand: state.lastCommand,
 });
 
 const formatJson = (value: unknown) => JSON.stringify(value, null, 2);
@@ -96,9 +99,9 @@ const codeForCommand = (
 	switch (command) {
 		case "inspect":
 			return [
-				"apiShowcase.getSchema()",
-				"apiShowcase.getSnapshot()",
-				"apiShowcase.getStates()",
+				'apiShowcase.get("schema")',
+				"// Native snapshots are returned by execute().snapshot",
+				'apiShowcase.get("states")',
 			].join("\n");
 		case "setStep":
 			return `await apiShowcase.execute({ command: "setStep", input: ${payload ?? 1} })`;
@@ -106,10 +109,10 @@ const codeForCommand = (
 			return `await apiShowcase.execute({ command: "setLimit", input: ${payload ?? 5} })`;
 		case "incrementToLimit":
 			return [
-				"for (let step = 0; step < 20 && !apiShowcase.getStates().isLimited; step++) {",
+				'for (let step = 0; step < 20 && !apiShowcase.get("states").isLimited; step++) {',
 				'  await apiShowcase.execute({ command: "increment" });',
 				"}",
-				'if (!apiShowcase.getStates().isLimited) throw new Error("Limit not reached");',
+				'if (!apiShowcase.get("states").isLimited) throw new Error("Limit not reached");',
 			].join("\n");
 		default:
 			return `await apiShowcase.execute({ command: "${command}" })`;
@@ -119,9 +122,9 @@ const codeForCommand = (
 const createPlaceholderReport = (command: string): RuntimeReport => ({
 	command,
 	code: "// Loading runtime report...",
-	schema: apiShowcase.getSchema(),
-	state: summarizeState(apiShowcase.getSnapshot()),
-	states: apiShowcase.getStates(),
+	schema: apiShowcase.get("schema"),
+	state: summarizeState(apiShowcase.get("states")),
+	states: apiShowcase.get("states"),
 	resultEvents: [],
 	eventLog: [],
 	stateLog: [],
@@ -130,31 +133,31 @@ const createPlaceholderReport = (command: string): RuntimeReport => ({
 });
 
 const inspectRuntime = (): RuntimeExecution => {
-	const schema = apiShowcase.getSchema();
-	const state = summarizeState(apiShowcase.getSnapshot());
-	const states = apiShowcase.getStates();
-	const commandNames = Object.keys(schema.commands);
+	const schema = apiShowcase.get("schema");
+	const state = summarizeState(apiShowcase.get("states"));
+	const states = apiShowcase.get("states");
+	const commandNames = Object.keys(schema.commands ?? {});
 	const eventNames = schema.events.map((event) => event.type);
 
 	return {
 		resultEvents: [],
 		agentLog: [
-			`getSchema() -> ${commandNames.length} commands, ${schema.events.length} events`,
+			`get("schema") -> ${commandNames.length} commands, ${schema.events.length} events`,
 			`commands -> ${commandNames.join(", ") || "none"}`,
 			`events -> ${eventNames.join(", ") || "none"}`,
-			`getSnapshot() -> count ${state.count}/${state.limit}, state ${state.value}`,
-			`getStates() -> ${states.stateLabel}, progress ${states.progress}%`,
+			`derived state summary -> count ${state.count}/${state.limit}, state ${state.value}`,
+			`get("states") -> ${states.stateLabel}, progress ${states.progress}%`,
 		],
 	};
 };
 
 const incrementToLimit = async (): Promise<RuntimeExecution> => {
-	const schema = apiShowcase.getSchema();
-	const commandNames = Object.keys(schema.commands);
-	const agentLog = [`getSchema() commands -> ${commandNames.join(", ")}`];
+	const schema = apiShowcase.get("schema");
+	const commandNames = Object.keys(schema.commands ?? {});
+	const agentLog = [`get("schema") commands -> ${commandNames.join(", ")}`];
 	const resultEvents: RuntimeEventRecord[] = [];
 
-	if (!("increment" in schema.commands)) {
+	if (!("increment" in (schema.commands ?? {}))) {
 		return {
 			resultEvents,
 			agentLog: [
@@ -164,9 +167,9 @@ const incrementToLimit = async (): Promise<RuntimeExecution> => {
 		};
 	}
 
-	let states: ApiShowcaseStates = apiShowcase.getStates();
+	let states: ApiShowcaseStates = apiShowcase.get("states");
 	agentLog.push(
-		`getStates() -> count ${states.count}/${states.limit}, limited ${states.isLimited}`,
+		`get("states") -> count ${states.count}/${states.limit}, limited ${states.isLimited}`,
 	);
 
 	const maxSteps = Math.max(1, states.limit - states.count + 1);
@@ -175,7 +178,7 @@ const incrementToLimit = async (): Promise<RuntimeExecution> => {
 	while (!states.isLimited && steps < maxSteps) {
 		const result = await apiShowcase.execute({ command: "increment" });
 		resultEvents.push(...mapRuntimeEvents(result.events));
-		states = apiShowcase.getStates();
+		states = apiShowcase.get("states");
 		steps += 1;
 		agentLog.push(
 			`execute({ command: "increment" }) -> count ${states.count}/${states.limit}, state ${states.stateLabel}`,
@@ -268,14 +271,12 @@ const createRuntimeReport = async (
 	const resetSubscription = apiShowcase.on("api-reset", (event) => {
 		eventLog.push(`on("api-reset") -> ${formatEventFields(event)}`);
 	});
-	const stateSubscription = apiShowcase.watchSnapshot((state, prevState) => {
-		stateLog.push(
-			`watchSnapshot(...) count ${prevState.context.count} -> ${state.context.count}`,
-		);
+	const stateSubscription = apiShowcase.watch((state, prevState) => {
+		stateLog.push(`watch(...) count ${prevState.count} -> ${state.count}`);
 	});
-	const statesSubscription = apiShowcase.watchStates((states, prevStates) => {
+	const statesSubscription = apiShowcase.watch((states, prevStates) => {
 		statesLog.push(
-			`watchStates(...) ${prevStates.stateLabel} -> ${states.stateLabel}`,
+			`watch(...) ${prevStates.stateLabel} -> ${states.stateLabel}`,
 		);
 	});
 
@@ -298,9 +299,9 @@ const createRuntimeReport = async (
 		command:
 			typeof payload === "number" ? `${command}(${payload})` : `${command}()`,
 		code: codeForCommand(command, payload),
-		schema: apiShowcase.getSchema(),
-		state: summarizeState(apiShowcase.getSnapshot()),
-		states: apiShowcase.getStates(),
+		schema: apiShowcase.get("schema"),
+		state: summarizeState(apiShowcase.get("states")),
+		states: apiShowcase.get("states"),
 		resultEvents,
 		eventLog,
 		stateLog,
@@ -551,12 +552,12 @@ agentRuntimeShowcase("xstate-agent-runtime-showcase", (ctx) => (
 			</div>
 
 			<div class="min-w-0 rounded border border-slate-200 bg-slate-50 p-4">
-				<h3 class="text-sm font-semibold text-slate-800">getSchema()</h3>
+				<h3 class="text-sm font-semibold text-slate-800">get("schema")</h3>
 				<dl class="mt-3 grid gap-2 text-sm text-slate-700">
 					<div>
 						<dt class="font-medium text-slate-900">Commands</dt>
 						<dd class="break-words">
-							{Object.keys(ctx.report.schema.commands).join(", ")}
+							{Object.keys(ctx.report.schema.commands ?? {}).join(", ")}
 						</dd>
 					</div>
 					<div>
@@ -579,14 +580,16 @@ agentRuntimeShowcase("xstate-agent-runtime-showcase", (ctx) => (
 
 		<div class="mt-4 grid gap-4">
 			<div class="min-w-0 rounded border border-slate-200 bg-slate-50 p-4">
-				<h3 class="text-sm font-semibold text-slate-800">getSnapshot()</h3>
+				<h3 class="text-sm font-semibold text-slate-800">
+					derived state summary
+				</h3>
 				<pre class="mt-3 overflow-auto rounded bg-white p-3 text-xs text-slate-700">
 					<code>{formatJson(ctx.report.state)}</code>
 				</pre>
 			</div>
 
 			<div class="min-w-0 rounded border border-slate-200 bg-slate-50 p-4">
-				<h3 class="text-sm font-semibold text-slate-800">getStates()</h3>
+				<h3 class="text-sm font-semibold text-slate-800">get("states")</h3>
 				<pre class="mt-3 overflow-auto rounded bg-white p-3 text-xs text-slate-700">
 					<code>{formatJson(ctx.report.states)}</code>
 				</pre>
@@ -628,9 +631,7 @@ agentRuntimeShowcase("xstate-agent-runtime-showcase", (ctx) => (
 			</div>
 
 			<div class="min-w-0 rounded border border-slate-200 bg-slate-50 p-4">
-				<h3 class="text-sm font-semibold text-slate-800">
-					on / watch / watchStates
-				</h3>
+				<h3 class="text-sm font-semibold text-slate-800">on / watch / watch</h3>
 				<ul class="mt-3 grid gap-2 text-sm text-slate-700">
 					{[
 						...ctx.report.eventLog,

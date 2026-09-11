@@ -157,13 +157,13 @@ if (scenario.includes("-live") || scenario.includes("-factory")) {
 				throw new Error("premature browser access detected");
 			},
 		});
-		assert.equal(core.getStates().count, 0);
+		assert.equal(core.get("states").count, 0);
 		Reflect.deleteProperty(globalThis, "document");
 		unchanged();
 		let delivered = 0;
 		const facts = [];
-		const first = core.watchSnapshot(() => {});
-		const second = core.watchStates(() => {
+		const first = core.watch(() => {});
+		const second = core.watch(() => {
 			delivered += 1;
 		});
 		const events = core.on("changed", (fact) => facts.push(fact));
@@ -182,7 +182,7 @@ if (scenario.includes("-live") || scenario.includes("-factory")) {
 		events.unsubscribe();
 		events.unsubscribe();
 		await core.execute({ command: "increment" });
-		assert.equal(core.getStates().count, 2);
+		assert.equal(core.get("states").count, 2);
 		assert.equal(delivered, 1);
 		assert.equal(facts.length, 1);
 		unchanged();

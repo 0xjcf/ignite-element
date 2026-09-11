@@ -120,22 +120,22 @@ test("agents can drive the XState example runtime without DOM locators", async (
 			throw new Error("window.__igniteExamples.apiShowcase is not available.");
 		}
 
-		const schema = runtime.getSchema();
-		const startStates = runtime.getStates();
+		const startStates = runtime.get("states");
+		const schema = runtime.get("schema");
 		const events: Awaited<ReturnType<typeof runtime.execute>>["events"] = [];
 
-		await runtime.execute({ command: "setStep", input: 2 });
-		const stepStates = runtime.getStates();
+		const stepResult = await runtime.execute({ command: "setStep", input: 2 });
+		const stepStates = runtime.get("states");
 		await runtime.execute({ command: "setLimit", input: 6 });
-		const limitStates = runtime.getStates();
+		const limitStates = runtime.get("states");
 
 		let steps = 0;
-		while (!runtime.getStates().isLimited && steps < 20) {
+		while (!runtime.get("states").isLimited && steps < 20) {
 			const result = await runtime.execute({ command: "increment" });
 			events.push(...result.events);
 			steps += 1;
 		}
-		const finalStates = runtime.getStates();
+		const finalStates = runtime.get("states");
 
 		return {
 			commands: schema.commands,
@@ -143,7 +143,7 @@ test("agents can drive the XState example runtime without DOM locators", async (
 			finalStates,
 			limitStates,
 			schemaEvents: schema.events,
-			schemaSnapshot: schema.snapshot,
+			snapshot: stepResult.snapshot,
 			schemaStates: schema.states,
 			startStates,
 			stepStates,
@@ -160,43 +160,19 @@ test("agents can drive the XState example runtime without DOM locators", async (
 			setStep: expect.any(Object),
 		}),
 	);
-	expect(result.commands).toMatchObject({
-		decrement: {
-			description: "Decrease the count by one.",
-		},
-		increment: {
-			description: "Add the current step to the count.",
-		},
-		reset: {
-			description: "Reset the count to zero.",
-		},
-		setLimit: {
-			description: "Set maximum count before the limited state is reached.",
-			input: {
-				type: "number",
-				minimum: 3,
-				maximum: 12,
-			},
-		},
-		setStep: {
-			description: "Set the amount added by the increment command.",
-			input: {
-				type: "number",
-				minimum: 1,
-				maximum: 4,
-			},
-		},
-	});
+	expect(Object.values(result.commands ?? {})).toEqual(
+		Array(5).fill({ input: null }),
+	);
 	expect(result.schemaEvents).toEqual([
-		{ type: "api-count-changed" },
-		{ type: "api-limit-reached" },
-		{ type: "api-reset" },
+		{ type: "api-count-changed", payload: null },
+		{ type: "api-limit-reached", payload: null },
+		{ type: "api-reset", payload: null },
 	]);
-	expect(result.schemaSnapshot).toMatchObject({
+	expect(result.snapshot).toMatchObject({
 		context: { count: 0 },
 		value: "active",
 	});
-	expect(result.schemaStates).toEqual(result.startStates);
+	expect(result.schemaStates).toEqual({ schema: null });
 	expect(result.startStates.isLimited).toBe(false);
 	expect(result.stepStates.step).toBe(2);
 	expect(result.limitStates.limit).toBe(6);

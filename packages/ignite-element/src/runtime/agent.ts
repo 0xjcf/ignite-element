@@ -1,11 +1,18 @@
-import type { CommandMetadata, IgniteAdapter } from "@ignite-element/core";
+import type { IgniteAdapter } from "@ignite-element/core";
 import type {
 	IgniteAgentSubscription,
 	IgniteCommandCall,
 } from "../types/agent";
-import type { IgniteSchemaValue } from "../types/schema";
-import { commandMetadataSymbol } from "./commands";
-import { toInspectableSchemaValue, toSchemaValue } from "./schema";
+import type {
+	IgniteAgentCommandSchema,
+	IgniteAgentSchema,
+} from "../types/schema";
+import {
+	assertNoCollisions,
+	type BindingStore,
+	immutableProjection,
+} from "./bindings";
+import { type Lifetime, releaseAll } from "./lifetime";
 
 type RuntimeEventMember = {
 	type: string;
@@ -60,6 +67,7 @@ type RuntimeResources<
 	adapter: IgniteAdapter<State, Event>;
 	additionalArgs: AdditionalArgs;
 	host: EventTarget;
+	rollback?: () => void;
 };
 
 type AgentRuntimeOptions<
@@ -69,6 +77,9 @@ type AgentRuntimeOptions<
 	AdditionalArgs extends Record<string, unknown>,
 > = {
 	eventTypes: readonly string[];
+	hasCommands?: boolean;
+	lifetime: Lifetime;
+	dispose: () => void;
 	resolveRuntime: () => RuntimeResources<State, Event, AdditionalArgs>;
 	retainRuntimeAccess?: () => void;
 	releaseRuntimeAccess?: () => void;
@@ -80,76 +91,6 @@ type AgentRuntimeOptions<
 	resolveDeliveredStates?: (snapshot: State) => States;
 };
 
-function getCommandContract(
-	commandValue: unknown,
-): Record<string, IgniteSchemaValue> | undefined {
-	const metadata = getCommandMetadata(commandValue);
-	if (!metadata) {
-		return undefined;
-	}
-
-	const contract = toSchemaValue(metadata);
-	const commandContract =
-		contract !== null &&
-		typeof contract === "object" &&
-		!Array.isArray(contract)
-			? contract
-			: undefined;
-
-	if (hasCanExecute(metadata)) {
-		return {
-			...(commandContract ?? {}),
-			gated: true,
-		};
-	}
-
-	return commandContract;
-}
-
-function getCommandMetadata(
-	commandValue: unknown,
-): CommandMetadata | undefined {
-	if (typeof commandValue !== "function") {
-		return undefined;
-	}
-
-	const metadata = Reflect.get(commandValue, commandMetadataSymbol);
-
-	if (
-		typeof metadata === "undefined" ||
-		metadata === null ||
-		Array.isArray(metadata) ||
-		typeof metadata !== "object"
-	) {
-		return undefined;
-	}
-
-	return metadata;
-}
-
-function getOwnCommandEntries(value: object): Array<[string, unknown]> {
-	const entries: Array<[string, unknown]> = [];
-	for (const name of Object.keys(value)) {
-		const descriptor = Object.getOwnPropertyDescriptor(value, name);
-		if (
-			descriptor &&
-			"value" in descriptor &&
-			typeof descriptor.value === "function"
-		) {
-			entries.push([name, descriptor.value]);
-		}
-	}
-	return entries;
-}
-
-function hasCanExecute(
-	metadata: CommandMetadata | undefined,
-): metadata is CommandMetadata & {
-	canExecute: NonNullable<CommandMetadata["canExecute"]>;
-} {
-	return typeof metadata?.canExecute === "function";
-}
-
 export function createAgentRuntime<
 	State,
 	Event,
@@ -157,6 +98,9 @@ export function createAgentRuntime<
 	AdditionalArgs extends Record<string, unknown>,
 >({
 	eventTypes,
+	hasCommands,
+	lifetime,
+	dispose,
 	retainRuntimeAccess,
 	releaseRuntimeAccess,
 	resolveInspection,
@@ -164,348 +108,342 @@ export function createAgentRuntime<
 	resolveDeliveredStates,
 	resolveStates,
 }: AgentRuntimeOptions<State, Event, States, AdditionalArgs>) {
-	const resolveRuntimeInspection =
+	const inspect =
 		resolveInspection ??
 		((adapter: IgniteAdapter<State, Event>) => ({
 			snapshot: adapter.getSnapshot(),
 			states: resolveStates(adapter),
 		}));
-	const deriveDeliveredStates =
+	const derive =
 		resolveDeliveredStates ??
 		((snapshot: State) => snapshot as unknown as States);
-	const isThenable = (value: unknown): value is PromiseLike<unknown> =>
-		(typeof value === "object" || typeof value === "function") &&
-		value !== null &&
-		"then" in value &&
-		typeof (value as { then?: unknown }).then === "function";
-	const releaseAfterSuccess = (message: string) => {
-		try {
+	let catalogue: IgniteAgentSchema = Object.freeze({
+		schemaVersion: 1,
+		states: Object.freeze({ schema: null }),
+		commands: hasCommands ? null : Object.freeze({}),
+		events: Object.freeze(
+			[...eventTypes]
+				.sort()
+				.map((type) => Object.freeze({ type, payload: null })),
+		),
+	});
+	const publishCatalogue = (commands: object) => {
+		const names = Object.keys(commands)
+			.filter(
+				(key) =>
+					typeof Object.getOwnPropertyDescriptor(commands, key)?.value ===
+					"function",
+			)
+			.sort();
+		const next = Object.freeze(
+			Object.fromEntries(
+				names.map((name) => [name, Object.freeze({ input: null })]),
+			),
+		);
+		if (JSON.stringify(next) !== JSON.stringify(catalogue.commands))
+			catalogue = Object.freeze({ ...catalogue, commands: next });
+	};
+	function readCatalogue(key: "schema"): IgniteAgentSchema;
+	function readCatalogue(key: "commands"): IgniteAgentCommandSchema | null;
+	function readCatalogue(key: "events"): IgniteAgentSchema["events"];
+	function readCatalogue(
+		key: "schema" | "commands" | "events",
+	):
+		| IgniteAgentSchema
+		| IgniteAgentCommandSchema
+		| IgniteAgentSchema["events"]
+		| null {
+		if (key === "schema") return catalogue;
+		if (key === "commands") return catalogue.commands;
+		return catalogue.events;
+	}
+	let prepared = false;
+	let preparing = false;
+	let currentStates: States;
+	let snapshot: Readonly<Record<string, unknown>>;
+	const bindingListeners = new Set<() => void>();
+	const retainLease = () => {
+		retainRuntimeAccess?.();
+		let held = true;
+		return () => {
+			if (!held) return;
+			held = false;
 			releaseRuntimeAccess?.();
-		} catch (error) {
-			console.error(message, error);
-		}
-	};
-	const releaseAfterError = (message: string) => {
-		try {
-			releaseRuntimeAccess?.();
-		} catch (error) {
-			console.error(message, error);
-		}
-	};
-	const runCleanup = (message: string, cleanup: () => void) => {
-		try {
-			cleanup();
-		} catch (error) {
-			console.error(message, error);
-		}
-	};
-	const withRuntimeAccess = <Result>(callback: () => Result): Result => {
-		retainRuntimeAccess?.();
-		try {
-			const result = callback();
-			if (isThenable(result)) {
-				return result.then(
-					(value) => {
-						releaseAfterSuccess(
-							"[igniteCore] Runtime access release failed after callback resolution.",
-						);
-						return value;
-					},
-					(error) => {
-						releaseAfterError(
-							"[igniteCore] Runtime access release failed after callback error.",
-						);
-						throw error;
-					},
-				) as Result;
-			}
-
-			releaseAfterSuccess(
-				"[igniteCore] Runtime access release failed after callback completion.",
-			);
-			return result;
-		} catch (error) {
-			releaseAfterError(
-				"[igniteCore] Runtime access release failed after callback error.",
-			);
-			throw error;
-		}
-	};
-	const withSynchronousRuntimeAccess = <Result>(
-		callback: () => Result,
-	): Result => {
-		retainRuntimeAccess?.();
-		try {
-			const result = callback();
-			releaseAfterSuccess(
-				"[igniteCore] Runtime access release failed after callback completion.",
-			);
-			return result;
-		} catch (error) {
-			releaseAfterError(
-				"[igniteCore] Runtime access release failed after callback error.",
-			);
-			throw error;
-		}
-	};
-	const createWatcher = <Value>(
-		resolveCurrent: (adapter: IgniteAdapter<State, Event>) => Value,
-		resolveDelivered: (snapshot: State) => Value,
-		handler: (value: Value, prevValue: Value) => void,
-	) => {
-		retainRuntimeAccess?.();
-		try {
-			const { adapter } = resolveRuntime();
-			let prevValue = resolveCurrent(adapter);
-			let installing = true;
-
-			const subscription = adapter.subscribeSnapshots((snapshot) => {
-				const nextValue = resolveDelivered(snapshot);
-				if (installing) {
-					prevValue = nextValue;
-					return;
-				}
-
-				const lastValue = prevValue;
-				prevValue = nextValue;
-				handler(nextValue, lastValue);
-			});
-			installing = false;
-			let active = true;
-
-			return {
-				unsubscribe: () => {
-					if (!active) return;
-					active = false;
-					try {
-						subscription.unsubscribe();
-					} catch (error) {
-						releaseAfterError(
-							"[igniteCore] Runtime access release failed after watcher cleanup error.",
-						);
-						throw error;
-					}
-					releaseRuntimeAccess?.();
-				},
-			};
-		} catch (error) {
-			releaseAfterError(
-				"[igniteCore] Runtime access release failed after watcher setup error.",
-			);
-			throw error;
-		}
-	};
-
-	const on = (
-		eventName: string,
-		handler: (event: RuntimeEventMember) => void,
-	) => {
-		retainRuntimeAccess?.();
-		let host: EventTarget | undefined;
-		let eventsSubscription: IgniteAgentSubscription | undefined;
-		let listener: EventListener | undefined;
-
-		try {
-			const runtime = resolveRuntime();
-			host = runtime.host;
-			const { adapter } = runtime;
-			listener = (event: globalThis.Event) => {
-				handler(domEventToRuntimeEvent(event));
-			};
-
-			host.addEventListener(eventName, listener);
-
-			// Bridge source-emitted events (the adapter's optional `subscribeEvents()`
-			// seam) to this listener with the same flat member shape as effects.
-			eventsSubscription = adapter.subscribeEvents?.((event: unknown) => {
-				const member = sourceEventToRuntimeEvent(event);
-				if (member?.type === eventName) {
-					handler(member);
-				}
-			});
-		} catch (error) {
-			runCleanup(
-				"[igniteCore] Event listener cleanup failed after listener setup error.",
-				() => {
-					if (host && listener) {
-						host.removeEventListener(eventName, listener);
-					}
-				},
-			);
-			runCleanup(
-				"[igniteCore] Source event subscription cleanup failed after listener setup error.",
-				() => eventsSubscription?.unsubscribe(),
-			);
-			releaseAfterError(
-				"[igniteCore] Runtime access release failed after listener setup error.",
-			);
-			throw error;
-		}
-
-		let active = true;
-		return {
-			unsubscribe: () => {
-				if (!active) return;
-				active = false;
-				runCleanup("[igniteCore] Event listener cleanup failed.", () => {
-					if (host && listener) {
-						host.removeEventListener(eventName, listener);
-					}
-				});
-				runCleanup(
-					"[igniteCore] Source event subscription cleanup failed.",
-					() => eventsSubscription?.unsubscribe(),
-				);
-				releaseAfterSuccess(
-					"[igniteCore] Runtime access release failed after listener cleanup.",
-				);
-			},
 		};
 	};
-
-	const watchSnapshot = (
-		handler: (snapshot: State, prevSnapshot: State) => void,
-	) => {
-		return createWatcher(
-			(adapter) => adapter.getSnapshot(),
-			(snapshot) => snapshot,
-			handler,
-		);
-	};
-
-	const watchStates = (
-		handler: (states: States, prevStates: States) => void,
-	) => {
-		return createWatcher(resolveStates, deriveDeliveredStates, handler);
-	};
-
-	const canExecuteCommand = (commandName: string) =>
-		withRuntimeAccess(() => {
-			const { adapter, additionalArgs } = resolveRuntime();
-			const command = (additionalArgs as Record<string, unknown>)[commandName];
-
-			if (typeof command !== "function") {
-				throw new Error(`[igniteCore] Unknown command "${commandName}".`);
-			}
-
-			const metadata = getCommandMetadata(command);
-			if (!hasCanExecute(metadata)) {
-				return true;
-			}
-
-			return metadata.canExecute({
-				snapshot: resolveRuntimeInspection(adapter).snapshot,
-			});
-		});
-
-	const executeCommand = async (commandName: string, payload?: unknown) =>
-		withRuntimeAccess(async () => {
-			const { adapter, additionalArgs, host } = resolveRuntime();
-			const command = (additionalArgs as Record<string, unknown>)[commandName];
-
-			if (typeof command !== "function") {
-				throw new Error(`[igniteCore] Unknown command "${commandName}".`);
-			}
-
-			const events: RuntimeEventMember[] = [];
-			const listeners: Array<{
-				eventType: string;
-				listener: EventListener;
-			}> = [];
-			let sourceSubscription: IgniteAgentSubscription | undefined;
-
-			try {
-				for (const eventType of eventTypes) {
-					const listener: EventListener = (event: globalThis.Event) => {
-						events.push(domEventToRuntimeEvent(event));
-					};
-
-					host.addEventListener(eventType, listener);
-					listeners.push({ eventType, listener });
-				}
-
-				// Capture source-emitted events during the command window independent of
-				// declared eventTypes, so dynamic emit types are collected as flat members.
-				sourceSubscription = adapter.subscribeEvents?.((event: unknown) => {
-					const member = sourceEventToRuntimeEvent(event);
-					if (member) {
-						events.push(member);
-					}
+	const prepare = () => {
+		lifetime.assertActive();
+		if (prepared) return currentStates;
+		if (preparing)
+			throw new Error("[igniteCore] Reentrant runtime preparation.");
+		preparing = true;
+		let releaseLease = () => {};
+		let release: (() => void) | undefined;
+		let rollback: (() => void) | undefined;
+		try {
+			releaseLease = retainLease();
+			const resources = resolveRuntime();
+			rollback = resources.rollback;
+			const { adapter, additionalArgs } = resources;
+			const update = (states: States) => {
+				if (!lifetime.active) return;
+				assertNoCollisions(states, additionalArgs);
+				currentStates = states;
+				snapshot = Object.freeze({
+					...(immutableProjection(states) as Record<string, unknown>),
+					...Object.fromEntries(
+						Object.entries(Object.getOwnPropertyDescriptors(additionalArgs))
+							.filter(
+								([, descriptor]) =>
+									descriptor.enumerable && "value" in descriptor,
+							)
+							.map(([name, descriptor]) => [name, descriptor.value]),
+					),
 				});
-
-				await (command as (arg?: unknown) => unknown)(payload);
-
-				// Flush microtask to allow post-render effects to emit events
-				await new Promise<void>((resolve) => queueMicrotask(resolve));
-
-				const observation = resolveRuntimeInspection(adapter);
-				return { ...observation, events };
-			} finally {
-				for (const { eventType, listener } of listeners) {
-					runCleanup(
-						"[igniteCore] Event listener cleanup failed after command execution.",
-						() =>
-							host.removeEventListener(eventType, listener as EventListener),
-					);
-				}
-				runCleanup(
-					"[igniteCore] Source event subscription cleanup failed after command execution.",
-					() => sourceSubscription?.unsubscribe(),
+			};
+			const initialStates = resolveStates(adapter);
+			update(initialStates);
+			const subscription = adapter.subscribeSnapshots((value) => {
+				if (!lifetime.active) return;
+				update(derive(value));
+				for (const listener of [...bindingListeners])
+					if (lifetime.active && bindingListeners.has(listener)) listener();
+			});
+			release = lifetime.own(() =>
+				releaseAll([() => subscription.unsubscribe(), releaseLease]),
+			);
+			lifetime.assertActive();
+			publishCatalogue(additionalArgs);
+			prepared = true;
+			// Synchronous replay updates the framework cache, but the public read
+			// still honors the configured snapshot resolver used for this read.
+			return initialStates;
+		} catch (error) {
+			try {
+				releaseAll([release ?? releaseLease, () => rollback?.()]);
+			} catch (cleanupError) {
+				console.error(
+					"[igniteCore] Preparation rollback failed.",
+					cleanupError,
 				);
 			}
-		});
-
-	const commandCallToArgs = (
-		call: IgniteCommandCall<Record<string, (arg?: unknown) => unknown>>,
-	) => ({
-		command: call.command,
-		input: "input" in call ? call.input : undefined,
+			throw error;
+		} finally {
+			preparing = false;
+		}
+	};
+	const bindingStore: BindingStore = {
+		read() {
+			lifetime.assertActive();
+			if (!prepared)
+				throw new Error(
+					'[useIgnite] Core is unprepared. Call core.get("states") once in owner bootstrap, outside rendering.',
+				);
+			return snapshot;
+		},
+		subscribe(listener) {
+			bindingStore.read();
+			bindingListeners.add(listener);
+			return lifetime.own(() => {
+				bindingListeners.delete(listener);
+			});
+		},
+	};
+	lifetime.own(() => {
+		bindingListeners.clear();
+		prepared = false;
+		currentStates = undefined as never;
+		snapshot = Object.freeze({});
 	});
 
-	const runtime = {
-		canExecute: canExecuteCommand,
-		execute(
-			call: IgniteCommandCall<Record<string, (arg?: unknown) => unknown>>,
-		) {
-			const { command, input } = commandCallToArgs(call);
-			return executeCommand(command, input);
-		},
-		getSnapshot() {
-			return withSynchronousRuntimeAccess(() =>
-				resolveRuntime().adapter.getSnapshot(),
-			);
-		},
-		getStates() {
-			return withSynchronousRuntimeAccess(() =>
-				resolveStates(resolveRuntime().adapter),
-			);
-		},
-		getSchema() {
-			return withRuntimeAccess(() => {
-				const { adapter, additionalArgs } = resolveRuntime();
-				const inspection = resolveRuntimeInspection(adapter);
-				const commandEntries = getOwnCommandEntries(additionalArgs);
-				const commands = Object.fromEntries(
-					commandEntries
-						.map(
-							([name, value]) =>
-								[name, getCommandContract(value) ?? {}] as const,
-						)
-						.sort(([left], [right]) => left.localeCompare(right)),
-				);
-
-				return {
-					commands,
-					events: [...eventTypes].sort().map((type) => ({ type })),
-					snapshot: toInspectableSchemaValue(inspection.snapshot) ?? null,
-					states: toInspectableSchemaValue(inspection.states) ?? null,
-				};
+	const createWatcher = <Value>(
+		read: (adapter: IgniteAdapter<State, Event>) => Value,
+		delivered: (value: State) => Value,
+		handler: (next: Value, previous: Value) => void,
+	): IgniteAgentSubscription => {
+		lifetime.assertActive();
+		const releaseLease = retainLease();
+		let active = true;
+		let rollback: (() => void) | undefined;
+		try {
+			const resources = resolveRuntime();
+			rollback = resources.rollback;
+			const { adapter } = resources;
+			let previous = read(adapter);
+			let installing = true;
+			const subscription = adapter.subscribeSnapshots((value) => {
+				if (!active || !lifetime.active) return;
+				const next = delivered(value);
+				if (installing) {
+					previous = next;
+					return;
+				}
+				const last = previous;
+				previous = next;
+				handler(next, last);
 			});
-		},
-		on,
-		watchSnapshot,
-		watchStates,
+			installing = false;
+			const unsubscribe = lifetime.own(() => {
+				active = false;
+				releaseAll([() => subscription.unsubscribe(), releaseLease]);
+			});
+			return { unsubscribe };
+		} catch (error) {
+			active = false;
+			try {
+				releaseAll([releaseLease, () => rollback?.()]);
+			} catch (cleanupError) {
+				console.error("[igniteCore] Watch rollback failed.", cleanupError);
+			}
+			throw error;
+		}
 	};
+	const watchSnapshot = (handler: (value: State, previous: State) => void) =>
+		createWatcher(
+			(adapter) => adapter.getSnapshot(),
+			(value) => value,
+			handler,
+		);
 
-	return runtime;
+	const listen = (
+		names: readonly string[],
+		handler: (event: RuntimeEventMember) => void,
+		allSourceEvents = false,
+	): IgniteAgentSubscription => {
+		lifetime.assertActive();
+		const releaseLease = retainLease();
+		let active = true;
+		const releases: (() => void)[] = [];
+		let rollback: (() => void) | undefined;
+		const cleanup = (label: string, release: () => void) => () => {
+			try {
+				release();
+			} catch (error) {
+				// Individual event handles retain their established logged-error
+				// boundary. Terminal owner disposal instead collects the exact error.
+				if (lifetime.active) console.error(label, error);
+				else throw error;
+			}
+		};
+		try {
+			const resources = resolveRuntime();
+			rollback = resources.rollback;
+			const { adapter, host } = resources;
+			for (const name of names) {
+				const listener = (event: globalThis.Event) => {
+					if (active && lifetime.active) handler(domEventToRuntimeEvent(event));
+				};
+				host.addEventListener(name, listener);
+				releases.push(
+					cleanup("[igniteCore] Event listener cleanup failed.", () =>
+						host.removeEventListener(name, listener),
+					),
+				);
+			}
+			const subscription = adapter.subscribeEvents?.((event: unknown) => {
+				if (!active || !lifetime.active) return;
+				const member = sourceEventToRuntimeEvent(event);
+				if (member && (allSourceEvents || names.includes(member.type)))
+					handler(member);
+			});
+			if (subscription)
+				releases.push(
+					cleanup(
+						allSourceEvents
+							? "[igniteCore] Source event subscription cleanup failed after command execution."
+							: "[igniteCore] Source event subscription cleanup failed.",
+						() => subscription.unsubscribe(),
+					),
+				);
+			releases.push(releaseLease);
+			return {
+				unsubscribe: lifetime.own(() => {
+					active = false;
+					releaseAll(releases);
+				}),
+			};
+		} catch (error) {
+			active = false;
+			try {
+				releaseAll([...releases, releaseLease, () => rollback?.()]);
+			} catch (cleanupError) {
+				console.error("[igniteCore] Listener rollback failed.", cleanupError);
+			}
+			throw error;
+		}
+	};
+	const execute = async (
+		call: IgniteCommandCall<Record<string, (arg?: unknown) => unknown>>,
+	) => {
+		lifetime.assertActive();
+		const resources = resolveRuntime();
+		const { adapter, additionalArgs } = resources;
+		const descriptor = Object.getOwnPropertyDescriptor(
+			additionalArgs,
+			call.command,
+		);
+		const command: unknown =
+			descriptor && "value" in descriptor ? descriptor.value : undefined;
+		if (typeof command !== "function")
+			throw new Error(`[igniteCore] Unknown command "${call.command}".`);
+		const events: RuntimeEventMember[] = [];
+		let window: IgniteAgentSubscription;
+		try {
+			window = listen(eventTypes, (event) => events.push(event), true);
+		} catch (error) {
+			try {
+				resources.rollback?.();
+			} catch (cleanupError) {
+				console.error(
+					"[igniteCore] Command-window setup rollback failed.",
+					cleanupError,
+				);
+			}
+			throw error;
+		}
+		try {
+			await command("input" in call ? call.input : undefined);
+			await new Promise<void>((resolve) => queueMicrotask(resolve));
+			lifetime.assertActive();
+			return { ...inspect(adapter), events };
+		} finally {
+			try {
+				window.unsubscribe();
+			} catch (error) {
+				console.error("[igniteCore] Command-window cleanup failed.", error);
+			}
+		}
+	};
+	const runtime = {
+		get(key: "states" | "schema" | "commands" | "events") {
+			if (key === "states") {
+				lifetime.assertActive();
+				// Public reads re-project the current source. Only framework reads
+				// consume the detached, referentially stable observation cache.
+				if (prepared) return resolveStates(resolveRuntime().adapter);
+				return prepare();
+			}
+			if (key === "schema") return readCatalogue(key);
+			if (key === "commands") return readCatalogue(key);
+			if (key === "events") return readCatalogue(key);
+			throw new Error(
+				"[igniteCore] Unknown read key; expected states, schema, commands or events.",
+			);
+		},
+		watch(handler: (next: States, previous: States) => void) {
+			return createWatcher(resolveStates, derive, handler);
+		},
+		on(name: string, handler: (event: RuntimeEventMember) => void) {
+			return listen([name], handler);
+		},
+		execute,
+		dispose,
+	};
+	return {
+		runtime,
+		bindingStore,
+		watchSnapshot,
+		publishCatalogue,
+		readCatalogue,
+	};
 }

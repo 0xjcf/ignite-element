@@ -29,7 +29,7 @@ function printSession(result: AgentResult): void {
 	}
 	console.log(`\nModel response: ${result.finalText}\n`);
 	console.log("Final state:");
-	console.log(renderHome(result.home.getStates()));
+	console.log(renderHome(result.home.get("states")));
 }
 
 try {
@@ -42,7 +42,7 @@ try {
 	console.log(`Endpoint: ${baseUrl}`);
 	console.log(`Model: ${model}`);
 	console.log("\nInitial state:");
-	console.log(renderHome(createHome().getStates()));
+	console.log(renderHome(createHome().get("states")));
 	console.log(`\nPrompt: "${prompt}"\n`);
 
 	const result = await runHomeOpenAICompatibleAgent(

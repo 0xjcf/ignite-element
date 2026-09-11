@@ -64,7 +64,9 @@ export const shipmentCard = igniteCore({
 `ShipmentProjection` flows into the native snapshot as `snapshot.context`, the `states` callback derives the renderer-facing read model, and `ShipmentRequest` flows into `actor.send`, all inferred from `shipmentSource` — no `igniteCore<...>` annotations. Updating the projected context stays Actor-Web's job. Ignite sends requests back and re-renders when the next source snapshot arrives.
 
 :::note[Source shapes]
-`source` accepts a source **value** (read-only or command-capable), a zero-argument factory, or a host-context factory `({ host }) => source`. A shared source value remains application-owned; stop its Actor-Web runtime from application cleanup. Ignite closes only sources returned by its isolated source-factory form. Passing a typed source **value** gives the cleanest inference; the `ignite-element/actor-web` entrypoint is required for zero-argument and defaulted factories (see [Source factory adapter inference](/ignite-element/concepts/the-ignite-model/)).
+The neutral `ignite-element/actor-web` entrypoint accepts source values and factories callable without a host context. Neither a borrowed source nor headless factory invocation transfers native close authority. The application retains source handles and owns shutdown.
+
+Host-dependent factories use `igniteCore` from `ignite-element/actor-web/web`. Their context retains the real `{ host?: HTMLElement }` type, so `host?.getAttribute('fleet-id')` remains typed. Provisioning happens per element; metadata reads stay pure, and headless `get('states')`, `watch`, `on`, `execute` or React preparation reject before invoking that factory. Existing DOM factory-close behavior remains: handle close is not awaited backing-runtime shutdown. Successful registration still prevents owning-core disposal.
 :::
 
 ## Where sources come from
@@ -118,7 +120,8 @@ try {
   const localNode = runtime.nodes.local;
   if (!localNode) throw new Error('Home runtime did not provide its local node');
   await localNode.system.flush();
-  console.log(home.getStates().refreshCount);
+  console.log(home.get('states').refreshCount);
+  home.dispose(); // releases Ignite observations, not the Actor-Web runtime
 } finally {
   // The application owns the runtime and its sources. Stopping the runtime
   // closes sources it created before shutting down its nodes.
@@ -270,14 +273,15 @@ How the bridge behaves:
 - **Effects stay additive.** `events:` + `effects:` remain the way to emit **UI-derived** events (computed from snapshot changes); source-emitted events need neither. Both flow side by side into the same `execute().events` stream and `on(...)` surface.
 
 :::note[Schema lists declared events only]
-`getSchema().events` enumerates the names declared in the `events:` map. Source-emitted types are a compile-time union, not runtime-enumerable, so they don't appear there — they surface dynamically via `on(...)` and `execute().events`. See the [`getSchema()` caveat](/ignite-element/api/headless-runtime/#getschema).
+`get('schema').events` enumerates the names declared in the `events:` map. Source-emitted types are a compile-time union, not runtime-enumerable, so they don't appear there — they surface dynamically via `on(...)` and `execute().events`. See the [`get('schema')` caveat](/ignite-element/api/headless-runtime/#getschema).
 :::
 
 Sources without an event side-channel simply omit `subscribeEvent` (and `Emitted` defaults to the message type) — the bridge no-ops and everything else works unchanged.
 
 ## When to use which entrypoint
 
-- **`ignite-element/actor-web`** — an Actor-Web runtime already owns orchestration and long-lived sources; Ignite projects and sends explicit requests.
+- **`ignite-element/actor-web`** — neutral source values and no-host factories; the application owns native source close.
+- **`ignite-element/actor-web/web`** — real element-host factory context, per-element provisioning, and existing DOM factory-close behavior.
 - **`ignite-element/xstate`** — XState owns source behavior. The application can
   supply a started actor and owns its lifetime; Ignite observes and projects it.
 

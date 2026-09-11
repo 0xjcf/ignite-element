@@ -1084,7 +1084,7 @@ export const projectVoiceWorkbenchView = ({
 				},
 				blueprint: {
 					heading: "All-component blueprint",
-					countLabel: `${blueprintRows.length} commands from getSchema()`,
+					countLabel: `${blueprintRows.length} application command definitions`,
 					rows: blueprintRows,
 				},
 				policy: {

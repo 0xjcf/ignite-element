@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { command, type IgniteAdapter, StateScope } from "@ignite-element/core";
+import { type IgniteAdapter, StateScope } from "@ignite-element/core";
 import { describe, expect, it, vi } from "vitest";
 import { assign, createActor, createMachine, setup } from "xstate";
 import { createComponentFactory } from "../createComponentFactory";
@@ -16,6 +16,8 @@ import {
 	validateProjectionDocument,
 } from "../internal/projectionDocument";
 import { createAgentRuntime } from "../runtime/agent";
+import { createLifetime } from "../runtime/lifetime";
+import { toInspectableSchemaValue } from "../runtime/schema";
 import type {
 	ProjectionDocument,
 	ProjectionDocumentPatch,
@@ -37,6 +39,30 @@ type ProjectionEvent =
 	| { type: "ACKNOWLEDGE_SPEECH"; speechId: string }
 	| { type: "TOGGLE_ALLOW_CONFIRM"; value: boolean }
 	| { type: "CONFIRM"; payload: { value: number } };
+
+// Existing explicit schemas belong to this application's validation boundary,
+// not the core's unknown runtime-schema discovery catalogue.
+const projectionCommandSchema = {
+	commands: {
+		upsertProjection: { input: { type: "object" } },
+		patchProjection: { input: { type: "object" } },
+		queueSpeech: { input: { type: "object" } },
+		acknowledgeSpeech: {
+			input: {
+				type: "object",
+				properties: { speechId: { type: "string" } },
+				required: ["speechId"],
+			},
+		},
+		confirm: {
+			input: {
+				type: "object",
+				properties: { value: { type: "number", minimum: 1 } },
+				required: ["value"],
+			},
+		},
+	},
+};
 
 function createProjectionCore(onProjectStates: () => void = () => undefined) {
 	const machine = setup({
@@ -117,57 +143,20 @@ function createProjectionCore(onProjectStates: () => void = () => undefined) {
 			return {
 				documentCount: snapshot.context.documents.length,
 				speechStatus: snapshot.context.speech?.status ?? "idle",
+				commandAvailability: { confirm: snapshot.context.allowConfirm },
 			};
 		},
-		commands: ({ actor, command }) => ({
-			upsertProjection: command(
-				(document: ProjectionDocument) =>
-					actor.send({ type: "UPSERT_PROJECTION", document }),
-				{
-					description: "Create or replace a projection document.",
-					input: command.object(),
-				},
-			),
-			patchProjection: command(
-				(patch: ProjectionDocumentPatch) =>
-					actor.send({ type: "PATCH_PROJECTION", patch }),
-				{
-					description: "Patch an existing projection document.",
-					input: command.object(),
-				},
-			),
-			queueSpeech: command(
-				(speech: ProjectionSpeechRequest) =>
-					actor.send({ type: "QUEUE_SPEECH", speech }),
-				{
-					description: "Queue a speech request.",
-					input: command.object(),
-				},
-			),
-			acknowledgeSpeech: command(
-				(payload: { speechId: string }) =>
-					actor.send({
-						type: "ACKNOWLEDGE_SPEECH",
-						speechId: payload.speechId,
-					}),
-				{
-					description: "Acknowledge a spoken utterance.",
-					input: command.object({
-						speechId: command.string(),
-					}),
-				},
-			),
-			confirm: command(
-				(payload: { value: number }) =>
-					actor.send({ type: "CONFIRM", payload }),
-				{
-					description: "Confirm the proposed value.",
-					input: command.object({
-						value: command.number({ minimum: 1 }),
-					}),
-					canExecute: ({ snapshot }) => snapshot.context.allowConfirm,
-				},
-			),
+		commands: ({ actor }) => ({
+			upsertProjection: (document: ProjectionDocument) =>
+				actor.send({ type: "UPSERT_PROJECTION", document }),
+			patchProjection: (patch: ProjectionDocumentPatch) =>
+				actor.send({ type: "PATCH_PROJECTION", patch }),
+			queueSpeech: (speech: ProjectionSpeechRequest) =>
+				actor.send({ type: "QUEUE_SPEECH", speech }),
+			acknowledgeSpeech: (payload: { speechId: string }) =>
+				actor.send({ type: "ACKNOWLEDGE_SPEECH", speechId: payload.speechId }),
+			confirm: (payload: { value: number }) =>
+				actor.send({ type: "CONFIRM", payload }),
 		}),
 	});
 }
@@ -212,16 +201,16 @@ function createInspectionCore(
 		}),
 	});
 	const core = createIgniteComponentFactory(createAdapter, {
-		states: (snapshot) => resolveStates(snapshot),
-		commands: ({ command: createCommand }) => ({
+		states: (snapshot) => {
+			onCanExecute(snapshot);
+			return {
+				...resolveStates(snapshot),
+				commandAvailability: { confirm: snapshot.context.allowConfirm },
+			};
+		},
+		commands: () => ({
 			acknowledgeSpeech: () => undefined,
-			confirm: createCommand((_payload: { value: number }) => undefined, {
-				input: command.object({ value: command.number() }),
-				canExecute: ({ snapshot }) => {
-					onCanExecute(snapshot);
-					return snapshot.context.allowConfirm;
-				},
-			}),
+			confirm: (_payload: { value: number }) => undefined,
 		}),
 	});
 
@@ -416,8 +405,9 @@ describe("projection document helpers", () => {
 
 		expect(
 			validateProjectionDocument(document, {
-				schema: core.getSchema(),
-				canExecute: core.canExecute,
+				schema: projectionCommandSchema,
+				canExecute: (name) =>
+					name !== "confirm" || core.get("states").commandAvailability.confirm,
 			}),
 		).toEqual([]);
 	});
@@ -458,8 +448,10 @@ describe("projection document helpers", () => {
 					],
 				},
 				{
-					schema: core.getSchema(),
-					canExecute: core.canExecute,
+					schema: projectionCommandSchema,
+					canExecute: (name) =>
+						name !== "confirm" ||
+						core.get("states").commandAvailability.confirm,
 				},
 			),
 		).toContain('nodes[1].id: duplicate node id "save-profile"');
@@ -500,8 +492,10 @@ describe("projection document helpers", () => {
 			if (parsed.ok) {
 				expect(
 					validateProjectionDocument(parsed.document, {
-						schema: core.getSchema(),
-						canExecute: core.canExecute,
+						schema: projectionCommandSchema,
+						canExecute: (name) =>
+							name !== "confirm" ||
+							core.get("states").commandAvailability.confirm,
 					}),
 				).toContain(
 					`nodes[0].payload.${unsafeKey}: executable content is not allowed`,
@@ -552,8 +546,10 @@ describe("projection document helpers", () => {
 			if (parsed.ok) {
 				expect(
 					validateProjectionDocument(parsed.document, {
-						schema: core.getSchema(),
-						canExecute: core.canExecute,
+						schema: projectionCommandSchema,
+						canExecute: (name) =>
+							name !== "confirm" ||
+							core.get("states").commandAvailability.confirm,
 					}),
 				).toContain(
 					`nodes[0].payload.${unsafeKey}: executable content is not allowed`,
@@ -592,8 +588,10 @@ describe("projection document helpers", () => {
 			if (parsed.ok) {
 				expect(
 					validateProjectionDocument(parsed.document, {
-						schema: core.getSchema(),
-						canExecute: core.canExecute,
+						schema: projectionCommandSchema,
+						canExecute: (name) =>
+							name !== "confirm" ||
+							core.get("states").commandAvailability.confirm,
 					}),
 				).toEqual([]);
 			}
@@ -646,8 +644,10 @@ describe("projection document helpers", () => {
 				expect(parsed.ok).toBe(true);
 				if (parsed.ok) {
 					const issues = validateProjectionDocument(parsed.document, {
-						schema: core.getSchema(),
-						canExecute: core.canExecute,
+						schema: projectionCommandSchema,
+						canExecute: (name) =>
+							name !== "confirm" ||
+							core.get("states").commandAvailability.confirm,
 					});
 					expect(
 						issues.some((issue) =>
@@ -947,8 +947,10 @@ describe("projection document helpers", () => {
 					],
 				},
 				{
-					schema: core.getSchema(),
-					canExecute: core.canExecute,
+					schema: projectionCommandSchema,
+					canExecute: (name) =>
+						name !== "confirm" ||
+						core.get("states").commandAvailability.confirm,
 				},
 			),
 		).toContain('nodes[0].commandName: unknown command "missing"');
@@ -969,8 +971,10 @@ describe("projection document helpers", () => {
 					],
 				},
 				{
-					schema: core.getSchema(),
-					canExecute: core.canExecute,
+					schema: projectionCommandSchema,
+					canExecute: (name) =>
+						name !== "confirm" ||
+						core.get("states").commandAvailability.confirm,
 				},
 			),
 		).toContain("nodes[0].payload.value: below minimum 1");
@@ -989,8 +993,10 @@ describe("projection document helpers", () => {
 					],
 				},
 				{
-					schema: core.getSchema(),
-					canExecute: core.canExecute,
+					schema: projectionCommandSchema,
+					canExecute: (name) =>
+						name !== "confirm" ||
+						core.get("states").commandAvailability.confirm,
 				},
 			),
 		).toEqual(
@@ -1012,8 +1018,10 @@ describe("projection document helpers", () => {
 					nodes: [{ kind: "timeline", id: "", events: [] }],
 				},
 				{
-					schema: core.getSchema(),
-					canExecute: core.canExecute,
+					schema: projectionCommandSchema,
+					canExecute: (name) =>
+						name !== "confirm" ||
+						core.get("states").commandAvailability.confirm,
 				},
 			),
 		).toEqual([
@@ -1031,7 +1039,7 @@ describe("projection document helpers", () => {
 			toString: {},
 		});
 		const schema = {
-			...core.getSchema(),
+			...core.get("schema"),
 			commands: inheritedCommands,
 		};
 		const canExecute = vi.fn(() => true);
@@ -1437,7 +1445,7 @@ describe("projection targets", () => {
 	const flushMicrotasks = () =>
 		new Promise<void>((resolve) => queueMicrotask(resolve));
 
-	it("resolves the paired schema inspection exactly once", () => {
+	it("keeps discovery pure and resolves the execution inspection pair exactly once", async () => {
 		const adapter: IgniteAdapter<{ sequence: number }, InspectionEvent> = {
 			scope: StateScope.Isolated,
 			subscribeSnapshots: () => ({ unsubscribe: () => undefined }),
@@ -1450,27 +1458,35 @@ describe("projection targets", () => {
 			states: { sequence: 1 },
 		}));
 		const resolveStates = vi.fn(() => ({ sequence: 99 }));
-		const runtime = createAgentRuntime({
+		const lifetime = createLifetime();
+		const { runtime } = createAgentRuntime({
+			lifetime,
+			dispose: () => lifetime.dispose(),
 			eventTypes: [],
 			resolveInspection,
 			resolveRuntime: () => ({
 				adapter,
-				additionalArgs: {},
+				additionalArgs: { inspect: () => undefined },
 				host: new EventTarget(),
 			}),
 			resolveStates,
 		});
-
-		expect(runtime.getSchema()).toMatchObject({
+		expect(runtime.get("schema")).toMatchObject({ states: { schema: null } });
+		expect(resolveInspection).not.toHaveBeenCalled();
+		expect(adapter.getSnapshot).not.toHaveBeenCalled();
+		expect(resolveStates).not.toHaveBeenCalled();
+		const result = await runtime.execute({ command: "inspect" });
+		expect(result).toMatchObject({
 			snapshot: { sequence: 1 },
 			states: { sequence: 1 },
 		});
 		expect(resolveInspection).toHaveBeenCalledOnce();
 		expect(adapter.getSnapshot).not.toHaveBeenCalled();
 		expect(resolveStates).not.toHaveBeenCalled();
+		runtime.dispose();
 	});
 
-	it("serializes runtime schema inspection without invoking toJSON accessors", () => {
+	it("serializes private projection inspection without invoking toJSON accessors", () => {
 		const snapshot = { visible: "snapshot" };
 		const states = { visible: "states" };
 		const toJSON = vi.fn(() => {
@@ -1478,56 +1494,19 @@ describe("projection targets", () => {
 		});
 		Object.defineProperty(snapshot, "toJSON", { get: toJSON });
 		Object.defineProperty(states, "toJSON", { get: toJSON });
-		const adapter: IgniteAdapter<typeof snapshot, InspectionEvent> = {
-			scope: StateScope.Isolated,
-			subscribeSnapshots: () => ({ unsubscribe: () => undefined }),
-			send: () => undefined,
-			getSnapshot: () => snapshot,
-			stop: vi.fn(),
-		};
-		const runtime = createAgentRuntime({
-			eventTypes: [],
-			resolveInspection: () => ({ snapshot, states }),
-			resolveRuntime: () => ({
-				adapter,
-				additionalArgs: {},
-				host: new EventTarget(),
-			}),
-			resolveStates: () => states,
-		});
-
-		expect(runtime.getSchema()).toMatchObject({
-			snapshot: { visible: "snapshot" },
-			states: { visible: "states" },
-		});
+		expect(toInspectableSchemaValue(snapshot)).toEqual({ visible: "snapshot" });
+		expect(toInspectableSchemaValue(states)).toEqual({ visible: "states" });
 		expect(toJSON).not.toHaveBeenCalled();
 	});
 
-	it("preserves shared schema references without marking them circular", () => {
+	it("preserves shared private inspection references without marking them circular", () => {
 		const shared = { label: "shared" };
-		const snapshot = { first: shared, second: shared };
-		const adapter: IgniteAdapter<typeof snapshot, InspectionEvent> = {
-			scope: StateScope.Isolated,
-			subscribeSnapshots: () => ({ unsubscribe: () => undefined }),
-			send: () => undefined,
-			getSnapshot: () => snapshot,
-			stop: vi.fn(),
-		};
-		const runtime = createAgentRuntime({
-			eventTypes: [],
-			resolveInspection: () => ({ snapshot, states: {} }),
-			resolveRuntime: () => ({
-				adapter,
-				additionalArgs: {},
-				host: new EventTarget(),
-			}),
-			resolveStates: () => ({}),
-		});
-
-		expect(runtime.getSchema().snapshot).toEqual({
-			first: { label: "shared" },
-			second: { label: "shared" },
-		});
+		expect(toInspectableSchemaValue({ first: shared, second: shared })).toEqual(
+			{
+				first: { label: "shared" },
+				second: { label: "shared" },
+			},
+		);
 	});
 
 	it("skips enumerable command accessors in schema and projection inspection", async () => {
@@ -1574,12 +1553,13 @@ describe("projection targets", () => {
 			}),
 		});
 
-		const getSchema = Reflect.get(core, "getSchema");
-		expect(typeof getSchema).toBe("function");
-		if (typeof getSchema !== "function") {
-			throw new Error("component factory is missing getSchema");
+		const get = Reflect.get(core, "get");
+		expect(typeof get).toBe("function");
+		if (typeof get !== "function") {
+			throw new Error("component factory is missing get");
 		}
-		const schema = Reflect.apply(getSchema, core, []);
+		Reflect.apply(get, core, ["states"]);
+		const schema = Reflect.apply(get, core, ["schema"]);
 		if (typeof schema !== "object" || schema === null) {
 			throw new Error("component factory returned an invalid schema");
 		}
@@ -1679,7 +1659,10 @@ describe("projection targets", () => {
 			const handler = vi.fn(
 				(_snapshot: Snapshot, _previous: Snapshot): void => undefined,
 			);
+			const lifetime = createLifetime();
 			const runtime = createAgentRuntime({
+				lifetime,
+				dispose: () => lifetime.dispose(),
 				eventTypes: [],
 				retainRuntimeAccess,
 				releaseRuntimeAccess,
@@ -1710,7 +1693,7 @@ describe("projection targets", () => {
 		}
 	});
 
-	it("uses one transformed inspection pair for schema and projection validation", async () => {
+	it("uses one transformed inspection pair for execution and projection availability", async () => {
 		type SourceSnapshot = { sequence: number };
 		type FacadeSnapshot = InspectionSnapshot & { sequence: number };
 
@@ -1766,41 +1749,42 @@ describe("projection targets", () => {
 		});
 		const availabilitySequences: number[] = [];
 		const core = createIgniteComponentFactory(createAdapter, {
-			states: (snapshot) => ({
-				sequence: snapshot.sequence,
-				documentRevision: snapshot.context.documents[0]?.revision ?? null,
-			}),
-			commands: ({ command: createCommand }) => ({
-				confirm: createCommand((_payload: { value: number }) => undefined, {
-					input: command.object({ value: command.number() }),
-					canExecute: ({ snapshot }) => {
-						availabilitySequences.push(snapshot.sequence);
-						return snapshot.context.allowConfirm;
-					},
-				}),
+			states: (snapshot) => {
+				availabilitySequences.push(snapshot.sequence);
+				return {
+					sequence: snapshot.sequence,
+					documentRevision: snapshot.context.documents[0]?.revision ?? null,
+					commandAvailability: { confirm: snapshot.context.allowConfirm },
+				};
+			},
+			commands: () => ({
+				confirm: (_payload: { value: number }) => undefined,
 			}),
 		});
 
-		const schema = core.getSchema();
+		expect(core.get("schema").states.schema).toBeNull();
+		expect(resolveStateSnapshot).not.toHaveBeenCalled();
+		const result = await core.execute({
+			command: "confirm",
+			input: { value: 1 },
+		});
 
-		expect(resolveStateSnapshot).toHaveBeenCalledOnce();
-		expect(adapter.getSnapshot).toHaveBeenCalledOnce();
-		expect(schema.snapshot).toMatchObject({
-			sequence: 1,
+		// Initial command binding checks collisions once; execution captures one
+		// subsequent pair. Neither observation is reused as the other's snapshot.
+		expect(resolveStateSnapshot).toHaveBeenCalledTimes(2);
+		expect(adapter.getSnapshot).toHaveBeenCalledTimes(2);
+		expect(result.snapshot).toMatchObject({
+			sequence: 2,
 			context: {
-				documents: [{ revision: "1" }],
+				documents: [{ revision: "2" }],
 			},
 		});
-		expect(schema.states).toEqual({
-			sequence: 1,
-			documentRevision: "1",
+		expect(result.states).toEqual({
+			sequence: 2,
+			documentRevision: "2",
+			commandAvailability: { confirm: true },
 		});
-		resolveStateSnapshot.mockClear();
-		vi.mocked(adapter.getSnapshot).mockClear();
-		expect(core.canExecute("confirm")).toBe(true);
-		expect(resolveStateSnapshot).toHaveBeenCalledOnce();
-		expect(adapter.getSnapshot).toHaveBeenCalledOnce();
-		expect(availabilitySequences).toEqual([2]);
+		expect(availabilitySequences).toEqual([1, 2]);
 		resolveStateSnapshot.mockClear();
 		vi.mocked(adapter.getSnapshot).mockClear();
 
@@ -1813,6 +1797,7 @@ describe("projection targets", () => {
 		expect(adapter.getSnapshot).toHaveBeenCalledTimes(2);
 		expect(commitDocument).toHaveBeenCalledTimes(1);
 		expect(availabilitySequences).toEqual([
+			1,
 			2,
 			Number(commitDocument.mock.calls[0]?.[0].revision),
 		]);
@@ -2063,10 +2048,12 @@ describe("projection targets", () => {
 		await flushMicrotasks();
 		await flushMicrotasks();
 
-		expect(adapter.getSnapshot).toHaveBeenCalledTimes(2);
+		// One initial collision check, one raw watcher seed, and one paired
+		// projection/availability evaluation. The selected revision is coherent.
+		expect(adapter.getSnapshot).toHaveBeenCalledTimes(3);
 		expect(commitDocument).toHaveBeenCalledTimes(1);
-		expect(availabilitySnapshots).toHaveLength(1);
-		expect(availabilitySnapshots[0]?.context.documents[0]?.revision).toBe(
+		expect(availabilitySnapshots).toHaveLength(2);
+		expect(availabilitySnapshots[1]?.context.documents[0]?.revision).toBe(
 			commitDocument.mock.calls[0]?.[0].revision,
 		);
 
@@ -3159,7 +3146,7 @@ describe("projection targets", () => {
 
 		expect(speak).toHaveBeenCalledTimes(1);
 		expect(speak).toHaveBeenNthCalledWith(1, "speech-1", "System ready.");
-		expect(core.getSnapshot().context.speech?.status).toBe("acknowledged");
+		expect(core.get("states").speechStatus).toBe("acknowledged");
 
 		session.dispose();
 		const reboundSession = core(target);
@@ -3336,10 +3323,10 @@ describe("projection targets", () => {
 			await new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 			expect(commitSpeech).toHaveBeenCalledTimes(2);
-			expect(core.getSnapshot().context.speech?.status).toBe("acknowledged");
 			expect(projectStates.mock.calls.length - statesCallsBeforeBurst).toBe(
 				103,
 			);
+			expect(core.get("states").speechStatus).toBe("acknowledged");
 		} finally {
 			session.dispose();
 		}
@@ -3423,16 +3410,11 @@ describe("projection targets", () => {
 		const core = igniteCore({
 			source: malformedMachine,
 			states: () => ({}),
-			commands: ({ actor, command }) => ({
-				setDocuments: command(
-					(documents: unknown[]) =>
-						actor.send({ type: "SET_DOCUMENTS", documents }),
-					{ input: command.array() },
-				),
-				setSpeech: command(
-					(speech: unknown) => actor.send({ type: "SET_SPEECH", speech }),
-					{ input: command.object() },
-				),
+			commands: ({ actor }) => ({
+				setDocuments: (documents: unknown[]) =>
+					actor.send({ type: "SET_DOCUMENTS", documents }),
+				setSpeech: (speech: unknown) =>
+					actor.send({ type: "SET_SPEECH", speech }),
 			}),
 		});
 		const commitDocument = vi.fn();

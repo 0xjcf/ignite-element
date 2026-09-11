@@ -28,8 +28,9 @@ Text and speech are two input adapters for the same `submitPrompt` command.
 Additional public commands keep browser intent actor-owned without exposing the
 source: draft, panel, artifact-view, runtime-preview, speech-preference,
 replay, voice-capture, and preparation controls all stay outside the model's
-tool surface. The model receives a narrower allowlist from `getSchema()` through
-a fresh `igniteTools(component)` manifest on every model round:
+tool surface. The model receives the application's explicit
+`voiceWorkbenchModelSchema` with a projected availability predicate through a
+fresh `igniteTools` manifest on every model round:
 `createArtifact`, `reviseArtifact`, `setChecklistItem`, and
 `completeResponse`. It may propose semantic artifacts and responses, but it
 cannot write DOM, JSX, JavaScript, or actor state directly.
@@ -390,7 +391,9 @@ by the actor—turn IDs, attempt IDs, sequences, revisions allocated by the
 workflow, and port correlation—are computed inside the authoritative machine
 transition.
 
-Exactly 19 public commands appear in `getSchema()`:
+Exactly 19 public command names appear in `get("commands")` after actual binding;
+before binding, discovery is unknown (`null`). Their detailed application-owned
+definitions remain in `voiceWorkbenchCommandDefinitions`:
 
 ```text
 user-intent:
@@ -432,7 +435,8 @@ The Ignite `states` callback delegates to the historically named
 read model: status, command count,
 labels, control availability, prepared artifact rows, safe source links,
 runtime-inspector rows, route-independent presentation values, and model
-context. Pure selectors may be shared by renderers, guards, and `canExecute`, but
+context. Pure selectors may be shared by renderers, guards, and application tool
+availability predicates, but
 renderer views never feed values back into commands or machines.
 
 The JSX files split the renderer view by presentation responsibility:
@@ -727,7 +731,7 @@ independent actor unless an explicit transport is added.
 The schema explorer has two deliberately separate sections. **Current model
 manifest** is the exact owner-enriched, availability-scoped manifest captured at
 the model request boundary for the latest round. **All component commands** is
-the private `getSchema()` blueprint used for explanation. Expanding a command
+the explicit `voiceWorkbenchCommandDefinitions` used for explanation. Expanding a command
 shows its description, owner, channel, live availability, gated state, nested
 input schema, required fields, and constraints. The explorer does not introduce
 a public inspection API or allow the model to authorize its own commands.

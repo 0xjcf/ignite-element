@@ -48,7 +48,7 @@ it("real registered controls retain accessible names, interaction and observatio
 		host.remove();
 		await new Promise<void>((resolve) => queueMicrotask(resolve));
 		store.dispatch(counterSlice.actions.increment());
-		expect(core.getStates().count).toBe(5);
+		expect(core.get("states").count).toBe(5);
 		expect(
 			controls.getByRole("status", { name: "Counter status" }).textContent,
 		).toBe("4");

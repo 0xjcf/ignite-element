@@ -1,191 +1,128 @@
-# Design: `ignite-element/react` — schema-driven typed React wrapper
+# React and React Native bindings
 
-## Status
+The v3 development candidate separates two integration surfaces. This is local
+candidate behavior, not evidence that a new package version is published.
 
-Proposed (design only — not implemented). **Additive** (new entrypoint + one
-additive change to the `igniteCore` registration return type). Output of the
-framework-interop gap-finder (see `v3-examples-track`). Part of
-`docs/v3-api-consistency.md`.
+- `ignite-element/react` exports `useIgnite(core)` for headless React or React Native.
+- `ignite-element/react/web` exports `igniteReact` and web-wrapper-only types.
 
-## Context
+## Owner bootstrap
 
-The interop gap-finder confirmed ignite elements **are** consumable from
-frameworks via the standard custom-element surface, but it is **imperative**:
-
-- **Commands in** — reflected as element methods (`exposeCommands`,
-  `IgniteElementFactory.ts`) → `el.increment()`; single-arg `setX(v)` commands
-  also map to observed string attributes (`inferObservedAttributes`).
-- **Events out** — dispatched as `CustomEvent`s on the host
-  (`createComponentFactory.ts`) → `el.addEventListener(type, …)`.
-- **State out** — only via emitted events.
-
-A professional React integration therefore encapsulates this seam in a thin
-wrapper so app code stays declarative. Two ways to get that wrapper:
-
-- **(A) Hand-rolled wrapper per element** — works today, no new dependency, but
-  every element pays a tax: a hand-written element interface, JSX declaration,
-  event wiring, and ref plumbing that must be kept in sync by hand. It also does
-  not scale across four frameworks.
-- **(B) A schema-driven helper** — ignite already emits `getSchema()` (commands,
-  events, shapes) for agents; that is exactly the metadata a wrapper needs. One
-  helper, written once, turns any ignite element into an idiomatic typed React
-  component — and the same approach regenerates Vue/Svelte/Angular wrappers.
-
-**Decision: ship (B).** It removes per-element boilerplate, reuses the
-agent-drivability investment, and is the differentiated interop story (ignite
-*gives* you idiomatic React, you don't hand-write it).
-
-## Decision
-
-### 1. Registration returns a typed component handle (additive prerequisite)
-
-Today `igniteCore(config)` returns a **registrar**, and a registrar can register
-**many** tags (the xstate example registers `my-counter-xstate`,
-`shared-display-xstate`, `gradient-tally`, … from one core). So the tag binds at
-**registration**, not on the registrar — which is why `igniteReact` cannot take a
-bare registrar and must not need a separate `tagName`.
-
-So `register(tagName, render)` returns a typed handle instead of `void`:
-
-```ts
-interface IgniteComponent<Commands, Events> {
-  readonly tagName: string;
-  getSchema(): IgniteSchema;        // already exists at the core level
-  // phantom Commands/Events carry the compile-time types igniteReact infers from
-}
-```
-
-This is additive (callers ignoring the return are unaffected) and is useful
-beyond React — a typed per-element handle can also sharpen the test DSL and agent
-ergonomics. Sites: the registrar from
-`igniteCore/createIgniteComponentFactory.ts` and the handle type in
-`igniteCore/types.ts`.
-
-### 2. `igniteReact(component)` — no `tagName`, no hand-written types
-
-```ts
-function igniteReact<Commands, Events>(
-  component: IgniteComponent<Commands, Events>,
-): React.ForwardRefExoticComponent<
-  IgniteReactProps<Commands, Events> & React.RefAttributes<CommandHandle<Commands>>
->;
-```
-
-Usage:
+Use the public adapter entrypoint for source-backed construction. Prepare exactly
+once outside framework rendering; source-free root construction remains registrar-only.
 
 ```tsx
-// counter.ignite.ts — authored as today; registration now returns a handle
-export const Counter = igniteCore({
-  source: counterMachine,
-  states: (snapshot) => ({ count: snapshot.context.count, label: snapshot.context.label }),
+import { configureStore, createSlice } from '@reduxjs/toolkit';
+import { igniteCore } from 'ignite-element/redux';
+import { useIgnite } from 'ignite-element/react';
+
+const slice = createSlice({
+  name: 'counter',
+  initialState: { count: 0 },
+  reducers: { add: (state, action: { payload: number }) => { state.count += action.payload; } },
+});
+const source = configureStore({ reducer: slice.reducer });
+const core = igniteCore({
+  source,
+  states: snapshot => ({ count: snapshot.count }),
   commands: ({ actor }) => ({
-    increment: () => actor.send({ type: "INC" }),
-    decrement: () => actor.send({ type: "DEC" }),
-    setLabel: (label: string) => actor.send({ type: "SET_LABEL", label }),
+    add: ({ amount }: { amount: number }) => actor.dispatch(slice.actions.add(amount)),
   }),
-  events: (event) => ({ countChanged: event<{ count: number }>() }),
-})("my-counter", ({ count, label }) => <>{label}: {count}</>);
+});
+core.get('states');
 
-// Counter.react.ts — the whole wrapper
-import { igniteReact } from "ignite-element/react";
-import { Counter as CounterEl } from "./counter.ignite";
-export const Counter = igniteReact(CounterEl);
-
-// App.tsx — idiomatic React, fully typed; the ref is the typed CommandHandle
-// import { type IgniteReactRef } from "ignite-element/react";
-// const ref = useRef<IgniteReactRef<typeof CounterEl>>(null);
-// <Counter ref={ref} label="Visitors" onCountChanged={(e) => setCount(e.count)} />
-```
-
-### 3. Inference rules
-
-From the handle's `Commands` / `Events` generics + `getSchema()` at runtime:
-
-- **Commands** → the imperative **ref API** (`CommandHandle<Commands>` —
-  `increment()`, `decrement()`, `setLabel(label)`). Type the `useRef` with the
-  public `IgniteReactRef<typeof Handle>` — it derives that `CommandHandle` from
-  the handle, so the ref stays in sync with the element's commands with no
-  hand-written shape. (`React.ComponentRef<typeof ReactCounter>` resolves to
-  `never` for the synthesized `forwardRef` component, so `IgniteReactRef` is how
-  you name the ref type.)
-- **Single-arg `setX` commands** → optional **props** (`label?: string`), set as
-  string attributes (mirrors `inferObservedAttributes`).
-- **Events map** → `on<Event>` **callback props**
-  (`onCountChanged?: (e: { count: number }) => void`), receiving the DOM event
-  detail directly.
-- Unmapped props → attribute/property passthrough.
-
-### 4. Wrapper internals (sketch)
-
-```tsx
-export function igniteReact(component) {
-  const eventTypes = component.getSchema().events.map((event) => event.type);
-  return forwardRef(function IgniteReact(props, ref) {
-    const elRef = useRef(null);
-    const { handlers, attrs } = splitProps(props, eventTypes);
-    useEffect(() => {                                   // wire events, clean up
-      const el = elRef.current;
-      const offs = eventTypes.map((type) => {
-        const cb = handlers[toHandlerName(type)];       // "countChanged" → "onCountChanged"
-        if (!cb) return () => {};
-        const l = (e) => cb(e.detail);
-        el.addEventListener(type, l);
-        return () => el.removeEventListener(type, l);
-      });
-      return () => offs.forEach((off) => off());
-    });
-    useImperativeHandle(ref, () => bindCommands(elRef, component.getSchema().commands));
-    return createElement(component.tagName, { ref: elRef, ...attrs });
-  });
+export function Counter() {
+  const { count, add } = useIgnite(core);
+  return <button onClick={() => add({ amount: 2 })}>{count}</button>;
 }
 ```
 
-Target **React 19**; the wrapper pattern works under React 18 too (commands are
-methods, events are `CustomEvent`s — both go through the ref/listener regardless,
-so the 18-vs-19 difference is minor).
+The application owns the core and calls `core.dispose()` after all borrowed
+surfaces end. A hook never disposes the shared core on unmount. An unprepared
+core fails clearly before resource acquisition. No new start/prepare helper is
+required or provided.
 
-## Impact
+## Snapshot and lifetime contract
 
-- **Additive** — new `ignite-element/react` entrypoint (with `react` as a peer of
-  that entrypoint only) + registration return `void` → handle. No change to
-  `igniteCore`'s config or to existing elements.
-- **Event detail shape** — the wrapper forwards `event.detail` directly. On the
-  host `CustomEvent`, `detail` is the bare payload (effects emits) / the whole
-  member (source emits) — **not** the `{ type, payload }` envelope (that exists
-  only inside `execute().events` / `record()`, which the wrapper never uses; see
-  `createComponentFactory.ts:126` and `runtime/agent.ts:180`). Keep one normalize
-  seam so the future flat event-shape change (`docs/event-shape.md`) is a one-line
-  update.
-- **Generalizes** — the same handle + `getSchema()` drives Vue/Svelte/Angular
-  wrappers as follow-up entrypoints.
+The hook uses `useSyncExternalStore` over a package-private shared capability.
+Cached reads are pure and referentially stable; the owner cache stays current
+across gaps with no React subscribers. Render/subscribe races are reconciled
+without preparing from a hook. Strict Mode, multiple consumers and core prop
+replacement release only the appropriate observation.
 
-## Alternatives considered
+Published snapshots detach and freeze nested plain records/arrays without
+freezing caller-owned source values. Project primitives, plain data and functions;
+do not expose mutable class instances or accessors. Ignite does not serialize
+arbitrary objects. Function-valued states remain states by origin, not commands.
 
-- **(A) Hand-rolled per-element wrapper** — rejected as the primary: per-element
-  boilerplate + drift; does not scale to four frameworks. (Still the fallback for
-  consumers who don't want the helper; document it in the guide.)
-- **`@lit/react` `createComponent`** — rejected: it needs the element **class**
-  (`elementClass`), but ignite defines elements through registrars and exports no
-  class. The registrar/handle model is the ignite-native fit.
-- **Pass `tagName` to `igniteReact`** — rejected: redundant once registration
-  returns a tag-aware handle.
-- **Bake the tag into `igniteCore` (1:1 core↔tag)** — rejected: breaks the
-  one-registrar-many-tags capability the examples rely on.
+Commands retain stable references, current source behavior, receiver, arity,
+arguments, exact return/throw values and original promises. Retained commands
+from a replaced core never retarget to its successor; they reject after their
+original owner ends. State/command name collisions are rejected rather than
+silently overwriting one side.
 
-## Open questions / next steps
+## Native host
 
-- The hard part is the **TS inference**: mapping the `Events` map to `on<Event>`
-  callback props, `Commands` to the ref API, and single-arg `setX` to props.
-  Spike the type-level mapping early.
-- Implement step 1 (registration → typed handle) first; everything else builds on
-  it.
-- Build `ignite-element/react` (entrypoint, `package.json` exports, build wiring,
-  tests), then the React demo consuming it; extend
-  `guides/host-app-integration.mdx` (don't duplicate).
-- Sequence in **Phase 1** (`docs/v3-stable-roadmap.md`) so the demo showcases it
-  and the handle change lands before the breaking cutover.
+The same hook can feed React Native `View`, `Text` and `Pressable`, with no
+browser globals, React DOM, Lit, Solid or Vue dependency. Public packed imports
+must share the private binding capability. A fresh no-DOM import, strict
+declaration consumption, real source construction and React Native component
+integration are separate checks.
 
-## Related
+The candidate fixture uses React 19.1.0, React Native 0.81.5, React test renderer
+19.1.0, Jest 29.7.0 and React Native's standard Jest preset. Native-module mocks
+are that test host's supported mocks, not a DOM emulation or Ignite polyfill.
+Device/simulator behavior is not established by this evidence. SSR and hydration
+are later work; no server-snapshot fallback is supplied.
 
-- `docs/v3-api-consistency.md`, `docs/event-shape.md`, `docs/v3-stable-roadmap.md`
-- Memory: `v3-examples-track`, `expose-source-native-api`, `agent-runtime-api-naming`
+## Web custom-element wrapper
+
+Registration returns a typed component handle. Keep that handle in the
+framework-neutral registration module and wrap it in a separate React module:
+
+```tsx
+import { igniteReact, type IgniteReactRef } from 'ignite-element/react/web';
+import { useRef } from 'react';
+import { Counter as CounterElement } from './counter.ignite';
+
+const Counter = igniteReact(CounterElement);
+export function App() {
+  const ref = useRef<IgniteReactRef<typeof CounterElement>>(null);
+  return <>
+    <Counter ref={ref} label="Visitors" onCountChanged={event => console.log(event.count)} />
+    <button onClick={() => ref.current?.increment()}>Increment</button>
+  </>;
+}
+```
+
+The component handle provides `tagName` and discovery-only keyed reads.
+Ordinary command signatures drive the ref's types; single-argument `setX`
+commands retain attribute/prop behavior. Events become `on<Event>` callback
+props receiving the existing flat DOM detail. Other props retain normal
+attribute/property passthrough.
+
+At runtime the wrapper binds commands from the actual element. It does not
+create or target a hidden headless actor to discover methods. Isolated
+machine-backed instances retain their own actors. Unknown command discovery
+remains different from a known empty catalogue. A successfully registered core
+cannot be disposed as an unregistered owner; element reconnect behavior remains
+unchanged.
+
+Plain HTML, Vue and Svelte consumers can continue using native element methods,
+attributes and events. New Vue/Solid headless bindings are not implemented here.
+
+## Effects and presentation
+
+Ignite effects remain synchronous outward-fact callbacks in a queued microtask
+after the corresponding Ignite renderer update. Headless observations can precede
+a framework commit. They are not React `useEffect` equivalents and do not own
+environmental I/O, presentation resources, source commands or shutdown.
+React/native presentation resources follow their framework lifecycle.
+
+For Actor-Web, use the neutral `ignite-element/actor-web` entrypoint for source
+values and no-host factories. Host-dependent construction belongs to
+`ignite-element/actor-web/web`, cannot be prepared headlessly, and retains the
+real optional HTMLElement host type and per-element lifecycle.
+
+See [core API and bindings](core-api-bindings.md), [tools](ignite-tools.md), and
+the [host integration guide](site/src/content/docs/guides/host-app-integration.mdx).

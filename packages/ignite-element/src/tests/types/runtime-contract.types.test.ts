@@ -20,10 +20,10 @@ it("retains command payload, native snapshot, state and discriminated event typi
 			failed: event<{ message: string }>(),
 		}),
 	});
-	expectTypeOf(core.getSnapshot()).toEqualTypeOf<
-		ReturnType<typeof store.getState>
-	>();
-	expectTypeOf(core.getStates()).toEqualTypeOf<{
+	expectTypeOf<
+		Awaited<ReturnType<typeof core.execute>>["snapshot"]
+	>().toEqualTypeOf<ReturnType<typeof store.getState>>();
+	expectTypeOf(core.get("states")).toEqualTypeOf<{
 		count: number;
 		label: string;
 	}>();

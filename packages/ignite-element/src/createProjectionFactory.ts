@@ -1,7 +1,9 @@
 import type { IgniteAdapter, StateScope } from "@ignite-element/core";
-import type { BaseRenderArgs } from "./IgniteElementFactory";
+import type { BaseRenderArgs, PublicFacadeRenderArgs } from "./types/render";
+
+export type { PublicFacadeRenderArgs } from "./types/render";
+
 import type {
-	CommandHelper,
 	EmitFromEvents,
 	EmptyEventMap,
 	EventMap,
@@ -12,12 +14,17 @@ import type {
 	FacadeEffectsObjectCallback,
 	FacadeStatesCallback,
 } from "./RenderArgs";
-import { command as commandHelper } from "./runtime/commands";
+import {
+	assertNoCollisions,
+	createCommandOwner,
+	guardCommand,
+} from "./runtime/bindings";
 import {
 	attachEffects,
 	type FacadeLifecycle,
 	facadeCleanupSymbol,
 } from "./runtime/effects";
+import { createLifetime } from "./runtime/lifetime";
 
 export type StandardCommandActor<State, Event> = {
 	send: (event: Event) => void;
@@ -98,18 +105,6 @@ export type WithFacadeRenderArgs<
 		Events
 	>;
 
-export type PublicFacadeRenderArgs<
-	StatesResult,
-	CommandActor,
-	CommandsResult,
-	Additional extends Record<string, unknown> = Record<never, never>,
-	Events extends EventMap = EmptyEventMap,
-> = Additional &
-	FacadeStateResult<StatesResult> &
-	ExtractCommandResult<CommandsResult> &
-	Phantom<CommandActor> &
-	Phantom<Events>;
-
 export type ProjectionFactory<
 	State,
 	Event,
@@ -122,6 +117,7 @@ export type ProjectionFactory<
 	scope?: StateScope;
 	cleanup?: boolean;
 	eventTypes: readonly (keyof Events & string)[];
+	hasCommands: boolean;
 	resolveInspection: (adapter: IgniteAdapter<State, Event>) => {
 		snapshot: unknown;
 		states: FacadeStateResult<StatesResult>;
@@ -149,8 +145,6 @@ type FacadeStateResult<Result> = [Result] extends [Record<string, unknown>]
 type ExtractCommandResult<Result> = [Result] extends [FacadeCommandResult]
 	? Result
 	: Record<never, never>;
-
-type Phantom<T> = Record<never, T>;
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
@@ -351,6 +345,8 @@ export function createProjectionFactory<
 			...Object.getOwnPropertyDescriptors(extras),
 		});
 
+		const localLifetime = createLifetime();
+		const owner = createCommandOwner(merged);
 		if (commands) {
 			const commandCallback = commands as FacadeCommandsCallback<
 				CommandActor,
@@ -361,7 +357,6 @@ export function createProjectionFactory<
 			const actor = resolveActor(adapter);
 			const commandResult = commandCallback({
 				actor,
-				command: commandHelper as CommandHelper<Snapshot>,
 			});
 			ensureFacadeResult(commandResult, "commands", errorPrefix);
 
@@ -377,7 +372,10 @@ export function createProjectionFactory<
 				Object.defineProperty(commandFacade, key, {
 					configurable: false,
 					enumerable: true,
-					value,
+					value: guardCommand(value as FacadeCommandFunction, () => {
+						localLifetime.assertActive();
+						owner.assertActive();
+					}),
 				});
 			}
 
@@ -386,20 +384,21 @@ export function createProjectionFactory<
 			});
 		}
 
+		assertNoCollisions(resolveStates(adapter), merged);
+		let releaseEffects: (() => void) | undefined;
 		if (effects) {
 			const safeEmit = createEmit(emit);
-			Object.defineProperty(merged, facadeCleanupSymbol, {
-				configurable: true,
-				enumerable: false,
-				value: attachEffects({
-					adapter,
-					effects,
-					resolveSnapshot,
-					host,
-					emit: safeEmit,
-				}),
+			releaseEffects = attachEffects({
+				adapter,
+				effects,
+				resolveSnapshot,
+				host,
+				emit: safeEmit,
 			});
 		}
+		Object.defineProperty(merged, facadeCleanupSymbol, {
+			value: () => localLifetime.dispose(releaseEffects),
+		});
 
 		return merged;
 	};
@@ -409,14 +408,15 @@ export function createProjectionFactory<
 		scope: scope ?? createAdapter.scope,
 		cleanup,
 		eventTypes: Object.keys(eventDefinitions) as Array<keyof Events & string>,
+		hasCommands: commands !== undefined,
 		resolveInspection,
 		resolveStates,
 		resolveDeliveredStates,
 		createAdditionalArgs: createMergedArgs,
-		createRenderArgs: (snapshot, _send, additionalArgs) =>
-			({
-				...resolveDeliveredStates(snapshot),
-				...additionalArgs,
-			}) as unknown as FinalRenderArgs,
+		createRenderArgs: (snapshot, _send, additionalArgs) => {
+			const states = resolveDeliveredStates(snapshot);
+			assertNoCollisions(states, additionalArgs);
+			return { ...states, ...additionalArgs } as unknown as FinalRenderArgs;
+		},
 	};
 }

@@ -167,7 +167,7 @@ Because the outward contract is DOM-native, the same component can be consumed f
 Commands describe what should happen.
 
 ```ts
-commands: ({ actor, command }) => ({
+commands: ({ actor }) => ({
   toggle: () => actor.send({ type: "TOGGLE" })
 })
 ```
@@ -253,34 +253,30 @@ Events are:
 
 ## Agent runtime
 
-Every `igniteCore(...)` registration exposes a headless runtime API in addition to the DOM component.
+Source-backed `igniteCore(...)` construction exposes a headless runtime alongside its registration surface. Root source-free construction remains registrar-only.
 
 ```ts
 async function inspectToggle() {
   const eventSubscription = toggle.on("toggled", (event) => {
     console.log(event.isOn);
   });
-  const snapshotSubscription = toggle.watchSnapshot((state, prevState) => {
-    console.log(prevState.value, "->", state.value);
-  });
-  const statesSubscription = toggle.watchStates((states, prevStates) => {
+  const statesSubscription = toggle.watch((states, prevStates) => {
     console.log(prevStates.isOn, "->", states.isOn);
   });
 
   try {
     const result = await toggle.execute({ command: "toggle" });
-    toggle.getSnapshot();
-    toggle.getStates();
-    toggle.getSchema();
+    console.log(result.snapshot); // paired native snapshot from this execution
+    toggle.get('states');
+    toggle.get('schema');
   } finally {
     eventSubscription.unsubscribe();
-    snapshotSubscription.unsubscribe();
     statesSubscription.unsubscribe();
   }
 }
 ```
 
-Use `on(...)` for outward event signals, `watchSnapshot(...)` for raw state changes, and `watchStates(...)` for projected states changes.
+Use `on(...)` for outward occurrences and `watch(...)` for derived-state next/previous updates without initial delivery. Native source reads remain on the caller-owned source. An unregistered owner ends its observation lifetime with `dispose()`; a successfully registered core rejects disposal before teardown. Borrowed sources are never stopped. Only an Ignite-created private XState actor is natively stopped by owner disposal.
 
 Ordinary tests assert command results and source outcomes directly. The former testing/story recorder is retired in the development candidate; no portable trace or complete lifecycle history replaces it.
 
@@ -294,20 +290,18 @@ Ordinary tests assert command results and source outcomes directly. The former t
 }
 ```
 
-`getSchema()` returns a JSON-serializable description of the component contract:
+`get('schema')` returns pure immutable discovery data after real command binding:
 
 ```ts
 {
-  commands: {
-    toggle: {}
-  },
-  events: [{ type: "toggled" }],
-  snapshot: { value: "off", context: {} },
-  states: { isOn: false }
+  schemaVersion: 1,
+  commands: { toggle: { input: null } },
+  events: [{ type: "toggled", payload: null }],
+  states: { schema: null }
 }
 ```
 
-This makes the same component usable in the browser, in tests, and in automation workflows.
+Before a configured commands callback is bound, its catalogue is `null`; without a callback it is `{}`. Null schemas are unknown, not inferred validation. Tools must supply explicit application-owned input definitions and availability predicates. See [core API and bindings](./docs/core-api-bindings.md).
 
 ## Testing
 

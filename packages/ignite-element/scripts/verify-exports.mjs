@@ -19,10 +19,12 @@ const expectedPublicSubpaths = [
 	"./redux",
 	"./mobx",
 	"./actor-web",
+	"./actor-web/web",
 	"./jsx",
 	"./jsx/jsx-runtime",
 	"./jsx/jsx-dev-runtime",
 	"./react",
+	"./react/web",
 	"./tools",
 	"./tools/anthropic",
 	"./tools/openai",
@@ -34,10 +36,12 @@ const expectedTypesVersions = [
 	"redux",
 	"mobx",
 	"actor-web",
+	"actor-web/web",
 	"jsx",
 	"jsx/jsx-runtime",
 	"jsx/jsx-dev-runtime",
 	"react",
+	"react/web",
 	"tools",
 	"tools/anthropic",
 	"tools/openai",
@@ -52,6 +56,7 @@ const removedStableSubpaths = [
 ];
 
 const requiredExports = [
+	["./actor-web/web", { igniteCore: "function" }],
 	[
 		".",
 		{
@@ -109,7 +114,8 @@ const requiredExports = [
 		{ Fragment: "symbol", jsx: "function", jsxs: "function" },
 	],
 	["./jsx/jsx-dev-runtime", { Fragment: "symbol", jsxDEV: "function" }],
-	["./react", { igniteReact: "function" }],
+	["./react", { useIgnite: "function" }],
+	["./react/web", { igniteReact: "function" }],
 	[
 		"./tools",
 		{

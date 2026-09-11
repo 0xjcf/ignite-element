@@ -23,8 +23,14 @@ const prompt = {
 
 const createRequest = (): ModelRequest => ({
 	prompt,
-	tools: modelTools(igniteTools(component).manifest),
-	view: component.getStates().modelContext,
+	tools: modelTools(
+		igniteTools(component, undefined, {
+			schema: voiceWorkbenchModelSchema,
+			canExecute: (name) =>
+				Reflect.get(component.get("states").commandAvailability, name) === true,
+		}).manifest,
+	),
+	view: component.get("states").modelContext,
 	history: [],
 	capabilities: { internetAccess: "unavailable" },
 	domainPolicyInstructions: "",
@@ -575,3 +581,5 @@ describe("consumer-configured MLX workbench model", () => {
 		}
 	});
 });
+
+import { voiceWorkbenchModelSchema } from "./workbench-component";

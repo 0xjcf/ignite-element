@@ -535,12 +535,14 @@ describe("voice workbench XState graph characterization", () => {
 
 		await vi.waitFor(
 			() => {
-				const snapshot = fixture.component.getSnapshot();
+				const snapshot = fixture.actor.getSnapshot();
 				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "ready",
 				});
-				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.submitPrompt,
+				).toBe(true);
 			},
 			{ timeout: 1000 },
 		);
@@ -554,14 +556,16 @@ describe("voice workbench XState graph characterization", () => {
 		// turn is responding before timeout
 		await vi.waitFor(
 			() => {
-				const snapshot = fixture.component.getSnapshot();
+				const snapshot = fixture.actor.getSnapshot();
 				expect(snapshot.matches({ available: { turn: "responding" } })).toBe(
 					true,
 				);
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "responding",
 				});
-				expect(fixture.component.canExecute("createArtifact")).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.createArtifact,
+				).toBe(true);
 			},
 			{ timeout: 1000 },
 		);
@@ -570,25 +574,27 @@ describe("voice workbench XState graph characterization", () => {
 		// timeout returns the selected path to ready
 		await vi.waitFor(
 			() => {
-				const snapshot = fixture.component.getSnapshot();
+				const snapshot = fixture.actor.getSnapshot();
 				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "ready",
 					lifecycle: {
 						lastTurnTerminal: { type: "TIMEOUT" },
 					},
 				});
-				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.submitPrompt,
+				).toBe(true);
 			},
 			{ timeout: 1000 },
 		);
 
-		expect(fixture.component.getSnapshot()).toMatchObject({
+		expect(fixture.actor.getSnapshot()).toMatchObject({
 			value: {
 				available: { turn: "idle", voice: "active", speech: "idle" },
 			},
 		});
-		expect(fixture.component.getStates()).toMatchObject({
+		expect(fixture.component.get("states")).toMatchObject({
 			status: "ready",
 			lifecycle: {
 				lastTurnTerminal: { type: "TIMEOUT" },

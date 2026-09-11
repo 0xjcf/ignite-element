@@ -5,13 +5,6 @@ import type {
 } from "@ignite-element/adapters";
 import type { XStateCommandActor } from "@ignite-element/adapters/xstate";
 import type {
-	CommandCanExecuteContext,
-	CommandCanExecutePredicate,
-	CommandHelper,
-	CommandMetadata,
-	CommandMetadataPrimitive,
-	CommandMetadataValue,
-	CommandWithMetadata,
 	CommandContext as CoreCommandContext,
 	EffectContext as CoreEffectContext,
 	EffectSelection as CoreEffectSelection,
@@ -29,8 +22,6 @@ import type {
 	FacadeCommandResult,
 	FacadeEffectsObjectCallback,
 	FacadeStatesCallback,
-	NumberCommandInputMetadata,
-	NumberCommandInputOptions,
 } from "@ignite-element/core";
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type { AnyStateMachine, StateFrom } from "xstate";
@@ -48,15 +39,6 @@ export type {
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeStatesCallback,
-	CommandHelper,
-	CommandCanExecuteContext,
-	CommandCanExecutePredicate,
-	CommandMetadata,
-	CommandMetadataPrimitive,
-	CommandMetadataValue,
-	CommandWithMetadata,
-	NumberCommandInputMetadata,
-	NumberCommandInputOptions,
 };
 export type {
 	ReduxSliceCommandActor,
@@ -65,14 +47,14 @@ export type {
 
 export type CommandContext<
 	Actor,
-	Host = HTMLElement,
+	Host = unknown,
 	Snapshot = unknown,
 > = CoreCommandContext<Actor, Host, Snapshot>;
 
 export type EffectContext<
 	Actor,
 	Events extends EventMap = EmptyEventMap,
-	Host = HTMLElement,
+	Host = unknown,
 	Snapshot = unknown,
 > = CoreEffectContext<Actor, Events, Host, Snapshot>;
 
@@ -82,14 +64,14 @@ export type FacadeEffectArgs<
 	Snapshot,
 	Actor,
 	Events extends EventMap = EmptyEventMap,
-	Host = HTMLElement,
+	Host = unknown,
 > = CoreFacadeEffectArgs<Snapshot, Actor, Events, Host>;
 export type { IgniteSchemaValue } from "./types/schema";
 
 export type FacadeCommandsCallback<
 	Actor,
 	Result extends FacadeCommandResult = FacadeCommandResult,
-	Host = HTMLElement,
+	Host = unknown,
 	Snapshot = unknown,
 > = (context: CommandContext<Actor, Host, Snapshot>) => Result;
 

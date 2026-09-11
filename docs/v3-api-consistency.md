@@ -4,8 +4,10 @@
 
 ## Status
 
-Active tracking doc (pre-stable v3). Indexes the sub-decisions for a coherent
-vocabulary + shape pass across the public surface.
+Historical pre-stable vocabulary index. The approved core API/bindings candidate
+supersedes the getter/watch/helper and automatic-tool-schema vocabulary below;
+see [the current migration](./core-api-bindings.md). Source-native snapshots remain
+valid. These task references are not current lifecycle or release authority.
 
 ## Why
 

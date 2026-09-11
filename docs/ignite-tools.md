@@ -1,216 +1,138 @@
-# Design: `igniteTools(runtime)` — hexagonal getSchema → LLM tool-use bridge
+# Tools: explicit schemas over a headless core
 
-## Status
+The v3 development candidate retains the SDK-neutral tools core and provider
+dialects while removing helper-dependent automatic core schemas. A tool
+definition is application-owned; ordinary core commands require no metadata.
 
-Implementing. **PR1 shipped** the SDK-neutral core + `ToolDialect` port + the
-`ignite-element/tools` entrypoint (beta.8). **PR2 shipped** the first provider
-dialect (`ignite-element/tools/anthropic`) and refined the port to its final
-bare-noun shape. **PR3 adds** the OpenAI-compatible
-`ignite-element/tools/openai` dialect, which covers OpenAI, Ollama, and local
-MLX servers exposed through `/v1/chat/completions`. Together, these are the
-agent-runtime counterpart to `ignite-element/react`; the roadmap thread lives in
-`docs/v3-stable-roadmap.md`.
+`get('schema')` is minimal discovery, not an input schema source. Its null input
+schemas mean unknown. Automatic `igniteTools(core)` construction fails clearly
+when required schemas are missing, before executing a source command. Keep
+existing descriptions, constraints and availability rules at the application
+boundary instead of inventing empty-object inputs or exposing all actions.
 
-## Context
+## Explicit authoring and the functional core
 
-`getSchema()` already describes a component as a machine-readable contract — `commands`
-(name + input schema + `gated`), `events`, `snapshot`, `states`. With headless
-`execute({ command, input })`, that's everything an LLM agent needs to *drive* a component.
-`igniteTools` is the bridge from that contract to LLM tool-use.
+```ts
+import { buildManifest, resolveCall, igniteTools } from 'ignite-element/tools';
+import { openai } from 'ignite-element/tools/openai';
 
-The key design decision: **this is ignite's own "no lock-in" philosophy applied one
-layer up.** Just as ignite adapts xstate/redux/mobx/actor-web behind one core,
-`igniteTools` adapts **Anthropic / OpenAI(Codex) / Ollama / local MLX-compatible
-servers** behind one **port**. Baking
-in a single provider SDK would betray the principle the library is built on. And a local
-provider (**Ollama** or **MLX**, via an OpenAI-compatible endpoint) is what unlocks
-the headless / embedded / edge showcase — an on-device model driving a component
-with no cloud and no web UI.
-
-## Decision — ports & adapters (hexagonal)
-
-```
-   driving actors                 igniteTools                          driven actor
-   (LLM providers)         ┌──────────────────────────────┐
-        │                  │   FUNCTIONAL CORE (pure)      │
-  [Anthropic] ─┐  adapter  │   buildManifest(schema)       │        ignite component
-  [OpenAI/Codex]┼─(format  │     → NeutralManifest         │ ──────►  execute({ command, input })
-  [Ollama]  ─┘   xlate)    │   resolveCall(name,input)     │          getStates()/events ◄──
-        ▲                  │     → Result<Route, ToolError>│              (actor)
-        │                  │                               │               │
-   ToolDialect PORT ◄──────┤   ── PORT: ToolDialect ──     │          ┌─ remote actors
-   tools(manifest)         │   toolCalls(resp, manifest)   │          │  (location-transparent
-   toolResult(result)      │   toolResult(neutralResult)   │          └─  via actor-web)
-                           │   IMPERATIVE SHELL            │
-                           │   run() → execute() I/O       │
-                           └──────────────────────────────┘
+const toolSchema = {
+  commands: {
+    setLimit: {
+      description: 'Set the counter limit.',
+      input: { type: 'number', minimum: 3, maximum: 12 },
+      gated: true,
+    },
+  },
+};
+const canExecute = (name: string) =>
+  name === 'setLimit' && core.get('states').canSetLimit;
+const manifest = buildManifest(toolSchema, canExecute);
+const valid = resolveCall(manifest, 'setLimit', 6, canExecute);
+const invalid = resolveCall(manifest, 'setLimit', 99, canExecute);
+const tools = igniteTools(core, openai, { schema: toolSchema, canExecute });
 ```
 
-### Functional core (pure, deterministic — no I/O, no SDK)
+`buildManifest(schema, canExecute?)` reads explicit command definitions, sorts
+names, and omits currently unavailable explicitly gated commands.
+`resolveCall(manifest, name, input, canExecute?)` validates supported input
+constraints and current availability, returning a route or a tagged error.
+Neither is a provider SDK or a source policy engine.
 
-- `buildManifest(schema): NeutralManifest` — `getSchema().commands` → neutral tools
-  `{ name, description, inputSchema, gated }[]`. Availability-gated commands
-  (`gated && !canExecute`) are omitted (see `docs/can-execute.md`).
-- `resolveCall(name, input): Result<Route, ToolError>` — validate (input against the
-  command's `inputSchema`; availability against `canExecute`) and route to
-  `{ command, input }`. Pure; returns a `Result` (errors as values), never throws.
+Input definitions support number/string/boolean/enum/object/array constraints,
+including scalar bounds, string length/pattern, required properties and nested
+items. This is the retained structural validator, not a claim of full JSON Schema
+compliance. An intentionally no-argument tool may have its own explicit empty
+object contract; an unknown function must not be assigned one automatically.
 
-### Port — `ToolDialect`
+Availability predicates remain independent application policy, not a removed
+`core.canExecute` method. Project source-native availability into states, read it
+at routing time and keep source enforcement. Rebuild offered tools when a fresh
+provider list is needed; stale preflight is not authorization.
 
-The provider boundary. A pure format translator between the neutral manifest and a
-provider's tool-calling wire format:
+## Provider port
+
+`ToolDialect<Tools, Response, ResultBlock>` has three pure methods:
 
 ```ts
 interface ToolDialect<Tools, Response, ResultBlock> {
-  // neutral manifest → provider tool defs
   tools(manifest: NeutralManifest): Tools;
-  // provider response → neutral calls (manifest enables scalar unwrap)
   toolCalls(response: Response, manifest: NeutralManifest): NeutralToolCall[];
-  // neutral result → provider tool_result block
   toolResult(result: NeutralToolResult): ResultBlock;
 }
 ```
 
-Method names are **bare ecosystem nouns** (`tools` / `toolCalls` / `toolResult`) —
-the typed direction makes encode/decode verbs redundant, and these are the lingua
-franca across Anthropic, OpenAI, the Vercel AI SDK, and LangChain (zero new
-vocabulary). `toolCalls` also receives the `manifest` so it can undo the scalar
-object-wrap — see **Scalar round-trip** below.
+- `ignite-element/tools/anthropic`: Anthropic Messages tool definitions,
+  `tool_use` parsing and `tool_result` translation.
+- `ignite-element/tools/openai`: OpenAI-compatible Chat Completions definitions,
+  `tool_calls` parsing and role-tool results; usable with compatible OpenAI,
+  Ollama and MLX endpoints.
+- No provider SDK runtime dependency, credential handling or network request is
+  added. The application brings a client and owns its requests.
 
-### Scalar round-trip (Option D)
+The neutral manifest is scalar-honest. At provider boundaries,
+`toProviderInputSchema` wraps scalar inputs under a strict `value` property;
+`fromProviderInput` unwraps only when the manifest is scalar. A legitimate object
+input containing its own `value` field is not unwrapped. Extra keys remain visible
+to validation. The bound `toolCalls(response)` method passes the manifest to its
+dialect internally.
 
-Every tool-calling provider requires **object-shaped** tool inputs and returns
-object args, but the neutral manifest is **scalar-honest**: a single-arg command
-(`setLimit(n: number)`) carries a scalar `inputSchema` (`{ type: "number" }`),
-because that is the command's true contract (`getSchema()` must not lie). So the
-wrap/unwrap lives only at the provider boundary, in shared pure helpers
-(`tools/scalar.ts`):
+## Command acknowledgement and observation
 
-- `toProviderInputSchema(schema)` — wraps a scalar under a clean, strict `value`
-  key (`{ type: "object", properties: { value: schema }, required: ["value"],
-  additionalProperties: false }`); object/no-arg schemas pass through unchanged.
-  Adapters call it in `tools()`.
-- `fromProviderInput(input, schema)` — unwraps the model's exact `{ value: x }`
-  back to `x`, **gated on the manifest schema being scalar** (collision-free: an
-  object command that legitimately has its own `value` field is never unwrapped).
-  Extra keys keep the provider object intact so `resolveCall` reports
-  `InvalidInput`. Adapters call it in `toolCalls()`, which is why the port hands
-  `toolCalls` the manifest.
+`run(call)` routes validated input into `core.execute({ command, input })`.
+It returns a Result containing `{ snapshot, states, events }`, or a ToolError.
+The snapshot and derived states are paired after the callback and queued
+observation window. This is not a promise that asynchronous network, persistence
+or remote business work is complete, nor an independently correlated receipt for
+overlapping calls.
 
-The constraint is universal across providers, so it is fixed once in the port +
-two helpers; the OpenAI/Ollama dialect reuses them verbatim.
-
-### Adapters (implement the port — separate entrypoints, SDK-free translators)
-
-- **`ignite-element/tools/anthropic`** — Anthropic Messages tool format
-  (`tools: [{ name, description, input_schema }]`, `tool_use` blocks, `tool_result`).
-- **`ignite-element/tools/openai`** — OpenAI Chat Completions tool format
-  (`tools: [{ type: "function", function: { name, description, parameters } }]`,
-  `tool_calls`, `role: "tool"` results). **Covers OpenAI, Codex, Ollama, and MLX**
-  when those runtimes expose an OpenAI-compatible endpoint. Dedicated native adapters
-  are optional future work only if a provider's native endpoint has useful tool quirks
-  that the OpenAI-compatible shape cannot express.
-- Adapters are **pure format translators** — they emit/parse the documented JSON shapes
-  and have **no provider-SDK runtime dependency** (optional SDK *types* for ergonomics
-  only). The **consumer** brings the SDK to make the actual API call. This keeps adapters
-  zero-dependency and trivially unit-testable, and keeps bundles clean (you only import
-  the adapter you use), mirroring `ignite-element/react`'s optional-peer discipline.
-
-### Imperative shell
-
-- `run(toolCall): Promise<Result<{ snapshot, states, events }, ToolError>>` — the single
-  side-effect: `runtime.execute({ command, input })` (which may reach a remote actor). The
-  observation carries the raw `snapshot`, the derived **`states`** (the read-model the
-  agent grounds on — `igniteTools` binds `getStates` and captures it post-command), and
-  the `events` from the command window. Returns a `Result` so a failed command is data
-  the agent reacts to, not an exception across the seam. The LLM API call itself stays
-  in the **consumer's** loop — `igniteTools` provides the (provider-shaped) `tools` +
-  `run`; the consumer runs the model.
-
-### Observation contract — act + acknowledgement
-
-`run` (and the underlying `execute`) is **act + ACK observation**: the returned
-`ToolObservation` (`{ snapshot, states, events }`) is the snapshot + derived states
-**at command-acknowledgement** plus the events emitted up to that point — not
-"after the effect settles". The actor model has no
-bounded "done" for a long-running effect (a deploy spans minutes and many states),
-and a settle-wait would misattribute unrelated concurrent read-model updates. So
-for async/remote adapters the observation reflects **state at acknowledgement**.
-Ongoing effects are observed via `observe()`, which streams schema-declared
-events and derived states transitions from the same `igniteTools` surface: the
-agent loop is act → observe → act. A bounded `settle` opt-in on `execute()` is
-deferred (YAGNI until the dogfood shows short-command latency hurts).
-`ToolObservation` carries `{ snapshot, states, events }` — the derived states is
-captured at acknowledgement so the agent grounds on the read-model, not just raw
-state.
-
-### API shape
+`observe(handler)` streams declared outward events and derived-state transitions
+through the core's `on` and `watch` subscriptions. Release its handle. The owner
+disposes an unregistered core after all borrowed surfaces finish; provider loops
+do not silently seize source lifetime.
 
 ```ts
-import { igniteTools } from "ignite-element/tools";
-import { anthropic } from "ignite-element/tools/anthropic";
+import { igniteTools } from 'ignite-element/tools';
+import { anthropic } from 'ignite-element/tools/anthropic';
 
-const { tools, toolCalls, run, observe, toolResult } = igniteTools(
-  runtime,
-  anthropic,
-);
-
-const subscription = observe((observation) => {
-  if (observation.type === "states") {
-    console.log("states changed", observation.states);
-  } else {
-    console.log("event", observation.event);
-  }
+const { tools, toolCalls, run, observe, toolResult } =
+  igniteTools(core, anthropic, { schema: toolSchema, canExecute });
+const subscription = observe(observation => {
+  if (observation.type === 'states') console.log(observation.states);
+  else console.log(observation.event);
 });
-
-// the consumer brings the SDK and runs the model loop:
-const res = await client.messages.create({ model, messages, tools });
-for (const call of toolCalls(res)) {
-  const result = await run(call); // act + ACK observation
-  blocks.push(toolResult({ id: call.id, name: call.name, result }));
+try {
+  const response = await client.messages.create({ model, messages, tools });
+  for (const call of toolCalls(response)) {
+    const result = await run(call);
+    blocks.push(toolResult({ id: call.id, name: call.name, result }));
+  }
+} finally {
+  subscription.unsubscribe();
 }
-
-// the neutral core is usable directly too:
-const {
-  manifest,
-  resolveCall,
-  run: runNeutral,
-  observe: observeNeutral,
-} = igniteTools(runtime); // no dialect → neutral
 ```
 
-`toolCalls(res)` stays single-arg for the consumer — `igniteTools` closes over the
-manifest internally and hands it to the dialect, so scalar unwrapping is invisible
-here.
+Without a dialect, `igniteTools(core, undefined, { schema, canExecute })` exposes
+the neutral `manifest`, `resolveCall`, `run` and `observe` surface.
 
-For OpenAI-compatible model loops, pass `openai` instead of `anthropic`. The
-consumer still brings the SDK or a thin `fetch` wrapper, but `toolCalls(response)`
-expects the parsed Chat Completions JSON object. If you use raw `fetch`, call
-`await response.json()` before handing the value to `toolCalls`:
+## OpenAI-compatible and local-model loops
 
 ```ts
-import { openai } from "ignite-element/tools/openai";
+import { igniteTools } from 'ignite-element/tools';
+import { openai } from 'ignite-element/tools/openai';
 
-const { tools, toolCalls, run, toolResult } = igniteTools(runtime, openai);
-
+const { tools, toolCalls, run, toolResult } =
+  igniteTools(core, openai, { schema: toolSchema, canExecute });
 for (let turn = 0; turn < 8; turn++) {
-  const response = await client.chat.completions.create({
-    model,
-    messages,
-    tools,
-  });
+  const response = await client.chat.completions.create({ model, messages, tools });
   const assistant = response.choices[0]?.message ?? {};
   messages.push({
-    role: "assistant",
-    content: typeof assistant.content === "string" ? assistant.content : null,
+    role: 'assistant',
+    content: typeof assistant.content === 'string' ? assistant.content : null,
     tool_calls: assistant.tool_calls ?? undefined,
   });
-
   const calls = toolCalls(response);
-  if (calls.length === 0) {
-    break;
-  }
-
+  if (calls.length === 0) break;
   for (const call of calls) {
     const result = await run(call);
     messages.push(toolResult({ id: call.id, name: call.name, result }));
@@ -218,141 +140,49 @@ for (let turn = 0; turn < 8; turn++) {
 }
 ```
 
-The OpenAI-compatible dialect is intentionally not MLX-specific. It targets the
-shared `/v1/chat/completions` shape, so hosted OpenAI, Ollama, and local MLX
-servers can reuse the same SDK-free translator while the consumer owns endpoint
-configuration, credentials, and network calls.
+For a raw fetch client, pass the parsed Chat Completions JSON to `toolCalls`,
+not a Response object. Endpoint selection, credentials, cancellation, retry and
+process lifetime belong to the application. Ignite does not start or supervise
+a local model server.
 
-Two agent examples dogfood this boundary with local MLX paths:
+Example-local opt-in commands remain:
 
-- `examples/agents/smart-home` exposes `npm run mlx` for a headless prompt and
-  `npm run demo:mlx` for the same OpenAI-compatible model driving the browser and
-  terminal bridge over one shared headless runtime.
-- `examples/agents/voice-workbench` starts with an empty conversation and lets a
-  typed or browser-transcribed prompt drive a semantic artifact. The model sees
-  only the current artifact commands selected from `getSchema()` through
-  `igniteTools`; the actor validates the proposed document before native JSX,
-  terminal, and speech consumers receive it.
-
-Both paths stay opt-in. CI uses scripted model results and fake `fetch` instead
-of a live model server.
-
-## Local model workflow and ecosystem boundaries
-
-The local-model path is deliberately just the OpenAI-compatible dialect plus a
-consumer-owned client loop. Ignite does not start, supervise, or vendor an MLX
-runtime. A local model server is another OpenAI-compatible provider endpoint:
-
-```bash
+```sh
 python -m pip install mlx-lm
 python -m mlx_lm.server --model <model> --port 8080
 
-MLX_BASE_URL=http://127.0.0.1:8080/v1 \
-MLX_MODEL=<model> \
-npm run mlx -- "turn on the kitchen lights"
+MLX_BASE_URL=http://127.0.0.1:8080/v1 MLX_MODEL=<model> npm run mlx -- "turn on the kitchen lights"
+VITE_MLX_BASE_URL=http://127.0.0.1:8080/v1 VITE_MLX_MODEL=<model> pnpm --dir examples/agents/voice-workbench dev
 ```
 
-The same `ignite-element/tools/openai` adapter also works with hosted OpenAI and
-Ollama-style `/v1/chat/completions` servers. The consumer owns endpoint selection,
-credentials, retry policy, and model process lifecycle; `igniteTools` only owns
-the pure manifest/call/result translation and the call into the supplied headless
-runtime. That keeps the core SDK-free and avoids a new MLX-specific dependency.
+These are application setup examples, not actions performed by package validation.
 
-For the voice workbench, configure the browser consumer rather than Ignite core:
+Smart Home retains XState and `SMART_HOME_RUNTIME=actor-web` paths, Anthropic and
+OpenAI-compatible model loops, and a terminal/browser bridge sharing a headless
+runtime. Its explicit `homeToolSchema` preserves command descriptions and inputs.
 
-```bash
-VITE_MLX_BASE_URL=http://127.0.0.1:8080/v1 \
-VITE_MLX_MODEL=<model> \
-pnpm --dir examples/agents/voice-workbench dev
-```
+Voice Workbench retains its source-owned artifact and stale-result policies,
+projection channels and semantic model-command selection. Its explicit model
+definitions do not turn user intents into fabricated no-input tools. Unknown
+model calls and invalid payloads remain rejected before source execution.
+CI uses scripted model responses and fake fetch, not a live model provider.
 
-The workbench filters the neutral manifest to `createArtifact`,
-`reviseArtifact`, and `completeResponse` for the model turn. The component keeps
-`submitPrompt` and `acknowledgeSpeech` as public actor commands, but they are
-coordinated by the consumer rather than offered to the model. This is a
-capability boundary, not prompt-only advice: unknown model calls are rejected,
-and every selected call still passes through `igniteTools.run()` and actor
-validation.
+Actor-Web owns execution, topology, admission, transport, replay and runtime
+shutdown. Ignite adapts source facts; it does not become an actor gateway or
+distributed supervisor. A local WebSocket demo is not evidence of production
+Actor-Web transport or durable model-process hosting.
 
-For ecosystem work, the boundaries are:
+## Errors and verification
 
-| Layer | Owns | Does not own |
-| --- | --- | --- |
-| `ignite-element` | projection, headless `execute`/`observe`, `getSchema`, `igniteTools`, provider dialect translators, examples | durable model-process lifecycle, distributed actor hosting |
-| `fas-local` | durable local MLX provider lifecycle, operator setup, process reuse, local model health | Ignite projection semantics or component command contracts |
-| `actor-web` | execution/data-plane hosting, topology, actor addresses, future gateway/client transport | Ignite's tool manifest, states projection, or provider dialects |
+`resolveCall` and `run` return tagged errors:
+`UnknownCommand`, `InvalidInput`, `Unavailable`, `ExecuteFailed`.
+Provider translators turn those results into provider result blocks so a model
+can react. Missing required schema is a construction error, not a hidden fallback.
 
-The smart-home example now exercises two runtime factories:
+Retained tests cover nested invalid payloads, scalar wrap/unwrap, availability
+changes, source rejection, provider translation, asynchronous/stale-result
+scenarios and projection safety. No new provider SDK, global schema registry or
+core authoring helper is required.
 
-- default XState runtime: a local deterministic runtime that proves the
-  `getSchema` -> `igniteTools` -> `execute` loop with no DOM dependency.
-- `SMART_HOME_RUNTIME=actor-web`: an example-local actor-web runtime composed
-  through `ignite-element/actor-web`, proving actor-web source projection,
-  command execution, and actor-native emitted events through the same
-  `igniteTools` loop.
-
-The browser demo bridge remains intentionally local. It proves that a terminal
-agent and browser UI can share one Node-owned headless runtime, but it is not the
-final actor-web gateway/client transport. Replacing that thin WebSocket shell
-with actor-web-hosted transport belongs in actor-web/future integration work,
-not in the Ignite tool dialect.
-
-## How the design embodies the principles
-
-| Principle | Where it lives |
-| --- | --- |
-| **Hexagonal (ports/adapters)** | `ToolDialect` port; `anthropic`/`openai` adapters; core never imports a provider |
-| **Functional core / imperative shell** | core = `buildManifest`/`resolveCall` (pure); shell = `run` (`execute` I/O) |
-| **DDD boundaries** | domain = manifest/routing; adapters translate + **return facts (no throw)**; shell coordinates |
-| **Errors as values** | `resolveCall`/`run` → `Result<…, ToolError>`; the LLM gets the error back as a `tool_result` |
-| **Actor model + topology** | agent-actor → `[igniteTools seam]` → component-actor → remote actors; a tool-call *is* a message; location-transparent via actor-web |
-| **Projections** | the agent grounds on the **states** (`getStates()` / `getSchema().states`), the derived read-model — distinct from the raw snapshot |
-| **TDD** | pure core + each dialect = unit-tested with **zero LLM calls** (golden neutral↔provider fixtures); red→green per piece |
-| **Manual validation** | headless loop per provider; **Ollama/MLX give a fully-local, key-free loop** (the edge showcase) |
-
-## `ToolError` (errors as values)
-
-A tagged union returned (never thrown) by `resolveCall`/`run`:
-`UnknownCommand` · `InvalidInput` (fails the command's `inputSchema`) · `Unavailable`
-(`canExecute` false) · `ExecuteFailed` (the command rejected). The consumer maps an `err`
-to the provider's `tool_result` (`is_error: true`) so the model can recover.
-
-## Sequencing — three PRs (each: branch off `beta` → TDD/DDD + manual validation → `coderabbit review` → PR `--base beta` → CI + CodeRabbit → approve+merge on green → `fas done`; changeset per PR)
-
-1. **PR 1 — core + `ToolDialect` port + a fake dialect.** ✓ shipped (beta.8). TDD,
-   no provider SDK. Proves the neutral core (`buildManifest`/`resolveCall`/`run`
-   with `Result`) end-to-end against a fake runtime + fake dialect. Established the
-   `ignite-element/tools` entrypoint + the `ToolDialect` interface.
-2. **PR 2 — `anthropic` adapter** (`ignite-element/tools/anthropic`). Golden
-   neutral↔Anthropic fixtures (TDD); also lands the port's final bare-noun shape +
-   the Option D scalar helpers (`tools/scalar.ts`). Manual validation: a headless
-   Anthropic loop.
-3. **PR 3 — `openai` adapter** (`ignite-element/tools/openai`; covers Codex,
-   Ollama, and MLX via OpenAI-compat). Golden fixtures (TDD); reuses the scalar
-   helpers + the refined port. Manual validation: headless OpenAI plus a local
-   OpenAI-compatible model loop — at minimum MLX for the v3 local-model example —
-   proves the port generalizes cloud→local.
-
-## Dependencies
-
-- **typed-states** ✓ + **`getSchema().states`** ✓ (done) — typed manifest inputs + states grounding.
-- **`canExecute`** (`docs/can-execute.md`) — composes for availability-gated tools
-  by omitting unavailable commands when `igniteTools(runtime)` builds the manifest
-  and by re-checking availability when `run()` routes a call. To publish a fresh
-  provider tool list after state changes, rebuild `igniteTools(runtime)` or
-  re-derive provider tools from a fresh manifest. Older runtimes without the
-  optional method still offer all commands for compatibility.
-
-## Alternatives considered
-
-- **Bake in the Anthropic SDK** — rejected: lock-in; betrays ignite's no-lock-in philosophy.
-- **"Neutral core + one Anthropic helper" (no port)** — rejected: doesn't generalize to
-  Ollama/OpenAI; the port *is* the point.
-- **Adapters that wrap the provider SDK at runtime** — rejected: adapters are pure format
-  translators; the consumer brings the SDK; keeps adapters zero-dep + pure-testable.
-
-## Related
-
-- `docs/can-execute.md`, `docs/ignite-react.md` (the sibling schema-driven wrapper).
-- `docs/v3-api-consistency.md`, `docs/v3-stable-roadmap.md`.
-- Memory: `v3-api-consistency-epic`.
+See [availability](can-execute.md), [core API](core-api-bindings.md),
+[React](ignite-react.md), and [projection runtime](projection-runtime.md).

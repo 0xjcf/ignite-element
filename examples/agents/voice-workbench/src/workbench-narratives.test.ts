@@ -466,7 +466,7 @@ const finishCurrentTurnCompletion = (
 				command: executeCall.request.call.command,
 				status: "accepted",
 				ownerId: "voice-workbench-narratives",
-				view: component.getStates().modelContext,
+				view: component.get("states").modelContext,
 				events: [],
 			},
 		},
@@ -487,13 +487,15 @@ describe("voice workbench failure and recovery", () => {
 
 		await vi.waitFor(
 			() => {
-				const snapshot = fixture.component.getSnapshot();
+				const snapshot = fixture.actor.getSnapshot();
 				expect(snapshot.matches("unavailable")).toBe(true);
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "failed",
 					model: { status: "failed" },
 				});
-				expect(fixture.component.canExecute("submitPrompt")).toBe(false);
+				expect(
+					fixture.component.get("states").commandAvailability.submitPrompt,
+				).toBe(false);
 			},
 			{ timeout: 1000 },
 		);
@@ -504,20 +506,24 @@ describe("voice workbench failure and recovery", () => {
 		// ready after retry
 		await vi.waitFor(
 			() => {
-				const snapshot = fixture.component.getSnapshot();
+				const snapshot = fixture.actor.getSnapshot();
 				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "ready",
 					model: { status: "available" },
 					statusLabel: "Ready",
 				});
-				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
-				expect(fixture.component.canExecute("startVoiceCapture")).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.submitPrompt,
+				).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.startVoiceCapture,
+				).toBe(true);
 			},
 			{ timeout: 1000 },
 		);
 
-		expect(fixture.component.getStates()).toMatchObject({
+		expect(fixture.component.get("states")).toMatchObject({
 			status: "ready",
 			model: { status: "available" },
 		});
@@ -527,17 +533,22 @@ describe("voice workbench failure and recovery", () => {
 
 		await vi.waitFor(
 			() => {
-				const snapshot = fixture.component.getSnapshot();
+				const snapshot = fixture.actor.getSnapshot();
 				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "ready",
 					voiceState: "idle",
 				});
-				expect(fixture.component.canExecute("startVoiceCapture")).toBe(true);
-				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
-				expect(fixture.component.canExecute("submitVoiceTranscript")).toBe(
-					false,
-				);
+				expect(
+					fixture.component.get("states").commandAvailability.startVoiceCapture,
+				).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.submitPrompt,
+				).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability
+						.submitVoiceTranscript,
+				).toBe(false);
 			},
 			{ timeout: 1000 },
 		);
@@ -557,18 +568,23 @@ describe("voice workbench failure and recovery", () => {
 		// voice permission stays a fact
 		await vi.waitFor(
 			() => {
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					voiceState: "permission",
 					voiceFailure: {
 						type: "voice-permission-denied",
 						message: "Microphone access was denied.",
 					},
 				});
-				expect(fixture.component.canExecute("startVoiceCapture")).toBe(true);
-				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
-				expect(fixture.component.canExecute("submitVoiceTranscript")).toBe(
-					false,
-				);
+				expect(
+					fixture.component.get("states").commandAvailability.startVoiceCapture,
+				).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.submitPrompt,
+				).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability
+						.submitVoiceTranscript,
+				).toBe(false);
 			},
 			{ timeout: 1000 },
 		);
@@ -584,11 +600,11 @@ describe("voice workbench failure and recovery", () => {
 		// text recovery starts a new turn
 		await vi.waitFor(
 			() => {
-				const snapshot = fixture.component.getSnapshot();
+				const snapshot = fixture.actor.getSnapshot();
 				expect(snapshot.matches({ available: { turn: "responding" } })).toBe(
 					true,
 				);
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "responding",
 					lastFact: {
 						type: "prompt-submitted",
@@ -596,13 +612,17 @@ describe("voice workbench failure and recovery", () => {
 						text: "Continue with text fallback.",
 					},
 				});
-				expect(fixture.component.canExecute("createArtifact")).toBe(true);
-				expect(fixture.component.canExecute("completeResponse")).toBe(false);
+				expect(
+					fixture.component.get("states").commandAvailability.createArtifact,
+				).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.completeResponse,
+				).toBe(false);
 			},
 			{ timeout: 1000 },
 		);
 
-		expect(fixture.component.getStates()).toMatchObject({
+		expect(fixture.component.get("states")).toMatchObject({
 			status: "responding",
 			voiceState: "permission",
 		});
@@ -612,12 +632,14 @@ describe("voice workbench failure and recovery", () => {
 
 		await vi.waitFor(
 			() => {
-				const snapshot = fixture.component.getSnapshot();
+				const snapshot = fixture.actor.getSnapshot();
 				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "ready",
 				});
-				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.submitPrompt,
+				).toBe(true);
 			},
 			{ timeout: 1000 },
 		);
@@ -630,14 +652,16 @@ describe("voice workbench failure and recovery", () => {
 		// turn is responding
 		await vi.waitFor(
 			() => {
-				const snapshot = fixture.component.getSnapshot();
+				const snapshot = fixture.actor.getSnapshot();
 				expect(snapshot.matches({ available: { turn: "responding" } })).toBe(
 					true,
 				);
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "responding",
 				});
-				expect(fixture.component.canExecute("createArtifact")).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.createArtifact,
+				).toBe(true);
 			},
 			{ timeout: 1000 },
 		);
@@ -652,32 +676,36 @@ describe("voice workbench failure and recovery", () => {
 		// turn cancellation returns idle
 		await vi.waitFor(
 			() => {
-				const snapshot = fixture.component.getSnapshot();
+				const snapshot = fixture.actor.getSnapshot();
 				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "ready",
 					lifecycle: {
 						lastTurnTerminal: { type: "CANCELLED", turnId: request.turnId },
 					},
 				});
-				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.submitPrompt,
+				).toBe(true);
 			},
 			{ timeout: 1000 },
 		);
 
-		expect(fixture.component.getStates()).toMatchObject({ status: "ready" });
+		expect(fixture.component.get("states")).toMatchObject({ status: "ready" });
 	});
 	it("timed out turn retries to an accepted response", async () => {
 		const fixture = createFixture({ modelTurnTimeoutMs: 25 });
 
 		await vi.waitFor(
 			() => {
-				const snapshot = fixture.component.getSnapshot();
+				const snapshot = fixture.actor.getSnapshot();
 				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "ready",
 				});
-				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.submitPrompt,
+				).toBe(true);
 			},
 			{ timeout: 1000 },
 		);
@@ -692,15 +720,17 @@ describe("voice workbench failure and recovery", () => {
 		// timeout returns the turn to idle
 		await vi.waitFor(
 			() => {
-				const snapshot = fixture.component.getSnapshot();
+				const snapshot = fixture.actor.getSnapshot();
 				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "ready",
 					lifecycle: {
 						lastTurnTerminal: { type: "TIMEOUT" },
 					},
 				});
-				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.submitPrompt,
+				).toBe(true);
 			},
 			{ timeout: 1000 },
 		);
@@ -728,14 +758,16 @@ describe("voice workbench failure and recovery", () => {
 		// retry can finish with an accepted artifact
 		await vi.waitFor(
 			() => {
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "responding",
 					activeArtifact: {
 						id: "timeout-recovery",
 						revision: "1",
 					},
 				});
-				expect(fixture.component.canExecute("completeResponse")).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.completeResponse,
+				).toBe(true);
 			},
 			{ timeout: 1000 },
 		);
@@ -758,9 +790,9 @@ describe("voice workbench failure and recovery", () => {
 		// accepted retry returns to ready
 		await vi.waitFor(
 			() => {
-				const snapshot = fixture.component.getSnapshot();
+				const snapshot = fixture.actor.getSnapshot();
 				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "ready",
 					response: { text: "Recovered after timeout." },
 					activeArtifact: {
@@ -768,12 +800,14 @@ describe("voice workbench failure and recovery", () => {
 						revision: "1",
 					},
 				});
-				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.submitPrompt,
+				).toBe(true);
 			},
 			{ timeout: 1000 },
 		);
 
-		expect(fixture.component.getStates()).toMatchObject({
+		expect(fixture.component.get("states")).toMatchObject({
 			status: "ready",
 			response: { text: "Recovered after timeout." },
 		});
@@ -783,12 +817,14 @@ describe("voice workbench failure and recovery", () => {
 
 		await vi.waitFor(
 			() => {
-				const snapshot = fixture.component.getSnapshot();
+				const snapshot = fixture.actor.getSnapshot();
 				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "ready",
 				});
-				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.submitPrompt,
+				).toBe(true);
 			},
 			{ timeout: 1000 },
 		);
@@ -808,9 +844,9 @@ describe("voice workbench failure and recovery", () => {
 		// cancelled first turn returns idle
 		await vi.waitFor(
 			() => {
-				const snapshot = fixture.component.getSnapshot();
+				const snapshot = fixture.actor.getSnapshot();
 				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "ready",
 					lifecycle: {
 						lastTurnTerminal: {
@@ -819,7 +855,9 @@ describe("voice workbench failure and recovery", () => {
 						},
 					},
 				});
-				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.submitPrompt,
+				).toBe(true);
 			},
 			{ timeout: 1000 },
 		);
@@ -832,15 +870,17 @@ describe("voice workbench failure and recovery", () => {
 		// second turn is responding
 		await vi.waitFor(
 			() => {
-				const snapshot = fixture.component.getSnapshot();
+				const snapshot = fixture.actor.getSnapshot();
 				expect(snapshot.matches({ available: { turn: "responding" } })).toBe(
 					true,
 				);
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "responding",
 					lifecycle: { lastTurnTerminal: null },
 				});
-				expect(fixture.component.canExecute("createArtifact")).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.createArtifact,
+				).toBe(true);
 			},
 			{ timeout: 1000 },
 		);
@@ -856,15 +896,17 @@ describe("voice workbench failure and recovery", () => {
 		// stale port result stays inert
 		await vi.waitFor(
 			() => {
-				const snapshot = fixture.component.getSnapshot();
+				const snapshot = fixture.actor.getSnapshot();
 				expect(snapshot.matches({ available: { turn: "responding" } })).toBe(
 					true,
 				);
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "responding",
 					lifecycle: { lastTurnTerminal: null },
 				});
-				expect(fixture.component.canExecute("createArtifact")).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.createArtifact,
+				).toBe(true);
 			},
 			{ timeout: 1000 },
 		);
@@ -879,9 +921,9 @@ describe("voice workbench failure and recovery", () => {
 		// live correlation still controls exit
 		await vi.waitFor(
 			() => {
-				const snapshot = fixture.component.getSnapshot();
+				const snapshot = fixture.actor.getSnapshot();
 				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "ready",
 					lifecycle: {
 						lastTurnTerminal: {
@@ -894,19 +936,21 @@ describe("voice workbench failure and recovery", () => {
 			{ timeout: 1000 },
 		);
 
-		expect(fixture.component.getStates()).toMatchObject({ status: "ready" });
+		expect(fixture.component.get("states")).toMatchObject({ status: "ready" });
 	});
 	it("artifact revision conflicts recover with the current revision", async () => {
 		const fixture = createFixture();
 
 		await vi.waitFor(
 			() => {
-				const snapshot = fixture.component.getSnapshot();
+				const snapshot = fixture.actor.getSnapshot();
 				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "ready",
 				});
-				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.submitPrompt,
+				).toBe(true);
 			},
 			{ timeout: 1000 },
 		);
@@ -933,14 +977,18 @@ describe("voice workbench failure and recovery", () => {
 		// first revision is available for follow-up work
 		await vi.waitFor(
 			() => {
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					activeArtifact: {
 						id: "launch-plan",
 						revision: "1",
 					},
 				});
-				expect(fixture.component.canExecute("reviseArtifact")).toBe(true);
-				expect(fixture.component.canExecute("completeResponse")).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.reviseArtifact,
+				).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.completeResponse,
+				).toBe(true);
 			},
 			{ timeout: 1000 },
 		);
@@ -963,14 +1011,18 @@ describe("voice workbench failure and recovery", () => {
 		// stale revision preserves the accepted artifact
 		await vi.waitFor(
 			() => {
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					activeArtifact: {
 						id: "launch-plan",
 						revision: "1",
 					},
 				});
-				expect(fixture.component.canExecute("reviseArtifact")).toBe(true);
-				expect(fixture.component.canExecute("completeResponse")).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.reviseArtifact,
+				).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.completeResponse,
+				).toBe(true);
 			},
 			{ timeout: 1000 },
 		);
@@ -999,19 +1051,23 @@ describe("voice workbench failure and recovery", () => {
 		// current revision recovers the conflict
 		await vi.waitFor(
 			() => {
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					activeArtifact: {
 						id: "launch-plan",
 						revision: "2",
 					},
 				});
-				expect(fixture.component.canExecute("reviseArtifact")).toBe(true);
-				expect(fixture.component.canExecute("completeResponse")).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.reviseArtifact,
+				).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.completeResponse,
+				).toBe(true);
 			},
 			{ timeout: 1000 },
 		);
 
-		expect(fixture.component.getStates()).toMatchObject({
+		expect(fixture.component.get("states")).toMatchObject({
 			activeArtifact: { id: "launch-plan", revision: "2" },
 		});
 	});
@@ -1020,12 +1076,14 @@ describe("voice workbench failure and recovery", () => {
 
 		await vi.waitFor(
 			() => {
-				const snapshot = fixture.component.getSnapshot();
+				const snapshot = fixture.actor.getSnapshot();
 				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "ready",
 				});
-				expect(fixture.component.canExecute("submitPrompt")).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.submitPrompt,
+				).toBe(true);
 			},
 			{ timeout: 1000 },
 		);
@@ -1074,18 +1132,20 @@ describe("voice workbench failure and recovery", () => {
 		// pending speech stays acknowledged-later
 		await vi.waitFor(
 			() => {
-				const snapshot = fixture.component.getSnapshot();
+				const snapshot = fixture.actor.getSnapshot();
 				expect(snapshot.matches({ available: { speech: "delivering" } })).toBe(
 					true,
 				);
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					status: "ready",
 					speech: {
 						status: "pending",
 						text: "Speech fallback stays semantic.",
 					},
 				});
-				expect(fixture.component.canExecute("acknowledgeSpeech")).toBe(true);
+				expect(
+					fixture.component.get("states").commandAvailability.acknowledgeSpeech,
+				).toBe(true);
 			},
 			{ timeout: 1000 },
 		);
@@ -1099,7 +1159,7 @@ describe("voice workbench failure and recovery", () => {
 		// speech unavailable settles through the actor
 		await vi.waitFor(
 			() => {
-				expect(fixture.component.getStates()).toMatchObject({
+				expect(fixture.component.get("states")).toMatchObject({
 					speech: {
 						status: "acknowledged",
 						text: "Speech fallback stays semantic.",
@@ -1112,12 +1172,14 @@ describe("voice workbench failure and recovery", () => {
 						},
 					},
 				});
-				expect(fixture.component.canExecute("acknowledgeSpeech")).toBe(false);
+				expect(
+					fixture.component.get("states").commandAvailability.acknowledgeSpeech,
+				).toBe(false);
 			},
 			{ timeout: 1000 },
 		);
 
-		expect(fixture.component.getStates()).toMatchObject({
+		expect(fixture.component.get("states")).toMatchObject({
 			speech: {
 				status: "acknowledged",
 				text: "Speech fallback stays semantic.",

@@ -32,10 +32,21 @@ describe("igniteTools types", () => {
 		}),
 	});
 
-	type ComponentSnapshot = ReturnType<typeof component.getSnapshot>;
+	type ComponentSnapshot = Awaited<
+		ReturnType<typeof component.execute>
+	>["snapshot"];
+	const options = {
+		schema: {
+			commands: { toggle: { input: { type: "object", properties: {} } } },
+		},
+	};
 
 	it("exposes a NeutralManifest and an errors-as-values run", () => {
-		const { manifest, resolveCall, run } = igniteTools(component);
+		const { manifest, resolveCall, run } = igniteTools(
+			component,
+			undefined,
+			options,
+		);
 
 		expectTypeOf(manifest).toEqualTypeOf<NeutralManifest>();
 		expectTypeOf(resolveCall).toBeFunction();
@@ -43,7 +54,7 @@ describe("igniteTools types", () => {
 	});
 
 	it("types the run observation from the component's snapshot + events", () => {
-		const { run } = igniteTools(component);
+		const { run } = igniteTools(component, undefined, options);
 
 		// Wrapped uncalled: the body is typechecked but never executed (these
 		// `.types.test.ts` files also run under vitest). The success branch carries
@@ -67,7 +78,7 @@ describe("igniteTools types", () => {
 	});
 
 	it("types observe() from the component's states + events", () => {
-		const { observe } = igniteTools(component);
+		const { observe } = igniteTools(component, undefined, options);
 
 		observe((observation) => {
 			expectTypeOf(observation).toEqualTypeOf<
@@ -100,7 +111,7 @@ describe("igniteTools types", () => {
 			toolResult: (result) => ({ id: result.id }),
 		};
 
-		const tools = igniteTools(component, dialect);
+		const tools = igniteTools(component, dialect, options);
 
 		expectTypeOf(tools.tools).toEqualTypeOf<Defs>();
 		expectTypeOf(tools.toolCalls).parameter(0).toEqualTypeOf<Resp>();

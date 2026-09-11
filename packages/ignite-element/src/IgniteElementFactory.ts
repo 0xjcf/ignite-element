@@ -1,4 +1,4 @@
-import type { CommandMetadata, IgniteAdapter } from "@ignite-element/core";
+import type { IgniteAdapter } from "@ignite-element/core";
 import { StateScope } from "@ignite-element/core";
 import type { RenderStrategyFactory } from "@ignite-element/renderer";
 import type IgniteElement from "./IgniteElement";
@@ -20,21 +20,28 @@ import {
 } from "./internal/projectionDocument";
 import { resolveConfiguredRenderStrategy } from "./renderers/resolveConfiguredRenderStrategy";
 import { createAgentRuntime } from "./runtime/agent";
-import { commandMetadataSymbol } from "./runtime/commands";
+import {
+	registerBindingStore,
+	registerElementCommands,
+	setCommandOwner,
+} from "./runtime/bindings";
 import { facadeCleanupSymbol } from "./runtime/effects";
+import { createLifetime, releaseAll } from "./runtime/lifetime";
 import { resolveProjectionTarget } from "./runtime/projectionTargets";
-import { toInspectableSchemaValue, toSchemaValue } from "./runtime/schema";
+import { toInspectableSchemaValue } from "./runtime/schema";
 import type {
 	IgniteAgentSubscription,
 	IgniteProjectionSession,
 	IgniteProjectionTarget,
 } from "./types/agent";
+import type {
+	BaseRenderArgs,
+	ComponentRenderer,
+	RendererObject,
+} from "./types/render";
 import type { IgniteSchemaValue } from "./types/schema";
 
-export type BaseRenderArgs<State, Event> = {
-	state: State;
-	send: (event: Event) => void;
-};
+export type { BaseRenderArgs, ComponentRenderer } from "./types/render";
 
 export type IgniteRenderArgs<State, Event> = BaseRenderArgs<State, Event>;
 
@@ -43,15 +50,6 @@ type AdditionalRenderArgs<
 	Event,
 	RenderArgs extends BaseRenderArgs<State, Event>,
 > = Omit<RenderArgs, keyof BaseRenderArgs<State, Event>>;
-
-type RendererObject<RenderArgs, View> = {
-	render: (args: RenderArgs) => View;
-};
-
-export type ComponentRenderer<RenderArgs, View = unknown> =
-	| ((args: RenderArgs) => View)
-	| RendererObject<RenderArgs, View>
-	| (new () => RendererObject<RenderArgs, View>);
 
 export type ComponentFactory<
 	State,
@@ -96,6 +94,7 @@ type FactoryOptions<
 > = {
 	scope?: StateScope;
 	eventTypes?: readonly string[];
+	hasCommands?: boolean;
 	createAdditionalArgs?: (
 		adapter: IgniteAdapter<State, Event>,
 		host?: EventTarget,
@@ -115,60 +114,6 @@ type FactoryOptions<
 	cleanup?: boolean;
 };
 
-function getCommandMetadata(
-	commandValue: unknown,
-): CommandMetadata | undefined {
-	if (typeof commandValue !== "function") {
-		return undefined;
-	}
-
-	const metadata = Reflect.get(commandValue, commandMetadataSymbol);
-	if (
-		typeof metadata === "undefined" ||
-		metadata === null ||
-		Array.isArray(metadata) ||
-		typeof metadata !== "object"
-	) {
-		return undefined;
-	}
-
-	return metadata;
-}
-
-function hasCanExecute(
-	metadata: CommandMetadata | undefined,
-): metadata is CommandMetadata & {
-	canExecute: NonNullable<CommandMetadata["canExecute"]>;
-} {
-	return typeof metadata?.canExecute === "function";
-}
-
-function getCommandContract(
-	commandValue: unknown,
-): Record<string, IgniteSchemaValue> | undefined {
-	const metadata = getCommandMetadata(commandValue);
-	if (!metadata) {
-		return undefined;
-	}
-
-	const contract = toSchemaValue(metadata);
-	const commandContract =
-		contract !== null &&
-		typeof contract === "object" &&
-		!Array.isArray(contract)
-			? contract
-			: undefined;
-
-	if (hasCanExecute(metadata)) {
-		return {
-			...(commandContract ?? {}),
-			gated: true,
-		};
-	}
-
-	return commandContract;
-}
-
 function getAdditionalArg(
 	additionalArgs: object,
 	commandName: string,
@@ -180,7 +125,8 @@ function createCommandSchemaEntry(
 	name: string,
 	commandValue: unknown,
 ): [string, Record<string, IgniteSchemaValue>] {
-	return [name, getCommandContract(commandValue) ?? {}];
+	void commandValue;
+	return [name, { input: null }];
 }
 
 function getOwnCommandEntries(value: object): Array<[string, unknown]> {
@@ -207,6 +153,7 @@ function exposeCommands(
 	element: HTMLElement,
 	additionalArgs: Record<string, unknown>,
 ): void {
+	registerElementCommands(element, additionalArgs);
 	for (const key of Object.keys(additionalArgs)) {
 		const descriptor = Object.getOwnPropertyDescriptor(additionalArgs, key);
 		if (
@@ -282,6 +229,10 @@ export default function igniteElementFactory<
 	options?: FactoryOptions<State, Event, RenderArgs, RuntimeView, View>,
 ): ComponentFactory<State, Event, RenderArgs, View> {
 	type RuntimeAdditionalArgs = AdditionalRenderArgs<State, Event, RenderArgs>;
+	const lifetime = createLifetime();
+	let registered = false;
+	let registrationInProgress = false;
+	let acquiring = false;
 
 	let sharedAdapter: IgniteAdapter<State, Event> | null = null;
 	let sharedAdditionalArgs = new WeakMap<
@@ -299,9 +250,13 @@ export default function igniteElementFactory<
 	const createAdditionalArgs: (
 		adapter: IgniteAdapter<State, Event>,
 		host?: EventTarget,
-	) => AdditionalRenderArgs<State, Event, RenderArgs> =
-		options?.createAdditionalArgs ??
-		((_) => ({}) as AdditionalRenderArgs<State, Event, RenderArgs>);
+	) => AdditionalRenderArgs<State, Event, RenderArgs> = (adapter, host) => {
+		const args =
+			options?.createAdditionalArgs?.(adapter, host) ??
+			({} as AdditionalRenderArgs<State, Event, RenderArgs>);
+		publishCatalogue(args);
+		return args;
+	};
 
 	const inferredScope =
 		options?.scope ??
@@ -389,17 +344,22 @@ export default function igniteElementFactory<
 		const adapterToStop = sharedAdapter;
 		const runtimeArgsToCleanup = runtimeAdditionalArgs;
 		let releaseError: unknown;
+		let failed = false;
 		try {
 			if (runtimeArgsToCleanup) {
 				cleanupAdditionalArgs(runtimeArgsToCleanup);
 			}
 		} catch (error) {
+			failed = true;
 			releaseError = error;
 		}
 		try {
 			adapterToStop.stop();
 		} catch (error) {
-			releaseError ??= error;
+			if (!failed) {
+				failed = true;
+				releaseError = error;
+			}
 		} finally {
 			sharedAdapter = null;
 			sharedAdditionalArgs = new WeakMap();
@@ -410,7 +370,7 @@ export default function igniteElementFactory<
 			runtimeAdditionalArgs = null;
 			runtimeHost = null;
 		}
-		if (releaseError !== undefined) {
+		if (failed) {
 			throw releaseError;
 		}
 	};
@@ -433,19 +393,82 @@ export default function igniteElementFactory<
 		return runtimeAdapter;
 	};
 
+	const clearRuntime = () => {
+		const adapter = runtimeAdapter ?? sharedAdapter;
+		runtimeAdapter = null;
+		sharedAdapter = null;
+		runtimeAdditionalArgs = null;
+		runtimeHost = null;
+		adapter?.stop();
+	};
+	const dispose = () => {
+		if (registered || registrationInProgress)
+			throw new Error(
+				"[igniteCore] Cannot dispose a registered core or during registration.",
+			);
+		lifetime.dispose(clearRuntime);
+	};
 	const resolveRuntimeResources = () => {
-		const adapter = resolveRuntimeAdapter();
-
-		if (!runtimeHost || !runtimeAdditionalArgs) {
-			runtimeHost = createRuntimeHost();
-			runtimeAdditionalArgs = createAdditionalArgs(adapter, runtimeHost);
+		lifetime.assertActive();
+		if (acquiring)
+			throw new Error("[igniteCore] Reentrant runtime acquisition.");
+		acquiring = true;
+		const existingAdapter = runtimeAdapter ?? sharedAdapter;
+		let rollback = () => {};
+		try {
+			const adapter = resolveRuntimeAdapter();
+			lifetime.assertActive();
+			if (!runtimeHost || !runtimeAdditionalArgs) {
+				runtimeHost = createRuntimeHost();
+				const args = createAdditionalArgs(adapter, runtimeHost);
+				setCommandOwner(args, lifetime.assertActive);
+				const releaseArgs = lifetime.own(() => cleanupAdditionalArgs(args));
+				let rolledBack = false;
+				rollback = () => {
+					if (rolledBack) return;
+					rolledBack = true;
+					releaseAll([
+						releaseArgs,
+						() => {
+							if (runtimeAdditionalArgs === args) {
+								runtimeAdditionalArgs = null;
+								runtimeHost = null;
+							}
+							// An already-acquired shared DOM adapter is not owned by this
+							// failed headless preparation. Preserve its element consumers.
+							if (!existingAdapter) clearRuntime();
+						},
+					]);
+				};
+				lifetime.assertActive();
+				runtimeAdditionalArgs = args;
+				publishCatalogue(args);
+			}
+			return {
+				adapter,
+				additionalArgs: runtimeAdditionalArgs,
+				host: runtimeHost,
+				rollback,
+			};
+		} catch (error) {
+			try {
+				releaseAll([
+					rollback,
+					() => {
+						if (!existingAdapter && (runtimeAdapter || sharedAdapter))
+							clearRuntime();
+					},
+				]);
+			} catch (cleanupError) {
+				console.error(
+					"[igniteCore] Acquisition rollback failed.",
+					cleanupError,
+				);
+			}
+			throw error;
+		} finally {
+			acquiring = false;
 		}
-
-		return {
-			adapter,
-			additionalArgs: runtimeAdditionalArgs,
-			host: runtimeHost,
-		};
 	};
 	const retainRuntimeAccess = () => {
 		if (inferredScope !== StateScope.Shared) {
@@ -655,24 +678,34 @@ export default function igniteElementFactory<
 				if (typeof command !== "function") {
 					return false;
 				}
-				const metadata = getCommandMetadata(command);
-				if (!hasCanExecute(metadata)) {
-					return true;
-				}
-				return metadata.canExecute({ snapshot });
+				const availability =
+					isInspectableRecord(states) &&
+					isInspectableRecord(states.commandAvailability)
+						? states.commandAvailability
+						: undefined;
+				return availability?.[commandName] !== false;
 			},
 			documents: projectionState.documents,
 			speech: projectionState.speech,
 			revision,
 		};
 	};
-	const agentRuntime = createAgentRuntime<
+	const {
+		runtime: agentRuntime,
+		watchSnapshot,
+		bindingStore,
+		publishCatalogue,
+		readCatalogue,
+	} = createAgentRuntime<
 		State,
 		Event,
 		RuntimeView,
 		AdditionalRenderArgs<State, Event, RenderArgs>
 	>({
 		eventTypes,
+		hasCommands: options?.hasCommands,
+		lifetime,
+		dispose,
 		retainRuntimeAccess,
 		releaseRuntimeAccess,
 		resolveInspection,
@@ -758,7 +791,7 @@ export default function igniteElementFactory<
 
 		let subscription: IgniteAgentSubscription | undefined;
 		try {
-			subscription = agentRuntime.watchSnapshot(() => {
+			subscription = watchSnapshot(() => {
 				if (setupState === "active") {
 					commitCurrent();
 				}
@@ -771,20 +804,19 @@ export default function igniteElementFactory<
 
 		commitCurrent();
 
-		return {
-			dispose() {
-				if (setupState !== "active") {
-					return;
-				}
-				setupState = "disposed";
-				const ownedSubscription = subscription;
-				subscription = undefined;
-				ownedSubscription?.unsubscribe();
-			},
-		};
+		const release = lifetime.own(() => {
+			if (setupState !== "active") {
+				return;
+			}
+			setupState = "disposed";
+			const ownedSubscription = subscription;
+			subscription = undefined;
+			ownedSubscription?.unsubscribe();
+		});
+		return { dispose: release };
 	};
 
-	const register = (
+	const registerImpl = (
 		elementNameOrTarget: string | IgniteProjectionTarget,
 		renderer?: ComponentRenderer<RenderArgs, View>,
 	): IgniteComponent | IgniteProjectionSession => {
@@ -801,14 +833,9 @@ export default function igniteElementFactory<
 
 		const elementName = elementNameOrTarget;
 		const { ElementBase, registry } = requireDomRegistration();
-		// The handle delegates getSchema LAZILY: createAgentRuntime(...) is
-		// Object.assign-ed onto `register` AFTER this body is defined, so we must
-		// call through `register.getSchema()` at invocation time rather than
-		// capturing it eagerly. This keeps the single agent-runtime builder the
-		// sole schema source of truth (it resolves the runtime adapter on demand).
 		const handle: IgniteComponent = {
 			tagName: elementName,
-			getSchema: () => agentRuntime.getSchema(),
+			get: readCatalogue,
 		};
 
 		if (registry.get(elementName)) {
@@ -922,7 +949,12 @@ export default function igniteElementFactory<
 				}
 			}
 
-			registry.define(elementName, SharedIgniteComponent);
+			try {
+				registry.define(elementName, SharedIgniteComponent);
+			} finally {
+				if (registry.get(elementName) === SharedIgniteComponent)
+					registered = true;
+			}
 			return handle;
 		}
 
@@ -983,11 +1015,32 @@ export default function igniteElementFactory<
 			}
 		}
 
-		registry.define(elementName, IsolatedIgniteComponent);
+		try {
+			registry.define(elementName, IsolatedIgniteComponent);
+		} finally {
+			if (registry.get(elementName) === IsolatedIgniteComponent)
+				registered = true;
+		}
 		return handle;
 	};
 
+	const register = (
+		target: string | IgniteProjectionTarget,
+		renderer?: ComponentRenderer<RenderArgs, View>,
+	) => {
+		lifetime.assertActive();
+		if (renderer === undefined) return registerImpl(target);
+		if (registrationInProgress)
+			throw new Error("[igniteCore] Reentrant registration.");
+		registrationInProgress = true;
+		try {
+			return registerImpl(target, renderer);
+		} finally {
+			registrationInProgress = false;
+		}
+	};
 	Object.assign(register, agentRuntime);
+	registerBindingStore(register, bindingStore);
 
 	return register;
 

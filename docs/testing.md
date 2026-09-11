@@ -1,6 +1,6 @@
 # Testing Ignite Element
 
-Use ordinary Vitest or Node assertions over `execute()`, `getSnapshot()`, `getStates()`, `canExecute()`, and subscriptions. Keep source behavior tests separate from real registered-component DOM tests.
+Use ordinary Vitest or Node assertions over `execute()`, `get('states')`, projected availability, native source snapshots and subscriptions. Keep source behavior tests separate from real registered-component DOM tests.
 
 The [testing guide](https://0xjcf.github.io/ignite-element/guides/testing/) contains complete Redux event/command/external-update and XState/Lit accessible-control examples. Add `@testing-library/dom` as a development dependency for DOM queries, mount an actual registered element, and query its rendered root.
 

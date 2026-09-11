@@ -156,18 +156,31 @@ states: (snapshot) => ({
 Headless runtime APIs are available on the same component contract:
 
 ```ts
-await toggle.execute({ command: "toggle" });
-toggle.getSnapshot();
-toggle.getStates();
-toggle.getSchema();
+const result = await toggle.execute({ command: "toggle" });
+result.snapshot; // paired native observation, not a new public raw getter
+toggle.get('states');
+toggle.get('schema');
 toggle.on("toggled", handler);
-toggle.watchSnapshot((snapshot, prevSnapshot) => {});
-toggle.watchStates((states, prevStates) => {});
+toggle.watch((states, prevStates) => {});
 ```
 
 Use ordinary tests over runtime results, source-owned asynchronous outcomes, and real registered DOM controls. Release subscriptions explicitly and stop sources only when the application/test owns them. The development candidate retires `test`, its dedicated testing/story types, `record(name)`, and the accessibility bridge. Portable receipts and complete lifecycle histories are intentionally removed, not replaced by another recorder. See the [testing migration](https://0xjcf.github.io/ignite-element/api/testing-dsl/).
 
 ## Package contract
+
+Source-backed owners expose `get`, `watch`, `on`, `execute`, and `dispose`.
+An unregistered owner releases Ignite observations on disposal; borrowed sources
+remain application-owned. An Ignite-created private XState actor is stopped once.
+Successful registration prevents owning-core disposal. Catalogue reads are pure,
+immutable and retained after disposal: null input/payload/state schemas mean
+unknown, not inferred validation. Tools need explicit application schemas.
+
+`ignite-element/react` exports the neutral `useIgnite` hook. Prepare once with
+`core.get('states')` in owner bootstrap, not rendering; the hook borrows a stable
+immutable projection cache. The custom-element wrapper `igniteReact` moves to
+`ignite-element/react/web`. Host-dependent Actor-Web factories move to
+`ignite-element/actor-web/web`; neutral factories do not transfer native close
+authority. SSR and device execution are not implied by the headless API.
 
 - All four v3 packages are native ESM-only. Consumers use ESM imports; public ESM entrypoints and declarations remain supported.
 - `ignite-element` is the default public package.

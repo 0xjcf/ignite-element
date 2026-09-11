@@ -70,13 +70,14 @@ Cut to `examples/agents/smart-home/src/home.ts` around `createHome()`.
 
 Show that `createHome()` returns the runtime surface:
 
-- `getSchema()`
+- `get("schema")` (minimal discovery, not tool definitions)
 - `execute()`
-- `getStates()`
+- `get("states")`
 - `on()`
-- `watchStates()`
+- `watch()`
+- `dispose()` (owning unregistered cores)
 
-Point at the command metadata for `toggleLight`, `setThermostat`, `runScene`,
+Point at the separate `homeToolSchema` definitions for `toggleLight`, `setThermostat`, `runScene`,
 `dimRooms`, and `status`. Call out that scalar, object, array, and no-argument
 commands all become model tool inputs.
 
@@ -93,7 +94,7 @@ Narration:
 Show the loop shape:
 
 ```text
-getSchema -> tools -> model tool call -> run -> execute -> tool result
+homeToolSchema -> tools -> model tool call -> run -> execute -> tool result
 ```
 
 Point out that the provider dialect can be Anthropic or OpenAI-compatible, while

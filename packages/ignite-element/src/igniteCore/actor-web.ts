@@ -10,16 +10,16 @@ import type {
 	EventMap,
 	FacadeCommandFunction,
 	FacadeCommandResult,
-} from "../RenderArgs";
-import {
-	createIgniteComponentFactory,
-	type IgniteComponentFactoryOptions,
-} from "./createIgniteComponentFactory";
+} from "@ignite-element/core";
 import type {
 	ActorWebConfig,
 	IgniteCoreReturn,
 	WithEmittedEvents,
-} from "./types";
+} from "./actorWebTypes";
+import {
+	createIgniteComponentFactory,
+	type IgniteComponentFactoryOptions,
+} from "./createIgniteComponentFactory";
 
 type ActorWebSubpathSourceValue<
 	Context extends object,
@@ -28,16 +28,6 @@ type ActorWebSubpathSourceValue<
 > =
 	| ActorWebSource<Context, Message, Emitted>
 	| ActorWebCommandSource<Context, Message, Emitted>;
-
-type ActorWebSubpathHostContextFactory<
-	Context extends object,
-	Message extends { type: string },
-	Emitted extends { type: string },
-> = {
-	bivarianceHack(context?: {
-		host?: HTMLElement;
-	}): ActorWebSubpathSourceValue<Context, Message, Emitted>;
-}["bivarianceHack"];
 
 type ActorWebSubpathConfig<
 	Context extends object,
@@ -63,8 +53,7 @@ type ActorWebSubpathConfig<
 	adapter?: "actor-web";
 	source:
 		| ActorWebSubpathSourceValue<Context, Message, Emitted>
-		| (() => ActorWebSubpathSourceValue<Context, Message, Emitted>)
-		| ActorWebSubpathHostContextFactory<Context, Message, Emitted>;
+		| (() => ActorWebSubpathSourceValue<Context, Message, Emitted>);
 	states?: ActorWebConfig<
 		Context,
 		Message,
@@ -105,7 +94,9 @@ export function igniteCoreActorWeb<
 > {
 	// Actor-Web remains the runtime owner; Ignite only adapts projection snapshots
 	// and command access into the headless component contract.
-	const createAdapter = createActorWebAdapter(options.source);
+	const createAdapter = createActorWebAdapter(options.source, {
+		ownsFactorySource: false,
+	});
 	const componentOptions = options as unknown as IgniteComponentFactoryOptions<
 		ActorWebExtendedState<Context>,
 		ActorWebCommandActor<Context, Message, Emitted>,

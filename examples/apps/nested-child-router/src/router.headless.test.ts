@@ -29,7 +29,7 @@ describe("nested child router — headless runtime", () => {
 
 		await router.execute({ command: "openDocSection", input: "api" });
 
-		expect(router.getStates()).toMatchObject({
+		expect(router.get("states")).toMatchObject({
 			parent: "docs",
 			child: "api",
 			path: "/docs/api",
@@ -41,13 +41,13 @@ describe("nested child router — headless runtime", () => {
 		const router = makeRouter();
 
 		await router.execute({ command: "navigate", input: "/settings/billing" });
-		expect(router.getStates()).toMatchObject({
+		expect(router.get("states")).toMatchObject({
 			parent: "settings",
 			child: "billing",
 		});
 
 		await router.execute({ command: "openDocSection", input: "examples" });
-		expect(router.getStates()).toMatchObject({
+		expect(router.get("states")).toMatchObject({
 			parent: "docs",
 			child: "examples",
 			path: "/docs/examples",

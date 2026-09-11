@@ -36,11 +36,9 @@ const recoveryCounter = igniteRedux({
     count: snapshot.counter.count,
     canDecrement: snapshot.counter.count > 0,
   }),
-  commands: ({ actor, command }) => ({
+  commands: ({ actor }) => ({
     increment: (amount: number) => actor.dispatch(counterSlice.actions.add(amount)),
-    decrement: command(() => actor.dispatch(counterSlice.actions.decrement()), {
-      canExecute: ({ snapshot }) => snapshot.counter.count > 0,
-    }),
+    decrement: () => actor.dispatch(counterSlice.actions.decrement()),
   }),
   events: (event) => ({ 'counter-incremented': event<{ count: number }>() }),
   effects: ({ snapshot, prevSnapshot, emit }) => {
@@ -50,26 +48,27 @@ const recoveryCounter = igniteRedux({
   },
 });
 
-expect(recoveryCounter.getSnapshot().counter.count).toBe(0);
-expect(recoveryCounter.canExecute('decrement')).toBe(false);
+expect(store.getState().counter.count).toBe(0);
+expect(recoveryCounter.get('states').canDecrement).toBe(false);
 const result = await recoveryCounter.execute({ command: 'increment', input: 2 });
 const countedEvent: Awaited<ReturnType<typeof recoveryCounter.execute>>['events'][number] =
   { type: 'counter-incremented', count: 2 };
 expect(result.snapshot.counter.count).toBe(2);
 expect(result.states).toEqual({ count: 2, canDecrement: true });
 expect(result.events).toEqual([countedEvent]);
-expect(recoveryCounter.canExecute('decrement')).toBe(true);
+expect(recoveryCounter.get('states').canDecrement).toBe(true);
 const observed: number[] = [];
-const subscription = recoveryCounter.watchStates((states) => observed.push(states.count));
+const subscription = recoveryCounter.watch((states) => observed.push(states.count));
 try {
   store.dispatch(counterSlice.actions.add(1));
-  expect(recoveryCounter.getSnapshot().counter.count).toBe(3);
-  expect(recoveryCounter.getStates().count).toBe(3);
+  expect(store.getState().counter.count).toBe(3);
+  expect(recoveryCounter.get('states').count).toBe(3);
   expect(observed).toContain(3);
   await recoveryCounter.execute({ command: 'decrement' });
-  expect(recoveryCounter.getSnapshot().counter.count).toBe(2);
+  expect(store.getState().counter.count).toBe(2);
 } finally {
   subscription.unsubscribe();
+  recoveryCounter.dispose();
 }
 ```
 
@@ -198,4 +197,4 @@ it('renders accessible controls and responds to clicks', async () => {
 
 Use named construction: a source-backed `const core = igniteCore({ source, ... })`, or `const core = igniteCore()` from the root for source-free presentation. Query real rendered elements; do not cast a shadow root or reconstruct the removed accessibility bridge.
 
-Test disconnect, move and reconnect through actual elements. A held `watchStates` or `watchSnapshot` subscription may retain observation after the last element disconnects; release it explicitly. Ignite observation cleanup does not stop caller-owned actors or stores. Runtime results are not deep-cloned portable receipts and observations do not reconstruct complete internal lifecycle histories.
+Test disconnect, move and reconnect through actual elements. A held `watch` subscription may retain observation after the last element disconnects; release it explicitly. Dispose unregistered owning cores after tests; registered cores reject owning disposal. Ignite observation cleanup does not stop caller-owned actors or stores. Runtime results are not deep-cloned portable receipts and observations do not reconstruct complete internal lifecycle histories.

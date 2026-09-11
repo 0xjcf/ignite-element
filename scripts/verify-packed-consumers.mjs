@@ -43,6 +43,33 @@ const packageDefinitions = [
 ];
 
 const consumerLanes = [
+	...[
+		{ name: "xstate", dependencies: ["xstate@5.32.1"] },
+		{ name: "redux", dependencies: ["redux@5.0.1", "@reduxjs/toolkit@2.12.0"] },
+		{ name: "mobx", dependencies: ["mobx@6.16.1"] },
+		{ name: "actor-web", dependencies: [] },
+		{ name: "react", dependencies: ["react@19.2.7", "@types/react@19.2.17"] },
+	].map((lane) => ({
+		name: `neutral-${lane.name}`,
+		dependencies: [
+			"typescript@5.9.3",
+			"@types/node@25.0.3",
+			...lane.dependencies,
+		],
+		forbidPeers: [
+			"lit-html",
+			"react-dom",
+			"solid-js",
+			"vue",
+			...(lane.name === "xstate" ? [] : ["xstate"]),
+			...(lane.name === "redux" ? [] : ["redux", "@reduxjs/toolkit"]),
+			...(lane.name === "mobx" ? [] : ["mobx"]),
+			...(lane.name === "react" ? [] : ["react"]),
+			"@actor-web/runtime",
+		],
+		specifiers: [`ignite-element/${lane.name}`],
+		noDom: true,
+	})),
 	{
 		name: "source-free",
 		dependencies: ["typescript@5.9.3"],
@@ -119,6 +146,8 @@ const consumerLanes = [
 			"ignite-element/mobx",
 			"ignite-element/actor-web",
 			"ignite-element/react",
+			"ignite-element/react/web",
+			"ignite-element/actor-web/web",
 		],
 	},
 ];
@@ -279,8 +308,9 @@ function verifyConsumer(lane, tarballPaths) {
 		`${JSON.stringify(
 			{
 				compilerOptions: {
-					lib:
-						lane.name === "adapters"
+					lib: lane.noDom
+						? ["ES2022", "ESNext.Collection"]
+						: lane.name === "adapters"
 							? ["ES2022", "DOM", "ESNext.Collection"]
 							: ["ES2022", "DOM"],
 					module: "ESNext",
@@ -354,6 +384,15 @@ assert.throws(() => require.resolve("lit-html"), { code: "MODULE_NOT_FOUND" });`
 }
 `,
 	);
+	if (lane.noDom) {
+		writeFileSync(
+			join(consumerDirectory, "consumer.tsx"),
+			readFileSync(
+				join(repositoryRoot, "scripts/__tests__/fixtures", `${lane.name}.ts`),
+				"utf8",
+			),
+		);
+	}
 	if (lane.name === "adapters") {
 		for (const entry of ["xstate", "redux", "mobx", "actor-web"]) {
 			writeFileSync(
@@ -559,7 +598,9 @@ function removedTestingImports(specifier) {
 
 const sourceFreeTypeConsumer = `
 ${removedTestingImports("ignite-element")}
-import { igniteCore, event, type IgniteAgentRuntime, type IgniteCommandCall, type RuntimeEvent, type CommandHelper } from "ignite-element";
+import { igniteCore, event, type IgniteAgentRuntime, type IgniteCommandCall, type RuntimeEvent } from "ignite-element";
+// @ts-expect-error the command helper is retired
+import type { CommandHelper } from "ignite-element";
 const events = { changed: event<{ count: number }>() };
 type Commands = { set: (value: number) => void };
 declare const runtime: IgniteAgentRuntime<{ count: number }, Commands, typeof events, unknown, { label: string }>;
@@ -571,17 +612,16 @@ runtime.execute(call).then(result => {
 });
 runtime.on("changed", fact => { const count: number = fact.count; void count; });
 const fact: RuntimeEvent<typeof events> = { type: "changed", count: 2 };
-declare const command: CommandHelper<{ count: number }>;
-void command; void fact;
+void fact;
 // @ts-expect-error preserved command input type
 runtime.execute({ command: "set", input: "bad" });
 // @ts-expect-error preserved event name
 runtime.on("missing", () => {});
 // @ts-expect-error preserved event payload
 const badFact: RuntimeEvent<typeof events> = { type: "changed", count: "bad" };
-runtime.watchStates(states => { const label: string = states.label; void label; });
+runtime.watch(states => { const label: string = states.label; void label; });
 // @ts-expect-error preserved runtime projection type
-const invalidStates: { label: number } = runtime.getStates();
+const invalidStates: { label: number } = runtime.get("states");
 // @ts-expect-error recording is retired from source-backed runtime typing
 runtime.record("removed");
 // @ts-expect-error retired runtime export

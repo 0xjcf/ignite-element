@@ -1,12 +1,12 @@
 import { describe, expectTypeOf, it } from "vitest";
 import { type EventFrom, setup } from "xstate";
 import { igniteCore } from "../../IgniteCore";
-import { type IgniteReactRef, igniteReact } from "../../react";
 import type {
 	CommandHandle,
 	IgniteReactProps,
 	IgniteReactSetterProps,
 } from "../../react/igniteReact";
+import { type IgniteReactRef, igniteReact } from "../../react/web";
 
 // A representative counter core: commands (zero-arg + single-arg setX) and a
 // declared events map. Inference for the react wrapper flows ONLY from the

@@ -12,16 +12,11 @@ export type {
 	ActorWebTransportState,
 	ActorWebTransportStatus,
 } from "@ignite-element/adapters/actor-web";
-export type {
-	CommandHelper,
-	CommandMetadata,
-	CommandMetadataValue,
-	CommandWithMetadata,
-	NumberCommandInputMetadata,
-	NumberCommandInputOptions,
-} from "@ignite-element/core";
 export { igniteCoreActorWeb as igniteCore } from "./igniteCore/actor-web";
-export type { ActorWebConfig, IgniteCoreReturn } from "./igniteCore/types";
+export type {
+	ActorWebConfig,
+	IgniteCoreReturn,
+} from "./igniteCore/actorWebTypes";
 export {
 	createProjectionDocumentTarget,
 	createProjectionSpeechTarget,

@@ -1,4 +1,4 @@
-import type { IgniteAgentSchema, IgniteSchemaObject } from "../types/schema";
+import type { IgniteSchemaObject } from "../types/schema";
 import { err, ok, type Result } from "./result";
 import type {
 	AvailabilityPredicate,
@@ -7,12 +7,6 @@ import type {
 	Route,
 	ToolError,
 } from "./types";
-
-// The JSON-Schema-shaped input a no-arg command advertises: "no parameters".
-const emptyObjectSchema = (): IgniteSchemaObject => ({
-	type: "object",
-	properties: {},
-});
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -45,27 +39,34 @@ function normalizeRouteInput(
 	return { input };
 }
 
-// A command's input schema is its `input` metadata when present (scalar OR
-// object — mirrored verbatim), else the empty-object schema.
+// Explicit application input schema, scalar or object, mirrored verbatim.
+// Unknown discovery metadata must not fabricate an empty-object contract.
 function toInputSchema(metadata: IgniteSchemaObject): IgniteSchemaObject {
 	const input = metadata.input;
-	return isPlainObject(input)
-		? (input as IgniteSchemaObject)
-		: emptyObjectSchema();
+	if (!isPlainObject(input)) {
+		throw new Error(
+			"[igniteTools] Missing explicit command input schema. Supply tool/application definitions; discovery does not infer schemas.",
+		);
+	}
+	return input as IgniteSchemaObject;
 }
 
 /**
- * Pure: `getSchema()` → neutral tool manifest, sorted by name. Gated commands
+ * Pure: explicit application schema → neutral tool manifest, sorted by name. Gated commands
  * are omitted when an availability predicate reports them currently
  * unavailable; without a predicate, every command is offered.
  *
- * Only `schema.commands` is read, so the snapshot/states types are left open —
- * any `getSchema()` return is accepted regardless of those shapes.
+ * Only `schema.commands` is read. Minimal core discovery does not provide
+ * input validation; missing explicit definitions fail before execution.
  */
 export function buildManifest(
-	schema: IgniteAgentSchema<unknown, Record<string, unknown>>,
+	schema: { commands: Readonly<Record<string, IgniteSchemaObject>> | null },
 	canExecute?: AvailabilityPredicate,
 ): NeutralManifest {
+	if (schema.commands === null)
+		throw new Error(
+			"[igniteTools] Unknown command catalogue. Supply explicit tool definitions.",
+		);
 	const isAvailable = canExecute ?? (() => true);
 	const manifest: NeutralManifest = [];
 
@@ -124,7 +125,7 @@ export function resolveCall(
  * Minimal structural validation covering the command-input metadata vocabulary
  * (number/string/boolean/enum/object/array + their declared constraints). Pure;
  * returns the list of issues (empty = valid). Not a full JSON-Schema validator —
- * scoped to the shapes `command.*` can produce.
+ * scoped to the retained application input vocabulary.
  */
 export function validateToolInputValue(
 	schema: IgniteSchemaObject,

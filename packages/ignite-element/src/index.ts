@@ -5,14 +5,6 @@
 // (ignite-element/xstate|redux|mobx|actor-web). See .fas/memory/decisions.md
 // (2026-06-04).
 
-export type {
-	CommandHelper,
-	CommandMetadata,
-	CommandMetadataValue,
-	CommandWithMetadata,
-	NumberCommandInputMetadata,
-	NumberCommandInputOptions,
-} from "@ignite-element/core";
 export { event, StateScope } from "@ignite-element/core";
 export {
 	createProjectionDocumentTarget,

@@ -54,7 +54,11 @@ describe("igniteElementFactory", () => {
 			getSnapshot: () => snapshot,
 			stop,
 		};
-		const createAdapter = Object.assign(() => adapter, {
+		const acquireAdapter = vi.fn(() => ({
+			...adapter,
+			stop: vi.fn(() => stop()),
+		}));
+		const createAdapter = Object.assign(acquireAdapter, {
 			scope: StateScope.Shared,
 			resolveStateSnapshot: (
 				current: IgniteAdapter<typeof snapshot, { type: "NOOP" }>,
@@ -81,6 +85,8 @@ describe("igniteElementFactory", () => {
 				createProjectionDocumentTarget({ commitDocument: ghostCommit }),
 			]),
 		).toThrow("watcher setup failed");
+		expect(acquireAdapter).toHaveBeenCalledOnce();
+		expect(acquireAdapter.mock.results[0]?.value.stop).toHaveBeenCalledOnce();
 		failWatcherSetup = false;
 		const elementName = `shared-cleanup-${crypto.randomUUID()}`;
 		core(elementName, () => "ready");
@@ -90,7 +96,10 @@ describe("igniteElementFactory", () => {
 		await flushMicrotasks();
 		await flushMicrotasks();
 		expect(ghostCommit).not.toHaveBeenCalled();
-		expect(stop).toHaveBeenCalledTimes(1);
+		expect(acquireAdapter).toHaveBeenCalledTimes(2);
+		expect(acquireAdapter.mock.results[0]?.value.stop).toHaveBeenCalledOnce();
+		expect(acquireAdapter.mock.results[1]?.value.stop).toHaveBeenCalledOnce();
+		expect(stop).toHaveBeenCalledTimes(2);
 	});
 	const initialState = { count: 0 };
 
@@ -328,12 +337,14 @@ describe("igniteElementFactory", () => {
 		const name = `ignite-direct-runtime-cleanup-${crypto.randomUUID()}`;
 		component(name, () => html`<div></div>`);
 		const runtime = component as typeof component & {
-			execute: (call: { command: string; input?: unknown }) => Promise<unknown>;
-			getSnapshot: () => typeof initialState;
+			execute: (call: {
+				command: string;
+				input?: unknown;
+			}) => Promise<{ snapshot: typeof initialState }>;
 		};
 
-		expect(runtime.getSnapshot()).toEqual(initialState);
-		await runtime.execute({ command: "reportAdapter" });
+		const initial = await runtime.execute({ command: "reportAdapter" });
+		expect(initial.snapshot).toEqual(initialState);
 
 		const element = document.createElement(name);
 		document.body.appendChild(element);
@@ -429,11 +440,11 @@ describe("igniteElementFactory", () => {
 		component(name, () => html`<div></div>`);
 		// The low-level factory's public return type is registration-only; its
 		// assembled runtime is exercised here without widening that internal type.
-		const watchStates: unknown = Reflect.get(component, "watchStates");
-		if (typeof watchStates !== "function")
+		const watch: unknown = Reflect.get(component, "watch");
+		if (typeof watch !== "function")
 			throw new Error("Expected runtime watcher");
-		const subscription: ReturnType<IgniteAgentRuntime<unknown>["watchStates"]> =
-			watchStates(() => {});
+		const subscription: ReturnType<IgniteAgentRuntime<unknown>["watch"]> =
+			watch(() => {});
 		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
 		const element = document.createElement(name);

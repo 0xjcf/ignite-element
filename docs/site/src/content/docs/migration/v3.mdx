@@ -62,7 +62,7 @@ states: (snapshot) => ({
 });
 ```
 
-XState uses native `StateFrom<Machine>` snapshots. XState and Actor-Web state live under `snapshot.context`; Redux and MobX state are the snapshot itself. Also migrate `getView`/`watchView` to `getStates`/`watchStates`, `schema.view` to `schema.states`, execution results to `{ snapshot, states, events }`, and public renderer access from raw `state`/`send` to derived states and semantic commands.
+XState uses native `StateFrom<Machine>` snapshots. XState and Actor-Web state live under `snapshot.context`; Redux and MobX state are the snapshot itself. Also migrate `getView`/`watchView` to `get("states")`/`watch`, `schema.view` to `schema.states`, execution results to `{ snapshot, states, events }`, and public renderer access from raw `state`/`send` to derived states and semantic commands.
 
 ## 4) Narrower public API
 
@@ -78,6 +78,28 @@ If an advanced app still needs shared shadow styles or renderer diagnostics, imp
 The next candidate removes `test` from all five public barrels, the 27 dedicated testing/story types, the declaration-reachable testing graph, `record(name)`, and the accessibility bridge. Migrate to ordinary runtime/source assertions and real registered-element DOM queries. Retained runtime results, typed commands/events, subscriptions, snapshots, derived states and schema remain. Portable receipts and internal lifecycle histories are intentionally removed; there is no alias or replacement recorder.
 
 See the [migration table](/ignite-element/api/testing-dsl/) and [complete testing examples](/ignite-element/guides/testing/). Source/application ownership of asynchronous work, cancellation and native shutdown is unchanged. This unconsumed major change is not evidence that a new beta or stable version has been published.
+
+## Core API and React bindings in the development candidate
+
+Source-backed owners use `get('states')`, `get('schema')`, `get('commands')`,
+`get('events')`, `watch`, `on`, `execute`, and `dispose`. The former raw/derived
+getters and watchers, schema getter and core `canExecute` query have no aliases.
+Native source snapshot APIs and paired execution results remain. Component
+handles expose discovery-only keyed reads; root source-free construction remains
+registrar-only.
+
+Commands are ordinary functions. Remove the helper and input builders, move
+existing tool definitions to explicit application schemas, and project meaningful
+availability into states. Unknown discovery schemas are null, not fabricated
+validation. State/command name collisions now fail rather than overwrite.
+
+Prepare a framework-owned core once with `core.get('states')` outside rendering.
+Import `useIgnite` from `ignite-element/react`; move `igniteReact` and wrapper
+types to `ignite-element/react/web`. Move Actor-Web factories requiring a real
+element host to `ignite-element/actor-web/web`. The neutral source/factory path
+never transfers native close authority. See [headless runtime](/ignite-element/api/headless-runtime/)
+and [host integration](/ignite-element/guides/host-app-integration/) for lifetime,
+single-input execution, immutable projection and native-test-host limits.
 
 ## Verify
 

@@ -18,6 +18,7 @@ import type {
 	ActorWebSourceSnapshot,
 	ActorWebTransportStatus,
 } from "../actor-web";
+import { igniteCore as igniteWebCore } from "../actor-web/web";
 import type { XStateCommandActor } from "../adapters/XStateAdapter";
 import { igniteCore } from "../IgniteCore";
 import type { ReduxInstanceConfig } from "../igniteCore/types";
@@ -29,6 +30,7 @@ import type {
 	ReduxStoreCommandActor,
 } from "../RenderArgs";
 import { toSchemaValue } from "../runtime/schema";
+import { igniteTools } from "../tools";
 import type { InferStateAndEvent } from "../utils/igniteRedux";
 import counterStore, { counterSlice } from "./fixtures/reduxCounterStore";
 
@@ -215,7 +217,7 @@ describe("igniteCore", () => {
 			}),
 		});
 
-		expect(register.getStates()).toEqual({
+		expect(register.get("states")).toEqual({
 			count: 0,
 			hasCounterAlias: true,
 		});
@@ -294,7 +296,7 @@ describe("igniteCore", () => {
 		expect(sourceFactory).not.toHaveBeenCalled();
 	});
 
-	it("infers actor-web from host-context factories without eager execution", () => {
+	it("constructs explicit web host-context factories without eager execution", () => {
 		let observedFleetId: string | null | undefined;
 		let sourceFactoryCalls = 0;
 		const sourceFactory: (context: {
@@ -308,7 +310,7 @@ describe("igniteCore", () => {
 			observedFleetId = context.host?.getAttribute("fleet-id");
 			return createActorWebShipmentSource();
 		};
-		const register = igniteCore({
+		const register = igniteWebCore({
 			source: sourceFactory,
 			states: (snapshot) => ({
 				status: snapshot.context.status,
@@ -345,7 +347,7 @@ describe("igniteCore", () => {
 		);
 		expect(sourceFactory).not.toHaveBeenCalled();
 
-		const register = igniteCore({
+		const register = igniteWebCore({
 			adapter: "actor-web",
 			source: sourceFactory,
 			states: (snapshot) => ({
@@ -374,7 +376,7 @@ describe("igniteCore", () => {
 			},
 		);
 		let observedFleetId: string | null | undefined;
-		const register = igniteCore({
+		const register = igniteWebCore({
 			adapter: "actor-web",
 			source: sourceFactory,
 			states: (snapshot) => ({
@@ -435,8 +437,8 @@ describe("igniteCore", () => {
 			}),
 		});
 
-		expect(register.getSnapshot().context.status).toBe("idle");
-		expect(register.getStates()).toEqual({
+		expect(source.snapshot().context.status).toBe("idle");
+		expect(register.get("states")).toEqual({
 			status: "idle",
 			shipmentId: null,
 			connected: true,
@@ -461,7 +463,10 @@ describe("igniteCore", () => {
 			reason: "gateway disconnected",
 		});
 
-		expect(register.getSnapshot()).toMatchObject({
+		expect({
+			...source.snapshot(),
+			transport: source.transportStatus?.(),
+		}).toMatchObject({
 			context: {
 				shipmentId: "shipment-1001",
 				status: "created",
@@ -471,7 +476,7 @@ describe("igniteCore", () => {
 				reason: "gateway disconnected",
 			},
 		});
-		expect(register.getStates()).toEqual({
+		expect(register.get("states")).toEqual({
 			status: "created",
 			shipmentId: "shipment-1001",
 			connected: false,
@@ -497,7 +502,7 @@ describe("igniteCore", () => {
 			input: "shipment-3003",
 		});
 
-		expect(register.getStates()).toEqual({ status: "idle" });
+		expect(register.get("states")).toEqual({ status: "idle" });
 		expect(source.sent).toEqual([
 			{ type: "CREATE_SHIPMENT", shipmentId: "shipment-3003" },
 		]);
@@ -519,8 +524,8 @@ describe("igniteCore", () => {
 			}),
 		});
 
-		expect(register.getSnapshot().context.status).toBe("idle");
-		expect(register.getStates()).toEqual({
+		expect(source.snapshot().context.status).toBe("idle");
+		expect(register.get("states")).toEqual({
 			status: "idle",
 			shipmentId: null,
 			connected: true,
@@ -544,7 +549,10 @@ describe("igniteCore", () => {
 			reason: "gateway disconnected",
 		});
 
-		expect(register.getSnapshot()).toMatchObject({
+		expect({
+			...source.snapshot(),
+			transport: source.transportStatus?.(),
+		}).toMatchObject({
 			context: {
 				shipmentId: "shipment-1001",
 				status: "created",
@@ -554,7 +562,7 @@ describe("igniteCore", () => {
 				reason: "gateway disconnected",
 			},
 		});
-		expect(register.getStates()).toEqual({
+		expect(register.get("states")).toEqual({
 			status: "created",
 			shipmentId: "shipment-1001",
 			connected: false,
@@ -1049,8 +1057,7 @@ describe("igniteCore", () => {
 				expect(event.count).toBe(3);
 			},
 		);
-		const watchListener = vi.fn((state: StoreState, prevState: StoreState) => {
-			expect(prevState.counter.count).toBe(0);
+		const watchListener = vi.fn((state: StoreState) => {
 			expect(state.counter.count).toBe(3);
 		});
 		const watchStatesListener = vi.fn(
@@ -1060,13 +1067,15 @@ describe("igniteCore", () => {
 			},
 		);
 		const eventSubscription = register.on("counter-incremented", listener);
-		const stateSubscription = register.watchSnapshot(watchListener);
-		const viewSubscription = register.watchStates(watchStatesListener);
+		const stateSubscription = {
+			unsubscribe: store.subscribe(() => watchListener(store.getState())),
+		};
+		const viewSubscription = register.watch(watchStatesListener);
 
 		const result = await register.execute({ command: "increment", input: 3 });
 
-		expect(register.getSnapshot().counter.count).toBe(3);
-		expect(register.getStates()).toEqual({ count: 3, isEven: false });
+		expect(store.getState().counter.count).toBe(3);
+		expect(register.get("states")).toEqual({ count: 3, isEven: false });
 		expect(result.snapshot.counter.count).toBe(3);
 		expect(result.events).toEqual([
 			{
@@ -1164,20 +1173,15 @@ describe("igniteCore", () => {
 			}),
 		});
 
-		expect(register.getSchema()).toEqual({
-			commands: {
-				increment: {},
-			},
-			events: [{ type: "counter-incremented" }],
-			snapshot: {
-				counter: {
-					count: 0,
-				},
-			},
-			states: {
-				count: 0,
-			},
+		expect(register.get("schema")).toEqual({
+			schemaVersion: 1,
+			commands: null,
+			events: [{ type: "counter-incremented", payload: null }],
+			states: { schema: null },
 		});
+		register.get("states");
+		expect(register.get("commands")).toEqual({ increment: { input: null } });
+		register.dispose();
 	});
 
 	it("returns a typed component handle from registration", () => {
@@ -1205,12 +1209,12 @@ describe("igniteCore", () => {
 		// The handle carries the registered tag name and delegates getSchema to
 		// the same single agent-runtime source of truth as the registrar.
 		expect(component.tagName).toBe("handle-counter-redux");
-		expect(component.getSchema()).toEqual(core.getSchema());
-		expect(component.getSchema()).toEqual({
-			commands: { increment: {} },
-			events: [{ type: "counter-incremented" }],
-			snapshot: { counter: { count: 0 } },
-			states: { count: 0 },
+		expect(component.get("schema")).toEqual(core.get("schema"));
+		expect(component.get("schema")).toEqual({
+			schemaVersion: 1,
+			commands: null,
+			events: [{ type: "counter-incremented", payload: null }],
+			states: { schema: null },
 		});
 	});
 
@@ -1237,7 +1241,7 @@ describe("igniteCore", () => {
 
 		expect(first.tagName).toBe("handle-dedupe-redux");
 		expect(second.tagName).toBe("handle-dedupe-redux");
-		expect(second.getSchema()).toEqual(first.getSchema());
+		expect(second.get("schema")).toEqual(first.get("schema"));
 	});
 
 	it("serializes self-returning toJSON values as circular schema values", () => {
@@ -1250,36 +1254,19 @@ describe("igniteCore", () => {
 		expect(toSchemaValue(selfReturning)).toBe("[Circular]");
 	});
 
-	it("adds optional command contract metadata without changing execution", async () => {
+	it("keeps explicit tool schemas at the application boundary without changing ordinary execution", async () => {
 		const store = counterStore();
-
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
-			states: (snapshot) => ({
-				count: snapshot.counter.count,
-			}),
-			commands: ({ actor, command }) => ({
-				addByAmount: command(
-					(amount: number) =>
-						actor.dispatch(counterSlice.actions.addByAmount(amount)),
-					{
-						description: "Add a bounded amount to the counter.",
-						input: command.number({ minimum: 1, maximum: 5 }),
-					},
-				),
+			states: (snapshot) => ({ count: snapshot.counter.count }),
+			commands: ({ actor }) => ({
+				addByAmount: (amount: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
 				increment: () => actor.dispatch(counterSlice.actions.increment()),
 			}),
 		});
-
-		const result = await register.execute({
-			command: "addByAmount",
-			input: 3,
-		});
-
-		expect(result.snapshot.counter.count).toBe(3);
-		expect(register.getStates()).toEqual({ count: 3 });
-		expect(register.getSchema()).toEqual({
+		const schema = {
 			commands: {
 				addByAmount: {
 					description: "Add a bounded amount to the counter.",
@@ -1289,93 +1276,51 @@ describe("igniteCore", () => {
 						maximum: 5,
 					},
 				},
-				increment: {},
+				increment: { input: { type: "object", properties: {} } },
 			},
-			events: [],
-			snapshot: {
-				counter: {
-					count: 3,
-				},
-			},
-			states: {
-				count: 3,
-			},
+		};
+		const tools = igniteTools(register, undefined, { schema });
+		expect(register.get("commands")).toBeNull();
+		expect((await tools.run({ name: "addByAmount", input: 6 })).ok).toBe(false);
+		expect(store.getState().counter.count).toBe(0);
+		const result = await tools.run({ name: "addByAmount", input: 3 });
+		if (!result.ok) throw new Error(result.error.kind);
+		expect(result.value.snapshot.counter.count).toBe(3);
+		expect(register.get("states")).toEqual({ count: 3 });
+		expect(register.get("commands")).toEqual({
+			addByAmount: { input: null },
+			increment: { input: null },
 		});
+		register.dispose();
 	});
 
-	it("serializes string, boolean, enum, object, and array command metadata", async () => {
+	it("preserves explicit string, boolean, enum, object and array tool schema validation", async () => {
 		const store = counterStore();
-
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
-			states: (snapshot) => ({
-				count: snapshot.counter.count,
-			}),
-			commands: ({ actor, command }) => ({
-				configureCounter: command(
-					(payload: {
-						label: string;
-						enabled: boolean;
-						mode: "apply" | "skip";
-						values: number[];
-						limits: { minimum: number; maximum: number };
-					}) => {
-						if (!payload.enabled || payload.mode === "skip") {
-							return actor.dispatch(counterSlice.actions.addByAmount(0));
-						}
+			states: (snapshot) => ({ count: snapshot.counter.count }),
+			commands: ({ actor }) => ({
+				configureCounter: (payload: {
+					label: string;
+					enabled: boolean;
+					mode: "apply" | "skip";
+					values: number[];
+					limits: { minimum: number; maximum: number };
+				}) => {
+					if (!payload.enabled || payload.mode === "skip") {
+						return actor.dispatch(counterSlice.actions.addByAmount(0));
+					}
 
-						return actor.dispatch(
-							counterSlice.actions.addByAmount(
-								payload.values.reduce((sum, value) => sum + value, 0),
-							),
-						);
-					},
-					{
-						description: "Configure counter automation.",
-						input: command.object(
-							{
-								label: command.string({ minLength: 1, maxLength: 32 }),
-								enabled: command.boolean({ default: true }),
-								mode: command.enum(["apply", "skip"], {
-									default: "apply",
-								}),
-								values: command.array(command.number({ minimum: 0 }), {
-									minItems: 1,
-								}),
-								limits: command.object(
-									{
-										minimum: command.number({ minimum: 0 }),
-										maximum: command.number({ minimum: 0 }),
-									},
-									{
-										required: ["minimum", "maximum"],
-									},
-								),
-							},
-							{
-								required: ["label", "enabled", "mode", "values", "limits"],
-							},
+					return actor.dispatch(
+						counterSlice.actions.addByAmount(
+							payload.values.reduce((sum, value) => sum + value, 0),
 						),
-					},
-				),
+					);
+				},
 			}),
 		});
-
-		const result = await register.execute({
-			command: "configureCounter",
-			input: {
-				label: "shift-a",
-				enabled: true,
-				mode: "apply",
-				values: [1, 2, 3],
-				limits: { minimum: 0, maximum: 12 },
-			},
-		});
-
-		expect(result.snapshot.counter.count).toBe(6);
-		expect(register.getStates()).toEqual({ count: 6 });
-		expect(register.getSchema()).toEqual({
+		const schema = {
 			commands: {
 				configureCounter: {
 					description: "Configure counter automation.",
@@ -1423,60 +1368,96 @@ describe("igniteCore", () => {
 					},
 				},
 			},
-			events: [],
-			snapshot: {
-				counter: {
-					count: 6,
-				},
-			},
-			states: {
-				count: 6,
-			},
+		};
+		const tools = igniteTools(register, undefined, { schema });
+		const input = {
+			label: "shift-a",
+			enabled: true,
+			mode: "apply",
+			values: [1, 2, 3],
+			limits: { minimum: 0, maximum: 12 },
+		};
+		expect(
+			(
+				await tools.run({
+					name: "configureCounter",
+					input: { ...input, values: [-1] },
+				})
+			).ok,
+		).toBe(false);
+		expect(
+			(
+				await tools.run({
+					name: "configureCounter",
+					input: { ...input, label: "" },
+				})
+			).ok,
+		).toBe(false);
+		expect(
+			(
+				await tools.run({
+					name: "configureCounter",
+					input: { ...input, mode: "other" },
+				})
+			).ok,
+		).toBe(false);
+		expect(store.getState().counter.count).toBe(0);
+		const result = await tools.run({ name: "configureCounter", input });
+		if (!result.ok) throw new Error(result.error.kind);
+		expect(result.value.snapshot.counter.count).toBe(6);
+		expect(register.get("states")).toEqual({ count: 6 });
+		expect(tools.manifest[0].inputSchema).toEqual(
+			schema.commands.configureCounter.input,
+		);
+		expect(register.get("commands")).toEqual({
+			configureCounter: { input: null },
 		});
+		register.dispose();
 	});
 
-	it("keeps command metadata isolated when a function is reused", () => {
+	it("keeps independently supplied schemas isolated when ordinary commands reuse a function", async () => {
 		const store = counterStore();
 		const add = (amount: number) =>
 			store.dispatch(counterSlice.actions.addByAmount(amount));
-
+		const symbols = Object.getOwnPropertySymbols(add);
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
-			commands: ({ command }) => ({
-				addLarge: command(add, {
+			commands: () => ({ addLarge: add, addSmall: add }),
+		});
+		const schema = {
+			commands: {
+				addLarge: {
 					description: "Add a larger amount.",
-					input: command.number({ minimum: 5, maximum: 10 }),
-				}),
-				addSmall: command(add, {
+					input: {
+						type: "number",
+						minimum: 5,
+						maximum: 10,
+					},
+				},
+				addSmall: {
 					description: "Add a smaller amount.",
-					input: command.number({ minimum: 1, maximum: 4 }),
-				}),
-			}),
-		});
-
-		register.execute({ command: "addSmall", input: 2 });
-		register.execute({ command: "addLarge", input: 5 });
-
-		expect(register.getSnapshot().counter.count).toBe(7);
-		expect(register.getSchema().commands).toEqual({
-			addLarge: {
-				description: "Add a larger amount.",
-				input: {
-					type: "number",
-					minimum: 5,
-					maximum: 10,
+					input: {
+						type: "number",
+						minimum: 1,
+						maximum: 4,
+					},
 				},
 			},
-			addSmall: {
-				description: "Add a smaller amount.",
-				input: {
-					type: "number",
-					minimum: 1,
-					maximum: 4,
-				},
-			},
+		};
+		const tools = igniteTools(register, undefined, { schema });
+		expect((await tools.run({ name: "addSmall", input: 5 })).ok).toBe(false);
+		expect((await tools.run({ name: "addLarge", input: 2 })).ok).toBe(false);
+		expect(store.getState().counter.count).toBe(0);
+		expect((await tools.run({ name: "addSmall", input: 2 })).ok).toBe(true);
+		expect((await tools.run({ name: "addLarge", input: 5 })).ok).toBe(true);
+		expect(store.getState().counter.count).toBe(7);
+		expect(register.get("commands")).toEqual({
+			addLarge: { input: null },
+			addSmall: { input: null },
 		});
+		expect(Object.getOwnPropertySymbols(add)).toEqual(symbols);
+		register.dispose();
 	});
 
 	it("shares redux store instances across elements", () => {
@@ -1750,7 +1731,7 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 		// No subscribeEvents() seam on redux — the bridge contributes nothing, so the command
 		// surfaces no events while the state update still applies normally.
 		expect(result.events).toEqual([]);
-		expect(register.getSnapshot().counter.count).toBe(1);
+		expect(result.snapshot.counter.count).toBe(1);
 	});
 });
 

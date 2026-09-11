@@ -5,11 +5,8 @@ import type {
 	ActorWebReadModelSource as AdapterActorWebReadModelSource,
 	ActorWebSource as AdapterActorWebSource,
 } from "@ignite-element/adapters/actor-web";
-import {
-	command,
-	commandMetadataSymbol,
-	type IgniteAdapter,
-} from "@ignite-element/core";
+import type { IgniteAdapter } from "@ignite-element/core";
+import * as corePublic from "@ignite-element/core";
 import { makeAutoObservable } from "mobx";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { createMachine, setup } from "xstate";
@@ -22,6 +19,7 @@ import type {
 } from "../../actor-web";
 import * as actorWebPublic from "../../actor-web";
 import { igniteCore as igniteCoreActorWebEntrypoint } from "../../actor-web";
+import { igniteCore as igniteCoreActorWebHost } from "../../actor-web/web";
 import type { XStateSnapshot } from "../../adapters/XStateAdapter";
 import { igniteCore } from "../../IgniteCore";
 import type { AdapterPack } from "../../IgniteElementFactory";
@@ -36,15 +34,13 @@ import {
 } from "../../index";
 import type {
 	CommandContext,
-	CommandMetadata,
-	CommandWithMetadata,
 	EmitFromEvents,
 	EventDescriptor,
-	IgniteSchemaValue,
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
 } from "../../RenderArgs";
 import { createAgentRuntime } from "../../runtime/agent";
+import { createLifetime } from "../../runtime/lifetime";
 import type { IgniteCommandCall } from "../../types/agent";
 import type {
 	IgniteAgentCommandContract,
@@ -280,7 +276,10 @@ describe("igniteCore type inference", () => {
 			{ count: number },
 			{ type: "INCREMENT" }
 		>;
+		const lifetime = createLifetime();
 		const runtime = createAgentRuntime({
+			lifetime,
+			dispose: () => lifetime.dispose(),
 			eventTypes: [],
 			resolveInspection: (current) => ({
 				snapshot: current.getSnapshot(),
@@ -418,10 +417,9 @@ describe("igniteCore type inference", () => {
 			states: (snapshot) => ({
 				status: snapshot.context.status,
 			}),
-			commands: ({ actor, command }) => ({
-				createShipment: command((shipmentId: string) =>
+			commands: ({ actor }) => ({
+				createShipment: (shipmentId: string) =>
 					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
-				),
 			}),
 		});
 
@@ -431,20 +429,12 @@ describe("igniteCore type inference", () => {
 			ActorWebShipmentContext["status"]
 		>();
 		expectTypeOf<RenderArgs["createShipment"]>().toEqualTypeOf<
-			CommandWithMetadata<
-				(shipmentId: string) => Promise<unknown>,
-				ActorWebExtendedState<ActorWebShipmentContext>
-			>
-		>();
-		expectTypeOf<
-			NonNullable<RenderArgs["createShipment"][typeof commandMetadataSymbol]>
-		>().toEqualTypeOf<
-			CommandMetadata<ActorWebExtendedState<ActorWebShipmentContext>>
+			(shipmentId: string) => Promise<unknown>
 		>();
 	});
 
 	it("infers actor-web read-model source snapshots from a single source", () => {
-		const register = igniteCoreActorWebEntrypoint({
+		const register = igniteCoreActorWebHost({
 			source: actorWebShipmentReadModelHostFactory,
 			states: (snapshot) => ({
 				shipmentId: snapshot.context.shipmentId,
@@ -504,7 +494,7 @@ describe("igniteCore type inference", () => {
 		});
 
 		type RenderArgs = AdapterPack<typeof register>;
-		const defaultedHostSubpathRegister = igniteCoreActorWebEntrypoint<
+		const defaultedHostSubpathRegister = igniteCoreActorWebHost<
 			ActorWebShipmentContext,
 			ActorWebShipmentCommand,
 			ActorWebShipmentEvent
@@ -519,7 +509,7 @@ describe("igniteCore type inference", () => {
 					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
 			}),
 		});
-		const requiredHostSubpathRegister = igniteCoreActorWebEntrypoint<
+		const requiredHostSubpathRegister = igniteCoreActorWebHost<
 			ActorWebShipmentContext,
 			ActorWebShipmentCommand,
 			ActorWebShipmentEvent
@@ -537,7 +527,7 @@ describe("igniteCore type inference", () => {
 		>();
 		expectTypeOf<
 			InferAdapterFromSource<typeof actorWebShipmentHostFactory>
-		>().toEqualTypeOf<"actor-web">();
+		>().toEqualTypeOf<never>();
 		// @ts-expect-error zero-arg actor-web factories no longer infer an adapter
 		const omittedActorWebFactoryInference: InferAdapterFromSource<
 			typeof actorWebShipmentFactory
@@ -671,10 +661,9 @@ describe("igniteCore type inference", () => {
 
 		igniteCoreXState({
 			source: machine,
-			commands: ({ actor, command }) => ({
+			commands: ({ actor }) => ({
 				noop: () => {
 					void actor;
-					void command;
 				},
 			}),
 		});
@@ -934,7 +923,7 @@ describe("igniteCore type inference", () => {
 		});
 
 		const result = register.execute({ command: "increment", input: 2 });
-		const schema = register.getSchema();
+		const schema = register.get("schema");
 		expectTypeOf<Parameters<typeof register.execute>[0]>().toEqualTypeOf<
 			IgniteCommandCall<{
 				increment: (amount: number) => unknown;
@@ -950,24 +939,24 @@ describe("igniteCore type inference", () => {
 				}>;
 			}>
 		>();
-		expectTypeOf(register.getStates()).toEqualTypeOf<{ count: number }>();
-		expectTypeOf(schema.commands).toEqualTypeOf<IgniteAgentCommandSchema>();
-		expectTypeOf(schema.events).toEqualTypeOf<IgniteAgentEventSchema[]>();
-		expectTypeOf(schema.snapshot).toEqualTypeOf<IgniteSchemaValue>();
-		// getSchema().states carries the typed states projection (mirrors getStates()),
-		// not the loose IgniteSchemaValue that `snapshot` falls back to.
-		expectTypeOf(schema.states).toEqualTypeOf<{ count: number }>();
+		expectTypeOf(register.get("states")).toEqualTypeOf<{ count: number }>();
+		expectTypeOf(
+			schema.commands,
+		).toEqualTypeOf<Readonly<IgniteAgentCommandSchema> | null>();
+		expectTypeOf(schema.events).toEqualTypeOf<
+			readonly IgniteAgentEventSchema[]
+		>();
+		expectTypeOf(schema.states.schema).toEqualTypeOf<null>();
 		register.on("counter-incremented", (event) => {
 			expectTypeOf(event).toEqualTypeOf<{
 				type: "counter-incremented";
 				count: number;
 			}>();
 		});
-		register.watchSnapshot((state, prevState) => {
-			expectTypeOf(state).toEqualTypeOf<StoreState>();
-			expectTypeOf(prevState).toEqualTypeOf<StoreState>();
+		store.subscribe(() => {
+			expectTypeOf(store.getState()).toEqualTypeOf<StoreState>();
 		});
-		register.watchStates((states, prevStates) => {
+		register.watch((states, prevStates) => {
 			expectTypeOf(states).toEqualTypeOf<{ count: number }>();
 			expectTypeOf(prevStates).toEqualTypeOf<{ count: number }>();
 		});
@@ -1095,9 +1084,8 @@ describe("igniteCore type inference", () => {
 				count: snapshot.context.count,
 				ready: snapshot.context.ready,
 			}),
-			commands: ({ actor, command }) => ({
+			commands: ({ actor }) => ({
 				increment: () => {
-					void command;
 					actor.send({ type: "INCREMENT" });
 				},
 				reset: () => actor.send({ type: "RESET" }),
@@ -1152,177 +1140,162 @@ describe("igniteCore type inference", () => {
 		>();
 	});
 
-	it("preserves command payload inference when metadata is attached", () => {
-		const store = counterStore();
+	it("rejects inferable state and command name collisions", () => {
+		const rejectCollision = () => {
+			// @ts-expect-error the combined binding cannot publish two origins for count
+			igniteCoreXState({
+				source: createMachine({}),
+				states: () => ({ count: 1 }),
+				commands: () => ({ count: () => 1 }),
+			});
+		};
+		void rejectCollision;
+	});
 
+	it("preserves ordinary command payload inference and unknown discovery schemas", () => {
 		const register = igniteCore({
 			adapter: "redux",
-			source: store,
-			commands: ({ actor, command }) => ({
-				addByAmount: command(
-					(amount: number) =>
-						actor.dispatch(counterSlice.actions.addByAmount(amount)),
-					{
-						description: "Add a bounded amount to the counter.",
-						input: command.number({ minimum: 1, maximum: 5 }),
-					},
-				),
+			source: counterStore(),
+			commands: ({ actor }) => ({
+				addByAmount: (amount: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
 			}),
 		});
-
 		void register.execute({ command: "addByAmount", input: 2 });
-		const schema = register.getSchema();
-
-		expectTypeOf(schema.commands).toEqualTypeOf<IgniteAgentCommandSchema>();
-
-		const expectPayloadValidation = () => {
-			// @ts-expect-error - wrapped command payload should remain numeric
+		expectTypeOf(
+			register.get("commands"),
+		).toEqualTypeOf<Readonly<IgniteAgentCommandSchema> | null>();
+		const rejectInvalidPayload = () => {
+			// @ts-expect-error ordinary command payload remains numeric
 			register.execute({ command: "addByAmount", input: "2" });
 		};
-
-		void expectPayloadValidation;
+		void rejectInvalidPayload;
 	});
 
-	it("types command metadata through the exported metadata symbol", () => {
-		const wrapped = command((amount: number) => amount, {
-			description: "Return the provided amount.",
-			input: command.number({ minimum: 1 }),
-		});
-
-		expectTypeOf(wrapped).toEqualTypeOf<
-			CommandWithMetadata<(amount: number) => number>
-		>();
-		expectTypeOf(wrapped[commandMetadataSymbol]).toEqualTypeOf<
-			CommandMetadata | undefined
-		>();
-	});
-
-	it("types command canExecute metadata from the adapter snapshot", () => {
-		const store = counterStore();
-
-		const register = igniteCore({
-			adapter: "redux",
-			source: store,
-			commands: ({ actor, command }) => ({
-				addWhenNonzero: command(
-					(amount: number) =>
-						actor.dispatch(counterSlice.actions.addByAmount(amount)),
-					{
-						description: "Add only after the count is nonzero.",
-						canExecute: ({ snapshot }) => {
-							expectTypeOf(snapshot.counter.count).toEqualTypeOf<number>();
-							return snapshot.counter.count > 0;
-						},
-					},
-				),
-			}),
-		});
-
-		expectTypeOf(
-			register.canExecute("addWhenNonzero"),
-		).toEqualTypeOf<boolean>();
-
-		const expectCommandNameValidation = () => {
-			// @ts-expect-error - canExecute is typed to known command names
-			register.canExecute("missing");
+	it("rejects retired helper exports while preserving ordinary function types", () => {
+		const ordinary = (amount: number) => amount;
+		expectTypeOf(ordinary).toEqualTypeOf<(amount: number) => number>();
+		const rejectRetiredHelpers = () => {
+			// @ts-expect-error command helpers are not public
+			void corePublic.command;
+			// @ts-expect-error metadata symbols are not public
+			void corePublic.commandMetadataSymbol;
+			type Removed = [
+				// @ts-expect-error helper metadata type is retired
+				import("../../RenderArgs").CommandMetadata,
+				// @ts-expect-error decorated function type is retired
+				import("../../RenderArgs").CommandWithMetadata,
+			];
+			expectTypeOf<Removed>().toBeArray();
 		};
-
-		void expectCommandNameValidation;
+		void rejectRetiredHelpers;
 	});
 
-	it("types richer command metadata builders as object-shaped schema contracts", () => {
-		const store = counterStore();
-
+	it("infers availability from source projections without helper metadata", () => {
 		const register = igniteCore({
 			adapter: "redux",
-			source: store,
-			commands: ({ actor, command }) => ({
-				configureAlert: command(
-					(payload: {
-						label: string;
-						enabled: boolean;
-						priority: "low" | "high";
-						channels: string[];
-					}) =>
-						actor.dispatch(
-							counterSlice.actions.addByAmount(
-								payload.enabled ? payload.channels.length : 0,
-							),
-						),
-					{
-						description: "Configure alert routing.",
-						input: command.object(
-							{
-								label: command.string({ minLength: 1, maxLength: 40 }),
-								enabled: command.boolean({ default: true }),
-								priority: command.enum(["low", "high"], {
-									default: "low",
-								}),
-								channels: command.array(command.string(), {
-									minItems: 1,
-								}),
-							},
-							{
-								required: ["label", "enabled", "priority"],
-							},
-						),
-					},
-				),
+			source: counterStore(),
+			states: (snapshot) => {
+				expectTypeOf(snapshot.counter.count).toEqualTypeOf<number>();
+				return { canAdd: snapshot.counter.count > 0 };
+			},
+			commands: ({ actor }) => ({
+				addWhenNonzero: (amount: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(amount)),
 			}),
 		});
-
-		const schema = register.getSchema();
-
-		expectTypeOf(schema.commands).toEqualTypeOf<IgniteAgentCommandSchema>();
-		expectTypeOf(
-			schema.commands.configureAlert,
-		).toEqualTypeOf<IgniteAgentCommandContract>();
-		expectTypeOf(
-			schema.commands.configureAlert.input,
-		).toEqualTypeOf<IgniteSchemaValue>();
+		expectTypeOf(register.get("states").canAdd).toEqualTypeOf<boolean>();
+		const rejectInvalidAPI = () => {
+			// @ts-expect-error helper-dependent availability method was retired
+			register.canExecute("addWhenNonzero");
+			// @ts-expect-error command names remain inferred
+			register.execute({ command: "missing", input: 1 });
+		};
+		void rejectInvalidAPI;
 	});
 
-	it("preserves tuple command inference when metadata is attached", () => {
-		const store = counterStore();
-
+	it("preserves object payload inference independently of unknown runtime schemas", () => {
 		const register = igniteCore({
 			adapter: "redux",
-			source: store,
-			commands: ({ actor, command }) => {
-				const addPair = command(
-					(first: number, second: number) =>
-						actor.dispatch(counterSlice.actions.addByAmount(first + second)),
-					{
-						description: "Add a pair of values.",
-					},
-				);
-
-				const tupleCommand: (first: number, second: number) => unknown =
-					addPair;
-
-				void tupleCommand;
-
-				return {
-					addPair,
-				};
-			},
+			source: counterStore(),
+			commands: ({ actor }) => ({
+				configureAlert: (payload: {
+					label: string;
+					enabled: boolean;
+					priority: "low" | "high";
+					channels: string[];
+				}) =>
+					actor.dispatch(
+						counterSlice.actions.addByAmount(
+							payload.enabled ? payload.channels.length : 0,
+						),
+					),
+			}),
 		});
+		const commands = register.get("commands");
+		if (commands) {
+			expectTypeOf(
+				commands.configureAlert,
+			).toEqualTypeOf<IgniteAgentCommandContract>();
+			expectTypeOf(commands.configureAlert.input).toEqualTypeOf<null>();
+		}
+		type Payload = Parameters<
+			AdapterPack<typeof register>["configureAlert"]
+		>[0];
+		expectTypeOf<Payload>().toEqualTypeOf<{
+			label: string;
+			enabled: boolean;
+			priority: "low" | "high";
+			channels: string[];
+		}>();
+		const rejectInvalidPayload = () => {
+			register.execute({
+				command: "configureAlert",
+				input: {
+					label: "Alert",
+					enabled: true,
+					// @ts-expect-error an invalid enum remains rejected without schema builders
+					priority: "urgent",
+					channels: ["email"],
+				},
+			});
+			register.execute({
+				command: "configureAlert",
+				input: {
+					label: "Alert",
+					enabled: true,
+					priority: "high",
+					// @ts-expect-error string arrays cannot contain a number
+					channels: [1],
+				},
+			});
+		};
+		void rejectInvalidPayload;
+	});
 
+	it("preserves multi-argument direct commands but rejects serialized multi-required calls", () => {
+		const register = igniteCore({
+			adapter: "redux",
+			source: counterStore(),
+			commands: ({ actor }) => ({
+				addPair: (first: number, second: number) =>
+					actor.dispatch(counterSlice.actions.addByAmount(first + second)),
+			}),
+		});
 		type RenderArgs = AdapterPack<typeof register>;
-
 		expectTypeOf<Parameters<RenderArgs["addPair"]>>().toEqualTypeOf<
 			[first: number, second: number]
 		>();
-
-		const expectTupleValidation = () => {
-			const args = null as unknown as RenderArgs;
-			// @ts-expect-error - wrapped command should preserve tuple arity
+		const checkTuple = (args: RenderArgs) => {
+			args.addPair(1, 2);
+			// @ts-expect-error direct command retains tuple arity
 			args.addPair(1);
-			// @ts-expect-error - wrapped command should preserve tuple item types
+			// @ts-expect-error direct command retains tuple item types
 			args.addPair(1, "2");
+			// @ts-expect-error execute passes one payload, never spreads an array
+			register.execute({ command: "addPair", input: [1, 2] });
 		};
-
-		void expectTupleValidation;
+		void checkTuple;
 	});
 
 	it("infers redux slice snapshot and actor facades", () => {

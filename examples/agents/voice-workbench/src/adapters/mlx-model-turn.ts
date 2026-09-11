@@ -301,7 +301,7 @@ const capabilityFeedback = (
 				command: execution.toolName,
 				ownerId: execution.ownerId,
 				status: "accepted",
-				view: data.view ?? workbench.getStates().modelContext,
+				view: data.view ?? workbench.get("states").modelContext,
 				events: readEvents(data.events),
 			};
 		}
@@ -334,7 +334,7 @@ const capabilityFeedback = (
 						}
 					: {}),
 			},
-			view: workbench.getStates().modelContext,
+			view: workbench.get("states").modelContext,
 			events: [],
 		};
 	}
@@ -349,7 +349,7 @@ const capabilityFeedback = (
 			...(execution.issues
 				? { issues: normalizeModelIssues(execution.issues) }
 				: {}),
-			view: workbench.getStates().modelContext,
+			view: workbench.get("states").modelContext,
 			events: [],
 		};
 	}
@@ -385,7 +385,7 @@ const capabilityFeedback = (
 				: {}),
 			...(proof?.fallback ? { fallback: proof.fallback } : {}),
 		},
-		view: workbench.getStates().modelContext,
+		view: workbench.get("states").modelContext,
 		events: [],
 	};
 };
@@ -433,7 +433,11 @@ export const createWorkbenchModelTurnPort = (
 		request: ModelTurnPortRequest,
 		signal: AbortSignal,
 	): CapabilityOwner => {
-		const tools = igniteTools(workbench);
+		const tools = igniteTools(workbench, undefined, {
+			schema: voiceWorkbenchModelSchema,
+			canExecute: (name) =>
+				Reflect.get(workbench.get("states").commandAvailability, name) === true,
+		});
 		return {
 			id: "workbench-component",
 			manifest: modelTools(tools.manifest),
@@ -447,7 +451,7 @@ export const createWorkbenchModelTurnPort = (
 						? request.prompt
 						: { channel: "text" as const, text: "" };
 				if (call.name === "completeResponse") {
-					const view = workbench.getStates().modelContext;
+					const view = workbench.get("states").modelContext;
 					const audits = [
 						domains.auditCompletion({ prompt, history, view }),
 						auditCompletionEvidence(history, view),
@@ -471,7 +475,7 @@ export const createWorkbenchModelTurnPort = (
 				const materializedCall = domains.materializeArtifact({
 					prompt,
 					history,
-					view: workbench.getStates().modelContext,
+					view: workbench.get("states").modelContext,
 					call,
 				});
 				if (signal.aborted || callSignal?.aborted) {
@@ -539,7 +543,7 @@ export const createWorkbenchModelTurnPort = (
 					ownerId: "workbench-component",
 					toolName: call.name,
 					data: {
-						view: workbench.getStates().modelContext,
+						view: workbench.get("states").modelContext,
 						events: execution.value.events.map((actorEvent) => ({
 							type: actorEvent.type,
 							...("reason" in actorEvent
@@ -709,7 +713,7 @@ export const createWorkbenchModelTurnPort = (
 					{
 						prompt: request.prompt,
 						tools: manifest,
-						view: workbench.getStates().modelContext,
+						view: workbench.get("states").modelContext,
 						history: request.history,
 						domainPolicyInstructions: domains.modelInstructions,
 						capabilities: {
@@ -799,3 +803,5 @@ export const createWorkbenchModelTurnPort = (
 		dispose: () => turns.clear(),
 	});
 };
+
+import { voiceWorkbenchModelSchema } from "../workbench-component";

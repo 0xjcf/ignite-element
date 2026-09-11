@@ -1,23 +1,23 @@
 import type { XStateCommandActor } from "@ignite-element/adapters/xstate";
 import { createXStateAdapter } from "@ignite-element/adapters/xstate";
 import type {
+	EmptyEventMap,
+	EventMap,
+	FacadeCommandFunction,
+	FacadeCommandResult,
+} from "@ignite-element/core";
+import type {
 	AnyStateMachine,
 	EmittedFrom,
 	EventFrom,
 	StateFrom,
 } from "xstate";
-import type {
-	EmptyEventMap,
-	EventMap,
-	FacadeCommandFunction,
-	FacadeCommandResult,
-} from "../RenderArgs";
 import { createIgniteComponentFactory } from "./createIgniteComponentFactory";
 import type {
 	IgniteCoreReturn,
 	WithEmittedEvents,
 	XStateConfig,
-} from "./types";
+} from "./xstateTypes";
 
 export function igniteCoreXState<
 	Machine extends AnyStateMachine,

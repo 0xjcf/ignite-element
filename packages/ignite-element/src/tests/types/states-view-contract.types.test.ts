@@ -29,15 +29,15 @@ describe("v3 states/view contract types", () => {
 			}),
 		});
 
-		expectTypeOf(counter.getSnapshot()).toEqualTypeOf<Snapshot>();
-		expectTypeOf(counter.getStates()).toEqualTypeOf<{ count: number }>();
-		counter.watchStates((states, prevStates) => {
+		expectTypeOf<
+			Awaited<ReturnType<typeof counter.execute>>["snapshot"]
+		>().toEqualTypeOf<Snapshot>();
+		expectTypeOf(counter.get("states")).toEqualTypeOf<{ count: number }>();
+		counter.watch((states, prevStates) => {
 			expectTypeOf(states).toEqualTypeOf<{ count: number }>();
 			expectTypeOf(prevStates).toEqualTypeOf<{ count: number }>();
 		});
-		expectTypeOf(counter.getSchema().states).toEqualTypeOf<{
-			count: number;
-		}>();
+		expectTypeOf(counter.get("schema").states.schema).toEqualTypeOf<null>();
 
 		const inspectResult = async () => {
 			const result = await counter.execute({ command: "increment" });
@@ -75,7 +75,7 @@ describe("v3 states/view contract types", () => {
 			source: machine,
 			commands: ({ actor }) => ({ ping: () => actor.send({ type: "PING" }) }),
 		});
-		expectTypeOf(commandsOnly.getStates()).toEqualTypeOf<
+		expectTypeOf(commandsOnly.get("states")).toEqualTypeOf<
 			Record<never, never>
 		>();
 	});
@@ -90,13 +90,13 @@ describe("v3 states/view contract types", () => {
 			source: configureStore({ reducer: slice.reducer }),
 			states: (snapshot) => ({ count: snapshot.count }),
 		});
-		expectTypeOf(redux.getStates()).toEqualTypeOf<{ count: number }>();
+		expectTypeOf(redux.get("states")).toEqualTypeOf<{ count: number }>();
 
 		const mobx = igniteMobx({
 			source: makeAutoObservable({ count: 0 }),
 			states: (snapshot) => ({ count: snapshot.count }),
 		});
-		expectTypeOf(mobx.getStates()).toEqualTypeOf<{ count: number }>();
+		expectTypeOf(mobx.get("states")).toEqualTypeOf<{ count: number }>();
 
 		const inferActorWeb = (
 			actorWebSource: ActorWebCommandSource<{ count: number }, { type: "INC" }>,
@@ -105,7 +105,7 @@ describe("v3 states/view contract types", () => {
 				source: actorWebSource,
 				states: (snapshot) => ({ count: snapshot.context.count }),
 			});
-			expectTypeOf(actorWeb.getStates()).toEqualTypeOf<{ count: number }>();
+			expectTypeOf(actorWeb.get("states")).toEqualTypeOf<{ count: number }>();
 		};
 		void inferActorWeb;
 	});
@@ -121,7 +121,11 @@ describe("v3 states/view contract types", () => {
 			commands: ({ actor }) => ({ ping: () => actor.send({ type: "PING" }) }),
 		});
 
-		const tools = igniteTools(component);
+		const tools = igniteTools(component, undefined, {
+			schema: {
+				commands: { ping: { input: { type: "object", properties: {} } } },
+			},
+		});
 		const inspectTools = async () => {
 			const result = await tools.run({ name: "ping", input: undefined });
 			if (result.ok) {

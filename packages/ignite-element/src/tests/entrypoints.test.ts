@@ -68,11 +68,18 @@ describe("public adapter entrypoints", () => {
 		expect(typeof matchState).toBe("function");
 		expect(typeof component).toBe("function");
 		expect(typeof component.execute).toBe("function");
-		expect(typeof component.getSnapshot).toBe("function");
-		expect(typeof component.getStates).toBe("function");
-		expect(typeof component.getSchema).toBe("function");
-		expect(typeof component.watchSnapshot).toBe("function");
-		expect(typeof component.watchStates).toBe("function");
+		expect(typeof component.get).toBe("function");
+		expect(typeof component.watch).toBe("function");
+		expect(typeof component.dispose).toBe("function");
+		for (const name of [
+			"getSnapshot",
+			"getStates",
+			"getSchema",
+			"watchSnapshot",
+			"watchStates",
+			"canExecute",
+		])
+			expect(component).not.toHaveProperty(name);
 		expect(typeof component.on).toBe("function");
 	});
 
@@ -100,11 +107,18 @@ describe("public adapter entrypoints", () => {
 		expect(typeof igniteCoreRedux).toBe("function");
 		expect(typeof component).toBe("function");
 		expect(typeof component.execute).toBe("function");
-		expect(typeof component.getSnapshot).toBe("function");
-		expect(typeof component.getStates).toBe("function");
-		expect(typeof component.getSchema).toBe("function");
-		expect(typeof component.watchSnapshot).toBe("function");
-		expect(typeof component.watchStates).toBe("function");
+		expect(typeof component.get).toBe("function");
+		expect(typeof component.watch).toBe("function");
+		expect(typeof component.dispose).toBe("function");
+		for (const name of [
+			"getSnapshot",
+			"getStates",
+			"getSchema",
+			"watchSnapshot",
+			"watchStates",
+			"canExecute",
+		])
+			expect(component).not.toHaveProperty(name);
 		expect(typeof component.on).toBe("function");
 	});
 
@@ -117,11 +131,18 @@ describe("public adapter entrypoints", () => {
 		expect(typeof igniteCoreMobx).toBe("function");
 		expect(typeof component).toBe("function");
 		expect(typeof component.execute).toBe("function");
-		expect(typeof component.getSnapshot).toBe("function");
-		expect(typeof component.getStates).toBe("function");
-		expect(typeof component.getSchema).toBe("function");
-		expect(typeof component.watchSnapshot).toBe("function");
-		expect(typeof component.watchStates).toBe("function");
+		expect(typeof component.get).toBe("function");
+		expect(typeof component.watch).toBe("function");
+		expect(typeof component.dispose).toBe("function");
+		for (const name of [
+			"getSnapshot",
+			"getStates",
+			"getSchema",
+			"watchSnapshot",
+			"watchStates",
+			"canExecute",
+		])
+			expect(component).not.toHaveProperty(name);
 		expect(typeof component.on).toBe("function");
 	});
 
@@ -133,11 +154,18 @@ describe("public adapter entrypoints", () => {
 		expect(typeof igniteCoreActorWeb).toBe("function");
 		expect(typeof component).toBe("function");
 		expect(typeof component.execute).toBe("function");
-		expect(typeof component.getSnapshot).toBe("function");
-		expect(typeof component.getStates).toBe("function");
-		expect(typeof component.getSchema).toBe("function");
-		expect(typeof component.watchSnapshot).toBe("function");
-		expect(typeof component.watchStates).toBe("function");
+		expect(typeof component.get).toBe("function");
+		expect(typeof component.watch).toBe("function");
+		expect(typeof component.dispose).toBe("function");
+		for (const name of [
+			"getSnapshot",
+			"getStates",
+			"getSchema",
+			"watchSnapshot",
+			"watchStates",
+			"canExecute",
+		])
+			expect(component).not.toHaveProperty(name);
 		expect(typeof component.on).toBe("function");
 	});
 

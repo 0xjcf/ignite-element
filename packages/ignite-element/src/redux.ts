@@ -1,11 +1,3 @@
-export type {
-	CommandHelper,
-	CommandMetadata,
-	CommandMetadataValue,
-	CommandWithMetadata,
-	NumberCommandInputMetadata,
-	NumberCommandInputOptions,
-} from "@ignite-element/core";
 export { igniteCoreRedux as igniteCore } from "./igniteCore/redux";
 export type {
 	IgniteCoreReturn,
@@ -13,7 +5,7 @@ export type {
 	ReduxInstanceConfig,
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
-} from "./igniteCore/types";
+} from "./igniteCore/reduxTypes";
 export {
 	createProjectionDocumentTarget,
 	createProjectionSpeechTarget,

@@ -35,11 +35,17 @@ export type IgniteCommandCall<
 	Commands extends FacadeCommandResult = FacadeCommandResult,
 	CommandName extends keyof Commands & string = keyof Commands & string,
 > = {
-	[Name in CommandName]: Parameters<Commands[Name]> extends []
-		? { command: Name }
-		: undefined extends CommandPayload<Commands, Name>
-			? { command: Name; input?: CommandPayload<Commands, Name> }
-			: { command: Name; input: CommandPayload<Commands, Name> };
+	[Name in CommandName]: Parameters<Commands[Name]> extends [
+		unknown,
+		unknown,
+		...unknown[],
+	]
+		? never
+		: Parameters<Commands[Name]> extends []
+			? { command: Name }
+			: undefined extends CommandPayload<Commands, Name>
+				? { command: Name; input?: CommandPayload<Commands, Name> }
+				: { command: Name; input: CommandPayload<Commands, Name> };
 }[CommandName];
 
 export type IgniteAgentExecutionResult<
@@ -73,25 +79,19 @@ export type IgniteAgentRuntime<
 	SchemaState = IgniteSchemaValue,
 	States extends Record<string, unknown> = Record<never, never>,
 > = {
-	canExecute<CommandName extends keyof Commands & string>(
-		commandName: CommandName,
-	): boolean;
 	execute<CommandName extends keyof Commands & string>(
 		call: IgniteCommandCall<Commands, CommandName>,
 	): Promise<IgniteAgentExecutionResult<State, Events, States>>;
-	getSnapshot(): State;
-	getStates(): States;
+	get(key: "states"): States;
+	get(key: "schema"): IgniteAgentSchema<SchemaState, States>;
+	get(key: "commands"): IgniteAgentSchema["commands"];
+	get(key: "events"): IgniteAgentSchema["events"];
+	dispose(): void;
 	on<Type extends keyof Events & string>(
 		eventName: Type,
 		handler: IgniteAgentEventListener<Events, Type>,
 	): IgniteAgentSubscription;
-	watchSnapshot(
-		handler: IgniteAgentSnapshotListener<State>,
-	): IgniteAgentSubscription;
-	watchStates(
-		handler: IgniteAgentSnapshotListener<States>,
-	): IgniteAgentSubscription;
-	getSchema(): IgniteAgentSchema<SchemaState, States>;
+	watch(handler: IgniteAgentSnapshotListener<States>): IgniteAgentSubscription;
 };
 
 export type ProjectionNodeBase = {

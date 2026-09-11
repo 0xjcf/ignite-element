@@ -133,7 +133,7 @@ const recordTurnTerminal = (event: {
 				id: request.call.id ?? "workbench-complete",
 				command: request.call.command,
 				status: "accepted",
-				view: component.getStates().modelContext,
+				view: component.get("states").modelContext,
 				events: [],
 			},
 		},
@@ -246,7 +246,7 @@ describe("voice workbench accessible JSX", () => {
 				"The local model could not be reached.",
 			);
 			queries.getByRole("button", { name: "Retry model" }).click();
-			expect(component.getStates().status).toBe("preparing");
+			expect(component.get("states").status).toBe("preparing");
 			executePrivatePort({ command: "reportModelAvailable" });
 			executePrivatePort({
 				command: "recordRuntimeManifest",
@@ -317,7 +317,7 @@ describe("voice workbench accessible JSX", () => {
 					],
 				},
 			});
-			expect(component.getStates().runtimeInspector).toMatchObject({
+			expect(component.get("states").runtimeInspector).toMatchObject({
 				mlx: {
 					heading: "MLX model readiness",
 					statusLabel: "available",
@@ -401,7 +401,7 @@ describe("voice workbench accessible JSX", () => {
 				queries.getByRole("button", { name: "Headless preview" }),
 			).toBeTruthy();
 			queries.getByRole("button", { name: "Terminal preview" }).click();
-			expect(component.getStates().runtimeInspector.selectedPreview).toBe(
+			expect(component.get("states").runtimeInspector.selectedPreview).toBe(
 				"terminal",
 			);
 			expect(
@@ -439,7 +439,7 @@ describe("voice workbench accessible JSX", () => {
 			form.dispatchEvent(
 				new Event("submit", { bubbles: true, cancelable: true }),
 			);
-			expect(component.getStates().status).toBe("responding");
+			expect(component.get("states").status).toBe("responding");
 			expect(
 				host.shadowRoot?.querySelector(".progress-card")?.textContent,
 			).toContain("Awaiting the first model or capability result");
@@ -616,7 +616,7 @@ describe("voice workbench accessible JSX", () => {
 
 			const schemaTab = queries.getByRole("tab", { name: "Schema" });
 			schemaTab.click();
-			expect(component.getStates()).toMatchObject({
+			expect(component.get("states")).toMatchObject({
 				presentation: { artifactView: "schema" },
 			});
 			expect(
@@ -640,7 +640,7 @@ describe("voice workbench accessible JSX", () => {
 			if (!completedTurnId)
 				throw new Error("Expected an active completed turn.");
 			recordTurnTerminal({ type: "TURN_COMPLETED", turnId: completedTurnId });
-			expect(component.getStates().status).toBe("ready");
+			expect(component.get("states").status).toBe("ready");
 			queries.getByRole("tab", { name: "Document" }).click();
 			const checklistItem = queries.getByRole("checkbox", {
 				name: "Ship Ignite",
@@ -648,11 +648,11 @@ describe("voice workbench accessible JSX", () => {
 			expect(checklistItem.disabled).toBe(false);
 			expect(checklistItem.checked).toBe(false);
 			checklistItem.click();
-			expect(component.getStates().activeArtifact).toMatchObject({
+			expect(component.get("states").activeArtifact).toMatchObject({
 				id: "decision",
 				revision: "2",
 			});
-			expect(component.getStates().activeArtifact?.nodes[0]).toMatchObject({
+			expect(component.get("states").activeArtifact?.nodes[0]).toMatchObject({
 				id: "decision-checklist",
 				items: [{ id: "ship", checked: true }],
 			});
@@ -668,7 +668,7 @@ describe("voice workbench accessible JSX", () => {
 					?.textContent,
 			).toContain("Revision 2");
 			queries.getByRole("button", { name: "Restore revision 1" }).click();
-			expect(component.getStates().activeArtifact).toMatchObject({
+			expect(component.get("states").activeArtifact).toMatchObject({
 				id: "decision",
 				revision: "3",
 			});
@@ -753,7 +753,7 @@ describe("voice workbench accessible JSX", () => {
 				},
 			});
 			recordTurnTerminal({ type: "TURN_COMPLETED", turnId: receiptTurnId });
-			expect(component.getStates()).toMatchObject({
+			expect(component.get("states")).toMatchObject({
 				activeArtifact: { id: "receipt", revision: "1" },
 				artifactSummaries: [
 					{ id: "decision", active: false },
@@ -761,7 +761,7 @@ describe("voice workbench accessible JSX", () => {
 				],
 			});
 			queries.getByRole("button", { name: "Decision, revision 3" }).click();
-			expect(component.getStates().activeArtifact).toMatchObject({
+			expect(component.get("states").activeArtifact).toMatchObject({
 				id: "decision",
 				revision: "3",
 			});

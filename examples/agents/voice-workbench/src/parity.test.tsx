@@ -114,10 +114,10 @@ describe("voice workbench production parity harness", () => {
 			expect(
 				host.shadowRoot?.querySelector(".responding-overlay")?.textContent,
 			).toContain("Awaiting the first model or capability result");
-			expect(component.getStates().lastFact).toMatchObject({
+			expect(component.get("states").lastFact).toMatchObject({
 				type: "prompt-submitted",
 			});
-			expect(component.getStates()).toMatchObject({
+			expect(component.get("states")).toMatchObject({
 				presentation: { mobilePanel: "artifact" },
 			});
 
@@ -134,7 +134,7 @@ describe("voice workbench production parity harness", () => {
 				queries.getByRole("tab", { name: "Schema" }),
 				queries.getByRole("button", { name: "Play spoken summary" }),
 			]).toHaveLength(3);
-			expect(component.getStates()).toMatchObject({
+			expect(component.get("states")).toMatchObject({
 				artifacts: [{ id: "parity-artifact", revision: "1" }],
 				presentation: {
 					documentCommit: { id: "parity-artifact", revision: "1" },

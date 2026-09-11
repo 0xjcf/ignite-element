@@ -2,6 +2,11 @@
 
 ## Status
 
+The flat event shape below remains the contract. This historical cutover record's
+getter, helper, and recording references are superseded by
+[the core API and bindings migration](./core-api-bindings.md): current discovery
+is `get("events")` with unknown `payload: null`, and recording is retired.
+
 Implemented in the v3 beta cutover. **Breaking, agent-facing** → shipped in the
 pre-stable v3 window with a changeset and a downstream migration note. Because
 this is still beta, there is no read-time `.payload` compatibility accessor.

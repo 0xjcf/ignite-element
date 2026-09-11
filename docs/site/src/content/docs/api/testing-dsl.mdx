@@ -12,7 +12,7 @@ Use the [Testing guide](/ignite-element/guides/testing/) for complete checked ex
 
 | Former capability | Migration |
 | --- | --- |
-| `given`, snapshot/state checkpoints | Ordinary assertions on `getSnapshot()` and `getStates()` |
+| `given`, snapshot/state checkpoints | Ordinary assertions on native source snapshots, execution results and `get('states')` |
 | `when`, `intent`, recorded `execute` | `await core.execute({ command, input })` and assertions on its result |
 | Fixture `behavior` | Run fixture-owned operations directly, then observe source outcomes |
 | `until` | Bounded application loops or bounded waits for source-owned completion |

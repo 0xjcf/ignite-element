@@ -67,7 +67,7 @@ expect(result.events).toEqual([
 expect(seen).toEqual([{ type: "toggled", isOn: true }]);
 ```
 
-Use `execute()` for command-driven assertions, `on(...)` for emitted events, and `watchSnapshot(...)` or `watchStates(...)` when a test needs to observe longer-lived snapshots or projection changes.
+Use `execute()` for paired native snapshot/projected-state assertions, `on(...)` for emitted events, and `watch(...)` for longer-lived derived-state changes. Native sources retain their own snapshot and subscription APIs. Release observation handles and dispose an unregistered owning core after use.
 
 ## Advanced renderer config
 
