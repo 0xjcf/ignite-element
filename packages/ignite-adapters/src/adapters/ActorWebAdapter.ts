@@ -321,6 +321,17 @@ function createIsolatedFactory<
 	return factory;
 }
 
+function closeOwnedSource(source: {
+	close?: () => void | Promise<void>;
+}): void {
+	const cleanup = async () => {
+		await source.close?.();
+	};
+	void cleanup().catch((error) => {
+		console.error("[ActorWebAdapter] Failed to stop isolated source.", error);
+	});
+}
+
 function createAdapterEntry<
 	Context extends object,
 	Message extends { type: string },
@@ -525,18 +536,7 @@ function createAdapterEntry<
 				return;
 			}
 
-			const cleanupSources = async () => {
-				// The command actor IS the source (or null), so closing the source
-				// disposes the only handle ignite created.
-				await source.close?.();
-			};
-
-			void cleanupSources().catch((error) => {
-				console.error(
-					"[ActorWebAdapter] Failed to stop isolated source.",
-					error,
-				);
-			});
+			closeOwnedSource(source);
 			if (failed) throw failure;
 		},
 		scope,
@@ -569,13 +569,21 @@ export default function createActorWebAdapter<
 	ownership: { ownsFactorySource: boolean } = { ownsFactorySource: true },
 ): ActorWebAdapterFactory<Context, Message, Emitted, Host> {
 	if (typeof source === "function") {
-		return createIsolatedFactory((host) =>
-			createAdapterEntry(
-				source({ host }),
-				StateScope.Isolated,
-				ownership.ownsFactorySource,
-			),
-		);
+		return createIsolatedFactory((host) => {
+			const acquiredSource = source({ host });
+			try {
+				return createAdapterEntry(
+					acquiredSource,
+					StateScope.Isolated,
+					ownership.ownsFactorySource,
+				);
+			} catch (error) {
+				// No adapter exists yet to release this handle. Only the explicit
+				// web ownership capability grants shutdown authority on failure.
+				if (ownership.ownsFactorySource) closeOwnedSource(acquiredSource);
+				throw error;
+			}
+		});
 	}
 
 	return createSharedFactory(
