@@ -12,8 +12,33 @@ const archivedDocsRoot = path.join(docsRoot, "2.x");
 const builtRoot = path.join(siteRoot, "dist");
 const installCommand =
 	/\b(?:pnpm\s+add|npm\s+(?:install|i)|yarn\s+add|bun\s+add)\b([^\n`]*)/g;
-const facadePackage =
-	/(?:^|\s|["'])(ignite-element(?:@[^\s#,'"`;)|&]*)?)(?=$|[\s#,'"`;)|&])/g;
+// Quoted punctuation belongs to the argument, not to a shell separator.
+function installArguments(command) {
+	const args = [];
+	let word = "";
+	let quote;
+	for (let i = 0; i < command.length; i++) {
+		const char = command[i];
+		if (char === "\\" && quote !== "'" && i + 1 < command.length) {
+			word += command[++i];
+		} else if (quote) {
+			if (char === quote) quote = undefined;
+			else word += char;
+		} else if (char === '"' || char === "'") {
+			quote = char;
+		} else if (char === "#" && !word) {
+			break;
+		} else if (/[\s;|&()]/.test(char)) {
+			if (word) args.push(word);
+			word = "";
+		} else {
+			word += char;
+		}
+	}
+	assert.equal(quote, undefined, "unterminated quote in install command");
+	if (word) args.push(word);
+	return args;
+}
 // Settled public verification: archive 17d1e73bbf9781b19d3c9b1cad7c995c3f6360023d962c8de0c43e487869cc32.
 // Publication authority is explicit, not inferred from package.json or page text.
 const verifiedRelease = "3.0.0-beta.12";
@@ -24,7 +49,9 @@ const supportedFacadeInstalls = new Set([
 ]);
 const facadeInstalls = (content) =>
 	[...content.matchAll(installCommand)].flatMap((command) =>
-		[...command[1].matchAll(facadePackage)].map((match) => match[1]),
+		installArguments(command[1]).filter((argument) =>
+			/^ignite-element(?:@|$)/.test(argument),
+		),
 	);
 
 const requiredCurrentRoutes = [

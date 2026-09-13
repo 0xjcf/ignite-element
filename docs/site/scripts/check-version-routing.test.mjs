@@ -107,6 +107,37 @@ test("an empty version selector fails visibly", () =>
 		({ append }) => append(installation, "`pnpm add ignite-element@`"),
 		/unsupported v3 install/,
 	));
+for (const quote of ['"', "'"]) {
+	for (const suffix of [
+		";invalid",
+		"|invalid",
+		"&invalid",
+		"#invalid",
+		",invalid",
+		")invalid",
+		" invalid",
+	]) {
+		test(`quoted selector ${quote}beta${suffix}${quote} fails completely`, () =>
+			rejects(
+				({ append }) =>
+					append(
+						installation,
+						`\`npm install ${quote}ignite-element@beta${suffix}${quote}\``,
+					),
+				/unsupported v3 install/,
+			));
+	}
+}
+test("shell separators outside quoted selectors remain valid", () =>
+	passes(({ append }) =>
+		append(installation, '`npm install "ignite-element@beta"; echo done`'),
+	));
+test("concatenated quoted selector suffix is not discarded", () =>
+	rejects(
+		({ append }) =>
+			append(installation, '`npm install "ignite-element@beta"invalid`'),
+		/unsupported v3 install/,
+	));
 test("an allowed selector elsewhere cannot hide an unsupported selector", () =>
 	rejects(
 		({ append }) =>
