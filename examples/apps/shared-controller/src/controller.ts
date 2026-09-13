@@ -38,7 +38,7 @@ export function createController(session: Session, ports: Ports) {
 	let active = true;
 	let revision = 0;
 	let operation = 0;
-	let cancelDeadline: (() => void) | undefined;
+	const deadlines = new Set<() => void>();
 	const listeners = new Set<() => void>();
 	const publish = (patch: Partial<Snapshot>) => {
 		state = Object.freeze({ ...state, ...patch });
@@ -54,6 +54,9 @@ export function createController(session: Session, ports: Ports) {
 		if (!active || state.loading) return;
 		const ticket = revision;
 		publish({ loading: true, readFailed: false });
+		// Observers may dispose or start a write during synchronous delivery.
+		if (!current(ticket)) return;
+		let settled: Partial<Snapshot>;
 		try {
 			const result = await ports.read(session);
 			if (!current(ticket)) return;
@@ -63,16 +66,15 @@ export function createController(session: Session, ports: Ports) {
 				isDensity(result.density)
 			) {
 				// A query observes a value; it does not settle a write whose outcome is unknown.
-				publish({ confirmed: result.density, readFailed: false });
-			} else publish({ readFailed: true });
+				settled = { confirmed: result.density, readFailed: false };
+			} else settled = { readFailed: true };
 		} catch (error) {
-			if (current(ticket)) {
-				publish({ readFailed: true });
-				ports.report(error);
-			}
-		} finally {
-			if (current(ticket)) publish({ loading: false });
+			if (!current(ticket)) return;
+			settled = { readFailed: true };
+			ports.report(error);
 		}
+		// Publish the settled read once; no old finalizer may clear a reentrant read.
+		if (current(ticket)) publish({ ...settled, loading: false });
 	}
 	async function choose(density: Density): Promise<void> {
 		if (!isDensity(density) || !canChoose() || density === state.confirmed)
@@ -89,10 +91,22 @@ export function createController(session: Session, ports: Ports) {
 			loading: false,
 			readFailed: false,
 		});
+		if (!current(ticket)) return;
+		let cancelDeadline: (() => void) | undefined;
+		const release = () => {
+			const cancel = cancelDeadline;
+			cancelDeadline = undefined;
+			deadlines.delete(release);
+			cancel?.();
+		};
+		let settled: Partial<Snapshot> = { outcome: "unknown" };
 		try {
+			deadlines.add(release);
 			cancelDeadline = ports.after(5000, () => {
 				if (current(ticket)) publish({ outcome: "unknown" });
 			});
+			// A port can also deliver synchronously before returning its handle.
+			if (!current(ticket)) return;
 			const result = await ports.write(request);
 			if (!current(ticket)) return;
 			if (
@@ -102,25 +116,22 @@ export function createController(session: Session, ports: Ports) {
 				result.operation === request.operation &&
 				result.density === request.density
 			) {
-				publish({ confirmed: density, outcome: "confirmed" });
+				settled = { confirmed: density, outcome: "confirmed" };
 			} else
-				publish({
+				settled = {
 					outcome: result.kind === "rejected" ? "rejected" : "unknown",
-				});
+				};
 		} catch (error) {
-			if (current(ticket)) {
-				publish({ outcome: "unknown" });
-				ports.report(error);
-			}
+			if (!current(ticket)) return;
+			ports.report(error);
 		} finally {
-			if (current(ticket)) {
-				++revision; // Also invalidates queries that started while the write was pending.
-				const cancel = cancelDeadline;
-				cancelDeadline = undefined;
-				cancel?.();
-				publish({ loading: false });
-			}
+			// Release this operation's resource even after losing publication authority.
+			release();
 		}
+		if (!current(ticket)) return;
+		// Invalidate earlier queries before exposing a state that permits fresh work.
+		++revision;
+		publish({ ...settled, loading: false });
 	}
 	async function retry(): Promise<void> {
 		if (active && state.outcome === "rejected" && state.requested !== null)
@@ -143,9 +154,7 @@ export function createController(session: Session, ports: Ports) {
 			active = false;
 			++revision;
 			listeners.clear();
-			const cancel = cancelDeadline;
-			cancelDeadline = undefined;
-			cancel?.();
+			for (const release of [...deadlines]) release();
 			// Invalidate observations and deadline only. There is no transport cancellation port.
 		},
 	};
