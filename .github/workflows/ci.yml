@@ -40,6 +40,11 @@ jobs:
       - name: Build packages
         run: pnpm run build
 
+      # Unlike the docs-contrast lane, this runs for every beta PR, including
+      # root packageManager-only changes, without relying on docs path filters.
+      - name: Validate documentation publication contracts
+        run: pnpm --filter docs-site run check:publication
+
       - name: Verify packed ESM consumers
         run: pnpm run verify:packed
 
