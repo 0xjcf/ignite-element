@@ -194,9 +194,11 @@ Retained resources stay outside source provisioning and outside effects.
 - Ignite does not own their lifecycle, and their cleanup must not terminate the
   source.
 
-## `igniteShell`
+## Source-free composition
 
-`igniteShell` remains a narrow sourceless composition helper.
+Released beta.11 provides `igniteShell`. The explicitly amended, unpublished
+review candidate replaces it with root `igniteCore()` without a public lifecycle
+hook. See [source-free core and breaking migration](./source-free-core.md).
 
 - Use it when there is no source.
 - Do not treat it as a source-provisioning API.

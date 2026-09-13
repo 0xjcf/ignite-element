@@ -15,14 +15,14 @@ const core = igniteCore({
   source: machineOrActor,
   events: (event) => ({ /* typed events */ }),
   states: (snapshot) => ({ /* derived values */ }),
-  commands: ({ actor, command }) => ({ /* actions */ }),
+  commands: ({ actor }) => ({ /* actions */ }),
   effects: ({ snapshot, prevSnapshot, emit, select }) => { /* outward facts */ },
 });
 
 const component = core('tag-name', (props) => /* JSX or lit template */);
 
 component.tagName;
-component.getSchema();
+component.get('schema');
 ```
 
 ## Parameters
@@ -30,22 +30,22 @@ component.getSchema();
 - `source`: machine definition or started actor (XState), Redux store/slice, or MobX observable.
 - `events(mapper)`: optional; defines typed DOM events.
 - `states(snapshot)`: optionally derive a plain object from the bare native snapshot; runs on mount and on source observations. Omission yields one stable empty object.
-- `commands(context)`: expose actions; receives `{ actor, command }`.
+- `commands(context)`: expose actions; receives `{ actor }`.
 - `effects(context)`: optional; receives `{ snapshot, prevSnapshot, select, emit }`, stays synchronous, and runs in a microtask after renderer notification for each delivered update after the initial baseline.
-- `cleanup`: shared-adapter teardown override. Defaults to `false` for **shared** (consumer-owned) sources — a live instance you pass lives for the core's lifetime, so the shared adapter is kept alive across element disconnects. For **isolated** sources (Ignite creates one adapter per element, stopped on disconnect) it has no practical effect. Set `cleanup: true` on a shared core to opt back into element-refcount teardown of the adapter. Ignite never stops or closes a source it did not create.
+- `cleanup`: shared-adapter element-refcount teardown override, not native source ownership. Defaults to `false` for shared sources. Set `cleanup: true` to release the shared adapter after the last element and retained observation handle leave. Owning-core disposal is separate: borrowed sources are never stopped, while a private Ignite-created XState actor is stopped exactly once. Headless Actor-Web factory invocation does not transfer close authority.
 
 ## Returns
 
-A **component factory and headless runtime**. Call it as `core(tagName, renderer)` to register a custom element and receive a component handle. The handle exposes the registered `tagName` and delegates `getSchema()` to the same runtime:
+A **component factory and headless runtime**. Call it as `core(tagName, renderer)` to register a custom element and receive a component handle. The handle exposes the registered `tagName` and delegates `get('schema')` to the same runtime:
 
 ```ts no-check
 const component = core('counter-button', renderer);
 
 component.tagName; // 'counter-button'
-component.getSchema();
+component.get('schema');
 ```
 
-The callable `core` value carries `execute`, `getSnapshot`, `getStates`, `getSchema`, `on`, `watchSnapshot`, `watchStates`, and `record` for driving and inspecting the behavior without the DOM.
+The source-backed callable `core` carries `get`, `watch`, `on`, `execute`, and `dispose`. Read keys are exactly `states`, `schema`, `commands`, and `events`; component handles expose only the appropriate discovery keys. Successful registration prevents owning disposal. Root source-free construction returns only its registrar.
 
 The accepted one-argument overload binds an opaque non-DOM projection target and returns a disposable projection session:
 
@@ -71,7 +71,7 @@ See [The Ignite model](/ignite-element/concepts/the-ignite-model/) for adapter-s
 
 ## Headless runtime
 
-Every component registration also exposes a headless runtime (`execute`, `getSnapshot`, `getStates`, `getSchema`, `on`, `watchSnapshot`, `watchStates`, `record`) for driving and inspecting behavior without the DOM. See [Headless runtime](/ignite-element/api/headless-runtime/) for the full method reference.
+Source-backed construction exposes the runtime before registration. Tag-and-renderer registration requires a browser and otherwise throws a synchronous DOM-registration error without acquiring additional source observations. Renderer defaults are selected at registration, not construction; an explicit strategy bypasses default resolution. The registered tag retains its selection across rendering and reconnection. See [Headless runtime](/ignite-element/api/headless-runtime/) for the method reference and lifetime limitation.
 
 ## Callback boundaries
 
@@ -90,5 +90,5 @@ effects: ({ snapshot, prevSnapshot, select, emit }) => {
 
 - [The Ignite model](/ignite-element/concepts/the-ignite-model/) — ownership, projection, and the deterministic-effects semantics.
 - [Headless runtime](/ignite-element/api/headless-runtime/) — the agent-facing runtime methods.
-- [Command metadata](/ignite-element/api/command-metadata/) — enrich `getSchema()` output.
-- [Testing DSL](/ignite-element/api/testing-dsl/) — scenario and story helpers built on the same runtime.
+- [Commands and tool schemas](/ignite-element/api/command-metadata/) — ordinary functions and explicit application schemas, separate from minimal discovery.
+- [Testing guide](/ignite-element/guides/testing/) — ordinary assertions over the same runtime.

@@ -1,13 +1,3 @@
-import "./internal/setupDomPolyfill";
-
-export type {
-	CommandHelper,
-	CommandMetadata,
-	CommandMetadataValue,
-	CommandWithMetadata,
-	NumberCommandInputMetadata,
-	NumberCommandInputOptions,
-} from "@ignite-element/core";
 export { igniteCoreRedux as igniteCore } from "./igniteCore/redux";
 export type {
 	IgniteCoreReturn,
@@ -15,47 +5,17 @@ export type {
 	ReduxInstanceConfig,
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
-} from "./igniteCore/types";
+} from "./igniteCore/reduxTypes";
 export {
 	createProjectionDocumentTarget,
 	createProjectionSpeechTarget,
 } from "./runtime/projectionTargets";
-export type {
-	IgniteDomBridge,
-	IgniteDomRoleExpectation,
-	IgniteEventExpectation,
-	IgniteSnapshotExpectation,
-	IgniteTestHelpers,
-	IgniteTestScenario,
-	IgniteTestScenarioOptions,
-} from "./testing";
-export { test } from "./testing";
 export type {
 	IgniteAgentEventListener,
 	IgniteAgentExecutionResult,
 	IgniteAgentRuntime,
 	IgniteAgentSubscription,
 	IgniteCommandCall,
-	IgniteStory,
-	IgniteStoryBehaviorTraceEntry,
-	IgniteStoryCommandTraceEntry,
-	IgniteStoryEventTraceEntry,
-	IgniteStoryLifecycleEntry,
-	IgniteStoryLifecycleScope,
-	IgniteStoryLifecycleStage,
-	IgniteStorySnapshot,
-	IgniteStorySnapshotEvent,
-	IgniteStorySnapshotTraceEntry,
-	IgniteStoryStatesPredicate,
-	IgniteStoryStatesTraceEntry,
-	IgniteStorySummary,
-	IgniteStorySummarySnapshot,
-	IgniteStoryTraceEntry,
-	IgniteStoryTraceKind,
-	IgniteStoryTracePhase,
-	IgniteStoryTraceSnapshot,
-	IgniteStoryTraceSnapshotEntry,
-	IgniteStoryUntilOptions,
 	RuntimeEvent,
 } from "./types/agent";
 export type {

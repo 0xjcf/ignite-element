@@ -31,7 +31,7 @@ describe("SPA router — headless runtime", () => {
 		const router = makeRouter();
 		await router.execute({ command: "navigate", input: "/users/7" });
 
-		const view = router.getStates();
+		const view = router.get("states");
 		expect(view.route).toBe("user");
 		expect(view.id).toBe("7");
 		expect(view.path).toBe("/users/7");
@@ -65,17 +65,17 @@ describe("SPA router — headless runtime", () => {
 		const router = makeRouter();
 
 		await router.execute({ command: "navigate", input: "/dashboard" });
-		expect(router.getStates().route).toBe("login");
+		expect(router.get("states").route).toBe("login");
 
 		await router.execute({ command: "login" });
 		await router.execute({ command: "navigate", input: "/dashboard" });
-		expect(router.getStates().route).toBe("dashboard");
-		expect(router.getStates().authed).toBe(true);
+		expect(router.get("states").route).toBe("dashboard");
+		expect(router.get("states").authed).toBe(true);
 	});
 
 	it("resolves unknown paths to the not-found route", async () => {
 		const router = makeRouter();
 		await router.execute({ command: "navigate", input: "/no/such/page" });
-		expect(router.getStates().route).toBe("not-found");
+		expect(router.get("states").route).toBe("not-found");
 	});
 });

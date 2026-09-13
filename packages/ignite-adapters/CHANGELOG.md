@@ -1,5 +1,54 @@
 # ignite-adapters
 
+## 3.0.0-beta.12
+
+### Minor Changes
+
+- e653e51: Replace source-backed runtime getters with keyed discovery/state reads and derived-state
+  watching. Add terminal disposal for unregistered owning cores, preserving caller-owned
+  sources and the registered-core barrier. Remove command helpers and inferred metadata;
+  ordinary commands retain typing, receiver, arity, return and promise identity. Tools
+  use explicit application input definitions and availability predicates.
+
+  Add the neutral prepared-core React/React Native hook at `ignite-element/react`.
+  Move the existing custom-element wrapper to `ignite-element/react/web` and DOM-host
+  Actor-Web factory construction to `ignite-element/actor-web/web`. Preserve source-native
+  observations, per-element provisioning, and optional-peer isolation.
+
+  This changeset is consumed into the local beta.12 candidate, awaiting publication verification. Authentic neutral
+  Actor-Web source consumption additionally depends on the separately reviewed upstream
+  source-only entrypoint; the already-published runtime package does not contain that fix.
+
+### Patch Changes
+
+- 910500a: Import and use source-backed cores in Node without fabricated browser globals.
+  DOM registration now requires a browser and reports a synchronous registration
+  error when unavailable. Renderer defaults are selected at registration rather
+  than construction; explicit strategies bypass default selection.
+
+  Preserve source-free registration and source-owned lifetimes while making
+  observation handles idempotent and rolling back partial Actor-Web observations.
+  The combined release adds explicit final core disposal and neutral declaration
+  boundaries for headless and no-DOM consumers. Core cleanup releases Ignite-owned
+  observations; it does not shut down caller-owned sources. React and React Native
+  bindings borrow prepared cores, while applications retain preparation and final
+  disposal ownership.
+
+- 998e6fc: # Correct core acquisition and React projections
+
+  Keep borrowed shared adapters reusable after failed core preparation. Release
+  provisional per-element web resources when connection setup fails, preserving
+  the primary error and allowing reconnection. Preserve sparse arrays and
+  enumerable symbol keys in detached framework projections, and forward string
+  setter attributes such as `online` without confusing them with event callbacks.
+
+  Close an owned web factory source when initial adapter construction fails,
+  preserving the original setup error even if close fails. Headless factory and
+  borrowed-source shutdown remains caller-owned.
+
+- Updated dependencies [e653e51]
+  - @ignite-element/core@3.0.0-beta.12
+
 ## 3.0.0-beta.11
 
 ### Major Changes

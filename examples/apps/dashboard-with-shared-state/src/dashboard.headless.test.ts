@@ -45,7 +45,7 @@ describe("dashboard shared state — headless runtime", () => {
 		await filters.execute({ command: "selectTeam", input: "ops" });
 		await filters.execute({ command: "selectRange", input: "day" });
 
-		expect(summary.getStates()).toMatchObject({
+		expect(summary.get("states")).toMatchObject({
 			team: "ops",
 			range: "day",
 			summary: { openTickets: 17, slaRisk: 2 },

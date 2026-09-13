@@ -21,10 +21,13 @@ type FakeEvents = {
 	"item-added": EventDescriptor<{ id: number }>;
 };
 
-const fakeSchema: IgniteAgentSchema<FakeState, FakeStates> = {
+const fakeSchema: { commands: Record<string, IgniteSchemaObject> } = {
 	commands: {
-		// no-arg command (no `input` metadata)
-		increment: { description: "Increment the count." },
+		// The application explicitly declares this no-argument tool schema.
+		increment: {
+			description: "Increment the count.",
+			input: { type: "object", properties: {} },
+		},
 		// scalar-input command (positional number payload)
 		setLimit: {
 			description: "Set the limit.",
@@ -45,14 +48,42 @@ const fakeSchema: IgniteAgentSchema<FakeState, FakeStates> = {
 			input: { type: "string", enum: ["red", "green", "blue"] },
 		},
 		// command that rejects when executed
-		boom: { description: "Always fails." },
+		boom: {
+			description: "Always fails.",
+			input: { type: "object", properties: {} },
+		},
 		// gated command (availability predicate exists)
-		adminOnly: { description: "Admin only.", gated: true },
+		adminOnly: {
+			description: "Admin only.",
+			gated: true,
+			input: { type: "object", properties: {} },
+		},
 	},
-	events: [{ type: "item-added" }],
-	snapshot: { count: 0 },
-	states: { count: 0, label: "zero" },
 };
+
+const fakeCatalogue: IgniteAgentSchema = {
+	schemaVersion: 1,
+	commands: Object.fromEntries(
+		Object.keys(fakeSchema.commands).map((name) => [name, { input: null }]),
+	),
+	events: [{ type: "item-added", payload: null }],
+	states: { schema: null },
+};
+function catalogueReads<States extends Record<string, unknown>>(
+	read: () => States,
+	catalogue = fakeCatalogue,
+) {
+	function get(key: "states"): States;
+	function get(key: "schema"): IgniteAgentSchema;
+	function get(key: "commands"): IgniteAgentSchema["commands"];
+	function get(key: "events"): IgniteAgentSchema["events"];
+	function get(key: "states" | "schema" | "commands" | "events") {
+		if (key === "states") return read();
+		if (key === "schema") return catalogue;
+		return catalogue[key];
+	}
+	return get;
+}
 
 type FakeComponent = IgniteToolsRuntime<
 	FakeState,
@@ -83,7 +114,7 @@ function createFakeComponent(
 	>();
 	const component: ObservableFakeComponent = {
 		calls,
-		getSchema: () => fakeSchema,
+		get: catalogueReads(() => states),
 		execute: (async (call: { command: string; input?: unknown }) => {
 			calls.push({ name: call.command, payload: call.input });
 			if (call.command === "boom") {
@@ -96,8 +127,6 @@ function createFakeComponent(
 				events: [{ type: "item-added", id: 1 }],
 			};
 		}) as FakeComponent["execute"],
-		// The derived read-model the agent grounds on; reflects the calls so far.
-		getStates: () => states,
 		on: ((
 			eventName: "item-added",
 			handler: (event: { type: "item-added"; id: number }) => void,
@@ -109,14 +138,12 @@ function createFakeComponent(
 				unsubscribe: () => eventHandlers.delete(handler),
 			};
 		}) as FakeComponent["on"],
-		watchStates: ((
-			handler: (states: FakeStates, prevStates: FakeStates) => void,
-		) => {
+		watch: ((handler: (states: FakeStates, prevStates: FakeStates) => void) => {
 			viewHandlers.add(handler);
 			return {
 				unsubscribe: () => viewHandlers.delete(handler),
 			};
-		}) as FakeComponent["watchStates"],
+		}) as FakeComponent["watch"],
 		emitEvent: (event) => {
 			for (const handler of eventHandlers) {
 				handler(event);
@@ -138,6 +165,7 @@ function createFakeComponent(
 
 class ThisBoundFakeComponent implements FakeComponent {
 	calls: Array<{ name: string; payload: unknown }> = [];
+	canExecute?: (name: string) => boolean;
 
 	execute = async function (
 		this: ThisBoundFakeComponent,
@@ -158,11 +186,13 @@ class ThisBoundFakeComponent implements FakeComponent {
 		};
 	} as FakeComponent["execute"];
 
-	getSchema() {
-		return fakeSchema;
-	}
-
-	getStates() {
+	get(key: "states"): FakeStates;
+	get(key: "schema"): IgniteAgentSchema;
+	get(key: "commands"): IgniteAgentSchema["commands"];
+	get(key: "events"): IgniteAgentSchema["events"];
+	get(key: "states" | "schema" | "commands" | "events") {
+		if (key === "schema") return fakeCatalogue;
+		if (key !== "states") return fakeCatalogue[key];
 		return {
 			count: this.calls.length,
 			label: this.calls.length > 0 ? "active" : "zero",
@@ -173,7 +203,7 @@ class ThisBoundFakeComponent implements FakeComponent {
 		return { unsubscribe: () => undefined };
 	}
 
-	watchStates() {
+	watch() {
 		return { unsubscribe: () => undefined };
 	}
 }
@@ -234,7 +264,7 @@ describe("buildManifest", () => {
 		});
 	});
 
-	it("synthesizes an empty object schema for no-arg commands", () => {
+	it("preserves the explicitly supplied no-argument tool schema", () => {
 		const manifest = buildManifest(fakeSchema);
 		const increment = manifest.find((t) => t.name === "increment");
 		expect(increment?.inputSchema).toEqual({ type: "object", properties: {} });
@@ -482,9 +512,23 @@ describe("resolveCall input validation", () => {
 // --- igniteTools factory + run shell ------------------------------------------
 
 describe("igniteTools (neutral, no dialect)", () => {
+	it("rejects metadata-only automatic tools before executing anything", () => {
+		const component = createFakeComponent();
+		expect(() => igniteTools(component)).toThrow(/schema/i);
+		expect(component.calls).toEqual([]);
+		expect(() => buildManifest({ commands: null })).toThrow(
+			/bound|unknown|schema/i,
+		);
+		expect(() =>
+			buildManifest({ commands: { unschematized: { input: null } } }),
+		).toThrow(/schema/i);
+	});
 	it("exposes manifest, resolveCall, and run", () => {
 		const component = createFakeComponent();
-		const tools = igniteTools(component);
+		const tools = igniteTools(component, undefined, {
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
 		expect(Array.isArray(tools.manifest)).toBe(true);
 		expect(typeof tools.resolveCall).toBe("function");
 		expect(typeof tools.run).toBe("function");
@@ -493,7 +537,10 @@ describe("igniteTools (neutral, no dialect)", () => {
 
 	it("run routes a valid call through execute and returns { snapshot, states, events }", async () => {
 		const component = createFakeComponent();
-		const { run } = igniteTools(component);
+		const { run } = igniteTools(component, undefined, {
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
 		const result = await run({ name: "setLimit", input: 7 });
 		expect(component.calls).toEqual([{ name: "setLimit", payload: 7 }]);
 		expect(isOk(result)).toBe(true);
@@ -512,7 +559,10 @@ describe("igniteTools (neutral, no dialect)", () => {
 
 	it("binds runtime.execute before storage and calls getStates with runtime context", async () => {
 		const component = new ThisBoundFakeComponent();
-		const { run } = igniteTools(component);
+		const { run } = igniteTools(component, undefined, {
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
 		const result = await run({ name: "setLimit", input: 7 });
 		expect(component.calls).toEqual([{ name: "setLimit", payload: 7 }]);
 		expect(isOk(result)).toBe(true);
@@ -527,7 +577,10 @@ describe("igniteTools (neutral, no dialect)", () => {
 
 	it("run does not call execute on an unknown command", async () => {
 		const component = createFakeComponent();
-		const { run } = igniteTools(component);
+		const { run } = igniteTools(component, undefined, {
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
 		const result = await run({ name: "ghost", input: 1 });
 		expect(component.calls).toEqual([]);
 		expect(isErr(result)).toBe(true);
@@ -536,7 +589,10 @@ describe("igniteTools (neutral, no dialect)", () => {
 
 	it("run does not call execute on invalid input", async () => {
 		const component = createFakeComponent();
-		const { run } = igniteTools(component);
+		const { run } = igniteTools(component, undefined, {
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
 		const result = await run({ name: "setLimit", input: "bad" });
 		expect(component.calls).toEqual([]);
 		expect(isErr(result)).toBe(true);
@@ -545,7 +601,10 @@ describe("igniteTools (neutral, no dialect)", () => {
 
 	it("run captures an execute rejection as ExecuteFailed (never throws across the seam)", async () => {
 		const component = createFakeComponent();
-		const { run } = igniteTools(component);
+		const { run } = igniteTools(component, undefined, {
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
 		const result = await run({ name: "boom", input: undefined });
 		expect(isErr(result)).toBe(true);
 		if (isErr(result)) {
@@ -564,7 +623,10 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const component = createFakeComponent({
 			canExecute: (name) => name !== "adminOnly" || adminAvailable,
 		});
-		const { manifest, run } = igniteTools(component);
+		const { manifest, run } = igniteTools(component, undefined, {
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
 		// Offered at build time.
 		expect(manifest.find((t) => t.name === "adminOnly")).toBeDefined();
 		// Snapshot changes -> command no longer available.
@@ -576,10 +638,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 	});
 
 	it("keeps projection authorship in commands instead of adding a projection registry surface", async () => {
-		const projectionSchema: IgniteAgentSchema<
-			{ documents: unknown[] },
-			{ count: number }
-		> = {
+		const projectionSchema: { commands: Record<string, IgniteSchemaObject> } = {
 			commands: {
 				upsertProjection: {
 					description: "Create or replace a projection document.",
@@ -605,25 +664,33 @@ describe("igniteTools (neutral, no dialect)", () => {
 					},
 				},
 			},
-			events: [],
-			snapshot: { documents: [] },
-			states: { count: 0 },
 		};
 		const calls: Array<{ name: string; payload: unknown }> = [];
-		const tools = igniteTools({
-			getSchema: () => projectionSchema,
-			execute: async (call: { command: string; input?: unknown }) => {
-				calls.push({ name: call.command, payload: call.input });
-				return {
-					snapshot: { documents: [call.input] },
-					states: { count: calls.length },
+		const tools = igniteTools(
+			{
+				get: catalogueReads(() => ({ count: calls.length }), {
+					schemaVersion: 1,
+					states: { schema: null },
 					events: [],
-				};
+					commands: {
+						upsertProjection: { input: null },
+						patchProjection: { input: null },
+					},
+				}),
+				execute: async (call: { command: string; input?: unknown }) => {
+					calls.push({ name: call.command, payload: call.input });
+					return {
+						snapshot: { documents: [call.input] },
+						states: { count: calls.length },
+						events: [],
+					};
+				},
+				on: () => ({ unsubscribe: () => undefined }),
+				watch: () => ({ unsubscribe: () => undefined }),
 			},
-			getStates: () => ({ count: calls.length }),
-			on: () => ({ unsubscribe: () => undefined }),
-			watchStates: () => ({ unsubscribe: () => undefined }),
-		});
+			undefined,
+			{ schema: projectionSchema },
+		);
 
 		expect(tools.manifest.map((tool) => tool.name)).toEqual([
 			"patchProjection",
@@ -652,13 +719,19 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const component = createFakeComponent({
 			canExecute: (name) => name !== "adminOnly",
 		});
-		const { manifest } = igniteTools(component);
+		const { manifest } = igniteTools(component, undefined, {
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
 		expect(manifest.find((t) => t.name === "adminOnly")).toBeUndefined();
 	});
 
 	it("observe streams schema-declared events and states changes between acts", () => {
 		const component = createFakeComponent();
-		const { observe } = igniteTools(component);
+		const { observe } = igniteTools(component, undefined, {
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
 		const seen: Array<ToolStreamObservation<FakeStates, FakeEvents>> = [];
 
 		const subscription = observe((observation) => seen.push(observation));
@@ -695,10 +768,12 @@ describe("igniteTools (neutral, no dialect)", () => {
 		});
 
 		component.on = on as unknown as FakeComponent["on"];
-		component.watchStates =
-			watchStates as unknown as FakeComponent["watchStates"];
+		component.watch = watchStates as unknown as FakeComponent["watch"];
 
-		const { observe } = igniteTools(component);
+		const { observe } = igniteTools(component, undefined, {
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
 
 		expect(() => observe(() => undefined)).toThrow("watch failed");
 		expect(on).toHaveBeenCalledWith("item-added", expect.any(Function));
@@ -710,7 +785,10 @@ describe("igniteTools (neutral, no dialect)", () => {
 describe("igniteTools (with a ToolDialect)", () => {
 	it("exposes provider tool defs plus toolCalls/toolResult helpers", () => {
 		const component = createFakeComponent();
-		const tools = igniteTools(component, fakeDialect);
+		const tools = igniteTools(component, fakeDialect, {
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
 		expect(tools.tools).toEqual(
 			tools.manifest.map((t) => ({ tool: t.name, schema: t.inputSchema })),
 		);
@@ -721,7 +799,10 @@ describe("igniteTools (with a ToolDialect)", () => {
 
 	it("round-trips a provider response: toolCalls -> run -> toolResult", async () => {
 		const component = createFakeComponent();
-		const { toolCalls, run, toolResult } = igniteTools(component, fakeDialect);
+		const { toolCalls, run, toolResult } = igniteTools(component, fakeDialect, {
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
 
 		const response: FakeResponse = {
 			calls: [{ id: "call_1", name: "setLimit", input: 8 }],
@@ -742,7 +823,10 @@ describe("igniteTools (with a ToolDialect)", () => {
 
 	it("translates provider { name, arguments } calls into runtime.execute({ command, input })", async () => {
 		const component = createFakeComponent();
-		const tools = igniteTools(component, openai);
+		const tools = igniteTools(component, openai, {
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
 		const response: OpenAIChatCompletionResponse = {
 			choices: [
 				{
@@ -777,7 +861,10 @@ describe("igniteTools (with a ToolDialect)", () => {
 
 	it("accepts provider {} for no-arg commands and rejects unexpected fields as a value", async () => {
 		const component = createFakeComponent();
-		const tools = igniteTools(component, openai);
+		const tools = igniteTools(component, openai, {
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
 		const response = (argumentsValue: Record<string, unknown>) =>
 			({
 				choices: [
@@ -814,7 +901,10 @@ describe("igniteTools (with a ToolDialect)", () => {
 
 	it("maps a failed command into an error tool-result block", async () => {
 		const component = createFakeComponent();
-		const { run, toolResult } = igniteTools(component, fakeDialect);
+		const { run, toolResult } = igniteTools(component, fakeDialect, {
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
 		const call: NeutralToolCall = {
 			id: "call_2",
 			name: "boom",
@@ -828,7 +918,10 @@ describe("igniteTools (with a ToolDialect)", () => {
 	it("never throws across the seam even when execute rejects", async () => {
 		const component = createFakeComponent();
 		const spy = vi.spyOn(component, "execute");
-		const { run } = igniteTools(component, fakeDialect);
+		const { run } = igniteTools(component, fakeDialect, {
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
 		await expect(
 			run({ name: "boom", input: undefined }),
 		).resolves.toMatchObject({ ok: false });

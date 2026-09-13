@@ -1,7 +1,13 @@
-import { type createHome, DOORS, type Door, ROOMS, type Room } from "./home";
+import {
+	DOORS,
+	type Door,
+	type projectHomeView,
+	ROOMS,
+	type Room,
+} from "./home";
 
-/** The home's projected read-model — exactly what `getStates()` returns. */
-export type HomeView = ReturnType<ReturnType<typeof createHome>["getStates"]>;
+/** The home's projected read-model — exactly what `get("states")` returns. */
+export type HomeView = ReturnType<typeof projectHomeView>;
 
 const light = (on: boolean) => (on ? "💡 on " : "·· off");
 const lock = (locked: boolean) => (locked ? "🔒 locked  " : "🔓 unlocked");

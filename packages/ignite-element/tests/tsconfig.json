@@ -8,6 +8,7 @@
 	},
 	"include": [
 		"./xstate-agent-runtime.spec.ts",
+		"./source-free-core.spec.ts",
 		"../../../examples/adapters/xstate/xstateApiShowcaseRuntime.ts"
 	],
 	"exclude": []

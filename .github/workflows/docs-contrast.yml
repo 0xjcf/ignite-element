@@ -11,10 +11,15 @@ on:
       - "docs/site/**"
       - "packages/**" # doc examples are typechecked against the package API
       - ".github/workflows/docs-contrast.yml"
+      - ".github/workflows/docs-deploy.yml"
   workflow_dispatch:
+
+permissions: {}
 
 jobs:
   contrast:
+    permissions:
+      contents: read
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
@@ -23,6 +28,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
+          version: 10.33.0
           run_install: false
 
       - name: Set up Node.js
@@ -34,14 +40,29 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build public workspace declarations for docs consumers
+        run: pnpm run build
+
+      - name: Validate documentation publication contracts
+        run: pnpm --filter docs-site run check:publication
+
       - name: Typecheck doc code examples against the public API
         run: pnpm --filter docs-site run check:docs
+
+      - name: Validate Astro content and types
+        run: pnpm --filter docs-site run check:astro
 
       - name: Install Playwright Chromium
         run: pnpm --filter docs-site exec playwright install --with-deps chromium
 
       - name: Build docs site
         run: pnpm --filter docs-site build
+
+      - name: Check versioned routes and prerelease disclosure
+        run: pnpm --filter docs-site run check:versions:built
+
+      - name: Check internal routes, links, anchors, and assets
+        run: pnpm --filter docs-site run check:links
 
       - name: Check theme contrast (WCAG AA) and control geometry
         run: pnpm --filter docs-site run check:contrast

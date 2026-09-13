@@ -1,13 +1,13 @@
-import type { MobxEvent } from "@ignite-element/adapters";
-import { createMobXAdapter } from "@ignite-element/adapters";
+import type { MobxEvent } from "@ignite-element/adapters/mobx";
+import { createMobXAdapter } from "@ignite-element/adapters/mobx";
 import type {
 	EmptyEventMap,
 	EventMap,
 	FacadeCommandFunction,
 	FacadeCommandResult,
-} from "../RenderArgs";
+} from "@ignite-element/core";
 import { createIgniteComponentFactory } from "./createIgniteComponentFactory";
-import type { IgniteCoreReturn, MobxConfig } from "./types";
+import type { IgniteCoreReturn, MobxConfig } from "./mobxTypes";
 
 export function igniteCoreMobx<
 	State extends object,

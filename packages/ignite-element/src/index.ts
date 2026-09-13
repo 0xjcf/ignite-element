@@ -1,5 +1,3 @@
-import "./internal/setupDomPolyfill";
-
 // The low-level factories `createComponentFactory`, `createProjectionFactory`,
 // and `igniteElementFactory` are intentionally NOT re-exported here. They are
 // `igniteCore`'s internal building blocks and are marked `@internal` at their
@@ -7,62 +5,18 @@ import "./internal/setupDomPolyfill";
 // (ignite-element/xstate|redux|mobx|actor-web). See .fas/memory/decisions.md
 // (2026-06-04).
 
-export type {
-	CommandHelper,
-	CommandMetadata,
-	CommandMetadataValue,
-	CommandWithMetadata,
-	NumberCommandInputMetadata,
-	NumberCommandInputOptions,
-} from "@ignite-element/core";
 export { event, StateScope } from "@ignite-element/core";
-export {
-	type IgniteShellConfig,
-	type IgniteShellHost,
-	type IgniteShellRegistrar,
-	type IgniteShellTeardown,
-	igniteShell,
-} from "./igniteShell";
 export {
 	createProjectionDocumentTarget,
 	createProjectionSpeechTarget,
 } from "./runtime/projectionTargets";
-export type {
-	IgniteDomBridge,
-	IgniteDomRoleExpectation,
-	IgniteEventExpectation,
-	IgniteSnapshotExpectation,
-	IgniteTestHelpers,
-	IgniteTestScenario,
-	IgniteTestScenarioOptions,
-} from "./testing";
-export { test } from "./testing";
+export { igniteCore } from "./sourceFreeCore";
 export type {
 	IgniteAgentEventListener,
 	IgniteAgentExecutionResult,
 	IgniteAgentRuntime,
 	IgniteAgentSubscription,
 	IgniteCommandCall,
-	IgniteStory,
-	IgniteStoryBehaviorTraceEntry,
-	IgniteStoryCommandTraceEntry,
-	IgniteStoryEventTraceEntry,
-	IgniteStoryLifecycleEntry,
-	IgniteStoryLifecycleScope,
-	IgniteStoryLifecycleStage,
-	IgniteStorySnapshot,
-	IgniteStorySnapshotEvent,
-	IgniteStorySnapshotTraceEntry,
-	IgniteStoryStatesPredicate,
-	IgniteStoryStatesTraceEntry,
-	IgniteStorySummary,
-	IgniteStorySummarySnapshot,
-	IgniteStoryTraceEntry,
-	IgniteStoryTraceKind,
-	IgniteStoryTracePhase,
-	IgniteStoryTraceSnapshot,
-	IgniteStoryTraceSnapshotEntry,
-	IgniteStoryUntilOptions,
 	RuntimeEvent,
 } from "./types/agent";
 export type {

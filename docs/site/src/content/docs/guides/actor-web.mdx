@@ -8,9 +8,18 @@ sidebar:
 
 Use `ignite-element/actor-web` when an **Actor-Web runtime already owns** orchestration, supervision, sequencing, transport, and source lifecycle. Ignite stays in the projection/read-model role: it preserves Actor-Web snapshots as native source truth, derives consumer-facing states, and exposes explicit commands without taking over the runtime. The registration renderer turns those states into the view.
 
-This is the opposite split from `ignite-element/xstate`, where Ignite owns the local machine. Reach for Actor-Web when the source is long-lived and lives outside the element; reach for XState (or Redux/MobX) when the element owns its own state.
+Source/application ownership also applies to XState, Redux and MobX: passing a
+started source does not transfer its native lifetime to Ignite. Choose the adapter
+for the source ecosystem. Actor-Web additionally owns its orchestration and
+transport authority; Ignite does not replace that authority.
 
 ## Read-only vs command-capable sources
+
+The public protocol also deliberately accepts foreign structural sources. A plain
+TypeScript controller can provide these methods without installing Actor-Web's
+runtime: see [Share a plain controller](/ignite-element/guides/plain-controllers/)
+for a complete application-owned adapter and strict packed/native example. This
+does not transfer Actor-Web runtime authority or require an XState conversion.
 
 Actor-Web sources come in two shapes, both typed by a shared `Context`, `Message`, and (optionally) `Emitted`:
 
@@ -61,12 +70,14 @@ export const shipmentCard = igniteCore({
 `ShipmentProjection` flows into the native snapshot as `snapshot.context`, the `states` callback derives the renderer-facing read model, and `ShipmentRequest` flows into `actor.send`, all inferred from `shipmentSource` — no `igniteCore<...>` annotations. Updating the projected context stays Actor-Web's job. Ignite sends requests back and re-renders when the next source snapshot arrives.
 
 :::note[Source shapes]
-`source` accepts a source **value** (read-only or command-capable), a zero-argument factory, or a host-context factory `({ host }) => source`. A shared source value remains application-owned; stop its Actor-Web runtime from application cleanup. Ignite closes only sources returned by its isolated source-factory form. Passing a typed source **value** gives the cleanest inference; the `ignite-element/actor-web` entrypoint is required for zero-argument and defaulted factories (see [Source factory adapter inference](/ignite-element/concepts/the-ignite-model/)).
+The neutral `ignite-element/actor-web` entrypoint accepts source values and factories callable without a host context. Neither a borrowed source nor headless factory invocation transfers native close authority. The application retains source handles and owns shutdown.
+
+Host-dependent factories use `igniteCore` from `ignite-element/actor-web/web`. Their context retains the real `{ host?: HTMLElement }` type, so `host?.getAttribute('fleet-id')` remains typed. Provisioning happens per element; metadata reads stay pure, and headless `get('states')`, `watch`, `on`, `execute` or React preparation reject before invoking that factory. Existing DOM factory-close behavior remains: handle close is not awaited backing-runtime shutdown. Successful registration still prevents owning-core disposal.
 :::
 
 ## Where sources come from
 
-Your Actor-Web runtime owns the sources and hands Ignite ready-made handles — Ignite never constructs them, and `ignite-element` core has no dependency on actor-web (the binding lives only in the optional `ignite-element/actor-web` entrypoint). Actor-Web 0.2.1 exposes each source directly after actor selection:
+Your Actor-Web runtime owns the sources and hands Ignite ready-made handles — Ignite never constructs them, and `ignite-element` core has no dependency on actor-web (the binding lives only in the optional `ignite-element/actor-web` entrypoint). The direct topology-source API demonstrated below requires **Actor-Web 0.2.1**. This example requirement is distinct from the adapter's broader source-contract compatibility; adapter validation retains its Actor-Web 0.2.0 dependency. Actor-Web 0.2.1 exposes each source directly after actor selection:
 
 | Actor-Web source factory | Hands you | Pass to `igniteCore` as |
 | --- | --- | --- |
@@ -76,6 +87,25 @@ Your Actor-Web runtime owns the sources and hands Ignite ready-made handles — 
 For a local runtime, `options` can carry application host or abort context. For a remote topology source, it carries connection config such as the gateway URL, auth, scope, and transport. The `key` selects the actor; Ignite receives only the resulting source:
 
 ```ts
+import { actor, defineActorWebTopology, defineBehavior, node, startRuntime } from '@actor-web/runtime';
+import { igniteCore } from 'ignite-element/actor-web';
+
+type HomeRequest = { type: 'home.refresh' };
+const homeTopology = defineActorWebTopology({
+  nodes: { local: node('home-example-runtime') },
+  actors: {
+    home: actor({
+      id: 'home',
+      node: 'local',
+      behavior: () => defineBehavior<HomeRequest>()
+        .withContext({ refreshCount: 0 })
+        .onMessage(({ context }) => ({
+          context: { refreshCount: context.refreshCount + 1 },
+        }))
+        .build(),
+    }),
+  },
+});
 const runtime = await startRuntime(homeTopology);
 
 try {
@@ -85,13 +115,19 @@ try {
 
   const home = igniteCore({
     source: commandSource,
-    states: (snapshot) => projectHomeView(snapshot.context),
+    states: (snapshot) => ({ refreshCount: snapshot.context.refreshCount }),
     commands: ({ actor }) => ({
       refresh: () => actor.send({ type: 'home.refresh' }),
     }),
   });
 
-  // Mount or drive `home` while the Actor-Web runtime remains live.
+  // Application-owned async execution; keep the runtime alive for all consumers.
+  await home.execute({ command: 'refresh' });
+  const localNode = runtime.nodes.local;
+  if (!localNode) throw new Error('Home runtime did not provide its local node');
+  await localNode.system.flush();
+  console.log(home.get('states').refreshCount);
+  home.dispose(); // releases Ignite observations, not the Actor-Web runtime
 } finally {
   // The application owns the runtime and its sources. Stopping the runtime
   // closes sources it created before shutting down its nodes.
@@ -193,7 +229,7 @@ Use that pattern for connection badges, replay banners, or diagnostics — not a
 
 ## Emitted events
 
-Actor-Web sources can carry a third type parameter, `Emitted` — the union of domain events the actor publishes on its event side-channel (the source's optional `subscribeEvent`). When a source declares it, the adapter bridges those events into the [headless runtime](/ignite-element/api/headless-runtime/) automatically: they surface through `on(type)`, `execute().events`, and `record()` with **no `events:` declaration and no `effects:` callback** — and the event names and payloads are typed from the source's union, with no manual type arguments.
+Actor-Web sources can carry a third type parameter, `Emitted` — the union of domain events the actor publishes on its event side-channel (the source's optional `subscribeEvent`). When a source declares it, the adapter bridges those events into the [headless runtime](/ignite-element/api/headless-runtime/) automatically: they surface through `on(type)` and `execute().events` with **no `events:` declaration and no `effects:` callback** — and the event names and payloads are typed from the source's union, with no manual type arguments.
 
 ```ts
 import { igniteCore } from 'ignite-element/actor-web';
@@ -237,20 +273,22 @@ for (const entry of result.events) {
 
 How the bridge behaves:
 
-- **Uniform shape.** An emitted member `M` surfaces directly in `execute().events`, `record()` summaries, and `on(...)` handlers — the same flat member shape declared events use.
-- **Command-window capture.** `execute()` collects the emits that arrive between command start and the post-command flush; `record()` inherits them through `execute`. Emits outside a command window still reach `on(...)` listeners, which stay subscribed for their lifetime.
+- **Uniform shape.** An emitted member `M` surfaces directly in `execute().events` and `on(...)` handlers — the same flat member shape declared events use.
+- **Command-window capture.** `execute()` collects the emits that arrive between command start and the post-command flush. Emits outside a command window still reach `on(...)` listeners, which stay subscribed for their lifetime.
 - **Leak-free.** Each `on(...)` subscription and each `execute()` call manages its own source subscription and releases it on `unsubscribe()` / command completion.
 - **Effects stay additive.** `events:` + `effects:` remain the way to emit **UI-derived** events (computed from snapshot changes); source-emitted events need neither. Both flow side by side into the same `execute().events` stream and `on(...)` surface.
 
 :::note[Schema lists declared events only]
-`getSchema().events` enumerates the names declared in the `events:` map. Source-emitted types are a compile-time union, not runtime-enumerable, so they don't appear there — they surface dynamically via `on(...)` and `execute().events`. See the [`getSchema()` caveat](/ignite-element/api/headless-runtime/#getschema).
+`get('schema').events` enumerates the names declared in the `events:` map. Source-emitted types are a compile-time union, not runtime-enumerable, so they don't appear there — they surface dynamically via `on(...)` and `execute().events`. See the [`get('schema')` caveat](/ignite-element/api/headless-runtime/#discovery).
 :::
 
 Sources without an event side-channel simply omit `subscribeEvent` (and `Emitted` defaults to the message type) — the bridge no-ops and everything else works unchanged.
 
 ## When to use which entrypoint
 
-- **`ignite-element/actor-web`** — an Actor-Web runtime already owns orchestration and long-lived sources; Ignite projects and sends explicit requests.
-- **`ignite-element/xstate`** — Ignite owns local behavior; the machine is the element's state source and Ignite manages its lifecycle.
+- **`ignite-element/actor-web`** — neutral source values and no-host factories; the application owns native source close.
+- **`ignite-element/actor-web/web`** — real element-host factory context, per-element provisioning, and existing DOM factory-close behavior.
+- **`ignite-element/xstate`** — XState owns source behavior. The application can
+  supply a started actor and owns its lifetime; Ignite observes and projects it.
 
 See [Choosing `xstate` vs `actor-web`](/ignite-element/concepts/the-ignite-model/#choosing-ignite-elementxstate-vs-ignite-elementactor-web) for the boundary rationale, and [Redux & MobX](/ignite-element/guides/redux-and-mobx/) for the other two adapters.

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import { gzipSync } from "node:zlib";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { gzipSync } from "node:zlib";
 import { build } from "vite";
 
 const repoRoot = path.resolve(

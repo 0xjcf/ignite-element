@@ -82,7 +82,7 @@ const finishCurrentTurn = () => {
 				id: request.call.id ?? "test-complete",
 				command: request.call.command,
 				status: "accepted",
-				view: component.getStates().modelContext,
+				view: component.get("states").modelContext,
 				events: [],
 			},
 		},
@@ -90,7 +90,11 @@ const finishCurrentTurn = () => {
 };
 
 const executeModelTurn = async (response: ModelResult) => {
-	const tools = igniteTools(component);
+	const tools = igniteTools(component, undefined, {
+		schema: voiceWorkbenchModelSchema,
+		canExecute: (name) =>
+			Reflect.get(component.get("states").commandAvailability, name) === true,
+	});
 	const protocol = modelTurn(response);
 	let step = protocol.next();
 	while (!step.done) {
@@ -127,7 +131,7 @@ const executeModelTurn = async (response: ModelResult) => {
 								: {}),
 						}
 					: {}),
-			view: component.getStates().modelContext,
+			view: component.get("states").modelContext,
 			events: isOk(execution)
 				? execution.value.events.map((actorEvent) => ({
 						type: actorEvent.type,
@@ -466,11 +470,16 @@ describe("voice/text workbench model turn", () => {
 	it("uses direct component tools across allowed and rejected turns", async () => {
 		const requests: ModelRequest[] = [];
 		const request = (prompt: ModelRequest["prompt"]): ModelRequest => {
-			const tools = igniteTools(component);
+			const tools = igniteTools(component, undefined, {
+				schema: voiceWorkbenchModelSchema,
+				canExecute: (name) =>
+					Reflect.get(component.get("states").commandAvailability, name) ===
+					true,
+			});
 			const modelRequest = {
 				prompt,
 				tools: modelTools(tools.manifest),
-				view: component.getStates().modelContext,
+				view: component.get("states").modelContext,
 				history: [],
 				capabilities: { internetAccess: "unavailable" as const },
 			};
@@ -564,7 +573,7 @@ describe("voice/text workbench model turn", () => {
 		expect(
 			requests.flatMap((request) => request.tools.map((tool) => tool.name)),
 		).not.toContain("acknowledgeSpeech");
-		expect(component.getStates()).toMatchObject({
+		expect(component.get("states")).toMatchObject({
 			status: "ready",
 			artifacts: [{ id: "plan", revision: "2" }],
 		});
@@ -683,7 +692,7 @@ describe("voice/text workbench model turn", () => {
 			reason: "response-incomplete",
 			trace: [{ command: "createArtifact", accepted: true }],
 		});
-		expect(component.getStates()).toMatchObject({
+		expect(component.get("states")).toMatchObject({
 			status: "responding",
 			response: null,
 		});
@@ -699,7 +708,7 @@ describe("voice/text workbench model turn", () => {
 			command: "submitPrompt",
 			input: { modality: "text", text: "Keep this turn active" },
 		});
-		const beforeRejectedPrompt = component.getStates();
+		const beforeRejectedPrompt = component.get("states");
 		const promptSubmitted = vi.fn();
 		const subscription = component.on("prompt-submitted", promptSubmitted);
 
@@ -709,7 +718,7 @@ describe("voice/text workbench model turn", () => {
 		});
 
 		expect(promptSubmitted).not.toHaveBeenCalled();
-		expect(component.getStates()).toEqual(beforeRejectedPrompt);
+		expect(component.get("states")).toEqual(beforeRejectedPrompt);
 		subscription.unsubscribe();
 
 		await component.execute({
@@ -719,3 +728,5 @@ describe("voice/text workbench model turn", () => {
 		finishCurrentTurn();
 	});
 });
+
+import { voiceWorkbenchModelSchema } from "./workbench-component";

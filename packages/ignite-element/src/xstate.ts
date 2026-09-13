@@ -1,5 +1,3 @@
-import "./internal/setupDomPolyfill";
-
 import type {
 	XStateConfig as AdapterXStateConfig,
 	XStateCommandActor,
@@ -17,7 +15,11 @@ import type {
 	EventFrom,
 	StateFrom,
 } from "xstate";
-import type { IgniteCoreReturn, WithEmittedEvents } from "./igniteCore/types";
+import type {
+	DisjointBindings,
+	IgniteCoreReturn,
+	WithEmittedEvents,
+} from "./igniteCore/publicTypes";
 
 // A machine's declared `emitted` types fold into the headless runtime's events
 // on this adapter entry the same way they do on the bare `ignite-element`
@@ -28,16 +30,8 @@ type XStateRuntimeEvents<
 	Events extends EventMap,
 > = WithEmittedEvents<Events, EmittedFrom<Machine>, EventFrom<Machine>>;
 
-export type {
-	CommandHelper,
-	CommandMetadata,
-	CommandMetadataValue,
-	CommandWithMetadata,
-	NumberCommandInputMetadata,
-	NumberCommandInputOptions,
-} from "@ignite-element/core";
 export { matchState } from "@ignite-element/core";
-export type { IgniteCoreReturn } from "./igniteCore/types";
+export type { IgniteCoreReturn } from "./igniteCore/publicTypes";
 
 import { igniteCoreXState as baseIgniteCoreXState } from "./igniteCore/xstate";
 
@@ -46,41 +40,11 @@ export {
 	createProjectionSpeechTarget,
 } from "./runtime/projectionTargets";
 export type {
-	IgniteDomBridge,
-	IgniteDomRoleExpectation,
-	IgniteEventExpectation,
-	IgniteSnapshotExpectation,
-	IgniteTestHelpers,
-	IgniteTestScenario,
-	IgniteTestScenarioOptions,
-} from "./testing";
-export { test } from "./testing";
-export type {
 	IgniteAgentEventListener,
 	IgniteAgentExecutionResult,
 	IgniteAgentRuntime,
 	IgniteAgentSubscription,
 	IgniteCommandCall,
-	IgniteStory,
-	IgniteStoryBehaviorTraceEntry,
-	IgniteStoryCommandTraceEntry,
-	IgniteStoryEventTraceEntry,
-	IgniteStoryLifecycleEntry,
-	IgniteStoryLifecycleScope,
-	IgniteStoryLifecycleStage,
-	IgniteStorySnapshot,
-	IgniteStorySnapshotEvent,
-	IgniteStorySnapshotTraceEntry,
-	IgniteStoryStatesPredicate,
-	IgniteStoryStatesTraceEntry,
-	IgniteStorySummary,
-	IgniteStorySummarySnapshot,
-	IgniteStoryTraceEntry,
-	IgniteStoryTraceKind,
-	IgniteStoryTracePhase,
-	IgniteStoryTraceSnapshot,
-	IgniteStoryTraceSnapshotEntry,
-	IgniteStoryUntilOptions,
 	RuntimeEvent,
 } from "./types/agent";
 export type {
@@ -99,15 +63,10 @@ type XStateConfigBase<
 		FacadeCommandFunction
 	>,
 > = Omit<
-	AdapterXStateConfig<
-		Machine,
-		Events,
-		StatesResult,
-		CommandsResult,
-		HTMLElement
-	>,
+	AdapterXStateConfig<Machine, Events, StatesResult, CommandsResult, unknown>,
 	"events"
->;
+> &
+	DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>>;
 
 type XStateConfigWithEvents<
 	Machine extends AnyStateMachine,
@@ -222,8 +181,9 @@ export function igniteCore<
 		EventMap,
 		StatesResult,
 		CommandsResult,
-		HTMLElement
-	>,
+		unknown
+	> &
+		DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>>,
 ) {
 	return baseIgniteCoreXState(options);
 }

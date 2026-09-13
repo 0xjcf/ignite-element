@@ -10,9 +10,9 @@ export type {
 } from "../home";
 export {
 	applyScene,
-	createInitialHomeContext,
 	createHome,
 	createHomeCommands,
+	createInitialHomeContext,
 	createLocalHomeSession,
 	DOORS,
 	dimRooms,

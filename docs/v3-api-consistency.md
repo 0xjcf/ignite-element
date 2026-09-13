@@ -1,9 +1,13 @@
 # Design index: v3 API vocabulary & shape consistency
 
+> Historical design record: the development candidate now retires testing/story APIs and recording entirely. The assertion and recorder rename discussion below is superseded for those removed surfaces; retained runtime snapshot/state terminology still applies. Historical task references are not active lifecycle authority.
+
 ## Status
 
-Active tracking doc (pre-stable v3). Indexes the sub-decisions for a coherent
-vocabulary + shape pass across the public surface.
+Historical pre-stable vocabulary index. The approved core API/bindings candidate
+supersedes the getter/watch/helper and automatic-tool-schema vocabulary below;
+see [the current migration](./core-api-bindings.md). Source-native snapshots remain
+valid. These task references are not current lifecycle or release authority.
 
 ## Why
 
@@ -39,7 +43,8 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
 | `expectStates` (add) + **full `state`→`snapshot` rename** (`expectState`→`expectSnapshot` + `result.snapshot`/`schema.snapshot`/record-trace) + `expectEvent` object form | `event-shape.md` + this doc | mixed | `expectStates` shipped; full rename implemented in v3 cutover batch (1781818974159) — scope = full rename (b), resolved 2026-06-20 |
 | Test host seam: fluent `.host({ dataset, attributes })` | `task-1781619012619` | additive | task (refine brief to fluent shape) |
 | `canExecute(name)` command-availability query | `can-execute.md` | additive (gap) | shipped (1781798486122) |
-| `igniteShell` sourceless composition root (+ shared move-safe teardown) | `ignite-shell.md` | additive | shipped current public helper/surface |
+| `igniteShell` sourceless composition root (+ shared move-safe teardown) | `ignite-shell.md` | historical additive | shipped in beta.11; shell surface retired in the unpublished source-free core candidate |
+| Root source-free `igniteCore()` without public lifecycle hooks | `source-free-core.md` | explicitly approved breaking amendment | implemented in review candidate; not published; shared source-backed lifecycle unchanged |
 | `ignite-element/react` schema-driven wrapper + registration handle | `ignite-react.md` | additive (gap) | design ✓, task reshaped (1781805261094) |
 | `getSchema().states` — expose the typed states projection in the schema | this doc | breaking vocabulary cutover | implemented |
 | `igniteTools(component)` — getSchema → LLM tool-use bridge (agent analog of `igniteReact`) | `ignite-tools.md` | additive (gap) | design ✓, task queued 2026-06-21 |

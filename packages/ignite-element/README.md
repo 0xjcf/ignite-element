@@ -85,7 +85,34 @@ The resulting element can be consumed anywhere the browser can render a custom e
 
 ## Choosing an adapter entrypoint
 
-Use `ignite-element/xstate` when Ignite owns the element's local behavior and lifecycle.
+### Source-free layouts (unpublished review candidate)
+
+The candidate replaces root `igniteShell` with `igniteCore()` and retires the four
+shell-specific types. `onConnect` and returned teardown are removed, not silently
+accepted. Released beta.11 does not have this root constructor.
+
+```tsx
+import { igniteCore } from "ignite-element";
+
+const core = igniteCore();
+core("app-layout", () => <main><slot /></main>);
+```
+
+No source or state-library peer is needed. Omitted configuration, undefined and
+an empty plain object are equivalent; options are rejected. The renderer has no
+source arguments. The registrar has no behavior/runtime/disposal methods, and
+successful DOM is retained across moves and reconnection.
+
+Hook consumers must use application-owned presentation integration or an existing
+custom element, including initial state, updates and cleanup. This does not move
+resource ownership or source shutdown into effects. External usage is unknown.
+The repository's `docs/source-free-core.md` records the full breaking migration.
+
+### Source-backed entrypoints
+
+Use `ignite-element/xstate` when XState owns the source behavior. The application
+owns source construction and lifetime; Ignite observes snapshots, projects states,
+coordinates rendering and cleans up its own observation handles.
 
 Use `ignite-element/actor-web` when an Actor-Web runtime already owns orchestration, transport, sequencing, and source lifecycle. In that mode Ignite stays projection-first: it consumes Actor-Web snapshots, derives states, and sends explicit requests back with `actor.send(...)` or `actor.ask(...)`. `actor.ask` is optional and only exists on sources that support request/response.
 
@@ -129,30 +156,31 @@ states: (snapshot) => ({
 Headless runtime APIs are available on the same component contract:
 
 ```ts
-await toggle.execute({ command: "toggle" });
-toggle.getSnapshot();
-toggle.getStates();
-toggle.getSchema();
+const result = await toggle.execute({ command: "toggle" });
+result.snapshot; // paired native observation, not a new public raw getter
+toggle.get('states');
+toggle.get('schema');
 toggle.on("toggled", handler);
-toggle.watchSnapshot((snapshot, prevSnapshot) => {});
-toggle.watchStates((states, prevStates) => {});
-const story = toggle.record("turns on");
-await story.execute({ command: "toggle" });
-story.trace();
-story.lifecycle();
-story.summary();
-story.stop();
+toggle.watch((states, prevStates) => {});
 ```
 
-For testing vocabulary, keep the layers distinct:
-
-- `igniteTest({ component }).story(...)` states an expected multi-step user experience.
-- `record(name)` captures the observed execution evidence for that experience.
-- `snapshotStory(story)` turns that Story into a serializable portable receipt.
-
-The story helper composes over the existing Story recorder. It does not add a second recorder, trace format, or runtime authority.
+Use ordinary tests over runtime results, source-owned asynchronous outcomes, and real registered DOM controls. Release subscriptions explicitly and stop sources only when the application/test owns them. The development candidate retires `test`, its dedicated testing/story types, `record(name)`, and the accessibility bridge. Portable receipts and complete lifecycle histories are intentionally removed, not replaced by another recorder. See the [testing migration](https://0xjcf.github.io/ignite-element/api/testing-dsl/).
 
 ## Package contract
+
+Source-backed owners expose `get`, `watch`, `on`, `execute`, and `dispose`.
+An unregistered owner releases Ignite observations on disposal; borrowed sources
+remain application-owned. An Ignite-created private XState actor is stopped once.
+Successful registration prevents owning-core disposal. Catalogue reads are pure,
+immutable and retained after disposal: null input/payload/state schemas mean
+unknown, not inferred validation. Tools need explicit application schemas.
+
+`ignite-element/react` exports the neutral `useIgnite` hook. Prepare once with
+`core.get('states')` in owner bootstrap, not rendering; the hook borrows a stable
+immutable projection cache. The custom-element wrapper `igniteReact` moves to
+`ignite-element/react/web`. Host-dependent Actor-Web factories move to
+`ignite-element/actor-web/web`; neutral factories do not transfer native close
+authority. SSR and device execution are not implied by the headless API.
 
 - All four v3 packages are native ESM-only. Consumers use ESM imports; public ESM entrypoints and declarations remain supported.
 - `ignite-element` is the default public package.
@@ -181,3 +209,9 @@ boundary model.
 - Migration guide: `../../docs/migrations/v2.2.3-effects-events.md`
 - Package boundary migration: `../../docs/migrations/adr-003-package-boundaries.md`
 - Examples: `src/examples`
+
+## Headless Node boundary
+
+In the development candidate, supported Node imports and source-backed runtime operations use native events without fake browser globals or hidden DOM elements. Root source-free `const core = igniteCore()` is only a registrar. Register a tag in a real browser; missing DOM capabilities cause a synchronous registration-specific error. Renderer defaults are selected at registration, with explicit overrides taking precedence without resolving defaults.
+
+The prepared `3.0.0-beta.12` candidate includes explicit unregistered-core disposal and neutral root/adapter declarations for no-DOM consumers; it is awaiting publication verification. Unsubscribing one observation does not dispose its owner. Final disposal releases Ignite-owned observations and its private factory-created actor, never caller-owned source shutdown. Browser-only wrappers remain on `ignite-element/react/web` and `ignite-element/actor-web/web`. Authentic Actor-Web neutral-source construction requires the separately prepared `@actor-web/runtime@0.3.0` `/source` boundary; foreign structural controllers need no Actor-Web runtime dependency.

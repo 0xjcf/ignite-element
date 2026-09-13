@@ -36,12 +36,12 @@ function printSession(result: AgentResult): void {
 	}
 	console.log(`\n💬 ${result.finalText}\n`);
 	console.log("Final state:");
-	console.log(renderHome(result.home.getStates()));
+	console.log(renderHome(result.home.get("states")));
 }
 
 console.log("🏠 Smart-home agent — live Anthropic loop, headless (no DOM)\n");
 console.log("Initial state:");
-console.log(renderHome(createHome().getStates()));
+console.log(renderHome(createHome().get("states")));
 console.log(`\n🗣️  "${prompt}"\n`);
 
 try {

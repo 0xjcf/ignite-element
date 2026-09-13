@@ -321,6 +321,17 @@ function createIsolatedFactory<
 	return factory;
 }
 
+function closeOwnedSource(source: {
+	close?: () => void | Promise<void>;
+}): void {
+	const cleanup = async () => {
+		await source.close?.();
+	};
+	void cleanup().catch((error) => {
+		console.error("[ActorWebAdapter] Failed to stop isolated source.", error);
+	});
+}
+
 function createAdapterEntry<
 	Context extends object,
 	Message extends { type: string },
@@ -347,13 +358,28 @@ function createAdapterEntry<
 		source.transportStatus?.() ??
 		disconnectedStatus("Actor-Web source does not expose transport status.");
 	let lastNotifiedSignature: string | null = null;
+	let observationGeneration = 0;
 
 	const cleanupSubscriptions = () => {
-		unsubscribeSource?.();
+		// Invalidate callbacks before releasing handles, including throwing cleanup.
+		observationGeneration += 1;
+		const owned = [unsubscribeSource, unsubscribeTransportStatus];
 		unsubscribeSource = null;
-		unsubscribeTransportStatus?.();
 		unsubscribeTransportStatus = null;
 		lastNotifiedSignature = null;
+		let failed = false;
+		let failure: unknown;
+		for (const unsubscribe of owned) {
+			try {
+				unsubscribe?.();
+			} catch (error) {
+				if (!failed) {
+					failed = true;
+					failure = error;
+				}
+			}
+		}
+		if (failed) throw failure;
 	};
 
 	const notify = () => {
@@ -388,12 +414,15 @@ function createAdapterEntry<
 			return;
 		}
 
+		const generation = ++observationGeneration;
 		unsubscribeSource = source.subscribe((snapshot) => {
+			if (generation !== observationGeneration) return;
 			lastKnownSnapshot = snapshot;
 			notify();
 		});
 		unsubscribeTransportStatus =
 			source.subscribeTransportStatus?.((status) => {
+				if (generation !== observationGeneration) return;
 				lastKnownTransportStatus = status;
 				notify();
 			}) ?? null;
@@ -411,22 +440,39 @@ function createAdapterEntry<
 			}
 
 			listeners.add(listener);
-
-			if (!unsubscribeSource) {
-				// Keep the initial delivery synchronous while replay-signature dedupe
-				// suppresses duplicate startup notifications from transport/source replays.
-				const notificationsBeforeSubscribe = notificationCount;
-				ensureSubscription();
-				if (notificationCount === notificationsBeforeSubscribe) {
-					readCurrentState();
-					notify();
+			try {
+				if (!unsubscribeSource) {
+					// Keep the initial delivery synchronous while replay-signature dedupe
+					// suppresses duplicate startup notifications from transport/source replays.
+					const notificationsBeforeSubscribe = notificationCount;
+					ensureSubscription();
+					if (notificationCount === notificationsBeforeSubscribe) {
+						readCurrentState();
+						notify();
+					}
+				} else {
+					listener(readCurrentState());
 				}
-			} else {
-				listener(readCurrentState());
+			} catch (error) {
+				listeners.delete(listener);
+				if (!listeners.size) {
+					try {
+						cleanupSubscriptions();
+					} catch (cleanupError) {
+						console.error(
+							"[ActorWebAdapter] Observation rollback failed.",
+							cleanupError,
+						);
+					}
+				}
+				throw error;
 			}
+			let active = true;
 
 			return {
 				unsubscribe: () => {
+					if (!active) return;
+					active = false;
 					listeners.delete(listener);
 					if (!listeners.size) {
 						cleanupSubscriptions();
@@ -473,32 +519,25 @@ function createAdapterEntry<
 			}
 
 			isStopped = true;
-			cleanupSubscriptions();
+			let failed = false;
+			let failure: unknown;
+			try {
+				cleanupSubscriptions();
+			} catch (error) {
+				failed = true;
+				failure = error;
+			}
 			listeners.clear();
-			lastKnownSnapshot = source.snapshot();
-			lastKnownTransportStatus =
-				source.transportStatus?.() ?? lastKnownTransportStatus;
 
-			// Only tear down the underlying source when ignite created it (isolated
-			// scope). A consumer-owned source passed as a live instance (shared
-			// scope) is the consumer's to dispose — ignite must never close()/stop()
-			// a source it did not create.
+			// Only the explicit web factory capability owns source-handle close.
+			// Headless factories and borrowed source values retain caller ownership.
 			if (!ownsSource) {
+				if (failed) throw failure;
 				return;
 			}
 
-			const cleanupSources = async () => {
-				// The command actor IS the source (or null), so closing the source
-				// disposes the only handle ignite created.
-				await source.close?.();
-			};
-
-			void cleanupSources().catch((error) => {
-				console.error(
-					"[ActorWebAdapter] Failed to stop isolated source.",
-					error,
-				);
-			});
+			closeOwnedSource(source);
+			if (failed) throw failure;
 		},
 		scope,
 	};
@@ -527,11 +566,24 @@ export default function createActorWebAdapter<
 		| ((context?: {
 				host?: Host;
 		  }) => ActorWebSourceLike<Context, Message, Emitted>),
+	ownership: { ownsFactorySource: boolean } = { ownsFactorySource: true },
 ): ActorWebAdapterFactory<Context, Message, Emitted, Host> {
 	if (typeof source === "function") {
-		return createIsolatedFactory((host) =>
-			createAdapterEntry(source({ host }), StateScope.Isolated, true),
-		);
+		return createIsolatedFactory((host) => {
+			const acquiredSource = source({ host });
+			try {
+				return createAdapterEntry(
+					acquiredSource,
+					StateScope.Isolated,
+					ownership.ownsFactorySource,
+				);
+			} catch (error) {
+				// No adapter exists yet to release this handle. Only the explicit
+				// web ownership capability grants shutdown authority on failure.
+				if (ownership.ownsFactorySource) closeOwnedSource(acquiredSource);
+				throw error;
+			}
+		});
 	}
 
 	return createSharedFactory(

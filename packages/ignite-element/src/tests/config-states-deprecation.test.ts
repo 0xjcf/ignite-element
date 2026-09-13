@@ -44,6 +44,6 @@ describe("removed `view` projection config", () => {
 			}),
 		} satisfies ReduxInstanceConfig<typeof store>);
 
-		expect(register.getStates()).toEqual({ count: 0 });
+		expect(register.get("states")).toEqual({ count: 0 });
 	});
 });

@@ -1,4 +1,4 @@
-import { type IgniteReactRef, igniteReact } from "ignite-element/react";
+import { type IgniteReactRef, igniteReact } from "ignite-element/react/web";
 import { counterElement } from "./counter.ignite";
 
 // The React binding for the framework-neutral `counterElement` (counter.ignite).

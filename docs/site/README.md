@@ -1,6 +1,6 @@
 # Ignite Element Docs (Astro + Starlight)
 
-This is the v2 documentation site for Ignite Element. It lives under `docs/site` and uses Starlight with a dark-first theme inspired by the XState docs.
+This is the v3 beta documentation site for Ignite Element, retaining the frozen `2.x` archive. It lives under `docs/site` and uses Starlight with a dark-first theme inspired by the XState docs.
 
 ## Project structure
 
@@ -41,12 +41,28 @@ Install the Chromium binary once with `pnpm --filter docs-site exec playwright i
 
 [`scripts/check-doc-examples.mjs`](./scripts/check-doc-examples.mjs) extracts the TypeScript/TSX code fences from the current (v3) docs and typechecks them against the **real** `ignite-element` package types, so examples can't drift from the public API (it catches things like an example referencing a `snapshot` variable that isn't in scope, or a `effects` callback shape the adapter doesn't accept).
 
-It is tolerant of doc realities: external imports and app-relative paths resolve to `any`, names from earlier blocks on the same page are in scope, and un-parseable fragments are skipped. Opt a block out with a `no-check` fence meta or a leading `// docs-check: skip`.
+Declared ecosystem dependencies resolve to their real types and fail visibly when missing. Application placeholders and names from earlier blocks remain supported; unparseable fragments and explicit exclusions are reported separately. Publication validation independently inventories every TypeScript fence and checks the complete accounting record.
 
 A baseline ([`scripts/doc-examples-baseline.json`](./scripts/doc-examples-baseline.json)) lists known failures in the current docs so the gate is green today while failing on any **new** drift; burning it down is the docs-accuracy work. Regenerate it with `node scripts/check-doc-examples.mjs --update-baseline`.
 
 | Command | Action |
 | --- | --- |
-| `pnpm --filter docs-site check:docs` | Typecheck all doc code examples (no build needed). |
+| `pnpm build && pnpm --filter docs-site check:docs` | Build workspace declarations, then typecheck doc examples. |
 
 CI runs this on PRs touching `docs/site/**` or `packages/**` (the same [docs-contrast workflow](../../.github/workflows/docs-contrast.yml)).
+
+## Publication contract
+
+Only `beta` may build and deploy Pages, including manual dispatch. Both jobs have
+explicit beta guards; deploy depends on successful build. Main remains the
+default-branch registration and contrast-PR-validation branch, not a deployment
+owner. The existing Pages URL and version picker are retained.
+
+The beta build runs `check:docs`, `check:publication`, `check:astro`, the docs
+build, `check:versions:built`, and `check:links` before uploading `docs/site/dist`.
+The publication policy independently rejects other deployment branches, unsafe
+permissions/secrets/events, bypassed failures, and altered artifact wiring.
+Version checks preserve exact v2 installs (`2.2.2`), current beta chrome, archived
+routes and branding, and the beta.12 candidate's pending-publication disclosures.
+Main's separate browser-audit harness is not part of Pages deployment; beta's
+existing contrast/geometry check remains in its PR-validation workflow.

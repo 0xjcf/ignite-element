@@ -15,7 +15,7 @@ Ignite Element is a lightweight layer for building platform-native custom elemen
 - **Events** define the outward contract when you want typed DOM signals.
 - **Renderers** own the view and decide how templates are produced: Ignite JSX (default) or lit.
 
-The ownership chain is `source → native snapshot → derived states → renderer view`. The result is a web component factory with typed `states`, `commands`, `effects`, and `events`, plus a headless runtime for `execute()`, `getSnapshot()`, `getStates()`, and `getSchema()`.
+The ownership chain is `source → native snapshot → derived states → renderer view`. Source-backed construction returns a component factory with typed `states`, ordinary `commands`, `effects`, and `events`, plus the `get`, `watch`, `on`, `execute`, and owning `dispose` runtime. Root source-free construction remains registrar-only.
 
 Custom elements and `CustomEvent`s are the public surface. That means the same component contract can plug into plain HTML, React, Vue, tests, or automation without a wrapper-specific protocol.
 

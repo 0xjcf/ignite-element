@@ -132,7 +132,7 @@ const run = async () => {
 				snapshot.matches({ available: { turn: "idle" } }) &&
 				snapshot.context.lastModelTurnResult !== null,
 		);
-		stdout.write(`${formatTerminalProjection(component.getStates())}\n`);
+		stdout.write(`${formatTerminalProjection(component.get("states"))}\n`);
 		if (!completed.context.lastModelTurnResult?.accepted) process.exitCode = 1;
 	} finally {
 		runtime.dispose();

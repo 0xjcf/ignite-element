@@ -1,279 +1,200 @@
 ---
 title: Headless runtime
-description: The agent runtime API on the igniteCore return — execute, canExecute, getSnapshot, getStates, getSchema, on, watchSnapshot, watchStates, and record.
+description: Source-backed get, watch, on, execute and owning dispose.
 sidebar:
   label: Headless runtime
   order: 4
 ---
 
-Every `igniteCore(...)` registration is also a **headless runtime**. The same value you call with a tag name to register a custom element exposes methods that drive and inspect the component contract without a DOM — the surface agents and tests use before any selector is involved.
-
-The object passed to `igniteCore(config)` is executable authoring input. It can contain source actors or factories, callbacks, selectors, effects, and other application-only values. It is not the serialized runtime contract. Use `runtime.getSchema()` for the sole public compiled, JSON-safe Ignite blueprint.
+Use an adapter entrypoint's `igniteCore(...)` for source-backed construction.
+The root source-free `const core = igniteCore()` remains registrar-only.
+The canonical flow is source → native snapshot → derived states → renderer view.
 
 ```ts
 import { igniteCore } from 'ignite-element/xstate';
 
 const counter = igniteCore({
   source: counterMachine,
-  states: (snapshot) => ({
-    isOn: snapshot.matches('on'),
-  }),
-  commands: ({ actor }) => ({
-    toggle: () => actor.send({ type: 'TOGGLE' }),
-  }),
-  events: (event) => ({
-    toggled: event<{ isOn: boolean }>(),
-  }),
+  states: (snapshot) => ({ isOn: snapshot.matches('on') }),
+  commands: ({ actor }) => ({ toggle: () => actor.send({ type: 'TOGGLE' }) }),
+  events: (event) => ({ toggled: event<{ isOn: boolean }>() }),
   effects: ({ emit, select }) => {
     const isOn = select((snapshot) => snapshot.matches('on'));
-    if (!isOn.changed) return;
-    emit({ type: 'toggled', isOn: isOn.current });
+    if (isOn.changed) emit({ type: 'toggled', isOn: isOn.current });
   },
 });
-
-// Register a DOM projection later — the runtime is available immediately.
-const { snapshot, states, events } = await counter.execute({ command: 'toggle' });
-const isToggleAvailable = counter.canExecute('toggle');
-const current = counter.getSnapshot();
-const currentStates = counter.getStates();
-const schema = counter.getSchema();
+try {
+  const subscription = counter.watch((next, previous) => {
+    console.log(previous.isOn, '->', next.isOn);
+  });
+  const result = await counter.execute({ command: 'toggle' });
+  console.log(result.snapshot, result.states, result.events);
+  console.log(counter.get('states'));
+  subscription.unsubscribe();
+} finally {
+  counter.dispose();
+}
 ```
 
-## Discovery layers
-
-| Layer | Contract |
-| --- | --- |
-| Authoring | `igniteCore(config)` accepts executable application input, including source ownership and callbacks. |
-| Blueprint | `getSchema()` is the sole public compiled JSON-safe description of commands, declared events, snapshot, and states. |
-| Focused reads | `getSnapshot()`, `getStates()`, and `canExecute(...)` answer one live question at a time. |
-| Subscriptions | `on(...)`, `watchSnapshot(...)`, and `watchStates(...)` keep long-lived consumers synchronized. |
-| Private machinery | Each projection validation and commit attempt captures one coherent inspection inside Ignite; it is not a public API. |
-
-Separate focused getter calls are non-atomic. A source transition between calls can make them observe different revisions; use subscriptions and `execute()` results for ongoing synchronization.
+Tag-and-renderer registration requires DOM; imports and headless construction do
+not create browser globals or hidden elements. Existing opaque non-DOM projection
+targets remain supported. A retained DOM element is not a projection target.
 
 ## Methods
 
+### Keyed reads
+
+`get(key)` accepts exactly `"states"`, `"schema"`, `"commands"`, and
+`"events"`. There is no zero-argument form, raw-snapshot key, path language or
+function lookup.
+
+- `get("states")` reads the optional derived projection; omitted states return a
+  stable empty object. Its first read prepares the owner runtime, real commands,
+  and observation cache outside framework rendering.
+- `get("schema")` returns the immutable minimal catalogue described below.
+- `get("commands")` and `get("events")` select catalogue data, not functions or
+  event history.
+
+Native source APIs such as `actor.getSnapshot()` remain source-owned. Native
+snapshots also remain in projections, effects and execution results. Separate
+public reads are not an atomic multi-read transaction.
+
+### `watch(handler)`
+
+Observes derived states as `(next, previous)` with no initial user delivery.
+Synchronous source replay seeds the previous value. Every delivered source
+observation follows the adapter's existing notification/error boundary; Ignite
+does not add global deep equality. The returned `{ unsubscribe() }` handle is
+independently idempotent.
+
+For an imperative initial render, subscribe first, then call `get('states')`, and
+unsubscribe if that render throws. A first preparation read may return its
+captured initial value while synchronous replay has already updated the framework
+cache. See the complete [plain-controller observer](/ignite-element/guides/plain-controllers/)
+for this pattern and source-owned asynchronous freshness guards.
+
+### `on(name, handler)`
+
+Observes flat outward occurrences `{ type, ...fields }`, including source-native
+XState/Actor-Web emits. Source event names and payloads retain their inferred
+types. This is not replay or history. Release its `{ unsubscribe() }` handle when
+the observer ends.
+
 ### `execute({ command, input? })`
 
-Runs a command by name and resolves at command acknowledgement, after the command window closes and the transition result is available. Effects are synchronous; asynchronous environmental work belongs to the source runtime and is not part of this acknowledgement window. The input type is inferred from the command function's first parameter, so commands that take no argument omit `input`.
+Calls one named command with exactly one positional argument, `input`, including
+`undefined` when omitted. It never spreads an array. Strict types exclude
+serialized calls requiring multiple positional arguments; direct callable
+commands retain those signatures.
 
-**Returns** `Promise<{ snapshot, states, events }>` — one coherent post-command snapshot/states pair plus the ordered events emitted by that command window (an `IgniteAgentExecutionResult`).
+The promise awaits the callback and established queued-microtask observation
+window. Its `{ snapshot, states, events }` result pairs native snapshot and
+derived states from the same observation and includes ordered window events.
+It does not promise business/network completion or independently correlated
+receipts for overlapping calls. Wait for application-correlated source outcomes
+when work continues asynchronously.
 
-```ts
-const result = await counter.execute({ command: 'toggle' });
-```
+The result does not contain the command's resolved value. Direct `useIgnite(core)`
+commands preserve that ordinary value/promise instead. Fulfillment can still mean
+a guarded no-op or an unknown/rejected business outcome. Disposal invalidates an
+outstanding execution observation, not its underlying I/O or an already-returned
+direct command promise. The [plain-controller example](/ignite-element/guides/plain-controllers/)
+demonstrates these distinctions with deterministic asynchronous ports.
 
-The shape:
+An exact callback rejection remains the rejection even after disposal. A
+callback that fulfills after disposal cannot acquire another result and rejects
+with the disposed-result error. Already-returned direct command promises keep
+their ordinary outcomes; Ignite does not cancel entered source work.
 
-```ts
-// IgniteAgentExecutionResult<State, Events>
+### `dispose()`
+
+Source-backed owning cores release their own observation, event, effect,
+projection, binding and command-window handles. They mark ended before cleanup,
+prevent reentrant acquisition, attempt all releases in acquisition order, and
+rethrow the first exact cleanup value, including `undefined` or `null`.
+Repeated disposal is inert, even after a throwing first call. Individual handles
+remain safe to release.
+
+Live state reads, watches, listeners, commands and binding acquisition reject
+after disposal. Catalogue reads remain available without reacquisition.
+
+A successfully registered core rejects disposal **before teardown**. Failed
+registration does not permanently lock the core. Registration-in-progress is
+guarded. Element disconnect/reconnect continues to use its existing lifecycle;
+this is not a terminal element-disable API.
+
+## Source ownership
+
+Borrowed XState actors, Redux stores, MobX values and Actor-Web sources remain
+caller-owned. Disposal removes Ignite observations, never arbitrary source
+shutdown. An Ignite-created private XState actor is stopped exactly once after
+observations drain; an unused core never creates one.
+
+A headless Actor-Web factory does not transfer native close authority, even if
+it returns a new source. The application retains its handle and owns close.
+The explicit `ignite-element/actor-web/web` host factory preserves existing
+per-element factory-close behavior; asynchronous handle close is not awaited
+backing-runtime shutdown. Web factories cannot be prepared headlessly.
+
+## Discovery
+
+Before binding a configured commands callback:
+
+```json
 {
-  snapshot: { value: 'on', context: {} },
-  states: { isOn: true },
-  events: [{ type: 'toggled', isOn: true }],
+  "schemaVersion": 1,
+  "states": { "schema": null },
+  "commands": null,
+  "events": [{ "type": "toggled", "payload": null }]
 }
 ```
 
-`events` is the same ordered stream the runtime emitted for that transition, so assertions stay deterministic and align with the events delivered to `on(...)` listeners.
+After real binding, `commands` contains actual own names, for example
+`{ "toggle": { "input": null } }`. With no commands callback, the known catalogue
+is `{}` from the outset. Unknown is different from known empty.
 
-For sources with a native emit stream (XState and Actor-Web today), domain events the **source** emits during the command window are captured too as flat `{ type, ...fields }` members, independent of the `events:` declaration. See [declared vs source-emitted events](/ignite-element/concepts/the-ignite-model/#commands-events-and-effects).
+The three null schema positions mean unknown runtime schemas, not no input,
+validated input or unrestricted JSON Schema. Omitted states retain their known
+empty-projection description. Catalogue reads acquire no source, run no commands
+against fabricated actors, start no effects and initialize no DOM. Previously
+returned objects never mutate. The latest catalogue survives disposal.
 
-### `canExecute(commandName)`
+Declared event names are not an exhaustive list of native source emits. Observe
+actual occurrences with `on` and execution results.
 
-Returns whether a command is available for the current snapshot. Commands without
-a `canExecute` predicate are available by default; commands with
-[`command(..., { canExecute })`](/ignite-element/api/command-metadata/#availability-predicates)
-evaluate that predicate on demand.
+Explicit tool descriptions, input schemas and availability predicates belong at
+the [tool/application boundary](/ignite-element/api/command-metadata/).
+The core does not infer them. Project availability into public states while
+preserving source enforcement; availability is not authorization.
 
-**Returns** `boolean`.
+## React and React Native
 
-```ts
-const canToggle = counter.canExecute('toggle');
-```
+`useIgnite(core)` from `ignite-element/react` borrows a core prepared once by its
+owner with `core.get("states")`, outside rendering. It returns inferred derived
+states and stable callable commands. It uses pure cached reads and releases only
+its own subscription on unmount. Snapshot values must be suitable immutable
+projections: nested plain data is detached without freezing the source;
+arbitrary class instances and accessors are not serialized. Function-valued
+states remain states.
 
-Unknown command names throw the same unknown-command error shape as
-`execute(...)`.
+`igniteReact` and web-only wrapper types move to `ignite-element/react/web`;
+they target actual registered elements, not a hidden headless runtime. No SSR
+fallback or React commit barrier is provided. Effects retain Ignite-renderer
+post-render timing and may precede a framework commit.
 
-### `getSnapshot()`
+## Removed methods and private inspection
 
-Returns the current raw snapshot of the underlying source.
+The former public `getSnapshot`, `watchSnapshot`, `getStates`, `watchStates`,
+`getSchema`, and helper-dependent `canExecute` methods have no compatibility
+aliases. The former testing/story/recording exports remain retired.
 
-**Returns** `State` — the underlying source snapshot (the XState snapshot, the Redux state, or the MobX observable value).
-
-```ts
-const snapshot = counter.getSnapshot();
-```
-
-The pre-stable `getState()` alias was removed at v3.0.0 — use `getSnapshot()`.
-
-### `getStates()`
-
-Returns the current derived states — the plain object your optional `states(snapshot)` callback derives from the native snapshot.
-
-**Returns** the inferred states object, or one stable `{}` when no `states` callback is configured.
-
-```ts
-const states = counter.getStates();
-```
-
-### `on(eventName, handler)`
-
-Subscribes to a public emitted event. The handler receives the flat emitted event member.
-
-**Returns** a subscription — `{ unsubscribe(): void }`. Call `unsubscribe()` to stop listening.
-
-```ts
-const subscription = counter.on('toggled', (event) => {
-  console.log(event.isOn);
-});
-
-subscription.unsubscribe();
-```
-
-Use `on(...)` for the public events your component emits through `effects`. When the source has a native emit stream (XState and Actor-Web today), `on(...)` also receives the source's emitted domain events as the same flat `{ type, ...fields }` shape, and the names are typed from the source's `Emitted` union. (The pre-stable `subscribe(eventName, handler)` alias was removed at v3.0.0 — use `on`.)
-
-### `watchSnapshot(handler)`
-
-Subscribes to **raw snapshot** updates. The handler receives `(snapshot, prevSnapshot)` on every source update.
-
-**Returns** a subscription — `{ unsubscribe(): void }`.
-
-```ts
-const subscription = counter.watchSnapshot((snapshot, prevSnapshot) => {
-  console.log(prevSnapshot.value, '->', snapshot.value);
-});
-```
-
-The pre-stable `watch(handler)` alias was removed at v3.0.0 — use `watchSnapshot()`.
-
-### `watchStates(handler)`
-
-Subscribes to **derived states** updates. The handler receives `(states, prevStates)` for every delivered source observation; this API does not add deep-equality filtering.
-
-**Returns** a subscription — `{ unsubscribe(): void }`.
-
-```ts
-const subscription = counter.watchStates((states, prevStates) => {
-  console.log(prevStates.isOn, '->', states.isOn);
-});
-```
-
-### `getSchema()`
-
-Returns the sole public compiled, JSON-safe Ignite blueprint describing the component's commands, declared public events, and current state. Command metadata declared with [`command(...)`](/ignite-element/api/command-metadata/) is included here.
-
-"Blueprint" is Ignite vocabulary, not a claim that this object is a formal JSON Schema document. A command's `input` metadata may use JSON-Schema-like fragments, but the complete blueprint is an Ignite discovery contract.
-
-**Returns** `{ commands, events, snapshot, states }` — a JSON-serializable `IgniteAgentSchema`: `commands` maps each name to its metadata (`{}` when none), `events` is the array of declared event descriptors such as `{ type }`, and `snapshot` and `states` are one coherent current observation. Commands with an availability predicate include `gated: true`; call `canExecute(commandName)` for the current boolean result.
-
-The blueprint excludes source actors and factories, effects, callbacks, selectors, registries, projection bindings, committers, and executable model-authored content.
-
-```ts
-const schema = counter.getSchema();
-```
-
-The shape:
-
-```ts
-// getSchema() returns:
-{
-  commands: {
-    toggle: {
-      description: 'Toggle the panel open state.',
-    },
-    setMode: {
-      description: 'Switch the device mode.',
-      input: {
-        type: 'string',
-        enum: ['auto', 'manual', 'off'],
-      },
-    },
-    armAlarm: {
-      description: 'Arm the alarm when every zone is closed.',
-      gated: true,
-    },
-  },
-  events: [{ type: 'toggled' }, { type: 'alarm-armed' }],
-  snapshot: {
-    value: 'idle',
-    context: {
-      mode: 'auto',
-      zonesOpen: 0,
-      armed: false,
-    },
-  },
-  states: {
-    mode: 'auto',
-    canArmAlarm: true,
-    statusLabel: 'Ready',
-  },
-}
-```
-
-How tools usually consume it:
-
-1. Read `commands` to decide which actions exist and whether any carry input schemas or descriptions.
-2. Use `input` to shape payloads before calling `execute({ command, input? })`.
-3. Treat `gated: true` as "availability is dynamic" and call `canExecute(commandName)` before offering or invoking that command.
-4. Use `snapshot` when the raw source state matters, and `states` when the derived read model is the better contract.
-5. Observe outcomes with `execute().events`, `on(...)`, or `watchStates(...)` instead of assuming a command succeeded silently.
-
-Example runtime flow:
-
-```ts no-check
-// Install subscriptions before the initial read so a transition during the
-// bootstrap handoff is observed.
-const eventSubscription = panel.on('alarm-armed', (event) => {
-  console.log('Alarm status:', event);
-});
-
-const statesSubscription = panel.watchStates((states) => {
-  console.log('Status label:', states.statusLabel);
-});
-
-const schema = panel.getSchema();
-const armMetadata = schema.commands.armAlarm;
-
-if (armMetadata.gated && !panel.canExecute('armAlarm')) {
-  throw new Error('Alarm cannot be armed while a zone is open.');
-}
-
-const result = await panel.execute({ command: 'armAlarm' });
-console.log('Command events:', result.events);
-
-eventSubscription.unsubscribe();
-statesSubscription.unsubscribe();
-```
-
-This separation is intentional:
-
-- `getSchema()` tells you what the runtime exposes right now in JSON-safe form.
-- `canExecute()` answers dynamic command availability.
-- `execute()` performs the transition and returns the resulting snapshot, derived states, and emitted events.
-- `on(...)` and `watchStates(...)` keep long-lived observers in sync across bootstrap and after the initial schema read.
-
-Ignite does not expose a second `getBlueprint()` alias, a public `inspect()` method, or a public inspection-bundle type. Internally, each projection validation and commit attempt captures one private coherent inspection, so the document and behavior facts for that attempt come from the same captured revision. An asynchronous external commit is not transactional with source transitions that occur later; the captured inspection is not part of the headless API.
-
-:::note[Dynamic events are not listed]
-`events` enumerates only the names **declared** in the `events:` map. Events emitted by XState or Actor-Web sources are a compile-time union with no runtime registry, so they don't appear in the schema — observe them via `on(...)` and `execute().events` instead.
-:::
-
-### `record(name)`
-
-Starts a named [story](/ignite-element/api/testing-dsl/#stories) recorder over the same runtime.
-
-**Returns** a [story](/ignite-element/api/testing-dsl/#stories) — an object that records command, native snapshot, derived states, and event activity as one ordered behavior trace (`execute`, `until`, `trace`, `lifecycle`, `summary`, `stop`). Its summary exposes `finalSnapshot` and `finalStates`, and derived-state trace entries use `kind: 'states'`.
-
-```ts
-const story = counter.record('toggles on');
-```
-
-## Determinism
-
-The runtime seeds `prevSnapshot` on attach, never replays history, and runs `effects(...)` once per update in a stable order — which is what keeps `execute()` and the testing helpers reproducible. The full semantics are documented once in [Deterministic effects](/ignite-element/concepts/the-ignite-model/#deterministic-effects).
+Document/speech projections retain a private coherent inspection for each
+validation/commit attempt. It is not a public inspection bundle, and an external
+asynchronous commit is not transactional with later source transitions.
 
 ## Related
 
-- [Build for agents](/ignite-element/guides/agent-runtime-v3/) — the behavior-first workflow these methods support.
-- [Command metadata](/ignite-element/api/command-metadata/) — enrich `getSchema()` output.
-- [Testing DSL](/ignite-element/api/testing-dsl/) — scenario and story helpers built on this runtime.
+- [Build for agents](/ignite-element/guides/agent-runtime-v3/)
+- [Commands and tool schemas](/ignite-element/api/command-metadata/)
+- [Testing guide](/ignite-element/guides/testing/)
+- [Host application integration](/ignite-element/guides/host-app-integration/)

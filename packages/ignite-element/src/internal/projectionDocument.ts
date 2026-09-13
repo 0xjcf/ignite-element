@@ -14,14 +14,10 @@ import type {
 	ProjectionTextNode,
 	ProjectionTimelineNode,
 } from "../types/agent";
-import type {
-	IgniteAgentSchema,
-	IgniteSchemaObject,
-	IgniteSchemaValue,
-} from "../types/schema";
+import type { IgniteSchemaObject, IgniteSchemaValue } from "../types/schema";
 
 type ValidationContext = {
-	schema: IgniteAgentSchema<IgniteSchemaValue, IgniteSchemaValue>;
+	schema: { commands: Record<string, Record<string, IgniteSchemaValue>> };
 	canExecute(commandName: string): boolean;
 };
 
@@ -1186,7 +1182,9 @@ function validateActionNode(
 		}
 	}
 
-	if (command.gated === true && !context.canExecute(node.commandName)) {
+	// Availability is independently projected by the source/application. It
+	// must not depend on metadata attached to an ordinary command function.
+	if (!context.canExecute(node.commandName)) {
 		issues.push(
 			`${path}.commandName: command "${node.commandName}" is unavailable`,
 		);
@@ -1595,7 +1593,7 @@ export function isPendingSpeechRequest(
 export function validateProjectionSelection(
 	document: ProjectionDocument,
 	inspection: {
-		schema: IgniteAgentSchema<IgniteSchemaValue, IgniteSchemaValue>;
+		schema: { commands: Record<string, Record<string, IgniteSchemaValue>> };
 		canExecute(commandName: string): boolean;
 	},
 ): string[] {

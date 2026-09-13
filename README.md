@@ -13,6 +13,11 @@ That makes components easier to reason about for developers, easier to reuse acr
 
 Quick links: [Quick start](#quick-start) · [Mental model](#mental-model) · [Agent runtime](#agent-runtime) · [Testing](#testing) · [Install matrix](#installation-matrix) · [Documentation](#documentation)
 
+The development candidate also supports [sharing an existing plain controller](docs/site/src/content/docs/guides/plain-controllers.mdx)
+across headless, imperative web, React and native views. The [complete synthetic example](examples/apps/shared-controller/README.md)
+uses one session owner and the checked-out candidate's public exports—not the
+previously published beta.11 bindings. Native test-host coverage is not device acceptance.
+
 ## Why Ignite Element?
 
 Most UI systems blur together rendering, state changes, and side effects.
@@ -41,6 +46,25 @@ This gives you:
 Ignite is not trying to replace your app framework. It gives you a browser-native distribution layer for stateful UI: project behavior into a custom element, expose DOM-native events, and keep the same contract usable in plain HTML, React, Vue, tests, and automation.
 
 ## Quick start
+
+### Source-free layouts (unpublished review candidate)
+
+The candidate replaces beta.11's `igniteShell` with root `igniteCore()` and removes
+its `onConnect`/teardown option. Released beta.11 does not have this root API.
+No state library is needed for source-free composition:
+
+```tsx
+import { igniteCore } from "ignite-element";
+
+const core = igniteCore();
+core("app-layout", () => <main><slot /></main>);
+```
+
+The renderer has no source arguments; successful DOM mounts once per instance.
+The result is a registrar, not a behavior runtime. Adapter imports stay unchanged.
+See the [breaking migration](./docs/source-free-core.md).
+
+### Source-backed components
 
 > **v3 is in beta.** Install with `@beta` — the stable `latest` tag is still
 > v2.2.x. The state libraries are optional peer dependencies, so only the one
@@ -148,7 +172,7 @@ Because the outward contract is DOM-native, the same component can be consumed f
 Commands describe what should happen.
 
 ```ts
-commands: ({ actor, command }) => ({
+commands: ({ actor }) => ({
   toggle: () => actor.send({ type: "TOGGLE" })
 })
 ```
@@ -234,51 +258,32 @@ Events are:
 
 ## Agent runtime
 
-Every `igniteCore(...)` registration exposes a headless runtime API in addition to the DOM component.
+Source-backed `igniteCore(...)` construction exposes a headless runtime alongside its registration surface. Root source-free construction remains registrar-only.
 
 ```ts
 async function inspectToggle() {
   const eventSubscription = toggle.on("toggled", (event) => {
     console.log(event.isOn);
   });
-  const snapshotSubscription = toggle.watchSnapshot((state, prevState) => {
-    console.log(prevState.value, "->", state.value);
-  });
-  const statesSubscription = toggle.watchStates((states, prevStates) => {
+  const statesSubscription = toggle.watch((states, prevStates) => {
     console.log(prevStates.isOn, "->", states.isOn);
   });
 
   try {
     const result = await toggle.execute({ command: "toggle" });
-    toggle.getSnapshot();
-    toggle.getStates();
-    toggle.getSchema();
+    console.log(result.snapshot); // paired native snapshot from this execution
+    toggle.get('states');
+    toggle.get('schema');
   } finally {
     eventSubscription.unsubscribe();
-    snapshotSubscription.unsubscribe();
     statesSubscription.unsubscribe();
   }
 }
 ```
 
-Use `on(...)` for outward event signals, `watchSnapshot(...)` for raw state changes, and `watchStates(...)` for projected states changes.
+Use `on(...)` for outward occurrences and `watch(...)` for derived-state next/previous updates without initial delivery. Native source reads remain on the caller-owned source. An unregistered owner ends its observation lifetime with `dispose()`; a successfully registered core rejects disposal before teardown. Borrowed sources are never stopped. Only an Ignite-created private XState actor is natively stopped by owner disposal.
 
-Use `record(...)` when a test or agent needs workflow evidence. Story summaries
-contain `finalSnapshot` and `finalStates`, and trace entries use `kind: "states"`
-for the derived read model:
-
-```ts
-async function recordToggleStory() {
-  const story = toggle.record("turns on");
-  await story.until((states) => states.isOn, async () => {
-    await story.execute({ command: "toggle" });
-  });
-  story.trace();
-  story.lifecycle();
-  story.summary();
-  story.stop();
-}
-```
+Ordinary tests assert command results and source outcomes directly. The former testing/story recorder is retired in the development candidate; no portable trace or complete lifecycle history replaces it.
 
 `execute()` returns structured output:
 
@@ -290,36 +295,33 @@ async function recordToggleStory() {
 }
 ```
 
-`getSchema()` returns a JSON-serializable description of the component contract:
+`get('schema')` returns pure immutable discovery data after real command binding:
 
 ```ts
 {
-  commands: {
-    toggle: {}
-  },
-  events: [{ type: "toggled" }],
-  snapshot: { value: "off", context: {} },
-  states: { isOn: false }
+  schemaVersion: 1,
+  commands: { toggle: { input: null } },
+  events: [{ type: "toggled", payload: null }],
+  states: { schema: null }
 }
 ```
 
-This makes the same component usable in the browser, in tests, and in automation workflows.
+Before a configured commands callback is bound, its catalogue is `null`; without a callback it is `{}`. Null schemas are unknown, not inferred validation. Tools must supply explicit application-owned input definitions and availability predicates. See [core API and bindings](./docs/core-api-bindings.md).
 
 ## Testing
 
-Ignite includes a built-in headless testing DSL for state and event assertions.
+Use your ordinary test runner with the retained runtime:
 
 ```ts
-import { test as igniteTest } from "ignite-element";
+import { expect } from "vitest";
 
-(await igniteTest({ component: toggle })
-  .given({ value: "off" })
-  .when({ command: "toggle" }))
-  .expectSnapshot({ value: "on" })
-  .expectEvent({ type: "toggled", isOn: true });
+const result = await toggle.execute({ command: "toggle" });
+expect(result.snapshot.matches("on")).toBe(true);
+expect(result.states.isOn).toBe(true);
+expect(result.events).toContainEqual({ type: "toggled", isOn: true });
 ```
 
-Because this runs against the same deterministic runtime, state and event expectations stay aligned with real component behavior.
+Use a fresh source per test. Mount registered components and query actual rendered controls for DOM coverage. The application/test owns asynchronous source outcomes and source shutdown; `execute()` does not wait for every downstream business operation. See [testing](./docs/testing.md) and the [migration notice](https://0xjcf.github.io/ignite-element/api/testing-dsl/).
 
 ## Installation matrix
 
@@ -394,3 +396,9 @@ Ignite enforces three rules:
 3. Effects express consequences.
 
 The result is a deterministic UI architecture that scales from ordinary component work to testing, automation, and AI-agent execution.
+
+## Headless Node boundary
+
+The development candidate imports and uses source-backed cores in Node 22.16.0 without fabricated browser globals. Keep `source → snapshot → states → renderer view`: construct a named core first, then register tags only in the browser. Root source-free `const core = igniteCore()` returns only a registrar. Tag registration throws synchronously without a DOM; ordinary runtime work and existing non-DOM projection bindings do not register a tag.
+
+Observation cleanup does not establish reclamation of abandoned cores. Cached effects and factory-owned source work retain existing core-lifetime semantics. Root/adapter TypeScript consumers still need browser declaration types (`lib: DOM`), independently of runtime DOM safety. Both whole-core ownership and no-DOM declaration support remain stable-readiness follow-ups, not solved by this candidate.

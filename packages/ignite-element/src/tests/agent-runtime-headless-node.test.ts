@@ -7,9 +7,43 @@
 // the package's global jsdom) so it would fail without a genuinely DOM-free
 // runtime. The DOM render path is intentionally not exercised here — it still
 // requires a real DOM.
+
+import { configureStore } from "@reduxjs/toolkit";
 import { describe, expect, it, vi } from "vitest";
 import { assign, setup } from "xstate";
+import { igniteCore as igniteRedux } from "../redux";
 import { igniteCore } from "../xstate";
+
+it("characterizes live-source effect retention separately from per-handle cleanup", () => {
+	const source = configureStore({ reducer: (state = { count: 0 }) => state });
+	const subscribe = source.subscribe.bind(source);
+	const owned = new Set<() => void>();
+	const spy = vi.spyOn(source, "subscribe").mockImplementation((listener) => {
+		const unsubscribe = subscribe(listener);
+		const release = () => {
+			unsubscribe();
+			owned.delete(release);
+		};
+		owned.add(release);
+		return release;
+	});
+	try {
+		for (let index = 0; index < 2; index += 1) {
+			const core = igniteRedux({ source, effects: () => {} });
+			core.get("states");
+			const handle = core.watch(() => {});
+			handle.unsubscribe();
+			expect(owned.size).toBeGreaterThan(0);
+			core.dispose();
+		}
+		expect(owned.size).toBe(0);
+	} finally {
+		for (const release of owned) release();
+		spy.mockRestore();
+	}
+	expect(owned.size).toBe(0);
+	expect(source.getState()).toEqual({ count: 0 });
+});
 
 function createCounter() {
 	const machine = setup({
@@ -40,13 +74,13 @@ function createCounter() {
 	return igniteCore({
 		source: machine,
 		events: (event) => ({ counted: event<{ count: number }>() }),
-		states: (snapshot) => ({ count: snapshot.context.count }),
-		commands: ({ actor, command }) => ({
+		states: (snapshot) => ({
+			count: snapshot.context.count,
+			canDecrement: snapshot.context.count > 0,
+		}),
+		commands: ({ actor }) => ({
 			increment: () => actor.send({ type: "INC" }),
-			decrement: command(() => actor.send({ type: "DEC" }), {
-				description: "Decrement the count when it is above zero.",
-				canExecute: ({ snapshot }) => snapshot.context.count > 0,
-			}),
+			decrement: () => actor.send({ type: "DEC" }),
 		}),
 		effects: ({ emit, select }) => {
 			const count = select((state) => state.context.count);
@@ -62,33 +96,35 @@ describe("agent runtime is DOM-free (pure Node, no jsdom)", () => {
 		expect(typeof document).toBe("undefined");
 	});
 
-	it("getSchema() builds the manifest without a DOM", () => {
+	it("pure discovery stays unknown until preparation without a DOM", () => {
 		const counter = createCounter();
-		const schema = counter.getSchema();
-		expect(Object.keys(schema.commands)).toContain("increment");
-		expect(schema.commands.decrement).toMatchObject({ gated: true });
-		expect(schema.commands.decrement).not.toHaveProperty("canExecute");
-		expect(schema.events).toContainEqual({ type: "counted" });
-		expect(schema.states).toMatchObject({ count: 0 });
+		const before = counter.get("schema");
+		expect(before.commands).toBeNull();
+		counter.get("states");
+		expect(counter.get("commands")).toEqual({
+			increment: { input: null },
+			decrement: { input: null },
+		});
+		expect(before.commands).toBeNull();
+		expect(before.events).toContainEqual({ type: "counted", payload: null });
+		expect(before.states).toEqual({ schema: null });
+		counter.dispose();
 	});
 
-	it("canExecute() queries command availability against the current snapshot", async () => {
+	it("derived availability follows the native source and does not replace enforcement", async () => {
 		const counter = createCounter();
 
-		expect(counter.canExecute("increment")).toBe(true);
-		expect(counter.canExecute("decrement")).toBe(false);
+		expect(counter.get("states").canDecrement).toBe(false);
+		await counter.execute({ command: "decrement" });
+		expect(counter.get("states").count).toBe(0);
 
 		await counter.execute({ command: "increment" });
-		expect(counter.canExecute("decrement")).toBe(true);
+		expect(counter.get("states").canDecrement).toBe(true);
 
 		await counter.execute({ command: "decrement" });
-		expect(counter.canExecute("decrement")).toBe(false);
-		const dynamicCounter = counter as unknown as {
-			canExecute(commandName: string): boolean;
-		};
-		expect(() => dynamicCounter.canExecute("missing")).toThrow(
-			'[igniteCore] Unknown command "missing".',
-		);
+		expect(counter.get("states").canDecrement).toBe(false);
+		expect(counter).not.toHaveProperty("canExecute");
+		counter.dispose();
 	});
 
 	it("execute() runs a command and returns the post-ack snapshot + events", async () => {
@@ -113,12 +149,12 @@ describe("agent runtime is DOM-free (pure Node, no jsdom)", () => {
 	it("watchStates()/getStates() observe the derived states without a DOM", async () => {
 		const counter = createCounter();
 		const seen: Array<{ count: number }> = [];
-		const subscription = counter.watchStates((states) => seen.push(states));
+		const subscription = counter.watch((states) => seen.push(states));
 
 		await counter.execute({ command: "increment" });
 
-		expect(counter.getStates()).toEqual({ count: 1 });
-		expect(seen[seen.length - 1]).toEqual({ count: 1 });
+		expect(counter.get("states")).toEqual({ count: 1, canDecrement: true });
+		expect(seen[seen.length - 1]).toEqual({ count: 1, canDecrement: true });
 		subscription.unsubscribe();
 	});
 
@@ -127,7 +163,7 @@ describe("agent runtime is DOM-free (pure Node, no jsdom)", () => {
 		const eventHandler = vi.fn();
 		const viewHandler = vi.fn();
 		const eventSubscription = counter.on("counted", eventHandler);
-		const viewSubscription = counter.watchStates(viewHandler);
+		const viewSubscription = counter.watch(viewHandler);
 
 		eventSubscription.unsubscribe();
 		viewSubscription.unsubscribe();
@@ -137,6 +173,6 @@ describe("agent runtime is DOM-free (pure Node, no jsdom)", () => {
 		expect(result.snapshot.context.count).toBe(1);
 		expect(eventHandler).not.toHaveBeenCalled();
 		expect(viewHandler).not.toHaveBeenCalled();
-		expect(counter.canExecute("decrement")).toBe(true);
+		expect(counter.get("states").canDecrement).toBe(true);
 	});
 });

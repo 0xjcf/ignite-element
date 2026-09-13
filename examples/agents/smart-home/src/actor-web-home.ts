@@ -101,7 +101,7 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 				"security-changed": event<{ allDoorsLocked: boolean }>(),
 			}),
 			states: (snapshot) => projectHomeView(snapshot.context),
-			commands: ({ command }) => createHomeCommands(command, sendAndFlush),
+			commands: () => createHomeCommands(sendAndFlush),
 		});
 
 		return {
@@ -112,7 +112,11 @@ export async function createActorWebHomeSession(): Promise<HomeRuntimeSession> {
 						closed = true;
 						clearPendingTransitionTimers();
 						await waitForPendingSends();
-						await runtime.stop();
+						try {
+							home.dispose();
+						} finally {
+							await runtime.stop();
+						}
 					})(),
 					"closing actor-web home session",
 				),

@@ -123,6 +123,13 @@ host-seam → `igniteShell`.
 
 ## Agent-runtime thread (additive, getSchema-driven) — added 2026-06-21
 
+Historical thread: the core API/bindings candidate replaces these getter names
+with keyed `get` and `watch`, removes helper-based availability, and requires
+explicit application tool schemas. The React wrapper moves to `/react/web`;
+`/react` supplies the neutral hook. See [current contracts](./core-api-bindings.md).
+The following old task chain is preserved as context, not a shipping or activation
+claim.
+
 A coherent build-up that makes ignite components fully **agent-drivable** through one
 self-describing contract (`getSchema` + headless `execute`). Additive, so it ships
 across `3.x` minors and does **not** gate stable — but it's where the "dev DX **and**

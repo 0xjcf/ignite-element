@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
+	chmodSync,
+	existsSync,
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
@@ -20,12 +22,102 @@ const expectedExampleRoots = [
 	"examples/apps/dashboard-with-shared-state",
 	"examples/apps/form-with-validation",
 	"examples/apps/nested-child-router",
+	"examples/apps/shared-controller",
 	"examples/apps/spa-router",
 ];
 const expectedCoverageArgs = expectedExampleRoots.flatMap((exampleRoot) => [
 	"--covers-package",
 	exampleRoot,
 ]);
+
+function runProvisioning(lock) {
+	const root = mkdtempSync(path.join(tmpdir(), "ignite-frozen-example-"));
+	try {
+		const example = path.join(root, "examples/counter");
+		const bin = path.join(root, "bin");
+		mkdirSync(example, { recursive: true });
+		mkdirSync(bin);
+		writeFileSync(path.join(example, "package.json"), '{"name":"counter"}');
+		writeFileSync(path.join(example, "counter.test.ts"), "");
+		writeFileSync(path.join(example, "vitest.config.ts"), "export default {};");
+		const lockPath = path.join(example, "pnpm-lock.yaml");
+		if (lock !== undefined) writeFileSync(lockPath, lock);
+		const log = path.join(root, "calls.jsonl");
+		const executable = path.join(bin, "pnpm");
+		writeFileSync(
+			executable,
+			`#!${process.execPath}
+const fs = require('node:fs');
+const args = process.argv.slice(2);
+fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify(args) + '\\n');
+if (args[0] === 'install' && args.includes('--frozen-lockfile') && fs.readFileSync('pnpm-lock.yaml', 'utf8') === 'stale') {
+  console.error('ERR_PNPM_OUTDATED_LOCKFILE: fixture lock does not match manifest');
+  process.exit(1);
+}
+`,
+		);
+		chmodSync(executable, 0o755);
+		const result = spawnSync(
+			process.execPath,
+			[
+				"scripts/test-examples.mjs",
+				"--examples-root",
+				path.join(root, "examples"),
+			],
+			{
+				env: {
+					...process.env,
+					PATH: `${bin}${path.delimiter}${process.env.PATH}`,
+				},
+				encoding: "utf8",
+			},
+		);
+		assert.ifError(result.error);
+		return {
+			status: result.status,
+			output: result.stdout + result.stderr,
+			calls: existsSync(log)
+				? readFileSync(log, "utf8")
+						.trim()
+						.split("\n")
+						.map((line) => JSON.parse(line))
+				: [],
+			lock: existsSync(lockPath) ? readFileSync(lockPath, "utf8") : undefined,
+		};
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+}
+
+describe("frozen example provisioning", () => {
+	it("requires a lockfile before launching pnpm", () => {
+		const result = runProvisioning(undefined);
+		assert.equal(result.status, 1);
+		assert.match(result.output, /requires an existing pnpm-lock.yaml/);
+		assert.deepEqual(result.calls, []);
+		assert.equal(result.lock, undefined);
+	});
+	it("installs frozen with isolated workspace linkage and preserves lock bytes", () => {
+		const result = runProvisioning("lockfileVersion: '9.0'\n");
+		assert.equal(result.status, 0, result.output);
+		assert.deepEqual(result.calls[0], [
+			"install",
+			"--ignore-workspace",
+			"--no-link-workspace-packages",
+			"--frozen-lockfile",
+		]);
+		assert.equal(result.calls.length, 2);
+		assert.ok(result.calls[1].includes("vitest"));
+		assert.equal(result.lock, "lockfileVersion: '9.0'\n");
+	});
+	it("surfaces stale-lock failure without running tests or changing the lock", () => {
+		const result = runProvisioning("stale");
+		assert.equal(result.status, 1);
+		assert.match(result.output, /ERR_PNPM_OUTDATED_LOCKFILE/);
+		assert.equal(result.calls.length, 1);
+		assert.equal(result.lock, "stale");
+	});
+});
 
 describe("test-examples", () => {
 	it("admits every runtime-tested example to the root and FAS full lanes", () => {

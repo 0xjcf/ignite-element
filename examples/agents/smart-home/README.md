@@ -6,8 +6,9 @@ ordinary `ignite-element` component and **driven by an LLM** through
 DOM and no jsdom**.
 
 It's the agent analog of the other examples: instead of a person clicking a UI,
-an LLM reads the component's `getSchema()`, calls its commands as tools, and
-observes the result — the same `getSchema()` / `execute()` contract, no UI layer.
+an LLM receives the application's explicit `homeToolSchema`, calls its commands
+as tools, and observes the result through the same `execute()` contract, with no
+UI layer. The core's `get("schema")` is a minimal catalogue, not a tool schema.
 The Phase C demo also exposes that same live home through a browser UI: a Node
 process owns the headless runtime, a terminal agent drives it with `igniteTools`,
 and the browser `<smart-home-bridge>` element observes and sends commands over a thin
@@ -94,12 +95,13 @@ actor-web transport. Those belong to fas-local and actor-web respectively.
 ## The loop
 
 ```
-getSchema()  →  dialect.tools(manifest)  →  [ model ]  →  tool call
+homeToolSchema → dialect.tools(manifest) → [ model ] → tool call
      ▲                                                          │
      └──  tool result  ←  dialect.toolResult  ←  run()  ←  toolCalls()
 ```
 
-`igniteTools(home, anthropic)` and `igniteTools(home, openai)` both return
+`igniteTools(home, anthropic, { schema: homeToolSchema })` and
+`igniteTools(home, openai, { schema: homeToolSchema })` both return
 `{ tools, toolCalls, run, observe, toolResult }`. The consumer brings the model
 seam in `src/model.ts`: a scripted mock, the real `@anthropic-ai/sdk`, or any
 OpenAI-compatible `/v1/chat/completions` server such as MLX.
@@ -107,7 +109,7 @@ OpenAI-compatible `/v1/chat/completions` server such as MLX.
 ## What it exercises
 
 - **DOM-free runtime** — the whole thing runs in the Vitest `node` environment
-  (see `vite.config.ts`); `getSchema`/`execute`/`on`/`watchStates` need no DOM.
+  (see `vite.config.ts`); `get`/`execute`/`on`/`watch` need no DOM.
 - **Varied command schemas** — object (`toggleLight`, `setThermostat`,
   `setBlinds`), scalar enum (`lockDoor`, `unlockDoor`, `runScene`), array
   (`dimRooms`), and no-arg (`status`) — all translated to Anthropic tool defs.

@@ -247,16 +247,32 @@ queue. No framework scheduler clock or flush API is added by the lifecycle task.
 - Creating or using the headless runtime must not read `document`, `Element`, or
   animation-frame globals.
 - Ref and commit callbacks run only after a DOM strategy creates a real element.
-- `getSchema()`, `getStates()`, commands, events, and non-DOM projection targets do
+- `get('schema')`, `get('states')`, commands, events, and non-DOM projection targets do
   not acquire retained nodes or schedule presentation work.
 - No DOM means no synthetic ref acquisition or commit callback.
 - A stale callback captured before detach cannot run against a later tree.
 - This contract adds no hydration, DOM serialization, server canvas, or global
   timer polyfill.
 
-The existing minimal headless polyfill supplies only `HTMLElement` and
-`customElements` fallbacks, not `document` or animation-frame globals.
-[setupDomPolyfill.ts:8-35](../packages/ignite-element/src/internal/setupDomPolyfill.ts#L8-L35)
+The headless-isolation candidate removes fabricated `HTMLElement` and
+`customElements` globals. Runtime construction and observation do not require DOM
+initialization; synchronous tag registration does. This does not implement the
+retained `ref`, `commit`, or keyed-identity design described here.
+
+### Unresolved stable-readiness resource boundary
+
+Per-handle unsubscribe/dispose ends that observation, not the whole core.
+Repeated cores with effects over a live source can retain cached subscriptions
+after their individual handles end. Factory-owned headless actors can also
+continue timers or other source work for the core's lifetime. No public core
+disposal boundary is introduced, and releasing an observation must not stop an
+application-owned source. Explicit fixture teardown is not evidence of garbage
+collection. Whole-core resource ownership remains an unresolved stable-readiness
+decision, separate from DOM isolation and this retained-renderer proposal.
+
+Public root/adapter declarations still reference browser types. Runtime Node
+safety and compiling without TypeScript's DOM library are separate claims; a
+no-DOM declaration/support-policy decision remains open for stable planning.
 
 ## Scheduling evidence gate
 

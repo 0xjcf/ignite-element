@@ -49,32 +49,35 @@ function createRegister() {
 const flushMicrotasks = () =>
 	new Promise<void>((resolve) => queueMicrotask(resolve));
 
-describe("headless runtime canonical snapshot accessors", () => {
-	it("getSnapshot/watchSnapshot are the canonical raw-read surface", async () => {
+describe("headless runtime keyed reads and native-source observation", () => {
+	it("keeps snapshots source-native and watches derived Ignite states", async () => {
 		const { register, store } = createRegister();
 
-		expect(register.getSnapshot()).toEqual(store.getState());
+		expect(register.get("states")).toEqual({ count: 0, isEven: true });
 
 		const snapshotListener = vi.fn();
-		const subscription = register.watchSnapshot(snapshotListener);
+		const subscription = register.watch(snapshotListener);
 
 		await register.execute({ command: "increment", input: 2 });
 
-		expect(register.getSnapshot().counter.count).toBe(2);
+		expect(store.getState().counter.count).toBe(2);
+		expect(register.get("states").count).toBe(2);
 		expect(snapshotListener).toHaveBeenCalledTimes(1);
 
 		subscription.unsubscribe();
 	});
 
-	// The getState/watch/subscribe aliases were removed at stable v3 (T7).
-	// Pin the removal so they cannot silently return.
-	it("the deprecated getState/watch/subscribe aliases are gone", () => {
+	// watch now deliberately observes derived states; raw aliases stay absent.
+	it("retired raw aliases stay absent while watch is the approved states API", () => {
 		const { register } = createRegister();
 
-		// @ts-expect-error -- getState was removed at stable v3; use getSnapshot.
+		// @ts-expect-error -- native getState belongs to the store.
 		expect(register.getState).toBeUndefined();
-		// @ts-expect-error -- watch was removed at stable v3; use watchSnapshot.
-		expect(register.watch).toBeUndefined();
+		expect(typeof register.watch).toBe("function");
+		// @ts-expect-error -- raw Ignite observation was retired.
+		expect(register.watchSnapshot).toBeUndefined();
+		// @ts-expect-error -- raw reads belong to the native source.
+		expect(register.getSnapshot).toBeUndefined();
 		// @ts-expect-error -- subscribe was removed at stable v3; use on.
 		expect(register.subscribe).toBeUndefined();
 	});

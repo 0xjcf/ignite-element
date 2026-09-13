@@ -6,9 +6,14 @@ sidebar:
   order: 1
 ---
 
-Ignite Element ships a browser-level contract: a custom element tag, DOM attributes or child content you choose to support, and typed `CustomEvent`s for outward signals.
+For registered Web Components, Ignite Element ships a browser-level contract: a custom element tag, DOM attributes or child content you choose to support, and typed `CustomEvent`s for outward signals.
 
 That means integration should stay browser-native. Register the element once, render the tag where you need it, and listen for DOM events from the host app.
+
+For a session-owned workflow shared by headless, imperative web and React/native
+views, use the [plain-controller guide](/ignite-element/guides/plain-controllers/).
+Those views borrow a prepared, unregistered core. A registered core cannot be
+disposed like a session owner; the web wrapper is not a generic external-core binding.
 
 ## Register once
 
@@ -61,9 +66,46 @@ toggle('ignite-toggle', ({ isOn, toggle }) => (
 
 ## React
 
-There are two ways to use an ignite element from React. Prefer the
-schema-driven wrapper; the hand-rolled path is the fallback when you do not want
-the helper.
+Choose a headless binding when React owns presentation, or the web wrapper when
+React hosts actual Ignite custom elements. They are separate public entrypoints.
+
+### Headless React and React Native
+
+```tsx
+import { configureStore, createSlice } from '@reduxjs/toolkit';
+import { igniteCore } from 'ignite-element/redux';
+import { useIgnite } from 'ignite-element/react';
+
+const slice = createSlice({
+  name: 'counter', initialState: { count: 0 },
+  reducers: { add: (state, action: { payload: number }) => { state.count += action.payload; } },
+});
+const store = configureStore({ reducer: slice.reducer });
+const core = igniteCore({
+  source: store,
+  states: snapshot => ({ count: snapshot.count }),
+  commands: ({ actor }) => ({ add: (amount: number) => actor.dispatch(slice.actions.add(amount)) }),
+});
+core.get('states'); // owner bootstrap, outside rendering; do this once
+
+export function Counter() {
+  const { count, add } = useIgnite(core);
+  return <button onClick={() => add(2)}>{count}</button>;
+}
+```
+
+The hook uses stable cached reads and borrows only its own observation. Unmount
+does not dispose the shared core; the owner calls `core.dispose()` when all its
+surfaces end. Project nested plain data, primitives and functions; the framework
+cache detaches and freezes plain data without freezing the source, and rejects
+class instances/accessors rather than serializing them. Retained commands stay
+bound to their original core and reject after that owner ends.
+
+The same hook supports React Native presentation with native `View`, `Text` and
+`Pressable`; it does not require DOM, React DOM or Lit. The candidate's native
+test-host evidence is distinct from device/simulator testing. SSR and hydration
+are not established. Effects may precede a framework commit and are not React
+`useEffect` substitutes; presentation resources remain framework-owned.
 
 ### Schema-driven wrapper (recommended)
 
@@ -75,7 +117,7 @@ member** (the wrapper forwards `event.detail` directly — there is no
 `{ type, payload }` envelope at the DOM boundary):
 
 ```tsx no-check
-import { igniteReact } from 'ignite-element/react';
+import { igniteReact } from 'ignite-element/react/web';
 // The registrar returns a handle; export it for the wrapper.
 import { Toggle as ToggleEl } from './register-ignite';
 
@@ -93,7 +135,7 @@ the shape (and it never drifts from the element's commands). It is also the only
 way to name the ref type: `React.ComponentRef` of the wrapper resolves to `never`.
 
 ```tsx no-check
-import { type IgniteReactRef, igniteReact } from 'ignite-element/react';
+import { type IgniteReactRef, igniteReact } from 'ignite-element/react/web';
 import { useRef } from 'react';
 import { Toggle as ToggleEl } from './register-ignite';
 
@@ -123,9 +165,9 @@ export const Toggle = toggle('ignite-toggle', ({ isOn, toggle }) => (
 `register-ignite.ts` stays **framework-neutral** — it is just the ignite element.
 `igniteReact(handle)` is the React *binding*; keep it in app code or a small
 `*.react.ts` module so the same element can get a Vue or Svelte binding from the
-same handle. That is how `getSchema()` drives Vue and Svelte wrappers as
-follow-up entrypoints — write the binding once per framework, reuse the element
-everywhere.
+same handle. Vue/Solid binding implementations and SSR remain later slices.
+The web wrapper uses declared event data and the actual element's command
+bindings; it does not acquire an unrelated headless actor for discovery.
 
 ### Hand-rolled wrapper (fallback)
 
@@ -211,6 +253,8 @@ const onToggled = (event: Event) => {
 ```
 
 ## SSR and hydration
+
+Headless Node import and execution do not establish SSR rendering or hydration support. Import a source/behavior module without tag registration on the server; a module that calls `core(tagName, renderer)` during evaluation is a browser entrypoint and throws without a DOM. Root source-free construction is safe before browser registration but does not supply an agent runtime.
 
 - Server-render the custom element tag if your host framework supports it.
 - Register the element on the client before the first interaction.

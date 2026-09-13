@@ -33,8 +33,8 @@ describe("createComponentFactory", () => {
 			states: () => 123,
 		});
 
-		const getStates = Reflect.get(factory, "getStates") as () => unknown;
-		expect(() => getStates.call(factory)).toThrowError(
+		const get = Reflect.get(factory, "get");
+		expect(() => get.call(factory, "states")).toThrowError(
 			"[createComponentFactory] Facade states callback must return a plain object.",
 		);
 	});
@@ -212,8 +212,8 @@ describe("createComponentFactory", () => {
 		const element = document.createElement(elementName);
 		document.body.appendChild(element);
 
-		const getStates = Reflect.get(factory, "getStates") as () => unknown;
-		expect(getStates.call(factory)).toEqual({ value: 99 });
+		const get = Reflect.get(factory, "get");
+		expect(get.call(factory, "states")).toEqual({ value: 99 });
 		expect(customSnapshot).toHaveBeenCalled();
 		expect(customActorResolver).toHaveBeenCalled();
 		expect(latestArgs?.value).toBe(10);

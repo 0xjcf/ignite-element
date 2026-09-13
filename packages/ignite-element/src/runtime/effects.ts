@@ -84,8 +84,10 @@ export function attachEffects<
 }: AttachEffectsOptions<State, Event, Snapshot, CommandActor, Events, Host>) {
 	let prevSnapshot = resolveSnapshot(adapter);
 	let seeded = false;
+	let active = true;
 
-	const subscription = adapter.subscribeSnapshots(() => {
+	const listener = () => {
+		if (!active) return;
 		const snapshot = resolveSnapshot(adapter);
 
 		// Adapters seed subscribers with the current snapshot immediately.
@@ -99,10 +101,11 @@ export function attachEffects<
 		const prev = prevSnapshot;
 		prevSnapshot = snapshot;
 
-		// Defer effects to run AFTER render (post-render), matching React's useEffect behavior.
-		// Render is triggered synchronously by the same adapter notification, so deferring via
-		// microtask ensures the DOM is updated before effects execute.
+		// Ignite renderers update synchronously from the same notification.
+		// Headless observers have no renderer commit barrier; this does not wait
+		// for a React (or other external framework) commit.
 		queueMicrotask(() => {
+			if (!active) return;
 			try {
 				const select = createSelect(snapshot, prev);
 				const result = effects({
@@ -130,9 +133,19 @@ export function attachEffects<
 				reportEffectError(host, error);
 			}
 		});
-	});
+	};
+
+	let subscription: ReturnType<typeof adapter.subscribeSnapshots>;
+	try {
+		subscription = adapter.subscribeSnapshots(listener);
+	} catch (error) {
+		active = false;
+		throw error;
+	}
 
 	return () => {
+		if (!active) return;
+		active = false;
 		subscription.unsubscribe();
 	};
 }

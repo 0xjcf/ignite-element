@@ -30,3 +30,19 @@ v3 publishes under the `beta` dist-tag (the stable `latest` tag is still v2.2.x)
 
 - [Installation](/ignite-element/getting-started/installation/) — install steps and the project checklist.
 - [Advanced config](/ignite-element/api/advanced-config/) — the optional `lit` renderer that needs `lit-html`.
+
+## Node runtime versus declaration support
+
+The headless-isolation development candidate is validated on Node 22.16.0, pnpm 10.33.0 and TypeScript 5.9.3. Native `EventTarget`, `Event` and `CustomEvent` provide the runtime event path; Ignite does not fabricate browser globals. Source-backed construction and execution need no DOM. Tag registration is synchronous and requires a browser. Other engines, workers and SSR/hydration are not established by this evidence.
+
+Root/JSX optional-peer isolation, adapter inference with the selected peer, and compilation without `lib: DOM` are independent checks. The core-API/bindings candidate partitions the neutral source entrypoints and `ignite-element/react` from browser declarations. Genuine registration/JSX and the explicit `/react/web` and `/actor-web/web` consumers retain actual DOM types. Do not install ambient browser stubs to make a native lane pass. Documentation direct-topology examples use Actor-Web 0.2.1; the existing adapter control retains 0.2.0. Authentic neutral source-only consumption additionally needs the separately reviewed local `@actor-web/runtime/source` candidate, not the already-published root declaration graph.
+
+### Owning-core lifetime in this development candidate
+
+The repository and strict packed-consumer profiles use TypeScript's `Bundler`
+module resolution. A separate NodeNext probe still reports extensionless
+declaration-import resolution failures; NodeNext support is not established or
+claimed by Bundler success. Native ESM runtime imports and strict no-DOM
+declaration consumption are distinct from that compiler-mode limitation.
+
+Source-backed owning cores now expose terminal `dispose()` before successful custom-element registration. It releases all Ignite observations and stops only a private Ignite-created XState actor; borrowed sources and headless Actor-Web factory handles remain application-owned. Registered cores reject disposal before teardown. Handles and projection sessions remain independently releasable. The React hook borrows a core prepared once outside rendering and never disposes its owner on unmount. SSR, framework commit barriers and native device execution are not implied. These development-candidate changes are unconsumed, not evidence of a newly published package.

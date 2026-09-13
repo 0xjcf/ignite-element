@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -18,10 +19,12 @@ const expectedPublicSubpaths = [
 	"./redux",
 	"./mobx",
 	"./actor-web",
+	"./actor-web/web",
 	"./jsx",
 	"./jsx/jsx-runtime",
 	"./jsx/jsx-dev-runtime",
 	"./react",
+	"./react/web",
 	"./tools",
 	"./tools/anthropic",
 	"./tools/openai",
@@ -33,10 +36,12 @@ const expectedTypesVersions = [
 	"redux",
 	"mobx",
 	"actor-web",
+	"actor-web/web",
 	"jsx",
 	"jsx/jsx-runtime",
 	"jsx/jsx-dev-runtime",
 	"react",
+	"react/web",
 	"tools",
 	"tools/anthropic",
 	"tools/openai",
@@ -51,6 +56,7 @@ const removedStableSubpaths = [
 ];
 
 const requiredExports = [
+	["./actor-web/web", { igniteCore: "function" }],
 	[
 		".",
 		{
@@ -58,8 +64,7 @@ const requiredExports = [
 			createProjectionDocumentTarget: "function",
 			createProjectionSpeechTarget: "function",
 			event: "function",
-			igniteShell: "function",
-			test: "function",
+			igniteCore: "function",
 		},
 	],
 	[
@@ -69,7 +74,6 @@ const requiredExports = [
 			createProjectionSpeechTarget: "function",
 			igniteCore: "function",
 			matchState: "function",
-			test: "function",
 		},
 	],
 	[
@@ -78,7 +82,6 @@ const requiredExports = [
 			createProjectionDocumentTarget: "function",
 			createProjectionSpeechTarget: "function",
 			igniteCore: "function",
-			test: "function",
 		},
 	],
 	[
@@ -87,7 +90,6 @@ const requiredExports = [
 			createProjectionDocumentTarget: "function",
 			createProjectionSpeechTarget: "function",
 			igniteCore: "function",
-			test: "function",
 		},
 	],
 	[
@@ -96,7 +98,6 @@ const requiredExports = [
 			createProjectionDocumentTarget: "function",
 			createProjectionSpeechTarget: "function",
 			igniteCore: "function",
-			test: "function",
 		},
 	],
 	[
@@ -113,7 +114,8 @@ const requiredExports = [
 		{ Fragment: "symbol", jsx: "function", jsxs: "function" },
 	],
 	["./jsx/jsx-dev-runtime", { Fragment: "symbol", jsxDEV: "function" }],
-	["./react", { igniteReact: "function" }],
+	["./react", { useIgnite: "function" }],
+	["./react/web", { igniteReact: "function" }],
 	[
 		"./tools",
 		{
@@ -329,6 +331,17 @@ for (const subpath of removedStableSubpaths) {
 }
 
 assertDistGraphDoesNotReference("xstate.es.js", ["mobx", "@reduxjs/toolkit"]);
+assertDeclarationGraphDoesNotReference("types/index.d.ts", [
+	"@ignite-element/adapters",
+	"@ignite-element/adapters/xstate",
+	"xstate",
+	"redux",
+	"@reduxjs/toolkit",
+	"mobx",
+	"@actor-web/runtime",
+	"lit-html",
+	"react",
+]);
 assertDistGraphDoesNotReference("redux.es.js", ['"mobx"', '"xstate"']);
 assertDistGraphDoesNotReference("mobx.es.js", ['"xstate"', "@reduxjs/toolkit"]);
 assertDistGraphDoesNotReference("actor-web.es.js", [
@@ -337,13 +350,7 @@ assertDistGraphDoesNotReference("actor-web.es.js", [
 	'"mobx"',
 ]);
 
-// The DOM polyfill (src/internal/setupDomPolyfill.ts) is the package's only
-// module-level side effect. `sideEffects` must allowlist every dist chunk that
-// carries it, or a tree-shaking bundler will drop it and break bundled
-// SSR/Node consumers. Chunk hashes change per build, so match by glob and
-// assert here that the globs still cover wherever Rollup placed the polyfill.
-const polyfillMarker = /typeof\s*[\w$]+\.HTMLElement\s*>\s*"u"/;
-
+// Keep legitimate renderer/projection registrations, never fabricated browser globals.
 function sideEffectGlobToRegExp(glob) {
 	const escaped = glob.replace(/[.+^${}()|[\]\\]/g, "\\$&");
 	return new RegExp(`^${escaped.replaceAll("*", "[^/]*")}$`);
@@ -354,7 +361,7 @@ const sideEffectPatterns = (packageJson.sideEffects ?? []).map(
 );
 assert.ok(
 	sideEffectPatterns.length > 0,
-	"package.json must declare a sideEffects allowlist for the DOM polyfill.",
+	"package.json must retain legitimate registration side effects.",
 );
 
 const distDir = new URL("./../dist/", import.meta.url);
@@ -370,23 +377,57 @@ assert.deepEqual(
 	"The ESM-only dist must not contain CommonJS or UMD artifacts.",
 );
 
-const polyfillChunks = distEntries
-	.filter((entry) => entry.endsWith(".js"))
-	.filter((entry) =>
-		polyfillMarker.test(
-			readFileSync(new URL(`.${entry}`, import.meta.url), "utf8"),
-		),
+for (const entry of distEntries.filter((entry) => entry.endsWith(".js"))) {
+	const code = readFileSync(new URL(`.${entry}`, import.meta.url), "utf8");
+	assert.doesNotMatch(
+		code,
+		/typeof\s*[\w$]+\.HTMLElement\s*>\s*"u"/,
+		"Retired DOM shim must not survive a build",
 	);
-
-assert.ok(
-	polyfillChunks.length > 0,
-	"Expected the DOM polyfill to be present in at least one dist chunk.",
-);
-for (const chunk of polyfillChunks) {
-	assert.ok(
-		sideEffectPatterns.some((pattern) => pattern.test(chunk)),
-		`DOM polyfill chunk ${chunk} is not covered by the package.json sideEffects allowlist — a tree-shaking bundler would drop it.`,
+	if (
+		code.includes("ignite-renderer.renderStrategyRegistry") ||
+		code.includes('registerRenderStrategy("') ||
+		entry.includes("/renderers/")
+	) {
+		assert.ok(
+			sideEffectPatterns.some((pattern) => pattern.test(entry)),
+			`Registration module ${entry} must retain its side effects`,
+		);
+	}
+}
+for (const name of [
+	".",
+	"./xstate",
+	"./redux",
+	"./mobx",
+	"./actor-web",
+	"./jsx",
+	"./jsx/jsx-runtime",
+	"./jsx/jsx-dev-runtime",
+]) {
+	const entry = new URL(
+		`../${packageJson.exports[name].import}`,
+		import.meta.url,
+	).href;
+	execFileSync(
+		process.execPath,
+		[
+			"--input-type=module",
+			"-e",
+			`
+import assert from "node:assert/strict";
+const names = ["HTMLElement", "customElements", "document", "window"];
+const before = names.map(name => Object.getOwnPropertyDescriptor(globalThis, name));
+assert.ok(before.every(value => value === undefined));
+const native = [EventTarget, Event, CustomEvent];
+await import(${JSON.stringify(entry)});
+assert.deepEqual(names.map(name => Object.getOwnPropertyDescriptor(globalThis, name)), before);
+assert.deepEqual([EventTarget, Event, CustomEvent], native);
+`,
+		],
+		{ stdio: "pipe" },
 	);
 }
-
-console.info("[verify:exports] Package exports resolved successfully.");
+console.info(
+	"[verify:exports] Package exports and fresh Node initialization resolved successfully.",
+);

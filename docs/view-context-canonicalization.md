@@ -31,7 +31,7 @@ Native snapshot shapes remain adapter-specific:
 - Actor-Web exposes its existing supported snapshot, including its current
   context and transport facts.
 
-Omitting `states` means no derived states. `getStates()` returns one stable empty
+Omitting `states` means no derived states. `get('states')` returns one stable empty
 object; raw snapshot fields are not copied into it.
 
 ## Migration
@@ -46,9 +46,9 @@ states: (snapshot) => ({ route: snapshot.context.route })
 
 Also migrate:
 
-- `getView()` / `watchView()` to `getStates()` / `watchStates()`;
+- `getView()` / `watchView()` to `get('states')` / `watch()`;
 - `schema.view` to `schema.states`;
-- story `view` / `finalView` fields to `states` / `finalStates`;
+- historical story fields are retired with the testing/story API;
 - tool and execution observations to `{ snapshot, states, events }`;
 - XState flattened `ExtendedState` annotations to `StateFrom<Machine>`;
 - public renderer access to raw `state` / `send` to derived states and semantic
@@ -57,5 +57,7 @@ Also migrate:
 ## Coherence
 
 Each inspection resolves one snapshot and derives states exactly once from that
-same value. `execute()`, schemas, stories, tools, subscriptions, and renders use
-that paired observation instead of rereading the source between fields.
+same value. Execution and private projection inspections retain paired native
+snapshot/derived states. The newer keyed discovery catalogue contains no live
+snapshot or inferred state schema; it does not acquire the source. Framework reads
+use a separate stable immutable cache. See [core API and bindings](core-api-bindings.md).

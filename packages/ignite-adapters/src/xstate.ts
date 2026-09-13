@@ -14,7 +14,7 @@ import createXStateAdapter, {
 	type XStateCommandActor,
 	type XStateSnapshot,
 } from "./adapters/XStateAdapter";
-import { isXStateActor, isXStateMachine } from "./utils/adapterGuards";
+import { isXStateActor, isXStateMachine } from "./utils/xstateGuards";
 
 export type { XStateActorInstance, XStateCommandActor, XStateSnapshot };
 

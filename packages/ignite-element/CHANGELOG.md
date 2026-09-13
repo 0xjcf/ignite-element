@@ -1,5 +1,78 @@
 # Changelog
 
+## 3.0.0-beta.12
+
+### Major Changes
+
+- 910500a: Import and use source-backed cores in Node without fabricated browser globals.
+  DOM registration now requires a browser and reports a synchronous registration
+  error when unavailable. Renderer defaults are selected at registration rather
+  than construction; explicit strategies bypass default selection.
+
+  Preserve source-free registration and source-owned lifetimes while making
+  observation handles idempotent and rolling back partial Actor-Web observations.
+  The combined release adds explicit final core disposal and neutral declaration
+  boundaries for headless and no-DOM consumers. Core cleanup releases Ignite-owned
+  observations; it does not shut down caller-owned sources. React and React Native
+  bindings borrow prepared cores, while applications retain preparation and final
+  disposal ownership.
+
+- 78b5c6d: Replace root `igniteShell` with source-free `igniteCore()` and remove the four
+  shell-specific public types and `onConnect`/returned-teardown capability. This
+  is a breaking change without an alias. Declarative consumers change their import
+  and named construction; lifecycle consumers must supply application-owned
+  presentation integration or a custom-element boundary for initial state, updates,
+  cleanup and reconnection. Adapter-specific contracts remain unchanged, and native
+  source shutdown remains application-owned.
+
+  Keep root declarations independent of unselected ecosystem peers by importing
+  existing adapter-neutral types directly from `@ignite-element/core`. This
+  changeset is consumed into the local beta.12 candidate, awaiting publication verification.
+
+- e653e51: Replace source-backed runtime getters with keyed discovery/state reads and derived-state
+  watching. Add terminal disposal for unregistered owning cores, preserving caller-owned
+  sources and the registered-core barrier. Remove command helpers and inferred metadata;
+  ordinary commands retain typing, receiver, arity, return and promise identity. Tools
+  use explicit application input definitions and availability predicates.
+
+  Add the neutral prepared-core React/React Native hook at `ignite-element/react`.
+  Move the existing custom-element wrapper to `ignite-element/react/web` and DOM-host
+  Actor-Web factory construction to `ignite-element/actor-web/web`. Preserve source-native
+  observations, per-element provisioning, and optional-peer isolation.
+
+  This changeset is consumed into the local beta.12 candidate, awaiting publication verification. Authentic neutral
+  Actor-Web source consumption additionally depends on the separately reviewed upstream
+  source-only entrypoint; the already-published runtime package does not contain that fix.
+
+- 21ec746: Retire the public testing DSL, dedicated testing/story types, source-backed
+  `record(name)` method, story traces/summaries/lifecycle histories, and accessibility
+  bridge. Replace them with ordinary assertions over retained runtime commands,
+  events, snapshots and derived states, and DOM queries against real registered
+  components. Portable story receipts and complete lifecycle recording are
+  intentionally removed without aliases or a replacement recorder. Applications and
+  sources retain ownership of asynchronous work and native lifetime.
+
+### Patch Changes
+
+- 998e6fc: # Correct core acquisition and React projections
+
+  Keep borrowed shared adapters reusable after failed core preparation. Release
+  provisional per-element web resources when connection setup fails, preserving
+  the primary error and allowing reconnection. Preserve sparse arrays and
+  enumerable symbol keys in detached framework projections, and forward string
+  setter attributes such as `online` without confusing them with event callbacks.
+
+  Close an owned web factory source when initial adapter construction fails,
+  preserving the original setup error even if close fails. Headless factory and
+  borrowed-source shutdown remains caller-owned.
+
+- Updated dependencies [910500a]
+- Updated dependencies [e653e51]
+- Updated dependencies [998e6fc]
+  - @ignite-element/renderer@3.0.0-beta.12
+  - @ignite-element/adapters@3.0.0-beta.12
+  - @ignite-element/core@3.0.0-beta.12
+
 ## 3.0.0-beta.11
 
 ### Major Changes

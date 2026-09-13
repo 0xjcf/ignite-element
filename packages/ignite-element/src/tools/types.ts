@@ -12,7 +12,7 @@ import type { IgniteSchemaObject, IgniteSchemaValue } from "../types/schema";
 import type { Result } from "./result";
 
 /**
- * A single neutral tool, derived from one `getSchema().commands` entry. Provider
+ * A single neutral tool, derived from an explicit application schema entry. Provider
  * dialects translate this into their wire-format tool definitions; the neutral
  * shape never references a provider SDK.
  */
@@ -67,7 +67,7 @@ export type ToolObservation<
 /**
  * A live observation emitted between tool acts. `event` entries mirror the
  * runtime's `{ type, ...fields }` event shape; `states` entries carry the derived
- * read-model transition from `watchStates`.
+ * read-model transition from `watch`.
  */
 export type ToolStreamObservation<
 	States = unknown,
@@ -158,12 +158,9 @@ export interface ToolDialect<
 export type AvailabilityPredicate = (name: string) => boolean;
 
 /**
- * The minimal slice of the agent runtime that `igniteTools` depends on:
- * `getSchema` (the contract), `execute` (the single side effect), and `getStates`
- * (the derived read-model captured into each observation so the agent grounds on
- * the states, not just the raw snapshot). Any `igniteCore(...)` return satisfies
- * it. `canExecute` is optional and duck-typed so older runtimes still work; when
- * present, it gates the manifest, and when absent all commands are offered.
+ * The source-backed runtime slice borrowed by tools: keyed discovery/state reads,
+ * execution and outward/derived observations. Schemas and availability predicates
+ * are independently supplied tool options, not inferred from function metadata.
  */
 export type IgniteToolsRuntime<
 	State = unknown,
@@ -173,9 +170,7 @@ export type IgniteToolsRuntime<
 	States extends Record<string, unknown> = Record<never, never>,
 > = Pick<
 	IgniteAgentRuntime<State, Commands, Events, SchemaState, States>,
-	"getSchema" | "execute" | "getStates" | "on" | "watchStates"
-> & {
-	canExecute?(commandName: keyof Commands & string): boolean;
-};
+	"get" | "execute" | "on" | "watch"
+>;
 
 export type ToolStreamSubscription = IgniteAgentSubscription;

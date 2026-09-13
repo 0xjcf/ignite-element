@@ -13,6 +13,11 @@ then (no default flip). The 2026-06-18 design discussion is preserved below.
 
 ## Context
 
+Historical API vocabulary below belongs to the rejected 2026-06 proposal, not
+the current candidate. See [core API and bindings](./core-api-bindings.md) for
+keyed discovery, observation, and disposal. The rejected change-detection design
+is not reintroduced by that migration.
+
 `igniteCore` effects run the consequence layer: a callback invoked once per state
 **transition** (subscribe → microtask after a state update), in both the DOM host
 and the headless/agent runtime (shared `attachEffects` in

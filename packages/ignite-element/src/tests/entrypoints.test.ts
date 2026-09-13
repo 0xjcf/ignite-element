@@ -68,11 +68,18 @@ describe("public adapter entrypoints", () => {
 		expect(typeof matchState).toBe("function");
 		expect(typeof component).toBe("function");
 		expect(typeof component.execute).toBe("function");
-		expect(typeof component.getSnapshot).toBe("function");
-		expect(typeof component.getStates).toBe("function");
-		expect(typeof component.getSchema).toBe("function");
-		expect(typeof component.watchSnapshot).toBe("function");
-		expect(typeof component.watchStates).toBe("function");
+		expect(typeof component.get).toBe("function");
+		expect(typeof component.watch).toBe("function");
+		expect(typeof component.dispose).toBe("function");
+		for (const name of [
+			"getSnapshot",
+			"getStates",
+			"getSchema",
+			"watchSnapshot",
+			"watchStates",
+			"canExecute",
+		])
+			expect(component).not.toHaveProperty(name);
 		expect(typeof component.on).toBe("function");
 	});
 
@@ -100,11 +107,18 @@ describe("public adapter entrypoints", () => {
 		expect(typeof igniteCoreRedux).toBe("function");
 		expect(typeof component).toBe("function");
 		expect(typeof component.execute).toBe("function");
-		expect(typeof component.getSnapshot).toBe("function");
-		expect(typeof component.getStates).toBe("function");
-		expect(typeof component.getSchema).toBe("function");
-		expect(typeof component.watchSnapshot).toBe("function");
-		expect(typeof component.watchStates).toBe("function");
+		expect(typeof component.get).toBe("function");
+		expect(typeof component.watch).toBe("function");
+		expect(typeof component.dispose).toBe("function");
+		for (const name of [
+			"getSnapshot",
+			"getStates",
+			"getSchema",
+			"watchSnapshot",
+			"watchStates",
+			"canExecute",
+		])
+			expect(component).not.toHaveProperty(name);
 		expect(typeof component.on).toBe("function");
 	});
 
@@ -117,11 +131,18 @@ describe("public adapter entrypoints", () => {
 		expect(typeof igniteCoreMobx).toBe("function");
 		expect(typeof component).toBe("function");
 		expect(typeof component.execute).toBe("function");
-		expect(typeof component.getSnapshot).toBe("function");
-		expect(typeof component.getStates).toBe("function");
-		expect(typeof component.getSchema).toBe("function");
-		expect(typeof component.watchSnapshot).toBe("function");
-		expect(typeof component.watchStates).toBe("function");
+		expect(typeof component.get).toBe("function");
+		expect(typeof component.watch).toBe("function");
+		expect(typeof component.dispose).toBe("function");
+		for (const name of [
+			"getSnapshot",
+			"getStates",
+			"getSchema",
+			"watchSnapshot",
+			"watchStates",
+			"canExecute",
+		])
+			expect(component).not.toHaveProperty(name);
 		expect(typeof component.on).toBe("function");
 	});
 
@@ -133,27 +154,32 @@ describe("public adapter entrypoints", () => {
 		expect(typeof igniteCoreActorWeb).toBe("function");
 		expect(typeof component).toBe("function");
 		expect(typeof component.execute).toBe("function");
-		expect(typeof component.getSnapshot).toBe("function");
-		expect(typeof component.getStates).toBe("function");
-		expect(typeof component.getSchema).toBe("function");
-		expect(typeof component.watchSnapshot).toBe("function");
-		expect(typeof component.watchStates).toBe("function");
+		expect(typeof component.get).toBe("function");
+		expect(typeof component.watch).toBe("function");
+		expect(typeof component.dispose).toBe("function");
+		for (const name of [
+			"getSnapshot",
+			"getStates",
+			"getSchema",
+			"watchSnapshot",
+			"watchStates",
+			"canExecute",
+		])
+			expect(component).not.toHaveProperty(name);
 		expect(typeof component.on).toBe("function");
 	});
 
-	it("keeps the testing entrypoint stable for object-form stories", async () => {
-		const testingPublic = await import("../testing");
-		const machine = createMachine({
-			initial: "idle",
-			states: {
-				idle: {},
-			},
-		});
-		const component = igniteCoreXState({ source: machine });
-
-		const scenario = testingPublic.test({ component });
-
-		expect(typeof testingPublic.test).toBe("function");
-		expect(typeof scenario.story).toBe("function");
+	it("does not expose the retired testing API from public entrypoints", async () => {
+		const entrypoints = await Promise.all([
+			import("ignite-element"),
+			import("ignite-element/xstate"),
+			import("ignite-element/redux"),
+			import("ignite-element/mobx"),
+			import("ignite-element/actor-web"),
+		]);
+		for (const entrypoint of entrypoints) {
+			expect(entrypoint).not.toHaveProperty("test");
+			expect(typeof entrypoint.igniteCore).toBe("function");
+		}
 	});
 });

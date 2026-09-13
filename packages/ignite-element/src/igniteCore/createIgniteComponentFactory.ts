@@ -1,6 +1,3 @@
-import type { IgniteAdapter, StateScope } from "@ignite-element/core";
-import { event } from "@ignite-element/core";
-import { createComponentFactory } from "../createComponentFactory";
 import type {
 	EmptyEventMap,
 	EventMap,
@@ -9,8 +6,12 @@ import type {
 	FacadeCommandsCallback,
 	FacadeEffectsObjectCallback,
 	FacadeStatesCallback,
-} from "../RenderArgs";
-import type { IgniteCoreReturn } from "./types";
+	IgniteAdapter,
+	StateScope,
+} from "@ignite-element/core";
+import { event } from "@ignite-element/core";
+import { createComponentFactory } from "../createComponentFactory";
+import type { IgniteCoreReturn } from "./publicTypes";
 
 export type IgniteComponentAdapterFactory<
 	State,

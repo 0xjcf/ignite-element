@@ -9,6 +9,7 @@ import runtimeSource from "./views/runtime.tsx?raw";
 import workbenchSource from "./workbench.tsx?raw";
 import { createVoiceWorkbenchComponent } from "./workbench-component";
 import componentSource from "./workbench-component.ts?raw";
+import { selectVoiceWorkbenchCommandAvailability } from "./workbench-view";
 import viewSource from "./workbench-view.ts?raw";
 
 const actors = new Set<VoiceWorkbenchSessionActor>();
@@ -72,11 +73,15 @@ const availabilityCommandNames = [
 
 const expectProjectedCommandAvailability = (
 	component: ReturnType<typeof createVoiceWorkbenchComponent>,
+	actor: VoiceWorkbenchSessionActor,
 ) => {
-	const commandAvailability = Object.fromEntries(
-		availabilityCommandNames.map((name) => [name, component.canExecute(name)]),
+	const sourceAvailability = selectVoiceWorkbenchCommandAvailability(
+		actor.getSnapshot(),
 	);
-	expect(component.getStates()).toMatchObject({ commandAvailability });
+	const commandAvailability = Object.fromEntries(
+		availabilityCommandNames.map((name) => [name, sourceAvailability[name]]),
+	);
+	expect(component.get("states")).toMatchObject({ commandAvailability });
 };
 
 const cancelActiveTurn = (actor: VoiceWorkbenchSessionActor) => {
@@ -99,18 +104,20 @@ describe("voice workbench projections", () => {
 			input: "first only",
 		});
 
-		expect(Object.keys(first.component.getSchema().commands).sort()).toEqual(
+		first.component.get("states");
+		second.component.get("states");
+		expect(Object.keys(first.component.get("commands") ?? {}).sort()).toEqual(
 			commandNames,
 		);
-		expect(Object.keys(second.component.getSchema().commands).sort()).toEqual(
+		expect(Object.keys(second.component.get("commands") ?? {}).sort()).toEqual(
 			commandNames,
 		);
-		expect(first.component.getStates()).toMatchObject({
+		expect(first.component.get("states")).toMatchObject({
 			status: "ready",
 			commandCount: 19,
 			presentation: { draft: "first only" },
 		});
-		expect(second.component.getStates()).toMatchObject({
+		expect(second.component.get("states")).toMatchObject({
 			status: "preparing",
 			commandCount: 19,
 			presentation: { draft: "" },
@@ -119,10 +126,10 @@ describe("voice workbench projections", () => {
 
 	it("projects the same command availability used by canExecute in every workflow phase", () => {
 		const { actor, component } = createFixture();
-		expectProjectedCommandAvailability(component);
+		expectProjectedCommandAvailability(component, actor);
 
 		makeAvailable(actor);
-		expectProjectedCommandAvailability(component);
+		expectProjectedCommandAvailability(component, actor);
 
 		actor.send({
 			type: "SUBMIT_PROMPT",
@@ -141,10 +148,10 @@ describe("voice workbench projections", () => {
 				],
 			},
 		});
-		expectProjectedCommandAvailability(component);
+		expectProjectedCommandAvailability(component, actor);
 
 		cancelActiveTurn(actor);
-		expectProjectedCommandAvailability(component);
+		expectProjectedCommandAvailability(component, actor);
 	});
 
 	it("projects normalized and revision-correlated command inputs before rendering", async () => {
@@ -201,7 +208,7 @@ describe("voice workbench projections", () => {
 		const currentRevision = actor.getSnapshot().context.documents[0]?.revision;
 		if (!currentRevision) throw new Error("Expected the current revision.");
 
-		const view = component.getStates();
+		const view = component.get("states");
 		expect(view).toMatchObject({
 			intents: {
 				submitPrompt: {
@@ -257,7 +264,7 @@ describe("voice workbench projections", () => {
 		);
 
 		await component.execute({ command: "changeDraft", input: "   " });
-		expect(component.getStates()).toMatchObject({
+		expect(component.get("states")).toMatchObject({
 			intents: { submitPrompt: null },
 		});
 	});
@@ -276,14 +283,12 @@ describe("voice workbench projections", () => {
 		}
 
 		expect(componentSource).toContain("projectVoiceWorkbenchView");
-		expect(componentSource).toContain(
-			"selectVoiceWorkbenchCommandAvailability",
+		expect(componentSource).not.toContain(
+			"selectVoiceWorkbenchCommandAvailability(",
 		);
 		expect(
-			componentSource.match(
-				/selectVoiceWorkbenchCommandAvailability\(snapshot\)/g,
-			),
-		).toHaveLength(11);
+			viewSource.match(/selectVoiceWorkbenchCommandAvailability\(snapshot\)/g),
+		).toHaveLength(1);
 		expect(componentSource).not.toContain("snapshot.matches(");
 		expect(viewSource).toContain('snapshot.matches("preparing")');
 		expect(viewSource).toContain("commandCount: blueprintRows.length");

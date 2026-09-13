@@ -151,15 +151,9 @@ const apiShowcase = igniteCore({
       "Active",
     ),
   }),
-  commands: ({ actor, command }) => ({
+  commands: ({ actor }) => ({
     increment: () => actor.send({ type: "ADD", amount: 1 }),
-    setLimit: command(
-      (limit: number) => actor.send({ type: "SET_LIMIT", limit }),
-      {
-        description: "Set maximum count",
-        input: command.number({ minimum: 3, maximum: 12 }),
-      },
-    ),
+    setLimit: (limit: number) => actor.send({ type: "SET_LIMIT", limit }),
   }),
   effects: ({ snapshot, prevSnapshot, emit }) => {
     if (snapshot.context.count !== prevSnapshot.context.count) {
@@ -183,45 +177,42 @@ apiShowcase("xstate-api-showcase", ({ count, increment }) => (
 `xstateAgentRuntimeShowcase.tsx` uses the same `apiShowcase` registration as a headless runtime:
 
 ```ts
-apiShowcase.getSchema();
-apiShowcase.getSnapshot();
-apiShowcase.getStates();
+apiShowcase.get("schema"); // Pure discovery; input schemas remain unknown.
+apiShowcase.get("states"); // Prepare the owning observation and command bindings.
 
 apiShowcase.on("api-count-changed", (event) => [
   event.count,
   event.previousCount,
   event.state,
 ]);
-apiShowcase.watchSnapshot((snapshot, prevSnapshot) => [prevSnapshot, snapshot]);
-apiShowcase.watchStates((states, prevStates) => [prevStates, states]);
+apiShowcase.watch((states, prevStates) => [prevStates, states]);
 
 const result = await apiShowcase.execute({ command: "increment" });
+console.log(result.snapshot, result.states); // One paired native/projected observation.
 
-const story = apiShowcase.record("reaches limit");
-await story.execute({ command: "setLimit", input: 6 });
-await story.until((states) => states.stateLabel === "Limit reached", async () => {
-  await story.execute({ command: "increment" });
-});
-story.trace();
-story.lifecycle();
-story.summary();
-story.stop();
+await apiShowcase.execute({ command: "setLimit", input: 6 });
+for (let step = 0; step < 20 && apiShowcase.get("states").stateLabel !== "Limit reached"; step += 1) {
+  await apiShowcase.execute({ command: "increment" });
+}
+if (apiShowcase.get("states").stateLabel !== "Limit reached") throw new Error("Limit not reached");
 ```
 
 The example also exposes the same runtime on `window.__igniteExamples.apiShowcase` so browser automation can prove the contract directly:
 
 ```ts
 const runtime = window.__igniteExamples?.apiShowcase;
-const story = runtime?.record("browser proof");
-
-await story?.until((states) => states.stateLabel === "Limit reached", async () => {
-  await story.execute({ command: "increment" });
-});
-story?.trace();
-story?.lifecycle();
+if (!runtime) throw new Error("Runtime unavailable");
+await runtime.execute({ command: "reset" });
+const result = await runtime.execute({ command: "increment" });
+console.log(result.snapshot);
+runtime.get("states");
 ```
 
 ---
+
+The development candidate no longer records stories or lifecycle histories. The bounded loop belongs to this application; asynchronous report work and shutdown remain source/application-owned. Test real controls by role and accessible name, independently of headless state assertions. This core registers an element, so its owner cannot call `dispose()` afterward. Unregistered headless owners dispose their Ignite resources when finished.
+
+`apiShowcaseCommandDefinitions` keeps the application's tool descriptions and input schemas separate from these ordinary commands. For example, `setLimit` retains description "Set maximum count" and `{ type: "number", minimum: 3, maximum: 12 }`. Core discovery reports the name with `input: null`; it does not infer or validate that schema.
 
 ## Styling
 

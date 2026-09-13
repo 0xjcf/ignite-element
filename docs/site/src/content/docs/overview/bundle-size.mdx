@@ -6,10 +6,12 @@ sidebar:
   order: 5
 ---
 
-These numbers measure the current public `ignite-element` ESM entrypoints after a
+These retained numbers measure the pre-core-bindings public `ignite-element` ESM entrypoints after a
 production Vite build. State-library and framework peers are externalized, while
 Ignite's own workspace packages are bundled so the table reflects the Ignite
-code a host app pulls in through each import.
+code a host app pulled in through each import. They are historical, not measurements
+of the core-API/bindings candidate. In particular, the old React row measured the
+web wrapper now relocated to `/react/web`, not the neutral `useIgnite` hook.
 
 The measurement command is:
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * Docs code-block typecheck guardrail.
  *
@@ -12,8 +13,9 @@
  * Robustness against doc realities (so it reports real drift, not noise):
  *  - `ignite-element` + subpaths and `@ignite-element/*` map to the package
  *    SOURCE (mirroring the examples' tsconfig), giving the real signatures.
- *  - External peers (xstate, lit-html, …) and app-relative imports resolve to
- *    `any`; their "cannot find module" (TS2307) errors are filtered.
+ *  - Declared documentation dependencies must be installed locally and resolve
+ *    real types through TypeScript's ordinary package/export resolution.
+ *    Other application placeholders retain the existing TS2307 handling.
  *  - Names declared in EARLIER code blocks on the same page, plus a small set of
  *    test-runner globals and doc placeholders, are injected as ambient `any` so
  *    cross-block references and "your app provides this" names don't false-fail.
@@ -32,11 +34,11 @@
  * to regenerate the known-issues baseline after fixing docs.
  */
 
-import { readdir, readFile, rm, mkdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const ts = require("typescript");
@@ -211,18 +213,38 @@ async function main() {
 	const baseline = existsSync(BASELINE_FILE)
 		? (JSON.parse(await readFile(BASELINE_FILE, "utf8")).entries ?? [])
 		: [];
+	const manifest = JSON.parse(
+		await readFile(join(SITE_ROOT, "package.json"), "utf8"),
+	);
+	const dependencies = new Set([
+		...Object.keys(manifest.dependencies ?? {}),
+		...Object.keys(manifest.devDependencies ?? {}),
+	]);
 
-	const files = await findDocs(DOCS_DIR);
+	const files = (await findDocs(DOCS_DIR)).sort();
 	const snippets = [];
+	const exclusions = [];
+	let totalDiscovered = 0;
 	for (const file of files) {
 		const blocks = extractBlocks(await readFile(file, "utf8"));
 		const earlier = new Set();
+		let blockIndex = 0;
 		for (let i = 0; i < blocks.length; i++) {
 			const b = blocks[i];
 			if (LANGS.has(b.lang)) {
+				totalDiscovered++;
+				blockIndex++;
 				const firstLine = b.code.split("\n").find((l) => l.trim());
 				const skip =
 					SKIP_META.test(b.meta) || (firstLine && SKIP_COMMENT.test(firstLine));
+				if (skip)
+					exclusions.push({
+						doc: relative(REPO_ROOT, file).split(sep).join("/"),
+						blockIndex,
+						line: b.startLine,
+						language: b.lang,
+						mechanism: b.meta.match(SKIP_META)?.[1] ?? "skip-comment",
+					});
 				if (!skip)
 					snippets.push({
 						file,
@@ -255,6 +277,46 @@ async function main() {
 		byVirtual.set(resolve(path), { ...s, preludeLines });
 	}
 
+	// Required packages are not application placeholders. Check them before the
+	// diagnostic/baseline filters so an unresolved import cannot silently erase
+	// inference. Do not fall back to an example, a global install or hoisting.
+	const missingDependencies = [];
+	for (const [path, snippet] of byVirtual) {
+		for (const imported of ts.preProcessFile(snippet.code, true, true)
+			.importedFiles) {
+			const specifier = imported.fileName;
+			const packageName = specifier
+				.split("/")
+				.slice(0, specifier.startsWith("@") ? 2 : 1)
+				.join("/");
+			if (!dependencies.has(packageName)) continue;
+			const resolved = ts.resolveModuleName(
+				specifier,
+				path,
+				COMPILER_OPTIONS,
+				ts.sys,
+			).resolvedModule;
+			if (
+				existsSync(join(SITE_ROOT, "node_modules", packageName)) &&
+				resolved &&
+				/\.[cm]?tsx?$/.test(resolved.resolvedFileName)
+			)
+				continue;
+			const line =
+				snippet.startLine +
+				snippet.code.slice(0, imported.pos).split("\n").length -
+				1;
+			missingDependencies.push(
+				`${relative(REPO_ROOT, snippet.file).split(sep).join("/")}:${line}: Required documentation dependency "${specifier}" must resolve to real types from its declared docs/site installation. Run pnpm install --frozen-lockfile at the repository root; if it is installed, check the package's exported declarations.`,
+			);
+		}
+	}
+	if (missingDependencies.length) {
+		await rm(TMP, { recursive: true, force: true });
+		console.error(missingDependencies.join("\n"));
+		process.exit(1);
+	}
+
 	const program = ts.createProgram([...byVirtual.keys()], COMPILER_OPTIONS);
 	const all = ts.getPreEmitDiagnostics(program);
 
@@ -276,7 +338,7 @@ async function main() {
 		const s = byVirtual.get(key);
 		if (!s) continue; // library-internal noise
 		if (syntactic.has(key)) continue; // fragment
-		if (d.code === 2307) continue; // external/relative import → any
+		if (d.code === 2307) continue; // undeclared application/relative placeholder
 		if (ARTIFACT_CODES.has(d.code)) continue; // file-synthesis / TS-perf artifact
 		const message = ts.flattenDiagnosticMessageText(d.messageText, " ");
 		if (DUAL_IDENTITY(message)) continue; // src/dist JSX identity artifact
@@ -325,6 +387,18 @@ async function main() {
 	const stale = baseline.filter((b) => !baselinedHits.has(b));
 
 	const checked = byVirtual.size - syntactic.size;
+	console.log(
+		JSON.stringify({
+			status: "documentation-example-accounting",
+			filesScanned: files.length,
+			totalDiscovered,
+			explicitlyExcluded: exclusions.length,
+			eligible: snippets.length,
+			syntacticallyIncomplete: syntactic.size,
+			actuallyTypechecked: checked,
+			exclusions,
+		}),
+	);
 	console.log("\nDocs code-block typecheck guardrail");
 	console.log("─".repeat(72));
 	console.log(

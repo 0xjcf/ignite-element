@@ -41,6 +41,11 @@ export type IgniteToolsWithDialect<
 	toolResult(result: NeutralToolResult<State, States, Events>): ResultBlock;
 };
 
+type ToolOptions = {
+	schema: { commands: Readonly<Record<string, IgniteSchemaObject>> | null };
+	canExecute?: AvailabilityPredicate;
+};
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -76,6 +81,8 @@ export function igniteTools<
 	States extends Record<string, unknown>,
 >(
 	runtime: IgniteToolsRuntime<State, Commands, Events, SchemaState, States>,
+	dialect?: undefined,
+	options?: ToolOptions,
 ): IgniteToolsNeutral<State, States, Events>;
 export function igniteTools<
 	State,
@@ -89,10 +96,11 @@ export function igniteTools<
 >(
 	runtime: IgniteToolsRuntime<State, Commands, Events, SchemaState, States>,
 	dialect: ToolDialect<Tools, Response, ResultBlock>,
+	options?: ToolOptions,
 ): IgniteToolsWithDialect<State, States, Events, Tools, Response, ResultBlock>;
 /**
  * Bridge the agent-runtime contract to LLM tool-use. The pure core builds a
- * neutral manifest from `getSchema()` and routes validated calls; the shell
+ * neutral manifest from explicit tool definitions and routes validated calls; the shell
  * (`run`) performs the single `execute` side effect. With a `ToolDialect`,
  * the result also carries provider-shaped `tools` and the parse/result
  * translators — the consumer brings the SDK and runs the model loop.
@@ -109,14 +117,11 @@ export function igniteTools<
 >(
 	runtime: IgniteToolsRuntime<State, Commands, Events, SchemaState, States>,
 	dialect?: ToolDialect<Tools, Response, ResultBlock>,
+	options?: ToolOptions,
 ) {
-	const canExecute: AvailabilityPredicate | undefined =
-		typeof runtime.canExecute === "function"
-			? (runtime.canExecute.bind(runtime) as AvailabilityPredicate)
-			: undefined;
-
-	const schema = runtime.getSchema();
-	const manifest = buildManifest(schema, canExecute);
+	const canExecute = options?.canExecute;
+	const schema = runtime.get("schema");
+	const manifest = buildManifest(options?.schema ?? schema, canExecute);
 
 	const boundResolveCall = (
 		name: string,
@@ -171,7 +176,7 @@ export function igniteTools<
 			eventName: string,
 			handler: (event: RuntimeEvent<Events>) => void,
 		) => ToolStreamSubscription;
-		const watchStates = runtime.watchStates.bind(runtime) as unknown as (
+		const watchStates = runtime.watch.bind(runtime) as unknown as (
 			handler: (states: States, prevStates: States) => void,
 		) => ToolStreamSubscription;
 		const subscriptions: ToolStreamSubscription[] = [];

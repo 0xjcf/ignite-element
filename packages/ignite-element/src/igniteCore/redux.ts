@@ -1,21 +1,23 @@
-import type { InferStateAndEvent } from "@ignite-element/adapters";
+import type { InferStateAndEvent } from "@ignite-element/adapters/redux";
 import {
 	createReduxAdapter,
 	isReduxSlice,
 	isReduxStore,
-} from "@ignite-element/adapters";
-import type { IgniteAdapter, StateScope } from "@ignite-element/core";
-import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
+} from "@ignite-element/adapters/redux";
 import type {
 	EmptyEventMap,
 	EventMap,
 	FacadeCommandFunction,
 	FacadeCommandResult,
-} from "../RenderArgs";
+	IgniteAdapter,
+	StateScope,
+} from "@ignite-element/core";
+import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import {
 	createIgniteComponentFactory,
 	type IgniteComponentFactoryOptions,
 } from "./createIgniteComponentFactory";
+import type { DisjointBindings } from "./publicTypes";
 import type {
 	IgniteCoreReturn,
 	ReduxBlueprintConfig,
@@ -23,7 +25,7 @@ import type {
 	ReduxCommandActorFor,
 	ReduxInstanceConfig,
 	ReduxInstanceSource,
-} from "./types";
+} from "./reduxTypes";
 
 type ReduxConfig =
 	| ReduxBlueprintConfig<
@@ -117,8 +119,25 @@ export function igniteCoreRedux<
 	Events
 >;
 
-export function igniteCoreRedux(
-	options: ReduxConfig,
+// Keep internal union-source dispatch without an unchecked public escape hatch.
+export function igniteCoreRedux<Config extends ReduxConfig>(
+	options: Config &
+		DisjointBindings<
+			NoInfer<
+				Config extends {
+					states: (...args: never[]) => infer States extends object;
+				}
+					? States
+					: Record<never, never>
+			>,
+			NoInfer<
+				Config extends {
+					commands: (...args: never[]) => infer Commands extends object;
+				}
+					? Commands
+					: Record<never, never>
+			>
+		>,
 ): IgniteCoreReturn<
 	ReduxState,
 	ReduxEvent,

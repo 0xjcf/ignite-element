@@ -3,7 +3,7 @@ import type {
 	EventMap,
 	EventMember,
 	FacadeCommandResult,
-} from "../RenderArgs";
+} from "@ignite-element/core";
 import { igniteProjectionTargetBrand } from "./projectionTargetBrand";
 import type {
 	IgniteAgentSchema,
@@ -35,162 +35,18 @@ export type IgniteCommandCall<
 	Commands extends FacadeCommandResult = FacadeCommandResult,
 	CommandName extends keyof Commands & string = keyof Commands & string,
 > = {
-	[Name in CommandName]: Parameters<Commands[Name]> extends []
-		? { command: Name }
-		: undefined extends CommandPayload<Commands, Name>
-			? { command: Name; input?: CommandPayload<Commands, Name> }
-			: { command: Name; input: CommandPayload<Commands, Name> };
+	[Name in CommandName]: Parameters<Commands[Name]> extends [
+		unknown,
+		unknown,
+		...unknown[],
+	]
+		? never
+		: Parameters<Commands[Name]> extends []
+			? { command: Name }
+			: undefined extends CommandPayload<Commands, Name>
+				? { command: Name; input?: CommandPayload<Commands, Name> }
+				: { command: Name; input: CommandPayload<Commands, Name> };
 }[CommandName];
-
-export type IgniteStoryTraceKind =
-	| "command"
-	| "behavior"
-	| "snapshot"
-	| "states"
-	| "event";
-
-export type IgniteStoryTracePhase = "before" | "after";
-
-export type IgniteStoryCommandTraceEntry = {
-	kind: "command";
-	sequence: number;
-	step: number;
-	command: string;
-	payload?: IgniteSchemaValue;
-};
-
-export type IgniteStoryBehaviorTraceEntry = {
-	kind: "behavior";
-	sequence: number;
-	step: number;
-	name: string;
-};
-
-export type IgniteStorySnapshotTraceEntry = {
-	kind: "snapshot";
-	sequence: number;
-	step: number;
-	phase: IgniteStoryTracePhase;
-	snapshot: IgniteSchemaValue;
-};
-
-export type IgniteStoryStatesTraceEntry = {
-	kind: "states";
-	sequence: number;
-	step: number;
-	phase: IgniteStoryTracePhase;
-	states: IgniteSchemaValue;
-};
-
-export type IgniteStoryEventTraceEntry = {
-	kind: "event";
-	sequence: number;
-	step: number;
-	event: string;
-	payload: IgniteSchemaValue;
-};
-
-export type IgniteStoryTraceEntry =
-	| IgniteStoryCommandTraceEntry
-	| IgniteStoryBehaviorTraceEntry
-	| IgniteStorySnapshotTraceEntry
-	| IgniteStoryStatesTraceEntry
-	| IgniteStoryEventTraceEntry;
-
-export type IgniteStoryTraceSnapshotEntry = IgniteStoryTraceEntry;
-
-export type IgniteStoryTraceSnapshot = IgniteStoryTraceSnapshotEntry[];
-
-export type IgniteStoryLifecycleStage =
-	| "registered"
-	| "connected"
-	| "rendered"
-	| "disconnected"
-	| "cleaned-up";
-
-export type IgniteStoryLifecycleScope = "shared" | "isolated";
-
-export type IgniteStoryLifecycleEntry = {
-	kind: "lifecycle";
-	sequence: number;
-	stage: IgniteStoryLifecycleStage;
-	elementName: string;
-	scope: IgniteStoryLifecycleScope;
-	instanceId?: number;
-};
-
-export type IgniteStoryUntilOptions = {
-	maxSteps?: number;
-};
-
-export type IgniteStoryStatesPredicate<States> = (states: States) => boolean;
-
-export type IgniteStorySummary<
-	State,
-	Events extends EventMap = EmptyEventMap,
-	States extends Record<string, unknown> = Record<never, never>,
-> = {
-	name: string;
-	finalSnapshot: State;
-	finalStates: States;
-	events: RuntimeEvent<Events>[];
-	commandCount: number;
-	traceCount: number;
-	lifecycleCount: number;
-};
-
-export type IgniteStorySnapshotEvent = {
-	type: string;
-} & Record<string, IgniteSchemaValue>;
-
-export type IgniteStorySummarySnapshot = {
-	name: string;
-	finalSnapshot: IgniteSchemaValue;
-	finalStates: IgniteSchemaValue;
-	events: IgniteStorySnapshotEvent[];
-	commandCount: number;
-	traceCount: number;
-	lifecycleCount: number;
-};
-
-export type IgniteStorySnapshot = {
-	name: string;
-	trace: IgniteStoryTraceSnapshot;
-	lifecycle: IgniteStoryLifecycleEntry[];
-	summary: IgniteStorySummarySnapshot;
-};
-
-export type IgniteStory<
-	State,
-	Commands extends FacadeCommandResult = FacadeCommandResult,
-	Events extends EventMap = EmptyEventMap,
-	States extends Record<string, unknown> = Record<never, never>,
-> = {
-	readonly name: string;
-	execute<CommandName extends keyof Commands & string>(
-		call: IgniteCommandCall<Commands, CommandName>,
-	): Promise<IgniteAgentExecutionResult<State, Events, States>>;
-	behavior<Result>(
-		name: string,
-		operation: () => Promise<Result> | Result,
-	): Promise<Result>;
-	until(
-		statesPredicate: IgniteStoryStatesPredicate<States>,
-		action: (
-			story: IgniteStory<State, Commands, Events, States>,
-			states: States,
-			iteration: number,
-		) => unknown,
-		options?: IgniteStoryUntilOptions,
-	): Promise<States>;
-	trace(): IgniteStoryTraceEntry[];
-	lifecycle(): IgniteStoryLifecycleEntry[];
-	summary(): IgniteStorySummary<State, Events, States>;
-	canExecute<CommandName extends keyof Commands & string>(
-		commandName: CommandName,
-	): boolean;
-	stop(): void;
-};
 
 export type IgniteAgentExecutionResult<
 	State,
@@ -223,26 +79,19 @@ export type IgniteAgentRuntime<
 	SchemaState = IgniteSchemaValue,
 	States extends Record<string, unknown> = Record<never, never>,
 > = {
-	canExecute<CommandName extends keyof Commands & string>(
-		commandName: CommandName,
-	): boolean;
 	execute<CommandName extends keyof Commands & string>(
 		call: IgniteCommandCall<Commands, CommandName>,
 	): Promise<IgniteAgentExecutionResult<State, Events, States>>;
-	getSnapshot(): State;
-	getStates(): States;
+	get(key: "states"): States;
+	get(key: "schema"): IgniteAgentSchema<SchemaState, States>;
+	get(key: "commands"): IgniteAgentSchema["commands"];
+	get(key: "events"): IgniteAgentSchema["events"];
+	dispose(): void;
 	on<Type extends keyof Events & string>(
 		eventName: Type,
 		handler: IgniteAgentEventListener<Events, Type>,
 	): IgniteAgentSubscription;
-	watchSnapshot(
-		handler: IgniteAgentSnapshotListener<State>,
-	): IgniteAgentSubscription;
-	watchStates(
-		handler: IgniteAgentSnapshotListener<States>,
-	): IgniteAgentSubscription;
-	getSchema(): IgniteAgentSchema<SchemaState, States>;
-	record(name: string): IgniteStory<State, Commands, Events, States>;
+	watch(handler: IgniteAgentSnapshotListener<States>): IgniteAgentSubscription;
 };
 
 export type ProjectionNodeBase = {

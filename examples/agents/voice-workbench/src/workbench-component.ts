@@ -19,14 +19,14 @@ import type {
 } from "./session";
 import {
 	projectVoiceWorkbenchView,
-	selectVoiceWorkbenchCommandAvailability,
 	type WorkbenchBlueprintCommands,
 } from "./workbench-view";
 
 export const createVoiceWorkbenchComponent = (
 	actor: VoiceWorkbenchSessionActor,
 ) => {
-	let blueprintCommands: WorkbenchBlueprintCommands = {};
+	const blueprintCommands: WorkbenchBlueprintCommands =
+		voiceWorkbenchCommandDefinitions;
 	const component = igniteCore({
 		source: actor,
 		cleanup: true,
@@ -53,381 +53,68 @@ export const createVoiceWorkbenchComponent = (
 		}),
 		states: (snapshot) =>
 			projectVoiceWorkbenchView({ snapshot, blueprintCommands }),
-		commands: ({ actor, command }) => {
-			const responsePayloadInput = command.object(
-				{
-					text: command.string({ minLength: 1 }),
-					speech: command.string({ minLength: 1 }),
-				},
-				{ required: ["text"] },
-			);
-			const actionNodeInput = command.object(
-				{
-					kind: command.enum(["action"]),
-					id: command.string({ minLength: 1 }),
-					label: command.string({ minLength: 1 }),
-					commandName: command.enum(["completeResponse"]),
-					payload: responsePayloadInput,
-					description: command.string({ minLength: 1 }),
-				},
-				{
-					required: ["kind", "id", "label", "commandName", "payload"],
-				},
-			);
-			const semanticNodeInput = command.object(
-				{
-					id: command.string({ minLength: 1 }),
-					kind: command.enum([
-						"text",
-						"checklist",
-						"action",
-						"form",
-						"table",
-						"timeline",
-						"chart",
-						"code-diff",
-						"decision-log",
-					]),
-					text: command.string({ minLength: 1 }),
-					items: command.array(
-						command.object(
-							{
-								id: command.string({ minLength: 1 }),
-								label: command.string({ minLength: 1 }),
-								checked: command.boolean(),
-							},
-							{ required: ["id", "label", "checked"] },
-						),
-						{ minItems: 1 },
-					),
-					label: command.string({ minLength: 1 }),
-					commandName: command.enum(["completeResponse"]),
-					payload: responsePayloadInput,
-					description: command.string({ minLength: 1 }),
-					title: command.string({ minLength: 1 }),
-					fields: command.array(
-						command.object(
-							{
-								id: command.string({ minLength: 1 }),
-								label: command.string({ minLength: 1 }),
-								input: command.object(
-									{
-										type: command.enum(["string", "number", "boolean"]),
-										title: command.string({ minLength: 1 }),
-										description: command.string({ minLength: 1 }),
-										minimum: command.number(),
-										maximum: command.number(),
-										minLength: command.number({ minimum: 0 }),
-										maxLength: command.number({ minimum: 0 }),
-									},
-									{ required: ["type"] },
-								),
-								value: command.string(),
-								description: command.string({ minLength: 1 }),
-							},
-							{ required: ["id", "label", "input"] },
-						),
-					),
-					submit: actionNodeInput,
-					columns: command.array(
-						command.object(
-							{
-								id: command.string({ minLength: 1 }),
-								label: command.string({ minLength: 1 }),
-							},
-							{ required: ["id", "label"] },
-						),
-					),
-					rows: command.array(
-						command.object(
-							{
-								id: command.string({ minLength: 1 }),
-								cells: command.array(),
-							},
-							{ required: ["id", "cells"] },
-						),
-					),
-					events: command.array(
-						command.object(
-							{
-								id: command.string({ minLength: 1 }),
-								label: command.string({ minLength: 1 }),
-								timestamp: command.string({ minLength: 1 }),
-								detail: command.string({ minLength: 1 }),
-							},
-							{ required: ["id", "label", "timestamp"] },
-						),
-					),
-					chartType: command.enum(["bar", "line", "pie"]),
-					series: command.array(
-						command.object(
-							{
-								id: command.string({ minLength: 1 }),
-								label: command.string({ minLength: 1 }),
-								value: command.number(),
-							},
-							{ required: ["id", "label", "value"] },
-						),
-					),
-					language: command.string({ minLength: 1 }),
-					before: command.string({ minLength: 1 }),
-					after: command.string({ minLength: 1 }),
-					entries: command.array(
-						command.object(
-							{
-								id: command.string({ minLength: 1 }),
-								title: command.string({ minLength: 1 }),
-								decision: command.string({ minLength: 1 }),
-								rationale: command.string({ minLength: 1 }),
-							},
-							{ required: ["id", "title", "decision"] },
-						),
-					),
-				},
-				{ required: ["id", "kind"] },
-			);
+		commands: ({ actor }) => {
 			const sendPresentationUpdate = (
 				envelope: WorkbenchPresentationEnvelope,
 			) => actor.send({ type: "PRESENTATION_UPDATED", envelope });
 
 			return {
-				acknowledgeSpeech: command(
-					(input: AcknowledgeSpeechInput) =>
-						actor.send({ type: "ACKNOWLEDGE_SPEECH", input }),
-					{
+				acknowledgeSpeech: (input: AcknowledgeSpeechInput) =>
+					actor.send({ type: "ACKNOWLEDGE_SPEECH", input }),
+				beginModelPreparation: () =>
+					actor.send({ type: "MODEL_PREPARATION_STARTED" }),
+				cancelVoiceCapture: () =>
+					actor.send({ type: "VOICE_CAPTURE_CANCEL_REQUESTED" }),
+				changeArtifactView: (view: WorkbenchArtifactView) =>
+					sendPresentationUpdate({
 						channel: "user-intent",
-						description: "Acknowledge the currently pending speech request.",
-						canExecute: ({ snapshot }) =>
-							selectVoiceWorkbenchCommandAvailability(snapshot)
-								.acknowledgeSpeech,
-						input: command.object(
-							{ id: command.string({ minLength: 1 }) },
-							{ required: ["id"] },
-						),
-					},
-				),
-				beginModelPreparation: command(
-					() => actor.send({ type: "MODEL_PREPARATION_STARTED" }),
-					{ channel: "user-intent" },
-				),
-				cancelVoiceCapture: command(
-					() => actor.send({ type: "VOICE_CAPTURE_CANCEL_REQUESTED" }),
-					{
+						update: { type: "artifact-view-changed", view },
+					}),
+				changeDraft: (draft: string) =>
+					sendPresentationUpdate({
 						channel: "user-intent",
-						canExecute: ({ snapshot }) =>
-							selectVoiceWorkbenchCommandAvailability(snapshot)
-								.cancelVoiceCapture,
-					},
-				),
-				changeArtifactView: command(
-					(view: WorkbenchArtifactView) =>
-						sendPresentationUpdate({
-							channel: "user-intent",
-							update: { type: "artifact-view-changed", view },
-						}),
-					{ channel: "user-intent" },
-				),
-				changeDraft: command(
-					(draft: string) =>
-						sendPresentationUpdate({
-							channel: "user-intent",
-							update: { type: "draft-changed", draft },
-						}),
-					{ channel: "user-intent" },
-				),
-				changeMobilePanel: command(
-					(panel: WorkbenchPanel) =>
-						sendPresentationUpdate({
-							channel: "user-intent",
-							update: { type: "mobile-panel-changed", panel },
-						}),
-					{ channel: "user-intent" },
-				),
-				changeSpeechPreference: command(
-					(enabled: boolean) =>
-						sendPresentationUpdate({
-							channel: "user-intent",
-							update: { type: "speech-preference-changed", enabled },
-						}),
-					{ channel: "user-intent" },
-				),
-				completeResponse: command(
-					(input: CompleteResponseInput) =>
-						actor.send({ type: "COMPLETE_RESPONSE", input }),
-					{
-						channel: "model-intent",
-						description: "Complete the active response turn.",
-						canExecute: ({ snapshot }) =>
-							selectVoiceWorkbenchCommandAvailability(snapshot)
-								.completeResponse,
-						input: command.object(
-							{
-								text: command.string({ minLength: 1 }),
-								speech: command.string({ minLength: 1 }),
-							},
-							{ required: ["text"] },
-						),
-					},
-				),
-				createArtifact: command(
-					(input: CreateArtifactInput) =>
-						actor.send({ type: "CREATE_ARTIFACT", input }),
-					{
-						channel: "model-intent",
-						description:
-							"Create a validated semantic artifact for the active turn.",
-						canExecute: ({ snapshot }) =>
-							selectVoiceWorkbenchCommandAvailability(snapshot).createArtifact,
-						input: command.object(
-							{
-								id: command.string({ minLength: 1 }),
-								title: command.string({ minLength: 1 }),
-								nodes: command.array(semanticNodeInput, { minItems: 1 }),
-							},
-							{ required: ["id", "nodes"] },
-						),
-					},
-				),
-				playSpeech: command(
-					() => actor.send({ type: "SPEECH_DELIVERY_REPLAY_REQUESTED" }),
-					{ channel: "user-intent" },
-				),
-				replay: command(
-					() =>
-						sendPresentationUpdate({
-							channel: "user-intent",
-							update: { type: "replayed" },
-						}),
-					{ channel: "user-intent" },
-				),
-				selectRuntimePreview: command(
-					(preview: WorkbenchRuntimePreview) =>
-						sendPresentationUpdate({
-							channel: "user-intent",
-							update: { type: "runtime-preview-selected", preview },
-						}),
-					{ channel: "user-intent" },
-				),
-				reviseArtifact: command(
-					(input: ReviseArtifactInput) =>
-						actor.send({ type: "REVISE_ARTIFACT", input }),
-					{
-						channel: "model-intent",
-						description:
-							"Revise an artifact when its expected revision still matches.",
-						canExecute: ({ snapshot }) =>
-							selectVoiceWorkbenchCommandAvailability(snapshot).reviseArtifact,
-						input: command.object(
-							{
-								artifactId: command.string({ minLength: 1 }),
-								expectedRevision: command.string({ minLength: 1 }),
-								nodes: command.array(semanticNodeInput, { minItems: 1 }),
-							},
-							{ required: ["artifactId", "expectedRevision", "nodes"] },
-						),
-					},
-				),
-				restoreArtifactRevision: command(
-					(input: RestoreArtifactRevisionInput) =>
-						actor.send({ type: "RESTORE_ARTIFACT_REVISION", input }),
-					{
+						update: { type: "draft-changed", draft },
+					}),
+				changeMobilePanel: (panel: WorkbenchPanel) =>
+					sendPresentationUpdate({
 						channel: "user-intent",
-						description:
-							"Restore a historical snapshot as a new forward artifact revision.",
-						canExecute: ({ snapshot }) =>
-							selectVoiceWorkbenchCommandAvailability(snapshot)
-								.restoreArtifactRevision,
-						input: command.object(
-							{
-								artifactId: command.string({ minLength: 1 }),
-								expectedRevision: command.string({ minLength: 1 }),
-								revision: command.string({ minLength: 1 }),
-							},
-							{
-								required: ["artifactId", "expectedRevision", "revision"],
-							},
-						),
-					},
-				),
-				selectArtifact: command(
-					(input: SelectArtifactInput) =>
-						actor.send({ type: "SELECT_ARTIFACT", input }),
-					{
+						update: { type: "mobile-panel-changed", panel },
+					}),
+				changeSpeechPreference: (enabled: boolean) =>
+					sendPresentationUpdate({
 						channel: "user-intent",
-						description: "Select the active artifact in this session.",
-						canExecute: ({ snapshot }) =>
-							selectVoiceWorkbenchCommandAvailability(snapshot).selectArtifact,
-						input: command.object(
-							{ artifactId: command.string({ minLength: 1 }) },
-							{ required: ["artifactId"] },
-						),
-					},
-				),
-				setChecklistItem: command(
-					(input: SetChecklistItemInput) =>
-						actor.send({ type: "SET_CHECKLIST_ITEM", input }),
-					{
-						channel: "model-intent",
-						description:
-							"Set one checklist item when its artifact revision still matches.",
-						canExecute: ({ snapshot }) =>
-							selectVoiceWorkbenchCommandAvailability(snapshot)
-								.setChecklistItem,
-						input: command.object(
-							{
-								artifactId: command.string({ minLength: 1 }),
-								expectedRevision: command.string({ minLength: 1 }),
-								nodeId: command.string({ minLength: 1 }),
-								itemId: command.string({ minLength: 1 }),
-								checked: command.boolean(),
-							},
-							{
-								required: [
-									"artifactId",
-									"expectedRevision",
-									"nodeId",
-									"itemId",
-									"checked",
-								],
-							},
-						),
-					},
-				),
-				submitPrompt: command(
-					(input: SubmitPromptInput) =>
-						actor.send({ type: "SUBMIT_PROMPT", input }),
-					{
+						update: { type: "speech-preference-changed", enabled },
+					}),
+				completeResponse: (input: CompleteResponseInput) =>
+					actor.send({ type: "COMPLETE_RESPONSE", input }),
+				createArtifact: (input: CreateArtifactInput) =>
+					actor.send({ type: "CREATE_ARTIFACT", input }),
+				playSpeech: () =>
+					actor.send({ type: "SPEECH_DELIVERY_REPLAY_REQUESTED" }),
+				replay: () =>
+					sendPresentationUpdate({
 						channel: "user-intent",
-						description: "Open the next text or speech conversation turn.",
-						canExecute: ({ snapshot }) =>
-							selectVoiceWorkbenchCommandAvailability(snapshot).submitPrompt,
-						input: command.object(
-							{
-								modality: command.enum(["text", "speech"]),
-								text: command.string({ minLength: 1 }),
-							},
-							{ required: ["modality", "text"] },
-						),
-					},
-				),
-				startVoiceCapture: command(
-					() => actor.send({ type: "VOICE_CAPTURE_START_REQUESTED" }),
-					{
+						update: { type: "replayed" },
+					}),
+				selectRuntimePreview: (preview: WorkbenchRuntimePreview) =>
+					sendPresentationUpdate({
 						channel: "user-intent",
-						canExecute: ({ snapshot }) =>
-							selectVoiceWorkbenchCommandAvailability(snapshot)
-								.startVoiceCapture,
-					},
-				),
-				submitVoiceTranscript: command(
-					() => actor.send({ type: "VOICE_TRANSCRIPT_SUBMIT_REQUESTED" }),
-					{
-						channel: "user-intent",
-						canExecute: ({ snapshot }) =>
-							selectVoiceWorkbenchCommandAvailability(snapshot)
-								.submitVoiceTranscript,
-					},
-				),
+						update: { type: "runtime-preview-selected", preview },
+					}),
+				reviseArtifact: (input: ReviseArtifactInput) =>
+					actor.send({ type: "REVISE_ARTIFACT", input }),
+				restoreArtifactRevision: (input: RestoreArtifactRevisionInput) =>
+					actor.send({ type: "RESTORE_ARTIFACT_REVISION", input }),
+				selectArtifact: (input: SelectArtifactInput) =>
+					actor.send({ type: "SELECT_ARTIFACT", input }),
+				setChecklistItem: (input: SetChecklistItemInput) =>
+					actor.send({ type: "SET_CHECKLIST_ITEM", input }),
+				submitPrompt: (input: SubmitPromptInput) =>
+					actor.send({ type: "SUBMIT_PROMPT", input }),
+				startVoiceCapture: () =>
+					actor.send({ type: "VOICE_CAPTURE_START_REQUESTED" }),
+				submitVoiceTranscript: () =>
+					actor.send({ type: "VOICE_TRANSCRIPT_SUBMIT_REQUESTED" }),
 			};
 		},
 		effects: ({ emit, select }) => {
@@ -437,7 +124,6 @@ export const createVoiceWorkbenchComponent = (
 			emit(fact.current as ConversationFact);
 		},
 	});
-	blueprintCommands = component.getSchema().commands;
 	return component;
 };
 
@@ -450,4 +136,307 @@ type WorkbenchRenderer = Extract<
 	(...args: never[]) => unknown
 >;
 export type WorkbenchProjection = Parameters<WorkbenchRenderer>[0];
-export type WorkbenchView = ReturnType<VoiceWorkbenchComponent["getStates"]>;
+export type WorkbenchView = ReturnType<typeof projectVoiceWorkbenchView>;
+
+const responsePayloadInput = {
+	type: "object",
+	properties: {
+		text: { type: "string", ...{ minLength: 1 } },
+		speech: { type: "string", ...{ minLength: 1 } },
+	},
+	...{ required: ["text"] },
+};
+const actionNodeInput = {
+	type: "object",
+	properties: {
+		kind: { type: "string", enum: [...["action"]], ...{} },
+		id: { type: "string", ...{ minLength: 1 } },
+		label: { type: "string", ...{ minLength: 1 } },
+		commandName: { type: "string", enum: [...["completeResponse"]], ...{} },
+		payload: responsePayloadInput,
+		description: { type: "string", ...{ minLength: 1 } },
+	},
+	...{ required: ["kind", "id", "label", "commandName", "payload"] },
+};
+const semanticNodeInput = {
+	type: "object",
+	properties: {
+		id: { type: "string", ...{ minLength: 1 } },
+		kind: {
+			type: "string",
+			enum: [
+				...[
+					"text",
+					"checklist",
+					"action",
+					"form",
+					"table",
+					"timeline",
+					"chart",
+					"code-diff",
+					"decision-log",
+				],
+			],
+			...{},
+		},
+		text: { type: "string", ...{ minLength: 1 } },
+		items: {
+			type: "array",
+			items: {
+				type: "object",
+				properties: {
+					id: { type: "string", ...{ minLength: 1 } },
+					label: { type: "string", ...{ minLength: 1 } },
+					checked: { type: "boolean", ...{} },
+				},
+				...{ required: ["id", "label", "checked"] },
+			},
+			...{ minItems: 1 },
+		},
+		label: { type: "string", ...{ minLength: 1 } },
+		commandName: { type: "string", enum: [...["completeResponse"]], ...{} },
+		payload: responsePayloadInput,
+		description: { type: "string", ...{ minLength: 1 } },
+		title: { type: "string", ...{ minLength: 1 } },
+		fields: {
+			type: "array",
+			items: {
+				type: "object",
+				properties: {
+					id: { type: "string", ...{ minLength: 1 } },
+					label: { type: "string", ...{ minLength: 1 } },
+					input: {
+						type: "object",
+						properties: {
+							type: {
+								type: "string",
+								enum: [...["string", "number", "boolean"]],
+								...{},
+							},
+							title: { type: "string", ...{ minLength: 1 } },
+							description: { type: "string", ...{ minLength: 1 } },
+							minimum: { type: "number", ...{} },
+							maximum: { type: "number", ...{} },
+							minLength: { type: "number", ...{ minimum: 0 } },
+							maxLength: { type: "number", ...{ minimum: 0 } },
+						},
+						...{ required: ["type"] },
+					},
+					value: { type: "string", ...{} },
+					description: { type: "string", ...{ minLength: 1 } },
+				},
+				...{ required: ["id", "label", "input"] },
+			},
+			...{},
+		},
+		submit: actionNodeInput,
+		columns: {
+			type: "array",
+			items: {
+				type: "object",
+				properties: {
+					id: { type: "string", ...{ minLength: 1 } },
+					label: { type: "string", ...{ minLength: 1 } },
+				},
+				...{ required: ["id", "label"] },
+			},
+			...{},
+		},
+		rows: {
+			type: "array",
+			items: {
+				type: "object",
+				properties: {
+					id: { type: "string", ...{ minLength: 1 } },
+					cells: { type: "array", ...{} },
+				},
+				...{ required: ["id", "cells"] },
+			},
+			...{},
+		},
+		events: {
+			type: "array",
+			items: {
+				type: "object",
+				properties: {
+					id: { type: "string", ...{ minLength: 1 } },
+					label: { type: "string", ...{ minLength: 1 } },
+					timestamp: { type: "string", ...{ minLength: 1 } },
+					detail: { type: "string", ...{ minLength: 1 } },
+				},
+				...{ required: ["id", "label", "timestamp"] },
+			},
+			...{},
+		},
+		chartType: { type: "string", enum: [...["bar", "line", "pie"]], ...{} },
+		series: {
+			type: "array",
+			items: {
+				type: "object",
+				properties: {
+					id: { type: "string", ...{ minLength: 1 } },
+					label: { type: "string", ...{ minLength: 1 } },
+					value: { type: "number", ...{} },
+				},
+				...{ required: ["id", "label", "value"] },
+			},
+			...{},
+		},
+		language: { type: "string", ...{ minLength: 1 } },
+		before: { type: "string", ...{ minLength: 1 } },
+		after: { type: "string", ...{ minLength: 1 } },
+		entries: {
+			type: "array",
+			items: {
+				type: "object",
+				properties: {
+					id: { type: "string", ...{ minLength: 1 } },
+					title: { type: "string", ...{ minLength: 1 } },
+					decision: { type: "string", ...{ minLength: 1 } },
+					rationale: { type: "string", ...{ minLength: 1 } },
+				},
+				...{ required: ["id", "title", "decision"] },
+			},
+			...{},
+		},
+	},
+	...{ required: ["id", "kind"] },
+};
+export const voiceWorkbenchCommandDefinitions = {
+	acknowledgeSpeech: {
+		channel: "user-intent",
+		description: "Acknowledge the currently pending speech request.",
+		gated: true,
+		input: {
+			type: "object",
+			properties: { id: { type: "string", ...{ minLength: 1 } } },
+			...{ required: ["id"] },
+		},
+	},
+	beginModelPreparation: { channel: "user-intent" },
+	cancelVoiceCapture: { channel: "user-intent", gated: true },
+	changeArtifactView: { channel: "user-intent" },
+	changeDraft: { channel: "user-intent" },
+	changeMobilePanel: { channel: "user-intent" },
+	changeSpeechPreference: { channel: "user-intent" },
+	completeResponse: {
+		channel: "model-intent",
+		description: "Complete the active response turn.",
+		gated: true,
+		input: {
+			type: "object",
+			properties: {
+				text: { type: "string", ...{ minLength: 1 } },
+				speech: { type: "string", ...{ minLength: 1 } },
+			},
+			...{ required: ["text"] },
+		},
+	},
+	createArtifact: {
+		channel: "model-intent",
+		description: "Create a validated semantic artifact for the active turn.",
+		gated: true,
+		input: {
+			type: "object",
+			properties: {
+				id: { type: "string", ...{ minLength: 1 } },
+				title: { type: "string", ...{ minLength: 1 } },
+				nodes: { type: "array", items: semanticNodeInput, ...{ minItems: 1 } },
+			},
+			...{ required: ["id", "nodes"] },
+		},
+	},
+	playSpeech: { channel: "user-intent" },
+	replay: { channel: "user-intent" },
+	selectRuntimePreview: { channel: "user-intent" },
+	reviseArtifact: {
+		channel: "model-intent",
+		description: "Revise an artifact when its expected revision still matches.",
+		gated: true,
+		input: {
+			type: "object",
+			properties: {
+				artifactId: { type: "string", ...{ minLength: 1 } },
+				expectedRevision: { type: "string", ...{ minLength: 1 } },
+				nodes: { type: "array", items: semanticNodeInput, ...{ minItems: 1 } },
+			},
+			...{ required: ["artifactId", "expectedRevision", "nodes"] },
+		},
+	},
+	restoreArtifactRevision: {
+		channel: "user-intent",
+		description:
+			"Restore a historical snapshot as a new forward artifact revision.",
+		gated: true,
+		input: {
+			type: "object",
+			properties: {
+				artifactId: { type: "string", ...{ minLength: 1 } },
+				expectedRevision: { type: "string", ...{ minLength: 1 } },
+				revision: { type: "string", ...{ minLength: 1 } },
+			},
+			...{ required: ["artifactId", "expectedRevision", "revision"] },
+		},
+	},
+	selectArtifact: {
+		channel: "user-intent",
+		description: "Select the active artifact in this session.",
+		gated: true,
+		input: {
+			type: "object",
+			properties: { artifactId: { type: "string", ...{ minLength: 1 } } },
+			...{ required: ["artifactId"] },
+		},
+	},
+	setChecklistItem: {
+		channel: "model-intent",
+		description:
+			"Set one checklist item when its artifact revision still matches.",
+		gated: true,
+		input: {
+			type: "object",
+			properties: {
+				artifactId: { type: "string", ...{ minLength: 1 } },
+				expectedRevision: { type: "string", ...{ minLength: 1 } },
+				nodeId: { type: "string", ...{ minLength: 1 } },
+				itemId: { type: "string", ...{ minLength: 1 } },
+				checked: { type: "boolean", ...{} },
+			},
+			...{
+				required: [
+					"artifactId",
+					"expectedRevision",
+					"nodeId",
+					"itemId",
+					"checked",
+				],
+			},
+		},
+	},
+	submitPrompt: {
+		channel: "user-intent",
+		description: "Open the next text or speech conversation turn.",
+		gated: true,
+		input: {
+			type: "object",
+			properties: {
+				modality: { type: "string", enum: [...["text", "speech"]], ...{} },
+				text: { type: "string", ...{ minLength: 1 } },
+			},
+			...{ required: ["modality", "text"] },
+		},
+	},
+	startVoiceCapture: { channel: "user-intent", gated: true },
+	submitVoiceTranscript: { channel: "user-intent", gated: true },
+};
+
+// The model receives only these already-defined application capabilities.
+// User-intent functions with unknown input schemas are not automatic tools.
+export const voiceWorkbenchModelSchema = {
+	commands: {
+		createArtifact: voiceWorkbenchCommandDefinitions.createArtifact,
+		reviseArtifact: voiceWorkbenchCommandDefinitions.reviseArtifact,
+		setChecklistItem: voiceWorkbenchCommandDefinitions.setChecklistItem,
+		completeResponse: voiceWorkbenchCommandDefinitions.completeResponse,
+	},
+};

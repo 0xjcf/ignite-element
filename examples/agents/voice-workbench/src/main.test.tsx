@@ -256,15 +256,15 @@ describe("voice workbench browser entry", () => {
 		if (!(host instanceof HTMLElement) || !host.shadowRoot) {
 			throw new Error("voice workbench did not mount");
 		}
-		expect(component.getStates()).toMatchObject({
+		expect(component.get("states")).toMatchObject({
 			status: "preparing",
 			canSubmitPrompt: false,
 			model: { status: "preparing", failure: null },
 			artifacts: [],
 			messageCount: 0,
 		});
-		expect(component.getSnapshot().value).toBe("preparing");
-		expect(component.getStates().runtimeInspector.actor).toMatchObject({
+		expect(source.getSnapshot().value).toBe("preparing");
+		expect(component.get("states").runtimeInspector.actor).toMatchObject({
 			heading: "Compound actor state",
 			matchText: 'matches("preparing")',
 		});
@@ -282,16 +282,16 @@ describe("voice workbench browser entry", () => {
 			),
 		);
 		await vi.waitFor(() => {
-			expect(component.getStates()).toMatchObject({
+			expect(component.get("states")).toMatchObject({
 				status: "ready",
 				canSubmitPrompt: true,
 				model: { status: "available", failure: null },
 			});
 		});
-		expect(component.getSnapshot().value).toEqual({
+		expect(source.getSnapshot().value).toEqual({
 			available: { turn: "idle", voice: "active", speech: "idle" },
 		});
-		expect(component.getStates().runtimeInspector.actor).toMatchObject({
+		expect(component.get("states").runtimeInspector.actor).toMatchObject({
 			heading: "Compound actor state",
 			matchText: 'matches({\n  available: { turn: "idle" },\n})',
 		});
@@ -315,7 +315,7 @@ describe("voice workbench browser entry", () => {
 		);
 
 		await vi.waitFor(() => {
-			expect(component.getStates()).toMatchObject({
+			expect(component.get("states")).toMatchObject({
 				status: "ready",
 				artifacts: [
 					{
@@ -328,7 +328,7 @@ describe("voice workbench browser entry", () => {
 			expect(host.shadowRoot?.textContent).toContain(
 				"Verify dynamic Ignite tools",
 			);
-			expect(component.getStates()).toMatchObject({
+			expect(component.get("states")).toMatchObject({
 				presentation: {
 					documentCommit: {
 						id: "release-plan",
@@ -347,7 +347,7 @@ describe("voice workbench browser entry", () => {
 		});
 		await vi.waitFor(() => {
 			expect(
-				component.getSnapshot().context.childLifecycles.speechDelivery,
+				source.getSnapshot().context.childLifecycles.speechDelivery,
 			).toMatchObject({
 				state: "delivered",
 				requestSequence: 1,
@@ -361,11 +361,11 @@ describe("voice workbench browser entry", () => {
 				),
 			)
 			.toEqual([]);
-		const initialSpeech = component.getStates().speech;
+		const initialSpeech = component.get("states").speech;
 		if (!initialSpeech)
 			throw new Error("initial speech request was not retained");
 		const initialSpeechDelivery =
-			component.getSnapshot().context.childLifecycles.speechDelivery;
+			source.getSnapshot().context.childLifecycles.speechDelivery;
 		expect(initialSpeechDelivery).toMatchObject({
 			id: initialSpeech.id,
 			text: initialSpeech.text,
@@ -378,20 +378,20 @@ describe("voice workbench browser entry", () => {
 		await component.execute({ command: "playSpeech" });
 		await vi.waitFor(() =>
 			expect(
-				component.getSnapshot().context.childLifecycles.speechDelivery,
+				source.getSnapshot().context.childLifecycles.speechDelivery,
 			).toMatchObject({ requestSequence: 2 }),
 		);
 		replayDeliveries.push(
-			component.getSnapshot().context.childLifecycles.speechDelivery,
+			source.getSnapshot().context.childLifecycles.speechDelivery,
 		);
 		await component.execute({ command: "playSpeech" });
 		await vi.waitFor(() =>
 			expect(
-				component.getSnapshot().context.childLifecycles.speechDelivery,
+				source.getSnapshot().context.childLifecycles.speechDelivery,
 			).toMatchObject({ requestSequence: 3 }),
 		);
 		replayDeliveries.push(
-			component.getSnapshot().context.childLifecycles.speechDelivery,
+			source.getSnapshot().context.childLifecycles.speechDelivery,
 		);
 		expect(
 			replayDeliveries.map((delivery) => delivery?.requestSequence),
@@ -406,12 +406,12 @@ describe("voice workbench browser entry", () => {
 		);
 		expect(
 			(
-				component.getSnapshot().context as unknown as {
+				source.getSnapshot().context as unknown as {
 					speechDeliveryControlSequence: number;
 				}
 			).speechDeliveryControlSequence,
 		).toBe(3);
-		expect(component.getSnapshot().context.artifactRevisions).toMatchObject([
+		expect(source.getSnapshot().context.artifactRevisions).toMatchObject([
 			{ id: "release-plan", revision: "1", nodes: [{ kind: "text" }] },
 			{
 				id: "release-plan",
@@ -487,7 +487,7 @@ describe("voice workbench browser entry", () => {
 		useTranscript.click();
 		await vi.waitFor(() => {
 			expect(
-				component.getSnapshot().context.childLifecycles.voiceCapture,
+				source.getSnapshot().context.childLifecycles.voiceCapture,
 			).toMatchObject({
 				state: "consumed",
 				attemptId: "voice:1",
@@ -495,25 +495,25 @@ describe("voice workbench browser entry", () => {
 		});
 
 		await vi.waitFor(() => {
-			expect(component.getStates()).toMatchObject({
+			expect(component.get("states")).toMatchObject({
 				status: "ready",
 				artifacts: [{ id: "release-plan", revision: "3" }],
 			});
 			expect(host.shadowRoot?.textContent).toContain(
 				"Add a speech-authored rollout checkpoint.",
 			);
-			expect(component.getStates()).toMatchObject({
+			expect(component.get("states")).toMatchObject({
 				presentation: {
 					documentCommit: { id: "release-plan", revision: "3" },
 				},
 			});
 		});
-		expect(component.getStates().messages).toContainEqual({
+		expect(component.get("states").messages).toContainEqual({
 			role: "user",
 			channel: "speech",
 			text: "Revise the plan through speech",
 		});
-		expect(component.getStates()).toMatchObject({
+		expect(component.get("states")).toMatchObject({
 			presentation: { draft: "Keep this typed draft" },
 		});
 		expect(fetchMock).toHaveBeenCalledTimes(6);
@@ -532,7 +532,7 @@ describe("voice workbench browser entry", () => {
 			new Event("submit", { bubbles: true, cancelable: true }),
 		);
 		await vi.waitFor(() => {
-			expect(component.getStates()).toMatchObject({
+			expect(component.get("states")).toMatchObject({
 				status: "ready",
 				artifacts: [{ id: "release-plan", revision: "4" }],
 				response: {
@@ -568,7 +568,7 @@ describe("voice workbench browser entry", () => {
 			new Event("submit", { bubbles: true, cancelable: true }),
 		);
 		await vi.waitFor(() => {
-			expect(component.getStates()).toMatchObject({
+			expect(component.get("states")).toMatchObject({
 				status: "ready",
 				response: null,
 				presentation: {
@@ -592,7 +592,7 @@ describe("voice workbench browser entry", () => {
 			throw new Error("microphone button is unavailable after recovery");
 		}
 		currentMicrophone.click();
-		expect(component.getStates()).toMatchObject({
+		expect(component.get("states")).toMatchObject({
 			presentation: { draft: "Show provider recovery" },
 		});
 		await vi.waitFor(() => {
@@ -601,14 +601,14 @@ describe("voice workbench browser entry", () => {
 			).toContain("Microphone access was denied");
 			expect(FakeSpeechRecognition.current?.start).toHaveBeenCalledOnce();
 			expect(
-				component.getSnapshot().context.childLifecycles.voiceCapture,
+				source.getSnapshot().context.childLifecycles.voiceCapture,
 			).toMatchObject({
 				state: "permission-denied",
 				attemptId: "voice:2",
 				sequence: 2,
 			});
 		});
-		expect(component.getStates().portRequests.voiceCapture).toBeNull();
+		expect(component.get("states").portRequests.voiceCapture).toBeNull();
 
 		const permissionRetryMicrophone =
 			host.shadowRoot.querySelector("#mic-button");
@@ -621,13 +621,13 @@ describe("voice workbench browser entry", () => {
 		await vi.waitFor(() => {
 			expect(FakeSpeechRecognition.current?.start).toHaveBeenCalledOnce();
 			expect(
-				component.getSnapshot().context.childLifecycles.voiceCapture,
+				source.getSnapshot().context.childLifecycles.voiceCapture,
 			).toMatchObject({
 				state: "listening",
 				attemptId: "voice:3",
 				sequence: 3,
 			});
-			expect(component.getStates().portRequests.voiceCapture).toMatchObject({
+			expect(component.get("states").portRequests.voiceCapture).toMatchObject({
 				type: "start",
 				attemptId: "voice:3",
 			});
@@ -639,14 +639,14 @@ describe("voice workbench browser entry", () => {
 		});
 		await vi.waitFor(() => {
 			expect(
-				component.getSnapshot().context.childLifecycles.voiceCapture,
+				source.getSnapshot().context.childLifecycles.voiceCapture,
 			).toMatchObject({
 				state: "failed",
 				attemptId: "voice:3",
 				sequence: 3,
 			});
 		});
-		expect(component.getStates().portRequests.voiceCapture).toBeNull();
+		expect(component.get("states").portRequests.voiceCapture).toBeNull();
 		const failureRetryMicrophone = host.shadowRoot.querySelector("#mic-button");
 		if (!(failureRetryMicrophone instanceof HTMLButtonElement)) {
 			throw new Error(
@@ -657,13 +657,13 @@ describe("voice workbench browser entry", () => {
 		await vi.waitFor(() => {
 			expect(FakeSpeechRecognition.current?.start).toHaveBeenCalledOnce();
 			expect(
-				component.getSnapshot().context.childLifecycles.voiceCapture,
+				source.getSnapshot().context.childLifecycles.voiceCapture,
 			).toMatchObject({
 				state: "listening",
 				attemptId: "voice:4",
 				sequence: 4,
 			});
-			expect(component.getStates().portRequests.voiceCapture).toMatchObject({
+			expect(component.get("states").portRequests.voiceCapture).toMatchObject({
 				type: "start",
 				attemptId: "voice:4",
 			});
@@ -685,7 +685,7 @@ describe("voice workbench browser entry", () => {
 		);
 		await vi.waitFor(() => {
 			expect(fetchMock).toHaveBeenCalledTimes(10);
-			expect(component.getStates().status).toBe("responding");
+			expect(component.get("states").status).toBe("responding");
 		});
 		const pendingTurnSignal = fetchMock.mock.calls[9]?.[1]?.signal;
 		expect(pendingTurnSignal).toBeInstanceOf(AbortSignal);
@@ -728,7 +728,7 @@ describe("voice workbench browser entry", () => {
 		);
 		await Promise.resolve();
 		expect(
-			component
+			source
 				.getSnapshot()
 				.context.documents.some(
 					(document) => document.id === "pagehide-stale-artifact",

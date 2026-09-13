@@ -1,6 +1,6 @@
 {
 	"name": "ignite-element",
-	"version": "3.0.0-beta.11",
+	"version": "3.0.0-beta.12",
 	"type": "module",
 	"types": "dist/types/index.d.ts",
 	"module": "dist/ignite-element.es.js",
@@ -18,6 +18,9 @@
 			"actor-web": [
 				"dist/types/actor-web.d.ts"
 			],
+			"actor-web/web": [
+				"dist/types/actor-web/web.d.ts"
+			],
 			"jsx": [
 				"dist/types/jsx/index.d.ts"
 			],
@@ -29,6 +32,9 @@
 			],
 			"react": [
 				"dist/types/react/index.d.ts"
+			],
+			"react/web": [
+				"dist/types/react/web.d.ts"
 			],
 			"tools": [
 				"dist/types/tools/index.d.ts"
@@ -67,6 +73,11 @@
 			"import": "./dist/actor-web.es.js",
 			"default": "./dist/actor-web.es.js"
 		},
+		"./actor-web/web": {
+			"types": "./dist/types/actor-web/web.d.ts",
+			"import": "./dist/actor-web/web.es.js",
+			"default": "./dist/actor-web/web.es.js"
+		},
 		"./jsx": {
 			"types": "./dist/types/jsx/index.d.ts",
 			"import": "./dist/jsx/index.es.js",
@@ -86,6 +97,11 @@
 			"types": "./dist/types/react/index.d.ts",
 			"import": "./dist/react.es.js",
 			"default": "./dist/react.es.js"
+		},
+		"./react/web": {
+			"types": "./dist/types/react/web.d.ts",
+			"import": "./dist/react/web.es.js",
+			"default": "./dist/react/web.es.js"
 		},
 		"./tools": {
 			"types": "./dist/types/tools/index.d.ts",
@@ -131,9 +147,12 @@
 		"CHANGELOG.md"
 	],
 	"sideEffects": [
-		"./src/internal/setupDomPolyfill.ts",
+		"./src/renderers/*.ts",
+		"./dist/registry-*.js",
+		"./dist/jsx.es-*.js",
+		"./dist/renderers/*.es.js",
 		"./dist/projectionTargets-*.js",
-		"./dist/testing-*.js"
+		"./dist/IgniteElement-*.js"
 	],
 	"scripts": {
 		"build:types": "tsc",
@@ -168,6 +187,7 @@
 		"@commitlint/config-conventional": "^20.0.0",
 		"@playwright/test": "^1.56.1",
 		"@reduxjs/toolkit": "^2.12.0",
+		"@testing-library/dom": "10.4.1",
 		"@testing-library/react": "^16.1.0",
 		"@types/jsdom": "^27.0.0",
 		"@types/react": "^19.0.0",

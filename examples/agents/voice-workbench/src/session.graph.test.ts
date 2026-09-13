@@ -1,4 +1,3 @@
-import { test as igniteTest } from "ignite-element/xstate";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createActor } from "xstate";
 import {
@@ -496,7 +495,7 @@ describe("voice workbench XState graph characterization", () => {
 		actor.stop();
 	});
 
-	it("composes xstate graph paths with Story receipts without a bridge API", async () => {
+	it("checks graph-selected paths against source-owned runtime timeout outcomes", async () => {
 		const selectedEvents: VoiceWorkbenchSessionEvent[] = [
 			preparationAvailable1,
 			submitPrompt,
@@ -508,7 +507,7 @@ describe("voice workbench XState graph characterization", () => {
 		);
 		// Static graph traversal cannot correlate MODEL_TURN_TIMEOUT_REQUESTED to
 		// the live runtime child request identity, so the timeout event stays inert
-		// here. The Story fixture below proves the real timeout-to-ready outcome.
+		// here. The runtime fixture below proves the real timeout-to-ready outcome.
 		expect(readStateValue(staticTimeoutSelection[0].state)).toEqual({
 			available: { turn: "responding", voice: "active", speech: "idle" },
 		});
@@ -533,68 +532,73 @@ describe("voice workbench XState graph characterization", () => {
 		).toThrowError(/Invocations .* not supported/i);
 
 		const fixture = createGraphFixture();
-		const story = await igniteTest({ component: fixture.component }).story(
-			"xstate graph selected timeout path composes with story evidence",
-			async (narrative) => {
-				await narrative.given({
-					when: (snapshot) => snapshot.matches({ available: { turn: "idle" } }),
-					states: { status: "ready" },
-					canExecute: { submitPrompt: true },
+
+		await vi.waitFor(
+			() => {
+				const snapshot = fixture.actor.getSnapshot();
+				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
+				expect(fixture.component.get("states")).toMatchObject({
+					status: "ready",
 				});
-
-				await narrative.intent({
-					command: "submitPrompt",
-					input: submitPrompt.input,
-				});
-				await fixture.waitForModelTurnCall();
-
-				await narrative.checkpoint("turn is responding before timeout", {
-					when: (snapshot) =>
-						snapshot.matches({ available: { turn: "responding" } }),
-					states: { status: "responding" },
-					canExecute: { createArtifact: true },
-				});
-
-				await narrative.behavior(
-					"fixture clock fires the active timeout request",
-					async () => {
-						expect(fixture.fireTimeout()).toBe(25);
-					},
-				);
-
-				await narrative.checkpoint(
-					"timeout returns the selected path to ready",
-					{
-						when: (snapshot) =>
-							snapshot.matches({ available: { turn: "idle" } }),
-						states: {
-							status: "ready",
-							lifecycle: {
-								lastTurnTerminal: { type: "TIMEOUT" },
-							},
-						},
-						canExecute: { submitPrompt: true },
-					},
-				);
+				expect(
+					fixture.component.get("states").commandAvailability.submitPrompt,
+				).toBe(true);
 			},
+			{ timeout: 1000 },
 		);
 
-		expect(story.trace.map((entry) => entry.kind)).toContain("behavior");
-		expect(story.summary.finalSnapshot).toMatchObject({
+		await fixture.component.execute({
+			command: "submitPrompt",
+			input: submitPrompt.input,
+		});
+		await fixture.waitForModelTurnCall();
+
+		// turn is responding before timeout
+		await vi.waitFor(
+			() => {
+				const snapshot = fixture.actor.getSnapshot();
+				expect(snapshot.matches({ available: { turn: "responding" } })).toBe(
+					true,
+				);
+				expect(fixture.component.get("states")).toMatchObject({
+					status: "responding",
+				});
+				expect(
+					fixture.component.get("states").commandAvailability.createArtifact,
+				).toBe(true);
+			},
+			{ timeout: 1000 },
+		);
+		expect(fixture.fireTimeout()).toBe(25);
+
+		// timeout returns the selected path to ready
+		await vi.waitFor(
+			() => {
+				const snapshot = fixture.actor.getSnapshot();
+				expect(snapshot.matches({ available: { turn: "idle" } })).toBe(true);
+				expect(fixture.component.get("states")).toMatchObject({
+					status: "ready",
+					lifecycle: {
+						lastTurnTerminal: { type: "TIMEOUT" },
+					},
+				});
+				expect(
+					fixture.component.get("states").commandAvailability.submitPrompt,
+				).toBe(true);
+			},
+			{ timeout: 1000 },
+		);
+
+		expect(fixture.actor.getSnapshot()).toMatchObject({
 			value: {
 				available: { turn: "idle", voice: "active", speech: "idle" },
 			},
 		});
-		expect(story.summary.finalStates).toMatchObject({
+		expect(fixture.component.get("states")).toMatchObject({
 			status: "ready",
 			lifecycle: {
 				lastTurnTerminal: { type: "TIMEOUT" },
 			},
 		});
-		expect(
-			story.trace.some(
-				(entry) => entry.kind === "command" && entry.command === "submitPrompt",
-			),
-		).toBe(true);
 	});
 });

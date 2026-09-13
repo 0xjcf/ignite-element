@@ -56,7 +56,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: true
-          files: ./coverage/clover.xml
+          files: ./packages/ignite-element/coverage/clover.xml
           flags: unittests
           verbose: true
 
@@ -66,9 +66,9 @@ jobs:
   examples-typecheck:
     # Examples live in top-level examples/ and are self-contained (NOT
     # pnpm-workspace members), so they are deliberately excluded from the
-    # library's gated typecheck. Type-check each one here against the library
-    # source (their tsconfigs map ignite-element/* to packages/*/src) so an
-    # example regression is caught even though it is not part of the workspace.
+    # library's gated typecheck. Their source mappings still traverse public
+    # workspace exports, so this independent runner must build declarations
+    # before checking every example; the build job does not share its output.
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
@@ -87,6 +87,9 @@ jobs:
 
       - name: Install workspace (library tsc + package sources)
         run: pnpm install --frozen-lockfile
+
+      - name: Build workspace packages and public declarations
+        run: pnpm run build
 
       - name: Typecheck each example (self-contained install + tsc)
         run: pnpm run typecheck:examples

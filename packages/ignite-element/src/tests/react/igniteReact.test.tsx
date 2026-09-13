@@ -13,7 +13,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setup } from "xstate";
 import { igniteCore } from "../../IgniteCore";
-import { igniteReact } from "../../react";
+import { igniteReact } from "../../react/web";
 
 const counterMachine = setup({
 	types: {} as {
@@ -62,6 +62,62 @@ afterEach(() => {
 });
 
 describe("igniteReact behavior", () => {
+	it("forwards online setters while declared outward callbacks remain listeners", async () => {
+		const online = vi.fn();
+		const label = vi.fn();
+		const first = vi.fn();
+		const second = vi.fn();
+		const Counter = igniteCore({
+			source: counterMachine,
+			commands: () => ({
+				setOnline(value: string) {
+					online(value);
+				},
+				setLabel(value: string) {
+					label(value);
+				},
+			}),
+			events: (event) => ({ changed: event<{ value: string }>() }),
+		})(uniqueTag(), () => null);
+		const Wrapped = igniteReact(Counter);
+		const props: React.ComponentProps<typeof Wrapped> = {
+			online: "yes",
+			label: "control",
+			onChanged: first,
+		};
+		const container = mount(React.createElement(Wrapped, props));
+		const element = container.querySelector(Counter.tagName);
+		if (!element) throw Error("missing element");
+		expect(element.getAttribute("online")).toBe("yes");
+		expect(online).toHaveBeenCalledWith("yes");
+		expect(label).toHaveBeenCalledWith("control");
+		expect(element.hasAttribute("onChanged")).toBe(false);
+		element.dispatchEvent(
+			new CustomEvent("changed", { detail: { value: "one" } }),
+		);
+		expect(first).toHaveBeenCalledWith({ value: "one" });
+		await act(async () => {
+			roots[roots.length - 1].render(
+				React.createElement(Wrapped, {
+					online: "no",
+					label: "next",
+					onChanged: second,
+				}),
+			);
+		});
+		expect(online).toHaveBeenLastCalledWith("no");
+		expect(label).toHaveBeenLastCalledWith("next");
+		element.dispatchEvent(
+			new CustomEvent("changed", { detail: { value: "two" } }),
+		);
+		expect(second).toHaveBeenCalledWith({ value: "two" });
+		expect(first).toHaveBeenCalledOnce();
+		act(() => roots[roots.length - 1].unmount());
+		element.dispatchEvent(
+			new CustomEvent("changed", { detail: { value: "late" } }),
+		);
+		expect(second).toHaveBeenCalledOnce();
+	});
 	it("fires on<Event> props with the flat event.detail payload", () => {
 		const Counter = igniteCore({
 			source: counterMachine,

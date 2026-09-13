@@ -13,6 +13,7 @@ import {
 	createLocalHomeSession,
 	type HomeAgentRuntime,
 	type HomeRuntimeFactory,
+	homeToolSchema,
 } from "./home";
 import {
 	type AnthropicMessage,
@@ -70,7 +71,9 @@ export async function runHomeAgent(
 
 	try {
 		const { home } = session;
-		const { tools, toolCalls, run, toolResult } = igniteTools(home, anthropic);
+		const { tools, toolCalls, run, toolResult } = igniteTools(home, anthropic, {
+			schema: homeToolSchema,
+		});
 
 		const messages: AnthropicMessage[] = [
 			{ role: "user", content: userPrompt },
@@ -145,7 +148,9 @@ export async function runHomeOpenAICompatibleAgent(
 
 	try {
 		const { home } = session;
-		const { tools, toolCalls, run, toolResult } = igniteTools(home, openai);
+		const { tools, toolCalls, run, toolResult } = igniteTools(home, openai, {
+			schema: homeToolSchema,
+		});
 
 		const messages: OpenAICompatibleMessage[] = [
 			{ role: "user", content: userPrompt },

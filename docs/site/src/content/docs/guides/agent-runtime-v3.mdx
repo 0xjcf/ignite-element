@@ -6,7 +6,7 @@ sidebar:
   order: 3
 ---
 
-Ignite Element is behavior-first. The same `igniteCore(...)` registration that creates a custom element also exposes a headless runtime, so agents and tests can inspect the contract, execute commands, observe events, and verify derived states before any DOM selector exists.
+Ignite Element is behavior-first. A source-backed `igniteCore(...)` registration that creates a custom element also exposes a headless runtime, so agents and tests can inspect the contract, execute commands, observe events, and verify derived states before any DOM selector exists.
 
 The practical model is:
 
@@ -15,12 +15,12 @@ The practical model is:
 3. Add the DOM layer as a projection over already-proven behavior.
 
 :::note[API reference]
-This guide is the narrative walkthrough. For exact signatures and return shapes, see [Headless runtime](/ignite-element/api/headless-runtime/), [Command metadata](/ignite-element/api/command-metadata/), and the [Testing DSL](/ignite-element/api/testing-dsl/).
+This guide is the narrative walkthrough. For exact signatures and return shapes, see [Headless runtime](/ignite-element/api/headless-runtime/), [Command metadata](/ignite-element/api/command-metadata/), and the [Testing guide](/ignite-element/guides/testing/).
 :::
 
 ## Behavior-first components
 
-Start by describing the state source, derived states, commands, events, and effects. `igniteCore(...)` infers `snapshot`, `prevSnapshot`, `emit`, `select`, `actor`, and `host` from the `source` plus your `events` builder, so standard authoring needs no internal helper-type imports.
+Start by describing the state source, derived states, commands, events, and effects. `igniteCore(...)` infers `snapshot`, `prevSnapshot`, `emit`, `select`, and `actor` from the source and event builder. Environmental and host capabilities remain application-owned.
 
 ```ts no-check
 import { igniteCore } from 'ignite-element/xstate';
@@ -34,16 +34,10 @@ export const counter = igniteCore({
     isLimited: snapshot.matches('limited'),
   }),
 
-  commands: ({ actor, command }) => ({
+  commands: ({ actor }) => ({
     increment: () => actor.send({ type: 'INCREMENT' }),
 
-    setLimit: command(
-      (limit: number) => actor.send({ type: 'SET_LIMIT', limit }),
-      {
-        description: 'Set maximum count',
-        input: command.number({ minimum: 3, maximum: 12 }),
-      },
-    ),
+    setLimit: (limit: number) => actor.send({ type: 'SET_LIMIT', limit }),
   }),
 
   events: (event) => ({
@@ -65,28 +59,28 @@ export const counter = igniteCore({
 That registration gives agents a contract to inspect and a command surface to drive — all without the DOM:
 
 ```ts
-counter.getSchema(); // commands + metadata + events + snapshot + states
-counter.getStates();   // current derived states
-counter.canExecute('increment'); // current command availability
+counter.get('schema'); // pure catalogue; configured commands unknown until bound
+counter.get('states');   // current derived states
+const canIncrement = !counter.get('states').isLimited; // projected source hint
 
 await counter.execute({ command: 'setLimit', input: 6 });
 
-while (!counter.getStates().isLimited) {
+for (let step = 0; step < 20 && !counter.get('states').isLimited; step += 1) {
   await counter.execute({ command: 'increment' });
 }
 
-expect(counter.getStates()).toMatchObject({ count: 6, limit: 6, isLimited: true });
+expect(counter.get('states')).toMatchObject({ count: 6, limit: 6, isLimited: true });
 ```
 
-See [Headless runtime](/ignite-element/api/headless-runtime/) for every method (`execute`, `canExecute`, `getSnapshot`, `getStates`, `getSchema`, `on`, `watchSnapshot`, `watchStates`, `record`) and its return shape.
+See [Headless runtime](/ignite-element/api/headless-runtime/) for `get`, `watch`, `on`, `execute`, and owning `dispose`.
 
 In practice, the loop is:
 
-1. Read `getSchema()` to discover commands, declared events, snapshot, and derived states.
-2. Use command metadata input schemas to shape payloads instead of guessing argument structure.
-3. Check `canExecute()` when a command is marked as `gated`.
+1. Read `get('schema')` for pure minimal discovery; use `get('states')` for live projections and real binding.
+2. Use explicit application tool schemas to validate payloads; null discovery schemas are unknown.
+3. Read projected availability through a separately supplied tool predicate; the source remains authoritative.
 4. Run `execute()` and inspect the returned snapshot, derived states, and emitted events.
-5. Keep long-lived observers attached with `on(...)` or `watchStates(...)` when the workflow spans multiple actions.
+5. Keep long-lived observers attached with `on(...)` or `watch(...)` when the workflow spans multiple actions.
 
 ## Add the DOM layer
 
@@ -127,69 +121,53 @@ counter('counter-panel', ({ count, limit, isLimited, increment, setLimit }) => (
 ));
 ```
 
-This keeps DOM tests focused on rendering and accessibility, while behavior tests stay selector-free. To assert the rendered controls by role and accessible name against the same proven runtime, mount a test-only DOM bridge with `igniteTest.accessibilityBridge(...)` / `igniteTest.expectControls(...)` — see the [Testing DSL](/ignite-element/api/testing-dsl/).
+This keeps DOM tests focused on rendering and accessibility, while behavior tests stay selector-free. To assert rendered controls by role and accessible name, mount the registered component and use DOM Testing Library on its actual rendered elements — see the [Testing guide](/ignite-element/guides/testing/).
 
 ## Agent-readable contracts
 
-Command metadata is optional. Plain functions remain valid commands; `command(fn, metadata)` enriches the runtime schema when an agent or inspector needs more context.
+Ordinary commands retain TypeScript inference and source-directed intent.
+Descriptions and input schemas belong at the application/tool boundary:
 
-```ts no-check
-commands: ({ actor, command }) => ({
-  reset: () => actor.send({ type: 'RESET' }),
+```ts
+import { buildManifest, resolveCall } from 'ignite-element/tools';
 
-  renamePreset: command(
-    (label: string) => actor.send({ type: 'RENAME_PRESET', label }),
-    {
+const counterToolSchema = {
+  commands: {
+    setLimit: {
+      description: 'Set maximum count',
+      input: { type: 'number', minimum: 3, maximum: 12 },
+    },
+    renamePreset: {
       description: 'Rename the saved preset label.',
-      input: command.string({ minLength: 1, maxLength: 32 }),
+      input: { type: 'string', minLength: 1, maxLength: 32 },
     },
-  ),
-});
+  },
+};
+const manifest = buildManifest(counterToolSchema);
+const validLimit = resolveCall(manifest, 'setLimit', 6);
+const invalidLimit = resolveCall(manifest, 'setLimit', 99);
 ```
 
-Built-in helpers cover `number`, `string`, `boolean`, `enum`, `object`, and `array` while staying JSON-serializable, and `getSchema()` returns executable commands plus their metadata in one map. The full helper catalog and the serialized schema shape live in [Command metadata](/ignite-element/api/command-metadata/).
+Only offer definitions for commands the application's core actually exposes.
+Use `igniteTools(counter, dialect, { schema: counterToolSchema, canExecute })`
+for provider translation and validated invocation. The optional tool predicate
+reads projected availability; source guards still enforce behavior. A schema can
+explicitly mark a tool `gated: true`; this is application metadata, not automatic
+core discovery. Scalar inputs are wrapped/unwrapped only at the provider boundary.
 
-Availability predicates live on the same command metadata but stay off the JSON
-schema. They are evaluated against the current snapshot by the headless runtime:
+A command such as `submit: () => actor.send({ type: 'SUBMIT' })` needs no helper.
+Project `snapshot.can({ type: 'SUBMIT' })` into a `canSubmit` state if useful.
+Do not infer schemas from that function, expose unavailable actions as universally
+available, or confuse availability with authorization.
 
-```ts no-check
-commands: ({ actor, command }) => ({
-  submit: command(
-    () => actor.send({ type: 'SUBMIT' }),
-    {
-      description: 'Submit the current form.',
-      canExecute: ({ snapshot }) => snapshot.can({ type: 'SUBMIT' }),
-    },
-  ),
-});
+The core catalogue contains bound own names with `input: null`, declared event
+names with `payload: null`, and `states: { schema: null }`.
+Before command callback binding it is `commands: null`; without a callback it is
+`commands: {}`. Pure discovery never creates a source or manufactures an actor.
+See [Commands and tool schemas](/ignite-element/api/command-metadata/).
 
-counter.getSchema().commands.submit.gated; // true
-counter.canExecute('submit');              // boolean for the current snapshot
-```
+## Ordinary workflow tests
 
-That means an agent or provider can keep the contract discovery step pure and JSON-safe, then defer the live authorization question to `canExecute()` immediately before invocation. The full runtime example is in [`getSchema()`](/ignite-element/api/headless-runtime/#getschema).
+Assert the direct runtime results shown above, preserving source-owned asynchronous outcomes and real DOM coverage. Replace unbounded loops with an application-specific step limit; after a command starts asynchronous source work, wait on its correlated source state/event rather than assuming `execute()` completes it. Release observers and let the source owner stop native resources.
 
-## Story recording
-
-Stories make behavior workflows first-class: a recorder captures command, event, native-snapshot, and derived-states changes as one trace, while DOM lifecycle evidence stays on a separate channel of the same story object. Serialize a trace for snapshot tests with `igniteTest.serializeTrace(...)` and assert ordered checkpoints with `igniteTest.expectTrace(...)`.
-
-```ts no-check
-const story = counter.record('reaches limit');
-
-await story.execute({ command: 'setLimit', input: 6 });
-await story.until((states) => states.isLimited, async () => {
-  await story.execute({ command: 'increment' });
-});
-
-igniteTest.expectTrace(igniteTest.serializeTrace(story.trace()), [
-  { kind: 'command', command: 'setLimit', payload: 6 },
-  { kind: 'event', event: 'limit-reached', payload: { count: 6, limit: 6 } },
-  { kind: 'states', phase: 'after', states: { isLimited: true } },
-]);
-
-story.stop();
-```
-
-`story.trace()` holds only behavior evidence; `story.lifecycle()` holds DOM evidence (registration, connection, render, disconnect, cleanup) when a custom element or accessibility bridge participates. The exact recorder, trace, and serialization signatures are in the [Testing DSL](/ignite-element/api/testing-dsl/).
-
-The important boundary: logic stays inspectable without the DOM, and the DOM remains a projection over the tested contract.
+The former recorder, trace helpers, story snapshots and lifecycle histories are intentionally retired without a replacement recorder. See the [migration notice](/ignite-element/api/testing-dsl/). Logic remains inspectable without the DOM, and the DOM remains a projection over that contract.

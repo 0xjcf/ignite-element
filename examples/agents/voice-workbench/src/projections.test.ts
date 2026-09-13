@@ -74,7 +74,7 @@ const completeCurrentTurn = (
 				id: request.call.id ?? "projection-complete",
 				command: request.call.command,
 				status: "accepted",
-				view: component.getStates().modelContext,
+				view: component.get("states").modelContext,
 				events: [],
 			},
 		},
@@ -146,7 +146,7 @@ describe("voice workbench projection targets", () => {
 						status: "pending",
 					}),
 				);
-				expect(component.getStates().speech).toMatchObject({
+				expect(component.get("states").speech).toMatchObject({
 					text: "Decision captured.",
 					status: "acknowledged",
 				});
