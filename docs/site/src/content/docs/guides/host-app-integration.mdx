@@ -6,9 +6,14 @@ sidebar:
   order: 1
 ---
 
-Ignite Element ships a browser-level contract: a custom element tag, DOM attributes or child content you choose to support, and typed `CustomEvent`s for outward signals.
+For registered Web Components, Ignite Element ships a browser-level contract: a custom element tag, DOM attributes or child content you choose to support, and typed `CustomEvent`s for outward signals.
 
 That means integration should stay browser-native. Register the element once, render the tag where you need it, and listen for DOM events from the host app.
+
+For a session-owned workflow shared by headless, imperative web and React/native
+views, use the [plain-controller guide](/ignite-element/guides/plain-controllers/).
+Those views borrow a prepared, unregistered core. A registered core cannot be
+disposed like a session owner; the web wrapper is not a generic external-core binding.
 
 ## Register once
 

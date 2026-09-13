@@ -115,6 +115,7 @@ export default defineConfig({
 						{ label: "Redux & MobX", slug: "guides/redux-and-mobx" },
 						{ label: "Routing", slug: "guides/routing" },
 						{ label: "Actor-Web", slug: "guides/actor-web" },
+						{ label: "Plain controllers", slug: "guides/plain-controllers" },
 						{ label: "Styling", slug: "guides/styling" },
 						{ label: "Testing", slug: "guides/testing" },
 					],

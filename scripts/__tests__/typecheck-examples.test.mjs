@@ -23,6 +23,7 @@ const expectedExampleRoots = [
 	"examples/apps/dashboard-with-shared-state",
 	"examples/apps/form-with-validation",
 	"examples/apps/nested-child-router",
+	"examples/apps/shared-controller",
 	"examples/apps/spa-router",
 	"examples/frameworks/react",
 	"examples/frameworks/svelte",

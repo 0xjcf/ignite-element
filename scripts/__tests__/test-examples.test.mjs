@@ -22,6 +22,7 @@ const expectedExampleRoots = [
 	"examples/apps/dashboard-with-shared-state",
 	"examples/apps/form-with-validation",
 	"examples/apps/nested-child-router",
+	"examples/apps/shared-controller",
 	"examples/apps/spa-router",
 ];
 const expectedCoverageArgs = expectedExampleRoots.flatMap((exampleRoot) => [

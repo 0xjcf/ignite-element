@@ -1,0 +1,194 @@
+---
+title: Share a plain controller
+description: Adapt one application-owned TypeScript controller for headless, web, React and native views.
+sidebar:
+  label: Plain controllers
+  order: 2
+---
+
+import { Code } from '@astrojs/starlight/components';
+import ownerCode from '../../../../../../examples/apps/shared-controller/src/owner.ts?raw';
+import sourceCode from '../../../../../../examples/apps/shared-controller/src/source.ts?raw';
+import headlessCode from '../../../../../../examples/apps/shared-controller/src/headless.ts?raw';
+import reactCode from '../../../../../../examples/apps/shared-controller/src/react.tsx?raw';
+import nativeCode from '../../../../../../examples/apps/shared-controller/src/native.tsx?raw';
+
+Preserve an existing plain TypeScript controller: translate its snapshots,
+subscriptions and guarded methods into a supported structural source. No XState
+conversion, new adapter package or workflow rewrite is required.
+
+:::caution[Development candidate, not published beta.11]
+The reviewed source-backed API and `useIgnite` are not supplied by the previously
+published `3.0.0-beta.11`. Local candidate packs may carry that same version label
+with different content. Use the checkout and packed-consumer instructions below;
+do not substitute registry beta.11 or guess the next prerelease number.
+:::
+
+## Run the complete example
+
+The private, non-publishable project at
+[`examples/apps/shared-controller`](https://github.com/0xjcf/ignite-element/tree/beta/examples/apps/shared-controller)
+models only a **synthetic display-density preference**: `comfortable` or `compact`.
+The source link becomes available with integration/publication of this candidate;
+the complete files are already in the reviewed checkout. It makes no network calls.
+
+From that checkout, with Node 22.16.0 and the repository's pinned pnpm 10.33.0:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm --filter ignite-element... build
+pnpm --dir examples/apps/shared-controller install --ignore-workspace --no-link-workspace-packages --frozen-lockfile
+pnpm --dir examples/apps/shared-controller typecheck
+pnpm --dir examples/apps/shared-controller test
+pnpm --dir examples/apps/shared-controller dev
+```
+
+The example links the checked-out public package, whose exports resolve the built
+candidate. Its Vite configuration deduplicates React for this linked checkout;
+it does not alias private library source or alter the package exports. The root
+example discovery and exact-coverage lanes include this example.
+
+For isolated **packed** web, native and neutral consumers, build first, then run:
+
+```sh
+node examples/apps/shared-controller/scripts/packed-consumers.mjs
+```
+
+The script packs all four current packages, checks exact internal versions,
+records tarball SHA-256 values, installs them through explicit file dependencies
+and overrides, and verifies frozen installs. It retains a new external directory
+with source copies, logs and locks; no workspace fallback or source aliases are
+used there. The complete native component is strictly checked without the DOM
+library and exercised through actual React Native test-host components.
+This fixture is React 19.1.0 / RN 0.81.5, **not** arbitrary Expo or device support.
+The neutral lane intentionally cannot resolve Actor-Web runtime, React DOM, Lit
+or unrelated source ecosystems. React is a legitimate dependency of its hook.
+
+These rendered code blocks import the canonical example files directly; the
+complete files, not weaker excerpt substitutes, participate in strict source
+and packed consumer checks (`skipLibCheck: false`).
+
+## Keep behavior in the controller
+
+The flow is **source → native snapshot → derived states → view**.
+`controller.ts` owns loading, pending operations, guards, revisions, epoch-bound
+receipt matching and recovery. `states.ts` derives portable presentation meaning
+and permitted actions. `fake-ports.ts` supplies deferred transport results and a
+manual clock: advance five simulated seconds to show uncertainty, then deliver a
+matching acceptance to show late confirmation. A wait deadline is not cancellation.
+
+The controller validates intents even when called headlessly or through an old
+handler. It retains the last confirmed value while saving. An explicit rejection
+allows retry; an unknown outcome does not authorize resubmission. A query may
+observe a value but cannot prove completion of an unresolved write. Late reads
+cannot replace newer write facts. These are example application rules, not
+Ignite's policy or server authorization.
+
+Directory labels are not API requirements. A capability's `source/` folder may
+hold ports and contracts, while Ignite's `source:` supplies behavior observations.
+Ignite's `states:` callback is a projection, not the controller's transitions.
+Keep shared behavioral composition with the application capability; views may
+format or map presentation data without reimplementing legality or success.
+
+## Adapt the public structural source
+
+`ignite-element/actor-web` intentionally accepts foreign structural sources.
+The public `ActorWebCommandSource` and `ActorWebSourceSnapshot` types are also
+available from `@ignite-element/adapters/actor-web`. Their name does not require
+an installed `@actor-web/runtime`. `send` below is real command forwarding, not a
+dummy method added to satisfy a type.
+
+<Code code={sourceCode} lang="ts" title="src/source.ts" />
+
+The adapter contains no second state machine. It forwards to the same guarded
+controller used by the owner's ordinary commands. Arbitrary controllers are not
+valid `useIgnite` inputs: use a genuine prepared source-backed core, never a cast
+or a private binding-store registration.
+
+## One session owner, many borrowers
+
+Construct once in application/session bootstrap, outside React rendering. Supply
+one source **value**, not a per-view factory that accidentally creates competing
+workflows. A new login epoch gets a new owner, even for the same account.
+
+<Code code={ownerCode} lang="ts" title="src/owner.ts" />
+
+Remove or replace views first, then dispose the old owner. Individual route
+unmounts only unsubscribe: pending work belongs to the session. Cleanup attempts
+both Ignite teardown and application-owned controller shutdown; preparation errors
+remain visible even if cleanup also fails. This controller has no transport-abort
+port. Invalidating its epoch prevents stale observations, not eventual server work.
+Each running application owns its own instances; sharing implementation does not
+synchronize pending work between devices.
+
+## Headless and imperative observation
+
+Subscribe **before** the initial read, with cleanup if rendering throws:
+
+<Code code={headlessCode} lang="ts" title="src/headless.ts" />
+
+`watch` has no initial user replay. Synchronous source replay can update the
+framework cache during preparation while that preparation read still returns its
+initially captured value. This is not a universal atomic read-and-subscribe API.
+Asynchronous initialization freshness remains source/application policy.
+
+`src/web.ts` provides `mountDensity` and a small borrowing custom element. The demo
+mounts two views of one owner; remove one while pending and the other continues.
+Tests click the actual Load, density and Retry controls, including retained handlers
+after removal. The session core stays **unregistered**. This is imperative host
+composition, not a new external-core registration API.
+
+## React and native views
+
+Both consume inferred flat states and ordinary command functions:
+
+<Code code={reactCode} lang="tsx" title="src/react.tsx" />
+
+<Code code={nativeCode} lang="tsx" title="src/native.tsx" />
+
+Stable cached projections prevent external-store render loops. Commands remain
+stable for that prepared owner and bound to it; new invocation after disposal
+throws. State and command names must not collide. Unmount does not dispose the
+owner. Keep plain read models deliberately small: the detached immutable hook
+projection does not freeze the caller's native graph. Rich native snapshots may
+contain unsuitable class instances or accessors. No DOM host or browser `Blob`
+belongs in this shared contract.
+
+## Commands, observations and receipts
+
+The full reference is [Headless runtime](/ignite-element/api/headless-runtime/):
+`get("states" | "commands" | "events" | "schema")`, `watch`, `on`, `execute`,
+and `dispose`. Root source-free `igniteCore()` is a registrar, not this runtime.
+Removed snapshot/state getter aliases and command metadata helpers stay removed;
+source-native APIs remain valid on the source itself.
+
+- Discovery reads (`schema`, `commands`, `events`) do not acquire the source.
+  Unknown schemas are `null`; command discovery may be unknown before real binding.
+  Discovery is not a command-function lookup or runtime input validator.
+- A direct hook command preserves its underlying return and promise. Here
+  `choose` resolves `void` for accepted, guarded no-op, rejected and unknown
+  outcomes. **Fulfillment is not a success announcement.** Every view reads the
+  controller's shared outcome meaning instead.
+- `execute({command, input})` passes one value, awaits the callback, and returns
+  `{snapshot, states, events}`—not its resolved command value. A synchronous
+  ecosystem `send()` does not itself await separately invoked network work.
+- Overlapping execution windows can contain the same events. The accepted focused
+  control establishes that limit; do not treat these arrays as independent causal
+  receipts. Application/server operation identities and receipt validation remain
+  necessary. This small controller's receipt fields do not create a generic
+  persistence or retry protocol.
+- Disposal is terminal and idempotent for an unregistered core. A pending
+  `execute` cannot produce a new result after disposal, but already-returned
+  direct command promises keep their ordinary outcome. Existing I/O may continue.
+
+A successfully registered core rejects `dispose()` before teardown.
+[`ignite-element/react/web`](/ignite-element/guides/host-app-integration/)
+wraps actual registered elements; `ignite-element/actor-web/web` supplies a
+DOM-host factory boundary. Neither is a generic external-core binding.
+
+Effects are synchronous callbacks queued after Ignite's own renderer update.
+They can precede a React commit and do not replace framework effects. Environmental
+I/O and retained presentation resources stay in application ports and presentation
+owners. Dedicated Solid/Vue bindings, SSR/hydration, SwiftUI/Compose and the
+separately accepted but unimplemented retained `ref`/`commit`/keyed design are not
+supplied by this example.

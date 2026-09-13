@@ -67,6 +67,12 @@ observation follows the adapter's existing notification/error boundary; Ignite
 does not add global deep equality. The returned `{ unsubscribe() }` handle is
 independently idempotent.
 
+For an imperative initial render, subscribe first, then call `get('states')`, and
+unsubscribe if that render throws. A first preparation read may return its
+captured initial value while synchronous replay has already updated the framework
+cache. See the complete [plain-controller observer](/ignite-element/guides/plain-controllers/)
+for this pattern and source-owned asynchronous freshness guards.
+
 ### `on(name, handler)`
 
 Observes flat outward occurrences `{ type, ...fields }`, including source-native
@@ -87,6 +93,13 @@ derived states from the same observation and includes ordered window events.
 It does not promise business/network completion or independently correlated
 receipts for overlapping calls. Wait for application-correlated source outcomes
 when work continues asynchronously.
+
+The result does not contain the command's resolved value. Direct `useIgnite(core)`
+commands preserve that ordinary value/promise instead. Fulfillment can still mean
+a guarded no-op or an unknown/rejected business outcome. Disposal invalidates an
+outstanding execution observation, not its underlying I/O or an already-returned
+direct command promise. The [plain-controller example](/ignite-element/guides/plain-controllers/)
+demonstrates these distinctions with deterministic asynchronous ports.
 
 An exact callback rejection remains the rejection even after disposal. A
 callback that fulfills after disposal cannot acquire another result and rejects

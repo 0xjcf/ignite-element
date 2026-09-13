@@ -13,6 +13,11 @@ That makes components easier to reason about for developers, easier to reuse acr
 
 Quick links: [Quick start](#quick-start) · [Mental model](#mental-model) · [Agent runtime](#agent-runtime) · [Testing](#testing) · [Install matrix](#installation-matrix) · [Documentation](#documentation)
 
+The development candidate also supports [sharing an existing plain controller](docs/site/src/content/docs/guides/plain-controllers.mdx)
+across headless, imperative web, React and native views. The [complete synthetic example](examples/apps/shared-controller/README.md)
+uses one session owner and the checked-out candidate's public exports—not the
+previously published beta.11 bindings. Native test-host coverage is not device acceptance.
+
 ## Why Ignite Element?
 
 Most UI systems blur together rendering, state changes, and side effects.

@@ -15,6 +15,12 @@ transport authority; Ignite does not replace that authority.
 
 ## Read-only vs command-capable sources
 
+The public protocol also deliberately accepts foreign structural sources. A plain
+TypeScript controller can provide these methods without installing Actor-Web's
+runtime: see [Share a plain controller](/ignite-element/guides/plain-controllers/)
+for a complete application-owned adapter and strict packed/native example. This
+does not transfer Actor-Web runtime authority or require an XState conversion.
+
 Actor-Web sources come in two shapes, both typed by a shared `Context`, `Message`, and (optionally) `Emitted`:
 
 - **Read-model source** (`ActorWebReadModelSource`) — the projection Ignite renders from. It exposes `snapshot()` and `subscribe(...)`; it does **not** send messages.
