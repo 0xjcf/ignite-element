@@ -314,6 +314,7 @@ export function inspectDocumentationWorkflow(
 	}
 	if (kind === "contrast") {
 		for (const filter of [
+			"package.json",
 			"docs/site/**",
 			"packages/**",
 			".github/workflows/docs-contrast.yml",
@@ -366,16 +367,23 @@ export function inspectDocumentationWorkflow(
 					);
 			}
 		}
+		const setups = job.steps.filter(
+			(step) =>
+				typeof step?.uses === "string" &&
+				step.uses.startsWith("pnpm/action-setup@"),
+		);
+		if (setups.some((step) => Object.hasOwn(step.with ?? {}, "version")))
+			problems.push(
+				`${name} must not override the packageManager pin in any pnpm setup step`,
+			);
 		if (
 			name !== "deploy" &&
-			!job.steps.some(
-				(step) =>
-					step?.uses === "pnpm/action-setup@v4" &&
-					!Object.hasOwn(step.with ?? {}, "version"),
-			)
+			(setups.length !== 1 ||
+				setups[0].uses !== "pnpm/action-setup@v4" ||
+				Object.hasOwn(setups[0].with ?? {}, "version"))
 		)
 			problems.push(
-				`${name} must use the repository packageManager pin without a conflicting action version`,
+				`${name} must use exactly one pnpm setup with the repository packageManager pin and no action version`,
 			);
 	}
 	if (kind === "deploy") {

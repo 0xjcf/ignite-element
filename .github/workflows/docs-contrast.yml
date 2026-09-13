@@ -8,6 +8,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - "package.json" # publication policy authenticates the packageManager pin
       - "docs/site/**"
       - "packages/**" # doc examples are typechecked against the package API
       - ".github/workflows/docs-contrast.yml"

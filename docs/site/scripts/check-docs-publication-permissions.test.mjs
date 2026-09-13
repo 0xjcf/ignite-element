@@ -333,7 +333,41 @@ test("accepts both complete documentation workflow contracts", () => {
 	assert.deepEqual(inspectDocumentationWorkflow(workflow), []);
 	assert.deepEqual(inspectDocumentationWorkflow(deployment, "deploy"), []);
 });
+test("publication pin changes are included in the docs path contract", () => {
+	const doc = parseDocument(workflow);
+	doc.setIn(
+		["on", "pull_request", "paths"],
+		doc
+			.getIn(["on", "pull_request", "paths"])
+			.toJSON()
+			.filter((value) => value !== "package.json"),
+	);
+	assert.notDeepEqual(inspectDocumentationWorkflow(doc.toString()), []);
+});
+test("deployment job cannot hide a pnpm action version override", () => {
+	const doc = parseDocument(deployment);
+	doc
+		.getIn(["jobs", "deploy", "steps"])
+		.add({ uses: "pnpm/action-setup@v4", with: { version: "10.33.0" } });
+	assert.notDeepEqual(
+		inspectDocumentationWorkflow(doc.toString(), "deploy"),
+		[],
+	);
+});
 for (const kind of ["contrast", "deploy"]) {
+	for (const version of ["10.33.0", "9.15.9"]) {
+		test(`${kind} rejects an additional pnpm setup with version ${version}`, () => {
+			const doc = parseDocument(kind === "deploy" ? deployment : workflow);
+			const job = kind === "deploy" ? "build" : "contrast";
+			doc
+				.getIn(["jobs", job, "steps"])
+				.add({ uses: "pnpm/action-setup@v4", with: { version } });
+			assert.notDeepEqual(
+				inspectDocumentationWorkflow(doc.toString(), kind),
+				[],
+			);
+		});
+	}
 	for (const pin of [
 		null,
 		"pnpm@10.33.0",
