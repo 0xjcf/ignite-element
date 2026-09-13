@@ -12,7 +12,12 @@
 		"astro": "astro",
 		"check:contrast": "node scripts/check-contrast.mjs",
 		"test:contrast": "astro build && node scripts/check-contrast.mjs",
-		"check:docs": "node scripts/check-doc-examples.mjs"
+		"check:docs": "node scripts/check-doc-examples.mjs",
+		"check:astro": "astro check",
+		"check:publication": "node --test scripts/check-docs-publication-permissions.test.mjs scripts/check-links.test.mjs && node scripts/check-docs-publication-contract.mjs",
+		"check:links": "node scripts/check-links.mjs",
+		"check:versions": "node scripts/check-version-routing.mjs",
+		"check:versions:built": "node scripts/check-version-routing.mjs --built"
 	},
 	"dependencies": {
 		"@astrojs/starlight": "^0.39.3",
@@ -22,11 +27,13 @@
 	},
 	"devDependencies": {
 		"@actor-web/runtime": "0.2.1",
+		"@astrojs/check": "0.9.10",
 		"@playwright/test": "^1.56.1",
 		"@reduxjs/toolkit": "2.12.0",
 		"@testing-library/dom": "10.4.1",
 		"remark-gfm": "^4.0.1",
 		"starlight-llms-txt": "^0.10.0",
-		"xstate": "5.32.1"
+		"xstate": "5.32.1",
+		"yaml": "2.9.0"
 	}
 }

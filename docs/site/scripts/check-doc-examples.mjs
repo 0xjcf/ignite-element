@@ -221,17 +221,30 @@ async function main() {
 		...Object.keys(manifest.devDependencies ?? {}),
 	]);
 
-	const files = await findDocs(DOCS_DIR);
+	const files = (await findDocs(DOCS_DIR)).sort();
 	const snippets = [];
+	const exclusions = [];
+	let totalDiscovered = 0;
 	for (const file of files) {
 		const blocks = extractBlocks(await readFile(file, "utf8"));
 		const earlier = new Set();
+		let blockIndex = 0;
 		for (let i = 0; i < blocks.length; i++) {
 			const b = blocks[i];
 			if (LANGS.has(b.lang)) {
+				totalDiscovered++;
+				blockIndex++;
 				const firstLine = b.code.split("\n").find((l) => l.trim());
 				const skip =
 					SKIP_META.test(b.meta) || (firstLine && SKIP_COMMENT.test(firstLine));
+				if (skip)
+					exclusions.push({
+						doc: relative(REPO_ROOT, file).split(sep).join("/"),
+						blockIndex,
+						line: b.startLine,
+						language: b.lang,
+						mechanism: b.meta.match(SKIP_META)?.[1] ?? "skip-comment",
+					});
 				if (!skip)
 					snippets.push({
 						file,
@@ -374,6 +387,18 @@ async function main() {
 	const stale = baseline.filter((b) => !baselinedHits.has(b));
 
 	const checked = byVirtual.size - syntactic.size;
+	console.log(
+		JSON.stringify({
+			status: "documentation-example-accounting",
+			filesScanned: files.length,
+			totalDiscovered,
+			explicitlyExcluded: exclusions.length,
+			eligible: snippets.length,
+			syntacticallyIncomplete: syntactic.size,
+			actuallyTypechecked: checked,
+			exclusions,
+		}),
+	);
 	console.log("\nDocs code-block typecheck guardrail");
 	console.log("─".repeat(72));
 	console.log(

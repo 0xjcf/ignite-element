@@ -279,7 +279,7 @@ How the bridge behaves:
 - **Effects stay additive.** `events:` + `effects:` remain the way to emit **UI-derived** events (computed from snapshot changes); source-emitted events need neither. Both flow side by side into the same `execute().events` stream and `on(...)` surface.
 
 :::note[Schema lists declared events only]
-`get('schema').events` enumerates the names declared in the `events:` map. Source-emitted types are a compile-time union, not runtime-enumerable, so they don't appear there — they surface dynamically via `on(...)` and `execute().events`. See the [`get('schema')` caveat](/ignite-element/api/headless-runtime/#getschema).
+`get('schema').events` enumerates the names declared in the `events:` map. Source-emitted types are a compile-time union, not runtime-enumerable, so they don't appear there — they surface dynamically via `on(...)` and `execute().events`. See the [`get('schema')` caveat](/ignite-element/api/headless-runtime/#discovery).
 :::
 
 Sources without an event side-channel simply omit `subscribeEvent` (and `Emitted` defaults to the message type) — the bridge no-ops and everything else works unchanged.
