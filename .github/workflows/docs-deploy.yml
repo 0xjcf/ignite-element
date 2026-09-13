@@ -3,7 +3,7 @@ name: Deploy Docs
 
 on:
   push:
-    branches: [main]
+    branches: [beta]
   workflow_dispatch:
 
 concurrency:
@@ -12,6 +12,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.ref == 'refs/heads/beta'
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
@@ -41,6 +42,7 @@ jobs:
 
   deploy:
     needs: build
+    if: github.ref == 'refs/heads/beta'
     runs-on: ubuntu-22.04
     permissions:
       pages: write
