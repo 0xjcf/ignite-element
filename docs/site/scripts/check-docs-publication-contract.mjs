@@ -278,12 +278,25 @@ function referencesSecrets(value) {
 	return false;
 }
 
-export function inspectDocumentationWorkflow(workflow, kind = "contrast") {
+const EXPECTED_PACKAGE_MANAGER =
+	"pnpm@10.33.0+sha512.10568bb4a6afb58c9eb3630da90cc9516417abebd3fabbe6739f0ae795728da1491e9db5a544c76ad8eb7570f5c4bb3d6c637b2cb41bfdcdb47fa823c8649319";
+
+export function inspectDocumentationWorkflow(
+	workflow,
+	kind = "contrast",
+	packageManager = JSON.parse(
+		fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"),
+	).packageManager,
+) {
 	const parsed = parseWorkflow(workflow);
 	if (parsed.problems.length) return parsed.problems;
 	const problems = inspectPermissions(parsed.root, kind);
 	if (problems.length) return problems;
 	const data = parsed.root.toJSON();
+	if (packageManager !== EXPECTED_PACKAGE_MANAGER)
+		problems.push(
+			"repository must retain its reviewed integrity-qualified pnpm 10.33.0 packageManager pin",
+		);
 	const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 	const trigger = kind === "deploy" ? "push" : "pull_request";
 	// Deployment ownership is policy, not a value supplied by the workflow.
@@ -358,10 +371,12 @@ export function inspectDocumentationWorkflow(workflow, kind = "contrast") {
 			!job.steps.some(
 				(step) =>
 					step?.uses === "pnpm/action-setup@v4" &&
-					String(step.with?.version) === "10.33.0",
+					!Object.hasOwn(step.with ?? {}, "version"),
 			)
 		)
-			problems.push(`${name} must pin pnpm/action-setup to 10.33.0`);
+			problems.push(
+				`${name} must use the repository packageManager pin without a conflicting action version`,
+			);
 	}
 	if (kind === "deploy") {
 		const { build, deploy } = data.jobs;

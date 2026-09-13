@@ -333,6 +333,34 @@ test("accepts both complete documentation workflow contracts", () => {
 	assert.deepEqual(inspectDocumentationWorkflow(workflow), []);
 	assert.deepEqual(inspectDocumentationWorkflow(deployment, "deploy"), []);
 });
+for (const kind of ["contrast", "deploy"]) {
+	for (const pin of [
+		null,
+		"pnpm@10.33.0",
+		"pnpm@10.34.5",
+		"pnpm@10.33.0+sha512.unreviewed",
+	]) {
+		test(`${kind} rejects missing or changed repository packageManager pin ${pin}`, () => {
+			assert.notDeepEqual(
+				inspectDocumentationWorkflow(
+					kind === "deploy" ? deployment : workflow,
+					kind,
+					pin,
+				),
+				[],
+			);
+		});
+	}
+	test(`${kind} rejects duplicate action pin even for the same nominal version`, () => {
+		const doc = parseDocument(kind === "deploy" ? deployment : workflow);
+		const job = kind === "deploy" ? "build" : "contrast";
+		const setup = doc
+			.getIn(["jobs", job, "steps"])
+			.items.find((step) => step.get("uses") === "pnpm/action-setup@v4");
+		setup.setIn(["with", "version"], "10.33.0");
+		assert.notDeepEqual(inspectDocumentationWorkflow(doc.toString(), kind), []);
+	});
+}
 const deploymentMutations = new Map([
 	["missing build branch guard", (d) => d.deleteIn(["jobs", "build", "if"])],
 	[
