@@ -12,6 +12,11 @@ v3 publishes under the `beta` dist-tag. Install with `@beta`; the stable
 the `3.0.0` release.
 :::
 
+The local `3.0.0-beta.12` candidate is awaiting publication verification. The
+currently published beta.11 does not include the source-free constructor, testing
+retirement, final disposal, or neutral React bindings described for this candidate.
+Use the reviewed checkout until the new public artifacts and tags are verified.
+
 Ignite Element v3 keeps the default Ignite JSX renderer and headless runtime from v2, and adds a cleaner install surface, a states-first projection contract, and a narrower public API.
 
 :::tip[Will this break my app?]
@@ -77,7 +82,7 @@ If an advanced app still needs shared shadow styles or renderer diagnostics, imp
 
 The next candidate removes `test` from all five public barrels, the 27 dedicated testing/story types, the declaration-reachable testing graph, `record(name)`, and the accessibility bridge. Migrate to ordinary runtime/source assertions and real registered-element DOM queries. Retained runtime results, typed commands/events, subscriptions, snapshots, derived states and schema remain. Portable receipts and internal lifecycle histories are intentionally removed; there is no alias or replacement recorder.
 
-See the [migration table](/ignite-element/api/testing-dsl/) and [complete testing examples](/ignite-element/guides/testing/). Source/application ownership of asynchronous work, cancellation and native shutdown is unchanged. This unconsumed major change is not evidence that a new beta or stable version has been published.
+See the [migration table](/ignite-element/api/testing-dsl/) and [complete testing examples](/ignite-element/guides/testing/). Source/application ownership of asynchronous work, cancellation and native shutdown is unchanged. This major changeset is consumed into the local beta.12 candidate; that is not evidence of public publication.
 
 ## Core API and React bindings in the development candidate
 

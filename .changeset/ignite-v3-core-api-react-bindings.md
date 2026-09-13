@@ -15,6 +15,6 @@ Move the existing custom-element wrapper to `ignite-element/react/web` and DOM-h
 Actor-Web factory construction to `ignite-element/actor-web/web`. Preserve source-native
 observations, per-element provisioning, and optional-peer isolation.
 
-This changeset is unconsumed and does not establish publication. Authentic neutral
+This changeset is consumed into the local beta.12 candidate, awaiting publication verification. Authentic neutral
 Actor-Web source consumption additionally depends on the separately reviewed upstream
 source-only entrypoint; the already-published runtime package does not contain that fix.

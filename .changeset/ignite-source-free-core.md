@@ -12,4 +12,4 @@ source shutdown remains application-owned.
 
 Keep root declarations independent of unselected ecosystem peers by importing
 existing adapter-neutral types directly from `@ignite-element/core`. This
-changeset is unconsumed and does not predict the next published version.
+changeset is consumed into the local beta.12 candidate, awaiting publication verification.
