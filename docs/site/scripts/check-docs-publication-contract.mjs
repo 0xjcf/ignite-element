@@ -286,14 +286,17 @@ export function inspectDocumentationWorkflow(workflow, kind = "contrast") {
 	const data = parsed.root.toJSON();
 	const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 	const trigger = kind === "deploy" ? "push" : "pull_request";
+	// Deployment ownership is policy, not a value supplied by the workflow.
+	// Main remains the unrelated PR-validation/default-registration branch.
+	const branches = kind === "deploy" ? ["beta"] : ["main"];
 	if (
 		!data.on ||
 		Object.keys(data.on).sort().join(",") !==
 			[trigger, "workflow_dispatch"].sort().join(",") ||
-		!same(data.on[trigger]?.branches, ["main"])
+		!same(data.on[trigger]?.branches, branches)
 	) {
 		problems.push(
-			"workflow triggers must select main and allow manual dispatch; pull_request_target is prohibited",
+			`workflow triggers must select ${branches.join(",")} and allow manual dispatch; pull_request_target is prohibited`,
 		);
 	}
 	if (kind === "contrast") {
@@ -366,15 +369,17 @@ export function inspectDocumentationWorkflow(workflow, kind = "contrast") {
 			problems.push("Pages jobs must not ignore failure");
 		if (deploy.needs !== "build" && !same(deploy.needs, ["build"]))
 			problems.push("deploy must depend on successful build");
-		if (
-			![
-				"github.ref == 'refs/heads/main'",
-				`\${{ github.ref == 'refs/heads/main' }}`,
-			].includes(deploy.if)
-		)
-			problems.push(
-				"deploy must use the explicit main-only condition with implicit success()",
-			);
+		for (const [name, job] of Object.entries({ build, deploy })) {
+			if (
+				![
+					"github.ref == 'refs/heads/beta'",
+					`\${{ github.ref == 'refs/heads/beta' }}`,
+				].includes(job.if)
+			)
+				problems.push(
+					`${name} must use the explicit beta-only condition with implicit success()`,
+				);
+		}
 		if (deploy.environment?.name !== "github-pages")
 			problems.push("deploy must use the github-pages environment");
 		const steps = Array.isArray(build.steps) ? build.steps : [];

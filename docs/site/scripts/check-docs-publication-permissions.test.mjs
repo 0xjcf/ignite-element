@@ -350,6 +350,15 @@ test("accepts both complete documentation workflow contracts", () => {
 	assert.deepEqual(inspectDocumentationWorkflow(deployment, "deploy"), []);
 });
 const deploymentMutations = new Map([
+	["missing build branch guard", (d) => d.deleteIn(["jobs", "build", "if"])],
+	[
+		"main build branch guard",
+		(d) => d.setIn(["jobs", "build", "if"], "github.ref == 'refs/heads/main'"),
+	],
+	[
+		"other build branch guard",
+		(d) => d.setIn(["jobs", "build", "if"], "github.ref == 'refs/heads/other'"),
+	],
 	[
 		"ignored build failure",
 		(d) => d.setIn(["jobs", "build", "continue-on-error"], true),
@@ -397,16 +406,21 @@ const deploymentMutations = new Map([
 		(d) =>
 			d.setIn(
 				["jobs", "deploy", "if"],
-				"always() && github.ref == 'refs/heads/main'",
+				"always() && github.ref == 'refs/heads/beta'",
 			),
 	],
 	[
 		"other branch condition",
-		(d) => d.setIn(["jobs", "deploy", "if"], "github.ref == 'refs/heads/beta'"),
+		(d) => d.setIn(["jobs", "deploy", "if"], "github.ref == 'refs/heads/main'"),
 	],
 	["unexpected job", (d) => d.setIn(["jobs", "extra"], {})],
 	["pull_request_target", (d) => d.setIn(["on", "pull_request_target"], {})],
-	["other push branch", (d) => d.setIn(["on", "push", "branches"], ["beta"])],
+	["main push branch", (d) => d.setIn(["on", "push", "branches"], ["main"])],
+	["other push branch", (d) => d.setIn(["on", "push", "branches"], ["other"])],
+	[
+		"both push branches",
+		(d) => d.setIn(["on", "push", "branches"], ["main", "beta"]),
+	],
 	["missing manual trigger", (d) => d.deleteIn(["on", "workflow_dispatch"])],
 	[
 		"npm credentials",
