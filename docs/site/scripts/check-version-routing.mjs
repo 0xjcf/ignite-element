@@ -12,7 +12,20 @@ const archivedDocsRoot = path.join(docsRoot, "2.x");
 const builtRoot = path.join(siteRoot, "dist");
 const installCommand =
 	/\b(?:pnpm\s+add|npm\s+(?:install|i)|yarn\s+add|bun\s+add)\b([^\n`]*)/g;
-const facadePackage = /(?:^|\s)(ignite-element(?:@[^\s#,'"]+)?)/g;
+const facadePackage =
+	/(?:^|\s|["'])(ignite-element(?:@[^\s#,'"`;)|&]*)?)(?=$|[\s#,'"`;)|&])/g;
+// Settled public verification: archive 17d1e73bbf9781b19d3c9b1cad7c995c3f6360023d962c8de0c43e487869cc32.
+// Publication authority is explicit, not inferred from package.json or page text.
+const verifiedRelease = "3.0.0-beta.12";
+const supportedFacadeInstalls = new Set([
+	"ignite-element@beta",
+	`ignite-element@${verifiedRelease}`,
+	"ignite-element@3.0.0-beta.11", // Retained historical release instructions.
+]);
+const facadeInstalls = (content) =>
+	[...content.matchAll(installCommand)].flatMap((command) =>
+		[...command[1].matchAll(facadePackage)].map((match) => match[1]),
+	);
 
 const requiredCurrentRoutes = [
 	"index",
@@ -125,10 +138,11 @@ const installation = fs.readFileSync(
 	routeSource("getting-started/installation"),
 	"utf8",
 );
-assert.match(
-	installation,
-	/ignite-element@(?:beta|3\.0\.0-beta\.11)/,
-	"v3 install must select the beta channel or the verified beta.11 release",
+assert.ok(
+	facadeInstalls(installation).some((selector) =>
+		supportedFacadeInstalls.has(selector),
+	),
+	`v3 install must select the beta channel or a verified release through ${verifiedRelease}`,
 );
 assert.match(
 	installation,
@@ -157,14 +171,12 @@ for (const file of [
 ]) {
 	const relative = path.relative(docsRoot, file);
 	const content = fs.readFileSync(file, "utf8");
-	for (const command of content.matchAll(installCommand)) {
-		for (const facade of command[1].matchAll(facadePackage)) {
-			assert.equal(
-				facade[1],
-				"ignite-element@2.2.2",
-				`archived install must select exact v2.2.2 in ${relative}: ${facade[1]}`,
-			);
-		}
+	for (const selector of facadeInstalls(content)) {
+		assert.equal(
+			selector,
+			"ignite-element@2.2.2",
+			`archived install must select exact v2.2.2 in ${relative}: ${selector}`,
+		);
 	}
 }
 
@@ -174,25 +186,18 @@ for (const file of walk(docsRoot, ".mdx")) {
 	if (relative.startsWith(`2.x${path.sep}`)) {
 		assert.doesNotMatch(
 			content,
-			/ignite-element@beta|3\.0\.0-beta\.11/,
+			/ignite-element@beta|3\.0\.0-(?:beta|rc)\./,
 			`v3 package leaked into ${relative}`,
 		);
 		continue;
 	}
-	for (const line of content.split("\n")) {
-		if (
-			/\b(?:pnpm add|npm (?:install|i)|yarn add|bun add)\s+ignite-element\b/.test(
-				line,
-			)
-		) {
-			assert.match(
-				line,
-				relative === "migration/v2.mdx"
-					? /ignite-element@2\.2\.2\b/
-					: /ignite-element@(?:beta|3\.0\.0-beta\.11)/,
-				`untagged v3 install in ${relative}: ${line.trim()}`,
-			);
-		}
+	for (const selector of facadeInstalls(content)) {
+		assert.ok(
+			relative === "migration/v2.mdx"
+				? selector === "ignite-element@2.2.2"
+				: supportedFacadeInstalls.has(selector),
+			`unsupported v3 install in ${relative}: ${selector}`,
+		);
 	}
 	assert.doesNotMatch(
 		content,
@@ -201,18 +206,16 @@ for (const file of walk(docsRoot, ".mdx")) {
 	);
 	assert.doesNotMatch(
 		content,
-		/3\.0\.0-(?:beta\.(?:1[3-9]|[2-9]\d)|rc\.)/,
+		/3\.0\.0-rc\./,
 		`unpublished v3 artifact in ${relative}`,
 	);
-	if (/3\.0\.0-beta\.12/.test(content)) {
+	for (const match of content.matchAll(
+		/3\.0\.0-beta\.([\w]+(?:[.+-][\w]+)*)/g,
+	)) {
 		assert.ok(
-			["migration/v3.mdx", "guides/plain-controllers.mdx"].includes(relative),
-			`beta.12 candidate disclosure needs review in ${relative}`,
-		);
-		assert.match(
-			content,
-			/(?:awaiting publication verification|not yet verified public)/,
-			`beta.12 must remain explicitly unverified before public closeout: ${relative}`,
+			/^(0|[1-9]\d*)$/.test(match[1]) &&
+				BigInt(match[1]) <= BigInt(verifiedRelease.split("-beta.")[1]),
+			`unpublished v3 artifact in ${relative}: ${match[0]}`,
 		);
 	}
 }

@@ -17,11 +17,13 @@ Preserve an existing plain TypeScript controller: translate its snapshots,
 subscriptions and guarded methods into a supported structural source. No XState
 conversion, new adapter package or workflow rewrite is required.
 
-:::caution[Beta.12 candidate, awaiting publication verification]
-The reviewed source-backed API and `useIgnite` are not supplied by the previously
-published `3.0.0-beta.11`. Changesets selected `3.0.0-beta.12` for the local release
-candidate; it is not yet verified public. Use the checkout and packed-consumer
-instructions below; do not substitute registry beta.11.
+:::note[Published in beta.12]
+The reviewed source-backed API and `useIgnite` are available in
+`ignite-element@3.0.0-beta.12`. Install that exact version with your application's
+React dependency; beta.11 does not supply this API. The four public package
+tarballs match the independently reviewed workflow/stage bytes, and their
+provenance and clean public consumers have been verified. This remains a beta,
+not a claim of arbitrary Expo, Metro or device compatibility.
 :::
 
 ## Run the complete example
@@ -29,8 +31,8 @@ instructions below; do not substitute registry beta.11.
 The private, non-publishable project at
 [`examples/apps/shared-controller`](https://github.com/0xjcf/ignite-element/tree/beta/examples/apps/shared-controller)
 models only a **synthetic display-density preference**: `comfortable` or `compact`.
-The source link becomes available with integration/publication of this candidate;
-the complete files are already in the reviewed checkout. It makes no network calls.
+The complete files are available on the integrated beta branch. The example
+makes no network calls.
 
 From that checkout, with Node 22.16.0 and the repository's pinned pnpm 10.33.0:
 
@@ -44,7 +46,7 @@ pnpm --dir examples/apps/shared-controller dev
 ```
 
 The example links the checked-out public package, whose exports resolve the built
-candidate. Its Vite configuration deduplicates React for this linked checkout;
+packages. Its Vite configuration deduplicates React for this linked checkout;
 it does not alias private library source or alter the package exports. The root
 example discovery and exact-coverage lanes include this example.
 
