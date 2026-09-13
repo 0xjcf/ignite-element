@@ -20,9 +20,10 @@ pnpm --dir examples/apps/shared-controller dev
 
 The `ignite-element` dependency links the checked-out package's real built
 exports. Vite deduplicates React across this local link; no private source aliases
-are used. Published beta.11 lacks this candidate's bindings. Changesets selected
-`3.0.0-beta.12` for this local release candidate, awaiting publication verification.
-Do not substitute a registry install until that exact version is verified public.
+are used. Published beta.11 lacks these bindings. `3.0.0-beta.12` is now published
+and verified. The checkout commands above still use the local link; applications
+using the registry can pin the verified release with
+`pnpm add --save-exact ignite-element@3.0.0-beta.12`.
 
 Click Load, then Return comfortable query in the demo's fake-transport controls.
 Choose compact; both views show pending while the old value remains confirmed.

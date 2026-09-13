@@ -12,10 +12,11 @@ v3 publishes under the `beta` dist-tag. Install with `@beta`; the stable
 the `3.0.0` release.
 :::
 
-The local `3.0.0-beta.12` candidate is awaiting publication verification. The
-currently published beta.11 does not include the source-free constructor, testing
-retirement, final disposal, or neutral React bindings described for this candidate.
-Use the reviewed checkout until the new public artifacts and tags are verified.
+`3.0.0-beta.12` is published and verified, including the source-free constructor,
+testing retirement, final disposal and neutral React bindings. Install this exact
+version or `ignite-element@beta`; beta.11 does not include these changes.
+All four `beta` tags and the three scoped packages' `latest` tags point to beta.12.
+The facade `ignite-element@latest` remains `2.2.2`.
 
 Ignite Element v3 keeps the default Ignite JSX renderer and headless runtime from v2, and adds a cleaner install surface, a states-first projection contract, and a narrower public API.
 
@@ -78,13 +79,13 @@ v3 locks the stable public surface to the root entrypoint, the adapter entrypoin
 
 If an advanced app still needs shared shadow styles or renderer diagnostics, import the underlying `@ignite-element/renderer` primitives directly in app-owned code. For the default Ignite JSX path you need none of this.
 
-## Testing/story retirement in the development candidate
+## Testing/story retirement in beta.12
 
-The next candidate removes `test` from all five public barrels, the 27 dedicated testing/story types, the declaration-reachable testing graph, `record(name)`, and the accessibility bridge. Migrate to ordinary runtime/source assertions and real registered-element DOM queries. Retained runtime results, typed commands/events, subscriptions, snapshots, derived states and schema remain. Portable receipts and internal lifecycle histories are intentionally removed; there is no alias or replacement recorder.
+Beta.12 removes `test` from all five public barrels, the 27 dedicated testing/story types, the declaration-reachable testing graph, `record(name)`, and the accessibility bridge. Migrate to ordinary runtime/source assertions and real registered-element DOM queries. Retained runtime results, typed commands/events, subscriptions, snapshots, derived states and schema remain. Portable receipts and internal lifecycle histories are intentionally removed; there is no alias or replacement recorder.
 
-See the [migration table](/ignite-element/api/testing-dsl/) and [complete testing examples](/ignite-element/guides/testing/). Source/application ownership of asynchronous work, cancellation and native shutdown is unchanged. This major changeset is consumed into the local beta.12 candidate; that is not evidence of public publication.
+See the [migration table](/ignite-element/api/testing-dsl/) and [complete testing examples](/ignite-element/guides/testing/). Source/application ownership of asynchronous work, cancellation and native shutdown is unchanged. This major changeset was consumed into beta.12; publication is established separately by verified public package bytes and provenance.
 
-## Core API and React bindings in the development candidate
+## Core API and React bindings in beta.12
 
 Source-backed owners use `get('states')`, `get('schema')`, `get('commands')`,
 `get('events')`, `watch`, `on`, `execute`, and `dispose`. The former raw/derived
